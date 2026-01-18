@@ -3,7 +3,7 @@
 
 <template>
   <div>
-    <h1>Sparrow Manus</h1>
+    <h1>麻雀手稿</h1>
   </div>
 </template>
 

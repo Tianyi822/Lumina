@@ -1,12 +1,11 @@
 import { contextBridge } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// Custom APIs for renderer
+// 自定义渲染器 API
 const api = {}
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
+// 使用 `contextBridge` API 向渲染器暴露 Electron API
+// 仅在启用了上下文隔离时使用，否则直接添加到 DOM 全局对象
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
@@ -15,8 +14,8 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
+  // @ts-ignore (在 dts 中定义)
   window.electron = electronAPI
-  // @ts-ignore (define in dts)
+  // @ts-ignore (在 dts 中定义)
   window.api = api
 }

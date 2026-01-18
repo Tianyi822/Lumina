@@ -1,5 +1,11 @@
+/**
+ * Main CSS Entry Point
+ * 主样式入口
+ */
+
 @import "tailwindcss";
 @import './base.css';
+@import '../themes/terminal.css';
 
 body {
   margin: 0;
