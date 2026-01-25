@@ -7,7 +7,7 @@ import type { LLMConfig } from '../../types/config'
 
 /**
  * 聊天服务类
- * 负责与 OpenAI 兼容的 API 进行通信，支持流式响应和思考模式
+ * 负责与 OpenAI 兼容的 API 进行通信，支持流式响应
  */
 export class ChatService {
   /** 当前活跃的 AbortController */
@@ -19,12 +19,11 @@ export class ChatService {
    * @param webContents 渲染进程 webContents，用于发送流式事件
    */
   async sendMessage(request: ChatRequest, webContents: WebContents): Promise<ChatResult> {
-    const { messages, modelKey, enableThinking } = request
+    const { messages, modelKey } = request
 
     logger.info('开始发送聊天消息', 'main', {
       modelKey,
-      messageCount: messages.length,
-      enableThinking
+      messageCount: messages.length
     })
 
     // 获取模型配置
@@ -70,11 +69,7 @@ export class ChatService {
           temperature: llmConfig.temperature,
           max_tokens: llmConfig.max_tokens,
           // 流式响应时包含 usage 统计
-          stream_options: { include_usage: true },
-          // DeepSeek 思考模式（如果启用）
-          ...(enableThinking && this.isDeepSeekModel(llmConfig.model_name)
-            ? { reasoning_effort: 'medium' as const }
-            : {})
+          stream_options: { include_usage: true }
         },
         {
           signal: this.abortController.signal
@@ -189,13 +184,5 @@ export class ChatService {
     if (!webContents.isDestroyed()) {
       webContents.send('chat:stream', event)
     }
-  }
-
-  /**
-   * 检查是否是 DeepSeek 模型
-   */
-  private isDeepSeekModel(modelName: string): boolean {
-    const lowerName = modelName.toLowerCase()
-    return lowerName.includes('deepseek') || lowerName.includes('deepseek-reasoner')
   }
 }

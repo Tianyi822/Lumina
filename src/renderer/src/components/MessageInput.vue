@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, inject, watch, type Ref } from 'vue'
+import { ref, onMounted, inject, watch, type Ref } from 'vue'
 
 interface LLMConfig {
   base_url: string
@@ -23,7 +23,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'send', message: string, model: string, enableThinking: boolean): void
+  (e: 'send', message: string, model: string): void
   (e: 'stop'): void
 }>()
 
@@ -36,9 +36,6 @@ const selectedModel = ref('')
 // 压缩比例
 const compressionRatio = ref(0)
 
-// 是否启用思考模式
-const enableThinking = ref(false)
-
 // 从配置中加载的模型选项
 const modelOptions = ref<string[]>([])
 
@@ -47,14 +44,6 @@ const showModelDropdown = ref(false)
 
 // 注入配置更新标志
 const configUpdateKey = inject<Ref<number>>('configUpdateKey', ref(0))
-
-/**
- * 检查当前模型是否支持思考模式
- */
-const supportsThinking = computed(() => {
-  const model = selectedModel.value.toLowerCase()
-  return model.includes('deepseek') || model.includes('reasoner')
-})
 
 // 加载已配置的模型列表
 async function loadConfiguredModels(): Promise<void> {
@@ -88,20 +77,13 @@ watch(configUpdateKey, () => {
   loadConfiguredModels()
 })
 
-// 当模型变化时，如果不支持思考模式，关闭思考模式
-watch(selectedModel, () => {
-  if (!supportsThinking.value) {
-    enableThinking.value = false
-  }
-})
-
 onMounted(() => {
   loadConfiguredModels()
 })
 
 function handleSend(): void {
   if (inputMessage.value.trim() && !props.isSending) {
-    emit('send', inputMessage.value.trim(), selectedModel.value, enableThinking.value)
+    emit('send', inputMessage.value.trim(), selectedModel.value)
     inputMessage.value = ''
   }
 }
@@ -126,12 +108,6 @@ function toggleModelDropdown(): void {
     showModelDropdown.value = !showModelDropdown.value
   }
 }
-
-function toggleThinking(): void {
-  if (supportsThinking.value && !props.isSending) {
-    enableThinking.value = !enableThinking.value
-  }
-}
 </script>
 
 <template>
@@ -150,7 +126,6 @@ function toggleThinking(): void {
       <!-- 模型选择器 -->
       <div class="model-selector">
         <button class="btn model-btn" :disabled="isSending" @click="toggleModelDropdown">
-          <span class="model-icon">&#128187;</span>
           <span>{{ selectedModel || '选择模型' }}</span>
           <span class="dropdown-arrow">&#9662;</span>
         </button>
@@ -167,19 +142,6 @@ function toggleThinking(): void {
           </div>
         </div>
       </div>
-
-      <!-- 思考模式开关 -->
-      <button
-        v-if="supportsThinking"
-        class="btn thinking-btn"
-        :class="{ active: enableThinking }"
-        :disabled="isSending"
-        title="启用思考模式（DeepSeek）"
-        @click="toggleThinking"
-      >
-        <span class="thinking-icon">&#129504;</span>
-        <span>思考</span>
-      </button>
 
       <!-- 压缩比例 -->
       <div class="compression-info">
@@ -244,10 +206,6 @@ function toggleThinking(): void {
   cursor: not-allowed;
 }
 
-.model-icon {
-  font-size: 14px;
-}
-
 .dropdown-arrow {
   font-size: 10px;
   color: var(--theme-text-secondary);
@@ -258,7 +216,7 @@ function toggleThinking(): void {
   bottom: 100%;
   left: 0;
   margin-bottom: 4px;
-  min-width: 150px;
+  min-width: 200px;
   background-color: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
@@ -273,6 +231,7 @@ function toggleThinking(): void {
   color: var(--theme-text);
   cursor: pointer;
   transition: background-color 0.15s ease;
+  white-space: nowrap;
 }
 
 .model-option:hover {
@@ -291,31 +250,6 @@ function toggleThinking(): void {
 
 .model-option.empty:hover {
   background-color: transparent;
-}
-
-/* 思考模式按钮 */
-.thinking-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
-  font-size: 13px;
-  transition: all 0.15s ease;
-}
-
-.thinking-btn.active {
-  background-color: var(--theme-accent);
-  color: var(--theme-bg);
-  border-color: var(--theme-accent);
-}
-
-.thinking-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.thinking-icon {
-  font-size: 14px;
 }
 
 .compression-info {

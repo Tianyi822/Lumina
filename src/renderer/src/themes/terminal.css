@@ -51,6 +51,45 @@
   --theme-radius: 8px;
   --theme-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
   --theme-spacing: 12px;
+
+  /* 滚动条变量 */
+  --scrollbar-width: 8px;
+  --scrollbar-track-bg: transparent;
+  --scrollbar-thumb-bg: #30363d;
+  --scrollbar-thumb-hover-bg: #484f58;
+  --scrollbar-thumb-radius: 4px;
+}
+
+/* ========== 滚动条样式 ========== */
+/* Webkit 浏览器（Chrome、Safari、Edge） */
+::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+  height: var(--scrollbar-width);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track-bg);
+  border-radius: var(--scrollbar-thumb-radius);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-bg);
+  border-radius: var(--scrollbar-thumb-radius);
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover-bg);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox 滚动条样式 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-bg) var(--scrollbar-track-bg);
 }
 
 /* ========== 应用容器 ========== */

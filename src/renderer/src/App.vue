@@ -24,6 +24,7 @@ interface Message {
   isStreaming?: boolean
   usage?: TokenUsage
   timestamp?: string
+  modelName?: string // 模型名称（仅 assistant 消息）
 }
 
 /**
@@ -63,9 +64,6 @@ const isSending = ref(false)
 
 // 当前选择的模型
 const currentModel = ref('')
-
-// 是否启用思考模式
-const enableThinking = ref(false)
 
 // 流式监听器清理函数
 let cleanupStreamListener: (() => void) | null = null
@@ -184,7 +182,7 @@ function buildChatMessages(): ChatMessage[] {
 /**
  * 发送消息
  */
-async function handleSendMessage(content: string, model: string, thinking: boolean): Promise<void> {
+async function handleSendMessage(content: string, model: string): Promise<void> {
   // 如果正在发送，忽略
   if (isSending.value) {
     return
@@ -202,9 +200,8 @@ async function handleSendMessage(content: string, model: string, thinking: boole
     handleNewChat()
   }
 
-  // 更新当前模型和思考模式状态
+  // 更新当前模型
   currentModel.value = model
-  enableThinking.value = thinking
 
   // 添加用户消息
   const userMessage: Message = {
@@ -221,7 +218,8 @@ async function handleSendMessage(content: string, model: string, thinking: boole
     role: 'assistant',
     content: '',
     isStreaming: true,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    modelName: model // 记录使用的模型名称
   }
   messages.value.push(assistantMessage)
 
@@ -237,8 +235,7 @@ async function handleSendMessage(content: string, model: string, thinking: boole
     // 发送请求
     const result = await window.api.chat.send({
       messages: chatMessages,
-      modelKey: model,
-      enableThinking: thinking
+      modelKey: model
     })
 
     if (!result.success && result.error) {
@@ -308,6 +305,7 @@ onUnmounted(() => {
         :current-chat-id="currentChatId"
         :messages="messages"
         :is-sending="isSending"
+        :current-model-name="currentModel"
         @toggle-sidebar="toggleSidebar"
         @send-message="handleSendMessage"
         @stop-request="handleStopRequest"

@@ -11,8 +11,6 @@ export interface ChatMessage {
   role: MessageRole
   /** 消息内容 */
   content: string
-  /** DeepSeek 思考内容（仅 assistant 消息） */
-  reasoning_content?: string
 }
 
 /**
@@ -56,8 +54,6 @@ export interface ChatRequest {
   messages: ChatMessage[]
   /** 模型配置 key（对应 llm_configs 中的 key） */
   modelKey: string
-  /** 是否启用思考模式（DeepSeek） */
-  enableThinking?: boolean
 }
 
 /**

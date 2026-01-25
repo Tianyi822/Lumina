@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
-import { provide, ref } from 'vue'
+import { nextTick, onMounted, provide, ref, watch } from 'vue'
 import MessageInput from './MessageInput.vue'
 import SettingsModal from './SettingsModal.vue'
 
@@ -33,6 +33,7 @@ interface Message {
   isStreaming?: boolean
   usage?: TokenUsage
   timestamp?: string
+  modelName?: string // 模型名称（仅 assistant 消息）
 }
 
 const props = defineProps<{
@@ -40,11 +41,12 @@ const props = defineProps<{
   currentChatId?: string
   messages?: Message[]
   isSending?: boolean
+  currentModelName?: string // 当前使用的模型名称
 }>()
 
 const emit = defineEmits<{
   (e: 'toggle-sidebar'): void
-  (e: 'send-message', message: string, model: string, enableThinking: boolean): void
+  (e: 'send-message', message: string, model: string): void
   (e: 'stop-request'): void
 }>()
 
@@ -57,8 +59,96 @@ const configUpdateKey = ref(0)
 // 展开的思考内容消息ID集合
 const expandedReasoningIds = ref<Set<string>>(new Set())
 
+// 消息区域引用
+const messagesAreaRef = ref<HTMLElement | null>(null)
+
+// 用户是否正在手动滚动（不在底部）
+const userScrolling = ref(false)
+
+// 滚动阈值：距离底部多少像素内认为是"在底部"
+const SCROLL_THRESHOLD = 100
+
 // 提供配置更新标志给子组件
 provide('configUpdateKey', configUpdateKey)
+
+/**
+ * 检查是否滚动到底部附近
+ */
+function isNearBottom(): boolean {
+  const el = messagesAreaRef.value
+  if (!el) return true
+  const { scrollTop, scrollHeight, clientHeight } = el
+  return scrollHeight - scrollTop - clientHeight <= SCROLL_THRESHOLD
+}
+
+/**
+ * 滚动到底部
+ */
+function scrollToBottom(smooth = true): void {
+  const el = messagesAreaRef.value
+  if (!el) return
+  el.scrollTo({
+    top: el.scrollHeight,
+    behavior: smooth ? 'smooth' : 'auto'
+  })
+}
+
+/**
+ * 处理滚动事件
+ */
+function handleScroll(): void {
+  userScrolling.value = !isNearBottom()
+}
+
+/**
+ * 智能滚动：仅在用户位于底部附近时自动滚动
+ */
+function smartScrollToBottom(): void {
+  if (!userScrolling.value) {
+    nextTick(() => {
+      scrollToBottom(true)
+    })
+  }
+}
+
+// 监听消息变化，智能滚动
+watch(
+  () => props.messages,
+  () => {
+    smartScrollToBottom()
+  },
+  { deep: true }
+)
+
+// 监听流式输出状态，开始时滚动到底部
+watch(
+  () => props.isSending,
+  (sending) => {
+    if (sending) {
+      // 开始发送时，重置滚动状态并滚动到底部
+      userScrolling.value = false
+      nextTick(() => {
+        scrollToBottom(false)
+      })
+    }
+  }
+)
+
+// 监听对话切换，滚动到底部
+watch(
+  () => props.currentChatId,
+  () => {
+    userScrolling.value = false
+    nextTick(() => {
+      scrollToBottom(false)
+    })
+  }
+)
+
+onMounted(() => {
+  // 初始滚动到底部
+  scrollToBottom(false)
+})
 
 /**
  * 渲染 Markdown 内容
@@ -72,8 +162,8 @@ function handleToggleSidebar(): void {
   emit('toggle-sidebar')
 }
 
-function handleSendMessage(message: string, model: string, enableThinking: boolean): void {
-  emit('send-message', message, model, enableThinking)
+function handleSendMessage(message: string, model: string): void {
+  emit('send-message', message, model)
 }
 
 function handleStopRequest(): void {
@@ -140,7 +230,7 @@ function formatTokenUsage(usage: TokenUsage): string {
     <SettingsModal v-if="showSettings" @close="closeSettings" @config-updated="handleConfigUpdated" />
 
     <!-- 消息区域 -->
-    <div class="messages-area">
+    <div ref="messagesAreaRef" class="messages-area" @scroll="handleScroll">
       <!-- 空状态 -->
       <div v-if="!currentChatId" class="empty-state">
         <p class="empty-text">选择或创建一个对话开始</p>
@@ -149,6 +239,20 @@ function formatTokenUsage(usage: TokenUsage): string {
       <!-- 消息列表 -->
       <div v-else class="messages-list">
         <div v-for="msg in messages" :key="msg.id" class="message" :class="msg.role">
+          <!-- 消息头部：角色标签 -->
+          <div class="message-header">
+            <!-- 用户标签 -->
+            <div v-if="msg.role === 'user'" class="message-label user-label">
+              <span class="label-text">用户</span>
+            </div>
+            <!-- 模型标签 -->
+            <div v-else class="message-label model-label">
+              <span class="label-text">{{ msg.modelName || props.currentModelName || 'AI' }}</span>
+              <!-- 思考模式标识 -->
+              <span v-if="msg.reasoning" class="thinking-badge">思考</span>
+            </div>
+          </div>
+
           <!-- 思考内容（可折叠） -->
           <div v-if="msg.reasoning" class="reasoning-section">
             <button class="reasoning-toggle" @click="toggleReasoning(msg.id)">
@@ -235,6 +339,25 @@ function formatTokenUsage(usage: TokenUsage): string {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+
+  /* 滚动条样式 */
+  &::-webkit-scrollbar {
+    width: var(--scrollbar-width, 8px);
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--scrollbar-track-bg, transparent);
+    border-radius: var(--scrollbar-thumb-radius, 4px);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-bg, #30363d);
+    border-radius: var(--scrollbar-thumb-radius, 4px);
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover-bg, #484f58);
+  }
 }
 
 .empty-state {
@@ -252,19 +375,56 @@ function formatTokenUsage(usage: TokenUsage): string {
 .messages-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .message {
-  max-width: 85%;
+  max-width: 90%;
+  align-self: flex-start; /* 所有消息左对齐 */
 }
 
-.message.user {
-  align-self: flex-end;
+/* 消息头部：角色标签 */
+.message-header {
+  margin-bottom: 6px;
 }
 
-.message.assistant {
-  align-self: flex-start;
+.message-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.label-text {
+  color: inherit;
+}
+
+/* 用户标签样式 */
+.user-label {
+  background-color: rgba(63, 185, 80, 0.15);
+  color: var(--theme-accent);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+}
+
+/* 模型标签样式 */
+.model-label {
+  background-color: rgba(88, 166, 255, 0.15);
+  color: var(--theme-accent-secondary);
+  border: 1px solid rgba(88, 166, 255, 0.3);
+}
+
+/* 思考模式标识 */
+.thinking-badge {
+  margin-left: 6px;
+  padding: 2px 6px;
+  background-color: rgba(210, 153, 34, 0.2);
+  color: var(--theme-warning);
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 /* 思考内容样式 */
@@ -319,12 +479,20 @@ function formatTokenUsage(usage: TokenUsage): string {
 }
 
 .message-content.streaming {
-  border-color: var(--theme-accent);
+  border-color: var(--theme-accent-secondary);
+  box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.2);
 }
 
+/* 用户消息样式 */
 .message.user .message-content {
   background-color: var(--theme-bg-hover);
-  border-color: var(--theme-accent);
+  border-color: rgba(63, 185, 80, 0.4);
+}
+
+/* 助手消息样式 */
+.message.assistant .message-content {
+  background-color: var(--theme-bg-secondary);
+  border-color: rgba(88, 166, 255, 0.4);
 }
 
 .user-message {

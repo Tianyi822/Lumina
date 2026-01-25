@@ -107,7 +107,6 @@ const loggerApi = {
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
-  reasoning_content?: string
 }
 
 /**
@@ -116,7 +115,6 @@ interface ChatMessage {
 interface ChatRequest {
   messages: ChatMessage[]
   modelKey: string
-  enableThinking?: boolean
 }
 
 /**

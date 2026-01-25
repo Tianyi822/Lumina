@@ -33,9 +33,6 @@ function selectChat(chatId: string): void {
       <div class="chat-title">{{ chat.title }}</div>
       <div v-if="chat.lastMessage" class="chat-preview">{{ chat.lastMessage }}</div>
     </div>
-    <div v-if="chats.length === 0" class="empty-list">
-      <span class="terminal-prompt">暂无对话</span>
-    </div>
   </div>
 </template>
 
@@ -84,14 +81,5 @@ function selectChat(chatId: string): void {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.empty-list {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  color: var(--theme-text-secondary);
-  font-size: 13px;
 }
 </style>
