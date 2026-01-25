@@ -1,0 +1,201 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { AppConfig, ConfigLoadResult } from '../../types/config'
+import { getConfigDirPath, getConfigFilePath } from './configPaths'
+
+/**
+ * 创建空的基础配置结构
+ * 包含所有必要的字段，但值为空或默认值
+ */
+function createEmptyConfig(): AppConfig {
+  return {
+    theme: {
+      name: ''
+    },
+    llm_configs: {},
+    default_model: '',
+    compression_threshold: 0,
+    enable_auto_compression: false,
+    mcpServers: {}
+  }
+}
+
+/**
+ * 配置管理器
+ * 负责配置的加载、保存和状态管理
+ */
+export class ConfigManager {
+  private config: AppConfig | null = null
+  private loadError: string | null = null
+  private loaded: boolean = false
+
+  /**
+   * 确保配置目录存在
+   */
+  private ensureConfigDir(): void {
+    const configDir = getConfigDirPath()
+    if (!existsSync(configDir)) {
+      mkdirSync(configDir, { recursive: true })
+    }
+  }
+
+  /**
+   * 读取配置文件
+   */
+  private readConfigFile(): AppConfig {
+    const configPath = getConfigFilePath()
+    const content = readFileSync(configPath, 'utf-8')
+    return JSON.parse(content) as AppConfig
+  }
+
+  /**
+   * 写入配置到文件
+   */
+  private writeConfigFile(config: AppConfig): void {
+    this.ensureConfigDir()
+    const configPath = getConfigFilePath()
+    const configContent = JSON.stringify(config, null, 2)
+    writeFileSync(configPath, configContent, 'utf-8')
+  }
+
+  /**
+   * 创建空的配置文件
+   */
+  private createEmptyConfigFile(): AppConfig {
+    const emptyConfig = createEmptyConfig()
+    this.writeConfigFile(emptyConfig)
+    return emptyConfig
+  }
+
+  /**
+   * 初始化配置
+   * 如果配置文件不存在，自动创建空配置文件
+   * 只有在读取/解析配置时发生错误才返回错误信息
+   */
+  initialize(): ConfigLoadResult {
+    try {
+      const configPath = getConfigFilePath()
+
+      // 检查配置文件是否存在，不存在则创建空配置
+      if (!existsSync(configPath)) {
+        console.log('配置文件不存在，正在创建空配置文件...')
+        try {
+          const emptyConfig = this.createEmptyConfigFile()
+          this.config = emptyConfig
+          this.loaded = true
+          console.log('空配置文件创建成功')
+          return {
+            success: true,
+            config: emptyConfig
+          }
+        } catch (createError) {
+          const errorMessage = `无法创建配置文件: ${createError instanceof Error ? createError.message : String(createError)}`
+          console.error(errorMessage)
+          this.loaded = true
+          this.loadError = errorMessage
+          return {
+            success: false,
+            config: null,
+            error: errorMessage
+          }
+        }
+      }
+
+      // 读取配置文件
+      const config = this.readConfigFile()
+      this.config = config
+      this.loaded = true
+      console.log('配置加载成功')
+      return {
+        success: true,
+        config
+      }
+    } catch (error) {
+      const errorMessage = `配置加载失败: ${error instanceof Error ? error.message : String(error)}`
+      console.error(errorMessage)
+      this.loaded = true
+      this.loadError = errorMessage
+      return {
+        success: false,
+        config: null,
+        error: errorMessage
+      }
+    }
+  }
+
+  /**
+   * 保存配置
+   */
+  saveConfig(config: AppConfig): { success: boolean; error?: string } {
+    try {
+      this.writeConfigFile(config)
+      this.config = config
+      this.loadError = null
+      console.log('配置保存成功')
+      return { success: true }
+    } catch (error) {
+      const errorMessage = `配置保存失败: ${error instanceof Error ? error.message : String(error)}`
+      console.error(errorMessage)
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  /**
+   * 获取当前配置
+   */
+  getConfig(): AppConfig | null {
+    return this.config
+  }
+
+  /**
+   * 更新配置（部分更新）
+   */
+  updateConfig(partialConfig: Partial<AppConfig>): { success: boolean; error?: string } {
+    if (!this.config) {
+      return { success: false, error: '无法更新：当前没有有效配置' }
+    }
+
+    const newConfig = { ...this.config, ...partialConfig }
+    return this.saveConfig(newConfig)
+  }
+
+  /**
+   * 获取加载错误信息
+   */
+  getLoadError(): string | null {
+    return this.loadError
+  }
+
+  /**
+   * 配置是否已加载
+   */
+  isLoaded(): boolean {
+    return this.loaded
+  }
+
+  /**
+   * 配置加载是否成功
+   */
+  isSuccess(): boolean {
+    return this.config !== null
+  }
+
+  /**
+   * 检查配置是否存在
+   */
+  configExists(): boolean {
+    const configPath = getConfigFilePath()
+    return existsSync(configPath)
+  }
+
+  /**
+   * 获取配置状态信息
+   */
+  getStatus(): { loaded: boolean; success: boolean; error: string | null; exists: boolean } {
+    return {
+      loaded: this.loaded,
+      success: this.isSuccess(),
+      error: this.loadError,
+      exists: this.configExists()
+    }
+  }
+}
