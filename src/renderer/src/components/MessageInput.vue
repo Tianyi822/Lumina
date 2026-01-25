@@ -1,5 +1,22 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, inject, watch, type Ref } from 'vue'
+
+interface LLMConfig {
+  base_url: string
+  api_key: string
+  model_name: string
+  temperature: number
+  max_tokens: number
+}
+
+interface LLMConfigs {
+  [key: string]: LLMConfig
+}
+
+interface AppConfig {
+  llm_configs: LLMConfigs
+  default_model: string
+}
 
 const emit = defineEmits<{
   (e: 'send', message: string): void
@@ -9,16 +26,55 @@ const emit = defineEmits<{
 const inputMessage = ref('')
 
 // 当前选择的模型
-const selectedModel = ref('默认模型')
+const selectedModel = ref('')
 
 // 压缩比例
 const compressionRatio = ref(0)
 
-// 模型选项
-const modelOptions = ['默认模型', 'GPT-4', 'Claude', 'Gemini']
+// 从配置中加载的模型选项
+const modelOptions = ref<string[]>([])
 
 // 是否显示模型选择下拉
 const showModelDropdown = ref(false)
+
+// 注入配置更新标志
+const configUpdateKey = inject<Ref<number>>('configUpdateKey', ref(0))
+
+// 加载已配置的模型列表
+async function loadConfiguredModels(): Promise<void> {
+  try {
+    const config = (await window.api.config.getConfig()) as AppConfig | null
+    if (config?.llm_configs) {
+      const keys = Object.keys(config.llm_configs)
+      modelOptions.value = keys
+
+      // 设置默认选中模型
+      if (config.default_model && keys.includes(config.default_model)) {
+        selectedModel.value = config.default_model
+      } else if (keys.length > 0) {
+        selectedModel.value = keys[0]
+      } else {
+        selectedModel.value = ''
+      }
+    } else {
+      modelOptions.value = []
+      selectedModel.value = ''
+    }
+  } catch (error) {
+    console.error('加载模型配置失败:', error)
+    modelOptions.value = []
+    selectedModel.value = ''
+  }
+}
+
+// 监听配置更新
+watch(configUpdateKey, () => {
+  loadConfiguredModels()
+})
+
+onMounted(() => {
+  loadConfiguredModels()
+})
 
 function handleSend(): void {
   if (inputMessage.value.trim()) {
@@ -58,11 +114,12 @@ function toggleModelDropdown(): void {
       <!-- 模型选择器 -->
       <div class="model-selector">
         <button class="btn model-btn" @click="toggleModelDropdown">
-          <span class="model-icon">💻</span>
-          <span>选择模型</span>
-          <span class="dropdown-arrow">▾</span>
+          <span class="model-icon">&#128187;</span>
+          <span>{{ selectedModel || '选择模型' }}</span>
+          <span class="dropdown-arrow">&#9662;</span>
         </button>
         <div v-if="showModelDropdown" class="model-dropdown">
+          <div v-if="modelOptions.length === 0" class="model-option empty">暂无模型配置</div>
           <div
             v-for="model in modelOptions"
             :key="model"
@@ -162,6 +219,16 @@ function toggleModelDropdown(): void {
 
 .model-option.active {
   color: var(--theme-accent);
+}
+
+.model-option.empty {
+  color: var(--theme-text-secondary);
+  font-style: italic;
+  cursor: default;
+}
+
+.model-option.empty:hover {
+  background-color: transparent;
 }
 
 .compression-info {

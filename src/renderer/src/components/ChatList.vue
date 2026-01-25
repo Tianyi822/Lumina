@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 interface ChatItem {
   id: string
   title: string

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, provide } from 'vue'
 import MessageInput from './MessageInput.vue'
+import SettingsModal from './SettingsModal.vue'
 
 interface Message {
   id: string
@@ -9,7 +10,7 @@ interface Message {
   timestamp?: string
 }
 
-const props = defineProps<{
+defineProps<{
   sidebarCollapsed: boolean
   currentChatId?: string
   messages?: Message[]
@@ -20,8 +21,14 @@ const emit = defineEmits<{
   (e: 'send-message', message: string): void
 }>()
 
-// 判断是否有活动对话
-const hasActiveChat = ref(false)
+// 设置弹窗显示状态
+const showSettings = ref(false)
+
+// 配置更新标志，用于触发子组件刷新
+const configUpdateKey = ref(0)
+
+// 提供配置更新标志给子组件
+provide('configUpdateKey', configUpdateKey)
 
 function handleToggleSidebar(): void {
   emit('toggle-sidebar')
@@ -29,6 +36,19 @@ function handleToggleSidebar(): void {
 
 function handleSendMessage(message: string): void {
   emit('send-message', message)
+}
+
+function openSettings(): void {
+  showSettings.value = true
+}
+
+function closeSettings(): void {
+  showSettings.value = false
+}
+
+function handleConfigUpdated(): void {
+  // 触发子组件刷新配置
+  configUpdateKey.value++
 }
 </script>
 
@@ -43,7 +63,18 @@ function handleSendMessage(message: string): void {
       >
         <span class="toggle-icon">{{ sidebarCollapsed ? '»' : '«' }}</span>
       </button>
+      <div class="header-spacer"></div>
+      <button class="btn settings-btn" title="设置" @click="openSettings">
+        <span class="settings-icon">&#9881;</span>
+      </button>
     </div>
+
+    <!-- 设置弹窗 -->
+    <SettingsModal
+      v-if="showSettings"
+      @close="closeSettings"
+      @config-updated="handleConfigUpdated"
+    />
 
     <!-- 消息区域 -->
     <div class="messages-area">
@@ -54,12 +85,7 @@ function handleSendMessage(message: string): void {
 
       <!-- 消息列表 -->
       <div v-else class="messages-list">
-        <div
-          v-for="msg in messages"
-          :key="msg.id"
-          class="message"
-          :class="msg.role"
-        >
+        <div v-for="msg in messages" :key="msg.id" class="message" :class="msg.role">
           <div class="message-content">
             <span v-if="msg.role === 'user'" class="terminal-prompt">{{ msg.content }}</span>
             <span v-else class="output">{{ msg.content }}</span>
@@ -104,6 +130,19 @@ function handleSendMessage(message: string): void {
 
 .toggle-icon {
   font-weight: bold;
+}
+
+.header-spacer {
+  flex: 1;
+}
+
+.settings-btn {
+  padding: 6px 10px;
+  font-size: 16px;
+}
+
+.settings-icon {
+  display: inline-block;
 }
 
 .messages-area {

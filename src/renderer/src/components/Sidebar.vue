@@ -52,11 +52,7 @@ function handleSelectChat(chatId: string): void {
     </div>
 
     <!-- 对话列表 -->
-    <ChatList
-      :chats="chats"
-      :active-chat-id="activeChatId"
-      @select="handleSelectChat"
-    />
+    <ChatList :chats="chats" :active-chat-id="activeChatId" @select="handleSelectChat" />
   </aside>
 </template>
 
