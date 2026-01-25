@@ -14,6 +14,16 @@ interface TokenUsage {
 }
 
 /**
+ * ReAct 步骤
+ */
+interface ReActStep {
+  type: 'tool_call' | 'tool_result'
+  toolCall?: ToolCallInfo
+  toolResult?: ToolResultInfo
+  timestamp: string
+}
+
+/**
  * 消息接口
  */
 interface Message {
@@ -25,6 +35,7 @@ interface Message {
   usage?: TokenUsage
   timestamp?: string
   modelName?: string // 模型名称（仅 assistant 消息）
+  reactSteps?: ReActStep[] // ReAct 推理步骤
 }
 
 /**
@@ -70,14 +81,57 @@ interface ChatMessage {
 }
 
 /**
+ * MCP 工具接口
+ */
+interface MCPTool {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+  serverName: string
+}
+
+/**
+ * MCP 工具引用（用于发送给后端）
+ */
+interface MCPToolReference {
+  serverName: string
+  toolName: string
+  description: string
+  inputSchema: Record<string, unknown>
+}
+
+/**
+ * 工具调用信息
+ */
+interface ToolCallInfo {
+  id: string
+  name: string
+  serverName: string
+  arguments: Record<string, unknown>
+}
+
+/**
+ * 工具结果信息
+ */
+interface ToolResultInfo {
+  id: string
+  name: string
+  success: boolean
+  result?: unknown
+  error?: string
+}
+
+/**
  * 流式事件
  */
 interface StreamEvent {
-  type: 'content' | 'reasoning' | 'done' | 'error'
+  type: 'content' | 'reasoning' | 'tool_call' | 'tool_result' | 'done' | 'error'
   sessionId?: string
   content?: string
   usage?: TokenUsage
   error?: string
+  toolCall?: ToolCallInfo
+  toolResult?: ToolResultInfo
 }
 
 // 配置加载错误信息
@@ -294,6 +348,36 @@ function handleStreamEvent(event: StreamEvent): void {
       }
       break
 
+    case 'tool_call':
+      if (streamingMessage && event.toolCall) {
+        // 初始化 reactSteps 数组
+        if (!streamingMessage.reactSteps) {
+          streamingMessage.reactSteps = []
+        }
+        // 添加工具调用步骤
+        streamingMessage.reactSteps.push({
+          type: 'tool_call',
+          toolCall: event.toolCall,
+          timestamp: new Date().toISOString()
+        })
+      }
+      break
+
+    case 'tool_result':
+      if (streamingMessage && event.toolResult) {
+        // 初始化 reactSteps 数组
+        if (!streamingMessage.reactSteps) {
+          streamingMessage.reactSteps = []
+        }
+        // 添加工具结果步骤
+        streamingMessage.reactSteps.push({
+          type: 'tool_result',
+          toolResult: event.toolResult,
+          timestamp: new Date().toISOString()
+        })
+      }
+      break
+
     case 'done':
       if (streamingMessage) {
         streamingMessage.isStreaming = false
@@ -343,7 +427,8 @@ function handleStreamEvent(event: StreamEvent): void {
         isSending.value = false
         streamingSessionId = null
         window.api.logger.error('聊天错误', { error: event.error, sessionId: currentSessionId })
-        // 错误时不保存会话，保持回滚状态
+        // 错误回滚后保存会话，确保用户切换会话后能恢复之前的消息
+        saveCurrentSession()
       } else if (effectiveSessionId) {
         // 非当前会话发生错误：清除 streamingSessionId（如果匹配）
         if (streamingSessionId === effectiveSessionId) {
@@ -570,9 +655,27 @@ function buildChatMessages(): ChatMessage[] {
 }
 
 /**
+ * 将 MCPTool 转换为 MCPToolReference
+ * 注意：需要深拷贝 inputSchema 以确保可以通过 IPC 传输
+ */
+function convertToToolReferences(tools: MCPTool[]): MCPToolReference[] {
+  return tools.map((tool) => ({
+    serverName: tool.serverName,
+    toolName: tool.name,
+    description: tool.description || '',
+    // 使用 JSON 序列化/反序列化来确保对象可克隆
+    inputSchema: JSON.parse(JSON.stringify(tool.inputSchema || {}))
+  }))
+}
+
+/**
  * 发送消息
  */
-async function handleSendMessage(content: string, model: string): Promise<void> {
+async function handleSendMessage(
+  content: string,
+  model: string,
+  selectedTools: MCPTool[] = []
+): Promise<void> {
   // 如果正在发送，忽略
   if (isSending.value) {
     return
@@ -626,7 +729,8 @@ async function handleSendMessage(content: string, model: string): Promise<void> 
     content: '',
     isStreaming: true,
     timestamp: new Date().toISOString(),
-    modelName: model // 记录使用的模型名称
+    modelName: model, // 记录使用的模型名称
+    reactSteps: [] // 初始化 ReAct 步骤
   }
   messages.value.push(assistantMessage)
 
@@ -644,11 +748,26 @@ async function handleSendMessage(content: string, model: string): Promise<void> 
     // 移除最后一个空的助手消息
     chatMessages.pop()
 
-    // 发送请求（携带 sessionId）
+    // 转换工具引用
+    const toolReferences =
+      selectedTools.length > 0 ? convertToToolReferences(selectedTools) : undefined
+
+    // 调试日志：确认工具选择
+    if (selectedTools.length > 0) {
+      window.api.logger.info('发送消息时选中的 MCP 工具', {
+        originalToolCount: selectedTools.length,
+        originalTools: selectedTools.map((t) => `${t.serverName}/${t.name}`),
+        convertedToolCount: toolReferences?.length ?? 0,
+        convertedTools: toolReferences?.map((t) => `${t.serverName}/${t.toolName}`)
+      })
+    }
+
+    // 发送请求（携带 sessionId 和工具列表）
     const result = await window.api.chat.send({
       messages: chatMessages,
       modelKey: model,
-      sessionId
+      sessionId,
+      selectedTools: toolReferences
     })
 
     if (!result.success && result.error) {

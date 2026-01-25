@@ -234,8 +234,17 @@ export class MCPService {
     toolName: string,
     args: Record<string, unknown>
   ): Promise<MCPToolCallResult> {
+    logger.info(`准备调用 MCP 工具`, 'main', {
+      serverName,
+      toolName,
+      hasArgs: Object.keys(args).length > 0
+    })
+
     const connection = this.connections.get(serverName)
     if (!connection) {
+      logger.error(`服务器未连接: ${serverName}`, 'main', {
+        availableServers: Array.from(this.connections.keys())
+      })
       return {
         success: false,
         error: `服务器未连接: ${serverName}`
@@ -243,6 +252,7 @@ export class MCPService {
     }
 
     if (!connection.connected) {
+      logger.error(`服务器连接已断开: ${serverName}`, 'main')
       return {
         success: false,
         error: `服务器连接已断开: ${serverName}`
@@ -250,10 +260,15 @@ export class MCPService {
     }
 
     try {
-      logger.info(`调用 MCP 工具: ${serverName}/${toolName}`)
+      logger.info(`正在调用 MCP 工具: ${serverName}/${toolName}`, 'main', { args })
       const result = await connection.client.callTool({
         name: toolName,
         arguments: args
+      })
+
+      logger.info(`MCP 工具调用成功: ${serverName}/${toolName}`, 'main', {
+        hasContent: !!result.content,
+        contentType: typeof result.content
       })
 
       return {

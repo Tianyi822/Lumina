@@ -15,11 +15,13 @@ export function registerChatHandlers(): void {
     'chat:send',
     async (event: IpcMainInvokeEvent, request: ChatRequest): Promise<ChatResult> => {
       try {
-        logger.debug('收到聊天请求', 'main', {
+        logger.info('收到聊天请求', 'main', {
           sessionId: request.sessionId,
           modelKey: request.modelKey,
           messageCount: request.messages.length,
-          enableThinking: request.enableThinking
+          enableThinking: request.enableThinking,
+          selectedToolsCount: request.selectedTools?.length ?? 0,
+          selectedTools: request.selectedTools?.map((t) => `${t.serverName}/${t.toolName}`)
         })
 
         // 使用 event.sender 发送流式响应

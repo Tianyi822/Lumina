@@ -16,7 +16,7 @@ interface MCPConnectionStatus {
 }
 
 const emit = defineEmits<{
-  (e: 'tool-selected', tool: MCPTool | null): void
+  (e: 'tools-selected', tools: MCPTool[]): void
 }>()
 
 // 是否显示面板
@@ -34,8 +34,8 @@ const expandedServers = ref<Set<string>>(new Set())
 // 搜索关键词
 const searchQuery = ref('')
 
-// 选中的工具
-const selectedTool = ref<MCPTool | null>(null)
+// 选中的工具列表（支持多选）
+const selectedTools = ref<MCPTool[]>([])
 
 // 注入 MCP 更新标志
 const mcpUpdateKey = inject<Ref<number>>('mcpUpdateKey', ref(0))
@@ -72,6 +72,11 @@ const connectedServersCount = computed(() => {
   return connectionStatuses.value.filter((s) => s.connected).length
 })
 
+// 已选择的工具数量
+const selectedToolsCount = computed(() => {
+  return selectedTools.value.length
+})
+
 // 加载工具列表
 async function loadTools(): Promise<void> {
   try {
@@ -98,24 +103,51 @@ function toggleServer(serverName: string): void {
   }
 }
 
-// 选择工具
-function selectTool(tool: MCPTool): void {
-  if (
-    selectedTool.value?.name === tool.name &&
-    selectedTool.value?.serverName === tool.serverName
-  ) {
-    // 取消选择
-    selectedTool.value = null
-  } else {
-    selectedTool.value = tool
-  }
-  emit('tool-selected', selectedTool.value)
+// 检查工具是否被选中
+function isToolSelected(tool: MCPTool): boolean {
+  return selectedTools.value.some((t) => t.name === tool.name && t.serverName === tool.serverName)
 }
 
-// 清除选择
+// 选择/取消选择工具（多选模式）
+function toggleTool(tool: MCPTool): void {
+  const index = selectedTools.value.findIndex(
+    (t) => t.name === tool.name && t.serverName === tool.serverName
+  )
+
+  if (index >= 0) {
+    // 取消选择
+    selectedTools.value.splice(index, 1)
+  } else {
+    // 添加选择
+    selectedTools.value.push(tool)
+  }
+
+  // 调试日志：确认工具选择事件
+  console.log('[MCPToolsPanel] 工具选择变更:', {
+    action: index >= 0 ? 'removed' : 'added',
+    tool: `${tool.serverName}/${tool.name}`,
+    selectedCount: selectedTools.value.length,
+    selectedTools: selectedTools.value.map((t) => `${t.serverName}/${t.name}`)
+  })
+
+  emit('tools-selected', [...selectedTools.value])
+}
+
+// 移除单个工具
+function removeTool(tool: MCPTool): void {
+  const index = selectedTools.value.findIndex(
+    (t) => t.name === tool.name && t.serverName === tool.serverName
+  )
+  if (index >= 0) {
+    selectedTools.value.splice(index, 1)
+    emit('tools-selected', [...selectedTools.value])
+  }
+}
+
+// 清除所有选择
 function clearSelection(): void {
-  selectedTool.value = null
-  emit('tool-selected', null)
+  selectedTools.value = []
+  emit('tools-selected', [])
 }
 
 // 切换面板显示
@@ -160,11 +192,13 @@ onUnmounted(() => {
     <!-- 触发按钮 -->
     <button
       class="btn mcp-trigger-btn"
-      :class="{ active: showPanel, 'has-selection': selectedTool }"
+      :class="{ active: showPanel, 'has-selection': selectedToolsCount > 0 }"
       @click="togglePanel"
     >
       <span class="mcp-icon">⚡</span>
-      <span v-if="selectedTool" class="selected-tool-name">{{ selectedTool.name }}</span>
+      <span v-if="selectedToolsCount > 0" class="selected-tool-name">
+        已选 {{ selectedToolsCount }} 个工具
+      </span>
       <span v-else>MCP 工具</span>
       <span v-if="totalToolsCount > 0" class="tools-count">{{ totalToolsCount }}</span>
       <span class="dropdown-arrow">{{ showPanel ? '▲' : '▼' }}</span>
@@ -174,7 +208,7 @@ onUnmounted(() => {
     <div v-if="showPanel" class="mcp-tools-panel">
       <!-- 头部 -->
       <div class="panel-header">
-        <span class="panel-title">MCP 工具</span>
+        <span class="panel-title">MCP 工具（多选）</span>
         <span class="connection-info"> {{ connectedServersCount }} 个服务器已连接 </span>
       </div>
 
@@ -188,11 +222,22 @@ onUnmounted(() => {
         />
       </div>
 
-      <!-- 已选工具 -->
-      <div v-if="selectedTool" class="selected-tool-bar">
-        <span class="selected-label">已选择:</span>
-        <span class="selected-tool">{{ selectedTool.serverName }}/{{ selectedTool.name }}</span>
-        <button class="btn btn-clear" @click="clearSelection">×</button>
+      <!-- 已选工具列表 -->
+      <div v-if="selectedToolsCount > 0" class="selected-tools-bar">
+        <div class="selected-tools-header">
+          <span class="selected-label">已选择 {{ selectedToolsCount }} 个工具:</span>
+          <button class="btn btn-clear-all" @click="clearSelection">全部清除</button>
+        </div>
+        <div class="selected-tools-list">
+          <div
+            v-for="tool in selectedTools"
+            :key="`selected-${tool.serverName}-${tool.name}`"
+            class="selected-tool-chip"
+          >
+            <span class="chip-text">{{ tool.name }}</span>
+            <button class="chip-remove" @click.stop="removeTool(tool)">×</button>
+          </div>
+        </div>
       </div>
 
       <!-- 工具列表 -->
@@ -226,13 +271,11 @@ onUnmounted(() => {
               v-for="tool in tools"
               :key="`${serverName}-${tool.name}`"
               class="tool-item"
-              :class="{
-                selected:
-                  selectedTool?.name === tool.name && selectedTool?.serverName === tool.serverName
-              }"
-              @click="selectTool(tool)"
+              :class="{ selected: isToolSelected(tool) }"
+              @click="toggleTool(tool)"
             >
               <div class="tool-header">
+                <span class="tool-checkbox">{{ isToolSelected(tool) ? '☑' : '☐' }}</span>
                 <span class="tool-name">{{ tool.name }}</span>
               </div>
               <div v-if="tool.description" class="tool-description">
@@ -339,13 +382,17 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
-.selected-tool-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.selected-tools-bar {
   padding: 8px 12px;
   background-color: rgba(63, 185, 80, 0.1);
   border-bottom: 1px solid var(--theme-border);
+}
+
+.selected-tools-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
 .selected-label {
@@ -353,17 +400,50 @@ onUnmounted(() => {
   color: var(--theme-text-secondary);
 }
 
-.selected-tool {
-  flex: 1;
-  font-size: 12px;
-  font-family: monospace;
-  color: var(--theme-accent);
+.btn-clear-all {
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1;
 }
 
-.btn-clear {
-  padding: 2px 8px;
+.selected-tools-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.selected-tool-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 8px;
+  background-color: var(--theme-accent);
+  color: var(--theme-bg);
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.chip-text {
+  font-family: monospace;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: var(--theme-bg);
+  cursor: pointer;
   font-size: 14px;
   line-height: 1;
+  padding: 0 2px;
+  opacity: 0.8;
+}
+
+.chip-remove:hover {
+  opacity: 1;
 }
 
 .tools-container {
@@ -451,6 +531,15 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.tool-checkbox {
+  font-size: 14px;
+  color: var(--theme-text-secondary);
+}
+
+.tool-item.selected .tool-checkbox {
+  color: var(--theme-accent);
 }
 
 .tool-name {

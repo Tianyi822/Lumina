@@ -31,7 +31,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'send', message: string, model: string, selectedMCPTool?: MCPTool | null): void
+  (e: 'send', message: string, model: string, selectedMCPTools: MCPTool[]): void
   (e: 'stop'): void
 }>()
 
@@ -50,8 +50,8 @@ const modelOptions = ref<string[]>([])
 // 是否显示模型选择下拉
 const showModelDropdown = ref(false)
 
-// 当前选中的 MCP 工具
-const selectedMCPTool = ref<MCPTool | null>(null)
+// 当前选中的 MCP 工具列表（支持多选）
+const selectedMCPTools = ref<MCPTool[]>([])
 
 // 注入配置更新标志
 const configUpdateKey = inject<Ref<number>>('configUpdateKey', ref(0))
@@ -94,14 +94,23 @@ onMounted(() => {
 
 function handleSend(): void {
   if (inputMessage.value.trim() && !props.isSending) {
-    emit('send', inputMessage.value.trim(), selectedModel.value, selectedMCPTool.value)
+    // 调试日志：确认发送时的工具选择状态
+    console.log('[MessageInput] 发送消息，选中的工具:', {
+      count: selectedMCPTools.value.length,
+      tools: selectedMCPTools.value.map((t) => `${t.serverName}/${t.name}`)
+    })
+    emit('send', inputMessage.value.trim(), selectedModel.value, selectedMCPTools.value)
     inputMessage.value = ''
   }
 }
 
-// 处理 MCP 工具选择
-function handleMCPToolSelected(tool: MCPTool | null): void {
-  selectedMCPTool.value = tool
+// 处理 MCP 工具选择（多选）
+function handleMCPToolsSelected(tools: MCPTool[]): void {
+  console.log('[MessageInput] 接收到工具选择事件:', {
+    count: tools.length,
+    tools: tools.map((t) => `${t.serverName}/${t.name}`)
+  })
+  selectedMCPTools.value = tools
 }
 
 function handleStop(): void {
@@ -160,7 +169,7 @@ function toggleModelDropdown(): void {
       </div>
 
       <!-- MCP 工具选择器 -->
-      <MCPToolsPanel @tool-selected="handleMCPToolSelected" />
+      <MCPToolsPanel @tools-selected="handleMCPToolsSelected" />
 
       <!-- 压缩比例 -->
       <div class="compression-info">

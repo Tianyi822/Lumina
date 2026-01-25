@@ -3,6 +3,7 @@ import MarkdownIt from 'markdown-it'
 import { nextTick, onMounted, provide, ref, watch } from 'vue'
 import MessageInput from './MessageInput.vue'
 import SettingsModal from './SettingsModal.vue'
+import ReActSteps from './ReActSteps.vue'
 
 // 初始化 markdown-it 实例
 const md = new MarkdownIt({
@@ -23,6 +24,37 @@ interface TokenUsage {
 }
 
 /**
+ * 工具调用信息
+ */
+interface ToolCallInfo {
+  id: string
+  name: string
+  serverName: string
+  arguments: Record<string, unknown>
+}
+
+/**
+ * 工具结果信息
+ */
+interface ToolResultInfo {
+  id: string
+  name: string
+  success: boolean
+  result?: unknown
+  error?: string
+}
+
+/**
+ * ReAct 步骤
+ */
+interface ReActStep {
+  type: 'tool_call' | 'tool_result'
+  toolCall?: ToolCallInfo
+  toolResult?: ToolResultInfo
+  timestamp: string
+}
+
+/**
  * 消息接口
  */
 interface Message {
@@ -34,6 +66,17 @@ interface Message {
   usage?: TokenUsage
   timestamp?: string
   modelName?: string // 模型名称（仅 assistant 消息）
+  reactSteps?: ReActStep[] // ReAct 推理步骤
+}
+
+/**
+ * MCP 工具接口
+ */
+interface MCPTool {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+  serverName: string
 }
 
 const props = defineProps<{
@@ -46,7 +89,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'toggle-sidebar'): void
-  (e: 'send-message', message: string, model: string): void
+  (e: 'send-message', message: string, model: string, selectedTools: MCPTool[]): void
   (e: 'stop-request'): void
 }>()
 
@@ -168,8 +211,14 @@ function handleToggleSidebar(): void {
   emit('toggle-sidebar')
 }
 
-function handleSendMessage(message: string, model: string): void {
-  emit('send-message', message, model)
+function handleSendMessage(message: string, model: string, selectedTools: MCPTool[]): void {
+  console.log('[MainContent] 处理发送消息事件:', {
+    message: message.substring(0, 50),
+    model,
+    selectedToolsCount: selectedTools?.length ?? 0,
+    selectedTools: selectedTools?.map((t) => `${t.serverName}/${t.name}`)
+  })
+  emit('send-message', message, model, selectedTools)
 }
 
 function handleStopRequest(): void {
@@ -283,6 +332,13 @@ function formatTokenUsage(usage: TokenUsage): string {
               <div class="markdown-body" v-html="renderMarkdown(msg.reasoning)"></div>
             </div>
           </div>
+
+          <!-- ReAct 推理步骤（仅助手消息） -->
+          <ReActSteps
+            v-if="msg.role === 'assistant' && msg.reactSteps && msg.reactSteps.length > 0"
+            :steps="msg.reactSteps"
+            :is-streaming="msg.isStreaming"
+          />
 
           <!-- 消息内容 -->
           <div class="message-content" :class="{ streaming: msg.isStreaming }">

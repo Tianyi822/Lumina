@@ -43,9 +43,33 @@ interface ConfigApi {
  * 聊天消息
  */
 interface ChatMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content: string | null
   reasoning_content?: string
+  tool_calls?: ToolCallMessage[]
+  tool_call_id?: string
+}
+
+/**
+ * 工具调用消息
+ */
+interface ToolCallMessage {
+  id: string
+  type: 'function'
+  function: {
+    name: string
+    arguments: string
+  }
+}
+
+/**
+ * MCP 工具引用（用于传递选中的工具）
+ */
+interface MCPToolReference {
+  serverName: string
+  toolName: string
+  description: string
+  inputSchema: Record<string, unknown>
 }
 
 /**
@@ -56,6 +80,8 @@ interface ChatRequest {
   modelKey: string
   sessionId: string
   enableThinking?: boolean
+  selectedTools?: MCPToolReference[]
+  maxReactIterations?: number
 }
 
 /**
@@ -77,14 +103,37 @@ interface TokenUsage {
 }
 
 /**
+ * 工具调用信息
+ */
+interface ToolCallInfo {
+  id: string
+  name: string
+  serverName: string
+  arguments: Record<string, unknown>
+}
+
+/**
+ * 工具结果信息
+ */
+interface ToolResultInfo {
+  id: string
+  name: string
+  success: boolean
+  result?: unknown
+  error?: string
+}
+
+/**
  * 流式事件
  */
 interface StreamEvent {
-  type: 'content' | 'reasoning' | 'done' | 'error'
+  type: 'content' | 'reasoning' | 'tool_call' | 'tool_result' | 'done' | 'error'
   sessionId?: string
   content?: string
   usage?: TokenUsage
   error?: string
+  toolCall?: ToolCallInfo
+  toolResult?: ToolResultInfo
 }
 
 /**
