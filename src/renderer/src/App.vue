@@ -28,6 +28,40 @@ interface Message {
 }
 
 /**
+ * 会话消息（用于持久化）
+ */
+interface SessionMessage {
+  id: string
+  role: 'system' | 'user' | 'assistant'
+  content: string
+  reasoning?: string
+  timestamp: string
+  modelName?: string
+  usage?: TokenUsage
+}
+
+/**
+ * 会话数据
+ */
+interface SessionData {
+  sessionId: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  messages: SessionMessage[]
+}
+
+/**
+ * 会话列表项
+ */
+interface SessionListItem {
+  sessionId: string
+  title: string
+  lastMessage?: string
+  updatedAt: string
+}
+
+/**
  * 聊天消息（用于发送给后端）
  */
 interface ChatMessage {
@@ -40,6 +74,7 @@ interface ChatMessage {
  */
 interface StreamEvent {
   type: 'content' | 'reasoning' | 'done' | 'error'
+  sessionId?: string
   content?: string
   usage?: TokenUsage
   error?: string
@@ -53,11 +88,17 @@ const showError = ref(false)
 // 侧边栏是否折叠
 const sidebarCollapsed = ref(false)
 
-// 当前对话ID
+// 当前会话数据
+const currentSession = ref<SessionData | null>(null)
+
+// 当前对话ID（兼容旧代码）
 const currentChatId = ref<string | undefined>(undefined)
 
 // 当前对话的消息列表
 const messages = ref<Message[]>([])
+
+// 会话列表
+const sessionList = ref<SessionListItem[]>([])
 
 // 是否正在发送消息
 const isSending = ref(false)
@@ -67,6 +108,21 @@ const currentModel = ref('')
 
 // 流式监听器清理函数
 let cleanupStreamListener: (() => void) | null = null
+
+// 会话列表更新计数器（用于触发 Sidebar 更新）
+const sessionUpdateKey = ref(0)
+
+// 会话消息状态缓存（用于处理多会话并发流式响应）
+const sessionMessagesCache = new Map<string, Message[]>()
+
+// 会话标题缓存（用于保存内存中更新但尚未持久化的标题）
+const sessionTitleCache = new Map<string, string>()
+
+// 发送前的消息快照（用于错误回滚）
+let messagesSnapshot: Message[] | null = null
+
+// 当前正在流式响应的会话ID
+let streamingSessionId: string | null = null
 
 /**
  * 加载配置状态
@@ -88,6 +144,104 @@ async function loadConfigStatus(): Promise<void> {
 }
 
 /**
+ * 加载会话列表
+ */
+async function loadSessionList(): Promise<void> {
+  try {
+    sessionList.value = await window.api.session.list()
+  } catch (error) {
+    window.api.logger.error('加载会话列表失败', {
+      error: error instanceof Error ? error.message : String(error)
+    })
+  }
+}
+
+/**
+ * 刷新会话列表
+ */
+async function refreshSessionList(): Promise<void> {
+  await loadSessionList()
+  sessionUpdateKey.value++
+}
+
+/**
+ * 将 SessionMessage 转换为 Message
+ */
+function sessionMessageToMessage(msg: SessionMessage): Message {
+  return {
+    id: msg.id,
+    role: msg.role as 'user' | 'assistant',
+    content: msg.content,
+    reasoning: msg.reasoning,
+    timestamp: msg.timestamp,
+    modelName: msg.modelName,
+    usage: msg.usage,
+    isStreaming: false
+  }
+}
+
+/**
+ * 保存当前会话
+ */
+async function saveCurrentSession(): Promise<void> {
+  if (!currentSession.value) {
+    return
+  }
+
+  try {
+    // 创建一个纯净的数据对象（不包含 Vue 响应式代理）
+    const sessionToSave: SessionData = {
+      sessionId: currentSession.value.sessionId,
+      title: currentSession.value.title,
+      createdAt: currentSession.value.createdAt,
+      updatedAt: new Date().toISOString(),
+      messages: messages.value.map((msg) => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        reasoning: msg.reasoning,
+        timestamp: msg.timestamp || new Date().toISOString(),
+        modelName: msg.modelName,
+        usage: msg.usage
+          ? {
+              prompt_tokens: msg.usage.prompt_tokens,
+              completion_tokens: msg.usage.completion_tokens,
+              total_tokens: msg.usage.total_tokens,
+              reasoning_tokens: msg.usage.reasoning_tokens
+            }
+          : undefined
+      }))
+    }
+
+    const result = await window.api.session.save(sessionToSave)
+    if (!result.success) {
+      window.api.logger.error('保存会话失败', { error: result.error })
+    } else {
+      // 更新本地会话数据
+      currentSession.value.messages = sessionToSave.messages
+      currentSession.value.updatedAt = sessionToSave.updatedAt
+      // 刷新会话列表
+      await refreshSessionList()
+    }
+  } catch (error) {
+    window.api.logger.error('保存会话异常', {
+      error: error instanceof Error ? error.message : String(error)
+    })
+  }
+}
+
+/**
+ * 生成会话标题
+ */
+function generateTitle(content: string): string {
+  const trimmed = content.trim()
+  if (trimmed.length <= 20) {
+    return trimmed || '新对话'
+  }
+  return trimmed.substring(0, 20) + '...'
+}
+
+/**
  * 设置流式响应监听器
  */
 function setupStreamListener(): void {
@@ -100,8 +254,32 @@ function setupStreamListener(): void {
  * 处理流式事件
  */
 function handleStreamEvent(event: StreamEvent): void {
+  const targetSessionId = event.sessionId
+  const currentSessionId = currentSession.value?.sessionId
+
+  // 如果事件没有 sessionId，尝试使用当前正在流式响应的会话ID
+  const effectiveSessionId = targetSessionId || streamingSessionId
+
+  // 判断是否是当前会话的事件
+  const isCurrentSession = effectiveSessionId === currentSessionId
+
+  // 获取目标消息列表（当前会话或缓存）
+  let targetMessages: Message[]
+  if (isCurrentSession) {
+    targetMessages = messages.value
+  } else if (effectiveSessionId) {
+    // 非当前会话：从缓存获取或初始化
+    if (!sessionMessagesCache.has(effectiveSessionId)) {
+      sessionMessagesCache.set(effectiveSessionId, [])
+    }
+    targetMessages = sessionMessagesCache.get(effectiveSessionId)!
+  } else {
+    // 无法确定目标会话，使用当前消息
+    targetMessages = messages.value
+  }
+
   // 找到正在流式输出的消息
-  const streamingMessage = messages.value.find((msg) => msg.isStreaming)
+  const streamingMessage = targetMessages.find((msg) => msg.isStreaming)
 
   switch (event.type) {
     case 'content':
@@ -123,17 +301,119 @@ function handleStreamEvent(event: StreamEvent): void {
           streamingMessage.usage = event.usage
         }
       }
-      isSending.value = false
+      // 只有当前会话才更新 isSending 状态和保存
+      if (isCurrentSession) {
+        isSending.value = false
+        // 清空快照，成功完成后保存会话
+        messagesSnapshot = null
+        streamingSessionId = null
+        saveCurrentSession()
+      } else if (effectiveSessionId) {
+        // 非当前会话：清除 streamingSessionId（如果匹配）
+        if (streamingSessionId === effectiveSessionId) {
+          streamingSessionId = null
+        }
+        // 同步更新缓存中的消息状态（确保 isStreaming 被正确设置为 false）
+        const cachedMsgs = sessionMessagesCache.get(effectiveSessionId)
+        if (cachedMsgs) {
+          const cachedStreamingMsg = cachedMsgs.find((msg) => msg.isStreaming)
+          if (cachedStreamingMsg) {
+            cachedStreamingMsg.isStreaming = false
+            if (event.usage) {
+              cachedStreamingMsg.usage = event.usage
+            }
+          }
+        }
+        // 更新缓存并保存该会话
+        saveSessionFromCache(effectiveSessionId)
+      }
       break
 
     case 'error':
-      if (streamingMessage) {
-        streamingMessage.isStreaming = false
-        streamingMessage.content += `\n\n[错误: ${event.error}]`
+      if (isCurrentSession) {
+        // 当前会话发生错误：回滚到发送前状态
+        if (messagesSnapshot) {
+          messages.value = messagesSnapshot
+          messagesSnapshot = null
+        } else if (streamingMessage) {
+          // 如果没有快照，标记消息为错误状态
+          streamingMessage.isStreaming = false
+          streamingMessage.content += `\n\n[错误: ${event.error}]`
+        }
+        isSending.value = false
+        streamingSessionId = null
+        window.api.logger.error('聊天错误', { error: event.error, sessionId: currentSessionId })
+        // 错误时不保存会话，保持回滚状态
+      } else if (effectiveSessionId) {
+        // 非当前会话发生错误：清除 streamingSessionId（如果匹配）
+        if (streamingSessionId === effectiveSessionId) {
+          streamingSessionId = null
+        }
+        // 从缓存中移除（不保存错误状态）
+        sessionMessagesCache.delete(effectiveSessionId)
+        window.api.logger.error('聊天错误（后台会话）', { error: event.error, sessionId: effectiveSessionId })
       }
-      isSending.value = false
-      window.api.logger.error('聊天错误', { error: event.error })
       break
+  }
+}
+
+/**
+ * 保存缓存中的会话
+ */
+async function saveSessionFromCache(sessionId: string): Promise<void> {
+  const cachedMessages = sessionMessagesCache.get(sessionId)
+  if (!cachedMessages || cachedMessages.length === 0) {
+    return
+  }
+
+  try {
+    // 加载会话数据
+    const session = await window.api.session.load(sessionId)
+    if (session) {
+      // 使用缓存的标题（如果有的话），否则使用文件中的标题
+      const cachedTitle = sessionTitleCache.get(sessionId)
+      const titleToUse = cachedTitle || session.title
+
+      // 更新会话消息和标题
+      const sessionToSave: SessionData = {
+        sessionId: session.sessionId,
+        title: titleToUse,
+        createdAt: session.createdAt,
+        updatedAt: new Date().toISOString(),
+        messages: cachedMessages.map((msg) => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          reasoning: msg.reasoning,
+          timestamp: msg.timestamp || new Date().toISOString(),
+          modelName: msg.modelName,
+          usage: msg.usage
+            ? {
+                prompt_tokens: msg.usage.prompt_tokens,
+                completion_tokens: msg.usage.completion_tokens,
+                total_tokens: msg.usage.total_tokens,
+                reasoning_tokens: msg.usage.reasoning_tokens
+              }
+            : undefined
+        }))
+      }
+
+      const result = await window.api.session.save(sessionToSave)
+      if (!result.success) {
+        window.api.logger.error('保存后台会话失败', { error: result.error, sessionId })
+      }
+    }
+  } catch (error) {
+    window.api.logger.error('保存后台会话异常', {
+      error: error instanceof Error ? error.message : String(error),
+      sessionId
+    })
+  } finally {
+    // 清理缓存
+    sessionMessagesCache.delete(sessionId)
+    sessionTitleCache.delete(sessionId)
+    // 刷新会话列表
+    await refreshSessionList()
   }
 }
 
@@ -154,19 +434,126 @@ function toggleSidebar(): void {
 /**
  * 创建新对话
  */
-function handleNewChat(): void {
-  const newChatId = `chat-${Date.now()}`
-  currentChatId.value = newChatId
-  messages.value = []
+async function handleNewChat(): Promise<void> {
+  try {
+    // 创建新会话
+    const session = await window.api.session.create()
+    currentSession.value = session
+    currentChatId.value = session.sessionId
+    messages.value = []
+
+    // 刷新会话列表
+    await refreshSessionList()
+  } catch (error) {
+    window.api.logger.error('创建会话失败', {
+      error: error instanceof Error ? error.message : String(error)
+    })
+    // 降级处理：仅在本地创建
+    const newChatId = `chat-${Date.now()}`
+    currentChatId.value = newChatId
+    messages.value = []
+  }
 }
 
 /**
  * 选择对话
  */
-function handleSelectChat(chatId: string): void {
-  currentChatId.value = chatId
-  // TODO: 加载对应对话的消息
-  messages.value = []
+async function handleSelectChat(sessionId: string): Promise<void> {
+  // 如果选择的是当前会话，直接返回
+  if (currentSession.value?.sessionId === sessionId) {
+    return
+  }
+
+  try {
+    // 如果当前会话有流式响应正在进行，将消息状态和标题保存到缓存
+    const currentSessionId = currentSession.value?.sessionId
+    if (currentSessionId && isSending.value) {
+      // 深拷贝消息，避免引用问题
+      const messagesToCache = messages.value.map((msg) => ({ ...msg }))
+      sessionMessagesCache.set(currentSessionId, messagesToCache)
+      // 保存当前会话标题到缓存（可能已被更新但尚未持久化）
+      if (currentSession.value?.title) {
+        sessionTitleCache.set(currentSessionId, currentSession.value.title)
+      }
+      window.api.logger.debug('切换会话：保存流式状态到缓存', {
+        sessionId: currentSessionId,
+        title: currentSession.value?.title
+      })
+    }
+
+    // 用于跟踪新会话的发送状态
+    let newSessionIsSending = false
+
+    // 检查目标会话是否有缓存的消息（之前切换走时保存的）
+    const cachedMessages = sessionMessagesCache.get(sessionId)
+    const cachedTitle = sessionTitleCache.get(sessionId)
+
+    if (cachedMessages && cachedMessages.length > 0) {
+      // 使用缓存的消息（可能包含流式响应状态）
+      const session = await window.api.session.load(sessionId)
+      if (session) {
+        currentSession.value = session
+        currentChatId.value = session.sessionId
+        // 恢复缓存的标题（如果有的话）
+        if (cachedTitle) {
+          currentSession.value.title = cachedTitle
+        }
+        // 深拷贝缓存的消息，避免引用问题
+        messages.value = cachedMessages.map((msg) => ({ ...msg }))
+        // 检查是否有正在流式输出的消息
+        newSessionIsSending = messages.value.some((msg) => msg.isStreaming)
+        window.api.logger.debug('切换会话：恢复缓存的流式状态', {
+          sessionId,
+          hasStreaming: newSessionIsSending,
+          title: currentSession.value.title
+        })
+      }
+    } else {
+      // 正常加载会话数据
+      const session = await window.api.session.load(sessionId)
+      if (session) {
+        currentSession.value = session
+        currentChatId.value = session.sessionId
+        // 转换消息格式（从文件加载的消息不会有 isStreaming）
+        messages.value = session.messages.map(sessionMessageToMessage)
+        newSessionIsSending = false
+      } else {
+        window.api.logger.warn('会话不存在', { sessionId })
+      }
+    }
+
+    // 更新 isSending 状态为新会话的状态
+    isSending.value = newSessionIsSending
+  } catch (error) {
+    window.api.logger.error('加载会话失败', {
+      error: error instanceof Error ? error.message : String(error)
+    })
+  }
+}
+
+/**
+ * 删除会话
+ */
+async function handleDeleteSession(sessionId: string): Promise<void> {
+  try {
+    const result = await window.api.session.delete(sessionId)
+    if (result.success) {
+      // 如果删除的是当前会话，清空当前状态
+      if (currentSession.value?.sessionId === sessionId) {
+        currentSession.value = null
+        currentChatId.value = undefined
+        messages.value = []
+      }
+      // 刷新会话列表
+      await refreshSessionList()
+    } else {
+      window.api.logger.error('删除会话失败', { error: result.error })
+    }
+  } catch (error) {
+    window.api.logger.error('删除会话异常', {
+      error: error instanceof Error ? error.message : String(error)
+    })
+  }
 }
 
 /**
@@ -196,12 +583,29 @@ async function handleSendMessage(content: string, model: string): Promise<void> 
   }
 
   // 如果没有当前对话，先创建一个
-  if (!currentChatId.value) {
-    handleNewChat()
+  if (!currentChatId.value || !currentSession.value) {
+    await handleNewChat()
   }
+
+  // 确保当前会话存在
+  if (!currentSession.value) {
+    window.api.logger.error('创建会话失败，无法发送消息')
+    return
+  }
+
+  const sessionId = currentSession.value.sessionId
+
+  // 保存发送前的消息快照（用于错误回滚）
+  messagesSnapshot = JSON.parse(JSON.stringify(messages.value))
+
+  // 记录当前正在流式响应的会话ID
+  streamingSessionId = sessionId
 
   // 更新当前模型
   currentModel.value = model
+
+  // 检查是否是第一条消息（用于更新会话标题）
+  const isFirstMessage = messages.value.length === 0
 
   // 添加用户消息
   const userMessage: Message = {
@@ -226,29 +630,43 @@ async function handleSendMessage(content: string, model: string): Promise<void> 
   // 设置发送状态
   isSending.value = true
 
+  // 如果是第一条消息，更新会话标题
+  if (isFirstMessage && currentSession.value) {
+    currentSession.value.title = generateTitle(content)
+  }
+
   try {
     // 构建消息历史
     const chatMessages = buildChatMessages()
     // 移除最后一个空的助手消息
     chatMessages.pop()
 
-    // 发送请求
+    // 发送请求（携带 sessionId）
     const result = await window.api.chat.send({
       messages: chatMessages,
-      modelKey: model
+      modelKey: model,
+      sessionId
     })
 
     if (!result.success && result.error) {
-      window.api.logger.error('发送消息失败', { error: result.error })
+      window.api.logger.error('发送消息失败', { error: result.error, sessionId })
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    window.api.logger.error('发送消息异常', { error: errorMessage })
+    window.api.logger.error('发送消息异常', { error: errorMessage, sessionId })
 
-    // 更新消息状态
-    assistantMessage.isStreaming = false
-    assistantMessage.content = `[发送失败: ${errorMessage}]`
+    // 发生异常时回滚到发送前状态
+    if (messagesSnapshot) {
+      messages.value = messagesSnapshot
+      messagesSnapshot = null
+    } else {
+      // 如果没有快照，标记消息为错误状态
+      assistantMessage.isStreaming = false
+      assistantMessage.content = `[发送失败: ${errorMessage}]`
+    }
     isSending.value = false
+    streamingSessionId = null
+    // 发生异常时不保存会话
   }
 }
 
@@ -256,11 +674,13 @@ async function handleSendMessage(content: string, model: string): Promise<void> 
  * 中止当前请求
  */
 async function handleStopRequest(): Promise<void> {
+  const sessionId = currentSession.value?.sessionId
   try {
-    await window.api.chat.stop()
+    await window.api.chat.stop(sessionId)
   } catch (error) {
     window.api.logger.error('中止请求失败', {
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
+      sessionId
     })
   }
 }
@@ -268,6 +688,7 @@ async function handleStopRequest(): Promise<void> {
 onMounted(() => {
   loadConfigStatus()
   setupStreamListener()
+  loadSessionList()
 })
 
 onUnmounted(() => {
@@ -295,8 +716,12 @@ onUnmounted(() => {
       <!-- 侧边栏 -->
       <Sidebar
         v-show="!sidebarCollapsed"
+        :sessions="sessionList"
+        :active-session-id="currentChatId"
+        :session-update-key="sessionUpdateKey"
         @new-chat="handleNewChat"
         @select-chat="handleSelectChat"
+        @delete-session="handleDeleteSession"
       />
 
       <!-- 主内容区 -->

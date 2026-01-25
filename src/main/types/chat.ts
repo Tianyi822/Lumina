@@ -24,6 +24,8 @@ export type StreamEventType = 'content' | 'reasoning' | 'done' | 'error'
 export interface StreamEvent {
   /** 事件类型 */
   type: StreamEventType
+  /** 会话标识（用于多会话场景下识别事件归属） */
+  sessionId?: string
   /** 内容增量 */
   content?: string
   /** Token 使用统计（仅 done 事件） */
@@ -54,6 +56,10 @@ export interface ChatRequest {
   messages: ChatMessage[]
   /** 模型配置 key（对应 llm_configs 中的 key） */
   modelKey: string
+  /** 会话标识（用于多会话管理和事件路由） */
+  sessionId: string
+  /** 是否启用思考模式 */
+  enableThinking?: boolean
 }
 
 /**

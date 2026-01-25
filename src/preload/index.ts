@@ -115,6 +115,8 @@ interface ChatMessage {
 interface ChatRequest {
   messages: ChatMessage[]
   modelKey: string
+  sessionId: string
+  enableThinking?: boolean
 }
 
 /**
@@ -140,6 +142,7 @@ interface TokenUsage {
  */
 interface StreamEvent {
   type: 'content' | 'reasoning' | 'done' | 'error'
+  sessionId?: string
   content?: string
   usage?: TokenUsage
   error?: string
@@ -157,10 +160,11 @@ const chatApi = {
   },
 
   /**
-   * 中止当前请求
+   * 中止请求
+   * @param sessionId 可选的会话标识。如果提供，只中止该会话的请求；否则中止所有请求
    */
-  stop: (): Promise<void> => {
-    return ipcRenderer.invoke('chat:stop')
+  stop: (sessionId?: string): Promise<void> => {
+    return ipcRenderer.invoke('chat:stop', sessionId)
   },
 
   /**
@@ -175,6 +179,95 @@ const chatApi = {
     return () => {
       ipcRenderer.removeListener('chat:stream', listener)
     }
+  }
+}
+
+/**
+ * 会话消息类型
+ */
+interface SessionMessage {
+  id: string
+  role: 'system' | 'user' | 'assistant'
+  content: string
+  reasoning?: string
+  timestamp: string
+  modelName?: string
+  usage?: TokenUsage
+}
+
+/**
+ * 会话数据类型
+ */
+interface SessionData {
+  sessionId: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  messages: SessionMessage[]
+}
+
+/**
+ * 会话列表项类型
+ */
+interface SessionListItem {
+  sessionId: string
+  title: string
+  lastMessage?: string
+  updatedAt: string
+}
+
+/**
+ * 会话操作结果类型
+ */
+interface SessionResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * 会话相关的 API
+ */
+const sessionApi = {
+  /**
+   * 创建新会话
+   */
+  create: (title?: string): Promise<SessionData> => {
+    return ipcRenderer.invoke('session:create', title)
+  },
+
+  /**
+   * 保存会话
+   */
+  save: (data: SessionData): Promise<SessionResult> => {
+    return ipcRenderer.invoke('session:save', data)
+  },
+
+  /**
+   * 加载会话
+   */
+  load: (sessionId: string): Promise<SessionData | null> => {
+    return ipcRenderer.invoke('session:load', sessionId)
+  },
+
+  /**
+   * 获取会话列表
+   */
+  list: (): Promise<SessionListItem[]> => {
+    return ipcRenderer.invoke('session:list')
+  },
+
+  /**
+   * 删除会话
+   */
+  delete: (sessionId: string): Promise<SessionResult> => {
+    return ipcRenderer.invoke('session:delete', sessionId)
+  },
+
+  /**
+   * 重命名会话
+   */
+  rename: (sessionId: string, newTitle: string): Promise<SessionResult> => {
+    return ipcRenderer.invoke('session:rename', sessionId, newTitle)
   }
 }
 
@@ -238,7 +331,8 @@ const configApi = {
 const api = {
   config: configApi,
   logger: loggerApi,
-  chat: chatApi
+  chat: chatApi,
+  session: sessionApi
 }
 
 // 使用 `contextBridge` API 向渲染器暴露 Electron API

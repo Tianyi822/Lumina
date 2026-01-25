@@ -10,8 +10,8 @@ import type { LLMConfig } from '../../types/config'
  * 负责与 OpenAI 兼容的 API 进行通信，支持流式响应
  */
 export class ChatService {
-  /** 当前活跃的 AbortController */
-  private abortController: AbortController | null = null
+  /** 每个会话的 AbortController 映射，支持多会话并发管理 */
+  private abortControllers: Map<string, AbortController> = new Map()
 
   /**
    * 发送聊天消息并流式返回响应
@@ -19,9 +19,10 @@ export class ChatService {
    * @param webContents 渲染进程 webContents，用于发送流式事件
    */
   async sendMessage(request: ChatRequest, webContents: WebContents): Promise<ChatResult> {
-    const { messages, modelKey } = request
+    const { messages, modelKey, sessionId } = request
 
     logger.info('开始发送聊天消息', 'main', {
+      sessionId,
       modelKey,
       messageCount: messages.length
     })
@@ -31,7 +32,7 @@ export class ChatService {
     if (!config) {
       const error = '配置未加载'
       logger.error(error, 'main')
-      this.sendStreamEvent(webContents, { type: 'error', error })
+      this.sendStreamEvent(webContents, { type: 'error', error, sessionId })
       return { success: false, error }
     }
 
@@ -39,12 +40,20 @@ export class ChatService {
     if (!llmConfig) {
       const error = `未找到模型配置: ${modelKey}`
       logger.error(error, 'main')
-      this.sendStreamEvent(webContents, { type: 'error', error })
+      this.sendStreamEvent(webContents, { type: 'error', error, sessionId })
       return { success: false, error }
     }
 
-    // 创建 AbortController
-    this.abortController = new AbortController()
+    // 中止该会话的旧请求（如果存在）
+    const existingController = this.abortControllers.get(sessionId)
+    if (existingController) {
+      logger.debug('中止会话的旧请求', 'main', { sessionId })
+      existingController.abort()
+    }
+
+    // 创建新的 AbortController 并存入 Map
+    const abortController = new AbortController()
+    this.abortControllers.set(sessionId, abortController)
 
     try {
       // 创建 OpenAI 客户端
@@ -72,7 +81,7 @@ export class ChatService {
           stream_options: { include_usage: true }
         },
         {
-          signal: this.abortController.signal
+          signal: abortController.signal
         }
       )
 
@@ -102,7 +111,8 @@ export class ChatService {
           if (delta.reasoning_content) {
             this.sendStreamEvent(webContents, {
               type: 'reasoning',
-              content: delta.reasoning_content
+              content: delta.reasoning_content,
+              sessionId
             })
           }
 
@@ -110,7 +120,8 @@ export class ChatService {
           if (delta.content) {
             this.sendStreamEvent(webContents, {
               type: 'content',
-              content: delta.content
+              content: delta.content,
+              sessionId
             })
           }
         }
@@ -119,7 +130,8 @@ export class ChatService {
       // 发送完成事件
       this.sendStreamEvent(webContents, {
         type: 'done',
-        usage
+        usage,
+        sessionId
       })
 
       logger.info('聊天消息发送完成', 'main', { usage })
@@ -128,28 +140,41 @@ export class ChatService {
     } catch (error) {
       // 检查是否是用户中止
       if (error instanceof Error && error.name === 'AbortError') {
-        logger.info('用户中止了请求', 'main')
-        this.sendStreamEvent(webContents, { type: 'done' })
+        logger.info('用户中止了请求', 'main', { sessionId })
+        this.sendStreamEvent(webContents, { type: 'done', sessionId })
         return { success: true }
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('聊天请求失败', 'main', { error: errorMessage })
-      this.sendStreamEvent(webContents, { type: 'error', error: errorMessage })
+      logger.error('聊天请求失败', 'main', { sessionId, error: errorMessage })
+      this.sendStreamEvent(webContents, { type: 'error', error: errorMessage, sessionId })
       return { success: false, error: errorMessage }
     } finally {
-      this.abortController = null
+      // 从 Map 中移除该会话的 AbortController
+      this.abortControllers.delete(sessionId)
     }
   }
 
   /**
-   * 中止当前请求
+   * 中止请求
+   * @param sessionId 可选的会话标识。如果提供，只中止该会话的请求；否则中止所有请求
    */
-  stopRequest(): void {
-    if (this.abortController) {
-      logger.info('中止当前聊天请求', 'main')
-      this.abortController.abort()
-      this.abortController = null
+  stopRequest(sessionId?: string): void {
+    if (sessionId) {
+      // 中止特定会话的请求
+      const controller = this.abortControllers.get(sessionId)
+      if (controller) {
+        logger.info('中止会话聊天请求', 'main', { sessionId })
+        controller.abort()
+        this.abortControllers.delete(sessionId)
+      }
+    } else {
+      // 中止所有请求
+      if (this.abortControllers.size > 0) {
+        logger.info('中止所有聊天请求', 'main', { count: this.abortControllers.size })
+        this.abortControllers.forEach((controller) => controller.abort())
+        this.abortControllers.clear()
+      }
     }
   }
 

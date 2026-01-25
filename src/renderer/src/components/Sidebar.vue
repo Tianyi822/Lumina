@@ -1,35 +1,55 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import ChatList from './ChatList.vue'
 
-interface ChatItem {
-  id: string
+/**
+ * 会话列表项
+ */
+interface SessionListItem {
+  sessionId: string
   title: string
   lastMessage?: string
-  timestamp?: string
+  updatedAt: string
 }
+
+const props = defineProps<{
+  sessions: SessionListItem[]
+  activeSessionId?: string
+  sessionUpdateKey?: number
+}>()
 
 const emit = defineEmits<{
   (e: 'new-chat'): void
-  (e: 'select-chat', chatId: string): void
+  (e: 'select-chat', sessionId: string): void
+  (e: 'delete-session', sessionId: string): void
 }>()
 
 // 搜索关键词
 const searchQuery = ref('')
 
-// 示例对话数据（后续可接入实际数据）
-const chats = ref<ChatItem[]>([])
-
-// 当前激活的对话ID
-const activeChatId = ref<string | undefined>(undefined)
+// 过滤后的会话列表
+const filteredSessions = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return props.sessions
+  }
+  const query = searchQuery.value.toLowerCase()
+  return props.sessions.filter(
+    (session) =>
+      session.title.toLowerCase().includes(query) ||
+      (session.lastMessage && session.lastMessage.toLowerCase().includes(query))
+  )
+})
 
 function handleNewChat(): void {
   emit('new-chat')
 }
 
-function handleSelectChat(chatId: string): void {
-  activeChatId.value = chatId
-  emit('select-chat', chatId)
+function handleSelectChat(sessionId: string): void {
+  emit('select-chat', sessionId)
+}
+
+function handleDeleteSession(sessionId: string): void {
+  emit('delete-session', sessionId)
 }
 </script>
 
@@ -52,7 +72,12 @@ function handleSelectChat(chatId: string): void {
     </div>
 
     <!-- 对话列表 -->
-    <ChatList :chats="chats" :active-chat-id="activeChatId" @select="handleSelectChat" />
+    <ChatList
+      :sessions="filteredSessions"
+      :active-session-id="activeSessionId"
+      @select="handleSelectChat"
+      @delete="handleDeleteSession"
+    />
   </aside>
 </template>
 

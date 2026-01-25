@@ -54,6 +54,7 @@ interface ChatMessage {
 interface ChatRequest {
   messages: ChatMessage[]
   modelKey: string
+  sessionId: string
   enableThinking?: boolean
 }
 
@@ -80,6 +81,7 @@ interface TokenUsage {
  */
 interface StreamEvent {
   type: 'content' | 'reasoning' | 'done' | 'error'
+  sessionId?: string
   content?: string
   usage?: TokenUsage
   error?: string
@@ -90,8 +92,62 @@ interface StreamEvent {
  */
 interface ChatApi {
   send: (request: ChatRequest) => Promise<ChatResult>
-  stop: () => Promise<void>
+  stop: (sessionId?: string) => Promise<void>
   onStream: (callback: (event: StreamEvent) => void) => () => void
+}
+
+/**
+ * 会话消息
+ */
+interface SessionMessage {
+  id: string
+  role: 'system' | 'user' | 'assistant'
+  content: string
+  reasoning?: string
+  timestamp: string
+  modelName?: string
+  usage?: TokenUsage
+}
+
+/**
+ * 会话数据
+ */
+interface SessionData {
+  sessionId: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  messages: SessionMessage[]
+}
+
+/**
+ * 会话列表项
+ */
+interface SessionListItem {
+  sessionId: string
+  title: string
+  lastMessage?: string
+  updatedAt: string
+}
+
+/**
+ * 会话操作结果
+ */
+interface SessionResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * 会话 API
+ */
+interface SessionApi {
+  create: (title?: string) => Promise<SessionData>
+  save: (data: SessionData) => Promise<SessionResult>
+  load: (sessionId: string) => Promise<SessionData | null>
+  list: () => Promise<SessionListItem[]>
+  delete: (sessionId: string) => Promise<SessionResult>
+  rename: (sessionId: string, newTitle: string) => Promise<SessionResult>
 }
 
 /**
@@ -145,6 +201,7 @@ interface CustomApi {
   config: ConfigApi
   logger: LoggerApi
   chat: ChatApi
+  session: SessionApi
 }
 
 declare global {
