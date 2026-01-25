@@ -1,5 +1,6 @@
 import { registerConfigHandlers } from './handlers/configHandlers'
 import { registerLoggerHandlers } from './handlers/loggerHandlers'
+import { registerChatHandlers } from './handlers/chatHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -14,6 +15,6 @@ export function registerAllIpcHandlers(): void {
   // 注册日志相关处理程序
   registerLoggerHandlers()
 
-  // 后续可以在这里添加其他模块的 IPC 处理程序
-  // registerXxxHandlers()
+  // 注册聊天相关处理程序
+  registerChatHandlers()
 }

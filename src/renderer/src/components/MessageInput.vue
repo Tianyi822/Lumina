@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, inject, watch, type Ref } from 'vue'
+import { ref, computed, onMounted, inject, watch, type Ref } from 'vue'
 
 interface LLMConfig {
   base_url: string
@@ -18,8 +18,13 @@ interface AppConfig {
   default_model: string
 }
 
+const props = defineProps<{
+  isSending?: boolean
+}>()
+
 const emit = defineEmits<{
-  (e: 'send', message: string): void
+  (e: 'send', message: string, model: string, enableThinking: boolean): void
+  (e: 'stop'): void
 }>()
 
 // 输入内容
@@ -31,6 +36,9 @@ const selectedModel = ref('')
 // 压缩比例
 const compressionRatio = ref(0)
 
+// 是否启用思考模式
+const enableThinking = ref(false)
+
 // 从配置中加载的模型选项
 const modelOptions = ref<string[]>([])
 
@@ -39,6 +47,14 @@ const showModelDropdown = ref(false)
 
 // 注入配置更新标志
 const configUpdateKey = inject<Ref<number>>('configUpdateKey', ref(0))
+
+/**
+ * 检查当前模型是否支持思考模式
+ */
+const supportsThinking = computed(() => {
+  const model = selectedModel.value.toLowerCase()
+  return model.includes('deepseek') || model.includes('reasoner')
+})
 
 // 加载已配置的模型列表
 async function loadConfiguredModels(): Promise<void> {
@@ -72,15 +88,26 @@ watch(configUpdateKey, () => {
   loadConfiguredModels()
 })
 
+// 当模型变化时，如果不支持思考模式，关闭思考模式
+watch(selectedModel, () => {
+  if (!supportsThinking.value) {
+    enableThinking.value = false
+  }
+})
+
 onMounted(() => {
   loadConfiguredModels()
 })
 
 function handleSend(): void {
-  if (inputMessage.value.trim()) {
-    emit('send', inputMessage.value.trim())
+  if (inputMessage.value.trim() && !props.isSending) {
+    emit('send', inputMessage.value.trim(), selectedModel.value, enableThinking.value)
     inputMessage.value = ''
   }
+}
+
+function handleStop(): void {
+  emit('stop')
 }
 
 function handleKeydown(event: KeyboardEvent): void {
@@ -95,7 +122,15 @@ function selectModel(model: string): void {
 }
 
 function toggleModelDropdown(): void {
-  showModelDropdown.value = !showModelDropdown.value
+  if (!props.isSending) {
+    showModelDropdown.value = !showModelDropdown.value
+  }
+}
+
+function toggleThinking(): void {
+  if (supportsThinking.value && !props.isSending) {
+    enableThinking.value = !enableThinking.value
+  }
 }
 </script>
 
@@ -107,13 +142,14 @@ function toggleModelDropdown(): void {
         class="input message-textarea"
         placeholder="输入命令或消息 ..."
         rows="3"
+        :disabled="isSending"
         @keydown="handleKeydown"
       ></textarea>
     </div>
     <div class="input-actions">
       <!-- 模型选择器 -->
       <div class="model-selector">
-        <button class="btn model-btn" @click="toggleModelDropdown">
+        <button class="btn model-btn" :disabled="isSending" @click="toggleModelDropdown">
           <span class="model-icon">&#128187;</span>
           <span>{{ selectedModel || '选择模型' }}</span>
           <span class="dropdown-arrow">&#9662;</span>
@@ -132,16 +168,32 @@ function toggleModelDropdown(): void {
         </div>
       </div>
 
+      <!-- 思考模式开关 -->
+      <button
+        v-if="supportsThinking"
+        class="btn thinking-btn"
+        :class="{ active: enableThinking }"
+        :disabled="isSending"
+        title="启用思考模式（DeepSeek）"
+        @click="toggleThinking"
+      >
+        <span class="thinking-icon">&#129504;</span>
+        <span>思考</span>
+      </button>
+
       <!-- 压缩比例 -->
       <div class="compression-info">
         <span class="compression-icon">↓</span>
         <span>压缩 ({{ compressionRatio }}%)</span>
       </div>
 
-      <!-- 执行按钮 -->
-      <button class="btn-primary execute-btn" @click="handleSend">
+      <!-- 执行/停止按钮 -->
+      <button v-if="!isSending" class="btn-primary execute-btn" @click="handleSend">
         <span>执行</span>
         <span class="shortcut-hint">⌘↵</span>
+      </button>
+      <button v-else class="btn-danger stop-btn" @click="handleStop">
+        <span>停止</span>
       </button>
     </div>
   </div>
@@ -166,6 +218,11 @@ function toggleModelDropdown(): void {
   line-height: 1.5;
 }
 
+.message-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .input-actions {
   display: flex;
   align-items: center;
@@ -180,6 +237,11 @@ function toggleModelDropdown(): void {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.model-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .model-icon {
@@ -231,6 +293,31 @@ function toggleModelDropdown(): void {
   background-color: transparent;
 }
 
+/* 思考模式按钮 */
+.thinking-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.thinking-btn.active {
+  background-color: var(--theme-accent);
+  color: var(--theme-bg);
+  border-color: var(--theme-accent);
+}
+
+.thinking-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.thinking-icon {
+  font-size: 14px;
+}
+
 .compression-info {
   display: flex;
   align-items: center;
@@ -248,6 +335,20 @@ function toggleModelDropdown(): void {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.stop-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--theme-danger, #f85149);
+  border-color: var(--theme-danger, #f85149);
+  color: white;
+}
+
+.stop-btn:hover {
+  opacity: 0.9;
 }
 
 .shortcut-hint {

@@ -40,6 +40,61 @@ interface ConfigApi {
 }
 
 /**
+ * 聊天消息
+ */
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+  reasoning_content?: string
+}
+
+/**
+ * 聊天请求
+ */
+interface ChatRequest {
+  messages: ChatMessage[]
+  modelKey: string
+  enableThinking?: boolean
+}
+
+/**
+ * 聊天结果
+ */
+interface ChatResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * Token 使用统计
+ */
+interface TokenUsage {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  reasoning_tokens?: number
+}
+
+/**
+ * 流式事件
+ */
+interface StreamEvent {
+  type: 'content' | 'reasoning' | 'done' | 'error'
+  content?: string
+  usage?: TokenUsage
+  error?: string
+}
+
+/**
+ * 聊天 API
+ */
+interface ChatApi {
+  send: (request: ChatRequest) => Promise<ChatResult>
+  stop: () => Promise<void>
+  onStream: (callback: (event: StreamEvent) => void) => () => void
+}
+
+/**
  * 日志级别
  */
 interface LogLevelEnum {
@@ -89,6 +144,7 @@ interface LoggerApi {
 interface CustomApi {
   config: ConfigApi
   logger: LoggerApi
+  chat: ChatApi
 }
 
 declare global {

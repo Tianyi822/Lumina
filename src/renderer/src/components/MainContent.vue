@@ -1,24 +1,51 @@
 <script setup lang="ts">
-import { ref, provide } from 'vue'
+import MarkdownIt from 'markdown-it'
+import { provide, ref } from 'vue'
 import MessageInput from './MessageInput.vue'
 import SettingsModal from './SettingsModal.vue'
 
+// 初始化 markdown-it 实例
+const md = new MarkdownIt({
+  html: false, // 禁用 HTML 标签
+  breaks: true, // 将换行符转换为 <br>
+  linkify: true, // 自动将 URL 转换为链接
+  typographer: true // 启用排版优化
+})
+
+/**
+ * Token 使用统计
+ */
+interface TokenUsage {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  reasoning_tokens?: number
+}
+
+/**
+ * 消息接口
+ */
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
+  reasoning?: string
+  isStreaming?: boolean
+  usage?: TokenUsage
   timestamp?: string
 }
 
-defineProps<{
+const props = defineProps<{
   sidebarCollapsed: boolean
   currentChatId?: string
   messages?: Message[]
+  isSending?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'toggle-sidebar'): void
-  (e: 'send-message', message: string): void
+  (e: 'send-message', message: string, model: string, enableThinking: boolean): void
+  (e: 'stop-request'): void
 }>()
 
 // 设置弹窗显示状态
@@ -27,15 +54,30 @@ const showSettings = ref(false)
 // 配置更新标志，用于触发子组件刷新
 const configUpdateKey = ref(0)
 
+// 展开的思考内容消息ID集合
+const expandedReasoningIds = ref<Set<string>>(new Set())
+
 // 提供配置更新标志给子组件
 provide('configUpdateKey', configUpdateKey)
+
+/**
+ * 渲染 Markdown 内容
+ */
+function renderMarkdown(content: string): string {
+  if (!content) return ''
+  return md.render(content)
+}
 
 function handleToggleSidebar(): void {
   emit('toggle-sidebar')
 }
 
-function handleSendMessage(message: string): void {
-  emit('send-message', message)
+function handleSendMessage(message: string, model: string, enableThinking: boolean): void {
+  emit('send-message', message, model, enableThinking)
+}
+
+function handleStopRequest(): void {
+  emit('stop-request')
 }
 
 function openSettings(): void {
@@ -50,17 +92,42 @@ function handleConfigUpdated(): void {
   // 触发子组件刷新配置
   configUpdateKey.value++
 }
+
+/**
+ * 切换思考内容展开/折叠
+ */
+function toggleReasoning(msgId: string): void {
+  if (expandedReasoningIds.value.has(msgId)) {
+    expandedReasoningIds.value.delete(msgId)
+  } else {
+    expandedReasoningIds.value.add(msgId)
+  }
+}
+
+/**
+ * 检查消息思考内容是否展开
+ */
+function isReasoningExpanded(msgId: string): boolean {
+  return expandedReasoningIds.value.has(msgId)
+}
+
+/**
+ * 格式化 Token 统计
+ */
+function formatTokenUsage(usage: TokenUsage): string {
+  let result = `输入: ${usage.prompt_tokens} | 输出: ${usage.completion_tokens} | 总计: ${usage.total_tokens}`
+  if (usage.reasoning_tokens) {
+    result += ` | 思考: ${usage.reasoning_tokens}`
+  }
+  return result
+}
 </script>
 
 <template>
   <main class="main-content">
     <!-- 顶部工具栏 -->
     <div class="content-header">
-      <button
-        class="btn toggle-sidebar-btn"
-        :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-        @click="handleToggleSidebar"
-      >
+      <button class="btn toggle-sidebar-btn" :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'" @click="handleToggleSidebar">
         <span class="toggle-icon">{{ sidebarCollapsed ? '»' : '«' }}</span>
       </button>
       <div class="header-spacer"></div>
@@ -70,11 +137,7 @@ function handleConfigUpdated(): void {
     </div>
 
     <!-- 设置弹窗 -->
-    <SettingsModal
-      v-if="showSettings"
-      @close="closeSettings"
-      @config-updated="handleConfigUpdated"
-    />
+    <SettingsModal v-if="showSettings" @close="closeSettings" @config-updated="handleConfigUpdated" />
 
     <!-- 消息区域 -->
     <div class="messages-area">
@@ -86,11 +149,34 @@ function handleConfigUpdated(): void {
       <!-- 消息列表 -->
       <div v-else class="messages-list">
         <div v-for="msg in messages" :key="msg.id" class="message" :class="msg.role">
-          <div class="message-content">
-            <span v-if="msg.role === 'user'" class="terminal-prompt">{{ msg.content }}</span>
-            <span v-else class="output">{{ msg.content }}</span>
+          <!-- 思考内容（可折叠） -->
+          <div v-if="msg.reasoning" class="reasoning-section">
+            <button class="reasoning-toggle" @click="toggleReasoning(msg.id)">
+              <span class="reasoning-icon">{{ isReasoningExpanded(msg.id) ? '▼' : '▶' }}</span>
+              <span class="reasoning-label">思考过程</span>
+            </button>
+            <div v-if="isReasoningExpanded(msg.id)" class="reasoning-content">
+              <div class="markdown-body" v-html="renderMarkdown(msg.reasoning)"></div>
+            </div>
+          </div>
+
+          <!-- 消息内容 -->
+          <div class="message-content" :class="{ streaming: msg.isStreaming }">
+            <!-- 用户消息：纯文本显示 -->
+            <span v-if="msg.role === 'user'" class="user-message">{{ msg.content }}</span>
+            <!-- 助手消息：Markdown 渲染 -->
+            <div v-else class="assistant-message">
+              <div class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
+              <span v-if="msg.isStreaming" class="streaming-cursor">▊</span>
+            </div>
+          </div>
+
+          <!-- Token 统计 -->
+          <div v-if="msg.usage && !msg.isStreaming" class="token-usage">
+            {{ formatTokenUsage(msg.usage) }}
           </div>
         </div>
+
         <div v-if="!messages || messages.length === 0" class="empty-chat">
           <div class="command-line">
             <span class="terminal-prompt">开始新对话</span>
@@ -101,7 +187,7 @@ function handleConfigUpdated(): void {
     </div>
 
     <!-- 输入区域 -->
-    <MessageInput @send="handleSendMessage" />
+    <MessageInput :is-sending="props.isSending" @send="handleSendMessage" @stop="handleStopRequest" />
   </main>
 </template>
 
@@ -181,6 +267,48 @@ function handleConfigUpdated(): void {
   align-self: flex-start;
 }
 
+/* 思考内容样式 */
+.reasoning-section {
+  margin-bottom: 8px;
+}
+
+.reasoning-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--theme-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.reasoning-toggle:hover {
+  background-color: var(--theme-bg-hover);
+}
+
+.reasoning-icon {
+  font-size: 10px;
+}
+
+.reasoning-label {
+  font-weight: 500;
+}
+
+.reasoning-content {
+  margin-top: 8px;
+  padding: 12px;
+  background-color: var(--theme-bg-hover);
+  border: 1px dashed var(--theme-border);
+  border-radius: var(--theme-radius);
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+  overflow-x: auto;
+}
+
 .message-content {
   padding: 12px 16px;
   background-color: var(--theme-bg-secondary);
@@ -190,9 +318,53 @@ function handleConfigUpdated(): void {
   line-height: 1.6;
 }
 
+.message-content.streaming {
+  border-color: var(--theme-accent);
+}
+
 .message.user .message-content {
   background-color: var(--theme-bg-hover);
   border-color: var(--theme-accent);
+}
+
+.user-message {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.assistant-message {
+  position: relative;
+}
+
+/* 流式输出光标 */
+.streaming-cursor {
+  display: inline-block;
+  animation: blink 1s step-end infinite;
+  color: var(--theme-accent);
+  margin-left: 2px;
+}
+
+@keyframes blink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Token 统计样式 */
+.token-usage {
+  margin-top: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--theme-text-secondary);
+  background-color: var(--theme-bg-hover);
+  border-radius: 4px;
+  display: inline-block;
 }
 
 .empty-chat {
@@ -206,5 +378,143 @@ function handleConfigUpdated(): void {
 .command-line {
   display: flex;
   align-items: center;
+}
+
+/* Markdown 内容样式 */
+.markdown-body {
+  color: var(--theme-text);
+  word-break: break-word;
+}
+
+.markdown-body :deep(p) {
+  margin: 0 0 0.75em 0;
+}
+
+.markdown-body :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3),
+.markdown-body :deep(h4),
+.markdown-body :deep(h5),
+.markdown-body :deep(h6) {
+  margin: 1em 0 0.5em 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.markdown-body :deep(h1:first-child),
+.markdown-body :deep(h2:first-child),
+.markdown-body :deep(h3:first-child),
+.markdown-body :deep(h4:first-child),
+.markdown-body :deep(h5:first-child),
+.markdown-body :deep(h6:first-child) {
+  margin-top: 0;
+}
+
+.markdown-body :deep(h1) {
+  font-size: 1.5em;
+}
+
+.markdown-body :deep(h2) {
+  font-size: 1.3em;
+}
+
+.markdown-body :deep(h3) {
+  font-size: 1.15em;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.markdown-body :deep(li) {
+  margin: 0.25em 0;
+}
+
+.markdown-body :deep(code) {
+  background-color: var(--theme-bg-hover);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.markdown-body :deep(pre) {
+  background-color: var(--theme-bg-hover);
+  padding: 12px 16px;
+  border-radius: var(--theme-radius);
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+
+.markdown-body :deep(pre code) {
+  background: none;
+  padding: 0;
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+
+.markdown-body :deep(blockquote) {
+  margin: 0.75em 0;
+  padding: 0.5em 1em;
+  border-left: 3px solid var(--theme-accent);
+  background-color: var(--theme-bg-hover);
+  color: var(--theme-text-secondary);
+}
+
+.markdown-body :deep(blockquote p) {
+  margin: 0;
+}
+
+.markdown-body :deep(a) {
+  color: var(--theme-accent);
+  text-decoration: none;
+}
+
+.markdown-body :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.markdown-body :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75em 0;
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  border: 1px solid var(--theme-border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.markdown-body :deep(th) {
+  background-color: var(--theme-bg-hover);
+  font-weight: 600;
+}
+
+.markdown-body :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--theme-border);
+  margin: 1em 0;
+}
+
+.markdown-body :deep(strong) {
+  font-weight: 600;
+}
+
+.markdown-body :deep(em) {
+  font-style: italic;
+}
+
+.markdown-body :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--theme-radius);
 }
 </style>

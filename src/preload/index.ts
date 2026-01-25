@@ -102,6 +102,85 @@ const loggerApi = {
 }
 
 /**
+ * 聊天消息类型
+ */
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+  reasoning_content?: string
+}
+
+/**
+ * 聊天请求类型
+ */
+interface ChatRequest {
+  messages: ChatMessage[]
+  modelKey: string
+  enableThinking?: boolean
+}
+
+/**
+ * 聊天结果类型
+ */
+interface ChatResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * Token 使用统计
+ */
+interface TokenUsage {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  reasoning_tokens?: number
+}
+
+/**
+ * 流式事件类型
+ */
+interface StreamEvent {
+  type: 'content' | 'reasoning' | 'done' | 'error'
+  content?: string
+  usage?: TokenUsage
+  error?: string
+}
+
+/**
+ * 聊天相关的 API
+ */
+const chatApi = {
+  /**
+   * 发送聊天消息
+   */
+  send: (request: ChatRequest): Promise<ChatResult> => {
+    return ipcRenderer.invoke('chat:send', request)
+  },
+
+  /**
+   * 中止当前请求
+   */
+  stop: (): Promise<void> => {
+    return ipcRenderer.invoke('chat:stop')
+  },
+
+  /**
+   * 监听流式响应
+   * @returns 取消监听的函数
+   */
+  onStream: (callback: (event: StreamEvent) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: StreamEvent): void => {
+      callback(data)
+    }
+    ipcRenderer.on('chat:stream', listener)
+    return () => {
+      ipcRenderer.removeListener('chat:stream', listener)
+    }
+  }
+}
+
+/**
  * 配置相关的 API
  */
 const configApi = {
@@ -160,7 +239,8 @@ const configApi = {
 // 自定义渲染器 API
 const api = {
   config: configApi,
-  logger: loggerApi
+  logger: loggerApi,
+  chat: chatApi
 }
 
 // 使用 `contextBridge` API 向渲染器暴露 Electron API
