@@ -1,10 +1,28 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import Sidebar from './components/Sidebar.vue'
+import MainContent from './components/MainContent.vue'
+
+interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp?: string
+}
 
 // 配置加载错误信息
 const configError = ref<string | null>(null)
 // 是否显示错误提示
 const showError = ref(false)
+
+// 侧边栏是否折叠
+const sidebarCollapsed = ref(false)
+
+// 当前对话ID
+const currentChatId = ref<string | undefined>(undefined)
+
+// 当前对话的消息列表
+const messages = ref<Message[]>([])
 
 /**
  * 加载配置状态
@@ -32,6 +50,62 @@ function dismissError(): void {
   showError.value = false
 }
 
+/**
+ * 切换侧边栏折叠状态
+ */
+function toggleSidebar(): void {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
+/**
+ * 创建新对话
+ */
+function handleNewChat(): void {
+  const newChatId = `chat-${Date.now()}`
+  currentChatId.value = newChatId
+  messages.value = []
+}
+
+/**
+ * 选择对话
+ */
+function handleSelectChat(chatId: string): void {
+  currentChatId.value = chatId
+  // TODO: 加载对应对话的消息
+  messages.value = []
+}
+
+/**
+ * 发送消息
+ */
+function handleSendMessage(content: string): void {
+  // 如果没有当前对话，先创建一个
+  if (!currentChatId.value) {
+    handleNewChat()
+  }
+
+  // 添加用户消息
+  const userMessage: Message = {
+    id: `msg-${Date.now()}`,
+    role: 'user',
+    content,
+    timestamp: new Date().toISOString()
+  }
+  messages.value.push(userMessage)
+
+  // TODO: 实际发送到后端并获取响应
+  // 这里模拟一个助手响应
+  setTimeout(() => {
+    const assistantMessage: Message = {
+      id: `msg-${Date.now()}`,
+      role: 'assistant',
+      content: `收到命令: ${content}`,
+      timestamp: new Date().toISOString()
+    }
+    messages.value.push(assistantMessage)
+  }, 500)
+}
+
 onMounted(() => {
   loadConfigStatus()
 })
@@ -48,8 +122,23 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="main-content">
-      <h1>麻雀手稿</h1>
+    <!-- 主布局 -->
+    <div class="app-layout">
+      <!-- 侧边栏 -->
+      <Sidebar
+        v-show="!sidebarCollapsed"
+        @new-chat="handleNewChat"
+        @select-chat="handleSelectChat"
+      />
+
+      <!-- 主内容区 -->
+      <MainContent
+        :sidebar-collapsed="sidebarCollapsed"
+        :current-chat-id="currentChatId"
+        :messages="messages"
+        @toggle-sidebar="toggleSidebar"
+        @send-message="handleSendMessage"
+      />
     </div>
   </div>
 </template>
@@ -60,12 +149,15 @@ onMounted(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  font-family: var(--theme-font);
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
 }
 
 /* 错误提示样式 */
 .error-banner {
-  background-color: #fef2f2;
-  border-bottom: 1px solid #fecaca;
+  background-color: rgba(248, 81, 73, 0.1);
+  border-bottom: 1px solid var(--theme-danger);
   padding: 12px 16px;
   flex-shrink: 0;
 }
@@ -85,7 +177,7 @@ onMounted(() => {
 
 .error-message {
   flex: 1;
-  color: #991b1b;
+  color: var(--theme-danger);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -94,23 +186,23 @@ onMounted(() => {
   background: none;
   border: none;
   font-size: 20px;
-  color: #991b1b;
+  color: var(--theme-danger);
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
   opacity: 0.7;
   transition: opacity 0.2s;
+  font-family: var(--theme-font);
 }
 
 .error-dismiss:hover {
   opacity: 1;
 }
 
-.main-content {
+/* 主布局 */
+.app-layout {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
 }
 </style>

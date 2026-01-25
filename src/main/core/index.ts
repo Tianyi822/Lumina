@@ -1,2 +1,2 @@
 export { initializeApp } from './app'
-export { createMainWindow, getMainWindow } from './window'
+export { createMainWindow, getMainWindow, updateThemeColors, getThemeColors } from './window'

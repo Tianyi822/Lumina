@@ -1,7 +1,9 @@
-import { BrowserWindow, shell } from 'electron'
+import { BrowserWindow, shell, nativeTheme } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
+import { DEFAULT_THEME_COLORS } from '../services/config/ConfigManager'
+import type { ThemeColors } from '../types/config'
 
 /**
  * 主窗口实例
@@ -9,14 +11,26 @@ import icon from '../../../resources/icon.png?asset'
 let mainWindow: BrowserWindow | null = null
 
 /**
+ * 当前主题颜色
+ */
+let currentThemeColors: ThemeColors = DEFAULT_THEME_COLORS
+
+/**
  * 创建主窗口
  */
 export function createMainWindow(): BrowserWindow {
+  // 设置为深色模式，与终端主题一致
+  nativeTheme.themeSource = 'dark'
+
   mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
     autoHideMenuBar: true,
+    // 使用默认标题栏样式，不让内容延伸到标题栏
+    titleBarStyle: 'default',
+    // 设置窗口背景色，与主题一致
+    backgroundColor: currentThemeColors.background,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -49,4 +63,22 @@ export function createMainWindow(): BrowserWindow {
  */
 export function getMainWindow(): BrowserWindow | null {
   return mainWindow
+}
+
+/**
+ * 更新主题颜色
+ * 当配置加载后调用此函数更新窗口背景色
+ */
+export function updateThemeColors(colors: ThemeColors): void {
+  currentThemeColors = colors
+  if (mainWindow) {
+    mainWindow.setBackgroundColor(colors.background)
+  }
+}
+
+/**
+ * 获取当前主题颜色
+ */
+export function getThemeColors(): ThemeColors {
+  return currentThemeColors
 }

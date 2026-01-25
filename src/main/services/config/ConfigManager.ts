@@ -4,13 +4,26 @@ import { getConfigDirPath, getConfigFilePath } from './configPaths'
 import { logger } from '@main/services/logger'
 
 /**
+ * 默认终端主题颜色
+ */
+export const DEFAULT_THEME_COLORS = {
+  background: '#0d1117',
+  backgroundSecondary: '#161b22',
+  text: '#c9d1d9',
+  textSecondary: '#8b949e',
+  accent: '#3fb950',
+  border: '#30363d'
+}
+
+/**
  * 创建空的基础配置结构
  * 包含所有必要的字段，但值为空或默认值
  */
 function createEmptyConfig(): AppConfig {
   return {
     theme: {
-      name: ''
+      name: 'terminal',
+      colors: DEFAULT_THEME_COLORS
     },
     llm_configs: {},
     default_model: '',

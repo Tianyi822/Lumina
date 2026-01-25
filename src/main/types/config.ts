@@ -17,10 +17,31 @@ export interface LLMConfigs {
 }
 
 /**
+ * 主题颜色配置
+ */
+export interface ThemeColors {
+  /** 主背景色 */
+  background: string
+  /** 次级背景色 */
+  backgroundSecondary: string
+  /** 主文字颜色 */
+  text: string
+  /** 次级文字颜色 */
+  textSecondary: string
+  /** 强调色 */
+  accent: string
+  /** 边框颜色 */
+  border: string
+}
+
+/**
  * 主题配置
  */
 export interface ThemeConfig {
+  /** 主题名称 */
   name: string
+  /** 主题颜色 */
+  colors?: ThemeColors
 }
 
 /**
