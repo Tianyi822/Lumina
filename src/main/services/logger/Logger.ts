@@ -8,12 +8,7 @@ import {
   LoggerConfig,
   LogResult
 } from '@main/types/logger'
-import {
-  getLogDirPath,
-  getLogFilePath,
-  formatDateForFilename,
-  isLogPathSafe
-} from './loggerPaths'
+import { getLogDirPath, getLogFilePath, formatDateForFilename, isLogPathSafe } from './loggerPaths'
 
 /**
  * 最大日志消息长度（10KB）

@@ -17,23 +17,16 @@ export function registerLoggerHandlers(): void {
    * 通用日志记录接口
    * 用于前端发送任意级别的日志
    */
-  ipcMain.handle(
-    'logger:log',
-    async (_event, request: LogRequest): Promise<LogResult> => {
-      return await logger.log(request.level, request.message, 'renderer', request.context)
-    }
-  )
+  ipcMain.handle('logger:log', async (_event, request: LogRequest): Promise<LogResult> => {
+    return await logger.log(request.level, request.message, 'renderer', request.context)
+  })
 
   /**
    * DEBUG 级别日志
    */
   ipcMain.handle(
     'logger:debug',
-    async (
-      _event,
-      message: string,
-      context?: Record<string, unknown>
-    ): Promise<LogResult> => {
+    async (_event, message: string, context?: Record<string, unknown>): Promise<LogResult> => {
       return await logger.log(LogLevel.DEBUG, message, 'renderer', context)
     }
   )
@@ -43,11 +36,7 @@ export function registerLoggerHandlers(): void {
    */
   ipcMain.handle(
     'logger:info',
-    async (
-      _event,
-      message: string,
-      context?: Record<string, unknown>
-    ): Promise<LogResult> => {
+    async (_event, message: string, context?: Record<string, unknown>): Promise<LogResult> => {
       return await logger.log(LogLevel.INFO, message, 'renderer', context)
     }
   )
@@ -57,11 +46,7 @@ export function registerLoggerHandlers(): void {
    */
   ipcMain.handle(
     'logger:warn',
-    async (
-      _event,
-      message: string,
-      context?: Record<string, unknown>
-    ): Promise<LogResult> => {
+    async (_event, message: string, context?: Record<string, unknown>): Promise<LogResult> => {
       return await logger.log(LogLevel.WARN, message, 'renderer', context)
     }
   )
@@ -71,11 +56,7 @@ export function registerLoggerHandlers(): void {
    */
   ipcMain.handle(
     'logger:error',
-    async (
-      _event,
-      message: string,
-      context?: Record<string, unknown>
-    ): Promise<LogResult> => {
+    async (_event, message: string, context?: Record<string, unknown>): Promise<LogResult> => {
       return await logger.log(LogLevel.ERROR, message, 'renderer', context)
     }
   )
@@ -85,11 +66,7 @@ export function registerLoggerHandlers(): void {
    */
   ipcMain.handle(
     'logger:fatal',
-    async (
-      _event,
-      message: string,
-      context?: Record<string, unknown>
-    ): Promise<LogResult> => {
+    async (_event, message: string, context?: Record<string, unknown>): Promise<LogResult> => {
       return await logger.log(LogLevel.FATAL, message, 'renderer', context)
     }
   )
