@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
-import { AppConfig, ConfigLoadResult } from '../../types/config'
+import { AppConfig, ConfigLoadResult } from '@main/types/config'
 import { getConfigDirPath, getConfigFilePath } from './configPaths'
+import { logger } from '@main/services/logger'
 
 /**
  * 创建空的基础配置结构
@@ -77,19 +78,19 @@ export class ConfigManager {
 
       // 检查配置文件是否存在，不存在则创建空配置
       if (!existsSync(configPath)) {
-        console.log('配置文件不存在，正在创建空配置文件...')
+        logger.info('配置文件不存在，正在创建空配置文件...')
         try {
           const emptyConfig = this.createEmptyConfigFile()
           this.config = emptyConfig
           this.loaded = true
-          console.log('空配置文件创建成功')
+          logger.info('空配置文件创建成功')
           return {
             success: true,
             config: emptyConfig
           }
         } catch (createError) {
           const errorMessage = `无法创建配置文件: ${createError instanceof Error ? createError.message : String(createError)}`
-          console.error(errorMessage)
+          logger.error(errorMessage)
           this.loaded = true
           this.loadError = errorMessage
           return {
@@ -104,14 +105,14 @@ export class ConfigManager {
       const config = this.readConfigFile()
       this.config = config
       this.loaded = true
-      console.log('配置加载成功')
+      logger.info('配置加载成功')
       return {
         success: true,
         config
       }
     } catch (error) {
       const errorMessage = `配置加载失败: ${error instanceof Error ? error.message : String(error)}`
-      console.error(errorMessage)
+      logger.error(errorMessage)
       this.loaded = true
       this.loadError = errorMessage
       return {
@@ -130,11 +131,11 @@ export class ConfigManager {
       this.writeConfigFile(config)
       this.config = config
       this.loadError = null
-      console.log('配置保存成功')
+      logger.info('配置保存成功')
       return { success: true }
     } catch (error) {
       const errorMessage = `配置保存失败: ${error instanceof Error ? error.message : String(error)}`
-      console.error(errorMessage)
+      logger.error(errorMessage)
       return { success: false, error: errorMessage }
     }
   }

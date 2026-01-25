@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
-import { configManager } from '../../services/config'
-import { AppConfig, ConfigLoadResult } from '../../types/config'
+import { configManager } from '@main/services/config'
+import { logger } from '@main/services/logger'
+import { AppConfig, ConfigLoadResult } from '@main/types/config'
 
 /**
  * 配置加载结果缓存
@@ -15,17 +16,18 @@ export function initializeConfig(): ConfigLoadResult {
   try {
     configLoadResult = configManager.initialize()
     if (configLoadResult.success) {
-      console.log('配置初始化成功')
+      logger.info('配置初始化成功')
     } else {
-      console.warn('配置初始化提示:', configLoadResult.error)
+      logger.warn('配置初始化提示', 'main', { error: configLoadResult.error })
     }
     return configLoadResult
   } catch (error) {
-    console.error('配置初始化时发生意外错误:', error)
+    const errorMessage = `配置初始化时发生意外错误: ${error instanceof Error ? error.message : String(error)}`
+    logger.error(errorMessage)
     configLoadResult = {
       success: false,
       config: null,
-      error: `配置初始化时发生意外错误: ${error instanceof Error ? error.message : String(error)}`
+      error: errorMessage
     }
     return configLoadResult
   }

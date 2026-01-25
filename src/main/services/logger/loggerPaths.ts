@@ -1,0 +1,50 @@
+import { app } from 'electron'
+import { join } from 'path'
+import { CONFIG_DIR_NAME } from '@main/services/config/configPaths'
+
+/**
+ * 日志目录名称
+ */
+export const LOGS_DIR_NAME = 'logs'
+
+/**
+ * 获取日志目录路径
+ * @returns ~/.sparrow-manus/logs/
+ */
+export function getLogDirPath(): string {
+  const homeDir = app.getPath('home')
+  return join(homeDir, CONFIG_DIR_NAME, LOGS_DIR_NAME)
+}
+
+/**
+ * 格式化日期为文件名格式
+ * @param date 日期对象，默认为当前日期
+ * @returns YYYY-MM-DD 格式的字符串
+ */
+export function formatDateForFilename(date: Date = new Date()): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
+ * 获取日志文件路径
+ * @param date 日期对象，默认为当前日期
+ * @returns ~/.sparrow-manus/logs/YYYY-MM-DD.log
+ */
+export function getLogFilePath(date: Date = new Date()): string {
+  const filename = `${formatDateForFilename(date)}.log`
+  return join(getLogDirPath(), filename)
+}
+
+/**
+ * 验证日志路径是否安全（防止路径遍历攻击）
+ * @param targetPath 目标路径
+ * @returns 是否安全
+ */
+export function isLogPathSafe(targetPath: string): boolean {
+  const logDir = getLogDirPath()
+  // 确保目标路径在日志目录下
+  return targetPath.startsWith(logDir)
+}

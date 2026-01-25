@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createMainWindow } from './window'
-import { registerAllIpcHandlers, initializeConfig } from '../ipc'
+import { registerAllIpcHandlers, initializeConfig, initializeLogger } from '@main/ipc'
 
 /**
  * 初始化应用
@@ -17,6 +17,9 @@ export function initializeApp(): void {
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)
     })
+
+    // 初始化日志系统（优先初始化，以便记录后续日志）
+    initializeLogger()
 
     // 初始化配置（即使失败也不阻止应用启动）
     initializeConfig()

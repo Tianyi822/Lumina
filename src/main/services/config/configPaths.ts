@@ -4,7 +4,7 @@ import { join } from 'path'
 /**
  * 配置目录名称
  */
-export const CONFIG_DIR_NAME = '.sparrow-maus'
+export const CONFIG_DIR_NAME = '.sparrow-manus'
 
 /**
  * 配置文件名称
