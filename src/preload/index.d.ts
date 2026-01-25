@@ -151,6 +151,121 @@ interface SessionApi {
 }
 
 /**
+ * MCP 传输类型
+ */
+type MCPTransportType = 'stdio' | 'sse' | 'streamableHttp'
+
+/**
+ * MCP 服务器配置
+ */
+interface MCPServerConfig {
+  name: string
+  transport: MCPTransportType
+  enabled: boolean
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  url?: string
+  headers?: Record<string, string>
+}
+
+/**
+ * MCP 工具定义
+ */
+interface MCPTool {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+  serverName: string
+}
+
+/**
+ * MCP 连接状态
+ */
+interface MCPConnectionStatus {
+  serverName: string
+  connected: boolean
+  error?: string
+  tools: MCPTool[]
+}
+
+/**
+ * MCP 连接结果
+ */
+interface MCPConnectResult {
+  success: boolean
+  serverName: string
+  tools?: MCPTool[]
+  error?: string
+}
+
+/**
+ * MCP 配置保存结果
+ */
+interface MCPConfigSaveResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * MCP 配置导入结果
+ */
+interface MCPConfigImportResult {
+  success: boolean
+  imported: number
+  errors: string[]
+}
+
+/**
+ * MCP 工具调用参数
+ */
+interface MCPToolCallParams {
+  serverName: string
+  toolName: string
+  args: Record<string, unknown>
+}
+
+/**
+ * MCP 工具调用结果
+ */
+interface MCPToolCallResult {
+  success: boolean
+  content?: unknown
+  error?: string
+}
+
+/**
+ * MCP 状态变更事件
+ */
+interface MCPStatusChangeEvent {
+  serverName: string
+  status: MCPConnectionStatus
+}
+
+/**
+ * MCP API
+ */
+interface MCPApi {
+  listConfigs: () => Promise<MCPServerConfig[]>
+  getConfig: (name: string) => Promise<MCPServerConfig | null>
+  saveConfig: (config: MCPServerConfig) => Promise<MCPConfigSaveResult>
+  deleteConfig: (name: string) => Promise<MCPConfigSaveResult>
+  importConfigs: (jsonContent: string) => Promise<MCPConfigImportResult>
+  connect: (name: string) => Promise<MCPConnectResult>
+  disconnect: (name: string) => Promise<{ success: boolean }>
+  reconnect: (name: string) => Promise<MCPConnectResult>
+  getStatus: (serverName?: string) => Promise<MCPConnectionStatus[]>
+  listTools: (serverName?: string) => Promise<MCPTool[]>
+  listToolsByServer: () => Promise<Record<string, MCPTool[]>>
+  callTool: (params: MCPToolCallParams) => Promise<MCPToolCallResult>
+  testConnection: (config: MCPServerConfig) => Promise<MCPConnectResult>
+  connectAll: () => Promise<MCPConnectResult[]>
+  disconnectAll: () => Promise<{ success: boolean }>
+  getConnectedServers: () => Promise<string[]>
+  onStatusChange: (callback: (event: MCPStatusChangeEvent) => void) => () => void
+}
+
+/**
  * 日志级别
  */
 interface LogLevelEnum {
@@ -202,6 +317,7 @@ interface CustomApi {
   logger: LoggerApi
   chat: ChatApi
   session: SessionApi
+  mcp: MCPApi
 }
 
 declare global {

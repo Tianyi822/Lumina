@@ -351,7 +351,10 @@ function handleStreamEvent(event: StreamEvent): void {
         }
         // 从缓存中移除（不保存错误状态）
         sessionMessagesCache.delete(effectiveSessionId)
-        window.api.logger.error('聊天错误（后台会话）', { error: event.error, sessionId: effectiveSessionId })
+        window.api.logger.error('聊天错误（后台会话）', {
+          error: event.error,
+          sessionId: effectiveSessionId
+        })
       }
       break
   }

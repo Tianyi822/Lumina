@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, inject, watch, type Ref } from 'vue'
+import MCPToolsPanel from './MCPToolsPanel.vue'
 
 interface LLMConfig {
   base_url: string
@@ -18,12 +19,19 @@ interface AppConfig {
   default_model: string
 }
 
+interface MCPTool {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+  serverName: string
+}
+
 const props = defineProps<{
   isSending?: boolean
 }>()
 
 const emit = defineEmits<{
-  (e: 'send', message: string, model: string): void
+  (e: 'send', message: string, model: string, selectedMCPTool?: MCPTool | null): void
   (e: 'stop'): void
 }>()
 
@@ -41,6 +49,9 @@ const modelOptions = ref<string[]>([])
 
 // 是否显示模型选择下拉
 const showModelDropdown = ref(false)
+
+// 当前选中的 MCP 工具
+const selectedMCPTool = ref<MCPTool | null>(null)
 
 // 注入配置更新标志
 const configUpdateKey = inject<Ref<number>>('configUpdateKey', ref(0))
@@ -83,9 +94,14 @@ onMounted(() => {
 
 function handleSend(): void {
   if (inputMessage.value.trim() && !props.isSending) {
-    emit('send', inputMessage.value.trim(), selectedModel.value)
+    emit('send', inputMessage.value.trim(), selectedModel.value, selectedMCPTool.value)
     inputMessage.value = ''
   }
+}
+
+// 处理 MCP 工具选择
+function handleMCPToolSelected(tool: MCPTool | null): void {
+  selectedMCPTool.value = tool
 }
 
 function handleStop(): void {
@@ -142,6 +158,9 @@ function toggleModelDropdown(): void {
           </div>
         </div>
       </div>
+
+      <!-- MCP 工具选择器 -->
+      <MCPToolsPanel @tool-selected="handleMCPToolSelected" />
 
       <!-- 压缩比例 -->
       <div class="compression-info">

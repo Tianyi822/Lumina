@@ -56,6 +56,9 @@ const showSettings = ref(false)
 // 配置更新标志，用于触发子组件刷新
 const configUpdateKey = ref(0)
 
+// MCP 更新标志，用于触发 MCP 相关组件刷新
+const mcpUpdateKey = ref(0)
+
 // 展开的思考内容消息ID集合
 const expandedReasoningIds = ref<Set<string>>(new Set())
 
@@ -70,6 +73,9 @@ const SCROLL_THRESHOLD = 100
 
 // 提供配置更新标志给子组件
 provide('configUpdateKey', configUpdateKey)
+
+// 提供 MCP 更新标志给子组件
+provide('mcpUpdateKey', mcpUpdateKey)
 
 /**
  * 检查是否滚动到底部附近
@@ -183,6 +189,11 @@ function handleConfigUpdated(): void {
   configUpdateKey.value++
 }
 
+function handleMCPUpdated(): void {
+  // 触发 MCP 相关组件刷新
+  mcpUpdateKey.value++
+}
+
 /**
  * 切换思考内容展开/折叠
  */
@@ -217,7 +228,11 @@ function formatTokenUsage(usage: TokenUsage): string {
   <main class="main-content">
     <!-- 顶部工具栏 -->
     <div class="content-header">
-      <button class="btn toggle-sidebar-btn" :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'" @click="handleToggleSidebar">
+      <button
+        class="btn toggle-sidebar-btn"
+        :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+        @click="handleToggleSidebar"
+      >
         <span class="toggle-icon">{{ sidebarCollapsed ? '»' : '«' }}</span>
       </button>
       <div class="header-spacer"></div>
@@ -227,7 +242,12 @@ function formatTokenUsage(usage: TokenUsage): string {
     </div>
 
     <!-- 设置弹窗 -->
-    <SettingsModal v-if="showSettings" @close="closeSettings" @config-updated="handleConfigUpdated" />
+    <SettingsModal
+      v-if="showSettings"
+      @close="closeSettings"
+      @config-updated="handleConfigUpdated"
+      @mcp-updated="handleMCPUpdated"
+    />
 
     <!-- 消息区域 -->
     <div ref="messagesAreaRef" class="messages-area" @scroll="handleScroll">
@@ -291,7 +311,11 @@ function formatTokenUsage(usage: TokenUsage): string {
     </div>
 
     <!-- 输入区域 -->
-    <MessageInput :is-sending="props.isSending" @send="handleSendMessage" @stop="handleStopRequest" />
+    <MessageInput
+      :is-sending="props.isSending"
+      @send="handleSendMessage"
+      @stop="handleStopRequest"
+    />
   </main>
 </template>
 
@@ -513,7 +537,6 @@ function formatTokenUsage(usage: TokenUsage): string {
 }
 
 @keyframes blink {
-
   0%,
   100% {
     opacity: 1;

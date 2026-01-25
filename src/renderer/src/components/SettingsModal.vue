@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, toRaw } from 'vue'
+import { ref, reactive, onMounted, toRaw, onUnmounted } from 'vue'
 
 interface LLMConfig {
   base_url: string
@@ -35,13 +35,35 @@ interface AppConfig {
   enable_auto_compression: boolean
 }
 
+// MCP 相关类型
+type MCPTransportType = 'stdio' | 'sse' | 'streamableHttp'
+
+interface MCPServerConfig {
+  name: string
+  transport: MCPTransportType
+  enabled: boolean
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  url?: string
+  headers?: Record<string, string>
+}
+
+interface MCPConnectionStatus {
+  serverName: string
+  connected: boolean
+  error?: string
+  tools: { name: string; description: string }[]
+}
+
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'config-updated'): void
+  (e: 'mcp-updated'): void
 }>()
 
 // 当前激活的 Tab
-const activeTab = ref<'theme' | 'model'>('model')
+const activeTab = ref<'theme' | 'model' | 'mcp'>('model')
 
 // 加载状态
 const loading = ref(false)
@@ -80,6 +102,32 @@ const newModelConfig = reactive<LLMConfig>({
 // 展开的模型配置项
 const expandedModels = ref<Set<string>>(new Set())
 
+// ==================== MCP 相关状态 ====================
+const mcpConfigs = ref<MCPServerConfig[]>([])
+const mcpStatuses = ref<MCPConnectionStatus[]>([])
+const expandedMCPServers = ref<Set<string>>(new Set())
+const showNewMCPForm = ref(false)
+const testingMCP = ref<string | null>(null)
+const connectingMCP = ref<string | null>(null)
+
+// 新 MCP 服务器表单
+const newMCPConfig = reactive<MCPServerConfig>({
+  name: '',
+  transport: 'stdio',
+  enabled: true,
+  command: '',
+  args: [],
+  env: {},
+  url: '',
+  headers: {}
+})
+const newMCPArgsText = ref('')
+const newMCPEnvText = ref('')
+const newMCPHeadersText = ref('')
+
+// MCP 状态变更监听器
+let mcpStatusUnsubscribe: (() => void) | null = null
+
 // 加载配置
 async function loadConfig(): Promise<void> {
   loading.value = true
@@ -101,10 +149,236 @@ async function loadConfig(): Promise<void> {
       }
       defaultModel.value = config.default_model || ''
     }
+    // 加载 MCP 配置
+    await loadMCPConfigs()
   } catch (error) {
     errorMessage.value = `加载配置失败: ${error instanceof Error ? error.message : String(error)}`
   } finally {
     loading.value = false
+  }
+}
+
+// ==================== MCP 相关方法 ====================
+
+// 加载 MCP 配置
+async function loadMCPConfigs(): Promise<void> {
+  try {
+    mcpConfigs.value = await window.api.mcp.listConfigs()
+    mcpStatuses.value = await window.api.mcp.getStatus()
+  } catch (error) {
+    console.error('加载 MCP 配置失败:', error)
+  }
+}
+
+// 获取 MCP 服务器连接状态
+function getMCPStatus(name: string): MCPConnectionStatus | undefined {
+  return mcpStatuses.value.find((s) => s.serverName === name)
+}
+
+// 切换 MCP 服务器展开状态
+function toggleMCPExpand(name: string): void {
+  if (expandedMCPServers.value.has(name)) {
+    expandedMCPServers.value.delete(name)
+  } else {
+    expandedMCPServers.value.add(name)
+  }
+}
+
+// 测试 MCP 连接
+async function testMCPConnection(config: MCPServerConfig): Promise<void> {
+  testingMCP.value = config.name
+  errorMessage.value = ''
+  try {
+    const result = await window.api.mcp.testConnection(config)
+    if (result.success) {
+      successMessage.value = `${config.name} 连接测试成功，发现 ${result.tools?.length || 0} 个工具`
+      setTimeout(() => {
+        successMessage.value = ''
+      }, 3000)
+    } else {
+      errorMessage.value = `连接测试失败: ${result.error}`
+    }
+  } catch (error) {
+    errorMessage.value = `测试失败: ${error instanceof Error ? error.message : String(error)}`
+  } finally {
+    testingMCP.value = null
+  }
+}
+
+// 连接 MCP 服务器
+async function connectMCP(name: string): Promise<void> {
+  connectingMCP.value = name
+  errorMessage.value = ''
+  try {
+    const result = await window.api.mcp.connect(name)
+    if (result.success) {
+      successMessage.value = `${name} 已连接`
+      await loadMCPConfigs()
+      emit('mcp-updated')
+      setTimeout(() => {
+        successMessage.value = ''
+      }, 2000)
+    } else {
+      errorMessage.value = `连接失败: ${result.error}`
+    }
+  } catch (error) {
+    errorMessage.value = `连接失败: ${error instanceof Error ? error.message : String(error)}`
+  } finally {
+    connectingMCP.value = null
+  }
+}
+
+// 断开 MCP 服务器
+async function disconnectMCP(name: string): Promise<void> {
+  try {
+    await window.api.mcp.disconnect(name)
+    await loadMCPConfigs()
+    emit('mcp-updated')
+  } catch (error) {
+    errorMessage.value = `断开失败: ${error instanceof Error ? error.message : String(error)}`
+  }
+}
+
+// 删除 MCP 配置
+async function deleteMCPConfig(name: string): Promise<void> {
+  try {
+    await window.api.mcp.deleteConfig(name)
+    await loadMCPConfigs()
+    expandedMCPServers.value.delete(name)
+    emit('mcp-updated')
+  } catch (error) {
+    errorMessage.value = `删除失败: ${error instanceof Error ? error.message : String(error)}`
+  }
+}
+
+// 保存 MCP 配置
+async function saveMCPConfig(config: MCPServerConfig): Promise<void> {
+  try {
+    const result = await window.api.mcp.saveConfig(config)
+    if (result.success) {
+      await loadMCPConfigs()
+      emit('mcp-updated')
+    } else {
+      errorMessage.value = `保存失败: ${result.error}`
+    }
+  } catch (error) {
+    errorMessage.value = `保存失败: ${error instanceof Error ? error.message : String(error)}`
+  }
+}
+
+// 添加新 MCP 配置
+async function addNewMCPConfig(): Promise<void> {
+  if (!newMCPConfig.name.trim()) {
+    errorMessage.value = '请输入服务器名称'
+    return
+  }
+
+  // 检查名称是否已存在
+  if (mcpConfigs.value.some((c) => c.name === newMCPConfig.name)) {
+    errorMessage.value = '该名称已存在'
+    return
+  }
+
+  // 验证配置
+  if (newMCPConfig.transport === 'stdio') {
+    if (!newMCPConfig.command?.trim()) {
+      errorMessage.value = '请输入执行命令'
+      return
+    }
+  } else {
+    if (!newMCPConfig.url?.trim()) {
+      errorMessage.value = '请输入服务地址'
+      return
+    }
+  }
+
+  // 解析参数
+  const config: MCPServerConfig = {
+    ...toRaw(newMCPConfig),
+    args: newMCPArgsText.value
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s),
+    env: parseKeyValueText(newMCPEnvText.value),
+    headers: parseKeyValueText(newMCPHeadersText.value)
+  }
+
+  try {
+    const result = await window.api.mcp.saveConfig(config)
+    if (result.success) {
+      await loadMCPConfigs()
+      resetNewMCPForm()
+      emit('mcp-updated')
+    } else {
+      errorMessage.value = `添加失败: ${result.error}`
+    }
+  } catch (error) {
+    errorMessage.value = `添加失败: ${error instanceof Error ? error.message : String(error)}`
+  }
+}
+
+// 解析键值对文本
+function parseKeyValueText(text: string): Record<string, string> {
+  const result: Record<string, string> = {}
+  const lines = text.split('\n').filter((line) => line.trim())
+  for (const line of lines) {
+    const [key, ...valueParts] = line.split('=')
+    if (key && valueParts.length > 0) {
+      result[key.trim()] = valueParts.join('=').trim()
+    }
+  }
+  return result
+}
+
+// 重置新 MCP 表单
+function resetNewMCPForm(): void {
+  showNewMCPForm.value = false
+  newMCPConfig.name = ''
+  newMCPConfig.transport = 'stdio'
+  newMCPConfig.enabled = true
+  newMCPConfig.command = ''
+  newMCPConfig.url = ''
+  newMCPArgsText.value = ''
+  newMCPEnvText.value = ''
+  newMCPHeadersText.value = ''
+}
+
+// 导入 MCP 配置
+async function importMCPConfigs(): Promise<void> {
+  // 创建文件输入元素
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.json'
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (!file) return
+
+    try {
+      const content = await file.text()
+      const result = await window.api.mcp.importConfigs(content)
+      if (result.success) {
+        successMessage.value = `成功导入 ${result.imported} 个配置`
+        await loadMCPConfigs()
+        emit('mcp-updated')
+        setTimeout(() => {
+          successMessage.value = ''
+        }, 3000)
+      } else {
+        errorMessage.value = `导入失败: ${result.errors.join(', ')}`
+      }
+    } catch (error) {
+      errorMessage.value = `导入失败: ${error instanceof Error ? error.message : String(error)}`
+    }
+  }
+  input.click()
+}
+
+// 切换 MCP 启用状态
+async function toggleMCPEnabled(config: MCPServerConfig): Promise<void> {
+  const updatedConfig = { ...config, enabled: !config.enabled }
+  await saveMCPConfig(updatedConfig)
+  if (!updatedConfig.enabled) {
+    await disconnectMCP(config.name)
   }
 }
 
@@ -223,6 +497,17 @@ function handleOverlayClick(event: MouseEvent): void {
 
 onMounted(() => {
   loadConfig()
+  // 监听 MCP 状态变更
+  mcpStatusUnsubscribe = window.api.mcp.onStatusChange(() => {
+    loadMCPConfigs()
+  })
+})
+
+onUnmounted(() => {
+  // 取消 MCP 状态监听
+  if (mcpStatusUnsubscribe) {
+    mcpStatusUnsubscribe()
+  }
 })
 </script>
 
@@ -245,6 +530,9 @@ onMounted(() => {
           @click="activeTab = 'model'"
         >
           模型配置
+        </button>
+        <button class="tab-btn" :class="{ active: activeTab === 'mcp' }" @click="activeTab = 'mcp'">
+          MCP 服务
         </button>
         <button
           class="tab-btn"
@@ -418,6 +706,281 @@ onMounted(() => {
             @click="showNewModelForm = true"
           >
             + 添加模型配置
+          </button>
+        </div>
+
+        <!-- MCP 配置 Tab -->
+        <div v-else-if="activeTab === 'mcp'" class="tab-content">
+          <!-- 操作按钮 -->
+          <div class="mcp-actions-bar">
+            <button class="btn btn-small" @click="importMCPConfigs">导入配置</button>
+          </div>
+
+          <!-- MCP 服务器列表 -->
+          <div class="model-list">
+            <div v-for="config in mcpConfigs" :key="config.name" class="model-item">
+              <div class="model-header" @click="toggleMCPExpand(config.name)">
+                <span class="expand-icon">{{
+                  expandedMCPServers.has(config.name) ? '▼' : '▶'
+                }}</span>
+                <span class="model-name">{{ config.name }}</span>
+                <!-- 连接状态指示器 -->
+                <span
+                  class="status-indicator"
+                  :class="{
+                    connected: getMCPStatus(config.name)?.connected,
+                    error: getMCPStatus(config.name)?.error
+                  }"
+                  :title="getMCPStatus(config.name)?.error || ''"
+                >
+                  {{ getMCPStatus(config.name)?.connected ? '已连接' : '未连接' }}
+                </span>
+                <span class="transport-badge">{{ config.transport }}</span>
+                <div class="model-actions">
+                  <button
+                    v-if="!getMCPStatus(config.name)?.connected"
+                    class="btn btn-small"
+                    :disabled="connectingMCP === config.name"
+                    @click.stop="connectMCP(config.name)"
+                  >
+                    {{ connectingMCP === config.name ? '连接中...' : '连接' }}
+                  </button>
+                  <button v-else class="btn btn-small" @click.stop="disconnectMCP(config.name)">
+                    断开
+                  </button>
+                  <button
+                    class="btn btn-small btn-danger-text"
+                    @click.stop="deleteMCPConfig(config.name)"
+                  >
+                    删除
+                  </button>
+                </div>
+              </div>
+
+              <!-- 展开的详情 -->
+              <div v-if="expandedMCPServers.has(config.name)" class="model-details">
+                <div class="form-group">
+                  <label>传输类型</label>
+                  <select v-model="config.transport" class="input" @change="saveMCPConfig(config)">
+                    <option value="stdio">stdio (本地进程)</option>
+                    <option value="sse">SSE (Server-Sent Events)</option>
+                    <option value="streamableHttp">Streamable HTTP</option>
+                  </select>
+                </div>
+
+                <!-- stdio 配置 -->
+                <template v-if="config.transport === 'stdio'">
+                  <div class="form-group">
+                    <label>执行命令</label>
+                    <input
+                      v-model="config.command"
+                      type="text"
+                      class="input"
+                      placeholder="例如: npx, node, python"
+                      @blur="saveMCPConfig(config)"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>命令参数 (每行一个)</label>
+                    <textarea
+                      :value="config.args?.join('\n') || ''"
+                      class="input textarea-small"
+                      placeholder="-y&#10;@modelcontextprotocol/server-xxx"
+                      @blur="
+                        (e) => {
+                          config.args = (e.target as HTMLTextAreaElement).value
+                            .split('\n')
+                            .filter((s) => s.trim())
+                          saveMCPConfig(config)
+                        }
+                      "
+                    ></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>环境变量 (KEY=VALUE 格式，每行一个)</label>
+                    <textarea
+                      :value="
+                        Object.entries(config.env || {})
+                          .map(([k, v]) => `${k}=${v}`)
+                          .join('\n')
+                      "
+                      class="input textarea-small"
+                      placeholder="API_KEY=xxx"
+                      @blur="
+                        (e) => {
+                          config.env = parseKeyValueText((e.target as HTMLTextAreaElement).value)
+                          saveMCPConfig(config)
+                        }
+                      "
+                    ></textarea>
+                  </div>
+                </template>
+
+                <!-- HTTP/SSE 配置 -->
+                <template v-else>
+                  <div class="form-group">
+                    <label>服务地址</label>
+                    <input
+                      v-model="config.url"
+                      type="text"
+                      class="input"
+                      placeholder="https://example.com/mcp"
+                      @blur="saveMCPConfig(config)"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>认证头 (KEY=VALUE 格式，每行一个)</label>
+                    <textarea
+                      :value="
+                        Object.entries(config.headers || {})
+                          .map(([k, v]) => `${k}=${v}`)
+                          .join('\n')
+                      "
+                      class="input textarea-small"
+                      placeholder="Authorization=Bearer xxx"
+                      @blur="
+                        (e) => {
+                          config.headers = parseKeyValueText(
+                            (e.target as HTMLTextAreaElement).value
+                          )
+                          saveMCPConfig(config)
+                        }
+                      "
+                    ></textarea>
+                  </div>
+                </template>
+
+                <!-- 启用状态 -->
+                <div class="form-group">
+                  <label class="checkbox-label">
+                    <input
+                      type="checkbox"
+                      :checked="config.enabled"
+                      @change="toggleMCPEnabled(config)"
+                    />
+                    <span>启用此服务器</span>
+                  </label>
+                </div>
+
+                <!-- 测试连接 -->
+                <div class="form-actions">
+                  <button
+                    class="btn"
+                    :disabled="testingMCP === config.name"
+                    @click="testMCPConnection(config)"
+                  >
+                    {{ testingMCP === config.name ? '测试中...' : '测试连接' }}
+                  </button>
+                </div>
+
+                <!-- 工具列表 -->
+                <div v-if="getMCPStatus(config.name)?.connected" class="tools-section">
+                  <h4 class="tools-title">
+                    可用工具 ({{ getMCPStatus(config.name)?.tools.length || 0 }})
+                  </h4>
+                  <div class="tools-list">
+                    <div
+                      v-for="tool in getMCPStatus(config.name)?.tools || []"
+                      :key="tool.name"
+                      class="tool-item"
+                    >
+                      <span class="tool-name">{{ tool.name }}</span>
+                      <span class="tool-desc">{{ tool.description }}</span>
+                    </div>
+                    <div v-if="!getMCPStatus(config.name)?.tools?.length" class="empty-tools">
+                      暂无可用工具
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 空状态 -->
+            <div v-if="mcpConfigs.length === 0 && !showNewMCPForm" class="empty-state">
+              <p>暂无 MCP 服务配置</p>
+            </div>
+          </div>
+
+          <!-- 添加新 MCP 服务器表单 -->
+          <div v-if="showNewMCPForm" class="new-model-form">
+            <h3 class="form-section-title">添加 MCP 服务器</h3>
+            <div class="form-group">
+              <label>服务器名称 <span class="required">*</span></label>
+              <input
+                v-model="newMCPConfig.name"
+                type="text"
+                class="input"
+                placeholder="例如: filesystem, github"
+              />
+            </div>
+            <div class="form-group">
+              <label>传输类型</label>
+              <select v-model="newMCPConfig.transport" class="input">
+                <option value="stdio">stdio (本地进程)</option>
+                <option value="sse">SSE (Server-Sent Events)</option>
+                <option value="streamableHttp">Streamable HTTP</option>
+              </select>
+            </div>
+
+            <!-- stdio 配置 -->
+            <template v-if="newMCPConfig.transport === 'stdio'">
+              <div class="form-group">
+                <label>执行命令 <span class="required">*</span></label>
+                <input
+                  v-model="newMCPConfig.command"
+                  type="text"
+                  class="input"
+                  placeholder="例如: npx, node, python"
+                />
+              </div>
+              <div class="form-group">
+                <label>命令参数 (每行一个)</label>
+                <textarea
+                  v-model="newMCPArgsText"
+                  class="input textarea-small"
+                  placeholder="-y&#10;@modelcontextprotocol/server-filesystem&#10;/path/to/dir"
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label>环境变量 (KEY=VALUE 格式，每行一个)</label>
+                <textarea
+                  v-model="newMCPEnvText"
+                  class="input textarea-small"
+                  placeholder="API_KEY=your-api-key"
+                ></textarea>
+              </div>
+            </template>
+
+            <!-- HTTP/SSE 配置 -->
+            <template v-else>
+              <div class="form-group">
+                <label>服务地址 <span class="required">*</span></label>
+                <input
+                  v-model="newMCPConfig.url"
+                  type="text"
+                  class="input"
+                  placeholder="https://example.com/mcp"
+                />
+              </div>
+              <div class="form-group">
+                <label>认证头 (KEY=VALUE 格式，每行一个)</label>
+                <textarea
+                  v-model="newMCPHeadersText"
+                  class="input textarea-small"
+                  placeholder="Authorization=Bearer your-token"
+                ></textarea>
+              </div>
+            </template>
+
+            <div class="form-actions">
+              <button class="btn" @click="resetNewMCPForm">取消</button>
+              <button class="btn-primary" @click="addNewMCPConfig">添加</button>
+            </div>
+          </div>
+
+          <!-- 添加 MCP 按钮 -->
+          <button v-if="!showNewMCPForm" class="btn add-model-btn" @click="showNewMCPForm = true">
+            + 添加 MCP 服务器
           </button>
         </div>
 
@@ -839,5 +1402,112 @@ select.input {
   background-repeat: no-repeat;
   background-size: 16px;
   padding-right: 36px;
+}
+
+/* MCP 相关样式 */
+.mcp-actions-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+  gap: 8px;
+}
+
+.status-indicator {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-right: 8px;
+  background-color: var(--theme-bg-hover);
+  color: var(--theme-text-secondary);
+}
+
+.status-indicator.connected {
+  background-color: rgba(63, 185, 80, 0.2);
+  color: var(--theme-accent);
+}
+
+.status-indicator.error {
+  background-color: rgba(248, 81, 73, 0.2);
+  color: var(--theme-danger);
+}
+
+.transport-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background-color: var(--theme-bg-hover);
+  color: var(--theme-text-secondary);
+  margin-right: 12px;
+  font-family: monospace;
+}
+
+.textarea-small {
+  min-height: 60px;
+  resize: vertical;
+  font-family: var(--theme-font);
+  line-height: 1.5;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--theme-text);
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.tools-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--theme-border);
+}
+
+.tools-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-text);
+  margin: 0 0 12px 0;
+}
+
+.tools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.tool-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  background-color: var(--theme-bg-secondary);
+  border-radius: 4px;
+  border: 1px solid var(--theme-border);
+}
+
+.tool-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--theme-accent);
+  font-family: monospace;
+}
+
+.tool-desc {
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+  margin-top: 4px;
+}
+
+.empty-tools {
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+  font-style: italic;
 }
 </style>

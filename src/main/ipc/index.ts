@@ -2,9 +2,11 @@ import { registerConfigHandlers } from './handlers/configHandlers'
 import { registerLoggerHandlers } from './handlers/loggerHandlers'
 import { registerChatHandlers } from './handlers/chatHandlers'
 import { registerSessionHandlers } from './handlers/sessionHandlers'
+import { registerMCPHandlers } from './handlers/mcpHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
+export { initializeMCP } from './handlers/mcpHandlers'
 
 /**
  * 注册所有 IPC 处理程序
@@ -21,4 +23,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册会话相关处理程序
   registerSessionHandlers()
+
+  // 注册 MCP 相关处理程序
+  registerMCPHandlers()
 }

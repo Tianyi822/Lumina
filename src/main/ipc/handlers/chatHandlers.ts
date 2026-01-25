@@ -36,13 +36,16 @@ export function registerChatHandlers(): void {
    * 中止聊天请求
    * @param sessionId 可选的会话标识。如果提供，只中止该会话的请求；否则中止所有请求
    */
-  ipcMain.handle('chat:stop', async (_event: IpcMainInvokeEvent, sessionId?: string): Promise<void> => {
-    try {
-      logger.debug('收到中止请求', 'main', { sessionId })
-      chatService.stopRequest(sessionId)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('中止请求失败', 'main', { sessionId, error: errorMessage })
+  ipcMain.handle(
+    'chat:stop',
+    async (_event: IpcMainInvokeEvent, sessionId?: string): Promise<void> => {
+      try {
+        logger.debug('收到中止请求', 'main', { sessionId })
+        chatService.stopRequest(sessionId)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        logger.error('中止请求失败', 'main', { sessionId, error: errorMessage })
+      }
     }
-  })
+  )
 }

@@ -2,7 +2,13 @@ import OpenAI from 'openai'
 import type { WebContents } from 'electron'
 import { configManager } from '../config'
 import { logger } from '../logger'
-import type { ChatMessage, ChatRequest, ChatResult, StreamEvent, TokenUsage } from '../../types/chat'
+import type {
+  ChatMessage,
+  ChatRequest,
+  ChatResult,
+  StreamEvent,
+  TokenUsage
+} from '../../types/chat'
 import type { LLMConfig } from '../../types/config'
 
 /**

@@ -12,7 +12,7 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* ========== 主题变量定义 ========== */
-[data-theme="terminal"] {
+[data-theme='terminal'] {
   /* 语义化的主题变量（通用） */
   --theme-bg: #0d1117;
   --theme-bg-secondary: #161b22;
@@ -218,8 +218,13 @@
 }
 
 @keyframes cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* 下划线光标输入框 */
@@ -240,8 +245,13 @@
 }
 
 @keyframes underscore-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* ========== 按钮组件 ========== */
@@ -404,8 +414,12 @@
 
 /* 打字机效果 */
 @keyframes typing {
-  from { width: 0; }
-  to { width: 100%; }
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
 }
 
 .terminal-typing {

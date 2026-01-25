@@ -1,7 +1,12 @@
 import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createMainWindow } from './window'
-import { registerAllIpcHandlers, initializeConfig, initializeLogger } from '@main/ipc'
+import {
+  registerAllIpcHandlers,
+  initializeConfig,
+  initializeLogger,
+  initializeMCP
+} from '@main/ipc'
 
 /**
  * 初始化应用
@@ -26,6 +31,9 @@ export function initializeApp(): void {
 
     // 注册所有 IPC 处理程序
     registerAllIpcHandlers()
+
+    // 初始化 MCP 服务
+    initializeMCP()
 
     // 创建主窗口
     createMainWindow()
