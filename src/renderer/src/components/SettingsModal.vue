@@ -109,6 +109,7 @@ const expandedMCPServers = ref<Set<string>>(new Set())
 const showNewMCPForm = ref(false)
 const testingMCP = ref<string | null>(null)
 const connectingMCP = ref<string | null>(null)
+const testingNewMCP = ref(false)
 
 // 新 MCP 服务器表单
 const newMCPConfig = reactive<MCPServerConfig>({
@@ -385,6 +386,56 @@ async function toggleMCPEnabled(config: MCPServerConfig): Promise<void> {
   await saveMCPConfig(updatedConfig)
   if (!updatedConfig.enabled) {
     await disconnectMCP(config.name)
+  }
+}
+
+// 测试新建的 MCP 配置
+async function testNewMCPConnection(): Promise<void> {
+  if (!newMCPConfig.name.trim()) {
+    errorMessage.value = '请输入服务器名称'
+    return
+  }
+
+  // 验证配置
+  if (newMCPConfig.transport === 'stdio') {
+    if (!newMCPConfig.command?.trim()) {
+      errorMessage.value = '请输入执行命令'
+      return
+    }
+  } else {
+    if (!newMCPConfig.url?.trim()) {
+      errorMessage.value = '请输入服务地址'
+      return
+    }
+  }
+
+  // 构建配置对象
+  const config: MCPServerConfig = {
+    ...toRaw(newMCPConfig),
+    args: newMCPArgsText.value
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s),
+    env: parseKeyValueText(newMCPEnvText.value),
+    headers: parseKeyValueText(newMCPHeadersText.value)
+  }
+
+  testingNewMCP.value = true
+  errorMessage.value = ''
+  try {
+    const result = await window.api.mcp.testConnection(config)
+    if (result.success) {
+      successMessage.value = `连接测试成功，发现 ${result.tools?.length || 0} 个工具`
+      setTimeout(() => {
+        successMessage.value = ''
+      }, 3000)
+    } else {
+      errorMessage.value = `连接测试失败: ${result.error}`
+    }
+  } catch (error) {
+    errorMessage.value = `测试失败: ${error instanceof Error ? error.message : String(error)}`
+  } finally {
+    testingNewMCP.value = false
   }
 }
 
@@ -755,6 +806,13 @@ onUnmounted(() => {
                     断开
                   </button>
                   <button
+                    class="btn btn-small"
+                    :disabled="testingMCP === config.name"
+                    @click.stop="testMCPConnection(config)"
+                  >
+                    {{ testingMCP === config.name ? '测试中...' : '测试' }}
+                  </button>
+                  <button
                     class="btn btn-small btn-danger-text"
                     @click.stop="deleteMCPConfig(config.name)"
                   >
@@ -868,17 +926,6 @@ onUnmounted(() => {
                   </label>
                 </div>
 
-                <!-- 测试连接 -->
-                <div class="form-actions">
-                  <button
-                    class="btn"
-                    :disabled="testingMCP === config.name"
-                    @click="testMCPConnection(config)"
-                  >
-                    {{ testingMCP === config.name ? '测试中...' : '测试连接' }}
-                  </button>
-                </div>
-
                 <!-- 工具列表 -->
                 <div v-if="getMCPStatus(config.name)?.connected" class="tools-section">
                   <h4 class="tools-title">
@@ -980,6 +1027,13 @@ onUnmounted(() => {
 
             <div class="form-actions">
               <button class="btn" @click="resetNewMCPForm">取消</button>
+              <button
+                class="btn"
+                :disabled="testingNewMCP"
+                @click="testNewMCPConnection"
+              >
+                {{ testingNewMCP ? '测试中...' : '测试连接' }}
+              </button>
               <button class="btn-primary" @click="addNewMCPConfig">添加</button>
             </div>
           </div>
