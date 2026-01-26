@@ -1,17 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-
-interface LLMConfig {
-  base_url: string
-  api_key: string
-  model_name: string
-  temperature: number
-  max_tokens: number
-}
-
-interface LLMConfigs {
-  [key: string]: LLMConfig
-}
+import type { LLMConfig, LLMConfigs } from '@renderer/types'
 
 interface Props {
   modelConfigs: LLMConfigs
@@ -129,10 +118,7 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
             >
               设为默认
             </button>
-            <button
-              class="btn btn-small btn-danger-text"
-              @click.stop="deleteModel(key as string)"
-            >
+            <button class="btn btn-small btn-danger-text" @click.stop="deleteModel(key as string)">
               删除
             </button>
           </div>
@@ -145,7 +131,9 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
               type="text"
               class="input"
               placeholder="https://api.openai.com/v1"
-              @input="(e) => updateModelConfig(key, 'base_url', (e.target as HTMLInputElement).value)"
+              @input="
+                (e) => updateModelConfig(key, 'base_url', (e.target as HTMLInputElement).value)
+              "
             />
           </div>
           <div class="form-group">
@@ -155,7 +143,9 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
               type="password"
               class="input"
               placeholder="sk-..."
-              @input="(e) => updateModelConfig(key, 'api_key', (e.target as HTMLInputElement).value)"
+              @input="
+                (e) => updateModelConfig(key, 'api_key', (e.target as HTMLInputElement).value)
+              "
             />
           </div>
           <div class="form-group">
@@ -165,7 +155,9 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
               type="text"
               class="input"
               placeholder="gpt-4"
-              @input="(e) => updateModelConfig(key, 'model_name', (e.target as HTMLInputElement).value)"
+              @input="
+                (e) => updateModelConfig(key, 'model_name', (e.target as HTMLInputElement).value)
+              "
             />
           </div>
           <div class="form-row">
@@ -178,7 +170,14 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
                 min="0"
                 max="2"
                 step="0.1"
-                @input="(e) => updateModelConfig(key, 'temperature', Number((e.target as HTMLInputElement).value))"
+                @input="
+                  (e) =>
+                    updateModelConfig(
+                      key,
+                      'temperature',
+                      Number((e.target as HTMLInputElement).value)
+                    )
+                "
               />
             </div>
             <div class="form-group half">
@@ -188,7 +187,14 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
                 type="number"
                 class="input"
                 min="1"
-                @input="(e) => updateModelConfig(key, 'max_tokens', Number((e.target as HTMLInputElement).value))"
+                @input="
+                  (e) =>
+                    updateModelConfig(
+                      key,
+                      'max_tokens',
+                      Number((e.target as HTMLInputElement).value)
+                    )
+                "
               />
             </div>
           </div>
@@ -206,12 +212,7 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
       <h3 class="form-section-title">添加新模型配置</h3>
       <div class="form-group">
         <label>配置名称 <span class="required">*</span></label>
-        <input
-          v-model="newModelKey"
-          type="text"
-          class="input"
-          placeholder="例如: gpt4, claude3"
-        />
+        <input v-model="newModelKey" type="text" class="input" placeholder="例如: gpt4, claude3" />
       </div>
       <div class="form-group">
         <label>API Base URL <span class="required">*</span></label>
@@ -233,12 +234,7 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
       </div>
       <div class="form-group">
         <label>模型名称 <span class="required">*</span></label>
-        <input
-          v-model="newModelConfig.model_name"
-          type="text"
-          class="input"
-          placeholder="gpt-4"
-        />
+        <input v-model="newModelConfig.model_name" type="text" class="input" placeholder="gpt-4" />
       </div>
       <div class="form-row">
         <div class="form-group half">
@@ -254,12 +250,7 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
         </div>
         <div class="form-group half">
           <label>Max Tokens</label>
-          <input
-            v-model.number="newModelConfig.max_tokens"
-            type="number"
-            class="input"
-            min="1"
-          />
+          <input v-model.number="newModelConfig.max_tokens" type="number" class="input" min="1" />
         </div>
       </div>
       <div class="form-actions">
@@ -269,11 +260,7 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
     </div>
 
     <!-- 添加模型按钮 -->
-    <button
-      v-if="!showNewModelForm"
-      class="btn add-model-btn"
-      @click="showNewModelForm = true"
-    >
+    <button v-if="!showNewModelForm" class="btn add-model-btn" @click="showNewModelForm = true">
       + 添加模型配置
     </button>
   </div>

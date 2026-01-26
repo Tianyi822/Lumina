@@ -1,36 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-
-/**
- * 工具调用信息
- */
-interface ToolCallInfo {
-  id: string
-  name: string
-  serverName: string
-  arguments: Record<string, unknown>
-}
-
-/**
- * 工具结果信息
- */
-interface ToolResultInfo {
-  id: string
-  name: string
-  success: boolean
-  result?: unknown
-  error?: string
-}
-
-/**
- * ReAct 步骤
- */
-interface ReActStep {
-  type: 'tool_call' | 'tool_result'
-  toolCall?: ToolCallInfo
-  toolResult?: ToolResultInfo
-  timestamp: string
-}
+import type { ReActStep } from '@renderer/types'
 
 const props = defineProps<{
   steps: ReActStep[]

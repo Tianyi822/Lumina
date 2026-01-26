@@ -1,19 +1,6 @@
 <script setup lang="ts">
 import { reactive } from 'vue'
-
-interface ThemeColors {
-  background: string
-  backgroundSecondary: string
-  text: string
-  textSecondary: string
-  accent: string
-  border: string
-}
-
-interface ThemeConfig {
-  name: string
-  colors?: ThemeColors
-}
+import type { ThemeConfig } from '@renderer/types'
 
 interface Props {
   modelValue: ThemeConfig

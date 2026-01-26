@@ -1,16 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import ChatList from './ChatList.vue'
-
-/**
- * 会话列表项
- */
-interface SessionListItem {
-  sessionId: string
-  title: string
-  lastMessage?: string
-  updatedAt: string
-}
+import type { SessionListItem } from '@renderer/types'
 
 const props = defineProps<{
   sessions: SessionListItem[]

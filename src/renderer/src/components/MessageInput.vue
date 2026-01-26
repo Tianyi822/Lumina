@@ -1,30 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, inject, watch, type Ref } from 'vue'
 import MCPToolsPanel from './MCPToolsPanel.vue'
-
-interface LLMConfig {
-  base_url: string
-  api_key: string
-  model_name: string
-  temperature: number
-  max_tokens: number
-}
-
-interface LLMConfigs {
-  [key: string]: LLMConfig
-}
-
-interface AppConfig {
-  llm_configs: LLMConfigs
-  default_model: string
-}
-
-interface MCPTool {
-  name: string
-  description: string
-  inputSchema: Record<string, unknown>
-  serverName: string
-}
+import type { AppConfig, MCPTool } from '@renderer/types'
 
 const props = defineProps<{
   isSending?: boolean

@@ -4,6 +4,7 @@ import { nextTick, onMounted, provide, ref, watch } from 'vue'
 import MessageInput from './MessageInput.vue'
 import SettingsModal from './SettingsModal.vue'
 import ReActSteps from './ReActSteps.vue'
+import type { Message, MCPTool, TokenUsage } from '@renderer/types'
 
 // 初始化 markdown-it 实例
 const md = new MarkdownIt({
@@ -12,72 +13,6 @@ const md = new MarkdownIt({
   linkify: true, // 自动将 URL 转换为链接
   typographer: true // 启用排版优化
 })
-
-/**
- * Token 使用统计
- */
-interface TokenUsage {
-  prompt_tokens: number
-  completion_tokens: number
-  total_tokens: number
-  reasoning_tokens?: number
-}
-
-/**
- * 工具调用信息
- */
-interface ToolCallInfo {
-  id: string
-  name: string
-  serverName: string
-  arguments: Record<string, unknown>
-}
-
-/**
- * 工具结果信息
- */
-interface ToolResultInfo {
-  id: string
-  name: string
-  success: boolean
-  result?: unknown
-  error?: string
-}
-
-/**
- * ReAct 步骤
- */
-interface ReActStep {
-  type: 'tool_call' | 'tool_result'
-  toolCall?: ToolCallInfo
-  toolResult?: ToolResultInfo
-  timestamp: string
-}
-
-/**
- * 消息接口
- */
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  reasoning?: string
-  isStreaming?: boolean
-  usage?: TokenUsage
-  timestamp?: string
-  modelName?: string // 模型名称（仅 assistant 消息）
-  reactSteps?: ReActStep[] // ReAct 推理步骤
-}
-
-/**
- * MCP 工具接口
- */
-interface MCPTool {
-  name: string
-  description: string
-  inputSchema: Record<string, unknown>
-  serverName: string
-}
 
 const props = defineProps<{
   sidebarCollapsed: boolean

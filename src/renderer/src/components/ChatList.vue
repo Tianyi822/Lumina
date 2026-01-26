@@ -1,15 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-
-/**
- * 会话列表项
- */
-interface SessionListItem {
-  sessionId: string
-  title: string
-  lastMessage?: string
-  updatedAt: string
-}
+import type { SessionListItem } from '@renderer/types'
 
 defineProps<{
   sessions: SessionListItem[]

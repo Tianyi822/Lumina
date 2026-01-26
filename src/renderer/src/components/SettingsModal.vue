@@ -3,40 +3,7 @@ import { ref, reactive, onMounted } from 'vue'
 import ThemeSettings from './settings/ThemeSettings.vue'
 import ModelSettings from './settings/ModelSettings.vue'
 import MCPSettings from './settings/MCPSettings.vue'
-
-interface LLMConfig {
-  base_url: string
-  api_key: string
-  model_name: string
-  temperature: number
-  max_tokens: number
-}
-
-interface LLMConfigs {
-  [key: string]: LLMConfig
-}
-
-interface ThemeColors {
-  background: string
-  backgroundSecondary: string
-  text: string
-  textSecondary: string
-  accent: string
-  border: string
-}
-
-interface ThemeConfig {
-  name: string
-  colors?: ThemeColors
-}
-
-interface AppConfig {
-  theme: ThemeConfig
-  llm_configs: LLMConfigs
-  default_model: string
-  compression_threshold: number
-  enable_auto_compression: boolean
-}
+import type { AppConfig, ThemeConfig, LLMConfigs } from '@renderer/types'
 
 const emit = defineEmits<{
   (e: 'close'): void

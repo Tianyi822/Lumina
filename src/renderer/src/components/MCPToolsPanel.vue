@@ -1,19 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, inject, watch, nextTick, type Ref } from 'vue'
-
-interface MCPTool {
-  name: string
-  description: string
-  inputSchema: Record<string, unknown>
-  serverName: string
-}
-
-interface MCPConnectionStatus {
-  serverName: string
-  connected: boolean
-  error?: string
-  tools: MCPTool[]
-}
+import type { MCPTool, MCPConnectionStatus } from '@renderer/types'
 
 const emit = defineEmits<{
   (e: 'tools-selected', tools: MCPTool[]): void

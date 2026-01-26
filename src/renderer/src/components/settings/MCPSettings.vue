@@ -1,25 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, toRaw } from 'vue'
-
-type MCPTransportType = 'stdio' | 'sse' | 'streamableHttp'
-
-interface MCPServerConfig {
-  name: string
-  transport: MCPTransportType
-  enabled: boolean
-  command?: string
-  args?: string[]
-  env?: Record<string, string>
-  url?: string
-  headers?: Record<string, string>
-}
-
-interface MCPConnectionStatus {
-  serverName: string
-  connected: boolean
-  error?: string
-  tools: { name: string; description: string }[]
-}
+import type { MCPServerConfig, MCPConnectionStatus } from '@renderer/types'
 
 interface Props {
   errorMessage: string
@@ -32,7 +13,7 @@ interface Emits {
   (e: 'mcp-updated'): void
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const mcpConfigs = ref<MCPServerConfig[]>([])
@@ -68,9 +49,12 @@ function showError(message: string): void {
 
 function showSuccess(message: string): void {
   emit('update:successMessage', message)
-  setTimeout(() => {
-    emit('update:successMessage', '')
-  }, message.includes('工具') ? 3000 : 2000)
+  setTimeout(
+    () => {
+      emit('update:successMessage', '')
+    },
+    message.includes('工具') ? 3000 : 2000
+  )
 }
 
 // 加载 MCP 配置
@@ -366,9 +350,7 @@ onUnmounted(() => {
     <div class="model-list">
       <div v-for="config in mcpConfigs" :key="config.name" class="model-item">
         <div class="model-header" @click="toggleMCPExpand(config.name)">
-          <span class="expand-icon">{{
-            expandedMCPServers.has(config.name) ? '▼' : '▶'
-          }}</span>
+          <span class="expand-icon">{{ expandedMCPServers.has(config.name) ? '▼' : '▶' }}</span>
           <span class="model-name">{{ config.name }}</span>
           <!-- 连接状态指示器 -->
           <span
@@ -493,9 +475,7 @@ onUnmounted(() => {
                 placeholder="Authorization=Bearer xxx"
                 @blur="
                   (e) => {
-                    config.headers = parseKeyValueText(
-                      (e.target as HTMLTextAreaElement).value
-                    )
+                    config.headers = parseKeyValueText((e.target as HTMLTextAreaElement).value)
                     saveMCPConfig(config)
                   }
                 "
@@ -506,11 +486,7 @@ onUnmounted(() => {
           <!-- 启用状态 -->
           <div class="form-group">
             <label class="checkbox-label">
-              <input
-                type="checkbox"
-                :checked="config.enabled"
-                @change="toggleMCPEnabled(config)"
-              />
+              <input type="checkbox" :checked="config.enabled" @change="toggleMCPEnabled(config)" />
               <span>启用此服务器</span>
             </label>
           </div>
@@ -616,11 +592,7 @@ onUnmounted(() => {
 
       <div class="form-actions">
         <button class="btn" @click="resetNewMCPForm">取消</button>
-        <button
-          class="btn"
-          :disabled="testingNewMCP"
-          @click="testNewMCPConnection"
-        >
+        <button class="btn" :disabled="testingNewMCP" @click="testNewMCPConnection">
           {{ testingNewMCP ? '测试中...' : '测试连接' }}
         </button>
         <button class="btn-primary" @click="addNewMCPConfig">添加</button>
