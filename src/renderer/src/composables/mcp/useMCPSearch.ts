@@ -1,7 +1,14 @@
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import type { MCPTool } from '@renderer/types'
 
-export function useMCPSearch(toolsByServer: Ref<Record<string, MCPTool[]>>) {
+export function useMCPSearch(toolsByServer: Ref<Record<string, MCPTool[]>>): {
+  searchQuery: Ref<string>
+  expandedServers: Ref<Set<string>>
+  filteredToolsByServer: ComputedRef<Record<string, MCPTool[]>>
+  toggleServer: (serverName: string) => void
+  isServerExpanded: (serverName: string) => boolean
+  clearSearch: () => void
+} {
   // 搜索关键词
   const searchQuery = ref('')
 

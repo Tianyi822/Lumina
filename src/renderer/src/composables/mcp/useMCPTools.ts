@@ -1,7 +1,16 @@
 import { ref, computed } from 'vue'
+import type { Ref, ComputedRef } from 'vue'
 import type { MCPTool, MCPConnectionStatus } from '@renderer/types'
 
-export function useMCPTools() {
+export function useMCPTools(): {
+  toolsByServer: Ref<Record<string, MCPTool[]>>
+  connectionStatuses: Ref<MCPConnectionStatus[]>
+  totalToolsCount: ComputedRef<number>
+  connectedServersCount: ComputedRef<number>
+  loadTools: () => Promise<void>
+  isServerConnected: (serverName: string) => boolean
+  getServerTools: (serverName: string) => MCPTool[]
+} {
   // 工具按服务器分组
   const toolsByServer = ref<Record<string, MCPTool[]>>({})
 

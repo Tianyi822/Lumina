@@ -1,315 +1,109 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, inject, watch, nextTick, type Ref } from 'vue'
-import type { MCPTool, MCPConnectionStatus } from '@renderer/types'
+import { ref, inject, watch, nextTick, type Ref } from 'vue'
+import type { MCPTool } from '@renderer/types'
+import { useMCPTools } from '@renderer/composables/mcp/useMCPTools'
+import { useMCPToolsSelection } from '@renderer/composables/mcp/useMCPToolsSelection'
+import { useMCPSearch } from '@renderer/composables/mcp/useMCPSearch'
+import { useMCPPanelState } from '@renderer/composables/mcp/useMCPPanelState'
+import { useMCPDescription } from '@renderer/composables/mcp/useMCPDescription'
+import { useMCPToolHighlight } from '@renderer/composables/mcp/useMCPToolHighlight'
 
 const emit = defineEmits<{
   (e: 'tools-selected', tools: MCPTool[]): void
 }>()
 
-// 是否显示面板
-const showPanel = ref(false)
-
-// 工具按服务器分组
-const toolsByServer = ref<Record<string, MCPTool[]>>({})
-
-// 连接状态
-const connectionStatuses = ref<MCPConnectionStatus[]>([])
-
-// 展开的服务器
-const expandedServers = ref<Set<string>>(new Set())
-
-// 搜索关键词
-const searchQuery = ref('')
-
-// 选中的工具列表（支持多选）
-const selectedTools = ref<MCPTool[]>([])
-
-// 工具描述展开状态
-const expandedDescriptions = ref<Set<string>>(new Set())
-
-// 需要显示展开按钮的工具描述
-const showExpandButton = ref<Set<string>>(new Set())
-
-// 工具描述元素引用
-const descriptionRefs = ref<Map<string, HTMLElement>>(new Map())
-
-// MCP 工具容器引用
-const mcpContainerRef = ref<HTMLElement | null>(null)
-
 // 注入 MCP 更新标志
 const mcpUpdateKey = inject<Ref<number>>('mcpUpdateKey', ref(0))
 
-// 过滤后的工具
-const filteredToolsByServer = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return toolsByServer.value
-  }
+// 使用 composables
+const {
+  toolsByServer,
+  connectionStatuses,
+  totalToolsCount,
+  connectedServersCount,
+  loadTools: loadToolsBase,
+  isServerConnected
+} = useMCPTools()
 
-  const query = searchQuery.value.toLowerCase()
-  const result: Record<string, MCPTool[]> = {}
+const {
+  selectedTools,
+  selectedToolsCount,
+  isToolSelected,
+  toggleTool,
+  removeTool,
+  clearSelection,
+  getSelectedTools
+} = useMCPToolsSelection()
 
-  for (const [serverName, tools] of Object.entries(toolsByServer.value)) {
-    const filtered = tools.filter(
-      (tool) =>
-        tool.name.toLowerCase().includes(query) || tool.description.toLowerCase().includes(query)
-    )
-    if (filtered.length > 0) {
-      result[serverName] = filtered
-    }
-  }
+const { searchQuery, expandedServers, filteredToolsByServer, toggleServer, isServerExpanded } =
+  useMCPSearch(toolsByServer)
 
-  return result
-})
+// @ts-ignore - mcpContainerRef 在模板中使用
+const { showPanel, mcpContainerRef, togglePanel } = useMCPPanelState(loadTools)
 
-// 总工具数量
-const totalToolsCount = computed(() => {
-  return Object.values(toolsByServer.value).reduce((sum, tools) => sum + tools.length, 0)
-})
+const {
+  toggleDescription,
+  isDescriptionExpanded,
+  shouldShowExpandButton,
+  setDescriptionRef,
+  refreshAllOverflowChecks,
+  clearAllStates: clearDescriptionStates
+} = useMCPDescription()
 
-// 已连接服务器数量
-const connectedServersCount = computed(() => {
-  return connectionStatuses.value.filter((s) => s.connected).length
-})
+const { scrollToTool } = useMCPToolHighlight(expandedServers)
 
-// 已选择的工具数量
-const selectedToolsCount = computed(() => {
-  return selectedTools.value.length
-})
-
-// 加载工具列表
+/**
+ * 加载工具列表（包装版本，添加额外逻辑）
+ */
 async function loadTools(): Promise<void> {
-  try {
-    toolsByServer.value = await window.api.mcp.listToolsByServer()
-    connectionStatuses.value = await window.api.mcp.getStatus()
+  await loadToolsBase()
 
-    // 清空之前的展开状态
-    showExpandButton.value.clear()
-    descriptionRefs.value.clear()
-    expandedDescriptions.value.clear()
+  // 清空之前的展开状态
+  clearDescriptionStates()
 
-    // 默认展开所有已连接的服务器
-    for (const status of connectionStatuses.value) {
-      if (status.connected) {
-        expandedServers.value.add(status.serverName)
-      }
+  // 默认展开所有已连接的服务器
+  for (const status of connectionStatuses.value) {
+    if (status.connected) {
+      expandedServers.value.add(status.serverName)
     }
-  } catch (error) {
-    console.error('加载 MCP 工具失败:', error)
   }
 }
 
-// 切换服务器展开状态
-function toggleServer(serverName: string): void {
-  if (expandedServers.value.has(serverName)) {
-    expandedServers.value.delete(serverName)
-  } else {
-    expandedServers.value.add(serverName)
-    // 展开服务器后，检查工具描述溢出状态
+/**
+ * 选择/取消选择工具（包装版本，触发 emit）
+ */
+function handleToggleTool(tool: MCPTool): void {
+  toggleTool(tool)
+  emit('tools-selected', getSelectedTools())
+}
+
+/**
+ * 移除单个工具（包装版本，触发 emit）
+ */
+function handleRemoveTool(tool: MCPTool): void {
+  removeTool(tool)
+  emit('tools-selected', getSelectedTools())
+}
+
+/**
+ * 清除所有选择（包装版本，触发 emit）
+ */
+function handleClearSelection(): void {
+  clearSelection()
+  emit('tools-selected', [])
+}
+
+/**
+ * 切换服务器展开状态（包装版本，刷新溢出检查）
+ */
+function handleToggleServer(serverName: string): void {
+  toggleServer(serverName)
+  // 展开服务器后，检查工具描述溢出状态
+  if (isServerExpanded(serverName)) {
     nextTick(() => {
       refreshAllOverflowChecks()
     })
   }
-}
-
-// 检查工具是否被选中
-function isToolSelected(tool: MCPTool): boolean {
-  return selectedTools.value.some((t) => t.name === tool.name && t.serverName === tool.serverName)
-}
-
-// 选择/取消选择工具（多选模式）
-function toggleTool(tool: MCPTool): void {
-  const index = selectedTools.value.findIndex(
-    (t) => t.name === tool.name && t.serverName === tool.serverName
-  )
-
-  if (index >= 0) {
-    // 取消选择
-    selectedTools.value.splice(index, 1)
-  } else {
-    // 添加选择
-    selectedTools.value.push(tool)
-  }
-
-  // 调试日志：确认工具选择事件
-  console.log('[MCPToolsPanel] 工具选择变更:', {
-    action: index >= 0 ? 'removed' : 'added',
-    tool: `${tool.serverName}/${tool.name}`,
-    selectedCount: selectedTools.value.length,
-    selectedTools: selectedTools.value.map((t) => `${t.serverName}/${t.name}`)
-  })
-
-  emit('tools-selected', [...selectedTools.value])
-}
-
-// 移除单个工具
-function removeTool(tool: MCPTool): void {
-  const index = selectedTools.value.findIndex(
-    (t) => t.name === tool.name && t.serverName === tool.serverName
-  )
-  if (index >= 0) {
-    selectedTools.value.splice(index, 1)
-    emit('tools-selected', [...selectedTools.value])
-  }
-}
-
-// 清除所有选择
-function clearSelection(): void {
-  selectedTools.value = []
-  emit('tools-selected', [])
-}
-
-// 切换面板显示
-function togglePanel(): void {
-  showPanel.value = !showPanel.value
-  if (showPanel.value) {
-    loadTools()
-  }
-}
-
-// 获取服务器连接状态
-function isServerConnected(serverName: string): boolean {
-  const status = connectionStatuses.value.find((s) => s.serverName === serverName)
-  return status?.connected ?? false
-}
-
-/**
- * 处理点击外部区域，关闭面板
- */
-function handleClickOutside(event: MouseEvent): void {
-  if (showPanel.value && mcpContainerRef.value) {
-    const target = event.target as Node
-    if (!mcpContainerRef.value.contains(target)) {
-      showPanel.value = false
-    }
-  }
-}
-
-/**
- * 滚动到指定工具的位置
- */
-function scrollToTool(tool: MCPTool): void {
-  const toolElementId = `tool-${tool.serverName}-${tool.name}`
-  const toolElement = document.getElementById(toolElementId)
-
-  if (toolElement) {
-    // 确保服务器已展开
-    if (!expandedServers.value.has(tool.serverName)) {
-      expandedServers.value.add(tool.serverName)
-      // 等待 DOM 更新后再滚动
-      setTimeout(() => {
-        const element = document.getElementById(toolElementId)
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          // 添加高亮动画
-          element.classList.add('highlight')
-          setTimeout(() => {
-            element.classList.remove('highlight')
-          }, 1500)
-        }
-      }, 100)
-    } else {
-      // 直接滚动
-      toolElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      // 添加高亮动画
-      toolElement.classList.add('highlight')
-      setTimeout(() => {
-        toolElement.classList.remove('highlight')
-      }, 1500)
-    }
-  }
-}
-
-/**
- * 切换工具描述展开状态
- */
-function toggleDescription(tool: MCPTool): void {
-  const key = `${tool.serverName}-${tool.name}`
-  if (expandedDescriptions.value.has(key)) {
-    expandedDescriptions.value.delete(key)
-  } else {
-    expandedDescriptions.value.add(key)
-  }
-}
-
-/**
- * 检查工具描述是否展开
- */
-function isDescriptionExpanded(tool: MCPTool): boolean {
-  const key = `${tool.serverName}-${tool.name}`
-  return expandedDescriptions.value.has(key)
-}
-
-/**
- * 检查是否需要显示展开按钮
- */
-function shouldShowExpandButton(tool: MCPTool): boolean {
-  const key = `${tool.serverName}-${tool.name}`
-  return showExpandButton.value.has(key)
-}
-
-/**
- * 检查描述元素是否溢出
- */
-function checkDescriptionOverflow(tool: MCPTool, element: HTMLElement | null): void {
-  if (!element) {
-    return
-  }
-
-  const key = `${tool.serverName}-${tool.name}`
-
-  // 临时移除expanded类来检测真实溢出状态
-  const wasExpanded = element.classList.contains('expanded')
-  if (wasExpanded) {
-    element.classList.remove('expanded')
-  }
-
-  // 检测内容是否溢出（scrollHeight > clientHeight）
-  const hasOverflow = element.scrollHeight > element.clientHeight
-
-  // 恢复expanded状态
-  if (wasExpanded) {
-    element.classList.add('expanded')
-  }
-
-  // 只有在内容溢出时才显示按钮，且一旦显示就不再隐藏
-  if (hasOverflow) {
-    showExpandButton.value.add(key)
-  }
-}
-
-/**
- * 设置描述元素引用并检查溢出
- */
-function setDescriptionRef(tool: MCPTool, element: unknown): void {
-  if (!element || typeof element === 'function') return
-
-  // 确保是 DOM 元素
-  const domElement = element as HTMLElement
-  const key = `${tool.serverName}-${tool.name}`
-  descriptionRefs.value.set(key, domElement)
-
-  // 在 nextTick 中检查，确保样式已应用
-  nextTick(() => {
-    checkDescriptionOverflow(tool, domElement)
-  })
-}
-
-/**
- * 切换服务器展开状态时，重新检查所有工具描述的溢出状态
- */
-function refreshAllOverflowChecks(): void {
-  nextTick(() => {
-    descriptionRefs.value.forEach((element, key) => {
-      const [serverName, toolName] = key.split('-')
-      const tool: MCPTool = {
-        name: toolName,
-        serverName,
-        description: '',
-        inputSchema: {}
-      }
-      checkDescriptionOverflow(tool, element)
-    })
-  })
 }
 
 // 监听搜索查询变化，重新检查溢出状态
@@ -319,30 +113,14 @@ watch(searchQuery, () => {
   })
 })
 
-// MCP 状态变更监听器
-let statusUnsubscribe: (() => void) | null = null
-
 // 监听 MCP 更新
 watch(mcpUpdateKey, () => {
   loadTools()
 })
 
-onMounted(() => {
+// 监听 MCP 状态变更
+window.api.mcp.onStatusChange(() => {
   loadTools()
-  // 监听状态变更
-  statusUnsubscribe = window.api.mcp.onStatusChange(() => {
-    loadTools()
-  })
-  // 添加全局点击事件监听器
-  document.addEventListener('click', handleClickOutside)
-})
-
-onUnmounted(() => {
-  if (statusUnsubscribe) {
-    statusUnsubscribe()
-  }
-  // 移除全局点击事件监听器
-  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -385,7 +163,7 @@ onUnmounted(() => {
       <div v-if="selectedToolsCount > 0" class="selected-tools-bar">
         <div class="selected-tools-header">
           <span class="selected-label">已选择 {{ selectedToolsCount }} 个工具:</span>
-          <button class="btn btn-clear-all" @click="clearSelection">全部清除</button>
+          <button class="btn btn-clear-all" @click="handleClearSelection">全部清除</button>
         </div>
         <div class="selected-tools-list">
           <div
@@ -395,7 +173,7 @@ onUnmounted(() => {
             @click="scrollToTool(tool)"
           >
             <span class="chip-text">{{ tool.name }}</span>
-            <button class="chip-remove" @click.stop="removeTool(tool)">×</button>
+            <button class="chip-remove" @click.stop="handleRemoveTool(tool)">×</button>
           </div>
         </div>
       </div>
@@ -412,7 +190,7 @@ onUnmounted(() => {
           :key="serverName"
           class="server-group"
         >
-          <div class="server-header" @click="toggleServer(serverName as string)">
+          <div class="server-header" @click="handleToggleServer(serverName as string)">
             <span class="expand-icon">{{
               expandedServers.has(serverName as string) ? '▼' : '▶'
             }}</span>
@@ -433,7 +211,7 @@ onUnmounted(() => {
               :key="`${serverName}-${tool.name}`"
               class="tool-item"
               :class="{ selected: isToolSelected(tool) }"
-              @click="toggleTool(tool)"
+              @click="handleToggleTool(tool)"
             >
               <div class="tool-header">
                 <span class="tool-checkbox">{{ isToolSelected(tool) ? '☑' : '☐' }}</span>

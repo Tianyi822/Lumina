@@ -1,7 +1,16 @@
 import { ref, computed } from 'vue'
+import type { Ref, ComputedRef } from 'vue'
 import type { MCPTool } from '@renderer/types'
 
-export function useMCPToolsSelection() {
+export function useMCPToolsSelection(): {
+  selectedTools: Ref<MCPTool[]>
+  selectedToolsCount: ComputedRef<number>
+  isToolSelected: (tool: MCPTool) => boolean
+  toggleTool: (tool: MCPTool) => void
+  removeTool: (tool: MCPTool) => void
+  clearSelection: () => void
+  getSelectedTools: () => MCPTool[]
+} {
   // 选中的工具列表(支持多选)
   const selectedTools = ref<MCPTool[]>([])
 
