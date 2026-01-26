@@ -150,7 +150,7 @@ interface ChatApi {
  */
 interface SessionMessage {
   id: string
-  role: 'system' | 'user' | 'assistant'
+  role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
   reasoning?: string
   timestamp: string
@@ -219,12 +219,22 @@ interface MCPServerConfig {
 }
 
 /**
+ * MCP 工具输入 Schema
+ */
+interface MCPToolInputSchema {
+  type: string
+  properties?: Record<string, unknown>
+  required?: string[]
+  [key: string]: unknown
+}
+
+/**
  * MCP 工具定义
  */
 interface MCPTool {
   name: string
   description: string
-  inputSchema: Record<string, unknown>
+  inputSchema: MCPToolInputSchema
   serverName: string
 }
 
@@ -287,8 +297,9 @@ interface MCPToolCallResult {
  * MCP 状态变更事件
  */
 interface MCPStatusChangeEvent {
+  type: 'connected' | 'disconnected' | 'error' | 'tools_updated'
   serverName: string
-  status: MCPConnectionStatus
+  data?: unknown
 }
 
 /**

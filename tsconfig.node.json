@@ -5,7 +5,8 @@
     "composite": true,
     "types": ["electron-vite/node"],
     "paths": {
-      "@main/*": ["./src/main/*"]
+      "@main/*": ["./src/main/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   }
 }

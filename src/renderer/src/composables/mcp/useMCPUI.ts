@@ -1,7 +1,19 @@
-import { ref, nextTick, type Ref } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted, type Ref } from 'vue'
 import type { MCPTool } from '@renderer/types'
 
-export function useMCPDescription(): {
+/**
+ * MCP UI - 整合面板状态、描述展开和工具高亮功能
+ */
+export function useMCPUI(
+  loadToolsCallback: () => Promise<void>,
+  expandedServers: Ref<Set<string>>
+): {
+  // 面板
+  showPanel: Ref<boolean>
+  mcpContainerRef: Ref<HTMLElement | null>
+  togglePanel: () => void
+
+  // 描述
   expandedDescriptions: Ref<Set<string>>
   showExpandButton: Ref<Set<string>>
   descriptionRefs: Ref<Map<string, HTMLElement>>
@@ -11,19 +23,43 @@ export function useMCPDescription(): {
   setDescriptionRef: (tool: MCPTool, element: unknown) => void
   refreshAllOverflowChecks: () => void
   clearAllStates: () => void
+
+  // 高亮
+  scrollToTool: (tool: MCPTool) => void
 } {
-  // 工具描述展开状态
+  // ==================== 面板 ====================
+  const showPanel = ref(false)
+  const mcpContainerRef = ref<HTMLElement | null>(null)
+
+  function togglePanel(): void {
+    showPanel.value = !showPanel.value
+    if (showPanel.value) {
+      loadToolsCallback()
+    }
+  }
+
+  function handleClickOutside(event: MouseEvent): void {
+    if (showPanel.value && mcpContainerRef.value) {
+      const target = event.target as Node
+      if (!mcpContainerRef.value.contains(target)) {
+        showPanel.value = false
+      }
+    }
+  }
+
+  onMounted(() => {
+    document.addEventListener('click', handleClickOutside)
+  })
+
+  onUnmounted(() => {
+    document.removeEventListener('click', handleClickOutside)
+  })
+
+  // ==================== 描述 ====================
   const expandedDescriptions = ref<Set<string>>(new Set())
-
-  // 需要显示展开按钮的工具描述
   const showExpandButton = ref<Set<string>>(new Set())
-
-  // 工具描述元素引用
   const descriptionRefs = ref<Map<string, HTMLElement>>(new Map())
 
-  /**
-   * 切换工具描述展开状态
-   */
   function toggleDescription(tool: MCPTool): void {
     const key = `${tool.serverName}-${tool.name}`
     if (expandedDescriptions.value.has(key)) {
@@ -33,25 +69,16 @@ export function useMCPDescription(): {
     }
   }
 
-  /**
-   * 检查工具描述是否展开
-   */
   function isDescriptionExpanded(tool: MCPTool): boolean {
     const key = `${tool.serverName}-${tool.name}`
     return expandedDescriptions.value.has(key)
   }
 
-  /**
-   * 检查是否需要显示展开按钮
-   */
   function shouldShowExpandButton(tool: MCPTool): boolean {
     const key = `${tool.serverName}-${tool.name}`
     return showExpandButton.value.has(key)
   }
 
-  /**
-   * 检查描述元素是否溢出
-   */
   function checkDescriptionOverflow(tool: MCPTool, element: HTMLElement | null): void {
     if (!element) {
       return
@@ -79,26 +106,18 @@ export function useMCPDescription(): {
     }
   }
 
-  /**
-   * 设置描述元素引用并检查溢出
-   */
   function setDescriptionRef(tool: MCPTool, element: unknown): void {
     if (!element || typeof element === 'function') return
 
-    // 确保是 DOM 元素
     const domElement = element as HTMLElement
     const key = `${tool.serverName}-${tool.name}`
     descriptionRefs.value.set(key, domElement)
 
-    // 在 nextTick 中检查，确保样式已应用
     nextTick(() => {
       checkDescriptionOverflow(tool, domElement)
     })
   }
 
-  /**
-   * 切换服务器展开状态时，重新检查所有工具描述的溢出状态
-   */
   function refreshAllOverflowChecks(): void {
     nextTick(() => {
       descriptionRefs.value.forEach((element, key) => {
@@ -114,16 +133,50 @@ export function useMCPDescription(): {
     })
   }
 
-  /**
-   * 清除所有状态
-   */
   function clearAllStates(): void {
     showExpandButton.value.clear()
     descriptionRefs.value.clear()
     expandedDescriptions.value.clear()
   }
 
+  // ==================== 高亮 ====================
+  function scrollToTool(tool: MCPTool): void {
+    const toolElementId = `tool-${tool.serverName}-${tool.name}`
+    const toolElement = document.getElementById(toolElementId)
+
+    if (toolElement) {
+      // 确保服务器已展开
+      if (!expandedServers.value.has(tool.serverName)) {
+        expandedServers.value.add(tool.serverName)
+        // 等待 DOM 更新后再滚动
+        setTimeout(() => {
+          const element = document.getElementById(toolElementId)
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            element.classList.add('highlight')
+            setTimeout(() => {
+              element.classList.remove('highlight')
+            }, 1500)
+          }
+        }, 100)
+      } else {
+        // 直接滚动
+        toolElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        toolElement.classList.add('highlight')
+        setTimeout(() => {
+          toolElement.classList.remove('highlight')
+        }, 1500)
+      }
+    }
+  }
+
   return {
+    // 面板
+    showPanel,
+    mcpContainerRef,
+    togglePanel,
+
+    // 描述
     expandedDescriptions,
     showExpandButton,
     descriptionRefs,
@@ -132,6 +185,9 @@ export function useMCPDescription(): {
     shouldShowExpandButton,
     setDescriptionRef,
     refreshAllOverflowChecks,
-    clearAllStates
+    clearAllStates,
+
+    // 高亮
+    scrollToTool
   }
 }

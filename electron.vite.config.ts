@@ -6,21 +6,24 @@ export default defineConfig({
   main: {
     resolve: {
       alias: {
-        '@main': resolve('src/main')
+        '@main': resolve('src/main'),
+        '@shared': resolve('src/shared')
       }
     }
   },
   preload: {
     resolve: {
       alias: {
-        '@main': resolve('src/main')
+        '@main': resolve('src/main'),
+        '@shared': resolve('src/shared')
       }
     }
   },
   renderer: {
     resolve: {
       alias: {
-        '@renderer': resolve('src/renderer/src')
+        '@renderer': resolve('src/renderer/src'),
+        '@shared': resolve('src/shared')
       }
     },
     plugins: [vue()]

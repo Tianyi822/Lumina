@@ -1,6 +1,6 @@
 import { ref, toRaw, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
-import type { MCPServerConfig, MCPConnectionStatus } from '@renderer/types'
+import type { MCPServerConfig, MCPStatusChangeEvent } from '@renderer/types'
 
 export function useMCPConnection(): {
   connecting: Ref<string | null>
@@ -16,9 +16,7 @@ export function useMCPConnection(): {
     onSuccess?: (message: string) => void,
     onError?: (message: string) => void
   ) => Promise<boolean>
-  onStatusChange: (
-    callback: (event: { serverName: string; status: MCPConnectionStatus }) => void
-  ) => void
+  onStatusChange: (callback: (event: MCPStatusChangeEvent) => void) => void
 } {
   const connecting = ref<string | null>(null)
   const testing = ref<string | null>(null)
@@ -96,9 +94,7 @@ export function useMCPConnection(): {
   /**
    * 监听 MCP 状态变更
    */
-  function onStatusChange(
-    callback: (event: { serverName: string; status: MCPConnectionStatus }) => void
-  ): void {
+  function onStatusChange(callback: (event: MCPStatusChangeEvent) => void): void {
     const unsubscribe = window.api.mcp.onStatusChange(callback)
 
     onUnmounted(() => {

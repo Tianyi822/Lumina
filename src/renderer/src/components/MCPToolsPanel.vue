@@ -1,12 +1,8 @@
 <script setup lang="ts">
 import { ref, inject, watch, nextTick, type Ref } from 'vue'
 import type { MCPTool } from '@renderer/types'
-import { useMCPTools } from '@renderer/composables/mcp/useMCPTools'
-import { useMCPToolsSelection } from '@renderer/composables/mcp/useMCPToolsSelection'
-import { useMCPSearch } from '@renderer/composables/mcp/useMCPSearch'
-import { useMCPPanelState } from '@renderer/composables/mcp/useMCPPanelState'
-import { useMCPDescription } from '@renderer/composables/mcp/useMCPDescription'
-import { useMCPToolHighlight } from '@renderer/composables/mcp/useMCPToolHighlight'
+import { useMCPManager } from '@renderer/composables/mcp/useMCPManager'
+import { useMCPUI } from '@renderer/composables/mcp/useMCPUI'
 
 const emit = defineEmits<{
   (e: 'tools-selected', tools: MCPTool[]): void
@@ -15,17 +11,18 @@ const emit = defineEmits<{
 // 注入 MCP 更新标志
 const mcpUpdateKey = inject<Ref<number>>('mcpUpdateKey', ref(0))
 
-// 使用 composables
+// 使用合并后的 composables
 const {
-  toolsByServer,
   connectionStatuses,
   totalToolsCount,
   connectedServersCount,
   loadTools: loadToolsBase,
-  isServerConnected
-} = useMCPTools()
-
-const {
+  isServerConnected,
+  searchQuery,
+  expandedServers,
+  filteredToolsByServer,
+  toggleServer,
+  isServerExpanded,
   selectedTools,
   selectedToolsCount,
   isToolSelected,
@@ -33,24 +30,27 @@ const {
   removeTool,
   clearSelection,
   getSelectedTools
-} = useMCPToolsSelection()
+} = useMCPManager()
 
-const { searchQuery, expandedServers, filteredToolsByServer, toggleServer, isServerExpanded } =
-  useMCPSearch(toolsByServer)
-
-// @ts-ignore - mcpContainerRef 在模板中使用
-const { showPanel, mcpContainerRef, togglePanel } = useMCPPanelState(loadTools)
+// 显式保留 toolsByServer 供模板使用（用于遍历 filteredToolsByServer）
+// @ts-expect-error - 在模板中使用
+const { toolsByServer } = useMCPManager()
 
 const {
+  showPanel,
+  togglePanel,
   toggleDescription,
   isDescriptionExpanded,
   shouldShowExpandButton,
   setDescriptionRef,
   refreshAllOverflowChecks,
-  clearAllStates: clearDescriptionStates
-} = useMCPDescription()
+  clearAllStates: clearDescriptionStates,
+  scrollToTool
+} = useMCPUI(loadToolsBase, expandedServers)
 
-const { scrollToTool } = useMCPToolHighlight(expandedServers)
+// 显式保留 mcpContainerRef 供模板使用
+// @ts-expect-error - 在模板中使用
+const { mcpContainerRef } = useMCPUI(loadToolsBase, expandedServers)
 
 /**
  * 加载工具列表（包装版本，添加额外逻辑）
