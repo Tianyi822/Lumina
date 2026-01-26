@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, inject, watch, type Ref } from 'vue'
+import { ref, computed, onMounted, onUnmounted, inject, watch, nextTick, type Ref } from 'vue'
 
 interface MCPTool {
   name: string
@@ -36,6 +36,15 @@ const searchQuery = ref('')
 
 // 选中的工具列表（支持多选）
 const selectedTools = ref<MCPTool[]>([])
+
+// 工具描述展开状态
+const expandedDescriptions = ref<Set<string>>(new Set())
+
+// 需要显示展开按钮的工具描述
+const showExpandButton = ref<Set<string>>(new Set())
+
+// 工具描述元素引用
+const descriptionRefs = ref<Map<string, HTMLElement>>(new Map())
 
 // MCP 工具容器引用
 const mcpContainerRef = ref<HTMLElement | null>(null)
@@ -86,6 +95,11 @@ async function loadTools(): Promise<void> {
     toolsByServer.value = await window.api.mcp.listToolsByServer()
     connectionStatuses.value = await window.api.mcp.getStatus()
 
+    // 清空之前的展开状态
+    showExpandButton.value.clear()
+    descriptionRefs.value.clear()
+    expandedDescriptions.value.clear()
+
     // 默认展开所有已连接的服务器
     for (const status of connectionStatuses.value) {
       if (status.connected) {
@@ -103,6 +117,10 @@ function toggleServer(serverName: string): void {
     expandedServers.value.delete(serverName)
   } else {
     expandedServers.value.add(serverName)
+    // 展开服务器后，检查工具描述溢出状态
+    nextTick(() => {
+      refreshAllOverflowChecks()
+    })
   }
 }
 
@@ -179,6 +197,141 @@ function handleClickOutside(event: MouseEvent): void {
   }
 }
 
+/**
+ * 滚动到指定工具的位置
+ */
+function scrollToTool(tool: MCPTool): void {
+  const toolElementId = `tool-${tool.serverName}-${tool.name}`
+  const toolElement = document.getElementById(toolElementId)
+
+  if (toolElement) {
+    // 确保服务器已展开
+    if (!expandedServers.value.has(tool.serverName)) {
+      expandedServers.value.add(tool.serverName)
+      // 等待 DOM 更新后再滚动
+      setTimeout(() => {
+        const element = document.getElementById(toolElementId)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          // 添加高亮动画
+          element.classList.add('highlight')
+          setTimeout(() => {
+            element.classList.remove('highlight')
+          }, 1500)
+        }
+      }, 100)
+    } else {
+      // 直接滚动
+      toolElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // 添加高亮动画
+      toolElement.classList.add('highlight')
+      setTimeout(() => {
+        toolElement.classList.remove('highlight')
+      }, 1500)
+    }
+  }
+}
+
+/**
+ * 切换工具描述展开状态
+ */
+function toggleDescription(tool: MCPTool): void {
+  const key = `${tool.serverName}-${tool.name}`
+  if (expandedDescriptions.value.has(key)) {
+    expandedDescriptions.value.delete(key)
+  } else {
+    expandedDescriptions.value.add(key)
+  }
+}
+
+/**
+ * 检查工具描述是否展开
+ */
+function isDescriptionExpanded(tool: MCPTool): boolean {
+  const key = `${tool.serverName}-${tool.name}`
+  return expandedDescriptions.value.has(key)
+}
+
+/**
+ * 检查是否需要显示展开按钮
+ */
+function shouldShowExpandButton(tool: MCPTool): boolean {
+  const key = `${tool.serverName}-${tool.name}`
+  return showExpandButton.value.has(key)
+}
+
+/**
+ * 检查描述元素是否溢出
+ */
+function checkDescriptionOverflow(tool: MCPTool, element: HTMLElement | null): void {
+  if (!element) {
+    return
+  }
+
+  const key = `${tool.serverName}-${tool.name}`
+
+  // 临时移除expanded类来检测真实溢出状态
+  const wasExpanded = element.classList.contains('expanded')
+  if (wasExpanded) {
+    element.classList.remove('expanded')
+  }
+
+  // 检测内容是否溢出（scrollHeight > clientHeight）
+  const hasOverflow = element.scrollHeight > element.clientHeight
+
+  // 恢复expanded状态
+  if (wasExpanded) {
+    element.classList.add('expanded')
+  }
+
+  // 只有在内容溢出时才显示按钮，且一旦显示就不再隐藏
+  if (hasOverflow) {
+    showExpandButton.value.add(key)
+  }
+}
+
+/**
+ * 设置描述元素引用并检查溢出
+ */
+function setDescriptionRef(tool: MCPTool, element: unknown): void {
+  if (!element || typeof element === 'function') return
+
+  // 确保是 DOM 元素
+  const domElement = element as HTMLElement
+  const key = `${tool.serverName}-${tool.name}`
+  descriptionRefs.value.set(key, domElement)
+
+  // 在 nextTick 中检查，确保样式已应用
+  nextTick(() => {
+    checkDescriptionOverflow(tool, domElement)
+  })
+}
+
+/**
+ * 切换服务器展开状态时，重新检查所有工具描述的溢出状态
+ */
+function refreshAllOverflowChecks(): void {
+  nextTick(() => {
+    descriptionRefs.value.forEach((element, key) => {
+      const [serverName, toolName] = key.split('-')
+      const tool: MCPTool = {
+        name: toolName,
+        serverName,
+        description: '',
+        inputSchema: {}
+      }
+      checkDescriptionOverflow(tool, element)
+    })
+  })
+}
+
+// 监听搜索查询变化，重新检查溢出状态
+watch(searchQuery, () => {
+  nextTick(() => {
+    refreshAllOverflowChecks()
+  })
+})
+
 // MCP 状态变更监听器
 let statusUnsubscribe: (() => void) | null = null
 
@@ -252,6 +405,7 @@ onUnmounted(() => {
             v-for="tool in selectedTools"
             :key="`selected-${tool.serverName}-${tool.name}`"
             class="selected-tool-chip"
+            @click="scrollToTool(tool)"
           >
             <span class="chip-text">{{ tool.name }}</span>
             <button class="chip-remove" @click.stop="removeTool(tool)">×</button>
@@ -288,6 +442,7 @@ onUnmounted(() => {
           <div v-if="expandedServers.has(serverName as string)" class="server-tools">
             <div
               v-for="tool in tools"
+              :id="`tool-${serverName}-${tool.name}`"
               :key="`${serverName}-${tool.name}`"
               class="tool-item"
               :class="{ selected: isToolSelected(tool) }"
@@ -297,8 +452,21 @@ onUnmounted(() => {
                 <span class="tool-checkbox">{{ isToolSelected(tool) ? '☑' : '☐' }}</span>
                 <span class="tool-name">{{ tool.name }}</span>
               </div>
-              <div v-if="tool.description" class="tool-description">
-                {{ tool.description }}
+              <div v-if="tool.description" class="tool-description-wrapper">
+                <div
+                  :ref="(el) => setDescriptionRef(tool, el)"
+                  class="tool-description"
+                  :class="{ expanded: isDescriptionExpanded(tool) }"
+                >
+                  {{ tool.description }}
+                </div>
+                <button
+                  v-if="shouldShowExpandButton(tool)"
+                  class="description-toggle-btn"
+                  @click.stop="toggleDescription(tool)"
+                >
+                  {{ isDescriptionExpanded(tool) ? '收起' : '展开' }}
+                </button>
               </div>
             </div>
           </div>
@@ -362,8 +530,8 @@ onUnmounted(() => {
   bottom: 100%;
   left: 0;
   margin-bottom: 8px;
-  width: 360px;
-  max-height: 400px;
+  width: 400px;
+  max-height: 480px;
   background-color: var(--theme-bg);
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
@@ -402,9 +570,32 @@ onUnmounted(() => {
 }
 
 .selected-tools-bar {
+  max-height: 140px;
+  overflow-y: auto;
   padding: 8px 12px;
   background-color: rgba(63, 185, 80, 0.1);
   border-bottom: 1px solid var(--theme-border);
+
+  /* 自定义滚动条样式 */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--theme-border);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-text-secondary);
+  }
+
+  /* 伸缩以适应内容，但不超过最大高度 */
+  flex-shrink: 0;
 }
 
 .selected-tools-header {
@@ -432,19 +623,34 @@ onUnmounted(() => {
 }
 
 .selected-tool-chip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 6px 2px 8px;
+  padding: 3px 6px 3px 8px;
   background-color: var(--theme-accent);
   color: var(--theme-bg);
-  border-radius: 12px;
+  border-radius: 10px;
   font-size: 11px;
+  line-height: 1.2;
+  max-width: 100%;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.selected-tool-chip:hover {
+  background-color: var(--theme-accent-secondary);
+  transform: translateY(-1px);
+}
+
+.selected-tool-chip:active {
+  transform: translateY(0);
 }
 
 .chip-text {
   font-family: monospace;
-  max-width: 100px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -455,20 +661,48 @@ onUnmounted(() => {
   border: none;
   color: var(--theme-bg);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1;
-  padding: 0 2px;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0.8;
+  flex-shrink: 0;
+  border-radius: 50%;
+  transition: background-color 0.15s ease;
 }
 
 .chip-remove:hover {
   opacity: 1;
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
 .tools-container {
   flex: 1;
   overflow-y: auto;
   padding: 8px 0;
+  min-height: 120px;
+
+  /* 自定义滚动条样式 */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--theme-border);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-text-secondary);
+  }
 }
 
 .empty-state {
@@ -546,6 +780,26 @@ onUnmounted(() => {
   background-color: rgba(63, 185, 80, 0.15);
 }
 
+/* 高亮动画 */
+.tool-item.highlight {
+  animation: highlight-pulse 1.5s ease-in-out;
+}
+
+@keyframes highlight-pulse {
+  0% {
+    background-color: rgba(88, 166, 255, 0.3);
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.5);
+  }
+  50% {
+    background-color: rgba(88, 166, 255, 0.5);
+    box-shadow: 0 0 0 4px rgba(88, 166, 255, 0.3);
+  }
+  100% {
+    background-color: rgba(63, 185, 80, 0.15);
+    box-shadow: none;
+  }
+}
+
 .tool-header {
   display: flex;
   align-items: center;
@@ -567,14 +821,40 @@ onUnmounted(() => {
   color: var(--theme-accent);
 }
 
+.tool-description-wrapper {
+  margin-top: 6px;
+}
+
 .tool-description {
   font-size: 12px;
   color: var(--theme-text-secondary);
-  margin-top: 4px;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.tool-description.expanded {
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  display: block;
+}
+
+.description-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--theme-accent);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 0;
+  margin-top: 4px;
+  transition: opacity 0.15s ease;
+}
+
+.description-toggle-btn:hover {
+  opacity: 0.8;
+  text-decoration: underline;
 }
 </style>
