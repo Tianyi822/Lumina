@@ -446,6 +446,17 @@ export class ChatService {
   }
 
   /**
+   * 规范化工具名称以符合 OpenAI API 命名规范
+   * 只允许字母、数字、下划线和连字符
+   */
+  private sanitizeToolName(serverName: string, toolName: string): string {
+    // 将空格和其他非法字符替换为连字符
+    const sanitizedServer = serverName.replace(/[^a-zA-Z0-9_-]/g, '-')
+    const sanitizedTool = toolName.replace(/[^a-zA-Z0-9_-]/g, '-')
+    return `${sanitizedServer}__${sanitizedTool}`
+  }
+
+  /**
    * 构建 OpenAI tools 定义
    */
   private buildOpenAITools(
@@ -454,11 +465,25 @@ export class ChatService {
     return tools.map((tool) => ({
       type: 'function' as const,
       function: {
-        name: `${tool.serverName}__${tool.toolName}`,
+        name: this.sanitizeToolName(tool.serverName, tool.toolName),
         description: tool.description,
         parameters: tool.inputSchema as Record<string, unknown>
       }
     }))
+  }
+
+  /**
+   * 通过规范化后的名称查找原始服务器名称
+   */
+  private findOriginalServerName(sanitizedServerName: string): string | null {
+    const connectedServers = mcpService.getConnectedServerNames()
+    for (const serverName of connectedServers) {
+      const sanitized = serverName.replace(/[^a-zA-Z0-9_-]/g, '-')
+      if (sanitized === sanitizedServerName) {
+        return serverName
+      }
+    }
+    return null
   }
 
   /**
@@ -487,7 +512,34 @@ export class ChatService {
       return JSON.stringify({ error })
     }
 
-    const [serverName, toolName] = nameParts
+    const [sanitizedServerName, sanitizedToolName] = nameParts
+
+    // 查找原始服务器名称
+    const serverName = this.findOriginalServerName(sanitizedServerName)
+    if (!serverName) {
+      const error = `未找到 MCP 服务器: ${sanitizedServerName}`
+      logger.error(error, 'main')
+      this.sendStreamEvent(webContents, {
+        type: 'tool_result',
+        sessionId,
+        toolResult: {
+          id: toolCall.id,
+          name: toolCall.function.name,
+          success: false,
+          error
+        }
+      })
+      return JSON.stringify({ error })
+    }
+
+    // 从工具列表中查找原始工具名称
+    const serverTools = mcpService.getTools(serverName)
+    const tool = serverTools.find((t) => {
+      const sanitized = t.name.replace(/[^a-zA-Z0-9_-]/g, '-')
+      return sanitized === sanitizedToolName
+    })
+
+    const toolName = tool?.name || sanitizedToolName
     let args: Record<string, unknown> = {}
 
     try {
