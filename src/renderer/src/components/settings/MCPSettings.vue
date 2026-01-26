@@ -223,76 +223,28 @@ onMounted(() => {
   margin-bottom: 1rem;
 }
 
-.tools-section {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 8px;
-}
-
-.tools-title {
-  margin: 0 0 0.75rem 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--theme-text);
-}
-
-.tools-list {
+.model-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-.tool-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.5rem;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-.tool-name {
-  font-weight: 600;
-  font-size: 0.875rem;
-  color: var(--theme-accent);
-}
-
-.tool-desc {
-  font-size: 0.75rem;
-  color: var(--theme-text-secondary);
-}
-
-.empty-tools {
+.empty-state {
   text-align: center;
-  padding: 1rem;
-  color: var(--theme-text-secondary);
-  font-size: 0.875rem;
-}
-
-.status-indicator {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  background-color: rgba(255, 255, 255, 0.1);
+  padding: 32px;
   color: var(--theme-text-secondary);
 }
 
-.status-indicator.connected {
-  background-color: rgba(63, 185, 80, 0.2);
-  color: var(--theme-success);
-}
-
-.status-indicator.error {
-  background-color: rgba(248, 81, 73, 0.2);
-  color: var(--theme-danger);
-}
-
-.transport-badge {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  background-color: rgba(255, 255, 255, 0.1);
+.add-model-btn {
+  width: 100%;
+  padding: 12px;
+  border-style: dashed;
   color: var(--theme-text-secondary);
+}
+
+.add-model-btn:hover {
+  color: var(--theme-accent);
+  border-color: var(--theme-accent);
 }
 </style>

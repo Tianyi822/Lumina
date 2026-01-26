@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 import type { MCPTool, MCPConnectionStatus } from '@renderer/types'
 
 export function useMCPTools() {

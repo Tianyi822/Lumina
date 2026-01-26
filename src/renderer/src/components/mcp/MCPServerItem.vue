@@ -183,3 +183,173 @@ function handleToggle(): void {
     </div>
   </div>
 </template>
+
+<style scoped>
+.model-item {
+  background-color: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.model-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.model-header:hover {
+  background-color: var(--theme-bg-hover);
+}
+
+.expand-icon {
+  font-size: 10px;
+  color: var(--theme-text-secondary);
+  margin-right: 10px;
+  width: 12px;
+}
+
+.model-name {
+  font-weight: 500;
+  color: var(--theme-text);
+  flex: 1;
+}
+
+.model-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.model-details {
+  padding: 16px;
+  border-top: 1px solid var(--theme-border);
+  background-color: var(--theme-bg);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--theme-text-secondary);
+}
+
+.btn-small {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.btn-danger-text {
+  color: var(--theme-danger);
+  border-color: transparent;
+}
+
+.btn-danger-text:hover {
+  background-color: rgba(248, 81, 73, 0.1);
+  border-color: var(--theme-danger);
+}
+
+.status-indicator {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-right: 8px;
+  background-color: var(--theme-bg-hover);
+  color: var(--theme-text-secondary);
+}
+
+.status-indicator.connected {
+  background-color: rgba(63, 185, 80, 0.2);
+  color: var(--theme-accent);
+}
+
+.status-indicator.error {
+  background-color: rgba(248, 81, 73, 0.2);
+  color: var(--theme-danger);
+}
+
+.transport-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background-color: var(--theme-bg-hover);
+  color: var(--theme-text-secondary);
+  margin-right: 12px;
+  font-family: monospace;
+}
+
+.textarea-small {
+  min-height: 60px;
+  resize: vertical;
+  font-family: var(--theme-font);
+  line-height: 1.5;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--theme-text);
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.tools-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--theme-border);
+}
+
+.tools-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-text);
+  margin: 0 0 12px 0;
+}
+
+.tools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.tool-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  background-color: var(--theme-bg-secondary);
+  border-radius: 4px;
+  border: 1px solid var(--theme-border);
+}
+
+.tool-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--theme-accent);
+  font-family: monospace;
+}
+
+.tool-desc {
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+  margin-top: 4px;
+}
+
+.empty-tools {
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+  font-style: italic;
+}
+</style>

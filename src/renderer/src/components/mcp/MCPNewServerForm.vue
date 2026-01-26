@@ -218,3 +218,61 @@ function handleCancel(): void {
     </div>
   </div>
 </template>
+
+<style scoped>
+.new-model-form {
+  background-color: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.form-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-text);
+  margin: 0 0 16px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--theme-text-secondary);
+}
+
+.required {
+  color: var(--theme-danger);
+}
+
+.textarea-small {
+  min-height: 60px;
+  resize: vertical;
+  font-family: var(--theme-font);
+  line-height: 1.5;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--theme-border);
+}
+
+.btn-primary {
+  background-color: var(--theme-accent);
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+</style>
