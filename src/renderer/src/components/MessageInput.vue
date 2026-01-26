@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, inject, watch, type Ref } from 'vue'
+import { ref, onMounted, onUnmounted, inject, watch, type Ref } from 'vue'
 import MCPToolsPanel from './MCPToolsPanel.vue'
 
 interface LLMConfig {
@@ -53,6 +53,9 @@ const showModelDropdown = ref(false)
 // 当前选中的 MCP 工具列表（支持多选）
 const selectedMCPTools = ref<MCPTool[]>([])
 
+// 模型选择器容器引用
+const modelSelectorRef = ref<HTMLElement | null>(null)
+
 // 注入配置更新标志
 const configUpdateKey = inject<Ref<number>>('configUpdateKey', ref(0))
 
@@ -85,10 +88,6 @@ async function loadConfiguredModels(): Promise<void> {
 
 // 监听配置更新
 watch(configUpdateKey, () => {
-  loadConfiguredModels()
-})
-
-onMounted(() => {
   loadConfiguredModels()
 })
 
@@ -133,6 +132,29 @@ function toggleModelDropdown(): void {
     showModelDropdown.value = !showModelDropdown.value
   }
 }
+
+/**
+ * 处理点击外部区域，关闭下拉菜单
+ */
+function handleClickOutside(event: MouseEvent): void {
+  if (showModelDropdown.value && modelSelectorRef.value) {
+    const target = event.target as Node
+    if (!modelSelectorRef.value.contains(target)) {
+      showModelDropdown.value = false
+    }
+  }
+}
+
+onMounted(() => {
+  loadConfiguredModels()
+  // 添加全局点击事件监听器
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  // 移除全局点击事件监听器
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <template>
@@ -149,7 +171,7 @@ function toggleModelDropdown(): void {
     </div>
     <div class="input-actions">
       <!-- 模型选择器 -->
-      <div class="model-selector">
+      <div ref="modelSelectorRef" class="model-selector">
         <button class="btn model-btn" :disabled="isSending" @click="toggleModelDropdown">
           <span>{{ selectedModel || '选择模型' }}</span>
           <span class="dropdown-arrow">&#9662;</span>

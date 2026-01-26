@@ -37,6 +37,9 @@ const searchQuery = ref('')
 // 选中的工具列表（支持多选）
 const selectedTools = ref<MCPTool[]>([])
 
+// MCP 工具容器引用
+const mcpContainerRef = ref<HTMLElement | null>(null)
+
 // 注入 MCP 更新标志
 const mcpUpdateKey = inject<Ref<number>>('mcpUpdateKey', ref(0))
 
@@ -164,6 +167,18 @@ function isServerConnected(serverName: string): boolean {
   return status?.connected ?? false
 }
 
+/**
+ * 处理点击外部区域，关闭面板
+ */
+function handleClickOutside(event: MouseEvent): void {
+  if (showPanel.value && mcpContainerRef.value) {
+    const target = event.target as Node
+    if (!mcpContainerRef.value.contains(target)) {
+      showPanel.value = false
+    }
+  }
+}
+
 // MCP 状态变更监听器
 let statusUnsubscribe: (() => void) | null = null
 
@@ -178,17 +193,21 @@ onMounted(() => {
   statusUnsubscribe = window.api.mcp.onStatusChange(() => {
     loadTools()
   })
+  // 添加全局点击事件监听器
+  document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
   if (statusUnsubscribe) {
     statusUnsubscribe()
   }
+  // 移除全局点击事件监听器
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
 <template>
-  <div class="mcp-tools-container">
+  <div ref="mcpContainerRef" class="mcp-tools-container">
     <!-- 触发按钮 -->
     <button
       class="btn mcp-trigger-btn"
