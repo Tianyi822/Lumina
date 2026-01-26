@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import KeyValueEditor from './KeyValueEditor.vue'
-import type { MCPServerConfig, MCPConnectionStatus } from '@renderer/types'
+import type { MCPServerConfig, MCPConnectionStatus, MCPTransportType } from '@renderer/types'
 
 interface Props {
   config: MCPServerConfig
@@ -22,6 +22,20 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+
+/**
+ * 更新配置
+ */
+function updateConfig(updates: Partial<MCPServerConfig>): void {
+  emit('save', { ...props.config, ...updates })
+}
+
+/**
+ * 更新传输类型
+ */
+function updateTransport(value: string): void {
+  emit('save', { ...props.config, transport: value as MCPTransportType })
+}
 
 /**
  * 切换展开状态
@@ -76,7 +90,7 @@ function handleToggle(): void {
         <select
           :value="config.transport"
           class="input"
-          @change="emit('save', { ...config, transport: $event.target.value })"
+          @change="updateTransport(($event.target as HTMLSelectElement).value)"
         >
           <option value="stdio">stdio (本地进程)</option>
           <option value="sse">SSE (Server-Sent Events)</option>
@@ -93,7 +107,7 @@ function handleToggle(): void {
             type="text"
             class="input"
             placeholder="例如: npx, node, python"
-            @blur="emit('save', { ...config, command: ($event.target as HTMLInputElement).value })"
+            @blur="updateConfig({ command: ($event.target as HTMLInputElement).value })"
           />
         </div>
         <div class="form-group">
@@ -103,8 +117,7 @@ function handleToggle(): void {
             class="input textarea-small"
             placeholder="-y&#10;@modelcontextprotocol/server-xxx"
             @blur="
-              emit('save', {
-                ...config,
+              updateConfig({
                 args: ($event.target as HTMLTextAreaElement).value
                   .split('\n')
                   .filter((s) => s.trim())
@@ -117,7 +130,7 @@ function handleToggle(): void {
           <KeyValueEditor
             :model-value="config.env || {}"
             placeholder="API_KEY=xxx"
-            @update:model-value="emit('save', { ...config, env: $event })"
+            @update:model-value="updateConfig({ env: $event })"
           />
         </div>
       </template>
@@ -131,7 +144,7 @@ function handleToggle(): void {
             type="text"
             class="input"
             placeholder="https://example.com/mcp"
-            @blur="emit('save', { ...config, url: ($event.target as HTMLInputElement).value })"
+            @blur="updateConfig({ url: ($event.target as HTMLInputElement).value })"
           />
         </div>
         <div class="form-group">
@@ -139,7 +152,7 @@ function handleToggle(): void {
           <KeyValueEditor
             :model-value="config.headers || {}"
             placeholder="Authorization=Bearer xxx"
-            @update:model-value="emit('save', { ...config, headers: $event })"
+            @update:model-value="updateConfig({ headers: $event })"
           />
         </div>
       </template>

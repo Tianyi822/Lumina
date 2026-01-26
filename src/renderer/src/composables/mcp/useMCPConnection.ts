@@ -1,9 +1,10 @@
 import { ref, toRaw, onUnmounted } from 'vue'
+import type { Ref } from 'vue'
 import type { MCPServerConfig, MCPConnectionStatus } from '@renderer/types'
 
 export function useMCPConnection(): {
-  connecting: ReturnType<typeof ref<string | null>>
-  testing: ReturnType<typeof ref<string | null>>
+  connecting: Ref<string | null>
+  testing: Ref<string | null>
   connect: (
     name: string,
     onSuccess?: (message: string) => void,

@@ -1,12 +1,13 @@
 import { reactive, ref, toRaw } from 'vue'
+import type { Ref } from 'vue'
 import type { MCPServerConfig } from '@renderer/types'
 
 export function useMCPTemplateForm(): {
-  showForm: ReturnType<typeof ref<boolean>>
+  showForm: Ref<boolean>
   formData: MCPServerConfig
-  argsText: ReturnType<typeof ref<string>>
-  envText: ReturnType<typeof ref<string>>
-  headersText: ReturnType<typeof ref<string>>
+  argsText: Ref<string>
+  envText: Ref<string>
+  headersText: Ref<string>
   parseKeyValueText: (text: string) => Record<string, string>
   keyValueToText: (obj: Record<string, string>) => string
   buildConfig: () => MCPServerConfig

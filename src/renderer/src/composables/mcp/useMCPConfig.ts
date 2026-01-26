@@ -1,11 +1,12 @@
 import { ref, toRaw } from 'vue'
+import type { Ref } from 'vue'
 import type { MCPServerConfig, MCPConnectionStatus } from '@renderer/types'
 
 export function useMCPConfig(): {
-  mcpConfigs: ReturnType<typeof ref<MCPServerConfig[]>>
-  mcpStatuses: ReturnType<typeof ref<MCPConnectionStatus[]>>
-  loading: ReturnType<typeof ref<boolean>>
-  error: ReturnType<typeof ref<string | undefined>>
+  mcpConfigs: Ref<MCPServerConfig[]>
+  mcpStatuses: Ref<MCPConnectionStatus[]>
+  loading: Ref<boolean>
+  error: Ref<string | undefined>
   loadConfigs: () => Promise<void>
   saveConfig: (config: MCPServerConfig) => Promise<boolean>
   deleteConfig: (name: string) => Promise<boolean>
