@@ -1,4 +1,23 @@
 /**
+ * 工具描述详细程度
+ */
+export type ToolDescriptionLevel = 'basic' | 'detailed' | 'minimal'
+
+/**
+ * 提示词配置
+ */
+export interface PromptConfig {
+  /** 是否启用增强版提示词 */
+  enableEnhancedPrompt?: boolean
+  /** 工具描述详细程度 */
+  toolDescriptionLevel?: ToolDescriptionLevel
+  /** Few-shot 示例数量 (0-5) */
+  fewShotCount?: number
+  /** 自定义系统提示词（覆盖默认提示词） */
+  customSystemPrompt?: string
+}
+
+/**
  * LLM 配置项
  */
 export interface LLMConfig {
@@ -69,6 +88,8 @@ export interface AppConfig {
   compression_threshold: number
   enable_auto_compression: boolean
   mcpServers: MCPServers
+  /** 提示词配置 */
+  promptConfig?: PromptConfig
 }
 
 /**

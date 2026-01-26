@@ -29,8 +29,43 @@ function createEmptyConfig(): AppConfig {
     default_model: '',
     compression_threshold: 0,
     enable_auto_compression: false,
-    mcpServers: {}
+    mcpServers: {},
+    promptConfig: {
+      enableEnhancedPrompt: true,
+      toolDescriptionLevel: 'detailed',
+      fewShotCount: 3
+    }
   }
+}
+
+/**
+ * 迁移配置，确保新字段存在
+ * 用于向后兼容性
+ */
+function migrateConfig(config: AppConfig): AppConfig {
+  const migrated = { ...config }
+
+  // 确保 promptConfig 存在
+  if (!migrated.promptConfig) {
+    migrated.promptConfig = {
+      enableEnhancedPrompt: true,
+      toolDescriptionLevel: 'detailed',
+      fewShotCount: 3
+    }
+  }
+
+  // 确保 promptConfig 中的必要字段存在
+  if (migrated.promptConfig.enableEnhancedPrompt === undefined) {
+    migrated.promptConfig.enableEnhancedPrompt = true
+  }
+  if (!migrated.promptConfig.toolDescriptionLevel) {
+    migrated.promptConfig.toolDescriptionLevel = 'detailed'
+  }
+  if (migrated.promptConfig.fewShotCount === undefined) {
+    migrated.promptConfig.fewShotCount = 3
+  }
+
+  return migrated
 }
 
 /**
@@ -115,8 +150,15 @@ export class ConfigManager {
       }
 
       // 读取配置文件
-      const config = this.readConfigFile()
+      let config = this.readConfigFile()
+
+      // 应用迁移逻辑（确保新字段存在）
+      config = migrateConfig(config)
+
+      // 如果配置有更新，保存回去
       this.config = config
+      this.writeConfigFile(config)
+
       this.loaded = true
       logger.info('配置加载成功')
       return {

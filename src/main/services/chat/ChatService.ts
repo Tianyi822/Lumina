@@ -4,7 +4,7 @@ import { configManager } from '../config'
 import { logger } from '../logger'
 import { mcpService } from '../mcp'
 import type {
-  ChatMessage,
+ChatMessage,
   ChatRequest,
   ChatResult,
   StreamEvent,
@@ -12,16 +12,8 @@ import type {
   MCPToolReference
 } from '../../types/chat'
 import type { LLMConfig } from '../../types/config'
-
-/** ReAct 系统提示词 */
-const REACT_SYSTEM_PROMPT = `你是一个可以使用工具的 AI 助手。
-当你需要使用工具时，请按以下步骤思考：
-1. 思考：分析你需要什么信息以及哪个工具可以帮助你
-2. 行动：使用合适的工具并提供正确的参数
-3. 观察：查看工具的输出结果
-4. 如有需要重复上述步骤，然后给出你的最终答案
-
-请始终解释你的推理过程。当你有足够的信息时，提供一个全面的最终答案。`
+import { promptBuilder } from './PromptBuilder'
+import { enhanceToolDescriptions } from './toolDescriptionEnhancer'
 
 /**
  * 聊天服务类
@@ -239,6 +231,12 @@ export class ChatService {
     try {
       const client = this.createClient(llmConfig)
 
+      // 获取提示词配置
+      const config = configManager.getConfig()
+      if (config) {
+        promptBuilder.updatePromptConfig(config.promptConfig || null)
+      }
+
       // 构建 OpenAI tools 定义
       const tools = this.buildOpenAITools(selectedTools!)
 
@@ -248,9 +246,10 @@ export class ChatService {
         toolNames: tools.map((t) => (t as { function: { name: string } }).function.name)
       })
 
-      // 构建消息历史，添加 ReAct 系统提示
+      // 构建消息历史，使用 PromptBuilder 生成系统提示
+      const systemPrompt = promptBuilder.buildSystemPrompt(llmConfig, true, selectedTools)
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-        { role: 'system', content: REACT_SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         ...this.formatMessages(messages)
       ]
 
@@ -457,19 +456,31 @@ export class ChatService {
   }
 
   /**
-   * 构建 OpenAI tools 定义
+   * 构建 OpenAI tools 定义（使用增强描述）
    */
   private buildOpenAITools(
     tools: MCPToolReference[]
   ): OpenAI.Chat.Completions.ChatCompletionTool[] {
-    return tools.map((tool) => ({
-      type: 'function' as const,
-      function: {
-        name: this.sanitizeToolName(tool.serverName, tool.toolName),
-        description: tool.description,
-        parameters: tool.inputSchema as Record<string, unknown>
+    // 获取提示词配置以确定描述级别
+    const config = configManager.getConfig()
+    const descriptionLevel = config?.promptConfig?.toolDescriptionLevel || 'detailed'
+
+    // 批量增强工具描述
+    const enhancedDescriptions = enhanceToolDescriptions(tools, descriptionLevel)
+
+    return tools.map((tool) => {
+      const toolKey = `${tool.serverName}__${tool.toolName}`
+      const enhancedDescription = enhancedDescriptions.get(toolKey) || tool.description
+
+      return {
+        type: 'function' as const,
+        function: {
+          name: this.sanitizeToolName(tool.serverName, tool.toolName),
+          description: enhancedDescription,
+          parameters: tool.inputSchema as Record<string, unknown>
+        }
       }
-    }))
+    })
   }
 
   /**

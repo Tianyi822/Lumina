@@ -3,7 +3,8 @@ import { ref, reactive, onMounted } from 'vue'
 import ThemeSettings from './settings/ThemeSettings.vue'
 import ModelSettings from './settings/ModelSettings.vue'
 import MCPSettings from './settings/MCPSettings.vue'
-import type { AppConfig, ThemeConfig, LLMConfigs } from '@renderer/types'
+import PromptSettings from './settings/PromptSettings.vue'
+import type { AppConfig, ThemeConfig, LLMConfigs, PromptConfig } from '@renderer/types'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -12,7 +13,7 @@ const emit = defineEmits<{
 }>()
 
 // 当前激活的 Tab
-const activeTab = ref<'theme' | 'model' | 'mcp'>('model')
+const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt'>('model')
 
 // 加载状态
 const loading = ref(false)
@@ -37,6 +38,13 @@ const themeConfig = reactive<ThemeConfig>({
 const llmConfigs = reactive<LLMConfigs>({})
 const defaultModel = ref('')
 
+// 提示词配置
+const promptConfig = reactive<PromptConfig>({
+  enableEnhancedPrompt: true,
+  toolDescriptionLevel: 'detailed',
+  fewShotCount: 3
+})
+
 // 加载配置
 async function loadConfig(): Promise<void> {
   loading.value = true
@@ -57,6 +65,10 @@ async function loadConfig(): Promise<void> {
         Object.assign(llmConfigs, config.llm_configs)
       }
       defaultModel.value = config.default_model || ''
+      // 加载提示词配置
+      if (config.promptConfig) {
+        Object.assign(promptConfig, config.promptConfig)
+      }
     }
   } catch (error) {
     errorMessage.value = `加载配置失败: ${error instanceof Error ? error.message : String(error)}`
@@ -138,6 +150,13 @@ onMounted(() => {
         </button>
         <button
           class="tab-btn"
+          :class="{ active: activeTab === 'prompt' }"
+          @click="activeTab = 'prompt'"
+        >
+          提示词
+        </button>
+        <button
+          class="tab-btn"
           :class="{ active: activeTab === 'theme' }"
           @click="activeTab = 'theme'"
         >
@@ -169,6 +188,13 @@ onMounted(() => {
           @update:error-message="errorMessage = $event"
           @update:success-message="successMessage = $event"
           @mcp-updated="emit('mcp-updated')"
+        />
+
+        <!-- 提示词配置 Tab -->
+        <PromptSettings
+          v-else-if="activeTab === 'prompt'"
+          :model-value="promptConfig"
+          @update:model-value="(value) => Object.assign(promptConfig, value)"
         />
 
         <!-- 主题设置 Tab -->
