@@ -1,16 +1,14 @@
 import {
   existsSync,
-  mkdirSync,
   readdirSync,
   readFileSync,
-  writeFileSync,
-  unlinkSync,
-  watch,
-  FSWatcher
+  rmdirSync,
+  unlinkSync
 } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import { logger } from '@main/services/logger'
+import { configManager } from '@main/services/config'
 import {
   MCPServerConfig,
   MCPConfigSaveResult,
@@ -19,87 +17,105 @@ import {
 } from '@main/types/mcp'
 
 /**
- * MCP 配置目录名称
+ * MCP 配置目录名称（用于迁移旧配置）
  */
 const MCP_CONFIG_DIR_NAME = 'mcp'
 
 /**
- * 获取 MCP 配置目录路径
+ * 获取旧的 MCP 配置目录路径（用于迁移）
  */
-export function getMCPConfigDirPath(): string {
+function getOldMCPConfigDirPath(): string {
   const homeDir = app.getPath('home')
   return join(homeDir, '.sparrow-manus', MCP_CONFIG_DIR_NAME)
 }
 
 /**
- * 获取 MCP 配置文件路径
+ * 获取旧的 MCP 配置文件路径（用于迁移）
  */
-export function getMCPConfigFilePath(name: string): string {
-  return join(getMCPConfigDirPath(), `${name}.json`)
+function getOldMCPConfigFilePath(name: string): string {
+  return join(getOldMCPConfigDirPath(), `${name}.json`)
 }
 
 /**
  * MCP 配置管理器
  * 负责 MCP 服务器配置的持久化管理
+ * 配置统一保存在主配置文件中，不再使用独立文件
  */
 export class MCPConfigManager {
-  private configCache: Map<string, MCPServerConfig> = new Map()
-  private watcher: FSWatcher | null = null
-  private onConfigChangeCallback: (() => void) | null = null
-
-  /**
-   * 确保 MCP 配置目录存在
-   */
-  private ensureConfigDir(): void {
-    const configDir = getMCPConfigDirPath()
-    if (!existsSync(configDir)) {
-      mkdirSync(configDir, { recursive: true })
-    }
-  }
+  private migrationCompleted: boolean = false
 
   /**
    * 初始化配置管理器
+   * 首次初始化时会自动迁移旧配置
    */
   initialize(): void {
-    this.ensureConfigDir()
-    this.loadAllConfigs()
+    this.migrateOldConfigs()
     logger.info('MCP 配置管理器初始化完成')
   }
 
   /**
-   * 加载所有 MCP 配置
+   * 从旧配置目录迁移所有配置到主配置文件
    */
-  private loadAllConfigs(): void {
-    const configDir = getMCPConfigDirPath()
-    this.configCache.clear()
+  private migrateOldConfigs(): void {
+    if (this.migrationCompleted) {
+      return
+    }
 
-    if (!existsSync(configDir)) {
+    const oldConfigDir = getOldMCPConfigDirPath()
+
+    // 检查旧配置目录是否存在
+    if (!existsSync(oldConfigDir)) {
+      this.migrationCompleted = true
       return
     }
 
     try {
-      const files = readdirSync(configDir).filter((f) => f.endsWith('.json'))
+      const files = readdirSync(oldConfigDir).filter((f) => f.endsWith('.json'))
+      let migratedCount = 0
+
       for (const file of files) {
         try {
-          const filePath = join(configDir, file)
+          const filePath = join(oldConfigDir, file)
           const content = readFileSync(filePath, 'utf-8')
           const config = JSON.parse(content) as MCPServerConfig
+
           if (config.name) {
-            this.configCache.set(config.name, config)
+            // 保存到主配置
+            const result = this.saveConfig(config)
+            if (result.success) {
+              migratedCount++
+              // 删除旧配置文件
+              unlinkSync(filePath)
+              logger.info(`已迁移 MCP 配置: ${config.name}`)
+            }
           }
         } catch (error) {
           logger.error(
-            `加载 MCP 配置文件失败: ${file} - ${error instanceof Error ? error.message : String(error)}`,
+            `迁移 MCP 配置文件失败: ${file} - ${error instanceof Error ? error.message : String(error)}`,
             'main'
           )
         }
       }
-      logger.info(`已加载 ${this.configCache.size} 个 MCP 配置`)
+
+      // 尝试删除旧的配置目录（如果为空）
+      try {
+        const remainingFiles = readdirSync(oldConfigDir)
+        if (remainingFiles.length === 0) {
+          rmdirSync(oldConfigDir)
+          logger.info('已删除空的旧 MCP 配置目录')
+        }
+      } catch {
+        // 目录删除失败不影响迁移结果
+      }
+
+      this.migrationCompleted = true
+      logger.info(`MCP 配置迁移完成: 成功迁移 ${migratedCount} 个配置`)
     } catch (error) {
       logger.error(
-        `读取 MCP 配置目录失败: ${error instanceof Error ? error.message : String(error)}`,
+        `读取旧 MCP 配置目录失败: ${error instanceof Error ? error.message : String(error)}`,
         'main'
       )
+      this.migrationCompleted = true
     }
   }
 
@@ -107,30 +123,95 @@ export class MCPConfigManager {
    * 列出所有 MCP 配置
    */
   listConfigs(): MCPServerConfig[] {
-    return Array.from(this.configCache.values())
+    const config = configManager.getConfig()
+    if (!config) {
+      return []
+    }
+
+    return Object.values(config.mcpServers || {})
   }
 
   /**
    * 获取单个 MCP 配置
    */
   getConfig(name: string): MCPServerConfig | null {
-    return this.configCache.get(name) || null
+    const config = configManager.getConfig()
+    if (!config || !config.mcpServers) {
+      return null
+    }
+
+    return config.mcpServers[name] || null
   }
 
   /**
    * 保存 MCP 配置
    */
-  saveConfig(config: MCPServerConfig): MCPConfigSaveResult {
+  saveConfig(serverConfig: MCPServerConfig): MCPConfigSaveResult {
     try {
-      this.ensureConfigDir()
-      const filePath = getMCPConfigFilePath(config.name)
-      const content = JSON.stringify(config, null, 2)
-      writeFileSync(filePath, content, 'utf-8')
-      this.configCache.set(config.name, config)
-      logger.info(`MCP 配置保存成功: ${config.name}`)
-      return { success: true }
+      const config = configManager.getConfig()
+      if (!config) {
+        return {
+          success: false,
+          error: '无法访问主配置'
+        }
+      }
+
+      // 确保 mcpServers 对象存在
+      if (!config.mcpServers) {
+        config.mcpServers = {}
+      }
+
+      // 保存配置
+      config.mcpServers[serverConfig.name] = serverConfig
+
+      // 保存到主配置文件
+      const result = configManager.saveConfig(config)
+
+      if (result.success) {
+        logger.info(`MCP 配置保存成功: ${serverConfig.name}`)
+      }
+
+      return result
     } catch (error) {
       const errorMessage = `保存 MCP 配置失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  /**
+   * 批量保存 MCP 配置
+   */
+  saveConfigs(configs: MCPServerConfig[]): MCPConfigSaveResult {
+    try {
+      const config = configManager.getConfig()
+      if (!config) {
+        return {
+          success: false,
+          error: '无法访问主配置'
+        }
+      }
+
+      // 确保 mcpServers 对象存在
+      if (!config.mcpServers) {
+        config.mcpServers = {}
+      }
+
+      // 保存所有配置
+      for (const serverConfig of configs) {
+        config.mcpServers[serverConfig.name] = serverConfig
+      }
+
+      // 保存到主配置文件
+      const result = configManager.saveConfig(config)
+
+      if (result.success) {
+        logger.info(`批量保存 MCP 配置成功: ${configs.length} 个`)
+      }
+
+      return result
+    } catch (error) {
+      const errorMessage = `批量保存 MCP 配置失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
       return { success: false, error: errorMessage }
     }
@@ -141,13 +222,33 @@ export class MCPConfigManager {
    */
   deleteConfig(name: string): MCPConfigSaveResult {
     try {
-      const filePath = getMCPConfigFilePath(name)
-      if (existsSync(filePath)) {
-        unlinkSync(filePath)
+      const config = configManager.getConfig()
+      if (!config || !config.mcpServers) {
+        return {
+          success: false,
+          error: '无法访问主配置'
+        }
       }
-      this.configCache.delete(name)
-      logger.info(`MCP 配置删除成功: ${name}`)
-      return { success: true }
+
+      // 检查配置是否存在
+      if (!config.mcpServers[name]) {
+        return {
+          success: false,
+          error: `配置不存在: ${name}`
+        }
+      }
+
+      // 删除配置
+      delete config.mcpServers[name]
+
+      // 保存到主配置文件
+      const result = configManager.saveConfig(config)
+
+      if (result.success) {
+        logger.info(`MCP 配置删除成功: ${name}`)
+      }
+
+      return result
     } catch (error) {
       const errorMessage = `删除 MCP 配置失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
@@ -177,6 +278,8 @@ export class MCPConfigManager {
         }
       }
 
+      const configsToImport: MCPServerConfig[] = []
+
       for (const [name, serverConfig] of Object.entries(parsed.mcpServers)) {
         try {
           // 判断传输类型
@@ -197,14 +300,19 @@ export class MCPConfigManager {
             headers: serverConfig.headers
           }
 
-          const saveResult = this.saveConfig(config)
-          if (saveResult.success) {
-            result.imported++
-          } else {
-            result.errors.push(`${name}: ${saveResult.error}`)
-          }
+          configsToImport.push(config)
         } catch (error) {
           result.errors.push(`${name}: ${error instanceof Error ? error.message : String(error)}`)
+        }
+      }
+
+      // 批量保存
+      if (configsToImport.length > 0) {
+        const saveResult = this.saveConfigs(configsToImport)
+        if (saveResult.success) {
+          result.imported = configsToImport.length
+        } else {
+          result.errors.push(`批量保存失败: ${saveResult.error}`)
         }
       }
 
@@ -226,49 +334,12 @@ export class MCPConfigManager {
   }
 
   /**
-   * 启动配置目录监听（热加载）
-   */
-  watchConfigDir(onConfigChange: () => void): void {
-    this.onConfigChangeCallback = onConfigChange
-    const configDir = getMCPConfigDirPath()
-
-    this.ensureConfigDir()
-
-    try {
-      this.watcher = watch(configDir, (eventType, filename) => {
-        if (filename && filename.endsWith('.json')) {
-          logger.info(`MCP 配置文件变更: ${eventType} - ${filename}`)
-          this.loadAllConfigs()
-          if (this.onConfigChangeCallback) {
-            this.onConfigChangeCallback()
-          }
-        }
-      })
-      logger.info('MCP 配置目录监听已启动')
-    } catch (error) {
-      logger.error(
-        `启动 MCP 配置监听失败: ${error instanceof Error ? error.message : String(error)}`,
-        'main'
-      )
-    }
-  }
-
-  /**
-   * 停止配置目录监听
-   */
-  stopWatching(): void {
-    if (this.watcher) {
-      this.watcher.close()
-      this.watcher = null
-      logger.info('MCP 配置目录监听已停止')
-    }
-  }
-
-  /**
-   * 重新加载所有配置
+   * 重新加载配置
+   * 从主配置文件重新读取
    */
   reloadConfigs(): void {
-    this.loadAllConfigs()
+    // 配置已经由 ConfigManager 统一管理，这里不需要额外操作
+    logger.info('MCP 配置重新加载完成')
   }
 
   /**
@@ -282,6 +353,41 @@ export class MCPConfigManager {
    * 配置是否存在
    */
   configExists(name: string): boolean {
-    return this.configCache.has(name)
+    const config = configManager.getConfig()
+    if (!config || !config.mcpServers) {
+      return false
+    }
+
+    return name in config.mcpServers
+  }
+
+  /**
+   * 导出所有配置为 JSON（用于备份）
+   */
+  exportConfigs(): string {
+    const config = configManager.getConfig()
+    if (!config || !config.mcpServers) {
+      return JSON.stringify({ mcpServers: {} }, null, 2)
+    }
+
+    // 转换为标准 MCP 配置格式
+    const exportData: MCPConfigFile = {
+      mcpServers: {}
+    }
+
+    for (const [name, serverConfig] of Object.entries(config.mcpServers)) {
+      exportData.mcpServers[name] = {
+        command: serverConfig.command,
+        args: serverConfig.args,
+        env: serverConfig.env,
+        url: serverConfig.url,
+        headers: serverConfig.headers
+      }
+    }
+
+    return JSON.stringify(exportData, null, 2)
   }
 }
+
+// 导出路径相关函数（保持向后兼容）
+export { getOldMCPConfigDirPath as getMCPConfigDirPath, getOldMCPConfigFilePath as getMCPConfigFilePath }

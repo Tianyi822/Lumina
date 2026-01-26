@@ -64,11 +64,30 @@ export interface ThemeConfig {
 }
 
 /**
+ * MCP 传输类型
+ */
+export type MCPTransportType = 'stdio' | 'sse' | 'streamableHttp'
+
+/**
  * MCP 服务器配置
  */
 export interface MCPServerConfig {
-  type: string
-  url: string
+  /** 服务名称 */
+  name: string
+  /** 传输类型 */
+  transport: MCPTransportType
+  /** 是否启用 */
+  enabled: boolean
+  /** stdio 执行命令 */
+  command?: string
+  /** stdio 命令参数 */
+  args?: string[]
+  /** stdio 环境变量 */
+  env?: Record<string, string>
+  /** HTTP/SSE 服务地址 */
+  url?: string
+  /** HTTP/SSE 认证头 */
+  headers?: Record<string, string>
 }
 
 /**

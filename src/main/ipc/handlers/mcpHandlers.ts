@@ -18,12 +18,6 @@ export function initializeMCP(): void {
     }
   })
 
-  // 监听配置变更，自动重连
-  mcpConfigManager.watchConfigDir(async () => {
-    logger.info('MCP 配置已变更，正在重新加载...')
-    // 可以在这里实现自动重连逻辑
-  })
-
   // 自动连接已启用的服务器
   autoConnectEnabledServers()
 
@@ -76,6 +70,11 @@ export function registerMCPHandlers(): void {
   // 批量导入 MCP 配置
   ipcMain.handle('mcp:importConfigs', (_event, jsonContent: string) => {
     return mcpConfigManager.importFromJson(jsonContent)
+  })
+
+  // 导出所有 MCP 配置
+  ipcMain.handle('mcp:exportConfigs', () => {
+    return mcpConfigManager.exportConfigs()
   })
 
   // 连接 MCP 服务器

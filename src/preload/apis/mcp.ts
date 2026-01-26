@@ -133,6 +133,13 @@ export const mcpApi = {
   },
 
   /**
+   * 导出所有 MCP 配置
+   */
+  exportConfigs: (): Promise<string> => {
+    return ipcRenderer.invoke('mcp:exportConfigs')
+  },
+
+  /**
    * 连接 MCP 服务器
    */
   connect: (name: string): Promise<MCPConnectResult> => {
