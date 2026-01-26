@@ -108,10 +108,13 @@ export class MCPService {
         serverName
       }))
 
+      // 确保工具数据可被序列化（用于 IPC 传输）
+      const serializedTools = JSON.parse(JSON.stringify(tools))
+
       const connection: MCPClientConnection = {
         client,
         config,
-        tools,
+        tools: serializedTools,
         connected: true
       }
 
@@ -125,7 +128,7 @@ export class MCPService {
       return {
         success: true,
         serverName,
-        tools
+        tools: serializedTools
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -345,10 +348,13 @@ export class MCPService {
 
       logger.info(`MCP 服务器连接测试成功: ${config.name}`)
 
+      // 确保返回的数据可被 JSON 序列化（用于 IPC 传输）
+      const serializedTools = JSON.parse(JSON.stringify(tools))
+
       return {
         success: true,
         serverName: config.name,
-        tools
+        tools: serializedTools
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)

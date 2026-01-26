@@ -189,7 +189,9 @@ async function testMCPConnection(config: MCPServerConfig): Promise<void> {
   testingMCP.value = config.name
   errorMessage.value = ''
   try {
-    const result = await window.api.mcp.testConnection(config)
+    // 将 Vue 响应式对象转换为普通对象，以便通过 IPC 传输
+    const plainConfig = JSON.parse(JSON.stringify(toRaw(config)))
+    const result = await window.api.mcp.testConnection(plainConfig)
     if (result.success) {
       successMessage.value = `${config.name} 连接测试成功，发现 ${result.tools?.length || 0} 个工具`
       setTimeout(() => {
@@ -254,7 +256,9 @@ async function deleteMCPConfig(name: string): Promise<void> {
 // 保存 MCP 配置
 async function saveMCPConfig(config: MCPServerConfig): Promise<void> {
   try {
-    const result = await window.api.mcp.saveConfig(config)
+    // 将 Vue 响应式对象转换为普通对象，以便通过 IPC 传输
+    const plainConfig = JSON.parse(JSON.stringify(toRaw(config)))
+    const result = await window.api.mcp.saveConfig(plainConfig)
     if (result.success) {
       await loadMCPConfigs()
       emit('mcp-updated')
@@ -375,7 +379,9 @@ async function importMCPConfigs(): Promise<void> {
 
 // 切换 MCP 启用状态
 async function toggleMCPEnabled(config: MCPServerConfig): Promise<void> {
-  const updatedConfig = { ...config, enabled: !config.enabled }
+  // 将 Vue 响应式对象转换为普通对象，以便通过 IPC 传输
+  const plainConfig = JSON.parse(JSON.stringify(toRaw(config)))
+  const updatedConfig = { ...plainConfig, enabled: !plainConfig.enabled }
   await saveMCPConfig(updatedConfig)
   if (!updatedConfig.enabled) {
     await disconnectMCP(config.name)
