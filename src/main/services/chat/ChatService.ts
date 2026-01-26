@@ -143,7 +143,7 @@ export class ChatService {
             reasoning_content?: string | null
           }
 
-          // 处理思考内容（DeepSeek）
+          // 处理思考内容
           if (delta.reasoning_content) {
             this.sendStreamEvent(webContents, {
               type: 'reasoning',
@@ -294,7 +294,7 @@ export class ChatService {
 
         // 收集流式响应
         let assistantContent = ''
-        let assistantReasoningContent = '' // 收集思考内容（DeepSeek Reasoner 需要）
+        let assistantReasoningContent = '' // 收集思考内容
         const toolCalls: Map<
           number,
           { id: string; type: 'function'; function: { name: string; arguments: string } }
@@ -381,7 +381,6 @@ export class ChatService {
         })
 
         // 将助手消息（包含工具调用）添加到对话历史
-        // 注意：DeepSeek Reasoner 需要在后续请求中保留 reasoning_content 字段
         const toolCallsArray = Array.from(toolCalls.values())
         const assistantMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam & {
           reasoning_content?: string
@@ -391,7 +390,7 @@ export class ChatService {
           tool_calls: toolCallsArray
         }
 
-        // 如果有思考内容，添加到消息中（DeepSeek Reasoner 要求）
+        // 如果有思考内容，添加到消息中
         if (assistantReasoningContent) {
           assistantMessage.reasoning_content = assistantReasoningContent
         }

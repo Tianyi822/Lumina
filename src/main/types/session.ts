@@ -10,7 +10,7 @@ export interface SessionMessage {
   role: MessageRole
   /** 消息内容 */
   content: string
-  /** 思考过程（DeepSeek） */
+  /** 思考过程 */
   reasoning?: string
   /** 消息时间戳 */
   timestamp: string

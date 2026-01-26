@@ -117,7 +117,7 @@ export interface TokenUsage {
   completion_tokens: number
   /** 总 token 数量 */
   total_tokens: number
-  /** 思考 token 数量（DeepSeek） */
+  /** 思考 token 数量 */
   reasoning_tokens?: number
 }
 
