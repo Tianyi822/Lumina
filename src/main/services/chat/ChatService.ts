@@ -14,14 +14,14 @@ import type {
 import type { LLMConfig } from '../../types/config'
 
 /** ReAct 系统提示词 */
-const REACT_SYSTEM_PROMPT = `You are a helpful AI assistant with access to tools.
-When you need to use a tool, think step by step:
-1. Thought: Analyze what information you need and which tool can help
-2. Action: Use the appropriate tool with correct parameters
-3. Observation: Review the tool's output
-4. Repeat if needed, then provide your final answer
+const REACT_SYSTEM_PROMPT = `你是一个可以使用工具的 AI 助手。
+当你需要使用工具时，请按以下步骤思考：
+1. 思考：分析你需要什么信息以及哪个工具可以帮助你
+2. 行动：使用合适的工具并提供正确的参数
+3. 观察：查看工具的输出结果
+4. 如有需要重复上述步骤，然后给出你的最终答案
 
-Always explain your reasoning process. When you have enough information, provide a comprehensive final answer.`
+请始终解释你的推理过程。当你有足够的信息时，提供一个全面的最终答案。`
 
 /**
  * 聊天服务类
