@@ -1,10 +1,4 @@
-import {
-  existsSync,
-  readdirSync,
-  readFileSync,
-  rmdirSync,
-  unlinkSync
-} from 'fs'
+import { existsSync, readdirSync, readFileSync, rmdirSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import { logger } from '@main/services/logger'
@@ -390,4 +384,7 @@ export class MCPConfigManager {
 }
 
 // 导出路径相关函数（保持向后兼容）
-export { getOldMCPConfigDirPath as getMCPConfigDirPath, getOldMCPConfigFilePath as getMCPConfigFilePath }
+export {
+  getOldMCPConfigDirPath as getMCPConfigDirPath,
+  getOldMCPConfigFilePath as getMCPConfigFilePath
+}

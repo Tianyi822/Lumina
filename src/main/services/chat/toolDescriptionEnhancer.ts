@@ -9,10 +9,7 @@ export class ToolDescriptionEnhancer {
   /**
    * 增强工具描述
    */
-  enhanceToolDescription(
-    tool: MCPToolReference,
-    level: ToolDescriptionLevel = 'detailed'
-  ): string {
+  enhanceToolDescription(tool: MCPToolReference, level: ToolDescriptionLevel = 'detailed'): string {
     const baseDescription = tool.description || ''
 
     switch (level) {
@@ -153,19 +150,35 @@ export class ToolDescriptionEnhancer {
       tips.push('- 确保提供的路径或标识符是正确的')
       tips.push('- 检查是否有权限访问该资源')
       tips.push('- 如果读取失败，验证资源是否存在')
-    } else if (toolName.includes('write') || toolName.includes('create') || toolName.includes('save')) {
+    } else if (
+      toolName.includes('write') ||
+      toolName.includes('create') ||
+      toolName.includes('save')
+    ) {
       tips.push('- 确保提供完整的内容数据')
       tips.push('- 检查目标路径是否存在，或是否需要创建父目录')
       tips.push('- 注意文件格式和编码是否正确')
-    } else if (toolName.includes('file') || toolName.includes('directory') || toolName.includes('folder')) {
+    } else if (
+      toolName.includes('file') ||
+      toolName.includes('directory') ||
+      toolName.includes('folder')
+    ) {
       tips.push('- 使用绝对路径以避免路径错误')
       tips.push('- 注意不同操作系统的路径分隔符差异')
       tips.push('- 确保路径中包含必要的文件扩展名')
-    } else if (toolName.includes('execute') || toolName.includes('run') || toolName.includes('command')) {
+    } else if (
+      toolName.includes('execute') ||
+      toolName.includes('run') ||
+      toolName.includes('command')
+    ) {
       tips.push('- 小心使用系统命令，确保参数安全')
       tips.push('- 测试命令时考虑使用非破坏性参数（如 --dry-run）')
       tips.push('- 某些命令可能需要特定的执行环境或权限')
-    } else if (toolName.includes('web') || toolName.includes('http') || toolName.includes('fetch')) {
+    } else if (
+      toolName.includes('web') ||
+      toolName.includes('http') ||
+      toolName.includes('fetch')
+    ) {
       tips.push('- 检查 URL 的完整性和格式正确性')
       tips.push('- 考虑网络超时设置，避免长时间等待')
       tips.push('- 注意某些网站可能有访问频率限制')

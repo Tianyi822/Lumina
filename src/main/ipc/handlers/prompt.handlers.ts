@@ -1,6 +1,8 @@
 import { ipcMain } from 'electron'
 import { configManager } from '../../services/config'
 import { logger } from '../../services/logger'
+import { exampleManager } from '../../services/chat/prompts/ExampleManager'
+import { promptBuilder } from '../../services/chat/PromptBuilder'
 import type { PromptConfig } from '@main/types/config'
 
 /**
@@ -59,5 +61,194 @@ export function registerPromptHandlers(): void {
   ipcMain.handle('prompt:getConfig', handleGetPromptConfig)
   ipcMain.handle('prompt:updateConfig', handleUpdatePromptConfig)
 
+  // 示例管理 handlers
+  ipcMain.handle('prompt:extractExamples', handleExtractExamples)
+  ipcMain.handle('prompt:getExampleStats', handleGetExampleStats)
+  ipcMain.handle('prompt:cleanupExamples', handleCleanupExamples)
+  ipcMain.handle('prompt:exportExamples', handleExportExamples)
+  ipcMain.handle('prompt:importExamples', handleImportExamples)
+
+  // 性能监控 handlers
+  ipcMain.handle('prompt:getCacheStats', handleGetCacheStats)
+  ipcMain.handle('prompt:getCacheReport', handleGetCacheReport)
+  ipcMain.handle('prompt:clearCache', handleClearCache)
+
   logger.debug('提示词配置 IPC 处理器已注册', 'main')
+}
+
+/**
+ * 提取示例
+ */
+export async function handleExtractExamples(
+  _event: Electron.IpcMainInvokeEvent,
+  sessionIds?: string[]
+): Promise<{ success: boolean; extracted?: number; saved?: number; errors?: string[] }> {
+  try {
+    const result = await exampleManager.extractAndSave(sessionIds)
+    return { success: true, ...result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('提取示例失败', 'main', { error: errorMessage })
+    return { success: false, errors: [errorMessage] }
+  }
+}
+
+/**
+ * 获取示例统计信息
+ */
+export async function handleGetExampleStats(): Promise<{
+  success: boolean
+  stats?: {
+    total: number
+    static: number
+    dynamic: number
+    avgQualityScore: number
+    lastUpdated: string
+  }
+  error?: string
+}> {
+  try {
+    const stats = await exampleManager.getStats()
+    return { success: true, stats }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('获取示例统计失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
+ * 清理示例
+ */
+export async function handleCleanupExamples(
+  _event: Electron.IpcMainInvokeEvent,
+  options: { type: 'quality' | 'age'; value?: number }
+): Promise<{ success: boolean; cleaned?: number; error?: string }> {
+  try {
+    let cleaned = 0
+    if (options.type === 'quality') {
+      cleaned = await exampleManager.cleanup(options.value || 0.6)
+    } else if (options.type === 'age') {
+      cleaned = await exampleManager.cleanupOldExamples(options.value || 30)
+    }
+
+    logger.info('示例清理完成', 'main', { type: options.type, count: cleaned })
+    return { success: true, cleaned }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('清理示例失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
+ * 导出示例
+ */
+export async function handleExportExamples(): Promise<{
+  success: boolean
+  json?: string
+  error?: string
+}> {
+  try {
+    const json = await exampleManager.exportExamples()
+    return { success: true, json }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('导出示例失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
+ * 导入示例
+ */
+export async function handleImportExamples(
+  _event: Electron.IpcMainInvokeEvent,
+  json: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await exampleManager.importExamples(json)
+    logger.info('示例导入成功')
+    return { success: true }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('导入示例失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
+ * 获取缓存统计
+ */
+export async function handleGetCacheStats(): Promise<{
+  success: boolean
+  stats?: {
+    systemPrompt: {
+      size: number
+      maxSize: number
+      hits: number
+      misses: number
+      hitRate: number
+    }
+    toolDescription: {
+      size: number
+      maxSize: number
+      hits: number
+      misses: number
+      hitRate: number
+    }
+    exampleFormatting: {
+      size: number
+      maxSize: number
+      hits: number
+      misses: number
+      hitRate: number
+    }
+  }
+  error?: string
+}> {
+  try {
+    const stats = promptBuilder.getCache().getStats()
+    return { success: true, stats }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('获取缓存统计失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
+ * 获取缓存性能报告
+ */
+export async function handleGetCacheReport(): Promise<{
+  success: boolean
+  report?: string
+  error?: string
+}> {
+  try {
+    const report = promptBuilder.getCache().generateReport()
+    return { success: true, report }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('生成缓存报告失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
+ * 清空缓存
+ */
+export async function handleClearCache(): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    promptBuilder.getCache().clear()
+    logger.info('缓存已清空')
+    return { success: true }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('清空缓存失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
 }

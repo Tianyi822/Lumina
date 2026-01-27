@@ -35,4 +35,7 @@ export function deepCopyMessages(messages: Message[]): Message[] {
 }
 
 // 重新导出共享工具函数（供主进程使用）
-export { sessionToChatMessage, buildChatMessages as buildChatMessagesFromSession } from '@shared/utils'
+export {
+  sessionToChatMessage,
+  buildChatMessages as buildChatMessagesFromSession
+} from '@shared/utils'

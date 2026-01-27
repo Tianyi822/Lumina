@@ -38,6 +38,64 @@ export interface FewShotExample {
 }
 
 /**
+ * 增强的 Few-shot 示例（动态示例系统）
+ */
+export interface EnhancedFewShotExample extends FewShotExample {
+  /** 示例唯一标识 */
+  id: string
+  /** 质量分数 (0-1) */
+  qualityScore: number
+  /** 使用次数 */
+  usageCount: number
+  /** 来源类型 */
+  source: 'static' | 'dynamic'
+  /** 使用的工具列表 */
+  toolsUsed: string[]
+  /** 创建时间 */
+  createdAt: string
+  /** 最后使用时间 */
+  lastUsedAt?: string
+  /** 成功率 (如果已计算) */
+  successRate?: number
+  /** 源会话 ID (动态示例) */
+  sourceSessionId?: string
+}
+
+/**
+ * 示例选择标准
+ */
+export interface ExampleSelectionCriteria {
+  /** 最大示例数量 */
+  maxCount: number
+  /** 最小质量分数 */
+  minQualityScore: number
+  /** 必需的工具列表 */
+  requiredTools?: string[]
+  /** 是否包含静态示例 */
+  includeStatic: boolean
+  /** 是否包含动态示例 */
+  includeDynamic: boolean
+  /** 最大静态示例数量 */
+  maxStaticCount?: number
+  /** 最大动态示例数量 */
+  maxDynamicCount?: number
+}
+
+/**
+ * 示例提取结果
+ */
+export interface ExampleExtractionResult {
+  /** 提取的示例 */
+  examples: EnhancedFewShotExample[]
+  /** 跳过的会话数 */
+  skippedSessions: number
+  /** 处理的会话数 */
+  processedSessions: number
+  /** 错误信息 */
+  errors: string[]
+}
+
+/**
  * ReAct 提示词章节
  */
 export interface ReactPromptSections {

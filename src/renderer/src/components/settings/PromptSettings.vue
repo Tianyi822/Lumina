@@ -83,7 +83,9 @@ watch(
         <input
           type="checkbox"
           :checked="localConfig.enableEnhancedPrompt"
-          @change="updateConfig('enableEnhancedPrompt', ($event.target as HTMLInputElement).checked)"
+          @change="
+            updateConfig('enableEnhancedPrompt', ($event.target as HTMLInputElement).checked)
+          "
         />
         <span>启用增强版 ReAct 提示词</span>
       </label>
@@ -99,14 +101,20 @@ watch(
       <select
         :value="localConfig.toolDescriptionLevel"
         class="input"
-        @change="updateConfig('toolDescriptionLevel', ($event.target as HTMLSelectElement).value as ToolDescriptionLevel)"
+        @change="
+          updateConfig(
+            'toolDescriptionLevel',
+            ($event.target as HTMLSelectElement).value as ToolDescriptionLevel
+          )
+        "
       >
         <option value="minimal">精简（仅基础描述）</option>
         <option value="basic">基础（参数列表）</option>
         <option value="detailed">详细（参数说明 + 使用建议）</option>
       </select>
       <p class="help-text">
-        控制传递给 AI 的工具描述详细程度。详细程度越高，AI 使用工具的效果越好，但也会消耗更多 token。
+        控制传递给 AI 的工具描述详细程度。详细程度越高，AI 使用工具的效果越好，但也会消耗更多
+        token。
       </p>
     </div>
 
@@ -142,7 +150,10 @@ watch(
         rows="8"
         placeholder="输入自定义的系统提示词...留空则使用默认提示词"
         @input="
-          updateConfig('customSystemPrompt', ($event.target as HTMLTextAreaElement).value || undefined)
+          updateConfig(
+            'customSystemPrompt',
+            ($event.target as HTMLTextAreaElement).value || undefined
+          )
         "
       ></textarea>
       <p class="help-text">

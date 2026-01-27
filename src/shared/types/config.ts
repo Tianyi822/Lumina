@@ -15,6 +15,24 @@ export interface PromptConfig {
   fewShotCount?: number
   /** 自定义系统提示词（覆盖默认提示词） */
   customSystemPrompt?: string
+  /** 是否启用提示词缓存 */
+  enablePromptCache?: boolean
+  /** 缓存最大条目数 */
+  cacheMaxSize?: number
+  /** 缓存过期时间（小时） */
+  cacheTTLHours?: number
+  /** 是否启用动态示例 */
+  enableDynamicExamples?: boolean
+  /** 自动提取间隔（天） */
+  autoExtractIntervalDays?: number
+  /** 动态示例最小质量分数 */
+  dynamicExampleMinQuality?: number
+  /** 最大静态示例数量 */
+  maxStaticExamples?: number
+  /** 是否启用提示词优化 */
+  enablePromptOptimization?: boolean
+  /** 优化激进程度 */
+  optimizationAggressiveness?: 'conservative' | 'balanced' | 'aggressive'
 }
 
 /**

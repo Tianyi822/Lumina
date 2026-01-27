@@ -1,10 +1,6 @@
 import { reactive, ref, toRaw } from 'vue'
 import type { Ref } from 'vue'
-import type {
-  MCPServerConfig,
-  MCPConnectionStatus,
-  MCPStatusChangeEvent
-} from '@renderer/types'
+import type { MCPServerConfig, MCPConnectionStatus, MCPStatusChangeEvent } from '@renderer/types'
 
 /**
  * MCP Server Manager - 整合配置、连接和表单管理功能
@@ -21,7 +17,11 @@ export function useMCPServerManager(): {
   getStatus: (name: string) => MCPConnectionStatus | undefined
 
   // 连接
-  connect: (name: string, onSuccess?: (msg: string) => void, onError?: (msg: string) => void) => Promise<boolean>
+  connect: (
+    name: string,
+    onSuccess?: (msg: string) => void,
+    onError?: (msg: string) => void
+  ) => Promise<boolean>
   disconnect: (name: string, onError?: (msg: string) => void) => Promise<boolean>
   testConnection: (
     config: MCPServerConfig,
@@ -139,10 +139,7 @@ export function useMCPServerManager(): {
     }
   }
 
-  async function disconnect(
-    name: string,
-    onError?: (message: string) => void
-  ): Promise<boolean> {
+  async function disconnect(name: string, onError?: (message: string) => void): Promise<boolean> {
     try {
       const result = await window.api.mcp.disconnect(name)
       if (result.success) {

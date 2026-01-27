@@ -21,18 +21,24 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         })
       }
     ],
-    finalAnswer: '根据天气查询结果，北京今天天气晴朗，气温 18°C，湿度 45%，东北风 3级。适合外出活动。'
+    finalAnswer:
+      '根据天气查询结果，北京今天天气晴朗，气温 18°C，湿度 45%，东北风 3级。适合外出活动。'
   },
   {
     userQuery: '帮我搜索一下 Vue 3 的最新版本号，然后读取项目中的 package.json 文件查看当前版本。',
-    thought: '这个任务需要两步：首先搜索 Vue 3 的最新版本，然后读取本地 package.json 文件查看当前使用的版本。我可以先执行这两个操作。',
+    thought:
+      '这个任务需要两步：首先搜索 Vue 3 的最新版本，然后读取本地 package.json 文件查看当前使用的版本。我可以先执行这两个操作。',
     toolCalls: [
       {
         name: 'web_search__search',
         arguments: { query: 'Vue 3 latest version 2025', limit: 3 },
         result: JSON.stringify({
           results: [
-            { title: 'Vue 3.5 Released', url: 'https://vuejs.org', snippet: 'Vue 3.5.0 is the latest version' }
+            {
+              title: 'Vue 3.5 Released',
+              url: 'https://vuejs.org',
+              snippet: 'Vue 3.5.0 is the latest version'
+            }
           ]
         })
       },
@@ -44,11 +50,13 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
         })
       }
     ],
-    finalAnswer: '根据搜索结果，Vue 3 的最新版本是 3.5.0。你的项目中当前使用的是 Vue 3.4.0（package.json 中显示为 "^3.4.0"），可以考虑升级到最新版本以获得新特性和性能改进。'
+    finalAnswer:
+      '根据搜索结果，Vue 3 的最新版本是 3.5.0。你的项目中当前使用的是 Vue 3.4.0（package.json 中显示为 "^3.4.0"），可以考虑升级到最新版本以获得新特性和性能改进。'
   },
   {
     userQuery: '分析这个错误：TypeError: Cannot read property "name" of undefined',
-    thought: '用户遇到了一个常见的 JavaScript 错误。这个错误表明代码试图访问一个 undefined 对象的 name 属性。我需要分析可能的原因和解决方案。',
+    thought:
+      '用户遇到了一个常见的 JavaScript 错误。这个错误表明代码试图访问一个 undefined 对象的 name 属性。我需要分析可能的原因和解决方案。',
     toolCalls: [],
     finalAnswer: `这是一个常见的 JavaScript 运行时错误。分析和解决方案如下：
 

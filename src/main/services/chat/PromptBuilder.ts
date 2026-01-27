@@ -1,17 +1,15 @@
 import type { LLMConfig } from '@main/types/config'
 import type { MCPToolReference } from '@main/types/chat'
-import type { PromptBuildOptions, ToolDescriptionLevel } from './prompts/types'
+import type { PromptBuildOptions } from './prompts/types'
+import type { PromptConfig as SharedPromptConfig } from '@shared/types/config'
+import type { EnhancedFewShotExample } from './prompts/types'
 import { buildReactSystemPrompt } from './prompts/reactSystemPrompt'
+import { PromptCache } from './prompts/PromptCache'
+import { PromptOptimizer } from './prompts/PromptOptimizer'
+import { exampleManager } from './prompts/ExampleManager'
 
-/**
- * 配置接口（从 ConfigManager 获取）
- */
-interface PromptConfig {
-  enableEnhancedPrompt?: boolean
-  toolDescriptionLevel?: ToolDescriptionLevel
-  fewShotCount?: number
-  customSystemPrompt?: string
-}
+// 使用共享的 PromptConfig 类型
+type PromptConfig = SharedPromptConfig
 
 /**
  * PromptBuilder 服务
@@ -19,12 +17,74 @@ interface PromptConfig {
  */
 export class PromptBuilder {
   private promptConfig: PromptConfig | null = null
+  private cache: PromptCache = new PromptCache()
+  private optimizer: PromptOptimizer = new PromptOptimizer()
+  private initialized: boolean = false
+
+  constructor() {
+    // 异步初始化 ExampleManager（不阻塞构造）
+    this.initializeAsync()
+  }
+
+  /**
+   * 异步初始化
+   */
+  private async initializeAsync(): Promise<void> {
+    try {
+      await exampleManager.initialize()
+      this.initialized = true
+    } catch (error) {
+      // 初始化失败不影响基本功能
+      console.error('ExampleManager 初始化失败:', error)
+    }
+  }
+
+  /**
+   * 获取缓存实例
+   */
+  getCache(): PromptCache {
+    return this.cache
+  }
+
+  /**
+   * 获取示例管理器实例
+   */
+  getExampleManager(): typeof exampleManager {
+    return exampleManager
+  }
+
+  /**
+   * 获取优化器实例
+   */
+  getOptimizer(): PromptOptimizer {
+    return this.optimizer
+  }
 
   /**
    * 更新提示词配置
    */
   updatePromptConfig(config: PromptConfig | null): void {
+    // 检查配置是否发生变化
+    const changed =
+      !this.promptConfig || !config || JSON.stringify(this.promptConfig) !== JSON.stringify(config)
+
     this.promptConfig = config
+
+    // 如果配置发生变化，失效相关缓存
+    if (changed && config) {
+      if (config.enablePromptCache === false) {
+        // 禁用缓存
+        this.cache.updateConfig({ enabled: false })
+      } else {
+        // 启用缓存并失效配置相关缓存
+        this.cache.updateConfig({
+          enabled: true,
+          systemPromptMaxSize: config.cacheMaxSize || 50,
+          systemPromptTTL: config.cacheTTLHours || 24
+        })
+        this.cache.invalidateConfig()
+      }
+    }
   }
 
   /**
@@ -34,27 +94,72 @@ export class PromptBuilder {
    * @param selectedTools 选中的工具列表（可选）
    * @returns 构建好的系统提示词
    */
-  buildSystemPrompt(
+  async buildSystemPrompt(
     modelConfig: LLMConfig,
     hasTools: boolean,
     selectedTools?: MCPToolReference[]
-  ): string {
+  ): Promise<string> {
     // 如果没有工具，使用简单提示词
     if (!hasTools) {
       return this.getBasicSystemPrompt()
     }
 
     // 获取构建选项
-    const options = this.buildOptions(modelConfig, selectedTools)
+    const options = await this.buildOptions(modelConfig, selectedTools)
 
-    // 构建 ReAct 提示词
-    return buildReactSystemPrompt(options)
+    // 生成示例 ID 列表（用于缓存键）
+    const exampleIds = this.generateExampleIds(options.fewShotCount || 0)
+
+    // 使用缓存构建提示词
+    const prompt = this.cache.getSystemPrompt(
+      (this.promptConfig || {}) as Record<string, unknown>,
+      selectedTools || [],
+      exampleIds,
+      () => buildReactSystemPrompt(options)
+    )
+
+    // 应用优化
+    if (this.promptConfig?.enablePromptOptimization && modelConfig.max_tokens) {
+      const result = this.optimizer.optimize(prompt, {
+        maxTokens: modelConfig.max_tokens,
+        aggressiveness: this.promptConfig.optimizationAggressiveness || 'balanced',
+        tools: selectedTools
+      })
+
+      if (result.compressionLevel > 0) {
+        // 可选：记录优化统计（不使用 logger）
+        console.debug('提示词已优化', {
+          originalTokens: result.originalTokens,
+          optimizedTokens: result.optimizedTokens,
+          reduction: `${result.reductionPercent.toFixed(1)}%`,
+          level: result.compressionLevel
+        })
+      }
+
+      return result.optimizedPrompt
+    }
+
+    return prompt
+  }
+
+  /**
+   * 生成示例 ID 列表
+   */
+  private generateExampleIds(count: number): string[] {
+    const ids: string[] = []
+    for (let i = 0; i < count; i++) {
+      ids.push(`static-${i}`)
+    }
+    return ids
   }
 
   /**
    * 构建提示词选项
    */
-  private buildOptions(modelConfig: LLMConfig, _selectedTools?: MCPToolReference[]): PromptBuildOptions {
+  private async buildOptions(
+    modelConfig: LLMConfig,
+    selectedTools?: MCPToolReference[]
+  ): Promise<PromptBuildOptions> {
     const options: PromptBuildOptions = {
       includeFewShotExamples: true,
       fewShotCount: 3,
@@ -80,6 +185,41 @@ export class PromptBuilder {
         }
         if (this.promptConfig.customSystemPrompt) {
           options.customSystemPrompt = this.promptConfig.customSystemPrompt
+        }
+
+        // 动态示例：如果启用且已初始化，使用 ExampleManager
+        if (
+          this.promptConfig.enableDynamicExamples &&
+          this.initialized &&
+          selectedTools &&
+          selectedTools.length > 0
+        ) {
+          try {
+            const examples = await exampleManager.selectExamples(selectedTools, {
+              maxCount: options.fewShotCount || 3,
+              minQualityScore: this.promptConfig.dynamicExampleMinQuality || 0.6,
+              includeStatic: true,
+              includeDynamic: true,
+              maxStaticCount: this.promptConfig.maxStaticExamples || 1
+            })
+
+            // 如果成功获取到示例，记录使用
+            if (examples.length > 0) {
+              const exampleIds = examples
+                .filter((ex): ex is EnhancedFewShotExample => 'id' in ex)
+                .map((ex) => ex.id)
+
+              if (exampleIds.length > 0) {
+                // 异步记录使用（不阻塞）
+                exampleManager.recordUsage(exampleIds).catch((err) => {
+                  console.error('记录示例使用失败:', err)
+                })
+              }
+            }
+          } catch (error) {
+            console.error('选择动态示例失败:', error)
+            // 失败时回退到静态示例
+          }
         }
       }
     }

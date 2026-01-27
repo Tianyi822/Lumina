@@ -4,7 +4,7 @@ import { configManager } from '../config'
 import { logger } from '../logger'
 import { mcpService } from '../mcp'
 import type {
-ChatMessage,
+  ChatMessage,
   ChatRequest,
   ChatResult,
   StreamEvent,
@@ -14,6 +14,7 @@ ChatMessage,
 import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
 import { enhanceToolDescriptions } from './toolDescriptionEnhancer'
+import { ToolCallScheduler } from './ToolCallScheduler'
 
 /**
  * 聊天服务类
@@ -22,6 +23,12 @@ import { enhanceToolDescriptions } from './toolDescriptionEnhancer'
 export class ChatService {
   /** 每个会话的 AbortController 映射，支持多会话并发管理 */
   private abortControllers: Map<string, AbortController> = new Map()
+  /** 工具调用调度器 */
+  private toolScheduler: ToolCallScheduler
+
+  constructor() {
+    this.toolScheduler = new ToolCallScheduler(mcpService, logger, 3)
+  }
 
   /**
    * 发送聊天消息并流式返回响应
@@ -247,7 +254,7 @@ export class ChatService {
       })
 
       // 构建消息历史，使用 PromptBuilder 生成系统提示
-      const systemPrompt = promptBuilder.buildSystemPrompt(llmConfig, true, selectedTools)
+      const systemPrompt = await promptBuilder.buildSystemPrompt(llmConfig, true, selectedTools)
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
         ...this.formatMessages(messages)
@@ -398,17 +405,13 @@ export class ChatService {
           assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
         )
 
-        // 执行每个工具调用
-        for (const toolCall of toolCallsArray) {
-          const result = await this.executeToolCall(toolCall, webContents, sessionId)
-
-          // 将工具结果添加到对话历史
-          conversationMessages.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: result
-          })
-        }
+        // 使用调度器执行工具调用（并行 + 串行混合）
+        await this.executeToolCallsWithScheduler(
+          toolCallsArray,
+          webContents,
+          sessionId,
+          conversationMessages
+        )
 
         iterations++
       }
@@ -495,6 +498,65 @@ export class ChatService {
       }
     }
     return null
+  }
+
+  /**
+   * 使用调度器执行工具调用（并行 + 串行混合）
+   */
+  private async executeToolCallsWithScheduler(
+    toolCalls: Array<{
+      id: string
+      type: 'function'
+      function: { name: string; arguments: string }
+    }>,
+    webContents: WebContents,
+    sessionId: string,
+    conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+  ): Promise<void> {
+    // 分析依赖关系
+    const { independent, sequential } = this.toolScheduler.analyzeDependencies(toolCalls)
+
+    // 并行执行独立的工具调用
+    if (independent.length > 0) {
+      logger.info('并行执行独立工具', 'main', {
+        sessionId,
+        count: independent.length
+      })
+
+      const parallelResults = await this.toolScheduler.executeParallel(
+        independent,
+        webContents,
+        sessionId
+      )
+
+      // 添加结果到对话历史
+      for (const result of parallelResults) {
+        conversationMessages.push({
+          role: result.message.role,
+          content: result.message.content || '',
+          tool_call_id: result.message.tool_call_id
+        } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam)
+      }
+    }
+
+    // 串行执行有依赖的工具调用
+    if (sequential.length > 0) {
+      logger.info('串行执行依赖工具', 'main', {
+        sessionId,
+        count: sequential.length
+      })
+
+      for (const toolCall of sequential) {
+        const result = await this.executeToolCall(toolCall, webContents, sessionId)
+
+        // 将工具结果添加到对话历史
+        conversationMessages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: result
+        })
+      }
+    }
   }
 
   /**

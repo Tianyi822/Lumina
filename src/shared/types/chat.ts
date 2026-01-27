@@ -86,6 +86,7 @@ export type StreamEventType =
   | 'reasoning'
   | 'tool_call'
   | 'tool_result'
+  | 'tool_progress'
   | 'done'
   | 'error'
 
@@ -107,6 +108,12 @@ export interface StreamEvent {
   toolCall?: ToolCallInfo
   /** 工具结果信息（仅 tool_result 事件） */
   toolResult?: ToolResultInfo
+  /** 工具进度信息（仅 tool_progress 事件） */
+  toolProgress?: {
+    current: number
+    total: number
+    message?: string
+  }
 }
 
 /**
