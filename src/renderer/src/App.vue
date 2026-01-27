@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import type { Message, MCPTool } from './types'
+import TitleBar from './components/TitleBar.vue'
 import Sidebar from './components/Sidebar.vue'
 import MainContent from './components/MainContent.vue'
 import ErrorBanner from './components/ErrorBanner.vue'
@@ -254,6 +255,9 @@ onUnmounted(() => {
 
 <template>
   <div class="app-container">
+    <!-- 自定义标题栏 -->
+    <TitleBar />
+
     <!-- 配置加载错误提示（仅在加载失败时显示） -->
     <ErrorBanner :error="configError" @dismiss="dismissError" />
 

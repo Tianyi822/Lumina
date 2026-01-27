@@ -27,8 +27,12 @@ export function createMainWindow(): BrowserWindow {
     height: 670,
     show: false,
     autoHideMenuBar: true,
-    // 使用默认标题栏样式，不让内容延伸到标题栏
-    titleBarStyle: 'default',
+    // 根据平台设置不同的标题栏样式
+    // macOS: hidden 表示隐藏原生标题栏，但仍保留窗口控制按钮
+    // Windows/Linux: frame: false 完全移除标题栏
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hidden', frame: true }
+      : { frame: false }),
     // 设置窗口背景色，与主题一致
     backgroundColor: currentThemeColors.background,
     ...(process.platform === 'linux' ? { icon } : {}),

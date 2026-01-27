@@ -397,6 +397,17 @@ interface PromptApi {
 }
 
 /**
+ * 窗口控制 API
+ */
+interface WindowApi {
+  minimize: () => Promise<void>
+  maximize: () => Promise<void>
+  close: () => Promise<void>
+  isMaximized: () => Promise<boolean>
+  onMaximizedChanged: (callback: (isMaximized: boolean) => void) => () => void
+}
+
+/**
  * 自定义 API
  */
 interface CustomApi {
@@ -406,6 +417,7 @@ interface CustomApi {
   session: SessionApi
   mcp: MCPApi
   prompt: PromptApi
+  window: WindowApi
 }
 
 declare global {

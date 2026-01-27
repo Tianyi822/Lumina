@@ -30,6 +30,13 @@
   --theme-radius: 8px;
   --theme-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
   --theme-spacing: 12px;
+
+  /* 标题栏专用变量 */
+  --title-bar-height: 32px; /* macOS 标准标题栏高度 */
+  --title-bar-bg: var(--theme-bg);
+  --title-bar-border: var(--theme-border);
+  --title-bar-text: var(--theme-text-secondary);
+  --title-bar-text-hover: var(--theme-text);
 }
 
 /* ========== 默认主题变量（作为后备） ========== */
@@ -51,6 +58,13 @@
   --theme-radius: 8px;
   --theme-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
   --theme-spacing: 12px;
+
+  /* 标题栏专用变量 */
+  --title-bar-height: 32px; /* macOS 标准标题栏高度 */
+  --title-bar-bg: var(--theme-bg);
+  --title-bar-border: var(--theme-border);
+  --title-bar-text: var(--theme-text-secondary);
+  --title-bar-text-hover: var(--theme-text);
 
   /* 滚动条变量 */
   --scrollbar-width: 8px;

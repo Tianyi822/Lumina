@@ -4,6 +4,7 @@ import { registerChatHandlers } from './handlers/chatHandlers'
 import { registerSessionHandlers } from './handlers/sessionHandlers'
 import { registerMCPHandlers } from './handlers/mcpHandlers'
 import { registerPromptHandlers } from './handlers/prompt.handlers'
+import { registerWindowHandlers } from './handlers/windowHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -30,4 +31,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册提示词配置相关处理程序
   registerPromptHandlers()
+
+  // 注册窗口控制相关处理程序
+  registerWindowHandlers()
 }

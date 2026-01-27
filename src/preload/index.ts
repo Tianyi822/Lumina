@@ -6,6 +6,7 @@ import { mcpApi } from './apis/mcp'
 import { sessionApi } from './apis/session'
 import { configApi } from './apis/config'
 import { promptApi } from './apis/prompt'
+import { windowApi } from './apis/window'
 
 /**
  * 自定义渲染器 API
@@ -16,7 +17,8 @@ const api = {
   chat: chatApi,
   session: sessionApi,
   mcp: mcpApi,
-  prompt: promptApi
+  prompt: promptApi,
+  window: windowApi
 }
 
 // 使用 `contextBridge` API 向渲染器暴露 Electron API
