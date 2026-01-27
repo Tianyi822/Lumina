@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, inject, watch, nextTick, type Ref } from 'vue'
+import { ref, inject, watch, nextTick, onMounted, onUnmounted, type Ref } from 'vue'
 import type { MCPTool } from '@renderer/types'
 import { useMCPManager } from '@renderer/composables/mcp/useMCPManager'
 import { useMCPUI } from '@renderer/composables/mcp/useMCPUI'
@@ -49,7 +49,6 @@ const {
 } = useMCPUI(loadToolsBase, expandedServers)
 
 // 显式保留 mcpContainerRef 供模板使用
-// @ts-expect-error - 在模板中使用
 const { mcpContainerRef } = useMCPUI(loadToolsBase, expandedServers)
 
 /**
@@ -121,6 +120,26 @@ watch(mcpUpdateKey, () => {
 // 监听 MCP 状态变更
 window.api.mcp.onStatusChange(() => {
   loadTools()
+})
+
+/**
+ * 点击外部关闭面板
+ */
+function handleClickOutside(event: MouseEvent): void {
+  const container = mcpContainerRef.value as HTMLElement | null
+  if (showPanel.value && container && !container.contains(event.target as Node)) {
+    showPanel.value = false
+  }
+}
+
+// 挂载时添加全局点击监听
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+// 卸载时移除监听
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
