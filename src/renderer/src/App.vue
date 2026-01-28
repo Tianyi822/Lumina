@@ -122,13 +122,21 @@ function handleKnowledgeSubmit(data: {
   name: string
   description: string
   embeddingModel: string
+  customConfig?: {
+    modelName: string
+    baseUrl: string
+    dimension: number
+  }
 }): void {
+  // 获取向量维度（优先使用自定义配置的维度）
+  const dimension = data.customConfig?.dimension || 1536
+
   const newKB: KnowledgeBase = {
     id: `kb-${Date.now()}`,
     name: data.name,
     description: data.description,
     embeddingModel: data.embeddingModel,
-    embeddingDimension: 1536,
+    embeddingDimension: dimension,
     chunkSize: 500,
     chunkOverlap: 50,
     createdAt: new Date().toISOString(),

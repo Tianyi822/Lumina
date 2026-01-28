@@ -5,11 +5,16 @@ import { ref, computed } from 'vue'
 const embeddingModels = [
   { id: 'openai/small', name: 'OpenAI text-embedding-3-small', dimension: 1536 },
   { id: 'openai/large', name: 'OpenAI text-embedding-3-large', dimension: 3072 },
-  { id: 'ollama/nomic', name: 'Ollama nomic-embed-text', dimension: 768 }
+  { id: 'ollama/nomic', name: 'Ollama nomic-embed-text', dimension: 768 },
+  { id: 'custom', name: '自定义', dimension: 0 } // 自定义模型，维度由用户填写
 ]
 
 const emit = defineEmits<{
-  (e: 'submit', data: { name: string; description: string; embeddingModel: string }): void
+  (e: 'submit', data: { name: string; description: string; embeddingModel: string; customConfig?: {
+    modelName: string
+    baseUrl: string
+    dimension: number
+  } }): void
   (e: 'cancel'): void
 }>()
 
@@ -18,18 +23,58 @@ const name = ref('')
 const description = ref('')
 const embeddingModel = ref('openai/small')
 
+// 自定义模型配置
+const customModelName = ref('')
+const customBaseUrl = ref('')
+const customDimension = ref(1536)
+
+// 计算是否显示自定义配置
+const showCustomConfig = computed(() => embeddingModel.value === 'custom')
+
 // 验证
 const isValid = computed(() => {
-  return name.value.trim().length > 0
+  if (name.value.trim().length === 0) return false
+
+  if (showCustomConfig.value) {
+    return (
+      customModelName.value.trim().length > 0 &&
+      customBaseUrl.value.trim().length > 0 &&
+      customDimension.value > 0
+    )
+  }
+
+  return true
 })
 
 function handleSubmit(): void {
   if (!isValid.value) return
-  emit('submit', {
+
+  const data: {
+    name: string
+    description: string
+    embeddingModel: string
+    customConfig?: {
+      modelName: string
+      baseUrl: string
+      dimension: number
+    }
+  } = {
     name: name.value.trim(),
     description: description.value.trim(),
     embeddingModel: embeddingModel.value
-  })
+  }
+
+  // 如果是自定义模型，添加自定义配置
+  if (showCustomConfig.value) {
+    data.embeddingModel = `custom:${customModelName.value}`
+    data.customConfig = {
+      modelName: customModelName.value.trim(),
+      baseUrl: customBaseUrl.value.trim(),
+      dimension: customDimension.value
+    }
+  }
+
+  emit('submit', data)
   resetForm()
 }
 
@@ -42,6 +87,9 @@ function resetForm(): void {
   name.value = ''
   description.value = ''
   embeddingModel.value = 'openai/small'
+  customModelName.value = ''
+  customBaseUrl.value = ''
+  customDimension.value = 1536
 }
 </script>
 
@@ -81,13 +129,63 @@ function resetForm(): void {
           <label for="kb-model">嵌入模型 *</label>
           <select id="kb-model" v-model="embeddingModel" class="input select">
             <option v-for="model in embeddingModels" :key="model.id" :value="model.id">
-              {{ model.name }} ({{ model.dimension }} 维)
+              {{ model.name }}
+              <template v-if="model.id !== 'custom'"> ({{ model.dimension }} 维)</template>
             </option>
           </select>
           <div class="form-hint">
             嵌入模型用于将文本转换为向量，支持语义搜索。创建后不可更改。
           </div>
         </div>
+
+        <!-- 自定义模型配置 -->
+        <template v-if="showCustomConfig">
+          <div class="custom-config-section">
+            <div class="form-group">
+              <label for="custom-model-name">模型名称 *</label>
+              <input
+                id="custom-model-name"
+                v-model="customModelName"
+                type="text"
+                class="input"
+                placeholder="例如: jina-embeddings-v2"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="custom-base-url">API 基础 URL *</label>
+              <input
+                id="custom-base-url"
+                v-model="customBaseUrl"
+                type="text"
+                class="input"
+                placeholder="例如: https://api.example.com/v1"
+                required
+              />
+              <div class="form-hint">
+                第三方嵌入模型的 API 地址
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="custom-dimension">向量维度 *</label>
+              <input
+                id="custom-dimension"
+                v-model.number="customDimension"
+                type="number"
+                class="input"
+                placeholder="例如: 1536"
+                min="1"
+                step="1"
+                required
+              />
+              <div class="form-hint">
+                嵌入向量返回的维度数量
+              </div>
+            </div>
+          </div>
+        </template>
 
         <div class="form-actions">
           <button type="button" class="btn" @click="handleCancel">取消</button>
@@ -207,5 +305,21 @@ function resetForm(): void {
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.custom-config-section {
+  background-color: var(--theme-bg-hover);
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.custom-config-section .form-group {
+  margin-bottom: 16px;
+}
+
+.custom-config-section .form-group:last-child {
+  margin-bottom: 0;
 }
 </style>
