@@ -5,7 +5,10 @@ import {
   registerAllIpcHandlers,
   initializeConfig,
   initializeLogger,
-  initializeMCP
+  initializeMCP,
+  initializeEmbedding,
+  initializeKnowledge,
+  initializeEmbeddingModels
 } from '@main/ipc'
 
 /**
@@ -34,6 +37,15 @@ export function initializeApp(): void {
 
     // 初始化 MCP 服务
     initializeMCP()
+
+    // 初始化嵌入服务（知识库）
+    initializeEmbedding()
+
+    // 初始化嵌入模型管理服务
+    initializeEmbeddingModels()
+
+    // 初始化知识库服务
+    initializeKnowledge()
 
     // 创建主窗口
     createMainWindow()

@@ -5,10 +5,16 @@ import { registerSessionHandlers } from './handlers/sessionHandlers'
 import { registerMCPHandlers } from './handlers/mcpHandlers'
 import { registerPromptHandlers } from './handlers/prompt.handlers'
 import { registerWindowHandlers } from './handlers/windowHandlers'
+import { registerEmbeddingHandlers } from './handlers/embeddingHandlers'
+import { registerKnowledgeHandlers } from './handlers/knowledgeHandlers'
+import { registerEmbeddingModelHandlers } from './handlers/embeddingModelHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
 export { initializeMCP } from './handlers/mcpHandlers'
+export { initializeEmbedding } from './handlers/embeddingHandlers'
+export { initializeKnowledge } from './handlers/knowledgeHandlers'
+export { initializeEmbeddingModels } from './handlers/embeddingModelHandlers'
 
 /**
  * 注册所有 IPC 处理程序
@@ -34,4 +40,13 @@ export function registerAllIpcHandlers(): void {
 
   // 注册窗口控制相关处理程序
   registerWindowHandlers()
+
+  // 注册嵌入模型相关处理程序
+  registerEmbeddingHandlers()
+
+  // 注册嵌入模型管理相关处理程序
+  registerEmbeddingModelHandlers()
+
+  // 注册知识库相关处理程序
+  registerKnowledgeHandlers()
 }

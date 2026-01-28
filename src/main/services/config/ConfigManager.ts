@@ -65,6 +65,9 @@ function migrateConfig(config: AppConfig): AppConfig {
     migrated.promptConfig.fewShotCount = 3
   }
 
+  // 确保 embeddingConfig 存在（如果为空则不创建默认值，需要用户配置）
+  // embeddingConfig 会在首次使用时由用户设置
+
   return migrated
 }
 

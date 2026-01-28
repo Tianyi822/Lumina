@@ -10,6 +10,7 @@ import KnowledgeSidebar from './components/KnowledgeSidebar.vue'
 import KnowledgeMain from './components/KnowledgeMain.vue'
 import KnowledgeForm from './components/knowledge/KnowledgeForm.vue'
 import DocumentUploader from './components/knowledge/DocumentUploader.vue'
+import SettingsModal from './components/SettingsModal.vue'
 import { useConfigError } from './composables/useConfigError'
 import { useSession } from './composables/useSession'
 import { useMessageCache } from './composables/useMessageCache'
@@ -67,35 +68,31 @@ const sidebarCollapsed = ref(false)
 const currentModel = ref('')
 const currentView = ref<ViewMode>('chat')
 
-// ==================== 知识库管理（前端模拟） ====================
-// 模拟知识库数据
-const mockKnowledgeBases = ref<KnowledgeBase[]>([
-  {
-    id: 'kb-1',
-    name: '产品文档',
-    description: '公司产品的技术文档和用户手册',
-    embeddingModel: 'openai/small',
-    embeddingDimension: 1536,
-    chunkSize: 500,
-    chunkOverlap: 50,
-    createdAt: '2024-01-15T10:00:00Z',
-    updatedAt: '2024-01-15T10:00:00Z',
-    documentCount: 12
-  },
-  {
-    id: 'kb-2',
-    name: '技术规范',
-    description: '开发规范和最佳实践',
-    embeddingModel: 'openai/small',
-    embeddingDimension: 1536,
-    chunkSize: 500,
-    chunkOverlap: 50,
-    createdAt: '2024-01-14T10:00:00Z',
-    updatedAt: '2024-01-14T10:00:00Z',
-    documentCount: 8
-  }
-])
+// ==================== 设置管理 ====================
+const showSettings = ref(false)
 
+// 配置更新标志，用于触发子组件刷新
+const configUpdateKey = ref(0)
+
+function openSettings(): void {
+  showSettings.value = true
+}
+
+function closeSettings(): void {
+  showSettings.value = false
+}
+
+function handleConfigUpdated(): void {
+  configUpdateKey.value++
+}
+
+function handleMCPUpdated(): void {
+  // MCP 配置更新后重新加载配置
+  loadConfigStatus()
+}
+
+// ==================== 知识库管理 ====================
+const knowledgeBases = ref<KnowledgeBase[]>([])
 const activeKbId = ref<string>()
 const showKnowledgeForm = ref(false)
 const showDocumentUploader = ref(false)
@@ -109,16 +106,21 @@ function handleCreateKB(): void {
   showKnowledgeForm.value = true
 }
 
-function handleDeleteKB(kbId: string): void {
+async function handleDeleteKB(kbId: string): Promise<void> {
   if (confirm('确定要删除这个知识库吗？此操作不可撤销。')) {
-    mockKnowledgeBases.value = mockKnowledgeBases.value.filter((kb) => kb.id !== kbId)
-    if (activeKbId.value === kbId) {
-      activeKbId.value = undefined
+    const result = await window.api.knowledge.delete(kbId)
+    if (result.success) {
+      knowledgeBases.value = knowledgeBases.value.filter((kb) => kb.id !== kbId)
+      if (activeKbId.value === kbId) {
+        activeKbId.value = undefined
+      }
+    } else {
+      alert('删除知识库失败: ' + (result.error || '未知错误'))
     }
   }
 }
 
-function handleKnowledgeSubmit(data: {
+async function handleKnowledgeSubmit(data: {
   name: string
   description: string
   embeddingModel: string
@@ -127,25 +129,66 @@ function handleKnowledgeSubmit(data: {
     baseUrl: string
     dimension: number
   }
-}): void {
-  // 获取向量维度（优先使用自定义配置的维度）
-  const dimension = data.customConfig?.dimension || 1536
+}): Promise<void> {
+  try {
+    // 获取或创建嵌入配置
+    let embeddingConfig
+    if (data.embeddingModel.startsWith('custom:')) {
+      // 自定义模型
+      if (!data.customConfig) {
+        alert('自定义模型配置不完整')
+        return
+      }
+      embeddingConfig = {
+        provider: 'custom' as const,
+        baseUrl: data.customConfig.baseUrl,
+        model: data.customConfig.modelName,
+        dimensions: data.customConfig.dimension,
+        enabled: true
+      }
+    } else {
+      // 预设模型
+      const result = await window.api.embedding.createFromPreset(data.embeddingModel)
+      if (!result.success || !result.data) {
+        alert('创建嵌入配置失败: ' + (result.error || '未知错误'))
+        return
+      }
+      embeddingConfig = result.data
+    }
 
-  const newKB: KnowledgeBase = {
-    id: `kb-${Date.now()}`,
-    name: data.name,
-    description: data.description,
-    embeddingModel: data.embeddingModel,
-    embeddingDimension: dimension,
-    chunkSize: 500,
-    chunkOverlap: 50,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    documentCount: 0
+    // 设置嵌入配置
+    const setConfigResult = await window.api.embedding.setConfig(embeddingConfig)
+    if (!setConfigResult.success) {
+      alert('保存嵌入配置失败: ' + (setConfigResult.error || '未知错误'))
+      return
+    }
+
+    // 获取向量维度
+    const dimension = data.customConfig?.dimension || 1536
+
+    // 创建知识库记录
+    const createResult = await window.api.knowledge.create({
+      name: data.name,
+      description: data.description,
+      embeddingModel: data.embeddingModel,
+      embeddingDimension: dimension,
+      chunkSize: 500,
+      chunkOverlap: 50,
+      documentCount: 0
+    })
+
+    if (!createResult.success || !createResult.data) {
+      alert('创建知识库失败: ' + (createResult.error || '未知错误'))
+      return
+    }
+
+    knowledgeBases.value.unshift(createResult.data)
+    showKnowledgeForm.value = false
+    activeKbId.value = createResult.data.id
+  } catch (error) {
+    console.error('创建知识库失败:', error)
+    alert('创建知识库失败: ' + (error instanceof Error ? error.message : String(error)))
   }
-  mockKnowledgeBases.value.unshift(newKB)
-  showKnowledgeForm.value = false
-  activeKbId.value = newKB.id
 }
 
 function handleKnowledgeCancel(): void {
@@ -162,7 +205,7 @@ function handleDocumentUpload(files: File[]): void {
   showDocumentUploader.value = false
 
   // 模拟更新文档数量
-  const kb = mockKnowledgeBases.value.find((kb) => kb.id === activeKbId.value)
+  const kb = knowledgeBases.value.find((kb) => kb.id === activeKbId.value)
   if (kb) {
     kb.documentCount = (kb.documentCount || 0) + files.length
     kb.updatedAt = new Date().toISOString()
@@ -355,10 +398,20 @@ async function handleStopRequest(): Promise<void> {
 }
 
 // ==================== 生命周期钩子 ====================
-onMounted(() => {
+onMounted(async () => {
   loadConfigStatus()
   setupStreamListener(sessionMessagesCache.value ?? new Map())
   loadSessionList()
+
+  // 加载知识库列表
+  try {
+    const result = await window.api.knowledge.getAll()
+    if (result.success && result.data) {
+      knowledgeBases.value = result.data
+    }
+  } catch (error) {
+    console.error('加载知识库列表失败:', error)
+  }
 })
 
 onUnmounted(() => {
@@ -370,7 +423,7 @@ onUnmounted(() => {
 <template>
   <div class="app-container">
     <!-- 自定义标题栏 -->
-    <TitleBar v-model="currentView" />
+    <TitleBar v-model="currentView" @open-settings="openSettings" />
 
     <!-- 配置加载错误提示（仅在加载失败时显示） -->
     <ErrorBanner :error="configError" @dismiss="dismissError" />
@@ -404,6 +457,7 @@ onUnmounted(() => {
           :messages="messages"
           :is-sending="isSending"
           :current-model-name="currentModel"
+          :config-update-key="configUpdateKey"
           @toggle-sidebar="toggleSidebar"
           @send-message="handleSendMessage"
           @stop-request="handleStopRequest"
@@ -413,14 +467,14 @@ onUnmounted(() => {
       <!-- 知识库视图 -->
       <template v-else>
         <KnowledgeSidebar
-          :knowledge-bases="mockKnowledgeBases"
+          :knowledge-bases="knowledgeBases"
           :active-kb-id="activeKbId"
           @select-kb="handleSelectKB"
           @create-kb="handleCreateKB"
           @delete-kb="handleDeleteKB"
         />
         <KnowledgeMain
-          :knowledge-base="mockKnowledgeBases.find((kb) => kb.id === activeKbId)"
+          :knowledge-base="knowledgeBases.find((kb) => kb.id === activeKbId)"
           @upload-documents="handleUploadDocuments"
         />
       </template>
@@ -438,6 +492,14 @@ onUnmounted(() => {
       v-if="showDocumentUploader"
       @upload="handleDocumentUpload"
       @cancel="handleUploaderCancel"
+    />
+
+    <!-- 设置弹窗 -->
+    <SettingsModal
+      v-if="showSettings"
+      @close="closeSettings"
+      @config-updated="handleConfigUpdated"
+      @mcp-updated="handleMCPUpdated"
     />
   </div>
 </template>

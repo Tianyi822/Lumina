@@ -1,4 +1,48 @@
 /**
+ * 嵌入模型提供商类型
+ */
+export type EmbeddingProviderType = 'openai' | 'aliyun' | 'ollama' | 'custom'
+
+/**
+ * 嵌入模型配置
+ */
+export interface EmbeddingConfig {
+  /** 提供商类型 */
+  provider: EmbeddingProviderType
+  /** API 基础 URL（OpenAI 兼容接口） */
+  baseUrl: string
+  /** API 密钥 */
+  apiKey?: string
+  /** 模型名称 */
+  model: string
+  /** 向量维度 */
+  dimensions: number
+  /** 是否启用 */
+  enabled?: boolean
+  /** 模型显示名称 */
+  displayName?: string
+  /** 创建时间 */
+  createdAt?: string
+}
+
+/**
+ * 预定义的嵌入模型配置
+ */
+export interface PresetEmbeddingModel {
+  id: string
+  name: string
+  dimension: number
+  config: Partial<EmbeddingConfig>
+}
+
+/**
+ * 嵌入模型配置集合
+ */
+export interface EmbeddingConfigs {
+  [modelId: string]: EmbeddingConfig
+}
+
+/**
  * 工具描述详细程度
  */
 export type ToolDescriptionLevel = 'basic' | 'detailed' | 'minimal'
@@ -106,6 +150,10 @@ export interface AppConfig {
   mcpServers: MCPServers
   /** 提示词配置 */
   promptConfig?: PromptConfig
+  /** 嵌入模型配置集合（知识库使用） */
+  embeddingModels?: EmbeddingConfigs
+  /** 当前选中的嵌入模型ID */
+  defaultEmbeddingModel?: string
 }
 
 /**

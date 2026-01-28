@@ -4,6 +4,7 @@ import ThemeSettings from './settings/ThemeSettings.vue'
 import ModelSettings from './settings/ModelSettings.vue'
 import MCPSettings from './settings/MCPSettings.vue'
 import PromptSettings from './settings/PromptSettings.vue'
+import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import type { AppConfig, ThemeConfig, LLMConfigs, PromptConfig } from '@renderer/types'
 
 const emit = defineEmits<{
@@ -13,7 +14,7 @@ const emit = defineEmits<{
 }>()
 
 // 当前激活的 Tab
-const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt'>('model')
+const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt' | 'embedding'>('model')
 
 // 加载状态
 const loading = ref(false)
@@ -150,6 +151,13 @@ onMounted(() => {
         </button>
         <button
           class="tab-btn"
+          :class="{ active: activeTab === 'embedding' }"
+          @click="activeTab = 'embedding'"
+        >
+          嵌入模型
+        </button>
+        <button
+          class="tab-btn"
           :class="{ active: activeTab === 'prompt' }"
           @click="activeTab = 'prompt'"
         >
@@ -188,6 +196,15 @@ onMounted(() => {
           @update:error-message="errorMessage = $event"
           @update:success-message="successMessage = $event"
           @mcp-updated="emit('mcp-updated')"
+        />
+
+        <!-- 嵌入模型配置 Tab -->
+        <EmbeddingModelSettings
+          v-else-if="activeTab === 'embedding'"
+          :error-message="errorMessage"
+          :success-message="successMessage"
+          @update:error-message="errorMessage = $event"
+          @update:success-message="successMessage = $event"
         />
 
         <!-- 提示词配置 Tab -->

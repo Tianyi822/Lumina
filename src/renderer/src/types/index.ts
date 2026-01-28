@@ -17,6 +17,9 @@ export * from '@shared/types/session'
 // 配置相关类型
 export * from '@shared/types/config'
 
+// 知识库相关类型
+export * from '@shared/types/knowledge'
+
 // ==================== UI 特有类型 ====================
 
 import type { ToolCallInfo, ToolResultInfo } from '@shared/types/chat'
@@ -46,42 +49,8 @@ export interface Message {
   reactSteps?: ReActStep[] // ReAct 推理步骤
 }
 
-// ==================== 知识库类型 ====================
-
 /**
- * 知识库配置
- */
-export interface KnowledgeBase {
-  id: string
-  name: string
-  description?: string
-  embeddingModel: string
-  embeddingDimension: number
-  chunkSize: number
-  chunkOverlap: number
-  createdAt: string
-  updatedAt: string
-  documentCount?: number // UI 用的统计信息
-}
-
-/**
- * 文档信息
- */
-export interface Document {
-  id: string
-  kbId: string
-  name: string
-  fileType: string
-  fileSize: number
-  chunkCount: number
-  status: 'pending' | 'processing' | 'completed' | 'failed'
-  errorMessage?: string
-  createdAt: string
-  updatedAt: string
-}
-
-/**
- * 搜索结果
+ * 搜索结果（UI 层特有）
  */
 export interface SearchResult {
   chunkId: string

@@ -7,6 +7,9 @@ import { sessionApi } from './apis/session'
 import { configApi } from './apis/config'
 import { promptApi } from './apis/prompt'
 import { windowApi } from './apis/window'
+import { embeddingApi } from './apis/embedding'
+import { embeddingModelsApi } from './apis/embeddingModels'
+import { knowledgeApi } from './apis/knowledge'
 
 /**
  * 自定义渲染器 API
@@ -18,7 +21,10 @@ const api = {
   session: sessionApi,
   mcp: mcpApi,
   prompt: promptApi,
-  window: windowApi
+  window: windowApi,
+  embedding: embeddingApi,
+  embeddingModels: embeddingModelsApi,
+  knowledge: knowledgeApi
 }
 
 // 使用 `contextBridge` API 向渲染器暴露 Electron API

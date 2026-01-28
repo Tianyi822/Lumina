@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 // 可用的嵌入模型列表
-const embeddingModels = [
-  { id: 'openai/small', name: 'OpenAI text-embedding-3-small', dimension: 1536 },
-  { id: 'openai/large', name: 'OpenAI text-embedding-3-large', dimension: 3072 },
-  { id: 'ollama/nomic', name: 'Ollama nomic-embed-text', dimension: 768 },
-  { id: 'custom', name: '自定义', dimension: 0 } // 自定义模型，维度由用户填写
-]
+const embeddingModels = ref<Record<string, { name: string; dimension: number }>>({})
+const loadingModels = ref(true)
 
 const emit = defineEmits<{
   (e: 'submit', data: { name: string; description: string; embeddingModel: string; customConfig?: {
@@ -27,6 +23,20 @@ const embeddingModel = ref('openai/small')
 const customModelName = ref('')
 const customBaseUrl = ref('')
 const customDimension = ref(1536)
+
+// 加载预设模型列表
+onMounted(async () => {
+  try {
+    const result = await window.api.embedding.getPresets()
+    if (result.success && result.data) {
+      embeddingModels.value = result.data
+    }
+  } catch (error) {
+    console.error('加载预设模型失败:', error)
+  } finally {
+    loadingModels.value = false
+  }
+})
 
 // 计算是否显示自定义配置
 const showCustomConfig = computed(() => embeddingModel.value === 'custom')
@@ -127,11 +137,12 @@ function resetForm(): void {
 
         <div class="form-group">
           <label for="kb-model">嵌入模型 *</label>
-          <select id="kb-model" v-model="embeddingModel" class="input select">
-            <option v-for="model in embeddingModels" :key="model.id" :value="model.id">
-              {{ model.name }}
-              <template v-if="model.id !== 'custom'"> ({{ model.dimension }} 维)</template>
+          <select id="kb-model" v-model="embeddingModel" class="input select" :disabled="loadingModels">
+            <option v-if="loadingModels" value="" disabled>加载中...</option>
+            <option v-for="(model, id) in embeddingModels" :key="id" :value="id">
+              {{ model.name }} ({{ model.dimension }} 维)
             </option>
+            <option value="custom">自定义</option>
           </select>
           <div class="form-hint">
             嵌入模型用于将文本转换为向量，支持语义搜索。创建后不可更改。
@@ -189,7 +200,7 @@ function resetForm(): void {
 
         <div class="form-actions">
           <button type="button" class="btn" @click="handleCancel">取消</button>
-          <button type="submit" class="btn-primary" :disabled="!isValid">创建</button>
+          <button type="submit" class="btn-primary" :disabled="!isValid || loadingModels">创建</button>
         </div>
       </form>
     </div>
@@ -283,6 +294,11 @@ function resetForm(): void {
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 36px;
+}
+
+.select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .form-hint {

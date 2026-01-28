@@ -15,7 +15,15 @@ const props = defineProps<{
  */
 const emit = defineEmits<{
   (e: 'update:modelValue', value: ViewMode): void
+  (e: 'open-settings'): void
 }>()
+
+/**
+ * 打开设置
+ */
+function openSettings(): void {
+  emit('open-settings')
+}
 
 /**
  * 当前视图模式
@@ -93,34 +101,52 @@ onUnmounted(() => {
 
 <template>
   <div class="title-bar" :class="{ 'is-mac': isMac }">
-    <!-- 左侧占位（Windows/Linux）或 macOS 预留空间 -->
+    <!-- 左侧弹性占位 -->
     <div class="title-bar-left-spacer"></div>
 
-    <!-- 中间：视图切换器 (Chat | 知识库) -->
-    <div class="view-switcher">
-      <div class="switcher-container">
-        <!-- 滑块背景 -->
-        <div
-          class="switcher-slider"
-          :class="{ 'is-knowledge': currentView === 'knowledge' }"
-        ></div>
-        <!-- Chat 按钮 -->
-        <button
-          class="switcher-btn"
-          :class="{ active: currentView === 'chat' }"
-          @click="switchView('chat')"
-        >
-          <span>Chat</span>
-        </button>
-        <!-- 知识库 按钮 -->
-        <button
-          class="switcher-btn"
-          :class="{ active: currentView === 'knowledge' }"
-          @click="switchView('knowledge')"
-        >
-          <span>知识库</span>
-        </button>
+    <!-- 中间区域：视图切换器 + 设置按钮 -->
+    <div class="title-bar-center-section">
+      <!-- 视图切换器 (Chat | 知识库) -->
+      <div class="view-switcher">
+        <div class="switcher-container">
+          <!-- 滑块背景 -->
+          <div
+            class="switcher-slider"
+            :class="{ 'is-knowledge': currentView === 'knowledge' }"
+          ></div>
+          <!-- Chat 按钮 -->
+          <button
+            class="switcher-btn"
+            :class="{ active: currentView === 'chat' }"
+            @click="switchView('chat')"
+          >
+            <span>Chat</span>
+          </button>
+          <!-- 知识库 按钮 -->
+          <button
+            class="switcher-btn"
+            :class="{ active: currentView === 'knowledge' }"
+            @click="switchView('knowledge')"
+          >
+            <span>知识库</span>
+          </button>
+        </div>
       </div>
+
+      <!-- 设置按钮（紧贴在切换器右侧） -->
+      <button class="settings-button" title="设置" @click="openSettings">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 1024 1024"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M919.6 405.6l-57.2-8c-12.7-1.8-23-10.4-28-22.1-11.3-26.7-25.7-51.7-42.9-74.5-7.7-10.2-10-23.5-5.2-35.3l21.7-53.5c6.7-16.4 0.2-35.3-15.2-44.1L669.1 96.6c-15.4-8.9-34.9-5.1-45.8 8.9l-35.4 45.3c-7.9 10.2-20.7 14.9-33.5 13.3-14-1.8-28.3-2.8-42.8-2.8-14.5 0-28.8 1-42.8 2.8-12.8 1.6-25.6-3.1-33.5-13.3l-35.4-45.3c-10.9-14-30.4-17.8-45.8-8.9L230.4 168c-15.4 8.9-21.8 27.7-15.2 44.1l21.7 53.5c4.8 11.9 2.5 25.1-5.2 35.3-17.2 22.8-31.7 47.8-42.9 74.5-5 11.8-15.3 20.4-28 22.1l-57.2 8C86 408 72.9 423 72.9 440.8v142.9c0 17.7 13.1 32.7 30.6 35.2l57.2 8c12.7 1.8 23 10.4 28 22.1 11.3 26.7 25.7 51.7 42.9 74.5 7.7 10.2 10 23.5 5.2 35.3l-21.7 53.5c-6.7 16.4-0.2 35.3 15.2 44.1L354 927.8c15.4 8.9 34.9 5.1 45.8-8.9l35.4-45.3c7.9-10.2 20.7-14.9 33.5-13.3 14 1.8 28.3 2.8 42.8 2.8 14.5 0 28.8-1 42.8-2.8 12.8-1.6 25.6 3.1 33.5 13.3l35.4 45.3c10.9 14 30.4 17.8 45.8 8.9l123.7-71.4c15.4-8.9 21.8-27.7 15.2-44.1l-21.7-53.5c-4.8-11.8-2.5-25.1 5.2-35.3 17.2-22.8 31.7-47.8 42.9-74.5 5-11.8 15.3-20.4 28-22.1l57.2-8c17.6-2.5 30.6-17.5 30.6-35.2V440.8c0.2-17.8-12.9-32.8-30.5-35.2z m-408 245.5c-76.7 0-138.9-62.2-138.9-138.9s62.2-138.9 138.9-138.9 138.9 62.2 138.9 138.9-62.2 138.9-138.9 138.9z"
+            fill="currentColor"
+          />
+        </svg>
+      </button>
     </div>
 
     <!-- 右侧：窗口控制按钮（仅 Windows/Linux） -->
@@ -191,21 +217,29 @@ onUnmounted(() => {
   padding-left: 80px; /* 为原生按钮区域预留空间 */
 }
 
-/* 左侧占位 */
+/* 左侧占位（弹性，用于居中） */
 .title-bar-left-spacer {
-  width: 138px; /* 与右侧控制按钮宽度一致，保持切换器居中 */
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
 }
 
-/* macOS 左侧占位需要更小，因为按钮在左边 */
+/* macOS 左侧占位需要固定宽度 */
 .title-bar.is-mac .title-bar-left-spacer {
-  width: 0;
+  flex: 0 0 auto;
+}
+
+/* 中间区域：切换器 + 设置按钮 */
+.title-bar-center-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 
 /* 右侧占位（macOS） */
 .title-bar-right-spacer {
-  width: 80px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Windows/Linux 样式 */
@@ -215,6 +249,33 @@ onUnmounted(() => {
   flex-shrink: 0;
   position: relative;
   z-index: 2;
+}
+
+/* 设置按钮 */
+.settings-button {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  -webkit-app-region: no-drag;
+  position: relative;
+  z-index: 3;
+  border-radius: 4px;
+  color: var(--theme-text-secondary);
+}
+
+.settings-button:hover {
+  background-color: var(--theme-bg-hover);
+  color: var(--theme-text);
+}
+
+.settings-button svg {
+  display: block;
 }
 
 .title-bar-controls .title-bar-button {
@@ -342,8 +403,8 @@ onUnmounted(() => {
 
 /* 响应式：当窗口很小时调整 */
 @media (max-width: 600px) {
-  .title-bar-left-spacer {
-    width: 60px;
+  .title-bar-center-section {
+    gap: 4px;
   }
 
   .switcher-btn {

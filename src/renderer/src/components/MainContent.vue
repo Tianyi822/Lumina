@@ -2,7 +2,6 @@
 import MarkdownIt from 'markdown-it'
 import { nextTick, onMounted, provide, ref, watch } from 'vue'
 import MessageInput from './MessageInput.vue'
-import SettingsModal from './SettingsModal.vue'
 import ReActSteps from './ReActSteps.vue'
 import type { Message, MCPTool, TokenUsage } from '@renderer/types'
 
@@ -20,6 +19,7 @@ const props = defineProps<{
   messages?: Message[]
   isSending?: boolean
   currentModelName?: string // 当前使用的模型名称
+  configUpdateKey?: number // 配置更新标志
 }>()
 
 const emit = defineEmits<{
@@ -28,11 +28,8 @@ const emit = defineEmits<{
   (e: 'stop-request'): void
 }>()
 
-// 设置弹窗显示状态
-const showSettings = ref(false)
-
 // 配置更新标志，用于触发子组件刷新
-const configUpdateKey = ref(0)
+const configUpdateKey = ref(props.configUpdateKey ?? 0)
 
 // MCP 更新标志，用于触发 MCP 相关组件刷新
 const mcpUpdateKey = ref(0)
@@ -129,6 +126,16 @@ watch(
   }
 )
 
+// 监听配置更新标志
+watch(
+  () => props.configUpdateKey,
+  (newKey) => {
+    if (newKey !== undefined) {
+      configUpdateKey.value = newKey
+    }
+  }
+)
+
 onMounted(() => {
   // 初始滚动到底部
   scrollToBottom(false)
@@ -158,24 +165,6 @@ function handleSendMessage(message: string, model: string, selectedTools: MCPToo
 
 function handleStopRequest(): void {
   emit('stop-request')
-}
-
-function openSettings(): void {
-  showSettings.value = true
-}
-
-function closeSettings(): void {
-  showSettings.value = false
-}
-
-function handleConfigUpdated(): void {
-  // 触发子组件刷新配置
-  configUpdateKey.value++
-}
-
-function handleMCPUpdated(): void {
-  // 触发 MCP 相关组件刷新
-  mcpUpdateKey.value++
 }
 
 /**
@@ -220,18 +209,7 @@ function formatTokenUsage(usage: TokenUsage): string {
         <span class="toggle-icon">{{ sidebarCollapsed ? '»' : '«' }}</span>
       </button>
       <div class="header-spacer"></div>
-      <button class="btn settings-btn" title="设置" @click="openSettings">
-        <span class="settings-icon">&#9881;</span>
-      </button>
     </div>
-
-    <!-- 设置弹窗 -->
-    <SettingsModal
-      v-if="showSettings"
-      @close="closeSettings"
-      @config-updated="handleConfigUpdated"
-      @mcp-updated="handleMCPUpdated"
-    />
 
     <!-- 消息区域 -->
     <div ref="messagesAreaRef" class="messages-area" @scroll="handleScroll">
@@ -339,15 +317,6 @@ function formatTokenUsage(usage: TokenUsage): string {
 
 .header-spacer {
   flex: 1;
-}
-
-.settings-btn {
-  padding: 6px 10px;
-  font-size: 16px;
-}
-
-.settings-icon {
-  display: inline-block;
 }
 
 .messages-area {

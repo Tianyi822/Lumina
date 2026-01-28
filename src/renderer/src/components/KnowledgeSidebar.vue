@@ -93,7 +93,6 @@ function formatDocumentCount(count?: number): string {
 
       <!-- 空状态 -->
       <div v-if="filteredKBs.length === 0" class="empty-state">
-        <div class="empty-icon">📚</div>
         <div class="empty-text">
           {{ searchQuery ? '未找到匹配的知识库' : '暂无知识库' }}
         </div>
@@ -230,12 +229,6 @@ function formatDocumentCount(count?: number): string {
   justify-content: center;
   padding: 40px 20px;
   text-align: center;
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-  opacity: 0.5;
 }
 
 .empty-text {

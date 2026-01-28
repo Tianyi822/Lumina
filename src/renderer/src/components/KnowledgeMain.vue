@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { KnowledgeBase, Document } from '@renderer/types'
 
 const props = defineProps<{
@@ -10,55 +10,29 @@ const emit = defineEmits<{
   (e: 'upload-documents'): void
 }>()
 
-// 模拟文档数据（实际应从后端获取）
-const mockDocuments = ref<Document[]>([
-  {
-    id: 'doc-1',
-    kbId: 'kb-1',
-    name: '产品介绍',
-    fileType: 'md',
-    fileSize: 2048,
-    chunkCount: 12,
-    status: 'completed',
-    createdAt: '2024-01-15T10:30:00Z',
-    updatedAt: '2024-01-15T10:30:00Z'
-  },
-  {
-    id: 'doc-2',
-    kbId: 'kb-1',
-    name: 'API 文档',
-    fileType: 'txt',
-    fileSize: 4096,
-    chunkCount: 24,
-    status: 'completed',
-    createdAt: '2024-01-15T11:00:00Z',
-    updatedAt: '2024-01-15T11:00:00Z'
-  },
-  {
-    id: 'doc-3',
-    kbId: 'kb-1',
-    name: '用户手册',
-    fileType: 'pdf',
-    fileSize: 8192,
-    chunkCount: 36,
-    status: 'completed',
-    createdAt: '2024-01-14T15:20:00Z',
-    updatedAt: '2024-01-14T15:20:00Z'
-  },
-  {
-    id: 'doc-4',
-    kbId: 'kb-1',
-    name: '开发指南',
-    fileType: 'md',
-    fileSize: 3072,
-    chunkCount: 18,
-    status: 'completed',
-    createdAt: '2024-01-13T09:15:00Z',
-    updatedAt: '2024-01-13T09:15:00Z'
-  }
-])
+// 文档数据（从后端获取，目前为空）
+const documents = ref<Document[]>([])
 
 const currentKB = computed(() => props.knowledgeBase)
+
+async function loadDocuments(): Promise<void> {
+  if (!currentKB.value) return
+
+  // TODO: 从后端加载文档列表
+  // const result = await window.api.knowledge.getDocuments(currentKB.value.id)
+  // if (result.success && result.data) {
+  //   documents.value = result.data
+  // }
+}
+
+// 监听知识库变化，自动加载文档
+watch(() => currentKB.value?.id, () => {
+  if (currentKB.value) {
+    loadDocuments()
+  } else {
+    documents.value = []
+  }
+}, { immediate: true })
 
 function handleUpload(): void {
   emit('upload-documents')
@@ -109,7 +83,7 @@ function formatDate(dateStr: string): string {
       <div class="documents-section">
         <div class="documents-grid">
           <!-- 文档卡片 -->
-          <div v-for="doc in mockDocuments" :key="doc.id" class="document-card">
+          <div v-for="doc in documents" :key="doc.id" class="document-card">
             <div class="doc-card-header">
               <div :class="['doc-file-icon', getFileIconBgClass(doc.fileType)]">
                 <!-- PDF Icon -->
@@ -183,7 +157,7 @@ function formatDate(dateStr: string): string {
         </div>
 
         <!-- 空状态 -->
-        <div v-if="mockDocuments.length === 0" class="empty-state">
+        <div v-if="documents.length === 0" class="empty-state">
           <div class="empty-icon">📭</div>
           <h3>暂无文档</h3>
           <p>点击下方"添加文件"按钮或使用上方"上传文档"按钮添加文档到知识库</p>

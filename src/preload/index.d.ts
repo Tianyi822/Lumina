@@ -409,6 +409,158 @@ interface WindowApi {
 }
 
 /**
+ * 嵌入向量结果
+ */
+interface EmbeddingResult {
+  embedding: number[]
+  model: string
+  usage?: {
+    prompt_tokens: number
+    total_tokens: number
+  }
+}
+
+/**
+ * 批量嵌入向量结果
+ */
+interface BatchEmbeddingResult {
+  embeddings: number[][]
+  model: string
+  usage?: {
+    prompt_tokens: number
+    total_tokens: number
+  }
+}
+
+/**
+ * 连接测试结果
+ */
+interface ConnectionTestResult {
+  success: boolean
+  error?: string
+  model?: string
+  dimensions?: number
+}
+
+/**
+ * 嵌入模型提供商类型
+ */
+type EmbeddingProviderType = 'openai' | 'aliyun' | 'ollama' | 'custom'
+
+/**
+ * 嵌入配置
+ */
+interface EmbeddingConfig {
+  provider: string
+  baseUrl: string
+  apiKey?: string
+  model: string
+  dimensions: number
+  enabled?: boolean
+}
+
+/**
+ * 嵌入模型配置（扩展版）
+ */
+interface EmbeddingModelConfig {
+  /** 提供商类型 */
+  provider: EmbeddingProviderType
+  /** API 基础 URL（OpenAI 兼容接口） */
+  baseUrl: string
+  /** API 密钥 */
+  apiKey?: string
+  /** 模型名称 */
+  model: string
+  /** 向量维度 */
+  dimensions: number
+  /** 是否启用 */
+  enabled?: boolean
+  /** 模型显示名称 */
+  displayName?: string
+  /** 创建时间 */
+  createdAt?: string
+}
+
+/**
+ * 嵌入 API
+ */
+interface EmbeddingApi {
+  getPresets: () => Promise<{
+    success: boolean
+    data?: Record<string, { name: string; dimension: number }>
+    error?: string
+  }>
+  createFromPreset: (
+    presetId: string,
+    customConfig?: Partial<EmbeddingConfig>
+  ) => Promise<{ success: boolean; data?: EmbeddingConfig; error?: string }>
+  getConfig: () => Promise<{ success: boolean; data?: EmbeddingConfig | null; error?: string }>
+  setConfig: (config: EmbeddingConfig) => Promise<{ success: boolean; error?: string }>
+  testConnection: () => Promise<ConnectionTestResult>
+  embed: (text: string) => Promise<{ success: boolean; data?: EmbeddingResult; error?: string }>
+  embedBatch: (texts: string[]) => Promise<{ success: boolean; data?: BatchEmbeddingResult; error?: string }>
+}
+
+/**
+ * 嵌入模型管理 API
+ */
+interface EmbeddingModelsApi {
+  getAll: () => Promise<{
+    success: boolean
+    data?: Record<string, EmbeddingModelConfig>
+    error?: string
+  }>
+  getById: (id: string) => Promise<{
+    success: boolean
+    data?: EmbeddingModelConfig
+    error?: string
+  }>
+  save: (id: string, config: EmbeddingModelConfig) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  delete: (id: string) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  test: (id: string) => Promise<ConnectionTestResult>
+  setDefault: (id: string) => Promise<{
+    success: boolean
+    error?: string
+  }>
+}
+
+/**
+ * 知识库配置
+ */
+interface KnowledgeBase {
+  id: string
+  name: string
+  description?: string
+  embeddingModel: string
+  embeddingDimension: number
+  chunkSize: number
+  chunkOverlap: number
+  createdAt: string
+  updatedAt: string
+  documentCount?: number
+}
+
+/**
+ * 知识库 API
+ */
+interface KnowledgeApi {
+  getAll: () => Promise<{ success: boolean; data?: KnowledgeBase[]; error?: string }>
+  getById: (id: string) => Promise<{ success: boolean; data?: KnowledgeBase; error?: string }>
+  create: (data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>) => Promise<{ success: boolean; data?: KnowledgeBase; error?: string }>
+  update: (
+    id: string,
+    updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>
+  ) => Promise<{ success: boolean; data?: KnowledgeBase; error?: string }>
+  delete: (id: string) => Promise<{ success: boolean; error?: string }>
+}
+
+/**
  * 自定义 API
  */
 interface CustomApi {
@@ -419,6 +571,9 @@ interface CustomApi {
   mcp: MCPApi
   prompt: PromptApi
   window: WindowApi
+  embedding: EmbeddingApi
+  embeddingModels: EmbeddingModelsApi
+  knowledge: KnowledgeApi
 }
 
 declare global {
