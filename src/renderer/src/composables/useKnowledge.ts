@@ -1,0 +1,158 @@
+import { ref, onMounted } from 'vue'
+import type { KnowledgeBase } from '../types'
+
+/**
+ * 知识库管理 Composable
+ * 负责知识库的加载、创建、删除、选择
+ */
+export function useKnowledge() {
+  // 知识库列表
+  const knowledgeBases = ref<KnowledgeBase[]>([])
+
+  // 当前激活的知识库 ID
+  const activeKbId = ref<string>()
+
+  // 显示知识库表单
+  const showKnowledgeForm = ref(false)
+
+  // 显示文档上传器
+  const showDocumentUploader = ref(false)
+
+  /**
+   * 加载知识库列表
+   */
+  async function loadKnowledgeBases(): Promise<void> {
+    try {
+      const result = await window.api.knowledge.getAll()
+      if (result.success && result.data) {
+        knowledgeBases.value = result.data
+      }
+    } catch (error) {
+      console.error('加载知识库列表失败:', error)
+    }
+  }
+
+  /**
+   * 选择知识库
+   */
+  function handleSelectKB(kbId: string): void {
+    activeKbId.value = kbId
+  }
+
+  /**
+   * 显示创建知识库表单
+   */
+  function handleCreateKB(): void {
+    showKnowledgeForm.value = true
+  }
+
+  /**
+   * 删除知识库
+   */
+  async function handleDeleteKB(kbId: string): Promise<void> {
+    if (confirm('确定要删除这个知识库吗？此操作不可撤销。')) {
+      const result = await window.api.knowledge.delete(kbId)
+      if (result.success) {
+        knowledgeBases.value = knowledgeBases.value.filter((kb) => kb.id !== kbId)
+        if (activeKbId.value === kbId) {
+          activeKbId.value = undefined
+        }
+      } else {
+        alert('删除知识库失败: ' + (result.error || '未知错误'))
+      }
+    }
+  }
+
+  /**
+   * 提交知识库表单
+   */
+  async function handleKnowledgeSubmit(data: {
+    name: string
+    description: string
+    embeddingModel: string
+    embeddingDimension: number
+  }): Promise<void> {
+    try {
+      // 直接创建知识库记录（使用已配置的嵌入模型）
+      const createResult = await window.api.knowledge.create({
+        name: data.name,
+        description: data.description,
+        embeddingModel: data.embeddingModel,
+        embeddingDimension: data.embeddingDimension,
+        chunkSize: 500,
+        chunkOverlap: 50,
+        documentCount: 0
+      })
+
+      if (!createResult.success || !createResult.data) {
+        alert('创建知识库失败: ' + (createResult.error || '未知错误'))
+        return
+      }
+
+      knowledgeBases.value.unshift(createResult.data)
+      showKnowledgeForm.value = false
+      activeKbId.value = createResult.data.id
+    } catch (error) {
+      console.error('创建知识库失败:', error)
+      alert('创建知识库失败: ' + (error instanceof Error ? error.message : String(error)))
+    }
+  }
+
+  /**
+   * 取消知识库表单
+   */
+  function handleKnowledgeCancel(): void {
+    showKnowledgeForm.value = false
+  }
+
+  /**
+   * 显示文档上传器
+   */
+  function handleUploadDocuments(): void {
+    showDocumentUploader.value = true
+  }
+
+  /**
+   * 上传文档
+   */
+  function handleDocumentUpload(files: File[]): void {
+    // 这里应该是上传文档到后端的逻辑
+    console.log('上传文档:', files)
+    showDocumentUploader.value = false
+
+    // 模拟更新文档数量
+    const kb = knowledgeBases.value.find((kb) => kb.id === activeKbId.value)
+    if (kb) {
+      kb.documentCount = (kb.documentCount || 0) + files.length
+      kb.updatedAt = new Date().toISOString()
+    }
+  }
+
+  /**
+   * 取消文档上传
+   */
+  function handleUploaderCancel(): void {
+    showDocumentUploader.value = false
+  }
+
+  // 组件挂载时加载知识库列表
+  onMounted(async () => {
+    await loadKnowledgeBases()
+  })
+
+  return {
+    knowledgeBases,
+    activeKbId,
+    showKnowledgeForm,
+    showDocumentUploader,
+    loadKnowledgeBases,
+    handleSelectKB,
+    handleCreateKB,
+    handleDeleteKB,
+    handleKnowledgeSubmit,
+    handleKnowledgeCancel,
+    handleUploadDocuments,
+    handleDocumentUpload,
+    handleUploaderCancel
+  }
+}
