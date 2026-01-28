@@ -109,7 +109,7 @@ useLifecycle({
 <template>
   <div class="app-container">
     <!-- 自定义标题栏 -->
-    <TitleBar :model-value="currentView" @update:model-value="uiState.switchToChatView" @open-settings="openSettings" />
+    <TitleBar v-model="currentView" @open-settings="openSettings" />
 
     <!-- 配置加载错误提示（仅在加载失败时显示） -->
     <ErrorBanner :error="configError" @dismiss="dismissError" />
