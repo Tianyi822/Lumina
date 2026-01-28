@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import type { EmbeddingConfig, EmbeddingProviderType } from '@shared/types/config'
+import { ref, watch, onMounted } from 'vue'
+import type { EmbeddingConfig } from '@shared/types/config'
 
 interface Props {
-  existingIds?: string[]
+  existingNames?: string[]
+  editingName?: string
+  editingConfig?: EmbeddingConfig | null
 }
 
 interface Emits {
-  (e: 'submit', id: string, config: EmbeddingConfig): void
+  (e: 'submit', name: string, config: EmbeddingConfig): void
   (e: 'cancel'): void
   (e: 'test', config: EmbeddingConfig): void
 }
@@ -16,104 +18,95 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 // 表单数据
-const modelId = ref('')
 const displayName = ref('')
-const provider = ref<EmbeddingProviderType>('openai')
 const baseUrl = ref('')
 const apiKey = ref('')
 const modelName = ref('')
-const dimensions = ref(1536)
+const dimensions = ref('1536')
 const enabled = ref(true)
 
-// 预设配置
-const presets: Record<string, Partial<EmbeddingConfig>> = {
-  'openai-text-embedding-3-small': {
-    provider: 'openai',
-    baseUrl: 'https://api.openai.com/v1',
-    model: 'text-embedding-3-small',
-    dimensions: 1536
-  },
-  'openai-text-embedding-3-large': {
-    provider: 'openai',
-    baseUrl: 'https://api.openai.com/v1',
-    model: 'text-embedding-3-large',
-    dimensions: 3072
-  },
-  'aliyun-text-embedding-v2': {
-    provider: 'aliyun',
-    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    model: 'text-embedding-v2',
-    dimensions: 1536
-  },
-  'ollama-nomic-embed-text': {
-    provider: 'ollama',
-    baseUrl: 'http://localhost:11434/v1',
-    model: 'nomic-embed-text',
-    dimensions: 768
-  },
-  'ollama-mxbai-embed-large': {
-    provider: 'ollama',
-    baseUrl: 'http://localhost:11434/v1',
-    model: 'mxbai-embed-large',
-    dimensions: 1024
-  }
-}
+// 名称冲突提示
+const nameConflictError = ref('')
+const dimensionError = ref('')
 
 const testing = ref(false)
 const testResult = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 
-// 根据提供商更新默认配置
-function updateProviderDefaults(): void {
-  const preset = presets[`${provider.value}-${modelName.value}`]
-  if (preset) {
-    baseUrl.value = preset.baseUrl || ''
-    dimensions.value = preset.dimensions || 1536
-  } else {
-    // 根据提供商设置默认 baseUrl
-    switch (provider.value) {
-      case 'openai':
-        baseUrl.value = 'https://api.openai.com/v1'
-        break
-      case 'aliyun':
-        baseUrl.value = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
-        break
-      case 'ollama':
-        baseUrl.value = 'http://localhost:11434/v1'
-        break
-      case 'custom':
-        baseUrl.value = ''
-        break
-    }
+// 如果是编辑模式，加载现有配置
+onMounted(() => {
+  if (props.editingConfig && props.editingName) {
+    displayName.value = props.editingName
+    baseUrl.value = props.editingConfig.baseUrl || ''
+    apiKey.value = props.editingConfig.apiKey || ''
+    modelName.value = props.editingConfig.model || ''
+    dimensions.value = String(props.editingConfig.dimensions || 1536)
+    enabled.value = props.editingConfig.enabled !== false
   }
-}
+})
 
-// 监听提供商变化
-function onProviderChange(): void {
-  updateProviderDefaults()
+// 监听显示名称变化，检查冲突
+watch(displayName, (newName) => {
+  if (!newName.trim()) {
+    nameConflictError.value = ''
+    return
+  }
+
+  // 如果是编辑模式，不与当前编辑的名称比较
+  if (props.editingName === newName) {
+    nameConflictError.value = ''
+    return
+  }
+
+  // 检查是否与其他模型名称冲突
+  if (props.existingNames && props.existingNames.includes(newName)) {
+    nameConflictError.value = '该名称已被使用，请更换'
+  } else {
+    nameConflictError.value = ''
+  }
+})
+
+// 验证向量维度
+function validateDimension(value: string): boolean {
+  const num = Number(value)
+  if (!value.trim()) {
+    dimensionError.value = '请输入向量维度'
+    return false
+  }
+  if (isNaN(num)) {
+    dimensionError.value = '请输入有效的数字'
+    return false
+  }
+  if (!Number.isInteger(num)) {
+    dimensionError.value = '向量维度必须是整数'
+    return false
+  }
+  if (num <= 0) {
+    dimensionError.value = '向量维度必须大于0'
+    return false
+  }
+  dimensionError.value = ''
+  return true
 }
 
 // 验证表单
 function validateForm(): string | null {
-  if (!modelId.value.trim()) {
-    return '请输入模型ID'
-  }
-  if (props.existingIds && props.existingIds.includes(modelId.value)) {
-    return '模型ID已存在'
-  }
   if (!displayName.value.trim()) {
     return '请输入显示名称'
+  }
+  if (nameConflictError.value) {
+    return nameConflictError.value
   }
   if (!baseUrl.value.trim()) {
     return '请输入API基础URL'
   }
-  if (provider.value !== 'ollama' && !apiKey.value.trim()) {
+  if (!apiKey.value.trim()) {
     return '请输入API密钥'
   }
   if (!modelName.value.trim()) {
     return '请输入模型名称'
   }
-  if (dimensions.value <= 0) {
-    return '向量维度必须大于0'
+  if (!validateDimension(dimensions.value)) {
+    return dimensionError.value
   }
   return null
 }
@@ -127,17 +120,16 @@ function handleSubmit(): void {
   }
 
   const config: EmbeddingConfig = {
-    provider: provider.value,
     baseUrl: baseUrl.value.trim(),
-    apiKey: apiKey.value.trim() || undefined,
+    apiKey: apiKey.value.trim(),
     model: modelName.value.trim(),
-    dimensions: dimensions.value,
+    dimensions: parseInt(dimensions.value, 10),
     enabled: enabled.value,
     displayName: displayName.value.trim(),
-    createdAt: new Date().toISOString()
+    createdAt: props.editingConfig?.createdAt || new Date().toISOString()
   }
 
-  emit('submit', modelId.value.trim(), config)
+  emit('submit', displayName.value.trim(), config)
 }
 
 // 测试连接
@@ -152,11 +144,10 @@ async function handleTestConnection(): Promise<void> {
   testResult.value = null
 
   const config: EmbeddingConfig = {
-    provider: provider.value,
     baseUrl: baseUrl.value.trim(),
-    apiKey: apiKey.value.trim() || undefined,
+    apiKey: apiKey.value.trim(),
     model: modelName.value.trim(),
-    dimensions: dimensions.value,
+    dimensions: parseInt(dimensions.value, 10),
     enabled: enabled.value,
     displayName: displayName.value.trim(),
     createdAt: new Date().toISOString()
@@ -168,29 +159,13 @@ async function handleTestConnection(): Promise<void> {
     testing.value = false
   }
 }
-
-onMounted(() => {
-  updateProviderDefaults()
-})
 </script>
 
 <template>
   <div class="form-container">
-    <h3>添加嵌入模型</h3>
+    <h3>{{ editingName ? '编辑' : '添加' }}嵌入模型</h3>
 
     <form @submit.prevent="handleSubmit">
-      <!-- 模型ID -->
-      <div class="form-group">
-        <label class="form-label">模型ID *</label>
-        <input
-          v-model="modelId"
-          type="text"
-          class="form-input"
-          placeholder="例如: openai-embedding-small"
-          required
-        />
-      </div>
-
       <!-- 显示名称 -->
       <div class="form-group">
         <label class="form-label">显示名称 *</label>
@@ -198,20 +173,11 @@ onMounted(() => {
           v-model="displayName"
           type="text"
           class="form-input"
+          :class="{ 'input-error': nameConflictError }"
           placeholder="例如: OpenAI Embedding Small"
           required
         />
-      </div>
-
-      <!-- 提供商 -->
-      <div class="form-group">
-        <label class="form-label">提供商 *</label>
-        <select v-model="provider" class="form-select" @change="onProviderChange">
-          <option value="openai">OpenAI</option>
-          <option value="aliyun">阿里云</option>
-          <option value="ollama">Ollama</option>
-          <option value="custom">自定义</option>
-        </select>
+        <span v-if="nameConflictError" class="error-message">{{ nameConflictError }}</span>
       </div>
 
       <!-- API 基础URL -->
@@ -227,7 +193,7 @@ onMounted(() => {
       </div>
 
       <!-- API 密钥 -->
-      <div v-if="provider !== 'ollama'" class="form-group">
+      <div class="form-group">
         <label class="form-label">API 密钥 *</label>
         <input
           v-model="apiKey"
@@ -253,7 +219,16 @@ onMounted(() => {
       <!-- 向量维度 -->
       <div class="form-group">
         <label class="form-label">向量维度 *</label>
-        <input v-model.number="dimensions" type="number" class="form-input" min="1" required />
+        <input
+          v-model="dimensions"
+          type="text"
+          class="form-input"
+          :class="{ 'input-error': dimensionError }"
+          placeholder="1536"
+          @input="validateDimension(dimensions)"
+          required
+        />
+        <span v-if="dimensionError" class="error-message">{{ dimensionError }}</span>
       </div>
 
       <!-- 测试结果 -->
@@ -320,6 +295,17 @@ h3 {
 .form-select:focus {
   outline: none;
   border-color: var(--theme-accent);
+}
+
+.input-error {
+  border-color: #f44336 !important;
+}
+
+.error-message {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #f44336;
 }
 
 .form-actions {

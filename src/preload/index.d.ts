@@ -463,8 +463,6 @@ interface EmbeddingConfig {
  * 嵌入模型配置（扩展版）
  */
 interface EmbeddingModelConfig {
-  /** 提供商类型 */
-  provider: EmbeddingProviderType
   /** API 基础 URL（OpenAI 兼容接口） */
   baseUrl: string
   /** API 密钥 */

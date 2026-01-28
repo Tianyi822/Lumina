@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import EmbeddingModelItem from '../embedding/EmbeddingModelItem.vue'
 import EmbeddingModelForm from '../embedding/EmbeddingModelForm.vue'
 import { useEmbeddingModels } from '@renderer/composables/useEmbeddingModels'
@@ -49,6 +49,11 @@ function handleEdit(id: string): void {
     showAddForm.value = true
   }
 }
+
+// 获取所有显示名称列表（用于冲突检查）
+const existingNames = computed(() => {
+  return Object.values(embeddingModels.value).map((config) => config.displayName || '')
+})
 
 // 删除模型
 async function handleDelete(id: string): Promise<void> {
@@ -167,7 +172,9 @@ onMounted(() => {
     <!-- 添加/编辑表单 -->
     <EmbeddingModelForm
       v-if="showAddForm"
-      :existing-ids="Object.keys(embeddingModels).filter((id) => id !== editingModelId)"
+      :existing-names="existingNames"
+      :editing-name="editingModelId || undefined"
+      :editing-config="editingModelConfig"
       @submit="handleSave"
       @cancel="handleCancel"
       @test="handleTestNew"

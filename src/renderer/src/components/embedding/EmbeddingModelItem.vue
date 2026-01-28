@@ -21,16 +21,6 @@ const emit = defineEmits<Emits>()
 
 const testResult = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 
-const providerLabel = computed(() => {
-  const labels: Record<string, string> = {
-    openai: 'OpenAI',
-    aliyun: '阿里云',
-    ollama: 'Ollama',
-    custom: '自定义'
-  }
-  return labels[props.config.provider] || props.config.provider
-})
-
 const displayName = computed(() => {
   return props.config.displayName || props.config.model
 })
@@ -46,7 +36,6 @@ async function handleTest(): Promise<void> {
     <div class="model-header">
       <div class="model-info">
         <span class="model-name">{{ displayName }}</span>
-        <span class="model-provider">{{ providerLabel }}</span>
         <span v-if="isDefault" class="badge badge-default">默认</span>
         <span class="model-dimensions">{{ config.dimensions }}维</span>
       </div>
@@ -114,14 +103,6 @@ async function handleTest(): Promise<void> {
 .model-name {
   font-weight: 600;
   color: var(--theme-text);
-}
-
-.model-provider {
-  font-size: 12px;
-  color: var(--theme-text-secondary);
-  padding: 2px 8px;
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
 }
 
 .model-dimensions {

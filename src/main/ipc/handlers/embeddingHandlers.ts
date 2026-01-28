@@ -19,7 +19,6 @@ export function initializeEmbedding(): void {
       getEmbeddingService().setConfig(modelConfig)
       logger.info('嵌入服务已初始化', 'main', {
         component: 'embedding',
-        provider: modelConfig.provider,
         model: modelConfig.model
       })
     } else {
@@ -98,7 +97,6 @@ export function registerEmbeddingHandlers(): void {
       // 注意：这个处理器用于运行时临时配置，持久化配置应使用 embeddingModels:save
       logger.info('嵌入配置已更新（临时）', 'main', {
         component: 'embedding',
-        provider: config.provider,
         model: config.model
       })
 

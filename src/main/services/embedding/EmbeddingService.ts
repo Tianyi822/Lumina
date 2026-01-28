@@ -46,7 +46,6 @@ export const PRESET_EMBEDDING_MODELS: Record<
     name: 'OpenAI text-embedding-3-small',
     dimension: 1536,
     config: {
-      provider: 'openai',
       baseUrl: 'https://api.openai.com/v1',
       model: 'text-embedding-3-small',
       dimensions: 1536
@@ -56,7 +55,6 @@ export const PRESET_EMBEDDING_MODELS: Record<
     name: 'OpenAI text-embedding-3-large',
     dimension: 3072,
     config: {
-      provider: 'openai',
       baseUrl: 'https://api.openai.com/v1',
       model: 'text-embedding-3-large',
       dimensions: 3072
@@ -66,7 +64,6 @@ export const PRESET_EMBEDDING_MODELS: Record<
     name: 'Ollama nomic-embed-text',
     dimension: 768,
     config: {
-      provider: 'ollama',
       baseUrl: 'http://localhost:11434/v1',
       model: 'nomic-embed-text',
       dimensions: 768
@@ -76,7 +73,6 @@ export const PRESET_EMBEDDING_MODELS: Record<
     name: '阿里云百炼 text-embedding-v4',
     dimension: 1024,
     config: {
-      provider: 'aliyun',
       baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
       model: 'text-embedding-v4',
       dimensions: 1024
@@ -170,11 +166,7 @@ export class EmbeddingService {
       }
 
       // 如果模型支持 dimensions 参数（如 text-embedding-v3/v4），则添加
-      if (
-        this.config.provider === 'aliyun' &&
-        this.config.model.includes('text-embedding-v3') &&
-        this.config.dimensions
-      ) {
+      if (this.config.model.includes('text-embedding-v3') && this.config.dimensions) {
         // @ts-ignore - OpenAI 类型定义可能不包含此参数
         params.dimensions = this.config.dimensions
       }
@@ -216,11 +208,7 @@ export class EmbeddingService {
       }
 
       // 如果模型支持 dimensions 参数，则添加
-      if (
-        this.config.provider === 'aliyun' &&
-        this.config.model.includes('text-embedding-v3') &&
-        this.config.dimensions
-      ) {
+      if (this.config.model.includes('text-embedding-v3') && this.config.dimensions) {
         // @ts-ignore - OpenAI 类型定义可能不包含此参数
         params.dimensions = this.config.dimensions
       }
@@ -257,7 +245,6 @@ export class EmbeddingService {
     return {
       ...preset.config,
       ...customConfig,
-      provider: customConfig?.provider || preset.config.provider || 'custom',
       enabled: true
     } as EmbeddingConfig
   }
