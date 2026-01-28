@@ -124,54 +124,15 @@ async function handleKnowledgeSubmit(data: {
   name: string
   description: string
   embeddingModel: string
-  customConfig?: {
-    modelName: string
-    baseUrl: string
-    dimension: number
-  }
+  embeddingDimension: number
 }): Promise<void> {
   try {
-    // 获取或创建嵌入配置
-    let embeddingConfig
-    if (data.embeddingModel.startsWith('custom:')) {
-      // 自定义模型
-      if (!data.customConfig) {
-        alert('自定义模型配置不完整')
-        return
-      }
-      embeddingConfig = {
-        provider: 'custom' as const,
-        baseUrl: data.customConfig.baseUrl,
-        model: data.customConfig.modelName,
-        dimensions: data.customConfig.dimension,
-        enabled: true
-      }
-    } else {
-      // 预设模型
-      const result = await window.api.embedding.createFromPreset(data.embeddingModel)
-      if (!result.success || !result.data) {
-        alert('创建嵌入配置失败: ' + (result.error || '未知错误'))
-        return
-      }
-      embeddingConfig = result.data
-    }
-
-    // 设置嵌入配置
-    const setConfigResult = await window.api.embedding.setConfig(embeddingConfig)
-    if (!setConfigResult.success) {
-      alert('保存嵌入配置失败: ' + (setConfigResult.error || '未知错误'))
-      return
-    }
-
-    // 获取向量维度
-    const dimension = data.customConfig?.dimension || 1536
-
-    // 创建知识库记录
+    // 直接创建知识库记录（使用已配置的嵌入模型）
     const createResult = await window.api.knowledge.create({
       name: data.name,
       description: data.description,
       embeddingModel: data.embeddingModel,
-      embeddingDimension: dimension,
+      embeddingDimension: data.embeddingDimension,
       chunkSize: 500,
       chunkOverlap: 50,
       documentCount: 0
