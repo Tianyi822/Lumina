@@ -170,9 +170,6 @@ onUnmounted(() => {
 
     <!-- macOS 右侧占位 -->
     <div v-else class="title-bar-right-spacer"></div>
-
-    <!-- 窗口拖动区域（排除可交互元素） -->
-    <div class="title-bar-drag-region"></div>
   </div>
 </template>
 
@@ -254,18 +251,6 @@ onUnmounted(() => {
 
 .title-bar-controls .title-bar-button-close:hover .button-icon {
   color: white;
-}
-
-/* 窗口拖动区域 - 只在两侧拖动 */
-.title-bar-drag-region {
-  position: absolute;
-  top: 0;
-  left: 138px; /* 左侧占位宽度 */
-  right: 138px; /* 右侧占位宽度 */
-  bottom: 0;
-  -webkit-app-region: drag;
-  pointer-events: auto;
-  z-index: 1;
 }
 
 /* 图标 SVG 样式 */
@@ -355,23 +340,12 @@ onUnmounted(() => {
   color: var(--theme-accent, #3fb950);
 }
 
-/* macOS 拖动区域调整 */
-.title-bar.is-mac .title-bar-drag-region {
-  left: 80px;
-  right: 80px;
-}
-
 /* 响应式：当窗口很小时调整 */
 @media (max-width: 600px) {
   .title-bar-left-spacer {
     width: 60px;
   }
-  
-  .title-bar-drag-region {
-    left: 60px;
-    right: 138px;
-  }
-  
+
   .switcher-btn {
     padding: 2px 8px;
     font-size: 11px;
