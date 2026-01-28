@@ -161,11 +161,6 @@ function handleDocumentUpload(files: File[]): void {
   }
 }
 
-function handleSearch(query: string): void {
-  // 这里应该是搜索逻辑
-  console.log('搜索:', query)
-}
-
 function handleUploaderCancel(): void {
   showDocumentUploader.value = false
 }
@@ -419,7 +414,6 @@ onUnmounted(() => {
         <KnowledgeMain
           :knowledge-base="mockKnowledgeBases.find((kb) => kb.id === activeKbId)"
           @upload-documents="handleUploadDocuments"
-          @search="handleSearch"
         />
       </template>
     </div>
