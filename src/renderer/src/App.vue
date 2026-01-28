@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import type { Message, MCPTool } from './types'
+import type { Message, MCPTool, KnowledgeBase } from './types'
 import TitleBar from './components/TitleBar.vue'
 import Sidebar from './components/Sidebar.vue'
 import MainContent from './components/MainContent.vue'
 import ErrorBanner from './components/ErrorBanner.vue'
 import ChatErrorToast from './components/ChatErrorToast.vue'
-import ViewDemo from './components/ViewDemo.vue'
+import KnowledgeSidebar from './components/KnowledgeSidebar.vue'
+import KnowledgeMain from './components/KnowledgeMain.vue'
+import KnowledgeForm from './components/knowledge/KnowledgeForm.vue'
+import DocumentUploader from './components/knowledge/DocumentUploader.vue'
 import { useConfigError } from './composables/useConfigError'
 import { useSession } from './composables/useSession'
 import { useMessageCache } from './composables/useMessageCache'
@@ -63,6 +66,109 @@ const { isSending, setupStreamListener, cleanupStreamListener, stopRequest } = c
 const sidebarCollapsed = ref(false)
 const currentModel = ref('')
 const currentView = ref<ViewMode>('chat')
+
+// ==================== 知识库管理（前端模拟） ====================
+// 模拟知识库数据
+const mockKnowledgeBases = ref<KnowledgeBase[]>([
+  {
+    id: 'kb-1',
+    name: '产品文档',
+    description: '公司产品的技术文档和用户手册',
+    embeddingModel: 'openai/small',
+    embeddingDimension: 1536,
+    chunkSize: 500,
+    chunkOverlap: 50,
+    createdAt: '2024-01-15T10:00:00Z',
+    updatedAt: '2024-01-15T10:00:00Z',
+    documentCount: 12
+  },
+  {
+    id: 'kb-2',
+    name: '技术规范',
+    description: '开发规范和最佳实践',
+    embeddingModel: 'openai/small',
+    embeddingDimension: 1536,
+    chunkSize: 500,
+    chunkOverlap: 50,
+    createdAt: '2024-01-14T10:00:00Z',
+    updatedAt: '2024-01-14T10:00:00Z',
+    documentCount: 8
+  }
+])
+
+const activeKbId = ref<string>()
+const showKnowledgeForm = ref(false)
+const showDocumentUploader = ref(false)
+
+// 知识库操作
+function handleSelectKB(kbId: string): void {
+  activeKbId.value = kbId
+}
+
+function handleCreateKB(): void {
+  showKnowledgeForm.value = true
+}
+
+function handleDeleteKB(kbId: string): void {
+  if (confirm('确定要删除这个知识库吗？此操作不可撤销。')) {
+    mockKnowledgeBases.value = mockKnowledgeBases.value.filter((kb) => kb.id !== kbId)
+    if (activeKbId.value === kbId) {
+      activeKbId.value = undefined
+    }
+  }
+}
+
+function handleKnowledgeSubmit(data: {
+  name: string
+  description: string
+  embeddingModel: string
+}): void {
+  const newKB: KnowledgeBase = {
+    id: `kb-${Date.now()}`,
+    name: data.name,
+    description: data.description,
+    embeddingModel: data.embeddingModel,
+    embeddingDimension: 1536,
+    chunkSize: 500,
+    chunkOverlap: 50,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    documentCount: 0
+  }
+  mockKnowledgeBases.value.unshift(newKB)
+  showKnowledgeForm.value = false
+  activeKbId.value = newKB.id
+}
+
+function handleKnowledgeCancel(): void {
+  showKnowledgeForm.value = false
+}
+
+function handleUploadDocuments(): void {
+  showDocumentUploader.value = true
+}
+
+function handleDocumentUpload(files: File[]): void {
+  // 这里应该是上传文档到后端的逻辑
+  console.log('上传文档:', files)
+  showDocumentUploader.value = false
+
+  // 模拟更新文档数量
+  const kb = mockKnowledgeBases.value.find((kb) => kb.id === activeKbId.value)
+  if (kb) {
+    kb.documentCount = (kb.documentCount || 0) + files.length
+    kb.updatedAt = new Date().toISOString()
+  }
+}
+
+function handleSearch(query: string): void {
+  // 这里应该是搜索逻辑
+  console.log('搜索:', query)
+}
+
+function handleUploaderCancel(): void {
+  showDocumentUploader.value = false
+}
 
 // ==================== 辅助函数 ====================
 function toggleSidebar(): void {
@@ -301,11 +407,36 @@ onUnmounted(() => {
         />
       </template>
 
-      <!-- Demo 演示视图 -->
+      <!-- 知识库视图 -->
       <template v-else>
-        <ViewDemo :view-mode="currentView" />
+        <KnowledgeSidebar
+          :knowledge-bases="mockKnowledgeBases"
+          :active-kb-id="activeKbId"
+          @select-kb="handleSelectKB"
+          @create-kb="handleCreateKB"
+          @delete-kb="handleDeleteKB"
+        />
+        <KnowledgeMain
+          :knowledge-base="mockKnowledgeBases.find((kb) => kb.id === activeKbId)"
+          @upload-documents="handleUploadDocuments"
+          @search="handleSearch"
+        />
       </template>
     </div>
+
+    <!-- 知识库表单模态框 -->
+    <KnowledgeForm
+      v-if="showKnowledgeForm"
+      @submit="handleKnowledgeSubmit"
+      @cancel="handleKnowledgeCancel"
+    />
+
+    <!-- 文档上传模态框 -->
+    <DocumentUploader
+      v-if="showDocumentUploader"
+      @upload="handleDocumentUpload"
+      @cancel="handleUploaderCancel"
+    />
   </div>
 </template>
 
