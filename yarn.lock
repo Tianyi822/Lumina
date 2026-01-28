@@ -991,12 +991,19 @@
   dependencies:
     undici-types "~7.16.0"
 
-"@types/node@^22.19.1", "@types/node@^22.7.7":
-  version "22.19.7"
-  resolved "https://registry.npmmirror.com/@types/node/-/node-22.19.7.tgz#434094ee1731ae76c16083008590a5835a8c39c1"
-  integrity sha512-MciR4AKGHWl7xwxkBa6xUGxQJ4VBOmPTF7sL+iGzuahOFaO0jHCsuEfS80pan1ef4gWId1oWOweIhrDEYLuaOw==
+"@types/node@^24.9.0":
+  version "24.10.9"
+  resolved "https://registry.npmmirror.com/@types/node/-/node-24.10.9.tgz#1aeb5142e4a92957489cac12b07f9c7fe26057d0"
+  integrity sha512-ne4A0IpG3+2ETuREInjPNhUGis1SFjv1d5asp8MzEAGtOZeTeHVDOYqOgqfhvseqg/iXty2hjBf1zAOb7RNiNw==
   dependencies:
-    undici-types "~6.21.0"
+    undici-types "~7.16.0"
+
+"@types/node@^25.0.10":
+  version "25.0.10"
+  resolved "https://registry.npmmirror.com/@types/node/-/node-25.0.10.tgz#4864459c3c9459376b8b75fd051315071c8213e7"
+  integrity sha512-zWW5KPngR/yvakJgGOmZ5vTBemDoSqF3AcV/LrO5u5wTWyEAVVh+IT39G4gtyAkh3CtTZs8aX/yRM82OfzHJRg==
+  dependencies:
+    undici-types "~7.16.0"
 
 "@types/plist@^3.0.1":
   version "3.0.5"
@@ -1979,13 +1986,13 @@ electron-vite@^5.0.0:
     magic-string "^0.30.19"
     picocolors "^1.1.1"
 
-electron@^39.2.6:
-  version "39.2.7"
-  resolved "https://registry.npmmirror.com/electron/-/electron-39.2.7.tgz#1cf2371304994fe26c564764bd50878fe405fb4b"
-  integrity sha512-KU0uFS6LSTh4aOIC3miolcbizOFP7N1M46VTYVfqIgFiuA2ilfNaOHLDS9tCMvwwHRowAsvqBrh9NgMXcTOHCQ==
+electron@^40.0.0:
+  version "40.0.0"
+  resolved "https://registry.npmmirror.com/electron/-/electron-40.0.0.tgz#01b1589ce2619dc7e792b1ca78d3ff1ae2ce05e7"
+  integrity sha512-UyBy5yJ0/wm4gNugCtNPjvddjAknMTuXR2aCHioXicH7aKRKGDBPp4xqTEi/doVcB3R+MN3wfU9o8d/9pwgK2A==
   dependencies:
     "@electron/get" "^2.0.0"
-    "@types/node" "^22.7.7"
+    "@types/node" "^24.9.0"
     extract-zip "^2.0.1"
 
 emoji-regex@^8.0.0:
@@ -4162,11 +4169,6 @@ uc.micro@^2.0.0, uc.micro@^2.1.0:
   version "2.1.0"
   resolved "https://registry.npmmirror.com/uc.micro/-/uc.micro-2.1.0.tgz#f8d3f7d0ec4c3dea35a7e3c8efa4cb8b45c9e7ee"
   integrity sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A==
-
-undici-types@~6.21.0:
-  version "6.21.0"
-  resolved "https://registry.npmmirror.com/undici-types/-/undici-types-6.21.0.tgz#691d00af3909be93a7faa13be61b3a5b50ef12cb"
-  integrity sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==
 
 undici-types@~7.16.0:
   version "7.16.0"
