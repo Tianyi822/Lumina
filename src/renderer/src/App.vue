@@ -6,12 +6,16 @@ import Sidebar from './components/Sidebar.vue'
 import MainContent from './components/MainContent.vue'
 import ErrorBanner from './components/ErrorBanner.vue'
 import ChatErrorToast from './components/ChatErrorToast.vue'
+import ViewDemo from './components/ViewDemo.vue'
 import { useConfigError } from './composables/useConfigError'
 import { useSession } from './composables/useSession'
 import { useMessageCache } from './composables/useMessageCache'
 import { useChatStream } from './composables/useChatStream'
 import { generateTitle, convertToToolReferences } from './utils/sessionHelpers'
 import { buildChatMessages } from './utils/messageHelpers'
+
+// 视图类型
+type ViewMode = 'chat' | 'knowledge'
 
 // ==================== 配置错误处理 ====================
 const { configError, showError, loadConfigStatus, dismissError } = useConfigError()
@@ -58,6 +62,7 @@ const { isSending, setupStreamListener, cleanupStreamListener, stopRequest } = c
 // ==================== UI 状态 ====================
 const sidebarCollapsed = ref(false)
 const currentModel = ref('')
+const currentView = ref<ViewMode>('chat')
 
 // ==================== 辅助函数 ====================
 function toggleSidebar(): void {
@@ -256,7 +261,7 @@ onUnmounted(() => {
 <template>
   <div class="app-container">
     <!-- 自定义标题栏 -->
-    <TitleBar />
+    <TitleBar v-model="currentView" />
 
     <!-- 配置加载错误提示（仅在加载失败时显示） -->
     <ErrorBanner :error="configError" @dismiss="dismissError" />
@@ -270,28 +275,36 @@ onUnmounted(() => {
 
     <!-- 主布局 -->
     <div class="app-layout">
-      <!-- 侧边栏 -->
-      <Sidebar
-        v-show="!sidebarCollapsed"
-        :sessions="sessionList"
-        :active-session-id="currentChatId"
-        :session-update-key="sessionUpdateKey"
-        @new-chat="handleNewChat"
-        @select-chat="handleSelectChat"
-        @delete-session="handleDeleteSession"
-      />
+      <!-- Chat 视图 -->
+      <template v-if="currentView === 'chat'">
+        <!-- 侧边栏 -->
+        <Sidebar
+          v-show="!sidebarCollapsed"
+          :sessions="sessionList"
+          :active-session-id="currentChatId"
+          :session-update-key="sessionUpdateKey"
+          @new-chat="handleNewChat"
+          @select-chat="handleSelectChat"
+          @delete-session="handleDeleteSession"
+        />
 
-      <!-- 主内容区 -->
-      <MainContent
-        :sidebar-collapsed="sidebarCollapsed"
-        :current-chat-id="currentChatId"
-        :messages="messages"
-        :is-sending="isSending"
-        :current-model-name="currentModel"
-        @toggle-sidebar="toggleSidebar"
-        @send-message="handleSendMessage"
-        @stop-request="handleStopRequest"
-      />
+        <!-- 主内容区 -->
+        <MainContent
+          :sidebar-collapsed="sidebarCollapsed"
+          :current-chat-id="currentChatId"
+          :messages="messages"
+          :is-sending="isSending"
+          :current-model-name="currentModel"
+          @toggle-sidebar="toggleSidebar"
+          @send-message="handleSendMessage"
+          @stop-request="handleStopRequest"
+        />
+      </template>
+
+      <!-- Demo 演示视图 -->
+      <template v-else>
+        <ViewDemo :view-mode="currentView" />
+      </template>
     </div>
   </div>
 </template>
@@ -309,6 +322,13 @@ onUnmounted(() => {
 
 /* 主布局 */
 .app-layout {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Demo 视图样式 */
+.view-demo {
   flex: 1;
   display: flex;
   overflow: hidden;
