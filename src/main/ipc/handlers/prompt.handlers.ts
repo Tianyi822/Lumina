@@ -55,11 +55,52 @@ export async function handleUpdatePromptConfig(
 }
 
 /**
+ * 重置提示词配置为默认值
+ */
+export async function handleResetPromptConfig(): Promise<{
+  success: boolean
+  config?: PromptConfig
+  error?: string
+}> {
+  try {
+    const config = configManager.getConfig()
+    if (!config) {
+      const error = '无法重置提示词配置：配置未加载'
+      logger.error(error)
+      return { success: false, error }
+    }
+
+    // 默认配置
+    const defaultPromptConfig: PromptConfig = {
+      enableEnhancedPrompt: true,
+      toolDescriptionLevel: 'detailed',
+      fewShotCount: 3,
+      customSystemPrompt: ''
+    }
+
+    // 更新配置
+    const result = configManager.updateConfig({ promptConfig: defaultPromptConfig })
+
+    if (result.success) {
+      logger.info('提示词配置已重置为默认值', 'main')
+      return { success: true, config: defaultPromptConfig }
+    }
+
+    return result
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('重置提示词配置失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
  * 注册提示词配置相关的 IPC 处理器
  */
 export function registerPromptHandlers(): void {
   ipcMain.handle('prompt:getConfig', handleGetPromptConfig)
   ipcMain.handle('prompt:updateConfig', handleUpdatePromptConfig)
+  ipcMain.handle('prompt:resetConfig', handleResetPromptConfig)
 
   // 示例管理 handlers
   ipcMain.handle('prompt:extractExamples', handleExtractExamples)

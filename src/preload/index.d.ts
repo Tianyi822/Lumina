@@ -394,6 +394,7 @@ interface PromptConfig {
 interface PromptApi {
   getConfig: () => Promise<PromptConfig | undefined>
   updateConfig: (config: PromptConfig) => Promise<ConfigSaveResult>
+  resetConfig: () => Promise<{ success: boolean; config?: PromptConfig; error?: string }>
 }
 
 /**

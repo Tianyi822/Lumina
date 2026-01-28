@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, onMounted, watch } from 'vue'
+import { reactive, watch } from 'vue'
 import type { PromptConfig, ToolDescriptionLevel } from '@renderer/types'
 
 interface Props {
@@ -20,18 +20,6 @@ const localConfig = reactive<PromptConfig>({
   customSystemPrompt: ''
 })
 
-// 从主进程加载配置
-async function loadConfig() {
-  try {
-    const config = await window.api.prompt.getConfig()
-    if (config) {
-      Object.assign(localConfig, config)
-    }
-  } catch (error) {
-    console.error('加载提示词配置失败:', error)
-  }
-}
-
 // 保存配置
 async function saveConfig() {
   try {
@@ -46,16 +34,26 @@ async function saveConfig() {
   }
 }
 
+// 重置为默认配置
+async function resetToDefault() {
+  try {
+    const result = await window.api.prompt.resetConfig()
+    if (result.success && result.config) {
+      Object.assign(localConfig, result.config)
+      emit('update:modelValue', { ...result.config })
+    } else {
+      console.error('重置提示词配置失败:', result.error)
+    }
+  } catch (error) {
+    console.error('重置提示词配置失败:', error)
+  }
+}
+
 // 更新配置并保存
 function updateConfig<K extends keyof PromptConfig>(key: K, value: PromptConfig[K]): void {
   localConfig[key] = value
   saveConfig()
 }
-
-// 组件挂载时加载配置
-onMounted(() => {
-  loadConfig()
-})
 
 // 监听 props 变化
 watch(
@@ -163,7 +161,7 @@ watch(
 
     <div class="form-actions">
       <button class="btn btn-primary" @click="saveConfig">保存配置</button>
-      <button class="btn btn-secondary" @click="loadConfig">重置为默认</button>
+      <button class="btn btn-secondary" @click="resetToDefault">重置为默认</button>
     </div>
   </div>
 </template>

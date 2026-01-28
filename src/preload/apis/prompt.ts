@@ -14,5 +14,11 @@ export const promptApi = {
    * 更新提示词配置
    */
   updateConfig: (config: PromptConfig): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke('prompt:updateConfig', config)
+    ipcRenderer.invoke('prompt:updateConfig', config),
+
+  /**
+   * 重置提示词配置为默认值
+   */
+  resetConfig: (): Promise<{ success: boolean; config?: PromptConfig; error?: string }> =>
+    ipcRenderer.invoke('prompt:resetConfig')
 }
