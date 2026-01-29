@@ -10,7 +10,10 @@ export function useMessageCache(): {
   sessionMessagesCache: Ref<Map<string, Message[]>>
   sessionTitleCache: Ref<Map<string, string>>
   cacheSession: (sessionId: string, messages: Message[], title?: string) => void
-  getCachedSession: (sessionId: string) => { messages: Message[]; title?: string } | null
+  getCachedSession: (
+    sessionId: string,
+    returnRef?: boolean
+  ) => { messages: Message[]; title?: string } | null
   hasCachedSession: (sessionId: string) => boolean
   clearSessionCache: (sessionId: string) => void
   clearAllCache: () => void
@@ -44,14 +47,19 @@ export function useMessageCache(): {
 
   /**
    * 从缓存中获取会话消息
+   * @param sessionId 会话ID
+   * @param returnRef 是否返回引用而非深拷贝（默认false）
    */
-  function getCachedSession(sessionId: string): { messages: Message[]; title?: string } | null {
+  function getCachedSession(
+    sessionId: string,
+    returnRef: boolean = false
+  ): { messages: Message[]; title?: string } | null {
     const messages = sessionMessagesCache.value.get(sessionId)
     const title = sessionTitleCache.value.get(sessionId)
 
     if (messages && messages.length > 0) {
       return {
-        messages: deepCopyMessages(messages),
+        messages: returnRef ? messages : deepCopyMessages(messages),
         title
       }
     }

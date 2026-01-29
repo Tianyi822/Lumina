@@ -20,12 +20,19 @@ const props = defineProps<{
   isSending?: boolean
   currentModelName?: string // 当前使用的模型名称
   configUpdateKey?: number // 配置更新标志
+  // 输入状态相关
+  inputMessage?: string
+  selectedModel?: string
+  selectedMCPTools?: MCPTool[]
 }>()
 
 const emit = defineEmits<{
   (e: 'toggle-sidebar'): void
   (e: 'send-message', message: string, model: string, selectedTools: MCPTool[]): void
   (e: 'stop-request'): void
+  (e: 'update:inputMessage', value: string): void
+  (e: 'update:selectedModel', value: string): void
+  (e: 'update:selectedMCPTools', value: MCPTool[]): void
 }>()
 
 // 配置更新标志，用于触发子组件刷新
@@ -167,6 +174,18 @@ function handleStopRequest(): void {
   emit('stop-request')
 }
 
+function handleUpdateInputMessage(value: string): void {
+  emit('update:inputMessage', value)
+}
+
+function handleUpdateSelectedModel(value: string): void {
+  emit('update:selectedModel', value)
+}
+
+function handleUpdateSelectedTools(value: MCPTool[]): void {
+  emit('update:selectedMCPTools', value)
+}
+
 /**
  * 切换思考内容展开/折叠
  */
@@ -282,8 +301,14 @@ function formatTokenUsage(usage: TokenUsage): string {
     <!-- 输入区域 -->
     <MessageInput
       :is-sending="props.isSending"
+      :input-message="props.inputMessage"
+      :selected-model="props.selectedModel"
+      :selected-m-c-p-tools="props.selectedMCPTools"
       @send="handleSendMessage"
       @stop="handleStopRequest"
+      @update:input-message="handleUpdateInputMessage"
+      @update:selected-model="handleUpdateSelectedModel"
+      @update:selected-m-c-p-tools="handleUpdateSelectedTools"
     />
   </main>
 </template>

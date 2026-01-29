@@ -2,6 +2,7 @@ import type { Ref } from 'vue'
 import type { Message, MCPTool } from '../types'
 import { generateTitle, convertToToolReferences } from '../utils/sessionHelpers'
 import { buildChatMessages } from '../utils/messageHelpers'
+import type { SessionInputState } from './useInputState'
 
 /**
  * 聊天消息 Composable
@@ -13,11 +14,13 @@ export function useChatMessage(
   messages: Ref<Message[]>,
   isSending: Ref<boolean>,
   currentModel: Ref<string>,
+  currentInputState: Ref<SessionInputState>,
   createSession: () => Promise<void>,
   updateSessionTitle: (title: string) => void,
   setStreamingSessionId: (sessionId: string | null) => void,
   setMessagesSnapshot: (snapshot: any) => void,
-  handleChatError: (error: string) => void
+  handleChatError: (error: string) => void,
+  clearInputMessage: () => void
 ) {
   /**
    * 发送消息
@@ -60,6 +63,8 @@ export function useChatMessage(
 
     // 更新当前模型
     currentModel.value = model
+    // 更新当前输入状态中的模型选择
+    currentInputState.value.selectedModel = model
 
     // 检查是否是第一条消息（用于更新会话标题）
     const isFirstMessage = messages.value.length === 0
@@ -124,6 +129,9 @@ export function useChatMessage(
 
       if (!result.success && result.error) {
         window.api.logger.error('发送消息失败', { error: result.error, sessionId })
+      } else {
+        // 发送成功后，清空输入消息
+        clearInputMessage()
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)

@@ -42,7 +42,7 @@ const tempChatStream = {
 const sessionActions = useSessionActions(tempChatStream)
 
 // 从 sessionActions 中解构出响应式变量供模板使用
-const { currentChatId, messages, sessionList, sessionUpdateKey } = sessionActions
+const { currentChatId, messages, sessionList, sessionUpdateKey, currentInputState } = sessionActions
 
 // ==================== 聊天流式处理 ====================
 const chatStream = useChatStream(
@@ -62,11 +62,13 @@ const { handleSendMessage } = useChatMessage(
   sessionActions.messages,
   isSending,
   currentModel,
+  currentInputState,
   sessionActions.createSession,
   sessionActions.updateSessionTitle,
   chatStream.setStreamingSessionId,
   chatStream.setMessagesSnapshot,
-  handleChatError
+  handleChatError,
+  sessionActions.clearInputMessage
 )
 
 // ==================== 停止请求 ====================
@@ -75,6 +77,25 @@ async function handleStopRequest(): Promise<void> {
   if (sessionId) {
     await stopRequest(sessionId)
   }
+}
+
+// ==================== 会话选择 ====================
+async function handleSelectChat(sessionId: string): Promise<void> {
+  const newSessionIsSending = await sessionActions.handleSelectChat(sessionId)
+  isSending.value = newSessionIsSending
+}
+
+// ==================== 输入状态更新处理 ====================
+function handleUpdateInputMessage(value: string): void {
+  sessionActions.updateInputMessage(value)
+}
+
+function handleUpdateSelectedModel(value: string): void {
+  sessionActions.updateSelectedModel(value)
+}
+
+function handleUpdateSelectedTools(value: any[]): void {
+  sessionActions.updateSelectedTools(value)
 }
 
 // ==================== 设置管理 ====================
@@ -132,7 +153,7 @@ useLifecycle({
           :active-session-id="currentChatId"
           :session-update-key="sessionUpdateKey"
           @new-chat="sessionActions.handleNewChat"
-          @select-chat="sessionActions.handleSelectChat"
+          @select-chat="handleSelectChat"
           @delete-session="sessionActions.handleDeleteSession"
         />
 
@@ -144,9 +165,15 @@ useLifecycle({
           :is-sending="isSending"
           :current-model-name="currentModel"
           :config-update-key="configUpdateKey"
+          :input-message="currentInputState.inputMessage"
+          :selected-model="currentInputState.selectedModel"
+          :selected-m-c-p-tools="currentInputState.selectedMCPTools"
           @toggle-sidebar="uiState.toggleSidebar"
           @send-message="handleSendMessage"
           @stop-request="handleStopRequest"
+          @update:input-message="handleUpdateInputMessage"
+          @update:selected-model="handleUpdateSelectedModel"
+          @update:selected-m-c-p-tools="handleUpdateSelectedTools"
         />
       </template>
 

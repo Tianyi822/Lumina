@@ -18,7 +18,10 @@ export function useSession(): {
   createSession: () => Promise<void>
   loadSession: (
     sessionId: string,
-    getCachedSession?: (sessionId: string) => { messages: Message[]; title?: string } | null
+    getCachedSession?: (
+      sessionId: string,
+      returnRef?: boolean
+    ) => { messages: Message[]; title?: string } | null
   ) => Promise<void>
   deleteSession: (sessionId: string) => Promise<void>
   updateSessionTitle: (title: string) => void

@@ -5,18 +5,59 @@ import type { AppConfig, MCPTool } from '@renderer/types'
 
 const props = defineProps<{
   isSending?: boolean
+  inputMessage?: string
+  selectedModel?: string
+  selectedMCPTools?: MCPTool[]
 }>()
 
 const emit = defineEmits<{
   (e: 'send', message: string, model: string, selectedMCPTools: MCPTool[]): void
   (e: 'stop'): void
+  (e: 'update:inputMessage', value: string): void
+  (e: 'update:selectedModel', value: string): void
+  (e: 'update:selectedMCPTools', value: MCPTool[]): void
 }>()
 
-// 输入内容
-const inputMessage = ref('')
+// 本地输入状态 - 确保与会话独立
+const localInputMessage = ref(props.inputMessage ?? '')
+const localSelectedModel = ref(props.selectedModel ?? '')
+const localSelectedTools = ref<MCPTool[]>(props.selectedMCPTools ?? [])
 
-// 当前选择的模型
-const selectedModel = ref('')
+// 同步 props 到本地状态
+watch(() => props.inputMessage, (newVal) => {
+  if (newVal !== undefined && newVal !== localInputMessage.value) {
+    localInputMessage.value = newVal
+  }
+}, { immediate: true })
+
+// 当本地输入变化时，同步到父组件
+watch(localInputMessage, (newVal) => {
+  if (newVal !== props.inputMessage) {
+    emit('update:inputMessage', newVal)
+  }
+})
+
+watch(() => props.selectedModel, (newVal) => {
+  if (newVal !== undefined && newVal !== localSelectedModel.value) {
+    localSelectedModel.value = newVal
+  }
+}, { immediate: true })
+
+watch(() => props.selectedMCPTools, (newVal) => {
+  if (newVal !== undefined && newVal !== localSelectedTools.value) {
+    localSelectedTools.value = newVal
+  }
+}, { immediate: true, deep: true })
+
+function updateSelectedModel(value: string): void {
+  localSelectedModel.value = value
+  emit('update:selectedModel', value)
+}
+
+function updateSelectedTools(tools: MCPTool[]): void {
+  localSelectedTools.value = tools
+  emit('update:selectedMCPTools', tools)
+}
 
 // 压缩比例
 const compressionRatio = ref(0)
@@ -26,9 +67,6 @@ const modelOptions = ref<string[]>([])
 
 // 是否显示模型选择下拉
 const showModelDropdown = ref(false)
-
-// 当前选中的 MCP 工具列表（支持多选）
-const selectedMCPTools = ref<MCPTool[]>([])
 
 // 模型选择器容器引用
 const modelSelectorRef = ref<HTMLElement | null>(null)
@@ -44,22 +82,28 @@ async function loadConfiguredModels(): Promise<void> {
       const keys = Object.keys(config.llm_configs)
       modelOptions.value = keys
 
-      // 设置默认选中模型
-      if (config.default_model && keys.includes(config.default_model)) {
-        selectedModel.value = config.default_model
-      } else if (keys.length > 0) {
-        selectedModel.value = keys[0]
-      } else {
-        selectedModel.value = ''
+      // 设置默认选中模型（只在当前没有选中模型时）
+      if (!localSelectedModel.value || !keys.includes(localSelectedModel.value)) {
+        if (config.default_model && keys.includes(config.default_model)) {
+          updateSelectedModel(config.default_model)
+        } else if (keys.length > 0) {
+          updateSelectedModel(keys[0])
+        } else {
+          updateSelectedModel('')
+        }
       }
     } else {
       modelOptions.value = []
-      selectedModel.value = ''
+      if (localSelectedModel.value) {
+        updateSelectedModel('')
+      }
     }
   } catch (error) {
     console.error('加载模型配置失败:', error)
     modelOptions.value = []
-    selectedModel.value = ''
+    if (localSelectedModel.value) {
+      updateSelectedModel('')
+    }
   }
 }
 
@@ -69,14 +113,16 @@ watch(configUpdateKey, () => {
 })
 
 function handleSend(): void {
-  if (inputMessage.value.trim() && !props.isSending) {
+  const message = localInputMessage.value
+  if (message.trim() && !props.isSending) {
     // 调试日志：确认发送时的工具选择状态
     console.log('[MessageInput] 发送消息，选中的工具:', {
-      count: selectedMCPTools.value.length,
-      tools: selectedMCPTools.value.map((t) => `${t.serverName}/${t.name}`)
+      count: localSelectedTools.value.length,
+      tools: localSelectedTools.value.map((t) => `${t.serverName}/${t.name}`)
     })
-    emit('send', inputMessage.value.trim(), selectedModel.value, selectedMCPTools.value)
-    inputMessage.value = ''
+    emit('send', message.trim(), localSelectedModel.value, localSelectedTools.value)
+    localInputMessage.value = ''
+    emit('update:inputMessage', '')
   }
 }
 
@@ -86,7 +132,7 @@ function handleMCPToolsSelected(tools: MCPTool[]): void {
     count: tools.length,
     tools: tools.map((t) => `${t.serverName}/${t.name}`)
   })
-  selectedMCPTools.value = tools
+  updateSelectedTools(tools)
 }
 
 function handleStop(): void {
@@ -100,7 +146,7 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 function selectModel(model: string): void {
-  selectedModel.value = model
+  updateSelectedModel(model)
   showModelDropdown.value = false
 }
 
@@ -138,7 +184,7 @@ onUnmounted(() => {
   <div class="message-input-container">
     <div class="input-wrapper">
       <textarea
-        v-model="inputMessage"
+        v-model="localInputMessage"
         class="input message-textarea"
         placeholder="输入命令或消息 ..."
         rows="3"
@@ -150,7 +196,7 @@ onUnmounted(() => {
       <!-- 模型选择器 -->
       <div ref="modelSelectorRef" class="model-selector">
         <button class="btn model-btn" :disabled="isSending" @click="toggleModelDropdown">
-          <span>{{ selectedModel || '选择模型' }}</span>
+          <span>{{ localSelectedModel || '选择模型' }}</span>
           <span class="dropdown-arrow">&#9662;</span>
         </button>
         <div v-if="showModelDropdown" class="model-dropdown">
@@ -159,7 +205,7 @@ onUnmounted(() => {
             v-for="model in modelOptions"
             :key="model"
             class="model-option"
-            :class="{ active: model === selectedModel }"
+            :class="{ active: model === localSelectedModel }"
             @click="selectModel(model)"
           >
             {{ model }}
@@ -168,7 +214,7 @@ onUnmounted(() => {
       </div>
 
       <!-- MCP 工具选择器 -->
-      <MCPToolsPanel @tools-selected="handleMCPToolsSelected" />
+      <MCPToolsPanel :selected-tools="localSelectedTools" @tools-selected="handleMCPToolsSelected" />
 
       <!-- 压缩比例 -->
       <div class="compression-info">
