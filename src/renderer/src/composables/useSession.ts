@@ -15,7 +15,7 @@ export function useSession(): {
   loadSessionList: () => Promise<void>
   refreshSessionList: () => Promise<void>
   saveCurrentSession: () => Promise<void>
-  createSession: () => Promise<void>
+  createSession: (beforeCreate?: () => Promise<void>, newTitle?: string) => Promise<void>
   loadSession: (
     sessionId: string,
     getCachedSession?: (
@@ -114,11 +114,27 @@ export function useSession(): {
 
   /**
    * 创建新会话
+   * @param beforeCreate 创建会话前的回调函数，用于保存当前会话状态
+   * @param newTitle 新会话的标题，默认为 undefined（使用后端生成的默认标题）
    */
-  async function createSession(): Promise<void> {
+  async function createSession(
+    beforeCreate?: () => Promise<void>,
+    newTitle?: string
+  ): Promise<void> {
     try {
+      // 在创建新会话前，执行保存回调（如缓存当前会话）
+      if (beforeCreate) {
+        await beforeCreate()
+      }
+
       // 创建新会话
       const session = await window.api.session.create()
+
+      // 如果提供了标题，更新会话标题
+      if (newTitle) {
+        session.title = newTitle
+      }
+
       currentSession.value = session
       currentChatId.value = session.sessionId
       messages.value = []
@@ -138,10 +154,15 @@ export function useSession(): {
 
   /**
    * 加载会话
+   * @param sessionId 会话ID
+   * @param getCachedSession 获取缓存消息的函数，returnRef 为 true 时返回引用以支持流式更新
    */
   async function loadSession(
     sessionId: string,
-    getCachedSession?: (sessionId: string) => { messages: Message[]; title?: string } | null
+    getCachedSession?: (
+      sessionId: string,
+      returnRef?: boolean
+    ) => { messages: Message[]; title?: string } | null
   ): Promise<void> {
     // 如果选择的是当前会话，直接返回
     if (currentSession.value?.sessionId === sessionId) {
@@ -150,7 +171,8 @@ export function useSession(): {
 
     try {
       // 检查目标会话是否有缓存的消息
-      const cached = getCachedSession ? getCachedSession(sessionId) : null
+      // 使用 returnRef=true 获取引用，以便流式事件可以更新消息
+      const cached = getCachedSession ? getCachedSession(sessionId, true) : null
 
       if (cached && cached.messages.length > 0) {
         // 使用缓存的消息（可能包含流式响应状态）
@@ -158,15 +180,16 @@ export function useSession(): {
         if (session) {
           currentSession.value = session
           currentChatId.value = session.sessionId
-          // 恢复缓存的标题（如果有的话）
+          // 恢复缓存的标题（如果有的话，优先使用缓存中的标题）
           if (cached.title) {
             currentSession.value.title = cached.title
           }
-          // 深拷贝缓存的消息，避免引用问题
-          messages.value = cached.messages.map((msg) => ({ ...msg }))
+          // 直接使用缓存的消息引用（不深拷贝），这样流式事件能直接更新
+          messages.value = cached.messages
           window.api.logger.debug('加载会话：使用缓存', {
             sessionId,
-            title: currentSession.value.title
+            title: currentSession.value.title,
+            messageCount: messages.value.length
           })
         }
       } else {

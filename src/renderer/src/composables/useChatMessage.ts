@@ -4,6 +4,9 @@ import { generateTitle, convertToToolReferences } from '../utils/sessionHelpers'
 import { buildChatMessages } from '../utils/messageHelpers'
 import type { SessionInputState } from './useInputState'
 
+// 新会话的默认标题
+const DEFAULT_NEW_CHAT_TITLE = '新对话'
+
 /**
  * 聊天消息 Composable
  * 封装消息发送逻辑
@@ -15,7 +18,7 @@ export function useChatMessage(
   isSending: Ref<boolean>,
   currentModel: Ref<string>,
   currentInputState: Ref<SessionInputState>,
-  createSession: () => Promise<void>,
+  createSession: (beforeCreate?: () => Promise<void>, newTitle?: string) => Promise<void>,
   updateSessionTitle: (title: string) => void,
   setStreamingSessionId: (sessionId: string | null) => void,
   setMessagesSnapshot: (snapshot: any) => void,
@@ -41,9 +44,10 @@ export function useChatMessage(
       return
     }
 
-    // 如果没有当前对话，先创建一个
+    // 如果没有当前对话，先创建一个（设置默认标题为"新对话"）
     if (!currentChatId.value || !currentSession.value) {
-      await createSession()
+      // 创建新会话，设置默认标题
+      await createSession(undefined, DEFAULT_NEW_CHAT_TITLE)
     }
 
     // 确保当前会话存在

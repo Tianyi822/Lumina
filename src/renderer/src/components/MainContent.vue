@@ -299,7 +299,9 @@ function formatTokenUsage(usage: TokenUsage): string {
     </div>
 
     <!-- 输入区域 -->
+    <!-- 使用 :key 绑定 currentChatId 确保切换会话时输入组件完全重新创建 -->
     <MessageInput
+      :key="props.currentChatId || 'no-chat-input'"
       :is-sending="props.isSending"
       :input-message="props.inputMessage"
       :selected-model="props.selectedModel"

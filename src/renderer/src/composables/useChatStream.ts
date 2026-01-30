@@ -64,6 +64,7 @@ export function useChatStream(
 
   /**
    * 处理流式事件
+   * 确保每个会话的消息状态完全独立
    */
   function handleStreamEvent(
     event: StreamEvent,
@@ -89,7 +90,8 @@ export function useChatStream(
       }
       targetMessages = sessionMessagesCache.get(effectiveSessionId)!
     } else {
-      // 无法确定目标会话，使用当前消息
+      // 无法确定目标会话，使用当前消息（这种情况不应该发生）
+      window.api.logger.warn('流式事件无法确定目标会话', { event })
       targetMessages = messages()
     }
 

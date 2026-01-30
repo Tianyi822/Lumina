@@ -79,6 +79,19 @@ async function handleStopRequest(): Promise<void> {
   }
 }
 
+// ==================== 新聊天 ====================
+async function handleNewChat(): Promise<void> {
+  // 如果当前有正在进行的请求，先保存当前状态
+  if (isSending.value && sessionActions.currentSession.value?.sessionId) {
+    await sessionActions.handleNewChat()
+    // 新会话的 isSending 应该是 false
+    isSending.value = false
+  } else {
+    await sessionActions.handleNewChat()
+    isSending.value = false
+  }
+}
+
 // ==================== 会话选择 ====================
 async function handleSelectChat(sessionId: string): Promise<void> {
   const newSessionIsSending = await sessionActions.handleSelectChat(sessionId)
@@ -152,13 +165,15 @@ useLifecycle({
           :sessions="sessionList"
           :active-session-id="currentChatId"
           :session-update-key="sessionUpdateKey"
-          @new-chat="sessionActions.handleNewChat"
+          @new-chat="handleNewChat"
           @select-chat="handleSelectChat"
           @delete-session="sessionActions.handleDeleteSession"
         />
 
         <!-- 主内容区 -->
+        <!-- 使用 :key 绑定 currentChatId 确保切换会话时组件完全重新创建，实现状态隔离 -->
         <MainContent
+          :key="currentChatId || 'no-chat'"
           :sidebar-collapsed="sidebarCollapsed"
           :current-chat-id="currentChatId"
           :messages="messages"
