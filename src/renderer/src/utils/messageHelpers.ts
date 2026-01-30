@@ -18,6 +18,28 @@ export function sessionMessageToMessage(msg: SessionMessage): Message {
 }
 
 /**
+ * 将 Message 转换为 SessionMessage（用于保存）
+ */
+export function messageToSessionMessage(msg: Message): SessionMessage {
+  return {
+    id: msg.id,
+    role: msg.role,
+    content: msg.content,
+    reasoning: msg.reasoning,
+    timestamp: msg.timestamp || new Date().toISOString(),
+    modelName: msg.modelName,
+    usage: msg.usage
+      ? {
+          prompt_tokens: msg.usage.prompt_tokens,
+          completion_tokens: msg.usage.completion_tokens,
+          total_tokens: msg.usage.total_tokens,
+          reasoning_tokens: msg.usage.reasoning_tokens
+        }
+      : undefined
+  }
+}
+
+/**
  * 构建发送给后端的消息历史（UI 层特有）
  * 过滤掉 content 为空的助手消息，避免 API 报错
  */

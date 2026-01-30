@@ -6,10 +6,10 @@ import ErrorBanner from './components/ErrorBanner.vue'
 import SettingsModal from './components/SettingsModal.vue'
 
 // Composables
-import { useConfigError } from './composables/useConfigError'
-import { useUIState } from './composables/useUIState'
-import { useSettings } from './composables/useSettings'
-import { useLifecycle } from './composables/useLifecycle'
+import { useConfigError } from './composables/error/useConfigError'
+import { useUIState } from './composables/ui/useUIState'
+import { useSettings } from './composables/ui/useSettings'
+import { useLifecycle } from './composables/lifecycle/useLifecycle'
 
 // ==================== 配置错误处理 ====================
 const { configError, dismissError, loadConfigStatus } = useConfigError()

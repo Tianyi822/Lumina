@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { useConfigError } from './useConfigError'
+import { useConfigError } from '../error/useConfigError'
 
 /**
  * 聊天错误处理 Composable

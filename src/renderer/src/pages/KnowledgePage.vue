@@ -3,7 +3,7 @@ import KnowledgeSidebar from '@renderer/components/KnowledgeSidebar.vue'
 import KnowledgeMain from '@renderer/components/KnowledgeMain.vue'
 import KnowledgeForm from '@renderer/components/knowledge/KnowledgeForm.vue'
 import DocumentUploader from '@renderer/components/knowledge/DocumentUploader.vue'
-import { useKnowledge } from '@renderer/composables/useKnowledge'
+import { useKnowledge } from '@renderer/composables/knowledge/useKnowledge'
 
 // ==================== 知识库管理 ====================
 const {

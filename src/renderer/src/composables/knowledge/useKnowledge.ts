@@ -1,5 +1,5 @@
 import { ref, onMounted } from 'vue'
-import type { KnowledgeBase } from '../types'
+import type { KnowledgeBase } from '../../types'
 
 /**
  * 知识库管理 Composable

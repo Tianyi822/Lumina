@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import type { MCPTool } from '../types'
+import type { MCPTool } from '../../types'
 
 /**
  * 会话输入状态

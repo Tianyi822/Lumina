@@ -1,29 +1,11 @@
-import { ref, type Ref } from 'vue'
-import type { Message, StreamEvent, SessionData } from '../types'
+import { ref } from 'vue'
+import type { Message, StreamEvent, SessionData } from '../../types'
 
 /**
  * 聊天流式处理 Composable
  * 负责流式事件监听、消息更新、ReAct 步骤跟踪
  */
-export function useChatStream(
-  currentSession: () => SessionData | null,
-  messages: () => Message[],
-  onSaveSession?: () => Promise<void>,
-  onSaveCachedSession?: (sessionId: string) => Promise<void>,
-  onChatError?: (error: string) => void
-): {
-  isSending: Ref<boolean>
-  setupStreamListener: (sessionMessagesCache: Map<string, Message[]>) => void
-  cleanupStreamListener: () => void
-  handleStreamEvent: (event: StreamEvent, sessionMessagesCache: Map<string, Message[]>) => void
-  stopRequest: (sessionId?: string) => Promise<void>
-  getMessagesSnapshot: () => Message[] | null
-  setMessagesSnapshot: (snapshot: Message[] | null) => void
-  getStreamingSessionId: () => string | null
-  setStreamingSessionId: (sessionId: string | null) => void
-  getSessionSendingState: (sessionId: string) => boolean
-  setSessionSendingState: (sessionId: string, state: boolean) => void
-} {
+export function useChatStream() {
   // 是否正在发送消息（全局状态，用于当前会话）
   const isSending = ref(false)
 
@@ -37,7 +19,31 @@ export function useChatStream(
   let streamingSessionId: string | null = null
 
   // 流式监听器清理函数
-  let cleanupStreamListener: (() => void) | null = null
+  let cleanupStreamListenerFn: (() => void) | null = null
+
+  // 延迟初始化的依赖项
+  let currentSession: () => SessionData | null
+  let messages: () => Message[]
+  let onSaveSession: (() => Promise<void>) | undefined
+  let onSaveCachedSession: ((sessionId: string) => Promise<void>) | undefined
+  let onChatError: ((error: string) => void) | undefined
+
+  /**
+   * 初始化依赖项（延迟绑定）
+   */
+  function init(
+    getCurrentSession: () => SessionData | null,
+    getMessages: () => Message[],
+    saveSession?: () => Promise<void>,
+    saveCachedSession?: (sessionId: string) => Promise<void>,
+    chatError?: (error: string) => void
+  ) {
+    currentSession = getCurrentSession
+    messages = getMessages
+    onSaveSession = saveSession
+    onSaveCachedSession = saveCachedSession
+    onChatError = chatError
+  }
 
   /**
    * 获取消息快照
@@ -251,19 +257,32 @@ export function useChatStream(
   /**
    * 设置流式响应监听器
    */
-  function setupStreamListener(sessionMessagesCache: Map<string, Message[]>): void {
-    cleanupStreamListener = window.api.chat.onStream((event: StreamEvent) => {
-      handleStreamEvent(event, sessionMessagesCache)
+  function setupStreamListener(
+    getCurrentSession: () => SessionData | null,
+    getMessages: () => Message[],
+    saveSession?: () => Promise<void>,
+    saveCachedSession?: (sessionId: string) => Promise<void>,
+    chatError?: (error: string) => void,
+    sessionMessagesCache?: Map<string, Message[]>
+  ): void {
+    // 初始化依赖项
+    init(getCurrentSession, getMessages, saveSession, saveCachedSession, chatError)
+
+    // 如果传入了缓存，使用缓存的引用
+    const cache = sessionMessagesCache || new Map()
+
+    cleanupStreamListenerFn = window.api.chat.onStream((event: StreamEvent) => {
+      handleStreamEvent(event, cache)
     })
   }
 
   /**
    * 清理流式监听器
    */
-  function cleanupStreamListenerFn(): void {
-    if (cleanupStreamListener) {
-      cleanupStreamListener()
-      cleanupStreamListener = null
+  function cleanupStreamListener(): void {
+    if (cleanupStreamListenerFn) {
+      cleanupStreamListenerFn()
+      cleanupStreamListenerFn = null
     }
   }
 
@@ -285,7 +304,7 @@ export function useChatStream(
   return {
     isSending,
     setupStreamListener,
-    cleanupStreamListener: cleanupStreamListenerFn,
+    cleanupStreamListener,
     handleStreamEvent,
     stopRequest,
     getMessagesSnapshot,

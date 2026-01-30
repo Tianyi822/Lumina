@@ -1,36 +1,50 @@
 import type { Ref } from 'vue'
-import type { Message, MCPTool } from '../types'
-import { generateTitle, convertToToolReferences } from '../utils/sessionHelpers'
-import { buildChatMessages } from '../utils/messageHelpers'
-import type { SessionInputState } from './useInputState'
+import type { Message, MCPTool } from '../../types'
+import { generateTitle, convertToToolReferences } from '../../utils/sessionHelpers'
+import { buildChatMessages } from '../../utils/messageHelpers'
+import type { SessionInputState } from '../input/useInputState'
 
 // 新会话的默认标题
 const DEFAULT_NEW_CHAT_TITLE = '新对话'
+
+/**
+ * 会话操作接口
+ */
+interface SessionActions {
+  currentSession: Ref<ReturnType<typeof import('../session/useSession')['useSession']>['currentSession']['value']>
+  currentChatId: Ref<ReturnType<typeof import('../session/useSession')['useSession']>['currentChatId']['value']>
+  messages: Ref<Message[]>
+  createSession: (beforeCreate?: () => Promise<void>, newTitle?: string) => Promise<void>
+  updateSessionTitle: (title: string) => void
+  clearInputMessage: () => void
+}
+
+/**
+ * 聊天流接口
+ */
+interface ChatStream {
+  setStreamingSessionId: (sessionId: string | null) => void
+  setMessagesSnapshot: (snapshot: any) => void
+  getSessionSendingState: (sessionId: string) => boolean
+  setSessionSendingState: (sessionId: string, state: boolean) => void
+}
 
 /**
  * 聊天消息 Composable
  * 封装消息发送逻辑
  */
 export function useChatMessage(
-  currentSession: Ref<
-    ReturnType<(typeof import('./useSession'))['useSession']>['currentSession']['value']
-  >,
-  currentChatId: Ref<
-    ReturnType<(typeof import('./useSession'))['useSession']>['currentChatId']['value']
-  >,
-  messages: Ref<Message[]>,
-  isSending: Ref<boolean>,
+  sessionActions: SessionActions,
+  chatStream: ChatStream,
   currentModel: Ref<string>,
   currentInputState: Ref<SessionInputState>,
-  createSession: (beforeCreate?: () => Promise<void>, newTitle?: string) => Promise<void>,
-  updateSessionTitle: (title: string) => void,
-  setStreamingSessionId: (sessionId: string | null) => void,
-  setMessagesSnapshot: (snapshot: any) => void,
-  handleChatError: (error: string) => void,
-  clearInputMessage: () => void,
-  getSessionSendingState?: (sessionId: string) => boolean,
-  setSessionSendingState?: (sessionId: string, state: boolean) => void
+  handleChatError: (error: string) => void
 ) {
+  const { currentSession, currentChatId, messages, createSession, updateSessionTitle, clearInputMessage } =
+    sessionActions
+  const { setStreamingSessionId, setMessagesSnapshot, getSessionSendingState, setSessionSendingState } =
+    chatStream
+
   /**
    * 发送消息
    */
@@ -41,7 +55,6 @@ export function useChatMessage(
   ): Promise<void> {
     // 如果没有当前对话，先创建一个（设置默认标题为"新对话"）
     if (!currentChatId.value || !currentSession.value) {
-      // 创建新会话，设置默认标题
       await createSession(undefined, DEFAULT_NEW_CHAT_TITLE)
     }
 
@@ -53,11 +66,8 @@ export function useChatMessage(
 
     const sessionId = currentSession.value.sessionId
 
-    // 检查当前会话是否正在发送（使用会话级别的状态检查）
-    const isSessionSending = getSessionSendingState
-      ? getSessionSendingState(sessionId)
-      : isSending.value
-    if (isSessionSending) {
+    // 检查当前会话是否正在发送
+    if (getSessionSendingState(sessionId)) {
       window.api.logger.warn('当前会话正在发送消息，忽略重复请求', { sessionId })
       return
     }
@@ -77,7 +87,6 @@ export function useChatMessage(
 
     // 更新当前模型
     currentModel.value = model
-    // 更新当前输入状态中的模型选择
     currentInputState.value.selectedModel = model
 
     // 检查是否是第一条消息（用于更新会话标题）
@@ -104,13 +113,8 @@ export function useChatMessage(
     }
     messages.value.push(assistantMessage)
 
-    // 设置发送状态（使用会话级别的状态管理）
-    if (setSessionSendingState) {
-      setSessionSendingState(sessionId, true)
-    } else {
-      // 如果没有提供会话级别的状态管理，使用全局状态
-      isSending.value = true
-    }
+    // 设置发送状态
+    setSessionSendingState(sessionId, true)
 
     // 如果是第一条消息，更新会话标题
     if (isFirstMessage && currentSession.value) {
@@ -119,8 +123,7 @@ export function useChatMessage(
 
     try {
       // 构建消息历史（排除最后一个空的助手占位符）
-      const msgs = messages.value.slice(0, -1) ?? []
-      const chatMessages = buildChatMessages(msgs)
+      const chatMessages = buildChatMessages(messages.value.slice(0, -1))
 
       // 转换工具引用
       const toolReferences =
@@ -156,16 +159,8 @@ export function useChatMessage(
 
       // 发生异常时回滚到发送前状态
       messages.value = messagesSnapshot
-
-      // 重置发送状态（使用会话级别的状态管理）
-      if (setSessionSendingState) {
-        setSessionSendingState(sessionId, false)
-      } else {
-        isSending.value = false
-      }
-
+      setSessionSendingState(sessionId, false)
       setStreamingSessionId(null)
-      // 发生异常时不保存会话
     }
   }
 

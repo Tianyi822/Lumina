@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import type { MCPTool } from '@renderer/types'
 import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
-import { useSessionActions } from '@renderer/composables/useSessionActions'
-import { useChatStream } from '@renderer/composables/useChatStream'
-import { useChatMessage } from '@renderer/composables/useChatMessage'
-import { useChatError } from '@renderer/composables/useChatError'
-import { useUIState } from '@renderer/composables/useUIState'
+import { useSessionActions } from '@renderer/composables/session/useSessionActions'
+import { useChatStream } from '@renderer/composables/chat/useChatStream'
+import { useChatMessage } from '@renderer/composables/chat/useChatMessage'
+import { useChatError } from '@renderer/composables/chat/useChatError'
+import { useUIState } from '@renderer/composables/ui/useUIState'
 
 // ==================== UI 状态管理 ====================
 const uiState = useUIState()
@@ -17,101 +17,48 @@ const { currentModel, sidebarCollapsed } = uiState
 // ==================== 聊天错误处理 ====================
 const { showChatError, chatErrorMessage, handleChatError, closeChatError } = useChatError()
 
-// ==================== 会话管理 ====================
-// 先创建一个临时 chatStream 对象用于初始化 sessionActions
-const tempChatStream = {
-  isSending: ref(false),
-  setStreamingSessionId: () => {}
-}
-
-const sessionActions = useSessionActions(tempChatStream)
-
-// 从 sessionActions 中解构出响应式变量供模板使用
-const { currentChatId, messages, sessionList, sessionUpdateKey, currentInputState } = sessionActions
-
 // ==================== 聊天流式处理 ====================
-const chatStream = useChatStream(
-  () => sessionActions.currentSession.value,
-  () => sessionActions.messages.value,
-  sessionActions.saveCurrentSession,
-  (sessionId: string) => sessionActions.saveCachedSession(sessionId),
-  handleChatError
-)
+const chatStream = useChatStream()
 
-const {
-  isSending,
-  setupStreamListener,
-  cleanupStreamListener,
-  stopRequest,
-  getSessionSendingState,
-  setSessionSendingState
-} = chatStream
+// ==================== 会话管理（依赖 chatStream）====================
+const sessionActions = useSessionActions(chatStream)
+
+// 从 sessionActions 解构出需要的状态
+const { currentChatId, messages, sessionList, sessionUpdateKey, currentInputState } = sessionActions
+const { isSending } = chatStream
 
 // ==================== 聊天消息处理 ====================
 const { handleSendMessage } = useChatMessage(
-  sessionActions.currentSession,
-  sessionActions.currentChatId,
-  sessionActions.messages,
-  isSending,
+  sessionActions,
+  chatStream,
   currentModel,
   currentInputState,
-  sessionActions.createSession,
-  sessionActions.updateSessionTitle,
-  chatStream.setStreamingSessionId,
-  chatStream.setMessagesSnapshot,
-  handleChatError,
-  sessionActions.clearInputMessage,
-  chatStream.getSessionSendingState,
-  chatStream.setSessionSendingState
+  handleChatError
 )
 
 // ==================== 停止请求 ====================
 async function handleStopRequest(): Promise<void> {
   const sessionId = sessionActions.currentSession.value?.sessionId
   if (sessionId) {
-    await stopRequest(sessionId)
+    await chatStream.stopRequest(sessionId)
   }
 }
 
 // ==================== 新聊天 ====================
 async function handleNewChat(): Promise<void> {
-  const currentSessionId = sessionActions.currentSession.value?.sessionId
+  await sessionActions.handleNewChat()
 
-  // 如果当前有正在进行的请求,先保存当前状态
-  if (currentSessionId) {
-    const isSessionSending = getSessionSendingState(currentSessionId)
-    if (isSessionSending) {
-      // 当前会话正在发送,仅保存状态,不重置 isSending
-      await sessionActions.handleNewChat()
-    } else {
-      // 当前会话没有正在发送,直接创建新会话
-      await sessionActions.handleNewChat()
-    }
-  } else {
-    // 没有当前会话,直接创建新会话
-    await sessionActions.handleNewChat()
-  }
-
-  // 获取新创建的会话ID
+  // 新会话创建后重置发送状态
   const newSessionId = sessionActions.currentSession.value?.sessionId
   if (newSessionId) {
-    // 初始化新会话的发送状态为 false
-    setSessionSendingState(newSessionId, false)
-    // 更新全局 isSending(反映新会话的状态)
-    isSending.value = false
+    chatStream.setSessionSendingState(newSessionId, false)
   }
 }
 
 // ==================== 会话选择 ====================
 async function handleSelectChat(sessionId: string): Promise<void> {
-  // 获取新会话的发送状态
   const newSessionIsSending = await sessionActions.handleSelectChat(sessionId)
-
-  // 使用会话级别的状态管理
-  setSessionSendingState(sessionId, newSessionIsSending)
-
-  // 更新全局 isSending(反映当前会话的状态)
-  isSending.value = newSessionIsSending
+  chatStream.setSessionSendingState(sessionId, newSessionIsSending)
 }
 
 // ==================== 输入状态更新处理 ====================
@@ -129,12 +76,19 @@ function handleUpdateSelectedTools(value: MCPTool[]): void {
 
 // ==================== 生命周期 ====================
 onMounted(async () => {
-  setupStreamListener(sessionActions.sessionMessagesCache.value)
+  chatStream.setupStreamListener(
+    () => sessionActions.currentSession.value,
+    () => sessionActions.messages.value,
+    sessionActions.saveCurrentSession,
+    sessionActions.saveCachedSession,
+    handleChatError,
+    sessionActions.sessionMessagesCache.value
+  )
   await sessionActions.loadSessionList()
 })
 
 onUnmounted(() => {
-  cleanupStreamListener()
+  chatStream.cleanupStreamListener()
 })
 </script>
 

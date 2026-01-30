@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import EmbeddingModelItem from '../embedding/EmbeddingModelItem.vue'
 import EmbeddingModelForm from '../embedding/EmbeddingModelForm.vue'
-import { useEmbeddingModels } from '@renderer/composables/useEmbeddingModels'
+import { useEmbeddingModels } from '@renderer/composables/knowledge/useEmbeddingModels'
 import type { EmbeddingConfig } from '@shared/types/config'
 
 interface Props {

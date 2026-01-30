@@ -1,6 +1,6 @@
 import { ref, type Ref } from 'vue'
-import type { Message, SessionData } from '../types'
-import { deepCopyMessages } from '../utils/messageHelpers'
+import type { Message, SessionData } from '../../types'
+import { deepCopyMessages } from '../../utils/messageHelpers'
 
 /**
  * 消息缓存管理 Composable
