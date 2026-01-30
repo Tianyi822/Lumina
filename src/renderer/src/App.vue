@@ -53,7 +53,7 @@ const chatStream = useChatStream(
   handleChatError
 )
 
-const { isSending, setupStreamListener, cleanupStreamListener, stopRequest } = chatStream
+const { isSending, setupStreamListener, cleanupStreamListener, stopRequest, getSessionSendingState, setSessionSendingState } = chatStream
 
 // ==================== 聊天消息处理 ====================
 const { handleSendMessage } = useChatMessage(
@@ -68,7 +68,9 @@ const { handleSendMessage } = useChatMessage(
   chatStream.setStreamingSessionId,
   chatStream.setMessagesSnapshot,
   handleChatError,
-  sessionActions.clearInputMessage
+  sessionActions.clearInputMessage,
+  chatStream.getSessionSendingState,
+  chatStream.setSessionSendingState
 )
 
 // ==================== 停止请求 ====================
@@ -81,20 +83,42 @@ async function handleStopRequest(): Promise<void> {
 
 // ==================== 新聊天 ====================
 async function handleNewChat(): Promise<void> {
+  const currentSessionId = sessionActions.currentSession.value?.sessionId
+
   // 如果当前有正在进行的请求，先保存当前状态
-  if (isSending.value && sessionActions.currentSession.value?.sessionId) {
-    await sessionActions.handleNewChat()
-    // 新会话的 isSending 应该是 false
-    isSending.value = false
+  if (currentSessionId) {
+    const isSessionSending = getSessionSendingState(currentSessionId)
+    if (isSessionSending) {
+      // 当前会话正在发送，仅保存状态，不重置 isSending
+      await sessionActions.handleNewChat()
+    } else {
+      // 当前会话没有正在发送，直接创建新会话
+      await sessionActions.handleNewChat()
+    }
   } else {
+    // 没有当前会话，直接创建新会话
     await sessionActions.handleNewChat()
+  }
+
+  // 获取新创建的会话ID
+  const newSessionId = sessionActions.currentSession.value?.sessionId
+  if (newSessionId) {
+    // 初始化新会话的发送状态为 false
+    setSessionSendingState(newSessionId, false)
+    // 更新全局 isSending（反映新会话的状态）
     isSending.value = false
   }
 }
 
 // ==================== 会话选择 ====================
 async function handleSelectChat(sessionId: string): Promise<void> {
+  // 获取新会话的发送状态
   const newSessionIsSending = await sessionActions.handleSelectChat(sessionId)
+
+  // 使用会话级别的状态管理
+  setSessionSendingState(sessionId, newSessionIsSending)
+
+  // 更新全局 isSending（反映当前会话的状态）
   isSending.value = newSessionIsSending
 }
 

@@ -23,7 +23,9 @@ export function useChatMessage(
   setStreamingSessionId: (sessionId: string | null) => void,
   setMessagesSnapshot: (snapshot: any) => void,
   handleChatError: (error: string) => void,
-  clearInputMessage: () => void
+  clearInputMessage: () => void,
+  getSessionSendingState?: (sessionId: string) => boolean,
+  setSessionSendingState?: (sessionId: string, state: boolean) => void
 ) {
   /**
    * 发送消息
@@ -33,17 +35,6 @@ export function useChatMessage(
     model: string,
     selectedTools: MCPTool[] = []
   ): Promise<void> {
-    // 如果正在发送，忽略
-    if (isSending.value) {
-      return
-    }
-
-    // 如果没有选择模型，显示错误
-    if (!model) {
-      handleChatError('请先选择一个模型')
-      return
-    }
-
     // 如果没有当前对话，先创建一个（设置默认标题为"新对话"）
     if (!currentChatId.value || !currentSession.value) {
       // 创建新会话，设置默认标题
@@ -57,6 +48,21 @@ export function useChatMessage(
     }
 
     const sessionId = currentSession.value.sessionId
+
+    // 检查当前会话是否正在发送（使用会话级别的状态检查）
+    const isSessionSending = getSessionSendingState
+      ? getSessionSendingState(sessionId)
+      : isSending.value
+    if (isSessionSending) {
+      window.api.logger.warn('当前会话正在发送消息，忽略重复请求', { sessionId })
+      return
+    }
+
+    // 如果没有选择模型，显示错误
+    if (!model) {
+      handleChatError('请先选择一个模型')
+      return
+    }
 
     // 保存发送前的消息快照（用于错误回滚）
     const messagesSnapshot = JSON.parse(JSON.stringify(messages.value))
@@ -94,8 +100,13 @@ export function useChatMessage(
     }
     messages.value.push(assistantMessage)
 
-    // 设置发送状态
-    isSending.value = true
+    // 设置发送状态（使用会话级别的状态管理）
+    if (setSessionSendingState) {
+      setSessionSendingState(sessionId, true)
+    } else {
+      // 如果没有提供会话级别的状态管理，使用全局状态
+      isSending.value = true
+    }
 
     // 如果是第一条消息，更新会话标题
     if (isFirstMessage && currentSession.value) {
@@ -143,7 +154,14 @@ export function useChatMessage(
 
       // 发生异常时回滚到发送前状态
       messages.value = messagesSnapshot
-      isSending.value = false
+
+      // 重置发送状态（使用会话级别的状态管理）
+      if (setSessionSendingState) {
+        setSessionSendingState(sessionId, false)
+      } else {
+        isSending.value = false
+      }
+
       setStreamingSessionId(null)
       // 发生异常时不保存会话
     }

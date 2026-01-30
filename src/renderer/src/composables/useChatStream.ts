@@ -21,9 +21,14 @@ export function useChatStream(
   setMessagesSnapshot: (snapshot: Message[] | null) => void
   getStreamingSessionId: () => string | null
   setStreamingSessionId: (sessionId: string | null) => void
+  getSessionSendingState: (sessionId: string) => boolean
+  setSessionSendingState: (sessionId: string, state: boolean) => void
 } {
-  // 是否正在发送消息
+  // 是否正在发送消息（全局状态，用于当前会话）
   const isSending = ref(false)
+
+  // 会话级别的发送状态（用于多会话并发管理）
+  const sessionSendingStates = ref<Map<string, boolean>>(new Map())
 
   // 发送前的消息快照（用于错误回滚）
   let messagesSnapshot: Message[] | null = null
@@ -60,6 +65,24 @@ export function useChatStream(
    */
   function setStreamingSessionId(sessionId: string | null): void {
     streamingSessionId = sessionId
+  }
+
+  /**
+   * 获取指定会话的发送状态
+   */
+  function getSessionSendingState(sessionId: string): boolean {
+    return sessionSendingStates.value.get(sessionId) || false
+  }
+
+  /**
+   * 设置指定会话的发送状态
+   */
+  function setSessionSendingState(sessionId: string, state: boolean): void {
+    sessionSendingStates.value.set(sessionId, state)
+    // 如果是当前会话，同步更新全局 isSending
+    if (sessionId === currentSession()?.sessionId) {
+      isSending.value = state
+    }
   }
 
   /**
@@ -148,6 +171,11 @@ export function useChatStream(
             streamingMessage.usage = event.usage
           }
         }
+        // 使用会话级别的状态管理
+        if (effectiveSessionId) {
+          // 更新该会话的发送状态
+          sessionSendingStates.value.set(effectiveSessionId, false)
+        }
         // 只有当前会话才更新 isSending 状态和保存
         if (isCurrentSession) {
           isSending.value = false
@@ -181,6 +209,12 @@ export function useChatStream(
         break
 
       case 'error':
+        // 使用会话级别的状态管理
+        if (effectiveSessionId) {
+          // 重置该会话的发送状态
+          sessionSendingStates.value.set(effectiveSessionId, false)
+        }
+
         if (isCurrentSession) {
           // 当前会话发生错误：回滚到发送前状态
           if (messagesSnapshot) {
@@ -190,6 +224,7 @@ export function useChatStream(
             msgs.push(...messagesSnapshot)
             messagesSnapshot = null
           }
+          // 同步更新全局 isSending
           isSending.value = false
           streamingSessionId = null
           window.api.logger.error('聊天错误', { error: event.error, sessionId: currentSessionId })
@@ -256,6 +291,8 @@ export function useChatStream(
     getMessagesSnapshot,
     setMessagesSnapshot,
     getStreamingSessionId,
-    setStreamingSessionId
+    setStreamingSessionId,
+    getSessionSendingState,
+    setSessionSendingState
   }
 }
