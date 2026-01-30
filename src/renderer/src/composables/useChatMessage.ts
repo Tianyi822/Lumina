@@ -118,11 +118,9 @@ export function useChatMessage(
     }
 
     try {
-      // 构建消息历史
-      const msgs = messages.value ?? []
+      // 构建消息历史（排除最后一个空的助手占位符）
+      const msgs = messages.value.slice(0, -1) ?? []
       const chatMessages = buildChatMessages(msgs)
-      // 移除最后一个空的助手消息
-      chatMessages.pop()
 
       // 转换工具引用
       const toolReferences =

@@ -22,7 +22,7 @@ export * from '@shared/types/knowledge'
 
 // ==================== UI 特有类型 ====================
 
-import type { ToolCallInfo, ToolResultInfo } from '@shared/types/chat'
+import type { ToolCallInfo, ToolResultInfo, ToolCallMessage } from '@shared/types/chat'
 
 /**
  * ReAct 步骤（UI 层特有）
@@ -47,6 +47,7 @@ export interface Message {
   timestamp?: string
   modelName?: string // 模型名称（仅 assistant 消息）
   reactSteps?: ReActStep[] // ReAct 推理步骤
+  tool_calls?: ToolCallMessage[] // 工具调用（仅 assistant 消息）
 }
 
 /**

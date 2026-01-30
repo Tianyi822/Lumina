@@ -735,30 +735,41 @@ export class ChatService {
 
   /**
    * 格式化消息为 OpenAI 格式
+   * 过滤掉 content 为空的助手消息（保留有 tool_calls 的）
    */
   private formatMessages(
     messages: ChatMessage[]
   ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
-    return messages.map((msg) => {
-      if (msg.role === 'tool') {
+    return messages
+      .filter((msg) => {
+        // 过滤掉 content 为空的助手消息（保留有 tool_calls 的助手消息）
+        if (msg.role === 'assistant') {
+          const hasContent = msg.content && msg.content.trim().length > 0
+          const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0
+          return hasContent || hasToolCalls
+        }
+        return true
+      })
+      .map((msg) => {
+        if (msg.role === 'tool') {
+          return {
+            role: 'tool' as const,
+            tool_call_id: msg.tool_call_id || '',
+            content: msg.content || ''
+          }
+        }
+        if (msg.role === 'assistant' && msg.tool_calls) {
+          return {
+            role: 'assistant' as const,
+            content: msg.content,
+            tool_calls: msg.tool_calls
+          }
+        }
         return {
-          role: 'tool' as const,
-          tool_call_id: msg.tool_call_id || '',
+          role: msg.role as 'system' | 'user' | 'assistant',
           content: msg.content || ''
         }
-      }
-      if (msg.role === 'assistant' && msg.tool_calls) {
-        return {
-          role: 'assistant' as const,
-          content: msg.content,
-          tool_calls: msg.tool_calls
-        }
-      }
-      return {
-        role: msg.role as 'system' | 'user' | 'assistant',
-        content: msg.content || ''
-      }
-    })
+      })
   }
 
   /**
