@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import type { MCPTool } from '@renderer/types'
-import Sidebar from './Sidebar.vue'
-import MainContent from './MainContent.vue'
-import ChatErrorToast from './ChatErrorToast.vue'
+import Sidebar from '@renderer/components/Sidebar.vue'
+import MainContent from '@renderer/components/MainContent.vue'
+import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
 import { useSessionActions } from '@renderer/composables/useSessionActions'
 import { useChatStream } from '@renderer/composables/useChatStream'
 import { useChatMessage } from '@renderer/composables/useChatMessage'
