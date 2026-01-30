@@ -119,11 +119,7 @@ function formatFileSize(bytes: number): string {
       <!-- 底部操作按钮 -->
       <div class="uploader-actions">
         <button class="btn" @click="handleCancel">取消</button>
-        <button
-          class="btn-primary"
-          :disabled="selectedFiles.length === 0"
-          @click="handleUpload"
-        >
+        <button class="btn-primary" :disabled="selectedFiles.length === 0" @click="handleUpload">
           上传 ({{ selectedFiles.length }})
         </button>
       </div>

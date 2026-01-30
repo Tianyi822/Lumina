@@ -62,9 +62,7 @@ export const embeddingApi = {
   /**
    * 获取预设嵌入模型列表
    */
-  getPresets: (): Promise<
-    ApiResponse<Record<string, { name: string; dimension: number }>>
-  > => {
+  getPresets: (): Promise<ApiResponse<Record<string, { name: string; dimension: number }>>> => {
     return ipcRenderer.invoke('embedding:getPresets')
   },
 

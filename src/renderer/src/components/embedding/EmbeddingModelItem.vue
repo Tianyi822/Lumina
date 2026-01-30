@@ -52,7 +52,9 @@ async function handleTest(): Promise<void> {
           {{ testing ? '...' : '🔗' }}
         </button>
         <button class="btn-icon" title="编辑" @click="emit('edit', id)">✏️</button>
-        <button class="btn-icon btn-icon-danger" title="删除" @click="emit('delete', id)">🗑️</button>
+        <button class="btn-icon btn-icon-danger" title="删除" @click="emit('delete', id)">
+          🗑️
+        </button>
       </div>
     </div>
 

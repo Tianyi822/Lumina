@@ -150,7 +150,7 @@ export function useSessionActions(chatStream: {
         messages.value = cached.messages
         // 检查是否有正在流式输出的消息
         newSessionIsSending = messages.value.some((msg) => msg.isStreaming)
-        
+
         window.api.logger.debug('切换会话：使用缓存消息', {
           sessionId,
           messageCount: messages.value.length,

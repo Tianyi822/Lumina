@@ -195,13 +195,7 @@ async function handleTestConnection(): Promise<void> {
       <!-- API 密钥 -->
       <div class="form-group">
         <label class="form-label">API 密钥 *</label>
-        <input
-          v-model="apiKey"
-          type="password"
-          class="form-input"
-          placeholder="sk-..."
-          required
-        />
+        <input v-model="apiKey" type="password" class="form-input" placeholder="sk-..." required />
       </div>
 
       <!-- 模型名称 -->

@@ -496,7 +496,9 @@ interface EmbeddingApi {
   setConfig: (config: EmbeddingConfig) => Promise<{ success: boolean; error?: string }>
   testConnection: () => Promise<ConnectionTestResult>
   embed: (text: string) => Promise<{ success: boolean; data?: EmbeddingResult; error?: string }>
-  embedBatch: (texts: string[]) => Promise<{ success: boolean; data?: BatchEmbeddingResult; error?: string }>
+  embedBatch: (
+    texts: string[]
+  ) => Promise<{ success: boolean; data?: BatchEmbeddingResult; error?: string }>
 }
 
 /**
@@ -513,7 +515,10 @@ interface EmbeddingModelsApi {
     data?: EmbeddingModelConfig
     error?: string
   }>
-  save: (id: string, config: EmbeddingModelConfig) => Promise<{
+  save: (
+    id: string,
+    config: EmbeddingModelConfig
+  ) => Promise<{
     success: boolean
     error?: string
   }>
@@ -550,7 +555,9 @@ interface KnowledgeBase {
 interface KnowledgeApi {
   getAll: () => Promise<{ success: boolean; data?: KnowledgeBase[]; error?: string }>
   getById: (id: string) => Promise<{ success: boolean; data?: KnowledgeBase; error?: string }>
-  create: (data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>) => Promise<{ success: boolean; data?: KnowledgeBase; error?: string }>
+  create: (
+    data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>
+  ) => Promise<{ success: boolean; data?: KnowledgeBase; error?: string }>
   update: (
     id: string,
     updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>

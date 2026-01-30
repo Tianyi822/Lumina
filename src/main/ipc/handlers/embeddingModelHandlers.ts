@@ -113,7 +113,10 @@ export function registerEmbeddingModelHandlers(): void {
         delete embeddingModels[id]
 
         // 如果删除的是当前默认模型，清除默认模型选择
-        const updates: { embeddingModels?: Record<string, EmbeddingConfig>; defaultEmbeddingModel?: string } = {
+        const updates: {
+          embeddingModels?: Record<string, EmbeddingConfig>
+          defaultEmbeddingModel?: string
+        } = {
           embeddingModels
         }
         if (currentConfig.defaultEmbeddingModel === id) {

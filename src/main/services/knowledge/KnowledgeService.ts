@@ -127,7 +127,10 @@ export class KnowledgeService {
   /**
    * 更新知识库
    */
-  updateKnowledgeBase(id: string, updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>): KnowledgeBase | null {
+  updateKnowledgeBase(
+    id: string,
+    updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>
+  ): KnowledgeBase | null {
     if (!this.loaded) {
       this.initialize()
     }

@@ -229,14 +229,19 @@ export class EmbeddingService {
           : undefined
       }
     } catch (error) {
-      throw new Error(`批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(
+        `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
+      )
     }
   }
 
   /**
    * 从预设ID获取嵌入配置
    */
-  static getPresetConfig(presetId: string, customConfig?: Partial<EmbeddingConfig>): EmbeddingConfig {
+  static getPresetConfig(
+    presetId: string,
+    customConfig?: Partial<EmbeddingConfig>
+  ): EmbeddingConfig {
     const preset = PRESET_EMBEDDING_MODELS[presetId]
     if (!preset) {
       throw new Error(`未找到预设模型: ${presetId}`)

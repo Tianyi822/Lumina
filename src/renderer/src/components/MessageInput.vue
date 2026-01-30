@@ -24,11 +24,15 @@ const localSelectedModel = ref(props.selectedModel ?? '')
 const localSelectedTools = ref<MCPTool[]>(props.selectedMCPTools ?? [])
 
 // 同步 props 到本地状态
-watch(() => props.inputMessage, (newVal) => {
-  if (newVal !== undefined && newVal !== localInputMessage.value) {
-    localInputMessage.value = newVal
-  }
-}, { immediate: true })
+watch(
+  () => props.inputMessage,
+  (newVal) => {
+    if (newVal !== undefined && newVal !== localInputMessage.value) {
+      localInputMessage.value = newVal
+    }
+  },
+  { immediate: true }
+)
 
 // 当本地输入变化时，同步到父组件
 watch(localInputMessage, (newVal) => {
@@ -37,17 +41,25 @@ watch(localInputMessage, (newVal) => {
   }
 })
 
-watch(() => props.selectedModel, (newVal) => {
-  if (newVal !== undefined && newVal !== localSelectedModel.value) {
-    localSelectedModel.value = newVal
-  }
-}, { immediate: true })
+watch(
+  () => props.selectedModel,
+  (newVal) => {
+    if (newVal !== undefined && newVal !== localSelectedModel.value) {
+      localSelectedModel.value = newVal
+    }
+  },
+  { immediate: true }
+)
 
-watch(() => props.selectedMCPTools, (newVal) => {
-  if (newVal !== undefined && newVal !== localSelectedTools.value) {
-    localSelectedTools.value = newVal
-  }
-}, { immediate: true, deep: true })
+watch(
+  () => props.selectedMCPTools,
+  (newVal) => {
+    if (newVal !== undefined && newVal !== localSelectedTools.value) {
+      localSelectedTools.value = newVal
+    }
+  },
+  { immediate: true, deep: true }
+)
 
 function updateSelectedModel(value: string): void {
   localSelectedModel.value = value
@@ -214,7 +226,10 @@ onUnmounted(() => {
       </div>
 
       <!-- MCP 工具选择器 -->
-      <MCPToolsPanel :selected-tools="localSelectedTools" @tools-selected="handleMCPToolsSelected" />
+      <MCPToolsPanel
+        :selected-tools="localSelectedTools"
+        @tools-selected="handleMCPToolsSelected"
+      />
 
       <!-- 压缩比例 -->
       <div class="compression-info">

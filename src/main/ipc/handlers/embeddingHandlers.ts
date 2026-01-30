@@ -53,22 +53,25 @@ export function registerEmbeddingHandlers(): void {
   })
 
   // 从预设ID创建嵌入配置
-  ipcMain.handle('embedding:createFromPreset', (_event, presetId: string, customConfig?: Partial<EmbeddingConfig>) => {
-    try {
-      const config = EmbeddingService.getPresetConfig(presetId, customConfig)
-      return {
-        success: true,
-        data: config
-      }
-    } catch (error) {
-      const errorMessage = `创建嵌入配置失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return {
-        success: false,
-        error: errorMessage
+  ipcMain.handle(
+    'embedding:createFromPreset',
+    (_event, presetId: string, customConfig?: Partial<EmbeddingConfig>) => {
+      try {
+        const config = EmbeddingService.getPresetConfig(presetId, customConfig)
+        return {
+          success: true,
+          data: config
+        }
+      } catch (error) {
+        const errorMessage = `创建嵌入配置失败: ${error instanceof Error ? error.message : String(error)}`
+        logger.error(errorMessage)
+        return {
+          success: false,
+          error: errorMessage
+        }
       }
     }
-  })
+  )
 
   // 获取当前嵌入配置
   ipcMain.handle('embedding:getConfig', () => {

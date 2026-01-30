@@ -12,8 +12,12 @@ const DEFAULT_NEW_CHAT_TITLE = '新对话'
  * 封装消息发送逻辑
  */
 export function useChatMessage(
-  currentSession: Ref<ReturnType<typeof import('./useSession')['useSession']>['currentSession']['value']>,
-  currentChatId: Ref<ReturnType<typeof import('./useSession')['useSession']>['currentChatId']['value']>,
+  currentSession: Ref<
+    ReturnType<(typeof import('./useSession'))['useSession']>['currentSession']['value']
+  >,
+  currentChatId: Ref<
+    ReturnType<(typeof import('./useSession'))['useSession']>['currentChatId']['value']
+  >,
   messages: Ref<Message[]>,
   isSending: Ref<boolean>,
   currentModel: Ref<string>,

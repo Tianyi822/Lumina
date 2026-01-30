@@ -46,14 +46,19 @@ export const knowledgeApi = {
   /**
    * 创建知识库
    */
-  create: (data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<KnowledgeBase>> => {
+  create: (
+    data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<ApiResponse<KnowledgeBase>> => {
     return ipcRenderer.invoke('knowledge:create', data)
   },
 
   /**
    * 更新知识库
    */
-  update: (id: string, updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>): Promise<ApiResponse<KnowledgeBase>> => {
+  update: (
+    id: string,
+    updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>
+  ): Promise<ApiResponse<KnowledgeBase>> => {
     return ipcRenderer.invoke('knowledge:update', id, updates)
   },
 

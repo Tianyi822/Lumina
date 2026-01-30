@@ -26,13 +26,17 @@ async function loadDocuments(): Promise<void> {
 }
 
 // 监听知识库变化，自动加载文档
-watch(() => currentKB.value?.id, () => {
-  if (currentKB.value) {
-    loadDocuments()
-  } else {
-    documents.value = []
-  }
-}, { immediate: true })
+watch(
+  () => currentKB.value?.id,
+  () => {
+    if (currentKB.value) {
+      loadDocuments()
+    } else {
+      documents.value = []
+    }
+  },
+  { immediate: true }
+)
 
 function handleUpload(): void {
   emit('upload-documents')
@@ -69,9 +73,7 @@ function formatDate(dateStr: string): string {
         <div class="kb-title-row">
           <h1 class="kb-title">{{ currentKB.name }}</h1>
           <div class="kb-actions">
-            <button class="btn-primary upload-btn" @click="handleUpload">
-              上传文档
-            </button>
+            <button class="btn-primary upload-btn" @click="handleUpload">上传文档</button>
           </div>
         </div>
         <p v-if="currentKB.description" class="kb-description">

@@ -82,13 +82,7 @@ function formatDocumentCount(count?: number): string {
           <div class="kb-name">{{ kb.name }}</div>
           <div class="kb-meta">{{ formatDocumentCount(kb.documentCount) }}</div>
         </div>
-        <button
-          class="delete-btn"
-          title="删除知识库"
-          @click.stop="handleDeleteKB(kb.id)"
-        >
-          ✕
-        </button>
+        <button class="delete-btn" title="删除知识库" @click.stop="handleDeleteKB(kb.id)">✕</button>
       </div>
 
       <!-- 空状态 -->

@@ -7,12 +7,15 @@ const embeddingModels = ref<Record<string, EmbeddingConfig>>({})
 const loadingModels = ref(true)
 
 const emit = defineEmits<{
-  (e: 'submit', data: {
-    name: string
-    description: string
-    embeddingModel: string
-    embeddingDimension: number
-  }): void
+  (
+    e: 'submit',
+    data: {
+      name: string
+      description: string
+      embeddingModel: string
+      embeddingDimension: number
+    }
+  ): void
   (e: 'cancel'): void
 }>()
 
@@ -114,23 +117,32 @@ function resetForm(): void {
 
         <div class="form-group">
           <label for="kb-model">嵌入模型 *</label>
-          <select id="kb-model" v-model="embeddingModel" class="input select" :disabled="loadingModels">
+          <select
+            id="kb-model"
+            v-model="embeddingModel"
+            class="input select"
+            :disabled="loadingModels"
+          >
             <option v-if="loadingModels" value="" disabled>加载中...</option>
-            <option v-if="!loadingModels && Object.keys(embeddingModels).length === 0" value="" disabled>
+            <option
+              v-if="!loadingModels && Object.keys(embeddingModels).length === 0"
+              value=""
+              disabled
+            >
               暂无可用模型，请先在设置中配置嵌入模型
             </option>
             <option v-for="(model, id) in embeddingModels" :key="id" :value="id">
               {{ model.displayName || model.model }} ({{ model.dimensions }} 维)
             </option>
           </select>
-          <div class="form-hint">
-            嵌入模型用于将文本转换为向量，支持语义搜索。创建后不可更改。
-          </div>
+          <div class="form-hint">嵌入模型用于将文本转换为向量，支持语义搜索。创建后不可更改。</div>
         </div>
 
         <div class="form-actions">
           <button type="button" class="btn" @click="handleCancel">取消</button>
-          <button type="submit" class="btn-primary" :disabled="!isValid || loadingModels">创建</button>
+          <button type="submit" class="btn-primary" :disabled="!isValid || loadingModels">
+            创建
+          </button>
         </div>
       </form>
     </div>
