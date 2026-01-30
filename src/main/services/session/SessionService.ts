@@ -257,6 +257,7 @@ export class SessionService {
             sessionId: session.sessionId,
             title: session.title,
             lastMessage,
+            createdAt: session.createdAt,
             updatedAt: session.updatedAt
           })
         } catch {
@@ -265,8 +266,8 @@ export class SessionService {
         }
       }
 
-      // 按更新时间倒序排列
-      sessions.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      // 按创建时间倒序排列
+      sessions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
       return sessions
     } catch (error) {
