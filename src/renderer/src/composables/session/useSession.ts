@@ -209,6 +209,13 @@ export function useSession(): {
   function updateSessionTitle(title: string): void {
     if (currentSession.value) {
       currentSession.value.title = title
+      // 同时更新会话列表中的标题
+      const listItem = sessionList.value.find(
+        (item) => item.sessionId === currentSession.value?.sessionId
+      )
+      if (listItem) {
+        listItem.title = title
+      }
     }
   }
 
@@ -218,6 +225,13 @@ export function useSession(): {
   function updateSessionDescription(description: string): void {
     if (currentSession.value) {
       currentSession.value.description = description
+      // 同时更新会话列表中的简介
+      const listItem = sessionList.value.find(
+        (item) => item.sessionId === currentSession.value?.sessionId
+      )
+      if (listItem) {
+        listItem.description = description
+      }
     }
   }
 
