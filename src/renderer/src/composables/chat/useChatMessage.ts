@@ -19,6 +19,7 @@ interface SessionActions {
   messages: Ref<Message[]>
   createSession: (beforeCreate?: () => Promise<void>, newTitle?: string) => Promise<void>
   updateSessionTitle: (title: string) => void
+  updateSessionDescription: (description: string) => void
   clearInputMessage: () => void
 }
 

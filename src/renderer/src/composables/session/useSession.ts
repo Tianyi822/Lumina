@@ -25,6 +25,7 @@ export function useSession(): {
   ) => Promise<void>
   deleteSession: (sessionId: string) => Promise<void>
   updateSessionTitle: (title: string) => void
+  updateSessionDescription: (description: string) => void
 } {
   // 当前会话数据
   const currentSession = ref<SessionData | null>(null)
@@ -74,6 +75,7 @@ export function useSession(): {
       const sessionToSave: SessionData = {
         sessionId: currentSession.value.sessionId,
         title: currentSession.value.title,
+        description: currentSession.value.description,
         createdAt: currentSession.value.createdAt,
         updatedAt: new Date().toISOString(),
         messages: messages.value.map(messageToSessionMessage)
@@ -210,6 +212,15 @@ export function useSession(): {
     }
   }
 
+  /**
+   * 更新会话简介
+   */
+  function updateSessionDescription(description: string): void {
+    if (currentSession.value) {
+      currentSession.value.description = description
+    }
+  }
+
   return {
     currentSession,
     currentChatId,
@@ -222,6 +233,7 @@ export function useSession(): {
     createSession,
     loadSession,
     deleteSession,
-    updateSessionTitle
+    updateSessionTitle,
+    updateSessionDescription
   }
 }

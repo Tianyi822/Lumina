@@ -82,7 +82,8 @@ onMounted(async () => {
     sessionActions.saveCurrentSession,
     sessionActions.saveCachedSession,
     handleChatError,
-    sessionActions.sessionMessagesCache.value
+    sessionActions.sessionMessagesCache.value,
+    sessionActions.updateSessionDescription
   )
   await sessionActions.loadSessionList()
 })

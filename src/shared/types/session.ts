@@ -28,6 +28,8 @@ export interface SessionMeta {
   sessionId: string
   /** 会话标题 */
   title: string
+  /** 会话简介 */
+  description?: string
   /** 创建时间 */
   createdAt: string
   /** 更新时间 */
@@ -50,6 +52,8 @@ export interface SessionListItem {
   sessionId: string
   /** 会话标题 */
   title: string
+  /** 会话简介 */
+  description?: string
   /** 最后一条消息预览 */
   lastMessage?: string
   /** 创建时间 */

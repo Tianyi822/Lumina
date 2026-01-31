@@ -74,7 +74,9 @@ function formatTime(isoString: string): string {
           </button>
         </div>
       </div>
-      <div v-if="session.lastMessage" class="chat-preview">{{ session.lastMessage }}</div>
+      <div v-if="session.description || session.lastMessage" class="chat-preview">
+        {{ session.description || session.lastMessage }}
+      </div>
     </div>
     <div v-if="sessions.length === 0" class="empty-state">暂无对话记录</div>
   </div>

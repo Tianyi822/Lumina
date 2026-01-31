@@ -27,6 +27,7 @@ export function useChatStream() {
   let onSaveSession: (() => Promise<void>) | undefined
   let onSaveCachedSession: ((sessionId: string) => Promise<void>) | undefined
   let onChatError: ((error: string) => void) | undefined
+  let onUpdateSessionDescription: ((description: string) => void) | undefined
 
   /**
    * 初始化依赖项（延迟绑定）
@@ -36,13 +37,15 @@ export function useChatStream() {
     getMessages: () => Message[],
     saveSession?: () => Promise<void>,
     saveCachedSession?: (sessionId: string) => Promise<void>,
-    chatError?: (error: string) => void
+    chatError?: (error: string) => void,
+    updateSessionDescription?: (description: string) => void
   ) {
     currentSession = getCurrentSession
     messages = getMessages
     onSaveSession = saveSession
     onSaveCachedSession = saveCachedSession
     onChatError = chatError
+    onUpdateSessionDescription = updateSessionDescription
   }
 
   /**
@@ -206,6 +209,16 @@ export function useChatStream() {
           // 清空快照，成功完成后保存会话
           messagesSnapshot = null
           streamingSessionId = null
+          // 如果是第一条消息（用户消息 + 助手消息），用助手回复作为简介
+          if (targetMessages.length === 2 && streamingMessage && streamingMessage.content) {
+            const description =
+              streamingMessage.content.length > 50
+                ? streamingMessage.content.substring(0, 50) + '...'
+                : streamingMessage.content
+            if (onUpdateSessionDescription) {
+              onUpdateSessionDescription(description)
+            }
+          }
           if (onSaveSession) {
             onSaveSession()
           }
@@ -281,10 +294,18 @@ export function useChatStream() {
     saveSession?: () => Promise<void>,
     saveCachedSession?: (sessionId: string) => Promise<void>,
     chatError?: (error: string) => void,
-    sessionMessagesCache?: Map<string, Message[]>
+    sessionMessagesCache?: Map<string, Message[]>,
+    updateSessionDescription?: (description: string) => void
   ): void {
     // 初始化依赖项
-    init(getCurrentSession, getMessages, saveSession, saveCachedSession, chatError)
+    init(
+      getCurrentSession,
+      getMessages,
+      saveSession,
+      saveCachedSession,
+      chatError,
+      updateSessionDescription
+    )
 
     // 如果传入了缓存，使用缓存的引用
     const cache = sessionMessagesCache || new Map()

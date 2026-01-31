@@ -256,6 +256,7 @@ export class SessionService {
           sessions.push({
             sessionId: session.sessionId,
             title: session.title,
+            description: session.description,
             lastMessage,
             createdAt: session.createdAt,
             updatedAt: session.updatedAt
