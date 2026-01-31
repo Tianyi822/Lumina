@@ -211,60 +211,6 @@ function resetForm(): void {
   color: var(--theme-text);
 }
 
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--theme-text);
-  margin-bottom: 8px;
-}
-
-.input {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 14px;
-  color: var(--theme-text);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  transition: all 0.15s ease;
-  font-family: var(--theme-font);
-}
-
-.input:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-  background-color: var(--theme-bg);
-}
-
-.input::placeholder {
-  color: var(--theme-text-secondary);
-}
-
-.textarea {
-  resize: vertical;
-  min-height: 80px;
-  font-family: var(--theme-font);
-}
-
-.select {
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b949e' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 36px;
-}
-
-.select:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .form-hint {
   margin-top: 8px;
   font-size: 12px;
@@ -272,54 +218,7 @@ function resetForm(): void {
   line-height: 1.5;
 }
 
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
+.form-actions.with-border {
   padding-top: 20px;
-  border-top: 1px solid var(--theme-border);
-}
-
-.btn:disabled,
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--theme-text);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  font-family: var(--theme-font);
-}
-
-.btn:hover {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-text-secondary);
-}
-
-.btn-primary {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: white;
-  background-color: var(--theme-accent);
-  border: 1px solid var(--theme-accent);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  font-family: var(--theme-font);
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: rgba(63, 185, 80, 0.9);
-  border-color: rgba(63, 185, 80, 0.9);
 }
 </style>

@@ -1,4 +1,5 @@
 import type { ChatMessage, SessionMessage, MCPTool, MCPToolReference } from '@shared/types'
+import { deepClone } from './data-processors'
 
 /**
  * 将 SessionMessage 转换为 ChatMessage（用于发送给后端）
@@ -33,7 +34,6 @@ export function convertToToolReferences(tools: MCPTool[]): MCPToolReference[] {
     serverName: tool.serverName,
     toolName: tool.name,
     description: tool.description || '',
-    // 使用 JSON 序列化/反序列化来确保对象可克隆
-    inputSchema: JSON.parse(JSON.stringify(tool.inputSchema || {}))
+    inputSchema: deepClone(tool.inputSchema || {})
   }))
 }

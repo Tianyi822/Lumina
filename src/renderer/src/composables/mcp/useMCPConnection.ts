@@ -1,6 +1,7 @@
 import { ref, toRaw, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
 import type { MCPServerConfig, MCPStatusChangeEvent } from '@renderer/types'
+import { deepClone } from '@shared/utils'
 
 export function useMCPConnection(): {
   connecting: Ref<string | null>
@@ -72,8 +73,7 @@ export function useMCPConnection(): {
   ): Promise<boolean> {
     testing.value = config.name
     try {
-      // 将 Vue 响应式对象转换为普通对象，以便通过 IPC 传输
-      const plainConfig = JSON.parse(JSON.stringify(toRaw(config)))
+      const plainConfig = deepClone(toRaw(config))
       const result = await window.api.mcp.testConnection(plainConfig)
       if (result.success) {
         onSuccess?.(`${config.name} 连接测试成功，发现 ${result.tools?.length || 0} 个工具`)

@@ -1,6 +1,7 @@
 import { reactive, ref, toRaw } from 'vue'
 import type { Ref } from 'vue'
 import type { MCPServerConfig, MCPConnectionStatus, MCPStatusChangeEvent } from '@renderer/types'
+import { deepClone } from '@shared/utils'
 
 /**
  * MCP Server Manager - 整合配置、连接和表单管理功能
@@ -67,7 +68,7 @@ export function useMCPServerManager(): {
     loading.value = true
     error.value = undefined
     try {
-      const plainConfig = JSON.parse(JSON.stringify(toRaw(config)))
+      const plainConfig = deepClone(toRaw(config))
       const result = await window.api.mcp.saveConfig(plainConfig)
       if (result.success) {
         await loadConfigs()
@@ -162,7 +163,7 @@ export function useMCPServerManager(): {
   ): Promise<boolean> {
     testing.value = config.name
     try {
-      const plainConfig = JSON.parse(JSON.stringify(toRaw(config)))
+      const plainConfig = deepClone(toRaw(config))
       const result = await window.api.mcp.testConnection(plainConfig)
       if (result.success) {
         onSuccess?.(`连接测试成功，找到 ${result.tools?.length || 0} 个工具`)

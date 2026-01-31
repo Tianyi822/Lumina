@@ -3,16 +3,19 @@ import type { Message, MCPTool } from '../../types'
 import { generateTitle, convertToToolReferences } from '../../utils/sessionHelpers'
 import { buildChatMessages } from '../../utils/messageHelpers'
 import type { SessionInputState } from '../input/useInputState'
-
-// 新会话的默认标题
-const DEFAULT_NEW_CHAT_TITLE = '新对话'
+import { DEFAULT_NEW_CHAT_TITLE } from '../../constants'
+import { deepClone } from '@shared/utils'
 
 /**
  * 会话操作接口
  */
 interface SessionActions {
-  currentSession: Ref<ReturnType<typeof import('../session/useSession')['useSession']>['currentSession']['value']>
-  currentChatId: Ref<ReturnType<typeof import('../session/useSession')['useSession']>['currentChatId']['value']>
+  currentSession: Ref<
+    ReturnType<(typeof import('../session/useSession'))['useSession']>['currentSession']['value']
+  >
+  currentChatId: Ref<
+    ReturnType<(typeof import('../session/useSession'))['useSession']>['currentChatId']['value']
+  >
   messages: Ref<Message[]>
   createSession: (beforeCreate?: () => Promise<void>, newTitle?: string) => Promise<void>
   updateSessionTitle: (title: string) => void
@@ -40,10 +43,20 @@ export function useChatMessage(
   currentInputState: Ref<SessionInputState>,
   handleChatError: (error: string) => void
 ) {
-  const { currentSession, currentChatId, messages, createSession, updateSessionTitle, clearInputMessage } =
-    sessionActions
-  const { setStreamingSessionId, setMessagesSnapshot, getSessionSendingState, setSessionSendingState } =
-    chatStream
+  const {
+    currentSession,
+    currentChatId,
+    messages,
+    createSession,
+    updateSessionTitle,
+    clearInputMessage
+  } = sessionActions
+  const {
+    setStreamingSessionId,
+    setMessagesSnapshot,
+    getSessionSendingState,
+    setSessionSendingState
+  } = chatStream
 
   /**
    * 发送消息
@@ -79,7 +92,7 @@ export function useChatMessage(
     }
 
     // 保存发送前的消息快照（用于错误回滚）
-    const messagesSnapshot = JSON.parse(JSON.stringify(messages.value))
+    const messagesSnapshot = deepClone(messages.value)
 
     // 记录当前正在流式响应的会话ID
     setStreamingSessionId(sessionId)

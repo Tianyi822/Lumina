@@ -330,14 +330,8 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
   background-color: var(--theme-bg);
 }
 
-.form-group {
-  margin-bottom: 16px;
-}
-
+/* 覆盖全局样式的特定变体 */
 .form-group label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 13px;
   color: var(--theme-text-secondary);
 }
 
@@ -365,15 +359,6 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
 
 .form-section-title:first-child {
   margin-top: 0;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--theme-border);
 }
 
 .new-model-form {

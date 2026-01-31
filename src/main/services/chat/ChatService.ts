@@ -62,21 +62,9 @@ export class ChatService {
       messageCount: messages.length
     })
 
-    // 获取模型配置
-    const config = configManager.getConfig()
-    if (!config) {
-      const error = '配置未加载'
-      logger.error(error, 'main')
-      this.sendStreamEvent(webContents, { type: 'error', error, sessionId })
-      return { success: false, error }
-    }
-
-    const llmConfig = config.llm_configs?.[modelKey]
+    const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
     if (!llmConfig) {
-      const error = `未找到模型配置: ${modelKey}`
-      logger.error(error, 'main')
-      this.sendStreamEvent(webContents, { type: 'error', error, sessionId })
-      return { success: false, error }
+      return { success: false, error: '配置验证失败' }
     }
 
     // 中止该会话的旧请求（如果存在）
@@ -207,21 +195,9 @@ export class ChatService {
       selectedToolNames: selectedTools?.map((t) => `${t.serverName}/${t.toolName}`)
     })
 
-    // 获取模型配置
-    const config = configManager.getConfig()
-    if (!config) {
-      const error = '配置未加载'
-      logger.error(error, 'main')
-      this.sendStreamEvent(webContents, { type: 'error', error, sessionId })
-      return { success: false, error }
-    }
-
-    const llmConfig = config.llm_configs?.[modelKey]
+    const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
     if (!llmConfig) {
-      const error = `未找到模型配置: ${modelKey}`
-      logger.error(error, 'main')
-      this.sendStreamEvent(webContents, { type: 'error', error, sessionId })
-      return { success: false, error }
+      return { success: false, error: '配置验证失败' }
     }
 
     // 中止该会话的旧请求（如果存在）
@@ -731,6 +707,37 @@ export class ChatService {
       // 禁用默认超时，让用户可以等待更长时间
       timeout: 120000
     })
+  }
+
+  /**
+   * 验证并获取 LLM 配置
+   * @param modelKey 模型键名
+   * @param sessionId 会话 ID
+   * @param webContents 渲染进程 webContents
+   * @returns LLM 配置对象，如果验证失败则返回 null
+   */
+  private validateAndGetLLMConfig(
+    modelKey: string,
+    sessionId: string,
+    webContents: WebContents
+  ): LLMConfig | null {
+    const config = configManager.getConfig()
+    if (!config) {
+      const error = '配置未加载'
+      logger.error(error, 'main')
+      this.sendStreamEvent(webContents, { type: 'error', error, sessionId })
+      return null
+    }
+
+    const llmConfig = config.llm_configs?.[modelKey]
+    if (!llmConfig) {
+      const error = `未找到模型配置: ${modelKey}`
+      logger.error(error, 'main')
+      this.sendStreamEvent(webContents, { type: 'error', error, sessionId })
+      return null
+    }
+
+    return llmConfig
   }
 
   /**

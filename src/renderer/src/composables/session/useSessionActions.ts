@@ -3,9 +3,7 @@ import type { Message, SessionData, SessionListItem, MCPTool } from '../../types
 import { useSession } from '../session/useSession'
 import { useMessageCache } from '../session/useMessageCache'
 import { useInputState, type SessionInputState } from '../input/useInputState'
-
-// 新会话的默认标题
-const DEFAULT_NEW_CHAT_TITLE = '新对话'
+import { DEFAULT_NEW_CHAT_TITLE } from '../../constants'
 
 /**
  * 聊天流接口（简化版）

@@ -60,15 +60,9 @@ export function buildChatMessages(messages: Message[]): ChatMessage[] {
     }))
 }
 
-/**
- * 深拷贝消息数组（UI 层特有）
- */
-export function deepCopyMessages(messages: Message[]): Message[] {
-  return messages.map((msg) => ({ ...msg }))
-}
-
 // 重新导出共享工具函数（供主进程使用）
 export {
   sessionToChatMessage,
-  buildChatMessages as buildChatMessagesFromSession
+  buildChatMessages as buildChatMessagesFromSession,
+  deepCopyMessages
 } from '@shared/utils'

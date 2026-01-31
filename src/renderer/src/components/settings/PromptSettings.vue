@@ -193,18 +193,7 @@ watch(
   line-height: 1.6;
 }
 
-.form-group {
-  margin-bottom: 24px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 13px;
-  color: var(--theme-text);
-  font-weight: 500;
-}
-
+/* 覆盖全局样式的特定变体 */
 .form-group label span {
   margin-left: 8px;
 }
@@ -232,31 +221,7 @@ watch(
   border-bottom: 1px solid var(--theme-border);
 }
 
-.input,
 .textarea {
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--theme-background);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  color: var(--theme-text);
-  font-size: 13px;
-  font-family: inherit;
-  transition: border-color 0.2s;
-}
-
-.input:focus,
-.textarea:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-}
-
-.input {
-  cursor: pointer;
-}
-
-.textarea {
-  resize: vertical;
   font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
   line-height: 1.6;
 }
@@ -277,38 +242,5 @@ watch(
 
 .form-actions {
   margin-top: 32px;
-  padding-top: 20px;
-  border-top: 1px solid var(--theme-border);
-  display: flex;
-  gap: 12px;
-}
-
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 4px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-primary {
-  background: var(--theme-accent);
-  color: white;
-}
-
-.btn-primary:hover {
-  opacity: 0.9;
-}
-
-.btn-secondary {
-  background: var(--theme-background-secondary);
-  color: var(--theme-text);
-  border: 1px solid var(--theme-border);
-}
-
-.btn-secondary:hover {
-  background: var(--theme-background);
 }
 </style>

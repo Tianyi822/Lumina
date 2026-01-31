@@ -235,6 +235,22 @@ function handleCancel(): void {
   margin: 0 0 16px;
 }
 
+/* 覆盖全局样式的特定变体 */
+.form-group label {
+  color: var(--theme-text-secondary);
+}
+
+.required {
+  color: var(--theme-danger);
+}
+
+.form-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-text);
+  margin: 0 0 16px;
+}
+
 .form-group {
   margin-bottom: 16px;
 }

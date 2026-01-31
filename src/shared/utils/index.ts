@@ -16,3 +16,6 @@ export * from './stream-utils'
 
 // 错误处理
 export * from './error-handlers'
+
+// 导出常用的深度克隆函数
+export { deepClone } from './data-processors'

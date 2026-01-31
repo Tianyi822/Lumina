@@ -6,6 +6,7 @@ import MCPSettings from './settings/MCPSettings.vue'
 import PromptSettings from './settings/PromptSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import type { AppConfig, ThemeConfig, LLMConfigs, PromptConfig } from '@renderer/types'
+import { deepClone } from '@shared/utils'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -84,9 +85,8 @@ async function saveConfig(): Promise<void> {
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    // 将 reactive 对象转换为普通对象，以便通过 IPC 传输
-    const plainThemeConfig = JSON.parse(JSON.stringify(themeConfig))
-    const plainLlmConfigs = JSON.parse(JSON.stringify(llmConfigs))
+    const plainThemeConfig = deepClone(themeConfig)
+    const plainLlmConfigs = deepClone(llmConfigs)
 
     const result = await window.api.config.updateConfig({
       theme: plainThemeConfig,

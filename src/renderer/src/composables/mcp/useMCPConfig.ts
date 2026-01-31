@@ -1,6 +1,7 @@
 import { ref, toRaw } from 'vue'
 import type { Ref } from 'vue'
 import type { MCPServerConfig, MCPConnectionStatus } from '@renderer/types'
+import { deepClone } from '@shared/utils'
 
 export function useMCPConfig(): {
   mcpConfigs: Ref<MCPServerConfig[]>
@@ -41,8 +42,7 @@ export function useMCPConfig(): {
     loading.value = true
     error.value = undefined
     try {
-      // 将 Vue 响应式对象转换为普通对象，以便通过 IPC 传输
-      const plainConfig = JSON.parse(JSON.stringify(toRaw(config)))
+      const plainConfig = deepClone(toRaw(config))
       const result = await window.api.mcp.saveConfig(plainConfig)
       if (result.success) {
         await loadConfigs()

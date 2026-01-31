@@ -6,6 +6,24 @@ export function deepCopyMessages<T>(messages: T[]): T[] {
 }
 
 /**
+ * 深度克隆对象
+ * 优先使用 structuredClone（性能更好且支持更多类型），不支持则降级到 JSON 序列化
+ */
+export function deepClone<T>(obj: T): T {
+  if (typeof structuredClone !== 'undefined') {
+    try {
+      return structuredClone(obj)
+    } catch (error) {
+      // structuredClone 可能无法克隆某些对象（如包含循环引用的对象）
+      // 在这种情况下，回退到 JSON 序列化
+      console.warn('structuredClone failed, falling back to JSON serialization', error)
+      return JSON.parse(JSON.stringify(obj))
+    }
+  }
+  return JSON.parse(JSON.stringify(obj))
+}
+
+/**
  * 截断文本到指定长度
  */
 export function truncateText(text: string, maxLength: number): string {

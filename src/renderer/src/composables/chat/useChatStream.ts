@@ -126,11 +126,29 @@ export function useChatStream() {
 
     // 找到正在流式输出的消息
     const streamingMessage = targetMessages.find((msg) => msg.isStreaming)
+    window.api.logger.debug('流式事件处理', {
+      type: event.type,
+      sessionId: effectiveSessionId,
+      currentSessionId,
+      isCurrentSession,
+      streamingMessageExists: !!streamingMessage,
+      streamingMessageId: streamingMessage?.id,
+      streamingMessageHasContent: !!streamingMessage?.content,
+      hasContent: !!event.content,
+      contentLength: event.content?.length,
+      eventContent: event.content?.substring(0, 50)
+    })
 
     switch (event.type) {
       case 'content':
         if (streamingMessage && event.content) {
-          streamingMessage.content += event.content
+          streamingMessage.content = streamingMessage.content + event.content
+          window.api.logger.debug('内容追加', {
+            msgId: streamingMessage.id,
+            oldLength: streamingMessage.content.length - event.content.length,
+            newContent: event.content.substring(0, 50),
+            newLength: streamingMessage.content.length
+          })
         }
         break
 

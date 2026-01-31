@@ -10,6 +10,7 @@ import {
   MCPConnectResult,
   MCPToolCallResult
 } from '@main/types/mcp'
+import { deepClone } from '@shared/utils'
 
 /**
  * MCP 客户端连接信息
@@ -109,7 +110,7 @@ export class MCPService {
       }))
 
       // 确保工具数据可被序列化（用于 IPC 传输）
-      const serializedTools = JSON.parse(JSON.stringify(tools))
+      const serializedTools = deepClone(tools)
 
       const connection: MCPClientConnection = {
         client,
@@ -349,7 +350,7 @@ export class MCPService {
       logger.info(`MCP 服务器连接测试成功: ${config.name}`)
 
       // 确保返回的数据可被 JSON 序列化（用于 IPC 传输）
-      const serializedTools = JSON.parse(JSON.stringify(tools))
+      const serializedTools = deepClone(tools)
 
       return {
         success: true,
