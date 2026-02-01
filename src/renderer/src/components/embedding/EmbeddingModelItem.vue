@@ -40,21 +40,14 @@ async function handleTest(): Promise<void> {
         <span class="model-dimensions">{{ config.dimensions }}维</span>
       </div>
       <div class="model-actions">
-        <button
-          v-if="!isDefault"
-          class="btn-icon"
-          title="设为默认"
-          @click="emit('set-default', id)"
-        >
-          ⭐
+        <button v-if="!isDefault" class="btn-text" @click="emit('set-default', id)">
+          设为默认
         </button>
-        <button class="btn-icon" title="测试连接" :disabled="testing" @click="handleTest">
-          {{ testing ? '...' : '🔗' }}
+        <button class="btn-text" :disabled="testing" @click="handleTest">
+          {{ testing ? '测试中...' : '测试' }}
         </button>
-        <button class="btn-icon" title="编辑" @click="emit('edit', id)">✏️</button>
-        <button class="btn-icon btn-icon-danger" title="删除" @click="emit('delete', id)">
-          🗑️
-        </button>
+        <button class="btn-text" @click="emit('edit', id)">编辑</button>
+        <button class="btn-text btn-text-danger" @click="emit('delete', id)">删除</button>
       </div>
     </div>
 
@@ -129,28 +122,30 @@ async function handleTest(): Promise<void> {
   gap: 4px;
 }
 
-.btn-icon {
+.btn-text {
   background: none;
-  border: none;
+  border: 1px solid var(--theme-border);
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 4px 12px;
   border-radius: 4px;
-  font-size: 16px;
-  transition: background 0.2s;
+  font-size: 13px;
+  color: var(--theme-text);
+  transition: all 0.2s;
 }
 
-.btn-icon:hover:not(:disabled) {
+.btn-text:hover:not(:disabled) {
   background: var(--theme-border);
 }
 
-.btn-icon:disabled {
+.btn-text:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.btn-icon-danger:hover {
+.btn-text-danger:hover {
   background: #ff4444;
   color: white;
+  border-color: #ff4444;
 }
 
 .test-result {
