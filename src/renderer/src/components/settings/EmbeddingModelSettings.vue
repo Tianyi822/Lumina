@@ -109,8 +109,7 @@ function handleCancel(): void {
 // 测试新模型配置（未保存）
 async function handleTestNew(config: EmbeddingConfig): Promise<void> {
   try {
-    // 使用一个临时ID进行测试
-    const tempId = '__test__'
+    const tempId = `${config.displayName}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
     const result = await window.api.embeddingModels.save(tempId, config)
     if (!result.success) {
       showError('保存测试配置失败')
@@ -124,7 +123,6 @@ async function handleTestNew(config: EmbeddingConfig): Promise<void> {
       showError(testResult.error || '连接测试失败')
     }
 
-    // 清理测试配置
     await window.api.embeddingModels.delete(tempId)
   } catch (error) {
     showError(`测试失败: ${error instanceof Error ? error.message : String(error)}`)
