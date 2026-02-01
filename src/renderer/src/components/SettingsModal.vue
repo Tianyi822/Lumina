@@ -88,6 +88,7 @@ async function saveConfig(): Promise<void> {
   try {
     const plainThemeConfig = deepClone(themeConfig)
     const plainLlmConfigs = deepClone(llmConfigs)
+    const plainPromptConfig = deepClone(promptConfig)
 
     const result = await window.api.config.updateConfig({
       theme: plainThemeConfig,
@@ -96,7 +97,8 @@ async function saveConfig(): Promise<void> {
         compression_threshold: 0,
         enable_auto_compression: false,
         models: plainLlmConfigs
-      }
+      },
+      promptConfig: plainPromptConfig
     })
     if (result.success) {
       successMessage.value = '配置保存成功'
@@ -118,6 +120,14 @@ async function saveConfig(): Promise<void> {
 function handleClose(): void {
   infoMessage.value = ''
   emit('close')
+}
+
+// 提示词配置重置成功
+function handlePromptResetSuccess(): void {
+  successMessage.value = '提示词配置已重置为默认值'
+  setTimeout(() => {
+    successMessage.value = ''
+  }, 2000)
 }
 
 // 键盘事件处理
@@ -231,6 +241,7 @@ onUnmounted(() => {
             v-else-if="activeTab === 'prompt'"
             :model-value="promptConfig"
             @update:model-value="(value) => Object.assign(promptConfig, value)"
+            @reset-success="handlePromptResetSuccess"
           />
 
           <!-- 主题设置 Tab -->

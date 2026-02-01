@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue'
-import type { PromptConfig, ToolDescriptionLevel } from '@renderer/types'
+import type { PromptConfig } from '@renderer/types'
 
 interface Props {
   modelValue: PromptConfig
@@ -8,6 +8,7 @@ interface Props {
 
 interface Emits {
   (e: 'update:modelValue', value: PromptConfig): void
+  (e: 'reset-success'): void
 }
 
 const props = defineProps<Props>()
@@ -20,20 +21,6 @@ const localConfig = reactive<PromptConfig>({
   customSystemPrompt: ''
 })
 
-// 保存配置
-async function saveConfig(): Promise<void> {
-  try {
-    const result = await window.api.prompt.updateConfig({ ...localConfig })
-    if (result.success) {
-      emit('update:modelValue', { ...localConfig })
-    } else {
-      console.error('保存提示词配置失败:', result.error)
-    }
-  } catch (error) {
-    console.error('保存提示词配置失败:', error)
-  }
-}
-
 // 重置为默认配置
 async function resetToDefault(): Promise<void> {
   try {
@@ -41,18 +28,13 @@ async function resetToDefault(): Promise<void> {
     if (result.success && result.config) {
       Object.assign(localConfig, result.config)
       emit('update:modelValue', { ...result.config })
+      emit('reset-success')
     } else {
       console.error('重置提示词配置失败:', result.error)
     }
   } catch (error) {
     console.error('重置提示词配置失败:', error)
   }
-}
-
-// 更新配置并保存
-function updateConfig<K extends keyof PromptConfig>(key: K, value: PromptConfig[K]): void {
-  localConfig[key] = value
-  saveConfig()
 }
 
 // 监听 props 变化
@@ -81,9 +63,7 @@ watch(
         <input
           type="checkbox"
           :checked="localConfig.enableEnhancedPrompt"
-          @change="
-            updateConfig('enableEnhancedPrompt', ($event.target as HTMLInputElement).checked)
-          "
+          @change="localConfig.enableEnhancedPrompt = ($event.target as HTMLInputElement).checked"
         />
         <span>启用增强版 ReAct 提示词</span>
       </label>
@@ -96,16 +76,7 @@ watch(
 
     <div class="form-group">
       <label>工具描述详细程度</label>
-      <select
-        :value="localConfig.toolDescriptionLevel"
-        class="input"
-        @change="
-          updateConfig(
-            'toolDescriptionLevel',
-            ($event.target as HTMLSelectElement).value as ToolDescriptionLevel
-          )
-        "
-      >
+      <select v-model="localConfig.toolDescriptionLevel" class="input">
         <option value="minimal">精简（仅基础描述）</option>
         <option value="basic">基础（参数列表）</option>
         <option value="detailed">详细（参数说明 + 使用建议）</option>
@@ -121,13 +92,12 @@ watch(
     <div class="form-group">
       <label>Few-shot 示例数量: {{ localConfig.fewShotCount }}</label>
       <input
+        v-model.number="localConfig.fewShotCount"
         type="range"
-        :value="localConfig.fewShotCount || 0"
         min="0"
         max="5"
         step="1"
         class="slider"
-        @input="updateConfig('fewShotCount', Number(($event.target as HTMLInputElement).value))"
       />
       <div class="slider-labels">
         <span>0</span>
@@ -143,16 +113,10 @@ watch(
     <div class="form-group">
       <label>自定义提示词（可选）</label>
       <textarea
-        :value="localConfig.customSystemPrompt || ''"
+        v-model="localConfig.customSystemPrompt"
         class="textarea"
         rows="8"
         placeholder="输入自定义的系统提示词...留空则使用默认提示词"
-        @input="
-          updateConfig(
-            'customSystemPrompt',
-            ($event.target as HTMLTextAreaElement).value || undefined
-          )
-        "
       ></textarea>
       <p class="help-text">
         如果提供自定义提示词，它将完全覆盖默认的 ReAct 系统提示词。仅高级用户使用。
@@ -160,7 +124,6 @@ watch(
     </div>
 
     <div class="form-actions">
-      <button class="btn btn-primary" @click="saveConfig">保存配置</button>
       <button class="btn btn-secondary" @click="resetToDefault">重置为默认</button>
     </div>
   </div>
