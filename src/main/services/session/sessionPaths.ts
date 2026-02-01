@@ -4,7 +4,7 @@ import { getConfigDirPath } from '../config/configPaths'
 /**
  * 数据目录名称
  */
-export const DATA_DIR_NAME = 'data'
+export const DATA_DIR_NAME = 'sessions'
 
 /**
  * 获取数据目录路径
