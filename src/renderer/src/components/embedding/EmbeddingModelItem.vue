@@ -5,7 +5,6 @@ import type { EmbeddingConfig } from '@shared/types/config'
 interface Props {
   id: string
   config: EmbeddingConfig
-  isDefault: boolean
   testing: boolean
 }
 
@@ -13,7 +12,6 @@ interface Emits {
   (e: 'edit', id: string): void
   (e: 'delete', id: string): void
   (e: 'test', id: string): void
-  (e: 'set-default', id: string): void
 }
 
 const props = defineProps<Props>()
@@ -36,13 +34,9 @@ async function handleTest(): Promise<void> {
     <div class="model-header">
       <div class="model-info">
         <span class="model-name">{{ displayName }}</span>
-        <span v-if="isDefault" class="badge badge-default">默认</span>
         <span class="model-dimensions">{{ config.dimensions }}维</span>
       </div>
       <div class="model-actions">
-        <button v-if="!isDefault" class="btn-text" @click="emit('set-default', id)">
-          设为默认
-        </button>
         <button class="btn-text" :disabled="testing" @click="handleTest">
           {{ testing ? '测试中...' : '测试' }}
         </button>

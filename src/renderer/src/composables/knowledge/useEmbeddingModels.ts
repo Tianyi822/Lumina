@@ -6,7 +6,6 @@ import type { EmbeddingConfig } from '@shared/types/config'
  */
 export function useEmbeddingModels() {
   const embeddingModels = ref<Record<string, EmbeddingConfig>>({})
-  const defaultModelId = ref<string | undefined>(undefined)
   const loading = ref(false)
 
   /**
@@ -18,13 +17,6 @@ export function useEmbeddingModels() {
       const result = await window.api.embeddingModels.getAll()
       if (result.success && result.data) {
         embeddingModels.value = result.data
-      }
-      // 同时加载默认模型ID
-      const appConfig = (await window.api.config.getConfig()) as {
-        defaultEmbeddingModel?: string
-      } | null
-      if (appConfig && typeof appConfig === 'object') {
-        defaultModelId.value = appConfig.defaultEmbeddingModel
       }
     } finally {
       loading.value = false
@@ -73,47 +65,13 @@ export function useEmbeddingModels() {
     return await window.api.embeddingModels.test(id)
   }
 
-  /**
-   * 设置默认模型
-   */
-  async function setDefaultModel(id: string): Promise<boolean> {
-    const result = await window.api.embeddingModels.setDefault(id)
-    if (result.success) {
-      defaultModelId.value = id
-      await loadModels()
-      return true
-    }
-    return false
-  }
-
-  /**
-   * 获取默认模型
-   */
-  function getDefaultModel(): EmbeddingConfig | null {
-    if (defaultModelId.value && embeddingModels.value[defaultModelId.value]) {
-      return embeddingModels.value[defaultModelId.value]
-    }
-    return null
-  }
-
-  /**
-   * 检查模型是否为默认模型
-   */
-  function isDefaultModel(id: string): boolean {
-    return defaultModelId.value === id
-  }
-
   return {
     embeddingModels,
-    defaultModelId,
     loading,
     loadModels,
     getModel,
     saveModel,
     deleteModel,
-    testModel,
-    setDefaultModel,
-    getDefaultModel,
-    isDefaultModel
+    testModel
   }
 }

@@ -19,7 +19,7 @@ defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 // 使用 composable
-const { embeddingModels, loading, loadModels, saveModel, deleteModel, testModel, setDefaultModel } =
+const { embeddingModels, loading, loadModels, saveModel, deleteModel, testModel } =
   useEmbeddingModels()
 
 // UI 状态
@@ -77,16 +77,6 @@ async function handleTest(id: string): Promise<void> {
     }
   } finally {
     testingModelId.value = null
-  }
-}
-
-// 设置默认模型
-async function handleSetDefault(id: string): Promise<void> {
-  const success = await setDefaultModel(id)
-  if (success) {
-    showSuccess('默认模型已设置')
-  } else {
-    showError('设置默认模型失败')
   }
 }
 
@@ -155,12 +145,10 @@ onMounted(() => {
         :key="id"
         :id="id"
         :config="config"
-        :is-default="false"
         :testing="testingModelId === id"
         @edit="handleEdit"
         @delete="handleDelete"
         @test="handleTest"
-        @set-default="handleSetDefault"
       />
 
       <!-- 空状态 -->
