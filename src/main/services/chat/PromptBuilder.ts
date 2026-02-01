@@ -227,7 +227,6 @@ export class PromptBuilder {
     // 根据模型名称调整
     const modelName = modelConfig.model_name.toLowerCase()
     if (modelName.includes('deepseek')) {
-      // DeepSeek 模型通常需要更少的示例
       options.fewShotCount = Math.min(options.fewShotCount || 3, 2)
     }
 

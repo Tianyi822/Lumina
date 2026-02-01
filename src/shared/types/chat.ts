@@ -15,7 +15,7 @@ export interface ChatMessage {
   tool_calls?: ToolCallMessage[]
   /** 工具调用 ID（仅 tool 消息） */
   tool_call_id?: string
-  /** DeepSeek 思考内容 */
+  /** 思考内容 */
   reasoning_content?: string
 }
 
