@@ -66,10 +66,6 @@ async function handleTest(): Promise<void> {
         <span class="detail-label">模型:</span>
         <span class="detail-value">{{ config.model }}</span>
       </div>
-      <div v-if="config.apiKey" class="detail-item">
-        <span class="detail-label">API Key:</span>
-        <span class="detail-value">***{{ config.apiKey.slice(-4) }}</span>
-      </div>
     </div>
   </div>
 </template>
