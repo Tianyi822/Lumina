@@ -32,9 +32,8 @@ const {
   getSelectedTools
 } = useMCPManager()
 
-// 显式保留 toolsByServer 供模板使用（用于遍历 filteredToolsByServer）
-// @ts-expect-error - 在模板中使用
-const { toolsByServer } = useMCPManager()
+// toolsByServer 在模板中通过 useMCPManager() 访问
+void useMCPManager
 
 const {
   showPanel,

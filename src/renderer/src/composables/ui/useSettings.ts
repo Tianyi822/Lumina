@@ -1,11 +1,24 @@
 import { ref } from 'vue'
+import type { Ref } from 'vue'
 import { useConfigError } from '../error/useConfigError'
+
+/**
+ * useSettings 返回类型
+ */
+export interface UseSettingsReturn {
+  showSettings: Ref<boolean>
+  configUpdateKey: Ref<number>
+  openSettings: () => void
+  closeSettings: () => void
+  handleConfigUpdated: () => void
+  handleMCPUpdated: () => void
+}
 
 /**
  * 设置管理 Composable
  * 负责设置弹窗的显示和配置更新
  */
-export function useSettings() {
+export function useSettings(): UseSettingsReturn {
   const { loadConfigStatus } = useConfigError()
 
   // 显示设置弹窗

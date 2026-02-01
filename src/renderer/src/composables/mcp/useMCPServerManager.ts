@@ -150,7 +150,7 @@ export function useMCPServerManager(): {
         onError?.('断开连接失败')
         return false
       }
-    } catch (e) {
+    } catch {
       onError?.('断开连接失败')
       return false
     }
@@ -172,7 +172,7 @@ export function useMCPServerManager(): {
         onError?.(result.error || '连接测试失败')
         return false
       }
-    } catch (e) {
+    } catch {
       onError?.('连接测试失败')
       return false
     } finally {

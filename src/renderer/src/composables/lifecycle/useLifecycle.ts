@@ -8,11 +8,11 @@ import { onMounted, onUnmounted } from 'vue'
  */
 export function useLifecycle(options: {
   loadConfigStatus?: () => void
-  setupStreamListener?: (cache: Map<string, any>) => void
+  setupStreamListener?: (cache: Map<string, unknown>) => void
   cleanupStreamListener?: () => void
   loadSessionList?: () => Promise<void>
   loadKnowledgeBases?: () => Promise<void>
-}) {
+}): void {
   const {
     loadConfigStatus,
     setupStreamListener,

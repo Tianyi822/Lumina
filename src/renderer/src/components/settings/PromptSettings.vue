@@ -21,7 +21,7 @@ const localConfig = reactive<PromptConfig>({
 })
 
 // 保存配置
-async function saveConfig() {
+async function saveConfig(): Promise<void> {
   try {
     const result = await window.api.prompt.updateConfig({ ...localConfig })
     if (result.success) {
@@ -35,7 +35,7 @@ async function saveConfig() {
 }
 
 // 重置为默认配置
-async function resetToDefault() {
+async function resetToDefault(): Promise<void> {
   try {
     const result = await window.api.prompt.resetConfig()
     if (result.success && result.config) {

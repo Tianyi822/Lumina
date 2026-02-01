@@ -324,6 +324,8 @@ export class PromptOptimizer {
    * 最小化工具描述
    */
   private minimizeToolDescriptions(prompt: string, _tools: MCPToolReference[]): string {
+    // _tools 参数预留用于未来工具描述优化功能
+    void _tools
     // 这个方法主要在工具级别处理，这里只是预留
     // 实际的工具描述优化在 toolDescriptionEnhancer 中完成
     return prompt

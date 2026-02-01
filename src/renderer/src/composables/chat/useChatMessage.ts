@@ -28,10 +28,19 @@ interface SessionActions {
  */
 interface ChatStream {
   setStreamingSessionId: (sessionId: string | null) => void
-  setMessagesSnapshot: (snapshot: any) => void
+  setMessagesSnapshot: (snapshot: Message[] | null) => void
   getSessionSendingState: (sessionId: string) => boolean
   setSessionSendingState: (sessionId: string, state: boolean) => void
 }
+
+/**
+ * 发送消息函数类型
+ */
+type HandleSendMessage = (
+  content: string,
+  model: string,
+  selectedTools?: MCPTool[]
+) => Promise<void>
 
 /**
  * 聊天消息 Composable
@@ -43,7 +52,7 @@ export function useChatMessage(
   currentModel: Ref<string>,
   currentInputState: Ref<SessionInputState>,
   handleChatError: (error: string) => void
-) {
+): { handleSendMessage: HandleSendMessage } {
   const {
     currentSession,
     currentChatId,

@@ -60,5 +60,6 @@ export interface SearchResult {
   content: string
   score: number
   distance: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: Record<string, any>
 }

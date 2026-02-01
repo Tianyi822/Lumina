@@ -1,11 +1,37 @@
 import { ref } from 'vue'
+import type { Ref } from 'vue'
 import type { Message, StreamEvent, SessionData } from '../../types'
+
+/**
+ * useChatStream 返回类型
+ */
+export interface UseChatStreamReturn {
+  isSending: Ref<boolean>
+  setupStreamListener: (
+    getCurrentSession: () => SessionData | null,
+    getMessages: () => Message[],
+    saveSession?: () => Promise<void>,
+    saveCachedSession?: (sessionId: string) => Promise<void>,
+    chatError?: (error: string) => void,
+    sessionMessagesCache?: Map<string, Message[]>,
+    updateSessionDescription?: (description: string) => void
+  ) => void
+  cleanupStreamListener: () => void
+  handleStreamEvent: (event: StreamEvent, sessionMessagesCache: Map<string, Message[]>) => void
+  stopRequest: (sessionId?: string) => Promise<void>
+  getMessagesSnapshot: () => Message[] | null
+  setMessagesSnapshot: (snapshot: Message[] | null) => void
+  getStreamingSessionId: () => string | null
+  setStreamingSessionId: (sessionId: string | null) => void
+  getSessionSendingState: (sessionId: string) => boolean
+  setSessionSendingState: (sessionId: string, state: boolean) => void
+}
 
 /**
  * 聊天流式处理 Composable
  * 负责流式事件监听、消息更新、ReAct 步骤跟踪
  */
-export function useChatStream() {
+export function useChatStream(): UseChatStreamReturn {
   // 是否正在发送消息（全局状态，用于当前会话）
   const isSending = ref(false)
 
@@ -39,7 +65,7 @@ export function useChatStream() {
     saveCachedSession?: (sessionId: string) => Promise<void>,
     chatError?: (error: string) => void,
     updateSessionDescription?: (description: string) => void
-  ) {
+  ): void {
     currentSession = getCurrentSession
     messages = getMessages
     onSaveSession = saveSession

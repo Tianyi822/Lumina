@@ -1,11 +1,22 @@
 import { ref } from 'vue'
+import type { Ref } from 'vue'
 import { useConfigError } from '../error/useConfigError'
+
+/**
+ * useChatError 返回类型
+ */
+export interface UseChatErrorReturn {
+  showChatError: Ref<boolean>
+  chatErrorMessage: Ref<string>
+  handleChatError: (error: string) => void
+  closeChatError: () => void
+}
 
 /**
  * 聊天错误处理 Composable
  * 负责聊天相关的错误提示
  */
-export function useChatError() {
+export function useChatError(): UseChatErrorReturn {
   const { configError, showError } = useConfigError()
 
   // 显示聊天错误

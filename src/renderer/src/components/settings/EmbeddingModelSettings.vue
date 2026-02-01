@@ -52,7 +52,9 @@ function handleEdit(id: string): void {
 
 // 获取所有显示名称列表（用于冲突检查）
 const existingNames = computed(() => {
-  return Object.values(embeddingModels.value).map((config) => config.displayName || '')
+  return Object.values(embeddingModels.value).map(
+    (config) => (config as { displayName?: string }).displayName || ''
+  )
 })
 
 // 删除模型
@@ -143,7 +145,7 @@ onMounted(() => {
         v-for="(config, id) in embeddingModels"
         v-else
         :key="id"
-        :id="id"
+        :id="String(id)"
         :config="config"
         :testing="testingModelId === id"
         @edit="handleEdit"

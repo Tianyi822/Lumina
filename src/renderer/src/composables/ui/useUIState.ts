@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import type { Ref } from 'vue'
 
 /**
  * 视图类型
@@ -6,10 +7,23 @@ import { ref } from 'vue'
 export type ViewMode = 'chat' | 'knowledge'
 
 /**
+ * useUIState 返回类型
+ */
+export interface UseUIStateReturn {
+  sidebarCollapsed: Ref<boolean>
+  currentView: Ref<ViewMode>
+  currentModel: Ref<string>
+  toggleSidebar: () => void
+  setCurrentModel: (model: string) => void
+  switchToChatView: () => void
+  switchToKnowledgeView: () => void
+}
+
+/**
  * UI 状态管理 Composable
  * 负责应用界面状态（侧边栏、视图模式等）
  */
-export function useUIState() {
+export function useUIState(): UseUIStateReturn {
   // 侧边栏是否折叠
   const sidebarCollapsed = ref(false)
 

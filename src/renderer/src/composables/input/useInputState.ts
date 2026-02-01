@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import type { Ref } from 'vue'
 import type { MCPTool } from '../../types'
 
 /**
@@ -11,10 +12,27 @@ export interface SessionInputState {
 }
 
 /**
+ * useInputState 返回类型
+ */
+export interface UseInputStateReturn {
+  currentInputState: Ref<SessionInputState>
+  sessionInputStates: Ref<Map<string, SessionInputState>>
+  saveCurrentState: (sessionId: string) => void
+  switchToSession: (sessionId: string) => void
+  clearInputMessage: () => void
+  clearSelectedTools: () => void
+  updateInputMessage: (message: string) => void
+  updateSelectedModel: (model: string) => void
+  updateSelectedTools: (tools: MCPTool[]) => void
+  deleteSessionState: (sessionId: string) => void
+  clearAllStates: () => void
+}
+
+/**
  * 输入状态管理 Composable
  * 为每个会话维护独立的输入状态
  */
-export function useInputState() {
+export function useInputState(): UseInputStateReturn {
   // 会话ID到输入状态的映射
   const sessionInputStates = ref<Map<string, SessionInputState>>(new Map())
 

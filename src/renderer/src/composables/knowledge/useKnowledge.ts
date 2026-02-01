@@ -1,11 +1,36 @@
 import { ref, onMounted } from 'vue'
+import type { Ref } from 'vue'
 import type { KnowledgeBase } from '../../types'
+
+/**
+ * useKnowledge 返回类型
+ */
+export interface UseKnowledgeReturn {
+  knowledgeBases: Ref<KnowledgeBase[]>
+  activeKbId: Ref<string | undefined>
+  showKnowledgeForm: Ref<boolean>
+  showDocumentUploader: Ref<boolean>
+  loadKnowledgeBases: () => Promise<void>
+  handleSelectKB: (kbId: string) => void
+  handleCreateKB: () => void
+  handleDeleteKB: (kbId: string) => Promise<void>
+  handleKnowledgeSubmit: (data: {
+    name: string
+    description: string
+    embeddingModel: string
+    embeddingDimension: number
+  }) => Promise<void>
+  handleKnowledgeCancel: () => void
+  handleUploadDocuments: () => void
+  handleDocumentUpload: (files: File[]) => void
+  handleUploaderCancel: () => void
+}
 
 /**
  * 知识库管理 Composable
  * 负责知识库的加载、创建、删除、选择
  */
-export function useKnowledge() {
+export function useKnowledge(): UseKnowledgeReturn {
   // 知识库列表
   const knowledgeBases = ref<KnowledgeBase[]>([])
 

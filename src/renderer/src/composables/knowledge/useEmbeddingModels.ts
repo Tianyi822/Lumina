@@ -1,10 +1,24 @@
 import { ref } from 'vue'
+import type { Ref } from 'vue'
 import type { EmbeddingConfig } from '@shared/types/config'
+
+/**
+ * useEmbeddingModels 返回类型
+ */
+export interface UseEmbeddingModelsReturn {
+  embeddingModels: Ref<Record<string, EmbeddingConfig>>
+  loading: Ref<boolean>
+  loadModels: () => Promise<void>
+  getModel: (id: string) => Promise<EmbeddingConfig | null>
+  saveModel: (id: string, config: EmbeddingConfig) => Promise<boolean>
+  deleteModel: (id: string) => Promise<boolean>
+  testModel: (id: string) => Promise<{ success: boolean; error?: string }>
+}
 
 /**
  * 嵌入模型管理 Composable
  */
-export function useEmbeddingModels() {
+export function useEmbeddingModels(): UseEmbeddingModelsReturn {
   const embeddingModels = ref<Record<string, EmbeddingConfig>>({})
   const loading = ref(false)
 
