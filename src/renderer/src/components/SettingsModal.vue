@@ -317,7 +317,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--theme-border);
-  padding: 8px 0;
 }
 
 .tab-btn {
