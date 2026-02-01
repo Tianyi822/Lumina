@@ -90,16 +90,16 @@ const configUpdateKey = inject<Ref<number>>('configUpdateKey', ref(0))
 async function loadConfiguredModels(): Promise<void> {
   try {
     const config = (await window.api.config.getConfig()) as AppConfig | null
-    if (config?.llm_configs) {
-      const keys = Object.keys(config.llm_configs)
-      modelOptions.value = keys
+    if (config?.llm_config?.models) {
+      modelOptions.value = config.llm_config.models.map((m) => m.model_name)
 
       // 设置默认选中模型（只在当前没有选中模型时）
-      if (!localSelectedModel.value || !keys.includes(localSelectedModel.value)) {
-        if (config.default_model && keys.includes(config.default_model)) {
-          updateSelectedModel(config.default_model)
-        } else if (keys.length > 0) {
-          updateSelectedModel(keys[0])
+      if (!localSelectedModel.value || !modelOptions.value.includes(localSelectedModel.value)) {
+        const defaultModel = config.llm_config.default_model
+        if (defaultModel && modelOptions.value.includes(defaultModel)) {
+          updateSelectedModel(defaultModel)
+        } else if (modelOptions.value.length > 0) {
+          updateSelectedModel(modelOptions.value[0])
         } else {
           updateSelectedModel('')
         }

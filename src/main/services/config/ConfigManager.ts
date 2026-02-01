@@ -27,10 +27,12 @@ function createEmptyConfig(): AppConfig {
       name: 'terminal',
       colors: DEFAULT_THEME_COLORS
     },
-    llm_configs: {},
-    default_model: '',
-    compression_threshold: 0,
-    enable_auto_compression: false,
+    llm_config: {
+      default_model: '',
+      compression_threshold: 0,
+      enable_auto_compression: false,
+      models: []
+    },
     mcpServers: {},
     promptConfig: {
       enableEnhancedPrompt: true,

@@ -729,7 +729,7 @@ export class ChatService {
       return null
     }
 
-    const llmConfig = config.llm_configs?.[modelKey]
+    const llmConfig = config.llm_config.models.find((m) => m.model_name === modelKey)
     if (!llmConfig) {
       const error = `未找到模型配置: ${modelKey}`
       logger.error(error, 'main')

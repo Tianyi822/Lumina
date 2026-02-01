@@ -89,10 +89,13 @@ export interface LLMConfig {
 }
 
 /**
- * LLM 配置集合
+ * LLM 配置对象（新格式）
  */
-export interface LLMConfigs {
-  [key: string]: LLMConfig
+export interface LLMConfigObject {
+  default_model: string
+  compression_threshold: number
+  enable_auto_compression: boolean
+  models: LLMConfig[]
 }
 
 /**
@@ -141,10 +144,7 @@ export interface MCPServers {
  */
 export interface AppConfig {
   theme: ThemeConfig
-  llm_configs: LLMConfigs
-  default_model: string
-  compression_threshold: number
-  enable_auto_compression: boolean
+  llm_config: LLMConfigObject
   mcpServers: MCPServers
   /** 提示词配置 */
   promptConfig?: PromptConfig

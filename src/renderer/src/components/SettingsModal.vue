@@ -5,7 +5,7 @@ import ModelSettings from './settings/ModelSettings.vue'
 import MCPSettings from './settings/MCPSettings.vue'
 import PromptSettings from './settings/PromptSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
-import type { AppConfig, ThemeConfig, LLMConfigs, PromptConfig } from '@renderer/types'
+import type { AppConfig, ThemeConfig, LLMConfig, PromptConfig } from '@renderer/types'
 import { deepClone } from '@shared/utils'
 
 const emit = defineEmits<{
@@ -38,7 +38,7 @@ const themeConfig = reactive<ThemeConfig>({
 })
 
 // 模型配置
-const llmConfigs = reactive<LLMConfigs>({})
+const llmConfigs = reactive<LLMConfig[]>([])
 const defaultModel = ref('')
 
 // 提示词配置
@@ -63,11 +63,11 @@ async function loadConfig(): Promise<void> {
         }
       }
       // 加载模型配置
-      if (config.llm_configs) {
-        Object.keys(llmConfigs).forEach((key) => delete llmConfigs[key])
-        Object.assign(llmConfigs, config.llm_configs)
+      if (config.llm_config?.models) {
+        llmConfigs.length = 0
+        llmConfigs.push(...config.llm_config.models)
       }
-      defaultModel.value = config.default_model || ''
+      defaultModel.value = config.llm_config?.default_model || ''
       // 加载提示词配置
       if (config.promptConfig) {
         Object.assign(promptConfig, config.promptConfig)
@@ -91,8 +91,12 @@ async function saveConfig(): Promise<void> {
 
     const result = await window.api.config.updateConfig({
       theme: plainThemeConfig,
-      llm_configs: plainLlmConfigs,
-      default_model: defaultModel.value
+      llm_config: {
+        default_model: defaultModel.value,
+        compression_threshold: 0,
+        enable_auto_compression: false,
+        models: plainLlmConfigs
+      }
     })
     if (result.success) {
       successMessage.value = '配置保存成功'

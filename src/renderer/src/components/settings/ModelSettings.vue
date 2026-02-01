@@ -1,26 +1,25 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import type { LLMConfig, LLMConfigs } from '@renderer/types'
+import type { LLMConfig } from '@renderer/types'
 
 interface Props {
-  modelConfigs: LLMConfigs
+  modelConfigs: LLMConfig[]
   defaultModel: string
 }
 
 interface Emits {
-  (e: 'update:modelConfigs', value: LLMConfigs): void
+  (e: 'update:modelConfigs', value: LLMConfig[]): void
   (e: 'update:defaultModel', value: string): void
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-// 展开的模型配置项
+// 展开的模型配置项（使用 model_name 作为 key）
 const expandedModels = ref<Set<string>>(new Set())
 
 // 新模型表单
 const showNewModelForm = ref(false)
-const newModelKey = ref('')
 const newModelConfig = reactive<LLMConfig>({
   base_url: '',
   api_key: '',
@@ -30,12 +29,6 @@ const newModelConfig = reactive<LLMConfig>({
 })
 
 function addNewModel(): void {
-  if (!newModelKey.value.trim()) {
-    return
-  }
-  if (props.modelConfigs[newModelKey.value]) {
-    return
-  }
   if (!newModelConfig.base_url.trim()) {
     return
   }
@@ -46,13 +39,12 @@ function addNewModel(): void {
     return
   }
 
-  const newConfigs = { ...props.modelConfigs }
-  newConfigs[newModelKey.value] = { ...newModelConfig }
+  const newConfigs = [...props.modelConfigs, { ...newModelConfig }]
   emit('update:modelConfigs', newConfigs)
 
   // 如果是第一个模型，设为默认
-  if (Object.keys(newConfigs).length === 1) {
-    emit('update:defaultModel', newModelKey.value)
+  if (newConfigs.length === 1) {
+    emit('update:defaultModel', newModelConfig.model_name)
   }
 
   resetNewModelForm()
@@ -60,7 +52,6 @@ function addNewModel(): void {
 
 function resetNewModelForm(): void {
   showNewModelForm.value = false
-  newModelKey.value = ''
   newModelConfig.base_url = ''
   newModelConfig.api_key = ''
   newModelConfig.model_name = ''
@@ -68,36 +59,33 @@ function resetNewModelForm(): void {
   newModelConfig.max_tokens = 4096
 }
 
-function deleteModel(key: string): void {
-  const newConfigs = { ...props.modelConfigs }
-  delete newConfigs[key]
+function deleteModel(modelName: string): void {
+  const newConfigs = props.modelConfigs.filter((m) => m.model_name !== modelName)
   emit('update:modelConfigs', newConfigs)
 
-  expandedModels.value.delete(key)
-  if (props.defaultModel === key) {
-    const keys = Object.keys(newConfigs)
-    emit('update:defaultModel', keys.length > 0 ? keys[0] : '')
+  expandedModels.value.delete(modelName)
+  if (props.defaultModel === modelName) {
+    emit('update:defaultModel', newConfigs.length > 0 ? newConfigs[0].model_name : '')
   }
 }
 
-function toggleModelExpand(key: string): void {
-  if (expandedModels.value.has(key)) {
-    expandedModels.value.delete(key)
+function toggleModelExpand(modelName: string): void {
+  if (expandedModels.value.has(modelName)) {
+    expandedModels.value.delete(modelName)
   } else {
-    expandedModels.value.add(key)
+    expandedModels.value.add(modelName)
   }
 }
 
-function setDefaultModel(key: string): void {
-  emit('update:defaultModel', key)
+function setDefaultModel(modelName: string): void {
+  emit('update:defaultModel', modelName)
 }
 
-function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown): void {
-  const newConfigs = { ...props.modelConfigs }
-  if (newConfigs[key]) {
-    newConfigs[key] = { ...newConfigs[key], [field]: value }
-    emit('update:modelConfigs', newConfigs)
-  }
+function updateModelConfig(modelName: string, field: keyof LLMConfig, value: unknown): void {
+  const newConfigs = props.modelConfigs.map((m) =>
+    m.model_name === modelName ? { ...m, [field]: value } : m
+  )
+  emit('update:modelConfigs', newConfigs)
 }
 </script>
 
@@ -105,25 +93,28 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
   <div class="tab-content">
     <!-- 已配置的模型列表 -->
     <div class="model-list">
-      <div v-for="(config, key) in modelConfigs" :key="key" class="model-item">
-        <div class="model-header" @click="toggleModelExpand(key as string)">
-          <span class="expand-icon">{{ expandedModels.has(key as string) ? '▼' : '▶' }}</span>
-          <span class="model-name">{{ key }}</span>
-          <span v-if="defaultModel === key" class="default-badge">默认</span>
+      <div v-for="config in modelConfigs" :key="config.model_name" class="model-item">
+        <div class="model-header" @click="toggleModelExpand(config.model_name)">
+          <span class="expand-icon">{{ expandedModels.has(config.model_name) ? '▼' : '▶' }}</span>
+          <span class="model-name">{{ config.model_name }}</span>
+          <span v-if="defaultModel === config.model_name" class="default-badge">默认</span>
           <div class="model-actions">
             <button
-              v-if="defaultModel !== key"
+              v-if="defaultModel !== config.model_name"
               class="btn btn-small"
-              @click.stop="setDefaultModel(key as string)"
+              @click.stop="setDefaultModel(config.model_name)"
             >
               设为默认
             </button>
-            <button class="btn btn-small btn-danger-text" @click.stop="deleteModel(key as string)">
+            <button
+              class="btn btn-small btn-danger-text"
+              @click.stop="deleteModel(config.model_name)"
+            >
               删除
             </button>
           </div>
         </div>
-        <div v-if="expandedModels.has(key as string)" class="model-details">
+        <div v-if="expandedModels.has(config.model_name)" class="model-details">
           <div class="form-group">
             <label>API Base URL</label>
             <input
@@ -132,7 +123,12 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
               class="input"
               placeholder="https://api.openai.com/v1"
               @input="
-                (e) => updateModelConfig(key, 'base_url', (e.target as HTMLInputElement).value)
+                (e) =>
+                  updateModelConfig(
+                    config.model_name,
+                    'base_url',
+                    (e.target as HTMLInputElement).value
+                  )
               "
             />
           </div>
@@ -144,7 +140,12 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
               class="input"
               placeholder="sk-..."
               @input="
-                (e) => updateModelConfig(key, 'api_key', (e.target as HTMLInputElement).value)
+                (e) =>
+                  updateModelConfig(
+                    config.model_name,
+                    'api_key',
+                    (e.target as HTMLInputElement).value
+                  )
               "
             />
           </div>
@@ -156,7 +157,12 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
               class="input"
               placeholder="gpt-4"
               @input="
-                (e) => updateModelConfig(key, 'model_name', (e.target as HTMLInputElement).value)
+                (e) =>
+                  updateModelConfig(
+                    config.model_name,
+                    'model_name',
+                    (e.target as HTMLInputElement).value
+                  )
               "
             />
           </div>
@@ -173,7 +179,7 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
                 @input="
                   (e) =>
                     updateModelConfig(
-                      key,
+                      config.model_name,
                       'temperature',
                       Number((e.target as HTMLInputElement).value)
                     )
@@ -190,7 +196,7 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
                 @input="
                   (e) =>
                     updateModelConfig(
-                      key,
+                      config.model_name,
                       'max_tokens',
                       Number((e.target as HTMLInputElement).value)
                     )
@@ -202,7 +208,7 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
       </div>
 
       <!-- 空状态 -->
-      <div v-if="Object.keys(modelConfigs).length === 0 && !showNewModelForm" class="empty-state">
+      <div v-if="modelConfigs.length === 0 && !showNewModelForm" class="empty-state">
         <p>暂无模型配置</p>
       </div>
     </div>
@@ -210,10 +216,6 @@ function updateModelConfig(key: string, field: keyof LLMConfig, value: unknown):
     <!-- 添加新模型表单 -->
     <div v-if="showNewModelForm" class="new-model-form">
       <h3 class="form-section-title">添加新模型配置</h3>
-      <div class="form-group">
-        <label>配置名称 <span class="required">*</span></label>
-        <input v-model="newModelKey" type="text" class="input" placeholder="例如: gpt4, claude3" />
-      </div>
       <div class="form-group">
         <label>API Base URL <span class="required">*</span></label>
         <input
