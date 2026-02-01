@@ -111,19 +111,7 @@ export function registerEmbeddingModelHandlers(): void {
       if (currentConfig && currentConfig.embeddingModels) {
         const embeddingModels = { ...currentConfig.embeddingModels }
         delete embeddingModels[id]
-
-        // 如果删除的是当前默认模型，清除默认模型选择
-        const updates: {
-          embeddingModels?: Record<string, EmbeddingConfig>
-          defaultEmbeddingModel?: string
-        } = {
-          embeddingModels
-        }
-        if (currentConfig.defaultEmbeddingModel === id) {
-          updates.defaultEmbeddingModel = undefined
-        }
-
-        await configManager.updateConfig(updates)
+        await configManager.updateConfig({ embeddingModels })
       }
 
       logger.info('嵌入模型已删除', 'main', { id })
@@ -165,39 +153,6 @@ export function registerEmbeddingModelHandlers(): void {
       return result
     } catch (error) {
       const errorMessage = `测试嵌入模型连接失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return {
-        success: false,
-        error: errorMessage
-      }
-    }
-  })
-
-  // 设置默认嵌入模型
-  ipcMain.handle('embeddingModels:setDefault', async (_event, id: string) => {
-    try {
-      const model = getEmbeddingModelService().getModelById(id)
-      if (!model) {
-        return {
-          success: false,
-          error: '嵌入模型不存在'
-        }
-      }
-
-      // 更新应用配置中的默认模型
-      const currentConfig = configManager.getConfig()
-      if (currentConfig) {
-        await configManager.updateConfig({
-          defaultEmbeddingModel: id
-        })
-      }
-
-      logger.info('默认嵌入模型已设置', 'main', { id })
-      return {
-        success: true
-      }
-    } catch (error) {
-      const errorMessage = `设置默认嵌入模型失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
       return {
         success: false,

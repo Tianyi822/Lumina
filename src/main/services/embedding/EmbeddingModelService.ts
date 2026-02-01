@@ -1,67 +1,38 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
-import { getConfigDirPath } from '@main/services/config/configPaths'
+import { configManager } from '@main/services/config'
 import { logger } from '@main/services/logger'
 import type { EmbeddingConfig } from '@shared/types/config'
-
-/**
- * 嵌入模型数据文件路径
- */
-function getEmbeddingModelsFilePath(): string {
-  return join(getConfigDirPath(), 'embedding-models.json')
-}
-
-/**
- * 读取嵌入模型配置
- */
-function readEmbeddingModels(): Record<string, EmbeddingConfig> {
-  const filePath = getEmbeddingModelsFilePath()
-  if (!existsSync(filePath)) {
-    return {}
-  }
-
-  try {
-    const content = readFileSync(filePath, 'utf-8')
-    return JSON.parse(content) as Record<string, EmbeddingConfig>
-  } catch (error) {
-    logger.error('读取嵌入模型配置失败', 'main', { error })
-    return {}
-  }
-}
-
-/**
- * 写入嵌入模型配置
- */
-function writeEmbeddingModels(models: Record<string, EmbeddingConfig>): void {
-  const filePath = getEmbeddingModelsFilePath()
-  const content = JSON.stringify(models, null, 2)
-  writeFileSync(filePath, content, 'utf-8')
-}
 
 /**
  * 嵌入模型管理服务
  * 提供嵌入模型的增删改查功能
  */
 export class EmbeddingModelService {
-  private models: Record<string, EmbeddingConfig> = {}
   private loaded: boolean = false
+
+  /**
+   * 获取嵌入模型配置
+   */
+  private getEmbeddingModels(): Record<string, EmbeddingConfig> {
+    const config = configManager.getConfig()
+    return config?.embeddingModels || {}
+  }
+
+  /**
+   * 保存嵌入模型配置
+   */
+  private saveEmbeddingModels(models: Record<string, EmbeddingConfig>): void {
+    configManager.updateConfig({ embeddingModels: models })
+  }
 
   /**
    * 初始化嵌入模型服务
    */
   initialize(): void {
-    try {
-      this.models = readEmbeddingModels()
-      this.loaded = true
-      logger.info('嵌入模型服务初始化成功', 'main', {
-        count: Object.keys(this.models).length
-      })
-    } catch (error) {
-      const errorMessage = `嵌入模型服务初始化失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      this.models = {}
-      this.loaded = true
-    }
+    this.loaded = true
+    const models = this.getEmbeddingModels()
+    logger.info('嵌入模型服务初始化成功', 'main', {
+      count: Object.keys(models).length
+    })
   }
 
   /**
@@ -71,7 +42,7 @@ export class EmbeddingModelService {
     if (!this.loaded) {
       this.initialize()
     }
-    return { ...this.models }
+    return { ...this.getEmbeddingModels() }
   }
 
   /**
@@ -81,7 +52,8 @@ export class EmbeddingModelService {
     if (!this.loaded) {
       this.initialize()
     }
-    return this.models[id] || null
+    const models = this.getEmbeddingModels()
+    return models[id] || null
   }
 
   /**
@@ -92,12 +64,13 @@ export class EmbeddingModelService {
       this.initialize()
     }
 
-    this.models[id] = {
+    const models = this.getEmbeddingModels()
+    models[id] = {
       ...config,
       createdAt: config.createdAt || new Date().toISOString()
     }
 
-    this.save()
+    this.saveEmbeddingModels(models)
 
     logger.info('嵌入模型保存成功', 'main', { id, model: config.model })
   }
@@ -110,28 +83,16 @@ export class EmbeddingModelService {
       this.initialize()
     }
 
-    if (!this.models[id]) {
+    const models = this.getEmbeddingModels()
+    if (!models[id]) {
       return false
     }
 
-    delete this.models[id]
-    this.save()
+    delete models[id]
+    this.saveEmbeddingModels(models)
 
     logger.info('嵌入模型删除成功', 'main', { id })
     return true
-  }
-
-  /**
-   * 保存模型配置到文件
-   */
-  private save(): void {
-    try {
-      writeEmbeddingModels(this.models)
-    } catch (error) {
-      const errorMessage = `保存嵌入模型配置失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      throw new Error(errorMessage)
-    }
   }
 
   /**

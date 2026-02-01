@@ -150,8 +150,6 @@ export interface AppConfig {
   promptConfig?: PromptConfig
   /** 嵌入模型配置集合（知识库使用） */
   embeddingModels?: EmbeddingConfigs
-  /** 当前选中的嵌入模型ID */
-  defaultEmbeddingModel?: string
 }
 
 /**

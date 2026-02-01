@@ -83,12 +83,5 @@ export const embeddingModelsApi = {
    */
   test: (id: string): Promise<ConnectionTestResult> => {
     return ipcRenderer.invoke('embeddingModels:test', id)
-  },
-
-  /**
-   * 设置默认嵌入模型
-   */
-  setDefault: (id: string): Promise<ApiResponse> => {
-    return ipcRenderer.invoke('embeddingModels:setDefault', id)
   }
 }

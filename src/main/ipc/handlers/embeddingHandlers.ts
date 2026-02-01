@@ -1,33 +1,13 @@
 import { ipcMain } from 'electron'
-import { configManager } from '@main/services/config'
 import { getEmbeddingService, EmbeddingService } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
 import type { EmbeddingConfig } from '@main/types/config'
 
 /**
  * 初始化嵌入服务
- * 从配置中加载默认嵌入模型配置
  */
 export function initializeEmbedding(): void {
-  try {
-    const config = configManager.getConfig()
-    const defaultModelId = config?.defaultEmbeddingModel
-    const embeddingModels = config?.embeddingModels
-
-    if (defaultModelId && embeddingModels && embeddingModels[defaultModelId]) {
-      const modelConfig = embeddingModels[defaultModelId]
-      getEmbeddingService().setConfig(modelConfig)
-      logger.info('嵌入服务已初始化', 'main', {
-        component: 'embedding',
-        model: modelConfig.model
-      })
-    } else {
-      logger.info('未配置默认嵌入模型，将在首次使用时初始化', 'main')
-    }
-  } catch (error) {
-    const errorMessage = `嵌入服务初始化失败: ${error instanceof Error ? error.message : String(error)}`
-    logger.error(errorMessage, 'main')
-  }
+  logger.info('嵌入服务已准备好，将按需加载配置', 'main')
 }
 
 /**

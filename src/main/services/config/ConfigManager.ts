@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { join } from 'path'
 import { AppConfig, ConfigLoadResult } from '@main/types/config'
 import { getConfigDirPath, getConfigFilePath } from './configPaths'
 import { logger } from '@main/services/logger'
+import type { EmbeddingConfig } from '@shared/types/config'
 
 /**
  * 默认终端主题颜色
@@ -34,8 +36,32 @@ function createEmptyConfig(): AppConfig {
       enableEnhancedPrompt: true,
       toolDescriptionLevel: 'detailed',
       fewShotCount: 3
-    }
+    },
+    embeddingModels: {}
   }
+}
+
+/**
+ * 从旧的 embedding-models.json 文件迁移数据
+ */
+function migrateEmbeddingModels(config: AppConfig): AppConfig {
+  const oldFilePath = join(getConfigDirPath(), 'embedding-models.json')
+  if (!existsSync(oldFilePath)) {
+    return config
+  }
+
+  try {
+    const content = readFileSync(oldFilePath, 'utf-8')
+    const oldModels = JSON.parse(content) as Record<string, EmbeddingConfig>
+    if (Object.keys(oldModels).length > 0 && !config.embeddingModels) {
+      config.embeddingModels = oldModels
+      logger.info('迁移嵌入模型配置成功', 'main', { count: Object.keys(oldModels).length })
+    }
+  } catch (error) {
+    logger.warn('迁移嵌入模型配置失败', 'main', { error })
+  }
+
+  return config
 }
 
 /**
@@ -65,8 +91,8 @@ function migrateConfig(config: AppConfig): AppConfig {
     migrated.promptConfig.fewShotCount = 3
   }
 
-  // 确保 embeddingConfig 存在（如果为空则不创建默认值，需要用户配置）
-  // embeddingConfig 会在首次使用时由用户设置
+  // 迁移嵌入模型配置
+  migrated.embeddingModels = migrated.embeddingModels || {}
 
   return migrated
 }
@@ -154,6 +180,9 @@ export class ConfigManager {
 
       // 读取配置文件
       let config = this.readConfigFile()
+
+      // 迁移旧的嵌入模型配置
+      config = migrateEmbeddingModels(config)
 
       // 应用迁移逻辑（确保新字段存在）
       config = migrateConfig(config)
