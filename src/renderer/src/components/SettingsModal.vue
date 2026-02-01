@@ -22,6 +22,7 @@ const loading = ref(false)
 const saving = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const infoMessage = ref('')
 
 // 主题配置
 const themeConfig = reactive<ThemeConfig>({
@@ -111,6 +112,7 @@ async function saveConfig(): Promise<void> {
 
 // 关闭弹窗
 function handleClose(): void {
+  infoMessage.value = ''
   emit('close')
 }
 
@@ -214,8 +216,10 @@ onUnmounted(() => {
             v-else-if="activeTab === 'embedding'"
             :error-message="errorMessage"
             :success-message="successMessage"
+            :info-message="infoMessage"
             @update:error-message="errorMessage = $event"
             @update:success-message="successMessage = $event"
+            @update:info-message="infoMessage = $event"
           />
 
           <!-- 提示词配置 Tab -->
@@ -240,6 +244,10 @@ onUnmounted(() => {
       </div>
       <div v-if="successMessage" class="message success-message">
         {{ successMessage }}
+      </div>
+      <div v-if="infoMessage" class="message info-message">
+        <span>{{ infoMessage }}</span>
+        <button class="message-close" @click="infoMessage = ''">×</button>
       </div>
 
       <!-- 模态框底部 -->
@@ -373,6 +381,34 @@ onUnmounted(() => {
   background-color: rgba(63, 185, 80, 0.1);
   color: var(--theme-success);
   border-top: 1px solid var(--theme-success);
+}
+
+.info-message {
+  background-color: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+  border-top: 1px solid rgba(255, 193, 7, 0.3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.message-close {
+  background: transparent;
+  border: none;
+  color: #ffc107;
+  font-size: 18px;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+}
+
+.message-close:hover {
+  color: #ffca28;
 }
 
 .modal-footer {

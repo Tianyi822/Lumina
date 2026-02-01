@@ -13,6 +13,7 @@ interface Props {
 interface Emits {
   (e: 'update:errorMessage', value: string): void
   (e: 'update:successMessage', value: string): void
+  (e: 'update:infoMessage', value: string): void
 }
 
 defineProps<Props>()
@@ -87,6 +88,9 @@ async function handleSave(id: string, config: EmbeddingConfig): Promise<void> {
   const success = await saveModel(id, config)
   if (success) {
     showSuccess(editingModelId.value ? '嵌入模型已更新' : '嵌入模型已添加')
+    if (editingModelId.value) {
+      emit('update:infoMessage', '编辑后保存为新配置是正常逻辑，原配置不受影响。')
+    }
     showAddForm.value = false
     editingModelId.value = null
     editingModelConfig.value = null
