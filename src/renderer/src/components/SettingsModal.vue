@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import ThemeSettings from './settings/ThemeSettings.vue'
 import ModelSettings from './settings/ModelSettings.vue'
 import MCPSettings from './settings/MCPSettings.vue'
@@ -114,20 +114,25 @@ function handleClose(): void {
   emit('close')
 }
 
-// 点击遮罩关闭
-function handleOverlayClick(event: MouseEvent): void {
-  if (event.target === event.currentTarget) {
+// 键盘事件处理
+function handleKeyDown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
     handleClose()
   }
 }
 
 onMounted(() => {
   loadConfig()
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown)
 })
 </script>
 
 <template>
-  <div class="modal-overlay" @click="handleOverlayClick">
+  <div class="modal-overlay">
     <div class="modal-container">
       <!-- 模态框头部 -->
       <div class="modal-header">
@@ -137,89 +142,96 @@ onMounted(() => {
         </button>
       </div>
 
-      <!-- Tab 切换 -->
-      <div class="tabs">
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'model' }"
-          @click="activeTab = 'model'"
-        >
-          模型配置
-        </button>
-        <button class="tab-btn" :class="{ active: activeTab === 'mcp' }" @click="activeTab = 'mcp'">
-          MCP 服务
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'embedding' }"
-          @click="activeTab = 'embedding'"
-        >
-          嵌入模型
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'prompt' }"
-          @click="activeTab = 'prompt'"
-        >
-          提示词
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'theme' }"
-          @click="activeTab = 'theme'"
-        >
-          主题设置
-        </button>
-      </div>
-
-      <!-- 内容区域 -->
-      <div class="modal-content">
-        <!-- 加载状态 -->
-        <div v-if="loading" class="loading-state">
-          <span>加载中...</span>
+      <!-- 主体区域：左右布局 -->
+      <div class="modal-body">
+        <!-- 左侧菜单 -->
+        <div class="tabs">
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'model' }"
+            @click="activeTab = 'model'"
+          >
+            模型配置
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'mcp' }"
+            @click="activeTab = 'mcp'"
+          >
+            MCP 服务
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'embedding' }"
+            @click="activeTab = 'embedding'"
+          >
+            嵌入模型
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'prompt' }"
+            @click="activeTab = 'prompt'"
+          >
+            提示词
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'theme' }"
+            @click="activeTab = 'theme'"
+          >
+            主题设置
+          </button>
         </div>
 
-        <!-- 模型配置 Tab -->
-        <ModelSettings
-          v-else-if="activeTab === 'model'"
-          :model-configs="llmConfigs"
-          :default-model="defaultModel"
-          @update:model-configs="(value) => Object.assign(llmConfigs, value)"
-          @update:default-model="(value) => (defaultModel = value)"
-        />
+        <!-- 右侧内容区域 -->
+        <div class="modal-content">
+          <!-- 加载状态 -->
+          <div v-if="loading" class="loading-state">
+            <span>加载中...</span>
+          </div>
 
-        <!-- MCP 配置 Tab -->
-        <MCPSettings
-          v-else-if="activeTab === 'mcp'"
-          :error-message="errorMessage"
-          :success-message="successMessage"
-          @update:error-message="errorMessage = $event"
-          @update:success-message="successMessage = $event"
-          @mcp-updated="emit('mcp-updated')"
-        />
+          <!-- 模型配置 Tab -->
+          <ModelSettings
+            v-else-if="activeTab === 'model'"
+            :model-configs="llmConfigs"
+            :default-model="defaultModel"
+            @update:model-configs="(value) => Object.assign(llmConfigs, value)"
+            @update:default-model="(value) => (defaultModel = value)"
+          />
 
-        <!-- 嵌入模型配置 Tab -->
-        <EmbeddingModelSettings
-          v-else-if="activeTab === 'embedding'"
-          :error-message="errorMessage"
-          :success-message="successMessage"
-          @update:error-message="errorMessage = $event"
-          @update:success-message="successMessage = $event"
-        />
+          <!-- MCP 配置 Tab -->
+          <MCPSettings
+            v-else-if="activeTab === 'mcp'"
+            :error-message="errorMessage"
+            :success-message="successMessage"
+            @update:error-message="errorMessage = $event"
+            @update:success-message="successMessage = $event"
+            @mcp-updated="emit('mcp-updated')"
+          />
 
-        <!-- 提示词配置 Tab -->
-        <PromptSettings
-          v-else-if="activeTab === 'prompt'"
-          :model-value="promptConfig"
-          @update:model-value="(value) => Object.assign(promptConfig, value)"
-        />
+          <!-- 嵌入模型配置 Tab -->
+          <EmbeddingModelSettings
+            v-else-if="activeTab === 'embedding'"
+            :error-message="errorMessage"
+            :success-message="successMessage"
+            @update:error-message="errorMessage = $event"
+            @update:success-message="successMessage = $event"
+          />
 
-        <!-- 主题设置 Tab -->
-        <ThemeSettings
-          v-else-if="activeTab === 'theme'"
-          :model-value="themeConfig"
-          @update:model-value="(value) => Object.assign(themeConfig, value)"
-        />
+          <!-- 提示词配置 Tab -->
+          <PromptSettings
+            v-else-if="activeTab === 'prompt'"
+            :model-value="promptConfig"
+            @update:model-value="(value) => Object.assign(promptConfig, value)"
+          />
+
+          <!-- 主题设置 Tab -->
+          <ThemeSettings
+            v-else-if="activeTab === 'theme'"
+            :model-value="themeConfig"
+            @update:model-value="(value) => Object.assign(themeConfig, value)"
+          />
+        </div>
       </div>
 
       <!-- 消息提示 -->
@@ -256,9 +268,8 @@ onMounted(() => {
 }
 
 .modal-container {
-  width: 600px;
-  max-width: 90vw;
-  max-height: 85vh;
+  width: 900px;
+  height: 700px;
   background-color: var(--theme-bg);
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
@@ -294,33 +305,43 @@ onMounted(() => {
   font-size: 20px;
 }
 
-.tabs {
+.modal-body {
   display: flex;
-  border-bottom: 1px solid var(--theme-border);
+  flex: 1;
+  overflow: hidden;
+}
+
+.tabs {
+  width: 200px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--theme-border);
+  padding: 8px 0;
 }
 
 .tab-btn {
-  flex: 1;
-  padding: 12px 16px;
+  width: 100%;
+  padding: 12px 20px;
   background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
+  border: 1px solid transparent;
   color: var(--theme-text-secondary);
   font-family: var(--theme-font);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.15s ease;
+  text-align: left;
 }
 
 .tab-btn:hover {
   color: var(--theme-text);
-  background-color: var(--theme-bg-secondary);
 }
 
 .tab-btn.active {
+  background-color: var(--theme-bg-secondary);
   color: var(--theme-accent);
-  border-bottom-color: var(--theme-accent);
+  border: 1px solid var(--theme-accent);
+  border-radius: 6px;
 }
 
 .modal-content {
