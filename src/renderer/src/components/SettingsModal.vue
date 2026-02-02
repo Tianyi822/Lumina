@@ -293,6 +293,8 @@ onUnmounted(() => {
 .modal-container {
   width: 900px;
   height: 700px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 40px);
   background-color: var(--theme-bg);
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
