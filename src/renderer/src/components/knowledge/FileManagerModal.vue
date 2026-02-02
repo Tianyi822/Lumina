@@ -181,7 +181,6 @@ onMounted(async () => {
         @drop="handleDrop"
       >
         <div v-if="!isUploading" class="drop-content">
-          <div class="drop-icon">📁</div>
           <p class="drop-text">拖放文件到这里上传</p>
           <p class="drop-hint">或</p>
           <label class="btn btn-secondary upload-btn">
@@ -204,7 +203,6 @@ onMounted(async () => {
         </div>
 
         <div v-else-if="filteredFiles.length === 0" class="empty-state">
-          <div class="empty-icon">📂</div>
           <p v-if="searchQuery">未找到匹配的文件</p>
           <p v-else>暂无文件，请上传文件</p>
         </div>

@@ -188,7 +188,6 @@ function getLinkedFileIconBgClass(fileType: string): string {
 
         <!-- 空状态 -->
         <div class="empty-state">
-          <div class="empty-icon">📭</div>
           <h3>暂无文档</h3>
           <p>点击下方"添加文件"按钮或使用上方"上传文档"按钮添加文档到知识库</p>
         </div>

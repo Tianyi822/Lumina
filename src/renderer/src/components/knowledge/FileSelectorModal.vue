@@ -363,7 +363,6 @@ onMounted(async () => {
           @drop="handleDrop"
         >
           <div v-if="!isUploading" class="upload-content">
-            <div class="upload-icon">📁</div>
             <p class="upload-text">拖放文件到这里上传</p>
             <p class="upload-hint">或</p>
             <label class="btn btn-primary upload-btn">
