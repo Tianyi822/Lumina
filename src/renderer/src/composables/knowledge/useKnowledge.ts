@@ -18,6 +18,8 @@ export interface UseKnowledgeReturn {
     description: string
     embeddingModel: string
     embeddingDimension: number
+    chunkSize: number
+    chunkOverlap: number
   }) => Promise<void>
   handleKnowledgeCancel: () => void
 }
@@ -89,6 +91,8 @@ export function useKnowledge(): UseKnowledgeReturn {
     description: string
     embeddingModel: string
     embeddingDimension: number
+    chunkSize: number
+    chunkOverlap: number
   }): Promise<void> {
     try {
       // 直接创建知识库记录（使用已配置的嵌入模型）
@@ -97,8 +101,8 @@ export function useKnowledge(): UseKnowledgeReturn {
         description: data.description,
         embeddingModel: data.embeddingModel,
         embeddingDimension: data.embeddingDimension,
-        chunkSize: 500,
-        chunkOverlap: 50,
+        chunkSize: data.chunkSize,
+        chunkOverlap: data.chunkOverlap,
         documentCount: 0,
         linkedFileIds: []
       })
