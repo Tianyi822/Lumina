@@ -1,4 +1,20 @@
 /**
+ * 文件项 - 统一管理的文件
+ */
+export interface FileItem {
+  id: string
+  name: string
+  filePath: string
+  fileType: string
+  size: number
+  uploadedAt: string
+  /** 使用此文件的知识库 ID 列表 */
+  usedByKBIds: string[]
+  /** 文件内容哈希，用于去重 */
+  contentHash?: string
+}
+
+/**
  * 知识库配置
  */
 export interface KnowledgeBase {
@@ -12,6 +28,8 @@ export interface KnowledgeBase {
   createdAt: string
   updatedAt: string
   documentCount?: number // UI 用的统计信息
+  /** 关联的文件 ID 列表 */
+  linkedFileIds: string[]
 }
 
 /**

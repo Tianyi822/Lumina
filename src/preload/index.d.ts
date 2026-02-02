@@ -535,6 +535,20 @@ interface EmbeddingModelsApi {
 }
 
 /**
+ * 文件项 - 统一管理的文件
+ */
+interface FileItem {
+  id: string
+  name: string
+  filePath: string
+  fileType: string
+  size: number
+  uploadedAt: string
+  usedByKBIds: string[]
+  contentHash?: string
+}
+
+/**
  * 知识库配置
  */
 interface KnowledgeBase {
@@ -548,6 +562,7 @@ interface KnowledgeBase {
   createdAt: string
   updatedAt: string
   documentCount?: number
+  linkedFileIds: string[]
 }
 
 /**
@@ -567,6 +582,31 @@ interface KnowledgeApi {
 }
 
 /**
+ * 文件上传结果
+ */
+interface FileUploadResult {
+  success: boolean
+  file?: FileItem
+  error?: string
+  isDuplicate?: boolean
+}
+
+/**
+ * 文件管理 API
+ */
+interface FileApi {
+  list: () => Promise<{ success: boolean; data?: FileItem[]; error?: string }>
+  getById: (id: string) => Promise<{ success: boolean; data?: FileItem; error?: string }>
+  search: (query: string) => Promise<{ success: boolean; data?: FileItem[]; error?: string }>
+  upload: (params: { data: Uint8Array; name: string }) => Promise<FileUploadResult>
+  delete: (fileId: string, forceDelete?: boolean) => Promise<{ success: boolean; error?: string }>
+  linkToKB: (fileId: string, kbId: string) => Promise<{ success: boolean; error?: string }>
+  unlinkFromKB: (fileId: string, kbId: string) => Promise<{ success: boolean; error?: string }>
+  getByKBId: (kbId: string) => Promise<{ success: boolean; data?: FileItem[]; error?: string }>
+  getUsage: (fileId: string) => Promise<{ success: boolean; data?: string[]; error?: string }>
+}
+
+/**
  * 自定义 API
  */
 interface CustomApi {
@@ -580,6 +620,7 @@ interface CustomApi {
   embedding: EmbeddingApi
   embeddingModels: EmbeddingModelsApi
   knowledge: KnowledgeApi
+  file: FileApi
 }
 
 declare global {

@@ -106,7 +106,8 @@ export function useKnowledge(): UseKnowledgeReturn {
         embeddingDimension: data.embeddingDimension,
         chunkSize: 500,
         chunkOverlap: 50,
-        documentCount: 0
+        documentCount: 0,
+        linkedFileIds: []
       })
 
       if (!createResult.success || !createResult.data) {

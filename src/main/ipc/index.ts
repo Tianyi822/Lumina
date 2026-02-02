@@ -8,6 +8,7 @@ import { registerWindowHandlers } from './handlers/windowHandlers'
 import { registerEmbeddingHandlers } from './handlers/embeddingHandlers'
 import { registerKnowledgeHandlers } from './handlers/knowledgeHandlers'
 import { registerEmbeddingModelHandlers } from './handlers/embeddingModelHandlers'
+import { registerFileHandlers } from './handlers/fileHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -15,6 +16,7 @@ export { initializeMCP } from './handlers/mcpHandlers'
 export { initializeEmbedding } from './handlers/embeddingHandlers'
 export { initializeKnowledge } from './handlers/knowledgeHandlers'
 export { initializeEmbeddingModels } from './handlers/embeddingModelHandlers'
+export { initializeFileService } from './handlers/fileHandlers'
 
 /**
  * 注册所有 IPC 处理程序
@@ -49,4 +51,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册知识库相关处理程序
   registerKnowledgeHandlers()
+
+  // 注册文件管理相关处理程序
+  registerFileHandlers()
 }

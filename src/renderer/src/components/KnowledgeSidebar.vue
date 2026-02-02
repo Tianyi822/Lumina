@@ -11,6 +11,7 @@ const emit = defineEmits<{
   (e: 'select-kb', kbId: string): void
   (e: 'create-kb'): void
   (e: 'delete-kb', kbId: string): void
+  (e: 'manage-files'): void
 }>()
 
 // 搜索关键词
@@ -41,6 +42,10 @@ function handleDeleteKB(kbId: string): void {
   emit('delete-kb', kbId)
 }
 
+function handleManageFiles(): void {
+  emit('manage-files')
+}
+
 // 格式化文件大小
 function formatDocumentCount(count?: number): string {
   if (!count) return '0 个文档'
@@ -51,11 +56,14 @@ function formatDocumentCount(count?: number): string {
 
 <template>
   <aside class="kb-sidebar">
-    <!-- 新建知识库按钮 -->
-    <button class="btn-primary new-kb-btn" @click="handleCreateKB">
-      <span class="btn-icon">+</span>
-      <span>新建知识库</span>
-    </button>
+    <!-- 按钮组 -->
+    <div class="sidebar-actions">
+      <button class="btn-primary new-kb-btn" @click="handleCreateKB">
+        <span class="btn-icon">+</span>
+        <span>新建知识库</span>
+      </button>
+      <button class="btn-secondary manage-files-btn" @click="handleManageFiles">管理文件</button>
+    </div>
 
     <!-- 搜索框 -->
     <div class="search-container">
@@ -109,13 +117,36 @@ function formatDocumentCount(count?: number): string {
   flex-shrink: 0;
 }
 
-.new-kb-btn {
+.sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.new-kb-btn,
+.manage-files-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin: 12px;
-  width: calc(100% - 24px);
+  width: 100%;
+}
+
+.manage-files-btn {
+  background-color: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-border);
+  color: var(--theme-text);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.manage-files-btn:hover {
+  background-color: var(--theme-bg-hover);
+  border-color: var(--theme-accent);
 }
 
 .btn-icon {
