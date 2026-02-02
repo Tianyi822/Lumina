@@ -8,8 +8,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'upload-documents'): void
   (e: 'add-files', kbId: string): void
+  (e: 'file-unlinked', kbId: string, fileId: string): void
 }>()
 
 // 文件管理
@@ -57,6 +57,8 @@ async function handleUnlinkFile(fileId: string): Promise<void> {
 
   if (result.success) {
     linkedFiles.value = linkedFiles.value.filter((f) => f.id !== fileId)
+    // 通知父组件文件已取消关联
+    emit('file-unlinked', currentKB.value.id, fileId)
   } else {
     alert('取消关联失败: ' + (result.error || '未知错误'))
   }
@@ -101,12 +103,17 @@ defineExpose({
   handleFilesLinked
 })
 
-function handleUpload(): void {
-  emit('upload-documents')
-}
-
-function getLinkedFileIconBgClass(fileType: string): string {
-  return `linked-file-icon-bg-${fileType.toLowerCase()}`
+function getFileIconBgClass(fileType: string): string {
+  switch (fileType.toLowerCase()) {
+    case 'pdf':
+      return 'file-icon-bg-pdf'
+    case 'txt':
+      return 'file-icon-bg-txt'
+    case 'md':
+      return 'file-icon-bg-md'
+    default:
+      return 'file-icon-bg-default'
+  }
 }
 </script>
 
@@ -118,7 +125,7 @@ function getLinkedFileIconBgClass(fileType: string): string {
         <div class="kb-title-row">
           <h1 class="kb-title">{{ currentKB.name }}</h1>
           <div class="kb-actions">
-            <button class="btn-primary upload-btn" @click="handleUpload">上传文档</button>
+            <button class="btn-primary add-files-btn" @click="handleAddFiles">+ 添加文档</button>
           </div>
         </div>
         <p v-if="currentKB.description" class="kb-description">
@@ -126,70 +133,48 @@ function getLinkedFileIconBgClass(fileType: string): string {
         </p>
       </header>
 
-      <!-- 关联文件区域 -->
-      <div class="linked-files-section">
-        <div class="section-header">
-          <h2 class="section-title">关联文件</h2>
-          <button class="btn btn-secondary add-files-btn" @click="handleAddFiles">
-            + 添加文件
-          </button>
-        </div>
-
+      <!-- 文档列表区域 -->
+      <div class="documents-section">
         <div v-if="loadingFiles" class="loading-state">
           <div class="spinner-small"></div>
           <span>加载中...</span>
         </div>
 
-        <div v-else-if="linkedFiles.length === 0" class="empty-files">
-          <p>暂无关联文件</p>
-          <button class="btn-link" @click="handleAddFiles">添加文件到知识库</button>
-        </div>
-
-        <div v-else class="linked-files-list">
+        <div v-else class="documents-grid">
+          <!-- 已关联的文件卡片 -->
           <div
             v-for="file in linkedFiles"
             :key="file.id"
-            :class="['linked-file-item', { unlinking: unlinkingFileId === file.id }]"
+            :class="['document-card', { unlinking: unlinkingFileId === file.id }]"
           >
-            <div :class="['linked-file-icon', getLinkedFileIconBgClass(file.fileType)]">
-              <span class="file-type-label">{{ file.fileType.toUpperCase() }}</span>
+            <div class="document-card-header">
+              <div :class="['document-icon', getFileIconBgClass(file.fileType)]">
+                <span class="file-type-label">{{ file.fileType.toUpperCase() }}</span>
+              </div>
+              <button
+                class="document-remove-btn"
+                :disabled="unlinkingFileId === file.id"
+                title="取消关联"
+                @click.stop="handleUnlinkFile(file.id)"
+              >
+                <span v-if="unlinkingFileId === file.id" class="spinner-tiny"></span>
+                <span v-else>✕</span>
+              </button>
             </div>
-
-            <div class="linked-file-info">
-              <div class="linked-file-name">{{ file.name }}</div>
-              <div class="linked-file-meta">
+            <div class="document-info">
+              <div class="document-name" :title="file.name">{{ file.name }}</div>
+              <div class="document-meta">
                 <span>{{ formatFileSize(file.size) }}</span>
                 <span>{{ formatDate(file.uploadedAt) }}</span>
               </div>
             </div>
-
-            <button
-              class="unlink-btn"
-              :disabled="unlinkingFileId === file.id"
-              title="取消关联"
-              @click="handleUnlinkFile(file.id)"
-            >
-              <span v-if="unlinkingFileId === file.id" class="spinner-tiny"></span>
-              <span v-else>✕</span>
-            </button>
           </div>
-        </div>
-      </div>
 
-      <!-- 文档列表（保留原有功能） -->
-      <div class="documents-section">
-        <div class="documents-grid">
-          <!-- 添加文件占位符 -->
-          <div class="add-file-card" @click="handleUpload">
+          <!-- 添加文件卡片 -->
+          <div class="add-file-card" @click="handleAddFiles">
             <div class="add-file-icon">+</div>
             <div class="add-file-text">添加文件</div>
           </div>
-        </div>
-
-        <!-- 空状态 -->
-        <div class="empty-state">
-          <h3>暂无文档</h3>
-          <p>点击下方"添加文件"按钮或使用上方"上传文档"按钮添加文档到知识库</p>
         </div>
       </div>
     </div>
@@ -253,7 +238,7 @@ function getLinkedFileIconBgClass(fileType: string): string {
   flex-shrink: 0;
 }
 
-.upload-btn {
+.add-files-btn {
   padding: 0 14px;
   font-size: 13px;
   height: 28px;
@@ -263,42 +248,11 @@ function getLinkedFileIconBgClass(fileType: string): string {
   justify-content: center;
 }
 
-/* 关联文件区域 */
-.linked-files-section {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
-  flex-shrink: 0;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--theme-text);
-  margin: 0;
-}
-
-.add-files-btn {
-  padding: 4px 12px;
-  font-size: 12px;
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  color: var(--theme-text);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.add-files-btn:hover {
-  border-color: var(--theme-accent);
-  color: var(--theme-accent);
+/* 文档列表 */
+.documents-section {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
 }
 
 .loading-state {
@@ -312,7 +266,7 @@ function getLinkedFileIconBgClass(fileType: string): string {
 
 .empty-files {
   text-align: center;
-  padding: 24px;
+  padding: 60px 20px;
   color: var(--theme-text-secondary);
 }
 
@@ -336,89 +290,79 @@ function getLinkedFileIconBgClass(fileType: string): string {
   background-color: rgba(63, 185, 80, 0.1);
 }
 
-.linked-files-list {
+.documents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+/* 文档卡片 */
+.document-card {
+  background-color: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.linked-file-item {
-  display: flex;
-  align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
+  cursor: default;
 }
 
-.linked-file-item:hover {
+.document-card:hover {
   border-color: var(--theme-accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.linked-file-item.unlinking {
+.document-card.unlinking {
   opacity: 0.7;
   pointer-events: none;
 }
 
-.linked-file-icon {
-  width: 36px;
-  height: 36px;
+.document-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.document-icon {
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 8px;
   flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
 }
 
-.linked-file-icon-bg-pdf {
+.file-icon-bg-pdf {
   background-color: rgba(248, 81, 73, 0.15);
   color: #f85149;
 }
 
-.linked-file-icon-bg-txt {
+.file-icon-bg-txt {
   background-color: rgba(88, 166, 255, 0.15);
   color: #58a6ff;
 }
 
-.linked-file-icon-bg-md {
+.file-icon-bg-md {
   background-color: rgba(63, 185, 80, 0.15);
   color: #3fb950;
 }
 
-.file-type-label {
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.linked-file-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.linked-file-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--theme-text);
-  margin-bottom: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.linked-file-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 11px;
+.file-icon-bg-default {
+  background-color: var(--theme-bg-hover);
   color: var(--theme-text-secondary);
 }
 
-.unlink-btn {
+.file-type-label {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.document-remove-btn {
   width: 24px;
   height: 24px;
   border: none;
@@ -434,14 +378,36 @@ function getLinkedFileIconBgClass(fileType: string): string {
   flex-shrink: 0;
 }
 
-.unlink-btn:hover {
+.document-remove-btn:hover {
   background-color: var(--theme-bg-hover);
   color: var(--theme-danger);
 }
 
-.unlink-btn:disabled {
+.document-remove-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.document-info {
+  min-width: 0;
+}
+
+.document-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--theme-text);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.document-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--theme-text-secondary);
 }
 
 /* Spinner */
@@ -468,19 +434,6 @@ function getLinkedFileIconBgClass(fileType: string): string {
   to {
     transform: rotate(360deg);
   }
-}
-
-/* 文档列表 */
-.documents-section {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-}
-
-.documents-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
 }
 
 /* 添加文件卡片 */
@@ -529,8 +482,8 @@ function getLinkedFileIconBgClass(fileType: string): string {
 }
 
 /* 空状态 */
-.empty-state,
 .empty-kb {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -539,17 +492,6 @@ function getLinkedFileIconBgClass(fileType: string): string {
   padding: 60px 20px;
 }
 
-.empty-kb {
-  flex: 1;
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-  opacity: 0.5;
-}
-
-.empty-state h3,
 .empty-kb h2 {
   font-size: 16px;
   font-weight: 600;
@@ -557,7 +499,6 @@ function getLinkedFileIconBgClass(fileType: string): string {
   margin: 0 0 8px 0;
 }
 
-.empty-state p,
 .empty-kb p {
   font-size: 13px;
   color: var(--theme-text-secondary);
@@ -565,16 +506,16 @@ function getLinkedFileIconBgClass(fileType: string): string {
 }
 
 /* 滚动条 */
-.linked-files-list::-webkit-scrollbar {
-  width: 4px;
+.documents-section::-webkit-scrollbar {
+  width: 6px;
 }
 
-.linked-files-list::-webkit-scrollbar-track {
+.documents-section::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.linked-files-list::-webkit-scrollbar-thumb {
+.documents-section::-webkit-scrollbar-thumb {
   background-color: var(--theme-border);
-  border-radius: 2px;
+  border-radius: 3px;
 }
 </style>

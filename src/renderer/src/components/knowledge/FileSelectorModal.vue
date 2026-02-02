@@ -37,9 +37,11 @@ const isUploading = ref(false)
 const linkingFileIds = ref<Set<string>>(new Set())
 
 // ==================== 计算属性 ====================
-// 过滤掉已关联的文件，并支持搜索
+// 过滤掉已关联到当前知识库的文件，并支持搜索
+// 注意：已选中的文件仍然显示在列表中，保持勾选状态
 const availableFiles = computed(() => {
   const linkedSet = new Set(props.linkedFileIds)
+  // 只过滤已关联到当前知识库的文件
   let result = files.value.filter((f) => !linkedSet.has(f.id))
 
   if (searchQuery.value.trim()) {
@@ -238,7 +240,7 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- 文件列表 -->
+        <!-- 可选择的文件列表 -->
         <div class="file-list">
           <div v-if="loading" class="state-message">
             <div class="spinner"></div>

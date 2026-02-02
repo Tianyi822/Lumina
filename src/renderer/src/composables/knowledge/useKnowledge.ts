@@ -9,7 +9,6 @@ export interface UseKnowledgeReturn {
   knowledgeBases: Ref<KnowledgeBase[]>
   activeKbId: Ref<string | undefined>
   showKnowledgeForm: Ref<boolean>
-  showDocumentUploader: Ref<boolean>
   loadKnowledgeBases: () => Promise<void>
   handleSelectKB: (kbId: string) => void
   handleCreateKB: () => void
@@ -21,9 +20,6 @@ export interface UseKnowledgeReturn {
     embeddingDimension: number
   }) => Promise<void>
   handleKnowledgeCancel: () => void
-  handleUploadDocuments: () => void
-  handleDocumentUpload: (files: File[]) => void
-  handleUploaderCancel: () => void
 }
 
 /**
@@ -39,9 +35,6 @@ export function useKnowledge(): UseKnowledgeReturn {
 
   // 显示知识库表单
   const showKnowledgeForm = ref(false)
-
-  // 显示文档上传器
-  const showDocumentUploader = ref(false)
 
   /**
    * 加载知识库列表
@@ -131,36 +124,6 @@ export function useKnowledge(): UseKnowledgeReturn {
     showKnowledgeForm.value = false
   }
 
-  /**
-   * 显示文档上传器
-   */
-  function handleUploadDocuments(): void {
-    showDocumentUploader.value = true
-  }
-
-  /**
-   * 上传文档
-   */
-  function handleDocumentUpload(files: File[]): void {
-    // 这里应该是上传文档到后端的逻辑
-    console.log('上传文档:', files)
-    showDocumentUploader.value = false
-
-    // 模拟更新文档数量
-    const kb = knowledgeBases.value.find((kb) => kb.id === activeKbId.value)
-    if (kb) {
-      kb.documentCount = (kb.documentCount || 0) + files.length
-      kb.updatedAt = new Date().toISOString()
-    }
-  }
-
-  /**
-   * 取消文档上传
-   */
-  function handleUploaderCancel(): void {
-    showDocumentUploader.value = false
-  }
-
   // 组件挂载时加载知识库列表
   onMounted(async () => {
     await loadKnowledgeBases()
@@ -170,15 +133,11 @@ export function useKnowledge(): UseKnowledgeReturn {
     knowledgeBases,
     activeKbId,
     showKnowledgeForm,
-    showDocumentUploader,
     loadKnowledgeBases,
     handleSelectKB,
     handleCreateKB,
     handleDeleteKB,
     handleKnowledgeSubmit,
-    handleKnowledgeCancel,
-    handleUploadDocuments,
-    handleDocumentUpload,
-    handleUploaderCancel
+    handleKnowledgeCancel
   }
 }

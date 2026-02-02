@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import KnowledgeSidebar from '@renderer/components/KnowledgeSidebar.vue'
 import KnowledgeMain from '@renderer/components/KnowledgeMain.vue'
 import KnowledgeForm from '@renderer/components/knowledge/KnowledgeForm.vue'
-import DocumentUploader from '@renderer/components/knowledge/DocumentUploader.vue'
+
 import FileManagerModal from '@renderer/components/knowledge/FileManagerModal.vue'
 import FileSelectorModal from '@renderer/components/knowledge/FileSelectorModal.vue'
 import { useKnowledge } from '@renderer/composables/knowledge/useKnowledge'
@@ -14,15 +14,11 @@ const {
   knowledgeBases,
   activeKbId,
   showKnowledgeForm,
-  showDocumentUploader,
   handleSelectKB,
   handleCreateKB,
   handleDeleteKB,
   handleKnowledgeSubmit,
-  handleKnowledgeCancel,
-  handleUploadDocuments,
-  handleDocumentUpload,
-  handleUploaderCancel
+  handleKnowledgeCancel
 } = useKnowledge()
 
 // ==================== 文件管理 ====================
@@ -52,9 +48,24 @@ function handleFileSelectorClose(): void {
 }
 
 function handleFilesLinked(files: FileItem[]): void {
-  // 通过 ref 调用 KnowledgeMain 组件的方法
+  // 通过 ref 调用 KnowledgeMain 组件的方法更新 UI
   if (knowledgeMainRef.value) {
     knowledgeMainRef.value.handleFilesLinked(files)
+  }
+
+  // 更新 knowledgeBases 中的 linkedFileIds，确保 FileSelectorModal 能正确过滤
+  const kb = knowledgeBases.value.find((k) => k.id === currentKBIdForSelector.value)
+  if (kb) {
+    const newFileIds = files.map((f) => f.id)
+    kb.linkedFileIds = [...(kb.linkedFileIds || []), ...newFileIds]
+  }
+}
+
+function handleFileUnlinked(kbId: string, fileId: string): void {
+  // 更新 knowledgeBases 中的 linkedFileIds，确保 FileSelectorModal 能正确过滤
+  const kb = knowledgeBases.value.find((k) => k.id === kbId)
+  if (kb && kb.linkedFileIds) {
+    kb.linkedFileIds = kb.linkedFileIds.filter((id) => id !== fileId)
   }
 }
 </script>
@@ -72,8 +83,8 @@ function handleFilesLinked(files: FileItem[]): void {
     <KnowledgeMain
       ref="knowledgeMainRef"
       :knowledge-base="knowledgeBases.find((kb) => kb.id === activeKbId)"
-      @upload-documents="handleUploadDocuments"
       @add-files="handleAddFiles"
+      @file-unlinked="handleFileUnlinked"
     />
   </div>
 
@@ -82,13 +93,6 @@ function handleFilesLinked(files: FileItem[]): void {
     v-if="showKnowledgeForm"
     @submit="handleKnowledgeSubmit"
     @cancel="handleKnowledgeCancel"
-  />
-
-  <!-- 文档上传模态框 -->
-  <DocumentUploader
-    v-if="showDocumentUploader"
-    @upload="handleDocumentUpload"
-    @cancel="handleUploaderCancel"
   />
 
   <!-- 文件管理模态框 -->
