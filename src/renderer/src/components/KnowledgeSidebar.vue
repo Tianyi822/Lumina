@@ -46,9 +46,10 @@ function handleManageFiles(): void {
   emit('manage-files')
 }
 
-// 格式化文件大小
-function formatDocumentCount(count?: number): string {
-  if (!count) return '0 个文档'
+// 格式化文档数量
+function formatDocumentCount(linkedFileIds?: string[]): string {
+  const count = linkedFileIds?.length || 0
+  if (count === 0) return '0 个文档'
   if (count === 1) return '1 个文档'
   return `${count} 个文档`
 }
@@ -88,7 +89,7 @@ function formatDocumentCount(count?: number): string {
         </div>
         <div class="kb-info">
           <div class="kb-name">{{ kb.name }}</div>
-          <div class="kb-meta">{{ formatDocumentCount(kb.documentCount) }}</div>
+          <div class="kb-meta">{{ formatDocumentCount(kb.linkedFileIds) }}</div>
         </div>
         <button class="delete-btn" title="删除知识库" @click.stop="handleDeleteKB(kb.id)">✕</button>
       </div>

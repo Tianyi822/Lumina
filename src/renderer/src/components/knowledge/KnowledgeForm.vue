@@ -272,6 +272,8 @@ function resetForm(): void {
   padding: 24px;
   width: 100%;
   max-width: 500px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   box-shadow: var(--theme-shadow);
 }
 
