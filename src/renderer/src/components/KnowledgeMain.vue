@@ -376,6 +376,15 @@ defineExpose({
   handleFilesLinked
 })
 
+/**
+ * 关闭搜索结果
+ */
+function closeSearchResults(): void {
+  searchQuery.value = ''
+  searchResults.value = []
+  searchPerformed.value = false
+}
+
 function getFileIconClass(fileType: string): string {
   switch (fileType.toLowerCase()) {
     case 'pdf':
@@ -462,6 +471,7 @@ function getFileNameWithoutExtension(fileName: string): string {
             class="input search-input"
             placeholder="输入测试查询..."
             @keyup.enter="handleSearch"
+            @keyup.esc="closeSearchResults"
           />
           <button
             class="btn-primary search-btn"

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'fs'
 import { join } from 'path'
 import * as lancedb from '@lancedb/lancedb'
+import { Int32, Int64, Utf8, Schema, Field, FixedSizeList, Float32 } from 'apache-arrow'
 
 import { getVectorDBDirPath } from '@main/services/config/configPaths'
 import { logger } from '@main/services/logger'
@@ -138,8 +139,26 @@ export class VectorDBService {
       }
 
       if (!table) {
-        // 创建新表并添加数据
-        table = await db.createTable('chunks', records)
+        // 创建新表并添加数据，显式定义 schema
+        const embeddingMetadata = new Map<string, string>()
+        embeddingMetadata.set('metric_type', 'cosine')
+
+        const schema = new Schema([
+          new Field('chunk_id', new Int64()),
+          new Field('file_id', new Utf8()),
+          new Field('file_name', new Utf8()),
+          new Field('content', new Utf8()),
+          new Field('chunk_index', new Int32()),
+          new Field('total_chunks', new Int32()),
+          new Field(
+            'embedding',
+            new FixedSizeList(dimension, new Field('item', new Float32(), true)),
+            false,
+            embeddingMetadata
+          )
+        ])
+
+        table = await db.createTable('chunks', records, { schema })
         isNewTable = true
         this.tables.set(tableKey, table)
         logger.info('新表已创建并添加数据', 'main', { kbId, count: records.length })
@@ -255,16 +274,42 @@ export class VectorDBService {
       const results = await table.query().nearestTo(queryEmbedding).limit(limit).toArray()
 
       logger.debug('搜索完成', 'main', { kbId, resultCount: results.length })
+      if (results.length > 0) {
+        const distances: number[] = []
+        results.forEach((r) => {
+          const dist = r._distance
+          if (typeof dist === 'number') {
+            distances.push(dist)
+          }
+        })
+        logger.debug('搜索结果距离值', 'main', {
+          kbId,
+          distances,
+          firstDistance: results[0]._distance,
+          firstDistanceType: typeof results[0]._distance
+        })
+      }
 
-      return results.map((r) => ({
-        chunkId: r.chunk_id as number,
-        fileId: r.file_id as string,
-        fileName: r.file_name as string,
-        content: r.content as string,
-        chunkIndex: r.chunk_index as number,
-        totalChunks: r.total_chunks as number,
-        similarity: 1 - ((r._distance as number) || 0)
-      }))
+      return results.map((r) => {
+        const distance = r._distance as number
+        logger.debug('处理搜索结果', 'main', {
+          distance,
+          distanceType: typeof distance,
+          rawDistance: r._distance
+        })
+
+        const similarity = 1 - distance
+
+        return {
+          chunkId: r.chunk_id as number,
+          fileId: r.file_id as string,
+          fileName: r.file_name as string,
+          content: r.content as string,
+          chunkIndex: r.chunk_index as number,
+          totalChunks: r.total_chunks as number,
+          similarity
+        }
+      })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('向量搜索失败', 'main', { kbId, error: errorMessage })
