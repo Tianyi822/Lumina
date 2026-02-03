@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, readFile } from 'fs
 import { join, extname, isAbsolute } from 'path'
 
 import { getConfigDirPath } from '@main/services/config/configPaths'
-import { getFilesStoragePath } from '@main/services/file/FileService'
+import { getFilesStoragePath, getFileService } from '@main/services/file/FileService'
 import { getVectorDBService, type DocumentChunk, type SearchResult } from '@main/services/vector'
 import { getEmbeddingService } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
@@ -283,6 +283,15 @@ export class KnowledgeService {
 
     // 删除向量数据库
     getVectorDBService().deleteKnowledgeBase(id)
+
+    // 从所有关联的文件中移除此知识库 ID
+    const kb = this.knowledgeBases[index]
+    if (kb.linkedFileIds && kb.linkedFileIds.length > 0) {
+      const fileService = getFileService()
+      for (const fileId of kb.linkedFileIds) {
+        fileService.unlinkFileFromKB(fileId, id)
+      }
+    }
 
     this.knowledgeBases.splice(index, 1)
     this.save()

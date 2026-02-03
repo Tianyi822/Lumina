@@ -108,11 +108,34 @@ export class FileService {
     try {
       const content = readFileSync(filePath, 'utf-8')
       const files = JSON.parse(content) as FileItem[]
+
+      // 获取当前存在的知识库 ID 列表
+      const knowledgeBases = readKnowledgeBases()
+      const existingKBIds = new Set(knowledgeBases.map((kb) => kb.id))
+
       // 为旧文件（没有 absolutePath 的）补充完整路径
-      this.files = files.map((file) => ({
-        ...file,
-        absolutePath: file.absolutePath || join(getFilesStoragePath(), file.filePath)
-      }))
+      // 同时清理已不存在的知识库 ID
+      this.files = files
+        .map((file) => ({
+          ...file,
+          absolutePath: file.absolutePath || join(getFilesStoragePath(), file.filePath),
+          usedByKBIds: file.usedByKBIds.filter((kbId) => existingKBIds.has(kbId))
+        }))
+        .filter((file) => file.usedByKBIds.length !== 0 || true)
+
+      // 如果有文件的 usedByKBIds 被清理，保存更新后的元数据
+      const hasChanges = files.some((file, index) => {
+        const newFile = this.files[index]
+        return (
+          file.usedByKBIds.length !== newFile.usedByKBIds.length ||
+          !file.usedByKBIds.every((id) => newFile.usedByKBIds.includes(id))
+        )
+      })
+
+      if (hasChanges) {
+        this.saveFilesMetadata()
+        logger.info('清理文件元数据中已删除的知识库引用', 'main', { fileCount: this.files.length })
+      }
     } catch (error) {
       logger.error('读取文件元数据失败', 'main', { error })
       this.files = []
