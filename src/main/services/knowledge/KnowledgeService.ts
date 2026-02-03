@@ -470,12 +470,14 @@ export class KnowledgeService {
    * 重新索引整个知识库
    * @param kbId 知识库 ID
    * @param files 文件列表（fileId, filePath, fileName）
-   * @param onProgress 进度回调
+   * @param onProgress 进度回调（整体进度）
+   * @param onFileProgress 文件进度回调（单个文件进度）
    */
   async reindexKnowledgeBase(
     kbId: string,
     files: Array<{ fileId: string; filePath: string; fileName: string }>,
-    onProgress?: (progress: { current: number; total: number; currentFile?: string }) => void
+    onProgress?: (progress: { current: number; total: number; currentFile?: string }) => void,
+    onFileProgress?: (progress: FileProcessingProgress) => void
   ): Promise<{
     success: boolean
     indexedCount: number
@@ -506,7 +508,13 @@ export class KnowledgeService {
           currentFile: file.fileName
         })
 
-        const result = await this.indexFile(kbId, file.fileId, file.filePath, file.fileName)
+        const result = await this.indexFile(
+          kbId,
+          file.fileId,
+          file.filePath,
+          file.fileName,
+          onFileProgress
+        )
 
         if (result.success) {
           indexedCount++
@@ -639,6 +647,23 @@ export class KnowledgeService {
       logger.error(errorMessage)
       throw new Error(errorMessage)
     }
+  }
+
+  /**
+   * 检查是否有文件正在索引
+   */
+  isIndexing(): boolean {
+    return this.processingFiles.size > 0
+  }
+
+  /**
+   * 获取正在索引的文件列表
+   */
+  getIndexingFiles(): Array<{ kbId: string; fileId: string }> {
+    return Array.from(this.processingFiles).map((key) => {
+      const [kbId, fileId] = key.split(':')
+      return { kbId, fileId }
+    })
   }
 
   /**

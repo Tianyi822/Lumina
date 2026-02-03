@@ -1,5 +1,5 @@
 import { ipcRenderer } from 'electron'
-import type { SearchResult } from '@main/services/vector'
+import { createIpcListener } from './base'
 
 /**
  * 嵌入模型配置
@@ -26,6 +26,19 @@ export interface KnowledgeBase {
   updatedAt: string
   documentCount?: number
   linkedFileIds: string[]
+}
+
+/**
+ * 搜索结果
+ */
+export interface SearchResult {
+  chunkId: number
+  fileId: string
+  fileName: string
+  content: string
+  chunkIndex: number
+  totalChunks: number
+  similarity: number
 }
 
 /**
@@ -60,6 +73,33 @@ export interface KnowledgeBaseStats {
   fileCount: number
   chunkCount: number
   dbSize: number
+}
+
+/**
+ * 文件处理进度回调
+ */
+export interface FileProcessingProgress {
+  fileId: string
+  fileName: string
+  status: 'processing' | 'completed' | 'failed'
+  progress?: number
+  error?: string
+}
+
+/**
+ * 文件进度事件数据
+ */
+export interface FileProgressEvent {
+  kbId: string
+  progress: FileProcessingProgress
+}
+
+/**
+ * 重新索引进度事件数据
+ */
+export interface ReindexProgressEvent {
+  kbId: string
+  progress: { current: number; total: number; currentFile?: string }
 }
 
 /**
@@ -154,5 +194,28 @@ export const knowledgeApi = {
    */
   getDBSize: (kbId: string): Promise<ApiResponse<{ size: number }>> => {
     return ipcRenderer.invoke('knowledge:getDBSize', kbId)
+  },
+
+  /**
+   * 获取索引状态
+   */
+  getIndexingStatus: (): Promise<
+    ApiResponse<{ isIndexing: boolean; indexingFiles: Array<{ kbId: string; fileId: string }> }>
+  > => {
+    return ipcRenderer.invoke('knowledge:getIndexingStatus')
   }
+}
+
+/**
+ * 监听文件索引进度事件
+ */
+export function onFileProgress(callback: (data: FileProgressEvent) => void): () => void {
+  return createIpcListener<FileProgressEvent>('knowledge:file-progress', callback)
+}
+
+/**
+ * 监听重新索引进度事件
+ */
+export function onReindexProgress(callback: (data: ReindexProgressEvent) => void): () => void {
+  return createIpcListener<ReindexProgressEvent>('knowledge:reindex-progress', callback)
 }

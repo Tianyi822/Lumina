@@ -9,7 +9,7 @@ import { promptApi } from './apis/prompt'
 import { windowApi } from './apis/window'
 import { embeddingApi } from './apis/embedding'
 import { embeddingModelsApi } from './apis/embeddingModels'
-import { knowledgeApi } from './apis/knowledge'
+import { knowledgeApi, onFileProgress, onReindexProgress } from './apis/knowledge'
 import { fileApi } from './apis/file'
 
 /**
@@ -26,7 +26,9 @@ const api = {
   embedding: embeddingApi,
   embeddingModels: embeddingModelsApi,
   knowledge: knowledgeApi,
-  file: fileApi
+  file: fileApi,
+  onFileProgress,
+  onReindexProgress
 }
 
 // 使用 `contextBridge` API 向渲染器暴露 Electron API

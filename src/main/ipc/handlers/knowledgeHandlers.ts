@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { getKnowledgeService, type FileProcessingProgress } from '@main/services/knowledge'
 import { getVectorDBService } from '@main/services/vector'
 import { logger } from '@main/services/logger'
+import { getMainWindow } from '@main/core/window'
 import type { KnowledgeBase } from '@shared/types/knowledge'
 
 /**
@@ -146,8 +147,10 @@ export function registerKnowledgeHandlers(): void {
           filePath,
           fileName,
           (progress: FileProcessingProgress) => {
-            // 可以通过 WebContents 发送进度事件到渲染进程
-            // 这里暂时不实现实时进度推送
+            const win = getMainWindow()
+            if (win) {
+              win.webContents.send('knowledge:file-progress', { kbId, progress })
+            }
             logger.debug('文件索引进度', 'main', { kbId, fileId, progress })
           }
         )
@@ -187,9 +190,28 @@ export function registerKnowledgeHandlers(): void {
       files: Array<{ fileId: string; filePath: string; fileName: string }>
     ) => {
       try {
-        const result = await getKnowledgeService().reindexKnowledgeBase(kbId, files, (progress) => {
-          logger.debug('重新索引进度', 'main', { kbId, progress })
-        })
+        const result = await getKnowledgeService().reindexKnowledgeBase(
+          kbId,
+          files,
+          (progress) => {
+            const win = getMainWindow()
+            if (win) {
+              win.webContents.send('knowledge:reindex-progress', { kbId, progress })
+            }
+            logger.debug('重新索引进度', 'main', { kbId, progress })
+          },
+          (fileProgress) => {
+            const win = getMainWindow()
+            if (win) {
+              win.webContents.send('knowledge:file-progress', { kbId, progress: fileProgress })
+            }
+            logger.debug('文件索引进度', 'main', {
+              kbId,
+              fileId: fileProgress.fileId,
+              progress: fileProgress
+            })
+          }
+        )
         return {
           success: result.success,
           data: {
@@ -253,6 +275,27 @@ export function registerKnowledgeHandlers(): void {
       }
     } catch (error) {
       const errorMessage = `获取数据库大小失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return {
+        success: false,
+        error: errorMessage
+      }
+    }
+  })
+
+  // 获取索引状态
+  ipcMain.handle('knowledge:getIndexingStatus', () => {
+    try {
+      const service = getKnowledgeService()
+      return {
+        success: true,
+        data: {
+          isIndexing: service.isIndexing(),
+          indexingFiles: service.getIndexingFiles()
+        }
+      }
+    } catch (error) {
+      const errorMessage = `获取索引状态失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
       return {
         success: false,

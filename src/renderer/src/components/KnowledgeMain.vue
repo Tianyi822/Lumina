@@ -1,7 +1,20 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useFileManager } from '@renderer/composables/knowledge/useFileManager'
 import type { KnowledgeBase, FileItem } from '@renderer/types'
+
+type FileProcessingProgress = {
+  fileId: string
+  fileName: string
+  status: 'processing' | 'completed' | 'failed'
+  progress?: number
+  error?: string
+}
+
+type FileProgressEvent = {
+  kbId: string
+  progress: FileProcessingProgress
+}
 
 const props = defineProps<{
   knowledgeBase?: KnowledgeBase
@@ -39,6 +52,11 @@ const searchPerformed = ref(false)
 // 重新索引
 const reindexing = ref(false)
 const reindexProgress = ref({ current: 0, total: 0, currentFile: '' })
+
+// 文件索引状态跟踪
+const indexingFiles = ref<Record<string, FileProcessingProgress>>({})
+const indexingStatus = ref(false)
+const progressCleanup = ref<(() => void) | null>(null)
 
 // 知识库统计
 const stats = ref({ fileCount: 0, chunkCount: 0, dbSize: 0 })
@@ -86,18 +104,25 @@ async function loadStats(): Promise<void> {
 async function handleUnlinkFile(fileId: string): Promise<void> {
   if (!currentKB.value) return
 
+  if (!confirm('确定要从知识库中移除此文档吗？移除后索引将与文档不匹配，需要手动重新索引。')) {
+    return
+  }
+
   unlinkingFileId.value = fileId
   const result = await unlinkFileFromKB(fileId, currentKB.value.id)
   unlinkingFileId.value = null
 
   if (result.success) {
     linkedFiles.value = linkedFiles.value.filter((f) => f.id !== fileId)
-    // 同时删除文件的向量索引
     await window.api.knowledge.removeFileIndex(currentKB.value.id, fileId)
-    // 刷新统计
     await loadStats()
-    // 通知父组件文件已取消关联
     emit('file-unlinked', currentKB.value.id, fileId)
+
+    if (linkedFiles.value.length > 0) {
+      if (confirm('文档删除，需要重新索引，不然索引与原文不匹配。\n\n是否立即重新索引？')) {
+        await handleReindex()
+      }
+    }
   } else {
     alert('取消关联失败: ' + (result.error || '未知错误'))
   }
@@ -112,26 +137,9 @@ function handleAddFiles(): void {
 }
 
 /**
- * 处理新关联的文件（同时索引文件）
- */
-async function handleFilesLinked(files: FileItem[]): Promise<void> {
-  if (!currentKB.value) return
-
-  for (const file of files) {
-    if (!linkedFiles.value.find((f) => f.id === file.id)) {
-      linkedFiles.value.push(file)
-      // 立即索引文件
-      await indexFile(file)
-    }
-  }
-  // 刷新统计
-  await loadStats()
-}
-
-/**
  * 索引单个文件
  */
-async function indexFile(file: FileItem): Promise<void> {
+async function indexSingleFile(file: FileItem): Promise<void> {
   if (!currentKB.value) return
 
   console.log('开始索引文件:', file.name)
@@ -146,6 +154,29 @@ async function indexFile(file: FileItem): Promise<void> {
     console.error('索引文件失败:', file.name, result.error)
   } else {
     console.log('文件索引成功:', file.name)
+    await loadStats()
+  }
+}
+
+/**
+ * 处理新关联的文件（自动索引）
+ */
+async function handleFilesLinked(files: FileItem[]): Promise<void> {
+  if (!currentKB.value) return
+
+  const filesToIndex: FileItem[] = []
+
+  for (const file of files) {
+    if (!linkedFiles.value.find((f) => f.id === file.id)) {
+      linkedFiles.value.push(file)
+      filesToIndex.push(file)
+    }
+  }
+
+  await loadStats()
+
+  for (const file of filesToIndex) {
+    await indexSingleFile(file)
   }
 }
 
@@ -231,6 +262,49 @@ async function handleSearch(): Promise<void> {
 }
 
 /**
+ * 更新索引状态
+ */
+function updateIndexingStatus(): void {
+  indexingStatus.value = Object.keys(indexingFiles.value).length > 0
+}
+
+/**
+ * 监听文件索引进度
+ */
+function handleFileProgress(data: FileProgressEvent): void {
+  console.log('收到文件进度事件:', data)
+  if (!currentKB.value || data.kbId !== currentKB.value.id) {
+    console.log('跳过进度事件，知识库ID不匹配:', {
+      eventKbId: data.kbId,
+      currentKbId: currentKB.value?.id
+    })
+    return
+  }
+
+  const { fileId, status } = data.progress
+  indexingFiles.value[fileId] = data.progress
+  updateIndexingStatus()
+  console.log('更新索引进度:', {
+    fileId,
+    status,
+    progress: data.progress.progress,
+    indexingFiles: indexingFiles.value
+  })
+
+  if (status === 'completed' || status === 'failed') {
+    setTimeout(() => {
+      delete indexingFiles.value[fileId]
+      updateIndexingStatus()
+    }, 1000)
+
+    if (status === 'completed') {
+      console.log('文件索引完成，更新统计信息')
+      void loadStats()
+    }
+  }
+}
+
+/**
  * 格式化数据库大小
  */
 function formatDBSize(bytes: number): string {
@@ -276,17 +350,26 @@ watch(
     if (currentKB.value) {
       loadLinkedFiles()
       loadStats()
-      // 重置搜索
       searchQuery.value = ''
       searchResults.value = []
       searchPerformed.value = false
     } else {
       linkedFiles.value = []
       stats.value = { fileCount: 0, chunkCount: 0, dbSize: 0 }
+      indexingFiles.value = {}
+      updateIndexingStatus()
     }
   },
   { immediate: true }
 )
+
+onMounted(() => {
+  progressCleanup.value = window.api.onFileProgress(handleFileProgress)
+})
+
+onUnmounted(() => {
+  progressCleanup.value?.()
+})
 
 // 暴露方法给父组件
 defineExpose({
@@ -317,7 +400,7 @@ function getFileIconBgClass(fileType: string): string {
           <div class="kb-actions">
             <button
               class="btn-secondary reindex-btn"
-              :disabled="reindexing || linkedFiles.length === 0"
+              :disabled="indexingStatus || reindexing || linkedFiles.length === 0"
               @click="handleReindex"
             >
               <span v-if="reindexing" class="spinner-tiny"></span>
@@ -422,7 +505,13 @@ function getFileIconBgClass(fileType: string): string {
           <div
             v-for="file in linkedFiles"
             :key="file.id"
-            :class="['document-card', { unlinking: unlinkingFileId === file.id }]"
+            :class="[
+              'document-card',
+              {
+                unlinking: unlinkingFileId === file.id,
+                'indexing-disabled': indexingStatus
+              }
+            ]"
           >
             <div class="document-card-header">
               <div :class="['document-icon', getFileIconBgClass(file.fileType)]">
@@ -430,7 +519,7 @@ function getFileIconBgClass(fileType: string): string {
               </div>
               <button
                 class="document-remove-btn"
-                :disabled="unlinkingFileId === file.id"
+                :disabled="unlinkingFileId === file.id || indexingStatus"
                 title="取消关联"
                 @click.stop="handleUnlinkFile(file.id)"
               >
@@ -443,6 +532,26 @@ function getFileIconBgClass(fileType: string): string {
               <div class="document-meta">
                 <span>{{ formatFileSize(file.size) }}</span>
                 <span>{{ formatDate(file.uploadedAt) }}</span>
+              </div>
+            </div>
+            <div v-if="indexingFiles[file.id]" class="file-progress">
+              <div class="progress-bar">
+                <div
+                  class="progress-fill"
+                  :style="{ width: `${indexingFiles[file.id].progress || 0}%` }"
+                ></div>
+              </div>
+              <div class="progress-text">
+                {{
+                  indexingFiles[file.id].status === 'processing'
+                    ? '索引中...'
+                    : indexingFiles[file.id].status === 'completed'
+                      ? '完成'
+                      : indexingFiles[file.id].status === 'failed'
+                        ? '失败'
+                        : ''
+                }}
+                {{ indexingFiles[file.id].progress || 0 }}%
               </div>
             </div>
           </div>
@@ -781,6 +890,36 @@ function getFileIconBgClass(fileType: string): string {
 .document-card.unlinking {
   opacity: 0.7;
   pointer-events: none;
+}
+
+.document-card.indexing-disabled {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* 文件进度条 */
+.file-progress {
+  margin-top: 8px;
+}
+
+.progress-bar {
+  height: 4px;
+  background-color: var(--theme-bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--theme-accent);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 11px;
+  color: var(--theme-text-secondary);
+  text-align: right;
 }
 
 .document-card-header {

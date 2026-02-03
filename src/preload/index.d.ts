@@ -611,6 +611,33 @@ interface KnowledgeBaseStats {
 }
 
 /**
+ * 文件处理进度回调
+ */
+interface FileProcessingProgress {
+  fileId: string
+  fileName: string
+  status: 'processing' | 'completed' | 'failed'
+  progress?: number
+  error?: string
+}
+
+/**
+ * 文件进度事件数据
+ */
+interface FileProgressEvent {
+  kbId: string
+  progress: FileProcessingProgress
+}
+
+/**
+ * 重新索引进度事件数据
+ */
+interface ReindexProgressEvent {
+  kbId: string
+  progress: { current: number; total: number; currentFile?: string }
+}
+
+/**
  * 知识库 API
  */
 interface KnowledgeApi {
@@ -646,6 +673,16 @@ interface KnowledgeApi {
   getDBSize: (
     kbId: string
   ) => Promise<{ success: boolean; data?: { size: number }; error?: string }>
+  getIndexingStatus: () => Promise<{
+    success: boolean
+    data?: {
+      isIndexing: boolean
+      indexingFiles: Array<{ kbId: string; fileId: string }>
+    }
+    error?: string
+  }>
+  onFileProgress: (callback: (data: FileProgressEvent) => void) => () => void
+  onReindexProgress: (callback: (data: ReindexProgressEvent) => void) => () => void
 }
 
 /**
@@ -688,6 +725,8 @@ interface CustomApi {
   embeddingModels: EmbeddingModelsApi
   knowledge: KnowledgeApi
   file: FileApi
+  onFileProgress: (callback: (data: FileProgressEvent) => void) => () => void
+  onReindexProgress: (callback: (data: ReindexProgressEvent) => void) => () => void
 }
 
 declare global {
