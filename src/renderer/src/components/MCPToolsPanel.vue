@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { ref, inject, watch, nextTick, onMounted, onUnmounted, type Ref } from 'vue'
+import { ref, inject, watch, nextTick, onMounted, onUnmounted, computed, type Ref } from 'vue'
 import type { MCPTool } from '@renderer/types'
 import { useMCPManager } from '@renderer/composables/mcp/useMCPManager'
 import { useMCPUI } from '@renderer/composables/mcp/useMCPUI'
+
+const props = defineProps<{
+  selectedTools?: MCPTool[]
+}>()
 
 const emit = defineEmits<{
   (e: 'tools-selected', tools: MCPTool[]): void
@@ -11,7 +15,7 @@ const emit = defineEmits<{
 // 注入 MCP 更新标志
 const mcpUpdateKey = inject<Ref<number>>('mcpUpdateKey', ref(0))
 
-// 使用合并后的 composables
+// 使用合并后的 composables（不包含选择状态）
 const {
   connectionStatuses,
   totalToolsCount,
@@ -22,18 +26,86 @@ const {
   expandedServers,
   filteredToolsByServer,
   toggleServer,
-  isServerExpanded,
-  selectedTools,
-  selectedToolsCount,
-  isToolSelected,
-  toggleTool,
-  removeTool,
-  clearSelection,
-  getSelectedTools
+  isServerExpanded
 } = useMCPManager()
 
-// toolsByServer 在模板中通过 useMCPManager() 访问
-void useMCPManager
+// 本地选择状态（从 props 初始化，保持与会话同步）
+const localSelectedTools = ref<MCPTool[]>(props.selectedTools ?? [])
+
+// 同步 props 到本地状态
+watch(
+  () => props.selectedTools,
+  (newVal) => {
+    if (newVal !== undefined) {
+      localSelectedTools.value = newVal
+    }
+  },
+  { immediate: true, deep: true }
+)
+
+// 已选择的工具数量
+const selectedToolsCount = computed(() => {
+  return localSelectedTools.value.length
+})
+
+/**
+ * 检查工具是否被选中
+ */
+function isToolSelected(tool: MCPTool): boolean {
+  return localSelectedTools.value.some(
+    (t) => t.name === tool.name && t.serverName === tool.serverName
+  )
+}
+
+/**
+ * 选择/取消选择工具（多选模式）
+ */
+function toggleTool(tool: MCPTool): void {
+  const index = localSelectedTools.value.findIndex(
+    (t) => t.name === tool.name && t.serverName === tool.serverName
+  )
+
+  if (index >= 0) {
+    // 取消选择
+    localSelectedTools.value.splice(index, 1)
+  } else {
+    // 添加选择
+    localSelectedTools.value.push(tool)
+  }
+
+  console.log('[MCPToolsPanel] 工具选择变更:', {
+    action: index >= 0 ? 'removed' : 'added',
+    tool: `${tool.serverName}/${tool.name}`,
+    selectedCount: localSelectedTools.value.length,
+    selectedTools: localSelectedTools.value.map((t) => `${t.serverName}/${t.name}`)
+  })
+}
+
+/**
+ * 移除单个工具
+ */
+function removeTool(tool: MCPTool): void {
+  const index = localSelectedTools.value.findIndex(
+    (t) => t.name === tool.name && t.serverName === tool.serverName
+  )
+  if (index >= 0) {
+    localSelectedTools.value.splice(index, 1)
+  }
+}
+
+/**
+ * 清除所有选择
+ */
+function clearSelection(): void {
+  localSelectedTools.value = []
+}
+
+/**
+ * 获取选中的工具列表
+ */
+function getSelectedTools(): MCPTool[] {
+  return [...localSelectedTools.value]
+}
 
 const {
   showPanel,
@@ -186,7 +258,7 @@ onUnmounted(() => {
         </div>
         <div class="selected-tools-list">
           <div
-            v-for="tool in selectedTools"
+            v-for="tool in localSelectedTools"
             :key="`selected-${tool.serverName}-${tool.name}`"
             class="selected-tool-chip"
             @click="scrollToTool(tool)"

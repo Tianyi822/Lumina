@@ -29,7 +29,7 @@ export function useMCPServerManager(): {
     onSuccess?: (msg: string) => void,
     onError?: (msg: string) => void
   ) => Promise<boolean>
-  onStatusChange: (callback: (event: MCPStatusChangeEvent) => void) => (() => void)
+  onStatusChange: (callback: (event: MCPStatusChangeEvent) => void) => () => void
 
   // 表单
   showForm: Ref<boolean>
