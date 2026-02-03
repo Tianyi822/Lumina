@@ -243,21 +243,9 @@ export class SessionService {
           const content = readFileSync(filePath, 'utf-8')
           const session = JSON.parse(content) as SessionData
 
-          // 获取最后一条消息预览
-          let lastMessage: string | undefined
-          if (session.messages && session.messages.length > 0) {
-            const lastMsg = session.messages[session.messages.length - 1]
-            lastMessage = lastMsg.content.substring(0, 50)
-            if (lastMsg.content.length > 50) {
-              lastMessage += '...'
-            }
-          }
-
           sessions.push({
             sessionId: session.sessionId,
             title: session.title,
-            description: session.description,
-            lastMessage,
             createdAt: session.createdAt,
             updatedAt: session.updatedAt
           })

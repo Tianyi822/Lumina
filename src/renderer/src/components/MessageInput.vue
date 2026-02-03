@@ -71,9 +71,6 @@ function updateSelectedTools(tools: MCPTool[]): void {
   emit('update:selectedMCPTools', tools)
 }
 
-// 压缩比例
-const compressionRatio = ref(0)
-
 // 从配置中加载的模型选项
 const modelOptions = ref<string[]>([])
 
@@ -231,12 +228,6 @@ onUnmounted(() => {
         @tools-selected="handleMCPToolsSelected"
       />
 
-      <!-- 压缩比例 -->
-      <div class="compression-info">
-        <span class="compression-icon">↓</span>
-        <span>压缩 ({{ compressionRatio }}%)</span>
-      </div>
-
       <!-- 执行/停止按钮 -->
       <button v-if="!isSending" class="btn-primary execute-btn" @click="handleSend">
         <span>执行</span>
@@ -338,18 +329,6 @@ onUnmounted(() => {
 
 .model-option.empty:hover {
   background-color: transparent;
-}
-
-.compression-info {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--theme-text-secondary);
-  font-size: 13px;
-}
-
-.compression-icon {
-  font-size: 12px;
 }
 
 .execute-btn {

@@ -40,7 +40,7 @@ export interface SessionData {
 export interface SessionListItem {
   sessionId: string
   title: string
-  lastMessage?: string
+  createdAt: string
   updatedAt: string
 }
 

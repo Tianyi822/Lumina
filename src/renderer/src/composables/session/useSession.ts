@@ -25,7 +25,6 @@ export function useSession(): {
   ) => Promise<void>
   deleteSession: (sessionId: string) => Promise<void>
   updateSessionTitle: (title: string) => void
-  updateSessionDescription: (description: string) => void
 } {
   // 当前会话数据
   const currentSession = ref<SessionData | null>(null)
@@ -219,22 +218,6 @@ export function useSession(): {
     }
   }
 
-  /**
-   * 更新会话简介
-   */
-  function updateSessionDescription(description: string): void {
-    if (currentSession.value) {
-      currentSession.value.description = description
-      // 同时更新会话列表中的简介
-      const listItem = sessionList.value.find(
-        (item) => item.sessionId === currentSession.value?.sessionId
-      )
-      if (listItem) {
-        listItem.description = description
-      }
-    }
-  }
-
   return {
     currentSession,
     currentChatId,
@@ -247,7 +230,6 @@ export function useSession(): {
     createSession,
     loadSession,
     deleteSession,
-    updateSessionTitle,
-    updateSessionDescription
+    updateSessionTitle
   }
 }

@@ -24,11 +24,7 @@ const filteredSessions = computed(() => {
     return props.sessions
   }
   const query = searchQuery.value.toLowerCase()
-  return props.sessions.filter(
-    (session) =>
-      session.title.toLowerCase().includes(query) ||
-      (session.lastMessage && session.lastMessage.toLowerCase().includes(query))
-  )
+  return props.sessions.filter((session) => session.title.toLowerCase().includes(query))
 })
 
 function handleNewChat(): void {

@@ -175,7 +175,6 @@ interface SessionData {
 interface SessionListItem {
   sessionId: string
   title: string
-  lastMessage?: string
   createdAt: string
   updatedAt: string
 }

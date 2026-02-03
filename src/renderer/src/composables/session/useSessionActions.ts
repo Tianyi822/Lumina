@@ -31,7 +31,6 @@ export interface SessionActionsReturn {
   handleSelectChat: (sessionId: string) => Promise<boolean>
   handleDeleteSession: (sessionId: string) => Promise<void>
   updateSessionTitle: (title: string) => void
-  updateSessionDescription: (description: string) => void
   // 输入状态管理
   currentInputState: Ref<SessionInputState>
   updateInputMessage: (message: string) => void
@@ -71,7 +70,6 @@ export function useSessionActions(chatStream: ChatStream): SessionActionsReturn 
     loadSession,
     deleteSession,
     updateSessionTitle,
-    updateSessionDescription,
     saveCurrentSession
   } = useSession()
 
@@ -178,7 +176,6 @@ export function useSessionActions(chatStream: ChatStream): SessionActionsReturn 
     handleSelectChat,
     handleDeleteSession,
     updateSessionTitle,
-    updateSessionDescription,
     // 输入状态管理
     currentInputState,
     updateInputMessage,

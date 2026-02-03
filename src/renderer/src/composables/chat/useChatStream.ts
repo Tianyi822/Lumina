@@ -13,8 +13,7 @@ export interface UseChatStreamReturn {
     saveSession?: () => Promise<void>,
     saveCachedSession?: (sessionId: string) => Promise<void>,
     chatError?: (error: string) => void,
-    sessionMessagesCache?: Map<string, Message[]>,
-    updateSessionDescription?: (description: string) => void
+    sessionMessagesCache?: Map<string, Message[]>
   ) => void
   cleanupStreamListener: () => void
   handleStreamEvent: (event: StreamEvent, sessionMessagesCache: Map<string, Message[]>) => void
@@ -53,7 +52,6 @@ export function useChatStream(): UseChatStreamReturn {
   let onSaveSession: (() => Promise<void>) | undefined
   let onSaveCachedSession: ((sessionId: string) => Promise<void>) | undefined
   let onChatError: ((error: string) => void) | undefined
-  let onUpdateSessionDescription: ((description: string) => void) | undefined
 
   /**
    * 初始化依赖项（延迟绑定）
@@ -63,15 +61,13 @@ export function useChatStream(): UseChatStreamReturn {
     getMessages: () => Message[],
     saveSession?: () => Promise<void>,
     saveCachedSession?: (sessionId: string) => Promise<void>,
-    chatError?: (error: string) => void,
-    updateSessionDescription?: (description: string) => void
+    chatError?: (error: string) => void
   ): void {
     currentSession = getCurrentSession
     messages = getMessages
     onSaveSession = saveSession
     onSaveCachedSession = saveCachedSession
     onChatError = chatError
-    onUpdateSessionDescription = updateSessionDescription
   }
 
   /**
@@ -235,16 +231,6 @@ export function useChatStream(): UseChatStreamReturn {
           // 清空快照，成功完成后保存会话
           messagesSnapshot = null
           streamingSessionId = null
-          // 如果是第一条消息（用户消息 + 助手消息），用助手回复作为简介
-          if (targetMessages.length === 2 && streamingMessage && streamingMessage.content) {
-            const description =
-              streamingMessage.content.length > 50
-                ? streamingMessage.content.substring(0, 50) + '...'
-                : streamingMessage.content
-            if (onUpdateSessionDescription) {
-              onUpdateSessionDescription(description)
-            }
-          }
           if (onSaveSession) {
             onSaveSession()
           }
@@ -320,18 +306,10 @@ export function useChatStream(): UseChatStreamReturn {
     saveSession?: () => Promise<void>,
     saveCachedSession?: (sessionId: string) => Promise<void>,
     chatError?: (error: string) => void,
-    sessionMessagesCache?: Map<string, Message[]>,
-    updateSessionDescription?: (description: string) => void
+    sessionMessagesCache?: Map<string, Message[]>
   ): void {
     // 初始化依赖项
-    init(
-      getCurrentSession,
-      getMessages,
-      saveSession,
-      saveCachedSession,
-      chatError,
-      updateSessionDescription
-    )
+    init(getCurrentSession, getMessages, saveSession, saveCachedSession, chatError)
 
     // 如果传入了缓存，使用缓存的引用
     const cache = sessionMessagesCache || new Map()

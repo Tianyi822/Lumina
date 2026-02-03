@@ -74,9 +74,6 @@ function formatTime(isoString: string): string {
           </button>
         </div>
       </div>
-      <div v-if="session.description || session.lastMessage" class="chat-preview">
-        {{ session.description || session.lastMessage }}
-      </div>
     </div>
     <div v-if="sessions.length === 0" class="empty-state">暂无对话记录</div>
   </div>
@@ -158,15 +155,6 @@ function formatTime(isoString: string): string {
 .delete-btn:hover {
   opacity: 1;
   color: var(--theme-danger, #f85149);
-}
-
-.chat-preview {
-  font-size: 12px;
-  color: var(--theme-text-secondary);
-  margin-top: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .empty-state {
