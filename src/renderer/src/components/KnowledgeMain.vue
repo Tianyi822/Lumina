@@ -53,7 +53,7 @@ const searchPerformed = ref(false)
 const reindexing = ref(false)
 const reindexProgress = ref({ current: 0, total: 0, currentFile: '' })
 
-// 文件索引状态跟踪
+// 文件索引状态跟踪 - 按 kbId:fileId 格式存储，确保知识库间隔离
 const indexingFiles = ref<Record<string, FileProcessingProgress>>({})
 const indexingStatus = ref(false)
 const progressCleanup = ref<(() => void) | null>(null)
@@ -269,6 +269,31 @@ function updateIndexingStatus(): void {
 }
 
 /**
+ * 生成索引进度的键
+ */
+function getProgressKey(kbId: string, fileId: string): string {
+  return `${kbId}:${fileId}`
+}
+
+/**
+ * 获取当前知识库的索引进度
+ */
+function getKbIndexingFiles(): Record<string, FileProcessingProgress> {
+  if (!currentKB.value) return {}
+  const prefix = `${currentKB.value.id}:`
+  const result: Record<string, FileProcessingProgress> = {}
+
+  for (const [key, progress] of Object.entries(indexingFiles.value)) {
+    if (key.startsWith(prefix)) {
+      const fileId = key.substring(prefix.length)
+      result[fileId] = progress
+    }
+  }
+
+  return result
+}
+
+/**
  * 监听文件索引进度
  */
 function handleFileProgress(data: FileProgressEvent): void {
@@ -282,18 +307,20 @@ function handleFileProgress(data: FileProgressEvent): void {
   }
 
   const { fileId, status } = data.progress
-  indexingFiles.value[fileId] = data.progress
+  const progressKey = getProgressKey(data.kbId, fileId)
+  indexingFiles.value[progressKey] = data.progress
   updateIndexingStatus()
   console.log('更新索引进度:', {
+    kbId: data.kbId,
     fileId,
     status,
     progress: data.progress.progress,
-    indexingFiles: indexingFiles.value
+    progressKey
   })
 
   if (status === 'completed' || status === 'failed') {
     setTimeout(() => {
-      delete indexingFiles.value[fileId]
+      delete indexingFiles.value[progressKey]
       updateIndexingStatus()
     }, 1000)
 
@@ -602,12 +629,12 @@ function getFileNameWithoutExtension(fileName: string): string {
               <div class="document-name" :title="file.name">
                 {{ getFileNameWithoutExtension(file.name) }}
               </div>
-              <div v-if="indexingFiles[file.id]" class="bottom-group">
+              <div v-if="getKbIndexingFiles()[file.id]" class="bottom-group">
                 <div class="file-progress">
                   <div class="progress-bar">
                     <div
                       class="progress-fill"
-                      :style="{ width: `${indexingFiles[file.id].progress || 0}%` }"
+                      :style="{ width: `${getKbIndexingFiles()[file.id].progress || 0}%` }"
                     ></div>
                   </div>
                 </div>

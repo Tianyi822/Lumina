@@ -1,31 +1,31 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readFile } from 'fs'
+import { existsSync, readFileSync, writeFileSync, readFile } from 'fs'
 import { join, extname, isAbsolute } from 'path'
 
 import { getConfigDirPath } from '@main/services/config/configPaths'
-import { getFilesStoragePath, getFileService } from '@main/services/file/FileService'
+import { getFilesStoragePath } from '@main/services/file/FileService'
 import { getVectorDBService, type DocumentChunk, type SearchResult } from '@main/services/vector'
-import { getEmbeddingService } from '@main/services/embedding'
+import { EmbeddingService } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
 import type { KnowledgeBase } from '@shared/types/knowledge'
 
 /**
  * 知识库数据文件路径
  */
-function getKnowledgeBaseFilePath(): string {
+export function getKnowledgeBaseFilePath(): string {
   return join(getConfigDirPath(), 'knowledge-bases.json')
 }
 
 /**
  * 创建空的知识库数据结构
  */
-function createEmptyKnowledgeBases(): KnowledgeBase[] {
+export function createEmptyKnowledgeBases(): KnowledgeBase[] {
   return []
 }
 
 /**
  * 读取知识库数据
  */
-function readKnowledgeBases(): KnowledgeBase[] {
+export function readKnowledgeBases(): KnowledgeBase[] {
   const filePath = getKnowledgeBaseFilePath()
   if (!existsSync(filePath)) {
     return createEmptyKnowledgeBases()
@@ -43,7 +43,7 @@ function readKnowledgeBases(): KnowledgeBase[] {
 /**
  * 写入知识库数据
  */
-function writeKnowledgeBases(knowledgeBases: KnowledgeBase[]): void {
+export function writeKnowledgeBases(knowledgeBases: KnowledgeBase[]): void {
   const filePath = getKnowledgeBaseFilePath()
   const content = JSON.stringify(knowledgeBases, null, 2)
   writeFileSync(filePath, content, 'utf-8')
@@ -162,142 +162,44 @@ export interface FileProcessingProgress {
 /**
  * 知识库管理服务
  * 提供知识库的增删改查功能，以及文档索引和搜索功能
+ * 每个知识库一个独立实例，实现操作隔离
  */
 export class KnowledgeService {
-  private knowledgeBases: KnowledgeBase[] = []
-  private loaded: boolean = false
+  private kbData: KnowledgeBase
+  private embeddingService: EmbeddingService
   private processingFiles: Set<string> = new Set()
 
-  /**
-   * 确保数据目录存在
-   */
-  private ensureDataDir(): void {
-    const dataDir = getConfigDirPath()
-    if (!existsSync(dataDir)) {
-      mkdirSync(dataDir, { recursive: true })
-    }
+  constructor(kbData: KnowledgeBase) {
+    this.kbData = kbData
+    this.embeddingService = new EmbeddingService()
+    this.embeddingService.setConfig(kbData.embeddingConfig)
+    logger.info('知识库服务实例已创建', 'main', { kbId: kbData.id, name: kbData.name })
   }
 
   /**
-   * 初始化知识库服务
+   * 清理资源
    */
-  initialize(): void {
-    try {
-      this.ensureDataDir()
-      this.knowledgeBases = readKnowledgeBases()
-      this.loaded = true
-      logger.info('知识库服务初始化成功', 'main', {
-        count: this.knowledgeBases.length
-      })
-    } catch (error) {
-      const errorMessage = `知识库服务初始化失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      this.knowledgeBases = []
-      this.loaded = true
-    }
+  cleanup(): void {
+    this.processingFiles.clear()
+    logger.info('知识库服务资源已清理', 'main', { kbId: this.kbData.id })
   }
 
   /**
-   * 获取所有知识库
+   * 获取当前知识库数据
    */
-  getAllKnowledgeBases(): KnowledgeBase[] {
-    if (!this.loaded) {
-      this.initialize()
-    }
-    return [...this.knowledgeBases]
+  getKBData(): KnowledgeBase {
+    return this.kbData
   }
 
   /**
-   * 根据ID获取知识库
+   * 更新当前知识库配置（当知识库被修改时调用）
    */
-  getKnowledgeBaseById(id: string): KnowledgeBase | null {
-    if (!this.loaded) {
-      this.initialize()
+  updateKBData(updates: Partial<KnowledgeBase>): void {
+    this.kbData = { ...this.kbData, ...updates }
+    if (updates.embeddingConfig) {
+      this.embeddingService.setConfig(updates.embeddingConfig)
     }
-    return this.knowledgeBases.find((kb) => kb.id === id) || null
-  }
-
-  /**
-   * 创建知识库
-   */
-  createKnowledgeBase(data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>): KnowledgeBase {
-    if (!this.loaded) {
-      this.initialize()
-    }
-
-    const newKB: KnowledgeBase = {
-      ...data,
-      id: `kb-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-
-    this.knowledgeBases.unshift(newKB)
-    this.save()
-
-    logger.info('知识库创建成功', 'main', { id: newKB.id, name: newKB.name })
-    return newKB
-  }
-
-  /**
-   * 更新知识库
-   */
-  updateKnowledgeBase(
-    id: string,
-    updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>
-  ): KnowledgeBase | null {
-    if (!this.loaded) {
-      this.initialize()
-    }
-
-    const index = this.knowledgeBases.findIndex((kb) => kb.id === id)
-    if (index === -1) {
-      return null
-    }
-
-    this.knowledgeBases[index] = {
-      ...this.knowledgeBases[index],
-      ...updates,
-      id: this.knowledgeBases[index].id,
-      createdAt: this.knowledgeBases[index].createdAt,
-      updatedAt: new Date().toISOString()
-    }
-
-    this.save()
-    logger.info('知识库更新成功', 'main', { id })
-    return this.knowledgeBases[index]
-  }
-
-  /**
-   * 删除知识库
-   */
-  deleteKnowledgeBase(id: string): boolean {
-    if (!this.loaded) {
-      this.initialize()
-    }
-
-    const index = this.knowledgeBases.findIndex((kb) => kb.id === id)
-    if (index === -1) {
-      return false
-    }
-
-    // 删除向量数据库
-    getVectorDBService().deleteKnowledgeBase(id)
-
-    // 从所有关联的文件中移除此知识库 ID
-    const kb = this.knowledgeBases[index]
-    if (kb.linkedFileIds && kb.linkedFileIds.length > 0) {
-      const fileService = getFileService()
-      for (const fileId of kb.linkedFileIds) {
-        fileService.unlinkFileFromKB(fileId, id)
-      }
-    }
-
-    this.knowledgeBases.splice(index, 1)
-    this.save()
-
-    logger.info('知识库删除成功', 'main', { id })
-    return true
+    logger.info('知识库数据已更新', 'main', { kbId: this.kbData.id })
   }
 
   /**
@@ -315,9 +217,8 @@ export class KnowledgeService {
     fileName: string,
     onProgress?: (progress: FileProcessingProgress) => void
   ): Promise<{ success: boolean; error?: string }> {
-    const kb = this.getKnowledgeBaseById(kbId)
-    if (!kb) {
-      return { success: false, error: '知识库不存在' }
+    if (kbId !== this.kbData.id) {
+      return { success: false, error: '知识库ID不匹配' }
     }
 
     // 检查文件类型
@@ -356,7 +257,7 @@ export class KnowledgeService {
       })
 
       // 分块
-      const chunks = splitTextIntoChunks(content, kb.chunkSize, kb.chunkOverlap)
+      const chunks = splitTextIntoChunks(content, this.kbData.chunkSize, this.kbData.chunkOverlap)
 
       if (chunks.length === 0) {
         this.processingFiles.delete(processingKey)
@@ -371,15 +272,14 @@ export class KnowledgeService {
       })
 
       // 生成嵌入向量（使用知识库绑定的配置）
-      const embeddingService = getEmbeddingService()
-      embeddingService.setConfig(kb.embeddingConfig)
+      this.embeddingService.setConfig(this.kbData.embeddingConfig)
 
       const embeddings: number[][] = []
       const batchSize = 10
 
       for (let i = 0; i < chunks.length; i += batchSize) {
         const batch = chunks.slice(i, i + batchSize)
-        const result = await embeddingService.embedBatch(batch)
+        const result = await this.embeddingService.embedBatch(batch)
 
         // 验证嵌入结果
         logger.debug('indexFile 收到嵌入结果', 'main', {
@@ -413,10 +313,15 @@ export class KnowledgeService {
       }))
 
       // 先删除旧数据（如果存在）
-      await getVectorDBService().deleteFileChunks(kbId, kb.embeddingDimension, fileId)
+      await getVectorDBService().deleteFileChunks(kbId, this.kbData.embeddingDimension, fileId)
 
       // 添加到向量数据库
-      await getVectorDBService().addChunks(kbId, kb.embeddingDimension, documentChunks, embeddings)
+      await getVectorDBService().addChunks(
+        kbId,
+        this.kbData.embeddingDimension,
+        documentChunks,
+        embeddings
+      )
 
       onProgress?.({
         fileId,
@@ -460,12 +365,11 @@ export class KnowledgeService {
     fileId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const kb = this.getKnowledgeBaseById(kbId)
-      if (!kb) {
-        return { success: false, error: '知识库不存在' }
+      if (kbId !== this.kbData.id) {
+        return { success: false, error: '知识库ID不匹配' }
       }
 
-      await getVectorDBService().deleteFileChunks(kbId, kb.embeddingDimension, fileId)
+      await getVectorDBService().deleteFileChunks(kbId, this.kbData.embeddingDimension, fileId)
 
       logger.info('文件索引已删除', 'main', { kbId, fileId })
       return { success: true }
@@ -494,9 +398,8 @@ export class KnowledgeService {
     failedErrors?: string[]
     error?: string
   }> {
-    const kb = this.getKnowledgeBaseById(kbId)
-    if (!kb) {
-      return { success: false, indexedCount: 0, failedFiles: [], error: '知识库不存在' }
+    if (kbId !== this.kbData.id) {
+      return { success: false, indexedCount: 0, failedFiles: [], error: '知识库ID不匹配' }
     }
 
     try {
@@ -537,8 +440,8 @@ export class KnowledgeService {
         }
       }
 
-      // 更新知识库的更新时间
-      this.updateKnowledgeBase(kbId, {})
+      // 更新知识库的更新时间（通过 Manager 处理）
+      this.kbData.updatedAt = new Date().toISOString()
 
       logger.info('知识库重新索引完成', 'main', {
         kbId,
@@ -577,9 +480,8 @@ export class KnowledgeService {
     limit: number = 5
   ): Promise<{ success: boolean; data?: { results: SearchResult[] }; error?: string }> {
     try {
-      const kb = this.getKnowledgeBaseById(kbId)
-      if (!kb) {
-        return { success: false, error: '知识库不存在' }
+      if (kbId !== this.kbData.id) {
+        return { success: false, error: '知识库ID不匹配' }
       }
 
       // 检查向量数据库是否存在
@@ -588,15 +490,14 @@ export class KnowledgeService {
       }
 
       // 使用知识库绑定的嵌入配置生成查询向量
-      const embeddingService = getEmbeddingService()
-      embeddingService.setConfig(kb.embeddingConfig)
+      this.embeddingService.setConfig(this.kbData.embeddingConfig)
 
-      const embeddingResult = await embeddingService.embed(query)
+      const embeddingResult = await this.embeddingService.embed(query)
 
       // 执行搜索
       const results = await getVectorDBService().search(
         kbId,
-        kb.embeddingDimension,
+        this.kbData.embeddingDimension,
         embeddingResult.embedding,
         limit
       )
@@ -619,9 +520,8 @@ export class KnowledgeService {
     error?: string
   }> {
     try {
-      const kb = this.getKnowledgeBaseById(kbId)
-      if (!kb) {
-        return { success: false, error: '知识库不存在' }
+      if (kbId !== this.kbData.id) {
+        return { success: false, error: '知识库ID不匹配' }
       }
 
       if (!getVectorDBService().exists(kbId)) {
@@ -631,7 +531,7 @@ export class KnowledgeService {
         }
       }
 
-      const stats = await getVectorDBService().getStats(kbId, kb.embeddingDimension)
+      const stats = await getVectorDBService().getStats(kbId, this.kbData.embeddingDimension)
       const dbSize = getVectorDBService().getDatabaseSize(kbId)
 
       return {
@@ -641,20 +541,6 @@ export class KnowledgeService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       return { success: false, error: errorMessage }
-    }
-  }
-
-  /**
-   * 保存知识库数据到文件
-   */
-  private save(): void {
-    try {
-      this.ensureDataDir()
-      writeKnowledgeBases(this.knowledgeBases)
-    } catch (error) {
-      const errorMessage = `保存知识库数据失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      throw new Error(errorMessage)
     }
   }
 
@@ -674,24 +560,4 @@ export class KnowledgeService {
       return { kbId, fileId }
     })
   }
-
-  /**
-   * 检查服务是否已加载
-   */
-  isLoaded(): boolean {
-    return this.loaded
-  }
-}
-
-// 单例实例
-let knowledgeServiceInstance: KnowledgeService | null = null
-
-/**
- * 获取知识库服务单例
- */
-export function getKnowledgeService(): KnowledgeService {
-  if (!knowledgeServiceInstance) {
-    knowledgeServiceInstance = new KnowledgeService()
-  }
-  return knowledgeServiceInstance
 }

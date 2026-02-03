@@ -3,4 +3,6 @@
  */
 
 export * from './KnowledgeService'
-export { getKnowledgeService } from './KnowledgeService'
+export * from './KnowledgeServiceManager'
+export { getKnowledgeServiceManager } from './KnowledgeServiceManager'
+export { readKnowledgeBases, writeKnowledgeBases } from './KnowledgeService'

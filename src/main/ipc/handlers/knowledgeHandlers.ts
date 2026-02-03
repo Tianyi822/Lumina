@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { getKnowledgeService, type FileProcessingProgress } from '@main/services/knowledge'
+import { getKnowledgeServiceManager, type FileProcessingProgress } from '@main/services/knowledge'
 import { getVectorDBService } from '@main/services/vector'
 import { logger } from '@main/services/logger'
 import { getMainWindow } from '@main/core/window'
@@ -11,7 +11,7 @@ import type { KnowledgeBase } from '@shared/types/knowledge'
  */
 export function initializeKnowledge(): void {
   try {
-    getKnowledgeService().initialize()
+    getKnowledgeServiceManager().initialize()
     logger.info('知识库服务已初始化')
   } catch (error) {
     const errorMessage = `知识库服务初始化失败: ${error instanceof Error ? error.message : String(error)}`
@@ -26,7 +26,7 @@ export function registerKnowledgeHandlers(): void {
   // 获取所有知识库
   ipcMain.handle('knowledge:getAll', () => {
     try {
-      const knowledgeBases = getKnowledgeService().getAllKnowledgeBases()
+      const knowledgeBases = getKnowledgeServiceManager().getAllKnowledgeBases()
       return {
         success: true,
         data: knowledgeBases
@@ -44,7 +44,7 @@ export function registerKnowledgeHandlers(): void {
   // 根据ID获取知识库
   ipcMain.handle('knowledge:getById', (_event, id: string) => {
     try {
-      const knowledgeBase = getKnowledgeService().getKnowledgeBaseById(id)
+      const knowledgeBase = getKnowledgeServiceManager().getKnowledgeBaseById(id)
       if (!knowledgeBase) {
         return {
           success: false,
@@ -70,7 +70,7 @@ export function registerKnowledgeHandlers(): void {
     'knowledge:create',
     async (_event, data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>) => {
       try {
-        const newKB = getKnowledgeService().createKnowledgeBase(data)
+        const newKB = getKnowledgeServiceManager().createKnowledgeBase(data)
         return {
           success: true,
           data: newKB
@@ -91,7 +91,7 @@ export function registerKnowledgeHandlers(): void {
     'knowledge:update',
     async (_event, id: string, updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>) => {
       try {
-        const updatedKB = getKnowledgeService().updateKnowledgeBase(id, updates)
+        const updatedKB = getKnowledgeServiceManager().updateKnowledgeBase(id, updates)
         if (!updatedKB) {
           return {
             success: false,
@@ -116,7 +116,7 @@ export function registerKnowledgeHandlers(): void {
   // 删除知识库
   ipcMain.handle('knowledge:delete', async (_event, id: string) => {
     try {
-      const success = getKnowledgeService().deleteKnowledgeBase(id)
+      const success = getKnowledgeServiceManager().deleteKnowledgeBase(id)
       if (!success) {
         return {
           success: false,
@@ -141,7 +141,13 @@ export function registerKnowledgeHandlers(): void {
     'knowledge:indexFile',
     async (_event, kbId: string, fileId: string, filePath: string, fileName: string) => {
       try {
-        const result = await getKnowledgeService().indexFile(
+        const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+        if (!kb) {
+          return { success: false, error: '知识库不存在' }
+        }
+
+        const service = getKnowledgeServiceManager().getOrCreateInstance(kbId, kb)
+        const result = await service.indexFile(
           kbId,
           fileId,
           filePath,
@@ -169,7 +175,13 @@ export function registerKnowledgeHandlers(): void {
   // 从知识库移除文件索引
   ipcMain.handle('knowledge:removeFileIndex', async (_event, kbId: string, fileId: string) => {
     try {
-      const result = await getKnowledgeService().removeFileIndex(kbId, fileId)
+      const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+      if (!kb) {
+        return { success: false, error: '知识库不存在' }
+      }
+
+      const service = getKnowledgeServiceManager().getOrCreateInstance(kbId, kb)
+      const result = await service.removeFileIndex(kbId, fileId)
       return result
     } catch (error) {
       const errorMessage = `移除文件索引失败: ${error instanceof Error ? error.message : String(error)}`
@@ -190,7 +202,13 @@ export function registerKnowledgeHandlers(): void {
       files: Array<{ fileId: string; filePath: string; fileName: string }>
     ) => {
       try {
-        const result = await getKnowledgeService().reindexKnowledgeBase(
+        const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+        if (!kb) {
+          return { success: false, error: '知识库不存在' }
+        }
+
+        const service = getKnowledgeServiceManager().getOrCreateInstance(kbId, kb)
+        const result = await service.reindexKnowledgeBase(
           kbId,
           files,
           (progress) => {
@@ -237,7 +255,13 @@ export function registerKnowledgeHandlers(): void {
     'knowledge:search',
     async (_event, kbId: string, query: string, limit?: number) => {
       try {
-        const result = await getKnowledgeService().search(kbId, query, limit)
+        const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+        if (!kb) {
+          return { success: false, error: '知识库不存在' }
+        }
+
+        const service = getKnowledgeServiceManager().getOrCreateInstance(kbId, kb)
+        const result = await service.search(kbId, query, limit)
         return result
       } catch (error) {
         const errorMessage = `搜索知识库失败: ${error instanceof Error ? error.message : String(error)}`
@@ -253,7 +277,13 @@ export function registerKnowledgeHandlers(): void {
   // 获取知识库统计信息
   ipcMain.handle('knowledge:getStats', async (_event, kbId: string) => {
     try {
-      const result = await getKnowledgeService().getStats(kbId)
+      const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+      if (!kb) {
+        return { success: false, error: '知识库不存在' }
+      }
+
+      const service = getKnowledgeServiceManager().getOrCreateInstance(kbId, kb)
+      const result = await service.getStats(kbId)
       return result
     } catch (error) {
       const errorMessage = `获取知识库统计失败: ${error instanceof Error ? error.message : String(error)}`
@@ -286,12 +316,13 @@ export function registerKnowledgeHandlers(): void {
   // 获取索引状态
   ipcMain.handle('knowledge:getIndexingStatus', () => {
     try {
-      const service = getKnowledgeService()
+      const manager = getKnowledgeServiceManager()
       return {
         success: true,
         data: {
-          isIndexing: service.isIndexing(),
-          indexingFiles: service.getIndexingFiles()
+          isIndexing: false,
+          indexingFiles: [],
+          activeStatusMap: manager.getAllActiveStatus()
         }
       }
     } catch (error) {
