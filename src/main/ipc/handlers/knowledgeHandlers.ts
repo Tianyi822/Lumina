@@ -136,7 +136,7 @@ export function registerKnowledgeHandlers(): void {
     }
   })
 
-  // 索引文件到知识库
+  // 索引文件到知识库（使用队列控制并发）
   ipcMain.handle(
     'knowledge:indexFile',
     async (_event, kbId: string, fileId: string, filePath: string, fileName: string) => {
@@ -146,21 +146,26 @@ export function registerKnowledgeHandlers(): void {
           return { success: false, error: '知识库不存在' }
         }
 
-        const service = getKnowledgeServiceManager().getOrCreateInstance(kbId, kb)
-        const result = await service.indexFile(
-          kbId,
-          fileId,
-          filePath,
-          fileName,
-          (progress: FileProcessingProgress) => {
-            const win = getMainWindow()
-            if (win) {
-              win.webContents.send('knowledge:file-progress', { kbId, progress })
+        const manager = getKnowledgeServiceManager()
+        const service = manager.getOrCreateInstance(kbId, kb)
+
+        // 使用队列执行索引任务，避免多个知识库同时索引导致阻塞
+        const result = await manager.executeIndexingTask(kbId, () =>
+          service.indexFile(
+            kbId,
+            fileId,
+            filePath,
+            fileName,
+            (progress: FileProcessingProgress) => {
+              const win = getMainWindow()
+              if (win) {
+                win.webContents.send('knowledge:file-progress', { kbId, progress })
+              }
+              logger.debug('文件索引进度', 'main', { kbId, fileId, progress })
             }
-            logger.debug('文件索引进度', 'main', { kbId, fileId, progress })
-          }
+          )
         )
-        return result
+        return result as { success: boolean; error?: string }
       } catch (error) {
         const errorMessage = `索引文件失败: ${error instanceof Error ? error.message : String(error)}`
         logger.error(errorMessage)
@@ -193,7 +198,7 @@ export function registerKnowledgeHandlers(): void {
     }
   })
 
-  // 重新索引整个知识库
+  // 重新索引整个知识库（使用队列控制并发）
   ipcMain.handle(
     'knowledge:reindex',
     async (
@@ -207,29 +212,35 @@ export function registerKnowledgeHandlers(): void {
           return { success: false, error: '知识库不存在' }
         }
 
-        const service = getKnowledgeServiceManager().getOrCreateInstance(kbId, kb)
-        const result = await service.reindexKnowledgeBase(
-          kbId,
-          files,
-          (progress) => {
-            const win = getMainWindow()
-            if (win) {
-              win.webContents.send('knowledge:reindex-progress', { kbId, progress })
+        const manager = getKnowledgeServiceManager()
+        const service = manager.getOrCreateInstance(kbId, kb)
+
+        // 使用队列执行重新索引任务，避免多个知识库同时索引导致阻塞
+        const result = await manager.executeIndexingTask(kbId, () =>
+          service.reindexKnowledgeBase(
+            kbId,
+            files,
+            (progress) => {
+              const win = getMainWindow()
+              if (win) {
+                win.webContents.send('knowledge:reindex-progress', { kbId, progress })
+              }
+              logger.debug('重新索引进度', 'main', { kbId, progress })
+            },
+            (fileProgress) => {
+              const win = getMainWindow()
+              if (win) {
+                win.webContents.send('knowledge:file-progress', { kbId, progress: fileProgress })
+              }
+              logger.debug('文件索引进度', 'main', {
+                kbId,
+                fileId: fileProgress.fileId,
+                progress: fileProgress
+              })
             }
-            logger.debug('重新索引进度', 'main', { kbId, progress })
-          },
-          (fileProgress) => {
-            const win = getMainWindow()
-            if (win) {
-              win.webContents.send('knowledge:file-progress', { kbId, progress: fileProgress })
-            }
-            logger.debug('文件索引进度', 'main', {
-              kbId,
-              fileId: fileProgress.fileId,
-              progress: fileProgress
-            })
-          }
+          )
         )
+        // result 直接是 reindexKnowledgeBase 的返回类型
         return {
           success: result.success,
           data: {
@@ -322,7 +333,9 @@ export function registerKnowledgeHandlers(): void {
         data: {
           isIndexing: false,
           indexingFiles: [],
-          activeStatusMap: manager.getAllActiveStatus()
+          activeStatusMap: manager.getAllActiveStatus(),
+          activeIndexingKbId: manager.getActiveIndexingKbId(),
+          queueLength: manager.getIndexingQueueLength()
         }
       }
     } catch (error) {

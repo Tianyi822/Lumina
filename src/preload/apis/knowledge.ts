@@ -200,7 +200,12 @@ export const knowledgeApi = {
    * 获取索引状态
    */
   getIndexingStatus: (): Promise<
-    ApiResponse<{ isIndexing: boolean; indexingFiles: Array<{ kbId: string; fileId: string }> }>
+    ApiResponse<{
+      isIndexing: boolean
+      indexingFiles: Array<{ kbId: string; fileId: string }>
+      activeIndexingKbId: string | null
+      queueLength: number
+    }>
   > => {
     return ipcRenderer.invoke('knowledge:getIndexingStatus')
   }

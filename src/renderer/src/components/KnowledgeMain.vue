@@ -55,7 +55,6 @@ const reindexProgress = ref({ current: 0, total: 0, currentFile: '' })
 
 // 文件索引状态跟踪 - 按 kbId:fileId 格式存储，确保知识库间隔离
 const indexingFiles = ref<Record<string, FileProcessingProgress>>({})
-const indexingStatus = ref(false)
 const progressCleanup = ref<(() => void) | null>(null)
 
 // 知识库统计
@@ -63,6 +62,13 @@ const stats = ref({ fileCount: 0, chunkCount: 0, dbSize: 0 })
 const loadingStats = ref(false)
 
 const currentKB = computed(() => props.knowledgeBase)
+
+// 计算当前知识库的索引状态（只影响当前知识库的操作）
+const indexingStatus = computed(() => {
+  if (!currentKB.value) return false
+  const prefix = `${currentKB.value.id}:`
+  return Object.keys(indexingFiles.value).some((key) => key.startsWith(prefix))
+})
 
 /**
  * 加载知识库关联的文件列表
@@ -262,13 +268,6 @@ async function handleSearch(): Promise<void> {
 }
 
 /**
- * 更新索引状态
- */
-function updateIndexingStatus(): void {
-  indexingStatus.value = Object.keys(indexingFiles.value).length > 0
-}
-
-/**
  * 生成索引进度的键
  */
 function getProgressKey(kbId: string, fileId: string): string {
@@ -309,7 +308,6 @@ function handleFileProgress(data: FileProgressEvent): void {
   const { fileId, status } = data.progress
   const progressKey = getProgressKey(data.kbId, fileId)
   indexingFiles.value[progressKey] = data.progress
-  updateIndexingStatus()
   console.log('更新索引进度:', {
     kbId: data.kbId,
     fileId,
@@ -321,7 +319,6 @@ function handleFileProgress(data: FileProgressEvent): void {
   if (status === 'completed' || status === 'failed') {
     setTimeout(() => {
       delete indexingFiles.value[progressKey]
-      updateIndexingStatus()
     }, 1000)
 
     if (status === 'completed') {
@@ -383,8 +380,7 @@ watch(
     } else {
       linkedFiles.value = []
       stats.value = { fileCount: 0, chunkCount: 0, dbSize: 0 }
-      indexingFiles.value = {}
-      updateIndexingStatus()
+      // 不清空 indexingFiles，保持其他知识库的进度
     }
   },
   { immediate: true }

@@ -678,6 +678,8 @@ interface KnowledgeApi {
     data?: {
       isIndexing: boolean
       indexingFiles: Array<{ kbId: string; fileId: string }>
+      activeIndexingKbId: string | null
+      queueLength: number
     }
     error?: string
   }>

@@ -13,9 +13,24 @@ export interface KnowledgeBaseIndexingStatus {
   indexingFiles: string[]
 }
 
+/**
+ * 索引任务队列项
+ */
+interface IndexingTask {
+  kbId: string
+  task: () => Promise<unknown>
+  resolve: (value: unknown) => void
+  reject: (reason: Error) => void
+}
+
 export class KnowledgeServiceManager {
   private instances: Map<string, KnowledgeService> = new Map()
   private loaded: boolean = false
+
+  // ==================== 并发控制 ====================
+  private indexingQueue: IndexingTask[] = []
+  private isProcessingIndexing: boolean = false
+  private activeIndexingKbId: string | null = null
 
   /**
    * 确保数据目录存在
@@ -236,6 +251,91 @@ export class KnowledgeServiceManager {
 
   getInstanceIds(): string[] {
     return Array.from(this.instances.keys())
+  }
+
+  // ==================== 并发控制 ====================
+
+  /**
+   * 执行索引任务（带并发控制）
+   * 同一时间只有一个知识库可以执行索引操作
+   */
+  async executeIndexingTask<T>(kbId: string, task: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      this.indexingQueue.push({
+        kbId,
+        task,
+        resolve: resolve as (value: unknown) => void,
+        reject
+      })
+      logger.debug('索引任务已加入队列', 'main', {
+        kbId,
+        queueLength: this.indexingQueue.length,
+        isProcessing: this.isProcessingIndexing,
+        activeKbId: this.activeIndexingKbId
+      })
+      void this.processIndexingQueue()
+    })
+  }
+
+  /**
+   * 处理索引任务队列
+   */
+  private async processIndexingQueue(): Promise<void> {
+    if (this.isProcessingIndexing) {
+      return
+    }
+
+    const nextTask = this.indexingQueue.shift()
+    if (!nextTask) {
+      return
+    }
+
+    this.isProcessingIndexing = true
+    this.activeIndexingKbId = nextTask.kbId
+
+    logger.info('开始执行索引任务', 'main', {
+      kbId: nextTask.kbId,
+      remainingTasks: this.indexingQueue.length
+    })
+
+    try {
+      const result = await nextTask.task()
+      nextTask.resolve(result)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('索引任务执行失败', 'main', { kbId: nextTask.kbId, error: errorMessage })
+      nextTask.reject(error instanceof Error ? error : new Error(errorMessage))
+    } finally {
+      this.isProcessingIndexing = false
+      this.activeIndexingKbId = null
+      logger.info('索引任务完成', 'main', { kbId: nextTask.kbId })
+
+      // 继续处理队列中的下一个任务
+      if (this.indexingQueue.length > 0) {
+        void this.processIndexingQueue()
+      }
+    }
+  }
+
+  /**
+   * 获取当前正在索引的知识库ID
+   */
+  getActiveIndexingKbId(): string | null {
+    return this.activeIndexingKbId
+  }
+
+  /**
+   * 获取索引队列长度
+   */
+  getIndexingQueueLength(): number {
+    return this.indexingQueue.length
+  }
+
+  /**
+   * 检查指定知识库是否有待处理的索引任务
+   */
+  hasPendingIndexingTask(kbId: string): boolean {
+    return this.indexingQueue.some((task) => task.kbId === kbId)
   }
 }
 
