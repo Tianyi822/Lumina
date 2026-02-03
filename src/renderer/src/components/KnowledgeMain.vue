@@ -23,6 +23,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'add-files', kbId: string): void
   (e: 'file-unlinked', kbId: string, fileId: string): void
+  (e: 'description-updated', kbId: string, description: string): void
 }>()
 
 // 文件管理
@@ -408,6 +409,82 @@ function closeSearchResults(): void {
   searchPerformed.value = false
 }
 
+// ==================== 知识库简介编辑 ====================
+const isEditingDescription = ref(false)
+const editingDescription = ref('')
+const descriptionTextareaRef = ref<HTMLTextAreaElement | null>(null)
+
+/**
+ * 开始编辑简介
+ */
+function startEditDescription(): void {
+  if (!currentKB.value) return
+  editingDescription.value = currentKB.value.description || ''
+  isEditingDescription.value = true
+  // 下一帧聚焦到 textarea
+  setTimeout(() => {
+    descriptionTextareaRef.value?.focus()
+  }, 0)
+}
+
+/**
+ * 保存简介
+ */
+async function saveDescription(): Promise<void> {
+  if (!currentKB.value) return
+
+  const trimmedDescription = editingDescription.value.trim()
+
+  // 如果描述没有变化，直接退出编辑模式
+  if (trimmedDescription === (currentKB.value.description || '')) {
+    isEditingDescription.value = false
+    return
+  }
+
+  try {
+    const result = await window.api.knowledge.update(currentKB.value.id, {
+      description: trimmedDescription
+    })
+
+    if (result.success) {
+      // 更新本地数据
+      if (currentKB.value) {
+        currentKB.value.description = trimmedDescription
+      }
+      // 通知父组件更新
+      emit('description-updated', currentKB.value.id, trimmedDescription)
+    } else {
+      console.error('保存简介失败:', result.error)
+      alert('保存简介失败: ' + (result.error || '未知错误'))
+    }
+  } catch (error) {
+    console.error('保存简介失败:', error)
+    alert('保存简介失败: ' + (error instanceof Error ? error.message : String(error)))
+  } finally {
+    isEditingDescription.value = false
+  }
+}
+
+/**
+ * 取消编辑简介
+ */
+function cancelEditDescription(): void {
+  isEditingDescription.value = false
+  editingDescription.value = ''
+}
+
+/**
+ * 处理简介编辑的键盘事件
+ */
+function handleDescriptionKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    cancelEditDescription()
+  } else if (event.key === 'Enter' && event.metaKey) {
+    // Cmd/Ctrl + Enter 保存
+    void saveDescription()
+  }
+}
+
 function getFileIconClass(fileType: string): string {
   switch (fileType.toLowerCase()) {
     case 'pdf':
@@ -452,9 +529,29 @@ function getFileNameWithoutExtension(fileName: string): string {
             <button class="btn-primary add-files-btn" @click="handleAddFiles">+ 添加文档</button>
           </div>
         </div>
-        <p v-if="currentKB.description" class="kb-description">
-          {{ currentKB.description }}
-        </p>
+        <div class="kb-description-container">
+          <textarea
+            v-if="isEditingDescription"
+            ref="descriptionTextareaRef"
+            v-model="editingDescription"
+            class="kb-description-input"
+            rows="2"
+            placeholder="输入知识库简介..."
+            @blur="saveDescription"
+            @keydown="handleDescriptionKeydown"
+          ></textarea>
+          <p
+            v-else
+            class="kb-description"
+            :class="{ 'kb-description-empty': !currentKB.description }"
+            @dblclick="startEditDescription"
+          >
+            {{ currentKB.description || '双击添加简介...' }}
+          </p>
+          <span v-if="!isEditingDescription" class="edit-hint" @click="startEditDescription"
+            >编辑</span
+          >
+        </div>
 
         <!-- 统计信息 -->
         <div class="kb-stats">
@@ -703,11 +800,70 @@ function getFileNameWithoutExtension(fileName: string): string {
   line-height: 28px;
 }
 
+.kb-description-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .kb-description {
   font-size: 13px;
   color: var(--theme-text-secondary);
-  margin: 0 0 12px 0;
+  margin: 0;
   line-height: 1.5;
+  cursor: pointer;
+  flex: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.kb-description:hover {
+  background-color: var(--theme-bg-secondary);
+}
+
+.kb-description-empty {
+  color: var(--theme-text-muted);
+  font-style: italic;
+}
+
+.kb-description-input {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 4px 8px;
+  border: 1px solid var(--theme-accent);
+  border-radius: 6px;
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
+  resize: vertical;
+  min-height: 40px;
+  font-family: inherit;
+}
+
+.kb-description-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.2);
+}
+
+.edit-hint {
+  font-size: 11px;
+  color: var(--theme-text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  opacity: 0;
+}
+
+.kb-description-container:hover .edit-hint {
+  opacity: 1;
+}
+
+.edit-hint:hover {
+  color: var(--theme-accent);
+  background-color: var(--theme-bg-secondary);
 }
 
 .kb-actions {

@@ -70,6 +70,14 @@ function handleFileUnlinked(kbId: string, fileId: string): void {
     kb.documentCount = kb.linkedFileIds.length
   }
 }
+
+function handleDescriptionUpdated(kbId: string, description: string): void {
+  // 更新 knowledgeBases 中的描述，确保数据同步
+  const kb = knowledgeBases.value.find((k) => k.id === kbId)
+  if (kb) {
+    kb.description = description
+  }
+}
 </script>
 
 <template>
@@ -87,6 +95,7 @@ function handleFileUnlinked(kbId: string, fileId: string): void {
       :knowledge-base="knowledgeBases.find((kb) => kb.id === activeKbId)"
       @add-files="handleAddFiles"
       @file-unlinked="handleFileUnlinked"
+      @description-updated="handleDescriptionUpdated"
     />
   </div>
 
