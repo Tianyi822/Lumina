@@ -53,19 +53,21 @@ function handleFilesLinked(files: FileItem[]): void {
     knowledgeMainRef.value.handleFilesLinked(files)
   }
 
-  // 更新 knowledgeBases 中的 linkedFileIds，确保 FileSelectorModal 能正确过滤
+  // 更新 knowledgeBases 中的 linkedFileIds 和 documentCount，确保 Sidebar 能正确显示
   const kb = knowledgeBases.value.find((k) => k.id === currentKBIdForSelector.value)
   if (kb) {
     const newFileIds = files.map((f) => f.id)
     kb.linkedFileIds = [...(kb.linkedFileIds || []), ...newFileIds]
+    kb.documentCount = kb.linkedFileIds.length
   }
 }
 
 function handleFileUnlinked(kbId: string, fileId: string): void {
-  // 更新 knowledgeBases 中的 linkedFileIds，确保 FileSelectorModal 能正确过滤
+  // 更新 knowledgeBases 中的 linkedFileIds 和 documentCount，确保 Sidebar 能正确显示
   const kb = knowledgeBases.value.find((k) => k.id === kbId)
   if (kb && kb.linkedFileIds) {
     kb.linkedFileIds = kb.linkedFileIds.filter((id) => id !== fileId)
+    kb.documentCount = kb.linkedFileIds.length
   }
 }
 </script>
