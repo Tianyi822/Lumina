@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import { sessionService } from '../../services/session'
 import { logger } from '../../services/logger'
-import type { SessionData, SessionListItem, SessionResult } from '../../types/session'
+import type { SessionData, SessionListItem, SessionResult, SessionType } from '../../types/session'
 
 /**
  * 注册会话相关的 IPC 处理程序
@@ -10,16 +10,19 @@ export function registerSessionHandlers(): void {
   /**
    * 创建新会话
    */
-  ipcMain.handle('session:create', async (_, title?: string): Promise<SessionData> => {
-    try {
-      logger.debug('收到创建会话请求', 'main', { title })
-      return sessionService.createSession(title)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('创建会话失败', 'main', { error: errorMessage })
-      throw new Error(errorMessage)
+  ipcMain.handle(
+    'session:create',
+    async (_, title?: string, type?: SessionType): Promise<SessionData> => {
+      try {
+        logger.debug('收到创建会话请求', 'main', { title, type })
+        return sessionService.createSession(title, type)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        logger.error('创建会话失败', 'main', { error: errorMessage })
+        throw new Error(errorMessage)
+      }
     }
-  })
+  )
 
   /**
    * 保存会话

@@ -164,10 +164,17 @@ interface SessionMessage {
 interface SessionData {
   sessionId: string
   title: string
+  description?: string
+  sessionType: SessionType
   createdAt: string
   updatedAt: string
   messages: SessionMessage[]
 }
+
+/**
+ * 会话类型
+ */
+type SessionType = 'default' | 'tool' | 'knowledge'
 
 /**
  * 会话列表项
@@ -175,6 +182,7 @@ interface SessionData {
 interface SessionListItem {
   sessionId: string
   title: string
+  sessionType: SessionType
   createdAt: string
   updatedAt: string
 }
@@ -191,7 +199,7 @@ interface SessionResult {
  * 会话 API
  */
 interface SessionApi {
-  create: (title?: string) => Promise<SessionData>
+  create: (title?: string, type?: SessionType) => Promise<SessionData>
   save: (data: SessionData) => Promise<SessionResult>
   load: (sessionId: string) => Promise<SessionData | null>
   list: () => Promise<SessionListItem[]>

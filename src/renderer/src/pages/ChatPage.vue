@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-import type { MCPTool } from '@renderer/types'
+import type { MCPTool, SessionType } from '@renderer/types'
 import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
@@ -45,8 +45,8 @@ async function handleStopRequest(): Promise<void> {
 }
 
 // ==================== 新聊天 ====================
-async function handleNewChat(): Promise<void> {
-  await sessionActions.handleNewChat()
+async function handleNewChat(sessionType?: SessionType): Promise<void> {
+  await sessionActions.handleNewChat(sessionType)
 
   // 新会话创建后重置发送状态
   const newSessionId = sessionActions.currentSession.value?.sessionId

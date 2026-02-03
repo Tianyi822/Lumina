@@ -1,6 +1,11 @@
 import { TokenUsage, MessageRole } from './chat'
 
 /**
+ * 会话类型
+ */
+export type SessionType = 'default' | 'tool' | 'knowledge'
+
+/**
  * 持久化消息结构（兼容现有 ChatMessage，增加元数据）
  */
 export interface SessionMessage {
@@ -30,6 +35,8 @@ export interface SessionMeta {
   title: string
   /** 会话简介 */
   description?: string
+  /** 会话类型 */
+  sessionType: SessionType
   /** 创建时间 */
   createdAt: string
   /** 更新时间 */
@@ -52,6 +59,8 @@ export interface SessionListItem {
   sessionId: string
   /** 会话标题 */
   title: string
+  /** 会话类型 */
+  sessionType: SessionType
   /** 创建时间 */
   createdAt: string
   /** 更新时间 */

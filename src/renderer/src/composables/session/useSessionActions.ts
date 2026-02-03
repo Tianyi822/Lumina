@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { Message, SessionData, SessionListItem, MCPTool } from '../../types'
+import type { Message, SessionData, SessionListItem, MCPTool, SessionType } from '../../types'
 import { useSession } from '../session/useSession'
 import { useMessageCache } from '../session/useMessageCache'
 import { useInputState, type SessionInputState } from '../input/useInputState'
@@ -25,9 +25,13 @@ export interface SessionActionsReturn {
   cacheSession: (sessionId: string, messages: Message[], title?: string) => void
   saveCachedSession: (sessionId: string) => Promise<void>
   loadSessionList: () => Promise<void>
-  createSession: (beforeCreate?: () => Promise<void>, newTitle?: string) => Promise<void>
+  createSession: (
+    beforeCreate?: () => Promise<void>,
+    newTitle?: string,
+    sessionType?: SessionType
+  ) => Promise<void>
   saveCurrentSession: () => Promise<void>
-  handleNewChat: () => Promise<void>
+  handleNewChat: (sessionType?: SessionType) => Promise<void>
   handleSelectChat: (sessionId: string) => Promise<boolean>
   handleDeleteSession: (sessionId: string) => Promise<void>
   updateSessionTitle: (title: string) => void
@@ -97,8 +101,8 @@ export function useSessionActions(chatStream: ChatStream): SessionActionsReturn 
   /**
    * 创建新会话
    */
-  async function handleNewChat(): Promise<void> {
-    await createSession(beforeCreateNewChat, DEFAULT_NEW_CHAT_TITLE)
+  async function handleNewChat(sessionType?: SessionType): Promise<void> {
+    await createSession(beforeCreateNewChat, DEFAULT_NEW_CHAT_TITLE, sessionType)
   }
 
   /**

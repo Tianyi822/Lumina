@@ -7,3 +7,4 @@ export const sessionService = new SessionService()
 
 export { SessionService } from './SessionService'
 export * from './sessionPaths'
+export * from './factories'

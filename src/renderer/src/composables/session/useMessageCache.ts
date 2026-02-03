@@ -1,5 +1,6 @@
 import { ref, type Ref } from 'vue'
-import type { Message, SessionData } from '../../types'
+import type { Message } from '@renderer/types'
+import type { SessionData } from '@shared/types/session'
 import { deepCopyMessages } from '../../utils/messageHelpers'
 
 /**
@@ -116,6 +117,8 @@ export function useMessageCache(): {
         const sessionToSave: SessionData = {
           sessionId: session.sessionId,
           title: titleToUse,
+          description: session.description,
+          sessionType: session.sessionType,
           createdAt: session.createdAt,
           updatedAt: new Date().toISOString(),
           messages: cachedMessages.map((msg) => ({

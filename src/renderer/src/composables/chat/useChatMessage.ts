@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { Message, MCPTool } from '../../types'
+import type { Message, MCPTool, SessionType } from '../../types'
 import { generateTitle, convertToToolReferences } from '../../utils/sessionHelpers'
 import { buildChatMessages } from '../../utils/messageHelpers'
 import type { SessionInputState } from '../input/useInputState'
@@ -17,7 +17,11 @@ interface SessionActions {
     ReturnType<(typeof import('../session/useSession'))['useSession']>['currentChatId']['value']
   >
   messages: Ref<Message[]>
-  createSession: (beforeCreate?: () => Promise<void>, newTitle?: string) => Promise<void>
+  createSession: (
+    beforeCreate?: () => Promise<void>,
+    newTitle?: string,
+    sessionType?: SessionType
+  ) => Promise<void>
   updateSessionTitle: (title: string) => void
   clearInputMessage: () => void
 }

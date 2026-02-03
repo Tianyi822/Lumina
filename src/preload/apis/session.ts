@@ -1,56 +1,10 @@
 import { ipcRenderer } from 'electron'
-
-/**
- * Token 使用统计
- */
-export interface TokenUsage {
-  prompt_tokens: number
-  completion_tokens: number
-  total_tokens: number
-  reasoning_tokens?: number
-}
-
-/**
- * 会话消息类型
- */
-export interface SessionMessage {
-  id: string
-  role: 'system' | 'user' | 'assistant'
-  content: string
-  reasoning?: string
-  timestamp: string
-  modelName?: string
-  usage?: TokenUsage
-}
-
-/**
- * 会话数据类型
- */
-export interface SessionData {
-  sessionId: string
-  title: string
-  createdAt: string
-  updatedAt: string
-  messages: SessionMessage[]
-}
-
-/**
- * 会话列表项类型
- */
-export interface SessionListItem {
-  sessionId: string
-  title: string
-  createdAt: string
-  updatedAt: string
-}
-
-/**
- * 会话操作结果类型
- */
-export interface SessionResult {
-  success: boolean
-  error?: string
-}
+import type {
+  SessionData,
+  SessionListItem,
+  SessionResult,
+  SessionType
+} from '@shared/types/session'
 
 /**
  * 会话相关的 API
@@ -59,8 +13,8 @@ export const sessionApi = {
   /**
    * 创建新会话
    */
-  create: (title?: string): Promise<SessionData> => {
-    return ipcRenderer.invoke('session:create', title)
+  create: (title?: string, type?: SessionType): Promise<SessionData> => {
+    return ipcRenderer.invoke('session:create', title, type)
   },
 
   /**

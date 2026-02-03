@@ -1,6 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs'
 import { join } from 'path'
-import { SessionData, SessionListItem, SessionMessage, SessionResult } from '@main/types/session'
+import {
+  SessionData,
+  SessionListItem,
+  SessionMessage,
+  SessionResult,
+  SessionType
+} from '@main/types/session'
 import { logger } from '@main/services/logger'
 import {
   getDataDirPath,
@@ -10,15 +16,7 @@ import {
   extractSessionIdFromFileName,
   sanitizeFileName
 } from './sessionPaths'
-
-/**
- * 生成唯一的会话 ID
- */
-function generateSessionId(): string {
-  const timestamp = Date.now()
-  const random = Math.random().toString(36).substring(2, 8)
-  return `session-${timestamp}-${random}`
-}
+import { SessionFactoryRegistry } from './factories'
 
 /**
  * 从消息内容生成会话标题
@@ -37,6 +35,7 @@ function generateTitle(firstMessage: string): string {
  */
 export class SessionService {
   private initialized: boolean = false
+  private registry: SessionFactoryRegistry = SessionFactoryRegistry.getInstance()
 
   /**
    * 确保数据目录存在
@@ -71,26 +70,21 @@ export class SessionService {
   /**
    * 创建新会话
    * @param title 可选的会话标题，如果不提供则使用默认标题
+   * @param sessionType 会话类型，默认为 DEFAULT
    */
-  createSession(title?: string): SessionData {
+  createSession(title?: string, sessionType?: SessionType): SessionData {
     this.ensureDataDir()
 
-    const sessionId = generateSessionId()
-    const now = new Date().toISOString()
-    const sessionTitle = title || '新对话'
+    const factory = this.registry.getFactoryOrDefault(sessionType)
+    const session = factory.create(title)
 
-    const session: SessionData = {
-      sessionId,
-      title: sessionTitle,
-      createdAt: now,
-      updatedAt: now,
-      messages: []
-    }
-
-    // 保存会话文件
     this.saveSession(session)
 
-    logger.info('会话创建成功', 'main', { sessionId, title: sessionTitle })
+    logger.info('会话创建成功', 'main', {
+      sessionId: session.sessionId,
+      title: session.title,
+      type: session.sessionType
+    })
     return session
   }
 
@@ -246,6 +240,7 @@ export class SessionService {
           sessions.push({
             sessionId: session.sessionId,
             title: session.title,
+            sessionType: session.sessionType || 'default',
             createdAt: session.createdAt,
             updatedAt: session.updatedAt
           })

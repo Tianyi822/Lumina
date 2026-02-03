@@ -1,5 +1,5 @@
 import { ref, type Ref } from 'vue'
-import type { Message, SessionData, SessionListItem } from '../../types'
+import type { Message, SessionData, SessionListItem, SessionType } from '../../types'
 import { sessionMessageToMessage, messageToSessionMessage } from '../../utils/messageHelpers'
 
 /**
@@ -15,7 +15,11 @@ export function useSession(): {
   loadSessionList: () => Promise<void>
   refreshSessionList: () => Promise<void>
   saveCurrentSession: () => Promise<void>
-  createSession: (beforeCreate?: () => Promise<void>, newTitle?: string) => Promise<void>
+  createSession: (
+    beforeCreate?: () => Promise<void>,
+    newTitle?: string,
+    sessionType?: SessionType
+  ) => Promise<void>
   loadSession: (
     sessionId: string,
     getCachedSession?: (
@@ -75,6 +79,7 @@ export function useSession(): {
         sessionId: currentSession.value.sessionId,
         title: currentSession.value.title,
         description: currentSession.value.description,
+        sessionType: currentSession.value.sessionType,
         createdAt: currentSession.value.createdAt,
         updatedAt: new Date().toISOString(),
         messages: messages.value.map(messageToSessionMessage)
@@ -100,14 +105,15 @@ export function useSession(): {
    */
   async function createSession(
     beforeCreate?: () => Promise<void>,
-    newTitle?: string
+    newTitle?: string,
+    sessionType?: SessionType
   ): Promise<void> {
     try {
       if (beforeCreate) {
         await beforeCreate()
       }
 
-      const session = await window.api.session.create()
+      const session = await window.api.session.create(newTitle, sessionType)
 
       if (newTitle) {
         session.title = newTitle
