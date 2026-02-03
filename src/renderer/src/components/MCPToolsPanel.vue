@@ -117,7 +117,7 @@ watch(mcpUpdateKey, () => {
 })
 
 // 监听 MCP 状态变更
-window.api.mcp.onStatusChange(() => {
+const unsubscribeMCPStatusChange = window.api.mcp.onStatusChange(() => {
   loadTools()
 })
 
@@ -139,6 +139,7 @@ onMounted(() => {
 // 卸载时移除监听
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  unsubscribeMCPStatusChange()
 })
 </script>
 

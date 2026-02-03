@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import MCPServerItem from '../mcp/MCPServerItem.vue'
 import MCPNewServerForm from '../mcp/MCPNewServerForm.vue'
 import { useMCPConfig } from '@renderer/composables/mcp/useMCPConfig'
@@ -158,13 +158,18 @@ async function importMCPConfigs(): Promise<void> {
 }
 
 // 监听 MCP 状态变更
-onStatusChange(() => {
+const unsubscribeMCPStatusChange = onStatusChange(() => {
   loadConfigs()
 })
 
 // 组件挂载时加载配置
 onMounted(() => {
   loadConfigs()
+})
+
+// 组件卸载时清理监听
+onUnmounted(() => {
+  unsubscribeMCPStatusChange()
 })
 </script>
 

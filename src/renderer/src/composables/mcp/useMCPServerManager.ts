@@ -29,7 +29,7 @@ export function useMCPServerManager(): {
     onSuccess?: (msg: string) => void,
     onError?: (msg: string) => void
   ) => Promise<boolean>
-  onStatusChange: (callback: (event: MCPStatusChangeEvent) => void) => void
+  onStatusChange: (callback: (event: MCPStatusChangeEvent) => void) => (() => void)
 
   // 表单
   showForm: Ref<boolean>
@@ -180,9 +180,8 @@ export function useMCPServerManager(): {
     }
   }
 
-  function onStatusChange(callback: (event: MCPStatusChangeEvent) => void): void {
-    window.api.mcp.onStatusChange(callback)
-    // 注意：在实际组件中，需要在 onUnmounted 中调用返回的取消订阅函数
+  function onStatusChange(callback: (event: MCPStatusChangeEvent) => void): () => void {
+    return window.api.mcp.onStatusChange(callback)
   }
 
   // ==================== 表单 ====================
