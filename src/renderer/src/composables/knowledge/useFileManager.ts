@@ -266,18 +266,14 @@ export function useFileManager(): UseFileManagerReturn {
   }
 
   /**
-   * 格式化日期（今天/昨天/X天前/YYYY-MM-DD）
+   * 格式化日期（2025/02/03）
    */
   function formatDate(dateStr: string): string {
     const date = new Date(dateStr)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 0) return '今天'
-    if (diffDays === 1) return '昨天'
-    if (diffDays < 7) return `${diffDays} 天前`
-    return date.toLocaleDateString('zh-CN')
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}/${month}/${day}`
   }
 
   return {

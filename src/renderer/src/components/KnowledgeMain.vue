@@ -376,17 +376,28 @@ defineExpose({
   handleFilesLinked
 })
 
-function getFileIconBgClass(fileType: string): string {
+function getFileIconClass(fileType: string): string {
   switch (fileType.toLowerCase()) {
     case 'pdf':
-      return 'file-icon-bg-pdf'
+      return 'file-icon-pdf'
     case 'txt':
-      return 'file-icon-bg-txt'
+      return 'file-icon-txt'
     case 'md':
-      return 'file-icon-bg-md'
+      return 'file-icon-md'
     default:
-      return 'file-icon-bg-default'
+      return 'file-icon-default'
   }
+}
+
+/**
+ * 获取不带扩展名的文件名
+ */
+function getFileNameWithoutExtension(fileName: string): string {
+  const lastDotIndex = fileName.lastIndexOf('.')
+  if (lastDotIndex > 0) {
+    return fileName.substring(0, lastDotIndex)
+  }
+  return fileName
 }
 </script>
 
@@ -514,8 +525,58 @@ function getFileIconBgClass(fileType: string): string {
             ]"
           >
             <div class="document-card-header">
-              <div :class="['document-icon', getFileIconBgClass(file.fileType)]">
-                <span class="file-type-label">{{ file.fileType.toUpperCase() }}</span>
+              <div :class="['document-icon', getFileIconClass(file.fileType)]">
+                <!-- PDF Icon -->
+                <svg
+                  v-if="file.fileType === 'pdf'"
+                  class="file-icon-svg"
+                  viewBox="0 0 1024 1024"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M204.8 0h477.866667l273.066666 273.066667v614.4c0 75.093333-61.44 136.533333-136.533333 136.533333H204.8c-75.093333 0-136.533333-61.44-136.533333-136.533333V136.533333C68.266667 61.44 129.706667 0 204.8 0z m477.866667 730.453333c20.48 0 68.266667 0 68.266666-47.786666 0-20.48-6.826667-47.786667-68.266666-47.786667-27.306667 0-54.613333 6.826667-81.92 6.826667-34.133333-27.306667-68.266667-61.44-88.746667-102.4 20.48-75.093333 20.48-122.88 6.826667-150.186667-6.826667-6.826667-20.48-13.653333-34.133334-13.653333-20.48 0-34.133333 6.826667-40.96 20.48-20.48 40.96 13.653333 116.053333 27.306667 150.186666-20.48 54.613333-40.96 109.226667-68.266667 163.84C273.066667 764.586667 273.066667 798.72 273.066667 812.373333c0 13.653333 6.826667 27.306667 20.48 34.133334 6.826667 6.826667 13.653333 6.826666 34.133333 0 68.266667-34.133333 116.053333-109.226666 54.613333-20.48 102.4-40.96 157.013333-47.786667 27.306667 20.48 61.44 34.133333 95.573334 34.133333z"
+                    fill="currentColor"
+                  />
+                </svg>
+
+                <!-- TXT Icon -->
+                <svg
+                  v-else-if="file.fileType === 'txt'"
+                  class="file-icon-svg"
+                  viewBox="0 0 1024 1024"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M899.072 403.968h-14.336V275.456c0-8.192-3.072-16.384-9.216-22.016L624.128 11.776c-6.144-5.632-13.312-8.704-21.504-8.704h-465.92C89.088 3.072 50.688 41.472 50.688 89.088v845.824c0 47.616 38.4 86.016 86.016 86.016h662.528c22.528 0 45.056-9.216 60.928-25.6 16.384-16.384 25.088-37.888 24.576-60.416v-60.416h14.848c22.528 0 43.52-8.704 59.392-25.088 15.872-15.872 24.576-36.864 24.064-58.88V487.936c0-46.08-37.888-83.968-83.968z m-292.864-324.096l185.856 178.176-185.856-4.608V79.872z"
+                    fill="currentColor"
+                  />
+                </svg>
+
+                <!-- MD Icon -->
+                <svg
+                  v-else-if="file.fileType === 'md'"
+                  class="file-icon-svg"
+                  viewBox="0 0 1024 1024"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M903.542857 256.8c6.857143 6.857143 10.742857 16.114286 10.742857 25.828571V987.428571c0 20.228571-16.342857 36.571429-36.571428 36.571429H146.285714c-20.228571 0-36.571429-16.342857-36.571429-36.571429V36.571429c0-20.228571 16.342857-36.571429 36.571428-36.571429h485.371429c9.714286 0 19.085714 3.885714 25.942857 10.742857l245.942857 246.057143zM829.942857 299.428571L614.857143 84.342857V299.428571h215.085714zM413.862857 613.634286l67.554286 151.965714a18.285714 18.285714 0 0 0 16.708571 10.857143h27.497143a18.285714 18.285714 0 0 0 16.72-10.868572l67.542857-152.4V793.142857a18.285714 18.285714 0 0 0 18.297143 18.285714H659.428571a18.285714 18.285714 0 0 0 18.285715-18.285714V482.285714a18.285714 18.285714 0 0 0-18.285715-18.285714h-39.714285a18.285714 18.285714 0 0 0-16.765715 10.994286L512.114286 683.657143l-90.834286-208.674286a18.285714 18.285714 0 0 0-16.765714-10.982857H364.571429a18.285714 18.285714 0 0 0-18.285715 18.285714v310.857143a18.285714 18.285714 0 0 0 18.285715 18.285714h31.005714a18.285714 18.285714 0 0 0 18.285714-18.285714V613.634286z"
+                    fill="currentColor"
+                  />
+                </svg>
+
+                <!-- Default Icon -->
+                <svg
+                  v-else
+                  class="file-icon-svg"
+                  viewBox="0 0 1024 1024"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M853.333333 256H640V42.666667h42.666667v170.666666h170.666666V256zM298.666667 896h426.666666V469.333333H298.666667v426.666667z m0-512h426.666666V298.666667H298.666667v85.333333zM256 128h298.666667v85.333333H256V128z"
+                    fill="currentColor"
+                  />
+                </svg>
               </div>
               <button
                 class="document-remove-btn"
@@ -528,30 +589,28 @@ function getFileIconBgClass(fileType: string): string {
               </button>
             </div>
             <div class="document-info">
-              <div class="document-name" :title="file.name">{{ file.name }}</div>
-              <div class="document-meta">
+              <div class="document-name" :title="file.name">
+                {{ getFileNameWithoutExtension(file.name) }}
+              </div>
+              <div v-if="indexingFiles[file.id]" class="bottom-group">
+                <div class="file-progress">
+                  <div class="progress-bar">
+                    <div
+                      class="progress-fill"
+                      :style="{ width: `${indexingFiles[file.id].progress || 0}%` }"
+                    ></div>
+                  </div>
+                </div>
+                <div class="document-meta">
+                  <span class="document-type">{{ file.fileType.toUpperCase() }}</span>
+                  <span>{{ formatFileSize(file.size) }}</span>
+                  <span>{{ formatDate(file.uploadedAt) }}</span>
+                </div>
+              </div>
+              <div v-else class="document-meta">
+                <span class="document-type">{{ file.fileType.toUpperCase() }}</span>
                 <span>{{ formatFileSize(file.size) }}</span>
                 <span>{{ formatDate(file.uploadedAt) }}</span>
-              </div>
-            </div>
-            <div v-if="indexingFiles[file.id]" class="file-progress">
-              <div class="progress-bar">
-                <div
-                  class="progress-fill"
-                  :style="{ width: `${indexingFiles[file.id].progress || 0}%` }"
-                ></div>
-              </div>
-              <div class="progress-text">
-                {{
-                  indexingFiles[file.id].status === 'processing'
-                    ? '索引中...'
-                    : indexingFiles[file.id].status === 'completed'
-                      ? '完成'
-                      : indexingFiles[file.id].status === 'failed'
-                        ? '失败'
-                        : ''
-                }}
-                {{ indexingFiles[file.id].progress || 0 }}%
               </div>
             </div>
           </div>
@@ -880,6 +939,7 @@ function getFileIconBgClass(fileType: string): string {
   gap: 12px;
   transition: all 0.2s ease;
   cursor: default;
+  min-height: 160px;
 }
 
 .document-card:hover {
@@ -899,27 +959,19 @@ function getFileIconBgClass(fileType: string): string {
 
 /* 文件进度条 */
 .file-progress {
-  margin-top: 8px;
 }
 
 .progress-bar {
-  height: 4px;
+  height: 3px;
   background-color: var(--theme-bg-hover);
   border-radius: 2px;
   overflow: hidden;
-  margin-bottom: 4px;
 }
 
 .progress-fill {
   height: 100%;
   background-color: var(--theme-accent);
   transition: width 0.3s ease;
-}
-
-.progress-text {
-  font-size: 11px;
-  color: var(--theme-text-secondary);
-  text-align: right;
 }
 
 .document-card-header {
@@ -936,33 +988,31 @@ function getFileIconBgClass(fileType: string): string {
   justify-content: center;
   border-radius: 8px;
   flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 700;
 }
 
-.file-icon-bg-pdf {
+.file-icon-pdf {
   background-color: rgba(248, 81, 73, 0.15);
   color: #f85149;
 }
 
-.file-icon-bg-txt {
+.file-icon-txt {
   background-color: rgba(88, 166, 255, 0.15);
   color: #58a6ff;
 }
 
-.file-icon-bg-md {
+.file-icon-md {
   background-color: rgba(63, 185, 80, 0.15);
   color: #3fb950;
 }
 
-.file-icon-bg-default {
+.file-icon-default {
   background-color: var(--theme-bg-hover);
   color: var(--theme-text-secondary);
 }
 
-.file-type-label {
-  font-size: 10px;
-  font-weight: 700;
+.file-icon-svg {
+  width: 24px;
+  height: 24px;
 }
 
 .document-remove-btn {
@@ -992,25 +1042,113 @@ function getFileIconBgClass(fileType: string): string {
 }
 
 .document-info {
-  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .document-name {
   font-size: 13px;
   font-weight: 500;
   color: var(--theme-text);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-progress {
+}
+
+.progress-bar {
+  height: 3px;
+  background-color: var(--theme-bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--theme-accent);
+  transition: width 0.3s ease;
+}
+
+.document-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--theme-text-secondary);
+}
+
+.bottom-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.document-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--theme-text);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 8px;
+}
+
+.file-progress {
   margin-bottom: 4px;
-  white-space: nowrap;
+}
+
+.document-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--theme-text-secondary);
+  margin-top: 0;
+}
+
+.file-progress:last-child + .document-meta {
+  margin-top: 0;
+}
+
+.document-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--theme-text);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .document-meta {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
   font-size: 11px;
   color: var(--theme-text-secondary);
+}
+
+.document-type {
+  font-size: 11px;
+  color: var(--theme-accent);
+  font-weight: 500;
 }
 
 /* Spinner */
