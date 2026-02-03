@@ -464,6 +464,8 @@ interface EmbeddingConfig {
  * 嵌入模型配置（扩展版）
  */
 interface EmbeddingModelConfig {
+  /** 提供商类型 */
+  provider?: EmbeddingProviderType
   /** API 基础 URL（OpenAI 兼容接口） */
   baseUrl: string
   /** API 密钥 */
@@ -541,11 +543,23 @@ interface FileItem {
   id: string
   name: string
   filePath: string
+  /** 文件的绝对路径，用于直接读取文件内容 */
+  absolutePath: string
   fileType: string
   size: number
   uploadedAt: string
   usedByKBIds: string[]
   contentHash?: string
+}
+
+/**
+ * 知识库嵌入模型配置
+ */
+interface KnowledgeBaseEmbeddingConfig {
+  baseUrl: string
+  apiKey?: string
+  model: string
+  dimensions: number
 }
 
 /**
@@ -555,7 +569,7 @@ interface KnowledgeBase {
   id: string
   name: string
   description?: string
-  embeddingModel: string
+  embeddingConfig: KnowledgeBaseEmbeddingConfig
   embeddingDimension: number
   chunkSize: number
   chunkOverlap: number
@@ -563,6 +577,37 @@ interface KnowledgeBase {
   updatedAt: string
   documentCount?: number
   linkedFileIds: string[]
+}
+
+/**
+ * 搜索结果
+ */
+interface SearchResult {
+  chunkId: number
+  fileId: string
+  fileName: string
+  content: string
+  chunkIndex: number
+  totalChunks: number
+  similarity: number
+}
+
+/**
+ * 重新索引响应
+ */
+interface ReindexResponse {
+  indexedCount: number
+  failedFiles: string[]
+  failedErrors?: string[]
+}
+
+/**
+ * 知识库统计信息
+ */
+interface KnowledgeBaseStats {
+  fileCount: number
+  chunkCount: number
+  dbSize: number
 }
 
 /**
@@ -579,6 +624,28 @@ interface KnowledgeApi {
     updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>
   ) => Promise<{ success: boolean; data?: KnowledgeBase; error?: string }>
   delete: (id: string) => Promise<{ success: boolean; error?: string }>
+  indexFile: (
+    kbId: string,
+    fileId: string,
+    filePath: string,
+    fileName: string
+  ) => Promise<{ success: boolean; error?: string }>
+  removeFileIndex: (kbId: string, fileId: string) => Promise<{ success: boolean; error?: string }>
+  reindex: (
+    kbId: string,
+    files: Array<{ fileId: string; filePath: string; fileName: string }>
+  ) => Promise<{ success: boolean; data?: ReindexResponse; error?: string }>
+  search: (
+    kbId: string,
+    query: string,
+    limit?: number
+  ) => Promise<{ success: boolean; data?: { results?: SearchResult[] }; error?: string }>
+  getStats: (
+    kbId: string
+  ) => Promise<{ success: boolean; data?: KnowledgeBaseStats; error?: string }>
+  getDBSize: (
+    kbId: string
+  ) => Promise<{ success: boolean; data?: { size: number }; error?: string }>
 }
 
 /**

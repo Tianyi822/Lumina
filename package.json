@@ -23,10 +23,14 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@lancedb/lancedb": "^0.23.0",
     "@modelcontextprotocol/sdk": "^1.25.3",
+    "apache-arrow": "^21.1.0",
     "electron-updater": "^6.3.9",
     "markdown-it": "^14.1.0",
     "openai": "^6.16.0",
+    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.4.624",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -35,6 +39,7 @@
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^25.0.10",
+    "@types/pdf-parse": "^1.1.5",
     "@vitejs/plugin-vue": "^6.0.2",
     "electron": "^40.0.0",
     "electron-builder": "^26.0.12",

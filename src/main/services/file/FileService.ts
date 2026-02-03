@@ -15,7 +15,7 @@ function getFilesMetadataPath(): string {
 /**
  * 获取文件存储目录路径
  */
-function getFilesStoragePath(): string {
+export function getFilesStoragePath(): string {
   const filesPath = join(getConfigDirPath(), 'data', 'files')
   return filesPath
 }
@@ -107,7 +107,12 @@ export class FileService {
 
     try {
       const content = readFileSync(filePath, 'utf-8')
-      this.files = JSON.parse(content) as FileItem[]
+      const files = JSON.parse(content) as FileItem[]
+      // 为旧文件（没有 absolutePath 的）补充完整路径
+      this.files = files.map((file) => ({
+        ...file,
+        absolutePath: file.absolutePath || join(getFilesStoragePath(), file.filePath)
+      }))
     } catch (error) {
       logger.error('读取文件元数据失败', 'main', { error })
       this.files = []
@@ -246,6 +251,7 @@ export class FileService {
         id: `file-${timestamp}`,
         name: fileName,
         filePath: safeFileName,
+        absolutePath: filePath,
         fileType: this.getFileType(fileName),
         size: fileData.length,
         uploadedAt: new Date().toISOString(),

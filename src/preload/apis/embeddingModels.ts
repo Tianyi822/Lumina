@@ -10,7 +10,7 @@ export type EmbeddingProviderType = 'openai' | 'aliyun' | 'ollama' | 'custom'
  */
 export interface EmbeddingConfig {
   /** 提供商类型 */
-  provider: EmbeddingProviderType
+  provider?: EmbeddingProviderType
   /** API 基础 URL（OpenAI 兼容接口） */
   baseUrl: string
   /** API 密钥 */

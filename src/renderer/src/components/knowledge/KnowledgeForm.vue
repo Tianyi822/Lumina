@@ -19,7 +19,12 @@ const emit = defineEmits<{
     data: {
       name: string
       description: string
-      embeddingModel: string
+      embeddingConfig: {
+        baseUrl: string
+        apiKey?: string
+        model: string
+        dimensions: number
+      }
       embeddingDimension: number
       chunkSize: number
       chunkOverlap: number
@@ -85,11 +90,18 @@ function handleSubmit(): void {
     chunkOverlap = strategy.overlap
   }
 
+  const config = selectedModelConfig.value
+
   const data = {
     name: name.value.trim(),
-    description: description.value.trim(),
-    embeddingModel: embeddingModel.value,
-    embeddingDimension: selectedModelConfig.value.dimensions,
+    description: name.value.trim(),
+    embeddingConfig: {
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+      model: config.model,
+      dimensions: config.dimensions
+    },
+    embeddingDimension: config.dimensions,
     chunkSize,
     chunkOverlap
   }
@@ -190,14 +202,13 @@ function resetForm(): void {
               />
               <div class="strategy-info">
                 <div class="strategy-name">{{ strategy.name }}</div>
-                <div class="strategy-params">{{ strategy.size }} tokens / {{ strategy.overlap }} overlap</div>
+                <div class="strategy-params">
+                  {{ strategy.size }} tokens / {{ strategy.overlap }} overlap
+                </div>
                 <div class="strategy-desc">{{ strategy.desc }}</div>
               </div>
             </label>
-            <label
-              class="strategy-option"
-              :class="{ active: useCustomChunk }"
-            >
+            <label class="strategy-option" :class="{ active: useCustomChunk }">
               <input
                 type="radio"
                 name="chunk-strategy"

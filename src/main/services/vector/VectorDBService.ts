@@ -1,0 +1,454 @@
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'fs'
+import { join } from 'path'
+import * as lancedb from '@lancedb/lancedb'
+
+import { getVectorDBDirPath } from '@main/services/config/configPaths'
+import { logger } from '@main/services/logger'
+
+/**
+ * 文档块数据结构
+ */
+export interface DocumentChunk {
+  id?: number
+  fileId: string
+  fileName: string
+  content: string
+  chunkIndex: number
+  totalChunks: number
+}
+
+/**
+ * 搜索结果
+ */
+export interface SearchResult {
+  chunkId: number
+  fileId: string
+  fileName: string
+  content: string
+  chunkIndex: number
+  totalChunks: number
+  similarity: number
+}
+
+/**
+ * 向量记录
+ */
+interface VectorRecord extends Record<string, unknown> {
+  chunk_id: number
+  file_id: string
+  file_name: string
+  content: string
+  chunk_index: number
+  total_chunks: number
+  embedding: number[]
+}
+
+/**
+ * 向量数据库服务
+ * 使用 LanceDB 为每个知识库管理独立的向量数据库
+ */
+export class VectorDBService {
+  private dbConnections: Map<string, lancedb.Connection> = new Map()
+  private tables: Map<string, lancedb.Table> = new Map()
+  private indexedTables: Set<string> = new Set()
+
+  /**
+   * 确保数据目录存在
+   */
+  private ensureDataDir(): void {
+    const dataDir = getVectorDBDirPath()
+    if (!existsSync(dataDir)) {
+      mkdirSync(dataDir, { recursive: true })
+      logger.info('创建向量数据库目录', 'main', { path: dataDir })
+    }
+  }
+
+  /**
+   * 获取数据库路径
+   */
+  private getDatabasePath(kbId: string): string {
+    this.ensureDataDir()
+    const dataDir = getVectorDBDirPath()
+    // LanceDB 使用目录作为数据库，使用简单路径而非 file:// 协议
+    return join(dataDir, kbId)
+  }
+
+  /**
+   * 获取或创建数据库连接
+   */
+  private async getConnection(kbId: string): Promise<lancedb.Connection> {
+    if (this.dbConnections.has(kbId)) {
+      return this.dbConnections.get(kbId)!
+    }
+
+    const dbPath = this.getDatabasePath(kbId)
+    const db = await lancedb.connect(dbPath)
+
+    this.dbConnections.set(kbId, db)
+    logger.info('LanceDB 连接已建立', 'main', { kbId, path: dbPath })
+
+    return db
+  }
+
+  /**
+   * 添加文档块及其向量
+   */
+  async addChunks(
+    kbId: string,
+    dimension: number,
+    chunks: DocumentChunk[],
+    embeddings: number[][]
+  ): Promise<void> {
+    if (chunks.length !== embeddings.length) {
+      throw new Error('文档块数量和向量数量不匹配')
+    }
+
+    logger.info('addChunks 开始', 'main', {
+      kbId,
+      dimension,
+      chunkCount: chunks.length
+    })
+
+    // 构建记录 - 使用唯一 ID 避免冲突
+    const baseId = Date.now()
+    const records: VectorRecord[] = chunks.map((chunk, index) => ({
+      chunk_id: baseId + index,
+      file_id: chunk.fileId,
+      file_name: chunk.fileName,
+      content: chunk.content,
+      chunk_index: chunk.chunkIndex,
+      total_chunks: chunk.totalChunks,
+      embedding: embeddings[index]
+    }))
+
+    const tableKey = `${kbId}_chunks`
+
+    try {
+      const db = await this.getConnection(kbId)
+
+      // 尝试打开现有表
+      let table: lancedb.Table | undefined
+      let isNewTable = false
+
+      try {
+        table = await db.openTable('chunks')
+        logger.debug('成功打开现有表', 'main', { kbId })
+      } catch {
+        logger.info('表不存在，将创建新表', 'main', { kbId })
+      }
+
+      if (!table) {
+        // 创建新表并添加数据
+        table = await db.createTable('chunks', records)
+        isNewTable = true
+        this.tables.set(tableKey, table)
+        logger.info('新表已创建并添加数据', 'main', { kbId, count: records.length })
+      } else {
+        // 表已存在，添加数据
+        await table.add(records)
+        this.tables.set(tableKey, table)
+        logger.info('数据已添加到现有表', 'main', { kbId, count: records.length })
+      }
+
+      // 创建索引（如果是新表或首次添加数据）
+      if (!this.indexedTables.has(tableKey)) {
+        await this.createVectorIndex(table, kbId, tableKey)
+      }
+
+      // 验证数据是否写入
+      const rowCount = await table.countRows()
+      logger.info('addChunks 完成', 'main', { kbId, rowCount, isNewTable })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('添加文档块失败', 'main', { kbId, error: errorMessage })
+      throw new Error(`添加文档块失败: ${errorMessage}`)
+    }
+  }
+
+  /**
+   * 创建向量索引
+   */
+  private async createVectorIndex(
+    table: lancedb.Table,
+    kbId: string,
+    tableKey: string
+  ): Promise<void> {
+    try {
+      const rowCount = await table.countRows()
+      logger.debug('检查索引创建条件', 'main', { kbId, rowCount })
+
+      if (rowCount === 0) {
+        logger.debug('表为空，跳过创建索引', 'main', { kbId })
+        return
+      }
+
+      // 创建 IVF_PQ 索引
+      await table.createIndex('embedding', {
+        config: lancedb.Index.ivfPq({
+          distanceType: 'cosine'
+        })
+      })
+
+      this.indexedTables.add(tableKey)
+      logger.info('向量索引已创建', 'main', { kbId })
+    } catch (error) {
+      logger.warn('创建索引失败（可能已存在）', 'main', { kbId, error })
+      // 标记为已索引，避免重复尝试
+      this.indexedTables.add(tableKey)
+    }
+  }
+
+  /**
+   * 删除指定文件的所有文档块
+   */
+  async deleteFileChunks(kbId: string, _dimension: number, fileId: string): Promise<void> {
+    try {
+      if (!this.exists(kbId)) {
+        logger.debug('数据库不存在，跳过删除', 'main', { kbId })
+        return
+      }
+
+      const db = await this.getConnection(kbId)
+      let table: lancedb.Table
+
+      try {
+        table = await db.openTable('chunks')
+      } catch {
+        logger.debug('表不存在，跳过删除', 'main', { kbId })
+        return
+      }
+
+      await table.delete(`file_id = '${fileId}'`)
+      logger.info('文件文档块已删除', 'main', { kbId, fileId })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('删除文件文档块失败', 'main', { kbId, fileId, error: errorMessage })
+      throw new Error(`删除文件文档块失败: ${errorMessage}`)
+    }
+  }
+
+  /**
+   * 相似性搜索
+   */
+  async search(
+    kbId: string,
+    _dimension: number,
+    queryEmbedding: number[],
+    limit: number = 5
+  ): Promise<SearchResult[]> {
+    try {
+      if (!this.exists(kbId)) {
+        logger.debug('数据库不存在，返回空结果', 'main', { kbId })
+        return []
+      }
+
+      const db = await this.getConnection(kbId)
+      let table: lancedb.Table
+
+      try {
+        table = await db.openTable('chunks')
+      } catch {
+        logger.debug('表不存在，返回空结果', 'main', { kbId })
+        return []
+      }
+
+      const results = await table.query().nearestTo(queryEmbedding).limit(limit).toArray()
+
+      logger.debug('搜索完成', 'main', { kbId, resultCount: results.length })
+
+      return results.map((r) => ({
+        chunkId: r.chunk_id as number,
+        fileId: r.file_id as string,
+        fileName: r.file_name as string,
+        content: r.content as string,
+        chunkIndex: r.chunk_index as number,
+        totalChunks: r.total_chunks as number,
+        similarity: 1 - ((r._distance as number) || 0)
+      }))
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('向量搜索失败', 'main', { kbId, error: errorMessage })
+      throw new Error(`向量搜索失败: ${errorMessage}`)
+    }
+  }
+
+  /**
+   * 获取知识库的文档统计信息
+   */
+  async getStats(
+    kbId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _dimension: number
+  ): Promise<{ fileCount: number; chunkCount: number }> {
+    logger.debug('getStats 开始', 'main', { kbId })
+
+    try {
+      if (!this.exists(kbId)) {
+        logger.debug('数据库目录不存在', 'main', { kbId })
+        return { fileCount: 0, chunkCount: 0 }
+      }
+
+      const db = await this.getConnection(kbId)
+      let table: lancedb.Table
+
+      try {
+        table = await db.openTable('chunks')
+        logger.debug('成功打开表', 'main', { kbId })
+      } catch (error) {
+        logger.debug('打开表失败', 'main', { kbId, error })
+        return { fileCount: 0, chunkCount: 0 }
+      }
+
+      const chunkCount = await table.countRows()
+      logger.debug('获取到行数', 'main', { kbId, chunkCount })
+
+      // 获取唯一文件数
+      let uniqueFileIds = new Set<string>()
+      if (chunkCount > 0) {
+        const files = await table.query().limit(10000).toArray()
+        uniqueFileIds = new Set(files.map((r) => r.file_id as string))
+        logger.debug('获取到文件列表', 'main', { kbId, fileCount: uniqueFileIds.size })
+      }
+
+      return {
+        fileCount: uniqueFileIds.size,
+        chunkCount
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('获取统计信息失败', 'main', { kbId, error: errorMessage })
+      return { fileCount: 0, chunkCount: 0 }
+    }
+  }
+
+  /**
+   * 删除整个知识库的向量数据库
+   */
+  deleteKnowledgeBase(kbId: string): void {
+    const tableKey = `${kbId}_chunks`
+
+    // 关闭并清除缓存的连接
+    const conn = this.dbConnections.get(kbId)
+    if (conn) {
+      try {
+        conn.close()
+      } catch (error) {
+        logger.debug('关闭数据库连接时出错', 'main', { kbId, error })
+      }
+    }
+
+    // 关闭并清除缓存的表
+    const table = this.tables.get(tableKey)
+    if (table) {
+      try {
+        table.close()
+      } catch (error) {
+        logger.debug('关闭表时出错', 'main', { kbId, error })
+      }
+    }
+
+    // 清除缓存
+    this.tables.delete(tableKey)
+    this.indexedTables.delete(tableKey)
+    this.dbConnections.delete(kbId)
+
+    const dataDir = getVectorDBDirPath()
+
+    // 删除数据库目录
+    const dbPath = join(dataDir, kbId)
+    if (existsSync(dbPath)) {
+      try {
+        rmSync(dbPath, { recursive: true, force: true })
+        logger.info('知识库向量数据库已删除', 'main', { kbId, path: dbPath })
+      } catch (error) {
+        logger.error('删除知识库向量数据库失败', 'main', { kbId, path: dbPath, error })
+      }
+    }
+
+    // 删除旧格式数据库文件（兼容旧版本）
+    const oldDbPath = join(dataDir, `${kbId}.db`)
+    if (existsSync(oldDbPath)) {
+      try {
+        rmSync(oldDbPath, { recursive: true, force: true })
+        logger.info('旧格式知识库向量数据库已删除', 'main', { kbId, path: oldDbPath })
+      } catch (error) {
+        logger.error('删除旧格式知识库向量数据库失败', 'main', { kbId, path: oldDbPath, error })
+      }
+    }
+  }
+
+  /**
+   * 检查知识库数据库是否存在
+   */
+  exists(kbId: string): boolean {
+    const dbPath = this.getDatabasePath(kbId)
+    const exists = existsSync(dbPath)
+    return exists
+  }
+
+  /**
+   * 获取数据库目录大小（字节）
+   */
+  getDatabaseSize(kbId: string): number {
+    const dbPath = this.getDatabasePath(kbId)
+    if (!existsSync(dbPath)) {
+      return 0
+    }
+
+    try {
+      return this.calculateDirSize(dbPath)
+    } catch {
+      return 0
+    }
+  }
+
+  /**
+   * 递归计算目录大小
+   */
+  private calculateDirSize(dirPath: string): number {
+    let totalSize = 0
+    const files = readdirSync(dirPath)
+
+    for (const file of files) {
+      const filePath = join(dirPath, file)
+      const stats = statSync(filePath)
+
+      if (stats.isDirectory()) {
+        totalSize += this.calculateDirSize(filePath)
+      } else {
+        totalSize += stats.size
+      }
+    }
+
+    return totalSize
+  }
+
+  /**
+   * 关闭所有数据库连接
+   */
+  closeAll(): void {
+    for (const [kbId] of this.dbConnections) {
+      try {
+        logger.info('向量数据库连接已关闭', 'main', { kbId })
+      } catch (error) {
+        logger.error('关闭向量数据库连接失败', 'main', { kbId, error })
+      }
+    }
+    this.dbConnections.clear()
+    this.tables.clear()
+    this.indexedTables.clear()
+  }
+}
+
+// 单例实例
+let vectorDBServiceInstance: VectorDBService | null = null
+
+/**
+ * 获取向量数据库服务单例
+ */
+export function getVectorDBService(): VectorDBService {
+  if (!vectorDBServiceInstance) {
+    vectorDBServiceInstance = new VectorDBService()
+  }
+  return vectorDBServiceInstance
+}

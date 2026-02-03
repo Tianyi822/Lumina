@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
-import { getKnowledgeService } from '@main/services/knowledge'
+import { getKnowledgeService, type FileProcessingProgress } from '@main/services/knowledge'
+import { getVectorDBService } from '@main/services/vector'
 import { logger } from '@main/services/logger'
 import type { KnowledgeBase } from '@shared/types/knowledge'
 
@@ -126,6 +127,132 @@ export function registerKnowledgeHandlers(): void {
       }
     } catch (error) {
       const errorMessage = `删除知识库失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return {
+        success: false,
+        error: errorMessage
+      }
+    }
+  })
+
+  // 索引文件到知识库
+  ipcMain.handle(
+    'knowledge:indexFile',
+    async (_event, kbId: string, fileId: string, filePath: string, fileName: string) => {
+      try {
+        const result = await getKnowledgeService().indexFile(
+          kbId,
+          fileId,
+          filePath,
+          fileName,
+          (progress: FileProcessingProgress) => {
+            // 可以通过 WebContents 发送进度事件到渲染进程
+            // 这里暂时不实现实时进度推送
+            logger.debug('文件索引进度', 'main', { kbId, fileId, progress })
+          }
+        )
+        return result
+      } catch (error) {
+        const errorMessage = `索引文件失败: ${error instanceof Error ? error.message : String(error)}`
+        logger.error(errorMessage)
+        return {
+          success: false,
+          error: errorMessage
+        }
+      }
+    }
+  )
+
+  // 从知识库移除文件索引
+  ipcMain.handle('knowledge:removeFileIndex', async (_event, kbId: string, fileId: string) => {
+    try {
+      const result = await getKnowledgeService().removeFileIndex(kbId, fileId)
+      return result
+    } catch (error) {
+      const errorMessage = `移除文件索引失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return {
+        success: false,
+        error: errorMessage
+      }
+    }
+  })
+
+  // 重新索引整个知识库
+  ipcMain.handle(
+    'knowledge:reindex',
+    async (
+      _event,
+      kbId: string,
+      files: Array<{ fileId: string; filePath: string; fileName: string }>
+    ) => {
+      try {
+        const result = await getKnowledgeService().reindexKnowledgeBase(kbId, files, (progress) => {
+          logger.debug('重新索引进度', 'main', { kbId, progress })
+        })
+        return {
+          success: result.success,
+          data: {
+            indexedCount: result.indexedCount,
+            failedFiles: result.failedFiles,
+            failedErrors: result.failedErrors
+          },
+          error: result.error
+        }
+      } catch (error) {
+        const errorMessage = `重新索引知识库失败: ${error instanceof Error ? error.message : String(error)}`
+        logger.error(errorMessage)
+        return {
+          success: false,
+          error: errorMessage
+        }
+      }
+    }
+  )
+
+  // 在知识库中搜索
+  ipcMain.handle(
+    'knowledge:search',
+    async (_event, kbId: string, query: string, limit?: number) => {
+      try {
+        const result = await getKnowledgeService().search(kbId, query, limit)
+        return result
+      } catch (error) {
+        const errorMessage = `搜索知识库失败: ${error instanceof Error ? error.message : String(error)}`
+        logger.error(errorMessage)
+        return {
+          success: false,
+          error: errorMessage
+        }
+      }
+    }
+  )
+
+  // 获取知识库统计信息
+  ipcMain.handle('knowledge:getStats', async (_event, kbId: string) => {
+    try {
+      const result = await getKnowledgeService().getStats(kbId)
+      return result
+    } catch (error) {
+      const errorMessage = `获取知识库统计失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return {
+        success: false,
+        error: errorMessage
+      }
+    }
+  })
+
+  // 获取知识库向量数据库大小
+  ipcMain.handle('knowledge:getDBSize', (_event, kbId: string) => {
+    try {
+      const size = getVectorDBService().getDatabaseSize(kbId)
+      return {
+        success: true,
+        data: { size }
+      }
+    } catch (error) {
+      const errorMessage = `获取数据库大小失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
       return {
         success: false,

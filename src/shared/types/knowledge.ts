@@ -5,6 +5,8 @@ export interface FileItem {
   id: string
   name: string
   filePath: string
+  /** 文件的绝对路径，用于直接读取文件内容 */
+  absolutePath: string
   fileType: string
   size: number
   uploadedAt: string
@@ -15,13 +17,28 @@ export interface FileItem {
 }
 
 /**
+ * 嵌入模型配置（知识库绑定的完整配置）
+ */
+export interface KnowledgeBaseEmbeddingConfig {
+  /** API 基础 URL */
+  baseUrl: string
+  /** API 密钥 */
+  apiKey?: string
+  /** 模型名称 */
+  model: string
+  /** 向量维度 */
+  dimensions: number
+}
+
+/**
  * 知识库配置
  */
 export interface KnowledgeBase {
   id: string
   name: string
   description?: string
-  embeddingModel: string
+  /** 嵌入模型完整配置（创建时绑定，不依赖全局配置） */
+  embeddingConfig: KnowledgeBaseEmbeddingConfig
   embeddingDimension: number
   chunkSize: number
   chunkOverlap: number

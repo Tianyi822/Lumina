@@ -19,6 +19,7 @@ const emit = defineEmits<Emits>()
 
 // 表单数据
 const displayName = ref('')
+const provider = ref<'openai' | 'aliyun' | 'ollama' | 'custom'>('custom')
 const baseUrl = ref('')
 const apiKey = ref('')
 const modelName = ref('')
@@ -36,6 +37,7 @@ const testResult = ref<{ type: 'success' | 'error'; message: string } | null>(nu
 onMounted(() => {
   if (props.editingConfig && props.editingName) {
     displayName.value = props.editingName
+    provider.value = props.editingConfig.provider || 'custom'
     baseUrl.value = props.editingConfig.baseUrl || ''
     apiKey.value = props.editingConfig.apiKey || ''
     modelName.value = props.editingConfig.model || ''
@@ -120,6 +122,7 @@ function handleSubmit(): void {
   }
 
   const config: EmbeddingConfig = {
+    provider: provider.value,
     baseUrl: baseUrl.value.trim(),
     apiKey: apiKey.value.trim(),
     model: modelName.value.trim(),
@@ -144,6 +147,7 @@ async function handleTestConnection(): Promise<void> {
   testResult.value = null
 
   const config: EmbeddingConfig = {
+    provider: provider.value,
     baseUrl: baseUrl.value.trim(),
     apiKey: apiKey.value.trim(),
     model: modelName.value.trim(),

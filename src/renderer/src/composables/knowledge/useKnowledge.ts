@@ -1,6 +1,6 @@
 import { ref, onMounted } from 'vue'
 import type { Ref } from 'vue'
-import type { KnowledgeBase } from '../../types'
+import type { KnowledgeBase } from '@renderer/types'
 
 /**
  * useKnowledge 返回类型
@@ -16,7 +16,12 @@ export interface UseKnowledgeReturn {
   handleKnowledgeSubmit: (data: {
     name: string
     description: string
-    embeddingModel: string
+    embeddingConfig: {
+      baseUrl: string
+      apiKey?: string
+      model: string
+      dimensions: number
+    }
     embeddingDimension: number
     chunkSize: number
     chunkOverlap: number
@@ -89,7 +94,12 @@ export function useKnowledge(): UseKnowledgeReturn {
   async function handleKnowledgeSubmit(data: {
     name: string
     description: string
-    embeddingModel: string
+    embeddingConfig: {
+      baseUrl: string
+      apiKey?: string
+      model: string
+      dimensions: number
+    }
     embeddingDimension: number
     chunkSize: number
     chunkOverlap: number
@@ -99,7 +109,7 @@ export function useKnowledge(): UseKnowledgeReturn {
       const createResult = await window.api.knowledge.create({
         name: data.name,
         description: data.description,
-        embeddingModel: data.embeddingModel,
+        embeddingConfig: data.embeddingConfig,
         embeddingDimension: data.embeddingDimension,
         chunkSize: data.chunkSize,
         chunkOverlap: data.chunkOverlap,

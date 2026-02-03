@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import type { EmbeddingConfig } from '@main/types/config'
+import { logger } from '@main/services/logger'
 
 /**
  * 嵌入向量结果
@@ -165,8 +166,8 @@ export class EmbeddingService {
         input: text
       }
 
-      // 如果模型支持 dimensions 参数（如 text-embedding-v3/v4），则添加
-      if (this.config.model.includes('text-embedding-v3') && this.config.dimensions) {
+      // 如果配置了 dimensions 参数，则传递给模型
+      if (this.config.dimensions) {
         // @ts-ignore - OpenAI 类型定义可能不包含此参数
         params.dimensions = this.config.dimensions
       }
@@ -207,8 +208,8 @@ export class EmbeddingService {
         input: texts
       }
 
-      // 如果模型支持 dimensions 参数，则添加
-      if (this.config.model.includes('text-embedding-v3') && this.config.dimensions) {
+      // 如果配置了 dimensions 参数，则传递给模型
+      if (this.config.dimensions) {
         // @ts-ignore - OpenAI 类型定义可能不包含此参数
         params.dimensions = this.config.dimensions
       }
@@ -218,8 +219,20 @@ export class EmbeddingService {
       // 按索引排序以确保顺序正确
       const sortedData = response.data.sort((a, b) => a.index - b.index)
 
+      // 验证嵌入数据
+      const embeddings = sortedData.map((item) => item.embedding)
+      logger.debug('embedBatch 嵌入模型返回数据', 'main', {
+        batchSize: texts.length,
+        resultCount: embeddings.length,
+        firstEmbeddingLength: embeddings[0]?.length,
+        firstEmbeddingSample: embeddings[0]?.slice(0, 5),
+        lastEmbeddingLength: embeddings[embeddings.length - 1]?.length,
+        lastEmbeddingSample: embeddings[embeddings.length - 1]?.slice(0, 5),
+        model: response.model
+      })
+
       return {
-        embeddings: sortedData.map((item) => item.embedding),
+        embeddings,
         model: response.model,
         usage: response.usage
           ? {
