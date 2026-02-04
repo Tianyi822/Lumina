@@ -9,12 +9,15 @@ import type {
   ChatResult,
   StreamEvent,
   TokenUsage,
-  MCPToolReference
+  MCPToolReference,
+  KnowledgeBaseReference,
+  KnowledgeSearchResult
 } from '../../types/chat'
 import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
 import { enhanceToolDescriptions } from './toolDescriptionEnhancer'
 import { ToolCallScheduler } from './ToolCallScheduler'
+import { getKnowledgeServiceManager } from '../knowledge'
 
 /**
  * 聊天服务类
@@ -36,15 +39,117 @@ export class ChatService {
    * @param webContents 渲染进程 webContents，用于发送流式事件
    */
   async sendMessage(request: ChatRequest, webContents: WebContents): Promise<ChatResult> {
-    const { selectedTools } = request
+    const { selectedTools, selectedKnowledgeBases } = request
+
+    // 如果选中了知识库，先执行知识库搜索
+    let knowledgeResults: KnowledgeSearchResult[] = []
+    if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0) {
+      knowledgeResults = await this.searchKnowledgeBases(
+        selectedKnowledgeBases,
+        request,
+        webContents
+      )
+    }
 
     // 如果有选中的工具，启用 ReAct 模式
     if (selectedTools && selectedTools.length > 0) {
-      return this.sendMessageWithReact(request, webContents)
+      return this.sendMessageWithReact(request, webContents, knowledgeResults)
     }
 
-    // 无工具时使用原有逻辑
-    return this.sendMessageDirect(request, webContents)
+    // 无工具时使用原有逻辑（但包含知识库结果）
+    return this.sendMessageDirect(request, webContents, knowledgeResults)
+  }
+
+  /**
+   * 搜索知识库
+   */
+  private async searchKnowledgeBases(
+    knowledgeBases: KnowledgeBaseReference[],
+    request: ChatRequest,
+    webContents: WebContents
+  ): Promise<KnowledgeSearchResult[]> {
+    const { messages, sessionId } = request
+
+    // 从最后一条用户消息提取查询
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')
+    const query = lastUserMessage?.content || ''
+
+    logger.info('开始搜索知识库', 'main', {
+      sessionId,
+      knowledgeBaseCount: knowledgeBases.length,
+      query
+    })
+
+    const results: KnowledgeSearchResult[] = []
+
+    for (const kb of knowledgeBases) {
+      // 发送知识库搜索开始事件
+      this.sendStreamEvent(webContents, {
+        type: 'knowledge_search',
+        sessionId,
+        knowledgeSearch: {
+          knowledgeBaseId: kb.id,
+          knowledgeBaseName: kb.name,
+          query
+        }
+      })
+
+      try {
+        const kbData = getKnowledgeServiceManager().getKnowledgeBaseById(kb.id)
+        if (!kbData) {
+          logger.warn('知识库不存在', 'main', { kbId: kb.id })
+          continue
+        }
+
+        const service = getKnowledgeServiceManager().getOrCreateInstance(kb.id, kbData)
+        const searchResult = await service.search(kb.id, query, 5)
+
+        if (searchResult.success && searchResult.data) {
+          const kbResult: KnowledgeSearchResult = {
+            knowledgeBaseId: kb.id,
+            knowledgeBaseName: kb.name,
+            query,
+            results: searchResult.data.results.map((r) => ({
+              chunkId: r.chunkId,
+              fileId: r.fileId,
+              fileName: r.fileName,
+              content: r.content,
+              similarity: r.similarity
+            }))
+          }
+          results.push(kbResult)
+
+          // 发送知识库搜索结果事件
+          this.sendStreamEvent(webContents, {
+            type: 'knowledge_result',
+            sessionId,
+            knowledgeResult: kbResult
+          })
+
+          logger.info('知识库搜索完成', 'main', {
+            kbId: kb.id,
+            kbName: kb.name,
+            resultCount: kbResult.results.length
+          })
+        } else {
+          logger.warn('知识库搜索失败', 'main', {
+            kbId: kb.id,
+            error: searchResult.error
+          })
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        logger.error('知识库搜索异常', 'main', { kbId: kb.id, error: errorMessage })
+      }
+    }
+
+    logger.info('知识库搜索全部完成', 'main', {
+      sessionId,
+      searchedKbCount: knowledgeBases.length,
+      resultCount: results.length
+    })
+
+    return results
   }
 
   /**
@@ -52,7 +157,8 @@ export class ChatService {
    */
   private async sendMessageDirect(
     request: ChatRequest,
-    webContents: WebContents
+    webContents: WebContents,
+    knowledgeResults?: KnowledgeSearchResult[]
   ): Promise<ChatResult> {
     const { messages, modelKey, sessionId } = request
 
@@ -82,8 +188,8 @@ export class ChatService {
       // 创建 OpenAI 客户端
       const client = this.createClient(llmConfig)
 
-      // 格式化消息
-      const formattedMessages = this.formatMessages(messages)
+      // 格式化消息（包含知识库搜索结果）
+      const formattedMessages = this.formatMessagesWithKnowledge(messages, knowledgeResults)
 
       logger.debug('发送请求到 API', 'main', {
         baseUrl: llmConfig.base_url,
@@ -183,7 +289,8 @@ export class ChatService {
    */
   private async sendMessageWithReact(
     request: ChatRequest,
-    webContents: WebContents
+    webContents: WebContents,
+    knowledgeResults?: KnowledgeSearchResult[]
   ): Promise<ChatResult> {
     const { messages, modelKey, sessionId, selectedTools, maxReactIterations = 10 } = request
 
@@ -229,11 +336,16 @@ export class ChatService {
         toolNames: tools.map((t) => (t as { function: { name: string } }).function.name)
       })
 
-      // 构建消息历史，使用 PromptBuilder 生成系统提示
-      const systemPrompt = await promptBuilder.buildSystemPrompt(llmConfig, true, selectedTools)
+      // 构建消息历史，使用 PromptBuilder 生成系统提示（包含知识库结果）
+      const systemPrompt = await promptBuilder.buildSystemPrompt(
+        llmConfig,
+        true,
+        selectedTools,
+        knowledgeResults
+      )
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
-        ...this.formatMessages(messages)
+        ...this.formatMessagesWithKnowledge(messages, knowledgeResults)
       ]
 
       const totalUsage: TokenUsage = {
@@ -741,12 +853,49 @@ export class ChatService {
   }
 
   /**
-   * 格式化消息为 OpenAI 格式
+   * 构建知识库上下文
+   */
+  private buildKnowledgeContext(knowledgeResults?: KnowledgeSearchResult[]): string {
+    if (!knowledgeResults || knowledgeResults.length === 0) {
+      return ''
+    }
+
+    let context = '\n\n# 知识库参考信息\n\n'
+    context += '以下是从选中的知识库中检索到的相关信息，请基于这些信息回答用户问题：\n\n'
+
+    for (const kbResult of knowledgeResults) {
+      context += `## 知识库：${kbResult.knowledgeBaseName}\n\n`
+
+      if (kbResult.results.length === 0) {
+        context += '*该知识库中未找到相关信息*\n\n'
+        continue
+      }
+
+      for (const result of kbResult.results) {
+        context += `### 文档：${result.fileName}\n`
+        context += `**相关度：${(result.similarity * 100).toFixed(1)}%**\n\n`
+        context += `${result.content}\n\n`
+      }
+
+      context += '---\n\n'
+    }
+
+    context += '请基于上述知识库内容回答用户问题。如果知识库中没有相关信息，请明确告知用户。'
+
+    return context
+  }
+
+  /**
+   * 格式化消息为 OpenAI 格式（支持知识库搜索结果）
    * 过滤掉 content 为空的助手消息（保留有 tool_calls 的）
    */
-  private formatMessages(
-    messages: ChatMessage[]
+  private formatMessagesWithKnowledge(
+    messages: ChatMessage[],
+    knowledgeResults?: KnowledgeSearchResult[]
   ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
+    // 构建知识库上下文
+    const knowledgeContext = this.buildKnowledgeContext(knowledgeResults)
+
     return messages
       .filter((msg) => {
         // 过滤掉 content 为空的助手消息（保留有 tool_calls 的助手消息）
@@ -757,7 +906,15 @@ export class ChatService {
         }
         return true
       })
-      .map((msg) => {
+      .map((msg, index) => {
+        // 在最后一条用户消息中附加知识库上下文
+        if (msg.role === 'user' && knowledgeContext && index === messages.length - 1) {
+          return {
+            role: 'user' as const,
+            content: msg.content + knowledgeContext
+          }
+        }
+
         if (msg.role === 'tool') {
           return {
             role: 'tool' as const,

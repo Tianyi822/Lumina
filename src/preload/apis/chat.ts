@@ -34,6 +34,32 @@ export interface MCPToolReference {
 }
 
 /**
+ * 知识库引用（用于传递选中的知识库）
+ */
+export interface KnowledgeBaseReference {
+  id: string
+  name: string
+  description?: string
+  documentCount: number
+}
+
+/**
+ * 知识库搜索结果
+ */
+export interface KnowledgeSearchResult {
+  knowledgeBaseId: string
+  knowledgeBaseName: string
+  query: string
+  results: Array<{
+    chunkId: number
+    fileId: string
+    fileName: string
+    content: string
+    similarity: number
+  }>
+}
+
+/**
  * 聊天请求类型
  */
 export interface ChatRequest {
@@ -42,6 +68,7 @@ export interface ChatRequest {
   sessionId: string
   enableThinking?: boolean
   selectedTools?: MCPToolReference[]
+  selectedKnowledgeBases?: KnowledgeBaseReference[]
   maxReactIterations?: number
 }
 
@@ -85,16 +112,51 @@ export interface ToolResultInfo {
 }
 
 /**
+ * 知识库搜索信息（用于 UI 展示）
+ */
+export interface KnowledgeSearchInfo {
+  knowledgeBaseId: string
+  knowledgeBaseName: string
+  query: string
+}
+
+/**
+ * 知识库搜索结果信息（用于 UI 展示）
+ */
+export interface KnowledgeResultInfo {
+  knowledgeBaseId: string
+  knowledgeBaseName: string
+  query: string
+  results: Array<{
+    chunkId: number
+    fileId: string
+    fileName: string
+    content: string
+    similarity: number
+  }>
+}
+
+/**
  * 流式事件类型
  */
 export interface StreamEvent {
-  type: 'content' | 'reasoning' | 'tool_call' | 'tool_result' | 'done' | 'error'
+  type:
+    | 'content'
+    | 'reasoning'
+    | 'tool_call'
+    | 'tool_result'
+    | 'knowledge_search'
+    | 'knowledge_result'
+    | 'done'
+    | 'error'
   sessionId?: string
   content?: string
   usage?: TokenUsage
   error?: string
   toolCall?: ToolCallInfo
   toolResult?: ToolResultInfo
+  knowledgeSearch?: KnowledgeSearchInfo
+  knowledgeResult?: KnowledgeResultInfo
 }
 
 /**

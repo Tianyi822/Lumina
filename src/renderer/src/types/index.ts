@@ -6,7 +6,23 @@
 // ==================== 重新导出共享类型 ====================
 
 // 聊天相关类型（包含 ToolCallInfo, ToolResultInfo, TokenUsage 等）
-export * from '@shared/types/chat'
+// 注意：KnowledgeBaseReference 从 knowledge 导出，避免与 chat 中的重复定义冲突
+export type {
+  MessageRole,
+  ChatMessage,
+  ToolCallMessage,
+  MCPToolReference,
+  ToolCallInfo,
+  ToolResultInfo,
+  StreamEventType,
+  StreamEvent,
+  KnowledgeSearchResult,
+  TokenUsage,
+  ChatRequest,
+  ChatResult,
+  KnowledgeSearchInfo,
+  KnowledgeResultInfo
+} from '@shared/types/chat'
 
 // MCP 相关类型
 export * from '@shared/types/mcp'

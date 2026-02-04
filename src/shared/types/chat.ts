@@ -87,8 +87,42 @@ export type StreamEventType =
   | 'tool_call'
   | 'tool_result'
   | 'tool_progress'
+  | 'knowledge_search'
+  | 'knowledge_result'
   | 'done'
   | 'error'
+
+/**
+ * 知识库搜索信息（用于 UI 展示）
+ */
+export interface KnowledgeSearchInfo {
+  /** 知识库 ID */
+  knowledgeBaseId: string
+  /** 知识库名称 */
+  knowledgeBaseName: string
+  /** 用户查询 */
+  query: string
+}
+
+/**
+ * 知识库搜索结果信息（用于 UI 展示）
+ */
+export interface KnowledgeResultInfo {
+  /** 知识库 ID */
+  knowledgeBaseId: string
+  /** 知识库名称 */
+  knowledgeBaseName: string
+  /** 用户查询 */
+  query: string
+  /** 搜索结果 */
+  results: Array<{
+    chunkId: number
+    fileId: string
+    fileName: string
+    content: string
+    similarity: number
+  }>
+}
 
 /**
  * 流式事件
@@ -114,6 +148,10 @@ export interface StreamEvent {
     total: number
     message?: string
   }
+  /** 知识库搜索信息（仅 knowledge_search 事件） */
+  knowledgeSearch?: KnowledgeSearchInfo
+  /** 知识库搜索结果信息（仅 knowledge_result 事件） */
+  knowledgeResult?: KnowledgeResultInfo
 }
 
 /**
@@ -131,6 +169,45 @@ export interface TokenUsage {
 }
 
 /**
+ * 知识库引用（用于传递选中的知识库）
+ */
+export interface KnowledgeBaseReference {
+  /** 知识库 ID */
+  id: string
+  /** 知识库名称 */
+  name: string
+  /** 知识库描述 */
+  description?: string
+  /** 文档数量 */
+  documentCount: number
+}
+
+/**
+ * 知识库搜索结果
+ */
+export interface KnowledgeSearchResult {
+  /** 知识库 ID */
+  knowledgeBaseId: string
+  /** 知识库名称 */
+  knowledgeBaseName: string
+  /** 用户查询 */
+  query: string
+  /** 搜索结果 */
+  results: Array<{
+    /** 文档块 ID */
+    chunkId: number
+    /** 文件 ID */
+    fileId: string
+    /** 文件名 */
+    fileName: string
+    /** 内容片段 */
+    content: string
+    /** 相似度分数 */
+    similarity: number
+  }>
+}
+
+/**
  * 聊天请求参数
  */
 export interface ChatRequest {
@@ -144,6 +221,8 @@ export interface ChatRequest {
   enableThinking?: boolean
   /** 选中的 MCP 工具列表 */
   selectedTools?: MCPToolReference[]
+  /** 选中的知识库列表 */
+  selectedKnowledgeBases?: KnowledgeBaseReference[]
   /** ReAct 最大迭代次数（默认 10） */
   maxReactIterations?: number
 }
