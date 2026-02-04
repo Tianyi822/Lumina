@@ -273,7 +273,6 @@ defineExpose({
       :class="{ active: showPanel, 'has-selection': selectedKBsCount > 0 }"
       @click="togglePanel"
     >
-      <span class="kb-icon">📚</span>
       <span v-if="selectedKBsCount > 0" class="selected-kb-name">
         已选 {{ selectedKBsCount }} 个知识库
       </span>
@@ -387,10 +386,6 @@ defineExpose({
 
 .kb-trigger-btn.has-selection {
   color: var(--theme-accent);
-}
-
-.kb-icon {
-  font-size: 14px;
 }
 
 .selected-kb-name {

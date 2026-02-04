@@ -168,6 +168,7 @@ export class KnowledgeService {
   private kbData: KnowledgeBase
   private embeddingService: EmbeddingService
   private processingFiles: Set<string> = new Set()
+  private fileProgressMap: Map<string, FileProcessingProgress> = new Map()
 
   constructor(kbData: KnowledgeBase) {
     this.kbData = kbData
@@ -235,8 +236,14 @@ export class KnowledgeService {
 
     this.processingFiles.add(processingKey)
 
+    // 包装进度回调，保存进度到内存
+    const wrappedOnProgress = (progress: FileProcessingProgress): void => {
+      this.fileProgressMap.set(processingKey, progress)
+      onProgress?.(progress)
+    }
+
     try {
-      onProgress?.({
+      wrappedOnProgress({
         fileId,
         fileName,
         status: 'processing',
@@ -249,7 +256,7 @@ export class KnowledgeService {
       // 读取文件内容
       const content = await readFileContent(fullFilePath, fileName)
 
-      onProgress?.({
+      wrappedOnProgress({
         fileId,
         fileName,
         status: 'processing',
@@ -264,7 +271,7 @@ export class KnowledgeService {
         return { success: false, error: '文件内容为空' }
       }
 
-      onProgress?.({
+      wrappedOnProgress({
         fileId,
         fileName,
         status: 'processing',
@@ -274,33 +281,54 @@ export class KnowledgeService {
       // 生成嵌入向量（使用知识库绑定的配置）
       this.embeddingService.setConfig(this.kbData.embeddingConfig)
 
-      const embeddings: number[][] = []
+      // 并行处理嵌入向量生成
       const batchSize = 10
+      const maxConcurrentBatches = 5 // 最大并发批次数
+      const embeddings: number[][] = new Array(chunks.length)
 
+      // 创建批次任务
+      const batches: Array<{ index: number; texts: string[] }> = []
       for (let i = 0; i < chunks.length; i += batchSize) {
-        const batch = chunks.slice(i, i + batchSize)
-        const result = await this.embeddingService.embedBatch(batch)
-
-        // 验证嵌入结果
-        logger.debug('indexFile 收到嵌入结果', 'main', {
-          kbId,
-          fileId,
-          batchIndex: i,
-          batchSize: batch.length,
-          resultCount: result.embeddings.length,
-          firstEmbeddingLength: result.embeddings[0]?.length,
-          lastEmbeddingLength: result.embeddings[result.embeddings.length - 1]?.length
+        batches.push({
+          index: i,
+          texts: chunks.slice(i, i + batchSize)
         })
+      }
 
-        embeddings.push(...result.embeddings)
+      // 并行执行批次任务（控制并发数）
+      let completedBatches = 0
+      const processBatch = async (batch: { index: number; texts: string[] }): Promise<void> => {
+        const result = await this.embeddingService.embedBatch(batch.texts)
 
-        const progress = 40 + Math.floor((i / chunks.length) * 40)
-        onProgress?.({
+        // 将结果放入正确位置
+        for (let j = 0; j < result.embeddings.length; j++) {
+          embeddings[batch.index + j] = result.embeddings[j]
+        }
+
+        completedBatches++
+        const progress = 40 + Math.floor((completedBatches / batches.length) * 40)
+        wrappedOnProgress({
           fileId,
           fileName,
           status: 'processing',
           progress
         })
+
+        // 验证嵌入结果
+        logger.debug('indexFile 批次嵌入完成', 'main', {
+          kbId,
+          fileId,
+          batchIndex: batch.index,
+          batchSize: batch.texts.length,
+          completedBatches,
+          totalBatches: batches.length
+        })
+      }
+
+      // 使用 Promise.all 控制并发
+      for (let i = 0; i < batches.length; i += maxConcurrentBatches) {
+        const concurrentBatches = batches.slice(i, i + maxConcurrentBatches)
+        await Promise.all(concurrentBatches.map(processBatch))
       }
 
       // 构建文档块对象
@@ -323,7 +351,7 @@ export class KnowledgeService {
         embeddings
       )
 
-      onProgress?.({
+      wrappedOnProgress({
         fileId,
         fileName,
         status: 'completed',
@@ -338,12 +366,16 @@ export class KnowledgeService {
       })
 
       this.processingFiles.delete(processingKey)
+      // 延迟清理进度信息，让前端有时间获取最终状态
+      setTimeout(() => {
+        this.fileProgressMap.delete(processingKey)
+      }, 5000)
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('文件索引失败', 'main', { kbId, fileId, error: errorMessage })
 
-      onProgress?.({
+      wrappedOnProgress({
         fileId,
         fileName,
         status: 'failed',
@@ -351,6 +383,10 @@ export class KnowledgeService {
       })
 
       this.processingFiles.delete(processingKey)
+      // 延迟清理进度信息
+      setTimeout(() => {
+        this.fileProgressMap.delete(processingKey)
+      }, 5000)
       return { success: false, error: errorMessage }
     }
   }
@@ -412,14 +448,15 @@ export class KnowledgeService {
       const failedErrors: string[] = []
       let indexedCount = 0
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
-        onProgress?.({
-          current: i + 1,
-          total: files.length,
-          currentFile: file.fileName
-        })
+      // 控制并发文件数，避免同时打开过多文件
+      const maxConcurrentFiles = 3
 
+      // 处理单个文件的函数
+      const processFile = async (file: {
+        fileId: string
+        filePath: string
+        fileName: string
+      }): Promise<void> => {
         const result = await this.indexFile(
           kbId,
           file.fileId,
@@ -438,6 +475,28 @@ export class KnowledgeService {
             error: result.error
           })
         }
+      }
+
+      // 并行处理文件（控制并发数）
+      for (let i = 0; i < files.length; i += maxConcurrentFiles) {
+        const batch = files.slice(i, i + maxConcurrentFiles)
+
+        // 更新进度
+        onProgress?.({
+          current: i + 1,
+          total: files.length,
+          currentFile: batch.map((f) => f.fileName).join(', ')
+        })
+
+        // 并行执行当前批次的文件
+        await Promise.all(batch.map(processFile))
+
+        // 更新进度为当前批次完成
+        onProgress?.({
+          current: Math.min(i + maxConcurrentFiles, files.length),
+          total: files.length,
+          currentFile: ''
+        })
       }
 
       // 更新知识库的更新时间（通过 Manager 处理）
@@ -559,5 +618,12 @@ export class KnowledgeService {
       const [kbId, fileId] = key.split(':')
       return { kbId, fileId }
     })
+  }
+
+  /**
+   * 获取文件进度信息
+   */
+  getFileProgress(processingKey: string): FileProcessingProgress | undefined {
+    return this.fileProgressMap.get(processingKey)
   }
 }

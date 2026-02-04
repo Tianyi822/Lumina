@@ -94,7 +94,7 @@ function handleSubmit(): void {
 
   const data = {
     name: name.value.trim(),
-    description: name.value.trim(),
+    description: description.value.trim(),
     embeddingConfig: {
       baseUrl: config.baseUrl,
       apiKey: config.apiKey,

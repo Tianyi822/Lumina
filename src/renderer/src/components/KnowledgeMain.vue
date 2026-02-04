@@ -27,7 +27,8 @@ const emit = defineEmits<{
 }>()
 
 // 文件管理
-const { getFilesByKBId, unlinkFileFromKB, formatFileSize, formatDate } = useFileManager()
+const { getFilesByKBId, unlinkFileFromKB, formatFileSize, formatDate, uploadFile, linkFileToKB } =
+  useFileManager()
 
 // 关联的文件列表
 const linkedFiles = ref<FileItem[]>([])
@@ -58,6 +59,13 @@ const reindexProgress = ref({ current: 0, total: 0, currentFile: '' })
 const indexingFiles = ref<Record<string, FileProcessingProgress>>({})
 const progressCleanup = ref<(() => void) | null>(null)
 
+// 定期刷新状态定时器
+const statusRefreshInterval = ref<ReturnType<typeof setInterval> | null>(null)
+
+// 拖拽状态
+const isDragging = ref(false)
+const dragCounter = ref(0)
+
 // 知识库统计
 const stats = ref({ fileCount: 0, chunkCount: 0, dbSize: 0 })
 const loadingStats = ref(false)
@@ -69,6 +77,22 @@ const indexingStatus = computed(() => {
   if (!currentKB.value) return false
   const prefix = `${currentKB.value.id}:`
   return Object.keys(indexingFiles.value).some((key) => key.startsWith(prefix))
+})
+
+// 当前知识库的索引进度（计算属性，自动响应变化）
+const kbIndexingFiles = computed<Record<string, FileProcessingProgress>>(() => {
+  if (!currentKB.value) return {}
+  const prefix = `${currentKB.value.id}:`
+  const result: Record<string, FileProcessingProgress> = {}
+
+  for (const [key, progress] of Object.entries(indexingFiles.value)) {
+    if (key.startsWith(prefix)) {
+      const fileId = key.substring(prefix.length)
+      result[fileId] = progress
+    }
+  }
+
+  return result
 })
 
 /**
@@ -149,6 +173,21 @@ function handleAddFiles(): void {
 async function indexSingleFile(file: FileItem): Promise<void> {
   if (!currentKB.value) return
 
+  // 设置初始索引状态 - 使用新对象触发响应式更新
+  const progressKey = getProgressKey(currentKB.value.id, file.id)
+  indexingFiles.value = {
+    ...indexingFiles.value,
+    [progressKey]: {
+      fileId: file.id,
+      fileName: file.name,
+      status: 'processing',
+      progress: 0
+    }
+  }
+
+  // 启动状态刷新
+  startStatusRefresh()
+
   console.log('开始索引文件:', file.name)
   const result = await window.api.knowledge.indexFile(
     currentKB.value.id,
@@ -159,6 +198,15 @@ async function indexSingleFile(file: FileItem): Promise<void> {
 
   if (!result.success) {
     console.error('索引文件失败:', file.name, result.error)
+    indexingFiles.value = {
+      ...indexingFiles.value,
+      [progressKey]: {
+        fileId: file.id,
+        fileName: file.name,
+        status: 'failed',
+        error: result.error
+      }
+    }
   } else {
     console.log('文件索引成功:', file.name)
     await loadStats()
@@ -188,6 +236,108 @@ async function handleFilesLinked(files: FileItem[]): Promise<void> {
 }
 
 /**
+ * 处理拖拽进入
+ */
+function handleDragEnter(event: DragEvent): void {
+  event.preventDefault()
+  dragCounter.value++
+  if (dragCounter.value === 1) {
+    isDragging.value = true
+  }
+}
+
+/**
+ * 处理拖拽离开
+ */
+function handleDragLeave(event: DragEvent): void {
+  event.preventDefault()
+  dragCounter.value--
+  if (dragCounter.value === 0) {
+    isDragging.value = false
+  }
+}
+
+/**
+ * 处理拖拽悬停
+ */
+function handleDragOver(event: DragEvent): void {
+  event.preventDefault()
+}
+
+/**
+ * 处理文件拖放
+ */
+async function handleDrop(event: DragEvent): Promise<void> {
+  event.preventDefault()
+  dragCounter.value = 0
+  isDragging.value = false
+
+  if (!currentKB.value) {
+    alert('请先选择知识库')
+    return
+  }
+
+  const files = event.dataTransfer?.files
+  if (!files || files.length === 0) return
+
+  // 上传并关联文件
+  await uploadAndLinkFiles(Array.from(files))
+}
+
+/**
+ * 上传并关联文件到知识库
+ */
+async function uploadAndLinkFiles(files: File[]): Promise<void> {
+  if (!currentKB.value) return
+
+  const uploadedFiles: FileItem[] = []
+  const errors: string[] = []
+
+  for (const file of files) {
+    try {
+      // 检查文件类型
+      const supportedTypes = ['.txt', '.md', '.json', '.js', '.ts', '.vue', '.py', '.pdf']
+      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
+      if (!supportedTypes.includes(ext)) {
+        errors.push(`${file.name}: 不支持的文件类型`)
+        continue
+      }
+
+      // 上传文件
+      const result = await uploadFile(file)
+      if (result.success && result.file) {
+        uploadedFiles.push(result.file)
+      } else {
+        errors.push(`${file.name}: ${result.error || '上传失败'}`)
+      }
+    } catch (error) {
+      errors.push(`${file.name}: ${error instanceof Error ? error.message : '上传失败'}`)
+    }
+  }
+
+  // 关联到知识库并索引
+  if (uploadedFiles.length > 0) {
+    // 关联文件到知识库
+    for (const file of uploadedFiles) {
+      await linkFileToKB(file.id, currentKB.value.id)
+    }
+
+    // 更新文件列表并索引
+    await handleFilesLinked(uploadedFiles)
+
+    // 更新知识库列表中的文件数
+    emit('file-unlinked', currentKB.value.id, '') // 触发父组件刷新
+  }
+
+  // 显示结果
+  if (errors.length > 0) {
+    alert(`上传完成\n成功: ${uploadedFiles.length} 个\n失败: ${errors.join('\n')}`)
+  } else if (uploadedFiles.length > 0) {
+    alert(`成功上传 ${uploadedFiles.length} 个文件`)
+  }
+}
+
+/**
  * 重新索引整个知识库
  */
 async function handleReindex(): Promise<void> {
@@ -204,6 +354,22 @@ async function handleReindex(): Promise<void> {
 
   reindexing.value = true
   reindexProgress.value = { current: 0, total: linkedFiles.value.length, currentFile: '' }
+
+  // 为所有文件设置初始索引状态 - 使用新对象触发响应式更新
+  const newIndexingFiles = { ...indexingFiles.value }
+  for (const file of linkedFiles.value) {
+    const progressKey = getProgressKey(currentKB.value.id, file.id)
+    newIndexingFiles[progressKey] = {
+      fileId: file.id,
+      fileName: file.name,
+      status: 'processing',
+      progress: 0
+    }
+  }
+  indexingFiles.value = newIndexingFiles
+
+  // 启动状态刷新
+  startStatusRefresh()
 
   try {
     const files = linkedFiles.value.map((f) => ({
@@ -276,24 +442,6 @@ function getProgressKey(kbId: string, fileId: string): string {
 }
 
 /**
- * 获取当前知识库的索引进度
- */
-function getKbIndexingFiles(): Record<string, FileProcessingProgress> {
-  if (!currentKB.value) return {}
-  const prefix = `${currentKB.value.id}:`
-  const result: Record<string, FileProcessingProgress> = {}
-
-  for (const [key, progress] of Object.entries(indexingFiles.value)) {
-    if (key.startsWith(prefix)) {
-      const fileId = key.substring(prefix.length)
-      result[fileId] = progress
-    }
-  }
-
-  return result
-}
-
-/**
  * 监听文件索引进度
  */
 function handleFileProgress(data: FileProgressEvent): void {
@@ -308,7 +456,13 @@ function handleFileProgress(data: FileProgressEvent): void {
 
   const { fileId, status } = data.progress
   const progressKey = getProgressKey(data.kbId, fileId)
-  indexingFiles.value[progressKey] = data.progress
+
+  // 使用新对象触发响应式更新
+  indexingFiles.value = {
+    ...indexingFiles.value,
+    [progressKey]: data.progress
+  }
+
   console.log('更新索引进度:', {
     kbId: data.kbId,
     fileId,
@@ -319,7 +473,13 @@ function handleFileProgress(data: FileProgressEvent): void {
 
   if (status === 'completed' || status === 'failed') {
     setTimeout(() => {
-      delete indexingFiles.value[progressKey]
+      const newFiles = { ...indexingFiles.value }
+      delete newFiles[progressKey]
+      indexingFiles.value = newFiles
+      // 检查是否还有正在索引的文件
+      if (!indexingStatus.value) {
+        stopStatusRefresh()
+      }
     }, 1000)
 
     if (status === 'completed') {
@@ -368,16 +528,173 @@ function escapeRegex(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+/**
+ * 刷新索引状态 - 从后端获取最新状态
+ */
+async function refreshIndexingStatus(): Promise<void> {
+  if (!currentKB.value) return
+
+  try {
+    const result = await window.api.knowledge.getIndexingStatus()
+    if (result.success && result.data) {
+      const { indexingFiles: activeIndexingFiles } = result.data
+
+      // 筛选出当前知识库的索引文件
+      const currentKbFiles = activeIndexingFiles.filter((f) => f.kbId === currentKB.value!.id)
+
+      // 构建新的索引状态对象
+      const newIndexingFiles = { ...indexingFiles.value }
+
+      // 更新索引状态 - 使用后端返回的进度
+      for (const file of currentKbFiles) {
+        const progressKey = getProgressKey(file.kbId, file.fileId)
+        // 只更新正在处理的文件，不覆盖已有进度的文件（取最大值）
+        const existingProgress = newIndexingFiles[progressKey]
+        if (!existingProgress || existingProgress.status === 'processing') {
+          newIndexingFiles[progressKey] = {
+            fileId: file.fileId,
+            fileName: file.fileName || file.fileId,
+            status: (file.status as FileProcessingProgress['status']) || 'processing',
+            // 使用后端返回的进度，或者已有的进度，或者0
+            progress: Math.max(file.progress ?? 0, existingProgress?.progress ?? 0)
+          }
+        }
+      }
+
+      // 清理已完成的文件状态（如果后端报告已完成但前端仍显示处理中）
+      const activeFileIds = new Set(currentKbFiles.map((f) => f.fileId))
+      const prefix = `${currentKB.value.id}:`
+      for (const key of Object.keys(newIndexingFiles)) {
+        if (key.startsWith(prefix)) {
+          const fileId = key.substring(prefix.length)
+          if (!activeFileIds.has(fileId) && newIndexingFiles[key].status === 'processing') {
+            // 后端报告已完成，更新为完成状态
+            newIndexingFiles[key] = {
+              ...newIndexingFiles[key],
+              status: 'completed',
+              progress: 100
+            }
+            // 延迟移除
+            setTimeout(() => {
+              const finalFiles = { ...indexingFiles.value }
+              delete finalFiles[key]
+              indexingFiles.value = finalFiles
+            }, 1000)
+          }
+        }
+      }
+
+      // 触发响应式更新
+      indexingFiles.value = newIndexingFiles
+    }
+  } catch (error) {
+    console.error('刷新索引状态失败:', error)
+  }
+}
+
+/**
+ * 恢复索引状态（页面切换后重新挂载时调用）
+ */
+async function restoreIndexingStatus(): Promise<void> {
+  console.log('尝试恢复索引状态, currentKB:', currentKB.value?.id)
+
+  if (!currentKB.value) {
+    console.log('currentKB 为空，跳过恢复')
+    return
+  }
+
+  try {
+    const result = await window.api.knowledge.getIndexingStatus()
+    console.log('获取索引状态结果:', result)
+
+    if (result.success && result.data) {
+      const { indexingFiles: activeIndexingFiles } = result.data
+
+      // 筛选出当前知识库的索引文件
+      const currentKbFiles = activeIndexingFiles.filter((f) => f.kbId === currentKB.value!.id)
+      console.log('当前知识库正在索引的文件:', currentKbFiles)
+
+      // 恢复索引状态 - 使用新对象触发响应式更新，使用后端返回的进度
+      const newIndexingFiles = { ...indexingFiles.value }
+      for (const file of currentKbFiles) {
+        const progressKey = getProgressKey(file.kbId, file.fileId)
+        newIndexingFiles[progressKey] = {
+          fileId: file.fileId,
+          fileName: file.fileName || file.fileId,
+          status: (file.status as FileProcessingProgress['status']) || 'processing',
+          progress: file.progress ?? newIndexingFiles[progressKey]?.progress ?? 0
+        }
+      }
+      indexingFiles.value = newIndexingFiles
+
+      if (currentKbFiles.length > 0) {
+        console.log('恢复索引状态成功:', {
+          kbId: currentKB.value.id,
+          files: currentKbFiles.map((f) => f.fileName || f.fileId)
+        })
+
+        // 如果有正在索引的文件，启动定期刷新
+        startStatusRefresh()
+      } else {
+        console.log('当前知识库没有正在索引的文件')
+      }
+    }
+  } catch (error) {
+    console.error('恢复索引状态失败:', error)
+  }
+}
+
+/**
+ * 启动定期刷新状态
+ */
+function startStatusRefresh(): void {
+  // 清除已有的定时器
+  if (statusRefreshInterval.value) {
+    clearInterval(statusRefreshInterval.value)
+  }
+
+  // 每 2 秒刷新一次状态
+  statusRefreshInterval.value = setInterval(() => {
+    const hasActiveIndexing = indexingStatus.value
+    if (hasActiveIndexing) {
+      void refreshIndexingStatus()
+    } else {
+      // 没有正在索引的文件，停止定时器
+      stopStatusRefresh()
+    }
+  }, 2000)
+}
+
+/**
+ * 停止定期刷新状态
+ */
+function stopStatusRefresh(): void {
+  if (statusRefreshInterval.value) {
+    clearInterval(statusRefreshInterval.value)
+    statusRefreshInterval.value = null
+  }
+}
+
+// 页面可见性变化时恢复状态（处理页面切换）
+function handleVisibilityChange(): void {
+  if (document.visibilityState === 'visible') {
+    console.log('页面变为可见，恢复索引状态')
+    void restoreIndexingStatus()
+  }
+}
+
 // 监听知识库变化，自动加载文档和文件
 watch(
   () => currentKB.value?.id,
-  () => {
+  async () => {
     if (currentKB.value) {
-      loadLinkedFiles()
-      loadStats()
+      await loadLinkedFiles()
+      await loadStats()
       searchQuery.value = ''
       searchResults.value = []
       searchPerformed.value = false
+      // 知识库切换时恢复索引状态
+      await restoreIndexingStatus()
     } else {
       linkedFiles.value = []
       stats.value = { fileCount: 0, chunkCount: 0, dbSize: 0 }
@@ -387,12 +704,22 @@ watch(
   { immediate: true }
 )
 
-onMounted(() => {
+onMounted(async () => {
   progressCleanup.value = window.api.onFileProgress(handleFileProgress)
+
+  // 监听页面可见性变化
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+
+  // 恢复当前知识库正在进行的索引状态（延迟执行确保 currentKB 已就绪）
+  setTimeout(() => {
+    void restoreIndexingStatus()
+  }, 100)
 })
 
 onUnmounted(() => {
   progressCleanup.value?.()
+  stopStatusRefresh()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 // 暴露方法给父组件
@@ -623,7 +950,14 @@ function getFileNameWithoutExtension(fileName: string): string {
       </div>
 
       <!-- 文档列表区域 -->
-      <div class="documents-section">
+      <div
+        class="documents-section"
+        :class="{ 'drag-over': isDragging }"
+        @dragenter="handleDragEnter"
+        @dragleave="handleDragLeave"
+        @dragover="handleDragOver"
+        @drop="handleDrop"
+      >
         <div class="section-header">
           <h3>文档列表</h3>
           <span v-if="linkedFiles.length > 0" class="document-count"
@@ -631,14 +965,25 @@ function getFileNameWithoutExtension(fileName: string): string {
           >
         </div>
 
+        <!-- 拖拽提示遮罩 -->
+        <div v-if="isDragging" class="drag-overlay">
+          <div class="drag-content">
+            <div class="drag-icon">+</div>
+            <div class="drag-text">释放文件以上传</div>
+          </div>
+        </div>
+
         <div v-if="loadingFiles" class="loading-state">
           <div class="spinner-small"></div>
           <span>加载中...</span>
         </div>
 
-        <div v-else-if="linkedFiles.length === 0" class="empty-files">
-          <p>暂无关联文档</p>
-          <button class="btn-link" @click="handleAddFiles">添加文档</button>
+        <div v-else-if="linkedFiles.length === 0" class="documents-grid">
+          <!-- 添加文件卡片（空状态时显示） -->
+          <div class="add-file-card" @click="handleAddFiles">
+            <div class="add-file-icon">+</div>
+            <div class="add-file-text">添加文件</div>
+          </div>
         </div>
 
         <div v-else class="documents-grid">
@@ -722,12 +1067,12 @@ function getFileNameWithoutExtension(fileName: string): string {
               <div class="document-name" :title="file.name">
                 {{ getFileNameWithoutExtension(file.name) }}
               </div>
-              <div v-if="getKbIndexingFiles()[file.id]" class="bottom-group">
+              <div v-if="kbIndexingFiles[file.id]" class="bottom-group">
                 <div class="file-progress">
                   <div class="progress-bar">
                     <div
                       class="progress-fill"
-                      :style="{ width: `${getKbIndexingFiles()[file.id].progress || 0}%` }"
+                      :style="{ width: `${kbIndexingFiles[file.id].progress || 0}%` }"
                     ></div>
                   </div>
                 </div>
@@ -1450,5 +1795,61 @@ function getFileNameWithoutExtension(fileName: string): string {
 .search-results::-webkit-scrollbar-thumb {
   background-color: var(--theme-border);
   border-radius: 3px;
+}
+
+/* 拖拽相关样式 */
+.documents-section {
+  position: relative;
+}
+
+.documents-section.drag-over {
+  border: 2px dashed var(--theme-accent);
+  background-color: rgba(63, 185, 80, 0.05);
+}
+
+.drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(63, 185, 80, 0.1);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border: 2px dashed var(--theme-accent);
+  border-radius: 12px;
+}
+
+.drag-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px;
+  background-color: var(--theme-bg);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.drag-icon {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 300;
+  color: var(--theme-accent);
+  background-color: rgba(63, 185, 80, 0.1);
+  border-radius: 50%;
+}
+
+.drag-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--theme-text);
 }
 </style>

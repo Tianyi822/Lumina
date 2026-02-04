@@ -5,12 +5,14 @@ import { getVectorDBService } from '@main/services/vector'
 import { getFileService } from '@main/services/file/FileService'
 import { logger } from '@main/services/logger'
 import type { KnowledgeBase } from '@shared/types/knowledge'
+import type { FileProcessingProgress } from './KnowledgeService'
 import { KnowledgeService } from './KnowledgeService'
 import { readKnowledgeBases, writeKnowledgeBases } from './KnowledgeService'
 
 export interface KnowledgeBaseIndexingStatus {
   isIndexing: boolean
   indexingFiles: string[]
+  fileProgress: Map<string, FileProcessingProgress>
 }
 
 /**
@@ -219,10 +221,19 @@ export class KnowledgeServiceManager {
     }
 
     const indexingFiles = instance.getIndexingFiles().map((f) => f.fileId)
+    // 获取每个文件的进度信息
+    const fileProgress = new Map<string, FileProcessingProgress>()
+    for (const fileId of indexingFiles) {
+      const progress = instance.getFileProgress(`${kbId}:${fileId}`)
+      if (progress) {
+        fileProgress.set(fileId, progress)
+      }
+    }
 
     return {
       isIndexing: instance.isIndexing(),
-      indexingFiles
+      indexingFiles,
+      fileProgress
     }
   }
 
@@ -231,9 +242,18 @@ export class KnowledgeServiceManager {
 
     for (const [kbId, instance] of this.instances) {
       const indexingFiles = instance.getIndexingFiles().map((f) => f.fileId)
+      // 获取每个文件的进度信息
+      const fileProgress = new Map<string, FileProcessingProgress>()
+      for (const fileId of indexingFiles) {
+        const progress = instance.getFileProgress(`${kbId}:${fileId}`)
+        if (progress) {
+          fileProgress.set(fileId, progress)
+        }
+      }
       statusMap.set(kbId, {
         isIndexing: instance.isIndexing(),
-        indexingFiles
+        indexingFiles,
+        fileProgress
       })
     }
 
