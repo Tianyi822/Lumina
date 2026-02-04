@@ -1,6 +1,10 @@
 import type { Ref } from 'vue'
-import type { Message, MCPTool, SessionType } from '../../types'
-import { generateTitle, convertToToolReferences } from '../../utils/sessionHelpers'
+import type { Message, MCPTool, SessionType, KnowledgeBase } from '../../types'
+import {
+  generateTitle,
+  convertToToolReferences,
+  convertToKBReferences
+} from '../../utils/sessionHelpers'
 import { buildChatMessages } from '../../utils/messageHelpers'
 import type { SessionInputState } from '../input/useInputState'
 import { DEFAULT_NEW_CHAT_TITLE } from '../../constants'
@@ -42,7 +46,8 @@ interface ChatStream {
 type HandleSendMessage = (
   content: string,
   model: string,
-  selectedTools?: MCPTool[]
+  selectedTools?: MCPTool[],
+  selectedKnowledgeBases?: KnowledgeBase[]
 ) => Promise<void>
 
 /**
@@ -77,7 +82,8 @@ export function useChatMessage(
   async function handleSendMessage(
     content: string,
     model: string,
-    selectedTools: MCPTool[] = []
+    selectedTools: MCPTool[] = [],
+    selectedKnowledgeBases: KnowledgeBase[] = []
   ): Promise<void> {
     // 如果没有当前对话，先创建一个（设置默认标题为"新对话"）
     if (!currentChatId.value || !currentSession.value) {
@@ -155,6 +161,12 @@ export function useChatMessage(
       const toolReferences =
         selectedTools.length > 0 ? convertToToolReferences(selectedTools) : undefined
 
+      // 转换知识库引用
+      const kbReferences =
+        selectedKnowledgeBases.length > 0
+          ? convertToKBReferences(selectedKnowledgeBases)
+          : undefined
+
       // 调试日志：确认工具选择
       if (selectedTools.length > 0) {
         window.api.logger.info('发送消息时选中的 MCP 工具', {
@@ -165,12 +177,23 @@ export function useChatMessage(
         })
       }
 
-      // 发送请求（携带 sessionId 和工具列表）
+      // 调试日志：确认知识库选择
+      if (selectedKnowledgeBases.length > 0) {
+        window.api.logger.info('发送消息时选中的知识库', {
+          originalKBCount: selectedKnowledgeBases.length,
+          originalKBs: selectedKnowledgeBases.map((kb) => kb.name),
+          convertedKBCount: kbReferences?.length ?? 0,
+          convertedKBs: kbReferences?.map((kb) => kb.name)
+        })
+      }
+
+      // 发送请求（携带 sessionId、工具列表和知识库列表）
       const result = await window.api.chat.send({
         messages: chatMessages,
         modelKey: model,
         sessionId,
-        selectedTools: toolReferences
+        selectedTools: toolReferences,
+        selectedKnowledgeBases: kbReferences
       })
 
       if (!result.success && result.error) {

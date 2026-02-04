@@ -64,3 +64,17 @@ export interface Document {
   createdAt: string
   updatedAt: string
 }
+
+/**
+ * 知识库引用（用于聊天时传递选中的知识库）
+ */
+export interface KnowledgeBaseReference {
+  /** 知识库 ID */
+  id: string
+  /** 知识库名称 */
+  name: string
+  /** 知识库描述 */
+  description?: string
+  /** 文档数量 */
+  documentCount: number
+}

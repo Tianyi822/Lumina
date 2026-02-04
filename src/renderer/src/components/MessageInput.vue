@@ -1,27 +1,37 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, inject, watch, type Ref } from 'vue'
 import MCPToolsPanel from './MCPToolsPanel.vue'
-import type { AppConfig, MCPTool } from '@renderer/types'
+import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
+import type { AppConfig, MCPTool, KnowledgeBase } from '@renderer/types'
 
 const props = defineProps<{
   isSending?: boolean
   inputMessage?: string
   selectedModel?: string
   selectedMCPTools?: MCPTool[]
+  selectedKnowledgeBases?: KnowledgeBase[]
 }>()
 
 const emit = defineEmits<{
-  (e: 'send', message: string, model: string, selectedMCPTools: MCPTool[]): void
+  (
+    e: 'send',
+    message: string,
+    model: string,
+    selectedMCPTools: MCPTool[],
+    selectedKnowledgeBases: KnowledgeBase[]
+  ): void
   (e: 'stop'): void
   (e: 'update:inputMessage', value: string): void
   (e: 'update:selectedModel', value: string): void
   (e: 'update:selectedMCPTools', value: MCPTool[]): void
+  (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
 }>()
 
 // 本地输入状态 - 确保与会话独立
 const localInputMessage = ref(props.inputMessage ?? '')
 const localSelectedModel = ref(props.selectedModel ?? '')
 const localSelectedTools = ref<MCPTool[]>(props.selectedMCPTools ?? [])
+const localSelectedKnowledgeBases = ref<KnowledgeBase[]>(props.selectedKnowledgeBases ?? [])
 
 // 同步 props 到本地状态
 watch(
@@ -61,6 +71,16 @@ watch(
   { immediate: true, deep: true }
 )
 
+watch(
+  () => props.selectedKnowledgeBases,
+  (newVal) => {
+    if (newVal !== undefined && newVal !== localSelectedKnowledgeBases.value) {
+      localSelectedKnowledgeBases.value = newVal
+    }
+  },
+  { immediate: true, deep: true }
+)
+
 function updateSelectedModel(value: string): void {
   localSelectedModel.value = value
   emit('update:selectedModel', value)
@@ -69,6 +89,11 @@ function updateSelectedModel(value: string): void {
 function updateSelectedTools(tools: MCPTool[]): void {
   localSelectedTools.value = tools
   emit('update:selectedMCPTools', tools)
+}
+
+function updateSelectedKnowledgeBases(kbs: KnowledgeBase[]): void {
+  localSelectedKnowledgeBases.value = kbs
+  emit('update:selectedKnowledgeBases', kbs)
 }
 
 // 从配置中加载的模型选项
@@ -129,7 +154,18 @@ function handleSend(): void {
       count: localSelectedTools.value.length,
       tools: localSelectedTools.value.map((t) => `${t.serverName}/${t.name}`)
     })
-    emit('send', message.trim(), localSelectedModel.value, localSelectedTools.value)
+    // 调试日志：确认发送时的知识库选择状态
+    console.log('[MessageInput] 发送消息，选中的知识库:', {
+      count: localSelectedKnowledgeBases.value.length,
+      kbs: localSelectedKnowledgeBases.value.map((kb) => kb.name)
+    })
+    emit(
+      'send',
+      message.trim(),
+      localSelectedModel.value,
+      localSelectedTools.value,
+      localSelectedKnowledgeBases.value
+    )
     localInputMessage.value = ''
     emit('update:inputMessage', '')
   }
@@ -226,6 +262,12 @@ onUnmounted(() => {
       <MCPToolsPanel
         :selected-tools="localSelectedTools"
         @tools-selected="handleMCPToolsSelected"
+      />
+
+      <!-- 知识库选择器 -->
+      <KnowledgeBasePanel
+        :selected-knowledge-bases="localSelectedKnowledgeBases"
+        @selection-change="updateSelectedKnowledgeBases"
       />
 
       <!-- 执行/停止按钮 -->

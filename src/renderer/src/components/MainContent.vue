@@ -3,7 +3,7 @@ import MarkdownIt from 'markdown-it'
 import { nextTick, onMounted, provide, ref, watch } from 'vue'
 import MessageInput from './MessageInput.vue'
 import ReActSteps from './ReActSteps.vue'
-import type { Message, MCPTool, TokenUsage } from '@renderer/types'
+import type { Message, MCPTool, TokenUsage, KnowledgeBase } from '@renderer/types'
 
 // 初始化 markdown-it 实例
 const md = new MarkdownIt({
@@ -24,15 +24,23 @@ const props = defineProps<{
   inputMessage?: string
   selectedModel?: string
   selectedMCPTools?: MCPTool[]
+  selectedKnowledgeBases?: KnowledgeBase[]
 }>()
 
 const emit = defineEmits<{
   (e: 'toggle-sidebar'): void
-  (e: 'send-message', message: string, model: string, selectedTools: MCPTool[]): void
+  (
+    e: 'send-message',
+    message: string,
+    model: string,
+    selectedTools: MCPTool[],
+    selectedKnowledgeBases: KnowledgeBase[]
+  ): void
   (e: 'stop-request'): void
   (e: 'update:inputMessage', value: string): void
   (e: 'update:selectedModel', value: string): void
   (e: 'update:selectedMCPTools', value: MCPTool[]): void
+  (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
 }>()
 
 // 配置更新标志，用于触发子组件刷新
@@ -160,14 +168,21 @@ function handleToggleSidebar(): void {
   emit('toggle-sidebar')
 }
 
-function handleSendMessage(message: string, model: string, selectedTools: MCPTool[]): void {
+function handleSendMessage(
+  message: string,
+  model: string,
+  selectedTools: MCPTool[],
+  selectedKnowledgeBases: KnowledgeBase[]
+): void {
   console.log('[MainContent] 处理发送消息事件:', {
     message: message.substring(0, 50),
     model,
     selectedToolsCount: selectedTools?.length ?? 0,
-    selectedTools: selectedTools?.map((t) => `${t.serverName}/${t.name}`)
+    selectedTools: selectedTools?.map((t) => `${t.serverName}/${t.name}`),
+    selectedKnowledgeBasesCount: selectedKnowledgeBases?.length ?? 0,
+    selectedKnowledgeBases: selectedKnowledgeBases?.map((kb) => kb.name)
   })
-  emit('send-message', message, model, selectedTools)
+  emit('send-message', message, model, selectedTools, selectedKnowledgeBases)
 }
 
 function handleStopRequest(): void {
@@ -184,6 +199,10 @@ function handleUpdateSelectedModel(value: string): void {
 
 function handleUpdateSelectedTools(value: MCPTool[]): void {
   emit('update:selectedMCPTools', value)
+}
+
+function handleUpdateSelectedKnowledgeBases(value: KnowledgeBase[]): void {
+  emit('update:selectedKnowledgeBases', value)
 }
 
 /**
@@ -306,11 +325,13 @@ function formatTokenUsage(usage: TokenUsage): string {
       :input-message="props.inputMessage"
       :selected-model="props.selectedModel"
       :selected-m-c-p-tools="props.selectedMCPTools"
+      :selected-knowledge-bases="props.selectedKnowledgeBases"
       @send="handleSendMessage"
       @stop="handleStopRequest"
       @update:input-message="handleUpdateInputMessage"
       @update:selected-model="handleUpdateSelectedModel"
       @update:selected-m-c-p-tools="handleUpdateSelectedTools"
+      @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
     />
   </main>
 </template>

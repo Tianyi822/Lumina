@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-import type { MCPTool, SessionType } from '@renderer/types'
+import type { MCPTool, SessionType, KnowledgeBase } from '@renderer/types'
 import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
@@ -74,6 +74,10 @@ function handleUpdateSelectedTools(value: MCPTool[]): void {
   sessionActions.updateSelectedTools(value)
 }
 
+function handleUpdateSelectedKnowledgeBases(value: KnowledgeBase[]): void {
+  sessionActions.updateSelectedKnowledgeBases(value)
+}
+
 // ==================== 生命周期 ====================
 onMounted(async () => {
   chatStream.setupStreamListener(
@@ -118,12 +122,14 @@ onUnmounted(() => {
       :input-message="currentInputState.inputMessage"
       :selected-model="currentInputState.selectedModel"
       :selected-m-c-p-tools="currentInputState.selectedMCPTools"
+      :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
       @toggle-sidebar="uiState.toggleSidebar"
       @send-message="handleSendMessage"
       @stop-request="handleStopRequest"
       @update:input-message="handleUpdateInputMessage"
       @update:selected-model="handleUpdateSelectedModel"
       @update:selected-m-c-p-tools="handleUpdateSelectedTools"
+      @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
     />
 
     <!-- 聊天错误提示(临时显示) -->

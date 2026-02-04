@@ -1,5 +1,12 @@
 import type { Ref } from 'vue'
-import type { Message, SessionData, SessionListItem, MCPTool, SessionType } from '../../types'
+import type {
+  Message,
+  SessionData,
+  SessionListItem,
+  MCPTool,
+  SessionType,
+  KnowledgeBase
+} from '../../types'
 import { useSession } from '../session/useSession'
 import { useMessageCache } from '../session/useMessageCache'
 import { useInputState, type SessionInputState } from '../input/useInputState'
@@ -40,6 +47,7 @@ export interface SessionActionsReturn {
   updateInputMessage: (message: string) => void
   updateSelectedModel: (model: string) => void
   updateSelectedTools: (tools: MCPTool[]) => void
+  updateSelectedKnowledgeBases: (kbs: KnowledgeBase[]) => void
   clearInputMessage: () => void
 }
 
@@ -59,6 +67,7 @@ export function useSessionActions(chatStream: ChatStream): SessionActionsReturn 
     updateInputMessage,
     updateSelectedModel,
     updateSelectedTools,
+    updateSelectedKnowledgeBases,
     clearInputMessage
   } = useInputState()
 
@@ -185,6 +194,7 @@ export function useSessionActions(chatStream: ChatStream): SessionActionsReturn 
     updateInputMessage,
     updateSelectedModel,
     updateSelectedTools,
+    updateSelectedKnowledgeBases,
     clearInputMessage
   }
 }

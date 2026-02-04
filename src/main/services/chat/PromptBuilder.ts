@@ -1,9 +1,9 @@
 import type { LLMConfig } from '@main/types/config'
-import type { MCPToolReference } from '@main/types/chat'
+import type { MCPToolReference, KnowledgeSearchResult } from '@main/types/chat'
 import type { PromptBuildOptions } from './prompts/types'
 import type { PromptConfig as SharedPromptConfig } from '@shared/types/config'
 import type { EnhancedFewShotExample } from './prompts/types'
-import { buildReactSystemPrompt } from './prompts/reactSystemPrompt'
+import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt } from './prompts/reactSystemPrompt'
 import { PromptCache } from './prompts/PromptCache'
 import { PromptOptimizer } from './prompts/PromptOptimizer'
 import { exampleManager } from './prompts/ExampleManager'
@@ -92,20 +92,22 @@ export class PromptBuilder {
    * @param modelConfig LLM 配置
    * @param hasTools 是否有工具可用
    * @param selectedTools 选中的工具列表（可选）
+   * @param knowledgeResults 知识库搜索结果（可选）
    * @returns 构建好的系统提示词
    */
   async buildSystemPrompt(
     modelConfig: LLMConfig,
     hasTools: boolean,
-    selectedTools?: MCPToolReference[]
+    selectedTools?: MCPToolReference[],
+    knowledgeResults?: KnowledgeSearchResult[]
   ): Promise<string> {
-    // 如果没有工具，使用简单提示词
-    if (!hasTools) {
+    // 如果没有工具和知识库，使用简单提示词
+    if (!hasTools && (!knowledgeResults || knowledgeResults.length === 0)) {
       return this.getBasicSystemPrompt()
     }
 
     // 获取构建选项
-    const options = await this.buildOptions(modelConfig, selectedTools)
+    const options = await this.buildOptions(modelConfig, selectedTools, knowledgeResults)
 
     // 生成示例 ID 列表（用于缓存键）
     const exampleIds = this.generateExampleIds(options.fewShotCount || 0)
@@ -118,9 +120,15 @@ export class PromptBuilder {
       () => buildReactSystemPrompt(options)
     )
 
+    // 如果有知识库结果，添加知识库增强提示词
+    let finalPrompt = prompt
+    if (knowledgeResults && knowledgeResults.length > 0) {
+      finalPrompt += '\n\n' + buildKnowledgeEnhancedPrompt()
+    }
+
     // 应用优化
     if (this.promptConfig?.enablePromptOptimization && modelConfig.max_tokens) {
-      const result = this.optimizer.optimize(prompt, {
+      const result = this.optimizer.optimize(finalPrompt, {
         maxTokens: modelConfig.max_tokens,
         aggressiveness: this.promptConfig.optimizationAggressiveness || 'balanced',
         tools: selectedTools
@@ -139,7 +147,7 @@ export class PromptBuilder {
       return result.optimizedPrompt
     }
 
-    return prompt
+    return finalPrompt
   }
 
   /**
@@ -158,7 +166,8 @@ export class PromptBuilder {
    */
   private async buildOptions(
     modelConfig: LLMConfig,
-    selectedTools?: MCPToolReference[]
+    selectedTools?: MCPToolReference[],
+    knowledgeResults?: KnowledgeSearchResult[]
   ): Promise<PromptBuildOptions> {
     const options: PromptBuildOptions = {
       includeFewShotExamples: true,
@@ -191,11 +200,11 @@ export class PromptBuilder {
         if (
           this.promptConfig.enableDynamicExamples &&
           this.initialized &&
-          selectedTools &&
-          selectedTools.length > 0
+          ((selectedTools && selectedTools.length > 0) ||
+            (knowledgeResults && knowledgeResults.length > 0))
         ) {
           try {
-            const examples = await exampleManager.selectExamples(selectedTools, {
+            const examples = await exampleManager.selectExamples(selectedTools || [], {
               maxCount: options.fewShotCount || 3,
               minQualityScore: this.promptConfig.dynamicExampleMinQuality || 0.6,
               includeStatic: true,

@@ -1,4 +1,5 @@
 import type { ChatMessage, SessionMessage, MCPTool, MCPToolReference } from '@shared/types'
+import type { KnowledgeBase, KnowledgeBaseReference } from '@shared/types/knowledge'
 import { deepClone } from './data-processors'
 
 /**
@@ -35,5 +36,17 @@ export function convertToToolReferences(tools: MCPTool[]): MCPToolReference[] {
     toolName: tool.name,
     description: tool.description || '',
     inputSchema: deepClone(tool.inputSchema || {})
+  }))
+}
+
+/**
+ * 将 KnowledgeBase 转换为 KnowledgeBaseReference
+ */
+export function convertToKBReferences(knowledgeBases: KnowledgeBase[]): KnowledgeBaseReference[] {
+  return knowledgeBases.map((kb) => ({
+    id: kb.id,
+    name: kb.name,
+    description: kb.description || '',
+    documentCount: kb.linkedFileIds?.length ?? kb.documentCount ?? 0
   }))
 }

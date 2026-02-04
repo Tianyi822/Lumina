@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
-import type { Message, StreamEvent, SessionData } from '../../types'
+import type { Message, StreamEvent, SessionData, ReActStep } from '../../types'
 
 /**
  * useChatStream 返回类型
@@ -210,6 +210,58 @@ export function useChatStream(): UseChatStreamReturn {
             toolResult: event.toolResult,
             timestamp: new Date().toISOString()
           })
+        }
+        break
+
+      case 'knowledge_search':
+        if (streamingMessage && event.knowledgeSearch) {
+          // 初始化 reactSteps 数组
+          if (!streamingMessage.reactSteps) {
+            streamingMessage.reactSteps = []
+          }
+          // 添加知识库搜索步骤
+          const searchStep: ReActStep = {
+            type: 'tool_call',
+            toolCall: {
+              id: `kb-search-${Date.now()}`,
+              name: 'knowledge_search',
+              serverName: event.knowledgeSearch.knowledgeBaseName,
+              arguments: { query: event.knowledgeSearch.query }
+            },
+            timestamp: new Date().toISOString()
+          }
+          streamingMessage.reactSteps.push(searchStep)
+        }
+        break
+
+      case 'knowledge_result':
+        if (streamingMessage && event.knowledgeResult) {
+          // 初始化 reactSteps 数组
+          if (!streamingMessage.reactSteps) {
+            streamingMessage.reactSteps = []
+          }
+          // 添加知识库搜索结果步骤
+          const resultStep: ReActStep = {
+            type: 'tool_result',
+            toolResult: {
+              id: `kb-result-${Date.now()}`,
+              name: 'knowledge_search',
+              success: true,
+              result: {
+                knowledgeBaseId: event.knowledgeResult.knowledgeBaseId,
+                knowledgeBaseName: event.knowledgeResult.knowledgeBaseName,
+                query: event.knowledgeResult.query,
+                resultCount: event.knowledgeResult.results.length,
+                results: event.knowledgeResult.results.map((r) => ({
+                  fileName: r.fileName,
+                  content: r.content,
+                  similarity: r.similarity
+                }))
+              }
+            },
+            timestamp: new Date().toISOString()
+          }
+          streamingMessage.reactSteps.push(resultStep)
         }
         break
 

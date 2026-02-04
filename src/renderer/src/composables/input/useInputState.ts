@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
-import type { MCPTool } from '../../types'
+import type { MCPTool, KnowledgeBase } from '../../types'
 
 /**
  * 会话输入状态
@@ -9,6 +9,7 @@ export interface SessionInputState {
   inputMessage: string
   selectedModel: string
   selectedMCPTools: MCPTool[]
+  selectedKnowledgeBases: KnowledgeBase[]
 }
 
 /**
@@ -21,9 +22,11 @@ export interface UseInputStateReturn {
   switchToSession: (sessionId: string) => void
   clearInputMessage: () => void
   clearSelectedTools: () => void
+  clearSelectedKnowledgeBases: () => void
   updateInputMessage: (message: string) => void
   updateSelectedModel: (model: string) => void
   updateSelectedTools: (tools: MCPTool[]) => void
+  updateSelectedKnowledgeBases: (kbs: KnowledgeBase[]) => void
   deleteSessionState: (sessionId: string) => void
   clearAllStates: () => void
 }
@@ -40,7 +43,8 @@ export function useInputState(): UseInputStateReturn {
   const currentInputState = ref<SessionInputState>({
     inputMessage: '',
     selectedModel: '',
-    selectedMCPTools: []
+    selectedMCPTools: [],
+    selectedKnowledgeBases: []
   })
 
   /**
@@ -51,7 +55,8 @@ export function useInputState(): UseInputStateReturn {
       sessionInputStates.value.set(sessionId, {
         inputMessage: '',
         selectedModel: '',
-        selectedMCPTools: []
+        selectedMCPTools: [],
+        selectedKnowledgeBases: []
       })
     }
     return sessionInputStates.value.get(sessionId)!
@@ -89,6 +94,13 @@ export function useInputState(): UseInputStateReturn {
   }
 
   /**
+   * 清除当前会话的选中知识库
+   */
+  function clearSelectedKnowledgeBases(): void {
+    currentInputState.value.selectedKnowledgeBases = []
+  }
+
+  /**
    * 更新输入消息
    */
   function updateInputMessage(message: string): void {
@@ -110,6 +122,13 @@ export function useInputState(): UseInputStateReturn {
   }
 
   /**
+   * 更新选中的知识库
+   */
+  function updateSelectedKnowledgeBases(kbs: KnowledgeBase[]): void {
+    currentInputState.value.selectedKnowledgeBases = kbs
+  }
+
+  /**
    * 删除会话的输入状态
    */
   function deleteSessionState(sessionId: string): void {
@@ -124,7 +143,8 @@ export function useInputState(): UseInputStateReturn {
     currentInputState.value = {
       inputMessage: '',
       selectedModel: '',
-      selectedMCPTools: []
+      selectedMCPTools: [],
+      selectedKnowledgeBases: []
     }
   }
 
@@ -135,9 +155,11 @@ export function useInputState(): UseInputStateReturn {
     switchToSession,
     clearInputMessage,
     clearSelectedTools,
+    clearSelectedKnowledgeBases,
     updateInputMessage,
     updateSelectedModel,
     updateSelectedTools,
+    updateSelectedKnowledgeBases,
     deleteSessionState,
     clearAllStates
   }
