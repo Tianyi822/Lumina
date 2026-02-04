@@ -288,13 +288,17 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 20px;
+  overflow: hidden;
 }
 
 .modal-container {
-  width: 900px;
-  height: 700px;
-  max-width: calc(100vw - 40px);
-  max-height: calc(100vh - 40px);
+  width: 100%;
+  height: 100%;
+  max-width: 900px;
+  max-height: 700px;
+  min-width: 400px;
+  min-height: 300px;
   background-color: var(--theme-bg);
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
@@ -302,6 +306,69 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+@media (max-width: 960px) {
+  .modal-container {
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 40px);
+  }
+}
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-container {
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .tabs {
+    width: 160px;
+  }
+
+  .tab-btn {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .modal-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  .tabs {
+    width: 140px;
+  }
+
+  .tab-btn {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .modal-header {
+    padding: 12px 16px;
+  }
+
+  .modal-title {
+    font-size: 16px;
+  }
+
+  .modal-footer {
+    padding: 12px 16px;
+  }
+
+  .btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .modal-content {
+    padding: 12px;
+  }
 }
 
 .modal-header {
@@ -334,6 +401,42 @@ onUnmounted(() => {
   display: flex;
   flex: 1;
   overflow: hidden;
+}
+
+@media (max-width: 480px) {
+  .modal-body {
+    flex-direction: column;
+  }
+
+  .tabs {
+    width: 100%;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--theme-border);
+    flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .tab-btn {
+    white-space: nowrap;
+    padding: 10px 16px;
+    border-radius: 0;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 13px;
+  }
+
+  .tab-btn.active {
+    border-radius: 0;
+    border: none;
+    border-bottom: 2px solid var(--theme-accent);
+    background-color: transparent;
+  }
+
+  .modal-content {
+    padding: 16px;
+  }
 }
 
 .tabs {
