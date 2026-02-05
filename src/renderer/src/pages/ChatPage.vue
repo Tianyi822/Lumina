@@ -1,99 +1,273 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
-import type { MCPTool, SessionType, KnowledgeBase } from '@renderer/types'
+import { onMounted, onUnmounted, watch, computed } from 'vue'
+import type { MCPTool, SessionType, KnowledgeBase, StreamEvent } from '@renderer/types'
 import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
-import { useSessionActions } from '@renderer/composables/session/useSessionActions'
-import { useChatStream } from '@renderer/composables/chat/useChatStream'
-import { useChatMessage } from '@renderer/composables/chat/useChatMessage'
-import { useChatError } from '@renderer/composables/chat/useChatError'
-import { useUIState } from '@renderer/composables/ui/useUIState'
 
-// ==================== UI 状态管理 ====================
-const uiState = useUIState()
-const { currentModel, sidebarCollapsed } = uiState
+// Stores
+import {
+  useSessionStore,
+  useChatStreamStore,
+  useInputStateStore,
+  useUIStateStore
+} from '@renderer/stores'
+
+// Composables
+import { useChatError } from '@renderer/composables/chat/useChatError'
+
+// ==================== Props & Emits ====================
+defineEmits<{
+  (e: 'open-settings'): void
+}>()
+
+// ==================== Stores ====================
+const sessionStore = useSessionStore()
+const chatStreamStore = useChatStreamStore()
+const inputStateStore = useInputStateStore()
+const uiStateStore = useUIStateStore()
+
+// 创建响应式引用
+const currentChatId = computed(() => sessionStore.currentChatId)
+const messages = computed(() => sessionStore.messages)
+const sessionList = computed(() => sessionStore.sessionList)
+const sessionUpdateKey = computed(() => sessionStore.sessionUpdateKey)
+const currentSession = computed(() => sessionStore.currentSession)
+const isSending = computed(() => chatStreamStore.isSending)
+const currentInputState = computed(() => inputStateStore.currentInputState)
+const sidebarCollapsed = computed(() => uiStateStore.sidebarCollapsed)
+const currentModel = computed(() => uiStateStore.currentModel)
 
 // ==================== 聊天错误处理 ====================
 const { showChatError, chatErrorMessage, handleChatError, closeChatError } = useChatError()
 
-// ==================== 聊天流式处理 ====================
-const chatStream = useChatStream()
+// ==================== 发送消息处理 ====================
+async function handleSendMessage(
+  content: string,
+  model: string,
+  selectedTools: MCPTool[] = [],
+  selectedKnowledgeBases: KnowledgeBase[] = []
+): Promise<void> {
+  // 如果没有当前对话，先创建一个
+  if (!currentChatId.value || !currentSession.value) {
+    await sessionStore.createSession()
+  }
 
-// ==================== 会话管理（依赖 chatStream）====================
-const sessionActions = useSessionActions(chatStream)
+  // 确保当前会话存在
+  if (!currentSession.value) {
+    window.api.logger.error('[ChatPage] 创建会话失败，无法发送消息')
+    return
+  }
 
-// 从 sessionActions 解构出需要的状态
-const { currentChatId, messages, sessionList, sessionUpdateKey, currentInputState } = sessionActions
-const { isSending } = chatStream
+  const sessionId = currentSession.value.sessionId
 
-// ==================== 聊天消息处理 ====================
-const { handleSendMessage } = useChatMessage(
-  sessionActions,
-  chatStream,
-  currentModel,
-  currentInputState,
-  handleChatError
-)
+  // 检查当前会话是否正在发送
+  if (chatStreamStore.getSessionSendingState(sessionId)) {
+    window.api.logger.warn('[ChatPage] 当前会话正在发送消息，忽略重复请求', { sessionId })
+    return
+  }
+
+  // 如果没有选择模型，显示错误
+  if (!model) {
+    handleChatError('请先选择一个模型')
+    return
+  }
+
+  // 保存发送前的消息快照（用于错误回滚）
+  const messagesSnapshot = JSON.parse(JSON.stringify(messages.value))
+  chatStreamStore.saveMessagesSnapshot(sessionId, messagesSnapshot)
+
+  // 记录当前正在流式响应的会话ID
+  chatStreamStore.streamingSessionId = sessionId
+
+  // 更新当前模型
+  uiStateStore.setCurrentModel(model)
+  inputStateStore.updateSelectedModel(model)
+
+  // 检查是否是第一条消息（用于更新会话标题）
+  const isFirstMessage = messages.value.length === 0
+
+  // 添加用户消息
+  const userMessage = {
+    id: `msg-${Date.now()}`,
+    role: 'user' as const,
+    content,
+    timestamp: new Date().toISOString()
+  }
+  sessionStore.addMessage(userMessage)
+
+  // 创建助手消息占位符
+  const assistantMessage = {
+    id: `msg-${Date.now() + 1}`,
+    role: 'assistant' as const,
+    content: '',
+    isStreaming: true,
+    timestamp: new Date().toISOString(),
+    modelName: model,
+    reactSteps: []
+  }
+  sessionStore.addMessage(assistantMessage)
+
+  // 设置发送状态
+  chatStreamStore.setSessionSendingState(sessionId, true, true)
+
+  // 如果是第一条消息，更新会话标题
+  if (isFirstMessage) {
+    const title = content.slice(0, 20) + (content.length > 20 ? '...' : '')
+    sessionStore.updateSessionTitle(title)
+  }
+
+  try {
+    // 构建消息历史（排除最后一个空的助手占位符）
+    const chatMessages = messages.value.slice(0, -1).map((msg) => ({
+      role: msg.role,
+      content: msg.content
+    }))
+
+    // 转换工具引用
+    const toolReferences =
+      selectedTools.length > 0
+        ? selectedTools.map((t) => ({
+            serverName: t.serverName,
+            toolName: t.name,
+            description: t.description || '',
+            inputSchema: t.inputSchema || {}
+          }))
+        : undefined
+
+    // 转换知识库引用
+    const kbReferences =
+      selectedKnowledgeBases.length > 0
+        ? selectedKnowledgeBases.map((kb) => ({
+            id: kb.id,
+            name: kb.name,
+            description: kb.description || '',
+            documentCount: (kb as { documentCount?: number }).documentCount || 0
+          }))
+        : undefined
+
+    // 发送请求
+    const result = await window.api.chat.send({
+      messages: chatMessages,
+      modelKey: model,
+      sessionId,
+      selectedTools: toolReferences,
+      selectedKnowledgeBases: kbReferences
+    })
+
+    if (!result.success && result.error) {
+      window.api.logger.error('[ChatPage] 发送消息失败', { error: result.error, sessionId })
+      handleChatError(result.error)
+    } else {
+      // 发送成功后，清空输入消息
+      inputStateStore.clearInputMessage()
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    window.api.logger.error('[ChatPage] 发送消息异常', { error: errorMessage, sessionId })
+
+    // 发生异常时回滚到发送前状态
+    messages.value.length = 0
+    messages.value.push(...messagesSnapshot)
+    chatStreamStore.setSessionSendingState(sessionId, false, true)
+    chatStreamStore.streamingSessionId = null
+
+    handleChatError(errorMessage)
+  }
+}
 
 // ==================== 停止请求 ====================
 async function handleStopRequest(): Promise<void> {
-  const sessionId = sessionActions.currentSession.value?.sessionId
+  const sessionId = currentChatId.value
   if (sessionId) {
-    await chatStream.stopRequest(sessionId)
+    await chatStreamStore.stopRequest(sessionId)
   }
 }
 
 // ==================== 新聊天 ====================
 async function handleNewChat(sessionType?: SessionType): Promise<void> {
-  await sessionActions.handleNewChat(sessionType)
+  await sessionStore.handleNewChat(sessionType)
 
   // 新会话创建后重置发送状态
-  const newSessionId = sessionActions.currentSession.value?.sessionId
+  const newSessionId = currentChatId.value
   if (newSessionId) {
-    chatStream.setSessionSendingState(newSessionId, false)
+    chatStreamStore.setSessionSendingState(newSessionId, false)
   }
 }
 
 // ==================== 会话选择 ====================
 async function handleSelectChat(sessionId: string): Promise<void> {
-  const newSessionIsSending = await sessionActions.handleSelectChat(sessionId)
-  chatStream.setSessionSendingState(sessionId, newSessionIsSending)
+  const isSending = await sessionStore.handleSelectChat(sessionId)
+  chatStreamStore.setSessionSendingState(sessionId, isSending, true)
 }
 
 // ==================== 输入状态更新处理 ====================
 function handleUpdateInputMessage(value: string): void {
-  sessionActions.updateInputMessage(value)
+  inputStateStore.updateInputMessage(value)
 }
 
 function handleUpdateSelectedModel(value: string): void {
-  sessionActions.updateSelectedModel(value)
+  inputStateStore.updateSelectedModel(value)
+  uiStateStore.setCurrentModel(value)
 }
 
 function handleUpdateSelectedTools(value: MCPTool[]): void {
-  sessionActions.updateSelectedTools(value)
+  inputStateStore.updateSelectedTools(value)
 }
 
 function handleUpdateSelectedKnowledgeBases(value: KnowledgeBase[]): void {
-  sessionActions.updateSelectedKnowledgeBases(value)
+  inputStateStore.updateSelectedKnowledgeBases(value)
+}
+
+// ==================== 流式事件处理 ====================
+function handleStreamEvent(event: StreamEvent): void {
+  chatStreamStore.handleStreamEvent(event, currentChatId.value || null, messages.value)
 }
 
 // ==================== 生命周期 ====================
 onMounted(async () => {
-  chatStream.setupStreamListener(
-    () => sessionActions.currentSession.value,
-    () => sessionActions.messages.value,
-    sessionActions.saveCurrentSession,
-    sessionActions.saveCachedSession,
-    handleChatError,
-    sessionActions.sessionMessagesCache.value
-  )
-  await sessionActions.loadSessionList()
+  window.api.logger.info('[ChatPage] 组件挂载，初始化聊天页面')
+
+  // 设置流式监听器
+  chatStreamStore.setupStreamListener(handleStreamEvent)
+
+  // 加载会话列表
+  await sessionStore.loadSessionList()
+
+  // 如果有上次访问的会话，恢复它
+  if (uiStateStore.lastChatSessionId) {
+    const restored = await sessionStore.restoreStateAfterReturn(uiStateStore.lastChatSessionId)
+    if (restored) {
+      window.api.logger.info('[ChatPage] 恢复上次会话成功', {
+        sessionId: uiStateStore.lastChatSessionId
+      })
+    }
+  }
 })
 
 onUnmounted(() => {
-  chatStream.cleanupStreamListener()
+  window.api.logger.info('[ChatPage] 组件卸载，清理资源')
+
+  // 在离开聊天页面前保存状态
+  if (currentChatId.value) {
+    sessionStore.saveCurrentStateBeforeLeave()
+    uiStateStore.updateLastChatSessionId(currentChatId.value)
+  }
+
+  // 清理流式监听器
+  chatStreamStore.cleanupStreamListener()
 })
+
+// ==================== 监听当前会话变化 ====================
+watch(
+  () => currentChatId.value,
+  (newSessionId, oldSessionId) => {
+    window.api.logger.debug('[ChatPage] 当前会话变化', {
+      from: oldSessionId,
+      to: newSessionId
+    })
+  }
+)
 </script>
 
 <template>
@@ -106,7 +280,7 @@ onUnmounted(() => {
       :session-update-key="sessionUpdateKey"
       @new-chat="handleNewChat"
       @select-chat="handleSelectChat"
-      @delete-session="sessionActions.handleDeleteSession"
+      @delete-session="sessionStore.handleDeleteSession"
     />
 
     <!-- 主内容区 -->
@@ -123,7 +297,7 @@ onUnmounted(() => {
       :selected-model="currentInputState.selectedModel"
       :selected-m-c-p-tools="currentInputState.selectedMCPTools"
       :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
-      @toggle-sidebar="uiState.toggleSidebar"
+      @toggle-sidebar="uiStateStore.toggleSidebar"
       @send-message="handleSendMessage"
       @stop-request="handleStopRequest"
       @update:input-message="handleUpdateInputMessage"
