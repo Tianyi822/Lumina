@@ -3,6 +3,7 @@ import { getKnowledgeServiceManager, type FileProcessingProgress } from '@main/s
 import { getVectorDBService } from '@main/services/vector'
 import { logger } from '@main/services/logger'
 import { getMainWindow } from '@main/core/window'
+import { getFileService } from '@main/services/file/FileService'
 import type { KnowledgeBase } from '@shared/types/knowledge'
 
 /**
@@ -328,12 +329,47 @@ export function registerKnowledgeHandlers(): void {
   ipcMain.handle('knowledge:getIndexingStatus', () => {
     try {
       const manager = getKnowledgeServiceManager()
+      const activeStatusMap = manager.getAllActiveStatus()
+
+      // 构建正在索引的文件列表（包含进度信息）
+      const indexingFiles: Array<{
+        kbId: string
+        fileId: string
+        fileName: string
+        progress?: number
+        status?: string
+      }> = []
+      for (const [kbId, status] of activeStatusMap) {
+        for (const fileId of status.indexingFiles) {
+          // 尝试获取文件名
+          let fileName = fileId
+          try {
+            const fileService = getFileService()
+            const file = fileService.getFileById(fileId)
+            if (file) {
+              fileName = file.name
+            }
+          } catch {
+            // 忽略错误，使用 fileId 作为文件名
+          }
+          // 获取进度信息
+          const progress = status.fileProgress.get(fileId)
+          indexingFiles.push({
+            kbId,
+            fileId,
+            fileName,
+            progress: progress?.progress,
+            status: progress?.status
+          })
+        }
+      }
+
       return {
         success: true,
         data: {
-          isIndexing: false,
-          indexingFiles: [],
-          activeStatusMap: manager.getAllActiveStatus(),
+          isIndexing: manager.getActiveIndexingKbId() !== null,
+          indexingFiles,
+          activeStatusMap: Array.from(activeStatusMap.entries()),
           activeIndexingKbId: manager.getActiveIndexingKbId(),
           queueLength: manager.getIndexingQueueLength()
         }

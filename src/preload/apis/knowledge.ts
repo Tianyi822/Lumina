@@ -202,7 +202,13 @@ export const knowledgeApi = {
   getIndexingStatus: (): Promise<
     ApiResponse<{
       isIndexing: boolean
-      indexingFiles: Array<{ kbId: string; fileId: string }>
+      indexingFiles: Array<{
+        kbId: string
+        fileId: string
+        fileName?: string
+        progress?: number
+        status?: string
+      }>
       activeIndexingKbId: string | null
       queueLength: number
     }>
