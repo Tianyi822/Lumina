@@ -707,44 +707,44 @@
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
 "@lancedb/lancedb-darwin-arm64@0.23.0":
-  version "0.22.4-beta.1"
-  resolved "https://registry.npmmirror.com/@lancedb/lancedb-darwin-arm64/-/lancedb-darwin-arm64-0.22.4-beta.1.tgz#55d3ef1c20846346816340da955e9515d1bbcfd1"
-  integrity sha512-shG+kNoncd66AuMZ9HZgYM42Q3KnjChZmb6ldn9RQBWjy7+8wGZhyPQ40kv/73b+z0mp9uI6Gf8zP/siEYNP+w==
+  version "0.22.3"
+  resolved "https://registry.npmmirror.com/@lancedb/lancedb-darwin-arm64/-/lancedb-darwin-arm64-0.22.3.tgz#d517f0a31517386dab2e694d03e564babc5955b5"
+  integrity sha512-oP2Kic51nLqs27Xo+AzSVlcMgmmfZbU/PseQ3KBtU92rczO5DYU2St1Y7qDUWcjw+RF3H2v/DKzYed16h1wCBQ==
 
 "@lancedb/lancedb-darwin-x64@0.23.0":
-  version "0.22.3"
-  resolved "https://registry.npmmirror.com/@lancedb/lancedb-darwin-x64/-/lancedb-darwin-x64-0.22.3.tgz#e30b4955d04fbfb09b5f3490ed141e4ec4fb1751"
-  integrity sha512-wOwgZkvBgQM8asjolz4NeyPa8W/AjZv4fwyQxJhTqKTGlB3ntrpdn1m84K5qncTmFFDcDfGgZ4DkNVkVK+ydoQ==
+  version "0.22.3-beta.4"
+  resolved "https://registry.npmmirror.com/@lancedb/lancedb-darwin-x64/-/lancedb-darwin-x64-0.22.3-beta.4.tgz#6e30e110ced95f6adfc93eda6c7d7bfc7ad35be9"
+  integrity sha512-nUgiwjxpu/IOPuHZi6O1dtbreaTi6KWRjouDI0dxzRF4mTtqnNomBNkre0fyCNZ8iSaRny3db6fBEHmlUkQg9g==
 
 "@lancedb/lancedb-linux-arm64-gnu@0.23.0":
-  version "0.22.4-beta.1"
-  resolved "https://registry.npmmirror.com/@lancedb/lancedb-linux-arm64-gnu/-/lancedb-linux-arm64-gnu-0.22.4-beta.1.tgz#4f0cc7653f3f6561e2979f1ff7ad4fa8f8c88482"
-  integrity sha512-mYTyiDXQ3Bu931vlgrdOSjMhKXqnv0e6LsWb90B8Xt+qnKjJZBD57SBi3id7AW+WBh4zHiKf6CVoxcXT+ixY9Q==
+  version "0.22.3"
+  resolved "https://registry.npmmirror.com/@lancedb/lancedb-linux-arm64-gnu/-/lancedb-linux-arm64-gnu-0.22.3.tgz#2053b112d20f3b10d50bb5865e5bb5b649a9c67a"
+  integrity sha512-YUbFuBKQniTZOR9h2/es1f7lDzdHNt8qXs5GaqFmLQv2GNWpnvKXVA/vVffhCNpFB5nV132o1VhXW3KoMubPsw==
 
 "@lancedb/lancedb-linux-arm64-musl@0.23.0":
-  version "0.22.4-beta.1"
-  resolved "https://registry.npmmirror.com/@lancedb/lancedb-linux-arm64-musl/-/lancedb-linux-arm64-musl-0.22.4-beta.1.tgz#af56fef874a780efc5b27cb6ef3b4838f8a55d50"
-  integrity sha512-2S22UuxXxnxgSx3XX0c8Ur+T2If4VEDUms35UFk6PUn+0IMlNKz63pTjKlJTBH+3mGTTXJlwDLh+FB1un/+hig==
+  version "0.22.3"
+  resolved "https://registry.npmmirror.com/@lancedb/lancedb-linux-arm64-musl/-/lancedb-linux-arm64-musl-0.22.3.tgz#4c6186f0837ca6da2f80d6d8ea3fa57ed13184b2"
+  integrity sha512-jVRMtXxxYaDlZSaclCIHB2N+NJvQ1Fj9EaPeBx+HxG2VqUg0vXKef+yiaD2aGo9sAH6mMmkKJsrPhwABpUC4rQ==
 
 "@lancedb/lancedb-linux-x64-gnu@0.23.0":
-  version "0.22.4-beta.1"
-  resolved "https://registry.npmmirror.com/@lancedb/lancedb-linux-x64-gnu/-/lancedb-linux-x64-gnu-0.22.4-beta.1.tgz#7b67a5271d401a416158578470787b006330b7be"
-  integrity sha512-KADBNB87FaeUlIktu2NyvVyJJ21dqhwFyKTwYMg56gu+n42CZuXi7YdgWJsasm/ehGnckxQELT9Q9bGZWjhYqg==
+  version "0.22.3"
+  resolved "https://registry.npmmirror.com/@lancedb/lancedb-linux-x64-gnu/-/lancedb-linux-x64-gnu-0.22.3.tgz#2c366dddc381d9aa9af141781426972204218476"
+  integrity sha512-co7idTwvNAtbFoFHojhHlTpKsydOm5sZfbtAsQRdoa7g6a61yIrqrMm8D7Ngh756JfzZLFQBMkDUZEW3X4vP/g==
 
 "@lancedb/lancedb-linux-x64-musl@0.23.0":
-  version "0.22.4-beta.1"
-  resolved "https://registry.npmmirror.com/@lancedb/lancedb-linux-x64-musl/-/lancedb-linux-x64-musl-0.22.4-beta.1.tgz#dd6feb3adcda577af4be5036747e63778028792e"
-  integrity sha512-jJ28mRIDa27rXHFR4Iu1XM4rlp75XCxL3NNrPFCsloKDnM5VyfHyKiDkKTKxTsfOIyVd3QWdHfySWPIhZsAKkg==
+  version "0.22.3"
+  resolved "https://registry.npmmirror.com/@lancedb/lancedb-linux-x64-musl/-/lancedb-linux-x64-musl-0.22.3.tgz#bb98198fe16eedcd840773f8f906b6a2992f9443"
+  integrity sha512-+ipFsn5PCODK7mOMq1gZ5OAZWks5YlgmjAlnYMmU8XxvaK0b6lZdA3s1hTmBaBO9+wv+31ulO55oBN4/U8Yldg==
 
 "@lancedb/lancedb-win32-arm64-msvc@0.23.0":
-  version "0.22.4-beta.1"
-  resolved "https://registry.npmmirror.com/@lancedb/lancedb-win32-arm64-msvc/-/lancedb-win32-arm64-msvc-0.22.4-beta.1.tgz#46e67240c26d9c5b11975fced8373238a70b4987"
-  integrity sha512-VqZN6tctesHQYOCB2WQpLfgpI4KfGgwqzD+A3u2wG/HXDunr7823KPJnQRejZa8hWUlAWjGp0gMs/mSQxDLYBg==
+  version "0.22.3"
+  resolved "https://registry.npmmirror.com/@lancedb/lancedb-win32-arm64-msvc/-/lancedb-win32-arm64-msvc-0.22.3.tgz#4926b9e52df739c44d9868f30902d55164caead2"
+  integrity sha512-E0XywJYnelIe4pzOlvog+aMHKt5ChW27tgmT2V80Z6PXcX6eN9I69Fj0Q6DK6z1YCTPIPu6Na1Hd6d4GqUNKPw==
 
 "@lancedb/lancedb-win32-x64-msvc@0.23.0":
-  version "0.22.4-beta.1"
-  resolved "https://registry.npmmirror.com/@lancedb/lancedb-win32-x64-msvc/-/lancedb-win32-x64-msvc-0.22.4-beta.1.tgz#f85d0123c142b02cdaf22af05d4b724124e6d3b5"
-  integrity sha512-nuEGGF/0yn8bfThCJDt0Vpg6Z4MrgjSKpVhPCE6DhYhi09CNS2kicRMVzDOExxGvfMxigmQSFV1VXo4RxDQuow==
+  version "0.22.3"
+  resolved "https://registry.npmmirror.com/@lancedb/lancedb-win32-x64-msvc/-/lancedb-win32-x64-msvc-0.22.3.tgz#43d61381d6637ba12a260a75f5ee7b8602866071"
+  integrity sha512-/1feFnjz5MIhzXOEU4+1OeGwpAFYczGfefuOGZRsmGWDdt4V6/fza7Hkkxyb2OnTzqpBfy6BdW2+iBguE1JMyQ==
 
 "@lancedb/lancedb@^0.23.0":
   version "0.23.0"
