@@ -1,22 +1,18 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useUIStateStore } from '@renderer/stores'
 
-type ViewMode = 'chat' | 'knowledge'
-
-/**
- * 组件属性
- */
-const props = defineProps<{
-  modelValue?: ViewMode
-}>()
-
-/**
- * 组件事件
- */
+// ==================== Emits ====================
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: ViewMode): void
   (e: 'open-settings'): void
 }>()
+
+// ==================== Stores ====================
+const uiState = useUIStateStore()
+const { currentView, isChatView, isKnowledgeView } = storeToRefs(uiState)
+
+// ==================== Methods ====================
 
 /**
  * 打开设置
@@ -24,14 +20,6 @@ const emit = defineEmits<{
 function openSettings(): void {
   emit('open-settings')
 }
-
-/**
- * 当前视图模式
- */
-const currentView = computed({
-  get: () => props.modelValue ?? 'chat',
-  set: (value: ViewMode) => emit('update:modelValue', value)
-})
 
 /**
  * 窗口是否最大化
@@ -42,21 +30,15 @@ const isMaximized = ref(false)
  * 当前平台是否为 macOS
  */
 const isMac = computed(() => {
-  // 在渲染进程中通过 window.electron.process.platform 获取平台信息
   return window.electron?.process?.platform === 'darwin'
 })
 
 /**
- * 窗口标题（可以根据需要动态修改）
- */
-// const windowTitle = ref('Sparrow Manus')
-
-/**
  * 切换视图
  */
-function switchView(view: ViewMode): void {
+async function switchView(view: 'chat' | 'knowledge'): Promise<void> {
   if (currentView.value !== view) {
-    currentView.value = view
+    await uiState.setCurrentView(view)
   }
 }
 
@@ -69,7 +51,6 @@ async function handleMinimize(): Promise<void> {
 
 async function handleMaximize(): Promise<void> {
   await window.api.window.maximize()
-  // 更新状态
   isMaximized.value = await window.api.window.isMaximized()
 }
 
@@ -77,16 +58,11 @@ async function handleClose(): Promise<void> {
   await window.api.window.close()
 }
 
-/**
- * 监听窗口最大化状态变化
- */
+// ==================== 生命周期 ====================
 let unsubscribeMaximizedChanged: (() => void) | null = null
 
 onMounted(async () => {
-  // 初始化窗口状态
   isMaximized.value = await window.api.window.isMaximized()
-
-  // 监听窗口最大化状态变化
   unsubscribeMaximizedChanged = window.api.window.onMaximizedChanged((maximized) => {
     isMaximized.value = maximized
   })
@@ -110,22 +86,15 @@ onUnmounted(() => {
       <div class="view-switcher">
         <div class="switcher-container">
           <!-- 滑块背景 -->
-          <div
-            class="switcher-slider"
-            :class="{ 'is-knowledge': currentView === 'knowledge' }"
-          ></div>
+          <div class="switcher-slider" :class="{ 'is-knowledge': isKnowledgeView }"></div>
           <!-- Chat 按钮 -->
-          <button
-            class="switcher-btn"
-            :class="{ active: currentView === 'chat' }"
-            @click="switchView('chat')"
-          >
+          <button class="switcher-btn" :class="{ active: isChatView }" @click="switchView('chat')">
             <span>Chat</span>
           </button>
           <!-- 知识库 按钮 -->
           <button
             class="switcher-btn"
-            :class="{ active: currentView === 'knowledge' }"
+            :class="{ active: isKnowledgeView }"
             @click="switchView('knowledge')"
           >
             <span>知识库</span>
@@ -204,12 +173,12 @@ onUnmounted(() => {
   background-color: var(--theme-bg);
   border-bottom: 1px solid var(--theme-border);
   user-select: none;
-  -webkit-app-region: drag; /* 允许拖动窗口 */
+  -webkit-app-region: drag;
 }
 
 /* macOS 样式 */
 .title-bar.is-mac {
-  padding-left: 80px; /* 为原生按钮区域预留空间 */
+  padding-left: 80px;
 }
 
 /* 左侧占位（弹性，用于居中） */
