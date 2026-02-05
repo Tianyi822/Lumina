@@ -84,8 +84,14 @@ async function handleSendMessage(
   uiStateStore.setCurrentModel(model)
   inputStateStore.updateSelectedModel(model)
 
-  // 检查是否是第一条消息（用于更新会话标题）
+  // 检查是否是第一条消息（用于更新会话标题）- 在添加消息前判断
   const isFirstMessage = messages.value.length === 0
+
+  // 如果是第一条消息，更新会话标题
+  if (isFirstMessage) {
+    const title = content.slice(0, 20) + (content.length > 20 ? '...' : '')
+    sessionStore.updateSessionTitle(title)
+  }
 
   // 添加用户消息
   const userMessage = {
@@ -110,12 +116,6 @@ async function handleSendMessage(
 
   // 设置发送状态
   chatStreamStore.setSessionSendingState(sessionId, true, true)
-
-  // 如果是第一条消息，更新会话标题
-  if (isFirstMessage) {
-    const title = content.slice(0, 20) + (content.length > 20 ? '...' : '')
-    sessionStore.updateSessionTitle(title)
-  }
 
   try {
     // 构建消息历史（排除最后一个空的助手占位符）
@@ -222,6 +222,11 @@ function handleUpdateSelectedKnowledgeBases(value: KnowledgeBase[]): void {
 // ==================== 流式事件处理 ====================
 function handleStreamEvent(event: StreamEvent): void {
   chatStreamStore.handleStreamEvent(event, currentChatId.value || null, messages.value)
+
+  // 流式响应完成或出错时保存会话
+  if (event.type === 'done' || event.type === 'error') {
+    sessionStore.saveCurrentSession()
+  }
 }
 
 // ==================== 生命周期 ====================
