@@ -280,6 +280,7 @@ function formatTokenUsage(usage: TokenUsage): string {
               <span class="reasoning-label">思考过程</span>
             </button>
             <div v-if="isReasoningExpanded(msg.id)" class="reasoning-content">
+              <!-- eslint-disable-next-line vue/no-v-html -- markdown-it 已配置 html: false，禁用原始 HTML -->
               <div class="markdown-body" v-html="renderMarkdown(msg.reasoning)"></div>
             </div>
           </div>
@@ -297,6 +298,7 @@ function formatTokenUsage(usage: TokenUsage): string {
             <span v-if="msg.role === 'user'" class="user-message">{{ msg.content }}</span>
             <!-- 助手消息：Markdown 渲染 -->
             <div v-else class="assistant-message">
+              <!-- eslint-disable-next-line vue/no-v-html -- markdown-it 已配置 html: false，禁用原始 HTML -->
               <div class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
               <span v-if="msg.isStreaming" class="streaming-cursor">▊</span>
             </div>
