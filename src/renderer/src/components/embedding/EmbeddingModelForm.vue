@@ -223,8 +223,8 @@ async function handleTestConnection(): Promise<void> {
           class="form-input"
           :class="{ 'input-error': dimensionError }"
           placeholder="1536"
-          @input="validateDimension(dimensions)"
           required
+          @input="validateDimension(dimensions)"
         />
         <span v-if="dimensionError" class="error-message">{{ dimensionError }}</span>
       </div>

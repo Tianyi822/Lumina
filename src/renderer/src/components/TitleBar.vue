@@ -148,15 +148,15 @@ onUnmounted(() => {
     <div v-if="!isMac" class="title-bar-controls">
       <button
         class="title-bar-button title-bar-button-minimize"
-        @click="handleMinimize"
         title="最小化"
+        @click="handleMinimize"
       >
         <span class="button-icon">─</span>
       </button>
       <button
         class="title-bar-button title-bar-button-maximize"
-        @click="handleMaximize"
         :title="isMaximized ? '还原' : '最大化'"
+        @click="handleMaximize"
       >
         <span class="button-icon">
           <svg v-if="!isMaximized" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
@@ -184,7 +184,7 @@ onUnmounted(() => {
           </svg>
         </span>
       </button>
-      <button class="title-bar-button title-bar-button-close" @click="handleClose" title="关闭">
+      <button class="title-bar-button title-bar-button-close" title="关闭" @click="handleClose">
         <span class="button-icon">×</span>
       </button>
     </div>

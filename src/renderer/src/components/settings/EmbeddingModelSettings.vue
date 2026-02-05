@@ -146,8 +146,8 @@ onMounted(() => {
       <EmbeddingModelItem
         v-for="(config, id) in embeddingModels"
         v-else
-        :key="id"
         :id="String(id)"
+        :key="id"
         :config="config"
         :testing="testingModelId === id"
         @edit="handleEdit"

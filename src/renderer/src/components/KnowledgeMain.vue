@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useFileManager } from '@renderer/composables/knowledge/useFileManager'
-import type { KnowledgeBase, FileItem } from '@renderer/types'
+import type { KnowledgeBase, FileItem, EmbeddingConfig } from '@renderer/types'
 
 type FileProcessingProgress = {
   fileId: string
@@ -71,6 +71,44 @@ const stats = ref({ fileCount: 0, chunkCount: 0, dbSize: 0 })
 const loadingStats = ref(false)
 
 const currentKB = computed(() => props.knowledgeBase)
+
+// 嵌入模型配置
+const embeddingModels = ref<Record<string, EmbeddingConfig>>({})
+const loadingEmbeddingModels = ref(false)
+
+/**
+ * 加载所有嵌入模型配置
+ */
+async function loadEmbeddingModels(): Promise<void> {
+  loadingEmbeddingModels.value = true
+  try {
+    const result = await window.api.embeddingModels.getAll()
+    if (result.success && result.data) {
+      embeddingModels.value = result.data
+    }
+  } catch (error) {
+    console.error('加载嵌入模型配置失败:', error)
+  } finally {
+    loadingEmbeddingModels.value = false
+  }
+}
+
+/**
+ * 获取当前知识库嵌入模型的显示名称
+ */
+const embeddingModelDisplayName = computed(() => {
+  if (!currentKB.value) return ''
+
+  // 根据模型名称查找对应的配置
+  for (const modelConfig of Object.values(embeddingModels.value)) {
+    if (modelConfig.model === currentKB.value!.embeddingConfig.model) {
+      return modelConfig.displayName || modelConfig.model
+    }
+  }
+
+  // 如果找不到匹配的配置，返回模型名称
+  return currentKB.value.embeddingConfig.model
+})
 
 // 计算当前知识库的索引状态（只影响当前知识库的操作）
 const indexingStatus = computed(() => {
@@ -710,6 +748,9 @@ onMounted(async () => {
   // 监听页面可见性变化
   document.addEventListener('visibilitychange', handleVisibilityChange)
 
+  // 加载嵌入模型配置
+  await loadEmbeddingModels()
+
   // 恢复当前知识库正在进行的索引状态（延迟执行确保 currentKB 已就绪）
   setTimeout(() => {
     void restoreIndexingStatus()
@@ -882,6 +923,12 @@ function getFileNameWithoutExtension(fileName: string): string {
 
         <!-- 统计信息 -->
         <div class="kb-stats">
+          <div class="stat-item">
+            <span class="stat-label">显示名称:</span>
+            <span class="stat-value">{{
+              loadingEmbeddingModels ? '...' : embeddingModelDisplayName
+            }}</span>
+          </div>
           <div class="stat-item">
             <span class="stat-label">向量维度:</span>
             <span class="stat-value">{{ currentKB.embeddingDimension }}</span>
