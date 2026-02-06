@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch, computed } from 'vue'
+import { storeToRefs } from 'pinia'
 import type { MCPTool, SessionType, KnowledgeBase, StreamEvent } from '@renderer/types'
 import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
@@ -27,16 +28,14 @@ const chatStreamStore = useChatStreamStore()
 const inputStateStore = useInputStateStore()
 const uiStateStore = useUIStateStore()
 
-// 创建响应式引用
-const currentChatId = computed(() => sessionStore.currentChatId)
-const messages = computed(() => sessionStore.messages)
-const sessionList = computed(() => sessionStore.sessionList)
-const sessionUpdateKey = computed(() => sessionStore.sessionUpdateKey)
-const currentSession = computed(() => sessionStore.currentSession)
-const isSending = computed(() => chatStreamStore.isSending)
+// 使用 storeToRefs 保持响应式连接（关键：确保数组内部变化能触发 UI 更新）
+const { currentChatId, messages, sessionList, sessionUpdateKey, currentSession } =
+  storeToRefs(sessionStore)
+const { isSending } = storeToRefs(chatStreamStore)
+const { sidebarCollapsed, currentModel } = storeToRefs(uiStateStore)
+
+// computed 用于派生状态
 const currentInputState = computed(() => inputStateStore.currentInputState)
-const sidebarCollapsed = computed(() => uiStateStore.sidebarCollapsed)
-const currentModel = computed(() => uiStateStore.currentModel)
 
 // ==================== 聊天错误处理 ====================
 const { showChatError, chatErrorMessage, handleChatError, closeChatError } = useChatError()

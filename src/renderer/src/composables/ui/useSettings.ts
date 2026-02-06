@@ -1,6 +1,12 @@
-import { ref } from 'vue'
-import type { Ref } from 'vue'
-import { useConfigError } from '../error/useConfigError'
+/**
+ * 设置管理 Composable
+ * 负责设置弹窗的显示和配置更新
+ * 配置更新通知使用 uiStateStore
+ */
+
+import { ref, type Ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useUIStateStore } from '@renderer/stores'
 
 /**
  * useSettings 返回类型
@@ -19,13 +25,13 @@ export interface UseSettingsReturn {
  * 负责设置弹窗的显示和配置更新
  */
 export function useSettings(): UseSettingsReturn {
-  const { loadConfigStatus } = useConfigError()
+  const uiStateStore = useUIStateStore()
 
-  // 显示设置弹窗
+  // 从 Store 获取配置更新标志
+  const { configUpdateKey } = storeToRefs(uiStateStore)
+
+  // 显示设置弹窗（本地状态，组件级别）
   const showSettings = ref(false)
-
-  // 配置更新标志，用于触发子组件刷新
-  const configUpdateKey = ref(0)
 
   /**
    * 打开设置
@@ -45,15 +51,16 @@ export function useSettings(): UseSettingsReturn {
    * 处理配置更新
    */
   function handleConfigUpdated(): void {
-    configUpdateKey.value++
+    uiStateStore.notifyConfigUpdate()
   }
 
   /**
    * 处理 MCP 配置更新
    */
   function handleMCPUpdated(): void {
-    // MCP 配置更新后重新加载配置
-    loadConfigStatus()
+    uiStateStore.notifyMcpUpdate()
+    // 也重新加载配置状态检查错误
+    uiStateStore.loadConfigStatus()
   }
 
   return {

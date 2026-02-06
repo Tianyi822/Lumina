@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import KnowledgeSidebar from '@renderer/components/KnowledgeSidebar.vue'
 import KnowledgeMain from '@renderer/components/KnowledgeMain.vue'
 import KnowledgeForm from '@renderer/components/knowledge/KnowledgeForm.vue'
@@ -14,12 +14,18 @@ const {
   knowledgeBases,
   activeKbId,
   showKnowledgeForm,
+  loadKnowledgeBases,
   handleSelectKB,
   handleCreateKB,
   handleDeleteKB,
   handleKnowledgeSubmit,
   handleKnowledgeCancel
 } = useKnowledge()
+
+// ==================== 生命周期 ====================
+onMounted(async () => {
+  await loadKnowledgeBases()
+})
 
 // ==================== 文件管理 ====================
 const showFileManager = ref(false)

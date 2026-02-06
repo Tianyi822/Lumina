@@ -1,6 +1,13 @@
-import { ref, computed } from 'vue'
+/**
+ * MCP Tools - 工具数据加载
+ * 作为 mcpStore 的包装层，保持向后兼容
+ */
+
+import { computed } from 'vue'
 import type { Ref, ComputedRef } from 'vue'
+import { storeToRefs } from 'pinia'
 import type { MCPTool, MCPConnectionStatus } from '@renderer/types'
+import { useMCPStore } from '@renderer/stores'
 
 export function useMCPTools(): {
   toolsByServer: Ref<Record<string, MCPTool[]>>
@@ -11,48 +18,22 @@ export function useMCPTools(): {
   isServerConnected: (serverName: string) => boolean
   getServerTools: (serverName: string) => MCPTool[]
 } {
-  // 工具按服务器分组
-  const toolsByServer = ref<Record<string, MCPTool[]>>({})
+  const mcpStore = useMCPStore()
 
-  // 连接状态
-  const connectionStatuses = ref<MCPConnectionStatus[]>([])
+  // 从 Store 获取响应式引用
+  const { toolsByServer, statuses } = storeToRefs(mcpStore)
 
-  // 总工具数量
-  const totalToolsCount = computed(() => {
-    return Object.values(toolsByServer.value).reduce((sum, tools) => sum + tools.length, 0)
-  })
+  // 兼容旧的命名
+  const connectionStatuses = statuses
 
-  // 已连接服务器数量
-  const connectedServersCount = computed(() => {
-    return connectionStatuses.value.filter((s) => s.connected).length
-  })
+  // 计算属性
+  const totalToolsCount = computed(() => mcpStore.totalToolsCount)
+  const connectedServersCount = computed(() => mcpStore.connectedServersCount)
 
-  /**
-   * 加载工具列表
-   */
-  async function loadTools(): Promise<void> {
-    try {
-      toolsByServer.value = await window.api.mcp.listToolsByServer()
-      connectionStatuses.value = await window.api.mcp.getStatus()
-    } catch (error) {
-      console.error('加载 MCP 工具失败:', error)
-    }
-  }
-
-  /**
-   * 获取服务器连接状态
-   */
-  function isServerConnected(serverName: string): boolean {
-    const status = connectionStatuses.value.find((s) => s.serverName === serverName)
-    return status?.connected ?? false
-  }
-
-  /**
-   * 获取服务器工具列表
-   */
-  function getServerTools(serverName: string): MCPTool[] {
-    return toolsByServer.value[serverName] || []
-  }
+  // 方法
+  const loadTools = mcpStore.loadAllTools
+  const isServerConnected = mcpStore.isServerConnected
+  const getServerTools = mcpStore.getServerTools
 
   return {
     toolsByServer,

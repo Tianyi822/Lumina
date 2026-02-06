@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import MCPServerItem from '../mcp/MCPServerItem.vue'
 import MCPNewServerForm from '../mcp/MCPNewServerForm.vue'
-import { useMCPConfig } from '@renderer/composables/mcp/useMCPConfig'
-import { useMCPConnection } from '@renderer/composables/mcp/useMCPConnection'
+import { useMCPStore } from '@renderer/stores'
 import type { MCPServerConfig } from '@renderer/types'
 
 interface Props {
@@ -20,13 +20,13 @@ interface Emits {
 defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-// 使用 composables
-const { mcpConfigs, loadConfigs, saveConfig, deleteConfig, getStatus } = useMCPConfig()
-const { connecting, testing, connect, disconnect, testConnection, onStatusChange } =
-  useMCPConnection()
+// 使用 MCP Store
+const mcpStore = useMCPStore()
+const { configs: mcpConfigs, connecting, testing, expandedServers } = storeToRefs(mcpStore)
+const { loadConfigs, saveConfig, deleteConfig, getStatus, connect, disconnect, testConnection } =
+  mcpStore
 
 // UI 状态
-const expandedMCPServers = ref<Set<string>>(new Set())
 const showNewMCPForm = ref(false)
 const testResult = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 
@@ -47,11 +47,7 @@ function showSuccess(message: string): void {
 
 // 切换 MCP 服务器展开状态
 function toggleMCPExpand(name: string): void {
-  if (expandedMCPServers.value.has(name)) {
-    expandedMCPServers.value.delete(name)
-  } else {
-    expandedMCPServers.value.add(name)
-  }
+  mcpStore.toggleServerExpanded(name)
 }
 
 // 连接 MCP 服务器
@@ -92,7 +88,7 @@ async function handleTest(config: MCPServerConfig): Promise<void> {
 async function handleDelete(name: string): Promise<void> {
   const success = await deleteConfig(name)
   if (success) {
-    expandedMCPServers.value.delete(name)
+    expandedServers.value.delete(name)
     emit('mcp-updated')
   }
 }
@@ -157,19 +153,15 @@ async function importMCPConfigs(): Promise<void> {
   input.click()
 }
 
-// 监听 MCP 状态变更
-const unsubscribeMCPStatusChange = onStatusChange(() => {
-  loadConfigs()
-})
-
-// 组件挂载时加载配置
+// 组件挂载时加载配置并设置状态监听
 onMounted(() => {
   loadConfigs()
+  mcpStore.setupStatusListener()
 })
 
 // 组件卸载时清理监听
 onUnmounted(() => {
-  unsubscribeMCPStatusChange()
+  mcpStore.cleanupStatusListener()
 })
 </script>
 
@@ -187,7 +179,7 @@ onUnmounted(() => {
         :key="config.name"
         :config="config"
         :status="getStatus(config.name)"
-        :expanded="expandedMCPServers.has(config.name)"
+        :expanded="expandedServers.has(config.name)"
         :connecting="connecting === config.name"
         :testing="testing === config.name"
         @toggle-expand="toggleMCPExpand"

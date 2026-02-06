@@ -1,6 +1,6 @@
 /**
  * UI 状态 Store
- * 管理应用界面状态（侧边栏、视图模式等）
+ * 管理应用界面状态（侧边栏、视图模式、配置通知、错误提示等）
  */
 
 import { ref, computed, watch } from 'vue'
@@ -19,7 +19,7 @@ export const useUIStateStore = defineStore(
 
     const sessionStore = useSessionStore()
 
-    // ==================== State ====================
+    // ==================== State: 基础 UI ====================
 
     /**
      * 侧边栏是否折叠
@@ -41,6 +41,40 @@ export const useUIStateStore = defineStore(
      */
     const lastChatSessionId = ref<string | null>(null)
 
+    // ==================== State: 配置更新通知 ====================
+
+    /**
+     * 配置更新计数器（用于触发组件刷新）
+     */
+    const configUpdateKey = ref(0)
+
+    /**
+     * MCP 配置更新计数器
+     */
+    const mcpUpdateKey = ref(0)
+
+    // ==================== State: 错误提示 ====================
+
+    /**
+     * 配置错误信息
+     */
+    const configError = ref<string | null>(null)
+
+    /**
+     * 是否显示配置错误
+     */
+    const showConfigError = ref(false)
+
+    /**
+     * 聊天错误信息
+     */
+    const chatError = ref<string | null>(null)
+
+    /**
+     * 是否显示聊天错误
+     */
+    const showChatError = ref(false)
+
     // ==================== Getters ====================
 
     /**
@@ -53,7 +87,12 @@ export const useUIStateStore = defineStore(
      */
     const isKnowledgeView = computed(() => currentView.value === 'knowledge')
 
-    // ==================== Actions ====================
+    /**
+     * 是否有任何错误显示
+     */
+    const hasAnyError = computed(() => showConfigError.value || showChatError.value)
+
+    // ==================== Actions: 侧边栏 ====================
 
     /**
      * 切换侧边栏状态
@@ -147,6 +186,84 @@ export const useUIStateStore = defineStore(
       lastChatSessionId.value = sessionId
     }
 
+    // ==================== Actions: 配置更新通知 ====================
+
+    /**
+     * 触发配置更新通知
+     */
+    function notifyConfigUpdate(): void {
+      configUpdateKey.value++
+      window.api.logger?.debug('[UIStateStore] 配置更新通知', { key: configUpdateKey.value })
+    }
+
+    /**
+     * 触发 MCP 配置更新通知
+     */
+    function notifyMcpUpdate(): void {
+      mcpUpdateKey.value++
+      window.api.logger?.debug('[UIStateStore] MCP 配置更新通知', { key: mcpUpdateKey.value })
+    }
+
+    // ==================== Actions: 错误管理 ====================
+
+    /**
+     * 显示配置错误
+     */
+    function showConfigErrorMessage(message: string): void {
+      configError.value = message
+      showConfigError.value = true
+      window.api.logger?.warn('[UIStateStore] 显示配置错误', { message })
+    }
+
+    /**
+     * 显示聊天错误
+     */
+    function showChatErrorMessage(message: string): void {
+      chatError.value = message
+      showChatError.value = true
+      window.api.logger?.warn('[UIStateStore] 显示聊天错误', { message })
+    }
+
+    /**
+     * 关闭配置错误
+     */
+    function dismissConfigError(): void {
+      showConfigError.value = false
+      configError.value = null
+    }
+
+    /**
+     * 关闭聊天错误
+     */
+    function dismissChatError(): void {
+      showChatError.value = false
+      chatError.value = null
+    }
+
+    /**
+     * 关闭所有错误
+     */
+    function dismissAllErrors(): void {
+      dismissConfigError()
+      dismissChatError()
+    }
+
+    /**
+     * 加载配置状态并检查错误
+     */
+    async function loadConfigStatus(): Promise<void> {
+      try {
+        const status = await window.api.config.getStatus()
+        if (!status.success && status.error) {
+          showConfigErrorMessage(status.error)
+        }
+      } catch (error) {
+        showConfigErrorMessage(
+          `无法获取配置状态: ${error instanceof Error ? error.message : String(error)}`
+        )
+      }
+    }
+
     // ==================== View Change Watchers ====================
 
     /**
@@ -163,22 +280,49 @@ export const useUIStateStore = defineStore(
     )
 
     return {
-      // State
+      // State: 基础 UI
       sidebarCollapsed,
       currentView,
       currentModel,
       lastChatSessionId,
+
+      // State: 配置更新通知
+      configUpdateKey,
+      mcpUpdateKey,
+
+      // State: 错误提示
+      configError,
+      showConfigError,
+      chatError,
+      showChatError,
+
       // Getters
       isChatView,
       isKnowledgeView,
-      // Actions
+      hasAnyError,
+
+      // Actions: 侧边栏
       toggleSidebar,
       setSidebarCollapsed,
       setCurrentModel,
+
+      // Actions: 视图切换
       switchToChatView,
       switchToKnowledgeView,
       setCurrentView,
-      updateLastChatSessionId
+      updateLastChatSessionId,
+
+      // Actions: 配置更新通知
+      notifyConfigUpdate,
+      notifyMcpUpdate,
+
+      // Actions: 错误管理
+      showConfigErrorMessage,
+      showChatErrorMessage,
+      dismissConfigError,
+      dismissChatError,
+      dismissAllErrors,
+      loadConfigStatus
     }
   },
   {

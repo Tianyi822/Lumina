@@ -1,9 +1,13 @@
-import { ref, computed, type Ref, type ComputedRef } from 'vue'
-import type { MCPTool, MCPConnectionStatus } from '@renderer/types'
-
 /**
  * MCP Manager - 整合工具数据、搜索和选择功能
+ * 作为 mcpStore 和 inputStateStore 的包装层，保持向后兼容
  */
+
+import { computed, type Ref, type ComputedRef } from 'vue'
+import { storeToRefs } from 'pinia'
+import type { MCPTool, MCPConnectionStatus } from '@renderer/types'
+import { useMCPStore, useInputStateStore } from '@renderer/stores'
+
 export function useMCPManager(): {
   // 工具数据
   toolsByServer: Ref<Record<string, MCPTool[]>>
@@ -22,8 +26,8 @@ export function useMCPManager(): {
   isServerExpanded: (serverName: string) => boolean
   clearSearch: () => void
 
-  // 选择
-  selectedTools: Ref<MCPTool[]>
+  // 选择（从 inputStateStore 获取）
+  selectedTools: ComputedRef<MCPTool[]>
   selectedToolsCount: ComputedRef<number>
   isToolSelected: (tool: MCPTool) => boolean
   toggleTool: (tool: MCPTool) => void
@@ -31,122 +35,61 @@ export function useMCPManager(): {
   clearSelection: () => void
   getSelectedTools: () => MCPTool[]
 } {
-  // ==================== 工具数据 ====================
-  const toolsByServer = ref<Record<string, MCPTool[]>>({})
-  const connectionStatuses = ref<MCPConnectionStatus[]>([])
+  const mcpStore = useMCPStore()
+  const inputStateStore = useInputStateStore()
 
-  const totalToolsCount = computed(() => {
-    return Object.values(toolsByServer.value).reduce((sum, tools) => sum + tools.length, 0)
-  })
+  // 从 mcpStore 获取响应式引用
+  const { toolsByServer, statuses, searchQuery, expandedServers, filteredToolsByServer } =
+    storeToRefs(mcpStore)
 
-  const connectedServersCount = computed(() => {
-    return connectionStatuses.value.filter((s) => s.connected).length
-  })
+  // 兼容旧的命名
+  const connectionStatuses = statuses
 
-  async function loadTools(): Promise<void> {
-    try {
-      toolsByServer.value = await window.api.mcp.listToolsByServer()
-      connectionStatuses.value = await window.api.mcp.getStatus()
-    } catch (error) {
-      console.error('加载 MCP 工具失败:', error)
-    }
-  }
+  // 计算属性
+  const totalToolsCount = computed(() => mcpStore.totalToolsCount)
+  const connectedServersCount = computed(() => mcpStore.connectedServersCount)
 
-  function isServerConnected(serverName: string): boolean {
-    const status = connectionStatuses.value.find((s) => s.serverName === serverName)
-    return status?.connected ?? false
-  }
+  // 工具数据
+  const loadTools = mcpStore.loadAllTools
+  const isServerConnected = mcpStore.isServerConnected
+  const getServerTools = mcpStore.getServerTools
 
-  function getServerTools(serverName: string): MCPTool[] {
-    return toolsByServer.value[serverName] || []
-  }
+  // 搜索
+  const toggleServer = mcpStore.toggleServerExpanded
+  const isServerExpanded = mcpStore.isServerExpanded
+  const clearSearch = mcpStore.clearSearch
 
-  // ==================== 搜索 ====================
-  const searchQuery = ref('')
-  const expandedServers = ref<Set<string>>(new Set())
-
-  const filteredToolsByServer = computed(() => {
-    if (!searchQuery.value.trim()) {
-      return toolsByServer.value
-    }
-
-    const query = searchQuery.value.toLowerCase()
-    const result: Record<string, MCPTool[]> = {}
-
-    for (const [serverName, tools] of Object.entries(toolsByServer.value)) {
-      const filtered = tools.filter(
-        (tool) =>
-          tool.name.toLowerCase().includes(query) || tool.description.toLowerCase().includes(query)
-      )
-      if (filtered.length > 0) {
-        result[serverName] = filtered
-      }
-    }
-
-    return result
-  })
-
-  function toggleServer(serverName: string): void {
-    if (expandedServers.value.has(serverName)) {
-      expandedServers.value.delete(serverName)
-    } else {
-      expandedServers.value.add(serverName)
-    }
-  }
-
-  function isServerExpanded(serverName: string): boolean {
-    return expandedServers.value.has(serverName)
-  }
-
-  function clearSearch(): void {
-    searchQuery.value = ''
-  }
-
-  // ==================== 选择 ====================
-  const selectedTools = ref<MCPTool[]>([])
-
-  const selectedToolsCount = computed(() => {
-    return selectedTools.value.length
-  })
+  // 选择（从 inputStateStore 获取）
+  const selectedTools = computed(() => inputStateStore.selectedMCPTools)
+  const selectedToolsCount = computed(() => inputStateStore.selectedMCPTools.length)
 
   function isToolSelected(tool: MCPTool): boolean {
-    return selectedTools.value.some((t) => t.name === tool.name && t.serverName === tool.serverName)
+    return inputStateStore.selectedMCPTools.some(
+      (t) => t.name === tool.name && t.serverName === tool.serverName
+    )
   }
 
   function toggleTool(tool: MCPTool): void {
-    const index = selectedTools.value.findIndex(
-      (t) => t.name === tool.name && t.serverName === tool.serverName
-    )
-
-    if (index >= 0) {
-      selectedTools.value.splice(index, 1)
-    } else {
-      selectedTools.value.push(tool)
-    }
-
-    console.log('[MCPManager] 工具选择变更:', {
-      action: index >= 0 ? 'removed' : 'added',
-      tool: `${tool.serverName}/${tool.name}`,
-      selectedCount: selectedTools.value.length,
-      selectedTools: selectedTools.value.map((t) => `${t.serverName}/${t.name}`)
-    })
+    inputStateStore.toggleToolSelection(tool)
   }
 
   function removeTool(tool: MCPTool): void {
-    const index = selectedTools.value.findIndex(
+    const currentTools = [...inputStateStore.selectedMCPTools]
+    const index = currentTools.findIndex(
       (t) => t.name === tool.name && t.serverName === tool.serverName
     )
     if (index >= 0) {
-      selectedTools.value.splice(index, 1)
+      currentTools.splice(index, 1)
+      inputStateStore.updateSelectedTools(currentTools)
     }
   }
 
   function clearSelection(): void {
-    selectedTools.value = []
+    inputStateStore.clearSelectedTools()
   }
 
   function getSelectedTools(): MCPTool[] {
-    return [...selectedTools.value]
+    return [...inputStateStore.selectedMCPTools]
   }
 
   return {

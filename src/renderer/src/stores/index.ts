@@ -19,6 +19,10 @@ export { useMessageCacheStore } from './messageCacheStore'
 export { useUIStateStore } from './uiStateStore'
 export { useKnowledgeIndexStore } from './knowledgeIndexStore'
 
+// 新增 Stores
+export { useMCPStore } from './mcpStore'
+export { useKnowledgeStore } from './knowledgeStore'
+
 /**
  * 初始化 Pinia（在应用启动时调用）
  */
