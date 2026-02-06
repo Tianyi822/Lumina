@@ -399,11 +399,27 @@ export const useChatStreamStore = defineStore('chatStream', () => {
       return
     }
 
+    // 立即更新本地状态，不等待后端响应
+    // 这样即使后端卡住，UI 也会立即响应
+    sessionSendingStates.value.set(targetSessionId, false)
+    if (streamingSessionId.value === targetSessionId) {
+      isSending.value = false
+    }
+    streamingSessionId.value = null
+    clearMessagesSnapshot(targetSessionId)
+
+    window.api.logger.info('[ChatStreamStore] 正在停止请求', { sessionId: targetSessionId })
+
     try {
-      await window.api.chat.stop(targetSessionId)
-      window.api.logger.info('[ChatStreamStore] 请求已停止', { sessionId: targetSessionId })
+      // 异步调用后端停止（不等待结果）
+      window.api.chat.stop(targetSessionId).catch((error) => {
+        window.api.logger.error('[ChatStreamStore] 停止请求失败', {
+          error: error instanceof Error ? error.message : String(error),
+          sessionId: targetSessionId
+        })
+      })
     } catch (error) {
-      window.api.logger.error('[ChatStreamStore] 停止请求失败', {
+      window.api.logger.error('[ChatStreamStore] 停止请求异常', {
         error: error instanceof Error ? error.message : String(error),
         sessionId: targetSessionId
       })

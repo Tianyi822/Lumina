@@ -178,9 +178,19 @@ async function handleSendMessage(
 // ==================== 停止请求 ====================
 async function handleStopRequest(): Promise<void> {
   const sessionId = currentChatId.value
-  if (sessionId) {
-    await chatStreamStore.stopRequest(sessionId)
+  if (!sessionId) return
+
+  // 找到正在流式传输的消息并停止它
+  const streamingMessage = messages.value.find((msg) => msg.isStreaming)
+  if (streamingMessage) {
+    streamingMessage.isStreaming = false
   }
+
+  // 调用 store 的停止方法
+  await chatStreamStore.stopRequest(sessionId)
+
+  // 保存会话以持久化停止后的状态
+  await sessionStore.saveCurrentSession()
 }
 
 // ==================== 新聊天 ====================
