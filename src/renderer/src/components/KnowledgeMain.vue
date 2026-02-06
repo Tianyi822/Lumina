@@ -1,20 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useFileManager } from '@renderer/composables/knowledge/useFileManager'
+import { useKnowledgeIndexStore } from '@renderer/stores'
 import type { KnowledgeBase, FileItem, EmbeddingConfig } from '@renderer/types'
-
-type FileProcessingProgress = {
-  fileId: string
-  fileName: string
-  status: 'processing' | 'completed' | 'failed'
-  progress?: number
-  error?: string
-}
-
-type FileProgressEvent = {
-  kbId: string
-  progress: FileProcessingProgress
-}
 
 const props = defineProps<{
   knowledgeBase?: KnowledgeBase
@@ -29,6 +17,9 @@ const emit = defineEmits<{
 // 文件管理
 const { getFilesByKBId, unlinkFileFromKB, formatFileSize, formatDate, uploadFile, linkFileToKB } =
   useFileManager()
+
+// 索引状态 Store
+const indexStore = useKnowledgeIndexStore()
 
 // 关联的文件列表
 const linkedFiles = ref<FileItem[]>([])
@@ -51,16 +42,14 @@ const searchResults = ref<
 const searching = ref(false)
 const searchPerformed = ref(false)
 
-// 重新索引
-const reindexing = ref(false)
+// 重新索引进度
 const reindexProgress = ref({ current: 0, total: 0, currentFile: '' })
 
-// 文件索引状态跟踪 - 按 kbId:fileId 格式存储，确保知识库间隔离
-const indexingFiles = ref<Record<string, FileProcessingProgress>>({})
-const progressCleanup = ref<(() => void) | null>(null)
-
-// 定期刷新状态定时器
-const statusRefreshInterval = ref<ReturnType<typeof setInterval> | null>(null)
+// 重建索引状态（从 Store 获取，按知识库隔离）
+const reindexing = computed(() => {
+  if (!currentKB.value) return false
+  return indexStore.isKBReindexing(currentKB.value.id)
+})
 
 // 拖拽状态
 const isDragging = ref(false)
@@ -113,24 +102,13 @@ const embeddingModelDisplayName = computed(() => {
 // 计算当前知识库的索引状态（只影响当前知识库的操作）
 const indexingStatus = computed(() => {
   if (!currentKB.value) return false
-  const prefix = `${currentKB.value.id}:`
-  return Object.keys(indexingFiles.value).some((key) => key.startsWith(prefix))
+  return indexStore.isKBIndexing(currentKB.value.id)
 })
 
 // 当前知识库的索引进度（计算属性，自动响应变化）
-const kbIndexingFiles = computed<Record<string, FileProcessingProgress>>(() => {
+const kbIndexingFiles = computed(() => {
   if (!currentKB.value) return {}
-  const prefix = `${currentKB.value.id}:`
-  const result: Record<string, FileProcessingProgress> = {}
-
-  for (const [key, progress] of Object.entries(indexingFiles.value)) {
-    if (key.startsWith(prefix)) {
-      const fileId = key.substring(prefix.length)
-      result[fileId] = progress
-    }
-  }
-
-  return result
+  return indexStore.getKBIndexingFilesMap(currentKB.value.id)
 })
 
 /**
@@ -211,20 +189,11 @@ function handleAddFiles(): void {
 async function indexSingleFile(file: FileItem): Promise<void> {
   if (!currentKB.value) return
 
-  // 设置初始索引状态 - 使用新对象触发响应式更新
-  const progressKey = getProgressKey(currentKB.value.id, file.id)
-  indexingFiles.value = {
-    ...indexingFiles.value,
-    [progressKey]: {
-      fileId: file.id,
-      fileName: file.name,
-      status: 'processing',
-      progress: 0
-    }
-  }
+  // 使用 Store 设置索引状态（不设置 progress，等待后端事件）
+  indexStore.setFileIndexing(currentKB.value.id, file.id, file.name)
 
   // 启动状态刷新
-  startStatusRefresh()
+  indexStore.startRefresh()
 
   console.log('开始索引文件:', file.name)
   const result = await window.api.knowledge.indexFile(
@@ -236,15 +205,7 @@ async function indexSingleFile(file: FileItem): Promise<void> {
 
   if (!result.success) {
     console.error('索引文件失败:', file.name, result.error)
-    indexingFiles.value = {
-      ...indexingFiles.value,
-      [progressKey]: {
-        fileId: file.id,
-        fileName: file.name,
-        status: 'failed',
-        error: result.error
-      }
-    }
+    indexStore.setFileFailed(currentKB.value.id, file.id, result.error || '索引失败')
   } else {
     console.log('文件索引成功:', file.name)
     await loadStats()
@@ -390,24 +351,18 @@ async function handleReindex(): Promise<void> {
     return
   }
 
-  reindexing.value = true
+  const kbId = currentKB.value.id
+  indexStore.setKBReindexing(kbId, true)
   reindexProgress.value = { current: 0, total: linkedFiles.value.length, currentFile: '' }
 
-  // 为所有文件设置初始索引状态 - 使用新对象触发响应式更新
-  const newIndexingFiles = { ...indexingFiles.value }
-  for (const file of linkedFiles.value) {
-    const progressKey = getProgressKey(currentKB.value.id, file.id)
-    newIndexingFiles[progressKey] = {
-      fileId: file.id,
-      fileName: file.name,
-      status: 'processing',
-      progress: 0
-    }
-  }
-  indexingFiles.value = newIndexingFiles
+  // 使用 Store 批量设置索引状态
+  indexStore.setFilesIndexing(
+    kbId,
+    linkedFiles.value.map((f) => ({ fileId: f.id, fileName: f.name }))
+  )
 
   // 启动状态刷新
-  startStatusRefresh()
+  indexStore.startRefresh()
 
   try {
     const files = linkedFiles.value.map((f) => ({
@@ -416,7 +371,7 @@ async function handleReindex(): Promise<void> {
       fileName: f.name
     }))
 
-    const result = await window.api.knowledge.reindex(currentKB.value.id, files)
+    const result = await window.api.knowledge.reindex(kbId, files)
 
     if (result.success) {
       alert(`重新索引完成！成功索引 ${result.data?.indexedCount || 0} 个文件`)
@@ -433,7 +388,7 @@ async function handleReindex(): Promise<void> {
   } catch (error) {
     alert('重新索引失败: ' + (error instanceof Error ? error.message : String(error)))
   } finally {
-    reindexing.value = false
+    indexStore.setKBReindexing(kbId, false)
     reindexProgress.value = { current: 0, total: 0, currentFile: '' }
     await loadStats()
   }
@@ -469,61 +424,6 @@ async function handleSearch(): Promise<void> {
     searchResults.value = []
   } finally {
     searching.value = false
-  }
-}
-
-/**
- * 生成索引进度的键
- */
-function getProgressKey(kbId: string, fileId: string): string {
-  return `${kbId}:${fileId}`
-}
-
-/**
- * 监听文件索引进度
- */
-function handleFileProgress(data: FileProgressEvent): void {
-  console.log('收到文件进度事件:', data)
-  if (!currentKB.value || data.kbId !== currentKB.value.id) {
-    console.log('跳过进度事件，知识库ID不匹配:', {
-      eventKbId: data.kbId,
-      currentKbId: currentKB.value?.id
-    })
-    return
-  }
-
-  const { fileId, status } = data.progress
-  const progressKey = getProgressKey(data.kbId, fileId)
-
-  // 使用新对象触发响应式更新
-  indexingFiles.value = {
-    ...indexingFiles.value,
-    [progressKey]: data.progress
-  }
-
-  console.log('更新索引进度:', {
-    kbId: data.kbId,
-    fileId,
-    status,
-    progress: data.progress.progress,
-    progressKey
-  })
-
-  if (status === 'completed' || status === 'failed') {
-    setTimeout(() => {
-      const newFiles = { ...indexingFiles.value }
-      delete newFiles[progressKey]
-      indexingFiles.value = newFiles
-      // 检查是否还有正在索引的文件
-      if (!indexingStatus.value) {
-        stopStatusRefresh()
-      }
-    }, 1000)
-
-    if (status === 'completed') {
-      console.log('文件索引完成，更新统计信息')
-      void loadStats()
-    }
   }
 }
 
@@ -566,185 +466,35 @@ function escapeRegex(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/**
- * 刷新索引状态 - 从后端获取最新状态
- */
-async function refreshIndexingStatus(): Promise<void> {
-  if (!currentKB.value) return
-
-  try {
-    const result = await window.api.knowledge.getIndexingStatus()
-    if (result.success && result.data) {
-      const { indexingFiles: activeIndexingFiles } = result.data
-
-      // 筛选出当前知识库的索引文件
-      const currentKbFiles = activeIndexingFiles.filter((f) => f.kbId === currentKB.value!.id)
-
-      // 构建新的索引状态对象
-      const newIndexingFiles = { ...indexingFiles.value }
-
-      // 更新索引状态 - 使用后端返回的进度
-      for (const file of currentKbFiles) {
-        const progressKey = getProgressKey(file.kbId, file.fileId)
-        // 只更新正在处理的文件，不覆盖已有进度的文件（取最大值）
-        const existingProgress = newIndexingFiles[progressKey]
-        if (!existingProgress || existingProgress.status === 'processing') {
-          newIndexingFiles[progressKey] = {
-            fileId: file.fileId,
-            fileName: file.fileName || file.fileId,
-            status: (file.status as FileProcessingProgress['status']) || 'processing',
-            // 使用后端返回的进度，或者已有的进度，或者0
-            progress: Math.max(file.progress ?? 0, existingProgress?.progress ?? 0)
-          }
-        }
-      }
-
-      // 清理已完成的文件状态（如果后端报告已完成但前端仍显示处理中）
-      const activeFileIds = new Set(currentKbFiles.map((f) => f.fileId))
-      const prefix = `${currentKB.value.id}:`
-      for (const key of Object.keys(newIndexingFiles)) {
-        if (key.startsWith(prefix)) {
-          const fileId = key.substring(prefix.length)
-          if (!activeFileIds.has(fileId) && newIndexingFiles[key].status === 'processing') {
-            // 后端报告已完成，更新为完成状态
-            newIndexingFiles[key] = {
-              ...newIndexingFiles[key],
-              status: 'completed',
-              progress: 100
-            }
-            // 延迟移除
-            setTimeout(() => {
-              const finalFiles = { ...indexingFiles.value }
-              delete finalFiles[key]
-              indexingFiles.value = finalFiles
-            }, 1000)
-          }
-        }
-      }
-
-      // 触发响应式更新
-      indexingFiles.value = newIndexingFiles
-    }
-  } catch (error) {
-    console.error('刷新索引状态失败:', error)
-  }
-}
-
-/**
- * 恢复索引状态（页面切换后重新挂载时调用）
- */
-async function restoreIndexingStatus(): Promise<void> {
-  console.log('尝试恢复索引状态, currentKB:', currentKB.value?.id)
-
-  if (!currentKB.value) {
-    console.log('currentKB 为空，跳过恢复')
-    return
-  }
-
-  try {
-    const result = await window.api.knowledge.getIndexingStatus()
-    console.log('获取索引状态结果:', result)
-
-    if (result.success && result.data) {
-      const { indexingFiles: activeIndexingFiles } = result.data
-
-      // 筛选出当前知识库的索引文件
-      const currentKbFiles = activeIndexingFiles.filter((f) => f.kbId === currentKB.value!.id)
-      console.log('当前知识库正在索引的文件:', currentKbFiles)
-
-      // 恢复索引状态 - 使用新对象触发响应式更新，使用后端返回的进度
-      const newIndexingFiles = { ...indexingFiles.value }
-      for (const file of currentKbFiles) {
-        const progressKey = getProgressKey(file.kbId, file.fileId)
-        newIndexingFiles[progressKey] = {
-          fileId: file.fileId,
-          fileName: file.fileName || file.fileId,
-          status: (file.status as FileProcessingProgress['status']) || 'processing',
-          progress: file.progress ?? newIndexingFiles[progressKey]?.progress ?? 0
-        }
-      }
-      indexingFiles.value = newIndexingFiles
-
-      if (currentKbFiles.length > 0) {
-        console.log('恢复索引状态成功:', {
-          kbId: currentKB.value.id,
-          files: currentKbFiles.map((f) => f.fileName || f.fileId)
-        })
-
-        // 如果有正在索引的文件，启动定期刷新
-        startStatusRefresh()
-      } else {
-        console.log('当前知识库没有正在索引的文件')
-      }
-    }
-  } catch (error) {
-    console.error('恢复索引状态失败:', error)
-  }
-}
-
-/**
- * 启动定期刷新状态
- */
-function startStatusRefresh(): void {
-  // 清除已有的定时器
-  if (statusRefreshInterval.value) {
-    clearInterval(statusRefreshInterval.value)
-  }
-
-  // 每 2 秒刷新一次状态
-  statusRefreshInterval.value = setInterval(() => {
-    const hasActiveIndexing = indexingStatus.value
-    if (hasActiveIndexing) {
-      void refreshIndexingStatus()
-    } else {
-      // 没有正在索引的文件，停止定时器
-      stopStatusRefresh()
-    }
-  }, 2000)
-}
-
-/**
- * 停止定期刷新状态
- */
-function stopStatusRefresh(): void {
-  if (statusRefreshInterval.value) {
-    clearInterval(statusRefreshInterval.value)
-    statusRefreshInterval.value = null
-  }
-}
-
 // 页面可见性变化时恢复状态（处理页面切换）
 function handleVisibilityChange(): void {
-  if (document.visibilityState === 'visible') {
+  if (document.visibilityState === 'visible' && currentKB.value) {
     console.log('页面变为可见，恢复索引状态')
-    void restoreIndexingStatus()
+    void indexStore.restoreStatus(currentKB.value.id)
   }
 }
 
 // 监听知识库变化，自动加载文档和文件
 watch(
   () => currentKB.value?.id,
-  async () => {
-    if (currentKB.value) {
+  async (newId) => {
+    if (currentKB.value && newId) {
       await loadLinkedFiles()
       await loadStats()
       searchQuery.value = ''
       searchResults.value = []
       searchPerformed.value = false
       // 知识库切换时恢复索引状态
-      await restoreIndexingStatus()
+      await indexStore.restoreStatus(newId)
     } else {
       linkedFiles.value = []
       stats.value = { fileCount: 0, chunkCount: 0, dbSize: 0 }
-      // 不清空 indexingFiles，保持其他知识库的进度
     }
   },
   { immediate: true }
 )
 
 onMounted(async () => {
-  progressCleanup.value = window.api.onFileProgress(handleFileProgress)
-
   // 监听页面可见性变化
   document.addEventListener('visibilitychange', handleVisibilityChange)
 
@@ -752,14 +502,14 @@ onMounted(async () => {
   await loadEmbeddingModels()
 
   // 恢复当前知识库正在进行的索引状态（延迟执行确保 currentKB 已就绪）
-  setTimeout(() => {
-    void restoreIndexingStatus()
-  }, 100)
+  if (currentKB.value) {
+    setTimeout(() => {
+      void indexStore.restoreStatus(currentKB.value!.id)
+    }, 100)
+  }
 })
 
 onUnmounted(() => {
-  progressCleanup.value?.()
-  stopStatusRefresh()
   document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 

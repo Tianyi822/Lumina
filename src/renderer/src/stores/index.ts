@@ -17,6 +17,7 @@ export { useChatStreamStore } from './chatStreamStore'
 export { useInputStateStore } from './inputStateStore'
 export { useMessageCacheStore } from './messageCacheStore'
 export { useUIStateStore } from './uiStateStore'
+export { useKnowledgeIndexStore } from './knowledgeIndexStore'
 
 /**
  * 初始化 Pinia（在应用启动时调用）
