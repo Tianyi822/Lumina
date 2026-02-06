@@ -225,6 +225,18 @@ export const useUIStateStore = defineStore(
     }
 
     /**
+     * 处理聊天错误（根据错误类型路由到不同的提示）
+     */
+    function handleChatError(error: string): void {
+      if (error.includes('请先选择一个模型') || error.includes('配置')) {
+        configError.value = error
+        showConfigError.value = true
+      } else {
+        showChatErrorMessage(error)
+      }
+    }
+
+    /**
      * 关闭配置错误
      */
     function dismissConfigError(): void {
@@ -238,6 +250,13 @@ export const useUIStateStore = defineStore(
     function dismissChatError(): void {
       showChatError.value = false
       chatError.value = null
+    }
+
+    /**
+     * 简化方法名：关闭聊天错误（别名）
+     */
+    function closeChatError(): void {
+      dismissChatError()
     }
 
     /**
@@ -319,8 +338,10 @@ export const useUIStateStore = defineStore(
       // Actions: 错误管理
       showConfigErrorMessage,
       showChatErrorMessage,
+      handleChatError,
       dismissConfigError,
       dismissChatError,
+      closeChatError,
       dismissAllErrors,
       loadConfigStatus
     }

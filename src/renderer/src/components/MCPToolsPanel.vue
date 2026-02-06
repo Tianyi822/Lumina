@@ -3,7 +3,7 @@ import { ref, inject, watch, nextTick, onMounted, onUnmounted, computed, type Re
 import { storeToRefs } from 'pinia'
 import type { MCPTool } from '@renderer/types'
 import { useMCPStore } from '@renderer/stores'
-import { useMCPUI } from '@renderer/composables/mcp/useMCPUI'
+import { useMCPUI } from '@renderer/composables/mcp'
 
 const props = defineProps<{
   selectedTools?: MCPTool[]
@@ -106,6 +106,7 @@ function getSelectedTools(): MCPTool[] {
 const {
   showPanel,
   togglePanel,
+  mcpContainerRef,
   toggleDescription,
   isDescriptionExpanded,
   shouldShowExpandButton,
@@ -114,9 +115,6 @@ const {
   clearAllStates: clearDescriptionStates,
   scrollToTool
 } = useMCPUI(mcpStore.loadAllTools, expandedServers)
-
-// 显式保留 mcpContainerRef 供模板使用
-const { mcpContainerRef } = useMCPUI(mcpStore.loadAllTools, expandedServers)
 
 /**
  * 加载工具列表（包装版本，添加额外逻辑）

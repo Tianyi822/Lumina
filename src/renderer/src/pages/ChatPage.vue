@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch, computed } from 'vue'
+import { onMounted, onUnmounted, watch, computed, toRaw } from 'vue'
 import { storeToRefs } from 'pinia'
 import type { MCPTool, SessionType, KnowledgeBase, StreamEvent } from '@renderer/types'
 import Sidebar from '@renderer/components/Sidebar.vue'
@@ -13,9 +13,6 @@ import {
   useInputStateStore,
   useUIStateStore
 } from '@renderer/stores'
-
-// Composables
-import { useChatError } from '@renderer/composables/chat/useChatError'
 
 // ==================== Props & Emits ====================
 defineEmits<{
@@ -34,11 +31,23 @@ const { currentChatId, messages, sessionList, sessionUpdateKey, currentSession }
 const { isSending } = storeToRefs(chatStreamStore)
 const { sidebarCollapsed, currentModel } = storeToRefs(uiStateStore)
 
+// 聊天错误状态
+const { showChatError, chatError } = storeToRefs(uiStateStore)
+
 // computed 用于派生状态
 const currentInputState = computed(() => inputStateStore.currentInputState)
 
-// ==================== 聊天错误处理 ====================
-const { showChatError, chatErrorMessage, handleChatError, closeChatError } = useChatError()
+// 聊天错误消息（兼容旧命名）
+const chatErrorMessage = computed(() => chatError.value ?? '')
+
+// 聊天错误处理
+function handleChatError(error: string): void {
+  uiStateStore.handleChatError(error)
+}
+
+function closeChatError(): void {
+  uiStateStore.closeChatError()
+}
 
 // ==================== 发送消息处理 ====================
 async function handleSendMessage(
@@ -123,26 +132,32 @@ async function handleSendMessage(
       content: msg.content
     }))
 
-    // 转换工具引用
+    // 转换工具引用（使用 toRaw 移除响应式包装）
     const toolReferences =
       selectedTools.length > 0
-        ? selectedTools.map((t) => ({
-            serverName: t.serverName,
-            toolName: t.name,
-            description: t.description || '',
-            inputSchema: t.inputSchema || {}
-          }))
+        ? selectedTools.map((t) => {
+            const tool = toRaw(t)
+            return {
+              serverName: tool.serverName,
+              toolName: tool.name,
+              description: tool.description || '',
+              inputSchema: toRaw(tool.inputSchema) || {}
+            }
+          })
         : undefined
 
-    // 转换知识库引用
+    // 转换知识库引用（使用 toRaw 移除响应式包装）
     const kbReferences =
       selectedKnowledgeBases.length > 0
-        ? selectedKnowledgeBases.map((kb) => ({
-            id: kb.id,
-            name: kb.name,
-            description: kb.description || '',
-            documentCount: (kb as { documentCount?: number }).documentCount || 0
-          }))
+        ? selectedKnowledgeBases.map((kb) => {
+            const kbRaw = toRaw(kb)
+            return {
+              id: kbRaw.id,
+              name: kbRaw.name,
+              description: kbRaw.description || '',
+              documentCount: (kbRaw as { documentCount?: number }).documentCount || 0
+            }
+          })
         : undefined
 
     // 发送请求

@@ -2,7 +2,17 @@ import { ref, nextTick, onMounted, onUnmounted, type Ref } from 'vue'
 import type { MCPTool } from '@renderer/types'
 
 /**
- * MCP UI - 整合面板状态、描述展开和工具高亮功能
+ * MCP UI - 整合所有 MCP UI 交互功能
+ *
+ * 此 Composable 整合了以下功能：
+ * 1. 面板管理：显示/隐藏面板，点击外部自动关闭
+ * 2. 描述展开：工具描述的展开/收起，溢出检测
+ * 3. 工具高亮：滚动定位到指定工具并高亮显示
+ *
+ * 整合来源：
+ * - useMCPPanelState（面板管理）- 已删除
+ * - useMCPDescription（描述展开）- 已删除
+ * - useMCPToolHighlight（工具高亮）- 已删除
  */
 export function useMCPUI(
   loadToolsCallback: () => Promise<void>,
