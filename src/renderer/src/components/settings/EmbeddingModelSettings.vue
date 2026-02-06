@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import EmbeddingModelItem from '../embedding/EmbeddingModelItem.vue'
 import EmbeddingModelForm from '../embedding/EmbeddingModelForm.vue'
-import { useEmbeddingModels } from '@renderer/composables/knowledge/useEmbeddingModels'
+import { useKnowledgeStore } from '@renderer/stores'
 import type { EmbeddingConfig } from '@shared/types/config'
 
 interface Props {
@@ -19,9 +20,10 @@ interface Emits {
 defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-// 使用 composable
-const { embeddingModels, loading, loadModels, saveModel, deleteModel, testModel } =
-  useEmbeddingModels()
+// 直接使用 Knowledge Store
+const knowledgeStore = useKnowledgeStore()
+const { embeddingModels, embeddingLoading } = storeToRefs(knowledgeStore)
+const loading = embeddingLoading
 
 // UI 状态
 const showAddForm = ref(false)
@@ -60,7 +62,7 @@ const existingNames = computed(() => {
 
 // 删除模型
 async function handleDelete(id: string): Promise<void> {
-  const success = await deleteModel(id)
+  const success = await knowledgeStore.deleteEmbeddingModel(id)
   if (success) {
     showSuccess('嵌入模型已删除')
   } else {
@@ -72,7 +74,7 @@ async function handleDelete(id: string): Promise<void> {
 async function handleTest(id: string): Promise<void> {
   testingModelId.value = id
   try {
-    const result = await testModel(id)
+    const result = await knowledgeStore.testEmbeddingModel(id)
     if (result.success) {
       showSuccess('连接测试成功')
     } else {
@@ -85,7 +87,7 @@ async function handleTest(id: string): Promise<void> {
 
 // 保存模型（新增或更新）
 async function handleSave(id: string, config: EmbeddingConfig): Promise<void> {
-  const success = await saveModel(id, config)
+  const success = await knowledgeStore.saveEmbeddingModel(id, config)
   if (success) {
     showSuccess(editingModelId.value ? '嵌入模型已更新' : '嵌入模型已添加')
     if (editingModelId.value) {
@@ -131,7 +133,7 @@ async function handleTestNew(config: EmbeddingConfig): Promise<void> {
 
 // 组件挂载时加载模型
 onMounted(() => {
-  loadModels()
+  knowledgeStore.loadEmbeddingModels()
 })
 </script>
 

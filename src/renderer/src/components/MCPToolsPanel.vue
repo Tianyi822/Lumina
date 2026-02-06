@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, inject, watch, nextTick, onMounted, onUnmounted, computed, type Ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import type { MCPTool } from '@renderer/types'
-import { useMCPManager } from '@renderer/composables/mcp/useMCPManager'
+import { useMCPStore } from '@renderer/stores'
 import { useMCPUI } from '@renderer/composables/mcp/useMCPUI'
 
 const props = defineProps<{
@@ -15,19 +16,14 @@ const emit = defineEmits<{
 // 注入 MCP 更新标志
 const mcpUpdateKey = inject<Ref<number>>('mcpUpdateKey', ref(0))
 
-// 使用合并后的 composables（不包含选择状态）
-const {
-  connectionStatuses,
-  totalToolsCount,
-  connectedServersCount,
-  loadTools: loadToolsBase,
-  isServerConnected,
-  searchQuery,
-  expandedServers,
-  filteredToolsByServer,
-  toggleServer,
-  isServerExpanded
-} = useMCPManager()
+// 直接使用 MCP Store
+const mcpStore = useMCPStore()
+const { statuses, searchQuery, expandedServers, filteredToolsByServer } = storeToRefs(mcpStore)
+
+// 兼容旧命名
+const connectionStatuses = statuses
+const totalToolsCount = computed(() => mcpStore.totalToolsCount)
+const connectedServersCount = computed(() => mcpStore.connectedServersCount)
 
 // 本地选择状态（从 props 初始化，保持与会话同步）
 const localSelectedTools = ref<MCPTool[]>(props.selectedTools ?? [])
@@ -117,16 +113,16 @@ const {
   refreshAllOverflowChecks,
   clearAllStates: clearDescriptionStates,
   scrollToTool
-} = useMCPUI(loadToolsBase, expandedServers)
+} = useMCPUI(mcpStore.loadAllTools, expandedServers)
 
 // 显式保留 mcpContainerRef 供模板使用
-const { mcpContainerRef } = useMCPUI(loadToolsBase, expandedServers)
+const { mcpContainerRef } = useMCPUI(mcpStore.loadAllTools, expandedServers)
 
 /**
  * 加载工具列表（包装版本，添加额外逻辑）
  */
 async function loadTools(): Promise<void> {
-  await loadToolsBase()
+  await mcpStore.loadAllTools()
 
   // 清空之前的展开状态
   clearDescriptionStates()
@@ -167,9 +163,9 @@ function handleClearSelection(): void {
  * 切换服务器展开状态（包装版本，刷新溢出检查）
  */
 function handleToggleServer(serverName: string): void {
-  toggleServer(serverName)
+  mcpStore.toggleServerExpanded(serverName)
   // 展开服务器后，检查工具描述溢出状态
-  if (isServerExpanded(serverName)) {
+  if (mcpStore.isServerExpanded(serverName)) {
     nextTick(() => {
       refreshAllOverflowChecks()
     })
@@ -288,9 +284,9 @@ onUnmounted(() => {
             <span class="server-name">{{ serverName }}</span>
             <span
               class="server-status"
-              :class="{ connected: isServerConnected(serverName as string) }"
+              :class="{ connected: mcpStore.isServerConnected(serverName as string) }"
             >
-              {{ isServerConnected(serverName as string) ? '●' : '○' }}
+              {{ mcpStore.isServerConnected(serverName as string) ? '●' : '○' }}
             </span>
             <span class="tools-count-badge">{{ tools.length }}</span>
           </div>

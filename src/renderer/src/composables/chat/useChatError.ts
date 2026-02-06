@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
-import { useConfigError } from '../error/useConfigError'
+import { storeToRefs } from 'pinia'
+import { useUIStateStore } from '@renderer/stores'
 
 /**
  * useChatError 返回类型
@@ -17,7 +18,8 @@ export interface UseChatErrorReturn {
  * 负责聊天相关的错误提示
  */
 export function useChatError(): UseChatErrorReturn {
-  const { configError, showError } = useConfigError()
+  const uiStateStore = useUIStateStore()
+  const { configError, showConfigError } = storeToRefs(uiStateStore)
 
   // 显示聊天错误
   const showChatError = ref(false)
@@ -30,7 +32,7 @@ export function useChatError(): UseChatErrorReturn {
     // 如果是配置相关错误，使用配置错误提示
     if (error.includes('请先选择一个模型') || error.includes('配置')) {
       configError.value = error
-      showError.value = true
+      showConfigError.value = true
     } else {
       // 否则使用聊天错误提示
       showChatError.value = true
