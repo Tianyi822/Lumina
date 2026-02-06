@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch, computed } from 'vue'
+import { onMounted, onUnmounted, watch, computed, toRaw } from 'vue'
+import { storeToRefs } from 'pinia'
 import type { MCPTool, SessionType, KnowledgeBase, StreamEvent } from '@renderer/types'
 import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
@@ -13,9 +14,6 @@ import {
   useUIStateStore
 } from '@renderer/stores'
 
-// Composables
-import { useChatError } from '@renderer/composables/chat/useChatError'
-
 // ==================== Props & Emits ====================
 defineEmits<{
   (e: 'open-settings'): void
@@ -27,19 +25,29 @@ const chatStreamStore = useChatStreamStore()
 const inputStateStore = useInputStateStore()
 const uiStateStore = useUIStateStore()
 
-// 创建响应式引用
-const currentChatId = computed(() => sessionStore.currentChatId)
-const messages = computed(() => sessionStore.messages)
-const sessionList = computed(() => sessionStore.sessionList)
-const sessionUpdateKey = computed(() => sessionStore.sessionUpdateKey)
-const currentSession = computed(() => sessionStore.currentSession)
-const isSending = computed(() => chatStreamStore.isSending)
-const currentInputState = computed(() => inputStateStore.currentInputState)
-const sidebarCollapsed = computed(() => uiStateStore.sidebarCollapsed)
-const currentModel = computed(() => uiStateStore.currentModel)
+// 使用 storeToRefs 保持响应式连接（关键：确保数组内部变化能触发 UI 更新）
+const { currentChatId, messages, sessionList, sessionUpdateKey, currentSession } =
+  storeToRefs(sessionStore)
+const { isSending } = storeToRefs(chatStreamStore)
+const { sidebarCollapsed, currentModel } = storeToRefs(uiStateStore)
 
-// ==================== 聊天错误处理 ====================
-const { showChatError, chatErrorMessage, handleChatError, closeChatError } = useChatError()
+// 聊天错误状态
+const { showChatError, chatError } = storeToRefs(uiStateStore)
+
+// computed 用于派生状态
+const currentInputState = computed(() => inputStateStore.currentInputState)
+
+// 聊天错误消息（兼容旧命名）
+const chatErrorMessage = computed(() => chatError.value ?? '')
+
+// 聊天错误处理
+function handleChatError(error: string): void {
+  uiStateStore.handleChatError(error)
+}
+
+function closeChatError(): void {
+  uiStateStore.closeChatError()
+}
 
 // ==================== 发送消息处理 ====================
 async function handleSendMessage(
@@ -124,26 +132,32 @@ async function handleSendMessage(
       content: msg.content
     }))
 
-    // 转换工具引用
+    // 转换工具引用（使用 toRaw 移除响应式包装）
     const toolReferences =
       selectedTools.length > 0
-        ? selectedTools.map((t) => ({
-            serverName: t.serverName,
-            toolName: t.name,
-            description: t.description || '',
-            inputSchema: t.inputSchema || {}
-          }))
+        ? selectedTools.map((t) => {
+            const tool = toRaw(t)
+            return {
+              serverName: tool.serverName,
+              toolName: tool.name,
+              description: tool.description || '',
+              inputSchema: toRaw(tool.inputSchema) || {}
+            }
+          })
         : undefined
 
-    // 转换知识库引用
+    // 转换知识库引用（使用 toRaw 移除响应式包装）
     const kbReferences =
       selectedKnowledgeBases.length > 0
-        ? selectedKnowledgeBases.map((kb) => ({
-            id: kb.id,
-            name: kb.name,
-            description: kb.description || '',
-            documentCount: (kb as { documentCount?: number }).documentCount || 0
-          }))
+        ? selectedKnowledgeBases.map((kb) => {
+            const kbRaw = toRaw(kb)
+            return {
+              id: kbRaw.id,
+              name: kbRaw.name,
+              description: kbRaw.description || '',
+              documentCount: (kbRaw as { documentCount?: number }).documentCount || 0
+            }
+          })
         : undefined
 
     // 发送请求
@@ -179,19 +193,29 @@ async function handleSendMessage(
 // ==================== 停止请求 ====================
 async function handleStopRequest(): Promise<void> {
   const sessionId = currentChatId.value
-  if (sessionId) {
-    await chatStreamStore.stopRequest(sessionId)
+  if (!sessionId) return
+
+  // 找到正在流式传输的消息并停止它
+  const streamingMessage = messages.value.find((msg) => msg.isStreaming)
+  if (streamingMessage) {
+    streamingMessage.isStreaming = false
   }
+
+  // 调用 store 的停止方法
+  await chatStreamStore.stopRequest(sessionId)
+
+  // 保存会话以持久化停止后的状态
+  await sessionStore.saveCurrentSession()
 }
 
 // ==================== 新聊天 ====================
 async function handleNewChat(sessionType?: SessionType): Promise<void> {
   await sessionStore.handleNewChat(sessionType)
 
-  // 新会话创建后重置发送状态
+  // 新会话创建后重置发送状态（需要传入 isCurrentSession: true 来更新全局 isSending）
   const newSessionId = currentChatId.value
   if (newSessionId) {
-    chatStreamStore.setSessionSendingState(newSessionId, false)
+    chatStreamStore.setSessionSendingState(newSessionId, false, true)
   }
 }
 

@@ -169,6 +169,7 @@ export class KnowledgeService {
   private embeddingService: EmbeddingService
   private processingFiles: Set<string> = new Set()
   private fileProgressMap: Map<string, FileProcessingProgress> = new Map()
+  private stopRequested: boolean = false
 
   constructor(kbData: KnowledgeBase) {
     this.kbData = kbData
@@ -182,7 +183,31 @@ export class KnowledgeService {
    */
   cleanup(): void {
     this.processingFiles.clear()
+    this.fileProgressMap.clear()
+    this.stopRequested = false
     logger.info('知识库服务资源已清理', 'main', { kbId: this.kbData.id })
+  }
+
+  /**
+   * 请求停止索引操作
+   */
+  stopIndexing(): void {
+    this.stopRequested = true
+    logger.info('已请求停止索引操作', 'main', { kbId: this.kbData.id })
+  }
+
+  /**
+   * 检查是否已请求停止
+   */
+  isStopRequested(): boolean {
+    return this.stopRequested
+  }
+
+  /**
+   * 重置停止请求标志
+   */
+  resetStopRequest(): void {
+    this.stopRequested = false
   }
 
   /**
@@ -298,6 +323,11 @@ export class KnowledgeService {
       // 并行执行批次任务（控制并发数）
       let completedBatches = 0
       const processBatch = async (batch: { index: number; texts: string[] }): Promise<void> => {
+        // 检查是否已请求停止（在每批次开始时检查）
+        if (this.stopRequested) {
+          throw new Error('索引操作已被用户取消')
+        }
+
         const result = await this.embeddingService.embedBatch(batch.texts)
 
         // 将结果放入正确位置
@@ -327,8 +357,18 @@ export class KnowledgeService {
 
       // 使用 Promise.all 控制并发
       for (let i = 0; i < batches.length; i += maxConcurrentBatches) {
+        // 检查是否已请求停止
+        if (this.stopRequested) {
+          throw new Error('索引操作已被用户取消')
+        }
+
         const concurrentBatches = batches.slice(i, i + maxConcurrentBatches)
         await Promise.all(concurrentBatches.map(processBatch))
+      }
+
+      // 检查是否已请求停止
+      if (this.stopRequested) {
+        throw new Error('索引操作已被用户取消')
       }
 
       // 构建文档块对象
@@ -342,6 +382,11 @@ export class KnowledgeService {
 
       // 先删除旧数据（如果存在）
       await getVectorDBService().deleteFileChunks(kbId, this.kbData.embeddingDimension, fileId)
+
+      // 检查是否已请求停止
+      if (this.stopRequested) {
+        throw new Error('索引操作已被用户取消')
+      }
 
       // 添加到向量数据库
       await getVectorDBService().addChunks(
@@ -373,14 +418,26 @@ export class KnowledgeService {
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('文件索引失败', 'main', { kbId, fileId, error: errorMessage })
 
-      wrappedOnProgress({
-        fileId,
-        fileName,
-        status: 'failed',
-        error: errorMessage
-      })
+      // 检查是否是用户取消
+      if (errorMessage.includes('已被用户取消')) {
+        logger.info('文件索引被用户取消', 'main', { kbId, fileId })
+        wrappedOnProgress({
+          fileId,
+          fileName,
+          status: 'failed',
+          error: '索引已取消'
+        })
+      } else {
+        logger.error('文件索引失败', 'main', { kbId, fileId, error: errorMessage })
+
+        wrappedOnProgress({
+          fileId,
+          fileName,
+          status: 'failed',
+          error: errorMessage
+        })
+      }
 
       this.processingFiles.delete(processingKey)
       // 延迟清理进度信息

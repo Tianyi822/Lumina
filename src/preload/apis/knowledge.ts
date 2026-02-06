@@ -214,6 +214,13 @@ export const knowledgeApi = {
     }>
   > => {
     return ipcRenderer.invoke('knowledge:getIndexingStatus')
+  },
+
+  /**
+   * 停止知识库的索引操作
+   */
+  stopIndexing: (kbId: string): Promise<ApiResponse<{ stopped: boolean }>> => {
+    return ipcRenderer.invoke('knowledge:stopIndexing', kbId)
   }
 }
 

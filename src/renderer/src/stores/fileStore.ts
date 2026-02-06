@@ -1,40 +1,8 @@
 import { ref, computed } from 'vue'
-import type { Ref } from 'vue'
+import { defineStore } from 'pinia'
 import type { FileItem } from '@renderer/types'
 
-/**
- * useFileManager 返回类型
- */
-export interface UseFileManagerReturn {
-  files: Ref<FileItem[]>
-  loading: Ref<boolean>
-  searchQuery: Ref<string>
-  filteredFiles: Ref<FileItem[]>
-  loadFiles: () => Promise<void>
-  searchFiles: (query: string) => void
-  uploadFile: (
-    file: File
-  ) => Promise<{ success: boolean; file?: FileItem; isDuplicate?: boolean; error?: string }>
-  uploadFiles: (
-    files: File[]
-  ) => Promise<{ success: boolean; uploaded: FileItem[]; errors: string[]; duplicates: FileItem[] }>
-  deleteFile: (
-    fileId: string,
-    forceDelete?: boolean
-  ) => Promise<{ success: boolean; error?: string }>
-  linkFileToKB: (fileId: string, kbId: string) => Promise<{ success: boolean; error?: string }>
-  unlinkFileFromKB: (fileId: string, kbId: string) => Promise<{ success: boolean; error?: string }>
-  getFilesByKBId: (kbId: string) => Promise<FileItem[]>
-  getFileUsage: (fileId: string) => Promise<string[]>
-  formatFileSize: (bytes: number) => string
-  formatDate: (dateStr: string) => string
-}
-
-/**
- * 文件管理 Composable
- * 负责文件的加载、上传、删除、搜索和知识库关联
- */
-export function useFileManager(): UseFileManagerReturn {
+export const useFileStore = defineStore('fileStore', () => {
   // 文件列表
   const files = ref<FileItem[]>([])
 
@@ -86,7 +54,6 @@ export function useFileManager(): UseFileManagerReturn {
     file: File
   ): Promise<{ success: boolean; file?: FileItem; isDuplicate?: boolean; error?: string }> {
     try {
-      // 读取文件为 Uint8Array
       const arrayBuffer = await file.arrayBuffer()
       const uint8Array = new Uint8Array(arrayBuffer)
 
@@ -96,7 +63,6 @@ export function useFileManager(): UseFileManagerReturn {
       })
 
       if (result.success && result.file) {
-        // 如果不是重复文件，添加到列表
         if (!result.isDuplicate) {
           files.value.unshift(result.file)
         }
@@ -125,13 +91,13 @@ export function useFileManager(): UseFileManagerReturn {
    * 批量上传文件
    */
   async function uploadFiles(
-    files: File[]
+    filesParam: File[]
   ): Promise<{ success: boolean; uploaded: FileItem[]; errors: string[]; duplicates: FileItem[] }> {
     const uploaded: FileItem[] = []
     const errors: string[] = []
     const duplicates: FileItem[] = []
 
-    for (const file of files) {
+    for (const file of filesParam) {
       const result = await uploadFile(file)
       if (result.success) {
         if (result.isDuplicate && result.file) {
@@ -183,7 +149,6 @@ export function useFileManager(): UseFileManagerReturn {
     try {
       const result = await window.api.file.linkToKB(fileId, kbId)
       if (result.success) {
-        // 更新本地数据
         const file = files.value.find((f) => f.id === fileId)
         if (file && !file.usedByKBIds.includes(kbId)) {
           file.usedByKBIds.push(kbId)
@@ -208,7 +173,6 @@ export function useFileManager(): UseFileManagerReturn {
     try {
       const result = await window.api.file.unlinkFromKB(fileId, kbId)
       if (result.success) {
-        // 更新本地数据
         const file = files.value.find((f) => f.id === fileId)
         if (file) {
           file.usedByKBIds = file.usedByKBIds.filter((id) => id !== kbId)
@@ -293,4 +257,4 @@ export function useFileManager(): UseFileManagerReturn {
     formatFileSize,
     formatDate
   }
-}
+})

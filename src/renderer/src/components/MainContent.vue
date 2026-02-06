@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
-import { nextTick, onMounted, provide, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import MessageInput from './MessageInput.vue'
 import ReActSteps from './ReActSteps.vue'
 import type { Message, MCPTool, TokenUsage, KnowledgeBase } from '@renderer/types'
@@ -43,12 +43,6 @@ const emit = defineEmits<{
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
 }>()
 
-// 配置更新标志，用于触发子组件刷新
-const configUpdateKey = ref(props.configUpdateKey ?? 0)
-
-// MCP 更新标志，用于触发 MCP 相关组件刷新
-const mcpUpdateKey = ref(0)
-
 // 展开的思考内容消息ID集合
 const expandedReasoningIds = ref<Set<string>>(new Set())
 
@@ -60,12 +54,6 @@ const userScrolling = ref(false)
 
 // 滚动阈值：距离底部多少像素内认为是"在底部"
 const SCROLL_THRESHOLD = 100
-
-// 提供配置更新标志给子组件
-provide('configUpdateKey', configUpdateKey)
-
-// 提供 MCP 更新标志给子组件
-provide('mcpUpdateKey', mcpUpdateKey)
 
 /**
  * 检查是否滚动到底部附近
@@ -138,16 +126,6 @@ watch(
     nextTick(() => {
       scrollToBottom(false)
     })
-  }
-)
-
-// 监听配置更新标志
-watch(
-  () => props.configUpdateKey,
-  (newKey) => {
-    if (newKey !== undefined) {
-      configUpdateKey.value = newKey
-    }
   }
 )
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import TitleBar from './components/TitleBar.vue'
 import ChatPage from './pages/ChatPage.vue'
@@ -8,27 +8,40 @@ import ErrorBanner from './components/ErrorBanner.vue'
 import SettingsModal from './components/SettingsModal.vue'
 
 // Composables
-import { useConfigError } from './composables/error/useConfigError'
-import { useSettings } from './composables/ui/useSettings'
 import { useLifecycle } from './composables/lifecycle/useLifecycle'
 
 // Stores
 import { useUIStateStore } from './stores'
 
-// ==================== 配置错误处理 ====================
-const { configError, dismissError, loadConfigStatus } = useConfigError()
-
-// ==================== UI 状态管理（Pinia Store）====================
+// ==================== UI 状态管理（直接使用 Store）====================
 const uiState = useUIStateStore()
-const { currentView, isChatView } = storeToRefs(uiState)
+const { currentView, isChatView, configError } = storeToRefs(uiState)
 
-// ==================== 设置管理 ====================
-const settings = useSettings()
-const { showSettings, openSettings, closeSettings, handleConfigUpdated, handleMCPUpdated } =
-  settings
+// 设置弹窗状态（本地状态）
+const showSettings = ref(false)
+
+function openSettings(): void {
+  showSettings.value = true
+}
+
+function closeSettings(): void {
+  showSettings.value = false
+}
+
+function dismissError(): void {
+  uiState.dismissConfigError()
+}
+
+function handleConfigUpdated(): void {
+  uiState.notifyConfigUpdate()
+}
+
+function handleMCPUpdated(): void {
+  uiState.notifyMcpUpdate()
+  uiState.loadConfigStatus()
+}
 
 // ==================== 视图切换监听 ====================
-// 监听视图变化，确保在离开聊天页面时保存状态
 watch(
   () => currentView,
   async (newView, oldView) => {
@@ -42,7 +55,7 @@ watch(
 
 // ==================== 生命周期 ====================
 useLifecycle({
-  loadConfigStatus,
+  loadConfigStatus: () => uiState.loadConfigStatus(),
   setupStreamListener: undefined,
   cleanupStreamListener: undefined,
   loadSessionList: undefined,

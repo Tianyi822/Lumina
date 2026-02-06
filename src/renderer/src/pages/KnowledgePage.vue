@@ -1,25 +1,68 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import KnowledgeSidebar from '@renderer/components/KnowledgeSidebar.vue'
 import KnowledgeMain from '@renderer/components/KnowledgeMain.vue'
 import KnowledgeForm from '@renderer/components/knowledge/KnowledgeForm.vue'
 
 import FileManagerModal from '@renderer/components/knowledge/FileManagerModal.vue'
 import FileSelectorModal from '@renderer/components/knowledge/FileSelectorModal.vue'
-import { useKnowledge } from '@renderer/composables/knowledge/useKnowledge'
+import { useKnowledgeStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 
-// ==================== 知识库管理 ====================
-const {
-  knowledgeBases,
-  activeKbId,
-  showKnowledgeForm,
-  handleSelectKB,
-  handleCreateKB,
-  handleDeleteKB,
-  handleKnowledgeSubmit,
-  handleKnowledgeCancel
-} = useKnowledge()
+// ==================== 知识库管理（直接使用 Store）====================
+const knowledgeStore = useKnowledgeStore()
+const { knowledgeBases, activeKbId: storeActiveKbId, showForm } = storeToRefs(knowledgeStore)
+
+// 兼容旧接口命名（将 null 转为 undefined）
+const activeKbId = computed(() => storeActiveKbId.value ?? undefined)
+const showKnowledgeForm = showForm
+
+// ==================== 生命周期 ====================
+onMounted(async () => {
+  await knowledgeStore.loadKnowledgeBases()
+})
+
+// ==================== 知识库操作 ====================
+function handleSelectKB(kbId: string): void {
+  knowledgeStore.setActiveKb(kbId)
+}
+
+function handleCreateKB(): void {
+  knowledgeStore.openCreateForm()
+}
+
+async function handleDeleteKB(kbId: string): Promise<void> {
+  if (confirm('确定要删除这个知识库吗？此操作不可撤销。')) {
+    const success = await knowledgeStore.deleteKnowledgeBase(kbId)
+    if (!success) {
+      alert('删除知识库失败: ' + (knowledgeStore.error || '未知错误'))
+    }
+  }
+}
+
+async function handleKnowledgeSubmit(data: {
+  name: string
+  description: string
+  embeddingConfig: {
+    baseUrl: string
+    apiKey?: string
+    model: string
+    dimensions: number
+  }
+  embeddingDimension: number
+  chunkSize: number
+  chunkOverlap: number
+}): Promise<void> {
+  const success = await knowledgeStore.handleFormSubmit(data)
+  if (!success) {
+    alert('创建知识库失败: ' + (knowledgeStore.error || '未知错误'))
+  }
+}
+
+function handleKnowledgeCancel(): void {
+  knowledgeStore.closeForm()
+}
 
 // ==================== 文件管理 ====================
 const showFileManager = ref(false)

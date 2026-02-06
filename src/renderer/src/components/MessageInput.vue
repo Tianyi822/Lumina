@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, inject, watch, type Ref } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import MCPToolsPanel from './MCPToolsPanel.vue'
 import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
 import type { AppConfig, MCPTool, KnowledgeBase } from '@renderer/types'
+import { useUIStateStore } from '@renderer/stores'
 
 const props = defineProps<{
   isSending?: boolean
@@ -105,8 +107,9 @@ const showModelDropdown = ref(false)
 // 模型选择器容器引用
 const modelSelectorRef = ref<HTMLElement | null>(null)
 
-// 注入配置更新标志
-const configUpdateKey = inject<Ref<number>>('configUpdateKey', ref(0))
+// 从 Store 获取配置更新标志
+const uiStateStore = useUIStateStore()
+const { configUpdateKey } = storeToRefs(uiStateStore)
 
 // 加载已配置的模型列表
 async function loadConfiguredModels(): Promise<void> {

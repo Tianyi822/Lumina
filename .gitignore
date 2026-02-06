@@ -16,5 +16,6 @@ build/
 node_modules/
 dist/
 out/
+docs/
 
 opencode.json

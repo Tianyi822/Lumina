@@ -144,8 +144,9 @@ export class KnowledgeServiceManager {
 
   /**
    * 删除知识库
+   * 如果知识库正在索引，会先停止索引操作
    */
-  deleteKnowledgeBase(id: string): boolean {
+  deleteKnowledgeBase(id: string): { success: boolean; error?: string } {
     if (!this.loaded) {
       this.initialize()
     }
@@ -153,30 +154,129 @@ export class KnowledgeServiceManager {
     const knowledgeBases = readKnowledgeBases()
     const index = knowledgeBases.findIndex((kb) => kb.id === id)
     if (index === -1) {
-      return false
+      return { success: false, error: '知识库不存在' }
     }
 
     const kb = knowledgeBases[index]
 
-    // 删除向量数据库
-    getVectorDBService().deleteKnowledgeBase(id)
+    logger.info('开始删除知识库', 'main', { id, name: kb.name })
 
-    // 从所有关联的文件中移除此知识库 ID
-    if (kb.linkedFileIds && kb.linkedFileIds.length > 0) {
-      const fileService = getFileService()
-      for (const fileId of kb.linkedFileIds) {
-        fileService.unlinkFileFromKB(fileId, id)
+    try {
+      // 1. 检查是否有正在进行的索引操作
+      const isIndexing = this.hasActiveOperation(id)
+      const isInQueue = this.hasPendingIndexingTask(id)
+
+      if (isIndexing || isInQueue) {
+        logger.info('知识库正在索引中，准备停止索引操作', 'main', {
+          id,
+          isIndexing,
+          isInQueue
+        })
+
+        // 2. 取消队列中的任务
+        if (isInQueue) {
+          this.cancelPendingIndexingTasks(id)
+          logger.info('已取消知识库的待处理索引任务', 'main', { id })
+        }
+
+        // 3. 停止当前正在进行的索引操作
+        if (isIndexing) {
+          const instance = this.instances.get(id)
+          if (instance) {
+            instance.stopIndexing()
+            logger.info('已请求停止知识库的索引操作', 'main', { id })
+          }
+        }
+
+        // 4. 等待一段时间让索引操作有时间响应停止请求
+        // 注意：这里不等待索引完成，只是给出一个信号
+        // 实际的清理会在 cleanup 中处理
       }
+
+      // 5. 删除向量数据库
+      try {
+        getVectorDBService().deleteKnowledgeBase(id)
+        logger.info('已删除知识库的向量数据库', 'main', { id })
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        logger.error('删除向量数据库失败', 'main', { id, error: errorMessage })
+        // 继续删除其他数据，不中断流程
+      }
+
+      // 6. 从所有关联的文件中移除此知识库 ID
+      if (kb.linkedFileIds && kb.linkedFileIds.length > 0) {
+        const fileService = getFileService()
+        for (const fileId of kb.linkedFileIds) {
+          try {
+            fileService.unlinkFileFromKB(fileId, id)
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            logger.warn('从文件解除知识库关联失败', 'main', {
+              fileId,
+              kbId: id,
+              error: errorMessage
+            })
+          }
+        }
+        logger.info('已解除知识库与文件的关联', 'main', { id, fileCount: kb.linkedFileIds.length })
+      }
+
+      // 7. 从配置中移除知识库
+      knowledgeBases.splice(index, 1)
+      writeKnowledgeBases(knowledgeBases)
+      logger.info('已从配置中移除知识库', 'main', { id })
+
+      // 8. 移除服务实例（这会调用 cleanup 清理资源）
+      this.removeInstance(id)
+
+      logger.info('知识库删除成功', 'main', { id, name: kb.name })
+      return { success: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('删除知识库失败', 'main', { id, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  /**
+   * 停止知识库的索引操作
+   */
+  stopKnowledgeBaseIndexing(kbId: string): boolean {
+    const instance = this.instances.get(kbId)
+    if (!instance) {
+      logger.warn('无法停止索引：知识库服务实例不存在', 'main', { kbId })
+      return false
     }
 
-    knowledgeBases.splice(index, 1)
-    writeKnowledgeBases(knowledgeBases)
+    // 取消队列中的任务
+    this.cancelPendingIndexingTasks(kbId)
 
-    // 移除服务实例
-    this.removeInstance(id)
+    // 请求停止当前索引
+    instance.stopIndexing()
 
-    logger.info('知识库删除成功', 'main', { id })
+    logger.info('已请求停止知识库索引', 'main', { kbId })
     return true
+  }
+
+  /**
+   * 取消指定知识库的所有待处理索引任务
+   */
+  private cancelPendingIndexingTasks(kbId: string): number {
+    const initialLength = this.indexingQueue.length
+
+    // 过滤掉指定知识库的任务
+    this.indexingQueue = this.indexingQueue.filter((task) => task.kbId !== kbId)
+
+    const cancelledCount = initialLength - this.indexingQueue.length
+
+    if (cancelledCount > 0) {
+      logger.info('已取消知识库的待处理索引任务', 'main', {
+        kbId,
+        cancelledCount
+      })
+    }
+
+    return cancelledCount
   }
 
   getOrCreateInstance(kbId: string, kbData: KnowledgeBase): KnowledgeService {

@@ -26,6 +26,8 @@ import { getKnowledgeServiceManager } from '../knowledge'
 export class ChatService {
   /** 每个会话的 AbortController 映射，支持多会话并发管理 */
   private abortControllers: Map<string, AbortController> = new Map()
+  /** 已停止的会话集合，用于快速检查停止状态 */
+  private stoppedSessions: Set<string> = new Set()
   /** 工具调用调度器 */
   private toolScheduler: ToolCallScheduler
 
@@ -34,30 +36,112 @@ export class ChatService {
   }
 
   /**
+   * 检查会话是否已被停止
+   */
+  private isStopped(sessionId: string): boolean {
+    return this.stoppedSessions.has(sessionId)
+  }
+
+  /**
+   * 检查停止状态并抛出 AbortError 如果需要
+   */
+  private checkStopped(sessionId: string): void {
+    if (this.isStopped(sessionId)) {
+      const error = new Error('Request was stopped by user')
+      error.name = 'AbortError'
+      throw error
+    }
+  }
+
+  /**
    * 发送聊天消息并流式返回响应
    * @param request 聊天请求
    * @param webContents 渲染进程 webContents，用于发送流式事件
    */
   async sendMessage(request: ChatRequest, webContents: WebContents): Promise<ChatResult> {
-    const { selectedTools, selectedKnowledgeBases } = request
+    const { selectedTools, selectedKnowledgeBases, sessionId } = request
+
+    // 清理之前的停止状态
+    this.clearStoppedSession(sessionId)
 
     // 如果选中了知识库，先执行知识库搜索
     let knowledgeResults: KnowledgeSearchResult[] = []
     if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0) {
-      knowledgeResults = await this.searchKnowledgeBases(
-        selectedKnowledgeBases,
-        request,
-        webContents
-      )
+      try {
+        knowledgeResults = await this.searchKnowledgeBases(
+          selectedKnowledgeBases,
+          request,
+          webContents
+        )
+      } catch (error) {
+        // 如果是用户中止，返回成功状态
+        if (error instanceof Error && error.name === 'AbortError') {
+          this.sendStreamEvent(webContents, { type: 'done', sessionId })
+          this.clearStoppedSession(sessionId)
+          return { success: true }
+        }
+        throw error
+      }
+    }
+
+    // 检查是否已停止
+    if (this.isStopped(sessionId)) {
+      this.sendStreamEvent(webContents, { type: 'done', sessionId })
+      this.clearStoppedSession(sessionId)
+      return { success: true }
     }
 
     // 如果有选中的工具，启用 ReAct 模式
     if (selectedTools && selectedTools.length > 0) {
-      return this.sendMessageWithReact(request, webContents, knowledgeResults)
+      const result = await this.sendMessageWithReact(request, webContents, knowledgeResults)
+      this.clearStoppedSession(sessionId)
+      return result
     }
 
     // 无工具时使用原有逻辑（但包含知识库结果）
-    return this.sendMessageDirect(request, webContents, knowledgeResults)
+    const result = await this.sendMessageDirect(request, webContents, knowledgeResults)
+    this.clearStoppedSession(sessionId)
+    return result
+  }
+
+  /**
+   * 带超时和停止检查的 Promise wrapper
+   */
+  private async withTimeoutAndStopCheck<T>(
+    promise: Promise<T>,
+    sessionId: string,
+    timeoutMs: number = 30000,
+    operationName: string = 'operation'
+  ): Promise<T> {
+    return new Promise((resolve, reject) => {
+      // 创建超时定时器
+      const timeoutId = setTimeout(() => {
+        reject(new Error(`${operationName} 超时`))
+      }, timeoutMs)
+
+      // 创建停止检查定时器
+      const stopCheckInterval = setInterval(() => {
+        if (this.isStopped(sessionId)) {
+          clearTimeout(timeoutId)
+          clearInterval(stopCheckInterval)
+          const error = new Error('Request was stopped by user')
+          error.name = 'AbortError'
+          reject(error)
+        }
+      }, 100) // 每 100ms 检查一次
+
+      promise
+        .then((result) => {
+          clearTimeout(timeoutId)
+          clearInterval(stopCheckInterval)
+          resolve(result)
+        })
+        .catch((error) => {
+          clearTimeout(timeoutId)
+          clearInterval(stopCheckInterval)
+          reject(error)
+        })
+    })
   }
 
   /**
@@ -69,6 +153,9 @@ export class ChatService {
     webContents: WebContents
   ): Promise<KnowledgeSearchResult[]> {
     const { messages, sessionId } = request
+
+    // 检查是否已停止
+    this.checkStopped(sessionId)
 
     // 从最后一条用户消息提取查询
     const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')
@@ -83,6 +170,9 @@ export class ChatService {
     const results: KnowledgeSearchResult[] = []
 
     for (const kb of knowledgeBases) {
+      // 检查是否已停止
+      this.checkStopped(sessionId)
+
       // 发送知识库搜索开始事件
       this.sendStreamEvent(webContents, {
         type: 'knowledge_search',
@@ -102,7 +192,17 @@ export class ChatService {
         }
 
         const service = getKnowledgeServiceManager().getOrCreateInstance(kb.id, kbData)
-        const searchResult = await service.search(kb.id, query, 5)
+
+        // 使用超时和停止检查包装搜索调用
+        const searchResult = await this.withTimeoutAndStopCheck(
+          service.search(kb.id, query, 5),
+          sessionId,
+          30000, // 30秒超时
+          '知识库搜索'
+        )
+
+        // 检查是否已停止
+        this.checkStopped(sessionId)
 
         if (searchResult.success && searchResult.data) {
           const kbResult: KnowledgeSearchResult = {
@@ -138,10 +238,20 @@ export class ChatService {
           })
         }
       } catch (error) {
+        // 如果是用户中止或超时，直接抛出
+        if (
+          error instanceof Error &&
+          (error.name === 'AbortError' || error.message.includes('超时'))
+        ) {
+          throw error
+        }
         const errorMessage = error instanceof Error ? error.message : String(error)
         logger.error('知识库搜索异常', 'main', { kbId: kb.id, error: errorMessage })
       }
     }
+
+    // 最终检查是否已停止
+    this.checkStopped(sessionId)
 
     logger.info('知识库搜索全部完成', 'main', {
       sessionId,
@@ -171,6 +281,12 @@ export class ChatService {
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
     if (!llmConfig) {
       return { success: false, error: '配置验证失败' }
+    }
+
+    // 检查是否已停止
+    if (this.isStopped(sessionId)) {
+      this.sendStreamEvent(webContents, { type: 'done', sessionId })
+      return { success: true }
     }
 
     // 中止该会话的旧请求（如果存在）
@@ -281,6 +397,8 @@ export class ChatService {
     } finally {
       // 从 Map 中移除该会话的 AbortController
       this.abortControllers.delete(sessionId)
+      // 清理停止状态
+      this.clearStoppedSession(sessionId)
     }
   }
 
@@ -305,6 +423,12 @@ export class ChatService {
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
     if (!llmConfig) {
       return { success: false, error: '配置验证失败' }
+    }
+
+    // 检查是否已停止
+    if (this.isStopped(sessionId)) {
+      this.sendStreamEvent(webContents, { type: 'done', sessionId })
+      return { success: true }
     }
 
     // 中止该会话的旧请求（如果存在）
@@ -532,6 +656,8 @@ export class ChatService {
       return { success: false, error: errorMessage }
     } finally {
       this.abortControllers.delete(sessionId)
+      // 清理停止状态
+      this.clearStoppedSession(sessionId)
     }
   }
 
@@ -601,6 +727,9 @@ export class ChatService {
     sessionId: string,
     conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
   ): Promise<void> {
+    // 检查是否已停止
+    this.checkStopped(sessionId)
+
     // 分析依赖关系
     const { independent, sequential } = this.toolScheduler.analyzeDependencies(toolCalls)
 
@@ -611,11 +740,17 @@ export class ChatService {
         count: independent.length
       })
 
+      // 检查是否已停止
+      this.checkStopped(sessionId)
+
       const parallelResults = await this.toolScheduler.executeParallel(
         independent,
         webContents,
         sessionId
       )
+
+      // 检查是否已停止
+      this.checkStopped(sessionId)
 
       // 添加结果到对话历史
       for (const result of parallelResults) {
@@ -627,6 +762,9 @@ export class ChatService {
       }
     }
 
+    // 检查是否已停止
+    this.checkStopped(sessionId)
+
     // 串行执行有依赖的工具调用
     if (sequential.length > 0) {
       logger.info('串行执行依赖工具', 'main', {
@@ -635,6 +773,9 @@ export class ChatService {
       })
 
       for (const toolCall of sequential) {
+        // 检查是否已停止
+        this.checkStopped(sessionId)
+
         const result = await this.executeToolCall(toolCall, webContents, sessionId)
 
         // 将工具结果添加到对话历史
@@ -645,6 +786,9 @@ export class ChatService {
         })
       }
     }
+
+    // 最终检查是否已停止
+    this.checkStopped(sessionId)
   }
 
   /**
@@ -741,8 +885,19 @@ export class ChatService {
     })
 
     try {
-      // 执行 MCP 工具调用
-      const result = await mcpService.callTool(serverName, toolName, args)
+      // 检查是否已停止
+      this.checkStopped(sessionId)
+
+      // 执行 MCP 工具调用（带超时和停止检查）
+      const result = await this.withTimeoutAndStopCheck(
+        mcpService.callTool(serverName, toolName, args),
+        sessionId,
+        60000, // 60秒超时（工具调用可能需要更长时间）
+        `MCP工具调用 ${serverName}/${toolName}`
+      )
+
+      // 检查是否已停止
+      this.checkStopped(sessionId)
 
       // 发送工具结果事件
       this.sendStreamEvent(webContents, {
@@ -763,6 +918,14 @@ export class ChatService {
         return JSON.stringify({ error: result.error })
       }
     } catch (error) {
+      // 如果是用户中止或超时，直接抛出
+      if (
+        error instanceof Error &&
+        (error.name === 'AbortError' || error.message.includes('超时'))
+      ) {
+        throw error
+      }
+
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('MCP 工具调用失败', 'main', {
         sessionId,
@@ -792,10 +955,13 @@ export class ChatService {
    */
   stopRequest(sessionId?: string): void {
     if (sessionId) {
+      // 标记会话为已停止（即使 AbortController 不存在也能立即停止）
+      logger.info('中止会话聊天请求', 'main', { sessionId })
+      this.stoppedSessions.add(sessionId)
+
       // 中止特定会话的请求
       const controller = this.abortControllers.get(sessionId)
       if (controller) {
-        logger.info('中止会话聊天请求', 'main', { sessionId })
         controller.abort()
         this.abortControllers.delete(sessionId)
       }
@@ -803,10 +969,19 @@ export class ChatService {
       // 中止所有请求
       if (this.abortControllers.size > 0) {
         logger.info('中止所有聊天请求', 'main', { count: this.abortControllers.size })
+        // 标记所有会话为已停止
+        this.abortControllers.forEach((_, sid) => this.stoppedSessions.add(sid))
         this.abortControllers.forEach((controller) => controller.abort())
         this.abortControllers.clear()
       }
     }
+  }
+
+  /**
+   * 清理会话的停止状态
+   */
+  private clearStoppedSession(sessionId: string): void {
+    this.stoppedSessions.delete(sessionId)
   }
 
   /**
