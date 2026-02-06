@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useFileManager } from '@renderer/composables/knowledge/useFileManager'
+import { storeToRefs } from 'pinia'
+import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 
 const props = defineProps<{
@@ -18,17 +19,11 @@ type TabType = 'existing' | 'upload'
 const activeTab = ref<TabType>('existing')
 
 // ==================== 文件管理 ====================
-const {
-  files,
-  loading,
-  searchQuery,
-  loadFiles,
-  searchFiles,
-  uploadFiles,
-  linkFileToKB,
-  formatFileSize,
-  formatDate
-} = useFileManager()
+const fileStore = useFileStore()
+
+const { files, loading, searchQuery } = storeToRefs(fileStore)
+
+const { loadFiles, searchFiles, uploadFiles, linkFileToKB, formatFileSize, formatDate } = fileStore
 
 // ==================== 状态管理 ====================
 const selectedFileIds = ref<Set<string>>(new Set())

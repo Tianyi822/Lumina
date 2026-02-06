@@ -3,7 +3,7 @@ import { ref, inject, watch, nextTick, onMounted, onUnmounted, computed, type Re
 import { storeToRefs } from 'pinia'
 import type { MCPTool } from '@renderer/types'
 import { useMCPStore } from '@renderer/stores'
-import { useMCPUI } from '@renderer/composables/mcp'
+import { useMCPUI } from '@renderer/composables/mcp/useMCPUI'
 
 const props = defineProps<{
   selectedTools?: MCPTool[]

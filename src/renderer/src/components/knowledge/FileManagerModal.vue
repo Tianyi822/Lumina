@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useFileManager } from '@renderer/composables/knowledge/useFileManager'
+import { storeToRefs } from 'pinia'
+import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 
 const emit = defineEmits<{
@@ -8,17 +9,11 @@ const emit = defineEmits<{
 }>()
 
 // ==================== 文件管理 ====================
-const {
-  loading,
-  searchQuery,
-  filteredFiles,
-  loadFiles,
-  searchFiles,
-  uploadFiles,
-  deleteFile,
-  formatFileSize,
-  formatDate
-} = useFileManager()
+const fileStore = useFileStore()
+
+const { loading, searchQuery, filteredFiles } = storeToRefs(fileStore)
+
+const { loadFiles, searchFiles, uploadFiles, deleteFile, formatFileSize, formatDate } = fileStore
 
 // ==================== 状态管理 ====================
 const isDragging = ref(false)

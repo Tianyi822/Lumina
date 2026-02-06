@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { useFileManager } from '@renderer/composables/knowledge/useFileManager'
+import { useFileStore } from '@renderer/stores'
 import { useKnowledgeIndexStore } from '@renderer/stores'
 import type { KnowledgeBase, FileItem, EmbeddingConfig } from '@renderer/types'
 
@@ -14,9 +14,11 @@ const emit = defineEmits<{
   (e: 'description-updated', kbId: string, description: string): void
 }>()
 
+const fileStore = useFileStore()
+
 // 文件管理
 const { getFilesByKBId, unlinkFileFromKB, formatFileSize, formatDate, uploadFile, linkFileToKB } =
-  useFileManager()
+  fileStore
 
 // 索引状态 Store
 const indexStore = useKnowledgeIndexStore()
