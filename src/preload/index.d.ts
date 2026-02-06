@@ -742,6 +742,9 @@ interface KnowledgeApi {
     }
     error?: string
   }>
+  stopIndexing: (
+    kbId: string
+  ) => Promise<{ success: boolean; data?: { stopped: boolean }; error?: string }>
   onFileProgress: (callback: (data: FileProgressEvent) => void) => () => void
   onReindexProgress: (callback: (data: ReindexProgressEvent) => void) => () => void
 }

@@ -184,13 +184,23 @@ export const useKnowledgeStore = defineStore(
 
     /**
      * 删除知识库
+     * 如果知识库正在索引，会先停止索引操作并清理状态
      */
     async function deleteKnowledgeBase(id: string): Promise<boolean> {
       loading.value = true
       error.value = null
       try {
+        // 1. 先停止知识库的索引操作（如果正在进行）
+        // 这会取消队列中的任务并停止当前的索引
+        const stopResult = await window.api.knowledge.stopIndexing(id)
+        if (stopResult.success && stopResult.data?.stopped) {
+          window.api.logger?.info('[KnowledgeStore] 已停止知识库索引', { id })
+        }
+
+        // 2. 调用后端删除知识库
         const result = await window.api.knowledge.delete(id)
         if (result.success) {
+          // 3. 更新本地知识库列表
           knowledgeBases.value = knowledgeBases.value.filter((kb) => kb.id !== id)
           if (activeKbId.value === id) {
             activeKbId.value = null
@@ -199,11 +209,15 @@ export const useKnowledgeStore = defineStore(
           return true
         } else {
           error.value = result.error || '删除失败'
+          window.api.logger?.error('[KnowledgeStore] 删除知识库失败', {
+            id,
+            error: result.error
+          })
           return false
         }
       } catch (e) {
         error.value = e instanceof Error ? e.message : String(e)
-        window.api.logger?.error('[KnowledgeStore] 删除知识库失败', { error: error.value })
+        window.api.logger?.error('[KnowledgeStore] 删除知识库失败', { id, error: error.value })
         return false
       } finally {
         loading.value = false

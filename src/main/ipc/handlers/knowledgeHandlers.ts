@@ -117,18 +117,28 @@ export function registerKnowledgeHandlers(): void {
   // 删除知识库
   ipcMain.handle('knowledge:delete', async (_event, id: string) => {
     try {
-      const success = getKnowledgeServiceManager().deleteKnowledgeBase(id)
-      if (!success) {
-        return {
-          success: false,
-          error: '知识库不存在'
-        }
-      }
-      return {
-        success: true
-      }
+      const result = getKnowledgeServiceManager().deleteKnowledgeBase(id)
+      return result
     } catch (error) {
       const errorMessage = `删除知识库失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return {
+        success: false,
+        error: errorMessage
+      }
+    }
+  })
+
+  // 停止知识库索引
+  ipcMain.handle('knowledge:stopIndexing', async (_event, kbId: string) => {
+    try {
+      const success = getKnowledgeServiceManager().stopKnowledgeBaseIndexing(kbId)
+      return {
+        success,
+        data: { stopped: success }
+      }
+    } catch (error) {
+      const errorMessage = `停止知识库索引失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
       return {
         success: false,
