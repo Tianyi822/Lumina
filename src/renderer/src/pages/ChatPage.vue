@@ -212,10 +212,10 @@ async function handleStopRequest(): Promise<void> {
 async function handleNewChat(sessionType?: SessionType): Promise<void> {
   await sessionStore.handleNewChat(sessionType)
 
-  // 新会话创建后重置发送状态
+  // 新会话创建后重置发送状态（需要传入 isCurrentSession: true 来更新全局 isSending）
   const newSessionId = currentChatId.value
   if (newSessionId) {
-    chatStreamStore.setSessionSendingState(newSessionId, false)
+    chatStreamStore.setSessionSendingState(newSessionId, false, true)
   }
 }
 
