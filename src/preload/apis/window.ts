@@ -2,7 +2,7 @@ import { createIpcInvoker } from './base'
 import { ipcRenderer } from 'electron'
 
 /**
- * 窗口控制 API
+ * 窗口控制相关的 API
  */
 export const windowApi = {
   ...createIpcInvoker<{
@@ -13,9 +13,7 @@ export const windowApi = {
   }>('window', ['minimize', 'maximize', 'close', 'isMaximized']),
 
   /**
-   * 监听窗口最大化状态变化
-   * @param callback 状态变化回调
-   * @returns 取消监听的函数
+   * 监听窗口最大化状态的变化
    */
   onMaximizedChanged: (callback: (isMaximized: boolean) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, isMaximized: boolean): void => {

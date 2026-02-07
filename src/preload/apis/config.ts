@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron'
 
 /**
- * 配置状态类型
+ * 配置加载的状态
  */
 export interface ConfigStatus {
   loaded: boolean
@@ -11,7 +11,7 @@ export interface ConfigStatus {
 }
 
 /**
- * 配置加载结果类型
+ * 配置加载的结果
  */
 export interface ConfigLoadResult {
   success: boolean
@@ -20,7 +20,7 @@ export interface ConfigLoadResult {
 }
 
 /**
- * 配置保存/更新结果类型
+ * 配置保存或更新的结果
  */
 export interface ConfigResult {
   success: boolean
@@ -32,42 +32,42 @@ export interface ConfigResult {
  */
 export const configApi = {
   /**
-   * 获取配置加载状态
+   * 获取配置加载的状态
    */
   getStatus: (): Promise<ConfigStatus> => {
     return ipcRenderer.invoke('config:getStatus')
   },
 
   /**
-   * 获取配置
+   * 获取配置数据
    */
   getConfig: (): Promise<unknown> => {
     return ipcRenderer.invoke('config:get')
   },
 
   /**
-   * 获取配置加载结果
+   * 获取配置加载的结果
    */
   getLoadResult: (): Promise<ConfigLoadResult> => {
     return ipcRenderer.invoke('config:getLoadResult')
   },
 
   /**
-   * 保存配置
+   * 保存完整的配置
    */
   saveConfig: (config: unknown): Promise<ConfigResult> => {
     return ipcRenderer.invoke('config:save', config)
   },
 
   /**
-   * 更新配置（部分更新）
+   * 更新部分配置
    */
   updateConfig: (partialConfig: unknown): Promise<ConfigResult> => {
     return ipcRenderer.invoke('config:update', partialConfig)
   },
 
   /**
-   * 检查配置是否存在
+   * 检查配置文件是否存在
    */
   exists: (): Promise<boolean> => {
     return ipcRenderer.invoke('config:exists')

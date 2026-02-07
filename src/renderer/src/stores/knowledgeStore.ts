@@ -1,16 +1,12 @@
-/**
- * Knowledge Store
- * 管理知识库列表、嵌入模型配置和表单状态
- */
+// Knowledge Store
+// 管理知识库列表、嵌入模型配置和表单状态
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { KnowledgeBase, KnowledgeBaseEmbeddingConfig } from '@renderer/types'
 import type { EmbeddingConfig } from '@shared/types/config'
 
-/**
- * 知识库创建输入
- */
+// 知识库创建输入
 export interface CreateKnowledgeBaseInput {
   name: string
   description: string
@@ -26,65 +22,43 @@ export const useKnowledgeStore = defineStore(
   'knowledge',
   () => {
     // ==================== State ====================
-
-    /**
-     * 知识库列表
-     */
+    
+    // 知识库列表
     const knowledgeBases = ref<KnowledgeBase[]>([])
 
-    /**
-     * 当前激活的知识库 ID（持久化）
-     */
+    // 当前激活的知识库 ID（持久化）
     const activeKbId = ref<string | null>(null)
 
-    /**
-     * 嵌入模型配置
-     */
+    // 嵌入模型配置
     const embeddingModels = ref<Record<string, EmbeddingConfig>>({})
 
-    /**
-     * 显示知识库表单
-     */
+    // 显示知识库表单
     const showForm = ref(false)
 
-    /**
-     * 正在编辑的知识库（null 表示新建）
-     */
+    // 正在编辑的知识库（null 表示新建）
     const editingKb = ref<KnowledgeBase | null>(null)
 
-    /**
-     * 加载状态
-     */
+    // 加载状态
     const loading = ref(false)
 
-    /**
-     * 嵌入模型加载状态
-     */
+    // 嵌入模型加载状态
     const embeddingLoading = ref(false)
 
-    /**
-     * 错误信息
-     */
+    // 错误信息
     const error = ref<string | null>(null)
 
     // ==================== Getters ====================
-
-    /**
-     * 获取当前激活的知识库
-     */
+    
+    // 获取当前激活的知识库
     const activeKnowledgeBase = computed(() => {
       if (!activeKbId.value) return null
       return knowledgeBases.value.find((kb) => kb.id === activeKbId.value) || null
     })
 
-    /**
-     * 知识库数量
-     */
+    // 知识库数量
     const knowledgeBaseCount = computed(() => knowledgeBases.value.length)
 
-    /**
-     * 嵌入模型列表（数组形式）
-     */
+    // 嵌入模型列表（数组形式）
     const embeddingModelList = computed(() => {
       return Object.entries(embeddingModels.value).map(([id, config]) => ({
         id,
@@ -92,16 +66,12 @@ export const useKnowledgeStore = defineStore(
       }))
     })
 
-    /**
-     * 是否正在编辑（而非创建）
-     */
+    // 是否正在编辑（而非创建）
     const isEditing = computed(() => editingKb.value !== null)
 
     // ==================== Actions: 知识库管理 ====================
-
-    /**
-     * 加载知识库列表
-     */
+    
+    // 加载知识库列表
     async function loadKnowledgeBases(): Promise<void> {
       loading.value = true
       error.value = null
@@ -121,9 +91,7 @@ export const useKnowledgeStore = defineStore(
       }
     }
 
-    /**
-     * 创建知识库
-     */
+    // 创建知识库
     async function createKnowledgeBase(data: CreateKnowledgeBaseInput): Promise<string | null> {
       loading.value = true
       error.value = null
@@ -153,9 +121,7 @@ export const useKnowledgeStore = defineStore(
       }
     }
 
-    /**
-     * 更新知识库
-     */
+    // 更新知识库
     async function updateKnowledgeBase(id: string, data: Partial<KnowledgeBase>): Promise<boolean> {
       loading.value = true
       error.value = null
@@ -182,10 +148,8 @@ export const useKnowledgeStore = defineStore(
       }
     }
 
-    /**
-     * 删除知识库
-     * 如果知识库正在索引，会先停止索引操作并清理状态
-     */
+    // 删除知识库
+    // 如果知识库正在索引，会先停止索引操作并清理状态
     async function deleteKnowledgeBase(id: string): Promise<boolean> {
       loading.value = true
       error.value = null
@@ -224,36 +188,28 @@ export const useKnowledgeStore = defineStore(
       }
     }
 
-    /**
-     * 获取知识库详情
-     */
+    // 获取知识库详情
     function getKnowledgeBase(id: string): KnowledgeBase | undefined {
       return knowledgeBases.value.find((kb) => kb.id === id)
     }
 
     // ==================== Actions: 选择管理 ====================
-
-    /**
-     * 设置当前激活的知识库
-     */
+    
+    // 设置当前激活的知识库
     function setActiveKb(kbId: string | null): void {
       activeKbId.value = kbId
       window.api.logger?.debug('[KnowledgeStore] 设置激活知识库', { kbId })
     }
 
-    /**
-     * 切换到指定知识库
-     */
+    // 切换到指定知识库
     async function switchToKb(kbId: string): Promise<void> {
       setActiveKb(kbId)
       // 可以在这里添加额外的初始化逻辑
     }
 
     // ==================== Actions: 嵌入模型管理 ====================
-
-    /**
-     * 加载所有嵌入模型
-     */
+    
+    // 加载所有嵌入模型
     async function loadEmbeddingModels(): Promise<void> {
       embeddingLoading.value = true
       try {
@@ -271,9 +227,7 @@ export const useKnowledgeStore = defineStore(
       }
     }
 
-    /**
-     * 根据 ID 获取嵌入模型
-     */
+    // 根据 ID 获取嵌入模型
     async function getEmbeddingModel(id: string): Promise<EmbeddingConfig | null> {
       const result = await window.api.embeddingModels.getById(id)
       if (result.success && result.data) {
@@ -282,9 +236,7 @@ export const useKnowledgeStore = defineStore(
       return null
     }
 
-    /**
-     * 保存嵌入模型
-     */
+    // 保存嵌入模型
     async function saveEmbeddingModel(id: string, config: EmbeddingConfig): Promise<boolean> {
       try {
         const result = await window.api.embeddingModels.save(id, config)
@@ -300,9 +252,7 @@ export const useKnowledgeStore = defineStore(
       }
     }
 
-    /**
-     * 删除嵌入模型
-     */
+    // 删除嵌入模型
     async function deleteEmbeddingModel(id: string): Promise<boolean> {
       try {
         const result = await window.api.embeddingModels.delete(id)
@@ -318,42 +268,32 @@ export const useKnowledgeStore = defineStore(
       }
     }
 
-    /**
-     * 测试嵌入模型连接
-     */
+    // 测试嵌入模型连接
     async function testEmbeddingModel(id: string): Promise<{ success: boolean; error?: string }> {
       return await window.api.embeddingModels.test(id)
     }
 
     // ==================== Actions: 表单管理 ====================
-
-    /**
-     * 打开创建表单
-     */
+    
+    // 打开创建表单
     function openCreateForm(): void {
       editingKb.value = null
       showForm.value = true
     }
 
-    /**
-     * 打开编辑表单
-     */
+    // 打开编辑表单
     function openEditForm(kb: KnowledgeBase): void {
       editingKb.value = kb
       showForm.value = true
     }
 
-    /**
-     * 关闭表单
-     */
+    // 关闭表单
     function closeForm(): void {
       editingKb.value = null
       showForm.value = false
     }
 
-    /**
-     * 处理表单提交
-     */
+    // 处理表单提交
     async function handleFormSubmit(data: {
       name: string
       description: string

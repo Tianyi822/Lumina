@@ -3,10 +3,7 @@ import { getFileService } from '@main/services/file'
 import { logger } from '@main/services/logger'
 // FileItem type is not directly used in this file, but handlers return typed responses
 
-/**
- * 初始化文件服务
- * 在应用启动时加载文件数据
- */
+// 初始化文件服务，在应用启动时加载文件数据
 export function initializeFileService(): void {
   try {
     getFileService().initialize()
@@ -17,9 +14,7 @@ export function initializeFileService(): void {
   }
 }
 
-/**
- * 注册文件管理相关的 IPC 处理程序
- */
+// 注册文件管理相关的 IPC 处理程序，处理文件的上传、删除、搜索和知识库关联等操作
 export function registerFileHandlers(): void {
   // 获取所有文件列表
   ipcMain.handle('file:list', () => {
@@ -39,7 +34,7 @@ export function registerFileHandlers(): void {
     }
   })
 
-  // 根据ID获取文件
+  // 根据文件 ID 获取文件信息
   ipcMain.handle('file:getById', (_event, id: string) => {
     try {
       const file = getFileService().getFileById(id)
@@ -63,7 +58,7 @@ export function registerFileHandlers(): void {
     }
   })
 
-  // 搜索文件
+  // 搜索文件，支持按文件名或其他属性匹配
   ipcMain.handle('file:search', (_event, query: string) => {
     try {
       const files = getFileService().searchFiles(query)
@@ -81,7 +76,7 @@ export function registerFileHandlers(): void {
     }
   })
 
-  // 上传文件
+  // 上传文件，接收文件数据和文件名，保存到文件系统
   ipcMain.handle('file:upload', async (_event, fileData: { data: number[]; name: string }) => {
     try {
       // 将 number[] 转换回 Buffer
@@ -98,7 +93,7 @@ export function registerFileHandlers(): void {
     }
   })
 
-  // 删除文件
+  // 删除文件，forceDelete 参数控制是否强制删除被知识库引用的文件
   ipcMain.handle('file:delete', (_event, fileId: string, forceDelete: boolean = false) => {
     try {
       const result = getFileService().deleteFile(fileId, forceDelete)
@@ -113,7 +108,7 @@ export function registerFileHandlers(): void {
     }
   })
 
-  // 将文件关联到知识库
+  // 将文件关联到指定知识库，建立文件和知识库之间的关系
   ipcMain.handle('file:linkToKB', (_event, fileId: string, kbId: string) => {
     try {
       const result = getFileService().linkFileToKB(fileId, kbId)
@@ -128,7 +123,7 @@ export function registerFileHandlers(): void {
     }
   })
 
-  // 从知识库取消文件关联
+  // 从知识库取消文件关联，解除文件和知识库之间的关系
   ipcMain.handle('file:unlinkFromKB', (_event, fileId: string, kbId: string) => {
     try {
       const result = getFileService().unlinkFileFromKB(fileId, kbId)
@@ -143,7 +138,7 @@ export function registerFileHandlers(): void {
     }
   })
 
-  // 获取知识库关联的文件列表
+  // 获取知识库关联的所有文件列表
   ipcMain.handle('file:getByKBId', (_event, kbId: string) => {
     try {
       const files = getFileService().getFilesByKBId(kbId)
@@ -161,7 +156,7 @@ export function registerFileHandlers(): void {
     }
   })
 
-  // 获取文件使用情况
+  // 获取文件的使用情况，包括被哪些知识库引用等信息
   ipcMain.handle('file:getUsage', (_event, fileId: string) => {
     try {
       const usage = getFileService().getFileUsage(fileId)

@@ -1,6 +1,4 @@
-/**
- * Pinia Store 入口
- */
+// Pinia Store 入口
 
 import { createPinia } from 'pinia'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
@@ -24,9 +22,7 @@ export { useMCPStore } from './mcpStore'
 export { useKnowledgeStore } from './knowledgeStore'
 export { useFileStore } from './fileStore'
 
-/**
- * 初始化 Pinia（在应用启动时调用）
- */
+// 初始化 Pinia（在应用启动时调用）
 export function initializePinia(): void {
   // 可以在这里添加全局 store 初始化逻辑
   window.api.logger?.info('Pinia store initialized')

@@ -1,7 +1,5 @@
-/**
- * 聊天流状态 Store
- * 管理聊天流状态，包括多会话并发、流式事件处理
- */
+// 聊天流状态 Store
+// 管理聊天流状态，包括多会话并发、流式事件处理
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
@@ -10,43 +8,29 @@ import { useMessageCacheStore } from './messageCacheStore'
 
 export const useChatStreamStore = defineStore('chatStream', () => {
   // ==================== Dependencies ====================
-
+  
   const messageCache = useMessageCacheStore()
 
   // ==================== State ====================
-
-  /**
-   * 是否正在发送消息（全局状态，用于当前会话）
-   */
+  
+  // 是否正在发送消息（全局状态，用于当前会话）
   const isSending = ref(false)
 
-  /**
-   * 会话级别的发送状态（用于多会话并发管理）
-   * Key: sessionId, Value: 是否正在发送
-   */
+  // 会话级别的发送状态（用于多会话并发管理）
   const sessionSendingStates = ref<Map<string, boolean>>(new Map())
 
-  /**
-   * 发送前的消息快照（用于错误回滚）
-   * Key: sessionId, Value: 消息列表快照
-   */
+  // 发送前的消息快照（用于错误回滚）
   const messagesSnapshots = ref<Map<string, Message[]>>(new Map())
 
-  /**
-   * 当前正在流式响应的会话ID
-   */
+  // 当前正在流式响应的会话ID
   const streamingSessionId = ref<string | null>(null)
 
-  /**
-   * 流式监听器清理函数
-   */
+  // 流式监听器清理函数
   const cleanupStreamListenerFn = ref<(() => void) | null>(null)
 
   // ==================== Getters ====================
-
-  /**
-   * 获取当前正在流式响应的会话数量
-   */
+  
+  // 获取当前正在流式响应的会话数量
   const streamingSessionCount = computed(() => {
     let count = 0
     for (const [, isSending] of sessionSendingStates.value.entries()) {
@@ -55,9 +39,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     return count
   })
 
-  /**
-   * 获取所有正在发送的会话 ID 列表
-   */
+  // 获取所有正在发送的会话 ID 列表
   const activeSessionIds = computed(() => {
     const ids: string[] = []
     for (const [sessionId, sending] of sessionSendingStates.value.entries()) {
@@ -67,21 +49,13 @@ export const useChatStreamStore = defineStore('chatStream', () => {
   })
 
   // ==================== Actions ====================
-
-  /**
-   * 获取指定会话的发送状态
-   * @param sessionId - 会话 ID
-   */
+  
+  // 获取指定会话的发送状态
   function getSessionSendingState(sessionId: string): boolean {
     return sessionSendingStates.value.get(sessionId) || false
   }
 
-  /**
-   * 设置指定会话的发送状态
-   * @param sessionId - 会话 ID
-   * @param state - 发送状态
-   * @param isCurrentSession - 是否是当前显示的会话
-   */
+  // 设置指定会话的发送状态
   function setSessionSendingState(
     sessionId: string,
     state: boolean,
@@ -109,19 +83,12 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     })
   }
 
-  /**
-   * 设置当前会话的发送状态（便捷方法）
-   * @param state - 发送状态
-   */
+  // 设置当前会话的发送状态（便捷方法）
   function setIsSending(state: boolean): void {
     isSending.value = state
   }
 
-  /**
-   * 保存消息快照
-   * @param sessionId - 会话 ID
-   * @param messages - 消息列表
-   */
+  // 保存消息快照
   function saveMessagesSnapshot(sessionId: string, messages: Message[]): void {
     messagesSnapshots.value.set(sessionId, JSON.parse(JSON.stringify(messages)))
 
@@ -131,28 +98,18 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     })
   }
 
-  /**
-   * 获取消息快照
-   * @param sessionId - 会话 ID
-   */
+  // 获取消息快照
   function getMessagesSnapshot(sessionId: string): Message[] | null {
     return messagesSnapshots.value.get(sessionId) || null
   }
 
-  /**
-   * 清除消息快照
-   * @param sessionId - 会话 ID
-   */
+  // 清除消息快照
   function clearMessagesSnapshot(sessionId: string): void {
     messagesSnapshots.value.delete(sessionId)
   }
 
-  /**
-   * 处理流式事件
-   * @param event - 流式事件
-   * @param currentSessionId - 当前显示的会话 ID
-   * @param currentMessages - 当前显示的消息列表（引用）
-   */
+  // 处理流式事件
+  // 根据事件类型更新消息内容、推理内容、工具调用等
   function handleStreamEvent(
     event: StreamEvent,
     currentSessionId: string | null,
@@ -289,9 +246,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     }
   }
 
-  /**
-   * 处理流式完成事件
-   */
+  // 处理流式完成事件
   function handleStreamDone(
     event: StreamEvent,
     sessionId: string,
@@ -327,9 +282,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     })
   }
 
-  /**
-   * 处理流式错误事件
-   */
+  // 处理流式错误事件
   function handleStreamError(
     event: StreamEvent,
     sessionId: string,
@@ -364,10 +317,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     })
   }
 
-  /**
-   * 设置流式响应监听器
-   * @param handler - 事件处理函数
-   */
+  // 设置流式响应监听器
   function setupStreamListener(handler: (event: StreamEvent) => void): void {
     // 清理旧监听器
     cleanupStreamListener()
@@ -377,9 +327,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     window.api.logger.info('[ChatStreamStore] 流式监听器已设置')
   }
 
-  /**
-   * 清理流式监听器
-   */
+  // 清理流式监听器
   function cleanupStreamListener(): void {
     if (cleanupStreamListenerFn.value) {
       cleanupStreamListenerFn.value()
@@ -388,10 +336,8 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     }
   }
 
-  /**
-   * 中止当前请求
-   * @param sessionId - 会话 ID（可选，默认为当前流式会话）
-   */
+  // 中止当前请求
+  // 立即更新本地状态，异步通知后端停止
   async function stopRequest(sessionId?: string): Promise<void> {
     const targetSessionId = sessionId || streamingSessionId.value
     if (!targetSessionId) {
@@ -400,7 +346,6 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     }
 
     // 立即更新本地状态，不等待后端响应
-    // 这样即使后端卡住，UI 也会立即响应
     sessionSendingStates.value.set(targetSessionId, false)
     if (streamingSessionId.value === targetSessionId) {
       isSending.value = false
@@ -426,10 +371,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     }
   }
 
-  /**
-   * 重置指定会话的状态
-   * @param sessionId - 会话 ID
-   */
+  // 重置指定会话的状态
   function resetSessionState(sessionId: string): void {
     sessionSendingStates.value.delete(sessionId)
     messagesSnapshots.value.delete(sessionId)
@@ -441,9 +383,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     window.api.logger.debug('[ChatStreamStore] 重置会话状态', { sessionId })
   }
 
-  /**
-   * 重置所有状态
-   */
+  // 重置所有状态
   function resetAllState(): void {
     isSending.value = false
     sessionSendingStates.value.clear()

@@ -3,18 +3,14 @@ import { getEmbeddingService, EmbeddingService } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
 import type { EmbeddingConfig } from '@main/types/config'
 
-/**
- * 初始化嵌入服务
- */
+// 嵌入服务初始化，服务会在需要时按需加载配置
 export function initializeEmbedding(): void {
   logger.info('嵌入服务已准备好，将按需加载配置', 'main')
 }
 
-/**
- * 注册嵌入模型相关的 IPC 处理程序
- */
+// 注册嵌入模型相关的 IPC 处理程序，处理渲染进程发送的嵌入相关请求
 export function registerEmbeddingHandlers(): void {
-  // 获取预设嵌入模型列表
+  // 获取预设的嵌入模型列表，包括支持的模型提供商和模型名称
   ipcMain.handle('embedding:getPresets', () => {
     try {
       const presets = EmbeddingService.getPresets()
@@ -32,7 +28,7 @@ export function registerEmbeddingHandlers(): void {
     }
   })
 
-  // 从预设ID创建嵌入配置
+  // 根据预设 ID 创建嵌入配置，可传入自定义配置覆盖默认值
   ipcMain.handle(
     'embedding:createFromPreset',
     (_event, presetId: string, customConfig?: Partial<EmbeddingConfig>) => {
@@ -53,7 +49,7 @@ export function registerEmbeddingHandlers(): void {
     }
   )
 
-  // 获取当前嵌入配置
+  // 获取当前正在使用的嵌入配置
   ipcMain.handle('embedding:getConfig', () => {
     try {
       const config = getEmbeddingService().getConfig()
@@ -71,7 +67,8 @@ export function registerEmbeddingHandlers(): void {
     }
   })
 
-  // 设置嵌入配置
+  // 设置嵌入配置，这个处理器用于运行时临时配置
+  // 注意：持久化配置应使用 embeddingModels:save 处理器
   ipcMain.handle('embedding:setConfig', async (_event, config: EmbeddingConfig) => {
     try {
       getEmbeddingService().setConfig(config)
@@ -96,7 +93,7 @@ export function registerEmbeddingHandlers(): void {
     }
   })
 
-  // 测试嵌入连接
+  // 测试嵌入服务的连接状态和可用性
   ipcMain.handle('embedding:testConnection', async () => {
     try {
       const result = await getEmbeddingService().testConnection()
@@ -125,7 +122,7 @@ export function registerEmbeddingHandlers(): void {
     }
   })
 
-  // 生成单个文本的嵌入向量
+  // 生成单个文本的嵌入向量，返回向量数组
   ipcMain.handle('embedding:embed', async (_event, text: string) => {
     try {
       const result = await getEmbeddingService().embed(text)
@@ -143,7 +140,7 @@ export function registerEmbeddingHandlers(): void {
     }
   })
 
-  // 批量生成嵌入向量
+  // 批量生成多个文本的嵌入向量，提高处理效率
   ipcMain.handle('embedding:embedBatch', async (_event, texts: string[]) => {
     try {
       const result = await getEmbeddingService().embedBatch(texts)

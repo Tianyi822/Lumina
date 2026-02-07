@@ -1,26 +1,26 @@
 import { ipcRenderer } from 'electron'
 
 /**
- * 工具描述详细程度
+ * 工具描述的详细程度
  */
 export type ToolDescriptionLevel = 'basic' | 'detailed' | 'minimal'
 
 /**
- * 提示词配置
+ * 提示词生成的配置
  */
 export interface PromptConfig {
   /** 是否启用增强版提示词 */
   enableEnhancedPrompt?: boolean
-  /** 工具描述详细程度 */
+  /** 工具描述的详细程度 */
   toolDescriptionLevel?: ToolDescriptionLevel
-  /** Few-shot 示例数量 (0-5) */
+  /** Few-shot 示例的数量，范围 0 到 5 */
   fewShotCount?: number
-  /** 自定义系统提示词（覆盖默认提示词） */
+  /** 自定义系统提示词，会覆盖默认生成的提示词 */
   customSystemPrompt?: string
 }
 
 /**
- * 提示词配置 API
+ * 提示词配置相关的 API
  */
 export const promptApi = {
   /**

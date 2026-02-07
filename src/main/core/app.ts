@@ -13,6 +13,7 @@ import {
 
 /**
  * 初始化应用
+ * 设置应用的生命周期和启动流程
  */
 export function initializeApp(): void {
   // 当 Electron 完成初始化并准备创建浏览器窗口时调用此方法
@@ -26,10 +27,10 @@ export function initializeApp(): void {
       optimizer.watchWindowShortcuts(window)
     })
 
-    // 初始化日志系统（优先初始化，以便记录后续日志）
+    // 初始化日志系统，优先初始化以便记录后续日志
     initializeLogger()
 
-    // 初始化配置（即使失败也不阻止应用启动）
+    // 初始化配置，即使失败也不阻止应用启动
     initializeConfig()
 
     // 注册所有 IPC 处理程序
@@ -38,7 +39,7 @@ export function initializeApp(): void {
     // 初始化 MCP 服务
     initializeMCP()
 
-    // 初始化嵌入服务（知识库）
+    // 初始化嵌入服务，用于知识库
     initializeEmbedding()
 
     // 初始化嵌入模型管理服务
@@ -50,8 +51,7 @@ export function initializeApp(): void {
     // 创建主窗口
     createMainWindow()
 
-    // 在 macOS 上，当点击 dock 图标且没有其他窗口打开时，
-    // 通常会重新创建一个窗口
+    // 在 macOS 上，当点击 dock 图标且没有其他窗口打开时，通常会重新创建一个窗口
     app.on('activate', function () {
       if (BrowserWindow.getAllWindows().length === 0) {
         createMainWindow()

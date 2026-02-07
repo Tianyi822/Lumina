@@ -5,9 +5,7 @@ import { exampleManager } from '../../services/chat/prompts/ExampleManager'
 import { promptBuilder } from '../../services/chat/PromptBuilder'
 import type { PromptConfig } from '@main/types/config'
 
-/**
- * 获取提示词配置
- */
+// 获取提示词配置，返回当前应用的提示词配置对象
 export async function handleGetPromptConfig(): Promise<PromptConfig | undefined> {
   try {
     const config = configManager.getConfig()
@@ -24,9 +22,7 @@ export async function handleGetPromptConfig(): Promise<PromptConfig | undefined>
   }
 }
 
-/**
- * 更新提示词配置
- */
+// 更新提示词配置，保存新的配置设置到应用配置文件
 export async function handleUpdatePromptConfig(
   _event: Electron.IpcMainInvokeEvent,
   promptConfig: PromptConfig
@@ -54,9 +50,7 @@ export async function handleUpdatePromptConfig(
   }
 }
 
-/**
- * 重置提示词配置为默认值
- */
+// 重置提示词配置为默认值，恢复到系统预设的默认配置
 export async function handleResetPromptConfig(): Promise<{
   success: boolean
   config?: PromptConfig
@@ -94,9 +88,7 @@ export async function handleResetPromptConfig(): Promise<{
   }
 }
 
-/**
- * 注册提示词配置相关的 IPC 处理器
- */
+// 注册提示词配置相关的 IPC 处理器，包括配置管理、示例管理和性能监控
 export function registerPromptHandlers(): void {
   ipcMain.handle('prompt:getConfig', handleGetPromptConfig)
   ipcMain.handle('prompt:updateConfig', handleUpdatePromptConfig)
@@ -117,9 +109,7 @@ export function registerPromptHandlers(): void {
   logger.debug('提示词配置 IPC 处理器已注册', 'main')
 }
 
-/**
- * 提取示例
- */
+// 提取示例，从历史会话中提取高质量的示例用于 Few-shot 学习
 export async function handleExtractExamples(
   _event: Electron.IpcMainInvokeEvent,
   sessionIds?: string[]
@@ -134,9 +124,7 @@ export async function handleExtractExamples(
   }
 }
 
-/**
- * 获取示例统计信息
- */
+// 获取示例统计信息，包括示例数量、平均质量分数等统计数据
 export async function handleGetExampleStats(): Promise<{
   success: boolean
   stats?: {
@@ -158,9 +146,7 @@ export async function handleGetExampleStats(): Promise<{
   }
 }
 
-/**
- * 清理示例
- */
+// 清理示例，根据质量分数或时间清理低质量或过期的示例
 export async function handleCleanupExamples(
   _event: Electron.IpcMainInvokeEvent,
   options: { type: 'quality' | 'age'; value?: number }
@@ -182,9 +168,7 @@ export async function handleCleanupExamples(
   }
 }
 
-/**
- * 导出示例
- */
+// 导出示例，将示例数据导出为 JSON 格式
 export async function handleExportExamples(): Promise<{
   success: boolean
   json?: string
@@ -200,9 +184,7 @@ export async function handleExportExamples(): Promise<{
   }
 }
 
-/**
- * 导入示例
- */
+// 导入示例，从 JSON 格式的数据导入示例
 export async function handleImportExamples(
   _event: Electron.IpcMainInvokeEvent,
   json: string
@@ -218,9 +200,7 @@ export async function handleImportExamples(
   }
 }
 
-/**
- * 获取缓存统计
- */
+// 获取缓存统计，包括系统提示词、工具描述和示例格式化的缓存命中率和大小等信息
 export async function handleGetCacheStats(): Promise<{
   success: boolean
   stats?: {
@@ -258,9 +238,7 @@ export async function handleGetCacheStats(): Promise<{
   }
 }
 
-/**
- * 获取缓存性能报告
- */
+// 获取缓存性能报告，生成详细的缓存性能报告文本
 export async function handleGetCacheReport(): Promise<{
   success: boolean
   report?: string
@@ -276,9 +254,7 @@ export async function handleGetCacheReport(): Promise<{
   }
 }
 
-/**
- * 清空缓存
- */
+// 清空缓存，清除所有提示词相关的缓存数据
 export async function handleClearCache(): Promise<{
   success: boolean
   error?: string

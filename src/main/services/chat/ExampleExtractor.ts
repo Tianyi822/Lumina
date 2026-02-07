@@ -1,41 +1,32 @@
-/**
- * 示例提取器
- * 从历史会话中提取高质量的 Few-shot 示例
- */
+// 示例提取器，从历史会话中提取高质量的 Few-shot 示例
 
 import { randomUUID } from 'crypto'
 import type { ChatMessage } from '@main/types/chat'
 import type { SessionData } from '@shared/types/session'
 import type { EnhancedFewShotExample, ExampleExtractionResult } from './prompts/types'
 
-/**
- * ReAct 模式提取结果
- */
+// ReAct 模式提取结果
 interface ReActPattern {
-  /** 用户查询 */
+  // 用户查询
   userQuery: string
-  /** 思考过程 */
+  // 思考过程
   thoughts: string[]
-  /** 工具调用序列 */
+  // 工具调用序列
   toolCalls: Array<{
     name: string
     arguments: Record<string, unknown>
     result: string
     success: boolean
   }>
-  /** 最终答案 */
+  // 最终答案
   finalAnswer: string
-  /** 是否包含错误 */
+  // 是否包含错误
   hasErrors: boolean
 }
 
-/**
- * 示例提取器
- */
+// 示例提取器
 export class ExampleExtractor {
-  /**
-   * 从会话列表中提取示例
-   */
+  // 从会话列表中提取示例
   extractFromSessions(sessions: SessionData[]): ExampleExtractionResult {
     const examples: EnhancedFewShotExample[] = []
     let processedSessions = 0
@@ -70,9 +61,7 @@ export class ExampleExtractor {
     }
   }
 
-  /**
-   * 从单个会话中提取 ReAct 模式
-   */
+  // 从单个会话中提取 ReAct 模式
   private extractPatternsFromSession(session: SessionData): ReActPattern[] {
     const patterns: ReActPattern[] = []
     const messages = session.messages
@@ -96,9 +85,7 @@ export class ExampleExtractor {
     return patterns
   }
 
-  /**
-   * 尝试从当前位置提取 ReAct 模式
-   */
+  // 尝试从当前位置提取 ReAct 模式
   private tryExtractReActPattern(messages: ChatMessage[], startIndex: number): ReActPattern | null {
     if (startIndex >= messages.length) return null
 
@@ -180,9 +167,7 @@ export class ExampleExtractor {
     return pattern
   }
 
-  /**
-   * 查找工具结果
-   */
+  // 查找工具结果
   private findToolResult(
     messages: ChatMessage[],
     startIndex: number,
@@ -201,9 +186,7 @@ export class ExampleExtractor {
     return null
   }
 
-  /**
-   * 查找最后一个助手消息
-   */
+  // 查找最后一个助手消息
   private findLastAssistantMessage(
     messages: ChatMessage[],
     startIndex: number,
@@ -218,9 +201,7 @@ export class ExampleExtractor {
     return null
   }
 
-  /**
-   * 解析工具参数
-   */
+  // 解析工具参数
   private parseToolArguments(argsString: string): Record<string, unknown> {
     try {
       return JSON.parse(argsString)
@@ -229,9 +210,7 @@ export class ExampleExtractor {
     }
   }
 
-  /**
-   * 判断是否是错误结果
-   */
+  // 判断是否是错误结果
   private isErrorResult(content: string | null): boolean {
     if (!content) return false
     const errorIndicators = ['error:', 'failed', 'exception', 'cannot', 'unable']
@@ -239,9 +218,7 @@ export class ExampleExtractor {
     return errorIndicators.some((indicator) => lowerContent.includes(indicator))
   }
 
-  /**
-   * 计算模式包含的消息数
-   */
+  // 计算模式包含的消息数
   private countMessagesInPattern(pattern: ReActPattern): number {
     // 用户消息 + 思考消息 + 工具调用消息 + 工具结果消息 + 最终答案消息
     let count = 1 // 用户消息
@@ -253,9 +230,7 @@ export class ExampleExtractor {
     return count
   }
 
-  /**
-   * 从模式创建示例
-   */
+  // 从模式创建示例
   private createExampleFromPattern(
     pattern: ReActPattern,
     sessionId: string

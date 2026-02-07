@@ -1,7 +1,5 @@
-/**
- * 输入状态 Store
- * 管理每个会话的输入状态（输入消息、选中的模型、工具、知识库）
- */
+// 输入状态 Store
+// 管理每个会话的输入状态（输入消息、选中的模型、工具、知识库）
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
@@ -20,56 +18,37 @@ export const useInputStateStore = defineStore(
   'inputState',
   () => {
     // ==================== State ====================
-
-    /**
-     * 会话 ID 到输入状态的映射
-     * 持久化存储，用于页面切换后恢复状态
-     */
+    
+    // 会话 ID 到输入状态的映射
+    // 持久化存储，用于页面切换后恢复状态
     const sessionInputStates = ref<Map<string, SessionInputState>>(new Map())
 
-    /**
-     * 当前会话的输入状态（运行时状态，不持久化）
-     */
+    // 当前会话的输入状态（运行时状态，不持久化）
     const currentInputState = ref<SessionInputState>({ ...DEFAULT_INPUT_STATE })
 
-    /**
-     * 最后活动的会话 ID（用于页面切换后恢复）
-     */
+    // 最后活动的会话 ID（用于页面切换后恢复）
     const lastActiveSessionId = ref<string | null>(null)
 
     // ==================== Getters ====================
-
-    /**
-     * 获取当前输入消息
-     */
+    
+    // 获取当前输入消息
     const inputMessage = computed(() => currentInputState.value.inputMessage)
 
-    /**
-     * 获取当前选中的模型
-     */
+    // 获取当前选中的模型
     const selectedModel = computed(() => currentInputState.value.selectedModel)
 
-    /**
-     * 获取当前选中的 MCP 工具
-     */
+    // 获取当前选中的 MCP 工具
     const selectedMCPTools = computed(() => currentInputState.value.selectedMCPTools)
 
-    /**
-     * 获取当前选中的知识库
-     */
+    // 获取当前选中的知识库
     const selectedKnowledgeBases = computed(() => currentInputState.value.selectedKnowledgeBases)
 
-    /**
-     * 获取已保存状态的会话数量
-     */
+    // 获取已保存状态的会话数量
     const savedStateCount = computed(() => sessionInputStates.value.size)
 
     // ==================== Actions ====================
-
-    /**
-     * 获取或创建会话的输入状态
-     * @param sessionId - 会话 ID
-     */
+    
+    // 获取或创建会话的输入状态
     function getSessionState(sessionId: string): SessionInputState {
       if (!sessionInputStates.value.has(sessionId)) {
         sessionInputStates.value.set(sessionId, { ...DEFAULT_INPUT_STATE })
@@ -77,10 +56,7 @@ export const useInputStateStore = defineStore(
       return sessionInputStates.value.get(sessionId)!
     }
 
-    /**
-     * 保存当前会话的输入状态
-     * @param sessionId - 会话 ID
-     */
+    // 保存当前会话的输入状态
     function saveCurrentState(sessionId: string): void {
       if (!sessionId) {
         window.api.logger.warn('[InputStateStore] 尝试保存空会话 ID 的状态')
@@ -98,10 +74,7 @@ export const useInputStateStore = defineStore(
       })
     }
 
-    /**
-     * 切换到指定会话的输入状态
-     * @param sessionId - 会话 ID
-     */
+    // 切换到指定会话的输入状态
     function switchToSession(sessionId: string): void {
       const state = getSessionState(sessionId)
       currentInputState.value = { ...state }
@@ -114,26 +87,17 @@ export const useInputStateStore = defineStore(
       })
     }
 
-    /**
-     * 更新输入消息
-     * @param message - 输入消息内容
-     */
+    // 更新输入消息
     function updateInputMessage(message: string): void {
       currentInputState.value.inputMessage = message
     }
 
-    /**
-     * 更新选中的模型
-     * @param model - 模型名称
-     */
+    // 更新选中的模型
     function updateSelectedModel(model: string): void {
       currentInputState.value.selectedModel = model
     }
 
-    /**
-     * 更新选中的工具
-     * @param tools - MCP 工具列表
-     */
+    // 更新选中的工具
     function updateSelectedTools(tools: MCPTool[]): void {
       currentInputState.value.selectedMCPTools = [...tools]
 
@@ -143,10 +107,7 @@ export const useInputStateStore = defineStore(
       })
     }
 
-    /**
-     * 更新选中的知识库
-     * @param kbs - 知识库列表
-     */
+    // 更新选中的知识库
     function updateSelectedKnowledgeBases(kbs: KnowledgeBase[]): void {
       currentInputState.value.selectedKnowledgeBases = [...kbs]
 
@@ -156,10 +117,7 @@ export const useInputStateStore = defineStore(
       })
     }
 
-    /**
-     * 切换工具选择状态（添加或移除）
-     * @param tool - MCP 工具
-     */
+    // 切换工具选择状态（添加或移除）
     function toggleToolSelection(tool: MCPTool): void {
       const tools = currentInputState.value.selectedMCPTools
       const index = tools.findIndex((t) => t.name === tool.name && t.serverName === tool.serverName)
@@ -179,31 +137,22 @@ export const useInputStateStore = defineStore(
       })
     }
 
-    /**
-     * 清除当前会话的输入消息
-     */
+    // 清除当前会话的输入消息
     function clearInputMessage(): void {
       currentInputState.value.inputMessage = ''
     }
 
-    /**
-     * 清除当前会话的选中工具
-     */
+    // 清除当前会话的选中工具
     function clearSelectedTools(): void {
       currentInputState.value.selectedMCPTools = []
     }
 
-    /**
-     * 清除当前会话的选中知识库
-     */
+    // 清除当前会话的选中知识库
     function clearSelectedKnowledgeBases(): void {
       currentInputState.value.selectedKnowledgeBases = []
     }
 
-    /**
-     * 删除会话的输入状态
-     * @param sessionId - 会话 ID
-     */
+    // 删除会话的输入状态
     function deleteSessionState(sessionId: string): void {
       sessionInputStates.value.delete(sessionId)
 
@@ -216,9 +165,7 @@ export const useInputStateStore = defineStore(
       window.api.logger.debug('[InputStateStore] 删除会话输入状态', { sessionId })
     }
 
-    /**
-     * 清除所有输入状态
-     */
+    // 清除所有输入状态
     function clearAllStates(): void {
       sessionInputStates.value.clear()
       currentInputState.value = { ...DEFAULT_INPUT_STATE }
@@ -227,11 +174,7 @@ export const useInputStateStore = defineStore(
       window.api.logger.debug('[InputStateStore] 清除所有输入状态')
     }
 
-    /**
-     * 恢复指定会话的输入状态（用于页面切换后恢复）
-     * @param sessionId - 会话 ID
-     * @returns 是否成功恢复
-     */
+    // 恢复指定会话的输入状态（用于页面切换后恢复）
     function restoreSessionState(sessionId: string): boolean {
       const state = sessionInputStates.value.get(sessionId)
       if (state) {

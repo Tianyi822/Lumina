@@ -1,9 +1,8 @@
+// ReAct 模式的 Few-shot 示例集合，用于帮助模型理解如何正确使用工具和进行推理
+
 import type { FewShotExample } from './types'
 
-/**
- * ReAct 模式的 Few-shot 示例集合
- * 用于帮助模型理解如何正确使用工具和进行推理
- */
+// Few-shot 示例
 export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
   {
     userQuery: '今天北京的天气怎么样?',
@@ -37,7 +36,7 @@ export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
             {
               title: 'Vue 3.5 Released',
               url: 'https://vuejs.org',
-              snippet: 'Vue 3.5.0 is the latest version'
+              snippet: 'Vue 3.5.0 is latest version'
             }
           ]
         })
@@ -85,16 +84,12 @@ if (object && object.name) {
   }
 ]
 
-/**
- * 根据配置获取指定数量的示例
- */
+// 根据配置获取指定数量的示例
 export function getFewShotExamples(count: number = 3): FewShotExample[] {
   return FEW_SHOT_EXAMPLES.slice(0, Math.min(count, FEW_SHOT_EXAMPLES.length))
 }
 
-/**
- * 将示例格式化为提示词文本
- */
+// 将示例格式化为提示词文本
 export function formatFewShotExample(example: FewShotExample): string {
   let text = `**用户**: ${example.userQuery}\n\n`
   text += `**思考**: ${example.thought}\n\n`

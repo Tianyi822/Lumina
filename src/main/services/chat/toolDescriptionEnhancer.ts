@@ -8,6 +8,7 @@ import type { ToolDescriptionLevel } from './prompts/types'
 export class ToolDescriptionEnhancer {
   /**
    * 增强工具描述
+   * 根据指定的级别返回不同程度的工具描述
    */
   enhanceToolDescription(tool: MCPToolReference, level: ToolDescriptionLevel = 'detailed'): string {
     const baseDescription = tool.description || ''
@@ -24,7 +25,8 @@ export class ToolDescriptionEnhancer {
   }
 
   /**
-   * 基础级别增强 - 只添加参数列表
+   * 基础级别增强
+   * 只添加参数列表，不添加详细说明和使用建议
    */
   private enhanceBasic(tool: MCPToolReference, baseDescription: string): string {
     const paramsInfo = this.extractParametersSummary(tool)
@@ -36,18 +38,17 @@ export class ToolDescriptionEnhancer {
   }
 
   /**
-   * 详细级别增强 - 添加参数说明和使用建议
+   * 详细级别增强
+   * 添加参数说明、类型信息和智能生成使用建议
    */
   private enhanceDetailed(tool: MCPToolReference, baseDescription: string): string {
     let enhanced = baseDescription
 
-    // 添加参数说明
     const paramsInfo = this.extractDetailedParameters(tool)
     if (paramsInfo) {
       enhanced += `\n\n**参数**:\n${paramsInfo}`
     }
 
-    // 添加使用建议
     const usageTips = this.generateUsageTips(tool)
     if (usageTips) {
       enhanced += `\n\n**使用建议**:\n${usageTips}`
@@ -57,7 +58,8 @@ export class ToolDescriptionEnhancer {
   }
 
   /**
-   * 提取参数摘要（基础级别）
+   * 提取参数摘要
+   * 用于基础级别，只列出参数名称和是否必需
    */
   private extractParametersSummary(tool: MCPToolReference): string | null {
     const schema = tool.inputSchema
@@ -82,7 +84,8 @@ export class ToolDescriptionEnhancer {
   }
 
   /**
-   * 提取详细参数说明（详细级别）
+   * 提取详细参数说明
+   * 用于详细级别，包含参数类型、是否必需和参数描述
    */
   private extractDetailedParameters(tool: MCPToolReference): string | null {
     const schema = tool.inputSchema
@@ -116,6 +119,7 @@ export class ToolDescriptionEnhancer {
 
   /**
    * 格式化参数类型
+   * 将参数的类型信息转换为易读的字符串
    */
   private formatParameterType(prop: Record<string, unknown>): string {
     const type = prop.type as string | undefined
@@ -135,13 +139,13 @@ export class ToolDescriptionEnhancer {
   }
 
   /**
-   * 生成使用建议
+   * 生成工具使用建议
+   * 根据工具名称和参数智能生成相关的使用建议
    */
   private generateUsageTips(tool: MCPToolReference): string | null {
     const toolName = tool.toolName.toLowerCase()
     const tips: string[] = []
 
-    // 基于工具名称生成智能建议
     if (toolName.includes('search') || toolName.includes('query')) {
       tips.push('- 使用具体、明确的关键词以获得更好的结果')
       tips.push('- 如果第一次结果不理想，尝试调整搜索词或使用同义词')
@@ -184,7 +188,6 @@ export class ToolDescriptionEnhancer {
       tips.push('- 注意某些网站可能有访问频率限制')
     }
 
-    // 基于参数生成建议
     const schema = tool.inputSchema
     if (schema?.properties) {
       const required = (schema.required as string[]) || []
@@ -206,7 +209,7 @@ export class ToolDescriptionEnhancer {
 export const toolDescriptionEnhancer = new ToolDescriptionEnhancer()
 
 /**
- * 便捷函数：增强单个工具描述
+ * 增强单个工具描述的便捷函数
  */
 export function enhanceToolDescription(
   tool: MCPToolReference,
@@ -216,7 +219,7 @@ export function enhanceToolDescription(
 }
 
 /**
- * 便捷函数：批量增强工具描述
+ * 批量增强工具描述的便捷函数
  */
 export function enhanceToolDescriptions(
   tools: MCPToolReference[],

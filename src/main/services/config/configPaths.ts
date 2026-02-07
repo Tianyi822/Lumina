@@ -23,6 +23,7 @@ export const VECTOR_DB_DIR_NAME = 'db'
 
 /**
  * 获取配置目录路径
+ * 返回用户主目录下的 .sparrow-manus 目录
  */
 export function getConfigDirPath(): string {
   const homeDir = app.getPath('home')
@@ -31,6 +32,7 @@ export function getConfigDirPath(): string {
 
 /**
  * 获取配置文件路径
+ * 返回配置目录下的 config.json 文件路径
  */
 export function getConfigFilePath(): string {
   return join(getConfigDirPath(), CONFIG_FILE_NAME)
@@ -38,7 +40,6 @@ export function getConfigFilePath(): string {
 
 /**
  * 获取数据存储目录路径
- * @returns ~/.sparrow-manus/data
  */
 export function getDataDirPath(): string {
   return join(getConfigDirPath(), DATA_DIR_NAME)
@@ -46,7 +47,6 @@ export function getDataDirPath(): string {
 
 /**
  * 获取向量数据库存储目录路径
- * @returns ~/.sparrow-manus/data/db
  */
 export function getVectorDBDirPath(): string {
   return join(getDataDirPath(), VECTOR_DB_DIR_NAME)

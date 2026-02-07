@@ -14,6 +14,7 @@ import { fileApi } from './apis/file'
 
 /**
  * 自定义渲染器 API
+ * 将各个模块的 API 整合到一个对象中
  */
 const api = {
   config: configApi,
@@ -31,8 +32,8 @@ const api = {
   onReindexProgress
 }
 
-// 使用 `contextBridge` API 向渲染器暴露 Electron API
-// 仅在启用了上下文隔离时使用，否则直接添加到 DOM 全局对象
+// 使用 contextBridge 向渲染器暴露 API
+// 仅在启用上下文隔离时使用，否则直接添加到 DOM 全局对象
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)

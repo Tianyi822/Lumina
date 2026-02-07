@@ -3,7 +3,8 @@ import type { KnowledgeBase, KnowledgeBaseReference } from '@shared/types/knowle
 import { deepClone } from './data-processors'
 
 /**
- * 将 SessionMessage 转换为 ChatMessage（用于发送给后端）
+ * 将持久化的消息转换为发送给后端的聊天消息格式
+ * 去掉持久化时的元数据，保留核心内容
  */
 export function sessionToChatMessage(msg: SessionMessage): ChatMessage {
   const chatMsg: ChatMessage = {
@@ -20,15 +21,15 @@ export function sessionToChatMessage(msg: SessionMessage): ChatMessage {
 }
 
 /**
- * 构建发送给后端的消息历史
+ * 将持久化的消息列表转换为发送给后端的格式
  */
 export function buildChatMessages(messages: SessionMessage[]): ChatMessage[] {
   return messages.map(sessionToChatMessage)
 }
 
 /**
- * 将 MCPTool 转换为 MCPToolReference
- * 注意：需要深拷贝 inputSchema 以确保可以通过 IPC 传输
+ * 将 MCP 工具转换为工具引用格式
+ * 需要深拷贝 inputSchema 以确保可以通过 IPC 传输
  */
 export function convertToToolReferences(tools: MCPTool[]): MCPToolReference[] {
   return tools.map((tool) => ({
@@ -40,7 +41,8 @@ export function convertToToolReferences(tools: MCPTool[]): MCPToolReference[] {
 }
 
 /**
- * 将 KnowledgeBase 转换为 KnowledgeBaseReference
+ * 将知识库对象转换为引用格式
+ * 提取关键字段用于传递给聊天接口
  */
 export function convertToKBReferences(knowledgeBases: KnowledgeBase[]): KnowledgeBaseReference[] {
   return knowledgeBases.map((kb) => ({

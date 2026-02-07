@@ -1,6 +1,8 @@
 import { SessionFactory } from './SessionFactory'
 import { SessionData, SessionType } from '@main/types/session'
 
+// 知识库会话工厂
+// 用于创建知识库查询类型的会话
 export class KnowledgeSessionFactory implements SessionFactory {
   private readonly defaultTitle = '知识库查询'
 
@@ -23,6 +25,8 @@ export class KnowledgeSessionFactory implements SessionFactory {
     return 'knowledge'
   }
 
+  // 生成会话 ID
+  // 格式: session-{timestamp}-{random}
   private generateSessionId(): string {
     const timestamp = Date.now()
     const random = Math.random().toString(36).substring(2, 8)

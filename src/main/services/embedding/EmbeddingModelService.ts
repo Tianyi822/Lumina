@@ -103,7 +103,6 @@ export class EmbeddingModelService {
   }
 }
 
-// 单例实例
 let embeddingModelServiceInstance: EmbeddingModelService | null = null
 
 /**

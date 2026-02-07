@@ -1,23 +1,16 @@
 import { join, normalize, basename } from 'path'
 import { getConfigDirPath } from '../config/configPaths'
 
-/**
- * 数据目录名称
- */
+// 数据目录名称
 export const DATA_DIR_NAME = 'sessions'
 
-/**
- * 获取数据目录路径
- */
+// 获取数据目录路径
 export function getDataDirPath(): string {
   return join(getConfigDirPath(), DATA_DIR_NAME)
 }
 
-/**
- * 清理文件名中的非法字符
- * @param name 原始名称
- * @returns 安全的文件名
- */
+// 清理文件名中的非法字符
+// 移除特殊字符，替换空格，限制长度
 export function sanitizeFileName(name: string): string {
   return (
     name
@@ -27,11 +20,8 @@ export function sanitizeFileName(name: string): string {
   ) // 限制长度
 }
 
-/**
- * 验证 sessionId 是否合法（防止路径遍历攻击）
- * @param sessionId 会话 ID
- * @returns 是否合法
- */
+// 验证 sessionId 是否合法（防止路径遍历攻击）
+// sessionId 格式: session-{timestamp}-{random}
 export function isValidSessionId(sessionId: string): boolean {
   // sessionId 格式: session-{timestamp}-{random}
   const pattern = /^session-\d+-[a-z0-9]+$/
@@ -47,23 +37,16 @@ export function isValidSessionId(sessionId: string): boolean {
   return true
 }
 
-/**
- * 生成会话文件路径
- * @param sessionId 会话 ID
- * @param title 会话标题
- * @returns 完整文件路径
- */
+// 生成会话文件路径
+// 文件名格式: {sessionId}-{title}.json
 export function getSessionFilePath(sessionId: string, title: string): string {
   const safeTitle = sanitizeFileName(title)
   const fileName = `${sessionId}-${safeTitle}.json`
   return join(getDataDirPath(), fileName)
 }
 
-/**
- * 验证文件路径是否在数据目录内（防止路径遍历）
- * @param filePath 要验证的文件路径
- * @returns 是否安全
- */
+// 验证文件路径是否在数据目录内（防止路径遍历）
+// 确保文件不会被写入到数据目录之外的位置
 export function isPathInDataDir(filePath: string): boolean {
   const dataDir = getDataDirPath()
   const normalizedPath = normalize(filePath)
@@ -83,11 +66,8 @@ export function isPathInDataDir(filePath: string): boolean {
   return true
 }
 
-/**
- * 从文件名中提取 sessionId
- * @param fileName 文件名
- * @returns sessionId 或 null
- */
+// 从文件名中提取 sessionId
+// 文件名格式: session-{timestamp}-{random}-{title}.json
 export function extractSessionIdFromFileName(fileName: string): string | null {
   // 文件名格式: session-{timestamp}-{random}-{title}.json
   const match = fileName.match(/^(session-\d+-[a-z0-9]+)-.*\.json$/)

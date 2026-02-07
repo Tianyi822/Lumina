@@ -1,7 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
 /**
- * 配置加载状态
+ * 配置加载的状态信息
  */
 interface ConfigStatus {
   loaded: boolean
@@ -11,7 +11,7 @@ interface ConfigStatus {
 }
 
 /**
- * 配置加载结果
+ * 配置加载的结果
  */
 interface ConfigLoadResult {
   success: boolean
@@ -20,7 +20,7 @@ interface ConfigLoadResult {
 }
 
 /**
- * 保存/更新结果
+ * 配置保存或更新的结果
  */
 interface ConfigSaveResult {
   success: boolean
@@ -28,7 +28,7 @@ interface ConfigSaveResult {
 }
 
 /**
- * 配置 API
+ * 配置相关的 API
  */
 interface ConfigApi {
   getStatus: () => Promise<ConfigStatus>
@@ -40,7 +40,7 @@ interface ConfigApi {
 }
 
 /**
- * 聊天消息
+ * 聊天消息的结构
  */
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
@@ -51,7 +51,7 @@ interface ChatMessage {
 }
 
 /**
- * 工具调用消息
+ * 工具调用的信息
  */
 interface ToolCallMessage {
   id: string
@@ -63,7 +63,7 @@ interface ToolCallMessage {
 }
 
 /**
- * MCP 工具引用（用于传递选中的工具）
+ * 表示用户选中的 MCP 工具引用
  */
 interface MCPToolReference {
   serverName: string
@@ -73,7 +73,7 @@ interface MCPToolReference {
 }
 
 /**
- * 知识库引用（用于传递选中的知识库）
+ * 表示用户选中的知识库引用
  */
 interface KnowledgeBaseReference {
   id: string
@@ -83,7 +83,7 @@ interface KnowledgeBaseReference {
 }
 
 /**
- * 知识库搜索信息（用于 UI 展示）
+ * 知识库搜索操作的信息
  */
 interface KnowledgeSearchInfo {
   knowledgeBaseId: string
@@ -92,7 +92,7 @@ interface KnowledgeSearchInfo {
 }
 
 /**
- * 知识库搜索结果信息（用于 UI 展示）
+ * 知识库搜索的结果信息
  */
 interface KnowledgeResultInfo {
   knowledgeBaseId: string
@@ -108,7 +108,7 @@ interface KnowledgeResultInfo {
 }
 
 /**
- * 聊天请求
+ * 发起聊天请求所需的参数
  */
 interface ChatRequest {
   messages: ChatMessage[]
@@ -121,7 +121,7 @@ interface ChatRequest {
 }
 
 /**
- * 聊天结果
+ * 聊天请求的执行结果
  */
 interface ChatResult {
   success: boolean
@@ -139,7 +139,7 @@ interface TokenUsage {
 }
 
 /**
- * 工具调用信息
+ * 工具调用的信息
  */
 interface ToolCallInfo {
   id: string
@@ -149,7 +149,7 @@ interface ToolCallInfo {
 }
 
 /**
- * 工具结果信息
+ * 工具调用的结果
  */
 interface ToolResultInfo {
   id: string
@@ -160,7 +160,7 @@ interface ToolResultInfo {
 }
 
 /**
- * 流式事件
+ * 流式传输事件的类型
  */
 interface StreamEvent {
   type:
@@ -183,7 +183,7 @@ interface StreamEvent {
 }
 
 /**
- * 聊天 API
+ * 聊天相关的 API
  */
 interface ChatApi {
   send: (request: ChatRequest) => Promise<ChatResult>
@@ -192,7 +192,7 @@ interface ChatApi {
 }
 
 /**
- * 会话消息
+ * 持久化的消息结构
  */
 interface SessionMessage {
   id: string
@@ -205,7 +205,7 @@ interface SessionMessage {
 }
 
 /**
- * 会话数据
+ * 会话的完整数据
  */
 interface SessionData {
   sessionId: string
@@ -218,7 +218,7 @@ interface SessionData {
 }
 
 /**
- * 会话类型
+ * 会话的类型
  */
 type SessionType = 'default' | 'tool' | 'knowledge'
 
@@ -234,7 +234,7 @@ interface SessionListItem {
 }
 
 /**
- * 会话操作结果
+ * 会话操作的结果
  */
 interface SessionResult {
   success: boolean
@@ -242,7 +242,7 @@ interface SessionResult {
 }
 
 /**
- * 会话 API
+ * 会话相关的 API
  */
 interface SessionApi {
   create: (title?: string, type?: SessionType) => Promise<SessionData>
@@ -254,12 +254,12 @@ interface SessionApi {
 }
 
 /**
- * MCP 传输类型
+ * MCP 支持的传输方式
  */
 type MCPTransportType = 'stdio' | 'sse' | 'streamableHttp'
 
 /**
- * MCP 服务器配置
+ * MCP 服务器的配置
  */
 interface MCPServerConfig {
   name: string
@@ -273,7 +273,7 @@ interface MCPServerConfig {
 }
 
 /**
- * MCP 工具输入 Schema
+ * MCP 工具输入参数的结构定义
  */
 interface MCPToolInputSchema {
   type: string
@@ -283,7 +283,7 @@ interface MCPToolInputSchema {
 }
 
 /**
- * MCP 工具定义
+ * MCP 工具的定义
  */
 interface MCPTool {
   name: string
@@ -293,7 +293,7 @@ interface MCPTool {
 }
 
 /**
- * MCP 连接状态
+ * MCP 服务器的连接状态
  */
 interface MCPConnectionStatus {
   serverName: string
@@ -303,7 +303,7 @@ interface MCPConnectionStatus {
 }
 
 /**
- * MCP 连接结果
+ * MCP 连接的结果
  */
 interface MCPConnectResult {
   success: boolean
@@ -313,7 +313,7 @@ interface MCPConnectResult {
 }
 
 /**
- * MCP 配置保存结果
+ * MCP 配置保存的结果
  */
 interface MCPConfigSaveResult {
   success: boolean
@@ -321,7 +321,7 @@ interface MCPConfigSaveResult {
 }
 
 /**
- * MCP 配置导入结果
+ * MCP 配置导入的结果
  */
 interface MCPConfigImportResult {
   success: boolean
@@ -330,7 +330,7 @@ interface MCPConfigImportResult {
 }
 
 /**
- * MCP 工具调用参数
+ * MCP 工具调用的参数
  */
 interface MCPToolCallParams {
   serverName: string
@@ -339,7 +339,7 @@ interface MCPToolCallParams {
 }
 
 /**
- * MCP 工具调用结果
+ * MCP 工具调用的结果
  */
 interface MCPToolCallResult {
   success: boolean
@@ -348,7 +348,7 @@ interface MCPToolCallResult {
 }
 
 /**
- * MCP 状态变更事件
+ * MCP 状态变更的事件
  */
 interface MCPStatusChangeEvent {
   type: 'connected' | 'disconnected' | 'error' | 'tools_updated'
@@ -357,7 +357,7 @@ interface MCPStatusChangeEvent {
 }
 
 /**
- * MCP API
+ * MCP 相关的 API
  */
 interface MCPApi {
   listConfigs: () => Promise<MCPServerConfig[]>
@@ -380,7 +380,7 @@ interface MCPApi {
 }
 
 /**
- * 日志级别
+ * 日志级别常量
  */
 interface LogLevelEnum {
   readonly DEBUG: 0
@@ -391,7 +391,7 @@ interface LogLevelEnum {
 }
 
 /**
- * 日志结果
+ * 日志记录的结果
  */
 interface LogResult {
   success: boolean
@@ -399,7 +399,7 @@ interface LogResult {
 }
 
 /**
- * 日志配置
+ * 日志系统的配置
  */
 interface LoggerConfig {
   minLevel: number
@@ -408,7 +408,7 @@ interface LoggerConfig {
 }
 
 /**
- * 日志 API
+ * 日志相关的 API
  */
 interface LoggerApi {
   debug: (message: string, context?: Record<string, unknown>) => Promise<LogResult>
@@ -424,26 +424,26 @@ interface LoggerApi {
 }
 
 /**
- * 工具描述详细程度
+ * 工具描述的详细程度
  */
 type ToolDescriptionLevel = 'basic' | 'detailed' | 'minimal'
 
 /**
- * 提示词配置
+ * 提示词生成的配置
  */
 interface PromptConfig {
   /** 是否启用增强版提示词 */
   enableEnhancedPrompt?: boolean
-  /** 工具描述详细程度 */
+  /** 工具描述的详细程度 */
   toolDescriptionLevel?: ToolDescriptionLevel
-  /** Few-shot 示例数量 (0-5) */
+  /** Few-shot 示例的数量，范围 0 到 5 */
   fewShotCount?: number
-  /** 自定义系统提示词（覆盖默认提示词） */
+  /** 自定义系统提示词，会覆盖默认生成的提示词 */
   customSystemPrompt?: string
 }
 
 /**
- * 提示词配置 API
+ * 提示词配置相关的 API
  */
 interface PromptApi {
   getConfig: () => Promise<PromptConfig | undefined>
@@ -452,7 +452,7 @@ interface PromptApi {
 }
 
 /**
- * 窗口控制 API
+ * 窗口控制相关的 API
  */
 interface WindowApi {
   minimize: () => Promise<void>
@@ -463,7 +463,7 @@ interface WindowApi {
 }
 
 /**
- * 嵌入向量结果
+ * 单个文本的嵌入向量结果
  */
 interface EmbeddingResult {
   embedding: number[]
@@ -475,7 +475,7 @@ interface EmbeddingResult {
 }
 
 /**
- * 批量嵌入向量结果
+ * 批量文本的嵌入向量结果
  */
 interface BatchEmbeddingResult {
   embeddings: number[][]
@@ -487,7 +487,7 @@ interface BatchEmbeddingResult {
 }
 
 /**
- * 连接测试结果
+ * 连接测试的结果
  */
 interface ConnectionTestResult {
   success: boolean
@@ -497,12 +497,12 @@ interface ConnectionTestResult {
 }
 
 /**
- * 嵌入模型提供商类型
+ * 嵌入模型支持的提供商类型
  */
 type EmbeddingProviderType = 'openai' | 'aliyun' | 'ollama' | 'custom'
 
 /**
- * 嵌入配置
+ * 嵌入模型的配置
  */
 interface EmbeddingConfig {
   provider: string
@@ -514,12 +514,12 @@ interface EmbeddingConfig {
 }
 
 /**
- * 嵌入模型配置（扩展版）
+ * 嵌入模型的扩展配置
  */
 interface EmbeddingModelConfig {
   /** 提供商类型 */
   provider?: EmbeddingProviderType
-  /** API 基础 URL（OpenAI 兼容接口） */
+  /** API 基础地址，需要兼容 OpenAI 接口 */
   baseUrl: string
   /** API 密钥 */
   apiKey?: string
@@ -527,16 +527,16 @@ interface EmbeddingModelConfig {
   model: string
   /** 向量维度 */
   dimensions: number
-  /** 是否启用 */
+  /** 该配置是否启用 */
   enabled?: boolean
-  /** 模型显示名称 */
+  /** 模型显示的名称 */
   displayName?: string
-  /** 创建时间 */
+  /** 配置创建的时间 */
   createdAt?: string
 }
 
 /**
- * 嵌入 API
+ * 嵌入模型相关的 API
  */
 interface EmbeddingApi {
   getPresets: () => Promise<{
@@ -558,7 +558,7 @@ interface EmbeddingApi {
 }
 
 /**
- * 嵌入模型管理 API
+ * 嵌入模型管理相关的 API
  */
 interface EmbeddingModelsApi {
   getAll: () => Promise<{
@@ -590,7 +590,7 @@ interface EmbeddingModelsApi {
 }
 
 /**
- * 文件项 - 统一管理的文件
+ * 文件的基本信息
  */
 interface FileItem {
   id: string
@@ -606,7 +606,7 @@ interface FileItem {
 }
 
 /**
- * 知识库嵌入模型配置
+ * 知识库绑定的嵌入模型配置
  */
 interface KnowledgeBaseEmbeddingConfig {
   baseUrl: string
@@ -616,7 +616,7 @@ interface KnowledgeBaseEmbeddingConfig {
 }
 
 /**
- * 知识库配置
+ * 知识库的配置
  */
 interface KnowledgeBase {
   id: string
@@ -646,7 +646,7 @@ interface SearchResult {
 }
 
 /**
- * 重新索引响应
+ * 重新索引的响应
  */
 interface ReindexResponse {
   indexedCount: number
@@ -655,7 +655,7 @@ interface ReindexResponse {
 }
 
 /**
- * 知识库统计信息
+ * 知识库的统计信息
  */
 interface KnowledgeBaseStats {
   fileCount: number
@@ -664,7 +664,7 @@ interface KnowledgeBaseStats {
 }
 
 /**
- * 文件处理进度回调
+ * 文件处理的进度
  */
 interface FileProcessingProgress {
   fileId: string
@@ -675,7 +675,7 @@ interface FileProcessingProgress {
 }
 
 /**
- * 文件进度事件数据
+ * 文件进度事件的数据
  */
 interface FileProgressEvent {
   kbId: string
@@ -683,7 +683,7 @@ interface FileProgressEvent {
 }
 
 /**
- * 重新索引进度事件数据
+ * 重新索引进度事件的数据
  */
 interface ReindexProgressEvent {
   kbId: string
@@ -691,7 +691,7 @@ interface ReindexProgressEvent {
 }
 
 /**
- * 知识库 API
+ * 知识库相关的 API
  */
 interface KnowledgeApi {
   getAll: () => Promise<{ success: boolean; data?: KnowledgeBase[]; error?: string }>
@@ -750,7 +750,7 @@ interface KnowledgeApi {
 }
 
 /**
- * 文件上传结果
+ * 文件上传的结果
  */
 interface FileUploadResult {
   success: boolean
@@ -760,7 +760,7 @@ interface FileUploadResult {
 }
 
 /**
- * 文件管理 API
+ * 文件管理相关的 API
  */
 interface FileApi {
   list: () => Promise<{ success: boolean; data?: FileItem[]; error?: string }>
@@ -775,7 +775,7 @@ interface FileApi {
 }
 
 /**
- * 自定义 API
+ * 自定义的完整 API
  */
 interface CustomApi {
   config: ConfigApi

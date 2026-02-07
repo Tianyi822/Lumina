@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { getMainWindow } from '@main/core/window'
+import { getMainWindow } from '@main/core'
 
 /**
  * 注册窗口控制相关处理程序
@@ -13,7 +13,7 @@ export function registerWindowHandlers(): void {
     }
   })
 
-  // 最大化/还原窗口
+  // 最大化或还原窗口
   ipcMain.handle('window:maximize', () => {
     const window = getMainWindow()
     if (window) {

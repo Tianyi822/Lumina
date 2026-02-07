@@ -8,23 +8,17 @@ import { EmbeddingService } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
 import type { KnowledgeBase } from '@shared/types/knowledge'
 
-/**
- * 知识库数据文件路径
- */
+// 获取知识库数据文件路径
 export function getKnowledgeBaseFilePath(): string {
   return join(getConfigDirPath(), 'knowledge-bases.json')
 }
 
-/**
- * 创建空的知识库数据结构
- */
+// 创建空的知识库数据结构
 export function createEmptyKnowledgeBases(): KnowledgeBase[] {
   return []
 }
 
-/**
- * 读取知识库数据
- */
+// 读取知识库数据
 export function readKnowledgeBases(): KnowledgeBase[] {
   const filePath = getKnowledgeBaseFilePath()
   if (!existsSync(filePath)) {
@@ -40,23 +34,17 @@ export function readKnowledgeBases(): KnowledgeBase[] {
   }
 }
 
-/**
- * 写入知识库数据
- */
+// 写入知识库数据
 export function writeKnowledgeBases(knowledgeBases: KnowledgeBase[]): void {
   const filePath = getKnowledgeBaseFilePath()
   const content = JSON.stringify(knowledgeBases, null, 2)
   writeFileSync(filePath, content, 'utf-8')
 }
 
-/**
- * 支持的文件类型
- */
+// 支持的文件类型
 const SUPPORTED_FILE_TYPES = new Set(['.txt', '.md', '.json', '.js', '.ts', '.vue', '.py', '.pdf'])
 
-/**
- * 读取文本文件内容
- */
+// 读取文本文件内容
 async function readTextFile(filePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     readFile(filePath, 'utf-8', (err, data) => {
@@ -69,9 +57,7 @@ async function readTextFile(filePath: string): Promise<string> {
   })
 }
 
-/**
- * 读取 PDF 文件内容
- */
+// 读取 PDF 文件内容
 async function readPdfFile(filePath: string): Promise<string> {
   try {
     logger.info('开始解析 PDF 文件', 'main', { filePath })
@@ -107,9 +93,7 @@ async function readPdfFile(filePath: string): Promise<string> {
   }
 }
 
-/**
- * 根据文件类型读取文件内容
- */
+// 根据文件类型读取文件内容
 async function readFileContent(filePath: string, fileName: string): Promise<string> {
   const ext = extname(fileName).toLowerCase()
 
@@ -121,9 +105,7 @@ async function readFileContent(filePath: string, fileName: string): Promise<stri
   return readTextFile(filePath)
 }
 
-/**
- * 将文本分块
- */
+// 将文本分块
 function splitTextIntoChunks(text: string, chunkSize: number, chunkOverlap: number): string[] {
   const chunks: string[] = []
   const effectiveChunkSize = chunkSize - chunkOverlap
@@ -148,9 +130,7 @@ function splitTextIntoChunks(text: string, chunkSize: number, chunkOverlap: numb
   return chunks
 }
 
-/**
- * 文件处理进度回调
- */
+// 文件处理进度回调
 export interface FileProcessingProgress {
   fileId: string
   fileName: string
@@ -159,11 +139,9 @@ export interface FileProcessingProgress {
   error?: string
 }
 
-/**
- * 知识库管理服务
- * 提供知识库的增删改查功能，以及文档索引和搜索功能
- * 每个知识库一个独立实例，实现操作隔离
- */
+// 知识库服务类
+// 提供知识库的增删改查功能，以及文档索引和搜索功能
+// 每个知识库一个独立实例，实现操作隔离
 export class KnowledgeService {
   private kbData: KnowledgeBase
   private embeddingService: EmbeddingService
@@ -178,9 +156,7 @@ export class KnowledgeService {
     logger.info('知识库服务实例已创建', 'main', { kbId: kbData.id, name: kbData.name })
   }
 
-  /**
-   * 清理资源
-   */
+  // 清理资源
   cleanup(): void {
     this.processingFiles.clear()
     this.fileProgressMap.clear()
@@ -188,38 +164,28 @@ export class KnowledgeService {
     logger.info('知识库服务资源已清理', 'main', { kbId: this.kbData.id })
   }
 
-  /**
-   * 请求停止索引操作
-   */
+  // 请求停止索引操作
   stopIndexing(): void {
     this.stopRequested = true
     logger.info('已请求停止索引操作', 'main', { kbId: this.kbData.id })
   }
 
-  /**
-   * 检查是否已请求停止
-   */
+  // 检查是否已请求停止
   isStopRequested(): boolean {
     return this.stopRequested
   }
 
-  /**
-   * 重置停止请求标志
-   */
+  // 重置停止请求标志
   resetStopRequest(): void {
     this.stopRequested = false
   }
 
-  /**
-   * 获取当前知识库数据
-   */
+  // 获取当前知识库数据
   getKBData(): KnowledgeBase {
     return this.kbData
   }
 
-  /**
-   * 更新当前知识库配置（当知识库被修改时调用）
-   */
+  // 更新当前知识库配置（当知识库被修改时调用）
   updateKBData(updates: Partial<KnowledgeBase>): void {
     this.kbData = { ...this.kbData, ...updates }
     if (updates.embeddingConfig) {
@@ -228,14 +194,9 @@ export class KnowledgeService {
     logger.info('知识库数据已更新', 'main', { kbId: this.kbData.id })
   }
 
-  /**
-   * 为知识库索引文件
-   * @param kbId 知识库 ID
-   * @param fileId 文件 ID
-   * @param filePath 文件路径
-   * @param fileName 文件名
-   * @param onProgress 进度回调
-   */
+  // 为知识库索引文件
+  // 将文件内容分块后生成嵌入向量，存储到向量数据库中
+  // 支持进度回调，可以在索引过程中获取进度信息
   async indexFile(
     kbId: string,
     fileId: string,
@@ -448,11 +409,8 @@ export class KnowledgeService {
     }
   }
 
-  /**
-   * 从知识库中移除文件的索引
-   * @param kbId 知识库 ID
-   * @param fileId 文件 ID
-   */
+  // 从知识库中移除文件的索引
+  // 删除向量数据库中与该文件相关的所有文档块
   async removeFileIndex(
     kbId: string,
     fileId: string
@@ -472,13 +430,9 @@ export class KnowledgeService {
     }
   }
 
-  /**
-   * 重新索引整个知识库
-   * @param kbId 知识库 ID
-   * @param files 文件列表（fileId, filePath, fileName）
-   * @param onProgress 进度回调（整体进度）
-   * @param onFileProgress 文件进度回调（单个文件进度）
-   */
+  // 重新索引整个知识库
+  // 删除现有向量数据库，重新处理所有文件
+  // 支持整体进度和单个文件进度的回调
   async reindexKnowledgeBase(
     kbId: string,
     files: Array<{ fileId: string; filePath: string; fileName: string }>,
@@ -583,13 +537,8 @@ export class KnowledgeService {
     }
   }
 
-  /**
-   * 在知识库中搜索
-   * @param kbId 知识库 ID
-   * @param query 查询文本
-   * @param limit 返回结果数量限制
-   * @returns 搜索结果
-   */
+  // 在知识库中搜索
+  // 使用向量相似度搜索，返回最相关的文档块
   async search(
     kbId: string,
     query: string,
@@ -626,10 +575,8 @@ export class KnowledgeService {
     }
   }
 
-  /**
-   * 获取知识库的统计信息
-   * @param kbId 知识库 ID
-   */
+  // 获取知识库的统计信息
+  // 返回文件数量、文档块数量和数据库大小
   async getStats(kbId: string): Promise<{
     success: boolean
     data?: { fileCount: number; chunkCount: number; dbSize: number }
@@ -660,16 +607,12 @@ export class KnowledgeService {
     }
   }
 
-  /**
-   * 检查是否有文件正在索引
-   */
+  // 检查是否有文件正在索引
   isIndexing(): boolean {
     return this.processingFiles.size > 0
   }
 
-  /**
-   * 获取正在索引的文件列表
-   */
+  // 获取正在索引的文件列表
   getIndexingFiles(): Array<{ kbId: string; fileId: string }> {
     return Array.from(this.processingFiles).map((key) => {
       const [kbId, fileId] = key.split(':')
@@ -677,9 +620,7 @@ export class KnowledgeService {
     })
   }
 
-  /**
-   * 获取文件进度信息
-   */
+  // 获取文件进度信息
   getFileProgress(processingKey: string): FileProcessingProgress | undefined {
     return this.fileProgressMap.get(processingKey)
   }

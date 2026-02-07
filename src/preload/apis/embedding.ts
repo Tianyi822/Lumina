@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron'
 
 /**
- * 嵌入向量结果
+ * 单个文本的嵌入向量结果
  */
 export interface EmbeddingResult {
   embedding: number[]
@@ -13,7 +13,7 @@ export interface EmbeddingResult {
 }
 
 /**
- * 批量嵌入向量结果
+ * 批量文本的嵌入向量结果
  */
 export interface BatchEmbeddingResult {
   embeddings: number[][]
@@ -25,7 +25,7 @@ export interface BatchEmbeddingResult {
 }
 
 /**
- * 连接测试结果
+ * 连接测试的结果
  */
 export interface ConnectionTestResult {
   success: boolean
@@ -35,7 +35,7 @@ export interface ConnectionTestResult {
 }
 
 /**
- * 嵌入配置
+ * 嵌入模型的配置
  */
 export interface EmbeddingConfig {
   provider: string
@@ -47,7 +47,7 @@ export interface EmbeddingConfig {
 }
 
 /**
- * API 响应基础类型
+ * API 响应的通用格式
  */
 export interface ApiResponse<T = unknown> {
   success: boolean
@@ -60,14 +60,14 @@ export interface ApiResponse<T = unknown> {
  */
 export const embeddingApi = {
   /**
-   * 获取预设嵌入模型列表
+   * 获取预设的嵌入模型列表
    */
   getPresets: (): Promise<ApiResponse<Record<string, { name: string; dimension: number }>>> => {
     return ipcRenderer.invoke('embedding:getPresets')
   },
 
   /**
-   * 从预设ID创建嵌入配置
+   * 根据预设 ID 创建嵌入配置
    */
   createFromPreset: (
     presetId: string,
@@ -77,35 +77,35 @@ export const embeddingApi = {
   },
 
   /**
-   * 获取当前嵌入配置
+   * 获取当前嵌入模型配置
    */
   getConfig: (): Promise<ApiResponse<EmbeddingConfig | null>> => {
     return ipcRenderer.invoke('embedding:getConfig')
   },
 
   /**
-   * 设置嵌入配置
+   * 设置嵌入模型配置
    */
   setConfig: (config: EmbeddingConfig): Promise<ApiResponse> => {
     return ipcRenderer.invoke('embedding:setConfig', config)
   },
 
   /**
-   * 测试嵌入连接
+   * 测试嵌入模型的连接
    */
   testConnection: (): Promise<ConnectionTestResult> => {
     return ipcRenderer.invoke('embedding:testConnection')
   },
 
   /**
-   * 生成单个文本的嵌入向量
+   * 为单个文本生成嵌入向量
    */
   embed: (text: string): Promise<ApiResponse<EmbeddingResult>> => {
     return ipcRenderer.invoke('embedding:embed', text)
   },
 
   /**
-   * 批量生成嵌入向量
+   * 批量为多个文本生成嵌入向量
    */
   embedBatch: (texts: string[]): Promise<ApiResponse<BatchEmbeddingResult>> => {
     return ipcRenderer.invoke('embedding:embedBatch', texts)

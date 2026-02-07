@@ -1,7 +1,5 @@
-/**
- * 消息缓存 Store
- * 管理多会话消息缓存，支持后台会话流式响应
- */
+// 消息缓存 Store
+// 管理多会话消息缓存，支持后台会话流式响应
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
@@ -11,39 +9,26 @@ import { deepCopyMessages } from '@renderer/utils/messageHelpers'
 
 export const useMessageCacheStore = defineStore('messageCache', () => {
   // ==================== State ====================
-
-  /**
-   * 会话消息状态缓存（用于处理多会话并发流式响应）
-   * Key: sessionId, Value: 消息列表
-   */
+  
+  // 会话消息状态缓存（用于处理多会话并发流式响应）
+  // Key: sessionId, Value: 消息列表
   const sessionMessagesCache = ref<Map<string, Message[]>>(new Map())
 
-  /**
-   * 会话标题缓存（用于保存内存中更新但尚未持久化的标题）
-   * Key: sessionId, Value: 标题
-   */
+  // 会话标题缓存（用于保存内存中更新但尚未持久化的标题）
+  // Key: sessionId, Value: 标题
   const sessionTitleCache = ref<Map<string, string>>(new Map())
 
   // ==================== Getters ====================
-
-  /**
-   * 获取所有缓存的会话 ID 列表
-   */
+  
+  // 获取所有缓存的会话 ID 列表
   const cachedSessionIds = computed(() => Array.from(sessionMessagesCache.value.keys()))
 
-  /**
-   * 获取缓存数量
-   */
+  // 获取缓存数量
   const cacheSize = computed(() => sessionMessagesCache.value.size)
 
   // ==================== Actions ====================
-
-  /**
-   * 缓存会话消息和标题
-   * @param sessionId - 会话 ID
-   * @param messages - 消息列表
-   * @param title - 会话标题（可选）
-   */
+  
+  // 缓存会话消息和标题
   function cacheSession(sessionId: string, messages: Message[], title?: string): void {
     // 深拷贝消息，避免引用问题
     const messagesToCache = deepCopyMessages(messages)
@@ -61,11 +46,7 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
     })
   }
 
-  /**
-   * 更新缓存中的会话消息（用于流式更新）
-   * @param sessionId - 会话 ID
-   * @param messages - 新的消息列表
-   */
+  // 更新缓存中的会话消息（用于流式更新）
   function updateCachedMessages(sessionId: string, messages: Message[]): void {
     if (!sessionMessagesCache.value.has(sessionId)) {
       return
@@ -73,12 +54,7 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
     sessionMessagesCache.value.set(sessionId, deepCopyMessages(messages))
   }
 
-  /**
-   * 从缓存中获取会话消息
-   * @param sessionId - 会话 ID
-   * @param returnRef - 是否返回引用而非深拷贝（默认 false）
-   * @returns 缓存的会话数据或 null
-   */
+  // 从缓存中获取会话消息
   function getCachedSession(
     sessionId: string,
     returnRef: boolean = false
@@ -96,38 +72,25 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
     return null
   }
 
-  /**
-   * 获取指定会话的缓存消息引用（用于流式更新）
-   * @param sessionId - 会话 ID
-   * @returns 消息数组引用或 undefined
-   */
+  // 获取指定会话的缓存消息引用（用于流式更新）
   function getCachedMessagesRef(sessionId: string): Message[] | undefined {
     return sessionMessagesCache.value.get(sessionId)
   }
 
-  /**
-   * 检查会话是否有缓存
-   * @param sessionId - 会话 ID
-   */
+  // 检查会话是否有缓存
   function hasCachedSession(sessionId: string): boolean {
     const cached = sessionMessagesCache.value.get(sessionId)
     return cached !== undefined && cached.length > 0
   }
 
-  /**
-   * 检查会话是否有正在流式传输的消息
-   * @param sessionId - 会话 ID
-   */
+  // 检查会话是否有正在流式传输的消息
   function hasStreamingMessages(sessionId: string): boolean {
     const messages = sessionMessagesCache.value.get(sessionId)
     if (!messages) return false
     return messages.some((msg) => msg.isStreaming)
   }
 
-  /**
-   * 清除指定会话的缓存
-   * @param sessionId - 会话 ID
-   */
+  // 清除指定会话的缓存
   function clearSessionCache(sessionId: string): void {
     const hadCache = sessionMessagesCache.value.has(sessionId)
     sessionMessagesCache.value.delete(sessionId)
@@ -138,9 +101,7 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
     }
   }
 
-  /**
-   * 清除所有缓存
-   */
+  // 清除所有缓存
   function clearAllCache(): void {
     const previousSize = sessionMessagesCache.value.size
     sessionMessagesCache.value.clear()
@@ -149,10 +110,7 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
     window.api.logger.debug('[MessageCacheStore] 清除所有缓存', { previousSize })
   }
 
-  /**
-   * 保存缓存中的会话到持久化存储
-   * @param sessionId - 会话 ID
-   */
+  // 保存缓存中的会话到持久化存储
   async function saveCachedSession(sessionId: string): Promise<boolean> {
     const cachedMessages = sessionMessagesCache.value.get(sessionId)
     if (!cachedMessages || cachedMessages.length === 0) {
@@ -188,11 +146,11 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
           modelName: msg.modelName,
           usage: msg.usage
             ? {
-                prompt_tokens: msg.usage.prompt_tokens,
-                completion_tokens: msg.usage.completion_tokens,
-                total_tokens: msg.usage.total_tokens,
-                reasoning_tokens: msg.usage.reasoning_tokens
-              }
+                  prompt_tokens: msg.usage.prompt_tokens,
+                  completion_tokens: msg.usage.completion_tokens,
+                  total_tokens: msg.usage.total_tokens,
+                  reasoning_tokens: msg.usage.reasoning_tokens
+                }
             : undefined
         }))
       }
@@ -219,9 +177,7 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
     }
   }
 
-  /**
-   * 获取所有有流式消息的会话 ID
-   */
+  // 获取所有有流式消息的会话 ID
   function getAllStreamingSessionIds(): string[] {
     const result: string[] = []
     for (const [sessionId, messages] of sessionMessagesCache.value.entries()) {

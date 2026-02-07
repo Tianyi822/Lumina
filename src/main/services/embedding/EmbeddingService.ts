@@ -113,15 +113,15 @@ export class EmbeddingService {
       return
     }
 
-    // 使用 OpenAI 兼容的配置创建客户端
     this.client = new OpenAI({
       baseURL: this.config.baseUrl,
-      apiKey: this.config.apiKey || 'dummy-key' // Ollama 等本地服务可能不需要 API Key
+      apiKey: this.config.apiKey || 'dummy-key'
     })
   }
 
   /**
    * 测试连接
+   * 发送一个简单的测试请求验证配置是否正确
    */
   async testConnection(): Promise<ConnectionTestResult> {
     if (!this.config || !this.client) {
@@ -132,7 +132,6 @@ export class EmbeddingService {
     }
 
     try {
-      // 发送一个简单的测试请求
       const response = await this.client.embeddings.create({
         model: this.config.model,
         input: 'test'
@@ -166,9 +165,7 @@ export class EmbeddingService {
         input: text
       }
 
-      // 如果配置了 dimensions 参数，则传递给模型
       if (this.config.dimensions) {
-        // @ts-ignore - OpenAI 类型定义可能不包含此参数
         params.dimensions = this.config.dimensions
       }
 
@@ -208,18 +205,14 @@ export class EmbeddingService {
         input: texts
       }
 
-      // 如果配置了 dimensions 参数，则传递给模型
       if (this.config.dimensions) {
-        // @ts-ignore - OpenAI 类型定义可能不包含此参数
         params.dimensions = this.config.dimensions
       }
 
       const response = await this.client.embeddings.create(params)
 
-      // 按索引排序以确保顺序正确
       const sortedData = response.data.sort((a, b) => a.index - b.index)
 
-      // 验证嵌入数据
       const embeddings = sortedData.map((item) => item.embedding)
       logger.debug('embedBatch 嵌入模型返回数据', 'main', {
         batchSize: texts.length,
@@ -250,6 +243,7 @@ export class EmbeddingService {
 
   /**
    * 从预设ID获取嵌入配置
+   * 根据预设模型ID和自定义配置创建完整的嵌入配置
    */
   static getPresetConfig(
     presetId: string,
@@ -269,6 +263,7 @@ export class EmbeddingService {
 
   /**
    * 获取所有预设模型
+   * 返回所有可用预设模型的名称和维度信息
    */
   static getPresets(): Record<string, { name: string; dimension: number }> {
     const result: Record<string, { name: string; dimension: number }> = {}
@@ -282,7 +277,6 @@ export class EmbeddingService {
   }
 }
 
-// 单例实例
 let embeddingServiceInstance: EmbeddingService | null = null
 
 /**

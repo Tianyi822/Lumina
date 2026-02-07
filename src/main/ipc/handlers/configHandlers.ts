@@ -5,14 +5,10 @@ import { AppConfig, ConfigLoadResult } from '@main/types/config'
 import { updateThemeColors } from '@main/core'
 
 /**
- * 配置加载结果缓存
+ * 缓存配置加载的结果
  */
 let configLoadResult: ConfigLoadResult
 
-/**
- * 初始化配置
- * 即使配置加载失败也不会阻止应用启动
- */
 /**
  * 应用主题颜色到窗口
  */
@@ -22,6 +18,10 @@ function applyThemeColors(config: AppConfig | null): void {
   logger.info('主题颜色已应用', 'main', { background: colors.background })
 }
 
+/**
+ * 初始化配置
+ * 即使配置加载失败也不会阻止应用启动
+ */
 export function initializeConfig(): ConfigLoadResult {
   try {
     configLoadResult = configManager.initialize()
@@ -79,7 +79,7 @@ export function registerConfigHandlers(): void {
     return result
   })
 
-  // 更新配置（部分更新）
+  // 更新配置
   ipcMain.handle('config:update', (_event, partialConfig: Partial<AppConfig>) => {
     const result = configManager.updateConfig(partialConfig)
     if (result.success) {
