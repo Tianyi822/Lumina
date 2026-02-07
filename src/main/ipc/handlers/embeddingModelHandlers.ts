@@ -4,10 +4,7 @@ import { getEmbeddingModelService, getEmbeddingService } from '@main/services/em
 import { logger } from '@main/services/logger'
 import type { EmbeddingConfig } from '@main/types/config'
 
-/**
- * 初始化嵌入模型管理服务
- * 在应用启动时加载嵌入模型配置
- */
+// 初始化嵌入模型管理服务，在应用启动时加载所有保存的嵌入模型配置
 export function initializeEmbeddingModels(): void {
   try {
     getEmbeddingModelService().initialize()
@@ -18,11 +15,9 @@ export function initializeEmbeddingModels(): void {
   }
 }
 
-/**
- * 注册嵌入模型管理的 IPC 处理程序
- */
+// 注册嵌入模型管理的 IPC 处理程序，处理模型增删改查和测试连接等操作
 export function registerEmbeddingModelHandlers(): void {
-  // 获取所有嵌入模型
+  // 获取所有已保存的嵌入模型列表
   ipcMain.handle('embeddingModels:getAll', () => {
     try {
       const models = getEmbeddingModelService().getAllModels()
@@ -40,7 +35,7 @@ export function registerEmbeddingModelHandlers(): void {
     }
   })
 
-  // 根据ID获取嵌入模型
+  // 根据模型 ID 获取单个嵌入模型的配置
   ipcMain.handle('embeddingModels:getById', (_event, id: string) => {
     try {
       const model = getEmbeddingModelService().getModelById(id)
@@ -64,7 +59,7 @@ export function registerEmbeddingModelHandlers(): void {
     }
   })
 
-  // 保存嵌入模型
+  // 保存或更新嵌入模型配置，同时持久化到应用配置文件
   ipcMain.handle('embeddingModels:save', async (_event, id: string, config: EmbeddingConfig) => {
     try {
       getEmbeddingModelService().saveModel(id, config)
@@ -94,7 +89,7 @@ export function registerEmbeddingModelHandlers(): void {
     }
   })
 
-  // 删除嵌入模型
+  // 删除指定的嵌入模型，同时从应用配置中移除
   ipcMain.handle('embeddingModels:delete', async (_event, id: string) => {
     try {
       const success = getEmbeddingModelService().deleteModel(id)
@@ -128,7 +123,7 @@ export function registerEmbeddingModelHandlers(): void {
     }
   })
 
-  // 测试嵌入模型连接
+  // 测试嵌入模型的连接状态，验证配置是否可用
   ipcMain.handle('embeddingModels:test', async (_event, id: string) => {
     try {
       const model = getEmbeddingModelService().getModelById(id)

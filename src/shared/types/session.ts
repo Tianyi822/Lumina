@@ -1,78 +1,81 @@
 import { TokenUsage, MessageRole } from './chat'
 
 /**
- * 会话类型
+ * 会话的类型
  */
 export type SessionType = 'default' | 'tool' | 'knowledge'
 
 /**
- * 持久化消息结构（兼容现有 ChatMessage，增加元数据）
+ * 持久化的消息结构
+ * 兼容现有的 ChatMessage，增加了元数据字段
  */
 export interface SessionMessage {
-  /** 消息唯一标识 */
+  /** 消息的唯一标识 */
   id: string
   /** 消息角色 */
   role: MessageRole
   /** 消息内容 */
   content: string
-  /** 思考过程 */
+  /** 思考过程的内容 */
   reasoning?: string
-  /** 消息时间戳 */
+  /** 消息产生的时间戳 */
   timestamp: string
-  /** 使用的模型名称 */
+  /** 生成消息使用的模型名称 */
   modelName?: string
   /** Token 使用统计 */
   usage?: TokenUsage
 }
 
 /**
- * 会话元数据
+ * 会话的元数据信息
  */
 export interface SessionMeta {
-  /** 会话唯一标识 */
+  /** 会话的唯一标识 */
   sessionId: string
   /** 会话标题 */
   title: string
-  /** 会话简介 */
+  /** 会话的简介 */
   description?: string
   /** 会话类型 */
   sessionType: SessionType
-  /** 创建时间 */
+  /** 会话创建时间 */
   createdAt: string
-  /** 更新时间 */
+  /** 会话最后更新时间 */
   updatedAt: string
 }
 
 /**
- * 完整会话数据（存储在 JSON 文件中）
+ * 完整的会话数据
+ * 存储在 JSON 文件中
  */
 export interface SessionData extends SessionMeta {
-  /** 消息列表 */
+  /** 会话包含的所有消息 */
   messages: SessionMessage[]
 }
 
 /**
- * 会话列表项（用于侧边栏显示）
+ * 会话列表项
+ * 用于在侧边栏显示会话信息
  */
 export interface SessionListItem {
-  /** 会话唯一标识 */
+  /** 会话的唯一标识 */
   sessionId: string
   /** 会话标题 */
   title: string
   /** 会话类型 */
   sessionType: SessionType
-  /** 创建时间 */
+  /** 会话创建时间 */
   createdAt: string
-  /** 更新时间 */
+  /** 会话最后更新时间 */
   updatedAt: string
 }
 
 /**
- * 会话操作结果
+ * 会话操作的结果
  */
 export interface SessionResult {
-  /** 是否成功 */
+  /** 操作是否成功 */
   success: boolean
-  /** 错误信息 */
+  /** 操作失败时的错误信息 */
   error?: string
 }

@@ -10,46 +10,34 @@ import {
   MCPConfigFile
 } from '@main/types/mcp'
 
-/**
- * MCP 配置目录名称（用于迁移旧配置）
- */
+// MCP 配置目录名称（用于迁移旧配置）
 const MCP_CONFIG_DIR_NAME = 'mcp'
 
-/**
- * 获取旧的 MCP 配置目录路径（用于迁移）
- */
+// 获取旧的 MCP 配置目录路径（用于迁移）
 function getOldMCPConfigDirPath(): string {
   const homeDir = app.getPath('home')
   return join(homeDir, '.sparrow-manus', MCP_CONFIG_DIR_NAME)
 }
 
-/**
- * 获取旧的 MCP 配置文件路径（用于迁移）
- */
+// 获取旧的 MCP 配置文件路径（用于迁移）
 function getOldMCPConfigFilePath(name: string): string {
   return join(getOldMCPConfigDirPath(), `${name}.json`)
 }
 
-/**
- * MCP 配置管理器
- * 负责 MCP 服务器配置的持久化管理
- * 配置统一保存在主配置文件中，不再使用独立文件
- */
+// MCP 配置管理器
+// 负责 MCP 服务器配置的持久化管理
+// 配置统一保存在主配置文件中，不再使用独立文件
 export class MCPConfigManager {
   private migrationCompleted: boolean = false
 
-  /**
-   * 初始化配置管理器
-   * 首次初始化时会自动迁移旧配置
-   */
+  // 初始化配置管理器
+  // 首次初始化时会自动迁移旧配置
   initialize(): void {
     this.migrateOldConfigs()
     logger.info('MCP 配置管理器初始化完成')
   }
 
-  /**
-   * 从旧配置目录迁移所有配置到主配置文件
-   */
+  // 从旧配置目录迁移所有配置到主配置文件
   private migrateOldConfigs(): void {
     if (this.migrationCompleted) {
       return
@@ -113,9 +101,7 @@ export class MCPConfigManager {
     }
   }
 
-  /**
-   * 列出所有 MCP 配置
-   */
+  // 列出所有 MCP 配置
   listConfigs(): MCPServerConfig[] {
     const config = configManager.getConfig()
     if (!config) {
@@ -125,9 +111,7 @@ export class MCPConfigManager {
     return Object.values(config.mcpServers || {})
   }
 
-  /**
-   * 获取单个 MCP 配置
-   */
+  // 获取单个 MCP 配置
   getConfig(name: string): MCPServerConfig | null {
     const config = configManager.getConfig()
     if (!config || !config.mcpServers) {
@@ -137,9 +121,7 @@ export class MCPConfigManager {
     return config.mcpServers[name] || null
   }
 
-  /**
-   * 保存 MCP 配置
-   */
+  // 保存 MCP 配置
   saveConfig(serverConfig: MCPServerConfig): MCPConfigSaveResult {
     try {
       const config = configManager.getConfig()
@@ -173,9 +155,7 @@ export class MCPConfigManager {
     }
   }
 
-  /**
-   * 批量保存 MCP 配置
-   */
+  // 批量保存 MCP 配置
   saveConfigs(configs: MCPServerConfig[]): MCPConfigSaveResult {
     try {
       const config = configManager.getConfig()
@@ -211,9 +191,7 @@ export class MCPConfigManager {
     }
   }
 
-  /**
-   * 删除 MCP 配置
-   */
+  // 删除 MCP 配置
   deleteConfig(name: string): MCPConfigSaveResult {
     try {
       const config = configManager.getConfig()
@@ -250,10 +228,8 @@ export class MCPConfigManager {
     }
   }
 
-  /**
-   * 从 JSON 批量导入 MCP 配置
-   * 支持标准 MCP 配置文件格式
-   */
+  // 从 JSON 批量导入 MCP 配置
+  // 支持标准 MCP 配置文件格式（如 Claude Desktop 的配置）
   importFromJson(jsonContent: string): MCPConfigImportResult {
     const result: MCPConfigImportResult = {
       success: true,
@@ -327,25 +303,19 @@ export class MCPConfigManager {
     }
   }
 
-  /**
-   * 重新加载配置
-   * 从主配置文件重新读取
-   */
+  // 重新加载配置
+  // 从主配置文件重新读取
   reloadConfigs(): void {
     // 配置已经由 ConfigManager 统一管理，这里不需要额外操作
     logger.info('MCP 配置重新加载完成')
   }
 
-  /**
-   * 获取已启用的配置列表
-   */
+  // 获取已启用的配置列表
   getEnabledConfigs(): MCPServerConfig[] {
     return this.listConfigs().filter((c) => c.enabled)
   }
 
-  /**
-   * 配置是否存在
-   */
+  // 配置是否存在
   configExists(name: string): boolean {
     const config = configManager.getConfig()
     if (!config || !config.mcpServers) {
@@ -355,9 +325,7 @@ export class MCPConfigManager {
     return name in config.mcpServers
   }
 
-  /**
-   * 导出所有配置为 JSON（用于备份）
-   */
+  // 导出所有配置为 JSON（用于备份）
   exportConfigs(): string {
     const config = configManager.getConfig()
     if (!config || !config.mcpServers) {

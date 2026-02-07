@@ -1,7 +1,5 @@
-/**
- * MCP Store
- * 管理 MCP 服务器配置、连接状态和工具列表
- */
+// MCP Store
+// 管理 MCP 服务器配置、连接状态和工具列表
 
 import { ref, computed, toRaw, reactive } from 'vue'
 import { defineStore } from 'pinia'
@@ -17,45 +15,29 @@ export const useMCPStore = defineStore(
   'mcp',
   () => {
     // ==================== State ====================
-
-    /**
-     * MCP 服务器配置列表
-     */
+    
+    // MCP 服务器配置列表
     const configs = ref<MCPServerConfig[]>([])
 
-    /**
-     * MCP 连接状态列表
-     */
+    // MCP 连接状态列表
     const statuses = ref<MCPConnectionStatus[]>([])
 
-    /**
-     * 工具列表（按服务器分组）
-     */
+    // 工具列表（按服务器分组）
     const toolsByServer = ref<Record<string, MCPTool[]>>({})
 
-    /**
-     * 搜索关键词
-     */
+    // 搜索关键词
     const searchQuery = ref('')
 
-    /**
-     * 展开的服务器（持久化）
-     */
+    // 展开的服务器（持久化）
     const expandedServers = ref<Set<string>>(new Set())
 
-    /**
-     * 显示配置表单
-     */
+    // 显示配置表单
     const showForm = ref(false)
 
-    /**
-     * 正在编辑的配置（null 表示新建）
-     */
+    // 正在编辑的配置（null 表示新建）
     const editingConfig = ref<MCPServerConfig | null>(null)
 
-    /**
-     * 表单数据
-     */
+    // 表单数据
     const formData = reactive<MCPServerConfig>({
       name: '',
       transport: 'stdio',
@@ -67,57 +49,39 @@ export const useMCPStore = defineStore(
       headers: {}
     })
 
-    /**
-     * 表单文本字段
-     */
+    // 表单文本字段
     const argsText = ref('')
     const envText = ref('')
     const headersText = ref('')
 
-    /**
-     * 加载状态
-     */
+    // 加载状态
     const loading = ref(false)
 
-    /**
-     * 正在连接的服务器名
-     */
+    // 正在连接的服务器名
     const connecting = ref<string | null>(null)
 
-    /**
-     * 正在测试的服务器名
-     */
+    // 正在测试的服务器名
     const testing = ref<string | null>(null)
 
-    /**
-     * 错误信息
-     */
+    // 错误信息
     const error = ref<string | null>(null)
 
-    /**
-     * 状态监听器清理函数
-     */
+    // 状态监听器清理函数
     let statusListenerCleanup: (() => void) | null = null
 
     // ==================== Getters ====================
-
-    /**
-     * 总工具数量
-     */
+    
+    // 总工具数量
     const totalToolsCount = computed(() => {
       return Object.values(toolsByServer.value).reduce((sum, tools) => sum + tools.length, 0)
     })
 
-    /**
-     * 已连接服务器数量
-     */
+    // 已连接服务器数量
     const connectedServersCount = computed(() => {
       return statuses.value.filter((s) => s.connected).length
     })
 
-    /**
-     * 过滤后的工具列表（按搜索词过滤）
-     */
+    // 过滤后的工具列表（按搜索词过滤）
     const filteredToolsByServer = computed(() => {
       if (!searchQuery.value.trim()) {
         return toolsByServer.value
@@ -140,18 +104,14 @@ export const useMCPStore = defineStore(
       return result
     })
 
-    /**
-     * 是否正在进行操作
-     */
+    // 是否正在进行操作
     const isOperating = computed(() => {
       return loading.value || connecting.value !== null || testing.value !== null
     })
 
     // ==================== Actions: 配置管理 ====================
-
-    /**
-     * 加载所有配置和状态
-     */
+    
+    // 加载所有配置和状态
     async function loadConfigs(): Promise<void> {
       loading.value = true
       error.value = null
@@ -170,9 +130,7 @@ export const useMCPStore = defineStore(
       }
     }
 
-    /**
-     * 保存配置
-     */
+    // 保存配置
     async function saveConfig(config: MCPServerConfig): Promise<boolean> {
       loading.value = true
       error.value = null
@@ -196,9 +154,7 @@ export const useMCPStore = defineStore(
       }
     }
 
-    /**
-     * 删除配置
-     */
+    // 删除配置
     async function deleteConfig(name: string): Promise<boolean> {
       loading.value = true
       error.value = null
@@ -221,26 +177,20 @@ export const useMCPStore = defineStore(
       }
     }
 
-    /**
-     * 获取配置的连接状态
-     */
+    // 获取配置的连接状态
     function getStatus(name: string): MCPConnectionStatus | undefined {
       return statuses.value.find((s) => s.serverName === name)
     }
 
-    /**
-     * 检查服务器是否已连接
-     */
+    // 检查服务器是否已连接
     function isServerConnected(serverName: string): boolean {
       const status = statuses.value.find((s) => s.serverName === serverName)
       return status?.connected ?? false
     }
 
     // ==================== Actions: 连接管理 ====================
-
-    /**
-     * 连接服务器
-     */
+    
+    // 连接服务器
     async function connect(
       name: string,
       onSuccess?: (message: string) => void,
@@ -268,9 +218,7 @@ export const useMCPStore = defineStore(
       }
     }
 
-    /**
-     * 断开服务器连接
-     */
+    // 断开服务器连接
     async function disconnect(name: string, onError?: (message: string) => void): Promise<boolean> {
       try {
         const result = await window.api.mcp.disconnect(name)
@@ -288,9 +236,7 @@ export const useMCPStore = defineStore(
       }
     }
 
-    /**
-     * 测试连接
-     */
+    // 测试连接
     async function testConnection(
       config: MCPServerConfig,
       onSuccess?: (message: string) => void,
@@ -315,9 +261,7 @@ export const useMCPStore = defineStore(
       }
     }
 
-    /**
-     * 刷新所有状态
-     */
+    // 刷新所有状态
     async function refreshStatuses(): Promise<void> {
       try {
         statuses.value = await window.api.mcp.getStatus()
@@ -327,10 +271,8 @@ export const useMCPStore = defineStore(
     }
 
     // ==================== Actions: 工具管理 ====================
-
-    /**
-     * 加载所有工具
-     */
+    
+    // 加载所有工具
     async function loadAllTools(): Promise<void> {
       try {
         toolsByServer.value = await window.api.mcp.listToolsByServer()
@@ -344,16 +286,12 @@ export const useMCPStore = defineStore(
       }
     }
 
-    /**
-     * 获取服务器工具列表
-     */
+    // 获取服务器工具列表
     function getServerTools(serverName: string): MCPTool[] {
       return toolsByServer.value[serverName] || []
     }
 
-    /**
-     * 刷新指定服务器的工具
-     */
+    // 刷新指定服务器的工具
     async function refreshServerTools(serverName: string): Promise<void> {
       try {
         const allTools = await window.api.mcp.listToolsByServer()
@@ -366,10 +304,8 @@ export const useMCPStore = defineStore(
     }
 
     // ==================== Actions: UI 状态 ====================
-
-    /**
-     * 切换服务器展开状态
-     */
+    
+    // 切换服务器展开状态
     function toggleServerExpanded(serverName: string): void {
       if (expandedServers.value.has(serverName)) {
         expandedServers.value.delete(serverName)
@@ -378,32 +314,24 @@ export const useMCPStore = defineStore(
       }
     }
 
-    /**
-     * 检查服务器是否展开
-     */
+    // 检查服务器是否展开
     function isServerExpanded(serverName: string): boolean {
       return expandedServers.value.has(serverName)
     }
 
-    /**
-     * 设置搜索关键词
-     */
+    // 设置搜索关键词
     function setSearchQuery(query: string): void {
       searchQuery.value = query
     }
 
-    /**
-     * 清除搜索
-     */
+    // 清除搜索
     function clearSearch(): void {
       searchQuery.value = ''
     }
 
     // ==================== Actions: 表单管理 ====================
-
-    /**
-     * 解析键值对文本
-     */
+    
+    // 解析键值对文本
     function parseKeyValueText(text: string): Record<string, string> {
       const result: Record<string, string> = {}
       const lines = text.split('\n').filter((line) => line.trim())
@@ -416,18 +344,14 @@ export const useMCPStore = defineStore(
       return result
     }
 
-    /**
-     * 键值对转文本
-     */
+    // 键值对转文本
     function keyValueToText(obj: Record<string, string>): string {
       return Object.entries(obj)
         .map(([k, v]) => `${k}=${v}`)
         .join('\n')
     }
 
-    /**
-     * 构建配置对象
-     */
+    // 构建配置对象
     function buildConfig(): MCPServerConfig {
       return {
         ...toRaw(formData),
@@ -440,9 +364,7 @@ export const useMCPStore = defineStore(
       }
     }
 
-    /**
-     * 验证配置
-     */
+    // 验证配置
     function validateConfig(config: MCPServerConfig, existingNames: string[]): string | null {
       if (!config.name.trim()) {
         return '请输入服务器名称'
@@ -470,9 +392,7 @@ export const useMCPStore = defineStore(
       return null
     }
 
-    /**
-     * 重置表单
-     */
+    // 重置表单
     function resetForm(): void {
       showForm.value = false
       editingConfig.value = null
@@ -489,17 +409,13 @@ export const useMCPStore = defineStore(
       headersText.value = ''
     }
 
-    /**
-     * 打开新建表单
-     */
+    // 打开新建表单
     function openCreateForm(): void {
       resetForm()
       showForm.value = true
     }
 
-    /**
-     * 打开编辑表单
-     */
+    // 打开编辑表单
     function openEditForm(config: MCPServerConfig): void {
       editingConfig.value = config
       formData.name = config.name
@@ -516,18 +432,14 @@ export const useMCPStore = defineStore(
       showForm.value = true
     }
 
-    /**
-     * 关闭表单
-     */
+    // 关闭表单
     function closeForm(): void {
       resetForm()
     }
 
     // ==================== Actions: 事件监听 ====================
-
-    /**
-     * 设置状态变更监听器
-     */
+    
+    // 设置状态变更监听器
     function setupStatusListener(): void {
       if (statusListenerCleanup) {
         statusListenerCleanup()
@@ -551,9 +463,7 @@ export const useMCPStore = defineStore(
       window.api.logger?.debug('[MCPStore] 状态监听器已设置')
     }
 
-    /**
-     * 清理状态变更监听器
-     */
+    // 清理状态变更监听器
     function cleanupStatusListener(): void {
       if (statusListenerCleanup) {
         statusListenerCleanup()

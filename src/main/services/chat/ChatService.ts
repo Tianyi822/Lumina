@@ -10,9 +10,9 @@ import type {
   StreamEvent,
   TokenUsage,
   MCPToolReference,
-  KnowledgeBaseReference,
   KnowledgeSearchResult
 } from '../../types/chat'
+import type { KnowledgeBaseReference } from '@shared/types/knowledge'
 import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
 import { enhanceToolDescriptions } from './toolDescriptionEnhancer'
@@ -20,15 +20,12 @@ import { ToolCallScheduler } from './ToolCallScheduler'
 import { getKnowledgeServiceManager } from '../knowledge'
 
 /**
- * 聊天服务类
- * 负责与 OpenAI 兼容的 API 进行通信，支持流式响应和 ReAct 推理
+ * 聊天服务
+ * 处理与 OpenAI 兼容 API 的通信，支持流式响应和 ReAct 推理模式
  */
 export class ChatService {
-  /** 每个会话的 AbortController 映射，支持多会话并发管理 */
   private abortControllers: Map<string, AbortController> = new Map()
-  /** 已停止的会话集合，用于快速检查停止状态 */
   private stoppedSessions: Set<string> = new Set()
-  /** 工具调用调度器 */
   private toolScheduler: ToolCallScheduler
 
   constructor() {
@@ -36,14 +33,14 @@ export class ChatService {
   }
 
   /**
-   * 检查会话是否已被停止
+   * 检查会话是否已停止
    */
   private isStopped(sessionId: string): boolean {
     return this.stoppedSessions.has(sessionId)
   }
 
   /**
-   * 检查停止状态并抛出 AbortError 如果需要
+   * 检查停止状态并在必要时抛出 AbortError
    */
   private checkStopped(sessionId: string): void {
     if (this.isStopped(sessionId)) {
@@ -55,16 +52,13 @@ export class ChatService {
 
   /**
    * 发送聊天消息并流式返回响应
-   * @param request 聊天请求
-   * @param webContents 渲染进程 webContents，用于发送流式事件
+   * 根据是否选择了工具来决定使用 ReAct 模式还是直接调用
    */
   async sendMessage(request: ChatRequest, webContents: WebContents): Promise<ChatResult> {
     const { selectedTools, selectedKnowledgeBases, sessionId } = request
 
-    // 清理之前的停止状态
     this.clearStoppedSession(sessionId)
 
-    // 如果选中了知识库，先执行知识库搜索
     let knowledgeResults: KnowledgeSearchResult[] = []
     if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0) {
       try {
@@ -74,7 +68,6 @@ export class ChatService {
           webContents
         )
       } catch (error) {
-        // 如果是用户中止，返回成功状态
         if (error instanceof Error && error.name === 'AbortError') {
           this.sendStreamEvent(webContents, { type: 'done', sessionId })
           this.clearStoppedSession(sessionId)
@@ -84,28 +77,26 @@ export class ChatService {
       }
     }
 
-    // 检查是否已停止
     if (this.isStopped(sessionId)) {
       this.sendStreamEvent(webContents, { type: 'done', sessionId })
       this.clearStoppedSession(sessionId)
       return { success: true }
     }
 
-    // 如果有选中的工具，启用 ReAct 模式
     if (selectedTools && selectedTools.length > 0) {
       const result = await this.sendMessageWithReact(request, webContents, knowledgeResults)
       this.clearStoppedSession(sessionId)
       return result
     }
 
-    // 无工具时使用原有逻辑（但包含知识库结果）
     const result = await this.sendMessageDirect(request, webContents, knowledgeResults)
     this.clearStoppedSession(sessionId)
     return result
   }
 
   /**
-   * 带超时和停止检查的 Promise wrapper
+   * 带超时和停止检查的 Promise 包装器
+   * 在执行过程中定期检查是否被中止，同时设置超时限制
    */
   private async withTimeoutAndStopCheck<T>(
     promise: Promise<T>,
@@ -114,12 +105,10 @@ export class ChatService {
     operationName: string = 'operation'
   ): Promise<T> {
     return new Promise((resolve, reject) => {
-      // 创建超时定时器
       const timeoutId = setTimeout(() => {
         reject(new Error(`${operationName} 超时`))
       }, timeoutMs)
 
-      // 创建停止检查定时器
       const stopCheckInterval = setInterval(() => {
         if (this.isStopped(sessionId)) {
           clearTimeout(timeoutId)
@@ -128,7 +117,7 @@ export class ChatService {
           error.name = 'AbortError'
           reject(error)
         }
-      }, 100) // 每 100ms 检查一次
+      }, 100)
 
       promise
         .then((result) => {
@@ -146,6 +135,7 @@ export class ChatService {
 
   /**
    * 搜索知识库
+   * 对选中的知识库执行查询并返回相关内容
    */
   private async searchKnowledgeBases(
     knowledgeBases: KnowledgeBaseReference[],
@@ -154,10 +144,8 @@ export class ChatService {
   ): Promise<KnowledgeSearchResult[]> {
     const { messages, sessionId } = request
 
-    // 检查是否已停止
     this.checkStopped(sessionId)
 
-    // 从最后一条用户消息提取查询
     const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')
     const query = lastUserMessage?.content || ''
 
@@ -170,10 +158,8 @@ export class ChatService {
     const results: KnowledgeSearchResult[] = []
 
     for (const kb of knowledgeBases) {
-      // 检查是否已停止
       this.checkStopped(sessionId)
 
-      // 发送知识库搜索开始事件
       this.sendStreamEvent(webContents, {
         type: 'knowledge_search',
         sessionId,
@@ -193,15 +179,13 @@ export class ChatService {
 
         const service = getKnowledgeServiceManager().getOrCreateInstance(kb.id, kbData)
 
-        // 使用超时和停止检查包装搜索调用
         const searchResult = await this.withTimeoutAndStopCheck(
           service.search(kb.id, query, 5),
           sessionId,
-          30000, // 30秒超时
+          30000,
           '知识库搜索'
         )
 
-        // 检查是否已停止
         this.checkStopped(sessionId)
 
         if (searchResult.success && searchResult.data) {
@@ -219,7 +203,6 @@ export class ChatService {
           }
           results.push(kbResult)
 
-          // 发送知识库搜索结果事件
           this.sendStreamEvent(webContents, {
             type: 'knowledge_result',
             sessionId,
@@ -238,7 +221,6 @@ export class ChatService {
           })
         }
       } catch (error) {
-        // 如果是用户中止或超时，直接抛出
         if (
           error instanceof Error &&
           (error.name === 'AbortError' || error.message.includes('超时'))
@@ -250,7 +232,6 @@ export class ChatService {
       }
     }
 
-    // 最终检查是否已停止
     this.checkStopped(sessionId)
 
     logger.info('知识库搜索全部完成', 'main', {
@@ -263,7 +244,8 @@ export class ChatService {
   }
 
   /**
-   * 直接发送消息（无工具调用）
+   * 直接发送消息
+   * 不使用工具调用，直接调用 LLM API
    */
   private async sendMessageDirect(
     request: ChatRequest,
@@ -283,28 +265,23 @@ export class ChatService {
       return { success: false, error: '配置验证失败' }
     }
 
-    // 检查是否已停止
     if (this.isStopped(sessionId)) {
       this.sendStreamEvent(webContents, { type: 'done', sessionId })
       return { success: true }
     }
 
-    // 中止该会话的旧请求（如果存在）
     const existingController = this.abortControllers.get(sessionId)
     if (existingController) {
       logger.debug('中止会话的旧请求', 'main', { sessionId })
       existingController.abort()
     }
 
-    // 创建新的 AbortController 并存入 Map
     const abortController = new AbortController()
     this.abortControllers.set(sessionId, abortController)
 
     try {
-      // 创建 OpenAI 客户端
       const client = this.createClient(llmConfig)
 
-      // 格式化消息（包含知识库搜索结果）
       const formattedMessages = this.formatMessagesWithKnowledge(messages, knowledgeResults)
 
       logger.debug('发送请求到 API', 'main', {
@@ -314,7 +291,6 @@ export class ChatService {
         maxTokens: llmConfig.max_tokens
       })
 
-      // 创建流式请求
       const stream = await client.chat.completions.create(
         {
           model: llmConfig.model_name,
@@ -322,7 +298,6 @@ export class ChatService {
           stream: true,
           temperature: llmConfig.temperature,
           max_tokens: llmConfig.max_tokens,
-          // 流式响应时包含 usage 统计
           stream_options: { include_usage: true }
         },
         {
@@ -332,9 +307,7 @@ export class ChatService {
 
       let usage: TokenUsage | undefined
 
-      // 处理流式响应
       for await (const chunk of stream) {
-        // 检查是否有 usage 信息（最后一个 chunk）
         if (chunk.usage) {
           usage = {
             prompt_tokens: chunk.usage.prompt_tokens,
@@ -344,7 +317,6 @@ export class ChatService {
           }
         }
 
-        // 处理 choices
         const choice = chunk.choices?.[0]
         if (choice) {
           const delta = choice.delta as {
@@ -352,7 +324,6 @@ export class ChatService {
             reasoning_content?: string | null
           }
 
-          // 处理思考内容
           if (delta.reasoning_content) {
             this.sendStreamEvent(webContents, {
               type: 'reasoning',
@@ -361,7 +332,6 @@ export class ChatService {
             })
           }
 
-          // 处理正常内容
           if (delta.content) {
             this.sendStreamEvent(webContents, {
               type: 'content',
@@ -372,7 +342,6 @@ export class ChatService {
         }
       }
 
-      // 发送完成事件
       this.sendStreamEvent(webContents, {
         type: 'done',
         usage,
@@ -383,7 +352,6 @@ export class ChatService {
 
       return { success: true }
     } catch (error) {
-      // 检查是否是用户中止
       if (error instanceof Error && error.name === 'AbortError') {
         logger.info('用户中止了请求', 'main', { sessionId })
         this.sendStreamEvent(webContents, { type: 'done', sessionId })
@@ -395,15 +363,14 @@ export class ChatService {
       this.sendStreamEvent(webContents, { type: 'error', error: errorMessage, sessionId })
       return { success: false, error: errorMessage }
     } finally {
-      // 从 Map 中移除该会话的 AbortController
       this.abortControllers.delete(sessionId)
-      // 清理停止状态
       this.clearStoppedSession(sessionId)
     }
   }
 
   /**
-   * 使用 ReAct 模式发送消息（支持工具调用）
+   * 使用 ReAct 模式发送消息
+   * 支持工具调用，通过思考-行动-观察循环逐步解决问题
    */
   private async sendMessageWithReact(
     request: ChatRequest,
@@ -425,33 +392,28 @@ export class ChatService {
       return { success: false, error: '配置验证失败' }
     }
 
-    // 检查是否已停止
     if (this.isStopped(sessionId)) {
       this.sendStreamEvent(webContents, { type: 'done', sessionId })
       return { success: true }
     }
 
-    // 中止该会话的旧请求（如果存在）
     const existingController = this.abortControllers.get(sessionId)
     if (existingController) {
       logger.debug('中止会话的旧请求', 'main', { sessionId })
       existingController.abort()
     }
 
-    // 创建新的 AbortController 并存入 Map
     const abortController = new AbortController()
     this.abortControllers.set(sessionId, abortController)
 
     try {
       const client = this.createClient(llmConfig)
 
-      // 获取提示词配置
       const config = configManager.getConfig()
       if (config) {
         promptBuilder.updatePromptConfig(config.promptConfig || null)
       }
 
-      // 构建 OpenAI tools 定义
       const tools = this.buildOpenAITools(selectedTools!)
 
       logger.debug('构建的 OpenAI tools 定义', 'main', {
@@ -460,7 +422,6 @@ export class ChatService {
         toolNames: tools.map((t) => (t as { function: { name: string } }).function.name)
       })
 
-      // 构建消息历史，使用 PromptBuilder 生成系统提示（包含知识库结果）
       const systemPrompt = await promptBuilder.buildSystemPrompt(
         llmConfig,
         true,
@@ -480,9 +441,7 @@ export class ChatService {
 
       let iterations = 0
 
-      // ReAct 循环
       while (iterations < maxReactIterations) {
-        // 检查是否被中止
         if (abortController.signal.aborted) {
           logger.info('ReAct 循环被中止', 'main', { sessionId, iterations })
           break
@@ -493,7 +452,6 @@ export class ChatService {
           messageCount: conversationMessages.length
         })
 
-        // 发送请求
         const response = await client.chat.completions.create(
           {
             model: llmConfig.model_name,
@@ -510,9 +468,8 @@ export class ChatService {
           }
         )
 
-        // 收集流式响应
         let assistantContent = ''
-        let assistantReasoningContent = '' // 收集思考内容
+        let assistantReasoningContent = ''
         const toolCalls: Map<
           number,
           { id: string; type: 'function'; function: { name: string; arguments: string } }
@@ -520,7 +477,6 @@ export class ChatService {
         let hasToolCalls = false
 
         for await (const chunk of response) {
-          // 累计 usage
           if (chunk.usage) {
             totalUsage.prompt_tokens += chunk.usage.prompt_tokens
             totalUsage.completion_tokens += chunk.usage.completion_tokens
@@ -540,7 +496,6 @@ export class ChatService {
               }>
             }
 
-            // 处理思考内容（收集用于后续请求）
             if (delta.reasoning_content) {
               assistantReasoningContent += delta.reasoning_content
               this.sendStreamEvent(webContents, {
@@ -550,7 +505,6 @@ export class ChatService {
               })
             }
 
-            // 处理普通内容
             if (delta.content) {
               assistantContent += delta.content
               this.sendStreamEvent(webContents, {
@@ -560,7 +514,6 @@ export class ChatService {
               })
             }
 
-            // 处理工具调用
             if (delta.tool_calls) {
               hasToolCalls = true
               for (const tc of delta.tool_calls) {
@@ -580,7 +533,6 @@ export class ChatService {
           }
         }
 
-        // 如果没有工具调用，说明模型已完成推理
         if (!hasToolCalls || toolCalls.size === 0) {
           logger.info('ReAct 循环完成，模型已给出最终答案', 'main', {
             sessionId,
@@ -590,7 +542,6 @@ export class ChatService {
           break
         }
 
-        // 记录工具调用信息
         logger.info('模型请求调用工具', 'main', {
           sessionId,
           iteration: iterations + 1,
@@ -598,7 +549,6 @@ export class ChatService {
           toolCallNames: Array.from(toolCalls.values()).map((tc) => tc.function.name)
         })
 
-        // 将助手消息（包含工具调用）添加到对话历史
         const toolCallsArray = Array.from(toolCalls.values())
         const assistantMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam & {
           reasoning_content?: string
@@ -608,7 +558,6 @@ export class ChatService {
           tool_calls: toolCallsArray
         }
 
-        // 如果有思考内容，添加到消息中
         if (assistantReasoningContent) {
           assistantMessage.reasoning_content = assistantReasoningContent
         }
@@ -617,7 +566,6 @@ export class ChatService {
           assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
         )
 
-        // 使用调度器执行工具调用（并行 + 串行混合）
         await this.executeToolCallsWithScheduler(
           toolCallsArray,
           webContents,
@@ -628,7 +576,6 @@ export class ChatService {
         iterations++
       }
 
-      // 发送完成事件
       this.sendStreamEvent(webContents, {
         type: 'done',
         usage: totalUsage,
@@ -643,7 +590,6 @@ export class ChatService {
 
       return { success: true }
     } catch (error) {
-      // 检查是否是用户中止
       if (error instanceof Error && error.name === 'AbortError') {
         logger.info('用户中止了 ReAct 请求', 'main', { sessionId })
         this.sendStreamEvent(webContents, { type: 'done', sessionId })
@@ -656,33 +602,30 @@ export class ChatService {
       return { success: false, error: errorMessage }
     } finally {
       this.abortControllers.delete(sessionId)
-      // 清理停止状态
       this.clearStoppedSession(sessionId)
     }
   }
 
   /**
    * 规范化工具名称以符合 OpenAI API 命名规范
-   * 只允许字母、数字、下划线和连字符
+   * 将非法字符替换为连字符
    */
   private sanitizeToolName(serverName: string, toolName: string): string {
-    // 将空格和其他非法字符替换为连字符
     const sanitizedServer = serverName.replace(/[^a-zA-Z0-9_-]/g, '-')
     const sanitizedTool = toolName.replace(/[^a-zA-Z0-9_-]/g, '-')
     return `${sanitizedServer}__${sanitizedTool}`
   }
 
   /**
-   * 构建 OpenAI tools 定义（使用增强描述）
+   * 构建 OpenAI tools 定义
+   * 使用增强后的工具描述
    */
   private buildOpenAITools(
     tools: MCPToolReference[]
   ): OpenAI.Chat.Completions.ChatCompletionTool[] {
-    // 获取提示词配置以确定描述级别
     const config = configManager.getConfig()
     const descriptionLevel = config?.promptConfig?.toolDescriptionLevel || 'detailed'
 
-    // 批量增强工具描述
     const enhancedDescriptions = enhanceToolDescriptions(tools, descriptionLevel)
 
     return tools.map((tool) => {
@@ -701,7 +644,7 @@ export class ChatService {
   }
 
   /**
-   * 通过规范化后的名称查找原始服务器名称
+   * 从规范化后的名称查找原始服务器名称
    */
   private findOriginalServerName(sanitizedServerName: string): string | null {
     const connectedServers = mcpService.getConnectedServerNames()
@@ -715,7 +658,8 @@ export class ChatService {
   }
 
   /**
-   * 使用调度器执行工具调用（并行 + 串行混合）
+   * 使用调度器执行工具调用
+   * 先并行执行独立的工具，再串行执行有依赖的工具
    */
   private async executeToolCallsWithScheduler(
     toolCalls: Array<{
@@ -727,20 +671,16 @@ export class ChatService {
     sessionId: string,
     conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
   ): Promise<void> {
-    // 检查是否已停止
     this.checkStopped(sessionId)
 
-    // 分析依赖关系
     const { independent, sequential } = this.toolScheduler.analyzeDependencies(toolCalls)
 
-    // 并行执行独立的工具调用
     if (independent.length > 0) {
       logger.info('并行执行独立工具', 'main', {
         sessionId,
         count: independent.length
       })
 
-      // 检查是否已停止
       this.checkStopped(sessionId)
 
       const parallelResults = await this.toolScheduler.executeParallel(
@@ -749,10 +689,8 @@ export class ChatService {
         sessionId
       )
 
-      // 检查是否已停止
       this.checkStopped(sessionId)
 
-      // 添加结果到对话历史
       for (const result of parallelResults) {
         conversationMessages.push({
           role: result.message.role,
@@ -762,10 +700,8 @@ export class ChatService {
       }
     }
 
-    // 检查是否已停止
     this.checkStopped(sessionId)
 
-    // 串行执行有依赖的工具调用
     if (sequential.length > 0) {
       logger.info('串行执行依赖工具', 'main', {
         sessionId,
@@ -773,12 +709,10 @@ export class ChatService {
       })
 
       for (const toolCall of sequential) {
-        // 检查是否已停止
         this.checkStopped(sessionId)
 
         const result = await this.executeToolCall(toolCall, webContents, sessionId)
 
-        // 将工具结果添加到对话历史
         conversationMessages.push({
           role: 'tool',
           tool_call_id: toolCall.id,
@@ -787,19 +721,17 @@ export class ChatService {
       }
     }
 
-    // 最终检查是否已停止
     this.checkStopped(sessionId)
   }
 
   /**
-   * 执行工具调用
+   * 执行单个工具调用
    */
   private async executeToolCall(
     toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
     webContents: WebContents,
     sessionId: string
   ): Promise<string> {
-    // 解析工具名称（格式：serverName__toolName）
     const nameParts = toolCall.function.name.split('__')
     if (nameParts.length !== 2) {
       const error = `无效的工具名称格式: ${toolCall.function.name}`
@@ -819,7 +751,6 @@ export class ChatService {
 
     const [sanitizedServerName, sanitizedToolName] = nameParts
 
-    // 查找原始服务器名称
     const serverName = this.findOriginalServerName(sanitizedServerName)
     if (!serverName) {
       const error = `未找到 MCP 服务器: ${sanitizedServerName}`
@@ -837,7 +768,6 @@ export class ChatService {
       return JSON.stringify({ error })
     }
 
-    // 从工具列表中查找原始工具名称
     const serverTools = mcpService.getTools(serverName)
     const tool = serverTools.find((t) => {
       const sanitized = t.name.replace(/[^a-zA-Z0-9_-]/g, '-')
@@ -872,7 +802,6 @@ export class ChatService {
       args
     })
 
-    // 发送工具调用事件
     this.sendStreamEvent(webContents, {
       type: 'tool_call',
       sessionId,
@@ -885,21 +814,17 @@ export class ChatService {
     })
 
     try {
-      // 检查是否已停止
       this.checkStopped(sessionId)
 
-      // 执行 MCP 工具调用（带超时和停止检查）
       const result = await this.withTimeoutAndStopCheck(
         mcpService.callTool(serverName, toolName, args),
         sessionId,
-        60000, // 60秒超时（工具调用可能需要更长时间）
+        60000,
         `MCP工具调用 ${serverName}/${toolName}`
       )
 
-      // 检查是否已停止
       this.checkStopped(sessionId)
 
-      // 发送工具结果事件
       this.sendStreamEvent(webContents, {
         type: 'tool_result',
         sessionId,
@@ -918,7 +843,6 @@ export class ChatService {
         return JSON.stringify({ error: result.error })
       }
     } catch (error) {
-      // 如果是用户中止或超时，直接抛出
       if (
         error instanceof Error &&
         (error.name === 'AbortError' || error.message.includes('超时'))
@@ -951,25 +875,21 @@ export class ChatService {
 
   /**
    * 中止请求
-   * @param sessionId 可选的会话标识。如果提供，只中止该会话的请求；否则中止所有请求
+   * 可以中止指定会话的请求，或者中止所有请求
    */
   stopRequest(sessionId?: string): void {
     if (sessionId) {
-      // 标记会话为已停止（即使 AbortController 不存在也能立即停止）
       logger.info('中止会话聊天请求', 'main', { sessionId })
       this.stoppedSessions.add(sessionId)
 
-      // 中止特定会话的请求
       const controller = this.abortControllers.get(sessionId)
       if (controller) {
         controller.abort()
         this.abortControllers.delete(sessionId)
       }
     } else {
-      // 中止所有请求
       if (this.abortControllers.size > 0) {
         logger.info('中止所有聊天请求', 'main', { count: this.abortControllers.size })
-        // 标记所有会话为已停止
         this.abortControllers.forEach((_, sid) => this.stoppedSessions.add(sid))
         this.abortControllers.forEach((controller) => controller.abort())
         this.abortControllers.clear()
@@ -991,17 +911,12 @@ export class ChatService {
     return new OpenAI({
       apiKey: config.api_key,
       baseURL: config.base_url,
-      // 禁用默认超时，让用户可以等待更长时间
       timeout: 120000
     })
   }
 
   /**
    * 验证并获取 LLM 配置
-   * @param modelKey 模型键名
-   * @param sessionId 会话 ID
-   * @param webContents 渲染进程 webContents
-   * @returns LLM 配置对象，如果验证失败则返回 null
    */
   private validateAndGetLLMConfig(
     modelKey: string,
@@ -1028,7 +943,7 @@ export class ChatService {
   }
 
   /**
-   * 构建知识库上下文
+   * 构建知识库上下文文本
    */
   private buildKnowledgeContext(knowledgeResults?: KnowledgeSearchResult[]): string {
     if (!knowledgeResults || knowledgeResults.length === 0) {
@@ -1061,19 +976,17 @@ export class ChatService {
   }
 
   /**
-   * 格式化消息为 OpenAI 格式（支持知识库搜索结果）
-   * 过滤掉 content 为空的助手消息（保留有 tool_calls 的）
+   * 格式化消息为 OpenAI 格式
+   * 过滤掉空内容的助手消息，将知识库结果附加到最后一条用户消息
    */
   private formatMessagesWithKnowledge(
     messages: ChatMessage[],
     knowledgeResults?: KnowledgeSearchResult[]
   ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
-    // 构建知识库上下文
     const knowledgeContext = this.buildKnowledgeContext(knowledgeResults)
 
     return messages
       .filter((msg) => {
-        // 过滤掉 content 为空的助手消息（保留有 tool_calls 的助手消息）
         if (msg.role === 'assistant') {
           const hasContent = msg.content && msg.content.trim().length > 0
           const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0
@@ -1082,7 +995,6 @@ export class ChatService {
         return true
       })
       .map((msg, index) => {
-        // 在最后一条用户消息中附加知识库上下文
         if (msg.role === 'user' && knowledgeContext && index === messages.length - 1) {
           return {
             role: 'user' as const,

@@ -1,5 +1,5 @@
 /**
- * 获取错误消息
+ * 从错误对象中提取可读的错误消息
  */
 export function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') {
@@ -15,7 +15,7 @@ export function getErrorMessage(error: unknown): string {
 }
 
 /**
- * 判断是否为连接错误
+ * 判断错误是否为连接相关错误
  */
 export function isConnectionError(error: unknown): boolean {
   const message = getErrorMessage(error).toLowerCase()
@@ -28,7 +28,7 @@ export function isConnectionError(error: unknown): boolean {
 }
 
 /**
- * 判断是否为取消错误
+ * 判断错误是否为取消或中止操作产生的错误
  */
 export function isCancelError(error: unknown): boolean {
   const message = getErrorMessage(error).toLowerCase()

@@ -1,6 +1,4 @@
-/**
- * 知识库服务入口
- */
+// 知识库服务模块入口文件
 
 export * from './KnowledgeService'
 export * from './KnowledgeServiceManager'

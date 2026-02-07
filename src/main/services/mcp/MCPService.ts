@@ -12,9 +12,7 @@ import {
 } from '@main/types/mcp'
 import { deepClone } from '@shared/utils'
 
-/**
- * MCP 客户端连接信息
- */
+// MCP 客户端连接信息
 interface MCPClientConnection {
   client: Client
   config: MCPServerConfig
@@ -23,26 +21,23 @@ interface MCPClientConnection {
   error?: string
 }
 
-/**
- * MCP 服务管理器
- * 负责 MCP 服务器的连接、断开、工具管理等
- */
+// MCP 服务管理器
+// 负责 MCP 服务器的连接、断开、工具管理等
+// 支持多种传输类型：stdio、sse、streamableHttp
 export class MCPService {
   private connections: Map<string, MCPClientConnection> = new Map()
   private onStatusChangeCallback:
     | ((serverName: string, status: MCPConnectionStatus) => void)
     | null = null
 
-  /**
-   * 设置状态变更回调
-   */
+  // 设置状态变更回调
+  // 当服务器连接状态变化时调用
   setOnStatusChange(callback: (serverName: string, status: MCPConnectionStatus) => void): void {
     this.onStatusChangeCallback = callback
   }
 
-  /**
-   * 创建传输层
-   */
+  // 创建传输层
+  // 根据配置选择合适的传输类型
   private createTransport(
     config: MCPServerConfig
   ): StdioClientTransport | SSEClientTransport | StreamableHTTPClientTransport {
@@ -78,9 +73,8 @@ export class MCPService {
     }
   }
 
-  /**
-   * 连接到 MCP 服务器
-   */
+  // 连接到 MCP 服务器
+  // 创建连接并获取工具列表
   async connect(config: MCPServerConfig): Promise<MCPConnectResult> {
     const serverName = config.name
 
@@ -154,9 +148,7 @@ export class MCPService {
     }
   }
 
-  /**
-   * 断开 MCP 服务器连接
-   */
+  // 断开 MCP 服务器连接
   async disconnect(serverName: string): Promise<void> {
     const connection = this.connections.get(serverName)
     if (connection) {
@@ -177,9 +169,7 @@ export class MCPService {
     }
   }
 
-  /**
-   * 重新连接服务器
-   */
+  // 重新连接服务器
   async reconnect(serverName: string): Promise<MCPConnectResult> {
     const connection = this.connections.get(serverName)
     if (!connection) {
@@ -193,9 +183,7 @@ export class MCPService {
     return this.connect(connection.config)
   }
 
-  /**
-   * 获取指定服务器的工具列表
-   */
+  // 获取指定服务器的工具列表
   getTools(serverName: string): MCPTool[] {
     const connection = this.connections.get(serverName)
     if (connection && connection.connected) {
@@ -204,9 +192,7 @@ export class MCPService {
     return []
   }
 
-  /**
-   * 获取所有已连接服务器的工具列表
-   */
+  // 获取所有已连接服务器的工具列表
   getAllTools(): MCPTool[] {
     const allTools: MCPTool[] = []
     for (const connection of this.connections.values()) {
@@ -217,9 +203,7 @@ export class MCPService {
     return allTools
   }
 
-  /**
-   * 按服务器分组获取工具
-   */
+  // 按服务器分组获取工具
   getToolsByServer(): Map<string, MCPTool[]> {
     const toolsByServer = new Map<string, MCPTool[]>()
     for (const [serverName, connection] of this.connections.entries()) {
@@ -230,9 +214,7 @@ export class MCPService {
     return toolsByServer
   }
 
-  /**
-   * 调用工具
-   */
+  // 调用工具
   async callTool(
     serverName: string,
     toolName: string,
@@ -289,9 +271,8 @@ export class MCPService {
     }
   }
 
-  /**
-   * 获取连接状态
-   */
+  // 获取连接状态
+  // 返回单个或所有服务器的连接状态
   getConnectionStatus(serverName?: string): MCPConnectionStatus[] {
     if (serverName) {
       const connection = this.connections.get(serverName)
@@ -320,9 +301,8 @@ export class MCPService {
     return statuses
   }
 
-  /**
-   * 测试连接（不保持连接）
-   */
+  // 测试连接（不保持连接）
+  // 用于验证配置是否正确
   async testConnection(config: MCPServerConfig): Promise<MCPConnectResult> {
     try {
       logger.info(`测试 MCP 服务器连接: ${config.name}`)
@@ -368,9 +348,7 @@ export class MCPService {
     }
   }
 
-  /**
-   * 断开所有连接
-   */
+  // 断开所有连接
   async disconnectAll(): Promise<void> {
     const serverNames = Array.from(this.connections.keys())
     for (const serverName of serverNames) {
@@ -378,9 +356,7 @@ export class MCPService {
     }
   }
 
-  /**
-   * 获取已连接的服务器名称列表
-   */
+  // 获取已连接的服务器名称列表
   getConnectedServerNames(): string[] {
     const connected: string[] = []
     for (const [name, connection] of this.connections.entries()) {
@@ -391,17 +367,13 @@ export class MCPService {
     return connected
   }
 
-  /**
-   * 检查服务器是否已连接
-   */
+  // 检查服务器是否已连接
   isConnected(serverName: string): boolean {
     const connection = this.connections.get(serverName)
     return connection?.connected ?? false
   }
 
-  /**
-   * 通知状态变更
-   */
+  // 通知状态变更
   private notifyStatusChange(serverName: string): void {
     if (this.onStatusChangeCallback) {
       const status = this.getConnectionStatus(serverName)[0]

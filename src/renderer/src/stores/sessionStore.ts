@@ -1,7 +1,5 @@
-/**
- * 会话核心 Store
- * 整合所有会话相关状态，提供统一的会话管理接口
- */
+// 会话核心 Store
+// 整合所有会话相关状态，提供统一的会话管理接口
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
@@ -17,75 +15,53 @@ const DEFAULT_NEW_CHAT_TITLE = '新对话'
 
 export const useSessionStore = defineStore('session', () => {
   // ==================== Dependencies ====================
-
+  
   const messageCache = useMessageCacheStore()
   const inputState = useInputStateStore()
   const chatStream = useChatStreamStore()
 
   // ==================== State ====================
-
-  /**
-   * 当前会话数据
-   */
+  
+  // 当前会话数据
   const currentSession = ref<SessionData | null>(null)
 
-  /**
-   * 当前对话 ID（兼容旧代码）
-   */
+  // 当前对话 ID（兼容旧代码）
   const currentChatId = ref<string | undefined>(undefined)
 
-  /**
-   * 当前对话的消息列表
-   */
+  // 当前对话的消息列表
   const messages = ref<Message[]>([])
 
-  /**
-   * 会话列表
-   */
+  // 会话列表
   const sessionList = ref<SessionListItem[]>([])
 
-  /**
-   * 会话列表更新计数器（用于触发 Sidebar 更新）
-   */
+  // 会话列表更新计数器（用于触发 Sidebar 更新）
   const sessionUpdateKey = ref(0)
 
-  /**
-   * 是否正在加载会话
-   */
+  // 是否正在加载会话
   const isLoading = ref(false)
 
   // ==================== Getters ====================
-
-  /**
-   * 当前会话是否正在发送消息
-   */
+  
+  // 当前会话是否正在发送消息
   const isCurrentSessionSending = computed(() => {
     if (!currentChatId.value) return false
     return chatStream.getSessionSendingState(currentChatId.value)
   })
 
-  /**
-   * 当前会话是否有正在流式传输的消息
-   */
+  // 当前会话是否有正在流式传输的消息
   const hasStreamingMessage = computed(() => {
     return messages.value.some((msg) => msg.isStreaming)
   })
 
-  /**
-   * 获取会话数量
-   */
+  // 获取会话数量
   const sessionCount = computed(() => sessionList.value.length)
 
-  /**
-   * 当前会话的输入状态
-   */
+  // 当前会话的输入状态
   const currentInputState = computed(() => inputState.currentInputState)
 
   // ==================== Actions ====================
-
-  /**
-   * 加载会话列表
-   */
+  
+  // 加载会话列表
   async function loadSessionList(): Promise<void> {
     try {
       isLoading.value = true
@@ -103,19 +79,13 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  /**
-   * 刷新会话列表
-   */
+  // 刷新会话列表
   async function refreshSessionList(): Promise<void> {
     await loadSessionList()
     sessionUpdateKey.value++
   }
 
-  /**
-   * 加载指定会话
-   * @param sessionId - 会话 ID
-   * @param useCache - 是否优先使用缓存
-   */
+  // 加载指定会话
   async function loadSession(sessionId: string, useCache: boolean = true): Promise<boolean> {
     // 如果选择的是当前会话，直接返回
     if (currentSession.value?.sessionId === sessionId) {
@@ -190,11 +160,7 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  /**
-   * 创建新会话
-   * @param title - 会话标题
-   * @param sessionType - 会话类型
-   */
+  // 创建新会话
   async function createSession(
     title?: string,
     sessionType?: SessionType
@@ -252,9 +218,7 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  /**
-   * 保存当前会话
-   */
+  // 保存当前会话
   async function saveCurrentSession(): Promise<boolean> {
     if (!currentSession.value) {
       window.api.logger.warn('[SessionStore] 没有当前会话可保存')
@@ -298,10 +262,7 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  /**
-   * 删除会话
-   * @param sessionId - 会话 ID
-   */
+  // 删除会话
   async function deleteSession(sessionId: string): Promise<boolean> {
     try {
       const result = await window.api.session.delete(sessionId)
@@ -336,10 +297,7 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  /**
-   * 更新会话标题
-   * @param title - 新标题
-   */
+  // 更新会话标题
   function updateSessionTitle(title: string): void {
     if (!currentSession.value) return
 
@@ -364,10 +322,7 @@ export const useSessionStore = defineStore('session', () => {
     })
   }
 
-  /**
-   * 处理新建聊天
-   * @param sessionType - 会话类型
-   */
+  // 处理新建聊天
   async function handleNewChat(sessionType?: SessionType): Promise<void> {
     // 保存当前会话状态
     if (currentChatId.value) {
@@ -383,11 +338,7 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  /**
-   * 处理选择会话
-   * @param sessionId - 会话 ID
-   * @returns 是否正在发送消息
-   */
+  // 处理选择会话
   async function handleSelectChat(sessionId: string): Promise<boolean> {
     // 如果选择的是当前会话，直接返回
     if (currentSession.value?.sessionId === sessionId) {
@@ -413,18 +364,13 @@ export const useSessionStore = defineStore('session', () => {
     return false
   }
 
-  /**
-   * 处理删除会话
-   * @param sessionId - 会话 ID
-   */
+  // 处理删除会话
   async function handleDeleteSession(sessionId: string): Promise<void> {
     await deleteSession(sessionId)
   }
 
-  /**
-   * 在离开页面前保存当前状态
-   * 这是解决页面切换状态丢失的核心方法
-   */
+  // 在离开页面前保存当前状态
+  // 这是解决页面切换状态丢失的核心方法
   async function saveCurrentStateBeforeLeave(): Promise<void> {
     const sessionId = currentChatId.value
     if (!sessionId) return
@@ -446,10 +392,7 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  /**
-   * 在返回页面时恢复状态
-   * @param sessionId - 会话 ID
-   */
+  // 在返回页面时恢复状态
   async function restoreStateAfterReturn(sessionId: string): Promise<boolean> {
     window.api.logger.info('[SessionStore] 恢复状态（页面返回后）', { sessionId })
 
@@ -468,19 +411,12 @@ export const useSessionStore = defineStore('session', () => {
     return inputRestored || sessionLoaded
   }
 
-  /**
-   * 添加消息到当前会话
-   * @param message - 消息
-   */
+  // 添加消息到当前会话
   function addMessage(message: Message): void {
     messages.value.push(message)
   }
 
-  /**
-   * 更新消息（用于流式更新）
-   * @param messageId - 消息 ID
-   * @param updates - 更新内容
-   */
+  // 更新消息（用于流式更新）
   function updateMessage(messageId: string, updates: Partial<Message>): void {
     const message = messages.value.find((m) => m.id === messageId)
     if (message) {
@@ -488,9 +424,7 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  /**
-   * 获取正在流式传输的消息
-   */
+  // 获取正在流式传输的消息
   function getStreamingMessage(): Message | undefined {
     return messages.value.find((m) => m.isStreaming)
   }

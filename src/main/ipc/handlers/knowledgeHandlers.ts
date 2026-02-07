@@ -6,10 +6,7 @@ import { getMainWindow } from '@main/core/window'
 import { getFileService } from '@main/services/file/FileService'
 import type { KnowledgeBase } from '@shared/types/knowledge'
 
-/**
- * 初始化知识库服务
- * 在应用启动时加载知识库数据
- */
+// 初始化知识库服务，在应用启动时加载知识库数据
 export function initializeKnowledge(): void {
   try {
     getKnowledgeServiceManager().initialize()
@@ -20,11 +17,9 @@ export function initializeKnowledge(): void {
   }
 }
 
-/**
- * 注册知识库相关的 IPC 处理程序
- */
+// 注册知识库相关的 IPC 处理程序，处理知识库的增删改查、文件索引和搜索等操作
 export function registerKnowledgeHandlers(): void {
-  // 获取所有知识库
+  // 获取所有知识库列表
   ipcMain.handle('knowledge:getAll', () => {
     try {
       const knowledgeBases = getKnowledgeServiceManager().getAllKnowledgeBases()
@@ -42,7 +37,7 @@ export function registerKnowledgeHandlers(): void {
     }
   })
 
-  // 根据ID获取知识库
+  // 根据知识库 ID 获取知识库详情
   ipcMain.handle('knowledge:getById', (_event, id: string) => {
     try {
       const knowledgeBase = getKnowledgeServiceManager().getKnowledgeBaseById(id)
@@ -66,7 +61,7 @@ export function registerKnowledgeHandlers(): void {
     }
   })
 
-  // 创建知识库
+  // 创建新的知识库
   ipcMain.handle(
     'knowledge:create',
     async (_event, data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -87,7 +82,7 @@ export function registerKnowledgeHandlers(): void {
     }
   )
 
-  // 更新知识库
+  // 更新知识库信息
   ipcMain.handle(
     'knowledge:update',
     async (_event, id: string, updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>) => {
@@ -129,7 +124,7 @@ export function registerKnowledgeHandlers(): void {
     }
   })
 
-  // 停止知识库索引
+  // 停止知识库的索引任务
   ipcMain.handle('knowledge:stopIndexing', async (_event, kbId: string) => {
     try {
       const success = getKnowledgeServiceManager().stopKnowledgeBaseIndexing(kbId)
@@ -147,7 +142,7 @@ export function registerKnowledgeHandlers(): void {
     }
   })
 
-  // 索引文件到知识库（使用队列控制并发）
+  // 索引文件到知识库，使用队列控制并发以避免多个知识库同时索引导致阻塞
   ipcMain.handle(
     'knowledge:indexFile',
     async (_event, kbId: string, fileId: string, filePath: string, fileName: string) => {
@@ -209,7 +204,7 @@ export function registerKnowledgeHandlers(): void {
     }
   })
 
-  // 重新索引整个知识库（使用队列控制并发）
+  // 重新索引整个知识库，使用队列控制并发以避免多个知识库同时索引导致阻塞
   ipcMain.handle(
     'knowledge:reindex',
     async (
@@ -272,7 +267,7 @@ export function registerKnowledgeHandlers(): void {
     }
   )
 
-  // 在知识库中搜索
+  // 在知识库中搜索相关内容
   ipcMain.handle(
     'knowledge:search',
     async (_event, kbId: string, query: string, limit?: number) => {
@@ -296,7 +291,7 @@ export function registerKnowledgeHandlers(): void {
     }
   )
 
-  // 获取知识库统计信息
+  // 获取知识库的统计信息，包括文档数量、向量数量等
   ipcMain.handle('knowledge:getStats', async (_event, kbId: string) => {
     try {
       const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
@@ -317,7 +312,7 @@ export function registerKnowledgeHandlers(): void {
     }
   })
 
-  // 获取知识库向量数据库大小
+  // 获取知识库向量数据库的大小
   ipcMain.handle('knowledge:getDBSize', (_event, kbId: string) => {
     try {
       const size = getVectorDBService().getDatabaseSize(kbId)
@@ -335,7 +330,7 @@ export function registerKnowledgeHandlers(): void {
     }
   })
 
-  // 获取索引状态
+  // 获取索引状态，包括正在索引的知识库、文件列表和进度信息
   ipcMain.handle('knowledge:getIndexingStatus', () => {
     try {
       const manager = getKnowledgeServiceManager()

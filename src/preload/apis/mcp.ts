@@ -2,12 +2,12 @@ import { ipcRenderer } from 'electron'
 import { createIpcListener } from './base'
 
 /**
- * MCP 传输类型
+ * MCP 支持的传输方式
  */
 export type MCPTransportType = 'stdio' | 'sse' | 'streamableHttp'
 
 /**
- * MCP 服务器配置
+ * MCP 服务器的配置
  */
 export interface MCPServerConfig {
   name: string
@@ -21,7 +21,7 @@ export interface MCPServerConfig {
 }
 
 /**
- * MCP 工具定义
+ * MCP 工具的定义
  */
 export interface MCPTool {
   name: string
@@ -31,7 +31,7 @@ export interface MCPTool {
 }
 
 /**
- * MCP 连接状态
+ * MCP 服务器的连接状态
  */
 export interface MCPConnectionStatus {
   serverName: string
@@ -41,7 +41,7 @@ export interface MCPConnectionStatus {
 }
 
 /**
- * MCP 连接结果
+ * MCP 连接的结果
  */
 export interface MCPConnectResult {
   success: boolean
@@ -51,7 +51,7 @@ export interface MCPConnectResult {
 }
 
 /**
- * MCP 配置保存结果
+ * MCP 配置保存的结果
  */
 export interface MCPConfigSaveResult {
   success: boolean
@@ -59,7 +59,7 @@ export interface MCPConfigSaveResult {
 }
 
 /**
- * MCP 配置导入结果
+ * MCP 配置导入的结果
  */
 export interface MCPConfigImportResult {
   success: boolean
@@ -68,7 +68,7 @@ export interface MCPConfigImportResult {
 }
 
 /**
- * MCP 工具调用参数
+ * MCP 工具调用的参数
  */
 export interface MCPToolCallParams {
   serverName: string
@@ -77,7 +77,7 @@ export interface MCPToolCallParams {
 }
 
 /**
- * MCP 工具调用结果
+ * MCP 工具调用的结果
  */
 export interface MCPToolCallResult {
   success: boolean
@@ -86,7 +86,7 @@ export interface MCPToolCallResult {
 }
 
 /**
- * MCP 状态变更事件
+ * MCP 状态变更的事件
  */
 export interface MCPStatusChangeEvent {
   serverName: string
@@ -98,42 +98,42 @@ export interface MCPStatusChangeEvent {
  */
 export const mcpApi = {
   /**
-   * 获取所有 MCP 配置
+   * 获取所有 MCP 服务器配置
    */
   listConfigs: (): Promise<MCPServerConfig[]> => {
     return ipcRenderer.invoke('mcp:listConfigs')
   },
 
   /**
-   * 获取单个 MCP 配置
+   * 获取单个 MCP 服务器配置
    */
   getConfig: (name: string): Promise<MCPServerConfig | null> => {
     return ipcRenderer.invoke('mcp:getConfig', name)
   },
 
   /**
-   * 保存 MCP 配置
+   * 保存 MCP 服务器配置
    */
   saveConfig: (config: MCPServerConfig): Promise<MCPConfigSaveResult> => {
     return ipcRenderer.invoke('mcp:saveConfig', config)
   },
 
   /**
-   * 删除 MCP 配置
+   * 删除 MCP 服务器配置
    */
   deleteConfig: (name: string): Promise<MCPConfigSaveResult> => {
     return ipcRenderer.invoke('mcp:deleteConfig', name)
   },
 
   /**
-   * 批量导入 MCP 配置
+   * 批量导入 MCP 服务器配置
    */
   importConfigs: (jsonContent: string): Promise<MCPConfigImportResult> => {
     return ipcRenderer.invoke('mcp:importConfigs', jsonContent)
   },
 
   /**
-   * 导出所有 MCP 配置
+   * 导出所有 MCP 服务器配置
    */
   exportConfigs: (): Promise<string> => {
     return ipcRenderer.invoke('mcp:exportConfigs')
@@ -154,7 +154,7 @@ export const mcpApi = {
   },
 
   /**
-   * 重连 MCP 服务器
+   * 重新连接 MCP 服务器
    */
   reconnect: (name: string): Promise<MCPConnectResult> => {
     return ipcRenderer.invoke('mcp:reconnect', name)
@@ -218,7 +218,6 @@ export const mcpApi = {
 
   /**
    * 监听 MCP 状态变更
-   * @returns 取消监听的函数
    */
   onStatusChange: (callback: (event: MCPStatusChangeEvent) => void): (() => void) => {
     return createIpcListener<MCPStatusChangeEvent>('mcp:statusChange', callback)

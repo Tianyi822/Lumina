@@ -6,7 +6,7 @@ import { logger } from '@main/services/logger'
 import type { FileItem, KnowledgeBase } from '@shared/types/knowledge'
 
 /**
- * 文件元数据存储路径
+ * 获取文件元数据存储路径
  */
 function getFilesMetadataPath(): string {
   return join(getConfigDirPath(), 'files-metadata.json')
@@ -29,6 +29,7 @@ function getKnowledgeBaseFilePath(): string {
 
 /**
  * 计算文件内容的哈希值
+ * 用于文件去重
  */
 function calculateFileHash(buffer: Buffer): string {
   return createHash('md5').update(buffer).digest('hex')
@@ -69,6 +70,7 @@ export class FileService {
 
   /**
    * 确保文件存储目录存在
+   * 如果目录不存在则创建
    */
   private ensureFilesDir(): void {
     const filesDir = getFilesStoragePath()
@@ -97,6 +99,7 @@ export class FileService {
 
   /**
    * 加载文件元数据
+   * 从磁盘读取文件元数据并更新内存状态
    */
   private loadFilesMetadata(): void {
     const filePath = getFilesMetadataPath()
@@ -109,12 +112,9 @@ export class FileService {
       const content = readFileSync(filePath, 'utf-8')
       const files = JSON.parse(content) as FileItem[]
 
-      // 获取当前存在的知识库 ID 列表
       const knowledgeBases = readKnowledgeBases()
       const existingKBIds = new Set(knowledgeBases.map((kb) => kb.id))
 
-      // 为旧文件（没有 absolutePath 的）补充完整路径
-      // 同时清理已不存在的知识库 ID
       this.files = files
         .map((file) => ({
           ...file,
@@ -123,7 +123,6 @@ export class FileService {
         }))
         .filter((file) => file.usedByKBIds.length !== 0 || true)
 
-      // 如果有文件的 usedByKBIds 被清理，保存更新后的元数据
       const hasChanges = files.some((file, index) => {
         const newFile = this.files[index]
         return (
@@ -178,6 +177,7 @@ export class FileService {
 
   /**
    * 格式化文件大小
+   * 将字节转换为易读的格式
    */
   private formatFileSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`
@@ -207,6 +207,7 @@ export class FileService {
 
   /**
    * 搜索文件
+   * 根据文件名搜索文件
    */
   searchFiles(query: string): FileItem[] {
     if (!this.loaded) {
@@ -218,9 +219,6 @@ export class FileService {
 
   /**
    * 上传文件
-   * @param fileData 文件数据（Base64 或 Buffer）
-   * @param fileName 原始文件名
-   * @returns 上传结果
    */
   async uploadFile(
     fileData: Buffer,
@@ -231,7 +229,6 @@ export class FileService {
     }
 
     try {
-      // 检查文件类型
       const supportedTypes = ['.txt', '.md', '.pdf']
       const ext = extname(fileName).toLowerCase()
       if (!supportedTypes.includes(ext)) {
@@ -241,7 +238,6 @@ export class FileService {
         }
       }
 
-      // 检查文件大小（最大 50MB）
       const maxSize = 50 * 1024 * 1024
       if (fileData.length > maxSize) {
         return {
@@ -250,26 +246,21 @@ export class FileService {
         }
       }
 
-      // 计算文件内容哈希
       const contentHash = calculateFileHash(fileData)
 
-      // 检查是否已存在相同内容的文件（去重）
       const existingFile = this.files.find((f) => f.contentHash === contentHash)
       if (existingFile) {
         logger.info('发现重复文件', 'main', { name: fileName, existingName: existingFile.name })
         return { success: true, file: existingFile, isDuplicate: true }
       }
 
-      // 生成唯一文件名（使用时间戳和随机数）
       const timestamp = Date.now()
       const randomStr = Math.random().toString(36).substring(2, 8)
       const safeFileName = `${timestamp}-${randomStr}${ext}`
       const filePath = join(getFilesStoragePath(), safeFileName)
 
-      // 写入文件
       writeFileSync(filePath, fileData)
 
-      // 创建文件记录
       const newFile: FileItem = {
         id: `file-${timestamp}`,
         name: fileName,
@@ -300,9 +291,7 @@ export class FileService {
 
   /**
    * 删除文件
-   * @param fileId 文件ID
-   * @param forceDelete 是否强制删除（即使被知识库使用）
-   * @returns 删除结果
+   * 删除物理文件和元数据，可选择是否强制删除正在被知识库使用的文件
    */
   deleteFile(fileId: string, forceDelete: boolean = false): { success: boolean; error?: string } {
     if (!this.loaded) {
@@ -317,7 +306,6 @@ export class FileService {
 
       const file = this.files[fileIndex]
 
-      // 检查文件是否被知识库使用
       if (file.usedByKBIds.length > 0 && !forceDelete) {
         return {
           success: false,
@@ -325,7 +313,6 @@ export class FileService {
         }
       }
 
-      // 如果强制删除，先从所有知识库中移除关联
       if (forceDelete && file.usedByKBIds.length > 0) {
         const knowledgeBases = readKnowledgeBases()
         for (const kbId of file.usedByKBIds) {
@@ -343,13 +330,11 @@ export class FileService {
         })
       }
 
-      // 删除物理文件
       const fullPath = join(getFilesStoragePath(), file.filePath)
       if (existsSync(fullPath)) {
         unlinkSync(fullPath)
       }
 
-      // 从列表中移除
       this.files.splice(fileIndex, 1)
       this.saveFilesMetadata()
 
@@ -364,9 +349,6 @@ export class FileService {
 
   /**
    * 将文件关联到知识库
-   * @param fileId 文件ID
-   * @param kbId 知识库ID
-   * @returns 关联结果
    */
   linkFileToKB(fileId: string, kbId: string): { success: boolean; error?: string } {
     if (!this.loaded) {
@@ -379,16 +361,13 @@ export class FileService {
         return { success: false, error: '文件不存在' }
       }
 
-      // 检查是否已关联
       if (file.usedByKBIds.includes(kbId)) {
         return { success: false, error: '文件已关联到此知识库' }
       }
 
-      // 更新文件的 usedByKBIds
       file.usedByKBIds.push(kbId)
       this.saveFilesMetadata()
 
-      // 更新知识库的 linkedFileIds
       const knowledgeBases = readKnowledgeBases()
       const kbIndex = knowledgeBases.findIndex((kb) => kb.id === kbId)
       if (kbIndex !== -1) {
@@ -396,7 +375,6 @@ export class FileService {
           knowledgeBases[kbIndex].linkedFileIds = []
         }
         knowledgeBases[kbIndex].linkedFileIds.push(fileId)
-        // 更新文档计数
         knowledgeBases[kbIndex].documentCount = (knowledgeBases[kbIndex].documentCount || 0) + 1
         knowledgeBases[kbIndex].updatedAt = new Date().toISOString()
         writeKnowledgeBases(knowledgeBases)
@@ -413,9 +391,6 @@ export class FileService {
 
   /**
    * 从知识库取消文件关联
-   * @param fileId 文件ID
-   * @param kbId 知识库ID
-   * @returns 取消关联结果
    */
   unlinkFileFromKB(fileId: string, kbId: string): { success: boolean; error?: string } {
     if (!this.loaded) {
@@ -428,17 +403,14 @@ export class FileService {
         return { success: false, error: '文件不存在' }
       }
 
-      // 检查是否已关联
       const kbIndex = file.usedByKBIds.indexOf(kbId)
       if (kbIndex === -1) {
         return { success: false, error: '文件未关联到此知识库' }
       }
 
-      // 更新文件的 usedByKBIds
       file.usedByKBIds.splice(kbIndex, 1)
       this.saveFilesMetadata()
 
-      // 更新知识库的 linkedFileIds
       const knowledgeBases = readKnowledgeBases()
       const kbIndex2 = knowledgeBases.findIndex((kb) => kb.id === kbId)
       if (kbIndex2 !== -1) {
@@ -448,7 +420,6 @@ export class FileService {
         knowledgeBases[kbIndex2].linkedFileIds = knowledgeBases[kbIndex2].linkedFileIds.filter(
           (id) => id !== fileId
         )
-        // 更新文档计数
         knowledgeBases[kbIndex2].documentCount = Math.max(
           0,
           (knowledgeBases[kbIndex2].documentCount || 0) - 1
@@ -468,8 +439,6 @@ export class FileService {
 
   /**
    * 获取知识库关联的文件列表
-   * @param kbId 知识库ID
-   * @returns 文件列表
    */
   getFilesByKBId(kbId: string): FileItem[] {
     if (!this.loaded) {
@@ -481,8 +450,6 @@ export class FileService {
 
   /**
    * 检查文件是否被知识库使用
-   * @param fileId 文件ID
-   * @returns 使用此文件的知识库ID列表
    */
   getFileUsage(fileId: string): string[] {
     if (!this.loaded) {
@@ -494,7 +461,6 @@ export class FileService {
   }
 }
 
-// 单例实例
 let fileServiceInstance: FileService | null = null
 
 /**

@@ -1,12 +1,8 @@
-/**
- * Store 共享类型定义
- */
+// Store 共享类型定义
 
 import type { MCPTool, KnowledgeBase } from '@renderer/types'
 
-/**
- * 会话输入状态
- */
+// 会话输入状态
 export interface SessionInputState {
   inputMessage: string
   selectedModel: string
@@ -14,9 +10,7 @@ export interface SessionInputState {
   selectedKnowledgeBases: KnowledgeBase[]
 }
 
-/**
- * 序列化后的输入状态（用于持久化）
- */
+// 序列化后的输入状态（用于持久化）
 export interface SerializedInputState extends Omit<
   SessionInputState,
   'selectedMCPTools' | 'selectedKnowledgeBases'
@@ -34,9 +28,7 @@ export interface SerializedInputState extends Omit<
   }>
 }
 
-/**
- * 会话发送状态
- */
+// 会话发送状态
 export interface SessionSendingState {
   sessionId: string
   isSending: boolean
@@ -44,9 +36,7 @@ export interface SessionSendingState {
   lastUpdated: string
 }
 
-/**
- * Store 持久化版本（用于数据迁移）
- */
+// Store 持久化版本（用于数据迁移）
 export interface StorePersistedState {
   version: number
   timestamp: string

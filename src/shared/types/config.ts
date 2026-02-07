@@ -1,32 +1,33 @@
 /**
- * 嵌入模型提供商类型
+ * 定义嵌入模型支持的提供商类型
  */
 export type EmbeddingProviderType = 'openai' | 'aliyun' | 'ollama' | 'custom'
 
 /**
- * 嵌入模型配置
+ * 嵌入模型的配置信息
  */
 export interface EmbeddingConfig {
-  /** 模型提供商 */
+  /** 模型服务提供商 */
   provider?: 'openai' | 'aliyun' | 'ollama' | 'custom'
-  /** API 基础 URL（OpenAI 兼容接口） */
+  /** API 基础地址，需要兼容 OpenAI 接口格式 */
   baseUrl: string
-  /** API 密钥 */
+  /** 调用 API 需要的密钥 */
   apiKey?: string
-  /** 模型名称 */
+  /** 使用的模型名称 */
   model: string
-  /** 向量维度 */
+  /** 模型生成的向量维度 */
   dimensions: number
-  /** 是否启用 */
+  /** 该配置是否启用 */
   enabled?: boolean
-  /** 模型显示名称 */
+  /** 模型显示的名称 */
   displayName?: string
-  /** 创建时间 */
+  /** 配置创建的时间 */
   createdAt?: string
 }
 
 /**
- * 预定义的嵌入模型配置
+ * 预定义的嵌入模型模板
+ * 供用户快速选择常用的模型配置
  */
 export interface PresetEmbeddingModel {
   id: string
@@ -36,51 +37,53 @@ export interface PresetEmbeddingModel {
 }
 
 /**
- * 嵌入模型配置集合
+ * 多个嵌入模型配置的集合
  */
 export interface EmbeddingConfigs {
   [modelId: string]: EmbeddingConfig
 }
 
 /**
- * 工具描述详细程度
+ * 工具描述的详细程度
+ * 控制传递给模型的工具描述信息量
  */
 export type ToolDescriptionLevel = 'basic' | 'detailed' | 'minimal'
 
 /**
- * 提示词配置
+ * 提示词生成的相关配置
+ * 影响聊天时发送给模型的系统提示词内容
  */
 export interface PromptConfig {
-  /** 是否启用增强版提示词 */
+  /** 是否使用增强版的提示词生成逻辑 */
   enableEnhancedPrompt?: boolean
-  /** 工具描述详细程度 */
+  /** 工具描述的详细程度 */
   toolDescriptionLevel?: ToolDescriptionLevel
-  /** Few-shot 示例数量 (0-5) */
+  /** Few-shot 示例的数量，范围 0 到 5 */
   fewShotCount?: number
-  /** 自定义系统提示词（覆盖默认提示词） */
+  /** 自定义的系统提示词，会覆盖默认生成的提示词 */
   customSystemPrompt?: string
-  /** 是否启用提示词缓存 */
+  /** 是否启用提示词缓存，减少重复构建的开销 */
   enablePromptCache?: boolean
-  /** 缓存最大条目数 */
+  /** 缓存的最大条目数 */
   cacheMaxSize?: number
-  /** 缓存过期时间（小时） */
+  /** 缓存过期时间，单位小时 */
   cacheTTLHours?: number
-  /** 是否启用动态示例 */
+  /** 是否启用动态 Few-shot 示例 */
   enableDynamicExamples?: boolean
-  /** 自动提取间隔（天） */
+  /** 自动提取动态示例的间隔天数 */
   autoExtractIntervalDays?: number
-  /** 动态示例最小质量分数 */
+  /** 动态示例的最低质量分数要求 */
   dynamicExampleMinQuality?: number
-  /** 最大静态示例数量 */
+  /** 最多保留的静态示例数量 */
   maxStaticExamples?: number
   /** 是否启用提示词优化 */
   enablePromptOptimization?: boolean
-  /** 优化激进程度 */
+  /** 提示词优化的激进程度 */
   optimizationAggressiveness?: 'conservative' | 'balanced' | 'aggressive'
 }
 
 /**
- * LLM 配置项
+ * 单个 LLM 模型的配置项
  */
 export interface LLMConfig {
   base_url: string
@@ -91,7 +94,8 @@ export interface LLMConfig {
 }
 
 /**
- * LLM 配置对象（新格式）
+ * LLM 配置对象的完整结构
+ * 包含多个模型配置和一些全局设置
  */
 export interface LLMConfigObject {
   default_model: string
@@ -101,30 +105,30 @@ export interface LLMConfigObject {
 }
 
 /**
- * 主题颜色配置
+ * 界面主题的颜色配置
  */
 export interface ThemeColors {
-  /** 主背景色 */
+  /** 主要背景颜色 */
   background: string
-  /** 次级背景色 */
+  /** 次要背景颜色 */
   backgroundSecondary: string
-  /** 主文字颜色 */
+  /** 主要文本颜色 */
   text: string
-  /** 次级文字颜色 */
+  /** 次要文本颜色 */
   textSecondary: string
-  /** 强调色 */
+  /** 强调色，用于按钮、链接等 */
   accent: string
   /** 边框颜色 */
   border: string
 }
 
 /**
- * 主题配置
+ * 界面主题配置
  */
 export interface ThemeConfig {
-  /** 主题名称 */
+  /** 主题的名称 */
   name: string
-  /** 主题颜色 */
+  /** 主题的颜色方案 */
   colors?: ThemeColors
 }
 
@@ -135,30 +139,33 @@ import type { MCPServerConfig, MCPTransportType } from './mcp'
 export type { MCPServerConfig, MCPTransportType }
 
 /**
- * MCP 服务器配置集合
+ * MCP 服务器配置的集合
  */
 export interface MCPServers {
   [key: string]: MCPServerConfig
 }
 
 /**
- * 应用配置
+ * 应用的完整配置
  */
 export interface AppConfig {
   theme: ThemeConfig
   llm_config: LLMConfigObject
   mcpServers: MCPServers
-  /** 提示词配置 */
+  /** 提示词生成相关的配置 */
   promptConfig?: PromptConfig
-  /** 嵌入模型配置集合（知识库使用） */
+  /** 知识库使用的嵌入模型配置集合 */
   embeddingModels?: EmbeddingConfigs
 }
 
 /**
- * 配置加载结果
+ * 配置加载操作的结果
  */
 export interface ConfigLoadResult {
+  /** 配置是否加载成功 */
   success: boolean
+  /** 加载到的配置数据 */
   config: AppConfig | null
+  /** 加载失败时的错误信息 */
   error?: string
 }

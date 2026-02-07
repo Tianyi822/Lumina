@@ -1,6 +1,6 @@
 /**
  * 工具调用调度器
- * 分析工具调用依赖关系并并行执行独立的工具调用
+ * 分析工具之间的依赖关系，并行执行独立的工具调用以提高效率
  */
 
 import type { WebContents } from 'electron'
@@ -9,7 +9,8 @@ import type { MCPService } from '../mcp'
 import type { Logger } from '../logger'
 
 /**
- * 工具调用定义（兼容 OpenAI 格式）
+ * 工具调用定义
+ * 兼容 OpenAI 的工具调用格式
  */
 interface ToolCallDefinition {
   id: string
@@ -21,14 +22,14 @@ interface ToolCallDefinition {
 }
 
 /**
- * 工具调用结果（内部使用）
+ * 工具调用执行结果
  */
 interface ToolCallExecution {
-  /** 工具调用 */
+  /** 工具调用定义 */
   toolCall: ToolCallDefinition
-  /** 执行后的消息 */
+  /** 执行后生成的聊天消息 */
   message: ChatMessage
-  /** 是否成功 */
+  /** 执行是否成功 */
   success: boolean
 }
 
@@ -36,7 +37,7 @@ interface ToolCallExecution {
  * 依赖分析结果
  */
 interface DependencyAnalysis {
-  /** 可并行执行的独立工具调用 */
+  /** 可以并行执行的独立工具调用 */
   independent: ToolCallDefinition[]
   /** 需要串行执行的工具调用 */
   sequential: ToolCallDefinition[]
@@ -44,6 +45,7 @@ interface DependencyAnalysis {
 
 /**
  * 工具调用调度器
+ * 通过分析依赖关系提高工具调用效率
  */
 export class ToolCallScheduler {
   private mcpService: MCPService
@@ -57,24 +59,22 @@ export class ToolCallScheduler {
   }
 
   /**
-   * 分析工具调用的依赖关系
+   * 分析工具调用之间的依赖关系
+   * 检测哪些工具调用可以并行执行，哪些必须串行执行
    */
   analyzeDependencies(toolCalls: ToolCallDefinition[]): DependencyAnalysis {
     if (toolCalls.length <= 1) {
       return { independent: [], sequential: toolCalls }
     }
 
-    // 分析每个工具调用的参数，检测是否依赖其他工具的输出
     const independent: ToolCallDefinition[] = []
     const sequential: ToolCallDefinition[] = []
 
-    // 解析工具调用参数
     const parsedCalls = toolCalls.map((tc) => ({
       toolCall: tc,
       args: this.parseArguments(tc.function.arguments)
     }))
 
-    // 检测依赖关系
     for (let i = 0; i < parsedCalls.length; i++) {
       const current = parsedCalls[i]
       const hasDependency = this.hasDependencyOnPreviousCalls(
@@ -103,6 +103,7 @@ export class ToolCallScheduler {
 
   /**
    * 并行执行独立的工具调用
+   * 将工具调用分批执行，控制并发数量
    */
   async executeParallel(
     toolCalls: ToolCallDefinition[],
@@ -121,7 +122,6 @@ export class ToolCallScheduler {
       count: toolCalls.length
     })
 
-    // 发送进度事件
     this.sendProgressEvent(webContents, {
       type: 'tool_progress',
       sessionId,
@@ -130,15 +130,12 @@ export class ToolCallScheduler {
       message: `准备并行执行 ${toolCalls.length} 个工具...`
     })
 
-    // 分批执行（控制并发度）
     const batchSize = Math.min(this.maxConcurrency, toolCalls.length)
     for (let i = 0; i < toolCalls.length; i += batchSize) {
       const batch = toolCalls.slice(i, i + batchSize)
 
-      // 并行执行当前批次
       const batchPromises = batch.map((toolCall, index) =>
         this.executeTool(toolCall, webContents, sessionId).then((result) => {
-          // 发送进度更新
           this.sendProgressEvent(webContents, {
             type: 'tool_progress',
             sessionId,
@@ -154,7 +151,6 @@ export class ToolCallScheduler {
       results.push(...batchResults)
     }
 
-    // 按调用顺序排序结果
     const sortedResults = this.sortResultsByOriginalOrder(results, toolCalls)
 
     this.logger.info('并行工具执行完成', 'main', {
@@ -178,10 +174,8 @@ export class ToolCallScheduler {
     const args = toolCall.function.arguments
 
     try {
-      // 解析参数
       const parsedArgs = JSON.parse(args)
 
-      // 发送工具调用事件
       this.sendStreamEvent(webContents, {
         type: 'tool_call',
         sessionId,
@@ -193,14 +187,12 @@ export class ToolCallScheduler {
         }
       })
 
-      // 调用工具
       const nameParts = toolName.split('__')
       const serverName = nameParts.length > 1 ? nameParts[0] : 'unknown'
       const actualToolName = nameParts.length > 1 ? nameParts[1] : toolName
 
       const result = await this.mcpService.callTool(serverName, actualToolName, parsedArgs)
 
-      // 发送工具结果事件
       this.sendStreamEvent(webContents, {
         type: 'tool_result',
         sessionId,
@@ -212,7 +204,6 @@ export class ToolCallScheduler {
         }
       })
 
-      // 构建工具消息
       const message: ChatMessage = {
         role: 'tool',
         content: typeof result === 'string' ? result : JSON.stringify(result),
@@ -232,7 +223,6 @@ export class ToolCallScheduler {
         error: errorMessage
       })
 
-      // 发送错误结果事件
       this.sendStreamEvent(webContents, {
         type: 'tool_result',
         sessionId,
@@ -244,7 +234,6 @@ export class ToolCallScheduler {
         }
       })
 
-      // 构建错误消息
       const message: ChatMessage = {
         role: 'tool',
         content: JSON.stringify({ error: errorMessage }),
@@ -260,20 +249,19 @@ export class ToolCallScheduler {
   }
 
   /**
-   * 检查当前工具调用是否依赖之前的调用
+   * 检查当前工具调用是否依赖之前的工具调用
+   * 通过检测参数中的关键词和工具名称来判断
    */
   private hasDependencyOnPreviousCalls(
     current: { toolCall: ToolCallDefinition; args: Record<string, unknown> },
     previousCalls: Array<{ toolCall: ToolCallDefinition; args: Record<string, unknown> }>
   ): boolean {
-    // 如果没有之前的调用，没有依赖
     if (previousCalls.length === 0) {
       return false
     }
 
     const currentArgs = JSON.stringify(current.args).toLowerCase()
 
-    // 检查是否有明确的依赖标记
     const dependencyIndicators = [
       'previous',
       'above',
@@ -291,7 +279,6 @@ export class ToolCallScheduler {
       }
     }
 
-    // 检查是否引用了之前工具的名称
     for (const prev of previousCalls) {
       const prevToolName = prev.toolCall.function.name.toLowerCase()
       if (currentArgs.includes(prevToolName)) {
@@ -299,25 +286,21 @@ export class ToolCallScheduler {
       }
     }
 
-    // 检查语义依赖（同服务器、同资源等）
     const currentServerName = this.extractServerName(current.toolCall.function.name)
 
-    // 如果多个工具调用属于同一个服务器，可能有资源竞争，应该串行
     const sameServerCount = previousCalls.filter(
       (pc) => this.extractServerName(pc.toolCall.function.name) === currentServerName
     ).length
 
     if (sameServerCount > 0) {
-      // 保守策略：同一服务器的工具串行执行
-      // 可以根据实际情况调整
-      return false // 默认允许并行，除非有明确依赖
+      return false
     }
 
     return false
   }
 
   /**
-   * 解析工具参数
+   * 解析工具调用参数字符串
    */
   private parseArguments(argsString: string): Record<string, unknown> {
     try {
@@ -336,7 +319,7 @@ export class ToolCallScheduler {
   }
 
   /**
-   * 按原始调用顺序排序结果
+   * 按原始调用顺序对结果进行排序
    */
   private sortResultsByOriginalOrder(
     results: ToolCallExecution[],
@@ -355,7 +338,7 @@ export class ToolCallScheduler {
   }
 
   /**
-   * 发送流事件
+   * 发送流式事件到渲染进程
    */
   private sendStreamEvent(
     webContents: WebContents,
@@ -381,7 +364,7 @@ export class ToolCallScheduler {
   }
 
   /**
-   * 发送进度事件
+   * 发送进度事件到渲染进程
    */
   private sendProgressEvent(
     webContents: WebContents,

@@ -1,7 +1,4 @@
-/**
- * 示例仓库
- * 负责动态示例的持久化存储和管理
- */
+// 示例仓库，负责动态示例的持久化存储和管理
 
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
@@ -10,21 +7,17 @@ import type { EnhancedFewShotExample } from './prompts/types'
 import { app } from 'electron'
 import { logger } from '../logger'
 
-/**
- * 示例仓库数据结构
- */
+// 示例仓库数据结构
 interface ExampleRepositoryData {
-  /** 示例列表 */
+  // 示例列表
   examples: EnhancedFewShotExample[]
-  /** 最后更新时间 */
+  // 最后更新时间
   lastUpdated: string
-  /** 版本 */
+  // 版本
   version: number
 }
 
-/**
- * 示例仓库
- */
+// 示例仓库
 export class ExampleRepository {
   private data: ExampleRepositoryData
   private filePath: string
@@ -42,9 +35,7 @@ export class ExampleRepository {
     }
   }
 
-  /**
-   * 初始化仓库（从文件加载）
-   */
+  // 初始化仓库（从文件加载）
   async initialize(): Promise<void> {
     if (this.initialized) {
       return
@@ -77,41 +68,31 @@ export class ExampleRepository {
     }
   }
 
-  /**
-   * 获取所有示例
-   */
+  // 获取所有示例
   async getAll(): Promise<EnhancedFewShotExample[]> {
     await this.ensureInitialized()
     return [...this.data.examples]
   }
 
-  /**
-   * 根据 ID 获取示例
-   */
+  // 根据 ID 获取示例
   async getById(id: string): Promise<EnhancedFewShotExample | null> {
     await this.ensureInitialized()
     return this.data.examples.find((ex) => ex.id === id) || null
   }
 
-  /**
-   * 根据工具获取示例
-   */
+  // 根据工具获取示例
   async getByTool(toolName: string): Promise<EnhancedFewShotExample[]> {
     await this.ensureInitialized()
     return this.data.examples.filter((ex) => ex.toolsUsed.includes(toolName))
   }
 
-  /**
-   * 获取动态示例
-   */
+  // 获取动态示例
   async getDynamicExamples(): Promise<EnhancedFewShotExample[]> {
     await this.ensureInitialized()
     return this.data.examples.filter((ex) => ex.source === 'dynamic')
   }
 
-  /**
-   * 添加示例
-   */
+  // 添加示例
   async add(examples: EnhancedFewShotExample[]): Promise<void> {
     await this.ensureInitialized()
 
@@ -133,9 +114,7 @@ export class ExampleRepository {
     logger.info('示例添加成功', 'main', { count: examples.length })
   }
 
-  /**
-   * 更新示例
-   */
+  // 更新示例
   async update(examples: EnhancedFewShotExample[]): Promise<void> {
     await this.ensureInitialized()
 
@@ -152,9 +131,7 @@ export class ExampleRepository {
     logger.info('示例更新成功', 'main', { count: examples.length })
   }
 
-  /**
-   * 删除示例
-   */
+  // 删除示例
   async delete(exampleIds: string[]): Promise<void> {
     await this.ensureInitialized()
 
@@ -169,9 +146,7 @@ export class ExampleRepository {
     }
   }
 
-  /**
-   * 清空所有动态示例
-   */
+  // 清空所有动态示例
   async clearDynamicExamples(): Promise<void> {
     await this.ensureInitialized()
 
@@ -186,9 +161,7 @@ export class ExampleRepository {
     }
   }
 
-  /**
-   * 根据质量分数清理示例
-   */
+  // 根据质量分数清理示例
   async cleanupByQuality(minQualityScore: number): Promise<number> {
     await this.ensureInitialized()
 
@@ -210,9 +183,7 @@ export class ExampleRepository {
     return deletedCount
   }
 
-  /**
-   * 根据时间清理示例
-   */
+  // 根据时间清理示例
   async cleanupByAge(days: number): Promise<number> {
     await this.ensureInitialized()
 
@@ -236,9 +207,7 @@ export class ExampleRepository {
     return deletedCount
   }
 
-  /**
-   * 获取统计信息
-   */
+  // 获取统计信息
   async getStats(): Promise<{
     total: number
     static: number
@@ -263,9 +232,7 @@ export class ExampleRepository {
     }
   }
 
-  /**
-   * 保存到文件
-   */
+  // 保存到文件
   private async save(): Promise<void> {
     try {
       // 确保目录存在
@@ -281,26 +248,20 @@ export class ExampleRepository {
     }
   }
 
-  /**
-   * 确保已初始化
-   */
+  // 确保已初始化
   private async ensureInitialized(): Promise<void> {
     if (!this.initialized) {
       await this.initialize()
     }
   }
 
-  /**
-   * 导出为 JSON
-   */
+  // 导出为 JSON
   async exportAsJSON(): Promise<string> {
     await this.ensureInitialized()
     return JSON.stringify(this.data, null, 2)
   }
 
-  /**
-   * 从 JSON 导入
-   */
+  // 从 JSON 导入
   async importFromJSON(json: string): Promise<void> {
     try {
       const data = JSON.parse(json) as ExampleRepositoryData

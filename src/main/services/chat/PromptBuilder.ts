@@ -11,10 +11,7 @@ import { exampleManager } from './prompts/ExampleManager'
 // 使用共享的 PromptConfig 类型
 type PromptConfig = SharedPromptConfig
 
-/**
- * PromptBuilder 服务
- * 负责根据配置构建系统提示词
- */
+// PromptBuilder 服务，负责根据配置构建系统提示词
 export class PromptBuilder {
   private promptConfig: PromptConfig | null = null
   private cache: PromptCache = new PromptCache()
@@ -26,9 +23,7 @@ export class PromptBuilder {
     this.initializeAsync()
   }
 
-  /**
-   * 异步初始化
-   */
+  // 异步初始化
   private async initializeAsync(): Promise<void> {
     try {
       await exampleManager.initialize()
@@ -39,30 +34,22 @@ export class PromptBuilder {
     }
   }
 
-  /**
-   * 获取缓存实例
-   */
+  // 获取缓存实例
   getCache(): PromptCache {
     return this.cache
   }
 
-  /**
-   * 获取示例管理器实例
-   */
+  // 获取示例管理器实例
   getExampleManager(): typeof exampleManager {
     return exampleManager
   }
 
-  /**
-   * 获取优化器实例
-   */
+  // 获取优化器实例
   getOptimizer(): PromptOptimizer {
     return this.optimizer
   }
 
-  /**
-   * 更新提示词配置
-   */
+  // 更新提示词配置
   updatePromptConfig(config: PromptConfig | null): void {
     // 检查配置是否发生变化
     const changed =
@@ -87,14 +74,7 @@ export class PromptBuilder {
     }
   }
 
-  /**
-   * 构建系统提示词
-   * @param modelConfig LLM 配置
-   * @param hasTools 是否有工具可用
-   * @param selectedTools 选中的工具列表（可选）
-   * @param knowledgeResults 知识库搜索结果（可选）
-   * @returns 构建好的系统提示词
-   */
+  // 构建系统提示词
   async buildSystemPrompt(
     modelConfig: LLMConfig,
     hasTools: boolean,
@@ -150,9 +130,7 @@ export class PromptBuilder {
     return finalPrompt
   }
 
-  /**
-   * 生成示例 ID 列表
-   */
+  // 生成示例 ID 列表
   private generateExampleIds(count: number): string[] {
     const ids: string[] = []
     for (let i = 0; i < count; i++) {
@@ -161,9 +139,7 @@ export class PromptBuilder {
     return ids
   }
 
-  /**
-   * 构建提示词选项
-   */
+  // 构建提示词选项
   private async buildOptions(
     modelConfig: LLMConfig,
     selectedTools?: MCPToolReference[],
@@ -242,36 +218,30 @@ export class PromptBuilder {
     return options
   }
 
-  /**
-   * 获取基础系统提示词（无工具时使用）
-   */
+  // 获取基础系统提示词（无工具时使用）
   private getBasicSystemPrompt(): string {
     return `你是一个有帮助的 AI 助手。你的任务是：
 
-1. 仔细理解用户的问题
-2. 提供准确、有用的回答
-3. 使用清晰、结构化的表达
-4. 如果不确定，诚实地说出来
+ 1. 仔细理解用户的问题
+ 2. 提供准确、有用的回答
+ 3. 使用清晰、结构化的表达
+ 4. 如果不确定，诚实地说出来
 
-请用友好的语气回应用户，并尽力提供有价值的信息。`
+ 请用友好的语气回应用户，并尽力提供有价值的信息。`
   }
 
-  /**
-   * 获取简化的 ReAct 提示词（向后兼容）
-   */
+  // 获取简化的 ReAct 提示词（向后兼容）
   getLegacyReactPrompt(): string {
     return `你是一个可以使用工具的 AI 助手。
-当你需要使用工具时，请按以下步骤思考：
-1. 思考：分析你需要什么信息以及哪个工具可以帮助你
-2. 行动：使用合适的工具并提供正确的参数
-3. 观察：查看工具的输出结果
-4. 如有需要重复上述步骤，然后给出你的最终答案
+ 当你需要使用工具时，请按以下步骤思考：
+ 1. 思考：分析你需要什么信息以及哪个工具可以帮助你
+ 2. 行动：使用合适的工具并提供正确的参数
+ 3. 观察：查看工具的输出结果
+ 4. 如有需要重复上述步骤，然后给出你的最终答案
 
-请始终解释你的推理过程。当你有足够的信息时，提供一个全面的最终答案。`
+ 请始终解释你的推理过程。当你有足够的信息时，提供一个全面的最终答案。`
   }
 }
 
-/**
- * 单例实例
- */
+// 单例实例
 export const promptBuilder = new PromptBuilder()

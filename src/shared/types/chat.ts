@@ -1,33 +1,36 @@
+import type { KnowledgeBaseReference } from './knowledge'
+
 /**
- * 消息角色类型
+ * 定义聊天消息中发送者的角色类型
  */
 export type MessageRole = 'system' | 'user' | 'assistant' | 'tool'
 
 /**
- * 聊天消息
+ * 表示一条聊天消息的完整结构
+ * 包含角色、内容、工具调用和思考过程等信息
  */
 export interface ChatMessage {
-  /** 消息角色 */
+  /** 消息发送者角色 */
   role: MessageRole
-  /** 消息内容 */
+  /** 消息文本内容，可能为空 */
   content: string | null
-  /** 工具调用（仅 assistant 消息） */
+  /** 工具调用信息，仅 assistant 消息会有 */
   tool_calls?: ToolCallMessage[]
-  /** 工具调用 ID（仅 tool 消息） */
+  /** 工具调用的 ID，仅 tool 消息会有 */
   tool_call_id?: string
-  /** 思考内容 */
+  /** 模型思考过程的内容 */
   reasoning_content?: string
 }
 
 /**
- * 工具调用消息
+ * 表示一次工具调用的详细信息
  */
 export interface ToolCallMessage {
-  /** 工具调用 ID */
+  /** 本次工具调用的唯一标识 */
   id: string
-  /** 类型 */
+  /** 调用类型，目前只支持函数调用 */
   type: 'function'
-  /** 函数信息 */
+  /** 函数调用的具体信息 */
   function: {
     name: string
     arguments: string
@@ -35,51 +38,53 @@ export interface ToolCallMessage {
 }
 
 /**
- * MCP 工具引用（用于传递选中的工具）
+ * 表示用户选中的 MCP 工具引用
+ * 用于在发起聊天时传递选中的工具信息
  */
 export interface MCPToolReference {
   /** MCP 服务器名称 */
   serverName: string
   /** 工具名称 */
   toolName: string
-  /** 工具描述 */
+  /** 工具的描述文本 */
   description: string
-  /** 输入参数 Schema */
+  /** 工具输入参数的结构定义 */
   inputSchema: Record<string, unknown>
 }
 
 /**
- * 工具调用信息（用于 UI 展示）
+ * 工具调用时展示给用户的信息
  */
 export interface ToolCallInfo {
-  /** 工具调用 ID */
+  /** 工具调用的唯一标识 */
   id: string
-  /** 工具名称 */
+  /** 工具的名称 */
   name: string
-  /** MCP 服务器名称 */
+  /** 所属 MCP 服务器名称 */
   serverName: string
-  /** 调用参数 */
+  /** 传递给工具的参数 */
   arguments: Record<string, unknown>
 }
 
 /**
- * 工具调用结果（用于 UI 展示）
+ * 工具调用完成后返回的结果展示信息
  */
 export interface ToolResultInfo {
-  /** 工具调用 ID */
+  /** 工具调用的唯一标识 */
   id: string
-  /** 工具名称 */
+  /** 工具的名称 */
   name: string
-  /** 是否成功 */
+  /** 工具执行是否成功 */
   success: boolean
-  /** 结果内容 */
+  /** 工具返回的结果数据 */
   result?: unknown
-  /** 错误信息 */
+  /** 工具执行失败时的错误信息 */
   error?: string
 }
 
 /**
- * 流式事件类型
+ * 流式传输时的事件类型
+ * 定义了聊天过程中可能发生的各种事件
  */
 export type StreamEventType =
   | 'content'
@@ -93,28 +98,28 @@ export type StreamEventType =
   | 'error'
 
 /**
- * 知识库搜索信息（用于 UI 展示）
+ * 知识库搜索操作的信息展示
  */
 export interface KnowledgeSearchInfo {
-  /** 知识库 ID */
+  /** 知识库的唯一标识 */
   knowledgeBaseId: string
-  /** 知识库名称 */
+  /** 知识库的名称 */
   knowledgeBaseName: string
-  /** 用户查询 */
+  /** 用户的查询内容 */
   query: string
 }
 
 /**
- * 知识库搜索结果信息（用于 UI 展示）
+ * 知识库搜索完成后的结果信息展示
  */
 export interface KnowledgeResultInfo {
-  /** 知识库 ID */
+  /** 知识库的唯一标识 */
   knowledgeBaseId: string
-  /** 知识库名称 */
+  /** 知识库的名称 */
   knowledgeBaseName: string
-  /** 用户查询 */
+  /** 用户的查询内容 */
   query: string
-  /** 搜索结果 */
+  /** 搜索到的相关文档片段 */
   results: Array<{
     chunkId: number
     fileId: string
@@ -125,114 +130,102 @@ export interface KnowledgeResultInfo {
 }
 
 /**
- * 流式事件
+ * 聊天流式传输事件
+ * 每个事件包含不同类型的增量数据
  */
 export interface StreamEvent {
-  /** 事件类型 */
+  /** 事件的具体类型 */
   type: StreamEventType
-  /** 会话标识（用于多会话场景下识别事件归属） */
+  /** 会话标识，用于多会话场景下区分不同会话的事件 */
   sessionId?: string
-  /** 内容增量 */
+  /** 新增的消息文本内容 */
   content?: string
-  /** Token 使用统计（仅 done 事件） */
+  /** Token 使用统计，仅在事件类型为 done 时提供 */
   usage?: TokenUsage
-  /** 错误信息（仅 error 事件） */
+  /** 错误信息，仅在事件类型为 error 时提供 */
   error?: string
-  /** 工具调用信息（仅 tool_call 事件） */
+  /** 工具调用信息，仅在事件类型为 tool_call 时提供 */
   toolCall?: ToolCallInfo
-  /** 工具结果信息（仅 tool_result 事件） */
+  /** 工具执行结果，仅在事件类型为 tool_result 时提供 */
   toolResult?: ToolResultInfo
-  /** 工具进度信息（仅 tool_progress 事件） */
+  /** 工具执行进度，仅在事件类型为 tool_progress 时提供 */
   toolProgress?: {
     current: number
     total: number
     message?: string
   }
-  /** 知识库搜索信息（仅 knowledge_search 事件） */
+  /** 知识库搜索信息，仅在事件类型为 knowledge_search 时提供 */
   knowledgeSearch?: KnowledgeSearchInfo
-  /** 知识库搜索结果信息（仅 knowledge_result 事件） */
+  /** 知识库搜索结果，仅在事件类型为 knowledge_result 时提供 */
   knowledgeResult?: KnowledgeResultInfo
 }
 
 /**
- * Token 使用统计
+ * 统计 Token 使用情况
  */
 export interface TokenUsage {
-  /** 输入 token 数量 */
+  /** 输入模型使用的 Token 数量 */
   prompt_tokens: number
-  /** 输出 token 数量 */
+  /** 模型输出的 Token 数量 */
   completion_tokens: number
-  /** 总 token 数量 */
+  /** 总共使用的 Token 数量 */
   total_tokens: number
-  /** 思考 token 数量 */
+  /** 思考过程使用的 Token 数量 */
   reasoning_tokens?: number
 }
 
 /**
- * 知识库引用（用于传递选中的知识库）
- */
-export interface KnowledgeBaseReference {
-  /** 知识库 ID */
-  id: string
-  /** 知识库名称 */
-  name: string
-  /** 知识库描述 */
-  description?: string
-  /** 文档数量 */
-  documentCount: number
-}
-
-/**
- * 知识库搜索结果
+ * 知识库搜索的完整结果
+ * 包含搜索到的文档片段和相关度信息
  */
 export interface KnowledgeSearchResult {
-  /** 知识库 ID */
+  /** 知识库的唯一标识 */
   knowledgeBaseId: string
-  /** 知识库名称 */
+  /** 知识库的名称 */
   knowledgeBaseName: string
-  /** 用户查询 */
+  /** 用户的查询内容 */
   query: string
-  /** 搜索结果 */
+  /** 搜索结果列表 */
   results: Array<{
-    /** 文档块 ID */
+    /** 文档块的唯一标识 */
     chunkId: number
-    /** 文件 ID */
+    /** 文件的唯一标识 */
     fileId: string
     /** 文件名 */
     fileName: string
-    /** 内容片段 */
+    /** 文档片段的内容 */
     content: string
-    /** 相似度分数 */
+    /** 与查询的相似度分数 */
     similarity: number
   }>
 }
 
 /**
- * 聊天请求参数
+ * 发起聊天请求所需的完整参数
  */
 export interface ChatRequest {
-  /** 消息历史 */
+  /** 历史消息列表 */
   messages: ChatMessage[]
-  /** 模型配置 key（对应 llm_configs 中的 key） */
+  /** 模型配置的键名，对应 llm_configs 中的某个配置 */
   modelKey: string
-  /** 会话标识（用于多会话管理和事件路由） */
+  /** 会话标识，用于多会话管理和事件路由 */
   sessionId: string
-  /** 是否启用思考模式 */
+  /** 是否启用模型的思考模式 */
   enableThinking?: boolean
-  /** 选中的 MCP 工具列表 */
+  /** 用户选择的 MCP 工具列表 */
   selectedTools?: MCPToolReference[]
-  /** 选中的知识库列表 */
+  /** 用户选择的知识库列表 */
   selectedKnowledgeBases?: KnowledgeBaseReference[]
-  /** ReAct 最大迭代次数（默认 10） */
+  /** ReAct 循环的最大迭代次数，默认 10 次 */
   maxReactIterations?: number
 }
 
 /**
- * 聊天响应结果
+ * 聊天请求的执行结果
  */
 export interface ChatResult {
-  /** 是否成功 */
+  /** 请求是否执行成功 */
   success: boolean
-  /** 错误信息 */
+  /** 执行失败时的错误信息 */
   error?: string
 }

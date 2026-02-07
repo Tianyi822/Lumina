@@ -6,9 +6,7 @@ import { Int32, Int64, Utf8, Schema, Field, FixedSizeList, Float32 } from 'apach
 import { getVectorDBDirPath } from '@main/services/config/configPaths'
 import { logger } from '@main/services/logger'
 
-/**
- * 文档块数据结构
- */
+// 文档块数据结构
 export interface DocumentChunk {
   id?: number
   fileId: string
@@ -18,9 +16,7 @@ export interface DocumentChunk {
   totalChunks: number
 }
 
-/**
- * 搜索结果
- */
+// 搜索结果
 export interface SearchResult {
   chunkId: number
   fileId: string
@@ -31,9 +27,7 @@ export interface SearchResult {
   similarity: number
 }
 
-/**
- * 向量记录
- */
+// 向量记录（数据库存储格式）
 interface VectorRecord extends Record<string, unknown> {
   chunk_id: number
   file_id: string
@@ -44,18 +38,15 @@ interface VectorRecord extends Record<string, unknown> {
   embedding: number[]
 }
 
-/**
- * 向量数据库服务
- * 使用 LanceDB 为每个知识库管理独立的向量数据库
- */
+// 向量数据库服务
+// 使用 LanceDB 为每个知识库管理独立的向量数据库
+// 支持文档块添加、删除、相似性搜索等功能
 export class VectorDBService {
   private dbConnections: Map<string, lancedb.Connection> = new Map()
   private tables: Map<string, lancedb.Table> = new Map()
   private indexedTables: Set<string> = new Set()
 
-  /**
-   * 确保数据目录存在
-   */
+  // 确保数据目录存在
   private ensureDataDir(): void {
     const dataDir = getVectorDBDirPath()
     if (!existsSync(dataDir)) {
@@ -64,9 +55,7 @@ export class VectorDBService {
     }
   }
 
-  /**
-   * 获取数据库路径
-   */
+  // 获取数据库路径
   private getDatabasePath(kbId: string): string {
     this.ensureDataDir()
     const dataDir = getVectorDBDirPath()
@@ -74,9 +63,7 @@ export class VectorDBService {
     return join(dataDir, kbId)
   }
 
-  /**
-   * 获取或创建数据库连接
-   */
+  // 获取或创建数据库连接
   private async getConnection(kbId: string): Promise<lancedb.Connection> {
     if (this.dbConnections.has(kbId)) {
       return this.dbConnections.get(kbId)!
@@ -91,9 +78,9 @@ export class VectorDBService {
     return db
   }
 
-  /**
-   * 添加文档块及其向量
-   */
+  // 添加文档块及其向量
+  // 将文档块和对应的嵌入向量存储到数据库中
+  // 如果表不存在则创建表，如果表存在则追加数据
   async addChunks(
     kbId: string,
     dimension: number,
@@ -184,9 +171,8 @@ export class VectorDBService {
     }
   }
 
-  /**
-   * 创建向量索引
-   */
+  // 创建向量索引
+  // 使用 IVF_PQ 索引提高搜索性能
   private async createVectorIndex(
     table: lancedb.Table,
     kbId: string,
@@ -217,9 +203,7 @@ export class VectorDBService {
     }
   }
 
-  /**
-   * 删除指定文件的所有文档块
-   */
+  // 删除指定文件的所有文档块
   async deleteFileChunks(kbId: string, _dimension: number, fileId: string): Promise<void> {
     try {
       if (!this.exists(kbId)) {
@@ -246,9 +230,8 @@ export class VectorDBService {
     }
   }
 
-  /**
-   * 相似性搜索
-   */
+  // 相似性搜索
+  // 使用查询向量在数据库中搜索最相似的文档块
   async search(
     kbId: string,
     _dimension: number,
@@ -317,9 +300,8 @@ export class VectorDBService {
     }
   }
 
-  /**
-   * 获取知识库的文档统计信息
-   */
+  // 获取知识库的文档统计信息
+  // 返回文件数量和文档块数量
   async getStats(
     kbId: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -366,9 +348,8 @@ export class VectorDBService {
     }
   }
 
-  /**
-   * 删除整个知识库的向量数据库
-   */
+  // 删除整个知识库的向量数据库
+  // 关闭连接并删除所有相关文件
   deleteKnowledgeBase(kbId: string): void {
     const tableKey = `${kbId}_chunks`
 
@@ -422,18 +403,14 @@ export class VectorDBService {
     }
   }
 
-  /**
-   * 检查知识库数据库是否存在
-   */
+  // 检查知识库数据库是否存在
   exists(kbId: string): boolean {
     const dbPath = this.getDatabasePath(kbId)
     const exists = existsSync(dbPath)
     return exists
   }
 
-  /**
-   * 获取数据库目录大小（字节）
-   */
+  // 获取数据库目录大小（字节）
   getDatabaseSize(kbId: string): number {
     const dbPath = this.getDatabasePath(kbId)
     if (!existsSync(dbPath)) {
@@ -447,9 +424,7 @@ export class VectorDBService {
     }
   }
 
-  /**
-   * 递归计算目录大小
-   */
+  // 递归计算目录大小
   private calculateDirSize(dirPath: string): number {
     let totalSize = 0
     const files = readdirSync(dirPath)
@@ -468,9 +443,7 @@ export class VectorDBService {
     return totalSize
   }
 
-  /**
-   * 关闭所有数据库连接
-   */
+  // 关闭所有数据库连接
   closeAll(): void {
     for (const [kbId] of this.dbConnections) {
       try {
@@ -488,9 +461,7 @@ export class VectorDBService {
 // 单例实例
 let vectorDBServiceInstance: VectorDBService | null = null
 
-/**
- * 获取向量数据库服务单例
- */
+// 获取向量数据库服务单例
 export function getVectorDBService(): VectorDBService {
   if (!vectorDBServiceInstance) {
     vectorDBServiceInstance = new VectorDBService()

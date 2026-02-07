@@ -68,12 +68,11 @@ function migrateEmbeddingModels(config: AppConfig): AppConfig {
 
 /**
  * 迁移配置，确保新字段存在
- * 用于向后兼容性
+ * 用于向后兼容性，处理配置结构的变更
  */
 function migrateConfig(config: AppConfig): AppConfig {
   const migrated = { ...config }
 
-  // 确保 promptConfig 存在
   if (!migrated.promptConfig) {
     migrated.promptConfig = {
       enableEnhancedPrompt: true,
@@ -82,7 +81,6 @@ function migrateConfig(config: AppConfig): AppConfig {
     }
   }
 
-  // 确保 promptConfig 中的必要字段存在
   if (migrated.promptConfig.enableEnhancedPrompt === undefined) {
     migrated.promptConfig.enableEnhancedPrompt = true
   }
@@ -93,7 +91,6 @@ function migrateConfig(config: AppConfig): AppConfig {
     migrated.promptConfig.fewShotCount = 3
   }
 
-  // 迁移嵌入模型配置
   migrated.embeddingModels = migrated.embeddingModels || {}
 
   return migrated
@@ -110,6 +107,7 @@ export class ConfigManager {
 
   /**
    * 确保配置目录存在
+   * 如果目录不存在则创建
    */
   private ensureConfigDir(): void {
     const configDir = getConfigDirPath()
@@ -139,6 +137,7 @@ export class ConfigManager {
 
   /**
    * 创建空的配置文件
+   * 创建包含默认结构的配置文件
    */
   private createEmptyConfigFile(): AppConfig {
     const emptyConfig = createEmptyConfig()
@@ -149,13 +148,12 @@ export class ConfigManager {
   /**
    * 初始化配置
    * 如果配置文件不存在，自动创建空配置文件
-   * 只有在读取/解析配置时发生错误才返回错误信息
+   * 只有在读取或解析配置时发生错误才返回错误信息
    */
   initialize(): ConfigLoadResult {
     try {
       const configPath = getConfigFilePath()
 
-      // 检查配置文件是否存在，不存在则创建空配置
       if (!existsSync(configPath)) {
         logger.info('配置文件不存在，正在创建空配置文件...')
         try {
@@ -180,16 +178,12 @@ export class ConfigManager {
         }
       }
 
-      // 读取配置文件
       let config = this.readConfigFile()
 
-      // 迁移旧的嵌入模型配置
       config = migrateEmbeddingModels(config)
 
-      // 应用迁移逻辑（确保新字段存在）
       config = migrateConfig(config)
 
-      // 如果配置有更新，保存回去
       this.config = config
       this.writeConfigFile(config)
 
@@ -238,6 +232,7 @@ export class ConfigManager {
 
   /**
    * 更新配置（部分更新）
+   * 将提供的配置字段合并到现有配置中
    */
   updateConfig(partialConfig: Partial<AppConfig>): { success: boolean; error?: string } {
     if (!this.config) {
@@ -270,7 +265,7 @@ export class ConfigManager {
   }
 
   /**
-   * 检查配置是否存在
+   * 检查配置文件是否存在
    */
   configExists(): boolean {
     const configPath = getConfigFilePath()
@@ -279,6 +274,7 @@ export class ConfigManager {
 
   /**
    * 获取配置状态信息
+   * 返回加载状态、成功状态、错误信息和文件存在状态
    */
   getStatus(): { loaded: boolean; success: boolean; error: string | null; exists: boolean } {
     return {

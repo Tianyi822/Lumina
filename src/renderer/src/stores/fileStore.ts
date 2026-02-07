@@ -1,3 +1,6 @@
+// 文件管理 Store
+// 管理文件列表、上传、删除、关联知识库等功能
+
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { FileItem } from '@renderer/types'
@@ -21,9 +24,7 @@ export const useFileStore = defineStore('fileStore', () => {
     return files.value.filter((f) => f.name.toLowerCase().includes(query))
   })
 
-  /**
-   * 加载所有文件列表
-   */
+  // 加载所有文件列表
   async function loadFiles(): Promise<void> {
     try {
       loading.value = true
@@ -40,16 +41,12 @@ export const useFileStore = defineStore('fileStore', () => {
     }
   }
 
-  /**
-   * 搜索文件（更新搜索关键词）
-   */
+  // 搜索文件（更新搜索关键词）
   function searchFiles(query: string): void {
     searchQuery.value = query
   }
 
-  /**
-   * 上传单个文件
-   */
+  // 上传单个文件
   async function uploadFile(
     file: File
   ): Promise<{ success: boolean; file?: FileItem; isDuplicate?: boolean; error?: string }> {
@@ -87,9 +84,7 @@ export const useFileStore = defineStore('fileStore', () => {
     }
   }
 
-  /**
-   * 批量上传文件
-   */
+  // 批量上传文件
   async function uploadFiles(
     filesParam: File[]
   ): Promise<{ success: boolean; uploaded: FileItem[]; errors: string[]; duplicates: FileItem[] }> {
@@ -118,9 +113,7 @@ export const useFileStore = defineStore('fileStore', () => {
     }
   }
 
-  /**
-   * 删除文件
-   */
+  // 删除文件
   async function deleteFile(
     fileId: string,
     forceDelete?: boolean
@@ -139,9 +132,7 @@ export const useFileStore = defineStore('fileStore', () => {
     }
   }
 
-  /**
-   * 将文件关联到知识库
-   */
+  // 将文件关联到知识库
   async function linkFileToKB(
     fileId: string,
     kbId: string
@@ -163,9 +154,7 @@ export const useFileStore = defineStore('fileStore', () => {
     }
   }
 
-  /**
-   * 从知识库取消文件关联
-   */
+  // 从知识库取消文件关联
   async function unlinkFileFromKB(
     fileId: string,
     kbId: string
@@ -187,9 +176,7 @@ export const useFileStore = defineStore('fileStore', () => {
     }
   }
 
-  /**
-   * 获取知识库关联的文件列表
-   */
+  // 获取知识库关联的文件列表
   async function getFilesByKBId(kbId: string): Promise<FileItem[]> {
     try {
       const result = await window.api.file.getByKBId(kbId)
@@ -204,9 +191,7 @@ export const useFileStore = defineStore('fileStore', () => {
     }
   }
 
-  /**
-   * 获取文件使用情况
-   */
+  // 获取文件使用情况
   async function getFileUsage(fileId: string): Promise<string[]> {
     try {
       const result = await window.api.file.getUsage(fileId)
@@ -220,18 +205,14 @@ export const useFileStore = defineStore('fileStore', () => {
     }
   }
 
-  /**
-   * 格式化文件大小
-   */
+  // 格式化文件大小
   function formatFileSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
-  /**
-   * 格式化日期（2025/02/03）
-   */
+  // 格式化日期（2025/02/03）
   function formatDate(dateStr: string): string {
     const date = new Date(dateStr)
     const year = date.getFullYear()

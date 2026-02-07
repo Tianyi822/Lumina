@@ -1,31 +1,31 @@
 /**
  * 提示词优化器
- * 智能压缩和优化提示词以减少 token 消耗
+ * 通过压缩和调整内容减少 token 消耗
  */
 
 import type { ReactPromptSections } from './types'
 import type { MCPToolReference } from '@main/types/chat'
 
 /**
- * 优化级别
+ * 压缩级别
  */
 enum CompressionLevel {
   None = 0,
-  Level1 = 1, // 移除可选章节
-  Level2 = 2, // 简化流程说明
-  Level3 = 3, // 减少示例
-  Level4 = 4 // 最小化工具描述
+  Level1 = 1,
+  Level2 = 2,
+  Level3 = 3,
+  Level4 = 4
 }
 
 /**
  * 优化选项
  */
 export interface OptimizationOptions {
-  /** 最大 token 数量 */
+  /** 允许的最大 token 数量 */
   maxTokens: number
-  /** 优化激进程度 */
+  /** 优化的激进程度 */
   aggressiveness: 'conservative' | 'balanced' | 'aggressive'
-  /** 工具列表 */
+  /** 工具列表，用于优化工具描述 */
   tools?: MCPToolReference[]
 }
 
@@ -33,40 +33,39 @@ export interface OptimizationOptions {
  * 优化结果
  */
 export interface OptimizationResult {
-  /** 优化后的提示词 */
+  /** 优化后的提示词内容 */
   optimizedPrompt: string
-  /** 应用的压缩级别 */
+  /** 使用的压缩级别 */
   compressionLevel: CompressionLevel
-  /** 估算的原始 token 数 */
+  /** 原始提示词的估算 token 数 */
   originalTokens: number
-  /** 估算的优化后 token 数 */
+  /** 优化后提示词的估算 token 数 */
   optimizedTokens: number
-  /** 减少的百分比 */
+  /** 减少 token 的百分比 */
   reductionPercent: number
 }
 
 /**
  * 提示词优化器
+ * 提供多种压缩策略，包括移除章节、简化内容、减少示例等
  */
 export class PromptOptimizer {
   /**
    * 优化提示词
+   * 根据给定的选项压缩提示词以减少 token 消耗
    */
   optimize(prompt: string, options: OptimizationOptions): OptimizationResult {
     const originalTokens = this.estimateTokens(prompt)
     let optimizedPrompt = prompt
     let compressionLevel = CompressionLevel.None
 
-    // 如果启用优化且超过阈值
     if (options.maxTokens > 0 && originalTokens > options.maxTokens * 0.3) {
-      // 计算需要的压缩级别
       compressionLevel = this.calculateCompressionLevel(
         originalTokens,
         options.maxTokens,
         options.aggressiveness
       )
 
-      // 应用压缩
       if (compressionLevel >= CompressionLevel.Level1) {
         optimizedPrompt = this.applyCompression(
           optimizedPrompt,
@@ -90,13 +89,13 @@ export class PromptOptimizer {
   }
 
   /**
-   * 优化章节
+   * 优化提示词的各个章节
+   * 在给定的 token 预算内优先保留重要章节
    */
   optimizeSections(sections: ReactPromptSections, budget: number): ReactPromptSections {
     const optimized = { ...sections }
     let remainingBudget = budget
 
-    // 按优先级处理章节
     const priorities = [
       { key: 'coreInstructions', priority: 1, essential: true },
       { key: 'reactProcess', priority: 2, essential: true },
@@ -114,13 +113,11 @@ export class PromptOptimizer {
         continue
       }
 
-      // 如果预算不足且不是必需的，移除章节
       if (!essential && remainingBudget < sectionSize) {
         optimized[key] = ''
         continue
       }
 
-      // 压缩章节
       if (essential || remainingBudget > 0) {
         optimized[key] = this.compressText(section, remainingBudget)
         remainingBudget -= this.estimateTokens(optimized[key])
@@ -131,16 +128,15 @@ export class PromptOptimizer {
   }
 
   /**
-   * 优先排序工具
+   * 对工具列表进行优先级排序
+   * 根据工具名称、描述质量和参数数量计算分数
    */
   prioritizeTools(tools: MCPToolReference[]): MCPToolReference[] {
-    // 根据工具名称和描述估算相关性
     const prioritized = [...tools].map((tool) => ({
       tool,
       score: this.calculateToolScore(tool)
     }))
 
-    // 按分数排序
     prioritized.sort((a, b) => b.score - a.score)
 
     return prioritized.map((p) => p.tool)
@@ -148,30 +144,28 @@ export class PromptOptimizer {
 
   /**
    * 压缩工具描述
+   * 根据指定的级别返回不同详细程度的描述
    */
   compressToolDescription(description: string, level: 'minimal' | 'basic' | 'detailed'): string {
     if (level === 'minimal') {
-      // 只保留第一句话
       const firstSentence = description.split(/[。.！!]/)[0]
       return firstSentence.trim()
     }
 
     if (level === 'basic') {
-      // 移除详细说明，保留关键信息
       return this.compressText(description, 200)
     }
 
-    // detailed: 完整描述
     return description
   }
 
   /**
-   * 移除冗余
+   * 移除文本中的重复内容
+   * 包括重复的段落和句子
    */
   removeRedundancy(text: string): string {
     let compressed = text
 
-    // 移除重复的段落
     const paragraphs = compressed.split('\n\n')
     const uniqueParagraphs: string[] = []
     const seen = new Set<string>()
@@ -186,7 +180,6 @@ export class PromptOptimizer {
 
     compressed = uniqueParagraphs.join('\n\n')
 
-    // 移除重复的句子
     const sentences = compressed.split(/。|！|\./)
     const uniqueSentences: string[] = []
     const sentenceSeen = new Set<string>()
@@ -205,6 +198,7 @@ export class PromptOptimizer {
 
   /**
    * 计算需要的压缩级别
+   * 根据当前 token 数量和目标数量以及优化激进程度确定
    */
   private calculateCompressionLevel(
     tokens: number,
@@ -213,7 +207,6 @@ export class PromptOptimizer {
   ): CompressionLevel {
     const ratio = tokens / maxTokens
 
-    // 根据激进程度调整阈值
     const thresholds = {
       conservative: [0.5, 0.6, 0.7, 0.8],
       balanced: [0.4, 0.5, 0.6, 0.7],
@@ -229,7 +222,8 @@ export class PromptOptimizer {
   }
 
   /**
-   * 应用压缩
+   * 应用压缩策略
+   * 根据压缩级别依次执行不同级别的压缩操作
    */
   private applyCompression(
     prompt: string,
@@ -239,22 +233,18 @@ export class PromptOptimizer {
     let compressed = prompt
 
     if (level >= CompressionLevel.Level1) {
-      // 移除可选章节
       compressed = this.removeOptionalSections(compressed)
     }
 
     if (level >= CompressionLevel.Level2) {
-      // 简化 ReAct 流程说明
       compressed = this.simplifyReactProcess(compressed)
     }
 
     if (level >= CompressionLevel.Level3) {
-      // 减少示例（保留1个）
       compressed = this.reduceExamples(compressed, 1)
     }
 
     if (level >= CompressionLevel.Level4) {
-      // 最小化工具描述
       compressed = this.minimizeToolDescriptions(compressed, tools)
     }
 
@@ -262,25 +252,24 @@ export class PromptOptimizer {
   }
 
   /**
-   * 移除可选章节
+   * 移除非必需的章节
+   * 包括输出格式要求和错误处理策略
    */
   private removeOptionalSections(prompt: string): string {
     let compressed = prompt
 
-    // 移除输出格式章节
     compressed = compressed.replace(/# 输出格式要求[\s\S]*?(?=\n#|\n\n\n|$)/g, '')
 
-    // 移除错误处理章节
     compressed = compressed.replace(/# 错误处理策略[\s\S]*?(?=\n#|\n\n\n|$)/g, '')
 
     return compressed.trim()
   }
 
   /**
-   * 简化 ReAct 流程
+   * 简化 ReAct 流程说明
+   * 保留核心步骤，移除详细说明
    */
   private simplifyReactProcess(prompt: string): string {
-    // 简化流程说明为关键步骤
     return prompt.replace(
       /# ReAct 推理流程[\s\S]*?(?=\n#|\n\n\n|$)/,
       `# 推理流程
@@ -297,9 +286,9 @@ export class PromptOptimizer {
 
   /**
    * 减少示例数量
+   * 只保留指定数量的示例
    */
   private reduceExamples(prompt: string, maxCount: number): string {
-    // 查找示例章节
     const examplesMatch = prompt.match(/# 示例[\s\S]*$/)
     if (!examplesMatch) return prompt
 
@@ -310,29 +299,26 @@ export class PromptOptimizer {
 
     if (exampleMatches.length <= maxCount) return prompt
 
-    // 保留前 maxCount 个示例
     const keptExamples = exampleMatches
       .slice(0, maxCount)
       .map((m) => m[0])
       .join('\n\n---\n\n')
 
-    // 替换原示例章节
     return prompt.replace(examplesSection, `# 示例\n\n${keptExamples}`)
   }
 
   /**
    * 最小化工具描述
+   * 此方法预留用于未来的工具描述优化功能
    */
   private minimizeToolDescriptions(prompt: string, _tools: MCPToolReference[]): string {
-    // _tools 参数预留用于未来工具描述优化功能
     void _tools
-    // 这个方法主要在工具级别处理，这里只是预留
-    // 实际的工具描述优化在 toolDescriptionEnhancer 中完成
     return prompt
   }
 
   /**
-   * 压缩文本
+   * 压缩文本长度
+   * 在指定的 token 限制内保留尽可能多的内容
    */
   private compressText(text: string, maxTokens: number): string {
     const sentences = text.split(/。|！|\./)
@@ -348,38 +334,34 @@ export class PromptOptimizer {
       currentTokens += sentenceTokens
     }
 
-    return compressed || text.substring(0, maxTokens * 3) // 粗略估算
+    return compressed || text.substring(0, maxTokens * 3)
   }
 
   /**
-   * 计算 工具分数
+   * 计算工具的优先级分数
+   * 根据工具名称长度、描述长度、参数数量等计算
    */
   private calculateToolScore(tool: MCPToolReference): number {
     let score = 0
 
-    // 工具名称简洁性
     if (tool.toolName.length < 20) score += 10
 
-    // 描述质量（不要太长也不要太短）
     const descLength = tool.description.length
     if (descLength >= 50 && descLength <= 200) score += 15
 
-    // 参数数量（适中最好）
     const paramCount = Object.keys(tool.inputSchema).length
     if (paramCount >= 1 && paramCount <= 5) score += 10
 
-    // 工具名称是否清晰
     if (tool.toolName.includes('_') || tool.toolName.includes('-')) score += 5
 
     return score
   }
 
   /**
-   * 估算 token 数量
+   * 估算文本的 token 数量
+   * 使用粗略估算：中文每个字符约 0.5 token，英文每个字符约 0.25 token
    */
   private estimateTokens(text: string): number {
-    // 粗略估算：1 token ≈ 4 字符（英文）或 2 字符（中文）
-    // 这里使用混合估算
     const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length
     const otherChars = text.length - chineseChars
 

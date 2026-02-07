@@ -1,60 +1,55 @@
-/**
- * 缓存性能指标追踪
- * 提供详细的缓存使用统计和性能分析
- */
+// 缓存性能指标追踪，提供详细的缓存使用统计和性能分析
 
 import type { LRUCache } from './LRUCache'
 
 export interface CacheMetricsSnapshot {
-  /** 快照时间戳 */
+  // 快照时间戳
   timestamp: number
-  /** 系统提示词缓存统计 */
+  // 系统提示词缓存统计
   systemPrompt: CacheLevelMetrics
-  /** 工具描述缓存统计 */
+  // 工具描述缓存统计
   toolDescription: CacheLevelMetrics
-  /** 示例格式化缓存统计 */
+  // 示例格式化缓存统计
   exampleFormatting: CacheLevelMetrics
-  /** 全局统计 */
+  // 全局统计
   global: GlobalCacheMetrics
 }
 
 export interface CacheLevelMetrics {
-  /** 缓存大小 */
+  // 缓存大小
   size: number
-  /** 最大缓存大小 */
+  // 最大缓存大小
   maxSize: number
-  /** 命中次数 */
+  // 命中次数
   hits: number
-  /** 未命中次数 */
+  // 未命中次数
   misses: number
-  /** 命中率 (0-1) */
+  // 命中率 (0-1)
   hitRate: number
-  /** 过期条目数 */
+  // 过期条目数
   expired: number
-  /** 驱逐条目数 */
+  // 驱逐条目数
   evicted: number
-  /** 内存使用估算（字节） */
+  // 内存使用估算（字节）
   memoryUsage: number
 }
 
 export interface GlobalCacheMetrics {
-  /** 总命中次数 */
+  // 总命中次数
   totalHits: number
-  /** 总未命中次数 */
+  // 总未命中次数
   totalMisses: number
-  /** 总命中率 (0-1) */
+  // 总命中率 (0-1)
   totalHitRate: number
-  /** 总缓存大小 */
+  // 总缓存大小
   totalSize: number
-  /** 总内存使用（字节） */
+  // 总内存使用（字节）
   totalMemoryUsage: number
-  /** 缓存性能评分 (0-100) */
+  // 缓存性能评分 (0-100)
   performanceScore: number
 }
 
-/**
- * 缓存指标追踪器
- */
+// 缓存指标追踪器
 export class CacheMetricsTracker {
   private snapshots: CacheMetricsSnapshot[] = []
   private maxSnapshots: number
@@ -63,9 +58,7 @@ export class CacheMetricsTracker {
     this.maxSnapshots = maxSnapshots
   }
 
-  /**
-   * 创建指标快照
-   */
+  // 创建指标快照
   capture(
     systemPrompt: LRUCache<string, string>,
     toolDescription: LRUCache<string, string>,
@@ -88,30 +81,22 @@ export class CacheMetricsTracker {
     return snapshot
   }
 
-  /**
-   * 获取最新快照
-   */
+  // 获取最新快照
   getLatest(): CacheMetricsSnapshot | null {
     return this.snapshots[this.snapshots.length - 1] || null
   }
 
-  /**
-   * 获取所有快照
-   */
+  // 获取所有快照
   getAllSnapshots(): CacheMetricsSnapshot[] {
     return [...this.snapshots]
   }
 
-  /**
-   * 清除所有快照
-   */
+  // 清除所有快照
   clear(): void {
     this.snapshots = []
   }
 
-  /**
-   * 计算时间范围内的平均命中率
-   */
+  // 计算时间范围内的平均命中率
   getAverageHitRate(durationMs: number): number {
     const now = Date.now()
     const relevantSnapshots = this.snapshots.filter((s) => now - s.timestamp <= durationMs)
@@ -123,9 +108,7 @@ export class CacheMetricsTracker {
     return totalHitRate / relevantSnapshots.length
   }
 
-  /**
-   * 生成性能报告
-   */
+  // 生成性能报告
   generateReport(): string {
     const latest = this.getLatest()
     if (!latest) return '无可用数据'
@@ -160,9 +143,7 @@ export class CacheMetricsTracker {
     return lines.join('\n')
   }
 
-  /**
-   * 提取缓存级别指标
-   */
+  // 提取缓存级别指标
   private extractMetrics(cache: LRUCache<string, string>): CacheLevelMetrics {
     const stats = cache.getStats
       ? cache.getStats()
@@ -188,9 +169,7 @@ export class CacheMetricsTracker {
     }
   }
 
-  /**
-   * 计算全局指标
-   */
+  // 计算全局指标
   private calculateGlobalMetrics(
     systemPrompt: LRUCache<string, string>,
     toolDescription: LRUCache<string, string>,
@@ -221,9 +200,7 @@ export class CacheMetricsTracker {
     }
   }
 
-  /**
-   * 计算性能评分 (0-100)
-   */
+  // 计算性能评分 (0-100)
   private calculatePerformanceScore(metrics: {
     totalHits: number
     totalMisses: number
@@ -246,9 +223,7 @@ export class CacheMetricsTracker {
     return hitRateScore + utilizationScore + memoryScore
   }
 
-  /**
-   * 估算内存使用
-   */
+  // 估算内存使用
   private estimateMemoryUsage(size: number): number {
     // 假设每个缓存条目平均 2KB
     const avgEntrySize = 2 * 1024
@@ -258,9 +233,7 @@ export class CacheMetricsTracker {
     return usage + size * 100 // 每个条目额外 100 字节开销
   }
 
-  /**
-   * 格式化缓存级别指标
-   */
+  // 格式化缓存级别指标
   private formatLevelMetrics(lines: string[], metrics: CacheLevelMetrics, indent: number): void {
     const prefix = ' '.repeat(indent)
     lines.push(`${prefix}缓存大小: ${metrics.size}/${metrics.maxSize}`)
@@ -272,9 +245,7 @@ export class CacheMetricsTracker {
     lines.push(`${prefix}内存使用: ${this.formatBytes(metrics.memoryUsage)}`)
   }
 
-  /**
-   * 格式化字节数
-   */
+  // 格式化字节数
   private formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B'
 

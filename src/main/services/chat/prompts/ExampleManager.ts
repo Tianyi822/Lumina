@@ -1,7 +1,4 @@
-/**
- * 示例管理器
- * 负责示例的选择、更新和管理
- */
+// 示例管理器，负责示例的选择、更新和管理
 
 import type { MCPToolReference } from '@main/types/chat'
 import type { FewShotExample, EnhancedFewShotExample, ExampleSelectionCriteria } from './types'
@@ -13,9 +10,7 @@ import { getFewShotExamples } from './toolExamples'
 import { logger } from '../../logger'
 import { sessionService } from '../../session'
 
-/**
- * 示例管理器
- */
+// 示例管理器
 export class ExampleManager {
   private extractor: ExampleExtractor
   private scorer: ExampleScorer
@@ -28,9 +23,7 @@ export class ExampleManager {
     this.repository = new ExampleRepository()
   }
 
-  /**
-   * 初始化管理器
-   */
+  // 初始化管理器
   async initialize(): Promise<void> {
     if (this.initialized) {
       return
@@ -41,9 +34,7 @@ export class ExampleManager {
     logger.info('示例管理器初始化成功', 'main')
   }
 
-  /**
-   * 选择示例（基于可用工具）
-   */
+  // 选择示例（基于可用工具）
   async selectExamples(
     availableTools: MCPToolReference[],
     criteria: ExampleSelectionCriteria
@@ -78,9 +69,7 @@ export class ExampleManager {
     return filtered.slice(0, criteria.maxCount)
   }
 
-  /**
-   * 提取并保存新示例
-   */
+  // 提取并保存新示例
   async extractAndSave(sessionIds?: string[]): Promise<{
     extracted: number
     saved: number
@@ -126,9 +115,7 @@ export class ExampleManager {
     }
   }
 
-  /**
-   * 记录示例使用
-   */
+  // 记录示例使用
   async recordUsage(exampleIds: string[]): Promise<void> {
     await this.ensureInitialized()
 
@@ -146,25 +133,19 @@ export class ExampleManager {
     logger.debug('示例使用记录完成', 'main', { count: exampleIds.length })
   }
 
-  /**
-   * 清理低质量示例
-   */
+  // 清理低质量示例
   async cleanup(minQualityScore: number): Promise<number> {
     await this.ensureInitialized()
     return this.repository.cleanupByQuality(minQualityScore)
   }
 
-  /**
-   * 清理过期示例
-   */
+  // 清理过期示例
   async cleanupOldExamples(days: number): Promise<number> {
     await this.ensureInitialized()
     return this.repository.cleanupByAge(days)
   }
 
-  /**
-   * 获取统计信息
-   */
+  // 获取统计信息
   async getStats(): Promise<{
     total: number
     static: number
@@ -176,25 +157,19 @@ export class ExampleManager {
     return this.repository.getStats()
   }
 
-  /**
-   * 导出示例
-   */
+  // 导出示例
   async exportExamples(): Promise<string> {
     await this.ensureInitialized()
     return this.repository.exportAsJSON()
   }
 
-  /**
-   * 导入示例
-   */
+  // 导入示例
   async importExamples(json: string): Promise<void> {
     await this.ensureInitialized()
     await this.repository.importFromJSON(json)
   }
 
-  /**
-   * 选择静态示例
-   */
+  // 选择静态示例
   private selectStaticExamples(
     criteria: ExampleSelectionCriteria,
     availableToolNames: string[]
@@ -217,9 +192,7 @@ export class ExampleManager {
     return this.filterByTools(enhanced, availableToolNames, criteria.requiredTools)
   }
 
-  /**
-   * 选择动态示例
-   */
+  // 选择动态示例
   private async selectDynamicExamples(
     criteria: ExampleSelectionCriteria,
     availableToolNames: string[]
@@ -245,9 +218,7 @@ export class ExampleManager {
     return filtered.slice(0, maxDynamic)
   }
 
-  /**
-   * 根据工具过滤示例
-   */
+  // 根据工具过滤示例
   private filterByTools(
     examples: EnhancedFewShotExample[],
     availableToolNames: string[],
@@ -269,9 +240,7 @@ export class ExampleManager {
     })
   }
 
-  /**
-   * 获取所有会话
-   */
+  // 获取所有会话
   private listAllSessions(): SessionData[] {
     try {
       const sessionList = sessionService.listSessions()
@@ -291,9 +260,7 @@ export class ExampleManager {
     }
   }
 
-  /**
-   * 根据 IDs 获取会话
-   */
+  // 根据 IDs 获取会话
   private async getSessionsByIds(sessionIds: string[]): Promise<SessionData[]> {
     const sessions: SessionData[] = []
     for (const sessionId of sessionIds) {
@@ -309,9 +276,7 @@ export class ExampleManager {
     return sessions
   }
 
-  /**
-   * 确保已初始化
-   */
+  // 确保已初始化
   private async ensureInitialized(): Promise<void> {
     if (!this.initialized) {
       await this.initialize()
@@ -319,7 +284,5 @@ export class ExampleManager {
   }
 }
 
-/**
- * 单例实例
- */
+// 单例实例
 export const exampleManager = new ExampleManager()

@@ -1,7 +1,4 @@
-/**
- * LRU (Least Recently Used) 缓存实现
- * 提供 O(1) 的 get/set 操作和自动驱逐策略
- */
+// LRU (Least Recently Used) 缓存实现，提供 O(1) 的 get/set 操作和自动驱逐策略
 
 interface LRUCacheEntry<V> {
   value: V
@@ -10,32 +7,30 @@ interface LRUCacheEntry<V> {
 }
 
 export interface LRUCacheOptions {
-  /** 最大缓存条目数 */
+  // 最大缓存条目数
   maxSize: number
-  /** 过期时间（毫秒），可选 */
+  // 过期时间（毫秒），可选
   ttl?: number
 }
 
 export interface LRUCacheStats {
-  /** 当前缓存大小 */
+  // 当前缓存大小
   size: number
-  /** 最大缓存大小 */
+  // 最大缓存大小
   maxSize: number
-  /** 缓存命中次数 */
+  // 缓存命中次数
   hits: number
-  /** 缓存未命中次数 */
+  // 缓存未命中次数
   misses: number
-  /** 命中率 (0-1) */
+  // 命中率 (0-1)
   hitRate: number
-  /** 过期条目数 */
+  // 过期条目数
   expired: number
-  /** 驱逐条目数 */
+  // 驱逐条目数
   evicted: number
 }
 
-/**
- * LRU 缓存类
- */
+// LRU 缓存类
 export class LRUCache<K, V> {
   private cache: Map<K, LRUCacheEntry<V>>
   private accessOrder: K[]
@@ -55,9 +50,7 @@ export class LRUCache<K, V> {
     }
   }
 
-  /**
-   * 获取缓存值
-   */
+  // 获取缓存值
   get(key: K): V | undefined {
     const entry = this.cache.get(key)
 
@@ -86,9 +79,7 @@ export class LRUCache<K, V> {
     return entry.value
   }
 
-  /**
-   * 设置缓存值
-   */
+  // 设置缓存值
   set(key: K, value: V): void {
     // 检查是否需要驱逐
     if (this.cache.size >= this.options.maxSize && !this.cache.has(key)) {
@@ -110,9 +101,7 @@ export class LRUCache<K, V> {
     this.stats.size = this.cache.size
   }
 
-  /**
-   * 检查键是否存在且未过期
-   */
+  // 检查键是否存在且未过期
   has(key: K): boolean {
     const entry = this.cache.get(key)
     if (!entry) return false
@@ -126,9 +115,7 @@ export class LRUCache<K, V> {
     return true
   }
 
-  /**
-   * 删除缓存条目
-   */
+  // 删除缓存条目
   delete(key: K): boolean {
     const deleted = this.cache.delete(key)
     if (deleted) {
@@ -138,9 +125,7 @@ export class LRUCache<K, V> {
     return deleted
   }
 
-  /**
-   * 清空所有缓存
-   */
+  // 清空所有缓存
   clear(): void {
     this.cache.clear()
     this.accessOrder = []
@@ -152,30 +137,22 @@ export class LRUCache<K, V> {
     this.stats.evicted = 0
   }
 
-  /**
-   * 获取所有键
-   */
+  // 获取所有键
   keys(): K[] {
     return Array.from(this.cache.keys())
   }
 
-  /**
-   * 获取所有值
-   */
+  // 获取所有值
   values(): V[] {
     return Array.from(this.cache.values()).map((entry) => entry.value)
   }
 
-  /**
-   * 获取缓存统计信息
-   */
+  // 获取缓存统计信息
   getStats(): LRUCacheStats {
     return { ...this.stats }
   }
 
-  /**
-   * 重置统计信息
-   */
+  // 重置统计信息
   resetStats(): void {
     this.stats.hits = 0
     this.stats.misses = 0
@@ -184,9 +161,7 @@ export class LRUCache<K, V> {
     this.stats.evicted = 0
   }
 
-  /**
-   * 清理过期条目
-   */
+  // 清理过期条目
   cleanup(): number {
     const now = Date.now()
     let cleaned = 0
@@ -201,9 +176,7 @@ export class LRUCache<K, V> {
     return cleaned
   }
 
-  /**
-   * 驱逐最少使用的缓存条目
-   */
+  // 驱逐最少使用的缓存条目
   private evictLeastRecentlyUsed(): void {
     if (this.accessOrder.length === 0) return
 
@@ -212,9 +185,7 @@ export class LRUCache<K, V> {
     this.stats.evicted++
   }
 
-  /**
-   * 更新访问顺序
-   */
+  // 更新访问顺序
   private updateAccessOrder(key: K): void {
     // 移除旧位置
     this.accessOrder = this.accessOrder.filter((k) => k !== key)
@@ -222,9 +193,7 @@ export class LRUCache<K, V> {
     this.accessOrder.push(key)
   }
 
-  /**
-   * 更新命中率
-   */
+  // 更新命中率
   private updateHitRate(): void {
     const total = this.stats.hits + this.stats.misses
     this.stats.hitRate = total > 0 ? this.stats.hits / total : 0

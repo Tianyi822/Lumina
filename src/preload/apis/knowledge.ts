@@ -2,7 +2,7 @@ import { ipcRenderer } from 'electron'
 import { createIpcListener } from './base'
 
 /**
- * 嵌入模型配置
+ * 知识库绑定的嵌入模型配置
  */
 export interface KnowledgeBaseEmbeddingConfig {
   baseUrl: string
@@ -12,7 +12,7 @@ export interface KnowledgeBaseEmbeddingConfig {
 }
 
 /**
- * 知识库配置
+ * 知识库的配置
  */
 export interface KnowledgeBase {
   id: string
@@ -42,7 +42,7 @@ export interface SearchResult {
 }
 
 /**
- * API 响应基础类型
+ * API 响应的通用格式
  */
 export interface ApiResponse<T = unknown> {
   success: boolean
@@ -58,7 +58,7 @@ export interface SearchResponse {
 }
 
 /**
- * 重新索引响应
+ * 重新索引的响应
  */
 export interface ReindexResponse {
   indexedCount: number
@@ -67,7 +67,7 @@ export interface ReindexResponse {
 }
 
 /**
- * 知识库统计信息
+ * 知识库的统计信息
  */
 export interface KnowledgeBaseStats {
   fileCount: number
@@ -76,7 +76,7 @@ export interface KnowledgeBaseStats {
 }
 
 /**
- * 文件处理进度回调
+ * 文件处理的进度
  */
 export interface FileProcessingProgress {
   fileId: string
@@ -87,7 +87,7 @@ export interface FileProcessingProgress {
 }
 
 /**
- * 文件进度事件数据
+ * 文件进度事件的数据
  */
 export interface FileProgressEvent {
   kbId: string
@@ -95,7 +95,7 @@ export interface FileProgressEvent {
 }
 
 /**
- * 重新索引进度事件数据
+ * 重新索引进度事件的数据
  */
 export interface ReindexProgressEvent {
   kbId: string
@@ -114,7 +114,7 @@ export const knowledgeApi = {
   },
 
   /**
-   * 根据ID获取知识库
+   * 根据 ID 获取知识库
    */
   getById: (id: string): Promise<ApiResponse<KnowledgeBase>> => {
     return ipcRenderer.invoke('knowledge:getById', id)
@@ -147,7 +147,7 @@ export const knowledgeApi = {
   },
 
   /**
-   * 索引文件到知识库
+   * 将文件索引到知识库
    */
   indexFile: (
     kbId: string,
@@ -159,7 +159,7 @@ export const knowledgeApi = {
   },
 
   /**
-   * 从知识库移除文件索引
+   * 从知识库移除文件的索引
    */
   removeFileIndex: (kbId: string, fileId: string): Promise<ApiResponse<void>> => {
     return ipcRenderer.invoke('knowledge:removeFileIndex', kbId, fileId)
@@ -183,21 +183,21 @@ export const knowledgeApi = {
   },
 
   /**
-   * 获取知识库统计信息
+   * 获取知识库的统计信息
    */
   getStats: (kbId: string): Promise<ApiResponse<KnowledgeBaseStats>> => {
     return ipcRenderer.invoke('knowledge:getStats', kbId)
   },
 
   /**
-   * 获取知识库数据库大小
+   * 获取知识库数据库的大小
    */
   getDBSize: (kbId: string): Promise<ApiResponse<{ size: number }>> => {
     return ipcRenderer.invoke('knowledge:getDBSize', kbId)
   },
 
   /**
-   * 获取索引状态
+   * 获取索引的状态
    */
   getIndexingStatus: (): Promise<
     ApiResponse<{
@@ -225,14 +225,14 @@ export const knowledgeApi = {
 }
 
 /**
- * 监听文件索引进度事件
+ * 监听文件索引的进度事件
  */
 export function onFileProgress(callback: (data: FileProgressEvent) => void): () => void {
   return createIpcListener<FileProgressEvent>('knowledge:file-progress', callback)
 }
 
 /**
- * 监听重新索引进度事件
+ * 监听重新索引的进度事件
  */
 export function onReindexProgress(callback: (data: ReindexProgressEvent) => void): () => void {
   return createIpcListener<ReindexProgressEvent>('knowledge:reindex-progress', callback)

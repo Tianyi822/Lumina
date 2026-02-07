@@ -11,7 +11,7 @@ import type { ThemeColors } from '../types/config'
 let mainWindow: BrowserWindow | null = null
 
 /**
- * 当前主题颜色
+ * 当前主题颜色配置
  */
 let currentThemeColors: ThemeColors = DEFAULT_THEME_COLORS
 
@@ -81,7 +81,7 @@ export function updateThemeColors(colors: ThemeColors): void {
 }
 
 /**
- * 获取当前主题颜色
+ * 获取当前主题颜色配置
  */
 export function getThemeColors(): ThemeColors {
   return currentThemeColors

@@ -1,14 +1,10 @@
-/**
- * 知识库索引状态 Store
- * 管理知识库文件索引的进度状态，实现按知识库隔离
- */
+// 知识库索引状态 Store
+// 管理知识库文件索引的进度状态，实现按知识库隔离
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 
-/**
- * 文件处理进度
- */
+// 文件处理进度
 export interface FileProcessingProgress {
   fileId: string
   fileName: string
@@ -17,9 +13,7 @@ export interface FileProcessingProgress {
   error?: string
 }
 
-/**
- * 文件进度事件
- */
+// 文件进度事件
 interface FileProgressEvent {
   kbId: string
   progress: FileProcessingProgress
@@ -27,77 +21,55 @@ interface FileProgressEvent {
 
 export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
   // ==================== State ====================
-
-  /**
-   * 按知识库隔离的文件进度
-   * 结构: kbId -> fileId -> FileProcessingProgress
-   */
+  
+  // 按知识库隔离的文件进度
+  // 结构: kbId -> fileId -> FileProcessingProgress
   const kbFileProgress = ref<Record<string, Record<string, FileProcessingProgress>>>({})
 
-  /**
-   * 当前正在索引的知识库 ID（从后端同步）
-   */
+  // 当前正在索引的知识库 ID（从后端同步）
   const activeIndexingKbId = ref<string | null>(null)
 
-  /**
-   * 正在重建索引的知识库 ID 集合
-   */
+  // 正在重建索引的知识库 ID 集合
   const reindexingKbIds = ref<Set<string>>(new Set())
 
-  /**
-   * 定时刷新定时器 ID
-   */
+  // 定时刷新定时器 ID
   const refreshTimerId = ref<number | null>(null)
 
-  /**
-   * IPC 事件监听器清理函数
-   */
+  // IPC 事件监听器清理函数
   let progressCleanup: (() => void) | null = null
 
   // ==================== Getters ====================
-
-  /**
-   * 判断指定知识库是否正在索引
-   */
+  
+  // 判断指定知识库是否正在索引
   function isKBIndexing(kbId: string): boolean {
     const files = kbFileProgress.value[kbId]
     if (!files) return false
     return Object.values(files).some((f) => f.status === 'processing')
   }
 
-  /**
-   * 判断指定知识库是否正在重建索引
-   */
+  // 判断指定知识库是否正在重建索引
   function isKBReindexing(kbId: string): boolean {
     return reindexingKbIds.value.has(kbId)
   }
 
-  /**
-   * 获取指定知识库的索引文件列表
-   */
+  // 获取指定知识库的索引文件列表
   function getKBIndexingFiles(kbId: string): FileProcessingProgress[] {
     const files = kbFileProgress.value[kbId]
     if (!files) return []
     return Object.values(files)
   }
 
-  /**
-   * 获取指定知识库的索引文件映射（兼容原有组件接口）
-   */
+  // 获取指定知识库的索引文件映射（兼容原有组件接口）
   function getKBIndexingFilesMap(kbId: string): Record<string, FileProcessingProgress> {
     return kbFileProgress.value[kbId] || {}
   }
 
-  /**
-   * 获取指定文件的进度
-   */
+  // 获取指定文件的进度
   function getFileProgress(kbId: string, fileId: string): FileProcessingProgress | undefined {
     return kbFileProgress.value[kbId]?.[fileId]
   }
 
-  /**
-   * 是否有任何知识库正在索引
-   */
+  // 是否有任何知识库正在索引
   const hasActiveIndexing = computed(() => {
     return Object.values(kbFileProgress.value).some((files) =>
       Object.values(files).some((f) => f.status === 'processing')
@@ -105,10 +77,8 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
   })
 
   // ==================== Actions ====================
-
-  /**
-   * 设置知识库正在重建索引
-   */
+  
+  // 设置知识库正在重建索引
   function setKBReindexing(kbId: string, isReindexing: boolean): void {
     if (isReindexing) {
       reindexingKbIds.value.add(kbId)
@@ -119,9 +89,7 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     reindexingKbIds.value = new Set(reindexingKbIds.value)
   }
 
-  /**
-   * 更新单个文件进度（IPC 事件调用）
-   */
+  // 更新单个文件进度（IPC 事件调用）
   function updateFileProgress(kbId: string, progress: FileProcessingProgress): void {
     // 确保知识库的文件映射存在
     if (!kbFileProgress.value[kbId]) {
@@ -153,9 +121,7 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     }
   }
 
-  /**
-   * 设置文件开始索引（不设置 progress，等待后端事件）
-   */
+  // 设置文件开始索引（不设置 progress，等待后端事件）
   function setFileIndexing(kbId: string, fileId: string, fileName: string): void {
     if (!kbFileProgress.value[kbId]) {
       kbFileProgress.value[kbId] = {}
@@ -175,9 +141,7 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     }
   }
 
-  /**
-   * 批量设置文件开始索引
-   */
+  // 批量设置文件开始索引
   function setFilesIndexing(
     kbId: string,
     files: Array<{ fileId: string; fileName: string }>
@@ -204,9 +168,7 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     }
   }
 
-  /**
-   * 设置文件索引失败
-   */
+  // 设置文件索引失败
   function setFileFailed(kbId: string, fileId: string, error: string): void {
     if (!kbFileProgress.value[kbId]?.[fileId]) return
 
@@ -228,9 +190,7 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     }, 1000)
   }
 
-  /**
-   * 清除单个文件的进度状态
-   */
+  // 清除单个文件的进度状态
   function clearFileProgress(kbId: string, fileId: string): void {
     if (!kbFileProgress.value[kbId]?.[fileId]) return
 
@@ -248,9 +208,7 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     }
   }
 
-  /**
-   * 清除指定知识库的所有进度状态
-   */
+  // 清除指定知识库的所有进度状态
   function clearKBProgress(kbId: string): void {
     if (!kbFileProgress.value[kbId]) return
 
@@ -259,9 +217,7 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     kbFileProgress.value = newProgress
   }
 
-  /**
-   * 从后端刷新索引状态
-   */
+  // 从后端刷新索引状态
   async function refreshFromBackend(): Promise<void> {
     try {
       const result = await window.api.knowledge.getIndexingStatus()
@@ -326,9 +282,7 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     }
   }
 
-  /**
-   * 恢复指定知识库的索引状态（切换知识库时调用）
-   */
+  // 恢复指定知识库的索引状态（切换知识库时调用）
   async function restoreStatus(kbId: string): Promise<void> {
     await refreshFromBackend()
 
@@ -338,9 +292,7 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     }
   }
 
-  /**
-   * 启动定时刷新
-   */
+  // 启动定时刷新
   function startRefresh(): void {
     if (refreshTimerId.value !== null) {
       clearInterval(refreshTimerId.value)
@@ -355,9 +307,7 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     }, 2000)
   }
 
-  /**
-   * 停止定时刷新
-   */
+  // 停止定时刷新
   function stopRefresh(): void {
     if (refreshTimerId.value !== null) {
       clearInterval(refreshTimerId.value)
@@ -365,25 +315,19 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     }
   }
 
-  /**
-   * 处理文件进度事件
-   */
+  // 处理文件进度事件
   function handleFileProgressEvent(data: FileProgressEvent): void {
     updateFileProgress(data.kbId, data.progress)
   }
 
-  /**
-   * 设置 IPC 事件监听器
-   */
+  // 设置 IPC 事件监听器
   function setupIpcListeners(): void {
     if (progressCleanup) return // 已经设置过了
 
     progressCleanup = window.api.onFileProgress(handleFileProgressEvent)
   }
 
-  /**
-   * 清理 IPC 事件监听器
-   */
+  // 清理 IPC 事件监听器
   function cleanupIpcListeners(): void {
     if (progressCleanup) {
       progressCleanup()

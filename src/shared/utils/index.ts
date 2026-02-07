@@ -1,20 +1,20 @@
 /**
- * 共享工具函数统一导出
+ * 统一导出所有共享工具函数
  */
 
-// 数据转换
+// 数据转换相关
 export * from './converters'
 
-// 数据处理
+// 数据处理相关
 export * from './data-processors'
 
-// 会话辅助
+// 会话辅助相关
 export * from './session-helpers'
 
-// 流式处理
+// 流式处理相关
 export * from './stream-utils'
 
-// 错误处理
+// 错误处理相关
 export * from './error-handlers'
 
 // 导出常用的深度克隆函数

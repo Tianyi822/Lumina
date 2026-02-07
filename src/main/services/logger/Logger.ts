@@ -10,15 +10,12 @@ import {
 } from '@main/types/logger'
 import { getLogDirPath, getLogFilePath, formatDateForFilename, isLogPathSafe } from './loggerPaths'
 
-/**
- * 最大日志消息长度（10KB）
- */
+// 最大日志消息长度（10KB）
 const MAX_MESSAGE_LENGTH = 10 * 1024
 
-/**
- * 日志管理器
- * 负责日志的记录、格式化和输出
- */
+// 日志管理器
+// 负责日志的记录、格式化和输出
+// 支持控制台输出和文件输出，支持日志级别过滤和日期轮转
 export class Logger {
   private config: LoggerConfig
   private currentLogDate: string
@@ -40,10 +37,8 @@ export class Logger {
     this.currentLogPath = getLogFilePath()
   }
 
-  /**
-   * 初始化日志系统
-   * 确保日志目录存在
-   */
+  // 初始化日志系统
+  // 确保日志目录存在
   initialize(): void {
     if (this.initialized) return
 
@@ -56,9 +51,7 @@ export class Logger {
     }
   }
 
-  /**
-   * 确保日志目录存在
-   */
+  // 确保日志目录存在
   private ensureLogDir(): void {
     const logDir = getLogDirPath()
     if (!existsSync(logDir)) {
@@ -66,9 +59,8 @@ export class Logger {
     }
   }
 
-  /**
-   * 检查并更新日志文件（日期轮转）
-   */
+  // 检查并更新日志文件（日期轮转）
+  // 当日期变化时，自动切换到新的日志文件
   private checkAndRotateLogFile(): void {
     const today = formatDateForFilename()
     if (today !== this.currentLogDate) {
@@ -77,9 +69,7 @@ export class Logger {
     }
   }
 
-  /**
-   * 格式化时间戳
-   */
+  // 格式化时间戳
   private formatTimestamp(date: Date = new Date()): string {
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -91,9 +81,8 @@ export class Logger {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`
   }
 
-  /**
-   * 安全序列化 context 对象
-   */
+  // 安全序列化 context 对象
+  // 如果对象无法序列化，返回错误提示字符串
   private serializeContext(context?: Record<string, unknown>): string {
     if (!context) return ''
 
@@ -104,17 +93,14 @@ export class Logger {
     }
   }
 
-  /**
-   * 格式化日志条目为字符串
-   */
+  // 格式化日志条目为字符串
   private formatLogEntry(entry: LogEntry): string {
     const contextStr = entry.context ? ` ${this.serializeContext(entry.context)}` : ''
     return `[${entry.timestamp}] [${entry.levelName}] [${entry.source}] ${entry.message}${contextStr}`
   }
 
-  /**
-   * 输出到控制台
-   */
+  // 输出到控制台
+  // 根据日志级别选择不同的控制台方法
   private logToConsole(entry: LogEntry): void {
     const formattedMessage = this.formatLogEntry(entry)
 
@@ -135,9 +121,8 @@ export class Logger {
     }
   }
 
-  /**
-   * 异步写入日志文件
-   */
+  // 异步写入日志文件
+  // 使用队列确保写入顺序，支持日期轮转和路径安全验证
   private async writeToFile(entry: LogEntry): Promise<void> {
     // 检查日期轮转
     this.checkAndRotateLogFile()
@@ -168,9 +153,7 @@ export class Logger {
     await this.writeQueue
   }
 
-  /**
-   * 截断过长的消息
-   */
+  // 截断过长的消息
   private truncateMessage(message: string): string {
     if (message.length > MAX_MESSAGE_LENGTH) {
       return message.substring(0, MAX_MESSAGE_LENGTH) + '...[消息被截断]'
@@ -178,9 +161,9 @@ export class Logger {
     return message
   }
 
-  /**
-   * 记录日志
-   */
+  // 记录日志
+  // 根据配置决定输出到控制台和文件
+  // 支持日志级别过滤，低于最低级别的日志不会被记录
   async log(
     level: LogLevel,
     message: string,
@@ -220,65 +203,48 @@ export class Logger {
     }
   }
 
-  /**
-   * 记录 DEBUG 级别日志
-   */
+  // 记录 DEBUG 级别日志
   debug(message: string, source: LogSource = 'main', context?: Record<string, unknown>): void {
     this.log(LogLevel.DEBUG, message, source, context)
   }
 
-  /**
-   * 记录 INFO 级别日志
-   */
+  // 记录 INFO 级别日志
   info(message: string, source: LogSource = 'main', context?: Record<string, unknown>): void {
     this.log(LogLevel.INFO, message, source, context)
   }
 
-  /**
-   * 记录 WARN 级别日志
-   */
+  // 记录 WARN 级别日志
   warn(message: string, source: LogSource = 'main', context?: Record<string, unknown>): void {
     this.log(LogLevel.WARN, message, source, context)
   }
 
-  /**
-   * 记录 ERROR 级别日志
-   */
+  // 记录 ERROR 级别日志
   error(message: string, source: LogSource = 'main', context?: Record<string, unknown>): void {
     this.log(LogLevel.ERROR, message, source, context)
   }
 
-  /**
-   * 记录 FATAL 级别日志
-   */
+  // 记录 FATAL 级别日志
   fatal(message: string, source: LogSource = 'main', context?: Record<string, unknown>): void {
     this.log(LogLevel.FATAL, message, source, context)
   }
 
-  /**
-   * 设置最低日志级别
-   */
+  // 设置最低日志级别
+  // 只有大于等于此级别的日志才会被记录
   setMinLevel(level: LogLevel): void {
     this.config.minLevel = level
   }
 
-  /**
-   * 获取当前配置
-   */
+  // 获取当前配置
   getConfig(): LoggerConfig {
     return { ...this.config }
   }
 
-  /**
-   * 更新配置
-   */
+  // 更新配置
   updateConfig(config: Partial<LoggerConfig>): void {
     this.config = { ...this.config, ...config }
   }
 
-  /**
-   * 获取当前日志文件路径
-   */
+  // 获取当前日志文件路径
   getCurrentLogPath(): string {
     return this.currentLogPath
   }

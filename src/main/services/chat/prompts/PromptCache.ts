@@ -1,6 +1,6 @@
 /**
- * 多级提示词缓存管理器
- * 提供三级缓存以最大化命中率
+ * 提示词缓存管理器
+ * 通过三级缓存减少重复构建提示词的开销
  */
 
 import { LRUCache, type LRUCacheOptions } from '../cache/LRUCache'
@@ -9,22 +9,22 @@ import { CacheMetricsTracker } from '../cache/CacheMetrics'
 import type { MCPToolReference } from '@main/types/chat'
 
 /**
- * 缓存配置
+ * 缓存配置参数
  */
 export interface PromptCacheConfig {
-  /** 是否启用缓存 */
+  /** 是否启用缓存功能 */
   enabled: boolean
-  /** 系统提示词缓存大小 */
+  /** 系统提示词缓存的最大数量 */
   systemPromptMaxSize: number
-  /** 系统提示词缓存 TTL（小时） */
+  /** 系统提示词缓存的有效时间，单位小时 */
   systemPromptTTL: number
-  /** 工具描述缓存大小 */
+  /** 工具描述缓存的最大数量 */
   toolDescriptionMaxSize: number
-  /** 工具描述缓存 TTL（小时） */
+  /** 工具描述缓存的有效时间，单位小时 */
   toolDescriptionTTL: number
-  /** 示例格式化缓存大小 */
+  /** 示例格式化缓存的最大数量 */
   exampleFormattingMaxSize: number
-  /** 示例格式化缓存 TTL（小时） */
+  /** 示例格式化缓存的有效时间，单位小时 */
   exampleFormattingTTL: number
 }
 
@@ -43,6 +43,7 @@ const DEFAULT_CACHE_CONFIG: PromptCacheConfig = {
 
 /**
  * 提示词缓存管理器
+ * 使用三个独立的 LRU 缓存分别存储系统提示词、工具描述和示例格式化结果
  */
 export class PromptCache {
   private systemPromptCache: LRUCache<string, string>
@@ -54,10 +55,9 @@ export class PromptCache {
   constructor(config?: Partial<PromptCacheConfig>) {
     this.config = { ...DEFAULT_CACHE_CONFIG, ...config }
 
-    // 创建三级缓存
     const systemPromptOptions: LRUCacheOptions = {
       maxSize: this.config.systemPromptMaxSize,
-      ttl: this.config.systemPromptTTL * 60 * 60 * 1000 // 转换为毫秒
+      ttl: this.config.systemPromptTTL * 60 * 60 * 1000
     }
 
     const toolDescriptionOptions: LRUCacheOptions = {
@@ -76,12 +76,12 @@ export class PromptCache {
 
     this.metrics = new CacheMetricsTracker()
 
-    // 启动定期清理任务
     this.startCleanupTask()
   }
 
   /**
-   * 获取系统提示词（带缓存）
+   * 获取系统提示词
+   * 先尝试从缓存获取，未命中则调用 builder 函数构建并缓存
    */
   getSystemPrompt(
     promptConfig: Record<string, unknown>,
@@ -99,17 +99,14 @@ export class PromptCache {
       exampleIds
     })
 
-    // 尝试从缓存获取
     const cached = this.systemPromptCache.get(key)
     if (cached !== undefined) {
       this.captureMetrics()
       return cached
     }
 
-    // 构建新提示词
     const prompt = builder()
 
-    // 存入缓存
     this.systemPromptCache.set(key, prompt)
     this.captureMetrics()
 
@@ -117,7 +114,8 @@ export class PromptCache {
   }
 
   /**
-   * 获取工具描述（带缓存）
+   * 获取工具描述
+   * 先尝试从缓存获取，未命中则调用 builder 函数构建并缓存
    */
   getToolDescription(
     tool: MCPToolReference,
@@ -133,17 +131,14 @@ export class PromptCache {
       toolDescriptionLevel: descriptionLevel
     })
 
-    // 尝试从缓存获取
     const cached = this.toolDescriptionCache.get(key)
     if (cached !== undefined) {
       this.captureMetrics()
       return cached
     }
 
-    // 构建新描述
     const description = builder()
 
-    // 存入缓存
     this.toolDescriptionCache.set(key, description)
     this.captureMetrics()
 
@@ -151,7 +146,8 @@ export class PromptCache {
   }
 
   /**
-   * 获取示例格式化（带缓存）
+   * 获取示例格式化结果
+   * 先尝试从缓存获取，未命中则调用 builder 函数构建并缓存
    */
   getExampleFormatting(
     example: {
@@ -169,17 +165,14 @@ export class PromptCache {
       example
     })
 
-    // 尝试从缓存获取
     const cached = this.exampleFormattingCache.get(key)
     if (cached !== undefined) {
       this.captureMetrics()
       return cached
     }
 
-    // 格式化示例
     const formatted = builder()
 
-    // 存入缓存
     this.exampleFormattingCache.set(key, formatted)
     this.captureMetrics()
 
@@ -187,7 +180,8 @@ export class PromptCache {
   }
 
   /**
-   * 失效配置相关缓存
+   * 清空与配置相关的所有缓存
+   * 当配置发生变化时调用此方法
    */
   invalidateConfig(): void {
     this.systemPromptCache.clear()
@@ -195,7 +189,8 @@ export class PromptCache {
   }
 
   /**
-   * 失效工具相关缓存
+   * 清空与工具相关的所有缓存
+   * 当工具列表发生变化时调用此方法
    */
   invalidateTools(): void {
     this.systemPromptCache.clear()
@@ -204,7 +199,8 @@ export class PromptCache {
   }
 
   /**
-   * 失效示例相关缓存
+   * 清空与示例相关的所有缓存
+   * 当示例列表发生变化时调用此方法
    */
   invalidateExamples(): void {
     this.systemPromptCache.clear()
@@ -224,12 +220,12 @@ export class PromptCache {
 
   /**
    * 更新缓存配置
+   * 如果改变了缓存大小配置，会重建对应的缓存以迁移已有数据
    */
   updateConfig(config: Partial<PromptCacheConfig>): void {
     const oldConfig = { ...this.config }
     this.config = { ...this.config, ...config }
 
-    // 如果关键配置改变，需要重建缓存
     if (
       config.systemPromptMaxSize !== undefined &&
       config.systemPromptMaxSize !== oldConfig.systemPromptMaxSize
@@ -253,7 +249,7 @@ export class PromptCache {
   }
 
   /**
-   * 获取缓存统计
+   * 获取所有缓存的统计信息
    */
   getStats(): {
     systemPrompt: ReturnType<LRUCache<string, string>['getStats']>
@@ -268,7 +264,7 @@ export class PromptCache {
   }
 
   /**
-   * 获取性能指标快照
+   * 获取当前的性能指标快照
    */
   getMetricsSnapshot(): ReturnType<CacheMetricsTracker['capture']> {
     return this.metrics.capture(
@@ -279,14 +275,14 @@ export class PromptCache {
   }
 
   /**
-   * 生成性能报告
+   * 生成性能报告文本
    */
   generateReport(): string {
     return this.metrics.generateReport()
   }
 
   /**
-   * 清理过期条目
+   * 清理所有缓存中的过期条目
    */
   cleanup(): {
     systemPrompt: number
@@ -302,6 +298,7 @@ export class PromptCache {
 
   /**
    * 重建系统提示词缓存
+   * 在调整缓存大小时调用，保留有效条目
    */
   private rebuildSystemPromptCache(): void {
     const options: LRUCacheOptions = {
@@ -312,7 +309,6 @@ export class PromptCache {
     const oldCache = this.systemPromptCache
     this.systemPromptCache = new LRUCache<string, string>(options)
 
-    // 迁移有效条目
     for (const key of oldCache.keys()) {
       const value = oldCache.get(key)
       if (value !== undefined) {
@@ -325,6 +321,7 @@ export class PromptCache {
 
   /**
    * 重建工具描述缓存
+   * 在调整缓存大小时调用，保留有效条目
    */
   private rebuildToolDescriptionCache(): void {
     const options: LRUCacheOptions = {
@@ -335,7 +332,6 @@ export class PromptCache {
     const oldCache = this.toolDescriptionCache
     this.toolDescriptionCache = new LRUCache<string, string>(options)
 
-    // 迁移有效条目
     for (const key of oldCache.keys()) {
       const value = oldCache.get(key)
       if (value !== undefined) {
@@ -348,6 +344,7 @@ export class PromptCache {
 
   /**
    * 重建示例格式化缓存
+   * 在调整缓存大小时调用，保留有效条目
    */
   private rebuildExampleFormattingCache(): void {
     const options: LRUCacheOptions = {
@@ -358,7 +355,6 @@ export class PromptCache {
     const oldCache = this.exampleFormattingCache
     this.exampleFormattingCache = new LRUCache<string, string>(options)
 
-    // 迁移有效条目
     for (const key of oldCache.keys()) {
       const value = oldCache.get(key)
       if (value !== undefined) {
@@ -370,7 +366,7 @@ export class PromptCache {
   }
 
   /**
-   * 捕获性能指标
+   * 记录当前的性能指标
    */
   private captureMetrics(): void {
     this.metrics.capture(
@@ -381,10 +377,10 @@ export class PromptCache {
   }
 
   /**
-   * 启动定期清理任务
+   * 启动定时清理任务
+   * 每小时自动清理一次过期的缓存条目
    */
   private startCleanupTask(): void {
-    // 每小时清理一次过期条目
     const intervalMs = 60 * 60 * 1000
 
     setInterval(() => {

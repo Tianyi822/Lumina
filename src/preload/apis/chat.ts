@@ -2,7 +2,7 @@ import { ipcRenderer } from 'electron'
 import { createIpcListener } from './base'
 
 /**
- * 聊天消息类型
+ * 聊天消息的结构
  */
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
@@ -12,7 +12,7 @@ export interface ChatMessage {
 }
 
 /**
- * 工具调用消息
+ * 工具调用的信息
  */
 export interface ToolCallMessage {
   id: string
@@ -24,7 +24,7 @@ export interface ToolCallMessage {
 }
 
 /**
- * MCP 工具引用（用于传递选中的工具）
+ * 表示用户选中的 MCP 工具引用
  */
 export interface MCPToolReference {
   serverName: string
@@ -34,7 +34,7 @@ export interface MCPToolReference {
 }
 
 /**
- * 知识库引用（用于传递选中的知识库）
+ * 表示用户选中的知识库引用
  */
 export interface KnowledgeBaseReference {
   id: string
@@ -44,7 +44,7 @@ export interface KnowledgeBaseReference {
 }
 
 /**
- * 知识库搜索结果
+ * 知识库搜索的完整结果
  */
 export interface KnowledgeSearchResult {
   knowledgeBaseId: string
@@ -60,7 +60,7 @@ export interface KnowledgeSearchResult {
 }
 
 /**
- * 聊天请求类型
+ * 发起聊天请求所需的参数
  */
 export interface ChatRequest {
   messages: ChatMessage[]
@@ -73,7 +73,7 @@ export interface ChatRequest {
 }
 
 /**
- * 聊天结果类型
+ * 聊天请求的执行结果
  */
 export interface ChatResult {
   success: boolean
@@ -91,7 +91,7 @@ export interface TokenUsage {
 }
 
 /**
- * 工具调用信息
+ * 工具调用的信息
  */
 export interface ToolCallInfo {
   id: string
@@ -101,7 +101,7 @@ export interface ToolCallInfo {
 }
 
 /**
- * 工具结果信息
+ * 工具调用的结果
  */
 export interface ToolResultInfo {
   id: string
@@ -112,7 +112,7 @@ export interface ToolResultInfo {
 }
 
 /**
- * 知识库搜索信息（用于 UI 展示）
+ * 知识库搜索操作的信息
  */
 export interface KnowledgeSearchInfo {
   knowledgeBaseId: string
@@ -121,7 +121,7 @@ export interface KnowledgeSearchInfo {
 }
 
 /**
- * 知识库搜索结果信息（用于 UI 展示）
+ * 知识库搜索的结果信息
  */
 export interface KnowledgeResultInfo {
   knowledgeBaseId: string
@@ -137,7 +137,7 @@ export interface KnowledgeResultInfo {
 }
 
 /**
- * 流式事件类型
+ * 流式传输事件的类型
  */
 export interface StreamEvent {
   type:
@@ -171,16 +171,14 @@ export const chatApi = {
   },
 
   /**
-   * 中止请求
-   * @param sessionId 可选的会话标识。如果提供，只中止该会话的请求；否则中止所有请求
+   * 停止聊天请求
    */
   stop: (sessionId?: string): Promise<void> => {
     return ipcRenderer.invoke('chat:stop', sessionId)
   },
 
   /**
-   * 监听流式响应
-   * @returns 取消监听的函数
+   * 监听流式响应事件
    */
   onStream: (callback: (event: StreamEvent) => void): (() => void) => {
     return createIpcListener<StreamEvent>('chat:stream', callback)

@@ -1,29 +1,22 @@
-/**
- * 示例质量评分器
- * 基于多个维度评估 Few-shot 示例的质量
- */
+// 示例质量评分器，基于多个维度评估 Few-shot 示例的质量
 
 import type { EnhancedFewShotExample } from './prompts/types'
 
-/**
- * 评分权重配置
- */
+// 评分权重配置
 interface ScoringWeights {
-  /** 工具成功率权重 */
+  // 工具成功率权重
   toolSuccess: number
-  /** 答案质量权重 */
+  // 答案质量权重
   answerQuality: number
-  /** 推理深度权重 */
+  // 推理深度权重
   reasoningDepth: number
-  /** 工具效率权重 */
+  // 工具效率权重
   toolEfficiency: number
-  /** 用户反馈权重 */
+  // 用户反馈权重
   userFeedback: number
 }
 
-/**
- * 默认评分权重
- */
+// 默认评分权重
 const DEFAULT_WEIGHTS: ScoringWeights = {
   toolSuccess: 0.4,
   answerQuality: 0.3,
@@ -32,9 +25,7 @@ const DEFAULT_WEIGHTS: ScoringWeights = {
   userFeedback: 0.05
 }
 
-/**
- * 示例质量评分器
- */
+// 示例质量评分器
 export class ExampleScorer {
   private weights: ScoringWeights
 
@@ -42,9 +33,7 @@ export class ExampleScorer {
     this.weights = { ...DEFAULT_WEIGHTS, ...weights }
   }
 
-  /**
-   * 计算示例的综合质量分数
-   */
+  // 计算示例的综合质量分数
   calculateScore(example: EnhancedFewShotExample): number {
     const toolSuccessScore = this.calculateToolSuccessScore(example)
     const answerQualityScore = this.calculateAnswerQualityScore(example)
@@ -62,9 +51,7 @@ export class ExampleScorer {
     return Math.min(1, Math.max(0, totalScore))
   }
 
-  /**
-   * 批量计算分数
-   */
+  // 批量计算分数
   calculateScores(examples: EnhancedFewShotExample[]): EnhancedFewShotExample[] {
     return examples.map((example) => ({
       ...example,
@@ -72,9 +59,7 @@ export class ExampleScorer {
     }))
   }
 
-  /**
-   * 计算工具成功率分数
-   */
+  // 计算工具成功率分数
   private calculateToolSuccessScore(example: EnhancedFewShotExample): number {
     if (!example.toolCalls || example.toolCalls.length === 0) {
       return 0
@@ -90,9 +75,7 @@ export class ExampleScorer {
     return successCount / example.toolCalls.length
   }
 
-  /**
-   * 计算答案质量分数
-   */
+  // 计算答案质量分数
   private calculateAnswerQualityScore(example: EnhancedFewShotExample): number {
     if (!example.finalAnswer) {
       return 0
@@ -127,9 +110,7 @@ export class ExampleScorer {
     return Math.min(1, score)
   }
 
-  /**
-   * 计算推理深度分数
-   */
+  // 计算推理深度分数
   private calculateReasoningDepthScore(example: EnhancedFewShotExample): number {
     if (!example.thought) {
       return 0
@@ -163,9 +144,7 @@ export class ExampleScorer {
     return Math.min(1, score)
   }
 
-  /**
-   * 计算工具效率分数
-   */
+  // 计算工具效率分数
   private calculateToolEfficiencyScore(example: EnhancedFewShotExample): number {
     if (!example.toolCalls || example.toolCalls.length === 0) {
       return 0
@@ -189,9 +168,7 @@ export class ExampleScorer {
     return Math.min(1, score)
   }
 
-  /**
-   * 计算用户反馈分数
-   */
+  // 计算用户反馈分数
   private calculateUserFeedbackScore(example: EnhancedFewShotExample): number {
     // 基于使用次数的简单反馈机制
     // 使用次数多说明示例有用
@@ -204,18 +181,14 @@ export class ExampleScorer {
     return Math.min(1, 0.5 + (example.usageCount / maxExpectedUsage) * 0.5)
   }
 
-  /**
-   * 判断是否是错误结果
-   */
+  // 判断是否是错误结果
   private isErrorResult(result: string): boolean {
     const errorIndicators = ['error:', 'failed', 'exception', 'cannot', 'unable', '错误', '失败']
     const lowerResult = result.toLowerCase()
     return errorIndicators.some((indicator) => lowerResult.includes(indicator))
   }
 
-  /**
-   * 检查是否有结构化内容
-   */
+  // 检查是否有结构化内容
   private hasStructuredContent(text: string): boolean {
     // 检查列表、标题、引用等结构化标记
     const structuredPatterns = [
@@ -229,9 +202,7 @@ export class ExampleScorer {
     return structuredPatterns.some((pattern) => pattern.test(text))
   }
 
-  /**
-   * 检查是否回答了问题
-   */
+  // 检查是否回答了问题
   private answersQuestion(question: string, answer: string): boolean {
     // 简单检查：答案中包含问题的关键词
     const questionWords = question
@@ -245,9 +216,7 @@ export class ExampleScorer {
     return matchedWords.length >= Math.min(2, questionWords.length)
   }
 
-  /**
-   * 更新示例使用次数
-   */
+  // 更新示例使用次数
   updateUsage(example: EnhancedFewShotExample): EnhancedFewShotExample {
     return {
       ...example,
@@ -256,9 +225,7 @@ export class ExampleScorer {
     }
   }
 
-  /**
-   * 批量更新使用次数
-   */
+  // 批量更新使用次数
   updateUsageBatch(
     examples: EnhancedFewShotExample[],
     exampleIds: string[]
