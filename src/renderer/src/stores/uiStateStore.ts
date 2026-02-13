@@ -6,17 +6,17 @@ import { defineStore } from 'pinia'
 import { useSessionStore } from './sessionStore'
 
 // 视图类型
-export type ViewMode = 'chat' | 'knowledge'
+export type ViewMode = 'chat' | 'knowledge' | 'sandbox'
 
 export const useUIStateStore = defineStore(
   'uiState',
   () => {
     // ==================== Dependencies ====================
-    
+
     const sessionStore = useSessionStore()
 
     // ==================== State: 基础 UI ====================
-    
+
     // 侧边栏是否折叠
     const sidebarCollapsed = ref(false)
 
@@ -30,7 +30,7 @@ export const useUIStateStore = defineStore(
     const lastChatSessionId = ref<string | null>(null)
 
     // ==================== State: 配置更新通知 ====================
-    
+
     // 配置更新计数器（用于触发组件刷新）
     const configUpdateKey = ref(0)
 
@@ -38,7 +38,7 @@ export const useUIStateStore = defineStore(
     const mcpUpdateKey = ref(0)
 
     // ==================== State: 错误提示 ====================
-    
+
     // 配置错误信息
     const configError = ref<string | null>(null)
 
@@ -52,18 +52,21 @@ export const useUIStateStore = defineStore(
     const showChatError = ref(false)
 
     // ==================== Getters ====================
-    
+
     // 是否在聊天视图
     const isChatView = computed(() => currentView.value === 'chat')
 
     // 是否在知识库视图
     const isKnowledgeView = computed(() => currentView.value === 'knowledge')
 
+    // 是否在沙箱视图
+    const isSandboxView = computed(() => currentView.value === 'sandbox')
+
     // 是否有任何错误显示
     const hasAnyError = computed(() => showConfigError.value || showChatError.value)
 
     // ==================== Actions: 侧边栏 ====================
-    
+
     // 切换侧边栏状态
     function toggleSidebar(): void {
       sidebarCollapsed.value = !sidebarCollapsed.value
@@ -84,7 +87,7 @@ export const useUIStateStore = defineStore(
     }
 
     // ==================== Actions: 视图切换 ====================
-    
+
     // 切换到聊天视图
     async function switchToChatView(restoreSession: boolean = true): Promise<void> {
       const previousView = currentView.value
@@ -121,14 +124,36 @@ export const useUIStateStore = defineStore(
       window.api.logger.info('[UIStateStore] 切换到知识库视图')
     }
 
+    // 切换到沙箱视图
+    async function switchToSandboxView(saveSessionState: boolean = true): Promise<void> {
+      const previousView = currentView.value
+
+      if (previousView === 'chat' && saveSessionState) {
+        // 保存当前聊天会话状态
+        if (sessionStore.currentChatId) {
+          lastChatSessionId.value = sessionStore.currentChatId
+          await sessionStore.saveCurrentStateBeforeLeave()
+
+          window.api.logger.info('[UIStateStore] 离开聊天视图，保存状态', {
+            sessionId: sessionStore.currentChatId
+          })
+        }
+      }
+
+      currentView.value = 'sandbox'
+      window.api.logger.info('[UIStateStore] 切换到沙箱视图')
+    }
+
     // 设置当前视图
     async function setCurrentView(view: ViewMode, autoHandleState: boolean = true): Promise<void> {
       if (currentView.value === view) return
 
       if (view === 'chat') {
         await switchToChatView(autoHandleState)
-      } else {
+      } else if (view === 'knowledge') {
         await switchToKnowledgeView(autoHandleState)
+      } else {
+        await switchToSandboxView(autoHandleState)
       }
     }
 
@@ -138,7 +163,7 @@ export const useUIStateStore = defineStore(
     }
 
     // ==================== Actions: 配置更新通知 ====================
-    
+
     // 触发配置更新通知
     function notifyConfigUpdate(): void {
       configUpdateKey.value++
@@ -152,7 +177,7 @@ export const useUIStateStore = defineStore(
     }
 
     // ==================== Actions: 错误管理 ====================
-    
+
     // 显示配置错误
     function showConfigErrorMessage(message: string): void {
       configError.value = message
@@ -215,7 +240,7 @@ export const useUIStateStore = defineStore(
     }
 
     // ==================== View Change Watchers ====================
-    
+
     // 监听视图变化，确保状态正确保存
     watch(
       () => currentView.value,
@@ -247,6 +272,7 @@ export const useUIStateStore = defineStore(
       // Getters
       isChatView,
       isKnowledgeView,
+      isSandboxView,
       hasAnyError,
 
       // Actions: 侧边栏
@@ -257,6 +283,7 @@ export const useUIStateStore = defineStore(
       // Actions: 视图切换
       switchToChatView,
       switchToKnowledgeView,
+      switchToSandboxView,
       setCurrentView,
       updateLastChatSessionId,
 

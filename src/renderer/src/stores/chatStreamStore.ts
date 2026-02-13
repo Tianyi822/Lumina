@@ -8,11 +8,11 @@ import { useMessageCacheStore } from './messageCacheStore'
 
 export const useChatStreamStore = defineStore('chatStream', () => {
   // ==================== Dependencies ====================
-  
+
   const messageCache = useMessageCacheStore()
 
   // ==================== State ====================
-  
+
   // 是否正在发送消息（全局状态，用于当前会话）
   const isSending = ref(false)
 
@@ -29,7 +29,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
   const cleanupStreamListenerFn = ref<(() => void) | null>(null)
 
   // ==================== Getters ====================
-  
+
   // 获取当前正在流式响应的会话数量
   const streamingSessionCount = computed(() => {
     let count = 0
@@ -49,7 +49,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
   })
 
   // ==================== Actions ====================
-  
+
   // 获取指定会话的发送状态
   function getSessionSendingState(sessionId: string): boolean {
     return sessionSendingStates.value.get(sessionId) || false

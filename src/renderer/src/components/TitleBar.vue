@@ -10,7 +10,7 @@ const emit = defineEmits<{
 
 // ==================== Stores ====================
 const uiState = useUIStateStore()
-const { currentView, isChatView, isKnowledgeView } = storeToRefs(uiState)
+const { currentView, isChatView, isKnowledgeView, isSandboxView } = storeToRefs(uiState)
 
 // ==================== Methods ====================
 
@@ -36,7 +36,7 @@ const isMac = computed(() => {
 /**
  * 切换视图
  */
-async function switchView(view: 'chat' | 'knowledge'): Promise<void> {
+async function switchView(view: 'chat' | 'knowledge' | 'sandbox'): Promise<void> {
   if (currentView.value !== view) {
     await uiState.setCurrentView(view)
   }
@@ -82,14 +82,20 @@ onUnmounted(() => {
 
     <!-- 中间区域：视图切换器 + 设置按钮 -->
     <div class="title-bar-center-section">
-      <!-- 视图切换器 (Chat | 知识库) -->
+      <!-- 视图切换器 (聊天 | 知识库 | 沙箱) -->
       <div class="view-switcher">
         <div class="switcher-container">
           <!-- 滑块背景 -->
-          <div class="switcher-slider" :class="{ 'is-knowledge': isKnowledgeView }"></div>
-          <!-- Chat 按钮 -->
+          <div
+            class="switcher-slider"
+            :class="{
+              'is-knowledge': isKnowledgeView,
+              'is-sandbox': isSandboxView
+            }"
+          ></div>
+          <!-- 聊天 按钮 -->
           <button class="switcher-btn" :class="{ active: isChatView }" @click="switchView('chat')">
-            <span>Chat</span>
+            <span>聊天</span>
           </button>
           <!-- 知识库 按钮 -->
           <button
@@ -98,6 +104,14 @@ onUnmounted(() => {
             @click="switchView('knowledge')"
           >
             <span>知识库</span>
+          </button>
+          <!-- 沙箱 按钮 -->
+          <button
+            class="switcher-btn"
+            :class="{ active: isSandboxView }"
+            @click="switchView('sandbox')"
+          >
+            <span>沙箱</span>
           </button>
         </div>
       </div>
@@ -314,7 +328,7 @@ onUnmounted(() => {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: calc(50% - 2px);
+  width: calc((100% - 4px) / 3);
   height: calc(100% - 4px);
   background-color: rgba(63, 185, 80, 0.25);
   border-radius: 3px;
@@ -326,9 +340,16 @@ onUnmounted(() => {
   transform: translateX(100%);
 }
 
+.switcher-slider.is-sandbox {
+  transform: translateX(200%);
+}
+
 /* 切换按钮 */
 .switcher-btn {
   position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
   padding: 0 10px;
   font-size: 11px;
   font-weight: 500;
@@ -343,18 +364,13 @@ onUnmounted(() => {
   z-index: 11;
   user-select: none;
   pointer-events: auto;
-  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  vertical-align: middle;
-  line-height: 16px;
 }
 
 .switcher-btn span {
-  display: inline-block;
-  line-height: 1;
-  margin-top: 1px;
+  display: contents;
 }
 
 .switcher-btn:hover {
@@ -372,7 +388,7 @@ onUnmounted(() => {
   }
 
   .switcher-btn {
-    padding: 2px 8px;
+    padding: 0 8px;
     font-size: 11px;
   }
 }

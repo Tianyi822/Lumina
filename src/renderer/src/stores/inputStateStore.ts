@@ -18,7 +18,7 @@ export const useInputStateStore = defineStore(
   'inputState',
   () => {
     // ==================== State ====================
-    
+
     // 会话 ID 到输入状态的映射
     // 持久化存储，用于页面切换后恢复状态
     const sessionInputStates = ref<Map<string, SessionInputState>>(new Map())
@@ -30,7 +30,7 @@ export const useInputStateStore = defineStore(
     const lastActiveSessionId = ref<string | null>(null)
 
     // ==================== Getters ====================
-    
+
     // 获取当前输入消息
     const inputMessage = computed(() => currentInputState.value.inputMessage)
 
@@ -47,7 +47,7 @@ export const useInputStateStore = defineStore(
     const savedStateCount = computed(() => sessionInputStates.value.size)
 
     // ==================== Actions ====================
-    
+
     // 获取或创建会话的输入状态
     function getSessionState(sessionId: string): SessionInputState {
       if (!sessionInputStates.value.has(sessionId)) {

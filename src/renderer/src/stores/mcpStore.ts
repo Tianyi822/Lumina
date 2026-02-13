@@ -15,7 +15,7 @@ export const useMCPStore = defineStore(
   'mcp',
   () => {
     // ==================== State ====================
-    
+
     // MCP 服务器配置列表
     const configs = ref<MCPServerConfig[]>([])
 
@@ -70,7 +70,7 @@ export const useMCPStore = defineStore(
     let statusListenerCleanup: (() => void) | null = null
 
     // ==================== Getters ====================
-    
+
     // 总工具数量
     const totalToolsCount = computed(() => {
       return Object.values(toolsByServer.value).reduce((sum, tools) => sum + tools.length, 0)
@@ -110,7 +110,7 @@ export const useMCPStore = defineStore(
     })
 
     // ==================== Actions: 配置管理 ====================
-    
+
     // 加载所有配置和状态
     async function loadConfigs(): Promise<void> {
       loading.value = true
@@ -189,7 +189,7 @@ export const useMCPStore = defineStore(
     }
 
     // ==================== Actions: 连接管理 ====================
-    
+
     // 连接服务器
     async function connect(
       name: string,
@@ -271,7 +271,7 @@ export const useMCPStore = defineStore(
     }
 
     // ==================== Actions: 工具管理 ====================
-    
+
     // 加载所有工具
     async function loadAllTools(): Promise<void> {
       try {
@@ -304,7 +304,7 @@ export const useMCPStore = defineStore(
     }
 
     // ==================== Actions: UI 状态 ====================
-    
+
     // 切换服务器展开状态
     function toggleServerExpanded(serverName: string): void {
       if (expandedServers.value.has(serverName)) {
@@ -330,7 +330,7 @@ export const useMCPStore = defineStore(
     }
 
     // ==================== Actions: 表单管理 ====================
-    
+
     // 解析键值对文本
     function parseKeyValueText(text: string): Record<string, string> {
       const result: Record<string, string> = {}
@@ -438,7 +438,7 @@ export const useMCPStore = defineStore(
     }
 
     // ==================== Actions: 事件监听 ====================
-    
+
     // 设置状态变更监听器
     function setupStatusListener(): void {
       if (statusListenerCleanup) {

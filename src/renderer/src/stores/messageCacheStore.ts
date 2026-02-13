@@ -9,7 +9,7 @@ import { deepCopyMessages } from '@renderer/utils/messageHelpers'
 
 export const useMessageCacheStore = defineStore('messageCache', () => {
   // ==================== State ====================
-  
+
   // 会话消息状态缓存（用于处理多会话并发流式响应）
   // Key: sessionId, Value: 消息列表
   const sessionMessagesCache = ref<Map<string, Message[]>>(new Map())
@@ -19,7 +19,7 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
   const sessionTitleCache = ref<Map<string, string>>(new Map())
 
   // ==================== Getters ====================
-  
+
   // 获取所有缓存的会话 ID 列表
   const cachedSessionIds = computed(() => Array.from(sessionMessagesCache.value.keys()))
 
@@ -27,7 +27,7 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
   const cacheSize = computed(() => sessionMessagesCache.value.size)
 
   // ==================== Actions ====================
-  
+
   // 缓存会话消息和标题
   function cacheSession(sessionId: string, messages: Message[], title?: string): void {
     // 深拷贝消息，避免引用问题
@@ -146,11 +146,11 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
           modelName: msg.modelName,
           usage: msg.usage
             ? {
-                  prompt_tokens: msg.usage.prompt_tokens,
-                  completion_tokens: msg.usage.completion_tokens,
-                  total_tokens: msg.usage.total_tokens,
-                  reasoning_tokens: msg.usage.reasoning_tokens
-                }
+                prompt_tokens: msg.usage.prompt_tokens,
+                completion_tokens: msg.usage.completion_tokens,
+                total_tokens: msg.usage.total_tokens,
+                reasoning_tokens: msg.usage.reasoning_tokens
+              }
             : undefined
         }))
       }
