@@ -45,7 +45,9 @@ const defaultModel = ref('')
 const promptConfig = reactive<PromptConfig>({
   enableEnhancedPrompt: true,
   toolDescriptionLevel: 'detailed',
-  fewShotCount: 3
+  fewShotCount: 3,
+  enablePromptOptimization: false,
+  optimizationAggressiveness: 'balanced'
 })
 
 // 加载配置
