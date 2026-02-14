@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useSandboxStore, useUIStateStore } from '@renderer/stores'
+import SandboxSidebar from '@renderer/components/sandbox/SandboxSidebar.vue'
+import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
 
 type PlatformType = 'darwin' | 'win32' | 'linux'
 
@@ -35,6 +39,12 @@ const installCommands: InstallCommand[] = [
   { platform: 'linux', label: 'Fedora', cmd: 'sudo dnf install -y docker' },
   { platform: 'linux', label: 'Arch Linux', cmd: 'sudo pacman -S docker' }
 ]
+
+const sandboxStore = useSandboxStore()
+const uiStateStore = useUIStateStore()
+
+const { currentSandbox, sandboxList, operationLogs, listUpdateKey } = storeToRefs(sandboxStore)
+const { sandboxSidebarCollapsed } = storeToRefs(uiStateStore)
 
 const dockerStatus = ref<DockerStatus | null>(null)
 const platform = ref<PlatformType>('darwin')
@@ -82,120 +92,117 @@ const copyCommand = async (cmd: string, index: number): Promise<void> => {
   }
 }
 
-onMounted(() => {
-  checkDocker()
+onMounted(async () => {
+  await checkDocker()
+
+  if (dockerStatus.value?.installed) {
+    await sandboxStore.loadSandboxList()
+  }
 })
 </script>
 
 <template>
   <div class="sandbox-page">
-    <div class="sandbox-container">
-      <div v-if="loading" class="loading-state">
-        <div class="loading-spinner"></div>
-        <p>正在检测 Docker...</p>
-      </div>
+    <div v-if="loading" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <p>正在检测 Docker...</p>
+    </div>
 
-      <div v-else-if="dockerStatus?.installed" class="docker-installed">
-        <div class="installed-icon">✓</div>
-        <h1>Docker 已安装</h1>
-        <p class="version-info">版本: {{ dockerStatus.version }}</p>
-        <p class="hint">沙箱功能即将上线...</p>
-      </div>
+    <template v-else-if="dockerStatus?.installed">
+      <SandboxSidebar
+        v-show="!sandboxSidebarCollapsed"
+        :sandboxs="sandboxList"
+        :active-sandbox-id="currentSandbox?.sandboxId"
+        :list-update-key="listUpdateKey"
+        @new-sandbox="sandboxStore.handleNewSandbox"
+        @select-sandbox="sandboxStore.handleSelectSandbox"
+        @delete-sandbox="sandboxStore.handleDeleteSandbox"
+      />
 
-      <div v-else class="docker-not-installed">
-        <div class="docker-icon">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="64" height="64">
-            <path
-              d="M13.983 11.078h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.119a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 00.186-.186V3.574a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.186m0 2.716h2.118a.187.187 0 00.186-.186V6.29a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 00.184-.186V6.29a.185.185 0 00-.185-.185H8.1a.185.185 0 00-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 00.185-.186V6.29a.185.185 0 00-.185-.185H5.136a.186.186 0 00-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 00.185-.185V9.006a.185.185 0 00-.185-.186h-2.119a.186.186 0 00-.186.186v1.887c0 .102.084.185.186.185m-2.92 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.082.185.185.185M23.763 9.89c-.065-.051-.672-.51-1.954-.51-.338.001-.676.03-1.01.087-.248-1.7-1.653-2.53-1.716-2.566l-.344-.199-.226.327c-.284.438-.49.922-.612 1.43-.23.97-.09 1.882.403 2.661-.595.332-1.55.413-1.744.42H.751a.751.751 0 00-.75.748 11.376 11.376 0 00.692 4.062c.545 1.428 1.355 2.48 2.41 3.124 1.18.723 3.1 1.137 5.275 1.137.983.003 1.963-.086 2.93-.266a12.248 12.248 0 003.823-1.389c.98-.567 1.86-1.288 2.61-2.136 1.252-1.418 1.998-2.997 2.553-4.4h.221c1.372 0 2.215-.549 2.68-1.009.309-.293.55-.65.707-1.046l.098-.288z"
-            />
-          </svg>
-        </div>
-        <h1>需要安装 Docker</h1>
-        <p class="subtitle">沙箱功能需要 Docker 支持，请先安装 Docker</p>
+      <SandboxMainContent
+        :sidebar-collapsed="sandboxSidebarCollapsed"
+        :current-sandbox="currentSandbox"
+        :operation-logs="operationLogs"
+        @toggle-sidebar="uiStateStore.toggleSandboxSidebar"
+      />
+    </template>
 
-        <button class="btn-primary download-btn" @click="openDockerWebsite">
-          前往 Docker 官网下载
-        </button>
+    <div v-else class="docker-install-guide">
+      <h1>需要安装 Docker</h1>
+      <p class="subtitle">沙箱功能需要 Docker 支持，请先安装 Docker</p>
 
-        <p class="divider-text">或使用命令行安装</p>
+      <button class="btn-primary download-btn" @click="openDockerWebsite">
+        前往 Docker 官网下载
+      </button>
 
-        <div v-if="filteredCommands.length > 0" class="commands-section">
-          <h3 class="section-title">
-            推荐命令 ({{
-              platform === 'darwin' ? 'macOS' : platform === 'win32' ? 'Windows' : 'Linux'
-            }})
-          </h3>
-          <div class="command-list">
-            <div
-              v-for="(cmd, index) in filteredCommands"
-              :key="index"
-              class="command-item recommended"
-            >
-              <span class="command-label">{{ cmd.label }}</span>
-              <div class="command-content">
-                <code>{{ cmd.cmd }}</code>
-                <button
-                  class="copy-btn"
-                  :class="{ copied: copiedIndex === index }"
-                  @click="copyCommand(cmd.cmd, index)"
-                >
-                  {{ copiedIndex === index ? '已复制' : '复制' }}
-                </button>
-              </div>
+      <p class="divider-text">或使用命令行安装</p>
+
+      <div v-if="filteredCommands.length > 0" class="commands-section">
+        <h3 class="section-title">
+          推荐命令 ({{
+            platform === 'darwin' ? 'macOS' : platform === 'win32' ? 'Windows' : 'Linux'
+          }})
+        </h3>
+        <div class="command-list">
+          <div
+            v-for="(cmd, index) in filteredCommands"
+            :key="index"
+            class="command-item recommended"
+          >
+            <span class="command-label">{{ cmd.label }}</span>
+            <div class="command-content">
+              <code>{{ cmd.cmd }}</code>
+              <button
+                class="copy-btn"
+                :class="{ copied: copiedIndex === index }"
+                @click="copyCommand(cmd.cmd, index)"
+              >
+                {{ copiedIndex === index ? '已复制' : '复制' }}
+              </button>
             </div>
           </div>
         </div>
+      </div>
 
-        <div v-if="otherCommands.length > 0" class="commands-section other-platforms">
-          <h3 class="section-title">其他平台</h3>
-          <div class="command-list">
-            <div v-for="(cmd, index) in otherCommands" :key="`other-${index}`" class="command-item">
-              <span class="command-label">{{ cmd.label }}</span>
-              <div class="command-content">
-                <code>{{ cmd.cmd }}</code>
-                <button
-                  class="copy-btn"
-                  :class="{ copied: copiedIndex === index + 100 }"
-                  @click="copyCommand(cmd.cmd, index + 100)"
-                >
-                  {{ copiedIndex === index + 100 ? '已复制' : '复制' }}
-                </button>
-              </div>
+      <div v-if="otherCommands.length > 0" class="commands-section other-platforms">
+        <h3 class="section-title">其他平台</h3>
+        <div class="command-list">
+          <div v-for="(cmd, index) in otherCommands" :key="`other-${index}`" class="command-item">
+            <span class="command-label">{{ cmd.label }}</span>
+            <div class="command-content">
+              <code>{{ cmd.cmd }}</code>
+              <button
+                class="copy-btn"
+                :class="{ copied: copiedIndex === index + 100 }"
+                @click="copyCommand(cmd.cmd, index + 100)"
+              >
+                {{ copiedIndex === index + 100 ? '已复制' : '复制' }}
+              </button>
             </div>
           </div>
         </div>
-
-        <p v-if="dockerStatus?.error" class="error-hint">
-          检测时出现错误: {{ dockerStatus.error }}
-        </p>
       </div>
+
+      <p v-if="dockerStatus?.error" class="error-hint">检测时出现错误: {{ dockerStatus.error }}</p>
     </div>
   </div>
 </template>
 
 <style scoped>
 .sandbox-page {
+  display: flex;
   width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 
-.sandbox-container {
-  flex: 1;
+.loading-overlay {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
-  overflow-y: auto;
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  width: 100%;
+  height: 100%;
   gap: 16px;
   color: var(--theme-text-secondary);
 }
@@ -215,59 +222,18 @@ onMounted(() => {
   }
 }
 
-.docker-installed {
+.docker-install-guide {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.installed-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background-color: var(--theme-success);
-  color: var(--theme-bg);
-  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
-  font-weight: bold;
-}
-
-.docker-installed h1 {
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--theme-text);
-  margin: 0;
-}
-
-.version-info {
-  font-size: 14px;
-  color: var(--theme-text-secondary);
-  margin: 0;
-}
-
-.hint {
-  font-size: 13px;
-  color: var(--theme-text-secondary);
-  margin-top: 8px;
-}
-
-.docker-not-installed {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  max-width: 600px;
   width: 100%;
+  height: 100%;
+  padding: 40px 20px;
+  overflow-y: auto;
 }
 
-.docker-icon {
-  color: var(--theme-text-secondary);
-  margin-bottom: 16px;
-}
-
-.docker-not-installed h1 {
+.docker-install-guide h1 {
   font-size: 24px;
   font-weight: 600;
   color: var(--theme-text);
@@ -289,6 +255,7 @@ onMounted(() => {
 
 .divider-text {
   width: 100%;
+  max-width: 600px;
   margin: 32px 0 24px 0;
   color: var(--theme-text-secondary);
   font-size: 13px;
@@ -297,6 +264,7 @@ onMounted(() => {
 
 .commands-section {
   width: 100%;
+  max-width: 600px;
   margin-bottom: 24px;
 }
 

@@ -789,12 +789,65 @@ interface DockerCheckResult {
 type PlatformType = 'darwin' | 'win32' | 'linux'
 
 /**
+ * 沙箱状态
+ */
+type SandboxStatus = 'creating' | 'running' | 'stopped' | 'error'
+
+/**
+ * 沙箱元数据
+ */
+interface SandboxData {
+  sandboxId: string
+  name: string
+  description?: string
+  image?: string
+  status: SandboxStatus
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * 沙箱列表项
+ */
+interface SandboxListItem {
+  sandboxId: string
+  name: string
+  status: SandboxStatus
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * 沙箱操作结果
+ */
+interface SandboxResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * 操作日志条目
+ */
+interface SandboxLogEntry {
+  timestamp: string
+  level: 'info' | 'warn' | 'error'
+  message: string
+}
+
+/**
  * 沙箱相关的 API
  */
 interface SandboxApi {
   checkDocker: () => Promise<DockerCheckResult>
   getPlatform: () => Promise<PlatformType>
   openExternal: (url: string) => Promise<void>
+  createSandbox: (name?: string) => Promise<SandboxData>
+  saveSandbox: (data: SandboxData) => Promise<SandboxResult>
+  loadSandbox: (sandboxId: string) => Promise<SandboxData | null>
+  listSandboxs: () => Promise<SandboxListItem[]>
+  deleteSandbox: (sandboxId: string) => Promise<SandboxResult>
+  renameSandbox: (sandboxId: string, newName: string) => Promise<SandboxResult>
+  readSandboxLog: (sandboxId: string) => Promise<SandboxLogEntry[]>
 }
 
 /**

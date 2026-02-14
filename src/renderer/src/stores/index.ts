@@ -21,6 +21,7 @@ export { useKnowledgeIndexStore } from './knowledgeIndexStore'
 export { useMCPStore } from './mcpStore'
 export { useKnowledgeStore } from './knowledgeStore'
 export { useFileStore } from './fileStore'
+export { useSandboxStore } from './sandboxStore'
 
 // 初始化 Pinia（在应用启动时调用）
 export function initializePinia(): void {

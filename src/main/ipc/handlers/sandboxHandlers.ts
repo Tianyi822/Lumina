@@ -2,6 +2,13 @@ import { ipcMain, shell } from 'electron'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { logger } from '@main/services/logger'
+import { sandboxService } from '@main/services/sandbox'
+import type {
+  SandboxData,
+  SandboxListItem,
+  SandboxResult,
+  SandboxLogEntry
+} from '@main/types/sandbox'
 
 const execAsync = promisify(exec)
 
@@ -14,9 +21,18 @@ export interface DockerCheckResult {
 export type PlatformType = 'darwin' | 'win32' | 'linux'
 
 /**
+ * 初始化沙箱服务
+ */
+export function initializeSandbox(): void {
+  sandboxService.initialize()
+}
+
+/**
  * 注册沙箱相关的 IPC 处理程序
  */
 export function registerSandboxHandlers(): void {
+  // ==================== Docker 检测相关 ====================
+
   ipcMain.handle('sandbox:checkDocker', async (): Promise<DockerCheckResult> => {
     try {
       const { stdout } = await execAsync('docker --version', { timeout: 5000 })
@@ -65,4 +81,40 @@ export function registerSandboxHandlers(): void {
       throw error
     }
   })
+
+  // ==================== 沙箱管理相关 ====================
+
+  ipcMain.handle('sandbox:create', async (_event, name?: string): Promise<SandboxData> => {
+    return sandboxService.createSandbox(name)
+  })
+
+  ipcMain.handle('sandbox:save', async (_event, data: SandboxData): Promise<SandboxResult> => {
+    return sandboxService.saveSandbox(data)
+  })
+
+  ipcMain.handle('sandbox:load', async (_event, sandboxId: string): Promise<SandboxData | null> => {
+    return sandboxService.loadSandbox(sandboxId)
+  })
+
+  ipcMain.handle('sandbox:list', async (): Promise<SandboxListItem[]> => {
+    return sandboxService.listSandboxs()
+  })
+
+  ipcMain.handle('sandbox:delete', async (_event, sandboxId: string): Promise<SandboxResult> => {
+    return sandboxService.deleteSandbox(sandboxId)
+  })
+
+  ipcMain.handle(
+    'sandbox:rename',
+    async (_event, sandboxId: string, newName: string): Promise<SandboxResult> => {
+      return sandboxService.renameSandbox(sandboxId, newName)
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:readLog',
+    async (_event, sandboxId: string): Promise<SandboxLogEntry[]> => {
+      return sandboxService.readOperationLog(sandboxId)
+    }
+  )
 }

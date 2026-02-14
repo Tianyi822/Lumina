@@ -20,6 +20,9 @@ export const useUIStateStore = defineStore(
     // 侧边栏是否折叠
     const sidebarCollapsed = ref(false)
 
+    // 沙箱侧边栏是否折叠
+    const sandboxSidebarCollapsed = ref(false)
+
     // 当前视图模式
     const currentView = ref<ViewMode>('chat')
 
@@ -72,6 +75,14 @@ export const useUIStateStore = defineStore(
       sidebarCollapsed.value = !sidebarCollapsed.value
       window.api.logger.debug('[UIStateStore] 切换侧边栏', {
         collapsed: sidebarCollapsed.value
+      })
+    }
+
+    // 切换沙箱侧边栏状态
+    function toggleSandboxSidebar(): void {
+      sandboxSidebarCollapsed.value = !sandboxSidebarCollapsed.value
+      window.api.logger.debug('[UIStateStore] 切换沙箱侧边栏', {
+        collapsed: sandboxSidebarCollapsed.value
       })
     }
 
@@ -255,6 +266,7 @@ export const useUIStateStore = defineStore(
     return {
       // State: 基础 UI
       sidebarCollapsed,
+      sandboxSidebarCollapsed,
       currentView,
       currentModel,
       lastChatSessionId,
@@ -277,6 +289,7 @@ export const useUIStateStore = defineStore(
 
       // Actions: 侧边栏
       toggleSidebar,
+      toggleSandboxSidebar,
       setSidebarCollapsed,
       setCurrentModel,
 
