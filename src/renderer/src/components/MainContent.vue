@@ -152,13 +152,11 @@ function handleSendMessage(
   selectedTools: MCPTool[],
   selectedKnowledgeBases: KnowledgeBase[]
 ): void {
-  console.log('[MainContent] 处理发送消息事件:', {
-    message: message.substring(0, 50),
+  window.api.logger.debug('[MainContent] 处理发送消息事件', {
+    messageLength: message.length,
     model,
     selectedToolsCount: selectedTools?.length ?? 0,
-    selectedTools: selectedTools?.map((t) => `${t.serverName}/${t.name}`),
-    selectedKnowledgeBasesCount: selectedKnowledgeBases?.length ?? 0,
-    selectedKnowledgeBases: selectedKnowledgeBases?.map((kb) => kb.name)
+    selectedKnowledgeBasesCount: selectedKnowledgeBases?.length ?? 0
   })
   emit('send-message', message, model, selectedTools, selectedKnowledgeBases)
 }

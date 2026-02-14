@@ -167,7 +167,7 @@ export function registerKnowledgeHandlers(): void {
               if (win) {
                 win.webContents.send('knowledge:file-progress', { kbId, progress })
               }
-              logger.debug('文件索引进度', 'main', { kbId, fileId, progress })
+              // 文件索引进度通过 IPC 事件发送，不打印日志
             }
           )
         )
@@ -231,18 +231,14 @@ export function registerKnowledgeHandlers(): void {
               if (win) {
                 win.webContents.send('knowledge:reindex-progress', { kbId, progress })
               }
-              logger.debug('重新索引进度', 'main', { kbId, progress })
+              // 重新索引进度通过 IPC 事件发送，不打印日志
             },
             (fileProgress) => {
               const win = getMainWindow()
               if (win) {
                 win.webContents.send('knowledge:file-progress', { kbId, progress: fileProgress })
               }
-              logger.debug('文件索引进度', 'main', {
-                kbId,
-                fileId: fileProgress.fileId,
-                progress: fileProgress
-              })
+              // 文件索引进度通过 IPC 事件发送，不打印日志
             }
           )
         )

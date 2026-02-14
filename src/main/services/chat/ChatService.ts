@@ -274,7 +274,6 @@ export class ChatService {
 
     const existingController = this.abortControllers.get(sessionId)
     if (existingController) {
-      logger.debug('中止会话的旧请求', 'main', { sessionId })
       existingController.abort()
     }
 
@@ -285,13 +284,6 @@ export class ChatService {
       const client = this.createClient(llmConfig)
 
       const formattedMessages = this.formatMessagesWithKnowledge(messages, knowledgeResults)
-
-      logger.debug('发送请求到 API', 'main', {
-        baseUrl: llmConfig.base_url,
-        model: llmConfig.model_name,
-        temperature: llmConfig.temperature,
-        maxTokens: llmConfig.max_tokens
-      })
 
       const stream = await client.chat.completions.create(
         {
@@ -401,7 +393,6 @@ export class ChatService {
 
     const existingController = this.abortControllers.get(sessionId)
     if (existingController) {
-      logger.debug('中止会话的旧请求', 'main', { sessionId })
       existingController.abort()
     }
 
@@ -417,12 +408,6 @@ export class ChatService {
       }
 
       const tools = this.buildOpenAITools(selectedTools!)
-
-      logger.debug('构建的 OpenAI tools 定义', 'main', {
-        sessionId,
-        toolCount: tools.length,
-        toolNames: tools.map((t) => (t as { function: { name: string } }).function.name)
-      })
 
       const systemPrompt = await promptBuilder.buildSystemPrompt(
         llmConfig,
@@ -449,10 +434,13 @@ export class ChatService {
           break
         }
 
-        logger.debug(`ReAct 迭代 ${iterations + 1}`, 'main', {
-          sessionId,
-          messageCount: conversationMessages.length
-        })
+        // 只在第1次、最后1次或每5次迭代打印日志
+        if (iterations === 0 || iterations === maxReactIterations - 1 || (iterations + 1) % 5 === 0) {
+          logger.debug(`ReAct 迭代 ${iterations + 1}/${maxReactIterations}`, 'main', {
+            sessionId,
+            messageCount: conversationMessages.length
+          })
+        }
 
         const response = await client.chat.completions.create(
           {

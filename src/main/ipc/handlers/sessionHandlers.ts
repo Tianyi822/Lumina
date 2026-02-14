@@ -14,7 +14,6 @@ export function registerSessionHandlers(): void {
     'session:create',
     async (_, title?: string, type?: SessionType): Promise<SessionData> => {
       try {
-        logger.debug('收到创建会话请求', 'main', { title, type })
         return sessionService.createSession(title, type)
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)
@@ -29,7 +28,6 @@ export function registerSessionHandlers(): void {
    */
   ipcMain.handle('session:save', async (_, data: SessionData): Promise<SessionResult> => {
     try {
-      logger.debug('收到保存会话请求', 'main', { sessionId: data.sessionId })
       return sessionService.saveSession(data)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -43,7 +41,6 @@ export function registerSessionHandlers(): void {
    */
   ipcMain.handle('session:load', async (_, sessionId: string): Promise<SessionData | null> => {
     try {
-      logger.debug('收到加载会话请求', 'main', { sessionId })
       return sessionService.loadSession(sessionId)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -57,7 +54,6 @@ export function registerSessionHandlers(): void {
    */
   ipcMain.handle('session:list', async (): Promise<SessionListItem[]> => {
     try {
-      logger.debug('收到获取会话列表请求', 'main')
       return sessionService.listSessions()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -71,7 +67,6 @@ export function registerSessionHandlers(): void {
    */
   ipcMain.handle('session:delete', async (_, sessionId: string): Promise<SessionResult> => {
     try {
-      logger.debug('收到删除会话请求', 'main', { sessionId })
       return sessionService.deleteSession(sessionId)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -87,7 +82,6 @@ export function registerSessionHandlers(): void {
     'session:rename',
     async (_, sessionId: string, newTitle: string): Promise<SessionResult> => {
       try {
-        logger.debug('收到重命名会话请求', 'main', { sessionId, newTitle })
         return sessionService.renameSession(sessionId, newTitle)
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)

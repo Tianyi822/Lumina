@@ -143,14 +143,6 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     // 找到正在流式输出的消息
     const streamingMessage = targetMessages.find((msg) => msg.isStreaming)
 
-    window.api.logger.debug('[ChatStreamStore] 处理流式事件', {
-      type: event.type,
-      targetSessionId,
-      currentSessionId,
-      isCurrentSession,
-      hasStreamingMessage: !!streamingMessage
-    })
-
     switch (event.type) {
       case 'content':
         if (streamingMessage && event.content) {

@@ -69,11 +69,10 @@ function toggleTool(tool: MCPTool): void {
     localSelectedTools.value.push(tool)
   }
 
-  console.log('[MCPToolsPanel] 工具选择变更:', {
+  window.api.logger.debug('[MCPToolsPanel] 工具选择变更', {
     action: index >= 0 ? 'removed' : 'added',
     tool: `${tool.serverName}/${tool.name}`,
-    selectedCount: localSelectedTools.value.length,
-    selectedTools: localSelectedTools.value.map((t) => `${t.serverName}/${t.name}`)
+    selectedCount: localSelectedTools.value.length
   })
 }
 

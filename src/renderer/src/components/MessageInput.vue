@@ -153,14 +153,8 @@ function handleSend(): void {
   const message = localInputMessage.value
   if (message.trim() && !props.isSending) {
     // 调试日志：确认发送时的工具选择状态
-    console.log('[MessageInput] 发送消息，选中的工具:', {
-      count: localSelectedTools.value.length,
-      tools: localSelectedTools.value.map((t) => `${t.serverName}/${t.name}`)
-    })
-    // 调试日志：确认发送时的知识库选择状态
-    console.log('[MessageInput] 发送消息，选中的知识库:', {
-      count: localSelectedKnowledgeBases.value.length,
-      kbs: localSelectedKnowledgeBases.value.map((kb) => kb.name)
+    window.api.logger.debug('[MessageInput] 发送消息，选中的工具', {
+      count: localSelectedTools.value.length
     })
     emit(
       'send',
@@ -176,9 +170,8 @@ function handleSend(): void {
 
 // 处理 MCP 工具选择（多选）
 function handleMCPToolsSelected(tools: MCPTool[]): void {
-  console.log('[MessageInput] 接收到工具选择事件:', {
-    count: tools.length,
-    tools: tools.map((t) => `${t.serverName}/${t.name}`)
+  window.api.logger.debug('[MessageInput] 接收到工具选择事件', {
+    count: tools.length
   })
   updateSelectedTools(tools)
 }

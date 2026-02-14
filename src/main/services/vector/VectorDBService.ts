@@ -120,9 +120,8 @@ export class VectorDBService {
 
       try {
         table = await db.openTable('chunks')
-        logger.debug('成功打开现有表', 'main', { kbId })
       } catch {
-        logger.info('表不存在，将创建新表', 'main', { kbId })
+        // 表不存在，将创建新表
       }
 
       if (!table) {
@@ -158,7 +157,7 @@ export class VectorDBService {
 
       // 创建索引（如果是新表或首次添加数据）
       if (!this.indexedTables.has(tableKey)) {
-        await this.createVectorIndex(table, kbId, tableKey)
+        await this.createVectorIndex(table, kbId, tableKey, isNewTable)
       }
 
       // 验证数据是否写入
@@ -176,14 +175,13 @@ export class VectorDBService {
   private async createVectorIndex(
     table: lancedb.Table,
     kbId: string,
-    tableKey: string
+    tableKey: string,
+    _isNewTable: boolean = false
   ): Promise<void> {
     try {
       const rowCount = await table.countRows()
-      logger.debug('检查索引创建条件', 'main', { kbId, rowCount })
 
       if (rowCount === 0) {
-        logger.debug('表为空，跳过创建索引', 'main', { kbId })
         return
       }
 
@@ -207,7 +205,6 @@ export class VectorDBService {
   async deleteFileChunks(kbId: string, _dimension: number, fileId: string): Promise<void> {
     try {
       if (!this.exists(kbId)) {
-        logger.debug('数据库不存在，跳过删除', 'main', { kbId })
         return
       }
 
@@ -217,7 +214,6 @@ export class VectorDBService {
       try {
         table = await db.openTable('chunks')
       } catch {
-        logger.debug('表不存在，跳过删除', 'main', { kbId })
         return
       }
 
@@ -240,7 +236,6 @@ export class VectorDBService {
   ): Promise<SearchResult[]> {
     try {
       if (!this.exists(kbId)) {
-        logger.debug('数据库不存在，返回空结果', 'main', { kbId })
         return []
       }
 
@@ -250,37 +245,13 @@ export class VectorDBService {
       try {
         table = await db.openTable('chunks')
       } catch {
-        logger.debug('表不存在，返回空结果', 'main', { kbId })
         return []
       }
 
       const results = await table.query().nearestTo(queryEmbedding).limit(limit).toArray()
 
-      logger.debug('搜索完成', 'main', { kbId, resultCount: results.length })
-      if (results.length > 0) {
-        const distances: number[] = []
-        results.forEach((r) => {
-          const dist = r._distance
-          if (typeof dist === 'number') {
-            distances.push(dist)
-          }
-        })
-        logger.debug('搜索结果距离值', 'main', {
-          kbId,
-          distances,
-          firstDistance: results[0]._distance,
-          firstDistanceType: typeof results[0]._distance
-        })
-      }
-
       return results.map((r) => {
         const distance = r._distance as number
-        logger.debug('处理搜索结果', 'main', {
-          distance,
-          distanceType: typeof distance,
-          rawDistance: r._distance
-        })
-
         const similarity = 1 - distance
 
         return {
@@ -307,11 +278,8 @@ export class VectorDBService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _dimension: number
   ): Promise<{ fileCount: number; chunkCount: number }> {
-    logger.debug('getStats 开始', 'main', { kbId })
-
     try {
       if (!this.exists(kbId)) {
-        logger.debug('数据库目录不存在', 'main', { kbId })
         return { fileCount: 0, chunkCount: 0 }
       }
 
@@ -320,21 +288,17 @@ export class VectorDBService {
 
       try {
         table = await db.openTable('chunks')
-        logger.debug('成功打开表', 'main', { kbId })
-      } catch (error) {
-        logger.debug('打开表失败', 'main', { kbId, error })
+      } catch {
         return { fileCount: 0, chunkCount: 0 }
       }
 
       const chunkCount = await table.countRows()
-      logger.debug('获取到行数', 'main', { kbId, chunkCount })
 
       // 获取唯一文件数
       let uniqueFileIds = new Set<string>()
       if (chunkCount > 0) {
         const files = await table.query().limit(10000).toArray()
         uniqueFileIds = new Set(files.map((r) => r.file_id as string))
-        logger.debug('获取到文件列表', 'main', { kbId, fileCount: uniqueFileIds.size })
       }
 
       return {

@@ -7,6 +7,7 @@ import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt } from './prompts/
 import { PromptCache } from './prompts/PromptCache'
 import { PromptOptimizer } from './prompts/PromptOptimizer'
 import { exampleManager } from './prompts/ExampleManager'
+import { logger } from '@main/services/logger'
 
 // 使用共享的 PromptConfig 类型
 type PromptConfig = SharedPromptConfig
@@ -116,7 +117,7 @@ export class PromptBuilder {
 
       if (result.compressionLevel > 0) {
         // 可选：记录优化统计（不使用 logger）
-        console.debug('提示词已优化', {
+        logger.debug('提示词已优化', 'main', {
           originalTokens: result.originalTokens,
           optimizedTokens: result.optimizedTokens,
           reduction: `${result.reductionPercent.toFixed(1)}%`,

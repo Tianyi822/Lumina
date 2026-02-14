@@ -305,15 +305,15 @@ export class KnowledgeService {
           progress
         })
 
-        // 验证嵌入结果
-        logger.debug('indexFile 批次嵌入完成', 'main', {
-          kbId,
-          fileId,
-          batchIndex: batch.index,
-          batchSize: batch.texts.length,
-          completedBatches,
-          totalBatches: batches.length
-        })
+        // 每10批次或最后一批打印日志
+        if (completedBatches % 10 === 0 || completedBatches === batches.length) {
+          logger.debug('indexFile 批次嵌入进度', 'main', {
+            kbId,
+            fileId,
+            completedBatches,
+            totalBatches: batches.length
+          })
+        }
       }
 
       // 使用 Promise.all 控制并发
