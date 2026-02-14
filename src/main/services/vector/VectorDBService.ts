@@ -202,7 +202,7 @@ export class VectorDBService {
   }
 
   // 删除指定文件的所有文档块
-  async deleteFileChunks(kbId: string, _dimension: number, fileId: string): Promise<void> {
+  async deleteFileChunks(kbId: string, fileId: string): Promise<void> {
     try {
       if (!this.exists(kbId)) {
         return
@@ -230,7 +230,6 @@ export class VectorDBService {
   // 使用查询向量在数据库中搜索最相似的文档块
   async search(
     kbId: string,
-    _dimension: number,
     queryEmbedding: number[],
     limit: number = 5
   ): Promise<SearchResult[]> {
@@ -273,11 +272,7 @@ export class VectorDBService {
 
   // 获取知识库的文档统计信息
   // 返回文件数量和文档块数量
-  async getStats(
-    kbId: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _dimension: number
-  ): Promise<{ fileCount: number; chunkCount: number }> {
+  async getStats(kbId: string): Promise<{ fileCount: number; chunkCount: number }> {
     try {
       if (!this.exists(kbId)) {
         return { fileCount: 0, chunkCount: 0 }
