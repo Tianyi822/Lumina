@@ -46,6 +46,7 @@ const promptConfig = reactive<PromptConfig>({
   enableEnhancedPrompt: true,
   toolDescriptionLevel: 'detailed',
   fewShotCount: 3,
+  enableDynamicExamples: false,
   enablePromptOptimization: false,
   optimizationAggressiveness: 'balanced'
 })

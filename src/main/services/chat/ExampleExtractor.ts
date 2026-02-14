@@ -1,9 +1,10 @@
 // 示例提取器，从历史会话中提取高质量的 Few-shot 示例
 
 import { randomUUID } from 'crypto'
-import type { ChatMessage } from '@main/types/chat'
+import type { SessionMessage } from '@shared/types/session'
 import type { SessionData } from '@shared/types/session'
 import type { EnhancedFewShotExample, ExampleExtractionResult } from './prompts/types'
+import { logger } from '../logger'
 
 // ReAct 模式提取结果
 interface ReActPattern {
@@ -66,11 +67,47 @@ export class ExampleExtractor {
     const patterns: ReActPattern[] = []
     const messages = session.messages
 
+    // 调试日志：检查会话消息结构
+    const assistantMsgs = messages.filter((m) => m.role === 'assistant')
+    const toolMsgs = messages.filter((m) => m.role === 'tool')
+    const assistantWithToolCalls = assistantMsgs.filter(
+      (m) => m.tool_calls && m.tool_calls.length > 0
+    )
+
+    // 打印 tool_calls 和 tool_call_id 详细信息
+    const toolCallIds: string[] = []
+    for (const m of assistantWithToolCalls) {
+      if (m.tool_calls) {
+        for (const tc of m.tool_calls) {
+          toolCallIds.push(tc.id)
+        }
+      }
+    }
+    const toolResultIds = toolMsgs.map((m) => m.tool_call_id)
+
+    logger.debug('会话消息分析', 'main', {
+      sessionId: session.sessionId,
+      totalMessages: messages.length,
+      assistantCount: assistantMsgs.length,
+      toolCount: toolMsgs.length,
+      assistantWithToolCalls: assistantWithToolCalls.length,
+      toolCallIds,
+      toolResultIds
+    })
+
     // 寻找 ReAct 循环模式
     let i = 0
+    let attemptCount = 0
     while (i < messages.length) {
+      attemptCount++
       const pattern = this.tryExtractReActPattern(messages, i)
       if (pattern) {
+        logger.info('提取到 ReAct 模式', 'main', {
+          startIndex: i,
+          toolCallsCount: pattern.toolCalls.length,
+          hasErrors: pattern.hasErrors,
+          userQueryPreview: pattern.userQuery.substring(0, 50) + '...'
+        })
         // 只保留没有错误的模式
         if (!pattern.hasErrors && pattern.toolCalls.length > 0) {
           patterns.push(pattern)
@@ -78,15 +115,32 @@ export class ExampleExtractor {
         // 跳过已处理的消息
         i += this.countMessagesInPattern(pattern)
       } else {
+        if (attemptCount <= 5) {
+          // 只打印前5次失败
+          logger.info('未能提取模式', 'main', {
+            startIndex: i,
+            messageRole: messages[i]?.role,
+            messageContentPreview: messages[i]?.content?.substring(0, 30)
+          })
+        }
         i++
       }
     }
+
+    logger.info('模式提取完成', 'main', {
+      sessionId: session.sessionId,
+      attemptCount,
+      patternsFound: patterns.length
+    })
 
     return patterns
   }
 
   // 尝试从当前位置提取 ReAct 模式
-  private tryExtractReActPattern(messages: ChatMessage[], startIndex: number): ReActPattern | null {
+  private tryExtractReActPattern(
+    messages: SessionMessage[],
+    startIndex: number
+  ): ReActPattern | null {
     if (startIndex >= messages.length) return null
 
     const pattern: ReActPattern = {
@@ -114,8 +168,8 @@ export class ExampleExtractor {
       // 助手消息
       if (msg.role === 'assistant') {
         // 提取思考过程
-        if (msg.reasoning_content) {
-          pattern.thoughts.push(msg.reasoning_content)
+        if (msg.reasoning) {
+          pattern.thoughts.push(msg.reasoning)
         } else if (msg.content) {
           pattern.thoughts.push(msg.content)
         }
@@ -138,6 +192,11 @@ export class ExampleExtractor {
               if (this.isErrorResult(toolResult.content)) {
                 pattern.hasErrors = true
               }
+            } else {
+              logger.debug('未找到工具结果', 'main', {
+                toolCallId: toolCall.id,
+                toolName: toolCall.function.name
+              })
             }
           }
           currentIndex++
@@ -169,10 +228,10 @@ export class ExampleExtractor {
 
   // 查找工具结果
   private findToolResult(
-    messages: ChatMessage[],
+    messages: SessionMessage[],
     startIndex: number,
     toolCallId: string
-  ): ChatMessage | null {
+  ): SessionMessage | null {
     for (let i = startIndex; i < messages.length; i++) {
       const msg = messages[i]
       if (msg.role === 'tool' && msg.tool_call_id === toolCallId) {
@@ -188,10 +247,10 @@ export class ExampleExtractor {
 
   // 查找最后一个助手消息
   private findLastAssistantMessage(
-    messages: ChatMessage[],
+    messages: SessionMessage[],
     startIndex: number,
     endIndex: number
-  ): ChatMessage | null {
+  ): SessionMessage | null {
     for (let i = endIndex - 1; i >= startIndex; i--) {
       const msg = messages[i]
       if (msg.role === 'assistant' && msg.content && !msg.tool_calls) {

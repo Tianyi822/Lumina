@@ -236,7 +236,12 @@ function formatTokenUsage(usage: TokenUsage): string {
 
       <!-- 消息列表 -->
       <div v-else class="messages-list">
-        <div v-for="msg in messages" :key="msg.id" class="message" :class="msg.role">
+        <div
+          v-for="msg in (messages ?? []).filter((m) => m.role !== 'tool')"
+          :key="msg.id"
+          class="message"
+          :class="msg.role"
+        >
           <!-- 消息头部：角色标签 -->
           <div class="message-header">
             <!-- 用户标签 -->

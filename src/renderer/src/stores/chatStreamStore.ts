@@ -166,6 +166,20 @@ export const useChatStreamStore = defineStore('chatStream', () => {
 
       case 'tool_call':
         if (streamingMessage && event.toolCall) {
+          // 1. 更新 assistant 消息的 tool_calls（标准格式）
+          if (!streamingMessage.tool_calls) {
+            streamingMessage.tool_calls = []
+          }
+          streamingMessage.tool_calls.push({
+            id: event.toolCall.id,
+            type: 'function',
+            function: {
+              name: `${event.toolCall.serverName}__${event.toolCall.name}`,
+              arguments: JSON.stringify(event.toolCall.arguments)
+            }
+          })
+
+          // 2. 同时更新 reactSteps（UI 展示）
           if (!streamingMessage.reactSteps) {
             streamingMessage.reactSteps = []
           }
@@ -179,6 +193,35 @@ export const useChatStreamStore = defineStore('chatStream', () => {
 
       case 'tool_result':
         if (streamingMessage && event.toolResult) {
+          // 1. 创建独立的 tool 消息（标准格式）
+          // 安全序列化 result，处理可能包含复杂对象的情况
+          let toolContent: string
+          try {
+            if (event.toolResult.success) {
+              const result = event.toolResult.result
+              // 如果 result 是字符串，直接使用；否则尝试序列化
+              if (typeof result === 'string') {
+                toolContent = result
+              } else {
+                toolContent = JSON.stringify(result)
+              }
+            } else {
+              toolContent = JSON.stringify({ error: event.toolResult.error })
+            }
+          } catch {
+            toolContent = JSON.stringify({ raw: String(event.toolResult.result) })
+          }
+
+          const toolMessage: Message = {
+            id: `msg-${Date.now()}`,
+            role: 'tool',
+            content: toolContent,
+            tool_call_id: event.toolResult.id,
+            timestamp: new Date().toISOString()
+          }
+          targetMessages.push(toolMessage)
+
+          // 2. 同时更新 reactSteps（UI 展示）
           if (!streamingMessage.reactSteps) {
             streamingMessage.reactSteps = []
           }

@@ -55,7 +55,7 @@ export interface ReActStep {
  */
 export interface Message {
   id: string
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'tool'
   content: string
   reasoning?: string
   isStreaming?: boolean
@@ -64,6 +64,7 @@ export interface Message {
   modelName?: string // 模型名称（仅 assistant 消息）
   reactSteps?: ReActStep[] // ReAct 推理步骤
   tool_calls?: ToolCallMessage[] // 工具调用（仅 assistant 消息）
+  tool_call_id?: string // 工具调用的 ID（仅 tool 消息，用于保存到会话）
 }
 
 /**

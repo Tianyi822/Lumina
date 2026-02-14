@@ -19,6 +19,7 @@ const localConfig = reactive<PromptConfig>({
   toolDescriptionLevel: 'detailed',
   fewShotCount: 3,
   customSystemPrompt: '',
+  enableDynamicExamples: false,
   enablePromptOptimization: false,
   optimizationAggressiveness: 'balanced'
 })
@@ -101,6 +102,20 @@ watch(
     <h3 class="form-section-title">Few-shot 示例配置</h3>
 
     <div class="form-group">
+      <label>
+        <input
+          type="checkbox"
+          :checked="localConfig.enableDynamicExamples"
+          @change="localConfig.enableDynamicExamples = ($event.target as HTMLInputElement).checked"
+        />
+        <span>启用动态 Few-shot 示例</span>
+      </label>
+      <p class="help-text">
+        从历史对话中自动提取成功的工具调用作为示例，帮助 AI 学习如何正确使用工具。
+      </p>
+    </div>
+
+    <div class="form-group">
       <label>Few-shot 示例数量: {{ localConfig.fewShotCount }}</label>
       <input
         v-model.number="localConfig.fewShotCount"
@@ -126,7 +141,9 @@ watch(
         <input
           type="checkbox"
           :checked="localConfig.enablePromptOptimization"
-          @change="localConfig.enablePromptOptimization = ($event.target as HTMLInputElement).checked"
+          @change="
+            localConfig.enablePromptOptimization = ($event.target as HTMLInputElement).checked
+          "
         />
         <span>启用提示词压缩优化</span>
       </label>

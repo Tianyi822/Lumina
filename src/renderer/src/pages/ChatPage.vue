@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch, computed, toRaw } from 'vue'
 import { storeToRefs } from 'pinia'
-import type { MCPTool, SessionType, KnowledgeBase, StreamEvent } from '@renderer/types'
+import type { MCPTool, SessionType, KnowledgeBase, StreamEvent, ChatMessage } from '@renderer/types'
 import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
@@ -127,10 +127,28 @@ async function handleSendMessage(
 
   try {
     // 构建消息历史（排除最后一个空的助手占位符）
-    const chatMessages = messages.value.slice(0, -1).map((msg) => ({
-      role: msg.role,
-      content: msg.content
-    }))
+    // 使用 JSON 序列化移除 Vue 响应式代理，避免克隆错误
+    const chatMessages: ChatMessage[] = JSON.parse(
+      JSON.stringify(
+        messages.value.slice(0, -1).map((msg) => {
+          const result: ChatMessage = {
+            role: msg.role,
+            content: msg.content
+          }
+          // 添加工具调用字段
+          if (msg.tool_calls) {
+            result.tool_calls = msg.tool_calls
+          }
+          if (msg.tool_call_id) {
+            result.tool_call_id = msg.tool_call_id
+          }
+          if (msg.reasoning) {
+            result.reasoning_content = msg.reasoning
+          }
+          return result
+        })
+      )
+    )
 
     // 转换工具引用（使用 toRaw 移除响应式包装）
     const toolReferences =
