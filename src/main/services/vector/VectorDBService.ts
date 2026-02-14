@@ -228,11 +228,7 @@ export class VectorDBService {
 
   // 相似性搜索
   // 使用查询向量在数据库中搜索最相似的文档块
-  async search(
-    kbId: string,
-    queryEmbedding: number[],
-    limit: number = 5
-  ): Promise<SearchResult[]> {
+  async search(kbId: string, queryEmbedding: number[], limit: number = 5): Promise<SearchResult[]> {
     try {
       if (!this.exists(kbId)) {
         return []

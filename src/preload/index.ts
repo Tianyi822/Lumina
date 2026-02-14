@@ -11,6 +11,7 @@ import { embeddingApi } from './apis/embedding'
 import { embeddingModelsApi } from './apis/embeddingModels'
 import { knowledgeApi, onFileProgress, onReindexProgress } from './apis/knowledge'
 import { fileApi } from './apis/file'
+import { sandboxApi } from './apis/sandbox'
 
 /**
  * 自定义渲染器 API
@@ -28,6 +29,7 @@ const api = {
   embeddingModels: embeddingModelsApi,
   knowledge: knowledgeApi,
   file: fileApi,
+  sandbox: sandboxApi,
   onFileProgress,
   onReindexProgress
 }

@@ -775,6 +775,29 @@ interface FileApi {
 }
 
 /**
+ * Docker 检测结果
+ */
+interface DockerCheckResult {
+  installed: boolean
+  version?: string
+  error?: string
+}
+
+/**
+ * 操作系统平台类型
+ */
+type PlatformType = 'darwin' | 'win32' | 'linux'
+
+/**
+ * 沙箱相关的 API
+ */
+interface SandboxApi {
+  checkDocker: () => Promise<DockerCheckResult>
+  getPlatform: () => Promise<PlatformType>
+  openExternal: (url: string) => Promise<void>
+}
+
+/**
  * 自定义的完整 API
  */
 interface CustomApi {
@@ -789,6 +812,7 @@ interface CustomApi {
   embeddingModels: EmbeddingModelsApi
   knowledge: KnowledgeApi
   file: FileApi
+  sandbox: SandboxApi
   onFileProgress: (callback: (data: FileProgressEvent) => void) => () => void
   onReindexProgress: (callback: (data: ReindexProgressEvent) => void) => () => void
 }

@@ -9,6 +9,7 @@ import { registerEmbeddingHandlers } from './handlers/embeddingHandlers'
 import { registerKnowledgeHandlers } from './handlers/knowledgeHandlers'
 import { registerEmbeddingModelHandlers } from './handlers/embeddingModelHandlers'
 import { registerFileHandlers } from './handlers/fileHandlers'
+import { registerSandboxHandlers } from './handlers/sandboxHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -54,4 +55,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册文件管理相关处理程序
   registerFileHandlers()
+
+  // 注册沙箱相关处理程序
+  registerSandboxHandlers()
 }

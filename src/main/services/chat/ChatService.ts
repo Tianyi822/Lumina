@@ -435,7 +435,11 @@ export class ChatService {
         }
 
         // 只在第1次、最后1次或每5次迭代打印日志
-        if (iterations === 0 || iterations === maxReactIterations - 1 || (iterations + 1) % 5 === 0) {
+        if (
+          iterations === 0 ||
+          iterations === maxReactIterations - 1 ||
+          (iterations + 1) % 5 === 0
+        ) {
           logger.debug(`ReAct 迭代 ${iterations + 1}/${maxReactIterations}`, 'main', {
             sessionId,
             messageCount: conversationMessages.length

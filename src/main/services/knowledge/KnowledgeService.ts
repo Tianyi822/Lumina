@@ -560,11 +560,7 @@ export class KnowledgeService {
       const embeddingResult = await this.embeddingService.embed(query)
 
       // 执行搜索
-      const results = await getVectorDBService().search(
-        kbId,
-        embeddingResult.embedding,
-        limit
-      )
+      const results = await getVectorDBService().search(kbId, embeddingResult.embedding, limit)
 
       return { success: true, data: { results } }
     } catch (error) {
