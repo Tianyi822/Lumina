@@ -124,6 +124,7 @@ onMounted(async () => {
         :current-sandbox="currentSandbox"
         :operation-logs="operationLogs"
         @toggle-sidebar="uiStateStore.toggleSandboxSidebar"
+        @rename="sandboxStore.renameSandbox"
       />
     </template>
 
