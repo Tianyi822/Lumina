@@ -72,6 +72,59 @@ export const useSandboxStore = defineStore('sandbox', () => {
   /** 配置加载状态 */
   const configsLoading = ref(false)
 
+  // ==================== State: Sandbox Creator ====================
+
+  /** 创建类型 */
+  const creatorCreateType = ref<'compose' | 'dockerfile' | 'existing'>('compose')
+  /** 选中的容器 ID (用于创建器) */
+  const creatorSelectedContainerId = ref<string | null>(null)
+  /** 容器过滤类型 (用于创建器) */
+  const creatorContainerFilter = ref<'all' | 'running' | 'stopped'>('all')
+  /** 容器搜索关键词 (用于创建器) */
+  const creatorContainerSearchQuery = ref('')
+
+  /** Compose 内容 */
+  const creatorComposeContent = ref('')
+  /** Compose 项目名称 */
+  const creatorComposeProjectName = ref('')
+  /** 选中的 Compose 配置 ID */
+  const creatorSelectedComposeId = ref<string | null>(null)
+
+  /** Dockerfile 内容 */
+  const creatorDockerfileContent = ref('')
+  /** Dockerfile 上下文路径 */
+  const creatorDockerfileContext = ref('')
+  /** 选中的 Dockerfile 配置 ID */
+  const creatorSelectedDockerfileId = ref<string | null>(null)
+
+  /** 构建配置生成器显示状态 */
+  const creatorShowGenerator = ref(false)
+  /** 构建配置生成器表单 */
+  const creatorGeneratorForm = ref({
+    serviceName: 'app',
+    sourceType: 'build' as 'image' | 'build',
+    image: 'node:18-alpine',
+    useSavedDockerfile: false,
+    savedDockerfileId: null as string | null,
+    context: './app',
+    dockerfile: 'Dockerfile',
+    buildArgs: '',
+    ports: '3000:3000',
+    environment: 'NODE_ENV=development'
+  })
+
+  /** 保存配置对话框显示状态 */
+  const creatorShowSaveDialog = ref(false)
+  /** 保存配置对话框类型 */
+  const creatorSaveDialogType = ref<'dockerfile' | 'compose'>('compose')
+  /** 保存配置名称 */
+  const creatorSaveConfigName = ref('')
+
+  /** 成功提示显示状态 */
+  const creatorShowSuccessToast = ref(false)
+  /** 成功提示消息 */
+  const creatorSuccessMessage = ref('')
+
   // ==================== Getters: 基础沙箱 ====================
 
   const currentSandboxId = computed(() => currentSandbox.value?.sandboxId)
@@ -946,6 +999,253 @@ export const useSandboxStore = defineStore('sandbox', () => {
     }
   }
 
+  // ==================== Getters: Sandbox Creator ====================
+
+  /** 创建器过滤后的容器列表 */
+  const creatorFilteredContainers = computed(() => {
+    let result = containers.value
+
+    if (creatorContainerFilter.value !== 'all') {
+      if (creatorContainerFilter.value === 'running') {
+        result = result.filter((c) => c.state === 'running')
+      } else if (creatorContainerFilter.value === 'stopped') {
+        result = result.filter((c) => c.state === 'exited' || c.state === 'dead')
+      }
+    }
+
+    if (creatorContainerSearchQuery.value.trim()) {
+      const query = creatorContainerSearchQuery.value.toLowerCase()
+      result = result.filter(
+        (c) =>
+          c.names.some((n) => n.toLowerCase().includes(query)) ||
+          c.image.toLowerCase().includes(query)
+      )
+    }
+
+    return result
+  })
+
+  const creatorRunningCount = computed(
+    () => containers.value.filter((c) => c.state === 'running').length
+  )
+
+  const creatorStoppedCount = computed(
+    () => containers.value.filter((c) => c.state === 'exited' || c.state === 'dead').length
+  )
+
+  const creatorCanCreate = computed(() => {
+    switch (creatorCreateType.value) {
+      case 'compose':
+        return creatorComposeContent.value.trim().length > 0
+      case 'dockerfile':
+        return creatorDockerfileContent.value.trim().length > 0
+      case 'existing':
+        return creatorSelectedContainerId.value !== null
+      default:
+        return false
+    }
+  })
+
+  // ==================== Actions: Sandbox Creator ====================
+
+  function creatorSelectContainer(containerId: string): void {
+    creatorSelectedContainerId.value =
+      creatorSelectedContainerId.value === containerId ? null : containerId
+  }
+
+  function creatorResetContainerSelector(): void {
+    creatorContainerSearchQuery.value = ''
+    creatorContainerFilter.value = 'all'
+    creatorSelectedContainerId.value = null
+  }
+
+  function creatorResetGeneratorForm(): void {
+    creatorGeneratorForm.value = {
+      serviceName: 'app',
+      sourceType: 'build',
+      image: 'node:18-alpine',
+      useSavedDockerfile: false,
+      savedDockerfileId: null,
+      context: './app',
+      dockerfile: 'Dockerfile',
+      buildArgs: '',
+      ports: '3000:3000',
+      environment: 'NODE_ENV=development'
+    }
+  }
+
+  async function creatorOnSavedDockerfileSelect(): Promise<void> {
+    if (!creatorGeneratorForm.value.savedDockerfileId) {
+      creatorGeneratorForm.value.useSavedDockerfile = false
+      return
+    }
+
+    creatorGeneratorForm.value.useSavedDockerfile = true
+    const config = await loadDockerfileConfig(creatorGeneratorForm.value.savedDockerfileId)
+    if (config) {
+      creatorGeneratorForm.value.context = `./${config.name}`
+      creatorGeneratorForm.value.dockerfile = config.filename
+    }
+  }
+
+  function creatorClearSavedDockerfile(): void {
+    creatorGeneratorForm.value.savedDockerfileId = null
+    creatorGeneratorForm.value.useSavedDockerfile = false
+    creatorGeneratorForm.value.context = './app'
+    creatorGeneratorForm.value.dockerfile = 'Dockerfile'
+  }
+
+  function creatorGenerateServiceConfig(): string {
+    const form = creatorGeneratorForm.value
+    const lines: string[] = []
+    const indent = '    '
+
+    lines.push(`  ${form.serviceName}:`)
+
+    if (form.sourceType === 'image') {
+      lines.push(`${indent}image: ${form.image}`)
+    } else {
+      lines.push(`${indent}build:`)
+      lines.push(`${indent}  context: ${form.context}`)
+      if (form.dockerfile && form.dockerfile !== 'Dockerfile') {
+        lines.push(`${indent}  dockerfile: ${form.dockerfile}`)
+      }
+      if (form.buildArgs.trim()) {
+        const args = form.buildArgs
+          .split(',')
+          .map((arg) => arg.trim())
+          .filter(Boolean)
+        if (args.length > 0) {
+          lines.push(`${indent}  args:`)
+          args.forEach((arg) => {
+            const [key, value] = arg.split('=').map((s) => s.trim())
+            if (key && value) {
+              lines.push(`${indent}    ${key}: ${value}`)
+            }
+          })
+        }
+      }
+    }
+
+    if (form.ports.trim()) {
+      const ports = form.ports
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean)
+      if (ports.length > 0) {
+        lines.push(`${indent}ports:`)
+        ports.forEach((port) => {
+          lines.push(`${indent}  - "${port}"`)
+        })
+      }
+    }
+
+    if (form.environment.trim()) {
+      const envs = form.environment
+        .split(',')
+        .map((e) => e.trim())
+        .filter(Boolean)
+      if (envs.length > 0) {
+        lines.push(`${indent}environment:`)
+        envs.forEach((env) => {
+          lines.push(`${indent}  - ${env}`)
+        })
+      }
+    }
+
+    return lines.join('\n')
+  }
+
+  function creatorInsertServiceConfig(): void {
+    const config = creatorGenerateServiceConfig()
+    const currentContent = creatorComposeContent.value
+
+    const servicesMatch = currentContent.match(/^(services:\s*\n)/m)
+    if (servicesMatch) {
+      const insertIndex = servicesMatch.index! + servicesMatch[0].length
+      creatorComposeContent.value =
+        currentContent.slice(0, insertIndex) + config + '\n' + currentContent.slice(insertIndex)
+    } else if (currentContent.includes('version:')) {
+      creatorComposeContent.value = currentContent + '\nservices:\n' + config + '\n'
+    } else {
+      creatorComposeContent.value = "version: '3.8'\n\nservices:\n" + config + '\n'
+    }
+
+    creatorShowGenerator.value = false
+    creatorResetGeneratorForm()
+  }
+
+  function creatorOpenSaveDialog(type: 'dockerfile' | 'compose'): void {
+    creatorSaveDialogType.value = type
+    creatorSaveConfigName.value = ''
+    creatorShowSaveDialog.value = true
+  }
+
+  function creatorCloseSaveDialog(): void {
+    creatorShowSaveDialog.value = false
+    creatorSaveConfigName.value = ''
+  }
+
+  async function creatorHandleSaveConfig(): Promise<void> {
+    if (!creatorSaveConfigName.value.trim()) return
+
+    const content =
+      creatorSaveDialogType.value === 'dockerfile'
+        ? creatorDockerfileContent.value
+        : creatorComposeContent.value
+
+    if (creatorSaveDialogType.value === 'dockerfile') {
+      await saveDockerfileConfig({
+        name: creatorSaveConfigName.value.trim(),
+        content: content
+      })
+    } else {
+      await saveComposeConfig({
+        name: creatorSaveConfigName.value.trim(),
+        content: content
+      })
+    }
+
+    creatorShowSaveDialog.value = false
+    creatorShowSuccessToast.value = true
+    creatorSuccessMessage.value = `配置「${creatorSaveConfigName.value.trim()}」保存成功`
+    setTimeout(() => {
+      creatorShowSuccessToast.value = false
+    }, 3000)
+  }
+
+  function creatorCloseSuccessToast(): void {
+    creatorShowSuccessToast.value = false
+  }
+
+  async function creatorLoadSelectedDockerfile(): Promise<void> {
+    if (!creatorSelectedDockerfileId.value) return
+    const config = await loadDockerfileConfig(creatorSelectedDockerfileId.value)
+    if (config) {
+      creatorDockerfileContent.value = config.content
+    }
+  }
+
+  async function creatorLoadSelectedCompose(): Promise<void> {
+    if (!creatorSelectedComposeId.value) return
+    const config = await loadComposeConfig(creatorSelectedComposeId.value)
+    if (config) {
+      creatorComposeContent.value = config.content
+      creatorComposeProjectName.value = config.name
+    }
+  }
+
+  function creatorReset(): void {
+    creatorCreateType.value = 'compose'
+    creatorSelectedContainerId.value = null
+    creatorContainerFilter.value = 'all'
+    creatorContainerSearchQuery.value = ''
+    creatorSelectedComposeId.value = null
+    creatorSelectedDockerfileId.value = null
+    creatorShowGenerator.value = false
+    creatorResetGeneratorForm()
+  }
+
   return {
     // State: 基础沙箱
     currentSandbox,
@@ -1043,6 +1343,47 @@ export const useSandboxStore = defineStore('sandbox', () => {
     saveDockerfileConfig,
     saveComposeConfig,
     deleteDockerfileConfig,
-    deleteComposeConfig
+    deleteComposeConfig,
+
+    // State: Sandbox Creator
+    creatorCreateType,
+    creatorSelectedContainerId,
+    creatorContainerFilter,
+    creatorContainerSearchQuery,
+    creatorComposeContent,
+    creatorComposeProjectName,
+    creatorSelectedComposeId,
+    creatorDockerfileContent,
+    creatorDockerfileContext,
+    creatorSelectedDockerfileId,
+    creatorShowGenerator,
+    creatorGeneratorForm,
+    creatorShowSaveDialog,
+    creatorSaveDialogType,
+    creatorSaveConfigName,
+    creatorShowSuccessToast,
+    creatorSuccessMessage,
+
+    // Getters: Sandbox Creator
+    creatorFilteredContainers,
+    creatorRunningCount,
+    creatorStoppedCount,
+    creatorCanCreate,
+
+    // Actions: Sandbox Creator
+    creatorSelectContainer,
+    creatorResetContainerSelector,
+    creatorResetGeneratorForm,
+    creatorOnSavedDockerfileSelect,
+    creatorClearSavedDockerfile,
+    creatorGenerateServiceConfig,
+    creatorInsertServiceConfig,
+    creatorOpenSaveDialog,
+    creatorCloseSaveDialog,
+    creatorHandleSaveConfig,
+    creatorCloseSuccessToast,
+    creatorLoadSelectedDockerfile,
+    creatorLoadSelectedCompose,
+    creatorReset
   }
 })
