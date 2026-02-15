@@ -14,13 +14,11 @@ const md = new MarkdownIt({
 })
 
 const props = defineProps<{
-  sidebarCollapsed: boolean
   currentChatId?: string
   messages?: Message[]
   isSending?: boolean
-  currentModelName?: string // 当前使用的模型名称
-  configUpdateKey?: number // 配置更新标志
-  // 输入状态相关
+  currentModelName?: string
+  configUpdateKey?: number
   inputMessage?: string
   selectedModel?: string
   selectedMCPTools?: MCPTool[]
@@ -28,7 +26,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'toggle-sidebar'): void
   (
     e: 'send-message',
     message: string,
@@ -142,10 +139,6 @@ function renderMarkdown(content: string): string {
   return md.render(content)
 }
 
-function handleToggleSidebar(): void {
-  emit('toggle-sidebar')
-}
-
 function handleSendMessage(
   message: string,
   model: string,
@@ -213,18 +206,6 @@ function formatTokenUsage(usage: TokenUsage): string {
 
 <template>
   <main class="main-content">
-    <!-- 顶部工具栏 -->
-    <div class="content-header">
-      <button
-        class="btn toggle-sidebar-btn"
-        :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-        @click="handleToggleSidebar"
-      >
-        <span class="toggle-icon">{{ sidebarCollapsed ? '»' : '«' }}</span>
-      </button>
-      <div class="header-spacer"></div>
-    </div>
-
     <!-- 消息区域 -->
     <div ref="messagesAreaRef" class="messages-area" @scroll="handleScroll">
       <!-- 空状态 -->
@@ -327,27 +308,6 @@ function formatTokenUsage(usage: TokenUsage): string {
   height: 100%;
   background-color: var(--theme-bg);
   overflow: hidden;
-}
-
-.content-header {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--theme-border);
-  flex-shrink: 0;
-}
-
-.toggle-sidebar-btn {
-  padding: 6px 10px;
-  font-size: 16px;
-}
-
-.toggle-icon {
-  font-weight: bold;
-}
-
-.header-spacer {
-  flex: 1;
 }
 
 .messages-area {

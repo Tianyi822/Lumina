@@ -26,6 +26,9 @@ export const useUIStateStore = defineStore(
     // 沙箱侧边栏是否折叠
     const sandboxSidebarCollapsed = ref(false)
 
+    // 知识库侧边栏是否折叠
+    const knowledgeSidebarCollapsed = ref(false)
+
     // 当前视图模式
     const currentView = ref<ViewMode>('chat')
 
@@ -100,6 +103,16 @@ export const useUIStateStore = defineStore(
     // 设置侧边栏折叠状态
     function setSidebarCollapsed(collapsed: boolean): void {
       sidebarCollapsed.value = collapsed
+    }
+
+    // 设置沙箱侧边栏折叠状态
+    function setSandboxSidebarCollapsed(collapsed: boolean): void {
+      sandboxSidebarCollapsed.value = collapsed
+    }
+
+    // 设置知识库侧边栏折叠状态
+    function setKnowledgeSidebarCollapsed(collapsed: boolean): void {
+      knowledgeSidebarCollapsed.value = collapsed
     }
 
     // ==================== Actions: 沙箱页面 UI ====================
@@ -296,6 +309,7 @@ export const useUIStateStore = defineStore(
       // State: 基础 UI
       sidebarCollapsed,
       sandboxSidebarCollapsed,
+      knowledgeSidebarCollapsed,
       currentView,
       currentModel,
       lastChatSessionId,
@@ -324,6 +338,8 @@ export const useUIStateStore = defineStore(
       toggleSidebar,
       toggleSandboxSidebar,
       setSidebarCollapsed,
+      setSandboxSidebarCollapsed,
+      setKnowledgeSidebarCollapsed,
       setCurrentModel,
 
       // Actions: 沙箱页面 UI

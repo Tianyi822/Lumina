@@ -151,10 +151,8 @@ onMounted(async () => {
           @delete-sandbox="sandboxStore.handleDeleteSandbox"
         />
         <SandboxMainContent
-          :sidebar-collapsed="sandboxSidebarCollapsed"
           :current-sandbox="currentSandbox"
           :operation-logs="operationLogs"
-          @toggle-sidebar="uiStateStore.toggleSandboxSidebar"
           @rename="sandboxStore.renameSandbox"
         />
       </div>

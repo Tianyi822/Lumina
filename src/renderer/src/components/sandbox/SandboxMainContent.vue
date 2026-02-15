@@ -10,13 +10,11 @@ import type { SandboxData, SandboxLogEntry, SandboxStatus } from '@shared/types/
 // ==================== Props & Emits ====================
 
 const props = defineProps<{
-  sidebarCollapsed: boolean
   currentSandbox: SandboxData | null
   operationLogs: SandboxLogEntry[]
 }>()
 
 const emit = defineEmits<{
-  (e: 'toggle-sidebar'): void
   (e: 'rename', sandboxId: string, newName: string): void
 }>()
 
@@ -114,10 +112,6 @@ function formatLogTime(isoString: string): string {
 
 function getLogLevelClass(level: string): string {
   return `log-level-${level}`
-}
-
-function handleToggleSidebar(): void {
-  emit('toggle-sidebar')
 }
 
 function startEditing(): void {
@@ -247,21 +241,6 @@ function handleClearTerminal(): void {
 
 <template>
   <main class="sandbox-main-content">
-    <!-- 头部 -->
-    <div class="content-header">
-      <button
-        class="btn toggle-sidebar-btn"
-        :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-        @click="handleToggleSidebar"
-      >
-        <span class="toggle-icon">{{ sidebarCollapsed ? '>>' : '<<' }}</span>
-      </button>
-      <template v-if="currentSandbox">
-        <span class="header-title">{{ currentSandbox.name }}</span>
-      </template>
-      <div class="header-spacer"></div>
-    </div>
-
     <!-- Tab 导航 -->
     <div v-if="hasSandbox" class="detail-tabs">
       <button
@@ -467,35 +446,6 @@ function handleClearTerminal(): void {
   height: 100%;
   background-color: var(--theme-bg);
   overflow: hidden;
-}
-
-.content-header {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--theme-border);
-  flex-shrink: 0;
-}
-
-.toggle-sidebar-btn {
-  padding: 6px 10px;
-  font-size: 16px;
-}
-
-.toggle-icon {
-  font-weight: bold;
-}
-
-.header-title {
-  margin-left: 12px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--theme-text);
-  line-height: 1;
-}
-
-.header-spacer {
-  flex: 1;
 }
 
 /* Tab 导航 */

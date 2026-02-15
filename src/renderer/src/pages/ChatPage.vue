@@ -334,7 +334,6 @@ watch(
     <!-- 使用 :key 绑定 currentChatId 确保切换会话时组件完全重新创建,实现状态隔离 -->
     <MainContent
       :key="currentChatId || 'no-chat'"
-      :sidebar-collapsed="sidebarCollapsed"
       :current-chat-id="currentChatId"
       :messages="messages"
       :is-sending="isSending"
@@ -344,7 +343,6 @@ watch(
       :selected-model="currentInputState.selectedModel"
       :selected-m-c-p-tools="currentInputState.selectedMCPTools"
       :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
-      @toggle-sidebar="uiStateStore.toggleSidebar"
       @send-message="handleSendMessage"
       @stop-request="handleStopRequest"
       @update:input-message="handleUpdateInputMessage"

@@ -7,12 +7,14 @@ import KnowledgeForm from '@renderer/components/knowledge/KnowledgeForm.vue'
 
 import FileManagerModal from '@renderer/components/knowledge/FileManagerModal.vue'
 import FileSelectorModal from '@renderer/components/knowledge/FileSelectorModal.vue'
-import { useKnowledgeStore } from '@renderer/stores'
+import { useKnowledgeStore, useUIStateStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 
 // ==================== 知识库管理（直接使用 Store）====================
 const knowledgeStore = useKnowledgeStore()
 const { knowledgeBases, activeKbId: storeActiveKbId, showForm } = storeToRefs(knowledgeStore)
+const uiStateStore = useUIStateStore()
+const { knowledgeSidebarCollapsed } = storeToRefs(uiStateStore)
 
 // 兼容旧接口命名（将 null 转为 undefined）
 const activeKbId = computed(() => storeActiveKbId.value ?? undefined)
@@ -126,6 +128,7 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
 <template>
   <div class="knowledge-page">
     <KnowledgeSidebar
+      v-show="!knowledgeSidebarCollapsed"
       :knowledge-bases="knowledgeBases"
       :active-kb-id="activeKbId"
       @select-kb="handleSelectKB"
