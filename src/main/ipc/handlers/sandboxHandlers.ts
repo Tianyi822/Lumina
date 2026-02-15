@@ -2,13 +2,20 @@ import { ipcMain, shell } from 'electron'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { logger } from '@main/services/logger'
-import { sandboxService } from '@main/services/sandbox'
+import { sandboxService, getDockerConfigService } from '@main/services/sandbox'
 import type {
   SandboxData,
   SandboxListItem,
   SandboxResult,
   SandboxLogEntry
 } from '@main/types/sandbox'
+import type {
+  SaveConfigRequest,
+  DockerfileConfigMeta,
+  ComposeConfigMeta,
+  DockerfileConfig,
+  ComposeConfig
+} from '@shared/types/sandbox'
 
 const execAsync = promisify(exec)
 
@@ -25,6 +32,7 @@ export type PlatformType = 'darwin' | 'win32' | 'linux'
  */
 export function initializeSandbox(): void {
   sandboxService.initialize()
+  getDockerConfigService().initialize()
 }
 
 /**
@@ -115,6 +123,80 @@ export function registerSandboxHandlers(): void {
     'sandbox:readLog',
     async (_event, sandboxId: string): Promise<SandboxLogEntry[]> => {
       return sandboxService.readOperationLog(sandboxId)
+    }
+  )
+
+  // ==================== Docker 配置管理 ====================
+
+  const configService = getDockerConfigService()
+
+  // Dockerfile 操作
+  ipcMain.handle(
+    'sandbox:dockerfile:list',
+    async (): Promise<{ success: boolean; configs?: DockerfileConfigMeta[]; error?: string }> => {
+      return configService.listDockerfiles()
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:dockerfile:load',
+    async (
+      _event,
+      id: string
+    ): Promise<{ success: boolean; config?: DockerfileConfig; error?: string }> => {
+      return configService.loadDockerfile(id)
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:dockerfile:save',
+    async (
+      _event,
+      request: SaveConfigRequest
+    ): Promise<{ success: boolean; config?: DockerfileConfigMeta; error?: string }> => {
+      return configService.saveDockerfile(request)
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:dockerfile:delete',
+    async (_event, id: string): Promise<{ success: boolean; error?: string }> => {
+      return configService.deleteDockerfile(id)
+    }
+  )
+
+  // Compose 操作
+  ipcMain.handle(
+    'sandbox:compose:list',
+    async (): Promise<{ success: boolean; configs?: ComposeConfigMeta[]; error?: string }> => {
+      return configService.listComposes()
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:compose:load',
+    async (
+      _event,
+      id: string
+    ): Promise<{ success: boolean; config?: ComposeConfig; error?: string }> => {
+      return configService.loadCompose(id)
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:compose:save',
+    async (
+      _event,
+      request: SaveConfigRequest
+    ): Promise<{ success: boolean; config?: ComposeConfigMeta; error?: string }> => {
+      return configService.saveCompose(request)
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:compose:delete',
+    async (_event, id: string): Promise<{ success: boolean; error?: string }> => {
+      return configService.deleteCompose(id)
     }
   )
 }

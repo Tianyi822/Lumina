@@ -15,7 +15,12 @@ import type {
   ComposeOptions,
   ComposeResult,
   SandboxSelection,
-  LogOptions
+  LogOptions,
+  DockerfileConfigMeta,
+  ComposeConfigMeta,
+  DockerfileConfig,
+  ComposeConfig,
+  SaveConfigRequest
 } from '@shared/types/sandbox'
 
 export type PlatformType = 'darwin' | 'win32' | 'linux'
@@ -162,5 +167,43 @@ export const sandboxApi = {
 
   getSessionSandbox: (sessionId: string): Promise<SandboxSelection | null> => {
     return ipcRenderer.invoke('sandbox:getSessionSandbox', sessionId)
+  },
+
+  // ==================== Docker 配置管理 ====================
+
+  dockerfile: {
+    list: (): Promise<{ success: boolean; configs?: DockerfileConfigMeta[]; error?: string }> => {
+      return ipcRenderer.invoke('sandbox:dockerfile:list')
+    },
+    load: (
+      id: string
+    ): Promise<{ success: boolean; config?: DockerfileConfig; error?: string }> => {
+      return ipcRenderer.invoke('sandbox:dockerfile:load', id)
+    },
+    save: (
+      request: SaveConfigRequest
+    ): Promise<{ success: boolean; config?: DockerfileConfigMeta; error?: string }> => {
+      return ipcRenderer.invoke('sandbox:dockerfile:save', request)
+    },
+    delete: (id: string): Promise<{ success: boolean; error?: string }> => {
+      return ipcRenderer.invoke('sandbox:dockerfile:delete', id)
+    }
+  },
+
+  compose: {
+    list: (): Promise<{ success: boolean; configs?: ComposeConfigMeta[]; error?: string }> => {
+      return ipcRenderer.invoke('sandbox:compose:list')
+    },
+    load: (id: string): Promise<{ success: boolean; config?: ComposeConfig; error?: string }> => {
+      return ipcRenderer.invoke('sandbox:compose:load', id)
+    },
+    save: (
+      request: SaveConfigRequest
+    ): Promise<{ success: boolean; config?: ComposeConfigMeta; error?: string }> => {
+      return ipcRenderer.invoke('sandbox:compose:save', request)
+    },
+    delete: (id: string): Promise<{ success: boolean; error?: string }> => {
+      return ipcRenderer.invoke('sandbox:compose:delete', id)
+    }
   }
 }

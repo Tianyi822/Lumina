@@ -20,11 +20,17 @@ const emit = defineEmits<{
 // ==================== Store ====================
 
 const sandboxStore = useSandboxStore()
-const { containers, isLoading: storeLoading } = storeToRefs(sandboxStore)
+const {
+  containers,
+  isLoading: storeLoading,
+  dockerfileConfigs,
+  composeConfigs
+} = storeToRefs(sandboxStore)
 
 // ==================== State ====================
 
 type CreateType = 'compose' | 'dockerfile' | 'existing'
+type ComposeTemplateType = 'image' | 'build' | 'mixed'
 
 const createType = ref<CreateType>('compose')
 
@@ -41,8 +47,33 @@ const containerSearchQuery = ref('')
 const containerFilter = ref<'all' | 'running' | 'stopped'>('all')
 const selectedContainerId = ref<string | null>(null)
 
-// 预设 Compose 示例
-const composeExample = `version: '3.8'
+// 构建配置生成器
+const showGenerator = ref(false)
+const generatorForm = ref({
+  serviceName: 'app',
+  sourceType: 'build' as 'image' | 'build',
+  image: 'node:18-alpine',
+  useSavedDockerfile: false,
+  savedDockerfileId: null as string | null,
+  context: './app',
+  dockerfile: 'Dockerfile',
+  buildArgs: '',
+  ports: '3000:3000',
+  environment: 'NODE_ENV=development'
+})
+
+// 配置保存/加载状态
+const showSaveDialog = ref(false)
+const saveDialogType = ref<'dockerfile' | 'compose'>('compose')
+const saveConfigName = ref('')
+const saveConfigId = ref<string | null>(null)
+
+const selectedDockerfileId = ref<string | null>(null)
+const selectedComposeId = ref<string | null>(null)
+
+// Compose 模板
+const composeTemplates: Record<ComposeTemplateType, string> = {
+  image: `version: '3.8'
 
 services:
   app:
@@ -55,7 +86,40 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
+`,
+  build: `version: '3.8'
+
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+`,
+  mixed: `version: '3.8'
+
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
 `
+}
+
+// 默认使用混合模板
+const composeExample = composeTemplates.mixed
 
 // 预设 Dockerfile 示例
 const dockerfileExample = `FROM node:18-alpine
@@ -127,7 +191,13 @@ watch(
       selectedContainerId.value = null
       containerSearchQuery.value = ''
       containerFilter.value = 'all'
+      showGenerator.value = false
+      resetGeneratorForm()
+      selectedDockerfileId.value = null
+      selectedComposeId.value = null
       await sandboxStore.loadContainers()
+      await sandboxStore.loadDockerfileConfigs()
+      await sandboxStore.loadComposeConfigs()
     }
   }
 )
@@ -170,6 +240,126 @@ function useExample(type: 'compose' | 'dockerfile'): void {
   }
 }
 
+function useComposeTemplate(templateType: ComposeTemplateType): void {
+  composeContent.value = composeTemplates[templateType]
+}
+
+function resetGeneratorForm(): void {
+  generatorForm.value = {
+    serviceName: 'app',
+    sourceType: 'build',
+    image: 'node:18-alpine',
+    useSavedDockerfile: false,
+    savedDockerfileId: null,
+    context: './app',
+    dockerfile: 'Dockerfile',
+    buildArgs: '',
+    ports: '3000:3000',
+    environment: 'NODE_ENV=development'
+  }
+}
+
+async function onSavedDockerfileSelect(): Promise<void> {
+  if (!generatorForm.value.savedDockerfileId) {
+    generatorForm.value.useSavedDockerfile = false
+    return
+  }
+
+  generatorForm.value.useSavedDockerfile = true
+  const config = await sandboxStore.loadDockerfileConfig(generatorForm.value.savedDockerfileId)
+  if (config) {
+    generatorForm.value.context = `./${config.name}`
+    generatorForm.value.dockerfile = config.filename
+  }
+}
+
+function clearSavedDockerfile(): void {
+  generatorForm.value.savedDockerfileId = null
+  generatorForm.value.useSavedDockerfile = false
+  generatorForm.value.context = './app'
+  generatorForm.value.dockerfile = 'Dockerfile'
+}
+
+function generateServiceConfig(): string {
+  const form = generatorForm.value
+  const lines: string[] = []
+  const indent = '    '
+
+  lines.push(`  ${form.serviceName}:`)
+
+  if (form.sourceType === 'image') {
+    lines.push(`${indent}image: ${form.image}`)
+  } else {
+    lines.push(`${indent}build:`)
+    lines.push(`${indent}  context: ${form.context}`)
+    if (form.dockerfile && form.dockerfile !== 'Dockerfile') {
+      lines.push(`${indent}  dockerfile: ${form.dockerfile}`)
+    }
+    if (form.buildArgs.trim()) {
+      const args = form.buildArgs
+        .split(',')
+        .map((arg) => arg.trim())
+        .filter(Boolean)
+      if (args.length > 0) {
+        lines.push(`${indent}  args:`)
+        args.forEach((arg) => {
+          const [key, value] = arg.split('=').map((s) => s.trim())
+          if (key && value) {
+            lines.push(`${indent}    ${key}: ${value}`)
+          }
+        })
+      }
+    }
+  }
+
+  if (form.ports.trim()) {
+    const ports = form.ports
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean)
+    if (ports.length > 0) {
+      lines.push(`${indent}ports:`)
+      ports.forEach((port) => {
+        lines.push(`${indent}  - "${port}"`)
+      })
+    }
+  }
+
+  if (form.environment.trim()) {
+    const envs = form.environment
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean)
+    if (envs.length > 0) {
+      lines.push(`${indent}environment:`)
+      envs.forEach((env) => {
+        lines.push(`${indent}  - ${env}`)
+      })
+    }
+  }
+
+  return lines.join('\n')
+}
+
+function insertServiceConfig(): void {
+  const config = generateServiceConfig()
+  const currentContent = composeContent.value
+
+  const servicesMatch = currentContent.match(/^(services:\s*\n)/m)
+  if (servicesMatch) {
+    const insertIndex = servicesMatch.index! + servicesMatch[0].length
+    composeContent.value =
+      currentContent.slice(0, insertIndex) + config + '\n' + currentContent.slice(insertIndex)
+  } else if (currentContent.includes('version:')) {
+    composeContent.value = currentContent + '\nservices:\n' + config + '\n'
+  } else {
+    composeContent.value = "version: '3.8'\n\nservices:\n" + config + '\n'
+  }
+
+  showGenerator.value = false
+  resetGeneratorForm()
+}
+
 function getStateLabel(state: ContainerState): string {
   const labels: Record<ContainerState, string> = {
     created: '已创建',
@@ -209,6 +399,58 @@ function selectContainer(containerId: string): void {
 
 async function refreshContainers(): Promise<void> {
   await sandboxStore.loadContainers()
+}
+
+// ==================== 配置管理方法 ====================
+
+async function loadSelectedDockerfile(): Promise<void> {
+  if (!selectedDockerfileId.value) return
+  const config = await sandboxStore.loadDockerfileConfig(selectedDockerfileId.value)
+  if (config) {
+    dockerfileContent.value = config.content
+  }
+}
+
+async function loadSelectedCompose(): Promise<void> {
+  if (!selectedComposeId.value) return
+  const config = await sandboxStore.loadComposeConfig(selectedComposeId.value)
+  if (config) {
+    composeContent.value = config.content
+    composeProjectName.value = config.name
+  }
+}
+
+function openSaveDialog(type: 'dockerfile' | 'compose'): void {
+  saveDialogType.value = type
+  saveConfigName.value = ''
+  saveConfigId.value = null
+  showSaveDialog.value = true
+}
+
+async function handleSaveConfig(): Promise<void> {
+  if (!saveConfigName.value.trim()) return
+
+  if (saveDialogType.value === 'dockerfile') {
+    await sandboxStore.saveDockerfileConfig({
+      name: saveConfigName.value.trim(),
+      content: dockerfileContent.value,
+      id: saveConfigId.value || undefined
+    })
+  } else {
+    await sandboxStore.saveComposeConfig({
+      name: saveConfigName.value.trim(),
+      content: composeContent.value,
+      id: saveConfigId.value || undefined
+    })
+  }
+
+  showSaveDialog.value = false
+}
+
+function closeSaveDialog(): void {
+  showSaveDialog.value = false
+  saveConfigName.value = ''
+  saveConfigId.value = null
 }
 </script>
 
@@ -331,10 +573,163 @@ async function refreshContainers(): Promise<void> {
           <label>项目名称（可选）</label>
           <input v-model="composeProjectName" type="text" class="input" placeholder="my-project" />
         </div>
+
+        <!-- 已保存配置选择 -->
+        <div class="form-field">
+          <label>
+            已保存配置
+            <button class="btn-link" @click="openSaveDialog('compose')">另存为</button>
+          </label>
+          <div class="config-selector">
+            <select v-model="selectedComposeId" class="select" @change="loadSelectedCompose">
+              <option :value="null">选择已保存的配置...</option>
+              <option v-for="config in composeConfigs" :key="config.id" :value="config.id">
+                {{ config.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 构建配置生成器 -->
+        <div class="generator-section">
+          <div class="generator-header" @click="showGenerator = !showGenerator">
+            <span class="generator-title">构建配置生成器</span>
+            <span class="generator-toggle" :class="{ expanded: showGenerator }">▼</span>
+          </div>
+
+          <div v-if="showGenerator" class="generator-form">
+            <div class="form-row">
+              <div class="form-field-inline">
+                <label>服务名称</label>
+                <input
+                  v-model="generatorForm.serviceName"
+                  type="text"
+                  class="input"
+                  placeholder="app"
+                />
+              </div>
+              <div class="form-field-inline">
+                <label>来源类型</label>
+                <div class="radio-group">
+                  <label class="radio-option">
+                    <input v-model="generatorForm.sourceType" type="radio" value="image" />
+                    <span>镜像</span>
+                  </label>
+                  <label class="radio-option">
+                    <input v-model="generatorForm.sourceType" type="radio" value="build" />
+                    <span>构建</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="generatorForm.sourceType === 'image'" class="form-field">
+              <label>镜像名称</label>
+              <input
+                v-model="generatorForm.image"
+                type="text"
+                class="input"
+                placeholder="node:18-alpine"
+              />
+            </div>
+
+            <template v-else>
+              <!-- 选择已保存的 Dockerfile -->
+              <div class="form-field">
+                <label>
+                  使用已保存的 Dockerfile
+                  <button
+                    v-if="generatorForm.useSavedDockerfile"
+                    class="btn-link"
+                    @click="clearSavedDockerfile"
+                  >
+                    清除选择
+                  </button>
+                </label>
+                <select
+                  v-model="generatorForm.savedDockerfileId"
+                  class="select"
+                  @change="onSavedDockerfileSelect"
+                >
+                  <option :value="null">不使用已保存的 Dockerfile</option>
+                  <option v-for="config in dockerfileConfigs" :key="config.id" :value="config.id">
+                    {{ config.name }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="form-row">
+                <div class="form-field-inline">
+                  <label>构建上下文</label>
+                  <input
+                    v-model="generatorForm.context"
+                    type="text"
+                    class="input"
+                    placeholder="./app"
+                    :disabled="generatorForm.useSavedDockerfile"
+                  />
+                </div>
+                <div class="form-field-inline">
+                  <label>Dockerfile 名称</label>
+                  <input
+                    v-model="generatorForm.dockerfile"
+                    type="text"
+                    class="input"
+                    placeholder="Dockerfile"
+                    :disabled="generatorForm.useSavedDockerfile"
+                  />
+                </div>
+              </div>
+              <div class="form-field">
+                <label>构建参数（可选，逗号分隔，格式：key=value）</label>
+                <input
+                  v-model="generatorForm.buildArgs"
+                  type="text"
+                  class="input"
+                  placeholder="NODE_VERSION=18,API_KEY=xxx"
+                />
+              </div>
+            </template>
+
+            <div class="form-row">
+              <div class="form-field-inline">
+                <label>端口映射（可选，逗号分隔）</label>
+                <input
+                  v-model="generatorForm.ports"
+                  type="text"
+                  class="input"
+                  placeholder="3000:3000,8080:8080"
+                />
+              </div>
+              <div class="form-field-inline">
+                <label>环境变量（可选，逗号分隔）</label>
+                <input
+                  v-model="generatorForm.environment"
+                  type="text"
+                  class="input"
+                  placeholder="NODE_ENV=development,DEBUG=true"
+                />
+              </div>
+            </div>
+
+            <div class="generator-actions">
+              <button class="btn-secondary" @click="resetGeneratorForm">重置</button>
+              <button class="btn-primary" @click="insertServiceConfig">插入配置</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 模板选择 -->
         <div class="form-field">
           <label>
             docker-compose.yaml
-            <button class="btn-link" @click="useExample('compose')">使用示例</button>
+            <div class="template-buttons">
+              <button class="btn-template" @click="useComposeTemplate('image')">镜像模板</button>
+              <button class="btn-template" @click="useComposeTemplate('build')">
+                Dockerfile 模板
+              </button>
+              <button class="btn-template" @click="useComposeTemplate('mixed')">混合模板</button>
+            </div>
           </label>
           <textarea
             v-model="composeContent"
@@ -352,6 +747,23 @@ async function refreshContainers(): Promise<void> {
           <label>构建上下文路径（可选）</label>
           <input v-model="dockerfileContext" type="text" class="input" placeholder="./my-app" />
         </div>
+
+        <!-- 已保存配置选择 -->
+        <div class="form-field">
+          <label>
+            已保存配置
+            <button class="btn-link" @click="openSaveDialog('dockerfile')">另存为</button>
+          </label>
+          <div class="config-selector">
+            <select v-model="selectedDockerfileId" class="select" @change="loadSelectedDockerfile">
+              <option :value="null">选择已保存的配置...</option>
+              <option v-for="config in dockerfileConfigs" :key="config.id" :value="config.id">
+                {{ config.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+
         <div class="form-field">
           <label>
             Dockerfile
@@ -372,6 +784,38 @@ async function refreshContainers(): Promise<void> {
         <button class="btn-primary" :disabled="!canCreate" @click="handleCreate">
           {{ createType === 'existing' ? '选择并使用' : '创建并运行' }}
         </button>
+      </div>
+
+      <!-- 保存配置对话框 -->
+      <div v-if="showSaveDialog" class="save-dialog-overlay" @click.self="closeSaveDialog">
+        <div class="save-dialog">
+          <div class="save-dialog-header">
+            <h4>保存配置</h4>
+            <button class="close-btn small" @click="closeSaveDialog">×</button>
+          </div>
+          <div class="save-dialog-body">
+            <div class="form-field">
+              <label>配置名称</label>
+              <input
+                v-model="saveConfigName"
+                type="text"
+                class="input"
+                placeholder="请输入配置名称"
+                @keyup.enter="handleSaveConfig"
+              />
+            </div>
+          </div>
+          <div class="save-dialog-footer">
+            <button class="btn" @click="closeSaveDialog">取消</button>
+            <button
+              class="btn-primary"
+              :disabled="!saveConfigName.trim()"
+              @click="handleSaveConfig"
+            >
+              保存
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -767,6 +1211,158 @@ async function refreshContainers(): Promise<void> {
   text-decoration: underline;
 }
 
+/* 模板按钮组 */
+.template-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-template {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: var(--theme-font);
+  background-color: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-border);
+  border-radius: 4px;
+  color: var(--theme-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-template:hover {
+  border-color: var(--theme-accent);
+  color: var(--theme-accent);
+}
+
+/* 构建配置生成器 */
+.generator-section {
+  margin-bottom: 16px;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.generator-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background-color: var(--theme-bg-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.generator-header:hover {
+  background-color: rgba(63, 185, 80, 0.05);
+}
+
+.generator-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--theme-text);
+}
+
+.generator-toggle {
+  font-size: 10px;
+  color: var(--theme-text-secondary);
+  transition: transform 0.2s ease;
+}
+
+.generator-toggle.expanded {
+  transform: rotate(180deg);
+}
+
+.generator-form {
+  padding: 16px;
+  background-color: var(--theme-bg);
+  border-top: 1px solid var(--theme-border);
+}
+
+.generator-form .input:disabled,
+.generator-form .select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: var(--theme-bg);
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.form-field-inline {
+  flex: 1;
+}
+
+.form-field-inline label {
+  display: block;
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+  margin-bottom: 4px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--theme-text);
+  cursor: pointer;
+}
+
+.radio-option input {
+  margin: 0;
+}
+
+.generator-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--theme-border);
+}
+
+.btn-secondary {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: var(--theme-font);
+  background-color: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-border);
+  border-radius: 4px;
+  color: var(--theme-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--theme-text-secondary);
+  color: var(--theme-text);
+}
+
+.btn-primary {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: var(--theme-font);
+  background-color: var(--theme-accent);
+  border: 1px solid var(--theme-accent);
+  border-radius: 4px;
+  color: var(--theme-bg);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
 .code-editor {
   width: 100%;
   min-height: 300px;
@@ -796,5 +1392,105 @@ async function refreshContainers(): Promise<void> {
   padding: 16px 20px;
   border-top: 1px solid var(--theme-border);
   background-color: var(--theme-bg-secondary);
+}
+
+/* 配置选择器 */
+.config-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.select {
+  flex: 1;
+  padding: 8px 12px;
+  font-family: var(--theme-font);
+  font-size: 13px;
+  background-color: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-border);
+  border-radius: 4px;
+  color: var(--theme-text);
+  cursor: pointer;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--theme-accent);
+}
+
+/* 保存对话框 */
+.save-dialog-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.save-dialog {
+  background-color: var(--theme-bg);
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  width: 320px;
+  overflow: hidden;
+}
+
+.save-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--theme-border);
+}
+
+.save-dialog-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.close-btn.small {
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
+}
+
+.save-dialog-body {
+  padding: 16px;
+}
+
+.save-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--theme-border);
+  background-color: var(--theme-bg-secondary);
+}
+
+.btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: var(--theme-font);
+  background-color: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-border);
+  border-radius: 4px;
+  color: var(--theme-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn:hover {
+  border-color: var(--theme-text-secondary);
+  color: var(--theme-text);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

@@ -1031,6 +1031,75 @@ interface SandboxSelection {
 }
 
 /**
+ * Dockerfile 配置元数据
+ */
+interface DockerfileConfigMeta {
+  id: string
+  name: string
+  filename: string
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Docker Compose 配置元数据
+ */
+interface ComposeConfigMeta {
+  id: string
+  name: string
+  filename: string
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Dockerfile 配置（完整）
+ */
+interface DockerfileConfig extends DockerfileConfigMeta {
+  content: string
+}
+
+/**
+ * Docker Compose 配置（完整）
+ */
+interface ComposeConfig extends ComposeConfigMeta {
+  content: string
+}
+
+/**
+ * 保存配置请求
+ */
+interface SaveConfigRequest {
+  name: string
+  content: string
+  id?: string
+}
+
+/**
+ * Dockerfile 配置 API
+ */
+interface DockerfileConfigApi {
+  list: () => Promise<{ success: boolean; configs?: DockerfileConfigMeta[]; error?: string }>
+  load: (id: string) => Promise<{ success: boolean; config?: DockerfileConfig; error?: string }>
+  save: (
+    request: SaveConfigRequest
+  ) => Promise<{ success: boolean; config?: DockerfileConfigMeta; error?: string }>
+  delete: (id: string) => Promise<{ success: boolean; error?: string }>
+}
+
+/**
+ * Compose 配置 API
+ */
+interface ComposeConfigApi {
+  list: () => Promise<{ success: boolean; configs?: ComposeConfigMeta[]; error?: string }>
+  load: (id: string) => Promise<{ success: boolean; config?: ComposeConfig; error?: string }>
+  save: (
+    request: SaveConfigRequest
+  ) => Promise<{ success: boolean; config?: ComposeConfigMeta; error?: string }>
+  delete: (id: string) => Promise<{ success: boolean; error?: string }>
+}
+
+/**
  * 沙箱相关的 API
  */
 interface SandboxApi {
@@ -1082,6 +1151,10 @@ interface SandboxApi {
   selectSandbox: (containerId: string, sessionId?: string) => Promise<SandboxResult>
   deselectSandbox: (containerId: string) => Promise<SandboxResult>
   getSessionSandbox: (sessionId: string) => Promise<SandboxSelection | null>
+
+  // Docker 配置管理
+  dockerfile: DockerfileConfigApi
+  compose: ComposeConfigApi
 }
 
 /**
