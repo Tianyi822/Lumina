@@ -67,6 +67,11 @@ const showSaveDialog = ref(false)
 const saveDialogType = ref<'dockerfile' | 'compose'>('compose')
 const saveConfigName = ref('')
 const saveConfigId = ref<string | null>(null)
+const isComposing = ref(false)
+
+// 成功提示
+const showSuccessToast = ref(false)
+const successMessage = ref('')
 
 const selectedDockerfileId = ref<string | null>(null)
 const selectedComposeId = ref<string | null>(null)
@@ -427,6 +432,20 @@ function openSaveDialog(type: 'dockerfile' | 'compose'): void {
   showSaveDialog.value = true
 }
 
+function handleSaveConfigEnter(event: KeyboardEvent): void {
+  if (isComposing.value || event.key !== 'Enter') return
+  event.preventDefault()
+  handleSaveConfig()
+}
+
+function handleCompositionStart(): void {
+  isComposing.value = true
+}
+
+function handleCompositionEnd(): void {
+  isComposing.value = false
+}
+
 async function handleSaveConfig(): Promise<void> {
   if (!saveConfigName.value.trim()) return
 
@@ -445,6 +464,15 @@ async function handleSaveConfig(): Promise<void> {
   }
 
   showSaveDialog.value = false
+  showSuccessToast.value = true
+  successMessage.value = `配置「${saveConfigName.value.trim()}」保存成功`
+  setTimeout(() => {
+    showSuccessToast.value = false
+  }, 3000)
+}
+
+function closeSuccessToast(): void {
+  showSuccessToast.value = false
 }
 
 function closeSaveDialog(): void {
@@ -801,7 +829,9 @@ function closeSaveDialog(): void {
                 type="text"
                 class="input"
                 placeholder="请输入配置名称"
-                @keyup.enter="handleSaveConfig"
+                @keydown.enter="handleSaveConfigEnter"
+                @compositionstart="handleCompositionStart"
+                @compositionend="handleCompositionEnd"
               />
             </div>
           </div>
@@ -818,6 +848,17 @@ function closeSaveDialog(): void {
         </div>
       </div>
     </div>
+
+    <!-- 成功提示 -->
+    <Transition name="toast">
+      <div v-if="showSuccessToast" class="success-toast">
+        <div class="toast-content">
+          <span class="toast-icon">✓</span>
+          <p class="toast-message">{{ successMessage }}</p>
+          <button class="toast-close" @click="closeSuccessToast">×</button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -1492,5 +1533,69 @@ function closeSaveDialog(): void {
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 成功提示 */
+.success-toast {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 1001;
+  max-width: 400px;
+  background-color: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-success);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.success-toast .toast-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.success-toast .toast-icon {
+  color: var(--theme-success);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.success-toast .toast-message {
+  flex: 1;
+  color: var(--theme-success);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  word-break: break-word;
+}
+
+.success-toast .toast-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--theme-success);
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  font-family: var(--theme-font);
+  flex-shrink: 0;
+}
+
+.success-toast .toast-close:hover {
+  opacity: 1;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
 }
 </style>
