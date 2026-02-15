@@ -266,8 +266,8 @@ function formatTokenUsage(usage: TokenUsage): string {
             </div>
           </div>
 
-          <!-- Token 统计 -->
-          <div v-if="msg.usage && !msg.isStreaming" class="token-usage">
+          <!-- Token 统计（仅助手消息） -->
+          <div v-if="msg.role === 'assistant' && msg.usage && !msg.isStreaming" class="token-usage">
             {{ formatTokenUsage(msg.usage) }}
           </div>
         </div>
@@ -354,8 +354,24 @@ function formatTokenUsage(usage: TokenUsage): string {
 }
 
 .message {
-  max-width: 90%;
-  align-self: flex-start; /* 所有消息左对齐 */
+  max-width: 85%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 用户消息：右侧对齐 */
+.message.user {
+  align-self: flex-end;
+}
+
+.message.user .message-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 助手消息：左侧对齐 */
+.message.assistant {
+  align-self: flex-start;
 }
 
 /* 消息头部：角色标签 */
@@ -460,8 +476,8 @@ function formatTokenUsage(usage: TokenUsage): string {
 
 /* 用户消息样式 */
 .message.user .message-content {
-  background-color: var(--theme-bg-hover);
-  border-color: rgba(63, 185, 80, 0.4);
+  background-color: rgba(63, 185, 80, 0.15);
+  border-color: rgba(63, 185, 80, 0.3);
 }
 
 /* 助手消息样式 */
