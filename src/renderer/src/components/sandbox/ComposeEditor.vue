@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useSandboxStore } from '@renderer/stores'
+import { useDockerConfigStore, useSandboxCreatorStore } from '@renderer/stores'
 
 type ComposeTemplateType = 'image' | 'build' | 'mixed'
 
-const sandboxStore = useSandboxStore()
-const { dockerfileConfigs, composeConfigs, creatorShowGenerator, creatorGeneratorForm } =
-  storeToRefs(sandboxStore)
+const configStore = useDockerConfigStore()
+const creatorStore = useSandboxCreatorStore()
+const { dockerfileConfigs, composeConfigs } = storeToRefs(configStore)
+const { showGenerator: creatorShowGenerator, generatorForm: creatorGeneratorForm } =
+  storeToRefs(creatorStore)
 
 const props = defineProps<{
   modelValue: string
@@ -48,7 +50,7 @@ watch(localProjectName, (value) => {
 
 async function loadSelectedCompose(): Promise<void> {
   if (!selectedComposeId.value) return
-  const config = await sandboxStore.loadComposeConfig(selectedComposeId.value)
+  const config = await configStore.loadComposeConfig(selectedComposeId.value)
   if (config) {
     localContent.value = config.content
     localProjectName.value = config.name
@@ -56,11 +58,11 @@ async function loadSelectedCompose(): Promise<void> {
 }
 
 function useTemplate(templateType: ComposeTemplateType): void {
-  localContent.value = sandboxStore.getComposeTemplate(templateType)
+  localContent.value = creatorStore.getComposeTemplate(templateType)
 }
 
 function handleInsertServiceConfig(): void {
-  const config = sandboxStore.creatorGenerateServiceConfig()
+  const config = creatorStore.generateServiceConfig()
   const currentContent = localContent.value
 
   const servicesMatch = currentContent.match(/^(services:\s*\n)/m)
@@ -74,8 +76,8 @@ function handleInsertServiceConfig(): void {
     localContent.value = "version: '3.8'\n\nservices:\n" + config + '\n'
   }
 
-  sandboxStore.creatorShowGenerator = false
-  sandboxStore.creatorResetGeneratorForm()
+  creatorStore.showGenerator = false
+  creatorStore.resetGeneratorForm()
 }
 
 function handleSaveConfig(): void {
@@ -109,7 +111,7 @@ function handleSaveConfig(): void {
     <div class="generator-section">
       <div
         class="generator-header"
-        @click="sandboxStore.creatorShowGenerator = !sandboxStore.creatorShowGenerator"
+        @click="creatorStore.showGenerator = !creatorStore.showGenerator"
       >
         <span class="generator-title">构建配置生成器</span>
         <span class="generator-toggle" :class="{ expanded: creatorShowGenerator }">▼</span>
@@ -158,7 +160,7 @@ function handleSaveConfig(): void {
               <button
                 v-if="creatorGeneratorForm.useSavedDockerfile"
                 class="btn-link"
-                @click="sandboxStore.creatorClearSavedDockerfile()"
+                @click="creatorStore.clearSavedDockerfile()"
               >
                 清除选择
               </button>
@@ -166,7 +168,7 @@ function handleSaveConfig(): void {
             <select
               v-model="creatorGeneratorForm.savedDockerfileId"
               class="select"
-              @change="sandboxStore.creatorOnSavedDockerfileSelect()"
+              @change="creatorStore.onSavedDockerfileSelect()"
             >
               <option :value="null">不使用已保存的 Dockerfile</option>
               <option v-for="config in dockerfileConfigs" :key="config.id" :value="config.id">
@@ -230,9 +232,7 @@ function handleSaveConfig(): void {
         </div>
 
         <div class="generator-actions">
-          <button class="btn-secondary" @click="sandboxStore.creatorResetGeneratorForm()">
-            重置
-          </button>
+          <button class="btn-secondary" @click="creatorStore.resetGeneratorForm()">重置</button>
           <button class="btn-primary" @click="handleInsertServiceConfig">插入配置</button>
         </div>
       </div>

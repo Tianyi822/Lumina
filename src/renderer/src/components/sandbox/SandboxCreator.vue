@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useSandboxStore } from '@renderer/stores'
+import { useContainerStore, useDockerConfigStore, useSandboxCreatorStore } from '@renderer/stores'
 import type { ComposeOptions } from '@shared/types/sandbox'
 import ContainerSelector from './ContainerSelector.vue'
 import ComposeEditor from './ComposeEditor.vue'
@@ -22,13 +22,12 @@ const emit = defineEmits<{
   (e: 'select-container', containerId: string): void
 }>()
 
-const sandboxStore = useSandboxStore()
-const {
-  creatorShowSaveDialog: showSaveDialog,
-  creatorSaveDialogType: saveDialogType,
-  creatorShowSuccessToast: showSuccessToast,
-  creatorSuccessMessage: successMessage
-} = storeToRefs(sandboxStore)
+const containerStore = useContainerStore()
+const configStore = useDockerConfigStore()
+const creatorStore = useSandboxCreatorStore()
+
+const { showSaveDialog, saveDialogType, showSuccessToast, successMessage } =
+  storeToRefs(creatorStore)
 
 const createType = ref<CreateType>('compose')
 
@@ -58,7 +57,7 @@ watch(
   async (visible) => {
     if (visible) {
       createType.value = 'compose'
-      composeContent.value = sandboxStore.getComposeTemplate('mixed')
+      composeContent.value = creatorStore.getComposeTemplate('mixed')
       dockerfileContent.value = `FROM node:18-alpine
 
 WORKDIR /app
@@ -75,16 +74,16 @@ CMD ["npm", "start"]
       dockerfileContext.value = ''
       composeProjectName.value = ''
       containerSelectorRef.value?.reset()
-      await sandboxStore.loadContainers()
-      await sandboxStore.loadDockerfileConfigs()
-      await sandboxStore.loadComposeConfigs()
+      await containerStore.loadContainers()
+      await configStore.loadDockerfileConfigs()
+      await configStore.loadComposeConfigs()
     }
   }
 )
 
 watch(createType, async (newType) => {
-  if (newType === 'existing' && sandboxStore.containers.length === 0) {
-    await sandboxStore.loadContainers()
+  if (newType === 'existing' && containerStore.containers.length === 0) {
+    await containerStore.loadContainers()
   }
 })
 
@@ -124,31 +123,31 @@ async function handleSaveConfig(name: string): Promise<void> {
   if (!trimmedName) return
 
   if (saveDialogType.value === 'dockerfile') {
-    await sandboxStore.saveDockerfileConfig({
+    await configStore.saveDockerfileConfig({
       name: trimmedName,
       content: content
     })
   } else {
-    await sandboxStore.saveComposeConfig({
+    await configStore.saveComposeConfig({
       name: trimmedName,
       content: content
     })
   }
 
-  sandboxStore.creatorShowSaveDialog = false
-  sandboxStore.creatorShowSuccessToast = true
-  sandboxStore.creatorSuccessMessage = `配置「${trimmedName}」保存成功`
+  creatorStore.showSaveDialog = false
+  creatorStore.showSuccessToast = true
+  creatorStore.successMessage = `配置「${trimmedName}」保存成功`
   setTimeout(() => {
-    sandboxStore.creatorShowSuccessToast = false
+    creatorStore.showSuccessToast = false
   }, 3000)
 }
 
 function handleSaveComposeConfig(): void {
-  sandboxStore.creatorOpenSaveDialog('compose')
+  creatorStore.openSaveDialog('compose')
 }
 
 function handleSaveDockerfileConfig(): void {
-  sandboxStore.creatorOpenSaveDialog('dockerfile')
+  creatorStore.openSaveDialog('dockerfile')
 }
 </script>
 
@@ -208,7 +207,7 @@ function handleSaveDockerfileConfig(): void {
       <SaveConfigDialog
         :visible="showSaveDialog"
         :config-type="saveDialogType"
-        @close="sandboxStore.creatorCloseSaveDialog()"
+        @close="creatorStore.closeSaveDialog()"
         @save="handleSaveConfig"
       />
     </div>
@@ -216,7 +215,7 @@ function handleSaveDockerfileConfig(): void {
     <SuccessToast
       :visible="showSuccessToast"
       :message="successMessage"
-      @close="sandboxStore.creatorCloseSuccessToast()"
+      @close="creatorStore.closeSuccessToast()"
     />
   </div>
 </template>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useSandboxStore, useUIStateStore } from '@renderer/stores'
+import { useSandboxStore, useContainerStore, useUIStateStore } from '@renderer/stores'
 import SandboxSidebar from '@renderer/components/sandbox/SandboxSidebar.vue'
 import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
 import SandboxCreator from '@renderer/components/sandbox/SandboxCreator.vue'
@@ -42,6 +42,7 @@ const installCommands: InstallCommand[] = [
 ]
 
 const sandboxStore = useSandboxStore()
+const containerStore = useContainerStore()
 const uiStateStore = useUIStateStore()
 
 const { currentSandbox, sandboxList, operationLogs, listUpdateKey } = storeToRefs(sandboxStore)
@@ -114,7 +115,7 @@ const handleCreateFromDockerfile = (dockerfile: string, context: string): void =
 
 const handleSelectContainer = (containerId: string): void => {
   sandboxStore.selectSandboxForSession(containerId)
-  sandboxStore.loadContainerDetails(containerId)
+  containerStore.loadContainerDetails(containerId)
   uiStateStore.setSandboxDetailTab('info')
   uiStateStore.closeSandboxCreator()
 }

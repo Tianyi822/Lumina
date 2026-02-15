@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useSandboxStore } from '@renderer/stores'
+import { useDockerConfigStore } from '@renderer/stores'
 
-const sandboxStore = useSandboxStore()
-const { dockerfileConfigs } = storeToRefs(sandboxStore)
+const configStore = useDockerConfigStore()
+const { dockerfileConfigs } = storeToRefs(configStore)
 
 const props = defineProps<{
   modelValue: string
@@ -59,7 +59,7 @@ watch(localContext, (value) => {
 
 async function loadSelectedDockerfile(): Promise<void> {
   if (!selectedDockerfileId.value) return
-  const config = await sandboxStore.loadDockerfileConfig(selectedDockerfileId.value)
+  const config = await configStore.loadDockerfileConfig(selectedDockerfileId.value)
   if (config) {
     localContent.value = config.content
   }

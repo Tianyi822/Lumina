@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useSandboxStore } from '@renderer/stores'
+import { useDockerConfigStore } from '@renderer/stores'
 import type {
   DockerfileConfigMeta,
   ComposeConfigMeta,
@@ -19,8 +19,8 @@ const emit = defineEmits<{
   (e: 'select-compose', config: ComposeConfig): void
 }>()
 
-const sandboxStore = useSandboxStore()
-const { dockerfileConfigs, composeConfigs, configsLoading } = storeToRefs(sandboxStore)
+const configStore = useDockerConfigStore()
+const { dockerfileConfigs, composeConfigs, configsLoading } = storeToRefs(configStore)
 
 type ConfigType = 'dockerfile' | 'compose'
 
@@ -36,8 +36,8 @@ watch(
     if (visible) {
       activeTab.value = 'dockerfile'
       viewingConfig.value = null
-      await sandboxStore.loadDockerfileConfigs()
-      await sandboxStore.loadComposeConfigs()
+      await configStore.loadDockerfileConfigs()
+      await configStore.loadComposeConfigs()
     }
   }
 )
@@ -47,14 +47,14 @@ function close(): void {
 }
 
 async function viewDockerfile(config: DockerfileConfigMeta): Promise<void> {
-  const fullConfig = await sandboxStore.loadDockerfileConfig(config.id)
+  const fullConfig = await configStore.loadDockerfileConfig(config.id)
   if (fullConfig) {
     viewingConfig.value = fullConfig
   }
 }
 
 async function viewCompose(config: ComposeConfigMeta): Promise<void> {
-  const fullConfig = await sandboxStore.loadComposeConfig(config.id)
+  const fullConfig = await configStore.loadComposeConfig(config.id)
   if (fullConfig) {
     viewingConfig.value = fullConfig
   }
@@ -80,9 +80,9 @@ async function handleDelete(): Promise<void> {
   if (!deletingConfigId.value) return
 
   if (activeTab.value === 'dockerfile') {
-    await sandboxStore.deleteDockerfileConfig(deletingConfigId.value)
+    await configStore.deleteDockerfileConfig(deletingConfigId.value)
   } else {
-    await sandboxStore.deleteComposeConfig(deletingConfigId.value)
+    await configStore.deleteComposeConfig(deletingConfigId.value)
   }
 
   if (viewingConfig.value?.id === deletingConfigId.value) {

@@ -21,7 +21,14 @@ export { useKnowledgeIndexStore } from './knowledgeIndexStore'
 export { useMCPStore } from './mcpStore'
 export { useKnowledgeStore } from './knowledgeStore'
 export { useFileStore } from './fileStore'
-export { useSandboxStore } from './sandboxStore'
+
+// Sandbox Stores (拆分后的模块)
+export {
+  useSandboxStore,
+  useContainerStore,
+  useSandboxCreatorStore,
+  useDockerConfigStore
+} from './sandbox'
 
 // 初始化 Pinia（在应用启动时调用）
 export function initializePinia(): void {

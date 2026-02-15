@@ -1,32 +1,33 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { useSandboxStore } from '@renderer/stores'
+import { useContainerStore, useSandboxCreatorStore } from '@renderer/stores'
 
-const sandboxStore = useSandboxStore()
-const { isLoading: storeLoading, containers } = storeToRefs(sandboxStore)
+const containerStore = useContainerStore()
+const creatorStore = useSandboxCreatorStore()
 
+const { isLoading: storeLoading, containers } = storeToRefs(containerStore)
 const {
-  creatorContainerSearchQuery: containerSearchQuery,
-  creatorContainerFilter: containerFilter,
-  creatorSelectedContainerId: selectedContainerId,
-  creatorFilteredContainers: filteredContainers,
-  creatorRunningCount: runningCount,
-  creatorStoppedCount: stoppedCount
-} = storeToRefs(sandboxStore)
+  containerSearchQuery,
+  containerFilter,
+  selectedContainerId,
+  filteredContainers,
+  runningCount,
+  stoppedCount
+} = storeToRefs(creatorStore)
 
 const emit = defineEmits<{
   (e: 'select', containerId: string): void
 }>()
 
 function handleSelectContainer(containerId: string): void {
-  sandboxStore.creatorSelectContainer(containerId)
+  creatorStore.selectContainer(containerId)
   if (selectedContainerId.value) {
     emit('select', selectedContainerId.value)
   }
 }
 
 defineExpose({
-  reset: () => sandboxStore.creatorResetContainerSelector(),
+  reset: () => creatorStore.resetContainerSelector(),
   selectedContainerId
 })
 </script>
@@ -44,7 +45,7 @@ defineExpose({
         <button
           class="btn refresh-btn"
           :disabled="storeLoading"
-          @click="sandboxStore.loadContainers()"
+          @click="containerStore.loadContainers()"
         >
           刷新
         </button>
@@ -100,14 +101,14 @@ defineExpose({
           <div class="container-title">
             <span
               class="state-indicator"
-              :class="sandboxStore.getStateClass(container.state)"
+              :class="containerStore.getStateClass(container.state)"
             ></span>
             <span class="container-name">{{
               container.names[0]?.replace(/^\//, '') || '未命名'
             }}</span>
           </div>
-          <span class="container-state" :class="sandboxStore.getStateClass(container.state)">
-            {{ sandboxStore.getStateLabel(container.state) }}
+          <span class="container-state" :class="containerStore.getStateClass(container.state)">
+            {{ containerStore.getStateLabel(container.state) }}
           </span>
         </div>
 
@@ -118,7 +119,7 @@ defineExpose({
           </div>
           <div class="info-row">
             <span class="info-label">创建时间</span>
-            <span class="info-value">{{ sandboxStore.formatCreated(container.created) }}</span>
+            <span class="info-value">{{ containerStore.formatCreated(container.created) }}</span>
           </div>
         </div>
       </div>

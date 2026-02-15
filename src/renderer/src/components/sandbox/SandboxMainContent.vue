@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useSandboxStore, useUIStateStore } from '@renderer/stores'
+import { useContainerStore, useUIStateStore } from '@renderer/stores'
 import TerminalPanel from './TerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
@@ -20,7 +20,7 @@ const emit = defineEmits<{
 
 // ==================== Store ====================
 
-const sandboxStore = useSandboxStore()
+const containerStore = useContainerStore()
 const uiStateStore = useUIStateStore()
 
 const {
@@ -28,7 +28,7 @@ const {
   containerStats,
   terminalLogs,
   isLoading: storeLoading
-} = storeToRefs(sandboxStore)
+} = storeToRefs(containerStore)
 
 const { sandboxDetailTab } = storeToRefs(uiStateStore)
 
@@ -60,7 +60,7 @@ watch(
     if (tab === 'logs' && selectedContainer.value) {
       await loadContainerLogs()
     } else if (tab === 'stats' && selectedContainer.value) {
-      await sandboxStore.loadContainerStats(selectedContainer.value.id)
+      await containerStore.loadContainerStats(selectedContainer.value.id)
     }
   }
 )
@@ -162,25 +162,25 @@ function setDetailTab(tab: 'info' | 'terminal' | 'logs' | 'stats'): void {
 
 async function handleContainerStart(): Promise<void> {
   if (selectedContainer.value) {
-    await sandboxStore.startContainer(selectedContainer.value.id)
+    await containerStore.startContainer(selectedContainer.value.id)
   }
 }
 
 async function handleContainerStop(): Promise<void> {
   if (selectedContainer.value) {
-    await sandboxStore.stopContainer(selectedContainer.value.id)
+    await containerStore.stopContainer(selectedContainer.value.id)
   }
 }
 
 async function handleContainerRestart(): Promise<void> {
   if (selectedContainer.value) {
-    await sandboxStore.restartContainer(selectedContainer.value.id)
+    await containerStore.restartContainer(selectedContainer.value.id)
   }
 }
 
 async function handleContainerRemove(): Promise<void> {
   if (selectedContainer.value) {
-    await sandboxStore.removeContainer(selectedContainer.value.id)
+    await containerStore.removeContainer(selectedContainer.value.id)
   }
 }
 
@@ -194,7 +194,7 @@ async function handleViewLogs(): Promise<void> {
 
 async function handleRefreshStats(): Promise<void> {
   if (selectedContainer.value) {
-    await sandboxStore.loadContainerStats(selectedContainer.value.id)
+    await containerStore.loadContainerStats(selectedContainer.value.id)
   }
 }
 
@@ -202,7 +202,7 @@ async function loadContainerLogs(): Promise<void> {
   if (!selectedContainer.value) return
   logsLoading.value = true
   try {
-    containerLogs.value = await sandboxStore.getContainerLogs(selectedContainer.value.id, {
+    containerLogs.value = await containerStore.getContainerLogs(selectedContainer.value.id, {
       tail: 500
     })
   } finally {
@@ -231,11 +231,11 @@ function handleExportLogs(): void {
 
 async function handleExecuteCommand(command: string): Promise<void> {
   if (!selectedContainer.value) return
-  await sandboxStore.execCommand(selectedContainer.value.id, { command })
+  await containerStore.execCommand(selectedContainer.value.id, { command })
 }
 
 function handleClearTerminal(): void {
-  sandboxStore.clearTerminalLogs()
+  containerStore.clearTerminalLogs()
 }
 </script>
 
