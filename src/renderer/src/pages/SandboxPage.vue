@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useSandboxStore, useUIStateStore } from '@renderer/stores'
 import SandboxSidebar from '@renderer/components/sandbox/SandboxSidebar.vue'
 import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
+import SandboxCreator from '@renderer/components/sandbox/SandboxCreator.vue'
 
 type PlatformType = 'darwin' | 'win32' | 'linux'
 
@@ -44,7 +45,8 @@ const sandboxStore = useSandboxStore()
 const uiStateStore = useUIStateStore()
 
 const { currentSandbox, sandboxList, operationLogs, listUpdateKey } = storeToRefs(sandboxStore)
-const { sandboxSidebarCollapsed } = storeToRefs(uiStateStore)
+
+const { sandboxSidebarCollapsed, showSandboxCreator } = storeToRefs(uiStateStore)
 
 const dockerStatus = ref<DockerStatus | null>(null)
 const platform = ref<PlatformType>('darwin')
@@ -58,6 +60,8 @@ const filteredCommands = computed(() => {
 const otherCommands = computed(() => {
   return installCommands.filter((cmd) => cmd.platform !== platform.value)
 })
+
+// ==================== Docker 检测 ====================
 
 const checkDocker = async (): Promise<void> => {
   try {
@@ -92,6 +96,31 @@ const copyCommand = async (cmd: string, index: number): Promise<void> => {
   }
 }
 
+// ==================== 沙箱创建器事件 ====================
+
+const handleCloseCreator = (): void => {
+  uiStateStore.closeSandboxCreator()
+}
+
+const handleCreateFromCompose = (content: string): void => {
+  sandboxStore.createFromCompose(content)
+  uiStateStore.closeSandboxCreator()
+}
+
+const handleCreateFromDockerfile = (dockerfile: string, context: string): void => {
+  sandboxStore.createFromDockerfile(dockerfile, context)
+  uiStateStore.closeSandboxCreator()
+}
+
+const handleSelectContainer = (containerId: string): void => {
+  sandboxStore.selectSandboxForSession(containerId)
+  sandboxStore.loadContainerDetails(containerId)
+  uiStateStore.setSandboxDetailTab('info')
+  uiStateStore.closeSandboxCreator()
+}
+
+// ==================== 生命周期 ====================
+
 onMounted(async () => {
   await checkDocker()
 
@@ -103,31 +132,44 @@ onMounted(async () => {
 
 <template>
   <div class="sandbox-page">
+    <!-- Docker 检测中 -->
     <div v-if="loading" class="loading-overlay">
       <div class="loading-spinner"></div>
       <p>正在检测 Docker...</p>
     </div>
 
+    <!-- Docker 已安装 - 主界面 -->
     <template v-else-if="dockerStatus?.installed">
-      <SandboxSidebar
-        v-show="!sandboxSidebarCollapsed"
-        :sandboxs="sandboxList"
-        :active-sandbox-id="currentSandbox?.sandboxId"
-        :list-update-key="listUpdateKey"
-        @new-sandbox="sandboxStore.handleNewSandbox"
-        @select-sandbox="sandboxStore.handleSelectSandbox"
-        @delete-sandbox="sandboxStore.handleDeleteSandbox"
-      />
+      <!-- 内容区域 -->
+      <div class="sandbox-content">
+        <SandboxSidebar
+          v-show="!sandboxSidebarCollapsed"
+          :sandboxs="sandboxList"
+          :active-sandbox-id="currentSandbox?.sandboxId"
+          :list-update-key="listUpdateKey"
+          @select-sandbox="sandboxStore.handleSelectSandbox"
+          @delete-sandbox="sandboxStore.handleDeleteSandbox"
+        />
+        <SandboxMainContent
+          :sidebar-collapsed="sandboxSidebarCollapsed"
+          :current-sandbox="currentSandbox"
+          :operation-logs="operationLogs"
+          @toggle-sidebar="uiStateStore.toggleSandboxSidebar"
+          @rename="sandboxStore.renameSandbox"
+        />
+      </div>
 
-      <SandboxMainContent
-        :sidebar-collapsed="sandboxSidebarCollapsed"
-        :current-sandbox="currentSandbox"
-        :operation-logs="operationLogs"
-        @toggle-sidebar="uiStateStore.toggleSandboxSidebar"
-        @rename="sandboxStore.renameSandbox"
+      <!-- 创建沙箱弹窗 -->
+      <SandboxCreator
+        :visible="showSandboxCreator"
+        @close="handleCloseCreator"
+        @create-from-compose="handleCreateFromCompose"
+        @create-from-dockerfile="handleCreateFromDockerfile"
+        @select-container="handleSelectContainer"
       />
     </template>
 
+    <!-- Docker 未安装 - 安装引导 -->
     <div v-else class="docker-install-guide">
       <h1>需要安装 Docker</h1>
       <p class="subtitle">沙箱功能需要 Docker 支持，请先安装 Docker</p>
@@ -192,11 +234,20 @@ onMounted(async () => {
 <style scoped>
 .sandbox-page {
   display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   overflow: hidden;
 }
 
+/* 内容区域 */
+.sandbox-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 加载状态 */
 .loading-overlay {
   display: flex;
   flex-direction: column;
@@ -223,6 +274,7 @@ onMounted(async () => {
   }
 }
 
+/* Docker 安装引导 */
 .docker-install-guide {
   display: flex;
   flex-direction: column;

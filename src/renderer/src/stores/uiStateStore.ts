@@ -8,6 +8,9 @@ import { useSessionStore } from './sessionStore'
 // 视图类型
 export type ViewMode = 'chat' | 'knowledge' | 'sandbox'
 
+// 沙箱详情 Tab 类型
+export type SandboxDetailTab = 'info' | 'terminal' | 'logs' | 'stats'
+
 export const useUIStateStore = defineStore(
   'uiState',
   () => {
@@ -31,6 +34,14 @@ export const useUIStateStore = defineStore(
 
     // 最后访问的聊天会话 ID
     const lastChatSessionId = ref<string | null>(null)
+
+    // ==================== State: 沙箱页面 UI ====================
+
+    // 沙箱详情当前 Tab
+    const sandboxDetailTab = ref<SandboxDetailTab>('info')
+
+    // 是否显示创建沙箱弹窗
+    const showSandboxCreator = ref(false)
 
     // ==================== State: 配置更新通知 ====================
 
@@ -89,6 +100,24 @@ export const useUIStateStore = defineStore(
     // 设置侧边栏折叠状态
     function setSidebarCollapsed(collapsed: boolean): void {
       sidebarCollapsed.value = collapsed
+    }
+
+    // ==================== Actions: 沙箱页面 UI ====================
+
+    // 设置沙箱详情当前 Tab
+    function setSandboxDetailTab(tab: SandboxDetailTab): void {
+      sandboxDetailTab.value = tab
+      window.api.logger.debug('[UIStateStore] 切换沙箱详情 Tab', { tab })
+    }
+
+    // 打开创建沙箱弹窗
+    function openSandboxCreator(): void {
+      showSandboxCreator.value = true
+    }
+
+    // 关闭创建沙箱弹窗
+    function closeSandboxCreator(): void {
+      showSandboxCreator.value = false
     }
 
     // 设置当前模型
@@ -271,6 +300,10 @@ export const useUIStateStore = defineStore(
       currentModel,
       lastChatSessionId,
 
+      // State: 沙箱页面 UI
+      sandboxDetailTab,
+      showSandboxCreator,
+
       // State: 配置更新通知
       configUpdateKey,
       mcpUpdateKey,
@@ -292,6 +325,11 @@ export const useUIStateStore = defineStore(
       toggleSandboxSidebar,
       setSidebarCollapsed,
       setCurrentModel,
+
+      // Actions: 沙箱页面 UI
+      setSandboxDetailTab,
+      openSandboxCreator,
+      closeSandboxCreator,
 
       // Actions: 视图切换
       switchToChatView,

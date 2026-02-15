@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useUIStateStore } from '@renderer/stores'
 import SandboxList from './SandboxList.vue'
 import type { SandboxListItem } from '@shared/types/sandbox'
 
@@ -10,10 +11,11 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'new-sandbox'): void
   (e: 'select-sandbox', sandboxId: string): void
   (e: 'delete-sandbox', sandboxId: string): void
 }>()
+
+const uiStateStore = useUIStateStore()
 
 const searchQuery = ref('')
 
@@ -26,7 +28,7 @@ const filteredSandboxs = computed(() => {
 })
 
 function handleNewSandbox(): void {
-  emit('new-sandbox')
+  uiStateStore.openSandboxCreator()
 }
 
 function handleSelectSandbox(sandboxId: string): void {
@@ -47,7 +49,7 @@ function handleDeleteSandbox(sandboxId: string): void {
         v-model="searchQuery"
         type="text"
         class="input search-input"
-        placeholder="搜索沙箱 ..."
+        placeholder="搜索沙箱..."
       />
     </div>
 
