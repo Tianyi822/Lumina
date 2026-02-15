@@ -2,10 +2,12 @@
 import { ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSandboxStore } from '@renderer/stores'
-import { useComposeGenerator, type ComposeTemplateType } from '@renderer/composables/sandbox'
+
+type ComposeTemplateType = 'image' | 'build' | 'mixed'
 
 const sandboxStore = useSandboxStore()
-const { dockerfileConfigs, composeConfigs } = storeToRefs(sandboxStore)
+const { dockerfileConfigs, composeConfigs, creatorShowGenerator, creatorGeneratorForm } =
+  storeToRefs(sandboxStore)
 
 const props = defineProps<{
   modelValue: string
@@ -17,18 +19,6 @@ const emit = defineEmits<{
   (e: 'update:projectName', value: string): void
   (e: 'save-config'): void
 }>()
-
-const {
-  showGenerator,
-  generatorForm,
-  resetGeneratorForm,
-  onSavedDockerfileSelect,
-  clearSavedDockerfile,
-  insertServiceConfig,
-  getTemplate,
-  setShowGenerator,
-  toggleGenerator
-} = useComposeGenerator()
 
 const selectedComposeId = ref<string | null>(null)
 const localContent = ref(props.modelValue)
@@ -66,13 +56,26 @@ async function loadSelectedCompose(): Promise<void> {
 }
 
 function useTemplate(templateType: ComposeTemplateType): void {
-  localContent.value = getTemplate(templateType)
+  localContent.value = sandboxStore.getComposeTemplate(templateType)
 }
 
 function handleInsertServiceConfig(): void {
-  localContent.value = insertServiceConfig(localContent.value)
-  setShowGenerator(false)
-  resetGeneratorForm()
+  const config = sandboxStore.creatorGenerateServiceConfig()
+  const currentContent = localContent.value
+
+  const servicesMatch = currentContent.match(/^(services:\s*\n)/m)
+  if (servicesMatch) {
+    const insertIndex = servicesMatch.index! + servicesMatch[0].length
+    localContent.value =
+      currentContent.slice(0, insertIndex) + config + '\n' + currentContent.slice(insertIndex)
+  } else if (currentContent.includes('version:')) {
+    localContent.value = currentContent + '\nservices:\n' + config + '\n'
+  } else {
+    localContent.value = "version: '3.8'\n\nservices:\n" + config + '\n'
+  }
+
+  sandboxStore.creatorShowGenerator = false
+  sandboxStore.creatorResetGeneratorForm()
 }
 
 function handleSaveConfig(): void {
@@ -104,17 +107,20 @@ function handleSaveConfig(): void {
     </div>
 
     <div class="generator-section">
-      <div class="generator-header" @click="toggleGenerator">
+      <div
+        class="generator-header"
+        @click="sandboxStore.creatorShowGenerator = !sandboxStore.creatorShowGenerator"
+      >
         <span class="generator-title">构建配置生成器</span>
-        <span class="generator-toggle" :class="{ expanded: showGenerator }">▼</span>
+        <span class="generator-toggle" :class="{ expanded: creatorShowGenerator }">▼</span>
       </div>
 
-      <div v-if="showGenerator" class="generator-form">
+      <div v-if="creatorShowGenerator" class="generator-form">
         <div class="form-row">
           <div class="form-field-inline">
             <label>服务名称</label>
             <input
-              v-model="generatorForm.serviceName"
+              v-model="creatorGeneratorForm.serviceName"
               type="text"
               class="input"
               placeholder="app"
@@ -124,21 +130,21 @@ function handleSaveConfig(): void {
             <label>来源类型</label>
             <div class="radio-group">
               <label class="radio-option">
-                <input v-model="generatorForm.sourceType" type="radio" value="image" />
+                <input v-model="creatorGeneratorForm.sourceType" type="radio" value="image" />
                 <span>镜像</span>
               </label>
               <label class="radio-option">
-                <input v-model="generatorForm.sourceType" type="radio" value="build" />
+                <input v-model="creatorGeneratorForm.sourceType" type="radio" value="build" />
                 <span>构建</span>
               </label>
             </div>
           </div>
         </div>
 
-        <div v-if="generatorForm.sourceType === 'image'" class="form-field">
+        <div v-if="creatorGeneratorForm.sourceType === 'image'" class="form-field">
           <label>镜像名称</label>
           <input
-            v-model="generatorForm.image"
+            v-model="creatorGeneratorForm.image"
             type="text"
             class="input"
             placeholder="node:18-alpine"
@@ -150,17 +156,17 @@ function handleSaveConfig(): void {
             <label>
               使用已保存的 Dockerfile
               <button
-                v-if="generatorForm.useSavedDockerfile"
+                v-if="creatorGeneratorForm.useSavedDockerfile"
                 class="btn-link"
-                @click="clearSavedDockerfile"
+                @click="sandboxStore.creatorClearSavedDockerfile()"
               >
                 清除选择
               </button>
             </label>
             <select
-              v-model="generatorForm.savedDockerfileId"
+              v-model="creatorGeneratorForm.savedDockerfileId"
               class="select"
-              @change="onSavedDockerfileSelect"
+              @change="sandboxStore.creatorOnSavedDockerfileSelect()"
             >
               <option :value="null">不使用已保存的 Dockerfile</option>
               <option v-for="config in dockerfileConfigs" :key="config.id" :value="config.id">
@@ -173,28 +179,28 @@ function handleSaveConfig(): void {
             <div class="form-field-inline">
               <label>构建上下文</label>
               <input
-                v-model="generatorForm.context"
+                v-model="creatorGeneratorForm.context"
                 type="text"
                 class="input"
                 placeholder="./app"
-                :disabled="generatorForm.useSavedDockerfile"
+                :disabled="creatorGeneratorForm.useSavedDockerfile"
               />
             </div>
             <div class="form-field-inline">
               <label>Dockerfile 名称</label>
               <input
-                v-model="generatorForm.dockerfile"
+                v-model="creatorGeneratorForm.dockerfile"
                 type="text"
                 class="input"
                 placeholder="Dockerfile"
-                :disabled="generatorForm.useSavedDockerfile"
+                :disabled="creatorGeneratorForm.useSavedDockerfile"
               />
             </div>
           </div>
           <div class="form-field">
             <label>构建参数（可选，逗号分隔，格式：key=value）</label>
             <input
-              v-model="generatorForm.buildArgs"
+              v-model="creatorGeneratorForm.buildArgs"
               type="text"
               class="input"
               placeholder="NODE_VERSION=18,API_KEY=xxx"
@@ -206,7 +212,7 @@ function handleSaveConfig(): void {
           <div class="form-field-inline">
             <label>端口映射（可选，逗号分隔）</label>
             <input
-              v-model="generatorForm.ports"
+              v-model="creatorGeneratorForm.ports"
               type="text"
               class="input"
               placeholder="3000:3000,8080:8080"
@@ -215,7 +221,7 @@ function handleSaveConfig(): void {
           <div class="form-field-inline">
             <label>环境变量（可选，逗号分隔）</label>
             <input
-              v-model="generatorForm.environment"
+              v-model="creatorGeneratorForm.environment"
               type="text"
               class="input"
               placeholder="NODE_ENV=development,DEBUG=true"
@@ -224,7 +230,9 @@ function handleSaveConfig(): void {
         </div>
 
         <div class="generator-actions">
-          <button class="btn-secondary" @click="resetGeneratorForm">重置</button>
+          <button class="btn-secondary" @click="sandboxStore.creatorResetGeneratorForm()">
+            重置
+          </button>
           <button class="btn-primary" @click="handleInsertServiceConfig">插入配置</button>
         </div>
       </div>

@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useSandboxStore } from '@renderer/stores'
-import { useConfigManager, useComposeGenerator } from '@renderer/composables/sandbox'
 import type { ComposeOptions } from '@shared/types/sandbox'
 import ContainerSelector from './ContainerSelector.vue'
 import ComposeEditor from './ComposeEditor.vue'
 import DockerfileEditor from './DockerfileEditor.vue'
 import SaveConfigDialog from './SaveConfigDialog.vue'
 import SuccessToast from './SuccessToast.vue'
+
+type CreateType = 'compose' | 'dockerfile' | 'existing'
 
 const props = defineProps<{
   visible: boolean
@@ -21,8 +23,12 @@ const emit = defineEmits<{
 }>()
 
 const sandboxStore = useSandboxStore()
-
-type CreateType = 'compose' | 'dockerfile' | 'existing'
+const {
+  creatorShowSaveDialog: showSaveDialog,
+  creatorSaveDialogType: saveDialogType,
+  creatorShowSuccessToast: showSuccessToast,
+  creatorSuccessMessage: successMessage
+} = storeToRefs(sandboxStore)
 
 const createType = ref<CreateType>('compose')
 
@@ -33,19 +39,6 @@ const dockerfileContent = ref('')
 const dockerfileContext = ref('')
 
 const containerSelectorRef = ref<InstanceType<typeof ContainerSelector> | null>(null)
-
-const {
-  showSaveDialog,
-  saveDialogType,
-  showSuccessToast,
-  successMessage,
-  openSaveDialog,
-  closeSaveDialog,
-  handleSaveConfig: handleSaveConfigFromManager,
-  closeSuccessToast
-} = useConfigManager()
-
-const { getTemplate } = useComposeGenerator()
 
 const canCreate = computed(() => {
   switch (createType.value) {
@@ -65,7 +58,7 @@ watch(
   async (visible) => {
     if (visible) {
       createType.value = 'compose'
-      composeContent.value = getTemplate('mixed')
+      composeContent.value = sandboxStore.getComposeTemplate('mixed')
       dockerfileContent.value = `FROM node:18-alpine
 
 WORKDIR /app
@@ -126,15 +119,36 @@ function handleContainerSelect(containerId: string): void {
 async function handleSaveConfig(name: string): Promise<void> {
   const content =
     saveDialogType.value === 'dockerfile' ? dockerfileContent.value : composeContent.value
-  await handleSaveConfigFromManager(name, content)
+  const trimmedName = name.trim()
+
+  if (!trimmedName) return
+
+  if (saveDialogType.value === 'dockerfile') {
+    await sandboxStore.saveDockerfileConfig({
+      name: trimmedName,
+      content: content
+    })
+  } else {
+    await sandboxStore.saveComposeConfig({
+      name: trimmedName,
+      content: content
+    })
+  }
+
+  sandboxStore.creatorShowSaveDialog = false
+  sandboxStore.creatorShowSuccessToast = true
+  sandboxStore.creatorSuccessMessage = `配置「${trimmedName}」保存成功`
+  setTimeout(() => {
+    sandboxStore.creatorShowSuccessToast = false
+  }, 3000)
 }
 
 function handleSaveComposeConfig(): void {
-  openSaveDialog('compose')
+  sandboxStore.creatorOpenSaveDialog('compose')
 }
 
 function handleSaveDockerfileConfig(): void {
-  openSaveDialog('dockerfile')
+  sandboxStore.creatorOpenSaveDialog('dockerfile')
 }
 </script>
 
@@ -194,7 +208,7 @@ function handleSaveDockerfileConfig(): void {
       <SaveConfigDialog
         :visible="showSaveDialog"
         :config-type="saveDialogType"
-        @close="closeSaveDialog"
+        @close="sandboxStore.creatorCloseSaveDialog()"
         @save="handleSaveConfig"
       />
     </div>
@@ -202,7 +216,7 @@ function handleSaveDockerfileConfig(): void {
     <SuccessToast
       :visible="showSuccessToast"
       :message="successMessage"
-      @close="closeSuccessToast"
+      @close="sandboxStore.creatorCloseSuccessToast()"
     />
   </div>
 </template>

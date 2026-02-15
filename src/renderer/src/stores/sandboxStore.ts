@@ -8,6 +8,7 @@ import type {
   ContainerDetails,
   ContainerStats,
   ContainerFilter,
+  ContainerState,
   SandboxTemplate,
   TerminalLog,
   ExecCommand,
@@ -124,6 +125,95 @@ export const useSandboxStore = defineStore('sandbox', () => {
   const creatorShowSuccessToast = ref(false)
   /** 成功提示消息 */
   const creatorSuccessMessage = ref('')
+
+  // ==================== Compose Templates ====================
+
+  const composeTemplates = {
+    image: `version: '3.8'
+
+services:
+  app:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: sh -c "npm install && npm start"
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+`,
+    build: `version: '3.8'
+
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+`,
+    mixed: `version: '3.8'
+
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+`
+  } as const
+
+  type ComposeTemplateType = keyof typeof composeTemplates
+
+  // ==================== Helper Functions ====================
+
+  function getStateLabel(state: ContainerState): string {
+    const labels: Record<ContainerState, string> = {
+      created: '已创建',
+      running: '运行中',
+      paused: '已暂停',
+      restarting: '重启中',
+      removing: '删除中',
+      exited: '已停止',
+      dead: '已终止'
+    }
+    return labels[state] || state
+  }
+
+  function getStateClass(state: ContainerState): string {
+    return `state-${state}`
+  }
+
+  function formatCreated(timestamp: number): string {
+    const date = new Date(timestamp * 1000)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+
+    if (minutes < 1) return '刚刚'
+    if (minutes < 60) return `${minutes}分钟前`
+    if (hours < 24) return `${hours}小时前`
+    if (days < 30) return `${days}天前`
+    return date.toLocaleDateString('zh-CN')
+  }
+
+  function getComposeTemplate(type: ComposeTemplateType): string {
+    return composeTemplates[type]
+  }
 
   // ==================== Getters: 基础沙箱 ====================
 
@@ -1384,6 +1474,15 @@ export const useSandboxStore = defineStore('sandbox', () => {
     creatorCloseSuccessToast,
     creatorLoadSelectedDockerfile,
     creatorLoadSelectedCompose,
-    creatorReset
+    creatorReset,
+
+    // Compose Templates
+    composeTemplates,
+
+    // Helper Functions
+    getStateLabel,
+    getStateClass,
+    formatCreated,
+    getComposeTemplate
   }
 })

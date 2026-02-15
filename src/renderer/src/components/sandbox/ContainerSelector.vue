@@ -1,38 +1,34 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useSandboxStore } from '@renderer/stores'
-import { useContainerBrowser } from '@renderer/composables/sandbox'
 
 const sandboxStore = useSandboxStore()
 const { isLoading: storeLoading, containers } = storeToRefs(sandboxStore)
+
+const {
+  creatorContainerSearchQuery: containerSearchQuery,
+  creatorContainerFilter: containerFilter,
+  creatorSelectedContainerId: selectedContainerId,
+  creatorFilteredContainers: filteredContainers,
+  creatorRunningCount: runningCount,
+  creatorStoppedCount: stoppedCount
+} = storeToRefs(sandboxStore)
 
 const emit = defineEmits<{
   (e: 'select', containerId: string): void
 }>()
 
-const {
-  containerSearchQuery,
-  containerFilter,
-  selectedContainerId,
-  filteredContainers,
-  runningCount,
-  stoppedCount,
-  getStateLabel,
-  getStateClass,
-  formatCreated,
-  selectContainer,
-  refreshContainers,
-  reset
-} = useContainerBrowser()
-
 function handleSelectContainer(containerId: string): void {
-  selectContainer(containerId)
+  sandboxStore.creatorSelectContainer(containerId)
   if (selectedContainerId.value) {
     emit('select', selectedContainerId.value)
   }
 }
 
-defineExpose({ reset, selectedContainerId })
+defineExpose({
+  reset: () => sandboxStore.creatorResetContainerSelector(),
+  selectedContainerId
+})
 </script>
 
 <template>
@@ -45,7 +41,11 @@ defineExpose({ reset, selectedContainerId })
           class="input search-input"
           placeholder="搜索容器..."
         />
-        <button class="btn refresh-btn" :disabled="storeLoading" @click="refreshContainers">
+        <button
+          class="btn refresh-btn"
+          :disabled="storeLoading"
+          @click="sandboxStore.loadContainers()"
+        >
           刷新
         </button>
       </div>
@@ -98,13 +98,16 @@ defineExpose({ reset, selectedContainerId })
       >
         <div class="container-header">
           <div class="container-title">
-            <span class="state-indicator" :class="getStateClass(container.state)"></span>
+            <span
+              class="state-indicator"
+              :class="sandboxStore.getStateClass(container.state)"
+            ></span>
             <span class="container-name">{{
               container.names[0]?.replace(/^\//, '') || '未命名'
             }}</span>
           </div>
-          <span class="container-state" :class="getStateClass(container.state)">
-            {{ getStateLabel(container.state) }}
+          <span class="container-state" :class="sandboxStore.getStateClass(container.state)">
+            {{ sandboxStore.getStateLabel(container.state) }}
           </span>
         </div>
 
@@ -115,7 +118,7 @@ defineExpose({ reset, selectedContainerId })
           </div>
           <div class="info-row">
             <span class="info-label">创建时间</span>
-            <span class="info-value">{{ formatCreated(container.created) }}</span>
+            <span class="info-value">{{ sandboxStore.formatCreated(container.created) }}</span>
           </div>
         </div>
       </div>
