@@ -157,7 +157,7 @@ export class VectorDBService {
 
       // 创建索引（如果是新表或首次添加数据）
       if (!this.indexedTables.has(tableKey)) {
-        await this.createVectorIndex(table, kbId, tableKey, isNewTable)
+        await this.createVectorIndex(table, kbId, tableKey)
       }
 
       // 验证数据是否写入
@@ -175,8 +175,7 @@ export class VectorDBService {
   private async createVectorIndex(
     table: lancedb.Table,
     kbId: string,
-    tableKey: string,
-    _isNewTable: boolean = false
+    tableKey: string
   ): Promise<void> {
     try {
       const rowCount = await table.countRows()
