@@ -5,6 +5,7 @@ import { useSandboxStore, useContainerStore, useUIStateStore } from '@renderer/s
 import SandboxSidebar from '@renderer/components/sandbox/SandboxSidebar.vue'
 import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
 import SandboxCreator from '@renderer/components/sandbox/SandboxCreator.vue'
+import ConfigManager from '@renderer/components/sandbox/ConfigManager.vue'
 
 type PlatformType = 'darwin' | 'win32' | 'linux'
 
@@ -47,7 +48,7 @@ const uiStateStore = useUIStateStore()
 
 const { currentSandbox, sandboxList, operationLogs, listUpdateKey } = storeToRefs(sandboxStore)
 
-const { sandboxSidebarCollapsed, showSandboxCreator } = storeToRefs(uiStateStore)
+const { sandboxSidebarCollapsed, showSandboxCreator, showConfigManager } = storeToRefs(uiStateStore)
 
 const dockerStatus = ref<DockerStatus | null>(null)
 const platform = ref<PlatformType>('darwin')
@@ -120,6 +121,10 @@ const handleSelectContainer = (containerId: string): void => {
   uiStateStore.closeSandboxCreator()
 }
 
+const handleCloseConfigManager = (): void => {
+  uiStateStore.closeConfigManager()
+}
+
 // ==================== 生命周期 ====================
 
 onMounted(async () => {
@@ -166,6 +171,9 @@ onMounted(async () => {
         @create-from-dockerfile="handleCreateFromDockerfile"
         @select-container="handleSelectContainer"
       />
+
+      <!-- 配置管理弹窗 -->
+      <ConfigManager :visible="showConfigManager" @close="handleCloseConfigManager" />
     </template>
 
     <!-- Docker 未安装 - 安装引导 -->

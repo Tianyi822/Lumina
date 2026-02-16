@@ -31,6 +31,10 @@ function handleNewSandbox(): void {
   uiStateStore.openSandboxCreator()
 }
 
+function handleManageConfigs(): void {
+  uiStateStore.openConfigManager()
+}
+
 function handleSelectSandbox(sandboxId: string): void {
   emit('select-sandbox', sandboxId)
 }
@@ -42,7 +46,10 @@ function handleDeleteSandbox(sandboxId: string): void {
 
 <template>
   <aside class="sandbox-sidebar">
-    <button class="btn-primary new-sandbox-btn" @click="handleNewSandbox">新建沙箱</button>
+    <div class="sidebar-actions">
+      <button class="btn-primary new-sandbox-btn" @click="handleNewSandbox">新建沙箱</button>
+      <button class="manage-config-btn" @click="handleManageConfigs">管理配置</button>
+    </div>
 
     <div class="search-container">
       <input
@@ -73,13 +80,37 @@ function handleDeleteSandbox(sandboxId: string): void {
   flex-shrink: 0;
 }
 
-.new-sandbox-btn {
+.sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.new-sandbox-btn,
+.manage-config-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin: 12px;
-  width: calc(100% - 24px);
+  width: 100%;
+}
+
+.manage-config-btn {
+  background-color: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-border);
+  color: var(--theme-text);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: var(--theme-font);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.manage-config-btn:hover {
+  background-color: var(--theme-bg-hover);
+  border-color: var(--theme-accent);
 }
 
 .search-container {

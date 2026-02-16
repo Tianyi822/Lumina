@@ -46,6 +46,9 @@ export const useUIStateStore = defineStore(
     // 是否显示创建沙箱弹窗
     const showSandboxCreator = ref(false)
 
+    // 是否显示配置管理器弹窗
+    const showConfigManager = ref(false)
+
     // ==================== State: 配置更新通知 ====================
 
     // 配置更新计数器（用于触发组件刷新）
@@ -131,6 +134,16 @@ export const useUIStateStore = defineStore(
     // 关闭创建沙箱弹窗
     function closeSandboxCreator(): void {
       showSandboxCreator.value = false
+    }
+
+    // 打开配置管理器弹窗
+    function openConfigManager(): void {
+      showConfigManager.value = true
+    }
+
+    // 关闭配置管理器弹窗
+    function closeConfigManager(): void {
+      showConfigManager.value = false
     }
 
     // 设置当前模型
@@ -317,6 +330,7 @@ export const useUIStateStore = defineStore(
       // State: 沙箱页面 UI
       sandboxDetailTab,
       showSandboxCreator,
+      showConfigManager,
 
       // State: 配置更新通知
       configUpdateKey,
@@ -346,6 +360,8 @@ export const useUIStateStore = defineStore(
       setSandboxDetailTab,
       openSandboxCreator,
       closeSandboxCreator,
+      openConfigManager,
+      closeConfigManager,
 
       // Actions: 视图切换
       switchToChatView,
