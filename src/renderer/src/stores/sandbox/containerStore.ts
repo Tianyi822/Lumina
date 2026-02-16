@@ -74,14 +74,31 @@ export const useContainerStore = defineStore('container', () => {
   async function loadContainers(): Promise<void> {
     try {
       isLoading.value = true
-      containers.value = await window.api.sandbox.listContainers(containerFilter.value)
+      // 将 Vue 响应式对象转换为普通对象，避免 IPC 序列化错误
+      const filter = JSON.parse(JSON.stringify(containerFilter.value))
+      window.api.logger.info('[ContainerStore] 开始加载容器列表', { filter })
+
+      const result = await window.api.sandbox.listContainers(filter)
+      window.api.logger.info('[ContainerStore] IPC 返回结果', {
+        resultType: typeof result,
+        isArray: Array.isArray(result),
+        length: Array.isArray(result) ? result.length : null,
+        sample:
+          Array.isArray(result) && result.length > 0
+            ? JSON.stringify(result[0]).substring(0, 300)
+            : null
+      })
+
+      containers.value = result
 
       window.api.logger.info('[ContainerStore] 容器列表加载完成', {
         count: containers.value.length
       })
     } catch (error) {
       window.api.logger.error('[ContainerStore] 加载容器列表失败', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined
       })
       containers.value = []
     } finally {

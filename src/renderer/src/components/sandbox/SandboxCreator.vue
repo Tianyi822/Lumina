@@ -45,11 +45,27 @@ const canCreate = computed(() => {
       return composeContent.value.trim().length > 0
     case 'dockerfile':
       return dockerfileContent.value.trim().length > 0
-    case 'existing':
-      return containerSelectorRef.value?.selectedContainerId !== null
+    case 'existing': {
+      const selected = containerSelectorRef.value?.selectedContainer
+      // 只有运行中的容器才能选择使用
+      return selected != null && selected.state === 'running'
+    }
     default:
       return false
   }
+})
+
+/** 选择容器时的提示信息 */
+const containerSelectHint = computed(() => {
+  if (createType.value !== 'existing') return ''
+
+  const selected = containerSelectorRef.value?.selectedContainer
+  if (!selected) return ''
+
+  if (selected.state !== 'running') {
+    return '只有运行中的容器才能选择使用，请先启动容器'
+  }
+  return ''
 })
 
 watch(
@@ -180,6 +196,10 @@ function handleSaveDockerfileConfig(): void {
         class="creator-section"
         @select="handleContainerSelect"
       />
+
+      <div v-if="containerSelectHint" class="container-hint">
+        {{ containerSelectHint }}
+      </div>
 
       <ComposeEditor
         v-else-if="createType === 'compose'"
@@ -377,5 +397,15 @@ function handleSaveDockerfileConfig(): void {
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.container-hint {
+  padding: 12px 16px;
+  margin: 0 20px 16px 20px;
+  background-color: rgba(248, 81, 73, 0.1);
+  border: 1px solid var(--theme-danger);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--theme-danger);
 }
 </style>

@@ -8,7 +8,8 @@ import {
   initializeMCP,
   initializeEmbedding,
   initializeKnowledge,
-  initializeEmbeddingModels
+  initializeEmbeddingModels,
+  initializeSandbox
 } from '@main/ipc'
 
 /**
@@ -47,6 +48,9 @@ export function initializeApp(): void {
 
     // 初始化知识库服务
     initializeKnowledge()
+
+    // 初始化沙箱服务
+    initializeSandbox()
 
     // 创建主窗口
     createMainWindow()
