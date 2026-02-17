@@ -176,10 +176,6 @@ function handleSaveDockerfileConfig(): void {
       </div>
 
       <div class="creator-type-selection">
-        <label class="type-option" :class="{ active: createType === 'existing' }">
-          <input v-model="createType" type="radio" value="existing" />
-          <span class="option-label">选择已有容器</span>
-        </label>
         <label class="type-option" :class="{ active: createType === 'compose' }">
           <input v-model="createType" type="radio" value="compose" />
           <span class="option-label">Docker Compose</span>
@@ -187,6 +183,10 @@ function handleSaveDockerfileConfig(): void {
         <label class="type-option" :class="{ active: createType === 'dockerfile' }">
           <input v-model="createType" type="radio" value="dockerfile" />
           <span class="option-label">Dockerfile</span>
+        </label>
+        <label class="type-option" :class="{ active: createType === 'existing' }">
+          <input v-model="createType" type="radio" value="existing" />
+          <span class="option-label">选择已有容器</span>
         </label>
       </div>
 
