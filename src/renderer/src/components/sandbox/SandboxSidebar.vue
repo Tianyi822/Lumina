@@ -49,7 +49,13 @@ async function handleRefreshList(): Promise<void> {
   if (isRefreshing.value) return
   isRefreshing.value = true
   try {
+    // 刷新沙箱列表
     await sandboxStore.refreshSandboxList()
+
+    // 如果有选中的沙箱，强制重新加载其容器详情
+    if (props.activeSandboxId) {
+      await sandboxStore.loadSandbox(props.activeSandboxId, true)
+    }
   } finally {
     isRefreshing.value = false
   }

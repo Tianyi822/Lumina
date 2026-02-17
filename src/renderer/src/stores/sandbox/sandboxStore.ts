@@ -89,8 +89,9 @@ export const useSandboxStore = defineStore('sandbox', () => {
     listUpdateKey.value++
   }
 
-  async function loadSandbox(sandboxId: string): Promise<boolean> {
-    if (currentSandbox.value?.sandboxId === sandboxId) {
+  async function loadSandbox(sandboxId: string, force: boolean = false): Promise<boolean> {
+    // 如果不是强制刷新且当前沙箱已经是目标沙箱，则跳过
+    if (!force && currentSandbox.value?.sandboxId === sandboxId) {
       return true
     }
 
