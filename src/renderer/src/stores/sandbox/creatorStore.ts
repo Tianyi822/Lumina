@@ -1,8 +1,14 @@
 import { ref, computed } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
-import type { ComposeOptions, ComposeResult } from '@shared/types/sandbox'
+import type {
+  ComposeOptions,
+  CreateSandboxRequest,
+  CreateSandboxResult,
+  SandboxCreationType
+} from '@shared/types/sandbox'
 import { useContainerStore } from './containerStore'
 import { useDockerConfigStore } from './configStore'
+import { useSandboxStore } from './sandboxStore'
 
 const COMPOSE_TEMPLATES = {
   image: `version: '3.8'
@@ -363,16 +369,32 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
 
   // ==================== Actions: 创建沙箱 ====================
 
-  async function createFromCompose(options?: ComposeOptions): Promise<ComposeResult | null> {
-    try {
-      const result = await window.api.sandbox.createFromCompose(composeContent.value, options)
+  /**
+   * 从 Compose 创建沙箱
+   */
+  async function createFromCompose(options?: ComposeOptions): Promise<CreateSandboxResult | null> {
+    const sandboxStore = useSandboxStore()
 
-      if (!result.error) {
-        await containerStore.refreshContainers()
-        window.api.logger.info('[SandboxCreatorStore] 从 Compose 创建沙箱成功', {
-          projectName: options?.projectName,
-          containerCount: result.containerIds.length
-        })
+    try {
+      const request: CreateSandboxRequest = {
+        name: composeProjectName.value || '新建 Compose 沙箱',
+        creationType: 'compose' as SandboxCreationType,
+        composeConfigId: selectedComposeId.value || undefined,
+        projectName: options?.projectName || composeProjectName.value
+      }
+
+      const result = await sandboxStore.createSandbox(request)
+
+      if (result?.success) {
+        // 创建容器
+        const composeResult = await window.api.sandbox.createFromCompose(composeContent.value, options)
+        if (!composeResult.error) {
+          await containerStore.refreshContainers()
+          window.api.logger.info('[SandboxCreatorStore] 从 Compose 创建沙箱成功', {
+            projectName: options?.projectName,
+            containerCount: composeResult.containerIds.length
+          })
+        }
       }
 
       return result
@@ -384,23 +406,72 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     }
   }
 
-  async function createFromDockerfile(): Promise<string | null> {
-    try {
-      const containerId = await window.api.sandbox.createFromDockerfile(
-        dockerfileContent.value,
-        dockerfileContext.value
-      )
+  /**
+   * 从 Dockerfile 创建沙箱
+   */
+  async function createFromDockerfile(): Promise<CreateSandboxResult | null> {
+    const sandboxStore = useSandboxStore()
 
-      if (containerId) {
-        await containerStore.refreshContainers()
-        window.api.logger.info('[SandboxCreatorStore] 从 Dockerfile 创建沙箱成功', {
+    try {
+      const request: CreateSandboxRequest = {
+        name: '新建 Dockerfile 沙箱',
+        creationType: 'dockerfile' as SandboxCreationType,
+        dockerfileConfigId: selectedDockerfileId.value || undefined,
+        context: dockerfileContext.value || undefined
+      }
+
+      const result = await sandboxStore.createSandbox(request)
+
+      if (result?.success) {
+        // 创建容器
+        const containerId = await window.api.sandbox.createFromDockerfile(
+          dockerfileContent.value,
+          dockerfileContext.value
+        )
+        if (containerId) {
+          await containerStore.refreshContainers()
+          window.api.logger.info('[SandboxCreatorStore] 从 Dockerfile 创建沙箱成功', {
+            containerId: containerId.substring(0, 12)
+          })
+        }
+      }
+
+      return result
+    } catch (error) {
+      window.api.logger.error('[SandboxCreatorStore] 从 Dockerfile 创建沙箱失败', {
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return null
+    }
+  }
+
+  /**
+   * 从已有容器创建沙箱
+   */
+  async function createFromExisting(containerId: string): Promise<CreateSandboxResult | null> {
+    const sandboxStore = useSandboxStore()
+
+    try {
+      const container = containerStore.containers.find((c) => c.id === containerId)
+      const containerName = container?.names[0]?.replace(/^\//, '') || containerId.substring(0, 12)
+
+      const request: CreateSandboxRequest = {
+        name: `${containerName}-沙箱`,
+        creationType: 'existing' as SandboxCreationType,
+        existingContainerId: containerId
+      }
+
+      const result = await sandboxStore.createSandbox(request)
+
+      if (result?.success) {
+        window.api.logger.info('[SandboxCreatorStore] 从已有容器创建沙箱成功', {
           containerId: containerId.substring(0, 12)
         })
       }
 
-      return containerId
+      return result
     } catch (error) {
-      window.api.logger.error('[SandboxCreatorStore] 从 Dockerfile 创建沙箱失败', {
+      window.api.logger.error('[SandboxCreatorStore] 从已有容器创建沙箱失败', {
         error: error instanceof Error ? error.message : String(error)
       })
       return null
@@ -490,6 +561,7 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     // Actions: 创建沙箱
     createFromCompose,
     createFromDockerfile,
+    createFromExisting,
 
     // Actions: 重置
     reset,

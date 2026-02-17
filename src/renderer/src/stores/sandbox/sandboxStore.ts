@@ -6,12 +6,24 @@ import type {
   SandboxLogEntry,
   SandboxTemplate,
   SandboxSelection,
+  SandboxCreationType,
   ComposeOptions,
-  ComposeResult
+  ComposeResult,
+  CreateSandboxRequest,
+  CreateSandboxResult,
+  DeleteSandboxOptions,
+  SandboxContainerStatus
 } from '@shared/types/sandbox'
 import { useContainerStore } from './containerStore'
 
-const DEFAULT_NEW_SANDBOX_NAME = '新沙箱'
+/** 删除确认状态 */
+interface DeleteConfirmState {
+  show: boolean
+  sandboxId: string | null
+  sandboxName: string
+  creationType: SandboxCreationType | null
+  containerCount: number
+}
 
 export const useSandboxStore = defineStore('sandbox', () => {
   // ==================== Store Dependencies ====================
@@ -33,6 +45,20 @@ export const useSandboxStore = defineStore('sandbox', () => {
 
   /** 当前会话的沙箱选择 */
   const currentSessionSandbox = ref<SandboxSelection | null>(null)
+
+  // ==================== State: Phase 4 新增 ====================
+
+  /** 沙箱容器状态映射 */
+  const sandboxContainerStatus = ref<Map<string, SandboxContainerStatus>>(new Map())
+
+  /** 删除确认对话框状态 */
+  const deleteConfirmState = ref<DeleteConfirmState>({
+    show: false,
+    sandboxId: null,
+    sandboxName: '',
+    creationType: null,
+    containerCount: 0
+  })
 
   // ==================== Getters ====================
 
@@ -76,9 +102,17 @@ export const useSandboxStore = defineStore('sandbox', () => {
         currentSandbox.value = sandbox
         await loadOperationLogs(sandboxId)
 
+        // 加载关联的容器
+        const containerStore = useContainerStore()
+        const containerId = sandbox.primaryContainerId || sandbox.containerIds?.[0]
+        if (containerId) {
+          await containerStore.loadContainerDetails(containerId)
+        }
+
         window.api.logger.info('[SandboxStore] 沙箱加载成功', {
           sandboxId,
-          name: sandbox.name
+          name: sandbox.name,
+          containerId: containerId || 'none'
         })
 
         return true
@@ -110,29 +144,6 @@ export const useSandboxStore = defineStore('sandbox', () => {
 
   // ==================== Actions: 沙箱 CRUD ====================
 
-  async function createSandbox(name?: string): Promise<SandboxData | null> {
-    try {
-      const sandbox = await window.api.sandbox.createSandbox(name || DEFAULT_NEW_SANDBOX_NAME)
-
-      currentSandbox.value = sandbox
-      operationLogs.value = []
-
-      await refreshSandboxList()
-
-      window.api.logger.info('[SandboxStore] 创建沙箱成功', {
-        sandboxId: sandbox.sandboxId,
-        name: sandbox.name
-      })
-
-      return sandbox
-    } catch (error) {
-      window.api.logger.error('[SandboxStore] 创建沙箱失败', {
-        error: error instanceof Error ? error.message : String(error)
-      })
-      return null
-    }
-  }
-
   async function saveCurrentSandbox(): Promise<boolean> {
     if (!currentSandbox.value) {
       return false
@@ -160,7 +171,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
 
   async function deleteSandbox(sandboxId: string): Promise<boolean> {
     try {
-      const result = await window.api.sandbox.deleteSandbox(sandboxId)
+      const result = await window.api.sandbox.deleteSandbox(sandboxId, {})
 
       if (result.success) {
         if (currentSandbox.value?.sandboxId === sandboxId) {
@@ -373,11 +384,218 @@ export const useSandboxStore = defineStore('sandbox', () => {
   }
 
   async function handleNewSandbox(): Promise<void> {
-    await createSandbox()
+    // 创建默认沙箱请求（使用 existing 类型）
+    const request: CreateSandboxRequest = {
+      name: '新沙箱',
+      creationType: 'existing'
+    }
+    await createSandbox(request)
   }
 
   async function handleDeleteSandbox(sandboxId: string): Promise<void> {
     await deleteSandbox(sandboxId)
+  }
+
+  // ==================== Actions: Phase 4 新增 ====================
+
+  /**
+   * 创建沙箱（带类型指定）
+   */
+  async function createSandbox(request: CreateSandboxRequest): Promise<CreateSandboxResult | null> {
+    try {
+      const result = await window.api.sandbox.createSandbox(request)
+
+      if (result.success && result.sandbox) {
+        currentSandbox.value = result.sandbox
+        operationLogs.value = []
+
+        await refreshSandboxList()
+
+        window.api.logger.info('[SandboxStore] 创建沙箱成功', {
+          sandboxId: result.sandbox.sandboxId,
+          name: result.sandbox.name,
+          creationType: request.creationType
+        })
+      }
+
+      return result
+    } catch (error) {
+      window.api.logger.error('[SandboxStore] 创建沙箱失败', {
+        error: error instanceof Error ? error.message : String(error),
+        creationType: request.creationType
+      })
+      return null
+    }
+  }
+
+  /**
+   * 显示删除确认对话框
+   */
+  function showDeleteConfirm(sandboxId: string, sandboxName: string, creationType: SandboxCreationType, containerCount: number): void {
+    deleteConfirmState.value = {
+      show: true,
+      sandboxId,
+      sandboxName,
+      creationType,
+      containerCount
+    }
+  }
+
+  /**
+   * 隐藏删除确认对话框
+   */
+  function hideDeleteConfirm(): void {
+    deleteConfirmState.value = {
+      show: false,
+      sandboxId: null,
+      sandboxName: '',
+      creationType: null,
+      containerCount: 0
+    }
+  }
+
+  /**
+   * 删除沙箱（带确认）
+   */
+  async function deleteSandboxWithConfirm(options?: DeleteSandboxOptions): Promise<boolean> {
+    const { sandboxId } = deleteConfirmState.value
+    if (!sandboxId) return false
+
+    try {
+      const result = await window.api.sandbox.deleteSandbox(sandboxId, options)
+
+      if (result.success) {
+        if (currentSandbox.value?.sandboxId === sandboxId) {
+          currentSandbox.value = null
+          operationLogs.value = []
+        }
+
+        // 从容器状态映射中移除
+        sandboxContainerStatus.value.delete(sandboxId)
+
+        await refreshSandboxList()
+        hideDeleteConfirm()
+
+        window.api.logger.info('[SandboxStore] 删除沙箱成功', { sandboxId })
+        return true
+      }
+
+      return false
+    } catch (error) {
+      window.api.logger.error('[SandboxStore] 删除沙箱失败', {
+        error: error instanceof Error ? error.message : String(error),
+        sandboxId
+      })
+      return false
+    }
+  }
+
+  /**
+   * 确认删除沙箱
+   */
+  async function confirmDelete(): Promise<void> {
+    await deleteSandboxWithConfirm()
+  }
+
+  /**
+   * 检查单个沙箱的容器状态
+   */
+  async function checkContainerStatus(sandboxId: string): Promise<SandboxContainerStatus | null> {
+    try {
+      const status = await window.api.sandbox.checkContainerStatus(sandboxId)
+      if (status) {
+        sandboxContainerStatus.value.set(sandboxId, status)
+      }
+      return status
+    } catch (error) {
+      window.api.logger.error('[SandboxStore] 检查容器状态失败', {
+        error: error instanceof Error ? error.message : String(error),
+        sandboxId
+      })
+      return null
+    }
+  }
+
+  /**
+   * 批量检查所有沙箱的容器状态
+   */
+  async function checkAllContainerStatus(): Promise<void> {
+    try {
+      const statuses = await window.api.sandbox.checkAllContainerStatus()
+      for (const status of statuses) {
+        sandboxContainerStatus.value.set(status.sandboxId, status)
+      }
+
+      window.api.logger.info('[SandboxStore] 批量检查容器状态完成', {
+        count: statuses.length
+      })
+    } catch (error) {
+      window.api.logger.error('[SandboxStore] 批量检查容器状态失败', {
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+
+  /**
+   * 清理孤儿沙箱
+   */
+  async function cleanupOrphanSandbox(sandboxId: string): Promise<boolean> {
+    try {
+      const result = await window.api.sandbox.cleanupOrphan(sandboxId)
+
+      if (result.success) {
+        if (currentSandbox.value?.sandboxId === sandboxId) {
+          currentSandbox.value = null
+          operationLogs.value = []
+        }
+
+        sandboxContainerStatus.value.delete(sandboxId)
+        await refreshSandboxList()
+
+        window.api.logger.info('[SandboxStore] 清理孤儿沙箱成功', { sandboxId })
+        return true
+      }
+
+      return false
+    } catch (error) {
+      window.api.logger.error('[SandboxStore] 清理孤儿沙箱失败', {
+        error: error instanceof Error ? error.message : String(error),
+        sandboxId
+      })
+      return false
+    }
+  }
+
+  /**
+   * 恢复孤儿沙箱（重新关联容器）
+   */
+  async function recoverOrphanSandbox(sandboxId: string, newContainerId: string): Promise<boolean> {
+    try {
+      const result = await window.api.sandbox.recoverOrphan(sandboxId, newContainerId)
+
+      if (result.success) {
+        // 重新检查容器状态
+        await checkContainerStatus(sandboxId)
+
+        // 如果是当前沙箱，重新加载数据
+        if (currentSandbox.value?.sandboxId === sandboxId) {
+          await loadSandbox(sandboxId)
+        }
+
+        await refreshSandboxList()
+
+        window.api.logger.info('[SandboxStore] 恢复孤儿沙箱成功', { sandboxId, newContainerId })
+        return true
+      }
+
+      return false
+    } catch (error) {
+      window.api.logger.error('[SandboxStore] 恢复孤儿沙箱失败', {
+        error: error instanceof Error ? error.message : String(error),
+        sandboxId
+      })
+      return false
+    }
   }
 
   return {
@@ -390,6 +608,10 @@ export const useSandboxStore = defineStore('sandbox', () => {
     templates,
     templatesLoading,
     currentSessionSandbox,
+
+    // State: Phase 4 新增
+    sandboxContainerStatus,
+    deleteConfirmState,
 
     // Getters
     currentSandboxId,
@@ -406,6 +628,16 @@ export const useSandboxStore = defineStore('sandbox', () => {
     saveCurrentSandbox,
     deleteSandbox,
     renameSandbox,
+
+    // Actions: 沙箱删除确认
+    showDeleteConfirm,
+    hideDeleteConfirm,
+    deleteSandboxWithConfirm,
+    confirmDelete,
+    checkContainerStatus,
+    checkAllContainerStatus,
+    cleanupOrphanSandbox,
+    recoverOrphanSandbox,
 
     // Actions: 模板
     loadTemplates,

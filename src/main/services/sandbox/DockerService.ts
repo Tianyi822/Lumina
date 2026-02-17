@@ -1,4 +1,6 @@
 import Docker from 'dockerode'
+import { exec } from 'child_process'
+import { promisify } from 'util'
 import { logger } from '@main/services/logger'
 import type {
   ContainerInfo,
@@ -16,6 +18,8 @@ import type {
   LogOptions,
   SandboxResult
 } from '@shared/types/sandbox'
+
+const execAsync = promisify(exec)
 
 type DockerContainerInfo = Awaited<ReturnType<Docker['listContainers']>>[number]
 type DockerContainerInspect = Awaited<ReturnType<ReturnType<Docker['getContainer']>['inspect']>>
@@ -283,6 +287,113 @@ export class DockerService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('容器删除失败', 'main', { error: errorMessage, containerId })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  /**
+   * 检查单个容器是否存在
+   * @param containerId 容器 ID
+   * @returns 容器是否存在
+   */
+  async containerExists(containerId: string): Promise<boolean> {
+    this.ensureInitialized()
+
+    try {
+      const container = this.docker!.getContainer(containerId)
+      await container.inspect()
+      return true
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      // 404 表示容器不存在，其他错误也认为不可用
+      if (errorMessage.includes('404') || errorMessage.includes('No such container')) {
+        return false
+      }
+      logger.warn('检查容器存在性失败', 'main', { error: errorMessage, containerId })
+      return false
+    }
+  }
+
+  /**
+   * 批量检查多个容器是否存在
+   * @param containerIds 容器 ID 数组
+   * @returns 容器 ID 到存在性的映射
+   */
+  async containersExist(containerIds: string[]): Promise<Map<string, boolean>> {
+    this.ensureInitialized()
+
+    const result = new Map<string, boolean>()
+
+    // 并发检查所有容器
+    await Promise.all(
+      containerIds.map(async (containerId) => {
+        result.set(containerId, await this.containerExists(containerId))
+      })
+    )
+
+    return result
+  }
+
+  /**
+   * 根据 Compose 项目名获取所有关联容器
+   * @param projectName Compose 项目名称
+   * @returns 关联的容器列表
+   */
+  async getContainersByComposeProject(projectName: string): Promise<ContainerInfo[]> {
+    this.ensureInitialized()
+
+    try {
+      // 使用 state: 'all' 获取所有状态的容器
+      const allContainers = await this.listContainers({ state: 'all' })
+      // Docker Compose 会给容器添加标签: com.docker.compose.project=<project-name>
+      const composeLabel = `com.docker.compose.project=${projectName}`
+
+      return allContainers.filter((container) => {
+        // 检查容器的 labels 中是否有对应的 Compose 项目标签
+        return Object.entries(container.labels).some(
+          ([key, value]) => `${key}=${value}` === composeLabel
+        )
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('获取 Compose 项目容器失败', 'main', { error: errorMessage, projectName })
+      return []
+    }
+  }
+
+  /**
+   * 执行 docker-compose down 命令
+   * @param projectName Compose 项目名称
+   * @returns 操作结果
+   */
+  async composeDown(projectName: string): Promise<SandboxResult> {
+    this.ensureInitialized()
+
+    try {
+      // 使用 docker compose down 命令（新版 Docker CLI）
+      // 也可以使用 docker-compose down（需要单独安装 docker-compose）
+      const { stdout, stderr } = await execAsync(`docker compose -p "${projectName}" down`, {
+        timeout: 60000, // 60 秒超时
+        maxBuffer: 1024 * 1024 * 10 // 10MB 缓冲区
+      })
+
+      logger.info('Docker Compose down 成功', 'main', {
+        projectName,
+        stdout
+      })
+
+      // 如果有 stderr 输出但命令成功，记录警告
+      if (stderr) {
+        logger.warn('Docker Compose down 有警告输出', 'main', {
+          projectName,
+          stderr
+        })
+      }
+
+      return { success: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('Docker Compose down 失败', 'main', { error: errorMessage, projectName })
       return { success: false, error: errorMessage }
     }
   }
@@ -615,6 +726,11 @@ export const dockerService = {
   stopContainer: (id: string, timeout?: number) => getDockerService().stopContainer(id, timeout),
   restartContainer: (id: string) => getDockerService().restartContainer(id),
   removeContainer: (id: string, force?: boolean) => getDockerService().removeContainer(id, force),
+  containerExists: (containerId: string) => getDockerService().containerExists(containerId),
+  containersExist: (containerIds: string[]) => getDockerService().containersExist(containerIds),
+  getContainersByComposeProject: (projectName: string) =>
+    getDockerService().getContainersByComposeProject(projectName),
+  composeDown: (projectName: string) => getDockerService().composeDown(projectName),
   execCommand: (id: string, cmd: ExecCommand) => getDockerService().execCommand(id, cmd),
   getContainerLogs: (id: string, opts?: LogOptions) =>
     getDockerService().getContainerLogs(id, opts),

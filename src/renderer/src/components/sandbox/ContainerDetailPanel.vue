@@ -8,6 +8,7 @@ const props = defineProps<{
   container: ContainerDetails | null
   stats: ContainerStats | null
   loading?: boolean
+  isExistingContainer?: boolean  // 是否是"已有容器"类型的沙箱
 }>()
 
 const emit = defineEmits<{
@@ -103,9 +104,32 @@ function formatEnv(env: string[]): string[] {
         <div class="header-actions">
           <button class="btn" :disabled="!isRunning" @click="emit('open-terminal')">终端</button>
           <button class="btn" @click="emit('view-logs')">日志</button>
-          <button v-if="!isRunning" class="btn success" @click="emit('start')">启动</button>
-          <button v-else class="btn warning" @click="emit('stop')">停止</button>
-          <button class="btn" @click="emit('restart')">重启</button>
+          <button
+            v-if="!isRunning"
+            class="btn success"
+            :disabled="isExistingContainer"
+            :title="isExistingContainer ? '已有容器类型的沙箱不支持启动操作' : ''"
+            @click="emit('start')"
+          >
+            启动
+          </button>
+          <button
+            v-else
+            class="btn warning"
+            :disabled="isExistingContainer"
+            :title="isExistingContainer ? '已有容器类型的沙箱不支持停止操作' : ''"
+            @click="emit('stop')"
+          >
+            停止
+          </button>
+          <button
+            class="btn"
+            :disabled="isExistingContainer"
+            :title="isExistingContainer ? '已有容器类型的沙箱不支持重启操作' : ''"
+            @click="emit('restart')"
+          >
+            重启
+          </button>
           <button class="btn danger" @click="emit('remove')">删除</button>
         </div>
       </div>
@@ -406,11 +430,22 @@ function formatEnv(env: string[]): string[] {
   margin-bottom: 24px;
 }
 
+/* 紧跟在 stats-section 后面的 info-section（基本信息） */
+.stats-section + .info-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--theme-border);
+}
+
+.stats-section {
+  margin-top: 16px;
+}
+
 .section-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 16px 0;
+  margin: 0 0 20px 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--theme-text);
@@ -424,10 +459,12 @@ function formatEnv(env: string[]): string[] {
   border-radius: 4px;
   cursor: pointer;
   margin-left: auto;
+  color: var(--theme-text);
 }
 
 .btn-refresh:hover {
   border-color: var(--theme-accent);
+  color: var(--theme-accent);
 }
 
 .empty-text {

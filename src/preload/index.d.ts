@@ -794,6 +794,11 @@ type PlatformType = 'darwin' | 'win32' | 'linux'
 type SandboxStatus = 'creating' | 'running' | 'stopped' | 'error'
 
 /**
+ * 沙箱创建类型
+ */
+type SandboxCreationType = 'existing' | 'compose' | 'dockerfile'
+
+/**
  * 沙箱元数据
  */
 interface SandboxData {
@@ -804,6 +809,13 @@ interface SandboxData {
   status: SandboxStatus
   createdAt: string
   updatedAt: string
+  creationType: SandboxCreationType
+  containerIds: string[]
+  primaryContainerId?: string
+  composeProjectName?: string
+  composeFilePath?: string
+  dockerfileConfigId?: string
+  isOrphan?: boolean
 }
 
 /**
@@ -815,6 +827,9 @@ interface SandboxListItem {
   status: SandboxStatus
   createdAt: string
   updatedAt: string
+  creationType: SandboxCreationType
+  containerCount: number
+  isOrphan?: boolean
 }
 
 /**
@@ -1100,6 +1115,55 @@ interface ComposeConfigApi {
 }
 
 /**
+ * 创建沙箱请求
+ */
+interface CreateSandboxRequest {
+  name: string
+  description?: string
+  creationType: SandboxCreationType
+  composeConfigId?: string
+  dockerfileConfigId?: string
+  existingContainerId?: string
+  projectName?: string
+  context?: string
+}
+
+/**
+ * 创建沙箱结果
+ */
+interface CreateSandboxResult {
+  success: boolean
+  sandbox?: SandboxData
+  containerIds?: string[]
+  error?: string
+}
+
+/**
+ * 删除沙箱选项
+ */
+interface DeleteSandboxOptions {
+  force?: boolean
+  deleteContainers?: boolean
+}
+
+/**
+ * 容器状态检测结果
+ */
+interface SandboxContainerStatus {
+  sandboxId: string
+  creationType: SandboxCreationType
+  containerIds: string[]
+  isOrphan: boolean
+  containerStates: Array<{
+    containerId: string
+    exists: boolean
+    state?: ContainerState
+    status: 'running' | 'stopped' | 'not_found'
+  }>
+  checkedAt: string
+}
+
+/**
  * 沙箱相关的 API
  */
 interface SandboxApi {
@@ -1109,11 +1173,9 @@ interface SandboxApi {
   openExternal: (url: string) => Promise<void>
 
   // 沙箱管理
-  createSandbox: (name?: string) => Promise<SandboxData>
   saveSandbox: (data: SandboxData) => Promise<SandboxResult>
   loadSandbox: (sandboxId: string) => Promise<SandboxData | null>
   listSandboxs: () => Promise<SandboxListItem[]>
-  deleteSandbox: (sandboxId: string) => Promise<SandboxResult>
   renameSandbox: (sandboxId: string, newName: string) => Promise<SandboxResult>
   readSandboxLog: (sandboxId: string) => Promise<SandboxLogEntry[]>
 
@@ -1155,6 +1217,17 @@ interface SandboxApi {
   // Docker 配置管理
   dockerfile: DockerfileConfigApi
   compose: ComposeConfigApi
+
+  // 沙箱管理
+  createSandbox: (request: CreateSandboxRequest) => Promise<CreateSandboxResult>
+  deleteSandbox: (
+    sandboxId: string,
+    options?: DeleteSandboxOptions
+  ) => Promise<{ success: boolean; removedContainers?: string[]; error?: string }>
+  checkContainerStatus: (sandboxId: string) => Promise<SandboxContainerStatus | null>
+  checkAllContainerStatus: () => Promise<SandboxContainerStatus[]>
+  cleanupOrphan: (sandboxId: string) => Promise<SandboxResult>
+  recoverOrphan: (sandboxId: string, newContainerId: string) => Promise<SandboxResult>
 }
 
 /**

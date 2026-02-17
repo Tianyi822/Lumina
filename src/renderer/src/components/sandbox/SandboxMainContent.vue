@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useContainerStore, useUIStateStore } from '@renderer/stores'
+import { useContainerStore, useUIStateStore, useSandboxStore } from '@renderer/stores'
 import TerminalPanel from './TerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
-import type { SandboxData, SandboxLogEntry, SandboxStatus } from '@shared/types/sandbox'
+import OrphanSandboxAlert from './OrphanSandboxAlert.vue'
+import type {
+  SandboxData,
+  SandboxLogEntry,
+  SandboxStatus
+} from '@shared/types/sandbox'
 
 // ==================== Props & Emits ====================
 
@@ -41,6 +46,22 @@ const containerLogs = ref('')
 const logsLoading = ref(false)
 
 const hasSandbox = computed(() => !!props.currentSandbox)
+
+// 创建类型标签
+const creationTypeLabel = computed(() => {
+  if (!props.currentSandbox?.creationType) return '未知'
+  const labels: Record<string, string> = {
+    existing: '已有容器',
+    compose: 'Compose',
+    dockerfile: 'Dockerfile'
+  }
+  return labels[props.currentSandbox.creationType] || props.currentSandbox.creationType
+})
+
+// 是否为孤儿沙箱
+const isOrphan = computed(() => {
+  return props.currentSandbox?.isOrphan || false
+})
 
 // ==================== Watch ====================
 
@@ -88,6 +109,33 @@ function getStatusLabel(status: SandboxStatus): string {
 
 function getStatusClass(status: SandboxStatus): string {
   return `status-${status}`
+}
+
+// 将容器状态映射到沙箱状态
+function mapContainerStateToStatus(state: string | undefined): SandboxStatus {
+  if (!state) return 'stopped'
+  switch (state) {
+    case 'running':
+      return 'running'
+    case 'created':
+    case 'paused':
+    case 'restarting':
+      return 'running'
+    case 'exited':
+    case 'dead':
+    case 'removing':
+      return 'stopped'
+    default:
+      return 'stopped'
+  }
+}
+
+// 获取实际显示的状态（优先使用容器实时状态）
+function getDisplayStatus(): SandboxStatus {
+  if (selectedContainer.value?.state) {
+    return mapContainerStateToStatus(selectedContainer.value.state)
+  }
+  return props.currentSandbox?.status || 'stopped'
 }
 
 function formatDateTime(isoString: string): string {
@@ -237,6 +285,48 @@ async function handleExecuteCommand(command: string): Promise<void> {
 function handleClearTerminal(): void {
   containerStore.clearTerminalLogs()
 }
+
+// ==================== 孤儿沙箱操作 ====================
+
+async function handleRecoverOrphan(sandboxId: string): Promise<void> {
+  // 调用 sandboxStore 的恢复方法
+  // TODO: 需要用户选择新容器来关联
+  const { useSandboxStore } = await import('@renderer/stores')
+  const sandboxStore = useSandboxStore()
+  // 暂时不传入新容器 ID，需要后续实现容器选择 UI
+  await sandboxStore.recoverOrphanSandbox(sandboxId, '')
+}
+
+async function handleCleanupOrphan(sandboxId: string): Promise<void> {
+  // 调用 sandboxStore 的清理方法
+  const { useSandboxStore } = await import('@renderer/stores')
+  const sandboxStore = useSandboxStore()
+  await sandboxStore.cleanupOrphanSandbox(sandboxId)
+}
+
+// 刷新沙箱状态
+async function handleRefreshStatus(): Promise<void> {
+  if (!props.currentSandbox) return
+
+  const sandboxStore = useSandboxStore()
+
+  // 刷新容器列表
+  await containerStore.loadContainers()
+
+  // 重新加载当前容器的详情
+  const containerId = props.currentSandbox.primaryContainerId || props.currentSandbox.containerIds?.[0]
+  if (containerId) {
+    await containerStore.loadContainerDetails(containerId)
+  }
+
+  // 同时刷新沙箱列表以保持同步
+  await sandboxStore.refreshSandboxList()
+}
+
+function handleCloseOrphanAlert(): void {
+  // 用户关闭警告，暂时忽略
+  console.log('用户关闭了孤儿沙箱警告')
+}
 </script>
 
 <template>
@@ -284,6 +374,14 @@ function handleClearTerminal(): void {
       </div>
 
       <template v-else>
+        <!-- 孤儿沙箱警告 -->
+        <OrphanSandboxAlert
+          :visible="isOrphan"
+          :sandbox="currentSandbox"
+          @recover="handleRecoverOrphan"
+          @cleanup="handleCleanupOrphan"
+          @close="handleCloseOrphanAlert"
+        />
         <!-- 基本信息 Tab -->
         <div v-if="sandboxDetailTab === 'info'" class="tab-content">
           <div class="sandbox-detail">
@@ -327,12 +425,30 @@ function handleClearTerminal(): void {
                 </div>
                 <div class="info-item">
                   <span class="info-label">状态</span>
-                  <span
-                    class="info-value status-badge"
-                    :class="getStatusClass(currentSandbox?.status || 'stopped')"
-                  >
-                    {{ getStatusLabel(currentSandbox?.status || 'stopped') }}
-                  </span>
+                  <div class="info-value-wrapper">
+                    <span
+                      class="info-value status-badge"
+                      :class="getStatusClass(getDisplayStatus())"
+                    >
+                      {{ getStatusLabel(getDisplayStatus()) }}
+                    </span>
+                    <button
+                      class="btn-refresh-status"
+                      title="刷新状态"
+                      @click.stop="handleRefreshStatus"
+                    >
+                      <svg viewBox="0 0 1024 1024" width="14" height="14">
+                        <path
+                          d="M896 198.4 896 198.4l0 179.2 0 0c0 19.2-6.4 32-19.2 44.8-12.8 12.8-32 19.2-44.8 19.2l0 0-179.2 0 0 0c-19.2 0-32-6.4-44.8-19.2-25.6-25.6-25.6-64 0-89.6C620.8 320 633.6 313.6 652.8 313.6l0 0 25.6 0C627.2 275.2 576 256 518.4 256 441.6 256 377.6 281.6 332.8 332.8l0 0c-25.6 25.6-64 25.6-89.6 0-25.6-25.6-25.6-64 0-89.6l0 0C313.6 172.8 409.6 128 518.4 128c96 0 185.6 38.4 249.6 96L768 198.4l0 0c0-19.2 6.4-32 19.2-44.8 25.6-25.6 64-25.6 89.6 0C889.6 160 896 179.2 896 198.4zM416 691.2c-12.8 12.8-32 19.2-44.8 19.2l0 0L352 710.4C396.8 748.8 448 768 505.6 768c70.4 0 134.4-25.6 179.2-76.8l0 0c25.6-25.6 64-25.6 89.6 0 25.6 25.6 25.6 64 0 89.6l0 0C710.4 851.2 614.4 896 505.6 896c-96 0-185.6-38.4-249.6-96l0 32 0 0c0 19.2-6.4 32-19.2 44.8-25.6 25.6-64 25.6-89.6 0C134.4 864 128 844.8 128 825.6l0 0 0-179.2 0 0c0-19.2 6.4-32 19.2-44.8C160 588.8 172.8 582.4 192 582.4l0 0 179.2 0 0 0c19.2 0 32 6.4 44.8 19.2C441.6 627.2 441.6 665.6 416 691.2z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">创建类型</span>
+                  <span class="info-value">{{ creationTypeLabel }}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">创建时间</span>
@@ -424,6 +540,7 @@ function handleClearTerminal(): void {
             :container="selectedContainer"
             :stats="containerStats"
             :loading="storeLoading"
+            :is-existing-container="currentSandbox?.creationType === 'existing'"
             @start="handleContainerStart"
             @stop="handleContainerStop"
             @restart="handleContainerRestart"
@@ -574,6 +691,26 @@ function handleClearTerminal(): void {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.btn-refresh-status {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: var(--theme-accent);
+  transition: opacity 0.2s, background-color 0.2s, color 0.2s;
+}
+
+.btn-refresh-status svg {
+  display: block;
+}
+
+.btn-refresh-status:hover {
+  background-color: var(--theme-bg-secondary);
+  color: var(--theme-text);
 }
 
 .info-value-edit {

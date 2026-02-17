@@ -20,7 +20,11 @@ import type {
   ComposeConfigMeta,
   DockerfileConfig,
   ComposeConfig,
-  SaveConfigRequest
+  SaveConfigRequest,
+  CreateSandboxRequest,
+  CreateSandboxResult,
+  DeleteSandboxOptions,
+  SandboxContainerStatus
 } from '@shared/types/sandbox'
 
 export type PlatformType = 'darwin' | 'win32' | 'linux'
@@ -43,10 +47,6 @@ export const sandboxApi = {
 
   // ==================== Sandbox Management ====================
 
-  createSandbox: (name?: string): Promise<SandboxData> => {
-    return ipcRenderer.invoke('sandbox:create', name)
-  },
-
   saveSandbox: (data: SandboxData): Promise<SandboxResult> => {
     return ipcRenderer.invoke('sandbox:save', data)
   },
@@ -57,10 +57,6 @@ export const sandboxApi = {
 
   listSandboxs: (): Promise<SandboxListItem[]> => {
     return ipcRenderer.invoke('sandbox:list')
-  },
-
-  deleteSandbox: (sandboxId: string): Promise<SandboxResult> => {
-    return ipcRenderer.invoke('sandbox:delete', sandboxId)
   },
 
   renameSandbox: (sandboxId: string, newName: string): Promise<SandboxResult> => {
@@ -205,5 +201,34 @@ export const sandboxApi = {
     delete: (id: string): Promise<{ success: boolean; error?: string }> => {
       return ipcRenderer.invoke('sandbox:compose:delete', id)
     }
+  },
+
+  // ==================== 沙箱管理（带类型/选项） ====================
+
+  createSandbox: (request: CreateSandboxRequest): Promise<CreateSandboxResult> => {
+    return ipcRenderer.invoke('sandbox:create', request)
+  },
+
+  deleteSandbox: (
+    sandboxId: string,
+    options?: DeleteSandboxOptions
+  ): Promise<{ success: boolean; removedContainers?: string[]; error?: string }> => {
+    return ipcRenderer.invoke('sandbox:delete', sandboxId, options)
+  },
+
+  checkContainerStatus: (sandboxId: string): Promise<SandboxContainerStatus | null> => {
+    return ipcRenderer.invoke('sandbox:checkContainerStatus', sandboxId)
+  },
+
+  checkAllContainerStatus: (): Promise<SandboxContainerStatus[]> => {
+    return ipcRenderer.invoke('sandbox:checkAllContainerStatus')
+  },
+
+  cleanupOrphan: (sandboxId: string): Promise<SandboxResult> => {
+    return ipcRenderer.invoke('sandbox:cleanupOrphan', sandboxId)
+  },
+
+  recoverOrphan: (sandboxId: string, newContainerId: string): Promise<SandboxResult> => {
+    return ipcRenderer.invoke('sandbox:recoverOrphan', sandboxId, newContainerId)
   }
 }

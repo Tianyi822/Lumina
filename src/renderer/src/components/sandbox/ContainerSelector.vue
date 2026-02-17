@@ -33,8 +33,7 @@ function handleClickContainer(containerId: string): void {
 /** 点击详情按钮 */
 function handleViewDetails(container: ContainerInfo, event: Event): void {
   event.stopPropagation()
-  expandedContainerId.value =
-    expandedContainerId.value === container.id ? null : container.id
+  expandedContainerId.value = expandedContainerId.value === container.id ? null : container.id
   emit('view-details', container)
 }
 
@@ -134,8 +133,8 @@ defineExpose({
             <button
               class="btn-detail"
               :class="{ active: container.id === expandedContainerId }"
-              @click="handleViewDetails(container, $event)"
               title="查看详情"
+              @click="handleViewDetails(container, $event)"
             >
               {{ container.id === expandedContainerId ? '收起' : '详情' }}
             </button>
@@ -174,7 +173,10 @@ defineExpose({
               </span>
             </div>
           </div>
-          <div v-if="container.labels && Object.keys(container.labels).length > 0" class="detail-row">
+          <div
+            v-if="container.labels && Object.keys(container.labels).length > 0"
+            class="detail-row"
+          >
             <span class="detail-label">标签</span>
             <div class="labels-list">
               <span v-for="(value, key) in container.labels" :key="key" class="label-item">

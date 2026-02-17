@@ -8,7 +8,17 @@ import {
   appendFileSync
 } from 'fs'
 import { logger } from '@main/services/logger'
-import { SandboxData, SandboxListItem, SandboxResult, SandboxLogEntry } from '@main/types/sandbox'
+import {
+  SandboxData,
+  SandboxListItem,
+  SandboxResult,
+  SandboxLogEntry,
+  CreateSandboxRequest,
+  CreateSandboxResult,
+  DeleteSandboxOptions,
+  SandboxContainerStatus,
+  ContainerState
+} from '@main/types/sandbox'
 import {
   getSandboxDirPath,
   getMetadataFilePath,
@@ -18,9 +28,6 @@ import {
   generateSandboxId,
   sanitizeFileName
 } from './sandboxPaths'
-
-/** 默认沙箱名称 */
-const DEFAULT_SANDBOX_NAME = '新沙箱'
 
 /**
  * 沙箱服务
@@ -68,34 +75,6 @@ export class SandboxService {
       logger.error(errorMessage)
       throw new Error(errorMessage)
     }
-  }
-
-  /**
-   * 创建新沙箱
-   */
-  createSandbox(name?: string): SandboxData {
-    this.ensureSandboxDir()
-
-    const sandboxId = generateSandboxId()
-    const sandboxName = name || DEFAULT_SANDBOX_NAME
-    const now = new Date().toISOString()
-
-    const sandbox: SandboxData = {
-      sandboxId,
-      name: sandboxName,
-      status: 'stopped',
-      createdAt: now,
-      updatedAt: now
-    }
-
-    this.ensureSandboxBoxDir(sandboxId)
-    this.saveSandbox(sandbox)
-
-    this.logOperation(sandboxId, `沙箱创建成功: ${sandboxName}`, 'info')
-
-    logger.info('沙箱创建成功', 'main', { sandboxId, name: sandboxName })
-
-    return sandbox
   }
 
   /**
@@ -169,9 +148,9 @@ export class SandboxService {
   }
 
   /**
-   * 列出所有沙箱
+   * 列出所有沙箱（包含容器实时状态）
    */
-  listSandboxs(): SandboxListItem[] {
+  async listSandboxs(): Promise<SandboxListItem[]> {
     try {
       const sandboxDir = getSandboxDirPath()
       if (!existsSync(sandboxDir)) {
@@ -180,6 +159,10 @@ export class SandboxService {
 
       const dirs = readdirSync(sandboxDir, { withFileTypes: true })
       const sandboxs: SandboxListItem[] = []
+
+      // 导入 DockerService
+      const { getDockerService } = await import('./DockerService')
+      const dockerService = await getDockerService()
 
       for (const dir of dirs) {
         if (!dir.isDirectory()) {
@@ -194,12 +177,38 @@ export class SandboxService {
         try {
           const sandbox = this.loadSandbox(sandboxId)
           if (sandbox) {
+            // 获取容器的实时状态
+            let realTimeStatus = sandbox.status
+            const containerId = sandbox.primaryContainerId || sandbox.containerIds?.[0]
+            if (containerId) {
+              try {
+                const containers = await dockerService.listContainers({ state: 'all' })
+                const container = containers.find((c) => c.id === containerId)
+                if (container) {
+                  // 映射容器状态到沙箱状态
+                  if (container.state === 'running') {
+                    realTimeStatus = 'running'
+                  } else {
+                    realTimeStatus = 'stopped'
+                  }
+                } else {
+                  // 容器不存在，标记为孤儿
+                  realTimeStatus = 'stopped'
+                }
+              } catch {
+                // 获取容器状态失败，使用元数据中的状态
+              }
+            }
+
             sandboxs.push({
               sandboxId: sandbox.sandboxId,
               name: sandbox.name,
-              status: sandbox.status,
+              status: realTimeStatus,
               createdAt: sandbox.createdAt,
-              updatedAt: sandbox.updatedAt
+              updatedAt: sandbox.updatedAt,
+              creationType: sandbox.creationType,
+              containerCount: sandbox.containerIds.length,
+              isOrphan: sandbox.isOrphan
             })
           }
         } catch {
@@ -214,36 +223,6 @@ export class SandboxService {
       const errorMessage = `获取沙箱列表失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
       return []
-    }
-  }
-
-  /**
-   * 删除沙箱
-   */
-  deleteSandbox(sandboxId: string): SandboxResult {
-    try {
-      if (!isValidSandboxId(sandboxId)) {
-        return { success: false, error: '无效的沙箱 ID' }
-      }
-
-      const boxPath = getSandboxDirPath() + '/' + sandboxId
-
-      if (!isPathInSandboxDir(boxPath)) {
-        return { success: false, error: '不安全的路径' }
-      }
-
-      if (!existsSync(boxPath)) {
-        return { success: false, error: '沙箱不存在' }
-      }
-
-      rmSync(boxPath, { recursive: true, force: true })
-
-      logger.info('沙箱删除成功', 'main', { sandboxId })
-      return { success: true }
-    } catch (error) {
-      const errorMessage = `沙箱删除失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
     }
   }
 
@@ -339,6 +318,427 @@ export class SandboxService {
     } catch (error) {
       logger.error(`读取沙箱日志失败: ${error instanceof Error ? error.message : String(error)}`)
       return []
+    }
+  }
+
+  // ==================== 沙箱管理 ====================
+
+  /**
+   * 创建沙箱（带类型指定）
+   * 支持三种创建类型：existing、compose、dockerfile
+   */
+  async createSandbox(request: CreateSandboxRequest): Promise<CreateSandboxResult> {
+    try {
+      // 验证请求参数
+      if (!request.name || request.name.trim() === '') {
+        return { success: false, error: '沙箱名称不能为空' }
+      }
+
+      // 根据 creationType 验证必需参数
+      if (request.creationType === 'existing' && !request.existingContainerId) {
+        return { success: false, error: 'existing 类型需要提供容器 ID' }
+      }
+      if (request.creationType === 'compose' && !request.composeConfigId) {
+        return { success: false, error: 'compose 类型需要提供 Compose 配置 ID' }
+      }
+      if (request.creationType === 'dockerfile' && !request.dockerfileConfigId) {
+        return { success: false, error: 'dockerfile 类型需要提供 Dockerfile 配置 ID' }
+      }
+
+      // 导入 DockerService（延迟导入避免循环依赖）
+      const { getDockerService } = await import('./DockerService')
+      const dockerService = getDockerService()
+
+      const sandboxId = generateSandboxId()
+      const now = new Date().toISOString()
+
+      const sandbox: SandboxData = {
+        sandboxId,
+        name: sanitizeFileName(request.name) || '未命名沙箱',
+        description: request.description,
+        status: 'creating',
+        createdAt: now,
+        updatedAt: now,
+        creationType: request.creationType,
+        containerIds: [],
+        isOrphan: false
+      }
+
+      // 根据创建类型处理
+      let containerIds: string[] = []
+
+      switch (request.creationType) {
+        case 'existing': {
+          // 关联已有容器
+          const containerId = request.existingContainerId!
+          const containers = await dockerService.listContainers()
+          const container = containers.find((c) => c.id === containerId)
+
+          if (!container) {
+            return { success: false, error: '指定的容器不存在' }
+          }
+
+          containerIds = [containerId]
+          sandbox.containerIds = [containerId]
+          sandbox.primaryContainerId = containerId
+          sandbox.status = container.state === 'running' ? 'running' : 'stopped'
+          break
+        }
+
+        case 'compose': {
+          // 这里只创建元数据，实际容器启动由其他流程处理
+          sandbox.composeProjectName =
+            request.projectName || `sandbox-${sandboxId.substring(4, 12)}`
+          sandbox.composeFilePath = request.composeConfigId
+          sandbox.status = 'stopped'
+          break
+        }
+
+        case 'dockerfile': {
+          // 这里只创建元数据，实际容器启动由其他流程处理
+          sandbox.dockerfileConfigId = request.dockerfileConfigId
+          sandbox.status = 'stopped'
+          break
+        }
+      }
+
+      // 保存沙箱元数据
+      this.ensureSandboxBoxDir(sandboxId)
+      const saveResult = this.saveSandbox(sandbox)
+      if (!saveResult.success) {
+        return { success: false, error: saveResult.error || '保存沙箱失败' }
+      }
+
+      this.logOperation(sandboxId, `沙箱创建成功 (类型: ${request.creationType})`, 'info')
+
+      logger.info('沙箱创建成功', 'main', {
+        sandboxId,
+        name: sandbox.name,
+        creationType: request.creationType
+      })
+
+      return {
+        success: true,
+        sandbox,
+        containerIds
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('创建沙箱失败', 'main', { error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  /**
+   * 删除沙箱（带选项）
+   * 根据沙箱类型和选项执行不同的删除策略
+   */
+  async deleteSandbox(
+    sandboxId: string,
+    options?: DeleteSandboxOptions
+  ): Promise<{ success: boolean; removedContainers?: string[]; error?: string }> {
+    try {
+      if (!isValidSandboxId(sandboxId)) {
+        return { success: false, error: '无效的沙箱 ID' }
+      }
+
+      // 加载沙箱元数据
+      const sandbox = this.loadSandbox(sandboxId)
+      if (!sandbox) {
+        return { success: false, error: '沙箱不存在' }
+      }
+
+      const removedContainers: string[] = []
+      const deleteContainers = options?.deleteContainers
+      const force = options?.force || false
+
+      // 导入 DockerService
+      const { getDockerService } = await import('./DockerService')
+      const dockerService = getDockerService()
+
+      // 根据创建类型决定删除策略
+      switch (sandbox.creationType) {
+        case 'existing': {
+          // existing 类型：如果 deleteContainers 为 true，则删除容器
+          if (deleteContainers && sandbox.containerIds.length > 0) {
+            for (const containerId of sandbox.containerIds) {
+              try {
+                const result = await dockerService.removeContainer(containerId, force)
+                if (result.success) {
+                  removedContainers.push(containerId)
+                  this.logOperation(sandboxId, `删除容器: ${containerId.substring(0, 12)}`, 'info')
+                }
+              } catch (error) {
+                logger.warn('删除容器失败', 'main', {
+                  containerId: containerId.substring(0, 12),
+                  error: error instanceof Error ? error.message : String(error)
+                })
+              }
+            }
+          }
+          break
+        }
+
+        case 'compose': {
+          // compose 类型：如果 deleteContainers 为 true，执行 docker-compose down
+          if (deleteContainers && sandbox.composeProjectName) {
+            // TODO: 执行 docker-compose down
+            // 这里需要调用 Docker Compose CLI
+            // 暂时只删除元数据中记录的容器
+            if (sandbox.containerIds.length > 0) {
+              for (const containerId of sandbox.containerIds) {
+                try {
+                  const result = await dockerService.removeContainer(containerId, force)
+                  if (result.success) {
+                    removedContainers.push(containerId)
+                    this.logOperation(
+                      sandboxId,
+                      `删除容器: ${containerId.substring(0, 12)}`,
+                      'info'
+                    )
+                  }
+                } catch (error) {
+                  logger.warn('删除容器失败', 'main', {
+                    containerId: containerId.substring(0, 12),
+                    error: error instanceof Error ? error.message : String(error)
+                  })
+                }
+              }
+            }
+          }
+          break
+        }
+
+        case 'dockerfile': {
+          // dockerfile 类型：如果 deleteContainers 为 true，删除关联容器
+          if (deleteContainers && sandbox.containerIds.length > 0) {
+            for (const containerId of sandbox.containerIds) {
+              try {
+                const result = await dockerService.removeContainer(containerId, force)
+                if (result.success) {
+                  removedContainers.push(containerId)
+                  this.logOperation(sandboxId, `删除容器: ${containerId.substring(0, 12)}`, 'info')
+                }
+              } catch (error) {
+                logger.warn('删除容器失败', 'main', {
+                  containerId: containerId.substring(0, 12),
+                  error: error instanceof Error ? error.message : String(error)
+                })
+              }
+            }
+          }
+          break
+        }
+      }
+
+      // 删除沙箱元数据目录
+      const boxPath = getSandboxDirPath() + '/' + sandboxId
+      if (isPathInSandboxDir(boxPath) && existsSync(boxPath)) {
+        rmSync(boxPath, { recursive: true, force: true })
+      }
+
+      logger.info('沙箱删除成功', 'main', {
+        sandboxId,
+        removedContainers: removedContainers.length
+      })
+
+      return {
+        success: true,
+        removedContainers
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('删除沙箱失败', 'main', { error: errorMessage, sandboxId })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  /**
+   * 检查沙箱关联的容器状态
+   */
+  async checkContainerStatus(sandboxId: string): Promise<SandboxContainerStatus | null> {
+    try {
+      if (!isValidSandboxId(sandboxId)) {
+        logger.warn('无效的沙箱 ID', 'main', { sandboxId })
+        return null
+      }
+
+      const sandbox = this.loadSandbox(sandboxId)
+      if (!sandbox) {
+        return null
+      }
+
+      // 导入 DockerService
+      const { getDockerService } = await import('./DockerService')
+      const dockerService = getDockerService()
+
+      // 获取所有容器列表
+      const containers = await dockerService.listContainers()
+      const containerMap = new Map(containers.map((c) => [c.id, c]))
+
+      const containerStates: Array<{
+        containerId: string
+        exists: boolean
+        state?: ContainerState
+        status: 'running' | 'stopped' | 'not_found'
+      }> = []
+
+      let isOrphan = false
+
+      for (const containerId of sandbox.containerIds) {
+        const container = containerMap.get(containerId)
+        const exists = !!container
+
+        if (!exists) {
+          isOrphan = true
+        }
+
+        containerStates.push({
+          containerId,
+          exists,
+          state: container?.state,
+          status: container?.state === 'running' ? 'running' : container ? 'stopped' : 'not_found'
+        })
+      }
+
+      const result: SandboxContainerStatus = {
+        sandboxId,
+        creationType: sandbox.creationType,
+        containerIds: sandbox.containerIds,
+        isOrphan,
+        containerStates,
+        checkedAt: new Date().toISOString()
+      }
+
+      // 如果是孤儿沙箱，更新元数据
+      if (isOrphan && !sandbox.isOrphan) {
+        sandbox.isOrphan = true
+        sandbox.status = 'error'
+        this.saveSandbox(sandbox)
+        this.logOperation(sandboxId, '检测到容器丢失，标记为孤儿沙箱', 'warn')
+      }
+
+      return result
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('检查容器状态失败', 'main', { error: errorMessage, sandboxId })
+      return null
+    }
+  }
+
+  /**
+   * 批量检查所有沙箱的容器状态
+   */
+  async checkAllSandboxContainerStatus(): Promise<SandboxContainerStatus[]> {
+    try {
+      const sandboxes = await this.listSandboxs()
+      const results: SandboxContainerStatus[] = []
+
+      for (const sandbox of sandboxes) {
+        const status = await this.checkContainerStatus(sandbox.sandboxId)
+        if (status) {
+          results.push(status)
+        }
+      }
+
+      return results
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('批量检查容器状态失败', 'main', { error: errorMessage })
+      return []
+    }
+  }
+
+  /**
+   * 清理孤儿沙箱
+   * 删除容器已丢失的沙箱元数据
+   */
+  async cleanupOrphanSandbox(sandboxId: string): Promise<SandboxResult> {
+    try {
+      if (!isValidSandboxId(sandboxId)) {
+        return { success: false, error: '无效的沙箱 ID' }
+      }
+
+      const sandbox = this.loadSandbox(sandboxId)
+      if (!sandbox) {
+        return { success: false, error: '沙箱不存在' }
+      }
+
+      // 检查是否为孤儿沙箱
+      const status = await this.checkContainerStatus(sandboxId)
+      if (!status || !status.isOrphan) {
+        return { success: false, error: '该沙箱不是孤儿沙箱' }
+      }
+
+      // 删除元数据
+      const boxPath = getSandboxDirPath() + '/' + sandboxId
+      if (isPathInSandboxDir(boxPath) && existsSync(boxPath)) {
+        rmSync(boxPath, { recursive: true, force: true })
+      }
+
+      logger.info('孤儿沙箱清理成功', 'main', { sandboxId })
+      return { success: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('清理孤儿沙箱失败', 'main', { error: errorMessage, sandboxId })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  /**
+   * 恢复孤儿沙箱
+   * 将丢失的容器替换为新容器
+   */
+  async recoverOrphanSandbox(sandboxId: string, newContainerId: string): Promise<SandboxResult> {
+    try {
+      if (!isValidSandboxId(sandboxId)) {
+        return { success: false, error: '无效的沙箱 ID' }
+      }
+
+      const sandbox = this.loadSandbox(sandboxId)
+      if (!sandbox) {
+        return { success: false, error: '沙箱不存在' }
+      }
+
+      // 导入 DockerService
+      const { getDockerService } = await import('./DockerService')
+      const dockerService = getDockerService()
+
+      // 验证新容器是否存在
+      const containers = await dockerService.listContainers()
+      const newContainer = containers.find((c) => c.id === newContainerId)
+      if (!newContainer) {
+        return { success: false, error: '新容器不存在' }
+      }
+
+      // 更新沙箱元数据
+      sandbox.containerIds = [newContainerId]
+      sandbox.primaryContainerId = newContainerId
+      sandbox.isOrphan = false
+      sandbox.status = newContainer.state === 'running' ? 'running' : 'stopped'
+      sandbox.updatedAt = new Date().toISOString()
+
+      const saveResult = this.saveSandbox(sandbox)
+      if (!saveResult.success) {
+        return { success: false, error: '保存沙箱失败' }
+      }
+
+      this.logOperation(
+        sandboxId,
+        `孤儿沙箱恢复成功，新容器: ${newContainerId.substring(0, 12)}`,
+        'info'
+      )
+
+      logger.info('孤儿沙箱恢复成功', 'main', {
+        sandboxId,
+        newContainerId: newContainerId.substring(0, 12)
+      })
+
+      return { success: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('恢复孤儿沙箱失败', 'main', { error: errorMessage, sandboxId })
+      return { success: false, error: errorMessage }
     }
   }
 }

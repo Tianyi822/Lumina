@@ -2,7 +2,7 @@ import { join, normalize, basename } from 'path'
 import { getConfigDirPath } from '../config/configPaths'
 
 /** 沙箱数据目录名称 */
-export const SANDBOX_DIR_NAME = 'sandboxs'
+export const SANDBOX_DIR_NAME = 'sandbox'
 
 /** 沙箱元数据文件名 */
 export const METADATA_FILE_NAME = 'metadata.json'

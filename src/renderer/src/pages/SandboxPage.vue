@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useSandboxStore, useContainerStore, useUIStateStore } from '@renderer/stores'
+import { useSandboxStore, useContainerStore, useUIStateStore, useSandboxCreatorStore } from '@renderer/stores'
 import SandboxSidebar from '@renderer/components/sandbox/SandboxSidebar.vue'
 import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
 import SandboxCreator from '@renderer/components/sandbox/SandboxCreator.vue'
@@ -45,6 +45,7 @@ const installCommands: InstallCommand[] = [
 const sandboxStore = useSandboxStore()
 const containerStore = useContainerStore()
 const uiStateStore = useUIStateStore()
+const creatorStore = useSandboxCreatorStore()
 
 const { currentSandbox, sandboxList, operationLogs, listUpdateKey } = storeToRefs(sandboxStore)
 
@@ -104,18 +105,29 @@ const handleCloseCreator = (): void => {
   uiStateStore.closeSandboxCreator()
 }
 
-const handleCreateFromCompose = (content: string): void => {
-  sandboxStore.createFromCompose(content)
+const handleCreateFromCompose = async (content: string, options?: { projectName?: string }): Promise<void> => {
+  // 设置 creatorStore 的状态
+  creatorStore.composeContent = content
+  if (options?.projectName) {
+    creatorStore.composeProjectName = options.projectName
+  }
+  // 使用 creatorStore 的方法创建沙箱（会创建沙箱元数据并刷新列表）
+  await creatorStore.createFromCompose(options)
   uiStateStore.closeSandboxCreator()
 }
 
-const handleCreateFromDockerfile = (dockerfile: string, context: string): void => {
-  sandboxStore.createFromDockerfile(dockerfile, context)
+const handleCreateFromDockerfile = async (dockerfile: string, context: string): Promise<void> => {
+  // 设置 creatorStore 的状态
+  creatorStore.dockerfileContent = dockerfile
+  creatorStore.dockerfileContext = context
+  // 使用 creatorStore 的方法创建沙箱（会创建沙箱元数据并刷新列表）
+  await creatorStore.createFromDockerfile()
   uiStateStore.closeSandboxCreator()
 }
 
-const handleSelectContainer = (containerId: string): void => {
-  sandboxStore.selectSandboxForSession(containerId)
+const handleSelectContainer = async (containerId: string): Promise<void> => {
+  // 从已有容器创建沙箱
+  await creatorStore.createFromExisting(containerId)
   containerStore.loadContainerDetails(containerId)
   uiStateStore.setSandboxDetailTab('info')
   uiStateStore.closeSandboxCreator()

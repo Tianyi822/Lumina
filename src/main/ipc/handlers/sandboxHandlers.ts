@@ -7,7 +7,11 @@ import type {
   SandboxData,
   SandboxListItem,
   SandboxResult,
-  SandboxLogEntry
+  SandboxLogEntry,
+  CreateSandboxRequest,
+  CreateSandboxResult,
+  DeleteSandboxOptions,
+  SandboxContainerStatus
 } from '@main/types/sandbox'
 import type {
   SaveConfigRequest,
@@ -109,10 +113,6 @@ export function registerSandboxHandlers(): void {
 
   // ==================== 沙箱管理相关 ====================
 
-  ipcMain.handle('sandbox:create', async (_event, name?: string): Promise<SandboxData> => {
-    return sandboxService.createSandbox(name)
-  })
-
   ipcMain.handle('sandbox:save', async (_event, data: SandboxData): Promise<SandboxResult> => {
     return sandboxService.saveSandbox(data)
   })
@@ -122,11 +122,7 @@ export function registerSandboxHandlers(): void {
   })
 
   ipcMain.handle('sandbox:list', async (): Promise<SandboxListItem[]> => {
-    return sandboxService.listSandboxs()
-  })
-
-  ipcMain.handle('sandbox:delete', async (_event, sandboxId: string): Promise<SandboxResult> => {
-    return sandboxService.deleteSandbox(sandboxId)
+    return await sandboxService.listSandboxs()
   })
 
   ipcMain.handle(
@@ -397,6 +393,54 @@ export function registerSandboxHandlers(): void {
         })
         return null
       }
+    }
+  )
+
+  // ==================== 沙箱管理（带类型/选项） ====================
+
+  ipcMain.handle(
+    'sandbox:create',
+    async (_event, request: CreateSandboxRequest): Promise<CreateSandboxResult> => {
+      return sandboxService.createSandbox(request)
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:delete',
+    async (
+      _event,
+      sandboxId: string,
+      options?: DeleteSandboxOptions
+    ): Promise<{ success: boolean; removedContainers?: string[]; error?: string }> => {
+      return sandboxService.deleteSandbox(sandboxId, options)
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:checkContainerStatus',
+    async (_event, sandboxId: string): Promise<SandboxContainerStatus | null> => {
+      return sandboxService.checkContainerStatus(sandboxId)
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:checkAllContainerStatus',
+    async (): Promise<SandboxContainerStatus[]> => {
+      return sandboxService.checkAllSandboxContainerStatus()
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:cleanupOrphan',
+    async (_event, sandboxId: string): Promise<SandboxResult> => {
+      return sandboxService.cleanupOrphanSandbox(sandboxId)
+    }
+  )
+
+  ipcMain.handle(
+    'sandbox:recoverOrphan',
+    async (_event, sandboxId: string, newContainerId: string): Promise<SandboxResult> => {
+      return sandboxService.recoverOrphanSandbox(sandboxId, newContainerId)
     }
   )
 }
