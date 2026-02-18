@@ -62,26 +62,18 @@ function useTemplate(templateType: ComposeTemplateType): void {
 }
 
 function handleInsertServiceConfig(): void {
-  const config = creatorStore.generateServiceConfig()
-  const currentContent = localContent.value
-
-  const servicesMatch = currentContent.match(/^(services:\s*\n)/m)
-  if (servicesMatch) {
-    const insertIndex = servicesMatch.index! + servicesMatch[0].length
-    localContent.value =
-      currentContent.slice(0, insertIndex) + config + '\n' + currentContent.slice(insertIndex)
-  } else if (currentContent.includes('version:')) {
-    localContent.value = currentContent + '\nservices:\n' + config + '\n'
-  } else {
-    localContent.value = "version: '3.8'\n\nservices:\n" + config + '\n'
-  }
-
-  creatorStore.showGenerator = false
-  creatorStore.resetGeneratorForm()
+  // 使用 creatorStore 中的插入逻辑（支持服务替换）
+  creatorStore.composeContent = localContent.value
+  creatorStore.insertServiceConfig()
+  localContent.value = creatorStore.composeContent
 }
 
 function handleSaveConfig(): void {
   emit('save-config')
+}
+
+function clearContent(): void {
+  localContent.value = "version: '3.8'\n\nservices:\n"
 }
 </script>
 
@@ -242,6 +234,7 @@ function handleSaveConfig(): void {
       <label>
         docker-compose.yaml
         <div class="template-buttons">
+          <button class="btn-template btn-clear" @click="clearContent">清空</button>
           <button class="btn-template" @click="useTemplate('image')">镜像模板</button>
           <button class="btn-template" @click="useTemplate('build')">Dockerfile 模板</button>
           <button class="btn-template" @click="useTemplate('mixed')">混合模板</button>
@@ -479,6 +472,17 @@ function handleSaveConfig(): void {
 .btn-template:hover {
   border-color: var(--theme-accent);
   color: var(--theme-accent);
+}
+
+.btn-template.btn-clear {
+  color: #e74c3c;
+  border-color: #e74c3c33;
+}
+
+.btn-template.btn-clear:hover {
+  background-color: #e74c3c11;
+  border-color: #e74c3c;
+  color: #e74c3c;
 }
 
 .code-editor {

@@ -485,19 +485,67 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     const serviceName = generatorForm.value.serviceName.trim() || 'app'
     const currentContent = composeContent.value
 
-    // 检查服务名是否已存在
-    const serviceRegex = new RegExp(`^(  ${serviceName}:\\s*\\n(?:    .+\\n?)*)`, 'm')
-    const existingService = currentContent.match(serviceRegex)
+    // 解析现有内容，查找并替换已存在的服务
+    const lines = currentContent.split('\n')
+    let inServices = false
+    let currentService: string | null = null
+    let serviceStartLine = -1
+    let serviceEndLine = -1
+    let foundService = false
 
-    if (existingService) {
-      // 服务已存在，替换旧配置
-      composeContent.value = currentContent.replace(serviceRegex, config + '\n')
-      window.api.logger.info('[SandboxCreatorStore] 替换已存在的服务配置', { serviceName })
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+
+      // 检测 services 块开始
+      if (line.trim() === 'services:') {
+        inServices = true
+        continue
+      }
+
+      // 检测其他顶级块（退出 services 块）
+      if (inServices && line.match(/^[a-zA-Z]/) && !line.startsWith('  ')) {
+        inServices = false
+        if (foundService) break
+      }
+
+      if (inServices) {
+        // 检测服务定义（2空格缩进 + 服务名 + 冒号）
+        const serviceMatch = line.match(/^  ([a-zA-Z0-9_-]+):\s*$/)
+        if (serviceMatch) {
+          // 如果之前找到了目标服务，记录结束位置
+          if (currentService === serviceName && !foundService) {
+            serviceEndLine = i
+            foundService = true
+          }
+          currentService = serviceMatch[1]
+          if (currentService === serviceName) {
+            serviceStartLine = i
+            serviceEndLine = -1
+          }
+        }
+      }
+    }
+
+    // 如果找到了目标服务但没设置结束位置，说明是最后一个服务
+    if (currentService === serviceName && serviceEndLine === -1) {
+      serviceEndLine = lines.length
+      foundService = true
+    }
+
+    if (foundService && serviceStartLine >= 0) {
+      // 替换已存在的服务
+      const newLines = [...lines.slice(0, serviceStartLine), ...config.split('\n'), ...lines.slice(serviceEndLine)]
+      composeContent.value = newLines.join('\n')
+      window.api.logger.info('[SandboxCreatorStore] 替换已存在的服务配置', {
+        serviceName,
+        startLine: serviceStartLine,
+        endLine: serviceEndLine
+      })
     } else {
       // 服务不存在，插入新配置
-      const servicesMatch = currentContent.match(/^(services:\s*\n)/m)
-      if (servicesMatch) {
-        const insertIndex = servicesMatch.index! + servicesMatch[0].length
+      const servicesMatch = currentContent.match(/services:\s*\n/m)
+      if (servicesMatch && servicesMatch.index !== undefined) {
+        const insertIndex = servicesMatch.index + servicesMatch[0].length
         composeContent.value =
           currentContent.slice(0, insertIndex) + config + '\n' + currentContent.slice(insertIndex)
       } else if (currentContent.includes('version:')) {
@@ -505,6 +553,7 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
       } else {
         composeContent.value = "version: '3.8'\n\nservices:\n" + config + '\n'
       }
+      window.api.logger.info('[SandboxCreatorStore] 插入新服务配置', { serviceName })
     }
 
     showGenerator.value = false
