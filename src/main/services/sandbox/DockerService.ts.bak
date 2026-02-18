@@ -1505,7 +1505,7 @@ export class DockerService {
       const containerIds = containers.map((c) => c.id)
 
       // 构建 docker compose down 命令
-      const cmdParts = ['docker', 'compose', '-p', `"${projectName}"`, 'down']
+      const cmdParts = ['docker', 'compose', '-p', \"${projectName}"`, 'down']
 
       if (options?.removeVolumes) {
         cmdParts.push('-v')

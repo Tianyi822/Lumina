@@ -24,7 +24,17 @@ import type {
   CreateSandboxRequest,
   CreateSandboxResult,
   DeleteSandboxOptions,
-  SandboxContainerStatus
+  SandboxContainerStatus,
+  ComposeStopOptions,
+  ComposeStopResult,
+  ComposeRestartResult,
+  ComposeProjectStatus,
+  ComposeExecOptions,
+  ComposeExecResult,
+  ComposeLogOptions,
+  ComposeLogResult,
+  ComposeDownOptions,
+  ComposeDownResult
 } from '@shared/types/sandbox'
 
 export type PlatformType = 'darwin' | 'win32' | 'linux'
@@ -33,6 +43,13 @@ export interface DockerCheckResult {
   installed: boolean
   version?: string
   error?: string
+}
+
+/** 端口映射配置 */
+export interface PortMappingInput {
+  hostPort: number | null // null 表示自动分配
+  containerPort: number
+  protocol: 'tcp' | 'udp'
 }
 
 export const sandboxApi = {
@@ -143,12 +160,30 @@ export const sandboxApi = {
 
   // ==================== Sandbox Creation (Placeholder) ====================
 
-  createFromCompose: (content: string, options?: ComposeOptions): Promise<ComposeResult> => {
-    return ipcRenderer.invoke('sandbox:createFromCompose', content, options)
+  createFromCompose: (
+    content: string,
+    options?: ComposeOptions,
+    sandboxId?: string,
+    sandboxName?: string
+  ): Promise<ComposeResult> => {
+    return ipcRenderer.invoke('sandbox:createFromCompose', content, options, sandboxId, sandboxName)
   },
 
-  createFromDockerfile: (dockerfile: string, context: string): Promise<string> => {
-    return ipcRenderer.invoke('sandbox:createFromDockerfile', dockerfile, context)
+  createFromDockerfile: (
+    dockerfile: string,
+    context?: string,
+    sandboxId?: string,
+    sandboxName?: string,
+    portMappings?: PortMappingInput[]
+  ): Promise<{ success: boolean; containerId?: string; error?: string }> => {
+    return ipcRenderer.invoke(
+      'sandbox:createFromDockerfile',
+      dockerfile,
+      context,
+      sandboxId,
+      sandboxName,
+      portMappings
+    )
   },
 
   // ==================== Session Integration (Placeholder) ====================
@@ -200,6 +235,48 @@ export const sandboxApi = {
     },
     delete: (id: string): Promise<{ success: boolean; error?: string }> => {
       return ipcRenderer.invoke('sandbox:compose:delete', id)
+    },
+    // Compose 项目操作
+    start: (
+      configId: string,
+      sandboxId?: string,
+      sandboxName?: string
+    ): Promise<{ success: boolean; containerIds?: string[]; error?: string }> => {
+      return ipcRenderer.invoke('sandbox:compose:start', configId, sandboxId, sandboxName)
+    },
+    stop: (
+      projectName: string,
+      options?: ComposeStopOptions
+    ): Promise<ComposeStopResult> => {
+      return ipcRenderer.invoke('sandbox:compose:stop', projectName, options)
+    },
+    restart: (projectName: string): Promise<ComposeRestartResult> => {
+      return ipcRenderer.invoke('sandbox:compose:restart', projectName)
+    },
+    status: (
+      projectName: string
+    ): Promise<{ success: boolean; status?: ComposeProjectStatus; error?: string }> => {
+      return ipcRenderer.invoke('sandbox:compose:status', projectName)
+    },
+    exec: (
+      projectName: string,
+      serviceName: string,
+      command: string,
+      options?: ComposeExecOptions
+    ): Promise<ComposeExecResult> => {
+      return ipcRenderer.invoke('sandbox:compose:exec', projectName, serviceName, command, options)
+    },
+    logs: (
+      projectName: string,
+      options?: ComposeLogOptions
+    ): Promise<ComposeLogResult> => {
+      return ipcRenderer.invoke('sandbox:compose:logs', projectName, options)
+    },
+    downExtended: (
+      projectName: string,
+      options?: ComposeDownOptions
+    ): Promise<ComposeDownResult> => {
+      return ipcRenderer.invoke('sandbox:compose:downExtended', projectName, options)
     }
   },
 

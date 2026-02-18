@@ -6,11 +6,7 @@ import TerminalPanel from './TerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
 import OrphanSandboxAlert from './OrphanSandboxAlert.vue'
-import type {
-  SandboxData,
-  SandboxLogEntry,
-  SandboxStatus
-} from '@shared/types/sandbox'
+import type { SandboxData, SandboxLogEntry, SandboxStatus } from '@shared/types/sandbox'
 
 // ==================== Props & Emits ====================
 
@@ -314,7 +310,8 @@ async function handleRefreshStatus(): Promise<void> {
   await containerStore.loadContainers()
 
   // 重新加载当前容器的详情
-  const containerId = props.currentSandbox.primaryContainerId || props.currentSandbox.containerIds?.[0]
+  const containerId =
+    props.currentSandbox.primaryContainerId || props.currentSandbox.containerIds?.[0]
   if (containerId) {
     await containerStore.loadContainerDetails(containerId)
   }
@@ -701,7 +698,10 @@ function handleCloseOrphanAlert(): void {
   padding: 2px 4px;
   border-radius: 4px;
   color: var(--theme-accent);
-  transition: opacity 0.2s, background-color 0.2s, color 0.2s;
+  transition:
+    opacity 0.2s,
+    background-color 0.2s,
+    color 0.2s;
 }
 
 .btn-refresh-status svg {

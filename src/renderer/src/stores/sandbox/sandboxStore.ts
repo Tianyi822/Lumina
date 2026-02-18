@@ -290,18 +290,32 @@ export const useSandboxStore = defineStore('sandbox', () => {
     }
   }
 
-  async function createFromDockerfile(dockerfile: string, context: string): Promise<string | null> {
+  async function createFromDockerfile(
+    dockerfile: string,
+    context: string,
+    sandboxId?: string,
+    sandboxName?: string
+  ): Promise<string | null> {
     try {
-      const containerId = await window.api.sandbox.createFromDockerfile(dockerfile, context)
+      const result = await window.api.sandbox.createFromDockerfile(
+        dockerfile,
+        context,
+        sandboxId,
+        sandboxName
+      )
 
-      if (containerId) {
+      if (result.success && result.containerId) {
         await containerStore.refreshContainers()
         window.api.logger.info('[SandboxStore] 从 Dockerfile 创建沙箱成功', {
-          containerId: containerId.substring(0, 12)
+          containerId: result.containerId.substring(0, 12)
         })
+        return result.containerId
+      } else {
+        window.api.logger.error('[SandboxStore] 从 Dockerfile 创建沙箱失败', {
+          error: result.error || '未知错误'
+        })
+        return null
       }
-
-      return containerId
     } catch (error) {
       window.api.logger.error('[SandboxStore] 从 Dockerfile 创建沙箱失败', {
         error: error instanceof Error ? error.message : String(error)
@@ -432,7 +446,12 @@ export const useSandboxStore = defineStore('sandbox', () => {
   /**
    * 显示删除确认对话框
    */
-  function showDeleteConfirm(sandboxId: string, sandboxName: string, creationType: SandboxCreationType, containerCount: number): void {
+  function showDeleteConfirm(
+    sandboxId: string,
+    sandboxName: string,
+    creationType: SandboxCreationType,
+    containerCount: number
+  ): void {
     deleteConfirmState.value = {
       show: true,
       sandboxId,

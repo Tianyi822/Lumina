@@ -1,14 +1,24 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
 import type {
   ComposeOptions,
   CreateSandboxRequest,
   CreateSandboxResult,
-  SandboxCreationType
+  SandboxCreationType,
+  ComposeDockerfileConfig
 } from '@shared/types/sandbox'
 import { useContainerStore } from './containerStore'
 import { useDockerConfigStore } from './configStore'
 import { useSandboxStore } from './sandboxStore'
+
+// ==================== 端口映射类型 ====================
+
+export interface PortMapping {
+  hostPort: number | null // null 表示自动分配
+  containerPort: number
+  protocol: 'tcp' | 'udp'
+  editable: boolean // 是否可编辑
+}
 
 const COMPOSE_TEMPLATES = {
   image: `version: '3.8'
@@ -93,8 +103,146 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
   const dockerfileContent = ref('')
   /** Dockerfile 上下文路径 */
   const dockerfileContext = ref('')
+  /** Dockerfile 沙箱名称 */
+  const dockerfileProjectName = ref('')
   /** 选中的 Dockerfile 配置 ID */
   const selectedDockerfileId = ref<string | null>(null)
+
+  // ==================== State: 端口映射 ====================
+
+  /** 端口映射列表 */
+  const portMappings = ref<PortMapping[]>([])
+
+  // ==================== Helper: 端口解析 ====================
+
+  /**
+   * 从 Dockerfile 内容解析 EXPOSE 指令
+   */
+  function parseDockerfilePorts(content: string): PortMapping[] {
+    const ports: PortMapping[] = []
+    if (!content) return ports
+
+    const lines = content.split('\n')
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      // 匹配 EXPOSE 指令（忽略大小写）
+      if (trimmed.toUpperCase().startsWith('EXPOSE')) {
+        const exposeContent = trimmed.slice(6).trim()
+        // 支持多种格式: EXPOSE 3306, EXPOSE 3306/tcp, EXPOSE 3306 3307, EXPOSE 3306/tcp 3307/udp
+        const portStrings = exposeContent.split(/\s+/)
+
+        for (const portStr of portStrings) {
+          const match = portStr.match(/^(\d+)(?:\/(tcp|udp))?$/i)
+          if (match) {
+            const containerPort = parseInt(match[1], 10)
+            ports.push({
+              hostPort: containerPort, // 宿主机端口预选为与容器端口相同的值
+              containerPort,
+              protocol: (match[2]?.toLowerCase() as 'tcp' | 'udp') || 'tcp',
+              editable: true
+            })
+          }
+        }
+      }
+    }
+
+    return ports
+  }
+
+  /**
+   * 从 docker-compose.yaml 内容解析 ports 配置
+   */
+  function parseComposePorts(content: string): PortMapping[] {
+    const ports: PortMapping[] = []
+
+    try {
+      // 简单的 YAML 端口解析（不依赖 YAML 解析库）
+      const lines = content.split('\n')
+      let inPortsSection = false
+      let currentIndent = 0
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]
+        const trimmed = line.trim()
+
+        // 检测 ports: 开始
+        if (trimmed === 'ports:') {
+          inPortsSection = true
+          currentIndent = line.search(/\S/)
+          continue
+        }
+
+        // 如果在 ports 部分
+        if (inPortsSection) {
+          const lineIndent = line.search(/\S/)
+
+          // 如果缩进减少，说明离开了 ports 部分
+          if (lineIndent <= currentIndent && trimmed && !trimmed.startsWith('-')) {
+            inPortsSection = false
+            continue
+          }
+
+          // 解析端口映射行
+          if (trimmed.startsWith('-')) {
+            const portStr = trimmed.slice(1).trim().replace(/"/g, '')
+
+            // 格式: HostPort:ContainerPort 或 HostPort:ContainerPort/Protocol
+            // 也支持简写: ContainerPort（只有容器端口）
+            if (portStr.includes(':')) {
+              const match = portStr.match(/^(\d+)?:?(\d+)(?:\/(tcp|udp))?$/i)
+              if (match) {
+                ports.push({
+                  hostPort: match[1] ? parseInt(match[1], 10) : null,
+                  containerPort: parseInt(match[2], 10),
+                  protocol: (match[3]?.toLowerCase() as 'tcp' | 'udp') || 'tcp',
+                  editable: true
+                })
+              }
+            } else {
+              // 简写格式: ContainerPort 或 ContainerPort/Protocol
+              const simpleMatch = portStr.match(/^(\d+)(?:\/(tcp|udp))?$/i)
+              if (simpleMatch) {
+                ports.push({
+                  hostPort: null,
+                  containerPort: parseInt(simpleMatch[1], 10),
+                  protocol: (simpleMatch[2]?.toLowerCase() as 'tcp' | 'udp') || 'tcp',
+                  editable: true
+                })
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('解析 docker-compose 端口失败:', e)
+    }
+
+    return ports
+  }
+
+  // 监听内容变化，自动解析端口
+  watch(dockerfileContent, (content) => {
+    if (createType.value === 'dockerfile' && content) {
+      portMappings.value = parseDockerfilePorts(content)
+    }
+  })
+
+  watch(composeContent, (content) => {
+    if (createType.value === 'compose' && content) {
+      portMappings.value = parseComposePorts(content)
+    }
+  })
+
+  watch(createType, (type) => {
+    if (type === 'dockerfile') {
+      portMappings.value = parseDockerfilePorts(dockerfileContent.value)
+    } else if (type === 'compose') {
+      portMappings.value = parseComposePorts(composeContent.value)
+    } else {
+      portMappings.value = []
+    }
+  })
 
   // ==================== State: 配置生成器 ====================
 
@@ -129,6 +277,15 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
   const showSuccessToast = ref(false)
   /** 成功提示消息 */
   const successMessage = ref('')
+
+  // ==================== State: 创建状态跟踪 ====================
+
+  /** 创建进行中状态 */
+  const isCreating = ref(false)
+  /** 创建错误信息 */
+  const createError = ref<string | null>(null)
+  /** 创建阶段 */
+  const createPhase = ref<'idle' | 'metadata' | 'building' | 'starting' | 'done'>('idle')
 
   // ==================== Getters ====================
 
@@ -165,15 +322,52 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
   const canCreate = computed(() => {
     switch (createType.value) {
       case 'compose':
-        return composeContent.value.trim().length > 0
+        return composeContent.value.trim().length > 0 && composeProjectName.value.trim().length > 0
       case 'dockerfile':
-        return dockerfileContent.value.trim().length > 0
+        return (
+          dockerfileContent.value.trim().length > 0 && dockerfileProjectName.value.trim().length > 0
+        )
       case 'existing':
         return selectedContainerId.value !== null
       default:
         return false
     }
   })
+
+  // ==================== Actions: 端口映射 ====================
+
+  /** 更新端口映射 */
+  function updatePortMapping(index: number, mapping: Partial<PortMapping>): void {
+    if (index >= 0 && index < portMappings.value.length) {
+      portMappings.value[index] = { ...portMappings.value[index], ...mapping }
+    }
+  }
+
+  /** 添加端口映射 */
+  function addPortMapping(): void {
+    portMappings.value.push({
+      hostPort: null,
+      containerPort: 80,
+      protocol: 'tcp',
+      editable: true
+    })
+  }
+
+  /** 删除端口映射 */
+  function removePortMapping(index: number): void {
+    if (index >= 0 && index < portMappings.value.length) {
+      portMappings.value.splice(index, 1)
+    }
+  }
+
+  /** 重新解析端口（手动触发） */
+  function refreshPorts(): void {
+    if (createType.value === 'dockerfile') {
+      portMappings.value = parseDockerfilePorts(dockerfileContent.value)
+    } else if (createType.value === 'compose') {
+      portMappings.value = parseComposePorts(composeContent.value)
+    }
+  }
 
   // ==================== Actions: 容器选择 ====================
 
@@ -288,17 +482,29 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
 
   function insertServiceConfig(): void {
     const config = generateServiceConfig()
+    const serviceName = generatorForm.value.serviceName.trim() || 'app'
     const currentContent = composeContent.value
 
-    const servicesMatch = currentContent.match(/^(services:\s*\n)/m)
-    if (servicesMatch) {
-      const insertIndex = servicesMatch.index! + servicesMatch[0].length
-      composeContent.value =
-        currentContent.slice(0, insertIndex) + config + '\n' + currentContent.slice(insertIndex)
-    } else if (currentContent.includes('version:')) {
-      composeContent.value = currentContent + '\nservices:\n' + config + '\n'
+    // 检查服务名是否已存在
+    const serviceRegex = new RegExp(`^(  ${serviceName}:\\s*\\n(?:    .+\\n?)*)`, 'm')
+    const existingService = currentContent.match(serviceRegex)
+
+    if (existingService) {
+      // 服务已存在，替换旧配置
+      composeContent.value = currentContent.replace(serviceRegex, config + '\n')
+      window.api.logger.info('[SandboxCreatorStore] 替换已存在的服务配置', { serviceName })
     } else {
-      composeContent.value = "version: '3.8'\n\nservices:\n" + config + '\n'
+      // 服务不存在，插入新配置
+      const servicesMatch = currentContent.match(/^(services:\s*\n)/m)
+      if (servicesMatch) {
+        const insertIndex = servicesMatch.index! + servicesMatch[0].length
+        composeContent.value =
+          currentContent.slice(0, insertIndex) + config + '\n' + currentContent.slice(insertIndex)
+      } else if (currentContent.includes('version:')) {
+        composeContent.value = currentContent + '\nservices:\n' + config + '\n'
+      } else {
+        composeContent.value = "version: '3.8'\n\nservices:\n" + config + '\n'
+      }
     }
 
     showGenerator.value = false
@@ -372,12 +578,24 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
   /**
    * 从 Compose 创建沙箱
    */
-  async function createFromCompose(options?: ComposeOptions): Promise<CreateSandboxResult | null> {
+  async function createFromCompose(
+    options?: ComposeOptions
+  ): Promise<(CreateSandboxResult & { composeError?: string }) | null> {
     const sandboxStore = useSandboxStore()
 
+    // 重置状态
+    isCreating.value = true
+    createError.value = null
+    createPhase.value = 'metadata'
+
     try {
+      window.api.logger.info('[SandboxCreatorStore] 开始从 Compose 创建沙箱', {
+        projectName: options?.projectName || composeProjectName.value,
+        composeConfigId: selectedComposeId.value
+      })
+
       const request: CreateSandboxRequest = {
-        name: composeProjectName.value || '新建 Compose 沙箱',
+        name: composeProjectName.value.trim() || '新建 Compose 沙箱',
         creationType: 'compose' as SandboxCreationType,
         composeConfigId: selectedComposeId.value || undefined,
         projectName: options?.projectName || composeProjectName.value
@@ -385,36 +603,136 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
 
       const result = await sandboxStore.createSandbox(request)
 
-      if (result?.success) {
-        // 创建容器
-        const composeResult = await window.api.sandbox.createFromCompose(composeContent.value, options)
-        if (!composeResult.error) {
-          await containerStore.refreshContainers()
-          window.api.logger.info('[SandboxCreatorStore] 从 Compose 创建沙箱成功', {
-            projectName: options?.projectName,
-            containerCount: composeResult.containerIds.length
-          })
+      if (!result?.success) {
+        const errorMsg = result?.error || '创建沙箱元数据失败'
+        createError.value = errorMsg
+        createPhase.value = 'idle'
+        isCreating.value = false
+        window.api.logger.error('[SandboxCreatorStore] 创建沙箱元数据失败', {
+          error: errorMsg
+        })
+        return {
+          success: false,
+          sandbox: result?.sandbox,
+          error: errorMsg,
+          composeError: errorMsg
         }
       }
 
-      return result
+      createPhase.value = 'building'
+
+      // 准备 Dockerfile 配置列表（用于 compose 中的 build 指令）
+      const dockerfiles: ComposeDockerfileConfig[] = []
+      if (generatorForm.value.useSavedDockerfile && generatorForm.value.savedDockerfileId) {
+        dockerfiles.push({
+          dockerfileId: generatorForm.value.savedDockerfileId,
+          targetContext: generatorForm.value.context,
+          targetFilename: generatorForm.value.dockerfile
+        })
+      }
+
+      // 尝试调用 Docker 创建容器 API
+      try {
+        const composeResult = await window.api.sandbox.createFromCompose(
+          composeContent.value,
+          {
+            ...options,
+            dockerfiles: dockerfiles.length > 0 ? dockerfiles : undefined
+          },
+          result.sandbox?.sandboxId,
+          composeProjectName.value.trim() || undefined
+        )
+
+        if (composeResult.error) {
+          createError.value = composeResult.error
+          createPhase.value = 'idle'
+          isCreating.value = false
+          window.api.logger.error('[SandboxCreatorStore] Docker Compose 创建失败', {
+            error: composeResult.error
+          })
+          return {
+            success: false,
+            sandbox: result.sandbox,
+            error: `Docker 创建失败: ${composeResult.error}`,
+            composeError: composeResult.error
+          }
+        }
+
+        createPhase.value = 'starting'
+        await containerStore.refreshContainers()
+
+        createPhase.value = 'done'
+        isCreating.value = false
+
+        window.api.logger.info('[SandboxCreatorStore] 从 Compose 创建沙箱成功', {
+          projectName: composeProjectName.value,
+          sandboxId: result.sandbox?.sandboxId,
+          containerCount: composeResult.containerIds?.length || 0
+        })
+
+        return {
+          success: true,
+          sandbox: result.sandbox,
+          containerIds: composeResult.containerIds
+        }
+      } catch (dockerError) {
+        createError.value = dockerError instanceof Error ? dockerError.message : String(dockerError)
+        createPhase.value = 'idle'
+        isCreating.value = false
+        window.api.logger.error('[SandboxCreatorStore] Docker Compose API 调用失败', {
+          error: createError.value
+        })
+        return {
+          success: false,
+          sandbox: result.sandbox,
+          error: `Docker API 调用失败: ${createError.value}`,
+          composeError: createError.value
+        }
+      }
     } catch (error) {
+      createError.value = error instanceof Error ? error.message : String(error)
+      createPhase.value = 'idle'
+      isCreating.value = false
       window.api.logger.error('[SandboxCreatorStore] 从 Compose 创建沙箱失败', {
-        error: error instanceof Error ? error.message : String(error)
+        error: createError.value
       })
-      return null
+      return {
+        success: false,
+        error: createError.value,
+        composeError: createError.value
+      }
+    } finally {
+      // 延迟重置状态，确保 UI 有时间显示完成状态
+      setTimeout(() => {
+        if (createPhase.value === 'done') {
+          createPhase.value = 'idle'
+          isCreating.value = false
+        }
+      }, 1000)
     }
   }
 
   /**
    * 从 Dockerfile 创建沙箱
    */
-  async function createFromDockerfile(): Promise<CreateSandboxResult | null> {
+  async function createFromDockerfile(): Promise<
+    (CreateSandboxResult & { dockerError?: string }) | null
+  > {
     const sandboxStore = useSandboxStore()
 
+    // 重置状态
+    isCreating.value = true
+    createError.value = null
+    createPhase.value = 'metadata'
+
     try {
+      window.api.logger.info('[SandboxCreatorStore] 开始从 Dockerfile 创建沙箱', {
+        context: dockerfileContext.value,
+        dockerfileConfigId: selectedDockerfileId.value
+      })
+
       const request: CreateSandboxRequest = {
-        name: '新建 Dockerfile 沙箱',
+        name: dockerfileProjectName.value.trim() || '新建 Dockerfile 沙箱',
         creationType: 'dockerfile' as SandboxCreationType,
         dockerfileConfigId: selectedDockerfileId.value || undefined,
         context: dockerfileContext.value || undefined
@@ -422,26 +740,108 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
 
       const result = await sandboxStore.createSandbox(request)
 
-      if (result?.success) {
-        // 创建容器
-        const containerId = await window.api.sandbox.createFromDockerfile(
-          dockerfileContent.value,
-          dockerfileContext.value
-        )
-        if (containerId) {
-          await containerStore.refreshContainers()
-          window.api.logger.info('[SandboxCreatorStore] 从 Dockerfile 创建沙箱成功', {
-            containerId: containerId.substring(0, 12)
-          })
+      if (!result?.success) {
+        const errorMsg = result?.error || '创建沙箱元数据失败'
+        createError.value = errorMsg
+        createPhase.value = 'idle'
+        isCreating.value = false
+        window.api.logger.error('[SandboxCreatorStore] 创建沙箱元数据失败', {
+          error: errorMsg
+        })
+        return {
+          success: false,
+          sandbox: result?.sandbox,
+          error: errorMsg,
+          dockerError: errorMsg
         }
       }
 
-      return result
+      createPhase.value = 'building'
+
+      // 尝试调用 Docker 创建容器 API
+      try {
+        // 准备端口映射参数
+        const portMappingsParam = portMappings.value.map((p) => ({
+          hostPort: p.hostPort,
+          containerPort: p.containerPort,
+          protocol: p.protocol
+        }))
+
+        const dockerResult = await window.api.sandbox.createFromDockerfile(
+          dockerfileContent.value,
+          dockerfileContext.value,
+          result.sandbox?.sandboxId,
+          dockerfileProjectName.value.trim() || undefined,
+          portMappingsParam.length > 0 ? portMappingsParam : undefined
+        )
+
+        // 检查 Docker 操作结果
+        if (!dockerResult.success || dockerResult.error) {
+          createError.value = dockerResult.error || 'Docker 构建失败'
+          createPhase.value = 'idle'
+          isCreating.value = false
+          window.api.logger.error('[SandboxCreatorStore] Dockerfile 创建失败', {
+            error: createError.value
+          })
+          return {
+            success: false,
+            sandbox: result.sandbox,
+            error: `Docker 创建失败: ${createError.value}`,
+            dockerError: createError.value
+          }
+        }
+
+        const containerId = dockerResult.containerId || ''
+        createPhase.value = 'starting'
+        await containerStore.refreshContainers()
+
+        createPhase.value = 'done'
+        isCreating.value = false
+
+        window.api.logger.info('[SandboxCreatorStore] 从 Dockerfile 创建沙箱成功', {
+          sandboxId: result.sandbox?.sandboxId,
+          containerId: containerId.substring(0, 12)
+        })
+
+        return {
+          success: true,
+          sandbox: result.sandbox,
+          containerIds: containerId ? [containerId] : []
+        }
+      } catch (dockerError) {
+        createError.value = dockerError instanceof Error ? dockerError.message : String(dockerError)
+        createPhase.value = 'idle'
+        isCreating.value = false
+        window.api.logger.error('[SandboxCreatorStore] Dockerfile API 调用失败', {
+          error: createError.value
+        })
+        return {
+          success: false,
+          sandbox: result.sandbox,
+          error: `Docker API 调用失败: ${createError.value}`,
+          dockerError: createError.value
+        }
+      }
     } catch (error) {
+      createError.value = error instanceof Error ? error.message : String(error)
+      createPhase.value = 'idle'
+      isCreating.value = false
       window.api.logger.error('[SandboxCreatorStore] 从 Dockerfile 创建沙箱失败', {
-        error: error instanceof Error ? error.message : String(error)
+        error: createError.value
       })
-      return null
+      return {
+        success: false,
+        error: createError.value,
+        dockerError: createError.value
+      }
+    } finally {
+      // 延迟重置状态，确保 UI 有时间显示完成状态
+      setTimeout(() => {
+        if (createPhase.value === 'done') {
+          createPhase.value = 'idle'
+          isCreating.value = false
+        }
+      }, 1000)
     }
   }
 
@@ -480,6 +880,14 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
 
   // ==================== Actions: 重置 ====================
 
+  /**
+   * 清除创建错误状态
+   */
+  function clearCreateError(): void {
+    createError.value = null
+    createPhase.value = 'idle'
+  }
+
   function reset(): void {
     createType.value = 'compose'
     selectedContainerId.value = null
@@ -490,8 +898,12 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     selectedComposeId.value = null
     dockerfileContent.value = ''
     dockerfileContext.value = ''
+    dockerfileProjectName.value = ''
     selectedDockerfileId.value = null
     showGenerator.value = false
+    isCreating.value = false
+    createError.value = null
+    createPhase.value = 'idle'
     resetGeneratorForm()
   }
 
@@ -516,7 +928,11 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     // State: Dockerfile 配置
     dockerfileContent,
     dockerfileContext,
+    dockerfileProjectName,
     selectedDockerfileId,
+
+    // State: 端口映射
+    portMappings,
 
     // State: 配置生成器
     showGenerator,
@@ -531,6 +947,11 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     showSuccessToast,
     successMessage,
 
+    // State: 创建状态跟踪
+    isCreating,
+    createError,
+    createPhase,
+
     // Getters
     filteredContainers,
     runningCount,
@@ -540,6 +961,12 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     // Actions: 容器选择
     selectContainer,
     resetContainerSelector,
+
+    // Actions: 端口映射
+    updatePortMapping,
+    addPortMapping,
+    removePortMapping,
+    refreshPorts,
 
     // Actions: 配置生成器
     resetGeneratorForm,
@@ -565,6 +992,7 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
 
     // Actions: 重置
     reset,
+    clearCreateError,
 
     // Helper
     getComposeTemplate,

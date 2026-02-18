@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useSandboxStore, useContainerStore, useUIStateStore, useSandboxCreatorStore } from '@renderer/stores'
+import {
+  useSandboxStore,
+  useContainerStore,
+  useUIStateStore,
+  useSandboxCreatorStore
+} from '@renderer/stores'
 import SandboxSidebar from '@renderer/components/sandbox/SandboxSidebar.vue'
 import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
 import SandboxCreator from '@renderer/components/sandbox/SandboxCreator.vue'
@@ -105,7 +110,10 @@ const handleCloseCreator = (): void => {
   uiStateStore.closeSandboxCreator()
 }
 
-const handleCreateFromCompose = async (content: string, options?: { projectName?: string }): Promise<void> => {
+const handleCreateFromCompose = async (
+  content: string,
+  options?: { projectName?: string }
+): Promise<void> => {
   // 设置 creatorStore 的状态
   creatorStore.composeContent = content
   if (options?.projectName) {

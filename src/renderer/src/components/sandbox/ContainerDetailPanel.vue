@@ -8,7 +8,7 @@ const props = defineProps<{
   container: ContainerDetails | null
   stats: ContainerStats | null
   loading?: boolean
-  isExistingContainer?: boolean  // 是否是"已有容器"类型的沙箱
+  isExistingContainer?: boolean // 是否是"已有容器"类型的沙箱
 }>()
 
 const emit = defineEmits<{
@@ -44,6 +44,18 @@ const formattedNetwork = computed(() => {
     rx: formatBytes(props.stats.network.rxBytes),
     tx: formatBytes(props.stats.network.txBytes)
   }
+})
+
+// 有主机端口映射的端口
+const mappedPorts = computed(() => {
+  if (!props.container?.ports) return []
+  return props.container.ports.filter((p) => p.hostPort)
+})
+
+// 暴露但未映射到主机的端口
+const exposedPorts = computed(() => {
+  if (!props.container?.ports) return []
+  return props.container.ports.filter((p) => !p.hostPort)
 })
 
 // ==================== Methods ====================
@@ -214,14 +226,25 @@ function formatEnv(env: string[]): string[] {
       <!-- 端口映射 -->
       <div class="info-section">
         <h3 class="section-title">端口映射</h3>
-        <div v-if="container.ports && container.ports.length > 0" class="ports-list">
-          <div v-for="(port, index) in container.ports" :key="index" class="port-item">
-            <span class="port-host">{{ port.hostPort || '-' }}</span>
+        <div v-if="mappedPorts.length > 0" class="ports-list">
+          <div v-for="(port, index) in mappedPorts" :key="index" class="port-item">
+            <span class="port-host">{{ port.hostPort }}</span>
             <span class="port-arrow">-></span>
             <span class="port-container">{{ port.containerPort }}/{{ port.protocol }}</span>
           </div>
         </div>
-        <p v-else class="empty-text">无端口映射</p>
+        <p v-else class="empty-text">无端口映射（容器未暴露到主机）</p>
+      </div>
+
+      <!-- 暴露端口 -->
+      <div v-if="exposedPorts.length > 0" class="info-section">
+        <h3 class="section-title">容器暴露端口</h3>
+        <div class="ports-list exposed">
+          <div v-for="(port, index) in exposedPorts" :key="index" class="port-item">
+            <span class="port-container">{{ port.containerPort }}/{{ port.protocol }}</span>
+            <span class="port-hint">(未映射)</span>
+          </div>
+        </div>
       </div>
 
       <!-- 挂载点 -->
@@ -576,6 +599,17 @@ function formatEnv(env: string[]): string[] {
 
 .port-container {
   color: var(--theme-text);
+}
+
+.ports-list.exposed .port-item {
+  opacity: 0.7;
+  border-style: dashed;
+}
+
+.port-hint {
+  color: var(--theme-text-secondary);
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 /* 挂载点列表 */

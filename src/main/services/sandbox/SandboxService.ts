@@ -338,12 +338,8 @@ export class SandboxService {
       if (request.creationType === 'existing' && !request.existingContainerId) {
         return { success: false, error: 'existing 类型需要提供容器 ID' }
       }
-      if (request.creationType === 'compose' && !request.composeConfigId) {
-        return { success: false, error: 'compose 类型需要提供 Compose 配置 ID' }
-      }
-      if (request.creationType === 'dockerfile' && !request.dockerfileConfigId) {
-        return { success: false, error: 'dockerfile 类型需要提供 Dockerfile 配置 ID' }
-      }
+      // 注意：compose 和 dockerfile 类型的 configId 是可选的
+      // 用户可以直接输入内容而不保存配置，实际的 Docker 操作在 IPC 处理器中完成
 
       // 导入 DockerService（延迟导入避免循环依赖）
       const { getDockerService } = await import('./DockerService')
