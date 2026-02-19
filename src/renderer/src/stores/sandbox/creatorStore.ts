@@ -510,7 +510,7 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
 
       if (inServices) {
         // 检测服务定义（2空格缩进 + 服务名 + 冒号）
-        const serviceMatch = line.match(/^  ([a-zA-Z0-9_-]+):\s*$/)
+        const serviceMatch = line.match(/^ {2}([a-zA-Z0-9_-]+):\s*$/)
         if (serviceMatch) {
           // 如果之前找到了目标服务，记录结束位置
           if (currentService === serviceName && !foundService) {
@@ -534,7 +534,11 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
 
     if (foundService && serviceStartLine >= 0) {
       // 替换已存在的服务
-      const newLines = [...lines.slice(0, serviceStartLine), ...config.split('\n'), ...lines.slice(serviceEndLine)]
+      const newLines = [
+        ...lines.slice(0, serviceStartLine),
+        ...config.split('\n'),
+        ...lines.slice(serviceEndLine)
+      ]
       composeContent.value = newLines.join('\n')
       window.api.logger.info('[SandboxCreatorStore] 替换已存在的服务配置', {
         serviceName,

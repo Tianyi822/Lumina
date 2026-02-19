@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ContainerDetails, ContainerStats, ContainerState } from '@shared/types/sandbox'
+import type {
+  ContainerDetails,
+  ContainerStats,
+  ContainerState,
+  SandboxCreationType
+} from '@shared/types/sandbox'
+import { useSandboxPermissions } from '@renderer/composables/useSandboxPermissions'
 
 // ==================== Props & Emits ====================
 
@@ -8,7 +14,7 @@ const props = defineProps<{
   container: ContainerDetails | null
   stats: ContainerStats | null
   loading?: boolean
-  isExistingContainer?: boolean // 是否是"已有容器"类型的沙箱
+  creationType?: SandboxCreationType | null // 沙箱创建类型
 }>()
 
 const emit = defineEmits<{
@@ -20,6 +26,11 @@ const emit = defineEmits<{
   (e: 'view-logs'): void
   (e: 'refresh-stats'): void
 }>()
+
+// ==================== Permissions ====================
+
+const creationTypeComputed = computed(() => props.creationType)
+const { typeMeta, showLifecycleButtons, isReadOnly } = useSandboxPermissions(creationTypeComputed)
 
 // ==================== Computed ====================
 
@@ -116,32 +127,28 @@ function formatEnv(env: string[]): string[] {
         <div class="header-actions">
           <button class="btn" :disabled="!isRunning" @click="emit('open-terminal')">终端</button>
           <button class="btn" @click="emit('view-logs')">日志</button>
-          <button
-            v-if="!isRunning"
-            class="btn success"
-            :disabled="isExistingContainer"
-            :title="isExistingContainer ? '已有容器类型的沙箱不支持启动操作' : ''"
-            @click="emit('start')"
-          >
-            启动
-          </button>
-          <button
-            v-else
-            class="btn warning"
-            :disabled="isExistingContainer"
-            :title="isExistingContainer ? '已有容器类型的沙箱不支持停止操作' : ''"
-            @click="emit('stop')"
-          >
-            停止
-          </button>
-          <button
-            class="btn"
-            :disabled="isExistingContainer"
-            :title="isExistingContainer ? '已有容器类型的沙箱不支持重启操作' : ''"
-            @click="emit('restart')"
-          >
-            重启
-          </button>
+
+          <!-- 生命周期操作按钮：根据权限显示/隐藏 -->
+          <template v-if="showLifecycleButtons">
+            <button v-if="!isRunning" class="btn success" @click="emit('start')">启动</button>
+            <button v-else class="btn warning" @click="emit('stop')">停止</button>
+            <button class="btn" @click="emit('restart')">重启</button>
+          </template>
+
+          <!-- 只读模式提示：existing 类型显示 -->
+          <span v-else-if="isReadOnly" class="read-only-hint" :title="typeMeta?.description">
+            <svg viewBox="0 0 1024 1024" width="14" height="14">
+              <path
+                d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z"
+                fill="currentColor"
+              />
+              <path d="M512 336m-40 0a40 40 0 1 0 80 0 40 40 0 1 0-80 0" fill="currentColor" />
+              <path d="M512 512m-40 0a40 40 0 1 0 80 0 40 40 0 1 0-80 0" fill="currentColor" />
+              <path d="M512 688m-40 0a40 40 0 1 0 80 0 40 40 0 1 0-80 0" fill="currentColor" />
+            </svg>
+            只读模式
+          </span>
+
           <button class="btn danger" @click="emit('remove')">删除</button>
         </div>
       </div>
@@ -446,6 +453,25 @@ function formatEnv(env: string[]): string[] {
   background-color: var(--theme-danger);
   border-color: var(--theme-danger);
   color: white;
+}
+
+/* 只读模式提示 */
+.read-only-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--theme-text-secondary);
+  background-color: var(--theme-bg-secondary);
+  border: 1px dashed var(--theme-border);
+  border-radius: 4px;
+  cursor: help;
+}
+
+.read-only-hint svg {
+  color: var(--theme-warning);
+  flex-shrink: 0;
 }
 
 /* 通用区块样式 */

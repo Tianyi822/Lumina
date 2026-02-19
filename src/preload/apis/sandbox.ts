@@ -238,16 +238,11 @@ export const sandboxApi = {
     },
     // Compose 项目操作
     start: (
-      configId: string,
-      sandboxId?: string,
-      sandboxName?: string
+      projectName: string
     ): Promise<{ success: boolean; containerIds?: string[]; error?: string }> => {
-      return ipcRenderer.invoke('sandbox:compose:start', configId, sandboxId, sandboxName)
+      return ipcRenderer.invoke('sandbox:compose:start', projectName)
     },
-    stop: (
-      projectName: string,
-      options?: ComposeStopOptions
-    ): Promise<ComposeStopResult> => {
+    stop: (projectName: string, options?: ComposeStopOptions): Promise<ComposeStopResult> => {
       return ipcRenderer.invoke('sandbox:compose:stop', projectName, options)
     },
     restart: (projectName: string): Promise<ComposeRestartResult> => {
@@ -266,10 +261,7 @@ export const sandboxApi = {
     ): Promise<ComposeExecResult> => {
       return ipcRenderer.invoke('sandbox:compose:exec', projectName, serviceName, command, options)
     },
-    logs: (
-      projectName: string,
-      options?: ComposeLogOptions
-    ): Promise<ComposeLogResult> => {
+    logs: (projectName: string, options?: ComposeLogOptions): Promise<ComposeLogResult> => {
       return ipcRenderer.invoke('sandbox:compose:logs', projectName, options)
     },
     downExtended: (

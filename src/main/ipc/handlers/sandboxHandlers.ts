@@ -636,7 +636,7 @@ export function registerSandboxHandlers(): void {
         })
 
         // 准备 Dockerfile 配置（如果有的话）
-        let dockerfileConfigs: Array<{
+        const dockerfileConfigs: Array<{
           id: string
           content: string
           targetContext: string
@@ -722,101 +722,16 @@ export function registerSandboxHandlers(): void {
   // ==================== Compose 项目操作 ====================
 
   /**
-   * 从已保存的 Compose 配置启动容器
-   * 1. 加载 Compose 配置
-   * 2. 执行 docker compose up
-   * 3. 更新沙箱元数据
+   * 启动 Compose 项目（通过项目名称）
+   * 启动项目中所有已停止的容器
    */
   ipcMain.handle(
     'sandbox:compose:start',
     async (
       _event,
-      configId: string,
-      sandboxId?: string,
-      sandboxName?: string
-    ): Promise<{ success: boolean; containerIds?: string[]; error?: string }> => {
-      try {
-        logger.info('从 Compose 配置启动容器', 'main', {
-          configId,
-          sandboxId,
-          sandboxName
-        })
-
-        // 加载 Compose 配置
-        const loadResult = configService.loadCompose(configId)
-        if (!loadResult.success || !loadResult.config) {
-          return {
-            success: false,
-            error: loadResult.error || '加载 Compose 配置失败'
-          }
-        }
-
-        const config = loadResult.config
-
-        // Docker 项目名称必须是小写，格式: sandbox-docker-compose-{名称}
-        const sanitizedName = (sandboxName || config.name)
-          .toLowerCase()
-          .replace(/[^a-z0-9_.-]/g, '-')
-          .replace(/^-+|-+$/g, '')
-        const projectName = `sandbox-docker-compose-${sanitizedName}`
-
-        // 执行 docker compose up
-        const upResult = await dockerSvc.composeUp({
-          composeContent: config.content,
-          projectName
-        })
-
-        if (!upResult.success) {
-          logger.error('docker compose up 失败', 'main', {
-            error: upResult.error,
-            projectName
-          })
-          return {
-            success: false,
-            error: upResult.error || 'docker compose up 失败'
-          }
-        }
-
-        // 更新沙箱元数据
-        if (sandboxId && upResult.containerIds && upResult.containerIds.length > 0) {
-          const sandbox = sandboxService.loadSandbox(sandboxId)
-          if (sandbox) {
-            sandbox.containerIds = upResult.containerIds
-            sandbox.primaryContainerId = upResult.containerIds[0]
-            sandbox.composeProjectName = projectName
-            sandbox.composeFilePath = configId
-            sandbox.status = 'running'
-            sandbox.updatedAt = new Date().toISOString()
-            sandboxService.saveSandbox(sandbox)
-            sandboxService.logOperation(
-              sandboxId,
-              `从 Compose 配置启动容器: ${config.name}`,
-              'info'
-            )
-            logger.info('沙箱元数据已更新', 'main', {
-              sandboxId,
-              containerCount: upResult.containerIds.length
-            })
-          }
-        }
-
-        logger.info('从 Compose 配置启动容器成功', 'main', {
-          projectName,
-          containerCount: upResult.containerIds?.length || 0
-        })
-
-        return {
-          success: true,
-          containerIds: upResult.containerIds
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        logger.error('从 Compose 配置启动容器失败', 'main', { error: errorMessage })
-        return {
-          success: false,
-          error: errorMessage
-        }
-      }
+      projectName: string
+    ): Promise<{ success: boolean; startedContainerIds?: string[]; error?: string }> => {
+      return dockerSvc.composeStart(projectName)
     }
   )
 
@@ -878,11 +793,7 @@ export function registerSandboxHandlers(): void {
    */
   ipcMain.handle(
     'sandbox:compose:logs',
-    async (
-      _event,
-      projectName: string,
-      options?: ComposeLogOptions
-    ): Promise<ComposeLogResult> => {
+    async (_event, projectName: string, options?: ComposeLogOptions): Promise<ComposeLogResult> => {
       return dockerSvc.composeLogs(projectName, options)
     }
   )

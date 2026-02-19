@@ -11,6 +11,7 @@ import SandboxSidebar from '@renderer/components/sandbox/SandboxSidebar.vue'
 import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
 import SandboxCreator from '@renderer/components/sandbox/SandboxCreator.vue'
 import ConfigManager from '@renderer/components/sandbox/ConfigManager.vue'
+import OperationMessage from '@renderer/components/sandbox/OperationMessage.vue'
 
 type PlatformType = 'darwin' | 'win32' | 'linux'
 
@@ -52,7 +53,14 @@ const containerStore = useContainerStore()
 const uiStateStore = useUIStateStore()
 const creatorStore = useSandboxCreatorStore()
 
-const { currentSandbox, sandboxList, operationLogs, listUpdateKey } = storeToRefs(sandboxStore)
+const {
+  currentSandbox,
+  sandboxList,
+  operationLogs,
+  listUpdateKey,
+  operationMessage,
+  messageVisible
+} = storeToRefs(sandboxStore)
 
 const { sandboxSidebarCollapsed, showSandboxCreator, showConfigManager } = storeToRefs(uiStateStore)
 
@@ -194,6 +202,16 @@ onMounted(async () => {
 
       <!-- 配置管理弹窗 -->
       <ConfigManager :visible="showConfigManager" @close="handleCloseConfigManager" />
+
+      <!-- 操作消息提示 -->
+      <OperationMessage
+        v-if="operationMessage"
+        :type="operationMessage.type"
+        :title="operationMessage.title"
+        :message="operationMessage.message"
+        :visible="messageVisible"
+        @close="sandboxStore.hideMessage()"
+      />
     </template>
 
     <!-- Docker 未安装 - 安装引导 -->

@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-
-// 创建类型
-type SandboxCreationType = 'existing' | 'compose' | 'dockerfile'
+import type { SandboxCreationType } from '@shared/types/sandbox'
+import { getDeleteDialogConfig } from '@renderer/utils/sandboxPermissions'
 
 // 沙箱项接口
 interface SandboxItem {
@@ -25,73 +24,43 @@ const emit = defineEmits<{
 
 const deleteContainers = ref(false)
 
+// 使用工具函数获取对话框配置
+const dialogConfig = computed(() => {
+  if (!props.sandbox) return null
+  return getDeleteDialogConfig(
+    props.sandbox.creationType || 'existing',
+    props.sandbox.containerIds?.length || 0,
+    props.sandbox.name
+  )
+})
+
 // 根据沙箱类型显示不同的确认内容
-const confirmTitle = computed(() => {
-  if (!props.sandbox) return '确认删除'
-  const type = props.sandbox.creationType
-  switch (type) {
-    case 'existing':
-      return '确认删除沙箱'
-    case 'compose':
-      return '确认删除 Compose 沙箱'
-    case 'dockerfile':
-      return '确认删除 Dockerfile 沙箱'
-    default:
-      return '确认删除沙箱'
-  }
-})
+const confirmTitle = computed(() => dialogConfig.value?.title || '确认删除')
+const confirmMessage = computed(() => dialogConfig.value?.message || '')
+const showDeleteContainerOption = computed(() => dialogConfig.value?.showDeleteOption ?? false)
+const deleteContainerLabel = computed(() => dialogConfig.value?.deleteOptionLabel || '')
+const warningMessage = computed(() => dialogConfig.value?.warningMessage || '')
+const confirmButtonText = computed(() => dialogConfig.value?.confirmButtonText || '确认删除')
+const typeTheme = computed(() => dialogConfig.value?.typeTheme || 'default')
 
-const confirmMessage = computed(() => {
-  if (!props.sandbox) return ''
-  const type = props.sandbox.creationType
-  const name = props.sandbox.name
-  const containerCount = props.sandbox.containerIds?.length || 0
-
-  switch (type) {
-    case 'existing':
-      return `确定要删除沙箱「${name}」吗？\n删除沙箱不会删除容器，容器将继续运行。`
-    case 'compose':
-      if (containerCount > 1) {
-        return `确定要删除 Compose 沙箱「${name}」吗？\n该沙箱包含 ${containerCount} 个容器。`
-      }
-      return `确定要删除 Compose 沙箱「${name}」吗？`
-    case 'dockerfile':
-      return `确定要删除 Dockerfile 沙箱「${name}」吗？`
-    default:
-      return `确定要删除沙箱「${name}」吗？`
-  }
-})
-
-// 是否显示"同时删除容器"选项
-const showDeleteContainerOption = computed(() => {
-  const type = props.sandbox?.creationType
-  return type === 'compose' || type === 'dockerfile'
-})
-
-// 删除选项的标签文本
-const deleteContainerLabel = computed(() => {
-  const type = props.sandbox?.creationType
-  const containerCount = props.sandbox?.containerIds?.length || 0
-  if (type === 'compose' && containerCount > 1) {
-    return `同时删除 ${containerCount} 个容器`
-  }
-  return '同时删除容器'
-})
-
-// 警告提示文本
-const warningMessage = computed(() => {
-  if (!props.sandbox) return ''
-  const type = props.sandbox?.creationType
-  if (type === 'compose' && props.sandbox.composeProjectName) {
-    return `将执行 docker-compose down 删除项目「${props.sandbox.composeProjectName}」的所有容器`
-  }
-  return '删除容器后将无法恢复'
-})
+// 是否为 existing 类型
+const isExistingType = computed(() => props.sandbox?.creationType === 'existing')
 
 // 重置状态
 function resetState(): void {
-  deleteContainers.value = false
+  deleteContainers.value = dialogConfig.value?.defaultDeleteContainers ?? false
 }
+
+// 监听对话框显示，初始化状态
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible) {
+      resetState()
+    }
+  },
+  { immediate: true }
+)
 
 // 监听 visible 变化
 watch(
@@ -117,13 +86,31 @@ function handleConfirm(): void {
 
 <template>
   <div v-if="visible" class="delete-confirm-overlay" @click.self="handleClose">
-    <div class="delete-confirm-dialog">
+    <div
+      class="delete-confirm-dialog"
+      :class="[`theme-${typeTheme}`, { 'existing-type': isExistingType }]"
+    >
       <div class="dialog-header">
         <h3>{{ confirmTitle }}</h3>
         <button class="close-btn" @click="handleClose">×</button>
       </div>
 
       <div class="dialog-body">
+        <!-- existing 类型提示图标 -->
+        <div v-if="isExistingType" class="type-notice">
+          <svg viewBox="0 0 1024 1024" width="24" height="24">
+            <path
+              d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z"
+              fill="currentColor"
+            />
+            <path
+              d="M464 336a48 48 0 1 0 96 0 48 48 0 1 0-96 0zm0 176a48 48 0 1 0 96 0 48 48 0 1 0-96 0zm0 176a48 48 0 1 0 96 0 48 48 0 1 0-96 0z"
+              fill="currentColor"
+            />
+          </svg>
+          <span>只读沙箱 · 仅删除记录</span>
+        </div>
+
         <p class="confirm-message">{{ confirmMessage }}</p>
 
         <!-- 同时删除容器选项 -->
@@ -133,14 +120,20 @@ function handleConfirm(): void {
         </label>
 
         <!-- 警告提示 -->
-        <p v-if="deleteContainers || sandbox?.creationType === 'existing'" class="warning-message">
+        <p
+          v-if="warningMessage"
+          class="warning-message"
+          :class="{ 'info-message': isExistingType }"
+        >
           {{ warningMessage }}
         </p>
       </div>
 
       <div class="dialog-footer">
         <button class="btn-cancel" @click="handleClose">取消</button>
-        <button class="btn-confirm" @click="handleConfirm">确认删除</button>
+        <button class="btn-confirm" :class="{ 'btn-safe': isExistingType }" @click="handleConfirm">
+          {{ confirmButtonText }}
+        </button>
       </div>
     </div>
   </div>
@@ -274,6 +267,46 @@ function handleConfirm(): void {
   background-color: rgba(210, 153, 34, 0.1);
   border: 1px solid rgba(210, 153, 34, 0.3);
   border-radius: 6px;
+}
+
+.info-message {
+  color: var(--theme-info);
+  background-color: rgba(88, 166, 255, 0.1);
+  border-color: rgba(88, 166, 255, 0.3);
+}
+
+/* 类型提示 */
+.type-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  background-color: rgba(210, 153, 34, 0.1);
+  border: 1px solid rgba(210, 153, 34, 0.3);
+  border-radius: 6px;
+  color: var(--theme-warning);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.type-notice svg {
+  flex-shrink: 0;
+}
+
+/* existing 类型特殊样式 */
+.existing-type .dialog-header h3 {
+  color: var(--theme-warning);
+}
+
+/* 安全按钮样式（用于 existing 类型） */
+.btn-safe {
+  background-color: var(--theme-info) !important;
+  border-color: var(--theme-info) !important;
+}
+
+.btn-safe:hover {
+  opacity: 0.9;
 }
 
 .dialog-footer {

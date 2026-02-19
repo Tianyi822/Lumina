@@ -25,6 +25,14 @@ interface DeleteConfirmState {
   containerCount: number
 }
 
+/** 操作错误/提示状态 */
+interface OperationMessage {
+  type: 'error' | 'warning' | 'success' | 'info'
+  title: string
+  message: string
+  timestamp: number
+}
+
 export const useSandboxStore = defineStore('sandbox', () => {
   // ==================== Store Dependencies ====================
 
@@ -59,6 +67,11 @@ export const useSandboxStore = defineStore('sandbox', () => {
     creationType: null,
     containerCount: 0
   })
+
+  /** 全局操作消息提示 */
+  const operationMessage = ref<OperationMessage | null>(null)
+  const messageVisible = ref(false)
+  let messageTimer: ReturnType<typeof setTimeout> | null = null
 
   // ==================== Getters ====================
 
@@ -478,7 +491,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
    * 删除沙箱（带确认）
    */
   async function deleteSandboxWithConfirm(options?: DeleteSandboxOptions): Promise<boolean> {
-    const { sandboxId } = deleteConfirmState.value
+    const { sandboxId, creationType } = deleteConfirmState.value
     if (!sandboxId) return false
 
     try {
@@ -497,15 +510,45 @@ export const useSandboxStore = defineStore('sandbox', () => {
         hideDeleteConfirm()
 
         window.api.logger.info('[SandboxStore] 删除沙箱成功', { sandboxId })
+
+        // 显示成功提示
+        showSuccess('删除成功', '沙箱已成功删除')
         return true
+      }
+
+      // 删除失败，显示友好错误提示
+      if (result.error) {
+        // 分析错误类型，显示友好提示
+        let title = '删除失败'
+        let message = result.error
+
+        if (result.error.includes('正在运行')) {
+          title = '无法删除运行中的容器'
+          message =
+            creationType === 'dockerfile' || creationType === 'compose'
+              ? '容器正在运行，请先停止容器后再删除沙箱。您可以在监控面板中点击"停止"按钮。'
+              : '容器正在运行，请先停止容器后再删除沙箱。'
+        } else if (result.error.includes('不存在')) {
+          title = '容器不存在'
+          message = '容器可能已被手动删除，请刷新列表后重试。'
+        } else if (result.error.includes('权限不足')) {
+          title = '权限不足'
+          message = '当前用户没有足够的权限删除容器，请检查 Docker 权限配置。'
+        }
+
+        showError(title, message)
       }
 
       return false
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
       window.api.logger.error('[SandboxStore] 删除沙箱失败', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMsg,
         sandboxId
       })
+
+      // 显示友好的错误提示
+      showError('删除失败', '删除沙箱时发生错误，请稍后重试')
       return false
     }
   }
@@ -618,6 +661,74 @@ export const useSandboxStore = defineStore('sandbox', () => {
     }
   }
 
+  // ==================== Actions: 消息提示 ====================
+
+  /**
+   * 显示操作消息
+   */
+  function showMessage(
+    type: OperationMessage['type'],
+    title: string,
+    message: string,
+    duration: number = 5000
+  ): void {
+    // 清除之前的定时器
+    if (messageTimer) {
+      clearTimeout(messageTimer)
+    }
+
+    operationMessage.value = {
+      type,
+      title,
+      message,
+      timestamp: Date.now()
+    }
+    messageVisible.value = true
+
+    // 自动关闭
+    if (duration > 0) {
+      messageTimer = setTimeout(() => {
+        hideMessage()
+      }, duration)
+    }
+  }
+
+  /**
+   * 隐藏消息
+   */
+  function hideMessage(): void {
+    messageVisible.value = false
+    if (messageTimer) {
+      clearTimeout(messageTimer)
+      messageTimer = null
+    }
+    // 延迟清除消息内容（让淡出动画完成）
+    setTimeout(() => {
+      operationMessage.value = null
+    }, 300)
+  }
+
+  /**
+   * 显示错误消息
+   */
+  function showError(title: string, message: string): void {
+    showMessage('error', title, message)
+  }
+
+  /**
+   * 显示警告消息
+   */
+  function showWarning(title: string, message: string): void {
+    showMessage('warning', title, message)
+  }
+
+  /**
+   * 显示成功消息
+   */
+  function showSuccess(title: string, message: string): void {
+    showMessage('success', title, message, 3000)
+  }
+
   return {
     // State
     currentSandbox,
@@ -632,6 +743,10 @@ export const useSandboxStore = defineStore('sandbox', () => {
     // State: Phase 4 新增
     sandboxContainerStatus,
     deleteConfirmState,
+
+    // State: 消息提示
+    operationMessage,
+    messageVisible,
 
     // Getters
     currentSandboxId,
@@ -673,6 +788,13 @@ export const useSandboxStore = defineStore('sandbox', () => {
     // Actions: 事件处理
     handleSelectSandbox,
     handleNewSandbox,
-    handleDeleteSandbox
+    handleDeleteSandbox,
+
+    // Actions: 消息提示
+    showMessage,
+    hideMessage,
+    showError,
+    showWarning,
+    showSuccess
   }
 })

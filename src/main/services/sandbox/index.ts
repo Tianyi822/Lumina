@@ -8,3 +8,4 @@ export {
   DockerConfigService
 } from './DockerConfigService'
 export { getDockerService, dockerService, DockerService } from './DockerService'
+export { sandboxPermissionService, SandboxPermissionService } from './SandboxPermissionService'

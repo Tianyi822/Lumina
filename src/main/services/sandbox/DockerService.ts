@@ -256,8 +256,28 @@ export class DockerService {
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('容器启动失败', 'main', { error: errorMessage, containerId })
-      return { success: false, error: errorMessage }
+      // 分析错误类型，返回友好的错误信息
+      let friendlyError = errorMessage
+      if (errorMessage.includes('HTTP code 304') || errorMessage.includes('already started')) {
+        friendlyError = '容器已经在运行中'
+      } else if (
+        errorMessage.includes('HTTP code 404') ||
+        errorMessage.includes('No such container')
+      ) {
+        friendlyError = '容器不存在，可能已被删除'
+      } else if (errorMessage.includes('permission denied')) {
+        friendlyError = '权限不足，无法启动容器'
+      }
+      // 只在非友好错误时记录详细错误日志
+      if (friendlyError === errorMessage) {
+        logger.error('容器启动失败', 'main', { error: errorMessage, containerId })
+      } else {
+        logger.warn('容器启动失败', 'main', {
+          reason: friendlyError,
+          containerId: containerId.substring(0, 12)
+        })
+      }
+      return { success: false, error: friendlyError }
     }
   }
 
@@ -271,8 +291,28 @@ export class DockerService {
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('容器停止失败', 'main', { error: errorMessage, containerId })
-      return { success: false, error: errorMessage }
+      // 分析错误类型，返回友好的错误信息
+      let friendlyError = errorMessage
+      if (errorMessage.includes('HTTP code 304') || errorMessage.includes('already stopped')) {
+        friendlyError = '容器已经停止'
+      } else if (
+        errorMessage.includes('HTTP code 404') ||
+        errorMessage.includes('No such container')
+      ) {
+        friendlyError = '容器不存在，可能已被删除'
+      } else if (errorMessage.includes('permission denied')) {
+        friendlyError = '权限不足，无法停止容器'
+      }
+      // 只在非友好错误时记录详细错误日志
+      if (friendlyError === errorMessage) {
+        logger.error('容器停止失败', 'main', { error: errorMessage, containerId })
+      } else {
+        logger.warn('容器停止失败', 'main', {
+          reason: friendlyError,
+          containerId: containerId.substring(0, 12)
+        })
+      }
+      return { success: false, error: friendlyError }
     }
   }
 
@@ -286,8 +326,23 @@ export class DockerService {
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('容器重启失败', 'main', { error: errorMessage, containerId })
-      return { success: false, error: errorMessage }
+      // 分析错误类型，返回友好的错误信息
+      let friendlyError = errorMessage
+      if (errorMessage.includes('HTTP code 404') || errorMessage.includes('No such container')) {
+        friendlyError = '容器不存在，可能已被删除'
+      } else if (errorMessage.includes('permission denied')) {
+        friendlyError = '权限不足，无法重启容器'
+      }
+      // 只在非友好错误时记录详细错误日志
+      if (friendlyError === errorMessage) {
+        logger.error('容器重启失败', 'main', { error: errorMessage, containerId })
+      } else {
+        logger.warn('容器重启失败', 'main', {
+          reason: friendlyError,
+          containerId: containerId.substring(0, 12)
+        })
+      }
+      return { success: false, error: friendlyError }
     }
   }
 
@@ -301,8 +356,28 @@ export class DockerService {
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('容器删除失败', 'main', { error: errorMessage, containerId })
-      return { success: false, error: errorMessage }
+      // 分析错误类型，返回友好的错误信息
+      let friendlyError = errorMessage
+      if (errorMessage.includes('HTTP code 409') || errorMessage.includes('container is running')) {
+        friendlyError = '容器正在运行，请先停止容器后再删除'
+      } else if (
+        errorMessage.includes('HTTP code 404') ||
+        errorMessage.includes('No such container')
+      ) {
+        friendlyError = '容器不存在，可能已被手动删除'
+      } else if (errorMessage.includes('permission denied')) {
+        friendlyError = '权限不足，无法删除容器'
+      }
+      // 只在非友好错误时记录详细错误日志
+      if (friendlyError === errorMessage) {
+        logger.error('容器删除失败', 'main', { error: errorMessage, containerId })
+      } else {
+        logger.warn('容器删除失败', 'main', {
+          reason: friendlyError,
+          containerId: containerId.substring(0, 12)
+        })
+      }
+      return { success: false, error: friendlyError }
     }
   }
 
@@ -1071,7 +1146,7 @@ export class DockerService {
    */
   private deduplicateServices(content: string): string {
     const lines = content.split('\n')
-    
+
     // 找到 services: 的位置和缩进级别
     let servicesLineIndex = -1
     let servicesIndent = -1
@@ -1083,30 +1158,30 @@ export class DockerService {
         break
       }
     }
-    
+
     // 如果没有找到 services 部分，直接返回原内容
     if (servicesLineIndex === -1) {
       return content
     }
-    
+
     // 收集所有服务的位置信息
     // serviceIndent = servicesIndent + 2 (服务定义比 services: 多2个空格缩进)
     const serviceIndent = servicesIndent + 2
     const serviceOccurrences: Map<string, Array<{ start: number; end: number }>> = new Map()
-    
+
     let currentService: string | null = null
     let serviceStart = -1
-    
+
     for (let i = servicesLineIndex + 1; i < lines.length; i++) {
       const line = lines[i]
       const trimmed = line.trim()
-      
+
       // 跳过空行
       if (!trimmed) continue
-      
+
       // 计算当前行的缩进
       const lineIndent = line.search(/\S/)
-      
+
       // 如果缩进小于等于 servicesIndent，说明已经离开 services 块
       if (lineIndent <= servicesIndent && lineIndent !== -1) {
         // 结束前一个服务
@@ -1118,7 +1193,7 @@ export class DockerService {
         currentService = null
         break
       }
-      
+
       // 检测服务定义（缩进等于 serviceIndent 且符合服务名格式）
       if (lineIndent === serviceIndent) {
         // 结束前一个服务
@@ -1127,7 +1202,7 @@ export class DockerService {
           occurrences.push({ start: serviceStart, end: i })
           serviceOccurrences.set(currentService, occurrences)
         }
-        
+
         // 检测是否是服务定义（服务名 + 冒号）
         const serviceMatch = trimmed.match(/^([a-zA-Z0-9_-]+):/)
         if (serviceMatch) {
@@ -1139,18 +1214,18 @@ export class DockerService {
         }
       }
     }
-    
+
     // 处理最后一个服务（如果文件结束）
     if (currentService && serviceStart >= 0) {
       const occurrences = serviceOccurrences.get(currentService) || []
       occurrences.push({ start: serviceStart, end: lines.length })
       serviceOccurrences.set(currentService, occurrences)
     }
-    
+
     // 找出需要跳过的行范围（重复服务的非最后一次定义）
     const skipRanges: Array<{ start: number; end: number }> = []
     let hasDuplicates = false
-    
+
     for (const [serviceName, occurrences] of serviceOccurrences) {
       if (occurrences.length > 1) {
         hasDuplicates = true
@@ -1165,15 +1240,15 @@ export class DockerService {
         })
       }
     }
-    
+
     // 如果没有重复，直接返回原内容
     if (!hasDuplicates) {
       return content
     }
-    
+
     // 按起始位置排序
     skipRanges.sort((a, b) => a.start - b.start)
-    
+
     // 构建结果，跳过重复的定义
     const result: string[] = []
     for (let i = 0; i < lines.length; i++) {
@@ -1188,13 +1263,13 @@ export class DockerService {
         result.push(lines[i])
       }
     }
-    
+
     logger.info('去除重复服务定义完成', 'main', {
       originalLines: lines.length,
       cleanedLines: result.length,
       skipRanges: skipRanges.length
     })
-    
+
     return result.join('\n')
   }
 
@@ -1210,7 +1285,7 @@ export class DockerService {
   }> {
     const contexts: Array<{ service: string; context: string; dockerfile?: string }> = []
     const lines = content.split('\n')
-    
+
     // 找到 services: 的位置和缩进级别
     let servicesLineIndex = -1
     let servicesIndent = -1
@@ -1222,32 +1297,32 @@ export class DockerService {
         break
       }
     }
-    
+
     if (servicesLineIndex === -1) {
       return contexts
     }
-    
+
     const serviceIndent = servicesIndent + 2
     let currentService: string | null = null
     let currentContext: string | null = null
     let currentDockerfile: string | undefined
     let inBuildBlock = false
     let buildBlockIndent = -1
-    
+
     for (let i = servicesLineIndex + 1; i < lines.length; i++) {
       const line = lines[i]
       const trimmed = line.trim()
-      
+
       // 跳过空行
       if (!trimmed) continue
-      
+
       const lineIndent = line.search(/\S/)
-      
+
       // 如果缩进小于等于 servicesIndent，说明已经离开 services 块
       if (lineIndent <= servicesIndent && lineIndent !== -1) {
         break
       }
-      
+
       // 检测服务定义（serviceIndent 级别）
       if (lineIndent === serviceIndent) {
         // 保存之前服务的 build 配置
@@ -1258,7 +1333,7 @@ export class DockerService {
             dockerfile: currentDockerfile
           })
         }
-        
+
         const serviceMatch = trimmed.match(/^([a-zA-Z0-9_-]+):/)
         if (serviceMatch) {
           currentService = serviceMatch[1]
@@ -1271,11 +1346,11 @@ export class DockerService {
         }
         continue
       }
-      
+
       // 在当前服务内且缩进正确时检测 build 配置
       if (currentService && lineIndent > serviceIndent) {
         const relativeIndent = lineIndent - serviceIndent
-        
+
         // build: 简写形式 (如 build: ./context)
         // 必须是服务直接下级（相对缩进为2）
         const buildShorthandMatch = trimmed.match(/^build:\s*(\S+)\s*$/)
@@ -1304,34 +1379,34 @@ export class DockerService {
           }
           continue
         }
-        
+
         // build: 对象形式开始（只有 build: 没有值，或下一行缩进）
         if (trimmed === 'build:' && relativeIndent === 2) {
           inBuildBlock = true
           buildBlockIndent = lineIndent
           continue
         }
-        
+
         // 在 build 块内解析 context 和 dockerfile
         if (inBuildBlock && lineIndent > buildBlockIndent) {
           const contextMatch = trimmed.match(/^context:\s*(.+)$/)
           if (contextMatch) {
             currentContext = contextMatch[1].trim()
           }
-          
+
           const dockerfileMatch = trimmed.match(/^dockerfile:\s*(.+)$/)
           if (dockerfileMatch) {
             currentDockerfile = dockerfileMatch[1].trim()
           }
         }
-        
+
         // 检测是否离开 build 块（当前行缩进 <= buildBlockIndent）
         if (inBuildBlock && lineIndent <= buildBlockIndent) {
           inBuildBlock = false
         }
       }
     }
-    
+
     // 处理最后一个服务
     if (currentService && currentContext) {
       contexts.push({
@@ -1340,15 +1415,15 @@ export class DockerService {
         dockerfile: currentDockerfile
       })
     }
-    
+
     logger.info('解析到构建上下文配置', 'main', {
       count: contexts.length,
-      contexts: contexts.map(c => ({ service: c.service, context: c.context }))
+      contexts: contexts.map((c) => ({ service: c.service, context: c.context }))
     })
-    
+
     return contexts
   }
-  
+
   /**
    * 根据服务名推断基础镜像
    * @param serviceName 服务名称
@@ -1356,36 +1431,36 @@ export class DockerService {
    */
   private inferBaseImage(serviceName: string): string {
     const name = serviceName.toLowerCase()
-    
+
     // 常见服务映射
     const imageMap: Record<string, string> = {
-      'mysql': 'mysql:latest',
-      'mariadb': 'mariadb:latest',
-      'postgres': 'postgres:latest',
-      'postgresql': 'postgres:latest',
-      'redis': 'redis:latest',
-      'mongo': 'mongo:latest',
-      'mongodb': 'mongo:latest',
-      'nginx': 'nginx:latest',
-      'apache': 'httpd:latest',
-      'node': 'node:latest',
-      'python': 'python:latest',
-      'java': 'openjdk:latest',
-      'go': 'golang:latest',
-      'php': 'php:latest',
-      'ruby': 'ruby:latest'
+      mysql: 'mysql:latest',
+      mariadb: 'mariadb:latest',
+      postgres: 'postgres:latest',
+      postgresql: 'postgres:latest',
+      redis: 'redis:latest',
+      mongo: 'mongo:latest',
+      mongodb: 'mongo:latest',
+      nginx: 'nginx:latest',
+      apache: 'httpd:latest',
+      node: 'node:latest',
+      python: 'python:latest',
+      java: 'openjdk:latest',
+      go: 'golang:latest',
+      php: 'php:latest',
+      ruby: 'ruby:latest'
     }
-    
+
     for (const [key, image] of Object.entries(imageMap)) {
       if (name.includes(key)) {
         return image
       }
     }
-    
+
     // 默认使用 alpine
     return 'alpine:latest'
   }
-  
+
   /**
    * 递归复制目录
    * @param src 源目录
@@ -1394,11 +1469,11 @@ export class DockerService {
   private async copyDirectory(src: string, dest: string): Promise<void> {
     await fs.promises.mkdir(dest, { recursive: true })
     const entries = await fs.promises.readdir(src, { withFileTypes: true })
-    
+
     for (const entry of entries) {
       const srcPath = path.join(src, entry.name)
       const destPath = path.join(dest, entry.name)
-      
+
       if (entry.isDirectory()) {
         await this.copyDirectory(srcPath, destPath)
       } else {
@@ -1434,20 +1509,20 @@ export class DockerService {
 
       try {
         // 写入 docker-compose.yaml（先去除重复服务）
-        let cleanedContent = this.deduplicateServices(options.composeContent)
+        const cleanedContent = this.deduplicateServices(options.composeContent)
         const composePath = path.join(tempDir, 'docker-compose.yaml')
         await fs.promises.writeFile(composePath, cleanedContent, 'utf-8')
 
         // 解析 compose 文件中的 build 配置，创建必要的构建上下文目录
         const buildContexts = this.parseBuildContexts(cleanedContent)
-        
+
         // 加载所有保存的 Dockerfile 配置用于自动匹配
         const configService = getDockerConfigService()
         const savedDockerfiles = configService.listDockerfiles().configs || []
-        
+
         for (const ctx of buildContexts) {
           const contextDir = path.join(tempDir, ctx.context)
-          
+
           // 检查目录是否已存在（可能通过 dockerfileConfigs 创建）
           try {
             await fs.promises.access(contextDir)
@@ -1455,27 +1530,27 @@ export class DockerService {
           } catch {
             // 目录不存在，创建它
             await fs.promises.mkdir(contextDir, { recursive: true })
-            logger.info('创建构建上下文目录', 'main', { 
+            logger.info('创建构建上下文目录', 'main', {
               context: ctx.context,
-              service: ctx.service 
+              service: ctx.service
             })
-            
+
             // 检查是否有匹配的保存的 Dockerfile 配置
             // 根据上下文路径名匹配（如 ./MySQL8 匹配 MySQL8）
             const contextName = path.basename(ctx.context)
-            const matchingConfig = savedDockerfiles.find(df => 
-              df.name.toLowerCase() === contextName.toLowerCase()
+            const matchingConfig = savedDockerfiles.find(
+              (df) => df.name.toLowerCase() === contextName.toLowerCase()
             )
-            
+
             const dockerfileName = ctx.dockerfile || 'Dockerfile'
             const dockerfilePath = path.join(contextDir, dockerfileName)
-            
+
             if (matchingConfig) {
               // 找到匹配的 Dockerfile 配置，加载其内容
               const loadResult = configService.loadDockerfile(matchingConfig.id)
               if (loadResult.success && loadResult.config) {
                 await fs.promises.writeFile(dockerfilePath, loadResult.config.content, 'utf-8')
-                logger.info('从保存的 Dockerfile 配置加载', 'main', { 
+                logger.info('从保存的 Dockerfile 配置加载', 'main', {
                   service: ctx.service,
                   context: ctx.context,
                   configId: matchingConfig.id,
@@ -1496,7 +1571,7 @@ export class DockerService {
               const defaultImage = this.inferBaseImage(ctx.service)
               const defaultDockerfile = `FROM ${defaultImage}\n\nWORKDIR /app\n\n# 默认 Dockerfile，请根据实际需要修改\n`
               await fs.promises.writeFile(dockerfilePath, defaultDockerfile, 'utf-8')
-              logger.info('创建默认 Dockerfile', 'main', { 
+              logger.info('创建默认 Dockerfile', 'main', {
                 service: ctx.service,
                 dockerfile: dockerfileName,
                 image: defaultImage
@@ -1663,15 +1738,56 @@ export class DockerService {
   // ==================== Compose 项目操作 ====================
 
   /**
+   * 启动 Compose 项目所有容器
+   * @param projectName Compose 项目名称
+   * @returns 操作结果
+   */
+  async composeStart(
+    projectName: string
+  ): Promise<{ success: boolean; error?: string; containerIds?: string[] }> {
+    this.ensureInitialized()
+
+    try {
+      // 获取项目的所有容器
+      const containers = await this.getContainersByComposeProject(projectName)
+
+      if (containers.length === 0) {
+        logger.warn('Compose 项目没有容器', 'main', { projectName })
+        return { success: true, containerIds: [] }
+      }
+
+      const startedContainerIds: string[] = []
+
+      // 启动所有已停止的容器
+      for (const container of containers) {
+        if (container.state !== 'running') {
+          const result = await this.startContainer(container.id)
+          if (result.success) {
+            startedContainerIds.push(container.id)
+          }
+        }
+      }
+
+      logger.info('Compose 项目容器启动成功', 'main', {
+        projectName,
+        startedCount: startedContainerIds.length
+      })
+
+      return { success: true, containerIds: startedContainerIds }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('启动 Compose 项目失败', 'main', { error: errorMessage, projectName })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  /**
    * 停止 Compose 项目所有容器
    * @param projectName Compose 项目名称
    * @param options 停止选项
    * @returns 操作结果
    */
-  async composeStop(
-    projectName: string,
-    options?: ComposeStopOptions
-  ): Promise<ComposeStopResult> {
+  async composeStop(projectName: string, options?: ComposeStopOptions): Promise<ComposeStopResult> {
     this.ensureInitialized()
 
     try {
@@ -1753,7 +1869,9 @@ export class DockerService {
    * @param projectName Compose 项目名称
    * @returns 项目状态
    */
-  async composeStatus(projectName: string): Promise<{ success: boolean; status?: ComposeProjectStatus; error?: string }> {
+  async composeStatus(
+    projectName: string
+  ): Promise<{ success: boolean; status?: ComposeProjectStatus; error?: string }> {
     this.ensureInitialized()
 
     try {
@@ -1856,10 +1974,7 @@ export class DockerService {
    * @param options 日志选项
    * @returns 日志结果
    */
-  async composeLogs(
-    projectName: string,
-    options?: ComposeLogOptions
-  ): Promise<ComposeLogResult> {
+  async composeLogs(projectName: string, options?: ComposeLogOptions): Promise<ComposeLogResult> {
     this.ensureInitialized()
 
     try {
@@ -2002,6 +2117,7 @@ export const dockerService = {
   getContainersByComposeProject: (projectName: string) =>
     getDockerService().getContainersByComposeProject(projectName),
   composeDown: (projectName: string) => getDockerService().composeDown(projectName),
+  composeStart: (projectName: string) => getDockerService().composeStart(projectName),
   composeStop: (projectName: string, options?: ComposeStopOptions) =>
     getDockerService().composeStop(projectName, options),
   composeRestart: (projectName: string) => getDockerService().composeRestart(projectName),

@@ -28,6 +28,7 @@ import {
   generateSandboxId,
   sanitizeFileName
 } from './sandboxPaths'
+import { sandboxPermissionService } from './SandboxPermissionService'
 
 /**
  * 沙箱服务
@@ -445,86 +446,96 @@ export class SandboxService {
       }
 
       const removedContainers: string[] = []
-      const deleteContainers = options?.deleteContainers
       const force = options?.force || false
 
-      // 导入 DockerService
+      // 导入 DockerService 和权限服务
       const { getDockerService } = await import('./DockerService')
       const dockerService = getDockerService()
 
-      // 根据创建类型决定删除策略
-      switch (sandbox.creationType) {
-        case 'existing': {
-          // existing 类型：如果 deleteContainers 为 true，则删除容器
-          if (deleteContainers && sandbox.containerIds.length > 0) {
-            for (const containerId of sandbox.containerIds) {
-              try {
-                const result = await dockerService.removeContainer(containerId, force)
-                if (result.success) {
-                  removedContainers.push(containerId)
-                  this.logOperation(sandboxId, `删除容器: ${containerId.substring(0, 12)}`, 'info')
-                }
-              } catch (error) {
-                logger.warn('删除容器失败', 'main', {
+      // 使用权限服务验证删除选项
+      const deletePolicy = sandboxPermissionService.validateDeleteOptions(
+        sandbox.creationType,
+        options?.deleteContainers
+      )
+
+      // 如果需要删除容器（且类型允许）
+      const failedContainers: Array<{ id: string; reason: string }> = []
+
+      if (deletePolicy.shouldDeleteContainers && sandbox.containerIds.length > 0) {
+        for (const containerId of sandbox.containerIds) {
+          try {
+            // 先获取容器详情检查状态
+            const containerDetails = await dockerService.getContainerDetails(containerId)
+            const isRunning = containerDetails?.state === 'running'
+            const containerName =
+              containerDetails?.names?.[0]?.replace(/^\//, '') || containerId.substring(0, 12)
+
+            // 如果容器正在运行，先停止它
+            if (isRunning) {
+              logger.info('容器正在运行，先停止容器', 'main', {
+                containerId: containerId.substring(0, 12)
+              })
+              const stopResult = await dockerService.stopContainer(containerId, 10)
+              if (!stopResult.success) {
+                logger.warn('停止容器失败，将尝试强制删除', 'main', {
                   containerId: containerId.substring(0, 12),
-                  error: error instanceof Error ? error.message : String(error)
+                  error: stopResult.error
                 })
               }
             }
-          }
-          break
-        }
 
-        case 'compose': {
-          // compose 类型：如果 deleteContainers 为 true，执行 docker-compose down
-          if (deleteContainers && sandbox.composeProjectName) {
-            // TODO: 执行 docker-compose down
-            // 这里需要调用 Docker Compose CLI
-            // 暂时只删除元数据中记录的容器
-            if (sandbox.containerIds.length > 0) {
-              for (const containerId of sandbox.containerIds) {
-                try {
-                  const result = await dockerService.removeContainer(containerId, force)
-                  if (result.success) {
-                    removedContainers.push(containerId)
-                    this.logOperation(
-                      sandboxId,
-                      `删除容器: ${containerId.substring(0, 12)}`,
-                      'info'
-                    )
-                  }
-                } catch (error) {
-                  logger.warn('删除容器失败', 'main', {
-                    containerId: containerId.substring(0, 12),
-                    error: error instanceof Error ? error.message : String(error)
-                  })
-                }
+            // 删除容器（如果停止失败或容器已停止，使用 force 强制删除）
+            const result = await dockerService.removeContainer(containerId, force || isRunning)
+            if (result.success) {
+              removedContainers.push(containerId)
+              this.logOperation(sandboxId, `删除容器: ${containerId.substring(0, 12)}`, 'info')
+            } else {
+              // 分析删除失败原因
+              let reason = result.error || '删除失败'
+              if (
+                result.error?.includes('HTTP code 409') ||
+                result.error?.includes('container is running')
+              ) {
+                reason = `容器「${containerName}」正在运行，请先停止容器后再删除`
+              } else if (
+                result.error?.includes('HTTP code 404') ||
+                result.error?.includes('No such container')
+              ) {
+                reason = `容器「${containerName}」不存在，可能已被手动删除`
+              } else if (result.error?.includes('permission denied')) {
+                reason = `权限不足，无法删除容器「${containerName}」`
               }
+              failedContainers.push({ id: containerId, reason })
+              logger.warn('删除容器失败', 'main', {
+                containerId: containerId.substring(0, 12),
+                reason
+              })
             }
-          }
-          break
-        }
-
-        case 'dockerfile': {
-          // dockerfile 类型：如果 deleteContainers 为 true，删除关联容器
-          if (deleteContainers && sandbox.containerIds.length > 0) {
-            for (const containerId of sandbox.containerIds) {
-              try {
-                const result = await dockerService.removeContainer(containerId, force)
-                if (result.success) {
-                  removedContainers.push(containerId)
-                  this.logOperation(sandboxId, `删除容器: ${containerId.substring(0, 12)}`, 'info')
-                }
-              } catch (error) {
-                logger.warn('删除容器失败', 'main', {
-                  containerId: containerId.substring(0, 12),
-                  error: error instanceof Error ? error.message : String(error)
-                })
-              }
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error)
+            let reason = '删除失败'
+            if (errorMsg.includes('HTTP code 409') || errorMsg.includes('container is running')) {
+              reason = '容器正在运行，请先停止容器后再删除'
+            } else if (
+              errorMsg.includes('HTTP code 404') ||
+              errorMsg.includes('No such container')
+            ) {
+              reason = '容器不存在，可能已被手动删除'
             }
+            failedContainers.push({ id: containerId, reason })
+            logger.warn('删除容器失败', 'main', {
+              containerId: containerId.substring(0, 12),
+              error: errorMsg
+            })
           }
-          break
         }
+      } else if (deletePolicy.warning) {
+        // 记录警告信息（如 existing 类型强制保留容器）
+        this.logOperation(sandboxId, deletePolicy.warning, 'warn')
+        logger.info(deletePolicy.warning, 'main', {
+          sandboxId,
+          creationType: sandbox.creationType
+        })
       }
 
       // 删除沙箱元数据目录
@@ -533,14 +544,31 @@ export class SandboxService {
         rmSync(boxPath, { recursive: true, force: true })
       }
 
-      logger.info('沙箱删除成功', 'main', {
+      // 构建返回结果
+      const keptCount = sandbox.containerIds.length - removedContainers.length
+      const success = keptCount === 0 || !deletePolicy.shouldDeleteContainers
+
+      if (failedContainers.length > 0) {
+        logger.warn('部分容器删除失败', 'main', {
+          sandboxId,
+          failedCount: failedContainers.length,
+          reasons: failedContainers.map((f) => f.reason)
+        })
+      }
+
+      logger.info('沙箱删除完成', 'main', {
         sandboxId,
-        removedContainers: removedContainers.length
+        creationType: sandbox.creationType,
+        removedContainers: removedContainers.length,
+        keptContainers: keptCount,
+        failedContainers: failedContainers.length
       })
 
       return {
-        success: true,
-        removedContainers
+        success,
+        removedContainers,
+        error:
+          failedContainers.length > 0 ? failedContainers.map((f) => f.reason).join('; ') : undefined
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)

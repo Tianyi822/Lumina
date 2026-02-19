@@ -149,7 +149,9 @@ export const useContainerStore = defineStore('container', () => {
 
   // ==================== Actions: 容器操作 ====================
 
-  async function startContainer(containerId: string): Promise<boolean> {
+  async function startContainer(
+    containerId: string
+  ): Promise<{ success: boolean; error?: string }> {
     try {
       const result = await window.api.sandbox.startContainer(containerId)
 
@@ -158,19 +160,24 @@ export const useContainerStore = defineStore('container', () => {
         window.api.logger.info('[ContainerStore] 容器启动成功', {
           containerId: containerId.substring(0, 12)
         })
+        return { success: true }
+      } else {
+        return { success: false, error: result.error }
       }
-
-      return result.success
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       window.api.logger.error('[ContainerStore] 启动容器失败', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         containerId
       })
-      return false
+      return { success: false, error: errorMessage }
     }
   }
 
-  async function stopContainer(containerId: string, timeout?: number): Promise<boolean> {
+  async function stopContainer(
+    containerId: string,
+    timeout?: number
+  ): Promise<{ success: boolean; error?: string }> {
     try {
       const result = await window.api.sandbox.stopContainer(containerId, timeout)
 
@@ -179,19 +186,23 @@ export const useContainerStore = defineStore('container', () => {
         window.api.logger.info('[ContainerStore] 容器停止成功', {
           containerId: containerId.substring(0, 12)
         })
+        return { success: true }
+      } else {
+        return { success: false, error: result.error }
       }
-
-      return result.success
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       window.api.logger.error('[ContainerStore] 停止容器失败', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         containerId
       })
-      return false
+      return { success: false, error: errorMessage }
     }
   }
 
-  async function restartContainer(containerId: string): Promise<boolean> {
+  async function restartContainer(
+    containerId: string
+  ): Promise<{ success: boolean; error?: string }> {
     try {
       const result = await window.api.sandbox.restartContainer(containerId)
 
@@ -200,19 +211,24 @@ export const useContainerStore = defineStore('container', () => {
         window.api.logger.info('[ContainerStore] 容器重启成功', {
           containerId: containerId.substring(0, 12)
         })
+        return { success: true }
+      } else {
+        return { success: false, error: result.error }
       }
-
-      return result.success
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       window.api.logger.error('[ContainerStore] 重启容器失败', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         containerId
       })
-      return false
+      return { success: false, error: errorMessage }
     }
   }
 
-  async function removeContainer(containerId: string, force?: boolean): Promise<boolean> {
+  async function removeContainer(
+    containerId: string,
+    force?: boolean
+  ): Promise<{ success: boolean; error?: string }> {
     try {
       const result = await window.api.sandbox.removeContainer(containerId, force)
 
@@ -224,15 +240,101 @@ export const useContainerStore = defineStore('container', () => {
         window.api.logger.info('[ContainerStore] 容器删除成功', {
           containerId: containerId.substring(0, 12)
         })
+        return { success: true }
+      } else {
+        return { success: false, error: result.error }
       }
-
-      return result.success
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       window.api.logger.error('[ContainerStore] 删除容器失败', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         containerId
       })
-      return false
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  // ==================== Actions: Compose 项目操作 ====================
+
+  async function composeStop(
+    projectName: string,
+    timeout?: number
+  ): Promise<{ success: boolean; error?: string; stoppedContainerIds?: string[] }> {
+    try {
+      const result = await window.api.sandbox.compose.stop(projectName, { timeout })
+
+      if (result.success) {
+        await refreshContainers()
+        window.api.logger.info('[ContainerStore] Compose 项目停止成功', {
+          projectName,
+          stoppedCount: result.stoppedContainerIds?.length || 0
+        })
+        return {
+          success: true,
+          stoppedContainerIds: result.stoppedContainerIds
+        }
+      } else {
+        return { success: false, error: result.error }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      window.api.logger.error('[ContainerStore] 停止 Compose 项目失败', {
+        error: errorMessage,
+        projectName
+      })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  async function composeStart(
+    projectName: string
+  ): Promise<{ success: boolean; error?: string; containerIds?: string[] }> {
+    try {
+      const result = await window.api.sandbox.compose.start(projectName)
+
+      if (result.success) {
+        await refreshContainers()
+        window.api.logger.info('[ContainerStore] Compose 项目启动成功', {
+          projectName,
+          startedCount: result.containerIds?.length || 0
+        })
+        return {
+          success: true,
+          containerIds: result.containerIds
+        }
+      } else {
+        return { success: false, error: result.error }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      window.api.logger.error('[ContainerStore] 启动 Compose 项目失败', {
+        error: errorMessage,
+        projectName
+      })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  async function composeRestart(
+    projectName: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await window.api.sandbox.compose.restart(projectName)
+
+      if (result.success) {
+        await refreshContainers()
+        window.api.logger.info('[ContainerStore] Compose 项目重启成功', { projectName })
+        return { success: true }
+      } else {
+        return { success: false, error: result.error }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      window.api.logger.error('[ContainerStore] 重启 Compose 项目失败', {
+        error: errorMessage,
+        projectName
+      })
+      return { success: false, error: errorMessage }
     }
   }
 
@@ -415,6 +517,11 @@ export const useContainerStore = defineStore('container', () => {
     stopContainer,
     restartContainer,
     removeContainer,
+
+    // Actions: Compose 项目操作
+    composeStop,
+    composeStart,
+    composeRestart,
 
     // Actions: 命令执行
     execCommand,

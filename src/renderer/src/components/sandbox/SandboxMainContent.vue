@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useContainerStore, useUIStateStore, useSandboxStore } from '@renderer/stores'
+import { useContainerStore, useUIStateStore } from '@renderer/stores'
+import { useSandboxStore } from '@renderer/stores/sandbox'
 import TerminalPanel from './TerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
@@ -23,6 +24,7 @@ const emit = defineEmits<{
 
 const containerStore = useContainerStore()
 const uiStateStore = useUIStateStore()
+const sandboxStore = useSandboxStore()
 
 const {
   selectedContainer,
@@ -205,26 +207,71 @@ function setDetailTab(tab: 'info' | 'terminal' | 'logs' | 'stats'): void {
 // ==================== 容器操作 ====================
 
 async function handleContainerStart(): Promise<void> {
+  // 如果是 Compose 类型沙箱，使用 composeStart 启动所有容器
+  if (props.currentSandbox?.creationType === 'compose' && props.currentSandbox.composeProjectName) {
+    const result = await containerStore.composeStart(props.currentSandbox.composeProjectName)
+    if (!result.success && result.error) {
+      sandboxStore.showError('启动 Compose 项目失败', result.error)
+    }
+    return
+  }
+
   if (selectedContainer.value) {
-    await containerStore.startContainer(selectedContainer.value.id)
+    const result = await containerStore.startContainer(selectedContainer.value.id)
+    if (!result.success && result.error) {
+      sandboxStore.showError('启动容器失败', result.error)
+    }
   }
 }
 
 async function handleContainerStop(): Promise<void> {
+  // 如果是 Compose 类型沙箱，使用 composeStop 停止所有容器
+  if (props.currentSandbox?.creationType === 'compose' && props.currentSandbox.composeProjectName) {
+    const result = await containerStore.composeStop(props.currentSandbox.composeProjectName)
+    if (!result.success && result.error) {
+      sandboxStore.showError('停止 Compose 项目失败', result.error)
+    } else if (
+      result.success &&
+      result.stoppedContainerIds &&
+      result.stoppedContainerIds.length > 0
+    ) {
+      sandboxStore.showSuccess('停止成功', `已停止 ${result.stoppedContainerIds.length} 个容器`)
+    }
+    return
+  }
+
   if (selectedContainer.value) {
-    await containerStore.stopContainer(selectedContainer.value.id)
+    const result = await containerStore.stopContainer(selectedContainer.value.id)
+    if (!result.success && result.error) {
+      sandboxStore.showError('停止容器失败', result.error)
+    }
   }
 }
 
 async function handleContainerRestart(): Promise<void> {
+  // 如果是 Compose 类型沙箱，使用 composeRestart 重启所有容器
+  if (props.currentSandbox?.creationType === 'compose' && props.currentSandbox.composeProjectName) {
+    const result = await containerStore.composeRestart(props.currentSandbox.composeProjectName)
+    if (!result.success && result.error) {
+      sandboxStore.showError('重启 Compose 项目失败', result.error)
+    }
+    return
+  }
+
   if (selectedContainer.value) {
-    await containerStore.restartContainer(selectedContainer.value.id)
+    const result = await containerStore.restartContainer(selectedContainer.value.id)
+    if (!result.success && result.error) {
+      sandboxStore.showError('重启容器失败', result.error)
+    }
   }
 }
 
 async function handleContainerRemove(): Promise<void> {
   if (selectedContainer.value) {
-    await containerStore.removeContainer(selectedContainer.value.id)
+    const result = await containerStore.removeContainer(selectedContainer.value.id)
+    if (!result.success && result.error) {
+      sandboxStore.showError('删除容器失败', result.error)
+    }
   }
 }
 
@@ -537,7 +584,7 @@ function handleCloseOrphanAlert(): void {
             :container="selectedContainer"
             :stats="containerStats"
             :loading="storeLoading"
-            :is-existing-container="currentSandbox?.creationType === 'existing'"
+            :creation-type="currentSandbox?.creationType"
             @start="handleContainerStart"
             @stop="handleContainerStop"
             @restart="handleContainerRestart"
