@@ -86,7 +86,7 @@ export class ChatService {
       return { success: true }
     }
 
-    if (selectedTools && selectedTools.length > 0) {
+    if ((selectedTools && selectedTools.length > 0) || request.enableSandboxTools) {
       const result = await this.sendMessageWithReact(request, webContents, knowledgeResults)
       this.clearStoppedSession(sessionId)
       return result
@@ -372,7 +372,14 @@ export class ChatService {
     webContents: WebContents,
     knowledgeResults?: KnowledgeSearchResult[]
   ): Promise<ChatResult> {
-    const { messages, modelKey, sessionId, selectedTools, maxReactIterations = 10, enableSandboxTools } = request
+    const {
+      messages,
+      modelKey,
+      sessionId,
+      selectedTools,
+      maxReactIterations = 10,
+      enableSandboxTools
+    } = request
 
     logger.info('开始发送聊天消息（ReAct 模式）', 'main', {
       sessionId,
@@ -414,10 +421,10 @@ export class ChatService {
 
       // 如果启用了沙箱工具，从 sandboxToolService 获取沙箱工具定义
       if (enableSandboxTools) {
-        const sandboxTools = sandboxToolService.getTools().map(tool => {
+        const sandboxTools = sandboxToolService.getTools().map((tool) => {
           // 工具名称可能已经包含 sandbox__ 前缀，需要处理
           const toolName = tool.name.startsWith('sandbox__')
-            ? tool.name.slice(10) // 去掉 'sandbox__' 前缀
+            ? tool.name.slice('sandbox__'.length) // 去掉 'sandbox__' 前缀
             : tool.name
           return {
             serverName: tool.serverName || 'sandbox',
@@ -854,7 +861,7 @@ export class ChatService {
       this.checkStopped(sessionId)
 
       const result = await this.withTimeoutAndStopCheck(
-        sandboxToolService.callTool(toolName, args),
+        sandboxToolService.callTool(`sandbox__${toolName}`, args),
         sessionId,
         60000,
         `沙箱工具调用 ${toolName}`
