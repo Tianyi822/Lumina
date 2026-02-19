@@ -372,14 +372,15 @@ export class ChatService {
     webContents: WebContents,
     knowledgeResults?: KnowledgeSearchResult[]
   ): Promise<ChatResult> {
-    const { messages, modelKey, sessionId, selectedTools, maxReactIterations = 10 } = request
+    const { messages, modelKey, sessionId, selectedTools, maxReactIterations = 10, enableSandboxTools } = request
 
     logger.info('开始发送聊天消息（ReAct 模式）', 'main', {
       sessionId,
       modelKey,
       messageCount: messages.length,
       toolCount: selectedTools?.length,
-      selectedToolNames: selectedTools?.map((t) => `${t.serverName}/${t.toolName}`)
+      selectedToolNames: selectedTools?.map((t) => `${t.serverName}/${t.toolName}`),
+      enableSandboxTools
     })
 
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
@@ -408,12 +409,38 @@ export class ChatService {
         promptBuilder.updatePromptConfig(config.promptConfig || null)
       }
 
-      const tools = this.buildOpenAITools(selectedTools!)
+      // 构建工具列表：合并 MCP 工具和沙箱工具（如果启用）
+      const allTools: MCPToolReference[] = [...(selectedTools || [])]
+
+      // 如果启用了沙箱工具，从 sandboxToolService 获取沙箱工具定义
+      if (enableSandboxTools) {
+        const sandboxTools = sandboxToolService.getTools().map(tool => {
+          // 工具名称可能已经包含 sandbox__ 前缀，需要处理
+          const toolName = tool.name.startsWith('sandbox__')
+            ? tool.name.slice(10) // 去掉 'sandbox__' 前缀
+            : tool.name
+          return {
+            serverName: tool.serverName || 'sandbox',
+            toolName: toolName,
+            description: tool.description,
+            inputSchema: tool.inputSchema
+          }
+        })
+        allTools.push(...sandboxTools)
+
+        logger.info('已添加沙箱工具到工具列表', 'main', {
+          sessionId,
+          sandboxToolCount: sandboxTools.length,
+          totalToolCount: allTools.length
+        })
+      }
+
+      const tools = this.buildOpenAITools(allTools)
 
       const systemPrompt = await promptBuilder.buildSystemPrompt(
         llmConfig,
         true,
-        selectedTools,
+        allTools,
         knowledgeResults
       )
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
