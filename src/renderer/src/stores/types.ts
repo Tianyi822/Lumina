@@ -8,6 +8,7 @@ export interface SessionInputState {
   selectedModel: string
   selectedMCPTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
+  enableSandboxTools: boolean
 }
 
 // 序列化后的输入状态（用于持久化）

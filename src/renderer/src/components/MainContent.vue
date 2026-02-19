@@ -23,6 +23,7 @@ const props = defineProps<{
   selectedModel?: string
   selectedMCPTools?: MCPTool[]
   selectedKnowledgeBases?: KnowledgeBase[]
+  enableSandboxTools?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -31,13 +32,15 @@ const emit = defineEmits<{
     message: string,
     model: string,
     selectedTools: MCPTool[],
-    selectedKnowledgeBases: KnowledgeBase[]
+    selectedKnowledgeBases: KnowledgeBase[],
+    enableSandboxTools: boolean
   ): void
   (e: 'stop-request'): void
   (e: 'update:inputMessage', value: string): void
   (e: 'update:selectedModel', value: string): void
   (e: 'update:selectedMCPTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
+  (e: 'update:enableSandboxTools', value: boolean): void
 }>()
 
 // 展开的思考内容消息ID集合
@@ -143,15 +146,17 @@ function handleSendMessage(
   message: string,
   model: string,
   selectedTools: MCPTool[],
-  selectedKnowledgeBases: KnowledgeBase[]
+  selectedKnowledgeBases: KnowledgeBase[],
+  enableSandboxTools: boolean
 ): void {
   window.api.logger.debug('[MainContent] 处理发送消息事件', {
     messageLength: message.length,
     model,
     selectedToolsCount: selectedTools?.length ?? 0,
-    selectedKnowledgeBasesCount: selectedKnowledgeBases?.length ?? 0
+    selectedKnowledgeBasesCount: selectedKnowledgeBases?.length ?? 0,
+    enableSandboxTools
   })
-  emit('send-message', message, model, selectedTools, selectedKnowledgeBases)
+  emit('send-message', message, model, selectedTools, selectedKnowledgeBases, enableSandboxTools)
 }
 
 function handleStopRequest(): void {
@@ -172,6 +177,10 @@ function handleUpdateSelectedTools(value: MCPTool[]): void {
 
 function handleUpdateSelectedKnowledgeBases(value: KnowledgeBase[]): void {
   emit('update:selectedKnowledgeBases', value)
+}
+
+function handleUpdateEnableSandboxTools(value: boolean): void {
+  emit('update:enableSandboxTools', value)
 }
 
 /**
@@ -290,12 +299,14 @@ function formatTokenUsage(usage: TokenUsage): string {
       :selected-model="props.selectedModel"
       :selected-m-c-p-tools="props.selectedMCPTools"
       :selected-knowledge-bases="props.selectedKnowledgeBases"
+      :enable-sandbox-tools="props.enableSandboxTools"
       @send="handleSendMessage"
       @stop="handleStopRequest"
       @update:input-message="handleUpdateInputMessage"
       @update:selected-model="handleUpdateSelectedModel"
       @update:selected-m-c-p-tools="handleUpdateSelectedTools"
       @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
+      @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
     />
   </main>
 </template>

@@ -118,6 +118,7 @@ interface ChatRequest {
   selectedTools?: MCPToolReference[]
   selectedKnowledgeBases?: KnowledgeBaseReference[]
   maxReactIterations?: number
+  enableSandboxTools?: boolean
 }
 
 /**

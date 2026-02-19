@@ -3,6 +3,7 @@ import type { WebContents } from 'electron'
 import { configManager } from '../config'
 import { logger } from '../logger'
 import { mcpService } from '../mcp'
+import { sandboxToolService } from '../sandbox'
 import type {
   ChatMessage,
   ChatRequest,
@@ -615,7 +616,7 @@ export class ChatService {
 
   /**
    * 构建 OpenAI tools 定义
-   * 使用增强后的工具描述
+   * 使用增强后的工具描述，支持 MCP 工具和沙箱工具
    */
   private buildOpenAITools(
     tools: MCPToolReference[]
@@ -625,19 +626,37 @@ export class ChatService {
 
     const enhancedDescriptions = enhanceToolDescriptions(tools, descriptionLevel)
 
-    return tools.map((tool) => {
+    const openAITools: OpenAI.Chat.Completions.ChatCompletionTool[] = []
+
+    for (const tool of tools) {
+      // 处理沙箱工具（serverName 为 'sandbox'）
+      if (tool.serverName === 'sandbox') {
+        openAITools.push({
+          type: 'function' as const,
+          function: {
+            name: `sandbox__${tool.toolName}`,
+            description: tool.description,
+            parameters: tool.inputSchema as Record<string, unknown>
+          }
+        })
+        continue
+      }
+
+      // 处理 MCP 工具
       const toolKey = `${tool.serverName}__${tool.toolName}`
       const enhancedDescription = enhancedDescriptions.get(toolKey) || tool.description
 
-      return {
+      openAITools.push({
         type: 'function' as const,
         function: {
           name: this.sanitizeToolName(tool.serverName, tool.toolName),
           description: enhancedDescription,
           parameters: tool.inputSchema as Record<string, unknown>
         }
-      }
-    })
+      })
+    }
+
+    return openAITools
   }
 
   /**
@@ -723,6 +742,7 @@ export class ChatService {
 
   /**
    * 执行单个工具调用
+   * 支持 MCP 工具和沙箱工具
    */
   private async executeToolCall(
     toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
@@ -746,8 +766,132 @@ export class ChatService {
       return JSON.stringify({ error })
     }
 
-    const [sanitizedServerName, sanitizedToolName] = nameParts
+    const [serverName, toolName] = nameParts
 
+    // 处理沙箱工具
+    if (serverName === 'sandbox') {
+      return this.executeSandboxTool(toolCall, toolName, webContents, sessionId)
+    }
+
+    // 处理 MCP 工具
+    return this.executeMcpTool(toolCall, serverName, toolName, webContents, sessionId)
+  }
+
+  /**
+   * 执行沙箱工具调用
+   */
+  private async executeSandboxTool(
+    toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
+    toolName: string,
+    webContents: WebContents,
+    sessionId: string
+  ): Promise<string> {
+    let args: Record<string, unknown> = {}
+
+    try {
+      args = JSON.parse(toolCall.function.arguments || '{}')
+    } catch (e) {
+      const error = `解析工具参数失败: ${e}`
+      logger.error(error, 'main')
+      this.sendStreamEvent(webContents, {
+        type: 'tool_result',
+        sessionId,
+        toolResult: {
+          id: toolCall.id,
+          name: toolName,
+          success: false,
+          error
+        }
+      })
+      return JSON.stringify({ error })
+    }
+
+    logger.info('执行沙箱工具调用', 'main', {
+      sessionId,
+      toolName,
+      args
+    })
+
+    this.sendStreamEvent(webContents, {
+      type: 'tool_call',
+      sessionId,
+      toolCall: {
+        id: toolCall.id,
+        name: toolName,
+        serverName: 'sandbox',
+        arguments: args
+      }
+    })
+
+    try {
+      this.checkStopped(sessionId)
+
+      const result = await this.withTimeoutAndStopCheck(
+        sandboxToolService.callTool(toolName, args),
+        sessionId,
+        60000,
+        `沙箱工具调用 ${toolName}`
+      )
+
+      this.checkStopped(sessionId)
+
+      this.sendStreamEvent(webContents, {
+        type: 'tool_result',
+        sessionId,
+        toolResult: {
+          id: toolCall.id,
+          name: toolName,
+          success: result.success,
+          result: result.content,
+          error: result.error
+        }
+      })
+
+      if (result.success) {
+        return JSON.stringify(result.content)
+      } else {
+        return JSON.stringify({ error: result.error })
+      }
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.name === 'AbortError' || error.message.includes('超时'))
+      ) {
+        throw error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('沙箱工具调用失败', 'main', {
+        sessionId,
+        toolName,
+        error: errorMessage
+      })
+
+      this.sendStreamEvent(webContents, {
+        type: 'tool_result',
+        sessionId,
+        toolResult: {
+          id: toolCall.id,
+          name: toolName,
+          success: false,
+          error: errorMessage
+        }
+      })
+
+      return JSON.stringify({ error: errorMessage })
+    }
+  }
+
+  /**
+   * 执行 MCP 工具调用
+   */
+  private async executeMcpTool(
+    toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
+    sanitizedServerName: string,
+    sanitizedToolName: string,
+    webContents: WebContents,
+    sessionId: string
+  ): Promise<string> {
     const serverName = this.findOriginalServerName(sanitizedServerName)
     if (!serverName) {
       const error = `未找到 MCP 服务器: ${sanitizedServerName}`

@@ -54,7 +54,8 @@ async function handleSendMessage(
   content: string,
   model: string,
   selectedTools: MCPTool[] = [],
-  selectedKnowledgeBases: KnowledgeBase[] = []
+  selectedKnowledgeBases: KnowledgeBase[] = [],
+  enableSandboxTools: boolean = false
 ): Promise<void> {
   // 如果没有当前对话，先创建一个
   if (!currentChatId.value || !currentSession.value) {
@@ -184,7 +185,8 @@ async function handleSendMessage(
       modelKey: model,
       sessionId,
       selectedTools: toolReferences,
-      selectedKnowledgeBases: kbReferences
+      selectedKnowledgeBases: kbReferences,
+      enableSandboxTools
     })
 
     if (!result.success && result.error) {
@@ -259,6 +261,10 @@ function handleUpdateSelectedTools(value: MCPTool[]): void {
 
 function handleUpdateSelectedKnowledgeBases(value: KnowledgeBase[]): void {
   inputStateStore.updateSelectedKnowledgeBases(value)
+}
+
+function handleUpdateEnableSandboxTools(value: boolean): void {
+  inputStateStore.updateEnableSandboxTools(value)
 }
 
 // ==================== 流式事件处理 ====================
@@ -343,12 +349,14 @@ watch(
       :selected-model="currentInputState.selectedModel"
       :selected-m-c-p-tools="currentInputState.selectedMCPTools"
       :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
+      :enable-sandbox-tools="currentInputState.enableSandboxTools"
       @send-message="handleSendMessage"
       @stop-request="handleStopRequest"
       @update:input-message="handleUpdateInputMessage"
       @update:selected-model="handleUpdateSelectedModel"
       @update:selected-m-c-p-tools="handleUpdateSelectedTools"
       @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
+      @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
     />
 
     <!-- 聊天错误提示(临时显示) -->

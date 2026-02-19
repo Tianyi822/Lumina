@@ -33,9 +33,33 @@ export class SandboxPermissionService {
   /**
    * 检查是否允许启动容器
    */
-  canStart(type: SandboxCreationType): PermissionCheckResult {
+  canStart(type: SandboxCreationType): boolean {
     const policy = this.getPolicy(type)
-    if (policy.canStart) {
+    return policy.canStart
+  }
+
+  /**
+   * 检查是否允许停止容器
+   */
+  canStop(type: SandboxCreationType): boolean {
+    const policy = this.getPolicy(type)
+    return policy.canStop
+  }
+
+  /**
+   * 检查是否允许重启容器
+   */
+  canRestart(type: SandboxCreationType): boolean {
+    const policy = this.getPolicy(type)
+    return policy.canRestart
+  }
+
+  /**
+   * 获取启动权限检查结果（带原因）
+   */
+  checkStart(type: SandboxCreationType): PermissionCheckResult {
+    const allowed = this.canStart(type)
+    if (allowed) {
       return { allowed: true }
     }
     return {
@@ -45,11 +69,11 @@ export class SandboxPermissionService {
   }
 
   /**
-   * 检查是否允许停止容器
+   * 获取停止权限检查结果（带原因）
    */
-  canStop(type: SandboxCreationType): PermissionCheckResult {
-    const policy = this.getPolicy(type)
-    if (policy.canStop) {
+  checkStop(type: SandboxCreationType): PermissionCheckResult {
+    const allowed = this.canStop(type)
+    if (allowed) {
       return { allowed: true }
     }
     return {
@@ -59,11 +83,11 @@ export class SandboxPermissionService {
   }
 
   /**
-   * 检查是否允许重启容器
+   * 获取重启权限检查结果（带原因）
    */
-  canRestart(type: SandboxCreationType): PermissionCheckResult {
-    const policy = this.getPolicy(type)
-    if (policy.canRestart) {
+  checkRestart(type: SandboxCreationType): PermissionCheckResult {
+    const allowed = this.canRestart(type)
+    if (allowed) {
       return { allowed: true }
     }
     return {
