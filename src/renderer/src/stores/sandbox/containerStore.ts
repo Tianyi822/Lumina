@@ -157,6 +157,12 @@ export const useContainerStore = defineStore('container', () => {
 
       if (result.success) {
         await refreshContainers()
+        // 如果当前有选中的容器，刷新其详情
+        if (selectedContainer.value?.id === containerId) {
+          await loadContainerDetails(containerId)
+          // 同时刷新容器统计
+          await loadContainerStats(containerId)
+        }
         window.api.logger.info('[ContainerStore] 容器启动成功', {
           containerId: containerId.substring(0, 12)
         })
@@ -183,6 +189,10 @@ export const useContainerStore = defineStore('container', () => {
 
       if (result.success) {
         await refreshContainers()
+        // 如果当前有选中的容器，刷新其详情
+        if (selectedContainer.value?.id === containerId) {
+          await loadContainerDetails(containerId)
+        }
         window.api.logger.info('[ContainerStore] 容器停止成功', {
           containerId: containerId.substring(0, 12)
         })
@@ -208,6 +218,12 @@ export const useContainerStore = defineStore('container', () => {
 
       if (result.success) {
         await refreshContainers()
+        // 如果当前有选中的容器，刷新其详情
+        if (selectedContainer.value?.id === containerId) {
+          await loadContainerDetails(containerId)
+          // 同时刷新容器统计
+          await loadContainerStats(containerId)
+        }
         window.api.logger.info('[ContainerStore] 容器重启成功', {
           containerId: containerId.substring(0, 12)
         })
@@ -265,6 +281,13 @@ export const useContainerStore = defineStore('container', () => {
 
       if (result.success) {
         await refreshContainers()
+        // 如果当前有选中的容器属于该项目，刷新其详情
+        if (selectedContainer.value) {
+          const composeProjectLabel = selectedContainer.value.labels?.['com.docker.compose.project']
+          if (composeProjectLabel === projectName) {
+            await loadContainerDetails(selectedContainer.value.id)
+          }
+        }
         window.api.logger.info('[ContainerStore] Compose 项目停止成功', {
           projectName,
           stoppedCount: result.stoppedContainerIds?.length || 0
@@ -294,6 +317,14 @@ export const useContainerStore = defineStore('container', () => {
 
       if (result.success) {
         await refreshContainers()
+        // 如果当前有选中的容器属于该项目，刷新其详情
+        if (selectedContainer.value) {
+          const composeProjectLabel = selectedContainer.value.labels?.['com.docker.compose.project']
+          if (composeProjectLabel === projectName) {
+            await loadContainerDetails(selectedContainer.value.id)
+            await loadContainerStats(selectedContainer.value.id)
+          }
+        }
         window.api.logger.info('[ContainerStore] Compose 项目启动成功', {
           projectName,
           startedCount: result.containerIds?.length || 0
@@ -323,6 +354,14 @@ export const useContainerStore = defineStore('container', () => {
 
       if (result.success) {
         await refreshContainers()
+        // 如果当前有选中的容器属于该项目，刷新其详情
+        if (selectedContainer.value) {
+          const composeProjectLabel = selectedContainer.value.labels?.['com.docker.compose.project']
+          if (composeProjectLabel === projectName) {
+            await loadContainerDetails(selectedContainer.value.id)
+            await loadContainerStats(selectedContainer.value.id)
+          }
+        }
         window.api.logger.info('[ContainerStore] Compose 项目重启成功', { projectName })
         return { success: true }
       } else {

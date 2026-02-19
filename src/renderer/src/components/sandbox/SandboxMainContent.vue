@@ -212,6 +212,9 @@ async function handleContainerStart(): Promise<void> {
     const result = await containerStore.composeStart(props.currentSandbox.composeProjectName)
     if (!result.success && result.error) {
       sandboxStore.showError('启动 Compose 项目失败', result.error)
+    } else if (result.success) {
+      // 刷新沙箱状态
+      await refreshSandboxStatus()
     }
     return
   }
@@ -220,6 +223,9 @@ async function handleContainerStart(): Promise<void> {
     const result = await containerStore.startContainer(selectedContainer.value.id)
     if (!result.success && result.error) {
       sandboxStore.showError('启动容器失败', result.error)
+    } else if (result.success) {
+      // 刷新沙箱状态
+      await refreshSandboxStatus()
     }
   }
 }
@@ -236,6 +242,11 @@ async function handleContainerStop(): Promise<void> {
       result.stoppedContainerIds.length > 0
     ) {
       sandboxStore.showSuccess('停止成功', `已停止 ${result.stoppedContainerIds.length} 个容器`)
+      // 刷新沙箱状态
+      await refreshSandboxStatus()
+    } else if (result.success) {
+      // 刷新沙箱状态
+      await refreshSandboxStatus()
     }
     return
   }
@@ -244,6 +255,9 @@ async function handleContainerStop(): Promise<void> {
     const result = await containerStore.stopContainer(selectedContainer.value.id)
     if (!result.success && result.error) {
       sandboxStore.showError('停止容器失败', result.error)
+    } else if (result.success) {
+      // 刷新沙箱状态
+      await refreshSandboxStatus()
     }
   }
 }
@@ -254,6 +268,9 @@ async function handleContainerRestart(): Promise<void> {
     const result = await containerStore.composeRestart(props.currentSandbox.composeProjectName)
     if (!result.success && result.error) {
       sandboxStore.showError('重启 Compose 项目失败', result.error)
+    } else if (result.success) {
+      // 刷新沙箱状态
+      await refreshSandboxStatus()
     }
     return
   }
@@ -262,6 +279,9 @@ async function handleContainerRestart(): Promise<void> {
     const result = await containerStore.restartContainer(selectedContainer.value.id)
     if (!result.success && result.error) {
       sandboxStore.showError('重启容器失败', result.error)
+    } else if (result.success) {
+      // 刷新沙箱状态
+      await refreshSandboxStatus()
     }
   }
 }
@@ -351,8 +371,6 @@ async function handleCleanupOrphan(sandboxId: string): Promise<void> {
 async function handleRefreshStatus(): Promise<void> {
   if (!props.currentSandbox) return
 
-  const sandboxStore = useSandboxStore()
-
   // 刷新容器列表
   await containerStore.loadContainers()
 
@@ -364,6 +382,17 @@ async function handleRefreshStatus(): Promise<void> {
   }
 
   // 同时刷新沙箱列表以保持同步
+  await sandboxStore.refreshSandboxList()
+}
+
+// 辅助函数：刷新当前沙箱状态
+async function refreshSandboxStatus(): Promise<void> {
+  if (!props.currentSandbox) return
+
+  // 检查当前沙箱的容器状态
+  await sandboxStore.checkContainerStatus(props.currentSandbox.sandboxId)
+
+  // 刷新沙箱列表以更新状态显示
   await sandboxStore.refreshSandboxList()
 }
 
