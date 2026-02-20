@@ -368,8 +368,7 @@ const contentChars = computed(() => {
   text-decoration: underline;
 }
 
-/* 展开状态阴影 */
+/* 展开状态 */
 .reasoning-panel.expanded {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 </style>
