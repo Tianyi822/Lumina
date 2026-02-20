@@ -3,7 +3,7 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import ThemeSettings from './settings/ThemeSettings.vue'
 import ModelSettings from './settings/ModelSettings.vue'
 import MCPSettings from './settings/MCPSettings.vue'
-import PromptSettings from './settings/PromptSettings.vue'
+import PromptEngineeringSettings from './settings/PromptEngineeringSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import type { AppConfig, ThemeConfig, LLMConfig, PromptConfig } from '@renderer/types'
 import { deepClone } from '@shared/utils'
@@ -239,12 +239,14 @@ onUnmounted(() => {
             @update:info-message="infoMessage = $event"
           />
 
-          <!-- 提示词配置 Tab -->
-          <PromptSettings
+          <!-- 提示词工程配置 Tab -->
+          <PromptEngineeringSettings
             v-else-if="activeTab === 'prompt'"
             :model-value="promptConfig"
             @update:model-value="(value) => Object.assign(promptConfig, value)"
             @reset-success="handlePromptResetSuccess"
+            @error="errorMessage = $event"
+            @success="successMessage = $event"
           />
 
           <!-- 主题设置 Tab -->

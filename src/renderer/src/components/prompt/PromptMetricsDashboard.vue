@@ -27,14 +27,17 @@ const timeRangeLabel = computed(() => {
   return labels[timeRange.value]
 })
 
-const chartData = computed(() => {
-  return trendData.value.map((point) => ({
-    time: new Date(point.timestamp).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
-    successRate: (point.toolCallSuccessRate * 100).toFixed(1),
-    tokenEfficiency: point.tokenEfficiency.toFixed(2),
-    responseTime: point.avgResponseTime.toFixed(0)
-  }))
-})
+  /*
+  // 图表数据（预留用于后续图表组件）
+  const chartData = computed(() => {
+    return trendData.value.map((point) => ({
+      time: new Date(point.timestamp).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
+      successRate: (point.toolCallSuccessRate * 100).toFixed(1),
+      tokenEfficiency: point.tokenEfficiency.toFixed(2),
+      responseTime: point.avgResponseTime.toFixed(0)
+    }))
+  })
+  */
 
 // ==================== Lifecycle ====================
 onMounted(() => {
@@ -97,6 +100,12 @@ function formatPercentage(value: number): string {
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms.toFixed(0)}ms`
   return `${(ms / 1000).toFixed(1)}s`
+}
+
+function getSuccessRateClass(rate: number): string {
+  if (rate >= 0.8) return 'success-high'
+  if (rate >= 0.5) return 'success-medium'
+  return 'success-low'
 }
 
 async function exportReport(): Promise<void> {

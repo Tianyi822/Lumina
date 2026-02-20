@@ -1387,6 +1387,227 @@ interface SandboxApi {
 }
 
 /**
+ * 提示词版本信息
+ */
+interface PromptVersion {
+  id: string
+  version: string
+  tag?: string
+  summary: string
+  content: string
+  createdAt: string
+  createdBy?: string
+  isActive: boolean
+}
+
+/**
+ * 提示词版本对比结果
+ */
+interface PromptVersionDiff {
+  oldVersion: PromptVersion
+  newVersion: PromptVersion
+  diff: Array<{
+    type: 'added' | 'removed' | 'unchanged'
+    line: string
+    lineNumber: { old?: number; new?: number }
+  }>
+}
+
+/**
+ * 提示词效果指标
+ */
+interface PromptEffectivenessMetrics {
+  version: string
+  period: { start: string; end: string }
+  toolCallSuccessRate: number
+  avgToolCallsPerSession: number
+  tokenEfficiency: number
+  avgResponseTime: number
+  userSatisfactionScore?: number
+  totalSessions: number
+  totalMessages: number
+}
+
+/**
+ * 指标趋势数据点
+ */
+interface MetricsTrendPoint {
+  timestamp: string
+  toolCallSuccessRate: number
+  tokenEfficiency: number
+  avgResponseTime: number
+  userSatisfactionScore?: number
+}
+
+/**
+ * Few-shot 示例
+ */
+interface FewShotExample {
+  id: string
+  name: string
+  description: string
+  category: string
+  userInput: string
+  reasoning: string
+  assistantResponse: string
+  qualityScore: number
+  enabled: boolean
+  createdAt: string
+  source: 'static' | 'dynamic'
+}
+
+/**
+ * 用户反馈
+ */
+interface UserFeedback {
+  id: string
+  messageId: string
+  sessionId: string
+  promptVersion: string
+  type: 'thumbs_up' | 'thumbs_down'
+  reason?: string
+  isAnonymous: boolean
+  createdAt: string
+}
+
+/**
+ * A/B 测试配置
+ */
+interface ABTestConfig {
+  id: string
+  name: string
+  description?: string
+  status: 'draft' | 'running' | 'paused' | 'completed'
+  versionA: string
+  versionB: string
+  trafficSplit: number
+  metrics: Array<'success_rate' | 'token_efficiency' | 'response_time' | 'satisfaction'>
+  startTime?: string
+  endTime?: string
+  createdAt: string
+}
+
+/**
+ * A/B 测试结果
+ */
+interface ABTestResult {
+  testId: string
+  versionA: {
+    version: string
+    sessions: number
+    metrics: PromptEffectivenessMetrics
+  }
+  versionB: {
+    version: string
+    sessions: number
+    metrics: PromptEffectivenessMetrics
+  }
+  statisticalSignificance: number
+  winner?: 'A' | 'B' | 'tie'
+  confidence: number
+}
+
+/**
+ * 提示词版本管理 API
+ */
+interface PromptVersionApi {
+  getVersions: () => Promise<PromptVersion[]>
+  getVersion: (versionId: string) => Promise<PromptVersion | null>
+  createVersion: (params: {
+    version: string
+    tag?: string
+    summary: string
+    content: string
+  }) => Promise<{ success: boolean; version?: PromptVersion; error?: string }>
+  compareVersions: (versionA: string, versionB: string) => Promise<PromptVersionDiff>
+  rollbackToVersion: (versionId: string) => Promise<{ success: boolean; error?: string }>
+  setVersionTag: (versionId: string, tag: string) => Promise<{ success: boolean; error?: string }>
+  deleteVersion: (versionId: string) => Promise<{ success: boolean; error?: string }>
+}
+
+/**
+ * 提示词效果监控 API
+ */
+interface PromptMetricsApi {
+  getCurrentMetrics: () => Promise<PromptEffectivenessMetrics>
+  getMetricsByVersion: (version: string) => Promise<PromptEffectivenessMetrics>
+  getMetricsTrend: (params: {
+    version?: string
+    startTime: string
+    endTime: string
+    interval: 'hour' | 'day' | 'week'
+  }) => Promise<MetricsTrendPoint[]>
+  exportReport: (params: {
+    format: 'json' | 'csv'
+    startTime: string
+    endTime: string
+    versions?: string[]
+  }) => Promise<{ success: boolean; data?: string; error?: string }>
+}
+
+/**
+ * Few-shot 示例管理 API
+ */
+interface ExampleApi {
+  getExamples: () => Promise<FewShotExample[]>
+  getExample: (exampleId: string) => Promise<FewShotExample | null>
+  createExample: (
+    params: Omit<FewShotExample, 'id' | 'createdAt'>
+  ) => Promise<{ success: boolean; example?: FewShotExample; error?: string }>
+  updateExample: (
+    exampleId: string,
+    params: Partial<FewShotExample>
+  ) => Promise<{ success: boolean; error?: string }>
+  deleteExample: (exampleId: string) => Promise<{ success: boolean; error?: string }>
+  toggleExample: (exampleId: string, enabled: boolean) => Promise<{ success: boolean; error?: string }>
+  importExamples: (data: string) => Promise<{ success: boolean; count?: number; error?: string }>
+  exportExamples: () => Promise<{ success: boolean; data?: string; error?: string }>
+}
+
+/**
+ * 用户反馈 API
+ */
+interface FeedbackApi {
+  submitFeedback: (
+    params: Omit<UserFeedback, 'id' | 'createdAt'>
+  ) => Promise<{ success: boolean; feedback?: UserFeedback; error?: string }>
+  getFeedbacks: (params?: {
+    messageId?: string
+    sessionId?: string
+    promptVersion?: string
+    type?: 'thumbs_up' | 'thumbs_down'
+  }) => Promise<UserFeedback[]>
+  getFeedbackStats: (promptVersion?: string) => Promise<{
+    total: number
+    thumbsUp: number
+    thumbsDown: number
+    satisfactionRate: number
+  }>
+}
+
+/**
+ * A/B 测试 API
+ */
+interface ABTestApi {
+  getTests: () => Promise<ABTestConfig[]>
+  getTest: (testId: string) => Promise<ABTestConfig | null>
+  createTest: (
+    params: Omit<ABTestConfig, 'id' | 'createdAt'>
+  ) => Promise<{ success: boolean; test?: ABTestConfig; error?: string }>
+  updateTest: (
+    testId: string,
+    params: Partial<ABTestConfig>
+  ) => Promise<{ success: boolean; error?: string }>
+  deleteTest: (testId: string) => Promise<{ success: boolean; error?: string }>
+  startTest: (testId: string) => Promise<{ success: boolean; error?: string }>
+  pauseTest: (testId: string) => Promise<{ success: boolean; error?: string }>
+  completeTest: (
+    testId: string
+  ) => Promise<{ success: boolean; result?: ABTestResult; error?: string }>
+  getTestResult: (testId: string) => Promise<ABTestResult | null>
+}
+
+/**
  * 自定义的完整 API
  */
 interface CustomApi {
@@ -1404,6 +1625,12 @@ interface CustomApi {
   sandbox: SandboxApi
   onFileProgress: (callback: (data: FileProgressEvent) => void) => () => void
   onReindexProgress: (callback: (data: ReindexProgressEvent) => void) => () => void
+  // 提示词工程相关 API
+  promptVersion: PromptVersionApi
+  promptMetrics: PromptMetricsApi
+  example: ExampleApi
+  feedback: FeedbackApi
+  abTest: ABTestApi
 }
 
 declare global {

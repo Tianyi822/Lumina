@@ -3,6 +3,7 @@ import MarkdownIt from 'markdown-it'
 import { nextTick, onMounted, ref, watch } from 'vue'
 import MessageInput from './MessageInput.vue'
 import ReActSteps from './ReActSteps.vue'
+import UserFeedbackButton from './prompt/UserFeedbackButton.vue'
 import type { Message, MCPTool, TokenUsage, KnowledgeBase } from '@renderer/types'
 
 // 初始化 markdown-it 实例
@@ -279,6 +280,16 @@ function formatTokenUsage(usage: TokenUsage): string {
           <div v-if="msg.role === 'assistant' && msg.usage && !msg.isStreaming" class="token-usage">
             {{ formatTokenUsage(msg.usage) }}
           </div>
+
+          <!-- 用户反馈按钮（仅助手消息） -->
+          <div v-if="msg.role === 'assistant' && !msg.isStreaming" class="message-feedback">
+            <UserFeedbackButton
+              :message-id="msg.id"
+              :session-id="currentChatId || ''"
+              prompt-version="current"
+              :disabled="msg.isStreaming"
+            />
+          </div>
         </div>
 
         <div v-if="!messages || messages.length === 0" class="empty-chat">
@@ -534,6 +545,13 @@ function formatTokenUsage(usage: TokenUsage): string {
   background-color: var(--theme-bg-hover);
   border-radius: 4px;
   display: inline-block;
+}
+
+/* 消息反馈样式 */
+.message-feedback {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .empty-chat {
