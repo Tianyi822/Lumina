@@ -5,6 +5,7 @@
 
 @import './base.css';
 @import '../themes/terminal.css';
+@import '../themes/blooming-flowers.css';
 
 body {
   margin: 0;

@@ -158,7 +158,7 @@ const contentChars = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--theme-warning);
+  color: var(--thinking-accent, var(--theme-warning));
 }
 
 .collapsed-icon svg {
@@ -218,8 +218,8 @@ const contentChars = computed(() => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  background-color: rgba(0, 0, 0, 0.2);
-  border-bottom: 1px solid var(--theme-border);
+  background-color: var(--thinking-bg, rgba(0, 0, 0, 0.2));
+  border-bottom: 1px solid var(--thinking-border, var(--theme-border));
 }
 
 .expanded-title {
@@ -228,7 +228,7 @@ const contentChars = computed(() => {
   gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--theme-warning);
+  color: var(--thinking-accent, var(--theme-warning));
 }
 
 .expanded-title svg {
@@ -303,7 +303,7 @@ const contentChars = computed(() => {
 }
 
 .markdown-body :deep(code) {
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: var(--theme-bg-hover, rgba(0, 0, 0, 0.3));
   padding: 0.2em 0.4em;
   border-radius: 4px;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
@@ -312,7 +312,7 @@ const contentChars = computed(() => {
 }
 
 .markdown-body :deep(pre) {
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: var(--theme-bg-hover, rgba(0, 0, 0, 0.4));
   padding: 12px 16px;
   border-radius: var(--theme-radius);
   overflow-x: auto;
@@ -332,7 +332,7 @@ const contentChars = computed(() => {
   margin: 0.75em 0;
   padding: 0.5em 1em;
   border-left: 3px solid var(--theme-accent);
-  background-color: rgba(74, 158, 255, 0.1);
+  background-color: var(--thinking-bg, rgba(74, 158, 255, 0.1));
   border-radius: 0 var(--theme-radius-sm) var(--theme-radius-sm) 0;
 }
 

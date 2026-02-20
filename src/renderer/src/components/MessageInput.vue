@@ -364,7 +364,7 @@ onUnmounted(() => {
 
 .message-textarea:focus {
   border-color: var(--theme-accent);
-  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(70, 170, 143, 0.15);
   background-color: var(--theme-bg-tertiary);
 }
 

@@ -221,13 +221,13 @@ function handleToggleReasoning(): void {
 .user-avatar {
   background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-secondary) 100%);
   color: white;
-  box-shadow: 0 2px 8px rgba(74, 158, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(10, 89, 78, 0.25);
 }
 
 .ai-avatar {
   background: linear-gradient(135deg, var(--theme-accent-secondary) 0%, var(--theme-accent-tertiary) 100%);
   color: white;
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 2px 8px rgba(112, 215, 92, 0.3);
 }
 
 /* 发送者信息 */
@@ -252,11 +252,11 @@ function handleToggleReasoning(): void {
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  background: rgba(251, 191, 36, 0.15);
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  background: var(--thinking-bg, rgba(251, 191, 36, 0.15));
+  border: 1px solid var(--thinking-border, rgba(251, 191, 36, 0.3));
   border-radius: 12px;
   font-size: 11px;
-  color: var(--theme-warning);
+  color: var(--thinking-accent, var(--theme-warning));
 }
 
 .thinking-indicator svg {
@@ -287,36 +287,36 @@ function handleToggleReasoning(): void {
   transition: all 0.2s ease;
 }
 
-/* 用户消息气泡：渐变蓝色背景 */
+/* 用户消息气泡：使用主题变量 */
 .chat-message.role-user .message-bubble {
-  background: linear-gradient(135deg, rgba(74, 158, 255, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%);
-  color: white;
+  background: var(--bubble-user-bg, linear-gradient(135deg, rgba(74, 158, 255, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%));
+  color: var(--bubble-user-text, white);
   border-bottom-right-radius: 4px;
-  box-shadow: 0 4px 12px rgba(74, 158, 255, 0.25);
+  box-shadow: 0 4px 12px rgba(10, 89, 78, 0.2);
 }
 
 .chat-message.role-user .message-bubble:hover {
-  box-shadow: 0 6px 16px rgba(74, 158, 255, 0.35);
+  box-shadow: 0 6px 16px rgba(10, 89, 78, 0.3);
 }
 
-/* AI 消息气泡：深色卡片背景 */
+/* AI 消息气泡：使用主题变量 */
 .chat-message.role-assistant .message-bubble {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  color: var(--theme-text);
+  background-color: var(--bubble-ai-bg, var(--theme-bg-secondary));
+  border: 1px solid var(--bubble-ai-border, var(--theme-border));
+  color: var(--bubble-ai-text, var(--theme-text));
   border-bottom-left-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 12px rgba(10, 89, 78, 0.06);
 }
 
 .chat-message.role-assistant .message-bubble:hover {
   border-color: var(--theme-border-hover);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 16px rgba(10, 89, 78, 0.1);
 }
 
 /* 流式输出状态 */
 .message-bubble.streaming {
   border-color: var(--theme-accent);
-  box-shadow: 0 0 0 1px rgba(74, 158, 255, 0.3), 0 2px 8px rgba(74, 158, 255, 0.15);
+  box-shadow: 0 0 0 2px rgba(70, 170, 143, 0.2), 0 2px 12px rgba(70, 170, 143, 0.12);
 }
 
 /* 用户消息文本 */
@@ -423,7 +423,7 @@ function handleToggleReasoning(): void {
 }
 
 .markdown-body :deep(code) {
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: var(--theme-bg-tertiary, rgba(0, 0, 0, 0.2));
   padding: 0.2em 0.4em;
   border-radius: 4px;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
@@ -431,11 +431,12 @@ function handleToggleReasoning(): void {
 }
 
 .markdown-body :deep(pre) {
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: var(--theme-bg-tertiary, rgba(0, 0, 0, 0.3));
   padding: 12px 16px;
   border-radius: var(--theme-radius);
   overflow-x: auto;
   margin: 0.75em 0;
+  border: 1px solid var(--theme-border);
 }
 
 .markdown-body :deep(pre code) {
@@ -449,7 +450,7 @@ function handleToggleReasoning(): void {
   margin: 0.75em 0;
   padding: 0.5em 1em;
   border-left: 3px solid var(--theme-accent);
-  background-color: rgba(74, 158, 255, 0.1);
+  background-color: var(--thinking-bg, rgba(74, 158, 255, 0.1));
   border-radius: 0 var(--theme-radius-sm) var(--theme-radius-sm) 0;
 }
 
@@ -476,7 +477,7 @@ function handleToggleReasoning(): void {
 }
 
 .markdown-body :deep(th) {
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: var(--theme-bg-tertiary, rgba(0, 0, 0, 0.2));
   font-weight: 600;
 }
 
