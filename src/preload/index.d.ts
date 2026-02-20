@@ -1608,6 +1608,51 @@ interface ABTestApi {
 }
 
 /**
+ * 模型特定优化配置
+ */
+interface ModelSpecificConfig {
+  modelPattern: string
+  optimizations: {
+    fewShotCount?: number
+    emphasisOnCOT?: boolean
+    toolDescriptionStyle?: 'concise' | 'detailed'
+    specialInstructions?: string
+  }
+}
+
+/**
+ * 模型配置 API
+ */
+interface ModelConfigApi {
+  getConfigs: () => Promise<ModelSpecificConfig[]>
+  addConfig: (config: ModelSpecificConfig) => Promise<{ success: boolean; error?: string }>
+  updateConfig: (
+    modelPattern: string,
+    config: ModelSpecificConfig
+  ) => Promise<{ success: boolean; error?: string }>
+  deleteConfig: (modelPattern: string) => Promise<{ success: boolean; error?: string }>
+}
+
+/**
+ * 章节优先级配置
+ */
+interface PromptSectionPriority {
+  section: string
+  priority: 'essential' | 'high' | 'medium' | 'low'
+  minTokens: number
+  compressible: boolean
+}
+
+/**
+ * 章节优先级 API
+ */
+interface SectionPriorityApi {
+  getPriorities: () => Promise<PromptSectionPriority[]>
+  savePriorities: (priorities: PromptSectionPriority[]) => Promise<{ success: boolean; error?: string }>
+  resetToDefaults: () => Promise<{ success: boolean; error?: string }>
+}
+
+/**
  * 自定义的完整 API
  */
 interface CustomApi {
@@ -1631,6 +1676,8 @@ interface CustomApi {
   example: ExampleApi
   feedback: FeedbackApi
   abTest: ABTestApi
+  modelConfig: ModelConfigApi
+  sectionPriority: SectionPriorityApi
 }
 
 declare global {

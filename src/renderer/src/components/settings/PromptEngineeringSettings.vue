@@ -5,6 +5,8 @@ import PromptVersionManager from '../prompt/PromptVersionManager.vue'
 import PromptMetricsDashboard from '../prompt/PromptMetricsDashboard.vue'
 import ExampleManager from '../prompt/ExampleManager.vue'
 import ABTestManager from '../prompt/ABTestManager.vue'
+import ModelConfigManager from '../prompt/ModelConfigManager.vue'
+import SectionPriorityManager from '../prompt/SectionPriorityManager.vue'
 import type { PromptConfig } from '@renderer/types'
 
 // ==================== Props & Emits ====================
@@ -20,7 +22,7 @@ const emit = defineEmits<{
 }>()
 
 // ==================== State ====================
-const activeTab = ref<'basic' | 'versions' | 'metrics' | 'examples' | 'abtest'>('basic')
+const activeTab = ref<'basic' | 'versions' | 'metrics' | 'examples' | 'abtest' | 'model' | 'priority'>('basic')
 
 // ==================== Methods ====================
 function handleUpdateConfig(value: PromptConfig): void {
@@ -79,6 +81,20 @@ function handleSuccess(message: string): void {
       >
         A/B 测试
       </button>
+      <button
+        class="sub-tab-btn"
+        :class="{ active: activeTab === 'model' }"
+        @click="activeTab = 'model'"
+      >
+        模型配置
+      </button>
+      <button
+        class="sub-tab-btn"
+        :class="{ active: activeTab === 'priority' }"
+        @click="activeTab = 'priority'"
+      >
+        章节优先级
+      </button>
     </div>
 
     <!-- 内容区域 -->
@@ -105,6 +121,16 @@ function handleSuccess(message: string): void {
       />
       <ABTestManager
         v-else-if="activeTab === 'abtest'"
+        @error="handleError"
+        @success="handleSuccess"
+      />
+      <ModelConfigManager
+        v-else-if="activeTab === 'model'"
+        @error="handleError"
+        @success="handleSuccess"
+      />
+      <SectionPriorityManager
+        v-else-if="activeTab === 'priority'"
         @error="handleError"
         @success="handleSuccess"
       />

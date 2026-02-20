@@ -5,6 +5,7 @@
 
 import type { ReactPromptSections } from './types'
 import type { MCPToolReference } from '@main/types/chat'
+import { sectionPriorityManager, SectionPruningResult } from './SectionPriorityManager'
 
 /**
  * 压缩级别
@@ -91,40 +92,34 @@ export class PromptOptimizer {
   /**
    * 优化提示词的各个章节
    * 在给定的 token 预算内优先保留重要章节
+   * 使用 SectionPriorityManager 进行智能裁剪
    */
   optimizeSections(sections: ReactPromptSections, budget: number): ReactPromptSections {
-    const optimized = { ...sections }
-    let remainingBudget = budget
+    // 使用 SectionPriorityManager 进行章节裁剪
+    const pruningResult = sectionPriorityManager.pruneSections(sections, budget)
 
-    const priorities = [
-      { key: 'coreInstructions', priority: 1, essential: true },
-      { key: 'reactProcess', priority: 2, essential: true },
-      { key: 'toolBestPractices', priority: 3, essential: false },
-      { key: 'errorHandling', priority: 4, essential: false },
-      { key: 'outputFormat', priority: 5, essential: false }
-    ] as const
-
-    for (const { key, essential } of priorities) {
-      const section = optimized[key]
-      const sectionSize = this.estimateTokens(section)
-
-      if (remainingBudget >= sectionSize) {
-        remainingBudget -= sectionSize
-        continue
-      }
-
-      if (!essential && remainingBudget < sectionSize) {
-        optimized[key] = ''
-        continue
-      }
-
-      if (essential || remainingBudget > 0) {
-        optimized[key] = this.compressText(section, remainingBudget)
-        remainingBudget -= this.estimateTokens(optimized[key])
-      }
+    // 记录裁剪结果
+    if (pruningResult.removedSections.length > 0 || pruningResult.compressedSections.length > 0) {
+      console.log('章节优化完成:', {
+        removed: pruningResult.removedSections,
+        compressed: pruningResult.compressedSections,
+        usedTokens: pruningResult.usedTokens,
+        targetTokens: pruningResult.targetTokens
+      })
     }
 
-    return optimized
+    return pruningResult.keptSections as ReactPromptSections
+  }
+
+  /**
+   * 获取章节裁剪详情
+   * 返回详细的裁剪结果，用于调试和展示
+   */
+  getSectionPruningDetails(
+    sections: ReactPromptSections,
+    budget: number
+  ): SectionPruningResult {
+    return sectionPriorityManager.pruneSections(sections, budget)
   }
 
   /**

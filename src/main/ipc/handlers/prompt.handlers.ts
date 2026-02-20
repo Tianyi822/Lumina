@@ -4,8 +4,14 @@ import { logger } from '../../services/logger'
 import { exampleManager } from '../../services/chat/prompts/ExampleManager'
 import { promptBuilder } from '../../services/chat/PromptBuilder'
 import { promptTemplateManager } from '../../services/chat/prompts/PromptTemplateManager'
+import { promptVersionManager } from '../../services/chat/prompts/PromptVersionManager'
+import { modelSpecificOptimizer } from '../../services/chat/prompts/ModelSpecificOptimizer'
+import { promptMetricsCollector } from '../../services/chat/prompts/PromptMetricsCollector'
+import { sectionPriorityManager, type PromptSectionPriority } from '../../services/chat/prompts/SectionPriorityManager'
 import type { PromptConfig } from '@main/types/config'
 import type { ReactPromptSections } from '../../services/chat/prompts/types'
+import type { VersionChange, VersionQueryOptions } from '../../services/chat/prompts/PromptVersionManager'
+import type { ModelSpecificConfig } from '../../services/chat/prompts/ModelSpecificOptimizer'
 
 // 获取提示词配置，返回当前应用的提示词配置对象
 export async function handleGetPromptConfig(): Promise<PromptConfig | undefined> {
@@ -115,6 +121,41 @@ export function registerPromptHandlers(): void {
   ipcMain.handle('prompt:resetTemplate', handleResetTemplate)
   ipcMain.handle('prompt:exportTemplate', handleExportTemplate)
   ipcMain.handle('prompt:importTemplate', handleImportTemplate)
+
+  // 版本管理 handlers
+  ipcMain.handle('prompt:getVersions', handleGetVersions)
+  ipcMain.handle('prompt:getVersion', handleGetVersion)
+  ipcMain.handle('prompt:createVersion', handleCreateVersion)
+  ipcMain.handle('prompt:rollbackToVersion', handleRollbackToVersion)
+  ipcMain.handle('prompt:compareVersions', handleCompareVersions)
+  ipcMain.handle('prompt:addVersionTag', handleAddVersionTag)
+  ipcMain.handle('prompt:removeVersionTag', handleRemoveVersionTag)
+  ipcMain.handle('prompt:deleteVersion', handleDeleteVersion)
+  ipcMain.handle('prompt:getVersionStats', handleGetVersionStats)
+  ipcMain.handle('prompt:exportVersions', handleExportVersions)
+  ipcMain.handle('prompt:importVersions', handleImportVersions)
+
+  // 模型特定优化 handlers
+  ipcMain.handle('prompt:recognizeModel', handleRecognizeModel)
+  ipcMain.handle('prompt:optimizeForModel', handleOptimizeForModel)
+  ipcMain.handle('prompt:getModelRecommendation', handleGetModelRecommendation)
+  ipcMain.handle('prompt:getAllModelConfigs', handleGetAllModelConfigs)
+  ipcMain.handle('prompt:addModelConfig', handleAddModelConfig)
+  ipcMain.handle('prompt:removeModelConfig', handleRemoveModelConfig)
+
+  // 提示词效果监控 handlers
+  ipcMain.handle('prompt:metrics:getCurrent', handleGetCurrentMetrics)
+  ipcMain.handle('prompt:metrics:getByVersion', handleGetMetricsByVersion)
+  ipcMain.handle('prompt:metrics:getTrend', handleGetTrendData)
+  ipcMain.handle('prompt:metrics:export', handleExportMetrics)
+  ipcMain.handle('prompt:metrics:clear', handleClearMetrics)
+
+  // 章节优先级管理 handlers
+  ipcMain.handle('prompt:priority:getAll', handleGetAllPriorities)
+  ipcMain.handle('prompt:priority:update', handleUpdatePriority)
+  ipcMain.handle('prompt:priority:reset', handleResetPriorities)
+  ipcMain.handle('prompt:priority:export', handleExportPriorities)
+  ipcMain.handle('prompt:priority:import', handleImportPriorities)
 
   logger.debug('提示词配置 IPC 处理器已注册', 'main')
 }
@@ -406,6 +447,239 @@ export async function handleImportTemplate(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('导入模板失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// ============ 提示词效果监控 Handlers ============
+
+// 获取当前指标
+export async function handleGetCurrentMetrics(): Promise<{
+  success: boolean
+  metrics?: {
+    version: string
+    period: { start: string; end: string }
+    toolCallSuccessRate: number
+    avgToolCallsPerSession: number
+    tokenEfficiency: number
+    avgResponseTime: number
+    userSatisfactionScore?: number
+    sampleCount: number
+  }
+  error?: string
+}> {
+  try {
+    const metrics = promptMetricsCollector.getCurrentMetrics()
+    return { success: true, metrics }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('获取当前指标失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 获取指定版本的指标
+export async function handleGetMetricsByVersion(
+  _event: Electron.IpcMainInvokeEvent,
+  version: string
+): Promise<{
+  success: boolean
+  metrics?: {
+    version: string
+    period: { start: string; end: string }
+    toolCallSuccessRate: number
+    avgToolCallsPerSession: number
+    tokenEfficiency: number
+    avgResponseTime: number
+    userSatisfactionScore?: number
+    sampleCount: number
+  }
+  error?: string
+}> {
+  try {
+    const metrics = promptMetricsCollector.getMetricsByVersion(version)
+    return { success: true, metrics }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('获取版本指标失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 获取趋势数据
+export async function handleGetTrendData(
+  _event: Electron.IpcMainInvokeEvent,
+  options: {
+    metricType: 'toolCallSuccessRate' | 'tokenEfficiency' | 'avgResponseTime'
+    days?: number
+    version?: string
+  }
+): Promise<{
+  success: boolean
+  data?: Array<{
+    timestamp: number
+    date: string
+    value: number
+    sampleCount: number
+  }>
+  error?: string
+}> {
+  try {
+    const data = promptMetricsCollector.getTrendData(
+      options.metricType,
+      options.days || 7,
+      options.version
+    )
+    return { success: true, data }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('获取趋势数据失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 导出报表
+export async function handleExportMetrics(
+  _event: Electron.IpcMainInvokeEvent,
+  options: {
+    startDate: string
+    endDate: string
+    version?: string
+  }
+): Promise<{
+  success: boolean
+  report?: {
+    summary: {
+      version: string
+      period: { start: string; end: string }
+      toolCallSuccessRate: number
+      avgToolCallsPerSession: number
+      tokenEfficiency: number
+      avgResponseTime: number
+      userSatisfactionScore?: number
+      sampleCount: number
+    }
+    dailyData: Array<{
+      date: string
+      toolCallSuccessRate: number
+      avgToolCalls: number
+      tokenEfficiency: number
+      avgResponseTime: number
+      sessionCount: number
+    }>
+  }
+  error?: string
+}> {
+  try {
+    const report = promptMetricsCollector.exportReport(
+      options.startDate,
+      options.endDate,
+      options.version
+    )
+    return { success: true, report }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('导出报表失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 清空监控数据
+export async function handleClearMetrics(): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    promptMetricsCollector.clearAll()
+    return { success: true }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('清空监控数据失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// ============ 章节优先级管理 Handlers ============
+
+// 获取所有章节优先级
+export async function handleGetAllPriorities(): Promise<{
+  success: boolean
+  priorities?: PromptSectionPriority[]
+  error?: string
+}> {
+  try {
+    const priorities = sectionPriorityManager.getAllPriorities()
+    return { success: true, priorities }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('获取章节优先级失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 更新章节优先级
+export async function handleUpdatePriority(
+  _event: Electron.IpcMainInvokeEvent,
+  options: {
+    section: keyof ReactPromptSections
+    updates: Partial<Omit<PromptSectionPriority, 'section'>>
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = sectionPriorityManager.updatePriority(options.section, options.updates)
+    return { success: result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('更新章节优先级失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 重置为默认优先级
+export async function handleResetPriorities(): Promise<{
+  success: boolean
+  priorities?: PromptSectionPriority[]
+  error?: string
+}> {
+  try {
+    sectionPriorityManager.resetToDefault()
+    const priorities = sectionPriorityManager.getAllPriorities()
+    return { success: true, priorities }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('重置章节优先级失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 导出优先级配置
+export async function handleExportPriorities(): Promise<{
+  success: boolean
+  json?: string
+  error?: string
+}> {
+  try {
+    const config = sectionPriorityManager.exportConfig()
+    return { success: true, json: JSON.stringify(config, null, 2) }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('导出优先级配置失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 导入优先级配置
+export async function handleImportPriorities(
+  _event: Electron.IpcMainInvokeEvent,
+  json: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const config = JSON.parse(json)
+    const result = sectionPriorityManager.importConfig(config)
+    return { success: result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('导入优先级配置失败', 'main', { error: errorMessage })
     return { success: false, error: errorMessage }
   }
 }

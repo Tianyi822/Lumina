@@ -9,7 +9,9 @@ import type {
   ABTestConfig,
   ABTestResult,
   PromptTemplate,
-  PromptCacheStats
+  PromptCacheStats,
+  ModelSpecificConfig,
+  PromptSectionPriority
 } from '@shared/types/prompt'
 
 /**
@@ -312,4 +314,61 @@ export const cacheStatsApi = {
    */
   clearCache: (): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('prompt:cache:clear')
+}
+
+/**
+ * 模型配置 API
+ */
+export const modelConfigApi = {
+  /**
+   * 获取所有模型配置
+   */
+  getConfigs: (): Promise<ModelSpecificConfig[]> =>
+    ipcRenderer.invoke('prompt:modelConfig:getAll'),
+
+  /**
+   * 添加模型配置
+   */
+  addConfig: (config: ModelSpecificConfig): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('prompt:modelConfig:add', config),
+
+  /**
+   * 更新模型配置
+   */
+  updateConfig: (
+    modelPattern: string,
+    config: ModelSpecificConfig
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('prompt:modelConfig:update', modelPattern, config),
+
+  /**
+   * 删除模型配置
+   */
+  deleteConfig: (modelPattern: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('prompt:modelConfig:delete', modelPattern)
+}
+
+/**
+ * 章节优先级 API
+ */
+export const sectionPriorityApi = {
+  /**
+   * 获取所有章节优先级配置
+   */
+  getPriorities: (): Promise<PromptSectionPriority[]> =>
+    ipcRenderer.invoke('prompt:sectionPriority:getAll'),
+
+  /**
+   * 保存章节优先级配置
+   */
+  savePriorities: (
+    priorities: PromptSectionPriority[]
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('prompt:sectionPriority:save', priorities),
+
+  /**
+   * 重置为默认配置
+   */
+  resetToDefaults: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('prompt:sectionPriority:reset')
 }

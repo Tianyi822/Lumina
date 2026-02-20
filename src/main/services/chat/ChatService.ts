@@ -19,6 +19,7 @@ import { promptBuilder } from './PromptBuilder'
 import { enhanceToolDescriptions } from './toolDescriptionEnhancer'
 import { ToolCallScheduler } from './ToolCallScheduler'
 import { getKnowledgeServiceManager } from '../knowledge'
+import { promptMetricsCollector } from './prompts/PromptMetricsCollector'
 
 /**
  * 聊天服务
@@ -90,11 +91,23 @@ export class ChatService {
     if ((selectedTools && selectedTools.length > 0) || request.enableSandboxTools) {
       const result = await this.sendMessageWithReact(request, webContents, knowledgeResults)
       this.clearStoppedSession(sessionId)
+
+      // 记录会话完成
+      if (result.success) {
+        promptMetricsCollector.recordSessionComplete(sessionId)
+      }
+
       return result
     }
 
     const result = await this.sendMessageDirect(request, webContents, knowledgeResults)
     this.clearStoppedSession(sessionId)
+
+    // 记录会话完成
+    if (result.success) {
+      promptMetricsCollector.recordSessionComplete(sessionId)
+    }
+
     return result
   }
 

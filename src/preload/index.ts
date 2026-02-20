@@ -19,7 +19,9 @@ import {
   feedbackApi,
   abTestApi,
   promptTemplateApi,
-  cacheStatsApi
+  cacheStatsApi,
+  modelConfigApi,
+  sectionPriorityApi
 } from './apis/promptEngineering'
 
 /**
@@ -48,7 +50,9 @@ const api = {
   feedback: feedbackApi,
   abTest: abTestApi,
   promptTemplate: promptTemplateApi,
-  cacheStats: cacheStatsApi
+  cacheStats: cacheStatsApi,
+  modelConfig: modelConfigApi,
+  sectionPriority: sectionPriorityApi
 }
 
 // 使用 contextBridge 向渲染器暴露 API
