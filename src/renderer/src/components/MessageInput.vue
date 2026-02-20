@@ -341,7 +341,7 @@ onUnmounted(() => {
       transparent 0%,
       var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
     var(--theme-bg);
-  border-top: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  border-top: 1px solid var(--theme-border);
 }
 
 .input-wrapper {

@@ -79,7 +79,7 @@ function handleDeleteSession(sessionId: string): void {
       var(--glass-white-013, rgba(255,255,255,0.013)) 0%,
       var(--glass-white-007, rgba(255,255,255,0.007)) 100%),
     var(--theme-bg);
-  border-right: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  border-right: 1px solid var(--theme-border);
   flex-shrink: 0;
 }
 

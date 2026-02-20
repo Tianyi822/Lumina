@@ -87,6 +87,7 @@ function formatTime(isoString: string): string {
   padding: 8px;
   overflow-y: auto;
   flex: 1;
+  border-top: 1px solid var(--theme-border);
 }
 
 .chat-item {

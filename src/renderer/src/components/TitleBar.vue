@@ -240,6 +240,7 @@ onUnmounted(() => {
 /* macOS 样式 */
 .title-bar.is-mac {
   padding-left: 80px;
+  border-bottom: 1px solid var(--theme-border);
 }
 
 .title-bar-left-spacer {
