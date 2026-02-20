@@ -3,7 +3,9 @@ import { configManager } from '../../services/config'
 import { logger } from '../../services/logger'
 import { exampleManager } from '../../services/chat/prompts/ExampleManager'
 import { promptBuilder } from '../../services/chat/PromptBuilder'
+import { promptTemplateManager } from '../../services/chat/prompts/PromptTemplateManager'
 import type { PromptConfig } from '@main/types/config'
+import type { ReactPromptSections } from '../../services/chat/prompts/types'
 
 // 获取提示词配置，返回当前应用的提示词配置对象
 export async function handleGetPromptConfig(): Promise<PromptConfig | undefined> {
@@ -105,6 +107,14 @@ export function registerPromptHandlers(): void {
   ipcMain.handle('prompt:getCacheStats', handleGetCacheStats)
   ipcMain.handle('prompt:getCacheReport', handleGetCacheReport)
   ipcMain.handle('prompt:clearCache', handleClearCache)
+
+  // 模板管理 handlers
+  ipcMain.handle('prompt:getTemplate', handleGetTemplate)
+  ipcMain.handle('prompt:updateTemplate', handleUpdateTemplate)
+  ipcMain.handle('prompt:updateTemplateSection', handleUpdateTemplateSection)
+  ipcMain.handle('prompt:resetTemplate', handleResetTemplate)
+  ipcMain.handle('prompt:exportTemplate', handleExportTemplate)
+  ipcMain.handle('prompt:importTemplate', handleImportTemplate)
 
   logger.debug('提示词配置 IPC 处理器已注册', 'main')
 }
@@ -266,6 +276,136 @@ export async function handleClearCache(): Promise<{
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('清空缓存失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// ============ 模板管理 Handlers ============
+
+// 获取当前模板
+export async function handleGetTemplate(): Promise<{
+  success: boolean
+  template?: {
+    version: string
+    sections: ReactPromptSections
+    variables: Record<string, string>
+  }
+  error?: string
+}> {
+  try {
+    const template = promptTemplateManager.getTemplate()
+    return { success: true, template }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('获取模板失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 更新整个模板
+export async function handleUpdateTemplate(
+  _event: Electron.IpcMainInvokeEvent,
+  template: {
+    version: string
+    sections: ReactPromptSections
+    variables: Record<string, string>
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await promptTemplateManager.updateTemplate(template)
+    if (result) {
+      // 清空缓存以使用新模板
+      promptBuilder.getCache().clear()
+      logger.info('提示词模板已更新', 'main', { version: template.version })
+    }
+    return { success: result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('更新模板失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 更新单个章节
+export async function handleUpdateTemplateSection(
+  _event: Electron.IpcMainInvokeEvent,
+  sectionName: keyof ReactPromptSections,
+  content: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await promptTemplateManager.updateSection(sectionName, content)
+    if (result) {
+      // 清空缓存以使用新章节
+      promptBuilder.getCache().clear()
+      logger.info('提示词模板章节已更新', 'main', { sectionName })
+    }
+    return { success: result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('更新模板章节失败', 'main', { sectionName, error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 重置模板为默认值
+export async function handleResetTemplate(): Promise<{
+  success: boolean
+  template?: {
+    version: string
+    sections: ReactPromptSections
+    variables: Record<string, string>
+  }
+  error?: string
+}> {
+  try {
+    const result = await promptTemplateManager.resetToDefault()
+    if (result) {
+      // 清空缓存以使用默认模板
+      promptBuilder.getCache().clear()
+      const template = promptTemplateManager.getTemplate()
+      logger.info('提示词模板已重置为默认值', 'main')
+      return { success: true, template }
+    }
+    return { success: false, error: '重置失败' }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('重置模板失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 导出模板
+export async function handleExportTemplate(): Promise<{
+  success: boolean
+  json?: string
+  error?: string
+}> {
+  try {
+    const json = promptTemplateManager.exportTemplate()
+    return { success: true, json }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('导出模板失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 导入模板
+export async function handleImportTemplate(
+  _event: Electron.IpcMainInvokeEvent,
+  json: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await promptTemplateManager.importTemplate(json)
+    if (result) {
+      // 清空缓存以使用新模板
+      promptBuilder.getCache().clear()
+      logger.info('提示词模板已导入', 'main')
+    }
+    return { success: result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('导入模板失败', 'main', { error: errorMessage })
     return { success: false, error: errorMessage }
   }
 }
