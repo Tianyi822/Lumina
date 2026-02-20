@@ -133,6 +133,15 @@ function handlePromptResetSuccess(): void {
   }, 2000)
 }
 
+// 主题变化处理（立即生效，无需保存）
+function handleThemeChange(themeId: string): void {
+  window.api.logger.info('[SettingsModal] 主题已切换', { themeId })
+  successMessage.value = '主题已应用'
+  setTimeout(() => {
+    successMessage.value = ''
+  }, 1500)
+}
+
 // 键盘事件处理
 function handleKeyDown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
@@ -254,6 +263,7 @@ onUnmounted(() => {
             v-else-if="activeTab === 'theme'"
             :model-value="themeConfig"
             @update:model-value="(value) => Object.assign(themeConfig, value)"
+            @theme-change="handleThemeChange"
           />
         </div>
       </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import TitleBar from './components/TitleBar.vue'
 import ChatPage from './pages/ChatPage.vue'
@@ -10,9 +10,13 @@ import SettingsModal from './components/SettingsModal.vue'
 
 // Composables
 import { useLifecycle } from './composables/lifecycle/useLifecycle'
+import { useTheme } from './composables/useTheme'
 
 // Stores
 import { useUIStateStore } from './stores'
+
+// ==================== 主题初始化 ====================
+const { initTheme } = useTheme()
 
 // ==================== UI 状态管理（直接使用 Store）====================
 const uiState = useUIStateStore()
@@ -62,6 +66,11 @@ useLifecycle({
   cleanupStreamListener: undefined,
   loadSessionList: undefined,
   loadKnowledgeBases: undefined
+})
+
+// 初始化主题
+onMounted(() => {
+  initTheme()
 })
 </script>
 
