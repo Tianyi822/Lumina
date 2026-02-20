@@ -21,7 +21,9 @@ export type {
   ChatRequest,
   ChatResult,
   KnowledgeSearchInfo,
-  KnowledgeResultInfo
+  KnowledgeResultInfo,
+  UserInteractionOption,
+  UserInteractionRequest
 } from '@shared/types/chat'
 
 // MCP 相关类型

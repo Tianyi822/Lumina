@@ -135,7 +135,7 @@ export class SandboxToolService {
               description: '已有容器的 ID（creation_type 为 existing 时必需）'
             }
           },
-          required: ['name', 'creation_type']
+          required: ['name']
         },
         serverName: 'sandbox'
       },
@@ -263,6 +263,45 @@ export class SandboxToolService {
           required: ['command']
         },
         serverName: 'sandbox'
+      },
+
+      // 用户交互工具
+      {
+        name: 'sandbox__ask_user',
+        description: '向用户提问并提供选项，等待用户选择后继续。当需要用户确认或选择时使用此工具',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            question: {
+              type: 'string',
+              description: '向用户提出的问题'
+            },
+            options: {
+              type: 'array',
+              description: '供用户选择的选项列表',
+              items: {
+                type: 'object',
+                properties: {
+                  value: {
+                    type: 'string',
+                    description: '选项的值，将作为用户选择结果返回'
+                  },
+                  label: {
+                    type: 'string',
+                    description: '选项显示的标签文本'
+                  },
+                  description: {
+                    type: 'string',
+                    description: '选项的详细描述（可选）'
+                  }
+                },
+                required: ['value', 'label']
+              }
+            }
+          },
+          required: ['question', 'options']
+        },
+        serverName: 'sandbox'
       }
     ]
   }
@@ -298,6 +337,10 @@ export class SandboxToolService {
           return await this.deleteSandbox(args)
         case 'sandbox__exec_command':
           return await this.execCommand(args)
+
+        // 用户交互工具
+        case 'sandbox__ask_user':
+          return this.askUser(args)
 
         default:
           return {
@@ -462,55 +505,218 @@ export class SandboxToolService {
 
   /**
    * 创建沙箱
+   * 支持三种创建类型：existing、compose、dockerfile
+   * 当缺少 creation_type 时，返回选项请求信号
    */
   private async createSandbox(args: ToolArgs): Promise<MCPToolCallResult> {
     const name = args.name as string
-    const creationType = args.creation_type as SandboxCreationType
+    const creationType = args.creation_type as SandboxCreationType | undefined
 
-    if (!name || !creationType) {
+    if (!name) {
       return {
         success: false,
-        error: '缺少必需参数: name 和 creation_type'
+        error: '缺少必需参数: name'
       }
     }
 
-    // 构建创建请求
+    // 1. 缺少 creation_type → 返回用户交互请求信号
+    if (!creationType) {
+      return {
+        success: true,
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              user_interaction_required: true,
+              question: '请选择沙箱创建方式：',
+              options: [
+                {
+                  value: 'existing',
+                  label: '已有容器关联',
+                  description: '关联一个已运行的 Docker 容器'
+                },
+                {
+                  value: 'dockerfile',
+                  label: 'Dockerfile 构建',
+                  description: '从 Dockerfile 构建新容器'
+                },
+                {
+                  value: 'compose',
+                  label: 'Docker Compose 编排',
+                  description: '使用 docker-compose 创建容器组'
+                }
+              ]
+            })
+          }
+        ]
+      }
+    }
+
+    // 2. 类型特定参数验证
+    if (creationType === 'existing' && !args.existing_container_id) {
+      return {
+        success: false,
+        error: 'existing 类型需要提供 existing_container_id 参数'
+      }
+    }
+    if (creationType === 'dockerfile' && !args.dockerfile_content) {
+      return {
+        success: false,
+        error: 'dockerfile 类型需要提供 dockerfile_content 参数'
+      }
+    }
+    if (creationType === 'compose' && !args.compose_content) {
+      return {
+        success: false,
+        error: 'compose 类型需要提供 compose_content 参数'
+      }
+    }
+
+    // 3. 创建沙箱元数据
     const request: CreateSandboxRequest = {
       name,
       creationType,
       description: args.description as string
     }
-
-    // 根据创建类型设置额外参数
-    if (creationType === 'existing' && args.existing_container_id) {
+    if (creationType === 'existing') {
       request.existingContainerId = args.existing_container_id as string
     }
 
-    // 创建沙箱
-    const result = await sandboxService.createSandbox(request)
-
-    if (!result.success) {
+    const metaResult = await sandboxService.createSandbox(request)
+    if (!metaResult.success || !metaResult.sandbox) {
       return {
         success: false,
-        error: result.error || '创建沙箱失败'
+        error: metaResult.error || '创建沙箱元数据失败'
       }
     }
 
-    // 如果是 compose 或 dockerfile 类型，需要进一步处理
-    if (creationType === 'compose' && args.compose_content) {
-      // 这里需要调用 docker compose up
-      // 实际实现需要通过 IPC 或其他方式处理
-      logger.info('Compose 类型沙箱创建需要额外处理', 'main', {
-        sandboxId: result.sandbox?.sandboxId
-      })
+    const sandboxId = metaResult.sandbox.sandboxId
+
+    // 4. 根据类型执行实际容器操作
+    try {
+      switch (creationType) {
+        case 'existing':
+          // existing 类型在 sandboxService.createSandbox 中已处理
+          break
+
+        case 'dockerfile': {
+          const sanitizedName = name
+            .toLowerCase()
+            .replace(/[^a-z0-9_.-]/g, '-')
+            .replace(/^-+|-+$/g, '')
+          const dockerName = `sandbox-dockerfile-${sanitizedName}`
+
+          logger.info('开始构建 Dockerfile 镜像', 'main', { sandboxId, dockerName })
+
+          const buildResult = await this.dockerService.buildImageFromDockerfile({
+            dockerfile: args.dockerfile_content as string,
+            tag: dockerName
+          })
+          if (!buildResult.success || !buildResult.imageId) {
+            const sandbox = sandboxService.loadSandbox(sandboxId)
+            if (sandbox) {
+              sandbox.status = 'error'
+              sandboxService.saveSandbox(sandbox)
+            }
+            return {
+              success: false,
+              error: buildResult.error || '构建镜像失败'
+            }
+          }
+
+          logger.info('镜像构建成功，开始创建容器', 'main', {
+            sandboxId,
+            imageId: buildResult.imageId
+          })
+
+          const containerResult = await this.dockerService.createContainerFromImage({
+            imageId: buildResult.imageId,
+            name: dockerName
+          })
+          if (!containerResult.success || !containerResult.containerId) {
+            const sandbox = sandboxService.loadSandbox(sandboxId)
+            if (sandbox) {
+              sandbox.status = 'error'
+              sandboxService.saveSandbox(sandbox)
+            }
+            return {
+              success: false,
+              error: containerResult.error || '创建容器失败'
+            }
+          }
+
+          // 更新沙箱元数据
+          const dockerfileSandbox = sandboxService.loadSandbox(sandboxId)
+          if (dockerfileSandbox) {
+            dockerfileSandbox.containerIds = [containerResult.containerId]
+            dockerfileSandbox.primaryContainerId = containerResult.containerId
+            dockerfileSandbox.status = 'running'
+            dockerfileSandbox.updatedAt = new Date().toISOString()
+            sandboxService.saveSandbox(dockerfileSandbox)
+          }
+          break
+        }
+
+        case 'compose': {
+          const sanitizedName = name
+            .toLowerCase()
+            .replace(/[^a-z0-9_.-]/g, '-')
+            .replace(/^-+|-+$/g, '')
+          const projectName = `sandbox-docker-compose-${sanitizedName}`
+
+          logger.info('开始执行 docker compose up', 'main', { sandboxId, projectName })
+
+          const composeResult = await this.dockerService.composeUp({
+            composeContent: args.compose_content as string,
+            projectName
+          })
+          if (!composeResult.success) {
+            const sandbox = sandboxService.loadSandbox(sandboxId)
+            if (sandbox) {
+              sandbox.status = 'error'
+              sandboxService.saveSandbox(sandbox)
+            }
+            return {
+              success: false,
+              error: composeResult.error || 'docker compose up 失败'
+            }
+          }
+
+          // 更新沙箱元数据
+          const composeSandbox = sandboxService.loadSandbox(sandboxId)
+          if (composeSandbox) {
+            composeSandbox.containerIds = composeResult.containerIds || []
+            composeSandbox.primaryContainerId = composeResult.containerIds?.[0]
+            composeSandbox.composeProjectName = projectName
+            composeSandbox.status = 'running'
+            composeSandbox.updatedAt = new Date().toISOString()
+            sandboxService.saveSandbox(composeSandbox)
+          }
+          break
+        }
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      logger.error('容器操作失败', 'main', { sandboxId, error: errorMsg })
+      const sandbox = sandboxService.loadSandbox(sandboxId)
+      if (sandbox) {
+        sandbox.status = 'error'
+        sandboxService.saveSandbox(sandbox)
+      }
+      return {
+        success: false,
+        error: `容器操作失败: ${errorMsg}`
+      }
     }
 
+    // 5. 返回成功
+    const finalSandbox = sandboxService.loadSandbox(sandboxId)
     return {
       success: true,
       content: [
         {
           type: 'text',
-          text: `沙箱创建成功！\n\n沙箱 ID: ${result.sandbox?.sandboxId}\n名称: ${result.sandbox?.name}\n类型: ${result.sandbox?.creationType}\n状态: ${result.sandbox?.status}`
+          text: `沙箱创建成功！\n\n沙箱 ID: ${sandboxId}\n名称: ${name}\n类型: ${creationType}\n状态: ${finalSandbox?.status || 'unknown'}\n容器数: ${finalSandbox?.containerIds?.length || 0}`
         }
       ]
     }
@@ -795,6 +1001,46 @@ export class SandboxToolService {
         {
           type: 'text',
           text: `命令执行结果:${exitInfo}\n\n\`\`\`\n${output}\n\`\`\``
+        }
+      ]
+    }
+  }
+
+  // ==================== 用户交互工具实现 ====================
+
+  /**
+   * 向用户提问并等待选择
+   * 返回特殊信号，ChatService 检测后会暂停 ReAct 循环并显示选项
+   */
+  private askUser(args: ToolArgs): MCPToolCallResult {
+    const question = args.question as string
+    const options = args.options as Array<{ value: string; label: string; description?: string }>
+
+    if (!question) {
+      return {
+        success: false,
+        error: '缺少必需参数: question'
+      }
+    }
+
+    if (!options || !Array.isArray(options) || options.length === 0) {
+      return {
+        success: false,
+        error: '缺少必需参数: options（至少需要一个选项）'
+      }
+    }
+
+    // 返回用户交互请求信号
+    return {
+      success: true,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            user_interaction_required: true,
+            question,
+            options
+          })
         }
       ]
     }

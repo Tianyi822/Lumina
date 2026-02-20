@@ -4,8 +4,9 @@ import { storeToRefs } from 'pinia'
 import MCPToolsPanel from './MCPToolsPanel.vue'
 import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
 import SandboxToolsToggle from './sandbox/SandboxToolsToggle.vue'
+import UserInteractionOptions from './UserInteractionOptions.vue'
 import type { AppConfig, MCPTool, KnowledgeBase } from '@renderer/types'
-import { useUIStateStore } from '@renderer/stores'
+import { useUIStateStore, useChatStreamStore } from '@renderer/stores'
 
 const props = defineProps<{
   isSending?: boolean
@@ -132,6 +133,10 @@ const modelSelectorRef = ref<HTMLElement | null>(null)
 const uiStateStore = useUIStateStore()
 const { configUpdateKey } = storeToRefs(uiStateStore)
 
+// 用户交互选项状态
+const chatStreamStore = useChatStreamStore()
+const { showUserInteraction, userInteractionInfo } = storeToRefs(chatStreamStore)
+
 // 加载已配置的模型列表
 async function loadConfiguredModels(): Promise<void> {
   try {
@@ -203,6 +208,19 @@ function handleStop(): void {
   emit('stop')
 }
 
+function handleUserInteractionSelect(_value: string, label: string): void {
+  chatStreamStore.hideUserInteraction()
+  const message = `我选择：${label}`
+  emit(
+    'send',
+    message,
+    localSelectedModel.value,
+    localSelectedTools.value,
+    localSelectedKnowledgeBases.value,
+    localEnableSandboxTools.value
+  )
+}
+
 function handleKeydown(event: KeyboardEvent): void {
   if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
     handleSend()
@@ -246,6 +264,13 @@ onUnmounted(() => {
 
 <template>
   <div class="message-input-container">
+    <!-- 用户交互选项 -->
+    <UserInteractionOptions
+      v-if="showUserInteraction && userInteractionInfo"
+      :interaction-info="userInteractionInfo"
+      @select="handleUserInteractionSelect"
+    />
+
     <div class="input-wrapper">
       <textarea
         v-model="localInputMessage"

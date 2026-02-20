@@ -95,4 +95,6 @@ export interface ReactPromptSections {
   toolBestPractices: string
   // 输出格式要求
   outputFormat: string
+  // 沙箱管理指南
+  sandboxManagement?: string
 }

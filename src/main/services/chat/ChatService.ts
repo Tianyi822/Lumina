@@ -27,6 +27,7 @@ import { getKnowledgeServiceManager } from '../knowledge'
 export class ChatService {
   private abortControllers: Map<string, AbortController> = new Map()
   private stoppedSessions: Set<string> = new Set()
+  private pendingUserInteraction: Set<string> = new Set()
   private toolScheduler: ToolCallScheduler
   private pendingExtractions: Set<string> = new Set()
   private extractionTimer: NodeJS.Timeout | null = null
@@ -595,15 +596,24 @@ export class ChatService {
           assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
         )
 
-        await this.executeToolCallsWithScheduler(
+        const needUserInteraction = await this.executeToolCallsWithScheduler(
           toolCallsArray,
           webContents,
           sessionId,
           conversationMessages
         )
 
+        // 需要用户交互时，暂停 ReAct 循环
+        if (needUserInteraction) {
+          logger.info('ReAct 循环暂停，等待用户交互', 'main', { sessionId, iterations })
+          break
+        }
+
         iterations++
       }
+
+      // 清除用户交互标记
+      this.pendingUserInteraction.delete(sessionId)
 
       this.sendStreamEvent(webContents, {
         type: 'done',
@@ -635,6 +645,7 @@ export class ChatService {
     } finally {
       this.abortControllers.delete(sessionId)
       this.clearStoppedSession(sessionId)
+      this.pendingUserInteraction.delete(sessionId)
     }
   }
 
@@ -720,7 +731,7 @@ export class ChatService {
     webContents: WebContents,
     sessionId: string,
     conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
-  ): Promise<void> {
+  ): Promise<boolean> {
     this.checkStopped(sessionId)
 
     const { independent, sequential } = this.toolScheduler.analyzeDependencies(toolCalls)
@@ -768,10 +779,16 @@ export class ChatService {
           tool_call_id: toolCall.id,
           content: result
         })
+
+        // 检测到用户交互请求时提前返回
+        if (this.pendingUserInteraction.has(sessionId)) {
+          return true
+        }
       }
     }
 
     this.checkStopped(sessionId)
+    return this.pendingUserInteraction.has(sessionId)
   }
 
   /**
@@ -868,6 +885,30 @@ export class ChatService {
       )
 
       this.checkStopped(sessionId)
+
+      // 检测是否为用户交互请求
+      if (result.success && result.content) {
+        try {
+          const contentText =
+            Array.isArray(result.content) && result.content[0]?.text ? result.content[0].text : null
+          if (contentText) {
+            const parsed = JSON.parse(contentText)
+            if (parsed.user_interaction_required === true) {
+              this.pendingUserInteraction.add(sessionId)
+              this.sendStreamEvent(webContents, {
+                type: 'user_interaction',
+                sessionId,
+                userInteraction: {
+                  question: parsed.question,
+                  options: parsed.options
+                }
+              })
+            }
+          }
+        } catch {
+          // 不是 JSON 或不是交互请求，忽略
+        }
+      }
 
       this.sendStreamEvent(webContents, {
         type: 'tool_result',

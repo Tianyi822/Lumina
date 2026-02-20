@@ -110,7 +110,26 @@ const PROMPT_SECTIONS: ReactPromptSections = {
  4. **推理透明**：
      - 简要说明你使用了哪些工具
      - 解释关键步骤和决策
-     - 如果有不确定性，明确指出`
+     - 如果有不确定性，明确指出`,
+
+  sandboxManagement: `# 沙箱管理指南
+
+当用户要求创建沙箱时，按以下流程操作：
+
+1. **确定创建方式**：如果用户未明确说明创建方式，调用 sandbox__create_sandbox 工具只传 name 参数（不传 creation_type）。系统会展示选项供用户选择。
+
+2. **收集必要参数**：根据用户选择的方式：
+   - **已有容器**：用 sandbox__list_containers 查看可用容器，让用户选择
+   - **Dockerfile**：根据用户需求生成 Dockerfile 内容，或请用户提供
+   - **Docker Compose**：根据用户需求生成 docker-compose.yaml 内容，或请用户提供
+
+3. **执行创建**：参数齐全后，再次调用 sandbox__create_sandbox 带完整参数
+
+注意：
+- 逐步引导，每次只问1-2个问题
+- 对于常见环境（MySQL、Redis、Node.js 等）可主动生成配置内容
+- Dockerfile 内容通过 dockerfile_content 参数传递
+- Compose 内容通过 compose_content 参数传递`
 }
 
 // 构建 ReAct 系统提示词
@@ -152,6 +171,11 @@ export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string
   // 根据配置决定是否强调错误处理
   if (emphasizeErrorHandling) {
     prompt += '\n\n' + PROMPT_SECTIONS.errorHandling
+  }
+
+  // 添加沙箱管理指南
+  if (PROMPT_SECTIONS.sandboxManagement) {
+    prompt += '\n\n' + PROMPT_SECTIONS.sandboxManagement
   }
 
   // 添加 few-shot 示例

@@ -3,7 +3,7 @@
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { Message, StreamEvent } from '@renderer/types'
+import type { Message, StreamEvent, UserInteractionRequest } from '@renderer/types'
 import { useMessageCacheStore } from './messageCacheStore'
 
 export const useChatStreamStore = defineStore('chatStream', () => {
@@ -27,6 +27,10 @@ export const useChatStreamStore = defineStore('chatStream', () => {
 
   // 流式监听器清理函数
   const cleanupStreamListenerFn = ref<(() => void) | null>(null)
+
+  // 用户交互选项状态
+  const showUserInteraction = ref(false)
+  const userInteractionInfo = ref<UserInteractionRequest | null>(null)
 
   // ==================== Getters ====================
 
@@ -71,6 +75,10 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     // 更新流式会话 ID
     if (state) {
       streamingSessionId.value = sessionId
+      // 新的流开始时，清除之前的用户交互选项
+      if (isCurrentSession) {
+        hideUserInteraction()
+      }
     } else if (streamingSessionId.value === sessionId) {
       streamingSessionId.value = null
     }
@@ -106,6 +114,12 @@ export const useChatStreamStore = defineStore('chatStream', () => {
   // 清除消息快照
   function clearMessagesSnapshot(sessionId: string): void {
     messagesSnapshots.value.delete(sessionId)
+  }
+
+  // 隐藏用户交互选项
+  function hideUserInteraction(): void {
+    showUserInteraction.value = false
+    userInteractionInfo.value = null
   }
 
   // 处理流式事件
@@ -271,6 +285,13 @@ export const useChatStreamStore = defineStore('chatStream', () => {
         }
         break
 
+      case 'user_interaction':
+        if (isCurrentSession && event.userInteraction) {
+          showUserInteraction.value = true
+          userInteractionInfo.value = event.userInteraction
+        }
+        break
+
       case 'done':
         handleStreamDone(event, targetSessionId, isCurrentSession, streamingMessage)
         break
@@ -302,6 +323,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
       isSending.value = false
       streamingSessionId.value = null
       clearMessagesSnapshot(sessionId)
+      // 注意：不清除 userInteraction，选项需要持续显示到用户做出选择
     } else {
       // 非当前会话：保存缓存
       if (streamingSessionId.value === sessionId) {
@@ -337,6 +359,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
       isSending.value = false
       streamingSessionId.value = null
       clearMessagesSnapshot(sessionId)
+      hideUserInteraction()
     } else {
       // 非当前会话：清除缓存
       if (streamingSessionId.value === sessionId) {
@@ -435,6 +458,8 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     sessionSendingStates,
     messagesSnapshots,
     streamingSessionId,
+    showUserInteraction,
+    userInteractionInfo,
     // Getters
     streamingSessionCount,
     activeSessionIds,
@@ -445,6 +470,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     saveMessagesSnapshot,
     getMessagesSnapshot,
     clearMessagesSnapshot,
+    hideUserInteraction,
     handleStreamEvent,
     setupStreamListener,
     cleanupStreamListener,
