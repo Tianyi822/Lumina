@@ -26,7 +26,7 @@ const infoMessage = ref('')
 
 // 主题配置
 const themeConfig = reactive<ThemeConfig>({
-  name: 'terminal',
+  name: 'blooming-flowers',
   colors: {
     background: '#0d1117',
     backgroundSecondary: '#161b22',
@@ -60,7 +60,7 @@ async function loadConfig(): Promise<void> {
     if (config) {
       // 加载主题配置
       if (config.theme) {
-        themeConfig.name = config.theme.name || 'terminal'
+        themeConfig.name = config.theme.name || 'blooming-flowers'
         if (config.theme.colors) {
           Object.assign(themeConfig.colors!, config.theme.colors)
         }

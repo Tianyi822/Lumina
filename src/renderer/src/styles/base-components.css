@@ -1,125 +1,51 @@
 /**
- * Theme System - Terminal Theme (Linear-inspired)
- * 终端主题样式 - 融合 Linear 设计原则与流体玻璃效果
- *
- * 设计原则:
- * - 精致克制的深色界面
- * - 微妙的玻璃质感层次
- * - 流畅的过渡动画
- * - 高对比度可读性
+ * Base Components CSS
+ * 基础组件样式 - 通用 UI 组件的默认样式
  */
-
-/* 字体导入 - Linear 风格使用 Inter */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-
-/* ========== 主题变量定义 ========== */
-[data-theme='terminal'] {
-  /* 主色调 - Linear 风格深色背景 */
-  --theme-bg: #0a0a0f;
-  --theme-bg-secondary: #12121a;
-  --theme-bg-tertiary: #1a1a28;
-  --theme-bg-hover: #222236;
-
-  /* 文字颜色 - 高对比度 */
-  --theme-text: #ececf1;
-  --theme-text-secondary: #a1a1aa;
-  --theme-text-tertiary: #71717a;
-
-  /* 强调色 - Linear 紫蓝色系 */
-  --theme-accent: #6366f1;
-  --theme-accent-secondary: #818cf8;
-  --theme-accent-tertiary: #4f46e5;
-
-  /* 功能色 */
-  --theme-danger: #ef4444;
-  --theme-warning: #f59e0b;
-  --theme-info: #6366f1;
-  --theme-success: #22c55e;
-
-  /* 边框 - 半透明玻璃风格 */
-  --theme-border: rgba(255, 255, 255, 0.08);
-  --theme-border-hover: rgba(255, 255, 255, 0.15);
-  --theme-border-active: rgba(99, 102, 241, 0.5);
-
-  /* 字体 - Inter 为主，代码用 JetBrains Mono */
-  --theme-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --theme-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-
-  /* 圆角 */
-  --theme-radius: 8px;
-  --theme-radius-sm: 6px;
-  --theme-radius-lg: 12px;
-
-  /* 阴影 - 更深邃的层次 */
-  --theme-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --theme-shadow-glow: 0 0 20px rgba(99, 102, 241, 0.12);
-
-  /* 间距 */
-  --theme-spacing: 12px;
-  --theme-spacing-sm: 8px;
-  --theme-spacing-lg: 16px;
-
-  /* 标题栏专用变量 */
-  --title-bar-height: 38px;
-  --title-bar-bg: transparent;
-  --title-bar-border: var(--theme-border);
-  --title-bar-text: var(--theme-text-secondary);
-  --title-bar-text-hover: var(--theme-text);
-
-  /* 聊天气泡专用色 */
-  --bubble-user-bg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  --bubble-user-text: #ffffff;
-  --bubble-ai-bg: var(--theme-bg-secondary);
-  --bubble-ai-text: var(--theme-text);
-  --bubble-ai-border: var(--theme-border);
-
-  /* 思考面板专用色 */
-  --thinking-bg: rgba(99, 102, 241, 0.08);
-  --thinking-border: rgba(99, 102, 241, 0.2);
-  --thinking-accent: var(--theme-accent-secondary);
-}
 
 /* ========== 默认主题变量（作为后备） ========== */
 :root {
-  /* 主色调 - Linear 风格深色背景 */
-  --theme-bg: #0a0a0f;
-  --theme-bg-secondary: #12121a;
-  --theme-bg-tertiary: #1a1a28;
-  --theme-bg-hover: #222236;
+  /* 主色调 - Blooming Flowers 默认 */
+  --theme-bg: #f4f7f6;
+  --theme-bg-secondary: #ffffff;
+  --theme-bg-tertiary: #edf2f0;
+  --theme-bg-hover: #e4ede9;
 
-  /* 文字颜色 - 高对比度 */
-  --theme-text: #ececf1;
-  --theme-text-secondary: #a1a1aa;
-  --theme-text-tertiary: #71717a;
+  /* 文字颜色 */
+  --theme-text: #1a2f2a;
+  --theme-text-secondary: #3d5a52;
+  --theme-text-tertiary: #6b8a7d;
 
-  /* 强调色 - Linear 紫蓝色系 */
-  --theme-accent: #6366f1;
-  --theme-accent-secondary: #818cf8;
-  --theme-accent-tertiary: #4f46e5;
+  /* 强调色 - 自然绿色系 */
+  --theme-accent: #46aa8f;
+  --theme-accent-secondary: #70d75c;
+  --theme-accent-tertiary: #0a594e;
+  --theme-highlight: #d0ed35;
 
   /* 功能色 */
-  --theme-danger: #ef4444;
-  --theme-warning: #f59e0b;
-  --theme-info: #6366f1;
-  --theme-success: #22c55e;
+  --theme-danger: #e57373;
+  --theme-warning: #ffb003;
+  --theme-info: #46aa8f;
+  --theme-success: #70d75c;
 
-  /* 边框 - 半透明玻璃风格 */
-  --theme-border: rgba(255, 255, 255, 0.08);
-  --theme-border-hover: rgba(255, 255, 255, 0.15);
-  --theme-border-active: rgba(99, 102, 241, 0.5);
+  /* 边框 */
+  --theme-border: rgba(70, 170, 143, 0.15);
+  --theme-border-hover: rgba(70, 170, 143, 0.3);
+  --theme-border-active: rgba(70, 170, 143, 0.5);
 
   /* 字体 */
-  --theme-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --theme-font:
+    'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --theme-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 
   /* 圆角 */
-  --theme-radius: 8px;
-  --theme-radius-sm: 6px;
-  --theme-radius-lg: 12px;
+  --theme-radius: 10px;
+  --theme-radius-sm: 8px;
+  --theme-radius-lg: 14px;
 
   /* 阴影 */
-  --theme-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --theme-shadow-glow: 0 0 20px rgba(99, 102, 241, 0.12);
+  --theme-shadow: 0 4px 20px rgba(10, 89, 78, 0.08), 0 2px 8px rgba(10, 89, 78, 0.04);
+  --theme-shadow-glow: 0 0 30px rgba(70, 170, 143, 0.12);
 
   /* 间距 */
   --theme-spacing: 12px;
@@ -134,22 +60,22 @@
   --title-bar-text-hover: var(--theme-text);
 
   /* 聊天气泡 */
-  --bubble-user-bg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  --bubble-user-bg: linear-gradient(135deg, #0a594e 0%, #46aa8f 100%);
   --bubble-user-text: #ffffff;
-  --bubble-ai-bg: var(--theme-bg-secondary);
-  --bubble-ai-text: var(--theme-text);
-  --bubble-ai-border: var(--theme-border);
+  --bubble-ai-bg: #ffffff;
+  --bubble-ai-text: #1a2f2a;
+  --bubble-ai-border: rgba(70, 170, 143, 0.15);
 
   /* 思考面板 */
-  --thinking-bg: rgba(99, 102, 241, 0.08);
-  --thinking-border: rgba(99, 102, 241, 0.2);
-  --thinking-accent: #818cf8;
+  --thinking-bg: #edf2f0;
+  --thinking-border: rgba(70, 170, 143, 0.25);
+  --thinking-accent: #46aa8f;
 
   /* 滚动条变量 */
   --scrollbar-width: 6px;
   --scrollbar-track-bg: transparent;
-  --scrollbar-thumb-bg: rgba(255, 255, 255, 0.1);
-  --scrollbar-thumb-hover-bg: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-bg: rgba(70, 170, 143, 0.25);
+  --scrollbar-thumb-hover-bg: rgba(70, 170, 143, 0.4);
   --scrollbar-thumb-radius: 3px;
 }
 
@@ -231,115 +157,6 @@
   line-height: 1.6;
 }
 
-/* ========== 终端特有样式 ========== */
-.terminal-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.terminal-dot-red {
-  background-color: var(--theme-danger);
-}
-
-.terminal-dot-yellow {
-  background-color: var(--theme-warning);
-}
-
-.terminal-dot-green {
-  background-color: var(--theme-success);
-}
-
-.terminal-prompt {
-  color: var(--theme-accent);
-}
-
-.terminal-prompt::before {
-  content: '❯ ';
-  color: var(--theme-accent-secondary);
-}
-
-.terminal-prompt-indent {
-  display: inline-block;
-  width: 3.5em;
-}
-
-.command-line {
-  margin: 4px 0;
-  display: flex;
-  flex-wrap: wrap;
-}
-
-.command {
-  color: var(--theme-text);
-}
-
-.output {
-  color: var(--theme-text-secondary);
-  margin-left: 1rem;
-}
-
-.output-success {
-  color: var(--theme-success);
-}
-
-.output-error {
-  color: var(--theme-danger);
-}
-
-.output-warning {
-  color: var(--theme-warning);
-}
-
-.output-info {
-  color: var(--theme-info);
-}
-
-/* 闪烁光标 */
-.terminal-cursor {
-  display: inline-block;
-  width: 8px;
-  height: 18px;
-  background-color: var(--theme-accent);
-  margin-left: 2px;
-  animation: cursor-blink 1s step-end infinite;
-}
-
-@keyframes cursor-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-
-.terminal-caret {
-  caret-color: transparent;
-  position: relative;
-}
-
-.terminal-caret:focus {
-  outline: none;
-}
-
-.terminal-underscore {
-  color: var(--theme-accent);
-  font-weight: bold;
-  animation: underscore-blink 1s step-end infinite;
-}
-
-@keyframes underscore-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-
 /* ========== 按钮组件 - 玻璃效果 ========== */
 .btn {
   font-family: var(--theme-font);
@@ -378,19 +195,19 @@
   font-family: var(--theme-font);
   padding: 7px 14px;
   background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-tertiary) 100%);
-  border: 1px solid rgba(99, 102, 241, 0.4);
+  border: 1px solid rgba(70, 170, 143, 0.4);
   border-radius: var(--theme-radius-sm);
   color: #ffffff;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 2px 8px rgba(10, 89, 78, 0.3);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+  background: linear-gradient(135deg, #52ba9d 0%, #0d6b5e 100%);
+  box-shadow: 0 4px 16px rgba(10, 89, 78, 0.4);
   transform: translateY(-0.5px);
 }
 
@@ -409,7 +226,7 @@
   font-family: var(--theme-font);
   padding: 7px 14px;
   background-color: transparent;
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  border: 1px solid rgba(229, 115, 115, 0.4);
   border-radius: var(--theme-radius-sm);
   color: var(--theme-danger);
   font-size: 13px;
@@ -419,7 +236,7 @@
 }
 
 .btn-danger:hover {
-  background-color: rgba(239, 68, 68, 0.15);
+  background-color: rgba(229, 115, 115, 0.15);
   border-color: var(--theme-danger);
   color: var(--theme-danger);
 }
@@ -452,7 +269,7 @@
 
 .input:focus {
   border-color: var(--theme-accent);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 0 3px rgba(70, 170, 143, 0.15);
   background:
     linear-gradient(135deg, var(--glass-white-02, rgba(255,255,255,0.02)) 0%, var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
     rgba(0, 0, 0, 0.02);
@@ -473,21 +290,21 @@
 }
 
 .badge-success {
-  border-color: rgba(34, 197, 94, 0.3);
+  border-color: rgba(112, 215, 92, 0.3);
   color: var(--theme-success);
-  background: rgba(34, 197, 94, 0.1);
+  background: rgba(112, 215, 92, 0.1);
 }
 
 .badge-error {
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: rgba(229, 115, 115, 0.3);
   color: var(--theme-danger);
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(229, 115, 115, 0.1);
 }
 
 .badge-info {
-  border-color: rgba(99, 102, 241, 0.3);
+  border-color: rgba(70, 170, 143, 0.3);
   color: var(--theme-info);
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(70, 170, 143, 0.1);
 }
 
 /* ========== 分割线组件 ========== */
@@ -524,44 +341,6 @@
   border-color: var(--theme-border-hover);
   box-shadow: var(--theme-shadow-glow);
   transform: translateY(-1px);
-}
-
-/* ========== 特殊效果 ========== */
-.terminal-scanline {
-  position: relative;
-  overflow: hidden;
-}
-
-.terminal-scanline::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0.05),
-    rgba(0, 0, 0, 0.05) 1px,
-    transparent 1px,
-    transparent 2px
-  );
-  pointer-events: none;
-}
-
-@keyframes typing {
-  from {
-    width: 0;
-  }
-  to {
-    width: 100%;
-  }
-}
-
-.terminal-typing {
-  overflow: hidden;
-  white-space: nowrap;
-  animation: typing 2s steps(40, end);
 }
 
 /* ========== 响应式调整 ========== */

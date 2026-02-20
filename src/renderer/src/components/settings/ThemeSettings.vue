@@ -82,6 +82,16 @@ onMounted(() => {
             class="preview-color accent"
             :style="{ backgroundColor: theme.previewColors?.accent }"
           ></div>
+          <div
+            v-if="theme.previewColors?.extra1"
+            class="preview-color extra"
+            :style="{ backgroundColor: theme.previewColors?.extra1 }"
+          ></div>
+          <div
+            v-if="theme.previewColors?.extra2"
+            class="preview-color extra"
+            :style="{ backgroundColor: theme.previewColors?.extra2 }"
+          ></div>
         </div>
 
         <!-- 主题信息 -->
@@ -172,6 +182,10 @@ onMounted(() => {
 
 .preview-color.primary {
   flex: 2;
+}
+
+.preview-color.extra {
+  flex: 1;
 }
 
 .theme-info {

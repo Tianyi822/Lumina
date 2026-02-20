@@ -45,6 +45,8 @@ const typeClass = computed(() => `message-${props.type}`)
 </template>
 
 <style scoped>
+@import '@renderer/styles/operation-message-colors.css';
+
 .operation-message {
   position: fixed;
   top: 20px;
@@ -112,66 +114,6 @@ const typeClass = computed(() => `message-${props.type}`)
 .message-close:hover {
   background-color: var(--theme-bg-secondary);
   color: var(--theme-text);
-}
-
-/* 错误样式 */
-.message-error {
-  border-color: var(--theme-danger);
-  background-color: rgba(248, 81, 73, 0.05);
-}
-
-.message-error .message-icon {
-  background-color: var(--theme-danger);
-  color: white;
-}
-
-.message-error .message-title {
-  color: var(--theme-danger);
-}
-
-/* 警告样式 */
-.message-warning {
-  border-color: var(--theme-warning);
-  background-color: rgba(210, 153, 34, 0.05);
-}
-
-.message-warning .message-icon {
-  background-color: var(--theme-warning);
-  color: var(--theme-bg);
-}
-
-.message-warning .message-title {
-  color: var(--theme-warning);
-}
-
-/* 成功样式 */
-.message-success {
-  border-color: var(--theme-success);
-  background-color: rgba(63, 185, 80, 0.05);
-}
-
-.message-success .message-icon {
-  background-color: var(--theme-success);
-  color: white;
-}
-
-.message-success .message-title {
-  color: var(--theme-success);
-}
-
-/* 信息样式 */
-.message-info {
-  border-color: var(--theme-info);
-  background-color: rgba(88, 166, 255, 0.05);
-}
-
-.message-info .message-icon {
-  background-color: var(--theme-info);
-  color: white;
-}
-
-.message-info .message-title {
-  color: var(--theme-info);
 }
 
 /* 过渡动画 */

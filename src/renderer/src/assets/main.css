@@ -5,7 +5,7 @@
 
 @import './base.css';
 @import '../styles/glass.css';
-@import '../themes/terminal.css';
+@import '../styles/base-components.css';
 @import '../themes/blooming-flowers.css';
 @import '../styles/forms.css';
 
