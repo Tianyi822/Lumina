@@ -26,7 +26,12 @@ const emit = defineEmits<{
 /**
  * 格式化 Token 统计
  */
-function formatTokenUsage(usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number; reasoning_tokens?: number }): string {
+function formatTokenUsage(usage: {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  reasoning_tokens?: number
+}): string {
   let result = `输入: ${usage.prompt_tokens} | 输出: ${usage.completion_tokens} | 总计: ${usage.total_tokens}`
   if (usage.reasoning_tokens) {
     result += ` | 思考: ${usage.reasoning_tokens}`
@@ -78,10 +83,7 @@ function handleToggleReasoning(): void {
 </script>
 
 <template>
-  <div
-    class="chat-message"
-    :class="[`role-${message.role}`, { streaming: message.isStreaming }]"
-  >
+  <div class="chat-message" :class="[`role-${message.role}`, { streaming: message.isStreaming }]">
     <!-- 消息头部：头像和发送者信息 -->
     <div class="message-header">
       <!-- 头像 -->
@@ -144,7 +146,9 @@ function handleToggleReasoning(): void {
 
       <!-- 消息元信息行：时间戳、Token统计、反馈按钮 -->
       <div
-        v-if="showTimestamp || (message.role === 'assistant' && !message.isStreaming && message.usage)"
+        v-if="
+          showTimestamp || (message.role === 'assistant' && !message.isStreaming && message.usage)
+        "
         class="message-meta-row"
       >
         <!-- 时间戳 -->
@@ -153,13 +157,21 @@ function handleToggleReasoning(): void {
         </div>
 
         <!-- Token 统计（仅 AI 消息） -->
-        <div v-if="message.role === 'assistant' && !message.isStreaming && message.usage" class="token-usage">
+        <div
+          v-if="message.role === 'assistant' && !message.isStreaming && message.usage"
+          class="token-usage"
+        >
           {{ formatTokenUsage(message.usage) }}
         </div>
 
         <!-- 反馈按钮（仅 AI 消息） -->
         <div v-if="message.role === 'assistant' && !message.isStreaming" class="message-feedback">
-          <slot name="feedback" :message-id="message.id" :session-id="currentChatId" :content="message.content"></slot>
+          <slot
+            name="feedback"
+            :message-id="message.id"
+            :session-id="currentChatId"
+            :content="message.content"
+          ></slot>
         </div>
       </div>
     </div>
@@ -225,7 +237,11 @@ function handleToggleReasoning(): void {
 }
 
 .ai-avatar {
-  background: linear-gradient(135deg, var(--theme-accent-secondary) 0%, var(--theme-accent-tertiary) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--theme-accent-secondary) 0%,
+    var(--theme-accent-tertiary) 100%
+  );
   color: white;
   box-shadow: 0 2px 8px rgba(112, 215, 92, 0.3);
 }
@@ -289,7 +305,10 @@ function handleToggleReasoning(): void {
 
 /* 用户消息气泡：使用主题变量 */
 .chat-message.role-user .message-bubble {
-  background: var(--bubble-user-bg, linear-gradient(135deg, rgba(74, 158, 255, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%));
+  background: var(
+    --bubble-user-bg,
+    linear-gradient(135deg, rgba(74, 158, 255, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%)
+  );
   color: var(--bubble-user-text, white);
   border-bottom-right-radius: 4px;
   box-shadow: 0 4px 12px rgba(10, 89, 78, 0.2);
@@ -316,7 +335,9 @@ function handleToggleReasoning(): void {
 /* 流式输出状态 */
 .message-bubble.streaming {
   border-color: var(--theme-accent);
-  box-shadow: 0 0 0 2px rgba(70, 170, 143, 0.2), 0 2px 12px rgba(70, 170, 143, 0.12);
+  box-shadow:
+    0 0 0 2px rgba(70, 170, 143, 0.2),
+    0 2px 12px rgba(70, 170, 143, 0.12);
 }
 
 /* 用户消息文本 */
@@ -333,8 +354,13 @@ function handleToggleReasoning(): void {
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* 消息元信息行：时间戳、Token统计、反馈按钮 */

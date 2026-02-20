@@ -19,7 +19,6 @@ import { promptBuilder } from './PromptBuilder'
 import { enhanceToolDescriptions } from './toolDescriptionEnhancer'
 import { ToolCallScheduler } from './ToolCallScheduler'
 import { getKnowledgeServiceManager } from '../knowledge'
-import { promptMetricsCollector } from './prompts/PromptMetricsCollector'
 
 /**
  * 聊天服务
@@ -91,22 +90,11 @@ export class ChatService {
     if ((selectedTools && selectedTools.length > 0) || request.enableSandboxTools) {
       const result = await this.sendMessageWithReact(request, webContents, knowledgeResults)
       this.clearStoppedSession(sessionId)
-
-      // 记录会话完成
-      if (result.success) {
-        promptMetricsCollector.recordSessionComplete(sessionId)
-      }
-
       return result
     }
 
     const result = await this.sendMessageDirect(request, webContents, knowledgeResults)
     this.clearStoppedSession(sessionId)
-
-    // 记录会话完成
-    if (result.success) {
-      promptMetricsCollector.recordSessionComplete(sessionId)
-    }
 
     return result
   }
@@ -422,9 +410,6 @@ export class ChatService {
     const abortController = new AbortController()
     this.abortControllers.set(sessionId, abortController)
 
-    // 记录会话开始（用于效果监控）
-    promptMetricsCollector.recordSessionStart(sessionId, modelKey, true)
-
     try {
       const client = this.createClient(llmConfig)
 
@@ -528,13 +513,7 @@ export class ChatService {
             totalUsage.completion_tokens += chunk.usage.completion_tokens
             totalUsage.total_tokens += chunk.usage.total_tokens
 
-            // 记录 Token 使用情况
-            promptMetricsCollector.recordTokenUsage(
-              sessionId,
-              chunk.usage.prompt_tokens,
-              chunk.usage.completion_tokens,
-              chunk.usage.total_tokens
-            )
+            // Token 使用情况已记录在 usage 中
           }
 
           const choice = chunk.choices?.[0]
@@ -946,9 +925,6 @@ export class ChatService {
         }
       })
 
-      // 记录工具调用结果
-      promptMetricsCollector.recordToolCall(sessionId, result.success)
-
       if (result.success) {
         return JSON.stringify(result.content)
       } else {
@@ -961,9 +937,6 @@ export class ChatService {
       ) {
         throw error
       }
-
-      // 记录工具调用失败
-      promptMetricsCollector.recordToolCall(sessionId, false)
 
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('沙箱工具调用失败', 'main', {
@@ -1083,9 +1056,6 @@ export class ChatService {
         }
       })
 
-      // 记录工具调用结果
-      promptMetricsCollector.recordToolCall(sessionId, result.success)
-
       if (result.success) {
         return JSON.stringify(result.content)
       } else {
@@ -1098,9 +1068,6 @@ export class ChatService {
       ) {
         throw error
       }
-
-      // 记录工具调用失败
-      promptMetricsCollector.recordToolCall(sessionId, false)
 
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('MCP 工具调用失败', 'main', {
@@ -1190,13 +1157,9 @@ export class ChatService {
     if (sessionIds.length === 0) return
 
     try {
-      const { exampleManager } = await import('./prompts/ExampleManager')
-      const result = await exampleManager.extractAndSave(sessionIds)
-
-      logger.info('批量提取示例完成', 'main', {
-        sessionCount: sessionIds.length,
-        extracted: result.extracted,
-        saved: result.saved
+      // 示例提取功能已移除
+      logger.info('批量提取示例功能已禁用', 'main', {
+        sessionCount: sessionIds.length
       })
     } catch (error) {
       logger.warn('批量提取示例失败', 'main', { error })

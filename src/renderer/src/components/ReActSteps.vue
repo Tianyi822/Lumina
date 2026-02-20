@@ -108,9 +108,7 @@ function handleToolExpand(_toolId: string): void {
         <span v-if="toolStats.success > 0" class="stat-badge success">
           ✓ {{ toolStats.success }}
         </span>
-        <span v-if="toolStats.failed > 0" class="stat-badge error">
-          ✗ {{ toolStats.failed }}
-        </span>
+        <span v-if="toolStats.failed > 0" class="stat-badge error"> ✗ {{ toolStats.failed }} </span>
         <span class="expand-icon">{{ isExpanded ? '▼' : '▶' }}</span>
       </div>
     </div>
@@ -210,7 +208,8 @@ function handleToolExpand(_toolId: string): void {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -246,8 +245,8 @@ function handleToolExpand(_toolId: string): void {
   transition: transform 0.2s ease;
 }
 
-.react-steps-container:has(.react-content[style*="display: block"]) .expand-icon,
-.react-content:not([style*="display: none"]) + .react-header .expand-icon {
+.react-steps-container:has(.react-content[style*='display: block']) .expand-icon,
+.react-content:not([style*='display: none']) + .react-header .expand-icon {
   transform: rotate(180deg);
 }
 

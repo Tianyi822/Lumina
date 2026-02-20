@@ -17,14 +17,16 @@ body {
   min-height: 100vh;
   color: var(--theme-text, #ffffff);
   background: var(--theme-bg, #0f0f23);
-  font-family: var(--theme-font,
+  font-family: var(
+    --theme-font,
     'JetBrains Mono',
     'Fira Code',
     Consolas,
     Monaco,
     'Cascadia Code',
     'Roboto Mono',
-    monospace);
+    monospace
+  );
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

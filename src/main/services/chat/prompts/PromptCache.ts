@@ -266,7 +266,10 @@ export class PromptCache {
     this.config = { ...this.config, ...config }
 
     // 检查模板版本是否变化，如果变化则清空系统提示词缓存
-    if (config.templateVersion !== undefined && config.templateVersion !== this.lastTemplateVersion) {
+    if (
+      config.templateVersion !== undefined &&
+      config.templateVersion !== this.lastTemplateVersion
+    ) {
       this.lastTemplateVersion = config.templateVersion
       this.systemPromptCache.clear()
       cacheMonitor.recordClear('systemPrompt')

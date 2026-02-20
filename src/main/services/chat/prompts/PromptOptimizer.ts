@@ -3,9 +3,7 @@
  * 通过压缩和调整内容减少 token 消耗
  */
 
-import type { ReactPromptSections } from './types'
 import type { MCPToolReference } from '@main/types/chat'
-import { sectionPriorityManager, SectionPruningResult } from './SectionPriorityManager'
 
 /**
  * 压缩级别
@@ -87,39 +85,6 @@ export class PromptOptimizer {
       optimizedTokens,
       reductionPercent
     }
-  }
-
-  /**
-   * 优化提示词的各个章节
-   * 在给定的 token 预算内优先保留重要章节
-   * 使用 SectionPriorityManager 进行智能裁剪
-   */
-  optimizeSections(sections: ReactPromptSections, budget: number): ReactPromptSections {
-    // 使用 SectionPriorityManager 进行章节裁剪
-    const pruningResult = sectionPriorityManager.pruneSections(sections, budget)
-
-    // 记录裁剪结果
-    if (pruningResult.removedSections.length > 0 || pruningResult.compressedSections.length > 0) {
-      console.log('章节优化完成:', {
-        removed: pruningResult.removedSections,
-        compressed: pruningResult.compressedSections,
-        usedTokens: pruningResult.usedTokens,
-        targetTokens: pruningResult.targetTokens
-      })
-    }
-
-    return pruningResult.keptSections as ReactPromptSections
-  }
-
-  /**
-   * 获取章节裁剪详情
-   * 返回详细的裁剪结果，用于调试和展示
-   */
-  getSectionPruningDetails(
-    sections: ReactPromptSections,
-    budget: number
-  ): SectionPruningResult {
-    return sectionPriorityManager.pruneSections(sections, budget)
   }
 
   /**

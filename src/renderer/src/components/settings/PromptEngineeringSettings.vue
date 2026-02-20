@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import PromptSettings from './PromptSettings.vue'
-import PromptVersionManager from '../prompt/PromptVersionManager.vue'
-import PromptMetricsDashboard from '../prompt/PromptMetricsDashboard.vue'
-import ExampleManager from '../prompt/ExampleManager.vue'
-import ABTestManager from '../prompt/ABTestManager.vue'
-import ModelConfigManager from '../prompt/ModelConfigManager.vue'
-import SectionPriorityManager from '../prompt/SectionPriorityManager.vue'
 import type { PromptConfig } from '@renderer/types'
 
 // ==================== Props & Emits ====================
@@ -17,12 +11,10 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: PromptConfig): void
   (e: 'reset-success'): void
-  (e: 'error', message: string): void
-  (e: 'success', message: string): void
 }>()
 
 // ==================== State ====================
-const activeTab = ref<'basic' | 'versions' | 'metrics' | 'examples' | 'abtest' | 'model' | 'priority'>('basic')
+const activeTab = ref<'basic'>('basic')
 
 // ==================== Methods ====================
 function handleUpdateConfig(value: PromptConfig): void {
@@ -31,14 +23,6 @@ function handleUpdateConfig(value: PromptConfig): void {
 
 function handleResetSuccess(): void {
   emit('reset-success')
-}
-
-function handleError(message: string): void {
-  emit('error', message)
-}
-
-function handleSuccess(message: string): void {
-  emit('success', message)
 }
 </script>
 
@@ -53,48 +37,6 @@ function handleSuccess(message: string): void {
       >
         基础配置
       </button>
-      <button
-        class="sub-tab-btn"
-        :class="{ active: activeTab === 'versions' }"
-        @click="activeTab = 'versions'"
-      >
-        版本管理
-      </button>
-      <button
-        class="sub-tab-btn"
-        :class="{ active: activeTab === 'metrics' }"
-        @click="activeTab = 'metrics'"
-      >
-        效果监控
-      </button>
-      <button
-        class="sub-tab-btn"
-        :class="{ active: activeTab === 'examples' }"
-        @click="activeTab = 'examples'"
-      >
-        示例管理
-      </button>
-      <button
-        class="sub-tab-btn"
-        :class="{ active: activeTab === 'abtest' }"
-        @click="activeTab = 'abtest'"
-      >
-        A/B 测试
-      </button>
-      <button
-        class="sub-tab-btn"
-        :class="{ active: activeTab === 'model' }"
-        @click="activeTab = 'model'"
-      >
-        模型配置
-      </button>
-      <button
-        class="sub-tab-btn"
-        :class="{ active: activeTab === 'priority' }"
-        @click="activeTab = 'priority'"
-      >
-        章节优先级
-      </button>
     </div>
 
     <!-- 内容区域 -->
@@ -104,35 +46,6 @@ function handleSuccess(message: string): void {
         :model-value="modelValue"
         @update:model-value="handleUpdateConfig"
         @reset-success="handleResetSuccess"
-      />
-      <PromptVersionManager
-        v-else-if="activeTab === 'versions'"
-        @error="handleError"
-        @success="handleSuccess"
-      />
-      <PromptMetricsDashboard
-        v-else-if="activeTab === 'metrics'"
-        @error="handleError"
-      />
-      <ExampleManager
-        v-else-if="activeTab === 'examples'"
-        @error="handleError"
-        @success="handleSuccess"
-      />
-      <ABTestManager
-        v-else-if="activeTab === 'abtest'"
-        @error="handleError"
-        @success="handleSuccess"
-      />
-      <ModelConfigManager
-        v-else-if="activeTab === 'model'"
-        @error="handleError"
-        @success="handleSuccess"
-      />
-      <SectionPriorityManager
-        v-else-if="activeTab === 'priority'"
-        @error="handleError"
-        @success="handleSuccess"
       />
     </div>
   </div>

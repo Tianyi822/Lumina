@@ -63,12 +63,7 @@ const contentChars = computed(() => {
 <template>
   <div class="reasoning-panel" :class="{ expanded: isActuallyExpanded }">
     <!-- 折叠状态：显示摘要 -->
-    <button
-      v-if="!isActuallyExpanded"
-      class="reasoning-collapsed"
-      @click="toggle"
-      type="button"
-    >
+    <button v-if="!isActuallyExpanded" class="reasoning-collapsed" @click="toggle" type="button">
       <div class="collapsed-content">
         <div class="collapsed-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -99,7 +94,8 @@ const contentChars = computed(() => {
             <line x1="12" y1="8" x2="12.01" y2="8" />
           </svg>
           <span>思考过程</span>
-        </div>        <button class="collapse-btn" @click="toggle" type="button">
+        </div>
+        <button class="collapse-btn" @click="toggle" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="18 15 12 9 6 15" />
           </svg>

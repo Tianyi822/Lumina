@@ -2,11 +2,9 @@ import type { LLMConfig } from '@main/types/config'
 import type { MCPToolReference, KnowledgeSearchResult } from '@main/types/chat'
 import type { PromptBuildOptions } from './prompts/types'
 import type { PromptConfig as SharedPromptConfig } from '@shared/types/config'
-import type { EnhancedFewShotExample } from './prompts/types'
 import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt } from './prompts/reactSystemPrompt'
 import { PromptCache } from './prompts/PromptCache'
 import { PromptOptimizer } from './prompts/PromptOptimizer'
-import { exampleManager } from './prompts/ExampleManager'
 import { promptTemplateManager } from './prompts/PromptTemplateManager'
 import { logger } from '@main/services/logger'
 
@@ -18,32 +16,10 @@ export class PromptBuilder {
   private promptConfig: PromptConfig | null = null
   private cache: PromptCache = new PromptCache()
   private optimizer: PromptOptimizer = new PromptOptimizer()
-  private initialized: boolean = false
-
-  constructor() {
-    // 异步初始化 ExampleManager（不阻塞构造）
-    this.initializeAsync()
-  }
-
-  // 异步初始化
-  private async initializeAsync(): Promise<void> {
-    try {
-      await exampleManager.initialize()
-      this.initialized = true
-    } catch (error) {
-      // 初始化失败不影响基本功能
-      console.error('ExampleManager 初始化失败:', error)
-    }
-  }
 
   // 获取缓存实例
   getCache(): PromptCache {
     return this.cache
-  }
-
-  // 获取示例管理器实例
-  getExampleManager(): typeof exampleManager {
-    return exampleManager
   }
 
   // 获取优化器实例
@@ -159,8 +135,8 @@ export class PromptBuilder {
   // 构建提示词选项
   private async buildOptions(
     modelConfig: LLMConfig,
-    selectedTools?: MCPToolReference[],
-    knowledgeResults?: KnowledgeSearchResult[]
+    _selectedTools?: MCPToolReference[],
+    _knowledgeResults?: KnowledgeSearchResult[]
   ): Promise<PromptBuildOptions> {
     const options: PromptBuildOptions = {
       includeFewShotExamples: true,
@@ -187,41 +163,6 @@ export class PromptBuilder {
         }
         if (this.promptConfig.customSystemPrompt) {
           options.customSystemPrompt = this.promptConfig.customSystemPrompt
-        }
-
-        // 动态示例：如果启用且已初始化，使用 ExampleManager
-        if (
-          this.promptConfig.enableDynamicExamples &&
-          this.initialized &&
-          ((selectedTools && selectedTools.length > 0) ||
-            (knowledgeResults && knowledgeResults.length > 0))
-        ) {
-          try {
-            const examples = await exampleManager.selectExamples(selectedTools || [], {
-              maxCount: options.fewShotCount || 3,
-              minQualityScore: this.promptConfig.dynamicExampleMinQuality || 0.6,
-              includeStatic: true,
-              includeDynamic: true,
-              maxStaticCount: this.promptConfig.maxStaticExamples || 1
-            })
-
-            // 如果成功获取到示例，记录使用
-            if (examples.length > 0) {
-              const exampleIds = examples
-                .filter((ex): ex is EnhancedFewShotExample => 'id' in ex)
-                .map((ex) => ex.id)
-
-              if (exampleIds.length > 0) {
-                // 异步记录使用（不阻塞）
-                exampleManager.recordUsage(exampleIds).catch((err) => {
-                  console.error('记录示例使用失败:', err)
-                })
-              }
-            }
-          } catch (error) {
-            console.error('选择动态示例失败:', error)
-            // 失败时回退到静态示例
-          }
         }
       }
     }

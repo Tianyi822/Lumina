@@ -3,7 +3,6 @@ import { nextTick, onMounted, ref, watch } from 'vue'
 import ChatMessage from './chat/ChatMessage.vue'
 import MessageInput from './MessageInput.vue'
 import ReActSteps from './ReActSteps.vue'
-import UserFeedbackButton from './prompt/UserFeedbackButton.vue'
 import type { Message, MCPTool, KnowledgeBase } from '@renderer/types'
 
 const props = defineProps<{
@@ -215,17 +214,6 @@ function isReasoningExpanded(msgId: string): boolean {
               :is-streaming="msg.isStreaming"
             />
           </template>
-
-          <!-- 反馈按钮插槽 -->
-          <template #feedback="{ messageId, sessionId, content }">
-            <UserFeedbackButton
-              :message-id="messageId"
-              :session-id="sessionId || ''"
-              prompt-version="current"
-              :disabled="msg.isStreaming"
-              :content="content"
-            />
-          </template>
         </ChatMessage>
 
         <div v-if="!messages || messages.length === 0" class="empty-chat">
@@ -346,7 +334,12 @@ function isReasoningExpanded(msgId: string): boolean {
 }
 
 @keyframes cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 </style>

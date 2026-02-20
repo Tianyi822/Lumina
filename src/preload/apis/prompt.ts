@@ -182,7 +182,9 @@ export const promptApi = {
   /**
    * 监听缓存性能警告事件
    */
-  onCachePerformanceWarning: (callback: (data: CachePerformanceWarningEvent) => void): (() => void) => {
+  onCachePerformanceWarning: (
+    callback: (data: CachePerformanceWarningEvent) => void
+  ): (() => void) => {
     const handler = (_event: unknown, data: CachePerformanceWarningEvent) => callback(data)
     ipcRenderer.on('prompt:cachePerformanceWarning', handler)
     return () => {

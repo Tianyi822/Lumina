@@ -46,7 +46,8 @@
   --theme-border-active: rgba(70, 170, 143, 0.5);
 
   /* 字体 - 友好的无衬线字体 */
-  --theme-font: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --theme-font:
+    'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
   /* 圆角 - 更大的圆角增加柔和感 */
   --theme-radius: 12px;

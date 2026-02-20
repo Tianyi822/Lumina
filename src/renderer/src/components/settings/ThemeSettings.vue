@@ -102,7 +102,9 @@ onMounted(() => {
     <!-- 当前主题提示 -->
     <div class="current-theme-hint">
       <span>当前主题: </span>
-      <strong>{{ availableThemes.find((t) => t.id === currentTheme)?.name || currentTheme }}</strong>
+      <strong>{{
+        availableThemes.find((t) => t.id === currentTheme)?.name || currentTheme
+      }}</strong>
     </div>
   </div>
 </template>
