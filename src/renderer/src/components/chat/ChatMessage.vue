@@ -231,19 +231,15 @@ function handleToggleReasoning(): void {
 }
 
 .user-avatar {
-  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-tertiary) 100%);
+  background: #46AA8F;
   color: white;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 2px 8px rgba(70, 170, 143, 0.25);
 }
 
 .ai-avatar {
-  background: linear-gradient(
-    135deg,
-    var(--theme-accent-secondary) 0%,
-    var(--theme-accent) 100%
-  );
+  background: var(--theme-accent);
   color: white;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 2px 8px rgba(70, 170, 143, 0.2);
 }
 
 /* 发送者信息 */
@@ -311,13 +307,10 @@ function handleToggleReasoning(): void {
 
 /* 用户消息气泡 */
 .chat-message.role-user .message-bubble {
-  background: var(
-    --bubble-user-bg,
-    linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)
-  );
+  background: #46AA8F;
   color: var(--bubble-user-text, white);
   border-bottom-right-radius: 4px;
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 4px 16px rgba(70, 170, 143, 0.2);
 }
 
 .chat-message.role-user .message-bubble:hover {

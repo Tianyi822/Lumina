@@ -60,7 +60,7 @@
   --title-bar-text-hover: var(--theme-text);
 
   /* 聊天气泡 */
-  --bubble-user-bg: linear-gradient(135deg, #0a594e 0%, #46aa8f 100%);
+  --bubble-user-bg: #46aa8f;
   --bubble-user-text: #ffffff;
   --bubble-ai-bg: #ffffff;
   --bubble-ai-text: #1a2f2a;
@@ -161,9 +161,7 @@
 .btn {
   font-family: var(--theme-font);
   padding: 7px 14px;
-  background:
-    linear-gradient(135deg, var(--glass-white-05, rgba(255,255,255,0.05)) 0%, var(--glass-white-027, rgba(255,255,255,0.027)) 100%),
-    rgba(0, 0, 0, 0.017);
+  background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(8px) saturate(190%);
   -webkit-backdrop-filter: blur(8px) saturate(190%);
   border: 1px solid var(--glass-white-12, rgba(255,255,255,0.12));
@@ -176,9 +174,7 @@
 }
 
 .btn:hover {
-  background:
-    linear-gradient(135deg, var(--glass-white-08, rgba(255,255,255,0.08)) 0%, var(--glass-white-04, rgba(255,255,255,0.04)) 100%),
-    rgba(0, 0, 0, 0.02);
+  background: rgba(255, 255, 255, 0.08);
   border-color: var(--glass-white-2, rgba(255,255,255,0.2));
   color: var(--theme-text);
   box-shadow:
@@ -194,7 +190,7 @@
 .btn-primary {
   font-family: var(--theme-font);
   padding: 7px 14px;
-  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-tertiary) 100%);
+  background: var(--theme-accent);
   border: 1px solid rgba(70, 170, 143, 0.4);
   border-radius: var(--theme-radius-sm);
   color: #ffffff;
@@ -206,7 +202,7 @@
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #52ba9d 0%, #0d6b5e 100%);
+  background: #3d9980;
   box-shadow: 0 4px 16px rgba(10, 89, 78, 0.4);
   transform: translateY(-0.5px);
 }
@@ -251,7 +247,7 @@
     rgba(0, 0, 0, 0.017);
   backdrop-filter: blur(8px) saturate(190%);
   -webkit-backdrop-filter: blur(8px) saturate(190%);
-  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
+  border: 1px solid #70D75C;
   border-radius: var(--theme-radius-sm);
   color: var(--theme-text);
   font-size: 13px;
@@ -264,7 +260,7 @@
 }
 
 .input:hover {
-  border-color: var(--glass-white-15, rgba(255,255,255,0.15));
+  border-color: #5fc34a;
 }
 
 .input:focus {

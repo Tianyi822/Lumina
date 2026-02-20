@@ -359,7 +359,7 @@ onUnmounted(() => {
     var(--glass-black-017, rgba(0,0,0,0.017));
   backdrop-filter: blur(12px) saturate(150%);
   -webkit-backdrop-filter: blur(12px) saturate(150%);
-  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
+  border: 1px solid #46AA8F;
   border-radius: var(--theme-radius);
   color: var(--theme-text);
   padding: 12px 16px;
@@ -368,12 +368,12 @@ onUnmounted(() => {
 }
 
 .message-textarea:hover {
-  border-color: var(--glass-white-15, rgba(255,255,255,0.15));
+  border-color: #3d9980;
 }
 
 .message-textarea:focus {
   border-color: var(--theme-accent);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  box-shadow: 0 0 0 3px rgba(70, 170, 143, 0.15);
   background:
     linear-gradient(135deg, var(--glass-white-027, rgba(255,255,255,0.027)) 0%, var(--glass-white-017, rgba(255,255,255,0.017)) 100%),
     var(--glass-black-02, rgba(0,0,0,0.02));
@@ -467,6 +467,12 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+  background: #70D75C;
+  border-color: rgba(112, 215, 92, 0.4);
+}
+
+.execute-btn:hover {
+  background: #5fc34a;
 }
 
 .stop-btn {

@@ -516,7 +516,7 @@ defineExpose({
   align-items: center;
   gap: 4px;
   padding: 3px 6px 3px 8px;
-  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-tertiary) 100%);
+  background: var(--theme-accent);
   color: white;
   border-radius: 10px;
   font-size: 11px;
@@ -527,7 +527,7 @@ defineExpose({
 }
 
 .selected-kb-chip:hover {
-  background: linear-gradient(135deg, var(--theme-accent-secondary) 0%, var(--theme-accent) 100%);
+  background: var(--theme-accent-secondary);
   transform: translateY(-1px);
 }
 

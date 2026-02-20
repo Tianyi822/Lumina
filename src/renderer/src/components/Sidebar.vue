@@ -90,6 +90,12 @@ function handleDeleteSession(sessionId: string): void {
   gap: 8px;
   margin: 12px;
   width: calc(100% - 24px);
+  background: #46AA8F;
+  border-color: rgba(70, 170, 143, 0.4);
+}
+
+.new-chat-btn:hover {
+  background: #3d9980;
 }
 
 .btn-icon {

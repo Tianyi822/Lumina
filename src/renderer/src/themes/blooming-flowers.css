@@ -77,7 +77,7 @@
   --scrollbar-thumb-radius: 3px;
 
   /* 聊天气泡 */
-  --bubble-user-bg: linear-gradient(135deg, #0a594e 0%, #46aa8f 100%);
+  --bubble-user-bg: #46aa8f;
   --bubble-user-text: #ffffff;
   --bubble-ai-bg: #ffffff;
   --bubble-ai-text: #1a2f2a;
@@ -117,13 +117,13 @@
 }
 
 [data-theme='blooming-flowers'] .btn-primary {
-  background: linear-gradient(135deg, #0a594e 0%, #46aa8f 100%);
+  background: #0a594e;
   border: none;
   box-shadow: 0 4px 12px rgba(10, 89, 78, 0.25);
 }
 
 [data-theme='blooming-flowers'] .btn-primary:hover {
-  background: linear-gradient(135deg, #0d6b5e 0%, #52ba9d 100%);
+  background: #0d6b5e;
   box-shadow: 0 6px 16px rgba(10, 89, 78, 0.35);
 }
 
@@ -132,7 +132,11 @@
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(8px) saturate(150%);
   -webkit-backdrop-filter: blur(8px) saturate(150%);
-  border-color: rgba(70, 170, 143, 0.15);
+  border-color: #70D75C;
+}
+
+[data-theme='blooming-flowers'] .input:hover {
+  border-color: #5fc34a;
 }
 
 [data-theme='blooming-flowers'] .input:focus {
