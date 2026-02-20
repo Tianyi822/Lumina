@@ -244,10 +244,11 @@ export const useChatStreamStore = defineStore('chatStream', () => {
           if (!streamingMessage.reactSteps) {
             streamingMessage.reactSteps = []
           }
+          // 使用 knowledgeBaseId 作为 ID，确保与 knowledge_result 的 ID 一致
           streamingMessage.reactSteps.push({
             type: 'tool_call',
             toolCall: {
-              id: `kb-search-${Date.now()}`,
+              id: `kb-${event.knowledgeSearch.knowledgeBaseId}`,
               name: 'knowledge_search',
               serverName: event.knowledgeSearch.knowledgeBaseName,
               arguments: { query: event.knowledgeSearch.query }
@@ -262,10 +263,11 @@ export const useChatStreamStore = defineStore('chatStream', () => {
           if (!streamingMessage.reactSteps) {
             streamingMessage.reactSteps = []
           }
+          // 使用 knowledgeBaseId 作为 ID，与 knowledge_search 的 ID 保持一致
           streamingMessage.reactSteps.push({
             type: 'tool_result',
             toolResult: {
-              id: `kb-result-${Date.now()}`,
+              id: `kb-${event.knowledgeResult.knowledgeBaseId}`,
               name: 'knowledge_search',
               success: true,
               result: {

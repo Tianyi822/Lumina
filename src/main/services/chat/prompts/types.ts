@@ -13,6 +13,14 @@ export interface PromptBuildOptions {
   toolDescriptionLevel?: ToolDescriptionLevel
   // 自定义系统提示词 (覆盖默认提示词）
   customSystemPrompt?: string
+  // 知识库上下文
+  knowledgeContext?: string
+  // 模型名称
+  modelName?: string
+  // 用户语言
+  userLanguage?: string
+  // 自定义指令
+  customInstructions?: string
 }
 
 // Few-shot 示例

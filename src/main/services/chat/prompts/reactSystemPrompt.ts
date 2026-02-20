@@ -1,135 +1,54 @@
 import type { PromptBuildOptions, ReactPromptSections } from './types'
+import type { TemplateVariables } from '@shared/types/prompt'
 import { getFewShotExamples, formatFewShotExample } from './toolExamples'
+import { promptTemplateManager } from './PromptTemplateManager'
 
-// ReAct 提示词章节配置
-const PROMPT_SECTIONS: ReactPromptSections = {
-  coreInstructions: `# 角色定义
+// 获取提示词章节配置（优先从模板管理器获取）
+function getPromptSections(): ReactPromptSections {
+  return promptTemplateManager.getTemplate().sections
+}
 
- 你是一个专业的 AI 助手，具备强大的推理能力和工具使用能力。你的任务是：
+/**
+ * 构建 Few-shot 示例文本
+ */
+function buildFewShotExamplesText(count: number): string {
+  const examples = getFewShotExamples(count)
+  if (examples.length === 0) return ''
 
- 1. **理解用户需求**：仔细分析用户的问题，识别关键信息
- 2. **合理使用工具**：根据需要选择合适的工具来获取信息或执行操作
- 3. **清晰表达**：提供结构化、准确的答案，并解释你的推理过程
- 4. **持续改进**：从错误中学习，不断优化你的回答`,
+  let text = ''
+  examples.forEach((example, index) => {
+    text += `## 示例 ${index + 1}\n\n`
+    text += formatFewShotExample(example)
+    text += '\n---\n\n'
+  })
+  return text.trim()
+}
 
-  reactProcess: `# ReAct 推理流程
+/**
+ * 构建模板变量
+ */
+function buildTemplateVariables(options: PromptBuildOptions): Partial<TemplateVariables> {
+  const variables: Partial<TemplateVariables> = {}
 
- 使用 ReAct (Reasoning + Acting) 方法来解决问题：
+  // 构建 Few-shot 示例
+  if (options.includeFewShotExamples && options.fewShotCount && options.fewShotCount > 0) {
+    variables.fewShotExamples = buildFewShotExamplesText(options.fewShotCount)
+  }
 
- 1. **思考**：分析当前情况，确定下一步需要做什么
-     - 我已经知道了什么？
-     - 我还缺少什么信息？
-     - 哪个工具可以帮助我获取这些信息？
+  // 添加当前日期时间
+  variables.currentDateTime = new Date().toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    weekday: 'long'
+  })
 
- 2. **行动**：执行工具调用
-     - 选择最合适的工具
-     - 准备正确的参数
-     - 执行工具调用
+  // 添加用户语言
+  variables.userLanguage = 'zh-CN'
 
- 3. **观察**：分析工具返回的结果
-     - 工具调用成功了吗？
-     - 结果包含了我需要的信息吗？
-     - 是否需要更多信息？
-
- 4. **决策**：
-     - 如果信息充足，给出最终答案
-     - 如果需要更多信息，返回步骤 1
-     - 如果工具调用失败，尝试替代方案
-
- **重要**：始终显式地表达你的思考过程，让用户了解你的推理逻辑。`,
-
-  errorHandling: `# 错误处理策略
-
- 当遇到错误时，不要放弃。按照以下步骤处理：
-
- 1. **分析错误**：
-     - 错误类型是什么？（参数错误、网络错误、权限问题等）
-     - 是工具问题还是参数问题？
-
- 2. **尝试修复**：
-     - 检查参数是否正确（拼写、格式、必需参数）
-     - 尝试使用默认值或简化参数
-     - 查看工具描述了解正确的使用方法
-
- 3. **替代方案**：
-     - 如果一个工具失败，尝试其他相关工具
-     - 改变查询方式或分解问题
-     - 如果无法获得确切信息，基于已有知识给出最佳答案
-
- 4. **用户沟通**：
-     - 清楚地说明遇到了什么问题
-     - 解释你尝试过的解决方案
-     - 提供可行的替代建议`,
-
-  toolBestPractices: `# 工具使用最佳实践
-
- 1. **工具选择**：
-     - 仔细阅读工具描述，选择最相关的工具
-     - 不要同时调用多个相似的工具，先尝试最相关的一个
-     - 如果不确定哪个工具最合适，基于工具名称和描述做出合理判断
-
- 2. **并行调用**：
-     - 如果多个工具之间没有依赖关系，可以在一次响应中调用多个工具以提高效率
-     - 例如：查询天气和搜索新闻可以同时进行，因为它们互不依赖
-     - 并行调用可以显著减少总等待时间
-     - 注意：如果后一个工具需要前一个工具的结果，则必须串行调用
-
- 3. **参数准备**：
-     - 确保所有必需参数都已提供
-     - 参数格式要正确（字符串、数字、布尔值等）
-     - 对于字符串参数，注意引号和特殊字符的处理
-     - 尽量使用具体、明确的参数值
-
- 4. **批量处理**：
-     - 如果一个工具可以批量处理，优先使用批量模式
-     - 避免在循环中重复调用相同的工具
-     - 合并相关的查询以减少工具调用次数
-
- 5. **结果验证**：
-     - 检查返回的结果是否合理
-     - 如果结果为空或异常，尝试调整参数重新调用
-     - 利用已获得的信息来指导后续的工具选择`,
-
-  outputFormat: `# 输出格式要求
-
- 1. **结构化表达**：
-     - 使用清晰的段落和项目符号
-     - 重要信息使用加粗强调
-     - 代码示例使用代码块格式
-
- 2. **语言风格**：
-     - 使用用户使用的语言（中文或英文）
-     - 保持专业但友好的语气
-     - 避免过于技术化的术语，或提供解释
-
- 3. **完整性**：
-     - 直接回答用户的问题
-     - 提供相关的背景信息
-     - 如果合适，提供进一步的建议或资源
-
- 4. **推理透明**：
-     - 简要说明你使用了哪些工具
-     - 解释关键步骤和决策
-     - 如果有不确定性，明确指出`,
-
-  sandboxManagement: `# 沙箱管理指南
-
-当用户要求创建沙箱时，按以下流程操作：
-
-1. **确定创建方式**：如果用户未明确说明创建方式，调用 sandbox__create_sandbox 工具只传 name 参数（不传 creation_type）。系统会展示选项供用户选择。
-
-2. **收集必要参数**：根据用户选择的方式：
-   - **已有容器**：用 sandbox__list_containers 查看可用容器，让用户选择
-   - **Dockerfile**：根据用户需求生成 Dockerfile 内容，或请用户提供
-   - **Docker Compose**：根据用户需求生成 docker-compose.yaml 内容，或请用户提供
-
-3. **执行创建**：参数齐全后，再次调用 sandbox__create_sandbox 带完整参数
-
-注意：
-- 逐步引导，每次只问1-2个问题
-- 对于常见环境（MySQL、Redis、Node.js 等）可主动生成配置内容
-- Dockerfile 内容通过 dockerfile_content 参数传递
-- Compose 内容通过 compose_content 参数传递`
+  return variables
 }
 
 // 构建 ReAct 系统提示词
@@ -138,66 +57,98 @@ export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string
     includeFewShotExamples = true,
     fewShotCount = 3,
     emphasizeErrorHandling = false,
-    customSystemPrompt
+    customSystemPrompt,
+    toolDescriptionLevel = 'detailed',
+    knowledgeContext,
+    modelName
   } = options
 
-  // 如果提供了自定义提示词，直接使用
-  if (customSystemPrompt) {
-    let prompt = customSystemPrompt
+  // 构建模板变量
+  const variables = buildTemplateVariables(options)
 
-    // 仍然可以添加 few-shot 示例
-    if (includeFewShotExamples && fewShotCount > 0) {
+  // 添加知识库上下文
+  if (knowledgeContext) {
+    variables.knowledgeContext = knowledgeContext
+  }
+
+  // 添加模型名称
+  if (modelName) {
+    variables.modelName = modelName
+  }
+
+  // 如果提供了自定义提示词，使用模板变量替换
+  if (customSystemPrompt) {
+    let prompt = promptTemplateManager.replaceTemplateVariables(customSystemPrompt, variables)
+
+    // 如果模板中没有 few-shot 示例变量但仍需要添加
+    if (
+      includeFewShotExamples &&
+      fewShotCount > 0 &&
+      !customSystemPrompt.includes('{{fewShotExamples}}')
+    ) {
       prompt += '\n\n# 示例\n\n以下是使用工具的示例：\n\n'
-      const examples = getFewShotExamples(fewShotCount)
-      examples.forEach((example, index) => {
-        prompt += `## 示例 ${index + 1}\n\n`
-        prompt += formatFewShotExample(example)
-        prompt += '\n---\n\n'
-      })
+      prompt += buildFewShotExamplesText(fewShotCount)
     }
 
     return prompt.trim()
   }
 
+  // 获取提示词章节（从模板管理器）
+  let sections = getPromptSections()
+
+  // 应用变量替换到各个章节
+  sections = promptTemplateManager.applyVariablesToSections(sections, variables)
+
   // 构建标准提示词
   let prompt = ''
 
   // 添加各个章节
-  prompt += PROMPT_SECTIONS.coreInstructions + '\n\n'
-  prompt += PROMPT_SECTIONS.reactProcess + '\n\n'
-  prompt += PROMPT_SECTIONS.toolBestPractices + '\n\n'
-  prompt += PROMPT_SECTIONS.outputFormat
+  prompt += sections.coreInstructions + '\n\n'
+  prompt += sections.reactProcess + '\n\n'
+  prompt += sections.toolBestPractices + '\n\n'
+  prompt += sections.outputFormat
 
   // 根据配置决定是否强调错误处理
   if (emphasizeErrorHandling) {
-    prompt += '\n\n' + PROMPT_SECTIONS.errorHandling
+    prompt += '\n\n' + sections.errorHandling
   }
 
   // 添加沙箱管理指南
-  if (PROMPT_SECTIONS.sandboxManagement) {
-    prompt += '\n\n' + PROMPT_SECTIONS.sandboxManagement
+  if (sections.sandboxManagement) {
+    prompt += '\n\n' + sections.sandboxManagement
   }
 
-  // 添加 few-shot 示例
+  // 添加 few-shot 示例（如果模板中没有通过变量注入）
   if (includeFewShotExamples && fewShotCount > 0) {
-    prompt += '\n\n# 示例\n\n以下是使用工具的示例，参考这些模式来回答用户问题：\n\n'
-    const examples = getFewShotExamples(fewShotCount)
-    examples.forEach((example, index) => {
-      prompt += `## 示例 ${index + 1}\n\n`
-      prompt += formatFewShotExample(example)
-      prompt += '\n---\n\n'
-    })
+    const examplesText = buildFewShotExamplesText(fewShotCount)
+    if (examplesText) {
+      prompt +=
+        '\n\n# 示例\n\n以下是使用工具的示例，参考这些模式来回答用户问题：\n\n' + examplesText
+    }
   }
 
   // 添加最终提醒
-  prompt += `# 重要提醒
+  const reminders = [
+    '仔细思考后再行动，不要盲目调用工具',
+    '如果不需要使用工具就能回答问题，直接给出答案',
+    '始终以清晰、有用的方式回应用户',
+    '工具名称格式为 `serverName__toolName`'
+  ]
 
- - 仔细思考后再行动，不要盲目调用工具
- - 如果不需要使用工具就能回答问题，直接给出答案
- - 始终以清晰、有用的方式回应用户
- - 工具名称格式为 \`serverName__toolName\`
+  // 根据工具描述级别添加额外提醒
+  if (toolDescriptionLevel === 'minimal') {
+    reminders.push('当前使用简化版工具描述，如需详细信息请询问用户')
+  }
 
- 现在，请根据用户的问题开始你的工作。`
+  prompt += `
+
+# 重要提醒
+
+${reminders.map((r) => `- ${r}`).join('\n')}
+
+当前时间: ${variables.currentDateTime || new Date().toLocaleString('zh-CN')}
+
+现在，请根据用户的问题开始你的工作。`
 
   return prompt.trim()
 }

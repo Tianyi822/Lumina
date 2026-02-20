@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { ReActStep } from '@renderer/types'
+import ToolCallPanel from './ToolCallPanel.vue'
 
 const props = defineProps<{
   steps: ReActStep[]
@@ -10,6 +11,9 @@ const props = defineProps<{
 // 是否展开
 const isExpanded = ref(false)
 
+// 当前展开的步骤索引（预留用于未来功能）
+// const expandedStepIndex = ref<number | null>(null)
+
 // 步骤数量
 const stepsCount = computed(() => props.steps.length)
 
@@ -18,40 +22,72 @@ const toolCallsCount = computed(() => {
   return props.steps.filter((s) => s.type === 'tool_call').length
 })
 
-// 格式化 JSON
-function formatJson(obj: unknown): string {
-  try {
-    return JSON.stringify(obj, null, 2)
-  } catch {
-    return String(obj)
+// 成功和失败的工具调用
+const toolStats = computed(() => {
+  const toolResults = props.steps.filter((s) => s.type === 'tool_result')
+  return {
+    success: toolResults.filter((s) => s.toolResult?.success).length,
+    failed: toolResults.filter((s) => !s.toolResult?.success).length
   }
-}
+})
+
+// 将步骤转换为工具调用面板项目
+const toolCallItems = computed(() => {
+  const items: Array<{
+    id: string
+    name: string
+    serverName?: string
+    params: Record<string, unknown>
+    status: 'pending' | 'running' | 'success' | 'error'
+    result?: unknown
+    error?: string
+    startTime?: string
+    endTime?: string
+  }> = []
+
+  // 用于跟踪待处理的工具调用
+  const pendingCalls = new Map<string, { index: number; startTime?: string }>()
+
+  props.steps.forEach((step, index) => {
+    if (step.type === 'tool_call' && step.toolCall) {
+      pendingCalls.set(step.toolCall.id, {
+        index: items.length,
+        startTime: step.timestamp
+      })
+      items.push({
+        id: step.toolCall.id,
+        name: step.toolCall.name,
+        serverName: step.toolCall.serverName,
+        params: step.toolCall.arguments || {},
+        status: props.isStreaming && index === props.steps.length - 1 ? 'running' : 'pending',
+        startTime: step.timestamp
+      })
+    } else if (step.type === 'tool_result' && step.toolResult) {
+      const pending = pendingCalls.get(step.toolResult.id)
+      if (pending) {
+        const item = items[pending.index]
+        if (item) {
+          item.status = step.toolResult.success ? 'success' : 'error'
+          item.result = step.toolResult.result
+          item.error = step.toolResult.error
+          item.endTime = step.timestamp
+        }
+        pendingCalls.delete(step.toolResult.id)
+      }
+    }
+  })
+
+  return items
+})
 
 // 切换展开状态
 function toggleExpand(): void {
   isExpanded.value = !isExpanded.value
 }
 
-// 获取步骤图标
-function getStepIcon(step: ReActStep): string {
-  if (step.type === 'tool_call') {
-    return '🔧'
-  } else if (step.type === 'tool_result') {
-    return step.toolResult?.success ? '✅' : '❌'
-  }
-  return '📋'
-}
-
-// 获取步骤标题
-function getStepTitle(step: ReActStep): string {
-  if (step.type === 'tool_call' && step.toolCall) {
-    return `调用 ${step.toolCall.serverName}/${step.toolCall.name}`
-  } else if (step.type === 'tool_result' && step.toolResult) {
-    return step.toolResult.success
-      ? `${step.toolResult.name} 执行成功`
-      : `${step.toolResult.name} 执行失败`
-  }
-  return '未知步骤'
+// 处理工具调用面板展开
+function handleToolExpand(_toolId: string): void {
+  // 可以在这里添加额外的逻辑，比如滚动到对应位置
 }
 </script>
 
@@ -59,41 +95,34 @@ function getStepTitle(step: ReActStep): string {
   <div v-if="stepsCount > 0" class="react-steps-container">
     <!-- 折叠标题栏 -->
     <div class="react-header" @click="toggleExpand">
-      <span class="react-icon">⚡</span>
-      <span class="react-title">
-        ReAct 推理
+      <div class="header-left">
+        <span class="react-icon">⚡</span>
+        <span class="react-title">ReAct 推理</span>
         <span class="react-badge">{{ toolCallsCount }} 次工具调用</span>
-        <span v-if="isStreaming" class="streaming-indicator">进行中...</span>
-      </span>
-      <span class="expand-icon">{{ isExpanded ? '▼' : '▶' }}</span>
+        <span v-if="isStreaming" class="streaming-indicator">
+          <span class="pulse-dot"></span>
+          进行中...
+        </span>
+      </div>
+      <div class="header-right">
+        <span v-if="toolStats.success > 0" class="stat-badge success">
+          ✓ {{ toolStats.success }}
+        </span>
+        <span v-if="toolStats.failed > 0" class="stat-badge error"> ✗ {{ toolStats.failed }} </span>
+        <span class="expand-icon">{{ isExpanded ? '▼' : '▶' }}</span>
+      </div>
     </div>
 
     <!-- 展开内容 -->
     <div v-if="isExpanded" class="react-content">
-      <div v-for="(step, index) in steps" :key="index" class="react-step">
-        <div class="step-header">
-          <span class="step-icon">{{ getStepIcon(step) }}</span>
-          <span class="step-title">{{ getStepTitle(step) }}</span>
-          <span class="step-index">#{{ index + 1 }}</span>
-        </div>
-
-        <!-- 工具调用详情 -->
-        <div v-if="step.type === 'tool_call' && step.toolCall" class="step-details">
-          <div class="detail-label">参数:</div>
-          <pre class="detail-code">{{ formatJson(step.toolCall.arguments) }}</pre>
-        </div>
-
-        <!-- 工具结果详情 -->
-        <div v-if="step.type === 'tool_result' && step.toolResult" class="step-details">
-          <div v-if="step.toolResult.success" class="detail-section">
-            <div class="detail-label">结果:</div>
-            <pre class="detail-code result-success">{{ formatJson(step.toolResult.result) }}</pre>
-          </div>
-          <div v-else class="detail-section">
-            <div class="detail-label">错误:</div>
-            <pre class="detail-code result-error">{{ step.toolResult.error }}</pre>
-          </div>
-        </div>
+      <div class="timeline">
+        <ToolCallPanel
+          v-for="(item, index) in toolCallItems"
+          :key="item.id"
+          :tool-call="item"
+          :index="index"
+          @toggle-expand="handleToolExpand"
+        />
       </div>
     </div>
   </div>
@@ -101,18 +130,25 @@ function getStepTitle(step: ReActStep): string {
 
 <style scoped>
 .react-steps-container {
-  margin: 12px 0;
+  margin: var(--theme-spacing) 0;
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
   background-color: var(--theme-bg-secondary);
   overflow: hidden;
+  transition: all 0.2s ease;
 }
 
+.react-steps-container:hover {
+  border-color: var(--theme-border-hover);
+}
+
+/* 头部样式 */
 .react-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
+  justify-content: space-between;
+  gap: var(--theme-spacing-sm);
+  padding: var(--theme-spacing-sm) var(--theme-spacing);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
@@ -121,33 +157,53 @@ function getStepTitle(step: ReActStep): string {
   background-color: var(--theme-bg-hover);
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .react-icon {
   font-size: 14px;
 }
 
 .react-title {
-  flex: 1;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--theme-text);
 }
 
 .react-badge {
   display: inline-block;
-  margin-left: 8px;
   padding: 2px 8px;
   font-size: 11px;
-  font-weight: normal;
+  font-weight: 500;
   background-color: var(--theme-accent);
   color: var(--theme-bg);
   border-radius: 10px;
 }
 
 .streaming-indicator {
-  margin-left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 11px;
-  font-weight: normal;
+  font-weight: 500;
   color: var(--theme-accent);
+}
+
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  background-color: var(--theme-accent);
+  border-radius: 50%;
   animation: pulse 1.5s infinite;
 }
 
@@ -155,94 +211,102 @@ function getStepTitle(step: ReActStep): string {
   0%,
   100% {
     opacity: 1;
+    transform: scale(1);
   }
   50% {
     opacity: 0.5;
+    transform: scale(0.8);
   }
+}
+
+.stat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 10px;
+}
+
+.stat-badge.success {
+  background-color: rgba(16, 185, 129, 0.2);
+  color: var(--theme-success);
+}
+
+.stat-badge.error {
+  background-color: rgba(248, 81, 73, 0.2);
+  color: var(--theme-danger);
 }
 
 .expand-icon {
   font-size: 10px;
   color: var(--theme-text-secondary);
+  transition: transform 0.2s ease;
 }
 
+.react-steps-container:has(.react-content[style*='display: block']) .expand-icon,
+.react-content:not([style*='display: none']) + .react-header .expand-icon {
+  transform: rotate(180deg);
+}
+
+/* 内容区域 */
 .react-content {
   border-top: 1px solid var(--theme-border);
-  max-height: 400px;
+  max-height: 600px;
   overflow-y: auto;
+  animation: slideDown 0.2s ease;
 }
 
-.react-step {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--theme-border);
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 600px;
+  }
 }
 
-.react-step:last-child {
-  border-bottom: none;
+/* 时间线 */
+.timeline {
+  padding: var(--theme-spacing);
+  position: relative;
 }
 
-.step-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--theme-spacing) + 11px);
+  top: var(--theme-spacing);
+  bottom: var(--theme-spacing);
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    var(--theme-border),
+    var(--theme-border-hover),
+    var(--theme-border)
+  );
+  opacity: 0.5;
 }
 
-.step-icon {
-  font-size: 14px;
+/* 自定义滚动条 */
+.react-content::-webkit-scrollbar {
+  width: 6px;
 }
 
-.step-title {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--theme-text);
+.react-content::-webkit-scrollbar-track {
+  background: var(--theme-bg-tertiary);
+  border-radius: 3px;
 }
 
-.step-index {
-  font-size: 11px;
-  color: var(--theme-text-secondary);
+.react-content::-webkit-scrollbar-thumb {
+  background: var(--theme-border-hover);
+  border-radius: 3px;
 }
 
-.step-details {
-  margin-top: 8px;
-}
-
-.detail-section {
-  margin-bottom: 8px;
-}
-
-.detail-section:last-child {
-  margin-bottom: 0;
-}
-
-.detail-label {
-  font-size: 11px;
-  color: var(--theme-text-secondary);
-  margin-bottom: 4px;
-}
-
-.detail-code {
-  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  padding: 8px 12px;
-  background-color: var(--theme-bg);
-  border-radius: 4px;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-  max-height: 200px;
-  overflow-y: auto;
-  margin: 0;
-}
-
-.result-success {
-  border-left: 3px solid var(--theme-accent);
-}
-
-.result-error {
-  border-left: 3px solid var(--theme-danger, #f85149);
-  color: var(--theme-danger, #f85149);
+.react-content::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-text-secondary);
 }
 </style>

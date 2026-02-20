@@ -13,26 +13,52 @@
 
 /* ========== 主题变量定义 ========== */
 [data-theme='terminal'] {
-  /* 语义化的主题变量（通用） */
-  --theme-bg: #0d1117;
-  --theme-bg-secondary: #161b22;
-  --theme-bg-hover: #21262d;
-  --theme-border: #30363d;
-  --theme-text: #c9d1d9;
-  --theme-text-secondary: #8b949e;
-  --theme-accent: #3fb950;
-  --theme-accent-secondary: #58a6ff;
+  /* 主色调 - 深色背景 */
+  --theme-bg: #0f0f23;
+  --theme-bg-secondary: #1a1a2e;
+  --theme-bg-tertiary: #252542;
+  --theme-bg-hover: #2d2d4a;
+
+  /* 文字颜色 - 高对比度 */
+  --theme-text: #ffffff;
+  --theme-text-secondary: #e0e0e0;
+  --theme-text-tertiary: #a0a0b0;
+
+  /* 强调色 - 科技蓝/紫色系 */
+  --theme-accent: #4a9eff;
+  --theme-accent-secondary: #7c3aed;
+  --theme-accent-tertiary: #06b6d4;
+
+  /* 功能色 */
   --theme-danger: #f85149;
-  --theme-warning: #d29922;
-  --theme-info: #58a6ff;
-  --theme-success: #3fb950;
+  --theme-warning: #fbbf24;
+  --theme-info: #4a9eff;
+  --theme-success: #10b981;
+
+  /* 边框 - 半透明 */
+  --theme-border: rgba(255, 255, 255, 0.1);
+  --theme-border-hover: rgba(255, 255, 255, 0.2);
+  --theme-border-active: rgba(74, 158, 255, 0.5);
+
+  /* 字体 */
   --theme-font: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* 圆角 */
   --theme-radius: 8px;
+  --theme-radius-sm: 4px;
+  --theme-radius-lg: 12px;
+
+  /* 阴影 */
   --theme-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --theme-shadow-glow: 0 0 20px rgba(74, 158, 255, 0.15);
+
+  /* 间距 */
   --theme-spacing: 12px;
+  --theme-spacing-sm: 8px;
+  --theme-spacing-lg: 16px;
 
   /* 标题栏专用变量 */
-  --title-bar-height: 33px; /* 标题栏高度 */
+  --title-bar-height: 33px;
   --title-bar-bg: var(--theme-bg);
   --title-bar-border: var(--theme-border);
   --title-bar-text: var(--theme-text-secondary);
@@ -42,25 +68,52 @@
 /* ========== 默认主题变量（作为后备） ========== */
 /* 当未设置 data-theme 时使用终端主题作为默认 */
 :root {
-  --theme-bg: #0d1117;
-  --theme-bg-secondary: #161b22;
-  --theme-bg-hover: #21262d;
-  --theme-border: #30363d;
-  --theme-text: #c9d1d9;
-  --theme-text-secondary: #8b949e;
-  --theme-accent: #3fb950;
-  --theme-accent-secondary: #58a6ff;
+  /* 主色调 - 深色背景 */
+  --theme-bg: #0f0f23;
+  --theme-bg-secondary: #1a1a2e;
+  --theme-bg-tertiary: #252542;
+  --theme-bg-hover: #2d2d4a;
+
+  /* 文字颜色 - 高对比度 */
+  --theme-text: #ffffff;
+  --theme-text-secondary: #e0e0e0;
+  --theme-text-tertiary: #a0a0b0;
+
+  /* 强调色 - 科技蓝/紫色系 */
+  --theme-accent: #4a9eff;
+  --theme-accent-secondary: #7c3aed;
+  --theme-accent-tertiary: #06b6d4;
+
+  /* 功能色 */
   --theme-danger: #f85149;
-  --theme-warning: #d29922;
-  --theme-info: #58a6ff;
-  --theme-success: #3fb950;
+  --theme-warning: #fbbf24;
+  --theme-info: #4a9eff;
+  --theme-success: #10b981;
+
+  /* 边框 - 半透明 */
+  --theme-border: rgba(255, 255, 255, 0.1);
+  --theme-border-hover: rgba(255, 255, 255, 0.2);
+  --theme-border-active: rgba(74, 158, 255, 0.5);
+
+  /* 字体 */
   --theme-font: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* 圆角 */
   --theme-radius: 8px;
+  --theme-radius-sm: 4px;
+  --theme-radius-lg: 12px;
+
+  /* 阴影 */
   --theme-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --theme-shadow-glow: 0 0 20px rgba(74, 158, 255, 0.15);
+
+  /* 间距 */
   --theme-spacing: 12px;
+  --theme-spacing-sm: 8px;
+  --theme-spacing-lg: 16px;
 
   /* 标题栏专用变量 */
-  --title-bar-height: 33px; /* 标题栏高度 */
+  --title-bar-height: 33px;
   --title-bar-bg: var(--theme-bg);
   --title-bar-border: var(--theme-border);
   --title-bar-text: var(--theme-text-secondary);
@@ -69,8 +122,8 @@
   /* 滚动条变量 */
   --scrollbar-width: 8px;
   --scrollbar-track-bg: transparent;
-  --scrollbar-thumb-bg: #30363d;
-  --scrollbar-thumb-hover-bg: #484f58;
+  --scrollbar-thumb-bg: rgba(255, 255, 255, 0.15);
+  --scrollbar-thumb-hover-bg: rgba(255, 255, 255, 0.25);
   --scrollbar-thumb-radius: 4px;
 }
 
@@ -272,18 +325,19 @@
 .btn {
   font-family: var(--theme-font);
   padding: 8px 16px;
-  background-color: transparent;
+  background-color: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
-  color: var(--theme-text);
+  color: var(--theme-text-secondary);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn:hover {
-  background-color: var(--theme-bg-secondary);
-  border-color: var(--theme-text-secondary);
+  background-color: var(--theme-bg-hover);
+  border-color: var(--theme-border-hover);
+  color: var(--theme-text);
 }
 
 .btn:active {
@@ -293,23 +347,25 @@
 .btn-primary {
   font-family: var(--theme-font);
   padding: 8px 16px;
-  background-color: var(--theme-accent);
+  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-secondary) 100%);
   border: 1px solid var(--theme-accent);
   border-radius: var(--theme-radius);
-  color: var(--theme-bg);
+  color: #ffffff;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(74, 158, 255, 0.3);
 }
 
 .btn-primary:hover {
-  background-color: #4ac35a;
-  border-color: #4ac35a;
+  background: linear-gradient(135deg, #5aa8ff 0%, #8b5cf6 100%);
+  box-shadow: 0 4px 12px rgba(74, 158, 255, 0.4);
+  transform: translateY(-1px);
 }
 
 .btn-primary:active {
-  transform: scale(0.98);
+  transform: scale(0.98) translateY(0);
 }
 
 .btn-danger {
@@ -334,22 +390,27 @@
   font-family: var(--theme-font);
   width: 100%;
   padding: 10px 12px;
-  background-color: var(--theme-bg);
+  background-color: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
   border-radius: 6px;
   color: var(--theme-text);
   font-size: 14px;
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 .input::placeholder {
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
+}
+
+.input:hover {
+  border-color: var(--theme-border-hover);
 }
 
 .input:focus {
   border-color: var(--theme-accent);
-  box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.2);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+  background-color: var(--theme-bg-tertiary);
 }
 
 /* ========== 徽章组件 ========== */
@@ -393,13 +454,14 @@
   font-family: var(--theme-font);
   background-color: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
-  border-radius: 8px;
+  border-radius: var(--theme-radius);
   padding: 16px;
   transition: all 0.2s ease;
 }
 
 .card:hover {
-  border-color: var(--theme-text-secondary);
+  border-color: var(--theme-border-hover);
+  box-shadow: var(--theme-shadow-glow);
 }
 
 /* ========== 特殊效果 ========== */

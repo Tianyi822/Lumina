@@ -12,6 +12,7 @@ import { embeddingModelsApi } from './apis/embeddingModels'
 import { knowledgeApi, onFileProgress, onReindexProgress } from './apis/knowledge'
 import { fileApi } from './apis/file'
 import { sandboxApi } from './apis/sandbox'
+import { promptTemplateApi, cacheStatsApi } from './apis/promptEngineering'
 
 /**
  * 自定义渲染器 API
@@ -31,7 +32,10 @@ const api = {
   file: fileApi,
   sandbox: sandboxApi,
   onFileProgress,
-  onReindexProgress
+  onReindexProgress,
+  // 提示词工程相关 API
+  promptTemplate: promptTemplateApi,
+  cacheStats: cacheStatsApi
 }
 
 // 使用 contextBridge 向渲染器暴露 API

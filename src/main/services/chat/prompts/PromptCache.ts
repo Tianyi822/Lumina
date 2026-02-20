@@ -6,6 +6,7 @@
 import { LRUCache, type LRUCacheOptions } from '../cache/LRUCache'
 import { CacheKeyGenerator, CacheKeyType } from '../cache/CacheKey'
 import { CacheMetricsTracker } from '../cache/CacheMetrics'
+import { cacheMonitor } from '../cache/CacheMonitor'
 import type { MCPToolReference } from '@main/types/chat'
 
 /**
@@ -26,19 +27,35 @@ export interface PromptCacheConfig {
   exampleFormattingMaxSize: number
   /** 示例格式化缓存的有效时间，单位小时 */
   exampleFormattingTTL: number
+  /** 是否启用缓存命中率监控 */
+  enableMetrics: boolean
+  /** 监控数据保留的最大快照数 */
+  maxMetricsSnapshots: number
+  /** 当前提示词模板版本，用于缓存失效 */
+  templateVersion?: string
 }
 
 /**
  * 默认缓存配置
+ * 经过优化的默认配置，平衡性能和内存使用
  */
 const DEFAULT_CACHE_CONFIG: PromptCacheConfig = {
   enabled: true,
+  // 系统提示词缓存：50个条目，24小时过期
+  // 适用于：相同配置和工具集的重复请求
   systemPromptMaxSize: 50,
   systemPromptTTL: 24,
+  // 工具描述缓存：200个条目，12小时过期
+  // 适用于：常用工具的描述缓存
   toolDescriptionMaxSize: 200,
   toolDescriptionTTL: 12,
+  // 示例格式化缓存：500个条目，1小时过期
+  // 适用于：频繁使用的示例模板
   exampleFormattingMaxSize: 500,
-  exampleFormattingTTL: 1
+  exampleFormattingTTL: 1,
+  // 监控配置
+  enableMetrics: true,
+  maxMetricsSnapshots: 100
 }
 
 /**
@@ -51,9 +68,11 @@ export class PromptCache {
   private exampleFormattingCache: LRUCache<string, string>
   private metrics: CacheMetricsTracker
   private config: PromptCacheConfig
+  private lastTemplateVersion: string | null = null
 
   constructor(config?: Partial<PromptCacheConfig>) {
     this.config = { ...DEFAULT_CACHE_CONFIG, ...config }
+    this.lastTemplateVersion = this.config.templateVersion || null
 
     const systemPromptOptions: LRUCacheOptions = {
       maxSize: this.config.systemPromptMaxSize,
@@ -75,6 +94,13 @@ export class PromptCache {
     this.exampleFormattingCache = new LRUCache<string, string>(exampleFormattingOptions)
 
     this.metrics = new CacheMetricsTracker()
+
+    // 注册缓存到监控器
+    cacheMonitor.registerCaches(
+      this.systemPromptCache,
+      this.toolDescriptionCache,
+      this.exampleFormattingCache
+    )
 
     this.startCleanupTask()
   }
@@ -102,8 +128,10 @@ export class PromptCache {
     const cached = this.systemPromptCache.get(key)
     if (cached !== undefined) {
       this.captureMetrics()
+      cacheMonitor.recordHit('systemPrompt', key)
       return cached
     }
+    cacheMonitor.recordMiss('systemPrompt', key)
 
     const prompt = builder()
 
@@ -134,8 +162,10 @@ export class PromptCache {
     const cached = this.toolDescriptionCache.get(key)
     if (cached !== undefined) {
       this.captureMetrics()
+      cacheMonitor.recordHit('toolDescription', key)
       return cached
     }
+    cacheMonitor.recordMiss('toolDescription', key)
 
     const description = builder()
 
@@ -168,8 +198,10 @@ export class PromptCache {
     const cached = this.exampleFormattingCache.get(key)
     if (cached !== undefined) {
       this.captureMetrics()
+      cacheMonitor.recordHit('exampleFormatting', key)
       return cached
     }
+    cacheMonitor.recordMiss('exampleFormatting', key)
 
     const formatted = builder()
 
@@ -186,6 +218,7 @@ export class PromptCache {
   invalidateConfig(): void {
     this.systemPromptCache.clear()
     this.captureMetrics()
+    cacheMonitor.recordClear('systemPrompt')
   }
 
   /**
@@ -196,6 +229,8 @@ export class PromptCache {
     this.systemPromptCache.clear()
     this.toolDescriptionCache.clear()
     this.captureMetrics()
+    cacheMonitor.recordClear('systemPrompt')
+    cacheMonitor.recordClear('toolDescription')
   }
 
   /**
@@ -206,6 +241,8 @@ export class PromptCache {
     this.systemPromptCache.clear()
     this.exampleFormattingCache.clear()
     this.captureMetrics()
+    cacheMonitor.recordClear('systemPrompt')
+    cacheMonitor.recordClear('exampleFormatting')
   }
 
   /**
@@ -216,15 +253,27 @@ export class PromptCache {
     this.toolDescriptionCache.clear()
     this.exampleFormattingCache.clear()
     this.captureMetrics()
+    cacheMonitor.recordClear()
   }
 
   /**
    * 更新缓存配置
    * 如果改变了缓存大小配置，会重建对应的缓存以迁移已有数据
+   * 如果模板版本发生变化，会自动清空相关缓存
    */
   updateConfig(config: Partial<PromptCacheConfig>): void {
     const oldConfig = { ...this.config }
     this.config = { ...this.config, ...config }
+
+    // 检查模板版本是否变化，如果变化则清空系统提示词缓存
+    if (
+      config.templateVersion !== undefined &&
+      config.templateVersion !== this.lastTemplateVersion
+    ) {
+      this.lastTemplateVersion = config.templateVersion
+      this.systemPromptCache.clear()
+      cacheMonitor.recordClear('systemPrompt')
+    }
 
     if (
       config.systemPromptMaxSize !== undefined &&

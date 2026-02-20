@@ -444,12 +444,63 @@ interface PromptConfig {
 }
 
 /**
+ * 缓存级别统计
+ */
+interface CacheLevelStats {
+  size: number
+  maxSize: number
+  hits: number
+  misses: number
+  hitRate: number
+  expired: number
+  evicted: number
+  memoryUsage: number
+}
+
+/**
+ * 全局缓存统计
+ */
+interface GlobalCacheStats {
+  totalHits: number
+  totalMisses: number
+  totalHitRate: number
+  totalSize: number
+  totalMemoryUsage: number
+  performanceScore: number
+}
+
+/**
+ * 缓存统计更新事件数据
+ */
+interface CacheStatsUpdatedEvent {
+  timestamp: number
+  systemPrompt: CacheLevelStats
+  toolDescription: CacheLevelStats
+  exampleFormatting: CacheLevelStats
+  global: GlobalCacheStats
+}
+
+/**
+ * 缓存性能警告事件数据
+ */
+interface CachePerformanceWarningEvent {
+  timestamp: number
+  score: number
+  threshold: number
+}
+
+/**
  * 提示词配置相关的 API
  */
 interface PromptApi {
   getConfig: () => Promise<PromptConfig | undefined>
   updateConfig: (config: PromptConfig) => Promise<ConfigSaveResult>
   resetConfig: () => Promise<{ success: boolean; config?: PromptConfig; error?: string }>
+  // 缓存监控
+  subscribeCacheStats: () => Promise<{ success: boolean }>
+  unsubscribeCacheStats: () => Promise<{ success: boolean }>
+  onCacheStatsUpdated: (callback: (stats: CacheStatsUpdatedEvent) => void) => () => void
+  onCachePerformanceWarning: (callback: (data: CachePerformanceWarningEvent) => void) => () => void
 }
 
 /**
@@ -1387,6 +1438,73 @@ interface SandboxApi {
 }
 
 /**
+ * 提示词模板
+ */
+interface PromptTemplate {
+  version: string
+  sections: {
+    coreInstructions: string
+    reactProcess: string
+    errorHandling: string
+    toolBestPractices: string
+    outputFormat: string
+    sandboxManagement?: string
+  }
+  variables: Record<string, string>
+  updatedAt: string
+}
+
+/**
+ * 提示词模板 API
+ */
+interface PromptTemplateApi {
+  getTemplate: () => Promise<PromptTemplate>
+  updateTemplate: (template: Partial<PromptTemplate>) => Promise<{
+    success: boolean
+    error?: string
+  }>
+  resetTemplate: () => Promise<{
+    success: boolean
+    template?: PromptTemplate
+    error?: string
+  }>
+}
+
+/**
+ * 缓存统计信息（向后兼容）
+ */
+interface PromptCacheStats {
+  hitRate: number
+  totalRequests: number
+  hitCount: number
+  missCount: number
+  currentSize: number
+  maxSize: number
+  ttlHours: number
+}
+
+/**
+ * 缓存统计 API
+ */
+interface CacheStatsApi {
+  getStats: () => Promise<{
+    success: boolean
+    stats?: PromptCacheStats
+    error?: string
+  }>
+  getReport: () => Promise<{
+    success: boolean
+    report?: string
+    error?: string
+  }>
+  clearCache: () => Promise<{ success: boolean; error?: string }>
+  subscribe: () => Promise<{ success: boolean }>
+  unsubscribe: () => Promise<{ success: boolean }>
+  onStatsUpdated: (callback: (stats: CacheStatsUpdatedEvent) => void) => () => void
+  onPerformanceWarning: (callback: (data: CachePerformanceWarningEvent) => void) => () => void
+}
+
+/**
  * 自定义的完整 API
  */
 interface CustomApi {
@@ -1404,6 +1522,9 @@ interface CustomApi {
   sandbox: SandboxApi
   onFileProgress: (callback: (data: FileProgressEvent) => void) => () => void
   onReindexProgress: (callback: (data: ReindexProgressEvent) => void) => () => void
+  // 提示词工程相关 API
+  promptTemplate: PromptTemplateApi
+  cacheStats: CacheStatsApi
 }
 
 declare global {

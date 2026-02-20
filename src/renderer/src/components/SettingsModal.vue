@@ -3,7 +3,7 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import ThemeSettings from './settings/ThemeSettings.vue'
 import ModelSettings from './settings/ModelSettings.vue'
 import MCPSettings from './settings/MCPSettings.vue'
-import PromptSettings from './settings/PromptSettings.vue'
+import PromptEngineeringSettings from './settings/PromptEngineeringSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import type { AppConfig, ThemeConfig, LLMConfig, PromptConfig } from '@renderer/types'
 import { deepClone } from '@shared/utils'
@@ -133,6 +133,15 @@ function handlePromptResetSuccess(): void {
   }, 2000)
 }
 
+// 主题变化处理（立即生效，无需保存）
+function handleThemeChange(themeId: string): void {
+  window.api.logger.info('[SettingsModal] 主题已切换', { themeId })
+  successMessage.value = '主题已应用'
+  setTimeout(() => {
+    successMessage.value = ''
+  }, 1500)
+}
+
 // 键盘事件处理
 function handleKeyDown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
@@ -239,12 +248,14 @@ onUnmounted(() => {
             @update:info-message="infoMessage = $event"
           />
 
-          <!-- 提示词配置 Tab -->
-          <PromptSettings
+          <!-- 提示词工程配置 Tab -->
+          <PromptEngineeringSettings
             v-else-if="activeTab === 'prompt'"
             :model-value="promptConfig"
             @update:model-value="(value) => Object.assign(promptConfig, value)"
             @reset-success="handlePromptResetSuccess"
+            @error="errorMessage = $event"
+            @success="successMessage = $event"
           />
 
           <!-- 主题设置 Tab -->
@@ -252,6 +263,7 @@ onUnmounted(() => {
             v-else-if="activeTab === 'theme'"
             :model-value="themeConfig"
             @update:model-value="(value) => Object.assign(themeConfig, value)"
+            @theme-change="handleThemeChange"
           />
         </div>
       </div>

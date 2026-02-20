@@ -50,6 +50,30 @@ export interface EmbeddingConfigs {
 export type ToolDescriptionLevel = 'basic' | 'detailed' | 'minimal'
 
 /**
+ * 缓存配置接口
+ */
+export interface CacheConfig {
+  /** 是否启用缓存 */
+  enabled: boolean
+  /** 系统提示词缓存的最大数量 */
+  systemPromptMaxSize: number
+  /** 系统提示词缓存的有效时间，单位小时 */
+  systemPromptTTL: number
+  /** 工具描述缓存的最大数量 */
+  toolDescriptionMaxSize: number
+  /** 工具描述缓存的有效时间，单位小时 */
+  toolDescriptionTTL: number
+  /** 示例格式化缓存的最大数量 */
+  exampleFormattingMaxSize: number
+  /** 示例格式化缓存的有效时间，单位小时 */
+  exampleFormattingTTL: number
+  /** 是否启用缓存命中率监控 */
+  enableMetrics: boolean
+  /** 监控数据保留的最大快照数 */
+  maxMetricsSnapshots: number
+}
+
+/**
  * 提示词生成的相关配置
  * 影响聊天时发送给模型的系统提示词内容
  */
@@ -64,10 +88,12 @@ export interface PromptConfig {
   customSystemPrompt?: string
   /** 是否启用提示词缓存，减少重复构建的开销 */
   enablePromptCache?: boolean
-  /** 缓存的最大条目数 */
+  /** 缓存的最大条目数（向后兼容） */
   cacheMaxSize?: number
-  /** 缓存过期时间，单位小时 */
+  /** 缓存过期时间，单位小时（向后兼容） */
   cacheTTLHours?: number
+  /** 详细的缓存配置 */
+  cacheConfig?: CacheConfig
   /** 是否启用动态 Few-shot 示例 */
   enableDynamicExamples?: boolean
   /** 自动提取动态示例的间隔天数 */
@@ -76,10 +102,16 @@ export interface PromptConfig {
   dynamicExampleMinQuality?: number
   /** 最多保留的静态示例数量 */
   maxStaticExamples?: number
+  /** 动态示例存储路径 */
+  dynamicExamplesPath?: string
+  /** 最大动态示例数量 */
+  maxDynamicExamples?: number
   /** 是否启用提示词优化 */
   enablePromptOptimization?: boolean
   /** 提示词优化的激进程度 */
   optimizationAggressiveness?: 'conservative' | 'balanced' | 'aggressive'
+  /** 是否启用工具描述智能适配 */
+  enableToolDescriptionAdaptation?: boolean
 }
 
 /**

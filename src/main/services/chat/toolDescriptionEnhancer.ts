@@ -15,7 +15,7 @@ export class ToolDescriptionEnhancer {
 
     switch (level) {
       case 'minimal':
-        return baseDescription
+        return this.enhanceMinimal(tool, baseDescription)
       case 'basic':
         return this.enhanceBasic(tool, baseDescription)
       case 'detailed':
@@ -25,8 +25,58 @@ export class ToolDescriptionEnhancer {
   }
 
   /**
+   * 最小级别增强
+   * 只返回工具名称和一句话描述（< 50 tokens）
+   */
+  private enhanceMinimal(tool: MCPToolReference, baseDescription: string): string {
+    // 获取第一句话作为简短描述
+    const firstSentence = baseDescription.split(/[。.！!\n]/)[0].trim()
+    const toolFullName = `${tool.serverName}__${tool.toolName}`
+
+    if (firstSentence && firstSentence.length > 0) {
+      return `${toolFullName}: ${firstSentence}`
+    }
+
+    // 如果没有描述，基于工具名生成一个简单描述
+    const generatedDesc = this.generateMinimalDescription(tool.toolName)
+    return `${toolFullName}: ${generatedDesc}`
+  }
+
+  /**
+   * 生成最小描述
+   * 基于工具名称生成简短描述
+   */
+  private generateMinimalDescription(toolName: string): string {
+    const name = toolName.toLowerCase()
+
+    if (name.includes('search') || name.includes('query') || name.includes('find')) {
+      return '搜索查询工具'
+    } else if (name.includes('read') || name.includes('get') || name.includes('fetch')) {
+      return '数据获取工具'
+    } else if (name.includes('write') || name.includes('create') || name.includes('save')) {
+      return '数据写入工具'
+    } else if (name.includes('delete') || name.includes('remove')) {
+      return '数据删除工具'
+    } else if (name.includes('update') || name.includes('modify')) {
+      return '数据更新工具'
+    } else if (name.includes('list') || name.includes('enum')) {
+      return '列表枚举工具'
+    } else if (name.includes('execute') || name.includes('run')) {
+      return '命令执行工具'
+    } else if (name.includes('file') || name.includes('dir') || name.includes('path')) {
+      return '文件操作工具'
+    } else if (name.includes('web') || name.includes('http') || name.includes('url')) {
+      return '网络请求工具'
+    } else if (name.includes('db') || name.includes('sql') || name.includes('query')) {
+      return '数据库操作工具'
+    }
+
+    return '执行指定操作'
+  }
+
+  /**
    * 基础级别增强
-   * 只添加参数列表，不添加详细说明和使用建议
+   * 包含参数名称和类型（50-150 tokens）
    */
   private enhanceBasic(tool: MCPToolReference, baseDescription: string): string {
     const paramsInfo = this.extractParametersSummary(tool)
@@ -34,24 +84,30 @@ export class ToolDescriptionEnhancer {
       return baseDescription
     }
 
-    return `${baseDescription}\n\n**参数**:\n${paramsInfo}`
+    return `${baseDescription}\n参数: ${paramsInfo}`
   }
 
   /**
    * 详细级别增强
-   * 添加参数说明、类型信息和智能生成使用建议
+   * 包含完整描述、参数说明、使用示例（150-300 tokens）
    */
   private enhanceDetailed(tool: MCPToolReference, baseDescription: string): string {
     let enhanced = baseDescription
 
     const paramsInfo = this.extractDetailedParameters(tool)
     if (paramsInfo) {
-      enhanced += `\n\n**参数**:\n${paramsInfo}`
+      enhanced += `\n\n参数:\n${paramsInfo}`
+    }
+
+    // 添加参数示例
+    const examples = this.generateParameterExamples(tool)
+    if (examples) {
+      enhanced += `\n\n示例: ${examples}`
     }
 
     const usageTips = this.generateUsageTips(tool)
     if (usageTips) {
-      enhanced += `\n\n**使用建议**:\n${usageTips}`
+      enhanced += `\n\n使用建议:\n${usageTips}`
     }
 
     return enhanced
@@ -59,7 +115,7 @@ export class ToolDescriptionEnhancer {
 
   /**
    * 提取参数摘要
-   * 用于基础级别，只列出参数名称和是否必需
+   * 用于基础级别，只列出参数名称、类型和是否必需
    */
   private extractParametersSummary(tool: MCPToolReference): string | null {
     const schema = tool.inputSchema
@@ -76,11 +132,13 @@ export class ToolDescriptionEnhancer {
 
     const required = (schema.required as string[]) || []
     const params = paramNames.map((name) => {
+      const prop = properties[name] as Record<string, unknown>
       const isRequired = required.includes(name)
-      return `- \`${name}\`${isRequired ? ' (必需)' : ' (可选)'}`
+      const type = this.formatParameterType(prop)
+      return `${name} (${type}, ${isRequired ? 'required' : 'optional'})`
     })
 
-    return params.join('\n')
+    return params.join(', ')
   }
 
   /**
@@ -136,6 +194,103 @@ export class ToolDescriptionEnhancer {
     }
 
     return type || 'any'
+  }
+
+  /**
+   * 生成参数示例值
+   * 根据参数类型和名称生成合理的示例值
+   */
+  private generateParameterExamples(tool: MCPToolReference): string | null {
+    const schema = tool.inputSchema
+    if (!schema || !schema.properties) {
+      return null
+    }
+
+    const properties = schema.properties
+    const required = (schema.required as string[]) || []
+    const examples: Record<string, unknown> = {}
+
+    for (const [name, prop] of Object.entries(properties)) {
+      const property = prop as Record<string, unknown>
+      const type = property.type as string | undefined
+      const enumValues = property.enum as unknown[] | undefined
+
+      // 如果是必需参数，生成示例值
+      if (required.includes(name)) {
+        if (enumValues && enumValues.length > 0) {
+          examples[name] = enumValues[0]
+        } else if (type === 'string') {
+          examples[name] = this.generateStringExample(name, tool.toolName)
+        } else if (type === 'number' || type === 'integer') {
+          examples[name] = this.generateNumberExample(name)
+        } else if (type === 'boolean') {
+          examples[name] = true
+        } else if (type === 'array') {
+          examples[name] = []
+        } else {
+          examples[name] = null
+        }
+      }
+    }
+
+    if (Object.keys(examples).length === 0) {
+      return null
+    }
+
+    return JSON.stringify(examples)
+  }
+
+  /**
+   * 生成字符串类型示例值
+   */
+  private generateStringExample(paramName: string, toolName: string): string {
+    const name = paramName.toLowerCase()
+    const tool = toolName.toLowerCase()
+
+    if (name.includes('path') || name.includes('file')) {
+      return '/path/to/file'
+    } else if (name.includes('url') || name.includes('link')) {
+      return 'https://example.com'
+    } else if (name.includes('query') || name.includes('search')) {
+      return 'search keyword'
+    } else if (name.includes('name')) {
+      if (tool.includes('file')) return 'filename.txt'
+      if (tool.includes('container')) return 'my-container'
+      return 'example-name'
+    } else if (name.includes('id')) {
+      return 'id-12345'
+    } else if (name.includes('content') || name.includes('text')) {
+      return 'content text'
+    } else if (name.includes('command') || name.includes('cmd')) {
+      return 'ls -la'
+    } else if (name.includes('city')) {
+      return '北京'
+    } else if (name.includes('code')) {
+      return 'CN'
+    }
+
+    return 'example-value'
+  }
+
+  /**
+   * 生成数字类型示例值
+   */
+  private generateNumberExample(paramName: string): number {
+    const name = paramName.toLowerCase()
+
+    if (name.includes('limit') || name.includes('count') || name.includes('max')) {
+      return 10
+    } else if (name.includes('page')) {
+      return 1
+    } else if (name.includes('timeout')) {
+      return 30000
+    } else if (name.includes('port')) {
+      return 8080
+    } else if (name.includes('temperature')) {
+      return 0.7
+    }
+
+    return 0
   }
 
   /**

@@ -3,3 +3,6 @@
 export * from './types'
 export * from './reactSystemPrompt'
 export * from './toolExamples'
+export * from './PromptTemplateManager'
+export * from './PromptCache'
+export * from './PromptOptimizer'

@@ -1,0 +1,114 @@
+/**
+ * Theme System - Blooming Flowers Theme
+ * 繁花主题样式 - 自然绿色系
+ *
+ * 配色方案：
+ * - #0A594E - 深青绿（主色调）
+ * - #46AA8F - 中青绿（次要强调）
+ * - #70D75C - 亮绿色
+ * - #D0ED35 - 黄绿色
+ * - #FFB003 - 橙黄色
+ *
+ * 使用方式:
+ * - 在根元素设置 data-theme="blooming-flowers" 激活此主题
+ */
+
+/* 字体导入 - 使用更友好的无衬线字体 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+/* ========== 主题变量定义 ========== */
+[data-theme='blooming-flowers'] {
+  /* 主色调 - 浅色背景 */
+  --theme-bg: #f8faf9;
+  --theme-bg-secondary: #ffffff;
+  --theme-bg-tertiary: #f0f5f3;
+  --theme-bg-hover: #e8f0ed;
+
+  /* 文字颜色 - 深色确保可读性 */
+  --theme-text: #1a2f2a;
+  --theme-text-secondary: #3d5a52;
+  --theme-text-tertiary: #6b8a7d;
+
+  /* 强调色 - 自然绿色系 */
+  --theme-accent: #46aa8f;
+  --theme-accent-secondary: #70d75c;
+  --theme-accent-tertiary: #0a594e;
+
+  /* 功能色 */
+  --theme-danger: #e57373;
+  --theme-warning: #ffb003;
+  --theme-info: #46aa8f;
+  --theme-success: #70d75c;
+
+  /* 边框 - 柔和的边框色 */
+  --theme-border: rgba(70, 170, 143, 0.2);
+  --theme-border-hover: rgba(70, 170, 143, 0.35);
+  --theme-border-active: rgba(70, 170, 143, 0.5);
+
+  /* 字体 - 友好的无衬线字体 */
+  --theme-font:
+    'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* 圆角 - 更大的圆角增加柔和感 */
+  --theme-radius: 12px;
+  --theme-radius-sm: 8px;
+  --theme-radius-lg: 18px;
+
+  /* 阴影 - 柔和的阴影 */
+  --theme-shadow: 0 4px 20px rgba(10, 89, 78, 0.08), 0 2px 8px rgba(10, 89, 78, 0.04);
+  --theme-shadow-glow: 0 0 30px rgba(70, 170, 143, 0.15);
+
+  /* 间距 */
+  --theme-spacing: 12px;
+  --theme-spacing-sm: 8px;
+  --theme-spacing-lg: 16px;
+
+  /* 标题栏专用变量 */
+  --title-bar-height: 33px;
+  --title-bar-bg: var(--theme-bg-secondary);
+  --title-bar-border: var(--theme-border);
+  --title-bar-text: var(--theme-text-secondary);
+  --title-bar-text-hover: var(--theme-text);
+
+  /* 滚动条变量 */
+  --scrollbar-width: 8px;
+  --scrollbar-track-bg: transparent;
+  --scrollbar-thumb-bg: rgba(70, 170, 143, 0.3);
+  --scrollbar-thumb-hover-bg: rgba(70, 170, 143, 0.5);
+  --scrollbar-thumb-radius: 4px;
+
+  /* 聊天气泡专用色 */
+  --bubble-user-bg: linear-gradient(135deg, #0a594e 0%, #46aa8f 100%);
+  --bubble-user-text: #ffffff;
+  --bubble-ai-bg: #ffffff;
+  --bubble-ai-text: #1a2f2a;
+  --bubble-ai-border: rgba(70, 170, 143, 0.15);
+
+  /* 思考面板专用色 */
+  --thinking-bg: #f0f5f3;
+  --thinking-border: rgba(70, 170, 143, 0.25);
+  --thinking-accent: #46aa8f;
+}
+
+/* ========== 按钮组件覆盖 ========== */
+[data-theme='blooming-flowers'] .btn-primary {
+  background: linear-gradient(135deg, #0a594e 0%, #46aa8f 100%);
+  border: none;
+  box-shadow: 0 4px 12px rgba(10, 89, 78, 0.25);
+}
+
+[data-theme='blooming-flowers'] .btn-primary:hover {
+  background: linear-gradient(135deg, #0d6b5e 0%, #52ba9d 100%);
+  box-shadow: 0 6px 16px rgba(10, 89, 78, 0.35);
+}
+
+/* ========== 输入框组件覆盖 ========== */
+[data-theme='blooming-flowers'] .input:focus {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 3px rgba(70, 170, 143, 0.15);
+}
+
+/* ========== 卡片组件覆盖 ========== */
+[data-theme='blooming-flowers'] .card:hover {
+  box-shadow: 0 8px 24px rgba(10, 89, 78, 0.1);
+}

@@ -1,9 +1,15 @@
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import { configManager } from '../../services/config'
 import { logger } from '../../services/logger'
-import { exampleManager } from '../../services/chat/prompts/ExampleManager'
 import { promptBuilder } from '../../services/chat/PromptBuilder'
+import { promptTemplateManager } from '../../services/chat/prompts/PromptTemplateManager'
+import {
+  cacheMonitor,
+  CacheMonitorEvent,
+  type StatsUpdatedEvent
+} from '../../services/chat/cache/CacheMonitor'
 import type { PromptConfig } from '@main/types/config'
+import type { ReactPromptSections } from '../../services/chat/prompts/types'
 
 // 获取提示词配置，返回当前应用的提示词配置对象
 export async function handleGetPromptConfig(): Promise<PromptConfig | undefined> {
@@ -88,115 +94,112 @@ export async function handleResetPromptConfig(): Promise<{
   }
 }
 
-// 注册提示词配置相关的 IPC 处理器，包括配置管理、示例管理和性能监控
+// 注册提示词配置相关的 IPC 处理器
 export function registerPromptHandlers(): void {
   ipcMain.handle('prompt:getConfig', handleGetPromptConfig)
   ipcMain.handle('prompt:updateConfig', handleUpdatePromptConfig)
   ipcMain.handle('prompt:resetConfig', handleResetPromptConfig)
 
-  // 示例管理 handlers
-  ipcMain.handle('prompt:extractExamples', handleExtractExamples)
-  ipcMain.handle('prompt:getExampleStats', handleGetExampleStats)
-  ipcMain.handle('prompt:cleanupExamples', handleCleanupExamples)
-  ipcMain.handle('prompt:exportExamples', handleExportExamples)
-  ipcMain.handle('prompt:importExamples', handleImportExamples)
-
   // 性能监控 handlers
   ipcMain.handle('prompt:getCacheStats', handleGetCacheStats)
   ipcMain.handle('prompt:getCacheReport', handleGetCacheReport)
   ipcMain.handle('prompt:clearCache', handleClearCache)
+  ipcMain.handle('prompt:subscribeCacheStats', handleSubscribeCacheStats)
+  ipcMain.handle('prompt:unsubscribeCacheStats', handleUnsubscribeCacheStats)
+
+  // 模板管理 handlers
+  ipcMain.handle('prompt:getTemplate', handleGetTemplate)
+  ipcMain.handle('prompt:updateTemplate', handleUpdateTemplate)
+  ipcMain.handle('prompt:updateTemplateSection', handleUpdateTemplateSection)
+  ipcMain.handle('prompt:resetTemplate', handleResetTemplate)
+  ipcMain.handle('prompt:exportTemplate', handleExportTemplate)
+  ipcMain.handle('prompt:importTemplate', handleImportTemplate)
+
+  // 设置缓存监控事件推送
+  setupCacheMonitorEvents()
 
   logger.debug('提示词配置 IPC 处理器已注册', 'main')
 }
 
-// 提取示例，从历史会话中提取高质量的示例用于 Few-shot 学习
-export async function handleExtractExamples(
-  _event: Electron.IpcMainInvokeEvent,
-  sessionIds?: string[]
-): Promise<{ success: boolean; extracted?: number; saved?: number; errors?: string[] }> {
-  try {
-    const result = await exampleManager.extractAndSave(sessionIds)
-    return { success: true, ...result }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logger.error('提取示例失败', 'main', { error: errorMessage })
-    return { success: false, errors: [errorMessage] }
-  }
+// 缓存统计事件订阅的窗口集合
+const cacheStatsSubscribers = new Set<number>()
+
+// 是否已设置缓存监控事件
+let cacheMonitorEventsSetup = false
+
+/**
+ * 设置缓存监控事件推送
+ * 当缓存统计更新时，推送到所有订阅的窗口
+ */
+function setupCacheMonitorEvents(): void {
+  if (cacheMonitorEventsSetup) return
+  cacheMonitorEventsSetup = true
+
+  cacheMonitor.on(CacheMonitorEvent.STATS_UPDATED, (stats: StatsUpdatedEvent) => {
+    // 向所有订阅的窗口推送缓存统计
+    for (const webContentsId of cacheStatsSubscribers) {
+      const win = BrowserWindow.fromWebContents(
+        require('electron').webContents.fromId(webContentsId)
+      )
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('prompt:cacheStatsUpdated', stats)
+      } else {
+        // 窗口已销毁，移除订阅
+        cacheStatsSubscribers.delete(webContentsId)
+      }
+    }
+  })
+
+  // 性能警告事件
+  cacheMonitor.on(
+    'performance:warning',
+    (data: { timestamp: number; score: number; threshold: number }) => {
+      for (const webContentsId of cacheStatsSubscribers) {
+        const win = BrowserWindow.fromWebContents(
+          require('electron').webContents.fromId(webContentsId)
+        )
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('prompt:cachePerformanceWarning', data)
+        }
+      }
+    }
+  )
 }
 
-// 获取示例统计信息，包括示例数量、平均质量分数等统计数据
-export async function handleGetExampleStats(): Promise<{
-  success: boolean
-  stats?: {
-    total: number
-    static: number
-    dynamic: number
-    avgQualityScore: number
-    lastUpdated: string
-  }
-  error?: string
-}> {
+// 订阅缓存统计更新
+export async function handleSubscribeCacheStats(
+  event: Electron.IpcMainInvokeEvent
+): Promise<{ success: boolean }> {
   try {
-    const stats = await exampleManager.getStats()
-    return { success: true, stats }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logger.error('获取示例统计失败', 'main', { error: errorMessage })
-    return { success: false, error: errorMessage }
-  }
-}
+    const webContentsId = event.sender.id
+    cacheStatsSubscribers.add(webContentsId)
 
-// 清理示例，根据质量分数或时间清理低质量或过期的示例
-export async function handleCleanupExamples(
-  _event: Electron.IpcMainInvokeEvent,
-  options: { type: 'quality' | 'age'; value?: number }
-): Promise<{ success: boolean; cleaned?: number; error?: string }> {
-  try {
-    let cleaned = 0
-    if (options.type === 'quality') {
-      cleaned = await exampleManager.cleanup(options.value || 0.6)
-    } else if (options.type === 'age') {
-      cleaned = await exampleManager.cleanupOldExamples(options.value || 30)
+    // 立即推送一次当前统计
+    const stats = cacheMonitor.getCurrentStats()
+    if (stats) {
+      event.sender.send('prompt:cacheStatsUpdated', stats)
     }
 
-    logger.info('示例清理完成', 'main', { type: options.type, count: cleaned })
-    return { success: true, cleaned }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logger.error('清理示例失败', 'main', { error: errorMessage })
-    return { success: false, error: errorMessage }
-  }
-}
-
-// 导出示例，将示例数据导出为 JSON 格式
-export async function handleExportExamples(): Promise<{
-  success: boolean
-  json?: string
-  error?: string
-}> {
-  try {
-    const json = await exampleManager.exportExamples()
-    return { success: true, json }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logger.error('导出示例失败', 'main', { error: errorMessage })
-    return { success: false, error: errorMessage }
-  }
-}
-
-// 导入示例，从 JSON 格式的数据导入示例
-export async function handleImportExamples(
-  _event: Electron.IpcMainInvokeEvent,
-  json: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    await exampleManager.importExamples(json)
-    logger.info('示例导入成功')
     return { success: true }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    logger.error('导入示例失败', 'main', { error: errorMessage })
-    return { success: false, error: errorMessage }
+    logger.error('订阅缓存统计失败', 'main', { error: errorMessage })
+    return { success: false }
+  }
+}
+
+// 取消订阅缓存统计更新
+export async function handleUnsubscribeCacheStats(
+  event: Electron.IpcMainInvokeEvent
+): Promise<{ success: boolean }> {
+  try {
+    const webContentsId = event.sender.id
+    cacheStatsSubscribers.delete(webContentsId)
+    return { success: true }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('取消订阅缓存统计失败', 'main', { error: errorMessage })
+    return { success: false }
   }
 }
 
@@ -266,6 +269,136 @@ export async function handleClearCache(): Promise<{
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('清空缓存失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// ============ 模板管理 Handlers ============
+
+// 获取当前模板
+export async function handleGetTemplate(): Promise<{
+  success: boolean
+  template?: {
+    version: string
+    sections: ReactPromptSections
+    variables: Record<string, string>
+  }
+  error?: string
+}> {
+  try {
+    const template = promptTemplateManager.getTemplate()
+    return { success: true, template }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('获取模板失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 更新整个模板
+export async function handleUpdateTemplate(
+  _event: Electron.IpcMainInvokeEvent,
+  template: {
+    version: string
+    sections: ReactPromptSections
+    variables: Record<string, string>
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await promptTemplateManager.updateTemplate(template)
+    if (result) {
+      // 清空缓存以使用新模板
+      promptBuilder.getCache().clear()
+      logger.info('提示词模板已更新', 'main', { version: template.version })
+    }
+    return { success: result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('更新模板失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 更新单个章节
+export async function handleUpdateTemplateSection(
+  _event: Electron.IpcMainInvokeEvent,
+  sectionName: keyof ReactPromptSections,
+  content: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await promptTemplateManager.updateSection(sectionName, content)
+    if (result) {
+      // 清空缓存以使用新章节
+      promptBuilder.getCache().clear()
+      logger.info('提示词模板章节已更新', 'main', { sectionName })
+    }
+    return { success: result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('更新模板章节失败', 'main', { sectionName, error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 重置模板为默认值
+export async function handleResetTemplate(): Promise<{
+  success: boolean
+  template?: {
+    version: string
+    sections: ReactPromptSections
+    variables: Record<string, string>
+  }
+  error?: string
+}> {
+  try {
+    const result = await promptTemplateManager.resetToDefault()
+    if (result) {
+      // 清空缓存以使用默认模板
+      promptBuilder.getCache().clear()
+      const template = promptTemplateManager.getTemplate()
+      logger.info('提示词模板已重置为默认值', 'main')
+      return { success: true, template }
+    }
+    return { success: false, error: '重置失败' }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('重置模板失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 导出模板
+export async function handleExportTemplate(): Promise<{
+  success: boolean
+  json?: string
+  error?: string
+}> {
+  try {
+    const json = promptTemplateManager.exportTemplate()
+    return { success: true, json }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('导出模板失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 导入模板
+export async function handleImportTemplate(
+  _event: Electron.IpcMainInvokeEvent,
+  json: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await promptTemplateManager.importTemplate(json)
+    if (result) {
+      // 清空缓存以使用新模板
+      promptBuilder.getCache().clear()
+      logger.info('提示词模板已导入', 'main')
+    }
+    return { success: result }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('导入模板失败', 'main', { error: errorMessage })
     return { success: false, error: errorMessage }
   }
 }

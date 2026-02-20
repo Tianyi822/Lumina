@@ -95,6 +95,7 @@ export class ChatService {
 
     const result = await this.sendMessageDirect(request, webContents, knowledgeResults)
     this.clearStoppedSession(sessionId)
+
     return result
   }
 
@@ -511,6 +512,8 @@ export class ChatService {
             totalUsage.prompt_tokens += chunk.usage.prompt_tokens
             totalUsage.completion_tokens += chunk.usage.completion_tokens
             totalUsage.total_tokens += chunk.usage.total_tokens
+
+            // Token 使用情况已记录在 usage 中
           }
 
           const choice = chunk.choices?.[0]
@@ -1154,13 +1157,9 @@ export class ChatService {
     if (sessionIds.length === 0) return
 
     try {
-      const { exampleManager } = await import('./prompts/ExampleManager')
-      const result = await exampleManager.extractAndSave(sessionIds)
-
-      logger.info('批量提取示例完成', 'main', {
-        sessionCount: sessionIds.length,
-        extracted: result.extracted,
-        saved: result.saved
+      // 示例提取功能已移除
+      logger.info('批量提取示例功能已禁用', 'main', {
+        sessionCount: sessionIds.length
       })
     } catch (error) {
       logger.warn('批量提取示例失败', 'main', { error })
