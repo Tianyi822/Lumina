@@ -3,16 +3,16 @@
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { Message, StreamEvent } from '@renderer/types'
+import type { Message, StreamEvent, UserInteractionRequest } from '@renderer/types'
 import { useMessageCacheStore } from './messageCacheStore'
 
 export const useChatStreamStore = defineStore('chatStream', () => {
   // ==================== Dependencies ====================
-  
+
   const messageCache = useMessageCacheStore()
 
   // ==================== State ====================
-  
+
   // 是否正在发送消息（全局状态，用于当前会话）
   const isSending = ref(false)
 
@@ -28,8 +28,12 @@ export const useChatStreamStore = defineStore('chatStream', () => {
   // 流式监听器清理函数
   const cleanupStreamListenerFn = ref<(() => void) | null>(null)
 
+  // 用户交互选项状态
+  const showUserInteraction = ref(false)
+  const userInteractionInfo = ref<UserInteractionRequest | null>(null)
+
   // ==================== Getters ====================
-  
+
   // 获取当前正在流式响应的会话数量
   const streamingSessionCount = computed(() => {
     let count = 0
@@ -49,7 +53,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
   })
 
   // ==================== Actions ====================
-  
+
   // 获取指定会话的发送状态
   function getSessionSendingState(sessionId: string): boolean {
     return sessionSendingStates.value.get(sessionId) || false
@@ -71,6 +75,10 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     // 更新流式会话 ID
     if (state) {
       streamingSessionId.value = sessionId
+      // 新的流开始时，清除之前的用户交互选项
+      if (isCurrentSession) {
+        hideUserInteraction()
+      }
     } else if (streamingSessionId.value === sessionId) {
       streamingSessionId.value = null
     }
@@ -108,6 +116,12 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     messagesSnapshots.value.delete(sessionId)
   }
 
+  // 隐藏用户交互选项
+  function hideUserInteraction(): void {
+    showUserInteraction.value = false
+    userInteractionInfo.value = null
+  }
+
   // 处理流式事件
   // 根据事件类型更新消息内容、推理内容、工具调用等
   function handleStreamEvent(
@@ -143,14 +157,6 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     // 找到正在流式输出的消息
     const streamingMessage = targetMessages.find((msg) => msg.isStreaming)
 
-    window.api.logger.debug('[ChatStreamStore] 处理流式事件', {
-      type: event.type,
-      targetSessionId,
-      currentSessionId,
-      isCurrentSession,
-      hasStreamingMessage: !!streamingMessage
-    })
-
     switch (event.type) {
       case 'content':
         if (streamingMessage && event.content) {
@@ -166,6 +172,20 @@ export const useChatStreamStore = defineStore('chatStream', () => {
 
       case 'tool_call':
         if (streamingMessage && event.toolCall) {
+          // 1. 更新 assistant 消息的 tool_calls（标准格式）
+          if (!streamingMessage.tool_calls) {
+            streamingMessage.tool_calls = []
+          }
+          streamingMessage.tool_calls.push({
+            id: event.toolCall.id,
+            type: 'function',
+            function: {
+              name: `${event.toolCall.serverName}__${event.toolCall.name}`,
+              arguments: JSON.stringify(event.toolCall.arguments)
+            }
+          })
+
+          // 2. 同时更新 reactSteps（UI 展示）
           if (!streamingMessage.reactSteps) {
             streamingMessage.reactSteps = []
           }
@@ -179,6 +199,35 @@ export const useChatStreamStore = defineStore('chatStream', () => {
 
       case 'tool_result':
         if (streamingMessage && event.toolResult) {
+          // 1. 创建独立的 tool 消息（标准格式）
+          // 安全序列化 result，处理可能包含复杂对象的情况
+          let toolContent: string
+          try {
+            if (event.toolResult.success) {
+              const result = event.toolResult.result
+              // 如果 result 是字符串，直接使用；否则尝试序列化
+              if (typeof result === 'string') {
+                toolContent = result
+              } else {
+                toolContent = JSON.stringify(result)
+              }
+            } else {
+              toolContent = JSON.stringify({ error: event.toolResult.error })
+            }
+          } catch {
+            toolContent = JSON.stringify({ raw: String(event.toolResult.result) })
+          }
+
+          const toolMessage: Message = {
+            id: `msg-${Date.now()}`,
+            role: 'tool',
+            content: toolContent,
+            tool_call_id: event.toolResult.id,
+            timestamp: new Date().toISOString()
+          }
+          targetMessages.push(toolMessage)
+
+          // 2. 同时更新 reactSteps（UI 展示）
           if (!streamingMessage.reactSteps) {
             streamingMessage.reactSteps = []
           }
@@ -236,6 +285,13 @@ export const useChatStreamStore = defineStore('chatStream', () => {
         }
         break
 
+      case 'user_interaction':
+        if (isCurrentSession && event.userInteraction) {
+          showUserInteraction.value = true
+          userInteractionInfo.value = event.userInteraction
+        }
+        break
+
       case 'done':
         handleStreamDone(event, targetSessionId, isCurrentSession, streamingMessage)
         break
@@ -267,6 +323,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
       isSending.value = false
       streamingSessionId.value = null
       clearMessagesSnapshot(sessionId)
+      // 注意：不清除 userInteraction，选项需要持续显示到用户做出选择
     } else {
       // 非当前会话：保存缓存
       if (streamingSessionId.value === sessionId) {
@@ -302,6 +359,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
       isSending.value = false
       streamingSessionId.value = null
       clearMessagesSnapshot(sessionId)
+      hideUserInteraction()
     } else {
       // 非当前会话：清除缓存
       if (streamingSessionId.value === sessionId) {
@@ -400,6 +458,8 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     sessionSendingStates,
     messagesSnapshots,
     streamingSessionId,
+    showUserInteraction,
+    userInteractionInfo,
     // Getters
     streamingSessionCount,
     activeSessionIds,
@@ -410,6 +470,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     saveMessagesSnapshot,
     getMessagesSnapshot,
     clearMessagesSnapshot,
+    hideUserInteraction,
     handleStreamEvent,
     setupStreamListener,
     cleanupStreamListener,

@@ -1,6 +1,5 @@
 import OpenAI from 'openai'
 import type { EmbeddingConfig } from '@main/types/config'
-import { logger } from '@main/services/logger'
 
 /**
  * 嵌入向量结果
@@ -214,15 +213,6 @@ export class EmbeddingService {
       const sortedData = response.data.sort((a, b) => a.index - b.index)
 
       const embeddings = sortedData.map((item) => item.embedding)
-      logger.debug('embedBatch 嵌入模型返回数据', 'main', {
-        batchSize: texts.length,
-        resultCount: embeddings.length,
-        firstEmbeddingLength: embeddings[0]?.length,
-        firstEmbeddingSample: embeddings[0]?.slice(0, 5),
-        lastEmbeddingLength: embeddings[embeddings.length - 1]?.length,
-        lastEmbeddingSample: embeddings[embeddings.length - 1]?.slice(0, 5),
-        model: response.model
-      })
 
       return {
         embeddings,

@@ -14,33 +14,33 @@ const md = new MarkdownIt({
 })
 
 const props = defineProps<{
-  sidebarCollapsed: boolean
   currentChatId?: string
   messages?: Message[]
   isSending?: boolean
-  currentModelName?: string // 当前使用的模型名称
-  configUpdateKey?: number // 配置更新标志
-  // 输入状态相关
+  currentModelName?: string
+  configUpdateKey?: number
   inputMessage?: string
   selectedModel?: string
   selectedMCPTools?: MCPTool[]
   selectedKnowledgeBases?: KnowledgeBase[]
+  enableSandboxTools?: boolean
 }>()
 
 const emit = defineEmits<{
-  (e: 'toggle-sidebar'): void
   (
     e: 'send-message',
     message: string,
     model: string,
     selectedTools: MCPTool[],
-    selectedKnowledgeBases: KnowledgeBase[]
+    selectedKnowledgeBases: KnowledgeBase[],
+    enableSandboxTools: boolean
   ): void
   (e: 'stop-request'): void
   (e: 'update:inputMessage', value: string): void
   (e: 'update:selectedModel', value: string): void
   (e: 'update:selectedMCPTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
+  (e: 'update:enableSandboxTools', value: boolean): void
 }>()
 
 // 展开的思考内容消息ID集合
@@ -142,25 +142,21 @@ function renderMarkdown(content: string): string {
   return md.render(content)
 }
 
-function handleToggleSidebar(): void {
-  emit('toggle-sidebar')
-}
-
 function handleSendMessage(
   message: string,
   model: string,
   selectedTools: MCPTool[],
-  selectedKnowledgeBases: KnowledgeBase[]
+  selectedKnowledgeBases: KnowledgeBase[],
+  enableSandboxTools: boolean
 ): void {
-  console.log('[MainContent] 处理发送消息事件:', {
-    message: message.substring(0, 50),
+  window.api.logger.debug('[MainContent] 处理发送消息事件', {
+    messageLength: message.length,
     model,
     selectedToolsCount: selectedTools?.length ?? 0,
-    selectedTools: selectedTools?.map((t) => `${t.serverName}/${t.name}`),
     selectedKnowledgeBasesCount: selectedKnowledgeBases?.length ?? 0,
-    selectedKnowledgeBases: selectedKnowledgeBases?.map((kb) => kb.name)
+    enableSandboxTools
   })
-  emit('send-message', message, model, selectedTools, selectedKnowledgeBases)
+  emit('send-message', message, model, selectedTools, selectedKnowledgeBases, enableSandboxTools)
 }
 
 function handleStopRequest(): void {
@@ -181,6 +177,10 @@ function handleUpdateSelectedTools(value: MCPTool[]): void {
 
 function handleUpdateSelectedKnowledgeBases(value: KnowledgeBase[]): void {
   emit('update:selectedKnowledgeBases', value)
+}
+
+function handleUpdateEnableSandboxTools(value: boolean): void {
+  emit('update:enableSandboxTools', value)
 }
 
 /**
@@ -215,18 +215,6 @@ function formatTokenUsage(usage: TokenUsage): string {
 
 <template>
   <main class="main-content">
-    <!-- 顶部工具栏 -->
-    <div class="content-header">
-      <button
-        class="btn toggle-sidebar-btn"
-        :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-        @click="handleToggleSidebar"
-      >
-        <span class="toggle-icon">{{ sidebarCollapsed ? '»' : '«' }}</span>
-      </button>
-      <div class="header-spacer"></div>
-    </div>
-
     <!-- 消息区域 -->
     <div ref="messagesAreaRef" class="messages-area" @scroll="handleScroll">
       <!-- 空状态 -->
@@ -236,7 +224,12 @@ function formatTokenUsage(usage: TokenUsage): string {
 
       <!-- 消息列表 -->
       <div v-else class="messages-list">
-        <div v-for="msg in messages" :key="msg.id" class="message" :class="msg.role">
+        <div
+          v-for="msg in (messages ?? []).filter((m) => m.role !== 'tool')"
+          :key="msg.id"
+          class="message"
+          :class="msg.role"
+        >
           <!-- 消息头部：角色标签 -->
           <div class="message-header">
             <!-- 用户标签 -->
@@ -282,8 +275,8 @@ function formatTokenUsage(usage: TokenUsage): string {
             </div>
           </div>
 
-          <!-- Token 统计 -->
-          <div v-if="msg.usage && !msg.isStreaming" class="token-usage">
+          <!-- Token 统计（仅助手消息） -->
+          <div v-if="msg.role === 'assistant' && msg.usage && !msg.isStreaming" class="token-usage">
             {{ formatTokenUsage(msg.usage) }}
           </div>
         </div>
@@ -306,12 +299,14 @@ function formatTokenUsage(usage: TokenUsage): string {
       :selected-model="props.selectedModel"
       :selected-m-c-p-tools="props.selectedMCPTools"
       :selected-knowledge-bases="props.selectedKnowledgeBases"
+      :enable-sandbox-tools="props.enableSandboxTools"
       @send="handleSendMessage"
       @stop="handleStopRequest"
       @update:input-message="handleUpdateInputMessage"
       @update:selected-model="handleUpdateSelectedModel"
       @update:selected-m-c-p-tools="handleUpdateSelectedTools"
       @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
+      @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
     />
   </main>
 </template>
@@ -324,27 +319,6 @@ function formatTokenUsage(usage: TokenUsage): string {
   height: 100%;
   background-color: var(--theme-bg);
   overflow: hidden;
-}
-
-.content-header {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--theme-border);
-  flex-shrink: 0;
-}
-
-.toggle-sidebar-btn {
-  padding: 6px 10px;
-  font-size: 16px;
-}
-
-.toggle-icon {
-  font-weight: bold;
-}
-
-.header-spacer {
-  flex: 1;
 }
 
 .messages-area {
@@ -391,8 +365,24 @@ function formatTokenUsage(usage: TokenUsage): string {
 }
 
 .message {
-  max-width: 90%;
-  align-self: flex-start; /* 所有消息左对齐 */
+  max-width: 85%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 用户消息：右侧对齐 */
+.message.user {
+  align-self: flex-end;
+}
+
+.message.user .message-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 助手消息：左侧对齐 */
+.message.assistant {
+  align-self: flex-start;
 }
 
 /* 消息头部：角色标签 */
@@ -497,8 +487,8 @@ function formatTokenUsage(usage: TokenUsage): string {
 
 /* 用户消息样式 */
 .message.user .message-content {
-  background-color: var(--theme-bg-hover);
-  border-color: rgba(63, 185, 80, 0.4);
+  background-color: rgba(63, 185, 80, 0.15);
+  border-color: rgba(63, 185, 80, 0.3);
 }
 
 /* 助手消息样式 */

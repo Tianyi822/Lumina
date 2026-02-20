@@ -197,7 +197,7 @@ async function indexSingleFile(file: FileItem): Promise<void> {
   // 启动状态刷新
   indexStore.startRefresh()
 
-  console.log('开始索引文件:', file.name)
+  window.api.logger.info('[KnowledgeMain] 开始索引文件', { fileName: file.name })
   const result = await window.api.knowledge.indexFile(
     currentKB.value.id,
     file.id,
@@ -209,7 +209,7 @@ async function indexSingleFile(file: FileItem): Promise<void> {
     console.error('索引文件失败:', file.name, result.error)
     indexStore.setFileFailed(currentKB.value.id, file.id, result.error || '索引失败')
   } else {
-    console.log('文件索引成功:', file.name)
+    window.api.logger.info('[KnowledgeMain] 文件索引成功', { fileName: file.name })
     await loadStats()
   }
 }
@@ -471,7 +471,7 @@ function escapeRegex(string: string): string {
 // 页面可见性变化时恢复状态（处理页面切换）
 function handleVisibilityChange(): void {
   if (document.visibilityState === 'visible' && currentKB.value) {
-    console.log('页面变为可见，恢复索引状态')
+    window.api.logger.debug('[KnowledgeMain] 页面变为可见，恢复索引状态')
     void indexStore.restoreStatus(currentKB.value.id)
   }
 }

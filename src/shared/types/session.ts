@@ -1,4 +1,4 @@
-import { TokenUsage, MessageRole } from './chat'
+import { TokenUsage, MessageRole, ToolCallMessage } from './chat'
 
 /**
  * 会话的类型
@@ -24,6 +24,10 @@ export interface SessionMessage {
   modelName?: string
   /** Token 使用统计 */
   usage?: TokenUsage
+  /** 工具调用信息，仅 assistant 消息会有 */
+  tool_calls?: ToolCallMessage[]
+  /** 工具调用的 ID，仅 tool 消息会有 */
+  tool_call_id?: string
 }
 
 /**

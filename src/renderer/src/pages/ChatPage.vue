@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch, computed, toRaw } from 'vue'
 import { storeToRefs } from 'pinia'
-import type { MCPTool, SessionType, KnowledgeBase, StreamEvent } from '@renderer/types'
+import type { MCPTool, SessionType, KnowledgeBase, StreamEvent, ChatMessage } from '@renderer/types'
 import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
@@ -54,7 +54,8 @@ async function handleSendMessage(
   content: string,
   model: string,
   selectedTools: MCPTool[] = [],
-  selectedKnowledgeBases: KnowledgeBase[] = []
+  selectedKnowledgeBases: KnowledgeBase[] = [],
+  enableSandboxTools: boolean = false
 ): Promise<void> {
   // 如果没有当前对话，先创建一个
   if (!currentChatId.value || !currentSession.value) {
@@ -127,10 +128,28 @@ async function handleSendMessage(
 
   try {
     // 构建消息历史（排除最后一个空的助手占位符）
-    const chatMessages = messages.value.slice(0, -1).map((msg) => ({
-      role: msg.role,
-      content: msg.content
-    }))
+    // 使用 JSON 序列化移除 Vue 响应式代理，避免克隆错误
+    const chatMessages: ChatMessage[] = JSON.parse(
+      JSON.stringify(
+        messages.value.slice(0, -1).map((msg) => {
+          const result: ChatMessage = {
+            role: msg.role,
+            content: msg.content
+          }
+          // 添加工具调用字段
+          if (msg.tool_calls) {
+            result.tool_calls = msg.tool_calls
+          }
+          if (msg.tool_call_id) {
+            result.tool_call_id = msg.tool_call_id
+          }
+          if (msg.reasoning) {
+            result.reasoning_content = msg.reasoning
+          }
+          return result
+        })
+      )
+    )
 
     // 转换工具引用（使用 toRaw 移除响应式包装）
     const toolReferences =
@@ -166,7 +185,8 @@ async function handleSendMessage(
       modelKey: model,
       sessionId,
       selectedTools: toolReferences,
-      selectedKnowledgeBases: kbReferences
+      selectedKnowledgeBases: kbReferences,
+      enableSandboxTools
     })
 
     if (!result.success && result.error) {
@@ -243,6 +263,10 @@ function handleUpdateSelectedKnowledgeBases(value: KnowledgeBase[]): void {
   inputStateStore.updateSelectedKnowledgeBases(value)
 }
 
+function handleUpdateEnableSandboxTools(value: boolean): void {
+  inputStateStore.updateEnableSandboxTools(value)
+}
+
 // ==================== 流式事件处理 ====================
 function handleStreamEvent(event: StreamEvent): void {
   chatStreamStore.handleStreamEvent(event, currentChatId.value || null, messages.value)
@@ -316,7 +340,6 @@ watch(
     <!-- 使用 :key 绑定 currentChatId 确保切换会话时组件完全重新创建,实现状态隔离 -->
     <MainContent
       :key="currentChatId || 'no-chat'"
-      :sidebar-collapsed="sidebarCollapsed"
       :current-chat-id="currentChatId"
       :messages="messages"
       :is-sending="isSending"
@@ -326,13 +349,14 @@ watch(
       :selected-model="currentInputState.selectedModel"
       :selected-m-c-p-tools="currentInputState.selectedMCPTools"
       :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
-      @toggle-sidebar="uiStateStore.toggleSidebar"
+      :enable-sandbox-tools="currentInputState.enableSandboxTools"
       @send-message="handleSendMessage"
       @stop-request="handleStopRequest"
       @update:input-message="handleUpdateInputMessage"
       @update:selected-model="handleUpdateSelectedModel"
       @update:selected-m-c-p-tools="handleUpdateSelectedTools"
       @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
+      @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
     />
 
     <!-- 聊天错误提示(临时显示) -->

@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import TitleBar from './components/TitleBar.vue'
 import ChatPage from './pages/ChatPage.vue'
 import KnowledgePage from './pages/KnowledgePage.vue'
+import SandboxPage from './pages/SandboxPage.vue'
 import ErrorBanner from './components/ErrorBanner.vue'
 import SettingsModal from './components/SettingsModal.vue'
 
@@ -15,7 +16,8 @@ import { useUIStateStore } from './stores'
 
 // ==================== UI 状态管理（直接使用 Store）====================
 const uiState = useUIStateStore()
-const { currentView, isChatView, configError } = storeToRefs(uiState)
+const { currentView, isChatView, isKnowledgeView, isSandboxView, configError } =
+  storeToRefs(uiState)
 
 // 设置弹窗状态（本地状态）
 const showSettings = ref(false)
@@ -77,7 +79,10 @@ useLifecycle({
       <ChatPage v-if="isChatView" @open-settings="openSettings" />
 
       <!-- 知识库视图 -->
-      <KnowledgePage v-else />
+      <KnowledgePage v-else-if="isKnowledgeView" />
+
+      <!-- 沙箱视图 -->
+      <SandboxPage v-else-if="isSandboxView" />
     </div>
 
     <!-- 设置弹窗 -->

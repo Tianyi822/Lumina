@@ -11,14 +11,15 @@ const DEFAULT_INPUT_STATE: SessionInputState = {
   inputMessage: '',
   selectedModel: '',
   selectedMCPTools: [],
-  selectedKnowledgeBases: []
+  selectedKnowledgeBases: [],
+  enableSandboxTools: false
 }
 
 export const useInputStateStore = defineStore(
   'inputState',
   () => {
     // ==================== State ====================
-    
+
     // 会话 ID 到输入状态的映射
     // 持久化存储，用于页面切换后恢复状态
     const sessionInputStates = ref<Map<string, SessionInputState>>(new Map())
@@ -30,7 +31,7 @@ export const useInputStateStore = defineStore(
     const lastActiveSessionId = ref<string | null>(null)
 
     // ==================== Getters ====================
-    
+
     // 获取当前输入消息
     const inputMessage = computed(() => currentInputState.value.inputMessage)
 
@@ -43,11 +44,14 @@ export const useInputStateStore = defineStore(
     // 获取当前选中的知识库
     const selectedKnowledgeBases = computed(() => currentInputState.value.selectedKnowledgeBases)
 
+    // 获取当前沙箱工具开关状态
+    const enableSandboxTools = computed(() => currentInputState.value.enableSandboxTools)
+
     // 获取已保存状态的会话数量
     const savedStateCount = computed(() => sessionInputStates.value.size)
 
     // ==================== Actions ====================
-    
+
     // 获取或创建会话的输入状态
     function getSessionState(sessionId: string): SessionInputState {
       if (!sessionInputStates.value.has(sessionId)) {
@@ -114,6 +118,15 @@ export const useInputStateStore = defineStore(
       window.api.logger.debug('[InputStateStore] 更新选中知识库', {
         count: kbs.length,
         kbs: kbs.map((kb) => kb.name)
+      })
+    }
+
+    // 更新沙箱工具开关状态
+    function updateEnableSandboxTools(enabled: boolean): void {
+      currentInputState.value.enableSandboxTools = enabled
+
+      window.api.logger.debug('[InputStateStore] 更新沙箱工具开关', {
+        enabled
       })
     }
 
@@ -201,6 +214,7 @@ export const useInputStateStore = defineStore(
       selectedModel,
       selectedMCPTools,
       selectedKnowledgeBases,
+      enableSandboxTools,
       savedStateCount,
       // Actions
       getSessionState,
@@ -210,6 +224,7 @@ export const useInputStateStore = defineStore(
       updateSelectedModel,
       updateSelectedTools,
       updateSelectedKnowledgeBases,
+      updateEnableSandboxTools,
       toggleToolSelection,
       clearInputMessage,
       clearSelectedTools,

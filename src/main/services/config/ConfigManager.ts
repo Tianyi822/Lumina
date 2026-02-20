@@ -37,7 +37,10 @@ function createEmptyConfig(): AppConfig {
     promptConfig: {
       enableEnhancedPrompt: true,
       toolDescriptionLevel: 'detailed',
-      fewShotCount: 3
+      fewShotCount: 3,
+      enableDynamicExamples: false,
+      enablePromptOptimization: false,
+      optimizationAggressiveness: 'balanced'
     },
     embeddingModels: {}
   }
@@ -77,7 +80,10 @@ function migrateConfig(config: AppConfig): AppConfig {
     migrated.promptConfig = {
       enableEnhancedPrompt: true,
       toolDescriptionLevel: 'detailed',
-      fewShotCount: 3
+      fewShotCount: 3,
+      enableDynamicExamples: false,
+      enablePromptOptimization: false,
+      optimizationAggressiveness: 'balanced'
     }
   }
 
@@ -89,6 +95,15 @@ function migrateConfig(config: AppConfig): AppConfig {
   }
   if (migrated.promptConfig.fewShotCount === undefined) {
     migrated.promptConfig.fewShotCount = 3
+  }
+  if (migrated.promptConfig.enableDynamicExamples === undefined) {
+    migrated.promptConfig.enableDynamicExamples = false
+  }
+  if (migrated.promptConfig.enablePromptOptimization === undefined) {
+    migrated.promptConfig.enablePromptOptimization = false
+  }
+  if (!migrated.promptConfig.optimizationAggressiveness) {
+    migrated.promptConfig.optimizationAggressiveness = 'balanced'
   }
 
   migrated.embeddingModels = migrated.embeddingModels || {}

@@ -118,6 +118,7 @@ interface ChatRequest {
   selectedTools?: MCPToolReference[]
   selectedKnowledgeBases?: KnowledgeBaseReference[]
   maxReactIterations?: number
+  enableSandboxTools?: boolean
 }
 
 /**
@@ -775,6 +776,617 @@ interface FileApi {
 }
 
 /**
+ * Docker 检测结果
+ */
+interface DockerCheckResult {
+  installed: boolean
+  version?: string
+  error?: string
+}
+
+/**
+ * 操作系统平台类型
+ */
+type PlatformType = 'darwin' | 'win32' | 'linux'
+
+/**
+ * 沙箱状态
+ */
+type SandboxStatus = 'creating' | 'running' | 'stopped' | 'error'
+
+/**
+ * 沙箱创建类型
+ */
+type SandboxCreationType = 'existing' | 'compose' | 'dockerfile'
+
+/**
+ * 沙箱元数据
+ */
+interface SandboxData {
+  sandboxId: string
+  name: string
+  description?: string
+  image?: string
+  status: SandboxStatus
+  createdAt: string
+  updatedAt: string
+  creationType: SandboxCreationType
+  containerIds: string[]
+  primaryContainerId?: string
+  composeProjectName?: string
+  composeFilePath?: string
+  dockerfileConfigId?: string
+  isOrphan?: boolean
+}
+
+/**
+ * 沙箱列表项
+ */
+interface SandboxListItem {
+  sandboxId: string
+  name: string
+  status: SandboxStatus
+  createdAt: string
+  updatedAt: string
+  creationType: SandboxCreationType
+  containerCount: number
+  isOrphan?: boolean
+}
+
+/**
+ * 沙箱操作结果
+ */
+interface SandboxResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * 操作日志条目
+ */
+interface SandboxLogEntry {
+  timestamp: string
+  level: 'info' | 'warn' | 'error'
+  message: string
+}
+
+/**
+ * Docker 容器状态
+ */
+type ContainerState =
+  | 'created'
+  | 'running'
+  | 'paused'
+  | 'restarting'
+  | 'removing'
+  | 'exited'
+  | 'dead'
+
+/**
+ * 端口映射
+ */
+interface PortMapping {
+  hostPort?: number
+  containerPort: number
+  protocol: 'tcp' | 'udp'
+}
+
+/**
+ * 容器信息
+ */
+interface ContainerInfo {
+  id: string
+  shortId: string
+  names: string[]
+  image: string
+  state: ContainerState
+  status: string
+  ports: PortMapping[]
+  created: number
+  labels: Record<string, string>
+}
+
+/**
+ * 容器详细信息
+ */
+interface ContainerDetails extends ContainerInfo {
+  hostConfig: {
+    memory: number
+    cpuShares: number
+    cpuQuota: number
+    restartPolicy: string
+    privileged: boolean
+  }
+  networkSettings: {
+    networks: Record<
+      string,
+      {
+        networkId: string
+        ipAddress: string
+        gateway: string
+        macAddress: string
+      }
+    >
+    ports: Record<string, Array<{ hostIp: string; hostPort: string }>>
+  }
+  mounts: Array<{
+    type: 'bind' | 'volume' | 'tmpfs'
+    source: string
+    destination: string
+    mode: 'rw' | 'ro'
+  }>
+  env: string[]
+  cmd: string[]
+  workingDir: string
+  entrypoint: string[]
+}
+
+/**
+ * 容器资源统计
+ */
+interface ContainerStats {
+  cpu: number
+  memory: {
+    usage: number
+    limit: number
+    percent: number
+  }
+  network: {
+    rxBytes: number
+    txBytes: number
+  }
+  blockIO: {
+    readBytes: number
+    writeBytes: number
+  }
+}
+
+/**
+ * 容器过滤条件
+ */
+interface ContainerFilter {
+  state?: ContainerState | 'all' | 'running' | 'stopped'
+  name?: string
+  image?: string
+}
+
+/**
+ * 日志选项
+ */
+interface LogOptions {
+  tail?: number
+  follow?: boolean
+  since?: number
+  until?: number
+}
+
+/**
+ * 执行命令参数
+ */
+interface ExecCommand {
+  command: string
+  workdir?: string
+  env?: Record<string, string>
+  timeout?: number
+}
+
+/**
+ * 执行命令结果
+ */
+interface ExecResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+  duration: number
+}
+
+/**
+ * Compose 选项
+ */
+interface ComposeOptions {
+  projectName?: string
+  env?: Record<string, string>
+  removeOld?: boolean
+  /** 要使用的 Dockerfile 配置（用于 build 指令） */
+  dockerfiles?: ComposeDockerfileConfig[]
+}
+
+/**
+ * Compose 中使用的 Dockerfile 配置
+ */
+interface ComposeDockerfileConfig {
+  /** Dockerfile 配置 ID */
+  dockerfileId: string
+  /** 在 compose 中的目标路径（相对于 compose 文件所在目录） */
+  targetContext?: string
+  /** 目标 Dockerfile 文件名（默认为 Dockerfile） */
+  targetFilename?: string
+}
+
+/**
+ * Compose 创建结果
+ */
+interface ComposeResult {
+  containerIds: string[]
+  failedServices: string[]
+  error?: string
+}
+
+/**
+ * 沙箱模板分类
+ */
+type TemplateCategory = 'database' | 'cache' | 'message-queue' | 'web' | 'devops' | 'other'
+
+/**
+ * 沙箱模板变量
+ */
+interface TemplateVariable {
+  name: string
+  description: string
+  default: string
+  required: boolean
+}
+
+/**
+ * 沙箱模板配置
+ */
+interface TemplateConfig {
+  type: 'docker-compose' | 'dockerfile' | 'image'
+  content: string
+  variables?: TemplateVariable[]
+}
+
+/**
+ * 沙箱模板
+ */
+interface SandboxTemplate {
+  id: string
+  name: string
+  description: string
+  category: TemplateCategory
+  icon?: string
+  official: boolean
+  config: TemplateConfig
+}
+
+/**
+ * 沙箱选择
+ */
+interface SandboxSelection {
+  containerId: string
+  containerName: string
+  image: string
+  selectedAt: string
+  sessionId?: string
+}
+
+/**
+ * Dockerfile 配置元数据
+ */
+interface DockerfileConfigMeta {
+  id: string
+  name: string
+  filename: string
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Docker Compose 配置元数据
+ */
+interface ComposeConfigMeta {
+  id: string
+  name: string
+  filename: string
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Dockerfile 配置（完整）
+ */
+interface DockerfileConfig extends DockerfileConfigMeta {
+  content: string
+}
+
+/**
+ * Docker Compose 配置（完整）
+ */
+interface ComposeConfig extends ComposeConfigMeta {
+  content: string
+}
+
+/**
+ * 保存配置请求
+ */
+interface SaveConfigRequest {
+  name: string
+  content: string
+  id?: string
+}
+
+/**
+ * Compose 停止选项
+ */
+interface ComposeStopOptions {
+  timeout?: number
+  removeVolumes?: boolean
+}
+
+/**
+ * Compose 停止结果
+ */
+interface ComposeStopResult {
+  success: boolean
+  stoppedContainerIds?: string[]
+  error?: string
+}
+
+/**
+ * Compose 重启结果
+ */
+interface ComposeRestartResult {
+  success: boolean
+  restartedContainerIds?: string[]
+  error?: string
+}
+
+/**
+ * Compose 服务状态
+ */
+interface ComposeServiceStatus {
+  name: string
+  state: ContainerState
+  containerId?: string
+  ports?: PortMapping[]
+}
+
+/**
+ * Compose 项目状态
+ */
+interface ComposeProjectStatus {
+  projectName: string
+  services: ComposeServiceStatus[]
+}
+
+/**
+ * Compose 执行命令选项
+ */
+interface ComposeExecOptions {
+  workdir?: string
+  env?: Record<string, string>
+  timeout?: number
+  tty?: boolean
+}
+
+/**
+ * Compose 执行命令结果
+ */
+interface ComposeExecResult {
+  success: boolean
+  result?: ExecResult
+  error?: string
+}
+
+/**
+ * Compose 日志选项
+ */
+interface ComposeLogOptions {
+  tail?: number
+  follow?: boolean
+  service?: string
+  since?: number
+  until?: number
+}
+
+/**
+ * Compose 日志结果
+ */
+interface ComposeLogResult {
+  success: boolean
+  logs?: string
+  error?: string
+}
+
+/**
+ * Compose down 选项
+ */
+interface ComposeDownOptions {
+  removeVolumes?: boolean
+  removeOrphans?: boolean
+  force?: boolean
+}
+
+/**
+ * Compose down 结果
+ */
+interface ComposeDownResult {
+  success: boolean
+  removedContainerIds?: string[]
+  removedVolumes?: string[]
+  error?: string
+}
+
+/**
+ * Dockerfile 配置 API
+ */
+interface DockerfileConfigApi {
+  list: () => Promise<{ success: boolean; configs?: DockerfileConfigMeta[]; error?: string }>
+  load: (id: string) => Promise<{ success: boolean; config?: DockerfileConfig; error?: string }>
+  save: (
+    request: SaveConfigRequest
+  ) => Promise<{ success: boolean; config?: DockerfileConfigMeta; error?: string }>
+  delete: (id: string) => Promise<{ success: boolean; error?: string }>
+}
+
+/**
+ * Compose 配置 API
+ */
+interface ComposeConfigApi {
+  list: () => Promise<{ success: boolean; configs?: ComposeConfigMeta[]; error?: string }>
+  load: (id: string) => Promise<{ success: boolean; config?: ComposeConfig; error?: string }>
+  save: (
+    request: SaveConfigRequest
+  ) => Promise<{ success: boolean; config?: ComposeConfigMeta; error?: string }>
+  delete: (id: string) => Promise<{ success: boolean; error?: string }>
+  // Compose 项目操作
+  start: (
+    configId: string,
+    sandboxId?: string,
+    sandboxName?: string
+  ) => Promise<{ success: boolean; containerIds?: string[]; error?: string }>
+  stop: (projectName: string, options?: ComposeStopOptions) => Promise<ComposeStopResult>
+  restart: (projectName: string) => Promise<ComposeRestartResult>
+  status: (
+    projectName: string
+  ) => Promise<{ success: boolean; status?: ComposeProjectStatus; error?: string }>
+  exec: (
+    projectName: string,
+    serviceName: string,
+    command: string,
+    options?: ComposeExecOptions
+  ) => Promise<ComposeExecResult>
+  logs: (projectName: string, options?: ComposeLogOptions) => Promise<ComposeLogResult>
+  downExtended: (projectName: string, options?: ComposeDownOptions) => Promise<ComposeDownResult>
+}
+
+/**
+ * 创建沙箱请求
+ */
+interface CreateSandboxRequest {
+  name: string
+  description?: string
+  creationType: SandboxCreationType
+  composeConfigId?: string
+  dockerfileConfigId?: string
+  existingContainerId?: string
+  projectName?: string
+  context?: string
+}
+
+/**
+ * 创建沙箱结果
+ */
+interface CreateSandboxResult {
+  success: boolean
+  sandbox?: SandboxData
+  containerIds?: string[]
+  error?: string
+}
+
+/**
+ * 删除沙箱选项
+ */
+interface DeleteSandboxOptions {
+  force?: boolean
+  deleteContainers?: boolean
+}
+
+/**
+ * 容器状态检测结果
+ */
+interface SandboxContainerStatus {
+  sandboxId: string
+  creationType: SandboxCreationType
+  containerIds: string[]
+  isOrphan: boolean
+  containerStates: Array<{
+    containerId: string
+    exists: boolean
+    state?: ContainerState
+    status: 'running' | 'stopped' | 'not_found'
+  }>
+  checkedAt: string
+}
+
+/**
+ * 端口映射配置
+ */
+interface PortMappingInput {
+  hostPort: number | null // null 表示自动分配
+  containerPort: number
+  protocol: 'tcp' | 'udp'
+}
+
+/**
+ * 沙箱相关的 API
+ */
+interface SandboxApi {
+  // Docker 检测
+  checkDocker: () => Promise<DockerCheckResult>
+  getPlatform: () => Promise<PlatformType>
+  openExternal: (url: string) => Promise<void>
+
+  // 沙箱管理
+  saveSandbox: (data: SandboxData) => Promise<SandboxResult>
+  loadSandbox: (sandboxId: string) => Promise<SandboxData | null>
+  listSandboxs: () => Promise<SandboxListItem[]>
+  renameSandbox: (sandboxId: string, newName: string) => Promise<SandboxResult>
+  readSandboxLog: (sandboxId: string) => Promise<SandboxLogEntry[]>
+
+  // 容器浏览器
+  listContainers: (filter?: ContainerFilter) => Promise<ContainerInfo[]>
+  getContainerDetails: (containerId: string) => Promise<ContainerDetails>
+  getContainerStats: (containerId: string) => Promise<ContainerStats>
+  getContainerLogs: (containerId: string, options?: LogOptions) => Promise<string>
+
+  // 容器操作
+  startContainer: (containerId: string) => Promise<SandboxResult>
+  stopContainer: (containerId: string, timeout?: number) => Promise<SandboxResult>
+  restartContainer: (containerId: string) => Promise<SandboxResult>
+  removeContainer: (containerId: string, force?: boolean) => Promise<SandboxResult>
+
+  // 命令执行
+  execCommand: (containerId: string, command: ExecCommand) => Promise<ExecResult>
+
+  // 文件操作
+  copyToContainer: (containerId: string, source: string, target: string) => Promise<SandboxResult>
+  copyFromContainer: (containerId: string, source: string, target: string) => Promise<SandboxResult>
+
+  // 模板
+  listTemplates: () => Promise<SandboxTemplate[]>
+  createFromTemplate: (
+    templateId: string,
+    variables?: Record<string, string>
+  ) => Promise<ComposeResult>
+
+  // 沙箱创建
+  createFromCompose: (
+    content: string,
+    options?: ComposeOptions,
+    sandboxId?: string,
+    sandboxName?: string
+  ) => Promise<ComposeResult>
+  createFromDockerfile: (
+    dockerfile: string,
+    context?: string,
+    sandboxId?: string,
+    sandboxName?: string,
+    portMappings?: PortMappingInput[]
+  ) => Promise<{ success: boolean; containerId?: string; error?: string }>
+
+  // 会话集成
+  selectSandbox: (containerId: string, sessionId?: string) => Promise<SandboxResult>
+  deselectSandbox: (containerId: string) => Promise<SandboxResult>
+  getSessionSandbox: (sessionId: string) => Promise<SandboxSelection | null>
+
+  // Docker 配置管理
+  dockerfile: DockerfileConfigApi
+  compose: ComposeConfigApi
+
+  // 沙箱管理
+  createSandbox: (request: CreateSandboxRequest) => Promise<CreateSandboxResult>
+  deleteSandbox: (
+    sandboxId: string,
+    options?: DeleteSandboxOptions
+  ) => Promise<{ success: boolean; removedContainers?: string[]; error?: string }>
+  checkContainerStatus: (sandboxId: string) => Promise<SandboxContainerStatus | null>
+  checkAllContainerStatus: () => Promise<SandboxContainerStatus[]>
+  cleanupOrphan: (sandboxId: string) => Promise<SandboxResult>
+  recoverOrphan: (sandboxId: string, newContainerId: string) => Promise<SandboxResult>
+}
+
+/**
  * 自定义的完整 API
  */
 interface CustomApi {
@@ -789,6 +1401,7 @@ interface CustomApi {
   embeddingModels: EmbeddingModelsApi
   knowledge: KnowledgeApi
   file: FileApi
+  sandbox: SandboxApi
   onFileProgress: (callback: (data: FileProgressEvent) => void) => () => void
   onReindexProgress: (callback: (data: ReindexProgressEvent) => void) => () => void
 }

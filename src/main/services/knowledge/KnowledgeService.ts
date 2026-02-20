@@ -305,15 +305,15 @@ export class KnowledgeService {
           progress
         })
 
-        // 验证嵌入结果
-        logger.debug('indexFile 批次嵌入完成', 'main', {
-          kbId,
-          fileId,
-          batchIndex: batch.index,
-          batchSize: batch.texts.length,
-          completedBatches,
-          totalBatches: batches.length
-        })
+        // 每10批次或最后一批打印日志
+        if (completedBatches % 10 === 0 || completedBatches === batches.length) {
+          logger.debug('indexFile 批次嵌入进度', 'main', {
+            kbId,
+            fileId,
+            completedBatches,
+            totalBatches: batches.length
+          })
+        }
       }
 
       // 使用 Promise.all 控制并发
@@ -342,7 +342,7 @@ export class KnowledgeService {
       }))
 
       // 先删除旧数据（如果存在）
-      await getVectorDBService().deleteFileChunks(kbId, this.kbData.embeddingDimension, fileId)
+      await getVectorDBService().deleteFileChunks(kbId, fileId)
 
       // 检查是否已请求停止
       if (this.stopRequested) {
@@ -420,7 +420,7 @@ export class KnowledgeService {
         return { success: false, error: '知识库ID不匹配' }
       }
 
-      await getVectorDBService().deleteFileChunks(kbId, this.kbData.embeddingDimension, fileId)
+      await getVectorDBService().deleteFileChunks(kbId, fileId)
 
       logger.info('文件索引已删除', 'main', { kbId, fileId })
       return { success: true }
@@ -560,12 +560,7 @@ export class KnowledgeService {
       const embeddingResult = await this.embeddingService.embed(query)
 
       // 执行搜索
-      const results = await getVectorDBService().search(
-        kbId,
-        this.kbData.embeddingDimension,
-        embeddingResult.embedding,
-        limit
-      )
+      const results = await getVectorDBService().search(kbId, embeddingResult.embedding, limit)
 
       return { success: true, data: { results } }
     } catch (error) {
@@ -594,7 +589,7 @@ export class KnowledgeService {
         }
       }
 
-      const stats = await getVectorDBService().getStats(kbId, this.kbData.embeddingDimension)
+      const stats = await getVectorDBService().getStats(kbId)
       const dbSize = getVectorDBService().getDatabaseSize(kbId)
 
       return {

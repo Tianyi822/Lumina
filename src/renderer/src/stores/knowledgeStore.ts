@@ -22,7 +22,7 @@ export const useKnowledgeStore = defineStore(
   'knowledge',
   () => {
     // ==================== State ====================
-    
+
     // 知识库列表
     const knowledgeBases = ref<KnowledgeBase[]>([])
 
@@ -48,7 +48,7 @@ export const useKnowledgeStore = defineStore(
     const error = ref<string | null>(null)
 
     // ==================== Getters ====================
-    
+
     // 获取当前激活的知识库
     const activeKnowledgeBase = computed(() => {
       if (!activeKbId.value) return null
@@ -70,7 +70,7 @@ export const useKnowledgeStore = defineStore(
     const isEditing = computed(() => editingKb.value !== null)
 
     // ==================== Actions: 知识库管理 ====================
-    
+
     // 加载知识库列表
     async function loadKnowledgeBases(): Promise<void> {
       loading.value = true
@@ -194,7 +194,7 @@ export const useKnowledgeStore = defineStore(
     }
 
     // ==================== Actions: 选择管理 ====================
-    
+
     // 设置当前激活的知识库
     function setActiveKb(kbId: string | null): void {
       activeKbId.value = kbId
@@ -208,7 +208,7 @@ export const useKnowledgeStore = defineStore(
     }
 
     // ==================== Actions: 嵌入模型管理 ====================
-    
+
     // 加载所有嵌入模型
     async function loadEmbeddingModels(): Promise<void> {
       embeddingLoading.value = true
@@ -274,7 +274,7 @@ export const useKnowledgeStore = defineStore(
     }
 
     // ==================== Actions: 表单管理 ====================
-    
+
     // 打开创建表单
     function openCreateForm(): void {
       editingKb.value = null

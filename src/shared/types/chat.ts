@@ -94,6 +94,7 @@ export type StreamEventType =
   | 'tool_progress'
   | 'knowledge_search'
   | 'knowledge_result'
+  | 'user_interaction'
   | 'done'
   | 'error'
 
@@ -130,6 +131,29 @@ export interface KnowledgeResultInfo {
 }
 
 /**
+ * 用户交互选项
+ */
+export interface UserInteractionOption {
+  /** 选项值 */
+  value: string
+  /** 显示标签 */
+  label: string
+  /** 选项描述 */
+  description?: string
+}
+
+/**
+ * 用户交互请求信息
+ * 当模型需要用户做出选择时，返回此信息
+ */
+export interface UserInteractionRequest {
+  /** 问题描述 */
+  question: string
+  /** 选项列表 */
+  options: UserInteractionOption[]
+}
+
+/**
  * 聊天流式传输事件
  * 每个事件包含不同类型的增量数据
  */
@@ -158,6 +182,8 @@ export interface StreamEvent {
   knowledgeSearch?: KnowledgeSearchInfo
   /** 知识库搜索结果，仅在事件类型为 knowledge_result 时提供 */
   knowledgeResult?: KnowledgeResultInfo
+  /** 用户交互请求，仅在事件类型为 user_interaction 时提供 */
+  userInteraction?: UserInteractionRequest
 }
 
 /**
@@ -218,6 +244,8 @@ export interface ChatRequest {
   selectedKnowledgeBases?: KnowledgeBaseReference[]
   /** ReAct 循环的最大迭代次数，默认 10 次 */
   maxReactIterations?: number
+  /** 是否启用沙箱管理工具 */
+  enableSandboxTools?: boolean
 }
 
 /**

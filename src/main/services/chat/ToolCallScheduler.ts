@@ -7,6 +7,7 @@ import type { WebContents } from 'electron'
 import type { ChatMessage } from '@main/types/chat'
 import type { MCPService } from '../mcp'
 import type { Logger } from '../logger'
+import { sandboxToolService } from '../sandbox'
 
 /**
  * 工具调用定义
@@ -191,7 +192,13 @@ export class ToolCallScheduler {
       const serverName = nameParts.length > 1 ? nameParts[0] : 'unknown'
       const actualToolName = nameParts.length > 1 ? nameParts[1] : toolName
 
-      const result = await this.mcpService.callTool(serverName, actualToolName, parsedArgs)
+      let result: unknown
+      if (serverName === 'sandbox') {
+        const toolCallResult = await sandboxToolService.callTool(toolName, parsedArgs)
+        result = toolCallResult.success ? toolCallResult.content : toolCallResult.error
+      } else {
+        result = await this.mcpService.callTool(serverName, actualToolName, parsedArgs)
+      }
 
       this.sendStreamEvent(webContents, {
         type: 'tool_result',

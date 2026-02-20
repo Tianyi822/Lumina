@@ -21,7 +21,7 @@ interface FileProgressEvent {
 
 export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
   // ==================== State ====================
-  
+
   // 按知识库隔离的文件进度
   // 结构: kbId -> fileId -> FileProcessingProgress
   const kbFileProgress = ref<Record<string, Record<string, FileProcessingProgress>>>({})
@@ -39,7 +39,7 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
   let progressCleanup: (() => void) | null = null
 
   // ==================== Getters ====================
-  
+
   // 判断指定知识库是否正在索引
   function isKBIndexing(kbId: string): boolean {
     const files = kbFileProgress.value[kbId]
@@ -77,7 +77,7 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
   })
 
   // ==================== Actions ====================
-  
+
   // 设置知识库正在重建索引
   function setKBReindexing(kbId: string, isReindexing: boolean): void {
     if (isReindexing) {

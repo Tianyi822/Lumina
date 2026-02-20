@@ -15,13 +15,13 @@ const DEFAULT_NEW_CHAT_TITLE = '新对话'
 
 export const useSessionStore = defineStore('session', () => {
   // ==================== Dependencies ====================
-  
+
   const messageCache = useMessageCacheStore()
   const inputState = useInputStateStore()
   const chatStream = useChatStreamStore()
 
   // ==================== State ====================
-  
+
   // 当前会话数据
   const currentSession = ref<SessionData | null>(null)
 
@@ -41,7 +41,7 @@ export const useSessionStore = defineStore('session', () => {
   const isLoading = ref(false)
 
   // ==================== Getters ====================
-  
+
   // 当前会话是否正在发送消息
   const isCurrentSessionSending = computed(() => {
     if (!currentChatId.value) return false
@@ -60,7 +60,7 @@ export const useSessionStore = defineStore('session', () => {
   const currentInputState = computed(() => inputState.currentInputState)
 
   // ==================== Actions ====================
-  
+
   // 加载会话列表
   async function loadSessionList(): Promise<void> {
     try {

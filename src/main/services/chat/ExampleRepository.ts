@@ -4,8 +4,8 @@ import { readFile, writeFile, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import { join } from 'path'
 import type { EnhancedFewShotExample } from './prompts/types'
-import { app } from 'electron'
 import { logger } from '../logger'
+import { getConfigDirPath } from '../config/configPaths'
 
 // 示例仓库数据结构
 interface ExampleRepositoryData {
@@ -20,14 +20,19 @@ interface ExampleRepositoryData {
 // 示例仓库
 export class ExampleRepository {
   private data: ExampleRepositoryData
-  private filePath: string
+  private _filePath: string | null = null
   private initialized: boolean = false
 
-  constructor() {
-    // 存储在用户数据目录
-    const userDataPath = app.getPath('userData')
-    this.filePath = join(userDataPath, 'examples.json')
+  // 延迟获取文件路径（确保 app 已初始化）
+  private get filePath(): string {
+    if (!this._filePath) {
+      this._filePath = join(getConfigDirPath(), 'few-shot-examples.json')
+      logger.info('示例仓库文件路径', 'main', { filePath: this._filePath })
+    }
+    return this._filePath
+  }
 
+  constructor() {
     this.data = {
       examples: [],
       lastUpdated: new Date().toISOString(),

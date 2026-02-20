@@ -3,8 +3,10 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import MCPToolsPanel from './MCPToolsPanel.vue'
 import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
+import SandboxToolsToggle from './sandbox/SandboxToolsToggle.vue'
+import UserInteractionOptions from './UserInteractionOptions.vue'
 import type { AppConfig, MCPTool, KnowledgeBase } from '@renderer/types'
-import { useUIStateStore } from '@renderer/stores'
+import { useUIStateStore, useChatStreamStore } from '@renderer/stores'
 
 const props = defineProps<{
   isSending?: boolean
@@ -12,6 +14,7 @@ const props = defineProps<{
   selectedModel?: string
   selectedMCPTools?: MCPTool[]
   selectedKnowledgeBases?: KnowledgeBase[]
+  enableSandboxTools?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -20,13 +23,15 @@ const emit = defineEmits<{
     message: string,
     model: string,
     selectedMCPTools: MCPTool[],
-    selectedKnowledgeBases: KnowledgeBase[]
+    selectedKnowledgeBases: KnowledgeBase[],
+    enableSandboxTools: boolean
   ): void
   (e: 'stop'): void
   (e: 'update:inputMessage', value: string): void
   (e: 'update:selectedModel', value: string): void
   (e: 'update:selectedMCPTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
+  (e: 'update:enableSandboxTools', value: boolean): void
 }>()
 
 // 本地输入状态 - 确保与会话独立
@@ -34,6 +39,7 @@ const localInputMessage = ref(props.inputMessage ?? '')
 const localSelectedModel = ref(props.selectedModel ?? '')
 const localSelectedTools = ref<MCPTool[]>(props.selectedMCPTools ?? [])
 const localSelectedKnowledgeBases = ref<KnowledgeBase[]>(props.selectedKnowledgeBases ?? [])
+const localEnableSandboxTools = ref(props.enableSandboxTools ?? false)
 
 // 同步 props 到本地状态
 watch(
@@ -83,6 +89,16 @@ watch(
   { immediate: true, deep: true }
 )
 
+watch(
+  () => props.enableSandboxTools,
+  (newVal) => {
+    if (newVal !== undefined && newVal !== localEnableSandboxTools.value) {
+      localEnableSandboxTools.value = newVal
+    }
+  },
+  { immediate: true }
+)
+
 function updateSelectedModel(value: string): void {
   localSelectedModel.value = value
   emit('update:selectedModel', value)
@@ -98,6 +114,12 @@ function updateSelectedKnowledgeBases(kbs: KnowledgeBase[]): void {
   emit('update:selectedKnowledgeBases', kbs)
 }
 
+function updateEnableSandboxTools(enabled: boolean): void {
+  localEnableSandboxTools.value = enabled
+  emit('update:enableSandboxTools', enabled)
+  window.api.logger.debug('[MessageInput] 沙箱工具开关状态变更', { enabled })
+}
+
 // 从配置中加载的模型选项
 const modelOptions = ref<string[]>([])
 
@@ -110,6 +132,10 @@ const modelSelectorRef = ref<HTMLElement | null>(null)
 // 从 Store 获取配置更新标志
 const uiStateStore = useUIStateStore()
 const { configUpdateKey } = storeToRefs(uiStateStore)
+
+// 用户交互选项状态
+const chatStreamStore = useChatStreamStore()
+const { showUserInteraction, userInteractionInfo } = storeToRefs(chatStreamStore)
 
 // 加载已配置的模型列表
 async function loadConfiguredModels(): Promise<void> {
@@ -153,21 +179,17 @@ function handleSend(): void {
   const message = localInputMessage.value
   if (message.trim() && !props.isSending) {
     // 调试日志：确认发送时的工具选择状态
-    console.log('[MessageInput] 发送消息，选中的工具:', {
+    window.api.logger.debug('[MessageInput] 发送消息，选中的工具', {
       count: localSelectedTools.value.length,
-      tools: localSelectedTools.value.map((t) => `${t.serverName}/${t.name}`)
-    })
-    // 调试日志：确认发送时的知识库选择状态
-    console.log('[MessageInput] 发送消息，选中的知识库:', {
-      count: localSelectedKnowledgeBases.value.length,
-      kbs: localSelectedKnowledgeBases.value.map((kb) => kb.name)
+      sandboxToolsEnabled: localEnableSandboxTools.value
     })
     emit(
       'send',
       message.trim(),
       localSelectedModel.value,
       localSelectedTools.value,
-      localSelectedKnowledgeBases.value
+      localSelectedKnowledgeBases.value,
+      localEnableSandboxTools.value
     )
     localInputMessage.value = ''
     emit('update:inputMessage', '')
@@ -176,15 +198,27 @@ function handleSend(): void {
 
 // 处理 MCP 工具选择（多选）
 function handleMCPToolsSelected(tools: MCPTool[]): void {
-  console.log('[MessageInput] 接收到工具选择事件:', {
-    count: tools.length,
-    tools: tools.map((t) => `${t.serverName}/${t.name}`)
+  window.api.logger.debug('[MessageInput] 接收到工具选择事件', {
+    count: tools.length
   })
   updateSelectedTools(tools)
 }
 
 function handleStop(): void {
   emit('stop')
+}
+
+function handleUserInteractionSelect(_value: string, label: string): void {
+  chatStreamStore.hideUserInteraction()
+  const message = `我选择：${label}`
+  emit(
+    'send',
+    message,
+    localSelectedModel.value,
+    localSelectedTools.value,
+    localSelectedKnowledgeBases.value,
+    localEnableSandboxTools.value
+  )
 }
 
 function handleKeydown(event: KeyboardEvent): void {
@@ -230,6 +264,13 @@ onUnmounted(() => {
 
 <template>
   <div class="message-input-container">
+    <!-- 用户交互选项 -->
+    <UserInteractionOptions
+      v-if="showUserInteraction && userInteractionInfo"
+      :interaction-info="userInteractionInfo"
+      @select="handleUserInteractionSelect"
+    />
+
     <div class="input-wrapper">
       <textarea
         v-model="localInputMessage"
@@ -271,6 +312,13 @@ onUnmounted(() => {
       <KnowledgeBasePanel
         :selected-knowledge-bases="localSelectedKnowledgeBases"
         @selection-change="updateSelectedKnowledgeBases"
+      />
+
+      <!-- 沙箱工具开关 -->
+      <SandboxToolsToggle
+        v-model="localEnableSandboxTools"
+        :disabled="isSending"
+        @change="updateEnableSandboxTools"
       />
 
       <!-- 执行/停止按钮 -->

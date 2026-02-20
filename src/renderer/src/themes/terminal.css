@@ -32,7 +32,7 @@
   --theme-spacing: 12px;
 
   /* 标题栏专用变量 */
-  --title-bar-height: 32px; /* macOS 标准标题栏高度 */
+  --title-bar-height: 33px; /* 标题栏高度 */
   --title-bar-bg: var(--theme-bg);
   --title-bar-border: var(--theme-border);
   --title-bar-text: var(--theme-text-secondary);
@@ -60,7 +60,7 @@
   --theme-spacing: 12px;
 
   /* 标题栏专用变量 */
-  --title-bar-height: 32px; /* macOS 标准标题栏高度 */
+  --title-bar-height: 33px; /* 标题栏高度 */
   --title-bar-bg: var(--theme-bg);
   --title-bar-border: var(--theme-border);
   --title-bar-text: var(--theme-text-secondary);

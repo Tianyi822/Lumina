@@ -19,3 +19,4 @@ out/
 docs/
 
 opencode.json
+tsconfig.node.tsbuildinfo

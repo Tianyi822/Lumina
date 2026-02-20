@@ -18,7 +18,10 @@ const localConfig = reactive<PromptConfig>({
   enableEnhancedPrompt: true,
   toolDescriptionLevel: 'detailed',
   fewShotCount: 3,
-  customSystemPrompt: ''
+  customSystemPrompt: '',
+  enableDynamicExamples: false,
+  enablePromptOptimization: false,
+  optimizationAggressiveness: 'balanced'
 })
 
 // 重置为默认配置
@@ -46,6 +49,15 @@ watch(
     }
   },
   { immediate: true, deep: true }
+)
+
+// 监听 localConfig 变化，同步到父组件
+watch(
+  localConfig,
+  (newValue) => {
+    emit('update:modelValue', { ...newValue })
+  },
+  { deep: true }
 )
 </script>
 
@@ -90,6 +102,20 @@ watch(
     <h3 class="form-section-title">Few-shot 示例配置</h3>
 
     <div class="form-group">
+      <label>
+        <input
+          type="checkbox"
+          :checked="localConfig.enableDynamicExamples"
+          @change="localConfig.enableDynamicExamples = ($event.target as HTMLInputElement).checked"
+        />
+        <span>启用动态 Few-shot 示例</span>
+      </label>
+      <p class="help-text">
+        从历史对话中自动提取成功的工具调用作为示例，帮助 AI 学习如何正确使用工具。
+      </p>
+    </div>
+
+    <div class="form-group">
       <label>Few-shot 示例数量: {{ localConfig.fewShotCount }}</label>
       <input
         v-model.number="localConfig.fewShotCount"
@@ -105,6 +131,36 @@ watch(
       </div>
       <p class="help-text">
         在系统提示词中包含的示例数量。示例可以帮助 AI 理解如何正确使用工具，但会增加 token 消耗。
+      </p>
+    </div>
+
+    <h3 class="form-section-title">提示词压缩优化</h3>
+
+    <div class="form-group">
+      <label>
+        <input
+          type="checkbox"
+          :checked="localConfig.enablePromptOptimization"
+          @change="
+            localConfig.enablePromptOptimization = ($event.target as HTMLInputElement).checked
+          "
+        />
+        <span>启用提示词压缩优化</span>
+      </label>
+      <p class="help-text">
+        当提示词超过模型 token 限制的一定比例时，自动压缩提示词以减少 token 消耗。
+      </p>
+    </div>
+
+    <div class="form-group">
+      <label>压缩激进程度</label>
+      <select v-model="localConfig.optimizationAggressiveness" class="input">
+        <option value="conservative">保守（较晚触发压缩）</option>
+        <option value="balanced">平衡（推荐）</option>
+        <option value="aggressive">激进（较早触发压缩）</option>
+      </select>
+      <p class="help-text">
+        控制压缩触发的阈值。保守模式在 token 超过 50% 时开始压缩，平衡模式在 40%，激进模式在 30%。
       </p>
     </div>
 

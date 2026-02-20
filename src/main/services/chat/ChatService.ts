@@ -3,6 +3,7 @@ import type { WebContents } from 'electron'
 import { configManager } from '../config'
 import { logger } from '../logger'
 import { mcpService } from '../mcp'
+import { sandboxToolService } from '../sandbox'
 import type {
   ChatMessage,
   ChatRequest,
@@ -26,7 +27,10 @@ import { getKnowledgeServiceManager } from '../knowledge'
 export class ChatService {
   private abortControllers: Map<string, AbortController> = new Map()
   private stoppedSessions: Set<string> = new Set()
+  private pendingUserInteraction: Set<string> = new Set()
   private toolScheduler: ToolCallScheduler
+  private pendingExtractions: Set<string> = new Set()
+  private extractionTimer: NodeJS.Timeout | null = null
 
   constructor() {
     this.toolScheduler = new ToolCallScheduler(mcpService, logger, 3)
@@ -83,7 +87,7 @@ export class ChatService {
       return { success: true }
     }
 
-    if (selectedTools && selectedTools.length > 0) {
+    if ((selectedTools && selectedTools.length > 0) || request.enableSandboxTools) {
       const result = await this.sendMessageWithReact(request, webContents, knowledgeResults)
       this.clearStoppedSession(sessionId)
       return result
@@ -272,7 +276,6 @@ export class ChatService {
 
     const existingController = this.abortControllers.get(sessionId)
     if (existingController) {
-      logger.debug('中止会话的旧请求', 'main', { sessionId })
       existingController.abort()
     }
 
@@ -283,13 +286,6 @@ export class ChatService {
       const client = this.createClient(llmConfig)
 
       const formattedMessages = this.formatMessagesWithKnowledge(messages, knowledgeResults)
-
-      logger.debug('发送请求到 API', 'main', {
-        baseUrl: llmConfig.base_url,
-        model: llmConfig.model_name,
-        temperature: llmConfig.temperature,
-        maxTokens: llmConfig.max_tokens
-      })
 
       const stream = await client.chat.completions.create(
         {
@@ -377,14 +373,22 @@ export class ChatService {
     webContents: WebContents,
     knowledgeResults?: KnowledgeSearchResult[]
   ): Promise<ChatResult> {
-    const { messages, modelKey, sessionId, selectedTools, maxReactIterations = 10 } = request
+    const {
+      messages,
+      modelKey,
+      sessionId,
+      selectedTools,
+      maxReactIterations = 10,
+      enableSandboxTools
+    } = request
 
     logger.info('开始发送聊天消息（ReAct 模式）', 'main', {
       sessionId,
       modelKey,
       messageCount: messages.length,
       toolCount: selectedTools?.length,
-      selectedToolNames: selectedTools?.map((t) => `${t.serverName}/${t.toolName}`)
+      selectedToolNames: selectedTools?.map((t) => `${t.serverName}/${t.toolName}`),
+      enableSandboxTools
     })
 
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
@@ -399,7 +403,6 @@ export class ChatService {
 
     const existingController = this.abortControllers.get(sessionId)
     if (existingController) {
-      logger.debug('中止会话的旧请求', 'main', { sessionId })
       existingController.abort()
     }
 
@@ -414,18 +417,38 @@ export class ChatService {
         promptBuilder.updatePromptConfig(config.promptConfig || null)
       }
 
-      const tools = this.buildOpenAITools(selectedTools!)
+      // 构建工具列表：合并 MCP 工具和沙箱工具（如果启用）
+      const allTools: MCPToolReference[] = [...(selectedTools || [])]
 
-      logger.debug('构建的 OpenAI tools 定义', 'main', {
-        sessionId,
-        toolCount: tools.length,
-        toolNames: tools.map((t) => (t as { function: { name: string } }).function.name)
-      })
+      // 如果启用了沙箱工具，从 sandboxToolService 获取沙箱工具定义
+      if (enableSandboxTools) {
+        const sandboxTools = sandboxToolService.getTools().map((tool) => {
+          // 工具名称可能已经包含 sandbox__ 前缀，需要处理
+          const toolName = tool.name.startsWith('sandbox__')
+            ? tool.name.slice('sandbox__'.length) // 去掉 'sandbox__' 前缀
+            : tool.name
+          return {
+            serverName: tool.serverName || 'sandbox',
+            toolName: toolName,
+            description: tool.description,
+            inputSchema: tool.inputSchema
+          }
+        })
+        allTools.push(...sandboxTools)
+
+        logger.info('已添加沙箱工具到工具列表', 'main', {
+          sessionId,
+          sandboxToolCount: sandboxTools.length,
+          totalToolCount: allTools.length
+        })
+      }
+
+      const tools = this.buildOpenAITools(allTools)
 
       const systemPrompt = await promptBuilder.buildSystemPrompt(
         llmConfig,
         true,
-        selectedTools,
+        allTools,
         knowledgeResults
       )
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -447,10 +470,17 @@ export class ChatService {
           break
         }
 
-        logger.debug(`ReAct 迭代 ${iterations + 1}`, 'main', {
-          sessionId,
-          messageCount: conversationMessages.length
-        })
+        // 只在第1次、最后1次或每5次迭代打印日志
+        if (
+          iterations === 0 ||
+          iterations === maxReactIterations - 1 ||
+          (iterations + 1) % 5 === 0
+        ) {
+          logger.debug(`ReAct 迭代 ${iterations + 1}/${maxReactIterations}`, 'main', {
+            sessionId,
+            messageCount: conversationMessages.length
+          })
+        }
 
         const response = await client.chat.completions.create(
           {
@@ -566,15 +596,24 @@ export class ChatService {
           assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
         )
 
-        await this.executeToolCallsWithScheduler(
+        const needUserInteraction = await this.executeToolCallsWithScheduler(
           toolCallsArray,
           webContents,
           sessionId,
           conversationMessages
         )
 
+        // 需要用户交互时，暂停 ReAct 循环
+        if (needUserInteraction) {
+          logger.info('ReAct 循环暂停，等待用户交互', 'main', { sessionId, iterations })
+          break
+        }
+
         iterations++
       }
+
+      // 清除用户交互标记
+      this.pendingUserInteraction.delete(sessionId)
 
       this.sendStreamEvent(webContents, {
         type: 'done',
@@ -587,6 +626,9 @@ export class ChatService {
         iterations,
         usage: totalUsage
       })
+
+      // 异步提取动态示例（如果启用）
+      this.scheduleExampleExtraction(sessionId)
 
       return { success: true }
     } catch (error) {
@@ -603,6 +645,7 @@ export class ChatService {
     } finally {
       this.abortControllers.delete(sessionId)
       this.clearStoppedSession(sessionId)
+      this.pendingUserInteraction.delete(sessionId)
     }
   }
 
@@ -618,7 +661,7 @@ export class ChatService {
 
   /**
    * 构建 OpenAI tools 定义
-   * 使用增强后的工具描述
+   * 使用增强后的工具描述，支持 MCP 工具和沙箱工具
    */
   private buildOpenAITools(
     tools: MCPToolReference[]
@@ -628,19 +671,37 @@ export class ChatService {
 
     const enhancedDescriptions = enhanceToolDescriptions(tools, descriptionLevel)
 
-    return tools.map((tool) => {
+    const openAITools: OpenAI.Chat.Completions.ChatCompletionTool[] = []
+
+    for (const tool of tools) {
+      // 处理沙箱工具（serverName 为 'sandbox'）
+      if (tool.serverName === 'sandbox') {
+        openAITools.push({
+          type: 'function' as const,
+          function: {
+            name: `sandbox__${tool.toolName}`,
+            description: tool.description,
+            parameters: tool.inputSchema as Record<string, unknown>
+          }
+        })
+        continue
+      }
+
+      // 处理 MCP 工具
       const toolKey = `${tool.serverName}__${tool.toolName}`
       const enhancedDescription = enhancedDescriptions.get(toolKey) || tool.description
 
-      return {
+      openAITools.push({
         type: 'function' as const,
         function: {
           name: this.sanitizeToolName(tool.serverName, tool.toolName),
           description: enhancedDescription,
           parameters: tool.inputSchema as Record<string, unknown>
         }
-      }
-    })
+      })
+    }
+
+    return openAITools
   }
 
   /**
@@ -670,7 +731,7 @@ export class ChatService {
     webContents: WebContents,
     sessionId: string,
     conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
-  ): Promise<void> {
+  ): Promise<boolean> {
     this.checkStopped(sessionId)
 
     const { independent, sequential } = this.toolScheduler.analyzeDependencies(toolCalls)
@@ -718,14 +779,21 @@ export class ChatService {
           tool_call_id: toolCall.id,
           content: result
         })
+
+        // 检测到用户交互请求时提前返回
+        if (this.pendingUserInteraction.has(sessionId)) {
+          return true
+        }
       }
     }
 
     this.checkStopped(sessionId)
+    return this.pendingUserInteraction.has(sessionId)
   }
 
   /**
    * 执行单个工具调用
+   * 支持 MCP 工具和沙箱工具
    */
   private async executeToolCall(
     toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
@@ -749,8 +817,156 @@ export class ChatService {
       return JSON.stringify({ error })
     }
 
-    const [sanitizedServerName, sanitizedToolName] = nameParts
+    const [serverName, toolName] = nameParts
 
+    // 处理沙箱工具
+    if (serverName === 'sandbox') {
+      return this.executeSandboxTool(toolCall, toolName, webContents, sessionId)
+    }
+
+    // 处理 MCP 工具
+    return this.executeMcpTool(toolCall, serverName, toolName, webContents, sessionId)
+  }
+
+  /**
+   * 执行沙箱工具调用
+   */
+  private async executeSandboxTool(
+    toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
+    toolName: string,
+    webContents: WebContents,
+    sessionId: string
+  ): Promise<string> {
+    let args: Record<string, unknown> = {}
+
+    try {
+      args = JSON.parse(toolCall.function.arguments || '{}')
+    } catch (e) {
+      const error = `解析工具参数失败: ${e}`
+      logger.error(error, 'main')
+      this.sendStreamEvent(webContents, {
+        type: 'tool_result',
+        sessionId,
+        toolResult: {
+          id: toolCall.id,
+          name: toolName,
+          success: false,
+          error
+        }
+      })
+      return JSON.stringify({ error })
+    }
+
+    logger.info('执行沙箱工具调用', 'main', {
+      sessionId,
+      toolName,
+      args
+    })
+
+    this.sendStreamEvent(webContents, {
+      type: 'tool_call',
+      sessionId,
+      toolCall: {
+        id: toolCall.id,
+        name: toolName,
+        serverName: 'sandbox',
+        arguments: args
+      }
+    })
+
+    try {
+      this.checkStopped(sessionId)
+
+      const result = await this.withTimeoutAndStopCheck(
+        sandboxToolService.callTool(`sandbox__${toolName}`, args),
+        sessionId,
+        60000,
+        `沙箱工具调用 ${toolName}`
+      )
+
+      this.checkStopped(sessionId)
+
+      // 检测是否为用户交互请求
+      if (result.success && result.content) {
+        try {
+          const contentText =
+            Array.isArray(result.content) && result.content[0]?.text ? result.content[0].text : null
+          if (contentText) {
+            const parsed = JSON.parse(contentText)
+            if (parsed.user_interaction_required === true) {
+              this.pendingUserInteraction.add(sessionId)
+              this.sendStreamEvent(webContents, {
+                type: 'user_interaction',
+                sessionId,
+                userInteraction: {
+                  question: parsed.question,
+                  options: parsed.options
+                }
+              })
+            }
+          }
+        } catch {
+          // 不是 JSON 或不是交互请求，忽略
+        }
+      }
+
+      this.sendStreamEvent(webContents, {
+        type: 'tool_result',
+        sessionId,
+        toolResult: {
+          id: toolCall.id,
+          name: toolName,
+          success: result.success,
+          result: result.content,
+          error: result.error
+        }
+      })
+
+      if (result.success) {
+        return JSON.stringify(result.content)
+      } else {
+        return JSON.stringify({ error: result.error })
+      }
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.name === 'AbortError' || error.message.includes('超时'))
+      ) {
+        throw error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('沙箱工具调用失败', 'main', {
+        sessionId,
+        toolName,
+        error: errorMessage
+      })
+
+      this.sendStreamEvent(webContents, {
+        type: 'tool_result',
+        sessionId,
+        toolResult: {
+          id: toolCall.id,
+          name: toolName,
+          success: false,
+          error: errorMessage
+        }
+      })
+
+      return JSON.stringify({ error: errorMessage })
+    }
+  }
+
+  /**
+   * 执行 MCP 工具调用
+   */
+  private async executeMcpTool(
+    toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
+    sanitizedServerName: string,
+    sanitizedToolName: string,
+    webContents: WebContents,
+    sessionId: string
+  ): Promise<string> {
     const serverName = this.findOriginalServerName(sanitizedServerName)
     if (!serverName) {
       const error = `未找到 MCP 服务器: ${sanitizedServerName}`
@@ -902,6 +1118,53 @@ export class ChatService {
    */
   private clearStoppedSession(sessionId: string): void {
     this.stoppedSessions.delete(sessionId)
+  }
+
+  /**
+   * 调度示例提取任务（防抖）
+   * 只在 ReAct 模式且有工具调用时调用
+   */
+  private scheduleExampleExtraction(sessionId: string): void {
+    const config = configManager.getConfig()
+    if (!config?.promptConfig?.enableDynamicExamples) {
+      return
+    }
+
+    this.pendingExtractions.add(sessionId)
+
+    // 清除之前的定时器
+    if (this.extractionTimer) {
+      clearTimeout(this.extractionTimer)
+    }
+
+    // 延迟 2 秒批量提取
+    this.extractionTimer = setTimeout(() => {
+      this.executeBatchExtraction()
+    }, 2000)
+  }
+
+  /**
+   * 批量执行示例提取
+   */
+  private async executeBatchExtraction(): Promise<void> {
+    const sessionIds = Array.from(this.pendingExtractions)
+    this.pendingExtractions.clear()
+    this.extractionTimer = null
+
+    if (sessionIds.length === 0) return
+
+    try {
+      const { exampleManager } = await import('./prompts/ExampleManager')
+      const result = await exampleManager.extractAndSave(sessionIds)
+
+      logger.info('批量提取示例完成', 'main', {
+        sessionCount: sessionIds.length,
+        extracted: result.extracted,
+        saved: result.saved
+      })
+    } catch (error) {
+      logger.warn('批量提取示例失败', 'main', { error })
+    }
   }
 
   /**
