@@ -10,6 +10,8 @@ import type {
   ABTestResult,
   PromptTemplate,
   PromptCacheStats,
+  CacheStatsUpdatedEvent,
+  CachePerformanceWarningEvent,
   ModelSpecificConfig,
   PromptSectionPriority
 } from '@shared/types/prompt'
@@ -307,13 +309,54 @@ export const cacheStatsApi = {
   /**
    * 获取缓存统计
    */
-  getStats: (): Promise<PromptCacheStats> => ipcRenderer.invoke('prompt:cache:getStats'),
+  getStats: (): Promise<{ success: boolean; stats?: PromptCacheStats; error?: string }> =>
+    ipcRenderer.invoke('prompt:getCacheStats'),
+
+  /**
+   * 获取缓存报告
+   */
+  getReport: (): Promise<{ success: boolean; report?: string; error?: string }> =>
+    ipcRenderer.invoke('prompt:getCacheReport'),
 
   /**
    * 清空缓存
    */
   clearCache: (): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke('prompt:cache:clear')
+    ipcRenderer.invoke('prompt:clearCache'),
+
+  /**
+   * 订阅缓存统计更新
+   */
+  subscribe: (): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('prompt:subscribeCacheStats'),
+
+  /**
+   * 取消订阅缓存统计更新
+   */
+  unsubscribe: (): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('prompt:unsubscribeCacheStats'),
+
+  /**
+   * 监听缓存统计更新事件
+   */
+  onStatsUpdated: (callback: (stats: CacheStatsUpdatedEvent) => void): (() => void) => {
+    const handler = (_event: unknown, stats: CacheStatsUpdatedEvent) => callback(stats)
+    ipcRenderer.on('prompt:cacheStatsUpdated', handler)
+    return () => {
+      ipcRenderer.removeListener('prompt:cacheStatsUpdated', handler)
+    }
+  },
+
+  /**
+   * 监听缓存性能警告事件
+   */
+  onPerformanceWarning: (callback: (data: CachePerformanceWarningEvent) => void): (() => void) => {
+    const handler = (_event: unknown, data: CachePerformanceWarningEvent) => callback(data)
+    ipcRenderer.on('prompt:cachePerformanceWarning', handler)
+    return () => {
+      ipcRenderer.removeListener('prompt:cachePerformanceWarning', handler)
+    }
+  }
 }
 
 /**

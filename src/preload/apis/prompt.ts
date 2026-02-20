@@ -17,6 +17,58 @@ export interface PromptConfig {
   fewShotCount?: number
   /** 自定义系统提示词，会覆盖默认生成的提示词 */
   customSystemPrompt?: string
+  /** 是否启用提示词缓存 */
+  enablePromptCache?: boolean
+  /** 缓存的最大条目数 */
+  cacheMaxSize?: number
+  /** 缓存过期时间，单位小时 */
+  cacheTTLHours?: number
+}
+
+/**
+ * 缓存级别统计
+ */
+export interface CacheLevelStats {
+  size: number
+  maxSize: number
+  hits: number
+  misses: number
+  hitRate: number
+  expired: number
+  evicted: number
+  memoryUsage: number
+}
+
+/**
+ * 全局缓存统计
+ */
+export interface GlobalCacheStats {
+  totalHits: number
+  totalMisses: number
+  totalHitRate: number
+  totalSize: number
+  totalMemoryUsage: number
+  performanceScore: number
+}
+
+/**
+ * 缓存统计更新事件数据
+ */
+export interface CacheStatsUpdatedEvent {
+  timestamp: number
+  systemPrompt: CacheLevelStats
+  toolDescription: CacheLevelStats
+  exampleFormatting: CacheLevelStats
+  global: GlobalCacheStats
+}
+
+/**
+ * 缓存性能警告事件数据
+ */
+export interface CachePerformanceWarningEvent {
+  timestamp: number
+  score: number
+  threshold: number
 }
 
 /**
@@ -100,5 +152,41 @@ export const promptApi = {
    * 从 JSON 字符串导入模板
    */
   importTemplate: (json: string): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke('prompt:importTemplate', json)
+    ipcRenderer.invoke('prompt:importTemplate', json),
+
+  // ============ 缓存监控 API ============
+
+  /**
+   * 订阅缓存统计更新
+   */
+  subscribeCacheStats: (): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('prompt:subscribeCacheStats'),
+
+  /**
+   * 取消订阅缓存统计更新
+   */
+  unsubscribeCacheStats: (): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('prompt:unsubscribeCacheStats'),
+
+  /**
+   * 监听缓存统计更新事件
+   */
+  onCacheStatsUpdated: (callback: (stats: CacheStatsUpdatedEvent) => void): (() => void) => {
+    const handler = (_event: unknown, stats: CacheStatsUpdatedEvent) => callback(stats)
+    ipcRenderer.on('prompt:cacheStatsUpdated', handler)
+    return () => {
+      ipcRenderer.removeListener('prompt:cacheStatsUpdated', handler)
+    }
+  },
+
+  /**
+   * 监听缓存性能警告事件
+   */
+  onCachePerformanceWarning: (callback: (data: CachePerformanceWarningEvent) => void): (() => void) => {
+    const handler = (_event: unknown, data: CachePerformanceWarningEvent) => callback(data)
+    ipcRenderer.on('prompt:cachePerformanceWarning', handler)
+    return () => {
+      ipcRenderer.removeListener('prompt:cachePerformanceWarning', handler)
+    }
+  }
 }

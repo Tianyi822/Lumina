@@ -159,7 +159,6 @@ function getPriorityClass(priority: string): string {
 
 function getTokenBudgetAdvice(): string {
   const essentialCount = priorityStats.value.essential
-  const highCount = priorityStats.value.high
 
   if (essentialCount === 0) {
     return '警告：至少需要设置一个核心章节'

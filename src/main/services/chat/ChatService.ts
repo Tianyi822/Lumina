@@ -422,6 +422,9 @@ export class ChatService {
     const abortController = new AbortController()
     this.abortControllers.set(sessionId, abortController)
 
+    // 记录会话开始（用于效果监控）
+    promptMetricsCollector.recordSessionStart(sessionId, modelKey, true)
+
     try {
       const client = this.createClient(llmConfig)
 
@@ -524,6 +527,14 @@ export class ChatService {
             totalUsage.prompt_tokens += chunk.usage.prompt_tokens
             totalUsage.completion_tokens += chunk.usage.completion_tokens
             totalUsage.total_tokens += chunk.usage.total_tokens
+
+            // 记录 Token 使用情况
+            promptMetricsCollector.recordTokenUsage(
+              sessionId,
+              chunk.usage.prompt_tokens,
+              chunk.usage.completion_tokens,
+              chunk.usage.total_tokens
+            )
           }
 
           const choice = chunk.choices?.[0]
@@ -935,6 +946,9 @@ export class ChatService {
         }
       })
 
+      // 记录工具调用结果
+      promptMetricsCollector.recordToolCall(sessionId, result.success)
+
       if (result.success) {
         return JSON.stringify(result.content)
       } else {
@@ -947,6 +961,9 @@ export class ChatService {
       ) {
         throw error
       }
+
+      // 记录工具调用失败
+      promptMetricsCollector.recordToolCall(sessionId, false)
 
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('沙箱工具调用失败', 'main', {
@@ -1066,6 +1083,9 @@ export class ChatService {
         }
       })
 
+      // 记录工具调用结果
+      promptMetricsCollector.recordToolCall(sessionId, result.success)
+
       if (result.success) {
         return JSON.stringify(result.content)
       } else {
@@ -1078,6 +1098,9 @@ export class ChatService {
       ) {
         throw error
       }
+
+      // 记录工具调用失败
+      promptMetricsCollector.recordToolCall(sessionId, false)
 
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('MCP 工具调用失败', 'main', {

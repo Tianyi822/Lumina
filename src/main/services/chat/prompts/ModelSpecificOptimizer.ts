@@ -309,7 +309,7 @@ const DEFAULT_MODEL_CONFIGS: ModelSpecificConfig[] = [
     optimizations: {
       fewShotCount: 3,
       emphasisOnCOT: true,
-      toolDescriptionStyle: 'basic',
+      toolDescriptionStyle: 'detailed',
       specialInstructions: `你是一个 AI 助手，具备工具使用能力。
 - 你可以使用提供的工具来完成任务
 - 请展示清晰的思考过程
@@ -371,8 +371,7 @@ export class ModelSpecificOptimizer {
    */
   optimizeTemplate(
     template: PromptTemplate,
-    modelName: string,
-    options: PromptBuildOptions = {}
+    modelName: string
   ): OptimizedPromptResult {
     const recognition = this.recognizeModel(modelName)
     const config = recognition.config
@@ -407,9 +406,10 @@ export class ModelSpecificOptimizer {
       for (const section of Object.keys(result.template.sections) as Array<
         keyof typeof result.template.sections
       >) {
-        result.template.sections[section] = optimizations.formatFunction(
-          result.template.sections[section]
-        )
+        const sectionContent = result.template.sections[section]
+        if (sectionContent) {
+          result.template.sections[section] = optimizations.formatFunction(sectionContent)
+        }
       }
       result.appliedSuggestions.push('应用了模型特定格式化')
     }
@@ -467,7 +467,9 @@ export class ModelSpecificOptimizer {
 
     return {
       fewShotCount: optimizations.fewShotCount,
-      toolDescriptionLevel: optimizations.toolDescriptionStyle,
+      toolDescriptionLevel: optimizations.toolDescriptionStyle === 'concise'
+        ? 'basic'
+        : optimizations.toolDescriptionStyle,
       emphasizeErrorHandling: optimizations.sectionPriorities?.errorHandling === 'high'
     }
   }

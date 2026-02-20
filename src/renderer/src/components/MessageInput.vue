@@ -336,7 +336,7 @@ onUnmounted(() => {
 <style scoped>
 .message-input-container {
   padding: 16px 24px 24px;
-  background-color: var(--theme-bg);
+  background: linear-gradient(180deg, var(--theme-bg) 0%, var(--theme-bg-secondary) 100%);
   border-top: 1px solid var(--theme-border);
 }
 
@@ -350,11 +350,28 @@ onUnmounted(() => {
   resize: vertical;
   font-family: var(--theme-font);
   line-height: 1.5;
+  background-color: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-border);
+  border-radius: var(--theme-radius);
+  color: var(--theme-text);
+  padding: 12px 16px;
+  transition: all 0.15s ease;
+}
+
+.message-textarea:hover {
+  border-color: var(--theme-border-hover);
+}
+
+.message-textarea:focus {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+  background-color: var(--theme-bg-tertiary);
 }
 
 .message-textarea:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
+  background-color: var(--theme-bg-secondary);
 }
 
 .input-actions {
@@ -389,10 +406,10 @@ onUnmounted(() => {
   left: 0;
   margin-bottom: 4px;
   min-width: 200px;
-  background-color: var(--theme-bg-secondary);
+  background: linear-gradient(180deg, var(--theme-bg-secondary) 0%, var(--theme-bg-tertiary) 100%);
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
-  box-shadow: var(--theme-shadow);
+  box-shadow: var(--theme-shadow), var(--theme-shadow-glow);
   overflow: hidden;
   z-index: 100;
 }
@@ -408,6 +425,7 @@ onUnmounted(() => {
 
 .model-option:hover {
   background-color: var(--theme-bg-hover);
+  color: var(--theme-text);
 }
 
 .model-option.active {

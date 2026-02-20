@@ -7,6 +7,7 @@ import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt } from './prompts/
 import { PromptCache } from './prompts/PromptCache'
 import { PromptOptimizer } from './prompts/PromptOptimizer'
 import { exampleManager } from './prompts/ExampleManager'
+import { promptTemplateManager } from './prompts/PromptTemplateManager'
 import { logger } from '@main/services/logger'
 
 // 使用共享的 PromptConfig 类型
@@ -64,12 +65,27 @@ export class PromptBuilder {
         // 禁用缓存
         this.cache.updateConfig({ enabled: false })
       } else {
-        // 启用缓存并失效配置相关缓存
+        // 构建缓存配置
+        const cacheConfig = config.cacheConfig
+        const templateVersion = promptTemplateManager.getVersion()
+
+        // 启用缓存并更新配置
         this.cache.updateConfig({
           enabled: true,
-          systemPromptMaxSize: config.cacheMaxSize || 50,
-          systemPromptTTL: config.cacheTTLHours || 24
+          // 使用详细配置或向后兼容的配置
+          systemPromptMaxSize: cacheConfig?.systemPromptMaxSize ?? config.cacheMaxSize ?? 50,
+          systemPromptTTL: cacheConfig?.systemPromptTTL ?? config.cacheTTLHours ?? 24,
+          toolDescriptionMaxSize: cacheConfig?.toolDescriptionMaxSize ?? 200,
+          toolDescriptionTTL: cacheConfig?.toolDescriptionTTL ?? 12,
+          exampleFormattingMaxSize: cacheConfig?.exampleFormattingMaxSize ?? 500,
+          exampleFormattingTTL: cacheConfig?.exampleFormattingTTL ?? 1,
+          enableMetrics: cacheConfig?.enableMetrics ?? true,
+          maxMetricsSnapshots: cacheConfig?.maxMetricsSnapshots ?? 100,
+          // 传递模板版本以实现版本感知缓存失效
+          templateVersion
         })
+
+        // 如果配置发生其他变化，清空配置相关缓存
         this.cache.invalidateConfig()
       }
     }

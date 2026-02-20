@@ -444,12 +444,63 @@ interface PromptConfig {
 }
 
 /**
+ * 缓存级别统计
+ */
+interface CacheLevelStats {
+  size: number
+  maxSize: number
+  hits: number
+  misses: number
+  hitRate: number
+  expired: number
+  evicted: number
+  memoryUsage: number
+}
+
+/**
+ * 全局缓存统计
+ */
+interface GlobalCacheStats {
+  totalHits: number
+  totalMisses: number
+  totalHitRate: number
+  totalSize: number
+  totalMemoryUsage: number
+  performanceScore: number
+}
+
+/**
+ * 缓存统计更新事件数据
+ */
+interface CacheStatsUpdatedEvent {
+  timestamp: number
+  systemPrompt: CacheLevelStats
+  toolDescription: CacheLevelStats
+  exampleFormatting: CacheLevelStats
+  global: GlobalCacheStats
+}
+
+/**
+ * 缓存性能警告事件数据
+ */
+interface CachePerformanceWarningEvent {
+  timestamp: number
+  score: number
+  threshold: number
+}
+
+/**
  * 提示词配置相关的 API
  */
 interface PromptApi {
   getConfig: () => Promise<PromptConfig | undefined>
   updateConfig: (config: PromptConfig) => Promise<ConfigSaveResult>
   resetConfig: () => Promise<{ success: boolean; config?: PromptConfig; error?: string }>
+  // 缓存监控
+  subscribeCacheStats: () => Promise<{ success: boolean }>
+  unsubscribeCacheStats: () => Promise<{ success: boolean }>
+  onCacheStatsUpdated: (callback: (stats: CacheStatsUpdatedEvent) => void) => () => void
+  onCachePerformanceWarning: (callback: (data: CachePerformanceWarningEvent) => void) => () => void
 }
 
 /**
@@ -1637,7 +1688,7 @@ interface ModelConfigApi {
  * 章节优先级配置
  */
 interface PromptSectionPriority {
-  section: string
+  section: 'coreInstructions' | 'reactProcess' | 'errorHandling' | 'toolBestPractices' | 'outputFormat' | 'sandboxManagement'
   priority: 'essential' | 'high' | 'medium' | 'low'
   minTokens: number
   compressible: boolean

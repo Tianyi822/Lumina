@@ -7,6 +7,7 @@ const props = defineProps<{
   sessionId: string
   promptVersion: string
   disabled?: boolean
+  content?: string
 }>()
 
 // ==================== Emits ====================
@@ -22,6 +23,7 @@ const feedbackReason = ref('')
 const isAnonymous = ref(false)
 const submitting = ref(false)
 const submitted = ref(false)
+const copied = ref(false)
 
 // 反馈原因选项
 const reasonOptions = [
@@ -86,12 +88,66 @@ async function submitFeedback(): Promise<void> {
     submitting.value = false
   }
 }
+
+/**
+ * 复制消息内容到剪贴板
+ */
+async function copyMessage(): Promise<void> {
+  if (!props.content) return
+
+  try {
+    await navigator.clipboard.writeText(props.content)
+    copied.value = true
+    // 2秒后恢复状态
+    setTimeout(() => {
+      copied.value = false
+    }, 2000)
+  } catch (error) {
+    console.error('复制失败:', error)
+    // 降级方案：使用传统的复制方法
+    const textarea = document.createElement('textarea')
+    textarea.value = props.content
+    textarea.style.position = 'fixed'
+    textarea.style.left = '-9999px'
+    document.body.appendChild(textarea)
+    textarea.select()
+    try {
+      document.execCommand('copy')
+      copied.value = true
+      setTimeout(() => {
+        copied.value = false
+      }, 2000)
+    } catch (err) {
+      console.error('复制失败:', err)
+    }
+    document.body.removeChild(textarea)
+  }
+}
 </script>
 
 <template>
   <div class="feedback-button">
-    <!-- 反馈按钮组 -->
+    <!-- 操作按钮组 -->
     <div v-if="!submitted" class="feedback-actions">
+      <!-- 复制按钮 -->
+      <button
+        v-if="content"
+        class="feedback-btn"
+        :class="{ active: copied }"
+        :disabled="disabled"
+        :title="copied ? '已复制' : '复制内容'"
+        @click="copyMessage"
+      >
+        <svg v-if="!copied" viewBox="0 0 24 24" width="14" height="14">
+          <path
+            fill="currentColor"
+            d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+          />
+        </svg>
+        <svg v-else viewBox="0 0 24 24" width="14" height="14">
+          <path fill="currentColor" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+        </svg>
+      </button>
       <button
         class="feedback-btn"
         :class="{ active: feedbackType === 'thumbs_up' }"
@@ -99,7 +155,7 @@ async function submitFeedback(): Promise<void> {
         title="有帮助"
         @click="openFeedbackForm('thumbs_up')"
       >
-        <svg viewBox="0 0 24 24" width="16" height="16">
+        <svg viewBox="0 0 24 24" width="14" height="14">
           <path
             fill="currentColor"
             d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"
@@ -113,7 +169,7 @@ async function submitFeedback(): Promise<void> {
         title="无帮助"
         @click="openFeedbackForm('thumbs_down')"
       >
-        <svg viewBox="0 0 24 24" width="16" height="16">
+        <svg viewBox="0 0 24 24" width="14" height="14">
           <path
             fill="currentColor"
             d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"
@@ -187,12 +243,12 @@ async function submitFeedback(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 21px;
+  height: 21px;
   padding: 0;
   background: transparent;
   border: 1px solid var(--theme-border);
-  border-radius: 6px;
+  border-radius: 4px;
   color: var(--theme-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
