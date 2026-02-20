@@ -1,0 +1,266 @@
+/**
+ * 流体玻璃效果样式文件
+ * 提供可复用的苹果风格流体玻璃效果
+ * 遵循 Linear 设计原则：精致、克制、高级感
+ */
+
+/* ========== 流体玻璃效果 CSS 变量 ========== */
+:root {
+  /* 模糊度变量 */
+  --glass-blur-light: blur(18px);
+  --glass-blur-medium: blur(20px);
+  --glass-blur-heavy: blur(28px);
+  --glass-blur-extra: blur(24px);
+  --glass-blur-small: blur(12px);
+  --glass-blur-tiny: blur(8px);
+  --glass-blur-mini: blur(16px);
+
+  /* 饱和度和亮度变量 */
+  --glass-saturation: saturate(200%);
+  --glass-saturation-hover: saturate(220%);
+  --glass-saturation-light: saturate(190%);
+  --glass-saturation-item: saturate(150%);
+  --glass-saturation-active: saturate(180%);
+  --glass-saturation-mobile: saturate(120%);
+  --glass-brightness: brightness(1.1);
+  --glass-brightness-hover: brightness(1.15);
+  --glass-brightness-solid: brightness(1.12);
+  --glass-brightness-light: brightness(1.08);
+
+  /* 白色透明度变量 - 基础效果 */
+  --glass-white-003: rgba(255, 255, 255, 0.003);
+  --glass-white-007: rgba(255, 255, 255, 0.007);
+  --glass-white-01: rgba(255, 255, 255, 0.01);
+  --glass-white-013: rgba(255, 255, 255, 0.013);
+  --glass-white-017: rgba(255, 255, 255, 0.017);
+  --glass-white-02: rgba(255, 255, 255, 0.02);
+  --glass-white-023: rgba(255, 255, 255, 0.023);
+  --glass-white-027: rgba(255, 255, 255, 0.027);
+  --glass-white-03: rgba(255, 255, 255, 0.03);
+  --glass-white-033: rgba(255, 255, 255, 0.033);
+  --glass-white-04: rgba(255, 255, 255, 0.04);
+  --glass-white-05: rgba(255, 255, 255, 0.05);
+  --glass-white-06: rgba(255, 255, 255, 0.06);
+  --glass-white-08: rgba(255, 255, 255, 0.08);
+  --glass-white-1: rgba(255, 255, 255, 0.1);
+  --glass-white-12: rgba(255, 255, 255, 0.12);
+  --glass-white-15: rgba(255, 255, 255, 0.15);
+  --glass-white-18: rgba(255, 255, 255, 0.18);
+  --glass-white-2: rgba(255, 255, 255, 0.2);
+  --glass-white-25: rgba(255, 255, 255, 0.25);
+  --glass-white-3: rgba(255, 255, 255, 0.3);
+  --glass-white-4: rgba(255, 255, 255, 0.4);
+
+  /* 黑色透明度变量 */
+  --glass-black-017: rgba(0, 0, 0, 0.017);
+  --glass-black-02: rgba(0, 0, 0, 0.02);
+  --glass-black-027: rgba(0, 0, 0, 0.027);
+  --glass-black-85: rgba(0, 0, 0, 0.85);
+  --glass-black-9: rgba(0, 0, 0, 0.9);
+
+  /* 过渡与圆角 */
+  --glass-transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --glass-transition-fast: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --glass-border-radius: 12px;
+  --glass-border-radius-small: 8px;
+  --glass-border-radius-capsule: 9999px;
+
+  /* 阴影 */
+  --glass-shadow-light: 0 6px 24px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --glass-shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+  --glass-shadow-heavy: 0 10px 36px rgba(0, 0, 0, 0.14), 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+/* ========== 基础流体玻璃效果 ========== */
+.glass-effect {
+  position: relative;
+  background:
+    linear-gradient(135deg, var(--glass-white-027) 0%, var(--glass-white-013) 100%),
+    linear-gradient(225deg, var(--glass-white-02) 0%, var(--glass-white-007) 100%),
+    var(--glass-black-017);
+  backdrop-filter: var(--glass-blur-medium) var(--glass-saturation) var(--glass-brightness);
+  -webkit-backdrop-filter: var(--glass-blur-medium) var(--glass-saturation) var(--glass-brightness);
+  border: 1px solid var(--glass-white-1);
+  box-shadow:
+    var(--glass-shadow-medium),
+    inset 0 1px 0 var(--glass-white-15),
+    inset 0 -1px 0 var(--glass-white-05);
+  transition: var(--glass-transition);
+  will-change: transform, opacity, backdrop-filter;
+}
+
+/* Firefox 兼容性 */
+@supports not (backdrop-filter: blur(20px)) {
+  .glass-effect {
+    background: var(--glass-black-85) !important;
+  }
+}
+
+/* 降低动画复杂度以提升性能 */
+@media (prefers-reduced-motion: reduce) {
+  .glass-effect {
+    transition: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--glass-black-9) !important;
+  }
+}
+
+/* ========== 流体玻璃悬停效果 ========== */
+.glass-hover:hover {
+  background:
+    linear-gradient(135deg, var(--glass-white-033) 0%, var(--glass-white-02) 100%),
+    linear-gradient(225deg, var(--glass-white-027) 0%, var(--glass-white-01) 100%),
+    var(--glass-black-02);
+  backdrop-filter: var(--glass-blur-extra) var(--glass-saturation-hover) var(--glass-brightness-hover);
+  -webkit-backdrop-filter: var(--glass-blur-extra) var(--glass-saturation-hover) var(--glass-brightness-hover);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.15),
+    0 4px 12px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 var(--glass-white-2),
+    inset 0 -1px 0 var(--glass-white-08);
+}
+
+/* ========== 增强流体玻璃（向上滚动时） ========== */
+.glass-solid {
+  position: relative;
+  background:
+    linear-gradient(135deg, var(--glass-white-03) 0%, var(--glass-white-017) 100%),
+    linear-gradient(225deg, var(--glass-white-023) 0%, var(--glass-white-007) 100%),
+    var(--glass-black-027);
+  backdrop-filter: var(--glass-blur-heavy) var(--glass-saturation-hover) var(--glass-brightness-solid);
+  -webkit-backdrop-filter: var(--glass-blur-heavy) var(--glass-saturation-hover) var(--glass-brightness-solid);
+  border: 1px solid var(--glass-white-15);
+  box-shadow:
+    var(--glass-shadow-heavy),
+    inset 0 1px 0 var(--glass-white-18),
+    inset 0 -1px 0 var(--glass-white-06);
+}
+
+/* ========== 轻盈流体玻璃（在顶部时） ========== */
+.glass-transparent {
+  position: relative;
+  background:
+    linear-gradient(135deg, var(--glass-white-02) 0%, var(--glass-white-01) 100%),
+    linear-gradient(225deg, var(--glass-white-013) 0%, var(--glass-white-003) 100%),
+    var(--glass-black-017);
+  backdrop-filter: var(--glass-blur-light) var(--glass-saturation-light) var(--glass-brightness-light);
+  -webkit-backdrop-filter: var(--glass-blur-light) var(--glass-saturation-light) var(--glass-brightness-light);
+  border: 1px solid var(--glass-white-08);
+  box-shadow:
+    var(--glass-shadow-light),
+    inset 0 1px 0 var(--glass-white-12),
+    inset 0 -1px 0 var(--glass-white-04);
+}
+
+/* ========== 小元素流体玻璃效果（导航项、列表项） ========== */
+.glass-item {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: var(--glass-border-radius-small);
+  transition: var(--glass-transition-fast);
+}
+
+.glass-item:hover {
+  background:
+    linear-gradient(135deg, var(--glass-white-05) 0%, var(--glass-white-027) 100%),
+    linear-gradient(225deg, var(--glass-white-033) 0%, var(--glass-white-013) 100%),
+    var(--glass-white-02);
+  border: 1px solid var(--glass-white-2);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 var(--glass-white-25),
+    inset 0 -1px 0 var(--glass-white-1);
+  backdrop-filter: var(--glass-blur-small) var(--glass-saturation-item);
+  -webkit-backdrop-filter: var(--glass-blur-small) var(--glass-saturation-item);
+  transform: translateY(-1px);
+}
+
+/* ========== 玻璃输入框效果 ========== */
+.glass-input {
+  background:
+    linear-gradient(135deg, var(--glass-white-013) 0%, var(--glass-white-007) 100%),
+    var(--glass-black-017);
+  backdrop-filter: var(--glass-blur-tiny) var(--glass-saturation-light);
+  -webkit-backdrop-filter: var(--glass-blur-tiny) var(--glass-saturation-light);
+  border: 1px solid var(--glass-white-1);
+  transition: var(--glass-transition-fast);
+}
+
+.glass-input:focus {
+  border-color: var(--glass-white-25);
+  box-shadow:
+    0 0 0 3px rgba(99, 102, 241, 0.15),
+    inset 0 1px 0 var(--glass-white-15);
+  background:
+    linear-gradient(135deg, var(--glass-white-02) 0%, var(--glass-white-013) 100%),
+    var(--glass-black-02);
+}
+
+/* ========== 玻璃面板/弹出层 ========== */
+.glass-panel {
+  position: relative;
+  background:
+    linear-gradient(135deg, var(--glass-white-03) 0%, var(--glass-white-017) 100%),
+    linear-gradient(225deg, var(--glass-white-023) 0%, var(--glass-white-007) 100%),
+    var(--glass-black-027);
+  backdrop-filter: var(--glass-blur-heavy) var(--glass-saturation-hover) var(--glass-brightness-solid);
+  -webkit-backdrop-filter: var(--glass-blur-heavy) var(--glass-saturation-hover) var(--glass-brightness-solid);
+  border: 1px solid var(--glass-white-12);
+  box-shadow:
+    var(--glass-shadow-heavy),
+    inset 0 1px 0 var(--glass-white-15),
+    inset 0 -1px 0 var(--glass-white-05);
+}
+
+/* ========== 玻璃按钮效果 ========== */
+.glass-btn {
+  position: relative;
+  background:
+    linear-gradient(135deg, var(--glass-white-05) 0%, var(--glass-white-027) 100%),
+    var(--glass-black-017);
+  backdrop-filter: var(--glass-blur-tiny) var(--glass-saturation-light);
+  -webkit-backdrop-filter: var(--glass-blur-tiny) var(--glass-saturation-light);
+  border: 1px solid var(--glass-white-12);
+  transition: var(--glass-transition-fast);
+}
+
+.glass-btn:hover {
+  background:
+    linear-gradient(135deg, var(--glass-white-08) 0%, var(--glass-white-04) 100%),
+    var(--glass-black-02);
+  border-color: var(--glass-white-2);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 var(--glass-white-2);
+  transform: translateY(-0.5px);
+}
+
+.glass-btn:active {
+  transform: translateY(0);
+  background:
+    linear-gradient(135deg, var(--glass-white-04) 0%, var(--glass-white-02) 100%),
+    var(--glass-black-027);
+}
+
+/* ========== 分割线玻璃效果 ========== */
+.glass-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--glass-white-1) 20%,
+    var(--glass-white-15) 50%,
+    var(--glass-white-1) 80%,
+    transparent 100%
+  );
+  border: none;
+}
+
+/* ========== 玻璃遮罩层 ========== */
+.glass-overlay {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: var(--glass-blur-small) var(--glass-saturation-mobile);
+  -webkit-backdrop-filter: var(--glass-blur-small) var(--glass-saturation-mobile);
+}

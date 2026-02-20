@@ -113,6 +113,8 @@ onMounted(() => {
   font-family: var(--theme-font);
   background-color: var(--theme-bg);
   color: var(--theme-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* 主布局 */

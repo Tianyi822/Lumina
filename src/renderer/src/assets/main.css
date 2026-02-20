@@ -4,8 +4,10 @@
  */
 
 @import './base.css';
+@import '../styles/glass.css';
 @import '../themes/terminal.css';
 @import '../themes/blooming-flowers.css';
+@import '../styles/forms.css';
 
 body {
   margin: 0;

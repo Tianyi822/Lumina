@@ -260,26 +260,11 @@ function isReasoningExpanded(msgId: string): boolean {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
-  background: linear-gradient(180deg, var(--theme-bg) 0%, var(--theme-bg-secondary) 100%);
-
-  /* 滚动条样式 */
-  &::-webkit-scrollbar {
-    width: var(--scrollbar-width, 8px);
-  }
-
-  &::-webkit-scrollbar-track {
-    background: var(--scrollbar-track-bg, transparent);
-    border-radius: var(--scrollbar-thumb-radius, 4px);
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb-bg, rgba(255, 255, 255, 0.15));
-    border-radius: var(--scrollbar-thumb-radius, 4px);
-  }
-
-  &::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover-bg, rgba(255, 255, 255, 0.25));
-  }
+  background:
+    linear-gradient(180deg,
+      var(--theme-bg) 0%,
+      var(--glass-white-007, rgba(255,255,255,0.007)) 50%,
+      var(--theme-bg) 100%);
 }
 
 .empty-state {
@@ -313,9 +298,9 @@ function isReasoningExpanded(msgId: string): boolean {
   align-items: center;
 }
 
-/* 终端提示符样式 */
 .terminal-prompt {
   color: var(--theme-accent);
+  font-family: var(--theme-font-mono, monospace);
 }
 
 .terminal-prompt::before {
@@ -323,7 +308,6 @@ function isReasoningExpanded(msgId: string): boolean {
   color: var(--theme-accent-secondary);
 }
 
-/* 闪烁光标 */
 .terminal-cursor {
   display: inline-block;
   width: 8px;

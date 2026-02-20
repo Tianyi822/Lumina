@@ -115,7 +115,7 @@ const contentChars = computed(() => {
   width: 100%;
   border-radius: var(--theme-radius);
   overflow: hidden;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* 折叠状态 */
@@ -126,17 +126,23 @@ const contentChars = computed(() => {
   justify-content: space-between;
   gap: var(--theme-spacing);
   padding: 10px 14px;
-  background-color: var(--theme-bg-tertiary);
-  border: 1px solid var(--theme-border);
+  background:
+    linear-gradient(135deg, var(--glass-white-027, rgba(255,255,255,0.027)) 0%, var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
+    var(--theme-bg-tertiary);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
   border-radius: var(--theme-radius);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   text-align: left;
 }
 
 .reasoning-collapsed:hover {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-border-hover);
+  background:
+    linear-gradient(135deg, var(--glass-white-04, rgba(255,255,255,0.04)) 0%, var(--glass-white-02, rgba(255,255,255,0.02)) 100%),
+    var(--theme-bg-hover);
+  border-color: var(--glass-white-15, rgba(255,255,255,0.15));
 }
 
 .collapsed-content {
@@ -154,7 +160,7 @@ const contentChars = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--thinking-accent, var(--theme-warning));
+  color: var(--thinking-accent, var(--theme-accent-secondary));
 }
 
 .collapsed-icon svg {
@@ -203,8 +209,12 @@ const contentChars = computed(() => {
 
 /* 展开状态 */
 .reasoning-expanded {
-  background-color: var(--theme-bg-tertiary);
-  border: 1px solid var(--theme-border);
+  background:
+    linear-gradient(135deg, var(--glass-white-02, rgba(255,255,255,0.02)) 0%, var(--glass-white-01, rgba(255,255,255,0.01)) 100%),
+    var(--theme-bg-tertiary);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
   border-radius: var(--theme-radius);
   overflow: hidden;
 }
@@ -214,8 +224,8 @@ const contentChars = computed(() => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  background-color: var(--thinking-bg, rgba(0, 0, 0, 0.2));
-  border-bottom: 1px solid var(--thinking-border, var(--theme-border));
+  background: var(--thinking-bg, rgba(99, 102, 241, 0.08));
+  border-bottom: 1px solid var(--thinking-border, rgba(99, 102, 241, 0.2));
 }
 
 .expanded-title {
@@ -224,7 +234,7 @@ const contentChars = computed(() => {
   gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--thinking-accent, var(--theme-warning));
+  color: var(--thinking-accent, var(--theme-accent-secondary));
 }
 
 .expanded-title svg {
@@ -237,18 +247,18 @@ const contentChars = computed(() => {
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background: var(--glass-white-05, rgba(255,255,255,0.05));
+  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
   border-radius: var(--theme-radius-sm);
   color: var(--theme-text-tertiary);
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .collapse-btn:hover {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-border-hover);
+  background: var(--glass-white-08, rgba(255,255,255,0.08));
+  border-color: var(--glass-white-15, rgba(255,255,255,0.15));
   color: var(--theme-text-secondary);
 }
 
@@ -263,9 +273,8 @@ const contentChars = computed(() => {
   overflow-y: auto;
 }
 
-/* 滚动条样式 */
 .expanded-content::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .expanded-content::-webkit-scrollbar-track {
@@ -273,23 +282,19 @@ const contentChars = computed(() => {
 }
 
 .expanded-content::-webkit-scrollbar-thumb {
-  background: var(--theme-border);
-  border-radius: 3px;
-}
-
-.expanded-content::-webkit-scrollbar-thumb:hover {
-  background: var(--theme-border-hover);
+  background: var(--glass-white-15, rgba(255,255,255,0.15));
+  border-radius: 2px;
 }
 
 .reasoning-text {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: var(--theme-font-mono, 'JetBrains Mono', monospace);
   font-size: 13px;
   line-height: 1.7;
   color: var(--theme-text-secondary);
   white-space: pre-wrap;
 }
 
-/* Markdown 样式（针对思考内容） */
+/* Markdown 样式 */
 .markdown-body :deep(p) {
   margin: 0 0 0.75em 0;
 }
@@ -299,21 +304,23 @@ const contentChars = computed(() => {
 }
 
 .markdown-body :deep(code) {
-  background-color: var(--theme-bg-hover, rgba(0, 0, 0, 0.3));
+  background: var(--glass-white-08, rgba(255,255,255,0.08));
   padding: 0.2em 0.4em;
   border-radius: 4px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: var(--theme-font-mono, 'JetBrains Mono', monospace);
   font-size: 0.9em;
-  color: var(--theme-accent-tertiary);
+  color: var(--theme-accent);
 }
 
 .markdown-body :deep(pre) {
-  background-color: var(--theme-bg-hover, rgba(0, 0, 0, 0.4));
+  background:
+    linear-gradient(135deg, var(--glass-white-03, rgba(255,255,255,0.03)) 0%, var(--glass-white-017, rgba(255,255,255,0.017)) 100%),
+    var(--theme-bg);
   padding: 12px 16px;
   border-radius: var(--theme-radius);
   overflow-x: auto;
   margin: 0.75em 0;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
 }
 
 .markdown-body :deep(pre code) {
@@ -328,7 +335,7 @@ const contentChars = computed(() => {
   margin: 0.75em 0;
   padding: 0.5em 1em;
   border-left: 3px solid var(--theme-accent);
-  background-color: var(--thinking-bg, rgba(74, 158, 255, 0.1));
+  background: var(--thinking-bg, rgba(99, 102, 241, 0.08));
   border-radius: 0 var(--theme-radius-sm) var(--theme-radius-sm) 0;
 }
 
@@ -361,8 +368,8 @@ const contentChars = computed(() => {
   text-decoration: underline;
 }
 
-/* 展开状态下的面板样式 */
+/* 展开状态阴影 */
 .reasoning-panel.expanded {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 </style>

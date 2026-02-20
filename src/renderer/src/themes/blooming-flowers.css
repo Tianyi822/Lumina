@@ -1,6 +1,6 @@
 /**
- * Theme System - Blooming Flowers Theme
- * 繁花主题样式 - 自然绿色系
+ * Theme System - Blooming Flowers Theme (Glass-enhanced)
+ * 繁花主题样式 - 自然绿色系 + 流体玻璃效果
  *
  * 配色方案：
  * - #0A594E - 深青绿（主色调）
@@ -8,21 +8,18 @@
  * - #70D75C - 亮绿色
  * - #D0ED35 - 黄绿色
  * - #FFB003 - 橙黄色
- *
- * 使用方式:
- * - 在根元素设置 data-theme="blooming-flowers" 激活此主题
  */
 
-/* 字体导入 - 使用更友好的无衬线字体 */
+/* 字体导入 */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
 
 /* ========== 主题变量定义 ========== */
 [data-theme='blooming-flowers'] {
   /* 主色调 - 浅色背景 */
-  --theme-bg: #f8faf9;
+  --theme-bg: #f4f7f6;
   --theme-bg-secondary: #ffffff;
-  --theme-bg-tertiary: #f0f5f3;
-  --theme-bg-hover: #e8f0ed;
+  --theme-bg-tertiary: #edf2f0;
+  --theme-bg-hover: #e4ede9;
 
   /* 文字颜色 - 深色确保可读性 */
   --theme-text: #1a2f2a;
@@ -41,56 +38,83 @@
   --theme-success: #70d75c;
 
   /* 边框 - 柔和的边框色 */
-  --theme-border: rgba(70, 170, 143, 0.2);
-  --theme-border-hover: rgba(70, 170, 143, 0.35);
+  --theme-border: rgba(70, 170, 143, 0.15);
+  --theme-border-hover: rgba(70, 170, 143, 0.3);
   --theme-border-active: rgba(70, 170, 143, 0.5);
 
-  /* 字体 - 友好的无衬线字体 */
+  /* 字体 */
   --theme-font:
     'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --theme-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 
-  /* 圆角 - 更大的圆角增加柔和感 */
-  --theme-radius: 12px;
+  /* 圆角 */
+  --theme-radius: 10px;
   --theme-radius-sm: 8px;
-  --theme-radius-lg: 18px;
+  --theme-radius-lg: 14px;
 
   /* 阴影 - 柔和的阴影 */
   --theme-shadow: 0 4px 20px rgba(10, 89, 78, 0.08), 0 2px 8px rgba(10, 89, 78, 0.04);
-  --theme-shadow-glow: 0 0 30px rgba(70, 170, 143, 0.15);
+  --theme-shadow-glow: 0 0 30px rgba(70, 170, 143, 0.12);
 
   /* 间距 */
   --theme-spacing: 12px;
   --theme-spacing-sm: 8px;
   --theme-spacing-lg: 16px;
 
-  /* 标题栏专用变量 */
-  --title-bar-height: 33px;
-  --title-bar-bg: var(--theme-bg-secondary);
+  /* 标题栏 */
+  --title-bar-height: 38px;
+  --title-bar-bg: transparent;
   --title-bar-border: var(--theme-border);
   --title-bar-text: var(--theme-text-secondary);
   --title-bar-text-hover: var(--theme-text);
 
-  /* 滚动条变量 */
-  --scrollbar-width: 8px;
+  /* 滚动条 */
+  --scrollbar-width: 6px;
   --scrollbar-track-bg: transparent;
-  --scrollbar-thumb-bg: rgba(70, 170, 143, 0.3);
-  --scrollbar-thumb-hover-bg: rgba(70, 170, 143, 0.5);
-  --scrollbar-thumb-radius: 4px;
+  --scrollbar-thumb-bg: rgba(70, 170, 143, 0.25);
+  --scrollbar-thumb-hover-bg: rgba(70, 170, 143, 0.4);
+  --scrollbar-thumb-radius: 3px;
 
-  /* 聊天气泡专用色 */
+  /* 聊天气泡 */
   --bubble-user-bg: linear-gradient(135deg, #0a594e 0%, #46aa8f 100%);
   --bubble-user-text: #ffffff;
   --bubble-ai-bg: #ffffff;
   --bubble-ai-text: #1a2f2a;
   --bubble-ai-border: rgba(70, 170, 143, 0.15);
 
-  /* 思考面板专用色 */
-  --thinking-bg: #f0f5f3;
+  /* 思考面板 */
+  --thinking-bg: #edf2f0;
   --thinking-border: rgba(70, 170, 143, 0.25);
   --thinking-accent: #46aa8f;
+
+  /* 玻璃效果覆盖 - 浅色主题调整 */
+  --glass-white-1: rgba(255, 255, 255, 0.6);
+  --glass-white-15: rgba(255, 255, 255, 0.7);
+  --glass-white-2: rgba(255, 255, 255, 0.75);
+  --glass-white-05: rgba(255, 255, 255, 0.3);
+  --glass-white-08: rgba(255, 255, 255, 0.45);
+  --glass-white-12: rgba(255, 255, 255, 0.55);
+  --glass-black-017: rgba(0, 0, 0, 0.01);
+  --glass-black-02: rgba(0, 0, 0, 0.015);
+  --glass-black-027: rgba(0, 0, 0, 0.02);
 }
 
 /* ========== 按钮组件覆盖 ========== */
+[data-theme='blooming-flowers'] .btn {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border-color: rgba(70, 170, 143, 0.15);
+  color: var(--theme-text-secondary);
+}
+
+[data-theme='blooming-flowers'] .btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(70, 170, 143, 0.3);
+  color: var(--theme-text);
+  box-shadow: 0 4px 12px rgba(10, 89, 78, 0.1);
+}
+
 [data-theme='blooming-flowers'] .btn-primary {
   background: linear-gradient(135deg, #0a594e 0%, #46aa8f 100%);
   border: none;
@@ -103,12 +127,26 @@
 }
 
 /* ========== 输入框组件覆盖 ========== */
+[data-theme='blooming-flowers'] .input {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border-color: rgba(70, 170, 143, 0.15);
+}
+
 [data-theme='blooming-flowers'] .input:focus {
   border-color: var(--theme-accent);
   box-shadow: 0 0 0 3px rgba(70, 170, 143, 0.15);
+  background: rgba(255, 255, 255, 0.85);
 }
 
 /* ========== 卡片组件覆盖 ========== */
+[data-theme='blooming-flowers'] .card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+}
+
 [data-theme='blooming-flowers'] .card:hover {
   box-shadow: 0 8px 24px rgba(10, 89, 78, 0.1);
 }

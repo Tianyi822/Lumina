@@ -335,9 +335,13 @@ onUnmounted(() => {
 
 <style scoped>
 .message-input-container {
-  padding: 16px 24px 24px;
-  background: linear-gradient(180deg, var(--theme-bg) 0%, var(--theme-bg-secondary) 100%);
-  border-top: 1px solid var(--theme-border);
+  padding: 16px 24px 20px;
+  background:
+    linear-gradient(180deg,
+      transparent 0%,
+      var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
+    var(--theme-bg);
+  border-top: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
 }
 
 .input-wrapper {
@@ -350,34 +354,41 @@ onUnmounted(() => {
   resize: vertical;
   font-family: var(--theme-font);
   line-height: 1.5;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background:
+    linear-gradient(135deg, var(--glass-white-02, rgba(255,255,255,0.02)) 0%, var(--glass-white-01, rgba(255,255,255,0.01)) 100%),
+    var(--glass-black-017, rgba(0,0,0,0.017));
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
   border-radius: var(--theme-radius);
   color: var(--theme-text);
   padding: 12px 16px;
-  transition: all 0.15s ease;
+  font-size: 13px;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .message-textarea:hover {
-  border-color: var(--theme-border-hover);
+  border-color: var(--glass-white-15, rgba(255,255,255,0.15));
 }
 
 .message-textarea:focus {
   border-color: var(--theme-accent);
-  box-shadow: 0 0 0 3px rgba(70, 170, 143, 0.15);
-  background-color: var(--theme-bg-tertiary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  background:
+    linear-gradient(135deg, var(--glass-white-027, rgba(255,255,255,0.027)) 0%, var(--glass-white-017, rgba(255,255,255,0.017)) 100%),
+    var(--glass-black-02, rgba(0,0,0,0.02));
+  outline: none;
 }
 
 .message-textarea:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
-  background-color: var(--theme-bg-secondary);
 }
 
 .input-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .model-selector {
@@ -388,16 +399,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
+  font-size: 12px;
 }
 
 .model-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .dropdown-arrow {
   font-size: 10px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .model-dropdown {
@@ -406,25 +418,33 @@ onUnmounted(() => {
   left: 0;
   margin-bottom: 4px;
   min-width: 200px;
-  background: linear-gradient(180deg, var(--theme-bg-secondary) 0%, var(--theme-bg-tertiary) 100%);
-  border: 1px solid var(--theme-border);
+  background:
+    linear-gradient(135deg, var(--glass-white-03, rgba(255,255,255,0.03)) 0%, var(--glass-white-017, rgba(255,255,255,0.017)) 100%),
+    linear-gradient(225deg, var(--glass-white-023, rgba(255,255,255,0.023)) 0%, var(--glass-white-007, rgba(255,255,255,0.007)) 100%),
+    var(--theme-bg-secondary);
+  backdrop-filter: blur(28px) saturate(220%) brightness(1.12);
+  -webkit-backdrop-filter: blur(28px) saturate(220%) brightness(1.12);
+  border: 1px solid var(--glass-white-12, rgba(255,255,255,0.12));
   border-radius: var(--theme-radius);
-  box-shadow: var(--theme-shadow), var(--theme-shadow-glow);
+  box-shadow:
+    0 10px 36px rgba(0, 0, 0, 0.2),
+    0 3px 10px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 var(--glass-white-15, rgba(255,255,255,0.15));
   overflow: hidden;
   z-index: 100;
 }
 
 .model-option {
-  padding: 10px 14px;
+  padding: 9px 14px;
   font-size: 13px;
   color: var(--theme-text);
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: all 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   white-space: nowrap;
 }
 
 .model-option:hover {
-  background-color: var(--theme-bg-hover);
+  background: var(--glass-white-08, rgba(255,255,255,0.08));
   color: var(--theme-text);
 }
 
@@ -433,7 +453,7 @@ onUnmounted(() => {
 }
 
 .model-option.empty {
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
   font-style: italic;
   cursor: default;
 }
@@ -454,17 +474,18 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background-color: var(--theme-danger, #f85149);
-  border-color: var(--theme-danger, #f85149);
-  color: white;
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: var(--theme-danger);
 }
 
 .stop-btn:hover {
-  opacity: 0.9;
+  background: rgba(239, 68, 68, 0.25);
+  border-color: var(--theme-danger);
 }
 
 .shortcut-hint {
   font-size: 11px;
-  opacity: 0.7;
+  opacity: 0.6;
 }
 </style>

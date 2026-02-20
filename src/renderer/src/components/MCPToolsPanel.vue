@@ -335,11 +335,12 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
+  font-size: 12px;
 }
 
 .mcp-trigger-btn.active {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-accent);
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.3);
 }
 
 .mcp-trigger-btn.has-selection {
@@ -355,15 +356,15 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: monospace;
+  font-family: var(--theme-font-mono, monospace);
   font-size: 12px;
 }
 
 .tools-count {
   font-size: 11px;
   padding: 1px 6px;
-  background-color: var(--theme-accent);
-  color: var(--theme-bg);
+  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-tertiary) 100%);
+  color: white;
   border-radius: 10px;
   min-width: 18px;
   text-align: center;
@@ -371,7 +372,7 @@ onUnmounted(() => {
 
 .dropdown-arrow {
   font-size: 10px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .mcp-tools-panel {
@@ -381,10 +382,18 @@ onUnmounted(() => {
   margin-bottom: 8px;
   width: 400px;
   max-height: 480px;
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
+  background:
+    linear-gradient(135deg, var(--glass-white-03, rgba(255,255,255,0.03)) 0%, var(--glass-white-017, rgba(255,255,255,0.017)) 100%),
+    linear-gradient(225deg, var(--glass-white-023, rgba(255,255,255,0.023)) 0%, var(--glass-white-007, rgba(255,255,255,0.007)) 100%),
+    var(--theme-bg);
+  backdrop-filter: blur(28px) saturate(220%) brightness(1.12);
+  -webkit-backdrop-filter: blur(28px) saturate(220%) brightness(1.12);
+  border: 1px solid var(--glass-white-12, rgba(255,255,255,0.12));
   border-radius: var(--theme-radius);
-  box-shadow: var(--theme-shadow);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.25),
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 var(--glass-white-15, rgba(255,255,255,0.15));
   display: flex;
   flex-direction: column;
   z-index: 200;
@@ -395,22 +404,23 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--theme-border);
+  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
 }
 
 .panel-title {
   font-weight: 600;
+  font-size: 13px;
   color: var(--theme-text);
 }
 
 .connection-info {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .search-box {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--theme-border);
+  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
 }
 
 .search-input {
@@ -422,29 +432,22 @@ onUnmounted(() => {
   max-height: 140px;
   overflow-y: auto;
   padding: 8px 12px;
-  background-color: rgba(63, 185, 80, 0.1);
-  border-bottom: 1px solid var(--theme-border);
-
-  /* 自定义滚动条样式 */
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--theme-border);
-    border-radius: 3px;
-  }
-
-  &::-webkit-scrollbar-thumb:hover {
-    background: var(--theme-text-secondary);
-  }
-
-  /* 伸缩以适应内容，但不超过最大高度 */
+  background: rgba(99, 102, 241, 0.06);
+  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
   flex-shrink: 0;
+}
+
+.selected-tools-bar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.selected-tools-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.selected-tools-bar::-webkit-scrollbar-thumb {
+  background: var(--glass-white-15, rgba(255,255,255,0.15));
+  border-radius: 2px;
 }
 
 .selected-tools-header {
@@ -456,7 +459,7 @@ onUnmounted(() => {
 
 .selected-label {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .btn-clear-all {
@@ -476,20 +479,18 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   padding: 3px 6px 3px 8px;
-  background-color: var(--theme-accent);
-  color: var(--theme-bg);
+  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-tertiary) 100%);
+  color: white;
   border-radius: 10px;
   font-size: 11px;
   line-height: 1.2;
   max-width: 100%;
   cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    transform 0.1s ease;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .selected-tool-chip:hover {
-  background-color: var(--theme-accent-secondary);
+  background: linear-gradient(135deg, var(--theme-accent-secondary) 0%, var(--theme-accent) 100%);
   transform: translateY(-1px);
 }
 
@@ -498,7 +499,7 @@ onUnmounted(() => {
 }
 
 .chip-text {
-  font-family: monospace;
+  font-family: var(--theme-font-mono, monospace);
   max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -508,7 +509,7 @@ onUnmounted(() => {
 .chip-remove {
   background: none;
   border: none;
-  color: var(--theme-bg);
+  color: white;
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
@@ -518,51 +519,46 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.8;
+  opacity: 0.7;
   flex-shrink: 0;
   border-radius: 50%;
-  transition: background-color 0.15s ease;
+  transition: all 0.15s;
 }
 
 .chip-remove:hover {
   opacity: 1;
-  background-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .tools-container {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0;
+  padding: 4px 0;
   min-height: 120px;
+}
 
-  /* 自定义滚动条样式 */
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
+.tools-container::-webkit-scrollbar {
+  width: 4px;
+}
 
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
+.tools-container::-webkit-scrollbar-track {
+  background: transparent;
+}
 
-  &::-webkit-scrollbar-thumb {
-    background: var(--theme-border);
-    border-radius: 3px;
-  }
-
-  &::-webkit-scrollbar-thumb:hover {
-    background: var(--theme-text-secondary);
-  }
+.tools-container::-webkit-scrollbar-thumb {
+  background: var(--glass-white-15, rgba(255,255,255,0.15));
+  border-radius: 2px;
 }
 
 .empty-state {
   padding: 24px;
   text-align: center;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
   font-size: 13px;
 }
 
 .server-group {
-  border-bottom: 1px solid var(--theme-border);
+  border-bottom: 1px solid var(--glass-white-06, rgba(255,255,255,0.06));
 }
 
 .server-group:last-child {
@@ -574,16 +570,16 @@ onUnmounted(() => {
   align-items: center;
   padding: 10px 16px;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: all 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .server-header:hover {
-  background-color: var(--theme-bg-hover);
+  background: var(--glass-white-05, rgba(255,255,255,0.05));
 }
 
 .expand-icon {
   font-size: 10px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
   margin-right: 8px;
   width: 12px;
 }
@@ -591,42 +587,43 @@ onUnmounted(() => {
 .server-name {
   flex: 1;
   font-weight: 500;
+  font-size: 13px;
   color: var(--theme-text);
 }
 
 .server-status {
   margin-right: 8px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .server-status.connected {
-  color: var(--theme-accent);
+  color: var(--theme-success);
 }
 
 .tools-count-badge {
   font-size: 11px;
   padding: 2px 6px;
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text-secondary);
+  background: var(--glass-white-05, rgba(255,255,255,0.05));
+  color: var(--theme-text-tertiary);
   border-radius: 10px;
 }
 
 .server-tools {
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .tool-item {
   padding: 8px 16px 8px 36px;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: all 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .tool-item:hover {
-  background-color: var(--theme-bg-hover);
+  background: var(--glass-white-05, rgba(255,255,255,0.05));
 }
 
 .tool-item.selected {
-  background-color: rgba(63, 185, 80, 0.15);
+  background: rgba(99, 102, 241, 0.08);
 }
 
 /* 高亮动画 */
@@ -636,15 +633,15 @@ onUnmounted(() => {
 
 @keyframes highlight-pulse {
   0% {
-    background-color: rgba(88, 166, 255, 0.3);
-    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.5);
+    background-color: rgba(99, 102, 241, 0.2);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
   }
   50% {
-    background-color: rgba(88, 166, 255, 0.5);
-    box-shadow: 0 0 0 4px rgba(88, 166, 255, 0.3);
+    background-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
   }
   100% {
-    background-color: rgba(63, 185, 80, 0.15);
+    background-color: rgba(99, 102, 241, 0.08);
     box-shadow: none;
   }
 }
@@ -657,7 +654,7 @@ onUnmounted(() => {
 
 .tool-checkbox {
   font-size: 14px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .tool-item.selected .tool-checkbox {
@@ -666,7 +663,7 @@ onUnmounted(() => {
 
 .tool-name {
   font-size: 13px;
-  font-family: monospace;
+  font-family: var(--theme-font-mono, monospace);
   color: var(--theme-accent);
 }
 
@@ -676,7 +673,7 @@ onUnmounted(() => {
 
 .tool-description {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -699,7 +696,7 @@ onUnmounted(() => {
   cursor: pointer;
   padding: 2px 0;
   margin-top: 4px;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s;
 }
 
 .description-toggle-btn:hover {

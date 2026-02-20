@@ -1,56 +1,58 @@
 /**
- * Theme System - Terminal Theme
- * 终端主题样式
+ * Theme System - Terminal Theme (Linear-inspired)
+ * 终端主题样式 - 融合 Linear 设计原则与流体玻璃效果
  *
- * 使用方式:
- * - 在根元素设置 data-theme="terminal" 激活此主题
- * - 通用组件类: .app-container, .window, .btn, .input, .card, .badge
- * - 终端特有类: .terminal-dot, .terminal-cursor, .terminal-prompt
+ * 设计原则:
+ * - 精致克制的深色界面
+ * - 微妙的玻璃质感层次
+ * - 流畅的过渡动画
+ * - 高对比度可读性
  */
 
-/* 字体导入 */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* 字体导入 - Linear 风格使用 Inter */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* ========== 主题变量定义 ========== */
 [data-theme='terminal'] {
-  /* 主色调 - 深色背景 */
-  --theme-bg: #0f0f23;
-  --theme-bg-secondary: #1a1a2e;
-  --theme-bg-tertiary: #252542;
-  --theme-bg-hover: #2d2d4a;
+  /* 主色调 - Linear 风格深色背景 */
+  --theme-bg: #0a0a0f;
+  --theme-bg-secondary: #12121a;
+  --theme-bg-tertiary: #1a1a28;
+  --theme-bg-hover: #222236;
 
   /* 文字颜色 - 高对比度 */
-  --theme-text: #ffffff;
-  --theme-text-secondary: #e0e0e0;
-  --theme-text-tertiary: #a0a0b0;
+  --theme-text: #ececf1;
+  --theme-text-secondary: #a1a1aa;
+  --theme-text-tertiary: #71717a;
 
-  /* 强调色 - 科技蓝/紫色系 */
-  --theme-accent: #4a9eff;
-  --theme-accent-secondary: #7c3aed;
-  --theme-accent-tertiary: #06b6d4;
+  /* 强调色 - Linear 紫蓝色系 */
+  --theme-accent: #6366f1;
+  --theme-accent-secondary: #818cf8;
+  --theme-accent-tertiary: #4f46e5;
 
   /* 功能色 */
-  --theme-danger: #f85149;
-  --theme-warning: #fbbf24;
-  --theme-info: #4a9eff;
-  --theme-success: #10b981;
+  --theme-danger: #ef4444;
+  --theme-warning: #f59e0b;
+  --theme-info: #6366f1;
+  --theme-success: #22c55e;
 
-  /* 边框 - 半透明 */
-  --theme-border: rgba(255, 255, 255, 0.1);
-  --theme-border-hover: rgba(255, 255, 255, 0.2);
-  --theme-border-active: rgba(74, 158, 255, 0.5);
+  /* 边框 - 半透明玻璃风格 */
+  --theme-border: rgba(255, 255, 255, 0.08);
+  --theme-border-hover: rgba(255, 255, 255, 0.15);
+  --theme-border-active: rgba(99, 102, 241, 0.5);
 
-  /* 字体 */
-  --theme-font: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  /* 字体 - Inter 为主，代码用 JetBrains Mono */
+  --theme-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --theme-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 
   /* 圆角 */
   --theme-radius: 8px;
-  --theme-radius-sm: 4px;
+  --theme-radius-sm: 6px;
   --theme-radius-lg: 12px;
 
-  /* 阴影 */
-  --theme-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --theme-shadow-glow: 0 0 20px rgba(74, 158, 255, 0.15);
+  /* 阴影 - 更深邃的层次 */
+  --theme-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --theme-shadow-glow: 0 0 20px rgba(99, 102, 241, 0.12);
 
   /* 间距 */
   --theme-spacing: 12px;
@@ -58,77 +60,100 @@
   --theme-spacing-lg: 16px;
 
   /* 标题栏专用变量 */
-  --title-bar-height: 33px;
-  --title-bar-bg: var(--theme-bg);
+  --title-bar-height: 38px;
+  --title-bar-bg: transparent;
   --title-bar-border: var(--theme-border);
   --title-bar-text: var(--theme-text-secondary);
   --title-bar-text-hover: var(--theme-text);
+
+  /* 聊天气泡专用色 */
+  --bubble-user-bg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  --bubble-user-text: #ffffff;
+  --bubble-ai-bg: var(--theme-bg-secondary);
+  --bubble-ai-text: var(--theme-text);
+  --bubble-ai-border: var(--theme-border);
+
+  /* 思考面板专用色 */
+  --thinking-bg: rgba(99, 102, 241, 0.08);
+  --thinking-border: rgba(99, 102, 241, 0.2);
+  --thinking-accent: var(--theme-accent-secondary);
 }
 
 /* ========== 默认主题变量（作为后备） ========== */
-/* 当未设置 data-theme 时使用终端主题作为默认 */
 :root {
-  /* 主色调 - 深色背景 */
-  --theme-bg: #0f0f23;
-  --theme-bg-secondary: #1a1a2e;
-  --theme-bg-tertiary: #252542;
-  --theme-bg-hover: #2d2d4a;
+  /* 主色调 - Linear 风格深色背景 */
+  --theme-bg: #0a0a0f;
+  --theme-bg-secondary: #12121a;
+  --theme-bg-tertiary: #1a1a28;
+  --theme-bg-hover: #222236;
 
   /* 文字颜色 - 高对比度 */
-  --theme-text: #ffffff;
-  --theme-text-secondary: #e0e0e0;
-  --theme-text-tertiary: #a0a0b0;
+  --theme-text: #ececf1;
+  --theme-text-secondary: #a1a1aa;
+  --theme-text-tertiary: #71717a;
 
-  /* 强调色 - 科技蓝/紫色系 */
-  --theme-accent: #4a9eff;
-  --theme-accent-secondary: #7c3aed;
-  --theme-accent-tertiary: #06b6d4;
+  /* 强调色 - Linear 紫蓝色系 */
+  --theme-accent: #6366f1;
+  --theme-accent-secondary: #818cf8;
+  --theme-accent-tertiary: #4f46e5;
 
   /* 功能色 */
-  --theme-danger: #f85149;
-  --theme-warning: #fbbf24;
-  --theme-info: #4a9eff;
-  --theme-success: #10b981;
+  --theme-danger: #ef4444;
+  --theme-warning: #f59e0b;
+  --theme-info: #6366f1;
+  --theme-success: #22c55e;
 
-  /* 边框 - 半透明 */
-  --theme-border: rgba(255, 255, 255, 0.1);
-  --theme-border-hover: rgba(255, 255, 255, 0.2);
-  --theme-border-active: rgba(74, 158, 255, 0.5);
+  /* 边框 - 半透明玻璃风格 */
+  --theme-border: rgba(255, 255, 255, 0.08);
+  --theme-border-hover: rgba(255, 255, 255, 0.15);
+  --theme-border-active: rgba(99, 102, 241, 0.5);
 
   /* 字体 */
-  --theme-font: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --theme-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --theme-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 
   /* 圆角 */
   --theme-radius: 8px;
-  --theme-radius-sm: 4px;
+  --theme-radius-sm: 6px;
   --theme-radius-lg: 12px;
 
   /* 阴影 */
-  --theme-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --theme-shadow-glow: 0 0 20px rgba(74, 158, 255, 0.15);
+  --theme-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --theme-shadow-glow: 0 0 20px rgba(99, 102, 241, 0.12);
 
   /* 间距 */
   --theme-spacing: 12px;
   --theme-spacing-sm: 8px;
   --theme-spacing-lg: 16px;
 
-  /* 标题栏专用变量 */
-  --title-bar-height: 33px;
-  --title-bar-bg: var(--theme-bg);
+  /* 标题栏 */
+  --title-bar-height: 38px;
+  --title-bar-bg: transparent;
   --title-bar-border: var(--theme-border);
   --title-bar-text: var(--theme-text-secondary);
   --title-bar-text-hover: var(--theme-text);
 
+  /* 聊天气泡 */
+  --bubble-user-bg: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  --bubble-user-text: #ffffff;
+  --bubble-ai-bg: var(--theme-bg-secondary);
+  --bubble-ai-text: var(--theme-text);
+  --bubble-ai-border: var(--theme-border);
+
+  /* 思考面板 */
+  --thinking-bg: rgba(99, 102, 241, 0.08);
+  --thinking-border: rgba(99, 102, 241, 0.2);
+  --thinking-accent: #818cf8;
+
   /* 滚动条变量 */
-  --scrollbar-width: 8px;
+  --scrollbar-width: 6px;
   --scrollbar-track-bg: transparent;
-  --scrollbar-thumb-bg: rgba(255, 255, 255, 0.15);
-  --scrollbar-thumb-hover-bg: rgba(255, 255, 255, 0.25);
-  --scrollbar-thumb-radius: 4px;
+  --scrollbar-thumb-bg: rgba(255, 255, 255, 0.1);
+  --scrollbar-thumb-hover-bg: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-radius: 3px;
 }
 
 /* ========== 滚动条样式 ========== */
-/* Webkit 浏览器（Chrome、Safari、Edge） */
 ::-webkit-scrollbar {
   width: var(--scrollbar-width);
   height: var(--scrollbar-width);
@@ -207,7 +232,6 @@
 }
 
 /* ========== 终端特有样式 ========== */
-/* 终端窗口控制点 */
 .terminal-dot {
   width: 12px;
   height: 12px;
@@ -226,7 +250,6 @@
   background-color: var(--theme-success);
 }
 
-/* 终端提示符 */
 .terminal-prompt {
   color: var(--theme-accent);
 }
@@ -236,13 +259,11 @@
   color: var(--theme-accent-secondary);
 }
 
-/* 提示符占位符（用于输出对齐） */
 .terminal-prompt-indent {
   display: inline-block;
-  width: 3.5em; /* 大约等于 "❯ ~ " 的宽度 */
+  width: 3.5em;
 }
 
-/* 命令行 */
 .command-line {
   margin: 4px 0;
   display: flex;
@@ -294,7 +315,6 @@
   }
 }
 
-/* 下划线光标输入框 */
 .terminal-caret {
   caret-color: transparent;
   position: relative;
@@ -304,7 +324,6 @@
   outline: none;
 }
 
-/* 闪烁下划线光标 */
 .terminal-underscore {
   color: var(--theme-accent);
   font-weight: bold;
@@ -321,82 +340,106 @@
   }
 }
 
-/* ========== 按钮组件 ========== */
+/* ========== 按钮组件 - 玻璃效果 ========== */
 .btn {
   font-family: var(--theme-font);
-  padding: 8px 16px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
+  padding: 7px 14px;
+  background:
+    linear-gradient(135deg, var(--glass-white-05, rgba(255,255,255,0.05)) 0%, var(--glass-white-027, rgba(255,255,255,0.027)) 100%),
+    rgba(0, 0, 0, 0.017);
+  backdrop-filter: blur(8px) saturate(190%);
+  -webkit-backdrop-filter: blur(8px) saturate(190%);
+  border: 1px solid var(--glass-white-12, rgba(255,255,255,0.12));
+  border-radius: var(--theme-radius-sm);
   color: var(--theme-text-secondary);
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .btn:hover {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-border-hover);
+  background:
+    linear-gradient(135deg, var(--glass-white-08, rgba(255,255,255,0.08)) 0%, var(--glass-white-04, rgba(255,255,255,0.04)) 100%),
+    rgba(0, 0, 0, 0.02);
+  border-color: var(--glass-white-2, rgba(255,255,255,0.2));
   color: var(--theme-text);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 var(--glass-white-2, rgba(255,255,255,0.2));
+  transform: translateY(-0.5px);
 }
 
 .btn:active {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.98);
 }
 
 .btn-primary {
   font-family: var(--theme-font);
-  padding: 8px 16px;
-  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-secondary) 100%);
-  border: 1px solid var(--theme-accent);
-  border-radius: var(--theme-radius);
+  padding: 7px 14px;
+  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-tertiary) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: var(--theme-radius-sm);
   color: #ffffff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: 0 2px 8px rgba(74, 158, 255, 0.3);
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #5aa8ff 0%, #8b5cf6 100%);
-  box-shadow: 0 4px 12px rgba(74, 158, 255, 0.4);
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+  transform: translateY(-0.5px);
 }
 
 .btn-primary:active {
   transform: scale(0.98) translateY(0);
 }
 
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .btn-danger {
   font-family: var(--theme-font);
-  padding: 8px 16px;
+  padding: 7px 14px;
   background-color: transparent;
-  border: 1px solid var(--theme-danger);
-  border-radius: var(--theme-radius);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: var(--theme-radius-sm);
   color: var(--theme-danger);
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .btn-danger:hover {
-  background-color: var(--theme-danger);
-  color: white;
+  background-color: rgba(239, 68, 68, 0.15);
+  border-color: var(--theme-danger);
+  color: var(--theme-danger);
 }
 
-/* ========== 输入框组件 ========== */
+/* ========== 输入框组件 - 玻璃效果 ========== */
 .input {
   font-family: var(--theme-font);
   width: 100%;
-  padding: 10px 12px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
+  padding: 8px 12px;
+  background:
+    linear-gradient(135deg, var(--glass-white-013, rgba(255,255,255,0.013)) 0%, var(--glass-white-007, rgba(255,255,255,0.007)) 100%),
+    rgba(0, 0, 0, 0.017);
+  backdrop-filter: blur(8px) saturate(190%);
+  -webkit-backdrop-filter: blur(8px) saturate(190%);
+  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
+  border-radius: var(--theme-radius-sm);
   color: var(--theme-text);
-  font-size: 14px;
+  font-size: 13px;
   outline: none;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .input::placeholder {
@@ -404,13 +447,15 @@
 }
 
 .input:hover {
-  border-color: var(--theme-border-hover);
+  border-color: var(--glass-white-15, rgba(255,255,255,0.15));
 }
 
 .input:focus {
   border-color: var(--theme-accent);
-  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
-  background-color: var(--theme-bg-tertiary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  background:
+    linear-gradient(135deg, var(--glass-white-02, rgba(255,255,255,0.02)) 0%, var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
+    rgba(0, 0, 0, 0.02);
 }
 
 /* ========== 徽章组件 ========== */
@@ -418,8 +463,9 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background:
+    linear-gradient(135deg, var(--glass-white-05, rgba(255,255,255,0.05)) 0%, var(--glass-white-027, rgba(255,255,255,0.027)) 100%);
+  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
   border-radius: 4px;
   font-family: var(--theme-font);
   font-size: 12px;
@@ -427,45 +473,60 @@
 }
 
 .badge-success {
-  border-color: var(--theme-success);
+  border-color: rgba(34, 197, 94, 0.3);
   color: var(--theme-success);
+  background: rgba(34, 197, 94, 0.1);
 }
 
 .badge-error {
-  border-color: var(--theme-danger);
+  border-color: rgba(239, 68, 68, 0.3);
   color: var(--theme-danger);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .badge-info {
-  border-color: var(--theme-info);
+  border-color: rgba(99, 102, 241, 0.3);
   color: var(--theme-info);
+  background: rgba(99, 102, 241, 0.1);
 }
 
 /* ========== 分割线组件 ========== */
 .divider {
   width: 100%;
   height: 1px;
-  background-color: var(--theme-border);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--glass-white-1, rgba(255,255,255,0.1)) 20%,
+    var(--glass-white-15, rgba(255,255,255,0.15)) 50%,
+    var(--glass-white-1, rgba(255,255,255,0.1)) 80%,
+    transparent 100%
+  );
   margin: 12px 0;
+  border: none;
 }
 
-/* ========== 卡片组件 ========== */
+/* ========== 卡片组件 - 玻璃效果 ========== */
 .card {
   font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
+  background:
+    linear-gradient(135deg, var(--glass-white-027, rgba(255,255,255,0.027)) 0%, var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
+    var(--theme-bg-secondary);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
   padding: 16px;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .card:hover {
   border-color: var(--theme-border-hover);
   box-shadow: var(--theme-shadow-glow);
+  transform: translateY(-1px);
 }
 
 /* ========== 特殊效果 ========== */
-/* 扫描线效果 */
 .terminal-scanline {
   position: relative;
   overflow: hidden;
@@ -480,15 +541,14 @@
   bottom: 0;
   background: repeating-linear-gradient(
     0deg,
-    rgba(0, 0, 0, 0.1),
-    rgba(0, 0, 0, 0.1) 1px,
+    rgba(0, 0, 0, 0.05),
+    rgba(0, 0, 0, 0.05) 1px,
     transparent 1px,
     transparent 2px
   );
   pointer-events: none;
 }
 
-/* 打字机效果 */
 @keyframes typing {
   from {
     width: 0;

@@ -37,11 +37,18 @@ onMounted(() => {
   right: 16px;
   z-index: 1000;
   max-width: 400px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-danger);
-  border-radius: 8px;
+  background:
+    linear-gradient(135deg, var(--glass-white-03, rgba(255,255,255,0.03)) 0%, var(--glass-white-017, rgba(255,255,255,0.017)) 100%),
+    var(--theme-bg-secondary);
+  backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
+  -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--theme-radius);
   padding: 12px 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 10px 36px rgba(0, 0, 0, 0.2),
+    0 3px 10px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 var(--glass-white-1, rgba(255,255,255,0.1));
 }
 
 .toast-content {
@@ -59,7 +66,7 @@ onMounted(() => {
 .toast-message {
   flex: 1;
   color: var(--theme-danger);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   margin: 0;
   word-break: break-word;
@@ -68,13 +75,13 @@ onMounted(() => {
 .toast-close {
   background: none;
   border: none;
-  font-size: 20px;
+  font-size: 18px;
   color: var(--theme-danger);
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
-  opacity: 0.7;
-  transition: opacity 0.2s;
+  opacity: 0.6;
+  transition: opacity 0.15s;
   font-family: var(--theme-font);
   flex-shrink: 0;
 }
@@ -85,7 +92,7 @@ onMounted(() => {
 
 .toast-enter-active,
 .toast-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .toast-enter-from,

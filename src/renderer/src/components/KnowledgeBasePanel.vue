@@ -377,11 +377,12 @@ defineExpose({
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
+  font-size: 12px;
 }
 
 .kb-trigger-btn.active {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-accent);
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.3);
 }
 
 .kb-trigger-btn.has-selection {
@@ -399,8 +400,8 @@ defineExpose({
 .kb-count {
   font-size: 11px;
   padding: 1px 6px;
-  background-color: var(--theme-accent);
-  color: var(--theme-bg);
+  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-tertiary) 100%);
+  color: white;
   border-radius: 10px;
   min-width: 18px;
   text-align: center;
@@ -408,7 +409,7 @@ defineExpose({
 
 .dropdown-arrow {
   font-size: 10px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .kb-panel {
@@ -418,10 +419,18 @@ defineExpose({
   margin-bottom: 8px;
   width: 420px;
   max-height: 520px;
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
+  background:
+    linear-gradient(135deg, var(--glass-white-03, rgba(255,255,255,0.03)) 0%, var(--glass-white-017, rgba(255,255,255,0.017)) 100%),
+    linear-gradient(225deg, var(--glass-white-023, rgba(255,255,255,0.023)) 0%, var(--glass-white-007, rgba(255,255,255,0.007)) 100%),
+    var(--theme-bg);
+  backdrop-filter: blur(28px) saturate(220%) brightness(1.12);
+  -webkit-backdrop-filter: blur(28px) saturate(220%) brightness(1.12);
+  border: 1px solid var(--glass-white-12, rgba(255,255,255,0.12));
   border-radius: var(--theme-radius);
-  box-shadow: var(--theme-shadow);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.25),
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 var(--glass-white-15, rgba(255,255,255,0.15));
   display: flex;
   flex-direction: column;
   z-index: 200;
@@ -432,22 +441,23 @@ defineExpose({
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--theme-border);
+  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
 }
 
 .panel-title {
   font-weight: 600;
+  font-size: 13px;
   color: var(--theme-text);
 }
 
 .kb-info {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .search-box {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--theme-border);
+  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
 }
 
 .search-input {
@@ -459,13 +469,13 @@ defineExpose({
   max-height: 120px;
   overflow-y: auto;
   padding: 8px 12px;
-  background-color: rgba(63, 185, 80, 0.1);
-  border-bottom: 1px solid var(--theme-border);
+  background: rgba(99, 102, 241, 0.06);
+  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
   flex-shrink: 0;
 }
 
 .selected-kbs-bar::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .selected-kbs-bar::-webkit-scrollbar-track {
@@ -473,12 +483,8 @@ defineExpose({
 }
 
 .selected-kbs-bar::-webkit-scrollbar-thumb {
-  background: var(--theme-border);
-  border-radius: 3px;
-}
-
-.selected-kbs-bar::-webkit-scrollbar-thumb:hover {
-  background: var(--theme-text-secondary);
+  background: var(--glass-white-15, rgba(255,255,255,0.15));
+  border-radius: 2px;
 }
 
 .selected-kbs-header {
@@ -490,7 +496,7 @@ defineExpose({
 
 .selected-label {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .btn-clear-all {
@@ -510,20 +516,18 @@ defineExpose({
   align-items: center;
   gap: 4px;
   padding: 3px 6px 3px 8px;
-  background-color: var(--theme-accent);
-  color: var(--theme-bg);
+  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-tertiary) 100%);
+  color: white;
   border-radius: 10px;
   font-size: 11px;
   line-height: 1.2;
   max-width: 100%;
   cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    transform 0.1s ease;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .selected-kb-chip:hover {
-  background-color: var(--theme-accent-secondary);
+  background: linear-gradient(135deg, var(--theme-accent-secondary) 0%, var(--theme-accent) 100%);
   transform: translateY(-1px);
 }
 
@@ -541,7 +545,7 @@ defineExpose({
 .chip-remove {
   background: none;
   border: none;
-  color: var(--theme-bg);
+  color: white;
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
@@ -551,21 +555,21 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.8;
+  opacity: 0.7;
   flex-shrink: 0;
   border-radius: 50%;
-  transition: background-color 0.15s ease;
+  transition: all 0.15s;
 }
 
 .chip-remove:hover {
   opacity: 1;
-  background-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .select-all-bar {
   padding: 8px 16px;
-  border-bottom: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
+  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  background: var(--glass-white-03, rgba(255,255,255,0.03));
 }
 
 .btn-select-all {
@@ -577,12 +581,12 @@ defineExpose({
 .kb-list-container {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0;
+  padding: 4px 0;
   min-height: 120px;
 }
 
 .kb-list-container::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .kb-list-container::-webkit-scrollbar-track {
@@ -590,26 +594,22 @@ defineExpose({
 }
 
 .kb-list-container::-webkit-scrollbar-thumb {
-  background: var(--theme-border);
-  border-radius: 3px;
-}
-
-.kb-list-container::-webkit-scrollbar-thumb:hover {
-  background: var(--theme-text-secondary);
+  background: var(--glass-white-15, rgba(255,255,255,0.15));
+  border-radius: 2px;
 }
 
 .empty-state {
   padding: 24px;
   text-align: center;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
   font-size: 13px;
 }
 
 .kb-item {
   padding: 12px 16px;
   cursor: pointer;
-  transition: background-color 0.15s ease;
-  border-bottom: 1px solid var(--theme-border);
+  transition: all 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border-bottom: 1px solid var(--glass-white-06, rgba(255,255,255,0.06));
 }
 
 .kb-item:last-child {
@@ -617,11 +617,11 @@ defineExpose({
 }
 
 .kb-item:hover {
-  background-color: var(--theme-bg-hover);
+  background: var(--glass-white-05, rgba(255,255,255,0.05));
 }
 
 .kb-item.selected {
-  background-color: rgba(63, 185, 80, 0.15);
+  background: rgba(99, 102, 241, 0.08);
 }
 
 .kb-header {
@@ -633,7 +633,7 @@ defineExpose({
 
 .kb-checkbox {
   font-size: 14px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .kb-item.selected .kb-checkbox {
@@ -656,7 +656,7 @@ defineExpose({
 
 .kb-doc-count {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .kb-description-wrapper {
@@ -665,7 +665,7 @@ defineExpose({
 
 .kb-description {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -688,7 +688,7 @@ defineExpose({
   cursor: pointer;
   padding: 4px 0;
   margin-top: 4px;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s;
 }
 
 .description-toggle-btn:hover {

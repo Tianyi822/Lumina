@@ -74,8 +74,12 @@ function handleDeleteSession(sessionId: string): void {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: var(--theme-bg);
-  border-right: 1px solid var(--theme-border);
+  background:
+    linear-gradient(180deg,
+      var(--glass-white-013, rgba(255,255,255,0.013)) 0%,
+      var(--glass-white-007, rgba(255,255,255,0.007)) 100%),
+    var(--theme-bg);
+  border-right: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
   flex-shrink: 0;
 }
 

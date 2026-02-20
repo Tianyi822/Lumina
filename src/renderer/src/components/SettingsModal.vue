@@ -298,7 +298,9 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -314,10 +316,19 @@ onUnmounted(() => {
   max-height: 700px;
   min-width: 400px;
   min-height: 300px;
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
-  box-shadow: var(--theme-shadow);
+  background:
+    linear-gradient(135deg, var(--glass-white-027, rgba(255,255,255,0.027)) 0%, var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
+    linear-gradient(225deg, var(--glass-white-02, rgba(255,255,255,0.02)) 0%, var(--glass-white-007, rgba(255,255,255,0.007)) 100%),
+    var(--theme-bg);
+  backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
+  -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
+  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
+  border-radius: var(--theme-radius-lg);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 var(--glass-white-15, rgba(255,255,255,0.15)),
+    inset 0 -1px 0 var(--glass-white-05, rgba(255,255,255,0.05));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -391,15 +402,16 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--theme-border);
+  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
   flex-shrink: 0;
 }
 
 .modal-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--theme-text);
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .close-btn {
@@ -409,7 +421,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 18px;
+  border-radius: 50%;
 }
 
 .modal-body {
@@ -427,7 +440,7 @@ onUnmounted(() => {
     width: 100%;
     flex-direction: row;
     border-right: none;
-    border-bottom: 1px solid var(--theme-border);
+    border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
     flex-shrink: 0;
     overflow-x: auto;
     overflow-y: hidden;
@@ -459,31 +472,35 @@ onUnmounted(() => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--theme-border);
+  border-right: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  padding: 8px;
+  gap: 2px;
 }
 
 .tab-btn {
   width: 100%;
-  padding: 12px 20px;
+  padding: 10px 16px;
   background: transparent;
   border: 1px solid transparent;
   color: var(--theme-text-secondary);
   font-family: var(--theme-font);
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   text-align: left;
+  border-radius: var(--theme-radius-sm);
 }
 
 .tab-btn:hover {
   color: var(--theme-text);
+  background: var(--glass-white-05, rgba(255,255,255,0.05));
 }
 
 .tab-btn.active {
-  background-color: var(--theme-bg-secondary);
+  background: rgba(99, 102, 241, 0.1);
   color: var(--theme-accent);
-  border: 1px solid var(--theme-accent);
-  border-radius: 6px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 .modal-content {
@@ -497,7 +514,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   height: 200px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .message {
@@ -507,21 +524,21 @@ onUnmounted(() => {
 }
 
 .error-message {
-  background-color: rgba(248, 81, 73, 0.1);
+  background: rgba(239, 68, 68, 0.08);
   color: var(--theme-danger);
-  border-top: 1px solid var(--theme-danger);
+  border-top: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .success-message {
-  background-color: rgba(63, 185, 80, 0.1);
+  background: rgba(34, 197, 94, 0.08);
   color: var(--theme-success);
-  border-top: 1px solid var(--theme-success);
+  border-top: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .info-message {
-  background-color: rgba(255, 193, 7, 0.1);
-  color: #ffc107;
-  border-top: 1px solid rgba(255, 193, 7, 0.3);
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--theme-warning);
+  border-top: 1px solid rgba(245, 158, 11, 0.2);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -530,7 +547,7 @@ onUnmounted(() => {
 .message-close {
   background: transparent;
   border: none;
-  color: #ffc107;
+  color: var(--theme-warning);
   font-size: 18px;
   padding: 0;
   width: 20px;
@@ -540,19 +557,21 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   margin-left: 10px;
+  opacity: 0.7;
 }
 
 .message-close:hover {
-  color: #ffca28;
+  opacity: 1;
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
+  padding: 14px 20px;
+  border-top: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  background:
+    linear-gradient(135deg, var(--glass-white-013, rgba(255,255,255,0.013)) 0%, var(--glass-white-007, rgba(255,255,255,0.007)) 100%);
   flex-shrink: 0;
 }
 </style>
