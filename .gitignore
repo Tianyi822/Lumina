@@ -12,6 +12,7 @@ dev-app-update.yml
 .vscode/
 .qoder/
 .claude/
+.opencode/
 build/
 node_modules/
 dist/
