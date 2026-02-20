@@ -19,3 +19,6 @@ export * from './logger'
 
 // 知识库相关的类型
 export * from './knowledge'
+
+// 提示词相关的类型
+export * from './prompt'

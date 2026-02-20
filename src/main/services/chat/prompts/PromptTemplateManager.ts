@@ -4,6 +4,7 @@
  */
 
 import type { ReactPromptSections } from './types'
+import type { TemplateVariables, TemplateVariableOptions } from '@shared/types/prompt'
 import { logger } from '../../logger'
 import { app } from 'electron'
 import * as path from 'path'
@@ -454,6 +455,115 @@ export class PromptTemplateManager {
     if (!this.initialized) {
       await this.initialize()
     }
+  }
+
+  /**
+   * 替换模板中的变量占位符
+   * 支持 {{variableName}} 格式的变量替换
+   */
+  replaceTemplateVariables(
+    template: string,
+    variables: Partial<TemplateVariables>,
+    options: TemplateVariableOptions = {}
+  ): string {
+    const {
+      keepUnresolvedPlaceholders = false,
+      maxVariableLength = 10000,
+      truncateSuffix = '...'
+    } = options
+
+    let result = template
+
+    // 定义变量替换的正则表达式
+    const variablePattern = /\{\{(\w+)\}\}/g
+
+    result = result.replace(variablePattern, (match, variableName: string) => {
+      // 检查变量是否存在
+      if (variableName in variables) {
+        const value = variables[variableName as keyof TemplateVariables]
+
+        // 处理 null 或 undefined
+        if (value === null || value === undefined) {
+          return keepUnresolvedPlaceholders ? match : ''
+        }
+
+        // 转换为字符串
+        let stringValue = String(value)
+
+        // 截断过长的值
+        if (stringValue.length > maxVariableLength) {
+          stringValue = stringValue.substring(0, maxVariableLength) + truncateSuffix
+        }
+
+        return stringValue
+      }
+
+      // 变量不存在，根据配置决定是否保留占位符
+      return keepUnresolvedPlaceholders ? match : ''
+    })
+
+    return result
+  }
+
+  /**
+   * 获取可用的模板变量列表
+   */
+  getAvailableVariables(): string[] {
+    return [
+      'fewShotExamples',
+      'toolDescriptions',
+      'knowledgeContext',
+      'currentDateTime',
+      'userLanguage',
+      'customInstructions',
+      'sessionContext',
+      'modelName'
+    ]
+  }
+
+  /**
+   * 构建完整的模板变量对象
+   */
+  buildTemplateVariables(partial: Partial<TemplateVariables>): TemplateVariables {
+    const now = new Date()
+
+    const defaults: TemplateVariables = {
+      fewShotExamples: '',
+      toolDescriptions: '',
+      knowledgeContext: '',
+      currentDateTime: now.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        weekday: 'long'
+      }),
+      userLanguage: 'zh-CN',
+      customInstructions: '',
+      sessionContext: '',
+      modelName: ''
+    }
+
+    return { ...defaults, ...partial }
+  }
+
+  /**
+   * 在模板内容中应用变量替换
+   */
+  applyVariablesToSections(
+    sections: ReactPromptSections,
+    variables: Partial<TemplateVariables>
+  ): ReactPromptSections {
+    const result: ReactPromptSections = { ...sections }
+
+    for (const key of Object.keys(result) as (keyof ReactPromptSections)[]) {
+      if (result[key]) {
+        result[key] = this.replaceTemplateVariables(result[key], variables)
+      }
+    }
+
+    return result
   }
 }
 

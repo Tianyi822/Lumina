@@ -45,6 +45,36 @@ export interface OptimizationResult {
 }
 
 /**
+ * 上下文预算分配
+ */
+export interface ContextBudget {
+  /** 系统提示词预算 */
+  systemPrompt: number
+  /** 工具描述预算 */
+  toolDescriptions: number
+  /** Few-shot 示例预算 */
+  fewShotExamples: number
+  /** 知识库上下文预算 */
+  knowledgeContext: number
+  /** 用户消息预留 */
+  userMessage: number
+  /** 模型响应预留 */
+  modelResponse: number
+}
+
+/**
+ * 默认的预算分配比例
+ */
+const DEFAULT_BUDGET_RATIOS = {
+  systemPrompt: 0.15,
+  toolDescriptions: 0.2,
+  fewShotExamples: 0.1,
+  knowledgeContext: 0.15,
+  userMessage: 0.2,
+  modelResponse: 0.2
+}
+
+/**
  * 提示词优化器
  * 提供多种压缩策略，包括移除章节、简化内容、减少示例等
  */
@@ -84,6 +114,71 @@ export class PromptOptimizer {
       originalTokens,
       optimizedTokens,
       reductionPercent
+    }
+  }
+
+  /**
+   * 计算上下文预算分配
+   * 根据总 token 限制分配各部分的预算
+   */
+  calculateContextBudget(totalLimit: number): ContextBudget {
+    return {
+      systemPrompt: Math.floor(totalLimit * DEFAULT_BUDGET_RATIOS.systemPrompt),
+      toolDescriptions: Math.floor(totalLimit * DEFAULT_BUDGET_RATIOS.toolDescriptions),
+      fewShotExamples: Math.floor(totalLimit * DEFAULT_BUDGET_RATIOS.fewShotExamples),
+      knowledgeContext: Math.floor(totalLimit * DEFAULT_BUDGET_RATIOS.knowledgeContext),
+      userMessage: Math.floor(totalLimit * DEFAULT_BUDGET_RATIOS.userMessage),
+      modelResponse: Math.floor(totalLimit * DEFAULT_BUDGET_RATIOS.modelResponse)
+    }
+  }
+
+  /**
+   * 检查内容是否超出预算
+   */
+  checkBudget(
+    content: string,
+    budget: number
+  ): {
+    withinBudget: boolean
+    currentTokens: number
+    budgetTokens: number
+    overflow: number
+  } {
+    const currentTokens = this.estimateTokens(content)
+    return {
+      withinBudget: currentTokens <= budget,
+      currentTokens,
+      budgetTokens: budget,
+      overflow: Math.max(0, currentTokens - budget)
+    }
+  }
+
+  /**
+   * 根据预算自动压缩内容
+   */
+  compressToFitBudget(
+    content: string,
+    budget: number,
+    type: 'systemPrompt' | 'toolDescriptions' | 'fewShotExamples' | 'knowledgeContext'
+  ): string {
+    const currentTokens = this.estimateTokens(content)
+
+    if (currentTokens <= budget) {
+      return content
+    }
+
+    // 根据类型选择压缩策略
+    switch (type) {
+      case 'systemPrompt':
+        return this.compressSystemPrompt(content, budget)
+      case 'toolDescriptions':
+        return this.compressToolDescriptionsSection(content, budget)
+      case 'fewShotExamples':
+        return this.compressExamples(content, budget)
+      case 'knowledgeContext':
+        return this.compressKnowledgeContext(content, budget)
+      default:
+        return this.compressText(content, budget)
     }
   }
 
@@ -295,6 +390,129 @@ export class PromptOptimizer {
     }
 
     return compressed || text.substring(0, maxTokens * 3)
+  }
+
+  /**
+   * 压缩系统提示词
+   * 保留核心指令，移除详细说明
+   */
+  private compressSystemPrompt(content: string, budget: number): string {
+    let compressed = content
+
+    // 移除详细示例
+    compressed = compressed.replace(/## 示例[\s\S]*?(?=##|$)/g, '')
+
+    // 简化列表项
+    compressed = compressed.replace(/\n\s*[-*]\s*[*_]{2}([^*_]+)[*_]{2}:\s*/g, '\n- $1: ')
+    compressed = compressed.replace(/\n\s*\d+\.\s*[*_]{2}([^*_]+)[*_]{2}:\s*/g, '\n$1: ')
+
+    // 移除空行
+    compressed = compressed.replace(/\n{3,}/g, '\n\n')
+
+    // 如果仍然超出预算，使用基础压缩
+    if (this.estimateTokens(compressed) > budget) {
+      compressed = this.compressText(compressed, budget)
+    }
+
+    return compressed
+  }
+
+  /**
+   * 压缩工具描述部分
+   * 移除使用建议和示例
+   */
+  private compressToolDescriptionsSection(content: string, budget: number): string {
+    let compressed = content
+
+    // 移除使用建议
+    compressed = compressed.replace(/使用建议:[\s\S]*?(?=\n\n|$)/g, '')
+
+    // 移除示例
+    compressed = compressed.replace(/示例:[\s\S]*?(?=\n\n|$)/g, '')
+
+    // 简化参数描述
+    compressed = compressed.replace(/参数:\n([\s\S]*?)(?=\n\n|$)/g, (_match, params) => {
+      const lines = params.split('\n').filter((l: string) => l.includes('必需'))
+      return lines.length > 0 ? `参数: ${lines.join('; ')}` : ''
+    })
+
+    if (this.estimateTokens(compressed) > budget) {
+      compressed = this.compressText(compressed, budget)
+    }
+
+    return compressed
+  }
+
+  /**
+   * 压缩示例部分
+   * 只保留第一个示例或完全移除
+   */
+  private compressExamples(content: string, budget: number): string {
+    const examples = content.split(/---\n*/)
+
+    if (examples.length <= 1) {
+      return this.estimateTokens(content) > budget ? '' : content
+    }
+
+    // 尝试保留尽可能多的示例
+    let compressed = ''
+    let currentTokens = 0
+
+    for (const example of examples) {
+      const exampleTokens = this.estimateTokens(example + '\n---\n')
+      if (currentTokens + exampleTokens > budget) {
+        break
+      }
+      compressed += example.trim() + '\n\n---\n\n'
+      currentTokens += exampleTokens
+    }
+
+    return compressed.trim()
+  }
+
+  /**
+   * 压缩知识库上下文
+   * 保留最相关的部分
+   */
+  private compressKnowledgeContext(content: string, budget: number): string {
+    // 按段落分割
+    const paragraphs = content.split(/\n\n---\n\n/)
+
+    if (paragraphs.length <= 1) {
+      return this.compressText(content, budget)
+    }
+
+    // 按相关度排序（假设相关度在标题中）
+    const sorted = paragraphs.sort((a, b) => {
+      const scoreA = this.extractRelevanceScore(a)
+      const scoreB = this.extractRelevanceScore(b)
+      return scoreB - scoreA
+    })
+
+    let compressed = ''
+    let currentTokens = 0
+
+    for (const para of sorted) {
+      const paraTokens = this.estimateTokens(para + '\n\n')
+      if (currentTokens + paraTokens > budget) {
+        break
+      }
+      compressed += para + '\n\n---\n\n'
+      currentTokens += paraTokens
+    }
+
+    return compressed.trim()
+  }
+
+  /**
+   * 从内容中提取相关度分数
+   */
+  private extractRelevanceScore(content: string): number {
+    const matchResult = content.match(/相关度:\s*([\d.]+)%/)
+    if (matchResult && matchResult[1]) {
+      return parseFloat(matchResult[1])
+    }
+    return 50 // 默认中等相关度
   }
 
   /**

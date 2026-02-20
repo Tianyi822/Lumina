@@ -1,6 +1,8 @@
 // ReAct 模式的 Few-shot 示例集合，用于帮助模型理解如何正确使用工具和进行推理
 
-import type { FewShotExample } from './types'
+import type { FewShotExample, EnhancedFewShotExample, ExampleSelectionCriteria } from './types'
+import { dynamicExampleExtractor } from './DynamicExampleExtractor'
+import { logger } from '../../logger'
 
 // Few-shot 示例
 export const FEW_SHOT_EXAMPLES: FewShotExample[] = [
@@ -84,7 +86,64 @@ if (object && object.name) {
   }
 ]
 
-// 根据配置获取指定数量的示例
+/**
+ * 根据配置获取指定数量的示例（支持动态和静态混合）
+ */
+export async function getFewShotExamplesAsync(
+  count: number = 3,
+  options: {
+    enableDynamicExamples?: boolean
+    minQualityScore?: number
+    requiredTools?: string[]
+    maxStaticExamples?: number
+    maxDynamicExamples?: number
+  } = {}
+): Promise<FewShotExample[]> {
+  const {
+    enableDynamicExamples = false,
+    minQualityScore = 0.6,
+    requiredTools = [],
+    maxStaticExamples = 2,
+    maxDynamicExamples = 3
+  } = options
+
+  try {
+    // 如果启用动态示例，使用智能选择
+    if (enableDynamicExamples) {
+      const criteria: ExampleSelectionCriteria = {
+        maxCount: count,
+        minQualityScore,
+        requiredTools: requiredTools.length > 0 ? requiredTools : undefined,
+        includeStatic: true,
+        includeDynamic: true,
+        maxStaticCount: maxStaticExamples,
+        maxDynamicCount: maxDynamicExamples
+      }
+
+      const dynamicExamples = await dynamicExampleExtractor.selectExamples(criteria)
+
+      if (dynamicExamples.length > 0) {
+        // 记录使用情况
+        await dynamicExampleExtractor.recordUsage(dynamicExamples.map((e) => e.id))
+
+        // 转换为 FewShotExample 格式
+        return dynamicExamples.map((e) => ({
+          userQuery: e.userQuery,
+          thought: e.thought,
+          toolCalls: e.toolCalls,
+          finalAnswer: e.finalAnswer
+        }))
+      }
+    }
+  } catch (error) {
+    logger.warn('获取动态示例失败，回退到静态示例', 'main', { error })
+  }
+
+  // 回退到静态示例
+  return getFewShotExamples(count)
+}
+
+// 根据配置获取指定数量的示例（同步版本，保持向后兼容）
 export function getFewShotExamples(count: number = 3): FewShotExample[] {
   return FEW_SHOT_EXAMPLES.slice(0, Math.min(count, FEW_SHOT_EXAMPLES.length))
 }
@@ -106,3 +165,15 @@ export function formatFewShotExample(example: FewShotExample): string {
   text += `**最终答案**: ${example.finalAnswer}\n`
   return text
 }
+
+/**
+ * 格式化增强示例
+ */
+export function formatEnhancedFewShotExample(example: EnhancedFewShotExample): string {
+  return formatFewShotExample(example)
+}
+
+/**
+ * 导出动态示例提取器实例
+ */
+export { dynamicExampleExtractor }

@@ -111,3 +111,90 @@ export interface PromptCacheStats {
   /** 缓存过期时间（小时） */
   ttlHours: number
 }
+
+/**
+ * 模板标准变量接口
+ * 用于模板变量替换
+ */
+export interface TemplateVariables {
+  /** Few-shot 示例内容 */
+  fewShotExamples: string
+  /** 工具描述 */
+  toolDescriptions: string
+  /** 知识库上下文 */
+  knowledgeContext: string
+  /** 当前日期时间 */
+  currentDateTime: string
+  /** 用户语言 */
+  userLanguage: string
+  /** 自定义指令 */
+  customInstructions: string
+  /** 会话上下文 */
+  sessionContext: string
+  /** 模型名称 */
+  modelName: string
+}
+
+/**
+ * 模板变量替换选项
+ */
+export interface TemplateVariableOptions {
+  /** 是否保留未替换的变量占位符 */
+  keepUnresolvedPlaceholders?: boolean
+  /** 变量值的最大长度 */
+  maxVariableLength?: number
+  /** 截断后缀 */
+  truncateSuffix?: string
+}
+
+/**
+ * 模型适配规则
+ * 用于根据模型类型自动调整提示词配置
+ */
+export interface ModelAdaptationRule {
+  /** 模型名称匹配模式 */
+  modelPattern: RegExp
+  /** 模型上下文窗口大小 */
+  contextWindowSize: number
+  /** 首选描述级别 */
+  preferredDescriptionLevel: 'minimal' | 'basic' | 'detailed'
+  /** 最大工具数量建议 */
+  maxToolCount: number
+  /** Few-shot 示例数量限制 */
+  fewShotCountLimit: number
+}
+
+/**
+ * 动态示例存储结构
+ */
+export interface DynamicExampleStorage {
+  /** 存储版本 */
+  version: string
+  /** 示例列表 */
+  examples: Array<{
+    id: string
+    userQuery: string
+    thought: string
+    toolCalls?: Array<{
+      name: string
+      arguments: Record<string, unknown>
+      result: string
+    }>
+    finalAnswer: string
+    qualityScore: number
+    usageCount: number
+    source: 'static' | 'dynamic'
+    toolsUsed: string[]
+    createdAt: string
+    lastUsedAt?: string
+    sourceSessionId?: string
+  }>
+  /** 最后提取时间 */
+  lastExtractedAt?: string
+  /** 提取统计 */
+  extractionStats: {
+    totalExtracted: number
+    totalSessions: number
+    averageQualityScore: number
+  }
+}

@@ -2,14 +2,29 @@ import type { LLMConfig } from '@main/types/config'
 import type { MCPToolReference, KnowledgeSearchResult } from '@main/types/chat'
 import type { PromptBuildOptions } from './prompts/types'
 import type { PromptConfig as SharedPromptConfig } from '@shared/types/config'
+import type { SessionData } from '@shared/types/session'
 import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt } from './prompts/reactSystemPrompt'
 import { PromptCache } from './prompts/PromptCache'
 import { PromptOptimizer } from './prompts/PromptOptimizer'
 import { promptTemplateManager } from './prompts/PromptTemplateManager'
+import { getFewShotExamplesAsync, dynamicExampleExtractor } from './prompts/toolExamples'
 import { logger } from '@main/services/logger'
 
 // 使用共享的 PromptConfig 类型
 type PromptConfig = SharedPromptConfig
+
+/**
+ * 基于工具数量确定描述级别
+ * 工具数量多时使用简化描述，少时使用详细描述
+ */
+function getDescriptionLevelByToolCount(toolCount: number): 'minimal' | 'basic' | 'detailed' {
+  if (toolCount > 20) {
+    return 'minimal'
+  } else if (toolCount > 10) {
+    return 'basic'
+  }
+  return 'detailed'
+}
 
 // PromptBuilder 服务，负责根据配置构建系统提示词
 export class PromptBuilder {
@@ -82,6 +97,32 @@ export class PromptBuilder {
     // 获取构建选项
     const options = await this.buildOptions(modelConfig, selectedTools, knowledgeResults)
 
+    // 如果启用动态示例，获取动态示例
+    if (
+      this.promptConfig?.enableDynamicExamples &&
+      options.fewShotCount &&
+      options.fewShotCount > 0
+    ) {
+      try {
+        const toolNames = selectedTools?.map((t) => `${t.serverName}__${t.toolName}`) || []
+        const dynamicExamples = await getFewShotExamplesAsync(options.fewShotCount, {
+          enableDynamicExamples: true,
+          minQualityScore: this.promptConfig.dynamicExampleMinQuality ?? 0.6,
+          requiredTools: toolNames,
+          maxStaticExamples: this.promptConfig.maxStaticExamples ?? 2,
+          maxDynamicExamples: this.promptConfig.maxDynamicExamples ?? 3
+        })
+
+        // 如果获取到动态示例，更新选项中的示例数量
+        if (dynamicExamples.length > 0) {
+          options.fewShotCount = dynamicExamples.length
+          logger.debug('使用动态示例', 'main', { count: dynamicExamples.length })
+        }
+      } catch (error) {
+        logger.warn('获取动态示例失败，使用静态示例', 'main', { error })
+      }
+    }
+
     // 生成示例 ID 列表（用于缓存键）
     const exampleIds = this.generateExampleIds(options.fewShotCount || 0)
 
@@ -108,7 +149,6 @@ export class PromptBuilder {
       })
 
       if (result.compressionLevel > 0) {
-        // 可选：记录优化统计（不使用 logger）
         logger.debug('提示词已优化', 'main', {
           originalTokens: result.originalTokens,
           optimizedTokens: result.optimizedTokens,
@@ -135,14 +175,22 @@ export class PromptBuilder {
   // 构建提示词选项
   private async buildOptions(
     modelConfig: LLMConfig,
-    _selectedTools?: MCPToolReference[],
-    _knowledgeResults?: KnowledgeSearchResult[]
+    selectedTools?: MCPToolReference[],
+    knowledgeResults?: KnowledgeSearchResult[]
   ): Promise<PromptBuildOptions> {
+    // 计算工具数量
+    const toolCount = selectedTools?.length || 0
+
+    // 基于工具数量确定默认描述级别
+    const defaultDescriptionLevel = getDescriptionLevelByToolCount(toolCount)
+
+    // 初始化选项
     const options: PromptBuildOptions = {
       includeFewShotExamples: true,
       fewShotCount: 3,
       emphasizeErrorHandling: true,
-      toolDescriptionLevel: 'detailed'
+      toolDescriptionLevel: defaultDescriptionLevel,
+      modelName: modelConfig.model_name
     }
 
     // 从配置中获取设置
@@ -158,6 +206,7 @@ export class PromptBuilder {
         if (this.promptConfig.fewShotCount !== undefined) {
           options.fewShotCount = Math.max(0, Math.min(5, this.promptConfig.fewShotCount))
         }
+        // 只有用户明确配置了描述级别时才覆盖自动选择的级别
         if (this.promptConfig.toolDescriptionLevel) {
           options.toolDescriptionLevel = this.promptConfig.toolDescriptionLevel
         }
@@ -167,13 +216,54 @@ export class PromptBuilder {
       }
     }
 
-    // 根据模型名称调整
-    const modelName = modelConfig.model_name.toLowerCase()
-    if (modelName.includes('deepseek')) {
-      options.fewShotCount = Math.min(options.fewShotCount || 3, 2)
+    // 添加知识库上下文
+    if (knowledgeResults && knowledgeResults.length > 0) {
+      options.knowledgeContext = this.formatKnowledgeResults(knowledgeResults)
     }
 
+    // 记录工具数量和选择的描述级别
+    logger.debug('基于工具数量选择描述级别', 'main', {
+      toolCount,
+      descriptionLevel: options.toolDescriptionLevel
+    })
+
     return options
+  }
+
+  /**
+   * 格式化知识库搜索结果为上下文字符串
+   */
+  private formatKnowledgeResults(results: KnowledgeSearchResult[]): string {
+    if (!results || results.length === 0) return ''
+
+    const allChunks: Array<{
+      knowledgeBaseName: string
+      fileName: string
+      content: string
+      similarity: number
+    }> = []
+
+    // 收集所有知识库的结果
+    for (const kbResult of results) {
+      for (const chunk of kbResult.results) {
+        allChunks.push({
+          knowledgeBaseName: kbResult.knowledgeBaseName,
+          fileName: chunk.fileName,
+          content: chunk.content,
+          similarity: chunk.similarity
+        })
+      }
+    }
+
+    // 按相似度排序
+    allChunks.sort((a, b) => b.similarity - a.similarity)
+
+    const formatted = allChunks.map((chunk, index) => {
+      const similarity = ` (相关度: ${(chunk.similarity * 100).toFixed(1)}%)`
+      return `[${index + 1}] 来源: ${chunk.knowledgeBaseName}/${chunk.fileName}${similarity}\n${chunk.content}`
+    })
+
+    return `以下是从知识库中检索到的相关信息:\n\n${formatted.join('\n\n---\n\n')}`
   }
 
   // 获取基础系统提示词（无工具时使用）
@@ -198,6 +288,79 @@ export class PromptBuilder {
  4. 如有需要重复上述步骤，然后给出你的最终答案
 
  请始终解释你的推理过程。当你有足够的信息时，提供一个全面的最终答案。`
+  }
+
+  /**
+   * 从历史会话中提取动态示例
+   */
+  async extractDynamicExamples(
+    sessions: Array<{
+      sessionId: string
+      messages: Array<{
+        id: string
+        role: string
+        content: string
+        reasoning?: string
+        tool_calls?: Array<{
+          id: string
+          function?: {
+            name: string
+            arguments: string
+          }
+        }>
+        tool_call_id?: string
+      }>
+    }>
+  ): Promise<{
+    success: boolean
+    extractedCount: number
+    error?: string
+  }> {
+    try {
+      const result = await dynamicExampleExtractor.extractFromSessions(sessions as SessionData[], {
+        minQualityScore: this.promptConfig?.dynamicExampleMinQuality ?? 0.6,
+        maxExamples: this.promptConfig?.maxDynamicExamples ?? 50
+      })
+
+      return {
+        success: true,
+        extractedCount: result.examples.length
+      }
+    } catch (error) {
+      logger.error('提取动态示例失败', 'main', { error })
+      return {
+        success: false,
+        extractedCount: 0,
+        error: String(error)
+      }
+    }
+  }
+
+  /**
+   * 获取动态示例统计信息
+   */
+  async getDynamicExamplesStats(): Promise<{
+    totalExamples: number
+    averageQuality: number
+    lastExtractedAt?: string
+  } | null> {
+    const stats = await dynamicExampleExtractor.getStats()
+    const allExamples = await dynamicExampleExtractor.getAllExamples()
+
+    if (!stats) return null
+
+    return {
+      totalExamples: allExamples.length,
+      averageQuality: stats.averageQualityScore,
+      lastExtractedAt: undefined // stats 中没有这个字段
+    }
+  }
+
+  /**
+   * 清除动态示例
+   */
+  async clearDynamicExamples(): Promise<void> {
+    await dynamicExampleExtractor.clearDynamicExamples()
   }
 }
 

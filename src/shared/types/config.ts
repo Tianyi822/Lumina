@@ -102,10 +102,16 @@ export interface PromptConfig {
   dynamicExampleMinQuality?: number
   /** 最多保留的静态示例数量 */
   maxStaticExamples?: number
+  /** 动态示例存储路径 */
+  dynamicExamplesPath?: string
+  /** 最大动态示例数量 */
+  maxDynamicExamples?: number
   /** 是否启用提示词优化 */
   enablePromptOptimization?: boolean
   /** 提示词优化的激进程度 */
   optimizationAggressiveness?: 'conservative' | 'balanced' | 'aggressive'
+  /** 是否启用工具描述智能适配 */
+  enableToolDescriptionAdaptation?: boolean
 }
 
 /**

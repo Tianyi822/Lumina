@@ -1,4 +1,5 @@
 import type { PromptBuildOptions, ReactPromptSections } from './types'
+import type { TemplateVariables } from '@shared/types/prompt'
 import { getFewShotExamples, formatFewShotExample } from './toolExamples'
 import { promptTemplateManager } from './PromptTemplateManager'
 
@@ -7,35 +8,96 @@ function getPromptSections(): ReactPromptSections {
   return promptTemplateManager.getTemplate().sections
 }
 
+/**
+ * 构建 Few-shot 示例文本
+ */
+function buildFewShotExamplesText(count: number): string {
+  const examples = getFewShotExamples(count)
+  if (examples.length === 0) return ''
+
+  let text = ''
+  examples.forEach((example, index) => {
+    text += `## 示例 ${index + 1}\n\n`
+    text += formatFewShotExample(example)
+    text += '\n---\n\n'
+  })
+  return text.trim()
+}
+
+/**
+ * 构建模板变量
+ */
+function buildTemplateVariables(options: PromptBuildOptions): Partial<TemplateVariables> {
+  const variables: Partial<TemplateVariables> = {}
+
+  // 构建 Few-shot 示例
+  if (options.includeFewShotExamples && options.fewShotCount && options.fewShotCount > 0) {
+    variables.fewShotExamples = buildFewShotExamplesText(options.fewShotCount)
+  }
+
+  // 添加当前日期时间
+  variables.currentDateTime = new Date().toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    weekday: 'long'
+  })
+
+  // 添加用户语言
+  variables.userLanguage = 'zh-CN'
+
+  return variables
+}
+
 // 构建 ReAct 系统提示词
 export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string {
   const {
     includeFewShotExamples = true,
     fewShotCount = 3,
     emphasizeErrorHandling = false,
-    customSystemPrompt
+    customSystemPrompt,
+    toolDescriptionLevel = 'detailed',
+    knowledgeContext,
+    modelName
   } = options
 
-  // 如果提供了自定义提示词，直接使用
-  if (customSystemPrompt) {
-    let prompt = customSystemPrompt
+  // 构建模板变量
+  const variables = buildTemplateVariables(options)
 
-    // 仍然可以添加 few-shot 示例
-    if (includeFewShotExamples && fewShotCount > 0) {
+  // 添加知识库上下文
+  if (knowledgeContext) {
+    variables.knowledgeContext = knowledgeContext
+  }
+
+  // 添加模型名称
+  if (modelName) {
+    variables.modelName = modelName
+  }
+
+  // 如果提供了自定义提示词，使用模板变量替换
+  if (customSystemPrompt) {
+    let prompt = promptTemplateManager.replaceTemplateVariables(customSystemPrompt, variables)
+
+    // 如果模板中没有 few-shot 示例变量但仍需要添加
+    if (
+      includeFewShotExamples &&
+      fewShotCount > 0 &&
+      !customSystemPrompt.includes('{{fewShotExamples}}')
+    ) {
       prompt += '\n\n# 示例\n\n以下是使用工具的示例：\n\n'
-      const examples = getFewShotExamples(fewShotCount)
-      examples.forEach((example, index) => {
-        prompt += `## 示例 ${index + 1}\n\n`
-        prompt += formatFewShotExample(example)
-        prompt += '\n---\n\n'
-      })
+      prompt += buildFewShotExamplesText(fewShotCount)
     }
 
     return prompt.trim()
   }
 
   // 获取提示词章节（从模板管理器）
-  const sections = getPromptSections()
+  let sections = getPromptSections()
+
+  // 应用变量替换到各个章节
+  sections = promptTemplateManager.applyVariablesToSections(sections, variables)
 
   // 构建标准提示词
   let prompt = ''
@@ -56,26 +118,37 @@ export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string
     prompt += '\n\n' + sections.sandboxManagement
   }
 
-  // 添加 few-shot 示例
+  // 添加 few-shot 示例（如果模板中没有通过变量注入）
   if (includeFewShotExamples && fewShotCount > 0) {
-    prompt += '\n\n# 示例\n\n以下是使用工具的示例，参考这些模式来回答用户问题：\n\n'
-    const examples = getFewShotExamples(fewShotCount)
-    examples.forEach((example, index) => {
-      prompt += `## 示例 ${index + 1}\n\n`
-      prompt += formatFewShotExample(example)
-      prompt += '\n---\n\n'
-    })
+    const examplesText = buildFewShotExamplesText(fewShotCount)
+    if (examplesText) {
+      prompt +=
+        '\n\n# 示例\n\n以下是使用工具的示例，参考这些模式来回答用户问题：\n\n' + examplesText
+    }
   }
 
   // 添加最终提醒
-  prompt += `# 重要提醒
+  const reminders = [
+    '仔细思考后再行动，不要盲目调用工具',
+    '如果不需要使用工具就能回答问题，直接给出答案',
+    '始终以清晰、有用的方式回应用户',
+    '工具名称格式为 `serverName__toolName`'
+  ]
 
- - 仔细思考后再行动，不要盲目调用工具
- - 如果不需要使用工具就能回答问题，直接给出答案
- - 始终以清晰、有用的方式回应用户
- - 工具名称格式为 \`serverName__toolName\`
+  // 根据工具描述级别添加额外提醒
+  if (toolDescriptionLevel === 'minimal') {
+    reminders.push('当前使用简化版工具描述，如需详细信息请询问用户')
+  }
 
- 现在，请根据用户的问题开始你的工作。`
+  prompt += `
+
+# 重要提醒
+
+${reminders.map((r) => `- ${r}`).join('\n')}
+
+当前时间: ${variables.currentDateTime || new Date().toLocaleString('zh-CN')}
+
+现在，请根据用户的问题开始你的工作。`
 
   return prompt.trim()
 }
