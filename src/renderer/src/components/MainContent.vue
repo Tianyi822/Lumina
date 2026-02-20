@@ -259,6 +259,7 @@ function isReasoningExpanded(msgId: string): boolean {
 .messages-area {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 24px;
   background:
     linear-gradient(180deg,
@@ -283,6 +284,9 @@ function isReasoningExpanded(msgId: string): boolean {
   display: flex;
   flex-direction: column;
   gap: var(--theme-spacing-lg);
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .empty-chat {

@@ -286,6 +286,9 @@ function handleToggleReasoning(): void {
   flex-direction: column;
   gap: var(--theme-spacing-sm);
   margin-left: 48px;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .chat-message.role-user .message-body {
@@ -300,6 +303,9 @@ function handleToggleReasoning(): void {
   font-size: 14px;
   line-height: 1.7;
   word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  min-width: 0;
   transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
@@ -420,6 +426,9 @@ function handleToggleReasoning(): void {
 /* Markdown 内容样式 */
 .markdown-body {
   color: inherit;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .markdown-body :deep(p) {
@@ -506,6 +515,9 @@ function handleToggleReasoning(): void {
   border-collapse: collapse;
   width: 100%;
   margin: 0.75em 0;
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .markdown-body :deep(th),
