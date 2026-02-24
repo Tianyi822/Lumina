@@ -174,7 +174,6 @@
     inset 0 -1px 0 var(--glass-white-1);
   backdrop-filter: var(--glass-blur-small) var(--glass-saturation-item);
   -webkit-backdrop-filter: var(--glass-blur-small) var(--glass-saturation-item);
-  transform: translateY(-1px);
 }
 
 /* ========== 玻璃输入框效果 ========== */
@@ -231,14 +230,9 @@
     linear-gradient(135deg, var(--glass-white-08) 0%, var(--glass-white-04) 100%),
     var(--glass-black-02);
   border-color: var(--glass-white-2);
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 var(--glass-white-2);
-  transform: translateY(-0.5px);
 }
 
 .glass-btn:active {
-  transform: translateY(0);
   background:
     linear-gradient(135deg, var(--glass-white-04) 0%, var(--glass-white-02) 100%),
     var(--glass-black-027);

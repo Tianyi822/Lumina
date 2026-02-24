@@ -120,18 +120,20 @@ function handleToggleReasoning(): void {
     <!-- 消息内容区域 -->
     <div class="message-body">
       <!-- 思考内容面板 -->
-      <ReasoningPanel
-        v-if="message.reasoning"
-        :content="message.reasoning"
-        :is-expanded="isReasoningExpanded"
-        @toggle="handleToggleReasoning"
-      />
+      <Transition name="panel-fade">
+        <ReasoningPanel
+          v-if="message.reasoning"
+          :content="message.reasoning"
+          :is-expanded="isReasoningExpanded"
+          @toggle="handleToggleReasoning"
+        />
+      </Transition>
 
       <!-- ReAct 推理步骤 -->
       <slot name="react-steps"></slot>
 
       <!-- 消息气泡 -->
-      <div class="message-bubble" :class="{ streaming: message.isStreaming }">
+      <div class="message-bubble" :class="{ streaming: message.isStreaming, 'animate-in': !message.isStreaming }">
         <!-- 用户消息：纯文本 -->
         <template v-if="message.role === 'user'">
           <span class="message-text">{{ message.content }}</span>
@@ -139,41 +141,43 @@ function handleToggleReasoning(): void {
 
         <!-- AI 消息：Markdown 渲染 -->
         <template v-else>
-          <div class="markdown-body" v-html="renderMarkdown(message.content)"></div>
+          <div class="markdown-body" :class="{ 'streaming-content': message.isStreaming }" v-html="renderMarkdown(message.content)"></div>
           <span v-if="message.isStreaming" class="streaming-cursor">▊</span>
         </template>
       </div>
 
       <!-- 消息元信息行：时间戳、Token统计、反馈按钮 -->
-      <div
-        v-if="
-          showTimestamp || (message.role === 'assistant' && !message.isStreaming && message.usage)
-        "
-        class="message-meta-row"
-      >
-        <!-- 时间戳 -->
-        <div v-if="showTimestamp" class="message-time">
-          {{ formattedTime }}
-        </div>
-
-        <!-- Token 统计（仅 AI 消息） -->
+      <Transition name="meta-fade">
         <div
-          v-if="message.role === 'assistant' && !message.isStreaming && message.usage"
-          class="token-usage"
+          v-if="
+            showTimestamp || (message.role === 'assistant' && !message.isStreaming && message.usage)
+          "
+          class="message-meta-row"
         >
-          {{ formatTokenUsage(message.usage) }}
-        </div>
+          <!-- 时间戳 -->
+          <div v-if="showTimestamp" class="message-time">
+            {{ formattedTime }}
+          </div>
 
-        <!-- 反馈按钮（仅 AI 消息） -->
-        <div v-if="message.role === 'assistant' && !message.isStreaming" class="message-feedback">
-          <slot
-            name="feedback"
-            :message-id="message.id"
-            :session-id="currentChatId"
-            :content="message.content"
-          ></slot>
+          <!-- Token 统计（仅 AI 消息） -->
+          <div
+            v-if="message.role === 'assistant' && !message.isStreaming && message.usage"
+            class="token-usage"
+          >
+            {{ formatTokenUsage(message.usage) }}
+          </div>
+
+          <!-- 反馈按钮（仅 AI 消息） -->
+          <div v-if="message.role === 'assistant' && !message.isStreaming" class="message-feedback">
+            <slot
+              name="feedback"
+              :message-id="message.id"
+              :session-id="currentChatId"
+              :content="message.content"
+            ></slot>
+          </div>
         </div>
-      </div>
+      </Transition>
     </div>
   </div>
 </template>
@@ -184,6 +188,51 @@ function handleToggleReasoning(): void {
   flex-direction: column;
   gap: var(--theme-spacing-sm);
   max-width: 85%;
+  animation: messageAppear 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 消息出现动画 */
+@keyframes messageAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 用户消息从右侧出现 */
+.chat-message.role-user {
+  animation: messageAppearRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes messageAppearRight {
+  0% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* AI消息从左侧出现 */
+.chat-message.role-assistant {
+  animation: messageAppearLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes messageAppearLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 /* 用户消息：右侧对齐 */
@@ -303,6 +352,22 @@ function handleToggleReasoning(): void {
   max-width: 100%;
   min-width: 0;
   transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* 气泡淡入动画 */
+.message-bubble.animate-in {
+  animation: bubbleFadeIn 0.25s ease-out;
+}
+
+@keyframes bubbleFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* 用户消息气泡 */
@@ -537,5 +602,86 @@ function handleToggleReasoning(): void {
 
 .markdown-body :deep(em) {
   font-style: italic;
+}
+
+/* ========== 过渡动画 ========== */
+/* 思考面板淡入动画 */
+.panel-fade-enter-active {
+  animation: panelFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.panel-fade-leave-active {
+  animation: panelFadeOut 0.2s ease-out;
+}
+
+@keyframes panelFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 500px;
+  }
+}
+
+@keyframes panelFadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 500px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+}
+
+/* 元信息行淡入动画 */
+.meta-fade-enter-active {
+  animation: metaFadeIn 0.25s ease-out;
+}
+
+.meta-fade-leave-active {
+  animation: metaFadeOut 0.15s ease-out;
+}
+
+@keyframes metaFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes metaFadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+
+/* 流式内容平滑显示 */
+.streaming-content {
+  animation: streamingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes streamingPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
 }
 </style>

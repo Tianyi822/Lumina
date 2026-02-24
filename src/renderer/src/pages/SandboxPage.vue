@@ -176,14 +176,16 @@ onMounted(async () => {
     <template v-else-if="dockerStatus?.installed">
       <!-- 内容区域 -->
       <div class="sandbox-content">
-        <SandboxSidebar
-          v-show="!sandboxSidebarCollapsed"
-          :sandboxs="sandboxList"
-          :active-sandbox-id="currentSandbox?.sandboxId"
-          :list-update-key="listUpdateKey"
-          @select-sandbox="sandboxStore.handleSelectSandbox"
-          @delete-sandbox="sandboxStore.handleDeleteSandbox"
-        />
+        <Transition name="sidebar-slide">
+          <SandboxSidebar
+            v-show="!sandboxSidebarCollapsed"
+            :sandboxs="sandboxList"
+            :active-sandbox-id="currentSandbox?.sandboxId"
+            :list-update-key="listUpdateKey"
+            @select-sandbox="sandboxStore.handleSelectSandbox"
+            @delete-sandbox="sandboxStore.handleDeleteSandbox"
+          />
+        </Transition>
         <SandboxMainContent
           :current-sandbox="currentSandbox"
           :operation-logs="operationLogs"
@@ -290,6 +292,45 @@ onMounted(async () => {
   flex: 1;
   display: flex;
   overflow: hidden;
+}
+
+/* 侧边栏滑动动画 */
+.sidebar-slide-enter-active {
+  animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-slide-leave-active {
+  animation: slideOutLeft 0.2s cubic-bezier(0.4, 0, 1, 1);
+}
+
+@keyframes slideInLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+    width: 0;
+    min-width: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    width: 280px;
+    min-width: 280px;
+  }
+}
+
+@keyframes slideOutLeft {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+    width: 280px;
+    min-width: 280px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-100%);
+    width: 0;
+    min-width: 0;
+  }
 }
 
 /* 加载状态 */

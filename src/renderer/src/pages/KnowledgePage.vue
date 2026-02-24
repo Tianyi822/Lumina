@@ -127,15 +127,17 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
 
 <template>
   <div class="knowledge-page">
-    <KnowledgeSidebar
-      v-show="!knowledgeSidebarCollapsed"
-      :knowledge-bases="knowledgeBases"
-      :active-kb-id="activeKbId"
-      @select-kb="handleSelectKB"
-      @create-kb="handleCreateKB"
-      @delete-kb="handleDeleteKB"
-      @manage-files="handleManageFiles"
-    />
+    <Transition name="sidebar-slide">
+      <KnowledgeSidebar
+        v-show="!knowledgeSidebarCollapsed"
+        :knowledge-bases="knowledgeBases"
+        :active-kb-id="activeKbId"
+        @select-kb="handleSelectKB"
+        @create-kb="handleCreateKB"
+        @delete-kb="handleDeleteKB"
+        @manage-files="handleManageFiles"
+      />
+    </Transition>
     <KnowledgeMain
       ref="knowledgeMainRef"
       :knowledge-base="knowledgeBases.find((kb) => kb.id === activeKbId)"
@@ -173,5 +175,44 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
   width: 100%;
   height: 100%;
   overflow: hidden;
+}
+
+/* 侧边栏滑动动画 */
+.sidebar-slide-enter-active {
+  animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-slide-leave-active {
+  animation: slideOutLeft 0.2s cubic-bezier(0.4, 0, 1, 1);
+}
+
+@keyframes slideInLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+    width: 0;
+    min-width: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    width: 280px;
+    min-width: 280px;
+  }
+}
+
+@keyframes slideOutLeft {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+    width: 280px;
+    min-width: 280px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-100%);
+    width: 0;
+    min-width: 0;
+  }
 }
 </style>

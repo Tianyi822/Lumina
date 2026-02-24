@@ -177,14 +177,10 @@
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--glass-white-2, rgba(255,255,255,0.2));
   color: var(--theme-text);
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 var(--glass-white-2, rgba(255,255,255,0.2));
-  transform: translateY(-0.5px);
 }
 
 .btn:active {
-  transform: translateY(0) scale(0.98);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .btn-primary {
@@ -203,12 +199,10 @@
 
 .btn-primary:hover {
   background: #3d9980;
-  box-shadow: 0 4px 16px rgba(10, 89, 78, 0.4);
-  transform: translateY(-0.5px);
 }
 
 .btn-primary:active {
-  transform: scale(0.98) translateY(0);
+  background: #358872;
 }
 
 .btn-primary:disabled {
@@ -335,8 +329,6 @@
 
 .card:hover {
   border-color: var(--theme-border-hover);
-  box-shadow: var(--theme-shadow-glow);
-  transform: translateY(-1px);
 }
 
 /* ========== 响应式调整 ========== */

@@ -125,6 +125,16 @@ async function handleRefreshList(): Promise<void> {
   justify-content: center;
   gap: 8px;
   width: 100%;
+  margin: 0;
+}
+
+.new-sandbox-btn {
+  background: #46AA8F;
+  border-color: rgba(70, 170, 143, 0.4);
+}
+
+.new-sandbox-btn:hover {
+  background: #3d9980;
 }
 
 .manage-config-btn {

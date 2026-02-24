@@ -44,7 +44,6 @@ function handleDeleteSession(sessionId: string): void {
   <aside class="sidebar">
     <!-- 新对话按钮 -->
     <button class="btn-primary new-chat-btn" @click="handleNewChat">
-      <span class="btn-icon">+</span>
       <span>新对话</span>
     </button>
 
@@ -81,6 +80,19 @@ function handleDeleteSession(sessionId: string): void {
     var(--theme-bg);
   border-right: 1px solid var(--theme-border);
   flex-shrink: 0;
+  /* 平滑过渡动画 */
+  transition:
+    width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.2s ease-out;
+  will-change: width, transform;
+  overflow: hidden;
+}
+
+/* 侧边栏内容容器动画 */
+.sidebar > * {
+  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
 }
 
 .new-chat-btn {
@@ -92,10 +104,16 @@ function handleDeleteSession(sessionId: string): void {
   width: calc(100% - 24px);
   background: #46AA8F;
   border-color: rgba(70, 170, 143, 0.4);
+  /* 按钮点击动画 */
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .new-chat-btn:hover {
   background: #3d9980;
+}
+
+.new-chat-btn:active {
+  transform: scale(0.98);
 }
 
 .btn-icon {
@@ -109,5 +127,23 @@ function handleDeleteSession(sessionId: string): void {
 
 .search-input {
   width: 100%;
+  /* 输入框焦点动画 */
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.search-input:focus {
+  animation: inputFocus 0.3s ease-out;
+}
+
+@keyframes inputFocus {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.01);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 </style>

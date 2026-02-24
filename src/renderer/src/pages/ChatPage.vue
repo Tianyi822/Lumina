@@ -326,15 +326,17 @@ watch(
 <template>
   <div class="chat-page">
     <!-- 侧边栏 -->
-    <Sidebar
-      v-show="!sidebarCollapsed"
-      :sessions="sessionList"
-      :active-session-id="currentChatId"
-      :session-update-key="sessionUpdateKey"
-      @new-chat="handleNewChat"
-      @select-chat="handleSelectChat"
-      @delete-session="sessionStore.handleDeleteSession"
-    />
+    <Transition name="sidebar-slide">
+      <Sidebar
+        v-show="!sidebarCollapsed"
+        :sessions="sessionList"
+        :active-session-id="currentChatId"
+        :session-update-key="sessionUpdateKey"
+        @new-chat="handleNewChat"
+        @select-chat="handleSelectChat"
+        @delete-session="sessionStore.handleDeleteSession"
+      />
+    </Transition>
 
     <!-- 主内容区 -->
     <!-- 使用 :key 绑定 currentChatId 确保切换会话时组件完全重新创建,实现状态隔离 -->
@@ -370,5 +372,44 @@ watch(
   width: 100%;
   height: 100%;
   overflow: hidden;
+}
+
+/* 侧边栏滑动动画 */
+.sidebar-slide-enter-active {
+  animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-slide-leave-active {
+  animation: slideOutLeft 0.2s cubic-bezier(0.4, 0, 1, 1);
+}
+
+@keyframes slideInLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+    width: 0;
+    min-width: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    width: 280px;
+    min-width: 280px;
+  }
+}
+
+@keyframes slideOutLeft {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+    width: 280px;
+    min-width: 280px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-100%);
+    width: 0;
+    min-width: 0;
+  }
 }
 </style>

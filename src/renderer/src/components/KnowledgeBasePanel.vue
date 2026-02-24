@@ -528,7 +528,6 @@ defineExpose({
 
 .selected-kb-chip:hover {
   background: var(--theme-accent-secondary);
-  transform: translateY(-1px);
 }
 
 .selected-kb-chip:active {

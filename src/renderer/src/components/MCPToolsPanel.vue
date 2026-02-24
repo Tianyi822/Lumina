@@ -491,7 +491,6 @@ onUnmounted(() => {
 
 .selected-tool-chip:hover {
   background: var(--theme-accent-secondary);
-  transform: translateY(-1px);
 }
 
 .selected-tool-chip:active {
