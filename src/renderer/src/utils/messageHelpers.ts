@@ -15,7 +15,8 @@ export function sessionMessageToMessage(msg: SessionMessage): Message {
     usage: msg.usage,
     isStreaming: false,
     tool_calls: msg.tool_calls,
-    tool_call_id: msg.tool_call_id
+    tool_call_id: msg.tool_call_id,
+    reactSteps: msg.reactSteps
   }
 }
 
@@ -42,7 +43,8 @@ export function messageToSessionMessage(msg: Message): SessionMessage {
           }
         : undefined,
       tool_calls: msg.tool_calls,
-      tool_call_id: msg.tool_call_id
+      tool_call_id: msg.tool_call_id,
+      reactSteps: msg.reactSteps
     })
   )
   return plainMsg
