@@ -1024,7 +1024,7 @@ function getFileNameWithoutExtension(fileName: string): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #46AA8F;
+  background: #46aa8f;
   border-color: rgba(70, 170, 143, 0.4);
 }
 

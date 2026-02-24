@@ -129,7 +129,7 @@ async function handleRefreshList(): Promise<void> {
 }
 
 .new-sandbox-btn {
-  background: #46AA8F;
+  background: #46aa8f;
   border-color: rgba(70, 170, 143, 0.4);
 }
 

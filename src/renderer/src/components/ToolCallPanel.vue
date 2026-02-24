@@ -175,11 +175,15 @@ function toggleExpand(): void {
   position: relative;
   padding-left: 3px;
   background:
-    linear-gradient(135deg, var(--glass-white-027, rgba(255,255,255,0.027)) 0%, var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
     var(--theme-bg-secondary);
   backdrop-filter: blur(8px) saturate(150%);
   -webkit-backdrop-filter: blur(8px) saturate(150%);
-  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
   border-radius: var(--theme-radius);
   overflow: hidden;
   margin: var(--theme-spacing-sm) 0;
@@ -187,7 +191,7 @@ function toggleExpand(): void {
 }
 
 .tool-call-panel:hover {
-  border-color: var(--glass-white-15, rgba(255,255,255,0.15));
+  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
@@ -230,7 +234,7 @@ function toggleExpand(): void {
 }
 
 .tool-header:hover {
-  background: var(--glass-white-05, rgba(255,255,255,0.05));
+  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
 }
 
 .header-left {
@@ -252,7 +256,7 @@ function toggleExpand(): void {
   font-family: var(--theme-font-mono, monospace);
   font-size: 11px;
   color: var(--theme-text-tertiary);
-  background: var(--glass-white-05, rgba(255,255,255,0.05));
+  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
   padding: 2px 6px;
   border-radius: var(--theme-radius-sm);
 }
@@ -282,7 +286,7 @@ function toggleExpand(): void {
   font-family: var(--theme-font-mono, monospace);
   font-size: 11px;
   color: var(--theme-text-tertiary);
-  background: var(--glass-white-05, rgba(255,255,255,0.05));
+  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
   padding: 2px 6px;
   border-radius: var(--theme-radius-sm);
 }
@@ -300,8 +304,8 @@ function toggleExpand(): void {
 /* 内容区域 */
 .tool-content {
   padding: var(--theme-spacing);
-  border-top: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
-  background: var(--glass-white-013, rgba(255,255,255,0.013));
+  border-top: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  background: var(--glass-white-013, rgba(255, 255, 255, 0.013));
   animation: slideDown 0.2s ease;
 }
 
@@ -350,9 +354,13 @@ function toggleExpand(): void {
   line-height: 1.5;
   padding: 10px 12px;
   background:
-    linear-gradient(135deg, var(--glass-white-02, rgba(255,255,255,0.02)) 0%, var(--glass-white-01, rgba(255,255,255,0.01)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-01, rgba(255, 255, 255, 0.01)) 100%
+    ),
     var(--theme-bg);
-  border: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
   border-radius: var(--theme-radius-sm);
   color: var(--theme-text);
   overflow-x: auto;
@@ -373,7 +381,7 @@ function toggleExpand(): void {
 }
 
 .code-block::-webkit-scrollbar-thumb {
-  background: var(--glass-white-15, rgba(255,255,255,0.15));
+  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
   border-radius: 2px;
 }
 
@@ -399,7 +407,7 @@ function toggleExpand(): void {
   gap: var(--theme-spacing);
   margin-top: var(--theme-spacing);
   padding-top: var(--theme-spacing);
-  border-top: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  border-top: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
 }
 
 .timestamp {

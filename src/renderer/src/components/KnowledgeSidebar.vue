@@ -135,7 +135,7 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 }
 
 .new-kb-btn {
-  background: #46AA8F;
+  background: #46aa8f;
   border-color: rgba(70, 170, 143, 0.4);
 }
 

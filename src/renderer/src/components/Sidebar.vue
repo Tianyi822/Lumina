@@ -74,9 +74,11 @@ function handleDeleteSession(sessionId: string): void {
   display: flex;
   flex-direction: column;
   background:
-    linear-gradient(180deg,
-      var(--glass-white-013, rgba(255,255,255,0.013)) 0%,
-      var(--glass-white-007, rgba(255,255,255,0.007)) 100%),
+    linear-gradient(
+      180deg,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
     var(--theme-bg);
   border-right: 1px solid var(--theme-border);
   flex-shrink: 0;
@@ -92,7 +94,9 @@ function handleDeleteSession(sessionId: string): void {
 
 /* 侧边栏内容容器动画 */
 .sidebar > * {
-  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+  transition:
+    opacity 0.2s ease-out,
+    transform 0.2s ease-out;
 }
 
 .new-chat-btn {
@@ -102,7 +106,7 @@ function handleDeleteSession(sessionId: string): void {
   gap: 8px;
   margin: 12px;
   width: calc(100% - 24px);
-  background: #46AA8F;
+  background: #46aa8f;
   border-color: rgba(70, 170, 143, 0.4);
   /* 按钮点击动画 */
   transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);

@@ -420,17 +420,25 @@ defineExpose({
   width: 420px;
   max-height: 520px;
   background:
-    linear-gradient(135deg, var(--glass-white-03, rgba(255,255,255,0.03)) 0%, var(--glass-white-017, rgba(255,255,255,0.017)) 100%),
-    linear-gradient(225deg, var(--glass-white-023, rgba(255,255,255,0.023)) 0%, var(--glass-white-007, rgba(255,255,255,0.007)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
+      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
+    ),
+    linear-gradient(
+      225deg,
+      var(--glass-white-023, rgba(255, 255, 255, 0.023)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
     var(--theme-bg);
   backdrop-filter: blur(28px) saturate(220%) brightness(1.12);
   -webkit-backdrop-filter: blur(28px) saturate(220%) brightness(1.12);
-  border: 1px solid var(--glass-white-12, rgba(255,255,255,0.12));
+  border: 1px solid var(--glass-white-12, rgba(255, 255, 255, 0.12));
   border-radius: var(--theme-radius);
   box-shadow:
     0 16px 48px rgba(0, 0, 0, 0.25),
     0 4px 16px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 var(--glass-white-15, rgba(255,255,255,0.15));
+    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15));
   display: flex;
   flex-direction: column;
   z-index: 200;
@@ -441,7 +449,7 @@ defineExpose({
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
 }
 
 .panel-title {
@@ -457,7 +465,7 @@ defineExpose({
 
 .search-box {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
 }
 
 .search-input {
@@ -470,7 +478,7 @@ defineExpose({
   overflow-y: auto;
   padding: 8px 12px;
   background: rgba(99, 102, 241, 0.06);
-  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
   flex-shrink: 0;
 }
 
@@ -483,7 +491,7 @@ defineExpose({
 }
 
 .selected-kbs-bar::-webkit-scrollbar-thumb {
-  background: var(--glass-white-15, rgba(255,255,255,0.15));
+  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
   border-radius: 2px;
 }
 
@@ -567,8 +575,8 @@ defineExpose({
 
 .select-all-bar {
   padding: 8px 16px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
-  background: var(--glass-white-03, rgba(255,255,255,0.03));
+  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  background: var(--glass-white-03, rgba(255, 255, 255, 0.03));
 }
 
 .btn-select-all {
@@ -593,7 +601,7 @@ defineExpose({
 }
 
 .kb-list-container::-webkit-scrollbar-thumb {
-  background: var(--glass-white-15, rgba(255,255,255,0.15));
+  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
   border-radius: 2px;
 }
 
@@ -608,7 +616,7 @@ defineExpose({
   padding: 12px 16px;
   cursor: pointer;
   transition: all 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  border-bottom: 1px solid var(--glass-white-06, rgba(255,255,255,0.06));
+  border-bottom: 1px solid var(--glass-white-06, rgba(255, 255, 255, 0.06));
 }
 
 .kb-item:last-child {
@@ -616,7 +624,7 @@ defineExpose({
 }
 
 .kb-item:hover {
-  background: var(--glass-white-05, rgba(255,255,255,0.05));
+  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
 }
 
 .kb-item.selected {

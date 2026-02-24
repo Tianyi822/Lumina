@@ -317,18 +317,26 @@ onUnmounted(() => {
   min-width: 400px;
   min-height: 300px;
   background:
-    linear-gradient(135deg, var(--glass-white-027, rgba(255,255,255,0.027)) 0%, var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
-    linear-gradient(225deg, var(--glass-white-02, rgba(255,255,255,0.02)) 0%, var(--glass-white-007, rgba(255,255,255,0.007)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
+    linear-gradient(
+      225deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
     var(--theme-bg);
   backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
   -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
-  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
   border-radius: var(--theme-radius-lg);
   box-shadow:
     0 24px 80px rgba(0, 0, 0, 0.35),
     0 8px 24px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 var(--glass-white-15, rgba(255,255,255,0.15)),
-    inset 0 -1px 0 var(--glass-white-05, rgba(255,255,255,0.05));
+    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15)),
+    inset 0 -1px 0 var(--glass-white-05, rgba(255, 255, 255, 0.05));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -402,7 +410,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
   flex-shrink: 0;
 }
 
@@ -440,7 +448,7 @@ onUnmounted(() => {
     width: 100%;
     flex-direction: row;
     border-right: none;
-    border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+    border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
     flex-shrink: 0;
     overflow-x: auto;
     overflow-y: hidden;
@@ -472,7 +480,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  border-right: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
   padding: 8px;
   gap: 2px;
 }
@@ -494,7 +502,7 @@ onUnmounted(() => {
 
 .tab-btn:hover {
   color: var(--theme-text);
-  background: var(--glass-white-05, rgba(255,255,255,0.05));
+  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
 }
 
 .tab-btn.active {
@@ -569,9 +577,12 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 12px;
   padding: 14px 20px;
-  border-top: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
-  background:
-    linear-gradient(135deg, var(--glass-white-013, rgba(255,255,255,0.013)) 0%, var(--glass-white-007, rgba(255,255,255,0.007)) 100%);
+  border-top: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
+    var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+  );
   flex-shrink: 0;
 }
 </style>

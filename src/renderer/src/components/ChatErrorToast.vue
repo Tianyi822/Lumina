@@ -38,7 +38,11 @@ onMounted(() => {
   z-index: 1000;
   max-width: 400px;
   background:
-    linear-gradient(135deg, var(--glass-white-03, rgba(255,255,255,0.03)) 0%, var(--glass-white-017, rgba(255,255,255,0.017)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
+      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
+    ),
     var(--theme-bg-secondary);
   backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
   -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
@@ -48,7 +52,7 @@ onMounted(() => {
   box-shadow:
     0 10px 36px rgba(0, 0, 0, 0.2),
     0 3px 10px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 var(--glass-white-1, rgba(255,255,255,0.1));
+    inset 0 1px 0 var(--glass-white-1, rgba(255, 255, 255, 0.1));
 }
 
 .toast-content {

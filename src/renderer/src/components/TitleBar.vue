@@ -226,12 +226,20 @@ onUnmounted(() => {
   justify-content: space-between;
   height: var(--title-bar-height, 38px);
   background:
-    linear-gradient(135deg, var(--glass-white-02, rgba(255,255,255,0.02)) 0%, var(--glass-white-01, rgba(255,255,255,0.01)) 100%),
-    linear-gradient(225deg, var(--glass-white-013, rgba(255,255,255,0.013)) 0%, var(--glass-white-003, rgba(255,255,255,0.003)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-01, rgba(255, 255, 255, 0.01)) 100%
+    ),
+    linear-gradient(
+      225deg,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
+      var(--glass-white-003, rgba(255, 255, 255, 0.003)) 100%
+    ),
     var(--theme-bg);
   backdrop-filter: blur(18px) saturate(190%) brightness(1.08);
   -webkit-backdrop-filter: blur(18px) saturate(190%) brightness(1.08);
-  border-bottom: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
   user-select: none;
   -webkit-app-region: drag;
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -276,13 +284,16 @@ onUnmounted(() => {
 .tool-buttons-group {
   display: flex;
   align-items: center;
-  background:
-    linear-gradient(135deg, var(--glass-white-05, rgba(255,255,255,0.05)) 0%, var(--glass-white-027, rgba(255,255,255,0.027)) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+  );
   backdrop-filter: blur(8px) saturate(150%);
   -webkit-backdrop-filter: blur(8px) saturate(150%);
   border-radius: var(--theme-radius-sm, 6px);
   padding: 2px;
-  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
   gap: 0;
   height: 26px;
   box-sizing: border-box;
@@ -304,7 +315,7 @@ onUnmounted(() => {
 }
 
 .tool-btn:hover {
-  background: var(--glass-white-08, rgba(255,255,255,0.08));
+  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
   color: var(--theme-text);
 }
 
@@ -339,7 +350,7 @@ onUnmounted(() => {
 }
 
 .title-bar-controls .title-bar-button:hover {
-  background: var(--glass-white-08, rgba(255,255,255,0.08));
+  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
 }
 
 .title-bar-controls .title-bar-button:hover .button-icon {
@@ -375,13 +386,16 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    linear-gradient(135deg, var(--glass-white-05, rgba(255,255,255,0.05)) 0%, var(--glass-white-027, rgba(255,255,255,0.027)) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+  );
   backdrop-filter: blur(8px) saturate(150%);
   -webkit-backdrop-filter: blur(8px) saturate(150%);
   border-radius: var(--theme-radius-sm, 6px);
   padding: 2px;
-  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
   pointer-events: auto;
   height: 26px;
   box-sizing: border-box;

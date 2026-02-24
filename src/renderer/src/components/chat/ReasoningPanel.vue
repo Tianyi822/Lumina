@@ -103,21 +103,29 @@ const contentChars = computed(() => {
   border-radius: var(--theme-radius);
   overflow: hidden;
   background:
-    linear-gradient(135deg, var(--glass-white-027, rgba(255,255,255,0.027)) 0%, var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
     var(--theme-bg-tertiary);
   backdrop-filter: blur(8px) saturate(150%);
   -webkit-backdrop-filter: blur(8px) saturate(150%);
-  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .reasoning-panel:hover {
-  border-color: var(--glass-white-15, rgba(255,255,255,0.15));
+  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
 }
 
 .reasoning-panel.expanded {
   background:
-    linear-gradient(135deg, var(--glass-white-02, rgba(255,255,255,0.02)) 0%, var(--glass-white-01, rgba(255,255,255,0.01)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-01, rgba(255, 255, 255, 0.01)) 100%
+    ),
     var(--theme-bg-tertiary);
   backdrop-filter: blur(12px) saturate(150%);
   -webkit-backdrop-filter: blur(12px) saturate(150%);
@@ -135,7 +143,7 @@ const contentChars = computed(() => {
 }
 
 .panel-header:hover {
-  background: var(--glass-white-03, rgba(255,255,255,0.03));
+  background: var(--glass-white-03, rgba(255, 255, 255, 0.03));
 }
 
 .reasoning-panel.expanded .panel-header {
@@ -254,7 +262,7 @@ const contentChars = computed(() => {
 }
 
 .panel-content::-webkit-scrollbar-thumb {
-  background: var(--glass-white-15, rgba(255,255,255,0.15));
+  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
   border-radius: 2px;
 }
 
@@ -288,7 +296,7 @@ const contentChars = computed(() => {
 }
 
 .markdown-body :deep(code) {
-  background: var(--glass-white-08, rgba(255,255,255,0.08));
+  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
   padding: 0.2em 0.4em;
   border-radius: 4px;
   font-family: var(--theme-font-mono, 'JetBrains Mono', monospace);
@@ -298,13 +306,17 @@ const contentChars = computed(() => {
 
 .markdown-body :deep(pre) {
   background:
-    linear-gradient(135deg, var(--glass-white-03, rgba(255,255,255,0.03)) 0%, var(--glass-white-017, rgba(255,255,255,0.017)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
+      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
+    ),
     var(--theme-bg);
   padding: 12px 16px;
   border-radius: var(--theme-radius);
   overflow-x: auto;
   margin: 0.75em 0;
-  border: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
 }
 
 .markdown-body :deep(pre code) {

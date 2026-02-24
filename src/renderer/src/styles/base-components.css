@@ -164,7 +164,7 @@
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(8px) saturate(190%);
   -webkit-backdrop-filter: blur(8px) saturate(190%);
-  border: 1px solid var(--glass-white-12, rgba(255,255,255,0.12));
+  border: 1px solid var(--glass-white-12, rgba(255, 255, 255, 0.12));
   border-radius: var(--theme-radius-sm);
   color: var(--theme-text-secondary);
   font-size: 13px;
@@ -175,7 +175,7 @@
 
 .btn:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: var(--glass-white-2, rgba(255,255,255,0.2));
+  border-color: var(--glass-white-2, rgba(255, 255, 255, 0.2));
   color: var(--theme-text);
 }
 
@@ -237,11 +237,15 @@
   width: 100%;
   padding: 8px 12px;
   background:
-    linear-gradient(135deg, var(--glass-white-013, rgba(255,255,255,0.013)) 0%, var(--glass-white-007, rgba(255,255,255,0.007)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
     rgba(0, 0, 0, 0.017);
   backdrop-filter: blur(8px) saturate(190%);
   -webkit-backdrop-filter: blur(8px) saturate(190%);
-  border: 1px solid #70D75C;
+  border: 1px solid #70d75c;
   border-radius: var(--theme-radius-sm);
   color: var(--theme-text);
   font-size: 13px;
@@ -261,7 +265,11 @@
   border-color: var(--theme-accent);
   box-shadow: 0 0 0 3px rgba(70, 170, 143, 0.15);
   background:
-    linear-gradient(135deg, var(--glass-white-02, rgba(255,255,255,0.02)) 0%, var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
     rgba(0, 0, 0, 0.02);
 }
 
@@ -270,9 +278,12 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  background:
-    linear-gradient(135deg, var(--glass-white-05, rgba(255,255,255,0.05)) 0%, var(--glass-white-027, rgba(255,255,255,0.027)) 100%);
-  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+  );
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
   border-radius: 4px;
   font-family: var(--theme-font);
   font-size: 12px;
@@ -304,9 +315,9 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    var(--glass-white-1, rgba(255,255,255,0.1)) 20%,
-    var(--glass-white-15, rgba(255,255,255,0.15)) 50%,
-    var(--glass-white-1, rgba(255,255,255,0.1)) 80%,
+    var(--glass-white-1, rgba(255, 255, 255, 0.1)) 20%,
+    var(--glass-white-15, rgba(255, 255, 255, 0.15)) 50%,
+    var(--glass-white-1, rgba(255, 255, 255, 0.1)) 80%,
     transparent 100%
   );
   margin: 12px 0;
@@ -317,7 +328,11 @@
 .card {
   font-family: var(--theme-font);
   background:
-    linear-gradient(135deg, var(--glass-white-027, rgba(255,255,255,0.027)) 0%, var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
     var(--theme-bg-secondary);
   backdrop-filter: blur(12px) saturate(150%);
   -webkit-backdrop-filter: blur(12px) saturate(150%);

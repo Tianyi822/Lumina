@@ -261,11 +261,12 @@ function isReasoningExpanded(msgId: string): boolean {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 24px;
-  background:
-    linear-gradient(180deg,
-      var(--theme-bg) 0%,
-      var(--glass-white-007, rgba(255,255,255,0.007)) 50%,
-      var(--theme-bg) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--theme-bg) 0%,
+    var(--glass-white-007, rgba(255, 255, 255, 0.007)) 50%,
+    var(--theme-bg) 100%
+  );
 }
 
 .empty-state {

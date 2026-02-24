@@ -101,16 +101,19 @@ function formatTime(isoString: string): string {
 
 .chat-item:hover {
   background:
-    linear-gradient(135deg, var(--glass-white-05, rgba(255,255,255,0.05)) 0%, var(--glass-white-027, rgba(255,255,255,0.027)) 100%),
-    var(--glass-white-02, rgba(255,255,255,0.02));
-  border-color: var(--glass-white-12, rgba(255,255,255,0.12));
+    linear-gradient(
+      135deg,
+      var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+    ),
+    var(--glass-white-02, rgba(255, 255, 255, 0.02));
+  border-color: var(--glass-white-12, rgba(255, 255, 255, 0.12));
   backdrop-filter: blur(8px) saturate(150%);
   -webkit-backdrop-filter: blur(8px) saturate(150%);
 }
 
 .chat-item.active {
-  background:
-    linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(99, 102, 241, 0.06) 100%);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(99, 102, 241, 0.06) 100%);
   border-color: rgba(99, 102, 241, 0.3);
 }
 

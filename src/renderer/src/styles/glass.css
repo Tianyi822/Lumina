@@ -112,8 +112,10 @@
     linear-gradient(135deg, var(--glass-white-033) 0%, var(--glass-white-02) 100%),
     linear-gradient(225deg, var(--glass-white-027) 0%, var(--glass-white-01) 100%),
     var(--glass-black-02);
-  backdrop-filter: var(--glass-blur-extra) var(--glass-saturation-hover) var(--glass-brightness-hover);
-  -webkit-backdrop-filter: var(--glass-blur-extra) var(--glass-saturation-hover) var(--glass-brightness-hover);
+  backdrop-filter: var(--glass-blur-extra) var(--glass-saturation-hover)
+    var(--glass-brightness-hover);
+  -webkit-backdrop-filter: var(--glass-blur-extra) var(--glass-saturation-hover)
+    var(--glass-brightness-hover);
   box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.15),
     0 4px 12px rgba(0, 0, 0, 0.1),
@@ -128,8 +130,10 @@
     linear-gradient(135deg, var(--glass-white-03) 0%, var(--glass-white-017) 100%),
     linear-gradient(225deg, var(--glass-white-023) 0%, var(--glass-white-007) 100%),
     var(--glass-black-027);
-  backdrop-filter: var(--glass-blur-heavy) var(--glass-saturation-hover) var(--glass-brightness-solid);
-  -webkit-backdrop-filter: var(--glass-blur-heavy) var(--glass-saturation-hover) var(--glass-brightness-solid);
+  backdrop-filter: var(--glass-blur-heavy) var(--glass-saturation-hover)
+    var(--glass-brightness-solid);
+  -webkit-backdrop-filter: var(--glass-blur-heavy) var(--glass-saturation-hover)
+    var(--glass-brightness-solid);
   border: 1px solid var(--glass-white-15);
   box-shadow:
     var(--glass-shadow-heavy),
@@ -144,8 +148,10 @@
     linear-gradient(135deg, var(--glass-white-02) 0%, var(--glass-white-01) 100%),
     linear-gradient(225deg, var(--glass-white-013) 0%, var(--glass-white-003) 100%),
     var(--glass-black-017);
-  backdrop-filter: var(--glass-blur-light) var(--glass-saturation-light) var(--glass-brightness-light);
-  -webkit-backdrop-filter: var(--glass-blur-light) var(--glass-saturation-light) var(--glass-brightness-light);
+  backdrop-filter: var(--glass-blur-light) var(--glass-saturation-light)
+    var(--glass-brightness-light);
+  -webkit-backdrop-filter: var(--glass-blur-light) var(--glass-saturation-light)
+    var(--glass-brightness-light);
   border: 1px solid var(--glass-white-08);
   box-shadow:
     var(--glass-shadow-light),
@@ -204,8 +210,10 @@
     linear-gradient(135deg, var(--glass-white-03) 0%, var(--glass-white-017) 100%),
     linear-gradient(225deg, var(--glass-white-023) 0%, var(--glass-white-007) 100%),
     var(--glass-black-027);
-  backdrop-filter: var(--glass-blur-heavy) var(--glass-saturation-hover) var(--glass-brightness-solid);
-  -webkit-backdrop-filter: var(--glass-blur-heavy) var(--glass-saturation-hover) var(--glass-brightness-solid);
+  backdrop-filter: var(--glass-blur-heavy) var(--glass-saturation-hover)
+    var(--glass-brightness-solid);
+  -webkit-backdrop-filter: var(--glass-blur-heavy) var(--glass-saturation-hover)
+    var(--glass-brightness-solid);
   border: 1px solid var(--glass-white-12);
   box-shadow:
     var(--glass-shadow-heavy),

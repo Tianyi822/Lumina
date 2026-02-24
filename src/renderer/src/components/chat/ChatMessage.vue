@@ -133,7 +133,10 @@ function handleToggleReasoning(): void {
       <slot name="react-steps"></slot>
 
       <!-- 消息气泡 -->
-      <div class="message-bubble" :class="{ streaming: message.isStreaming, 'animate-in': !message.isStreaming }">
+      <div
+        class="message-bubble"
+        :class="{ streaming: message.isStreaming, 'animate-in': !message.isStreaming }"
+      >
         <!-- 用户消息：纯文本 -->
         <template v-if="message.role === 'user'">
           <span class="message-text">{{ message.content }}</span>
@@ -141,7 +144,11 @@ function handleToggleReasoning(): void {
 
         <!-- AI 消息：Markdown 渲染 -->
         <template v-else>
-          <div class="markdown-body" :class="{ 'streaming-content': message.isStreaming }" v-html="renderMarkdown(message.content)"></div>
+          <div
+            class="markdown-body"
+            :class="{ 'streaming-content': message.isStreaming }"
+            v-html="renderMarkdown(message.content)"
+          ></div>
           <span v-if="message.isStreaming" class="streaming-cursor">▊</span>
         </template>
       </div>
@@ -280,7 +287,7 @@ function handleToggleReasoning(): void {
 }
 
 .user-avatar {
-  background: #46AA8F;
+  background: #46aa8f;
   color: white;
   box-shadow: 0 2px 8px rgba(70, 170, 143, 0.25);
 }
@@ -372,7 +379,7 @@ function handleToggleReasoning(): void {
 
 /* 用户消息气泡 */
 .chat-message.role-user .message-bubble {
-  background: #46AA8F;
+  background: #46aa8f;
   color: var(--bubble-user-text, white);
   border-bottom-right-radius: 4px;
   box-shadow: 0 4px 16px rgba(70, 170, 143, 0.2);
@@ -385,23 +392,27 @@ function handleToggleReasoning(): void {
 /* AI 消息气泡 - 玻璃效果 */
 .chat-message.role-assistant .message-bubble {
   background:
-    linear-gradient(135deg, var(--glass-white-027, rgba(255,255,255,0.027)) 0%, var(--glass-white-013, rgba(255,255,255,0.013)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
     var(--bubble-ai-bg, var(--theme-bg-secondary));
   backdrop-filter: blur(12px) saturate(150%);
   -webkit-backdrop-filter: blur(12px) saturate(150%);
-  border: 1px solid var(--glass-white-1, rgba(255,255,255,0.1));
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
   color: var(--bubble-ai-text, var(--theme-text));
   border-bottom-left-radius: 4px;
   box-shadow:
     0 2px 12px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 var(--glass-white-1, rgba(255,255,255,0.1));
+    inset 0 1px 0 var(--glass-white-1, rgba(255, 255, 255, 0.1));
 }
 
 .chat-message.role-assistant .message-bubble:hover {
-  border-color: var(--glass-white-15, rgba(255,255,255,0.15));
+  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 var(--glass-white-15, rgba(255,255,255,0.15));
+    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15));
 }
 
 /* 流式输出状态 */
@@ -459,9 +470,12 @@ function handleToggleReasoning(): void {
   padding: 4px 8px;
   font-size: 11px;
   color: var(--theme-text-tertiary);
-  background:
-    linear-gradient(135deg, var(--glass-white-05, rgba(255,255,255,0.05)) 0%, var(--glass-white-027, rgba(255,255,255,0.027)) 100%);
-  border: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+  );
+  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
   border-radius: 4px;
   line-height: 1;
   display: flex;
@@ -525,7 +539,7 @@ function handleToggleReasoning(): void {
 }
 
 .markdown-body :deep(code) {
-  background-color: var(--glass-white-08, rgba(255,255,255,0.08));
+  background-color: var(--glass-white-08, rgba(255, 255, 255, 0.08));
   padding: 0.2em 0.4em;
   border-radius: 4px;
   font-family: var(--theme-font-mono, 'JetBrains Mono', 'Fira Code', monospace);
@@ -534,7 +548,11 @@ function handleToggleReasoning(): void {
 
 .markdown-body :deep(pre) {
   background:
-    linear-gradient(135deg, var(--glass-white-03, rgba(255,255,255,0.03)) 0%, var(--glass-white-017, rgba(255,255,255,0.017)) 100%),
+    linear-gradient(
+      135deg,
+      var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
+      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
+    ),
     var(--theme-bg);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -542,7 +560,7 @@ function handleToggleReasoning(): void {
   border-radius: var(--theme-radius);
   overflow-x: auto;
   margin: 0.75em 0;
-  border: 1px solid var(--glass-white-08, rgba(255,255,255,0.08));
+  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
 }
 
 .markdown-body :deep(pre code) {
@@ -677,7 +695,8 @@ function handleToggleReasoning(): void {
 }
 
 @keyframes streamingPulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
