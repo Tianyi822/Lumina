@@ -326,9 +326,8 @@ watch(
 <template>
   <div class="chat-page">
     <!-- 侧边栏 -->
-    <Transition name="sidebar-slide">
+    <div class="sidebar-wrapper" :class="{ collapsed: sidebarCollapsed }">
       <Sidebar
-        v-show="!sidebarCollapsed"
         :sessions="sessionList"
         :active-session-id="currentChatId"
         :session-update-key="sessionUpdateKey"
@@ -336,7 +335,7 @@ watch(
         @select-chat="handleSelectChat"
         @delete-session="sessionStore.handleDeleteSession"
       />
-    </Transition>
+    </div>
 
     <!-- 主内容区 -->
     <!-- 使用 :key 绑定 currentChatId 确保切换会话时组件完全重新创建,实现状态隔离 -->
@@ -374,42 +373,23 @@ watch(
   overflow: hidden;
 }
 
-/* 侧边栏滑动动画 */
-.sidebar-slide-enter-active {
-  animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+/* 侧边栏包装器 - 平滑过渡 */
+.sidebar-wrapper {
+  width: 280px;
+  min-width: 280px;
+  height: 100%;
+  overflow: hidden;
+  opacity: 1;
+  transition:
+    width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.2s ease-out;
 }
 
-.sidebar-slide-leave-active {
-  animation: slideOutLeft 0.2s cubic-bezier(0.4, 0, 1, 1);
-}
-
-@keyframes slideInLeft {
-  0% {
-    opacity: 0;
-    transform: translateX(-100%);
-    width: 0;
-    min-width: 0;
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-    width: 280px;
-    min-width: 280px;
-  }
-}
-
-@keyframes slideOutLeft {
-  0% {
-    opacity: 1;
-    transform: translateX(0);
-    width: 280px;
-    min-width: 280px;
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(-100%);
-    width: 0;
-    min-width: 0;
-  }
+.sidebar-wrapper.collapsed {
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 </style>

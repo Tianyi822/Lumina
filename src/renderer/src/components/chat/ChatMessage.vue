@@ -124,7 +124,7 @@ function handleToggleReasoning(): void {
         <ReasoningPanel
           v-if="message.reasoning"
           :content="message.reasoning"
-          :is-expanded="isReasoningExpanded"
+          :is-expanded="props.isReasoningExpanded"
           @toggle="handleToggleReasoning"
         />
       </Transition>
