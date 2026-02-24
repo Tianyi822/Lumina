@@ -1,9 +1,19 @@
-import { TokenUsage, MessageRole, ToolCallMessage } from './chat'
+import { TokenUsage, MessageRole, ToolCallMessage, ToolCallInfo, ToolResultInfo } from './chat'
 
 /**
  * 会话的类型
  */
 export type SessionType = 'default' | 'tool' | 'knowledge'
+
+/**
+ * ReAct 步骤（持久化用）
+ */
+export interface ReActStepData {
+  type: 'tool_call' | 'tool_result'
+  toolCall?: ToolCallInfo
+  toolResult?: ToolResultInfo
+  timestamp: string
+}
 
 /**
  * 持久化的消息结构
@@ -28,6 +38,8 @@ export interface SessionMessage {
   tool_calls?: ToolCallMessage[]
   /** 工具调用的 ID，仅 tool 消息会有 */
   tool_call_id?: string
+  /** ReAct 推理步骤，仅 assistant 消息会有 */
+  reactSteps?: ReActStepData[]
 }
 
 /**
