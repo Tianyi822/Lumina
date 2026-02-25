@@ -36,6 +36,18 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
       extra1: '#d0ed35',
       extra2: '#ffb003'
     }
+  },
+  {
+    id: 'sunset-coast',
+    name: 'Sunset Coast',
+    description: '日落海岸，海洋与天空的温暖渐变',
+    previewColors: {
+      primary: '#014944',
+      secondary: '#347a73',
+      accent: '#7c93ce',
+      extra1: '#c7b6dc',
+      extra2: '#fcccc9'
+    }
   }
 ]
 
