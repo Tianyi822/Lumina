@@ -286,7 +286,7 @@ onUnmounted(() => {
       <div ref="modelSelectorRef" class="model-selector">
         <button class="btn model-btn" :disabled="isSending" @click="toggleModelDropdown">
           <span>{{ localSelectedModel || '选择模型' }}</span>
-          <span class="dropdown-arrow">&#9662;</span>
+          <span class="dropdown-arrow" :class="{ open: showModelDropdown }">▼</span>
         </button>
         <div v-if="showModelDropdown" class="model-dropdown">
           <div v-if="modelOptions.length === 0" class="model-option empty">暂无模型配置</div>
@@ -422,6 +422,11 @@ onUnmounted(() => {
 .dropdown-arrow {
   font-size: 10px;
   color: var(--theme-text-tertiary);
+  transition: transform 0.2s ease;
+}
+
+.dropdown-arrow.open {
+  transform: rotate(180deg);
 }
 
 .model-dropdown {

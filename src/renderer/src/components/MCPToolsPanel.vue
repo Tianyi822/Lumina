@@ -221,7 +221,7 @@ onUnmounted(() => {
       </span>
       <span v-else>MCP 工具</span>
       <span v-if="totalToolsCount > 0" class="tools-count">{{ totalToolsCount }}</span>
-      <span class="dropdown-arrow">{{ showPanel ? '▲' : '▼' }}</span>
+      <span class="dropdown-arrow" :class="{ open: showPanel }">▼</span>
     </button>
 
     <!-- 工具面板 -->
@@ -368,6 +368,11 @@ onUnmounted(() => {
 .dropdown-arrow {
   font-size: 10px;
   color: var(--theme-text-tertiary);
+  transition: transform 0.2s ease;
+}
+
+.dropdown-arrow.open {
+  transform: rotate(180deg);
 }
 
 .mcp-tools-panel {

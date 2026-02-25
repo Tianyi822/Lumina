@@ -280,7 +280,7 @@ defineExpose({
       <span v-if="allKnowledgeBases.length > 0" class="kb-count">{{
         allKnowledgeBases.length
       }}</span>
-      <span class="dropdown-arrow">{{ showPanel ? '▲' : '▼' }}</span>
+      <span class="dropdown-arrow" :class="{ open: showPanel }">▼</span>
     </button>
 
     <!-- 知识库面板 -->
@@ -410,6 +410,11 @@ defineExpose({
 .dropdown-arrow {
   font-size: 10px;
   color: var(--theme-text-tertiary);
+  transition: transform 0.2s ease;
+}
+
+.dropdown-arrow.open {
+  transform: rotate(180deg);
 }
 
 .kb-panel {
