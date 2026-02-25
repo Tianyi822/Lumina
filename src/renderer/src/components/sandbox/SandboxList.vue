@@ -101,6 +101,11 @@ function handleCancelDelete(): void {
       <div class="sandbox-info">
         <div class="sandbox-name">
           {{ sandbox.name }}
+        </div>
+        <div class="sandbox-meta">
+          <span class="sandbox-status" :class="getStatusClass(sandbox.status)">
+            {{ getStatusLabel(sandbox.status) }}
+          </span>
           <!-- 创建类型 Badge -->
           <span
             v-if="(sandbox as unknown as ExtendedSandboxListItem).creationType"
@@ -110,11 +115,6 @@ function handleCancelDelete(): void {
             "
           >
             {{ getCreationTypeLabel((sandbox as unknown as ExtendedSandboxListItem).creationType) }}
-          </span>
-        </div>
-        <div class="sandbox-meta">
-          <span class="sandbox-status" :class="getStatusClass(sandbox.status)">
-            {{ getStatusLabel(sandbox.status) }}
           </span>
           <!-- 孤儿沙箱警告 -->
           <span
