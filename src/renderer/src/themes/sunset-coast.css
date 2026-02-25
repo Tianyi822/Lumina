@@ -390,10 +390,104 @@
 
 /* 沙箱工具切换按钮 */
 [data-theme='sunset-coast'] .sandbox-tools-toggle {
-  background-color: rgba(52, 122, 115, 0.1) !important;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(52, 122, 115, 0.15);
 }
 
-[data-theme='sunset-coast'] .sandbox-tools-toggle.active {
-  background-color: rgba(52, 122, 115, 0.2) !important;
-  border-color: rgba(52, 122, 115, 0.4) !important;
+[data-theme='sunset-coast'] .sandbox-tools-toggle:hover:not(.disabled) {
+  background-color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(52, 122, 115, 0.3);
+  box-shadow: 0 4px 12px rgba(1, 73, 68, 0.1);
+}
+
+[data-theme='sunset-coast'] .sandbox-tools-toggle.enabled {
+  background-color: rgba(52, 122, 115, 0.1);
+  border-color: rgba(52, 122, 115, 0.4);
+}
+
+[data-theme='sunset-coast'] .sandbox-tools-toggle.enabled:hover:not(.disabled) {
+  background-color: rgba(52, 122, 115, 0.15);
+  border-color: rgba(52, 122, 115, 0.5);
+}
+
+/* ========== 输入操作栏统一样式 ========== */
+/* 模型选择器按钮 */
+[data-theme='sunset-coast'] .model-btn {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(52, 122, 115, 0.15);
+  color: var(--theme-text-secondary);
+}
+
+[data-theme='sunset-coast'] .model-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(52, 122, 115, 0.3);
+  color: var(--theme-text);
+  box-shadow: 0 4px 12px rgba(1, 73, 68, 0.1);
+}
+
+/* MCP 工具触发按钮 */
+[data-theme='sunset-coast'] .mcp-trigger-btn {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(52, 122, 115, 0.15);
+  color: var(--theme-text-secondary);
+}
+
+[data-theme='sunset-coast'] .mcp-trigger-btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(52, 122, 115, 0.3);
+  color: var(--theme-text);
+  box-shadow: 0 4px 12px rgba(1, 73, 68, 0.1);
+}
+
+[data-theme='sunset-coast'] .mcp-trigger-btn.active {
+  background: rgba(124, 147, 206, 0.1);
+  border-color: rgba(124, 147, 206, 0.3);
+}
+
+[data-theme='sunset-coast'] .mcp-trigger-btn.has-selection {
+  color: var(--theme-accent);
+}
+
+/* 知识库触发按钮 */
+[data-theme='sunset-coast'] .kb-trigger-btn {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(52, 122, 115, 0.15);
+  color: var(--theme-text-secondary);
+}
+
+[data-theme='sunset-coast'] .kb-trigger-btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(52, 122, 115, 0.3);
+  color: var(--theme-text);
+  box-shadow: 0 4px 12px rgba(1, 73, 68, 0.1);
+}
+
+[data-theme='sunset-coast'] .kb-trigger-btn.active {
+  background: rgba(124, 147, 206, 0.1);
+  border-color: rgba(124, 147, 206, 0.3);
+}
+
+[data-theme='sunset-coast'] .kb-trigger-btn.has-selection {
+  color: var(--theme-accent);
+}
+
+/* ========== 徽章和开关颜色（与发送按钮一致） ========== */
+/* MCP 工具数量徽章 */
+[data-theme='sunset-coast'] .tools-count {
+  background-color: #347a73 !important;
+}
+
+/* 知识库数量徽章 */
+[data-theme='sunset-coast'] .kb-count {
+  background-color: #347a73 !important;
+}
+
+/* 沙箱开关激活状态 */
+[data-theme='sunset-coast'] .sandbox-tools-toggle.enabled .toggle-switch {
+  background-color: #347a73 !important;
+}
+
+/* 沙箱状态徽章激活状态 */
+[data-theme='sunset-coast'] .status-badge.active {
+  background-color: #347a73 !important;
 }

@@ -400,7 +400,7 @@ defineExpose({
 .kb-count {
   font-size: 11px;
   padding: 1px 6px;
-  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-tertiary) 100%);
+  background-color: var(--theme-accent);
   color: white;
   border-radius: 10px;
   min-width: 18px;

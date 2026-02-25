@@ -155,3 +155,107 @@
 [data-theme='blooming-flowers'] .card:hover {
   box-shadow: 0 8px 24px rgba(10, 89, 78, 0.1);
 }
+
+/* ========== 沙箱工具切换按钮 ========== */
+[data-theme='blooming-flowers'] .sandbox-tools-toggle {
+  background-color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(70, 170, 143, 0.15);
+}
+
+[data-theme='blooming-flowers'] .sandbox-tools-toggle:hover:not(.disabled) {
+  background-color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(70, 170, 143, 0.3);
+  box-shadow: 0 4px 12px rgba(10, 89, 78, 0.1);
+}
+
+[data-theme='blooming-flowers'] .sandbox-tools-toggle.enabled {
+  background-color: rgba(70, 170, 143, 0.1);
+  border-color: rgba(70, 170, 143, 0.4);
+}
+
+[data-theme='blooming-flowers'] .sandbox-tools-toggle.enabled:hover:not(.disabled) {
+  background-color: rgba(70, 170, 143, 0.15);
+  border-color: rgba(70, 170, 143, 0.5);
+}
+
+/* ========== 输入操作栏统一样式 ========== */
+/* 模型选择器按钮 */
+[data-theme='blooming-flowers'] .model-btn {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(70, 170, 143, 0.15);
+  color: var(--theme-text-secondary);
+}
+
+[data-theme='blooming-flowers'] .model-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(70, 170, 143, 0.3);
+  color: var(--theme-text);
+  box-shadow: 0 4px 12px rgba(10, 89, 78, 0.1);
+}
+
+/* MCP 工具触发按钮 */
+[data-theme='blooming-flowers'] .mcp-trigger-btn {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(70, 170, 143, 0.15);
+  color: var(--theme-text-secondary);
+}
+
+[data-theme='blooming-flowers'] .mcp-trigger-btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(70, 170, 143, 0.3);
+  color: var(--theme-text);
+  box-shadow: 0 4px 12px rgba(10, 89, 78, 0.1);
+}
+
+[data-theme='blooming-flowers'] .mcp-trigger-btn.active {
+  background: rgba(112, 215, 92, 0.1);
+  border-color: rgba(112, 215, 92, 0.3);
+}
+
+[data-theme='blooming-flowers'] .mcp-trigger-btn.has-selection {
+  color: var(--theme-accent);
+}
+
+/* 知识库触发按钮 */
+[data-theme='blooming-flowers'] .kb-trigger-btn {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(70, 170, 143, 0.15);
+  color: var(--theme-text-secondary);
+}
+
+[data-theme='blooming-flowers'] .kb-trigger-btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(70, 170, 143, 0.3);
+  color: var(--theme-text);
+  box-shadow: 0 4px 12px rgba(10, 89, 78, 0.1);
+}
+
+[data-theme='blooming-flowers'] .kb-trigger-btn.active {
+  background: rgba(112, 215, 92, 0.1);
+  border-color: rgba(112, 215, 92, 0.3);
+}
+
+[data-theme='blooming-flowers'] .kb-trigger-btn.has-selection {
+  color: var(--theme-accent);
+}
+
+/* ========== 徽章和开关颜色（与发送按钮一致） ========== */
+/* MCP 工具数量徽章 */
+[data-theme='blooming-flowers'] .tools-count {
+  background-color: #70d75c !important;
+}
+
+/* 知识库数量徽章 */
+[data-theme='blooming-flowers'] .kb-count {
+  background-color: #70d75c !important;
+}
+
+/* 沙箱开关激活状态 */
+[data-theme='blooming-flowers'] .sandbox-tools-toggle.enabled .toggle-switch {
+  background-color: #70d75c !important;
+}
+
+/* 沙箱状态徽章激活状态 */
+[data-theme='blooming-flowers'] .status-badge.active {
+  background-color: #70d75c !important;
+}

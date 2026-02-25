@@ -409,7 +409,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 6px 12px;
   font-size: 12px;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .model-btn:disabled {

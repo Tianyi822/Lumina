@@ -216,7 +216,6 @@ onUnmounted(() => {
       :class="{ active: showPanel, 'has-selection': selectedToolsCount > 0 }"
       @click="togglePanel"
     >
-      <span class="mcp-icon">⚡</span>
       <span v-if="selectedToolsCount > 0" class="selected-tool-name">
         已选 {{ selectedToolsCount }} 个工具
       </span>
@@ -347,10 +346,6 @@ onUnmounted(() => {
   color: var(--theme-accent);
 }
 
-.mcp-icon {
-  font-size: 14px;
-}
-
 .selected-tool-name {
   max-width: 100px;
   overflow: hidden;
@@ -363,7 +358,7 @@ onUnmounted(() => {
 .tools-count {
   font-size: 11px;
   padding: 1px 6px;
-  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-tertiary) 100%);
+  background-color: var(--theme-accent);
   color: white;
   border-radius: 10px;
   min-width: 18px;
