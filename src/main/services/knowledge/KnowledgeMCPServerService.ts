@@ -5,11 +5,13 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { z } from 'zod'
 import { logger } from '@main/services/logger'
 import { getKnowledgeServiceManager } from './KnowledgeServiceManager'
+import { getFileService } from '@main/services/file/FileService'
 import type {
   KnowledgeMCPConfig,
   KnowledgeMCPServerStatus,
   KnowledgeSearchResult,
-  KnowledgeBaseListItem
+  KnowledgeBaseListItem,
+  KnowledgeDocumentListItem
 } from '@shared/types/knowledgeMCP'
 import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
 
@@ -319,7 +321,45 @@ export class KnowledgeMCPServerService {
       }
     )
 
-    logger.info('MCP 工具已注册', 'main', { tools: ['knowledge_search', 'knowledge_list'] })
+    // 注册知识库文档列表工具
+    this.mcpServer.registerTool(
+      'knowledge_documents',
+      {
+        description:
+          '获取指定知识库中所有文档的详细信息，包括文档名称、大小、上传时间和文档类型。',
+        inputSchema: {
+          knowledgeBaseId: z.string().describe('知识库ID')
+        }
+      },
+      async (args: { knowledgeBaseId: string }) => {
+        try {
+          const documents = this.getDocumentsByKnowledgeBase(args.knowledgeBaseId)
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify(documents, null, 2)
+              }
+            ]
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify({ error: errorMessage })
+              }
+            ],
+            isError: true
+          }
+        }
+      }
+    )
+
+    logger.info('MCP 工具已注册', 'main', {
+      tools: ['knowledge_search', 'knowledge_list', 'knowledge_documents']
+    })
   }
 
   /**
@@ -385,6 +425,47 @@ export class KnowledgeMCPServerService {
       documentCount: kb.linkedFileIds?.length || 0,
       createdAt: kb.createdAt
     }))
+  }
+
+  /**
+   * 获取指定知识库中的文档列表
+   * @param knowledgeBaseId 知识库 ID
+   * @returns 文档列表，包含文档名称、大小、上传时间和类型
+   */
+  private getDocumentsByKnowledgeBase(knowledgeBaseId: string): KnowledgeDocumentListItem[] {
+    const manager = getKnowledgeServiceManager()
+    const allKBs = manager.getAllKnowledgeBases()
+
+    // 检查知识库是否存在
+    const kb = allKBs.find((k) => k.id === knowledgeBaseId)
+    if (!kb) {
+      logger.warn('知识库不存在', 'main', { knowledgeBaseId })
+      return []
+    }
+
+    // 获取文件服务并查询关联的文件
+    const fileService = getFileService()
+    const files = fileService.getFilesByKBId(knowledgeBaseId)
+
+    // 转换为 MCP 工具返回格式
+    return files.map((file) => ({
+      documentName: file.name,
+      size: this.formatFileSize(file.size),
+      sizeBytes: file.size,
+      uploadTime: file.uploadedAt,
+      documentType: file.fileType
+    }))
+  }
+
+  /**
+   * 格式化文件大小
+   * 将字节转换为易读的格式
+   */
+  private formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
   }
 }
 

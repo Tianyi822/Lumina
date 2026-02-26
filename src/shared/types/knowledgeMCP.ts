@@ -88,6 +88,22 @@ export interface KnowledgeBaseListItem {
 }
 
 /**
+ * 知识库文档列表项（用于 MCP 工具返回）
+ */
+export interface KnowledgeDocumentListItem {
+  /** 文档名称 */
+  documentName: string
+  /** 文档大小（格式化后的字符串，如 "1.5 MB"） */
+  size: string
+  /** 文档大小（原始字节数） */
+  sizeBytes: number
+  /** 上传时间 */
+  uploadTime: string
+  /** 文档类型 */
+  documentType: string
+}
+
+/**
  * 默认配置
  */
 export const DEFAULT_KNOWLEDGE_MCP_CONFIG: KnowledgeMCPConfig = {
