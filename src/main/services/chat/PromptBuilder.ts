@@ -89,8 +89,12 @@ export class PromptBuilder {
     selectedTools?: MCPToolReference[],
     knowledgeResults?: KnowledgeSearchResult[]
   ): Promise<string> {
-    // 如果没有工具和知识库，使用简单提示词
-    if (!hasTools && (!knowledgeResults || knowledgeResults.length === 0)) {
+    // 检查是否有知识库工具
+    const hasKnowledgeTools =
+      selectedTools?.some((tool) => tool.serverName === 'knowledge') || false
+
+    // 如果没有工具和知识库工具，使用简单提示词
+    if (!hasTools && !hasKnowledgeTools) {
       return this.getBasicSystemPrompt()
     }
 
@@ -134,9 +138,9 @@ export class PromptBuilder {
       () => buildReactSystemPrompt(options)
     )
 
-    // 如果有知识库结果，添加知识库增强提示词
+    // 如果有知识库工具，添加知识库增强提示词
     let finalPrompt = prompt
-    if (knowledgeResults && knowledgeResults.length > 0) {
+    if (hasKnowledgeTools) {
       finalPrompt += '\n\n' + buildKnowledgeEnhancedPrompt()
     }
 

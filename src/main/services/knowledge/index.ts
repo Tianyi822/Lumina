@@ -2,5 +2,7 @@
 
 export * from './KnowledgeService'
 export * from './KnowledgeServiceManager'
+export * from './KnowledgeToolService'
 export { getKnowledgeServiceManager } from './KnowledgeServiceManager'
 export { readKnowledgeBases, writeKnowledgeBases } from './KnowledgeService'
+export { knowledgeToolService, KnowledgeToolService } from './KnowledgeToolService'
