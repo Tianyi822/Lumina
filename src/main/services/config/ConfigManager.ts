@@ -4,6 +4,7 @@ import { AppConfig, ConfigLoadResult } from '@main/types/config'
 import { getConfigDirPath, getConfigFilePath } from './configPaths'
 import { logger } from '@main/services/logger'
 import type { EmbeddingConfig } from '@shared/types/config'
+import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
 
 /**
  * 默认终端主题颜色
@@ -42,7 +43,8 @@ function createEmptyConfig(): AppConfig {
       enablePromptOptimization: false,
       optimizationAggressiveness: 'balanced'
     },
-    embeddingModels: {}
+    embeddingModels: {},
+    knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG
   }
 }
 
@@ -107,6 +109,11 @@ function migrateConfig(config: AppConfig): AppConfig {
   }
 
   migrated.embeddingModels = migrated.embeddingModels || {}
+
+  // 迁移 knowledgeMCP 配置
+  if (!migrated.knowledgeMCP) {
+    migrated.knowledgeMCP = DEFAULT_KNOWLEDGE_MCP_CONFIG
+  }
 
   return migrated
 }

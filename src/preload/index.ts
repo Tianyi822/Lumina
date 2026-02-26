@@ -13,6 +13,7 @@ import { knowledgeApi, onFileProgress, onReindexProgress } from './apis/knowledg
 import { fileApi } from './apis/file'
 import { sandboxApi } from './apis/sandbox'
 import { promptTemplateApi, cacheStatsApi } from './apis/promptEngineering'
+import { knowledgeMCPApi } from './apis/knowledgeMCP'
 
 /**
  * 自定义渲染器 API
@@ -35,7 +36,9 @@ const api = {
   onReindexProgress,
   // 提示词工程相关 API
   promptTemplate: promptTemplateApi,
-  cacheStats: cacheStatsApi
+  cacheStats: cacheStatsApi,
+  // 知识库 MCP 服务 API
+  knowledgeMCP: knowledgeMCPApi
 }
 
 // 使用 contextBridge 向渲染器暴露 API
