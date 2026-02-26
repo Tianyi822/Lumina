@@ -1,6 +1,6 @@
 /**
  * 全局表单样式
- * 统一表单组件的样式，减少重复代码
+ * 统一表单组件的样式 - 玻璃效果增强
  */
 
 /* ==================== 表单组 ==================== */
@@ -17,34 +17,45 @@
 }
 
 /* ==================== 表单输入框 ==================== */
-.form-input,
-.input {
+.form-input {
   width: 100%;
   padding: 8px 12px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--theme-text);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  transition: all 0.15s ease;
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
+    rgba(0, 0, 0, 0.017);
+  backdrop-filter: blur(8px) saturate(190%);
+  -webkit-backdrop-filter: blur(8px) saturate(190%);
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  border-radius: var(--theme-radius-sm, 6px);
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   font-family: var(--theme-font);
 }
 
-.form-input:focus,
-.input:focus {
+.form-input:focus {
   outline: none;
   border-color: var(--theme-accent);
-  background-color: var(--theme-bg);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
+    rgba(0, 0, 0, 0.02);
 }
 
-.form-input::placeholder,
-.input::placeholder {
-  color: var(--theme-text-secondary);
+.form-input::placeholder {
+  color: var(--theme-text-tertiary);
 }
 
-.form-input:disabled,
-.input:disabled {
-  opacity: 0.6;
+.form-input:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -53,12 +64,20 @@
 .textarea {
   width: 100%;
   padding: 8px 12px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--theme-text);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  transition: all 0.15s ease;
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
+    rgba(0, 0, 0, 0.017);
+  backdrop-filter: blur(8px) saturate(190%);
+  -webkit-backdrop-filter: blur(8px) saturate(190%);
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  border-radius: var(--theme-radius-sm, 6px);
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   font-family: var(--theme-font);
   resize: vertical;
   min-height: 80px;
@@ -68,7 +87,7 @@
 .textarea:focus {
   outline: none;
   border-color: var(--theme-accent);
-  background-color: var(--theme-bg);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
 .form-textarea.small,
@@ -81,16 +100,24 @@
 .select {
   width: 100%;
   padding: 8px 12px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--theme-text);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  transition: all 0.15s ease;
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
+    rgba(0, 0, 0, 0.017);
+  backdrop-filter: blur(8px) saturate(190%);
+  -webkit-backdrop-filter: blur(8px) saturate(190%);
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  border-radius: var(--theme-radius-sm, 6px);
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   font-family: var(--theme-font);
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b949e' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2371717a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 36px;
@@ -100,12 +127,12 @@
 .select:focus {
   outline: none;
   border-color: var(--theme-accent);
-  background-color: var(--theme-bg);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
 .form-select:disabled,
 .select:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -113,14 +140,14 @@
 .form-hint {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
   line-height: 1.5;
 }
 
 .form-error {
   margin-top: 8px;
   font-size: 12px;
-  color: #f44336;
+  color: var(--theme-danger);
 }
 
 /* ==================== 表单操作按钮区域 ==================== */
@@ -136,80 +163,34 @@
   border-top: 1px solid var(--theme-border);
 }
 
-/* ==================== 按钮 ==================== */
-.btn {
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--theme-text);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  font-family: var(--theme-font);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn:hover:not(:disabled) {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-text-secondary);
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ==================== 主按钮 ==================== */
-.btn-primary {
-  background: var(--theme-accent);
-  color: white;
-  border-color: var(--theme-accent);
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--theme-accent);
-  opacity: 0.9;
-  border-color: var(--theme-accent);
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ==================== 次要按钮 ==================== */
-.btn-secondary {
-  background: var(--theme-background-secondary);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--theme-bg-hover);
-}
-
 /* ==================== 测试结果提示 ==================== */
 .test-result {
   padding: 10px;
-  border-radius: 4px;
-  font-size: 14px;
+  border-radius: var(--theme-radius-sm, 6px);
+  font-size: 13px;
   margin-top: 16px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .test-result.success {
-  background: #4caf50;
-  color: white;
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--theme-success);
+  border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .test-result.error {
-  background: #f44336;
-  color: white;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--theme-danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .test-result.info {
-  background: var(--theme-bg-secondary);
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+  );
   color: var(--theme-text);
   border: 1px solid var(--theme-border);
 }

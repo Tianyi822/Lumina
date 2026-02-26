@@ -83,22 +83,23 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
+  font-size: 12px;
   background-color: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
-  border-radius: 6px;
+  border-radius: var(--theme-radius-sm);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   user-select: none;
 }
 
 .sandbox-tools-toggle:hover:not(.disabled) {
-  border-color: var(--theme-text-secondary);
+  border-color: var(--theme-border-hover);
   background-color: var(--theme-bg-hover);
 }
 
 .sandbox-tools-toggle.enabled {
   border-color: var(--theme-accent);
-  background-color: rgba(63, 185, 80, 0.1);
+  background-color: rgba(52, 122, 115, 0.1);
 }
 
 .sandbox-tools-toggle.disabled {
@@ -140,23 +141,25 @@ onMounted(() => {
 }
 
 .toggle-label {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--theme-text);
   font-weight: 500;
 }
 
 .status-badge {
   font-size: 11px;
-  padding: 2px 6px;
+  padding: 1px 6px;
   background-color: var(--theme-bg);
   border: 1px solid var(--theme-border);
-  border-radius: 3px;
+  border-radius: 10px;
   color: var(--theme-text-secondary);
+  min-width: 18px;
+  text-align: center;
 }
 
 .status-badge.active {
   background-color: var(--theme-accent);
-  border-color: var(--theme-accent);
-  color: var(--theme-bg);
+  border-color: transparent;
+  color: white;
 }
 </style>

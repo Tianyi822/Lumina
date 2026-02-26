@@ -172,17 +172,27 @@ function toggleExpand(): void {
 
 <style scoped>
 .tool-call-panel {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  position: relative;
+  padding-left: 3px;
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
+    var(--theme-bg-secondary);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
   border-radius: var(--theme-radius);
   overflow: hidden;
   margin: var(--theme-spacing-sm) 0;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .tool-call-panel:hover {
-  border-color: var(--theme-border-hover);
-  box-shadow: var(--theme-shadow);
+  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 /* 状态指示条 */
@@ -193,7 +203,7 @@ function toggleExpand(): void {
   top: 0;
   bottom: 0;
   width: 3px;
-  background-color: var(--theme-text-secondary);
+  background-color: var(--theme-text-tertiary);
 }
 
 .tool-call-panel.status-pending::before {
@@ -212,12 +222,7 @@ function toggleExpand(): void {
   background-color: var(--theme-danger);
 }
 
-.tool-call-panel {
-  position: relative;
-  padding-left: 3px;
-}
-
-/* 头部样式 */
+/* 头部 */
 .tool-header {
   display: flex;
   align-items: center;
@@ -225,11 +230,11 @@ function toggleExpand(): void {
   gap: var(--theme-spacing-sm);
   padding: var(--theme-spacing-sm) var(--theme-spacing);
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .tool-header:hover {
-  background-color: var(--theme-bg-hover);
+  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
 }
 
 .header-left {
@@ -248,10 +253,10 @@ function toggleExpand(): void {
 }
 
 .step-number {
-  font-family: var(--theme-font);
+  font-family: var(--theme-font-mono, monospace);
   font-size: 11px;
-  color: var(--theme-text-secondary);
-  background-color: var(--theme-bg-tertiary);
+  color: var(--theme-text-tertiary);
+  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
   padding: 2px 6px;
   border-radius: var(--theme-radius-sm);
 }
@@ -263,7 +268,7 @@ function toggleExpand(): void {
 }
 
 .tool-name {
-  font-family: var(--theme-font);
+  font-family: var(--theme-font-mono, monospace);
   font-size: 13px;
   color: var(--theme-accent);
   font-weight: 500;
@@ -278,17 +283,17 @@ function toggleExpand(): void {
 }
 
 .execution-time {
-  font-family: var(--theme-font);
+  font-family: var(--theme-font-mono, monospace);
   font-size: 11px;
-  color: var(--theme-text-secondary);
-  background-color: var(--theme-bg-tertiary);
+  color: var(--theme-text-tertiary);
+  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
   padding: 2px 6px;
   border-radius: var(--theme-radius-sm);
 }
 
 .expand-icon {
   font-size: 10px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
   transition: transform 0.2s ease;
 }
 
@@ -299,8 +304,8 @@ function toggleExpand(): void {
 /* 内容区域 */
 .tool-content {
   padding: var(--theme-spacing);
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg);
+  border-top: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  background: var(--glass-white-013, rgba(255, 255, 255, 0.013));
   animation: slideDown 0.2s ease;
 }
 
@@ -337,19 +342,25 @@ function toggleExpand(): void {
 .section-title {
   font-size: 11px;
   font-weight: 600;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-/* 代码块样式 */
+/* 代码块 */
 .code-block {
-  font-family: var(--theme-font);
+  font-family: var(--theme-font-mono, monospace);
   font-size: 12px;
   line-height: 1.5;
   padding: 10px 12px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-01, rgba(255, 255, 255, 0.01)) 100%
+    ),
+    var(--theme-bg);
+  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
   border-radius: var(--theme-radius-sm);
   color: var(--theme-text);
   overflow-x: auto;
@@ -360,24 +371,18 @@ function toggleExpand(): void {
   overflow-y: auto;
 }
 
-/* 自定义滚动条 */
 .code-block::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 .code-block::-webkit-scrollbar-track {
-  background: var(--theme-bg-tertiary);
-  border-radius: 3px;
+  background: transparent;
 }
 
 .code-block::-webkit-scrollbar-thumb {
-  background: var(--theme-border-hover);
-  border-radius: 3px;
-}
-
-.code-block::-webkit-scrollbar-thumb:hover {
-  background: var(--theme-text-secondary);
+  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  border-radius: 2px;
 }
 
 .params-block {
@@ -386,12 +391,12 @@ function toggleExpand(): void {
 
 .result-block.success {
   border-left: 3px solid var(--theme-success);
-  background-color: rgba(16, 185, 129, 0.05);
+  background: rgba(34, 197, 94, 0.04);
 }
 
 .result-block.error {
   border-left: 3px solid var(--theme-danger);
-  background-color: rgba(248, 81, 73, 0.05);
+  background: rgba(239, 68, 68, 0.04);
   color: var(--theme-danger);
 }
 
@@ -402,17 +407,18 @@ function toggleExpand(): void {
   gap: var(--theme-spacing);
   margin-top: var(--theme-spacing);
   padding-top: var(--theme-spacing);
-  border-top: 1px solid var(--theme-border);
+  border-top: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
 }
 
 .timestamp {
-  font-family: var(--theme-font);
+  font-family: var(--theme-font-mono, monospace);
   font-size: 11px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .timestamp-label {
   color: var(--theme-text-tertiary);
   margin-right: 4px;
+  opacity: 0.7;
 }
 </style>

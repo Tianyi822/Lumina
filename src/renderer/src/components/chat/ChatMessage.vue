@@ -120,18 +120,23 @@ function handleToggleReasoning(): void {
     <!-- 消息内容区域 -->
     <div class="message-body">
       <!-- 思考内容面板 -->
-      <ReasoningPanel
-        v-if="message.reasoning"
-        :content="message.reasoning"
-        :is-expanded="isReasoningExpanded"
-        @toggle="handleToggleReasoning"
-      />
+      <Transition name="panel-fade">
+        <ReasoningPanel
+          v-if="message.reasoning"
+          :content="message.reasoning"
+          :is-expanded="props.isReasoningExpanded"
+          @toggle="handleToggleReasoning"
+        />
+      </Transition>
 
       <!-- ReAct 推理步骤 -->
       <slot name="react-steps"></slot>
 
       <!-- 消息气泡 -->
-      <div class="message-bubble" :class="{ streaming: message.isStreaming }">
+      <div
+        class="message-bubble"
+        :class="{ streaming: message.isStreaming, 'animate-in': !message.isStreaming }"
+      >
         <!-- 用户消息：纯文本 -->
         <template v-if="message.role === 'user'">
           <span class="message-text">{{ message.content }}</span>
@@ -139,41 +144,47 @@ function handleToggleReasoning(): void {
 
         <!-- AI 消息：Markdown 渲染 -->
         <template v-else>
-          <div class="markdown-body" v-html="renderMarkdown(message.content)"></div>
+          <div
+            class="markdown-body"
+            :class="{ 'streaming-content': message.isStreaming }"
+            v-html="renderMarkdown(message.content)"
+          ></div>
           <span v-if="message.isStreaming" class="streaming-cursor">▊</span>
         </template>
       </div>
 
       <!-- 消息元信息行：时间戳、Token统计、反馈按钮 -->
-      <div
-        v-if="
-          showTimestamp || (message.role === 'assistant' && !message.isStreaming && message.usage)
-        "
-        class="message-meta-row"
-      >
-        <!-- 时间戳 -->
-        <div v-if="showTimestamp" class="message-time">
-          {{ formattedTime }}
-        </div>
-
-        <!-- Token 统计（仅 AI 消息） -->
+      <Transition name="meta-fade">
         <div
-          v-if="message.role === 'assistant' && !message.isStreaming && message.usage"
-          class="token-usage"
+          v-if="
+            showTimestamp || (message.role === 'assistant' && !message.isStreaming && message.usage)
+          "
+          class="message-meta-row"
         >
-          {{ formatTokenUsage(message.usage) }}
-        </div>
+          <!-- 时间戳 -->
+          <div v-if="showTimestamp" class="message-time">
+            {{ formattedTime }}
+          </div>
 
-        <!-- 反馈按钮（仅 AI 消息） -->
-        <div v-if="message.role === 'assistant' && !message.isStreaming" class="message-feedback">
-          <slot
-            name="feedback"
-            :message-id="message.id"
-            :session-id="currentChatId"
-            :content="message.content"
-          ></slot>
+          <!-- Token 统计（仅 AI 消息） -->
+          <div
+            v-if="message.role === 'assistant' && !message.isStreaming && message.usage"
+            class="token-usage"
+          >
+            {{ formatTokenUsage(message.usage) }}
+          </div>
+
+          <!-- 反馈按钮（仅 AI 消息） -->
+          <div v-if="message.role === 'assistant' && !message.isStreaming" class="message-feedback">
+            <slot
+              name="feedback"
+              :message-id="message.id"
+              :session-id="currentChatId"
+              :content="message.content"
+            ></slot>
+          </div>
         </div>
-      </div>
+      </Transition>
     </div>
   </div>
 </template>
@@ -184,6 +195,51 @@ function handleToggleReasoning(): void {
   flex-direction: column;
   gap: var(--theme-spacing-sm);
   max-width: 85%;
+  animation: messageAppear 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 消息出现动画 */
+@keyframes messageAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 用户消息从右侧出现 */
+.chat-message.role-user {
+  animation: messageAppearRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes messageAppearRight {
+  0% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* AI消息从左侧出现 */
+.chat-message.role-assistant {
+  animation: messageAppearLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes messageAppearLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 /* 用户消息：右侧对齐 */
@@ -216,34 +272,30 @@ function handleToggleReasoning(): void {
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .avatar svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 .user-avatar {
-  background: linear-gradient(135deg, var(--theme-accent) 0%, var(--theme-accent-secondary) 100%);
+  background: #46aa8f;
   color: white;
-  box-shadow: 0 2px 8px rgba(10, 89, 78, 0.25);
+  box-shadow: 0 2px 8px rgba(70, 170, 143, 0.25);
 }
 
 .ai-avatar {
-  background: linear-gradient(
-    135deg,
-    var(--theme-accent-secondary) 0%,
-    var(--theme-accent-tertiary) 100%
-  );
+  background: var(--theme-accent);
   color: white;
-  box-shadow: 0 2px 8px rgba(112, 215, 92, 0.3);
+  box-shadow: 0 2px 8px rgba(70, 170, 143, 0.2);
 }
 
 /* 发送者信息 */
@@ -268,11 +320,11 @@ function handleToggleReasoning(): void {
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  background: var(--thinking-bg, rgba(251, 191, 36, 0.15));
-  border: 1px solid var(--thinking-border, rgba(251, 191, 36, 0.3));
+  background: var(--thinking-bg, rgba(99, 102, 241, 0.08));
+  border: 1px solid var(--thinking-border, rgba(99, 102, 241, 0.2));
   border-radius: 12px;
   font-size: 11px;
-  color: var(--thinking-accent, var(--theme-warning));
+  color: var(--thinking-accent, var(--theme-accent-secondary));
 }
 
 .thinking-indicator svg {
@@ -286,6 +338,9 @@ function handleToggleReasoning(): void {
   flex-direction: column;
   gap: var(--theme-spacing-sm);
   margin-left: 48px;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .chat-message.role-user .message-body {
@@ -300,44 +355,72 @@ function handleToggleReasoning(): void {
   font-size: 14px;
   line-height: 1.7;
   word-break: break-word;
-  transition: all 0.2s ease;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  min-width: 0;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* 用户消息气泡：使用主题变量 */
+/* 气泡淡入动画 */
+.message-bubble.animate-in {
+  animation: bubbleFadeIn 0.25s ease-out;
+}
+
+@keyframes bubbleFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 用户消息气泡 */
 .chat-message.role-user .message-bubble {
-  background: var(
-    --bubble-user-bg,
-    linear-gradient(135deg, rgba(74, 158, 255, 0.9) 0%, rgba(124, 58, 237, 0.9) 100%)
-  );
+  background: #46aa8f;
   color: var(--bubble-user-text, white);
   border-bottom-right-radius: 4px;
-  box-shadow: 0 4px 12px rgba(10, 89, 78, 0.2);
+  box-shadow: 0 4px 16px rgba(70, 170, 143, 0.2);
 }
 
 .chat-message.role-user .message-bubble:hover {
-  box-shadow: 0 6px 16px rgba(10, 89, 78, 0.3);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
 }
 
-/* AI 消息气泡：使用主题变量 */
+/* AI 消息气泡 - 玻璃效果 */
 .chat-message.role-assistant .message-bubble {
-  background-color: var(--bubble-ai-bg, var(--theme-bg-secondary));
-  border: 1px solid var(--bubble-ai-border, var(--theme-border));
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
+    var(--bubble-ai-bg, var(--theme-bg-secondary));
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
   color: var(--bubble-ai-text, var(--theme-text));
   border-bottom-left-radius: 4px;
-  box-shadow: 0 2px 12px rgba(10, 89, 78, 0.06);
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 var(--glass-white-1, rgba(255, 255, 255, 0.1));
 }
 
 .chat-message.role-assistant .message-bubble:hover {
-  border-color: var(--theme-border-hover);
-  box-shadow: 0 4px 16px rgba(10, 89, 78, 0.1);
+  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15));
 }
 
 /* 流式输出状态 */
 .message-bubble.streaming {
-  border-color: var(--theme-accent);
+  border-color: rgba(99, 102, 241, 0.3);
   box-shadow:
-    0 0 0 2px rgba(70, 170, 143, 0.2),
-    0 2px 12px rgba(70, 170, 143, 0.12);
+    0 0 0 2px rgba(99, 102, 241, 0.1),
+    0 2px 12px rgba(99, 102, 241, 0.08);
 }
 
 /* 用户消息文本 */
@@ -387,8 +470,12 @@ function handleToggleReasoning(): void {
   padding: 4px 8px;
   font-size: 11px;
   color: var(--theme-text-tertiary);
-  background: linear-gradient(135deg, var(--theme-bg-hover) 0%, var(--theme-bg-tertiary) 100%);
-  border: 1px solid var(--theme-border);
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+  );
+  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
   border-radius: 4px;
   line-height: 1;
   display: flex;
@@ -411,6 +498,9 @@ function handleToggleReasoning(): void {
 /* Markdown 内容样式 */
 .markdown-body {
   color: inherit;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .markdown-body :deep(p) {
@@ -449,20 +539,28 @@ function handleToggleReasoning(): void {
 }
 
 .markdown-body :deep(code) {
-  background-color: var(--theme-bg-tertiary, rgba(0, 0, 0, 0.2));
+  background-color: var(--glass-white-08, rgba(255, 255, 255, 0.08));
   padding: 0.2em 0.4em;
   border-radius: 4px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: var(--theme-font-mono, 'JetBrains Mono', 'Fira Code', monospace);
   font-size: 0.9em;
 }
 
 .markdown-body :deep(pre) {
-  background-color: var(--theme-bg-tertiary, rgba(0, 0, 0, 0.3));
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
+      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
+    ),
+    var(--theme-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   padding: 12px 16px;
   border-radius: var(--theme-radius);
   overflow-x: auto;
   margin: 0.75em 0;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
 }
 
 .markdown-body :deep(pre code) {
@@ -476,7 +574,7 @@ function handleToggleReasoning(): void {
   margin: 0.75em 0;
   padding: 0.5em 1em;
   border-left: 3px solid var(--theme-accent);
-  background-color: var(--thinking-bg, rgba(74, 158, 255, 0.1));
+  background: var(--thinking-bg, rgba(99, 102, 241, 0.08));
   border-radius: 0 var(--theme-radius-sm) var(--theme-radius-sm) 0;
 }
 
@@ -493,6 +591,9 @@ function handleToggleReasoning(): void {
   border-collapse: collapse;
   width: 100%;
   margin: 0.75em 0;
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .markdown-body :deep(th),
@@ -519,5 +620,87 @@ function handleToggleReasoning(): void {
 
 .markdown-body :deep(em) {
   font-style: italic;
+}
+
+/* ========== 过渡动画 ========== */
+/* 思考面板淡入动画 */
+.panel-fade-enter-active {
+  animation: panelFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.panel-fade-leave-active {
+  animation: panelFadeOut 0.2s ease-out;
+}
+
+@keyframes panelFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 500px;
+  }
+}
+
+@keyframes panelFadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 500px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+}
+
+/* 元信息行淡入动画 */
+.meta-fade-enter-active {
+  animation: metaFadeIn 0.25s ease-out;
+}
+
+.meta-fade-leave-active {
+  animation: metaFadeOut 0.15s ease-out;
+}
+
+@keyframes metaFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes metaFadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+
+/* 流式内容平滑显示 */
+.streaming-content {
+  animation: streamingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes streamingPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
 }
 </style>

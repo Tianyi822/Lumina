@@ -15,6 +15,7 @@ const props = defineProps<{
   stats: ContainerStats | null
   loading?: boolean
   creationType?: SandboxCreationType | null // 沙箱创建类型
+  sandboxName?: string // 沙箱名称（用于格式化监控页面标题）
 }>()
 
 const emit = defineEmits<{
@@ -35,6 +36,23 @@ const { typeMeta, showLifecycleButtons, isReadOnly } = useSandboxPermissions(cre
 // ==================== Computed ====================
 
 const isRunning = computed(() => props.container?.state === 'running')
+
+/**
+ * 格式化监控页面标题
+ * 对于 docker-compose 创建的沙箱，格式为 "sandbox-docker-compose-[沙箱名]"
+ * 其他类型显示容器名称
+ */
+const headerTitle = computed(() => {
+  // 如果是 compose 类型且有沙箱名称，使用格式化标题
+  if (props.creationType === 'compose' && props.sandboxName) {
+    // 处理特殊字符，确保标题安全显示
+    const sanitizedName = props.sandboxName.replace(/[<>"'&]/g, '')
+    return `sandbox-docker-compose-${sanitizedName}`
+  }
+
+  // 默认显示容器名称
+  return props.container?.names[0]?.replace(/^\//, '') || '未命名'
+})
 
 const formattedCpu = computed(() => {
   if (!props.stats) return '-'
@@ -119,7 +137,7 @@ function formatEnv(env: string[]): string[] {
       <div class="panel-header">
         <div class="header-title">
           <span class="state-indicator" :class="getStateClass(container.state)"></span>
-          <h2>{{ container.names[0]?.replace(/^\//, '') || '未命名' }}</h2>
+          <h2>{{ headerTitle }}</h2>
           <span class="state-badge" :class="getStateClass(container.state)">
             {{ getStateLabel(container.state) }}
           </span>

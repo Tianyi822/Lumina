@@ -614,6 +614,7 @@ function handleCloseOrphanAlert(): void {
             :stats="containerStats"
             :loading="storeLoading"
             :creation-type="currentSandbox?.creationType"
+            :sandbox-name="currentSandbox?.name"
             @start="handleContainerStart"
             @stop="handleContainerStop"
             @restart="handleContainerRestart"

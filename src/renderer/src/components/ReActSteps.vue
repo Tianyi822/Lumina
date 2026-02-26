@@ -114,17 +114,21 @@ function handleToolExpand(_toolId: string): void {
     </div>
 
     <!-- 展开内容 -->
-    <div v-if="isExpanded" class="react-content">
-      <div class="timeline">
-        <ToolCallPanel
-          v-for="(item, index) in toolCallItems"
-          :key="item.id"
-          :tool-call="item"
-          :index="index"
-          @toggle-expand="handleToolExpand"
-        />
+    <Transition name="expand-collapse">
+      <div v-if="isExpanded" class="react-content">
+        <div class="timeline">
+          <TransitionGroup name="tool-item" tag="div">
+            <ToolCallPanel
+              v-for="(item, index) in toolCallItems"
+              :key="item.id"
+              :tool-call="item"
+              :index="index"
+              @toggle-expand="handleToolExpand"
+            />
+          </TransitionGroup>
+        </div>
       </div>
-    </div>
+    </Transition>
   </div>
 </template>
 
@@ -242,12 +246,12 @@ function handleToolExpand(_toolId: string): void {
 .expand-icon {
   font-size: 10px;
   color: var(--theme-text-secondary);
-  transition: transform 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.react-steps-container:has(.react-content[style*='display: block']) .expand-icon,
-.react-content:not([style*='display: none']) + .react-header .expand-icon {
-  transform: rotate(180deg);
+.react-header:has(+ .expand-collapse-enter-active) .expand-icon,
+.react-steps-container:has(.react-content) .react-header .expand-icon {
+  transform: rotate(90deg);
 }
 
 /* 内容区域 */
@@ -255,17 +259,75 @@ function handleToolExpand(_toolId: string): void {
   border-top: 1px solid var(--theme-border);
   max-height: 600px;
   overflow-y: auto;
-  animation: slideDown 0.2s ease;
 }
 
-@keyframes slideDown {
-  from {
+/* ========== 展开/收起过渡动画 ========== */
+.expand-collapse-enter-active {
+  animation: expandSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.expand-collapse-leave-active {
+  animation: expandSlideUp 0.2s cubic-bezier(0.4, 0, 1, 1);
+}
+
+@keyframes expandSlideDown {
+  0% {
     opacity: 0;
     max-height: 0;
+    transform: translateY(-10px);
   }
-  to {
+  100% {
     opacity: 1;
     max-height: 600px;
+    transform: translateY(0);
+  }
+}
+
+@keyframes expandSlideUp {
+  0% {
+    opacity: 1;
+    max-height: 600px;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* ========== 工具项过渡动画 ========== */
+.tool-item-enter-active {
+  animation: toolItemIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tool-item-leave-active {
+  animation: toolItemOut 0.2s ease-out;
+}
+
+.tool-item-move {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toolItemIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toolItemOut {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(20px);
   }
 }
 

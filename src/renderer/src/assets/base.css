@@ -1,9 +1,6 @@
 /**
  * Base CSS - Global styles
- * 全局基础样式
- *
- * Theme variables are defined in themes/terminal.css
- * 主题变量在 themes/terminal.css 中定义
+ * 全局基础样式 - Linear 设计风格
  */
 
 *,
@@ -15,18 +12,10 @@
 
 body {
   min-height: 100vh;
-  color: var(--theme-text, #ffffff);
-  background: var(--theme-bg, #0f0f23);
-  font-family: var(
-    --theme-font,
-    'JetBrains Mono',
-    'Fira Code',
-    Consolas,
-    Monaco,
-    'Cascadia Code',
-    'Roboto Mono',
-    monospace
-  );
+  color: var(--theme-text);
+  background: var(--theme-bg);
+  font-family: var(--theme-font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }

@@ -10,11 +10,13 @@ export interface ThemeMeta {
   name: string
   /** 主题描述 */
   description?: string
-  /** 主题预览色（用于显示主题色块） */
+  /** 主题预览色（用于显示主题色块，最多5种） */
   previewColors?: {
     primary: string
     secondary: string
     accent: string
+    extra1?: string
+    extra2?: string
   }
 }
 
@@ -24,23 +26,27 @@ export interface ThemeMeta {
  */
 export const AVAILABLE_THEMES: ThemeMeta[] = [
   {
-    id: 'terminal',
-    name: 'Terminal',
-    description: '深色终端风格，适合程序员',
-    previewColors: {
-      primary: '#0f0f23',
-      secondary: '#1a1a2e',
-      accent: '#4a9eff'
-    }
-  },
-  {
     id: 'blooming-flowers',
     name: 'Blooming Flowers',
     description: '繁花主题，自然清新的绿色系',
     previewColors: {
       primary: '#0a594e',
       secondary: '#46aa8f',
-      accent: '#70d75c'
+      accent: '#70d75c',
+      extra1: '#d0ed35',
+      extra2: '#ffb003'
+    }
+  },
+  {
+    id: 'sunset-coast',
+    name: 'Sunset Coast',
+    description: '日落海岸，海洋与天空的温暖渐变',
+    previewColors: {
+      primary: '#014944',
+      secondary: '#347a73',
+      accent: '#7c93ce',
+      extra1: '#c7b6dc',
+      extra2: '#fcccc9'
     }
   }
 ]

@@ -1024,6 +1024,12 @@ function getFileNameWithoutExtension(fileName: string): string {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #46aa8f;
+  border-color: rgba(70, 170, 143, 0.4);
+}
+
+.add-files-btn:hover {
+  background: #3d9980;
 }
 
 .reindex-btn {

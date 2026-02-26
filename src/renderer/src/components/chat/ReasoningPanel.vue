@@ -62,48 +62,35 @@ const contentChars = computed(() => {
 
 <template>
   <div class="reasoning-panel" :class="{ expanded: isActuallyExpanded }">
-    <!-- 折叠状态：显示摘要 -->
-    <button v-if="!isActuallyExpanded" class="reasoning-collapsed" type="button" @click="toggle">
-      <div class="collapsed-content">
-        <div class="collapsed-icon">
+    <!-- 头部（始终显示） -->
+    <div class="panel-header" @click="toggle">
+      <div class="header-left">
+        <div class="header-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="16" x2="12" y2="12" />
             <line x1="12" y1="8" x2="12.01" y2="8" />
           </svg>
         </div>
-        <div class="collapsed-text">
-          <span class="collapsed-label">思考过程</span>
-          <span class="collapsed-meta">{{ contentLines }} 行 · {{ contentChars }} 字符</span>
+        <div class="header-text">
+          <span class="header-label">思考过程</span>
+          <span v-if="!isActuallyExpanded" class="header-meta">
+            {{ contentLines }} 行 · {{ contentChars }} 字符
+          </span>
         </div>
       </div>
-      <div class="collapsed-arrow">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </div>
-    </button>
-
-    <!-- 展开状态：显示完整内容 -->
-    <div v-else class="reasoning-expanded">
-      <div class="expanded-header">
-        <div class="expanded-title">
+      <div class="header-right">
+        <div class="expand-arrow" :class="{ rotated: isActuallyExpanded }">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
+            <polyline points="6 9 12 15 18 9" />
           </svg>
-          <span>思考过程</span>
         </div>
-        <button class="collapse-btn" type="button" @click="toggle">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="18 15 12 9 6 15" />
-          </svg>
-          <span>收起</span>
-        </button>
       </div>
+    </div>
 
-      <div class="expanded-content">
+    <!-- 内容区域（可展开/收起） -->
+    <div class="panel-content-wrapper" :class="{ expanded: isActuallyExpanded }">
+      <div class="panel-content">
         <div class="reasoning-text markdown-body" v-html="renderMarkdown(content)"></div>
       </div>
     </div>
@@ -115,31 +102,56 @@ const contentChars = computed(() => {
   width: 100%;
   border-radius: var(--theme-radius);
   overflow: hidden;
-  transition: all 0.2s ease;
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
+    var(--theme-bg-tertiary);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* 折叠状态 */
-.reasoning-collapsed {
-  width: 100%;
+.reasoning-panel:hover {
+  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+}
+
+.reasoning-panel.expanded {
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-01, rgba(255, 255, 255, 0.01)) 100%
+    ),
+    var(--theme-bg-tertiary);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+}
+
+/* 头部样式 */
+.panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--theme-spacing);
   padding: 10px 14px;
-  background-color: var(--theme-bg-tertiary);
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
   cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: left;
+  transition: background-color 0.15s ease;
 }
 
-.reasoning-collapsed:hover {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-border-hover);
+.panel-header:hover {
+  background: var(--glass-white-03, rgba(255, 255, 255, 0.03));
 }
 
-.collapsed-content {
+.reasoning-panel.expanded .panel-header {
+  background: var(--thinking-bg, rgba(99, 102, 241, 0.08));
+  border-bottom: 1px solid var(--thinking-border, rgba(99, 102, 241, 0.2));
+}
+
+.header-left {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -147,149 +159,134 @@ const contentChars = computed(() => {
   min-width: 0;
 }
 
-.collapsed-icon {
+.header-icon {
   flex-shrink: 0;
   width: 24px;
   height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--thinking-accent, var(--theme-warning));
+  color: var(--thinking-accent, var(--theme-accent-secondary));
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.collapsed-icon svg {
+.reasoning-panel.expanded .header-icon {
+  transform: scale(1.05);
+}
+
+.header-icon svg {
   width: 20px;
   height: 20px;
 }
 
-.collapsed-text {
+.header-text {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.collapsed-label {
+.header-label {
   font-size: 13px;
   font-weight: 500;
   color: var(--theme-text-secondary);
+  transition: color 0.2s ease;
 }
 
-.collapsed-meta {
+.reasoning-panel.expanded .header-label {
+  font-weight: 600;
+  color: var(--thinking-accent, var(--theme-accent-secondary));
+}
+
+.header-meta {
   font-size: 11px;
   color: var(--theme-text-tertiary);
 }
 
-.collapsed-arrow {
+.header-right {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.expand-arrow {
   width: 20px;
   height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--theme-text-tertiary);
-  transition: transform 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.collapsed-arrow svg {
+.expand-arrow svg {
   width: 16px;
   height: 16px;
 }
 
-.reasoning-collapsed:hover .collapsed-arrow {
-  color: var(--theme-text-secondary);
-  transform: translateY(2px);
+.expand-arrow.rotated {
+  transform: rotate(180deg);
 }
 
-/* 展开状态 */
-.reasoning-expanded {
-  background-color: var(--theme-bg-tertiary);
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
+.panel-header:hover .expand-arrow {
+  color: var(--theme-text-secondary);
+}
+
+/* 内容区域 - 平滑高度过渡 */
+.panel-content-wrapper {
+  max-height: 0;
   overflow: hidden;
+  opacity: 0;
+  transition:
+    max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.25s ease-out;
 }
 
-.expanded-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background-color: var(--thinking-bg, rgba(0, 0, 0, 0.2));
-  border-bottom: 1px solid var(--thinking-border, var(--theme-border));
-}
-
-.expanded-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--thinking-accent, var(--theme-warning));
-}
-
-.expanded-title svg {
-  width: 18px;
-  height: 18px;
-}
-
-.collapse-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius-sm);
-  color: var(--theme-text-tertiary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.collapse-btn:hover {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-border-hover);
-  color: var(--theme-text-secondary);
-}
-
-.collapse-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-.expanded-content {
-  padding: 14px;
+.panel-content-wrapper.expanded {
   max-height: 500px;
+  opacity: 1;
+}
+
+.panel-content {
+  padding: 14px;
   overflow-y: auto;
+  max-height: 480px;
 }
 
-/* 滚动条样式 */
-.expanded-content::-webkit-scrollbar {
-  width: 6px;
+.panel-content::-webkit-scrollbar {
+  width: 4px;
 }
 
-.expanded-content::-webkit-scrollbar-track {
+.panel-content::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.expanded-content::-webkit-scrollbar-thumb {
-  background: var(--theme-border);
-  border-radius: 3px;
-}
-
-.expanded-content::-webkit-scrollbar-thumb:hover {
-  background: var(--theme-border-hover);
+.panel-content::-webkit-scrollbar-thumb {
+  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  border-radius: 2px;
 }
 
 .reasoning-text {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-family: var(--theme-font-mono, 'JetBrains Mono', monospace);
   font-size: 13px;
   line-height: 1.7;
   color: var(--theme-text-secondary);
   white-space: pre-wrap;
+  animation: contentFadeIn 0.3s ease-out;
 }
 
-/* Markdown 样式（针对思考内容） */
+@keyframes contentFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Markdown 样式 */
 .markdown-body :deep(p) {
   margin: 0 0 0.75em 0;
 }
@@ -299,21 +296,27 @@ const contentChars = computed(() => {
 }
 
 .markdown-body :deep(code) {
-  background-color: var(--theme-bg-hover, rgba(0, 0, 0, 0.3));
+  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
   padding: 0.2em 0.4em;
   border-radius: 4px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: var(--theme-font-mono, 'JetBrains Mono', monospace);
   font-size: 0.9em;
-  color: var(--theme-accent-tertiary);
+  color: var(--theme-accent);
 }
 
 .markdown-body :deep(pre) {
-  background-color: var(--theme-bg-hover, rgba(0, 0, 0, 0.4));
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
+      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
+    ),
+    var(--theme-bg);
   padding: 12px 16px;
   border-radius: var(--theme-radius);
   overflow-x: auto;
   margin: 0.75em 0;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
 }
 
 .markdown-body :deep(pre code) {
@@ -328,7 +331,7 @@ const contentChars = computed(() => {
   margin: 0.75em 0;
   padding: 0.5em 1em;
   border-left: 3px solid var(--theme-accent);
-  background-color: var(--thinking-bg, rgba(74, 158, 255, 0.1));
+  background: var(--thinking-bg, rgba(99, 102, 241, 0.08));
   border-radius: 0 var(--theme-radius-sm) var(--theme-radius-sm) 0;
 }
 
@@ -361,8 +364,14 @@ const contentChars = computed(() => {
   text-decoration: underline;
 }
 
-/* 展开状态下的面板样式 */
-.reasoning-panel.expanded {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+/* 淡入淡出过渡 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

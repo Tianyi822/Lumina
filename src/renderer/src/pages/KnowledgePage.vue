@@ -127,15 +127,16 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
 
 <template>
   <div class="knowledge-page">
-    <KnowledgeSidebar
-      v-show="!knowledgeSidebarCollapsed"
-      :knowledge-bases="knowledgeBases"
-      :active-kb-id="activeKbId"
-      @select-kb="handleSelectKB"
-      @create-kb="handleCreateKB"
-      @delete-kb="handleDeleteKB"
-      @manage-files="handleManageFiles"
-    />
+    <div class="sidebar-wrapper" :class="{ collapsed: knowledgeSidebarCollapsed }">
+      <KnowledgeSidebar
+        :knowledge-bases="knowledgeBases"
+        :active-kb-id="activeKbId"
+        @select-kb="handleSelectKB"
+        @create-kb="handleCreateKB"
+        @delete-kb="handleDeleteKB"
+        @manage-files="handleManageFiles"
+      />
+    </div>
     <KnowledgeMain
       ref="knowledgeMainRef"
       :knowledge-base="knowledgeBases.find((kb) => kb.id === activeKbId)"
@@ -173,5 +174,25 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
   width: 100%;
   height: 100%;
   overflow: hidden;
+}
+
+/* 侧边栏包装器 - 平滑过渡 */
+.sidebar-wrapper {
+  width: 280px;
+  min-width: 280px;
+  height: 100%;
+  overflow: hidden;
+  opacity: 1;
+  transition:
+    width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.2s ease-out;
+}
+
+.sidebar-wrapper.collapsed {
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 </style>

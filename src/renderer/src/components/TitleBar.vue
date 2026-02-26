@@ -224,44 +224,54 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: var(--title-bar-height, 33px);
-  background-color: var(--theme-bg);
-  border-bottom: 1px solid var(--theme-border);
+  height: var(--title-bar-height, 38px);
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-01, rgba(255, 255, 255, 0.01)) 100%
+    ),
+    linear-gradient(
+      225deg,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
+      var(--glass-white-003, rgba(255, 255, 255, 0.003)) 100%
+    ),
+    var(--theme-bg);
+  backdrop-filter: blur(18px) saturate(190%) brightness(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(190%) brightness(1.08);
+  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
   user-select: none;
   -webkit-app-region: drag;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* macOS 样式 */
 .title-bar.is-mac {
   padding-left: 80px;
+  border-bottom: 1px solid var(--theme-border);
 }
 
-/* 左侧占位（弹性，用于居中） */
 .title-bar-left-spacer {
   flex: 1;
   min-width: 0;
 }
 
-/* macOS 左侧占位需要固定宽度 */
 .title-bar.is-mac .title-bar-left-spacer {
   flex: 0 0 auto;
 }
 
-/* 中间区域：切换器 + 设置按钮 */
 .title-bar-center-section {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: 0 0 auto;
 }
 
-/* 右侧占位（macOS） */
 .title-bar-right-spacer {
   flex: 1;
   min-width: 0;
 }
 
-/* Windows/Linux 样式 */
 .title-bar-controls {
   display: flex;
   height: 100%;
@@ -270,36 +280,42 @@ onUnmounted(() => {
   z-index: 2;
 }
 
-/* 设置按钮和侧边栏切换按钮组 */
+/* 工具按钮组 - 玻璃效果 */
 .tool-buttons-group {
   display: flex;
   align-items: center;
-  background-color: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+  );
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border-radius: var(--theme-radius-sm, 6px);
   padding: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
   gap: 0;
-  height: 22px;
+  height: 26px;
   box-sizing: border-box;
 }
 
 .tool-btn {
   height: 100%;
-  padding: 0 6px;
+  padding: 0 7px;
   border: none;
   background: transparent;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   -webkit-app-region: no-drag;
-  border-radius: 3px;
-  color: var(--theme-text-secondary);
+  border-radius: 4px;
+  color: var(--theme-text-tertiary);
 }
 
 .tool-btn:hover {
-  background-color: var(--theme-bg-hover);
+  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
   color: var(--theme-text);
 }
 
@@ -318,14 +334,14 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   -webkit-app-region: no-drag;
   position: relative;
   z-index: 3;
 }
 
 .title-bar-controls .title-bar-button .button-icon {
-  color: var(--theme-text);
+  color: var(--theme-text-tertiary);
   font-size: 12px;
   line-height: 1;
   display: flex;
@@ -334,7 +350,11 @@ onUnmounted(() => {
 }
 
 .title-bar-controls .title-bar-button:hover {
-  background-color: var(--theme-bg-hover);
+  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
+}
+
+.title-bar-controls .title-bar-button:hover .button-icon {
+  color: var(--theme-text);
 }
 
 .title-bar-controls .title-bar-button-close:hover {
@@ -345,12 +365,11 @@ onUnmounted(() => {
   color: white;
 }
 
-/* 图标 SVG 样式 */
 .title-bar-button svg {
   display: block;
 }
 
-/* ==================== 视图切换器样式 ==================== */
+/* ==================== 视图切换器 - 玻璃效果 ==================== */
 .view-switcher {
   position: relative;
   z-index: 10;
@@ -367,24 +386,30 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+  );
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border-radius: var(--theme-radius-sm, 6px);
   padding: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
   pointer-events: auto;
-  height: 22px;
+  height: 26px;
   box-sizing: border-box;
 }
 
-/* 滑块 */
+/* 滑块 - 使用主题色 */
 .switcher-slider {
   position: absolute;
   top: 2px;
   left: 2px;
   width: calc((100% - 4px) / 3);
   height: calc(100% - 4px);
-  background-color: rgba(63, 185, 80, 0.25);
-  border-radius: 3px;
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 4px;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
 }
@@ -397,7 +422,6 @@ onUnmounted(() => {
   transform: translateX(200%);
 }
 
-/* 切换按钮 */
 .switcher-btn {
   position: relative;
   flex: 1;
@@ -406,11 +430,11 @@ onUnmounted(() => {
   padding: 0 12px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--theme-text-secondary, #8b949e);
+  color: var(--theme-text-tertiary);
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: color 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   font-family: var(--theme-font);
   white-space: nowrap;
   -webkit-app-region: no-drag;
@@ -427,14 +451,13 @@ onUnmounted(() => {
 }
 
 .switcher-btn:hover {
-  color: var(--theme-text, #c9d1d9);
+  color: var(--theme-text-secondary);
 }
 
 .switcher-btn.active {
-  color: var(--theme-accent, #3fb950);
+  color: var(--theme-accent);
 }
 
-/* 响应式：当窗口很小时调整 */
 @media (max-width: 600px) {
   .title-bar-center-section {
     gap: 4px;

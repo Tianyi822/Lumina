@@ -1,0 +1,493 @@
+/**
+ * Theme System - Sunset Coast Theme (Glass-enhanced)
+ * 日落海岸主题样式 - 海洋与天空的温暖渐变 + 流体玻璃效果
+ *
+ * 配色方案：
+ * - #014944 - 深海绿（主色调）
+ * - #347A73 - 浅海绿（次要强调）
+ * - #7C93CE - 天空蓝紫（强调色）
+ * - #C7B6DC - 淡紫霞光
+ * - #FCCCC9 - 茶玫瑰红（高亮）
+ */
+
+/* 字体导入 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+/* ========== 主题变量定义 ========== */
+[data-theme='sunset-coast'] {
+  /* 主色调 - 温暖的浅色背景 */
+  --theme-bg: #f5f7fa;
+  --theme-bg-secondary: #ffffff;
+  --theme-bg-tertiary: #eef2f6;
+  --theme-bg-hover: #e5eaf0;
+
+  /* 文字颜色 - 深蓝灰色系确保可读性 */
+  --theme-text: #1a2f3d;
+  --theme-text-secondary: #3d5a6d;
+  --theme-text-tertiary: #6b8a9d;
+
+  /* 强调色 - 海洋与天空的渐变色系 */
+  --theme-accent: #347a73;
+  --theme-accent-secondary: #7c93ce;
+  --theme-accent-tertiary: #014944;
+  --theme-highlight: #fcccc9;
+
+  /* 功能色 */
+  --theme-danger: #e57373;
+  --theme-warning: #ffb003;
+  --theme-info: #7c93ce;
+  --theme-success: #347a73;
+
+  /* 边框 - 柔和的海绿色边框 */
+  --theme-border: rgba(52, 122, 115, 0.15);
+  --theme-border-hover: rgba(52, 122, 115, 0.3);
+  --theme-border-active: rgba(52, 122, 115, 0.5);
+
+  /* 字体 */
+  --theme-font:
+    'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --theme-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* 圆角 */
+  --theme-radius: 10px;
+  --theme-radius-sm: 8px;
+  --theme-radius-lg: 14px;
+
+  /* 阴影 - 柔和的蓝绿色阴影 */
+  --theme-shadow: 0 4px 20px rgba(1, 73, 68, 0.08), 0 2px 8px rgba(1, 73, 68, 0.04);
+  --theme-shadow-glow: 0 0 30px rgba(52, 122, 115, 0.12);
+
+  /* 间距 */
+  --theme-spacing: 12px;
+  --theme-spacing-sm: 8px;
+  --theme-spacing-lg: 16px;
+
+  /* 标题栏 */
+  --title-bar-height: 38px;
+  --title-bar-bg: transparent;
+  --title-bar-border: var(--theme-border);
+  --title-bar-text: var(--theme-text-secondary);
+  --title-bar-text-hover: var(--theme-text);
+
+  /* 滚动条 */
+  --scrollbar-width: 6px;
+  --scrollbar-track-bg: transparent;
+  --scrollbar-thumb-bg: rgba(52, 122, 115, 0.25);
+  --scrollbar-thumb-hover-bg: rgba(52, 122, 115, 0.4);
+  --scrollbar-thumb-radius: 3px;
+
+  /* 聊天气泡 */
+  --bubble-user-bg: #347a73;
+  --bubble-user-text: #ffffff;
+  --bubble-ai-bg: #ffffff;
+  --bubble-ai-text: #1a2f3d;
+  --bubble-ai-border: rgba(52, 122, 115, 0.15);
+
+  /* 思考面板 */
+  --thinking-bg: #eef2f6;
+  --thinking-border: rgba(52, 122, 115, 0.25);
+  --thinking-accent: #347a73;
+
+  /* 玻璃效果覆盖 - 浅色主题调整 */
+  --glass-white-1: rgba(255, 255, 255, 0.6);
+  --glass-white-15: rgba(255, 255, 255, 0.7);
+  --glass-white-2: rgba(255, 255, 255, 0.75);
+  --glass-white-05: rgba(255, 255, 255, 0.3);
+  --glass-white-08: rgba(255, 255, 255, 0.45);
+  --glass-white-12: rgba(255, 255, 255, 0.55);
+  --glass-black-017: rgba(0, 0, 0, 0.01);
+  --glass-black-02: rgba(0, 0, 0, 0.015);
+  --glass-black-027: rgba(0, 0, 0, 0.02);
+}
+
+/* ========== 按钮组件覆盖 ========== */
+[data-theme='sunset-coast'] .btn {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border-color: rgba(52, 122, 115, 0.15);
+  color: var(--theme-text-secondary);
+}
+
+[data-theme='sunset-coast'] .btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(52, 122, 115, 0.3);
+  color: var(--theme-text);
+  box-shadow: 0 4px 12px rgba(1, 73, 68, 0.1);
+}
+
+[data-theme='sunset-coast'] .btn-primary {
+  background: #014944;
+  border: none;
+  box-shadow: 0 4px 12px rgba(1, 73, 68, 0.25);
+}
+
+[data-theme='sunset-coast'] .btn-primary:hover {
+  background: #015c54;
+  box-shadow: 0 6px 16px rgba(1, 73, 68, 0.35);
+}
+
+[data-theme='sunset-coast'] .btn-primary:active {
+  background: #013d37;
+}
+
+[data-theme='sunset-coast'] .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+[data-theme='sunset-coast'] .btn-danger {
+  border-color: rgba(229, 115, 115, 0.4);
+  color: var(--theme-danger);
+}
+
+[data-theme='sunset-coast'] .btn-danger:hover {
+  background-color: rgba(229, 115, 115, 0.15);
+  border-color: var(--theme-danger);
+  color: var(--theme-danger);
+}
+
+/* ========== 输入框组件覆盖 ========== */
+[data-theme='sunset-coast'] .input {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border-color: #7c93ce;
+}
+
+[data-theme='sunset-coast'] .input:hover {
+  border-color: #6b82bd;
+}
+
+[data-theme='sunset-coast'] .input:focus {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 3px rgba(52, 122, 115, 0.15);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* ========== 卡片组件覆盖 ========== */
+[data-theme='sunset-coast'] .card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+}
+
+[data-theme='sunset-coast'] .card:hover {
+  box-shadow: 0 8px 24px rgba(1, 73, 68, 0.1);
+}
+
+/* ========== 徽章组件覆盖 ========== */
+[data-theme='sunset-coast'] .badge-success {
+  border-color: rgba(52, 122, 115, 0.3);
+  color: var(--theme-success);
+  background: rgba(52, 122, 115, 0.1);
+}
+
+[data-theme='sunset-coast'] .badge-error {
+  border-color: rgba(229, 115, 115, 0.3);
+  color: var(--theme-danger);
+  background: rgba(229, 115, 115, 0.1);
+}
+
+[data-theme='sunset-coast'] .badge-info {
+  border-color: rgba(124, 147, 206, 0.3);
+  color: var(--theme-info);
+  background: rgba(124, 147, 206, 0.1);
+}
+
+/* ========== 特殊强调效果 ========== */
+/* 高亮/选中效果使用茶玫瑰色 */
+[data-theme='sunset-coast'] ::selection {
+  background-color: rgba(252, 204, 201, 0.4);
+  color: var(--theme-text);
+}
+
+/* 链接颜色 */
+[data-theme='sunset-coast'] a {
+  color: #347a73;
+}
+
+[data-theme='sunset-coast'] a:hover {
+  color: #7c93ce;
+}
+
+/* 渐变背景装饰（可选使用） */
+[data-theme='sunset-coast'] .gradient-accent {
+  background: linear-gradient(135deg, #347a73 0%, #7c93ce 50%, #c7b6dc 100%);
+}
+
+/* 日落渐变（用于特殊装饰元素） */
+[data-theme='sunset-coast'] .sunset-gradient {
+  background: linear-gradient(180deg, #7c93ce 0%, #c7b6dc 40%, #fcccc9 100%);
+}
+
+/* 海洋渐变（用于特殊装饰元素） */
+[data-theme='sunset-coast'] .ocean-gradient {
+  background: linear-gradient(180deg, #347a73 0%, #014944 100%);
+}
+
+/* ========== 知识库组件覆盖 ========== */
+/* KnowledgeSidebar - 新建知识库按钮 */
+[data-theme='sunset-coast'] .new-kb-btn {
+  background: #347a73;
+  border-color: rgba(52, 122, 115, 0.4);
+}
+
+[data-theme='sunset-coast'] .new-kb-btn:hover {
+  background: #2d6b65;
+}
+
+/* KnowledgeMain - 添加文件按钮 */
+[data-theme='sunset-coast'] .add-files-btn {
+  background: #347a73;
+  border-color: rgba(52, 122, 115, 0.4);
+}
+
+[data-theme='sunset-coast'] .add-files-btn:hover {
+  background: #2d6b65;
+}
+
+/* ========== 玻璃输入框覆盖 ========== */
+[data-theme='sunset-coast'] .glass-input:focus {
+  box-shadow:
+    0 0 0 3px rgba(52, 122, 115, 0.15),
+    inset 0 1px 0 var(--glass-white-15);
+}
+
+/* ========== 聊天消息组件覆盖 ========== */
+/* 用户头像 */
+[data-theme='sunset-coast'] .user-avatar {
+  background: #347a73;
+  box-shadow: 0 2px 8px rgba(52, 122, 115, 0.25);
+}
+
+/* AI 头像 */
+[data-theme='sunset-coast'] .ai-avatar {
+  box-shadow: 0 2px 8px rgba(52, 122, 115, 0.2);
+}
+
+/* 用户消息气泡 */
+[data-theme='sunset-coast'] .chat-message.role-user .message-bubble {
+  background: #347a73;
+  box-shadow: 0 4px 16px rgba(52, 122, 115, 0.2);
+}
+
+[data-theme='sunset-coast'] .chat-message.role-user .message-bubble:hover {
+  box-shadow: 0 6px 20px rgba(52, 122, 115, 0.3);
+}
+
+/* ========== 消息输入框覆盖 ========== */
+[data-theme='sunset-coast'] .message-textarea {
+  border-color: #347a73 !important;
+}
+
+[data-theme='sunset-coast'] .message-textarea:hover {
+  border-color: #2d6b65 !important;
+}
+
+[data-theme='sunset-coast'] .message-textarea:focus {
+  border-color: #7c93ce !important;
+  box-shadow: 0 0 0 3px rgba(52, 122, 115, 0.15);
+}
+
+/* 输入框容器边框 - 使用更高特异性覆盖 scoped 样式 */
+[data-theme='sunset-coast'] .message-input-container .input-wrapper {
+  border-color: #347a73 !important;
+}
+
+[data-theme='sunset-coast'] .message-input-container .input-wrapper:focus-within {
+  border-color: #7c93ce !important;
+}
+
+/* 执行按钮 - 使用更高特异性覆盖 scoped 样式 */
+[data-theme='sunset-coast'] .message-input-container .execute-btn {
+  background: #347a73 !important;
+  border-color: rgba(52, 122, 115, 0.4) !important;
+}
+
+[data-theme='sunset-coast'] .message-input-container .execute-btn:hover {
+  background: #2d6b65 !important;
+}
+
+/* 停止按钮 */
+[data-theme='sunset-coast'] .message-input-container .stop-btn {
+  border-color: rgba(229, 115, 115, 0.4) !important;
+}
+
+[data-theme='sunset-coast'] .message-input-container .stop-btn:hover {
+  background-color: rgba(229, 115, 115, 0.15) !important;
+}
+
+/* ========== 侧边栏组件覆盖 ========== */
+/* 新建会话按钮 */
+[data-theme='sunset-coast'] .new-chat-btn {
+  background: #347a73;
+  border-color: rgba(52, 122, 115, 0.4);
+}
+
+[data-theme='sunset-coast'] .new-chat-btn:hover {
+  background: #2d6b65;
+}
+
+/* ========== 沙箱侧边栏覆盖 ========== */
+/* 新建沙箱按钮 */
+[data-theme='sunset-coast'] .new-sandbox-btn {
+  background: #347a73;
+  border-color: rgba(52, 122, 115, 0.4);
+}
+
+[data-theme='sunset-coast'] .new-sandbox-btn:hover {
+  background: #2d6b65;
+}
+
+/* ========== 知识库组件扩展覆盖 ========== */
+/* 知识库描述输入框聚焦效果 */
+[data-theme='sunset-coast'] .kb-description-input:focus {
+  box-shadow: 0 0 0 2px rgba(52, 122, 115, 0.2) !important;
+}
+
+/* 知识库重新索引按钮 */
+[data-theme='sunset-coast'] .reindex-btn {
+  border-color: rgba(52, 122, 115, 0.3) !important;
+}
+
+[data-theme='sunset-coast'] .reindex-btn:hover:not(:disabled) {
+  background-color: rgba(52, 122, 115, 0.1) !important;
+  border-color: rgba(52, 122, 115, 0.5) !important;
+}
+
+/* 知识库管理文件按钮 */
+[data-theme='sunset-coast'] .manage-files-btn {
+  border-color: rgba(52, 122, 115, 0.3) !important;
+}
+
+[data-theme='sunset-coast'] .manage-files-btn:hover {
+  background-color: rgba(52, 122, 115, 0.1) !important;
+}
+
+/* ========== MCP 组件覆盖 ========== */
+/* MCP 面板使用独立的紫色调，保持不变 */
+
+/* ========== 沙箱组件扩展覆盖 ========== */
+/* 沙箱列表状态指示器 */
+[data-theme='sunset-coast'] .status-running {
+  background-color: rgba(52, 122, 115, 0.15) !important;
+}
+
+[data-theme='sunset-coast'] .status-exited {
+  background-color: rgba(248, 81, 73, 0.1) !important;
+}
+
+/* 沙箱操作按钮 */
+[data-theme='sunset-coast'] .sandbox-action-btn {
+  border-color: rgba(52, 122, 115, 0.3) !important;
+}
+
+[data-theme='sunset-coast'] .sandbox-action-btn:hover {
+  background-color: rgba(52, 122, 115, 0.1) !important;
+  border-color: rgba(52, 122, 115, 0.5) !important;
+}
+
+/* 沙箱工具切换按钮 */
+[data-theme='sunset-coast'] .sandbox-tools-toggle {
+  background-color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(52, 122, 115, 0.15);
+}
+
+[data-theme='sunset-coast'] .sandbox-tools-toggle:hover:not(.disabled) {
+  background-color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(52, 122, 115, 0.3);
+  box-shadow: 0 4px 12px rgba(1, 73, 68, 0.1);
+}
+
+[data-theme='sunset-coast'] .sandbox-tools-toggle.enabled {
+  background-color: rgba(52, 122, 115, 0.1);
+  border-color: rgba(52, 122, 115, 0.4);
+}
+
+[data-theme='sunset-coast'] .sandbox-tools-toggle.enabled:hover:not(.disabled) {
+  background-color: rgba(52, 122, 115, 0.15);
+  border-color: rgba(52, 122, 115, 0.5);
+}
+
+/* ========== 输入操作栏统一样式 ========== */
+/* 模型选择器按钮 */
+[data-theme='sunset-coast'] .model-btn {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(52, 122, 115, 0.15);
+  color: var(--theme-text-secondary);
+}
+
+[data-theme='sunset-coast'] .model-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(52, 122, 115, 0.3);
+  color: var(--theme-text);
+  box-shadow: 0 4px 12px rgba(1, 73, 68, 0.1);
+}
+
+/* MCP 工具触发按钮 */
+[data-theme='sunset-coast'] .mcp-trigger-btn {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(52, 122, 115, 0.15);
+  color: var(--theme-text-secondary);
+}
+
+[data-theme='sunset-coast'] .mcp-trigger-btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(52, 122, 115, 0.3);
+  color: var(--theme-text);
+  box-shadow: 0 4px 12px rgba(1, 73, 68, 0.1);
+}
+
+[data-theme='sunset-coast'] .mcp-trigger-btn.active {
+  background: rgba(124, 147, 206, 0.1);
+  border-color: rgba(124, 147, 206, 0.3);
+}
+
+[data-theme='sunset-coast'] .mcp-trigger-btn.has-selection {
+  color: var(--theme-accent);
+}
+
+/* 知识库触发按钮 */
+[data-theme='sunset-coast'] .kb-trigger-btn {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(52, 122, 115, 0.15);
+  color: var(--theme-text-secondary);
+}
+
+[data-theme='sunset-coast'] .kb-trigger-btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(52, 122, 115, 0.3);
+  color: var(--theme-text);
+  box-shadow: 0 4px 12px rgba(1, 73, 68, 0.1);
+}
+
+[data-theme='sunset-coast'] .kb-trigger-btn.active {
+  background: rgba(124, 147, 206, 0.1);
+  border-color: rgba(124, 147, 206, 0.3);
+}
+
+[data-theme='sunset-coast'] .kb-trigger-btn.has-selection {
+  color: var(--theme-accent);
+}
+
+/* ========== 徽章和开关颜色（与发送按钮一致） ========== */
+/* MCP 工具数量徽章 */
+[data-theme='sunset-coast'] .tools-count {
+  background-color: #347a73 !important;
+}
+
+/* 知识库数量徽章 */
+[data-theme='sunset-coast'] .kb-count {
+  background-color: #347a73 !important;
+}
+
+/* 沙箱开关激活状态 */
+[data-theme='sunset-coast'] .sandbox-tools-toggle.enabled .toggle-switch {
+  background-color: #347a73 !important;
+}
+
+/* 沙箱状态徽章激活状态 */
+[data-theme='sunset-coast'] .status-badge.active {
+  background-color: #347a73 !important;
+}

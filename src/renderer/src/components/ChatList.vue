@@ -83,29 +83,38 @@ function formatTime(isoString: string): string {
 .chat-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   padding: 8px;
   overflow-y: auto;
   flex: 1;
+  border-top: 1px solid var(--theme-border);
 }
 
 .chat-item {
-  padding: 12px;
+  padding: 10px 12px;
   background-color: transparent;
   border: 1px solid transparent;
-  border-radius: var(--theme-radius);
+  border-radius: var(--theme-radius-sm);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .chat-item:hover {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-border);
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+    ),
+    var(--glass-white-02, rgba(255, 255, 255, 0.02));
+  border-color: var(--glass-white-12, rgba(255, 255, 255, 0.12));
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
 }
 
 .chat-item.active {
-  background-color: var(--theme-bg-secondary);
-  border-color: var(--theme-accent);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(99, 102, 241, 0.06) 100%);
+  border-color: rgba(99, 102, 241, 0.3);
 }
 
 .chat-header {
@@ -116,7 +125,7 @@ function formatTime(isoString: string): string {
 }
 
 .chat-title {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--theme-text);
   font-weight: 500;
   white-space: nowrap;
@@ -135,32 +144,30 @@ function formatTime(isoString: string): string {
 
 .chat-time {
   font-size: 11px;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
 }
 
 .delete-btn {
   background: none;
   border: none;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
   font-size: 16px;
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
-  opacity: 0.7;
-  transition:
-    opacity 0.2s,
-    color 0.2s;
+  opacity: 0.6;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .delete-btn:hover {
   opacity: 1;
-  color: var(--theme-danger, #f85149);
+  color: var(--theme-danger);
 }
 
 .empty-state {
   padding: 24px 12px;
   text-align: center;
-  color: var(--theme-text-secondary);
+  color: var(--theme-text-tertiary);
   font-size: 13px;
 }
 </style>

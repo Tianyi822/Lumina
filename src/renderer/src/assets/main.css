@@ -4,8 +4,12 @@
  */
 
 @import './base.css';
-@import '../themes/terminal.css';
+@import '../styles/glass.css';
+@import '../styles/base-components.css';
+@import '../styles/animations.css';
 @import '../themes/blooming-flowers.css';
+@import '../themes/sunset-coast.css';
+@import '../styles/forms.css';
 
 body {
   margin: 0;

@@ -60,7 +60,6 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
     <!-- 按钮组 -->
     <div class="sidebar-actions">
       <button class="btn-primary new-kb-btn" @click="handleCreateKB">
-        <span class="btn-icon">+</span>
         <span>新建知识库</span>
       </button>
       <button class="btn-secondary manage-files-btn" @click="handleManageFiles">管理文件</button>
@@ -132,6 +131,16 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
   justify-content: center;
   gap: 8px;
   width: 100%;
+  margin: 0;
+}
+
+.new-kb-btn {
+  background: #46aa8f;
+  border-color: rgba(70, 170, 143, 0.4);
+}
+
+.new-kb-btn:hover {
+  background: #3d9980;
 }
 
 .manage-files-btn {

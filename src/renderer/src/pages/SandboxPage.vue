@@ -176,14 +176,15 @@ onMounted(async () => {
     <template v-else-if="dockerStatus?.installed">
       <!-- 内容区域 -->
       <div class="sandbox-content">
-        <SandboxSidebar
-          v-show="!sandboxSidebarCollapsed"
-          :sandboxs="sandboxList"
-          :active-sandbox-id="currentSandbox?.sandboxId"
-          :list-update-key="listUpdateKey"
-          @select-sandbox="sandboxStore.handleSelectSandbox"
-          @delete-sandbox="sandboxStore.handleDeleteSandbox"
-        />
+        <div class="sidebar-wrapper" :class="{ collapsed: sandboxSidebarCollapsed }">
+          <SandboxSidebar
+            :sandboxs="sandboxList"
+            :active-sandbox-id="currentSandbox?.sandboxId"
+            :list-update-key="listUpdateKey"
+            @select-sandbox="sandboxStore.handleSelectSandbox"
+            @delete-sandbox="sandboxStore.handleDeleteSandbox"
+          />
+        </div>
         <SandboxMainContent
           :current-sandbox="currentSandbox"
           :operation-logs="operationLogs"
@@ -290,6 +291,26 @@ onMounted(async () => {
   flex: 1;
   display: flex;
   overflow: hidden;
+}
+
+/* 侧边栏包装器 - 平滑过渡 */
+.sidebar-wrapper {
+  width: 280px;
+  min-width: 280px;
+  height: 100%;
+  overflow: hidden;
+  opacity: 1;
+  transition:
+    width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.2s ease-out;
+}
+
+.sidebar-wrapper.collapsed {
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* 加载状态 */

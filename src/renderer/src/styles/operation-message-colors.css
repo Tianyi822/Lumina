@@ -1,0 +1,64 @@
+/**
+ * 操作消息提示框配色
+ * 统一管理 OperationMessage 组件的类型颜色
+ */
+
+/* 一般消息（info）配色 */
+.message-info {
+  border-color: #47709b;
+  background-color: rgba(71, 112, 155, 0.05);
+}
+
+.message-info .message-icon {
+  background-color: #47709b;
+  color: white;
+}
+
+.message-info .message-title {
+  color: #47709b;
+}
+
+/* 警告消息（warning）配色 */
+.message-warning {
+  border-color: #fbfe8d;
+  background-color: rgba(251, 254, 141, 0.08);
+}
+
+.message-warning .message-icon {
+  background-color: #fbfe8d;
+  color: #5a5800;
+}
+
+.message-warning .message-title {
+  color: #b5a200;
+}
+
+/* 错误消息（error）配色 */
+.message-error {
+  border-color: #eb2129;
+  background-color: rgba(235, 33, 41, 0.05);
+}
+
+.message-error .message-icon {
+  background-color: #eb2129;
+  color: white;
+}
+
+.message-error .message-title {
+  color: #eb2129;
+}
+
+/* 成功消息（success）配色 */
+.message-success {
+  border-color: var(--theme-success);
+  background-color: rgba(63, 185, 80, 0.05);
+}
+
+.message-success .message-icon {
+  background-color: var(--theme-success);
+  color: white;
+}
+
+.message-success .message-title {
+  color: var(--theme-success);
+}

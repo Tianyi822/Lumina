@@ -24,7 +24,7 @@ export const DEFAULT_THEME_COLORS = {
 function createEmptyConfig(): AppConfig {
   return {
     theme: {
-      name: 'terminal',
+      name: 'blooming-flowers',
       colors: DEFAULT_THEME_COLORS
     },
     llm_config: {

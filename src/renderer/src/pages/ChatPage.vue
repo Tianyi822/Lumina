@@ -326,15 +326,16 @@ watch(
 <template>
   <div class="chat-page">
     <!-- 侧边栏 -->
-    <Sidebar
-      v-show="!sidebarCollapsed"
-      :sessions="sessionList"
-      :active-session-id="currentChatId"
-      :session-update-key="sessionUpdateKey"
-      @new-chat="handleNewChat"
-      @select-chat="handleSelectChat"
-      @delete-session="sessionStore.handleDeleteSession"
-    />
+    <div class="sidebar-wrapper" :class="{ collapsed: sidebarCollapsed }">
+      <Sidebar
+        :sessions="sessionList"
+        :active-session-id="currentChatId"
+        :session-update-key="sessionUpdateKey"
+        @new-chat="handleNewChat"
+        @select-chat="handleSelectChat"
+        @delete-session="sessionStore.handleDeleteSession"
+      />
+    </div>
 
     <!-- 主内容区 -->
     <!-- 使用 :key 绑定 currentChatId 确保切换会话时组件完全重新创建,实现状态隔离 -->
@@ -370,5 +371,25 @@ watch(
   width: 100%;
   height: 100%;
   overflow: hidden;
+}
+
+/* 侧边栏包装器 - 平滑过渡 */
+.sidebar-wrapper {
+  width: 280px;
+  min-width: 280px;
+  height: 100%;
+  overflow: hidden;
+  opacity: 1;
+  transition:
+    width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.2s ease-out;
+}
+
+.sidebar-wrapper.collapsed {
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 </style>
