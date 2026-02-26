@@ -67,8 +67,8 @@ export interface KnowledgeSearchResult {
   content: string
   /** 相似度分数 */
   score: number
-  /** 块索引 */
-  chunkIndex: number
+  /** 块索引（可选） */
+  chunkIndex?: number
 }
 
 /**

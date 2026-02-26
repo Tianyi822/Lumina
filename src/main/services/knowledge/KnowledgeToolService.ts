@@ -1,7 +1,6 @@
 import { logger } from '@main/services/logger'
 import type { MCPTool, MCPToolCallResult } from '@shared/types/mcp'
-import { getKnowledgeServiceManager } from './KnowledgeServiceManager'
-import { getFileService } from '@main/services/file/FileService'
+import { knowledgeCoreService } from './KnowledgeCoreService'
 
 /**
  * 工具调用参数
@@ -14,6 +13,9 @@ interface ToolArgs {
  * 知识库工具服务
  * 将知识库操作封装为 LLM 可调用的 MCP 工具格式
  * 让模型按需调用知识库搜索，而非自动搜索
+ *
+ * 注意：此服务通过 KnowledgeCoreService 实现核心业务逻辑，
+ * 与 KnowledgeMCPServerService（MCP 服务）共享相同的底层实现
  */
 export class KnowledgeToolService {
   /**
@@ -22,20 +24,13 @@ export class KnowledgeToolService {
    */
   getTools(selectedKnowledgeBaseIds?: string[]): MCPTool[] {
     // 获取可用知识库信息用于工具描述
-    const knowledgeManager = getKnowledgeServiceManager()
-    const allKnowledgeBases = knowledgeManager.getAllKnowledgeBases()
-
-    // 确定可用的知识库
-    let availableKnowledgeBases = allKnowledgeBases
-    if (selectedKnowledgeBaseIds && selectedKnowledgeBaseIds.length > 0) {
-      availableKnowledgeBases = allKnowledgeBases.filter((kb) =>
-        selectedKnowledgeBaseIds.includes(kb.id)
-      )
-    }
+    const knowledgeBases = knowledgeCoreService.getKnowledgeBases({
+      knowledgeBaseIds: selectedKnowledgeBaseIds
+    })
 
     const kbDescription =
-      availableKnowledgeBases.length > 0
-        ? `当前可用的知识库: ${availableKnowledgeBases.map((kb) => `"${kb.name}"(${kb.id})`).join(', ')}`
+      knowledgeBases.length > 0
+        ? `当前可用的知识库: ${knowledgeBases.map((kb) => `"${kb.name}"(${kb.id})`).join(', ')}`
         : '当前没有可用的知识库'
 
     return [
@@ -112,7 +107,7 @@ export class KnowledgeToolService {
         case 'knowledge__list':
           return this.listKnowledgeBases(selectedKnowledgeBaseIds)
         case 'knowledge__documents':
-          return await this.listDocuments(args, selectedKnowledgeBaseIds)
+          return this.listDocuments(args, selectedKnowledgeBaseIds)
 
         default:
           return {
@@ -130,7 +125,7 @@ export class KnowledgeToolService {
     }
   }
 
-  // ==================== 工具实现 ====================
+  // ==================== 工具实现（调用核心服务）====================
 
   /**
    * 搜索知识库
@@ -150,82 +145,16 @@ export class KnowledgeToolService {
       }
     }
 
-    const knowledgeManager = getKnowledgeServiceManager()
-
-    // 确定要搜索的知识库
-    let targetKbIds: string[] = []
-
-    if (knowledgeBaseId) {
-      // 如果指定了特定知识库，只搜索该知识库
-      // 但需要验证是否在选中的知识库范围内
-      if (selectedKnowledgeBaseIds && selectedKnowledgeBaseIds.length > 0) {
-        if (!selectedKnowledgeBaseIds.includes(knowledgeBaseId)) {
-          return {
-            success: false,
-            error: `知识库 ${knowledgeBaseId} 不在当前可用的知识库范围内`
-          }
-        }
-      }
-      targetKbIds = [knowledgeBaseId]
-    } else {
-      // 未指定知识库，搜索所有可用知识库
-      if (selectedKnowledgeBaseIds && selectedKnowledgeBaseIds.length > 0) {
-        targetKbIds = selectedKnowledgeBaseIds
-      } else {
-        // 没有选中的知识库，获取所有知识库
-        const allKbs = knowledgeManager.getAllKnowledgeBases()
-        targetKbIds = allKbs.map((kb) => kb.id)
-      }
-    }
-
-    if (targetKbIds.length === 0) {
-      return {
-        success: true,
-        content: [
-          {
-            type: 'text',
-            text: '没有可用的知识库进行搜索。请确保已创建并索引了知识库。'
-          }
-        ]
-      }
-    }
-
-    // 执行搜索
-    const allResults: Array<{
-      knowledgeBaseId: string
-      knowledgeBaseName: string
-      results: Array<{
-        fileName: string
-        content: string
-        similarity: number
-      }>
-    }> = []
-
-    for (const kbId of targetKbIds) {
-      const kbData = knowledgeManager.getKnowledgeBaseById(kbId)
-      if (!kbData) {
-        logger.warn('知识库不存在', 'main', { kbId })
-        continue
-      }
-
-      const service = knowledgeManager.getOrCreateInstance(kbId, kbData)
-      const searchResult = await service.search(kbId, query, limit)
-
-      if (searchResult.success && searchResult.data) {
-        allResults.push({
-          knowledgeBaseId: kbId,
-          knowledgeBaseName: kbData.name,
-          results: searchResult.data.results.map((r) => ({
-            fileName: r.fileName,
-            content: r.content,
-            similarity: r.similarity
-          }))
-        })
-      }
-    }
+    // 调用核心服务执行搜索
+    const result = await knowledgeCoreService.searchKnowledge({
+      query,
+      knowledgeBaseId,
+      limit,
+      allowedKnowledgeBaseIds: selectedKnowledgeBaseIds
+    })
 
     // 格式化结果
-    if (allResults.length === 0 || allResults.every((r) => r.results.length === 0)) {
+    if (result.items.length === 0) {
       return {
         success: true,
         content: [
@@ -239,17 +168,26 @@ export class KnowledgeToolService {
 
     let resultText = `搜索 "${query}" 的结果:\n\n`
 
-    for (const kbResult of allResults) {
-      resultText += `## 知识库: ${kbResult.knowledgeBaseName}\n\n`
+    // 按知识库分组
+    const groupedByKB = new Map<string, typeof result.items>()
+    for (const item of result.items) {
+      const existing = groupedByKB.get(item.knowledgeBaseId) || []
+      existing.push(item)
+      groupedByKB.set(item.knowledgeBaseId, existing)
+    }
 
-      for (const item of kbResult.results) {
+    for (const [kbId, items] of groupedByKB) {
+      const kbName = items[0]?.knowledgeBaseName || kbId
+      resultText += `## 知识库: ${kbName}\n\n`
+
+      for (const item of items) {
         resultText += `### 文档: ${item.fileName}\n`
         resultText += `**相关度: ${(item.similarity * 100).toFixed(1)}%**\n\n`
         resultText += `${item.content}\n\n---\n\n`
       }
     }
 
-    resultText += `\n共找到 ${allResults.reduce((sum, r) => sum + r.results.length, 0)} 条相关内容。`
+    resultText += `\n共找到 ${result.totalCount} 条相关内容。`
 
     return {
       success: true,
@@ -266,15 +204,10 @@ export class KnowledgeToolService {
    * 获取知识库列表
    */
   private listKnowledgeBases(selectedKnowledgeBaseIds?: string[]): MCPToolCallResult {
-    const knowledgeManager = getKnowledgeServiceManager()
-
-    // 确定要列出的知识库
-    let knowledgeBases = knowledgeManager.getAllKnowledgeBases()
-
-    if (selectedKnowledgeBaseIds && selectedKnowledgeBaseIds.length > 0) {
-      // 只列出选中的知识库
-      knowledgeBases = knowledgeBases.filter((kb) => selectedKnowledgeBaseIds.includes(kb.id))
-    }
+    // 调用核心服务获取知识库列表
+    const knowledgeBases = knowledgeCoreService.getKnowledgeBases({
+      knowledgeBaseIds: selectedKnowledgeBaseIds
+    })
 
     if (knowledgeBases.length === 0) {
       return {
@@ -288,21 +221,12 @@ export class KnowledgeToolService {
       }
     }
 
-    const formatted = knowledgeBases.map((kb) => ({
-      id: kb.id,
-      name: kb.name,
-      description: kb.description || '无描述',
-      documentCount: kb.linkedFileIds?.length || 0,
-      createdAt: kb.createdAt,
-      embeddingModel: kb.embeddingConfig.model
-    }))
-
     return {
       success: true,
       content: [
         {
           type: 'text',
-          text: `找到 ${formatted.length} 个知识库:\n\n${JSON.stringify(formatted, null, 2)}`
+          text: `找到 ${knowledgeBases.length} 个知识库:\n\n${JSON.stringify(knowledgeBases, null, 2)}`
         }
       ]
     }
@@ -311,68 +235,35 @@ export class KnowledgeToolService {
   /**
    * 获取知识库文档列表
    */
-  private async listDocuments(
+  private listDocuments(
     args: ToolArgs,
     selectedKnowledgeBaseIds?: string[]
   ): Promise<MCPToolCallResult> {
     const knowledgeBaseId = args.knowledgeBaseId as string
 
     if (!knowledgeBaseId) {
-      return {
+      return Promise.resolve({
         success: false,
         error: '缺少必需参数: knowledgeBaseId'
-      }
+      })
     }
 
-    // 验证知识库是否在可用范围内
-    if (selectedKnowledgeBaseIds && selectedKnowledgeBaseIds.length > 0) {
-      if (!selectedKnowledgeBaseIds.includes(knowledgeBaseId)) {
-        return {
-          success: false,
-          error: `知识库 ${knowledgeBaseId} 不在当前可用的知识库范围内`
-        }
-      }
-    }
+    // 调用核心服务获取文档列表
+    const documents = knowledgeCoreService.getDocuments({
+      knowledgeBaseId,
+      allowedKnowledgeBaseIds: selectedKnowledgeBaseIds
+    })
 
-    const knowledgeManager = getKnowledgeServiceManager()
-    const kbData = knowledgeManager.getKnowledgeBaseById(knowledgeBaseId)
-
-    if (!kbData) {
-      return {
+    if (documents === null) {
+      return Promise.resolve({
         success: false,
-        error: `知识库不存在: ${knowledgeBaseId}`
-      }
+        error: selectedKnowledgeBaseIds?.length
+          ? `知识库 ${knowledgeBaseId} 不在当前可用的知识库范围内`
+          : `知识库不存在: ${knowledgeBaseId}`
+      })
     }
 
-    // 获取关联的文件 ID 列表
-    const linkedFileIds = kbData.linkedFileIds || []
-
-    // 获取文件服务并查询文件详细信息
-    const fileService = getFileService()
-    const documents: Array<{
-      documentName: string
-      size: string
-      sizeBytes: number
-      uploadTime: string
-      documentType: string
-    }> = []
-
-    for (const fileId of linkedFileIds) {
-      const fileInfo = fileService.getFileById(fileId)
-      if (fileInfo) {
-        // 格式化文件大小
-        const sizeMB = (fileInfo.size / (1024 * 1024)).toFixed(1)
-        documents.push({
-          documentName: fileInfo.name,
-          size: `${sizeMB} MB`,
-          sizeBytes: fileInfo.size,
-          uploadTime: fileInfo.uploadedAt,
-          documentType: fileInfo.fileType
-        })
-      }
-    }
-
-    return {
+    return Promise.resolve({
       success: true,
       content: [
         {
@@ -380,7 +271,7 @@ export class KnowledgeToolService {
           text: JSON.stringify(documents, null, 2)
         }
       ]
-    }
+    })
   }
 }
 

@@ -4,8 +4,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { z } from 'zod'
 import { logger } from '@main/services/logger'
-import { getKnowledgeServiceManager } from './KnowledgeServiceManager'
-import { getFileService } from '@main/services/file/FileService'
+import { knowledgeCoreService } from './KnowledgeCoreService'
 import type {
   KnowledgeMCPConfig,
   KnowledgeMCPServerStatus,
@@ -18,11 +17,13 @@ import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
 /**
  * 知识库 MCP 服务器服务
  * 负责创建和管理 MCP Server 实例，将知识库能力通过 MCP 协议对外暴露
+ *
+ * 架构说明：
+ * - 使用无状态模式，每个 HTTP 请求使用独立的 transport 实例
+ * - 这样可以支持多个客户端同时连接，以及断开后重新连接
  */
 export class KnowledgeMCPServerService {
-  private mcpServer: McpServer | null = null
   private httpServer: Server | null = null
-  private transport: StreamableHTTPServerTransport | null = null
   private config: KnowledgeMCPConfig = { ...DEFAULT_KNOWLEDGE_MCP_CONFIG }
   private localIP: string = '127.0.0.1'
 
@@ -104,6 +105,7 @@ export class KnowledgeMCPServerService {
    * 启动 MCP 服务
    */
   async start(): Promise<{ success: boolean; error?: string }> {
+    // 如果服务已在运行，直接返回成功
     if (this.httpServer !== null) {
       logger.warn('知识库 MCP 服务已在运行中', 'main')
       return { success: true }
@@ -114,30 +116,6 @@ export class KnowledgeMCPServerService {
 
       // 刷新本机 IP
       this.localIP = this.getLocalIP()
-
-      // 创建 MCP Server，声明 capabilities
-      this.mcpServer = new McpServer(
-        {
-          name: 'sparrow-knowledge-server',
-          version: '1.0.0'
-        },
-        {
-          capabilities: {
-            tools: {}
-          }
-        }
-      )
-
-      // 注册工具
-      this.registerTools()
-
-      // 创建传输层（有状态模式，生成 session ID）
-      this.transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => crypto.randomUUID()
-      })
-
-      // 连接传输层
-      await this.mcpServer.connect(this.transport)
 
       // 创建 HTTP 服务器，添加 CORS 支持
       this.httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
@@ -153,43 +131,68 @@ export class KnowledgeMCPServerService {
           return
         }
 
-        if (this.transport) {
-          try {
-            // 读取并解析请求体
-            let body = ''
-            for await (const chunk of req) {
-              body += chunk.toString()
-            }
+        try {
+          // 为每个请求创建新的 MCP Server 和 Transport（无状态模式）
+          // 这样可以支持多个客户端同时连接，以及断开后重新连接
+          const transport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: undefined // 无状态模式
+          })
 
-            let parsedBody: unknown = undefined
-            if (body) {
-              try {
-                parsedBody = JSON.parse(body)
-              } catch {
-                // 忽略解析错误，让 transport 处理
+          const mcpServer = new McpServer(
+            {
+              name: 'sparrow-knowledge-server',
+              version: '1.0.0'
+            },
+            {
+              capabilities: {
+                tools: {}
               }
             }
+          )
 
-            await this.transport.handleRequest(req, res, parsedBody)
-          } catch (error) {
-            logger.error('处理 MCP 请求失败', 'main', {
-              error: error instanceof Error ? error.message : String(error)
-            })
-            if (!res.headersSent) {
-              res.statusCode = 500
-              res.end('Internal Server Error')
+          // 注册工具
+          this.registerToolsForServer(mcpServer)
+
+          // 连接传输层
+          await mcpServer.connect(transport)
+
+          // 读取并解析请求体
+          let body = ''
+          for await (const chunk of req) {
+            body += chunk.toString()
+          }
+
+          let parsedBody: unknown = undefined
+          if (body) {
+            try {
+              parsedBody = JSON.parse(body)
+            } catch {
+              // 忽略解析错误，让 transport 处理
             }
           }
-        } else {
-          res.statusCode = 503
-          res.end('Service Unavailable')
+
+          // 处理请求
+          await transport.handleRequest(req, res, parsedBody)
+        } catch (error) {
+          logger.error('处理 MCP 请求失败', 'main', {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          })
+          if (!res.headersSent) {
+            res.statusCode = 500
+            res.end('Internal Server Error')
+          }
         }
       })
 
       // 监听端口
       await new Promise<void>((resolve, reject) => {
         this.httpServer!.listen(this.config.port, () => {
-          logger.info(`知识库 MCP 服务已启动，监听端口 ${this.config.port}`, 'main')
+          logger.info(`知识库 MCP 服务已启动，监听端口 ${this.config.port}`, 'main', {
+            url: `http://${this.localIP}:${this.config.port}/mcp`,
+            tools: ['knowledge_search', 'knowledge_list', 'knowledge_documents'],
+            mode: 'stateless'
+          })
           resolve()
         })
         this.httpServer!.on('error', (err: Error) => {
@@ -230,28 +233,15 @@ export class KnowledgeMCPServerService {
       })
       this.httpServer = null
     }
-
-    // 关闭 MCP Server
-    if (this.mcpServer) {
-      try {
-        await this.mcpServer.close()
-      } catch (error) {
-        logger.warn('关闭 MCP Server 时出错', 'main', { error })
-      }
-      this.mcpServer = null
-    }
-
-    this.transport = null
   }
 
   /**
    * 注册 MCP 工具
+   * @param mcpServer 要注册工具的 MCP Server 实例
    */
-  private registerTools(): void {
-    if (!this.mcpServer) return
-
+  private registerToolsForServer(mcpServer: McpServer): void {
     // 注册知识库搜索工具
-    this.mcpServer.registerTool(
+    mcpServer.registerTool(
       'knowledge_search',
       {
         description:
@@ -289,7 +279,7 @@ export class KnowledgeMCPServerService {
     )
 
     // 注册知识库列表工具
-    this.mcpServer.registerTool(
+    mcpServer.registerTool(
       'knowledge_list',
       {
         description: '获取所有可用的知识库列表及其基本信息，包括知识库名称、描述、文档数量等。',
@@ -322,7 +312,7 @@ export class KnowledgeMCPServerService {
     )
 
     // 注册知识库文档列表工具
-    this.mcpServer.registerTool(
+    mcpServer.registerTool(
       'knowledge_documents',
       {
         description:
@@ -357,115 +347,76 @@ export class KnowledgeMCPServerService {
       }
     )
 
-    logger.info('MCP 工具已注册', 'main', {
+    logger.debug('MCP 工具已注册', 'main', {
       tools: ['knowledge_search', 'knowledge_list', 'knowledge_documents']
     })
   }
 
   /**
    * 搜索知识库
+   * 调用核心服务实现
    */
   private async searchKnowledge(
     query: string,
     knowledgeBaseId?: string,
     limit: number = 5
   ): Promise<KnowledgeSearchResult[]> {
-    const manager = getKnowledgeServiceManager()
-    const allKBs = manager.getAllKnowledgeBases()
-    const results: KnowledgeSearchResult[] = []
+    // 调用核心服务执行搜索
+    const result = await knowledgeCoreService.searchKnowledge({
+      query,
+      knowledgeBaseId,
+      limit
+    })
 
-    // 确定要搜索的知识库
-    const targetKBs = knowledgeBaseId
-      ? allKBs.filter((kb) => kb.id === knowledgeBaseId)
-      : allKBs
-
-    if (targetKBs.length === 0) {
-      return []
-    }
-
-    // 搜索每个知识库
-    for (const kb of targetKBs) {
-      try {
-        const service = manager.getOrCreateInstance(kb.id, kb)
-        const searchResult = await service.search(kb.id, query, limit)
-
-        if (searchResult.success && searchResult.data) {
-          for (const result of searchResult.data.results) {
-            results.push({
-              knowledgeBaseName: kb.name,
-              knowledgeBaseId: kb.id,
-              fileName: result.fileName,
-              content: result.content,
-              score: result.similarity,
-              chunkIndex: result.chunkIndex
-            })
-          }
-        }
-      } catch (error) {
-        logger.warn('搜索知识库失败', 'main', { kbId: kb.id, error })
-      }
-    }
-
-    // 按相似度排序并限制结果数量
-    results.sort((a, b) => b.score - a.score)
-    return results.slice(0, limit)
+    // 转换为 MCP 服务返回格式
+    return result.items.map((item) => ({
+      knowledgeBaseName: item.knowledgeBaseName,
+      knowledgeBaseId: item.knowledgeBaseId,
+      fileName: item.fileName,
+      content: item.content,
+      score: item.similarity,
+      chunkIndex: item.chunkIndex
+    }))
   }
 
   /**
    * 获取知识库列表
+   * 调用核心服务实现
    */
   private listKnowledgeBases(): KnowledgeBaseListItem[] {
-    const manager = getKnowledgeServiceManager()
-    const allKBs = manager.getAllKnowledgeBases()
+    // 调用核心服务获取知识库列表
+    const knowledgeBases = knowledgeCoreService.getKnowledgeBases()
 
-    return allKBs.map((kb) => ({
+    return knowledgeBases.map((kb) => ({
       id: kb.id,
       name: kb.name,
       description: kb.description,
-      documentCount: kb.linkedFileIds?.length || 0,
+      documentCount: kb.documentCount,
       createdAt: kb.createdAt
     }))
   }
 
   /**
    * 获取指定知识库中的文档列表
+   * 调用核心服务实现
    * @param knowledgeBaseId 知识库 ID
    * @returns 文档列表，包含文档名称、大小、上传时间和类型
    */
   private getDocumentsByKnowledgeBase(knowledgeBaseId: string): KnowledgeDocumentListItem[] {
-    const manager = getKnowledgeServiceManager()
-    const allKBs = manager.getAllKnowledgeBases()
+    // 调用核心服务获取文档列表
+    const documents = knowledgeCoreService.getDocuments({ knowledgeBaseId })
 
-    // 检查知识库是否存在
-    const kb = allKBs.find((k) => k.id === knowledgeBaseId)
-    if (!kb) {
-      logger.warn('知识库不存在', 'main', { knowledgeBaseId })
+    if (documents === null) {
       return []
     }
 
-    // 获取文件服务并查询关联的文件
-    const fileService = getFileService()
-    const files = fileService.getFilesByKBId(knowledgeBaseId)
-
-    // 转换为 MCP 工具返回格式
-    return files.map((file) => ({
-      documentName: file.name,
-      size: this.formatFileSize(file.size),
-      sizeBytes: file.size,
-      uploadTime: file.uploadedAt,
-      documentType: file.fileType
+    return documents.map((doc) => ({
+      documentName: doc.documentName,
+      size: doc.size,
+      sizeBytes: doc.sizeBytes,
+      uploadTime: doc.uploadTime,
+      documentType: doc.documentType
     }))
-  }
-
-  /**
-   * 格式化文件大小
-   * 将字节转换为易读的格式
-   */
-  private formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
   }
 }
 
