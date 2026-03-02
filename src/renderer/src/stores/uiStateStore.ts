@@ -1,15 +1,67 @@
 // UI 状态 Store
-// 管理应用界面状态（侧边栏、视图模式、配置通知、错误提示等）
+// 管理应用界面状态（侧边栏、视图模式、配置通知、错误提示、主题等）
 
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { useSessionStore } from './sessionStore'
+import type { ThemeConfig } from '@shared/types/config'
 
 // 视图类型
 export type ViewMode = 'chat' | 'knowledge' | 'sandbox'
 
 // 沙箱详情 Tab 类型
 export type SandboxDetailTab = 'info' | 'terminal' | 'logs' | 'stats'
+
+/**
+ * 主题元数据
+ */
+export interface ThemeMeta {
+  /** 主题 ID (对应 data-theme 属性值) */
+  id: string
+  /** 主题显示名称 */
+  name: string
+  /** 主题描述 */
+  description?: string
+  /** 主题预览色（用于显示主题色块，最多5种） */
+  previewColors?: {
+    primary: string
+    secondary: string
+    accent: string
+    extra1?: string
+    extra2?: string
+  }
+}
+
+/**
+ * 可用主题列表
+ * 这里定义所有可用的主题，与 themes/ 目录下的 CSS 文件对应
+ */
+export const AVAILABLE_THEMES: ThemeMeta[] = [
+  {
+    id: 'blooming-flowers',
+    name: 'Blooming Flowers',
+    description: '繁花主题，自然清新的绿色系',
+    previewColors: {
+      primary: '#0a594e',
+      secondary: '#46aa8f',
+      accent: '#70d75c',
+      extra1: '#d0ed35',
+      extra2: '#ffb003'
+    }
+  },
+  {
+    id: 'sunset-coast',
+    name: 'Sunset Coast',
+    description: '日落海岸，海洋与天空的温暖渐变',
+    previewColors: {
+      primary: '#014944',
+      secondary: '#347a73',
+      accent: '#7c93ce',
+      extra1: '#c7b6dc',
+      extra2: '#fcccc9'
+    }
+  }
+]
 
 export const useUIStateStore = defineStore(
   'uiState',
@@ -71,6 +123,14 @@ export const useUIStateStore = defineStore(
     // 是否显示聊天错误
     const showChatError = ref(false)
 
+    // ==================== State: 主题 ====================
+
+    // 当前主题 ID
+    const currentTheme = ref<string>('blooming-flowers')
+
+    // 主题是否已初始化（从配置文件加载）
+    const themeInitialized = ref(false)
+
     // ==================== Getters ====================
 
     // 是否在聊天视图
@@ -84,6 +144,13 @@ export const useUIStateStore = defineStore(
 
     // 是否有任何错误显示
     const hasAnyError = computed(() => showConfigError.value || showChatError.value)
+
+    // ==================== Getters: 主题 ====================
+
+    // 获取当前主题的元数据
+    const currentThemeMeta = computed(() =>
+      AVAILABLE_THEMES.find((t) => t.id === currentTheme.value)
+    )
 
     // ==================== Actions: 侧边栏 ====================
 
@@ -305,6 +372,73 @@ export const useUIStateStore = defineStore(
       }
     }
 
+    // ==================== Actions: 主题管理 ====================
+
+    /**
+     * 应用主题到 DOM
+     */
+    function applyThemeToDom(themeId: string): void {
+      const html = document.documentElement
+      html.setAttribute('data-theme', themeId)
+    }
+
+    /**
+     * 初始化主题（从配置文件加载）
+     */
+    async function initTheme(): Promise<void> {
+      if (themeInitialized.value) {
+        return
+      }
+
+      try {
+        const config = (await window.api.config.getConfig()) as { theme?: ThemeConfig } | null
+        if (config?.theme?.name && AVAILABLE_THEMES.some((t) => t.id === config.theme!.name)) {
+          currentTheme.value = config.theme.name
+        } else {
+          currentTheme.value = 'blooming-flowers'
+        }
+      } catch (error) {
+        window.api.logger?.warn('[UIStateStore] 无法从配置文件加载主题，使用默认主题', {
+          error: error instanceof Error ? error.message : String(error)
+        })
+        currentTheme.value = 'blooming-flowers'
+      }
+
+      applyThemeToDom(currentTheme.value)
+      themeInitialized.value = true
+    }
+
+    /**
+     * 设置主题（同时保存到配置文件）
+     */
+    async function setTheme(themeId: string): Promise<void> {
+      if (!AVAILABLE_THEMES.some((t) => t.id === themeId)) {
+        window.api.logger?.warn('[UIStateStore] 未知主题', { themeId })
+        return
+      }
+
+      currentTheme.value = themeId
+      applyThemeToDom(themeId)
+
+      // 保存主题到配置文件
+      try {
+        const themeConfig: ThemeConfig = { name: themeId }
+        await window.api.config.updateConfig({ theme: themeConfig })
+        window.api.logger?.info('[UIStateStore] 主题已保存', { themeId })
+      } catch (error) {
+        window.api.logger?.error('[UIStateStore] 保存主题配置失败', {
+          error: error instanceof Error ? error.message : String(error)
+        })
+      }
+    }
+
+    /**
+     * 获取所有可用主题
+     */
+    function getAvailableThemes(): ThemeMeta[] {
+      return AVAILABLE_THEMES
+    }
+
     // ==================== View Change Watchers ====================
 
     // 监听视图变化，确保状态正确保存
@@ -342,11 +476,16 @@ export const useUIStateStore = defineStore(
       chatError,
       showChatError,
 
+      // State: 主题
+      currentTheme,
+      themeInitialized,
+
       // Getters
       isChatView,
       isKnowledgeView,
       isSandboxView,
       hasAnyError,
+      currentThemeMeta,
 
       // Actions: 侧边栏
       toggleSidebar,
@@ -382,7 +521,12 @@ export const useUIStateStore = defineStore(
       dismissChatError,
       closeChatError,
       dismissAllErrors,
-      loadConfigStatus
+      loadConfigStatus,
+
+      // Actions: 主题管理
+      initTheme,
+      setTheme,
+      getAvailableThemes
     }
   },
   {

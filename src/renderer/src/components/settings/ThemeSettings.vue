@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import type { ThemeConfig } from '@renderer/types'
 import { useTheme } from '@renderer/composables/useTheme'
 
@@ -15,7 +15,7 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const { currentTheme, setTheme, getAvailableThemes, initTheme } = useTheme()
+const { currentTheme, setTheme, getAvailableThemes } = useTheme()
 
 // 可用主题列表
 const availableThemes = computed(() => getAvailableThemes())
@@ -24,7 +24,7 @@ const availableThemes = computed(() => getAvailableThemes())
 const selectedThemeId = computed({
   get: () => currentTheme.value,
   set: (themeId: string) => {
-    // setTheme 现在是异步的，但我们不需要等待它完成
+    // setTheme 是异步的，但我们不需要等待它完成
     setTheme(themeId)
     // 更新父组件的配置
     emit('update:modelValue', {
@@ -49,11 +49,6 @@ function selectTheme(themeId: string): void {
 function isSelected(themeId: string): boolean {
   return currentTheme.value === themeId
 }
-
-// 组件挂载时初始化主题
-onMounted(() => {
-  initTheme()
-})
 </script>
 
 <template>
