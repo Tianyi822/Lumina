@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import type { AppConfig, ThemeConfig } from '@shared/types/config'
 
 /**
  * 主题元数据
@@ -57,6 +58,9 @@ const currentTheme = ref<string>('blooming-flowers')
 // 存储主题变更回调
 const themeChangeCallbacks: Set<(theme: string) => void> = new Set()
 
+// 标记是否已初始化
+let initialized = false
+
 /**
  * 应用主题到 DOM
  */
@@ -68,22 +72,46 @@ function applyThemeToDom(themeId: string): void {
 /**
  * 主题管理 composable
  */
-export function useTheme() {
+export function useTheme(): {
+  currentTheme: typeof currentTheme
+  initTheme: () => Promise<void>
+  setTheme: (themeId: string) => Promise<void>
+  getCurrentTheme: () => string
+  getAvailableThemes: () => ThemeMeta[]
+  getCurrentThemeMeta: () => ThemeMeta | undefined
+  onThemeChange: (callback: (theme: string) => void) => () => void
+} {
   /**
-   * 初始化主题（从 localStorage 恢复）
+   * 初始化主题（从配置文件恢复）
    */
-  function initTheme(): void {
-    const savedTheme = localStorage.getItem('app-theme')
-    if (savedTheme && AVAILABLE_THEMES.some((t) => t.id === savedTheme)) {
-      currentTheme.value = savedTheme
+  async function initTheme(): Promise<void> {
+    // 避免重复初始化
+    if (initialized) {
+      return
     }
+
+    try {
+      // 从配置文件读取主题
+      const config = (await window.api.config.getConfig()) as AppConfig | null
+      if (config?.theme?.name && AVAILABLE_THEMES.some((t) => t.id === config.theme.name)) {
+        currentTheme.value = config.theme.name
+      } else {
+        // 配置文件中没有有效主题，使用默认值
+        currentTheme.value = 'blooming-flowers'
+      }
+    } catch (error) {
+      console.warn('[useTheme] 无法从配置文件加载主题，使用默认主题', error)
+      currentTheme.value = 'blooming-flowers'
+    }
+
     applyThemeToDom(currentTheme.value)
+    initialized = true
   }
 
   /**
-   * 设置主题
+   * 设置主题（同时保存到配置文件）
    */
-  function setTheme(themeId: string): void {
+  async function setTheme(themeId: string): Promise<void> {
     if (!AVAILABLE_THEMES.some((t) => t.id === themeId)) {
       console.warn(`[useTheme] Unknown theme: ${themeId}`)
       return
@@ -91,7 +119,16 @@ export function useTheme() {
 
     currentTheme.value = themeId
     applyThemeToDom(themeId)
-    localStorage.setItem('app-theme', themeId)
+
+    // 保存主题到配置文件
+    try {
+      const themeConfig: ThemeConfig = {
+        name: themeId
+      }
+      await window.api.config.updateConfig({ theme: themeConfig })
+    } catch (error) {
+      console.error('[useTheme] 保存主题配置失败', error)
+    }
 
     // 触发回调
     themeChangeCallbacks.forEach((cb) => cb(themeId))
@@ -148,4 +185,11 @@ export function getThemeInstance(): ReturnType<typeof useTheme> {
     themeInstance = useTheme()
   }
   return themeInstance
+}
+
+/**
+ * 重置初始化状态（仅用于测试）
+ */
+export function resetThemeInit(): void {
+  initialized = false
 }

@@ -24,6 +24,7 @@ const availableThemes = computed(() => getAvailableThemes())
 const selectedThemeId = computed({
   get: () => currentTheme.value,
   set: (themeId: string) => {
+    // setTheme 现在是异步的，但我们不需要等待它完成
     setTheme(themeId)
     // 更新父组件的配置
     emit('update:modelValue', {
