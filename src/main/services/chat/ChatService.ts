@@ -18,7 +18,7 @@ import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
 import { enhanceToolDescriptions } from './toolDescriptionEnhancer'
 import { ToolCallScheduler } from './ToolCallScheduler'
-import { getKnowledgeServiceManager } from '../knowledge'
+import { knowledgeToolService } from '../knowledge'
 
 /**
  * 聊天服务
@@ -31,6 +31,8 @@ export class ChatService {
   private toolScheduler: ToolCallScheduler
   private pendingExtractions: Set<string> = new Set()
   private extractionTimer: NodeJS.Timeout | null = null
+  // 存储每个会话选中的知识库 ID 列表
+  private sessionKnowledgeBases: Map<string, string[]> = new Map()
 
   constructor() {
     this.toolScheduler = new ToolCallScheduler(mcpService, logger, 3)
@@ -56,44 +58,32 @@ export class ChatService {
 
   /**
    * 发送聊天消息并流式返回响应
-   * 根据是否选择了工具来决定使用 ReAct 模式还是直接调用
+   * 根据是否选择了工具或知识库来决定使用 ReAct 模式还是直接调用
+   * 知识库现在作为工具提供给模型，由模型决定是否调用
    */
   async sendMessage(request: ChatRequest, webContents: WebContents): Promise<ChatResult> {
     const { selectedTools, selectedKnowledgeBases, sessionId } = request
 
     this.clearStoppedSession(sessionId)
 
-    let knowledgeResults: KnowledgeSearchResult[] = []
-    if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0) {
-      try {
-        knowledgeResults = await this.searchKnowledgeBases(
-          selectedKnowledgeBases,
-          request,
-          webContents
-        )
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          this.sendStreamEvent(webContents, { type: 'done', sessionId })
-          this.clearStoppedSession(sessionId)
-          return { success: true }
-        }
-        throw error
-      }
-    }
+    // 判断是否有知识库或工具需要使用
+    const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
+    const hasTools = (selectedTools && selectedTools.length > 0) || request.enableSandboxTools
 
-    if (this.isStopped(sessionId)) {
-      this.sendStreamEvent(webContents, { type: 'done', sessionId })
-      this.clearStoppedSession(sessionId)
-      return { success: true }
-    }
-
-    if ((selectedTools && selectedTools.length > 0) || request.enableSandboxTools) {
-      const result = await this.sendMessageWithReact(request, webContents, knowledgeResults)
+    // 如果有知识库或工具，使用 ReAct 模式，让模型决定是否调用知识库工具
+    if (hasKnowledgeBases || hasTools) {
+      const result = await this.sendMessageWithReact(
+        request,
+        webContents,
+        undefined, // 不再预搜索知识库
+        selectedKnowledgeBases // 传递知识库信息用于工具定义
+      )
       this.clearStoppedSession(sessionId)
       return result
     }
 
-    const result = await this.sendMessageDirect(request, webContents, knowledgeResults)
+    // 无工具时直接调用
+    const result = await this.sendMessageDirect(request, webContents)
     this.clearStoppedSession(sessionId)
 
     return result
@@ -136,116 +126,6 @@ export class ChatService {
           reject(error)
         })
     })
-  }
-
-  /**
-   * 搜索知识库
-   * 对选中的知识库执行查询并返回相关内容
-   */
-  private async searchKnowledgeBases(
-    knowledgeBases: KnowledgeBaseReference[],
-    request: ChatRequest,
-    webContents: WebContents
-  ): Promise<KnowledgeSearchResult[]> {
-    const { messages, sessionId } = request
-
-    this.checkStopped(sessionId)
-
-    const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')
-    const query = lastUserMessage?.content || ''
-
-    logger.info('开始搜索知识库', 'main', {
-      sessionId,
-      knowledgeBaseCount: knowledgeBases.length,
-      query
-    })
-
-    const results: KnowledgeSearchResult[] = []
-
-    for (const kb of knowledgeBases) {
-      this.checkStopped(sessionId)
-
-      this.sendStreamEvent(webContents, {
-        type: 'knowledge_search',
-        sessionId,
-        knowledgeSearch: {
-          knowledgeBaseId: kb.id,
-          knowledgeBaseName: kb.name,
-          query
-        }
-      })
-
-      try {
-        const kbData = getKnowledgeServiceManager().getKnowledgeBaseById(kb.id)
-        if (!kbData) {
-          logger.warn('知识库不存在', 'main', { kbId: kb.id })
-          continue
-        }
-
-        const service = getKnowledgeServiceManager().getOrCreateInstance(kb.id, kbData)
-
-        const searchResult = await this.withTimeoutAndStopCheck(
-          service.search(kb.id, query, 5),
-          sessionId,
-          30000,
-          '知识库搜索'
-        )
-
-        this.checkStopped(sessionId)
-
-        if (searchResult.success && searchResult.data) {
-          const kbResult: KnowledgeSearchResult = {
-            knowledgeBaseId: kb.id,
-            knowledgeBaseName: kb.name,
-            query,
-            results: searchResult.data.results.map((r) => ({
-              chunkId: r.chunkId,
-              fileId: r.fileId,
-              fileName: r.fileName,
-              content: r.content,
-              similarity: r.similarity
-            }))
-          }
-          results.push(kbResult)
-
-          this.sendStreamEvent(webContents, {
-            type: 'knowledge_result',
-            sessionId,
-            knowledgeResult: kbResult
-          })
-
-          logger.info('知识库搜索完成', 'main', {
-            kbId: kb.id,
-            kbName: kb.name,
-            resultCount: kbResult.results.length
-          })
-        } else {
-          logger.warn('知识库搜索失败', 'main', {
-            kbId: kb.id,
-            error: searchResult.error
-          })
-        }
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          (error.name === 'AbortError' || error.message.includes('超时'))
-        ) {
-          throw error
-        }
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        logger.error('知识库搜索异常', 'main', { kbId: kb.id, error: errorMessage })
-      }
-    }
-
-    this.checkStopped(sessionId)
-
-    logger.info('知识库搜索全部完成', 'main', {
-      sessionId,
-      searchedKbCount: knowledgeBases.length,
-      resultCount: results.length
-    })
-
-    return results
   }
 
   /**
@@ -368,11 +248,13 @@ export class ChatService {
   /**
    * 使用 ReAct 模式发送消息
    * 支持工具调用，通过思考-行动-观察循环逐步解决问题
+   * 知识库工具也被添加到工具列表中，由模型决定是否调用
    */
   private async sendMessageWithReact(
     request: ChatRequest,
     webContents: WebContents,
-    knowledgeResults?: KnowledgeSearchResult[]
+    knowledgeResults?: KnowledgeSearchResult[],
+    selectedKnowledgeBases?: KnowledgeBaseReference[]
   ): Promise<ChatResult> {
     const {
       messages,
@@ -441,6 +323,34 @@ export class ChatService {
           sessionId,
           sandboxToolCount: sandboxTools.length,
           totalToolCount: allTools.length
+        })
+      }
+
+      // 如果选择了知识库，添加知识库工具到工具列表
+      if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0) {
+        const kbIds = selectedKnowledgeBases.map((kb) => kb.id)
+        // 保存选中的知识库 ID 到会话映射中，供工具调用时使用
+        this.sessionKnowledgeBases.set(sessionId, kbIds)
+
+        const knowledgeTools = knowledgeToolService.getTools(kbIds).map((tool) => {
+          // 工具名称可能已经包含 knowledge__ 前缀，需要处理
+          const toolName = tool.name.startsWith('knowledge__')
+            ? tool.name.slice('knowledge__'.length) // 去掉 'knowledge__' 前缀
+            : tool.name
+          return {
+            serverName: tool.serverName || 'knowledge',
+            toolName: toolName,
+            description: tool.description,
+            inputSchema: tool.inputSchema
+          }
+        })
+        allTools.push(...knowledgeTools)
+
+        logger.info('已添加知识库工具到工具列表', 'main', {
+          sessionId,
+          knowledgeToolCount: knowledgeTools.length,
+          totalToolCount: allTools.length,
+          selectedKnowledgeBases: selectedKnowledgeBases.map((kb) => kb.name)
         })
       }
 
@@ -664,7 +574,7 @@ export class ChatService {
 
   /**
    * 构建 OpenAI tools 定义
-   * 使用增强后的工具描述，支持 MCP 工具和沙箱工具
+   * 使用增强后的工具描述，支持 MCP 工具、沙箱工具和知识库工具
    */
   private buildOpenAITools(
     tools: MCPToolReference[]
@@ -683,6 +593,19 @@ export class ChatService {
           type: 'function' as const,
           function: {
             name: `sandbox__${tool.toolName}`,
+            description: tool.description,
+            parameters: tool.inputSchema as Record<string, unknown>
+          }
+        })
+        continue
+      }
+
+      // 处理知识库工具（serverName 为 'knowledge'）
+      if (tool.serverName === 'knowledge') {
+        openAITools.push({
+          type: 'function' as const,
+          function: {
+            name: `knowledge__${tool.toolName}`,
             description: tool.description,
             parameters: tool.inputSchema as Record<string, unknown>
           }
@@ -796,7 +719,7 @@ export class ChatService {
 
   /**
    * 执行单个工具调用
-   * 支持 MCP 工具和沙箱工具
+   * 支持 MCP 工具、沙箱工具和知识库工具
    */
   private async executeToolCall(
     toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
@@ -825,6 +748,11 @@ export class ChatService {
     // 处理沙箱工具
     if (serverName === 'sandbox') {
       return this.executeSandboxTool(toolCall, toolName, webContents, sessionId)
+    }
+
+    // 处理知识库工具
+    if (serverName === 'knowledge') {
+      return this.executeKnowledgeTool(toolCall, toolName, webContents, sessionId)
     }
 
     // 处理 MCP 工具
@@ -940,6 +868,114 @@ export class ChatService {
 
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('沙箱工具调用失败', 'main', {
+        sessionId,
+        toolName,
+        error: errorMessage
+      })
+
+      this.sendStreamEvent(webContents, {
+        type: 'tool_result',
+        sessionId,
+        toolResult: {
+          id: toolCall.id,
+          name: toolName,
+          success: false,
+          error: errorMessage
+        }
+      })
+
+      return JSON.stringify({ error: errorMessage })
+    }
+  }
+
+  /**
+   * 执行知识库工具调用
+   */
+  private async executeKnowledgeTool(
+    toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
+    toolName: string,
+    webContents: WebContents,
+    sessionId: string
+  ): Promise<string> {
+    let args: Record<string, unknown> = {}
+
+    try {
+      args = JSON.parse(toolCall.function.arguments || '{}')
+    } catch (e) {
+      const error = `解析工具参数失败: ${e}`
+      logger.error(error, 'main')
+      this.sendStreamEvent(webContents, {
+        type: 'tool_result',
+        sessionId,
+        toolResult: {
+          id: toolCall.id,
+          name: toolName,
+          success: false,
+          error
+        }
+      })
+      return JSON.stringify({ error })
+    }
+
+    logger.info('执行知识库工具调用', 'main', {
+      sessionId,
+      toolName,
+      args
+    })
+
+    this.sendStreamEvent(webContents, {
+      type: 'tool_call',
+      sessionId,
+      toolCall: {
+        id: toolCall.id,
+        name: toolName,
+        serverName: 'knowledge',
+        arguments: args
+      }
+    })
+
+    try {
+      this.checkStopped(sessionId)
+
+      // 获取当前会话选中的知识库 ID 列表
+      const selectedKBIds = this.sessionKnowledgeBases.get(sessionId)
+
+      const result = await this.withTimeoutAndStopCheck(
+        knowledgeToolService.callTool(`knowledge__${toolName}`, args, selectedKBIds),
+        sessionId,
+        60000,
+        `知识库工具调用 ${toolName}`
+      )
+
+      this.checkStopped(sessionId)
+
+      this.sendStreamEvent(webContents, {
+        type: 'tool_result',
+        sessionId,
+        toolResult: {
+          id: toolCall.id,
+          name: toolName,
+          success: result.success,
+          result: result.content,
+          error: result.error
+        }
+      })
+
+      if (result.success) {
+        return JSON.stringify(result.content)
+      } else {
+        return JSON.stringify({ error: result.error })
+      }
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.name === 'AbortError' || error.message.includes('超时'))
+      ) {
+        throw error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('知识库工具调用失败', 'main', {
         sessionId,
         toolName,
         error: errorMessage
@@ -1121,6 +1157,7 @@ export class ChatService {
    */
   private clearStoppedSession(sessionId: string): void {
     this.stoppedSessions.delete(sessionId)
+    this.sessionKnowledgeBases.delete(sessionId)
   }
 
   /**

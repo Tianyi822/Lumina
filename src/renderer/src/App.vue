@@ -69,8 +69,8 @@ useLifecycle({
 })
 
 // 初始化主题
-onMounted(() => {
-  initTheme()
+onMounted(async () => {
+  await initTheme()
 })
 </script>
 

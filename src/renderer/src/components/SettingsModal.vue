@@ -5,6 +5,7 @@ import ModelSettings from './settings/ModelSettings.vue'
 import MCPSettings from './settings/MCPSettings.vue'
 import PromptEngineeringSettings from './settings/PromptEngineeringSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
+import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
 import type { AppConfig, ThemeConfig, LLMConfig, PromptConfig } from '@renderer/types'
 import { deepClone } from '@shared/utils'
 
@@ -15,7 +16,7 @@ const emit = defineEmits<{
 }>()
 
 // 当前激活的 Tab
-const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt' | 'embedding'>('model')
+const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge'>('model')
 
 // 加载状态
 const loading = ref(false)
@@ -209,6 +210,13 @@ onUnmounted(() => {
           >
             主题设置
           </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'knowledge' }"
+            @click="activeTab = 'knowledge'"
+          >
+            知识库服务
+          </button>
         </div>
 
         <!-- 右侧内容区域 -->
@@ -264,6 +272,13 @@ onUnmounted(() => {
             :model-value="themeConfig"
             @update:model-value="(value) => Object.assign(themeConfig, value)"
             @theme-change="handleThemeChange"
+          />
+
+          <!-- 知识库 MCP 服务 Tab -->
+          <KnowledgeMCPSettings
+            v-else-if="activeTab === 'knowledge'"
+            @update:error-message="errorMessage = $event"
+            @update:success-message="successMessage = $event"
           />
         </div>
       </div>

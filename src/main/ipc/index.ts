@@ -10,6 +10,7 @@ import { registerKnowledgeHandlers } from './handlers/knowledgeHandlers'
 import { registerEmbeddingModelHandlers } from './handlers/embeddingModelHandlers'
 import { registerFileHandlers } from './handlers/fileHandlers'
 import { registerSandboxHandlers, initializeSandbox } from './handlers/sandboxHandlers'
+import { registerKnowledgeMCPHandlers, initializeKnowledgeMCP } from './handlers/knowledgeMCPHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -19,6 +20,7 @@ export { initializeKnowledge } from './handlers/knowledgeHandlers'
 export { initializeEmbeddingModels } from './handlers/embeddingModelHandlers'
 export { initializeFileService } from './handlers/fileHandlers'
 export { initializeSandbox }
+export { initializeKnowledgeMCP }
 
 /**
  * 注册所有 IPC 处理程序
@@ -59,4 +61,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册沙箱相关处理程序
   registerSandboxHandlers()
+
+  // 注册知识库 MCP 服务相关处理程序
+  registerKnowledgeMCPHandlers()
 }
