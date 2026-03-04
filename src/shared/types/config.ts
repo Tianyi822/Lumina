@@ -137,31 +137,12 @@ export interface LLMConfigObject {
 }
 
 /**
- * 界面主题的颜色配置
- */
-export interface ThemeColors {
-  /** 主要背景颜色 */
-  background: string
-  /** 次要背景颜色 */
-  backgroundSecondary: string
-  /** 主要文本颜色 */
-  text: string
-  /** 次要文本颜色 */
-  textSecondary: string
-  /** 强调色，用于按钮、链接等 */
-  accent: string
-  /** 边框颜色 */
-  border: string
-}
-
-/**
  * 界面主题配置
+ * 主题颜色由 CSS 主题文件管理（见 src/renderer/src/themes/ 目录）
  */
 export interface ThemeConfig {
-  /** 主题的名称 */
+  /** 主题的名称（对应 CSS 主题文件的 data-theme 属性值） */
   name: string
-  /** 主题的颜色方案 */
-  colors?: ThemeColors
 }
 
 // MCP 相关类型已移至 @shared/types/mcp.ts，避免重复定义

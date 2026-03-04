@@ -25,17 +25,9 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const infoMessage = ref('')
 
-// 主题配置
+// 主题配置（只保存主题名称，颜色由 CSS 主题文件管理）
 const themeConfig = reactive<ThemeConfig>({
-  name: 'blooming-flowers',
-  colors: {
-    background: '#0d1117',
-    backgroundSecondary: '#161b22',
-    text: '#c9d1d9',
-    textSecondary: '#8b949e',
-    accent: '#3fb950',
-    border: '#30363d'
-  }
+  name: 'blooming-flowers'
 })
 
 // 模型配置
@@ -59,12 +51,9 @@ async function loadConfig(): Promise<void> {
   try {
     const config = (await window.api.config.getConfig()) as AppConfig | null
     if (config) {
-      // 加载主题配置
+      // 加载主题配置（只加载主题名称）
       if (config.theme) {
         themeConfig.name = config.theme.name || 'blooming-flowers'
-        if (config.theme.colors) {
-          Object.assign(themeConfig.colors!, config.theme.colors)
-        }
       }
       // 加载模型配置
       if (config.llm_config?.models) {
