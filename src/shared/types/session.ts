@@ -1,4 +1,11 @@
-import { TokenUsage, MessageRole, ToolCallMessage, ToolCallInfo, ToolResultInfo } from './chat'
+import {
+  TokenUsage,
+  MessageRole,
+  ToolCallMessage,
+  ToolCallInfo,
+  ToolResultInfo,
+  AttachedDocument
+} from './chat'
 
 /**
  * 会话的类型
@@ -40,6 +47,8 @@ export interface SessionMessage {
   tool_call_id?: string
   /** ReAct 推理步骤，仅 assistant 消息会有 */
   reactSteps?: ReActStepData[]
+  /** 附加的文档列表，仅 user 消息会有 */
+  attachedDocuments?: AttachedDocument[]
 }
 
 /**

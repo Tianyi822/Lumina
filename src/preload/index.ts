@@ -14,6 +14,7 @@ import { fileApi } from './apis/file'
 import { sandboxApi } from './apis/sandbox'
 import { promptTemplateApi, cacheStatsApi } from './apis/promptEngineering'
 import { knowledgeMCPApi } from './apis/knowledgeMCP'
+import { documentApi } from './apis/document'
 
 /**
  * 自定义渲染器 API
@@ -32,6 +33,7 @@ const api = {
   knowledge: knowledgeApi,
   file: fileApi,
   sandbox: sandboxApi,
+  document: documentApi,
   onFileProgress,
   onReindexProgress,
   // 提示词工程相关 API

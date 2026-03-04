@@ -368,7 +368,12 @@ onMounted(async () => {
             <p class="upload-hint">或</p>
             <label class="btn btn-primary upload-btn">
               选择文件
-              <input type="file" multiple accept=".txt,.md,.pdf,.doc,.docx,.csv" @change="handleFileSelect" />
+              <input
+                type="file"
+                multiple
+                accept=".txt,.md,.pdf,.doc,.docx,.csv"
+                @change="handleFileSelect"
+              />
             </label>
             <p class="upload-types">支持 .txt、.md、.pdf、.doc、.docx、.csv，最大 50MB</p>
           </div>

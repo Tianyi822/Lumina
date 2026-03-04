@@ -80,6 +80,15 @@ const senderName = computed(() => {
 function handleToggleReasoning(): void {
   emit('toggle-reasoning', props.message.id)
 }
+
+/**
+ * 格式化文件大小
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 </script>
 
 <template>
@@ -131,6 +140,23 @@ function handleToggleReasoning(): void {
 
       <!-- ReAct 推理步骤 -->
       <slot name="react-steps"></slot>
+
+      <!-- 文档指示器（仅用户消息） -->
+      <div
+        v-if="message.attachedDocuments && message.attachedDocuments.length > 0"
+        class="document-indicators"
+      >
+        <div v-for="(doc, index) in message.attachedDocuments" :key="index" class="doc-badge">
+          <svg class="doc-icon" width="14" height="14" viewBox="0 0 1024 1024">
+            <path
+              d="M538.5216 212.9408h289.64864c25.36448 0 48.88576 4.4544 70.58432 13.3632q33.13664 13.59872 60.59008 41.05216C995.62496 303.616 1013.76 347.3408 1013.76 398.53056v354.08896c0 51.16928-18.13504 94.88384-54.41536 131.1744-36.28032 36.27008-80.00512 54.40512-131.1744 54.40512H206.06976c-25.36448 0-48.88576-4.4544-70.58432-13.3632-22.09792-9.0624-42.2912-22.75328-60.59008-41.05216q-27.4432-27.4432-41.05216-60.57984C24.9344 801.4848 20.48 777.97376 20.48 752.60928V267.5712c0-25.41568 4.46464-48.98816 13.40416-70.71744 9.0624-22.05696 22.7328-42.22976 41.0112-60.5184 18.29888-18.28864 38.48192-31.97952 60.5696-41.05216C157.184 86.3744 180.70528 81.92 206.06976 81.92H317.2352c18.944 0 36.7616 3.05152 53.48352 9.15456 16.5888 6.05184 32.08192 15.11424 46.47936 27.1872l106.67008 89.344c4.23936 3.55328 9.1136 5.3248 14.6432 5.3248z"
+              fill="currentColor"
+            />
+          </svg>
+          <span class="doc-name" :title="doc.fileName">{{ doc.fileName }}</span>
+          <span class="doc-size">{{ formatFileSize(doc.fileSize) }}</span>
+        </div>
+      </div>
 
       <!-- 消息气泡 -->
       <div
@@ -702,5 +728,51 @@ function handleToggleReasoning(): void {
   50% {
     opacity: 0.85;
   }
+}
+
+/* ==================== 文档指示器样式 ==================== */
+.document-indicators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.doc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.12) 0%, rgba(70, 170, 143, 0.05) 100%);
+  border: 1px solid rgba(70, 170, 143, 0.25);
+  border-radius: var(--theme-radius-sm, 6px);
+  font-size: 12px;
+  color: var(--theme-text);
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.doc-badge:hover {
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.18) 0%, rgba(70, 170, 143, 0.08) 100%);
+  border-color: rgba(70, 170, 143, 0.35);
+}
+
+.doc-icon {
+  flex-shrink: 0;
+  color: var(--theme-accent);
+}
+
+.doc-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.doc-size {
+  font-size: 10px;
+  color: var(--theme-text-tertiary);
+  opacity: 0.8;
 }
 </style>

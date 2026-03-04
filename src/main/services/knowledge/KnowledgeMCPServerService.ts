@@ -248,13 +248,20 @@ export class KnowledgeMCPServerService {
           '在知识库中搜索相关内容。使用向量相似度搜索，返回最相关的文档片段。可以指定特定知识库搜索，也可以搜索所有知识库。',
         inputSchema: {
           query: z.string().describe('搜索查询文本'),
-          knowledgeBaseId: z.string().optional().describe('知识库ID（可选，不指定则搜索所有知识库）'),
+          knowledgeBaseId: z
+            .string()
+            .optional()
+            .describe('知识库ID（可选，不指定则搜索所有知识库）'),
           limit: z.number().optional().describe('返回结果数量限制（默认5）')
         }
       },
       async (args: { query: string; knowledgeBaseId?: string; limit?: number }) => {
         try {
-          const results = await this.searchKnowledge(args.query, args.knowledgeBaseId, args.limit || 5)
+          const results = await this.searchKnowledge(
+            args.query,
+            args.knowledgeBaseId,
+            args.limit || 5
+          )
           return {
             content: [
               {
@@ -315,8 +322,7 @@ export class KnowledgeMCPServerService {
     mcpServer.registerTool(
       'knowledge_documents',
       {
-        description:
-          '获取指定知识库中所有文档的详细信息，包括文档名称、大小、上传时间和文档类型。',
+        description: '获取指定知识库中所有文档的详细信息，包括文档名称、大小、上传时间和文档类型。',
         inputSchema: {
           knowledgeBaseId: z.string().describe('知识库ID')
         }

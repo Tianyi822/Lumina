@@ -13,6 +13,7 @@ import type {
   MCPToolReference,
   KnowledgeSearchResult
 } from '../../types/chat'
+import type { AttachedDocument } from '@shared/types/chat'
 import type { KnowledgeBaseReference } from '@shared/types/knowledge'
 import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
@@ -1275,8 +1276,42 @@ export class ChatService {
   }
 
   /**
+   * 格式化文档内容为文本
+   * @param documents 附加的文档列表
+   * @returns 格式化后的文档内容字符串
+   */
+  private formatDocumentsContext(documents: AttachedDocument[]): string {
+    if (!documents || documents.length === 0) {
+      return ''
+    }
+
+    let context = '\n\n=== 上传的文档 ===\n\n'
+
+    documents.forEach((doc, index) => {
+      context += `[文档 ${index + 1}]\n`
+      context += `文件名: ${doc.fileName}\n`
+      context += `类型: ${doc.fileType}\n`
+      context += `大小: ${this.formatFileSize(doc.fileSize)}\n`
+      context += '---\n'
+      context += doc.parsedContent
+      context += '\n\n'
+    })
+
+    return context
+  }
+
+  /**
+   * 格式化文件大小
+   */
+  private formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  /**
    * 格式化消息为 OpenAI 格式
-   * 过滤掉空内容的助手消息，将知识库结果附加到最后一条用户消息
+   * 过滤掉空内容的助手消息，将知识库结果和附加文档附加到最后一条用户消息
    */
   private formatMessagesWithKnowledge(
     messages: ChatMessage[],
@@ -1294,10 +1329,18 @@ export class ChatService {
         return true
       })
       .map((msg, index) => {
-        if (msg.role === 'user' && knowledgeContext && index === messages.length - 1) {
+        if (msg.role === 'user' && index === messages.length - 1) {
+          // 组合知识库内容和文档内容
+          let content = msg.content || ''
+          if (knowledgeContext) {
+            content += knowledgeContext
+          }
+          if (msg.attachedDocuments && msg.attachedDocuments.length > 0) {
+            content += this.formatDocumentsContext(msg.attachedDocuments)
+          }
           return {
             role: 'user' as const,
-            content: msg.content + knowledgeContext
+            content: content
           }
         }
 

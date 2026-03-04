@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed, inject } from 'vue'
 import { storeToRefs } from 'pinia'
 import MCPToolsPanel from './MCPToolsPanel.vue'
 import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
 import SandboxToolsToggle from './sandbox/SandboxToolsToggle.vue'
 import UserInteractionOptions from './UserInteractionOptions.vue'
-import type { AppConfig, MCPTool, KnowledgeBase, AttachmentFile } from '@renderer/types'
+import type { AppConfig, MCPTool, KnowledgeBase } from '@renderer/types'
 import { useUIStateStore, useChatStreamStore } from '@renderer/stores'
+import { useDocumentUploadStore } from '../stores/documentUploadStore'
+import type { AttachedDocument } from '@shared/types/chat'
 
 const props = defineProps<{
   isSending?: boolean
@@ -24,7 +26,8 @@ const emit = defineEmits<{
     model: string,
     selectedMCPTools: MCPTool[],
     selectedKnowledgeBases: KnowledgeBase[],
-    enableSandboxTools: boolean
+    enableSandboxTools: boolean,
+    attachedDocuments: AttachedDocument[]
   ): void
   (e: 'stop'): void
   (e: 'update:inputMessage', value: string): void
@@ -41,8 +44,21 @@ const localSelectedTools = ref<MCPTool[]>(props.selectedMCPTools ?? [])
 const localSelectedKnowledgeBases = ref<KnowledgeBase[]>(props.selectedKnowledgeBases ?? [])
 const localEnableSandboxTools = ref(props.enableSandboxTools ?? false)
 
-// 附件列表
-const attachments = ref<AttachmentFile[]>([])
+// 文档上传 store
+const documentStore = useDocumentUploadStore()
+
+// 会话 ID prop（需要父组件传入）
+const sessionId = inject<string>('sessionId', '')
+
+// 获取当前会话的待发送文档
+const pendingDocs = computed(() => {
+  return sessionId ? documentStore.getSessionDocuments(sessionId) : []
+})
+
+// 获取处理中的文件
+const processingFiles = computed(() => {
+  return sessionId ? documentStore.getSessionProcessingFiles(sessionId) : []
+})
 
 // 同步 props 到本地状态
 watch(
@@ -181,27 +197,60 @@ function getFileTypeIcon(fileName: string): { path: string; color: string } {
 }
 
 /**
- * 打开文件选择对话框
+ * 触发文档上传
  */
-async function handleSelectFiles(): Promise<void> {
-  try {
-    const files = await window.api.file.selectFiles()
-    if (files && files.length > 0) {
-      // 过滤掉已存在的文件
-      const existingPaths = new Set(attachments.value.map((f) => f.path))
-      const newFiles = files.filter((f) => !existingPaths.has(f.path))
-      attachments.value.push(...newFiles)
+function triggerDocumentUpload(): void {
+  if (!sessionId || props.isSending) return
+
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.multiple = true
+  input.accept = '.txt,.md,.pdf,.doc,.docx,.csv'
+
+  input.onchange = async (e) => {
+    const files = (e.target as HTMLInputElement).files
+    if (!files || files.length === 0) return
+
+    // 检查文件大小
+    const MAX_SIZE = 10 * 1024 * 1024 // 10MB
+    const validFiles: File[] = []
+
+    for (const file of Array.from(files)) {
+      if (file.size > MAX_SIZE) {
+        window.api.logger.warn('[MessageInput] 文件过大', {
+          fileName: file.name,
+          size: file.size
+        })
+        alert(`文件 "${file.name}" 过大（${formatFileSize(file.size)}），最大支持 10MB`)
+        continue
+      }
+      validFiles.push(file)
     }
-  } catch (error) {
-    window.api.logger.error('[MessageInput] 选择文件失败', { error })
+
+    // 上传所有有效文件
+    for (const file of validFiles) {
+      try {
+        await documentStore.uploadDocument(sessionId, file)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        window.api.logger.error('[MessageInput] 上传文档失败', {
+          fileName: file.name,
+          error: errorMessage
+        })
+        alert(`上传文档 "${file.name}" 失败: ${errorMessage}`)
+      }
+    }
   }
+
+  input.click()
 }
 
 /**
- * 移除附件
+ * 移除待发送的文档
  */
-function removeAttachment(index: number): void {
-  attachments.value.splice(index, 1)
+function removePendingDoc(index: number): void {
+  if (!sessionId) return
+  documentStore.removePendingDocument(sessionId, index)
 }
 
 // 从配置中加载的模型选项
@@ -261,22 +310,37 @@ watch(configUpdateKey, () => {
 
 function handleSend(): void {
   const message = localInputMessage.value
-  if (message.trim() && !props.isSending) {
+  if ((message.trim() || pendingDocs.value.length > 0) && !props.isSending) {
     // 调试日志：确认发送时的工具选择状态
     window.api.logger.debug('[MessageInput] 发送消息，选中的工具', {
       count: localSelectedTools.value.length,
       sandboxToolsEnabled: localEnableSandboxTools.value
     })
+
+    // 获取待发送的文档
+    const docsToSend = pendingDocs.value.map((doc) => ({
+      fileName: doc.fileName,
+      fileType: doc.fileType,
+      fileSize: doc.fileSize,
+      parsedContent: doc.parsedContent
+    }))
+
     emit(
       'send',
       message.trim(),
       localSelectedModel.value,
       localSelectedTools.value,
       localSelectedKnowledgeBases.value,
-      localEnableSandboxTools.value
+      localEnableSandboxTools.value,
+      docsToSend
     )
+
+    // 清空输入和文档列表
     localInputMessage.value = ''
     emit('update:inputMessage', '')
+    if (sessionId) {
+      documentStore.clearPendingDocuments(sessionId)
+    }
   }
 }
 
@@ -301,7 +365,8 @@ function handleUserInteractionSelect(_value: string, label: string): void {
     localSelectedModel.value,
     localSelectedTools.value,
     localSelectedKnowledgeBases.value,
-    localEnableSandboxTools.value
+    localEnableSandboxTools.value,
+    []
   )
 }
 
@@ -355,24 +420,31 @@ onUnmounted(() => {
       @select="handleUserInteractionSelect"
     />
 
-    <!-- 附件列表 -->
-    <div v-if="attachments.length > 0" class="attachments-list">
-      <div v-for="(file, index) in attachments" :key="file.path" class="attachment-item">
+    <!-- 待发送文档列表 -->
+    <div v-if="pendingDocs.length > 0" class="pending-docs-list">
+      <div v-for="(doc, index) in pendingDocs" :key="index" class="pending-doc-item">
         <svg
-          class="attachment-icon"
+          class="pending-doc-icon"
           width="16"
           height="16"
           viewBox="0 0 1024 1024"
-          :style="{ color: getFileTypeIcon(file.name).color }"
+          :style="{ color: getFileTypeIcon(doc.fileName).color }"
         >
-          <path :d="getFileTypeIcon(file.name).path" fill="currentColor" />
+          <path :d="getFileTypeIcon(doc.fileName).path" fill="currentColor" />
         </svg>
-        <div class="attachment-info">
-          <span class="attachment-name" :title="file.name">{{ file.name }}</span>
-          <span class="attachment-type">{{ getFileExtension(file.name).toUpperCase() || 'FILE' }}</span>
-          <span class="attachment-size">{{ formatFileSize(file.size) }}</span>
+        <div class="pending-doc-info">
+          <span class="pending-doc-name" :title="doc.fileName">{{ doc.fileName }}</span>
+          <span class="pending-doc-type">{{
+            getFileExtension(doc.fileName).toUpperCase() || 'FILE'
+          }}</span>
+          <span class="pending-doc-size">{{ formatFileSize(doc.fileSize) }}</span>
         </div>
-        <button class="attachment-remove" title="移除" @click="removeAttachment(index)">
+        <button
+          class="pending-doc-remove"
+          title="移除"
+          :disabled="isSending"
+          @click="removePendingDoc(index)"
+        >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
             <path
               d="M6 18L18 6M6 6l12 12"
@@ -386,11 +458,27 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- 处理中的文件列表 -->
+    <div v-if="processingFiles.length > 0" class="processing-files-list">
+      <div v-for="file in processingFiles" :key="file.tempId" class="processing-file-item">
+        <span v-if="file.status === 'uploading'" class="processing-status uploading">
+          ⏳ 上传中: {{ file.fileName }}
+        </span>
+        <span v-else-if="file.status === 'completed'" class="processing-status completed">
+          ✅ 完成: {{ file.fileName }}
+        </span>
+        <span v-else-if="file.status === 'failed'" class="processing-status failed">
+          ❌ 失败: {{ file.fileName }}
+          <span v-if="file.error" class="processing-error"> - {{ file.error }}</span>
+        </span>
+      </div>
+    </div>
+
     <div class="input-wrapper">
       <textarea
         v-model="localInputMessage"
         class="input message-textarea"
-        :class="{ 'has-attachments': attachments.length > 0 }"
+        :class="{ 'has-docs': pendingDocs.length > 0 }"
         placeholder="输入命令或消息 ..."
         rows="3"
         :disabled="isSending"
@@ -439,20 +527,20 @@ onUnmounted(() => {
 
       <!-- 附件按钮和执行按钮组 -->
       <div class="action-buttons-group">
-        <!-- 附件按钮 -->
+        <!-- 文档上传按钮 -->
         <button
-          class="attachment-btn"
-          :class="{ 'has-attachments': attachments.length > 0 }"
-          :disabled="isSending"
-          title="添加附件"
-          @click="handleSelectFiles"
+          class="document-upload-btn"
+          :class="{ 'has-docs': pendingDocs.length > 0 }"
+          :disabled="isSending || !sessionId"
+          title="上传文档 (txt, md, pdf, doc, docx, csv)"
+          @click="triggerDocumentUpload"
         >
-          <svg width="18" height="18" viewBox="0 0 1024 1024">
+          <svg width="18" height="18" viewBox="0 0 1024 1024" fill="currentColor">
             <path
-              d="M538.5216 212.9408h289.64864c25.36448 0 48.88576 4.4544 70.58432 13.3632q33.13664 13.59872 60.59008 41.05216C995.62496 303.616 1013.76 347.3408 1013.76 398.53056v354.08896c0 51.16928-18.13504 94.88384-54.41536 131.1744-36.28032 36.27008-80.00512 54.40512-131.1744 54.40512H206.06976c-25.36448 0-48.88576-4.4544-70.58432-13.3632-22.09792-9.0624-42.2912-22.75328-60.59008-41.05216q-27.4432-27.4432-41.05216-60.57984C24.9344 801.4848 20.48 777.97376 20.48 752.60928V267.5712c0-25.41568 4.46464-48.98816 13.40416-70.71744 9.0624-22.05696 22.7328-42.22976 41.0112-60.5184 18.29888-18.28864 38.48192-31.97952 60.5696-41.05216C157.184 86.3744 180.70528 81.92 206.06976 81.92H317.2352c18.944 0 36.7616 3.05152 53.48352 9.15456 16.5888 6.05184 32.08192 15.11424 46.47936 27.1872l106.67008 89.344c4.23936 3.55328 9.1136 5.3248 14.6432 5.3248zM828.16 866.304c31.3344 0 58.112-11.1104 80.34304-33.3312 22.23104-22.2208 33.35168-49.00864 33.35168-80.35328l-0.12288-354.03776c0-15.54432-2.73408-29.98272-8.192-43.29472-5.56032-13.5168-13.93664-25.88672-25.1392-37.09952-11.2128-11.22304-23.59296-19.6096-37.14048-25.16992-13.28128-5.45792-27.68896-8.192-43.2128-8.192H538.37824a94.18752 94.18752 0 0 1-32.8192-5.65248 93.97248 93.97248 0 0 1-27.99616-16.4352l-106.60864-89.35424a82.42176 82.42176 0 0 0-24.09472-14.336 83.03616 83.03616 0 0 0-29.63456-5.2224H206.06976c-15.4624 0-29.82912 2.70336-43.06944 8.12032-13.58848 5.56032-26.0096 13.96736-37.2736 25.23136-22.23104 22.24128-33.35168 49.03936-33.35168 80.384v485.04832c0 31.3344 11.1104 58.12224 33.3312 80.34304 22.2208 22.23104 49.00864 33.35168 80.36352 33.35168h622.10048zM615.43424 394.24H828.416c26.10176 0 47.11424 16.05632 47.11424 35.84s-21.10464 35.84-47.11424 35.84H615.424c-26.0096 0-47.11424-16.05632-47.11424-35.84s21.10464-35.84 47.11424-35.84z"
-              fill="currentColor"
+              d="M500.330144 493.959456C525.31082 468.616741 525.197683 428.317299 500.330144 403.44976 475.50786 378.627476 435.2763 378.491711 409.820448 403.44976L206.128377 607.051321C143.699314 670.023442 143.857706 771.05489 206.128377 833.325561 268.421675 895.618859 369.453124 895.777251 432.402617 833.325561L817.068825 448.659353C879.520515 386.207663 879.520515 284.836803 817.068825 222.385113 754.639762 159.95605 653.246275 159.933423 590.794585 222.385113L579.526128 233.74408C560.790621 252.479587 530.379363 252.479587 511.643856 233.74408 492.930976 215.0312 492.908349 184.64257 511.643856 165.861808L522.912313 154.502841C623.287566 54.625392 785.186785 54.738529 884.951097 154.502841 984.71541 254.267154 984.873802 416.121117 884.951097 516.541625L500.262262 901.185206C400.22642 1000.451715 238.576103 1000.225441 138.9023 900.551638 39.251125 800.900463 39.002223 639.227518 138.29136 539.214304L341.938176 335.567488C404.751905 273.115798 505.89649 273.251562 568.212416 335.567488 630.528342 397.883414 630.664106 499.027999 568.212416 561.841728L375.879312 754.174832C357.143805 772.910339 326.732547 772.910339 307.99704 754.174832 289.261533 735.439325 289.261533 705.028067 307.99704 686.29256L500.330144 493.959456Z"
             />
           </svg>
+          <span v-if="pendingDocs.length > 0" class="doc-count">{{ pendingDocs.length }}</span>
         </button>
 
         <!-- 执行/停止按钮 -->
@@ -660,25 +748,21 @@ onUnmounted(() => {
   opacity: 0.6;
 }
 
-/* ==================== 附件列表样式 ==================== */
-.attachments-list {
+/* ==================== 待发送文档列表样式 ==================== */
+.pending-docs-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
 }
 
-.attachment-item {
+.pending-doc-item {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  background: linear-gradient(
-    135deg,
-    var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
-    var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
-  );
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.08) 0%, rgba(70, 170, 143, 0.03) 100%);
+  border: 1px solid rgba(70, 170, 143, 0.2);
   border-radius: var(--theme-radius-sm, 6px);
   font-size: 12px;
   color: var(--theme-text);
@@ -686,19 +770,18 @@ onUnmounted(() => {
   transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.attachment-item:hover {
-  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
-  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+.pending-doc-item:hover {
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.12) 0%, rgba(70, 170, 143, 0.05) 100%);
+  border-color: rgba(70, 170, 143, 0.3);
 }
 
-.attachment-icon {
+.pending-doc-icon {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  margin-top: 1px;
+  width: 16px;
+  height: 16px;
 }
 
-.attachment-info {
+.pending-doc-info {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -706,7 +789,7 @@ onUnmounted(() => {
   gap: 2px;
 }
 
-.attachment-name {
+.pending-doc-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -715,22 +798,22 @@ onUnmounted(() => {
   line-height: 1.4;
 }
 
-.attachment-type {
+.pending-doc-type {
   font-size: 10px;
   font-weight: 600;
-  color: var(--theme-text-secondary);
+  color: var(--theme-accent);
   opacity: 0.8;
   line-height: 1.3;
 }
 
-.attachment-size {
+.pending-doc-size {
   font-size: 10px;
   color: var(--theme-text-tertiary);
   opacity: 0.7;
   line-height: 1.3;
 }
 
-.attachment-remove {
+.pending-doc-remove {
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -746,13 +829,65 @@ onUnmounted(() => {
   transition: all 0.15s ease;
 }
 
-.attachment-remove:hover {
-  background: var(--glass-white-1, rgba(255, 255, 255, 0.1));
+.pending-doc-remove:hover {
+  background: rgba(239, 68, 68, 0.1);
   color: var(--theme-danger);
 }
 
-/* ==================== 附件按钮样式 ==================== */
-.attachment-btn {
+.pending-doc-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ==================== 处理中文件样式 ==================== */
+.processing-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.processing-file-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
+    var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
+  );
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  border-radius: var(--theme-radius-sm, 6px);
+  font-size: 12px;
+  color: var(--theme-text);
+}
+
+.processing-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.processing-status.uploading {
+  color: var(--theme-text-secondary);
+}
+
+.processing-status.completed {
+  color: var(--theme-accent);
+}
+
+.processing-status.failed {
+  color: var(--theme-danger);
+}
+
+.processing-error {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* ==================== 文档上传按钮样式 ==================== */
+.document-upload-btn {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -775,20 +910,37 @@ onUnmounted(() => {
     inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15));
 }
 
-.attachment-btn:hover {
+.document-upload-btn:hover {
   background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
   border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
   color: var(--theme-text);
 }
 
-.attachment-btn:disabled {
+.document-upload-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.attachment-btn.has-attachments {
+.document-upload-btn.has-docs {
   color: var(--theme-accent);
   border-color: rgba(70, 170, 143, 0.3);
   background: rgba(70, 170, 143, 0.1);
+}
+
+.document-upload-btn .doc-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: var(--theme-accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 </style>
