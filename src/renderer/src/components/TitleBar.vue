@@ -120,9 +120,9 @@ onUnmounted(() => {
               'is-sandbox': isSandboxView
             }"
           ></div>
-          <!-- 聊天 按钮 -->
+          <!-- 智能体 按钮 -->
           <button class="switcher-btn" :class="{ active: isChatView }" @click="switchView('chat')">
-            <span>聊天</span>
+            <span>智能体</span>
           </button>
           <!-- 知识库 按钮 -->
           <button
