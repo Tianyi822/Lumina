@@ -63,9 +63,8 @@ export class PromptBuilder {
         // 启用缓存并更新配置
         this.cache.updateConfig({
           enabled: true,
-          // 使用详细配置或向后兼容的配置
-          systemPromptMaxSize: cacheConfig?.systemPromptMaxSize ?? config.cacheMaxSize ?? 50,
-          systemPromptTTL: cacheConfig?.systemPromptTTL ?? config.cacheTTLHours ?? 24,
+          systemPromptMaxSize: cacheConfig?.systemPromptMaxSize ?? 50,
+          systemPromptTTL: cacheConfig?.systemPromptTTL ?? 24,
           toolDescriptionMaxSize: cacheConfig?.toolDescriptionMaxSize ?? 200,
           toolDescriptionTTL: cacheConfig?.toolDescriptionTTL ?? 12,
           exampleFormattingMaxSize: cacheConfig?.exampleFormattingMaxSize ?? 500,
@@ -279,19 +278,7 @@ export class PromptBuilder {
  3. 使用清晰、结构化的表达
  4. 如果不确定，诚实地说出来
 
- 请用友好的语气回应用户，并尽力提供有价值的信息。`
-  }
-
-  // 获取简化的 ReAct 提示词（向后兼容）
-  getLegacyReactPrompt(): string {
-    return `你是一个可以使用工具的 AI 助手。
- 当你需要使用工具时，请按以下步骤思考：
- 1. 思考：分析你需要什么信息以及哪个工具可以帮助你
- 2. 行动：使用合适的工具并提供正确的参数
- 3. 观察：查看工具的输出结果
- 4. 如有需要重复上述步骤，然后给出你的最终答案
-
- 请始终解释你的推理过程。当你有足够的信息时，提供一个全面的最终答案。`
+ 请用友好的语气回应户，并尽力提供有价值的信息。`
   }
 
   /**

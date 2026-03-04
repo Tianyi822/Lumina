@@ -7,4 +7,3 @@ export const mcpService = new MCPService()
 
 export { MCPConfigManager } from './MCPConfigManager'
 export { MCPService } from './MCPService'
-export { getMCPConfigDirPath, getMCPConfigFilePath } from './MCPConfigManager'
