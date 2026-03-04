@@ -41,6 +41,13 @@ export * from '@shared/types/knowledge'
 // 提示词工程相关类型
 export * from '@shared/types/prompt'
 
+// 附件文件类型（从 preload 全局类型中获取）
+export type AttachmentFile = {
+  path: string
+  name: string
+  size: number
+}
+
 // ==================== UI 特有类型 ====================
 
 import type { ToolCallInfo, ToolResultInfo, ToolCallMessage } from '@shared/types/chat'

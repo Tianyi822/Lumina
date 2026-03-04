@@ -173,4 +173,38 @@ export function registerFileHandlers(): void {
       }
     }
   })
+
+  // 打开文件选择对话框，支持多选文件
+  ipcMain.handle('file:selectFiles', async () => {
+    try {
+      const { dialog } = await import('electron')
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          { name: '文档', extensions: ['pdf', 'doc', 'docx', 'txt', 'md', 'json', 'csv'] },
+          { name: '所有文件', extensions: ['*'] }
+        ]
+      })
+      if (result.canceled || result.filePaths.length === 0) {
+        return []
+      }
+      // 获取文件信息
+      const fs = await import('fs')
+      const files = await Promise.all(
+        result.filePaths.map(async (filePath) => {
+          const stats = await fs.promises.stat(filePath)
+          return {
+            path: filePath,
+            name: filePath.split('/').pop() || filePath.split('\\').pop() || filePath,
+            size: stats.size
+          }
+        })
+      )
+      return files
+    } catch (error) {
+      const errorMessage = `选择文件失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return []
+    }
+  })
 }

@@ -5,7 +5,7 @@ import MCPToolsPanel from './MCPToolsPanel.vue'
 import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
 import SandboxToolsToggle from './sandbox/SandboxToolsToggle.vue'
 import UserInteractionOptions from './UserInteractionOptions.vue'
-import type { AppConfig, MCPTool, KnowledgeBase } from '@renderer/types'
+import type { AppConfig, MCPTool, KnowledgeBase, AttachmentFile } from '@renderer/types'
 import { useUIStateStore, useChatStreamStore } from '@renderer/stores'
 
 const props = defineProps<{
@@ -40,6 +40,9 @@ const localSelectedModel = ref(props.selectedModel ?? '')
 const localSelectedTools = ref<MCPTool[]>(props.selectedMCPTools ?? [])
 const localSelectedKnowledgeBases = ref<KnowledgeBase[]>(props.selectedKnowledgeBases ?? [])
 const localEnableSandboxTools = ref(props.enableSandboxTools ?? false)
+
+// 附件列表
+const attachments = ref<AttachmentFile[]>([])
 
 // 同步 props 到本地状态
 watch(
@@ -118,6 +121,39 @@ function updateEnableSandboxTools(enabled: boolean): void {
   localEnableSandboxTools.value = enabled
   emit('update:enableSandboxTools', enabled)
   window.api.logger.debug('[MessageInput] 沙箱工具开关状态变更', { enabled })
+}
+
+/**
+ * 格式化文件大小
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+/**
+ * 打开文件选择对话框
+ */
+async function handleSelectFiles(): Promise<void> {
+  try {
+    const files = await window.api.file.selectFiles()
+    if (files && files.length > 0) {
+      // 过滤掉已存在的文件
+      const existingPaths = new Set(attachments.value.map((f) => f.path))
+      const newFiles = files.filter((f) => !existingPaths.has(f.path))
+      attachments.value.push(...newFiles)
+    }
+  } catch (error) {
+    window.api.logger.error('[MessageInput] 选择文件失败', { error })
+  }
+}
+
+/**
+ * 移除附件
+ */
+function removeAttachment(index: number): void {
+  attachments.value.splice(index, 1)
 }
 
 // 从配置中加载的模型选项
@@ -271,10 +307,36 @@ onUnmounted(() => {
       @select="handleUserInteractionSelect"
     />
 
+    <!-- 附件列表 -->
+    <div v-if="attachments.length > 0" class="attachments-list">
+      <div v-for="(file, index) in attachments" :key="file.path" class="attachment-item">
+        <svg class="attachment-icon" width="16" height="16" viewBox="0 0 1024 1024">
+          <path
+            d="M538.5216 212.9408h289.64864c25.36448 0 48.88576 4.4544 70.58432 13.3632q33.13664 13.59872 60.59008 41.05216C995.62496 303.616 1013.76 347.3408 1013.76 398.53056v354.08896c0 51.16928-18.13504 94.88384-54.41536 131.1744-36.28032 36.27008-80.00512 54.40512-131.1744 54.40512H206.06976c-25.36448 0-48.88576-4.4544-70.58432-13.3632-22.09792-9.0624-42.2912-22.75328-60.59008-41.05216q-27.4432-27.4432-41.05216-60.57984C24.9344 801.4848 20.48 777.97376 20.48 752.60928V267.5712c0-25.41568 4.46464-48.98816 13.40416-70.71744 9.0624-22.05696 22.7328-42.22976 41.0112-60.5184 18.29888-18.28864 38.48192-31.97952 60.5696-41.05216C157.184 86.3744 180.70528 81.92 206.06976 81.92H317.2352c18.944 0 36.7616 3.05152 53.48352 9.15456 16.5888 6.05184 32.08192 15.11424 46.47936 27.1872l106.67008 89.344c4.23936 3.55328 9.1136 5.3248 14.6432 5.3248zM828.16 866.304c31.3344 0 58.112-11.1104 80.34304-33.3312 22.23104-22.2208 33.35168-49.00864 33.35168-80.35328l-0.12288-354.03776c0-15.54432-2.73408-29.98272-8.192-43.29472-5.56032-13.5168-13.93664-25.88672-25.1392-37.09952-11.2128-11.22304-23.59296-19.6096-37.14048-25.16992-13.28128-5.45792-27.68896-8.192-43.2128-8.192H538.37824a94.18752 94.18752 0 0 1-32.8192-5.65248 93.97248 93.97248 0 0 1-27.99616-16.4352l-106.60864-89.35424a82.42176 82.42176 0 0 0-24.09472-14.336 83.03616 83.03616 0 0 0-29.63456-5.2224H206.06976c-15.4624 0-29.82912 2.70336-43.06944 8.12032-13.58848 5.56032-26.0096 13.96736-37.2736 25.23136-22.23104 22.24128-33.35168 49.03936-33.35168 80.384v485.04832c0 31.3344 11.1104 58.12224 33.3312 80.34304 22.2208 22.23104 49.00864 33.35168 80.36352 33.35168h622.10048zM615.43424 394.24H828.416c26.10176 0 47.11424 16.05632 47.11424 35.84s-21.10464 35.84-47.11424 35.84H615.424c-26.0096 0-47.11424-16.05632-47.11424-35.84s21.10464-35.84 47.11424-35.84z"
+            fill="currentColor"
+          />
+        </svg>
+        <span class="attachment-name" :title="file.name">{{ file.name }}</span>
+        <span class="attachment-size">{{ formatFileSize(file.size) }}</span>
+        <button class="attachment-remove" title="移除" @click="removeAttachment(index)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M6 18L18 6M6 6l12 12"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
     <div class="input-wrapper">
       <textarea
         v-model="localInputMessage"
         class="input message-textarea"
+        :class="{ 'has-attachments': attachments.length > 0 }"
         placeholder="输入命令或消息 ..."
         rows="3"
         :disabled="isSending"
@@ -321,14 +383,33 @@ onUnmounted(() => {
         @change="updateEnableSandboxTools"
       />
 
-      <!-- 执行/停止按钮 -->
-      <button v-if="!isSending" class="btn-primary execute-btn" @click="handleSend">
-        <span>执行</span>
-        <span class="shortcut-hint">⌘↵</span>
-      </button>
-      <button v-else class="btn-danger stop-btn" @click="handleStop">
-        <span>停止</span>
-      </button>
+      <!-- 附件按钮和执行按钮组 -->
+      <div class="action-buttons-group">
+        <!-- 附件按钮 -->
+        <button
+          class="attachment-btn"
+          :class="{ 'has-attachments': attachments.length > 0 }"
+          :disabled="isSending"
+          title="添加附件"
+          @click="handleSelectFiles"
+        >
+          <svg width="18" height="18" viewBox="0 0 1024 1024">
+            <path
+              d="M538.5216 212.9408h289.64864c25.36448 0 48.88576 4.4544 70.58432 13.3632q33.13664 13.59872 60.59008 41.05216C995.62496 303.616 1013.76 347.3408 1013.76 398.53056v354.08896c0 51.16928-18.13504 94.88384-54.41536 131.1744-36.28032 36.27008-80.00512 54.40512-131.1744 54.40512H206.06976c-25.36448 0-48.88576-4.4544-70.58432-13.3632-22.09792-9.0624-42.2912-22.75328-60.59008-41.05216q-27.4432-27.4432-41.05216-60.57984C24.9344 801.4848 20.48 777.97376 20.48 752.60928V267.5712c0-25.41568 4.46464-48.98816 13.40416-70.71744 9.0624-22.05696 22.7328-42.22976 41.0112-60.5184 18.29888-18.28864 38.48192-31.97952 60.5696-41.05216C157.184 86.3744 180.70528 81.92 206.06976 81.92H317.2352c18.944 0 36.7616 3.05152 53.48352 9.15456 16.5888 6.05184 32.08192 15.11424 46.47936 27.1872l106.67008 89.344c4.23936 3.55328 9.1136 5.3248 14.6432 5.3248zM828.16 866.304c31.3344 0 58.112-11.1104 80.34304-33.3312 22.23104-22.2208 33.35168-49.00864 33.35168-80.35328l-0.12288-354.03776c0-15.54432-2.73408-29.98272-8.192-43.29472-5.56032-13.5168-13.93664-25.88672-25.1392-37.09952-11.2128-11.22304-23.59296-19.6096-37.14048-25.16992-13.28128-5.45792-27.68896-8.192-43.2128-8.192H538.37824a94.18752 94.18752 0 0 1-32.8192-5.65248 93.97248 93.97248 0 0 1-27.99616-16.4352l-106.60864-89.35424a82.42176 82.42176 0 0 0-24.09472-14.336 83.03616 83.03616 0 0 0-29.63456-5.2224H206.06976c-15.4624 0-29.82912 2.70336-43.06944 8.12032-13.58848 5.56032-26.0096 13.96736-37.2736 25.23136-22.23104 22.24128-33.35168 49.03936-33.35168 80.384v485.04832c0 31.3344 11.1104 58.12224 33.3312 80.34304 22.2208 22.23104 49.00864 33.35168 80.36352 33.35168h622.10048zM615.43424 394.24H828.416c26.10176 0 47.11424 16.05632 47.11424 35.84s-21.10464 35.84-47.11424 35.84H615.424c-26.0096 0-47.11424-16.05632-47.11424-35.84s21.10464-35.84 47.11424-35.84z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+
+        <!-- 执行/停止按钮 -->
+        <button v-if="!isSending" class="btn-primary execute-btn" @click="handleSend">
+          <span>执行</span>
+          <span class="shortcut-hint">⌘↵</span>
+        </button>
+        <button v-else class="btn-danger stop-btn" @click="handleStop">
+          <span>停止</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -487,8 +568,14 @@ onUnmounted(() => {
   background-color: transparent;
 }
 
-.execute-btn {
+.action-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: auto;
+}
+
+.execute-btn {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -501,7 +588,6 @@ onUnmounted(() => {
 }
 
 .stop-btn {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -518,5 +604,119 @@ onUnmounted(() => {
 .shortcut-hint {
   font-size: 11px;
   opacity: 0.6;
+}
+
+/* ==================== 附件列表样式 ==================== */
+.attachments-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
+    var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
+  );
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  border-radius: var(--theme-radius-sm, 6px);
+  font-size: 12px;
+  color: var(--theme-text);
+  max-width: 280px;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.attachment-item:hover {
+  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+}
+
+.attachment-icon {
+  flex-shrink: 0;
+  color: var(--theme-accent);
+  opacity: 0.8;
+}
+
+.attachment-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.attachment-size {
+  flex-shrink: 0;
+  color: var(--theme-text-tertiary);
+  font-size: 11px;
+}
+
+.attachment-remove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--theme-text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.attachment-remove:hover {
+  background: var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  color: var(--theme-danger);
+}
+
+/* ==================== 附件按钮样式 ==================== */
+.attachment-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+  );
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  border-radius: 50%;
+  color: var(--theme-text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    0 2px 6px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15));
+}
+
+.attachment-btn:hover {
+  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  color: var(--theme-text);
+}
+
+.attachment-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.attachment-btn.has-attachments {
+  color: var(--theme-accent);
+  border-color: rgba(70, 170, 143, 0.3);
+  background: rgba(70, 170, 143, 0.1);
 }
 </style>

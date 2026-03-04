@@ -2,6 +2,18 @@ import { ipcRenderer } from 'electron'
 import type { FileItem } from '@shared/types/knowledge'
 
 /**
+ * 选中的附件文件信息
+ */
+export interface AttachmentFile {
+  /** 文件路径 */
+  path: string
+  /** 文件名 */
+  name: string
+  /** 文件大小（字节） */
+  size: number
+}
+
+/**
  * API 响应的通用格式
  */
 export interface ApiResponse<T = unknown> {
@@ -97,5 +109,13 @@ export const fileApi = {
    */
   getUsage: (fileId: string): Promise<ApiResponse<string[]>> => {
     return ipcRenderer.invoke('file:getUsage', fileId)
+  },
+
+  /**
+   * 打开文件选择对话框
+   * @returns 选中的文件列表，如果取消则返回空数组
+   */
+  selectFiles: (): Promise<AttachmentFile[]> => {
+    return ipcRenderer.invoke('file:selectFiles')
   }
 }
