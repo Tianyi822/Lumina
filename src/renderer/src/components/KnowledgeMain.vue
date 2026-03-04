@@ -297,7 +297,7 @@ async function uploadAndLinkFiles(files: File[]): Promise<void> {
   for (const file of files) {
     try {
       // 检查文件类型
-      const supportedTypes = ['.txt', '.md', '.json', '.js', '.ts', '.vue', '.py', '.pdf']
+      const supportedTypes = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv']
       const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
       if (!supportedTypes.includes(ext)) {
         errors.push(`${file.name}: 不支持的文件类型`)
@@ -613,6 +613,10 @@ function getFileIconClass(fileType: string): string {
       return 'file-icon-txt'
     case 'md':
       return 'file-icon-md'
+    case 'doc':
+      return 'file-icon-doc'
+    case 'csv':
+      return 'file-icon-csv'
     default:
       return 'file-icon-default'
   }
@@ -1342,6 +1346,16 @@ function getFileNameWithoutExtension(fileName: string): string {
 .file-icon-md {
   background-color: rgba(63, 185, 80, 0.15);
   color: #3fb950;
+}
+
+.file-icon-doc {
+  background-color: rgba(43, 87, 154, 0.15);
+  color: #2b579a;
+}
+
+.file-icon-csv {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
 }
 
 .file-icon-default {

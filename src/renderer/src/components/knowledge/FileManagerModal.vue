@@ -33,6 +33,10 @@ function getFileIconComponent(fileType: string): string {
       return 'txt'
     case 'md':
       return 'md'
+    case 'doc':
+      return 'doc'
+    case 'csv':
+      return 'csv'
     default:
       return 'default'
   }
@@ -71,14 +75,14 @@ function handleFileSelect(event: Event): void {
 // ==================== 上传处理 ====================
 async function processUpload(fileList: File[]): Promise<void> {
   // 过滤支持的文件类型
-  const supportedTypes = ['.txt', '.md', '.pdf']
+  const supportedTypes = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv']
   const validFiles = fileList.filter((file) => {
     const ext = '.' + file.name.split('.').pop()?.toLowerCase()
     return supportedTypes.includes(ext)
   })
 
   if (validFiles.length < fileList.length) {
-    alert('部分文件格式不支持。仅支持 .txt、.md 和 .pdf 文件。')
+    alert('部分文件格式不支持。仅支持 .txt、.md、.pdf、.doc、.docx 和 .csv 文件。')
   }
 
   if (validFiles.length === 0) return
@@ -180,9 +184,9 @@ onMounted(async () => {
           <p class="drop-hint">或</p>
           <label class="btn btn-secondary upload-btn">
             选择文件
-            <input type="file" multiple accept=".txt,.md,.pdf" @change="handleFileSelect" />
+            <input type="file" multiple accept=".txt,.md,.pdf,.doc,.docx,.csv" @change="handleFileSelect" />
           </label>
-          <p class="file-types">支持 .txt、.md、.pdf，最大 50MB</p>
+          <p class="file-types">支持 .txt、.md、.pdf、.doc、.docx、.csv，最大 50MB</p>
         </div>
         <div v-else class="uploading-content">
           <div class="upload-spinner"></div>
@@ -548,6 +552,16 @@ onMounted(async () => {
 .file-icon-md {
   background-color: rgba(63, 185, 80, 0.15);
   color: #3fb950;
+}
+
+.file-icon-doc {
+  background-color: rgba(43, 87, 154, 0.15);
+  color: #2b579a;
+}
+
+.file-icon-csv {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
 }
 
 .file-icon-default {

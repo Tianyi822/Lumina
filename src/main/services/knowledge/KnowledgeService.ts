@@ -42,7 +42,7 @@ export function writeKnowledgeBases(knowledgeBases: KnowledgeBase[]): void {
 }
 
 // 支持的文件类型
-const SUPPORTED_FILE_TYPES = new Set(['.txt', '.md', '.json', '.js', '.ts', '.vue', '.py', '.pdf'])
+const SUPPORTED_FILE_TYPES = new Set(['.txt', '.md', '.pdf', '.doc', '.docx', '.csv'])
 
 // 读取文本文件内容
 async function readTextFile(filePath: string): Promise<string> {
