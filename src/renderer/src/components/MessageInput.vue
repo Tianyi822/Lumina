@@ -50,14 +50,20 @@ const documentStore = useDocumentUploadStore()
 // 会话 ID prop（需要父组件传入）
 const sessionId = inject<string>('sessionId', '')
 
+// 临时会话 ID，用于在没有实际会话时上传文档
+const TEMP_SESSION_ID = 'temp'
+
+// 获取有效的会话 ID（实际 sessionId 或临时 ID）
+const effectiveSessionId = computed(() => sessionId || TEMP_SESSION_ID)
+
 // 获取当前会话的待发送文档
 const pendingDocs = computed(() => {
-  return sessionId ? documentStore.getSessionDocuments(sessionId) : []
+  return documentStore.getSessionDocuments(effectiveSessionId.value)
 })
 
 // 获取处理中的文件
 const processingFiles = computed(() => {
-  return sessionId ? documentStore.getSessionProcessingFiles(sessionId) : []
+  return documentStore.getSessionProcessingFiles(effectiveSessionId.value)
 })
 
 // 同步 props 到本地状态
@@ -200,7 +206,7 @@ function getFileTypeIcon(fileName: string): { path: string; color: string } {
  * 触发文档上传
  */
 function triggerDocumentUpload(): void {
-  if (!sessionId || props.isSending) return
+  if (props.isSending) return
 
   const input = document.createElement('input')
   input.type = 'file'
@@ -230,7 +236,7 @@ function triggerDocumentUpload(): void {
     // 上传所有有效文件
     for (const file of validFiles) {
       try {
-        await documentStore.uploadDocument(sessionId, file)
+        await documentStore.uploadDocument(effectiveSessionId.value, file)
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)
         window.api.logger.error('[MessageInput] 上传文档失败', {
@@ -249,8 +255,7 @@ function triggerDocumentUpload(): void {
  * 移除待发送的文档
  */
 function removePendingDoc(index: number): void {
-  if (!sessionId) return
-  documentStore.removePendingDocument(sessionId, index)
+  documentStore.removePendingDocument(effectiveSessionId.value, index)
 }
 
 // 从配置中加载的模型选项
@@ -338,9 +343,7 @@ function handleSend(): void {
     // 清空输入和文档列表
     localInputMessage.value = ''
     emit('update:inputMessage', '')
-    if (sessionId) {
-      documentStore.clearPendingDocuments(sessionId)
-    }
+    documentStore.clearPendingDocuments(effectiveSessionId.value)
   }
 }
 
@@ -531,7 +534,7 @@ onUnmounted(() => {
         <button
           class="document-upload-btn"
           :class="{ 'has-docs': pendingDocs.length > 0 }"
-          :disabled="isSending || !sessionId"
+          :disabled="isSending"
           title="上传文档 (txt, md, pdf, doc, docx, csv)"
           @click="triggerDocumentUpload"
         >
