@@ -28,6 +28,7 @@
     "apache-arrow": "^21.1.0",
     "dockerode": "^4.0.9",
     "electron-updater": "^6.3.9",
+    "mammoth": "^1.11.0",
     "markdown-it": "^14.1.0",
     "openai": "^6.16.0",
     "pdf-parse": "^2.4.5",
