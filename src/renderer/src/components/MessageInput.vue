@@ -47,6 +47,9 @@ const localEnableSandboxTools = ref(props.enableSandboxTools ?? false)
 // 文档上传 store
 const documentStore = useDocumentUploadStore()
 
+// 拖拽状态
+const isDragging = ref(false)
+
 // 会话 ID prop（需要父组件传入）
 const sessionId = inject<string>('sessionId', '')
 
@@ -203,6 +206,74 @@ function getFileTypeIcon(fileName: string): { path: string; color: string } {
 }
 
 /**
+ * 处理拖拽进入
+ */
+function handleDragOver(event: DragEvent): void {
+  event.preventDefault()
+  if (!props.isSending) {
+    isDragging.value = true
+  }
+}
+
+/**
+ * 处理拖拽离开
+ */
+function handleDragLeave(event: DragEvent): void {
+  event.preventDefault()
+  isDragging.value = false
+}
+
+/**
+ * 处理文件放置
+ */
+async function handleDrop(event: DragEvent): Promise<void> {
+  event.preventDefault()
+  isDragging.value = false
+
+  if (props.isSending) return
+
+  const files = Array.from(event.dataTransfer?.files || [])
+  await processDroppedFiles(files)
+}
+
+/**
+ * 处理拖拽的文件列表
+ */
+async function processDroppedFiles(files: File[]): Promise<void> {
+  const MAX_SIZE = 10 * 1024 * 1024 // 10MB
+  const SUPPORTED_TYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv']
+  const validFiles: File[] = []
+
+  for (const file of files) {
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+    if (!SUPPORTED_TYPES.includes(ext)) {
+      alert(`文件 "${file.name}" 格式不支持，仅支持 ${SUPPORTED_TYPES.join(', ')}`)
+      continue
+    }
+
+    if (file.size > MAX_SIZE) {
+      alert(`文件 "${file.name}" 过大（${formatFileSize(file.size)}），最大支持 10MB`)
+      continue
+    }
+
+    validFiles.push(file)
+  }
+
+  for (const file of validFiles) {
+    try {
+      await documentStore.uploadDocument(effectiveSessionId.value, file)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      window.api.logger.error('[MessageInput] 拖拽上传文档失败', {
+        fileName: file.name,
+        error: errorMessage
+      })
+      alert(`上传文档 "${file.name}" 失败: ${errorMessage}`)
+    }
+  }
+}
+
+/**
  * 触发文档上传
  */
 function triggerDocumentUpload(): void {
@@ -217,7 +288,6 @@ function triggerDocumentUpload(): void {
     const files = (e.target as HTMLInputElement).files
     if (!files || files.length === 0) return
 
-    // 检查文件大小
     const MAX_SIZE = 10 * 1024 * 1024 // 10MB
     const validFiles: File[] = []
 
@@ -233,7 +303,6 @@ function triggerDocumentUpload(): void {
       validFiles.push(file)
     }
 
-    // 上传所有有效文件
     for (const file of validFiles) {
       try {
         await documentStore.uploadDocument(effectiveSessionId.value, file)
@@ -482,16 +551,32 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="input-wrapper">
+    <div
+      class="input-wrapper"
+      @dragover="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
+    >
       <textarea
         v-model="localInputMessage"
         class="input message-textarea"
-        :class="{ 'has-docs': pendingDocs.length > 0 }"
-        placeholder="输入命令或消息 ..."
+        :class="{ 'has-docs': pendingDocs.length > 0, dragging: isDragging }"
+        placeholder="输入命令或消息，可拖拽文件上传 ..."
         rows="3"
         :disabled="isSending"
         @keydown="handleKeydown"
       ></textarea>
+
+      <div v-if="isDragging" class="drag-overlay">
+        <div class="drag-hint">
+          <svg width="48" height="48" viewBox="0 0 1024 1024" fill="currentColor">
+            <path
+              d="M500.330144 493.959456C525.31082 468.616741 525.197683 428.317299 500.330144 403.44976 475.50786 378.627476 435.2763 378.491711 409.820448 403.44976L206.128377 607.051321C143.699314 670.023442 143.857706 771.05489 206.128377 833.325561 268.421675 895.618859 369.453124 895.777251 432.402617 833.325561L817.068825 448.659353C879.520515 386.207663 879.520515 284.836803 817.068825 222.385113 754.639762 159.95605 653.246275 159.933423 590.794585 222.385113L579.526128 233.74408C560.790621 252.479587 530.379363 252.479587 511.643856 233.74408 492.930976 215.0312 492.908349 184.64257 511.643856 165.861808L522.912313 154.502841C623.287566 54.625392 785.186785 54.738529 884.951097 154.502841 984.71541 254.267154 984.873802 416.121117 884.951097 516.541625L500.262262 901.185206C400.22642 1000.451715 238.576103 1000.225441 138.9023 900.551638 39.251125 800.900463 39.002223 639.227518 138.29136 539.214304L341.938176 335.567488C404.751905 273.115798 505.89649 273.251562 568.212416 335.567488 630.528342 397.883414 630.664106 499.027999 568.212416 561.841728L375.879312 754.174832C357.143805 772.910339 326.732547 772.910339 307.99704 754.174832 289.261533 735.439325 289.261533 705.028067 307.99704 686.29256L500.330144 493.959456Z"
+            />
+          </svg>
+          <p>释放文件以上传</p>
+        </div>
+      </div>
     </div>
     <div class="input-actions">
       <!-- 模型选择器 -->
@@ -578,6 +663,7 @@ onUnmounted(() => {
 }
 
 .input-wrapper {
+  position: relative;
   margin-bottom: 12px;
 }
 
@@ -624,6 +710,42 @@ onUnmounted(() => {
 .message-textarea:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.message-textarea.dragging {
+  border-color: var(--theme-accent);
+  background: rgba(70, 170, 143, 0.05);
+  box-shadow: 0 0 0 3px rgba(70, 170, 143, 0.2);
+}
+
+.drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(70, 170, 143, 0.1);
+  border: 2px dashed var(--theme-accent);
+  border-radius: var(--theme-radius);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.drag-hint {
+  text-align: center;
+  color: var(--theme-accent);
+}
+
+.drag-hint svg {
+  margin-bottom: 8px;
+}
+
+.drag-hint p {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .input-actions {
