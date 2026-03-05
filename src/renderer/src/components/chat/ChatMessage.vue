@@ -3,6 +3,7 @@ import MarkdownIt from 'markdown-it'
 import { computed } from 'vue'
 import ReasoningPanel from './ReasoningPanel.vue'
 import type { Message } from '@renderer/types'
+import { getFileTypeIcon } from '@renderer/utils/fileIcons'
 
 // 初始化 markdown-it 实例
 const md = new MarkdownIt({
@@ -147,11 +148,14 @@ function formatFileSize(bytes: number): string {
         class="document-indicators"
       >
         <div v-for="(doc, index) in message.attachedDocuments" :key="index" class="doc-badge">
-          <svg class="doc-icon" width="14" height="14" viewBox="0 0 1024 1024">
-            <path
-              d="M538.5216 212.9408h289.64864c25.36448 0 48.88576 4.4544 70.58432 13.3632q33.13664 13.59872 60.59008 41.05216C995.62496 303.616 1013.76 347.3408 1013.76 398.53056v354.08896c0 51.16928-18.13504 94.88384-54.41536 131.1744-36.28032 36.27008-80.00512 54.40512-131.1744 54.40512H206.06976c-25.36448 0-48.88576-4.4544-70.58432-13.3632-22.09792-9.0624-42.2912-22.75328-60.59008-41.05216q-27.4432-27.4432-41.05216-60.57984C24.9344 801.4848 20.48 777.97376 20.48 752.60928V267.5712c0-25.41568 4.46464-48.98816 13.40416-70.71744 9.0624-22.05696 22.7328-42.22976 41.0112-60.5184 18.29888-18.28864 38.48192-31.97952 60.5696-41.05216C157.184 86.3744 180.70528 81.92 206.06976 81.92H317.2352c18.944 0 36.7616 3.05152 53.48352 9.15456 16.5888 6.05184 32.08192 15.11424 46.47936 27.1872l106.67008 89.344c4.23936 3.55328 9.1136 5.3248 14.6432 5.3248z"
-              fill="currentColor"
-            />
+          <svg
+            class="doc-icon"
+            width="14"
+            height="14"
+            viewBox="0 0 1024 1024"
+            :style="{ color: getFileTypeIcon(doc.fileName).color }"
+          >
+            <path :d="getFileTypeIcon(doc.fileName).path" fill="currentColor" />
           </svg>
           <span class="doc-name" :title="doc.fileName">{{ doc.fileName }}</span>
           <span class="doc-size">{{ formatFileSize(doc.fileSize) }}</span>
