@@ -33,6 +33,9 @@ export class DocumentManagerService {
     }
     error?: string
   }> {
+    // 获取文件扩展名（在 try 块外定义，以便在 catch 中访问）
+    const ext = this.getFileExtension(fileName)
+
     try {
       // 1. 检查文件大小
       if (fileData.length > this.MAX_FILE_SIZE) {
@@ -43,8 +46,7 @@ export class DocumentManagerService {
       }
 
       // 2. 检查文件类型
-      const ext = this.getFileExtension(fileName)
-      const supportedTypes = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv']
+      const supportedTypes = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.pptx']
       if (!supportedTypes.includes(ext)) {
         return {
           success: false,
@@ -81,10 +83,26 @@ export class DocumentManagerService {
       return result
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('文档上传或解析失败', 'main', { fileName, error: errorMessage })
+
+      logger.error('文档上传或解析失败', 'main', {
+        fileName,
+        fileSize: fileData.length,
+        fileType: ext,
+        error: errorMessage,
+        errorStack: error instanceof Error ? error.stack : undefined
+      })
+
+      let userMessage = `文档处理失败: ${errorMessage}`
+
+      if (errorMessage.includes('内存不足') || errorMessage.includes('memory')) {
+        userMessage = '文件过大导致内存不足，请使用知识库功能处理大文件'
+      } else if (errorMessage.includes('格式无效') || errorMessage.includes('已损坏')) {
+        userMessage = '文件格式无效或已损坏，请检查文件是否正常'
+      }
+
       return {
         success: false,
-        error: `文档处理失败: ${errorMessage}`
+        error: userMessage
       }
     }
   }

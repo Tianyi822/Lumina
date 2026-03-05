@@ -194,7 +194,7 @@ async function handleDrop(event: DragEvent): Promise<void> {
  */
 async function processDroppedFiles(files: File[]): Promise<void> {
   const MAX_SIZE = 10 * 1024 * 1024 // 10MB
-  const SUPPORTED_TYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv']
+  const SUPPORTED_TYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.pptx']
   const validFiles: File[] = []
 
   for (const file of files) {
@@ -235,7 +235,7 @@ function triggerDocumentUpload(): void {
   const input = document.createElement('input')
   input.type = 'file'
   input.multiple = true
-  input.accept = '.txt,.md,.pdf,.doc,.docx,.csv'
+  input.accept = '.txt,.md,.pdf,.doc,.docx,.csv,.pptx'
 
   input.onchange = async (e) => {
     const files = (e.target as HTMLInputElement).files
@@ -578,7 +578,7 @@ onUnmounted(() => {
           class="document-upload-btn"
           :class="{ 'has-docs': pendingDocs.length > 0 }"
           :disabled="isSending"
-          title="上传文档 (txt, md, pdf, doc, docx, csv)"
+          title="上传文档 (txt, md, pdf, doc, docx, csv, pptx)"
           @click="triggerDocumentUpload"
         >
           <svg width="18" height="18" viewBox="0 0 1024 1024" fill="currentColor">
