@@ -40,9 +40,12 @@ export class DocumentParserService {
           content = await this.parsePdf(tempPath)
           break
 
-        case '.doc':
         case '.docx':
-          content = await this.parseDocDocx(tempPath)
+          content = await this.parseDocx(tempPath)
+          break
+
+        case '.doc':
+          content = await this.parseDoc(tempPath)
           break
 
         default:
@@ -102,22 +105,22 @@ export class DocumentParserService {
   }
 
   /**
-   * 解析 Word 文档（doc, docx）
+   * 解析 DOCX 文档（Office Open XML 格式）
    */
-  private async parseDocDocx(filePath: string): Promise<string> {
+  private async parseDocx(filePath: string): Promise<string> {
     try {
-      logger.info('开始解析 Word 文档', 'main', { filePath })
+      logger.info('开始解析 DOCX 文档', 'main', { filePath })
 
       const result = await mammoth.extractRawText({ path: filePath })
 
-      logger.info('Word 文档解析完成', 'main', {
+      logger.info('DOCX 文档解析完成', 'main', {
         filePath,
         contentLength: result.value.length,
         warnings: result.messages.length
       })
 
       if (result.messages.length > 0) {
-        logger.warn('Word 解析警告', 'main', {
+        logger.warn('DOCX 解析警告', 'main', {
           filePath,
           warnings: result.messages
         })
@@ -126,8 +129,34 @@ export class DocumentParserService {
       return result.value
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('Word 文档解析失败', 'main', { filePath, error: errorMessage })
-      throw new Error(`Word 文档解析失败: ${errorMessage}`)
+      logger.error('DOCX 文档解析失败', 'main', { filePath, error: errorMessage })
+      throw new Error(`DOCX 文档解析失败: ${errorMessage}`)
+    }
+  }
+
+  /**
+   * 解析 DOC 文档（旧版二进制格式）
+   */
+  private async parseDoc(filePath: string): Promise<string> {
+    try {
+      logger.info('开始解析 DOC 文档', 'main', { filePath })
+
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const WordExtractor = require('word-extractor')
+      const extractor = new WordExtractor()
+      const extracted = await extractor.extract(filePath)
+      const text = extracted.getBody()
+
+      logger.info('DOC 文档解析完成', 'main', {
+        filePath,
+        contentLength: text.length
+      })
+
+      return text
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('DOC 文档解析失败', 'main', { filePath, error: errorMessage })
+      throw new Error(`DOC 文档解析失败: ${errorMessage}`)
     }
   }
 
