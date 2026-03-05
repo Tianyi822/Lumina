@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import ThemeSettings from './settings/ThemeSettings.vue'
 import ModelSettings from './settings/ModelSettings.vue'
 import MCPSettings from './settings/MCPSettings.vue'
 import PromptEngineeringSettings from './settings/PromptEngineeringSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
-import type { AppConfig, ThemeConfig, LLMConfig, PromptConfig } from '@renderer/types'
-import { deepClone } from '@shared/utils'
+import { useConfigStore } from '@renderer/stores'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -15,120 +15,54 @@ const emit = defineEmits<{
   (e: 'mcp-updated'): void
 }>()
 
+// 使用 configStore
+const configStore = useConfigStore()
+const {
+  loading,
+  saving,
+  errorMessage,
+  successMessage,
+  themeConfig,
+  llmConfigs,
+  defaultModel,
+  promptConfig
+} = storeToRefs(configStore)
+
 // 当前激活的 Tab
 const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge'>('model')
 
-// 加载状态
-const loading = ref(false)
-const saving = ref(false)
-const errorMessage = ref('')
-const successMessage = ref('')
+// 信息消息（仅用于嵌入模型设置）
 const infoMessage = ref('')
-
-// 主题配置（只保存主题名称，颜色由 CSS 主题文件管理）
-const themeConfig = reactive<ThemeConfig>({
-  name: 'blooming-flowers'
-})
-
-// 模型配置
-const llmConfigs = reactive<LLMConfig[]>([])
-const defaultModel = ref('')
-
-// 提示词配置
-const promptConfig = reactive<PromptConfig>({
-  enableEnhancedPrompt: true,
-  toolDescriptionLevel: 'detailed',
-  fewShotCount: 3,
-  enableDynamicExamples: false,
-  enablePromptOptimization: false,
-  optimizationAggressiveness: 'balanced'
-})
-
-// 加载配置
-async function loadConfig(): Promise<void> {
-  loading.value = true
-  errorMessage.value = ''
-  try {
-    const config = (await window.api.config.getConfig()) as AppConfig | null
-    if (config) {
-      // 加载主题配置（只加载主题名称）
-      if (config.theme) {
-        themeConfig.name = config.theme.name || 'blooming-flowers'
-      }
-      // 加载模型配置
-      if (config.llm_config?.models) {
-        llmConfigs.length = 0
-        llmConfigs.push(...config.llm_config.models)
-      }
-      defaultModel.value = config.llm_config?.default_model || ''
-      // 加载提示词配置
-      if (config.promptConfig) {
-        Object.assign(promptConfig, config.promptConfig)
-      }
-    }
-  } catch (error) {
-    errorMessage.value = `加载配置失败: ${error instanceof Error ? error.message : String(error)}`
-  } finally {
-    loading.value = false
-  }
-}
-
-// 保存配置
-async function saveConfig(): Promise<void> {
-  saving.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
-  try {
-    const plainThemeConfig = deepClone(themeConfig)
-    const plainLlmConfigs = deepClone(llmConfigs)
-    const plainPromptConfig = deepClone(promptConfig)
-
-    const result = await window.api.config.updateConfig({
-      theme: plainThemeConfig,
-      llm_config: {
-        default_model: defaultModel.value,
-        compression_threshold: 0,
-        enable_auto_compression: false,
-        models: plainLlmConfigs
-      },
-      promptConfig: plainPromptConfig
-    })
-    if (result.success) {
-      successMessage.value = '配置保存成功'
-      emit('config-updated')
-      setTimeout(() => {
-        successMessage.value = ''
-      }, 2000)
-    } else {
-      errorMessage.value = result.error || '保存失败'
-    }
-  } catch (error) {
-    errorMessage.value = `保存配置失败: ${error instanceof Error ? error.message : String(error)}`
-  } finally {
-    saving.value = false
-  }
-}
 
 // 关闭弹窗
 function handleClose(): void {
   infoMessage.value = ''
+  configStore.clearMessages()
   emit('close')
+}
+
+// 保存配置
+async function handleSave(): Promise<void> {
+  const success = await configStore.saveConfig()
+  if (success) {
+    emit('config-updated')
+  }
 }
 
 // 提示词配置重置成功
 function handlePromptResetSuccess(): void {
-  successMessage.value = '提示词配置已重置为默认值'
+  configStore.successMessage = '提示词配置已重置为默认值'
   setTimeout(() => {
-    successMessage.value = ''
+    configStore.successMessage = ''
   }, 2000)
 }
 
 // 主题变化处理（立即生效，无需保存）
 function handleThemeChange(themeId: string): void {
   window.api.logger.info('[SettingsModal] 主题已切换', { themeId })
-  successMessage.value = '主题已应用'
+  configStore.successMessage = '主题已应用'
   setTimeout(() => {
-    successMessage.value = ''
+    configStore.successMessage = ''
   }, 1500)
 }
 
@@ -140,7 +74,7 @@ function handleKeyDown(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
-  loadConfig()
+  configStore.loadConfig()
   document.addEventListener('keydown', handleKeyDown)
 })
 
@@ -220,8 +154,8 @@ onUnmounted(() => {
             v-else-if="activeTab === 'model'"
             :model-configs="llmConfigs"
             :default-model="defaultModel"
-            @update:model-configs="(value) => Object.assign(llmConfigs, value)"
-            @update:default-model="(value) => (defaultModel = value)"
+            @update:model-configs="configStore.updateLLMConfigs"
+            @update:default-model="configStore.updateDefaultModel"
           />
 
           <!-- MCP 配置 Tab -->
@@ -249,7 +183,7 @@ onUnmounted(() => {
           <PromptEngineeringSettings
             v-else-if="activeTab === 'prompt'"
             :model-value="promptConfig"
-            @update:model-value="(value) => Object.assign(promptConfig, value)"
+            @update:model-value="configStore.updatePromptConfig"
             @reset-success="handlePromptResetSuccess"
             @error="errorMessage = $event"
             @success="successMessage = $event"
@@ -259,7 +193,7 @@ onUnmounted(() => {
           <ThemeSettings
             v-else-if="activeTab === 'theme'"
             :model-value="themeConfig"
-            @update:model-value="(value) => Object.assign(themeConfig, value)"
+            @update:model-value="configStore.updateThemeConfig"
             @theme-change="handleThemeChange"
           />
 
@@ -287,7 +221,7 @@ onUnmounted(() => {
       <!-- 模态框底部 -->
       <div class="modal-footer">
         <button class="btn" @click="handleClose">取消</button>
-        <button class="btn-primary" :disabled="saving" @click="saveConfig">
+        <button class="btn-primary" :disabled="saving" @click="handleSave">
           {{ saving ? '保存中...' : '保存' }}
         </button>
       </div>
