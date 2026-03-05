@@ -465,13 +465,18 @@ onUnmounted(() => {
     <div v-if="processingFiles.length > 0" class="processing-files-list">
       <div v-for="file in processingFiles" :key="file.tempId" class="processing-file-item">
         <span v-if="file.status === 'uploading'" class="processing-status uploading">
-          ⏳ 上传中: {{ file.fileName }}
+          <svg class="status-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M554.25503 768.57657H469.113887a42.570572 42.570572 0 1 0 0 85.141143h85.141143a42.570572 42.570572 0 0 0 0-85.141143z m341.311426 170.282287h-42.570572A511.593712 511.593712 0 0 0 682.713598 580.369832c-26.139825-25.392973-59.748171-50.785945-59.748171-67.963544s25.392973-25.392973 42.570571-34.355199a433.92109 433.92109 0 0 0 187.459886-392.09737h42.570572a40.330015 40.330015 0 0 0 42.570572-43.317424 40.330015 40.330015 0 0 0-42.570572-42.570572H127.802461A40.330015 40.330015 0 0 0 85.23189 42.636295a40.330015 40.330015 0 0 0 42.570571 43.317424h42.570572A433.92109 433.92109 0 0 0 357.832919 478.051089c17.177599 8.962226 42.570572 26.139825 42.570572 34.355199s-33.608346 42.570572-59.748171 74.685213a472.010549 472.010549 0 0 0-170.282287 349.526799H127.802461a43.317424 43.317424 0 0 0 0 85.887996h767.763995a43.317424 43.317424 0 0 0 0-85.887996z m-640.05228 0a435.414795 435.414795 0 0 1 144.889315-298.740854C443.720914 597.547431 486.291486 554.976859 486.291486 512.406288s-34.355198-74.685213-74.685213-102.318743a345.045686 345.045686 0 0 1-156.092097-324.133826h512.340565a345.045686 345.045686 0 0 1-153.85154 324.133826c-42.570572 25.392973-74.685213 50.785945-74.685213 102.318743S581.888559 597.547431 625.205983 640.118003a435.414795 435.414795 0 0 1 144.889314 298.740854z"
+            />
+          </svg>
+          上传中: {{ file.fileName }}
         </span>
         <span v-else-if="file.status === 'completed'" class="processing-status completed">
-          ✅ 完成: {{ file.fileName }}
+          完成: {{ file.fileName }}
         </span>
         <span v-else-if="file.status === 'failed'" class="processing-status failed">
-          ❌ 失败: {{ file.fileName }}
+          失败: {{ file.fileName }}
           <span v-if="file.error" class="processing-error"> - {{ file.error }}</span>
         </span>
       </div>
@@ -869,6 +874,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.status-icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  flex-shrink: 0;
 }
 
 .processing-status.uploading {
