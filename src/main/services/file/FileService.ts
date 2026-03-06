@@ -170,6 +170,8 @@ export class FileService {
       case '.doc':
       case '.docx':
         return 'doc'
+      case '.csv':
+        return 'csv'
       default:
         return ext.replace('.', '') || 'unknown'
     }
@@ -229,7 +231,7 @@ export class FileService {
     }
 
     try {
-      const supportedTypes = ['.txt', '.md', '.pdf']
+      const supportedTypes = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv']
       const ext = extname(fileName).toLowerCase()
       if (!supportedTypes.includes(ext)) {
         return {

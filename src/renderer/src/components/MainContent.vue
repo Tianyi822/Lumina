@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch, provide, computed } from 'vue'
 import ChatMessage from './chat/ChatMessage.vue'
 import MessageInput from './MessageInput.vue'
 import ReActSteps from './ReActSteps.vue'
-import type { Message, MCPTool, KnowledgeBase } from '@renderer/types'
+import type { Message, MCPTool, KnowledgeBase, AttachedDocument, AttachedImage } from '@renderer/types'
 
 const props = defineProps<{
   currentChatId?: string
@@ -16,7 +16,14 @@ const props = defineProps<{
   selectedMCPTools?: MCPTool[]
   selectedKnowledgeBases?: KnowledgeBase[]
   enableSandboxTools?: boolean
+  sessionId?: string
 }>()
+
+// 提供 sessionId 给子组件
+provide(
+  'sessionId',
+  computed(() => props.sessionId || '')
+)
 
 const emit = defineEmits<{
   (
@@ -25,7 +32,9 @@ const emit = defineEmits<{
     model: string,
     selectedTools: MCPTool[],
     selectedKnowledgeBases: KnowledgeBase[],
-    enableSandboxTools: boolean
+    enableSandboxTools: boolean,
+    attachedDocuments: AttachedDocument[],
+    attachedImages: AttachedImage[]
   ): void
   (e: 'stop-request'): void
   (e: 'update:inputMessage', value: string): void
@@ -131,16 +140,29 @@ function handleSendMessage(
   model: string,
   selectedTools: MCPTool[],
   selectedKnowledgeBases: KnowledgeBase[],
-  enableSandboxTools: boolean
+  enableSandboxTools: boolean,
+  attachedDocuments: AttachedDocument[],
+  attachedImages: AttachedImage[]
 ): void {
   window.api.logger.debug('[MainContent] 处理发送消息事件', {
     messageLength: message.length,
     model,
     selectedToolsCount: selectedTools?.length ?? 0,
     selectedKnowledgeBasesCount: selectedKnowledgeBases?.length ?? 0,
-    enableSandboxTools
+    enableSandboxTools,
+    attachedDocumentsCount: attachedDocuments?.length ?? 0,
+    attachedImagesCount: attachedImages?.length ?? 0
   })
-  emit('send-message', message, model, selectedTools, selectedKnowledgeBases, enableSandboxTools)
+  emit(
+    'send-message',
+    message,
+    model,
+    selectedTools,
+    selectedKnowledgeBases,
+    enableSandboxTools,
+    attachedDocuments,
+    attachedImages
+  )
 }
 
 function handleStopRequest(): void {

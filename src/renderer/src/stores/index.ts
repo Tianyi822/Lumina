@@ -16,11 +16,14 @@ export { useInputStateStore } from './inputStateStore'
 export { useMessageCacheStore } from './messageCacheStore'
 export { useUIStateStore } from './uiStateStore'
 export { useKnowledgeIndexStore } from './knowledgeIndexStore'
+export { useConfigStore } from './configStore'
 
 // 新增 Stores
 export { useMCPStore } from './mcpStore'
 export { useKnowledgeStore } from './knowledgeStore'
 export { useFileStore } from './fileStore'
+export { useDocumentUploadStore } from './documentUploadStore'
+export { useImageUploadStore } from './imageUploadStore'
 
 // Sandbox Stores (拆分后的模块)
 export {

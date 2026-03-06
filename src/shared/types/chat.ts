@@ -6,6 +6,42 @@ import type { KnowledgeBaseReference } from './knowledge'
 export type MessageRole = 'system' | 'user' | 'assistant' | 'tool'
 
 /**
+ * 附加文档信息
+ * 包含解析后的文档内容
+ */
+export interface AttachedDocument {
+  /** 文档名称 */
+  fileName: string
+  /** 文档类型（txt, md, pdf, doc, docx, csv） */
+  fileType: string
+  /** 文档大小（字节） */
+  fileSize: number
+  /** 解析后的文本内容 */
+  parsedContent: string
+}
+
+/**
+ * 附加图片信息
+ * 包含压缩后的 Base64 图片数据
+ */
+export interface AttachedImage {
+  /** 原始文件名 */
+  fileName: string
+  /** MIME 类型，如 'image/jpeg' */
+  mimeType: string
+  /** 压缩后宽度 */
+  width: number
+  /** 压缩后高度 */
+  height: number
+  /** 原始文件大小（字节） */
+  originalSize: number
+  /** 压缩后大小（字节） */
+  compressedSize: number
+  /** 完整 data URL: "data:image/jpeg;base64,..." */
+  base64Data: string
+}
+
+/**
  * 表示一条聊天消息的完整结构
  * 包含角色、内容、工具调用和思考过程等信息
  */
@@ -20,6 +56,10 @@ export interface ChatMessage {
   tool_call_id?: string
   /** 模型思考过程的内容 */
   reasoning_content?: string
+  /** 附加的文档列表，仅 user 消息会有 */
+  attachedDocuments?: AttachedDocument[]
+  /** 附加的图片列表，仅 user 消息会有 */
+  attachedImages?: AttachedImage[]
 }
 
 /**

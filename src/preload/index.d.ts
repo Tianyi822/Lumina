@@ -812,6 +812,18 @@ interface FileUploadResult {
 }
 
 /**
+ * 选中的附件文件信息
+ */
+interface AttachmentFile {
+  /** 文件路径 */
+  path: string
+  /** 文件名 */
+  name: string
+  /** 文件大小（字节） */
+  size: number
+}
+
+/**
  * 文件管理相关的 API
  */
 interface FileApi {
@@ -824,6 +836,8 @@ interface FileApi {
   unlinkFromKB: (fileId: string, kbId: string) => Promise<{ success: boolean; error?: string }>
   getByKBId: (kbId: string) => Promise<{ success: boolean; data?: FileItem[]; error?: string }>
   getUsage: (fileId: string) => Promise<{ success: boolean; data?: string[]; error?: string }>
+  /** 打开文件选择对话框 */
+  selectFiles: () => Promise<AttachmentFile[]>
 }
 
 /**
@@ -1538,6 +1552,37 @@ interface KnowledgeMCPApi {
 }
 
 /**
+ * 文档解析结果
+ */
+interface ParsedDocumentData {
+  fileName: string
+  fileType: string
+  fileSize: number
+  parsedContent: string
+}
+
+/**
+ * 文档上传 API
+ */
+interface DocumentApi {
+  uploadAndParse: (file: File) => Promise<{
+    success: boolean
+    data?: ParsedDocumentData
+    error?: string
+  }>
+  uploadAndParseMultiple: (files: File[]) => Promise<{
+    success: boolean
+    data?: Array<{
+      fileName: string
+      success: boolean
+      data?: ParsedDocumentData
+      error?: string
+    }>
+    error?: string
+  }>
+}
+
+/**
  * 自定义的完整 API
  */
 interface CustomApi {
@@ -1553,6 +1598,7 @@ interface CustomApi {
   knowledge: KnowledgeApi
   file: FileApi
   sandbox: SandboxApi
+  document: DocumentApi
   onFileProgress: (callback: (data: FileProgressEvent) => void) => () => void
   onReindexProgress: (callback: (data: ReindexProgressEvent) => void) => () => void
   // 提示词工程相关 API

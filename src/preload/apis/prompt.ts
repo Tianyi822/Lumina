@@ -19,10 +19,6 @@ export interface PromptConfig {
   customSystemPrompt?: string
   /** 是否启用提示词缓存 */
   enablePromptCache?: boolean
-  /** 缓存的最大条目数 */
-  cacheMaxSize?: number
-  /** 缓存过期时间，单位小时 */
-  cacheTTLHours?: number
 }
 
 /**

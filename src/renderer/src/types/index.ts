@@ -10,6 +10,8 @@
 export type {
   MessageRole,
   ChatMessage,
+  AttachedDocument,
+  AttachedImage,
   ToolCallMessage,
   MCPToolReference,
   ToolCallInfo,
@@ -41,9 +43,17 @@ export * from '@shared/types/knowledge'
 // 提示词工程相关类型
 export * from '@shared/types/prompt'
 
+// 附件文件类型（从 preload 全局类型中获取）
+export type AttachmentFile = {
+  path: string
+  name: string
+  size: number
+}
+
 // ==================== UI 特有类型 ====================
 
 import type { ToolCallInfo, ToolResultInfo, ToolCallMessage } from '@shared/types/chat'
+import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
 
 /**
  * ReAct 步骤（UI 层特有）
@@ -70,6 +80,8 @@ export interface Message {
   reactSteps?: ReActStep[] // ReAct 推理步骤
   tool_calls?: ToolCallMessage[] // 工具调用（仅 assistant 消息）
   tool_call_id?: string // 工具调用的 ID（仅 tool 消息，用于保存到会话）
+  attachedDocuments?: AttachedDocument[] // 附加的文档（仅 user 消息）
+  attachedImages?: AttachedImage[] // 附加的图片（仅 user 消息）
 }
 
 /**

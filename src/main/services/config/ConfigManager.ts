@@ -7,26 +7,14 @@ import type { EmbeddingConfig } from '@shared/types/config'
 import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
 
 /**
- * 默认终端主题颜色
- */
-export const DEFAULT_THEME_COLORS = {
-  background: '#0d1117',
-  backgroundSecondary: '#161b22',
-  text: '#c9d1d9',
-  textSecondary: '#8b949e',
-  accent: '#3fb950',
-  border: '#30363d'
-}
-
-/**
  * 创建空的基础配置结构
  * 包含所有必要的字段，但值为空或默认值
+ * 主题颜色由 CSS 主题文件管理，不再在配置中保存
  */
 function createEmptyConfig(): AppConfig {
   return {
     theme: {
-      name: 'blooming-flowers',
-      colors: DEFAULT_THEME_COLORS
+      name: 'blooming-flowers'
     },
     llm_config: {
       default_model: '',

@@ -10,7 +10,11 @@ import { registerKnowledgeHandlers } from './handlers/knowledgeHandlers'
 import { registerEmbeddingModelHandlers } from './handlers/embeddingModelHandlers'
 import { registerFileHandlers } from './handlers/fileHandlers'
 import { registerSandboxHandlers, initializeSandbox } from './handlers/sandboxHandlers'
-import { registerKnowledgeMCPHandlers, initializeKnowledgeMCP } from './handlers/knowledgeMCPHandlers'
+import {
+  registerKnowledgeMCPHandlers,
+  initializeKnowledgeMCP
+} from './handlers/knowledgeMCPHandlers'
+import { registerDocumentHandlers } from './handlers/documentHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -64,4 +68,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册知识库 MCP 服务相关处理程序
   registerKnowledgeMCPHandlers()
+
+  // 注册文档处理相关处理程序
+  registerDocumentHandlers()
 }

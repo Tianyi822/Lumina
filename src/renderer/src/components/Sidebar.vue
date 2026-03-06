@@ -42,9 +42,9 @@ function handleDeleteSession(sessionId: string): void {
 
 <template>
   <aside class="sidebar">
-    <!-- 新对话按钮 -->
+    <!-- 创建智能体按钮 -->
     <button class="btn-primary new-chat-btn" @click="handleNewChat">
-      <span>新对话</span>
+      <span>创建智能体</span>
     </button>
 
     <!-- 搜索框 -->

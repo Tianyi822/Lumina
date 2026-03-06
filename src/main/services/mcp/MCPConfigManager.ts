@@ -19,11 +19,6 @@ function getOldMCPConfigDirPath(): string {
   return join(homeDir, '.sparrow-manus', MCP_CONFIG_DIR_NAME)
 }
 
-// 获取旧的 MCP 配置文件路径（用于迁移）
-function getOldMCPConfigFilePath(name: string): string {
-  return join(getOldMCPConfigDirPath(), `${name}.json`)
-}
-
 // MCP 配置管理器
 // 负责 MCP 服务器配置的持久化管理
 // 配置统一保存在主配置文件中，不再使用独立文件
@@ -349,10 +344,4 @@ export class MCPConfigManager {
 
     return JSON.stringify(exportData, null, 2)
   }
-}
-
-// 导出路径相关函数（保持向后兼容）
-export {
-  getOldMCPConfigDirPath as getMCPConfigDirPath,
-  getOldMCPConfigFilePath as getMCPConfigFilePath
 }

@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch, computed, toRaw } from 'vue'
 import { storeToRefs } from 'pinia'
-import type { MCPTool, SessionType, KnowledgeBase, StreamEvent, ChatMessage } from '@renderer/types'
+import type {
+  MCPTool,
+  SessionType,
+  KnowledgeBase,
+  StreamEvent,
+  ChatMessage,
+  AttachedDocument,
+  AttachedImage
+} from '@renderer/types'
 import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
@@ -55,7 +63,9 @@ async function handleSendMessage(
   model: string,
   selectedTools: MCPTool[] = [],
   selectedKnowledgeBases: KnowledgeBase[] = [],
-  enableSandboxTools: boolean = false
+  enableSandboxTools: boolean = false,
+  attachedDocuments: AttachedDocument[] = [],
+  attachedImages: AttachedImage[] = []
 ): Promise<void> {
   // 如果没有当前对话，先创建一个
   if (!currentChatId.value || !currentSession.value) {
@@ -107,7 +117,9 @@ async function handleSendMessage(
     id: `msg-${Date.now()}`,
     role: 'user' as const,
     content,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    attachedDocuments: attachedDocuments.length > 0 ? attachedDocuments : undefined,
+    attachedImages: attachedImages.length > 0 ? attachedImages : undefined
   }
   sessionStore.addMessage(userMessage)
 
@@ -145,6 +157,12 @@ async function handleSendMessage(
           }
           if (msg.reasoning) {
             result.reasoning_content = msg.reasoning
+          }
+          if (msg.attachedDocuments && msg.attachedDocuments.length > 0) {
+            result.attachedDocuments = msg.attachedDocuments
+          }
+          if (msg.attachedImages && msg.attachedImages.length > 0) {
+            result.attachedImages = msg.attachedImages
           }
           return result
         })
@@ -351,6 +369,7 @@ watch(
       :selected-m-c-p-tools="currentInputState.selectedMCPTools"
       :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
       :enable-sandbox-tools="currentInputState.enableSandboxTools"
+      :session-id="currentSession?.sessionId"
       @send-message="handleSendMessage"
       @stop-request="handleStopRequest"
       @update:input-message="handleUpdateInputMessage"

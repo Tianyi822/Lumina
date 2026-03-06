@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed, inject } from 'vue'
 import { storeToRefs } from 'pinia'
 import MCPToolsPanel from './MCPToolsPanel.vue'
 import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
@@ -7,6 +7,11 @@ import SandboxToolsToggle from './sandbox/SandboxToolsToggle.vue'
 import UserInteractionOptions from './UserInteractionOptions.vue'
 import type { AppConfig, MCPTool, KnowledgeBase } from '@renderer/types'
 import { useUIStateStore, useChatStreamStore } from '@renderer/stores'
+import { useDocumentUploadStore } from '../stores/documentUploadStore'
+import { useImageUploadStore, isImageFile } from '../stores/imageUploadStore'
+import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
+import { getFileTypeIcon, getFileExtension } from '@renderer/utils/fileIcons'
+import { IMAGE_ACCEPT_STRING } from '@renderer/utils/imageCompress'
 
 const props = defineProps<{
   isSending?: boolean
@@ -24,7 +29,9 @@ const emit = defineEmits<{
     model: string,
     selectedMCPTools: MCPTool[],
     selectedKnowledgeBases: KnowledgeBase[],
-    enableSandboxTools: boolean
+    enableSandboxTools: boolean,
+    attachedDocuments: AttachedDocument[],
+    attachedImages: AttachedImage[]
   ): void
   (e: 'stop'): void
   (e: 'update:inputMessage', value: string): void
@@ -40,6 +47,44 @@ const localSelectedModel = ref(props.selectedModel ?? '')
 const localSelectedTools = ref<MCPTool[]>(props.selectedMCPTools ?? [])
 const localSelectedKnowledgeBases = ref<KnowledgeBase[]>(props.selectedKnowledgeBases ?? [])
 const localEnableSandboxTools = ref(props.enableSandboxTools ?? false)
+
+// 文档上传 store
+const documentStore = useDocumentUploadStore()
+
+// 图片上传 store
+const imageStore = useImageUploadStore()
+
+// 拖拽状态
+const isDragging = ref(false)
+
+// 会话 ID prop（需要父组件传入）
+const sessionId = inject<string>('sessionId', '')
+
+// 临时会话 ID，用于在没有实际会话时上传文档
+const TEMP_SESSION_ID = 'temp'
+
+// 获取有效的会话 ID（实际 sessionId 或临时 ID）
+const effectiveSessionId = computed(() => sessionId || TEMP_SESSION_ID)
+
+// 获取当前会话的待发送文档
+const pendingDocs = computed(() => {
+  return documentStore.getSessionDocuments(effectiveSessionId.value)
+})
+
+// 获取处理中的文件
+const processingFiles = computed(() => {
+  return documentStore.getSessionProcessingFiles(effectiveSessionId.value)
+})
+
+// 获取当前会话的待发送图片
+const pendingImages = computed(() => {
+  return imageStore.getSessionImages(effectiveSessionId.value)
+})
+
+// 附件总数（文档 + 图片）
+const totalAttachmentCount = computed(() => {
+  return pendingDocs.value.length + pendingImages.value.length
+})
 
 // 同步 props 到本地状态
 watch(
@@ -120,6 +165,172 @@ function updateEnableSandboxTools(enabled: boolean): void {
   window.api.logger.debug('[MessageInput] 沙箱工具开关状态变更', { enabled })
 }
 
+/**
+ * 格式化文件大小
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+/**
+ * 处理拖拽进入
+ */
+function handleDragOver(event: DragEvent): void {
+  event.preventDefault()
+  if (!props.isSending) {
+    isDragging.value = true
+  }
+}
+
+/**
+ * 处理拖拽离开
+ */
+function handleDragLeave(event: DragEvent): void {
+  event.preventDefault()
+  isDragging.value = false
+}
+
+/**
+ * 处理文件放置
+ */
+async function handleDrop(event: DragEvent): Promise<void> {
+  event.preventDefault()
+  isDragging.value = false
+
+  if (props.isSending) return
+
+  const files = Array.from(event.dataTransfer?.files || [])
+  await processDroppedFiles(files)
+}
+
+/**
+ * 处理拖拽的文件列表
+ * 按文件类型分流：图片走 imageStore，文档走 documentStore
+ */
+async function processDroppedFiles(files: File[]): Promise<void> {
+  const DOC_MAX_SIZE = 10 * 1024 * 1024 // 10MB
+  const SUPPORTED_DOC_TYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.pptx']
+
+  const imageFiles: File[] = []
+  const docFiles: File[] = []
+
+  for (const file of files) {
+    if (isImageFile(file)) {
+      imageFiles.push(file)
+    } else {
+      const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+      if (!SUPPORTED_DOC_TYPES.includes(ext)) {
+        alert(`文件 "${file.name}" 格式不支持`)
+        continue
+      }
+      if (file.size > DOC_MAX_SIZE) {
+        alert(`文件 "${file.name}" 过大（${formatFileSize(file.size)}），最大支持 10MB`)
+        continue
+      }
+      docFiles.push(file)
+    }
+  }
+
+  // 处理图片文件
+  if (imageFiles.length > 0) {
+    const result = await imageStore.addImages(effectiveSessionId.value, imageFiles)
+    if (result.errors.length > 0) {
+      alert(result.errors.join('\n'))
+    }
+  }
+
+  // 处理文档文件
+  for (const file of docFiles) {
+    try {
+      await documentStore.uploadDocument(effectiveSessionId.value, file)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      window.api.logger.error('[MessageInput] 拖拽上传文档失败', {
+        fileName: file.name,
+        error: errorMessage
+      })
+      alert(`上传文档 "${file.name}" 失败: ${errorMessage}`)
+    }
+  }
+}
+
+/**
+ * 触发文件上传（文档和图片）
+ */
+function triggerDocumentUpload(): void {
+  if (props.isSending) return
+
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.multiple = true
+  input.accept = `.txt,.md,.pdf,.doc,.docx,.csv,.pptx,${IMAGE_ACCEPT_STRING}`
+
+  input.onchange = async (e) => {
+    const files = (e.target as HTMLInputElement).files
+    if (!files || files.length === 0) return
+
+    const imageFiles: File[] = []
+    const docFiles: File[] = []
+    const DOC_MAX_SIZE = 10 * 1024 * 1024 // 10MB
+
+    for (const file of Array.from(files)) {
+      if (isImageFile(file)) {
+        imageFiles.push(file)
+      } else {
+        if (file.size > DOC_MAX_SIZE) {
+          window.api.logger.warn('[MessageInput] 文件过大', {
+            fileName: file.name,
+            size: file.size
+          })
+          alert(`文件 "${file.name}" 过大（${formatFileSize(file.size)}），最大支持 10MB`)
+          continue
+        }
+        docFiles.push(file)
+      }
+    }
+
+    // 处理图片文件
+    if (imageFiles.length > 0) {
+      const result = await imageStore.addImages(effectiveSessionId.value, imageFiles)
+      if (result.errors.length > 0) {
+        alert(result.errors.join('\n'))
+      }
+    }
+
+    // 处理文档文件
+    for (const file of docFiles) {
+      try {
+        await documentStore.uploadDocument(effectiveSessionId.value, file)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        window.api.logger.error('[MessageInput] 上传文档失败', {
+          fileName: file.name,
+          error: errorMessage
+        })
+        alert(`上传文档 "${file.name}" 失败: ${errorMessage}`)
+      }
+    }
+  }
+
+  input.click()
+}
+
+/**
+ * 移除待发送的文档
+ */
+function removePendingDoc(index: number): void {
+  documentStore.removePendingDocument(effectiveSessionId.value, index)
+}
+
+/**
+ * 移除待发送的图片
+ */
+function removePendingImage(index: number): void {
+  imageStore.removeImage(effectiveSessionId.value, index)
+}
+
 // 从配置中加载的模型选项
 const modelOptions = ref<string[]>([])
 
@@ -177,22 +388,52 @@ watch(configUpdateKey, () => {
 
 function handleSend(): void {
   const message = localInputMessage.value
-  if (message.trim() && !props.isSending) {
+  if (
+    (message.trim() || pendingDocs.value.length > 0 || pendingImages.value.length > 0) &&
+    !props.isSending
+  ) {
     // 调试日志：确认发送时的工具选择状态
     window.api.logger.debug('[MessageInput] 发送消息，选中的工具', {
       count: localSelectedTools.value.length,
-      sandboxToolsEnabled: localEnableSandboxTools.value
+      sandboxToolsEnabled: localEnableSandboxTools.value,
+      imageCount: pendingImages.value.length
     })
+
+    // 获取待发送的文档
+    const docsToSend = pendingDocs.value.map((doc) => ({
+      fileName: doc.fileName,
+      fileType: doc.fileType,
+      fileSize: doc.fileSize,
+      parsedContent: doc.parsedContent
+    }))
+
+    // 获取待发送的图片
+    const imagesToSend = pendingImages.value.map((img) => ({
+      fileName: img.fileName,
+      mimeType: img.mimeType,
+      width: img.width,
+      height: img.height,
+      originalSize: img.originalSize,
+      compressedSize: img.compressedSize,
+      base64Data: img.base64Data
+    }))
+
     emit(
       'send',
       message.trim(),
       localSelectedModel.value,
       localSelectedTools.value,
       localSelectedKnowledgeBases.value,
-      localEnableSandboxTools.value
+      localEnableSandboxTools.value,
+      docsToSend,
+      imagesToSend
     )
+
+    // 清空输入、文档列表和图片列表
     localInputMessage.value = ''
     emit('update:inputMessage', '')
+    documentStore.clearPendingDocuments(effectiveSessionId.value)
+    imageStore.clearImages(effectiveSessionId.value)
   }
 }
 
@@ -217,7 +458,9 @@ function handleUserInteractionSelect(_value: string, label: string): void {
     localSelectedModel.value,
     localSelectedTools.value,
     localSelectedKnowledgeBases.value,
-    localEnableSandboxTools.value
+    localEnableSandboxTools.value,
+    [],
+    []
   )
 }
 
@@ -271,15 +514,118 @@ onUnmounted(() => {
       @select="handleUserInteractionSelect"
     />
 
-    <div class="input-wrapper">
+    <!-- 待发送文档列表 -->
+    <div v-if="pendingDocs.length > 0" class="pending-docs-list">
+      <div v-for="(doc, index) in pendingDocs" :key="index" class="pending-doc-item">
+        <svg
+          class="pending-doc-icon"
+          width="16"
+          height="16"
+          viewBox="0 0 1024 1024"
+          :style="{ color: getFileTypeIcon(doc.fileName).color }"
+        >
+          <path :d="getFileTypeIcon(doc.fileName).path" fill="currentColor" />
+        </svg>
+        <div class="pending-doc-info">
+          <span class="pending-doc-name" :title="doc.fileName">{{ doc.fileName }}</span>
+          <span class="pending-doc-type">{{
+            getFileExtension(doc.fileName).toUpperCase() || 'FILE'
+          }}</span>
+          <span class="pending-doc-size">{{ formatFileSize(doc.fileSize) }}</span>
+        </div>
+        <button
+          class="pending-doc-remove"
+          title="移除"
+          :disabled="isSending"
+          @click="removePendingDoc(index)"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M6 18L18 6M6 6l12 12"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 待发送图片列表 -->
+    <div v-if="pendingImages.length > 0" class="pending-images-list">
+      <div v-for="(img, index) in pendingImages" :key="index" class="pending-image-item">
+        <img :src="img.thumbnailData" :alt="img.fileName" class="image-thumbnail" />
+        <div class="pending-image-info">
+          <span class="pending-image-name" :title="img.fileName">{{ img.fileName }}</span>
+          <span class="pending-image-size">{{ formatFileSize(img.compressedSize) }}</span>
+        </div>
+        <button
+          class="pending-image-remove"
+          title="移除"
+          :disabled="isSending"
+          @click="removePendingImage(index)"
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M6 18L18 6M6 6l12 12"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 处理中的文件列表 -->
+    <div v-if="processingFiles.length > 0" class="processing-files-list">
+      <div v-for="file in processingFiles" :key="file.tempId" class="processing-file-item">
+        <span v-if="file.status === 'uploading'" class="processing-status uploading">
+          <svg class="status-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M554.25503 768.57657H469.113887a42.570572 42.570572 0 1 0 0 85.141143h85.141143a42.570572 42.570572 0 0 0 0-85.141143z m341.311426 170.282287h-42.570572A511.593712 511.593712 0 0 0 682.713598 580.369832c-26.139825-25.392973-59.748171-50.785945-59.748171-67.963544s25.392973-25.392973 42.570571-34.355199a433.92109 433.92109 0 0 0 187.459886-392.09737h42.570572a40.330015 40.330015 0 0 0 42.570572-43.317424 40.330015 40.330015 0 0 0-42.570572-42.570572H127.802461A40.330015 40.330015 0 0 0 85.23189 42.636295a40.330015 40.330015 0 0 0 42.570571 43.317424h42.570572A433.92109 433.92109 0 0 0 357.832919 478.051089c17.177599 8.962226 42.570572 26.139825 42.570572 34.355199s-33.608346 42.570572-59.748171 74.685213a472.010549 472.010549 0 0 0-170.282287 349.526799H127.802461a43.317424 43.317424 0 0 0 0 85.887996h767.763995a43.317424 43.317424 0 0 0 0-85.887996z m-640.05228 0a435.414795 435.414795 0 0 1 144.889315-298.740854C443.720914 597.547431 486.291486 554.976859 486.291486 512.406288s-34.355198-74.685213-74.685213-102.318743a345.045686 345.045686 0 0 1-156.092097-324.133826h512.340565a345.045686 345.045686 0 0 1-153.85154 324.133826c-42.570572 25.392973-74.685213 50.785945-74.685213 102.318743S581.888559 597.547431 625.205983 640.118003a435.414795 435.414795 0 0 1 144.889314 298.740854z"
+            />
+          </svg>
+          上传中: {{ file.fileName }}
+        </span>
+        <span v-else-if="file.status === 'completed'" class="processing-status completed">
+          完成: {{ file.fileName }}
+        </span>
+        <span v-else-if="file.status === 'failed'" class="processing-status failed">
+          失败: {{ file.fileName }}
+          <span v-if="file.error" class="processing-error"> - {{ file.error }}</span>
+        </span>
+      </div>
+    </div>
+
+    <div
+      class="input-wrapper"
+      @dragover="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
+    >
       <textarea
         v-model="localInputMessage"
         class="input message-textarea"
-        placeholder="输入命令或消息 ..."
+        :class="{ 'has-docs': pendingDocs.length > 0 || pendingImages.length > 0, dragging: isDragging }"
+        placeholder="输入命令或消息，可拖拽文件或图片上传 ..."
         rows="3"
         :disabled="isSending"
         @keydown="handleKeydown"
       ></textarea>
+
+      <div v-if="isDragging" class="drag-overlay">
+        <div class="drag-hint">
+          <svg width="48" height="48" viewBox="0 0 1024 1024" fill="currentColor">
+            <path
+              d="M500.330144 493.959456C525.31082 468.616741 525.197683 428.317299 500.330144 403.44976 475.50786 378.627476 435.2763 378.491711 409.820448 403.44976L206.128377 607.051321C143.699314 670.023442 143.857706 771.05489 206.128377 833.325561 268.421675 895.618859 369.453124 895.777251 432.402617 833.325561L817.068825 448.659353C879.520515 386.207663 879.520515 284.836803 817.068825 222.385113 754.639762 159.95605 653.246275 159.933423 590.794585 222.385113L579.526128 233.74408C560.790621 252.479587 530.379363 252.479587 511.643856 233.74408 492.930976 215.0312 492.908349 184.64257 511.643856 165.861808L522.912313 154.502841C623.287566 54.625392 785.186785 54.738529 884.951097 154.502841 984.71541 254.267154 984.873802 416.121117 884.951097 516.541625L500.262262 901.185206C400.22642 1000.451715 238.576103 1000.225441 138.9023 900.551638 39.251125 800.900463 39.002223 639.227518 138.29136 539.214304L341.938176 335.567488C404.751905 273.115798 505.89649 273.251562 568.212416 335.567488 630.528342 397.883414 630.664106 499.027999 568.212416 561.841728L375.879312 754.174832C357.143805 772.910339 326.732547 772.910339 307.99704 754.174832 289.261533 735.439325 289.261533 705.028067 307.99704 686.29256L500.330144 493.959456Z"
+            />
+          </svg>
+          <p>释放文件以上传（支持文档和图片）</p>
+        </div>
+      </div>
     </div>
     <div class="input-actions">
       <!-- 模型选择器 -->
@@ -321,14 +667,33 @@ onUnmounted(() => {
         @change="updateEnableSandboxTools"
       />
 
-      <!-- 执行/停止按钮 -->
-      <button v-if="!isSending" class="btn-primary execute-btn" @click="handleSend">
-        <span>执行</span>
-        <span class="shortcut-hint">⌘↵</span>
-      </button>
-      <button v-else class="btn-danger stop-btn" @click="handleStop">
-        <span>停止</span>
-      </button>
+      <!-- 附件按钮和执行按钮组 -->
+      <div class="action-buttons-group">
+        <!-- 文档上传按钮 -->
+        <button
+          class="document-upload-btn"
+          :class="{ 'has-docs': totalAttachmentCount > 0 }"
+          :disabled="isSending"
+          title="上传文件 (文档: txt, md, pdf, doc, docx, csv, pptx / 图片: jpg, png, webp, bmp, tiff)"
+          @click="triggerDocumentUpload"
+        >
+          <svg width="18" height="18" viewBox="0 0 1024 1024" fill="currentColor">
+            <path
+              d="M500.330144 493.959456C525.31082 468.616741 525.197683 428.317299 500.330144 403.44976 475.50786 378.627476 435.2763 378.491711 409.820448 403.44976L206.128377 607.051321C143.699314 670.023442 143.857706 771.05489 206.128377 833.325561 268.421675 895.618859 369.453124 895.777251 432.402617 833.325561L817.068825 448.659353C879.520515 386.207663 879.520515 284.836803 817.068825 222.385113 754.639762 159.95605 653.246275 159.933423 590.794585 222.385113L579.526128 233.74408C560.790621 252.479587 530.379363 252.479587 511.643856 233.74408 492.930976 215.0312 492.908349 184.64257 511.643856 165.861808L522.912313 154.502841C623.287566 54.625392 785.186785 54.738529 884.951097 154.502841 984.71541 254.267154 984.873802 416.121117 884.951097 516.541625L500.262262 901.185206C400.22642 1000.451715 238.576103 1000.225441 138.9023 900.551638 39.251125 800.900463 39.002223 639.227518 138.29136 539.214304L341.938176 335.567488C404.751905 273.115798 505.89649 273.251562 568.212416 335.567488 630.528342 397.883414 630.664106 499.027999 568.212416 561.841728L375.879312 754.174832C357.143805 772.910339 326.732547 772.910339 307.99704 754.174832 289.261533 735.439325 289.261533 705.028067 307.99704 686.29256L500.330144 493.959456Z"
+            />
+          </svg>
+          <span v-if="totalAttachmentCount > 0" class="doc-count">{{ totalAttachmentCount }}</span>
+        </button>
+
+        <!-- 执行/停止按钮 -->
+        <button v-if="!isSending" class="btn-primary execute-btn" @click="handleSend">
+          <span>执行</span>
+          <span class="shortcut-hint">⌘↵</span>
+        </button>
+        <button v-else class="btn-danger stop-btn" @click="handleStop">
+          <span>停止</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -347,6 +712,7 @@ onUnmounted(() => {
 }
 
 .input-wrapper {
+  position: relative;
   margin-bottom: 12px;
 }
 
@@ -393,6 +759,42 @@ onUnmounted(() => {
 .message-textarea:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.message-textarea.dragging {
+  border-color: var(--theme-accent);
+  background: rgba(70, 170, 143, 0.05);
+  box-shadow: 0 0 0 3px rgba(70, 170, 143, 0.2);
+}
+
+.drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(70, 170, 143, 0.1);
+  border: 2px dashed var(--theme-accent);
+  border-radius: var(--theme-radius);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.drag-hint {
+  text-align: center;
+  color: var(--theme-accent);
+}
+
+.drag-hint svg {
+  margin-bottom: 8px;
+}
+
+.drag-hint p {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .input-actions {
@@ -487,8 +889,14 @@ onUnmounted(() => {
   background-color: transparent;
 }
 
-.execute-btn {
+.action-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: auto;
+}
+
+.execute-btn {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -501,7 +909,6 @@ onUnmounted(() => {
 }
 
 .stop-btn {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -518,5 +925,315 @@ onUnmounted(() => {
 .shortcut-hint {
   font-size: 11px;
   opacity: 0.6;
+}
+
+/* ==================== 待发送文档列表样式 ==================== */
+.pending-docs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pending-doc-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.08) 0%, rgba(70, 170, 143, 0.03) 100%);
+  border: 1px solid rgba(70, 170, 143, 0.2);
+  border-radius: var(--theme-radius-sm, 6px);
+  font-size: 12px;
+  color: var(--theme-text);
+  max-width: 280px;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.pending-doc-item:hover {
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.12) 0%, rgba(70, 170, 143, 0.05) 100%);
+  border-color: rgba(70, 170, 143, 0.3);
+}
+
+.pending-doc-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.pending-doc-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pending-doc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.pending-doc-type {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--theme-accent);
+  opacity: 0.8;
+  line-height: 1.3;
+}
+
+.pending-doc-size {
+  font-size: 10px;
+  color: var(--theme-text-tertiary);
+  opacity: 0.7;
+  line-height: 1.3;
+}
+
+.pending-doc-remove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--theme-text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pending-doc-remove:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--theme-danger);
+}
+
+.pending-doc-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ==================== 处理中文件样式 ==================== */
+.processing-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.processing-file-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
+    var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
+  );
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  border-radius: var(--theme-radius-sm, 6px);
+  font-size: 12px;
+  color: var(--theme-text);
+}
+
+.processing-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.processing-status.uploading {
+  color: var(--theme-text-secondary);
+}
+
+.processing-status.completed {
+  color: var(--theme-accent);
+}
+
+.processing-status.failed {
+  color: var(--theme-danger);
+}
+
+.processing-error {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* ==================== 文档上传按钮样式 ==================== */
+.document-upload-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+  );
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  border-radius: 50%;
+  color: var(--theme-text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    0 2px 6px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15));
+}
+
+.document-upload-btn:hover {
+  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  color: var(--theme-text);
+}
+
+.document-upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.document-upload-btn.has-docs {
+  color: var(--theme-accent);
+  border-color: rgba(70, 170, 143, 0.3);
+  background: rgba(70, 170, 143, 0.1);
+}
+
+.document-upload-btn .doc-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: var(--theme-accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ==================== 待发送图片列表样式 ==================== */
+.pending-images-list {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.pending-images-list::-webkit-scrollbar {
+  height: 4px;
+}
+
+.pending-images-list::-webkit-scrollbar-thumb {
+  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  border-radius: 2px;
+}
+
+.pending-image-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.08) 0%, rgba(70, 170, 143, 0.03) 100%);
+  border: 1px solid rgba(70, 170, 143, 0.2);
+  border-radius: var(--theme-radius-sm, 6px);
+  min-width: 80px;
+  max-width: 100px;
+  flex-shrink: 0;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.pending-image-item:hover {
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.12) 0%, rgba(70, 170, 143, 0.05) 100%);
+  border-color: rgba(70, 170, 143, 0.3);
+}
+
+.image-thumbnail {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.pending-image-info {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+}
+
+.pending-image-name {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--theme-text);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.pending-image-size {
+  font-size: 9px;
+  color: var(--theme-text-tertiary);
+  opacity: 0.7;
+  line-height: 1.3;
+}
+
+.pending-image-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.pending-image-item:hover .pending-image-remove {
+  opacity: 1;
+}
+
+.pending-image-remove:hover {
+  background: rgba(239, 68, 68, 0.8);
+}
+
+.pending-image-remove:disabled {
+  opacity: 0;
+  cursor: not-allowed;
 }
 </style>

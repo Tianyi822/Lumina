@@ -1,6 +1,6 @@
 import { ConfigManager } from './ConfigManager'
 
-export { ConfigManager, DEFAULT_THEME_COLORS } from './ConfigManager'
+export { ConfigManager } from './ConfigManager'
 export {
   getConfigDirPath,
   getConfigFilePath,

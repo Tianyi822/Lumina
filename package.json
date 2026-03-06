@@ -28,12 +28,15 @@
     "apache-arrow": "^21.1.0",
     "dockerode": "^4.0.9",
     "electron-updater": "^6.3.9",
+    "mammoth": "^1.11.0",
     "markdown-it": "^14.1.0",
+    "officeparser": "^6.0.4",
     "openai": "^6.16.0",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.4.624",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
+    "word-extractor": "^1.0.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
