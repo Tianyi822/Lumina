@@ -8,8 +8,10 @@ import UserInteractionOptions from './UserInteractionOptions.vue'
 import type { AppConfig, MCPTool, KnowledgeBase } from '@renderer/types'
 import { useUIStateStore, useChatStreamStore } from '@renderer/stores'
 import { useDocumentUploadStore } from '../stores/documentUploadStore'
-import type { AttachedDocument } from '@shared/types/chat'
+import { useImageUploadStore, isImageFile } from '../stores/imageUploadStore'
+import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
 import { getFileTypeIcon, getFileExtension } from '@renderer/utils/fileIcons'
+import { IMAGE_ACCEPT_STRING } from '@renderer/utils/imageCompress'
 
 const props = defineProps<{
   isSending?: boolean
@@ -28,7 +30,8 @@ const emit = defineEmits<{
     selectedMCPTools: MCPTool[],
     selectedKnowledgeBases: KnowledgeBase[],
     enableSandboxTools: boolean,
-    attachedDocuments: AttachedDocument[]
+    attachedDocuments: AttachedDocument[],
+    attachedImages: AttachedImage[]
   ): void
   (e: 'stop'): void
   (e: 'update:inputMessage', value: string): void
@@ -47,6 +50,9 @@ const localEnableSandboxTools = ref(props.enableSandboxTools ?? false)
 
 // 文档上传 store
 const documentStore = useDocumentUploadStore()
+
+// 图片上传 store
+const imageStore = useImageUploadStore()
 
 // 拖拽状态
 const isDragging = ref(false)
@@ -68,6 +74,16 @@ const pendingDocs = computed(() => {
 // 获取处理中的文件
 const processingFiles = computed(() => {
   return documentStore.getSessionProcessingFiles(effectiveSessionId.value)
+})
+
+// 获取当前会话的待发送图片
+const pendingImages = computed(() => {
+  return imageStore.getSessionImages(effectiveSessionId.value)
+})
+
+// 附件总数（文档 + 图片）
+const totalAttachmentCount = computed(() => {
+  return pendingDocs.value.length + pendingImages.value.length
 })
 
 // 同步 props 到本地状态
@@ -191,28 +207,42 @@ async function handleDrop(event: DragEvent): Promise<void> {
 
 /**
  * 处理拖拽的文件列表
+ * 按文件类型分流：图片走 imageStore，文档走 documentStore
  */
 async function processDroppedFiles(files: File[]): Promise<void> {
-  const MAX_SIZE = 10 * 1024 * 1024 // 10MB
-  const SUPPORTED_TYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.pptx']
-  const validFiles: File[] = []
+  const DOC_MAX_SIZE = 10 * 1024 * 1024 // 10MB
+  const SUPPORTED_DOC_TYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.pptx']
+
+  const imageFiles: File[] = []
+  const docFiles: File[] = []
 
   for (const file of files) {
-    const ext = '.' + file.name.split('.').pop()?.toLowerCase()
-    if (!SUPPORTED_TYPES.includes(ext)) {
-      alert(`文件 "${file.name}" 格式不支持，仅支持 ${SUPPORTED_TYPES.join(', ')}`)
-      continue
+    if (isImageFile(file)) {
+      imageFiles.push(file)
+    } else {
+      const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+      if (!SUPPORTED_DOC_TYPES.includes(ext)) {
+        alert(`文件 "${file.name}" 格式不支持`)
+        continue
+      }
+      if (file.size > DOC_MAX_SIZE) {
+        alert(`文件 "${file.name}" 过大（${formatFileSize(file.size)}），最大支持 10MB`)
+        continue
+      }
+      docFiles.push(file)
     }
-
-    if (file.size > MAX_SIZE) {
-      alert(`文件 "${file.name}" 过大（${formatFileSize(file.size)}），最大支持 10MB`)
-      continue
-    }
-
-    validFiles.push(file)
   }
 
-  for (const file of validFiles) {
+  // 处理图片文件
+  if (imageFiles.length > 0) {
+    const result = await imageStore.addImages(effectiveSessionId.value, imageFiles)
+    if (result.errors.length > 0) {
+      alert(result.errors.join('\n'))
+    }
+  }
+
+  // 处理文档文件
+  for (const file of docFiles) {
     try {
       await documentStore.uploadDocument(effectiveSessionId.value, file)
     } catch (error) {
@@ -227,7 +257,7 @@ async function processDroppedFiles(files: File[]): Promise<void> {
 }
 
 /**
- * 触发文档上传
+ * 触发文件上传（文档和图片）
  */
 function triggerDocumentUpload(): void {
   if (props.isSending) return
@@ -235,28 +265,42 @@ function triggerDocumentUpload(): void {
   const input = document.createElement('input')
   input.type = 'file'
   input.multiple = true
-  input.accept = '.txt,.md,.pdf,.doc,.docx,.csv,.pptx'
+  input.accept = `.txt,.md,.pdf,.doc,.docx,.csv,.pptx,${IMAGE_ACCEPT_STRING}`
 
   input.onchange = async (e) => {
     const files = (e.target as HTMLInputElement).files
     if (!files || files.length === 0) return
 
-    const MAX_SIZE = 10 * 1024 * 1024 // 10MB
-    const validFiles: File[] = []
+    const imageFiles: File[] = []
+    const docFiles: File[] = []
+    const DOC_MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
     for (const file of Array.from(files)) {
-      if (file.size > MAX_SIZE) {
-        window.api.logger.warn('[MessageInput] 文件过大', {
-          fileName: file.name,
-          size: file.size
-        })
-        alert(`文件 "${file.name}" 过大（${formatFileSize(file.size)}），最大支持 10MB`)
-        continue
+      if (isImageFile(file)) {
+        imageFiles.push(file)
+      } else {
+        if (file.size > DOC_MAX_SIZE) {
+          window.api.logger.warn('[MessageInput] 文件过大', {
+            fileName: file.name,
+            size: file.size
+          })
+          alert(`文件 "${file.name}" 过大（${formatFileSize(file.size)}），最大支持 10MB`)
+          continue
+        }
+        docFiles.push(file)
       }
-      validFiles.push(file)
     }
 
-    for (const file of validFiles) {
+    // 处理图片文件
+    if (imageFiles.length > 0) {
+      const result = await imageStore.addImages(effectiveSessionId.value, imageFiles)
+      if (result.errors.length > 0) {
+        alert(result.errors.join('\n'))
+      }
+    }
+
+    // 处理文档文件
+    for (const file of docFiles) {
       try {
         await documentStore.uploadDocument(effectiveSessionId.value, file)
       } catch (error) {
@@ -278,6 +322,13 @@ function triggerDocumentUpload(): void {
  */
 function removePendingDoc(index: number): void {
   documentStore.removePendingDocument(effectiveSessionId.value, index)
+}
+
+/**
+ * 移除待发送的图片
+ */
+function removePendingImage(index: number): void {
+  imageStore.removeImage(effectiveSessionId.value, index)
 }
 
 // 从配置中加载的模型选项
@@ -337,11 +388,15 @@ watch(configUpdateKey, () => {
 
 function handleSend(): void {
   const message = localInputMessage.value
-  if ((message.trim() || pendingDocs.value.length > 0) && !props.isSending) {
+  if (
+    (message.trim() || pendingDocs.value.length > 0 || pendingImages.value.length > 0) &&
+    !props.isSending
+  ) {
     // 调试日志：确认发送时的工具选择状态
     window.api.logger.debug('[MessageInput] 发送消息，选中的工具', {
       count: localSelectedTools.value.length,
-      sandboxToolsEnabled: localEnableSandboxTools.value
+      sandboxToolsEnabled: localEnableSandboxTools.value,
+      imageCount: pendingImages.value.length
     })
 
     // 获取待发送的文档
@@ -352,6 +407,17 @@ function handleSend(): void {
       parsedContent: doc.parsedContent
     }))
 
+    // 获取待发送的图片
+    const imagesToSend = pendingImages.value.map((img) => ({
+      fileName: img.fileName,
+      mimeType: img.mimeType,
+      width: img.width,
+      height: img.height,
+      originalSize: img.originalSize,
+      compressedSize: img.compressedSize,
+      base64Data: img.base64Data
+    }))
+
     emit(
       'send',
       message.trim(),
@@ -359,13 +425,15 @@ function handleSend(): void {
       localSelectedTools.value,
       localSelectedKnowledgeBases.value,
       localEnableSandboxTools.value,
-      docsToSend
+      docsToSend,
+      imagesToSend
     )
 
-    // 清空输入和文档列表
+    // 清空输入、文档列表和图片列表
     localInputMessage.value = ''
     emit('update:inputMessage', '')
     documentStore.clearPendingDocuments(effectiveSessionId.value)
+    imageStore.clearImages(effectiveSessionId.value)
   }
 }
 
@@ -391,6 +459,7 @@ function handleUserInteractionSelect(_value: string, label: string): void {
     localSelectedTools.value,
     localSelectedKnowledgeBases.value,
     localEnableSandboxTools.value,
+    [],
     []
   )
 }
@@ -483,6 +552,33 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- 待发送图片列表 -->
+    <div v-if="pendingImages.length > 0" class="pending-images-list">
+      <div v-for="(img, index) in pendingImages" :key="index" class="pending-image-item">
+        <img :src="img.thumbnailData" :alt="img.fileName" class="image-thumbnail" />
+        <div class="pending-image-info">
+          <span class="pending-image-name" :title="img.fileName">{{ img.fileName }}</span>
+          <span class="pending-image-size">{{ formatFileSize(img.compressedSize) }}</span>
+        </div>
+        <button
+          class="pending-image-remove"
+          title="移除"
+          :disabled="isSending"
+          @click="removePendingImage(index)"
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M6 18L18 6M6 6l12 12"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
     <!-- 处理中的文件列表 -->
     <div v-if="processingFiles.length > 0" class="processing-files-list">
       <div v-for="file in processingFiles" :key="file.tempId" class="processing-file-item">
@@ -513,8 +609,8 @@ onUnmounted(() => {
       <textarea
         v-model="localInputMessage"
         class="input message-textarea"
-        :class="{ 'has-docs': pendingDocs.length > 0, dragging: isDragging }"
-        placeholder="输入命令或消息，可拖拽文件上传 ..."
+        :class="{ 'has-docs': pendingDocs.length > 0 || pendingImages.length > 0, dragging: isDragging }"
+        placeholder="输入命令或消息，可拖拽文件或图片上传 ..."
         rows="3"
         :disabled="isSending"
         @keydown="handleKeydown"
@@ -527,7 +623,7 @@ onUnmounted(() => {
               d="M500.330144 493.959456C525.31082 468.616741 525.197683 428.317299 500.330144 403.44976 475.50786 378.627476 435.2763 378.491711 409.820448 403.44976L206.128377 607.051321C143.699314 670.023442 143.857706 771.05489 206.128377 833.325561 268.421675 895.618859 369.453124 895.777251 432.402617 833.325561L817.068825 448.659353C879.520515 386.207663 879.520515 284.836803 817.068825 222.385113 754.639762 159.95605 653.246275 159.933423 590.794585 222.385113L579.526128 233.74408C560.790621 252.479587 530.379363 252.479587 511.643856 233.74408 492.930976 215.0312 492.908349 184.64257 511.643856 165.861808L522.912313 154.502841C623.287566 54.625392 785.186785 54.738529 884.951097 154.502841 984.71541 254.267154 984.873802 416.121117 884.951097 516.541625L500.262262 901.185206C400.22642 1000.451715 238.576103 1000.225441 138.9023 900.551638 39.251125 800.900463 39.002223 639.227518 138.29136 539.214304L341.938176 335.567488C404.751905 273.115798 505.89649 273.251562 568.212416 335.567488 630.528342 397.883414 630.664106 499.027999 568.212416 561.841728L375.879312 754.174832C357.143805 772.910339 326.732547 772.910339 307.99704 754.174832 289.261533 735.439325 289.261533 705.028067 307.99704 686.29256L500.330144 493.959456Z"
             />
           </svg>
-          <p>释放文件以上传</p>
+          <p>释放文件以上传（支持文档和图片）</p>
         </div>
       </div>
     </div>
@@ -576,9 +672,9 @@ onUnmounted(() => {
         <!-- 文档上传按钮 -->
         <button
           class="document-upload-btn"
-          :class="{ 'has-docs': pendingDocs.length > 0 }"
+          :class="{ 'has-docs': totalAttachmentCount > 0 }"
           :disabled="isSending"
-          title="上传文档 (txt, md, pdf, doc, docx, csv, pptx)"
+          title="上传文件 (文档: txt, md, pdf, doc, docx, csv, pptx / 图片: jpg, png, webp, bmp, tiff)"
           @click="triggerDocumentUpload"
         >
           <svg width="18" height="18" viewBox="0 0 1024 1024" fill="currentColor">
@@ -586,7 +682,7 @@ onUnmounted(() => {
               d="M500.330144 493.959456C525.31082 468.616741 525.197683 428.317299 500.330144 403.44976 475.50786 378.627476 435.2763 378.491711 409.820448 403.44976L206.128377 607.051321C143.699314 670.023442 143.857706 771.05489 206.128377 833.325561 268.421675 895.618859 369.453124 895.777251 432.402617 833.325561L817.068825 448.659353C879.520515 386.207663 879.520515 284.836803 817.068825 222.385113 754.639762 159.95605 653.246275 159.933423 590.794585 222.385113L579.526128 233.74408C560.790621 252.479587 530.379363 252.479587 511.643856 233.74408 492.930976 215.0312 492.908349 184.64257 511.643856 165.861808L522.912313 154.502841C623.287566 54.625392 785.186785 54.738529 884.951097 154.502841 984.71541 254.267154 984.873802 416.121117 884.951097 516.541625L500.262262 901.185206C400.22642 1000.451715 238.576103 1000.225441 138.9023 900.551638 39.251125 800.900463 39.002223 639.227518 138.29136 539.214304L341.938176 335.567488C404.751905 273.115798 505.89649 273.251562 568.212416 335.567488 630.528342 397.883414 630.664106 499.027999 568.212416 561.841728L375.879312 754.174832C357.143805 772.910339 326.732547 772.910339 307.99704 754.174832 289.261533 735.439325 289.261533 705.028067 307.99704 686.29256L500.330144 493.959456Z"
             />
           </svg>
-          <span v-if="pendingDocs.length > 0" class="doc-count">{{ pendingDocs.length }}</span>
+          <span v-if="totalAttachmentCount > 0" class="doc-count">{{ totalAttachmentCount }}</span>
         </button>
 
         <!-- 执行/停止按钮 -->
@@ -1032,5 +1128,112 @@ onUnmounted(() => {
   font-weight: 600;
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ==================== 待发送图片列表样式 ==================== */
+.pending-images-list {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.pending-images-list::-webkit-scrollbar {
+  height: 4px;
+}
+
+.pending-images-list::-webkit-scrollbar-thumb {
+  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  border-radius: 2px;
+}
+
+.pending-image-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.08) 0%, rgba(70, 170, 143, 0.03) 100%);
+  border: 1px solid rgba(70, 170, 143, 0.2);
+  border-radius: var(--theme-radius-sm, 6px);
+  min-width: 80px;
+  max-width: 100px;
+  flex-shrink: 0;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.pending-image-item:hover {
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.12) 0%, rgba(70, 170, 143, 0.05) 100%);
+  border-color: rgba(70, 170, 143, 0.3);
+}
+
+.image-thumbnail {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.pending-image-info {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+}
+
+.pending-image-name {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--theme-text);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.pending-image-size {
+  font-size: 9px;
+  color: var(--theme-text-tertiary);
+  opacity: 0.7;
+  line-height: 1.3;
+}
+
+.pending-image-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.pending-image-item:hover .pending-image-remove {
+  opacity: 1;
+}
+
+.pending-image-remove:hover {
+  background: rgba(239, 68, 68, 0.8);
+}
+
+.pending-image-remove:disabled {
+  opacity: 0;
+  cursor: not-allowed;
 }
 </style>

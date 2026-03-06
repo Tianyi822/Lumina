@@ -162,6 +162,25 @@ function formatFileSize(bytes: number): string {
         </div>
       </div>
 
+      <!-- 图片指示器（仅用户消息） -->
+      <div
+        v-if="message.attachedImages && message.attachedImages.length > 0"
+        class="image-indicators"
+      >
+        <div
+          v-for="(img, index) in message.attachedImages"
+          :key="index"
+          class="image-badge"
+        >
+          <img
+            :src="img.base64Data"
+            :alt="img.fileName"
+            class="msg-image-thumb"
+          />
+          <span class="image-badge-name" :title="img.fileName">{{ img.fileName }}</span>
+        </div>
+      </div>
+
       <!-- 消息气泡 -->
       <div
         class="message-bubble"
@@ -778,5 +797,50 @@ function formatFileSize(bytes: number): string {
   font-size: 10px;
   color: var(--theme-text-tertiary);
   opacity: 0.8;
+}
+
+/* ==================== 图片指示器样式 ==================== */
+.image-indicators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.image-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.12) 0%, rgba(70, 170, 143, 0.05) 100%);
+  border: 1px solid rgba(70, 170, 143, 0.25);
+  border-radius: var(--theme-radius-sm, 6px);
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.image-badge:hover {
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.18) 0%, rgba(70, 170, 143, 0.08) 100%);
+  border-color: rgba(70, 170, 143, 0.35);
+}
+
+.msg-image-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.image-badge-name {
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--theme-text);
+  text-align: center;
 }
 </style>

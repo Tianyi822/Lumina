@@ -23,6 +23,7 @@ export { useMCPStore } from './mcpStore'
 export { useKnowledgeStore } from './knowledgeStore'
 export { useFileStore } from './fileStore'
 export { useDocumentUploadStore } from './documentUploadStore'
+export { useImageUploadStore } from './imageUploadStore'
 
 // Sandbox Stores (拆分后的模块)
 export {

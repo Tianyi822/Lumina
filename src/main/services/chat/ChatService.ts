@@ -1312,6 +1312,7 @@ export class ChatService {
   /**
    * 格式化消息为 OpenAI 格式
    * 过滤掉空内容的助手消息，将知识库结果和附加文档附加到最后一条用户消息
+   * 如果最后一条用户消息包含图片，则使用多模态 content 格式
    */
   private formatMessagesWithKnowledge(
     messages: ChatMessage[],
@@ -1319,50 +1320,74 @@ export class ChatService {
   ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
     const knowledgeContext = this.buildKnowledgeContext(knowledgeResults)
 
-    return messages
-      .filter((msg) => {
-        if (msg.role === 'assistant') {
-          const hasContent = msg.content && msg.content.trim().length > 0
-          const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0
-          return hasContent || hasToolCalls
+    const filteredMessages = messages.filter((msg) => {
+      if (msg.role === 'assistant') {
+        const hasContent = msg.content && msg.content.trim().length > 0
+        const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0
+        return hasContent || hasToolCalls
+      }
+      return true
+    })
+
+    return filteredMessages.map((msg, index) => {
+      if (msg.role === 'user' && index === filteredMessages.length - 1) {
+        // 组合知识库内容和文档内容
+        let textContent = msg.content || ''
+        if (knowledgeContext) {
+          textContent += knowledgeContext
         }
-        return true
-      })
-      .map((msg, index) => {
-        if (msg.role === 'user' && index === messages.length - 1) {
-          // 组合知识库内容和文档内容
-          let content = msg.content || ''
-          if (knowledgeContext) {
-            content += knowledgeContext
-          }
-          if (msg.attachedDocuments && msg.attachedDocuments.length > 0) {
-            content += this.formatDocumentsContext(msg.attachedDocuments)
-          }
-          return {
-            role: 'user' as const,
-            content: content
-          }
+        if (msg.attachedDocuments && msg.attachedDocuments.length > 0) {
+          textContent += this.formatDocumentsContext(msg.attachedDocuments)
         }
 
-        if (msg.role === 'tool') {
-          return {
-            role: 'tool' as const,
-            tool_call_id: msg.tool_call_id || '',
-            content: msg.content || ''
+        // 如果有图片，使用多模态 content 格式
+        if (msg.attachedImages && msg.attachedImages.length > 0) {
+          const contentParts: Array<
+            | { type: 'text'; text: string }
+            | { type: 'image_url'; image_url: { url: string; detail: string } }
+          > = [{ type: 'text', text: textContent }]
+
+          for (const img of msg.attachedImages) {
+            contentParts.push({
+              type: 'image_url',
+              image_url: {
+                url: img.base64Data,
+                detail: 'auto'
+              }
+            })
           }
-        }
-        if (msg.role === 'assistant' && msg.tool_calls) {
+
           return {
-            role: 'assistant' as const,
-            content: msg.content,
-            tool_calls: msg.tool_calls
-          }
+            role: 'user' as const,
+            content: contentParts
+          } as OpenAI.Chat.Completions.ChatCompletionUserMessageParam
         }
+
         return {
-          role: msg.role as 'system' | 'user' | 'assistant',
+          role: 'user' as const,
+          content: textContent
+        }
+      }
+
+      if (msg.role === 'tool') {
+        return {
+          role: 'tool' as const,
+          tool_call_id: msg.tool_call_id || '',
           content: msg.content || ''
         }
-      })
+      }
+      if (msg.role === 'assistant' && msg.tool_calls) {
+        return {
+          role: 'assistant' as const,
+          content: msg.content,
+          tool_calls: msg.tool_calls
+        }
+      }
+      return {
+        role: msg.role as 'system' | 'user' | 'assistant',
+        content: msg.content || ''
+      }
+    })
   }
 
   /**

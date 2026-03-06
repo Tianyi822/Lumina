@@ -21,6 +21,27 @@ export interface AttachedDocument {
 }
 
 /**
+ * 附加图片信息
+ * 包含压缩后的 Base64 图片数据
+ */
+export interface AttachedImage {
+  /** 原始文件名 */
+  fileName: string
+  /** MIME 类型，如 'image/jpeg' */
+  mimeType: string
+  /** 压缩后宽度 */
+  width: number
+  /** 压缩后高度 */
+  height: number
+  /** 原始文件大小（字节） */
+  originalSize: number
+  /** 压缩后大小（字节） */
+  compressedSize: number
+  /** 完整 data URL: "data:image/jpeg;base64,..." */
+  base64Data: string
+}
+
+/**
  * 表示一条聊天消息的完整结构
  * 包含角色、内容、工具调用和思考过程等信息
  */
@@ -37,6 +58,8 @@ export interface ChatMessage {
   reasoning_content?: string
   /** 附加的文档列表，仅 user 消息会有 */
   attachedDocuments?: AttachedDocument[]
+  /** 附加的图片列表，仅 user 消息会有 */
+  attachedImages?: AttachedImage[]
 }
 
 /**

@@ -4,7 +4,8 @@ import {
   ToolCallMessage,
   ToolCallInfo,
   ToolResultInfo,
-  AttachedDocument
+  AttachedDocument,
+  AttachedImage
 } from './chat'
 
 /**
@@ -49,6 +50,8 @@ export interface SessionMessage {
   reactSteps?: ReActStepData[]
   /** 附加的文档列表，仅 user 消息会有 */
   attachedDocuments?: AttachedDocument[]
+  /** 附加的图片列表，仅 user 消息会有 */
+  attachedImages?: AttachedImage[]
 }
 
 /**

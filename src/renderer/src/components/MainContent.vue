@@ -3,7 +3,7 @@ import { nextTick, onMounted, ref, watch, provide, computed } from 'vue'
 import ChatMessage from './chat/ChatMessage.vue'
 import MessageInput from './MessageInput.vue'
 import ReActSteps from './ReActSteps.vue'
-import type { Message, MCPTool, KnowledgeBase, AttachedDocument } from '@renderer/types'
+import type { Message, MCPTool, KnowledgeBase, AttachedDocument, AttachedImage } from '@renderer/types'
 
 const props = defineProps<{
   currentChatId?: string
@@ -33,7 +33,8 @@ const emit = defineEmits<{
     selectedTools: MCPTool[],
     selectedKnowledgeBases: KnowledgeBase[],
     enableSandboxTools: boolean,
-    attachedDocuments: AttachedDocument[]
+    attachedDocuments: AttachedDocument[],
+    attachedImages: AttachedImage[]
   ): void
   (e: 'stop-request'): void
   (e: 'update:inputMessage', value: string): void
@@ -140,7 +141,8 @@ function handleSendMessage(
   selectedTools: MCPTool[],
   selectedKnowledgeBases: KnowledgeBase[],
   enableSandboxTools: boolean,
-  attachedDocuments: AttachedDocument[]
+  attachedDocuments: AttachedDocument[],
+  attachedImages: AttachedImage[]
 ): void {
   window.api.logger.debug('[MainContent] 处理发送消息事件', {
     messageLength: message.length,
@@ -148,7 +150,8 @@ function handleSendMessage(
     selectedToolsCount: selectedTools?.length ?? 0,
     selectedKnowledgeBasesCount: selectedKnowledgeBases?.length ?? 0,
     enableSandboxTools,
-    attachedDocumentsCount: attachedDocuments?.length ?? 0
+    attachedDocumentsCount: attachedDocuments?.length ?? 0,
+    attachedImagesCount: attachedImages?.length ?? 0
   })
   emit(
     'send-message',
@@ -157,7 +160,8 @@ function handleSendMessage(
     selectedTools,
     selectedKnowledgeBases,
     enableSandboxTools,
-    attachedDocuments
+    attachedDocuments,
+    attachedImages
   )
 }
 
