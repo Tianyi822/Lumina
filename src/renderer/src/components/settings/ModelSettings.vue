@@ -95,9 +95,9 @@ function updateModelConfig(modelName: string, field: keyof LLMConfig, value: unk
     <div class="model-list">
       <div v-for="config in modelConfigs" :key="config.model_name" class="model-item">
         <div class="model-header" @click="toggleModelExpand(config.model_name)">
-          <span class="expand-icon">{{ expandedModels.has(config.model_name) ? '▼' : '▶' }}</span>
           <span class="model-name">{{ config.model_name }}</span>
           <span v-if="defaultModel === config.model_name" class="default-badge">默认</span>
+          <span class="expand-state">{{ expandedModels.has(config.model_name) ? '收起' : '展开' }}</span>
           <div class="model-actions">
             <button
               v-if="defaultModel !== config.model_name"
@@ -263,7 +263,7 @@ function updateModelConfig(modelName: string, field: keyof LLMConfig, value: unk
 
     <!-- 添加模型按钮 -->
     <button v-if="!showNewModelForm" class="btn add-model-btn" @click="showNewModelForm = true">
-      + 添加模型配置
+      添加模型配置
     </button>
   </div>
 </template>
@@ -299,17 +299,16 @@ function updateModelConfig(modelName: string, field: keyof LLMConfig, value: unk
   background-color: var(--theme-bg-hover);
 }
 
-.expand-icon {
-  font-size: 10px;
-  color: var(--theme-text-secondary);
-  margin-right: 10px;
-  width: 12px;
-}
-
 .model-name {
   font-weight: 500;
   color: var(--theme-text);
   flex: 1;
+}
+
+.expand-state {
+  font-size: 12px;
+  color: var(--theme-text-tertiary);
+  margin-right: 12px;
 }
 
 .default-badge {

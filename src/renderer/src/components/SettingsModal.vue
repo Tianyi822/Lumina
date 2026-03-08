@@ -90,9 +90,7 @@ onUnmounted(() => {
       <!-- 模态框头部 -->
       <div class="modal-header">
         <h2 class="modal-title">设置</h2>
-        <button class="btn close-btn" @click="handleClose">
-          <span>×</span>
-        </button>
+        <button class="btn close-btn" @click="handleClose">关闭</button>
       </div>
 
       <!-- 主体区域：左右布局 -->
@@ -232,7 +230,7 @@ onUnmounted(() => {
       </div>
       <div v-if="infoMessage" class="message info-message">
         <span>{{ infoMessage }}</span>
-        <button class="message-close" @click="infoMessage = ''">×</button>
+        <button class="message-close" @click="infoMessage = ''">关闭</button>
       </div>
 
       <!-- 模态框底部 -->
@@ -378,14 +376,14 @@ onUnmounted(() => {
 }
 
 .close-btn {
-  width: 32px;
+  min-width: 64px;
   height: 32px;
-  padding: 0;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  border-radius: 50%;
+  font-size: 13px;
+  border-radius: 999px;
 }
 
 .modal-body {
@@ -511,10 +509,11 @@ onUnmounted(() => {
   background: transparent;
   border: none;
   color: var(--theme-warning);
-  font-size: 18px;
-  padding: 0;
-  width: 20px;
-  height: 20px;
+  font-size: 12px;
+  font-family: var(--theme-font);
+  padding: 4px 8px;
+  min-width: 44px;
+  height: 28px;
   cursor: pointer;
   display: flex;
   align-items: center;
