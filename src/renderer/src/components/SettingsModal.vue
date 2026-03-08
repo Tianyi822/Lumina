@@ -258,15 +258,16 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
+  padding:
+    calc(54px + env(safe-area-inset-top, 0px))
+    24px
+    24px;
   overflow: hidden;
 }
 
 .modal-container {
-  width: 100%;
-  height: 100%;
-  max-width: 900px;
-  max-height: 700px;
+  width: min(860px, calc(100vw - 48px));
+  height: min(620px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
   min-width: 400px;
   min-height: 300px;
   background:
@@ -297,19 +298,22 @@ onUnmounted(() => {
 
 @media (max-width: 960px) {
   .modal-container {
-    max-width: calc(100vw - 40px);
-    max-height: calc(100vh - 40px);
+    width: min(820px, calc(100vw - 40px));
+    height: min(600px, calc(100vh - 88px - env(safe-area-inset-top, 0px)));
   }
 }
 
 @media (max-width: 768px) {
   .modal-overlay {
-    padding: 10px;
+    padding:
+      calc(44px + env(safe-area-inset-top, 0px))
+      12px
+      12px;
   }
 
   .modal-container {
-    max-width: 100%;
-    max-height: 100%;
+    width: 100%;
+    height: min(100%, calc(100vh - 56px - env(safe-area-inset-top, 0px)));
   }
 
   .tabs {
