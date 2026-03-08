@@ -1,5 +1,6 @@
 import { logger } from '@main/services/logger'
 import type { VoiceRecognitionConfig } from '@shared/types/config'
+import { BrowserWindow } from 'electron'
 
 /**
  * 语音识别服务
@@ -7,6 +8,9 @@ import type { VoiceRecognitionConfig } from '@shared/types/config'
  */
 export class VoiceRecognitionService {
   private config: VoiceRecognitionConfig | null = null
+  private recognizer: any = null
+  private isRecognizing = false
+  private currentWindow: BrowserWindow | null = null
 
   /**
    * 设置配置
@@ -23,13 +27,177 @@ export class VoiceRecognitionService {
   }
 
   /**
-   * 验证配置是否完整
+   * 是否正在识别中
    */
-  isConfigValid(): boolean {
-    if (!this.config) return false
-    const { appkey, token } = this.config
-    // Token 和 Appkey 是必需的
-    return !!(token && appkey)
+  getIsRecognizing(): boolean {
+    return this.isRecognizing
+  }
+
+  /**
+   * 开始实时语音识别
+   * @param window 渲染进程窗口，用于发送识别结果
+   */
+  async startRealtimeRecognition(window: BrowserWindow): Promise<{ success: boolean; error?: string }> {
+    if (this.isRecognizing) {
+      return { success: false, error: '已经在识别中' }
+    }
+
+    if (!this.config) {
+      return { success: false, error: '语音识别配置未设置' }
+    }
+
+    const { token, appkey } = this.config
+
+    if (!token || !appkey) {
+      return { success: false, error: 'Token 或 Appkey 未配置' }
+    }
+
+    this.currentWindow = window
+
+    try {
+      // 动态导入阿里云 NLS SDK
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const Nls = require('alibabacloud-nls')
+
+      const URL = 'wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1'
+
+      // 创建实时语音识别器
+      this.recognizer = new Nls.SpeechTranscription({
+        url: URL,
+        appkey,
+        token
+      })
+
+      // 设置事件监听
+      this.recognizer.on('started', () => {
+        logger.info('实时语音识别已开始')
+        this.isRecognizing = true
+        this.sendResultToWindow('started', { message: '识别已开始' })
+      })
+
+      this.recognizer.on('changed', (msg: string) => {
+        // 中间结果
+        logger.info('语音识别中间结果', 'main', { msg })
+        try {
+          const result = JSON.parse(msg)
+          const text = result.payload?.result || ''
+          if (text) {
+            this.sendResultToWindow('partial', { text })
+          }
+        } catch (e) {
+          // 忽略解析错误
+        }
+      })
+
+      this.recognizer.on('begin', (msg: string) => {
+        // 句子开始
+        logger.info('语音识别句子开始', 'main', { msg })
+      })
+
+      this.recognizer.on('end', (msg: string) => {
+        // 句子结束 - 最终结果
+        logger.info('语音识别句子结束', 'main', { msg })
+        try {
+          const result = JSON.parse(msg)
+          const text = result.payload?.result || ''
+          if (text) {
+            this.sendResultToWindow('final', { text })
+          }
+        } catch (e) {
+          // 忽略解析错误
+        }
+      })
+
+      this.recognizer.on('completed', (msg: string) => {
+        // 识别任务完成
+        logger.info('语音识别任务完成', 'main', { msg })
+      })
+
+      this.recognizer.on('closed', () => {
+        logger.info('实时语音识别连接关闭')
+        this.isRecognizing = false
+        this.sendResultToWindow('stopped', { message: '识别已停止' })
+      })
+
+      this.recognizer.on('failed', (msg: string) => {
+        logger.error('实时语音识别失败', 'main', { msg })
+        this.isRecognizing = false
+        this.sendResultToWindow('error', { error: msg })
+      })
+
+      // 启动识别
+      const params = this.recognizer.defaultStartParams()
+      // 启用中间结果
+      params.enable_intermediate_result = true
+      // 启用标点符号
+      params.enable_punctuation_prediction = true
+      // 启用逆文本标准化
+      params.enable_inverse_text_normalization = true
+
+      await this.recognizer.start(params, true, 6000)
+      return { success: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('启动实时语音识别失败', 'main', { error: errorMessage })
+      this.isRecognizing = false
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  /**
+   * 停止实时语音识别
+   */
+  async stopRealtimeRecognition(): Promise<void> {
+    if (!this.recognizer || !this.isRecognizing) {
+      return
+    }
+
+    try {
+      await this.recognizer.close()
+      logger.info('实时语音识别已停止')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('停止实时语音识别失败', 'main', { error: errorMessage })
+      // 强制关闭
+      if (this.recognizer) {
+        try {
+          this.recognizer.shutdown()
+        } catch (e) {
+          // 忽略关闭错误
+        }
+      }
+    } finally {
+      this.isRecognizing = false
+      this.recognizer = null
+      this.currentWindow = null
+    }
+  }
+
+  /**
+   * 发送音频数据
+   * @param audioData 音频数据 (PCM 格式，16kHz，16bit，单声道)
+   */
+  sendAudioData(audioData: Buffer): boolean {
+    if (!this.recognizer || !this.isRecognizing) {
+      return false
+    }
+
+    try {
+      return this.recognizer.sendAudio(audioData)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('发送音频数据失败', 'main', { error: errorMessage })
+      return false
+    }
+  }
+
+  /**
+   * 发送识别结果到渲染进程
+   */
+  private sendResultToWindow(type: string, data: unknown): void {
+    if (this.currentWindow && !this.currentWindow.isDestroyed()) {
+      this.currentWindow.webContents.send('voiceRecognition:result', { type, data })
+    }
   }
 
   /**

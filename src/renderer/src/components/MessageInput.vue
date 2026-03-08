@@ -354,6 +354,10 @@ const { voiceRecognitionConfig } = storeToRefs(configStore)
 
 // 语音识别状态
 const isRecording = ref(false)
+const mediaStream = ref<MediaStream | null>(null)
+const audioContext = ref<AudioContext | null>(null)
+const workletNode = ref<AudioWorkletNode | null>(null)
+const voiceUnsubscribe = ref<(() => void) | null>(null)
 
 /**
  * 切换语音录制状态
@@ -369,7 +373,7 @@ function toggleVoiceRecording(): void {
 /**
  * 开始语音录制
  */
-function startVoiceRecording(): void {
+async function startVoiceRecording(): Promise<void> {
   if (!voiceRecognitionConfig.value?.enabled) {
     alert('语音识别功能未启用，请先在设置中配置')
     return
@@ -380,22 +384,126 @@ function startVoiceRecording(): void {
     return
   }
 
-  isRecording.value = true
-  window.api.logger.info('[MessageInput] 开始语音录制')
+  try {
+    // 1. 获取麦克风权限
+    mediaStream.value = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        sampleRate: 16000,
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true
+      }
+    })
 
-  // TODO: 实现实际的语音录制功能
-  // 这里需要通过 IPC 调用主进程的语音识别服务
-  // 目前先显示提示
-  alert('语音录制功能开发中，敬请期待！')
-  isRecording.value = false
+    // 2. 创建音频上下文
+    audioContext.value = new AudioContext({ sampleRate: 16000 })
+
+    // 3. 创建音频源
+    const source = audioContext.value.createMediaStreamSource(mediaStream.value)
+
+    // 4. 创建 ScriptProcessor 用于获取音频数据 (AudioWorklet 更好但需要额外文件)
+    const bufferSize = 4096
+    const processor = audioContext.value.createScriptProcessor(bufferSize, 1, 1)
+
+    // 5. 启动主进程的语音识别服务
+    const startResult = await window.api.voiceRecognition.start()
+    if (!startResult.success) {
+      throw new Error(startResult.error || '启动语音识别失败')
+    }
+
+    // 6. 监听识别结果
+    voiceUnsubscribe.value = window.api.voiceRecognition.onResult((event) => {
+      if (event.type === 'partial' && event.data.text) {
+        // 中间结果 - 可以实时显示
+        window.api.logger.debug('[MessageInput] 语音识别中间结果', { text: event.data.text })
+      } else if (event.type === 'final' && event.data.text) {
+        // 最终结果 - 添加到输入框
+        localInputMessage.value = localInputMessage.value
+          ? localInputMessage.value + event.data.text
+          : event.data.text
+        emit('update:inputMessage', localInputMessage.value)
+      } else if (event.type === 'error') {
+        window.api.logger.error('[MessageInput] 语音识别错误', { error: event.data.error })
+        alert(`语音识别错误: ${event.data.error}`)
+        stopVoiceRecording()
+      } else if (event.type === 'stopped') {
+        window.api.logger.info('[MessageInput] 语音识别已停止')
+      }
+    })
+
+    // 7. 处理音频数据并发送到主进程
+    processor.onaudioprocess = (e: AudioProcessingEvent) => {
+      if (!isRecording.value) return
+
+      const inputData = e.inputBuffer.getChannelData(0)
+      // 将 Float32 转换为 Int16 (PCM 16bit)
+      const pcmData = new Int16Array(inputData.length)
+      for (let i = 0; i < inputData.length; i++) {
+        const s = Math.max(-1, Math.min(1, inputData[i]))
+        pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF
+      }
+
+      // 发送到主进程
+      window.api.voiceRecognition.sendAudio(new Uint8Array(pcmData.buffer))
+    }
+
+    // 8. 连接节点
+    source.connect(processor)
+    processor.connect(audioContext.value.destination)
+
+    isRecording.value = true
+    window.api.logger.info('[MessageInput] 语音录制已开始')
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    window.api.logger.error('[MessageInput] 启动语音录制失败', { error: errorMessage })
+    alert(`启动语音录制失败: ${errorMessage}`)
+    await cleanupAudio()
+  }
 }
 
 /**
  * 停止语音录制
  */
-function stopVoiceRecording(): void {
-  isRecording.value = false
+async function stopVoiceRecording(): Promise<void> {
   window.api.logger.info('[MessageInput] 停止语音录制')
+  isRecording.value = false
+  await cleanupAudio()
+}
+
+/**
+ * 清理音频资源
+ */
+async function cleanupAudio(): Promise<void> {
+  // 取消结果监听
+  if (voiceUnsubscribe.value) {
+    voiceUnsubscribe.value()
+    voiceUnsubscribe.value = null
+  }
+
+  // 停止主进程识别
+  try {
+    await window.api.voiceRecognition.stop()
+  } catch (e) {
+    // 忽略停止错误
+  }
+
+  // 关闭音频节点
+  if (workletNode.value) {
+    workletNode.value.disconnect()
+    workletNode.value = null
+  }
+
+  // 关闭音频上下文
+  if (audioContext.value) {
+    await audioContext.value.close()
+    audioContext.value = null
+  }
+
+  // 关闭媒体流
+  if (mediaStream.value) {
+    mediaStream.value.getTracks().forEach((track) => track.stop())
+    mediaStream.value = null
+  }
 }
 
 // 加载已配置的模型列表
@@ -549,9 +657,11 @@ onMounted(() => {
   document.addEventListener('click', handleClickOutside)
 })
 
-onUnmounted(() => {
+onUnmounted(async () => {
   // 移除全局点击事件监听器
   document.removeEventListener('click', handleClickOutside)
+  // 清理语音录制资源
+  await cleanupAudio()
 })
 </script>
 

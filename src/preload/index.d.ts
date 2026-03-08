@@ -1613,11 +1613,27 @@ interface TokenFetchResult {
 }
 
 /**
+ * 语音识别结果事件
+ */
+interface VoiceRecognitionResultEvent {
+  type: 'started' | 'partial' | 'final' | 'stopped' | 'error'
+  data: {
+    text?: string
+    message?: string
+    error?: string
+  }
+}
+
+/**
  * 语音识别 API
  */
 interface VoiceRecognitionApi {
   test: (config: VoiceRecognitionConfig) => Promise<VoiceRecognitionTestResult>
   fetchToken: (accessKeyId: string, accessKeySecret: string) => Promise<TokenFetchResult>
+  start: () => Promise<{ success: boolean; error?: string }>
+  stop: () => Promise<{ success: boolean; error?: string }>
+  sendAudio: (audioData: Uint8Array) => void
+  onResult: (callback: (event: VoiceRecognitionResultEvent) => void) => () => void
 }
 
 /**
