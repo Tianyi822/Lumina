@@ -7,6 +7,7 @@ import MCPSettings from './settings/MCPSettings.vue'
 import PromptEngineeringSettings from './settings/PromptEngineeringSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
+import VoiceRecognitionSettings from './settings/VoiceRecognitionSettings.vue'
 import { useConfigStore } from '@renderer/stores'
 
 const emit = defineEmits<{
@@ -29,7 +30,7 @@ const {
 } = storeToRefs(configStore)
 
 // 当前激活的 Tab
-const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge'>('model')
+const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge' | 'voice'>('model')
 
 // 信息消息（仅用于嵌入模型设置）
 const infoMessage = ref('')
@@ -140,6 +141,13 @@ onUnmounted(() => {
           >
             知识库服务
           </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'voice' }"
+            @click="activeTab = 'voice'"
+          >
+            语音识别
+          </button>
         </div>
 
         <!-- 右侧内容区域 -->
@@ -200,6 +208,15 @@ onUnmounted(() => {
           <!-- 知识库 MCP 服务 Tab -->
           <KnowledgeMCPSettings
             v-else-if="activeTab === 'knowledge'"
+            @update:error-message="errorMessage = $event"
+            @update:success-message="successMessage = $event"
+          />
+
+          <!-- 语音识别配置 Tab -->
+          <VoiceRecognitionSettings
+            v-else-if="activeTab === 'voice'"
+            :error-message="errorMessage"
+            :success-message="successMessage"
             @update:error-message="errorMessage = $event"
             @update:success-message="successMessage = $event"
           />

@@ -15,6 +15,7 @@ import { sandboxApi } from './apis/sandbox'
 import { promptTemplateApi, cacheStatsApi } from './apis/promptEngineering'
 import { knowledgeMCPApi } from './apis/knowledgeMCP'
 import { documentApi } from './apis/document'
+import { voiceRecognitionApi } from './apis/voiceRecognition'
 
 /**
  * 自定义渲染器 API
@@ -40,7 +41,9 @@ const api = {
   promptTemplate: promptTemplateApi,
   cacheStats: cacheStatsApi,
   // 知识库 MCP 服务 API
-  knowledgeMCP: knowledgeMCPApi
+  knowledgeMCP: knowledgeMCPApi,
+  // 语音识别相关 API
+  voiceRecognition: voiceRecognitionApi
 }
 
 // 使用 contextBridge 向渲染器暴露 API

@@ -6,7 +6,7 @@ import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
 import SandboxToolsToggle from './sandbox/SandboxToolsToggle.vue'
 import UserInteractionOptions from './UserInteractionOptions.vue'
 import type { AppConfig, MCPTool, KnowledgeBase } from '@renderer/types'
-import { useUIStateStore, useChatStreamStore } from '@renderer/stores'
+import { useUIStateStore, useChatStreamStore, useConfigStore } from '@renderer/stores'
 import { useDocumentUploadStore } from '../stores/documentUploadStore'
 import { useImageUploadStore, isImageFile } from '../stores/imageUploadStore'
 import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
@@ -348,6 +348,56 @@ const { configUpdateKey } = storeToRefs(uiStateStore)
 const chatStreamStore = useChatStreamStore()
 const { showUserInteraction, userInteractionInfo } = storeToRefs(chatStreamStore)
 
+// 配置 Store - 用于获取语音识别配置
+const configStore = useConfigStore()
+const { voiceRecognitionConfig } = storeToRefs(configStore)
+
+// 语音识别状态
+const isRecording = ref(false)
+
+/**
+ * 切换语音录制状态
+ */
+function toggleVoiceRecording(): void {
+  if (isRecording.value) {
+    stopVoiceRecording()
+  } else {
+    startVoiceRecording()
+  }
+}
+
+/**
+ * 开始语音录制
+ */
+function startVoiceRecording(): void {
+  if (!voiceRecognitionConfig.value?.enabled) {
+    alert('语音识别功能未启用，请先在设置中配置')
+    return
+  }
+
+  if (!voiceRecognitionConfig.value?.token || !voiceRecognitionConfig.value?.appkey) {
+    alert('语音识别配置不完整，请先在设置中配置 Token 和 Appkey')
+    return
+  }
+
+  isRecording.value = true
+  window.api.logger.info('[MessageInput] 开始语音录制')
+
+  // TODO: 实现实际的语音录制功能
+  // 这里需要通过 IPC 调用主进程的语音识别服务
+  // 目前先显示提示
+  alert('语音录制功能开发中，敬请期待！')
+  isRecording.value = false
+}
+
+/**
+ * 停止语音录制
+ */
+function stopVoiceRecording(): void {
+  isRecording.value = false
+  window.api.logger.info('[MessageInput] 停止语音录制')
+}
+
 // 加载已配置的模型列表
 async function loadConfiguredModels(): Promise<void> {
   try {
@@ -683,6 +733,25 @@ onUnmounted(() => {
             />
           </svg>
           <span v-if="totalAttachmentCount > 0" class="doc-count">{{ totalAttachmentCount }}</span>
+        </button>
+
+        <!-- 语音输入按钮 -->
+        <button
+          v-if="voiceRecognitionConfig?.enabled"
+          class="voice-input-btn"
+          :class="{ recording: isRecording }"
+          :disabled="isSending"
+          :title="isRecording ? '正在录音...点击停止' : '语音输入'"
+          @click="toggleVoiceRecording"
+        >
+          <svg width="18" height="18" viewBox="0 0 1024 1024" fill="currentColor">
+            <path
+              d="M512 608 512 608c88 0 160-72 160-160L672 256c0-88-72-160-160-160l0 0c-88 0-160 72-160 160l0 192C352 536 424 608 512 608z"
+            />
+            <path
+              d="M796.6 492.4c2.7-17.5-9.2-33.8-26.7-36.5-17.5-2.6-33.8 9.3-36.5 26.7C716.6 590.6 621.5 672 512 672c-109.5 0-204.7-81.5-221.4-189.5-2.7-17.5-19.1-29.4-36.5-26.7-17.5 2.7-29.4 19-26.7 36.5 20.2 130.5 124 227.8 252.6 241.8L480 832l-96 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l256 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-96 0 0-97.9C672.5 720.1 776.4 622.9 796.6 492.4z"
+            />
+          </svg>
         </button>
 
         <!-- 执行/停止按钮 -->
@@ -1128,6 +1197,57 @@ onUnmounted(() => {
   font-weight: 600;
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ==================== 语音输入按钮样式 ==================== */
+.voice-input-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+  );
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  border-radius: 50%;
+  color: var(--theme-text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    0 2px 6px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15));
+}
+
+.voice-input-btn:hover {
+  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  color: var(--theme-text);
+}
+
+.voice-input-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voice-input-btn.recording {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
+  animation: voice-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes voice-pulse {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2), 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 4px 24px rgba(239, 68, 68, 0.4), 0 2px 10px rgba(239, 68, 68, 0.2);
+  }
 }
 
 /* ==================== 待发送图片列表样式 ==================== */

@@ -1583,6 +1583,44 @@ interface DocumentApi {
 }
 
 /**
+ * 语音识别配置
+ */
+interface VoiceRecognitionConfig {
+  provider: 'aliyun'
+  accessKeyId?: string
+  accessKeySecret?: string
+  token?: string
+  appkey?: string
+  enabled?: boolean
+}
+
+/**
+ * 语音识别连接测试结果
+ */
+interface VoiceRecognitionTestResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * Token 获取结果
+ */
+interface TokenFetchResult {
+  success: boolean
+  token?: string
+  expireTime?: number
+  error?: string
+}
+
+/**
+ * 语音识别 API
+ */
+interface VoiceRecognitionApi {
+  test: (config: VoiceRecognitionConfig) => Promise<VoiceRecognitionTestResult>
+  fetchToken: (accessKeyId: string, accessKeySecret: string) => Promise<TokenFetchResult>
+}
+
+/**
  * 自定义的完整 API
  */
 interface CustomApi {
@@ -1606,6 +1644,8 @@ interface CustomApi {
   cacheStats: CacheStatsApi
   // 知识库 MCP 服务 API
   knowledgeMCP: KnowledgeMCPApi
+  // 语音识别 API
+  voiceRecognition: VoiceRecognitionApi
 }
 
 declare global {
