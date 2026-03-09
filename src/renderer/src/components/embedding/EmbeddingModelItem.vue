@@ -17,11 +17,16 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+const expanded = ref(false)
 const testResult = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 
 const displayName = computed(() => {
   return props.config.displayName || props.config.model
 })
+
+function toggleExpand(): void {
+  expanded.value = !expanded.value
+}
 
 async function handleTest(): Promise<void> {
   testResult.value = null
@@ -31,17 +36,16 @@ async function handleTest(): Promise<void> {
 
 <template>
   <div class="model-item">
-    <div class="model-header">
-      <div class="model-info">
-        <span class="model-name">{{ displayName }}</span>
-        <span class="model-dimensions">{{ config.dimensions }}维</span>
-      </div>
+    <div class="model-header" @click="toggleExpand">
+      <span class="model-name">{{ displayName }}</span>
+      <span class="model-dimensions">{{ config.dimensions }}维</span>
+      <span class="expand-state">{{ expanded ? '收起' : '展开' }}</span>
       <div class="model-actions">
-        <button class="btn-text" :disabled="testing" @click="handleTest">
+        <button class="btn btn-small" :disabled="testing" @click.stop="handleTest">
           {{ testing ? '测试中...' : '测试' }}
         </button>
-        <button class="btn-text" @click="emit('edit', id)">编辑</button>
-        <button class="btn-text btn-text-danger" @click="emit('delete', id)">删除</button>
+        <button class="btn btn-small" @click.stop="emit('edit', id)">编辑</button>
+        <button class="btn btn-small btn-danger-text" @click.stop="emit('delete', id)">删除</button>
       </div>
     </div>
 
@@ -50,8 +54,8 @@ async function handleTest(): Promise<void> {
       {{ testResult.message }}
     </div>
 
-    <!-- 模型详情 -->
-    <div class="model-details">
+    <!-- 模型详情（展开时显示） -->
+    <div v-if="expanded" class="model-details">
       <div class="detail-item">
         <span class="detail-label">API URL:</span>
         <span class="detail-value">{{ config.baseUrl }}</span>
@@ -66,99 +70,88 @@ async function handleTest(): Promise<void> {
 
 <style scoped>
 .model-item {
-  padding: 16px;
+  background-color: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
-  border-radius: 8px;
-  background: var(--theme-background-secondary);
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 .model-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
-.model-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.model-header:hover {
+  background-color: var(--theme-bg-hover);
 }
 
 .model-name {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--theme-text);
+  flex: 1;
 }
 
 .model-dimensions {
-  font-size: 12px;
-  color: var(--theme-text-secondary);
-}
-
-.badge {
   font-size: 11px;
-  padding: 2px 6px;
+  padding: 2px 8px;
+  background-color: var(--theme-accent);
+  color: var(--theme-bg);
   border-radius: 4px;
-  font-weight: 500;
+  margin-right: 12px;
 }
 
-.badge-default {
-  background: var(--theme-accent);
-  color: white;
+.expand-state {
+  font-size: 12px;
+  color: var(--theme-text-tertiary);
+  margin-right: 12px;
 }
 
 .model-actions {
   display: flex;
-  gap: 4px;
+  gap: 8px;
 }
 
-.btn-text {
-  background: none;
-  border: 1px solid var(--theme-border);
-  cursor: pointer;
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 13px;
-  color: var(--theme-text);
-  transition: all 0.2s;
+.btn-small {
+  padding: 4px 10px;
+  font-size: 12px;
 }
 
-.btn-text:hover:not(:disabled) {
-  background: var(--theme-border);
+.btn-danger-text {
+  color: var(--theme-danger);
+  border-color: transparent;
 }
 
-.btn-text:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-text-danger:hover {
-  background: #ff4444;
-  color: white;
-  border-color: #ff4444;
+.btn-danger-text:hover {
+  background-color: rgba(248, 81, 73, 0.1);
+  border-color: var(--theme-danger);
 }
 
 .test-result {
-  margin-top: 8px;
+  margin: 0 16px 8px;
   padding: 8px;
   border-radius: 4px;
   font-size: 13px;
 }
 
 .test-result.success {
-  background: #4caf50;
-  color: white;
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--theme-success);
+  border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .test-result.error {
-  background: #f44336;
-  color: white;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--theme-danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .model-details {
-  margin-top: 12px;
-  padding-top: 12px;
+  padding: 16px;
   border-top: 1px solid var(--theme-border);
+  background-color: var(--theme-bg);
   display: flex;
   flex-direction: column;
   gap: 6px;

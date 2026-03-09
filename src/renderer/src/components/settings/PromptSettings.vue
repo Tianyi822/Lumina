@@ -191,7 +191,7 @@ watch(
 
 <style scoped>
 .tab-content {
-  padding: 20px;
+  min-height: 300px;
 }
 
 .info-box {
@@ -247,6 +247,53 @@ watch(
 .textarea {
   font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
   line-height: 1.6;
+}
+
+/* 调整下拉箭头位置，避免紧贴右侧边界 */
+select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2371717a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")
+      no-repeat right 16px center,
+    linear-gradient(
+      135deg,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
+    rgba(0, 0, 0, 0.017);
+  background-size: 12px, auto, auto;
+  padding-right: 44px;
+  transition:
+    border-color 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    box-shadow 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    background-color 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+select.input:hover {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2371717a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")
+      no-repeat right 16px center,
+    linear-gradient(
+      135deg,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
+    rgba(0, 0, 0, 0.017);
+  background-size: 12px, auto, auto;
+}
+
+select.input:focus {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2371717a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")
+      no-repeat right 16px center,
+    linear-gradient(
+      135deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
+    rgba(0, 0, 0, 0.02);
+  background-size: 12px, auto, auto;
 }
 
 .slider {
