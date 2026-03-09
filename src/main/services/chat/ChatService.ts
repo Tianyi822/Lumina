@@ -30,8 +30,6 @@ export class ChatService {
   private stoppedSessions: Set<string> = new Set()
   private pendingUserInteraction: Set<string> = new Set()
   private toolScheduler: ToolCallScheduler
-  private pendingExtractions: Set<string> = new Set()
-  private extractionTimer: NodeJS.Timeout | null = null
   // 存储每个会话选中的知识库 ID 列表
   private sessionKnowledgeBases: Map<string, string[]> = new Map()
 
@@ -540,9 +538,6 @@ export class ChatService {
         iterations,
         usage: totalUsage
       })
-
-      // 异步提取动态示例（如果启用）
-      this.scheduleExampleExtraction(sessionId)
 
       return { success: true }
     } catch (error) {
@@ -1159,49 +1154,6 @@ export class ChatService {
   private clearStoppedSession(sessionId: string): void {
     this.stoppedSessions.delete(sessionId)
     this.sessionKnowledgeBases.delete(sessionId)
-  }
-
-  /**
-   * 调度示例提取任务（防抖）
-   * 只在 ReAct 模式且有工具调用时调用
-   */
-  private scheduleExampleExtraction(sessionId: string): void {
-    const config = configManager.getConfig()
-    if (!config?.promptConfig?.enableDynamicExamples) {
-      return
-    }
-
-    this.pendingExtractions.add(sessionId)
-
-    // 清除之前的定时器
-    if (this.extractionTimer) {
-      clearTimeout(this.extractionTimer)
-    }
-
-    // 延迟 2 秒批量提取
-    this.extractionTimer = setTimeout(() => {
-      this.executeBatchExtraction()
-    }, 2000)
-  }
-
-  /**
-   * 批量执行示例提取
-   */
-  private async executeBatchExtraction(): Promise<void> {
-    const sessionIds = Array.from(this.pendingExtractions)
-    this.pendingExtractions.clear()
-    this.extractionTimer = null
-
-    if (sessionIds.length === 0) return
-
-    try {
-      // 示例提取功能已移除
-      logger.info('批量提取示例功能已禁用', 'main', {
-        sessionCount: sessionIds.length
-      })
-    } catch (error) {
-      logger.warn('批量提取示例失败', 'main', { error })
-    }
   }
 
   /**
