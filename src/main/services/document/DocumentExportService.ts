@@ -534,15 +534,38 @@ export class DocumentExportService {
     const graphemes = this.splitWordGraphemes(text)
     let plainTextBuffer = ''
 
-    graphemes.forEach((grapheme) => {
-      if (this.isEmojiFragment(grapheme)) {
-        if (plainTextBuffer) {
-          fragments.push({
-            text: plainTextBuffer
-          })
-          plainTextBuffer = ''
-        }
+    const flushPlainTextBuffer = (): void => {
+      if (!plainTextBuffer) {
+        return
+      }
 
+      fragments.push({
+        text: plainTextBuffer
+      })
+      plainTextBuffer = ''
+    }
+
+    graphemes.forEach((grapheme, index) => {
+      // 每个 ⭐ 单独成为一个片段，避免 Word/WPS 将连续符号合并渲染
+      if (this.isWordStarText(grapheme.replace(/\uFE0F/g, ''))) {
+        flushPlainTextBuffer()
+        fragments.push({
+          text: grapheme,
+          useEmojiFont: true
+        })
+        // 在 ⭐ 后面添加细空格，确保兼容 WPS
+        const nextGrapheme = graphemes[index + 1]
+        if (nextGrapheme && this.isWordStarText(nextGrapheme.replace(/\uFE0F/g, ''))) {
+          fragments.push({
+            text: '\u2009' // THIN SPACE
+          })
+        }
+        return
+      }
+
+      // 每个 emoji 单独成为一个片段
+      if (this.isEmojiFragment(grapheme)) {
+        flushPlainTextBuffer()
         fragments.push({
           text: grapheme,
           useEmojiFont: true
@@ -553,11 +576,7 @@ export class DocumentExportService {
       plainTextBuffer += grapheme
     })
 
-    if (plainTextBuffer) {
-      fragments.push({
-        text: plainTextBuffer
-      })
-    }
+    flushPlainTextBuffer()
 
     return fragments.length > 0
       ? fragments
@@ -602,7 +621,7 @@ export class DocumentExportService {
     const fontName = options.monospace
       ? DEFAULT_CODE_FONT
       : this.isWordStarFragment(fragment)
-        ? DEFAULT_WORD_FONT
+        ? DEFAULT_EMOJI_FONT
         : fragment.useEmojiFont
           ? DEFAULT_EMOJI_FONT
           : DEFAULT_WORD_FONT
@@ -621,9 +640,7 @@ export class DocumentExportService {
   private normalizeWordFragmentText(fragment: WordTextFragment): string {
     const normalizedText = fragment.useEmojiFont ? fragment.text.replace(/\uFE0F/g, '') : fragment.text
 
-    return this.isWordStarText(normalizedText)
-      ? '★'.repeat(Array.from(normalizedText).length)
-      : normalizedText
+    return normalizedText
   }
 
   /**
