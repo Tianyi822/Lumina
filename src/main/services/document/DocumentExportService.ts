@@ -1,5 +1,21 @@
 import { BrowserWindow } from 'electron'
-import JSZip from 'jszip'
+import {
+  BorderStyle,
+  Document,
+  ExternalHyperlink,
+  FileChild,
+  HighlightColor,
+  Packer,
+  Paragraph,
+  Table,
+  TableCell,
+  TableLayoutType,
+  TableRow,
+  TextRun,
+  UnderlineType,
+  WidthType,
+  type ParagraphChild
+} from 'docx'
 import MarkdownIt from 'markdown-it'
 import { logger } from '@main/services/logger'
 import type { ExportFormat, ExportMessageRequest, ExportMessageResult } from '@shared/types'
@@ -49,12 +65,17 @@ type ExportBlock =
       type: 'separator'
     }
 
-interface ParagraphRunStyle {
+interface WordRunStyle {
   bold?: boolean
   italic?: boolean
   color?: string
   fontSize?: number
   monospace?: boolean
+}
+
+interface WordTextFragment {
+  text: string
+  useEmojiFont?: boolean
 }
 
 interface WordParagraphOptions {
@@ -64,12 +85,12 @@ interface WordParagraphOptions {
   spacingAfter?: number
   shadeFill?: string
   borderLeftColor?: string
-  runStyle?: ParagraphRunStyle
+  runStyle?: WordRunStyle
 }
 
-const DEFAULT_EXPORT_TITLE = '教案内容'
-const DEFAULT_WORD_FONT = 'PingFang SC'
 const DEFAULT_CODE_FONT = 'Menlo'
+const DEFAULT_WORD_FONT = 'PingFang SC'
+const DEFAULT_EMOJI_FONT = 'Apple Color Emoji'
 const WORD_PAGE_WIDTH = 9360
 
 /**
@@ -89,12 +110,6 @@ export class DocumentExportService {
    */
   async exportMessage(request: ExportMessageRequest): Promise<ExportMessageResult> {
     const normalizedContent = request.content.replace(/\r\n?/g, '\n').trim()
-    const fileName = this.buildFileName(
-      request.title,
-      normalizedContent,
-      request.format,
-      request.timestamp
-    )
 
     try {
       if (!normalizedContent) {
@@ -104,20 +119,27 @@ export class DocumentExportService {
         }
       }
 
+      const normalizedMarkdown = this.normalizeMarkdownContent(normalizedContent)
+      const fileName = this.buildFileName(
+        request.title,
+        normalizedMarkdown,
+        request.format,
+        request.timestamp
+      )
       let buffer: Buffer
 
       switch (request.format) {
         case 'markdown':
-          buffer = Buffer.from(normalizedContent, 'utf-8')
+          buffer = Buffer.from(normalizedMarkdown, 'utf-8')
           break
         case 'txt':
-          buffer = Buffer.from(this.buildPlainText(normalizedContent), 'utf-8')
+          buffer = Buffer.from(this.buildPlainText(normalizedMarkdown), 'utf-8')
           break
         case 'word':
-          buffer = await this.buildWordDocument(normalizedContent, request)
+          buffer = await this.buildWordDocument(normalizedMarkdown, request)
           break
         case 'pdf':
-          buffer = await this.buildPdfDocument(normalizedContent, request)
+          buffer = await this.buildPdfDocument(normalizedMarkdown, request)
           break
         default:
           return {
@@ -153,6 +175,64 @@ export class DocumentExportService {
   }
 
   // ==================== 文本构建 ====================
+
+  /**
+   * 归一化 Markdown 内容，确保各格式导出使用同一份结构
+   */
+  private normalizeMarkdownContent(content: string): string {
+    const blocks = this.parseMarkdownBlocks(content)
+    return this.renderMarkdownBlocks(blocks)
+  }
+
+  /**
+   * 将导出块重新渲染为 Markdown
+   */
+  private renderMarkdownBlocks(blocks: ExportBlock[]): string {
+    const sections = blocks.map((block) => {
+      switch (block.type) {
+        case 'heading':
+          return `${'#'.repeat(block.level)} ${this.segmentsToMarkdown(block.segments)}`
+        case 'paragraph':
+          return this.segmentsToMarkdown(block.segments)
+        case 'blockquote':
+          return this.segmentsToMarkdown(block.segments)
+            .split('\n')
+            .map((line) => `> ${line}`)
+            .join('\n')
+        case 'list':
+          return block.items
+            .map((item) => {
+              const prefix = item.ordered ? item.marker : '-'
+              const indent = '  '.repeat(item.level)
+              const lines = this.segmentsToMarkdown(item.segments).split('\n')
+
+              return lines
+                .map((line, lineIndex) =>
+                  lineIndex === 0 ? `${indent}${prefix} ${line}` : `${indent}  ${line}`
+                )
+                .join('\n')
+            })
+            .join('\n')
+        case 'code':
+          return ['```' + (block.language || ''), ...block.lines, '```'].join('\n')
+        case 'table': {
+          const headers = `| ${block.headers
+            .map((cell) => this.segmentsToMarkdown(cell, true))
+            .join(' | ')} |`
+          const separator = `| ${block.headers.map(() => '---').join(' | ')} |`
+          const rows = block.rows.map(
+            (row) =>
+              `| ${row.map((cell) => this.segmentsToMarkdown(cell, true)).join(' | ')} |`
+          )
+          return [headers, separator, ...rows].join('\n')
+        }
+        case 'separator':
+          return '---'
+      }
+    })
+
+    return sections.join('\n\n').trimEnd() + '\n'
+  }
 
   /**
    * 构建 TXT 内容
@@ -217,31 +297,40 @@ export class DocumentExportService {
    */
   private async buildWordDocument(content: string, request: ExportMessageRequest): Promise<Buffer> {
     const blocks = this.parseMarkdownBlocks(content)
-    const zip = new JSZip()
-    const createdAt = new Date().toISOString()
-    const documentXml = this.buildWordDocumentXml(blocks)
-
-    zip.file('[Content_Types].xml', this.buildContentTypesXml())
-    zip.folder('_rels')?.file('.rels', this.buildRootRelationshipsXml())
-    zip.folder('docProps')?.file('app.xml', this.buildAppPropertiesXml())
-    zip.folder('docProps')?.file('core.xml', this.buildCorePropertiesXml(request.title, createdAt))
-    zip.folder('word')?.file('document.xml', documentXml)
-
-    return zip.generateAsync({
-      type: 'nodebuffer',
-      compression: 'DEFLATE'
+    const title = this.deriveBaseTitle(request.title, content)
+    const document = new Document({
+      creator: 'Sparrow Manus',
+      title: title || undefined,
+      description: 'AI 助手导出的内容',
+      sections: [
+        {
+          properties: {
+            page: {
+              margin: {
+                top: 1440,
+                right: 1440,
+                bottom: 1440,
+                left: 1440
+              }
+            }
+          },
+          children: this.buildWordChildren(blocks)
+        }
+      ]
     })
+
+    return Buffer.from(await Packer.toBuffer(document))
   }
 
   /**
-   * 构建 Word 主文档 XML
+   * 构建 Word 文档节点
    */
-  private buildWordDocumentXml(blocks: ExportBlock[]): string {
-    const bodyXml = blocks
-      .map((block) => {
-        switch (block.type) {
-          case 'heading':
-            return this.renderWordParagraphXml(block.segments, {
+  private buildWordChildren(blocks: ExportBlock[]): FileChild[] {
+    return blocks.flatMap((block) => {
+      switch (block.type) {
+        case 'heading':
+          return [
+            this.buildWordParagraph(block.segments, {
               spacingBefore: block.level === 1 ? 240 : 180,
               spacingAfter: 120,
               runStyle: {
@@ -249,253 +338,372 @@ export class DocumentExportService {
                 fontSize: this.getHeadingFontSize(block.level)
               }
             })
-          case 'paragraph':
-            return this.renderWordParagraphXml(block.segments, {
+          ]
+        case 'paragraph':
+          return [
+            this.buildWordParagraph(block.segments, {
               spacingAfter: 120
             })
-          case 'blockquote':
-            return this.renderWordParagraphXml(block.segments, {
+          ]
+        case 'blockquote':
+          return [
+            this.buildWordParagraph(block.segments, {
               indentLeft: 360,
               spacingAfter: 120,
-              shadeFill: 'F6F8FA',
+              shadeFill: 'F8FAFC',
               borderLeftColor: '94A3B8',
               runStyle: {
                 color: '475569'
               }
             })
-          case 'list':
-            return block.items
-              .map((item) => {
-                const markerPrefix = item.ordered ? `${item.marker} ` : '• '
-                return this.renderWordParagraphXml([{ text: markerPrefix }, ...item.segments], {
-                  indentLeft: 360 + item.level * 360,
-                  indentHanging: 240,
-                  spacingAfter: 80
-                })
-              })
-              .join('')
-          case 'code':
-            return block.lines
-              .map((line) =>
-                this.renderWordParagraphXml(
-                  [
-                    {
-                      text: line || ' ',
-                      code: true
-                    }
-                  ],
-                  {
-                    indentLeft: 240,
-                    spacingAfter: 20,
-                    shadeFill: 'F3F4F6',
-                    runStyle: {
-                      monospace: true,
-                      fontSize: 20
-                    }
-                  }
-                )
-              )
-              .join('')
-          case 'table':
-            return this.renderWordTableXml(block.headers, block.rows)
-          case 'separator':
-            return this.renderWordParagraphXml([{ text: '────────────────────────' }], {
+          ]
+        case 'list':
+          return block.items.map((item) => {
+            const markerPrefix = item.ordered ? `${item.marker} ` : '• '
+            return this.buildWordParagraph([{ text: markerPrefix }, ...item.segments], {
+              indentLeft: 360 + item.level * 360,
+              indentHanging: 240,
+              spacingAfter: 80
+            })
+          })
+        case 'code':
+          return block.lines.map((line) =>
+            this.buildWordParagraph(
+              [
+                {
+                  text: line || ' ',
+                  code: true
+                }
+              ],
+              {
+                indentLeft: 240,
+                spacingAfter: 20,
+                shadeFill: 'F3F4F6',
+                runStyle: {
+                  monospace: true,
+                  fontSize: 20
+                }
+              }
+            )
+          )
+        case 'table':
+          return [this.buildWordTable(block.headers, block.rows)]
+        case 'separator':
+          return [
+            this.buildWordParagraph([{ text: '────────────────────────' }], {
               spacingBefore: 60,
               spacingAfter: 120,
               runStyle: {
                 color: 'CBD5E1'
               }
             })
-        }
-      })
-      .join('')
-
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    ${bodyXml}
-    <w:sectPr>
-      <w:pgSz w:w="11906" w:h="16838" />
-      <w:pgMar
-        w:top="1440"
-        w:right="1440"
-        w:bottom="1440"
-        w:left="1440"
-        w:header="720"
-        w:footer="720"
-        w:gutter="0"
-      />
-    </w:sectPr>
-  </w:body>
-</w:document>`
+          ]
+      }
+    })
   }
 
   /**
-   * 渲染 Word 段落
+   * 构建 Word 段落
    */
-  private renderWordParagraphXml(
+  private buildWordParagraph(
     segments: InlineSegment[],
     options: WordParagraphOptions = {}
-  ): string {
-    const paragraphProps: string[] = []
+  ): Paragraph {
+    const children = this.buildWordParagraphChildren(segments, options.runStyle)
 
-    if (options.indentLeft !== undefined || options.indentHanging !== undefined) {
-      const indentParts: string[] = []
-      if (options.indentLeft !== undefined) {
-        indentParts.push(`w:left="${options.indentLeft}"`)
-      }
-      if (options.indentHanging !== undefined) {
-        indentParts.push(`w:hanging="${options.indentHanging}"`)
-      }
-      paragraphProps.push(`<w:ind ${indentParts.join(' ')} />`)
-    }
-
-    if (options.spacingBefore !== undefined || options.spacingAfter !== undefined) {
-      paragraphProps.push(
-        `<w:spacing w:before="${options.spacingBefore ?? 0}" w:after="${
-          options.spacingAfter ?? 0
-        }" />`
-      )
-    }
-
-    if (options.shadeFill) {
-      paragraphProps.push(`<w:shd w:val="clear" w:fill="${options.shadeFill}" />`)
-    }
-
-    if (options.borderLeftColor) {
-      paragraphProps.push(
-        `<w:pBdr><w:left w:val="single" w:sz="16" w:space="8" w:color="${options.borderLeftColor}" /></w:pBdr>`
-      )
-    }
-
-    const runsXml = this.renderWordRunsXml(segments, options.runStyle)
-
-    return `<w:p>${paragraphProps.length > 0 ? `<w:pPr>${paragraphProps.join('')}</w:pPr>` : ''}${
-      runsXml || this.renderEmptyWordRunXml()
-    }</w:p>`
+    return new Paragraph({
+      children: children.length > 0 ? children : [new TextRun(' ')],
+      spacing: {
+        before: options.spacingBefore,
+        after: options.spacingAfter
+      },
+      indent:
+        options.indentLeft !== undefined || options.indentHanging !== undefined
+          ? {
+              left: options.indentLeft,
+              hanging: options.indentHanging
+            }
+          : undefined,
+      shading: options.shadeFill
+        ? {
+            fill: options.shadeFill
+          }
+        : undefined,
+      border: options.borderLeftColor
+        ? {
+            left: {
+              color: options.borderLeftColor,
+              style: BorderStyle.SINGLE,
+              size: 16,
+              space: 8
+            }
+          }
+        : undefined
+    })
   }
 
   /**
-   * 渲染 Word 运行内容
+   * 构建 Word 段落子节点
    */
-  private renderWordRunsXml(
+  private buildWordParagraphChildren(
     segments: InlineSegment[],
-    paragraphStyle: ParagraphRunStyle = {}
-  ): string {
-    return segments
-      .map((segment) => this.renderWordRunXml(segment, paragraphStyle))
-      .filter(Boolean)
-      .join('')
+    paragraphStyle: WordRunStyle = {}
+  ): ParagraphChild[] {
+    return segments.reduce<ParagraphChild[]>((children, segment) => {
+      if (!segment.text) {
+        return children
+      }
+
+      const runStyle = {
+        bold: paragraphStyle.bold || segment.bold,
+        italic: paragraphStyle.italic || segment.italic,
+        color: segment.link ? '0563C1' : paragraphStyle.color,
+        fontSize: paragraphStyle.fontSize,
+        monospace: paragraphStyle.monospace || segment.code,
+        underline: !!segment.link,
+        highlight: !!segment.code
+      }
+
+      const runs = this.buildWordTextRuns(segment.text, runStyle)
+      if (segment.link) {
+        children.push(
+          new ExternalHyperlink({
+            link: segment.link,
+            children: runs
+          })
+        )
+        return children
+      }
+
+      children.push(...runs)
+      return children
+    }, [])
   }
 
   /**
-   * 渲染单个 Word 运行
+   * 构建 Word 文本运行
    */
-  private renderWordRunXml(segment: InlineSegment, paragraphStyle: ParagraphRunStyle = {}): string {
-    if (!segment.text) return ''
+  private buildWordTextRuns(
+    text: string,
+    options: WordRunStyle & { underline?: boolean; highlight?: boolean }
+  ): TextRun[] {
+    const lines = text.split('\n')
+    const runs: TextRun[] = []
 
-    const runProps: string[] = []
-    const isBold = paragraphStyle.bold || segment.bold
-    const isItalic = paragraphStyle.italic || segment.italic
-    const color = segment.link ? '0563C1' : paragraphStyle.color
-    const fontSize = paragraphStyle.fontSize
-    const useMonospace = paragraphStyle.monospace || segment.code
+    lines.forEach((line, index) => {
+      const fragments = this.splitWordTextFragments(line || ' ')
 
-    if (isBold) {
-      runProps.push('<w:b />')
-    }
+      fragments.forEach((fragment) => {
+        runs.push(
+          new TextRun({
+            text: this.normalizeWordFragmentText(fragment),
+            bold: options.bold,
+            italics: options.italic,
+            color: this.resolveWordColor(fragment, options.color),
+            size: options.fontSize,
+            font: this.resolveWordFont(fragment, options),
+            underline: options.underline ? { type: UnderlineType.SINGLE } : undefined,
+            highlight: options.highlight ? HighlightColor.LIGHT_GRAY : undefined
+          })
+        )
+      })
 
-    if (isItalic) {
-      runProps.push('<w:i />')
-    }
+      if (index < lines.length - 1) {
+        runs.push(
+          new TextRun({
+            text: '',
+            break: 1,
+            bold: options.bold,
+            italics: options.italic,
+            color: options.color,
+            size: options.fontSize,
+            font: this.resolveWordFont({ text: ' ' }, options)
+          })
+        )
+      }
+    })
 
-    if (useMonospace) {
-      runProps.push(
-        `<w:rFonts w:ascii="${DEFAULT_CODE_FONT}" w:hAnsi="${DEFAULT_CODE_FONT}" w:eastAsia="${DEFAULT_CODE_FONT}" />`
-      )
-    } else {
-      runProps.push(
-        `<w:rFonts w:ascii="${DEFAULT_WORD_FONT}" w:hAnsi="${DEFAULT_WORD_FONT}" w:eastAsia="${DEFAULT_WORD_FONT}" />`
-      )
-    }
-
-    if (color) {
-      runProps.push(`<w:color w:val="${color}" />`)
-    }
-
-    if (segment.link) {
-      runProps.push('<w:u w:val="single" />')
-    }
-
-    if (fontSize) {
-      runProps.push(`<w:sz w:val="${fontSize}" />`)
-      runProps.push(`<w:szCs w:val="${fontSize}" />`)
-    }
-
-    if (segment.code) {
-      runProps.push('<w:highlight w:val="lightGray" />')
-    }
-
-    const textXml = segment.text
-      .split('\n')
-      .map((part) => `<w:t xml:space="preserve">${this.escapeXml(part)}</w:t>`)
-      .join('<w:br />')
-
-    return `<w:r>${runProps.length > 0 ? `<w:rPr>${runProps.join('')}</w:rPr>` : ''}${textXml}</w:r>`
+    return runs
   }
 
   /**
-   * 渲染 Word 空运行，避免空段落丢失
+   * 拆分 Word 文本片段，为符号单独指定字体
    */
-  private renderEmptyWordRunXml(): string {
-    return '<w:r><w:t xml:space="preserve"> </w:t></w:r>'
+  private splitWordTextFragments(text: string): WordTextFragment[] {
+    const fragments: WordTextFragment[] = []
+    const graphemes = this.splitWordGraphemes(text)
+    let plainTextBuffer = ''
+
+    graphemes.forEach((grapheme) => {
+      if (this.isEmojiFragment(grapheme)) {
+        if (plainTextBuffer) {
+          fragments.push({
+            text: plainTextBuffer
+          })
+          plainTextBuffer = ''
+        }
+
+        fragments.push({
+          text: grapheme,
+          useEmojiFont: true
+        })
+        return
+      }
+
+      plainTextBuffer += grapheme
+    })
+
+    if (plainTextBuffer) {
+      fragments.push({
+        text: plainTextBuffer
+      })
+    }
+
+    return fragments.length > 0
+      ? fragments
+      : [
+          {
+            text
+          }
+        ]
   }
 
   /**
-   * 渲染 Word 表格
+   * 按字素簇拆分文本，避免连续符号在 Word 中被合并渲染
    */
-  private renderWordTableXml(headers: InlineSegment[][], rows: InlineSegment[][][]): string {
+  private splitWordGraphemes(text: string): string[] {
+    if (typeof Intl !== 'undefined' && typeof Intl.Segmenter !== 'undefined') {
+      const segmenter = new Intl.Segmenter('zh-CN', {
+        granularity: 'grapheme'
+      })
+
+      return Array.from(segmenter.segment(text), ({ segment }) => segment)
+    }
+
+    return Array.from(text)
+  }
+
+  /**
+   * 判断片段是否应使用符号字体
+   */
+  private isEmojiFragment(text: string): boolean {
+    return /^(?:[\p{Extended_Pictographic}\u2B50](?:\uFE0F)?(?:\u200D[\p{Extended_Pictographic}\u2B50](?:\uFE0F)?)*)$/u.test(
+      text
+    )
+  }
+
+  /**
+   * 解析 Word 字体配置
+   */
+  private resolveWordFont(
+    fragment: WordTextFragment,
+    options: WordRunStyle
+  ): { ascii: string; hAnsi: string; eastAsia: string; cs: string } {
+    const fontName = options.monospace
+      ? DEFAULT_CODE_FONT
+      : this.isWordStarFragment(fragment)
+        ? DEFAULT_WORD_FONT
+        : fragment.useEmojiFont
+          ? DEFAULT_EMOJI_FONT
+          : DEFAULT_WORD_FONT
+
+    return {
+      ascii: fontName,
+      hAnsi: fontName,
+      eastAsia: fontName,
+      cs: fontName
+    }
+  }
+
+  /**
+   * 归一化 Word 片段文本，避免变体选择符显示为乱码
+   */
+  private normalizeWordFragmentText(fragment: WordTextFragment): string {
+    const normalizedText = fragment.useEmojiFont ? fragment.text.replace(/\uFE0F/g, '') : fragment.text
+
+    return this.isWordStarText(normalizedText)
+      ? '★'.repeat(Array.from(normalizedText).length)
+      : normalizedText
+  }
+
+  /**
+   * 解析 Word 片段颜色
+   */
+  private resolveWordColor(fragment: WordTextFragment, defaultColor?: string): string | undefined {
+    return this.isWordStarFragment(fragment) ? 'EAB308' : defaultColor
+  }
+
+  /**
+   * 判断是否为 Word 星级片段
+   */
+  private isWordStarFragment(fragment: WordTextFragment): boolean {
+    return this.isWordStarText(fragment.text.replace(/\uFE0F/g, ''))
+  }
+
+  /**
+   * 判断是否为星级文本
+   */
+  private isWordStarText(text: string): boolean {
+    return /^[⭐]+$/u.test(text)
+  }
+
+  /**
+   * 构建 Word 表格
+   */
+  private buildWordTable(headers: InlineSegment[][], rows: InlineSegment[][][]): Table {
     const columnCount = Math.max(1, headers.length, ...rows.map((row) => row.length))
     const cellWidth = Math.floor(WORD_PAGE_WIDTH / columnCount)
     const tableRows = [headers, ...rows]
 
-    return `<w:tbl>
-      <w:tblPr>
-        <w:tblW w:w="0" w:type="auto" />
-        <w:tblBorders>
-          <w:top w:val="single" w:sz="8" w:color="CBD5E1" />
-          <w:left w:val="single" w:sz="8" w:color="CBD5E1" />
-          <w:bottom w:val="single" w:sz="8" w:color="CBD5E1" />
-          <w:right w:val="single" w:sz="8" w:color="CBD5E1" />
-          <w:insideH w:val="single" w:sz="8" w:color="E2E8F0" />
-          <w:insideV w:val="single" w:sz="8" w:color="E2E8F0" />
-        </w:tblBorders>
-      </w:tblPr>
-      <w:tblGrid>
-        ${Array.from({ length: columnCount }, () => `<w:gridCol w:w="${cellWidth}" />`).join('')}
-      </w:tblGrid>
-      ${tableRows
-        .map((row, rowIndex) => {
-          const cells = Array.from({ length: columnCount }, (_, cellIndex) => row[cellIndex] || [])
-          return `<w:tr>${cells
-            .map((cell) => {
-              const contentXml = this.renderWordParagraphXml(cell, {
-                spacingAfter: 60,
-                runStyle: rowIndex === 0 ? { bold: true } : undefined
-              })
+    return new Table({
+      width: {
+        size: 100,
+        type: WidthType.PERCENTAGE
+      },
+      columnWidths: Array.from({ length: columnCount }, () => cellWidth),
+      layout: TableLayoutType.FIXED,
+      borders: {
+        top: { color: 'CBD5E1', style: BorderStyle.SINGLE, size: 8 },
+        bottom: { color: 'CBD5E1', style: BorderStyle.SINGLE, size: 8 },
+        left: { color: 'CBD5E1', style: BorderStyle.SINGLE, size: 8 },
+        right: { color: 'CBD5E1', style: BorderStyle.SINGLE, size: 8 },
+        insideHorizontal: { color: 'E2E8F0', style: BorderStyle.SINGLE, size: 8 },
+        insideVertical: { color: 'E2E8F0', style: BorderStyle.SINGLE, size: 8 }
+      },
+      rows: tableRows.map((row, rowIndex) => {
+        const cells = Array.from({ length: columnCount }, (_, cellIndex) => row[cellIndex] || [])
 
-              return `<w:tc>
-                <w:tcPr>
-                  <w:tcW w:w="${cellWidth}" w:type="dxa" />
-                  ${rowIndex === 0 ? '<w:shd w:val="clear" w:fill="E8EEF3" />' : ''}
-                </w:tcPr>
-                ${contentXml}
-              </w:tc>`
-            })
-            .join('')}</w:tr>`
+        return new TableRow({
+          children: cells.map(
+            (cell) =>
+              new TableCell({
+                width: {
+                  size: cellWidth,
+                  type: WidthType.DXA
+                },
+                shading:
+                  rowIndex === 0
+                    ? {
+                        fill: 'E8EEF3'
+                      }
+                    : undefined,
+                margins: {
+                  top: 80,
+                  bottom: 80,
+                  left: 120,
+                  right: 120
+                },
+                children: [
+                  this.buildWordParagraph(cell, {
+                    spacingAfter: 0,
+                    runStyle: rowIndex === 0 ? { bold: true } : undefined
+                  })
+                ]
+              })
+          )
         })
-        .join('')}
-    </w:tbl>`
+      })
+    })
   }
 
   /**
@@ -514,67 +722,6 @@ export class DocumentExportService {
       default:
         return 22
     }
-  }
-
-  /**
-   * 构建 Content Types XML
-   */
-  private buildContentTypesXml(): string {
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
-  <Default Extension="xml" ContentType="application/xml" />
-  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml" />
-  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml" />
-  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml" />
-</Types>`
-  }
-
-  /**
-   * 构建根关系 XML
-   */
-  private buildRootRelationshipsXml(): string {
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml" />
-  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml" />
-  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml" />
-</Relationships>`
-  }
-
-  /**
-   * 构建应用属性 XML
-   */
-  private buildAppPropertiesXml(): string {
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Properties
-  xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
-  xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
->
-  <Application>Sparrow Manus</Application>
-</Properties>`
-  }
-
-  /**
-   * 构建核心属性 XML
-   */
-  private buildCorePropertiesXml(title: string | undefined, createdAt: string): string {
-    const safeTitle = this.escapeXml(title || DEFAULT_EXPORT_TITLE)
-
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<cp:coreProperties
-  xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
-  xmlns:dc="http://purl.org/dc/elements/1.1/"
-  xmlns:dcterms="http://purl.org/dc/terms/"
-  xmlns:dcmitype="http://purl.org/dc/dcmitype/"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
->
-  <dc:title>${safeTitle}</dc:title>
-  <dc:creator>Sparrow Manus</dc:creator>
-  <cp:lastModifiedBy>Sparrow Manus</cp:lastModifiedBy>
-  <dcterms:created xsi:type="dcterms:W3CDTF">${createdAt}</dcterms:created>
-  <dcterms:modified xsi:type="dcterms:W3CDTF">${createdAt}</dcterms:modified>
-</cp:coreProperties>`
   }
 
   // ==================== PDF 导出 ====================
@@ -621,9 +768,7 @@ export class DocumentExportService {
    */
   private buildPdfHtml(content: string, request: ExportMessageRequest): string {
     const renderedHtml = this.markdown.render(content)
-    const safeTitle = this.escapeHtml(
-      this.deriveBaseTitle(request.title, content) || DEFAULT_EXPORT_TITLE
-    )
+    const safeTitle = this.escapeHtml(this.deriveBaseTitle(request.title, content))
 
     return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1169,6 +1314,36 @@ export class DocumentExportService {
     return segments.map((segment) => segment.text).join('')
   }
 
+  /**
+   * 将片段重新组装为 Markdown
+   */
+  private segmentsToMarkdown(segments: InlineSegment[], escapePipes = false): string {
+    return segments
+      .map((segment) => {
+        let text = this.escapeMarkdownText(segment.text, {
+          escapePipes,
+          code: !!segment.code
+        })
+
+        if (segment.code) {
+          text = `\`${text}\``
+        } else if (segment.bold && segment.italic) {
+          text = `***${text}***`
+        } else if (segment.bold) {
+          text = `**${text}**`
+        } else if (segment.italic) {
+          text = `*${text}*`
+        }
+
+        if (segment.link) {
+          text = `[${text}](${segment.link})`
+        }
+
+        return text
+      })
+      .join('')
+  }
+
   // ==================== 文件命名与工具 ====================
 
   /**
@@ -1181,10 +1356,12 @@ export class DocumentExportService {
     timestamp?: string
   ): string {
     const baseTitle = this.deriveBaseTitle(title, content)
-    const safeTitle = this.sanitizeFileNameSegment(baseTitle || DEFAULT_EXPORT_TITLE)
+    const safeTitle = this.sanitizeFileNameSegment(baseTitle)
     const fileTimestamp = this.formatFileTimestamp(timestamp)
 
-    return `${safeTitle}_${fileTimestamp}.${this.getFileExtension(format)}`
+    return safeTitle
+      ? `${safeTitle}_${fileTimestamp}.${this.getFileExtension(format)}`
+      : `${fileTimestamp}.${this.getFileExtension(format)}`
   }
 
   /**
@@ -1213,7 +1390,7 @@ export class DocumentExportService {
       }
     }
 
-    return DEFAULT_EXPORT_TITLE
+    return ''
   }
 
   /**
@@ -1269,6 +1446,10 @@ export class DocumentExportService {
    * 清洗文件名
    */
   private sanitizeFileNameSegment(value: string): string {
+    if (!value) {
+      return ''
+    }
+
     const withoutControlChars = Array.from(value)
       .filter((char) => char.charCodeAt(0) >= 32)
       .join('')
@@ -1279,19 +1460,27 @@ export class DocumentExportService {
       .trim()
       .replace(/\.$/, '')
 
-    return (cleaned || DEFAULT_EXPORT_TITLE).slice(0, 48)
+    return cleaned.slice(0, 48)
   }
 
   /**
-   * XML 转义
+   * 转义 Markdown 文本
    */
-  private escapeXml(value: string): string {
+  private escapeMarkdownText(
+    value: string,
+    options: {
+      escapePipes?: boolean
+      code?: boolean
+    } = {}
+  ): string {
+    if (options.code) {
+      return value.replace(/\\/g, '\\\\').replace(/`/g, '\\`')
+    }
+
     return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;')
+      .replace(/\\/g, '\\\\')
+      .replace(/([*_`\[\]])/g, '\\$1')
+      .replace(options.escapePipes ? /\|/g : /$^/, '\\|')
   }
 
   /**
