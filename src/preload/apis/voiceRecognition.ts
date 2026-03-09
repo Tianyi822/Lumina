@@ -39,7 +39,7 @@ export const voiceRecognitionApi = {
    * 测试语音识别连接
    */
   test: (config: VoiceRecognitionConfig): Promise<VoiceRecognitionTestResult> => {
-    return ipcRenderer.invoke('voiceRecognition:test', config)
+    return ipcRenderer.invoke('voiceRecognition:test', { ...config })
   },
 
   /**

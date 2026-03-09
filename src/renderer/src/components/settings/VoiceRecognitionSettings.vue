@@ -102,9 +102,21 @@ function loadLocalConfig(): void {
   }
 }
 
+// 构造普通对象，避免将 Vue 响应式代理直接传给跨进程 API
+function buildPlainConfig(): VoiceRecognitionConfig {
+  return {
+    provider: localConfig.value.provider,
+    enabled: localConfig.value.enabled,
+    accessKeyId: localConfig.value.accessKeyId,
+    accessKeySecret: localConfig.value.accessKeySecret,
+    token: localConfig.value.token,
+    appkey: localConfig.value.appkey
+  }
+}
+
 // 保存配置
 async function handleSave(): Promise<void> {
-  configStore.updateVoiceRecognitionConfig(localConfig.value)
+  configStore.updateVoiceRecognitionConfig(buildPlainConfig())
   const success = await configStore.saveConfig()
   if (success) {
     showSuccess('语音识别配置已保存')
@@ -131,7 +143,7 @@ async function handleTest(): Promise<void> {
 
   testing.value = true
   try {
-    const result = await window.api.voiceRecognition.test(localConfig.value)
+    const result = await window.api.voiceRecognition.test(buildPlainConfig())
     if (result.success) {
       showSuccess('连接测试成功')
     } else {
