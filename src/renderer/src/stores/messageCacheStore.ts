@@ -5,7 +5,7 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { Message } from '@renderer/types'
 import type { SessionData } from '@shared/types/session'
-import { deepCopyMessages } from '@renderer/utils/messageHelpers'
+import { deepCopyMessages, messageToSessionMessage } from '@renderer/utils/messageHelpers'
 
 export const useMessageCacheStore = defineStore('messageCache', () => {
   // ==================== State ====================
@@ -29,7 +29,7 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
   // ==================== Actions ====================
 
   // 缓存会话消息和标题
-  function cacheSession(sessionId: string, messages: Message[], title?: string): void {
+  function cacheSession(sessionId: string, messages: Message[], title?: string): Message[] {
     // 深拷贝消息，避免引用问题
     const messagesToCache = deepCopyMessages(messages)
     sessionMessagesCache.value.set(sessionId, messagesToCache)
@@ -44,6 +44,8 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
       title,
       messageCount: messagesToCache.length
     })
+
+    return messagesToCache
   }
 
   // 更新缓存中的会话消息（用于流式更新）
@@ -137,22 +139,7 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
         sessionType: session.sessionType,
         createdAt: session.createdAt,
         updatedAt: new Date().toISOString(),
-        messages: cachedMessages.map((msg) => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          reasoning: msg.reasoning,
-          timestamp: msg.timestamp || new Date().toISOString(),
-          modelName: msg.modelName,
-          usage: msg.usage
-            ? {
-                prompt_tokens: msg.usage.prompt_tokens,
-                completion_tokens: msg.usage.completion_tokens,
-                total_tokens: msg.usage.total_tokens,
-                reasoning_tokens: msg.usage.reasoning_tokens
-              }
-            : undefined
-        }))
+        messages: cachedMessages.map(messageToSessionMessage)
       }
 
       const result = await window.api.session.save(sessionToSave)

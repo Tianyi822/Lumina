@@ -131,7 +131,8 @@ async function handleSendMessage(
     isStreaming: true,
     timestamp: new Date().toISOString(),
     modelName: model,
-    reactSteps: []
+    reactSteps: [],
+    reactIterations: []
   }
   sessionStore.addMessage(assistantMessage)
 
@@ -233,14 +234,8 @@ async function handleStopRequest(): Promise<void> {
   const sessionId = currentChatId.value
   if (!sessionId) return
 
-  // 找到正在流式传输的消息并停止它
-  const streamingMessage = messages.value.find((msg) => msg.isStreaming)
-  if (streamingMessage) {
-    streamingMessage.isStreaming = false
-  }
-
   // 调用 store 的停止方法
-  await chatStreamStore.stopRequest(sessionId)
+  await chatStreamStore.stopRequest(sessionId, messages.value)
 
   // 保存会话以持久化停止后的状态
   await sessionStore.saveCurrentSession()

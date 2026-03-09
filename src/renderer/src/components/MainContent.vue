@@ -240,6 +240,20 @@ function toggleReasoning(msgId: string): void {
 function isReasoningExpanded(msgId: string): boolean {
   return expandedReasoningIds.value.has(msgId)
 }
+
+/**
+ * 判断消息是否包含可展示的 ReAct 分阶段信息
+ */
+function hasRenderableReact(message: Message): boolean {
+  const hasIterationContent =
+    message.reactIterations?.some(
+      (iteration) => iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
+    ) || false
+
+  const hasLegacySteps = (message.reactSteps?.length || 0) > 0
+
+  return message.role === 'assistant' && (hasIterationContent || hasLegacySteps)
+}
 </script>
 
 <template>
@@ -270,8 +284,9 @@ function isReasoningExpanded(msgId: string): boolean {
           <!-- ReAct 步骤插槽 -->
           <template #react-steps>
             <ReActSteps
-              v-if="msg.role === 'assistant' && msg.reactSteps && msg.reactSteps.length > 0"
+              v-if="hasRenderableReact(msg)"
               :steps="msg.reactSteps"
+              :iterations="msg.reactIterations"
               :is-streaming="msg.isStreaming"
             />
           </template>

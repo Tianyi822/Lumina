@@ -3,7 +3,13 @@
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { Message, StreamEvent, UserInteractionRequest } from '@renderer/types'
+import type {
+  Message,
+  ReActIteration,
+  ReActStep,
+  StreamEvent,
+  UserInteractionRequest
+} from '@renderer/types'
 import { useMessageCacheStore } from './messageCacheStore'
 
 export const useChatStreamStore = defineStore('chatStream', () => {
@@ -32,6 +38,9 @@ export const useChatStreamStore = defineStore('chatStream', () => {
   const showUserInteraction = ref(false)
   const userInteractionInfo = ref<UserInteractionRequest | null>(null)
 
+  // 每个会话当前活跃的迭代索引（用于 ReAct 迭代分组）
+  const currentIterationIndex = ref<Map<string, number>>(new Map())
+
   // ==================== Getters ====================
 
   // 获取当前正在流式响应的会话数量
@@ -51,6 +60,98 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     }
     return ids
   })
+
+  // ==================== Helpers ====================
+
+  /**
+   * 获取当前迭代对象
+   * 从 currentIterationIndex Map 获取索引，返回消息的当前活跃迭代
+   */
+  function getCurrentIteration(message: Message, sessionId: string): ReActIteration | null {
+    const index = currentIterationIndex.value.get(sessionId)
+    if (index === undefined || !message.reactIterations) return null
+    return message.reactIterations[index] || null
+  }
+
+  /**
+   * 检查迭代是否包含可展示内容
+   */
+  function hasIterationContent(iteration: ReActIteration): boolean {
+    return iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
+  }
+
+  /**
+   * 创建新的迭代分组，并将上一轮标记为完成
+   */
+  function createIteration(
+    message: Message,
+    sessionId: string,
+    iterationNum?: number
+  ): ReActIteration {
+    if (!message.reactIterations) {
+      message.reactIterations = []
+    }
+
+    const prevIndex = currentIterationIndex.value.get(sessionId)
+    if (prevIndex !== undefined && message.reactIterations[prevIndex]) {
+      message.reactIterations[prevIndex].isActive = false
+    }
+
+    const nextIterationNum = iterationNum ?? message.reactIterations.length
+    const newIteration: ReActIteration = {
+      iteration: nextIterationNum,
+      reasoning: '',
+      steps: [],
+      isActive: true
+    }
+
+    message.reactIterations.push(newIteration)
+    currentIterationIndex.value.set(sessionId, message.reactIterations.length - 1)
+
+    return newIteration
+  }
+
+  /**
+   * 确保当前会话存在活跃迭代
+   * 兼容未显式发送 react_iteration_start 的旧事件流
+   */
+  function ensureCurrentIteration(message: Message, sessionId: string): ReActIteration {
+    const currentIteration = getCurrentIteration(message, sessionId)
+    if (currentIteration) {
+      return currentIteration
+    }
+
+    return createIteration(message, sessionId)
+  }
+
+  /**
+   * 将工具步骤同时追加到兼容字段和阶段分组
+   */
+  function appendToolStep(message: Message, sessionId: string, step: ReActStep): void {
+    if (!message.reactSteps) {
+      message.reactSteps = []
+    }
+    message.reactSteps.push(step)
+
+    const currentIteration = ensureCurrentIteration(message, sessionId)
+    currentIteration.steps.push(step)
+  }
+
+  /**
+   * 结束当前会话的 ReAct 分组并清理空阶段
+   */
+  function finalizeIterations(message: Message, sessionId: string): void {
+    const currentIteration = getCurrentIteration(message, sessionId)
+    if (currentIteration) {
+      currentIteration.isActive = false
+    }
+
+    if (message.reactIterations) {
+      message.reactIterations = message.reactIterations.filter(hasIterationContent)
+    }
+
+    currentIterationIndex.value.delete(sessionId)
+  }
 
   // ==================== Actions ====================
 
@@ -150,7 +251,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
       } else {
         // 创建新缓存
         targetMessages = []
-        messageCache.cacheSession(targetSessionId, targetMessages)
+        targetMessages = messageCache.cacheSession(targetSessionId, targetMessages)
       }
     }
 
@@ -164,9 +265,23 @@ export const useChatStreamStore = defineStore('chatStream', () => {
         }
         break
 
+      case 'react_iteration_start':
+        if (streamingMessage && event.content !== undefined) {
+          const iterationNum = parseInt(event.content, 10)
+          createIteration(streamingMessage, targetSessionId, iterationNum)
+        }
+        break
+
       case 'reasoning':
         if (streamingMessage && event.content) {
+          // 保持现有逻辑：累加到 message.reasoning（向后兼容）
           streamingMessage.reasoning = (streamingMessage.reasoning || '') + event.content
+
+          // 新增：同时累加到当前迭代的 reasoning
+          const iterForReasoning = getCurrentIteration(streamingMessage, targetSessionId)
+          if (iterForReasoning) {
+            iterForReasoning.reasoning += event.content
+          }
         }
         break
 
@@ -185,15 +300,12 @@ export const useChatStreamStore = defineStore('chatStream', () => {
             }
           })
 
-          // 2. 同时更新 reactSteps（UI 展示）
-          if (!streamingMessage.reactSteps) {
-            streamingMessage.reactSteps = []
-          }
-          streamingMessage.reactSteps.push({
-            type: 'tool_call',
+          const toolCallStep = {
+            type: 'tool_call' as const,
             toolCall: event.toolCall,
             timestamp: new Date().toISOString()
-          })
+          }
+          appendToolStep(streamingMessage, targetSessionId, toolCallStep)
         }
         break
 
@@ -227,26 +339,20 @@ export const useChatStreamStore = defineStore('chatStream', () => {
           }
           targetMessages.push(toolMessage)
 
-          // 2. 同时更新 reactSteps（UI 展示）
-          if (!streamingMessage.reactSteps) {
-            streamingMessage.reactSteps = []
-          }
-          streamingMessage.reactSteps.push({
-            type: 'tool_result',
+          const toolResultStep = {
+            type: 'tool_result' as const,
             toolResult: event.toolResult,
             timestamp: new Date().toISOString()
-          })
+          }
+          appendToolStep(streamingMessage, targetSessionId, toolResultStep)
         }
         break
 
       case 'knowledge_search':
         if (streamingMessage && event.knowledgeSearch) {
-          if (!streamingMessage.reactSteps) {
-            streamingMessage.reactSteps = []
-          }
           // 使用 knowledgeBaseId 作为 ID，确保与 knowledge_result 的 ID 一致
-          streamingMessage.reactSteps.push({
-            type: 'tool_call',
+          const kbSearchStep = {
+            type: 'tool_call' as const,
             toolCall: {
               id: `kb-${event.knowledgeSearch.knowledgeBaseId}`,
               name: 'knowledge_search',
@@ -254,18 +360,16 @@ export const useChatStreamStore = defineStore('chatStream', () => {
               arguments: { query: event.knowledgeSearch.query }
             },
             timestamp: new Date().toISOString()
-          })
+          }
+          appendToolStep(streamingMessage, targetSessionId, kbSearchStep)
         }
         break
 
       case 'knowledge_result':
         if (streamingMessage && event.knowledgeResult) {
-          if (!streamingMessage.reactSteps) {
-            streamingMessage.reactSteps = []
-          }
           // 使用 knowledgeBaseId 作为 ID，与 knowledge_search 的 ID 保持一致
-          streamingMessage.reactSteps.push({
-            type: 'tool_result',
+          const kbResultStep = {
+            type: 'tool_result' as const,
             toolResult: {
               id: `kb-${event.knowledgeResult.knowledgeBaseId}`,
               name: 'knowledge_search',
@@ -283,7 +387,8 @@ export const useChatStreamStore = defineStore('chatStream', () => {
               }
             },
             timestamp: new Date().toISOString()
-          })
+          }
+          appendToolStep(streamingMessage, targetSessionId, kbResultStep)
         }
         break
 
@@ -316,6 +421,9 @@ export const useChatStreamStore = defineStore('chatStream', () => {
       if (event.usage) {
         streamingMessage.usage = event.usage
       }
+      finalizeIterations(streamingMessage, sessionId)
+    } else {
+      currentIterationIndex.value.delete(sessionId)
     }
 
     // 更新会话发送状态
@@ -350,6 +458,9 @@ export const useChatStreamStore = defineStore('chatStream', () => {
   ): void {
     // 重置发送状态
     sessionSendingStates.value.set(sessionId, false)
+
+    // 清除迭代索引跟踪
+    currentIterationIndex.value.delete(sessionId)
 
     if (isCurrentSession) {
       // 当前会话：回滚到发送前状态
@@ -398,11 +509,24 @@ export const useChatStreamStore = defineStore('chatStream', () => {
 
   // 中止当前请求
   // 立即更新本地状态，异步通知后端停止
-  async function stopRequest(sessionId?: string): Promise<void> {
+  async function stopRequest(sessionId?: string, currentMessages?: Message[]): Promise<void> {
     const targetSessionId = sessionId || streamingSessionId.value
     if (!targetSessionId) {
       window.api.logger.warn('[ChatStreamStore] 没有活动的流式会话可停止')
       return
+    }
+
+    const targetMessages =
+      currentMessages && currentMessages.length > 0
+        ? currentMessages
+        : messageCache.getCachedMessagesRef(targetSessionId)
+
+    const streamingMessage = targetMessages?.find((msg) => msg.isStreaming)
+    if (streamingMessage) {
+      streamingMessage.isStreaming = false
+      finalizeIterations(streamingMessage, targetSessionId)
+    } else {
+      currentIterationIndex.value.delete(targetSessionId)
     }
 
     // 立即更新本地状态，不等待后端响应
@@ -435,6 +559,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
   function resetSessionState(sessionId: string): void {
     sessionSendingStates.value.delete(sessionId)
     messagesSnapshots.value.delete(sessionId)
+    currentIterationIndex.value.delete(sessionId)
 
     if (streamingSessionId.value === sessionId) {
       streamingSessionId.value = null
@@ -448,6 +573,7 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     isSending.value = false
     sessionSendingStates.value.clear()
     messagesSnapshots.value.clear()
+    currentIterationIndex.value.clear()
     streamingSessionId.value = null
     cleanupStreamListener()
 

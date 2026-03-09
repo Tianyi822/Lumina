@@ -79,6 +79,24 @@ const showMetaRow = computed(() => {
 })
 
 /**
+ * 是否存在按阶段组织的 ReAct 过程
+ */
+const hasStructuredReact = computed(() => {
+  return (
+    props.message.reactIterations?.some(
+      (iteration) => iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
+    ) || false
+  )
+})
+
+/**
+ * 是否展示传统的独立思考面板
+ */
+const showStandaloneReasoning = computed(() => {
+  return !!props.message.reasoning && !hasStructuredReact.value
+})
+
+/**
  * 用户消息的估算 Token 显示
  */
 const userTokenUsageLabel = computed(() => {
@@ -140,7 +158,15 @@ function formatFileSize(bytes: number): string {
       <div class="sender-info">
         <span class="sender-name">{{ senderName }}</span>
         <span v-if="showTimestamp" class="sender-time">{{ formattedTime }}</span>
-        <span v-if="message.reasoning" class="thinking-indicator">
+        <span v-if="hasStructuredReact" class="thinking-indicator">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+          分阶段推理
+        </span>
+        <span v-else-if="showStandaloneReasoning" class="thinking-indicator">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="16" x2="12" y2="12" />
@@ -153,11 +179,11 @@ function formatFileSize(bytes: number): string {
 
     <!-- 消息内容区域 -->
     <div class="message-body">
-      <!-- 思考内容面板 -->
+      <!-- 思考内容面板（仅在无迭代分组时独立显示） -->
       <Transition name="panel-fade">
         <ReasoningPanel
-          v-if="message.reasoning"
-          :content="message.reasoning"
+          v-if="showStandaloneReasoning"
+          :content="message.reasoning || ''"
           :is-expanded="props.isReasoningExpanded"
           :reasoning-tokens="message.usage?.reasoning_tokens"
           @toggle="handleToggleReasoning"
@@ -192,25 +218,14 @@ function formatFileSize(bytes: number): string {
         v-if="message.attachedImages && message.attachedImages.length > 0"
         class="image-indicators"
       >
-        <div
-          v-for="(img, index) in message.attachedImages"
-          :key="index"
-          class="image-badge"
-        >
-          <img
-            :src="img.base64Data"
-            :alt="img.fileName"
-            class="msg-image-thumb"
-          />
+        <div v-for="(img, index) in message.attachedImages" :key="index" class="image-badge">
+          <img :src="img.base64Data" :alt="img.fileName" class="msg-image-thumb" />
           <span class="image-badge-name" :title="img.fileName">{{ img.fileName }}</span>
         </div>
       </div>
 
       <!-- 消息气泡 -->
-      <div
-        class="message-bubble"
-        :class="{ streaming: message.isStreaming }"
-      >
+      <div class="message-bubble" :class="{ streaming: message.isStreaming }">
         <!-- 用户消息：纯文本 -->
         <template v-if="message.role === 'user'">
           <span class="message-text">{{ message.content }}</span>
@@ -231,10 +246,7 @@ function formatFileSize(bytes: number): string {
       <Transition name="meta-fade">
         <div v-if="showMetaRow" class="message-meta-row">
           <!-- Token 统计（用户消息估算 / AI 消息真实值） -->
-          <div
-            v-if="message.role === 'user' && !message.isStreaming"
-            class="token-usage"
-          >
+          <div v-if="message.role === 'user' && !message.isStreaming" class="token-usage">
             {{ userTokenUsageLabel }}
           </div>
 
