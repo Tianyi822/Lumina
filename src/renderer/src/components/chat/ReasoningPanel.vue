@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import MarkdownIt from 'markdown-it'
-import { estimateTokenCount } from '@renderer/utils/tokenEstimate'
+import { estimateTokenCount, formatTokenCount } from '@renderer/utils/tokenEstimate'
 
 // 初始化 markdown-it 实例
 const md = new MarkdownIt({
@@ -48,13 +48,6 @@ function renderMarkdown(content: string): string {
 }
 
 /**
- * 计算思考内容的行数
- */
-const contentLines = computed(() => {
-  return props.content.split('\n').length
-})
-
-/**
  * 计算思考内容的 Token 数
  */
 const contentTokens = computed(() => {
@@ -66,10 +59,10 @@ const contentTokens = computed(() => {
  */
 const contentTokenLabel = computed(() => {
   if (props.reasoningTokens !== undefined) {
-    return `${props.reasoningTokens} tokens`
+    return formatTokenCount(props.reasoningTokens)
   }
 
-  return `约 ${contentTokens.value} tokens`
+  return `约 ${formatTokenCount(contentTokens.value)}`
 })
 </script>
 
@@ -87,9 +80,7 @@ const contentTokenLabel = computed(() => {
         </div>
         <div class="header-text">
           <span class="header-label">思考过程</span>
-          <span v-if="!isActuallyExpanded" class="header-meta">
-            {{ contentLines }} 行 · {{ contentTokenLabel }}
-          </span>
+          <span class="header-meta">{{ contentTokenLabel }}</span>
         </div>
       </div>
       <div class="header-right">
@@ -151,6 +142,7 @@ const contentTokenLabel = computed(() => {
   justify-content: space-between;
   gap: var(--theme-spacing);
   padding: 10px 14px;
+  border-bottom: 1px solid transparent;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
@@ -194,8 +186,8 @@ const contentTokenLabel = computed(() => {
 
 .header-text {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -214,6 +206,7 @@ const contentTokenLabel = computed(() => {
 .header-meta {
   font-size: 11px;
   color: var(--theme-text-tertiary);
+  white-space: nowrap;
 }
 
 .header-right {
