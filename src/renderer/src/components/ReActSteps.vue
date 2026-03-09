@@ -206,13 +206,6 @@ function renderMarkdown(content: string): string {
 function getPhaseLabel(iteration: number): string {
   return `第 ${iteration + 1} 阶段`
 }
-
-/**
- * 工具卡片展开回调
- */
-function handleToolExpand(_toolId: string): void {
-  // 预留埋点或滚动逻辑
-}
 </script>
 
 <template>
@@ -312,7 +305,6 @@ function handleToolExpand(_toolId: string): void {
                         :key="item.id"
                         :tool-call="item"
                         :index="index"
-                        @toggle-expand="handleToolExpand"
                       />
                     </TransitionGroup>
                   </div>
@@ -330,7 +322,6 @@ function handleToolExpand(_toolId: string): void {
                 :key="item.id"
                 :tool-call="item"
                 :index="index"
-                @toggle-expand="handleToolExpand"
               />
             </TransitionGroup>
           </div>

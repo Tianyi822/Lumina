@@ -69,7 +69,9 @@ export const cacheStatsApi = {
    * 监听缓存统计更新事件
    */
   onStatsUpdated: (callback: (stats: CacheStatsUpdatedEvent) => void): (() => void) => {
-    const handler = (_event: unknown, stats: CacheStatsUpdatedEvent) => callback(stats)
+    const handler = (_event: unknown, stats: CacheStatsUpdatedEvent): void => {
+      callback(stats)
+    }
     ipcRenderer.on('prompt:cacheStatsUpdated', handler)
     return () => {
       ipcRenderer.removeListener('prompt:cacheStatsUpdated', handler)
@@ -80,7 +82,9 @@ export const cacheStatsApi = {
    * 监听缓存性能警告事件
    */
   onPerformanceWarning: (callback: (data: CachePerformanceWarningEvent) => void): (() => void) => {
-    const handler = (_event: unknown, data: CachePerformanceWarningEvent) => callback(data)
+    const handler = (_event: unknown, data: CachePerformanceWarningEvent): void => {
+      callback(data)
+    }
     ipcRenderer.on('prompt:cachePerformanceWarning', handler)
     return () => {
       ipcRenderer.removeListener('prompt:cachePerformanceWarning', handler)

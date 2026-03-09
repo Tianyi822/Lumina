@@ -221,8 +221,7 @@ export class DocumentExportService {
             .join(' | ')} |`
           const separator = `| ${block.headers.map(() => '---').join(' | ')} |`
           const rows = block.rows.map(
-            (row) =>
-              `| ${row.map((cell) => this.segmentsToMarkdown(cell, true)).join(' | ')} |`
+            (row) => `| ${row.map((cell) => this.segmentsToMarkdown(cell, true)).join(' | ')} |`
           )
           return [headers, separator, ...rows].join('\n')
         }
@@ -638,7 +637,9 @@ export class DocumentExportService {
    * 归一化 Word 片段文本，避免变体选择符显示为乱码
    */
   private normalizeWordFragmentText(fragment: WordTextFragment): string {
-    const normalizedText = fragment.useEmojiFont ? fragment.text.replace(/\uFE0F/g, '') : fragment.text
+    const normalizedText = fragment.useEmojiFont
+      ? fragment.text.replace(/\uFE0F/g, '')
+      : fragment.text
 
     return normalizedText
   }
@@ -1496,7 +1497,7 @@ export class DocumentExportService {
 
     return value
       .replace(/\\/g, '\\\\')
-      .replace(/([*_`\[\]])/g, '\\$1')
+      .replace(/([*_`[\]])/g, '\\$1')
       .replace(options.escapePipes ? /\|/g : /$^/, '\\|')
   }
 

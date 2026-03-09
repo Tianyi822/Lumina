@@ -1,6 +1,28 @@
 import { logger } from '@main/services/logger'
 import type { VoiceRecognitionConfig } from '@shared/types/config'
 import { BrowserWindow } from 'electron'
+import * as https from 'https'
+import * as crypto from 'crypto'
+
+/**
+ * 阿里云 NLS SDK 类型定义
+ */
+interface NlsSpeechTranscription {
+  on(event: string, listener: (...args: unknown[]) => void): this
+  defaultStartParams(): Record<string, unknown>
+  start(params: Record<string, unknown>, enablePing: boolean, timeout: number): Promise<void>
+  sendAudio(audioData: Buffer): boolean
+  close(): Promise<void>
+  shutdown(): void
+}
+
+interface NlsSdk {
+  SpeechTranscription: new (config: {
+    url: string
+    appkey: string
+    token: string
+  }) => NlsSpeechTranscription
+}
 
 /**
  * 语音识别服务
@@ -8,7 +30,7 @@ import { BrowserWindow } from 'electron'
  */
 export class VoiceRecognitionService {
   private config: VoiceRecognitionConfig | null = null
-  private recognizer: any = null
+  private recognizer: NlsSpeechTranscription | null = null
   private isRecognizing = false
   private currentWindow: BrowserWindow | null = null
 
@@ -37,7 +59,9 @@ export class VoiceRecognitionService {
    * 开始实时语音识别
    * @param window 渲染进程窗口，用于发送识别结果
    */
-  async startRealtimeRecognition(window: BrowserWindow): Promise<{ success: boolean; error?: string }> {
+  async startRealtimeRecognition(
+    window: BrowserWindow
+  ): Promise<{ success: boolean; error?: string }> {
     if (this.isRecognizing) {
       return { success: false, error: '已经在识别中' }
     }
@@ -56,8 +80,8 @@ export class VoiceRecognitionService {
 
     try {
       // 动态导入阿里云 NLS SDK
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const Nls = require('alibabacloud-nls')
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Nls = require('alibabacloud-nls') as NlsSdk
 
       const URL = 'wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1'
 
@@ -84,7 +108,7 @@ export class VoiceRecognitionService {
           if (text) {
             this.sendResultToWindow('partial', { text })
           }
-        } catch (e) {
+        } catch {
           // 忽略解析错误
         }
       })
@@ -103,7 +127,7 @@ export class VoiceRecognitionService {
           if (text) {
             this.sendResultToWindow('final', { text })
           }
-        } catch (e) {
+        } catch {
           // 忽略解析错误
         }
       })
@@ -162,7 +186,7 @@ export class VoiceRecognitionService {
       if (this.recognizer) {
         try {
           this.recognizer.shutdown()
-        } catch (e) {
+        } catch {
           // 忽略关闭错误
         }
       }
@@ -221,8 +245,8 @@ export class VoiceRecognitionService {
 
     try {
       // 动态导入阿里云 NLS SDK
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const Nls = require('alibabacloud-nls')
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Nls = require('alibabacloud-nls') as NlsSdk
 
       const URL = 'wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1'
 
@@ -294,17 +318,16 @@ export class VoiceRecognitionService {
    * 使用 AccessKey 获取 Token
    * 参考: https://help.aliyun.com/zh/isi/getting-started/obtain-an-access-token
    */
-  async fetchToken(accessKeyId: string, accessKeySecret: string): Promise<{
+  async fetchToken(
+    accessKeyId: string,
+    accessKeySecret: string
+  ): Promise<{
     success: boolean
     token?: string
     expireTime?: number
     error?: string
   }> {
     try {
-      // 使用 HTTP 请求获取 Token
-      const https = require('https')
-      const crypto = require('crypto')
-
       // 构建请求参数
       // 阿里云 API 要求时间戳格式为 YYYY-MM-DDTHH:mm:ssZ (UTC 时间)
       const now = new Date()
@@ -326,7 +349,10 @@ export class VoiceRecognitionService {
       // 构建签名字符串
       const canonicalizedQueryString = Object.keys(params)
         .sort()
-        .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key as keyof typeof params])}`)
+        .map(
+          (key) =>
+            `${encodeURIComponent(key)}=${encodeURIComponent(params[key as keyof typeof params])}`
+        )
         .join('&')
 
       const stringToSign = `GET&${encodeURIComponent('/')}&${encodeURIComponent(canonicalizedQueryString)}`
@@ -344,7 +370,7 @@ export class VoiceRecognitionService {
 
       return new Promise((resolve) => {
         https
-          .get(url, (res: any) => {
+          .get(url, (res) => {
             let data = ''
             res.on('data', (chunk: string) => {
               data += chunk
@@ -360,7 +386,10 @@ export class VoiceRecognitionService {
                     expireTime: result.Token.ExpireTime
                   })
                 } else if (result.Code) {
-                  logger.warn('语音识别 Token 获取失败', 'main', { code: result.Code, message: result.Message })
+                  logger.warn('语音识别 Token 获取失败', 'main', {
+                    code: result.Code,
+                    message: result.Message
+                  })
                   resolve({
                     success: false,
                     error: `${result.Code}: ${result.Message}`
@@ -369,7 +398,8 @@ export class VoiceRecognitionService {
                   resolve({ success: false, error: '未知响应格式' })
                 }
               } catch (parseError) {
-                const errorMessage = parseError instanceof Error ? parseError.message : String(parseError)
+                const errorMessage =
+                  parseError instanceof Error ? parseError.message : String(parseError)
                 logger.error('解析 Token 响应失败', 'main', { error: errorMessage })
                 resolve({ success: false, error: errorMessage })
               }
