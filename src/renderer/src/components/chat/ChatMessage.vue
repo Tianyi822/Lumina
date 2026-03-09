@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import ReasoningPanel from './ReasoningPanel.vue'
 import type { Message } from '@renderer/types'
 import { getFileTypeIcon } from '@renderer/utils/fileIcons'
@@ -21,9 +21,19 @@ const props = defineProps<{
   currentChatId?: string
 }>()
 
+const STREAM_REVEAL_INTERVAL = 32
+const STREAM_REVEAL_MIN_CHARS = 6
+const STREAM_REVEAL_MAX_CHARS = 48
+
 const emit = defineEmits<{
   (e: 'toggle-reasoning', messageId: string): void
 }>()
+
+const displayedContent = ref(props.message.content)
+const renderedMarkdown = computed(() => renderMarkdown(displayedContent.value))
+
+let revealFrameId: number | null = null
+let lastRevealTimestamp = 0
 
 /**
  * 格式化 Token 统计
@@ -48,6 +58,113 @@ function renderMarkdown(content: string): string {
   if (!content) return ''
   return md.render(content)
 }
+
+/**
+ * 获取当前帧应当推进的字符数
+ */
+function getRevealStep(pendingLength: number): number {
+  if (pendingLength > 320) return STREAM_REVEAL_MAX_CHARS
+  if (pendingLength > 160) return 32
+  if (pendingLength > 64) return 18
+  return STREAM_REVEAL_MIN_CHARS
+}
+
+/**
+ * 停止流式内容显示循环
+ */
+function stopRevealLoop(): void {
+  if (revealFrameId !== null) {
+    window.cancelAnimationFrame(revealFrameId)
+    revealFrameId = null
+  }
+}
+
+/**
+ * 逐帧平滑追赶最新内容，避免每个 token 都触发一次完整重渲染
+ */
+function revealNextFrame(timestamp: number): void {
+  revealFrameId = null
+
+  const fullContent = props.message.content || ''
+
+  if (props.message.role !== 'assistant' || !props.message.isStreaming) {
+    displayedContent.value = fullContent
+    lastRevealTimestamp = 0
+    return
+  }
+
+  if (displayedContent.value.length > fullContent.length) {
+    displayedContent.value = fullContent
+  }
+
+  if (displayedContent.value.length >= fullContent.length) {
+    return
+  }
+
+  if (timestamp - lastRevealTimestamp < STREAM_REVEAL_INTERVAL) {
+    revealFrameId = window.requestAnimationFrame(revealNextFrame)
+    return
+  }
+
+  const pendingLength = fullContent.length - displayedContent.value.length
+  const nextLength = Math.min(
+    fullContent.length,
+    displayedContent.value.length + getRevealStep(pendingLength)
+  )
+
+  displayedContent.value = fullContent.slice(0, nextLength)
+  lastRevealTimestamp = timestamp
+
+  if (displayedContent.value.length < fullContent.length) {
+    revealFrameId = window.requestAnimationFrame(revealNextFrame)
+  }
+}
+
+/**
+ * 确保流式内容显示循环已启动
+ */
+function ensureRevealLoop(): void {
+  if (revealFrameId === null) {
+    revealFrameId = window.requestAnimationFrame(revealNextFrame)
+  }
+}
+
+watch(
+  () => [props.message.role, props.message.content, props.message.isStreaming] as const,
+  ([role, content, isStreaming]) => {
+    if (role !== 'assistant') {
+      stopRevealLoop()
+      displayedContent.value = content
+      lastRevealTimestamp = 0
+      return
+    }
+
+    if (!isStreaming) {
+      stopRevealLoop()
+      displayedContent.value = content
+      lastRevealTimestamp = 0
+      return
+    }
+
+    if (displayedContent.value.length > content.length) {
+      displayedContent.value = content
+    }
+
+    if (!displayedContent.value && content.length > 0) {
+      displayedContent.value = content.slice(0, Math.min(content.length, STREAM_REVEAL_MIN_CHARS))
+      lastRevealTimestamp = 0
+    }
+
+    if (displayedContent.value.length < content.length) {
+      ensureRevealLoop()
+    }
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  stopRevealLoop()
+})
 
 /**
  * 格式化时间戳
@@ -236,9 +353,8 @@ function formatFileSize(bytes: number): string {
           <div
             class="markdown-body"
             :class="{ 'streaming-content': message.isStreaming }"
-            v-html="renderMarkdown(message.content)"
+            v-html="renderedMarkdown"
           ></div>
-          <span v-if="message.isStreaming" class="streaming-cursor">▊</span>
         </template>
       </div>
 
@@ -507,24 +623,6 @@ function formatFileSize(bytes: number): string {
   white-space: pre-wrap;
 }
 
-/* 流式光标 */
-.streaming-cursor {
-  display: inline-block;
-  animation: blink 1s step-end infinite;
-  color: var(--theme-accent);
-  margin-left: 2px;
-}
-
-@keyframes blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-
 /* 消息元信息行：时间戳、Token统计、反馈按钮 */
 .message-meta-row {
   display: flex;
@@ -768,17 +866,8 @@ function formatFileSize(bytes: number): string {
 
 /* 流式内容平滑显示 */
 .streaming-content {
-  animation: streamingPulse 1.5s ease-in-out infinite;
-}
-
-@keyframes streamingPulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.85;
-  }
+  opacity: 0.98;
+  transition: opacity 0.18s ease-out;
 }
 
 /* ==================== 文档指示器样式 ==================== */

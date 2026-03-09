@@ -219,7 +219,6 @@ function handleToolExpand(_toolId: string): void {
   <div v-if="hasContent" class="react-steps-container">
     <button class="react-header" type="button" @click="toggleExpand">
       <div class="header-left">
-        <span class="react-icon">⚡</span>
         <span class="react-title">分阶段推理</span>
         <span class="react-badge">
           {{ useIterationMode ? `${phaseCount} 个阶段` : `${toolCount} 次调用` }}
@@ -302,7 +301,6 @@ function handleToolExpand(_toolId: string): void {
                           class="reasoning-text markdown-body"
                           v-html="renderMarkdown(unit.reasoning)"
                         ></div>
-                        <span v-if="unit.isActive && isStreaming" class="streaming-cursor">▊</span>
                       </div>
                     </div>
                   </div>
@@ -386,10 +384,6 @@ function handleToolExpand(_toolId: string): void {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.react-icon {
-  font-size: 14px;
 }
 
 .react-title {
@@ -641,13 +635,6 @@ function handleToolExpand(_toolId: string): void {
   margin-bottom: 0;
 }
 
-.streaming-cursor {
-  display: inline-block;
-  margin-left: 2px;
-  color: var(--theme-accent);
-  animation: blink 1s step-end infinite;
-}
-
 .expand-collapse-enter-active {
   animation: expandIn 0.24s ease;
 }
@@ -681,17 +668,6 @@ function handleToolExpand(_toolId: string): void {
   50% {
     opacity: 0.55;
     transform: scale(0.8);
-  }
-}
-
-@keyframes blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0;
   }
 }
 

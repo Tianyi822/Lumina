@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch, provide, computed } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch, provide, computed } from 'vue'
 import ChatMessage from './chat/ChatMessage.vue'
 import MessageInput from './MessageInput.vue'
 import ReActSteps from './ReActSteps.vue'
@@ -65,6 +65,9 @@ const lastScrollTop = ref(0)
 // 滚动阈值：距离底部多少像素内认为是"在底部"
 const SCROLL_THRESHOLD = 100
 
+let scrollFrameId: number | null = null
+let pendingScrollSmooth = true
+
 /**
  * 检查是否滚动到底部附近
  */
@@ -85,6 +88,35 @@ function scrollToBottom(smooth = true): void {
     top: el.scrollHeight,
     behavior: smooth ? 'smooth' : 'auto'
   })
+}
+
+/**
+ * 合并连续滚动请求，避免流式阶段频繁触发滚动抖动
+ */
+function scheduleScrollToBottom(smooth = true): void {
+  pendingScrollSmooth = pendingScrollSmooth && smooth
+
+  if (scrollFrameId !== null) {
+    return
+  }
+
+  scrollFrameId = window.requestAnimationFrame(() => {
+    const shouldSmooth = pendingScrollSmooth
+    pendingScrollSmooth = true
+    scrollFrameId = null
+    scrollToBottom(shouldSmooth)
+  })
+}
+
+/**
+ * 清理待执行的滚动任务
+ */
+function cancelScheduledScroll(): void {
+  if (scrollFrameId !== null) {
+    window.cancelAnimationFrame(scrollFrameId)
+    scrollFrameId = null
+  }
+  pendingScrollSmooth = true
 }
 
 /**
@@ -120,9 +152,7 @@ function handleWheel(event: WheelEvent): void {
  */
 function smartScrollToBottom(): void {
   if (!userScrolling.value) {
-    nextTick(() => {
-      scrollToBottom(!props.isSending)
-    })
+    scheduleScrollToBottom(!props.isSending)
   }
 }
 
@@ -132,7 +162,7 @@ watch(
   () => {
     smartScrollToBottom()
   },
-  { deep: true }
+  { deep: true, flush: 'post' }
 )
 
 // 监听流式输出状态，开始时滚动到底部
@@ -142,11 +172,10 @@ watch(
     if (sending) {
       // 开始发送时，重置滚动状态并滚动到底部
       userScrolling.value = false
-      nextTick(() => {
-        scrollToBottom(false)
-      })
+      scheduleScrollToBottom(false)
     }
-  }
+  },
+  { flush: 'post' }
 )
 
 // 监听对话切换，滚动到底部
@@ -154,10 +183,9 @@ watch(
   () => props.currentChatId,
   () => {
     userScrolling.value = false
-    nextTick(() => {
-      scrollToBottom(false)
-    })
-  }
+    scheduleScrollToBottom(false)
+  },
+  { flush: 'post' }
 )
 
 onMounted(() => {
@@ -167,6 +195,10 @@ onMounted(() => {
   if (el) {
     lastScrollTop.value = el.scrollTop
   }
+})
+
+onBeforeUnmount(() => {
+  cancelScheduledScroll()
 })
 
 function handleSendMessage(
@@ -291,13 +323,6 @@ function hasRenderableReact(message: Message): boolean {
             />
           </template>
         </ChatMessage>
-
-        <div v-if="!messages || messages.length === 0" class="empty-chat">
-          <div class="command-line">
-            <span class="terminal-prompt">开始新对话</span>
-            <span class="terminal-cursor"></span>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -366,45 +391,4 @@ function hasRenderableReact(message: Message): boolean {
   overflow: hidden;
 }
 
-.empty-chat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px;
-}
-
-.command-line {
-  display: flex;
-  align-items: center;
-}
-
-.terminal-prompt {
-  color: var(--theme-accent);
-  font-family: var(--theme-font-mono, monospace);
-}
-
-.terminal-prompt::before {
-  content: '❯ ';
-  color: var(--theme-accent-secondary);
-}
-
-.terminal-cursor {
-  display: inline-block;
-  width: 8px;
-  height: 18px;
-  background-color: var(--theme-accent);
-  margin-left: 2px;
-  animation: cursor-blink 1s step-end infinite;
-}
-
-@keyframes cursor-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
 </style>
