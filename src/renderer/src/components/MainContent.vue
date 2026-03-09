@@ -7,6 +7,8 @@ import type {
   Message,
   MCPTool,
   KnowledgeBase,
+  ExportFormat,
+  UserInteractionRequest,
   AttachedDocument,
   AttachedImage
 } from '@renderer/types'
@@ -23,6 +25,8 @@ const props = defineProps<{
   selectedKnowledgeBases?: KnowledgeBase[]
   enableSandboxTools?: boolean
   sessionId?: string
+  exportInteractionInfo?: UserInteractionRequest | null
+  exportingMessageId?: string | null
 }>()
 
 // 提供 sessionId 给子组件
@@ -48,6 +52,8 @@ const emit = defineEmits<{
   (e: 'update:selectedMCPTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableSandboxTools', value: boolean): void
+  (e: 'request-export', message: Message): void
+  (e: 'select-export-format', format: ExportFormat): void
 }>()
 
 // 展开的思考内容消息ID集合
@@ -255,6 +261,14 @@ function handleUpdateEnableSandboxTools(value: boolean): void {
   emit('update:enableSandboxTools', value)
 }
 
+function handleRequestExport(message: Message): void {
+  emit('request-export', message)
+}
+
+function handleSelectExportFormat(format: ExportFormat): void {
+  emit('select-export-format', format)
+}
+
 /**
  * 切换思考内容展开/折叠
  */
@@ -311,7 +325,9 @@ function hasRenderableReact(message: Message): boolean {
           :current-model-name="props.currentModelName"
           :is-reasoning-expanded="isReasoningExpanded(msg.id)"
           :current-chat-id="currentChatId"
+          :is-exporting="props.exportingMessageId === msg.id"
           @toggle-reasoning="toggleReasoning"
+          @request-export="handleRequestExport(msg)"
         >
           <!-- ReAct 步骤插槽 -->
           <template #react-steps>
@@ -336,6 +352,7 @@ function hasRenderableReact(message: Message): boolean {
       :selected-m-c-p-tools="props.selectedMCPTools"
       :selected-knowledge-bases="props.selectedKnowledgeBases"
       :enable-sandbox-tools="props.enableSandboxTools"
+      :export-interaction-info="props.exportInteractionInfo"
       @send="handleSendMessage"
       @stop="handleStopRequest"
       @update:input-message="handleUpdateInputMessage"
@@ -343,6 +360,7 @@ function hasRenderableReact(message: Message): boolean {
       @update:selected-m-c-p-tools="handleUpdateSelectedTools"
       @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
       @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
+      @select-export-format="handleSelectExportFormat"
     />
   </main>
 </template>
@@ -390,5 +408,4 @@ function hasRenderableReact(message: Message): boolean {
   min-width: 0;
   overflow: hidden;
 }
-
 </style>

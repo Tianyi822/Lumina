@@ -29,6 +29,7 @@
     "apache-arrow": "^21.1.0",
     "dockerode": "^4.0.9",
     "electron-updater": "^6.3.9",
+    "jszip": "^3.10.1",
     "mammoth": "^1.11.0",
     "markdown-it": "^14.1.0",
     "officeparser": "^6.0.4",
