@@ -1345,18 +1345,18 @@ onUnmounted(async () => {
 }
 
 .voice-input-btn.recording {
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.4);
-  background: rgba(239, 68, 68, 0.1);
+  color: #7dd3fc;
+  border-color: rgba(125, 211, 252, 0.4);
+  background: rgba(125, 211, 252, 0.12);
   animation: voice-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes voice-pulse {
   0%, 100% {
-    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2), 0 2px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 16px rgba(125, 211, 252, 0.22), 0 2px 6px rgba(0, 0, 0, 0.1);
   }
   50% {
-    box-shadow: 0 4px 24px rgba(239, 68, 68, 0.4), 0 2px 10px rgba(239, 68, 68, 0.2);
+    box-shadow: 0 4px 24px rgba(125, 211, 252, 0.36), 0 2px 10px rgba(125, 211, 252, 0.18);
   }
 }
 
