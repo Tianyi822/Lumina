@@ -3,7 +3,13 @@ import { nextTick, onMounted, ref, watch, provide, computed } from 'vue'
 import ChatMessage from './chat/ChatMessage.vue'
 import MessageInput from './MessageInput.vue'
 import ReActSteps from './ReActSteps.vue'
-import type { Message, MCPTool, KnowledgeBase, AttachedDocument, AttachedImage } from '@renderer/types'
+import type {
+  Message,
+  MCPTool,
+  KnowledgeBase,
+  AttachedDocument,
+  AttachedImage
+} from '@renderer/types'
 
 const props = defineProps<{
   currentChatId?: string
@@ -53,6 +59,9 @@ const messagesAreaRef = ref<HTMLElement | null>(null)
 // 用户是否正在手动滚动（不在底部）
 const userScrolling = ref(false)
 
+// 记录上一次滚动位置，用于判断滚动方向
+const lastScrollTop = ref(0)
+
 // 滚动阈值：距离底部多少像素内认为是"在底部"
 const SCROLL_THRESHOLD = 100
 
@@ -82,7 +91,28 @@ function scrollToBottom(smooth = true): void {
  * 处理滚动事件
  */
 function handleScroll(): void {
-  userScrolling.value = !isNearBottom()
+  const el = messagesAreaRef.value
+  if (!el) return
+
+  const currentScrollTop = el.scrollTop
+
+  if (isNearBottom()) {
+    userScrolling.value = false
+  } else if (currentScrollTop < lastScrollTop.value) {
+    // 用户一旦开始向上滚动，立即暂停自动跟底，避免流式输出时抖动
+    userScrolling.value = true
+  }
+
+  lastScrollTop.value = currentScrollTop
+}
+
+/**
+ * 处理滚轮事件
+ */
+function handleWheel(event: WheelEvent): void {
+  if (event.deltaY < 0) {
+    userScrolling.value = true
+  }
 }
 
 /**
@@ -91,7 +121,7 @@ function handleScroll(): void {
 function smartScrollToBottom(): void {
   if (!userScrolling.value) {
     nextTick(() => {
-      scrollToBottom(true)
+      scrollToBottom(!props.isSending)
     })
   }
 }
@@ -133,6 +163,10 @@ watch(
 onMounted(() => {
   // 初始滚动到底部
   scrollToBottom(false)
+  const el = messagesAreaRef.value
+  if (el) {
+    lastScrollTop.value = el.scrollTop
+  }
 })
 
 function handleSendMessage(
@@ -211,7 +245,12 @@ function isReasoningExpanded(msgId: string): boolean {
 <template>
   <main class="main-content">
     <!-- 消息区域 -->
-    <div ref="messagesAreaRef" class="messages-area" @scroll="handleScroll">
+    <div
+      ref="messagesAreaRef"
+      class="messages-area"
+      @scroll="handleScroll"
+      @wheel.passive="handleWheel"
+    >
       <!-- 空状态 -->
       <div v-if="!currentChatId" class="empty-state">
         <p class="empty-text">选择或创建一个对话开始</p>
