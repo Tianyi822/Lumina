@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import ReasoningPanel from './ReasoningPanel.vue'
 import type { Message } from '@renderer/types'
 import { getFileTypeIcon } from '@renderer/utils/fileIcons'
+import { formatTokenCount } from '@renderer/utils/tokenEstimate'
 
 // 初始化 markdown-it 实例
 const md = new MarkdownIt({
@@ -33,9 +34,9 @@ function formatTokenUsage(usage: {
   total_tokens: number
   reasoning_tokens?: number
 }): string {
-  let result = `输入: ${usage.prompt_tokens} | 输出: ${usage.completion_tokens} | 总计: ${usage.total_tokens}`
+  let result = `输入: ${formatTokenCount(usage.prompt_tokens)} | 输出: ${formatTokenCount(usage.completion_tokens)} | 总计: ${formatTokenCount(usage.total_tokens)}`
   if (usage.reasoning_tokens) {
-    result += ` | 思考: ${usage.reasoning_tokens}`
+    result += ` | 思考: ${formatTokenCount(usage.reasoning_tokens)}`
   }
   return result
 }
@@ -135,6 +136,7 @@ function formatFileSize(bytes: number): string {
           v-if="message.reasoning"
           :content="message.reasoning"
           :is-expanded="props.isReasoningExpanded"
+          :reasoning-tokens="message.usage?.reasoning_tokens"
           @toggle="handleToggleReasoning"
         />
       </Transition>
