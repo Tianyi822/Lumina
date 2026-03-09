@@ -41,10 +41,6 @@ function dismissError(): void {
   uiState.dismissConfigError()
 }
 
-function handleConfigUpdated(): void {
-  uiState.notifyConfigUpdate()
-}
-
 function handleMCPUpdated(): void {
   uiState.notifyMcpUpdate()
   uiState.loadConfigStatus()
@@ -101,12 +97,7 @@ onMounted(async () => {
     </div>
 
     <!-- 设置弹窗 -->
-    <SettingsModal
-      v-if="showSettings"
-      @close="closeSettings"
-      @config-updated="handleConfigUpdated"
-      @mcp-updated="handleMCPUpdated"
-    />
+    <SettingsModal v-if="showSettings" @close="closeSettings" @mcp-updated="handleMCPUpdated" />
   </div>
 </template>
 

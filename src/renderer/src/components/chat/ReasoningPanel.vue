@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import MarkdownIt from 'markdown-it'
+import { estimateTokenCount } from '@renderer/utils/tokenEstimate'
 
 // 初始化 markdown-it 实例
 const md = new MarkdownIt({
@@ -13,6 +14,7 @@ const md = new MarkdownIt({
 const props = defineProps<{
   content: string
   isExpanded?: boolean
+  reasoningTokens?: number
 }>()
 
 const emit = defineEmits<{
@@ -53,10 +55,21 @@ const contentLines = computed(() => {
 })
 
 /**
- * 计算思考内容的字符数
+ * 计算思考内容的 Token 数
  */
-const contentChars = computed(() => {
-  return props.content.length
+const contentTokens = computed(() => {
+  return props.reasoningTokens ?? estimateTokenCount(props.content)
+})
+
+/**
+ * 获取思考内容的 Token 显示文案
+ */
+const contentTokenLabel = computed(() => {
+  if (props.reasoningTokens !== undefined) {
+    return `${props.reasoningTokens} tokens`
+  }
+
+  return `约 ${contentTokens.value} tokens`
 })
 </script>
 
@@ -75,7 +88,7 @@ const contentChars = computed(() => {
         <div class="header-text">
           <span class="header-label">思考过程</span>
           <span v-if="!isActuallyExpanded" class="header-meta">
-            {{ contentLines }} 行 · {{ contentChars }} 字符
+            {{ contentLines }} 行 · {{ contentTokenLabel }}
           </span>
         </div>
       </div>

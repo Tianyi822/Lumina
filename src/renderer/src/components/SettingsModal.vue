@@ -12,25 +12,17 @@ import { useConfigStore } from '@renderer/stores'
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'config-updated'): void
   (e: 'mcp-updated'): void
 }>()
 
 // 使用 configStore
 const configStore = useConfigStore()
-const {
-  loading,
-  saving,
-  errorMessage,
-  successMessage,
-  themeConfig,
-  llmConfigs,
-  defaultModel,
-  promptConfig
-} = storeToRefs(configStore)
+const { loading, errorMessage, successMessage, themeConfig } = storeToRefs(configStore)
 
 // 当前激活的 Tab
-const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge' | 'voice'>('model')
+const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge' | 'voice'>(
+  'model'
+)
 
 // 信息消息（仅用于嵌入模型设置）
 const infoMessage = ref('')
@@ -40,22 +32,6 @@ function handleClose(): void {
   infoMessage.value = ''
   configStore.clearMessages()
   emit('close')
-}
-
-// 保存配置
-async function handleSave(): Promise<void> {
-  const success = await configStore.saveConfig()
-  if (success) {
-    emit('config-updated')
-  }
-}
-
-// 提示词配置重置成功
-function handlePromptResetSuccess(): void {
-  configStore.successMessage = '提示词配置已重置为默认值'
-  setTimeout(() => {
-    configStore.successMessage = ''
-  }, 2000)
 }
 
 // 主题变化处理（立即生效，无需保存）
@@ -156,13 +132,7 @@ onUnmounted(() => {
           </div>
 
           <!-- 模型配置 Tab -->
-          <ModelSettings
-            v-else-if="activeTab === 'model'"
-            :model-configs="llmConfigs"
-            :default-model="defaultModel"
-            @update:model-configs="configStore.updateLLMConfigs"
-            @update:default-model="configStore.updateDefaultModel"
-          />
+          <ModelSettings v-else-if="activeTab === 'model'" />
 
           <!-- MCP 配置 Tab -->
           <MCPSettings
@@ -186,14 +156,7 @@ onUnmounted(() => {
           />
 
           <!-- 提示词工程配置 Tab -->
-          <PromptEngineeringSettings
-            v-else-if="activeTab === 'prompt'"
-            :model-value="promptConfig"
-            @update:model-value="configStore.updatePromptConfig"
-            @reset-success="handlePromptResetSuccess"
-            @error="errorMessage = $event"
-            @success="successMessage = $event"
-          />
+          <PromptEngineeringSettings v-else-if="activeTab === 'prompt'" />
 
           <!-- 主题设置 Tab -->
           <ThemeSettings
@@ -232,14 +195,6 @@ onUnmounted(() => {
         <span>{{ infoMessage }}</span>
         <button class="message-close" @click="infoMessage = ''">关闭</button>
       </div>
-
-      <!-- 模态框底部 -->
-      <div class="modal-footer">
-        <button class="btn" @click="handleClose">取消</button>
-        <button class="btn-primary" :disabled="saving" @click="handleSave">
-          {{ saving ? '保存中...' : '保存' }}
-        </button>
-      </div>
     </div>
   </div>
 </template>
@@ -258,10 +213,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding:
-    calc(54px + env(safe-area-inset-top, 0px))
-    24px
-    24px;
+  padding: calc(54px + env(safe-area-inset-top, 0px)) 24px 24px;
   overflow: hidden;
 }
 
@@ -305,10 +257,7 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .modal-overlay {
-    padding:
-      calc(44px + env(safe-area-inset-top, 0px))
-      12px
-      12px;
+    padding: calc(44px + env(safe-area-inset-top, 0px)) 12px 12px;
   }
 
   .modal-container {
@@ -346,10 +295,6 @@ onUnmounted(() => {
 
   .modal-title {
     font-size: 16px;
-  }
-
-  .modal-footer {
-    padding: 12px 16px;
   }
 
   .btn {
@@ -528,19 +473,5 @@ onUnmounted(() => {
 
 .message-close:hover {
   opacity: 1;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 14px 20px;
-  border-top: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  background: linear-gradient(
-    135deg,
-    var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
-    var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
-  );
-  flex-shrink: 0;
 }
 </style>

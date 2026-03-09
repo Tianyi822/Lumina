@@ -1,19 +1,13 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
+import { storeToRefs } from 'pinia'
 import type { LLMConfig } from '@renderer/types'
+import { useConfigStore } from '@renderer/stores'
+import { useUIStateStore } from '@renderer/stores'
 
-interface Props {
-  modelConfigs: LLMConfig[]
-  defaultModel: string
-}
-
-interface Emits {
-  (e: 'update:modelConfigs', value: LLMConfig[]): void
-  (e: 'update:defaultModel', value: string): void
-}
-
-const props = defineProps<Props>()
-const emit = defineEmits<Emits>()
+const configStore = useConfigStore()
+const uiStateStore = useUIStateStore()
+const { llmConfigs, defaultModel, saving } = storeToRefs(configStore)
 
 // 展开的模型配置项（使用 model_name 作为 key）
 const expandedModels = ref<Set<string>>(new Set())
@@ -39,12 +33,12 @@ function addNewModel(): void {
     return
   }
 
-  const newConfigs = [...props.modelConfigs, { ...newModelConfig }]
-  emit('update:modelConfigs', newConfigs)
+  const newConfigs = [...llmConfigs.value, { ...newModelConfig }]
+  configStore.updateLLMConfigs(newConfigs)
 
   // 如果是第一个模型，设为默认
   if (newConfigs.length === 1) {
-    emit('update:defaultModel', newModelConfig.model_name)
+    configStore.updateDefaultModel(newModelConfig.model_name)
   }
 
   resetNewModelForm()
@@ -60,12 +54,12 @@ function resetNewModelForm(): void {
 }
 
 function deleteModel(modelName: string): void {
-  const newConfigs = props.modelConfigs.filter((m) => m.model_name !== modelName)
-  emit('update:modelConfigs', newConfigs)
+  const newConfigs = llmConfigs.value.filter((m) => m.model_name !== modelName)
+  configStore.updateLLMConfigs(newConfigs)
 
   expandedModels.value.delete(modelName)
-  if (props.defaultModel === modelName) {
-    emit('update:defaultModel', newConfigs.length > 0 ? newConfigs[0].model_name : '')
+  if (defaultModel.value === modelName) {
+    configStore.updateDefaultModel(newConfigs.length > 0 ? newConfigs[0].model_name : '')
   }
 }
 
@@ -78,14 +72,22 @@ function toggleModelExpand(modelName: string): void {
 }
 
 function setDefaultModel(modelName: string): void {
-  emit('update:defaultModel', modelName)
+  configStore.updateDefaultModel(modelName)
 }
 
 function updateModelConfig(modelName: string, field: keyof LLMConfig, value: unknown): void {
-  const newConfigs = props.modelConfigs.map((m) =>
+  const newConfigs = llmConfigs.value.map((m) =>
     m.model_name === modelName ? { ...m, [field]: value } : m
   )
-  emit('update:modelConfigs', newConfigs)
+  configStore.updateLLMConfigs(newConfigs)
+}
+
+// 保存配置
+async function handleSave(): Promise<void> {
+  const success = await configStore.saveConfig()
+  if (success) {
+    uiStateStore.notifyConfigUpdate()
+  }
 }
 </script>
 
@@ -93,11 +95,13 @@ function updateModelConfig(modelName: string, field: keyof LLMConfig, value: unk
   <div class="tab-content">
     <!-- 已配置的模型列表 -->
     <div class="model-list">
-      <div v-for="config in modelConfigs" :key="config.model_name" class="model-item">
+      <div v-for="config in llmConfigs" :key="config.model_name" class="model-item">
         <div class="model-header" @click="toggleModelExpand(config.model_name)">
           <span class="model-name">{{ config.model_name }}</span>
           <span v-if="defaultModel === config.model_name" class="default-badge">默认</span>
-          <span class="expand-state">{{ expandedModels.has(config.model_name) ? '收起' : '展开' }}</span>
+          <span class="expand-state">{{
+            expandedModels.has(config.model_name) ? '收起' : '展开'
+          }}</span>
           <div class="model-actions">
             <button
               v-if="defaultModel !== config.model_name"
@@ -208,7 +212,7 @@ function updateModelConfig(modelName: string, field: keyof LLMConfig, value: unk
       </div>
 
       <!-- 空状态 -->
-      <div v-if="modelConfigs.length === 0 && !showNewModelForm" class="empty-state">
+      <div v-if="llmConfigs.length === 0 && !showNewModelForm" class="empty-state">
         <p>暂无模型配置</p>
       </div>
     </div>
@@ -265,6 +269,13 @@ function updateModelConfig(modelName: string, field: keyof LLMConfig, value: unk
     <button v-if="!showNewModelForm" class="btn add-model-btn" @click="showNewModelForm = true">
       添加模型配置
     </button>
+
+    <!-- 保存配置按钮 -->
+    <div class="save-actions">
+      <button class="btn-primary" :disabled="saving" @click="handleSave">
+        {{ saving ? '保存中...' : '保存配置' }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -407,5 +418,11 @@ function updateModelConfig(modelName: string, field: keyof LLMConfig, value: unk
 .btn-danger-text:hover {
   background-color: rgba(248, 81, 73, 0.1);
   border-color: var(--theme-danger);
+}
+
+.save-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 </style>
