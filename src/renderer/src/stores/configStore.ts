@@ -3,7 +3,7 @@
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { AppConfig, ThemeConfig, LLMConfig, PromptConfig } from '@shared/types/config'
+import type { AppConfig, ThemeConfig, LLMConfig, PromptConfig, VoiceRecognitionConfig } from '@shared/types/config'
 import { deepClone } from '@shared/utils'
 
 export const useConfigStore = defineStore('config', () => {
@@ -32,6 +32,12 @@ export const useConfigStore = defineStore('config', () => {
     enableDynamicExamples: false,
     enablePromptOptimization: false,
     optimizationAggressiveness: 'balanced'
+  })
+
+  // 语音识别配置
+  const voiceRecognitionConfig = ref<VoiceRecognitionConfig>({
+    provider: 'aliyun',
+    enabled: false
   })
 
   // ==================== Getters ====================
@@ -66,6 +72,10 @@ export const useConfigStore = defineStore('config', () => {
         if (config.promptConfig) {
           promptConfig.value = { ...promptConfig.value, ...config.promptConfig }
         }
+        // 加载语音识别配置
+        if (config.voiceRecognition) {
+          voiceRecognitionConfig.value = { ...voiceRecognitionConfig.value, ...config.voiceRecognition }
+        }
       }
     } catch (error) {
       errorMessage.value = `加载配置失败: ${error instanceof Error ? error.message : String(error)}`
@@ -83,6 +93,7 @@ export const useConfigStore = defineStore('config', () => {
       const plainThemeConfig = deepClone(themeConfig.value)
       const plainLlmConfigs = deepClone(llmConfigs.value)
       const plainPromptConfig = deepClone(promptConfig.value)
+      const plainVoiceRecognitionConfig = deepClone(voiceRecognitionConfig.value)
 
       const result = await window.api.config.updateConfig({
         theme: plainThemeConfig,
@@ -92,7 +103,8 @@ export const useConfigStore = defineStore('config', () => {
           enable_auto_compression: false,
           models: plainLlmConfigs
         },
-        promptConfig: plainPromptConfig
+        promptConfig: plainPromptConfig,
+        voiceRecognition: plainVoiceRecognitionConfig
       })
       if (result.success) {
         successMessage.value = '配置保存成功'
@@ -177,6 +189,11 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
+  // 更新语音识别配置
+  function updateVoiceRecognitionConfig(config: VoiceRecognitionConfig): void {
+    voiceRecognitionConfig.value = { ...voiceRecognitionConfig.value, ...config }
+  }
+
   // 清除消息
   function clearMessages(): void {
     errorMessage.value = ''
@@ -193,6 +210,7 @@ export const useConfigStore = defineStore('config', () => {
     llmConfigs,
     defaultModel,
     promptConfig,
+    voiceRecognitionConfig,
     // Getters
     hasModels,
     defaultModelConfig,
@@ -207,6 +225,7 @@ export const useConfigStore = defineStore('config', () => {
     updateModelConfigField,
     updatePromptConfig,
     resetPromptConfig,
+    updateVoiceRecognitionConfig,
     clearMessages
   }
 })

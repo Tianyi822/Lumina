@@ -32,7 +32,11 @@ function createEmptyConfig(): AppConfig {
       optimizationAggressiveness: 'balanced'
     },
     embeddingModels: {},
-    knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG
+    knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG,
+    voiceRecognition: {
+      provider: 'aliyun',
+      enabled: false
+    }
   }
 }
 
@@ -101,6 +105,14 @@ function migrateConfig(config: AppConfig): AppConfig {
   // 迁移 knowledgeMCP 配置
   if (!migrated.knowledgeMCP) {
     migrated.knowledgeMCP = DEFAULT_KNOWLEDGE_MCP_CONFIG
+  }
+
+  // 迁移语音识别配置
+  if (!migrated.voiceRecognition) {
+    migrated.voiceRecognition = {
+      provider: 'aliyun',
+      enabled: false
+    }
   }
 
   return migrated

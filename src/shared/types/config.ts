@@ -151,6 +151,29 @@ import type { KnowledgeMCPConfig } from './knowledgeMCP'
 export type { MCPServerConfig, MCPTransportType }
 
 /**
+ * 语音识别服务提供商类型
+ */
+export type VoiceRecognitionProvider = 'aliyun'
+
+/**
+ * 语音识别配置
+ */
+export interface VoiceRecognitionConfig {
+  /** 服务提供商 */
+  provider: VoiceRecognitionProvider
+  /** 阿里云 AccessKey ID */
+  accessKeyId?: string
+  /** 阿里云 AccessKey Secret */
+  accessKeySecret?: string
+  /** 服务鉴权 Token */
+  token?: string
+  /** 项目 Appkey */
+  appkey?: string
+  /** 是否启用语音识别功能 */
+  enabled?: boolean
+}
+
+/**
  * MCP 服务器配置的集合
  */
 export interface MCPServers {
@@ -170,6 +193,8 @@ export interface AppConfig {
   embeddingModels?: EmbeddingConfigs
   /** 知识库 MCP 服务配置 */
   knowledgeMCP?: KnowledgeMCPConfig
+  /** 语音识别配置 */
+  voiceRecognition?: VoiceRecognitionConfig
 }
 
 /**

@@ -166,17 +166,17 @@ async function handleTestConnection(): Promise<void> {
 </script>
 
 <template>
-  <div class="form-container">
-    <h3>{{ editingName ? '编辑' : '添加' }}嵌入模型</h3>
+  <div class="new-model-form">
+    <h3 class="form-section-title">{{ editingName ? '编辑' : '添加' }}嵌入模型</h3>
 
     <form @submit.prevent="handleSubmit">
       <!-- 显示名称 -->
       <div class="form-group">
-        <label class="form-label">显示名称 *</label>
+        <label>显示名称 <span class="required">*</span></label>
         <input
           v-model="displayName"
           type="text"
-          class="form-input"
+          class="input"
           :class="{ 'input-error': nameConflictError }"
           placeholder="例如: OpenAI Embedding Small"
           required
@@ -186,11 +186,11 @@ async function handleTestConnection(): Promise<void> {
 
       <!-- API 基础URL -->
       <div class="form-group">
-        <label class="form-label">API 基础URL *</label>
+        <label>API 基础URL <span class="required">*</span></label>
         <input
           v-model="baseUrl"
           type="url"
-          class="form-input"
+          class="input"
           placeholder="https://api.openai.com/v1"
           required
         />
@@ -198,17 +198,17 @@ async function handleTestConnection(): Promise<void> {
 
       <!-- API 密钥 -->
       <div class="form-group">
-        <label class="form-label">API 密钥 *</label>
-        <input v-model="apiKey" type="password" class="form-input" placeholder="sk-..." required />
+        <label>API 密钥 <span class="required">*</span></label>
+        <input v-model="apiKey" type="password" class="input" placeholder="sk-..." required />
       </div>
 
       <!-- 模型名称 -->
       <div class="form-group">
-        <label class="form-label">模型名称 *</label>
+        <label>模型名称 <span class="required">*</span></label>
         <input
           v-model="modelName"
           type="text"
-          class="form-input"
+          class="input"
           placeholder="text-embedding-3-small"
           required
         />
@@ -216,11 +216,11 @@ async function handleTestConnection(): Promise<void> {
 
       <!-- 向量维度 -->
       <div class="form-group">
-        <label class="form-label">向量维度 *</label>
+        <label>向量维度 <span class="required">*</span></label>
         <input
           v-model="dimensions"
           type="text"
-          class="form-input"
+          class="input"
           :class="{ 'input-error': dimensionError }"
           placeholder="1536"
           required
@@ -236,36 +236,76 @@ async function handleTestConnection(): Promise<void> {
 
       <!-- 按钮组 -->
       <div class="form-actions">
-        <button type="button" class="btn btn-secondary" @click="emit('cancel')">取消</button>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          :disabled="testing"
-          @click="handleTestConnection"
-        >
+        <button type="button" class="btn" @click="emit('cancel')">取消</button>
+        <button type="button" class="btn" :disabled="testing" @click="handleTestConnection">
           {{ testing ? '测试中...' : '测试连接' }}
         </button>
-        <button type="submit" class="btn btn-primary">保存</button>
+        <button type="submit" class="btn-primary">保存</button>
       </div>
     </form>
   </div>
 </template>
 
 <style scoped>
-.form-container {
-  padding: 20px;
+.new-model-form {
+  background-color: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
-  border-radius: 8px;
-  background: var(--theme-background-secondary);
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
 }
 
-h3 {
-  margin: 0 0 20px 0;
-  font-size: 18px;
+.form-section-title {
+  font-size: 14px;
+  font-weight: 600;
   color: var(--theme-text);
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--theme-border);
+}
+
+.form-group label {
+  color: var(--theme-text-secondary);
+}
+
+.required {
+  color: var(--theme-danger);
 }
 
 .input-error {
-  border-color: #f44336 !important;
+  border-color: var(--theme-danger) !important;
+}
+
+.error-message {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--theme-danger);
+}
+
+.test-result {
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.test-result.success {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--theme-success);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.test-result.error {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--theme-danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
 }
 </style>

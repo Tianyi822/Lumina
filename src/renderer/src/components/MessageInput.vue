@@ -6,7 +6,7 @@ import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
 import SandboxToolsToggle from './sandbox/SandboxToolsToggle.vue'
 import UserInteractionOptions from './UserInteractionOptions.vue'
 import type { AppConfig, MCPTool, KnowledgeBase } from '@renderer/types'
-import { useUIStateStore, useChatStreamStore } from '@renderer/stores'
+import { useUIStateStore, useChatStreamStore, useConfigStore } from '@renderer/stores'
 import { useDocumentUploadStore } from '../stores/documentUploadStore'
 import { useImageUploadStore, isImageFile } from '../stores/imageUploadStore'
 import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
@@ -348,6 +348,164 @@ const { configUpdateKey } = storeToRefs(uiStateStore)
 const chatStreamStore = useChatStreamStore()
 const { showUserInteraction, userInteractionInfo } = storeToRefs(chatStreamStore)
 
+// 配置 Store - 用于获取语音识别配置
+const configStore = useConfigStore()
+const { voiceRecognitionConfig } = storeToRefs(configStore)
+
+// 语音识别状态
+const isRecording = ref(false)
+const mediaStream = ref<MediaStream | null>(null)
+const audioContext = ref<AudioContext | null>(null)
+const workletNode = ref<AudioWorkletNode | null>(null)
+const voiceUnsubscribe = ref<(() => void) | null>(null)
+
+/**
+ * 切换语音录制状态
+ */
+function toggleVoiceRecording(): void {
+  if (isRecording.value) {
+    stopVoiceRecording()
+  } else {
+    startVoiceRecording()
+  }
+}
+
+/**
+ * 开始语音录制
+ */
+async function startVoiceRecording(): Promise<void> {
+  if (!voiceRecognitionConfig.value?.enabled) {
+    alert('语音识别功能未启用，请先在设置中配置')
+    return
+  }
+
+  if (!voiceRecognitionConfig.value?.token || !voiceRecognitionConfig.value?.appkey) {
+    alert('语音识别配置不完整，请先在设置中配置 Token 和 Appkey')
+    return
+  }
+
+  try {
+    // 1. 获取麦克风权限
+    mediaStream.value = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        sampleRate: 16000,
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true
+      }
+    })
+
+    // 2. 创建音频上下文
+    audioContext.value = new AudioContext({ sampleRate: 16000 })
+
+    // 3. 创建音频源
+    const source = audioContext.value.createMediaStreamSource(mediaStream.value)
+
+    // 4. 创建 ScriptProcessor 用于获取音频数据 (AudioWorklet 更好但需要额外文件)
+    const bufferSize = 4096
+    const processor = audioContext.value.createScriptProcessor(bufferSize, 1, 1)
+
+    // 5. 启动主进程的语音识别服务
+    const startResult = await window.api.voiceRecognition.start()
+    if (!startResult.success) {
+      throw new Error(startResult.error || '启动语音识别失败')
+    }
+
+    // 6. 监听识别结果
+    voiceUnsubscribe.value = window.api.voiceRecognition.onResult((event) => {
+      if (event.type === 'partial' && event.data.text) {
+        // 中间结果 - 可以实时显示
+        window.api.logger.debug('[MessageInput] 语音识别中间结果', { text: event.data.text })
+      } else if (event.type === 'final' && event.data.text) {
+        // 最终结果 - 添加到输入框
+        localInputMessage.value = localInputMessage.value
+          ? localInputMessage.value + event.data.text
+          : event.data.text
+        emit('update:inputMessage', localInputMessage.value)
+      } else if (event.type === 'error') {
+        window.api.logger.error('[MessageInput] 语音识别错误', { error: event.data.error })
+        alert(`语音识别错误: ${event.data.error}`)
+        stopVoiceRecording()
+      } else if (event.type === 'stopped') {
+        window.api.logger.info('[MessageInput] 语音识别已停止')
+      }
+    })
+
+    // 7. 处理音频数据并发送到主进程
+    processor.onaudioprocess = (e: AudioProcessingEvent) => {
+      if (!isRecording.value) return
+
+      const inputData = e.inputBuffer.getChannelData(0)
+      // 将 Float32 转换为 Int16 (PCM 16bit)
+      const pcmData = new Int16Array(inputData.length)
+      for (let i = 0; i < inputData.length; i++) {
+        const s = Math.max(-1, Math.min(1, inputData[i]))
+        pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF
+      }
+
+      // 发送到主进程
+      window.api.voiceRecognition.sendAudio(new Uint8Array(pcmData.buffer))
+    }
+
+    // 8. 连接节点
+    source.connect(processor)
+    processor.connect(audioContext.value.destination)
+
+    isRecording.value = true
+    window.api.logger.info('[MessageInput] 语音录制已开始')
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    window.api.logger.error('[MessageInput] 启动语音录制失败', { error: errorMessage })
+    alert(`启动语音录制失败: ${errorMessage}`)
+    await cleanupAudio()
+  }
+}
+
+/**
+ * 停止语音录制
+ */
+async function stopVoiceRecording(): Promise<void> {
+  window.api.logger.info('[MessageInput] 停止语音录制')
+  isRecording.value = false
+  await cleanupAudio()
+}
+
+/**
+ * 清理音频资源
+ */
+async function cleanupAudio(): Promise<void> {
+  // 取消结果监听
+  if (voiceUnsubscribe.value) {
+    voiceUnsubscribe.value()
+    voiceUnsubscribe.value = null
+  }
+
+  // 停止主进程识别
+  try {
+    await window.api.voiceRecognition.stop()
+  } catch (e) {
+    // 忽略停止错误
+  }
+
+  // 关闭音频节点
+  if (workletNode.value) {
+    workletNode.value.disconnect()
+    workletNode.value = null
+  }
+
+  // 关闭音频上下文
+  if (audioContext.value) {
+    await audioContext.value.close()
+    audioContext.value = null
+  }
+
+  // 关闭媒体流
+  if (mediaStream.value) {
+    mediaStream.value.getTracks().forEach((track) => track.stop())
+    mediaStream.value = null
+  }
+}
+
 // 加载已配置的模型列表
 async function loadConfiguredModels(): Promise<void> {
   try {
@@ -499,9 +657,11 @@ onMounted(() => {
   document.addEventListener('click', handleClickOutside)
 })
 
-onUnmounted(() => {
+onUnmounted(async () => {
   // 移除全局点击事件监听器
   document.removeEventListener('click', handleClickOutside)
+  // 清理语音录制资源
+  await cleanupAudio()
 })
 </script>
 
@@ -683,6 +843,25 @@ onUnmounted(() => {
             />
           </svg>
           <span v-if="totalAttachmentCount > 0" class="doc-count">{{ totalAttachmentCount }}</span>
+        </button>
+
+        <!-- 语音输入按钮 -->
+        <button
+          v-if="voiceRecognitionConfig?.enabled"
+          class="voice-input-btn"
+          :class="{ recording: isRecording }"
+          :disabled="isSending"
+          :title="isRecording ? '正在录音...点击停止' : '语音输入'"
+          @click="toggleVoiceRecording"
+        >
+          <svg width="18" height="18" viewBox="0 0 1024 1024" fill="currentColor">
+            <path
+              d="M512 608 512 608c88 0 160-72 160-160L672 256c0-88-72-160-160-160l0 0c-88 0-160 72-160 160l0 192C352 536 424 608 512 608z"
+            />
+            <path
+              d="M796.6 492.4c2.7-17.5-9.2-33.8-26.7-36.5-17.5-2.6-33.8 9.3-36.5 26.7C716.6 590.6 621.5 672 512 672c-109.5 0-204.7-81.5-221.4-189.5-2.7-17.5-19.1-29.4-36.5-26.7-17.5 2.7-29.4 19-26.7 36.5 20.2 130.5 124 227.8 252.6 241.8L480 832l-96 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l256 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-96 0 0-97.9C672.5 720.1 776.4 622.9 796.6 492.4z"
+            />
+          </svg>
         </button>
 
         <!-- 执行/停止按钮 -->
@@ -1128,6 +1307,57 @@ onUnmounted(() => {
   font-weight: 600;
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ==================== 语音输入按钮样式 ==================== */
+.voice-input-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: linear-gradient(
+    135deg,
+    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
+    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
+  );
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  border-radius: 50%;
+  color: var(--theme-text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    0 2px 6px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15));
+}
+
+.voice-input-btn:hover {
+  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  color: var(--theme-text);
+}
+
+.voice-input-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voice-input-btn.recording {
+  color: #7dd3fc;
+  border-color: rgba(125, 211, 252, 0.4);
+  background: rgba(125, 211, 252, 0.12);
+  animation: voice-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes voice-pulse {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(125, 211, 252, 0.22), 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 4px 24px rgba(125, 211, 252, 0.36), 0 2px 10px rgba(125, 211, 252, 0.18);
+  }
 }
 
 /* ==================== 待发送图片列表样式 ==================== */

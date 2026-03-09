@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import MarkdownIt from 'markdown-it'
+import { estimateTokenCount, formatTokenCount } from '@renderer/utils/tokenEstimate'
 
 // 初始化 markdown-it 实例
 const md = new MarkdownIt({
@@ -13,6 +14,7 @@ const md = new MarkdownIt({
 const props = defineProps<{
   content: string
   isExpanded?: boolean
+  reasoningTokens?: number
 }>()
 
 const emit = defineEmits<{
@@ -46,17 +48,21 @@ function renderMarkdown(content: string): string {
 }
 
 /**
- * 计算思考内容的行数
+ * 计算思考内容的 Token 数
  */
-const contentLines = computed(() => {
-  return props.content.split('\n').length
+const contentTokens = computed(() => {
+  return props.reasoningTokens ?? estimateTokenCount(props.content)
 })
 
 /**
- * 计算思考内容的字符数
+ * 获取思考内容的 Token 显示文案
  */
-const contentChars = computed(() => {
-  return props.content.length
+const contentTokenLabel = computed(() => {
+  if (props.reasoningTokens !== undefined) {
+    return formatTokenCount(props.reasoningTokens)
+  }
+
+  return `约 ${formatTokenCount(contentTokens.value)}`
 })
 </script>
 
@@ -74,9 +80,7 @@ const contentChars = computed(() => {
         </div>
         <div class="header-text">
           <span class="header-label">思考过程</span>
-          <span v-if="!isActuallyExpanded" class="header-meta">
-            {{ contentLines }} 行 · {{ contentChars }} 字符
-          </span>
+          <span class="header-meta">{{ contentTokenLabel }}</span>
         </div>
       </div>
       <div class="header-right">
@@ -138,6 +142,7 @@ const contentChars = computed(() => {
   justify-content: space-between;
   gap: var(--theme-spacing);
   padding: 10px 14px;
+  border-bottom: 1px solid transparent;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
@@ -181,8 +186,8 @@ const contentChars = computed(() => {
 
 .header-text {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -201,6 +206,7 @@ const contentChars = computed(() => {
 .header-meta {
   font-size: 11px;
   color: var(--theme-text-tertiary);
+  white-space: nowrap;
 }
 
 .header-right {
@@ -269,9 +275,9 @@ const contentChars = computed(() => {
 .reasoning-text {
   font-family: var(--theme-font-mono, 'JetBrains Mono', monospace);
   font-size: 13px;
-  line-height: 1.7;
+  line-height: 1.42;
   color: var(--theme-text-secondary);
-  white-space: pre-wrap;
+  white-space: normal;
   animation: contentFadeIn 0.3s ease-out;
 }
 
@@ -288,11 +294,54 @@ const contentChars = computed(() => {
 
 /* Markdown 样式 */
 .markdown-body :deep(p) {
-  margin: 0 0 0.75em 0;
+  margin: 0 0 0.34em 0;
 }
 
 .markdown-body :deep(p:last-child) {
   margin-bottom: 0;
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3),
+.markdown-body :deep(h4),
+.markdown-body :deep(h5),
+.markdown-body :deep(h6) {
+  margin: 0.8em 0 0.3em 0;
+  font-weight: 700;
+  line-height: 1.28;
+  color: var(--theme-text);
+}
+
+.markdown-body :deep(h1:first-child),
+.markdown-body :deep(h2:first-child),
+.markdown-body :deep(h3:first-child),
+.markdown-body :deep(h4:first-child),
+.markdown-body :deep(h5:first-child),
+.markdown-body :deep(h6:first-child) {
+  margin-top: 0;
+}
+
+.markdown-body :deep(h1) {
+  font-size: 1.22em;
+}
+
+.markdown-body :deep(h2) {
+  font-size: 1.14em;
+}
+
+.markdown-body :deep(h3) {
+  font-size: 1.08em;
+}
+
+.markdown-body :deep(h4),
+.markdown-body :deep(h5),
+.markdown-body :deep(h6) {
+  font-size: 1.02em;
+}
+
+.markdown-body :deep(br) {
+  line-height: 1.42;
 }
 
 .markdown-body :deep(code) {
@@ -315,7 +364,7 @@ const contentChars = computed(() => {
   padding: 12px 16px;
   border-radius: var(--theme-radius);
   overflow-x: auto;
-  margin: 0.75em 0;
+  margin: 0.4em 0;
   border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
 }
 
@@ -323,13 +372,13 @@ const contentChars = computed(() => {
   background: none;
   padding: 0;
   font-size: 0.85em;
-  line-height: 1.5;
+  line-height: 1.4;
   color: var(--theme-text-secondary);
 }
 
 .markdown-body :deep(blockquote) {
-  margin: 0.75em 0;
-  padding: 0.5em 1em;
+  margin: 0.4em 0;
+  padding: 0.4em 0.9em;
   border-left: 3px solid var(--theme-accent);
   background: var(--thinking-bg, rgba(99, 102, 241, 0.08));
   border-radius: 0 var(--theme-radius-sm) var(--theme-radius-sm) 0;
@@ -337,12 +386,15 @@ const contentChars = computed(() => {
 
 .markdown-body :deep(ul),
 .markdown-body :deep(ol) {
-  margin: 0.5em 0;
-  padding-left: 1.5em;
+  margin: 0.22em 0;
+  padding-left: 1.8em;
+  list-style-position: outside;
 }
 
 .markdown-body :deep(li) {
-  margin: 0.25em 0;
+  margin: 0.14em 0;
+  padding-left: 0.15em;
+  line-height: 1.42;
 }
 
 .markdown-body :deep(strong) {

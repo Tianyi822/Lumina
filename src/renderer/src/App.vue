@@ -13,7 +13,7 @@ import { useLifecycle } from './composables/lifecycle/useLifecycle'
 import { useTheme } from './composables/useTheme'
 
 // Stores
-import { useUIStateStore } from './stores'
+import { useUIStateStore, useConfigStore } from './stores'
 
 // ==================== 主题初始化 ====================
 const { initTheme } = useTheme()
@@ -22,6 +22,9 @@ const { initTheme } = useTheme()
 const uiState = useUIStateStore()
 const { currentView, isChatView, isKnowledgeView, isSandboxView, configError } =
   storeToRefs(uiState)
+
+// 配置 Store - 用于加载语音识别等配置
+const configStore = useConfigStore()
 
 // 设置弹窗状态（本地状态）
 const showSettings = ref(false)
@@ -36,10 +39,6 @@ function closeSettings(): void {
 
 function dismissError(): void {
   uiState.dismissConfigError()
-}
-
-function handleConfigUpdated(): void {
-  uiState.notifyConfigUpdate()
 }
 
 function handleMCPUpdated(): void {
@@ -68,8 +67,11 @@ useLifecycle({
   loadKnowledgeBases: undefined
 })
 
-// 初始化主题
+// 初始化主题和配置
 onMounted(async () => {
+  // 先加载配置（包含语音识别配置等）
+  await configStore.loadConfig()
+  // 再初始化主题
   await initTheme()
 })
 </script>
@@ -95,12 +97,7 @@ onMounted(async () => {
     </div>
 
     <!-- 设置弹窗 -->
-    <SettingsModal
-      v-if="showSettings"
-      @close="closeSettings"
-      @config-updated="handleConfigUpdated"
-      @mcp-updated="handleMCPUpdated"
-    />
+    <SettingsModal v-if="showSettings" @close="closeSettings" @mcp-updated="handleMCPUpdated" />
   </div>
 </template>
 

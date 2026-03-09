@@ -7,29 +7,22 @@ import MCPSettings from './settings/MCPSettings.vue'
 import PromptEngineeringSettings from './settings/PromptEngineeringSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
+import VoiceRecognitionSettings from './settings/VoiceRecognitionSettings.vue'
 import { useConfigStore } from '@renderer/stores'
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'config-updated'): void
   (e: 'mcp-updated'): void
 }>()
 
 // 使用 configStore
 const configStore = useConfigStore()
-const {
-  loading,
-  saving,
-  errorMessage,
-  successMessage,
-  themeConfig,
-  llmConfigs,
-  defaultModel,
-  promptConfig
-} = storeToRefs(configStore)
+const { loading, errorMessage, successMessage, themeConfig } = storeToRefs(configStore)
 
 // 当前激活的 Tab
-const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge'>('model')
+const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge' | 'voice'>(
+  'model'
+)
 
 // 信息消息（仅用于嵌入模型设置）
 const infoMessage = ref('')
@@ -39,22 +32,6 @@ function handleClose(): void {
   infoMessage.value = ''
   configStore.clearMessages()
   emit('close')
-}
-
-// 保存配置
-async function handleSave(): Promise<void> {
-  const success = await configStore.saveConfig()
-  if (success) {
-    emit('config-updated')
-  }
-}
-
-// 提示词配置重置成功
-function handlePromptResetSuccess(): void {
-  configStore.successMessage = '提示词配置已重置为默认值'
-  setTimeout(() => {
-    configStore.successMessage = ''
-  }, 2000)
 }
 
 // 主题变化处理（立即生效，无需保存）
@@ -89,9 +66,7 @@ onUnmounted(() => {
       <!-- 模态框头部 -->
       <div class="modal-header">
         <h2 class="modal-title">设置</h2>
-        <button class="btn close-btn" @click="handleClose">
-          <span>×</span>
-        </button>
+        <button class="btn close-btn" @click="handleClose">关闭</button>
       </div>
 
       <!-- 主体区域：左右布局 -->
@@ -140,6 +115,13 @@ onUnmounted(() => {
           >
             知识库服务
           </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'voice' }"
+            @click="activeTab = 'voice'"
+          >
+            语音识别
+          </button>
         </div>
 
         <!-- 右侧内容区域 -->
@@ -150,13 +132,7 @@ onUnmounted(() => {
           </div>
 
           <!-- 模型配置 Tab -->
-          <ModelSettings
-            v-else-if="activeTab === 'model'"
-            :model-configs="llmConfigs"
-            :default-model="defaultModel"
-            @update:model-configs="configStore.updateLLMConfigs"
-            @update:default-model="configStore.updateDefaultModel"
-          />
+          <ModelSettings v-else-if="activeTab === 'model'" />
 
           <!-- MCP 配置 Tab -->
           <MCPSettings
@@ -180,14 +156,7 @@ onUnmounted(() => {
           />
 
           <!-- 提示词工程配置 Tab -->
-          <PromptEngineeringSettings
-            v-else-if="activeTab === 'prompt'"
-            :model-value="promptConfig"
-            @update:model-value="configStore.updatePromptConfig"
-            @reset-success="handlePromptResetSuccess"
-            @error="errorMessage = $event"
-            @success="successMessage = $event"
-          />
+          <PromptEngineeringSettings v-else-if="activeTab === 'prompt'" />
 
           <!-- 主题设置 Tab -->
           <ThemeSettings
@@ -203,6 +172,15 @@ onUnmounted(() => {
             @update:error-message="errorMessage = $event"
             @update:success-message="successMessage = $event"
           />
+
+          <!-- 语音识别配置 Tab -->
+          <VoiceRecognitionSettings
+            v-else-if="activeTab === 'voice'"
+            :error-message="errorMessage"
+            :success-message="successMessage"
+            @update:error-message="errorMessage = $event"
+            @update:success-message="successMessage = $event"
+          />
         </div>
       </div>
 
@@ -215,15 +193,7 @@ onUnmounted(() => {
       </div>
       <div v-if="infoMessage" class="message info-message">
         <span>{{ infoMessage }}</span>
-        <button class="message-close" @click="infoMessage = ''">×</button>
-      </div>
-
-      <!-- 模态框底部 -->
-      <div class="modal-footer">
-        <button class="btn" @click="handleClose">取消</button>
-        <button class="btn-primary" :disabled="saving" @click="handleSave">
-          {{ saving ? '保存中...' : '保存' }}
-        </button>
+        <button class="message-close" @click="infoMessage = ''">关闭</button>
       </div>
     </div>
   </div>
@@ -243,15 +213,13 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 20px;
+  padding: calc(54px + env(safe-area-inset-top, 0px)) 24px 24px;
   overflow: hidden;
 }
 
 .modal-container {
-  width: 100%;
-  height: 100%;
-  max-width: 900px;
-  max-height: 700px;
+  width: min(860px, calc(100vw - 48px));
+  height: min(620px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
   min-width: 400px;
   min-height: 300px;
   background:
@@ -282,19 +250,19 @@ onUnmounted(() => {
 
 @media (max-width: 960px) {
   .modal-container {
-    max-width: calc(100vw - 40px);
-    max-height: calc(100vh - 40px);
+    width: min(820px, calc(100vw - 40px));
+    height: min(600px, calc(100vh - 88px - env(safe-area-inset-top, 0px)));
   }
 }
 
 @media (max-width: 768px) {
   .modal-overlay {
-    padding: 10px;
+    padding: calc(44px + env(safe-area-inset-top, 0px)) 12px 12px;
   }
 
   .modal-container {
-    max-width: 100%;
-    max-height: 100%;
+    width: 100%;
+    height: min(100%, calc(100vh - 56px - env(safe-area-inset-top, 0px)));
   }
 
   .tabs {
@@ -329,10 +297,6 @@ onUnmounted(() => {
     font-size: 16px;
   }
 
-  .modal-footer {
-    padding: 12px 16px;
-  }
-
   .btn {
     padding: 6px 12px;
     font-size: 12px;
@@ -361,14 +325,14 @@ onUnmounted(() => {
 }
 
 .close-btn {
-  width: 32px;
+  min-width: 64px;
   height: 32px;
-  padding: 0;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  border-radius: 50%;
+  font-size: 13px;
+  border-radius: 999px;
 }
 
 .modal-body {
@@ -494,10 +458,11 @@ onUnmounted(() => {
   background: transparent;
   border: none;
   color: var(--theme-warning);
-  font-size: 18px;
-  padding: 0;
-  width: 20px;
-  height: 20px;
+  font-size: 12px;
+  font-family: var(--theme-font);
+  padding: 4px 8px;
+  min-width: 44px;
+  height: 28px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -508,19 +473,5 @@ onUnmounted(() => {
 
 .message-close:hover {
   opacity: 1;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 14px 20px;
-  border-top: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  background: linear-gradient(
-    135deg,
-    var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
-    var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
-  );
-  flex-shrink: 0;
 }
 </style>

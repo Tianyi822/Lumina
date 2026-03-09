@@ -25,6 +25,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@lancedb/lancedb": "^0.26.2",
     "@modelcontextprotocol/sdk": "^1.25.3",
+    "alibabacloud-nls": "^1.0.4",
     "apache-arrow": "^21.1.0",
     "dockerode": "^4.0.9",
     "electron-updater": "^6.3.9",

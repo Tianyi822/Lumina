@@ -1,18 +1,11 @@
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { reactive, watch, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import type { PromptConfig } from '@renderer/types'
+import { useConfigStore } from '@renderer/stores'
 
-interface Props {
-  modelValue: PromptConfig
-}
-
-interface Emits {
-  (e: 'update:modelValue', value: PromptConfig): void
-  (e: 'reset-success'): void
-}
-
-const props = defineProps<Props>()
-const emit = defineEmits<Emits>()
+const configStore = useConfigStore()
+const { promptConfig, saving } = storeToRefs(configStore)
 
 const localConfig = reactive<PromptConfig>({
   enableEnhancedPrompt: true,
@@ -30,32 +23,40 @@ async function resetToDefault(): Promise<void> {
     const result = await window.api.prompt.resetConfig()
     if (result.success && result.config) {
       Object.assign(localConfig, result.config)
-      emit('update:modelValue', { ...result.config })
-      emit('reset-success')
+      configStore.updatePromptConfig({ ...result.config })
+      await configStore.saveConfig()
+      configStore.successMessage = '提示词配置已重置为默认值'
+      setTimeout(() => {
+        configStore.successMessage = ''
+      }, 2000)
     } else {
-      console.error('重置提示词配置失败:', result.error)
+      configStore.errorMessage = `重置提示词配置失败: ${result.error || '未知错误'}`
     }
   } catch (error) {
-    console.error('重置提示词配置失败:', error)
+    configStore.errorMessage = `重置提示词配置失败: ${error instanceof Error ? error.message : String(error)}`
   }
 }
 
-// 监听 props 变化
+// 保存配置
+async function handleSave(): Promise<void> {
+  configStore.updatePromptConfig({ ...localConfig })
+  await configStore.saveConfig()
+}
+
+// 初始化时从 store 获取配置
+onMounted(() => {
+  if (promptConfig.value) {
+    Object.assign(localConfig, promptConfig.value)
+  }
+})
+
+// 监听 store 中 promptConfig 变化（如外部更新）
 watch(
-  () => props.modelValue,
+  promptConfig,
   (newValue) => {
     if (newValue) {
       Object.assign(localConfig, newValue)
     }
-  },
-  { immediate: true, deep: true }
-)
-
-// 监听 localConfig 变化，同步到父组件
-watch(
-  localConfig,
-  (newValue) => {
-    emit('update:modelValue', { ...newValue })
   },
   { deep: true }
 )
@@ -181,13 +182,16 @@ watch(
 
     <div class="form-actions">
       <button class="btn btn-secondary" @click="resetToDefault">重置为默认</button>
+      <button class="btn-primary" :disabled="saving" @click="handleSave">
+        {{ saving ? '保存中...' : '保存配置' }}
+      </button>
     </div>
   </div>
 </template>
 
 <style scoped>
 .tab-content {
-  padding: 20px;
+  min-height: 300px;
 }
 
 .info-box {
@@ -245,6 +249,53 @@ watch(
   line-height: 1.6;
 }
 
+/* 调整下拉箭头位置，避免紧贴右侧边界 */
+select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2371717a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")
+      no-repeat right 16px center,
+    linear-gradient(
+      135deg,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
+    rgba(0, 0, 0, 0.017);
+  background-size: 12px, auto, auto;
+  padding-right: 44px;
+  transition:
+    border-color 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    box-shadow 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    background-color 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+select.input:hover {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2371717a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")
+      no-repeat right 16px center,
+    linear-gradient(
+      135deg,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
+    rgba(0, 0, 0, 0.017);
+  background-size: 12px, auto, auto;
+}
+
+select.input:focus {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2371717a' d='M6 8L1 3h10z'/%3E%3C/svg%3E")
+      no-repeat right 16px center,
+    linear-gradient(
+      135deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
+    rgba(0, 0, 0, 0.02);
+  background-size: 12px, auto, auto;
+}
+
 .slider {
   width: 100%;
   margin: 8px 0;
@@ -260,6 +311,9 @@ watch(
 }
 
 .form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
   margin-top: 32px;
 }
 </style>

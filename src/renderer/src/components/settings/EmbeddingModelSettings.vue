@@ -182,6 +182,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.tab-content {
+  min-height: 300px;
+}
+
 .model-list {
   display: flex;
   flex-direction: column;
