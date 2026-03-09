@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import ReasoningPanel from './ReasoningPanel.vue'
 import type { Message } from '@renderer/types'
 import { getFileTypeIcon } from '@renderer/utils/fileIcons'
-import { formatTokenCount } from '@renderer/utils/tokenEstimate'
+import { estimateTokenCount, formatTokenCount } from '@renderer/utils/tokenEstimate'
 
 // 初始化 markdown-it 实例
 const md = new MarkdownIt({
@@ -69,6 +69,28 @@ const showTimestamp = computed(() => {
 })
 
 /**
+ * 是否显示消息元信息行
+ */
+const showMetaRow = computed(() => {
+  return (
+    (props.message.role === 'assistant' && !props.message.isStreaming && !!props.message.usage) ||
+    (props.message.role === 'user' && !props.message.isStreaming)
+  )
+})
+
+/**
+ * 用户消息的估算 Token 显示
+ */
+const userTokenUsageLabel = computed(() => {
+  if (props.message.role !== 'user' || props.message.isStreaming) {
+    return ''
+  }
+
+  const estimatedTokens = estimateTokenCount(props.message.content)
+  return `输入: 约 ${formatTokenCount(estimatedTokens)}`
+})
+
+/**
  * 获取消息发送者名称
  */
 const senderName = computed(() => {
@@ -117,6 +139,7 @@ function formatFileSize(bytes: number): string {
       <!-- 发送者信息 -->
       <div class="sender-info">
         <span class="sender-name">{{ senderName }}</span>
+        <span v-if="showTimestamp" class="sender-time">{{ formattedTime }}</span>
         <span v-if="message.reasoning" class="thinking-indicator">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10" />
@@ -186,7 +209,7 @@ function formatFileSize(bytes: number): string {
       <!-- 消息气泡 -->
       <div
         class="message-bubble"
-        :class="{ streaming: message.isStreaming, 'animate-in': !message.isStreaming }"
+        :class="{ streaming: message.isStreaming }"
       >
         <!-- 用户消息：纯文本 -->
         <template v-if="message.role === 'user'">
@@ -204,20 +227,17 @@ function formatFileSize(bytes: number): string {
         </template>
       </div>
 
-      <!-- 消息元信息行：时间戳、Token统计、反馈按钮 -->
+      <!-- 消息元信息行：Token统计、反馈按钮 -->
       <Transition name="meta-fade">
-        <div
-          v-if="
-            showTimestamp || (message.role === 'assistant' && !message.isStreaming && message.usage)
-          "
-          class="message-meta-row"
-        >
-          <!-- 时间戳 -->
-          <div v-if="showTimestamp" class="message-time">
-            {{ formattedTime }}
+        <div v-if="showMetaRow" class="message-meta-row">
+          <!-- Token 统计（用户消息估算 / AI 消息真实值） -->
+          <div
+            v-if="message.role === 'user' && !message.isStreaming"
+            class="token-usage"
+          >
+            {{ userTokenUsageLabel }}
           </div>
 
-          <!-- Token 统计（仅 AI 消息） -->
           <div
             v-if="message.role === 'assistant' && !message.isStreaming && message.usage"
             class="token-usage"
@@ -242,6 +262,9 @@ function formatFileSize(bytes: number): string {
 
 <style scoped>
 .chat-message {
+  --message-avatar-size: 34px;
+  --message-header-gap: var(--theme-spacing-sm);
+  --message-content-offset: calc(var(--message-avatar-size) + var(--message-header-gap));
   display: flex;
   flex-direction: column;
   gap: var(--theme-spacing-sm);
@@ -323,8 +346,8 @@ function formatFileSize(bytes: number): string {
 }
 
 .avatar {
-  width: 34px;
-  height: 34px;
+  width: var(--message-avatar-size);
+  height: var(--message-avatar-size);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -366,6 +389,12 @@ function formatFileSize(bytes: number): string {
   color: var(--theme-text-secondary);
 }
 
+.sender-time {
+  font-size: 11px;
+  color: var(--theme-text-tertiary);
+  line-height: 1;
+}
+
 .thinking-indicator {
   display: inline-flex;
   align-items: center;
@@ -388,7 +417,7 @@ function formatFileSize(bytes: number): string {
   display: flex;
   flex-direction: column;
   gap: var(--theme-spacing-sm);
-  margin-left: 48px;
+  margin-left: var(--message-content-offset);
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -396,7 +425,7 @@ function formatFileSize(bytes: number): string {
 
 .chat-message.role-user .message-body {
   margin-left: 0;
-  margin-right: 48px;
+  margin-right: var(--message-content-offset);
 }
 
 /* 消息气泡 */
@@ -405,6 +434,8 @@ function formatFileSize(bytes: number): string {
   border-radius: var(--theme-radius-lg);
   font-size: 14px;
   line-height: 1.7;
+  align-self: flex-start;
+  width: fit-content;
   word-break: break-word;
   overflow-wrap: break-word;
   max-width: 100%;
@@ -412,24 +443,9 @@ function formatFileSize(bytes: number): string {
   transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* 气泡淡入动画 */
-.message-bubble.animate-in {
-  animation: bubbleFadeIn 0.25s ease-out;
-}
-
-@keyframes bubbleFadeIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
 /* 用户消息气泡 */
 .chat-message.role-user .message-bubble {
+  align-self: flex-end;
   background: #46aa8f;
   color: var(--bubble-user-text, white);
   border-bottom-right-radius: 4px;
@@ -501,19 +517,17 @@ function formatFileSize(bytes: number): string {
 .message-meta-row {
   display: flex;
   align-items: center;
+  align-self: flex-start;
+  flex-wrap: wrap;
   gap: 8px;
+  width: fit-content;
+  max-width: 100%;
   margin-top: 4px;
   min-height: calc(11px + 8px + 2px); /* font-size + padding-top/bottom + border */
 }
 
-/* 时间戳 */
-.message-time {
-  font-size: 11px;
-  color: var(--theme-text-tertiary);
-  padding: 4px 8px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
+.chat-message.role-user .message-meta-row {
+  align-self: flex-end;
 }
 
 /* Token 统计样式 */
