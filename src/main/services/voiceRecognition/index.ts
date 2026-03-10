@@ -7,7 +7,12 @@ import * as crypto from 'crypto'
 /**
  * 阿里云 NLS SDK 类型定义
  */
+type NlsEventWithoutPayload = 'started' | 'closed'
+type NlsEventWithMessage = 'changed' | 'begin' | 'end' | 'completed' | 'failed'
+
 interface NlsSpeechTranscription {
+  on(event: NlsEventWithoutPayload, listener: () => void): this
+  on(event: NlsEventWithMessage, listener: (msg: string) => void): this
   on(event: string, listener: (...args: unknown[]) => void): this
   defaultStartParams(): Record<string, unknown>
   start(params: Record<string, unknown>, enablePing: boolean, timeout: number): Promise<void>

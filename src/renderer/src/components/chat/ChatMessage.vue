@@ -392,11 +392,14 @@ function formatFileSize(bytes: number): string {
 
         <!-- AI 消息：Markdown 渲染 -->
         <template v-else>
+          <!-- markdown-it 已禁用原生 HTML，这里仅渲染受控 Markdown -->
+          <!-- eslint-disable vue/no-v-html -->
           <div
             class="markdown-body"
             :class="{ 'streaming-content': message.isStreaming }"
             v-html="renderedMarkdown"
           ></div>
+          <!-- eslint-enable vue/no-v-html -->
         </template>
       </div>
 

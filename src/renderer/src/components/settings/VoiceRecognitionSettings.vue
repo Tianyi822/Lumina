@@ -52,7 +52,9 @@ watch(
       // 保存到配置文件
       const success = await configStore.saveConfig()
       if (success) {
-        window.api.logger.info('[VoiceRecognitionSettings] 语音识别开关已更新', { enabled: newValue })
+        window.api.logger.info('[VoiceRecognitionSettings] 语音识别开关已更新', {
+          enabled: newValue
+        })
       } else {
         // 保存失败，回滚本地状态
         localConfig.value.enabled = oldValue
@@ -203,10 +205,10 @@ onMounted(() => {
       <label class="form-label">启用语音识别</label>
       <div class="toggle-wrapper">
         <input
+          id="voice-enabled"
           v-model="localConfig.enabled"
           type="checkbox"
           class="toggle-input"
-          id="voice-enabled"
         />
         <label for="voice-enabled" class="toggle-label"></label>
       </div>
@@ -285,13 +287,7 @@ onMounted(() => {
 
     <!-- 操作按钮 -->
     <div class="form-actions">
-      <button
-        class="btn btn-secondary"
-        :disabled="!hasChanges"
-        @click="handleReset"
-      >
-        重置
-      </button>
+      <button class="btn btn-secondary" :disabled="!hasChanges" @click="handleReset">重置</button>
       <button
         class="btn btn-secondary"
         :disabled="testing || !localConfig.token || !localConfig.appkey"
@@ -299,13 +295,7 @@ onMounted(() => {
       >
         {{ testing ? '测试中...' : '测试连接' }}
       </button>
-      <button
-        class="btn btn-primary"
-        :disabled="!hasChanges"
-        @click="handleSave"
-      >
-        保存配置
-      </button>
+      <button class="btn btn-primary" :disabled="!hasChanges" @click="handleSave">保存配置</button>
     </div>
   </div>
 </template>
@@ -504,12 +494,11 @@ onMounted(() => {
   min-height: 44px;
   justify-content: center;
   border: 1px solid color-mix(in srgb, var(--theme-accent) 42%, white 58%);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--theme-accent) 14%, white 86%) 0%,
-      color-mix(in srgb, var(--theme-accent) 8%, white 92%) 100%
-    );
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-accent) 14%, white 86%) 0%,
+    color-mix(in srgb, var(--theme-accent) 8%, white 92%) 100%
+  );
   color: color-mix(in srgb, var(--theme-accent) 72%, black 28%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
@@ -520,12 +509,11 @@ onMounted(() => {
 
 .fetch-token-btn:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--theme-accent) 65%, white 35%);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--theme-accent) 20%, white 80%) 0%,
-      color-mix(in srgb, var(--theme-accent) 12%, white 88%) 100%
-    );
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-accent) 20%, white 80%) 0%,
+    color-mix(in srgb, var(--theme-accent) 12%, white 88%) 100%
+  );
   color: color-mix(in srgb, var(--theme-accent) 82%, black 18%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.65),
@@ -540,8 +528,7 @@ onMounted(() => {
 
 .fetch-token-btn:disabled {
   border-color: rgba(148, 163, 184, 0.32);
-  background:
-    linear-gradient(135deg, rgba(241, 245, 249, 0.88) 0%, rgba(248, 250, 252, 0.82) 100%);
+  background: linear-gradient(135deg, rgba(241, 245, 249, 0.88) 0%, rgba(248, 250, 252, 0.82) 100%);
   color: rgba(100, 116, 139, 0.72);
   box-shadow: none;
 }

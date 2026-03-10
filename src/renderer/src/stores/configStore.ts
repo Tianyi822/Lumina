@@ -3,7 +3,13 @@
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { AppConfig, ThemeConfig, LLMConfig, PromptConfig, VoiceRecognitionConfig } from '@shared/types/config'
+import type {
+  AppConfig,
+  ThemeConfig,
+  LLMConfig,
+  PromptConfig,
+  VoiceRecognitionConfig
+} from '@shared/types/config'
 import { deepClone } from '@shared/utils'
 
 export const useConfigStore = defineStore('config', () => {
@@ -74,7 +80,10 @@ export const useConfigStore = defineStore('config', () => {
         }
         // 加载语音识别配置
         if (config.voiceRecognition) {
-          voiceRecognitionConfig.value = { ...voiceRecognitionConfig.value, ...config.voiceRecognition }
+          voiceRecognitionConfig.value = {
+            ...voiceRecognitionConfig.value,
+            ...config.voiceRecognition
+          }
         }
       }
     } catch (error) {

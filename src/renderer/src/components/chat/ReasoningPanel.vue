@@ -95,6 +95,8 @@ const contentTokenLabel = computed(() => {
     <!-- 内容区域（可展开/收起） -->
     <div class="panel-content-wrapper" :class="{ expanded: isActuallyExpanded }">
       <div class="panel-content">
+        <!-- markdown-it 已禁用原生 HTML，这里仅渲染受控 Markdown -->
+        <!-- eslint-disable-next-line vue/no-v-html -->
         <div class="reasoning-text markdown-body" v-html="renderMarkdown(content)"></div>
       </div>
     </div>

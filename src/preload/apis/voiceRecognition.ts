@@ -77,7 +77,10 @@ export const voiceRecognitionApi = {
    * @returns 取消监听函数
    */
   onResult: (callback: (event: VoiceRecognitionResultEvent) => void): (() => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: VoiceRecognitionResultEvent): void => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: VoiceRecognitionResultEvent
+    ): void => {
       callback(data)
     }
     ipcRenderer.on('voiceRecognition:result', handler)
