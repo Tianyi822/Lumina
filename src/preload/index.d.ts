@@ -663,6 +663,7 @@ interface FileItem {
 interface KnowledgeBaseEmbeddingConfig {
   baseUrl: string
   apiKey?: string
+  displayName?: string
   model: string
   dimensions: number
 }

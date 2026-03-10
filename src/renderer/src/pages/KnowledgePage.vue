@@ -49,6 +49,7 @@ async function handleKnowledgeSubmit(data: {
   embeddingConfig: {
     baseUrl: string
     apiKey?: string
+    displayName?: string
     model: string
     dimensions: number
   }

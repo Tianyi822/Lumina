@@ -201,7 +201,7 @@ export class KnowledgeCoreService {
       description: kb.description || '无描述',
       documentCount: kb.linkedFileIds?.length || 0,
       createdAt: kb.createdAt,
-      embeddingModel: kb.embeddingConfig.model
+      embeddingModel: kb.embeddingConfig.displayName || kb.embeddingConfig.model
     }))
   }
 
@@ -285,7 +285,7 @@ export class KnowledgeCoreService {
       description: kb.description || '无描述',
       documentCount: kb.linkedFileIds?.length || 0,
       createdAt: kb.createdAt,
-      embeddingModel: kb.embeddingConfig.model
+      embeddingModel: kb.embeddingConfig.displayName || kb.embeddingConfig.model
     }
   }
 
