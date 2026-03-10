@@ -7,6 +7,7 @@ import { createIpcListener } from './base'
 export interface KnowledgeBaseEmbeddingConfig {
   baseUrl: string
   apiKey?: string
+  displayName?: string
   model: string
   dimensions: number
 }

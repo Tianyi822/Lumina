@@ -1,4 +1,5 @@
 import { ipcRenderer } from 'electron'
+import type { ExportMessageRequest, ExportMessageResult } from '@shared/types'
 
 /**
  * 文档 API
@@ -66,5 +67,14 @@ export const documentApi = {
     )
 
     return ipcRenderer.invoke('document:uploadAndParseMultiple', fileDataArray)
+  },
+
+  /**
+   * 导出 AI 消息为目标格式
+   * @param request 导出参数
+   * @returns 导出结果
+   */
+  exportMessage: (request: ExportMessageRequest): Promise<ExportMessageResult> => {
+    return ipcRenderer.invoke('document:exportMessage', request)
   }
 }

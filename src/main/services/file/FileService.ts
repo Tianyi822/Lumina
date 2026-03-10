@@ -1,30 +1,27 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs'
 import { join, extname } from 'path'
 import { createHash } from 'crypto'
-import { getConfigDirPath } from '@main/services/config/configPaths'
 import { logger } from '@main/services/logger'
 import type { FileItem, KnowledgeBase } from '@shared/types/knowledge'
+import {
+  getFilesMetadataPath as getFilesMetadataStoragePath,
+  getFilesStoragePath as getKnowledgeFilesStoragePath,
+  getKnowledgeBaseFilePath,
+  initializeKnowledgeStorage
+} from '@main/services/knowledge/knowledgePaths'
 
 /**
  * 获取文件元数据存储路径
  */
 function getFilesMetadataPath(): string {
-  return join(getConfigDirPath(), 'files-metadata.json')
+  return getFilesMetadataStoragePath()
 }
 
 /**
  * 获取文件存储目录路径
  */
 export function getFilesStoragePath(): string {
-  const filesPath = join(getConfigDirPath(), 'data', 'files')
-  return filesPath
-}
-
-/**
- * 获取知识库数据文件路径
- */
-function getKnowledgeBaseFilePath(): string {
-  return join(getConfigDirPath(), 'knowledge-bases.json')
+  return getKnowledgeFilesStoragePath()
 }
 
 /**
@@ -85,6 +82,7 @@ export class FileService {
    */
   initialize(): void {
     try {
+      initializeKnowledgeStorage()
       this.ensureFilesDir()
       this.loadFilesMetadata()
       this.loaded = true
@@ -118,16 +116,17 @@ export class FileService {
       this.files = files
         .map((file) => ({
           ...file,
-          absolutePath: file.absolutePath || join(getFilesStoragePath(), file.filePath),
-          usedByKBIds: file.usedByKBIds.filter((kbId) => existingKBIds.has(kbId))
+          absolutePath: join(getFilesStoragePath(), file.filePath),
+          usedByKBIds: (file.usedByKBIds || []).filter((kbId) => existingKBIds.has(kbId))
         }))
         .filter((file) => file.usedByKBIds.length !== 0 || true)
 
       const hasChanges = files.some((file, index) => {
         const newFile = this.files[index]
         return (
-          file.usedByKBIds.length !== newFile.usedByKBIds.length ||
-          !file.usedByKBIds.every((id) => newFile.usedByKBIds.includes(id))
+          file.absolutePath !== newFile.absolutePath ||
+          (file.usedByKBIds || []).length !== newFile.usedByKBIds.length ||
+          !(file.usedByKBIds || []).every((id) => newFile.usedByKBIds.includes(id))
         )
       })
 

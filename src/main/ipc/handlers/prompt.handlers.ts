@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, webContents } from 'electron'
 import { configManager } from '../../services/config'
 import { logger } from '../../services/logger'
 import { promptBuilder } from '../../services/chat/PromptBuilder'
@@ -138,9 +138,8 @@ function setupCacheMonitorEvents(): void {
   cacheMonitor.on(CacheMonitorEvent.STATS_UPDATED, (stats: StatsUpdatedEvent) => {
     // 向所有订阅的窗口推送缓存统计
     for (const webContentsId of cacheStatsSubscribers) {
-      const win = BrowserWindow.fromWebContents(
-        require('electron').webContents.fromId(webContentsId)
-      )
+      const wc = webContents.fromId(webContentsId)
+      const win = wc ? BrowserWindow.fromWebContents(wc) : null
       if (win && !win.isDestroyed()) {
         win.webContents.send('prompt:cacheStatsUpdated', stats)
       } else {
@@ -155,9 +154,8 @@ function setupCacheMonitorEvents(): void {
     'performance:warning',
     (data: { timestamp: number; score: number; threshold: number }) => {
       for (const webContentsId of cacheStatsSubscribers) {
-        const win = BrowserWindow.fromWebContents(
-          require('electron').webContents.fromId(webContentsId)
-        )
+        const wc = webContents.fromId(webContentsId)
+        const win = wc ? BrowserWindow.fromWebContents(wc) : null
         if (win && !win.isDestroyed()) {
           win.webContents.send('prompt:cachePerformanceWarning', data)
         }

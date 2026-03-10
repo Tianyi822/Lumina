@@ -88,17 +88,48 @@ async function loadEmbeddingModels(): Promise<void> {
  * 获取当前知识库嵌入模型的显示名称
  */
 const embeddingModelDisplayName = computed(() => {
-  if (!currentKB.value) return ''
+  const kb = currentKB.value
+  if (!kb) return ''
 
-  // 根据模型名称查找对应的配置
-  for (const modelConfig of Object.values(embeddingModels.value)) {
-    if (modelConfig.model === currentKB.value!.embeddingConfig.model) {
-      return modelConfig.displayName || modelConfig.model
-    }
+  if (kb.embeddingConfig.displayName?.trim()) {
+    return kb.embeddingConfig.displayName
   }
 
-  // 如果找不到匹配的配置，返回模型名称
-  return currentKB.value.embeddingConfig.model
+  const modelConfigs = Object.values(embeddingModels.value)
+  const exactMatchedConfig = modelConfigs.find((modelConfig) => {
+    return (
+      modelConfig.baseUrl === kb.embeddingConfig.baseUrl &&
+      modelConfig.model === kb.embeddingConfig.model &&
+      modelConfig.dimensions === kb.embeddingConfig.dimensions &&
+      (modelConfig.apiKey || '') === (kb.embeddingConfig.apiKey || '')
+    )
+  })
+
+  if (exactMatchedConfig) {
+    return exactMatchedConfig.displayName || exactMatchedConfig.model
+  }
+
+  const sameConfigMatched = modelConfigs.find((modelConfig) => {
+    return (
+      modelConfig.baseUrl === kb.embeddingConfig.baseUrl &&
+      modelConfig.model === kb.embeddingConfig.model &&
+      modelConfig.dimensions === kb.embeddingConfig.dimensions
+    )
+  })
+
+  if (sameConfigMatched) {
+    return sameConfigMatched.displayName || sameConfigMatched.model
+  }
+
+  const sameModelMatched = modelConfigs.find((modelConfig) => {
+    return modelConfig.model === kb.embeddingConfig.model
+  })
+
+  if (sameModelMatched) {
+    return sameModelMatched.displayName || sameModelMatched.model
+  }
+
+  return kb.embeddingConfig.model
 })
 
 // 计算当前知识库的索引状态（只影响当前知识库的操作）
@@ -682,7 +713,7 @@ function getFileNameWithoutExtension(fileName: string): string {
           <div class="stat-item">
             <span class="stat-label">显示名称:</span>
             <span class="stat-value">{{
-              loadingEmbeddingModels ? '...' : embeddingModelDisplayName
+              embeddingModelDisplayName || (loadingEmbeddingModels ? '...' : '')
             }}</span>
           </div>
           <div class="stat-item">

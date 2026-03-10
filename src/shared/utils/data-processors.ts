@@ -1,9 +1,9 @@
 /**
  * 深拷贝消息数组
- * 创建一个新的数组，包含每个消息对象的浅拷贝
+ * 创建一个新的数组，递归复制其中的嵌套结构
  */
 export function deepCopyMessages<T>(messages: T[]): T[] {
-  return messages.map((msg) => ({ ...msg }))
+  return deepClone(messages)
 }
 
 /**

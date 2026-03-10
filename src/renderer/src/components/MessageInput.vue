@@ -5,7 +5,13 @@ import MCPToolsPanel from './MCPToolsPanel.vue'
 import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
 import SandboxToolsToggle from './sandbox/SandboxToolsToggle.vue'
 import UserInteractionOptions from './UserInteractionOptions.vue'
-import type { AppConfig, MCPTool, KnowledgeBase } from '@renderer/types'
+import type {
+  AppConfig,
+  ExportFormat,
+  MCPTool,
+  KnowledgeBase,
+  UserInteractionRequest
+} from '@renderer/types'
 import { useUIStateStore, useChatStreamStore, useConfigStore } from '@renderer/stores'
 import { useDocumentUploadStore } from '../stores/documentUploadStore'
 import { useImageUploadStore, isImageFile } from '../stores/imageUploadStore'
@@ -20,6 +26,7 @@ const props = defineProps<{
   selectedMCPTools?: MCPTool[]
   selectedKnowledgeBases?: KnowledgeBase[]
   enableSandboxTools?: boolean
+  exportInteractionInfo?: UserInteractionRequest | null
 }>()
 
 const emit = defineEmits<{
@@ -39,6 +46,7 @@ const emit = defineEmits<{
   (e: 'update:selectedMCPTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableSandboxTools', value: boolean): void
+  (e: 'select-export-format', format: ExportFormat): void
 }>()
 
 // 本地输入状态 - 确保与会话独立
@@ -440,7 +448,7 @@ async function startVoiceRecording(): Promise<void> {
       const pcmData = new Int16Array(inputData.length)
       for (let i = 0; i < inputData.length; i++) {
         const s = Math.max(-1, Math.min(1, inputData[i]))
-        pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF
+        pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7fff
       }
 
       // 发送到主进程
@@ -483,7 +491,7 @@ async function cleanupAudio(): Promise<void> {
   // 停止主进程识别
   try {
     await window.api.voiceRecognition.stop()
-  } catch (e) {
+  } catch {
     // 忽略停止错误
   }
 
@@ -622,6 +630,10 @@ function handleUserInteractionSelect(_value: string, label: string): void {
   )
 }
 
+function handleExportInteractionSelect(value: string): void {
+  emit('select-export-format', value as ExportFormat)
+}
+
 function handleKeydown(event: KeyboardEvent): void {
   if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
     handleSend()
@@ -667,6 +679,13 @@ onUnmounted(async () => {
 
 <template>
   <div class="message-input-container">
+    <!-- 导出格式选择 -->
+    <UserInteractionOptions
+      v-if="props.exportInteractionInfo"
+      :interaction-info="props.exportInteractionInfo"
+      @select="handleExportInteractionSelect"
+    />
+
     <!-- 用户交互选项 -->
     <UserInteractionOptions
       v-if="showUserInteraction && userInteractionInfo"
@@ -769,7 +788,10 @@ onUnmounted(async () => {
       <textarea
         v-model="localInputMessage"
         class="input message-textarea"
-        :class="{ 'has-docs': pendingDocs.length > 0 || pendingImages.length > 0, dragging: isDragging }"
+        :class="{
+          'has-docs': pendingDocs.length > 0 || pendingImages.length > 0,
+          dragging: isDragging
+        }"
         placeholder="输入命令或消息，可拖拽文件或图片上传 ..."
         rows="3"
         :disabled="isSending"
@@ -1352,11 +1374,16 @@ onUnmounted(async () => {
 }
 
 @keyframes voice-pulse {
-  0%, 100% {
-    box-shadow: 0 4px 16px rgba(125, 211, 252, 0.22), 0 2px 6px rgba(0, 0, 0, 0.1);
+  0%,
+  100% {
+    box-shadow:
+      0 4px 16px rgba(125, 211, 252, 0.22),
+      0 2px 6px rgba(0, 0, 0, 0.1);
   }
   50% {
-    box-shadow: 0 4px 24px rgba(125, 211, 252, 0.36), 0 2px 10px rgba(125, 211, 252, 0.18);
+    box-shadow:
+      0 4px 24px rgba(125, 211, 252, 0.36),
+      0 2px 10px rgba(125, 211, 252, 0.18);
   }
 }
 

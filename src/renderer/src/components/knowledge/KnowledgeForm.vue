@@ -22,6 +22,7 @@ const emit = defineEmits<{
       embeddingConfig: {
         baseUrl: string
         apiKey?: string
+        displayName?: string
         model: string
         dimensions: number
       }
@@ -98,6 +99,7 @@ function handleSubmit(): void {
     embeddingConfig: {
       baseUrl: config.baseUrl,
       apiKey: config.apiKey,
+      displayName: config.displayName || embeddingModel.value,
       model: config.model,
       dimensions: config.dimensions
     },

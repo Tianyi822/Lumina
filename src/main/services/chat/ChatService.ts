@@ -21,6 +21,14 @@ import { enhanceToolDescriptions } from './toolDescriptionEnhancer'
 import { ToolCallScheduler } from './ToolCallScheduler'
 import { knowledgeToolService } from '../knowledge'
 
+const THINK_OPEN_TAG = '<think>'
+const THINK_CLOSE_TAG = '</think>'
+
+interface StreamThinkParserState {
+  inThinkBlock: boolean
+  pendingText: string
+}
+
 /**
  * 聊天服务
  * 处理与 OpenAI 兼容 API 的通信，支持流式响应和 ReAct 推理模式
@@ -30,8 +38,6 @@ export class ChatService {
   private stoppedSessions: Set<string> = new Set()
   private pendingUserInteraction: Set<string> = new Set()
   private toolScheduler: ToolCallScheduler
-  private pendingExtractions: Set<string> = new Set()
-  private extractionTimer: NodeJS.Timeout | null = null
   // 存储每个会话选中的知识库 ID 列表
   private sessionKnowledgeBases: Map<string, string[]> = new Map()
 
@@ -55,6 +61,151 @@ export class ChatService {
       error.name = 'AbortError'
       throw error
     }
+  }
+
+  /**
+   * 创建流式思考标签解析状态
+   */
+  private createThinkParserState(): StreamThinkParserState {
+    return {
+      inThinkBlock: false,
+      pendingText: ''
+    }
+  }
+
+  /**
+   * 获取文本尾部与标签前缀重叠的长度
+   * 用于处理流式分块导致的半个标签场景
+   */
+  private getTrailingPartialTagLength(text: string, tags: string[]): number {
+    let matchedLength = 0
+
+    for (const tag of tags) {
+      const maxCheckLength = Math.min(text.length, tag.length - 1)
+      for (let len = maxCheckLength; len > matchedLength; len--) {
+        if (tag.startsWith(text.slice(-len))) {
+          matchedLength = len
+          break
+        }
+      }
+    }
+
+    return matchedLength
+  }
+
+  /**
+   * 查找下一个 think 标签
+   */
+  private findNextThinkTag(
+    text: string,
+    startIndex: number
+  ): { index: number; type: 'open' | 'close' } | null {
+    const openIndex = text.indexOf(THINK_OPEN_TAG, startIndex)
+    const closeIndex = text.indexOf(THINK_CLOSE_TAG, startIndex)
+
+    if (openIndex === -1 && closeIndex === -1) {
+      return null
+    }
+
+    if (openIndex === -1) {
+      return { index: closeIndex, type: 'close' }
+    }
+
+    if (closeIndex === -1 || openIndex < closeIndex) {
+      return { index: openIndex, type: 'open' }
+    }
+
+    return { index: closeIndex, type: 'close' }
+  }
+
+  /**
+   * 将 content 中的 think 标签拆分为思考内容和正文内容
+   */
+  private splitThinkTaggedContent(
+    text: string,
+    parserState: StreamThinkParserState
+  ): {
+    reasoningDelta: string
+    contentDelta: string
+  } {
+    const buffer = parserState.pendingText + text
+    parserState.pendingText = ''
+
+    let reasoningDelta = ''
+    let contentDelta = ''
+    let cursor = 0
+
+    while (cursor < buffer.length) {
+      if (parserState.inThinkBlock) {
+        const closeIndex = buffer.indexOf(THINK_CLOSE_TAG, cursor)
+        if (closeIndex === -1) {
+          const partialLength = this.getTrailingPartialTagLength(buffer.slice(cursor), [
+            THINK_CLOSE_TAG
+          ])
+          const safeEnd = buffer.length - partialLength
+          reasoningDelta += buffer.slice(cursor, safeEnd)
+          parserState.pendingText = buffer.slice(safeEnd)
+          return { reasoningDelta, contentDelta }
+        }
+
+        reasoningDelta += buffer.slice(cursor, closeIndex)
+        parserState.inThinkBlock = false
+        cursor = closeIndex + THINK_CLOSE_TAG.length
+        continue
+      }
+
+      const nextTag = this.findNextThinkTag(buffer, cursor)
+      if (!nextTag) {
+        const partialLength = this.getTrailingPartialTagLength(buffer.slice(cursor), [
+          THINK_OPEN_TAG,
+          THINK_CLOSE_TAG
+        ])
+        const safeEnd = buffer.length - partialLength
+        contentDelta += buffer.slice(cursor, safeEnd)
+        parserState.pendingText = buffer.slice(safeEnd)
+        return { reasoningDelta, contentDelta }
+      }
+
+      contentDelta += buffer.slice(cursor, nextTag.index)
+
+      if (nextTag.type === 'open') {
+        parserState.inThinkBlock = true
+      }
+
+      cursor =
+        nextTag.index + (nextTag.type === 'open' ? THINK_OPEN_TAG.length : THINK_CLOSE_TAG.length)
+    }
+
+    return { reasoningDelta, contentDelta }
+  }
+
+  /**
+   * 在流结束时冲刷剩余的未完成片段
+   */
+  private flushThinkParserState(parserState: StreamThinkParserState): {
+    reasoningDelta: string
+    contentDelta: string
+  } {
+    const pendingText = parserState.pendingText
+    parserState.pendingText = ''
+
+    if (!pendingText) {
+      return { reasoningDelta: '', contentDelta: '' }
+    }
+
+    if (parserState.inThinkBlock) {
+      parserState.inThinkBlock = false
+      if (THINK_CLOSE_TAG.startsWith(pendingText)) {
+        return { reasoningDelta: '', contentDelta: '' }
+      }
+      return { reasoningDelta: pendingText, contentDelta: '' }
+    }
+
+    if (THINK_OPEN_TAG.startsWith(pendingText) || THINK_CLOSE_TAG.startsWith(pendingText)) {
+      return { reasoningDelta: '', contentDelta: '' }
+    }
+
+    return { reasoningDelta: '', contentDelta: pendingText }
   }
 
   /**
@@ -184,6 +335,7 @@ export class ChatService {
       )
 
       let usage: TokenUsage | undefined
+      const thinkParserState = this.createThinkParserState()
 
       for await (const chunk of stream) {
         if (chunk.usage) {
@@ -211,13 +363,44 @@ export class ChatService {
           }
 
           if (delta.content) {
-            this.sendStreamEvent(webContents, {
-              type: 'content',
-              content: delta.content,
-              sessionId
-            })
+            const { reasoningDelta, contentDelta } = this.splitThinkTaggedContent(
+              delta.content,
+              thinkParserState
+            )
+
+            if (reasoningDelta) {
+              this.sendStreamEvent(webContents, {
+                type: 'reasoning',
+                content: reasoningDelta,
+                sessionId
+              })
+            }
+
+            if (contentDelta) {
+              this.sendStreamEvent(webContents, {
+                type: 'content',
+                content: contentDelta,
+                sessionId
+              })
+            }
           }
         }
+      }
+
+      const { reasoningDelta, contentDelta } = this.flushThinkParserState(thinkParserState)
+      if (reasoningDelta) {
+        this.sendStreamEvent(webContents, {
+          type: 'reasoning',
+          content: reasoningDelta,
+          sessionId
+        })
+      }
+      if (contentDelta) {
+        this.sendStreamEvent(webContents, {
+          type: 'content',
+          content: contentDelta,
+          sessionId
+        })
       }
 
       this.sendStreamEvent(webContents, {
@@ -382,6 +565,13 @@ export class ChatService {
           break
         }
 
+        // 发送迭代开始事件，通知前端创建新的迭代分组
+        this.sendStreamEvent(webContents, {
+          type: 'react_iteration_start',
+          content: String(iterations),
+          sessionId
+        })
+
         // 只在第1次、最后1次或每5次迭代打印日志
         if (
           iterations === 0 ||
@@ -412,6 +602,7 @@ export class ChatService {
 
         let assistantContent = ''
         let assistantReasoningContent = ''
+        const thinkParserState = this.createThinkParserState()
         const toolCalls: Map<
           number,
           { id: string; type: 'function'; function: { name: string; arguments: string } }
@@ -450,12 +641,28 @@ export class ChatService {
             }
 
             if (delta.content) {
-              assistantContent += delta.content
-              this.sendStreamEvent(webContents, {
-                type: 'content',
-                content: delta.content,
-                sessionId
-              })
+              const { reasoningDelta, contentDelta } = this.splitThinkTaggedContent(
+                delta.content,
+                thinkParserState
+              )
+
+              if (reasoningDelta) {
+                assistantReasoningContent += reasoningDelta
+                this.sendStreamEvent(webContents, {
+                  type: 'reasoning',
+                  content: reasoningDelta,
+                  sessionId
+                })
+              }
+
+              if (contentDelta) {
+                assistantContent += contentDelta
+                this.sendStreamEvent(webContents, {
+                  type: 'content',
+                  content: contentDelta,
+                  sessionId
+                })
+              }
             }
 
             if (delta.tool_calls) {
@@ -475,6 +682,27 @@ export class ChatService {
               }
             }
           }
+        }
+
+        const { reasoningDelta: remainingReasoningDelta, contentDelta: remainingContentDelta } =
+          this.flushThinkParserState(thinkParserState)
+
+        if (remainingReasoningDelta) {
+          assistantReasoningContent += remainingReasoningDelta
+          this.sendStreamEvent(webContents, {
+            type: 'reasoning',
+            content: remainingReasoningDelta,
+            sessionId
+          })
+        }
+
+        if (remainingContentDelta) {
+          assistantContent += remainingContentDelta
+          this.sendStreamEvent(webContents, {
+            type: 'content',
+            content: remainingContentDelta,
+            sessionId
+          })
         }
 
         if (!hasToolCalls || toolCalls.size === 0) {
@@ -540,9 +768,6 @@ export class ChatService {
         iterations,
         usage: totalUsage
       })
-
-      // 异步提取动态示例（如果启用）
-      this.scheduleExampleExtraction(sessionId)
 
       return { success: true }
     } catch (error) {
@@ -1159,49 +1384,6 @@ export class ChatService {
   private clearStoppedSession(sessionId: string): void {
     this.stoppedSessions.delete(sessionId)
     this.sessionKnowledgeBases.delete(sessionId)
-  }
-
-  /**
-   * 调度示例提取任务（防抖）
-   * 只在 ReAct 模式且有工具调用时调用
-   */
-  private scheduleExampleExtraction(sessionId: string): void {
-    const config = configManager.getConfig()
-    if (!config?.promptConfig?.enableDynamicExamples) {
-      return
-    }
-
-    this.pendingExtractions.add(sessionId)
-
-    // 清除之前的定时器
-    if (this.extractionTimer) {
-      clearTimeout(this.extractionTimer)
-    }
-
-    // 延迟 2 秒批量提取
-    this.extractionTimer = setTimeout(() => {
-      this.executeBatchExtraction()
-    }, 2000)
-  }
-
-  /**
-   * 批量执行示例提取
-   */
-  private async executeBatchExtraction(): Promise<void> {
-    const sessionIds = Array.from(this.pendingExtractions)
-    this.pendingExtractions.clear()
-    this.extractionTimer = null
-
-    if (sessionIds.length === 0) return
-
-    try {
-      // 示例提取功能已移除
-      logger.info('批量提取示例功能已禁用', 'main', {
-        sessionCount: sessionIds.length
-      })
-    } catch (error) {
-      logger.warn('批量提取示例失败', 'main', { error })
-    }
   }
 
   /**

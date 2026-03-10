@@ -24,6 +24,19 @@ export interface ReActStepData {
 }
 
 /**
+ * ReAct 迭代数据（持久化用）
+ * 每次 ReAct 循环迭代的思考过程和工具调用步骤
+ */
+export interface ReActIterationData {
+  /** 迭代序号（从 0 开始） */
+  iteration: number
+  /** 该迭代的思考内容 */
+  reasoning: string
+  /** 该迭代的工具调用/结果步骤 */
+  steps: ReActStepData[]
+}
+
+/**
  * 持久化的消息结构
  * 兼容现有的 ChatMessage，增加了元数据字段
  */
@@ -48,6 +61,8 @@ export interface SessionMessage {
   tool_call_id?: string
   /** ReAct 推理步骤，仅 assistant 消息会有 */
   reactSteps?: ReActStepData[]
+  /** ReAct 迭代分组数据，仅 assistant 消息会有 */
+  reactIterations?: ReActIterationData[]
   /** 附加的文档列表，仅 user 消息会有 */
   attachedDocuments?: AttachedDocument[]
   /** 附加的图片列表，仅 user 消息会有 */

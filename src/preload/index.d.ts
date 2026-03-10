@@ -663,6 +663,7 @@ interface FileItem {
 interface KnowledgeBaseEmbeddingConfig {
   baseUrl: string
   apiKey?: string
+  displayName?: string
   model: string
   dimensions: number
 }
@@ -1562,6 +1563,33 @@ interface ParsedDocumentData {
 }
 
 /**
+ * 支持的导出格式
+ */
+type ExportFormat = 'markdown' | 'word' | 'pdf' | 'txt'
+
+/**
+ * 消息导出请求
+ */
+interface ExportMessageRequest {
+  content: string
+  format: ExportFormat
+  title?: string
+  timestamp?: string
+  modelName?: string
+}
+
+/**
+ * 消息导出结果
+ */
+interface ExportMessageResult {
+  success: boolean
+  data?: number[]
+  fileName?: string
+  mimeType?: string
+  error?: string
+}
+
+/**
  * 文档上传 API
  */
 interface DocumentApi {
@@ -1580,6 +1608,7 @@ interface DocumentApi {
     }>
     error?: string
   }>
+  exportMessage: (request: ExportMessageRequest) => Promise<ExportMessageResult>
 }
 
 /**

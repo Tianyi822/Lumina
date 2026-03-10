@@ -3,8 +3,8 @@ import { join } from 'path'
 import * as lancedb from '@lancedb/lancedb'
 import { Int32, Int64, Utf8, Schema, Field, FixedSizeList, Float32 } from 'apache-arrow'
 
-import { getVectorDBDirPath } from '@main/services/config/configPaths'
 import { logger } from '@main/services/logger'
+import { getVectorDBDirPath } from '@main/services/knowledge/knowledgePaths'
 
 // 文档块数据结构
 export interface DocumentChunk {

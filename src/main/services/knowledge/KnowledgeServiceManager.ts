@@ -1,6 +1,3 @@
-import { mkdirSync, existsSync } from 'fs'
-
-import { getConfigDirPath } from '@main/services/config/configPaths'
 import { getVectorDBService } from '@main/services/vector'
 import { getFileService } from '@main/services/file/FileService'
 import { logger } from '@main/services/logger'
@@ -8,6 +5,7 @@ import type { KnowledgeBase } from '@shared/types/knowledge'
 import type { FileProcessingProgress } from './KnowledgeService'
 import { KnowledgeService } from './KnowledgeService'
 import { readKnowledgeBases, writeKnowledgeBases } from './KnowledgeService'
+import { initializeKnowledgeStorage } from './knowledgePaths'
 
 // 知识库索引状态接口
 export interface KnowledgeBaseIndexingStatus {
@@ -36,18 +34,10 @@ export class KnowledgeServiceManager {
   private isProcessingIndexing: boolean = false
   private activeIndexingKbId: string | null = null
 
-  // 确保数据目录存在
-  private ensureDataDir(): void {
-    const dataDir = getConfigDirPath()
-    if (!existsSync(dataDir)) {
-      mkdirSync(dataDir, { recursive: true })
-    }
-  }
-
   // 初始化
   initialize(): void {
     try {
-      this.ensureDataDir()
+      initializeKnowledgeStorage()
       this.loaded = true
       logger.info('知识库服务管理器初始化成功', 'main')
     } catch (error) {

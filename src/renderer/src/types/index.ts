@@ -43,6 +43,9 @@ export * from '@shared/types/knowledge'
 // 提示词工程相关类型
 export * from '@shared/types/prompt'
 
+// 导出相关类型
+export type { ExportFormat, ExportMessageRequest, ExportMessageResult } from '@shared/types/export'
+
 // 附件文件类型（从 preload 全局类型中获取）
 export type AttachmentFile = {
   path: string
@@ -66,6 +69,21 @@ export interface ReActStep {
 }
 
 /**
+ * ReAct 迭代（UI 层特有）
+ * 每次 ReAct 循环迭代的思考过程和工具调用步骤
+ */
+export interface ReActIteration {
+  /** 迭代序号（从 0 开始） */
+  iteration: number
+  /** 该迭代的思考内容（随流式累加） */
+  reasoning: string
+  /** 该迭代的工具调用步骤 */
+  steps: ReActStep[]
+  /** 是否为当前正在流式输出的迭代 */
+  isActive?: boolean
+}
+
+/**
  * 消息接口（UI层使用）
  */
 export interface Message {
@@ -78,6 +96,7 @@ export interface Message {
   timestamp?: string
   modelName?: string // 模型名称（仅 assistant 消息）
   reactSteps?: ReActStep[] // ReAct 推理步骤
+  reactIterations?: ReActIteration[] // ReAct 迭代分组数据
   tool_calls?: ToolCallMessage[] // 工具调用（仅 assistant 消息）
   tool_call_id?: string // 工具调用的 ID（仅 tool 消息，用于保存到会话）
   attachedDocuments?: AttachedDocument[] // 附加的文档（仅 user 消息）

@@ -1,9 +1,17 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch, provide, computed } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch, provide, computed } from 'vue'
 import ChatMessage from './chat/ChatMessage.vue'
 import MessageInput from './MessageInput.vue'
 import ReActSteps from './ReActSteps.vue'
-import type { Message, MCPTool, KnowledgeBase, AttachedDocument, AttachedImage } from '@renderer/types'
+import type {
+  Message,
+  MCPTool,
+  KnowledgeBase,
+  ExportFormat,
+  UserInteractionRequest,
+  AttachedDocument,
+  AttachedImage
+} from '@renderer/types'
 
 const props = defineProps<{
   currentChatId?: string
@@ -17,6 +25,8 @@ const props = defineProps<{
   selectedKnowledgeBases?: KnowledgeBase[]
   enableSandboxTools?: boolean
   sessionId?: string
+  exportInteractionInfo?: UserInteractionRequest | null
+  exportingMessageId?: string | null
 }>()
 
 // 提供 sessionId 给子组件
@@ -42,6 +52,8 @@ const emit = defineEmits<{
   (e: 'update:selectedMCPTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableSandboxTools', value: boolean): void
+  (e: 'request-export', message: Message): void
+  (e: 'select-export-format', format: ExportFormat): void
 }>()
 
 // 展开的思考内容消息ID集合
@@ -53,8 +65,14 @@ const messagesAreaRef = ref<HTMLElement | null>(null)
 // 用户是否正在手动滚动（不在底部）
 const userScrolling = ref(false)
 
+// 记录上一次滚动位置，用于判断滚动方向
+const lastScrollTop = ref(0)
+
 // 滚动阈值：距离底部多少像素内认为是"在底部"
 const SCROLL_THRESHOLD = 100
+
+let scrollFrameId: number | null = null
+let pendingScrollSmooth = true
 
 /**
  * 检查是否滚动到底部附近
@@ -79,10 +97,60 @@ function scrollToBottom(smooth = true): void {
 }
 
 /**
+ * 合并连续滚动请求，避免流式阶段频繁触发滚动抖动
+ */
+function scheduleScrollToBottom(smooth = true): void {
+  pendingScrollSmooth = pendingScrollSmooth && smooth
+
+  if (scrollFrameId !== null) {
+    return
+  }
+
+  scrollFrameId = window.requestAnimationFrame(() => {
+    const shouldSmooth = pendingScrollSmooth
+    pendingScrollSmooth = true
+    scrollFrameId = null
+    scrollToBottom(shouldSmooth)
+  })
+}
+
+/**
+ * 清理待执行的滚动任务
+ */
+function cancelScheduledScroll(): void {
+  if (scrollFrameId !== null) {
+    window.cancelAnimationFrame(scrollFrameId)
+    scrollFrameId = null
+  }
+  pendingScrollSmooth = true
+}
+
+/**
  * 处理滚动事件
  */
 function handleScroll(): void {
-  userScrolling.value = !isNearBottom()
+  const el = messagesAreaRef.value
+  if (!el) return
+
+  const currentScrollTop = el.scrollTop
+
+  if (isNearBottom()) {
+    userScrolling.value = false
+  } else if (currentScrollTop < lastScrollTop.value) {
+    // 用户一旦开始向上滚动，立即暂停自动跟底，避免流式输出时抖动
+    userScrolling.value = true
+  }
+
+  lastScrollTop.value = currentScrollTop
+}
+
+/**
+ * 处理滚轮事件
+ */
+function handleWheel(event: WheelEvent): void {
+  if (event.deltaY < 0) {
+    userScrolling.value = true
+  }
 }
 
 /**
@@ -90,9 +158,7 @@ function handleScroll(): void {
  */
 function smartScrollToBottom(): void {
   if (!userScrolling.value) {
-    nextTick(() => {
-      scrollToBottom(true)
-    })
+    scheduleScrollToBottom(!props.isSending)
   }
 }
 
@@ -102,7 +168,7 @@ watch(
   () => {
     smartScrollToBottom()
   },
-  { deep: true }
+  { deep: true, flush: 'post' }
 )
 
 // 监听流式输出状态，开始时滚动到底部
@@ -112,11 +178,10 @@ watch(
     if (sending) {
       // 开始发送时，重置滚动状态并滚动到底部
       userScrolling.value = false
-      nextTick(() => {
-        scrollToBottom(false)
-      })
+      scheduleScrollToBottom(false)
     }
-  }
+  },
+  { flush: 'post' }
 )
 
 // 监听对话切换，滚动到底部
@@ -124,15 +189,22 @@ watch(
   () => props.currentChatId,
   () => {
     userScrolling.value = false
-    nextTick(() => {
-      scrollToBottom(false)
-    })
-  }
+    scheduleScrollToBottom(false)
+  },
+  { flush: 'post' }
 )
 
 onMounted(() => {
   // 初始滚动到底部
   scrollToBottom(false)
+  const el = messagesAreaRef.value
+  if (el) {
+    lastScrollTop.value = el.scrollTop
+  }
+})
+
+onBeforeUnmount(() => {
+  cancelScheduledScroll()
 })
 
 function handleSendMessage(
@@ -189,6 +261,14 @@ function handleUpdateEnableSandboxTools(value: boolean): void {
   emit('update:enableSandboxTools', value)
 }
 
+function handleRequestExport(message: Message): void {
+  emit('request-export', message)
+}
+
+function handleSelectExportFormat(format: ExportFormat): void {
+  emit('select-export-format', format)
+}
+
 /**
  * 切换思考内容展开/折叠
  */
@@ -206,12 +286,31 @@ function toggleReasoning(msgId: string): void {
 function isReasoningExpanded(msgId: string): boolean {
   return expandedReasoningIds.value.has(msgId)
 }
+
+/**
+ * 判断消息是否包含可展示的 ReAct 分阶段信息
+ */
+function hasRenderableReact(message: Message): boolean {
+  const hasIterationContent =
+    message.reactIterations?.some(
+      (iteration) => iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
+    ) || false
+
+  const hasLegacySteps = (message.reactSteps?.length || 0) > 0
+
+  return message.role === 'assistant' && (hasIterationContent || hasLegacySteps)
+}
 </script>
 
 <template>
   <main class="main-content">
     <!-- 消息区域 -->
-    <div ref="messagesAreaRef" class="messages-area" @scroll="handleScroll">
+    <div
+      ref="messagesAreaRef"
+      class="messages-area"
+      @scroll="handleScroll"
+      @wheel.passive="handleWheel"
+    >
       <!-- 空状态 -->
       <div v-if="!currentChatId" class="empty-state">
         <p class="empty-text">选择或创建一个对话开始</p>
@@ -226,24 +325,20 @@ function isReasoningExpanded(msgId: string): boolean {
           :current-model-name="props.currentModelName"
           :is-reasoning-expanded="isReasoningExpanded(msg.id)"
           :current-chat-id="currentChatId"
+          :is-exporting="props.exportingMessageId === msg.id"
           @toggle-reasoning="toggleReasoning"
+          @request-export="handleRequestExport(msg)"
         >
           <!-- ReAct 步骤插槽 -->
           <template #react-steps>
             <ReActSteps
-              v-if="msg.role === 'assistant' && msg.reactSteps && msg.reactSteps.length > 0"
+              v-if="hasRenderableReact(msg)"
               :steps="msg.reactSteps"
+              :iterations="msg.reactIterations"
               :is-streaming="msg.isStreaming"
             />
           </template>
         </ChatMessage>
-
-        <div v-if="!messages || messages.length === 0" class="empty-chat">
-          <div class="command-line">
-            <span class="terminal-prompt">开始新对话</span>
-            <span class="terminal-cursor"></span>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -257,6 +352,7 @@ function isReasoningExpanded(msgId: string): boolean {
       :selected-m-c-p-tools="props.selectedMCPTools"
       :selected-knowledge-bases="props.selectedKnowledgeBases"
       :enable-sandbox-tools="props.enableSandboxTools"
+      :export-interaction-info="props.exportInteractionInfo"
       @send="handleSendMessage"
       @stop="handleStopRequest"
       @update:input-message="handleUpdateInputMessage"
@@ -264,6 +360,7 @@ function isReasoningExpanded(msgId: string): boolean {
       @update:selected-m-c-p-tools="handleUpdateSelectedTools"
       @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
       @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
+      @select-export-format="handleSelectExportFormat"
     />
   </main>
 </template>
@@ -310,47 +407,5 @@ function isReasoningExpanded(msgId: string): boolean {
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-}
-
-.empty-chat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px;
-}
-
-.command-line {
-  display: flex;
-  align-items: center;
-}
-
-.terminal-prompt {
-  color: var(--theme-accent);
-  font-family: var(--theme-font-mono, monospace);
-}
-
-.terminal-prompt::before {
-  content: '❯ ';
-  color: var(--theme-accent-secondary);
-}
-
-.terminal-cursor {
-  display: inline-block;
-  width: 8px;
-  height: 18px;
-  background-color: var(--theme-accent);
-  margin-left: 2px;
-  animation: cursor-blink 1s step-end infinite;
-}
-
-@keyframes cursor-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
 }
 </style>

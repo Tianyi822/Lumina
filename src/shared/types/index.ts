@@ -22,3 +22,6 @@ export * from './knowledge'
 
 // 提示词相关的类型
 export * from './prompt'
+
+// 导出相关的类型
+export * from './export'

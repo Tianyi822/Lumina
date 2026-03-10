@@ -17,6 +17,7 @@ export function sessionMessageToMessage(msg: SessionMessage): Message {
     tool_calls: msg.tool_calls,
     tool_call_id: msg.tool_call_id,
     reactSteps: msg.reactSteps,
+    reactIterations: msg.reactIterations,
     attachedDocuments: msg.attachedDocuments,
     attachedImages: msg.attachedImages
   }
@@ -47,6 +48,7 @@ export function messageToSessionMessage(msg: Message): SessionMessage {
       tool_calls: msg.tool_calls,
       tool_call_id: msg.tool_call_id,
       reactSteps: msg.reactSteps,
+      reactIterations: msg.reactIterations,
       attachedDocuments: msg.attachedDocuments,
       attachedImages: msg.attachedImages
     })

@@ -135,6 +135,7 @@ export type StreamEventType =
   | 'knowledge_search'
   | 'knowledge_result'
   | 'user_interaction'
+  | 'react_iteration_start'
   | 'done'
   | 'error'
 

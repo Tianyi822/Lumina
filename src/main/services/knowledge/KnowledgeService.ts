@@ -1,16 +1,18 @@
 import { existsSync, readFileSync, writeFileSync, readFile } from 'fs'
 import { join, extname, isAbsolute } from 'path'
 
-import { getConfigDirPath } from '@main/services/config/configPaths'
-import { getFilesStoragePath } from '@main/services/file/FileService'
 import { getVectorDBService, type DocumentChunk, type SearchResult } from '@main/services/vector'
 import { EmbeddingService } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
 import type { KnowledgeBase } from '@shared/types/knowledge'
+import {
+  getFilesStoragePath,
+  getKnowledgeBaseFilePath as getKnowledgeBaseStorageFilePath
+} from './knowledgePaths'
 
 // 获取知识库数据文件路径
 export function getKnowledgeBaseFilePath(): string {
-  return join(getConfigDirPath(), 'knowledge-bases.json')
+  return getKnowledgeBaseStorageFilePath()
 }
 
 // 创建空的知识库数据结构

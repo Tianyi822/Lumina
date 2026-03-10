@@ -256,22 +256,6 @@
   animation: blink 1s step-end infinite;
 }
 
-/* ========== 打字机光标动画 ========== */
-@keyframes typingCursor {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-
-.typing-cursor {
-  display: inline-block;
-  animation: typingCursor 1s step-end infinite;
-}
-
 /* ========== 涟漪动画 ========== */
 @keyframes ripple {
   0% {

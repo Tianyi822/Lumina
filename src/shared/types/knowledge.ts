@@ -31,6 +31,8 @@ export interface KnowledgeBaseEmbeddingConfig {
   baseUrl: string
   /** 调用 API 需要的密钥 */
   apiKey?: string
+  /** 创建知识库时选中的模型显示名称 */
+  displayName?: string
   /** 使用的模型名称 */
   model: string
   /** 模型生成的向量维度 */
