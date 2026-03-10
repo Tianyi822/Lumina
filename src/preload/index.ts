@@ -15,6 +15,7 @@ import { sandboxApi } from './apis/sandbox'
 import { promptTemplateApi, cacheStatsApi } from './apis/promptEngineering'
 import { knowledgeMCPApi } from './apis/knowledgeMCP'
 import { documentApi } from './apis/document'
+import { presentationApi } from './apis/presentation'
 import { voiceRecognitionApi } from './apis/voiceRecognition'
 
 /**
@@ -35,6 +36,7 @@ const api = {
   file: fileApi,
   sandbox: sandboxApi,
   document: documentApi,
+  presentation: presentationApi,
   onFileProgress,
   onReindexProgress,
   // 提示词工程相关 API

@@ -50,7 +50,9 @@ function handleKeydown(event: KeyboardEvent): void {
     '3': 'pdf',
     p: 'pdf',
     '4': 'txt',
-    t: 'txt'
+    t: 'txt',
+    '5': 'pptx',
+    s: 'pptx'
   }
 
   const selectedFormat = shortcuts[key]
@@ -74,7 +76,7 @@ onUnmounted(() => {
       <div class="export-dialog-header">
         <div>
           <h3 class="export-dialog-title">导出内容</h3>
-          <p class="export-dialog-subtitle">选择文档格式后将直接开始下载</p>
+          <p class="export-dialog-subtitle">普通格式会直接下载，PPTX 会先进入模板与预览配置</p>
         </div>
         <button class="export-dialog-close" :disabled="isExporting" @click="handleClose">
           关闭
@@ -102,7 +104,7 @@ onUnmounted(() => {
       </div>
 
       <div class="export-dialog-footer">
-        {{ isExporting ? '正在生成文档，请稍候...' : '支持快捷键 1/2/3/4 或 M/W/P/T 选择格式' }}
+        {{ isExporting ? '正在生成文档，请稍候...' : '支持快捷键 1/2/3/4/5 或 M/W/P/T/S 选择格式' }}
       </div>
     </div>
   </div>

@@ -1565,7 +1565,7 @@ interface ParsedDocumentData {
 /**
  * 支持的导出格式
  */
-type ExportFormat = 'markdown' | 'word' | 'pdf' | 'txt'
+type ExportFormat = 'markdown' | 'word' | 'pdf' | 'txt' | 'pptx'
 
 /**
  * 消息导出请求
@@ -1609,6 +1609,229 @@ interface DocumentApi {
     error?: string
   }>
   exportMessage: (request: ExportMessageRequest) => Promise<ExportMessageResult>
+}
+
+/**
+ * PPT 模板类型
+ */
+type PresentationTemplate = 'lessonPlan' | 'business' | 'minimal' | 'custom'
+
+/**
+ * 幻灯片布局类型
+ */
+type SlideLayout = 'title' | 'titleContent' | 'twoColumn' | 'blank' | 'comparison'
+
+/**
+ * 通用位置参数
+ */
+interface PositionOptions {
+  x?: number
+  y?: number
+  w?: number
+  h?: number
+}
+
+/**
+ * 主题配置
+ */
+interface PresentationThemeConfig {
+  primaryColor?: string
+  secondaryColor?: string
+  accentColor?: string
+  backgroundColor?: string
+  textColor?: string
+  mutedTextColor?: string
+  fontFace?: string
+  headingFontFace?: string
+}
+
+interface TextStyle {
+  fontSize?: number
+  bold?: boolean
+  italic?: boolean
+  color?: string
+  align?: 'left' | 'center' | 'right'
+  valign?: 'top' | 'middle' | 'bottom'
+  bullet?: boolean
+  margin?: number
+  fontFace?: string
+}
+
+interface ListItem {
+  text: string
+  level?: number
+}
+
+interface TableStyle {
+  headerFillColor?: string
+  headerTextColor?: string
+  bodyFillColor?: string
+  bodyTextColor?: string
+  borderColor?: string
+  striped?: boolean
+}
+
+interface ChartSeries {
+  name: string
+  values: number[]
+}
+
+interface ChartData {
+  labels: string[]
+  series: ChartSeries[]
+}
+
+interface ChartOptions {
+  title?: string
+  showLegend?: boolean
+  showValue?: boolean
+  showCategoryAxis?: boolean
+  showValueAxis?: boolean
+}
+
+interface TextContent {
+  text: string
+  style?: TextStyle
+}
+
+interface ListContent {
+  items: ListItem[]
+  ordered?: boolean
+  style?: TextStyle
+}
+
+interface TableContent {
+  headers: string[]
+  rows: string[][]
+  style?: TableStyle
+}
+
+interface ChartContent {
+  type: 'bar' | 'line' | 'pie' | 'doughnut'
+  data: ChartData
+  options?: ChartOptions
+}
+
+interface ImageContent {
+  path?: string
+  data?: string
+  alt?: string
+}
+
+interface ShapeContent {
+  shape: 'rect' | 'roundRect' | 'ellipse' | 'chevron' | 'line'
+  text?: string
+  fillColor?: string
+  lineColor?: string
+  textColor?: string
+}
+
+interface CodeContent {
+  code: string
+  language?: string
+}
+
+interface SlideContent {
+  type: 'text' | 'list' | 'table' | 'chart' | 'image' | 'shape' | 'code'
+  data:
+    | TextContent
+    | ListContent
+    | TableContent
+    | ChartContent
+    | ImageContent
+    | ShapeContent
+    | CodeContent
+  options?: PositionOptions
+}
+
+interface SlideConfig {
+  layout: SlideLayout
+  title?: string
+  subtitle?: string
+  content: SlideContent[]
+  notes?: string
+}
+
+interface PresentationConfig {
+  title: string
+  author?: string
+  company?: string
+  subject?: string
+  template: PresentationTemplate
+  slides: SlideConfig[]
+  theme?: PresentationThemeConfig
+}
+
+interface ExportPresentationRequest {
+  content?: string
+  config?: PresentationConfig
+  title?: string
+  author?: string
+  company?: string
+  subject?: string
+  template?: PresentationTemplate
+  theme?: PresentationThemeConfig
+  timestamp?: string
+}
+
+interface BuildPresentationDraftRequest {
+  content: string
+  title?: string
+  author?: string
+  company?: string
+  subject?: string
+  template?: PresentationTemplate
+  theme?: PresentationThemeConfig
+}
+
+interface ExportPresentationResult {
+  success: boolean
+  data?: number[]
+  fileName?: string
+  mimeType?: string
+  error?: string
+}
+
+interface BuildPresentationDraftResult {
+  success: boolean
+  data?: PresentationConfig
+  error?: string
+}
+
+interface TemplateInfo {
+  id: PresentationTemplate
+  name: string
+  description: string
+  recommendedFor?: string[]
+  previewColors?: string[]
+}
+
+interface ValidationIssue {
+  path: string
+  message: string
+  severity: 'error' | 'warning'
+}
+
+interface ValidationResult {
+  valid: boolean
+  issues: ValidationIssue[]
+}
+
+interface PresentationPreviewResult {
+  success: boolean
+  images?: string[]
+  error?: string
+}
+
+/**
+ * PPT API
+ */
+interface PresentationApi {
+  buildDraft: (request: BuildPresentationDraftRequest) => Promise<BuildPresentationDraftResult>
+  exportFromChat: (request: ExportPresentationRequest) => Promise<ExportPresentationResult>
+  preview: (config: PresentationConfig) => Promise<PresentationPreviewResult>
+  getTemplates: () => Promise<TemplateInfo[]>
+  validate: (config: PresentationConfig) => Promise<ValidationResult>
 }
 
 /**
@@ -1689,6 +1912,7 @@ interface CustomApi {
   file: FileApi
   sandbox: SandboxApi
   document: DocumentApi
+  presentation: PresentationApi
   onFileProgress: (callback: (data: FileProgressEvent) => void) => () => void
   onReindexProgress: (callback: (data: ReindexProgressEvent) => void) => () => void
   // 提示词工程相关 API
