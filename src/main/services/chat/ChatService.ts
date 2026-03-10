@@ -5,7 +5,6 @@ import { logger } from '../logger'
 import { mcpService } from '../mcp'
 import { sandboxToolService } from '../sandbox'
 import type {
-  ChatMessage,
   ChatRequest,
   ChatResult,
   StreamEvent,
@@ -13,35 +12,19 @@ import type {
   MCPToolReference,
   KnowledgeSearchResult
 } from '../../types/chat'
-import type { AttachedDocument } from '@shared/types/chat'
 import type { KnowledgeBaseReference } from '@shared/types/knowledge'
 import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
-import { enhanceToolDescriptions } from './toolDescriptionEnhancer'
+import { formatMessagesWithKnowledge } from './MessageFormatter'
+import { ModelRetryHandler } from './ModelRetryHandler'
+import {
+  createThinkParserState,
+  flushThinkParserState,
+  splitThinkTaggedContent
+} from './ThinkParser'
 import { ToolCallScheduler } from './ToolCallScheduler'
+import { ToolExecutor } from './ToolExecutor'
 import { knowledgeToolService } from '../knowledge'
-
-const THINK_OPEN_TAG = '<think>'
-const THINK_CLOSE_TAG = '</think>'
-const RETRYABLE_MODEL_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
-const MODEL_REQUEST_MAX_ATTEMPTS = 3
-const MODEL_REQUEST_RETRY_DELAY_MS = 1500
-
-interface StreamThinkParserState {
-  inThinkBlock: boolean
-  pendingText: string
-}
-
-interface ModelApiError extends Error {
-  status?: number
-  code?: string
-  headers?: Headers | Record<string, string>
-  error?: {
-    message?: string
-    code?: string
-    type?: string
-  }
-}
 
 /**
  * 聊天服务
@@ -52,6 +35,8 @@ export class ChatService {
   private stoppedSessions: Set<string> = new Set()
   private pendingUserInteraction: Set<string> = new Set()
   private toolScheduler: ToolCallScheduler
+  private modelRetryHandler: ModelRetryHandler
+  private toolExecutor: ToolExecutor
   // 存储每个会话选中的知识库 ID 列表
   private sessionKnowledgeBases: Map<string, string[]> = new Map()
 
@@ -59,6 +44,22 @@ export class ChatService {
     this.toolScheduler = new ToolCallScheduler(mcpService, logger, 3, (sessionId) =>
       this.sessionKnowledgeBases.get(sessionId)
     )
+    this.modelRetryHandler = new ModelRetryHandler({
+      logger,
+      checkStopped: (sessionId) => this.checkStopped(sessionId),
+      delayWithAbort: (ms, sessionId, signal) => this.delayWithAbort(ms, sessionId, signal)
+    })
+    this.toolExecutor = new ToolExecutor({
+      logger,
+      mcpService,
+      toolScheduler: this.toolScheduler,
+      checkStopped: (sessionId) => this.checkStopped(sessionId),
+      withTimeoutAndStopCheck: (promise, sessionId, timeoutMs, operationName) =>
+        this.withTimeoutAndStopCheck(promise, sessionId, timeoutMs, operationName),
+      sendStreamEvent: (webContents, event) => this.sendStreamEvent(webContents, event),
+      pendingUserInteraction: this.pendingUserInteraction,
+      getSelectedKnowledgeBaseIds: (sessionId) => this.sessionKnowledgeBases.get(sessionId)
+    })
   }
 
   /**
@@ -77,151 +78,6 @@ export class ChatService {
       error.name = 'AbortError'
       throw error
     }
-  }
-
-  /**
-   * 创建流式思考标签解析状态
-   */
-  private createThinkParserState(): StreamThinkParserState {
-    return {
-      inThinkBlock: false,
-      pendingText: ''
-    }
-  }
-
-  /**
-   * 获取文本尾部与标签前缀重叠的长度
-   * 用于处理流式分块导致的半个标签场景
-   */
-  private getTrailingPartialTagLength(text: string, tags: string[]): number {
-    let matchedLength = 0
-
-    for (const tag of tags) {
-      const maxCheckLength = Math.min(text.length, tag.length - 1)
-      for (let len = maxCheckLength; len > matchedLength; len--) {
-        if (tag.startsWith(text.slice(-len))) {
-          matchedLength = len
-          break
-        }
-      }
-    }
-
-    return matchedLength
-  }
-
-  /**
-   * 查找下一个 think 标签
-   */
-  private findNextThinkTag(
-    text: string,
-    startIndex: number
-  ): { index: number; type: 'open' | 'close' } | null {
-    const openIndex = text.indexOf(THINK_OPEN_TAG, startIndex)
-    const closeIndex = text.indexOf(THINK_CLOSE_TAG, startIndex)
-
-    if (openIndex === -1 && closeIndex === -1) {
-      return null
-    }
-
-    if (openIndex === -1) {
-      return { index: closeIndex, type: 'close' }
-    }
-
-    if (closeIndex === -1 || openIndex < closeIndex) {
-      return { index: openIndex, type: 'open' }
-    }
-
-    return { index: closeIndex, type: 'close' }
-  }
-
-  /**
-   * 将 content 中的 think 标签拆分为思考内容和正文内容
-   */
-  private splitThinkTaggedContent(
-    text: string,
-    parserState: StreamThinkParserState
-  ): {
-    reasoningDelta: string
-    contentDelta: string
-  } {
-    const buffer = parserState.pendingText + text
-    parserState.pendingText = ''
-
-    let reasoningDelta = ''
-    let contentDelta = ''
-    let cursor = 0
-
-    while (cursor < buffer.length) {
-      if (parserState.inThinkBlock) {
-        const closeIndex = buffer.indexOf(THINK_CLOSE_TAG, cursor)
-        if (closeIndex === -1) {
-          const partialLength = this.getTrailingPartialTagLength(buffer.slice(cursor), [
-            THINK_CLOSE_TAG
-          ])
-          const safeEnd = buffer.length - partialLength
-          reasoningDelta += buffer.slice(cursor, safeEnd)
-          parserState.pendingText = buffer.slice(safeEnd)
-          return { reasoningDelta, contentDelta }
-        }
-
-        reasoningDelta += buffer.slice(cursor, closeIndex)
-        parserState.inThinkBlock = false
-        cursor = closeIndex + THINK_CLOSE_TAG.length
-        continue
-      }
-
-      const nextTag = this.findNextThinkTag(buffer, cursor)
-      if (!nextTag) {
-        const partialLength = this.getTrailingPartialTagLength(buffer.slice(cursor), [
-          THINK_OPEN_TAG,
-          THINK_CLOSE_TAG
-        ])
-        const safeEnd = buffer.length - partialLength
-        contentDelta += buffer.slice(cursor, safeEnd)
-        parserState.pendingText = buffer.slice(safeEnd)
-        return { reasoningDelta, contentDelta }
-      }
-
-      contentDelta += buffer.slice(cursor, nextTag.index)
-
-      if (nextTag.type === 'open') {
-        parserState.inThinkBlock = true
-      }
-
-      cursor =
-        nextTag.index + (nextTag.type === 'open' ? THINK_OPEN_TAG.length : THINK_CLOSE_TAG.length)
-    }
-
-    return { reasoningDelta, contentDelta }
-  }
-
-  /**
-   * 在流结束时冲刷剩余的未完成片段
-   */
-  private flushThinkParserState(parserState: StreamThinkParserState): {
-    reasoningDelta: string
-    contentDelta: string
-  } {
-    const pendingText = parserState.pendingText
-    parserState.pendingText = ''
-
-    if (!pendingText) {
-      return { reasoningDelta: '', contentDelta: '' }
-    }
-
-    if (parserState.inThinkBlock) {
-      parserState.inThinkBlock = false
-      if (THINK_CLOSE_TAG.startsWith(pendingText)) {
-        return { reasoningDelta: '', contentDelta: '' }
-      }
-      return { reasoningDelta: pendingText, contentDelta: '' }
-    }
-
-    if (THINK_OPEN_TAG.startsWith(pendingText) || THINK_CLOSE_TAG.startsWith(pendingText)) {
-      return { reasoningDelta: '', contentDelta: '' }
-    }
-
-    return { reasoningDelta: '', contentDelta: pendingText }
   }
 
   /**
@@ -333,155 +189,6 @@ export class ChatService {
   }
 
   /**
-   * 提取模型请求错误状态码
-   */
-  private getModelErrorStatus(error: unknown): number | undefined {
-    if (!error || typeof error !== 'object' || !('status' in error)) {
-      return undefined
-    }
-
-    const status = (error as ModelApiError).status
-    return typeof status === 'number' ? status : undefined
-  }
-
-  /**
-   * 提取模型请求错误消息
-   */
-  private getModelErrorMessage(error: unknown): string {
-    if (error instanceof Error && error.message) {
-      return error.message
-    }
-
-    if (error && typeof error === 'object' && 'error' in error) {
-      const nestedMessage = (error as ModelApiError).error?.message
-      if (nestedMessage) {
-        return nestedMessage
-      }
-    }
-
-    return String(error)
-  }
-
-  /**
-   * 判断是否为可重试的模型请求错误
-   */
-  private isRetryableModelError(error: unknown): boolean {
-    const status = this.getModelErrorStatus(error)
-    if (status && RETRYABLE_MODEL_STATUS_CODES.has(status)) {
-      return true
-    }
-
-    const message = this.getModelErrorMessage(error).toLowerCase()
-    return (
-      message.includes('overloaded') ||
-      message.includes('try again later') ||
-      message.includes('rate limit') ||
-      message.includes('too many requests')
-    )
-  }
-
-  /**
-   * 获取模型请求的重试等待时间
-   */
-  private getModelRetryDelay(error: unknown, attempt: number): number {
-    if (error && typeof error === 'object' && 'headers' in error) {
-      const headers = (error as ModelApiError).headers
-      const retryAfter =
-        headers instanceof Headers
-          ? headers.get('retry-after')
-          : headers?.['retry-after'] || headers?.['Retry-After']
-
-      if (retryAfter) {
-        const retryAfterSeconds = Number(retryAfter)
-        if (!Number.isNaN(retryAfterSeconds) && retryAfterSeconds > 0) {
-          return retryAfterSeconds * 1000
-        }
-      }
-    }
-
-    return MODEL_REQUEST_RETRY_DELAY_MS * 2 ** attempt
-  }
-
-  /**
-   * 归一化模型请求错误信息
-   */
-  private normalizeModelError(error: unknown): string {
-    const rawMessage = this.getModelErrorMessage(error)
-    const status = this.getModelErrorStatus(error)
-    const lowerMessage = rawMessage.toLowerCase()
-
-    if (
-      status === 429 &&
-      (lowerMessage.includes('overloaded') || lowerMessage.includes('try again later'))
-    ) {
-      return `模型服务当前繁忙（429），请稍后重试或切换其他模型。原始错误: ${rawMessage}`
-    }
-
-    if (status === 429) {
-      return `模型请求过于频繁（429），请稍后重试。原始错误: ${rawMessage}`
-    }
-
-    return rawMessage
-  }
-
-  /**
-   * 创建支持自动重试的流式聊天请求
-   */
-  private async createChatCompletionWithRetry(
-    client: OpenAI,
-    params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
-    abortController: AbortController,
-    sessionId: string,
-    scene: string
-  ): Promise<AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>> {
-    let lastError: unknown
-
-    for (let attempt = 0; attempt < MODEL_REQUEST_MAX_ATTEMPTS; attempt++) {
-      this.checkStopped(sessionId)
-
-      try {
-        return await client.chat.completions.create(params, {
-          signal: abortController.signal
-        })
-      } catch (error) {
-        lastError = error
-
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw error
-        }
-
-        if (abortController.signal.aborted) {
-          const abortError = new Error('Request was stopped by user')
-          abortError.name = 'AbortError'
-          throw abortError
-        }
-
-        const shouldRetry =
-          attempt < MODEL_REQUEST_MAX_ATTEMPTS - 1 && this.isRetryableModelError(error)
-
-        if (!shouldRetry) {
-          throw error
-        }
-
-        const delayMs = this.getModelRetryDelay(error, attempt)
-        logger.warn('模型请求失败，准备重试', 'main', {
-          sessionId,
-          scene,
-          attempt: attempt + 1,
-          nextAttempt: attempt + 2,
-          status: this.getModelErrorStatus(error),
-          delayMs,
-          error: this.getModelErrorMessage(error)
-        })
-
-        await this.delayWithAbort(delayMs, sessionId, abortController.signal)
-      }
-    }
-
-    throw lastError instanceof Error ? lastError : new Error(String(lastError))
-  }
-
-  /**
    * 直接发送消息
    * 不使用工具调用，直接调用 LLM API
    */
@@ -519,9 +226,9 @@ export class ChatService {
     try {
       const client = this.createClient(llmConfig)
 
-      const formattedMessages = this.formatMessagesWithKnowledge(messages, knowledgeResults)
+      const formattedMessages = formatMessagesWithKnowledge(messages, knowledgeResults)
 
-      const stream = await this.createChatCompletionWithRetry(
+      const stream = await this.modelRetryHandler.createChatCompletionWithRetry(
         client,
         {
           model: llmConfig.model_name,
@@ -537,7 +244,7 @@ export class ChatService {
       )
 
       let usage: TokenUsage | undefined
-      const thinkParserState = this.createThinkParserState()
+      const thinkParserState = createThinkParserState()
 
       for await (const chunk of stream) {
         if (chunk.usage) {
@@ -565,7 +272,7 @@ export class ChatService {
           }
 
           if (delta.content) {
-            const { reasoningDelta, contentDelta } = this.splitThinkTaggedContent(
+            const { reasoningDelta, contentDelta } = splitThinkTaggedContent(
               delta.content,
               thinkParserState
             )
@@ -589,7 +296,7 @@ export class ChatService {
         }
       }
 
-      const { reasoningDelta, contentDelta } = this.flushThinkParserState(thinkParserState)
+      const { reasoningDelta, contentDelta } = flushThinkParserState(thinkParserState)
       if (reasoningDelta) {
         this.sendStreamEvent(webContents, {
           type: 'reasoning',
@@ -621,12 +328,12 @@ export class ChatService {
         return { success: true }
       }
 
-      const errorMessage = this.normalizeModelError(error)
+      const errorMessage = this.modelRetryHandler.normalizeModelError(error)
       logger.error('聊天请求失败', 'main', {
         sessionId,
-        error: this.getModelErrorMessage(error),
+        error: this.modelRetryHandler.getModelErrorMessage(error),
         normalizedError: errorMessage,
-        status: this.getModelErrorStatus(error)
+        status: this.modelRetryHandler.getModelErrorStatus(error)
       })
       this.sendStreamEvent(webContents, { type: 'error', error: errorMessage, sessionId })
       return { success: false, error: errorMessage }
@@ -745,7 +452,7 @@ export class ChatService {
         })
       }
 
-      const tools = this.buildOpenAITools(allTools)
+      const tools = this.toolExecutor.buildOpenAITools(allTools)
 
       const systemPrompt = await promptBuilder.buildSystemPrompt(
         llmConfig,
@@ -755,7 +462,7 @@ export class ChatService {
       )
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
-        ...this.formatMessagesWithKnowledge(messages, knowledgeResults)
+        ...formatMessagesWithKnowledge(messages, knowledgeResults)
       ]
 
       const totalUsage: TokenUsage = {
@@ -791,7 +498,7 @@ export class ChatService {
           })
         }
 
-        const response = await this.createChatCompletionWithRetry(
+        const response = await this.modelRetryHandler.createChatCompletionWithRetry(
           client,
           {
             model: llmConfig.model_name,
@@ -810,7 +517,7 @@ export class ChatService {
 
         let assistantContent = ''
         let assistantReasoningContent = ''
-        const thinkParserState = this.createThinkParserState()
+        const thinkParserState = createThinkParserState()
         const toolCalls: Map<
           number,
           { id: string; type: 'function'; function: { name: string; arguments: string } }
@@ -849,7 +556,7 @@ export class ChatService {
             }
 
             if (delta.content) {
-              const { reasoningDelta, contentDelta } = this.splitThinkTaggedContent(
+              const { reasoningDelta, contentDelta } = splitThinkTaggedContent(
                 delta.content,
                 thinkParserState
               )
@@ -893,7 +600,7 @@ export class ChatService {
         }
 
         const { reasoningDelta: remainingReasoningDelta, contentDelta: remainingContentDelta } =
-          this.flushThinkParserState(thinkParserState)
+          flushThinkParserState(thinkParserState)
 
         if (remainingReasoningDelta) {
           assistantReasoningContent += remainingReasoningDelta
@@ -946,7 +653,7 @@ export class ChatService {
           assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
         )
 
-        const needUserInteraction = await this.executeToolCallsWithScheduler(
+        const needUserInteraction = await this.toolExecutor.executeToolCallsWithScheduler(
           toolCallsArray,
           webContents,
           sessionId,
@@ -985,12 +692,12 @@ export class ChatService {
         return { success: true }
       }
 
-      const errorMessage = this.normalizeModelError(error)
+      const errorMessage = this.modelRetryHandler.normalizeModelError(error)
       logger.error('ReAct 聊天请求失败', 'main', {
         sessionId,
-        error: this.getModelErrorMessage(error),
+        error: this.modelRetryHandler.getModelErrorMessage(error),
         normalizedError: errorMessage,
-        status: this.getModelErrorStatus(error)
+        status: this.modelRetryHandler.getModelErrorStatus(error)
       })
       this.sendStreamEvent(webContents, { type: 'error', error: errorMessage, sessionId })
       return { success: false, error: errorMessage }
@@ -998,572 +705,6 @@ export class ChatService {
       this.abortControllers.delete(sessionId)
       this.clearStoppedSession(sessionId)
       this.pendingUserInteraction.delete(sessionId)
-    }
-  }
-
-  /**
-   * 规范化工具名称以符合 OpenAI API 命名规范
-   * 将非法字符替换为连字符
-   */
-  private sanitizeToolName(serverName: string, toolName: string): string {
-    const sanitizedServer = serverName.replace(/[^a-zA-Z0-9_-]/g, '-')
-    const sanitizedTool = toolName.replace(/[^a-zA-Z0-9_-]/g, '-')
-    return `${sanitizedServer}__${sanitizedTool}`
-  }
-
-  /**
-   * 构建 OpenAI tools 定义
-   * 使用增强后的工具描述，支持 MCP 工具、沙箱工具和知识库工具
-   */
-  private buildOpenAITools(
-    tools: MCPToolReference[]
-  ): OpenAI.Chat.Completions.ChatCompletionTool[] {
-    const config = configManager.getConfig()
-    const descriptionLevel = config?.promptConfig?.toolDescriptionLevel || 'detailed'
-
-    const enhancedDescriptions = enhanceToolDescriptions(tools, descriptionLevel)
-
-    const openAITools: OpenAI.Chat.Completions.ChatCompletionTool[] = []
-
-    for (const tool of tools) {
-      // 处理沙箱工具（serverName 为 'sandbox'）
-      if (tool.serverName === 'sandbox') {
-        openAITools.push({
-          type: 'function' as const,
-          function: {
-            name: `sandbox__${tool.toolName}`,
-            description: tool.description,
-            parameters: tool.inputSchema as Record<string, unknown>
-          }
-        })
-        continue
-      }
-
-      // 处理知识库工具（serverName 为 'knowledge'）
-      if (tool.serverName === 'knowledge') {
-        openAITools.push({
-          type: 'function' as const,
-          function: {
-            name: `knowledge__${tool.toolName}`,
-            description: tool.description,
-            parameters: tool.inputSchema as Record<string, unknown>
-          }
-        })
-        continue
-      }
-
-      // 处理 MCP 工具
-      const toolKey = `${tool.serverName}__${tool.toolName}`
-      const enhancedDescription = enhancedDescriptions.get(toolKey) || tool.description
-
-      openAITools.push({
-        type: 'function' as const,
-        function: {
-          name: this.sanitizeToolName(tool.serverName, tool.toolName),
-          description: enhancedDescription,
-          parameters: tool.inputSchema as Record<string, unknown>
-        }
-      })
-    }
-
-    return openAITools
-  }
-
-  /**
-   * 从规范化后的名称查找原始服务器名称
-   */
-  private findOriginalServerName(sanitizedServerName: string): string | null {
-    const connectedServers = mcpService.getConnectedServerNames()
-    for (const serverName of connectedServers) {
-      const sanitized = serverName.replace(/[^a-zA-Z0-9_-]/g, '-')
-      if (sanitized === sanitizedServerName) {
-        return serverName
-      }
-    }
-    return null
-  }
-
-  /**
-   * 使用调度器执行工具调用
-   * 先并行执行独立的工具，再串行执行有依赖的工具
-   */
-  private async executeToolCallsWithScheduler(
-    toolCalls: Array<{
-      id: string
-      type: 'function'
-      function: { name: string; arguments: string }
-    }>,
-    webContents: WebContents,
-    sessionId: string,
-    conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
-  ): Promise<boolean> {
-    this.checkStopped(sessionId)
-
-    const { independent, sequential } = this.toolScheduler.analyzeDependencies(toolCalls)
-
-    if (independent.length > 0) {
-      logger.info('并行执行独立工具', 'main', {
-        sessionId,
-        count: independent.length
-      })
-
-      this.checkStopped(sessionId)
-
-      const parallelResults = await this.toolScheduler.executeParallel(
-        independent,
-        webContents,
-        sessionId
-      )
-
-      this.checkStopped(sessionId)
-
-      for (const result of parallelResults) {
-        conversationMessages.push({
-          role: result.message.role,
-          content: result.message.content || '',
-          tool_call_id: result.message.tool_call_id
-        } as OpenAI.Chat.Completions.ChatCompletionToolMessageParam)
-      }
-    }
-
-    this.checkStopped(sessionId)
-
-    if (sequential.length > 0) {
-      logger.info('串行执行依赖工具', 'main', {
-        sessionId,
-        count: sequential.length
-      })
-
-      for (const toolCall of sequential) {
-        this.checkStopped(sessionId)
-
-        const result = await this.executeToolCall(toolCall, webContents, sessionId)
-
-        conversationMessages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: result
-        })
-
-        // 检测到用户交互请求时提前返回
-        if (this.pendingUserInteraction.has(sessionId)) {
-          return true
-        }
-      }
-    }
-
-    this.checkStopped(sessionId)
-    return this.pendingUserInteraction.has(sessionId)
-  }
-
-  /**
-   * 执行单个工具调用
-   * 支持 MCP 工具、沙箱工具和知识库工具
-   */
-  private async executeToolCall(
-    toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
-    webContents: WebContents,
-    sessionId: string
-  ): Promise<string> {
-    const nameParts = toolCall.function.name.split('__')
-    if (nameParts.length !== 2) {
-      const error = `无效的工具名称格式: ${toolCall.function.name}`
-      logger.error(error, 'main')
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolCall.function.name,
-          success: false,
-          error
-        }
-      })
-      return JSON.stringify({ error })
-    }
-
-    const [serverName, toolName] = nameParts
-
-    // 处理沙箱工具
-    if (serverName === 'sandbox') {
-      return this.executeSandboxTool(toolCall, toolName, webContents, sessionId)
-    }
-
-    // 处理知识库工具
-    if (serverName === 'knowledge') {
-      return this.executeKnowledgeTool(toolCall, toolName, webContents, sessionId)
-    }
-
-    // 处理 MCP 工具
-    return this.executeMcpTool(toolCall, serverName, toolName, webContents, sessionId)
-  }
-
-  /**
-   * 执行沙箱工具调用
-   */
-  private async executeSandboxTool(
-    toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
-    toolName: string,
-    webContents: WebContents,
-    sessionId: string
-  ): Promise<string> {
-    let args: Record<string, unknown> = {}
-
-    try {
-      args = JSON.parse(toolCall.function.arguments || '{}')
-    } catch (e) {
-      const error = `解析工具参数失败: ${e}`
-      logger.error(error, 'main')
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolName,
-          success: false,
-          error
-        }
-      })
-      return JSON.stringify({ error })
-    }
-
-    logger.info('执行沙箱工具调用', 'main', {
-      sessionId,
-      toolName,
-      args
-    })
-
-    this.sendStreamEvent(webContents, {
-      type: 'tool_call',
-      sessionId,
-      toolCall: {
-        id: toolCall.id,
-        name: toolName,
-        serverName: 'sandbox',
-        arguments: args
-      }
-    })
-
-    try {
-      this.checkStopped(sessionId)
-
-      const result = await this.withTimeoutAndStopCheck(
-        sandboxToolService.callTool(`sandbox__${toolName}`, args),
-        sessionId,
-        60000,
-        `沙箱工具调用 ${toolName}`
-      )
-
-      this.checkStopped(sessionId)
-
-      // 检测是否为用户交互请求
-      if (result.success && result.content) {
-        try {
-          const contentText =
-            Array.isArray(result.content) && result.content[0]?.text ? result.content[0].text : null
-          if (contentText) {
-            const parsed = JSON.parse(contentText)
-            if (parsed.user_interaction_required === true) {
-              this.pendingUserInteraction.add(sessionId)
-              this.sendStreamEvent(webContents, {
-                type: 'user_interaction',
-                sessionId,
-                userInteraction: {
-                  question: parsed.question,
-                  options: parsed.options
-                }
-              })
-            }
-          }
-        } catch {
-          // 不是 JSON 或不是交互请求，忽略
-        }
-      }
-
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolName,
-          success: result.success,
-          result: result.content,
-          error: result.error
-        }
-      })
-
-      if (result.success) {
-        return JSON.stringify(result.content)
-      } else {
-        return JSON.stringify({ error: result.error })
-      }
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        (error.name === 'AbortError' || error.message.includes('超时'))
-      ) {
-        throw error
-      }
-
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('沙箱工具调用失败', 'main', {
-        sessionId,
-        toolName,
-        error: errorMessage
-      })
-
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolName,
-          success: false,
-          error: errorMessage
-        }
-      })
-
-      return JSON.stringify({ error: errorMessage })
-    }
-  }
-
-  /**
-   * 执行知识库工具调用
-   */
-  private async executeKnowledgeTool(
-    toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
-    toolName: string,
-    webContents: WebContents,
-    sessionId: string
-  ): Promise<string> {
-    let args: Record<string, unknown> = {}
-
-    try {
-      args = JSON.parse(toolCall.function.arguments || '{}')
-    } catch (e) {
-      const error = `解析工具参数失败: ${e}`
-      logger.error(error, 'main')
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolName,
-          success: false,
-          error
-        }
-      })
-      return JSON.stringify({ error })
-    }
-
-    logger.info('执行知识库工具调用', 'main', {
-      sessionId,
-      toolName,
-      args
-    })
-
-    this.sendStreamEvent(webContents, {
-      type: 'tool_call',
-      sessionId,
-      toolCall: {
-        id: toolCall.id,
-        name: toolName,
-        serverName: 'knowledge',
-        arguments: args
-      }
-    })
-
-    try {
-      this.checkStopped(sessionId)
-
-      // 获取当前会话选中的知识库 ID 列表
-      const selectedKBIds = this.sessionKnowledgeBases.get(sessionId)
-
-      const result = await this.withTimeoutAndStopCheck(
-        knowledgeToolService.callTool(`knowledge__${toolName}`, args, selectedKBIds),
-        sessionId,
-        60000,
-        `知识库工具调用 ${toolName}`
-      )
-
-      this.checkStopped(sessionId)
-
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolName,
-          success: result.success,
-          result: result.content,
-          error: result.error
-        }
-      })
-
-      if (result.success) {
-        return JSON.stringify(result.content)
-      } else {
-        return JSON.stringify({ error: result.error })
-      }
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        (error.name === 'AbortError' || error.message.includes('超时'))
-      ) {
-        throw error
-      }
-
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('知识库工具调用失败', 'main', {
-        sessionId,
-        toolName,
-        error: errorMessage
-      })
-
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolName,
-          success: false,
-          error: errorMessage
-        }
-      })
-
-      return JSON.stringify({ error: errorMessage })
-    }
-  }
-
-  /**
-   * 执行 MCP 工具调用
-   */
-  private async executeMcpTool(
-    toolCall: { id: string; type: 'function'; function: { name: string; arguments: string } },
-    sanitizedServerName: string,
-    sanitizedToolName: string,
-    webContents: WebContents,
-    sessionId: string
-  ): Promise<string> {
-    const serverName = this.findOriginalServerName(sanitizedServerName)
-    if (!serverName) {
-      const error = `未找到 MCP 服务器: ${sanitizedServerName}`
-      logger.error(error, 'main')
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolCall.function.name,
-          success: false,
-          error
-        }
-      })
-      return JSON.stringify({ error })
-    }
-
-    const serverTools = mcpService.getTools(serverName)
-    const tool = serverTools.find((t) => {
-      const sanitized = t.name.replace(/[^a-zA-Z0-9_-]/g, '-')
-      return sanitized === sanitizedToolName
-    })
-
-    const toolName = tool?.name || sanitizedToolName
-    let args: Record<string, unknown> = {}
-
-    try {
-      args = JSON.parse(toolCall.function.arguments || '{}')
-    } catch (e) {
-      const error = `解析工具参数失败: ${e}`
-      logger.error(error, 'main')
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolName,
-          success: false,
-          error
-        }
-      })
-      return JSON.stringify({ error })
-    }
-
-    logger.info('执行 MCP 工具调用', 'main', {
-      sessionId,
-      serverName,
-      toolName,
-      args
-    })
-
-    this.sendStreamEvent(webContents, {
-      type: 'tool_call',
-      sessionId,
-      toolCall: {
-        id: toolCall.id,
-        name: toolName,
-        serverName,
-        arguments: args
-      }
-    })
-
-    try {
-      this.checkStopped(sessionId)
-
-      const result = await this.withTimeoutAndStopCheck(
-        mcpService.callTool(serverName, toolName, args),
-        sessionId,
-        60000,
-        `MCP工具调用 ${serverName}/${toolName}`
-      )
-
-      this.checkStopped(sessionId)
-
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolName,
-          success: result.success,
-          result: result.content,
-          error: result.error
-        }
-      })
-
-      if (result.success) {
-        return JSON.stringify(result.content)
-      } else {
-        return JSON.stringify({ error: result.error })
-      }
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        (error.name === 'AbortError' || error.message.includes('超时'))
-      ) {
-        throw error
-      }
-
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('MCP 工具调用失败', 'main', {
-        sessionId,
-        serverName,
-        toolName,
-        error: errorMessage
-      })
-
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolName,
-          success: false,
-          error: errorMessage
-        }
-      })
-
-      return JSON.stringify({ error: errorMessage })
     }
   }
 
@@ -1635,154 +776,6 @@ export class ChatService {
     }
 
     return llmConfig
-  }
-
-  /**
-   * 构建知识库上下文文本
-   */
-  private buildKnowledgeContext(knowledgeResults?: KnowledgeSearchResult[]): string {
-    if (!knowledgeResults || knowledgeResults.length === 0) {
-      return ''
-    }
-
-    let context = '\n\n# 知识库参考信息\n\n'
-    context += '以下是从选中的知识库中检索到的相关信息，请基于这些信息回答用户问题：\n\n'
-
-    for (const kbResult of knowledgeResults) {
-      context += `## 知识库：${kbResult.knowledgeBaseName}\n\n`
-
-      if (kbResult.results.length === 0) {
-        context += '*该知识库中未找到相关信息*\n\n'
-        continue
-      }
-
-      for (const result of kbResult.results) {
-        context += `### 文档：${result.fileName}\n`
-        context += `**相关度：${(result.similarity * 100).toFixed(1)}%**\n\n`
-        context += `${result.content}\n\n`
-      }
-
-      context += '---\n\n'
-    }
-
-    context += '请基于上述知识库内容回答用户问题。如果知识库中没有相关信息，请明确告知用户。'
-
-    return context
-  }
-
-  /**
-   * 格式化文档内容为文本
-   * @param documents 附加的文档列表
-   * @returns 格式化后的文档内容字符串
-   */
-  private formatDocumentsContext(documents: AttachedDocument[]): string {
-    if (!documents || documents.length === 0) {
-      return ''
-    }
-
-    let context = '\n\n=== 上传的文档 ===\n\n'
-
-    documents.forEach((doc, index) => {
-      context += `[文档 ${index + 1}]\n`
-      context += `文件名: ${doc.fileName}\n`
-      context += `类型: ${doc.fileType}\n`
-      context += `大小: ${this.formatFileSize(doc.fileSize)}\n`
-      context += '---\n'
-      context += doc.parsedContent
-      context += '\n\n'
-    })
-
-    return context
-  }
-
-  /**
-   * 格式化文件大小
-   */
-  private formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  }
-
-  /**
-   * 格式化消息为 OpenAI 格式
-   * 过滤掉空内容的助手消息，将知识库结果和附加文档附加到最后一条用户消息
-   * 如果最后一条用户消息包含图片，则使用多模态 content 格式
-   */
-  private formatMessagesWithKnowledge(
-    messages: ChatMessage[],
-    knowledgeResults?: KnowledgeSearchResult[]
-  ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
-    const knowledgeContext = this.buildKnowledgeContext(knowledgeResults)
-
-    const filteredMessages = messages.filter((msg) => {
-      if (msg.role === 'assistant') {
-        const hasContent = msg.content && msg.content.trim().length > 0
-        const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0
-        return hasContent || hasToolCalls
-      }
-      return true
-    })
-
-    return filteredMessages.map((msg, index) => {
-      if (msg.role === 'user' && index === filteredMessages.length - 1) {
-        // 组合知识库内容和文档内容
-        let textContent = msg.content || ''
-        if (knowledgeContext) {
-          textContent += knowledgeContext
-        }
-        if (msg.attachedDocuments && msg.attachedDocuments.length > 0) {
-          textContent += this.formatDocumentsContext(msg.attachedDocuments)
-        }
-
-        // 如果有图片，使用多模态 content 格式
-        if (msg.attachedImages && msg.attachedImages.length > 0) {
-          const contentParts: Array<
-            | { type: 'text'; text: string }
-            | { type: 'image_url'; image_url: { url: string; detail: string } }
-          > = [{ type: 'text', text: textContent }]
-
-          for (const img of msg.attachedImages) {
-            contentParts.push({
-              type: 'image_url',
-              image_url: {
-                url: img.base64Data,
-                detail: 'auto'
-              }
-            })
-          }
-
-          return {
-            role: 'user' as const,
-            content: contentParts
-          } as OpenAI.Chat.Completions.ChatCompletionUserMessageParam
-        }
-
-        return {
-          role: 'user' as const,
-          content: textContent
-        }
-      }
-
-      if (msg.role === 'tool') {
-        return {
-          role: 'tool' as const,
-          tool_call_id: msg.tool_call_id || '',
-          content: msg.content || ''
-        }
-      }
-      if (msg.role === 'assistant' && msg.tool_calls) {
-        return {
-          role: 'assistant' as const,
-          content: msg.content,
-          tool_calls: msg.tool_calls
-        }
-      }
-      return {
-        role: msg.role as 'system' | 'user' | 'assistant',
-        content: msg.content || ''
-      }
-    })
   }
 
   /**
