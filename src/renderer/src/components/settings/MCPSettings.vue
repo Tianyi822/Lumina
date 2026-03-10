@@ -45,6 +45,22 @@ function showSuccess(message: string): void {
   )
 }
 
+function validateMCPConfig(config: MCPServerConfig): string {
+  if (!config.name.trim()) {
+    return '请输入服务器名称'
+  }
+
+  if (config.transport === 'stdio') {
+    if (!config.command?.trim()) {
+      return `MCP 服务“${config.name}”的执行命令不能为空`
+    }
+  } else if (!config.url?.trim()) {
+    return `MCP 服务“${config.name}”的服务地址不能为空`
+  }
+
+  return ''
+}
+
 // 切换 MCP 服务器展开状态
 function toggleMCPExpand(name: string): void {
   mcpStore.toggleServerExpanded(name)
@@ -74,6 +90,12 @@ async function handleDisconnect(name: string): Promise<void> {
 
 // 测试 MCP 连接
 async function handleTest(config: MCPServerConfig): Promise<void> {
+  const validationMessage = validateMCPConfig(config)
+  if (validationMessage) {
+    showError(validationMessage)
+    return
+  }
+
   const success = await testConnection(
     config,
     (msg) => showSuccess(msg),
@@ -94,24 +116,36 @@ async function handleDelete(name: string): Promise<void> {
 }
 
 // 保存 MCP 配置
-async function handleSave(config: MCPServerConfig): Promise<void> {
+async function handleSave(config: MCPServerConfig): Promise<boolean> {
+  const validationMessage = validateMCPConfig(config)
+  if (validationMessage) {
+    showError(validationMessage)
+    return false
+  }
+
   const success = await saveConfig(config)
   if (success) {
     emit('mcp-updated')
   }
+  return success
 }
 
 // 切换 MCP 启用状态
 async function handleToggleEnabled(config: MCPServerConfig): Promise<void> {
-  const updatedConfig = { ...config, enabled: !config.enabled }
-  await handleSave(updatedConfig)
-  if (!updatedConfig.enabled) {
+  const success = await handleSave(config)
+  if (success && !config.enabled) {
     await handleDisconnect(config.name)
   }
 }
 
 // 添加新 MCP 配置
 async function handleAddNew(config: MCPServerConfig): Promise<void> {
+  const validationMessage = validateMCPConfig(config)
+  if (validationMessage) {
+    showError(validationMessage)
+    return
+  }
+
   const success = await saveConfig(config)
   if (success) {
     showNewMCPForm.value = false

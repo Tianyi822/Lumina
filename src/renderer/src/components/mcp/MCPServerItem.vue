@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import KeyValueEditor from './KeyValueEditor.vue'
 import type { MCPServerConfig, MCPConnectionStatus, MCPTransportType } from '@renderer/types'
 
@@ -23,18 +24,116 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+const localConfig = ref<MCPServerConfig>({
+  name: '',
+  transport: 'stdio',
+  enabled: true,
+  command: '',
+  args: [],
+  env: {},
+  url: '',
+  headers: {}
+})
+const argsText = ref('')
+const warningMessage = ref('')
+
+function syncLocalConfig(config: MCPServerConfig): void {
+  localConfig.value = {
+    ...config,
+    command: config.command || '',
+    args: [...(config.args || [])],
+    env: { ...(config.env || {}) },
+    url: config.url || '',
+    headers: { ...(config.headers || {}) }
+  }
+  argsText.value = (config.args || []).join('\n')
+}
+
+function buildConfigToSave(): MCPServerConfig {
+  const isStdioTransport = localConfig.value.transport === 'stdio'
+
+  return {
+    ...localConfig.value,
+    name: localConfig.value.name.trim(),
+    command: isStdioTransport ? localConfig.value.command?.trim() || '' : '',
+    args: isStdioTransport
+      ? argsText.value
+          .split('\n')
+          .map((item) => item.trim())
+          .filter((item) => item)
+      : [],
+    env: isStdioTransport ? { ...(localConfig.value.env || {}) } : {},
+    url: isStdioTransport ? '' : localConfig.value.url?.trim() || '',
+    headers: isStdioTransport ? {} : { ...(localConfig.value.headers || {}) }
+  }
+}
+
+function validateConfig(config: MCPServerConfig): string {
+  if (!config.name) {
+    return '服务器名称不能为空'
+  }
+
+  if (config.transport === 'stdio') {
+    if (!config.command) {
+      return `MCP 服务“${config.name}”的执行命令不能为空`
+    }
+  } else if (!config.url) {
+    return `MCP 服务“${config.name}”的服务地址不能为空`
+  }
+
+  return ''
+}
+
+async function persistConfig(): Promise<void> {
+  const config = buildConfigToSave()
+  const validationMessage = validateConfig(config)
+  if (validationMessage) {
+    warningMessage.value = validationMessage
+    return
+  }
+
+  warningMessage.value = ''
+  emit('save', config)
+}
+
 /**
  * 更新配置
  */
 function updateConfig(updates: Partial<MCPServerConfig>): void {
-  emit('save', { ...props.config, ...updates })
+  localConfig.value = {
+    ...localConfig.value,
+    ...updates
+  }
 }
 
 /**
  * 更新传输类型
  */
 function updateTransport(value: string): void {
-  emit('save', { ...props.config, transport: value as MCPTransportType })
+  const transport = value as MCPTransportType
+  if (transport === 'stdio') {
+    updateConfig({
+      transport,
+      url: '',
+      headers: {}
+    })
+  } else if (localConfig.value.transport === 'stdio') {
+    updateConfig({
+      transport,
+      command: '',
+      args: [],
+      env: {},
+      url: localConfig.value.url || '',
+      headers: localConfig.value.headers || {}
+    })
+    argsText.value = ''
+  } else {
+    updateConfig({
+      transport
+    })
+  }
+
+  warningMessage.value = ''
 }
 
 /**
@@ -43,6 +142,53 @@ function updateTransport(value: string): void {
 function handleToggle(): void {
   emit('toggle-expand', props.config.name)
 }
+
+function handleArgsBlur(): void {
+  localConfig.value.args = argsText.value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter((item) => item)
+  void persistConfig()
+}
+
+function handleEnvChange(value: Record<string, string>): void {
+  updateConfig({ env: value || {} })
+  void persistConfig()
+}
+
+function handleHeadersChange(value: Record<string, string>): void {
+  updateConfig({ headers: value || {} })
+  void persistConfig()
+}
+
+function handleEnabledChange(checked: boolean): void {
+  const config = {
+    ...buildConfigToSave(),
+    enabled: checked
+  }
+  warningMessage.value = ''
+  emit('toggle-enabled', config)
+}
+
+function handleTest(): void {
+  const config = buildConfigToSave()
+  const validationMessage = validateConfig(config)
+  if (validationMessage) {
+    warningMessage.value = validationMessage
+    return
+  }
+
+  warningMessage.value = ''
+  emit('test', config)
+}
+
+watch(
+  () => props.config,
+  (config) => {
+    syncLocalConfig(config)
+  },
+  { deep: true, immediate: true }
+)
 </script>
 
 <template>
@@ -61,7 +207,7 @@ function handleToggle(): void {
       >
         {{ status?.connected ? '已连接' : '未连接' }}
       </span>
-      <span class="transport-badge">{{ config.transport }}</span>
+      <span class="transport-badge">{{ localConfig.transport }}</span>
       <div class="model-actions">
         <button
           v-if="!status?.connected"
@@ -74,7 +220,7 @@ function handleToggle(): void {
         <button v-else class="btn btn-small" @click.stop="emit('disconnect', config.name)">
           断开
         </button>
-        <button class="btn btn-small" :disabled="testing" @click.stop="emit('test', config)">
+        <button class="btn btn-small" :disabled="testing" @click.stop="handleTest">
           {{ testing ? '测试中...' : '测试' }}
         </button>
         <button class="btn btn-small btn-danger-text" @click.stop="emit('delete', config.name)">
@@ -88,7 +234,7 @@ function handleToggle(): void {
       <div class="form-group">
         <label>传输类型</label>
         <select
-          :value="config.transport"
+          :value="localConfig.transport"
           class="input"
           @change="updateTransport(($event.target as HTMLSelectElement).value)"
         >
@@ -99,38 +245,32 @@ function handleToggle(): void {
       </div>
 
       <!-- stdio 配置 -->
-      <template v-if="config.transport === 'stdio'">
+      <template v-if="localConfig.transport === 'stdio'">
         <div class="form-group">
           <label>执行命令</label>
           <input
-            :value="config.command"
+            v-model="localConfig.command"
             type="text"
             class="input"
             placeholder="例如: npx, node, python"
-            @blur="updateConfig({ command: ($event.target as HTMLInputElement).value })"
+            @blur="persistConfig"
           />
         </div>
         <div class="form-group">
           <label>命令参数 (每行一个)</label>
           <textarea
-            :value="config.args?.join('\n') || ''"
+            v-model="argsText"
             class="input textarea-small"
             placeholder="-y&#10;@modelcontextprotocol/server-xxx"
-            @blur="
-              updateConfig({
-                args: ($event.target as HTMLTextAreaElement).value
-                  .split('\n')
-                  .filter((s) => s.trim())
-              })
-            "
+            @blur="handleArgsBlur"
           ></textarea>
         </div>
         <div class="form-group">
           <label>环境变量 (KEY=VALUE 格式，每行一个)</label>
           <KeyValueEditor
-            :model-value="config.env || {}"
+            :model-value="localConfig.env || {}"
             placeholder="API_KEY=xxx"
-            @update:model-value="updateConfig({ env: $event })"
+            @update:model-value="handleEnvChange"
           />
         </div>
       </template>
@@ -140,30 +280,34 @@ function handleToggle(): void {
         <div class="form-group">
           <label>服务地址</label>
           <input
-            :value="config.url"
+            v-model="localConfig.url"
             type="text"
             class="input"
             placeholder="https://example.com/mcp"
-            @blur="updateConfig({ url: ($event.target as HTMLInputElement).value })"
+            @blur="persistConfig"
           />
         </div>
         <div class="form-group">
           <label>认证头 (KEY=VALUE 格式，每行一个)</label>
           <KeyValueEditor
-            :model-value="config.headers || {}"
+            :model-value="localConfig.headers || {}"
             placeholder="Authorization=Bearer xxx"
-            @update:model-value="updateConfig({ headers: $event })"
+            @update:model-value="handleHeadersChange"
           />
         </div>
       </template>
+
+      <div v-if="warningMessage" class="inline-warning">
+        {{ warningMessage }}
+      </div>
 
       <!-- 启用状态 -->
       <div class="form-group">
         <label class="checkbox-label">
           <input
             type="checkbox"
-            :checked="config.enabled"
-            @change="emit('toggle-enabled', config)"
+            :checked="localConfig.enabled"
+            @change="handleEnabledChange(($event.target as HTMLInputElement).checked)"
           />
           <span>启用此服务器</span>
         </label>
@@ -252,6 +396,16 @@ function handleToggle(): void {
 .btn-danger-text:hover {
   background-color: rgba(248, 81, 73, 0.1);
   border-color: var(--theme-danger);
+}
+
+.inline-warning {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background-color: rgba(248, 81, 73, 0.12);
+  border: 1px solid rgba(248, 81, 73, 0.2);
+  color: var(--theme-danger);
+  font-size: 12px;
 }
 
 .status-indicator {

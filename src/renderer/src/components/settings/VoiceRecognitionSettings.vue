@@ -33,6 +33,30 @@ const localConfig = ref<VoiceRecognitionConfig>({
 // 是否正在保存 enabled 状态（用于防止重复触发）
 const savingEnabled = ref(false)
 
+function validateVoiceConfig(config: VoiceRecognitionConfig): string {
+  const hasAccessKeyId = Boolean(config.accessKeyId?.trim())
+  const hasAccessKeySecret = Boolean(config.accessKeySecret?.trim())
+  const hasToken = Boolean(config.token?.trim())
+  const hasAppkey = Boolean(config.appkey?.trim())
+
+  if (hasAccessKeyId !== hasAccessKeySecret) {
+    return hasAccessKeyId
+      ? '如需使用 AccessKey 自动获取 Token，请同时填写 AccessKey Secret'
+      : '如需使用 AccessKey 自动获取 Token，请同时填写 AccessKey ID'
+  }
+
+  if (config.enabled) {
+    if (!hasToken) {
+      return '启用语音识别前请先填写 Token'
+    }
+    if (!hasAppkey) {
+      return '启用语音识别前请先填写 Appkey'
+    }
+  }
+
+  return ''
+}
+
 // 监听 enabled 开关变更，立即保存并更新 UI
 watch(
   () => localConfig.value.enabled,
@@ -44,11 +68,23 @@ watch(
 
     savingEnabled.value = true
     try {
-      // 立即更新 configStore
-      configStore.updateVoiceRecognitionConfig({
+      const nextConfig: VoiceRecognitionConfig = {
         ...voiceRecognitionConfig.value,
-        enabled: newValue
-      })
+        enabled: newValue,
+        accessKeyId: localConfig.value.accessKeyId?.trim(),
+        accessKeySecret: localConfig.value.accessKeySecret?.trim(),
+        token: localConfig.value.token?.trim(),
+        appkey: localConfig.value.appkey?.trim()
+      }
+      const validationMessage = validateVoiceConfig(nextConfig)
+      if (validationMessage) {
+        localConfig.value.enabled = oldValue
+        showError(validationMessage)
+        return
+      }
+
+      // 立即更新 configStore
+      configStore.updateVoiceRecognitionConfig(nextConfig)
       // 保存到配置文件
       const success = await configStore.saveConfig()
       if (success) {
@@ -109,16 +145,23 @@ function buildPlainConfig(): VoiceRecognitionConfig {
   return {
     provider: localConfig.value.provider,
     enabled: localConfig.value.enabled,
-    accessKeyId: localConfig.value.accessKeyId,
-    accessKeySecret: localConfig.value.accessKeySecret,
-    token: localConfig.value.token,
-    appkey: localConfig.value.appkey
+    accessKeyId: localConfig.value.accessKeyId?.trim(),
+    accessKeySecret: localConfig.value.accessKeySecret?.trim(),
+    token: localConfig.value.token?.trim(),
+    appkey: localConfig.value.appkey?.trim()
   }
 }
 
 // 保存配置
 async function handleSave(): Promise<void> {
-  configStore.updateVoiceRecognitionConfig(buildPlainConfig())
+  const plainConfig = buildPlainConfig()
+  const validationMessage = validateVoiceConfig(plainConfig)
+  if (validationMessage) {
+    showError(validationMessage)
+    return
+  }
+
+  configStore.updateVoiceRecognitionConfig(plainConfig)
   const success = await configStore.saveConfig()
   if (success) {
     showSuccess('语音识别配置已保存')

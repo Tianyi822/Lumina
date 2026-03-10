@@ -25,6 +25,22 @@ function getOldMCPConfigDirPath(): string {
 export class MCPConfigManager {
   private migrationCompleted: boolean = false
 
+  private validateConfig(serverConfig: MCPServerConfig): string | null {
+    if (!serverConfig.name?.trim()) {
+      return 'MCP 配置名称不能为空'
+    }
+
+    if (serverConfig.transport === 'stdio') {
+      if (!serverConfig.command?.trim()) {
+        return `MCP 配置 ${serverConfig.name} 的执行命令不能为空`
+      }
+    } else if (!serverConfig.url?.trim()) {
+      return `MCP 配置 ${serverConfig.name} 的服务地址不能为空`
+    }
+
+    return null
+  }
+
   // 初始化配置管理器
   // 首次初始化时会自动迁移旧配置
   initialize(): void {
@@ -119,6 +135,14 @@ export class MCPConfigManager {
   // 保存 MCP 配置
   saveConfig(serverConfig: MCPServerConfig): MCPConfigSaveResult {
     try {
+      const validationMessage = this.validateConfig(serverConfig)
+      if (validationMessage) {
+        return {
+          success: false,
+          error: validationMessage
+        }
+      }
+
       const config = configManager.getConfig()
       if (!config) {
         return {
@@ -153,6 +177,16 @@ export class MCPConfigManager {
   // 批量保存 MCP 配置
   saveConfigs(configs: MCPServerConfig[]): MCPConfigSaveResult {
     try {
+      for (const serverConfig of configs) {
+        const validationMessage = this.validateConfig(serverConfig)
+        if (validationMessage) {
+          return {
+            success: false,
+            error: validationMessage
+          }
+        }
+      }
+
       const config = configManager.getConfig()
       if (!config) {
         return {

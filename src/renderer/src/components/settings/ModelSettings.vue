@@ -9,8 +9,16 @@ const configStore = useConfigStore()
 const uiStateStore = useUIStateStore()
 const { llmConfigs, defaultModel, saving } = storeToRefs(configStore)
 
-// 展开的模型配置项（使用 model_name 作为 key）
-const expandedModels = ref<Set<string>>(new Set())
+// 展开的模型配置项（使用索引避免编辑 model_name 时丢失展开状态）
+const expandedModels = ref<Set<number>>(new Set())
+const autoSavePending = ref(false)
+const autoSaveRunning = ref(false)
+
+const MODEL_FIELD_LABELS: Record<'base_url' | 'api_key' | 'model_name', string> = {
+  base_url: 'API Base URL',
+  api_key: 'API Key',
+  model_name: '模型名称'
+}
 
 // 新模型表单
 const showNewModelForm = ref(false)
@@ -22,25 +30,56 @@ const newModelConfig = reactive<LLMConfig>({
   max_tokens: 4096
 })
 
+function showValidationWarning(message: string): void {
+  configStore.successMessage = ''
+  configStore.errorMessage = message
+}
+
+function getModelItemName(config: LLMConfig, index: number): string {
+  return config.model_name.trim() || `第 ${index + 1} 个模型`
+}
+
+function validateModelConfig(config: LLMConfig, index: number): string {
+  const requiredFields: Array<keyof typeof MODEL_FIELD_LABELS> = ['base_url', 'api_key', 'model_name']
+
+  for (const field of requiredFields) {
+    if (!config[field].trim()) {
+      return `模型配置“${getModelItemName(config, index)}”的 ${MODEL_FIELD_LABELS[field]} 不能为空`
+    }
+  }
+
+  return ''
+}
+
+function validateAllModelConfigs(): boolean {
+  for (const [index, config] of llmConfigs.value.entries()) {
+    const validationMessage = validateModelConfig(config, index)
+    if (validationMessage) {
+      showValidationWarning(validationMessage)
+      return false
+    }
+  }
+
+  return true
+}
+
 function addNewModel(): void {
-  if (!newModelConfig.base_url.trim()) {
-    return
-  }
-  if (!newModelConfig.api_key.trim()) {
-    return
-  }
-  if (!newModelConfig.model_name.trim()) {
+  const validationMessage = validateModelConfig(newModelConfig, llmConfigs.value.length)
+  if (validationMessage) {
+    showValidationWarning(validationMessage)
     return
   }
 
   const newConfigs = [...llmConfigs.value, { ...newModelConfig }]
   configStore.updateLLMConfigs(newConfigs)
+  expandedModels.value.add(newConfigs.length - 1)
 
   // 如果是第一个模型，设为默认
   if (newConfigs.length === 1) {
     configStore.updateDefaultModel(newModelConfig.model_name)
   }
 
+  triggerAutoSave()
   resetNewModelForm()
 }
 
@@ -53,37 +92,113 @@ function resetNewModelForm(): void {
   newModelConfig.max_tokens = 4096
 }
 
-function deleteModel(modelName: string): void {
-  const newConfigs = llmConfigs.value.filter((m) => m.model_name !== modelName)
+function normalizeExpandedModelsAfterDelete(deletedIndex: number): void {
+  expandedModels.value = new Set(
+    Array.from(expandedModels.value)
+      .filter((index) => index !== deletedIndex)
+      .map((index) => (index > deletedIndex ? index - 1 : index))
+  )
+}
+
+function deleteModel(modelIndex: number): void {
+  const modelName = llmConfigs.value[modelIndex]?.model_name
+  if (modelName === undefined) {
+    return
+  }
+
+  const newConfigs = llmConfigs.value.filter((_, index) => index !== modelIndex)
   configStore.updateLLMConfigs(newConfigs)
 
-  expandedModels.value.delete(modelName)
+  normalizeExpandedModelsAfterDelete(modelIndex)
   if (defaultModel.value === modelName) {
     configStore.updateDefaultModel(newConfigs.length > 0 ? newConfigs[0].model_name : '')
   }
+
+  triggerAutoSave()
 }
 
-function toggleModelExpand(modelName: string): void {
-  if (expandedModels.value.has(modelName)) {
-    expandedModels.value.delete(modelName)
+function toggleModelExpand(modelIndex: number): void {
+  if (expandedModels.value.has(modelIndex)) {
+    expandedModels.value.delete(modelIndex)
   } else {
-    expandedModels.value.add(modelName)
+    expandedModels.value.add(modelIndex)
   }
 }
 
 function setDefaultModel(modelName: string): void {
+  if (defaultModel.value === modelName) {
+    return
+  }
+
   configStore.updateDefaultModel(modelName)
+  triggerAutoSave()
 }
 
-function updateModelConfig(modelName: string, field: keyof LLMConfig, value: unknown): void {
-  const newConfigs = llmConfigs.value.map((m) =>
-    m.model_name === modelName ? { ...m, [field]: value } : m
-  )
+function updateModelConfig(modelIndex: number, field: keyof LLMConfig, value: unknown): void {
+  const currentConfig = llmConfigs.value[modelIndex]
+  if (!currentConfig || currentConfig[field] === value) {
+    return
+  }
+
+  const newConfigs = [...llmConfigs.value]
+  newConfigs[modelIndex] = {
+    ...currentConfig,
+    [field]: value
+  } as LLMConfig
+
   configStore.updateLLMConfigs(newConfigs)
+
+  if (
+    field === 'model_name' &&
+    defaultModel.value === currentConfig.model_name &&
+    typeof value === 'string'
+  ) {
+    configStore.updateDefaultModel(value)
+  }
+
+  triggerAutoSave()
+}
+
+async function flushAutoSaveQueue(): Promise<void> {
+  if (autoSaveRunning.value) {
+    autoSavePending.value = true
+    return
+  }
+
+  autoSaveRunning.value = true
+  let shouldNotify = false
+
+  try {
+    do {
+      autoSavePending.value = false
+      if (!validateAllModelConfigs()) {
+        return
+      }
+
+      const success = await configStore.saveConfig({ silent: true })
+      if (success) {
+        shouldNotify = true
+      }
+    } while (autoSavePending.value)
+  } finally {
+    autoSaveRunning.value = false
+  }
+
+  if (shouldNotify) {
+    uiStateStore.notifyConfigUpdate()
+  }
+}
+
+function triggerAutoSave(): void {
+  void flushAutoSaveQueue()
 }
 
 // 保存配置
 async function handleSave(): Promise<void> {
+  if (!validateAllModelConfigs()) {
+    return
+  }
+
   const success = await configStore.saveConfig()
   if (success) {
     uiStateStore.notifyConfigUpdate()
@@ -95,12 +210,12 @@ async function handleSave(): Promise<void> {
   <div class="tab-content">
     <!-- 已配置的模型列表 -->
     <div class="model-list">
-      <div v-for="config in llmConfigs" :key="config.model_name" class="model-item">
-        <div class="model-header" @click="toggleModelExpand(config.model_name)">
-          <span class="model-name">{{ config.model_name }}</span>
+      <div v-for="(config, index) in llmConfigs" :key="index" class="model-item">
+        <div class="model-header" @click="toggleModelExpand(index)">
+          <span class="model-name">{{ config.model_name || '未命名模型' }}</span>
           <span v-if="defaultModel === config.model_name" class="default-badge">默认</span>
           <span class="expand-state">{{
-            expandedModels.has(config.model_name) ? '收起' : '展开'
+            expandedModels.has(index) ? '收起' : '展开'
           }}</span>
           <div class="model-actions">
             <button
@@ -112,13 +227,13 @@ async function handleSave(): Promise<void> {
             </button>
             <button
               class="btn btn-small btn-danger-text"
-              @click.stop="deleteModel(config.model_name)"
+              @click.stop="deleteModel(index)"
             >
               删除
             </button>
           </div>
         </div>
-        <div v-if="expandedModels.has(config.model_name)" class="model-details">
+        <div v-if="expandedModels.has(index)" class="model-details">
           <div class="form-group">
             <label>API Base URL</label>
             <input
@@ -129,7 +244,7 @@ async function handleSave(): Promise<void> {
               @input="
                 (e) =>
                   updateModelConfig(
-                    config.model_name,
+                    index,
                     'base_url',
                     (e.target as HTMLInputElement).value
                   )
@@ -146,7 +261,7 @@ async function handleSave(): Promise<void> {
               @input="
                 (e) =>
                   updateModelConfig(
-                    config.model_name,
+                    index,
                     'api_key',
                     (e.target as HTMLInputElement).value
                   )
@@ -163,7 +278,7 @@ async function handleSave(): Promise<void> {
               @input="
                 (e) =>
                   updateModelConfig(
-                    config.model_name,
+                    index,
                     'model_name',
                     (e.target as HTMLInputElement).value
                   )
@@ -183,7 +298,7 @@ async function handleSave(): Promise<void> {
                 @input="
                   (e) =>
                     updateModelConfig(
-                      config.model_name,
+                      index,
                       'temperature',
                       Number((e.target as HTMLInputElement).value)
                     )
@@ -200,7 +315,7 @@ async function handleSave(): Promise<void> {
                 @input="
                   (e) =>
                     updateModelConfig(
-                      config.model_name,
+                      index,
                       'max_tokens',
                       Number((e.target as HTMLInputElement).value)
                     )
