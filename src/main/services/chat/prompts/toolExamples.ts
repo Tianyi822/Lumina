@@ -1,7 +1,7 @@
 // ReAct 模式的 Few-shot 示例集合，用于帮助模型理解如何正确使用工具和进行推理
 
 import type { FewShotExample, EnhancedFewShotExample, ExampleSelectionCriteria } from './types'
-import { dynamicExampleExtractor } from './DynamicExampleExtractor'
+import { dynamicExampleExtractor } from '../examples'
 import { logger } from '../../logger'
 
 // Few-shot 示例

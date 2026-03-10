@@ -1,4 +1,4 @@
-import { BrowserWindow, shell, nativeTheme } from 'electron'
+import { BrowserWindow, shell, nativeTheme, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../../resources/icon.png?asset'
@@ -22,9 +22,13 @@ export function createMainWindow(): BrowserWindow {
   // 设置为浅色模式，与默认主题 blooming-flowers 一致
   nativeTheme.themeSource = 'light'
 
+  // 获取主显示器的工作区尺寸（排除任务栏/Dock）
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width, height } = primaryDisplay.workAreaSize
+
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width,
+    height,
     show: false,
     autoHideMenuBar: true,
     // 根据平台设置不同的标题栏样式

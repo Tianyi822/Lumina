@@ -5,6 +5,7 @@ import MCPToolsPanel from './MCPToolsPanel.vue'
 import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
 import SandboxToolsToggle from './sandbox/SandboxToolsToggle.vue'
 import UserInteractionOptions from './UserInteractionOptions.vue'
+import ChatOptions from './chat/ChatOptions.vue'
 import type {
   AppConfig,
   ExportFormat,
@@ -18,6 +19,7 @@ import { useImageUploadStore, isImageFile } from '../stores/imageUploadStore'
 import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
 import { getFileTypeIcon, getFileExtension } from '@renderer/utils/fileIcons'
 import { IMAGE_ACCEPT_STRING } from '@renderer/utils/imageCompress'
+import type { MessageOptionContext, ParsedOption } from '@renderer/utils/optionParser'
 
 const props = defineProps<{
   isSending?: boolean
@@ -27,6 +29,7 @@ const props = defineProps<{
   selectedKnowledgeBases?: KnowledgeBase[]
   enableSandboxTools?: boolean
   exportInteractionInfo?: UserInteractionRequest | null
+  quickReplyInfo?: MessageOptionContext | null
 }>()
 
 const emit = defineEmits<{
@@ -47,6 +50,7 @@ const emit = defineEmits<{
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableSandboxTools', value: boolean): void
   (e: 'select-export-format', format: ExportFormat): void
+  (e: 'quick-reply-selected', messageId: string): void
 }>()
 
 // 本地输入状态 - 确保与会话独立
@@ -64,6 +68,9 @@ const imageStore = useImageUploadStore()
 
 // 拖拽状态
 const isDragging = ref(false)
+
+// 输入框引用
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
 // 会话 ID prop（需要父组件传入）
 const sessionId = inject<string>('sessionId', '')
@@ -366,6 +373,8 @@ const mediaStream = ref<MediaStream | null>(null)
 const audioContext = ref<AudioContext | null>(null)
 const workletNode = ref<AudioWorkletNode | null>(null)
 const voiceUnsubscribe = ref<(() => void) | null>(null)
+const voiceInfoMessage = ref('')
+let voiceInfoTimer: number | null = null
 
 /**
  * 切换语音录制状态
@@ -376,6 +385,22 @@ function toggleVoiceRecording(): void {
   } else {
     startVoiceRecording()
   }
+}
+
+/**
+ * 显示语音鉴权提示
+ */
+function showVoiceInfo(message: string): void {
+  voiceInfoMessage.value = message
+
+  if (voiceInfoTimer !== null) {
+    window.clearTimeout(voiceInfoTimer)
+  }
+
+  voiceInfoTimer = window.setTimeout(() => {
+    voiceInfoMessage.value = ''
+    voiceInfoTimer = null
+  }, 4000)
 }
 
 /**
@@ -415,6 +440,21 @@ async function startVoiceRecording(): Promise<void> {
 
     // 5. 启动主进程的语音识别服务
     const startResult = await window.api.voiceRecognition.start()
+
+    if (startResult.refreshedToken) {
+      configStore.updateVoiceRecognitionConfig({
+        ...voiceRecognitionConfig.value,
+        token: startResult.refreshedToken
+      })
+    }
+
+    if (startResult.info) {
+      showVoiceInfo(startResult.info)
+      window.api.logger.info('[MessageInput] 语音识别鉴权已自动刷新', {
+        message: startResult.info
+      })
+    }
+
     if (!startResult.success) {
       throw new Error(startResult.error || '启动语音识别失败')
     }
@@ -603,6 +643,67 @@ function handleSend(): void {
   }
 }
 
+/**
+ * 发送快捷回复
+ */
+function handleQuickReplySelect(option: ParsedOption): void {
+  if (props.isSending || !props.quickReplyInfo) {
+    return
+  }
+
+  const replyText = option.label.trim()
+  if (!replyText) {
+    return
+  }
+
+  emit('quick-reply-selected', props.quickReplyInfo.messageId)
+
+  window.api.logger.debug('[MessageInput] 发送快捷回复', {
+    messageId: props.quickReplyInfo.messageId,
+    optionId: option.id
+  })
+
+  const docsToSend = pendingDocs.value.map((doc) => ({
+    fileName: doc.fileName,
+    fileType: doc.fileType,
+    fileSize: doc.fileSize,
+    parsedContent: doc.parsedContent
+  }))
+
+  const imagesToSend = pendingImages.value.map((img) => ({
+    fileName: img.fileName,
+    mimeType: img.mimeType,
+    width: img.width,
+    height: img.height,
+    originalSize: img.originalSize,
+    compressedSize: img.compressedSize,
+    base64Data: img.base64Data
+  }))
+
+  emit(
+    'send',
+    replyText,
+    localSelectedModel.value,
+    localSelectedTools.value,
+    localSelectedKnowledgeBases.value,
+    localEnableSandboxTools.value,
+    docsToSend,
+    imagesToSend
+  )
+
+  localInputMessage.value = ''
+  emit('update:inputMessage', '')
+  documentStore.clearPendingDocuments(effectiveSessionId.value)
+  imageStore.clearImages(effectiveSessionId.value)
+}
+
+/**
+ * 聚焦到自定义回答输入框
+ */
+function focusCustomReply(): void {
+  textareaRef.value?.focus()
+}
+
 // 处理 MCP 工具选择（多选）
 function handleMCPToolsSelected(tools: MCPTool[]): void {
   window.api.logger.debug('[MessageInput] 接收到工具选择事件', {
@@ -672,6 +773,12 @@ onMounted(() => {
 onUnmounted(async () => {
   // 移除全局点击事件监听器
   document.removeEventListener('click', handleClickOutside)
+
+  if (voiceInfoTimer !== null) {
+    window.clearTimeout(voiceInfoTimer)
+    voiceInfoTimer = null
+  }
+
   // 清理语音录制资源
   await cleanupAudio()
 })
@@ -692,6 +799,26 @@ onUnmounted(async () => {
       :interaction-info="userInteractionInfo"
       @select="handleUserInteractionSelect"
     />
+
+    <div v-if="props.quickReplyInfo" class="quick-reply-panel">
+      <div class="quick-reply-header">
+        <span class="quick-reply-title">快捷选项</span>
+        <button
+          type="button"
+          class="quick-reply-custom-btn"
+          :disabled="isSending"
+          @click="focusCustomReply"
+        >
+          自定义回答
+        </button>
+      </div>
+
+      <ChatOptions
+        :options="props.quickReplyInfo.options"
+        :disabled="isSending"
+        @select="handleQuickReplySelect"
+      />
+    </div>
 
     <!-- 待发送文档列表 -->
     <div v-if="pendingDocs.length > 0" class="pending-docs-list">
@@ -786,13 +913,18 @@ onUnmounted(async () => {
       @drop="handleDrop"
     >
       <textarea
+        ref="textareaRef"
         v-model="localInputMessage"
         class="input message-textarea"
         :class="{
           'has-docs': pendingDocs.length > 0 || pendingImages.length > 0,
           dragging: isDragging
         }"
-        placeholder="输入命令或消息，可拖拽文件或图片上传 ..."
+        :placeholder="
+          props.quickReplyInfo
+            ? '输入自定义回答，或点击上方快捷选项 ...'
+            : '输入命令或消息，可拖拽文件或图片上传 ...'
+        "
         rows="3"
         :disabled="isSending"
         @keydown="handleKeydown"
@@ -809,6 +941,12 @@ onUnmounted(async () => {
         </div>
       </div>
     </div>
+
+    <div v-if="voiceInfoMessage" class="voice-info-banner">
+      <span class="voice-info-label">INFO</span>
+      <span>{{ voiceInfoMessage }}</span>
+    </div>
+
     <div class="input-actions">
       <!-- 模型选择器 -->
       <div ref="modelSelectorRef" class="model-selector">
@@ -912,6 +1050,61 @@ onUnmounted(async () => {
   border-top: 1px solid var(--theme-border);
 }
 
+.quick-reply-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--theme-accent) 6%, transparent) 0%,
+      var(--theme-bg-secondary) 100%
+    ),
+    var(--theme-bg-secondary);
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 20%, var(--theme-border));
+  border-radius: calc(var(--theme-radius) + 2px);
+}
+
+.quick-reply-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quick-reply-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--theme-text);
+}
+
+.quick-reply-custom-btn {
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--theme-accent) 25%, var(--theme-border));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--theme-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    color 0.16s ease,
+    background-color 0.16s ease;
+}
+
+.quick-reply-custom-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--theme-accent) 45%, var(--theme-border));
+  color: var(--theme-text);
+  background: color-mix(in srgb, var(--theme-accent) 8%, transparent);
+}
+
+.quick-reply-custom-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .input-wrapper {
   position: relative;
   margin-bottom: 12px;
@@ -1002,6 +1195,33 @@ onUnmounted(async () => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.voice-info-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: var(--theme-radius-sm, 6px);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(14, 165, 233, 0.05) 100%);
+  color: var(--theme-text);
+  font-size: 12px;
+}
+
+.voice-info-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.18);
+  color: #0369a1;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .model-selector {

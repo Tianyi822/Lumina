@@ -7,13 +7,14 @@ import type {
   EnhancedFewShotExample,
   ExampleExtractionResult,
   ExampleSelectionCriteria
-} from './types'
+} from '../prompts/types'
 import type { DynamicExampleStorage } from '@shared/types/prompt'
-import type { SessionData, SessionMessage } from '@shared/types/session'
+import type { SessionData } from '@shared/types/session'
 import { app } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import { logger } from '../../logger'
+import { exampleManager } from './ExampleManager'
 
 /**
  * 动态示例提取器
@@ -117,31 +118,10 @@ export class DynamicExampleExtractor {
     await this.ensureInitialized()
 
     const { minQualityScore = 0.6, maxExamples = 50 } = options
-    const result: ExampleExtractionResult = {
-      examples: [],
-      skippedSessions: 0,
-      processedSessions: 0,
-      errors: []
-    }
-
-    for (const session of sessions) {
-      try {
-        const examples = this.extractFromSession(session, minQualityScore)
-        if (examples.length > 0) {
-          result.examples.push(...examples)
-          result.processedSessions++
-        } else {
-          result.skippedSessions++
-        }
-      } catch (error) {
-        result.errors.push(`会话 ${session.sessionId} 提取失败: ${error}`)
-        result.skippedSessions++
-      }
-    }
-
-    // 按质量分数排序并限制数量
-    result.examples.sort((a, b) => b.qualityScore - a.qualityScore)
-    result.examples = result.examples.slice(0, maxExamples)
+    const result = exampleManager.extractAndScoreFromSessions(sessions, {
+      minQualityScore,
+      maxExamples
+    })
 
     // 更新存储
     if (result.examples.length > 0 && this.storage) {
@@ -164,180 +144,6 @@ export class DynamicExampleExtractor {
     }
 
     return result
-  }
-
-  /**
-   * 从单个会话中提取示例
-   */
-  private extractFromSession(
-    session: SessionData,
-    minQualityScore: number
-  ): EnhancedFewShotExample[] {
-    const examples: EnhancedFewShotExample[] = []
-    const messages = session.messages
-
-    // 查找包含工具调用的消息对
-    for (let i = 0; i < messages.length; i++) {
-      const assistantMsg = messages[i]
-
-      // 检查是否是包含工具调用的助手消息
-      if (assistantMsg.role === 'assistant' && assistantMsg.tool_calls?.length) {
-        // 向前查找用户消息
-        const userMsg = this.findPrecedingUserMessage(messages, i)
-        if (!userMsg) continue
-
-        // 向后查找工具响应和最终回答
-        const toolResponses = this.findToolResponses(messages, i, assistantMsg.tool_calls)
-        const finalAnswer = this.findFinalAnswer(messages, i)
-
-        if (!finalAnswer) continue
-
-        // 计算质量分数
-        const qualityScore = this.calculateQualityScore(
-          userMsg,
-          assistantMsg,
-          toolResponses,
-          finalAnswer
-        )
-
-        if (qualityScore >= minQualityScore) {
-          const example: EnhancedFewShotExample = {
-            id: `${session.sessionId}-${i}`,
-            userQuery: userMsg.content,
-            thought: assistantMsg.reasoning || '',
-            toolCalls:
-              assistantMsg.tool_calls.map((tc, idx) => ({
-                name: tc.function?.name || 'unknown',
-                arguments: tc.function?.arguments ? JSON.parse(tc.function.arguments) : {},
-                result: toolResponses[idx]?.content || ''
-              })) || [],
-            finalAnswer: finalAnswer.content,
-            qualityScore,
-            usageCount: 0,
-            source: 'dynamic',
-            toolsUsed: assistantMsg.tool_calls.map((tc) => tc.function?.name || 'unknown'),
-            createdAt: new Date().toISOString(),
-            sourceSessionId: session.sessionId
-          }
-
-          examples.push(example)
-        }
-      }
-    }
-
-    return examples
-  }
-
-  /**
-   * 查找之前的用户消息
-   */
-  private findPrecedingUserMessage(
-    messages: SessionMessage[],
-    startIndex: number
-  ): SessionMessage | null {
-    for (let i = startIndex - 1; i >= 0; i--) {
-      if (messages[i].role === 'user') {
-        return messages[i]
-      }
-    }
-    return null
-  }
-
-  /**
-   * 查找工具响应消息
-   */
-  private findToolResponses(
-    messages: SessionMessage[],
-    startIndex: number,
-    toolCalls: SessionMessage['tool_calls']
-  ): SessionMessage[] {
-    const responses: SessionMessage[] = []
-    const toolCallIds = new Set(toolCalls?.map((tc) => tc.id) || [])
-
-    for (
-      let i = startIndex + 1;
-      i < messages.length && responses.length < (toolCalls?.length || 0);
-      i++
-    ) {
-      const msg = messages[i]
-      if (msg.role === 'tool' && msg.tool_call_id && toolCallIds.has(msg.tool_call_id)) {
-        responses.push(msg)
-      }
-    }
-
-    return responses
-  }
-
-  /**
-   * 查找最终回答
-   */
-  private findFinalAnswer(messages: SessionMessage[], startIndex: number): SessionMessage | null {
-    for (let i = startIndex + 1; i < messages.length; i++) {
-      const msg = messages[i]
-      // 最终回答是没有工具调用的助手消息
-      if (msg.role === 'assistant' && !msg.tool_calls?.length && msg.content) {
-        return msg
-      }
-    }
-    return null
-  }
-
-  /**
-   * 计算示例质量分数
-   */
-  private calculateQualityScore(
-    userMsg: SessionMessage,
-    assistantMsg: SessionMessage,
-    toolResponses: SessionMessage[],
-    finalAnswer: SessionMessage
-  ): number {
-    let score = 0
-
-    // 1. 用户问题的清晰度 (0-0.2)
-    if (userMsg.content.length >= 10 && userMsg.content.length <= 500) {
-      score += 0.1
-    }
-    if (
-      userMsg.content.includes('?') ||
-      userMsg.content.includes('？') ||
-      userMsg.content.includes('请')
-    ) {
-      score += 0.1
-    }
-
-    // 2. 有思考过程 (0-0.2)
-    if (assistantMsg.reasoning && assistantMsg.reasoning.length > 20) {
-      score += 0.2
-    } else if (assistantMsg.reasoning && assistantMsg.reasoning.length > 0) {
-      score += 0.1
-    }
-
-    // 3. 工具调用成功率 (0-0.3)
-    const successfulCalls = toolResponses.filter((r) => {
-      const content = r.content.toLowerCase()
-      return !content.includes('error') && !content.includes('failed') && content.length > 10
-    }).length
-    const totalCalls = assistantMsg.tool_calls?.length || 0
-    if (totalCalls > 0) {
-      score += (successfulCalls / totalCalls) * 0.3
-    }
-
-    // 4. 最终回答质量 (0-0.3)
-    if (finalAnswer.content.length >= 50) {
-      score += 0.1
-    }
-    if (finalAnswer.content.length >= 100 && finalAnswer.content.length <= 2000) {
-      score += 0.1
-    }
-    // 包含结构化内容
-    if (
-      finalAnswer.content.includes('\n') &&
-      (finalAnswer.content.includes('-') || finalAnswer.content.includes('*'))
-    ) {
-      score += 0.1
-    }
-
-    return Math.min(score, 1)
   }
 
   /**

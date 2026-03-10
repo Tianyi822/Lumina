@@ -1,5 +1,5 @@
 import type { MCPToolReference } from '@main/types/chat'
-import type { ToolDescriptionLevel } from './prompts/types'
+import type { ToolDescriptionLevel } from '../prompts/types'
 
 /**
  * 工具描述增强器

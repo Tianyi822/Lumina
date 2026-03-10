@@ -3,6 +3,9 @@
 import { ChatService } from './ChatService'
 
 export { ChatService } from './ChatService'
+export * from './examples'
+export * from './message'
+export * from './tools'
 
 // 全局聊天服务实例
 export const chatService = new ChatService()

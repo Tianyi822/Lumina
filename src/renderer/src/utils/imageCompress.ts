@@ -6,7 +6,15 @@
 // ==================== 常量 ====================
 
 /** 支持的图片扩展名 */
-export const IMAGE_SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.tif']
+export const IMAGE_SUPPORTED_EXTENSIONS = [
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.bmp',
+  '.tiff',
+  '.tif'
+]
 
 /** 支持的 MIME 类型 */
 export const IMAGE_SUPPORTED_MIME_TYPES = [

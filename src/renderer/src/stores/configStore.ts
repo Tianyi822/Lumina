@@ -3,8 +3,18 @@
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { AppConfig, ThemeConfig, LLMConfig, PromptConfig, VoiceRecognitionConfig } from '@shared/types/config'
+import type {
+  AppConfig,
+  ThemeConfig,
+  LLMConfig,
+  PromptConfig,
+  VoiceRecognitionConfig
+} from '@shared/types/config'
 import { deepClone } from '@shared/utils'
+
+interface SaveConfigOptions {
+  silent?: boolean
+}
 
 export const useConfigStore = defineStore('config', () => {
   // ==================== State ====================
@@ -74,7 +84,10 @@ export const useConfigStore = defineStore('config', () => {
         }
         // 加载语音识别配置
         if (config.voiceRecognition) {
-          voiceRecognitionConfig.value = { ...voiceRecognitionConfig.value, ...config.voiceRecognition }
+          voiceRecognitionConfig.value = {
+            ...voiceRecognitionConfig.value,
+            ...config.voiceRecognition
+          }
         }
       }
     } catch (error) {
@@ -85,10 +98,12 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   // 保存配置
-  async function saveConfig(): Promise<boolean> {
+  async function saveConfig(options: SaveConfigOptions = {}): Promise<boolean> {
     saving.value = true
     errorMessage.value = ''
-    successMessage.value = ''
+    if (!options.silent) {
+      successMessage.value = ''
+    }
     try {
       const plainThemeConfig = deepClone(themeConfig.value)
       const plainLlmConfigs = deepClone(llmConfigs.value)
@@ -107,10 +122,12 @@ export const useConfigStore = defineStore('config', () => {
         voiceRecognition: plainVoiceRecognitionConfig
       })
       if (result.success) {
-        successMessage.value = '配置保存成功'
-        setTimeout(() => {
-          successMessage.value = ''
-        }, 2000)
+        if (!options.silent) {
+          successMessage.value = '配置保存成功'
+          setTimeout(() => {
+            successMessage.value = ''
+          }, 2000)
+        }
         return true
       } else {
         errorMessage.value = result.error || '保存失败'

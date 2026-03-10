@@ -7,7 +7,8 @@ import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt } from './prompts/
 import { PromptCache } from './prompts/PromptCache'
 import { PromptOptimizer } from './prompts/PromptOptimizer'
 import { promptTemplateManager } from './prompts/PromptTemplateManager'
-import { getFewShotExamplesAsync, dynamicExampleExtractor } from './prompts/toolExamples'
+import { dynamicExampleExtractor } from './examples'
+import { getFewShotExamplesAsync } from './prompts/toolExamples'
 import { logger } from '@main/services/logger'
 
 // 使用共享的 PromptConfig 类型

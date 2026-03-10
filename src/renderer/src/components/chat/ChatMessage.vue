@@ -249,6 +249,65 @@ const showStandaloneReasoning = computed(() => {
 })
 
 /**
+ * 是否显示等待首段回复的占位态
+ */
+const showWaitingPlaceholder = computed(() => {
+  return (
+    props.message.role === 'assistant' &&
+    !!props.message.isStreaming &&
+    !props.message.content &&
+    !displayedContent.value &&
+    !showStandaloneReasoning.value &&
+    !hasStructuredReact.value &&
+    !hasToolActivity.value
+  )
+})
+
+/**
+ * 是否已有工具阶段活动
+ */
+const hasToolActivity = computed(() => {
+  const iterationHasSteps =
+    props.message.reactIterations?.some((iteration) => iteration.steps.length > 0) || false
+
+  return (
+    iterationHasSteps ||
+    (props.message.reactSteps?.length || 0) > 0 ||
+    !!props.message.tool_calls?.length
+  )
+})
+
+/**
+ * 等待态标题
+ */
+const waitingPlaceholderTitle = computed(() => {
+  if (hasToolActivity.value) {
+    return '正在整理工具结果'
+  }
+
+  if (showStandaloneReasoning.value || hasStructuredReact.value) {
+    return '正在整理回复'
+  }
+
+  return '正在思考中'
+})
+
+/**
+ * 等待态说明
+ */
+const waitingPlaceholderSubtitle = computed(() => {
+  if (hasToolActivity.value) {
+    return '已拿到过程信息，正文即将开始输出'
+  }
+
+  if (showStandaloneReasoning.value || hasStructuredReact.value) {
+    return '已展开分析，正在归纳首段内容'
+  }
+
+  return '模型已收到问题，正在准备首段回复'
+})
+
+/**
  * 用户消息的估算 Token 显示
  */
 const userTokenUsageLabel = computed(() => {
@@ -384,19 +443,41 @@ function formatFileSize(bytes: number): string {
       </div>
 
       <!-- 消息气泡 -->
-      <div class="message-bubble" :class="{ streaming: message.isStreaming }">
-        <!-- 用户消息：纯文本 -->
-        <template v-if="message.role === 'user'">
-          <span class="message-text">{{ message.content }}</span>
-        </template>
+      <div
+        v-if="message.role === 'user'"
+        class="message-bubble"
+        :class="{ streaming: message.isStreaming }"
+      >
+        <span class="message-text">{{ message.content }}</span>
+      </div>
 
-        <!-- AI 消息：Markdown 渲染 -->
+      <div v-else class="message-bubble" :class="{ streaming: message.isStreaming }">
+        <div v-if="showWaitingPlaceholder" class="streaming-placeholder" aria-live="polite">
+          <div class="streaming-placeholder-head">
+            <div class="streaming-placeholder-pulse" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="streaming-placeholder-copy">
+              <span class="streaming-placeholder-title">{{ waitingPlaceholderTitle }}</span>
+              <span class="streaming-placeholder-subtitle">{{ waitingPlaceholderSubtitle }}</span>
+            </div>
+          </div>
+          <div class="streaming-placeholder-bars" aria-hidden="true">
+            <span class="streaming-placeholder-bar primary"></span>
+            <span class="streaming-placeholder-bar secondary"></span>
+          </div>
+        </div>
         <template v-else>
+          <!-- markdown-it 已禁用原生 HTML，这里仅渲染受控 Markdown -->
+          <!-- eslint-disable vue/no-v-html -->
           <div
             class="markdown-body"
             :class="{ 'streaming-content': message.isStreaming }"
             v-html="renderedMarkdown"
           ></div>
+          <!-- eslint-enable vue/no-v-html -->
         </template>
       </div>
 
@@ -676,6 +757,102 @@ function formatFileSize(bytes: number): string {
   box-shadow:
     0 0 0 2px rgba(99, 102, 241, 0.1),
     0 2px 12px rgba(99, 102, 241, 0.08);
+}
+
+.streaming-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: min(280px, 68vw);
+}
+
+.streaming-placeholder-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.streaming-placeholder-pulse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.22), transparent 55%),
+    linear-gradient(135deg, rgba(70, 170, 143, 0.22), rgba(70, 170, 143, 0.08));
+  border: 1px solid rgba(70, 170, 143, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 10px 24px rgba(70, 170, 143, 0.08);
+}
+
+.streaming-placeholder-pulse span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--theme-accent) 72%, white);
+  opacity: 0.35;
+  animation: placeholderDotPulse 1.2s ease-in-out infinite;
+}
+
+.streaming-placeholder-pulse span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.streaming-placeholder-pulse span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+.streaming-placeholder-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.streaming-placeholder-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-text);
+  line-height: 1.2;
+}
+
+.streaming-placeholder-subtitle {
+  font-size: 12px;
+  color: var(--theme-text-tertiary);
+  line-height: 1.4;
+}
+
+.streaming-placeholder-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.streaming-placeholder-bar {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(70, 170, 143, 0.12) 0%,
+    rgba(70, 170, 143, 0.26) 48%,
+    rgba(70, 170, 143, 0.12) 100%
+  );
+  background-size: 220% 100%;
+  animation: placeholderShimmer 1.8s linear infinite;
+}
+
+.streaming-placeholder-bar.primary {
+  width: min(188px, 100%);
+}
+
+.streaming-placeholder-bar.secondary {
+  width: min(132px, 72%);
+  animation-delay: 0.15s;
 }
 
 /* 用户消息文本 */
@@ -979,6 +1156,28 @@ function formatFileSize(bytes: number): string {
 .streaming-content {
   opacity: 0.98;
   transition: opacity 0.18s ease-out;
+}
+
+@keyframes placeholderDotPulse {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0) scale(0.92);
+    opacity: 0.35;
+  }
+  40% {
+    transform: translateY(-2px) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes placeholderShimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: -100% 50%;
+  }
 }
 
 /* ==================== 文档指示器样式 ==================== */

@@ -5,9 +5,11 @@
 
 import type { WebContents } from 'electron'
 import type { ChatMessage } from '@main/types/chat'
-import type { MCPService } from '../mcp'
-import type { Logger } from '../logger'
-import { sandboxToolService } from '../sandbox'
+import type { MCPService } from '../../mcp'
+import type { Logger } from '../../logger'
+import { sandboxToolService } from '../../sandbox'
+import { knowledgeToolService } from '../../knowledge'
+import type { MCPToolCallResult } from '@shared/types/mcp'
 
 /**
  * 工具调用定义
@@ -52,11 +54,18 @@ export class ToolCallScheduler {
   private mcpService: MCPService
   private logger: Logger
   private maxConcurrency: number
+  private getSelectedKnowledgeBaseIds?: (sessionId: string) => string[] | undefined
 
-  constructor(mcpService: MCPService, logger: Logger, maxConcurrency: number = 3) {
+  constructor(
+    mcpService: MCPService,
+    logger: Logger,
+    maxConcurrency: number = 3,
+    getSelectedKnowledgeBaseIds?: (sessionId: string) => string[] | undefined
+  ) {
     this.mcpService = mcpService
     this.logger = logger
     this.maxConcurrency = maxConcurrency
+    this.getSelectedKnowledgeBaseIds = getSelectedKnowledgeBaseIds
   }
 
   /**
@@ -176,28 +185,32 @@ export class ToolCallScheduler {
 
     try {
       const parsedArgs = JSON.parse(args)
+      const nameParts = toolName.split('__')
+      const serverName = nameParts.length > 1 ? nameParts[0] : 'unknown'
+      const actualToolName = nameParts.length > 1 ? nameParts[1] : toolName
 
       this.sendStreamEvent(webContents, {
         type: 'tool_call',
         sessionId,
         toolCall: {
           id: toolCall.id,
-          name: toolName,
-          serverName: this.extractServerName(toolName),
+          name: actualToolName,
+          serverName,
           arguments: parsedArgs
         }
       })
 
-      const nameParts = toolName.split('__')
-      const serverName = nameParts.length > 1 ? nameParts[0] : 'unknown'
-      const actualToolName = nameParts.length > 1 ? nameParts[1] : toolName
-
-      let result: unknown
+      let toolCallResult: MCPToolCallResult
       if (serverName === 'sandbox') {
-        const toolCallResult = await sandboxToolService.callTool(toolName, parsedArgs)
-        result = toolCallResult.success ? toolCallResult.content : toolCallResult.error
+        toolCallResult = await sandboxToolService.callTool(toolName, parsedArgs)
+      } else if (serverName === 'knowledge') {
+        toolCallResult = await knowledgeToolService.callTool(
+          toolName,
+          parsedArgs,
+          this.getSelectedKnowledgeBaseIds?.(sessionId)
+        )
       } else {
-        result = await this.mcpService.callTool(serverName, actualToolName, parsedArgs)
+        toolCallResult = await this.mcpService.callTool(serverName, actualToolName, parsedArgs)
       }
 
       this.sendStreamEvent(webContents, {
@@ -205,22 +218,27 @@ export class ToolCallScheduler {
         sessionId,
         toolResult: {
           id: toolCall.id,
-          name: toolName,
-          success: true,
-          result
+          name: actualToolName,
+          success: toolCallResult.success,
+          result: toolCallResult.content,
+          error: toolCallResult.error
         }
       })
 
+      const messageContent = toolCallResult.success
+        ? JSON.stringify(toolCallResult.content)
+        : JSON.stringify({ error: toolCallResult.error })
+
       const message: ChatMessage = {
         role: 'tool',
-        content: typeof result === 'string' ? result : JSON.stringify(result),
+        content: messageContent,
         tool_call_id: toolCall.id
       }
 
       return {
         toolCall,
         message,
-        success: true
+        success: toolCallResult.success
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -230,12 +248,15 @@ export class ToolCallScheduler {
         error: errorMessage
       })
 
+      const nameParts = toolName.split('__')
+      const actualToolName = nameParts.length > 1 ? nameParts[1] : toolName
+
       this.sendStreamEvent(webContents, {
         type: 'tool_result',
         sessionId,
         toolResult: {
           id: toolCall.id,
-          name: toolName,
+          name: actualToolName,
           success: false,
           error: errorMessage
         }

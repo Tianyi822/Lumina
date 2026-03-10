@@ -290,10 +290,13 @@ function getPhaseLabel(iteration: number): string {
 
                     <div class="reasoning-body" :class="{ expanded: isReasoningExpanded(unit) }">
                       <div class="reasoning-content">
+                        <!-- markdown-it 已禁用原生 HTML，这里仅渲染受控 Markdown -->
+                        <!-- eslint-disable vue/no-v-html -->
                         <div
                           class="reasoning-text markdown-body"
                           v-html="renderMarkdown(unit.reasoning)"
                         ></div>
+                        <!-- eslint-enable vue/no-v-html -->
                       </div>
                     </div>
                   </div>

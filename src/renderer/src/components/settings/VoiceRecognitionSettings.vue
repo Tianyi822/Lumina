@@ -33,6 +33,30 @@ const localConfig = ref<VoiceRecognitionConfig>({
 // 是否正在保存 enabled 状态（用于防止重复触发）
 const savingEnabled = ref(false)
 
+function validateVoiceConfig(config: VoiceRecognitionConfig): string {
+  const hasAccessKeyId = Boolean(config.accessKeyId?.trim())
+  const hasAccessKeySecret = Boolean(config.accessKeySecret?.trim())
+  const hasToken = Boolean(config.token?.trim())
+  const hasAppkey = Boolean(config.appkey?.trim())
+
+  if (hasAccessKeyId !== hasAccessKeySecret) {
+    return hasAccessKeyId
+      ? '如需使用 AccessKey 自动获取 Token，请同时填写 AccessKey Secret'
+      : '如需使用 AccessKey 自动获取 Token，请同时填写 AccessKey ID'
+  }
+
+  if (config.enabled) {
+    if (!hasToken) {
+      return '启用语音识别前请先填写 Token'
+    }
+    if (!hasAppkey) {
+      return '启用语音识别前请先填写 Appkey'
+    }
+  }
+
+  return ''
+}
+
 // 监听 enabled 开关变更，立即保存并更新 UI
 watch(
   () => localConfig.value.enabled,
@@ -44,15 +68,29 @@ watch(
 
     savingEnabled.value = true
     try {
-      // 立即更新 configStore
-      configStore.updateVoiceRecognitionConfig({
+      const nextConfig: VoiceRecognitionConfig = {
         ...voiceRecognitionConfig.value,
-        enabled: newValue
-      })
+        enabled: newValue,
+        accessKeyId: localConfig.value.accessKeyId?.trim(),
+        accessKeySecret: localConfig.value.accessKeySecret?.trim(),
+        token: localConfig.value.token?.trim(),
+        appkey: localConfig.value.appkey?.trim()
+      }
+      const validationMessage = validateVoiceConfig(nextConfig)
+      if (validationMessage) {
+        localConfig.value.enabled = oldValue
+        showError(validationMessage)
+        return
+      }
+
+      // 立即更新 configStore
+      configStore.updateVoiceRecognitionConfig(nextConfig)
       // 保存到配置文件
       const success = await configStore.saveConfig()
       if (success) {
-        window.api.logger.info('[VoiceRecognitionSettings] 语音识别开关已更新', { enabled: newValue })
+        window.api.logger.info('[VoiceRecognitionSettings] 语音识别开关已更新', {
+          enabled: newValue
+        })
       } else {
         // 保存失败，回滚本地状态
         localConfig.value.enabled = oldValue
@@ -107,16 +145,23 @@ function buildPlainConfig(): VoiceRecognitionConfig {
   return {
     provider: localConfig.value.provider,
     enabled: localConfig.value.enabled,
-    accessKeyId: localConfig.value.accessKeyId,
-    accessKeySecret: localConfig.value.accessKeySecret,
-    token: localConfig.value.token,
-    appkey: localConfig.value.appkey
+    accessKeyId: localConfig.value.accessKeyId?.trim(),
+    accessKeySecret: localConfig.value.accessKeySecret?.trim(),
+    token: localConfig.value.token?.trim(),
+    appkey: localConfig.value.appkey?.trim()
   }
 }
 
 // 保存配置
 async function handleSave(): Promise<void> {
-  configStore.updateVoiceRecognitionConfig(buildPlainConfig())
+  const plainConfig = buildPlainConfig()
+  const validationMessage = validateVoiceConfig(plainConfig)
+  if (validationMessage) {
+    showError(validationMessage)
+    return
+  }
+
+  configStore.updateVoiceRecognitionConfig(plainConfig)
   const success = await configStore.saveConfig()
   if (success) {
     showSuccess('语音识别配置已保存')
@@ -203,10 +248,10 @@ onMounted(() => {
       <label class="form-label">启用语音识别</label>
       <div class="toggle-wrapper">
         <input
+          id="voice-enabled"
           v-model="localConfig.enabled"
           type="checkbox"
           class="toggle-input"
-          id="voice-enabled"
         />
         <label for="voice-enabled" class="toggle-label"></label>
       </div>
@@ -285,13 +330,7 @@ onMounted(() => {
 
     <!-- 操作按钮 -->
     <div class="form-actions">
-      <button
-        class="btn btn-secondary"
-        :disabled="!hasChanges"
-        @click="handleReset"
-      >
-        重置
-      </button>
+      <button class="btn btn-secondary" :disabled="!hasChanges" @click="handleReset">重置</button>
       <button
         class="btn btn-secondary"
         :disabled="testing || !localConfig.token || !localConfig.appkey"
@@ -299,13 +338,7 @@ onMounted(() => {
       >
         {{ testing ? '测试中...' : '测试连接' }}
       </button>
-      <button
-        class="btn btn-primary"
-        :disabled="!hasChanges"
-        @click="handleSave"
-      >
-        保存配置
-      </button>
+      <button class="btn btn-primary" :disabled="!hasChanges" @click="handleSave">保存配置</button>
     </div>
   </div>
 </template>
@@ -504,12 +537,11 @@ onMounted(() => {
   min-height: 44px;
   justify-content: center;
   border: 1px solid color-mix(in srgb, var(--theme-accent) 42%, white 58%);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--theme-accent) 14%, white 86%) 0%,
-      color-mix(in srgb, var(--theme-accent) 8%, white 92%) 100%
-    );
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-accent) 14%, white 86%) 0%,
+    color-mix(in srgb, var(--theme-accent) 8%, white 92%) 100%
+  );
   color: color-mix(in srgb, var(--theme-accent) 72%, black 28%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
@@ -520,12 +552,11 @@ onMounted(() => {
 
 .fetch-token-btn:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--theme-accent) 65%, white 35%);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--theme-accent) 20%, white 80%) 0%,
-      color-mix(in srgb, var(--theme-accent) 12%, white 88%) 100%
-    );
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-accent) 20%, white 80%) 0%,
+    color-mix(in srgb, var(--theme-accent) 12%, white 88%) 100%
+  );
   color: color-mix(in srgb, var(--theme-accent) 82%, black 18%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.65),
@@ -540,8 +571,7 @@ onMounted(() => {
 
 .fetch-token-btn:disabled {
   border-color: rgba(148, 163, 184, 0.32);
-  background:
-    linear-gradient(135deg, rgba(241, 245, 249, 0.88) 0%, rgba(248, 250, 252, 0.82) 100%);
+  background: linear-gradient(135deg, rgba(241, 245, 249, 0.88) 0%, rgba(248, 250, 252, 0.82) 100%);
   color: rgba(100, 116, 139, 0.72);
   box-shadow: none;
 }
