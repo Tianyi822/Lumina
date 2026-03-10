@@ -366,6 +366,8 @@ const mediaStream = ref<MediaStream | null>(null)
 const audioContext = ref<AudioContext | null>(null)
 const workletNode = ref<AudioWorkletNode | null>(null)
 const voiceUnsubscribe = ref<(() => void) | null>(null)
+const voiceInfoMessage = ref('')
+let voiceInfoTimer: number | null = null
 
 /**
  * 切换语音录制状态
@@ -376,6 +378,22 @@ function toggleVoiceRecording(): void {
   } else {
     startVoiceRecording()
   }
+}
+
+/**
+ * 显示语音鉴权提示
+ */
+function showVoiceInfo(message: string): void {
+  voiceInfoMessage.value = message
+
+  if (voiceInfoTimer !== null) {
+    window.clearTimeout(voiceInfoTimer)
+  }
+
+  voiceInfoTimer = window.setTimeout(() => {
+    voiceInfoMessage.value = ''
+    voiceInfoTimer = null
+  }, 4000)
 }
 
 /**
@@ -415,6 +433,21 @@ async function startVoiceRecording(): Promise<void> {
 
     // 5. 启动主进程的语音识别服务
     const startResult = await window.api.voiceRecognition.start()
+
+    if (startResult.refreshedToken) {
+      configStore.updateVoiceRecognitionConfig({
+        ...voiceRecognitionConfig.value,
+        token: startResult.refreshedToken
+      })
+    }
+
+    if (startResult.info) {
+      showVoiceInfo(startResult.info)
+      window.api.logger.info('[MessageInput] 语音识别鉴权已自动刷新', {
+        message: startResult.info
+      })
+    }
+
     if (!startResult.success) {
       throw new Error(startResult.error || '启动语音识别失败')
     }
@@ -672,6 +705,12 @@ onMounted(() => {
 onUnmounted(async () => {
   // 移除全局点击事件监听器
   document.removeEventListener('click', handleClickOutside)
+
+  if (voiceInfoTimer !== null) {
+    window.clearTimeout(voiceInfoTimer)
+    voiceInfoTimer = null
+  }
+
   // 清理语音录制资源
   await cleanupAudio()
 })
@@ -809,6 +848,12 @@ onUnmounted(async () => {
         </div>
       </div>
     </div>
+
+    <div v-if="voiceInfoMessage" class="voice-info-banner">
+      <span class="voice-info-label">INFO</span>
+      <span>{{ voiceInfoMessage }}</span>
+    </div>
+
     <div class="input-actions">
       <!-- 模型选择器 -->
       <div ref="modelSelectorRef" class="model-selector">
@@ -1002,6 +1047,33 @@ onUnmounted(async () => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.voice-info-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: var(--theme-radius-sm, 6px);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(14, 165, 233, 0.05) 100%);
+  color: var(--theme-text);
+  font-size: 12px;
+}
+
+.voice-info-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.18);
+  color: #0369a1;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .model-selector {

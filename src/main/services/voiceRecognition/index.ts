@@ -40,6 +40,23 @@ export class VoiceRecognitionService {
   private currentWindow: BrowserWindow | null = null
 
   /**
+   * 重置运行时状态
+   */
+  private resetRuntimeState(shouldShutdown = false): void {
+    if (shouldShutdown && this.recognizer) {
+      try {
+        this.recognizer.shutdown()
+      } catch {
+        // 忽略关闭错误
+      }
+    }
+
+    this.isRecognizing = false
+    this.recognizer = null
+    this.currentWindow = null
+  }
+
+  /**
    * 设置配置
    */
   setConfig(config: VoiceRecognitionConfig): void {
@@ -144,14 +161,14 @@ export class VoiceRecognitionService {
 
       this.recognizer.on('closed', () => {
         logger.info('实时语音识别连接关闭')
-        this.isRecognizing = false
         this.sendResultToWindow('stopped', { message: '识别已停止' })
+        this.resetRuntimeState()
       })
 
       this.recognizer.on('failed', (msg: string) => {
         logger.error('实时语音识别失败', 'main', { msg })
-        this.isRecognizing = false
         this.sendResultToWindow('error', { error: msg })
+        this.resetRuntimeState(true)
       })
 
       // 启动识别
@@ -168,7 +185,7 @@ export class VoiceRecognitionService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('启动实时语音识别失败', 'main', { error: errorMessage })
-      this.isRecognizing = false
+      this.resetRuntimeState(true)
       return { success: false, error: errorMessage }
     }
   }
@@ -196,9 +213,7 @@ export class VoiceRecognitionService {
         }
       }
     } finally {
-      this.isRecognizing = false
-      this.recognizer = null
-      this.currentWindow = null
+      this.resetRuntimeState()
     }
   }
 

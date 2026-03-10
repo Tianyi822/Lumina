@@ -20,6 +20,16 @@ export interface TokenFetchResult {
 }
 
 /**
+ * 语音识别启动结果
+ */
+export interface VoiceRecognitionStartResult {
+  success: boolean
+  error?: string
+  info?: string
+  refreshedToken?: string
+}
+
+/**
  * 语音识别结果事件
  */
 export interface VoiceRecognitionResultEvent {
@@ -52,7 +62,7 @@ export const voiceRecognitionApi = {
   /**
    * 开始实时语音识别
    */
-  start: (): Promise<{ success: boolean; error?: string }> => {
+  start: (): Promise<VoiceRecognitionStartResult> => {
     return ipcRenderer.invoke('voiceRecognition:start')
   },
 
