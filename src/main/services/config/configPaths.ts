@@ -7,6 +7,11 @@ import { join } from 'path'
 export const CONFIG_DIR_NAME = '.sparrow-manus'
 
 /**
+ * 知识库存储目录名称
+ */
+export const KNOWLEDGE_DIR_NAME = 'knowledge'
+
+/**
  * 配置文件名称
  */
 export const CONFIG_FILE_NAME = 'config.json'
@@ -39,10 +44,17 @@ export function getConfigFilePath(): string {
 }
 
 /**
- * 获取数据存储目录路径
+ * 获取知识库存储目录路径
+ */
+export function getKnowledgeDirPath(): string {
+  return join(getConfigDirPath(), KNOWLEDGE_DIR_NAME)
+}
+
+/**
+ * 获取知识库数据存储目录路径
  */
 export function getDataDirPath(): string {
-  return join(getConfigDirPath(), DATA_DIR_NAME)
+  return join(getKnowledgeDirPath(), DATA_DIR_NAME)
 }
 
 /**
