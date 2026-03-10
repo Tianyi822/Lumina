@@ -384,23 +384,23 @@ function formatFileSize(bytes: number): string {
       </div>
 
       <!-- 消息气泡 -->
-      <div class="message-bubble" :class="{ streaming: message.isStreaming }">
-        <!-- 用户消息：纯文本 -->
-        <template v-if="message.role === 'user'">
-          <span class="message-text">{{ message.content }}</span>
-        </template>
+      <div
+        v-if="message.role === 'user'"
+        class="message-bubble"
+        :class="{ streaming: message.isStreaming }"
+      >
+        <span class="message-text">{{ message.content }}</span>
+      </div>
 
-        <!-- AI 消息：Markdown 渲染 -->
-        <template v-else>
-          <!-- markdown-it 已禁用原生 HTML，这里仅渲染受控 Markdown -->
-          <!-- eslint-disable vue/no-v-html -->
-          <div
-            class="markdown-body"
-            :class="{ 'streaming-content': message.isStreaming }"
-            v-html="renderedMarkdown"
-          ></div>
-          <!-- eslint-enable vue/no-v-html -->
-        </template>
+      <div v-else class="message-bubble" :class="{ streaming: message.isStreaming }">
+        <!-- markdown-it 已禁用原生 HTML，这里仅渲染受控 Markdown -->
+        <!-- eslint-disable vue/no-v-html -->
+        <div
+          class="markdown-body"
+          :class="{ 'streaming-content': message.isStreaming }"
+          v-html="renderedMarkdown"
+        ></div>
+        <!-- eslint-enable vue/no-v-html -->
       </div>
 
       <!-- 消息元信息行：Token统计、反馈按钮 -->

@@ -12,6 +12,8 @@ import type {
   AttachedDocument,
   AttachedImage
 } from '@renderer/types'
+import type { MessageOptionContext } from '@renderer/utils/optionParser'
+import { parseMessageOptions } from '@renderer/utils/optionParser'
 
 const props = defineProps<{
   currentChatId?: string
@@ -58,6 +60,9 @@ const emit = defineEmits<{
 
 // 展开的思考内容消息ID集合
 const expandedReasoningIds = ref<Set<string>>(new Set())
+
+// 已关闭的快捷回复消息 ID
+const dismissedQuickReplyIds = ref<Set<string>>(new Set())
 
 // 消息区域引用
 const messagesAreaRef = ref<HTMLElement | null>(null)
@@ -189,10 +194,70 @@ watch(
   () => props.currentChatId,
   () => {
     userScrolling.value = false
+    dismissedQuickReplyIds.value = new Set()
     scheduleScrollToBottom(false)
   },
   { flush: 'post' }
 )
+
+watch(
+  () => (props.messages ?? []).map((message) => message.id),
+  (messageIds) => {
+    const validMessageIds = new Set(messageIds)
+    const nextSelectedIds = new Set(
+      [...dismissedQuickReplyIds.value].filter((messageId) => validMessageIds.has(messageId))
+    )
+
+    if (nextSelectedIds.size !== dismissedQuickReplyIds.value.size) {
+      dismissedQuickReplyIds.value = nextSelectedIds
+    }
+  },
+  { flush: 'post' }
+)
+
+/**
+ * 当前可交互的快捷回复
+ * 仅针对最新一条、且之后没有用户继续输入的 assistant 消息
+ */
+const activeQuickReply = computed<MessageOptionContext | null>(() => {
+  const messages = props.messages ?? []
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+
+    if (message.role === 'user') {
+      return null
+    }
+
+    if (message.role !== 'assistant' || message.isStreaming) {
+      continue
+    }
+
+    if (dismissedQuickReplyIds.value.has(message.id)) {
+      return null
+    }
+
+    const parsedFromContent = parseMessageOptions(message.content)
+    if (parsedFromContent.hasOptions) {
+      return {
+        messageId: message.id,
+        ...parsedFromContent
+      }
+    }
+
+    const parsedFromReasoning = parseMessageOptions(message.reasoning || '')
+    if (parsedFromReasoning.hasOptions) {
+      return {
+        messageId: message.id,
+        ...parsedFromReasoning
+      }
+    }
+
+    return null
+  }
+
+  return null
+})
 
 onMounted(() => {
   // 初始滚动到底部
@@ -263,6 +328,10 @@ function handleUpdateEnableSandboxTools(value: boolean): void {
 
 function handleRequestExport(message: Message): void {
   emit('request-export', message)
+}
+
+function handleQuickReplySelected(messageId: string): void {
+  dismissedQuickReplyIds.value = new Set(dismissedQuickReplyIds.value).add(messageId)
 }
 
 function handleSelectExportFormat(format: ExportFormat): void {
@@ -353,8 +422,10 @@ function hasRenderableReact(message: Message): boolean {
       :selected-knowledge-bases="props.selectedKnowledgeBases"
       :enable-sandbox-tools="props.enableSandboxTools"
       :export-interaction-info="props.exportInteractionInfo"
+      :quick-reply-info="activeQuickReply"
       @send="handleSendMessage"
       @stop="handleStopRequest"
+      @quick-reply-selected="handleQuickReplySelected"
       @update:input-message="handleUpdateInputMessage"
       @update:selected-model="handleUpdateSelectedModel"
       @update:selected-m-c-p-tools="handleUpdateSelectedTools"
