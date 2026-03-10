@@ -1,13 +1,13 @@
 // 示例提取器，从历史会话中提取高质量的 Few-shot 示例
-
-import { randomUUID } from 'crypto'
 import type { SessionMessage } from '@shared/types/session'
 import type { SessionData } from '@shared/types/session'
-import type { EnhancedFewShotExample, ExampleExtractionResult } from './prompts/types'
-import { logger } from '../logger'
+import type { EnhancedFewShotExample, ExampleExtractionResult } from '../prompts/types'
+import { logger } from '../../logger'
 
 // ReAct 模式提取结果
 interface ReActPattern {
+  // 模式起始消息索引
+  startIndex: number
   // 用户查询
   userQuery: string
   // 思考过程
@@ -144,6 +144,7 @@ export class ExampleExtractor {
     if (startIndex >= messages.length) return null
 
     const pattern: ReActPattern = {
+      startIndex,
       userQuery: '',
       thoughts: [],
       toolCalls: [],
@@ -294,11 +295,10 @@ export class ExampleExtractor {
     pattern: ReActPattern,
     sessionId: string
   ): EnhancedFewShotExample {
-    const id = randomUUID()
     const now = new Date().toISOString()
 
     return {
-      id,
+      id: `${sessionId}-${pattern.startIndex}`,
       userQuery: pattern.userQuery,
       thought: pattern.thoughts.join('\n\n'),
       toolCalls: pattern.toolCalls.map((tc) => ({

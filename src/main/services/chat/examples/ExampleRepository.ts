@@ -3,9 +3,9 @@
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import { join } from 'path'
-import type { EnhancedFewShotExample } from './prompts/types'
-import { logger } from '../logger'
-import { getConfigDirPath } from '../config/configPaths'
+import type { EnhancedFewShotExample } from '../prompts/types'
+import { logger } from '../../logger'
+import { getConfigDirPath } from '../../config/configPaths'
 
 // 示例仓库数据结构
 interface ExampleRepositoryData {

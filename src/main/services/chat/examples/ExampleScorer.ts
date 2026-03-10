@@ -1,6 +1,6 @@
 // 示例质量评分器，基于多个维度评估 Few-shot 示例的质量
 
-import type { EnhancedFewShotExample } from './prompts/types'
+import type { EnhancedFewShotExample } from '../prompts/types'
 
 // 评分权重配置
 interface ScoringWeights {

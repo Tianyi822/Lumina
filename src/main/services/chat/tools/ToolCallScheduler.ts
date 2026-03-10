@@ -5,10 +5,10 @@
 
 import type { WebContents } from 'electron'
 import type { ChatMessage } from '@main/types/chat'
-import type { MCPService } from '../mcp'
-import type { Logger } from '../logger'
-import { sandboxToolService } from '../sandbox'
-import { knowledgeToolService } from '../knowledge'
+import type { MCPService } from '../../mcp'
+import type { Logger } from '../../logger'
+import { sandboxToolService } from '../../sandbox'
+import { knowledgeToolService } from '../../knowledge'
 import type { MCPToolCallResult } from '@shared/types/mcp'
 
 /**

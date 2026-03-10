@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import type { AttachedDocument } from '@shared/types/chat'
-import type { ChatMessage, KnowledgeSearchResult } from '../../types/chat'
+import type { ChatMessage, KnowledgeSearchResult } from '../../../types/chat'
 
 /**
  * 构建知识库上下文文本

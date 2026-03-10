@@ -15,15 +15,14 @@ import type {
 import type { KnowledgeBaseReference } from '@shared/types/knowledge'
 import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
-import { formatMessagesWithKnowledge } from './MessageFormatter'
-import { ModelRetryHandler } from './ModelRetryHandler'
 import {
   createThinkParserState,
   flushThinkParserState,
+  formatMessagesWithKnowledge,
   splitThinkTaggedContent
-} from './ThinkParser'
-import { ToolCallScheduler } from './ToolCallScheduler'
-import { ToolExecutor } from './ToolExecutor'
+} from './message'
+import { ModelRetryHandler } from './ModelRetryHandler'
+import { ToolCallScheduler, ToolExecutor } from './tools'
 import { knowledgeToolService } from '../knowledge'
 
 /**

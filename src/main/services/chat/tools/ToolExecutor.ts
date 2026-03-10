@@ -1,13 +1,13 @@
 import OpenAI from 'openai'
 import type { WebContents } from 'electron'
-import { configManager } from '../config'
-import type { Logger } from '../logger'
-import type { MCPService } from '../mcp'
-import { sandboxToolService } from '../sandbox'
-import { knowledgeToolService } from '../knowledge'
-import type { MCPToolReference, StreamEvent } from '../../types/chat'
-import { enhanceToolDescriptions } from './toolDescriptionEnhancer'
-import { ToolCallScheduler } from './ToolCallScheduler'
+import { configManager } from '../../config'
+import type { Logger } from '../../logger'
+import type { MCPService } from '../../mcp'
+import { sandboxToolService } from '../../sandbox'
+import { knowledgeToolService } from '../../knowledge'
+import type { MCPToolReference, StreamEvent } from '../../../types/chat'
+import { enhanceToolDescriptions } from './ToolDescriptionEnhancer'
+import type { ToolCallScheduler } from './ToolCallScheduler'
 
 export interface ToolCallDefinition {
   id: string
