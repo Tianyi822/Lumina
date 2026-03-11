@@ -29,6 +29,9 @@ const { loadConfigs, saveConfig, deleteConfig, getStatus, connect, disconnect, t
 // UI 状态
 const showNewMCPForm = ref(false)
 const testResult = ref<{ type: 'success' | 'error'; message: string } | null>(null)
+const showImportPanel = ref(false)
+const importJsonContent = ref('')
+const isImporting = ref(false)
 
 // 显示消息
 function showError(message: string): void {
@@ -158,33 +161,43 @@ async function handleTestNew(config: MCPServerConfig): Promise<void> {
   await handleTest(config)
 }
 
+// 切换导入面板显示状态
+function toggleImportPanel(): void {
+  showImportPanel.value = !showImportPanel.value
+  if (!showImportPanel.value) {
+    importJsonContent.value = ''
+  }
+}
+
 // 导入 MCP 配置
 async function importMCPConfigs(): Promise<void> {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = '.json'
-  input.onchange = async (e: Event) => {
-    const file = (e.target as HTMLInputElement).files?.[0]
-    if (!file) return
-
-    try {
-      const content = await file.text()
-      const result = await window.api.mcp.importConfigs(content)
-      if (result.success) {
-        showSuccess(`成功导入 ${result.imported} 个配置`)
-        if (result.errors.length > 0) {
-          console.warn('导入过程中的错误:', result.errors)
-        }
-        await loadConfigs()
-        emit('mcp-updated')
-      } else {
-        showError(`导入失败: ${result.errors.join(', ')}`)
-      }
-    } catch (error) {
-      showError(`导入失败: ${error instanceof Error ? error.message : String(error)}`)
-    }
+  const jsonContent = importJsonContent.value.trim()
+  if (!jsonContent) {
+    showError('请输入 MCP 配置 JSON')
+    return
   }
-  input.click()
+
+  isImporting.value = true
+
+  try {
+    const result = await window.api.mcp.importConfigs(jsonContent)
+    if (result.success) {
+      showSuccess(`成功导入 ${result.imported} 个配置`)
+      if (result.errors.length > 0) {
+        console.warn('导入过程中的错误:', result.errors)
+      }
+      importJsonContent.value = ''
+      showImportPanel.value = false
+      await loadConfigs()
+      emit('mcp-updated')
+    } else {
+      showError(`导入失败: ${result.errors.join(', ')}`)
+    }
+  } catch (error) {
+    showError(`导入失败: ${error instanceof Error ? error.message : String(error)}`)
+  } finally {
+    isImporting.value = false
+  }
 }
 
 // 组件挂载时加载配置并设置状态监听
@@ -203,7 +216,27 @@ onUnmounted(() => {
   <div class="tab-content">
     <!-- 操作按钮 -->
     <div class="mcp-actions-bar">
-      <button class="btn btn-small" @click="importMCPConfigs">导入配置</button>
+      <button class="btn btn-small" @click="toggleImportPanel">
+        {{ showImportPanel ? '收起导入' : '导入配置' }}
+      </button>
+    </div>
+
+    <div v-if="showImportPanel" class="import-panel">
+      <label class="import-label" for="mcp-import-json">粘贴 MCP 配置 JSON</label>
+      <textarea
+        id="mcp-import-json"
+        v-model="importJsonContent"
+        class="input import-textarea"
+        placeholder='例如：{"mcpServers":{"server-name":{"command":"npx","args":["-y","some-mcp"]}}}'
+      />
+      <div class="import-actions">
+        <button class="btn btn-small" :disabled="isImporting" @click="importMCPConfigs">
+          {{ isImporting ? '导入中...' : '确认导入' }}
+        </button>
+        <button class="btn btn-small btn-secondary" :disabled="isImporting" @click="toggleImportPanel">
+          取消
+        </button>
+      </div>
     </div>
 
     <!-- MCP 服务器列表 -->
@@ -252,6 +285,37 @@ onUnmounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-bottom: 1rem;
+}
+
+.import-panel {
+  margin-bottom: 1rem;
+  padding: 12px;
+  border: 1px solid var(--theme-border, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  background: var(--glass-white-03, rgba(255, 255, 255, 0.03));
+}
+
+.import-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--theme-text);
+}
+
+.import-textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  font-family: var(--theme-font-mono, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.import-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .model-list {
