@@ -1,5 +1,6 @@
 import type PptxGenJS from 'pptxgenjs'
 import type { PresentationTemplateDefinition, ResolvedTheme } from '../types/presentation'
+import type { PresentationSlideStyle, SlideLayout } from '@shared/types/presentation'
 import { TemplateBase } from './TemplateBase'
 
 /**
@@ -47,5 +48,24 @@ export class MinimalTemplate extends TemplateBase {
         pt: 1
       }
     })
+  }
+
+  override getSlideStyle(layout: SlideLayout, theme: ResolvedTheme): PresentationSlideStyle {
+    const style = super.getSlideStyle(layout, theme)
+
+    return {
+      ...style,
+      decorativeShapes: [
+        {
+          shape: 'line',
+          x: this.scaleWidth(0.85),
+          y: this.scaleHeight(1.18),
+          w: this.scaleWidth(11.45),
+          h: 0,
+          lineColor: theme.secondaryColor,
+          lineWidth: 1
+        }
+      ]
+    }
   }
 }

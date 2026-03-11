@@ -13,6 +13,7 @@ import type {
 interface ExtractedTemplateStyle {
   theme: PresentationThemeConfig
   previewColors: string[]
+  previewImageDataUrl?: string
   pageSize?: PresentationPageSize
   layoutSpec?: PresentationTemplateLayoutSpec
 }
@@ -51,7 +52,9 @@ interface ParsedTemplateCandidate {
 
 interface ZipReader {
   files: Record<string, unknown>
-  file: (path: string) => { async: (type: 'string') => Promise<string> } | null
+  file: (
+    path: string
+  ) => { async: (type: 'string' | 'uint8array') => Promise<string | Uint8Array> } | null
 }
 
 const DEFAULT_PAGE_SIZE: PresentationPageSize = {
@@ -102,6 +105,7 @@ export class PresentationTemplateExtractor {
     const palette = this.extractThemePalette(themeXml)
     const theme = this.buildTheme(palette, themeXml)
     const layoutSpec = await this.extractLayoutSpec(zip, palette, pageSize)
+    const previewImageDataUrl = await this.extractPreviewImageDataUrl(zip)
 
     return {
       theme,
@@ -110,6 +114,7 @@ export class PresentationTemplateExtractor {
         theme.accentColor || theme.secondaryColor || 'E5E7EB',
         theme.backgroundColor || 'FFFFFF'
       ].map((color) => color.replace(/^#/, '').toUpperCase()),
+      previewImageDataUrl,
       pageSize,
       layoutSpec
     }
@@ -182,8 +187,12 @@ export class PresentationTemplateExtractor {
       .map((xml) => this.parseTemplateCandidate(xml, palette, effectivePageSize, 'master'))
       .find(Boolean)
     const candidates = [
-      ...layoutXmls.map((xml) => this.parseTemplateCandidate(xml, palette, effectivePageSize, 'layout')),
-      ...slideXmls.map((xml) => this.parseTemplateCandidate(xml, palette, effectivePageSize, 'slide'))
+      ...layoutXmls.map((xml) =>
+        this.parseTemplateCandidate(xml, palette, effectivePageSize, 'layout')
+      ),
+      ...slideXmls.map((xml) =>
+        this.parseTemplateCandidate(xml, palette, effectivePageSize, 'slide')
+      )
     ]
 
     const layoutSpec: PresentationTemplateLayoutSpec = {
@@ -369,7 +378,11 @@ export class PresentationTemplateExtractor {
   ): PresentationLayoutRegions | undefined {
     const contentRegions = this.normalizeContentRegions(candidate.bodyPlaceholders, layout)
 
-    if (!candidate.title?.position && !candidate.subtitle?.position && contentRegions.length === 0) {
+    if (
+      !candidate.title?.position &&
+      !candidate.subtitle?.position &&
+      contentRegions.length === 0
+    ) {
       return undefined
     }
 
@@ -699,10 +712,7 @@ export class PresentationTemplateExtractor {
   /**
    * 提取背景色
    */
-  private extractBackgroundColor(
-    xml: string,
-    palette: ThemeColorPalette
-  ): string | undefined {
+  private extractBackgroundColor(xml: string, palette: ThemeColorPalette): string | undefined {
     const backgroundBlock =
       this.extractElementBlock(xml, 'p:bgPr') || this.extractElementBlock(xml, 'p:bg')
 
@@ -833,6 +843,27 @@ export class PresentationTemplateExtractor {
   }
 
   /**
+   * 提取文档自带缩略图
+   */
+  private async extractPreviewImageDataUrl(zip: ZipReader): Promise<string | undefined> {
+    const previewEntries = Object.keys(zip.files)
+      .filter((path) => /^docProps\/thumbnail\.(png|jpe?g)$/i.test(path))
+      .sort()
+
+    for (const entry of previewEntries) {
+      const binary = await this.readBinary(zip, entry)
+      if (!binary || binary.length === 0) {
+        continue
+      }
+
+      const mimeType = /\.png$/i.test(entry) ? 'image/png' : 'image/jpeg'
+      return `data:${mimeType};base64,${Buffer.from(binary).toString('base64')}`
+    }
+
+    return undefined
+  }
+
+  /**
    * 读取指定文本文件
    */
   private async readText(zip: ZipReader, path: string): Promise<string | undefined> {
@@ -841,7 +872,21 @@ export class PresentationTemplateExtractor {
       return undefined
     }
 
-    return file.async('string')
+    const content = await file.async('string')
+    return typeof content === 'string' ? content : undefined
+  }
+
+  /**
+   * 读取指定二进制文件
+   */
+  private async readBinary(zip: ZipReader, path: string): Promise<Uint8Array | undefined> {
+    const file = zip.file(path)
+    if (!file) {
+      return undefined
+    }
+
+    const content = await file.async('uint8array')
+    return content instanceof Uint8Array ? content : undefined
   }
 
   /**
@@ -896,10 +941,7 @@ export class PresentationTemplateExtractor {
    */
   private extractElementBlock(xml: string, tagName: string): string | undefined {
     const escapedTag = this.escapeForRegex(tagName)
-    const regex = new RegExp(
-      `<${escapedTag}\\b[^>]*(?:/>|>[\\s\\S]*?</${escapedTag}>)`,
-      'i'
-    )
+    const regex = new RegExp(`<${escapedTag}\\b[^>]*(?:/>|>[\\s\\S]*?</${escapedTag}>)`, 'i')
 
     return xml.match(regex)?.[0]
   }

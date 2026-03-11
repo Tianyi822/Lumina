@@ -144,6 +144,7 @@ export class PresentationTemplateStore {
       theme: extractedStyle.theme,
       layoutSpec: extractedStyle.layoutSpec,
       previewColors: extractedStyle.previewColors,
+      previewImageDataUrl: extractedStyle.previewImageDataUrl,
       pageSize: extractedStyle.pageSize,
       createdAt
     }
@@ -174,6 +175,7 @@ export class PresentationTemplateStore {
       userTemplateId: template.id,
       baseTemplate: template.baseTemplate,
       previewColors: template.previewColors,
+      previewImageDataUrl: template.previewImageDataUrl,
       theme: template.theme,
       pageSize: template.pageSize,
       originalFileName: template.originalFileName

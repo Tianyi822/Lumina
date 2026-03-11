@@ -34,6 +34,7 @@ export class ImportedTemplate extends TemplateBase {
       userTemplateId: template.id,
       baseTemplate: template.baseTemplate,
       previewColors: template.previewColors,
+      previewImageDataUrl: template.previewImageDataUrl,
       theme: defaultTheme,
       pageSize: template.pageSize,
       originalFileName: template.originalFileName,
@@ -142,6 +143,13 @@ export class ImportedTemplate extends TemplateBase {
     }
 
     return (this.template.layoutSpec?.regions?.[layout]?.content.length || 0) < 2
+  }
+
+  /**
+   * 判断当前布局是否使用了导入模板提取结果
+   */
+  override usesExtractedLayout(layout: SlideLayout): boolean {
+    return this.hasExtractedLayout(layout)
   }
 
   /**
@@ -271,11 +279,7 @@ export class ImportedTemplate extends TemplateBase {
               w: 0,
               h: 0
             },
-            style: this.resolveImportedTextStyle(
-              extractedStyle.pageNumber.style,
-              theme,
-              'body'
-            )
+            style: this.resolveImportedTextStyle(extractedStyle.pageNumber.style, theme, 'body')
           }
         : undefined,
       decorativeShapes: extractedStyle.decorativeShapes?.map((shape) =>
@@ -337,7 +341,10 @@ export class ImportedTemplate extends TemplateBase {
   /**
    * 解析导入颜色
    */
-  private resolveImportedColor(color: string | undefined, theme: ResolvedTheme): string | undefined {
+  private resolveImportedColor(
+    color: string | undefined,
+    theme: ResolvedTheme
+  ): string | undefined {
     const normalizedColor = this.normalizeOptionalColor(color)
     if (!normalizedColor) {
       return undefined
@@ -412,7 +419,10 @@ export class ImportedTemplate extends TemplateBase {
       h: shape.h,
       rectRadius: shape.shape === 'roundRect' ? 0.08 : undefined,
       line:
-        shape.shape === 'line' || shape.lineColor || shape.lineWidth || shape.lineTransparency !== undefined
+        shape.shape === 'line' ||
+        shape.lineColor ||
+        shape.lineWidth ||
+        shape.lineTransparency !== undefined
           ? {
               color: this.normalizeColor(shape.lineColor, theme.primaryColor),
               pt: shape.lineWidth || (shape.shape === 'line' ? 1.2 : 1),

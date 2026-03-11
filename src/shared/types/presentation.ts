@@ -403,6 +403,7 @@ export interface TemplateInfo {
   baseTemplate?: BuiltinPresentationTemplate
   recommendedFor?: string[]
   previewColors?: string[]
+  previewImageDataUrl?: string
   theme?: PresentationThemeConfig
   pageSize?: PresentationPageSize
   originalFileName?: string
@@ -420,6 +421,7 @@ export interface UserPresentationTemplate {
   theme: PresentationThemeConfig
   layoutSpec?: PresentationTemplateLayoutSpec
   previewColors?: string[]
+  previewImageDataUrl?: string
   pageSize?: PresentationPageSize
   createdAt: string
 }

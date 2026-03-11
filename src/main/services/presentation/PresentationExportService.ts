@@ -12,9 +12,12 @@ import type {
   ImportPresentationTemplateResult,
   ListItem,
   PresentationConfig,
+  PresentationDecorativeShape,
   PresentationPreviewResult,
+  PresentationSlideStyle,
   PresentationThemeConfig,
   PresentationTemplate,
+  PositionOptions,
   SlideConfig,
   SlideContent,
   TemplateInfo,
@@ -28,6 +31,7 @@ import { ImportedTemplate } from './templates/ImportedTemplate'
 import { LessonPlanTemplate } from './templates/LessonPlanTemplate'
 import { MinimalTemplate } from './templates/MinimalTemplate'
 import { TemplateBase } from './templates/TemplateBase'
+import type { ResolvedTheme } from './types/presentation'
 
 type MarkdownBlock =
   | {
@@ -57,6 +61,18 @@ type MarkdownBlock =
   | {
       type: 'separator'
     }
+
+interface PreviewCanvasSize {
+  width: number
+  height: number
+}
+
+interface PreviewRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
 
 /**
  * PPT 导出服务
@@ -352,9 +368,9 @@ export class PresentationExportService {
   async preview(config: PresentationConfig): Promise<PresentationPreviewResult> {
     try {
       const template = this.getTemplate(config.template, config.customTemplateId)
-      const style = template.getPreviewStyle(config.theme)
+      const theme = template.resolveTheme(config.theme)
       const images = config.slides.map((slide, index) =>
-        this.buildPreviewImage(slide, style, index + 1, config.slides.length)
+        this.buildPreviewImage(slide, config, template, theme, index + 1, config.slides.length)
       )
 
       return {
@@ -374,9 +390,7 @@ export class PresentationExportService {
    * 获取模板列表
    */
   getTemplates(): TemplateInfo[] {
-    return this.templateStore
-      .list()
-      .map((template) => this.templateStore.toTemplateInfo(template))
+    return this.templateStore.list().map((template) => this.templateStore.toTemplateInfo(template))
   }
 
   /**
@@ -912,66 +926,842 @@ export class PresentationExportService {
    */
   private buildPreviewImage(
     slide: SlideConfig,
-    style: {
-      backgroundColor: string
-      primaryColor: string
-      secondaryColor: string
-      textColor: string
-      mutedTextColor: string
-    },
+    presentationConfig: PresentationConfig,
+    template: TemplateBase,
+    theme: ResolvedTheme,
     slideIndex: number,
     totalSlides: number
   ): string {
-    const contentLines = slide.content
-      .flatMap((content) => {
-        switch (content.type) {
-          case 'text':
-            return [content.data.text]
-          case 'list':
-            return content.data.items.map((item) => `• ${item.text}`)
-          case 'table':
-            return [
-              content.data.headers.join(' | '),
-              ...content.data.rows.slice(0, 3).map((row) => row.join(' | '))
-            ]
-          case 'chart':
-            return [content.data.options?.title || `${content.data.type.toUpperCase()} 图表`]
-          case 'code':
-            return content.data.code.split('\n').slice(0, 4)
-          case 'shape':
-            return [content.data.text || content.data.shape]
-          case 'image':
-            return [content.data.alt || '图片']
-          default:
-            return []
+    const pageSize = this.getPreviewPageSize(template)
+    const canvas = this.getPreviewCanvasSize(pageSize)
+    const regions = template.getRegions(slide.layout)
+    const slideStyle = template.getSlideStyle(slide.layout, theme)
+    const elements: string[] = [
+      `<rect width="${canvas.width}" height="${canvas.height}" fill="${this.normalizeSvgColor(
+        slideStyle.backgroundColor || theme.backgroundColor
+      )}" />`
+    ]
+
+    if (!template.usesExtractedLayout(slide.layout)) {
+      elements.push(
+        `<rect width="${canvas.width}" height="${this.toPreviewHeight(0.18, pageSize, canvas)}" fill="${this.normalizeSvgColor(
+          theme.primaryColor
+        )}" />`
+      )
+    }
+
+    slideStyle.decorativeShapes?.forEach((shape) => {
+      const markup = this.renderPreviewDecorativeShape(
+        shape,
+        pageSize,
+        canvas,
+        theme.backgroundColor
+      )
+      if (markup) {
+        elements.push(markup)
+      }
+    })
+
+    if (template.definition.id === 'lessonPlan' && !template.usesExtractedLayout(slide.layout)) {
+      const labelRect = this.toPreviewRect(
+        {
+          x: 11.12,
+          y: 0.43,
+          w: 1.18,
+          h: 0.18
+        },
+        pageSize,
+        canvas
+      )
+
+      const label = this.renderPreviewTextBlock(
+        slide.layout === 'title' ? '教学演示' : '教学页',
+        labelRect,
+        {
+          fontFace: theme.fontFace,
+          fontSize: 10,
+          bold: true,
+          color: theme.primaryColor,
+          align: 'center'
+        },
+        pageSize,
+        canvas,
+        1
+      )
+
+      if (label.markup) {
+        elements.push(label.markup)
+      }
+    }
+
+    if (slide.layout !== 'blank' && regions.title) {
+      const titleText = slide.title || presentationConfig.title
+      const title = this.renderPreviewTextBlock(
+        titleText,
+        this.toPreviewRect(regions.title, pageSize, canvas),
+        slideStyle.titleStyle,
+        pageSize,
+        canvas,
+        3,
+        theme.textColor
+      )
+      if (title.markup) {
+        elements.push(title.markup)
+      }
+    }
+
+    if (slide.subtitle && regions.subtitle) {
+      const subtitle = this.renderPreviewTextBlock(
+        slide.subtitle,
+        this.toPreviewRect(regions.subtitle, pageSize, canvas),
+        slideStyle.subtitleStyle,
+        pageSize,
+        canvas,
+        3,
+        theme.mutedTextColor
+      )
+      if (subtitle.markup) {
+        elements.push(subtitle.markup)
+      }
+    }
+
+    if (
+      slide.layout === 'comparison' &&
+      regions.content.length === 2 &&
+      template.shouldRenderComparisonDivider(slide.layout)
+    ) {
+      const leftRegion = this.toPreviewRect(regions.content[0], pageSize, canvas)
+      const rightRegion = this.toPreviewRect(regions.content[1], pageSize, canvas)
+      const dividerX = (leftRegion.x + leftRegion.w + rightRegion.x) / 2
+      elements.push(
+        `<line x1="${dividerX}" y1="${leftRegion.y}" x2="${dividerX}" y2="${leftRegion.y + leftRegion.h}" stroke="${this.normalizeSvgColor(
+          theme.secondaryColor
+        )}" stroke-width="2" />`
+      )
+    }
+
+    const contentGroups =
+      regions.content.length === 2
+        ? this.splitPreviewContentForColumns(slide.content)
+        : [slide.content]
+
+    contentGroups.forEach((group, groupIndex) => {
+      const region = regions.content[groupIndex]
+      if (!region) {
+        return
+      }
+
+      const previewRegion = this.toPreviewRect(region, pageSize, canvas)
+      const gap = this.toPreviewHeight(0.22, pageSize, canvas)
+      let cursorY = previewRegion.y
+
+      group.forEach((content) => {
+        const available = {
+          x: previewRegion.x,
+          y: cursorY,
+          w: previewRegion.w,
+          h: Math.max(previewRegion.y + previewRegion.h - cursorY, 0)
         }
+
+        if (available.h <= 10) {
+          return
+        }
+
+        const rendered = this.renderPreviewContentBlock(
+          content,
+          available,
+          slideStyle,
+          theme,
+          pageSize,
+          canvas
+        )
+
+        if (rendered.markup) {
+          elements.push(rendered.markup)
+        }
+
+        cursorY += rendered.usedHeight + gap
       })
-      .slice(0, 8)
+    })
+
+    if (slideStyle.pageNumber?.position) {
+      const pageNumber = this.renderPreviewTextBlock(
+        `${slideIndex}/${totalSlides}`,
+        this.toPreviewRect(slideStyle.pageNumber.position, pageSize, canvas),
+        slideStyle.pageNumber.style,
+        pageSize,
+        canvas,
+        1,
+        theme.mutedTextColor
+      )
+      if (pageNumber.markup) {
+        elements.push(pageNumber.markup)
+      }
+    }
 
     const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="1333" height="750" viewBox="0 0 1333 750">
-        <rect width="1333" height="750" fill="#${style.backgroundColor}" />
-        <rect x="0" y="0" width="1333" height="20" fill="#${style.primaryColor}" />
-        <rect x="46" y="84" width="1241" height="590" rx="22" fill="#FFFFFF" stroke="#${style.secondaryColor}" stroke-width="2" />
-        <text x="70" y="150" fill="#${style.textColor}" font-size="34" font-family="PingFang SC, Arial" font-weight="700">
-          ${this.escapeXml(slide.title || '未命名幻灯片')}
-        </text>
-        ${contentLines
-          .map(
-            (line, index) => `
-              <text x="78" y="${212 + index * 52}" fill="#${index === 0 ? style.textColor : style.mutedTextColor}" font-size="24" font-family="PingFang SC, Arial">
-                ${this.escapeXml(this.truncate(line, 54))}
-              </text>
-            `
-          )
-          .join('')}
-        <text x="1180" y="695" fill="#${style.mutedTextColor}" font-size="18" font-family="PingFang SC, Arial">
-          ${slideIndex} / ${totalSlides}
-        </text>
+      <svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${canvas.width} ${canvas.height}">
+        ${elements.join('\n')}
       </svg>
     `.trim()
 
     return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
+  }
+
+  /**
+   * 获取预览画布尺寸
+   */
+  private getPreviewCanvasSize(pageSize: { width: number; height: number }): PreviewCanvasSize {
+    const width = 1333
+    return {
+      width,
+      height: Math.round((pageSize.height / pageSize.width) * width)
+    }
+  }
+
+  /**
+   * 获取预览页尺寸
+   */
+  private getPreviewPageSize(template: TemplateBase): { width: number; height: number } {
+    return (
+      template.definition.pageSize || {
+        width: 13.33,
+        height: 7.5
+      }
+    )
+  }
+
+  /**
+   * 将 PPT 位置转换为预览坐标
+   */
+  private toPreviewRect(
+    position: PositionOptions | undefined,
+    pageSize: { width: number; height: number },
+    canvas: PreviewCanvasSize
+  ): PreviewRect {
+    return {
+      x: ((position?.x || 0) / pageSize.width) * canvas.width,
+      y: ((position?.y || 0) / pageSize.height) * canvas.height,
+      w: ((position?.w || 0) / pageSize.width) * canvas.width,
+      h: ((position?.h || 0) / pageSize.height) * canvas.height
+    }
+  }
+
+  /**
+   * 将 PPT 高度转换为预览高度
+   */
+  private toPreviewHeight(
+    height: number,
+    pageSize: { width: number; height: number },
+    canvas: PreviewCanvasSize
+  ): number {
+    return (height / pageSize.height) * canvas.height
+  }
+
+  /**
+   * 将字号转换为预览像素
+   */
+  private pointsToPreviewPx(
+    fontSize: number,
+    pageSize: { width: number; height: number },
+    canvas: PreviewCanvasSize
+  ): number {
+    return (fontSize / 72) * (canvas.width / pageSize.width)
+  }
+
+  /**
+   * 拆分双栏预览内容
+   */
+  private splitPreviewContentForColumns(content: SlideContent[]): [SlideContent[], SlideContent[]] {
+    const midpoint = Math.ceil(content.length / 2)
+    return [content.slice(0, midpoint), content.slice(midpoint)]
+  }
+
+  /**
+   * 渲染单个预览内容块
+   */
+  private renderPreviewContentBlock(
+    content: SlideContent,
+    position: PreviewRect,
+    slideStyle: PresentationSlideStyle,
+    theme: ResolvedTheme,
+    pageSize: { width: number; height: number },
+    canvas: PreviewCanvasSize
+  ): { markup: string; usedHeight: number } {
+    switch (content.type) {
+      case 'text': {
+        const rendered = this.renderPreviewTextBlock(
+          content.data.text,
+          position,
+          content.data.style || slideStyle.bodyStyle,
+          pageSize,
+          canvas,
+          5,
+          theme.textColor
+        )
+        return rendered
+      }
+      case 'list': {
+        const text = content.data.items
+          .map((item, index) => {
+            const prefix = content.data.ordered ? `${index + 1}.` : '•'
+            const indent = ' '.repeat((item.level || 0) * 2)
+            return `${indent}${prefix} ${item.text}`
+          })
+          .join('\n')
+        return this.renderPreviewTextBlock(
+          text,
+          position,
+          content.data.style || slideStyle.listStyle || slideStyle.bodyStyle,
+          pageSize,
+          canvas,
+          6,
+          theme.textColor
+        )
+      }
+      case 'table':
+        return this.renderPreviewTableBlock(content.data, position, theme, pageSize, canvas)
+      case 'chart':
+        return this.renderPreviewChartBlock(content.data, position, theme, pageSize, canvas)
+      case 'code':
+        return this.renderPreviewCodeBlock(content.data.code, position, pageSize, canvas)
+      case 'image':
+        return this.renderPreviewImageBlock(
+          content.data.alt || '图片',
+          position,
+          theme,
+          pageSize,
+          canvas
+        )
+      case 'shape':
+        return this.renderPreviewShapeBlock(content.data, position, theme, pageSize, canvas)
+      default:
+        return {
+          markup: '',
+          usedHeight: 0
+        }
+    }
+  }
+
+  /**
+   * 渲染预览文本块
+   */
+  private renderPreviewTextBlock(
+    text: string,
+    position: PreviewRect,
+    style: PresentationSlideStyle['titleStyle'],
+    pageSize: { width: number; height: number },
+    canvas: PreviewCanvasSize,
+    preferredMaxLines: number,
+    fallbackColor: string = '111827'
+  ): { markup: string; usedHeight: number } {
+    const normalizedText = text.trim()
+    if (!normalizedText || position.w <= 0 || position.h <= 0) {
+      return {
+        markup: '',
+        usedHeight: 0
+      }
+    }
+
+    const fontSizePt = style?.fontSize || 16
+    const fontSizePx = Math.max(this.pointsToPreviewPx(fontSizePt, pageSize, canvas), 12)
+    const lineHeight = fontSizePx * 1.35
+    const maxLines = Math.max(
+      1,
+      Math.min(preferredMaxLines, Math.floor(position.h / lineHeight) || 1)
+    )
+    const maxChars = Math.max(6, Math.floor(position.w / Math.max(fontSizePx * 0.62, 1)))
+    const lines = this.wrapPreviewText(normalizedText, maxChars, maxLines)
+    const align = style?.align || 'left'
+    const textAnchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start'
+    const x =
+      align === 'center'
+        ? position.x + position.w / 2
+        : align === 'right'
+          ? position.x + position.w
+          : position.x
+
+    const usedHeight = Math.min(lines.length * lineHeight, position.h)
+    const fill = this.normalizeSvgColor(style?.color || fallbackColor)
+    const fontFamily = this.buildSvgFontFamily(style?.fontFace)
+
+    return {
+      markup: `<text x="${x}" y="${position.y}" fill="${fill}" font-size="${fontSizePx}" font-family="${fontFamily}" font-weight="${style?.bold ? 700 : 400}" font-style="${style?.italic ? 'italic' : 'normal'}" text-anchor="${textAnchor}" dominant-baseline="text-before-edge">${lines
+        .map((line, index) => {
+          const dy = index === 0 ? 0 : lineHeight
+          return `<tspan x="${x}" dy="${dy}">${this.escapeXml(line)}</tspan>`
+        })
+        .join('')}</text>`,
+      usedHeight
+    }
+  }
+
+  /**
+   * 渲染预览表格
+   */
+  private renderPreviewTableBlock(
+    table: Extract<SlideContent, { type: 'table' }>['data'],
+    position: PreviewRect,
+    theme: ResolvedTheme,
+    pageSize: { width: number; height: number },
+    canvas: PreviewCanvasSize
+  ): { markup: string; usedHeight: number } {
+    const visibleRows = table.rows.slice(0, 3)
+    const rowCount = visibleRows.length + 1
+    const usedHeight = Math.min(position.h, Math.max(rowCount * 34, 108))
+    const rowHeight = usedHeight / rowCount
+    const columnCount = Math.max(table.headers.length, 1)
+    const colWidth = position.w / columnCount
+    const headerFill = this.normalizeSvgColor(table.style?.headerFillColor || theme.primaryColor)
+    const headerText = this.normalizeSvgColor(
+      table.style?.headerTextColor ||
+        (theme.backgroundColor === 'FFFFFF' ? 'FFFFFF' : theme.backgroundColor)
+    )
+    const borderColor = this.normalizeSvgColor(table.style?.borderColor || theme.secondaryColor)
+    const bodyText = this.normalizeSvgColor(table.style?.bodyTextColor || theme.textColor)
+    const bodyFill = this.normalizeSvgColor(table.style?.bodyFillColor || 'FFFFFF')
+    const fontPx = Math.max(this.pointsToPreviewPx(11, pageSize, canvas), 11)
+    const lines: string[] = [
+      `<rect x="${position.x}" y="${position.y}" width="${position.w}" height="${usedHeight}" rx="10" fill="${bodyFill}" stroke="${borderColor}" stroke-width="1.5" />`,
+      `<rect x="${position.x}" y="${position.y}" width="${position.w}" height="${rowHeight}" rx="10" fill="${headerFill}" />`
+    ]
+
+    for (let columnIndex = 1; columnIndex < columnCount; columnIndex += 1) {
+      const x = position.x + columnIndex * colWidth
+      lines.push(
+        `<line x1="${x}" y1="${position.y}" x2="${x}" y2="${position.y + usedHeight}" stroke="${borderColor}" stroke-width="1" />`
+      )
+    }
+
+    for (let rowIndex = 1; rowIndex < rowCount; rowIndex += 1) {
+      const y = position.y + rowIndex * rowHeight
+      lines.push(
+        `<line x1="${position.x}" y1="${y}" x2="${position.x + position.w}" y2="${y}" stroke="${borderColor}" stroke-width="1" />`
+      )
+    }
+
+    table.headers.forEach((header, index) => {
+      const cell = this.renderPreviewTextBlock(
+        header,
+        {
+          x: position.x + index * colWidth + 8,
+          y: position.y + 6,
+          w: colWidth - 16,
+          h: rowHeight - 12
+        },
+        {
+          fontSize: 11,
+          fontFace: theme.fontFace,
+          bold: true,
+          color: headerText
+        },
+        pageSize,
+        canvas,
+        1,
+        headerText
+      )
+      if (cell.markup) {
+        lines.push(cell.markup)
+      }
+    })
+
+    visibleRows.forEach((row, rowIndex) => {
+      row.forEach((cellText, columnIndex) => {
+        const cell = this.renderPreviewTextBlock(
+          cellText,
+          {
+            x: position.x + columnIndex * colWidth + 8,
+            y: position.y + (rowIndex + 1) * rowHeight + 6,
+            w: colWidth - 16,
+            h: rowHeight - 12
+          },
+          {
+            fontSize: 10,
+            fontFace: theme.fontFace,
+            color: bodyText
+          },
+          pageSize,
+          canvas,
+          1,
+          bodyText
+        )
+        if (cell.markup) {
+          lines.push(cell.markup)
+        }
+      })
+    })
+
+    return {
+      markup: lines.join('\n'),
+      usedHeight: Math.max(usedHeight, fontPx + 24)
+    }
+  }
+
+  /**
+   * 渲染预览图表
+   */
+  private renderPreviewChartBlock(
+    chart: Extract<SlideContent, { type: 'chart' }>['data'],
+    position: PreviewRect,
+    theme: ResolvedTheme,
+    pageSize: { width: number; height: number },
+    canvas: PreviewCanvasSize
+  ): { markup: string; usedHeight: number } {
+    const usedHeight = Math.min(
+      position.h,
+      Math.max(this.toPreviewHeight(2.2, pageSize, canvas), 140)
+    )
+    const chartHeight = usedHeight - 34
+    const chartTop = position.y + 26
+    const values = chart.data.series[0]?.values.slice(0, 5) || []
+    const maxValue = Math.max(...values, 1)
+    const count = Math.max(values.length, 3)
+    const barGap = 14
+    const barWidth = Math.max((position.w - (count + 1) * barGap) / count, 18)
+    const colors = [theme.primaryColor, theme.accentColor, theme.secondaryColor, '94A3B8', 'CBD5E1']
+    const elements: string[] = [
+      `<rect x="${position.x}" y="${position.y}" width="${position.w}" height="${usedHeight}" rx="16" fill="#FFFFFF" stroke="${this.normalizeSvgColor(
+        theme.secondaryColor
+      )}" stroke-width="1.5" />`
+    ]
+
+    const title = chart.options?.title || `${chart.type.toUpperCase()} 图表`
+    const titleMarkup = this.renderPreviewTextBlock(
+      title,
+      {
+        x: position.x + 12,
+        y: position.y + 8,
+        w: position.w - 24,
+        h: 20
+      },
+      {
+        fontFace: theme.headingFontFace,
+        fontSize: 12,
+        bold: true,
+        color: theme.textColor
+      },
+      pageSize,
+      canvas,
+      1,
+      theme.textColor
+    )
+    if (titleMarkup.markup) {
+      elements.push(titleMarkup.markup)
+    }
+
+    values.forEach((value, index) => {
+      const barHeight = Math.max((value / maxValue) * (chartHeight - 24), 18)
+      const x = position.x + barGap + index * (barWidth + barGap)
+      const y = chartTop + chartHeight - barHeight - 10
+      elements.push(
+        `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="8" fill="${this.normalizeSvgColor(
+          colors[index % colors.length]
+        )}" />`
+      )
+    })
+
+    return {
+      markup: elements.join('\n'),
+      usedHeight
+    }
+  }
+
+  /**
+   * 渲染预览代码块
+   */
+  private renderPreviewCodeBlock(
+    code: string,
+    position: PreviewRect,
+    pageSize: { width: number; height: number },
+    canvas: PreviewCanvasSize
+  ): { markup: string; usedHeight: number } {
+    const usedHeight = Math.min(
+      position.h,
+      Math.max(this.toPreviewHeight(1.9, pageSize, canvas), 120)
+    )
+    const rect = `<rect x="${position.x}" y="${position.y}" width="${position.w}" height="${usedHeight}" rx="14" fill="#0F172A" />`
+    const text = this.renderPreviewTextBlock(
+      code.split('\n').slice(0, 4).join('\n'),
+      {
+        x: position.x + 14,
+        y: position.y + 12,
+        w: position.w - 28,
+        h: usedHeight - 24
+      },
+      {
+        fontFace: 'Menlo',
+        fontSize: 10,
+        color: 'E2E8F0'
+      },
+      pageSize,
+      canvas,
+      4,
+      'E2E8F0'
+    )
+
+    return {
+      markup: [rect, text.markup].filter(Boolean).join('\n'),
+      usedHeight
+    }
+  }
+
+  /**
+   * 渲染预览图片占位块
+   */
+  private renderPreviewImageBlock(
+    label: string,
+    position: PreviewRect,
+    theme: ResolvedTheme,
+    pageSize: { width: number; height: number },
+    canvas: PreviewCanvasSize
+  ): { markup: string; usedHeight: number } {
+    const usedHeight = Math.min(
+      position.h,
+      Math.max(this.toPreviewHeight(2.1, pageSize, canvas), 140)
+    )
+    const borderColor = this.normalizeSvgColor(theme.secondaryColor)
+    const text = this.renderPreviewTextBlock(
+      label,
+      {
+        x: position.x + 16,
+        y: position.y + usedHeight / 2 - 12,
+        w: position.w - 32,
+        h: 24
+      },
+      {
+        fontFace: theme.fontFace,
+        fontSize: 12,
+        bold: true,
+        color: theme.mutedTextColor,
+        align: 'center'
+      },
+      pageSize,
+      canvas,
+      1,
+      theme.mutedTextColor
+    )
+
+    return {
+      markup: [
+        `<rect x="${position.x}" y="${position.y}" width="${position.w}" height="${usedHeight}" rx="16" fill="#FFFFFF" stroke="${borderColor}" stroke-width="1.5" stroke-dasharray="10 8" />`,
+        `<path d="M ${position.x + 18} ${position.y + usedHeight - 28} L ${position.x + position.w * 0.34} ${position.y + usedHeight * 0.48} L ${position.x + position.w * 0.54} ${position.y + usedHeight - 54} L ${position.x + position.w - 18} ${position.y + usedHeight - 22}" fill="none" stroke="${borderColor}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />`,
+        text.markup
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      usedHeight
+    }
+  }
+
+  /**
+   * 渲染预览形状块
+   */
+  private renderPreviewShapeBlock(
+    shape: Extract<SlideContent, { type: 'shape' }>['data'],
+    position: PreviewRect,
+    theme: ResolvedTheme,
+    pageSize: { width: number; height: number },
+    canvas: PreviewCanvasSize
+  ): { markup: string; usedHeight: number } {
+    const usedHeight = Math.min(position.h, 120)
+    const markup = this.renderPreviewShape(
+      shape.shape,
+      {
+        x: position.x,
+        y: position.y,
+        w: position.w,
+        h: usedHeight
+      },
+      {
+        fillColor: shape.fillColor || theme.secondaryColor,
+        lineColor: shape.lineColor || theme.primaryColor,
+        fillOpacity: shape.shape === 'line' ? 0 : 0.88,
+        lineWidth: shape.shape === 'line' ? 2 : 1.5
+      }
+    )
+
+    if (!shape.text) {
+      return {
+        markup,
+        usedHeight
+      }
+    }
+
+    const text = this.renderPreviewTextBlock(
+      shape.text,
+      {
+        x: position.x + 14,
+        y: position.y + 14,
+        w: Math.max(position.w - 28, 0),
+        h: Math.max(usedHeight - 28, 0)
+      },
+      {
+        fontFace: theme.fontFace,
+        fontSize: 12,
+        bold: true,
+        color: shape.textColor || theme.textColor,
+        align: 'center'
+      },
+      pageSize,
+      canvas,
+      2,
+      shape.textColor || theme.textColor
+    )
+
+    return {
+      markup: [markup, text.markup].filter(Boolean).join('\n'),
+      usedHeight
+    }
+  }
+
+  /**
+   * 渲染预览装饰图形
+   */
+  private renderPreviewDecorativeShape(
+    shape: PresentationDecorativeShape,
+    pageSize: { width: number; height: number },
+    canvas: PreviewCanvasSize,
+    fallbackFillColor: string
+  ): string {
+    return this.renderPreviewShape(shape.shape, this.toPreviewRect(shape, pageSize, canvas), {
+      fillColor: shape.fillColor || fallbackFillColor,
+      lineColor: shape.lineColor,
+      fillOpacity:
+        shape.fillTransparency === undefined ? undefined : 1 - shape.fillTransparency / 100,
+      lineOpacity:
+        shape.lineTransparency === undefined ? undefined : 1 - shape.lineTransparency / 100,
+      lineWidth: shape.lineWidth ? Math.max(shape.lineWidth, 1) : undefined
+    })
+  }
+
+  /**
+   * 渲染预览 SVG 图形
+   */
+  private renderPreviewShape(
+    shape:
+      | PresentationDecorativeShape['shape']
+      | Extract<SlideContent, { type: 'shape' }>['data']['shape'],
+    position: PreviewRect,
+    style: {
+      fillColor?: string
+      lineColor?: string
+      fillOpacity?: number
+      lineOpacity?: number
+      lineWidth?: number
+    }
+  ): string {
+    const stroke = style.lineColor ? this.normalizeSvgColor(style.lineColor) : 'none'
+    const fill =
+      shape === 'line' || shape === 'arc'
+        ? 'none'
+        : style.fillColor
+          ? this.normalizeSvgColor(style.fillColor)
+          : 'none'
+    const fillOpacity =
+      style.fillOpacity === undefined
+        ? ''
+        : ` fill-opacity="${this.clamp(style.fillOpacity, 0, 1)}"`
+    const strokeOpacity =
+      style.lineOpacity === undefined
+        ? ''
+        : ` stroke-opacity="${this.clamp(style.lineOpacity, 0, 1)}"`
+    const strokeWidth = style.lineWidth || (shape === 'line' ? 2 : 1.5)
+
+    switch (shape) {
+      case 'rect':
+        return `<rect x="${position.x}" y="${position.y}" width="${position.w}" height="${position.h}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"${fillOpacity}${strokeOpacity} />`
+      case 'roundRect':
+        return `<rect x="${position.x}" y="${position.y}" width="${position.w}" height="${position.h}" rx="${Math.min(position.w, position.h) * 0.18}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"${fillOpacity}${strokeOpacity} />`
+      case 'ellipse':
+        return `<ellipse cx="${position.x + position.w / 2}" cy="${position.y + position.h / 2}" rx="${position.w / 2}" ry="${position.h / 2}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"${fillOpacity}${strokeOpacity} />`
+      case 'chevron': {
+        const points = [
+          `${position.x},${position.y + position.h * 0.1}`,
+          `${position.x + position.w * 0.72},${position.y + position.h * 0.1}`,
+          `${position.x + position.w},${position.y + position.h / 2}`,
+          `${position.x + position.w * 0.72},${position.y + position.h * 0.9}`,
+          `${position.x},${position.y + position.h * 0.9}`,
+          `${position.x + position.w * 0.22},${position.y + position.h / 2}`
+        ].join(' ')
+        return `<polygon points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"${fillOpacity}${strokeOpacity} />`
+      }
+      case 'arc': {
+        const rx = position.w / 2
+        const ry = position.h / 2
+        const x1 = position.x + position.w
+        const x2 = position.x
+        const y = position.y + position.h / 2
+        return `<path d="M ${x1} ${y} A ${rx} ${ry} 0 1 1 ${x2} ${y}" fill="none" stroke="${stroke}" stroke-width="${strokeWidth}"${strokeOpacity} />`
+      }
+      case 'line':
+      default:
+        return `<line x1="${position.x}" y1="${position.y}" x2="${position.x + position.w}" y2="${position.y + position.h}" stroke="${stroke}" stroke-width="${strokeWidth}"${strokeOpacity} />`
+    }
+  }
+
+  /**
+   * 预览文本换行
+   */
+  private wrapPreviewText(text: string, maxChars: number, maxLines: number): string[] {
+    const normalized = text
+      .replace(/\r/g, '')
+      .split('\n')
+      .flatMap((line) => {
+        const compact = line.replace(/\s+/g, ' ').trim()
+        return compact ? [compact] : []
+      })
+
+    const result: string[] = []
+
+    for (const line of normalized) {
+      let cursor = 0
+      while (cursor < line.length && result.length < maxLines) {
+        const next = line.slice(cursor, cursor + maxChars)
+        result.push(next)
+        cursor += maxChars
+      }
+
+      if (result.length >= maxLines) {
+        break
+      }
+    }
+
+    if (result.length === 0) {
+      return [this.truncate(text.replace(/\s+/g, ' ').trim(), maxChars)]
+    }
+
+    const overflow = normalized.join('').length > result.join('').length
+    if (overflow) {
+      result[result.length - 1] = this.truncate(
+        result[result.length - 1],
+        Math.max(maxChars - 1, 1)
+      )
+    }
+
+    return result
+  }
+
+  /**
+   * 构造 SVG 字体族
+   */
+  private buildSvgFontFamily(fontFace: string | undefined): string {
+    const primary = fontFace?.trim() || 'PingFang SC'
+    return `'${this.escapeXml(primary)}', 'PingFang SC', Arial, sans-serif`
+  }
+
+  /**
+   * 归一化 SVG 颜色
+   */
+  private normalizeSvgColor(color: string | undefined): string {
+    const normalized = color?.replace(/^#/, '').trim() || '111827'
+    return `#${normalized.toUpperCase()}`
+  }
+
+  /**
+   * 限制数值范围
+   */
+  private clamp(value: number, min: number, max: number): number {
+    return Math.min(Math.max(value, min), max)
   }
 
   /**

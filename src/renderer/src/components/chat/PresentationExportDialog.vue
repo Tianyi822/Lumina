@@ -548,7 +548,13 @@ onUnmounted(() => {
                 @keydown.space.prevent="handleTemplateSelect(templateItem.selectionKey)"
               >
                 <div class="template-card-head">
-                  <div class="template-swatches">
+                  <div v-if="templateItem.previewImageDataUrl" class="template-thumbnail">
+                    <img
+                      :src="templateItem.previewImageDataUrl"
+                      :alt="`${templateItem.name} 模板缩略图`"
+                    />
+                  </div>
+                  <div v-else class="template-swatches">
                     <span
                       v-for="color in templateItem.previewColors || []"
                       :key="color"
@@ -1003,7 +1009,7 @@ onUnmounted(() => {
 .template-card {
   display: flex;
   flex-direction: column;
-  min-height: 126px;
+  min-height: 176px;
   padding: 14px;
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
@@ -1028,15 +1034,35 @@ onUnmounted(() => {
 
 .template-card-head {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
+  justify-content: flex-start;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.template-thumbnail {
+  width: 100%;
+  height: 92px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(241, 245, 249, 0.92)),
+    var(--theme-bg-tertiary);
+}
+
+.template-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .template-swatches {
   display: flex;
   gap: 6px;
+  min-height: 92px;
+  align-items: center;
 }
 
 .template-swatch {

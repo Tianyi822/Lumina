@@ -1,6 +1,6 @@
 import type PptxGenJS from 'pptxgenjs'
 import type { PresentationTemplateDefinition, ResolvedTheme } from '../types/presentation'
-import type { SlideLayout } from '@shared/types/presentation'
+import type { PresentationSlideStyle, SlideLayout } from '@shared/types/presentation'
 import { TemplateBase } from './TemplateBase'
 
 /**
@@ -81,5 +81,37 @@ export class LessonPlanTemplate extends TemplateBase {
         transparency: 100
       }
     })
+  }
+
+  override getSlideStyle(layout: SlideLayout, theme: ResolvedTheme): PresentationSlideStyle {
+    const style = super.getSlideStyle(layout, theme)
+
+    return {
+      ...style,
+      decorativeShapes: [
+        {
+          shape: 'roundRect',
+          x: this.scaleWidth(10.95),
+          y: this.scaleHeight(0.38),
+          w: this.scaleWidth(1.58),
+          h: this.scaleHeight(0.32),
+          fillColor: theme.secondaryColor,
+          lineColor: theme.secondaryColor,
+          lineTransparency: 100
+        },
+        {
+          shape: 'arc',
+          x: this.scaleWidth(11.35),
+          y: this.scaleHeight(5.9),
+          w: this.scaleWidth(1.45),
+          h: this.scaleHeight(1.0),
+          fillColor: theme.backgroundColor,
+          fillTransparency: 100,
+          lineColor: theme.secondaryColor,
+          lineTransparency: 30,
+          lineWidth: 1.2
+        }
+      ]
+    }
   }
 }

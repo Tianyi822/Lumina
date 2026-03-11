@@ -1859,6 +1859,7 @@ interface TemplateInfo {
   baseTemplate?: BuiltinPresentationTemplate
   recommendedFor?: string[]
   previewColors?: string[]
+  previewImageDataUrl?: string
   theme?: PresentationThemeConfig
   pageSize?: PresentationPageSize
   originalFileName?: string

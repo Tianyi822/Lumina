@@ -1,5 +1,6 @@
 import type PptxGenJS from 'pptxgenjs'
 import type { PresentationTemplateDefinition, ResolvedTheme } from '../types/presentation'
+import type { PresentationSlideStyle, SlideLayout } from '@shared/types/presentation'
 import { TemplateBase } from './TemplateBase'
 
 /**
@@ -62,5 +63,35 @@ export class BusinessTemplate extends TemplateBase {
         pt: 1.2
       }
     })
+  }
+
+  override getSlideStyle(layout: SlideLayout, theme: ResolvedTheme): PresentationSlideStyle {
+    const style = super.getSlideStyle(layout, theme)
+
+    return {
+      ...style,
+      decorativeShapes: [
+        {
+          shape: 'rect',
+          x: this.scaleWidth(0),
+          y: this.scaleHeight(0),
+          w: this.scaleWidth(3.55),
+          h: this.scaleHeight(7.5),
+          fillColor: theme.primaryColor,
+          lineColor: theme.primaryColor,
+          fillTransparency: 94,
+          lineTransparency: 100
+        },
+        {
+          shape: 'line',
+          x: this.scaleWidth(0.8),
+          y: this.scaleHeight(6.72),
+          w: this.scaleWidth(4.1),
+          h: 0,
+          lineColor: theme.accentColor,
+          lineWidth: 1.2
+        }
+      ]
+    }
   }
 }

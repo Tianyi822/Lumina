@@ -187,6 +187,13 @@ export abstract class TemplateBase {
   }
 
   /**
+   * 是否使用导入模板提取布局
+   */
+  usesExtractedLayout(_layout: SlideLayout): boolean {
+    return false
+  }
+
+  /**
    * 获取预览样式
    */
   getPreviewStyle(theme?: PresentationThemeConfig): {
