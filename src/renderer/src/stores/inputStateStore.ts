@@ -4,6 +4,8 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { MCPTool, KnowledgeBase } from '@renderer/types'
+import type { SessionSelectionState } from '@shared/types/session'
+import { deepClone } from '@shared/utils'
 import type { SessionInputState } from './types'
 
 // 默认输入状态
@@ -58,6 +60,52 @@ export const useInputStateStore = defineStore(
         sessionInputStates.value.set(sessionId, { ...DEFAULT_INPUT_STATE })
       }
       return sessionInputStates.value.get(sessionId)!
+    }
+
+    // 获取指定会话需要持久化的选择状态
+    function getSelectionStateForSession(sessionId: string): SessionSelectionState {
+      const sessionState = getSessionState(sessionId)
+      return {
+        selectedMCPTools: deepClone(sessionState.selectedMCPTools),
+        selectedKnowledgeBases: deepClone(sessionState.selectedKnowledgeBases),
+        enableSandboxTools: sessionState.enableSandboxTools
+      }
+    }
+
+    // 获取当前会话需要持久化的选择状态
+    function getCurrentSelectionState(): SessionSelectionState {
+      return {
+        selectedMCPTools: deepClone(currentInputState.value.selectedMCPTools),
+        selectedKnowledgeBases: deepClone(currentInputState.value.selectedKnowledgeBases),
+        enableSandboxTools: currentInputState.value.enableSandboxTools
+      }
+    }
+
+    // 将会话文件中的选择状态恢复到输入状态
+    function applySessionSelectionState(
+      sessionId: string,
+      selectionState?: SessionSelectionState
+    ): void {
+      const previousState = getSessionState(sessionId)
+      const nextState: SessionInputState = {
+        ...previousState,
+        selectedMCPTools: deepClone(selectionState?.selectedMCPTools ?? []),
+        selectedKnowledgeBases: deepClone(selectionState?.selectedKnowledgeBases ?? []),
+        enableSandboxTools: selectionState?.enableSandboxTools ?? false
+      }
+
+      sessionInputStates.value.set(sessionId, nextState)
+
+      if (lastActiveSessionId.value === sessionId) {
+        currentInputState.value = { ...nextState }
+      }
+
+      window.api.logger.debug('[InputStateStore] 恢复会话选择状态', {
+        sessionId,
+        toolCount: nextState.selectedMCPTools.length,
+        knowledgeBaseCount: nextState.selectedKnowledgeBases.length,
+        enableSandboxTools: nextState.enableSandboxTools
+      })
     }
 
     // 保存当前会话的输入状态
@@ -218,6 +266,9 @@ export const useInputStateStore = defineStore(
       savedStateCount,
       // Actions
       getSessionState,
+      getSelectionStateForSession,
+      getCurrentSelectionState,
+      applySessionSelectionState,
       saveCurrentState,
       switchToSession,
       updateInputMessage,

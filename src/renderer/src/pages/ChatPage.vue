@@ -575,14 +575,17 @@ function handleUpdateSelectedModel(value: string): void {
 
 function handleUpdateSelectedTools(value: MCPTool[]): void {
   inputStateStore.updateSelectedTools(value)
+  void sessionStore.persistCurrentSelectionState()
 }
 
 function handleUpdateSelectedKnowledgeBases(value: KnowledgeBase[]): void {
   inputStateStore.updateSelectedKnowledgeBases(value)
+  void sessionStore.persistCurrentSelectionState()
 }
 
 function handleUpdateEnableSandboxTools(value: boolean): void {
   inputStateStore.updateEnableSandboxTools(value)
+  void sessionStore.persistCurrentSelectionState()
 }
 
 // ==================== 流式事件处理 ====================

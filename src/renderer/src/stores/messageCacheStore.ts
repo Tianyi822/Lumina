@@ -6,8 +6,11 @@ import { defineStore } from 'pinia'
 import type { Message } from '@renderer/types'
 import type { SessionData } from '@shared/types/session'
 import { deepCopyMessages, messageToSessionMessage } from '@renderer/utils/messageHelpers'
+import { useInputStateStore } from './inputStateStore'
 
 export const useMessageCacheStore = defineStore('messageCache', () => {
+  const inputStateStore = useInputStateStore()
+
   // ==================== State ====================
 
   // 会话消息状态缓存（用于处理多会话并发流式响应）
@@ -139,7 +142,8 @@ export const useMessageCacheStore = defineStore('messageCache', () => {
         sessionType: session.sessionType,
         createdAt: session.createdAt,
         updatedAt: new Date().toISOString(),
-        messages: cachedMessages.map(messageToSessionMessage)
+        messages: cachedMessages.map(messageToSessionMessage),
+        selectionState: inputStateStore.getSelectionStateForSession(sessionId)
       }
 
       const result = await window.api.session.save(sessionToSave)

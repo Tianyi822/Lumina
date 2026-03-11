@@ -216,12 +216,22 @@ interface SessionData {
   createdAt: string
   updatedAt: string
   messages: SessionMessage[]
+  selectionState?: SessionSelectionState
 }
 
 /**
  * 会话的类型
  */
 type SessionType = 'default' | 'tool' | 'knowledge'
+
+/**
+ * 会话级选择状态
+ */
+interface SessionSelectionState {
+  selectedMCPTools: MCPTool[]
+  selectedKnowledgeBases: KnowledgeBase[]
+  enableSandboxTools: boolean
+}
 
 /**
  * 会话列表项

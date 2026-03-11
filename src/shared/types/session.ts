@@ -7,6 +7,8 @@ import {
   AttachedDocument,
   AttachedImage
 } from './chat'
+import type { KnowledgeBase } from './knowledge'
+import type { MCPTool } from './mcp'
 
 /**
  * 会话的类型
@@ -88,12 +90,27 @@ export interface SessionMeta {
 }
 
 /**
+ * 会话级选择状态
+ * 用于持久化当前会话选择的 MCP 工具、知识库和沙箱开关
+ */
+export interface SessionSelectionState {
+  /** 当前会话选中的 MCP 工具 */
+  selectedMCPTools: MCPTool[]
+  /** 当前会话选中的知识库 */
+  selectedKnowledgeBases: KnowledgeBase[]
+  /** 当前会话是否启用沙箱工具 */
+  enableSandboxTools: boolean
+}
+
+/**
  * 完整的会话数据
  * 存储在 JSON 文件中
  */
 export interface SessionData extends SessionMeta {
   /** 会话包含的所有消息 */
   messages: SessionMessage[]
+  /** 会话级选择状态 */
+  selectionState?: SessionSelectionState
 }
 
 /**
