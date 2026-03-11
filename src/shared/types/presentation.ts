@@ -66,6 +66,71 @@ export interface TextStyle {
 }
 
 /**
+ * 模板装饰图形类型
+ */
+export type PresentationDecorativeShapeType =
+  | 'rect'
+  | 'roundRect'
+  | 'ellipse'
+  | 'chevron'
+  | 'line'
+  | 'arc'
+
+/**
+ * 模板装饰图形
+ */
+export interface PresentationDecorativeShape {
+  shape: PresentationDecorativeShapeType
+  x: number
+  y: number
+  w: number
+  h: number
+  fillColor?: string
+  lineColor?: string
+  fillTransparency?: number
+  lineTransparency?: number
+  lineWidth?: number
+}
+
+/**
+ * 带位置的文本样式
+ */
+export interface PresentationPositionedTextStyle {
+  position: PositionOptions
+  style?: TextStyle
+}
+
+/**
+ * 模板布局区域
+ */
+export interface PresentationLayoutRegions {
+  title?: PositionOptions
+  subtitle?: PositionOptions
+  content: PositionOptions[]
+}
+
+/**
+ * 单页模板样式
+ */
+export interface PresentationSlideStyle {
+  backgroundColor?: string
+  titleStyle?: TextStyle
+  subtitleStyle?: TextStyle
+  bodyStyle?: TextStyle
+  listStyle?: TextStyle
+  pageNumber?: PresentationPositionedTextStyle
+  decorativeShapes?: PresentationDecorativeShape[]
+}
+
+/**
+ * 导入模板版式规格
+ */
+export interface PresentationTemplateLayoutSpec {
+  regions?: Partial<Record<SlideLayout, PresentationLayoutRegions>>
+  styles?: Partial<Record<SlideLayout, PresentationSlideStyle>>
+}
+
+/**
  * 列表项
  */
 export interface ListItem {
@@ -353,6 +418,7 @@ export interface UserPresentationTemplate {
   originalFileName: string
   baseTemplate: BuiltinPresentationTemplate
   theme: PresentationThemeConfig
+  layoutSpec?: PresentationTemplateLayoutSpec
   previewColors?: string[]
   pageSize?: PresentationPageSize
   createdAt: string

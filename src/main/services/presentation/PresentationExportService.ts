@@ -131,15 +131,6 @@ export class PresentationExportService {
    */
   deleteTemplate(request: DeletePresentationTemplateRequest): DeletePresentationTemplateResult {
     try {
-      const visibleTemplates = this.getTemplates()
-
-      if (visibleTemplates.length <= 1) {
-        return {
-          success: false,
-          error: '至少保留一个模板'
-        }
-      }
-
       const deleted =
         request.source === 'builtin'
           ? this.templateStore.hideBuiltin(request.templateId as BuiltinPresentationTemplate)

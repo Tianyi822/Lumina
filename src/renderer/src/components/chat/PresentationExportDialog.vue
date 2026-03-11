@@ -72,6 +72,7 @@ const templateImportSuccess = ref('')
 const templateFileInput = ref<HTMLInputElement | null>(null)
 
 let previewTimer: number | null = null
+let templateSuccessTimer: number | null = null
 
 const activeTemplateInfo = computed(() => {
   return templates.value.find((item) => item.selectionKey === selectedTemplateKey.value) || null
@@ -209,7 +210,7 @@ function resolveDeleteRequest(
 }
 
 function canDeleteTemplate(templateInfo: TemplateInfo): boolean {
-  return templates.value.length > 1 && !!resolveDeleteRequest(templateInfo)
+  return !!resolveDeleteRequest(templateInfo)
 }
 
 function isDeletingTemplate(templateInfo: TemplateInfo): boolean {
@@ -235,12 +236,31 @@ async function loadTemplates(): Promise<void> {
       applyTemplatePreset(fallbackTemplate)
     } else {
       selectedTemplateKey.value = ''
+      previewImages.value = []
+      validationResult.value = null
+      draftConfig.value = null
     }
   } catch (error) {
     templateImportError.value = error instanceof Error ? error.message : String(error)
   } finally {
     loadingTemplates.value = false
   }
+}
+
+function clearTemplateSuccessTimer(): void {
+  if (templateSuccessTimer !== null) {
+    window.clearTimeout(templateSuccessTimer)
+    templateSuccessTimer = null
+  }
+}
+
+function showTemplateSuccess(message: string): void {
+  clearTemplateSuccessTimer()
+  templateImportSuccess.value = message
+  templateSuccessTimer = window.setTimeout(() => {
+    templateImportSuccess.value = ''
+    templateSuccessTimer = null
+  }, 2600)
 }
 
 async function refreshPreview(): Promise<void> {
@@ -339,6 +359,7 @@ async function handleTemplateFileChange(event: Event): Promise<void> {
 
   templateImportError.value = ''
   templateImportSuccess.value = ''
+  clearTemplateSuccessTimer()
   importingTemplate.value = true
 
   try {
@@ -355,7 +376,7 @@ async function handleTemplateFileChange(event: Event): Promise<void> {
 
     await loadTemplates()
     handleTemplateSelect(result.data.selectionKey)
-    templateImportSuccess.value = `模板“${result.data.name}”已保存`
+    showTemplateSuccess(`模板“${result.data.name}”已保存`)
   } catch (error) {
     templateImportError.value = error instanceof Error ? error.message : String(error)
   } finally {
@@ -371,11 +392,6 @@ async function handleDeleteTemplate(templateInfo: TemplateInfo): Promise<void> {
     return
   }
 
-  if (templates.value.length <= 1) {
-    templateImportError.value = '至少保留一个模板'
-    return
-  }
-
   const actionLabel = templateInfo.source === 'builtin' ? '移除' : '删除'
   const confirmed = window.confirm(`确认${actionLabel}模板“${templateInfo.name}”吗？`)
   if (!confirmed) {
@@ -384,6 +400,7 @@ async function handleDeleteTemplate(templateInfo: TemplateInfo): Promise<void> {
 
   templateImportError.value = ''
   templateImportSuccess.value = ''
+  clearTemplateSuccessTimer()
   deletingTemplateKey.value = templateInfo.selectionKey
 
   try {
@@ -401,7 +418,7 @@ async function handleDeleteTemplate(templateInfo: TemplateInfo): Promise<void> {
     }
 
     await loadTemplates()
-    templateImportSuccess.value = `模板“${templateInfo.name}”已${actionLabel}`
+    showTemplateSuccess(`模板“${templateInfo.name}”已${actionLabel}`)
   } catch (error) {
     templateImportError.value = error instanceof Error ? error.message : String(error)
   } finally {
@@ -410,6 +427,11 @@ async function handleDeleteTemplate(templateInfo: TemplateInfo): Promise<void> {
 }
 
 function handleExport(): void {
+  if (!resolvedTemplateInfo.value) {
+    loadError.value = '当前没有可用模板，请先上传模板'
+    return
+  }
+
   emit('export', {
     ...buildDraftRequest(),
     timestamp: props.message.timestamp
@@ -460,12 +482,18 @@ onUnmounted(() => {
   if (previewTimer !== null) {
     window.clearTimeout(previewTimer)
   }
+
+  clearTemplateSuccessTimer()
 })
 </script>
 
 <template>
   <div class="presentation-overlay" @click.self="handleClose">
     <div class="presentation-dialog">
+      <div v-if="templateImportSuccess" class="floating-tip success">
+        {{ templateImportSuccess }}
+      </div>
+
       <div class="presentation-header">
         <div>
           <h3 class="presentation-title">PPT 导出配置</h3>
@@ -500,9 +528,6 @@ onUnmounted(() => {
             />
 
             <div v-if="templateImportError" class="inline-tip error">{{ templateImportError }}</div>
-            <div v-else-if="templateImportSuccess" class="inline-tip success">
-              {{ templateImportSuccess }}
-            </div>
 
             <div v-if="loadingTemplates" class="panel-state">正在加载模板...</div>
 
@@ -775,6 +800,7 @@ onUnmounted(() => {
 }
 
 .presentation-dialog {
+  position: relative;
   width: min(1140px, 100%);
   max-height: min(840px, calc(100vh - 48px));
   display: flex;
@@ -929,6 +955,25 @@ onUnmounted(() => {
 .upload-btn {
   min-height: 38px;
   white-space: nowrap;
+}
+
+.floating-tip {
+  position: absolute;
+  top: 18px;
+  right: 108px;
+  z-index: 3;
+  max-width: min(360px, calc(100% - 156px));
+  padding: 10px 14px;
+  border-radius: var(--theme-radius);
+  font-size: 12px;
+  line-height: 1.6;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.18);
+  pointer-events: none;
+}
+
+.floating-tip.success {
+  background: rgba(34, 197, 94, 0.14);
+  color: #15803d;
 }
 
 .inline-tip {
@@ -1385,6 +1430,13 @@ onUnmounted(() => {
   .presentation-footer {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .floating-tip {
+    top: 72px;
+    right: 16px;
+    left: 16px;
+    max-width: none;
   }
 
   .footer-actions {

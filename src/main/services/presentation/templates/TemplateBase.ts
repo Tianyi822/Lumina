@@ -1,17 +1,14 @@
 import type PptxGenJS from 'pptxgenjs'
 import type { PresentationTemplateDefinition, ResolvedTheme } from '../types/presentation'
 import type {
+  PresentationLayoutRegions,
   PresentationPageSize,
+  PresentationSlideStyle,
+  PresentationPositionedTextStyle,
   PositionOptions,
   PresentationThemeConfig,
   SlideLayout
 } from '@shared/types/presentation'
-
-interface SlideRegions {
-  title?: PositionOptions
-  subtitle?: PositionOptions
-  content: PositionOptions[]
-}
 
 /**
  * PPT 模板基类
@@ -63,7 +60,11 @@ export abstract class TemplateBase {
     slideIndex: number,
     totalSlides: number
   ): void {
-    slide.background = { color: theme.backgroundColor }
+    const slideStyle = this.getSlideStyle(layout, theme)
+
+    slide.background = {
+      color: this.normalizeColor(slideStyle.backgroundColor, theme.backgroundColor)
+    }
 
     slide.addShape('rect', {
       x: this.scaleWidth(0),
@@ -81,24 +82,14 @@ export abstract class TemplateBase {
 
     this.decorateSlide(slide, layout, theme, slideIndex, totalSlides)
 
-    slide.addText(`${slideIndex}/${totalSlides}`, {
-      x: this.scaleWidth(12.1),
-      y: this.scaleHeight(7.05),
-      w: this.scaleWidth(0.8),
-      h: this.scaleHeight(0.18),
-      align: 'right',
-      color: theme.mutedTextColor,
-      fontFace: theme.fontFace,
-      fontSize: this.scaleFontSize(10),
-      margin: 0
-    })
+    this.addPageNumber(slide, slideStyle.pageNumber, theme, slideIndex, totalSlides)
   }
 
   /**
    * 获取布局区域
    */
-  getRegions(layout: SlideLayout): SlideRegions {
-    let regions: SlideRegions
+  getRegions(layout: SlideLayout): PresentationLayoutRegions {
+    let regions: PresentationLayoutRegions
 
     switch (layout) {
       case 'title':
@@ -137,6 +128,62 @@ export abstract class TemplateBase {
       subtitle: regions.subtitle ? this.scalePosition(regions.subtitle) : undefined,
       content: regions.content.map((item) => this.scalePosition(item))
     }
+  }
+
+  /**
+   * 获取单页排版样式
+   */
+  getSlideStyle(layout: SlideLayout, theme: ResolvedTheme): PresentationSlideStyle {
+    return {
+      backgroundColor: theme.backgroundColor,
+      titleStyle: {
+        fontFace: theme.headingFontFace,
+        fontSize: layout === 'title' ? this.scaleFontSize(28) : this.scaleFontSize(24),
+        bold: true,
+        color: theme.textColor,
+        margin: 0
+      },
+      subtitleStyle: {
+        fontFace: theme.fontFace,
+        fontSize: this.scaleFontSize(16),
+        color: theme.mutedTextColor,
+        margin: 0
+      },
+      bodyStyle: {
+        fontFace: theme.fontFace,
+        fontSize: this.scaleFontSize(16),
+        color: theme.textColor,
+        margin: 0
+      },
+      listStyle: {
+        fontFace: theme.fontFace,
+        fontSize: this.scaleFontSize(15),
+        color: theme.textColor,
+        margin: 0
+      },
+      pageNumber: {
+        position: {
+          x: this.scaleWidth(12.1),
+          y: this.scaleHeight(7.05),
+          w: this.scaleWidth(0.8),
+          h: this.scaleHeight(0.18)
+        },
+        style: {
+          align: 'right',
+          color: theme.mutedTextColor,
+          fontFace: theme.fontFace,
+          fontSize: this.scaleFontSize(10),
+          margin: 0
+        }
+      }
+    }
+  }
+
+  /**
+   * 是否绘制对比布局分割线
+   */
+  shouldRenderComparisonDivider(_layout: SlideLayout): boolean {
+    return true
   }
 
   /**
@@ -244,5 +291,31 @@ export abstract class TemplateBase {
       2
 
     return Number((value * ratio).toFixed(2))
+  }
+
+  /**
+   * 添加页码
+   */
+  protected addPageNumber(
+    slide: PptxGenJS.Slide,
+    pageNumber: PresentationPositionedTextStyle | undefined,
+    theme: ResolvedTheme,
+    slideIndex: number,
+    totalSlides: number
+  ): void {
+    if (!pageNumber?.position) {
+      return
+    }
+
+    slide.addText(`${slideIndex}/${totalSlides}`, {
+      ...pageNumber.position,
+      align: pageNumber.style?.align || 'right',
+      color: this.normalizeColor(pageNumber.style?.color, theme.mutedTextColor),
+      fontFace: pageNumber.style?.fontFace || theme.fontFace,
+      fontSize: pageNumber.style?.fontSize || this.scaleFontSize(10),
+      bold: pageNumber.style?.bold,
+      italic: pageNumber.style?.italic,
+      margin: pageNumber.style?.margin ?? 0
+    })
   }
 }

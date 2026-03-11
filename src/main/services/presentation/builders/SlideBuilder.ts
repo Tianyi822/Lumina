@@ -3,6 +3,7 @@ import type { ResolvedTheme } from '../types/presentation'
 import type {
   CodeContent,
   ListContent,
+  PresentationSlideStyle,
   PositionOptions,
   PresentationConfig,
   ShapeContent,
@@ -35,31 +36,46 @@ export class SlideBuilder {
   ): void {
     const slide = pptx.addSlide()
     const regions = template.getRegions(slideConfig.layout)
+    const slideStyle = template.getSlideStyle(slideConfig.layout, theme)
 
     template.applySlideTheme(slide, slideConfig.layout, theme, slideIndex, totalSlides)
 
     if (slideConfig.layout !== 'blank' && regions.title) {
+      const titleStyle = slideStyle.titleStyle
       slide.addText(slideConfig.title || presentationConfig.title, {
         ...regions.title,
-        fontFace: theme.headingFontFace,
-        fontSize: slideConfig.layout === 'title' ? 28 : 24,
-        bold: true,
-        color: theme.textColor,
-        margin: 0
+        fontFace: titleStyle?.fontFace || theme.headingFontFace,
+        fontSize:
+          titleStyle?.fontSize || (slideConfig.layout === 'title' ? 28 : 24),
+        bold: titleStyle?.bold ?? true,
+        italic: titleStyle?.italic,
+        color: this.normalizeColor(titleStyle?.color, theme.textColor),
+        align: titleStyle?.align || 'left',
+        valign: titleStyle?.valign || 'top',
+        margin: titleStyle?.margin ?? 0
       })
     }
 
     if (slideConfig.subtitle && regions.subtitle) {
+      const subtitleStyle = slideStyle.subtitleStyle
       slide.addText(slideConfig.subtitle, {
         ...regions.subtitle,
-        fontFace: theme.fontFace,
-        fontSize: 16,
-        color: theme.mutedTextColor,
-        margin: 0
+        fontFace: subtitleStyle?.fontFace || theme.fontFace,
+        fontSize: subtitleStyle?.fontSize || 16,
+        bold: subtitleStyle?.bold,
+        italic: subtitleStyle?.italic,
+        color: this.normalizeColor(subtitleStyle?.color, theme.mutedTextColor),
+        align: subtitleStyle?.align || 'left',
+        valign: subtitleStyle?.valign || 'top',
+        margin: subtitleStyle?.margin ?? 0
       })
     }
 
-    if (slideConfig.layout === 'comparison' && regions.content.length === 2) {
+    if (
+      slideConfig.layout === 'comparison' &&
+      regions.content.length === 2 &&
+      template.shouldRenderComparisonDivider(slideConfig.layout)
+    ) {
       const [leftRegion, rightRegion] = regions.content
       const dividerX = ((leftRegion.x ?? 0) + (leftRegion.w ?? 0) + (rightRegion.x ?? 0)) / 2
 
@@ -98,7 +114,7 @@ export class SlideBuilder {
           w,
           h: regionBottom - cursorY
         })
-        const usedHeight = this.renderContent(slide, content, position, theme)
+        const usedHeight = this.renderContent(slide, content, position, theme, slideStyle)
         cursorY += usedHeight + 0.22
       })
     })
@@ -138,13 +154,14 @@ export class SlideBuilder {
     slide: PptxGenJS.Slide,
     content: SlideContent,
     position: Required<PositionOptions>,
-    theme: ResolvedTheme
+    theme: ResolvedTheme,
+    slideStyle: PresentationSlideStyle
   ): number {
     switch (content.type) {
       case 'text':
-        return this.addTextContent(slide, content.data as TextContent, position, theme)
+        return this.addTextContent(slide, content.data as TextContent, position, theme, slideStyle)
       case 'list':
-        return this.addListContent(slide, content.data as ListContent, position, theme)
+        return this.addListContent(slide, content.data as ListContent, position, theme, slideStyle)
       case 'table':
         return this.tableBuilder.addTable(
           slide,
@@ -186,8 +203,10 @@ export class SlideBuilder {
     slide: PptxGenJS.Slide,
     content: TextContent,
     position: Required<PositionOptions>,
-    theme: ResolvedTheme
+    theme: ResolvedTheme,
+    slideStyle: PresentationSlideStyle
   ): number {
+    const bodyStyle = slideStyle.bodyStyle
     const lines = this.countLines(content.text, 28)
     const height = Math.min(Math.max(lines * 0.34, 0.48), position.h)
 
@@ -196,14 +215,14 @@ export class SlideBuilder {
       y: position.y,
       w: position.w,
       h: height,
-      fontFace: content.style?.fontFace || theme.fontFace,
-      fontSize: content.style?.fontSize || 16,
-      bold: content.style?.bold,
-      italic: content.style?.italic,
-      color: this.normalizeColor(content.style?.color, theme.textColor),
-      align: content.style?.align || 'left',
-      valign: content.style?.valign || 'top',
-      margin: content.style?.margin ?? 0
+      fontFace: content.style?.fontFace || bodyStyle?.fontFace || theme.fontFace,
+      fontSize: content.style?.fontSize || bodyStyle?.fontSize || 16,
+      bold: content.style?.bold ?? bodyStyle?.bold,
+      italic: content.style?.italic ?? bodyStyle?.italic,
+      color: this.normalizeColor(content.style?.color || bodyStyle?.color, theme.textColor),
+      align: content.style?.align || bodyStyle?.align || 'left',
+      valign: content.style?.valign || bodyStyle?.valign || 'top',
+      margin: content.style?.margin ?? bodyStyle?.margin ?? 0
     })
 
     return height
@@ -216,8 +235,10 @@ export class SlideBuilder {
     slide: PptxGenJS.Slide,
     content: ListContent,
     position: Required<PositionOptions>,
-    theme: ResolvedTheme
+    theme: ResolvedTheme,
+    slideStyle: PresentationSlideStyle
   ): number {
+    const listStyle = slideStyle.listStyle || slideStyle.bodyStyle
     const textRuns = content.items.map((item, index) => {
       const indentLevel = item.level || 0
       const indentation = '  '.repeat(indentLevel)
@@ -238,12 +259,14 @@ export class SlideBuilder {
       y: position.y,
       w: position.w,
       h: height,
-      fontFace: content.style?.fontFace || theme.fontFace,
-      fontSize: content.style?.fontSize || 15,
-      bold: content.style?.bold,
-      italic: content.style?.italic,
-      color: this.normalizeColor(content.style?.color, theme.textColor),
-      margin: 0
+      fontFace: content.style?.fontFace || listStyle?.fontFace || theme.fontFace,
+      fontSize: content.style?.fontSize || listStyle?.fontSize || 15,
+      bold: content.style?.bold ?? listStyle?.bold,
+      italic: content.style?.italic ?? listStyle?.italic,
+      color: this.normalizeColor(content.style?.color || listStyle?.color, theme.textColor),
+      align: content.style?.align || listStyle?.align,
+      valign: content.style?.valign || listStyle?.valign,
+      margin: content.style?.margin ?? listStyle?.margin ?? 0
     })
 
     return height

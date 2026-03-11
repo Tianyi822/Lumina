@@ -4,11 +4,10 @@ import { logger } from '@main/services/logger'
 import type {
   BuiltinPresentationTemplate,
   ImportPresentationTemplateRequest,
-  PresentationPageSize,
-  PresentationThemeConfig,
   TemplateInfo,
   UserPresentationTemplate
 } from '@shared/types/presentation'
+import { PresentationTemplateExtractor } from './PresentationTemplateExtractor'
 import { ensurePresentationDir, getPresentationTemplateMetadataPath } from './presentationPaths'
 
 interface StoredPresentationTemplate extends UserPresentationTemplate {}
@@ -16,12 +15,6 @@ interface StoredPresentationTemplate extends UserPresentationTemplate {}
 interface PresentationTemplateMetadata {
   templates: StoredPresentationTemplate[]
   hiddenBuiltinTemplateIds: BuiltinPresentationTemplate[]
-}
-
-interface ExtractedTemplateStyle {
-  theme: PresentationThemeConfig
-  previewColors: string[]
-  pageSize?: PresentationPageSize
 }
 
 const BUILTIN_TEMPLATE_IDS: BuiltinPresentationTemplate[] = ['lessonPlan', 'business', 'minimal']
@@ -46,6 +39,7 @@ export class PresentationTemplateStore {
   private templates: StoredPresentationTemplate[] = []
   private hiddenBuiltinTemplateIds: BuiltinPresentationTemplate[] = []
   private loaded = false
+  private readonly templateExtractor = new PresentationTemplateExtractor()
 
   /**
    * 获取所有用户模板
@@ -129,17 +123,26 @@ export class PresentationTemplateStore {
     }
 
     const buffer = Buffer.from(request.data)
-    const extractedStyle = await this.extractTemplateStyle(buffer)
+    const extractedStyle = await this.templateExtractor.extract(buffer)
     const normalizedName = this.normalizeTemplateName(request.name, fileName)
     const createdAt = new Date().toISOString()
+    const hasExtractedLayout = !!(
+      (extractedStyle.layoutSpec?.regions &&
+        Object.keys(extractedStyle.layoutSpec.regions).length > 0) ||
+      (extractedStyle.layoutSpec?.styles &&
+        Object.keys(extractedStyle.layoutSpec.styles).length > 0)
+    )
 
     const template: StoredPresentationTemplate = {
       id: randomUUID(),
       name: normalizedName,
-      description: `从 ${fileName} 提取主题样式，布局沿用 ${BUILTIN_TEMPLATE_LABELS[baseTemplate]}`,
+      description: hasExtractedLayout
+        ? `从 ${fileName} 提取版式、字体与主题样式，缺失布局回退到 ${BUILTIN_TEMPLATE_LABELS[baseTemplate]}`
+        : `从 ${fileName} 提取主题样式，布局回退到 ${BUILTIN_TEMPLATE_LABELS[baseTemplate]}`,
       originalFileName: fileName,
       baseTemplate,
       theme: extractedStyle.theme,
+      layoutSpec: extractedStyle.layoutSpec,
       previewColors: extractedStyle.previewColors,
       pageSize: extractedStyle.pageSize,
       createdAt
@@ -257,175 +260,6 @@ export class PresentationTemplateStore {
         ? Array.from(new Set(target.hiddenBuiltinTemplateIds.filter(isBuiltinTemplateId)))
         : []
     }
-  }
-
-  /**
-   * 提取模板样式
-   */
-  private async extractTemplateStyle(fileData: Buffer): Promise<ExtractedTemplateStyle> {
-    const { default: JSZip } = await import('jszip')
-    const zip = await JSZip.loadAsync(fileData)
-    const themeXml = await this.readFirstExistingText(zip, [
-      'ppt/theme/theme1.xml',
-      'ppt/theme/theme2.xml'
-    ])
-    const presentationXml = await this.readText(zip, 'ppt/presentation.xml')
-
-    const theme = this.extractTheme(themeXml)
-    const pageSize = this.extractPageSize(presentationXml)
-
-    return {
-      theme,
-      previewColors: [
-        theme.primaryColor || '111827',
-        theme.accentColor || theme.secondaryColor || 'E5E7EB',
-        theme.backgroundColor || 'FFFFFF'
-      ].map((color) => color.replace(/^#/, '').toUpperCase()),
-      pageSize
-    }
-  }
-
-  /**
-   * 读取 ZIP 内文本文件
-   */
-  private async readText(
-    zip: {
-      file: (path: string) => { async: (type: 'string') => Promise<string> } | null
-    },
-    path: string
-  ): Promise<string | undefined> {
-    const file = zip.file(path)
-    if (!file) {
-      return undefined
-    }
-
-    return file.async('string')
-  }
-
-  /**
-   * 读取第一个存在的文本文件
-   */
-  private async readFirstExistingText(
-    zip: {
-      file: (path: string) => { async: (type: 'string') => Promise<string> } | null
-    },
-    paths: string[]
-  ): Promise<string | undefined> {
-    for (const path of paths) {
-      const content = await this.readText(zip, path)
-      if (content) {
-        return content
-      }
-    }
-
-    return undefined
-  }
-
-  /**
-   * 从 theme.xml 提取颜色和字体
-   */
-  private extractTheme(themeXml: string | undefined): PresentationThemeConfig {
-    const primaryColor = this.extractColor(themeXml, 'accent1') || '2F6BFF'
-    const secondaryColor =
-      this.extractColor(themeXml, 'accent2') || this.extractColor(themeXml, 'lt2') || 'DCE7FF'
-    const accentColor = this.extractColor(themeXml, 'accent3') || secondaryColor
-    const backgroundColor = this.extractColor(themeXml, 'lt1') || 'FFFFFF'
-    const textColor = this.extractColor(themeXml, 'dk1') || '1F2937'
-    const mutedTextColor =
-      this.extractColor(themeXml, 'dk2') || this.extractColor(themeXml, 'accent4') || '6B7280'
-    const headingFontFace = this.extractFontFace(themeXml, 'majorFont') || 'Aptos Display'
-    const fontFace = this.extractFontFace(themeXml, 'minorFont') || headingFontFace || 'Aptos'
-
-    return {
-      primaryColor,
-      secondaryColor,
-      accentColor,
-      backgroundColor,
-      textColor,
-      mutedTextColor,
-      fontFace,
-      headingFontFace
-    }
-  }
-
-  /**
-   * 提取页面尺寸
-   */
-  private extractPageSize(xml: string | undefined): PresentationPageSize | undefined {
-    if (!xml) {
-      return undefined
-    }
-
-    const match = xml.match(/<[^>]*:sldSz[^>]*cx="(\d+)"[^>]*cy="(\d+)"/i)
-    if (!match) {
-      return undefined
-    }
-
-    const width = Number(match[1]) / 914400
-    const height = Number(match[2]) / 914400
-
-    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-      return undefined
-    }
-
-    return {
-      width: Number(width.toFixed(2)),
-      height: Number(height.toFixed(2))
-    }
-  }
-
-  /**
-   * 提取主题颜色
-   */
-  private extractColor(xml: string | undefined, tagName: string): string | undefined {
-    if (!xml) {
-      return undefined
-    }
-
-    const block = this.extractXmlBlock(xml, tagName)
-    if (!block) {
-      return undefined
-    }
-
-    const srgbMatch = block.match(/<[^>]*:srgbClr[^>]*val="([0-9A-Fa-f]{6})"/i)
-    if (srgbMatch) {
-      return srgbMatch[1].toUpperCase()
-    }
-
-    const sysMatch = block.match(/<[^>]*:sysClr[^>]*lastClr="([0-9A-Fa-f]{6})"/i)
-    return sysMatch?.[1]?.toUpperCase()
-  }
-
-  /**
-   * 提取主题字体
-   */
-  private extractFontFace(xml: string | undefined, tagName: string): string | undefined {
-    if (!xml) {
-      return undefined
-    }
-
-    const block = this.extractXmlBlock(xml, tagName)
-    if (!block) {
-      return undefined
-    }
-
-    const candidates = [
-      block.match(/<[^>]*:latin[^>]*typeface="([^"]+)"/i)?.[1],
-      block.match(/<[^>]*:ea[^>]*typeface="([^"]+)"/i)?.[1],
-      block.match(/<[^>]*:cs[^>]*typeface="([^"]+)"/i)?.[1]
-    ]
-
-    return candidates.map((item) => item?.trim()).find((item) => !!item && !item.startsWith('+'))
-  }
-
-  /**
-   * 提取 XML 节点内容
-   */
-  private extractXmlBlock(xml: string, tagName: string): string | undefined {
-    const escapedTag = tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const regex = new RegExp(`<[^>]*:${escapedTag}\\b[^>]*>([\\s\\S]*?)</[^>]*:${escapedTag}>`, 'i')
-
-    return xml.match(regex)?.[1]
   }
 
   /**
