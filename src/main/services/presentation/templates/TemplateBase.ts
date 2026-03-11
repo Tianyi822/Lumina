@@ -1,6 +1,8 @@
 import type PptxGenJS from 'pptxgenjs'
 import type { PresentationTemplateDefinition, ResolvedTheme } from '../types/presentation'
 import type {
+  PresentationDecorativeShape,
+  PresentationDecorativeText,
   PresentationLayoutRegions,
   PresentationPageSize,
   PresentationSlideStyle,
@@ -18,6 +20,8 @@ export abstract class TemplateBase {
     width: 13.33,
     height: 7.5
   }
+
+  constructor(private readonly pageSizeOverride?: PresentationPageSize) {}
 
   abstract readonly definition: PresentationTemplateDefinition
 
@@ -66,21 +70,13 @@ export abstract class TemplateBase {
       color: this.normalizeColor(slideStyle.backgroundColor, theme.backgroundColor)
     }
 
-    slide.addShape('rect', {
-      x: this.scaleWidth(0),
-      y: this.scaleHeight(0),
-      w: this.scaleWidth(13.33),
-      h: this.scaleHeight(0.18),
-      line: {
-        color: theme.primaryColor,
-        transparency: 100
-      },
-      fill: {
-        color: theme.primaryColor
-      }
+    slideStyle.decorativeShapes?.forEach((shape) => {
+      this.addDecorativeShape(slide, shape, theme)
     })
 
-    this.decorateSlide(slide, layout, theme, slideIndex, totalSlides)
+    slideStyle.decorativeTexts?.forEach((text) => {
+      this.addDecorativeText(slide, text, theme)
+    })
 
     this.addPageNumber(slide, slideStyle.pageNumber, theme, slideIndex, totalSlides)
   }
@@ -135,6 +131,52 @@ export abstract class TemplateBase {
    */
   getSlideStyle(layout: SlideLayout, theme: ResolvedTheme): PresentationSlideStyle {
     return {
+      ...this.buildBaseSlideStyle(layout, theme),
+      decorativeShapes: [
+        {
+          shape: 'rect',
+          x: 0,
+          y: 0,
+          w: this.getPageSize().width,
+          h: this.scaleHeight(0.18),
+          fillColor: theme.primaryColor,
+          lineColor: theme.primaryColor,
+          lineTransparency: 100
+        }
+      ]
+    }
+  }
+
+  /**
+   * 是否绘制对比布局分割线
+   */
+  shouldRenderComparisonDivider(_layout: SlideLayout): boolean {
+    return true
+  }
+
+  /**
+   * 合并主题配置
+   */
+  resolveTheme(theme?: PresentationThemeConfig): ResolvedTheme {
+    const defaultTheme = this.definition.defaultTheme
+
+    return {
+      primaryColor: this.normalizeColor(theme?.primaryColor, defaultTheme.primaryColor),
+      secondaryColor: this.normalizeColor(theme?.secondaryColor, defaultTheme.secondaryColor),
+      accentColor: this.normalizeColor(theme?.accentColor, defaultTheme.accentColor),
+      backgroundColor: this.normalizeColor(theme?.backgroundColor, defaultTheme.backgroundColor),
+      textColor: this.normalizeColor(theme?.textColor, defaultTheme.textColor),
+      mutedTextColor: this.normalizeColor(theme?.mutedTextColor, defaultTheme.mutedTextColor),
+      fontFace: theme?.fontFace?.trim() || defaultTheme.fontFace,
+      headingFontFace: theme?.headingFontFace?.trim() || defaultTheme.headingFontFace
+    }
+  }
+
+  /**
+   * 构建基础排版样式
+   */
+  protected buildBaseSlideStyle(layout: SlideLayout, theme: ResolvedTheme): PresentationSlideStyle {
+    return {
       backgroundColor: theme.backgroundColor,
       titleStyle: {
         fontFace: theme.headingFontFace,
@@ -180,69 +222,6 @@ export abstract class TemplateBase {
   }
 
   /**
-   * 是否绘制对比布局分割线
-   */
-  shouldRenderComparisonDivider(_layout: SlideLayout): boolean {
-    return true
-  }
-
-  /**
-   * 是否使用导入模板提取布局
-   */
-  usesExtractedLayout(_layout: SlideLayout): boolean {
-    return false
-  }
-
-  /**
-   * 获取预览样式
-   */
-  getPreviewStyle(theme?: PresentationThemeConfig): {
-    backgroundColor: string
-    primaryColor: string
-    secondaryColor: string
-    textColor: string
-    mutedTextColor: string
-  } {
-    const resolvedTheme = this.resolveTheme(theme)
-    return {
-      backgroundColor: resolvedTheme.backgroundColor,
-      primaryColor: resolvedTheme.primaryColor,
-      secondaryColor: resolvedTheme.secondaryColor,
-      textColor: resolvedTheme.textColor,
-      mutedTextColor: resolvedTheme.mutedTextColor
-    }
-  }
-
-  /**
-   * 合并主题配置
-   */
-  resolveTheme(theme?: PresentationThemeConfig): ResolvedTheme {
-    const defaultTheme = this.definition.defaultTheme
-
-    return {
-      primaryColor: this.normalizeColor(theme?.primaryColor, defaultTheme.primaryColor),
-      secondaryColor: this.normalizeColor(theme?.secondaryColor, defaultTheme.secondaryColor),
-      accentColor: this.normalizeColor(theme?.accentColor, defaultTheme.accentColor),
-      backgroundColor: this.normalizeColor(theme?.backgroundColor, defaultTheme.backgroundColor),
-      textColor: this.normalizeColor(theme?.textColor, defaultTheme.textColor),
-      mutedTextColor: this.normalizeColor(theme?.mutedTextColor, defaultTheme.mutedTextColor),
-      fontFace: theme?.fontFace?.trim() || defaultTheme.fontFace,
-      headingFontFace: theme?.headingFontFace?.trim() || defaultTheme.headingFontFace
-    }
-  }
-
-  /**
-   * 子类可覆盖的附加装饰
-   */
-  protected abstract decorateSlide(
-    slide: PptxGenJS.Slide,
-    layout: SlideLayout,
-    theme: ResolvedTheme,
-    slideIndex: number,
-    totalSlides: number
-  ): void
-
-  /**
    * 归一化颜色值
    */
   protected normalizeColor(color: string | undefined, fallback: string): string {
@@ -254,7 +233,69 @@ export abstract class TemplateBase {
    * 获取当前模板页尺寸
    */
   protected getPageSize(): PresentationPageSize {
-    return this.definition.pageSize || TemplateBase.DEFAULT_PAGE_SIZE
+    return this.pageSizeOverride || this.definition.pageSize || TemplateBase.DEFAULT_PAGE_SIZE
+  }
+
+  /**
+   * 绘制装饰图形
+   */
+  protected addDecorativeShape(
+    slide: PptxGenJS.Slide,
+    shape: PresentationDecorativeShape,
+    theme: ResolvedTheme
+  ): void {
+    slide.addShape(shape.shape, {
+      x: shape.x,
+      y: shape.y,
+      w: shape.w,
+      h: shape.h,
+      rectRadius: shape.shape === 'roundRect' ? 0.08 : undefined,
+      line:
+        shape.shape === 'line' ||
+        shape.lineColor ||
+        shape.lineWidth ||
+        shape.lineTransparency !== undefined
+          ? {
+              color: this.normalizeColor(shape.lineColor, theme.primaryColor),
+              pt: shape.lineWidth || (shape.shape === 'line' ? 1.2 : 1),
+              transparency: shape.lineTransparency
+            }
+          : undefined,
+      fill:
+        shape.shape === 'line' ||
+        (!shape.fillColor && shape.fillTransparency === undefined && shape.shape !== 'arc')
+          ? undefined
+          : {
+              color: this.normalizeColor(shape.fillColor, theme.backgroundColor),
+              transparency: shape.fillTransparency ?? (shape.shape === 'arc' ? 100 : 0)
+            }
+    })
+  }
+
+  /**
+   * 绘制装饰文本
+   */
+  protected addDecorativeText(
+    slide: PptxGenJS.Slide,
+    text: PresentationDecorativeText,
+    theme: ResolvedTheme
+  ): void {
+    const content = text.text.trim()
+    if (!content) {
+      return
+    }
+
+    slide.addText(content, {
+      ...text.position,
+      align: text.style?.align || 'left',
+      valign: text.style?.valign || 'top',
+      color: this.normalizeColor(text.style?.color, theme.textColor),
+      fontFace: text.style?.fontFace || theme.fontFace,
+      fontSize: text.style?.fontSize || this.scaleFontSize(12),
+      bold: text.style?.bold,
+      italic: text.style?.italic,
+      margin: text.style?.margin ?? 0
+    })
   }
 
   /**

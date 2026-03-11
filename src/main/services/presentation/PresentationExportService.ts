@@ -942,14 +942,6 @@ export class PresentationExportService {
       )}" />`
     ]
 
-    if (!template.usesExtractedLayout(slide.layout)) {
-      elements.push(
-        `<rect width="${canvas.width}" height="${this.toPreviewHeight(0.18, pageSize, canvas)}" fill="${this.normalizeSvgColor(
-          theme.primaryColor
-        )}" />`
-      )
-    }
-
     slideStyle.decorativeShapes?.forEach((shape) => {
       const markup = this.renderPreviewDecorativeShape(
         shape,
@@ -962,37 +954,12 @@ export class PresentationExportService {
       }
     })
 
-    if (template.definition.id === 'lessonPlan' && !template.usesExtractedLayout(slide.layout)) {
-      const labelRect = this.toPreviewRect(
-        {
-          x: 11.12,
-          y: 0.43,
-          w: 1.18,
-          h: 0.18
-        },
-        pageSize,
-        canvas
-      )
-
-      const label = this.renderPreviewTextBlock(
-        slide.layout === 'title' ? '教学演示' : '教学页',
-        labelRect,
-        {
-          fontFace: theme.fontFace,
-          fontSize: 10,
-          bold: true,
-          color: theme.primaryColor,
-          align: 'center'
-        },
-        pageSize,
-        canvas,
-        1
-      )
-
-      if (label.markup) {
-        elements.push(label.markup)
+    slideStyle.decorativeTexts?.forEach((text) => {
+      const rendered = this.renderPreviewDecorativeText(text, pageSize, canvas, theme.textColor)
+      if (rendered.markup) {
+        elements.push(rendered.markup)
       }
-    }
+    })
 
     if (slide.layout !== 'blank' && regions.title) {
       const titleText = slide.title || presentationConfig.title
@@ -1294,6 +1261,26 @@ export class PresentationExportService {
         .join('')}</text>`,
       usedHeight
     }
+  }
+
+  /**
+   * 渲染预览装饰文本
+   */
+  private renderPreviewDecorativeText(
+    text: NonNullable<PresentationSlideStyle['decorativeTexts']>[number],
+    pageSize: { width: number; height: number },
+    canvas: PreviewCanvasSize,
+    fallbackColor: string
+  ): { markup: string; usedHeight: number } {
+    return this.renderPreviewTextBlock(
+      text.text,
+      this.toPreviewRect(text.position, pageSize, canvas),
+      text.style,
+      pageSize,
+      canvas,
+      2,
+      fallbackColor
+    )
   }
 
   /**

@@ -101,6 +101,13 @@ export interface PresentationPositionedTextStyle {
 }
 
 /**
+ * 模板装饰文本
+ */
+export interface PresentationDecorativeText extends PresentationPositionedTextStyle {
+  text: string
+}
+
+/**
  * 模板布局区域
  */
 export interface PresentationLayoutRegions {
@@ -120,6 +127,7 @@ export interface PresentationSlideStyle {
   listStyle?: TextStyle
   pageNumber?: PresentationPositionedTextStyle
   decorativeShapes?: PresentationDecorativeShape[]
+  decorativeTexts?: PresentationDecorativeText[]
 }
 
 /**
