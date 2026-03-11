@@ -240,7 +240,7 @@ onUnmounted(() => {
     </div>
 
     <!-- MCP 服务器列表 -->
-    <div class="model-list">
+    <div class="mcp-server-list">
       <MCPServerItem
         v-for="config in mcpConfigs"
         :key="config.name"
@@ -274,7 +274,7 @@ onUnmounted(() => {
     />
 
     <!-- 添加 MCP 按钮 -->
-    <button v-if="!showNewMCPForm" class="btn add-model-btn" @click="showNewMCPForm = true">
+    <button v-if="!showNewMCPForm" class="btn add-mcp-btn" @click="showNewMCPForm = true">
       + 添加 MCP 服务器
     </button>
   </div>
@@ -318,7 +318,7 @@ onUnmounted(() => {
   margin-top: 12px;
 }
 
-.model-list {
+.mcp-server-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -331,14 +331,14 @@ onUnmounted(() => {
   color: var(--theme-text-secondary);
 }
 
-.add-model-btn {
+.add-mcp-btn {
   width: 100%;
   padding: 12px;
   border-style: dashed;
   color: var(--theme-text-secondary);
 }
 
-.add-model-btn:hover {
+.add-mcp-btn:hover {
   color: var(--theme-accent);
   border-color: var(--theme-accent);
 }

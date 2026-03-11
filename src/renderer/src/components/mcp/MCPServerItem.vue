@@ -192,10 +192,10 @@ watch(
 </script>
 
 <template>
-  <div class="model-item">
-    <div class="model-header" @click="handleToggle">
+  <div class="mcp-server-item">
+    <div class="mcp-server-header" @click="handleToggle">
       <span class="expand-icon">{{ expanded ? '▼' : '▶' }}</span>
-      <span class="model-name">{{ config.name }}</span>
+      <span class="mcp-server-name">{{ config.name }}</span>
       <!-- 连接状态指示器 -->
       <span
         class="status-indicator"
@@ -208,7 +208,7 @@ watch(
         {{ status?.connected ? '已连接' : '未连接' }}
       </span>
       <span class="transport-badge">{{ localConfig.transport }}</span>
-      <div class="model-actions">
+      <div class="mcp-server-actions">
         <button
           v-if="!status?.connected"
           class="btn btn-small"
@@ -230,7 +230,7 @@ watch(
     </div>
 
     <!-- 展开的详情 -->
-    <div v-if="expanded" class="model-details">
+    <div v-if="expanded" class="mcp-server-details">
       <div class="form-group">
         <label>传输类型</label>
         <select
@@ -329,14 +329,14 @@ watch(
 </template>
 
 <style scoped>
-.model-item {
+.mcp-server-item {
   background-color: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
   border-radius: 6px;
   overflow: hidden;
 }
 
-.model-header {
+.mcp-server-header {
   display: flex;
   align-items: center;
   padding: 12px 16px;
@@ -344,7 +344,7 @@ watch(
   transition: background-color 0.15s ease;
 }
 
-.model-header:hover {
+.mcp-server-header:hover {
   background-color: var(--theme-bg-hover);
 }
 
@@ -355,18 +355,18 @@ watch(
   width: 12px;
 }
 
-.model-name {
+.mcp-server-name {
   font-weight: 500;
   color: var(--theme-text);
   flex: 1;
 }
 
-.model-actions {
+.mcp-server-actions {
   display: flex;
   gap: 8px;
 }
 
-.model-details {
+.mcp-server-details {
   padding: 16px;
   border-top: 1px solid var(--theme-border);
   background-color: var(--theme-bg);
