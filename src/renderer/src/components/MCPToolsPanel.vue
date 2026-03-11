@@ -18,12 +18,13 @@ const mcpUpdateKey = inject<Ref<number>>('mcpUpdateKey', ref(0))
 
 // 直接使用 MCP Store
 const mcpStore = useMCPStore()
-const { statuses, searchQuery, expandedServers, filteredToolsByServer } = storeToRefs(mcpStore)
+const { statuses, searchQuery, filteredToolsByServer } = storeToRefs(mcpStore)
 
 // 兼容旧命名
 const connectionStatuses = statuses
 const totalToolsCount = computed(() => mcpStore.totalToolsCount)
 const connectedServersCount = computed(() => mcpStore.connectedServersCount)
+const expandedServers = ref<Set<string>>(new Set())
 
 // 本地选择状态（从 props 初始化，保持与会话同步）
 const localSelectedTools = ref<MCPTool[]>(props.selectedTools ?? [])
@@ -103,6 +104,7 @@ async function loadTools(): Promise<void> {
 
   // 清空之前的展开状态
   clearDescriptionStates()
+  expandedServers.value = new Set()
 
   // 默认展开所有已连接的服务器
   for (const status of connectionStatuses.value) {
@@ -161,9 +163,14 @@ function handleToggleServerGroupTools(tools: MCPTool[]): void {
  * 切换服务器展开状态（包装版本，刷新溢出检查）
  */
 function handleToggleServer(serverName: string): void {
-  mcpStore.toggleServerExpanded(serverName)
+  if (expandedServers.value.has(serverName)) {
+    expandedServers.value.delete(serverName)
+  } else {
+    expandedServers.value.add(serverName)
+  }
+
   // 展开服务器后，检查工具描述溢出状态
-  if (mcpStore.isServerExpanded(serverName)) {
+  if (expandedServers.value.has(serverName)) {
     nextTick(() => {
       refreshAllOverflowChecks()
     })
