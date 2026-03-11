@@ -445,32 +445,42 @@ onUnmounted(() => {
           </div>
           <div v-else class="preview-state">暂无预览</div>
 
-          <div class="validation-panel">
-            <div class="validation-summary">
+          <div class="preview-validation">
+            <div class="validation-badge-wrap">
               <span class="summary-pill danger" :class="{ empty: errorIssues.length === 0 }">
                 错误 {{ errorIssues.length }}
               </span>
+
+              <div v-if="errorIssues.length > 0" class="validation-tooltip">
+                <div class="issue-list">
+                  <div
+                    v-for="issue in errorIssues.slice(0, 6)"
+                    :key="`error-${issue.path}-${issue.message}`"
+                    class="validation-tooltip-item error-list"
+                  >
+                    {{ issue.message }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="validation-badge-wrap">
               <span class="summary-pill warning" :class="{ empty: warningIssues.length === 0 }">
                 警告 {{ warningIssues.length }}
               </span>
-            </div>
 
-            <div v-if="errorIssues.length > 0" class="issue-list error-list">
-              <div v-for="issue in errorIssues.slice(0, 3)" :key="`${issue.path}-${issue.message}`">
-                {{ issue.message }}
+              <div v-if="warningIssues.length > 0" class="validation-tooltip">
+                <div class="issue-list">
+                  <div
+                    v-for="issue in warningIssues.slice(0, 6)"
+                    :key="`warning-${issue.path}-${issue.message}`"
+                    class="validation-tooltip-item warning-list"
+                  >
+                    {{ issue.message }}
+                  </div>
+                </div>
               </div>
             </div>
-
-            <div v-else-if="warningIssues.length > 0" class="issue-list warning-list">
-              <div
-                v-for="issue in warningIssues.slice(0, 3)"
-                :key="`${issue.path}-${issue.message}`"
-              >
-                {{ issue.message }}
-              </div>
-            </div>
-
-            <div v-else class="issue-list ready-list">当前配置可直接导出</div>
           </div>
         </section>
       </div>
@@ -621,6 +631,7 @@ onUnmounted(() => {
 }
 
 .preview-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   padding: 18px;
@@ -788,7 +799,7 @@ onUnmounted(() => {
 .theme-actions,
 .footer-actions,
 .preview-meta,
-.validation-summary {
+.preview-validation {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -856,33 +867,55 @@ onUnmounted(() => {
 }
 
 .preview-strip {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(148px, 148px);
+  align-items: center;
+  gap: 12px;
   overflow-x: auto;
-  padding-bottom: 2px;
+  overflow-y: hidden;
+  padding: 8px;
+  border: 1px solid var(--theme-border);
+  border-radius: calc(var(--theme-radius-lg) - 2px);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0)),
+    color-mix(in srgb, var(--theme-bg-secondary) 82%, transparent);
 }
 
 .preview-thumb {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  width: 128px;
-  min-width: 128px;
-  padding: 8px;
+  width: 148px;
+  min-width: 148px;
+  padding: 10px;
+  box-sizing: border-box;
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
   background: var(--theme-bg-secondary);
   color: var(--theme-text-secondary);
   cursor: pointer;
+  overflow: hidden;
+  transition:
+    transform 0.18s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .preview-thumb.active {
   border-color: var(--theme-accent);
   color: var(--theme-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-accent) 24%, transparent);
+}
+
+.preview-thumb:hover {
+  transform: translateY(-1px);
 }
 
 .preview-thumb img {
   width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
   border-radius: 10px;
 }
 
@@ -908,18 +941,55 @@ onUnmounted(() => {
   color: #ef4444;
 }
 
-.validation-panel {
+.preview-validation {
+  position: relative;
   margin-top: auto;
-  padding: 14px;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.validation-badge-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.validation-badge-wrap:hover .validation-tooltip,
+.validation-badge-wrap:focus-within .validation-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.validation-tooltip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 2;
+  width: min(360px, 45vw);
+  padding: 12px 14px;
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
-  background: color-mix(in srgb, var(--theme-bg-secondary) 72%, transparent);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01)),
+    color-mix(in srgb, var(--theme-bg-secondary) 94%, #0f172a 6%);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    visibility 0.18s ease;
 }
 
 .issue-list {
-  margin-top: 12px;
   font-size: 12px;
   line-height: 1.6;
+}
+
+.validation-tooltip-item + .validation-tooltip-item {
+  margin-top: 8px;
 }
 
 .error-list {
@@ -928,10 +998,6 @@ onUnmounted(() => {
 
 .warning-list {
   color: #d97706;
-}
-
-.ready-list {
-  color: var(--theme-success, #16a34a);
 }
 
 .footer-tip {
@@ -984,7 +1050,14 @@ onUnmounted(() => {
   }
 
   .footer-actions {
+    flex-wrap: wrap;
     justify-content: flex-end;
+  }
+
+  .validation-tooltip {
+    right: 0;
+    left: auto;
+    width: min(100vw - 56px, 360px);
   }
 }
 </style>
