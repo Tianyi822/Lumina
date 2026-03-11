@@ -60,11 +60,14 @@ export class SlideBuilder {
     }
 
     if (slideConfig.layout === 'comparison' && regions.content.length === 2) {
+      const [leftRegion, rightRegion] = regions.content
+      const dividerX = ((leftRegion.x ?? 0) + (leftRegion.w ?? 0) + (rightRegion.x ?? 0)) / 2
+
       slide.addShape('line', {
-        x: 6.66,
-        y: 1.45,
+        x: dividerX,
+        y: leftRegion.y ?? 0,
         w: 0,
-        h: 5.2,
+        h: leftRegion.h ?? 0,
         line: {
           color: theme.secondaryColor,
           pt: 1

@@ -2,8 +2,12 @@ import { ipcRenderer } from 'electron'
 import type {
   BuildPresentationDraftRequest,
   BuildPresentationDraftResult,
+  DeletePresentationTemplateRequest,
+  DeletePresentationTemplateResult,
   ExportPresentationRequest,
   ExportPresentationResult,
+  ImportPresentationTemplateRequest,
+  ImportPresentationTemplateResult,
   PresentationConfig,
   PresentationPreviewResult,
   TemplateInfo,
@@ -40,6 +44,24 @@ export const presentationApi = {
    */
   getTemplates: (): Promise<TemplateInfo[]> => {
     return ipcRenderer.invoke('presentation:getTemplates')
+  },
+
+  /**
+   * 导入 PPT 模板
+   */
+  importTemplate: (
+    request: ImportPresentationTemplateRequest
+  ): Promise<ImportPresentationTemplateResult> => {
+    return ipcRenderer.invoke('presentation:importTemplate', request)
+  },
+
+  /**
+   * 删除 PPT 模板
+   */
+  deleteTemplate: (
+    request: DeletePresentationTemplateRequest
+  ): Promise<DeletePresentationTemplateResult> => {
+    return ipcRenderer.invoke('presentation:deleteTemplate', request)
   },
 
   /**

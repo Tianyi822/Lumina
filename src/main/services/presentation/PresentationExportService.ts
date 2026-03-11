@@ -1,10 +1,15 @@
 import PptxGenJS from 'pptxgenjs'
 import { logger } from '@main/services/logger'
 import type {
+  BuiltinPresentationTemplate,
   BuildPresentationDraftRequest,
   BuildPresentationDraftResult,
+  DeletePresentationTemplateRequest,
+  DeletePresentationTemplateResult,
   ExportPresentationRequest,
   ExportPresentationResult,
+  ImportPresentationTemplateRequest,
+  ImportPresentationTemplateResult,
   ListItem,
   PresentationConfig,
   PresentationPreviewResult,
@@ -17,7 +22,9 @@ import type {
   ValidationResult
 } from '@shared/types/presentation'
 import { SlideBuilder } from './builders/SlideBuilder'
+import { PresentationTemplateStore } from './PresentationTemplateStore'
 import { BusinessTemplate } from './templates/BusinessTemplate'
+import { ImportedTemplate } from './templates/ImportedTemplate'
 import { LessonPlanTemplate } from './templates/LessonPlanTemplate'
 import { MinimalTemplate } from './templates/MinimalTemplate'
 import { TemplateBase } from './templates/TemplateBase'
@@ -56,7 +63,8 @@ type MarkdownBlock =
  */
 export class PresentationExportService {
   private readonly slideBuilder = new SlideBuilder()
-  private readonly templates = new Map<PresentationTemplate, TemplateBase>([
+  private readonly templateStore = new PresentationTemplateStore()
+  private readonly templates = new Map<BuiltinPresentationTemplate | 'custom', TemplateBase>([
     ['lessonPlan', new LessonPlanTemplate()],
     ['business', new BusinessTemplate()],
     ['minimal', new MinimalTemplate()],
@@ -74,6 +82,7 @@ export class PresentationExportService {
         company: request.company,
         subject: request.subject,
         template: request.template,
+        customTemplateId: request.customTemplateId,
         theme: request.theme
       })
 
@@ -86,6 +95,78 @@ export class PresentationExportService {
       return {
         success: false,
         error: `PPT 草稿生成失败: ${errorMessage}`
+      }
+    }
+  }
+
+  /**
+   * 导入并保存用户模板
+   */
+  async importTemplate(
+    request: ImportPresentationTemplateRequest
+  ): Promise<ImportPresentationTemplateResult> {
+    try {
+      const template = await this.templateStore.importTemplate(request)
+
+      return {
+        success: true,
+        data: this.templateStore.toTemplateInfo(template)
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+
+      logger.error('导入 PPT 模板失败', 'main', {
+        error: errorMessage
+      })
+
+      return {
+        success: false,
+        error: `导入 PPT 模板失败: ${errorMessage}`
+      }
+    }
+  }
+
+  /**
+   * 删除模板
+   */
+  deleteTemplate(request: DeletePresentationTemplateRequest): DeletePresentationTemplateResult {
+    try {
+      const visibleTemplates = this.getTemplates()
+
+      if (visibleTemplates.length <= 1) {
+        return {
+          success: false,
+          error: '至少保留一个模板'
+        }
+      }
+
+      const deleted =
+        request.source === 'builtin'
+          ? this.templateStore.hideBuiltin(request.templateId as BuiltinPresentationTemplate)
+          : this.templateStore.deleteUserTemplate(request.templateId)
+
+      if (!deleted) {
+        return {
+          success: false,
+          error: '模板不存在、已被删除，或不支持删除'
+        }
+      }
+
+      return {
+        success: true
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+
+      logger.error('删除 PPT 模板失败', 'main', {
+        error: errorMessage,
+        templateId: request.templateId,
+        source: request.source
+      })
+
+      return {
+        success: false,
+        error: `删除 PPT 模板失败: ${errorMessage}`
       }
     }
   }
@@ -143,7 +224,7 @@ export class PresentationExportService {
    * 导出演示文稿缓冲区
    */
   async exportPresentation(config: PresentationConfig): Promise<Buffer> {
-    const template = this.getTemplate(config.template)
+    const template = this.getTemplate(config.template, config.customTemplateId)
     const pptx = new PptxGenJS()
     const theme = template.applyPresentation(pptx, config.theme)
 
@@ -184,6 +265,7 @@ export class PresentationExportService {
       company?: string
       subject?: string
       template?: PresentationTemplate
+      customTemplateId?: string
       theme?: PresentationThemeConfig
     } = {}
   ): PresentationConfig {
@@ -267,6 +349,7 @@ export class PresentationExportService {
       company: options.company,
       subject: options.subject,
       template: options.template || 'lessonPlan',
+      customTemplateId: options.customTemplateId,
       slides: this.paginateSlides(slides),
       theme: options.theme
     }
@@ -277,7 +360,7 @@ export class PresentationExportService {
    */
   async preview(config: PresentationConfig): Promise<PresentationPreviewResult> {
     try {
-      const template = this.getTemplate(config.template)
+      const template = this.getTemplate(config.template, config.customTemplateId)
       const style = template.getPreviewStyle(config.theme)
       const images = config.slides.map((slide, index) =>
         this.buildPreviewImage(slide, style, index + 1, config.slides.length)
@@ -300,11 +383,9 @@ export class PresentationExportService {
    * 获取模板列表
    */
   getTemplates(): TemplateInfo[] {
-    const templateIds: PresentationTemplate[] = ['lessonPlan', 'business', 'minimal']
-
-    return templateIds.map((id) => ({
-      ...this.getTemplate(id).definition
-    }))
+    return this.templateStore
+      .list()
+      .map((template) => this.templateStore.toTemplateInfo(template))
   }
 
   /**
@@ -327,6 +408,27 @@ export class PresentationExportService {
         message: '至少需要一页幻灯片',
         severity: 'error'
       })
+    }
+
+    if (config.template === 'custom' && !config.customTemplateId) {
+      issues.push({
+        path: 'customTemplateId',
+        message: '自定义模板缺少模板 ID',
+        severity: 'error'
+      })
+    }
+
+    if (config.template !== 'custom' || config.customTemplateId) {
+      try {
+        this.getTemplate(config.template, config.customTemplateId)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        issues.push({
+          path: config.template === 'custom' ? 'customTemplateId' : 'template',
+          message: errorMessage,
+          severity: 'error'
+        })
+      }
     }
 
     config.slides.forEach((slide, slideIndex) => {
@@ -419,6 +521,7 @@ export class PresentationExportService {
       company: request.company,
       subject: request.subject,
       template: request.template,
+      customTemplateId: request.customTemplateId,
       theme: request.theme
     })
   }
@@ -723,7 +826,33 @@ export class PresentationExportService {
   /**
    * 获取模板实例
    */
-  private getTemplate(template: PresentationTemplate): TemplateBase {
+  private getTemplate(template: PresentationTemplate, customTemplateId?: string): TemplateBase {
+    if (template === 'custom') {
+      if (!customTemplateId) {
+        throw new Error('缺少自定义模板 ID')
+      }
+
+      const userTemplate = this.templateStore.getById(customTemplateId)
+      if (!userTemplate) {
+        throw new Error(`未找到自定义模板: ${customTemplateId}`)
+      }
+
+      const baseTemplate = this.getBuiltinTemplate(userTemplate.baseTemplate)
+      const defaultTheme = {
+        ...baseTemplate.definition.defaultTheme,
+        ...baseTemplate.resolveTheme(userTemplate.theme)
+      }
+
+      return new ImportedTemplate(userTemplate, defaultTheme)
+    }
+
+    return this.getBuiltinTemplate(template)
+  }
+
+  /**
+   * 获取内置模板实例
+   */
+  private getBuiltinTemplate(template: BuiltinPresentationTemplate): TemplateBase {
     const targetTemplate = this.templates.get(template)
     if (!targetTemplate) {
       throw new Error(`不支持的 PPT 模板: ${template}`)

@@ -2,10 +2,11 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type {
   BuildPresentationDraftRequest,
+  DeletePresentationTemplateRequest,
   ExportPresentationRequest,
   Message,
   PresentationConfig,
-  PresentationTemplate,
+  PresentationThemeConfig,
   TemplateInfo,
   ValidationResult
 } from '@renderer/types'
@@ -25,51 +26,37 @@ interface TemplatePreset {
   primaryColor: string
   secondaryColor: string
   accentColor: string
+  backgroundColor: string
+  textColor: string
+  mutedTextColor: string
   fontFace: string
   headingFontFace: string
 }
 
-const TEMPLATE_PRESETS: Record<PresentationTemplate, TemplatePreset> = {
-  lessonPlan: {
-    primaryColor: '#2F6BFF',
-    secondaryColor: '#DCE7FF',
-    accentColor: '#63A4FF',
-    fontFace: 'PingFang SC',
-    headingFontFace: 'PingFang SC'
-  },
-  business: {
-    primaryColor: '#0F172A',
-    secondaryColor: '#D9E3F0',
-    accentColor: '#1D4ED8',
-    fontFace: 'Aptos',
-    headingFontFace: 'Aptos Display'
-  },
-  minimal: {
-    primaryColor: '#111827',
-    secondaryColor: '#E5E7EB',
-    accentColor: '#9CA3AF',
-    fontFace: 'PingFang SC',
-    headingFontFace: 'PingFang SC'
-  },
-  custom: {
-    primaryColor: '#111827',
-    secondaryColor: '#E5E7EB',
-    accentColor: '#9CA3AF',
-    fontFace: 'PingFang SC',
-    headingFontFace: 'PingFang SC'
-  }
+const DEFAULT_TEMPLATE_PRESET: TemplatePreset = {
+  primaryColor: '#2F6BFF',
+  secondaryColor: '#DCE7FF',
+  accentColor: '#63A4FF',
+  backgroundColor: '#F7FAFF',
+  textColor: '#17324D',
+  mutedTextColor: '#5B6F84',
+  fontFace: 'PingFang SC',
+  headingFontFace: 'PingFang SC'
 }
 
 const templates = ref<TemplateInfo[]>([])
-const selectedTemplate = ref<PresentationTemplate>('lessonPlan')
+const selectedTemplateKey = ref('')
 const title = ref('')
 const author = ref('')
 const subject = ref('AI 助手生成演示文稿')
-const primaryColor = ref(TEMPLATE_PRESETS.lessonPlan.primaryColor)
-const secondaryColor = ref(TEMPLATE_PRESETS.lessonPlan.secondaryColor)
-const accentColor = ref(TEMPLATE_PRESETS.lessonPlan.accentColor)
-const fontFace = ref(TEMPLATE_PRESETS.lessonPlan.fontFace)
-const headingFontFace = ref(TEMPLATE_PRESETS.lessonPlan.headingFontFace)
+const primaryColor = ref(DEFAULT_TEMPLATE_PRESET.primaryColor)
+const secondaryColor = ref(DEFAULT_TEMPLATE_PRESET.secondaryColor)
+const accentColor = ref(DEFAULT_TEMPLATE_PRESET.accentColor)
+const backgroundColor = ref(DEFAULT_TEMPLATE_PRESET.backgroundColor)
+const textColor = ref(DEFAULT_TEMPLATE_PRESET.textColor)
+const mutedTextColor = ref(DEFAULT_TEMPLATE_PRESET.mutedTextColor)
+const fontFace = ref(DEFAULT_TEMPLATE_PRESET.fontFace)
+const headingFontFace = ref(DEFAULT_TEMPLATE_PRESET.headingFontFace)
 
 const previewImages = ref<string[]>([])
 const previewIndex = ref(0)
@@ -78,11 +65,20 @@ const draftConfig = ref<PresentationConfig | null>(null)
 const loadingTemplates = ref(false)
 const loadingPreview = ref(false)
 const loadError = ref('')
+const importingTemplate = ref(false)
+const deletingTemplateKey = ref('')
+const templateImportError = ref('')
+const templateImportSuccess = ref('')
+const templateFileInput = ref<HTMLInputElement | null>(null)
 
 let previewTimer: number | null = null
 
 const activeTemplateInfo = computed(() => {
-  return templates.value.find((item) => item.id === selectedTemplate.value) || null
+  return templates.value.find((item) => item.selectionKey === selectedTemplateKey.value) || null
+})
+
+const resolvedTemplateInfo = computed(() => {
+  return activeTemplateInfo.value || templates.value[0] || null
 })
 
 const currentPreviewImage = computed(() => {
@@ -113,30 +109,111 @@ function handleKeydown(event: KeyboardEvent): void {
   }
 }
 
-function applyTemplatePreset(template: PresentationTemplate): void {
-  const preset = TEMPLATE_PRESETS[template]
+function normalizeColorInput(
+  color: string | undefined,
+  fallback: string = DEFAULT_TEMPLATE_PRESET.primaryColor
+): string {
+  const normalized = color?.trim().replace(/^#/, '').toUpperCase()
+  if (normalized && /^[0-9A-F]{6}$/.test(normalized)) {
+    return `#${normalized}`
+  }
+
+  return fallback
+}
+
+function buildTemplatePreset(templateInfo: TemplateInfo | null): TemplatePreset {
+  const theme = templateInfo?.theme || {}
+
+  return {
+    primaryColor: normalizeColorInput(theme.primaryColor, DEFAULT_TEMPLATE_PRESET.primaryColor),
+    secondaryColor: normalizeColorInput(
+      theme.secondaryColor,
+      DEFAULT_TEMPLATE_PRESET.secondaryColor
+    ),
+    accentColor: normalizeColorInput(theme.accentColor, DEFAULT_TEMPLATE_PRESET.accentColor),
+    backgroundColor: normalizeColorInput(
+      theme.backgroundColor,
+      DEFAULT_TEMPLATE_PRESET.backgroundColor
+    ),
+    textColor: normalizeColorInput(theme.textColor, DEFAULT_TEMPLATE_PRESET.textColor),
+    mutedTextColor: normalizeColorInput(
+      theme.mutedTextColor,
+      DEFAULT_TEMPLATE_PRESET.mutedTextColor
+    ),
+    fontFace: theme.fontFace?.trim() || DEFAULT_TEMPLATE_PRESET.fontFace,
+    headingFontFace: theme.headingFontFace?.trim() || DEFAULT_TEMPLATE_PRESET.headingFontFace
+  }
+}
+
+function applyTemplatePreset(templateInfo: TemplateInfo | null): void {
+  const preset = buildTemplatePreset(templateInfo)
   primaryColor.value = preset.primaryColor
   secondaryColor.value = preset.secondaryColor
   accentColor.value = preset.accentColor
+  backgroundColor.value = preset.backgroundColor
+  textColor.value = preset.textColor
+  mutedTextColor.value = preset.mutedTextColor
   fontFace.value = preset.fontFace
   headingFontFace.value = preset.headingFontFace
 }
 
+function buildThemeConfig(): PresentationThemeConfig {
+  return {
+    primaryColor: primaryColor.value,
+    secondaryColor: secondaryColor.value,
+    accentColor: accentColor.value,
+    backgroundColor: backgroundColor.value,
+    textColor: textColor.value,
+    mutedTextColor: mutedTextColor.value,
+    fontFace: fontFace.value.trim() || undefined,
+    headingFontFace: headingFontFace.value.trim() || undefined
+  }
+}
+
 function buildDraftRequest(): BuildPresentationDraftRequest {
+  const templateInfo = resolvedTemplateInfo.value
+
   return {
     content: props.message.content,
     title: title.value.trim() || props.defaultTitle || '未命名演示文稿',
     author: author.value.trim() || undefined,
     subject: subject.value.trim() || undefined,
-    template: selectedTemplate.value,
-    theme: {
-      primaryColor: primaryColor.value,
-      secondaryColor: secondaryColor.value,
-      accentColor: accentColor.value,
-      fontFace: fontFace.value.trim() || undefined,
-      headingFontFace: headingFontFace.value.trim() || undefined
+    template: templateInfo?.id || 'lessonPlan',
+    customTemplateId: templateInfo?.userTemplateId,
+    theme: buildThemeConfig()
+  }
+}
+
+function resolveDeleteRequest(
+  templateInfo: TemplateInfo | null
+): DeletePresentationTemplateRequest | null {
+  if (!templateInfo) {
+    return null
+  }
+
+  if (templateInfo.source === 'builtin') {
+    return {
+      templateId: templateInfo.id,
+      source: 'builtin'
     }
   }
+
+  if (templateInfo.userTemplateId) {
+    return {
+      templateId: templateInfo.userTemplateId,
+      source: 'user'
+    }
+  }
+
+  return null
+}
+
+function canDeleteTemplate(templateInfo: TemplateInfo): boolean {
+  return templates.value.length > 1 && !!resolveDeleteRequest(templateInfo)
+}
+
+function isDeletingTemplate(templateInfo: TemplateInfo): boolean {
+  return deletingTemplateKey.value === templateInfo.selectionKey
 }
 
 async function loadTemplates(): Promise<void> {
@@ -144,14 +221,37 @@ async function loadTemplates(): Promise<void> {
 
   try {
     templates.value = await window.api.presentation.getTemplates()
+    const matchedTemplate = templates.value.find(
+      (item) => item.selectionKey === selectedTemplateKey.value
+    )
+
+    if (matchedTemplate) {
+      return
+    }
+
+    const fallbackTemplate = templates.value[0] || null
+    if (fallbackTemplate) {
+      selectedTemplateKey.value = fallbackTemplate.selectionKey
+      applyTemplatePreset(fallbackTemplate)
+    } else {
+      selectedTemplateKey.value = ''
+    }
   } catch (error) {
-    loadError.value = error instanceof Error ? error.message : String(error)
+    templateImportError.value = error instanceof Error ? error.message : String(error)
   } finally {
     loadingTemplates.value = false
   }
 }
 
 async function refreshPreview(): Promise<void> {
+  if (!resolvedTemplateInfo.value) {
+    loadError.value = '当前没有可用模板，请先上传模板'
+    previewImages.value = []
+    validationResult.value = null
+    draftConfig.value = null
+    return
+  }
+
   if (!props.message.content.trim()) {
     loadError.value = '当前消息内容为空，无法生成 PPT 预览'
     previewImages.value = []
@@ -210,13 +310,103 @@ function schedulePreview(): void {
   }, 260)
 }
 
-function handleTemplateSelect(template: PresentationTemplate): void {
-  if (selectedTemplate.value === template) {
+function handleTemplateSelect(selectionKey: string): void {
+  if (selectedTemplateKey.value === selectionKey) {
     return
   }
 
-  selectedTemplate.value = template
-  applyTemplatePreset(template)
+  const templateInfo = templates.value.find((item) => item.selectionKey === selectionKey) || null
+  if (!templateInfo) {
+    return
+  }
+
+  selectedTemplateKey.value = templateInfo.selectionKey
+  applyTemplatePreset(templateInfo)
+}
+
+function triggerTemplateUpload(): void {
+  if (!importingTemplate.value && !deletingTemplateKey.value) {
+    templateFileInput.value?.click()
+  }
+}
+
+async function handleTemplateFileChange(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) {
+    return
+  }
+
+  templateImportError.value = ''
+  templateImportSuccess.value = ''
+  importingTemplate.value = true
+
+  try {
+    const data = new Uint8Array(await file.arrayBuffer())
+    const result = await window.api.presentation.importTemplate({
+      data: Array.from(data),
+      fileName: file.name
+    })
+
+    if (!result.success || !result.data) {
+      templateImportError.value = result.error || '模板导入失败'
+      return
+    }
+
+    await loadTemplates()
+    handleTemplateSelect(result.data.selectionKey)
+    templateImportSuccess.value = `模板“${result.data.name}”已保存`
+  } catch (error) {
+    templateImportError.value = error instanceof Error ? error.message : String(error)
+  } finally {
+    importingTemplate.value = false
+    input.value = ''
+  }
+}
+
+async function handleDeleteTemplate(templateInfo: TemplateInfo): Promise<void> {
+  const deleteRequest = resolveDeleteRequest(templateInfo)
+
+  if (!templateInfo || !deleteRequest) {
+    return
+  }
+
+  if (templates.value.length <= 1) {
+    templateImportError.value = '至少保留一个模板'
+    return
+  }
+
+  const actionLabel = templateInfo.source === 'builtin' ? '移除' : '删除'
+  const confirmed = window.confirm(`确认${actionLabel}模板“${templateInfo.name}”吗？`)
+  if (!confirmed) {
+    return
+  }
+
+  templateImportError.value = ''
+  templateImportSuccess.value = ''
+  deletingTemplateKey.value = templateInfo.selectionKey
+
+  try {
+    const deleteTemplateApi = window.api.presentation?.deleteTemplate
+    if (typeof deleteTemplateApi !== 'function') {
+      templateImportError.value = '当前版本未加载模板删除接口，请重启应用后重试'
+      return
+    }
+
+    const result = await deleteTemplateApi(deleteRequest)
+
+    if (!result.success) {
+      templateImportError.value = result.error || '模板删除失败'
+      return
+    }
+
+    await loadTemplates()
+    templateImportSuccess.value = `模板“${templateInfo.name}”已${actionLabel}`
+  } catch (error) {
+    templateImportError.value = error instanceof Error ? error.message : String(error)
+  } finally {
+    deletingTemplateKey.value = ''
+  }
 }
 
 function handleExport(): void {
@@ -236,13 +426,16 @@ watch(
 
 watch(
   [
-    selectedTemplate,
+    selectedTemplateKey,
     title,
     author,
     subject,
     primaryColor,
     secondaryColor,
     accentColor,
+    backgroundColor,
+    textColor,
+    mutedTextColor,
     fontFace,
     headingFontFace
   ],
@@ -286,31 +479,71 @@ onUnmounted(() => {
       <div class="presentation-body">
         <section class="presentation-panel config-panel">
           <div class="panel-section">
-            <div class="section-heading">
+            <div class="section-heading template-section-heading">
               <h4>模板选择</h4>
+
+              <button
+                class="minor-btn upload-btn"
+                :disabled="importingTemplate || !!deletingTemplateKey"
+                @click="triggerTemplateUpload"
+              >
+                {{ importingTemplate ? '正在导入...' : '上传模板' }}
+              </button>
+            </div>
+
+            <input
+              ref="templateFileInput"
+              type="file"
+              accept=".pptx,.potx"
+              class="hidden-file-input"
+              @change="handleTemplateFileChange"
+            />
+
+            <div v-if="templateImportError" class="inline-tip error">{{ templateImportError }}</div>
+            <div v-else-if="templateImportSuccess" class="inline-tip success">
+              {{ templateImportSuccess }}
             </div>
 
             <div v-if="loadingTemplates" class="panel-state">正在加载模板...</div>
 
+            <div v-else-if="templates.length === 0" class="panel-state">
+              当前没有可用模板，请先上传模板。
+            </div>
+
             <div v-else class="template-grid">
-              <button
+              <div
                 v-for="templateItem in templates"
-                :key="templateItem.id"
+                :key="templateItem.selectionKey"
                 class="template-card"
-                :class="{ active: selectedTemplate === templateItem.id }"
-                @click="handleTemplateSelect(templateItem.id)"
+                :class="{ active: selectedTemplateKey === templateItem.selectionKey }"
+                role="button"
+                tabindex="0"
+                @click="handleTemplateSelect(templateItem.selectionKey)"
+                @keydown.enter.prevent="handleTemplateSelect(templateItem.selectionKey)"
+                @keydown.space.prevent="handleTemplateSelect(templateItem.selectionKey)"
               >
-                <div class="template-swatches">
-                  <span
-                    v-for="color in templateItem.previewColors || []"
-                    :key="color"
-                    class="template-swatch"
-                    :style="{ backgroundColor: `#${color.replace(/^#/, '')}` }"
-                  />
+                <div class="template-card-head">
+                  <div class="template-swatches">
+                    <span
+                      v-for="color in templateItem.previewColors || []"
+                      :key="color"
+                      class="template-swatch"
+                      :style="{ backgroundColor: `#${color.replace(/^#/, '')}` }"
+                    />
+                  </div>
                 </div>
                 <div class="template-card-title">{{ templateItem.name }}</div>
-                <div class="template-card-desc">{{ templateItem.description }}</div>
-              </button>
+
+                <button
+                  class="template-delete-btn"
+                  :disabled="
+                    !canDeleteTemplate(templateItem) || importingTemplate || !!deletingTemplateKey
+                  "
+                  @click.stop="handleDeleteTemplate(templateItem)"
+                >
+                  {{ isDeletingTemplate(templateItem) ? '正在删除...' : '删除模板' }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -378,6 +611,27 @@ onUnmounted(() => {
                   <input v-model="accentColor" class="form-input color-text" />
                 </div>
               </label>
+              <label class="color-field">
+                <span class="field-label">背景色</span>
+                <div class="color-input-wrap">
+                  <input v-model="backgroundColor" type="color" class="color-picker" />
+                  <input v-model="backgroundColor" class="form-input color-text" />
+                </div>
+              </label>
+              <label class="color-field">
+                <span class="field-label">正文字色</span>
+                <div class="color-input-wrap">
+                  <input v-model="textColor" type="color" class="color-picker" />
+                  <input v-model="textColor" class="form-input color-text" />
+                </div>
+              </label>
+              <label class="color-field">
+                <span class="field-label">弱化文字</span>
+                <div class="color-input-wrap">
+                  <input v-model="mutedTextColor" type="color" class="color-picker" />
+                  <input v-model="mutedTextColor" class="form-input color-text" />
+                </div>
+              </label>
             </div>
 
             <div class="form-grid">
@@ -402,7 +656,7 @@ onUnmounted(() => {
             </div>
 
             <div class="theme-actions">
-              <button class="minor-btn" @click="applyTemplatePreset(selectedTemplate)">
+              <button class="minor-btn" @click="applyTemplatePreset(resolvedTemplateInfo)">
                 恢复模板默认
               </button>
               <button class="minor-btn" :disabled="loadingPreview" @click="refreshPreview">
@@ -419,7 +673,9 @@ onUnmounted(() => {
             </div>
             <div class="preview-meta">
               <span v-if="draftConfig" class="meta-pill">{{ draftConfig.slides.length }} 页</span>
-              <span v-if="activeTemplateInfo" class="meta-pill">{{ activeTemplateInfo.name }}</span>
+              <span v-if="resolvedTemplateInfo" class="meta-pill">{{
+                resolvedTemplateInfo.name
+              }}</span>
             </div>
           </div>
 
@@ -491,7 +747,7 @@ onUnmounted(() => {
           <button class="minor-btn" :disabled="isExporting" @click="handleClose">取消</button>
           <button
             class="primary-btn"
-            :disabled="isExporting || errorIssues.length > 0"
+            :disabled="isExporting || errorIssues.length > 0 || !resolvedTemplateInfo"
             @click="handleExport"
           >
             {{ isExporting ? '正在导出...' : '导出 PPTX' }}
@@ -646,11 +902,51 @@ onUnmounted(() => {
   margin-bottom: 14px;
 }
 
+.template-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .section-heading h4,
 .preview-header h4 {
   margin: 0;
   font-size: 16px;
   color: var(--theme-text);
+}
+
+.template-section-heading h4 {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.upload-btn {
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.inline-tip {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: var(--theme-radius);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.inline-tip.success {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+.inline-tip.error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
 }
 
 .template-grid {
@@ -660,6 +956,9 @@ onUnmounted(() => {
 }
 
 .template-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 126px;
   padding: 14px;
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
@@ -682,10 +981,17 @@ onUnmounted(() => {
   transform: translateY(-1px);
 }
 
+.template-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 .template-swatches {
   display: flex;
   gap: 6px;
-  margin-bottom: 10px;
 }
 
 .template-swatch {
@@ -700,11 +1006,33 @@ onUnmounted(() => {
   font-weight: 700;
 }
 
-.template-card-desc {
-  margin-top: 6px;
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--theme-text-secondary);
+.template-delete-btn {
+  align-self: flex-end;
+  margin-top: auto;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.template-delete-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(239, 68, 68, 0.34);
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.template-delete-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .form-grid,
@@ -823,6 +1151,11 @@ onUnmounted(() => {
 .meta-pill {
   background: color-mix(in srgb, var(--theme-accent) 12%, transparent);
   color: var(--theme-accent);
+}
+
+.meta-pill.muted {
+  background: color-mix(in srgb, var(--theme-border) 60%, transparent);
+  color: var(--theme-text-secondary);
 }
 
 .summary-pill.danger {
@@ -1042,6 +1375,11 @@ onUnmounted(() => {
   .form-grid,
   .color-grid {
     grid-template-columns: 1fr;
+  }
+
+  .template-section-heading {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .presentation-footer {

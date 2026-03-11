@@ -1,4 +1,5 @@
 import type {
+  PresentationPageSize,
   PresentationTemplate,
   PresentationThemeConfig,
   TemplateInfo
@@ -24,4 +25,5 @@ export interface ResolvedTheme {
 export interface PresentationTemplateDefinition extends TemplateInfo {
   id: PresentationTemplate
   defaultTheme: Required<PresentationThemeConfig>
+  pageSize?: PresentationPageSize
 }

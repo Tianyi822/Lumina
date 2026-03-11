@@ -4,6 +4,9 @@ import { logger } from '@main/services/logger'
 import { z } from 'zod'
 
 const hexColorSchema = z.string().regex(/^#?[0-9A-Fa-f]{6}$/, '颜色必须为十六进制格式')
+const builtinTemplateSchema = z.enum(['lessonPlan', 'business', 'minimal'])
+const presentationTemplateSchema = z.enum(['lessonPlan', 'business', 'minimal', 'custom'])
+const presentationTemplateSourceSchema = z.enum(['builtin', 'user'])
 
 const positionOptionsSchema = z.object({
   x: z.number().finite().optional(),
@@ -143,15 +146,21 @@ const slideConfigSchema = z.object({
   notes: z.string().optional()
 })
 
-const presentationConfigSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  author: z.string().trim().max(120).optional(),
-  company: z.string().trim().max(120).optional(),
-  subject: z.string().trim().max(200).optional(),
-  template: z.enum(['lessonPlan', 'business', 'minimal', 'custom']),
-  slides: z.array(slideConfigSchema).min(1),
-  theme: themeSchema.optional()
-})
+const presentationConfigSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    author: z.string().trim().max(120).optional(),
+    company: z.string().trim().max(120).optional(),
+    subject: z.string().trim().max(200).optional(),
+    template: presentationTemplateSchema,
+    customTemplateId: z.string().trim().min(1).max(120).optional(),
+    slides: z.array(slideConfigSchema).min(1),
+    theme: themeSchema.optional()
+  })
+  .refine((value) => value.template !== 'custom' || !!value.customTemplateId, {
+    message: '自定义模板必须提供 customTemplateId',
+    path: ['customTemplateId']
+  })
 
 const exportPresentationRequestSchema = z
   .object({
@@ -161,22 +170,45 @@ const exportPresentationRequestSchema = z
     author: z.string().trim().max(120).optional(),
     company: z.string().trim().max(120).optional(),
     subject: z.string().trim().max(200).optional(),
-    template: z.enum(['lessonPlan', 'business', 'minimal', 'custom']).optional(),
+    template: presentationTemplateSchema.optional(),
+    customTemplateId: z.string().trim().min(1).max(120).optional(),
     theme: themeSchema.optional(),
     timestamp: z.string().optional()
   })
   .refine((value) => !!value.content || !!value.config, {
     message: '必须提供 content 或 config'
   })
+  .refine((value) => value.template !== 'custom' || !!value.customTemplateId || !!value.config, {
+    message: '自定义模板必须提供 customTemplateId',
+    path: ['customTemplateId']
+  })
 
-const buildDraftRequestSchema = z.object({
-  content: z.string().trim().min(1, 'PPT 草稿内容不能为空'),
-  title: z.string().trim().max(200).optional(),
-  author: z.string().trim().max(120).optional(),
-  company: z.string().trim().max(120).optional(),
-  subject: z.string().trim().max(200).optional(),
-  template: z.enum(['lessonPlan', 'business', 'minimal', 'custom']).optional(),
-  theme: themeSchema.optional()
+const buildDraftRequestSchema = z
+  .object({
+    content: z.string().trim().min(1, 'PPT 草稿内容不能为空'),
+    title: z.string().trim().max(200).optional(),
+    author: z.string().trim().max(120).optional(),
+    company: z.string().trim().max(120).optional(),
+    subject: z.string().trim().max(200).optional(),
+    template: presentationTemplateSchema.optional(),
+    customTemplateId: z.string().trim().min(1).max(120).optional(),
+    theme: themeSchema.optional()
+  })
+  .refine((value) => value.template !== 'custom' || !!value.customTemplateId, {
+    message: '自定义模板必须提供 customTemplateId',
+    path: ['customTemplateId']
+  })
+
+const importTemplateRequestSchema = z.object({
+  data: z.array(z.number().int().min(0).max(255)).min(1, '模板文件不能为空'),
+  fileName: z.string().trim().min(1, '模板文件名不能为空').max(240),
+  name: z.string().trim().max(80).optional(),
+  baseTemplate: builtinTemplateSchema.optional()
+})
+
+const deleteTemplateRequestSchema = z.object({
+  templateId: z.string().trim().min(1, '模板 ID 不能为空').max(120),
+  source: presentationTemplateSourceSchema
 })
 
 /**
@@ -238,6 +270,36 @@ export function registerPresentationHandlers(): void {
 
   ipcMain.handle('presentation:getTemplates', async () => {
     return getPresentationExportService().getTemplates()
+  })
+
+  ipcMain.handle('presentation:importTemplate', async (_event, request: unknown) => {
+    try {
+      const parsedRequest = importTemplateRequestSchema.parse(request)
+      return await getPresentationExportService().importTemplate(parsedRequest)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('PPT 模板导入失败', 'main', { error: errorMessage })
+
+      return {
+        success: false,
+        error: `PPT 模板导入失败: ${errorMessage}`
+      }
+    }
+  })
+
+  ipcMain.handle('presentation:deleteTemplate', async (_event, request: unknown) => {
+    try {
+      const parsedRequest = deleteTemplateRequestSchema.parse(request)
+      return getPresentationExportService().deleteTemplate(parsedRequest)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('PPT 模板删除失败', 'main', { error: errorMessage })
+
+      return {
+        success: false,
+        error: `PPT 模板删除失败: ${errorMessage}`
+      }
+    }
   })
 
   ipcMain.handle('presentation:validate', async (_event, config: unknown) => {

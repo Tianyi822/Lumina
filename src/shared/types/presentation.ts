@@ -1,7 +1,25 @@
 /**
  * PPT 模板类型
  */
-export type PresentationTemplate = 'lessonPlan' | 'business' | 'minimal' | 'custom'
+export type BuiltinPresentationTemplate = 'lessonPlan' | 'business' | 'minimal'
+
+/**
+ * PPT 模板类型
+ */
+export type PresentationTemplate = BuiltinPresentationTemplate | 'custom'
+
+/**
+ * PPT 模板来源
+ */
+export type PresentationTemplateSource = 'builtin' | 'user'
+
+/**
+ * 幻灯片页面尺寸
+ */
+export interface PresentationPageSize {
+  width: number
+  height: number
+}
 
 /**
  * 幻灯片布局类型
@@ -252,6 +270,7 @@ export interface PresentationConfig {
   company?: string
   subject?: string
   template: PresentationTemplate
+  customTemplateId?: string
   slides: SlideConfig[]
   theme?: PresentationThemeConfig
 }
@@ -267,6 +286,7 @@ export interface ExportPresentationRequest {
   company?: string
   subject?: string
   template?: PresentationTemplate
+  customTemplateId?: string
   theme?: PresentationThemeConfig
   timestamp?: string
 }
@@ -281,6 +301,7 @@ export interface BuildPresentationDraftRequest {
   company?: string
   subject?: string
   template?: PresentationTemplate
+  customTemplateId?: string
   theme?: PresentationThemeConfig
 }
 
@@ -309,10 +330,67 @@ export interface BuildPresentationDraftResult {
  */
 export interface TemplateInfo {
   id: PresentationTemplate
+  selectionKey: string
+  source: PresentationTemplateSource
   name: string
   description: string
+  userTemplateId?: string
+  baseTemplate?: BuiltinPresentationTemplate
   recommendedFor?: string[]
   previewColors?: string[]
+  theme?: PresentationThemeConfig
+  pageSize?: PresentationPageSize
+  originalFileName?: string
+}
+
+/**
+ * 用户保存的 PPT 模板
+ */
+export interface UserPresentationTemplate {
+  id: string
+  name: string
+  description: string
+  originalFileName: string
+  baseTemplate: BuiltinPresentationTemplate
+  theme: PresentationThemeConfig
+  previewColors?: string[]
+  pageSize?: PresentationPageSize
+  createdAt: string
+}
+
+/**
+ * 导入 PPT 模板请求
+ */
+export interface ImportPresentationTemplateRequest {
+  data: number[]
+  fileName: string
+  name?: string
+  baseTemplate?: BuiltinPresentationTemplate
+}
+
+/**
+ * 导入 PPT 模板结果
+ */
+export interface ImportPresentationTemplateResult {
+  success: boolean
+  data?: TemplateInfo
+  error?: string
+}
+
+/**
+ * 删除 PPT 模板请求
+ */
+export interface DeletePresentationTemplateRequest {
+  templateId: string
+  source: PresentationTemplateSource
+}
+
+/**
+ * 删除 PPT 模板结果
+ */
+export interface DeletePresentationTemplateResult {
+  success: boolean
+  error?: string
 }
 
 /**

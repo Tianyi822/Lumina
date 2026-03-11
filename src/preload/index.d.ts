@@ -1624,7 +1624,20 @@ interface DocumentApi {
 /**
  * PPT 模板类型
  */
+type BuiltinPresentationTemplate = 'lessonPlan' | 'business' | 'minimal'
+
+/**
+ * PPT 模板类型
+ */
 type PresentationTemplate = 'lessonPlan' | 'business' | 'minimal' | 'custom'
+
+/**
+ * 幻灯片页面尺寸
+ */
+interface PresentationPageSize {
+  width: number
+  height: number
+}
 
 /**
  * 幻灯片布局类型
@@ -1768,6 +1781,7 @@ interface PresentationConfig {
   company?: string
   subject?: string
   template: PresentationTemplate
+  customTemplateId?: string
   slides: SlideConfig[]
   theme?: PresentationThemeConfig
 }
@@ -1780,6 +1794,7 @@ interface ExportPresentationRequest {
   company?: string
   subject?: string
   template?: PresentationTemplate
+  customTemplateId?: string
   theme?: PresentationThemeConfig
   timestamp?: string
 }
@@ -1791,6 +1806,7 @@ interface BuildPresentationDraftRequest {
   company?: string
   subject?: string
   template?: PresentationTemplate
+  customTemplateId?: string
   theme?: PresentationThemeConfig
 }
 
@@ -1808,12 +1824,44 @@ interface BuildPresentationDraftResult {
   error?: string
 }
 
+interface ImportPresentationTemplateRequest {
+  data: number[]
+  fileName: string
+  name?: string
+  baseTemplate?: BuiltinPresentationTemplate
+}
+
+interface ImportPresentationTemplateResult {
+  success: boolean
+  data?: TemplateInfo
+  error?: string
+}
+
+type PresentationTemplateSource = 'builtin' | 'user'
+
+interface DeletePresentationTemplateRequest {
+  templateId: string
+  source: PresentationTemplateSource
+}
+
+interface DeletePresentationTemplateResult {
+  success: boolean
+  error?: string
+}
+
 interface TemplateInfo {
   id: PresentationTemplate
+  selectionKey: string
+  source: PresentationTemplateSource
   name: string
   description: string
+  userTemplateId?: string
+  baseTemplate?: BuiltinPresentationTemplate
   recommendedFor?: string[]
   previewColors?: string[]
+  theme?: PresentationThemeConfig
+  pageSize?: PresentationPageSize
+  originalFileName?: string
 }
 
 interface ValidationIssue {
@@ -1841,6 +1889,12 @@ interface PresentationApi {
   exportFromChat: (request: ExportPresentationRequest) => Promise<ExportPresentationResult>
   preview: (config: PresentationConfig) => Promise<PresentationPreviewResult>
   getTemplates: () => Promise<TemplateInfo[]>
+  importTemplate: (
+    request: ImportPresentationTemplateRequest
+  ) => Promise<ImportPresentationTemplateResult>
+  deleteTemplate: (
+    request: DeletePresentationTemplateRequest
+  ) => Promise<DeletePresentationTemplateResult>
   validate: (config: PresentationConfig) => Promise<ValidationResult>
 }
 
