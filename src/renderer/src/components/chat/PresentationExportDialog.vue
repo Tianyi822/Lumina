@@ -287,7 +287,6 @@ onUnmounted(() => {
         <section class="presentation-panel config-panel">
           <div class="panel-section">
             <div class="section-heading">
-              <span class="section-eyebrow">Template</span>
               <h4>模板选择</h4>
             </div>
 
@@ -317,7 +316,6 @@ onUnmounted(() => {
 
           <div class="panel-section">
             <div class="section-heading">
-              <span class="section-eyebrow">Meta</span>
               <h4>基础信息</h4>
             </div>
 
@@ -355,7 +353,6 @@ onUnmounted(() => {
 
           <div class="panel-section">
             <div class="section-heading">
-              <span class="section-eyebrow">Theme</span>
               <h4>主题设置</h4>
             </div>
 
@@ -418,7 +415,6 @@ onUnmounted(() => {
         <section class="presentation-panel preview-panel">
           <div class="preview-header">
             <div>
-              <span class="section-eyebrow">Preview</span>
               <h4>实时预览</h4>
             </div>
             <div class="preview-meta">
@@ -601,11 +597,13 @@ onUnmounted(() => {
 }
 
 .presentation-body {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(360px, 420px) minmax(0, 1fr);
   gap: 18px;
   padding: 20px 24px;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .presentation-panel {
@@ -618,6 +616,8 @@ onUnmounted(() => {
 
 .config-panel {
   padding: 18px;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .preview-panel {
@@ -637,16 +637,9 @@ onUnmounted(() => {
 
 .section-heading h4,
 .preview-header h4 {
-  margin: 4px 0 0;
+  margin: 0;
   font-size: 16px;
   color: var(--theme-text);
-}
-
-.section-eyebrow {
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--theme-text-tertiary);
 }
 
 .template-grid {
@@ -717,6 +710,12 @@ onUnmounted(() => {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.color-grid + .form-grid,
+.form-grid + .field,
+.form-grid + .theme-actions {
+  margin-top: 16px;
+}
+
 .field,
 .color-field {
   display: flex;
@@ -737,14 +736,49 @@ onUnmounted(() => {
 }
 
 .color-picker {
-  width: 42px;
-  min-width: 42px;
-  height: 38px;
-  padding: 0;
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
-  background: transparent;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--theme-border) 88%, #ffffff 12%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--theme-bg-secondary) 90%, #ffffff 10%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 8px 18px rgba(15, 23, 42, 0.08);
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  overflow: hidden;
+  transition:
+    transform 0.18s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.color-picker:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--theme-accent) 42%, var(--theme-border));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
+.color-picker:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--theme-accent) 58%, var(--theme-border));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--theme-accent) 18%, transparent),
+    0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
+.color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 999px;
 }
 
 .color-text {
@@ -910,6 +944,11 @@ onUnmounted(() => {
 @media (max-width: 960px) {
   .presentation-body {
     grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .config-panel {
+    overflow: visible;
   }
 
   .footer-tip {
