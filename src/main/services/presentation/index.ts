@@ -3,6 +3,8 @@
  * 导出所有模块和初始化函数
  */
 
+import { getPptTemplateService } from './PptTemplateService'
+
 // 路径管理
 export * from './templatePaths'
 
@@ -17,7 +19,6 @@ export { getPptTemplateService, PptTemplateService } from './PptTemplateService'
  * 在应用启动时调用
  */
 export function initializePptTemplateService(): void {
-  const { getPptTemplateService } = require('./PptTemplateService')
   try {
     getPptTemplateService().initialize()
   } catch (error) {

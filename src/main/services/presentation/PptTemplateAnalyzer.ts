@@ -3,10 +3,11 @@
  * 解析 .pptx 文件结构，提取幻灯片、元素、样式等信息
  */
 
+import { createHash } from 'crypto'
+import { posix } from 'path'
 import { unzipSync } from 'fflate'
 import { XMLParser } from 'fast-xml-parser'
 import imageSize from 'image-size'
-import { createHash } from 'crypto'
 import type {
   PptTemplateAnalysis,
   PptTemplateSlideAnalysis,
@@ -29,8 +30,9 @@ import { logger } from '@main/services/logger'
 /** 分析器版本 */
 const ANALYSIS_VERSION = '1.0.0'
 
-/** EMU 转 像素的比率（914400 EMU = 1 英寸，96 DPI） */
-// const EMU_PER_PIXEL = 914400 / 96
+/** 默认幻灯片尺寸（16:9） */
+const DEFAULT_SLIDE_WIDTH = 12192000
+const DEFAULT_SLIDE_HEIGHT = 6858000
 
 /** XML 解析器配置 */
 const XML_PARSER_OPTIONS = {
@@ -41,44 +43,64 @@ const XML_PARSER_OPTIONS = {
   ignorePiTags: true
 }
 
+/** spTree 中的结构节点，不应被当作页面元素 */
+const STRUCTURAL_TAGS = new Set(['p:nvGrpSpPr', 'p:grpSpPr', 'p:extLst'])
+
+type XmlNode = Record<string, unknown>
+
+interface XmlRelationship {
+  Id?: string
+  Type?: string
+  Target?: string
+}
+
 /**
  * PPTX 文件内部结构
  */
 interface PptxFiles {
+  /** 演示文稿根 XML */
+  presentation?: XmlNode
   /** 幻灯片 XML */
   slides: Map<number, PptxSlideFile>
   /** 幻灯片布局 XML */
   layouts: Map<string, PptxLayoutFile>
   /** 幻灯片母版 XML */
   masters: Map<string, PptxMasterFile>
+  /** 备注页 XML */
+  notes: Map<string, PptxNotesFile>
+  /** 图表 XML */
+  charts: Map<string, XmlNode>
   /** 主题 XML */
-  themes: Map<string, any>
-  /** 内容类型 */
-  contentTypes?: any
+  themes: Map<string, XmlNode>
   /** 关系文件 */
-  relationships: Map<string, any[]>
+  relationships: Map<string, XmlRelationship[]>
   /** 媒体文件 */
   media: Map<string, Uint8Array>
 }
 
 interface PptxSlideFile {
   path: string
-  xml: any
+  xml: XmlNode
   layoutId?: string
-  masterId?: string
+  notesPath?: string
 }
 
 interface PptxLayoutFile {
   path: string
-  xml: any
+  xml: XmlNode
   masterId?: string
   name?: string
 }
 
 interface PptxMasterFile {
   path: string
-  xml: any
+  xml: XmlNode
   name?: string
+}
+
+interface PptxNotesFile {
+  path: string
+  xml: XmlNode
 }
 
 /**
@@ -105,24 +127,18 @@ export class PptTemplateAnalyzer {
     error?: string
   }> {
     try {
-      // 解压 PPTX 文件
       const files = await this.extractPptxFiles(buffer)
       if (!files) {
         return { success: false, error: '无法解压 PPTX 文件' }
       }
 
-      // 解析演示文稿信息
       const presentation = this.parsePresentationInfo(files)
-
-      // 解析每张幻灯片
       const slides: PptTemplateSlideAnalysis[] = []
-      for (const [index, slideFile] of files.slides) {
-        const slideAnalysis = await this.analyzeSlide(index, slideFile, files)
-        slides.push(slideAnalysis)
-      }
+      const orderedSlides = [...files.slides.entries()].sort((left, right) => left[0] - right[0])
 
-      // 构建分析结果
-      const fileHash = this.calculateHash(buffer)
+      for (const [index, slideFile] of orderedSlides) {
+        slides.push(await this.analyzeSlide(index, slideFile, files))
+      }
 
       const analysis: PptTemplateAnalysis = {
         schemaVersion: ANALYSIS_VERSION,
@@ -132,7 +148,7 @@ export class PptTemplateAnalyzer {
           originalFileName: fileName,
           fileSize: buffer.length,
           uploadedAt: new Date().toISOString(),
-          hash: fileHash
+          hash: this.calculateHash(buffer)
         },
         presentation,
         slides
@@ -162,78 +178,81 @@ export class PptTemplateAnalyzer {
         slides: new Map(),
         layouts: new Map(),
         masters: new Map(),
+        notes: new Map(),
+        charts: new Map(),
         themes: new Map(),
         relationships: new Map(),
         media: new Map()
       }
 
-      // 解析 [Content_Types].xml
-      const contentTypesPath = '[Content_Types].xml'
-      if (unzipped[contentTypesPath]) {
-        const content = Buffer.from(unzipped[contentTypesPath]).toString('utf-8')
-        files.contentTypes = this.parser.parse(content)
-      }
-
-      // 解析关系文件和主要内容
       for (const [path, data] of Object.entries(unzipped)) {
-        // 只处理 XML 文件
-        if (!path.endsWith('.xml') && !path.endsWith('.rels')) continue
+        if (path.endsWith('.rels')) {
+          const content = Buffer.from(data).toString('utf-8')
+          const ownerPath = this.resolveRelationshipOwnerPath(path)
+          files.relationships.set(ownerPath, this.parseRelationships(content))
+          continue
+        }
 
-        const content = Buffer.from(data).toString('utf-8')
-
-        // 幻灯片文件
-        if (path.match(/\/slides\/slide\d+\.xml$/)) {
-          const match = path.match(/slide(\d+)\.xml$/)
-          if (match) {
-            const index = parseInt(match[1]) - 1
-            files.slides.set(index, { path, xml: this.parser.parse(content) })
+        if (path === 'ppt/presentation.xml') {
+          const xml = this.parseXml(Buffer.from(data).toString('utf-8'))
+          if (xml) {
+            files.presentation = xml
           }
+          continue
         }
-        // 幻灯片布局文件
-        else if (path.match(/\/slideLayouts\/[^/]+\.xml$/)) {
-          const match = path.match(/([^/]+)\.xml$/)
-          if (match) {
-            const layoutId = match[1]
-            files.layouts.set(layoutId, { path, xml: this.parser.parse(content) })
-          }
-        }
-        // 幻灯片母版文件
-        else if (path.match(/\/slideMasters\/[^/]+\.xml$/)) {
-          const match = path.match(/([^/]+)\.xml$/)
-          if (match) {
-            const masterId = match[1]
-            files.masters.set(masterId, { path, xml: this.parser.parse(content) })
-          }
-        }
-        // 主题文件
-        else if (path.match(/\/theme\/[^/]+\.xml$/)) {
-          const match = path.match(/([^/]+)\.xml$/)
-          if (match) {
-            const themeId = match[1]
-            files.themes.set(themeId, this.parser.parse(content))
-          }
-        }
-        // 关系文件
-        else if (path.endsWith('.rels')) {
-          const rels = this.parseRelationships(content)
-          // 使用文件路径（去掉 .rels 后缀）作为键
-          const key = path.replace('.rels', '')
-          files.relationships.set(key, rels)
-        }
-      }
 
-      // 解析幻灯片的关系，获取布局和母版引用
-      this.resolveSlideRelationships(files)
-
-      // 解析布局的关系，获取母版引用
-      this.resolveLayoutRelationships(files)
-
-      // 收集媒体文件
-      for (const [path, data] of Object.entries(unzipped)) {
         if (path.startsWith('ppt/media/')) {
           files.media.set(path, data)
+          continue
+        }
+
+        if (!path.endsWith('.xml')) {
+          continue
+        }
+
+        const xml = this.parseXml(Buffer.from(data).toString('utf-8'))
+        if (!xml) {
+          continue
+        }
+
+        const slideMatch = path.match(/\/slides\/slide(\d+)\.xml$/)
+        if (slideMatch) {
+          const index = parseInt(slideMatch[1], 10) - 1
+          files.slides.set(index, { path, xml })
+          continue
+        }
+
+        const layoutMatch = path.match(/\/slideLayouts\/([^/]+)\.xml$/)
+        if (layoutMatch) {
+          files.layouts.set(layoutMatch[1], { path, xml })
+          continue
+        }
+
+        const masterMatch = path.match(/\/slideMasters\/([^/]+)\.xml$/)
+        if (masterMatch) {
+          files.masters.set(masterMatch[1], { path, xml })
+          continue
+        }
+
+        if (path.match(/\/notesSlides\/[^/]+\.xml$/)) {
+          files.notes.set(path, { path, xml })
+          continue
+        }
+
+        if (path.match(/\/charts\/[^/]+\.xml$/)) {
+          files.charts.set(path, xml)
+          continue
+        }
+
+        const themeMatch = path.match(/\/theme\/([^/]+)\.xml$/)
+        if (themeMatch) {
+          files.themes.set(themeMatch[1], xml)
         }
       }
+
+      this.resolveSlideRelationships(files)
+      this.resolveLayoutRelationships(files)
+      this.resolveMasterMetadata(files)
 
       return files
     } catch (error) {
@@ -243,39 +262,47 @@ export class PptTemplateAnalyzer {
   }
 
   /**
+   * 解析 XML 字符串
+   */
+  private parseXml(content: string): XmlNode | null {
+    try {
+      const parsed = this.parser.parse(content)
+      return this.isXmlNode(parsed) ? parsed : null
+    } catch {
+      return null
+    }
+  }
+
+  /**
    * 解析关系文件
    */
-  private parseRelationships(content: string): any[] {
-    try {
-      const xml = this.parser.parse(content)
-      const relationships = xml?.Relationships?.Relationship
-      if (!relationships) return []
+  private parseRelationships(content: string): XmlRelationship[] {
+    const xml = this.parseXml(content)
+    const relationshipsRoot = this.getNode(xml, 'Relationships') ?? xml
+    const relationships = this.getValue(relationshipsRoot, 'Relationship')
 
-      // 统一处理为数组
-      return Array.isArray(relationships) ? relationships : [relationships]
-    } catch {
-      return []
-    }
+    return this.toNodeArray(relationships).map((item) => ({
+      Id: this.getString(this.getValue(item, 'Id')),
+      Type: this.getString(this.getValue(item, 'Type')),
+      Target: this.getString(this.getValue(item, 'Target'))
+    }))
   }
 
   /**
    * 解析幻灯片的关系引用
    */
   private resolveSlideRelationships(files: PptxFiles): void {
-    for (const [index, slide] of files.slides) {
-      // 构建关系文件键
-      const key = `ppt/slides/slide${index + 1}.xml`
-
-      const rels = files.relationships.get(key)
-      if (!rels) continue
+    for (const [, slide] of files.slides) {
+      const rels = files.relationships.get(slide.path) ?? []
 
       for (const rel of rels) {
-        if (rel.Type && rel.Type.includes('/slideLayout')) {
-          // 提取布局 ID
-          const match = rel.Target.match(/\/([^/]+)\.xml$/)
-          if (match) {
-            slide.layoutId = match[1]
-          }
+        if (rel.Type?.includes('/slideLayout') && rel.Target) {
+          const layoutPath = this.resolveTargetPath(slide.path, rel.Target)
+          slide.layoutId = posix.basename(layoutPath, '.xml')
+        }
+
+        if (rel.Type?.includes('/notesSlide') && rel.Target) {
+          slide.notesPath = this.resolveTargetPath(slide.path, rel.Target)
         }
       }
     }
@@ -286,24 +313,33 @@ export class PptTemplateAnalyzer {
    */
   private resolveLayoutRelationships(files: PptxFiles): void {
     for (const [layoutId, layout] of files.layouts) {
-      const key = `ppt/slideLayouts/${layoutId}.xml`
-      const rels = files.relationships.get(key)
-      if (!rels) continue
+      const rels = files.relationships.get(layout.path) ?? []
 
       for (const rel of rels) {
-        if (rel.Type && rel.Type.includes('/slideMaster')) {
-          const match = rel.Target.match(/\/([^/]+)\.xml$/)
-          if (match) {
-            layout.masterId = match[1]
-          }
+        if (rel.Type?.includes('/slideMaster') && rel.Target) {
+          const masterPath = this.resolveTargetPath(layout.path, rel.Target)
+          layout.masterId = posix.basename(masterPath, '.xml')
         }
       }
 
-      // 获取布局名称
-      const slideLayout = layout.xml?.['p:sldLayout']
-      if (slideLayout) {
-        layout.name = slideLayout.name || layoutId
-      }
+      const layoutRoot = this.getNode(layout.xml, 'p:sldLayout') ?? layout.xml
+      layout.name =
+        this.getString(this.getValue(layoutRoot, 'matchingName')) ||
+        this.getString(this.getValue(layoutRoot, 'name')) ||
+        layoutId
+    }
+  }
+
+  /**
+   * 解析母版元数据
+   */
+  private resolveMasterMetadata(files: PptxFiles): void {
+    for (const [masterId, master] of files.masters) {
+      const masterRoot = this.getNode(master.xml, 'p:sldMaster') ?? master.xml
+      master.name =
+        this.getString(this.getValue(this.getNode(masterRoot, 'p:cSld'), 'name')) ||
+        this.getString(this.getValue(masterRoot, 'name')) ||
+        masterId
     }
   }
 
@@ -311,18 +347,21 @@ export class PptTemplateAnalyzer {
    * 解析演示文稿信息
    */
   private parsePresentationInfo(files: PptxFiles): PptPresentationOverview {
-    // 默认尺寸（16:9）
-    let slideWidth = 12192000 // 12192000 EMU = 13.333 英寸
-    let slideHeight = 6858000 // 6858000 EMU = 7.5 英寸
-    let themeName: string | undefined
-    let masterCount = files.masters.size
-    let layoutCount = files.layouts.size
+    let slideWidth = DEFAULT_SLIDE_WIDTH
+    let slideHeight = DEFAULT_SLIDE_HEIGHT
 
-    // 尝试从主题获取名称
-    for (const [id, theme] of files.themes) {
-      const themeElements = theme?.['a:theme']?.['a:themeElements']
-      if (themeElements) {
-        themeName = id
+    const presentationRoot =
+      this.getNode(files.presentation, 'p:presentation') ?? files.presentation
+    const slideSize = this.getNode(presentationRoot, 'p:sldSz')
+
+    slideWidth = this.getNumber(this.getValue(slideSize, 'cx')) ?? slideWidth
+    slideHeight = this.getNumber(this.getValue(slideSize, 'cy')) ?? slideHeight
+
+    let themeName: string | undefined
+    for (const [themeId, theme] of files.themes) {
+      const themeRoot = this.getNode(theme, 'a:theme') ?? theme
+      themeName = this.getString(this.getValue(themeRoot, 'name')) || themeId
+      if (themeName) {
         break
       }
     }
@@ -332,8 +371,8 @@ export class PptTemplateAnalyzer {
       slideWidth,
       slideHeight,
       themeName,
-      masterCount,
-      layoutCount
+      masterCount: files.masters.size,
+      layoutCount: files.layouts.size
     }
   }
 
@@ -345,110 +384,173 @@ export class PptTemplateAnalyzer {
     slideFile: PptxSlideFile,
     files: PptxFiles
   ): Promise<PptTemplateSlideAnalysis> {
-    const slideXml = slideFile.xml?.['p:sld']
+    const slideXml = this.getNode(slideFile.xml, 'p:sld')
     if (!slideXml) {
       return this.createEmptySlideAnalysis(index)
     }
 
-    // 获取布局和母版信息
     const layout = slideFile.layoutId ? files.layouts.get(slideFile.layoutId) : undefined
     const master = layout?.masterId ? files.masters.get(layout.masterId) : undefined
-
-    // 解析元素
-    const elements = this.parseElements(slideXml, layout, master, files)
-
-    // 获取文本内容
+    const elements = this.parseElements(slideXml, slideFile.path, layout, master, files)
     const plainText = elements
-      .filter((e) => e.text)
-      .map((e) => e.text?.plainText || '')
+      .map((element) => element.text?.plainText ?? '')
+      .filter(Boolean)
       .join('\n')
 
-    // 获取标题（通常是第一个文本元素）
-    const titleElement = elements.find(
-      (e) => e.placeholder?.type === 'title' || e.name?.toLowerCase().includes('title')
-    )
-    const title = titleElement?.text?.plainText || undefined
+    const titleElement = elements.find((element) => {
+      const placeholderType = element.placeholder?.type?.toLowerCase()
+      return (
+        placeholderType === 'title' ||
+        placeholderType === 'ctrtitle' ||
+        element.name?.toLowerCase().includes('title')
+      )
+    })
 
-    // 解析备注
-    const notesText = this.parseNotes(slideXml)
+    const background =
+      this.parseBackground(slideXml, slideFile.path, files) ||
+      (layout
+        ? this.parseBackground(this.getNode(layout.xml, 'p:sldLayout'), layout.path, files)
+        : undefined) ||
+      (master
+        ? this.parseBackground(this.getNode(master.xml, 'p:sldMaster'), master.path, files)
+        : undefined)
 
     return {
       slideIndex: index,
-      title,
-      notesText,
+      title: titleElement?.text?.plainText,
+      notesText: this.parseNotes(
+        slideFile.notesPath ? files.notes.get(slideFile.notesPath)?.xml : undefined
+      ),
       layoutName: layout?.name,
       masterName: master?.name,
-      background: this.parseBackground(slideXml),
+      background,
       elements,
       plainText
     }
   }
 
   /**
-   * 解析幻灯片元素
+   * 解析幻灯片元素，并合并继承占位符
    */
   private parseElements(
-    slideXml: any,
+    slideXml: XmlNode,
+    slidePath: string,
     layout: PptxLayoutFile | undefined,
     master: PptxMasterFile | undefined,
     files: PptxFiles
   ): PptTemplateElementAnalysis[] {
     const elements: PptTemplateElementAnalysis[] = []
 
-    // 1. 首先从母版继承元素
-    if (master?.xml) {
-      const masterElements = this.extractElementsFromXml(master.xml['p:sldMaster'], 'master', files)
-      elements.push(...masterElements)
+    if (master) {
+      const masterRoot = this.getNode(master.xml, 'p:sldMaster') ?? master.xml
+      elements.push(...this.extractElementsFromXml(masterRoot, 'master', files, master.path))
     }
 
-    // 2. 然后从布局继承元素
-    if (layout?.xml) {
-      const layoutElements = this.extractElementsFromXml(layout.xml['p:sldLayout'], 'layout', files)
-      elements.push(...layoutElements)
+    if (layout) {
+      const layoutRoot = this.getNode(layout.xml, 'p:sldLayout') ?? layout.xml
+      elements.push(...this.extractElementsFromXml(layoutRoot, 'layout', files, layout.path))
     }
 
-    // 3. 最后解析幻灯片自身的元素
-    const slideElements = this.extractElementsFromXml(slideXml, 'slide', files)
-    elements.push(...slideElements)
+    elements.push(...this.extractElementsFromXml(slideXml, 'slide', files, slidePath))
 
-    return elements
+    return this.mergePlaceholderElements(elements)
+  }
+
+  /**
+   * 合并同一占位符的继承链，保留最终生效结构
+   */
+  private mergePlaceholderElements(
+    elements: PptTemplateElementAnalysis[]
+  ): PptTemplateElementAnalysis[] {
+    const merged: PptTemplateElementAnalysis[] = []
+    const placeholderIndexes = new Map<string, number>()
+
+    for (const element of elements) {
+      if (!element.placeholder) {
+        merged.push(element)
+        continue
+      }
+
+      const key = this.buildPlaceholderKey(element)
+      const existingIndex = placeholderIndexes.get(key)
+
+      if (existingIndex === undefined) {
+        placeholderIndexes.set(key, merged.length)
+        merged.push(element)
+        continue
+      }
+
+      merged[existingIndex] = this.mergePlaceholderElement(merged[existingIndex], element)
+    }
+
+    return merged
+  }
+
+  /**
+   * 构建占位符唯一键
+   */
+  private buildPlaceholderKey(element: PptTemplateElementAnalysis): string {
+    const placeholderType = element.placeholder?.type ?? 'placeholder'
+    const placeholderIdx = element.placeholder?.idx ?? element.name ?? 'default'
+    return `${placeholderType}:${placeholderIdx}`
+  }
+
+  /**
+   * 合并同一占位符的两层定义，后者优先
+   */
+  private mergePlaceholderElement(
+    base: PptTemplateElementAnalysis,
+    override: PptTemplateElementAnalysis
+  ): PptTemplateElementAnalysis {
+    return {
+      ...base,
+      ...override,
+      name: override.name ?? base.name,
+      placeholder: override.placeholder ?? base.placeholder,
+      text: override.text ?? base.text,
+      shape: override.shape ?? base.shape,
+      image: override.image ?? base.image,
+      table: override.table ?? base.table,
+      chart: override.chart ?? base.chart
+    }
   }
 
   /**
    * 从 XML 中提取元素
    */
   private extractElementsFromXml(
-    container: any,
+    container: XmlNode | undefined,
     source: PptElementSource,
-    files: PptxFiles
+    files: PptxFiles,
+    ownerPath: string
   ): PptTemplateElementAnalysis[] {
-    const elements: PptTemplateElementAnalysis[] = []
-
-    // 获取形状容器
-    // PPTX XML 结构：p:sld/p:cSld/p:spTree 或 p:sldLayout/p:cSld/p:spTree 或 p:sldMaster/p:cSld/p:spTree
-    let spTree =
-      container?.['p:cSld']?.['p:spTree'] || // 标准路径
-      container?.['p:spTree'] || // 直接路径（备用）
-      container?.['p:sldMaster']?.['p:cSld']?.['p:spTree'] || // 母版路径
-      container?.['p:sldMaster']?.['p:spTree'] // 母版直接路径（备用）
-
-    if (!spTree) {
-      // 调试日志：输出 container 的键，帮助诊断问题
-      const keys = container ? Object.keys(container) : 'null'
-      logger.debug(`extractElementsFromXml: 未找到 spTree, source=${source}, container keys=${JSON.stringify(keys)}`)
-      return elements
+    if (!container) {
+      return []
     }
 
-    // 遍历所有子元素
-    for (const [key, value] of Object.entries(spTree)) {
-      if (key === '#text') continue
-      if (!value || typeof value !== 'object') continue
+    const spTree =
+      this.getNestedNode(container, 'p:cSld', 'p:spTree') ?? this.getNode(container, 'p:spTree')
 
-      // 处理数组或单个元素
-      const items = Array.isArray(value) ? value : [value]
+    if (!spTree) {
+      const keys = Object.keys(container)
+      logger.debug('extractElementsFromXml: 未找到 spTree', 'main', {
+        source,
+        ownerPath,
+        containerKeys: keys
+      })
+      return []
+    }
 
+    const elements: PptTemplateElementAnalysis[] = []
+
+    for (const [tagName, value] of Object.entries(spTree)) {
+      if (tagName === '#text' || STRUCTURAL_TAGS.has(tagName)) {
+        continue
+      }
+
+      const items = this.toNodeArray(value)
       for (const item of items) {
-        const element = this.parseSingleElement(key, item, source, files)
+        const element = this.parseSingleElement(tagName, item, source, files, ownerPath)
         if (element) {
           elements.push(element)
         }
@@ -463,39 +565,51 @@ export class PptTemplateAnalyzer {
    */
   private parseSingleElement(
     tagName: string,
-    element: any,
+    element: XmlNode,
     source: PptElementSource,
-    files: PptxFiles
+    files: PptxFiles,
+    ownerPath: string
   ): PptTemplateElementAnalysis | null {
-    // 形状（包括文本框和占位符）
     if (tagName === 'p:sp') {
-      return this.parseShape(element, source, files)
+      return this.parseShape(element, source)
     }
 
-    // 图片
     if (tagName === 'p:pic') {
-      return this.parsePicture(element, source, files)
+      return this.parsePicture(element, source, files, ownerPath)
     }
 
-    // 表格
-    if (tagName === 'p:graphicFrame' && element?.['a:graphic']?.['a:graphicData']?.['a:tbl']) {
-      return this.parseTable(element, source)
+    if (tagName === 'p:graphicFrame') {
+      const graphicData = this.getNestedNode(element, 'a:graphic', 'a:graphicData')
+      if (this.getNode(graphicData, 'a:tbl')) {
+        return this.parseTable(element, source)
+      }
+      if (this.getNode(graphicData, 'c:chart')) {
+        return this.parseChart(element, source, files, ownerPath)
+      }
+      if (this.getNode(graphicData, 'dgm:relIds')) {
+        return this.parseUnknownElement(element, source, 'diagram', 'diagram')
+      }
+      return this.parseUnknownElement(element, source, 'unknown', 'graphicFrame')
     }
 
-    // 图表
-    if (tagName === 'p:graphicFrame' && element?.['a:graphic']?.['a:graphicData']?.['c:chart']) {
-      return this.parseChart(element, source)
-    }
-
-    // 组合
     if (tagName === 'p:grpSp') {
-      // v1 不深度解析组合，返回占位
-      return this.parseUnknownGroup(element, source)
+      return this.parseGroup(element, source)
     }
 
-    // 连接符
     if (tagName === 'p:cxnSp') {
       return this.parseConnector(element, source)
+    }
+
+    if (
+      tagName === 'mc:AlternateContent' ||
+      tagName === 'p:contentPart' ||
+      tagName === 'p:oleObj'
+    ) {
+      return this.parseUnknownElement(element, source, 'unknown', tagName)
+    }
+
+    if (tagName.startsWith('p:')) {
+      return this.parseUnknownElement(element, source, 'unknown', tagName)
     }
 
     return null
@@ -505,49 +619,38 @@ export class PptTemplateAnalyzer {
    * 解析形状
    */
   private parseShape(
-    element: any,
-    source: PptElementSource,
-    _files: PptxFiles
+    element: XmlNode,
+    source: PptElementSource
   ): PptTemplateElementAnalysis | null {
-    const spPr = element?.['p:spPr']
-    const nvSpPr = element?.['p:nvSpPr']
-    const txBody = element?.['p:txBody']
+    const spPr = this.getNode(element, 'p:spPr')
+    const nvSpPr = this.getNode(element, 'p:nvSpPr')
+    const txBody = this.getNode(element, 'p:txBody')
+    const transform = this.parseTransform(spPr)
 
-    // 获取位置和尺寸
-    const { x, y, cx, cy } = this.parseTransform(spPr)
-    if (x === null) return null
+    if (!transform) {
+      return null
+    }
 
-    // 获取名称
-    const name = nvSpPr?.['p:cNvPr']?.name
-
-    // 判断是否为占位符
     const placeholder = this.parsePlaceholder(nvSpPr)
-
-    // 解析文本
-    const text = txBody ? this.parseTextContent(txBody) : undefined
-
-    // 解析形状几何
+    const text = this.parseTextContent(txBody)
     const shape = this.parseShapeGeometry(spPr)
 
-    // 确定元素类型
-    let kind: PptElementKind
+    let kind: PptElementKind = 'shape'
     if (placeholder) {
       kind = 'placeholder'
-    } else if (text && text.paragraphs.length > 0) {
+    } else if (text) {
       kind = 'text'
-    } else {
-      kind = 'shape'
     }
 
     return {
       source,
       kind,
-      name,
+      name: this.parseElementName(element),
       placeholder,
-      x: x ?? 0,
-      y: y ?? 0,
-      cx: cx ?? 0,
-      cy: cy ?? 0,
+      x: transform.x,
+      y: transform.y,
+      cx: transform.cx,
+      cy: transform.cy,
       zIndex: this.parseZOrder(element),
       text,
       shape
@@ -558,61 +661,53 @@ export class PptTemplateAnalyzer {
    * 解析图片
    */
   private parsePicture(
-    element: any,
+    element: XmlNode,
     source: PptElementSource,
-    files: PptxFiles
+    files: PptxFiles,
+    ownerPath: string
   ): PptTemplateElementAnalysis | null {
-    const spPr = element?.['p:spPr']
-    const nvPicPr = element?.['p:nvPicPr']
-    const blipFill = element?.['p:blipFill']
-
-    // 获取位置和尺寸
-    const { x, y, cx, cy } = this.parseTransform(spPr)
-    if (x === null) return null
-
-    // 获取名称
-    const name = nvPicPr?.['p:cNvPr']?.name
-
-    // 解析图片信息
-    const image = this.parseImageContent(blipFill, files)
+    const transform = this.parseTransform(this.getNode(element, 'p:spPr'))
+    if (!transform) {
+      return null
+    }
 
     return {
       source,
       kind: 'image',
-      name,
-      x: x ?? 0,
-      y: y ?? 0,
-      cx: cx ?? 0,
-      cy: cy ?? 0,
+      name: this.parseElementName(element),
+      x: transform.x,
+      y: transform.y,
+      cx: transform.cx,
+      cy: transform.cy,
       zIndex: this.parseZOrder(element),
-      image
+      image: this.parseImageContent(this.getNode(element, 'p:blipFill'), files, ownerPath)
     }
   }
 
   /**
    * 解析表格
    */
-  private parseTable(element: any, source: PptElementSource): PptTemplateElementAnalysis | null {
-    const spPr = element?.['p:spPr']
-    const graphicData = element?.['a:graphic']?.['a:graphicData']
-    const tbl = graphicData?.['a:tbl']
+  private parseTable(
+    element: XmlNode,
+    source: PptElementSource
+  ): PptTemplateElementAnalysis | null {
+    const transform = this.parseTransform(this.getNode(element, 'p:xfrm'))
+    if (!transform) {
+      return null
+    }
 
-    if (!tbl) return null
-
-    // 获取位置和尺寸
-    const { x, y, cx, cy } = this.parseTransform(spPr)
-    if (x === null) return null
-
-    // 解析表格内容
-    const table = this.parseTableContent(tbl)
+    const table = this.parseTableContent(
+      this.getNestedNode(element, 'a:graphic', 'a:graphicData', 'a:tbl')
+    )
 
     return {
       source,
       kind: 'table',
-      x: x ?? 0,
-      y: y ?? 0,
-      cx: cx ?? 0,
-      cy: cy ?? 0,
+      name: this.parseElementName(element),
+      x: transform.x,
+      y: transform.y,
+      cx: transform.cx,
+      cy: transform.cy,
       zIndex: this.parseZOrder(element),
       table
     }
@@ -621,51 +716,54 @@ export class PptTemplateAnalyzer {
   /**
    * 解析图表
    */
-  private parseChart(element: any, source: PptElementSource): PptTemplateElementAnalysis | null {
-    const spPr = element?.['p:spPr']
-    const graphicData = element?.['a:graphic']?.['a:graphicData']
-    const chart = graphicData?.['c:chart']
-
-    if (!chart) return null
-
-    // 获取位置和尺寸
-    const { x, y, cx, cy } = this.parseTransform(spPr)
-    if (x === null) return null
-
-    // 解析图表信息
-    const chartContent = this.parseChartContent(chart)
+  private parseChart(
+    element: XmlNode,
+    source: PptElementSource,
+    files: PptxFiles,
+    ownerPath: string
+  ): PptTemplateElementAnalysis | null {
+    const transform = this.parseTransform(this.getNode(element, 'p:xfrm'))
+    if (!transform) {
+      return null
+    }
 
     return {
       source,
       kind: 'chart',
-      x: x ?? 0,
-      y: y ?? 0,
-      cx: cx ?? 0,
-      cy: cy ?? 0,
+      name: this.parseElementName(element),
+      x: transform.x,
+      y: transform.y,
+      cx: transform.cx,
+      cy: transform.cy,
       zIndex: this.parseZOrder(element),
-      chart: chartContent
+      chart: this.parseChartContent(
+        this.getNestedNode(element, 'a:graphic', 'a:graphicData', 'c:chart'),
+        files,
+        ownerPath
+      )
     }
   }
 
   /**
-   * 解析未知组合
+   * 解析组合元素
    */
-  private parseUnknownGroup(
-    element: any,
+  private parseGroup(
+    element: XmlNode,
     source: PptElementSource
   ): PptTemplateElementAnalysis | null {
-    const spPr = element?.['p:grpSpPr']
-    const { x, y, cx, cy } = this.parseTransform(spPr)
-
-    if (x === null) return null
+    const transform = this.parseTransform(this.getNode(element, 'p:grpSpPr'))
+    if (!transform) {
+      return null
+    }
 
     return {
       source,
       kind: 'group',
-      x: x ?? 0,
-      y: y ?? 0,
-      cx: cx ?? 0,
-      cy: cy ?? 0,
+      name: this.parseElementName(element),
+      x: transform.x,
+      y: transform.y,
+      cx: transform.cx,
+      cy: transform.cy,
       zIndex: this.parseZOrder(element)
     }
   }
@@ -674,21 +772,47 @@ export class PptTemplateAnalyzer {
    * 解析连接符
    */
   private parseConnector(
-    element: any,
+    element: XmlNode,
     source: PptElementSource
   ): PptTemplateElementAnalysis | null {
-    const spPr = element?.['p:spPr']
-    const { x, y, cx, cy } = this.parseTransform(spPr)
-
-    if (x === null) return null
+    const transform = this.parseTransform(this.getNode(element, 'p:spPr'))
+    if (!transform) {
+      return null
+    }
 
     return {
       source,
       kind: 'connector',
-      x: x ?? 0,
-      y: y ?? 0,
-      cx: cx ?? 0,
-      cy: cy ?? 0,
+      name: this.parseElementName(element),
+      x: transform.x,
+      y: transform.y,
+      cx: transform.cx,
+      cy: transform.cy,
+      zIndex: this.parseZOrder(element)
+    }
+  }
+
+  /**
+   * 解析无法深度处理的元素
+   */
+  private parseUnknownElement(
+    element: XmlNode,
+    source: PptElementSource,
+    kind: 'unknown' | 'diagram',
+    fallbackName: string
+  ): PptTemplateElementAnalysis {
+    const transform = this.parseTransform(this.getNode(element, 'p:spPr')) ||
+      this.parseTransform(this.getNode(element, 'p:grpSpPr')) ||
+      this.parseTransform(this.getNode(element, 'p:xfrm')) || { x: 0, y: 0, cx: 0, cy: 0 }
+
+    return {
+      source,
+      kind,
+      name: this.parseElementName(element) ?? fallbackName,
+      x: transform.x,
+      y: transform.y,
+      cx: transform.cx,
+      cy: transform.cy,
       zIndex: this.parseZOrder(element)
     }
   }
@@ -696,164 +820,170 @@ export class PptTemplateAnalyzer {
   /**
    * 解析位置和尺寸
    */
-  private parseTransform(spPr: any): {
-    x: number | null
-    y: number | null
-    cx: number | null
-    cy: number | null
-  } {
-    if (!spPr) return { x: null, y: null, cx: null, cy: null }
+  private parseTransform(
+    spPr: XmlNode | undefined
+  ): { x: number; y: number; cx: number; cy: number } | null {
+    if (!spPr) {
+      return null
+    }
 
-    const xfrm = spPr['a:xfrm'] || spPr['p:spPr']?.['a:xfrm']
-    if (!xfrm) return { x: null, y: null, cx: null, cy: null }
+    const directXfrm = this.getNode(spPr, 'a:off') || this.getNode(spPr, 'a:ext') ? spPr : undefined
+    const xfrm =
+      this.getNode(spPr, 'a:xfrm') ?? this.getNestedNode(spPr, 'p:spPr', 'a:xfrm') ?? directXfrm
+    if (!xfrm) {
+      return null
+    }
+
+    const offset = this.getNode(xfrm, 'a:off')
+    const extent = this.getNode(xfrm, 'a:ext')
 
     return {
-      x: parseInt(xfrm.off?.['x'] || '0'),
-      y: parseInt(xfrm.off?.['y'] || '0'),
-      cx: parseInt(xfrm.ext?.['cx'] || '0'),
-      cy: parseInt(xfrm.ext?.['cy'] || '0')
+      x: this.getNumber(this.getValue(offset, 'x')) ?? 0,
+      y: this.getNumber(this.getValue(offset, 'y')) ?? 0,
+      cx: this.getNumber(this.getValue(extent, 'cx')) ?? 0,
+      cy: this.getNumber(this.getValue(extent, 'cy')) ?? 0
     }
   }
 
   /**
    * 解析层级
    */
-  private parseZOrder(element: any): number {
-    const nvSpPr = element?.['p:nvSpPr'] || element?.['p:nvPicPr']
-    return parseInt(nvSpPr?.['p:nvSpPr']?.['p:nvPr']?.orderId || '0')
+  private parseZOrder(element: XmlNode): number {
+    const cNvPr =
+      this.getNestedNode(element, 'p:nvSpPr', 'p:cNvPr') ||
+      this.getNestedNode(element, 'p:nvPicPr', 'p:cNvPr') ||
+      this.getNestedNode(element, 'p:nvGraphicFramePr', 'p:cNvPr') ||
+      this.getNestedNode(element, 'p:nvCxnSpPr', 'p:cNvPr') ||
+      this.getNestedNode(element, 'p:nvGrpSpPr', 'p:cNvPr')
+
+    return this.getNumber(this.getValue(cNvPr, 'id')) ?? 0
+  }
+
+  /**
+   * 解析元素名称
+   */
+  private parseElementName(element: XmlNode): string | undefined {
+    const cNvPr =
+      this.getNestedNode(element, 'p:nvSpPr', 'p:cNvPr') ||
+      this.getNestedNode(element, 'p:nvPicPr', 'p:cNvPr') ||
+      this.getNestedNode(element, 'p:nvGraphicFramePr', 'p:cNvPr') ||
+      this.getNestedNode(element, 'p:nvCxnSpPr', 'p:cNvPr') ||
+      this.getNestedNode(element, 'p:nvGrpSpPr', 'p:cNvPr')
+
+    return this.getString(this.getValue(cNvPr, 'name'))
   }
 
   /**
    * 解析占位符信息
    */
-  private parsePlaceholder(nvSpPr: any): PptPlaceholderInfo | undefined {
-    const ph = nvSpPr?.['p:nvPr']?.['p:ph']
-    if (!ph) return undefined
+  private parsePlaceholder(nvSpPr: XmlNode | undefined): PptPlaceholderInfo | undefined {
+    const placeholder = this.getNestedNode(nvSpPr, 'p:nvPr', 'p:ph')
+    if (!placeholder) {
+      return undefined
+    }
 
     return {
-      type: ph.type,
-      idx: ph.idx ? parseInt(ph.idx) : undefined
+      type: this.getString(this.getValue(placeholder, 'type')),
+      idx: this.getNumber(this.getValue(placeholder, 'idx'))
     }
   }
 
   /**
    * 解析文本内容
    */
-  private parseTextContent(txBody: any): PptTextContent | undefined {
+  private parseTextContent(txBody: XmlNode | undefined): PptTextContent | undefined {
+    if (!txBody) {
+      return undefined
+    }
+
     const paragraphs: PptTextParagraph[] = []
+    for (const paragraph of this.toNodeArray(this.getValue(txBody, 'a:p'))) {
+      const runs = [
+        ...this.toNodeArray(this.getValue(paragraph, 'a:r')),
+        ...this.toNodeArray(this.getValue(paragraph, 'a:fld'))
+      ]
 
-    const aP = txBody['a:p']
-    if (!aP) return undefined
+      const paragraphText = runs
+        .map((run) => this.getString(this.getValue(run, 'a:t')) ?? '')
+        .join('')
 
-    const paragraphsData = Array.isArray(aP) ? aP : [aP]
+      const fallbackText = this.getString(this.getValue(paragraph, 'a:t'))
+      const text = paragraphText || fallbackText
 
-    for (const p of paragraphsData) {
-      const aR = p['a:r'] || p['a:fld']
-      if (!aR) {
-        // 段落可能直接包含文本
-        const text = p['a:t'] || ''
-        if (text) {
-          paragraphs.push({
-            text: String(text),
-            level: p['a:pPr']?.['a:lvl'] ? parseInt(p['a:pPr']['a:lvl']) : 0
-          })
-        }
+      if (!text) {
         continue
       }
 
-      const runs = Array.isArray(aR) ? aR : [aR]
-      const paragraphText = runs.map((r: any) => r['a:t'] || '').join('')
-
-      if (paragraphText) {
-        paragraphs.push({
-          text: paragraphText,
-          level: p['a:pPr']?.['a:lvl'] ? parseInt(p['a:pPr']['a:lvl']) : 0
-        })
-      }
+      const paragraphProps = this.getNode(paragraph, 'a:pPr')
+      paragraphs.push({
+        text,
+        level: this.getNumber(this.getValue(paragraphProps, 'lvl')) ?? 0
+      })
     }
 
-    if (paragraphs.length === 0) return undefined
-
-    const plainText = paragraphs.map((p) => p.text).join('\n')
+    if (paragraphs.length === 0) {
+      return undefined
+    }
 
     return {
       paragraphs,
-      plainText
+      plainText: paragraphs.map((paragraph) => paragraph.text).join('\n')
     }
   }
 
   /**
    * 解析形状几何
    */
-  private parseShapeGeometry(spPr: any): PptShapeGeometry | undefined {
-    const prstGeom = spPr?.['a:prstGeom']
-    if (!prstGeom) return undefined
+  private parseShapeGeometry(spPr: XmlNode | undefined): PptShapeGeometry | undefined {
+    if (!spPr) {
+      return undefined
+    }
 
-    const preset = prstGeom.preset
-
-    // 解析填充
-    const solidFill = spPr?.['a:solidFill'] || prstGeom?.['a:solidFill']
-    const fillColor = solidFill?.['a:srgbClr']?.val || solidFill?.['a:schemeClr']?.val
-
-    // 解析边框
-    const ln = spPr?.['a:ln']
-    const strokeColor =
-      ln?.['a:solidFill']?.['a:srgbClr']?.val || ln?.['a:solidFill']?.['a:schemeClr']?.val
-    const strokeWidth = ln?.w ? parseInt(ln.w) : undefined
+    const presetGeometry = this.getNode(spPr, 'a:prstGeom')
+    if (!presetGeometry) {
+      return undefined
+    }
 
     return {
-      preset,
-      fillColor,
-      strokeColor,
-      strokeWidth
+      preset:
+        this.getString(this.getValue(presetGeometry, 'prst')) ||
+        this.getString(this.getValue(presetGeometry, 'preset')),
+      fillColor: this.extractColor(this.getNode(spPr, 'a:solidFill')),
+      strokeColor: this.extractColor(this.getNestedNode(spPr, 'a:ln', 'a:solidFill')),
+      strokeWidth: this.getNumber(this.getValue(this.getNode(spPr, 'a:ln'), 'w'))
     }
   }
 
   /**
    * 解析图片内容
    */
-  private parseImageContent(blipFill: any, files: PptxFiles): PptImageContent | undefined {
-    if (!blipFill) return undefined
+  private parseImageContent(
+    blipFill: XmlNode | undefined,
+    files: PptxFiles,
+    ownerPath: string
+  ): PptImageContent | undefined {
+    const blip = this.getNode(blipFill, 'a:blip')
+    const relationshipId = this.getString(this.getValue(blip, 'r:embed'))
 
-    const blip = blipFill['a:blip']
-    if (!blip) return undefined
+    if (!relationshipId) {
+      return undefined
+    }
 
-    // 获取关系目标
-    const relationshipTarget = blip['r:embed']
+    const relationshipTarget = this.resolveRelationshipTarget(files, ownerPath, relationshipId)
+    const fileName = relationshipTarget ? posix.basename(relationshipTarget) : undefined
 
-    // 查找媒体文件
-    let fileName: string | undefined
     let pixelWidth: number | undefined
     let pixelHeight: number | undefined
 
     if (relationshipTarget) {
-      // 遍历关系文件查找媒体路径
-      for (const [, rels] of files.relationships) {
-        for (const rel of rels) {
-          if (rel.Id === relationshipTarget && rel.Target) {
-            // 构建媒体文件路径
-            const mediaPath = rel.Target.startsWith('../') ? rel.Target : `ppt/${rel.Target}`
-            const mediaKey = mediaPath
-              .replace(/\.\.\//g, '')
-              .split('/')
-              .pop()
-
-            // 尝试获取图片尺寸
-            for (const [path, data] of files.media) {
-              if (path.includes(mediaKey || '')) {
-                try {
-                  const dimensions = imageSize(Buffer.from(data))
-                  pixelWidth = dimensions.width
-                  pixelHeight = dimensions.height
-                  fileName = path.split('/').pop()
-                } catch {
-                  // 无法获取尺寸
-                }
-                break
-              }
-            }
-            break
-          }
+      const imageData = files.media.get(relationshipTarget)
+      if (imageData) {
+        try {
+          const dimensions = imageSize(Buffer.from(imageData))
+          pixelWidth = dimensions.width
+          pixelHeight = dimensions.height
+        } catch {
+          // 忽略无法读取尺寸的图片
         }
       }
     }
@@ -869,33 +999,33 @@ export class PptTemplateAnalyzer {
   /**
    * 解析表格内容
    */
-  private parseTableContent(tbl: any): PptTableContent {
-    const trs = tbl['a:tr']
-    if (!trs) return { rows: 0, columns: 0, cells: [] }
+  private parseTableContent(tbl: XmlNode | undefined): PptTableContent {
+    if (!tbl) {
+      return { rows: 0, columns: 0, cells: [] }
+    }
 
-    const rows = Array.isArray(trs) ? trs : [trs]
+    const rows = this.toNodeArray(this.getValue(tbl, 'a:tr'))
     const cells: PptTableCell[] = []
 
-    rows.forEach((tr: any, rowIndex: number) => {
-      const tcs = tr['a:tc']
-      if (!tcs) return
-
-      const cellsInRow = Array.isArray(tcs) ? tcs : [tcs]
-      cellsInRow.forEach((tc: any, colIndex: number) => {
-        const text = this.parseTextContent(tc)
+    rows.forEach((row, rowIndex) => {
+      const rowCells = this.toNodeArray(this.getValue(row, 'a:tc'))
+      rowCells.forEach((cell, colIndex) => {
+        const text = this.parseTextContent(this.getNode(cell, 'a:txBody') ?? cell)
         cells.push({
           rowIndex,
           colIndex,
-          text: text?.plainText || ''
+          text: text?.plainText ?? ''
         })
       })
     })
 
-    const columns = cells.length > 0 ? Math.max(...cells.map((c) => c.colIndex)) + 1 : 0
-
     return {
       rows: rows.length,
-      columns,
+      columns: rows.reduce(
+        (maxColumns, row) =>
+          Math.max(maxColumns, this.toNodeArray(this.getValue(row, 'a:tc')).length),
+        0
+      ),
       cells
     }
   }
@@ -903,36 +1033,186 @@ export class PptTemplateAnalyzer {
   /**
    * 解析图表内容
    */
-  private parseChartContent(chart: any): PptChartContent {
-    // 获取图表类型
-    const chartType = Object.keys(chart)
-      .find((k) => k.startsWith('c:'))
-      ?.replace('c:', '')
+  private parseChartContent(
+    chart: XmlNode | undefined,
+    files: PptxFiles,
+    ownerPath: string
+  ): PptChartContent {
+    const relationshipId = this.getString(this.getValue(chart, 'r:id'))
+    const relationshipTarget = relationshipId
+      ? this.resolveRelationshipTarget(files, ownerPath, relationshipId)
+      : undefined
 
     return {
-      chartType
+      relationshipTarget,
+      chartType: relationshipTarget ? this.resolveChartType(relationshipTarget, files) : undefined
     }
+  }
+
+  /**
+   * 解析图表类型
+   */
+  private resolveChartType(chartPath: string, files: PptxFiles): string | undefined {
+    const chartXml = files.charts.get(chartPath)
+    if (!chartXml) {
+      return undefined
+    }
+
+    const chartSpace = this.getNode(chartXml, 'c:chartSpace') ?? chartXml
+    const plotArea = this.getNestedNode(chartSpace, 'c:chart', 'c:plotArea')
+    if (!plotArea) {
+      return undefined
+    }
+
+    const chartKey = Object.keys(plotArea).find(
+      (key) => key.startsWith('c:') && key.endsWith('Chart')
+    )
+
+    return chartKey?.replace('c:', '')
   }
 
   /**
    * 解析背景
    */
-  private parseBackground(slideXml: any): PptSlideBackground | undefined {
-    const bg = slideXml?.['p:sld']?.['p:bg']
-    if (!bg) return undefined
+  private parseBackground(
+    container: XmlNode | undefined,
+    ownerPath: string,
+    files: PptxFiles
+  ): PptSlideBackground | undefined {
+    if (!container) {
+      return undefined
+    }
 
-    // TODO: v1 可以在后续版本中详细解析背景
-    return {
-      type: 'solid'
+    const background =
+      this.getNode(container, 'p:bg') ?? this.getNestedNode(container, 'p:cSld', 'p:bg')
+    if (!background) {
+      return undefined
+    }
+
+    const backgroundProps = this.getNode(background, 'p:bgPr') ?? background
+    const solidFill = this.getNode(backgroundProps, 'a:solidFill')
+    if (solidFill) {
+      return {
+        type: 'solid',
+        color: this.extractColor(solidFill)
+      }
+    }
+
+    if (this.getNode(backgroundProps, 'a:gradFill')) {
+      return { type: 'gradient' }
+    }
+
+    if (this.getNode(backgroundProps, 'a:pattFill')) {
+      return { type: 'pattern' }
+    }
+
+    const blipFill = this.getNode(backgroundProps, 'a:blipFill')
+    if (blipFill) {
+      const blip = this.getNode(blipFill, 'a:blip')
+      const relationshipId = this.getString(this.getValue(blip, 'r:embed'))
+
+      return {
+        type: 'image',
+        imagePath: relationshipId
+          ? this.resolveRelationshipTarget(files, ownerPath, relationshipId)
+          : undefined
+      }
+    }
+
+    return { type: 'solid' }
+  }
+
+  /**
+   * 解析备注文本
+   */
+  private parseNotes(notesXml: XmlNode | undefined): string | undefined {
+    if (!notesXml) {
+      return undefined
+    }
+
+    const notesRoot = this.getNode(notesXml, 'p:notes') ?? notesXml
+    const collectedTexts: string[] = []
+    this.collectTextValues(notesRoot, collectedTexts)
+
+    const notesText = collectedTexts
+      .map((text) => text.trim())
+      .filter(Boolean)
+      .join('\n')
+
+    return notesText || undefined
+  }
+
+  /**
+   * 递归提取文本节点
+   */
+  private collectTextValues(node: unknown, collector: string[]): void {
+    if (!this.isXmlNode(node)) {
+      return
+    }
+
+    const text = this.getString(this.getValue(node, 'a:t'))
+    if (text) {
+      collector.push(text)
+    }
+
+    for (const child of Object.values(node)) {
+      if (Array.isArray(child)) {
+        child.forEach((item) => this.collectTextValues(item, collector))
+        continue
+      }
+
+      if (this.isXmlNode(child)) {
+        this.collectTextValues(child, collector)
+      }
     }
   }
 
   /**
-   * 解析备注
+   * 提取颜色值
    */
-  private parseNotes(_slideXml: any): string | undefined {
-    // 备注通常在单独的文件中，v1 暂不解析
-    return undefined
+  private extractColor(node: XmlNode | undefined): string | undefined {
+    if (!node) {
+      return undefined
+    }
+
+    const colorNode =
+      this.getNode(node, 'a:srgbClr') ||
+      this.getNode(node, 'a:schemeClr') ||
+      this.getNode(node, 'a:prstClr')
+
+    return this.getString(this.getValue(colorNode, 'val'))
+  }
+
+  /**
+   * 解析关系文件对应的宿主路径
+   */
+  private resolveRelationshipOwnerPath(path: string): string {
+    return posix.normalize(path.replace('/_rels/', '/').replace(/\.rels$/, ''))
+  }
+
+  /**
+   * 解析目标路径
+   */
+  private resolveTargetPath(ownerPath: string, target: string): string {
+    if (target.startsWith('/')) {
+      return target.slice(1)
+    }
+
+    return posix.normalize(posix.join(posix.dirname(ownerPath), target))
+  }
+
+  /**
+   * 根据关系 ID 解析目标路径
+   */
+  private resolveRelationshipTarget(
+    files: PptxFiles,
+    ownerPath: string,
+    relationshipId: string
+  ): string | undefined {
+    const rels = files.relationships.get(ownerPath) ?? []
+    const relationship = rels.find((item) => item.Id === relationshipId)
+
+    return relationship?.Target ? this.resolveTargetPath(ownerPath, relationship.Target) : undefined
   }
 
   /**
@@ -951,5 +1231,85 @@ export class PptTemplateAnalyzer {
    */
   private calculateHash(buffer: Buffer): string {
     return createHash('md5').update(buffer).digest('hex')
+  }
+
+  /**
+   * 判断是否为 XML 节点对象
+   */
+  private isXmlNode(value: unknown): value is XmlNode {
+    return typeof value === 'object' && value !== null
+  }
+
+  /**
+   * 获取对象属性值
+   */
+  private getValue(node: XmlNode | undefined | null, key: string): unknown {
+    return node?.[key]
+  }
+
+  /**
+   * 获取对象子节点
+   */
+  private getNode(node: XmlNode | undefined | null, key: string): XmlNode | undefined {
+    const value = this.getValue(node, key)
+    return this.isXmlNode(value) ? value : undefined
+  }
+
+  /**
+   * 获取嵌套子节点
+   */
+  private getNestedNode(node: XmlNode | undefined | null, ...keys: string[]): XmlNode | undefined {
+    let current: XmlNode | undefined = node ?? undefined
+
+    for (const key of keys) {
+      current = this.getNode(current, key)
+      if (!current) {
+        return undefined
+      }
+    }
+
+    return current
+  }
+
+  /**
+   * 将值转换为 XML 节点数组
+   */
+  private toNodeArray(value: unknown): XmlNode[] {
+    if (Array.isArray(value)) {
+      return value.filter((item): item is XmlNode => this.isXmlNode(item))
+    }
+
+    return this.isXmlNode(value) ? [value] : []
+  }
+
+  /**
+   * 读取字符串值
+   */
+  private getString(value: unknown): string | undefined {
+    if (typeof value === 'string') {
+      return value
+    }
+
+    if (typeof value === 'number') {
+      return String(value)
+    }
+
+    return undefined
+  }
+
+  /**
+   * 读取数值
+   */
+  private getNumber(value: unknown): number | undefined {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value
+    }
+
+    if (typeof value === 'string') {
+      const parsed = parseInt(value, 10)
+      return Number.isNaN(parsed) ? undefined : parsed
+    }
+
+    return undefined
   }
 }

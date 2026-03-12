@@ -50,22 +50,16 @@ export const pptTemplateApi = {
   /**
    * 上传并创建新模板
    * @param file 文件对象
-   * @param request 创建请求（包含可选的模板名称）
+   * @param name 模板名称（可选）
    * @returns 创建结果
    */
-  create: async (
-    file: File,
-    request?: CreatePptTemplateRequest
-  ): Promise<CreatePptTemplateResult> => {
+  create: async (file: File, name?: string): Promise<CreatePptTemplateResult> => {
     // 将 File 对象转换为 ArrayBuffer
     const arrayBuffer = await file.arrayBuffer()
     const dataArray = Array.from(new Uint8Array(arrayBuffer))
+    const request: CreatePptTemplateRequest = name ? { name } : {}
 
-    return ipcRenderer.invoke(
-      'pptTemplate:create',
-      { data: dataArray, name: file.name },
-      request || {}
-    )
+    return ipcRenderer.invoke('pptTemplate:create', { data: dataArray, name: file.name }, request)
   },
 
   /**

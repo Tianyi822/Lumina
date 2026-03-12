@@ -116,7 +116,7 @@ export class PptTemplateService {
   async createTemplate(
     fileBuffer: Buffer,
     fileName: string,
-    request: CreatePptTemplateRequest
+    request: CreatePptTemplateRequest = {}
   ): Promise<{
     success: boolean
     data?: PptTemplateListItem
@@ -125,6 +125,9 @@ export class PptTemplateService {
     if (!this.loaded) {
       this.initialize()
     }
+
+    let templateId: string | null = null
+    let templateAddedToIndex = false
 
     try {
       // 1. 文件验证
@@ -143,7 +146,7 @@ export class PptTemplateService {
       }
 
       // 4. 生成模板 ID
-      const templateId = this.generateTemplateId()
+      templateId = this.generateTemplateId()
 
       // 5. 创建模板目录
       ensureTemplateDir(templateId)
@@ -183,6 +186,7 @@ export class PptTemplateService {
 
       // 10. 写入索引（最后一步，确保前面的操作都成功）
       this.templates.unshift(templateItem)
+      templateAddedToIndex = true
       this.saveTemplatesIndex()
 
       logger.info('PPT 模板创建成功', 'main', {
@@ -193,6 +197,14 @@ export class PptTemplateService {
 
       return { success: true, data: templateItem }
     } catch (error) {
+      if (templateAddedToIndex && templateId) {
+        this.templates = this.templates.filter((template) => template.id !== templateId)
+      }
+
+      if (templateId) {
+        this.cleanupTemplateDir(templateId)
+      }
+
       const errorMessage = `创建模板失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
       return { success: false, error: errorMessage }

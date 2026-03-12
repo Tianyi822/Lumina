@@ -4,7 +4,7 @@
  */
 
 import { join } from 'path'
-import { existsSync, mkdirSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { getConfigDirPath } from '@main/services/config/configPaths'
 
 /** PPT 模板存储目录名称 */
@@ -111,7 +111,6 @@ export function initializePptTemplateStorage(): void {
   // 如果索引文件不存在，创建空数组
   const indexPath = getTemplatesIndexPath()
   if (!existsSync(indexPath)) {
-    const { writeFileSync } = require('fs')
     writeFileSync(indexPath, JSON.stringify([], null, 2), 'utf-8')
   }
 }

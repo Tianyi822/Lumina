@@ -1714,10 +1714,6 @@ interface PptTemplateListResponse {
  * 创建 PPT 模板请求
  */
 interface CreatePptTemplateRequest {
-  file: {
-    data: number[]
-    name: string
-  }
   name?: string
 }
 

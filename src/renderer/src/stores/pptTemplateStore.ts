@@ -91,7 +91,7 @@ export const usePptTemplateStore = defineStore('pptTemplate', () => {
       if (result.success && result.data) {
         // 添加到列表
         templates.value.push(result.data)
-        success.value = `模板 "${result.data.name}" 上传成功，正在分析中...`
+        success.value = `模板 "${result.data.name}" 上传并分析成功`
         window.api.logger?.info('[PptTemplateStore] 模板创建成功', {
           id: result.data.id,
           name: result.data.name
@@ -147,6 +147,43 @@ export const usePptTemplateStore = defineStore('pptTemplate', () => {
   }
 
   /**
+   * 删除模板
+   * @param templateId 模板 ID
+   */
+  async function deleteTemplate(templateId: string): Promise<boolean> {
+    error.value = null
+    success.value = null
+    try {
+      const result = await window.api.pptTemplate.delete(templateId)
+      if (result.success) {
+        // 从列表中移除
+        const index = templates.value.findIndex((t) => t.id === templateId)
+        if (index !== -1) {
+          const templateName = templates.value[index].name
+          templates.value.splice(index, 1)
+          success.value = `模板 "${templateName}" 已删除`
+          window.api.logger?.info('[PptTemplateStore] 模板删除成功', { id: templateId })
+        }
+
+        // 3秒后清除成功消息
+        setTimeout(() => {
+          success.value = null
+        }, 3000)
+
+        return true
+      } else {
+        error.value = result.error || '删除模板失败'
+        return false
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      error.value = `删除模板失败: ${message}`
+      window.api.logger?.error('[PptTemplateStore] 删除模板失败', { error: message })
+      return false
+    }
+  }
+
+  /**
    * 获取模板的本地分析路径
    * @param templateId 模板 ID
    */
@@ -170,6 +207,7 @@ export const usePptTemplateStore = defineStore('pptTemplate', () => {
     // Actions
     loadTemplates,
     createTemplate,
+    deleteTemplate,
     refreshTemplates,
     clearError,
     clearSuccess,
