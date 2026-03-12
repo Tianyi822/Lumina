@@ -2,7 +2,6 @@
 import { onMounted, onUnmounted, watch, computed, ref, toRaw } from 'vue'
 import { storeToRefs } from 'pinia'
 import type {
-  ExportPresentationRequest,
   MCPTool,
   SessionType,
   KnowledgeBase,
@@ -18,7 +17,6 @@ import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
 import MessageExportDialog from '@renderer/components/chat/MessageExportDialog.vue'
-import PresentationExportDialog from '@renderer/components/chat/PresentationExportDialog.vue'
 import {
   createExportInteractionInfo,
   findLatestExportableAssistantMessage,
@@ -61,7 +59,6 @@ const currentInputState = computed(() => inputStateStore.currentInputState)
 // 导出相关状态
 const pendingExportMessageId = ref<string | null>(null)
 const exportDialogMessageId = ref<string | null>(null)
-const presentationDialogMessageId = ref<string | null>(null)
 const exportingMessageId = ref<string | null>(null)
 
 // 聊天错误消息（兼容旧命名）
@@ -76,15 +73,6 @@ const exportDialogMessage = computed<Message | null>(() => {
   if (!exportDialogMessageId.value) return null
 
   const targetMessage = messages.value.find((message) => message.id === exportDialogMessageId.value)
-  return isExportableAssistantMessage(targetMessage) ? targetMessage : null
-})
-
-const presentationDialogMessage = computed<Message | null>(() => {
-  if (!presentationDialogMessageId.value) return null
-
-  const targetMessage = messages.value.find(
-    (message) => message.id === presentationDialogMessageId.value
-  )
   return isExportableAssistantMessage(targetMessage) ? targetMessage : null
 })
 
@@ -104,15 +92,10 @@ function createLocalMessageId(): string {
 function clearExportState(): void {
   pendingExportMessageId.value = null
   exportDialogMessageId.value = null
-  presentationDialogMessageId.value = null
 }
 
 function closeExportDialog(): void {
   exportDialogMessageId.value = null
-}
-
-function closePresentationExportDialog(): void {
-  presentationDialogMessageId.value = null
 }
 
 function getPendingExportTarget(): Message | null {
@@ -159,12 +142,6 @@ function triggerBrowserDownload(result: {
   window.setTimeout(() => {
     URL.revokeObjectURL(downloadUrl)
   }, 1000)
-}
-
-function openPresentationExportDialog(message: Message): void {
-  pendingExportMessageId.value = null
-  exportDialogMessageId.value = null
-  presentationDialogMessageId.value = message.id
 }
 
 async function exportAssistantMessage(message: Message, format: ExportFormat): Promise<void> {
@@ -218,11 +195,6 @@ async function handleInlineExportFormatSelect(format: ExportFormat): Promise<voi
     return
   }
 
-  if (format === 'pptx') {
-    openPresentationExportDialog(targetMessage)
-    return
-  }
-
   await exportAssistantMessage(targetMessage, format)
 }
 
@@ -234,49 +206,7 @@ async function handleDialogExportFormatSelect(format: ExportFormat): Promise<voi
     return
   }
 
-  if (format === 'pptx') {
-    openPresentationExportDialog(targetMessage)
-    return
-  }
-
   await exportAssistantMessage(targetMessage, format)
-}
-
-async function handlePresentationExport(request: ExportPresentationRequest): Promise<void> {
-  const targetMessage = presentationDialogMessage.value
-  if (!targetMessage) {
-    closePresentationExportDialog()
-    handleChatError('当前没有可导出的 PPT 消息')
-    return
-  }
-
-  exportingMessageId.value = targetMessage.id
-
-  try {
-    const result = await window.api.presentation.exportFromChat(request)
-
-    if (!result.success) {
-      handleChatError(result.error || 'PPT 导出失败')
-      return
-    }
-
-    triggerBrowserDownload(result)
-    closePresentationExportDialog()
-
-    window.api.logger.info('[ChatPage] 导出 PPT 成功', {
-      messageId: targetMessage.id,
-      fileName: result.fileName
-    })
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    window.api.logger.error('[ChatPage] 导出 PPT 异常', {
-      error: errorMessage,
-      messageId: targetMessage.id
-    })
-    handleChatError(errorMessage)
-  } finally {
-    exportingMessageId.value = null
-  }
 }
 
 function handleRequestExport(message: Message): void {
@@ -308,11 +238,7 @@ async function tryHandleExportIntent(content: string): Promise<boolean> {
     if (requestedFormat) {
       appendLocalUserMessage(trimmedContent)
       await sessionStore.saveCurrentSession()
-      if (requestedFormat === 'pptx') {
-        openPresentationExportDialog(targetMessage)
-      } else {
-        await exportAssistantMessage(targetMessage, requestedFormat)
-      }
+      await exportAssistantMessage(targetMessage, requestedFormat)
       return true
     }
 
@@ -340,11 +266,7 @@ async function tryHandleExportIntent(content: string): Promise<boolean> {
   await sessionStore.saveCurrentSession()
 
   if (requestedFormat) {
-    if (requestedFormat === 'pptx') {
-      openPresentationExportDialog(targetMessage)
-    } else {
-      await exportAssistantMessage(targetMessage, requestedFormat)
-    }
+    await exportAssistantMessage(targetMessage, requestedFormat)
   } else {
     pendingExportMessageId.value = targetMessage.id
   }
@@ -697,15 +619,6 @@ watch(
       :is-exporting="exportingMessageId === exportDialogMessage.id"
       @close="closeExportDialog"
       @select-format="handleDialogExportFormatSelect"
-    />
-
-    <PresentationExportDialog
-      v-if="presentationDialogMessage"
-      :message="presentationDialogMessage"
-      :default-title="currentSession?.title"
-      :is-exporting="exportingMessageId === presentationDialogMessage.id"
-      @close="closePresentationExportDialog"
-      @export="handlePresentationExport"
     />
   </div>
 </template>

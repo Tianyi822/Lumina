@@ -1,7 +1,7 @@
 /**
  * 支持的导出格式
  */
-export type ExportFormat = 'markdown' | 'word' | 'pdf' | 'txt' | 'pptx'
+export type ExportFormat = 'markdown' | 'word' | 'pdf' | 'txt'
 
 /**
  * 消息导出请求

@@ -18,7 +18,6 @@ import {
 } from 'docx'
 import MarkdownIt from 'markdown-it'
 import { logger } from '@main/services/logger'
-import { getPresentationExportService } from '@main/services/presentation'
 import type { ExportFormat, ExportMessageRequest, ExportMessageResult } from '@shared/types'
 
 interface InlineSegment {
@@ -141,9 +140,6 @@ export class DocumentExportService {
           break
         case 'pdf':
           buffer = await this.buildPdfDocument(normalizedMarkdown, request)
-          break
-        case 'pptx':
-          buffer = await this.buildPresentationDocument(normalizedMarkdown, request)
           break
         default:
           return {
@@ -323,25 +319,6 @@ export class DocumentExportService {
     })
 
     return Buffer.from(await Packer.toBuffer(document))
-  }
-
-  // ==================== PPT 导出 ====================
-
-  /**
-   * 构建 PPT 文档
-   */
-  private async buildPresentationDocument(
-    content: string,
-    request: ExportMessageRequest
-  ): Promise<Buffer> {
-    const presentationConfig = getPresentationExportService().buildConfigFromMarkdown(content, {
-      title: this.deriveBaseTitle(request.title, content),
-      author: request.modelName || 'Sparrow Manus',
-      subject: 'AI 助手导出的演示文稿',
-      template: 'lessonPlan'
-    })
-
-    return getPresentationExportService().exportPresentation(presentationConfig)
   }
 
   /**
@@ -1447,8 +1424,6 @@ export class DocumentExportService {
         return 'pdf'
       case 'txt':
         return 'txt'
-      case 'pptx':
-        return 'pptx'
     }
   }
 
@@ -1465,8 +1440,6 @@ export class DocumentExportService {
         return 'application/pdf'
       case 'txt':
         return 'text/plain;charset=utf-8'
-      case 'pptx':
-        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
     }
   }
 

@@ -25,6 +25,3 @@ export * from './prompt'
 
 // 导出相关的类型
 export * from './export'
-
-// PPT 相关的类型
-export * from './presentation'

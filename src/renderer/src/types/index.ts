@@ -46,9 +46,6 @@ export * from '@shared/types/prompt'
 // 导出相关类型
 export type { ExportFormat, ExportMessageRequest, ExportMessageResult } from '@shared/types/export'
 
-// PPT 相关类型
-export * from '@shared/types/presentation'
-
 // 附件文件类型（从 preload 全局类型中获取）
 export type AttachmentFile = {
   path: string

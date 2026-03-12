@@ -6,7 +6,7 @@ import { z } from 'zod'
 
 const exportRequestSchema = z.object({
   content: z.string().trim().min(1, '导出内容不能为空'),
-  format: z.enum(['markdown', 'word', 'pdf', 'txt', 'pptx']),
+  format: z.enum(['markdown', 'word', 'pdf', 'txt']),
   title: z.string().trim().max(120).optional(),
   timestamp: z.string().optional(),
   modelName: z.string().optional()
