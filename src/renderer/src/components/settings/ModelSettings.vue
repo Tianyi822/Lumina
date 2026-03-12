@@ -40,7 +40,11 @@ function getModelItemName(config: LLMConfig, index: number): string {
 }
 
 function validateModelConfig(config: LLMConfig, index: number): string {
-  const requiredFields: Array<keyof typeof MODEL_FIELD_LABELS> = ['base_url', 'api_key', 'model_name']
+  const requiredFields: Array<keyof typeof MODEL_FIELD_LABELS> = [
+    'base_url',
+    'api_key',
+    'model_name'
+  ]
 
   for (const field of requiredFields) {
     if (!config[field].trim()) {
@@ -214,9 +218,7 @@ async function handleSave(): Promise<void> {
         <div class="model-header" @click="toggleModelExpand(index)">
           <span class="model-name">{{ config.model_name || '未命名模型' }}</span>
           <span v-if="defaultModel === config.model_name" class="default-badge">默认</span>
-          <span class="expand-state">{{
-            expandedModels.has(index) ? '收起' : '展开'
-          }}</span>
+          <span class="expand-state">{{ expandedModels.has(index) ? '收起' : '展开' }}</span>
           <div class="model-actions">
             <button
               v-if="defaultModel !== config.model_name"
@@ -225,10 +227,7 @@ async function handleSave(): Promise<void> {
             >
               设为默认
             </button>
-            <button
-              class="btn btn-small btn-danger-text"
-              @click.stop="deleteModel(index)"
-            >
+            <button class="btn btn-small btn-danger-text" @click.stop="deleteModel(index)">
               删除
             </button>
           </div>
@@ -242,12 +241,7 @@ async function handleSave(): Promise<void> {
               class="input"
               placeholder="https://api.openai.com/v1"
               @input="
-                (e) =>
-                  updateModelConfig(
-                    index,
-                    'base_url',
-                    (e.target as HTMLInputElement).value
-                  )
+                (e) => updateModelConfig(index, 'base_url', (e.target as HTMLInputElement).value)
               "
             />
           </div>
@@ -259,12 +253,7 @@ async function handleSave(): Promise<void> {
               class="input"
               placeholder="sk-..."
               @input="
-                (e) =>
-                  updateModelConfig(
-                    index,
-                    'api_key',
-                    (e.target as HTMLInputElement).value
-                  )
+                (e) => updateModelConfig(index, 'api_key', (e.target as HTMLInputElement).value)
               "
             />
           </div>
@@ -276,12 +265,7 @@ async function handleSave(): Promise<void> {
               class="input"
               placeholder="gpt-4"
               @input="
-                (e) =>
-                  updateModelConfig(
-                    index,
-                    'model_name',
-                    (e.target as HTMLInputElement).value
-                  )
+                (e) => updateModelConfig(index, 'model_name', (e.target as HTMLInputElement).value)
               "
             />
           </div>

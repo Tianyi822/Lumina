@@ -139,8 +139,7 @@ function handleToggleServerGroupTools(tools: MCPTool[]): void {
     localSelectedTools.value = localSelectedTools.value.filter(
       (selectedTool) =>
         !tools.some(
-          (tool) =>
-            tool.name === selectedTool.name && tool.serverName === selectedTool.serverName
+          (tool) => tool.name === selectedTool.name && tool.serverName === selectedTool.serverName
         )
     )
   } else {

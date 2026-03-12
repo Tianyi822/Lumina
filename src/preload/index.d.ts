@@ -1683,6 +1683,62 @@ interface VoiceRecognitionApi {
 }
 
 /**
+ * PPT 模板分析状态
+ */
+type PptTemplateStatus = 'analyzing' | 'completed' | 'failed'
+
+/**
+ * PPT 模板列表项
+ */
+interface PptTemplateListItem {
+  id: string
+  name: string
+  originalFileName: string
+  fileSize: number
+  slideCount: number
+  createdAt: string
+  analysisVersion: string
+  status: PptTemplateStatus
+}
+
+/**
+ * PPT 模板列表响应
+ */
+interface PptTemplateListResponse {
+  success: boolean
+  data?: PptTemplateListItem[]
+  error?: string
+}
+
+/**
+ * 创建 PPT 模板请求
+ */
+interface CreatePptTemplateRequest {
+  file: {
+    data: number[]
+    name: string
+  }
+  name?: string
+}
+
+/**
+ * 创建 PPT 模板结果
+ */
+interface CreatePptTemplateResult {
+  success: boolean
+  data?: PptTemplateListItem
+  error?: string
+}
+
+/**
+ * PPT 模板 API
+ */
+interface PptTemplateApi {
+  list: () => Promise<PptTemplateListResponse>
+  create: (file: File, name?: string) => Promise<CreatePptTemplateResult>
+}
+
+/**
  * 自定义的完整 API
  */
 interface CustomApi {
@@ -1708,6 +1764,8 @@ interface CustomApi {
   knowledgeMCP: KnowledgeMCPApi
   // 语音识别 API
   voiceRecognition: VoiceRecognitionApi
+  // PPT 模板 API
+  pptTemplate: PptTemplateApi
 }
 
 declare global {

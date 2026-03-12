@@ -16,6 +16,10 @@ import {
 } from './handlers/knowledgeMCPHandlers'
 import { registerDocumentHandlers } from './handlers/documentHandlers'
 import { registerVoiceRecognitionHandlers } from './handlers/voiceRecognitionHandlers'
+import {
+  registerPptTemplateHandlers,
+  initializePptTemplateService
+} from './handlers/pptTemplateHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -26,6 +30,7 @@ export { initializeEmbeddingModels } from './handlers/embeddingModelHandlers'
 export { initializeFileService } from './handlers/fileHandlers'
 export { initializeSandbox }
 export { initializeKnowledgeMCP }
+export { initializePptTemplateService }
 
 /**
  * 注册所有 IPC 处理程序
@@ -75,4 +80,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册语音识别相关处理程序
   registerVoiceRecognitionHandlers()
+
+  // 注册 PPT 模板相关处理程序
+  registerPptTemplateHandlers()
 }

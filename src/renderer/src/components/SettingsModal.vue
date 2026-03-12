@@ -8,6 +8,7 @@ import PromptEngineeringSettings from './settings/PromptEngineeringSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
 import VoiceRecognitionSettings from './settings/VoiceRecognitionSettings.vue'
+import PptTemplateSettings from './settings/PptTemplateSettings.vue'
 import { useConfigStore } from '@renderer/stores'
 
 const emit = defineEmits<{
@@ -20,9 +21,9 @@ const configStore = useConfigStore()
 const { loading, errorMessage, successMessage, themeConfig } = storeToRefs(configStore)
 
 // 当前激活的 Tab
-const activeTab = ref<'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge' | 'voice'>(
-  'model'
-)
+const activeTab = ref<
+  'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge' | 'voice' | 'pptTemplate'
+>('model')
 
 // 信息消息（仅用于嵌入模型设置）
 const infoMessage = ref('')
@@ -122,6 +123,13 @@ onUnmounted(() => {
           >
             语音识别
           </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'pptTemplate' }"
+            @click="activeTab = 'pptTemplate'"
+          >
+            PPT 模板
+          </button>
         </div>
 
         <!-- 右侧内容区域 -->
@@ -176,6 +184,15 @@ onUnmounted(() => {
           <!-- 语音识别配置 Tab -->
           <VoiceRecognitionSettings
             v-else-if="activeTab === 'voice'"
+            :error-message="errorMessage"
+            :success-message="successMessage"
+            @update:error-message="errorMessage = $event"
+            @update:success-message="successMessage = $event"
+          />
+
+          <!-- PPT 模板配置 Tab -->
+          <PptTemplateSettings
+            v-else-if="activeTab === 'pptTemplate'"
             :error-message="errorMessage"
             :success-message="successMessage"
             @update:error-message="errorMessage = $event"

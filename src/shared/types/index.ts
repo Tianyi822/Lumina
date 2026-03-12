@@ -25,3 +25,6 @@ export * from './prompt'
 
 // 导出相关的类型
 export * from './export'
+
+// PPT 模板相关的类型
+export * from './ppt-template'

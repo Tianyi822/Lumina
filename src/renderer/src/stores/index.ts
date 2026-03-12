@@ -24,6 +24,7 @@ export { useKnowledgeStore } from './knowledgeStore'
 export { useFileStore } from './fileStore'
 export { useDocumentUploadStore } from './documentUploadStore'
 export { useImageUploadStore } from './imageUploadStore'
+export { usePptTemplateStore } from './pptTemplateStore'
 
 // Sandbox Stores (拆分后的模块)
 export {

@@ -233,7 +233,11 @@ onUnmounted(() => {
         <button class="btn btn-small" :disabled="isImporting" @click="importMCPConfigs">
           {{ isImporting ? '导入中...' : '确认导入' }}
         </button>
-        <button class="btn btn-small btn-secondary" :disabled="isImporting" @click="toggleImportPanel">
+        <button
+          class="btn btn-small btn-secondary"
+          :disabled="isImporting"
+          @click="toggleImportPanel"
+        >
           取消
         </button>
       </div>
