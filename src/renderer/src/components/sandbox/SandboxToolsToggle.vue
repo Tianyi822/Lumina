@@ -47,29 +47,7 @@ onMounted(() => {
     @click="toggle"
   >
     <div class="toggle-switch">
-      <div class="toggle-thumb">
-        <svg v-if="isEnabled" viewBox="0 0 1024 1024" width="12" height="12">
-          <path
-            d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z"
-            fill="currentColor"
-          />
-          <path
-            d="M512 336m-40 0a40 40 0 1 0 80 0 40 40 0 1 0-80 0zm0 176m-40 0a40 40 0 1 0 80 0 40 40 0 1 0-80 0zm0 176m-40 0a40 40 0 1 0 80 0 40 40 0 1 0-80 0"
-            fill="currentColor"
-          />
-        </svg>
-        <svg v-else viewBox="0 0 1024 1024" width="12" height="12">
-          <path
-            d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z"
-            fill="currentColor"
-          />
-          <path
-            d="M512 336m-40 0a40 40 0 1 0 80 0 40 40 0 1 0-80 0zm0 176m-40 0a40 40 0 1 0 80 0 40 40 0 1 0-80 0zm0 176m-40 0a40 40 0 1 0 80 0 40 40 0 1 0-80 0"
-            fill="currentColor"
-            opacity="0.3"
-          />
-        </svg>
-      </div>
+      <div class="toggle-thumb"></div>
     </div>
     <span class="toggle-label">启用沙箱管理</span>
     <span v-if="isEnabled" class="status-badge active">已启用</span>

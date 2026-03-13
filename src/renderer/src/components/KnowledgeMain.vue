@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useFileStore } from '@renderer/stores'
 import { useKnowledgeIndexStore } from '@renderer/stores'
 import type { KnowledgeBase, FileItem, EmbeddingConfig } from '@renderer/types'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 const props = defineProps<{
   knowledgeBase?: KnowledgeBase
@@ -894,7 +895,7 @@ function getFileNameWithoutExtension(fileName: string): string {
                 @click.stop="handleUnlinkFile(file.id)"
               >
                 <span v-if="unlinkingFileId === file.id" class="spinner-tiny"></span>
-                <span v-else>✕</span>
+                <SvgIcon v-else name="close" :size="12" />
               </button>
             </div>
             <div class="document-info">

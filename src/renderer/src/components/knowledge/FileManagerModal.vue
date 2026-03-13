@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -154,7 +155,9 @@ onMounted(async () => {
       <!-- 头部 -->
       <div class="file-manager-header">
         <h2>文件管理</h2>
-        <button class="close-btn" @click="emit('close')">✕</button>
+        <button class="close-btn" @click="emit('close')">
+          <SvgIcon name="close" :size="16" />
+        </button>
       </div>
 
       <!-- 搜索栏 -->

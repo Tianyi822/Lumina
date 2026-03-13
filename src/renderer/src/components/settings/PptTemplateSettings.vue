@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePptTemplateStore } from '@renderer/stores'
 import type { PptTemplateStatus } from '@shared/types/ppt-template'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 interface Props {
   errorMessage?: string
@@ -316,11 +317,7 @@ onMounted(() => {
         <!-- 未选择文件时的状态 -->
         <div v-if="!selectedFile" class="dropzone-content">
           <div class="upload-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
+            <SvgIcon name="upload" :size="24" />
           </div>
           <div class="upload-text">
             <p class="upload-title">拖拽文件到此处，或 <span class="upload-link">点击上传</span></p>
@@ -331,23 +328,14 @@ onMounted(() => {
         <!-- 已选择文件时的状态 -->
         <div v-else class="dropzone-file-info">
           <div class="file-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-              <polyline points="10 9 9 9 8 9" />
-            </svg>
+            <SvgIcon name="file" :size="20" />
           </div>
           <div class="file-details">
             <p class="file-name">{{ selectedFile.name }}</p>
             <p class="file-size">{{ formatFileSize(selectedFile.size) }}</p>
           </div>
           <button class="btn-remove" title="移除文件" @click.stop="handleReset">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <SvgIcon name="close" :size="16" />
           </button>
         </div>
       </div>
@@ -370,17 +358,7 @@ onMounted(() => {
               @click="handleUpload"
             >
               <span v-if="uploading" class="btn-loading">
-                <svg class="spinner" viewBox="0 0 24 24">
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    stroke-width="3"
-                    fill="none"
-                    stroke-dasharray="31.4 31.4"
-                  />
-                </svg>
+                <SvgIcon name="spinner" :size="14" :spin="true" />
                 上传中
               </span>
               <span v-else>上传模板</span>
@@ -396,10 +374,7 @@ onMounted(() => {
       <div class="section-header">
         <h3 class="section-title">模板列表</h3>
         <button class="btn-icon" title="刷新列表" @click="handleRefresh">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M23 4v6h-6M1 20v-6h6" />
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-          </svg>
+          <SvgIcon name="refresh" :size="16" />
         </button>
       </div>
 
@@ -425,25 +400,8 @@ onMounted(() => {
                 :disabled="deletingId === template.id"
                 @click="handleDelete(template.id, template.name)"
               >
-                <svg v-if="deletingId === template.id" class="spinner-small" viewBox="0 0 24 24">
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    stroke-width="3"
-                    fill="none"
-                    stroke-dasharray="31.4 31.4"
-                  />
-                </svg>
-                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path
-                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-                  />
-                  <line x1="10" y1="11" x2="10" y2="17" />
-                  <line x1="14" y1="11" x2="14" y2="17" />
-                </svg>
+                <SvgIcon v-if="deletingId === template.id" name="spinner" :size="14" :spin="true" />
+                <SvgIcon v-else name="delete" :size="14" />
               </button>
             </div>
           </div>
