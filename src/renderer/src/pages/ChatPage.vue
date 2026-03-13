@@ -24,7 +24,6 @@ import {
   isExportableAssistantMessage,
   parseExportFormat
 } from '@renderer/utils/messageExport'
-import { isPresentationIntent } from '@shared/utils'
 
 // Stores
 import {
@@ -464,8 +463,6 @@ async function handleSendMessage(
 
     // 发送请求
     const selectedPptTemplate = currentInputState.value.selectedPptTemplate
-    const enablePresentationTools =
-      Boolean(selectedPptTemplate) || isPresentationIntent(trimmedContent)
 
     const result = await window.api.chat.send({
       messages: chatMessages,
@@ -474,7 +471,6 @@ async function handleSendMessage(
       selectedTools: toolReferences,
       selectedKnowledgeBases: kbReferences,
       enableSandboxTools,
-      enablePresentationTools,
       selectedPptTemplate
     })
 
