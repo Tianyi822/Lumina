@@ -856,15 +856,12 @@ onUnmounted(async () => {
     <!-- 待发送文档列表 -->
     <div v-if="pendingDocs.length > 0" class="pending-docs-list">
       <div v-for="(doc, index) in pendingDocs" :key="index" class="pending-doc-item">
-        <svg
+        <SvgIcon
           class="pending-doc-icon"
-          width="16"
-          height="16"
-          viewBox="0 0 1024 1024"
-          :style="{ color: getFileTypeIcon(doc.fileName).color }"
-        >
-          <path :d="getFileTypeIcon(doc.fileName).path" fill="currentColor" />
-        </svg>
+          :name="getFileTypeIcon(doc.fileName).name"
+          :size="16"
+          :color="getFileTypeIcon(doc.fileName).color"
+        />
         <div class="pending-doc-info">
           <span class="pending-doc-name" :title="doc.fileName">{{ doc.fileName }}</span>
           <span class="pending-doc-type">{{

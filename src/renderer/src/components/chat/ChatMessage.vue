@@ -403,15 +403,12 @@ function formatFileSize(bytes: number): string {
         class="document-indicators"
       >
         <div v-for="(doc, index) in message.attachedDocuments" :key="index" class="doc-badge">
-          <svg
+          <SvgIcon
             class="doc-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 1024 1024"
-            :style="{ color: getFileTypeIcon(doc.fileName).color }"
-          >
-            <path :d="getFileTypeIcon(doc.fileName).path" fill="currentColor" />
-          </svg>
+            :name="getFileTypeIcon(doc.fileName).name"
+            :size="14"
+            :color="getFileTypeIcon(doc.fileName).color"
+          />
           <span class="doc-name" :title="doc.fileName">{{ doc.fileName }}</span>
           <span class="doc-size">{{ formatFileSize(doc.fileSize) }}</span>
         </div>
