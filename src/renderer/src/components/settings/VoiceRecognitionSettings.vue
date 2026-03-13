@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useConfigStore } from '@renderer/stores'
 import type { VoiceRecognitionConfig } from '@shared/types/config'
@@ -32,6 +32,8 @@ const localConfig = ref<VoiceRecognitionConfig>({
 
 // 是否正在保存 enabled 状态（用于防止重复触发）
 const savingEnabled = ref(false)
+// 是否正在从已保存配置同步到本地表单
+const syncingLocalConfig = ref(false)
 
 function validateVoiceConfig(config: VoiceRecognitionConfig): string {
   const hasAccessKeyId = Boolean(config.accessKeyId?.trim())
@@ -62,7 +64,7 @@ watch(
   () => localConfig.value.enabled,
   async (newValue, oldValue) => {
     // 防止初始化时触发
-    if (oldValue === undefined || savingEnabled.value) return
+    if (oldValue === undefined || savingEnabled.value || syncingLocalConfig.value) return
     // 只有当值真正改变时才保存
     if (newValue === oldValue) return
 
@@ -128,8 +130,9 @@ function showSuccess(message: string): void {
   }, 2000)
 }
 
-// 从 Store 加载配置到本地
-function loadLocalConfig(): void {
+// 从 Store 加载配置到本地，避免触发开关自动保存
+async function loadLocalConfig(): Promise<void> {
+  syncingLocalConfig.value = true
   localConfig.value = {
     provider: voiceRecognitionConfig.value.provider || 'aliyun',
     enabled: voiceRecognitionConfig.value.enabled || false,
@@ -138,6 +141,8 @@ function loadLocalConfig(): void {
     token: voiceRecognitionConfig.value.token || '',
     appkey: voiceRecognitionConfig.value.appkey || ''
   }
+  await nextTick()
+  syncingLocalConfig.value = false
 }
 
 // 构造普通对象，避免将 Vue 响应式代理直接传给跨进程 API
@@ -172,7 +177,7 @@ async function handleSave(): Promise<void> {
 
 // 重置为已保存的配置
 function handleReset(): void {
-  loadLocalConfig()
+  void loadLocalConfig()
 }
 
 // 测试连接
@@ -232,7 +237,7 @@ async function handleFetchToken(): Promise<void> {
 }
 
 onMounted(() => {
-  loadLocalConfig()
+  void loadLocalConfig()
 })
 </script>
 
