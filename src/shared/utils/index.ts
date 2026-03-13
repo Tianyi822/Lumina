@@ -17,8 +17,5 @@ export * from './stream-utils'
 // 错误处理相关
 export * from './error-handlers'
 
-// PPT 生成意图识别相关
-export * from './presentation-intent'
-
 // 导出常用的深度克隆函数
 export { deepClone } from './data-processors'

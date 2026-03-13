@@ -138,7 +138,6 @@ interface ChatRequest {
   selectedKnowledgeBases?: KnowledgeBaseReference[]
   maxReactIterations?: number
   enableSandboxTools?: boolean
-  enablePresentationTools?: boolean
   selectedPptTemplate?: SelectedPptTemplate | null
 }
 

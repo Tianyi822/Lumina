@@ -27,7 +27,7 @@ export class PresentationToolService {
       {
         name: 'presentation__list_templates',
         description:
-          '获取当前可用于 PPT 生成的模板列表，只返回已经完成解析的模板。适合在回答前了解用户当前有哪些模板可选。',
+          '仅在用户要制作 PPT、幻灯片、演示文稿，或明确询问模板时使用。获取当前可用的 PPT 模板列表，只返回已完成解析的模板。',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -38,7 +38,7 @@ export class PresentationToolService {
       {
         name: 'presentation__request_template_selection',
         description:
-          '请求用户从已有 PPT 模板中选择一个模板继续。若当前没有可用模板，会返回提示信息而不会弹出空选项。',
+          '仅在用户明确要做 PPT/幻灯片且还未选模板时使用。请求用户从已有 PPT 模板中选择一个模板继续；若当前没有可用模板，会返回提示信息而不会弹出空选项。',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -49,7 +49,7 @@ export class PresentationToolService {
       {
         name: 'presentation__get_template_analysis',
         description:
-          '读取指定 PPT 模板的结构分析结果。默认返回适合模型理解的摘要；需要完整分析时可将 detailLevel 设为 full。',
+          '仅在用户已经选定 PPT 模板后使用。读取指定 PPT 模板的结构分析结果，默认返回适合模型理解的摘要；需要完整分析时可将 detailLevel 设为 full。',
         inputSchema: {
           type: 'object',
           properties: {

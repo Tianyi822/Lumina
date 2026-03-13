@@ -292,8 +292,6 @@ export interface ChatRequest {
   maxReactIterations?: number
   /** 是否启用沙箱管理工具 */
   enableSandboxTools?: boolean
-  /** 是否启用 PPT 模板工具 */
-  enablePresentationTools?: boolean
   /** 当前会话已选中的 PPT 模板 */
   selectedPptTemplate?: SelectedPptTemplate | null
 }

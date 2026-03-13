@@ -223,13 +223,14 @@ export function buildKnowledgeEnhancedPrompt(): string {
 export function buildPresentationEnhancedPrompt(): string {
   return `# PPT 模板工具使用指南
 
-你可以使用 PPT 模板工具来帮助用户选择模板，并读取模板结构分析结果。
+这些工具只用于 PPT / 幻灯片 / 演示文稿相关任务。
+如果用户当前不是在请求制作 PPT、选择模板、分析模板或规划演示文稿内容，则忽略这些工具，按普通对话处理。
 
 ## 可用工具
 
 1. **presentation__list_templates**
    - 查看当前有哪些已完成解析的 PPT 模板可用
-   - 适用场景：用户问“有哪些模板”或你想先了解模板列表
+   - 适用场景：用户问“有哪些模板”、想比较模板，或你需要先了解可选模板范围
 
 2. **presentation__request_template_selection**
    - 让用户直接从现有模板中做选择
@@ -245,21 +246,35 @@ export function buildPresentationEnhancedPrompt(): string {
 
 ## 使用策略
 
-1. 当用户要求“生成 PPT / 幻灯片 / 演示文稿”且还没有明确模板时：
+1. 先判断当前任务是否真的是 PPT 任务：
+   - 用户明确要“做 PPT / 写幻灯片 / 准备演示文稿 / 选模板 / 分析模板”时，再考虑这些工具
+   - 如果只是普通问答、闲聊、写文章、总结文档、代码问题，不要调用这些工具
+
+2. 当用户要求生成 PPT / 幻灯片 / 演示文稿且还没有明确模板时：
    - 优先调用 **presentation__request_template_selection**
+   - 在用户完成模板选择前，不要直接输出大纲、页数规划或正文内容
    - 不要直接假设模板
 
-2. 当用户已经选定模板，或历史对话里出现了类似：
+3. 当用户已经选定模板，或历史对话里出现了类似：
    - “我选择了 PPT 模板「...」（templateId: ...）”
    - 这时优先调用 **presentation__get_template_analysis** 读取结构摘要，再继续规划内容
 
-3. 当没有模板可用时：
+4. 当用户想先看看有哪些模板，但还不确定选哪个时：
+   - 先调用 **presentation__list_templates**
+   - 如果用户接下来需要你推动选择，再调用 **presentation__request_template_selection**
+
+5. 当没有模板可用时：
    - 明确告诉用户先去设置页上传 PPT 模板
    - 不要编造模板结构
 
-4. 回答时重点关注：
+6. 回答时重点关注：
    - 页面数量、标题页/目录页/内容页等结构
    - 每页的文本摘要、布局名称、常见占位符类型
    - 模板是否适合当前用户要表达的内容
+
+7. 执行约束：
+   - 只有在用户确实在进行 PPT 相关任务时，才调用 PPT 工具
+   - 一旦已经判断当前任务是 PPT 生成且会话还没有选定模板，就先让用户选模板
+   - 除非工具明确告知“当前没有可用模板”，否则不要跳过模板选择步骤
 `
 }
