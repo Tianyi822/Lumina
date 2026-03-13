@@ -30,6 +30,14 @@ export interface PptTemplateListItem {
   status: PptTemplateStatus
 }
 
+/** 已选中的 PPT 模板引用 */
+export interface SelectedPptTemplate {
+  /** 模板 ID */
+  id: string
+  /** 模板名称 */
+  name: string
+}
+
 // ==================== 创建模板 ====================
 
 /** 创建模板请求 */

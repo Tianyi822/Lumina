@@ -16,6 +16,7 @@ import {
   initializePptTemplateStorage
 } from './templatePaths'
 import { logger } from '@main/services/logger'
+import { truncateText } from '@shared/utils'
 import type {
   PptTemplateListItem,
   CreatePptTemplateRequest,
@@ -27,6 +28,8 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024
 
 /** 支持的文件扩展名 */
 const SUPPORTED_EXTENSIONS = ['.pptx']
+
+type PptTemplateAnalysisDetailLevel = 'summary' | 'full'
 
 /**
  * PPT 模板服务类
@@ -108,6 +111,28 @@ export class PptTemplateService {
       this.initialize()
     }
     return this.templates.find((t) => t.id === id) || null
+  }
+
+  /**
+   * 获取可供模型使用的模板列表
+   * 仅返回分析完成的模板，按创建时间倒序排序
+   */
+  getAvailableTemplates(): PptTemplateListItem[] {
+    if (!this.loaded) {
+      this.initialize()
+    }
+
+    return this.templates
+      .filter((template) => template.status === 'completed')
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map((template) => ({ ...template }))
+  }
+
+  /**
+   * 获取分析完成的模板
+   */
+  getAvailableTemplateById(templateId: string): PptTemplateListItem | null {
+    return this.getAvailableTemplates().find((template) => template.id === templateId) || null
   }
 
   /**
@@ -300,6 +325,80 @@ export class PptTemplateService {
     } catch (error) {
       logger.error('读取模板分析结果失败', 'main', { templateId, error })
       return null
+    }
+  }
+
+  /**
+   * 获取供工具调用使用的模板分析结果
+   */
+  getTemplateAnalysisForTool(
+    templateId: string,
+    detailLevel: PptTemplateAnalysisDetailLevel = 'summary'
+  ): Record<string, unknown> | null {
+    const template = this.getAvailableTemplateById(templateId)
+    if (!template) {
+      return null
+    }
+
+    const analysis = this.getTemplateAnalysis(templateId)
+    if (!analysis) {
+      return null
+    }
+
+    if (detailLevel === 'full') {
+      return analysis as unknown as Record<string, unknown>
+    }
+
+    return this.buildTemplateAnalysisSummary(template, analysis)
+  }
+
+  /**
+   * 构建适合模型消费的模板摘要
+   */
+  private buildTemplateAnalysisSummary(
+    template: PptTemplateListItem,
+    analysis: PptTemplateAnalysis
+  ): Record<string, unknown> {
+    return {
+      template: {
+        id: template.id,
+        name: template.name,
+        originalFileName: template.originalFileName,
+        slideCount: template.slideCount,
+        createdAt: template.createdAt
+      },
+      presentation: {
+        slideCount: analysis.presentation.slideCount,
+        slideWidth: analysis.presentation.slideWidth,
+        slideHeight: analysis.presentation.slideHeight,
+        themeName: analysis.presentation.themeName,
+        masterCount: analysis.presentation.masterCount,
+        layoutCount: analysis.presentation.layoutCount
+      },
+      slides: analysis.slides.map((slide) => {
+        const elementKinds = Array.from(
+          new Set(slide.elements.map((element) => element.kind).filter(Boolean))
+        )
+        const placeholderTypes = Array.from(
+          new Set(
+            slide.elements
+              .map((element) => element.placeholder?.type)
+              .filter((value): value is string => Boolean(value))
+          )
+        )
+
+        return {
+          slideIndex: slide.slideIndex,
+          title: slide.title,
+          layoutName: slide.layoutName,
+          masterName: slide.masterName,
+          elementCount: slide.elements.length,
+          elementKinds,
+          placeholderTypes,
+          textSummary: truncateText(slide.plainText || '', 240),
+          hasNotes: Boolean(slide.notesText?.trim())
+        }
+      })
     }
   }
 

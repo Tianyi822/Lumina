@@ -9,7 +9,13 @@ import type { MCPService } from '../../mcp'
 import type { Logger } from '../../logger'
 import { sandboxToolService } from '../../sandbox'
 import { knowledgeToolService } from '../../knowledge'
+import { presentationToolService } from '../../presentation'
 import type { MCPToolCallResult } from '@shared/types/mcp'
+
+const FORCED_SEQUENTIAL_TOOLS = new Set([
+  'sandbox__ask_user',
+  'presentation__request_template_selection'
+])
 
 /**
  * 工具调用定义
@@ -87,6 +93,11 @@ export class ToolCallScheduler {
 
     for (let i = 0; i < parsedCalls.length; i++) {
       const current = parsedCalls[i]
+      if (FORCED_SEQUENTIAL_TOOLS.has(current.toolCall.function.name)) {
+        sequential.push(current.toolCall)
+        continue
+      }
+
       const hasDependency = this.hasDependencyOnPreviousCalls(
         current,
         parsedCalls.slice(0, i) as Array<{
@@ -209,6 +220,8 @@ export class ToolCallScheduler {
           parsedArgs,
           this.getSelectedKnowledgeBaseIds?.(sessionId)
         )
+      } else if (serverName === 'presentation') {
+        toolCallResult = await presentationToolService.callTool(toolName, parsedArgs)
       } else {
         toolCallResult = await this.mcpService.callTool(serverName, actualToolName, parsedArgs)
       }

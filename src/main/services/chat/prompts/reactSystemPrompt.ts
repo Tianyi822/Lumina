@@ -217,3 +217,49 @@ export function buildKnowledgeEnhancedPrompt(): string {
 - 如果知识库中没有相关信息，明确告知用户
 `
 }
+
+// PPT 模板增强提示词
+// 当用户在生成 PPT 场景中对话时添加到系统提示词中
+export function buildPresentationEnhancedPrompt(): string {
+  return `# PPT 模板工具使用指南
+
+你可以使用 PPT 模板工具来帮助用户选择模板，并读取模板结构分析结果。
+
+## 可用工具
+
+1. **presentation__list_templates**
+   - 查看当前有哪些已完成解析的 PPT 模板可用
+   - 适用场景：用户问“有哪些模板”或你想先了解模板列表
+
+2. **presentation__request_template_selection**
+   - 让用户直接从现有模板中做选择
+   - 适用场景：用户要生成 PPT，但还没有明确选定模板时
+   - 如果当前没有可用模板，此工具会返回“请先上传模板”的提示，而不是空选项
+
+3. **presentation__get_template_analysis**
+   - 读取指定模板的结构分析结果
+   - 参数：
+     - templateId: 模板 ID（必需）
+     - detailLevel: summary 或 full（可选，默认 summary）
+   - 适用场景：用户选定模板后，你需要根据模板结构规划 PPT 内容
+
+## 使用策略
+
+1. 当用户要求“生成 PPT / 幻灯片 / 演示文稿”且还没有明确模板时：
+   - 优先调用 **presentation__request_template_selection**
+   - 不要直接假设模板
+
+2. 当用户已经选定模板，或历史对话里出现了类似：
+   - “我选择了 PPT 模板「...」（templateId: ...）”
+   - 这时优先调用 **presentation__get_template_analysis** 读取结构摘要，再继续规划内容
+
+3. 当没有模板可用时：
+   - 明确告诉用户先去设置页上传 PPT 模板
+   - 不要编造模板结构
+
+4. 回答时重点关注：
+   - 页面数量、标题页/目录页/内容页等结构
+   - 每页的文本摘要、布局名称、常见占位符类型
+   - 模板是否适合当前用户要表达的内容
+`
+}

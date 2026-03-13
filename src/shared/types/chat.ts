@@ -1,4 +1,5 @@
 import type { KnowledgeBaseReference } from './knowledge'
+import type { SelectedPptTemplate } from './ppt-template'
 
 /**
  * 定义聊天消息中发送者的角色类型
@@ -192,6 +193,10 @@ export interface UserInteractionRequest {
   question: string
   /** 选项列表 */
   options: UserInteractionOption[]
+  /** 交互类型 */
+  interactionType?: 'generic' | 'presentation_template'
+  /** 首屏展示的最大选项数 */
+  initialVisibleCount?: number
 }
 
 /**
@@ -287,6 +292,10 @@ export interface ChatRequest {
   maxReactIterations?: number
   /** 是否启用沙箱管理工具 */
   enableSandboxTools?: boolean
+  /** 是否启用 PPT 模板工具 */
+  enablePresentationTools?: boolean
+  /** 当前会话已选中的 PPT 模板 */
+  selectedPptTemplate?: SelectedPptTemplate | null
 }
 
 /**

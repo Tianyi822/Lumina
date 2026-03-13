@@ -9,6 +9,7 @@ import {
 } from './chat'
 import type { KnowledgeBase } from './knowledge'
 import type { MCPTool } from './mcp'
+import type { SelectedPptTemplate } from './ppt-template'
 
 /**
  * 会话的类型
@@ -100,6 +101,8 @@ export interface SessionSelectionState {
   selectedKnowledgeBases: KnowledgeBase[]
   /** 当前会话是否启用沙箱工具 */
   enableSandboxTools: boolean
+  /** 当前会话选中的 PPT 模板 */
+  selectedPptTemplate?: SelectedPptTemplate | null
 }
 
 /**

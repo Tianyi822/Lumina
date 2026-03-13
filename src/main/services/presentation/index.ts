@@ -13,6 +13,7 @@ export { PptTemplateAnalyzer } from './PptTemplateAnalyzer'
 
 // 服务
 export { getPptTemplateService, PptTemplateService } from './PptTemplateService'
+export { presentationToolService, PresentationToolService } from './PresentationToolService'
 
 /**
  * 初始化 PPT 模板服务

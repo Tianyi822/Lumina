@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue'
 import type { UserInteractionRequest } from '@renderer/types'
 
-defineProps<{
+const props = defineProps<{
   interactionInfo: UserInteractionRequest
 }>()
 
@@ -12,14 +13,66 @@ const emit = defineEmits<{
 function handleSelect(value: string, label: string): void {
   emit('select', value, label)
 }
+
+const expanded = ref(false)
+
+const initialVisibleCount = computed(() => {
+  const requestedCount = props.interactionInfo.initialVisibleCount
+  if (typeof requestedCount === 'number' && requestedCount > 0) {
+    return requestedCount
+  }
+  return props.interactionInfo.options.length
+})
+
+const hasHiddenOptions = computed(() => {
+  return props.interactionInfo.options.length > initialVisibleCount.value
+})
+
+const visibleOptions = computed(() => {
+  if (!hasHiddenOptions.value || expanded.value) {
+    return props.interactionInfo.options
+  }
+  return props.interactionInfo.options.slice(0, initialVisibleCount.value)
+})
+
+const hiddenOptionCount = computed(() => {
+  return Math.max(props.interactionInfo.options.length - visibleOptions.value.length, 0)
+})
+
+const showScrollableList = computed(() => {
+  return (
+    expanded.value &&
+    props.interactionInfo.interactionType === 'presentation_template' &&
+    props.interactionInfo.options.length > initialVisibleCount.value
+  )
+})
+
+const expandButtonText = computed(() => {
+  if (props.interactionInfo.interactionType === 'presentation_template') {
+    return `查看更多模板（剩余 ${hiddenOptionCount.value} 个）`
+  }
+  return `查看更多选项（剩余 ${hiddenOptionCount.value} 个）`
+})
+
+function handleExpand(): void {
+  expanded.value = true
+}
+
+watch(
+  () => props.interactionInfo,
+  () => {
+    expanded.value = false
+  },
+  { deep: true }
+)
 </script>
 
 <template>
   <div class="user-interaction-options">
     <div class="options-question">{{ interactionInfo.question }}</div>
-    <div class="options-list">
+    <div class="options-list" :class="{ 'is-scrollable': showScrollableList }">
       <button
-        v-for="option in interactionInfo.options"
+        v-for="option in visibleOptions"
         :key="option.value"
         class="option-card"
         @click="handleSelect(option.value, option.label)"
@@ -28,6 +81,14 @@ function handleSelect(value: string, label: string): void {
         <span v-if="option.description" class="option-desc">{{ option.description }}</span>
       </button>
     </div>
+    <button
+      v-if="hasHiddenOptions && !expanded"
+      type="button"
+      class="expand-button"
+      @click="handleExpand"
+    >
+      {{ expandButtonText }}
+    </button>
   </div>
 </template>
 
@@ -50,6 +111,12 @@ function handleSelect(value: string, label: string): void {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.options-list.is-scrollable {
+  max-height: 248px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .option-card {
@@ -83,5 +150,21 @@ function handleSelect(value: string, label: string): void {
   font-size: 11px;
   color: var(--theme-text-secondary);
   line-height: 1.4;
+}
+
+.expand-button {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--theme-border);
+  border-radius: 999px;
+  background-color: transparent;
+  color: var(--theme-accent);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.expand-button:hover {
+  background-color: var(--theme-bg-hover);
 }
 </style>

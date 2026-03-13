@@ -108,6 +108,25 @@ interface KnowledgeResultInfo {
 }
 
 /**
+ * 用户交互选项
+ */
+interface UserInteractionOption {
+  value: string
+  label: string
+  description?: string
+}
+
+/**
+ * 用户交互请求
+ */
+interface UserInteractionRequest {
+  question: string
+  options: UserInteractionOption[]
+  interactionType?: 'generic' | 'presentation_template'
+  initialVisibleCount?: number
+}
+
+/**
  * 发起聊天请求所需的参数
  */
 interface ChatRequest {
@@ -119,6 +138,8 @@ interface ChatRequest {
   selectedKnowledgeBases?: KnowledgeBaseReference[]
   maxReactIterations?: number
   enableSandboxTools?: boolean
+  enablePresentationTools?: boolean
+  selectedPptTemplate?: SelectedPptTemplate | null
 }
 
 /**
@@ -169,8 +190,11 @@ interface StreamEvent {
     | 'reasoning'
     | 'tool_call'
     | 'tool_result'
+    | 'tool_progress'
     | 'knowledge_search'
     | 'knowledge_result'
+    | 'user_interaction'
+    | 'react_iteration_start'
     | 'done'
     | 'error'
   sessionId?: string
@@ -179,8 +203,14 @@ interface StreamEvent {
   error?: string
   toolCall?: ToolCallInfo
   toolResult?: ToolResultInfo
+  toolProgress?: {
+    current: number
+    total: number
+    message?: string
+  }
   knowledgeSearch?: KnowledgeSearchInfo
   knowledgeResult?: KnowledgeResultInfo
+  userInteraction?: UserInteractionRequest
 }
 
 /**
@@ -231,6 +261,7 @@ interface SessionSelectionState {
   selectedMCPTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
   enableSandboxTools: boolean
+  selectedPptTemplate?: SelectedPptTemplate | null
 }
 
 /**
@@ -1702,6 +1733,14 @@ interface PptTemplateListItem {
 }
 
 /**
+ * 已选中的 PPT 模板
+ */
+interface SelectedPptTemplate {
+  id: string
+  name: string
+}
+
+/**
  * PPT 模板列表响应
  */
 interface PptTemplateListResponse {
@@ -1731,7 +1770,10 @@ interface CreatePptTemplateResult {
  */
 interface PptTemplateApi {
   list: () => Promise<PptTemplateListResponse>
+  getById: (id: string) => Promise<{ success: boolean; data?: PptTemplateListItem; error?: string }>
+  getAnalysis: (id: string) => Promise<{ success: boolean; data?: unknown; error?: string }>
   create: (file: File, name?: string) => Promise<CreatePptTemplateResult>
+  delete: (templateId: string) => Promise<{ success: boolean; error?: string }>
 }
 
 /**

@@ -11,9 +11,16 @@ import type {
   ExportFormat,
   MCPTool,
   KnowledgeBase,
-  UserInteractionRequest
+  UserInteractionRequest,
+  SelectedPptTemplate
 } from '@renderer/types'
-import { useUIStateStore, useChatStreamStore, useConfigStore } from '@renderer/stores'
+import {
+  useUIStateStore,
+  useChatStreamStore,
+  useConfigStore,
+  useInputStateStore,
+  useSessionStore
+} from '@renderer/stores'
 import { useDocumentUploadStore } from '../stores/documentUploadStore'
 import { useImageUploadStore, isImageFile } from '../stores/imageUploadStore'
 import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
@@ -366,6 +373,8 @@ const { showUserInteraction, userInteractionInfo } = storeToRefs(chatStreamStore
 // 配置 Store - 用于获取语音识别配置
 const configStore = useConfigStore()
 const { voiceRecognitionConfig } = storeToRefs(configStore)
+const inputStateStore = useInputStateStore()
+const sessionStore = useSessionStore()
 
 // 语音识别状态
 const isRecording = ref(false)
@@ -716,8 +725,31 @@ function handleStop(): void {
   emit('stop')
 }
 
-function handleUserInteractionSelect(_value: string, label: string): void {
+async function handleUserInteractionSelect(value: string, label: string): Promise<void> {
   chatStreamStore.hideUserInteraction()
+
+  if (userInteractionInfo.value?.interactionType === 'presentation_template') {
+    const selectedTemplate: SelectedPptTemplate = {
+      id: value,
+      name: label
+    }
+
+    inputStateStore.updateSelectedPptTemplate(selectedTemplate)
+    await sessionStore.persistCurrentSelectionState()
+
+    emit(
+      'send',
+      `我选择了 PPT 模板「${label}」（templateId: ${value}）`,
+      localSelectedModel.value,
+      localSelectedTools.value,
+      localSelectedKnowledgeBases.value,
+      localEnableSandboxTools.value,
+      [],
+      []
+    )
+    return
+  }
+
   const message = `我选择：${label}`
   emit(
     'send',

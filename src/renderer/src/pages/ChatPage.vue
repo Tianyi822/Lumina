@@ -24,6 +24,7 @@ import {
   isExportableAssistantMessage,
   parseExportFormat
 } from '@renderer/utils/messageExport'
+import { isPresentationIntent } from '@shared/utils'
 
 // Stores
 import {
@@ -274,6 +275,40 @@ async function tryHandleExportIntent(content: string): Promise<boolean> {
   return true
 }
 
+async function clearInvalidSelectedPptTemplate(templateId: string): Promise<void> {
+  inputStateStore.clearSelectedPptTemplate()
+
+  if (currentChatId.value && currentSession.value) {
+    await sessionStore.persistCurrentSelectionState()
+  }
+
+  window.api.logger.warn('[ChatPage] 已清除失效的 PPT 模板选择', {
+    templateId
+  })
+}
+
+async function validateSelectedPptTemplate(): Promise<void> {
+  const selectedTemplate = currentInputState.value.selectedPptTemplate
+  if (!selectedTemplate) {
+    return
+  }
+
+  try {
+    const result = await window.api.pptTemplate.getById(selectedTemplate.id)
+    if (result.success && result.data?.status === 'completed') {
+      return
+    }
+
+    await clearInvalidSelectedPptTemplate(selectedTemplate.id)
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    window.api.logger.warn('[ChatPage] 校验 PPT 模板选择失败，保留当前选择', {
+      templateId: selectedTemplate.id,
+      error: errorMessage
+    })
+  }
+}
+
 // ==================== 发送消息处理 ====================
 async function handleSendMessage(
   content: string,
@@ -293,6 +328,8 @@ async function handleSendMessage(
   if (await tryHandleExportIntent(trimmedContent)) {
     return
   }
+
+  await validateSelectedPptTemplate()
 
   // 如果没有当前对话，先创建一个
   if (!currentChatId.value || !currentSession.value) {
@@ -426,13 +463,19 @@ async function handleSendMessage(
         : undefined
 
     // 发送请求
+    const selectedPptTemplate = currentInputState.value.selectedPptTemplate
+    const enablePresentationTools =
+      Boolean(selectedPptTemplate) || isPresentationIntent(trimmedContent)
+
     const result = await window.api.chat.send({
       messages: chatMessages,
       modelKey: model,
       sessionId,
       selectedTools: toolReferences,
       selectedKnowledgeBases: kbReferences,
-      enableSandboxTools
+      enableSandboxTools,
+      enablePresentationTools,
+      selectedPptTemplate
     })
 
     if (!result.success && result.error) {
