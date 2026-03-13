@@ -668,6 +668,7 @@ function formatFileSize(bytes: number): string {
   flex-direction: column;
   gap: var(--theme-spacing-sm);
   margin-left: var(--message-content-offset);
+  width: fit-content;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
