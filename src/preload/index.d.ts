@@ -1605,7 +1605,7 @@ interface ParsedDocumentData {
 /**
  * 支持的导出格式
  */
-type ExportFormat = 'markdown' | 'word' | 'pdf' | 'txt'
+type ExportFormat = 'markdown' | 'word' | 'pdf' | 'txt' | 'ppt'
 
 /**
  * 消息导出请求
@@ -1776,6 +1776,139 @@ interface PptTemplateApi {
 }
 
 /**
+ * PPT 样式配置
+ */
+interface PptStyleConfig {
+  primaryColor?: string
+  backgroundColor?: string
+  titleFont?: string
+  bodyFont?: string
+  titleSize?: number
+  bodySize?: number
+}
+
+/**
+ * PPT 预设样式主题
+ */
+interface PptStylePreset {
+  id: string
+  name: string
+  thumbnail?: string
+  config: PptStyleConfig
+}
+
+/**
+ * PPT 导出页面预览
+ */
+interface PptExportSlidePreview {
+  index: number
+  title?: string
+  contentType: 'title' | 'content' | 'table' | 'list' | 'mixed'
+  summary: string
+  selected: boolean
+}
+
+/**
+ * 样式来源类型
+ */
+type PptStyleSource =
+  | { type: 'preset'; presetId: string }
+  | { type: 'template'; templateId: string }
+  | { type: 'custom'; config: PptStyleConfig }
+
+interface SlidePosition {
+  x: number
+  y: number
+  w: number | string
+  h: number | string
+}
+
+interface TemplateSlideLayout {
+  name: string
+  backgroundColor?: string
+  titlePosition?: SlidePosition
+  contentPosition?: SlidePosition
+}
+
+interface PptSlideSize {
+  width: number
+  height: number
+}
+
+interface TemplateStyleExtraction {
+  success: boolean
+  style?: PptStyleConfig
+  layouts?: TemplateSlideLayout[]
+  slideSize?: PptSlideSize
+  error?: string
+}
+
+/**
+ * PPT 导出配置
+ */
+interface PptExportConfig {
+  slides: PptExportSlidePreview[]
+  styleSource: PptStyleSource
+  style: PptStyleConfig
+  templateLayouts?: TemplateSlideLayout[]
+  slideSize?: PptSlideSize
+}
+
+/**
+ * PPT 导出预览请求
+ */
+interface PreviewPptExportRequest {
+  content: string
+  templateId?: string
+}
+
+/**
+ * PPT 导出预览结果
+ */
+interface PreviewPptExportResult {
+  success: boolean
+  config?: PptExportConfig
+  availableTemplates?: PptTemplateListItem[]
+  warning?: string
+  error?: string
+}
+
+/**
+ * 生成 PPT 请求
+ */
+interface GeneratePptRequest {
+  content: string
+  config: PptExportConfig
+  title?: string
+}
+
+/**
+ * 生成 PPT 结果
+ */
+interface GeneratePptResult {
+  success: boolean
+  data?: number[]
+  fileName?: string
+  error?: string
+}
+
+/**
+ * PPT 导出 API
+ */
+interface PptExportApi {
+  preview: (request: PreviewPptExportRequest) => Promise<PreviewPptExportResult>
+  generate: (request: GeneratePptRequest) => Promise<GeneratePptResult>
+  getStylePresets: () => Promise<PptStylePreset[]>
+  extractTemplateStyle: (
+    templateId: string
+  ) => Promise<{
+    success: boolean
+    data?: TemplateStyleExtraction | null
+    error?: string
+  }>
+}
+
+/**
  * 自定义的完整 API
  */
 interface CustomApi {
@@ -1803,6 +1936,8 @@ interface CustomApi {
   voiceRecognition: VoiceRecognitionApi
   // PPT 模板 API
   pptTemplate: PptTemplateApi
+  // PPT 导出 API
+  pptExport: PptExportApi
 }
 
 declare global {

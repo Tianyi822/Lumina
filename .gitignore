@@ -21,3 +21,4 @@ docs/
 
 opencode.json
 tsconfig.node.tsbuildinfo
+tsconfig.web.tsbuildinfo

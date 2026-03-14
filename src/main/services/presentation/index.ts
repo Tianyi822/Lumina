@@ -15,6 +15,24 @@ export { PptTemplateAnalyzer } from './PptTemplateAnalyzer'
 export { getPptTemplateService, PptTemplateService } from './PptTemplateService'
 export { presentationToolService, PresentationToolService } from './PresentationToolService'
 
+// PPT 导出服务
+export { getPptExportService, PptExportService } from './PptExportService'
+export { PptContentParser } from './PptContentParser'
+export { PptGenerator } from './PptGenerator'
+export { PptTemplateStyleExtractor } from './PptTemplateStyleExtractor'
+export {
+  PPT_STYLE_PRESETS,
+  getPresetStyle,
+  getDefaultPresetStyle,
+  applyStyleConfig,
+  setSlideSize,
+  convertEmuToInches,
+  convertInchesToEmu,
+  getDefaultSlideSize,
+  getSlideSizeByRatio,
+  COMMON_SLIDE_SIZES
+} from './PptStylePresets'
+
 /**
  * 初始化 PPT 模板服务
  * 在应用启动时调用

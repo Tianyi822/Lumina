@@ -17,6 +17,7 @@ import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
 import MessageExportDialog from '@renderer/components/chat/MessageExportDialog.vue'
+import PptExportConfigDialog from '@renderer/components/chat/PptExportConfigDialog.vue'
 import {
   createExportInteractionInfo,
   findLatestExportableAssistantMessage,
@@ -60,6 +61,7 @@ const currentInputState = computed(() => inputStateStore.currentInputState)
 const pendingExportMessageId = ref<string | null>(null)
 const exportDialogMessageId = ref<string | null>(null)
 const exportingMessageId = ref<string | null>(null)
+const pptConfigMessageId = ref<string | null>(null)
 
 // 聊天错误消息（兼容旧命名）
 const chatErrorMessage = computed(() => chatError.value ?? '')
@@ -73,6 +75,13 @@ const exportDialogMessage = computed<Message | null>(() => {
   if (!exportDialogMessageId.value) return null
 
   const targetMessage = messages.value.find((message) => message.id === exportDialogMessageId.value)
+  return isExportableAssistantMessage(targetMessage) ? targetMessage : null
+})
+
+const pptConfigMessage = computed<Message | null>(() => {
+  if (!pptConfigMessageId.value) return null
+
+  const targetMessage = messages.value.find((message) => message.id === pptConfigMessageId.value)
   return isExportableAssistantMessage(targetMessage) ? targetMessage : null
 })
 
@@ -92,9 +101,30 @@ function createLocalMessageId(): string {
 function clearExportState(): void {
   pendingExportMessageId.value = null
   exportDialogMessageId.value = null
+  pptConfigMessageId.value = null
 }
 
 function closeExportDialog(): void {
+  exportDialogMessageId.value = null
+}
+
+function closePptConfigDialog(): void {
+  pptConfigMessageId.value = null
+}
+
+/**
+ * 处理打开 PPT 导出配置对话框
+ */
+function handleOpenPptConfig(): void {
+  const targetMessage = exportDialogMessage.value
+  if (!targetMessage) {
+    closeExportDialog()
+    handleChatError('当前没有可导出的 AI 助手消息')
+    return
+  }
+
+  // 关闭导出对话框，打开 PPT 配置对话框
+  pptConfigMessageId.value = targetMessage.id
   exportDialogMessageId.value = null
 }
 
@@ -221,6 +251,15 @@ function handleRequestExport(message: Message): void {
 
   pendingExportMessageId.value = null
   exportDialogMessageId.value = message.id
+}
+
+function handlePptExportToast(message: string, type: 'success' | 'error' | 'info' = 'info'): void {
+  if (type === 'error') {
+    handleChatError(message)
+    return
+  }
+
+  window.api.logger.info('[ChatPage] PPT 导出提示', { type, message })
 }
 
 async function tryHandleExportIntent(content: string): Promise<boolean> {
@@ -658,6 +697,18 @@ watch(
       :is-exporting="exportingMessageId === exportDialogMessage.id"
       @close="closeExportDialog"
       @select-format="handleDialogExportFormatSelect"
+      @open-ppt-config="handleOpenPptConfig"
+    />
+
+    <PptExportConfigDialog
+      v-if="pptConfigMessage"
+      :visible="!!pptConfigMessage"
+      :content="pptConfigMessage.content"
+      :title="currentSession?.title"
+      :initial-template-id="currentInputState.selectedPptTemplate?.id || ''"
+      @close="closePptConfigDialog"
+      @show-toast="handlePptExportToast"
+      @exported="closePptConfigDialog"
     />
   </div>
 </template>

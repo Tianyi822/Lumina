@@ -1404,6 +1404,13 @@
   dependencies:
     undici-types "~6.21.0"
 
+"@types/node@^22.8.1":
+  version "22.19.15"
+  resolved "https://registry.npmmirror.com/@types/node/-/node-22.19.15.tgz#6091d99fdf7c08cb57dc8b1345d407ba9a1df576"
+  integrity sha512-F0R/h2+dsy5wJAUe3tAU6oqa2qbWY5TpNfL/RGmo1y38hiyO1w3x2jPtt76wmuaJI4DQnOBu21cNXQ2STIUUWg==
+  dependencies:
+    undici-types "~6.21.0"
+
 "@types/node@^24.0.3", "@types/node@^24.9.0":
   version "24.10.13"
   resolved "https://registry.npmmirror.com/@types/node/-/node-24.10.13.tgz"
@@ -3494,6 +3501,11 @@ https-proxy-agent@^7.0.0, https-proxy-agent@^7.0.1:
     agent-base "^7.1.2"
     debug "4"
 
+https@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.npmmirror.com/https/-/https-1.0.0.tgz#3c37c7ae1a8eeb966904a2ad1e975a194b7ed3a4"
+  integrity sha512-4EC57ddXrkaF0x83Oj8sM6SLQHAWXw90Skqu2M4AEWENZ3F02dFJE/GARA8igO79tcgYqGrD7ae4f5L3um2lgg==
+
 httpx@^2.1.2:
   version "2.3.3"
   resolved "https://registry.npmmirror.com/httpx/-/httpx-2.3.3.tgz#353d3d9161b7cc2be4c638873f2fe6b319354c89"
@@ -3543,6 +3555,13 @@ ignore@^7.0.5:
   version "7.0.5"
   resolved "https://registry.npmmirror.com/ignore/-/ignore-7.0.5.tgz"
   integrity sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg==
+
+image-size@^1.2.1:
+  version "1.2.1"
+  resolved "https://registry.npmmirror.com/image-size/-/image-size-1.2.1.tgz#ee118aedfe666db1a6ee12bed5821cde3740276d"
+  integrity sha512-rH+46sQJ2dlwfjfhCyNx5thzrv+dtmBIhPHk0zgRUukHzZ/kRueTJXoYYsclBaKcSMBWuGbOFXtioLpzTb5euw==
+  dependencies:
+    queue "6.0.2"
 
 image-size@^2.0.2:
   version "2.0.2"
@@ -4515,6 +4534,16 @@ postcss@^8.5.6:
     picocolors "^1.1.1"
     source-map-js "^1.2.1"
 
+pptxgenjs@^4.0.1:
+  version "4.0.1"
+  resolved "https://registry.npmmirror.com/pptxgenjs/-/pptxgenjs-4.0.1.tgz#cd0f202f62f74d950bcd217e90b766da8f73742e"
+  integrity sha512-TeJISr8wouAuXw4C1F/mC33xbZs/FuEG6nH9FG1Zj+nuPcGMP5YRHl6X+j3HSUnS1f3at6k75ZZXPMZlA5Lj9A==
+  dependencies:
+    "@types/node" "^22.8.1"
+    https "^1.0.0"
+    image-size "^1.2.1"
+    jszip "^3.10.1"
+
 prelude-ls@^1.2.1:
   version "1.2.1"
   resolved "https://registry.npmmirror.com/prelude-ls/-/prelude-ls-1.2.1.tgz"
@@ -4619,6 +4648,13 @@ qs@^6.14.0, qs@^6.14.1:
   integrity sha512-mAZTtNCeetKMH+pSjrb76NAM8V9a05I9aBZOHztWy/UqcJdQYNsf59vrRKWnojAT9Y+GbIvoTBC++CPHqpDBhQ==
   dependencies:
     side-channel "^1.1.0"
+
+queue@6.0.2:
+  version "6.0.2"
+  resolved "https://registry.npmmirror.com/queue/-/queue-6.0.2.tgz#b91525283e2315c7553d2efa18d83e76432fed65"
+  integrity sha512-iHZWu+q3IdFZFX36ro/lKBkSvfkztY5Y7HMiPlOUjhupPcG2JMfst2KKEpu5XndviX/3UhFbRngUPNKtgvtZiA==
+  dependencies:
+    inherits "~2.0.3"
 
 quick-lru@^5.1.1:
   version "5.1.1"

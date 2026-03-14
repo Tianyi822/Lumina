@@ -17,6 +17,7 @@ import { knowledgeMCPApi } from './apis/knowledgeMCP'
 import { documentApi } from './apis/document'
 import { voiceRecognitionApi } from './apis/voiceRecognition'
 import { pptTemplateApi } from './apis/pptTemplate'
+import { pptExportApi } from './apis/pptExport'
 
 /**
  * 自定义渲染器 API
@@ -46,7 +47,9 @@ const api = {
   // 语音识别相关 API
   voiceRecognition: voiceRecognitionApi,
   // PPT 模板相关 API
-  pptTemplate: pptTemplateApi
+  pptTemplate: pptTemplateApi,
+  // PPT 导出相关 API
+  pptExport: pptExportApi
 }
 
 // 使用 contextBridge 向渲染器暴露 API

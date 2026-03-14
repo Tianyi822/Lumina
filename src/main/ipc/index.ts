@@ -20,6 +20,7 @@ import {
   registerPptTemplateHandlers,
   initializePptTemplateService
 } from './handlers/pptTemplateHandlers'
+import { registerPptExportHandlers } from './handlers/pptExportHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -83,4 +84,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册 PPT 模板相关处理程序
   registerPptTemplateHandlers()
+
+  // 注册 PPT 导出相关处理程序
+  registerPptExportHandlers()
 }
