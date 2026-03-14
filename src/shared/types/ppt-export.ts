@@ -26,26 +26,9 @@ export interface PptStyleConfig {
 }
 
 /**
- * 样式来源类型
+ * 样式来源类型（仅支持模板）
  */
-export type PptStyleSource =
-  | { type: 'preset'; presetId: string }
-  | { type: 'template'; templateId: string }
-  | { type: 'custom'; config: PptStyleConfig }
-
-/**
- * 预设样式主题
- */
-export interface PptStylePreset {
-  /** 预设 ID */
-  id: string
-  /** 预设名称 */
-  name: string
-  /** 预览图（可选） */
-  thumbnail?: string
-  /** 样式配置 */
-  config: PptStyleConfig
-}
+export type PptStyleSource = { type: 'template'; templateId: string }
 
 // ==================== 幻灯片布局 ====================
 
@@ -129,6 +112,8 @@ export interface PptExportSlidePreview {
   contentType: 'title' | 'content' | 'table' | 'list' | 'mixed'
   /** 内容摘要 */
   summary: string
+  /** 页面预览图（SVG data URL） */
+  previewImageDataUrl?: string
   /** 是否选中导出 */
   selected: boolean
 }
@@ -139,13 +124,13 @@ export interface PptExportSlidePreview {
 export interface PptExportConfig {
   /** 解析后的页面列表 */
   slides: PptExportSlidePreview[]
-  /** 样式来源 */
+  /** 样式来源（仅支持模板） */
   styleSource: PptStyleSource
-  /** 当前样式配置（从预设或模板提取） */
+  /** 当前样式配置（从模板提取） */
   style: PptStyleConfig
-  /** 模板布局信息（可选，仅模板样式时存在） */
+  /** 模板布局信息 */
   templateLayouts?: TemplateSlideLayout[]
-  /** 幻灯片尺寸（可选，仅模板样式时存在） */
+  /** 幻灯片尺寸 */
   slideSize?: PptSlideSize
 }
 

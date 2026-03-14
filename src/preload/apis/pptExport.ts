@@ -4,7 +4,6 @@ import type {
   PreviewPptExportResult,
   GeneratePptRequest,
   GeneratePptResult,
-  PptStylePreset,
   TemplateStyleExtraction
 } from '@shared/types/ppt-export'
 
@@ -29,14 +28,6 @@ export const pptExportApi = {
    */
   generate: (request: GeneratePptRequest): Promise<GeneratePptResult> => {
     return ipcRenderer.invoke('ppt:generate', request)
-  },
-
-  /**
-   * 获取预设样式列表
-   * @returns 预设样式数组
-   */
-  getStylePresets: (): Promise<PptStylePreset[]> => {
-    return ipcRenderer.invoke('ppt:getStylePresets')
   },
 
   /**

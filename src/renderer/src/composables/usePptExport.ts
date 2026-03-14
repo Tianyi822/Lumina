@@ -7,8 +7,6 @@ import { ref, computed, toRaw, type Ref, type ComputedRef } from 'vue'
 import type {
   PreviewPptExportResult,
   GeneratePptResult,
-  PptStyleConfig,
-  PptStylePreset,
   PptExportConfig,
   PptExportSlidePreview,
   PptStyleSource,
@@ -46,7 +44,6 @@ export interface UsePptExportReturn {
   isGenerating: Ref<boolean>
   exportStage: Ref<PptExportStage>
   previewData: Ref<PreviewPptExportResult | null>
-  stylePresets: Ref<PptStylePreset[]>
   exportConfig: Ref<PptExportConfig | null>
   error: Ref<PptExportError | null>
 
@@ -59,14 +56,12 @@ export interface UsePptExportReturn {
 
   // 方法
   preview: (content: string, templateId?: string) => Promise<boolean>
-  loadStylePresets: () => Promise<void>
   extractTemplateStyle: (templateId: string) => Promise<TemplateStyleExtraction | null>
   updateSlideSelection: (indices: number[]) => void
   toggleSlideSelection: (index: number) => void
   selectAllSlides: () => void
   deselectAllSlides: () => void
   updateStyleSource: (source: PptStyleSource) => Promise<void>
-  updateStyle: (style: Partial<PptStyleConfig>) => void
   generate: (content: string, title?: string) => Promise<GeneratePptResult | null>
   download: (result: GeneratePptResult) => void
   reset: () => void
@@ -117,9 +112,6 @@ export function usePptExport(): UsePptExportReturn {
 
   /** 预览数据 */
   const previewData = ref<PreviewPptExportResult | null>(null)
-
-  /** 样式预设列表 */
-  const stylePresets = ref<PptStylePreset[]>([])
 
   /** 当前导出配置 */
   const exportConfig = ref<PptExportConfig | null>(null)
@@ -224,14 +216,7 @@ export function usePptExport(): UsePptExportReturn {
    * @returns 标识字符串
    */
   const getStyleSourceKey = (source: PptStyleSource): string => {
-    switch (source.type) {
-      case 'preset':
-        return `preset:${source.presetId}`
-      case 'template':
-        return `template:${source.templateId}`
-      case 'custom':
-        return `custom:${JSON.stringify(source.config)}`
-    }
+    return `template:${source.templateId}`
   }
 
   /**
@@ -321,23 +306,11 @@ export function usePptExport(): UsePptExportReturn {
    * 解析内容并获取预览数据
    *
    * @param content - Markdown 内容
-   * @param templateId - 可选的模板 ID
+   * @param templateId - 模板 ID
    * @returns 是否成功
    */
   const preview = async (content: string, templateId?: string): Promise<boolean> => {
     return await requestPreview(content, templateId)
-  }
-
-  /**
-   * 加载预设样式列表
-   */
-  const loadStylePresets = async (): Promise<void> => {
-    try {
-      const presets = await window.api.pptExport.getStylePresets()
-      stylePresets.value = presets
-    } catch (err) {
-      handleError('style', '加载预设样式', err)
-    }
   }
 
   /**
@@ -475,7 +448,7 @@ export function usePptExport(): UsePptExportReturn {
   }
 
   /**
-   * 更新样式来源
+   * 更新样式来源（仅支持模板）
    *
    * @param source - 样式来源配置
    */
@@ -495,7 +468,7 @@ export function usePptExport(): UsePptExportReturn {
     if (
       !needsReparse &&
       isSameStyleSource(previousConfig.styleSource, source) &&
-      !(source.type === 'template' && !previousConfig.slideSize)
+      !exportConfig.value.slideSize
     ) {
       return
     }
@@ -521,61 +494,20 @@ export function usePptExport(): UsePptExportReturn {
 
       exportConfig.value.styleSource = source
 
-      // 根据来源类型更新样式
-      switch (source.type) {
-        case 'preset': {
-          const preset = stylePresets.value.find((p) => p.id === source.presetId)
-          if (preset) {
-            exportConfig.value.style = { ...preset.config }
-          }
-          exportConfig.value.templateLayouts = undefined
-          exportConfig.value.slideSize = undefined
-          break
-        }
-        case 'template': {
-          if (needsReparse) {
-            break
-          }
-
-          const extraction = await extractTemplateStyle(source.templateId)
-          if (extraction?.style) {
-            exportConfig.value.style = extraction.style
-            exportConfig.value.templateLayouts = extraction.layouts
-            exportConfig.value.slideSize = extraction.slideSize
-          } else {
-            exportConfig.value.templateLayouts = undefined
-            exportConfig.value.slideSize = undefined
-          }
-          break
-        }
-        case 'custom':
-          exportConfig.value.style = { ...source.config }
-          exportConfig.value.templateLayouts = undefined
-          exportConfig.value.slideSize = undefined
-          break
+      // 从模板提取样式
+      const extraction = await extractTemplateStyle(source.templateId)
+      if (extraction?.style) {
+        exportConfig.value.style = extraction.style
+        exportConfig.value.templateLayouts = extraction.layouts
+        exportConfig.value.slideSize = extraction.slideSize
+      } else {
+        exportConfig.value.templateLayouts = undefined
+        exportConfig.value.slideSize = undefined
       }
     } finally {
       if (updatingStyleSourceKey.value === sourceKey) {
         updatingStyleSourceKey.value = null
       }
-    }
-  }
-
-  /**
-   * 更新样式配置（部分更新）
-   *
-   * @param style - 部分样式配置
-   */
-  const updateStyle = (style: Partial<PptStyleConfig>): void => {
-    if (!exportConfig.value) return
-    exportConfig.value.style = {
-      ...exportConfig.value.style,
-      ...style
-    }
-    // 同时更新样式来源为自定义
-    exportConfig.value.styleSource = {
-      type: 'custom',
-      config: exportConfig.value.style
     }
   }
 
@@ -650,7 +582,6 @@ export function usePptExport(): UsePptExportReturn {
     isGenerating,
     exportStage,
     previewData,
-    stylePresets,
     exportConfig,
     error,
 
@@ -663,14 +594,12 @@ export function usePptExport(): UsePptExportReturn {
 
     // 方法
     preview,
-    loadStylePresets,
     extractTemplateStyle,
     updateSlideSelection,
     toggleSlideSelection,
     selectAllSlides,
     deselectAllSlides,
     updateStyleSource,
-    updateStyle,
     generate,
     download,
     reset,

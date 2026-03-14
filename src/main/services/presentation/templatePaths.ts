@@ -19,6 +19,9 @@ export const SOURCE_FILE_NAME = 'source.pptx'
 /** 分析结果文件名 */
 export const ANALYSIS_FILE_NAME = 'analysis.json'
 
+/** 缩略图文件名 */
+export const THUMBNAIL_FILE_NAME = 'thumbnail.jpg'
+
 /**
  * 获取 PPT 模板存储目录路径
  * 返回 ~/.sparrow-manus/ppt-template
@@ -57,6 +60,14 @@ export function getTemplateSourcePath(templateId: string): string {
  */
 export function getTemplateAnalysisPath(templateId: string): string {
   return join(getTemplateDirPath(templateId), ANALYSIS_FILE_NAME)
+}
+
+/**
+ * 获取模板缩略图文件路径
+ * 返回 ~/.sparrow-manus/ppt-template/<templateId>/thumbnail.jpg
+ */
+export function getTemplateThumbnailPath(templateId: string): string {
+  return join(getTemplateDirPath(templateId), THUMBNAIL_FILE_NAME)
 }
 
 /**

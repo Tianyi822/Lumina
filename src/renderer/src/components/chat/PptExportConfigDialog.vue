@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { watch, ref, computed } from 'vue'
-import type { PptStyleSource } from '@shared/types/ppt-export'
-import type { PptTemplateListItem } from '@shared/types/ppt-template'
+import { watch, ref, computed, nextTick } from 'vue'
+import type {
+  PptTemplateListItem,
+  PptTemplateAnalysis,
+  PptTemplateElementAnalysis,
+  PptTemplateSlideAnalysis
+} from '@shared/types/ppt-template'
+import type { PptExportSlidePreview } from '@shared/types/ppt-export'
 import { usePptExport } from '@renderer/composables/usePptExport'
 
 /**
@@ -41,7 +46,6 @@ const {
   isLoading,
   isGenerating,
   exportStage,
-  stylePresets,
   exportConfig,
   error,
   selectedCount,
@@ -50,26 +54,24 @@ const {
   loadingMessage,
   previewData,
   preview,
-  loadStylePresets,
   toggleSlideSelection,
   selectAllSlides,
   deselectAllSlides,
   updateStyleSource,
-  updateStyle,
   generate,
   download,
   reset,
   clearError
 } = usePptExport()
 
-/** 当前样式来源类型 */
-const styleSourceType = ref<'preset' | 'template' | 'custom'>('preset')
-
-/** 选中的预设样式 ID */
-const selectedPresetId = ref<string>('professional-blue')
-
 /** 选中的模板 ID */
 const selectedTemplateId = ref<string>('')
+
+/** 当前查看的页面索引 */
+const currentSlideIndex = ref<number>(0)
+
+/** 缩略图滚动容器引用 */
+const thumbnailScrollRef = ref<HTMLElement | null>(null)
 
 /** 可用模板列表（从预览数据中获取） */
 const availableTemplates = computed<PptTemplateListItem[]>(() => {
@@ -79,58 +81,9 @@ const availableTemplates = computed<PptTemplateListItem[]>(() => {
 /** 是否有可用模板 */
 const hasTemplates = computed(() => availableTemplates.value.length > 0)
 
-/** 当前生效的样式配置 */
-const currentStyle = computed(() => exportConfig.value?.style ?? {})
-
-/** 当前样式来源标签 */
-const styleSourceLabel = computed(() => {
-  switch (styleSourceType.value) {
-    case 'template':
-      return '模板提取'
-    case 'custom':
-      return '自定义'
-    default:
-      return '预设样式'
-  }
-})
-
-/** 当前样式预览卡片 */
-const stylePreviewItems = computed(() => {
-  const style = currentStyle.value
-  return [
-    {
-      key: 'primaryColor',
-      label: '主色调',
-      value: style.primaryColor ? `#${style.primaryColor}` : '未设置',
-      color: style.primaryColor ? `#${style.primaryColor}` : undefined
-    },
-    {
-      key: 'backgroundColor',
-      label: '背景色',
-      value: style.backgroundColor ? `#${style.backgroundColor}` : '未设置',
-      color: style.backgroundColor ? `#${style.backgroundColor}` : undefined
-    },
-    {
-      key: 'titleFont',
-      label: '标题字体',
-      value: style.titleFont || '未设置'
-    },
-    {
-      key: 'bodyFont',
-      label: '正文字体',
-      value: style.bodyFont || '未设置'
-    },
-    {
-      key: 'titleSize',
-      label: '标题字号',
-      value: style.titleSize ? `${style.titleSize} pt` : '未设置'
-    },
-    {
-      key: 'bodySize',
-      label: '正文字号',
-      value: style.bodySize ? `${style.bodySize} pt` : '未设置'
-    }
-  ]
+/** 当前查看的幻灯片 */
+const currentSlide = computed<PptExportSlidePreview | undefined>(() => {
+  return exportConfig.value?.slides[currentSlideIndex.value]
 })
 
 /** 生成进度步骤 */
@@ -168,17 +121,409 @@ const contentTypeLabels: Record<string, string> = {
   mixed: '混合'
 }
 
+/** 内容类型颜色映射 */
+const contentTypeColors: Record<string, string> = {
+  title: '#3b82f6',
+  content: '#10b981',
+  table: '#f59e0b',
+  list: '#8b5cf6',
+  mixed: '#ec4899'
+}
+
+type TemplatePreviewStatus = 'idle' | 'loading' | 'ready' | 'error'
+
+interface TemplatePreviewModel {
+  status: TemplatePreviewStatus
+  imageUrl?: string
+}
+
+const EMU_PER_PX = 9525
+const DEFAULT_PREVIEW_WIDTH = 1280
+const DEFAULT_PREVIEW_HEIGHT = 720
+const OFFICE_THEME_COLORS: Record<string, string> = {
+  accent1: '#4472c4',
+  accent2: '#ed7d31',
+  accent3: '#a5a5a5',
+  accent4: '#ffc000',
+  accent5: '#5b9bd5',
+  accent6: '#70ad47',
+  bg1: '#ffffff',
+  bg2: '#e7e6e6',
+  tx1: '#000000',
+  tx2: '#44546a',
+  dk1: '#000000',
+  dk2: '#44546a',
+  lt1: '#ffffff',
+  lt2: '#e7e6e6'
+}
+
+/** 模板第一页预览缓存 */
+const templatePreviewMap = ref<Record<string, TemplatePreviewModel>>({})
+
+function emuToPx(value?: number): number {
+  if (!value || Number.isNaN(value)) {
+    return 0
+  }
+  return Math.max(0, Math.round(value / EMU_PER_PX))
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;')
+}
+
+function resolvePptColor(color?: string, fallback = '#ffffff'): string {
+  if (!color) {
+    return fallback
+  }
+
+  const normalized = color.trim().replace(/^#/, '').toLowerCase()
+  if (/^[0-9a-f]{6}$/i.test(normalized)) {
+    return `#${normalized}`
+  }
+
+  return OFFICE_THEME_COLORS[normalized] ?? fallback
+}
+
+function encodeBase64(bytes: Uint8Array): string {
+  let binary = ''
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary)
+}
+
+function encodeSvgDataUrl(svg: string): string {
+  return `data:image/svg+xml;base64,${encodeBase64(new TextEncoder().encode(svg))}`
+}
+
+function inferMimeType(path: string): string {
+  const normalized = path.toLowerCase()
+  if (normalized.endsWith('.png')) return 'image/png'
+  if (normalized.endsWith('.jpg') || normalized.endsWith('.jpeg')) return 'image/jpeg'
+  if (normalized.endsWith('.gif')) return 'image/gif'
+  if (normalized.endsWith('.webp')) return 'image/webp'
+  if (normalized.endsWith('.svg')) return 'image/svg+xml'
+  return 'application/octet-stream'
+}
+
+function estimateCharacterUnits(char: string): number {
+  return /[\u0000-\u00ff]/.test(char) ? 0.55 : 1
+}
+
+function wrapPreviewText(text: string, maxUnits: number): string[] {
+  const trimmed = text.trim()
+  if (!trimmed) {
+    return []
+  }
+
+  const rawLines = trimmed.split(/\r?\n/).flatMap((line) => {
+    const current = line.trim()
+    if (!current) {
+      return ['']
+    }
+
+    const segments: string[] = []
+    let buffer = ''
+    let units = 0
+
+    for (const char of current) {
+      const nextUnits = units + estimateCharacterUnits(char)
+      if (buffer && nextUnits > maxUnits) {
+        segments.push(buffer)
+        buffer = char
+        units = estimateCharacterUnits(char)
+      } else {
+        buffer += char
+        units = nextUnits
+      }
+    }
+
+    if (buffer) {
+      segments.push(buffer)
+    }
+
+    return segments
+  })
+
+  return rawLines.filter((line, index) => line.length > 0 || index === 0)
+}
+
+function getPreviewElements(slide: PptTemplateSlideAnalysis): PptTemplateElementAnalysis[] {
+  const slideElements = slide.elements.filter((element) => element.source === 'slide')
+  return (slideElements.length ? slideElements : slide.elements).slice().sort((a, b) => a.zIndex - b.zIndex)
+}
+
+function getTextFontSize(element: PptTemplateElementAnalysis, slideHeight: number): number {
+  const boxHeight = emuToPx(element.cy)
+  const plainText = element.text?.plainText ?? ''
+  const isHeading = boxHeight > slideHeight * 0.18 || plainText.length <= 24
+  const baseSize = isHeading ? boxHeight * 0.15 : boxHeight * 0.12
+  return clamp(Math.round(baseSize), isHeading ? 18 : 12, isHeading ? 40 : 24)
+}
+
+function renderShapeElement(element: PptTemplateElementAnalysis): string {
+  const x = emuToPx(element.x)
+  const y = emuToPx(element.y)
+  const width = emuToPx(element.cx)
+  const height = emuToPx(element.cy)
+  const fill = resolvePptColor(element.shape?.fillColor, 'transparent')
+  const stroke = element.shape?.strokeColor
+    ? resolvePptColor(element.shape.strokeColor, 'transparent')
+    : 'transparent'
+  const strokeWidth = element.shape?.strokeWidth
+    ? Math.max(1, Math.round(element.shape.strokeWidth / EMU_PER_PX))
+    : 0
+
+  return `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`
+}
+
+function renderTextElement(
+  element: PptTemplateElementAnalysis,
+  slideWidth: number,
+  slideHeight: number
+): string {
+  const plainText = element.text?.plainText?.trim()
+  if (!plainText) {
+    return element.shape ? renderShapeElement(element) : ''
+  }
+
+  const x = emuToPx(element.x)
+  const y = emuToPx(element.y)
+  const width = emuToPx(element.cx)
+  const height = emuToPx(element.cy)
+  const fontSize = getTextFontSize(element, slideHeight)
+  const maxUnits = Math.max(6, width / Math.max(fontSize * 0.62, 1))
+  const lines = wrapPreviewText(plainText, maxUnits).slice(0, 4)
+  const lineHeight = Math.round(fontSize * 1.28)
+  const totalHeight = lines.length * lineHeight
+  const isCentered = width > slideWidth * 0.45
+  const startY = y + Math.max(fontSize, Math.round((height - totalHeight) / 2 + fontSize))
+  const anchor = isCentered ? 'middle' : 'start'
+  const textX = isCentered ? x + width / 2 : x + 12
+  const weight = fontSize >= 28 ? 700 : 500
+  const textColor = fontSize >= 28 ? '#0f172a' : '#1e293b'
+  const boxMarkup = element.shape ? renderShapeElement(element) : ''
+  const lineMarkup = lines
+    .map((line, index) => {
+      const dy = index === 0 ? 0 : lineHeight
+      return `<tspan x="${textX}" dy="${dy}">${escapeXml(line)}</tspan>`
+    })
+    .join('')
+
+  return `${boxMarkup}<text x="${textX}" y="${startY}" fill="${textColor}" font-size="${fontSize}" font-weight="${weight}" text-anchor="${anchor}" font-family="'Microsoft YaHei','PingFang SC','Noto Sans SC',sans-serif">${lineMarkup}</text>`
+}
+
+function renderImageElement(
+  element: PptTemplateElementAnalysis,
+  imageDataUrl?: string
+): string {
+  const x = emuToPx(element.x)
+  const y = emuToPx(element.y)
+  const width = emuToPx(element.cx)
+  const height = emuToPx(element.cy)
+
+  if (imageDataUrl) {
+    return `<image x="${x}" y="${y}" width="${width}" height="${height}" href="${imageDataUrl}" preserveAspectRatio="xMidYMid meet" />`
+  }
+
+  return `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="8" ry="8" fill="#e2e8f0" /><text x="${x + width / 2}" y="${y + height / 2}" fill="#64748b" font-size="16" font-weight="600" text-anchor="middle" dominant-baseline="middle">IMAGE</text>`
+}
+
+function renderTableElement(element: PptTemplateElementAnalysis): string {
+  const x = emuToPx(element.x)
+  const y = emuToPx(element.y)
+  const width = emuToPx(element.cx)
+  const height = emuToPx(element.cy)
+  const summary = element.table?.cells
+    ?.slice(0, 4)
+    .map((cell) => cell.text.trim())
+    .filter(Boolean)
+    .join(' / ')
+
+  return `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="#ffffff" stroke="#cbd5e1" stroke-width="1" /><text x="${x + 10}" y="${y + 24}" fill="#334155" font-size="14" font-weight="600">${escapeXml(summary || '表格')}</text>`
+}
+
+async function extractSlideImages(
+  slide: PptTemplateSlideAnalysis,
+  sourceData: Uint8Array
+): Promise<Record<string, string>> {
+  const imageTargets = new Set(
+    slide.elements
+      .filter((element) => element.source === 'slide' && element.kind === 'image')
+      .map((element) => element.image?.relationshipTarget)
+      .filter((target): target is string => !!target)
+  )
+
+  if (!imageTargets.size) {
+    return {}
+  }
+
+  const jszipModule = await import('jszip2')
+  const JSZip = ((jszipModule as { default?: unknown }).default ?? jszipModule) as new (
+    data?: ArrayBuffer
+  ) => {
+    file: (name: string) => { asUint8Array: () => Uint8Array } | null
+  }
+
+  const zip = new JSZip(new Uint8Array(sourceData).buffer as ArrayBuffer)
+  const imageMap: Record<string, string> = {}
+
+  imageTargets.forEach((target) => {
+    const entry = zip.file(target)
+    if (!entry) {
+      return
+    }
+
+    const bytes = entry.asUint8Array()
+    imageMap[target] = `data:${inferMimeType(target)};base64,${encodeBase64(bytes)}`
+  })
+
+  return imageMap
+}
+
+async function buildTemplatePreviewImage(
+  analysis: PptTemplateAnalysis,
+  sourceData?: Uint8Array
+): Promise<string> {
+  const slide = analysis.slides[0]
+  if (!slide) {
+    throw new Error('模板缺少第一页')
+  }
+
+  const slideWidth = emuToPx(analysis.presentation.slideWidth) || DEFAULT_PREVIEW_WIDTH
+  const slideHeight = emuToPx(analysis.presentation.slideHeight) || DEFAULT_PREVIEW_HEIGHT
+  const imageMap = sourceData ? await extractSlideImages(slide, sourceData) : {}
+  const elements = getPreviewElements(slide)
+  const backgroundColor = resolvePptColor(slide.background?.color, '#ffffff')
+
+  const elementMarkup = elements
+    .map((element) => {
+      switch (element.kind) {
+        case 'shape':
+          return renderShapeElement(element)
+        case 'text':
+        case 'placeholder':
+          return renderTextElement(element, slideWidth, slideHeight)
+        case 'image':
+          return renderImageElement(element, imageMap[element.image?.relationshipTarget ?? ''])
+        case 'table':
+          return renderTableElement(element)
+        default:
+          return ''
+      }
+    })
+    .join('')
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${slideWidth}" height="${slideHeight}" viewBox="0 0 ${slideWidth} ${slideHeight}">
+      <rect width="100%" height="100%" fill="${backgroundColor}" />
+      ${elementMarkup}
+    </svg>
+  `.trim()
+
+  return encodeSvgDataUrl(svg)
+}
+
+/**
+ * 读取模板源文件并渲染第一页
+ */
+async function ensureTemplatePreview(templateId: string): Promise<void> {
+  const currentPreview = templatePreviewMap.value[templateId]
+  if (currentPreview?.status === 'loading' || currentPreview?.status === 'ready') {
+    return
+  }
+
+  templatePreviewMap.value = {
+    ...templatePreviewMap.value,
+    [templateId]: {
+      status: 'loading'
+    }
+  }
+
+  try {
+    const [analysisResult, sourceResult] = await Promise.all([
+      window.api.pptTemplate.getAnalysis(templateId) as Promise<{
+        success: boolean
+        data?: PptTemplateAnalysis
+        error?: string
+      }>,
+      window.api.pptTemplate.getSourceData(templateId)
+    ])
+
+    if (!analysisResult.success || !analysisResult.data) {
+      throw new Error(analysisResult.error || '模板分析结果不存在')
+    }
+
+    const sourceData =
+      sourceResult.success && sourceResult.data?.data?.length
+        ? new Uint8Array(sourceResult.data.data)
+        : undefined
+    const imageUrl = await buildTemplatePreviewImage(analysisResult.data, sourceData)
+
+    templatePreviewMap.value = {
+      ...templatePreviewMap.value,
+      [templateId]: {
+        status: 'ready',
+        imageUrl
+      }
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err)
+    void window.api.logger.warn('[PptExportConfigDialog] 渲染模板第一页失败', {
+      templateId,
+      error: errorMessage
+    })
+
+    templatePreviewMap.value = {
+      ...templatePreviewMap.value,
+      [templateId]: {
+        status: 'error'
+      }
+    }
+  }
+}
+
+/**
+ * 切换当前查看的幻灯片
+ */
+function selectCurrentSlide(index: number): void {
+  currentSlideIndex.value = index
+  // 滚动缩略图到可见区域
+  nextTick(() => {
+    const thumbnailEl = thumbnailScrollRef.value?.querySelector(`[data-slide-index="${index}"]`)
+    if (thumbnailEl) {
+      thumbnailEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+    }
+  })
+}
+
+/**
+ * 切换当前幻灯片的选中状态
+ */
+function toggleCurrentSlideSelection(): void {
+  if (currentSlide.value) {
+    toggleSlideSelection(currentSlide.value.index)
+  }
+}
+
 /**
  * 监听对话框显示状态
  */
 watch(
   () => props.visible,
   async (visible) => {
-    if (visible) {
-      window.addEventListener('keydown', handleKeydown)
-    } else {
-      window.removeEventListener('keydown', handleKeydown)
+    if (!visible) {
       reset()
+      currentSlideIndex.value = 0
     }
 
     if (visible && props.content) {
@@ -187,69 +532,21 @@ watch(
 
       if (initialTemplateId) {
         selectedTemplateId.value = initialTemplateId
-        styleSourceType.value = 'template'
       }
 
-      await Promise.all([preview(props.content, initialTemplateId), loadStylePresets()])
+      await preview(props.content, initialTemplateId)
+      currentSlideIndex.value = 0
     }
   },
   { immediate: true }
 )
 
 /**
- * 监听样式来源类型变化
- */
-watch(styleSourceType, async (type) => {
-  if (!exportConfig.value) return
-
-  let source: PptStyleSource
-  switch (type) {
-    case 'preset':
-      source = { type: 'preset', presetId: selectedPresetId.value }
-      break
-    case 'template':
-      // 如果已选择模板，使用模板 ID；否则使用第一个可用模板
-      const templateId = selectedTemplateId.value || availableTemplates.value[0]?.id
-      if (templateId) {
-        selectedTemplateId.value = templateId
-        source = { type: 'template', templateId }
-      } else {
-        // 没有可用模板，回退到预设样式
-        source = { type: 'preset', presetId: selectedPresetId.value }
-      }
-      break
-    case 'custom':
-      source = { type: 'custom', config: exportConfig.value.style }
-      break
-    default:
-      return
-  }
-  await updateStyleSource(source)
-})
-
-/**
- * 监听预设样式选择
- */
-watch(selectedPresetId, (presetId) => {
-  if (!exportConfig.value) return
-  if (styleSourceType.value === 'preset') {
-    if (
-      exportConfig.value.styleSource.type === 'preset' &&
-      exportConfig.value.styleSource.presetId === presetId
-    ) {
-      return
-    }
-
-    void updateStyleSource({ type: 'preset', presetId })
-  }
-})
-
-/**
  * 监听模板选择
  */
 watch(selectedTemplateId, (templateId) => {
   if (!exportConfig.value) return
-  if (styleSourceType.value === 'template' && templateId) {
+  if (templateId) {
     if (
       exportConfig.value.styleSource.type === 'template' &&
       exportConfig.value.styleSource.templateId === templateId
@@ -270,45 +567,27 @@ watch(
     if (!config) return
 
     const { styleSource } = config
-    if (styleSource.type === 'preset') {
-      styleSourceType.value = 'preset'
-      selectedPresetId.value = styleSource.presetId
-      return
-    }
-
     if (styleSource.type === 'template') {
-      styleSourceType.value = 'template'
       selectedTemplateId.value = styleSource.templateId
-      return
     }
-
-    styleSourceType.value = 'custom'
   },
   { immediate: true }
 )
 
 /**
- * 预设样式加载后，纠正默认选中项
- */
-watch(stylePresets, (presets) => {
-  if (!presets.length) return
-
-  const hasSelectedPreset = presets.some((preset) => preset.id === selectedPresetId.value)
-  if (!hasSelectedPreset) {
-    selectedPresetId.value = presets[0].id
-  }
-})
-
-/**
- * 模板列表变化后，确保模板模式下存在默认选项
+ * 模板列表变化后，确保存在默认选项
  */
 watch(availableTemplates, (templates) => {
-  if (styleSourceType.value !== 'template' || !templates.length) return
+  if (!templates.length) return
 
   const hasSelectedTemplate = templates.some((template) => template.id === selectedTemplateId.value)
   if (!hasSelectedTemplate) {
     selectedTemplateId.value = templates[0].id
   }
+
+  templates.forEach((template) => {
+    void ensureTemplatePreview(template.id)
+  })
 })
 
 /**
@@ -346,53 +625,6 @@ async function handleExport(): Promise<void> {
 }
 
 /**
- * 处理键盘快捷键
- */
-function handleKeydown(event: KeyboardEvent): void {
-  // 如果在生成中，不允许任何快捷键操作
-  if (isGenerating.value) return
-
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
-  const ctrlOrCmd = isMac ? event.metaKey : event.ctrlKey
-
-  if (!ctrlOrCmd) {
-    // 非 Ctrl/Cmd 组合键
-    switch (event.key) {
-      case 'Escape':
-        event.preventDefault()
-        handleClose()
-        break
-      case 'Enter':
-        if (canGenerate.value) {
-          event.preventDefault()
-          handleExport()
-        }
-        break
-    }
-  } else {
-    // Ctrl/Cmd 组合键
-    switch (event.key.toLowerCase()) {
-      case 'a':
-        event.preventDefault()
-        selectAllSlides()
-        break
-      case 'd':
-        event.preventDefault()
-        deselectAllSlides()
-        break
-    }
-  }
-}
-
-/**
- * 获取预设样式的预览颜色
- */
-function getPresetPreviewColor(presetId: string): string {
-  const preset = stylePresets.value.find((p) => p.id === presetId)
-  return preset?.config.primaryColor || '#3b82f6'
-}
-
-/**
  * 获取错误图标
  */
 function getErrorIcon(type: string): string {
@@ -418,50 +650,8 @@ function getErrorIcon(type: string): string {
 async function handleRetry(): Promise<void> {
   if (props.content) {
     clearError()
-    await preview(
-      props.content,
-      styleSourceType.value === 'template' ? selectedTemplateId.value || undefined : undefined
-    )
+    await preview(props.content, selectedTemplateId.value || undefined)
   }
-}
-
-/**
- * 更新颜色配置
- */
-function handleColorUpdate(key: 'primaryColor' | 'backgroundColor', value: string): void {
-  const normalizedValue = value.replace('#', '').toUpperCase()
-  if (key === 'primaryColor') {
-    updateStyle({ primaryColor: normalizedValue })
-    return
-  }
-
-  updateStyle({ backgroundColor: normalizedValue })
-}
-
-/**
- * 更新文本配置
- */
-function handleTextStyleUpdate(key: 'titleFont' | 'bodyFont', value: string): void {
-  const normalizedValue = value.trim() || undefined
-  if (key === 'titleFont') {
-    updateStyle({ titleFont: normalizedValue })
-    return
-  }
-
-  updateStyle({ bodyFont: normalizedValue })
-}
-
-/**
- * 更新字号配置
- */
-function handleSizeUpdate(key: 'titleSize' | 'bodySize', value: number): void {
-  const normalizedValue = value > 0 ? value : undefined
-  if (key === 'titleSize') {
-    updateStyle({ titleSize: normalizedValue })
-    return
-  }
-
-  updateStyle({ bodySize: normalizedValue })
 }
 
 /**
@@ -486,19 +676,11 @@ function formatFileSize(bytes: number): string {
           <div class="ppt-export-dialog-header">
             <div>
               <h3 class="ppt-export-dialog-title">导出 PowerPoint</h3>
-              <p class="ppt-export-dialog-subtitle">选择要导出的页面和样式</p>
+              <p class="ppt-export-dialog-subtitle">选择要导出的页面和模板</p>
             </div>
             <button class="ppt-export-dialog-close" :disabled="isGenerating" @click="handleClose">
               关闭
             </button>
-          </div>
-
-          <!-- 快捷键提示 -->
-          <div v-if="hasPreview && !isLoading" class="ppt-export-shortcuts">
-            <span class="ppt-export-shortcut">Ctrl+A 全选</span>
-            <span class="ppt-export-shortcut">Ctrl+D 取消全选</span>
-            <span class="ppt-export-shortcut">Enter 导出</span>
-            <span class="ppt-export-shortcut">Esc 关闭</span>
           </div>
 
           <!-- 加载状态 -->
@@ -547,296 +729,194 @@ function formatFileSize(bytes: number): string {
               {{ previewData.warning }}
             </div>
 
-            <!-- 样式来源选择 -->
-            <div class="ppt-export-section">
-              <h4 class="ppt-export-section-title">样式来源</h4>
-              <div class="ppt-export-style-source">
-                <label class="ppt-export-radio">
-                  <input
-                    v-model="styleSourceType"
-                    type="radio"
-                    value="preset"
-                    :disabled="isGenerating"
-                  />
-                  <span>预设样式</span>
-                </label>
-                <label class="ppt-export-radio" :class="{ disabled: !hasTemplates }">
-                  <input
-                    v-model="styleSourceType"
-                    type="radio"
-                    value="template"
-                    :disabled="isGenerating || !hasTemplates"
-                  />
-                  <span>从模板提取</span>
-                  <span v-if="!hasTemplates" class="ppt-export-radio-hint">(无可用模板)</span>
-                </label>
-                <label class="ppt-export-radio">
-                  <input
-                    v-model="styleSourceType"
-                    type="radio"
-                    value="custom"
-                    :disabled="isGenerating"
-                  />
-                  <span>自定义</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- 样式预览 -->
-            <div class="ppt-export-section">
-              <div class="ppt-export-preview-header">
-                <h4 class="ppt-export-section-title">样式预览</h4>
-                <span class="ppt-export-style-tag">{{ styleSourceLabel }}</span>
-              </div>
-              <div class="ppt-export-style-preview">
-                <div class="ppt-export-style-preview-hero">
+            <!-- 左右布局主体 -->
+            <div class="ppt-export-main-layout">
+              <!-- 左侧：模板选择网格 -->
+              <div class="ppt-export-left-panel">
+                <div class="ppt-export-section-header">
+                  <h4 class="ppt-export-section-title">选择模板</h4>
+                </div>
+                <div v-if="hasTemplates" class="ppt-export-templates-grid">
                   <div
-                    class="ppt-export-style-preview-card"
-                    :style="{
-                      backgroundColor: currentStyle.backgroundColor
-                        ? `#${currentStyle.backgroundColor}`
-                        : '#ffffff'
-                    }"
+                    v-for="template in availableTemplates"
+                    :key="template.id"
+                    class="ppt-export-template-card"
+                    :class="{ active: selectedTemplateId === template.id }"
+                    @click="selectedTemplateId = template.id"
                   >
-                    <div
-                      class="ppt-export-style-preview-title"
-                      :style="{
-                        color: currentStyle.primaryColor ? `#${currentStyle.primaryColor}` : '#1E3A5F',
-                        fontFamily: currentStyle.titleFont || 'inherit',
-                        fontSize: `${currentStyle.titleSize || 32}px`
-                      }"
-                    >
-                      标题示例
+                    <!-- 模板预览图区域 -->
+                    <div class="ppt-export-template-preview">
+                      <div
+                        v-if="templatePreviewMap[template.id]?.imageUrl"
+                        class="ppt-export-template-preview-slide"
+                      >
+                        <img
+                          :src="templatePreviewMap[template.id]?.imageUrl"
+                          :alt="`${template.name} 首页预览`"
+                          class="ppt-export-template-preview-image"
+                        />
+                      </div>
+                      <div v-else class="ppt-export-template-preview-placeholder">
+                        <span class="ppt-export-template-preview-icon">📄</span>
+                        <span class="ppt-export-template-preview-count">
+                          {{
+                            templatePreviewMap[template.id]?.status === 'loading'
+                              ? '正在加载首页'
+                              : templatePreviewMap[template.id]?.status === 'error'
+                                ? '暂无首页预览'
+                                : '暂无首页预览'
+                          }}
+                        </span>
+                      </div>
+                      <div class="ppt-export-template-preview-page-count">
+                        {{ template.slideCount }} 页
+                      </div>
+                      <div class="ppt-export-template-check-badge">
+                        <span>✓</span>
+                      </div>
                     </div>
-                    <div
-                      class="ppt-export-style-preview-body"
-                      :style="{
-                        fontFamily: currentStyle.bodyFont || 'inherit',
-                        fontSize: `${currentStyle.bodySize || 16}px`
-                      }"
-                    >
-                      正文示例将按照当前样式导出到 PPT。
+                    <!-- 模板信息 -->
+                    <div class="ppt-export-template-card-info">
+                      <span class="ppt-export-template-card-name" :title="template.name">
+                        {{ template.name }}
+                      </span>
+                      <span class="ppt-export-template-card-meta">
+                        {{ formatFileSize(template.fileSize) }}
+                      </span>
                     </div>
                   </div>
                 </div>
-                <div class="ppt-export-style-preview-grid">
-                  <div
-                    v-for="item in stylePreviewItems"
-                    :key="item.key"
-                    class="ppt-export-style-preview-item"
-                  >
-                    <span class="ppt-export-style-preview-label">{{ item.label }}</span>
-                    <span class="ppt-export-style-preview-value">
-                      <span
-                        v-if="item.color"
-                        class="ppt-export-style-swatch"
-                        :style="{ backgroundColor: item.color }"
-                      ></span>
-                      {{ item.value }}
-                    </span>
-                  </div>
-                  <div
-                    v-if="exportConfig?.slideSize"
-                    class="ppt-export-style-preview-item"
-                  >
-                    <span class="ppt-export-style-preview-label">页面尺寸</span>
-                    <span class="ppt-export-style-preview-value">
-                      {{ exportConfig.slideSize.width.toFixed(2) }} x
-                      {{ exportConfig.slideSize.height.toFixed(2) }} in
-                    </span>
-                  </div>
+                <div v-else class="ppt-export-empty-state">
+                  <p>暂无可用模板</p>
+                  <p class="ppt-export-empty-hint">请先上传 PPT 模板文件</p>
                 </div>
               </div>
-            </div>
 
-            <!-- 预设样式选择 -->
-            <div v-if="styleSourceType === 'preset'" class="ppt-export-section">
-              <h4 class="ppt-export-section-title">预设样式</h4>
-              <div class="ppt-export-style-presets">
-                <div
-                  v-for="preset in stylePresets"
-                  :key="preset.id"
-                  class="ppt-export-style-preset-card"
-                  :class="{ active: selectedPresetId === preset.id }"
-                  :style="{ '--preview-color': getPresetPreviewColor(preset.id) }"
-                  @click="selectedPresetId = preset.id"
-                >
-                  <div class="ppt-export-preset-preview">
-                    <div class="ppt-export-preset-color"></div>
+              <!-- 右侧：内容预览面板 -->
+              <div class="ppt-export-right-panel">
+                <!-- 上半部分：当前页面详细预览 -->
+                <div class="ppt-export-preview-detail">
+                  <div class="ppt-export-section-header">
+                    <h4 class="ppt-export-section-title">页面预览</h4>
+                    <div class="ppt-export-preview-actions">
+                      <button
+                        class="ppt-export-select-all"
+                        :disabled="isGenerating"
+                        @click="handleToggleAll"
+                      >
+                        {{
+                          selectedCount === exportConfig?.slides.length ? '取消全选' : '全选'
+                        }}
+                      </button>
+                    </div>
                   </div>
-                  <span class="ppt-export-preset-name">{{ preset.name }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 自定义样式 -->
-            <div v-if="styleSourceType === 'custom'" class="ppt-export-section">
-              <h4 class="ppt-export-section-title">自定义样式</h4>
-              <div class="ppt-export-custom-grid">
-                <label class="ppt-export-field">
-                  <span class="ppt-export-field-label">主色调</span>
-                  <input
-                    class="ppt-export-input ppt-export-input-color"
-                    type="color"
-                    :value="currentStyle.primaryColor ? `#${currentStyle.primaryColor}` : '#1e3a5f'"
-                    :disabled="isGenerating"
-                    @input="
-                      handleColorUpdate(
-                        'primaryColor',
-                        ($event.target as HTMLInputElement).value
-                      )
-                    "
-                  />
-                </label>
-                <label class="ppt-export-field">
-                  <span class="ppt-export-field-label">背景色</span>
-                  <input
-                    class="ppt-export-input ppt-export-input-color"
-                    type="color"
-                    :value="
-                      currentStyle.backgroundColor ? `#${currentStyle.backgroundColor}` : '#ffffff'
-                    "
-                    :disabled="isGenerating"
-                    @input="
-                      handleColorUpdate(
-                        'backgroundColor',
-                        ($event.target as HTMLInputElement).value
-                      )
-                    "
-                  />
-                </label>
-                <label class="ppt-export-field">
-                  <span class="ppt-export-field-label">标题字体</span>
-                  <input
-                    class="ppt-export-input"
-                    type="text"
-                    :value="currentStyle.titleFont || ''"
-                    :disabled="isGenerating"
-                    placeholder="例如：Microsoft YaHei"
-                    @input="
-                      handleTextStyleUpdate('titleFont', ($event.target as HTMLInputElement).value)
-                    "
-                  />
-                </label>
-                <label class="ppt-export-field">
-                  <span class="ppt-export-field-label">正文字体</span>
-                  <input
-                    class="ppt-export-input"
-                    type="text"
-                    :value="currentStyle.bodyFont || ''"
-                    :disabled="isGenerating"
-                    placeholder="例如：Microsoft YaHei"
-                    @input="
-                      handleTextStyleUpdate('bodyFont', ($event.target as HTMLInputElement).value)
-                    "
-                  />
-                </label>
-                <label class="ppt-export-field">
-                  <span class="ppt-export-field-label">标题字号</span>
-                  <input
-                    class="ppt-export-input"
-                    type="number"
-                    min="12"
-                    max="72"
-                    :value="currentStyle.titleSize || 36"
-                    :disabled="isGenerating"
-                    @input="
-                      handleSizeUpdate(
-                        'titleSize',
-                        Number(($event.target as HTMLInputElement).value)
-                      )
-                    "
-                  />
-                </label>
-                <label class="ppt-export-field">
-                  <span class="ppt-export-field-label">正文字号</span>
-                  <input
-                    class="ppt-export-input"
-                    type="number"
-                    min="10"
-                    max="48"
-                    :value="currentStyle.bodySize || 18"
-                    :disabled="isGenerating"
-                    @input="
-                      handleSizeUpdate(
-                        'bodySize',
-                        Number(($event.target as HTMLInputElement).value)
-                      )
-                    "
-                  />
-                </label>
-              </div>
-            </div>
-
-            <!-- 模板选择 -->
-            <div v-if="styleSourceType === 'template'" class="ppt-export-section">
-              <h4 class="ppt-export-section-title">选择模板</h4>
-              <div v-if="hasTemplates" class="ppt-export-templates-list">
-                <div
-                  v-for="template in availableTemplates"
-                  :key="template.id"
-                  class="ppt-export-template-item"
-                  :class="{ active: selectedTemplateId === template.id }"
-                  @click="selectedTemplateId = template.id"
-                >
-                  <div class="ppt-export-template-info">
-                    <span class="ppt-export-template-name">{{ template.name }}</span>
-                    <span class="ppt-export-template-meta">
-                      {{ template.slideCount }} 页 · {{ formatFileSize(template.fileSize) }}
-                    </span>
+                  <!-- 当前页面内容 -->
+                  <div v-if="currentSlide" class="ppt-export-slide-detail-content">
+                    <div class="ppt-export-slide-detail-stage">
+                      <div
+                        v-if="currentSlide.previewImageDataUrl"
+                        class="ppt-export-slide-detail-canvas"
+                      >
+                        <img
+                          :src="currentSlide.previewImageDataUrl"
+                          :alt="`第 ${currentSlide.index + 1} 页预览`"
+                          class="ppt-export-slide-detail-image"
+                        />
+                      </div>
+                      <div v-else class="ppt-export-slide-detail-placeholder">
+                        <span>页面预览生成中</span>
+                      </div>
+                    </div>
+                    <div class="ppt-export-slide-detail-header">
+                      <div class="ppt-export-slide-detail-title-row">
+                        <label class="ppt-export-slide-checkbox">
+                          <input
+                            type="checkbox"
+                            :checked="currentSlide.selected"
+                            :disabled="isGenerating"
+                            @change="toggleCurrentSlideSelection"
+                            @click.stop
+                          />
+                        </label>
+                        <span class="ppt-export-slide-detail-index">
+                          第 {{ currentSlide.index + 1 }} 页
+                        </span>
+                        <span
+                          class="ppt-export-slide-detail-type"
+                          :style="{
+                            backgroundColor: contentTypeColors[currentSlide.contentType] + '20',
+                            color: contentTypeColors[currentSlide.contentType]
+                          }"
+                        >
+                          {{ contentTypeLabels[currentSlide.contentType] || currentSlide.contentType }}
+                        </span>
+                      </div>
+                      <h5 class="ppt-export-slide-detail-title">
+                        {{ currentSlide.title || '无标题' }}
+                      </h5>
+                    </div>
+                    <div class="ppt-export-slide-detail-summary">
+                      <p>{{ currentSlide.summary }}</p>
+                    </div>
+                    <div
+                      class="ppt-export-slide-detail-status"
+                      :class="{ selected: currentSlide.selected }"
+                    >
+                      {{ currentSlide.selected ? '已选中导出' : '未选中' }}
+                    </div>
                   </div>
-                  <div class="ppt-export-template-check" :class="{ visible: selectedTemplateId === template.id }">
-                    <span>✓</span>
+                  <div v-else class="ppt-export-slide-detail-empty">
+                    <p>暂无页面</p>
                   </div>
                 </div>
-              </div>
-              <div v-else class="ppt-export-empty-state">
-                <p>暂无可用模板</p>
-                <p class="ppt-export-empty-hint">请先上传 PPT 模板文件</p>
-              </div>
-            </div>
 
-            <!-- 内容预览 -->
-            <div class="ppt-export-section ppt-export-section-preview">
-              <div class="ppt-export-preview-header">
-                <h4 class="ppt-export-section-title">内容预览</h4>
-                <button
-                  class="ppt-export-select-all"
-                  :disabled="isGenerating"
-                  @click="handleToggleAll"
-                >
-                  {{
-                    selectedCount === exportConfig?.slides.length ? '取消全选' : '全选'
-                  }}
-                </button>
-              </div>
-              <div class="ppt-export-slides-list">
-                <div
-                  v-for="slide in exportConfig?.slides"
-                  :key="slide.index"
-                  class="ppt-export-slide-item"
-                  :class="{ selected: slide.selected }"
-                  @click="toggleSlideSelection(slide.index)"
-                >
-                  <label class="ppt-export-slide-checkbox">
-                    <input
-                      type="checkbox"
-                      :checked="slide.selected"
-                      :disabled="isGenerating"
-                      @change="toggleSlideSelection(slide.index)"
-                      @click.stop
-                    />
-                  </label>
-                  <div class="ppt-export-slide-info">
-                    <span class="ppt-export-slide-index">第 {{ slide.index + 1 }} 页</span>
-                    <span class="ppt-export-slide-type">
-                      {{ contentTypeLabels[slide.contentType] || slide.contentType }}
+                <!-- 下半部分：横向缩略图滚动 -->
+                <div class="ppt-export-thumbnails-panel">
+                  <div class="ppt-export-section-header">
+                    <h4 class="ppt-export-section-title">全部页面</h4>
+                    <span class="ppt-export-thumbnails-count">
+                      共 {{ exportConfig?.slides.length || 0 }} 页
                     </span>
                   </div>
-                  <span class="ppt-export-slide-title">
-                    {{ slide.title || '无标题' }}
-                  </span>
-                  <span class="ppt-export-slide-summary">{{ slide.summary }}</span>
+                  <div ref="thumbnailScrollRef" class="ppt-export-thumbnails-scroll">
+                    <div
+                      v-for="slide in exportConfig?.slides"
+                      :key="slide.index"
+                      :data-slide-index="slide.index"
+                      class="ppt-export-thumbnail-item"
+                      :class="{
+                        active: currentSlideIndex === slide.index,
+                        selected: slide.selected
+                      }"
+                      @click="selectCurrentSlide(slide.index)"
+                    >
+                      <div class="ppt-export-thumbnail-preview">
+                        <img
+                          v-if="slide.previewImageDataUrl"
+                          :src="slide.previewImageDataUrl"
+                          :alt="`第 ${slide.index + 1} 页缩略图`"
+                          class="ppt-export-thumbnail-image"
+                        />
+                        <span v-else class="ppt-export-thumbnail-number">
+                          {{ slide.index + 1 }}
+                        </span>
+                        <span
+                          class="ppt-export-thumbnail-type"
+                          :style="{
+                            backgroundColor: contentTypeColors[slide.contentType] || '#6b7280'
+                          }"
+                        ></span>
+                      </div>
+                      <div class="ppt-export-thumbnail-info">
+                        <span class="ppt-export-thumbnail-title">
+                          {{ slide.title || '无标题' }}
+                        </span>
+                      </div>
+                      <div v-if="slide.selected" class="ppt-export-thumbnail-check">
+                        <span>✓</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -888,7 +968,7 @@ function formatFileSize(bytes: number): string {
 
 /* ==================== 对话框容器 ==================== */
 .ppt-export-dialog {
-  width: min(640px, 100%);
+  width: min(960px, 100%);
   max-height: 85vh;
   display: flex;
   flex-direction: column;
@@ -955,41 +1035,6 @@ function formatFileSize(bytes: number): string {
 .ppt-export-dialog-close:disabled {
   cursor: not-allowed;
   opacity: 0.6;
-}
-
-/* ==================== 快捷键提示 ==================== */
-.ppt-export-shortcuts {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 22px;
-  border-bottom: 1px solid var(--theme-border);
-  background: color-mix(in srgb, var(--theme-bg-hover) 50%, transparent);
-  flex-wrap: wrap;
-}
-
-.ppt-export-shortcut {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: var(--theme-radius);
-  background: var(--theme-bg);
-  font-size: 11px;
-  color: var(--theme-text-tertiary);
-}
-
-.ppt-export-shortcut::before,
-.ppt-export-shortcut::after {
-  content: '';
-  display: inline-block;
-  padding: 2px 4px;
-  border: 1px solid var(--theme-border);
-  border-radius: 3px;
-  background: var(--theme-bg-secondary);
-  font-family: monospace;
-  font-size: 10px;
-  line-height: 1;
 }
 
 /* ==================== 加载和错误状态 ==================== */
@@ -1212,170 +1257,335 @@ function formatFileSize(bytes: number): string {
   line-height: 1.5;
 }
 
-.ppt-export-section-preview {
-  border-bottom: none;
-  flex: 1;
-  overflow: hidden;
+.ppt-export-section-header {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
 
 .ppt-export-section-title {
-  margin: 0 0 12px;
+  margin: 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--theme-text);
 }
 
-/* ==================== 样式来源选择 ==================== */
-.ppt-export-style-source {
+/* ==================== 左右布局主体 ==================== */
+.ppt-export-main-layout {
   display: flex;
   gap: 20px;
+  padding: 0 22px;
+  overflow: hidden;
+  flex: 1;
 }
 
-.ppt-export-radio {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  color: var(--theme-text-secondary);
-  font-size: 14px;
-}
-
-.ppt-export-radio input[type='radio'] {
-  accent-color: var(--theme-accent);
-}
-
-.ppt-export-radio input[type='radio']:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-/* ==================== 预设样式卡片 ==================== */
-.ppt-export-style-presets {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.ppt-export-style-preset-card {
+/* ==================== 左侧面板：模板选择 ==================== */
+.ppt-export-left-panel {
+  width: 280px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 14px;
-  border: 2px solid var(--theme-border);
-  border-radius: var(--theme-radius-lg);
-  background: var(--theme-bg);
-  cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    background-color 0.2s ease;
-}
-
-.ppt-export-style-preset-card:hover {
-  border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
-}
-
-.ppt-export-style-preset-card.active {
-  border-color: var(--theme-accent);
-  background: color-mix(in srgb, var(--theme-accent) 8%, var(--theme-bg));
-}
-
-.ppt-export-preset-preview {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border-radius: var(--theme-radius);
-  background: var(--theme-bg-secondary);
   overflow: hidden;
 }
 
-.ppt-export-preset-color {
-  width: 100%;
-  height: 100%;
-  background: var(--preview-color);
-}
-
-.ppt-export-preset-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--theme-text);
-}
-
-/* ==================== 模板列表 ==================== */
-.ppt-export-templates-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 200px;
+/* ==================== 模板网格 ==================== */
+.ppt-export-templates-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
   overflow-y: auto;
   padding-right: 4px;
 }
 
-.ppt-export-templates-list::-webkit-scrollbar {
+.ppt-export-templates-grid::-webkit-scrollbar {
   width: 4px;
 }
 
-.ppt-export-templates-list::-webkit-scrollbar-track {
+.ppt-export-templates-grid::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.ppt-export-templates-list::-webkit-scrollbar-thumb {
+.ppt-export-templates-grid::-webkit-scrollbar-thumb {
   background: var(--theme-border);
   border-radius: 2px;
 }
 
-.ppt-export-template-item {
+.ppt-export-template-card {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
+  flex-direction: column;
   border: 2px solid var(--theme-border);
   border-radius: var(--theme-radius-lg);
   background: var(--theme-bg);
   cursor: pointer;
+  overflow: hidden;
   transition:
     border-color 0.2s ease,
-    background-color 0.2s ease;
+    background-color 0.2s ease,
+    transform 0.15s ease;
 }
 
-.ppt-export-template-item:hover {
+.ppt-export-template-card:hover {
   border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
   background: var(--theme-bg-hover);
+  transform: translateY(-2px);
 }
 
-.ppt-export-template-item.active {
+.ppt-export-template-card.active {
   border-color: var(--theme-accent);
   background: color-mix(in srgb, var(--theme-accent) 8%, var(--theme-bg));
 }
 
-.ppt-export-template-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
+.ppt-export-template-preview {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+  overflow: hidden;
 }
 
-.ppt-export-template-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--theme-text);
-}
-
-.ppt-export-template-meta {
-  font-size: 12px;
-  color: var(--theme-text-tertiary);
-}
-
-.ppt-export-template-check {
+.ppt-export-template-preview-slide {
+  position: absolute;
+  inset: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+}
+
+.ppt-export-template-preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ==================== 骨架屏样式 ==================== */
+.ppt-export-template-preview-skeleton {
+  position: absolute;
+  inset: 8px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(203, 213, 225, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ppt-export-template-preview-skeleton::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.ppt-export-template-preview-skeleton-content {
+  position: relative;
+  width: 70%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.skeleton-header {
+  height: 10px;
+  width: 60%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e2e8f0 0%, #cbd5e1 50%, #e2e8f0 100%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.skeleton-line {
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e2e8f0 0%, #cbd5e1 50%, #e2e8f0 100%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-line.short {
+  width: 75%;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    background-position: 200% 0;
+  }
+  50% {
+    opacity: 1;
+    background-position: 0 0;
+  }
+}
+
+.ppt-export-template-preview-skeleton-badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.skeleton-spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: ppt-export-spin 0.8s linear infinite;
+}
+
+.ppt-export-template-preview-layer {
+  position: absolute;
+  overflow: hidden;
+}
+
+.ppt-export-template-preview-layer.is-text {
+  padding: 2px 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ppt-export-template-preview-layer.is-text-lines {
+  padding: 4px 5px;
+}
+
+.ppt-export-template-preview-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.ppt-export-template-preview-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  height: 100%;
+}
+
+.ppt-export-template-preview-line {
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(71, 85, 105, 0.28);
+}
+
+.ppt-export-template-preview-layer.is-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ppt-export-template-preview-media-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.04em;
+}
+
+.ppt-export-template-preview-fallback {
+  position: absolute;
+  inset: 12px;
+  display: -webkit-box;
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.ppt-export-template-preview-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #64748b;
+}
+
+.ppt-export-template-preview-icon {
+  font-size: 24px;
+  opacity: 0.6;
+}
+
+.ppt-export-template-preview-count {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.ppt-export-template-preview-page-count {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.ppt-export-template-check-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--theme-accent);
   color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
   opacity: 0;
   transform: scale(0.8);
   transition:
@@ -1383,9 +1593,304 @@ function formatFileSize(bytes: number): string {
     transform 0.2s ease;
 }
 
-.ppt-export-template-check.visible {
+.ppt-export-template-card.active .ppt-export-template-check-badge {
   opacity: 1;
   transform: scale(1);
+}
+
+.ppt-export-template-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+}
+
+.ppt-export-template-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--theme-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ppt-export-template-card-meta {
+  font-size: 11px;
+  color: var(--theme-text-tertiary);
+}
+
+/* ==================== 右侧面板：内容预览 ==================== */
+.ppt-export-right-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+}
+
+/* ==================== 页面详细预览 ==================== */
+.ppt-export-preview-detail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--theme-border);
+  border-radius: var(--theme-radius-lg);
+  background: var(--theme-bg);
+  overflow: hidden;
+  padding: 14px;
+}
+
+.ppt-export-preview-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ppt-export-slide-detail-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.ppt-export-slide-detail-stage {
+  flex-shrink: 0;
+}
+
+.ppt-export-slide-detail-canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: calc(var(--theme-radius-lg) - 2px);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.65), transparent 42%),
+    linear-gradient(135deg, #edf2f7 0%, #dbe4ee 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+    0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.ppt-export-slide-detail-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.ppt-export-slide-detail-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  border: 1px dashed color-mix(in srgb, var(--theme-border) 70%, transparent);
+  border-radius: calc(var(--theme-radius-lg) - 2px);
+  background: color-mix(in srgb, var(--theme-bg-hover) 60%, transparent);
+  color: var(--theme-text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ppt-export-slide-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ppt-export-slide-detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ppt-export-slide-detail-index {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--theme-text);
+}
+
+.ppt-export-slide-detail-type {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.ppt-export-slide-detail-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--theme-text);
+  line-height: 1.4;
+}
+
+.ppt-export-slide-detail-summary {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  border-radius: var(--theme-radius);
+  background: color-mix(in srgb, var(--theme-bg-hover) 60%, transparent);
+}
+
+.ppt-export-slide-detail-summary p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--theme-text-secondary);
+}
+
+.ppt-export-slide-detail-status {
+  padding: 8px 12px;
+  border-radius: var(--theme-radius);
+  background: color-mix(in srgb, var(--theme-border) 60%, transparent);
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+  text-align: center;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.ppt-export-slide-detail-status.selected {
+  background: color-mix(in srgb, var(--theme-accent) 15%, transparent);
+  color: var(--theme-accent);
+  font-weight: 500;
+}
+
+.ppt-export-slide-detail-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-text-tertiary);
+}
+
+/* ==================== 缩略图面板 ==================== */
+.ppt-export-thumbnails-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--theme-border);
+  border-radius: var(--theme-radius-lg);
+  background: var(--theme-bg);
+  overflow: hidden;
+  padding: 14px;
+}
+
+.ppt-export-thumbnails-count {
+  font-size: 12px;
+  color: var(--theme-text-tertiary);
+}
+
+.ppt-export-thumbnails-scroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0 8px;
+}
+
+.ppt-export-thumbnails-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.ppt-export-thumbnails-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ppt-export-thumbnails-scroll::-webkit-scrollbar-thumb {
+  background: var(--theme-border);
+  border-radius: 3px;
+}
+
+.ppt-export-thumbnail-item {
+  position: relative;
+  flex-shrink: 0;
+  width: 100px;
+  cursor: pointer;
+  border: 2px solid var(--theme-border);
+  border-radius: var(--theme-radius);
+  background: var(--theme-bg);
+  overflow: hidden;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.ppt-export-thumbnail-item:hover {
+  border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.ppt-export-thumbnail-item.active {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-accent) 20%, transparent);
+}
+
+.ppt-export-thumbnail-item.selected {
+  background: color-mix(in srgb, var(--theme-accent) 5%, var(--theme-bg));
+}
+
+.ppt-export-thumbnail-preview {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.ppt-export-thumbnail-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ppt-export-thumbnail-number {
+  font-size: 18px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.ppt-export-thumbnail-type {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.ppt-export-thumbnail-info {
+  padding: 6px 8px;
+}
+
+.ppt-export-thumbnail-title {
+  display: block;
+  font-size: 11px;
+  color: var(--theme-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ppt-export-thumbnail-check {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--theme-accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 /* ==================== 空状态 ==================== */
@@ -1404,156 +1909,23 @@ function formatFileSize(bytes: number): string {
   color: var(--theme-text-tertiary);
 }
 
-/* ==================== 样式来源提示 ==================== */
-.ppt-export-radio.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.ppt-export-radio-hint {
-  font-size: 11px;
-  color: var(--theme-text-tertiary);
-  margin-left: 4px;
-}
-
-.ppt-export-style-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--theme-accent) 10%, transparent);
-  color: var(--theme-accent);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.ppt-export-style-preview {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 14px;
-}
-
-.ppt-export-style-preview-hero {
-  min-width: 0;
-}
-
-.ppt-export-style-preview-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 14px;
-  min-height: 180px;
-  padding: 20px;
-  border: 1px solid var(--theme-border);
-  border-radius: calc(var(--theme-radius-lg) + 2px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
-
-.ppt-export-style-preview-title {
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.ppt-export-style-preview-body {
-  color: color-mix(in srgb, var(--theme-text) 80%, #6b7280);
-  line-height: 1.6;
-}
-
-.ppt-export-style-preview-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
-
-.ppt-export-style-preview-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px;
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
-  background: var(--theme-bg);
-}
-
-.ppt-export-style-preview-label {
-  font-size: 12px;
-  color: var(--theme-text-tertiary);
-}
-
-.ppt-export-style-preview-value {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 20px;
-  font-size: 13px;
-  color: var(--theme-text);
-  word-break: break-word;
-}
-
-.ppt-export-style-swatch {
-  width: 14px;
-  height: 14px;
-  border: 1px solid color-mix(in srgb, var(--theme-text) 16%, transparent);
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
-.ppt-export-custom-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.ppt-export-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.ppt-export-field-label {
-  font-size: 12px;
-  color: var(--theme-text-secondary);
-}
-
-.ppt-export-input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
-  background: var(--theme-bg);
-  color: var(--theme-text);
-  font-size: 13px;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.ppt-export-input:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 12%, transparent);
-}
-
-.ppt-export-input:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.ppt-export-input-color {
-  min-height: 42px;
-  padding: 6px;
-}
-
-/* ==================== 内容预览 ==================== */
-.ppt-export-preview-header {
+/* ==================== 复选框样式 ==================== */
+.ppt-export-slide-checkbox {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+  cursor: pointer;
 }
 
+.ppt-export-slide-checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--theme-accent);
+  cursor: pointer;
+}
+
+/* ==================== 按钮样式 ==================== */
 .ppt-export-select-all {
-  padding: 6px 12px;
+  padding: 4px 10px;
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
   background: var(--theme-bg);
@@ -1570,100 +1942,9 @@ function formatFileSize(bytes: number): string {
   color: var(--theme-accent);
 }
 
-.ppt-export-slides-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 280px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.ppt-export-slides-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.ppt-export-slides-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.ppt-export-slides-list::-webkit-scrollbar-thumb {
-  background: var(--theme-border);
-  border-radius: 2px;
-}
-
-.ppt-export-slide-item {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-rows: auto auto;
-  gap: 4px 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
-  background: var(--theme-bg);
-  cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    background-color 0.2s ease;
-}
-
-.ppt-export-slide-item:hover {
-  border-color: color-mix(in srgb, var(--theme-accent) 30%, var(--theme-border));
-  background: var(--theme-bg-hover);
-}
-
-.ppt-export-slide-item.selected {
-  border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
-  background: color-mix(in srgb, var(--theme-accent) 6%, var(--theme-bg));
-}
-
-.ppt-export-slide-checkbox {
-  grid-row: 1 / -1;
-  display: flex;
-  align-items: flex-start;
-  padding-top: 2px;
-}
-
-.ppt-export-slide-checkbox input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--theme-accent);
-  cursor: pointer;
-}
-
-.ppt-export-slide-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ppt-export-slide-index {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--theme-text);
-}
-
-.ppt-export-slide-type {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--theme-accent) 10%, transparent);
-  color: var(--theme-accent);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.ppt-export-slide-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--theme-text);
-}
-
-.ppt-export-slide-summary {
-  font-size: 12px;
-  color: var(--theme-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.ppt-export-select-all:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* ==================== 底部操作栏 ==================== */
@@ -1672,31 +1953,43 @@ function formatFileSize(bytes: number): string {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 22px 20px;
+  padding: 14px 22px 18px;
   border-top: 1px solid var(--theme-border);
+  background: var(--theme-bg-secondary);
   flex-shrink: 0;
 }
 
 .ppt-export-status {
-  font-size: 12px;
-  color: var(--theme-text-tertiary);
+  font-size: 13px;
+  color: var(--theme-text-secondary);
 }
 
 .ppt-export-actions {
   display: flex;
+  align-items: center;
   gap: 10px;
 }
 
 .ppt-export-btn {
-  padding: 10px 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
   border-radius: var(--theme-radius);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition:
+    background-color 0.2s ease,
     border-color 0.2s ease,
     color 0.2s ease,
-    background-color 0.2s ease;
+    opacity 0.2s ease;
+}
+
+.ppt-export-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .ppt-export-btn-cancel {
@@ -1706,36 +1999,27 @@ function formatFileSize(bytes: number): string {
 }
 
 .ppt-export-btn-cancel:hover:not(:disabled) {
-  border-color: var(--theme-accent);
-  color: var(--theme-accent);
+  border-color: var(--theme-text-tertiary);
+  color: var(--theme-text);
 }
 
 .ppt-export-btn-export {
-  border: 1px solid var(--theme-accent);
+  border: none;
   background: var(--theme-accent);
   color: white;
 }
 
 .ppt-export-btn-export:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--theme-accent) 80%, white);
-  background: color-mix(in srgb, var(--theme-accent) 90%, white);
-}
-
-.ppt-export-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
+  background: color-mix(in srgb, var(--theme-accent) 85%, black);
 }
 
 .ppt-export-btn-spinner {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-right: 6px;
+  width: 14px;
+  height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: white;
   border-radius: 50%;
   animation: ppt-export-spin 0.6s linear infinite;
-  vertical-align: middle;
 }
 
 /* ==================== 过渡动画 ==================== */
@@ -1749,29 +2033,14 @@ function formatFileSize(bytes: number): string {
   opacity: 0;
 }
 
-/* ==================== 响应式 ==================== */
-@media (max-width: 640px) {
-  .ppt-export-dialog-overlay {
-    padding: 16px;
-  }
+.fade-enter-active .ppt-export-dialog,
+.fade-leave-active .ppt-export-dialog {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
 
-  .ppt-export-style-preview,
-  .ppt-export-custom-grid,
-  .ppt-export-style-presets {
-    grid-template-columns: 1fr;
-  }
-
-  .ppt-export-dialog-footer {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .ppt-export-actions {
-    justify-content: stretch;
-  }
-
-  .ppt-export-btn {
-    flex: 1;
-  }
+.fade-enter-from .ppt-export-dialog,
+.fade-leave-to .ppt-export-dialog {
+  transform: scale(0.96);
+  opacity: 0;
 }
 </style>

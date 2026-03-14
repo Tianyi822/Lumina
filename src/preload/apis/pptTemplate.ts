@@ -16,6 +16,10 @@ export interface ApiResponse<T = unknown> {
   error?: string
 }
 
+export interface PptTemplateSourceData {
+  data: number[]
+}
+
 /**
  * PPT 模板 API
  * 提供模板列表查询、创建、删除和分析结果查询功能
@@ -45,6 +49,15 @@ export const pptTemplateApi = {
    */
   getAnalysis: (id: string): Promise<ApiResponse<PptTemplateAnalysis>> => {
     return ipcRenderer.invoke('pptTemplate:getAnalysis', id)
+  },
+
+  /**
+   * 获取模板源文件
+   * @param id 模板 ID
+   * @returns 模板二进制数据
+   */
+  getSourceData: (id: string): Promise<ApiResponse<PptTemplateSourceData>> => {
+    return ipcRenderer.invoke('pptTemplate:getSourceData', id)
   },
 
   /**

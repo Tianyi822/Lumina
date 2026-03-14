@@ -3,7 +3,7 @@
  * 负责模板的上传、存储、列表查询等操作
  */
 
-import { existsSync, readFileSync, writeFileSync, rmSync } from 'fs'
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { basename, extname } from 'path'
 import { PptTemplateAnalyzer } from './PptTemplateAnalyzer'
 import {
@@ -197,7 +197,7 @@ export class PptTemplateService {
       const analysisPath = getTemplateAnalysisPath(templateId)
       writeFileSync(analysisPath, JSON.stringify(analysis, null, 2), 'utf-8')
 
-      // 9. 创建模板元数据
+      // 10. 创建模板元数据
       const templateItem: PptTemplateListItem = {
         id: templateId,
         name: templateName,
@@ -209,7 +209,7 @@ export class PptTemplateService {
         status: 'completed'
       }
 
-      // 10. 写入索引（最后一步，确保前面的操作都成功）
+      // 11. 写入索引（最后一步，确保前面的操作都成功）
       this.templates.unshift(templateItem)
       templateAddedToIndex = true
       this.saveTemplatesIndex()
@@ -324,6 +324,28 @@ export class PptTemplateService {
       return JSON.parse(content) as PptTemplateAnalysis
     } catch (error) {
       logger.error('读取模板分析结果失败', 'main', { templateId, error })
+      return null
+    }
+  }
+
+  /**
+   * 获取模板缩略图数据
+   * 返回缩略图的 Buffer，如果不存在返回 null
+   */
+  getTemplateSourceData(templateId: string): Buffer | null {
+    if (!isValidTemplateId(templateId)) {
+      return null
+    }
+
+    const sourcePath = getTemplateSourcePath(templateId)
+    if (!existsSync(sourcePath)) {
+      return null
+    }
+
+    try {
+      return readFileSync(sourcePath)
+    } catch (error) {
+      logger.error('读取模板源文件失败', 'main', { templateId, error })
       return null
     }
   }

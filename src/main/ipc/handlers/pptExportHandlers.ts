@@ -23,24 +23,11 @@ const generatePptSchema = z.object({
         title: z.string().optional(),
         contentType: z.enum(['title', 'content', 'table', 'list', 'mixed']),
         summary: z.string(),
+        previewImageDataUrl: z.string().optional(),
         selected: z.boolean()
       })
     ),
-    styleSource: z.discriminatedUnion('type', [
-      z.object({ type: z.literal('preset'), presetId: z.string() }),
-      z.object({ type: z.literal('template'), templateId: z.string() }),
-      z.object({
-        type: z.literal('custom'),
-        config: z.object({
-          primaryColor: z.string().optional(),
-          backgroundColor: z.string().optional(),
-          titleFont: z.string().optional(),
-          bodyFont: z.string().optional(),
-          titleSize: z.number().optional(),
-          bodySize: z.number().optional()
-        })
-      })
-    ]),
+    styleSource: z.object({ type: z.literal('template'), templateId: z.string() }),
     style: z.object({
       primaryColor: z.string().optional(),
       backgroundColor: z.string().optional(),
@@ -142,23 +129,6 @@ export function registerPptExportHandlers(): void {
         success: false,
         error: `生成失败: ${errorMessage}`
       }
-    }
-  })
-
-  /**
-   * 获取预设样式列表
-   * @returns 预设样式数组
-   */
-  ipcMain.handle('ppt:getStylePresets', async () => {
-    try {
-      const presets = getPptExportService().getStylePresets()
-      logger.info('获取预设样式列表', 'main', { count: presets.length })
-
-      return presets
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('获取预设样式失败', 'main', { error: errorMessage })
-      return []
     }
   })
 

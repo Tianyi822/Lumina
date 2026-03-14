@@ -33,6 +33,7 @@
     "fast-xml-parser": "^5.5.3",
     "fflate": "^0.8.2",
     "image-size": "^2.0.2",
+    "jszip2": "npm:jszip@2.6.1",
     "mammoth": "^1.11.0",
     "markdown-it": "^14.1.0",
     "officeparser": "^6.0.4",

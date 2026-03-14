@@ -137,6 +137,40 @@ export function registerPptTemplateHandlers(): void {
     }
   })
 
+  // 获取模板源文件数据
+  ipcMain.handle('pptTemplate:getSourceData', (_event, id: string) => {
+    try {
+      if (!isValidTemplateId(id)) {
+        return {
+          success: false,
+          error: '无效的模板 ID'
+        }
+      }
+
+      const sourceData = getPptTemplateService().getTemplateSourceData(id)
+      if (!sourceData) {
+        return {
+          success: false,
+          error: '模板源文件不存在'
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          data: Array.from(sourceData)
+        }
+      }
+    } catch (error) {
+      const errorMessage = `获取模板源文件失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return {
+        success: false,
+        error: errorMessage
+      }
+    }
+  })
+
   // 创建模板
   ipcMain.handle('pptTemplate:create', async (_event, fileData: unknown, request?: unknown) => {
     try {

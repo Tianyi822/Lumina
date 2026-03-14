@@ -1771,6 +1771,7 @@ interface PptTemplateApi {
   list: () => Promise<PptTemplateListResponse>
   getById: (id: string) => Promise<{ success: boolean; data?: PptTemplateListItem; error?: string }>
   getAnalysis: (id: string) => Promise<{ success: boolean; data?: unknown; error?: string }>
+  getSourceData: (id: string) => Promise<{ success: boolean; data?: { data: number[] }; error?: string }>
   create: (file: File, name?: string) => Promise<CreatePptTemplateResult>
   delete: (templateId: string) => Promise<{ success: boolean; error?: string }>
 }
@@ -1788,16 +1789,6 @@ interface PptStyleConfig {
 }
 
 /**
- * PPT 预设样式主题
- */
-interface PptStylePreset {
-  id: string
-  name: string
-  thumbnail?: string
-  config: PptStyleConfig
-}
-
-/**
  * PPT 导出页面预览
  */
 interface PptExportSlidePreview {
@@ -1805,16 +1796,14 @@ interface PptExportSlidePreview {
   title?: string
   contentType: 'title' | 'content' | 'table' | 'list' | 'mixed'
   summary: string
+  previewImageDataUrl?: string
   selected: boolean
 }
 
 /**
- * 样式来源类型
+ * 样式来源类型（仅支持模板）
  */
-type PptStyleSource =
-  | { type: 'preset'; presetId: string }
-  | { type: 'template'; templateId: string }
-  | { type: 'custom'; config: PptStyleConfig }
+type PptStyleSource = { type: 'template'; templateId: string }
 
 interface SlidePosition {
   x: number
@@ -1898,7 +1887,6 @@ interface GeneratePptResult {
 interface PptExportApi {
   preview: (request: PreviewPptExportRequest) => Promise<PreviewPptExportResult>
   generate: (request: GeneratePptRequest) => Promise<GeneratePptResult>
-  getStylePresets: () => Promise<PptStylePreset[]>
   extractTemplateStyle: (
     templateId: string
   ) => Promise<{

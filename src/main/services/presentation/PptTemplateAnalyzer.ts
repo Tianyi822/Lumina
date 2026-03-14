@@ -124,6 +124,7 @@ export class PptTemplateAnalyzer {
   ): Promise<{
     success: boolean
     analysis?: PptTemplateAnalysis
+    thumbnail?: Uint8Array
     error?: string
   }> {
     try {
@@ -154,17 +155,43 @@ export class PptTemplateAnalyzer {
         slides
       }
 
+      // 提取内置缩略图
+      const thumbnail = this.extractThumbnail(files)
+
       logger.info('PPTX 模板分析完成', 'main', {
         templateId,
-        slideCount: slides.length
+        slideCount: slides.length,
+        hasThumbnail: !!thumbnail
       })
 
-      return { success: true, analysis }
+      return { success: true, analysis, thumbnail }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('PPTX 模板分析失败', 'main', { error: errorMessage })
       return { success: false, error: errorMessage }
     }
+  }
+
+  /**
+   * 提取 PPTX 内置缩略图
+   * PPTX 文件通常在 docProps/thumbnail.jpeg 包含缩略图
+   */
+  private extractThumbnail(files: PptxFiles): Uint8Array | undefined {
+    // 尝试常见的缩略图路径
+    const thumbnailPaths = [
+      'docProps/thumbnail.jpeg',
+      'docProps/thumbnail.jpg',
+      'docProps/thumbnail.png'
+    ]
+
+    for (const path of thumbnailPaths) {
+      const thumbnail = files.media.get(path)
+      if (thumbnail) {
+        return thumbnail
+      }
+    }
+
+    return undefined
   }
 
   /**
