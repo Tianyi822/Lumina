@@ -5,7 +5,7 @@
 
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { basename, extname } from 'path'
-import { PptTemplateAnalyzer } from './PptTemplateAnalyzer'
+import { PptTemplateAnalyzer } from './analyzers/PptTemplateAnalyzer'
 import {
   getTemplatesIndexPath,
   getTemplateDirPath,
