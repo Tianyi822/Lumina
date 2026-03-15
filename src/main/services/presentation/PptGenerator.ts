@@ -53,6 +53,19 @@ interface SlideRenderOptions {
 }
 
 /**
+ * 幻灯片渲染模式
+ */
+type SlideRenderKind = 'title' | 'content' | 'table'
+
+/**
+ * 模板动态内容区域
+ */
+interface TemplateDynamicZones {
+  title?: { x: number; y: number; w: number; h: number }
+  content?: { x: number; y: number; w: number; h: number }
+}
+
+/**
  * 当前页内容排版参数
  */
 interface SlideContentMetrics {
@@ -149,7 +162,7 @@ export class PptGenerator {
     style?: SlideStyle,
     options?: SlideRenderOptions
   ): void {
-    const slide = this.createSlideShell(style, options)
+    const slide = this.createSlideShell(style, options, 'title')
     const isCoverSlide = options?.layoutHint === 'cover'
     const isEndingSlide = options?.layoutHint === 'ending'
 
@@ -268,7 +281,7 @@ export class PptGenerator {
     const metrics = this.resolveContentMetrics(blocks, contentPos.w, contentPos.h, options)
 
     const createSlideWithHeader = (): { slide: PptxGenJS.Slide; startY: number } => {
-      const slide = this.createSlideShell(style, options)
+      const slide = this.createSlideShell(style, options, 'content')
 
       slide.addText(title, {
         x: titlePos.x,
@@ -528,15 +541,11 @@ export class PptGenerator {
     position: { x: number; y: number; w: number; h: number },
     metrics: SlideContentMetrics
   ): void {
-    const listItems = items.map((item) => ({
-      text: item,
-      options: {
-        bullet: !ordered,
-        numbered: ordered
-      }
-    }))
+    const listText = items
+      .map((item, index) => `${ordered ? `${index + 1}.` : '•'} ${item}`)
+      .join('\n')
 
-    slide.addText(listItems, {
+    slide.addText(listText, {
       x: position.x,
       y: position.y,
       w: position.w,
@@ -655,7 +664,7 @@ export class PptGenerator {
     style?: SlideStyle,
     options?: SlideRenderOptions
   ): void {
-    const slide = this.createSlideShell(style, options)
+    const slide = this.createSlideShell(style, options, 'table')
 
     // 标题位置配置
     const titlePos = options?.templateSlide
@@ -719,9 +728,14 @@ export class PptGenerator {
    * 注意：只复用模板的排版布局（位置、颜色等），不复用模板中的图片内容
    * @param style - 当前页面样式
    * @param options - 渲染选项
+   * @param renderKind - 渲染模式
    * @returns 幻灯片实例
    */
-  private createSlideShell(style?: SlideStyle, options?: SlideRenderOptions): PptxGenJS.Slide {
+  private createSlideShell(
+    style?: SlideStyle,
+    options?: SlideRenderOptions,
+    renderKind: SlideRenderKind = 'content'
+  ): PptxGenJS.Slide {
     const slide = this.addSlide()
     const bgColor = style?.backgroundColor || this.style.backgroundColor
     slide.background = { color: bgColor }
@@ -729,7 +743,7 @@ export class PptGenerator {
     if (options?.templateSlide) {
       // 不添加背景图片，只保留纯色背景
       // 只渲染模板的形状装饰，不渲染图片
-      this.renderTemplateDecorations(slide, options.templateSlide, style, options.mediaData)
+      this.renderTemplateDecorations(slide, options.templateSlide, style, options, renderKind)
     }
 
     return slide
@@ -797,20 +811,21 @@ export class PptGenerator {
    * @param slide - 当前幻灯片
    * @param templateSlide - 模板页分析结果
    * @param style - 当前页面样式
-   * @param _mediaData - 模板媒体资源（不使用）
+   * @param options - 渲染选项
+   * @param renderKind - 渲染模式
    */
   private renderTemplateDecorations(
     slide: PptxGenJS.Slide,
     templateSlide: PptTemplateSlideAnalysis,
     style: SlideStyle | undefined,
-    _mediaData?: Map<string, string>
+    options?: SlideRenderOptions,
+    renderKind: SlideRenderKind = 'content'
   ): void {
-    const titleZone = style?.titlePosition
-    const contentZone = style?.contentPosition
+    const zones = this.resolveTemplateDynamicZones(style, options, renderKind)
     const elements = [...templateSlide.elements].sort((left, right) => left.zIndex - right.zIndex)
 
     for (const element of elements) {
-      if (!this.shouldRenderTemplateElement(element, titleZone, contentZone)) {
+      if (!this.shouldRenderTemplateElement(element, zones)) {
         continue
       }
 
@@ -824,41 +839,42 @@ export class PptGenerator {
   /**
    * 判断模板元素是否应该复用
    * @param element - 模板元素
-   * @param titleZone - 标题区域
-   * @param contentZone - 内容区域
+   * @param zones - 动态内容区域
    * @returns 是否复用
    */
   private shouldRenderTemplateElement(
     element: PptTemplateElementAnalysis,
-    titleZone?: SlideStyle['titlePosition'],
-    contentZone?: SlideStyle['contentPosition']
+    zones: TemplateDynamicZones
   ): boolean {
-    if (element.kind === 'placeholder' || element.kind === 'table' || element.kind === 'chart') {
+    if (
+      element.kind === 'placeholder' ||
+      element.kind === 'table' ||
+      element.kind === 'chart' ||
+      element.kind === 'image'
+    ) {
       return false
     }
 
-    if (!['shape', 'image'].includes(element.kind)) {
+    if (element.kind !== 'shape') {
       return false
     }
 
-    if (!titleZone && !contentZone) {
+    if (!zones.title && !zones.content) {
       return true
     }
 
-    return !this.isElementOverlappingContentZone(element, titleZone, contentZone)
+    return !this.isElementOverlappingContentZone(element, zones)
   }
 
   /**
    * 判断元素是否与动态内容区域重叠
    * @param element - 模板元素
-   * @param titleZone - 标题区域
-   * @param contentZone - 内容区域
+   * @param zones - 动态内容区域
    * @returns 是否重叠
    */
   private isElementOverlappingContentZone(
     element: PptTemplateElementAnalysis,
-    titleZone?: SlideStyle['titlePosition'],
-    contentZone?: SlideStyle['contentPosition']
+    zones: TemplateDynamicZones
   ): boolean {
     const elementRect = {
       x: element.x / 914400,
@@ -867,17 +883,11 @@ export class PptGenerator {
       h: element.cy / 914400
     }
 
-    const zones = [titleZone, contentZone].filter((zone): zone is NonNullable<typeof zone> =>
+    const zoneList = [zones.title, zones.content].filter((zone): zone is NonNullable<typeof zone> =>
       Boolean(zone)
     )
 
-    return zones.some((zone) => {
-      const zoneRect = {
-        x: this.resolveLength(zone.x, this.slideWidth, 0),
-        y: this.resolveLength(zone.y, this.slideHeight, 0),
-        w: this.resolveLength(zone.w, this.slideWidth, 0),
-        h: this.resolveLength(zone.h, this.slideHeight, 0)
-      }
+    return zoneList.some((zoneRect) => {
       const overlapX = Math.max(
         0,
         Math.min(elementRect.x + elementRect.w, zoneRect.x + zoneRect.w) -
@@ -894,6 +904,70 @@ export class PptGenerator {
 
       return elementArea > 0 && overlapArea / elementArea > 0.2
     })
+  }
+
+  /**
+   * 解析模板模式下需要避让的动态区域
+   * 预览与导出都应遵循同一套固定版式，避免模板装饰遮挡正文
+   * @param style - 当前页面样式
+   * @param options - 渲染选项
+   * @param renderKind - 渲染模式
+   * @returns 动态区域
+   */
+  private resolveTemplateDynamicZones(
+    style: SlideStyle | undefined,
+    options: SlideRenderOptions | undefined,
+    renderKind: SlideRenderKind
+  ): TemplateDynamicZones {
+    if (options?.templateSlide) {
+      if (renderKind === 'content' || renderKind === 'table') {
+        return {
+          title: this.getTemplatePosition(TEMPLATE_LAYOUT_PRESETS.content.title),
+          content: this.getTemplatePosition(TEMPLATE_LAYOUT_PRESETS.content.body)
+        }
+      }
+
+      if (options.layoutHint === 'cover') {
+        return {
+          title: this.getTemplatePosition(TEMPLATE_LAYOUT_PRESETS.cover.title),
+          content: this.getTemplatePosition(TEMPLATE_LAYOUT_PRESETS.cover.body)
+        }
+      }
+
+      if (options.layoutHint === 'ending') {
+        return {
+          title: this.getTemplatePosition(TEMPLATE_LAYOUT_PRESETS.ending.title)
+        }
+      }
+
+      return {
+        title: this.resolvePosition(style?.titlePosition, {
+          x: 0.5,
+          y: options.subtitle ? 2.5 : 3,
+          w: '90%',
+          h: options.subtitle ? 1.2 : 1.5
+        })
+      }
+    }
+
+    return {
+      title: style?.titlePosition
+        ? {
+            x: this.resolveLength(style.titlePosition.x, this.slideWidth, 0),
+            y: this.resolveLength(style.titlePosition.y, this.slideHeight, 0),
+            w: this.resolveLength(style.titlePosition.w, this.slideWidth, 0),
+            h: this.resolveLength(style.titlePosition.h, this.slideHeight, 0)
+          }
+        : undefined,
+      content: style?.contentPosition
+        ? {
+            x: this.resolveLength(style.contentPosition.x, this.slideWidth, 0),
+            y: this.resolveLength(style.contentPosition.y, this.slideHeight, 0),
+            w: this.resolveLength(style.contentPosition.w, this.slideWidth, 0),
+            h: this.resolveLength(style.contentPosition.h, this.slideHeight, 0)
+          }
+        : undefined
+    }
   }
 
   /**

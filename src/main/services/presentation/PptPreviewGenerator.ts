@@ -171,6 +171,36 @@ export class PptPreviewGenerator {
       }
     }
 
+    const isGenericTitleSlide = slide.type === 'title' || slide.type === 'section'
+    if (isGenericTitleSlide) {
+      const titleHeight = slide.subtitle ? 1.2 : 1.5
+      const titleY = slide.subtitle ? 2.5 : 3
+      const titleRect = this.toPreviewRect(
+        {
+          x: 0.5,
+          y: titleY,
+          w: slideSize.width * 0.9,
+          h: titleHeight
+        },
+        slideSize
+      )
+
+      return {
+        title: titleRect,
+        subtitle: slide.subtitle
+          ? this.toPreviewRect(
+              {
+                x: 0.5,
+                y: titleY + titleHeight + 0.3,
+                w: slideSize.width * 0.9,
+                h: 0.8
+              },
+              slideSize
+            )
+          : undefined
+      }
+    }
+
     return {
       title: this.toPreviewRect(
         scaleTemplateLayoutPosition(slideSize, TEMPLATE_LAYOUT_PRESETS.content.title),
@@ -361,12 +391,16 @@ export class PptPreviewGenerator {
     zones: { title: PreviewRect; subtitle?: PreviewRect; content?: PreviewRect },
     canvas: PreviewCanvasSize
   ): string {
+    const isGenericTitleSlide =
+      (slide.type === 'title' || slide.type === 'section') && !slide.layoutHint
     const titleFontSize =
       slide.layoutHint === 'cover'
         ? Math.round((style.titleSize || DEFAULT_STYLE.titleSize) * 1.24)
         : slide.layoutHint === 'ending'
           ? Math.round((style.titleSize || DEFAULT_STYLE.titleSize) * 1.16)
-          : style.titleSize || DEFAULT_STYLE.titleSize
+          : isGenericTitleSlide
+            ? (style.titleSize || DEFAULT_STYLE.titleSize) + 8
+            : style.titleSize || DEFAULT_STYLE.titleSize
 
     const titleMarkup = this.renderPreviewTextBlock(
       slide.title,
@@ -376,7 +410,8 @@ export class PptPreviewGenerator {
         fontFamily: style.titleFont || DEFAULT_STYLE.titleFont,
         fill: this.resolvePreviewColor(style.primaryColor, '#1e3a5f', style),
         fontWeight: 700,
-        centered: slide.layoutHint === 'cover' || slide.layoutHint === 'ending',
+        centered:
+          slide.layoutHint === 'cover' || slide.layoutHint === 'ending' || isGenericTitleSlide,
         maxLines: slide.layoutHint ? 2 : 3
       },
       canvas
@@ -392,9 +427,11 @@ export class PptPreviewGenerator {
               fontSize:
                 slide.layoutHint === 'cover'
                   ? Math.max((style.bodySize || DEFAULT_STYLE.bodySize) + 3, 18)
-                  : Math.max((style.bodySize || DEFAULT_STYLE.bodySize) + 1, 16),
+                  : isGenericTitleSlide
+                    ? (style.bodySize || DEFAULT_STYLE.bodySize) + 4
+                    : Math.max((style.bodySize || DEFAULT_STYLE.bodySize) + 1, 16),
               fontFamily: style.bodyFont || DEFAULT_STYLE.bodyFont,
-              fill: '#64748b',
+              fill: isGenericTitleSlide ? '#666666' : '#64748b',
               centered: true,
               maxLines: 2
             },
