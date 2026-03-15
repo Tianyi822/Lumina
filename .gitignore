@@ -17,7 +17,7 @@ build/
 node_modules/
 dist/
 out/
-docs/
+docs/**
 
 opencode.json
 tsconfig.node.tsbuildinfo
