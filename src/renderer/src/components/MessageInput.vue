@@ -66,6 +66,8 @@ const localSelectedTools = ref<MCPTool[]>(props.selectedMCPTools ?? [])
 const localSelectedKnowledgeBases = ref<KnowledgeBase[]>(props.selectedKnowledgeBases ?? [])
 const localEnableSandboxTools = ref(props.enableSandboxTools ?? false)
 const textareaRef = ref<InstanceType<typeof InputTextarea> | null>(null)
+const showWarning = ref(false)
+const warningTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
 
 const effectiveSessionId = computed(() => sessionId || TEMP_SESSION_ID)
 const { pendingDocs, processingFiles, uploadDocuments, removePendingDoc, clearPendingDocs } =
@@ -200,7 +202,16 @@ function handleSend(): void {
   const message = localInputMessage.value.trim()
   const hasAttachments = pendingDocs.value.length > 0 || pendingImages.value.length > 0
 
-  if ((!message && !hasAttachments) || props.isSending) {
+  if (props.isSending) {
+    showWarning.value = true
+    if (warningTimeout.value) clearTimeout(warningTimeout.value)
+    warningTimeout.value = setTimeout(() => {
+      showWarning.value = false
+    }, 3000)
+    return
+  }
+
+  if (!message && !hasAttachments) {
     return
   }
 
@@ -316,7 +327,7 @@ function handleExportInteractionSelect(value: string): void {
     <InputTextarea
       ref="textareaRef"
       v-model="localInputMessage"
-      :disabled="props.isSending"
+      :is-sending="props.isSending"
       :is-dragging="isDragging"
       :has-attachments="totalAttachmentCount > 0"
       :placeholder="
@@ -333,6 +344,11 @@ function handleExportInteractionSelect(value: string): void {
     <div v-if="voiceInfoMessage" class="voice-info-banner">
       <span class="voice-info-label">INFO</span>
       <span>{{ voiceInfoMessage }}</span>
+    </div>
+
+    <div v-if="showWarning" class="warning-banner">
+      <span class="warning-label">警告</span>
+      <span>正在回复中，请稍候再发送...</span>
     </div>
 
     <ToolSelectionBar
@@ -450,5 +466,39 @@ function handleExportInteractionSelect(value: string): void {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
+}
+
+.warning-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: var(--theme-radius-sm, 6px);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.05) 100%);
+  color: var(--theme-text);
+  font-size: 12px;
+  animation: shake 0.4s ease-in-out;
+}
+
+.warning-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }
 </style>

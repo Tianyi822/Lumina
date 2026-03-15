@@ -4,7 +4,7 @@ import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 const props = defineProps<{
   modelValue: string
-  disabled?: boolean
+  isSending?: boolean
   isDragging?: boolean
   hasAttachments?: boolean
   placeholder?: string
@@ -36,12 +36,15 @@ defineExpose({ focus })
   >
     <textarea
       ref="textareaRef"
-      :model-value="props.modelValue"
+      :value="props.modelValue"
       class="input message-textarea"
-      :class="{ 'has-docs': props.hasAttachments, dragging: props.isDragging }"
+      :class="{ 
+        'has-docs': props.hasAttachments, 
+        dragging: props.isDragging,
+        'is-sending': props.isSending 
+      }"
       :placeholder="props.placeholder"
       rows="3"
-      :disabled="props.disabled"
       @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
       @keydown="emit('keydown', $event)"
     ></textarea>
@@ -104,6 +107,14 @@ defineExpose({ focus })
 .message-textarea:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.message-textarea.is-sending {
+  border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
+}
+
+.message-textarea.is-sending:focus {
+  border-color: var(--theme-accent);
 }
 
 .message-textarea.dragging {
