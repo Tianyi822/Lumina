@@ -18,12 +18,13 @@ const mcpUpdateKey = inject<Ref<number>>('mcpUpdateKey', ref(0))
 
 // 直接使用 MCP Store
 const mcpStore = useMCPStore()
-const { statuses, searchQuery, expandedServers, filteredToolsByServer } = storeToRefs(mcpStore)
+const { statuses, searchQuery, filteredToolsByServer } = storeToRefs(mcpStore)
 
 // 兼容旧命名
 const connectionStatuses = statuses
 const totalToolsCount = computed(() => mcpStore.totalToolsCount)
 const connectedServersCount = computed(() => mcpStore.connectedServersCount)
+const expandedServers = ref<Set<string>>(new Set())
 
 // 本地选择状态（从 props 初始化，保持与会话同步）
 const localSelectedTools = ref<MCPTool[]>(props.selectedTools ?? [])
@@ -77,25 +78,6 @@ function toggleTool(tool: MCPTool): void {
 }
 
 /**
- * 移除单个工具
- */
-function removeTool(tool: MCPTool): void {
-  const index = localSelectedTools.value.findIndex(
-    (t) => t.name === tool.name && t.serverName === tool.serverName
-  )
-  if (index >= 0) {
-    localSelectedTools.value.splice(index, 1)
-  }
-}
-
-/**
- * 清除所有选择
- */
-function clearSelection(): void {
-  localSelectedTools.value = []
-}
-
-/**
  * 获取选中的工具列表
  */
 function getSelectedTools(): MCPTool[] {
@@ -111,8 +93,7 @@ const {
   shouldShowExpandButton,
   setDescriptionRef,
   refreshAllOverflowChecks,
-  clearAllStates: clearDescriptionStates,
-  scrollToTool
+  clearAllStates: clearDescriptionStates
 } = useMCPUI(mcpStore.loadAllTools, expandedServers)
 
 /**
@@ -123,6 +104,7 @@ async function loadTools(): Promise<void> {
 
   // 清空之前的展开状态
   clearDescriptionStates()
+  expandedServers.value = new Set()
 
   // 默认展开所有已连接的服务器
   for (const status of connectionStatuses.value) {
@@ -141,28 +123,53 @@ function handleToggleTool(tool: MCPTool): void {
 }
 
 /**
- * 移除单个工具（包装版本，触发 emit）
+ * 检查指定服务分组是否已全选
  */
-function handleRemoveTool(tool: MCPTool): void {
-  removeTool(tool)
-  emit('tools-selected', getSelectedTools())
+function isServerGroupFullySelected(tools: MCPTool[]): boolean {
+  return tools.length > 0 && tools.every((tool) => isToolSelected(tool))
 }
 
 /**
- * 清除所有选择（包装版本，触发 emit）
+ * 切换指定服务分组的工具全选状态
  */
-function handleClearSelection(): void {
-  clearSelection()
-  emit('tools-selected', [])
+function handleToggleServerGroupTools(tools: MCPTool[]): void {
+  const allSelected = isServerGroupFullySelected(tools)
+
+  if (allSelected) {
+    localSelectedTools.value = localSelectedTools.value.filter(
+      (selectedTool) =>
+        !tools.some(
+          (tool) => tool.name === selectedTool.name && tool.serverName === selectedTool.serverName
+        )
+    )
+  } else {
+    const selectedKeys = new Set(
+      localSelectedTools.value.map((tool) => `${tool.serverName}::${tool.name}`)
+    )
+
+    for (const tool of tools) {
+      const toolKey = `${tool.serverName}::${tool.name}`
+      if (!selectedKeys.has(toolKey)) {
+        localSelectedTools.value.push(tool)
+      }
+    }
+  }
+
+  emit('tools-selected', getSelectedTools())
 }
 
 /**
  * 切换服务器展开状态（包装版本，刷新溢出检查）
  */
 function handleToggleServer(serverName: string): void {
-  mcpStore.toggleServerExpanded(serverName)
+  if (expandedServers.value.has(serverName)) {
+    expandedServers.value.delete(serverName)
+  } else {
+    expandedServers.value.add(serverName)
+  }
+
   // 展开服务器后，检查工具描述溢出状态
-  if (mcpStore.isServerExpanded(serverName)) {
+  if (expandedServers.value.has(serverName)) {
     nextTick(() => {
       refreshAllOverflowChecks()
     })
@@ -242,25 +249,6 @@ onUnmounted(() => {
         />
       </div>
 
-      <!-- 已选工具列表 -->
-      <div v-if="selectedToolsCount > 0" class="selected-tools-bar">
-        <div class="selected-tools-header">
-          <span class="selected-label">已选择 {{ selectedToolsCount }} 个工具:</span>
-          <button class="btn btn-clear-all" @click="handleClearSelection">全部清除</button>
-        </div>
-        <div class="selected-tools-list">
-          <div
-            v-for="tool in localSelectedTools"
-            :key="`selected-${tool.serverName}-${tool.name}`"
-            class="selected-tool-chip"
-            @click="scrollToTool(tool)"
-          >
-            <span class="chip-text">{{ tool.name }}</span>
-            <button class="chip-remove" @click.stop="handleRemoveTool(tool)">×</button>
-          </div>
-        </div>
-      </div>
-
       <!-- 工具列表 -->
       <div class="tools-container">
         <div v-if="Object.keys(filteredToolsByServer).length === 0" class="empty-state">
@@ -278,6 +266,12 @@ onUnmounted(() => {
               expandedServers.has(serverName as string) ? '▼' : '▶'
             }}</span>
             <span class="server-name">{{ serverName }}</span>
+            <button
+              class="btn server-select-all-btn"
+              @click.stop="handleToggleServerGroupTools(tools)"
+            >
+              {{ isServerGroupFullySelected(tools) ? '取消全选' : '全选' }}
+            </button>
             <span
               class="server-status"
               :class="{ connected: mcpStore.isServerConnected(serverName as string) }"
@@ -436,107 +430,6 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
-.selected-tools-bar {
-  max-height: 140px;
-  overflow-y: auto;
-  padding: 8px 12px;
-  background: rgba(99, 102, 241, 0.06);
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  flex-shrink: 0;
-}
-
-.selected-tools-bar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.selected-tools-bar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.selected-tools-bar::-webkit-scrollbar-thumb {
-  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  border-radius: 2px;
-}
-
-.selected-tools-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.selected-label {
-  font-size: 12px;
-  color: var(--theme-text-tertiary);
-}
-
-.btn-clear-all {
-  padding: 2px 8px;
-  font-size: 11px;
-  line-height: 1;
-}
-
-.selected-tools-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.selected-tool-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 6px 3px 8px;
-  background: var(--theme-accent);
-  color: white;
-  border-radius: 10px;
-  font-size: 11px;
-  line-height: 1.2;
-  max-width: 100%;
-  cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.selected-tool-chip:hover {
-  background: var(--theme-accent-secondary);
-}
-
-.selected-tool-chip:active {
-  transform: translateY(0);
-}
-
-.chip-text {
-  font-family: var(--theme-font-mono, monospace);
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chip-remove {
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.7;
-  flex-shrink: 0;
-  border-radius: 50%;
-  transition: all 0.15s;
-}
-
-.chip-remove:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.2);
-}
-
 .tools-container {
   flex: 1;
   overflow-y: auto;
@@ -596,6 +489,13 @@ onUnmounted(() => {
   font-weight: 500;
   font-size: 13px;
   color: var(--theme-text);
+}
+
+.server-select-all-btn {
+  padding: 2px 8px;
+  margin-right: 8px;
+  font-size: 11px;
+  line-height: 1;
 }
 
 .server-status {

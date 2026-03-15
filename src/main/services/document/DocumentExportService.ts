@@ -18,7 +18,10 @@ import {
 } from 'docx'
 import MarkdownIt from 'markdown-it'
 import { logger } from '@main/services/logger'
+import { getPptExportService } from '../presentation/PptExportService'
 import type { ExportFormat, ExportMessageRequest, ExportMessageResult } from '@shared/types'
+import type { ExportPptRequest } from '@shared/types/export'
+import type { PptExportConfig } from '@shared/types/ppt-export'
 
 interface InlineSegment {
   text: string
@@ -140,6 +143,9 @@ export class DocumentExportService {
           break
         case 'pdf':
           buffer = await this.buildPdfDocument(normalizedMarkdown, request)
+          break
+        case 'ppt':
+          buffer = await this.buildPptDocument(normalizedContent, request)
           break
         default:
           return {
@@ -739,6 +745,74 @@ export class DocumentExportService {
         return 24
       default:
         return 22
+    }
+  }
+
+  // ==================== PPT 导出 ====================
+
+  /**
+   * 构建 PPT 文档
+   * 使用 PptExportService 进行内容解析和生成
+   */
+  private async buildPptDocument(
+    content: string,
+    request: ExportMessageRequest
+  ): Promise<Buffer> {
+    const pptExportService = getPptExportService()
+
+    // 首先进行预览，解析内容为幻灯片结构
+    const previewResult = await pptExportService.previewExport(content)
+
+    if (!previewResult.success || !previewResult.config) {
+      throw new Error(previewResult.error || 'PPT 内容解析失败')
+    }
+
+    // 应用用户自定义样式（如果有）
+    const config = previewResult.config
+    if (this.isExportPptRequest(request)) {
+      this.applyPptExportOptions(config, request)
+    }
+
+    // 生成 PPT
+    const generateResult = await pptExportService.generatePpt({
+      content,
+      config,
+      title: request.title
+    })
+
+    if (!generateResult.success || !generateResult.data) {
+      throw new Error(generateResult.error || 'PPT 生成失败')
+    }
+
+    return Buffer.from(generateResult.data)
+  }
+
+  /**
+   * 判断是否为 PPT 导出请求
+   */
+  private isExportPptRequest(request: ExportMessageRequest): request is ExportPptRequest {
+    return request.format === 'ppt' && 'options' in request
+  }
+
+  /**
+   * 应用 PPT 导出选项
+   * 复用现有预览配置，并叠加页面选择与样式覆盖
+   */
+  private applyPptExportOptions(config: PptExportConfig, request: ExportPptRequest): void {
+    if (!request.options) {
+      return
+    }
+
+    if (request.options.style) {
+      config.style = { ...config.style, ...request.options.style }
+    }
+
+    if (request.options.pageIndices && request.options.pageIndices.length > 0) {
+      const selectedIndexSet = new Set(request.options.pageIndices)
+      config.slides = config.slides.map((slide) => ({
+        ...slide,
+        selected: selectedIndexSet.has(slide.index)
+      }))
     }
   }
 
@@ -1424,6 +1498,8 @@ export class DocumentExportService {
         return 'pdf'
       case 'txt':
         return 'txt'
+      case 'ppt':
+        return 'pptx'
     }
   }
 
@@ -1440,6 +1516,10 @@ export class DocumentExportService {
         return 'application/pdf'
       case 'txt':
         return 'text/plain;charset=utf-8'
+      case 'ppt':
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      default:
+        return 'application/octet-stream'
     }
   }
 

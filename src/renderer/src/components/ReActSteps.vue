@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import type { ReActIteration, ReActStep } from '@renderer/types'
 import ToolCallPanel from './ToolCallPanel.vue'
 import type { ToolCallPanelItem } from './ToolCallPanel.vue'
+import SvgIcon from './icons/SvgIcon.vue'
 
 interface PhaseUnit {
   key: string
@@ -269,17 +270,7 @@ function getPhaseLabel(iteration: number): string {
                       @click="toggleReasoning(unit.key)"
                     >
                       <div class="reasoning-header-left">
-                        <svg
-                          class="reasoning-icon"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <circle cx="12" cy="12" r="10" />
-                          <line x1="12" y1="16" x2="12" y2="12" />
-                          <line x1="12" y1="8" x2="12.01" y2="8" />
-                        </svg>
+                        <SvgIcon name="info" class="reasoning-icon" :size="16" />
                         <span class="reasoning-label">思考</span>
                       </div>
 

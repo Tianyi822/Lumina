@@ -2,6 +2,7 @@
 import MarkdownIt from 'markdown-it'
 import { computed, onBeforeUnmount, ref, useSlots, watch } from 'vue'
 import ReasoningPanel from './ReasoningPanel.vue'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import type { Message } from '@renderer/types'
 import { getFileTypeIcon } from '@renderer/utils/fileIcons'
 import { estimateTokenCount, formatTokenCount } from '@renderer/utils/tokenEstimate'
@@ -358,17 +359,10 @@ function formatFileSize(bytes: number): string {
       <!-- 头像 -->
       <div class="message-avatar">
         <div v-if="message.role === 'user'" class="avatar user-avatar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
+          <SvgIcon name="avatar-user" :size="18" />
         </div>
         <div v-else class="avatar ai-avatar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="9" y1="9" x2="15" y2="9" />
-            <line x1="9" y1="15" x2="15" y2="15" />
-          </svg>
+          <SvgIcon name="avatar-ai" :size="18" />
         </div>
       </div>
 
@@ -377,19 +371,11 @@ function formatFileSize(bytes: number): string {
         <span class="sender-name">{{ senderName }}</span>
         <span v-if="showTimestamp" class="sender-time">{{ formattedTime }}</span>
         <span v-if="hasStructuredReact" class="thinking-indicator">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
+          <SvgIcon name="thinking" :size="12" />
           分阶段推理
         </span>
         <span v-else-if="showStandaloneReasoning" class="thinking-indicator">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
+          <SvgIcon name="thinking" :size="12" />
           已思考
         </span>
       </div>
@@ -417,15 +403,12 @@ function formatFileSize(bytes: number): string {
         class="document-indicators"
       >
         <div v-for="(doc, index) in message.attachedDocuments" :key="index" class="doc-badge">
-          <svg
+          <SvgIcon
             class="doc-icon"
-            width="14"
-            height="14"
-            viewBox="0 0 1024 1024"
-            :style="{ color: getFileTypeIcon(doc.fileName).color }"
-          >
-            <path :d="getFileTypeIcon(doc.fileName).path" fill="currentColor" />
-          </svg>
+            :name="getFileTypeIcon(doc.fileName).name"
+            :size="14"
+            :color="getFileTypeIcon(doc.fileName).color"
+          />
           <span class="doc-name" :title="doc.fileName">{{ doc.fileName }}</span>
           <span class="doc-size">{{ formatFileSize(doc.fileSize) }}</span>
         </div>
@@ -505,12 +488,7 @@ function formatFileSize(bytes: number): string {
               :title="isExporting ? '正在导出中' : '导出当前回复'"
               @click="handleRequestExport"
             >
-              <svg viewBox="0 0 1024 1024" aria-hidden="true">
-                <path
-                  d="M980.322411 166.909763a140.98426 140.98426 0 0 1 42.903265 87.469893V893.053268a130.946732 130.946732 0 0 1-130.774659 130.946732H131.434269A130.946732 130.946732 0 0 1 0.659609 893.053268V130.946732A130.946732 130.946732 0 0 1 131.434269 0h254.035512a135.076458 135.076458 0 0 1 95.442559 48.35221l41.813476 48.294852a84.028455 84.028455 0 0 0 21.967849 25.179858 53.399653 53.399653 0 0 0 32.693665 9.119812h308.754383a134.674957 134.674957 0 0 1 94.180698 35.963031z m-229.429228 439.012827a43.591553 43.591553 0 0 0-6.940234-47.49185L544.80838 342.881981a51.621576 51.621576 0 0 0-13.651039-9.922814 21.394275 21.394275 0 0 0-18.641125 1.26186 47.147706 47.147706 0 0 0-18.641125 5.735731 69.172912 69.172912 0 0 0-13.651039 10.553744L281.079482 558.602812a38.658825 38.658825 0 0 0-12.446535 22.942923 43.362124 43.362124 0 0 0 4.990086 24.319498 39.691256 39.691256 0 0 0 16.863048 18.067551 48.35221 48.35221 0 0 0 22.942923 5.735731h103.243152v143.393267a50.359715 50.359715 0 0 0 15.54383 32.980452 49.786142 49.786142 0 0 0 32.923094 15.601187h94.639557a42.960623 42.960623 0 0 0 48.524281-48.581639v-143.393267h95.729345a39.633899 39.633899 0 0 0 47.262421-23.745925z"
-                  fill="currentColor"
-                />
-              </svg>
+              <SvgIcon name="export" :size="12" />
               <span>{{ isExporting ? '导出中' : '导出' }}</span>
             </button>
 
@@ -687,6 +665,7 @@ function formatFileSize(bytes: number): string {
   flex-direction: column;
   gap: var(--theme-spacing-sm);
   margin-left: var(--message-content-offset);
+  width: fit-content;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;

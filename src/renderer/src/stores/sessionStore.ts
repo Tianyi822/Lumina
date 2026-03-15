@@ -104,6 +104,8 @@ export const useSessionStore = defineStore('session', () => {
           if (session) {
             currentSession.value = session
             currentChatId.value = session.sessionId
+            inputState.applySessionSelectionState(sessionId, session.selectionState)
+            inputState.switchToSession(sessionId)
             if (cached.title) {
               currentSession.value.title = cached.title
             }
@@ -115,9 +117,6 @@ export const useSessionStore = defineStore('session', () => {
               messageCount: messages.value.length,
               isStreaming: messages.value.some((m) => m.isStreaming)
             })
-
-            // 恢复输入状态
-            inputState.switchToSession(sessionId)
 
             // 同步发送状态
             const isStreaming = messages.value.some((m) => m.isStreaming)
@@ -133,6 +132,8 @@ export const useSessionStore = defineStore('session', () => {
       if (session) {
         currentSession.value = session
         currentChatId.value = session.sessionId
+        inputState.applySessionSelectionState(sessionId, session.selectionState)
+        inputState.switchToSession(sessionId)
         messages.value = session.messages.map(sessionMessageToMessage)
 
         window.api.logger.info('[SessionStore] 从磁盘加载会话', {
@@ -140,9 +141,6 @@ export const useSessionStore = defineStore('session', () => {
           title: session.title,
           messageCount: messages.value.length
         })
-
-        // 恢复输入状态
-        inputState.switchToSession(sessionId)
 
         return true
       } else {
@@ -207,7 +205,8 @@ export const useSessionStore = defineStore('session', () => {
         sessionType: (sessionType || 'chat') as SessionType,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        messages: []
+        messages: [],
+        selectionState: inputState.getCurrentSelectionState()
       }
 
       currentSession.value = fallbackSession
@@ -233,7 +232,8 @@ export const useSessionStore = defineStore('session', () => {
         sessionType: currentSession.value.sessionType,
         createdAt: currentSession.value.createdAt,
         updatedAt: new Date().toISOString(),
-        messages: messages.value.map(messageToSessionMessage)
+        messages: messages.value.map(messageToSessionMessage),
+        selectionState: inputState.getCurrentSelectionState()
       }
 
       const result = await window.api.session.save(sessionToSave)
@@ -245,6 +245,7 @@ export const useSessionStore = defineStore('session', () => {
 
       currentSession.value.messages = sessionToSave.messages
       currentSession.value.updatedAt = sessionToSave.updatedAt
+      currentSession.value.selectionState = sessionToSave.selectionState
 
       await refreshSessionList()
 
@@ -386,6 +387,10 @@ export const useSessionStore = defineStore('session', () => {
     // 保存输入状态
     inputState.saveCurrentState(sessionId)
 
+    if (currentSession.value) {
+      currentSession.value.selectionState = inputState.getCurrentSelectionState()
+    }
+
     // 缓存消息（如果有）
     if (messages.value.length > 0) {
       messageCache.cacheSession(sessionId, messages.value, currentSession.value?.title)
@@ -409,6 +414,17 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     return inputRestored || sessionLoaded
+  }
+
+  // 持久化当前会话的选择状态
+  async function persistCurrentSelectionState(): Promise<boolean> {
+    if (!currentChatId.value || !currentSession.value) {
+      return false
+    }
+
+    inputState.saveCurrentState(currentChatId.value)
+    currentSession.value.selectionState = inputState.getCurrentSelectionState()
+    return await saveCurrentSession()
   }
 
   // 添加消息到当前会话
@@ -455,6 +471,7 @@ export const useSessionStore = defineStore('session', () => {
     handleDeleteSession,
     saveCurrentStateBeforeLeave,
     restoreStateAfterReturn,
+    persistCurrentSelectionState,
     addMessage,
     updateMessage,
     getStreamingMessage

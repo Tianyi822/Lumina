@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { ThemeConfig } from '@renderer/types'
 import { useTheme } from '@renderer/composables/useTheme'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 interface Props {
   modelValue: ThemeConfig
@@ -98,9 +99,7 @@ function isSelected(themeId: string): boolean {
 
         <!-- 选中指示器 -->
         <div v-if="isSelected(theme.id)" class="selected-indicator">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
+          <SvgIcon name="check" :size="14" />
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@ import type {
   SandboxCreationType
 } from '@shared/types/sandbox'
 import { useSandboxPermissions } from '@renderer/composables/useSandboxPermissions'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 // ==================== Props & Emits ====================
 
@@ -155,15 +156,7 @@ function formatEnv(env: string[]): string[] {
 
           <!-- 只读模式提示：existing 类型显示 -->
           <span v-else-if="isReadOnly" class="read-only-hint" :title="typeMeta?.description">
-            <svg viewBox="0 0 1024 1024" width="14" height="14">
-              <path
-                d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z"
-                fill="currentColor"
-              />
-              <path d="M512 336m-40 0a40 40 0 1 0 80 0 40 40 0 1 0-80 0" fill="currentColor" />
-              <path d="M512 512m-40 0a40 40 0 1 0 80 0 40 40 0 1 0-80 0" fill="currentColor" />
-              <path d="M512 688m-40 0a40 40 0 1 0 80 0 40 40 0 1 0-80 0" fill="currentColor" />
-            </svg>
+            <SvgIcon name="info" :size="14" />
             只读模式
           </span>
 

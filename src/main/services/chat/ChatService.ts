@@ -4,6 +4,7 @@ import { configManager } from '../config'
 import { logger } from '../logger'
 import { mcpService } from '../mcp'
 import { sandboxToolService } from '../sandbox'
+import { getPptTemplateService, presentationToolService } from '../presentation'
 import type {
   ChatRequest,
   ChatResult,
@@ -86,12 +87,16 @@ export class ChatService {
    */
   async sendMessage(request: ChatRequest, webContents: WebContents): Promise<ChatResult> {
     const { selectedTools, selectedKnowledgeBases, sessionId } = request
+    const enablePresentationTools = this.shouldExposePresentationTools(request)
 
     this.clearStoppedSession(sessionId)
 
     // 判断是否有知识库或工具需要使用
     const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
-    const hasTools = (selectedTools && selectedTools.length > 0) || request.enableSandboxTools
+    const hasTools =
+      (selectedTools && selectedTools.length > 0) ||
+      request.enableSandboxTools ||
+      enablePresentationTools
 
     // 如果有知识库或工具，使用 ReAct 模式，让模型决定是否调用知识库工具
     if (hasKnowledgeBases || hasTools) {
@@ -110,6 +115,18 @@ export class ChatService {
     this.clearStoppedSession(sessionId)
 
     return result
+  }
+
+  /**
+   * 判断当前请求是否需要暴露 PPT 模板工具
+   * 不基于用户输入内容做本地意图判断，仅根据模板可用性与当前会话状态决定是否暴露给模型。
+   */
+  private shouldExposePresentationTools(request: ChatRequest): boolean {
+    if (request.selectedPptTemplate) {
+      return true
+    }
+
+    return getPptTemplateService().getAvailableTemplates().length > 0
   }
 
   /**
@@ -361,6 +378,7 @@ export class ChatService {
       maxReactIterations = 10,
       enableSandboxTools
     } = request
+    const enablePresentationTools = this.shouldExposePresentationTools(request)
 
     logger.info('开始发送聊天消息（ReAct 模式）', 'main', {
       sessionId,
@@ -368,7 +386,8 @@ export class ChatService {
       messageCount: messages.length,
       toolCount: selectedTools?.length,
       selectedToolNames: selectedTools?.map((t) => `${t.serverName}/${t.toolName}`),
-      enableSandboxTools
+      enableSandboxTools,
+      exposePresentationTools: enablePresentationTools
     })
 
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
@@ -419,6 +438,30 @@ export class ChatService {
         logger.info('已添加沙箱工具到工具列表', 'main', {
           sessionId,
           sandboxToolCount: sandboxTools.length,
+          totalToolCount: allTools.length
+        })
+      }
+
+      // 如果存在可用 PPT 模板，则将模板工具暴露给模型，由模型自行判断是否调用
+      if (enablePresentationTools) {
+        const presentationTools = presentationToolService.getTools().map((tool) => {
+          const toolName = tool.name.startsWith('presentation__')
+            ? tool.name.slice('presentation__'.length)
+            : tool.name
+
+          return {
+            serverName: tool.serverName || 'presentation',
+            toolName,
+            description: tool.description,
+            inputSchema: tool.inputSchema
+          }
+        })
+
+        allTools.push(...presentationTools)
+
+        logger.info('已添加 PPT 模板工具到工具列表', 'main', {
+          sessionId,
+          presentationToolCount: presentationTools.length,
           totalToolCount: allTools.length
         })
       }

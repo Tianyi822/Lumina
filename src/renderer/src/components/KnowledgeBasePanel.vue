@@ -114,25 +114,6 @@ function toggleSelectAll(): void {
 }
 
 /**
- * 移除单个选中的知识库
- */
-function removeSelectedKB(kb: KnowledgeBase): void {
-  const index = localSelectedKBs.value.findIndex((selected) => selected.id === kb.id)
-  if (index >= 0) {
-    localSelectedKBs.value.splice(index, 1)
-    emitSelectionChange()
-  }
-}
-
-/**
- * 清除所有选择
- */
-function clearAllSelection(): void {
-  localSelectedKBs.value = []
-  emitSelectionChange()
-}
-
-/**
  * 触发选择变更事件
  */
 function emitSelectionChange(): void {
@@ -260,8 +241,7 @@ watch(searchQuery, () => {
 
 // 暴露方法给父组件
 defineExpose({
-  getSelectedKBsInfo: () => localSelectedKBs.value.map(getKBInfo),
-  clearSelection: clearAllSelection
+  getSelectedKBsInfo: () => localSelectedKBs.value.map(getKBInfo)
 })
 </script>
 
@@ -299,20 +279,6 @@ defineExpose({
           class="input search-input"
           placeholder="搜索知识库..."
         />
-      </div>
-
-      <!-- 已选知识库列表 -->
-      <div v-if="selectedKBsCount > 0" class="selected-kbs-bar">
-        <div class="selected-kbs-header">
-          <span class="selected-label">已选择 {{ selectedKBsCount }} 个知识库:</span>
-          <button class="btn btn-clear-all" @click="clearAllSelection">全部清除</button>
-        </div>
-        <div class="selected-kbs-list">
-          <div v-for="kb in localSelectedKBs" :key="`selected-${kb.id}`" class="selected-kb-chip">
-            <span class="chip-text">{{ kb.name }}</span>
-            <button class="chip-remove" @click.stop="removeSelectedKB(kb)">×</button>
-          </div>
-        </div>
       </div>
 
       <!-- 全选/取消全选按钮 -->
@@ -476,106 +442,6 @@ defineExpose({
 .search-input {
   width: 100%;
   font-size: 13px;
-}
-
-.selected-kbs-bar {
-  max-height: 120px;
-  overflow-y: auto;
-  padding: 8px 12px;
-  background: rgba(99, 102, 241, 0.06);
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  flex-shrink: 0;
-}
-
-.selected-kbs-bar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.selected-kbs-bar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.selected-kbs-bar::-webkit-scrollbar-thumb {
-  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  border-radius: 2px;
-}
-
-.selected-kbs-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.selected-label {
-  font-size: 12px;
-  color: var(--theme-text-tertiary);
-}
-
-.btn-clear-all {
-  padding: 2px 8px;
-  font-size: 11px;
-  line-height: 1;
-}
-
-.selected-kbs-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.selected-kb-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 6px 3px 8px;
-  background: var(--theme-accent);
-  color: white;
-  border-radius: 10px;
-  font-size: 11px;
-  line-height: 1.2;
-  max-width: 100%;
-  cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.selected-kb-chip:hover {
-  background: var(--theme-accent-secondary);
-}
-
-.selected-kb-chip:active {
-  transform: translateY(0);
-}
-
-.chip-text {
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chip-remove {
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0;
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.7;
-  flex-shrink: 0;
-  border-radius: 50%;
-  transition: all 0.15s;
-}
-
-.chip-remove:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.2);
 }
 
 .select-all-bar {

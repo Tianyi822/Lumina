@@ -3,7 +3,11 @@ import type { MCPToolReference, KnowledgeSearchResult } from '@main/types/chat'
 import type { PromptBuildOptions } from './prompts/types'
 import type { PromptConfig as SharedPromptConfig } from '@shared/types/config'
 import type { SessionData } from '@shared/types/session'
-import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt } from './prompts/reactSystemPrompt'
+import {
+  buildReactSystemPrompt,
+  buildKnowledgeEnhancedPrompt,
+  buildPresentationEnhancedPrompt
+} from './prompts/reactSystemPrompt'
 import { PromptCache } from './prompts/PromptCache'
 import { PromptOptimizer } from './prompts/PromptOptimizer'
 import { promptTemplateManager } from './prompts/PromptTemplateManager'
@@ -92,9 +96,11 @@ export class PromptBuilder {
     // 检查是否有知识库工具
     const hasKnowledgeTools =
       selectedTools?.some((tool) => tool.serverName === 'knowledge') || false
+    const hasPresentationTools =
+      selectedTools?.some((tool) => tool.serverName === 'presentation') || false
 
     // 如果没有工具和知识库工具，使用简单提示词
-    if (!hasTools && !hasKnowledgeTools) {
+    if (!hasTools && !hasKnowledgeTools && !hasPresentationTools) {
       return this.getBasicSystemPrompt()
     }
 
@@ -142,6 +148,10 @@ export class PromptBuilder {
     let finalPrompt = prompt
     if (hasKnowledgeTools) {
       finalPrompt += '\n\n' + buildKnowledgeEnhancedPrompt()
+    }
+
+    if (hasPresentationTools) {
+      finalPrompt += '\n\n' + buildPresentationEnhancedPrompt()
     }
 
     // 应用优化

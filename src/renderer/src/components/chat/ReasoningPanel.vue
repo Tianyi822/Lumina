@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import MarkdownIt from 'markdown-it'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { estimateTokenCount, formatTokenCount } from '@renderer/utils/tokenEstimate'
 
 // 初始化 markdown-it 实例
@@ -72,11 +73,7 @@ const contentTokenLabel = computed(() => {
     <div class="panel-header" @click="toggle">
       <div class="header-left">
         <div class="header-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
+          <SvgIcon name="thinking" :size="20" />
         </div>
         <div class="header-text">
           <span class="header-label">思考过程</span>
@@ -85,9 +82,7 @@ const contentTokenLabel = computed(() => {
       </div>
       <div class="header-right">
         <div class="expand-arrow" :class="{ rotated: isActuallyExpanded }">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+          <SvgIcon name="arrow-down" :size="16" />
         </div>
       </div>
     </div>

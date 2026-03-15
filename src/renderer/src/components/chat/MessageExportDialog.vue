@@ -11,6 +11,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'select-format', format: ExportFormat): void
+  (e: 'open-ppt-config'): void
 }>()
 
 /**
@@ -27,7 +28,12 @@ function handleClose(): void {
  */
 function handleSelectFormat(format: ExportFormat): void {
   if (!props.isExporting) {
-    emit('select-format', format)
+    // PPT 格式需要打开配置对话框
+    if (format === 'ppt') {
+      emit('open-ppt-config')
+    } else {
+      emit('select-format', format)
+    }
   }
 }
 
@@ -48,9 +54,9 @@ function handleKeydown(event: KeyboardEvent): void {
     '2': 'word',
     w: 'word',
     '3': 'pdf',
-    p: 'pdf',
     '4': 'txt',
-    t: 'txt'
+    t: 'txt',
+    '5': 'ppt'
   }
 
   const selectedFormat = shortcuts[key]
@@ -74,7 +80,7 @@ onUnmounted(() => {
       <div class="export-dialog-header">
         <div>
           <h3 class="export-dialog-title">导出内容</h3>
-          <p class="export-dialog-subtitle">选择文档格式后将直接开始下载</p>
+          <p class="export-dialog-subtitle">选择导出格式后会直接下载对应文件</p>
         </div>
         <button class="export-dialog-close" :disabled="isExporting" @click="handleClose">
           关闭
@@ -102,7 +108,7 @@ onUnmounted(() => {
       </div>
 
       <div class="export-dialog-footer">
-        {{ isExporting ? '正在生成文档，请稍候...' : '支持快捷键 1/2/3/4 或 M/W/P/T 选择格式' }}
+        {{ isExporting ? '正在生成文档，请稍候...' : '支持快捷键 1/5 或 M/W/P/T/PPT 选择格式' }}
       </div>
     </div>
   </div>

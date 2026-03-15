@@ -5,9 +5,11 @@ import type { Logger } from '../../logger'
 import type { MCPService } from '../../mcp'
 import { sandboxToolService } from '../../sandbox'
 import { knowledgeToolService } from '../../knowledge'
-import type { MCPToolReference, StreamEvent } from '../../../types/chat'
+import { presentationToolService } from '../../presentation'
+import type { MCPToolReference, StreamEvent, UserInteractionRequest } from '../../../types/chat'
 import { enhanceToolDescriptions } from './ToolDescriptionEnhancer'
 import type { ToolCallScheduler } from './ToolCallScheduler'
+import type { MCPToolCallResult } from '@shared/types/mcp'
 
 export interface ToolCallDefinition {
   id: string
@@ -90,6 +92,18 @@ export class ToolExecutor {
           type: 'function' as const,
           function: {
             name: `knowledge__${tool.toolName}`,
+            description: tool.description,
+            parameters: tool.inputSchema as Record<string, unknown>
+          }
+        })
+        continue
+      }
+
+      if (tool.serverName === 'presentation') {
+        openAITools.push({
+          type: 'function' as const,
+          function: {
+            name: `presentation__${tool.toolName}`,
             description: tool.description,
             parameters: tool.inputSchema as Record<string, unknown>
           }
@@ -231,6 +245,10 @@ export class ToolExecutor {
       return this.executeKnowledgeTool(toolCall, toolName, webContents, sessionId)
     }
 
+    if (serverName === 'presentation') {
+      return this.executePresentationTool(toolCall, toolName, webContents, sessionId)
+    }
+
     return this.executeMcpTool(toolCall, serverName, toolName, webContents, sessionId)
   }
 
@@ -278,27 +296,14 @@ export class ToolExecutor {
 
       this.checkStopped(sessionId)
 
-      if (result.success && result.content) {
-        try {
-          const contentText =
-            Array.isArray(result.content) && result.content[0]?.text ? result.content[0].text : null
-          if (contentText) {
-            const parsed = JSON.parse(contentText)
-            if (parsed.user_interaction_required === true) {
-              this.pendingUserInteraction.add(sessionId)
-              this.sendStreamEvent(webContents, {
-                type: 'user_interaction',
-                sessionId,
-                userInteraction: {
-                  question: parsed.question,
-                  options: parsed.options
-                }
-              })
-            }
-          }
-        } catch {
-          // 不是 JSON 或不是交互请求，忽略
-        }
+      const userInteraction = this.extractUserInteractionRequest(result)
+      if (userInteraction) {
+        this.pendingUserInteraction.add(sessionId)
+        this.sendStreamEvent(webContents, {
+          type: 'user_interaction',
+          sessionId,
+          userInteraction
+        })
       }
 
       this.sendStreamEvent(webContents, {
@@ -409,6 +414,95 @@ export class ToolExecutor {
 
       const errorMessage = error instanceof Error ? error.message : String(error)
       this.logger.error('知识库工具调用失败', 'main', {
+        sessionId,
+        toolName,
+        error: errorMessage
+      })
+
+      this.sendErrorToolResult(webContents, sessionId, toolCall.id, toolName, errorMessage)
+      return JSON.stringify({ error: errorMessage })
+    }
+  }
+
+  /**
+   * 执行 PPT 模板工具调用
+   */
+  private async executePresentationTool(
+    toolCall: ToolCallDefinition,
+    toolName: string,
+    webContents: WebContents,
+    sessionId: string
+  ): Promise<string> {
+    const parsedArgsResult = this.parseToolArguments(toolCall, toolName, webContents, sessionId)
+    if ('error' in parsedArgsResult) {
+      return JSON.stringify({ error: parsedArgsResult.error })
+    }
+    const args = parsedArgsResult.args
+
+    this.logger.info('执行 PPT 模板工具调用', 'main', {
+      sessionId,
+      toolName,
+      args
+    })
+
+    this.sendStreamEvent(webContents, {
+      type: 'tool_call',
+      sessionId,
+      toolCall: {
+        id: toolCall.id,
+        name: toolName,
+        serverName: 'presentation',
+        arguments: args
+      }
+    })
+
+    try {
+      this.checkStopped(sessionId)
+
+      const result = await this.withTimeoutAndStopCheck(
+        presentationToolService.callTool(`presentation__${toolName}`, args),
+        sessionId,
+        60000,
+        `PPT 模板工具调用 ${toolName}`
+      )
+
+      this.checkStopped(sessionId)
+
+      const userInteraction = this.extractUserInteractionRequest(result)
+      if (userInteraction) {
+        this.pendingUserInteraction.add(sessionId)
+        this.sendStreamEvent(webContents, {
+          type: 'user_interaction',
+          sessionId,
+          userInteraction
+        })
+      }
+
+      this.sendStreamEvent(webContents, {
+        type: 'tool_result',
+        sessionId,
+        toolResult: {
+          id: toolCall.id,
+          name: toolName,
+          success: result.success,
+          result: result.content,
+          error: result.error
+        }
+      })
+
+      return result.success
+        ? JSON.stringify(result.content)
+        : JSON.stringify({ error: result.error })
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.name === 'AbortError' || error.message.includes('超时'))
+      ) {
+        throw error
+      }
+
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      this.logger.error('PPT 模板工具调用失败', 'main', {
         sessionId,
         toolName,
         error: errorMessage
@@ -534,6 +628,37 @@ export class ToolExecutor {
       this.logger.error(errorMessage, 'main')
       this.sendErrorToolResult(webContents, sessionId, toolCall.id, toolName, errorMessage)
       return { error: errorMessage }
+    }
+  }
+
+  /**
+   * 从内建工具结果中提取用户交互请求
+   */
+  private extractUserInteractionRequest(result: MCPToolCallResult): UserInteractionRequest | null {
+    if (!result.success || !result.content) {
+      return null
+    }
+
+    try {
+      const contentText =
+        Array.isArray(result.content) && result.content[0]?.text ? result.content[0].text : null
+      if (!contentText) {
+        return null
+      }
+
+      const parsed = JSON.parse(contentText)
+      if (parsed.user_interaction_required !== true) {
+        return null
+      }
+
+      return {
+        question: parsed.question,
+        options: parsed.options,
+        interactionType: parsed.interactionType,
+        initialVisibleCount: parsed.initialVisibleCount
+      }
+    } catch {
+      return null
     }
   }
 

@@ -6,14 +6,22 @@ import KnowledgeBasePanel from './KnowledgeBasePanel.vue'
 import SandboxToolsToggle from './sandbox/SandboxToolsToggle.vue'
 import UserInteractionOptions from './UserInteractionOptions.vue'
 import ChatOptions from './chat/ChatOptions.vue'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import type {
   AppConfig,
   ExportFormat,
   MCPTool,
   KnowledgeBase,
-  UserInteractionRequest
+  UserInteractionRequest,
+  SelectedPptTemplate
 } from '@renderer/types'
-import { useUIStateStore, useChatStreamStore, useConfigStore } from '@renderer/stores'
+import {
+  useUIStateStore,
+  useChatStreamStore,
+  useConfigStore,
+  useInputStateStore,
+  useSessionStore
+} from '@renderer/stores'
 import { useDocumentUploadStore } from '../stores/documentUploadStore'
 import { useImageUploadStore, isImageFile } from '../stores/imageUploadStore'
 import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
@@ -366,6 +374,8 @@ const { showUserInteraction, userInteractionInfo } = storeToRefs(chatStreamStore
 // 配置 Store - 用于获取语音识别配置
 const configStore = useConfigStore()
 const { voiceRecognitionConfig } = storeToRefs(configStore)
+const inputStateStore = useInputStateStore()
+const sessionStore = useSessionStore()
 
 // 语音识别状态
 const isRecording = ref(false)
@@ -716,8 +726,31 @@ function handleStop(): void {
   emit('stop')
 }
 
-function handleUserInteractionSelect(_value: string, label: string): void {
+async function handleUserInteractionSelect(value: string, label: string): Promise<void> {
   chatStreamStore.hideUserInteraction()
+
+  if (userInteractionInfo.value?.interactionType === 'presentation_template') {
+    const selectedTemplate: SelectedPptTemplate = {
+      id: value,
+      name: label
+    }
+
+    inputStateStore.updateSelectedPptTemplate(selectedTemplate)
+    await sessionStore.persistCurrentSelectionState()
+
+    emit(
+      'send',
+      `我选择了 PPT 模板「${label}」（templateId: ${value}）`,
+      localSelectedModel.value,
+      localSelectedTools.value,
+      localSelectedKnowledgeBases.value,
+      localEnableSandboxTools.value,
+      [],
+      []
+    )
+    return
+  }
+
   const message = `我选择：${label}`
   emit(
     'send',
@@ -823,15 +856,12 @@ onUnmounted(async () => {
     <!-- 待发送文档列表 -->
     <div v-if="pendingDocs.length > 0" class="pending-docs-list">
       <div v-for="(doc, index) in pendingDocs" :key="index" class="pending-doc-item">
-        <svg
+        <SvgIcon
           class="pending-doc-icon"
-          width="16"
-          height="16"
-          viewBox="0 0 1024 1024"
-          :style="{ color: getFileTypeIcon(doc.fileName).color }"
-        >
-          <path :d="getFileTypeIcon(doc.fileName).path" fill="currentColor" />
-        </svg>
+          :name="getFileTypeIcon(doc.fileName).name"
+          :size="16"
+          :color="getFileTypeIcon(doc.fileName).color"
+        />
         <div class="pending-doc-info">
           <span class="pending-doc-name" :title="doc.fileName">{{ doc.fileName }}</span>
           <span class="pending-doc-type">{{
@@ -845,15 +875,7 @@ onUnmounted(async () => {
           :disabled="isSending"
           @click="removePendingDoc(index)"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M6 18L18 6M6 6l12 12"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <SvgIcon name="close" :size="12" />
         </button>
       </div>
     </div>
@@ -872,15 +894,7 @@ onUnmounted(async () => {
           :disabled="isSending"
           @click="removePendingImage(index)"
         >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M6 18L18 6M6 6l12 12"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <SvgIcon name="close" :size="10" />
         </button>
       </div>
     </div>
@@ -889,11 +903,7 @@ onUnmounted(async () => {
     <div v-if="processingFiles.length > 0" class="processing-files-list">
       <div v-for="file in processingFiles" :key="file.tempId" class="processing-file-item">
         <span v-if="file.status === 'uploading'" class="processing-status uploading">
-          <svg class="status-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M554.25503 768.57657H469.113887a42.570572 42.570572 0 1 0 0 85.141143h85.141143a42.570572 42.570572 0 0 0 0-85.141143z m341.311426 170.282287h-42.570572A511.593712 511.593712 0 0 0 682.713598 580.369832c-26.139825-25.392973-59.748171-50.785945-59.748171-67.963544s25.392973-25.392973 42.570571-34.355199a433.92109 433.92109 0 0 0 187.459886-392.09737h42.570572a40.330015 40.330015 0 0 0 42.570572-43.317424 40.330015 40.330015 0 0 0-42.570572-42.570572H127.802461A40.330015 40.330015 0 0 0 85.23189 42.636295a40.330015 40.330015 0 0 0 42.570571 43.317424h42.570572A433.92109 433.92109 0 0 0 357.832919 478.051089c17.177599 8.962226 42.570572 26.139825 42.570572 34.355199s-33.608346 42.570572-59.748171 74.685213a472.010549 472.010549 0 0 0-170.282287 349.526799H127.802461a43.317424 43.317424 0 0 0 0 85.887996h767.763995a43.317424 43.317424 0 0 0 0-85.887996z m-640.05228 0a435.414795 435.414795 0 0 1 144.889315-298.740854C443.720914 597.547431 486.291486 554.976859 486.291486 512.406288s-34.355198-74.685213-74.685213-102.318743a345.045686 345.045686 0 0 1-156.092097-324.133826h512.340565a345.045686 345.045686 0 0 1-153.85154 324.133826c-42.570572 25.392973-74.685213 50.785945-74.685213 102.318743S581.888559 597.547431 625.205983 640.118003a435.414795 435.414795 0 0 1 144.889314 298.740854z"
-            />
-          </svg>
+          <SvgIcon class="status-icon" name="spinner" :size="16" :spin="true" />
           上传中: {{ file.fileName }}
         </span>
         <span v-else-if="file.status === 'completed'" class="processing-status completed">
@@ -932,11 +942,7 @@ onUnmounted(async () => {
 
       <div v-if="isDragging" class="drag-overlay">
         <div class="drag-hint">
-          <svg width="48" height="48" viewBox="0 0 1024 1024" fill="currentColor">
-            <path
-              d="M500.330144 493.959456C525.31082 468.616741 525.197683 428.317299 500.330144 403.44976 475.50786 378.627476 435.2763 378.491711 409.820448 403.44976L206.128377 607.051321C143.699314 670.023442 143.857706 771.05489 206.128377 833.325561 268.421675 895.618859 369.453124 895.777251 432.402617 833.325561L817.068825 448.659353C879.520515 386.207663 879.520515 284.836803 817.068825 222.385113 754.639762 159.95605 653.246275 159.933423 590.794585 222.385113L579.526128 233.74408C560.790621 252.479587 530.379363 252.479587 511.643856 233.74408 492.930976 215.0312 492.908349 184.64257 511.643856 165.861808L522.912313 154.502841C623.287566 54.625392 785.186785 54.738529 884.951097 154.502841 984.71541 254.267154 984.873802 416.121117 884.951097 516.541625L500.262262 901.185206C400.22642 1000.451715 238.576103 1000.225441 138.9023 900.551638 39.251125 800.900463 39.002223 639.227518 138.29136 539.214304L341.938176 335.567488C404.751905 273.115798 505.89649 273.251562 568.212416 335.567488 630.528342 397.883414 630.664106 499.027999 568.212416 561.841728L375.879312 754.174832C357.143805 772.910339 326.732547 772.910339 307.99704 754.174832 289.261533 735.439325 289.261533 705.028067 307.99704 686.29256L500.330144 493.959456Z"
-            />
-          </svg>
+          <SvgIcon name="attachment" :size="48" />
           <p>释放文件以上传（支持文档和图片）</p>
         </div>
       </div>
@@ -997,11 +1003,7 @@ onUnmounted(async () => {
           title="上传文件 (文档: txt, md, pdf, doc, docx, csv, pptx / 图片: jpg, png, webp, bmp, tiff)"
           @click="triggerDocumentUpload"
         >
-          <svg width="18" height="18" viewBox="0 0 1024 1024" fill="currentColor">
-            <path
-              d="M500.330144 493.959456C525.31082 468.616741 525.197683 428.317299 500.330144 403.44976 475.50786 378.627476 435.2763 378.491711 409.820448 403.44976L206.128377 607.051321C143.699314 670.023442 143.857706 771.05489 206.128377 833.325561 268.421675 895.618859 369.453124 895.777251 432.402617 833.325561L817.068825 448.659353C879.520515 386.207663 879.520515 284.836803 817.068825 222.385113 754.639762 159.95605 653.246275 159.933423 590.794585 222.385113L579.526128 233.74408C560.790621 252.479587 530.379363 252.479587 511.643856 233.74408 492.930976 215.0312 492.908349 184.64257 511.643856 165.861808L522.912313 154.502841C623.287566 54.625392 785.186785 54.738529 884.951097 154.502841 984.71541 254.267154 984.873802 416.121117 884.951097 516.541625L500.262262 901.185206C400.22642 1000.451715 238.576103 1000.225441 138.9023 900.551638 39.251125 800.900463 39.002223 639.227518 138.29136 539.214304L341.938176 335.567488C404.751905 273.115798 505.89649 273.251562 568.212416 335.567488 630.528342 397.883414 630.664106 499.027999 568.212416 561.841728L375.879312 754.174832C357.143805 772.910339 326.732547 772.910339 307.99704 754.174832 289.261533 735.439325 289.261533 705.028067 307.99704 686.29256L500.330144 493.959456Z"
-            />
-          </svg>
+          <SvgIcon name="attachment" :size="18" />
           <span v-if="totalAttachmentCount > 0" class="doc-count">{{ totalAttachmentCount }}</span>
         </button>
 
@@ -1014,14 +1016,7 @@ onUnmounted(async () => {
           :title="isRecording ? '正在录音...点击停止' : '语音输入'"
           @click="toggleVoiceRecording"
         >
-          <svg width="18" height="18" viewBox="0 0 1024 1024" fill="currentColor">
-            <path
-              d="M512 608 512 608c88 0 160-72 160-160L672 256c0-88-72-160-160-160l0 0c-88 0-160 72-160 160l0 192C352 536 424 608 512 608z"
-            />
-            <path
-              d="M796.6 492.4c2.7-17.5-9.2-33.8-26.7-36.5-17.5-2.6-33.8 9.3-36.5 26.7C716.6 590.6 621.5 672 512 672c-109.5 0-204.7-81.5-221.4-189.5-2.7-17.5-19.1-29.4-36.5-26.7-17.5 2.7-29.4 19-26.7 36.5 20.2 130.5 124 227.8 252.6 241.8L480 832l-96 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l256 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-96 0 0-97.9C672.5 720.1 776.4 622.9 796.6 492.4z"
-            />
-          </svg>
+          <SvgIcon name="microphone" :size="18" />
         </button>
 
         <!-- 执行/停止按钮 -->
