@@ -149,10 +149,7 @@ export class PptExportService {
    * @param templateId - 模板 ID（可选，用于提取样式）
    * @returns 导出预览结果
    */
-  async previewExport(
-    content: string,
-    templateId?: string
-  ): Promise<PreviewPptExportResult> {
+  async previewExport(content: string, templateId?: string): Promise<PreviewPptExportResult> {
     const startTime = Date.now()
     try {
       // 获取可用模板列表
@@ -270,9 +267,7 @@ export class PptExportService {
       slides = this.parseContentToSlides(request.content, expectedSlideCount)
 
       // 过滤选中的幻灯片
-      const selectedIndices = request.config.slides
-        .filter((s) => s.selected)
-        .map((s) => s.index)
+      const selectedIndices = request.config.slides.filter((s) => s.selected).map((s) => s.index)
       const selectedSlides = slides.filter((_, index) => selectedIndices.includes(index))
 
       if (selectedSlides.length === 0) {
@@ -645,7 +640,9 @@ export class PptExportService {
     const slideStyle = this.buildSlideStyle(config, templateSlide)
     const zones = this.resolvePreviewZones(slide, slideSize)
     const backgroundColor = this.resolvePreviewColor(
-      templateSlide?.background?.color || slideStyle?.backgroundColor || config.style.backgroundColor,
+      templateSlide?.background?.color ||
+        slideStyle?.backgroundColor ||
+        config.style.backgroundColor,
       '#ffffff',
       config.style
     )
@@ -805,7 +802,12 @@ export class PptExportService {
     contentZone?: PreviewRect
   ): boolean {
     // 只保留形状，过滤掉占位符、表格、图表和图片
-    if (element.kind === 'placeholder' || element.kind === 'table' || element.kind === 'chart' || element.kind === 'image') {
+    if (
+      element.kind === 'placeholder' ||
+      element.kind === 'table' ||
+      element.kind === 'chart' ||
+      element.kind === 'image'
+    ) {
       return false
     }
 
@@ -834,13 +836,11 @@ export class PptExportService {
     return zones.some((zone) => {
       const overlapX = Math.max(
         0,
-        Math.min(elementRect.x + elementRect.w, zone.x + zone.w) -
-          Math.max(elementRect.x, zone.x)
+        Math.min(elementRect.x + elementRect.w, zone.x + zone.w) - Math.max(elementRect.x, zone.x)
       )
       const overlapY = Math.max(
         0,
-        Math.min(elementRect.y + elementRect.h, zone.y + zone.h) -
-          Math.max(elementRect.y, zone.y)
+        Math.min(elementRect.y + elementRect.h, zone.y + zone.h) - Math.max(elementRect.y, zone.y)
       )
       const overlapArea = overlapX * overlapY
       const elementArea = elementRect.w * elementRect.h
@@ -1120,7 +1120,8 @@ export class PptExportService {
 
     const totalHeight = lines.length * lineHeight
     const startY = options.centered
-      ? clippedRect.y + Math.max(options.fontSize, (clippedRect.h - totalHeight) / 2 + options.fontSize)
+      ? clippedRect.y +
+        Math.max(options.fontSize, (clippedRect.h - totalHeight) / 2 + options.fontSize)
       : clippedRect.y + options.fontSize + 2
     const x = options.centered ? clippedRect.x + clippedRect.w / 2 : clippedRect.x + 8
     const anchor = options.centered ? 'middle' : 'start'

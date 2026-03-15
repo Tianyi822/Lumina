@@ -49,14 +49,14 @@ export class PptTemplateStyleExtractor {
     config.backgroundColor = this.extractBackgroundColor(analysis.slides)
 
     // 推断主题颜色
-    config.primaryColor = this.inferPrimaryColor(
-      analysis.slides.flatMap(s => s.elements)
-    )
+    config.primaryColor = this.inferPrimaryColor(analysis.slides.flatMap((s) => s.elements))
 
     // 提取字体信息（从第一张幻灯片的文本元素）
     if (analysis.slides.length > 0) {
       const firstSlide = analysis.slides[0]
-      const textElements = firstSlide.elements.filter(e => e.kind === 'text' || e.kind === 'placeholder')
+      const textElements = firstSlide.elements.filter(
+        (e) => e.kind === 'text' || e.kind === 'placeholder'
+      )
 
       // 尝试从占位符提取字体信息
       for (const element of textElements) {
@@ -111,9 +111,10 @@ export class PptTemplateStyleExtractor {
    * @param slide - 幻灯片分析结果
    * @returns 标题和内容的占位符位置
    */
-  extractPlaceholderPositions(
-    slide: PptTemplateSlideAnalysis
-  ): { title?: SlidePosition; content?: SlidePosition } {
+  extractPlaceholderPositions(slide: PptTemplateSlideAnalysis): {
+    title?: SlidePosition
+    content?: SlidePosition
+  } {
     const titleCandidates: PptTemplateElementAnalysis[] = []
     const contentCandidates: PptTemplateElementAnalysis[] = []
 
@@ -181,9 +182,7 @@ export class PptTemplateStyleExtractor {
    * @param element - 元素分析结果
    * @returns 英寸位置信息
    */
-  private convertEmuPositionToInches(
-    element: PptTemplateElementAnalysis
-  ): SlidePosition {
+  private convertEmuPositionToInches(element: PptTemplateElementAnalysis): SlidePosition {
     return {
       x: this.convertEmuToInches(element.x),
       y: this.convertEmuToInches(element.y),
@@ -257,7 +256,9 @@ export class PptTemplateStyleExtractor {
     elements: PptTemplateElementAnalysis[]
   ): PptTemplateElementAnalysis | undefined {
     const textElements = elements.filter((element) => {
-      return (element.kind === 'text' || element.kind === 'placeholder') && !!element.text?.plainText
+      return (
+        (element.kind === 'text' || element.kind === 'placeholder') && !!element.text?.plainText
+      )
     })
 
     return this.selectTopMostElement(textElements)
@@ -288,7 +289,7 @@ export class PptTemplateStyleExtractor {
         // 优先保留标题下方的大块区域，避免把页眉、页脚误认为正文区
         return element.y >= titleBottom || element.cy >= titleBottom - element.y
       })
-      .sort((left, right) => (right.cx * right.cy) - (left.cx * left.cy))
+      .sort((left, right) => right.cx * right.cy - left.cx * left.cy)
       .slice(0, 4)
   }
 
@@ -360,7 +361,7 @@ export class PptTemplateStyleExtractor {
     if (/^[0-9A-F]{3}$/.test(normalized)) {
       return normalized
         .split('')
-        .map(c => c + c)
+        .map((c) => c + c)
         .join('')
     }
 
@@ -415,7 +416,9 @@ export class PptTemplateStyleExtractor {
       const slideSize = this.extractSlideSize(analysis)
       const layouts = analysis.slides.map((slide) => ({
         name: slide.layoutName || `Slide ${slide.slideIndex + 1}`,
-        backgroundColor: slide.background?.color ? this.normalizeColor(slide.background.color) : undefined,
+        backgroundColor: slide.background?.color
+          ? this.normalizeColor(slide.background.color)
+          : undefined,
         titlePosition: this.extractPlaceholderPositions(slide).title,
         contentPosition: this.extractPlaceholderPositions(slide).content
       }))

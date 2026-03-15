@@ -11,7 +11,10 @@ export class H2HeaderParser implements ParseStrategy {
    * @returns 是否可处理
    */
   canHandle(context: PptParseContext): boolean {
-    return context.metrics.h2Count > 1 || context.lines.some((line) => context.blockParser.isHorizontalRule(line))
+    return (
+      context.metrics.h2Count > 1 ||
+      context.lines.some((line) => context.blockParser.isHorizontalRule(line))
+    )
   }
 
   /**

@@ -68,7 +68,9 @@ export interface ComposeUpResult {
 }
 
 export type DockerContainerInfo = Awaited<ReturnType<Docker['listContainers']>>[number]
-export type DockerContainerInspect = Awaited<ReturnType<ReturnType<Docker['getContainer']>['inspect']>>
+export type DockerContainerInspect = Awaited<
+  ReturnType<ReturnType<Docker['getContainer']>['inspect']>
+>
 
 export function serialize<T>(data: T): T {
   return JSON.parse(

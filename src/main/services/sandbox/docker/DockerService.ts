@@ -402,7 +402,8 @@ export const dockerService = {
   createContainerFromImage: (options: CreateContainerFromImageOptions) =>
     getDockerService().createContainerFromImage(options),
   execCommand: (id: string, cmd: ExecCommand) => getDockerService().execCommand(id, cmd),
-  getContainerLogs: (id: string, opts?: LogOptions) => getDockerService().getContainerLogs(id, opts),
+  getContainerLogs: (id: string, opts?: LogOptions) =>
+    getDockerService().getContainerLogs(id, opts),
   copyToContainer: (id: string, src: string, dest: string) =>
     getDockerService().copyToContainer(id, src, dest),
   copyFromContainer: (id: string, src: string, dest: string) =>

@@ -183,7 +183,9 @@ export class DockerImageService {
                     }
 
                     const recentImages = images
-                      .filter((image) => image.RepoTags && !image.RepoTags.includes('<none>:<none>'))
+                      .filter(
+                        (image) => image.RepoTags && !image.RepoTags.includes('<none>:<none>')
+                      )
                       .slice(0, 5)
                       .map((image) => ({ id: image.Id.substring(0, 12), tags: image.RepoTags }))
 

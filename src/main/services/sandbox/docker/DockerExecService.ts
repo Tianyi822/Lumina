@@ -24,7 +24,9 @@ export class DockerExecService {
         AttachStdout: true,
         AttachStderr: true,
         WorkingDir: command.workdir,
-        Env: command.env ? Object.entries(command.env).map(([key, value]) => `${key}=${value}`) : undefined
+        Env: command.env
+          ? Object.entries(command.env).map(([key, value]) => `${key}=${value}`)
+          : undefined
       })
 
       const stream = await exec.start({})

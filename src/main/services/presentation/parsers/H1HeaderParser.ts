@@ -86,7 +86,9 @@ export class H1HeaderParser implements ParseStrategy {
             slides.push(slide)
           }
         } else if (leadingLines.some((item) => item.trim().length > 0)) {
-          slides.push(...this.reindexSlides(this.parseWithoutH1(leadingLines, blockParser), slides.length))
+          slides.push(
+            ...this.reindexSlides(this.parseWithoutH1(leadingLines, blockParser), slides.length)
+          )
         }
 
         currentSlideLines = [line]
@@ -107,7 +109,9 @@ export class H1HeaderParser implements ParseStrategy {
         slides.push(slide)
       }
     } else if (leadingLines.some((item) => item.trim().length > 0)) {
-      slides.push(...this.reindexSlides(this.parseWithoutH1(leadingLines, blockParser), slides.length))
+      slides.push(
+        ...this.reindexSlides(this.parseWithoutH1(leadingLines, blockParser), slides.length)
+      )
     }
 
     return slides
@@ -139,7 +143,9 @@ export class H1HeaderParser implements ParseStrategy {
 
     const slides: ParsedSlide[] = []
     if (leadingLines.some((line) => line.trim().length > 0)) {
-      slides.push(...this.reindexSlides(this.parseWithoutH1(leadingLines, blockParser), slides.length))
+      slides.push(
+        ...this.reindexSlides(this.parseWithoutH1(leadingLines, blockParser), slides.length)
+      )
     }
 
     slides.push(
@@ -151,7 +157,9 @@ export class H1HeaderParser implements ParseStrategy {
       })
     )
 
-    for (const section of blockParser.splitByHeading(remainingLines, (line) => blockParser.isH2Header(line))) {
+    for (const section of blockParser.splitByHeading(remainingLines, (line) =>
+      blockParser.isH2Header(line)
+    )) {
       const slide = blockParser.parseSlideByHeading(section, slides.length)
       if (slide) {
         slides.push(slide)

@@ -154,17 +154,16 @@ export class PptGenerator {
     const isEndingSlide = options?.layoutHint === 'ending'
 
     // 标题位置配置
-    const titlePos =
-      isCoverSlide
-        ? this.getTemplatePosition(TEMPLATE_LAYOUT_PRESETS.cover.title)
-        : isEndingSlide
-          ? this.getTemplatePosition(TEMPLATE_LAYOUT_PRESETS.ending.title)
-          : this.resolvePosition(style?.titlePosition, {
-              x: 0.5,
-              y: subtitle ? 2.5 : 3,
-              w: '90%',
-              h: subtitle ? 1.2 : 1.5
-            })
+    const titlePos = isCoverSlide
+      ? this.getTemplatePosition(TEMPLATE_LAYOUT_PRESETS.cover.title)
+      : isEndingSlide
+        ? this.getTemplatePosition(TEMPLATE_LAYOUT_PRESETS.ending.title)
+        : this.resolvePosition(style?.titlePosition, {
+            x: 0.5,
+            y: subtitle ? 2.5 : 3,
+            w: '90%',
+            h: subtitle ? 1.2 : 1.5
+          })
 
     const subtitlePos = subtitle
       ? isCoverSlide
@@ -317,12 +316,17 @@ export class PptGenerator {
         currentY = nextSlide.startY
       }
 
-      const result = this.addContentBlock(slide, block, {
-        x: contentPos.x,
-        y: currentY,
-        w: contentPos.w,
-        h: Math.max(maxY - currentY, 0.5)
-      }, metrics)
+      const result = this.addContentBlock(
+        slide,
+        block,
+        {
+          x: contentPos.x,
+          y: currentY,
+          w: contentPos.w,
+          h: Math.max(maxY - currentY, 0.5)
+        },
+        metrics
+      )
       currentY = result.nextY
     }
 
@@ -351,7 +355,9 @@ export class PptGenerator {
     switch (block.type) {
       case 'paragraph':
         this.addParagraph(slide, block.text, { x, y, w, h }, metrics.bodyFontSize)
-        return { nextY: y + this.calculateParagraphHeight(block.text, w, metrics.bodyFontSize) + 0.22 }
+        return {
+          nextY: y + this.calculateParagraphHeight(block.text, w, metrics.bodyFontSize) + 0.22
+        }
 
       case 'list':
         this.addList(slide, block.items, block.ordered, { x, y, w, h }, metrics)
@@ -361,7 +367,9 @@ export class PptGenerator {
         this.addTable(slide, block.headers, block.rows, { x, y, w }, metrics)
         return {
           nextY:
-            y + this.calculateTableHeight(block.headers, block.rows.length, metrics.bodyFontSize) + 0.22
+            y +
+            this.calculateTableHeight(block.headers, block.rows.length, metrics.bodyFontSize) +
+            0.22
         }
 
       case 'image':
@@ -409,12 +417,12 @@ export class PptGenerator {
    * @param position - 默认 16:9 页面下的位置
    * @returns 当前尺寸下的位置
    */
-  private getTemplatePosition(position: {
+  private getTemplatePosition(position: { x: number; y: number; w: number; h: number }): {
     x: number
     y: number
     w: number
     h: number
-  }): { x: number; y: number; w: number; h: number } {
+  } {
     return scaleTemplateLayoutPosition(this.getCurrentSlideSize(), position)
   }
 
@@ -520,7 +528,7 @@ export class PptGenerator {
     position: { x: number; y: number; w: number; h: number },
     metrics: SlideContentMetrics
   ): void {
-    const listItems = items.map(item => ({
+    const listItems = items.map((item) => ({
       text: item,
       options: {
         bullet: !ordered,
@@ -561,7 +569,7 @@ export class PptGenerator {
 
     // 构建表格数据
     const tableData = [
-      headers.map(h => ({
+      headers.map((h) => ({
         text: h,
         options: {
           bold: true,
@@ -570,8 +578,8 @@ export class PptGenerator {
           fill: { color: this.style.primaryColor }
         }
       })),
-      ...rows.map(row =>
-        row.map(cell => ({
+      ...rows.map((row) =>
+        row.map((cell) => ({
           text: cell,
           options: {
             fontSize: metrics.tableBodyFontSize,
@@ -628,11 +636,7 @@ export class PptGenerator {
    * @param rowCount - 行数
    * @returns 估算的高度（英寸）
    */
-  private calculateTableHeight(
-    _headers: string[],
-    rowCount: number,
-    bodyFontSize: number
-  ): number {
+  private calculateTableHeight(_headers: string[], rowCount: number, bodyFontSize: number): number {
     const scale = bodyFontSize / DEFAULT_STYLE.bodySize
     const headerHeight = 0.5 * scale
     const rowHeight = 0.4 * scale
@@ -863,8 +867,8 @@ export class PptGenerator {
       h: element.cy / 914400
     }
 
-    const zones = [titleZone, contentZone].filter(
-      (zone): zone is NonNullable<typeof zone> => Boolean(zone)
+    const zones = [titleZone, contentZone].filter((zone): zone is NonNullable<typeof zone> =>
+      Boolean(zone)
     )
 
     return zones.some((zone) => {
@@ -874,18 +878,16 @@ export class PptGenerator {
         w: this.resolveLength(zone.w, this.slideWidth, 0),
         h: this.resolveLength(zone.h, this.slideHeight, 0)
       }
-      const overlapX =
-        Math.max(
-          0,
-          Math.min(elementRect.x + elementRect.w, zoneRect.x + zoneRect.w) -
-            Math.max(elementRect.x, zoneRect.x)
-        )
-      const overlapY =
-        Math.max(
-          0,
-          Math.min(elementRect.y + elementRect.h, zoneRect.y + zoneRect.h) -
-            Math.max(elementRect.y, zoneRect.y)
-        )
+      const overlapX = Math.max(
+        0,
+        Math.min(elementRect.x + elementRect.w, zoneRect.x + zoneRect.w) -
+          Math.max(elementRect.x, zoneRect.x)
+      )
+      const overlapY = Math.max(
+        0,
+        Math.min(elementRect.y + elementRect.h, zoneRect.y + zoneRect.h) -
+          Math.max(elementRect.y, zoneRect.y)
+      )
 
       const overlapArea = overlapX * overlapY
       const elementArea = elementRect.w * elementRect.h

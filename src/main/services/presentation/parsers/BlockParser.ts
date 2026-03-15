@@ -149,7 +149,8 @@ export class BlockParser implements BlockParserLike {
 
     const firstBlock = slide.blocks[0]
     if (firstBlock.type === 'list') return `${firstBlock.items.length} 个列表项`
-    if (firstBlock.type === 'table') return `${firstBlock.rows.length} 行 x ${firstBlock.headers.length} 列表格`
+    if (firstBlock.type === 'table')
+      return `${firstBlock.rows.length} 行 x ${firstBlock.headers.length} 列表格`
     if (firstBlock.type === 'paragraph') return this.truncateText(firstBlock.text, 50)
     if (firstBlock.type === 'image') return `图片: ${firstBlock.alt || '未命名'}`
     return '内容页'
@@ -180,10 +181,20 @@ export class BlockParser implements BlockParserLike {
     return this.isH2Header(line) || this.isSubHeader(line)
   }
   extractTitle(line: string): string {
-    return this.sanitizeInlineText(line.trim().replace(/^#+\s+/, '').trim())
+    return this.sanitizeInlineText(
+      line
+        .trim()
+        .replace(/^#+\s+/, '')
+        .trim()
+    )
   }
   extractH2Title(line: string): string {
-    return this.sanitizeInlineText(line.trim().replace(/^##+\s+/, '').trim())
+    return this.sanitizeInlineText(
+      line
+        .trim()
+        .replace(/^##+\s+/, '')
+        .trim()
+    )
   }
 
   private isUnorderedListItem(line: string): boolean {
@@ -209,7 +220,9 @@ export class BlockParser implements BlockParserLike {
         break
       }
 
-      const isTargetItem = ordered ? this.isOrderedListItem(trimmed) : this.isUnorderedListItem(trimmed)
+      const isTargetItem = ordered
+        ? this.isOrderedListItem(trimmed)
+        : this.isUnorderedListItem(trimmed)
       if (!isTargetItem) break
 
       items.push(this.sanitizeInlineText(trimmed.replace(pattern, '').trim()))

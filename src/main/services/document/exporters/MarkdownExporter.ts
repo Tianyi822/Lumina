@@ -30,7 +30,8 @@ export class MarkdownExporter {
         case 'paragraph':
           return this.markdownParser.segmentsToText(block.segments)
         case 'blockquote':
-          return this.markdownParser.segmentsToText(block.segments)
+          return this.markdownParser
+            .segmentsToText(block.segments)
             .split('\n')
             .map((line) => `> ${line}`)
             .join('\n')

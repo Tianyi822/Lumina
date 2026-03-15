@@ -26,12 +26,18 @@ export class PagePlanParser implements ParseStrategy {
 
     for (const rawLine of context.lines) {
       const line = this.normalizePagePlanLine(rawLine, context)
-      if (!line || this.isPlanningNoiseLine(line) || context.blockParser.isHorizontalRule(line)) continue
+      if (!line || this.isPlanningNoiseLine(line) || context.blockParser.isHorizontalRule(line))
+        continue
 
       const marker = this.parsePageMarker(line, context)
       if (marker) {
         if (currentSection) sections.push(currentSection)
-        currentSection = { startPage: marker.startPage, endPage: marker.endPage, title: marker.title, lines: [] }
+        currentSection = {
+          startPage: marker.startPage,
+          endPage: marker.endPage,
+          title: marker.title,
+          lines: []
+        }
         continue
       }
 
@@ -48,7 +54,10 @@ export class PagePlanParser implements ParseStrategy {
     line: string,
     context: PptParseContext
   ): { startPage: number; endPage: number; title: string } | null {
-    const normalized = line.replace(/^[*-]\s+/, '').replace(/^\d+[.)]\s+/, '').trim()
+    const normalized = line
+      .replace(/^[*-]\s+/, '')
+      .replace(/^\d+[.)]\s+/, '')
+      .trim()
     const match = normalized.match(
       /^第\s*(\d+)(?:\s*[-~～至到]\s*(\d+))?\s*页\s*[-—–－：:]\s*(.+)$/
     )
@@ -61,7 +70,10 @@ export class PagePlanParser implements ParseStrategy {
     return { startPage, endPage: Math.max(startPage, endPage), title }
   }
 
-  private reconcileSectionPageCounts(sections: PagePlanSection[], expectedSlideCount?: number): void {
+  private reconcileSectionPageCounts(
+    sections: PagePlanSection[],
+    expectedSlideCount?: number
+  ): void {
     if (!expectedSlideCount || sections.length === 0) return
 
     let delta =
@@ -72,7 +84,8 @@ export class PagePlanParser implements ParseStrategy {
     if (delta === 0 || Math.abs(delta) > 3) return
 
     const sortedSections = [...sections].sort((left, right) => {
-      const scoreDiff = this.getSectionFlexibilityScore(right) - this.getSectionFlexibilityScore(left)
+      const scoreDiff =
+        this.getSectionFlexibilityScore(right) - this.getSectionFlexibilityScore(left)
       if (scoreDiff !== 0) return scoreDiff
 
       const leftCount = left.endPage - left.startPage + 1
@@ -140,7 +153,9 @@ export class PagePlanParser implements ParseStrategy {
     }
 
     if (isEndingSlide) {
-      const endingParagraphs = cleanedLines.map((line) => this.extractLabelValue(line, context)).filter(Boolean)
+      const endingParagraphs = cleanedLines
+        .map((line) => this.extractLabelValue(line, context))
+        .filter(Boolean)
       return [
         {
           index: startIndex,
@@ -211,7 +226,9 @@ export class PagePlanParser implements ParseStrategy {
     const normalizedRows = rows
       .filter((row) => row.length >= Math.min(columnCount, 2))
       .map((row) =>
-        row.length === columnCount ? row : [...row, ...Array.from({ length: columnCount - row.length }, () => '')]
+        row.length === columnCount
+          ? row
+          : [...row, ...Array.from({ length: columnCount - row.length }, () => '')]
       )
     if (normalizedRows.length < 2) return null
 
@@ -230,8 +247,14 @@ export class PagePlanParser implements ParseStrategy {
     return cells.length >= 2 ? cells : null
   }
 
-  private distributeUnits(units: PagePlanContentUnit[], slideCount: number): PagePlanContentUnit[][] {
-    const groups = Array.from({ length: Math.max(1, slideCount) }, () => [] as PagePlanContentUnit[])
+  private distributeUnits(
+    units: PagePlanContentUnit[],
+    slideCount: number
+  ): PagePlanContentUnit[][] {
+    const groups = Array.from(
+      { length: Math.max(1, slideCount) },
+      () => [] as PagePlanContentUnit[]
+    )
     if (units.length === 0) return groups
 
     if (units.length < groups.length) {

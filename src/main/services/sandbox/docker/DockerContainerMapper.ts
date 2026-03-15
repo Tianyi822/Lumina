@@ -7,11 +7,7 @@ import type {
   NetworkSettings,
   PortMapping
 } from '@shared/types/sandbox'
-import type {
-  DockerContainerInfo,
-  DockerContainerInspect,
-  DockerServiceContext
-} from './types'
+import type { DockerContainerInfo, DockerContainerInspect, DockerServiceContext } from './types'
 import { serialize } from './types'
 
 /**

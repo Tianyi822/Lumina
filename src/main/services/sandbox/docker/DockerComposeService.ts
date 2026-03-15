@@ -22,7 +22,12 @@ import { getDockerConfigService } from './DockerConfigService'
 import { DockerContainerService } from './DockerContainerService'
 import { DockerExecService } from './DockerExecService'
 import { DockerStatsService } from './DockerStatsService'
-import { copyDirectory, deduplicateServices, inferBaseImage, parseBuildContexts } from './DockerComposeUtils'
+import {
+  copyDirectory,
+  deduplicateServices,
+  inferBaseImage,
+  parseBuildContexts
+} from './DockerComposeUtils'
 import type { ComposeUpOptions, ComposeUpResult, DockerServiceContext } from './types'
 
 const execAsync = promisify(exec)
@@ -157,10 +162,7 @@ export class DockerComposeService {
 
             logger.info('复制 Dockerfile 配置到临时目录', 'main', {
               id: dockerfileConfig.id,
-              targetPath: path.join(
-                dockerfileConfig.targetContext,
-                dockerfileConfig.targetFilename
-              )
+              targetPath: path.join(dockerfileConfig.targetContext, dockerfileConfig.targetFilename)
             })
           }
         }
@@ -214,7 +216,9 @@ export class DockerComposeService {
           })
         }
 
-        const containers = await this.containerService.getContainersByComposeProject(options.projectName)
+        const containers = await this.containerService.getContainersByComposeProject(
+          options.projectName
+        )
         const containerIds = containers.map((container) => container.id)
 
         logger.info('Docker Compose up 成功', 'main', {

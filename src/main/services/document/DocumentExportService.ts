@@ -86,10 +86,7 @@ export class DocumentExportService {
     }
   }
 
-  private async buildPptDocument(
-    content: string,
-    request: ExportMessageRequest
-  ): Promise<Buffer> {
+  private async buildPptDocument(content: string, request: ExportMessageRequest): Promise<Buffer> {
     const pptExportService = getPptExportService()
     const previewResult = await pptExportService.previewExport(content)
 
@@ -168,7 +165,9 @@ export class DocumentExportService {
     const fileTimestamp = this.formatFileTimestamp(timestamp)
     const extension = this.getFileExtension(format)
 
-    return safeTitle ? `${safeTitle}_${fileTimestamp}.${extension}` : `${fileTimestamp}.${extension}`
+    return safeTitle
+      ? `${safeTitle}_${fileTimestamp}.${extension}`
+      : `${fileTimestamp}.${extension}`
   }
 
   private getFileExtension(format: ExportFormat): string {
