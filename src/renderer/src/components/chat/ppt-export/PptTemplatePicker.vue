@@ -119,26 +119,22 @@ function handleSelectTemplate(templateId: string): void {
 .ppt-export-template-card {
   display: flex;
   flex-direction: column;
-  border: 2px solid var(--theme-border);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: var(--theme-radius-lg);
-  background: var(--theme-bg);
+  background: rgba(0, 0, 0, 0.02);
   cursor: pointer;
   overflow: hidden;
-  transition:
-    border-color 0.2s ease,
-    background-color 0.2s ease,
-    transform 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .ppt-export-template-card:hover {
-  border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
-  background: var(--theme-bg-hover);
-  transform: translateY(-2px);
+  border-color: var(--theme-accent);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .ppt-export-template-card.active {
   border-color: var(--theme-accent);
-  background: color-mix(in srgb, var(--theme-accent) 8%, var(--theme-bg));
+  background: rgba(99, 102, 241, 0.1);
 }
 
 .ppt-export-template-preview {
@@ -150,16 +146,12 @@ function handleSelectTemplate(templateId: string): void {
 
 .ppt-export-template-preview-slide {
   position: absolute;
-  inset: 8px;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
   overflow: hidden;
   background: #ffffff;
-  box-shadow:
-    0 10px 24px rgba(15, 23, 42, 0.12),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.65);
 }
 
 .ppt-export-template-preview-image {

@@ -93,9 +93,9 @@ watch(
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--glass-white-15, rgba(255, 255, 255, 0.15));
   border-radius: var(--theme-radius-lg);
-  background: var(--theme-bg);
+  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
   overflow: hidden;
   padding: 14px;
 }
@@ -145,25 +145,21 @@ watch(
   flex-shrink: 0;
   width: 100px;
   cursor: pointer;
-  border: 2px solid var(--theme-border);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: var(--theme-radius);
-  background: var(--theme-bg);
+  background: rgba(0, 0, 0, 0.02);
   overflow: hidden;
-  transition:
-    border-color 0.15s ease,
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .ppt-export-thumbnail-item:hover {
-  border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--theme-accent);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .ppt-export-thumbnail-item.active {
   border-color: var(--theme-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-accent) 20%, transparent);
+  background: rgba(99, 102, 241, 0.1);
 }
 
 .ppt-export-thumbnail-item.selected {

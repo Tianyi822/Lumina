@@ -82,7 +82,7 @@ onUnmounted(() => {
           <h3 class="export-dialog-title">导出内容</h3>
           <p class="export-dialog-subtitle">选择导出格式后会直接下载对应文件</p>
         </div>
-        <button class="export-dialog-close" :disabled="isExporting" @click="handleClose">
+        <button class="btn export-dialog-close" :disabled="isExporting" @click="handleClose">
           关闭
         </button>
       </div>
@@ -117,64 +117,83 @@ onUnmounted(() => {
 <style scoped>
 .export-dialog-overlay {
   position: fixed;
-  inset: 0;
-  z-index: 1100;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: rgba(15, 23, 42, 0.24);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  z-index: 1100;
+  padding: calc(54px + env(safe-area-inset-top, 0px)) 24px 24px;
+  overflow: hidden;
 }
 
 .export-dialog {
-  width: min(560px, 100%);
-  border: 1px solid var(--theme-border);
-  border-radius: calc(var(--theme-radius-lg) + 2px);
-  background: linear-gradient(
-    180deg,
-    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
-    var(--theme-bg-secondary) 100%
-  );
+  width: min(560px, calc(100vw - 48px));
+  max-height: min(620px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
+    linear-gradient(
+      225deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
+    var(--theme-bg);
+  backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
+  -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  border-radius: var(--theme-radius-lg);
   box-shadow:
-    0 22px 60px rgba(15, 23, 42, 0.18),
-    inset 0 1px 0 var(--glass-white-1, rgba(255, 255, 255, 0.1));
+    0 24px 80px rgba(0, 0, 0, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15)),
+    inset 0 -1px 0 var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
 .export-dialog-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 20px 22px 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  flex-shrink: 0;
 }
 
 .export-dialog-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--theme-text);
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .export-dialog-subtitle {
-  margin: 6px 0 0;
-  font-size: 13px;
+  margin: 4px 0 0;
+  font-size: 12px;
   color: var(--theme-text-secondary);
 }
 
 .export-dialog-close {
-  padding: 8px 12px;
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
-  background: var(--theme-bg);
-  color: var(--theme-text-secondary);
-  cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    color 0.2s ease,
-    background-color 0.2s ease;
+  min-width: 64px;
+  height: 32px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  border-radius: 999px;
+  transition: all 0.2s ease;
 }
 
 .export-dialog-close:hover:not(:disabled) {
@@ -188,14 +207,14 @@ onUnmounted(() => {
 }
 
 .export-preview {
-  margin: 0 22px;
+  margin: 20px 20px 0;
   padding: 14px 16px;
-  border: 1px solid var(--theme-border);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: var(--theme-radius);
-  background: var(--theme-bg);
+  background: rgba(0, 0, 0, 0.02);
   color: var(--theme-text-secondary);
   font-size: 13px;
-  line-height: 1.65;
+  line-height: 1.6;
   word-break: break-word;
 }
 
@@ -203,7 +222,7 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  padding: 18px 22px 14px;
+  padding: 20px;
 }
 
 .export-option-card {
@@ -211,24 +230,19 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 8px;
   padding: 14px 16px;
-  border: 1px solid var(--theme-border);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: var(--theme-radius-lg);
-  background: var(--theme-bg);
+  background: rgba(0, 0, 0, 0.02);
   color: var(--theme-text);
   cursor: pointer;
   text-align: left;
-  transition:
-    transform 0.18s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    background-color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .export-option-card:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
-  background: var(--theme-bg-hover);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  border-color: var(--theme-accent);
+  background: rgba(0, 0, 0, 0.04);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .export-option-card:disabled {
@@ -244,38 +258,46 @@ onUnmounted(() => {
 }
 
 .export-option-label {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .export-option-shortcut {
-  padding: 3px 8px;
+  padding: 2px 8px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--theme-accent) 10%, transparent);
+  background: rgba(99, 102, 241, 0.1);
   color: var(--theme-accent);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .export-option-desc {
   font-size: 12px;
-  line-height: 1.55;
+  line-height: 1.5;
   color: var(--theme-text-secondary);
 }
 
 .export-dialog-footer {
-  padding: 0 22px 20px;
+  padding: 0 20px 20px;
   font-size: 12px;
   color: var(--theme-text-tertiary);
+  text-align: center;
 }
 
 @media (max-width: 640px) {
   .export-dialog-overlay {
-    padding: 16px;
+    padding: 12px;
+  }
+
+  .export-dialog {
+    width: 100%;
+    height: auto;
+    max-height: 90vh;
   }
 
   .export-option-grid {
     grid-template-columns: 1fr;
+    padding: 16px;
   }
 }
 </style>

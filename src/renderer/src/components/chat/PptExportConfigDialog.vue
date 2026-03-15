@@ -202,7 +202,7 @@ async function handleRetry(): Promise<void> {
               <h3 class="ppt-export-dialog-title">导出 PowerPoint</h3>
               <p class="ppt-export-dialog-subtitle">选择要导出的页面和模板</p>
             </div>
-            <button class="ppt-export-dialog-close" :disabled="isGenerating" @click="handleClose">
+            <button class="btn ppt-export-dialog-close" :disabled="isGenerating" @click="handleClose">
               关闭
             </button>
           </div>
@@ -310,73 +310,88 @@ async function handleRetry(): Promise<void> {
 <style scoped>
 .ppt-export-dialog-overlay {
   position: fixed;
-  inset: 0;
-  z-index: 1100;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: rgba(15, 23, 42, 0.24);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  z-index: 1100;
+  padding: calc(54px + env(safe-area-inset-top, 0px)) 24px 24px;
+  overflow: hidden;
 }
 
 .ppt-export-dialog {
-  width: min(960px, 100%);
-  max-height: 85vh;
+  width: min(960px, calc(100vw - 48px));
+  height: min(720px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
+  background:
+    linear-gradient(
+      135deg,
+      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
+      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
+    ),
+    linear-gradient(
+      225deg,
+      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
+      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
+    ),
+    var(--theme-bg);
+  backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
+  -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
+  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  border-radius: var(--theme-radius-lg);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15)),
+    inset 0 -1px 0 var(--glass-white-05, rgba(255, 255, 255, 0.05));
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--theme-border);
-  border-radius: calc(var(--theme-radius-lg) + 2px);
-  background: linear-gradient(
-    180deg,
-    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
-    var(--theme-bg-secondary) 100%
-  );
-  box-shadow:
-    0 22px 60px rgba(15, 23, 42, 0.18),
-    inset 0 1px 0 var(--glass-white-1, rgba(255, 255, 255, 0.1));
   overflow: hidden;
   transition: border-color 0.3s ease;
 }
 
 .ppt-export-dialog-stage-generating {
-  border-color: color-mix(in srgb, var(--theme-accent) 50%, var(--theme-border));
+  border-color: var(--theme-accent);
 }
 
 .ppt-export-dialog-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 20px 22px 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
   flex-shrink: 0;
 }
 
 .ppt-export-dialog-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--theme-text);
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .ppt-export-dialog-subtitle {
-  margin: 6px 0 0;
-  font-size: 13px;
+  margin: 4px 0 0;
+  font-size: 12px;
   color: var(--theme-text-secondary);
 }
 
 .ppt-export-dialog-close {
-  padding: 8px 12px;
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
-  background: var(--theme-bg);
-  color: var(--theme-text-secondary);
-  cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    color 0.2s ease,
-    background-color 0.2s ease;
+  min-width: 64px;
+  height: 32px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  border-radius: 999px;
+  transition: all 0.2s ease;
 }
 
 .ppt-export-dialog-close:hover:not(:disabled) {
@@ -395,7 +410,7 @@ async function handleRetry(): Promise<void> {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 0 22px;
+  padding: 0;
 }
 
 .ppt-export-loading {
@@ -419,11 +434,11 @@ async function handleRetry(): Promise<void> {
 .ppt-export-progress {
   display: flex;
   gap: 10px;
-  margin: 0 0 12px;
+  margin: 16px 20px 0;
   padding: 12px 14px;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--glass-white-15, rgba(255, 255, 255, 0.15));
   border-radius: var(--theme-radius);
-  background: color-mix(in srgb, var(--theme-bg-hover) 45%, transparent);
+  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
   flex-wrap: wrap;
 }
 
@@ -441,7 +456,7 @@ async function handleRetry(): Promise<void> {
 }
 
 .ppt-export-progress-step.done {
-  color: #16a34a;
+  color: var(--theme-success);
 }
 
 .ppt-export-progress-dot {
@@ -463,7 +478,7 @@ async function handleRetry(): Promise<void> {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 0 0 12px;
+  margin: 16px 20px 0;
   padding: 12px 14px;
   border-radius: var(--theme-radius);
   border: 1px solid;
@@ -472,32 +487,32 @@ async function handleRetry(): Promise<void> {
 }
 
 .ppt-export-error-parse {
-  background: color-mix(in srgb, #f59e0b 10%, transparent);
-  border-color: color-mix(in srgb, #f59e0b 30%, transparent);
-  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: var(--theme-warning);
 }
 
 .ppt-export-error-style {
-  background: color-mix(in srgb, #8b5cf6 10%, transparent);
-  border-color: color-mix(in srgb, #8b5cf6 30%, transparent);
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.2);
   color: #8b5cf6;
 }
 
 .ppt-export-error-generate {
-  background: color-mix(in srgb, #ef4444 10%, transparent);
-  border-color: color-mix(in srgb, #ef4444 30%, transparent);
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: var(--theme-danger);
 }
 
 .ppt-export-error-download {
-  background: color-mix(in srgb, #ec4899 10%, transparent);
-  border-color: color-mix(in srgb, #ec4899 30%, transparent);
+  background: rgba(236, 72, 153, 0.08);
+  border-color: rgba(236, 72, 153, 0.2);
   color: #ec4899;
 }
 
 .ppt-export-error-network {
-  background: color-mix(in srgb, #3b82f6 10%, transparent);
-  border-color: color-mix(in srgb, #3b82f6 30%, transparent);
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
   color: #3b82f6;
 }
 
@@ -576,12 +591,12 @@ async function handleRetry(): Promise<void> {
 }
 
 .ppt-export-warning {
-  margin: 0 0 12px;
+  margin: 16px 20px 0;
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, #f59e0b 28%, transparent);
+  border: 1px solid rgba(245, 158, 11, 0.2);
   border-radius: var(--theme-radius);
-  background: color-mix(in srgb, #f59e0b 10%, transparent);
-  color: #b45309;
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--theme-warning);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -590,18 +605,19 @@ async function handleRetry(): Promise<void> {
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: 20px;
+  gap: 0;
   overflow: hidden;
-  padding-bottom: 16px;
 }
 
 .ppt-export-left-panel {
-  width: 280px;
+  width: 260px;
   flex-shrink: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border-right: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  padding: 16px;
 }
 
 .ppt-export-right-panel {
@@ -612,6 +628,7 @@ async function handleRetry(): Promise<void> {
   flex-direction: column;
   gap: 16px;
   overflow: hidden;
+  padding: 20px;
 }
 
 .ppt-export-dialog-footer {
@@ -619,9 +636,9 @@ async function handleRetry(): Promise<void> {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 22px 18px;
-  border-top: 1px solid var(--theme-border);
-  background: var(--theme-bg-secondary);
+  padding: 16px 20px;
+  border-top: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  background: var(--glass-white-02, rgba(255, 255, 255, 0.02));
   flex-shrink: 0;
 }
 
@@ -641,16 +658,13 @@ async function handleRetry(): Promise<void> {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 16px;
-  border-radius: var(--theme-radius);
+  padding: 0 16px;
+  height: 36px;
+  border-radius: 999px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease,
-    opacity 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .ppt-export-btn:disabled {
@@ -667,16 +681,20 @@ async function handleRetry(): Promise<void> {
 .ppt-export-btn-cancel:hover:not(:disabled) {
   border-color: var(--theme-text-tertiary);
   color: var(--theme-text);
+  background: var(--theme-bg-hover);
 }
 
 .ppt-export-btn-export {
   border: none;
   background: var(--theme-accent);
   color: white;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
 }
 
 .ppt-export-btn-export:hover:not(:disabled) {
   background: color-mix(in srgb, var(--theme-accent) 85%, black);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
 }
 
 .ppt-export-btn-spinner {
@@ -701,20 +719,20 @@ async function handleRetry(): Promise<void> {
 .fade-enter-active .ppt-export-dialog,
 .fade-leave-active .ppt-export-dialog {
   transition:
-    transform 0.2s ease,
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
     opacity 0.2s ease;
 }
 
 .fade-enter-from .ppt-export-dialog,
 .fade-leave-to .ppt-export-dialog {
-  transform: scale(0.96);
+  transform: scale(0.96) translateY(10px);
   opacity: 0;
 }
 
 @media (max-width: 960px) {
   .ppt-export-dialog {
-    width: min(1120px, 100%);
-    max-height: calc(100vh - 32px);
+    width: min(1120px, calc(100vw - 24px));
+    height: calc(100vh - 48px);
   }
 
   .ppt-export-main-layout {
@@ -723,16 +741,23 @@ async function handleRetry(): Promise<void> {
 
   .ppt-export-left-panel {
     width: 100%;
-    max-height: 240px;
+    height: 200px;
+    border-right: none;
+    border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
   }
 
   .ppt-export-dialog-footer {
-    flex-direction: column;
-    align-items: stretch;
+    padding: 12px 16px;
   }
 
   .ppt-export-actions {
-    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .ppt-export-btn {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
   }
 }
 </style>
