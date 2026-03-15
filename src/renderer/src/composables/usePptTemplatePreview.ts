@@ -11,6 +11,12 @@ interface PptTemplateAnalysisResult {
   error?: string
 }
 
+interface PptTemplatePreviewResult {
+  success: boolean
+  data?: string
+  error?: string
+}
+
 function toTemplatePreviewRecord(
   entries: Array<[string, TemplatePreviewModel]>
 ): Record<string, TemplatePreviewModel> {
@@ -19,6 +25,7 @@ function toTemplatePreviewRecord(
 
 /**
  * 管理模板首页预览图缓存与加载状态。
+ * 优先使用原 PPT 文件自带的缩略图，如果没有则使用渲染生成的预览图。
  */
 export function usePptTemplatePreview(templates: Ref<PptTemplateListItem[]>) {
   const templatePreviewMap = ref<Record<string, TemplatePreviewModel>>({})
@@ -39,6 +46,20 @@ export function usePptTemplatePreview(templates: Ref<PptTemplateListItem[]>) {
     updateTemplatePreview(templateId, { status: 'loading' })
 
     try {
+      // 首先尝试获取原 PPT 文件自带的缩略图
+      const previewResult = (await window.api.pptTemplate.getFirstSlidePreview(
+        templateId
+      )) as PptTemplatePreviewResult
+
+      if (previewResult.success && previewResult.data) {
+        updateTemplatePreview(templateId, {
+          status: 'ready',
+          imageUrl: previewResult.data
+        })
+        return
+      }
+
+      // 如果没有自带缩略图，则使用分析结果渲染预览图
       const [analysisResult, sourceResult] = await Promise.all([
         window.api.pptTemplate.getAnalysis(templateId) as Promise<PptTemplateAnalysisResult>,
         window.api.pptTemplate.getSourceData(templateId)

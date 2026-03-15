@@ -1772,6 +1772,7 @@ interface PptTemplateApi {
   getById: (id: string) => Promise<{ success: boolean; data?: PptTemplateListItem; error?: string }>
   getAnalysis: (id: string) => Promise<{ success: boolean; data?: unknown; error?: string }>
   getSourceData: (id: string) => Promise<{ success: boolean; data?: { data: number[] }; error?: string }>
+  getFirstSlidePreview: (id: string) => Promise<{ success: boolean; data?: string; error?: string }>
   create: (file: File, name?: string) => Promise<CreatePptTemplateResult>
   delete: (templateId: string) => Promise<{ success: boolean; error?: string }>
 }

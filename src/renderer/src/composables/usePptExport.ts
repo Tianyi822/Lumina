@@ -273,7 +273,9 @@ export function usePptExport(): UsePptExportReturn {
     error.value = null
 
     try {
-      const result = await window.api.pptExport.preview({ content, templateId })
+      // 过滤空字符串，避免后端错误地回退到默认模板
+      const effectiveTemplateId = templateId?.trim() || undefined
+      const result = await window.api.pptExport.preview({ content, templateId: effectiveTemplateId })
       previewData.value = result
 
       if (result.success && result.config) {
@@ -494,8 +496,10 @@ export function usePptExport(): UsePptExportReturn {
 
       exportConfig.value.styleSource = source
 
-      // 从模板提取样式
-      const extraction = await extractTemplateStyle(source.templateId)
+      // 从模板提取样式（过滤空字符串）
+      const extraction = source.templateId?.trim()
+        ? await extractTemplateStyle(source.templateId.trim())
+        : null
       if (extraction?.style) {
         exportConfig.value.style = extraction.style
         exportConfig.value.templateLayouts = extraction.layouts

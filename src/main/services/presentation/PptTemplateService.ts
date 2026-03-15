@@ -351,6 +351,55 @@ export class PptTemplateService {
   }
 
   /**
+   * 获取模板第一页预览图
+   * 优先返回 PPT 文件自带的缩略图，如果没有则返回 null
+   * @param templateId 模板 ID
+   * @returns 预览图的 Base64 Data URL，如果不存在返回 null
+   */
+  async getTemplateFirstSlidePreview(templateId: string): Promise<string | null> {
+    if (!isValidTemplateId(templateId)) {
+      return null
+    }
+
+    const sourceData = this.getTemplateSourceData(templateId)
+    if (!sourceData) {
+      return null
+    }
+
+    try {
+      // 动态导入 unzip 库
+      const { unzipSync } = await import('fflate')
+      const archive = unzipSync(new Uint8Array(sourceData))
+
+      // 尝试获取 PPT 文件自带的缩略图
+      // PowerPoint 通常在 docProps/thumbnail.jpeg 存储文档缩略图
+      const thumbnailPaths = [
+        'docProps/thumbnail.jpeg',
+        'docProps/thumbnail.jpg',
+        'docProps/thumbnail.png',
+        'ppt/thumbnails/thumbnail.jpeg',
+        'ppt/thumbnails/thumbnail.jpg',
+        'ppt/thumbnails/thumbnail.png'
+      ]
+
+      for (const path of thumbnailPaths) {
+        const entry = archive[path]
+        if (entry) {
+          const ext = path.split('.').pop()?.toLowerCase() || 'jpeg'
+          const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg'
+          const base64 = Buffer.from(entry).toString('base64')
+          return `data:${mimeType};base64,${base64}`
+        }
+      }
+
+      return null
+    } catch (error) {
+      logger.error('提取模板预览图失败', 'main', { templateId, error })
+      return null
+    }
+  }
+
+  /**
    * 获取供工具调用使用的模板分析结果
    */
   getTemplateAnalysisForTool(

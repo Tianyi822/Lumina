@@ -82,5 +82,14 @@ export const pptTemplateApi = {
    */
   delete: (templateId: string): Promise<ApiResponse<void>> => {
     return ipcRenderer.invoke('pptTemplate:delete', templateId)
+  },
+
+  /**
+   * 获取模板第一页预览图
+   * @param id 模板 ID
+   * @returns 预览图的 Base64 Data URL
+   */
+  getFirstSlidePreview: (id: string): Promise<ApiResponse<string>> => {
+    return ipcRenderer.invoke('pptTemplate:getFirstSlidePreview', id)
   }
 }

@@ -227,4 +227,36 @@ export function registerPptTemplateHandlers(): void {
       }
     }
   })
+
+  // 获取模板第一页预览图
+  ipcMain.handle('pptTemplate:getFirstSlidePreview', async (_event, templateId: string) => {
+    try {
+      if (!isValidTemplateId(templateId)) {
+        return {
+          success: false,
+          error: '无效的模板 ID'
+        }
+      }
+
+      const previewDataUrl = await getPptTemplateService().getTemplateFirstSlidePreview(templateId)
+      if (!previewDataUrl) {
+        return {
+          success: false,
+          error: '模板预览图不存在'
+        }
+      }
+
+      return {
+        success: true,
+        data: previewDataUrl
+      }
+    } catch (error) {
+      const errorMessage = `获取模板预览图失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return {
+        success: false,
+        error: errorMessage
+      }
+    }
+  })
 }

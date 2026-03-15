@@ -158,8 +158,8 @@ export class PptExportService {
       // 获取可用模板列表
       const availableTemplates = await this.getAvailableTemplates()
 
-      // 确定要使用的模板 ID
-      const effectiveTemplateId = templateId || availableTemplates[0]?.id
+      // 确定要使用的模板 ID（注意：空字符串应被视为无效）
+      const effectiveTemplateId = templateId?.trim() || availableTemplates[0]?.id
 
       let style: PptStyleConfig = { ...DEFAULT_STYLE }
       let templateLayouts: TemplateSlideLayout[] | undefined
