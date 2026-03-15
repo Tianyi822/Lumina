@@ -3,7 +3,7 @@ import type { PendingDocument } from '@renderer/stores/documentUploadStore'
 import type { PendingImage } from '@renderer/stores/imageUploadStore'
 
 export const DOC_MAX_SIZE = 10 * 1024 * 1024
-export const SUPPORTED_DOC_TYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.pptx']
+export const SUPPORTED_DOC_TYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.pptx', '.xls', '.xlsx']
 
 /**
  * 格式化文件大小
