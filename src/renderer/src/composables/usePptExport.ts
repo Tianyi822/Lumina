@@ -412,9 +412,10 @@ export function usePptExport(): UsePptExportReturn {
     if (!exportConfig.value) return
 
     const indexSet = new Set(indices)
-    exportConfig.value.slides.forEach((slide) => {
-      slide.selected = indexSet.has(slide.index)
-    })
+    exportConfig.value.slides = exportConfig.value.slides.map((slide) => ({
+      ...slide,
+      selected: indexSet.has(slide.index)
+    }))
   }
 
   /**
@@ -425,9 +426,13 @@ export function usePptExport(): UsePptExportReturn {
   const toggleSlideSelection = (index: number): void => {
     if (!exportConfig.value) return
 
-    const slide = exportConfig.value.slides.find((s) => s.index === index)
-    if (slide) {
-      slide.selected = !slide.selected
+    const slideIndex = exportConfig.value.slides.findIndex((s) => s.index === index)
+    if (slideIndex !== -1) {
+      const slide = exportConfig.value.slides[slideIndex]
+      exportConfig.value.slides[slideIndex] = {
+        ...slide,
+        selected: !slide.selected
+      }
     }
   }
 
@@ -436,9 +441,10 @@ export function usePptExport(): UsePptExportReturn {
    */
   const selectAllSlides = (): void => {
     if (!exportConfig.value) return
-    exportConfig.value.slides.forEach((slide) => {
-      slide.selected = true
-    })
+    exportConfig.value.slides = exportConfig.value.slides.map((slide) => ({
+      ...slide,
+      selected: true
+    }))
   }
 
   /**
@@ -446,9 +452,10 @@ export function usePptExport(): UsePptExportReturn {
    */
   const deselectAllSlides = (): void => {
     if (!exportConfig.value) return
-    exportConfig.value.slides.forEach((slide) => {
-      slide.selected = false
-    })
+    exportConfig.value.slides = exportConfig.value.slides.map((slide) => ({
+      ...slide,
+      selected: false
+    }))
   }
 
   /**

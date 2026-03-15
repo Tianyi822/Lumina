@@ -269,6 +269,7 @@ async function handleRetry(): Promise<void> {
                     :slides="exportConfig?.slides || []"
                     :current-slide-index="currentSlideIndex"
                     @select-slide="currentSlideIndex = $event"
+                    @toggle-selection="toggleSlideSelection"
                   />
                 </div>
               </div>
