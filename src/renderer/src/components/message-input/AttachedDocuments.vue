@@ -25,7 +25,9 @@ const emit = defineEmits<{
       />
       <div class="pending-doc-info">
         <span class="pending-doc-name" :title="doc.fileName">{{ doc.fileName }}</span>
-        <span class="pending-doc-type">{{ getFileExtension(doc.fileName).toUpperCase() || 'FILE' }}</span>
+        <span class="pending-doc-type">{{
+          getFileExtension(doc.fileName).toUpperCase() || 'FILE'
+        }}</span>
         <span class="pending-doc-size">{{ formatFileSize(doc.fileSize) }}</span>
       </div>
       <button

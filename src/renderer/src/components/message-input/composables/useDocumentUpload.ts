@@ -4,11 +4,7 @@ import {
   type PendingDocument,
   type ProcessingFile
 } from '@renderer/stores/documentUploadStore'
-import {
-  DOC_MAX_SIZE,
-  SUPPORTED_DOC_TYPES,
-  formatFileSize
-} from '../attachmentUtils'
+import { DOC_MAX_SIZE, SUPPORTED_DOC_TYPES, formatFileSize } from '../attachmentUtils'
 
 interface UseDocumentUploadReturn {
   pendingDocs: ComputedRef<PendingDocument[]>

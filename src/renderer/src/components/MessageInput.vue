@@ -21,11 +21,7 @@ import type {
   SelectedPptTemplate,
   UserInteractionRequest
 } from '@renderer/types'
-import {
-  useChatStreamStore,
-  useInputStateStore,
-  useSessionStore
-} from '@renderer/stores'
+import { useChatStreamStore, useInputStateStore, useSessionStore } from '@renderer/stores'
 import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
 import type { MessageOptionContext, ParsedOption } from '@renderer/utils/optionParser'
 

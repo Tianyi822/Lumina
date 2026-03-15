@@ -176,14 +176,16 @@ export function usePptExport(): UsePptExportReturn {
         userMessage = '无法解析内容，请确保文本格式正确'
         break
       case 'style':
-        userMessage = rawMessage.includes('template') || rawMessage.includes('模板')
-          ? '模板文件可能已损坏，请选择其他模板'
-          : '样式配置加载失败，请重试'
+        userMessage =
+          rawMessage.includes('template') || rawMessage.includes('模板')
+            ? '模板文件可能已损坏，请选择其他模板'
+            : '样式配置加载失败，请重试'
         break
       case 'generate':
-        userMessage = rawMessage.includes('timeout') || rawMessage.includes('超时')
-          ? '生成超时，请减少页面数量后重试'
-          : '生成 PPT 时发生错误，请重试'
+        userMessage =
+          rawMessage.includes('timeout') || rawMessage.includes('超时')
+            ? '生成超时，请减少页面数量后重试'
+            : '生成 PPT 时发生错误，请重试'
         break
       case 'download':
         userMessage = '文件下载失败，请检查浏览器下载权限'
@@ -275,7 +277,10 @@ export function usePptExport(): UsePptExportReturn {
     try {
       // 过滤空字符串，避免后端错误地回退到默认模板
       const effectiveTemplateId = templateId?.trim() || undefined
-      const result = await window.api.pptExport.preview({ content, templateId: effectiveTemplateId })
+      const result = await window.api.pptExport.preview({
+        content,
+        templateId: effectiveTemplateId
+      })
       previewData.value = result
 
       if (result.success && result.config) {
@@ -346,10 +351,7 @@ export function usePptExport(): UsePptExportReturn {
    * @param title - 可选的文件标题
    * @returns 生成结果或 null
    */
-  const generate = async (
-    content: string,
-    title?: string
-  ): Promise<GeneratePptResult | null> => {
+  const generate = async (content: string, title?: string): Promise<GeneratePptResult | null> => {
     if (!exportConfig.value) {
       error.value = {
         type: 'parse',
