@@ -1,5 +1,5 @@
 import { sandboxService } from './SandboxService'
-import { getDockerService } from './DockerService'
+import { getDockerService } from './docker/DockerService'
 import { sandboxPermissionService } from './SandboxPermissionService'
 import { logger } from '@main/services/logger'
 import type { MCPTool, MCPToolCallResult } from '@main/types/mcp'

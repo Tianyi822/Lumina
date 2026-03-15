@@ -1,5 +1,5 @@
 import { join, normalize } from 'path'
-import { getConfigDirPath } from '../config/configPaths'
+import { getConfigDirPath } from '../../config/configPaths'
 
 export const DOCKER_DIR_NAME = 'docker'
 export const DOCKERFILES_DIR_NAME = 'dockerfiles'
