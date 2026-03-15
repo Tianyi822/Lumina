@@ -712,6 +712,7 @@ export class PptGenerator {
 
   /**
    * 创建幻灯片骨架并绘制模板静态元素
+   * 注意：只复用模板的排版布局（位置、颜色等），不复用模板中的图片内容
    * @param style - 当前页面样式
    * @param options - 渲染选项
    * @returns 幻灯片实例
@@ -722,18 +723,8 @@ export class PptGenerator {
     slide.background = { color: bgColor }
 
     if (options?.templateSlide) {
-      const backgroundImagePath = options.templateSlide.background?.imagePath
-      const backgroundImageData = backgroundImagePath ? options.mediaData?.get(backgroundImagePath) : undefined
-      if (backgroundImageData) {
-        slide.addImage({
-          data: backgroundImageData,
-          x: 0,
-          y: 0,
-          w: this.slideWidth,
-          h: this.slideHeight
-        })
-      }
-
+      // 不添加背景图片，只保留纯色背景
+      // 只渲染模板的形状装饰，不渲染图片
       this.renderTemplateDecorations(slide, options.templateSlide, style, options.mediaData)
     }
 
@@ -798,17 +789,17 @@ export class PptGenerator {
 
   /**
    * 绘制模板中的静态装饰元素
-   * 只复用非正文区域的图形/图片/文本，避免把模板示例内容直接带入导出结果
+   * 只复用非正文区域的图形（形状），不复用模板中的图片内容
    * @param slide - 当前幻灯片
    * @param templateSlide - 模板页分析结果
    * @param style - 当前页面样式
-   * @param mediaData - 模板媒体资源
+   * @param _mediaData - 模板媒体资源（不使用）
    */
   private renderTemplateDecorations(
     slide: PptxGenJS.Slide,
     templateSlide: PptTemplateSlideAnalysis,
     style: SlideStyle | undefined,
-    mediaData?: Map<string, string>
+    _mediaData?: Map<string, string>
   ): void {
     const titleZone = style?.titlePosition
     const contentZone = style?.contentPosition
@@ -819,13 +810,9 @@ export class PptGenerator {
         continue
       }
 
-      switch (element.kind) {
-        case 'shape':
-          this.renderTemplateShape(slide, element)
-          break
-        case 'image':
-          this.renderTemplateImage(slide, element, mediaData)
-          break
+      // 只渲染形状，不渲染图片
+      if (element.kind === 'shape') {
+        this.renderTemplateShape(slide, element)
       }
     }
   }
@@ -932,33 +919,6 @@ export class PptGenerator {
             width: element.shape.strokeWidth ? element.shape.strokeWidth / 12700 : 1
           }
         : { color: 'FFFFFF', transparency: 100 }
-    })
-  }
-
-  /**
-   * 绘制模板图片
-   * @param slide - 当前幻灯片
-   * @param element - 模板图片元素
-   * @param mediaData - 模板媒体资源
-   */
-  private renderTemplateImage(
-    slide: PptxGenJS.Slide,
-    element: PptTemplateElementAnalysis,
-    mediaData?: Map<string, string>
-  ): void {
-    const imagePath = element.image?.relationshipTarget
-    const imageData = imagePath ? mediaData?.get(imagePath) : undefined
-
-    if (!imageData) {
-      return
-    }
-
-    slide.addImage({
-      data: imageData,
-      x: element.x / 914400,
-      y: element.y / 914400,
-      w: element.cx / 914400,
-      h: element.cy / 914400
     })
   }
 

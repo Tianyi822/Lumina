@@ -649,27 +649,20 @@ export class PptExportService {
       '#ffffff',
       config.style
     )
-    const backgroundImagePath = templateSlide?.background?.imagePath
-    const backgroundImageData = backgroundImagePath
-      ? templateBundle?.mediaData.get(backgroundImagePath)
-      : undefined
+    // 不显示模板背景图片，只使用纯色背景
     const decorations = templateSlide
       ? this.renderTemplatePreviewDecorations(
           templateSlide,
           config.style,
           zones.title,
           zones.content,
-          canvas,
-          templateBundle?.mediaData
+          canvas
         )
       : ''
     const contentMarkup = this.renderSlidePreviewContent(slide, config.style, zones, canvas)
     const svg = [
       `<svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}" viewBox="0 0 ${canvas.width} ${canvas.height}">`,
       `<rect width="100%" height="100%" fill="${backgroundColor}" />`,
-      backgroundImageData
-        ? `<image href="${backgroundImageData}" x="0" y="0" width="${canvas.width}" height="${canvas.height}" preserveAspectRatio="none" />`
-        : '',
       decorations,
       contentMarkup,
       '</svg>'
@@ -769,12 +762,12 @@ export class PptExportService {
 
   /**
    * 渲染模板静态装饰
+   * 只渲染形状，不渲染图片
    * @param templateSlide - 模板页
    * @param style - 当前样式
    * @param titleZone - 标题区域
    * @param contentZone - 内容区域
    * @param canvas - 画布尺寸
-   * @param mediaData - 模板图片资源
    * @returns SVG 片段
    */
   private renderTemplatePreviewDecorations(
@@ -782,28 +775,25 @@ export class PptExportService {
     style: PptStyleConfig,
     titleZone: PreviewRect,
     contentZone: PreviewRect | undefined,
-    canvas: PreviewCanvasSize,
-    mediaData?: Map<string, string>
+    canvas: PreviewCanvasSize
   ): string {
     const elements = [...templateSlide.elements].sort((left, right) => left.zIndex - right.zIndex)
 
     return elements
       .filter((element) => this.shouldRenderPreviewTemplateElement(element, titleZone, contentZone))
       .map((element) => {
-        switch (element.kind) {
-          case 'shape':
-            return this.renderPreviewTemplateShape(element, style, canvas)
-          case 'image':
-            return this.renderPreviewTemplateImage(element, canvas, mediaData)
-          default:
-            return ''
+        // 只渲染形状，不渲染图片
+        if (element.kind === 'shape') {
+          return this.renderPreviewTemplateShape(element, style, canvas)
         }
+        return ''
       })
       .join('')
   }
 
   /**
    * 判断模板元素是否应进入预览
+   * 只保留形状元素，过滤掉图片
    * @param element - 模板元素
    * @param titleZone - 标题区
    * @param contentZone - 内容区
@@ -814,11 +804,12 @@ export class PptExportService {
     titleZone: PreviewRect,
     contentZone?: PreviewRect
   ): boolean {
-    if (element.kind === 'placeholder' || element.kind === 'table' || element.kind === 'chart') {
+    // 只保留形状，过滤掉占位符、表格、图表和图片
+    if (element.kind === 'placeholder' || element.kind === 'table' || element.kind === 'chart' || element.kind === 'image') {
       return false
     }
 
-    if (!['shape', 'image'].includes(element.kind)) {
+    if (element.kind !== 'shape') {
       return false
     }
 
@@ -908,28 +899,6 @@ export class PptExportService {
     }
 
     return `<rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" rx="${radius}" ry="${radius}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" />`
-  }
-
-  /**
-   * 渲染模板图片
-   * @param element - 模板元素
-   * @param canvas - 画布尺寸
-   * @param mediaData - 模板图片资源
-   * @returns SVG 片段
-   */
-  private renderPreviewTemplateImage(
-    element: PptTemplateElementAnalysis,
-    canvas: PreviewCanvasSize,
-    mediaData?: Map<string, string>
-  ): string {
-    const imagePath = element.image?.relationshipTarget
-    const imageData = imagePath ? mediaData?.get(imagePath) : undefined
-    if (!imageData) {
-      return ''
-    }
-
-    const rect = this.fitRectToCanvas(this.toElementPreviewRect(element), canvas)
-    return `<image href="${imageData}" x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" preserveAspectRatio="none" />`
   }
 
   /**
