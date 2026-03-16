@@ -93,7 +93,13 @@ export class DocumentParserService {
       // 禁用 worker（在 Electron 主进程中不需要）
       pdfjsLib.GlobalWorkerOptions.disableWorker = true
 
-      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(dataBuffer) }).promise
+      // 设置日志级别为 ERROR，抑制字体解析警告
+      pdfjsLib.verbosity = pdfjsLib.VerbosityLevel.ERRORS
+
+      const pdf = await pdfjsLib.getDocument({
+        data: new Uint8Array(dataBuffer),
+        verbosity: pdfjsLib.VerbosityLevel.ERRORS
+      }).promise
       logger.info('PDF 文档已加载', 'main', { pages: pdf.numPages })
 
       let fullText = ''
