@@ -31,12 +31,8 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
   const { portMappings } = storeToRefs(portMappingStore)
   const { composeContent, composeProjectName, selectedComposeId, generatorForm } =
     storeToRefs(composeConfigStore)
-  const {
-    dockerfileContent,
-    dockerfileContext,
-    dockerfileProjectName,
-    selectedDockerfileId
-  } = storeToRefs(dockerfileConfigStore)
+  const { dockerfileContent, dockerfileContext, dockerfileProjectName, selectedDockerfileId } =
+    storeToRefs(dockerfileConfigStore)
 
   // ==================== State: 创建类型与容器选择 ====================
 
@@ -630,7 +626,9 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     removePortMapping: portMappingStore.removePortMapping,
     refreshPorts: () => {
       if (createType.value === 'dockerfile') {
-        portMappingStore.portMappings = portMappingStore.parseDockerfilePorts(dockerfileContent.value)
+        portMappingStore.portMappings = portMappingStore.parseDockerfilePorts(
+          dockerfileContent.value
+        )
       } else if (createType.value === 'compose') {
         portMappingStore.portMappings = portMappingStore.parseComposePorts(composeContent.value)
       }

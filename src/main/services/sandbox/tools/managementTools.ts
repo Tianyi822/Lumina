@@ -3,7 +3,11 @@ import { getDockerService } from '../docker/DockerService'
 import { sandboxPermissionService } from '../SandboxPermissionService'
 import { logger } from '@main/services/logger'
 import { MCPToolCallResult } from '@main/types/mcp'
-import { CreateSandboxRequest, SandboxCreationType, DeleteSandboxOptions } from '@shared/types/sandbox'
+import {
+  CreateSandboxRequest,
+  SandboxCreationType,
+  DeleteSandboxOptions
+} from '@shared/types/sandbox'
 import { ToolArgs, SandboxToolDefinition } from './types'
 import { findSandbox } from './toolExecutor'
 

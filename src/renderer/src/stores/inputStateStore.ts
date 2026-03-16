@@ -119,9 +119,10 @@ export const useInputStateStore = defineStore(
           ? deepClone(selectionState.selectedKnowledgeBases)
           : deepClone(previousState.selectedKnowledgeBases),
         enableSandboxTools: selectionState?.enableSandboxTools ?? previousState.enableSandboxTools,
-        selectedPptTemplate: selectionState?.selectedPptTemplate !== undefined
-          ? deepClone(selectionState.selectedPptTemplate)
-          : deepClone(previousState.selectedPptTemplate)
+        selectedPptTemplate:
+          selectionState?.selectedPptTemplate !== undefined
+            ? deepClone(selectionState.selectedPptTemplate)
+            : deepClone(previousState.selectedPptTemplate)
       }
 
       sessionInputStates.value.set(sessionId, nextState)

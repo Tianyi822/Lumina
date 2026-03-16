@@ -48,11 +48,7 @@ export class PptGenerator {
     this.slideHeight = defaultSize.height
 
     // 初始化子模块
-    this.layoutCalculator = new LayoutCalculator(
-      this.slideWidth,
-      this.slideHeight,
-      this.style
-    )
+    this.layoutCalculator = new LayoutCalculator(this.slideWidth, this.slideHeight, this.style)
     this.elementRenderer = new ElementRenderer(this.style, this.layoutCalculator)
     this.templateRenderer = new TemplateRenderer(this.style, this.layoutCalculator)
     this.slideRenderer = new SlideRenderer(

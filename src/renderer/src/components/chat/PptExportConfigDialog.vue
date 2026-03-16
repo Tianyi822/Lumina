@@ -202,7 +202,11 @@ async function handleRetry(): Promise<void> {
               <h3 class="ppt-export-dialog-title">导出 PowerPoint</h3>
               <p class="ppt-export-dialog-subtitle">选择要导出的页面和模板</p>
             </div>
-            <button class="btn ppt-export-dialog-close" :disabled="isGenerating" @click="handleClose">
+            <button
+              class="btn ppt-export-dialog-close"
+              :disabled="isGenerating"
+              @click="handleClose"
+            >
               关闭
             </button>
           </div>

@@ -477,7 +477,11 @@ export class ElementAnalyzer {
       return undefined
     }
 
-    const relationshipTarget = this.relResolver.resolveRelationshipTarget(files, ownerPath, relationshipId)
+    const relationshipTarget = this.relResolver.resolveRelationshipTarget(
+      files,
+      ownerPath,
+      relationshipId
+    )
     const fileName = relationshipTarget ? posix.basename(relationshipTarget) : undefined
 
     let pixelWidth: number | undefined
@@ -631,7 +635,9 @@ export class ElementAnalyzer {
    */
   private toNodeArray(value: unknown): XmlNode[] {
     if (Array.isArray(value)) {
-      return value.filter((item): item is XmlNode => typeof item === 'object' && item !== null) as XmlNode[]
+      return value.filter(
+        (item): item is XmlNode => typeof item === 'object' && item !== null
+      ) as XmlNode[]
     }
 
     return typeof value === 'object' && value !== null ? [value as XmlNode] : []

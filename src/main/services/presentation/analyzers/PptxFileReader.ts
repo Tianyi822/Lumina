@@ -2,11 +2,7 @@ import { posix } from 'path'
 import { unzipSync } from 'fflate'
 import { XMLParser } from 'fast-xml-parser'
 import { logger } from '@main/services/logger'
-import type {
-  PptxFiles,
-  XmlNode,
-  XmlRelationship
-} from './types'
+import type { PptxFiles, XmlNode, XmlRelationship } from './types'
 import { XML_PARSER_OPTIONS } from './types'
 
 /**

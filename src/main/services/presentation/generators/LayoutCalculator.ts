@@ -181,9 +181,7 @@ export class LayoutCalculator {
       case 'list':
         return this.calculateListHeight(block.items, width, bodyFontSize) + 0.22
       case 'table':
-        return (
-          this.calculateTableHeight(block.headers, block.rows.length, bodyFontSize) + 0.22
-        )
+        return this.calculateTableHeight(block.headers, block.rows.length, bodyFontSize) + 0.22
       case 'image':
         return 0.8
       default:

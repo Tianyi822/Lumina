@@ -87,15 +87,21 @@ export class SlideAnalyzer {
 
     if (master) {
       const masterRoot = this.getNode(master.xml, 'p:sldMaster') ?? master.xml
-      elements.push(...this.elementAnalyzer.extractElementsFromXml(masterRoot, 'master', files, master.path))
+      elements.push(
+        ...this.elementAnalyzer.extractElementsFromXml(masterRoot, 'master', files, master.path)
+      )
     }
 
     if (layout) {
       const layoutRoot = this.getNode(layout.xml, 'p:sldLayout') ?? layout.xml
-      elements.push(...this.elementAnalyzer.extractElementsFromXml(layoutRoot, 'layout', files, layout.path))
+      elements.push(
+        ...this.elementAnalyzer.extractElementsFromXml(layoutRoot, 'layout', files, layout.path)
+      )
     }
 
-    elements.push(...this.elementAnalyzer.extractElementsFromXml(slideXml, 'slide', files, slidePath))
+    elements.push(
+      ...this.elementAnalyzer.extractElementsFromXml(slideXml, 'slide', files, slidePath)
+    )
 
     return this.mergePlaceholderElements(elements)
   }

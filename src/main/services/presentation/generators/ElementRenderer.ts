@@ -65,7 +65,9 @@ export class ElementRenderer {
         this.addList(slide, block.items, block.ordered, { x, y, w, h }, metrics)
         return {
           nextY:
-            y + this.layoutCalculator.calculateListHeight(block.items, w, metrics.bodyFontSize) + 0.22
+            y +
+            this.layoutCalculator.calculateListHeight(block.items, w, metrics.bodyFontSize) +
+            0.22
         }
 
       case 'table':

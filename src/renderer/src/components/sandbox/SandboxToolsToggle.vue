@@ -117,6 +117,4 @@ onMounted(() => {
   color: var(--theme-text);
   font-weight: 500;
 }
-
-
 </style>

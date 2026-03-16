@@ -1,4 +1,10 @@
-import { SandboxData, SandboxCreationType, ContainerFilter, DeleteSandboxOptions, ExecCommand } from '@shared/types/sandbox'
+import {
+  SandboxData,
+  SandboxCreationType,
+  ContainerFilter,
+  DeleteSandboxOptions,
+  ExecCommand
+} from '@shared/types/sandbox'
 import { MCPTool, MCPToolCallResult } from '@main/types/mcp'
 
 /**

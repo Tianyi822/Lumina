@@ -38,10 +38,10 @@ defineExpose({ focus })
       ref="textareaRef"
       :value="props.modelValue"
       class="input message-textarea"
-      :class="{ 
-        'has-docs': props.hasAttachments, 
+      :class="{
+        'has-docs': props.hasAttachments,
         dragging: props.isDragging,
-        'is-sending': props.isSending 
+        'is-sending': props.isSending
       }"
       :placeholder="props.placeholder"
       rows="3"

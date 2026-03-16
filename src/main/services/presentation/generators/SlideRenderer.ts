@@ -9,11 +9,7 @@ import { TEMPLATE_LAYOUT_PRESETS } from '../PptTemplateLayoutPresets'
 import { LayoutCalculator } from './LayoutCalculator'
 import { ElementRenderer } from './ElementRenderer'
 import { TemplateRenderer } from './TemplateRenderer'
-import type {
-  SlideRenderOptions,
-  SlideRenderKind,
-  GeneratorStyleConfig
-} from './types'
+import type { SlideRenderOptions, SlideRenderKind, GeneratorStyleConfig } from './types'
 
 /**
  * 幻灯片创建回调

@@ -10,12 +10,7 @@ import type {
   PptPresentationOverview
 } from '@shared/types/ppt-template'
 import { logger } from '@main/services/logger'
-import {
-  ANALYSIS_VERSION,
-  DEFAULT_SLIDE_WIDTH,
-  DEFAULT_SLIDE_HEIGHT,
-  PptxFiles
-} from './types'
+import { ANALYSIS_VERSION, DEFAULT_SLIDE_WIDTH, DEFAULT_SLIDE_HEIGHT, PptxFiles } from './types'
 import { PptxFileReader } from './PptxFileReader'
 import { RelationshipResolver } from './RelationshipResolver'
 import { ElementAnalyzer } from './ElementAnalyzer'
@@ -181,7 +176,10 @@ export class PptTemplateAnalyzer {
   /**
    * 获取对象子节点
    */
-  private getNode(node: Record<string, unknown> | undefined | null, key: string): Record<string, unknown> | undefined {
+  private getNode(
+    node: Record<string, unknown> | undefined | null,
+    key: string
+  ): Record<string, unknown> | undefined {
     const value = this.getValue(node, key)
     return this.isXmlNode(value) ? value : undefined
   }

@@ -115,8 +115,8 @@ export class TemplateRenderer {
       h: element.cy / 914400
     }
 
-    const zoneList = [zones.title, zones.content].filter(
-      (zone): zone is NonNullable<typeof zone> => Boolean(zone)
+    const zoneList = [zones.title, zones.content].filter((zone): zone is NonNullable<typeof zone> =>
+      Boolean(zone)
     )
 
     return zoneList.some((zoneRect) => {
