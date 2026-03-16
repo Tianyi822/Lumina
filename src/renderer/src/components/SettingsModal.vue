@@ -79,7 +79,14 @@ onUnmounted(() => {
             :class="{ active: activeTab === 'model' }"
             @click="activeTab = 'model'"
           >
-            模型配置
+            对话模型配置
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'embedding' }"
+            @click="activeTab = 'embedding'"
+          >
+            嵌入模型配置
           </button>
           <button
             class="tab-btn"
@@ -90,24 +97,10 @@ onUnmounted(() => {
           </button>
           <button
             class="tab-btn"
-            :class="{ active: activeTab === 'embedding' }"
-            @click="activeTab = 'embedding'"
-          >
-            嵌入模型
-          </button>
-          <button
-            class="tab-btn"
             :class="{ active: activeTab === 'prompt' }"
             @click="activeTab = 'prompt'"
           >
             提示词
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'theme' }"
-            @click="activeTab = 'theme'"
-          >
-            主题设置
           </button>
           <button
             class="tab-btn"
@@ -129,6 +122,13 @@ onUnmounted(() => {
             @click="activeTab = 'pptTemplate'"
           >
             PPT 模板
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'theme' }"
+            @click="activeTab = 'theme'"
+          >
+            主题设置
           </button>
         </div>
 

@@ -33,6 +33,17 @@ const showImportPanel = ref(false)
 const importJsonContent = ref('')
 const isImporting = ref(false)
 
+// 导入 JSON 示例
+const importPlaceholder = `例如：
+{
+  "mcpServers": {
+    "server-name": {
+      "command": "npx",
+      "args": ["-y", "some-mcp"]
+    }
+  }
+}`
+
 // 显示消息
 function showError(message: string): void {
   emit('update:errorMessage', message)
@@ -214,35 +225,6 @@ onUnmounted(() => {
 
 <template>
   <div class="tab-content">
-    <!-- 操作按钮 -->
-    <div class="mcp-actions-bar">
-      <button class="btn btn-small" @click="toggleImportPanel">
-        {{ showImportPanel ? '收起导入' : '导入配置' }}
-      </button>
-    </div>
-
-    <div v-if="showImportPanel" class="import-panel">
-      <label class="import-label" for="mcp-import-json">粘贴 MCP 配置 JSON</label>
-      <textarea
-        id="mcp-import-json"
-        v-model="importJsonContent"
-        class="input import-textarea"
-        placeholder='例如：{"mcpServers":{"server-name":{"command":"npx","args":["-y","some-mcp"]}}}'
-      />
-      <div class="import-actions">
-        <button class="btn btn-small" :disabled="isImporting" @click="importMCPConfigs">
-          {{ isImporting ? '导入中...' : '确认导入' }}
-        </button>
-        <button
-          class="btn btn-small btn-secondary"
-          :disabled="isImporting"
-          @click="toggleImportPanel"
-        >
-          取消
-        </button>
-      </div>
-    </div>
-
     <!-- MCP 服务器列表 -->
     <div class="mcp-server-list">
       <MCPServerItem
@@ -279,20 +261,46 @@ onUnmounted(() => {
 
     <!-- 添加 MCP 按钮 -->
     <button v-if="!showNewMCPForm" class="btn add-mcp-btn" @click="showNewMCPForm = true">
-      + 添加 MCP 服务器
+      添加 MCP 服务器
     </button>
+
+    <!-- 导入 JSON 配置按钮 -->
+    <button
+      v-if="!showNewMCPForm"
+      class="btn import-btn"
+      @click="toggleImportPanel"
+    >
+      {{ showImportPanel ? '收起导入' : '导入 JSON 配置' }}
+    </button>
+
+    <!-- 导入面板 -->
+    <div v-if="showImportPanel && !showNewMCPForm" class="import-panel">
+      <label class="import-label" for="mcp-import-json">粘贴 MCP 配置 JSON</label>
+      <textarea
+        id="mcp-import-json"
+        v-model="importJsonContent"
+        class="input import-textarea"
+        :placeholder="importPlaceholder"
+      />
+      <div class="import-actions">
+        <button class="btn btn-small" :disabled="isImporting" @click="importMCPConfigs">
+          {{ isImporting ? '导入中...' : '确认导入' }}
+        </button>
+        <button
+          class="btn btn-small btn-secondary"
+          :disabled="isImporting"
+          @click="toggleImportPanel"
+        >
+          取消
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.mcp-actions-bar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 1rem;
-}
-
 .import-panel {
-  margin-bottom: 1rem;
+  margin-top: 12px;
   padding: 12px;
   border: 1px solid var(--theme-border, rgba(255, 255, 255, 0.08));
   border-radius: 12px;
@@ -343,6 +351,19 @@ onUnmounted(() => {
 }
 
 .add-mcp-btn:hover {
+  color: var(--theme-accent);
+  border-color: var(--theme-accent);
+}
+
+.import-btn {
+  width: 100%;
+  padding: 12px;
+  border-style: dashed;
+  color: var(--theme-text-secondary);
+  margin-top: 12px;
+}
+
+.import-btn:hover {
   color: var(--theme-accent);
   border-color: var(--theme-accent);
 }
