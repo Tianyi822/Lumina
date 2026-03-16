@@ -1,25 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import {
-  useSandboxStore,
-  useContainerStore,
-  useUIStateStore,
-  useSandboxCreatorStore
-} from '@renderer/stores'
+import { useSandboxStore, useUIStateStore } from '@renderer/stores'
 import SandboxSidebar from '@renderer/components/sandbox/SandboxSidebar.vue'
 import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
 import SandboxCreator from '@renderer/components/sandbox/SandboxCreator.vue'
 import ConfigManager from '@renderer/components/sandbox/ConfigManager.vue'
 import OperationMessage from '@renderer/components/sandbox/OperationMessage.vue'
-
-type PlatformType = 'darwin' | 'win32' | 'linux'
-
-interface DockerStatus {
-  installed: boolean
-  version?: string
-  error?: string
-}
+import DeleteConfirmDialog from '@renderer/components/sandbox/DeleteConfirmDialog.vue'
+import type { PlatformType, DockerCheckResult } from '@shared/types/sandbox'
 
 interface InstallCommand {
   platform: PlatformType
@@ -49,9 +38,7 @@ const installCommands: InstallCommand[] = [
 ]
 
 const sandboxStore = useSandboxStore()
-const containerStore = useContainerStore()
 const uiStateStore = useUIStateStore()
-const creatorStore = useSandboxCreatorStore()
 
 const {
   currentSandbox,
@@ -59,12 +46,13 @@ const {
   operationLogs,
   listUpdateKey,
   operationMessage,
-  messageVisible
+  messageVisible,
+  deleteConfirmState
 } = storeToRefs(sandboxStore)
 
 const { sandboxSidebarCollapsed, showSandboxCreator, showConfigManager } = storeToRefs(uiStateStore)
 
-const dockerStatus = ref<DockerStatus | null>(null)
+const dockerStatus = ref<DockerCheckResult | null>(null)
 const platform = ref<PlatformType>('darwin')
 const loading = ref(true)
 const copiedIndex = ref<number | null>(null)
@@ -88,16 +76,24 @@ const checkDocker = async (): Promise<void> => {
     ])
     dockerStatus.value = statusResult
     platform.value = platformResult
+
+    if (!statusResult.installed && statusResult.error && statusResult.error !== 'Docker 未安装') {
+      sandboxStore.notifyDockerError('Docker 检测失败', statusResult.error, 'sandbox:checkDocker')
+    }
   } catch (error) {
-    console.error('检测 Docker 失败:', error)
-    dockerStatus.value = { installed: false, error: String(error) }
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    dockerStatus.value = { installed: false, error: errorMessage }
+    sandboxStore.notifyDockerError('Docker 检测失败', errorMessage, 'sandbox:checkDocker')
   } finally {
     loading.value = false
   }
 }
 
 const openDockerWebsite = async (): Promise<void> => {
-  await window.api.sandbox.openExternal(DOCKER_WEBSITE)
+  const result = await window.api.sandbox.openExternal(DOCKER_WEBSITE)
+  if (!result.success) {
+    sandboxStore.notifyDockerError('打开 Docker 官网失败', result.error || '未知错误')
+  }
 }
 
 const copyCommand = async (cmd: string, index: number): Promise<void> => {
@@ -108,44 +104,14 @@ const copyCommand = async (cmd: string, index: number): Promise<void> => {
       copiedIndex.value = null
     }, 2000)
   } catch (error) {
-    console.error('复制失败:', error)
+    sandboxStore.notifyDockerError(
+      '复制命令失败',
+      error instanceof Error ? error.message : String(error)
+    )
   }
 }
-
-// ==================== 沙箱创建器事件 ====================
 
 const handleCloseCreator = (): void => {
-  uiStateStore.closeSandboxCreator()
-}
-
-const handleCreateFromCompose = async (
-  content: string,
-  options?: { projectName?: string }
-): Promise<void> => {
-  // 设置 creatorStore 的状态
-  creatorStore.composeContent = content
-  if (options?.projectName) {
-    creatorStore.composeProjectName = options.projectName
-  }
-  // 使用 creatorStore 的方法创建沙箱（会创建沙箱元数据并刷新列表）
-  await creatorStore.createFromCompose(options)
-  uiStateStore.closeSandboxCreator()
-}
-
-const handleCreateFromDockerfile = async (dockerfile: string, context: string): Promise<void> => {
-  // 设置 creatorStore 的状态
-  creatorStore.dockerfileContent = dockerfile
-  creatorStore.dockerfileContext = context
-  // 使用 creatorStore 的方法创建沙箱（会创建沙箱元数据并刷新列表）
-  await creatorStore.createFromDockerfile()
-  uiStateStore.closeSandboxCreator()
-}
-
-const handleSelectContainer = async (containerId: string): Promise<void> => {
-  // 从已有容器创建沙箱
-  await creatorStore.createFromExisting(containerId)
-  containerStore.loadContainerDetails(containerId)
-  uiStateStore.setSandboxDetailTab('info')
   uiStateStore.closeSandboxCreator()
 }
 
@@ -193,16 +159,29 @@ onMounted(async () => {
       </div>
 
       <!-- 创建沙箱弹窗 -->
-      <SandboxCreator
-        :visible="showSandboxCreator"
-        @close="handleCloseCreator"
-        @create-from-compose="handleCreateFromCompose"
-        @create-from-dockerfile="handleCreateFromDockerfile"
-        @select-container="handleSelectContainer"
-      />
+      <SandboxCreator :visible="showSandboxCreator" @close="handleCloseCreator" />
 
       <!-- 配置管理弹窗 -->
       <ConfigManager :visible="showConfigManager" @close="handleCloseConfigManager" />
+
+      <DeleteConfirmDialog
+        :visible="deleteConfirmState.show"
+        :sandbox="
+          deleteConfirmState.sandboxId
+            ? {
+                sandboxId: deleteConfirmState.sandboxId,
+                name: deleteConfirmState.sandboxName,
+                creationType: deleteConfirmState.creationType || 'existing',
+                containerIds: Array.from(
+                  { length: deleteConfirmState.containerCount },
+                  (_, index) => String(index)
+                )
+              }
+            : null
+        "
+        @close="sandboxStore.hideDeleteConfirm()"
+        @confirm="(_sandboxId, deleteContainers) => sandboxStore.confirmDelete(deleteContainers)"
+      />
 
       <!-- 操作消息提示 -->
       <OperationMessage

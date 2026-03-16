@@ -36,7 +36,7 @@ export function useContainerActions(
     ) {
       const result = await containerStore.composeStart(currentSandbox.value.composeProjectName)
       if (!result.success && result.error) {
-        sandboxStore.showError('启动 Compose 项目失败', result.error)
+        sandboxStore.notifyDockerError('启动 Compose 项目失败', result.error)
       } else if (result.success) {
         await refreshSandboxStatus()
       }
@@ -46,7 +46,7 @@ export function useContainerActions(
     if (selectedContainer.value) {
       const result = await containerStore.startContainer(selectedContainer.value.id)
       if (!result.success && result.error) {
-        sandboxStore.showError('启动容器失败', result.error)
+        sandboxStore.notifyDockerError('启动容器失败', result.error)
       } else if (result.success) {
         await refreshSandboxStatus()
       }
@@ -64,7 +64,7 @@ export function useContainerActions(
     ) {
       const result = await containerStore.composeStop(currentSandbox.value.composeProjectName)
       if (!result.success && result.error) {
-        sandboxStore.showError('停止 Compose 项目失败', result.error)
+        sandboxStore.notifyDockerError('停止 Compose 项目失败', result.error)
       } else if (
         result.success &&
         result.stoppedContainerIds &&
@@ -81,7 +81,7 @@ export function useContainerActions(
     if (selectedContainer.value) {
       const result = await containerStore.stopContainer(selectedContainer.value.id)
       if (!result.success && result.error) {
-        sandboxStore.showError('停止容器失败', result.error)
+        sandboxStore.notifyDockerError('停止容器失败', result.error)
       } else if (result.success) {
         await refreshSandboxStatus()
       }
@@ -99,7 +99,7 @@ export function useContainerActions(
     ) {
       const result = await containerStore.composeRestart(currentSandbox.value.composeProjectName)
       if (!result.success && result.error) {
-        sandboxStore.showError('重启 Compose 项目失败', result.error)
+        sandboxStore.notifyDockerError('重启 Compose 项目失败', result.error)
       } else if (result.success) {
         await refreshSandboxStatus()
       }
@@ -109,7 +109,7 @@ export function useContainerActions(
     if (selectedContainer.value) {
       const result = await containerStore.restartContainer(selectedContainer.value.id)
       if (!result.success && result.error) {
-        sandboxStore.showError('重启容器失败', result.error)
+        sandboxStore.notifyDockerError('重启容器失败', result.error)
       } else if (result.success) {
         await refreshSandboxStatus()
       }
@@ -123,7 +123,7 @@ export function useContainerActions(
     if (selectedContainer.value) {
       const result = await containerStore.removeContainer(selectedContainer.value.id)
       if (!result.success && result.error) {
-        sandboxStore.showError('删除容器失败', result.error)
+        sandboxStore.notifyDockerError('删除容器失败', result.error)
       }
     }
   }

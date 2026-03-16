@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import type { SandboxListItem, SandboxStatus } from '@shared/types/sandbox'
 
 // 创建类型 - 预留，待类型定义更新后使用
@@ -25,10 +24,7 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'select', sandboxId: string): void
   (e: 'delete', sandboxId: string): void
-  (e: 'show-delete-confirm', sandboxId: string, item: ExtendedSandboxListItem): void
 }>()
-
-const showDeleteConfirm = ref<string | null>(null)
 
 function getStatusLabel(status: SandboxStatus): string {
   const labels: Record<SandboxStatus, string> = {
@@ -69,18 +65,7 @@ function handleSelect(sandboxId: string): void {
 }
 
 function handleDeleteClick(sandbox: SandboxListItem): void {
-  const extended = sandbox as unknown as ExtendedSandboxListItem
-  emit('show-delete-confirm', sandbox.sandboxId, extended)
-  showDeleteConfirm.value = sandbox.sandboxId
-}
-
-function handleConfirmDelete(sandboxId: string): void {
-  emit('delete', sandboxId)
-  showDeleteConfirm.value = null
-}
-
-function handleCancelDelete(): void {
-  showDeleteConfirm.value = null
+  emit('delete', sandbox.sandboxId)
 }
 </script>
 
@@ -135,14 +120,7 @@ function handleCancelDelete(): void {
         </div>
       </div>
 
-      <div v-if="showDeleteConfirm === sandbox.sandboxId" class="delete-confirm">
-        <button class="btn-confirm" @click.stop="handleConfirmDelete(sandbox.sandboxId)">
-          确认
-        </button>
-        <button class="btn-cancel" @click.stop="handleCancelDelete">取消</button>
-      </div>
-
-      <button v-else class="btn-delete" title="删除沙箱" @click.stop="handleDeleteClick(sandbox)">
+      <button class="btn-delete" title="删除沙箱" @click.stop="handleDeleteClick(sandbox)">
         x
       </button>
     </div>

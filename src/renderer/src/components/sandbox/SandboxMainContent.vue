@@ -117,8 +117,7 @@ async function handleCleanupOrphan(sandboxId: string): Promise<void> {
 }
 
 function handleCloseOrphanAlert(): void {
-  // 用户关闭警告，暂时忽略
-  console.log('用户关闭了孤儿沙箱警告')
+  window.api.logger.info('[SandboxMainContent] 用户关闭孤儿沙箱提示')
 }
 </script>
 

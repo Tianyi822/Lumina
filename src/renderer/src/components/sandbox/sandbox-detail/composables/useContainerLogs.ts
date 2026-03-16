@@ -3,7 +3,7 @@
  * 处理容器日志的加载、刷新和导出
  */
 import { ref, type Ref } from 'vue'
-import { useContainerStore } from '@renderer/stores'
+import { useContainerStore, useSandboxStore } from '@renderer/stores'
 import type { ContainerInfo } from '@shared/types/sandbox'
 
 /** 容器日志 composable 返回值类型 */
@@ -19,6 +19,7 @@ export function useContainerLogs(selectedContainer: {
   value: ContainerInfo | null
 }): UseContainerLogsReturn {
   const containerStore = useContainerStore()
+  const sandboxStore = useSandboxStore()
 
   // 状态
   const containerLogs = ref('')
@@ -50,16 +51,23 @@ export function useContainerLogs(selectedContainer: {
    * 导出日志到文件
    */
   function handleExportLogs(): void {
-    const blob = new Blob([containerLogs.value], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const containerName = selectedContainer.value?.names[0]?.replace(/^\//, '') || 'container'
-    a.download = `${containerName}-logs.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    try {
+      const blob = new Blob([containerLogs.value], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const containerName = selectedContainer.value?.names[0]?.replace(/^\//, '') || 'container'
+      a.download = `${containerName}-logs.txt`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      sandboxStore.notifyDockerError(
+        '导出日志失败',
+        error instanceof Error ? error.message : String(error)
+      )
+    }
   }
 
   return {
