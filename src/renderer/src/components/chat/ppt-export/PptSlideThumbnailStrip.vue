@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
 import type { PptExportSlidePreview } from '@shared/types/ppt-export'
 import { PPT_CONTENT_TYPE_COLORS } from '@renderer/utils/pptExportDialog'
 
