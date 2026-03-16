@@ -1,19 +1,23 @@
 import { createIpcInvoker } from './base'
 import { ipcRenderer } from 'electron'
 import type {
+  DockerCheckResult,
+  PlatformType,
   SandboxData,
   SandboxListItem,
   SandboxResult,
   SandboxLogEntry,
-  ContainerInfo,
-  ContainerDetails,
-  ContainerStats,
   ContainerFilter,
+  ContainerListResult,
+  ContainerDetailsResult,
+  ContainerStatsResult,
+  ContainerLogsResult,
   SandboxTemplate,
   ExecCommand,
-  ExecResult,
+  ExecCommandResult,
   ComposeOptions,
   ComposeResult,
+  CreateFromDockerfileResult,
   SandboxSelection,
   LogOptions,
   DockerfileConfigMeta,
@@ -27,30 +31,17 @@ import type {
   SandboxContainerStatus,
   ComposeStopOptions,
   ComposeStopResult,
+  ComposeStartResult,
   ComposeRestartResult,
-  ComposeProjectStatus,
+  ComposeStatusResult,
   ComposeExecOptions,
   ComposeExecResult,
   ComposeLogOptions,
   ComposeLogResult,
   ComposeDownOptions,
-  ComposeDownResult
+  ComposeDownResult,
+  PortMappingInput
 } from '@shared/types/sandbox'
-
-export type PlatformType = 'darwin' | 'win32' | 'linux'
-
-export interface DockerCheckResult {
-  installed: boolean
-  version?: string
-  error?: string
-}
-
-/** 端口映射配置 */
-export interface PortMappingInput {
-  hostPort: number | null // null 表示自动分配
-  containerPort: number
-  protocol: 'tcp' | 'udp'
-}
 
 export const sandboxApi = {
   ...createIpcInvoker<{
@@ -58,7 +49,7 @@ export const sandboxApi = {
     getPlatform: () => Promise<PlatformType>
   }>('sandbox', ['checkDocker', 'getPlatform']),
 
-  openExternal: (url: string): Promise<void> => {
+  openExternal: (url: string): Promise<SandboxResult> => {
     return ipcRenderer.invoke('sandbox:openExternal', url)
   },
 
@@ -87,19 +78,19 @@ export const sandboxApi = {
   // ==================== Container Browser (Placeholder) ====================
   // TODO: Implement IPC handlers for these methods
 
-  listContainers: (filter?: ContainerFilter): Promise<ContainerInfo[]> => {
+  listContainers: (filter?: ContainerFilter): Promise<ContainerListResult> => {
     return ipcRenderer.invoke('sandbox:listContainers', filter)
   },
 
-  getContainerDetails: (containerId: string): Promise<ContainerDetails> => {
+  getContainerDetails: (containerId: string): Promise<ContainerDetailsResult> => {
     return ipcRenderer.invoke('sandbox:getContainerDetails', containerId)
   },
 
-  getContainerStats: (containerId: string): Promise<ContainerStats> => {
+  getContainerStats: (containerId: string): Promise<ContainerStatsResult> => {
     return ipcRenderer.invoke('sandbox:getContainerStats', containerId)
   },
 
-  getContainerLogs: (containerId: string, options?: LogOptions): Promise<string> => {
+  getContainerLogs: (containerId: string, options?: LogOptions): Promise<ContainerLogsResult> => {
     return ipcRenderer.invoke('sandbox:getContainerLogs', containerId, options)
   },
 
@@ -123,7 +114,7 @@ export const sandboxApi = {
 
   // ==================== Command Execution (Placeholder) ====================
 
-  execCommand: (containerId: string, command: ExecCommand): Promise<ExecResult> => {
+  execCommand: (containerId: string, command: ExecCommand): Promise<ExecCommandResult> => {
     return ipcRenderer.invoke('sandbox:execCommand', containerId, command)
   },
 
@@ -175,7 +166,7 @@ export const sandboxApi = {
     sandboxId?: string,
     sandboxName?: string,
     portMappings?: PortMappingInput[]
-  ): Promise<{ success: boolean; containerId?: string; error?: string }> => {
+  ): Promise<CreateFromDockerfileResult> => {
     return ipcRenderer.invoke(
       'sandbox:createFromDockerfile',
       dockerfile,
@@ -237,9 +228,7 @@ export const sandboxApi = {
       return ipcRenderer.invoke('sandbox:compose:delete', id)
     },
     // Compose 项目操作
-    start: (
-      projectName: string
-    ): Promise<{ success: boolean; containerIds?: string[]; error?: string }> => {
+    start: (projectName: string): Promise<ComposeStartResult> => {
       return ipcRenderer.invoke('sandbox:compose:start', projectName)
     },
     stop: (projectName: string, options?: ComposeStopOptions): Promise<ComposeStopResult> => {
@@ -248,9 +237,7 @@ export const sandboxApi = {
     restart: (projectName: string): Promise<ComposeRestartResult> => {
       return ipcRenderer.invoke('sandbox:compose:restart', projectName)
     },
-    status: (
-      projectName: string
-    ): Promise<{ success: boolean; status?: ComposeProjectStatus; error?: string }> => {
+    status: (projectName: string): Promise<ComposeStatusResult> => {
       return ipcRenderer.invoke('sandbox:compose:status', projectName)
     },
     exec: (

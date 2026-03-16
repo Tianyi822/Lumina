@@ -1,4 +1,17 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import type {
+  DockerCheckResult,
+  PlatformType,
+  PortMappingInput,
+  ContainerListResult,
+  ContainerDetailsResult,
+  ContainerStatsResult,
+  ContainerLogsResult,
+  ExecCommandResult,
+  ComposeStartResult,
+  ComposeStatusResult,
+  CreateFromDockerfileResult
+} from '@shared/types/sandbox'
 
 /**
  * 配置加载的状态信息
@@ -882,20 +895,6 @@ interface FileApi {
 }
 
 /**
- * Docker 检测结果
- */
-interface DockerCheckResult {
-  installed: boolean
-  version?: string
-  error?: string
-}
-
-/**
- * 操作系统平台类型
- */
-type PlatformType = 'darwin' | 'win32' | 'linux'
-
-/**
  * 沙箱状态
  */
 type SandboxStatus = 'creating' | 'running' | 'stopped' | 'error'
@@ -1113,6 +1112,7 @@ interface ComposeDockerfileConfig {
  * Compose 创建结果
  */
 interface ComposeResult {
+  success: boolean
   containerIds: string[]
   failedServices: string[]
   error?: string
@@ -1336,16 +1336,10 @@ interface ComposeConfigApi {
   ) => Promise<{ success: boolean; config?: ComposeConfigMeta; error?: string }>
   delete: (id: string) => Promise<{ success: boolean; error?: string }>
   // Compose 项目操作
-  start: (
-    configId: string,
-    sandboxId?: string,
-    sandboxName?: string
-  ) => Promise<{ success: boolean; containerIds?: string[]; error?: string }>
+  start: (projectName: string) => Promise<ComposeStartResult>
   stop: (projectName: string, options?: ComposeStopOptions) => Promise<ComposeStopResult>
   restart: (projectName: string) => Promise<ComposeRestartResult>
-  status: (
-    projectName: string
-  ) => Promise<{ success: boolean; status?: ComposeProjectStatus; error?: string }>
+  status: (projectName: string) => Promise<ComposeStatusResult>
   exec: (
     projectName: string,
     serviceName: string,
@@ -1406,22 +1400,13 @@ interface SandboxContainerStatus {
 }
 
 /**
- * 端口映射配置
- */
-interface PortMappingInput {
-  hostPort: number | null // null 表示自动分配
-  containerPort: number
-  protocol: 'tcp' | 'udp'
-}
-
-/**
  * 沙箱相关的 API
  */
 interface SandboxApi {
   // Docker 检测
   checkDocker: () => Promise<DockerCheckResult>
   getPlatform: () => Promise<PlatformType>
-  openExternal: (url: string) => Promise<void>
+  openExternal: (url: string) => Promise<SandboxResult>
 
   // 沙箱管理
   saveSandbox: (data: SandboxData) => Promise<SandboxResult>
@@ -1431,10 +1416,10 @@ interface SandboxApi {
   readSandboxLog: (sandboxId: string) => Promise<SandboxLogEntry[]>
 
   // 容器浏览器
-  listContainers: (filter?: ContainerFilter) => Promise<ContainerInfo[]>
-  getContainerDetails: (containerId: string) => Promise<ContainerDetails>
-  getContainerStats: (containerId: string) => Promise<ContainerStats>
-  getContainerLogs: (containerId: string, options?: LogOptions) => Promise<string>
+  listContainers: (filter?: ContainerFilter) => Promise<ContainerListResult>
+  getContainerDetails: (containerId: string) => Promise<ContainerDetailsResult>
+  getContainerStats: (containerId: string) => Promise<ContainerStatsResult>
+  getContainerLogs: (containerId: string, options?: LogOptions) => Promise<ContainerLogsResult>
 
   // 容器操作
   startContainer: (containerId: string) => Promise<SandboxResult>
@@ -1443,7 +1428,7 @@ interface SandboxApi {
   removeContainer: (containerId: string, force?: boolean) => Promise<SandboxResult>
 
   // 命令执行
-  execCommand: (containerId: string, command: ExecCommand) => Promise<ExecResult>
+  execCommand: (containerId: string, command: ExecCommand) => Promise<ExecCommandResult>
 
   // 文件操作
   copyToContainer: (containerId: string, source: string, target: string) => Promise<SandboxResult>
@@ -1469,7 +1454,7 @@ interface SandboxApi {
     sandboxId?: string,
     sandboxName?: string,
     portMappings?: PortMappingInput[]
-  ) => Promise<{ success: boolean; containerId?: string; error?: string }>
+  ) => Promise<CreateFromDockerfileResult>
 
   // 会话集成
   selectSandbox: (containerId: string, sessionId?: string) => Promise<SandboxResult>
