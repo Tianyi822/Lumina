@@ -2,7 +2,7 @@
 import type { PptExportSlidePreview } from '@shared/types/ppt-export'
 import { PPT_CONTENT_TYPE_COLORS } from '@renderer/utils/pptExportDialog'
 
-const props = defineProps<{
+defineProps<{
   slides: PptExportSlidePreview[]
   currentSlideIndex: number
 }>()

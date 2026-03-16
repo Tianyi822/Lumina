@@ -32,10 +32,12 @@ import type {
   PptExportConfig,
   PptSlideSize,
   PptStyleConfig,
+  SlideContentBlock,
   TemplateSlideLayout,
   TemplateStyleExtraction
 } from '@shared/types/ppt-export'
 import type { ParsedSlide } from '@shared/types/ppt-export'
+import type { PptTemplateListItem } from '@shared/types/ppt-template'
 import type { TemplateRenderBundle } from './types'
 
 /**
@@ -262,7 +264,7 @@ export class PptExportService {
             mediaData: templateBundle?.mediaData
           })
         } else if (isTableOnlySlide(slide)) {
-          const tableBlock = slide.blocks[0] as any
+          const tableBlock = slide.blocks[0] as Extract<SlideContentBlock, { type: 'table' }>
           generator.createTableSlide(
             slide.title,
             {
@@ -427,7 +429,7 @@ export class PptExportService {
    * 获取可用模板列表
    * @returns 模板列表
    */
-  private async getAvailableTemplates() {
+  private async getAvailableTemplates(): Promise<PptTemplateListItem[]> {
     try {
       const templateService = getPptTemplateService()
       return templateService.getAvailableTemplates()

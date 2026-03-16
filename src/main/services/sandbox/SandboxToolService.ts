@@ -19,7 +19,7 @@ export class SandboxToolService {
   /**
    * 注册工具
    */
-  private registerTools(tools: SandboxToolDefinition[]) {
+  private registerTools(tools: SandboxToolDefinition[]): void {
     tools.forEach((tool) => {
       this.tools.set(tool.name, tool)
     })

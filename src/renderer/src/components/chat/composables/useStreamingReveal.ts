@@ -5,7 +5,10 @@ const STREAM_REVEAL_INTERVAL = 32
 const STREAM_REVEAL_MIN_CHARS = 6
 const STREAM_REVEAL_MAX_CHARS = 48
 
-export function useStreamingReveal(message: Ref<Message>) {
+export function useStreamingReveal(message: Ref<Message>): {
+  displayedContent: Ref<string>
+  stopRevealLoop: () => void
+} {
   const displayedContent = ref(message.value.content)
   let revealFrameId: number | null = null
   let lastRevealTimestamp = 0

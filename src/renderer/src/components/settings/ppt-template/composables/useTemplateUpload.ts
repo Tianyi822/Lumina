@@ -2,6 +2,25 @@ import { ref, watch, type Ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePptTemplateStore } from '@renderer/stores'
 
+interface UseTemplateUploadReturn {
+  selectedFile: Ref<File | null>
+  templateName: Ref<string>
+  isDragging: Ref<boolean>
+  uploading: Ref<boolean>
+  validateFile: (file: File) => boolean
+  processFile: (file: File) => void
+  handleFileSelect: (event: Event) => void
+  createTriggerFileSelect: (fileInputRef: Ref<HTMLInputElement | null>) => () => void
+  handleDragEnter: (event: DragEvent) => void
+  handleDragLeave: (event: DragEvent) => void
+  handleDragOver: (event: DragEvent) => void
+  handleDrop: (event: DragEvent) => void
+  handleUpload: () => Promise<boolean>
+  resetForm: () => void
+  createResetForm: (fileInputRef: Ref<HTMLInputElement | null>) => () => void
+  formatFileSize: (bytes: number) => string
+}
+
 /**
  * 模板上传逻辑 composable
  * 处理文件选择、验证、拖拽和上传
@@ -9,7 +28,7 @@ import { usePptTemplateStore } from '@renderer/stores'
 export function useTemplateUpload(
   onError: (msg: string) => void,
   onSuccess: (msg: string) => void
-) {
+): UseTemplateUploadReturn {
   const pptTemplateStore = usePptTemplateStore()
   const { uploading } = storeToRefs(pptTemplateStore)
 

@@ -2,12 +2,23 @@ import Docker from 'dockerode'
 import { logger } from '@main/services/logger'
 import type {
   ComposeDownOptions,
+  ComposeDownResult,
   ComposeExecOptions,
+  ComposeExecResult,
   ComposeLogOptions,
+  ComposeLogResult,
+  ComposeRestartResult,
+  ComposeStatusResult,
   ComposeStopOptions,
+  ComposeStopResult,
+  ContainerDetails,
   ContainerFilter,
+  ContainerInfo,
+  ContainerStats,
   ExecCommand,
-  LogOptions
+  ExecResult,
+  LogOptions,
+  SandboxResult
 } from '@shared/types/sandbox'
 import { DockerComposeService } from './DockerComposeService'
 import { DockerContainerMapper } from './DockerContainerMapper'
@@ -17,8 +28,11 @@ import { DockerImageService } from './DockerImageService'
 import { DockerStatsService } from './DockerStatsService'
 import type {
   BuildImageFromDockerfileOptions,
+  BuildImageFromDockerfileResult,
   ComposeUpOptions,
+  ComposeUpResult,
   CreateContainerFromImageOptions,
+  CreateContainerFromImageResult,
   DockerAvailabilityResult,
   DockerServiceContext
 } from './types'
@@ -99,7 +113,7 @@ export class DockerService implements DockerServiceContext {
    * @param filter 过滤条件
    * @returns 容器列表
    */
-  async listContainers(filter?: ContainerFilter) {
+  async listContainers(filter?: ContainerFilter): Promise<ContainerInfo[]> {
     return this.containerService.listContainers(filter)
   }
 
@@ -108,7 +122,7 @@ export class DockerService implements DockerServiceContext {
    * @param containerId 容器 ID
    * @returns 容器详情
    */
-  async getContainerDetails(containerId: string) {
+  async getContainerDetails(containerId: string): Promise<ContainerDetails | null> {
     return this.containerService.getContainerDetails(containerId)
   }
 
@@ -117,7 +131,7 @@ export class DockerService implements DockerServiceContext {
    * @param containerId 容器 ID
    * @returns 统计信息
    */
-  async getContainerStats(containerId: string) {
+  async getContainerStats(containerId: string): Promise<ContainerStats | null> {
     return this.statsService.getContainerStats(containerId)
   }
 
@@ -126,7 +140,7 @@ export class DockerService implements DockerServiceContext {
    * @param containerId 容器 ID
    * @returns 操作结果
    */
-  async startContainer(containerId: string) {
+  async startContainer(containerId: string): Promise<SandboxResult> {
     return this.containerService.startContainer(containerId)
   }
 
@@ -136,7 +150,7 @@ export class DockerService implements DockerServiceContext {
    * @param timeout 停止超时
    * @returns 操作结果
    */
-  async stopContainer(containerId: string, timeout?: number) {
+  async stopContainer(containerId: string, timeout?: number): Promise<SandboxResult> {
     return this.containerService.stopContainer(containerId, timeout)
   }
 
@@ -145,7 +159,7 @@ export class DockerService implements DockerServiceContext {
    * @param containerId 容器 ID
    * @returns 操作结果
    */
-  async restartContainer(containerId: string) {
+  async restartContainer(containerId: string): Promise<SandboxResult> {
     return this.containerService.restartContainer(containerId)
   }
 
@@ -155,7 +169,7 @@ export class DockerService implements DockerServiceContext {
    * @param force 是否强制删除
    * @returns 操作结果
    */
-  async removeContainer(containerId: string, force?: boolean) {
+  async removeContainer(containerId: string, force?: boolean): Promise<SandboxResult> {
     return this.containerService.removeContainer(containerId, force)
   }
 
@@ -164,7 +178,7 @@ export class DockerService implements DockerServiceContext {
    * @param containerId 容器 ID
    * @returns 是否存在
    */
-  async containerExists(containerId: string) {
+  async containerExists(containerId: string): Promise<boolean> {
     return this.containerService.containerExists(containerId)
   }
 
@@ -173,7 +187,7 @@ export class DockerService implements DockerServiceContext {
    * @param containerIds 容器 ID 列表
    * @returns 存在性映射
    */
-  async containersExist(containerIds: string[]) {
+  async containersExist(containerIds: string[]): Promise<Map<string, boolean>> {
     return this.containerService.containersExist(containerIds)
   }
 
@@ -182,7 +196,7 @@ export class DockerService implements DockerServiceContext {
    * @param projectName 项目名
    * @returns 容器列表
    */
-  async getContainersByComposeProject(projectName: string) {
+  async getContainersByComposeProject(projectName: string): Promise<ContainerInfo[]> {
     return this.containerService.getContainersByComposeProject(projectName)
   }
 
@@ -191,7 +205,7 @@ export class DockerService implements DockerServiceContext {
    * @param projectName 项目名
    * @returns 操作结果
    */
-  async composeDown(projectName: string) {
+  async composeDown(projectName: string): Promise<SandboxResult> {
     return this.composeService.composeDown(projectName)
   }
 
@@ -201,7 +215,7 @@ export class DockerService implements DockerServiceContext {
    * @param command 执行命令
    * @returns 执行结果
    */
-  async execCommand(containerId: string, command: ExecCommand) {
+  async execCommand(containerId: string, command: ExecCommand): Promise<ExecResult | null> {
     return this.execService.execCommand(containerId, command)
   }
 
@@ -211,7 +225,7 @@ export class DockerService implements DockerServiceContext {
    * @param options 日志选项
    * @returns 日志内容
    */
-  async getContainerLogs(containerId: string, options?: LogOptions) {
+  async getContainerLogs(containerId: string, options?: LogOptions): Promise<string> {
     return this.statsService.getContainerLogs(containerId, options)
   }
 
@@ -222,7 +236,11 @@ export class DockerService implements DockerServiceContext {
    * @param target 目标路径
    * @returns 操作结果
    */
-  async copyToContainer(containerId: string, source: string, target: string) {
+  async copyToContainer(
+    containerId: string,
+    source: string,
+    target: string
+  ): Promise<SandboxResult> {
     return this.containerService.copyToContainer(containerId, source, target)
   }
 
@@ -233,7 +251,11 @@ export class DockerService implements DockerServiceContext {
    * @param target 本地目标路径
    * @returns 操作结果
    */
-  async copyFromContainer(containerId: string, source: string, target: string) {
+  async copyFromContainer(
+    containerId: string,
+    source: string,
+    target: string
+  ): Promise<SandboxResult> {
     return this.containerService.copyFromContainer(containerId, source, target)
   }
 
@@ -242,7 +264,9 @@ export class DockerService implements DockerServiceContext {
    * @param options 构建参数
    * @returns 构建结果
    */
-  async buildImageFromDockerfile(options: BuildImageFromDockerfileOptions) {
+  async buildImageFromDockerfile(
+    options: BuildImageFromDockerfileOptions
+  ): Promise<BuildImageFromDockerfileResult> {
     return this.imageService.buildImageFromDockerfile(options)
   }
 
@@ -251,7 +275,7 @@ export class DockerService implements DockerServiceContext {
    * @param imageId 镜像 ID
    * @returns 镜像信息
    */
-  async inspectImage(imageId: string) {
+  async inspectImage(imageId: string): Promise<Docker.ImageInspectInfo | null> {
     return this.imageService.inspectImage(imageId)
   }
 
@@ -260,7 +284,9 @@ export class DockerService implements DockerServiceContext {
    * @param options 创建参数
    * @returns 创建结果
    */
-  async createContainerFromImage(options: CreateContainerFromImageOptions) {
+  async createContainerFromImage(
+    options: CreateContainerFromImageOptions
+  ): Promise<CreateContainerFromImageResult> {
     return this.imageService.createContainerFromImage(options)
   }
 
@@ -269,14 +295,14 @@ export class DockerService implements DockerServiceContext {
    * @param options 启动参数
    * @returns 启动结果
    */
-  async composeUp(options: ComposeUpOptions) {
+  async composeUp(options: ComposeUpOptions): Promise<ComposeUpResult> {
     return this.composeService.composeUp(options)
   }
 
   /**
    * 清理悬空资源
    */
-  async cleanupDanglingResources() {
+  async cleanupDanglingResources(): Promise<void> {
     return this.imageService.cleanupDanglingResources()
   }
 
@@ -285,7 +311,7 @@ export class DockerService implements DockerServiceContext {
    * @param projectName 项目名
    * @returns 启动结果
    */
-  async composeStart(projectName: string) {
+  async composeStart(projectName: string): Promise<SandboxResult> {
     return this.composeService.composeStart(projectName)
   }
 
@@ -295,7 +321,7 @@ export class DockerService implements DockerServiceContext {
    * @param options 停止选项
    * @returns 停止结果
    */
-  async composeStop(projectName: string, options?: ComposeStopOptions) {
+  async composeStop(projectName: string, options?: ComposeStopOptions): Promise<ComposeStopResult> {
     return this.composeService.composeStop(projectName, options)
   }
 
@@ -304,7 +330,7 @@ export class DockerService implements DockerServiceContext {
    * @param projectName 项目名
    * @returns 重启结果
    */
-  async composeRestart(projectName: string) {
+  async composeRestart(projectName: string): Promise<ComposeRestartResult> {
     return this.composeService.composeRestart(projectName)
   }
 
@@ -313,7 +339,7 @@ export class DockerService implements DockerServiceContext {
    * @param projectName 项目名
    * @returns 项目状态
    */
-  async composeStatus(projectName: string) {
+  async composeStatus(projectName: string): Promise<ComposeStatusResult> {
     return this.composeService.composeStatus(projectName)
   }
 
@@ -330,7 +356,7 @@ export class DockerService implements DockerServiceContext {
     serviceName: string,
     command: string,
     options?: ComposeExecOptions
-  ) {
+  ): Promise<ComposeExecResult> {
     return this.composeService.composeExec(projectName, serviceName, command, options)
   }
 
@@ -340,7 +366,7 @@ export class DockerService implements DockerServiceContext {
    * @param options 日志选项
    * @returns 日志结果
    */
-  async composeLogs(projectName: string, options?: ComposeLogOptions) {
+  async composeLogs(projectName: string, options?: ComposeLogOptions): Promise<ComposeLogResult> {
     return this.composeService.composeLogs(projectName, options)
   }
 
@@ -350,7 +376,10 @@ export class DockerService implements DockerServiceContext {
    * @param options down 选项
    * @returns 删除结果
    */
-  async composeDownExtended(projectName: string, options?: ComposeDownOptions) {
+  async composeDownExtended(
+    projectName: string,
+    options?: ComposeDownOptions
+  ): Promise<ComposeDownResult> {
     return this.composeService.composeDownExtended(projectName, options)
   }
 }
