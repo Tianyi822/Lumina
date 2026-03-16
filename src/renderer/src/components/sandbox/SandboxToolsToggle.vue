@@ -21,15 +21,11 @@ watch(
   }
 )
 
-// 当本地状态变化时，同步到父组件
-watch(isEnabled, (newVal) => {
-  emit('update:modelValue', newVal)
-  emit('change', newVal)
-})
-
 function toggle(): void {
   if (!props.disabled) {
     isEnabled.value = !isEnabled.value
+    emit('update:modelValue', isEnabled.value)
+    emit('change', isEnabled.value)
   }
 }
 
