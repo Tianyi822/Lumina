@@ -1,6 +1,5 @@
 import { sandboxService } from '../SandboxService'
 import { SandboxData } from '@shared/types/sandbox'
-import { ToolArgs } from './types'
 
 /**
  * 查找沙箱（支持 ID 或名称模糊匹配）

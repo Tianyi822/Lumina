@@ -1,6 +1,5 @@
 import { posix } from 'path'
 import imageSize from 'image-size'
-import { logger } from '@main/services/logger'
 import type {
   PptTemplateElementAnalysis,
   PptElementSource,
