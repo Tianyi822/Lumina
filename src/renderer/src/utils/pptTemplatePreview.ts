@@ -89,7 +89,7 @@ function inferMimeType(path: string): string {
 }
 
 function estimateCharacterUnits(char: string): number {
-  return /[\u0000-\u00ff]/.test(char) ? 0.55 : 1
+  return char.charCodeAt(0) <= 0xff ? 0.55 : 1
 }
 
 function wrapPreviewText(text: string, maxUnits: number): string[] {

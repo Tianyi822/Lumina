@@ -363,6 +363,9 @@ async function handleSendMessage(
     return
   }
 
+  // 立即清空输入消息状态，避免界面延迟
+  inputStateStore.clearInputMessage()
+
   if (await tryHandleExportIntent(trimmedContent)) {
     return
   }
@@ -516,9 +519,6 @@ async function handleSendMessage(
     if (!result.success && result.error) {
       window.api.logger.error('[ChatPage] 发送消息失败', { error: result.error, sessionId })
       handleChatError(result.error)
-    } else {
-      // 发送成功后，清空输入消息
-      inputStateStore.clearInputMessage()
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)

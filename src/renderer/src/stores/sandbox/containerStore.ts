@@ -1,17 +1,18 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type {
-  ContainerInfo,
-  ContainerDetails,
-  ContainerStats,
   ContainerFilter,
   ContainerState,
   TerminalLog,
   ExecCommand,
   LogOptions
 } from '@shared/types/sandbox'
+import type { ContainerInfo, ContainerDetails, ContainerStats } from '@shared/types/sandbox'
+import { useSandboxOperationStore } from './sandboxOperationStore'
 
 export const useContainerStore = defineStore('container', () => {
+  const operationStore = useSandboxOperationStore()
+
   // ==================== State ====================
 
   /** Docker 容器列表 */
@@ -80,27 +81,34 @@ export const useContainerStore = defineStore('container', () => {
 
       const result = await window.api.sandbox.listContainers(filter)
       window.api.logger.info('[ContainerStore] IPC 返回结果', {
-        resultType: typeof result,
-        isArray: Array.isArray(result),
-        length: Array.isArray(result) ? result.length : null,
+        success: result.success,
+        length: result.containers?.length || 0,
         sample:
-          Array.isArray(result) && result.length > 0
-            ? JSON.stringify(result[0]).substring(0, 300)
+          result.containers && result.containers.length > 0
+            ? JSON.stringify(result.containers[0]).substring(0, 300)
             : null
       })
 
-      containers.value = result
+      if (!result.success) {
+        containers.value = []
+        operationStore.notifyDockerError('加载容器列表失败', result.error || '未知错误')
+        return
+      }
+
+      containers.value = result.containers || []
 
       window.api.logger.info('[ContainerStore] 容器列表加载完成', {
         count: containers.value.length
       })
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       window.api.logger.error('[ContainerStore] 加载容器列表失败', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         stack: error instanceof Error ? error.stack : undefined,
         name: error instanceof Error ? error.name : undefined
       })
       containers.value = []
+      operationStore.notifyDockerError('加载容器列表失败', errorMessage)
     } finally {
       isLoading.value = false
     }
@@ -113,29 +121,48 @@ export const useContainerStore = defineStore('container', () => {
 
   async function loadContainerDetails(containerId: string): Promise<void> {
     try {
-      selectedContainer.value = await window.api.sandbox.getContainerDetails(containerId)
+      const result = await window.api.sandbox.getContainerDetails(containerId)
+
+      if (!result.success) {
+        selectedContainer.value = null
+        operationStore.notifyDockerError('加载容器详情失败', result.error || '未知错误')
+        return
+      }
+
+      selectedContainer.value = result.details || null
 
       window.api.logger.info('[ContainerStore] 容器详情加载完成', {
         containerId: containerId.substring(0, 12)
       })
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       window.api.logger.error('[ContainerStore] 加载容器详情失败', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         containerId
       })
       selectedContainer.value = null
+      operationStore.notifyDockerError('加载容器详情失败', errorMessage)
     }
   }
 
   async function loadContainerStats(containerId: string): Promise<void> {
     try {
-      containerStats.value = await window.api.sandbox.getContainerStats(containerId)
+      const result = await window.api.sandbox.getContainerStats(containerId)
+      if (!result.success) {
+        containerStats.value = null
+        operationStore.notifyDockerError('加载容器统计失败', result.error || '未知错误')
+        return
+      }
+
+      containerStats.value = result.stats || null
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       window.api.logger.error('[ContainerStore] 加载容器统计失败', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage,
         containerId
       })
       containerStats.value = null
+      operationStore.notifyDockerError('加载容器统计失败', errorMessage)
     }
   }
 
@@ -392,13 +419,24 @@ export const useContainerStore = defineStore('container', () => {
 
       const result = await window.api.sandbox.execCommand(containerId, command)
 
+      if (!result.success || !result.result) {
+        const errorMessage = result.error || '命令执行失败'
+        operationStore.notifyDockerError('执行命令失败', errorMessage)
+        terminalLogs.value.push({
+          timestamp: new Date().toISOString(),
+          type: 'error',
+          content: errorMessage
+        })
+        return null
+      }
+
       terminalLogs.value.push({
         timestamp: new Date().toISOString(),
-        type: result.exitCode === 0 ? 'output' : 'error',
-        content: result.stdout || result.stderr || '命令执行完成'
+        type: result.result.exitCode === 0 ? 'output' : 'error',
+        content: result.result.stdout || result.result.stderr || '命令执行完成'
       })
 
-      return result
+      return result.result
     } catch (error) {
       window.api.logger.error('[ContainerStore] 执行命令失败', {
         error: error instanceof Error ? error.message : String(error),
@@ -482,12 +520,22 @@ export const useContainerStore = defineStore('container', () => {
 
   async function getContainerLogs(containerId: string, options?: LogOptions): Promise<string> {
     try {
-      return await window.api.sandbox.getContainerLogs(containerId, options)
+      const result = await window.api.sandbox.getContainerLogs(containerId, options)
+      if (!result.success) {
+        operationStore.notifyDockerError('加载容器日志失败', result.error || '未知错误')
+        return ''
+      }
+
+      return result.logs || ''
     } catch (error) {
       window.api.logger.error('[ContainerStore] 获取容器日志失败', {
         error: error instanceof Error ? error.message : String(error),
         containerId
       })
+      operationStore.notifyDockerError(
+        '加载容器日志失败',
+        error instanceof Error ? error.message : String(error)
+      )
       return ''
     }
   }

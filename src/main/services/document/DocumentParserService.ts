@@ -53,6 +53,11 @@ export class DocumentParserService {
           content = await this.parsePptx(tempPath)
           break
 
+        case '.xls':
+        case '.xlsx':
+          content = await this.parseExcel(tempPath)
+          break
+
         default:
           throw new Error(`不支持的文件类型: ${ext}`)
       }
@@ -88,7 +93,13 @@ export class DocumentParserService {
       // 禁用 worker（在 Electron 主进程中不需要）
       pdfjsLib.GlobalWorkerOptions.disableWorker = true
 
-      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(dataBuffer) }).promise
+      // 设置日志级别为 ERROR，抑制字体解析警告
+      pdfjsLib.verbosity = pdfjsLib.VerbosityLevel.ERRORS
+
+      const pdf = await pdfjsLib.getDocument({
+        data: new Uint8Array(dataBuffer),
+        verbosity: pdfjsLib.VerbosityLevel.ERRORS
+      }).promise
       logger.info('PDF 文档已加载', 'main', { pages: pdf.numPages })
 
       let fullText = ''
@@ -220,6 +231,44 @@ export class DocumentParserService {
         throw new Error('PPTX 文件过大，内存不足')
       } else {
         throw new Error(`PPTX 解析失败: ${errorMessage}`)
+      }
+    }
+  }
+
+  /**
+   * 解析 Excel 电子表格
+   * 提取单元格文本、工作表名称信息
+   */
+  private async parseExcel(filePath: string): Promise<string> {
+    try {
+      logger.info('开始解析 Excel 电子表格', 'main', { filePath })
+
+      const config = {
+        newlineDelimiter: '\n',
+        outputErrorToConsole: false
+      }
+
+      const ast = await officeParser.parseOffice(filePath, config)
+      const fullText = ast.toText()
+
+      logger.info('Excel 解析完成', 'main', {
+        filePath,
+        contentLength: fullText.length,
+        sheetCount: ast.content?.length || 0
+      })
+
+      return fullText
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('Excel 解析失败', 'main', {
+        filePath,
+        error: errorMessage
+      })
+
+      if (errorMessage.includes('Invalid Excel')) {
+        throw new Error('Excel 文件格式无效或已损坏')
+      } else {
+        throw new Error(`Excel 解析失败: ${errorMessage}`)
       }
     }
   }

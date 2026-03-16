@@ -102,10 +102,10 @@ export const useSessionStore = defineStore('session', () => {
         if (cached && cached.messages.length > 0) {
           const session = await window.api.session.load(sessionId)
           if (session) {
-            currentSession.value = session
-            currentChatId.value = session.sessionId
             inputState.applySessionSelectionState(sessionId, session.selectionState)
             inputState.switchToSession(sessionId)
+            currentSession.value = session
+            currentChatId.value = session.sessionId
             if (cached.title) {
               currentSession.value.title = cached.title
             }
@@ -130,10 +130,10 @@ export const useSessionStore = defineStore('session', () => {
       // 从磁盘加载
       const session = await window.api.session.load(sessionId)
       if (session) {
-        currentSession.value = session
-        currentChatId.value = session.sessionId
         inputState.applySessionSelectionState(sessionId, session.selectionState)
         inputState.switchToSession(sessionId)
+        currentSession.value = session
+        currentChatId.value = session.sessionId
         messages.value = session.messages.map(sessionMessageToMessage)
 
         window.api.logger.info('[SessionStore] 从磁盘加载会话', {
@@ -225,12 +225,13 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     try {
+      const sessionSnapshot = currentSession.value
       const sessionToSave: SessionData = {
-        sessionId: currentSession.value.sessionId,
-        title: currentSession.value.title,
-        description: currentSession.value.description,
-        sessionType: currentSession.value.sessionType,
-        createdAt: currentSession.value.createdAt,
+        sessionId: sessionSnapshot.sessionId,
+        title: sessionSnapshot.title,
+        description: sessionSnapshot.description,
+        sessionType: sessionSnapshot.sessionType,
+        createdAt: sessionSnapshot.createdAt,
         updatedAt: new Date().toISOString(),
         messages: messages.value.map(messageToSessionMessage),
         selectionState: inputState.getCurrentSelectionState()
@@ -243,9 +244,11 @@ export const useSessionStore = defineStore('session', () => {
         return false
       }
 
-      currentSession.value.messages = sessionToSave.messages
-      currentSession.value.updatedAt = sessionToSave.updatedAt
-      currentSession.value.selectionState = sessionToSave.selectionState
+      if (currentSession.value?.sessionId === sessionToSave.sessionId) {
+        currentSession.value.messages = sessionToSave.messages
+        currentSession.value.updatedAt = sessionToSave.updatedAt
+        currentSession.value.selectionState = sessionToSave.selectionState
+      }
 
       await refreshSessionList()
 
@@ -351,9 +354,6 @@ export const useSessionStore = defineStore('session', () => {
       await saveCurrentStateBeforeLeave()
     }
 
-    // 切换到目标会话的输入状态
-    inputState.switchToSession(sessionId)
-
     // 加载会话
     const success = await loadSession(sessionId, true)
 
@@ -395,6 +395,9 @@ export const useSessionStore = defineStore('session', () => {
     if (messages.value.length > 0) {
       messageCache.cacheSession(sessionId, messages.value, currentSession.value?.title)
     }
+
+    // 持久化会话到文件（包括选择状态）
+    await saveCurrentSession()
   }
 
   // 在返回页面时恢复状态

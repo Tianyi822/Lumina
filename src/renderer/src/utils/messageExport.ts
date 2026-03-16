@@ -112,7 +112,11 @@ export function parseExportFormat(text: string): ExportFormat | null {
     return 'txt'
   }
 
-  if (/(^|[^a-z])ppt([^a-z]|$)|(^|[^a-z])powerpoint([^a-z]|$)|(^|[^a-z])power([^a-z]|$)|演示文稿|幻灯片/i.test(normalized)) {
+  if (
+    /(^|[^a-z])ppt([^a-z]|$)|(^|[^a-z])powerpoint([^a-z]|$)|(^|[^a-z])power([^a-z]|$)|演示文稿|幻灯片/i.test(
+      normalized
+    )
+  ) {
     return 'ppt'
   }
 

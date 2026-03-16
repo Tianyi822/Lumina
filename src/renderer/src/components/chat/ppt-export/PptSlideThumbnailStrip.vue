@@ -1,40 +1,21 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
 import type { PptExportSlidePreview } from '@shared/types/ppt-export'
 import { PPT_CONTENT_TYPE_COLORS } from '@renderer/utils/pptExportDialog'
 
-const props = defineProps<{
+defineProps<{
   slides: PptExportSlidePreview[]
   currentSlideIndex: number
 }>()
 
 const emit = defineEmits<{
   (e: 'select-slide', slideIndex: number): void
+  (e: 'toggle-selection', slideIndex: number): void
 }>()
 
-const thumbnailScrollRef = ref<HTMLElement | null>(null)
-
-function scrollToCurrentSlide(index: number): void {
-  nextTick(() => {
-    const thumbnailEl = thumbnailScrollRef.value?.querySelector<HTMLElement>(
-      `[data-slide-index="${index}"]`
-    )
-
-    thumbnailEl?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'nearest',
-      inline: 'center'
-    })
-  })
+function handleToggleSelection(event: Event, index: number): void {
+  event.stopPropagation()
+  emit('toggle-selection', index)
 }
-
-watch(
-  () => [props.currentSlideIndex, props.slides.length],
-  ([currentSlideIndex]) => {
-    scrollToCurrentSlide(currentSlideIndex)
-  },
-  { immediate: true }
-)
 </script>
 
 <template>
@@ -80,8 +61,8 @@ watch(
           </span>
         </div>
 
-        <div v-if="slide.selected" class="ppt-export-thumbnail-check">
-          <span>✓</span>
+        <div class="ppt-export-thumbnail-check" @click="handleToggleSelection($event, slide.index)">
+          <span v-if="slide.selected">✓</span>
         </div>
       </div>
     </div>
@@ -93,9 +74,9 @@ watch(
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--glass-white-15, rgba(255, 255, 255, 0.15));
   border-radius: var(--theme-radius-lg);
-  background: var(--theme-bg);
+  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
   overflow: hidden;
   padding: 14px;
 }
@@ -145,29 +126,34 @@ watch(
   flex-shrink: 0;
   width: 100px;
   cursor: pointer;
-  border: 2px solid var(--theme-border);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: var(--theme-radius);
-  background: var(--theme-bg);
+  background: rgba(0, 0, 0, 0.02);
   overflow: hidden;
-  transition:
-    border-color 0.15s ease,
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .ppt-export-thumbnail-item:hover {
-  border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--theme-accent);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.ppt-export-thumbnail-item:hover .ppt-export-thumbnail-check {
+  opacity: 1;
 }
 
 .ppt-export-thumbnail-item.active {
   border-color: var(--theme-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-accent) 20%, transparent);
+  background: rgba(99, 102, 241, 0.1);
 }
 
 .ppt-export-thumbnail-item.selected {
   background: color-mix(in srgb, var(--theme-accent) 5%, var(--theme-bg));
+}
+
+.ppt-export-thumbnail-item.selected .ppt-export-thumbnail-check {
+  opacity: 1;
+  background: var(--theme-accent);
 }
 
 .ppt-export-thumbnail-preview {
@@ -219,15 +205,22 @@ watch(
   position: absolute;
   bottom: 4px;
   right: 4px;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: var(--theme-accent);
+  background: rgba(0, 0, 0, 0.2);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.ppt-export-thumbnail-check:hover {
+  transform: scale(1.1);
+  background: var(--theme-accent);
 }
 </style>

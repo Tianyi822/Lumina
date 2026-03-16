@@ -9,7 +9,7 @@ import { getPptTemplateService } from './PptTemplateService'
 export * from './templatePaths'
 
 // 分析器
-export { PptTemplateAnalyzer } from './PptTemplateAnalyzer'
+export { PptTemplateAnalyzer } from './analyzers/PptTemplateAnalyzer'
 
 // 服务
 export { getPptTemplateService, PptTemplateService } from './PptTemplateService'

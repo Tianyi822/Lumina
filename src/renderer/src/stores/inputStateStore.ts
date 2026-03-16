@@ -9,13 +9,26 @@ import { deepClone } from '@shared/utils'
 import type { SessionInputState } from './types'
 
 // 默认输入状态
-const DEFAULT_INPUT_STATE: SessionInputState = {
-  inputMessage: '',
-  selectedModel: '',
-  selectedMCPTools: [],
-  selectedKnowledgeBases: [],
-  enableSandboxTools: false,
-  selectedPptTemplate: null
+function createDefaultInputState(): SessionInputState {
+  return {
+    inputMessage: '',
+    selectedModel: '',
+    selectedMCPTools: [],
+    selectedKnowledgeBases: [],
+    enableSandboxTools: false,
+    selectedPptTemplate: null
+  }
+}
+
+function cloneInputState(state: SessionInputState): SessionInputState {
+  return {
+    inputMessage: state.inputMessage,
+    selectedModel: state.selectedModel,
+    selectedMCPTools: deepClone(state.selectedMCPTools),
+    selectedKnowledgeBases: deepClone(state.selectedKnowledgeBases),
+    enableSandboxTools: state.enableSandboxTools,
+    selectedPptTemplate: deepClone(state.selectedPptTemplate)
+  }
 }
 
 export const useInputStateStore = defineStore(
@@ -28,7 +41,7 @@ export const useInputStateStore = defineStore(
     const sessionInputStates = ref<Map<string, SessionInputState>>(new Map())
 
     // 当前会话的输入状态（运行时状态，不持久化）
-    const currentInputState = ref<SessionInputState>({ ...DEFAULT_INPUT_STATE })
+    const currentInputState = ref<SessionInputState>(createDefaultInputState())
 
     // 最后活动的会话 ID（用于页面切换后恢复）
     const lastActiveSessionId = ref<string | null>(null)
@@ -61,7 +74,7 @@ export const useInputStateStore = defineStore(
     // 获取或创建会话的输入状态
     function getSessionState(sessionId: string): SessionInputState {
       if (!sessionInputStates.value.has(sessionId)) {
-        sessionInputStates.value.set(sessionId, { ...DEFAULT_INPUT_STATE })
+        sessionInputStates.value.set(sessionId, createDefaultInputState())
       }
       return sessionInputStates.value.get(sessionId)!
     }
@@ -88,23 +101,34 @@ export const useInputStateStore = defineStore(
     }
 
     // 将会话文件中的选择状态恢复到输入状态
+    // 如果 selectionState 不存在，保留 Pinia store 中已保存的状态（避免覆盖）
     function applySessionSelectionState(
       sessionId: string,
       selectionState?: SessionSelectionState
     ): void {
       const previousState = getSessionState(sessionId)
+
+      // 如果 selectionState 不存在，使用 previousState 中的值
+      // 只有当 selectionState 存在且有对应字段时才覆盖
       const nextState: SessionInputState = {
-        ...previousState,
-        selectedMCPTools: deepClone(selectionState?.selectedMCPTools ?? []),
-        selectedKnowledgeBases: deepClone(selectionState?.selectedKnowledgeBases ?? []),
-        enableSandboxTools: selectionState?.enableSandboxTools ?? false,
-        selectedPptTemplate: deepClone(selectionState?.selectedPptTemplate ?? null)
+        ...cloneInputState(previousState),
+        selectedMCPTools: selectionState?.selectedMCPTools
+          ? deepClone(selectionState.selectedMCPTools)
+          : deepClone(previousState.selectedMCPTools),
+        selectedKnowledgeBases: selectionState?.selectedKnowledgeBases
+          ? deepClone(selectionState.selectedKnowledgeBases)
+          : deepClone(previousState.selectedKnowledgeBases),
+        enableSandboxTools: selectionState?.enableSandboxTools ?? previousState.enableSandboxTools,
+        selectedPptTemplate:
+          selectionState?.selectedPptTemplate !== undefined
+            ? deepClone(selectionState.selectedPptTemplate)
+            : deepClone(previousState.selectedPptTemplate)
       }
 
       sessionInputStates.value.set(sessionId, nextState)
 
       if (lastActiveSessionId.value === sessionId) {
-        currentInputState.value = { ...nextState }
+        currentInputState.value = cloneInputState(nextState)
       }
 
       window.api.logger.debug('[InputStateStore] 恢复会话选择状态', {
@@ -112,7 +136,8 @@ export const useInputStateStore = defineStore(
         toolCount: nextState.selectedMCPTools.length,
         knowledgeBaseCount: nextState.selectedKnowledgeBases.length,
         enableSandboxTools: nextState.enableSandboxTools,
-        selectedPptTemplateId: nextState.selectedPptTemplate?.id || null
+        selectedPptTemplateId: nextState.selectedPptTemplate?.id || null,
+        source: selectionState ? 'file' : 'memory'
       })
     }
 
@@ -123,7 +148,7 @@ export const useInputStateStore = defineStore(
         return
       }
 
-      sessionInputStates.value.set(sessionId, { ...currentInputState.value })
+      sessionInputStates.value.set(sessionId, cloneInputState(currentInputState.value))
       lastActiveSessionId.value = sessionId
 
       window.api.logger.debug('[InputStateStore] 保存输入状态', {
@@ -138,7 +163,7 @@ export const useInputStateStore = defineStore(
     // 切换到指定会话的输入状态
     function switchToSession(sessionId: string): void {
       const state = getSessionState(sessionId)
-      currentInputState.value = { ...state }
+      currentInputState.value = cloneInputState(state)
       lastActiveSessionId.value = sessionId
 
       window.api.logger.debug('[InputStateStore] 切换到会话输入状态', {
@@ -244,7 +269,7 @@ export const useInputStateStore = defineStore(
 
       // 如果删除的是当前会话，重置当前状态
       if (lastActiveSessionId.value === sessionId) {
-        currentInputState.value = { ...DEFAULT_INPUT_STATE }
+        currentInputState.value = createDefaultInputState()
         lastActiveSessionId.value = null
       }
 
@@ -254,7 +279,7 @@ export const useInputStateStore = defineStore(
     // 清除所有输入状态
     function clearAllStates(): void {
       sessionInputStates.value.clear()
-      currentInputState.value = { ...DEFAULT_INPUT_STATE }
+      currentInputState.value = createDefaultInputState()
       lastActiveSessionId.value = null
 
       window.api.logger.debug('[InputStateStore] 清除所有输入状态')
@@ -264,7 +289,7 @@ export const useInputStateStore = defineStore(
     function restoreSessionState(sessionId: string): boolean {
       const state = sessionInputStates.value.get(sessionId)
       if (state) {
-        currentInputState.value = { ...state }
+        currentInputState.value = cloneInputState(state)
         lastActiveSessionId.value = sessionId
 
         window.api.logger.info('[InputStateStore] 恢复会话输入状态', {

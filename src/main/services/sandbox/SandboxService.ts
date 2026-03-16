@@ -162,7 +162,7 @@ export class SandboxService {
       const sandboxs: SandboxListItem[] = []
 
       // 导入 DockerService
-      const { getDockerService } = await import('./DockerService')
+      const { getDockerService } = await import('./docker/DockerService')
       const dockerService = await getDockerService()
 
       for (const dir of dirs) {
@@ -343,7 +343,7 @@ export class SandboxService {
       // 用户可以直接输入内容而不保存配置，实际的 Docker 操作在 IPC 处理器中完成
 
       // 导入 DockerService（延迟导入避免循环依赖）
-      const { getDockerService } = await import('./DockerService')
+      const { getDockerService } = await import('./docker/DockerService')
       const dockerService = getDockerService()
 
       const sandboxId = generateSandboxId()
@@ -449,7 +449,7 @@ export class SandboxService {
       const force = options?.force || false
 
       // 导入 DockerService 和权限服务
-      const { getDockerService } = await import('./DockerService')
+      const { getDockerService } = await import('./docker/DockerService')
       const dockerService = getDockerService()
 
       // 使用权限服务验证删除选项
@@ -593,7 +593,7 @@ export class SandboxService {
       }
 
       // 导入 DockerService
-      const { getDockerService } = await import('./DockerService')
+      const { getDockerService } = await import('./docker/DockerService')
       const dockerService = getDockerService()
 
       // 获取所有容器列表
@@ -725,7 +725,7 @@ export class SandboxService {
       }
 
       // 导入 DockerService
-      const { getDockerService } = await import('./DockerService')
+      const { getDockerService } = await import('./docker/DockerService')
       const dockerService = getDockerService()
 
       // 验证新容器是否存在

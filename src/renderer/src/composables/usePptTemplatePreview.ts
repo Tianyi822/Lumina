@@ -27,7 +27,10 @@ function toTemplatePreviewRecord(
  * 管理模板首页预览图缓存与加载状态。
  * 优先使用原 PPT 文件自带的缩略图，如果没有则使用渲染生成的预览图。
  */
-export function usePptTemplatePreview(templates: Ref<PptTemplateListItem[]>) {
+export function usePptTemplatePreview(templates: Ref<PptTemplateListItem[]>): {
+  templatePreviewMap: Ref<Record<string, TemplatePreviewModel>>
+  ensureTemplatePreview: (templateId: string) => Promise<void>
+} {
   const templatePreviewMap = ref<Record<string, TemplatePreviewModel>>({})
 
   const updateTemplatePreview = (templateId: string, preview: TemplatePreviewModel): void => {

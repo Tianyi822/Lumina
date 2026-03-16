@@ -21,15 +21,11 @@ watch(
   }
 )
 
-// 当本地状态变化时，同步到父组件
-watch(isEnabled, (newVal) => {
-  emit('update:modelValue', newVal)
-  emit('change', newVal)
-})
-
 function toggle(): void {
   if (!props.disabled) {
     isEnabled.value = !isEnabled.value
+    emit('update:modelValue', isEnabled.value)
+    emit('change', isEnabled.value)
   }
 }
 
@@ -49,9 +45,7 @@ onMounted(() => {
     <div class="toggle-switch">
       <div class="toggle-thumb"></div>
     </div>
-    <span class="toggle-label">启用沙箱管理</span>
-    <span v-if="isEnabled" class="status-badge active">已启用</span>
-    <span v-else class="status-badge">已禁用</span>
+    <span class="toggle-label">沙箱</span>
   </div>
 </template>
 
@@ -122,22 +116,5 @@ onMounted(() => {
   font-size: 12px;
   color: var(--theme-text);
   font-weight: 500;
-}
-
-.status-badge {
-  font-size: 11px;
-  padding: 1px 6px;
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 10px;
-  color: var(--theme-text-secondary);
-  min-width: 18px;
-  text-align: center;
-}
-
-.status-badge.active {
-  background-color: var(--theme-accent);
-  border-color: transparent;
-  color: white;
 }
 </style>

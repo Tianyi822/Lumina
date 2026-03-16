@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useContainerStore, useUIStateStore } from '@renderer/stores'
-import { useSandboxStore } from '@renderer/stores/sandbox'
+import { useContainerStore, useUIStateStore, useSandboxStore } from '@renderer/stores'
 import TerminalPanel from './TerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
 import OrphanSandboxAlert from './OrphanSandboxAlert.vue'
-import type { SandboxData, SandboxLogEntry, SandboxStatus } from '@shared/types/sandbox'
-import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
+import { TabNavigation, SandboxInfoTab } from './sandbox-detail'
+import {
+  useContainerLogs as useContainerLogsComposable,
+  useContainerActions
+} from './sandbox-detail'
+import type { SandboxData, SandboxLogEntry } from '@shared/types/sandbox'
 
 // ==================== Props & Emits ====================
 
@@ -36,44 +39,37 @@ const {
 
 const { sandboxDetailTab } = storeToRefs(uiStateStore)
 
-// ==================== State ====================
-
-const isEditing = ref(false)
-const editingName = ref('')
-const nameInputRef = ref<HTMLInputElement | null>(null)
-const containerLogs = ref('')
-const logsLoading = ref(false)
+// ==================== Computed ====================
 
 const hasSandbox = computed(() => !!props.currentSandbox)
 
-// 创建类型标签
-const creationTypeLabel = computed(() => {
-  if (!props.currentSandbox?.creationType) return '未知'
-  const labels: Record<string, string> = {
-    existing: '已有容器',
-    compose: 'Compose',
-    dockerfile: 'Dockerfile'
-  }
-  return labels[props.currentSandbox.creationType] || props.currentSandbox.creationType
-})
+const isOrphan = computed(() => props.currentSandbox?.isOrphan || false)
 
-// 是否为孤儿沙箱
-const isOrphan = computed(() => {
-  return props.currentSandbox?.isOrphan || false
-})
+// 用于 composables 的响应式引用
+const currentSandboxRef = computed(() => props.currentSandbox)
+const selectedContainerRef = computed(() => selectedContainer.value)
+
+// ==================== Composables ====================
+
+// 容器日志
+const { containerLogs, logsLoading, loadContainerLogs, handleRefreshLogs, handleExportLogs } =
+  useContainerLogsComposable(selectedContainerRef)
+
+// 容器操作
+const {
+  handleContainerStart,
+  handleContainerStop,
+  handleContainerRestart,
+  handleContainerRemove,
+  handleRefreshStats,
+  handleExecuteCommand,
+  handleClearTerminal,
+  handleRefreshStatus
+} = useContainerActions(currentSandboxRef, selectedContainerRef)
 
 // ==================== Watch ====================
 
-watch(
-  () => props.currentSandbox?.name,
-  () => {
-    if (props.currentSandbox && !isEditing.value) {
-      editingName.value = props.currentSandbox.name
-    }
-  },
-  { immediate: true }
-)
-
+// Tab 切换时加载数据
 watch(
   () => sandboxDetailTab.value,
   async (tab) => {
@@ -85,6 +81,7 @@ watch(
   }
 )
 
+// 容器变化时重新加载日志
 watch(
   () => selectedContainer.value?.id,
   async (newId) => {
@@ -96,204 +93,8 @@ watch(
 
 // ==================== Methods ====================
 
-function getStatusLabel(status: SandboxStatus): string {
-  const labels: Record<SandboxStatus, string> = {
-    creating: '创建中',
-    running: '运行中',
-    stopped: '已停止',
-    error: '错误'
-  }
-  return labels[status] || status
-}
-
-function getStatusClass(status: SandboxStatus): string {
-  return `status-${status}`
-}
-
-// 将容器状态映射到沙箱状态
-function mapContainerStateToStatus(state: string | undefined): SandboxStatus {
-  if (!state) return 'stopped'
-  switch (state) {
-    case 'running':
-      return 'running'
-    case 'created':
-    case 'paused':
-    case 'restarting':
-      return 'running'
-    case 'exited':
-    case 'dead':
-    case 'removing':
-      return 'stopped'
-    default:
-      return 'stopped'
-  }
-}
-
-// 获取实际显示的状态（优先使用容器实时状态）
-function getDisplayStatus(): SandboxStatus {
-  if (selectedContainer.value?.state) {
-    return mapContainerStateToStatus(selectedContainer.value.state)
-  }
-  return props.currentSandbox?.status || 'stopped'
-}
-
-function formatDateTime(isoString: string): string {
-  const date = new Date(isoString)
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
-function formatLogTime(isoString: string): string {
-  const date = new Date(isoString)
-  return date.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
-}
-
-function getLogLevelClass(level: string): string {
-  return `log-level-${level}`
-}
-
-function startEditing(): void {
-  if (!props.currentSandbox) return
-  editingName.value = props.currentSandbox.name
-  isEditing.value = true
-  nextTick(() => {
-    nameInputRef.value?.focus()
-    nameInputRef.value?.select()
-  })
-}
-
-function saveName(): void {
-  if (!props.currentSandbox) return
-  const trimmedName = editingName.value.trim()
-  if (trimmedName && trimmedName !== props.currentSandbox.name) {
-    emit('rename', props.currentSandbox.sandboxId, trimmedName)
-  }
-  isEditing.value = false
-}
-
-function cancelEditing(): void {
-  if (props.currentSandbox) {
-    editingName.value = props.currentSandbox.name
-  }
-  isEditing.value = false
-}
-
-function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') {
-    cancelEditing()
-  } else if (event.key === 'Enter') {
-    saveName()
-  }
-}
-
-function handleBlur(): void {
-  saveName()
-}
-
-// ==================== Tab 切换 ====================
-
 function setDetailTab(tab: 'info' | 'terminal' | 'logs' | 'stats'): void {
   uiStateStore.setSandboxDetailTab(tab)
-}
-
-// ==================== 容器操作 ====================
-
-async function handleContainerStart(): Promise<void> {
-  // 如果是 Compose 类型沙箱，使用 composeStart 启动所有容器
-  if (props.currentSandbox?.creationType === 'compose' && props.currentSandbox.composeProjectName) {
-    const result = await containerStore.composeStart(props.currentSandbox.composeProjectName)
-    if (!result.success && result.error) {
-      sandboxStore.showError('启动 Compose 项目失败', result.error)
-    } else if (result.success) {
-      // 刷新沙箱状态
-      await refreshSandboxStatus()
-    }
-    return
-  }
-
-  if (selectedContainer.value) {
-    const result = await containerStore.startContainer(selectedContainer.value.id)
-    if (!result.success && result.error) {
-      sandboxStore.showError('启动容器失败', result.error)
-    } else if (result.success) {
-      // 刷新沙箱状态
-      await refreshSandboxStatus()
-    }
-  }
-}
-
-async function handleContainerStop(): Promise<void> {
-  // 如果是 Compose 类型沙箱，使用 composeStop 停止所有容器
-  if (props.currentSandbox?.creationType === 'compose' && props.currentSandbox.composeProjectName) {
-    const result = await containerStore.composeStop(props.currentSandbox.composeProjectName)
-    if (!result.success && result.error) {
-      sandboxStore.showError('停止 Compose 项目失败', result.error)
-    } else if (
-      result.success &&
-      result.stoppedContainerIds &&
-      result.stoppedContainerIds.length > 0
-    ) {
-      sandboxStore.showSuccess('停止成功', `已停止 ${result.stoppedContainerIds.length} 个容器`)
-      // 刷新沙箱状态
-      await refreshSandboxStatus()
-    } else if (result.success) {
-      // 刷新沙箱状态
-      await refreshSandboxStatus()
-    }
-    return
-  }
-
-  if (selectedContainer.value) {
-    const result = await containerStore.stopContainer(selectedContainer.value.id)
-    if (!result.success && result.error) {
-      sandboxStore.showError('停止容器失败', result.error)
-    } else if (result.success) {
-      // 刷新沙箱状态
-      await refreshSandboxStatus()
-    }
-  }
-}
-
-async function handleContainerRestart(): Promise<void> {
-  // 如果是 Compose 类型沙箱，使用 composeRestart 重启所有容器
-  if (props.currentSandbox?.creationType === 'compose' && props.currentSandbox.composeProjectName) {
-    const result = await containerStore.composeRestart(props.currentSandbox.composeProjectName)
-    if (!result.success && result.error) {
-      sandboxStore.showError('重启 Compose 项目失败', result.error)
-    } else if (result.success) {
-      // 刷新沙箱状态
-      await refreshSandboxStatus()
-    }
-    return
-  }
-
-  if (selectedContainer.value) {
-    const result = await containerStore.restartContainer(selectedContainer.value.id)
-    if (!result.success && result.error) {
-      sandboxStore.showError('重启容器失败', result.error)
-    } else if (result.success) {
-      // 刷新沙箱状态
-      await refreshSandboxStatus()
-    }
-  }
-}
-
-async function handleContainerRemove(): Promise<void> {
-  if (selectedContainer.value) {
-    const result = await containerStore.removeContainer(selectedContainer.value.id)
-    if (!result.success && result.error) {
-      sandboxStore.showError('删除容器失败', result.error)
-    }
-  }
 }
 
 async function handleOpenTerminal(): Promise<void> {
@@ -304,138 +105,26 @@ async function handleViewLogs(): Promise<void> {
   setDetailTab('logs')
 }
 
-async function handleRefreshStats(): Promise<void> {
-  if (selectedContainer.value) {
-    await containerStore.loadContainerStats(selectedContainer.value.id)
-  }
-}
-
-async function loadContainerLogs(): Promise<void> {
-  if (!selectedContainer.value) return
-  logsLoading.value = true
-  try {
-    containerLogs.value = await containerStore.getContainerLogs(selectedContainer.value.id, {
-      tail: 500
-    })
-  } finally {
-    logsLoading.value = false
-  }
-}
-
-async function handleRefreshLogs(): Promise<void> {
-  await loadContainerLogs()
-}
-
-function handleExportLogs(): void {
-  const blob = new Blob([containerLogs.value], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  const containerName = selectedContainer.value?.names[0]?.replace(/^\//, '') || 'container'
-  a.download = `${containerName}-logs.txt`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
-
-// ==================== 终端操作 ====================
-
-async function handleExecuteCommand(command: string): Promise<void> {
-  if (!selectedContainer.value) return
-  await containerStore.execCommand(selectedContainer.value.id, { command })
-}
-
-function handleClearTerminal(): void {
-  containerStore.clearTerminalLogs()
-}
-
 // ==================== 孤儿沙箱操作 ====================
 
 async function handleRecoverOrphan(sandboxId: string): Promise<void> {
-  // 调用 sandboxStore 的恢复方法
-  // TODO: 需要用户选择新容器来关联
-  const { useSandboxStore } = await import('@renderer/stores')
-  const sandboxStore = useSandboxStore()
   // 暂时不传入新容器 ID，需要后续实现容器选择 UI
   await sandboxStore.recoverOrphanSandbox(sandboxId, '')
 }
 
 async function handleCleanupOrphan(sandboxId: string): Promise<void> {
-  // 调用 sandboxStore 的清理方法
-  const { useSandboxStore } = await import('@renderer/stores')
-  const sandboxStore = useSandboxStore()
   await sandboxStore.cleanupOrphanSandbox(sandboxId)
 }
 
-// 刷新沙箱状态
-async function handleRefreshStatus(): Promise<void> {
-  if (!props.currentSandbox) return
-
-  // 刷新容器列表
-  await containerStore.loadContainers()
-
-  // 重新加载当前容器的详情
-  const containerId =
-    props.currentSandbox.primaryContainerId || props.currentSandbox.containerIds?.[0]
-  if (containerId) {
-    await containerStore.loadContainerDetails(containerId)
-  }
-
-  // 同时刷新沙箱列表以保持同步
-  await sandboxStore.refreshSandboxList()
-}
-
-// 辅助函数：刷新当前沙箱状态
-async function refreshSandboxStatus(): Promise<void> {
-  if (!props.currentSandbox) return
-
-  // 检查当前沙箱的容器状态
-  await sandboxStore.checkContainerStatus(props.currentSandbox.sandboxId)
-
-  // 刷新沙箱列表以更新状态显示
-  await sandboxStore.refreshSandboxList()
-}
-
 function handleCloseOrphanAlert(): void {
-  // 用户关闭警告，暂时忽略
-  console.log('用户关闭了孤儿沙箱警告')
+  window.api.logger.info('[SandboxMainContent] 用户关闭孤儿沙箱提示')
 }
 </script>
 
 <template>
   <main class="sandbox-main-content">
     <!-- Tab 导航 -->
-    <div v-if="hasSandbox" class="detail-tabs">
-      <button
-        class="tab-btn"
-        :class="{ active: sandboxDetailTab === 'info' }"
-        @click="setDetailTab('info')"
-      >
-        基本信息
-      </button>
-      <button
-        class="tab-btn"
-        :class="{ active: sandboxDetailTab === 'terminal' }"
-        @click="setDetailTab('terminal')"
-      >
-        终端
-      </button>
-      <button
-        class="tab-btn"
-        :class="{ active: sandboxDetailTab === 'logs' }"
-        @click="setDetailTab('logs')"
-      >
-        日志
-      </button>
-      <button
-        class="tab-btn"
-        :class="{ active: sandboxDetailTab === 'stats' }"
-        @click="setDetailTab('stats')"
-      >
-        监控
-      </button>
-    </div>
+    <TabNavigation :visible="hasSandbox" />
 
     <!-- 内容区域 -->
     <div class="content-body">
@@ -456,90 +145,15 @@ function handleCloseOrphanAlert(): void {
           @cleanup="handleCleanupOrphan"
           @close="handleCloseOrphanAlert"
         />
-        <!-- 基本信息 Tab -->
-        <div v-if="sandboxDetailTab === 'info'" class="tab-content">
-          <div class="sandbox-detail">
-            <div class="info-section">
-              <h3 class="section-title">基本信息</h3>
-              <div class="info-grid">
-                <div class="info-item">
-                  <span class="info-label">名称</span>
-                  <div v-if="isEditing" class="info-value-edit">
-                    <input
-                      ref="nameInputRef"
-                      v-model="editingName"
-                      class="name-input"
-                      @keydown="handleKeydown"
-                      @blur="handleBlur"
-                    />
-                  </div>
-                  <div v-else class="info-value-wrapper">
-                    <span class="info-value">{{ currentSandbox?.name }}</span>
-                    <button class="btn-edit-inline" title="编辑" @click="startEditing">
-                      <SvgIcon name="edit" :size="14" />
-                    </button>
-                  </div>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">状态</span>
-                  <div class="info-value-wrapper">
-                    <span
-                      class="info-value status-badge"
-                      :class="getStatusClass(getDisplayStatus())"
-                    >
-                      {{ getStatusLabel(getDisplayStatus()) }}
-                    </span>
-                    <button
-                      class="btn-refresh-status"
-                      title="刷新状态"
-                      @click.stop="handleRefreshStatus"
-                    >
-                      <SvgIcon name="refresh" :size="14" />
-                    </button>
-                  </div>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">创建类型</span>
-                  <span class="info-value">{{ creationTypeLabel }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">创建时间</span>
-                  <span class="info-value">{{
-                    formatDateTime(currentSandbox?.createdAt || '')
-                  }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">更新时间</span>
-                  <span class="info-value">{{
-                    formatDateTime(currentSandbox?.updatedAt || '')
-                  }}</span>
-                </div>
-                <div v-if="currentSandbox?.description" class="info-item full-width">
-                  <span class="info-label">描述</span>
-                  <span class="info-value">{{ currentSandbox.description }}</span>
-                </div>
-              </div>
-            </div>
 
-            <div class="log-section">
-              <h3 class="section-title">操作日志</h3>
-              <div class="log-container">
-                <div v-if="operationLogs.length === 0" class="empty-log">暂无操作日志</div>
-                <div v-else class="log-list">
-                  <div
-                    v-for="(log, index) in operationLogs"
-                    :key="index"
-                    class="log-entry"
-                    :class="getLogLevelClass(log.level)"
-                  >
-                    <span class="log-time">[{{ formatLogTime(log.timestamp) }}]</span>
-                    <span class="log-message">{{ log.message }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- 基本信息 Tab -->
+        <SandboxInfoTab
+          v-if="sandboxDetailTab === 'info'"
+          :current-sandbox="currentSandbox"
+          :operation-logs="operationLogs"
+          @rename="(id, name) => emit('rename', id, name)"
+          @refresh-status="handleRefreshStatus"
+        />
 
         <!-- 终端 Tab -->
         <div v-else-if="sandboxDetailTab === 'terminal'" class="tab-content">
@@ -618,38 +232,6 @@ function handleCloseOrphanAlert(): void {
   overflow: hidden;
 }
 
-/* Tab 导航 */
-.detail-tabs {
-  display: flex;
-  gap: 4px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
-  flex-shrink: 0;
-}
-
-.tab-btn {
-  padding: 6px 12px;
-  font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: transparent;
-  border: none;
-  border-radius: 4px;
-  color: var(--theme-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.tab-btn:hover {
-  background-color: var(--theme-bg);
-  color: var(--theme-text);
-}
-
-.tab-btn.active {
-  background-color: var(--theme-accent);
-  color: var(--theme-bg);
-}
-
 /* 内容区域 */
 .content-body {
   flex: 1;
@@ -689,201 +271,5 @@ function handleCloseOrphanAlert(): void {
   font-size: 14px;
   margin: 0;
   opacity: 0.7;
-}
-
-/* 沙箱详情 */
-.sandbox-detail {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 24px;
-  height: 100%;
-  overflow-y: auto;
-}
-
-.section-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--theme-text);
-  margin: 0 0 16px 0;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--theme-border);
-}
-
-.info-section {
-  margin-bottom: 32px;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.info-item.full-width {
-  grid-column: 1 / -1;
-}
-
-.info-label {
-  font-size: 14px;
-  color: var(--theme-text-secondary);
-}
-
-.info-value {
-  font-size: 15px;
-  color: var(--theme-text);
-  line-height: 22px;
-}
-
-.info-value-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-refresh-status {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px 4px;
-  border-radius: 4px;
-  color: var(--theme-accent);
-  transition:
-    opacity 0.2s,
-    background-color 0.2s,
-    color 0.2s;
-}
-
-.btn-refresh-status svg {
-  display: block;
-}
-
-.btn-refresh-status:hover {
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
-}
-
-.info-value-edit {
-  display: flex;
-  align-items: center;
-}
-
-.name-input {
-  padding: 4px 8px;
-  font-size: 15px;
-  font-family: var(--theme-font);
-  color: var(--theme-text);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-accent);
-  border-radius: 4px;
-  outline: none;
-  width: 100%;
-  max-width: 250px;
-}
-
-.btn-edit-inline {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  background-color: transparent;
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  color: var(--theme-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-edit-inline:hover {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-accent);
-  color: var(--theme-accent);
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.status-creating {
-  background-color: rgba(88, 166, 255, 0.2);
-  color: var(--theme-info);
-}
-
-.status-running {
-  background-color: rgba(63, 185, 80, 0.2);
-  color: var(--theme-success);
-}
-
-.status-stopped {
-  background-color: rgba(139, 148, 158, 0.2);
-  color: var(--theme-text-secondary);
-}
-
-.status-error {
-  background-color: rgba(248, 81, 73, 0.2);
-  color: var(--theme-danger);
-}
-
-.log-section {
-  margin-bottom: 24px;
-}
-
-.log-container {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  padding: 12px;
-  min-height: 200px;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.empty-log {
-  color: var(--theme-text-secondary);
-  font-size: 13px;
-  text-align: center;
-  padding: 24px;
-}
-
-.log-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.log-entry {
-  font-size: 13px;
-  font-family: var(--theme-font);
-  line-height: 1.5;
-}
-
-.log-time {
-  color: var(--theme-text-secondary);
-  margin-right: 8px;
-}
-
-.log-message {
-  color: var(--theme-text);
-}
-
-.log-level-info .log-message {
-  color: var(--theme-text);
-}
-
-.log-level-warn .log-message {
-  color: var(--theme-warning);
-}
-
-.log-level-error .log-message {
-  color: var(--theme-danger);
 }
 </style>

@@ -46,7 +46,17 @@ export class DocumentManagerService {
       }
 
       // 2. 检查文件类型
-      const supportedTypes = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.pptx']
+      const supportedTypes = [
+        '.txt',
+        '.md',
+        '.pdf',
+        '.doc',
+        '.docx',
+        '.csv',
+        '.pptx',
+        '.xls',
+        '.xlsx'
+      ]
       if (!supportedTypes.includes(ext)) {
         return {
           success: false,
