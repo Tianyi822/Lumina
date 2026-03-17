@@ -6,7 +6,7 @@ import { usePromptEngineeringStore } from '@renderer/stores/promptEngineeringSto
 import { usePromptManager } from '@renderer/composables/settings/usePromptManager'
 
 const promptEngineeringStore = usePromptEngineeringStore()
-const { promptConfig, saving } = storeToRefs(promptEngineeringStore)
+const { promptConfig, configLoading, saving } = storeToRefs(promptEngineeringStore)
 const { savePromptConfig, resetPromptConfig } = usePromptManager()
 
 // 本地表单状态
@@ -263,8 +263,14 @@ watch(
 
     <!-- 操作按钮 -->
     <div class="pe-form-actions">
-      <button class="pe-btn pe-btn-secondary" @click="resetToDefault">重置为默认</button>
-      <button class="pe-btn pe-btn-primary" :disabled="saving" @click="handleSave">
+      <button
+        class="pe-btn pe-btn-secondary"
+        :disabled="configLoading || saving"
+        @click="resetToDefault"
+      >
+        {{ configLoading ? '重置中...' : '重置为默认' }}
+      </button>
+      <button class="pe-btn pe-btn-primary" :disabled="configLoading || saving" @click="handleSave">
         {{ saving ? '保存中...' : '保存配置' }}
       </button>
     </div>

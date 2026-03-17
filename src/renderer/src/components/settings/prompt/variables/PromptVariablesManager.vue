@@ -6,7 +6,7 @@ import { usePromptManager } from '@renderer/composables/settings/usePromptManage
 import { getPromptVariablePlaceholder, resolveSystemPromptVariables } from '@shared/utils'
 
 const store = usePromptEngineeringStore()
-const { customVariables, systemVariables, loading, saving } = storeToRefs(store)
+const { customVariables, systemVariables, configLoading, saving } = storeToRefs(store)
 const { saveCustomVariable, deleteCustomVariable } = usePromptManager()
 
 const editingName = ref<string | null>(null)
@@ -154,7 +154,7 @@ async function handleDelete(name: string): Promise<void> {
         </label>
 
         <div class="pe-form-actions">
-          <button class="pe-btn pe-btn-primary" :disabled="loading || saving" type="submit">
+          <button class="pe-btn pe-btn-primary" :disabled="configLoading || saving" type="submit">
             {{ saving ? '保存中...' : isEditing ? '更新变量' : '添加变量' }}
           </button>
           <button v-if="isEditing" class="pe-btn pe-btn-secondary" type="button" @click="resetForm">

@@ -9,7 +9,8 @@ import ExampleTable from './ExampleTable.vue'
 import ExampleEditDialog from './ExampleEditDialog.vue'
 
 const store = usePromptEngineeringStore()
-const { examples, examplesStats, filteredExamples, loading, exampleFilter } = storeToRefs(store)
+const { examples, examplesStats, filteredExamples, examplesLoading, exampleFilter } =
+  storeToRefs(store)
 const {
   showEditDialog,
   editingExample,
@@ -72,7 +73,7 @@ function handleDialogVisibility(visible: boolean): void {
       :stats="examplesStats"
       :filter="exampleFilter"
       :search-query="searchQuery"
-      :loading="loading"
+      :loading="examplesLoading"
       @update:filter="handleFilter"
       @update:search-query="updateSearchQuery"
       @extract="extractExamplesFromSessions"
@@ -84,7 +85,7 @@ function handleDialogVisibility(visible: boolean): void {
     <ExampleTable
       :examples="filteredExamples"
       :selected-ids="selectedIds"
-      :loading="loading"
+      :loading="examplesLoading"
       @edit="handleEdit"
       @delete="confirmDeleteExamples"
       @update:selected-ids="setSelectedIds"

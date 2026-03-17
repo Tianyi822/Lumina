@@ -9,7 +9,7 @@ import PromptVariablesManager from './prompt/variables/PromptVariablesManager.vu
 import PromptTestSandbox from './prompt/tester/PromptTestSandbox.vue'
 
 const store = usePromptEngineeringStore()
-const { loading } = storeToRefs(store)
+const { initializing } = storeToRefs(store)
 const {
   tabs,
   activeTab,
@@ -77,7 +77,7 @@ onBeforeUnmount(() => {
       </div>
 
       <Transition name="pe-overlay">
-        <div v-if="loading" class="pe-loading-overlay">
+        <div v-if="initializing" class="pe-loading-overlay">
           <span>加载中...</span>
         </div>
       </Transition>

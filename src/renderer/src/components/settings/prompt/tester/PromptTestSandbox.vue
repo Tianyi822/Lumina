@@ -7,8 +7,14 @@ import type { TestPromptPayload } from '@shared/types/prompt'
 import { getPromptVariablePlaceholder, resolveSystemPromptVariables } from '@shared/utils'
 
 const store = usePromptEngineeringStore()
-const { allVariables, variableOverrides, assembledPrompt, sandboxResult, hasExamples, loading } =
-  storeToRefs(store)
+const {
+  allVariables,
+  variableOverrides,
+  assembledPrompt,
+  sandboxResult,
+  hasExamples,
+  sandboxLoading
+} = storeToRefs(store)
 const {
   previewSandbox,
   runSandboxTest,
@@ -23,7 +29,7 @@ const exampleCount = ref(3)
 const systemVariableValues = computed(() => resolveSystemPromptVariables())
 
 const canRunAction = computed(() => {
-  return !loading.value
+  return !sandboxLoading.value
 })
 
 function buildPayload(): TestPromptPayload {
@@ -132,10 +138,10 @@ function handleClearResult(): void {
       <div class="pe-panel pe-actions-panel">
         <div class="pe-action-row">
           <button class="pe-btn pe-btn-secondary" :disabled="!canRunAction" @click="handlePreview">
-            {{ loading ? '处理中...' : '预览提示词' }}
+            {{ sandboxLoading ? '处理中...' : '预览提示词' }}
           </button>
           <button class="pe-btn pe-btn-primary" :disabled="!canRunAction" @click="handleTest">
-            {{ loading ? '执行中...' : '执行测试' }}
+            {{ sandboxLoading ? '执行中...' : '执行测试' }}
           </button>
           <button class="pe-btn pe-btn-secondary" @click="handleClearResult">清空结果</button>
         </div>

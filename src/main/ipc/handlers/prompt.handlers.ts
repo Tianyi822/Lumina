@@ -524,7 +524,6 @@ export async function handleImportTemplate(
 // ============ 示例管理 Handlers ============
 
 import type { ExampleStats, ExampleFilter, ImportResult } from '@shared/types/prompt'
-import type { SessionData } from '@shared/types/session'
 
 // 获取示例统计信息
 export async function handleGetExampleStats(): Promise<{
@@ -813,24 +812,15 @@ export async function handleExtractFromSessions(): Promise<{
     // 确保会话服务已初始化
     sessionService.initialize()
 
-    // 获取所有会话列表
-    const sessionList = sessionService.listSessions()
-
-    // 加载完整的会话数据
-    const sessions: SessionData[] = []
-    for (const sessionItem of sessionList) {
-      const sessionData = sessionService.loadSession(sessionItem.sessionId)
-      if (sessionData) {
-        sessions.push(sessionData)
-      }
-    }
+    // 异步加载全部会话，避免主线程长时间阻塞
+    const sessions = await sessionService.loadAllSessionsAsync()
 
     if (sessions.length === 0) {
       return { success: true, result: { extracted: 0 } }
     }
 
     // 使用 exampleManager 提取并评分示例
-    const extractionResult = exampleManager.extractAndScoreFromSessions(sessions, {
+    const extractionResult = await exampleManager.extractAndScoreFromSessionsAsync(sessions, {
       minQualityScore: 0.5,
       maxExamples: 100
     })
