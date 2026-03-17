@@ -175,7 +175,6 @@ async function handleDelete(name: string): Promise<void> {
                 <span class="pe-variable-name">{{
                   getPromptVariablePlaceholder(variable.name)
                 }}</span>
-                <span class="pe-variable-tag">自定义</span>
               </div>
               <p class="pe-variable-description">
                 {{ variable.description || '未填写说明' }}
@@ -326,15 +325,6 @@ async function handleDelete(name: string): Promise<void> {
   font-weight: 600;
   color: var(--theme-text);
   font-family: var(--theme-font-mono, monospace);
-}
-
-.pe-variable-tag {
-  font-size: 11px;
-  color: rgba(16, 185, 129, 0.9);
-  background: rgba(16, 185, 129, 0.1);
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .pe-variable-description {
