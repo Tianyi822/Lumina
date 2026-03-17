@@ -313,6 +313,8 @@ async function handleDelete(name: string): Promise<void> {
   color: var(--theme-text);
   height: 21px;
   line-height: 21px;
+  display: flex;
+  align-items: center;
 }
 
 .pe-variable-default {
