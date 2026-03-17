@@ -169,19 +169,21 @@ async function handleDelete(name: string): Promise<void> {
           :key="variable.name"
           class="pe-variable-card pe-variable-card-custom"
         >
-          <div class="pe-variable-row">
-            <div>
-              <div class="pe-variable-header">
-                <div class="pe-variable-name">
-                  {{ getPromptVariablePlaceholder(variable.name) }}
-                </div>
-                <span class="pe-variable-default"
-                  >默认值：{{ variable.defaultValue || '未设置' }}</span
-                >
+          <div class="pe-variable-main">
+            <div class="pe-variable-info">
+              <div class="pe-variable-name-row">
+                <span class="pe-variable-name">{{
+                  getPromptVariablePlaceholder(variable.name)
+                }}</span>
+                <span class="pe-variable-tag">自定义</span>
               </div>
               <p class="pe-variable-description">
                 {{ variable.description || '未填写说明' }}
               </p>
+              <div class="pe-variable-meta-row">
+                <span class="pe-variable-meta-label">默认值:</span>
+                <span class="pe-variable-meta-value">{{ variable.defaultValue || '未设置' }}</span>
+              </div>
             </div>
             <div class="pe-card-actions">
               <button class="pe-btn pe-btn-secondary pe-btn-sm" @click="handleEdit(variable.name)">
@@ -250,14 +252,6 @@ async function handleDelete(name: string): Promise<void> {
   color: var(--theme-text-secondary);
   font-size: 13px;
   line-height: 1.6;
-  margin-top: 6px;
-}
-
-.pe-variable-description {
-  color: var(--theme-text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
-  margin-top: 6px;
 }
 
 .pe-section {
@@ -277,10 +271,15 @@ async function handleDelete(name: string): Promise<void> {
   margin-bottom: 4px;
 }
 
-.pe-variable-grid,
-.pe-custom-list {
+.pe-variable-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.pe-custom-list {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
@@ -296,43 +295,72 @@ async function handleDelete(name: string): Promise<void> {
 }
 
 .pe-variable-card-custom {
+  width: 50%;
   border-color: rgba(16, 185, 129, 0.2);
+  padding: 12px 16px;
 }
 
-.pe-variable-header {
+.pe-variable-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pe-variable-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pe-variable-name-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  min-height: 21px;
+  gap: 10px;
 }
 
 .pe-variable-name {
   font-size: 14px;
   font-weight: 600;
   color: var(--theme-text);
-  height: 21px;
-  line-height: 21px;
+  font-family: var(--theme-font-mono, monospace);
 }
 
-.pe-variable-default {
-  font-size: 12px;
-  color: var(--theme-text-secondary);
-  background: var(--theme-background-tertiary, rgba(0, 0, 0, 0.05));
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  padding: 0 8px;
+.pe-variable-tag {
+  font-size: 11px;
+  color: rgba(16, 185, 129, 0.9);
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 8px;
   border-radius: 4px;
-  line-height: 1;
-  box-sizing: border-box;
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
-.pe-variable-row {
+.pe-variable-description {
+  color: var(--theme-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.pe-variable-meta-row {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.pe-variable-meta-label {
+  color: var(--theme-text-tertiary);
+}
+
+.pe-variable-meta-value {
+  color: var(--theme-text-secondary);
+  font-family: var(--theme-font-mono, monospace);
+  background: var(--theme-background-tertiary);
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 .pe-card-actions,
@@ -451,10 +479,22 @@ async function handleDelete(name: string): Promise<void> {
     grid-template-columns: 1fr;
   }
 
-  .pe-variable-row,
   .pe-section-header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .pe-custom-list {
+    align-items: stretch;
+  }
+
+  .pe-variable-card-custom {
+    width: 100%;
+  }
+
+  .pe-variable-main {
+    flex-direction: column;
+    gap: 12px;
   }
 
   .pe-card-actions,
