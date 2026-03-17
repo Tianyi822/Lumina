@@ -444,6 +444,7 @@ watch(
 .pe-form-row {
   display: flex;
   gap: 16px;
+  align-items: flex-start;
 }
 
 .pe-form-label {
@@ -458,6 +459,7 @@ watch(
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 8px;
 }
 
@@ -556,9 +558,14 @@ watch(
 .pe-form-actions-inline {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 
 .pe-text-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
   padding: 4px 8px;
   font-size: 11px;
   background: transparent;
@@ -567,6 +574,8 @@ watch(
   border-radius: 3px;
   cursor: pointer;
   transition: all 0.15s ease;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .pe-text-btn:hover {
@@ -584,11 +593,16 @@ watch(
 }
 
 .pe-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 8px 20px;
   font-size: 13px;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
+  line-height: 1.2;
+  box-sizing: border-box;
 }
 
 .pe-btn-secondary {

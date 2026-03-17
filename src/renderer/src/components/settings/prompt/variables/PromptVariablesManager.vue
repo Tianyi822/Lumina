@@ -304,7 +304,7 @@ async function handleDelete(name: string): Promise<void> {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  height: 21px;
+  min-height: 21px;
 }
 
 .pe-variable-name {
@@ -313,16 +313,19 @@ async function handleDelete(name: string): Promise<void> {
   color: var(--theme-text);
   height: 21px;
   line-height: 21px;
-  display: flex;
-  align-items: center;
 }
 
 .pe-variable-default {
   font-size: 12px;
   color: var(--theme-text-secondary);
   background: var(--theme-background-tertiary, rgba(0, 0, 0, 0.05));
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
   border-radius: 4px;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .pe-variable-row {
@@ -336,6 +339,7 @@ async function handleDelete(name: string): Promise<void> {
 .pe-form-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 
 .pe-form-actions {
@@ -387,9 +391,14 @@ async function handleDelete(name: string): Promise<void> {
   border: 1px solid transparent;
   border-radius: 6px;
   padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   font-size: 13px;
   font-family: var(--theme-font);
+  line-height: 1.2;
+  box-sizing: border-box;
 }
 
 .pe-btn:disabled {

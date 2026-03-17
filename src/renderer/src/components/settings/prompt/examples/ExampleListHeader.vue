@@ -221,6 +221,7 @@ function formatScore(score: number): string {
 .pe-filter-group {
   display: flex;
   flex-direction: column;
+  gap: 4px;
   min-width: 100px;
 }
 
@@ -230,20 +231,24 @@ function formatScore(score: number): string {
 }
 
 .pe-filter-label {
+  display: inline-flex;
+  align-items: center;
   font-size: 12px;
   color: var(--theme-text-secondary);
-  margin-bottom: 4px;
+  line-height: 1.2;
 }
 
 .pe-filter-select,
 .pe-filter-input {
   padding: 6px 10px;
+  min-height: 34px;
   font-size: 13px;
   color: var(--theme-text);
   background: var(--theme-background-tertiary);
   border: 1px solid var(--theme-border);
   border-radius: 4px;
   transition: border-color 0.15s ease;
+  box-sizing: border-box;
 }
 
 .pe-filter-select:focus,
@@ -285,11 +290,13 @@ function formatScore(score: number): string {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .pe-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 8px 14px;
   font-size: 13px;
@@ -297,6 +304,8 @@ function formatScore(score: number): string {
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  line-height: 1.2;
+  box-sizing: border-box;
 }
 
 .pe-btn-icon {

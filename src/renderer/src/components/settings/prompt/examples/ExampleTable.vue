@@ -263,6 +263,7 @@ function truncateText(text: string, maxLength: number): string {
 .pe-batch-buttons {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 
 /* 表格包装器 */
@@ -334,6 +335,7 @@ function truncateText(text: string, maxLength: number): string {
 .pe-table-cell {
   padding: 12px;
   color: var(--theme-text);
+  vertical-align: middle;
 }
 
 /* 复选框单元格 */
@@ -364,12 +366,17 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .pe-quality-badge {
-  display: inline-block;
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 8px;
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
   color: white;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 /* 来源单元格 */
@@ -378,11 +385,16 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .pe-source-badge {
-  display: inline-block;
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 8px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .pe-source-static {
@@ -404,23 +416,23 @@ function truncateText(text: string, maxLength: number): string {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  align-items: center;
 }
 
-.pe-tool-tag {
-  padding: 2px 6px;
-  background: var(--theme-background-tertiary);
-  border-radius: 3px;
-  font-size: 11px;
-  color: var(--theme-text-secondary);
-  white-space: nowrap;
-}
-
+.pe-tool-tag,
 .pe-tool-more {
-  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  padding: 0 6px;
   background: var(--theme-background-tertiary);
   border-radius: 3px;
   font-size: 11px;
   color: var(--theme-text-secondary);
+  line-height: 1;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .pe-no-tools {
@@ -437,6 +449,7 @@ function truncateText(text: string, maxLength: number): string {
   display: flex;
   justify-content: center;
   gap: 8px;
+  align-items: center;
 }
 
 /* 按钮 */
@@ -454,6 +467,7 @@ function truncateText(text: string, maxLength: number): string {
   padding: 4px 12px;
   font-size: 12px;
   border-radius: 4px;
+  line-height: 1;
 }
 
 .pe-btn-danger {
@@ -471,6 +485,10 @@ function truncateText(text: string, maxLength: number): string {
   padding: 0;
   border-radius: 4px;
   color: var(--theme-text-secondary);
+}
+
+.pe-btn-icon svg {
+  display: block;
 }
 
 .pe-btn-icon:hover {

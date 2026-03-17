@@ -226,10 +226,16 @@ function handleClearResult(): void {
   line-height: 1.6;
 }
 
-.pe-panel-header,
-.pe-action-row {
+.pe-panel-header {
   display: flex;
   align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pe-action-row {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
@@ -272,6 +278,9 @@ function handleClearResult(): void {
   font-size: 13px;
   font-weight: 600;
   color: var(--theme-text);
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
 }
 
 .pe-switch-row,
@@ -291,9 +300,14 @@ function handleClearResult(): void {
   border: 1px solid transparent;
   border-radius: 6px;
   padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   font-size: 13px;
   font-family: var(--theme-font);
+  line-height: 1.2;
+  box-sizing: border-box;
 }
 
 .pe-btn:disabled {
@@ -347,6 +361,7 @@ function handleClearResult(): void {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  align-items: center;
 }
 
 .pe-warning-box,

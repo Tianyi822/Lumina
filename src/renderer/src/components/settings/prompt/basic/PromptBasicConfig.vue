@@ -317,11 +317,12 @@ watch(
 .pe-switch-label {
   display: flex;
   align-items: center;
+  gap: 8px;
   cursor: pointer;
 }
 
 .pe-switch-label > span {
-  margin-left: 8px;
+  line-height: 1.4;
 }
 
 .pe-switch {
@@ -437,6 +438,7 @@ watch(
 .pe-form-actions {
   display: flex;
   gap: 12px;
+  align-items: center;
   justify-content: flex-end;
   margin-top: 32px;
   padding-top: 20px;
@@ -444,11 +446,16 @@ watch(
 }
 
 .pe-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 8px 16px;
   font-size: 13px;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
+  line-height: 1.2;
+  box-sizing: border-box;
 }
 
 .pe-btn-secondary {
