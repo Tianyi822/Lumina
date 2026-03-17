@@ -301,18 +301,18 @@ async function handleDelete(name: string): Promise<void> {
 
 .pe-variable-header {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  height: 21px;
 }
 
 .pe-variable-name {
   font-size: 14px;
   font-weight: 600;
   color: var(--theme-text);
-  display: flex;
-  align-items: center;
-  height: 100%;
+  height: 21px;
+  line-height: 21px;
 }
 
 .pe-variable-default {
@@ -321,8 +321,6 @@ async function handleDelete(name: string): Promise<void> {
   background: var(--theme-background-tertiary, rgba(0, 0, 0, 0.05));
   padding: 2px 8px;
   border-radius: 4px;
-  display: flex;
-  align-items: center;
 }
 
 .pe-variable-row {
