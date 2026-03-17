@@ -91,142 +91,161 @@ function truncateText(text: string, maxLength: number): string {
 
     <!-- 表格 -->
     <div class="pe-table-wrapper" :class="{ 'pe-loading': loading }">
-      <table class="pe-table">
-        <thead>
-          <tr class="pe-table-header">
-            <th class="pe-table-cell pe-checkbox-cell">
-              <input
-                type="checkbox"
-                class="pe-checkbox"
-                :checked="allSelected"
-                :indeterminate="indeterminate"
-                @change="toggleSelectAll"
-              />
-            </th>
-            <th class="pe-table-cell">用户查询</th>
-            <th class="pe-table-cell">思考过程</th>
-            <th class="pe-table-cell">最终答案</th>
-            <th class="pe-table-cell pe-sortable-cell">
-              质量分数
-              <span class="pe-sort-icon">↓</span>
-            </th>
-            <th class="pe-table-cell">来源</th>
-            <th class="pe-table-cell">使用的工具</th>
-            <th class="pe-table-cell pe-action-cell">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="examples.length === 0" class="pe-table-row pe-empty-row">
-            <td colspan="8" class="pe-table-cell pe-empty-cell">
-              <div class="pe-empty-state">
-                <p class="pe-empty-text">{{ loading ? '加载中...' : '暂无示例数据' }}</p>
-              </div>
-            </td>
-          </tr>
-          <tr
-            v-for="example in examples"
-            :key="example.id"
-            class="pe-table-row"
-            :class="{ 'pe-selected': selectedIds?.includes(example.id) }"
-          >
-            <td class="pe-table-cell pe-checkbox-cell">
-              <input
-                type="checkbox"
-                class="pe-checkbox"
-                :checked="selectedIds?.includes(example.id)"
-                @change="toggleSelection(example.id)"
-              />
-            </td>
-            <td class="pe-table-cell pe-query-cell">
-              <div class="pe-cell-content" :title="example.userQuery">
-                {{ truncateText(example.userQuery, 50) }}
-              </div>
-            </td>
-            <td class="pe-table-cell pe-thought-cell">
-              <div class="pe-cell-content" :title="example.thought">
-                {{ truncateText(example.thought, 50) }}
-              </div>
-            </td>
-            <td class="pe-table-cell pe-answer-cell">
-              <div class="pe-cell-content" :title="example.finalAnswer">
-                {{ truncateText(example.finalAnswer, 50) }}
-              </div>
-            </td>
-            <td class="pe-table-cell pe-score-cell">
-              <span
-                class="pe-quality-badge"
-                :style="{ backgroundColor: getQualityScoreColor(example.qualityScore) }"
-              >
-                {{ formatQualityScore(example.qualityScore) }}
-              </span>
-            </td>
-            <td class="pe-table-cell pe-source-cell">
-              <span
-                class="pe-source-badge"
-                :class="{
-                  'pe-source-static': example.source === 'static',
-                  'pe-source-dynamic': example.source === 'dynamic'
-                }"
-              >
-                {{ example.source === 'static' ? '静态' : '动态' }}
-              </span>
-            </td>
-            <td class="pe-table-cell pe-tools-cell">
-              <div v-if="example.toolsUsed && example.toolsUsed.length > 0" class="pe-tools-list">
+      <div v-if="loading" class="pe-table-loading-mask" aria-live="polite">
+        <span class="pe-loading-spinner"></span>
+        <span class="pe-loading-text">正在加载示例...</span>
+      </div>
+
+      <div class="pe-table-scroll">
+        <table class="pe-table">
+          <thead>
+            <tr class="pe-table-header">
+              <th class="pe-table-cell pe-checkbox-cell">
+                <input
+                  type="checkbox"
+                  class="pe-checkbox"
+                  :checked="allSelected"
+                  :indeterminate="indeterminate"
+                  @change="toggleSelectAll"
+                />
+              </th>
+              <th class="pe-table-cell">用户查询</th>
+              <th class="pe-table-cell">思考过程</th>
+              <th class="pe-table-cell">最终答案</th>
+              <th class="pe-table-cell pe-sortable-cell">
+                质量分数
+                <span class="pe-sort-icon">↓</span>
+              </th>
+              <th class="pe-table-cell">来源</th>
+              <th class="pe-table-cell">使用的工具</th>
+              <th class="pe-table-cell pe-action-cell">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="examples.length === 0" class="pe-table-row pe-empty-row">
+              <td colspan="8" class="pe-table-cell pe-empty-cell">
+                <div class="pe-empty-state">
+                  <p class="pe-empty-text">{{ loading ? '加载中...' : '暂无示例数据' }}</p>
+                </div>
+              </td>
+            </tr>
+            <tr
+              v-for="example in examples"
+              :key="example.id"
+              class="pe-table-row"
+              :class="{ 'pe-selected': selectedIds?.includes(example.id) }"
+            >
+              <td class="pe-table-cell pe-checkbox-cell">
+                <input
+                  type="checkbox"
+                  class="pe-checkbox"
+                  :checked="selectedIds?.includes(example.id)"
+                  @change="toggleSelection(example.id)"
+                />
+              </td>
+              <td class="pe-table-cell pe-query-cell">
+                <div class="pe-cell-content" :title="example.userQuery">
+                  {{ truncateText(example.userQuery, 50) }}
+                </div>
+              </td>
+              <td class="pe-table-cell pe-thought-cell">
+                <div class="pe-cell-content" :title="example.thought">
+                  {{ truncateText(example.thought, 50) }}
+                </div>
+              </td>
+              <td class="pe-table-cell pe-answer-cell">
+                <div class="pe-cell-content" :title="example.finalAnswer">
+                  {{ truncateText(example.finalAnswer, 50) }}
+                </div>
+              </td>
+              <td class="pe-table-cell pe-score-cell">
                 <span
-                  v-for="(tool, index) in example.toolsUsed.slice(0, 2)"
-                  :key="index"
-                  class="pe-tool-tag"
+                  class="pe-quality-badge"
+                  :style="{ backgroundColor: getQualityScoreColor(example.qualityScore) }"
                 >
-                  {{ tool }}
+                  {{ formatQualityScore(example.qualityScore) }}
                 </span>
-                <span v-if="example.toolsUsed.length > 2" class="pe-tool-more">
-                  +{{ example.toolsUsed.length - 2 }}
+              </td>
+              <td class="pe-table-cell pe-source-cell">
+                <span
+                  class="pe-source-badge"
+                  :class="{
+                    'pe-source-static': example.source === 'static',
+                    'pe-source-dynamic': example.source === 'dynamic'
+                  }"
+                >
+                  {{ example.source === 'static' ? '静态' : '动态' }}
                 </span>
-              </div>
-              <span v-else class="pe-no-tools">-</span>
-            </td>
-            <td class="pe-table-cell pe-action-cell">
-              <div class="pe-action-buttons">
-                <button
-                  class="pe-btn pe-btn-icon pe-btn-edit"
-                  title="编辑"
-                  @click="handleEdit(example.id)"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path
-                      d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                    <path
-                      d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </button>
-                <button
-                  class="pe-btn pe-btn-icon pe-btn-delete"
-                  title="删除"
-                  @click="handleDelete(example.id)"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path
-                      d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              </td>
+              <td class="pe-table-cell pe-tools-cell">
+                <div v-if="example.toolsUsed && example.toolsUsed.length > 0" class="pe-tools-list">
+                  <span
+                    v-for="(tool, index) in example.toolsUsed.slice(0, 2)"
+                    :key="index"
+                    class="pe-tool-tag"
+                  >
+                    {{ tool }}
+                  </span>
+                  <span v-if="example.toolsUsed.length > 2" class="pe-tool-more">
+                    +{{ example.toolsUsed.length - 2 }}
+                  </span>
+                </div>
+                <span v-else class="pe-no-tools">-</span>
+              </td>
+              <td class="pe-table-cell pe-action-cell">
+                <div class="pe-action-buttons">
+                  <button
+                    class="pe-btn pe-btn-icon pe-btn-edit"
+                    title="编辑"
+                    @click="handleEdit(example.id)"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                    >
+                      <path
+                        d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                      <path
+                        d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    class="pe-btn pe-btn-icon pe-btn-delete"
+                    title="删除"
+                    @click="handleDelete(example.id)"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                    >
+                      <path
+                        d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- 分页信息 -->
@@ -268,18 +287,60 @@ function truncateText(text: string, maxLength: number): string {
 
 /* 表格包装器 */
 .pe-table-wrapper {
-  overflow-x: auto;
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--theme-border);
   border-radius: 6px;
   background: var(--theme-bg-secondary);
+  min-height: 260px;
 }
 
-.pe-table-wrapper.pe-loading::after {
-  content: '';
+.pe-table-scroll {
+  overflow-x: auto;
+}
+
+.pe-table-wrapper.pe-loading .pe-table-scroll {
+  filter: blur(2px);
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+}
+
+.pe-table-loading-mask {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 1;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(3px);
+  color: var(--theme-text-secondary);
+}
+
+.pe-loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(70, 170, 143, 0.18);
+  border-top-color: var(--theme-accent);
+  border-radius: 50%;
+  animation: pe-table-spin 0.8s linear infinite;
+}
+
+.pe-loading-text {
+  font-size: 13px;
+}
+
+@keyframes pe-table-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 表格 */
