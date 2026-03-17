@@ -1,3 +1,5 @@
+import type { PromptVariable } from './prompt'
+
 /**
  * 定义嵌入模型支持的提供商类型
  */
@@ -108,6 +110,8 @@ export interface PromptConfig {
   optimizationAggressiveness?: 'conservative' | 'balanced' | 'aggressive'
   /** 是否启用工具描述智能适配 */
   enableToolDescriptionAdaptation?: boolean
+  /** 用户自定义提示词变量 */
+  customVariables?: PromptVariable[]
 }
 
 /**

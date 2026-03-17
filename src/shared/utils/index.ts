@@ -19,3 +19,6 @@ export * from './error-handlers'
 
 // 导出常用的深度克隆函数
 export { deepClone } from './data-processors'
+
+// 提示词变量相关工具
+export * from './prompt-variables'
