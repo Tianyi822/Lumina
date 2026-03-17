@@ -14,6 +14,7 @@ import { promptTemplateManager } from './prompts/PromptTemplateManager'
 import { dynamicExampleExtractor } from './examples'
 import { getFewShotExamplesAsync } from './prompts/toolExamples'
 import { logger } from '@main/services/logger'
+import { buildPromptVariableValueMap, replacePromptVariables } from '@shared/utils'
 
 // 使用共享的 PromptConfig 类型
 type PromptConfig = SharedPromptConfig
@@ -225,7 +226,11 @@ export class PromptBuilder {
           options.toolDescriptionLevel = this.promptConfig.toolDescriptionLevel
         }
         if (this.promptConfig.customSystemPrompt) {
-          options.customSystemPrompt = this.promptConfig.customSystemPrompt
+          const resolvedVariables = buildPromptVariableValueMap(this.promptConfig.customVariables)
+          options.customSystemPrompt = replacePromptVariables(
+            this.promptConfig.customSystemPrompt,
+            resolvedVariables
+          )
         }
       }
     }
