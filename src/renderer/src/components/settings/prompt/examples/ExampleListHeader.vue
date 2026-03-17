@@ -147,7 +147,7 @@ function formatScore(score: number): string {
         :disabled="loading || (stats?.dynamic ?? 0) === 0"
         @click="emit('clear-dynamic')"
       >
-        清空动态
+        清除
       </button>
     </div>
   </div>

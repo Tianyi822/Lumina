@@ -50,8 +50,7 @@ function handleFilter(filter: Partial<ExampleFilter>): void {
     <div class="pe-info-box">
       <h3 class="pe-info-title">Few-shot 示例管理</h3>
       <p class="pe-info-description">
-        管理用于增强 AI 工具调用能力的 Few-shot 示例，可在此查看、筛选和维护已有示例。
-        动态示例可从历史对话中自动提取。
+        管理用于增强 AI 工具调用能力的 Few-shot 示例，可在此查看和筛选已有示例。
       </p>
     </div>
 
