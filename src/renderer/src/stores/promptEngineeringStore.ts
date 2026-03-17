@@ -4,6 +4,7 @@
  */
 
 import { computed, ref } from 'vue'
+import type { Ref } from 'vue'
 import { defineStore } from 'pinia'
 import type {
   EnhancedFewShotExample,
@@ -91,10 +92,22 @@ export const usePromptEngineeringStore = defineStore(
     const sandboxResult = ref<TestPromptResult | null>(null)
     const assembledPrompt = ref('')
     const variableOverrides = ref<VariableOverrides>({})
-    const loading = ref(false)
+    const initializingCounter = ref(0)
+    const configLoadingCounter = ref(0)
+    const examplesLoadingCounter = ref(0)
+    const sandboxLoadingCounter = ref(0)
     const saving = ref(false)
     const error = ref<string | null>(null)
-    const loadingCount = ref(0)
+
+    const initializing = computed(() => initializingCounter.value > 0)
+    const configLoading = computed(() => configLoadingCounter.value > 0)
+    const examplesLoading = computed(() => examplesLoadingCounter.value > 0)
+    const sandboxLoading = computed(() => sandboxLoadingCounter.value > 0)
+    const loading = computed(() => {
+      return (
+        initializing.value || configLoading.value || examplesLoading.value || sandboxLoading.value
+      )
+    })
 
     // ==================== Getters ====================
 
@@ -189,17 +202,15 @@ export const usePromptEngineeringStore = defineStore(
     /**
      * 开始加载状态
      */
-    function startLoading(): void {
-      loadingCount.value += 1
-      loading.value = true
+    function startScopedLoading(counter: Ref<number>): void {
+      counter.value += 1
     }
 
     /**
      * 结束加载状态
      */
-    function stopLoading(): void {
-      loadingCount.value = Math.max(0, loadingCount.value - 1)
-      loading.value = loadingCount.value > 0
+    function stopScopedLoading(counter: Ref<number>): void {
+      counter.value = Math.max(0, counter.value - 1)
     }
 
     /**
@@ -270,7 +281,7 @@ export const usePromptEngineeringStore = defineStore(
      * 加载提示词配置
      */
     async function loadConfig(): Promise<void> {
-      startLoading()
+      startScopedLoading(configLoadingCounter)
       error.value = null
 
       try {
@@ -280,7 +291,7 @@ export const usePromptEngineeringStore = defineStore(
         error.value = getErrorMessage('加载配置失败', target)
         promptConfig.value = createDefaultPromptConfig()
       } finally {
-        stopLoading()
+        stopScopedLoading(configLoadingCounter)
       }
     }
 
@@ -329,7 +340,7 @@ export const usePromptEngineeringStore = defineStore(
       config?: PromptConfig
       error?: string
     }> {
-      startLoading()
+      startScopedLoading(configLoadingCounter)
       error.value = null
 
       try {
@@ -353,7 +364,7 @@ export const usePromptEngineeringStore = defineStore(
         error.value = errorMessage
         return { success: false, error: errorMessage }
       } finally {
-        stopLoading()
+        stopScopedLoading(configLoadingCounter)
       }
     }
 
@@ -444,7 +455,7 @@ export const usePromptEngineeringStore = defineStore(
      * 加载示例列表
      */
     async function loadExamples(): Promise<void> {
-      startLoading()
+      startScopedLoading(examplesLoadingCounter)
       error.value = null
 
       try {
@@ -458,7 +469,7 @@ export const usePromptEngineeringStore = defineStore(
       } catch (target) {
         error.value = getErrorMessage('加载示例失败', target)
       } finally {
-        stopLoading()
+        stopScopedLoading(examplesLoadingCounter)
       }
     }
 
@@ -466,7 +477,7 @@ export const usePromptEngineeringStore = defineStore(
      * 加载示例统计信息
      */
     async function loadExampleStats(): Promise<void> {
-      startLoading()
+      startScopedLoading(examplesLoadingCounter)
 
       try {
         const result = await window.api.promptEngineering.getExampleStats()
@@ -478,7 +489,7 @@ export const usePromptEngineeringStore = defineStore(
       } catch (target) {
         error.value = getErrorMessage('加载示例统计失败', target)
       } finally {
-        stopLoading()
+        stopScopedLoading(examplesLoadingCounter)
       }
     }
 
@@ -500,7 +511,7 @@ export const usePromptEngineeringStore = defineStore(
      * 更新示例
      */
     async function updateExample(example: EnhancedFewShotExample): Promise<boolean> {
-      startLoading()
+      startScopedLoading(examplesLoadingCounter)
       error.value = null
 
       try {
@@ -516,7 +527,7 @@ export const usePromptEngineeringStore = defineStore(
         error.value = getErrorMessage('更新示例失败', target)
         return false
       } finally {
-        stopLoading()
+        stopScopedLoading(examplesLoadingCounter)
       }
     }
 
@@ -524,7 +535,7 @@ export const usePromptEngineeringStore = defineStore(
      * 删除示例（支持批量）
      */
     async function deleteExamples(ids: string[]): Promise<boolean> {
-      startLoading()
+      startScopedLoading(examplesLoadingCounter)
       error.value = null
 
       try {
@@ -540,7 +551,7 @@ export const usePromptEngineeringStore = defineStore(
         error.value = getErrorMessage('删除示例失败', target)
         return false
       } finally {
-        stopLoading()
+        stopScopedLoading(examplesLoadingCounter)
       }
     }
 
@@ -548,7 +559,7 @@ export const usePromptEngineeringStore = defineStore(
      * 从会话提取示例
      */
     async function extractFromSessions(): Promise<{ success: boolean; extracted?: number }> {
-      startLoading()
+      startScopedLoading(examplesLoadingCounter)
       error.value = null
 
       try {
@@ -564,7 +575,7 @@ export const usePromptEngineeringStore = defineStore(
         error.value = getErrorMessage('从会话提取示例失败', target)
         return { success: false }
       } finally {
-        stopLoading()
+        stopScopedLoading(examplesLoadingCounter)
       }
     }
 
@@ -572,7 +583,7 @@ export const usePromptEngineeringStore = defineStore(
      * 导入示例
      */
     async function importExamples(json: string): Promise<ImportResult> {
-      startLoading()
+      startScopedLoading(examplesLoadingCounter)
       error.value = null
 
       try {
@@ -591,7 +602,7 @@ export const usePromptEngineeringStore = defineStore(
           errors: [errorMessage]
         }
       } finally {
-        stopLoading()
+        stopScopedLoading(examplesLoadingCounter)
       }
     }
 
@@ -599,7 +610,7 @@ export const usePromptEngineeringStore = defineStore(
      * 导出示例
      */
     async function exportExamples(): Promise<{ success: boolean; json?: string; error?: string }> {
-      startLoading()
+      startScopedLoading(examplesLoadingCounter)
       error.value = null
 
       try {
@@ -609,7 +620,7 @@ export const usePromptEngineeringStore = defineStore(
         error.value = errorMessage
         return { success: false, error: errorMessage }
       } finally {
-        stopLoading()
+        stopScopedLoading(examplesLoadingCounter)
       }
     }
 
@@ -617,7 +628,7 @@ export const usePromptEngineeringStore = defineStore(
      * 清空动态示例
      */
     async function clearDynamicExamples(): Promise<{ success: boolean; deletedCount?: number }> {
-      startLoading()
+      startScopedLoading(examplesLoadingCounter)
       error.value = null
 
       try {
@@ -633,7 +644,7 @@ export const usePromptEngineeringStore = defineStore(
         error.value = getErrorMessage('清空动态示例失败', target)
         return { success: false }
       } finally {
-        stopLoading()
+        stopScopedLoading(examplesLoadingCounter)
       }
     }
 
@@ -672,7 +683,7 @@ export const usePromptEngineeringStore = defineStore(
      * 预览组装后的提示词（不调用模型）
      */
     async function previewPrompt(payload: TestPromptPayload): Promise<boolean> {
-      startLoading()
+      startScopedLoading(sandboxLoadingCounter)
       error.value = null
 
       try {
@@ -690,7 +701,7 @@ export const usePromptEngineeringStore = defineStore(
         error.value = getErrorMessage('预览提示词失败', target)
         return false
       } finally {
-        stopLoading()
+        stopScopedLoading(sandboxLoadingCounter)
       }
     }
 
@@ -698,7 +709,7 @@ export const usePromptEngineeringStore = defineStore(
      * 执行测试（调用模型）
      */
     async function runSandboxTest(payload: TestPromptPayload): Promise<boolean> {
-      startLoading()
+      startScopedLoading(sandboxLoadingCounter)
       error.value = null
       sandboxResult.value = null
 
@@ -725,7 +736,7 @@ export const usePromptEngineeringStore = defineStore(
         }
         return false
       } finally {
-        stopLoading()
+        stopScopedLoading(sandboxLoadingCounter)
       }
     }
 
@@ -743,7 +754,13 @@ export const usePromptEngineeringStore = defineStore(
      * 初始化 Store（加载配置和示例）
      */
     async function initialize(): Promise<void> {
-      await Promise.all([loadConfig(), loadExamples(), loadExampleStats()])
+      startScopedLoading(initializingCounter)
+
+      try {
+        await Promise.all([loadConfig(), loadExamples(), loadExampleStats()])
+      } finally {
+        stopScopedLoading(initializingCounter)
+      }
     }
 
     /**
@@ -758,10 +775,12 @@ export const usePromptEngineeringStore = defineStore(
       sandboxResult.value = null
       assembledPrompt.value = ''
       variableOverrides.value = {}
-      loading.value = false
       saving.value = false
       error.value = null
-      loadingCount.value = 0
+      initializingCounter.value = 0
+      configLoadingCounter.value = 0
+      examplesLoadingCounter.value = 0
+      sandboxLoadingCounter.value = 0
     }
 
     return {
@@ -774,6 +793,10 @@ export const usePromptEngineeringStore = defineStore(
       sandboxResult,
       assembledPrompt,
       variableOverrides,
+      initializing,
+      configLoading,
+      examplesLoading,
+      sandboxLoading,
       loading,
       saving,
       error,
