@@ -62,16 +62,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="modal-overlay">
-    <div class="modal-container">
-      <!-- 模态框头部 -->
-      <div class="modal-header">
-        <h2 class="modal-title">设置</h2>
+  <div class="settings-overlay">
+    <div class="settings-container">
+      <!-- 设置窗口头部 -->
+      <div class="settings-header">
+        <h2 class="settings-title">设置</h2>
         <button class="btn close-btn" @click="handleClose">关闭</button>
       </div>
 
       <!-- 主体区域：左右布局 -->
-      <div class="modal-body">
+      <div class="settings-body">
         <!-- 左侧菜单 -->
         <div class="tabs">
           <button
@@ -133,7 +133,7 @@ onUnmounted(() => {
         </div>
 
         <!-- 右侧内容区域 -->
-        <div class="modal-content">
+        <div class="settings-content">
           <!-- 加载状态 -->
           <div v-if="loading" class="loading-state">
             <span>加载中...</span>
@@ -217,7 +217,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.modal-overlay {
+.settings-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -234,7 +234,7 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.modal-container {
+.settings-container {
   width: min(860px, calc(100vw - 48px));
   height: min(620px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
   min-width: 400px;
@@ -266,18 +266,18 @@ onUnmounted(() => {
 }
 
 @media (max-width: 960px) {
-  .modal-container {
+  .settings-container {
     width: min(820px, calc(100vw - 40px));
     height: min(600px, calc(100vh - 88px - env(safe-area-inset-top, 0px)));
   }
 }
 
 @media (max-width: 768px) {
-  .modal-overlay {
+  .settings-overlay {
     padding: calc(44px + env(safe-area-inset-top, 0px)) 12px 12px;
   }
 
-  .modal-container {
+  .settings-container {
     width: 100%;
     height: min(100%, calc(100vh - 56px - env(safe-area-inset-top, 0px)));
   }
@@ -291,7 +291,7 @@ onUnmounted(() => {
     font-size: 13px;
   }
 
-  .modal-content {
+  .settings-content {
     padding: 16px;
   }
 }
@@ -306,11 +306,11 @@ onUnmounted(() => {
     font-size: 12px;
   }
 
-  .modal-header {
+  .settings-header {
     padding: 12px 16px;
   }
 
-  .modal-title {
+  .settings-title {
     font-size: 16px;
   }
 
@@ -319,12 +319,12 @@ onUnmounted(() => {
     font-size: 12px;
   }
 
-  .modal-content {
+  .settings-content {
     padding: 12px;
   }
 }
 
-.modal-header {
+.settings-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -333,7 +333,7 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.modal-title {
+.settings-title {
   font-size: 16px;
   font-weight: 600;
   color: var(--theme-text);
@@ -352,14 +352,14 @@ onUnmounted(() => {
   border-radius: 999px;
 }
 
-.modal-body {
+.settings-body {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
 @media (max-width: 480px) {
-  .modal-body {
+  .settings-body {
     flex-direction: column;
   }
 
@@ -389,7 +389,7 @@ onUnmounted(() => {
     background-color: transparent;
   }
 
-  .modal-content {
+  .settings-content {
     padding: 16px;
   }
 }
@@ -430,7 +430,7 @@ onUnmounted(() => {
   border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
-.modal-content {
+.settings-content {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
