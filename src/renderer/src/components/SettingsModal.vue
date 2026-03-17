@@ -329,7 +329,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid rgba(0, 0, 0, 0.25);
   flex-shrink: 0;
 }
 
@@ -367,7 +367,7 @@ onUnmounted(() => {
     width: 100%;
     flex-direction: row;
     border-right: none;
-    border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+    border-bottom: 1px solid rgba(0, 0, 0, 0.25);
     flex-shrink: 0;
     overflow-x: auto;
     overflow-y: hidden;
@@ -399,7 +399,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-right: 1px solid rgba(0, 0, 0, 0.25);
   padding: 8px;
   gap: 2px;
 }
