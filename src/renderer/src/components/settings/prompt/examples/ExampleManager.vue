@@ -17,7 +17,6 @@ const {
   searchQuery,
   updateExampleFilter,
   updateSearchQuery,
-  openCreateExampleDialog,
   openEditExampleDialog,
   closeEditDialog,
   saveExample,
@@ -63,8 +62,8 @@ function handleDialogVisibility(visible: boolean): void {
     <div class="pe-info-box">
       <h3 class="pe-info-title">Few-shot 示例管理</h3>
       <p class="pe-info-description">
-        管理用于增强 AI 工具调用能力的 Few-shot
-        示例。静态示例为预定义示例，动态示例从历史对话中自动提取。
+        管理用于增强 AI 工具调用能力的 Few-shot 示例，可在此查看、筛选、编辑和维护已有示例。
+        静态示例由系统预置，动态示例可从历史对话中自动提取。
       </p>
     </div>
 
@@ -76,7 +75,6 @@ function handleDialogVisibility(visible: boolean): void {
       :loading="loading"
       @update:filter="handleFilter"
       @update:search-query="updateSearchQuery"
-      @add="openCreateExampleDialog"
       @extract="extractExamplesFromSessions"
       @import="importExamplesFromFile"
       @export="exportExamplesToFile"
@@ -113,7 +111,7 @@ function handleDialogVisibility(visible: boolean): void {
 /* 说明区域 */
 .pe-info-box {
   padding: 16px;
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
   border-radius: 8px;
 }

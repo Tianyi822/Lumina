@@ -33,7 +33,6 @@ interface PromptManagerResult {
   setSelectedIds: (ids: string[]) => void
   updateExampleFilter: (filter: Partial<ExampleFilter>) => void
   updateSearchQuery: (value: string) => void
-  openCreateExampleDialog: () => void
   openEditExampleDialog: (example: EnhancedFewShotExample) => void
   closeEditDialog: () => void
   saveExample: (
@@ -168,12 +167,6 @@ export function usePromptManager(): PromptManagerResult {
     }, 300)
   }
 
-  function openCreateExampleDialog(): void {
-    dismissFeedback()
-    editingExample.value = null
-    showEditDialog.value = true
-  }
-
   function openEditExampleDialog(example: EnhancedFewShotExample): void {
     dismissFeedback()
     editingExample.value = { ...example }
@@ -190,19 +183,22 @@ export function usePromptManager(): PromptManagerResult {
   ): Promise<boolean> {
     dismissFeedback()
 
-    const saved = editingExample.value
-      ? await store.updateExample({
-          ...editingExample.value,
-          ...example
-        })
-      : await store.addExample(example)
+    if (!editingExample.value) {
+      showError('当前仅支持编辑已有示例')
+      return false
+    }
+
+    const saved = await store.updateExample({
+      ...editingExample.value,
+      ...example
+    })
 
     if (!saved) {
       showError(resolveActionError('保存示例失败'))
       return false
     }
 
-    showSuccess(editingExample.value ? '示例已更新' : '示例已添加')
+    showSuccess('示例已更新')
     closeEditDialog()
     syncSelectedIds()
 
@@ -486,7 +482,6 @@ export function usePromptManager(): PromptManagerResult {
     setSelectedIds,
     updateExampleFilter,
     updateSearchQuery,
-    openCreateExampleDialog,
     openEditExampleDialog,
     closeEditDialog,
     saveExample,

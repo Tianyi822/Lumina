@@ -1,5 +1,4 @@
 import { ipcMain, BrowserWindow, webContents } from 'electron'
-import { randomUUID } from 'crypto'
 import { configManager } from '../../services/config'
 import { logger } from '../../services/logger'
 import { promptBuilder } from '../../services/chat/PromptBuilder'
@@ -224,7 +223,6 @@ export function registerPromptHandlers(): void {
   // 示例管理 handlers
   ipcMain.handle('example:list', handleListExamples)
   ipcMain.handle('example:get', handleGetExample)
-  ipcMain.handle('example:add', handleAddExample)
   ipcMain.handle('example:update', handleUpdateExample)
   ipcMain.handle('example:delete', handleDeleteExamples)
   ipcMain.handle('example:import', handleImportExamples)
@@ -671,33 +669,6 @@ export async function handleGetExample(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('获取示例详情失败', 'main', { error: errorMessage, id })
-    return { success: false, error: errorMessage }
-  }
-}
-
-// 添加新示例
-export async function handleAddExample(
-  _event: Electron.IpcMainInvokeEvent,
-  example: Omit<EnhancedFewShotExample, 'id' | 'createdAt' | 'usageCount'>
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { exampleRepository } = await import('../../services/chat/examples')
-    await exampleRepository.initialize()
-
-    const nextExample: EnhancedFewShotExample = {
-      ...example,
-      id: randomUUID(),
-      createdAt: new Date().toISOString(),
-      usageCount: 0
-    }
-
-    await exampleRepository.add([nextExample])
-
-    logger.info('添加示例成功', 'main', { id: nextExample.id })
-    return { success: true }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logger.error('添加示例失败', 'main', { error: errorMessage })
     return { success: false, error: errorMessage }
   }
 }

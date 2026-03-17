@@ -497,32 +497,6 @@ export const usePromptEngineeringStore = defineStore(
     }
 
     /**
-     * 添加示例
-     */
-    async function addExample(
-      example: Omit<EnhancedFewShotExample, 'id' | 'createdAt' | 'usageCount'>
-    ): Promise<boolean> {
-      startLoading()
-      error.value = null
-
-      try {
-        const result = await window.api.promptEngineering.addExample(example)
-        if (!result.success) {
-          error.value = result.error || '添加示例失败'
-          return false
-        }
-
-        await Promise.all([loadExamples(), loadExampleStats()])
-        return true
-      } catch (target) {
-        error.value = getErrorMessage('添加示例失败', target)
-        return false
-      } finally {
-        stopLoading()
-      }
-    }
-
-    /**
      * 更新示例
      */
     async function updateExample(example: EnhancedFewShotExample): Promise<boolean> {
@@ -834,7 +808,6 @@ export const usePromptEngineeringStore = defineStore(
       loadExampleStats,
       setExampleFilter,
       resetExampleFilter,
-      addExample,
       updateExample,
       deleteExamples,
       extractFromSessions,

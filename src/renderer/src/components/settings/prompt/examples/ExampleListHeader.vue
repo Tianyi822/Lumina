@@ -11,7 +11,6 @@ defineProps<{
 const emit = defineEmits<{
   'update:filter': [filter: Partial<ExampleFilter>]
   'update:searchQuery': [value: string]
-  add: []
   extract: []
   import: []
   export: []
@@ -135,10 +134,6 @@ function formatScore(score: number): string {
 
     <!-- 操作按钮区域 -->
     <div class="pe-actions-row">
-      <button class="pe-btn pe-btn-primary" :disabled="loading" @click="emit('add')">
-        <span class="pe-btn-icon">+</span>
-        添加示例
-      </button>
       <button class="pe-btn pe-btn-secondary" :disabled="loading" @click="emit('extract')">
         从会话提取
       </button>
@@ -163,7 +158,7 @@ function formatScore(score: number): string {
 /* 容器 */
 .pe-header-container {
   padding: 16px;
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   border-bottom: 1px solid var(--theme-border);
 }
 
@@ -180,7 +175,7 @@ function formatScore(score: number): string {
   align-items: center;
   flex: 1;
   padding: 12px 8px;
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
   border: 1px solid var(--theme-border);
   border-radius: 6px;
   min-width: 0;
@@ -244,7 +239,7 @@ function formatScore(score: number): string {
   min-height: 34px;
   font-size: 13px;
   color: var(--theme-text);
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
   border: 1px solid var(--theme-border);
   border-radius: 4px;
   transition: border-color 0.15s ease;
@@ -271,7 +266,7 @@ function formatScore(score: number): string {
   -webkit-appearance: none;
   background:
     var(--icon-arrow-down-svg) no-repeat right 8px center,
-    var(--theme-background-tertiary);
+    var(--theme-bg-tertiary);
   background-size: 10px;
   padding-right: 28px;
   cursor: pointer;
@@ -281,7 +276,7 @@ function formatScore(score: number): string {
 .pe-select:hover {
   background:
     var(--icon-arrow-down-svg) no-repeat right 8px center,
-    var(--theme-background-hover, var(--theme-background-tertiary));
+    var(--theme-bg-hover, var(--theme-bg-tertiary));
   background-size: 10px;
 }
 
@@ -324,13 +319,13 @@ function formatScore(score: number): string {
 }
 
 .pe-btn-secondary {
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
   color: var(--theme-text);
   border: 1px solid var(--theme-border);
 }
 
 .pe-btn-secondary:hover:not(:disabled) {
-  background: var(--theme-background-hover, var(--theme-background-tertiary));
+  background: var(--theme-bg-hover, var(--theme-bg-tertiary));
 }
 
 .pe-btn-danger {

@@ -62,8 +62,6 @@ export const promptEngineeringApi: PromptEngineeringApi = {
 
   getExample: (id) => ipcRenderer.invoke('example:get', id),
 
-  addExample: (example) => ipcRenderer.invoke('example:add', example),
-
   updateExample: (example) => ipcRenderer.invoke('example:update', example),
 
   deleteExamples: (ids) => ipcRenderer.invoke('example:delete', ids),

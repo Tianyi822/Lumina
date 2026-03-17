@@ -111,14 +111,6 @@ export interface PromptEngineeringApi {
     error?: string
   }>
 
-  /** 添加示例 */
-  addExample: (
-    example: Omit<EnhancedFewShotExample, 'id' | 'createdAt' | 'usageCount'>
-  ) => Promise<{
-    success: boolean
-    error?: string
-  }>
-
   /** 更新示例 */
   updateExample: (example: EnhancedFewShotExample) => Promise<{
     success: boolean
