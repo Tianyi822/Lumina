@@ -151,8 +151,8 @@ export const usePromptEngineeringStore = defineStore(
         result = result.filter(
           (example) =>
             example.userQuery.toLowerCase().includes(query) ||
-            example.finalAnswer.toLowerCase().includes(query) ||
-            example.thought.toLowerCase().includes(query)
+            example.thought.toLowerCase().includes(query) ||
+            example.toolsUsed.some((tool) => tool.toLowerCase().includes(query))
         )
       }
 

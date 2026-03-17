@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ExampleStats, ExampleFilter } from '@shared/types/prompt'
 
-defineProps<{
+const props = defineProps<{
   stats: ExampleStats | null
   filter: ExampleFilter
   searchQuery?: string
   loading?: boolean
+  availableTools?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -17,13 +19,6 @@ const emit = defineEmits<{
   'clear-dynamic': []
 }>()
 
-// 来源选项
-const sourceOptions = [
-  { label: '全部', value: 'all' },
-  { label: '静态', value: 'static' },
-  { label: '动态', value: 'dynamic' }
-]
-
 // 分数选项
 const scoreOptions = [
   { label: '全部 (0+)', value: 0 },
@@ -32,13 +27,14 @@ const scoreOptions = [
   { label: '一般 (0.4+)', value: 0.4 }
 ]
 
-// 工具选项（示例，实际应该从配置中获取）
-const toolOptions = [
-  { label: '全部工具', value: '' },
-  { label: 'knowledge__search', value: 'knowledge__search' },
-  { label: 'knowledge__list', value: 'knowledge__list' },
-  { label: 'knowledge__documents', value: 'knowledge__documents' }
-]
+// 工具选项（动态生成）
+const toolOptions = computed(() => {
+  const options = [{ label: '全部工具', value: '' }]
+  for (const tool of props.availableTools ?? []) {
+    options.push({ label: tool, value: tool })
+  }
+  return options
+})
 
 // 更新筛选条件
 function updateFilter(key: keyof ExampleFilter, value: unknown): void {
@@ -56,14 +52,6 @@ function formatScore(score: number): string {
     <!-- 统计卡片区域 -->
     <div class="pe-stats-row">
       <div class="pe-stat-card">
-        <span class="pe-stat-label">总数</span>
-        <span class="pe-stat-value">{{ stats?.total ?? 0 }}</span>
-      </div>
-      <div class="pe-stat-card">
-        <span class="pe-stat-label">静态</span>
-        <span class="pe-stat-value pe-stat-static">{{ stats?.static ?? 0 }}</span>
-      </div>
-      <div class="pe-stat-card">
         <span class="pe-stat-label">动态</span>
         <span class="pe-stat-value pe-stat-dynamic">{{ stats?.dynamic ?? 0 }}</span>
       </div>
@@ -77,19 +65,6 @@ function formatScore(score: number): string {
 
     <!-- 筛选器区域 -->
     <div class="pe-filter-row">
-      <div class="pe-filter-group">
-        <label class="pe-filter-label">来源</label>
-        <select
-          :value="filter.source ?? 'all'"
-          class="pe-select pe-filter-select"
-          @change="updateFilter('source', ($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="option in sourceOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </div>
-
       <div class="pe-filter-group">
         <label class="pe-filter-label">最低分数</label>
         <select
@@ -126,7 +101,7 @@ function formatScore(score: number): string {
           type="text"
           :value="searchQuery ?? ''"
           class="pe-input pe-filter-input"
-          placeholder="搜索查询或答案..."
+          placeholder="搜索查询、思考或工具..."
           @input="emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
         />
       </div>
@@ -135,7 +110,7 @@ function formatScore(score: number): string {
     <!-- 操作按钮区域 -->
     <div class="pe-actions-row">
       <button class="pe-btn pe-btn-secondary" :disabled="loading" @click="emit('extract')">
-        从会话提取
+        提取
       </button>
       <button class="pe-btn pe-btn-secondary" :disabled="loading" @click="emit('import')">
         导入
@@ -191,10 +166,6 @@ function formatScore(score: number): string {
   font-size: 18px;
   font-weight: 600;
   color: var(--theme-text);
-}
-
-.pe-stat-static {
-  color: var(--theme-info, #3b82f6);
 }
 
 .pe-stat-dynamic {

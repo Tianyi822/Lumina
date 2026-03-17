@@ -1,26 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePromptEngineeringStore } from '@renderer/stores/promptEngineeringStore'
-import type { EnhancedFewShotExample, ExampleFilter } from '@shared/types/prompt'
+import type { ExampleFilter } from '@shared/types/prompt'
 import { usePromptManager } from '@renderer/composables/settings/usePromptManager'
 
 import ExampleListHeader from './ExampleListHeader.vue'
 import ExampleTable from './ExampleTable.vue'
-import ExampleEditDialog from './ExampleEditDialog.vue'
 
 const store = usePromptEngineeringStore()
 const { examples, examplesStats, filteredExamples, examplesLoading, exampleFilter } =
   storeToRefs(store)
 const {
-  showEditDialog,
-  editingExample,
   selectedIds,
   searchQuery,
   updateExampleFilter,
   updateSearchQuery,
-  openEditExampleDialog,
-  closeEditDialog,
-  saveExample,
   confirmDeleteExamples,
   confirmClearDynamicExamples,
   importExamplesFromFile,
@@ -29,31 +24,23 @@ const {
   setSelectedIds
 } = usePromptManager()
 
+// 从所有示例中提取工具名称列表
+const availableTools = computed(() => {
+  const toolSet = new Set<string>()
+  for (const example of examples.value) {
+    if (example.toolsUsed) {
+      for (const tool of example.toolsUsed) {
+        if (tool) {
+          toolSet.add(tool)
+        }
+      }
+    }
+  }
+  return Array.from(toolSet).sort()
+})
+
 function handleFilter(filter: Partial<ExampleFilter>): void {
   updateExampleFilter(filter)
-}
-
-async function handleSave(
-  example: Omit<EnhancedFewShotExample, 'id' | 'createdAt' | 'usageCount'>
-): Promise<void> {
-  await saveExample(example)
-}
-
-function handleEdit(id: string): void {
-  const example = examples.value.find((item) => item.id === id)
-  if (!example) {
-    return
-  }
-
-  openEditExampleDialog(example)
-}
-
-function handleDialogVisibility(visible: boolean): void {
-  if (visible) {
-    return
-  }
-
-  closeEditDialog()
 }
 </script>
 
@@ -63,8 +50,8 @@ function handleDialogVisibility(visible: boolean): void {
     <div class="pe-info-box">
       <h3 class="pe-info-title">Few-shot 示例管理</h3>
       <p class="pe-info-description">
-        管理用于增强 AI 工具调用能力的 Few-shot 示例，可在此查看、筛选、编辑和维护已有示例。
-        静态示例由系统预置，动态示例可从历史对话中自动提取。
+        管理用于增强 AI 工具调用能力的 Few-shot 示例，可在此查看、筛选和维护已有示例。
+        动态示例可从历史对话中自动提取。
       </p>
     </div>
 
@@ -74,6 +61,7 @@ function handleDialogVisibility(visible: boolean): void {
       :filter="exampleFilter"
       :search-query="searchQuery"
       :loading="examplesLoading"
+      :available-tools="availableTools"
       @update:filter="handleFilter"
       @update:search-query="updateSearchQuery"
       @extract="extractExamplesFromSessions"
@@ -86,17 +74,8 @@ function handleDialogVisibility(visible: boolean): void {
       :examples="filteredExamples"
       :selected-ids="selectedIds"
       :loading="examplesLoading"
-      @edit="handleEdit"
       @delete="confirmDeleteExamples"
       @update:selected-ids="setSelectedIds"
-    />
-
-    <ExampleEditDialog
-      :visible="showEditDialog"
-      :example="editingExample"
-      @update:visible="handleDialogVisibility"
-      @save="handleSave"
-      @cancel="closeEditDialog"
     />
   </div>
 </template>

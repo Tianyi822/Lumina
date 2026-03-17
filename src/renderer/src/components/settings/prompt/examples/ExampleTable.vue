@@ -14,7 +14,6 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  edit: [id: string]
   delete: [ids: string[]]
   'update:selectedIds': [ids: string[]]
 }>()
@@ -41,11 +40,6 @@ function toggleSelection(id: string): void {
 // 切换全选状态
 function toggleSelectAll(): void {
   emit('update:selectedIds', allSelected.value ? [] : props.examples.map((e) => e.id))
-}
-
-// 处理编辑
-function handleEdit(id: string): void {
-  emit('edit', id)
 }
 
 // 处理删除
@@ -111,19 +105,17 @@ function truncateText(text: string, maxLength: number): string {
               </th>
               <th class="pe-table-cell">用户查询</th>
               <th class="pe-table-cell">思考过程</th>
-              <th class="pe-table-cell">最终答案</th>
               <th class="pe-table-cell pe-sortable-cell">
                 质量分数
                 <span class="pe-sort-icon">↓</span>
               </th>
-              <th class="pe-table-cell">来源</th>
               <th class="pe-table-cell">使用的工具</th>
               <th class="pe-table-cell pe-action-cell">操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="examples.length === 0" class="pe-table-row pe-empty-row">
-              <td colspan="8" class="pe-table-cell pe-empty-cell">
+              <td colspan="6" class="pe-table-cell pe-empty-cell">
                 <div class="pe-empty-state">
                   <p class="pe-empty-text">{{ loading ? '加载中...' : '暂无示例数据' }}</p>
                 </div>
@@ -153,28 +145,12 @@ function truncateText(text: string, maxLength: number): string {
                   {{ truncateText(example.thought, 50) }}
                 </div>
               </td>
-              <td class="pe-table-cell pe-answer-cell">
-                <div class="pe-cell-content" :title="example.finalAnswer">
-                  {{ truncateText(example.finalAnswer, 50) }}
-                </div>
-              </td>
               <td class="pe-table-cell pe-score-cell">
                 <span
                   class="pe-quality-badge"
                   :style="{ backgroundColor: getQualityScoreColor(example.qualityScore) }"
                 >
                   {{ formatQualityScore(example.qualityScore) }}
-                </span>
-              </td>
-              <td class="pe-table-cell pe-source-cell">
-                <span
-                  class="pe-source-badge"
-                  :class="{
-                    'pe-source-static': example.source === 'static',
-                    'pe-source-dynamic': example.source === 'dynamic'
-                  }"
-                >
-                  {{ example.source === 'static' ? '静态' : '动态' }}
                 </span>
               </td>
               <td class="pe-table-cell pe-tools-cell">
@@ -194,32 +170,6 @@ function truncateText(text: string, maxLength: number): string {
               </td>
               <td class="pe-table-cell pe-action-cell">
                 <div class="pe-action-buttons">
-                  <button
-                    class="pe-btn pe-btn-icon pe-btn-edit"
-                    title="编辑"
-                    @click="handleEdit(example.id)"
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                    >
-                      <path
-                        d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                      <path
-                        d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                  </button>
                   <button
                     class="pe-btn pe-btn-icon pe-btn-delete"
                     title="删除"
@@ -440,34 +390,6 @@ function truncateText(text: string, maxLength: number): string {
   box-sizing: border-box;
 }
 
-/* 来源单元格 */
-.pe-source-cell {
-  width: 80px;
-}
-
-.pe-source-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 22px;
-  padding: 0 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1;
-  box-sizing: border-box;
-}
-
-.pe-source-static {
-  background: rgba(59, 130, 246, 0.15);
-  color: var(--theme-accent);
-}
-
-.pe-source-dynamic {
-  background: rgba(34, 197, 94, 0.15);
-  color: var(--theme-success, #22c55e);
-}
-
 /* 工具单元格 */
 .pe-tools-cell {
   width: 150px;
@@ -502,14 +424,13 @@ function truncateText(text: string, maxLength: number): string {
 
 /* 操作单元格 */
 .pe-action-cell {
-  width: 100px;
+  width: 60px;
   text-align: center;
 }
 
 .pe-action-buttons {
   display: flex;
   justify-content: center;
-  gap: 8px;
   align-items: center;
 }
 
@@ -553,16 +474,6 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .pe-btn-icon:hover {
-  background: var(--theme-bg-tertiary);
-  color: var(--theme-text);
-}
-
-.pe-btn-edit:hover {
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--theme-accent);
-}
-
-.pe-btn-delete:hover {
   background: rgba(239, 68, 68, 0.1);
   color: var(--theme-error, #ef4444);
 }
