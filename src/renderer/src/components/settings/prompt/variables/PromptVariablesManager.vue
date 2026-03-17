@@ -217,7 +217,7 @@ async function handleDelete(name: string): Promise<void> {
 .pe-form-card,
 .pe-variable-card,
 .pe-empty-state {
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
   border-radius: 8px;
 }
@@ -348,7 +348,7 @@ async function handleDelete(name: string): Promise<void> {
 .pe-variable-meta-value {
   color: var(--theme-text-secondary);
   font-family: var(--theme-font-mono, monospace);
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
   padding: 2px 8px;
   border-radius: 4px;
 }
@@ -389,7 +389,7 @@ async function handleDelete(name: string): Promise<void> {
   padding: 10px 12px;
   border: 1px solid var(--theme-border);
   border-radius: 6px;
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
   color: var(--theme-text);
   font-family: var(--theme-font);
   font-size: 13px;

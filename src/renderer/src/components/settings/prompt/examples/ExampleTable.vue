@@ -250,7 +250,7 @@ function truncateText(text: string, maxLength: number): string {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
   border-radius: 4px;
 }
@@ -271,7 +271,7 @@ function truncateText(text: string, maxLength: number): string {
   overflow-x: auto;
   border: 1px solid var(--theme-border);
   border-radius: 6px;
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
 }
 
 .pe-table-wrapper.pe-loading::after {
@@ -291,7 +291,7 @@ function truncateText(text: string, maxLength: number): string {
 
 /* 表头 */
 .pe-table-header {
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
 }
 
 .pe-table-header .pe-table-cell {
@@ -308,7 +308,7 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .pe-sortable-cell:hover {
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
 }
 
 .pe-sort-icon {
@@ -324,7 +324,7 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .pe-table-row:hover {
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
 }
 
 .pe-table-row.pe-selected {
@@ -426,7 +426,7 @@ function truncateText(text: string, maxLength: number): string {
   justify-content: center;
   min-height: 20px;
   padding: 0 6px;
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
   border-radius: 3px;
   font-size: 11px;
   color: var(--theme-text-secondary);
@@ -492,7 +492,7 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .pe-btn-icon:hover {
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
   color: var(--theme-text);
 }
 
@@ -533,7 +533,7 @@ function truncateText(text: string, maxLength: number): string {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
   border-radius: 4px;
 }

@@ -206,7 +206,7 @@ function handleClearResult(): void {
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
   border-radius: 8px;
 }
@@ -246,7 +246,7 @@ function handleClearResult(): void {
   padding: 10px 12px;
   border: 1px solid var(--theme-border);
   border-radius: 6px;
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
   color: var(--theme-text);
   font-family: var(--theme-font);
   font-size: 13px;

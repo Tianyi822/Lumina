@@ -281,7 +281,7 @@ watch(
 .pe-info-box {
   padding: 16px;
   margin-bottom: 24px;
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
   border-radius: 6px;
 }
@@ -340,7 +340,7 @@ watch(
   padding: 8px 12px;
   font-size: 13px;
   color: var(--theme-text);
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
   border-radius: 4px;
   transition: border-color 0.15s ease;
@@ -459,13 +459,13 @@ watch(
 }
 
 .pe-btn-secondary {
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   color: var(--theme-text);
   border: 1px solid var(--theme-border);
 }
 
 .pe-btn-secondary:hover {
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
 }
 
 .pe-btn-primary {
