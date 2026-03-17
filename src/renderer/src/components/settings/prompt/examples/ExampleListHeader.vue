@@ -27,14 +27,38 @@ const scoreOptions = [
   { label: '一般 (0.4+)', value: 0.4 }
 ]
 
-// 工具选项（动态生成）
+// 工具选项（动态生成，缩短显示名）
 const toolOptions = computed(() => {
-  const options = [{ label: '全部工具', value: '' }]
+  const options = [{ label: '全部', value: '' }]
   for (const tool of props.availableTools ?? []) {
-    options.push({ label: tool, value: tool })
+    // 缩短工具名显示
+    const shortName = shortenToolName(tool)
+    options.push({ label: shortName, value: tool })
   }
   return options
 })
+
+/**
+ * 缩短工具名显示
+ * 保留最后一个 "__" 及其两边的内容
+ * 例如：amap-maps__amap-maps__amap-maps__maps_distance -> amap-maps__maps_distance
+ */
+function shortenToolName(name: string): string {
+  const lastDoubleUnderscoreIndex = name.lastIndexOf('__')
+  if (lastDoubleUnderscoreIndex === -1) {
+    return name
+  }
+
+  // 找倒数第二个 "__"
+  const secondLastIndex = name.lastIndexOf('__', lastDoubleUnderscoreIndex - 1)
+  if (secondLastIndex === -1) {
+    // 只有一个 __，保留原样
+    return name
+  }
+
+  // 保留最后一个 __ 及其两边的内容
+  return name.slice(secondLastIndex + 2)
+}
 
 // 更新筛选条件
 function updateFilter(key: keyof ExampleFilter, value: unknown): void {
@@ -80,7 +104,7 @@ function formatScore(score: number): string {
         </select>
       </div>
 
-      <div class="pe-filter-group">
+      <div class="pe-filter-group pe-filter-tool">
         <label class="pe-filter-label">工具</label>
         <select
           :value="filter.toolName ?? ''"
@@ -188,7 +212,11 @@ function formatScore(score: number): string {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 100px;
+  min-width: 80px;
+}
+
+.pe-filter-tool {
+  max-width: 120px;
 }
 
 .pe-filter-search {
@@ -241,7 +269,11 @@ function formatScore(score: number): string {
   background-size: 10px;
   padding-right: 28px;
   cursor: pointer;
-  min-width: 100px;
+  min-width: 80px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pe-select:hover {
