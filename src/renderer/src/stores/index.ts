@@ -34,6 +34,9 @@ export {
   useDockerConfigStore
 } from './sandbox'
 
+// Prompt Engineering Store (提示词工程增强)
+export { usePromptEngineeringStore } from './promptEngineeringStore'
+
 // 初始化 Pinia（在应用启动时调用）
 export function initializePinia(): void {
   // 可以在这里添加全局 store 初始化逻辑
