@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, watch, computed } from 'vue'
+import { reactive, watch } from 'vue'
 import type { EnhancedFewShotExample, FewShotToolCall } from '@shared/types/prompt'
 
 /** Props */
@@ -49,11 +49,6 @@ interface ValidationErrors {
 }
 
 const errors = reactive<ValidationErrors>({})
-
-/** 对话框标题 */
-const dialogTitle = computed(() => {
-  return props.example ? '编辑示例' : '新建示例'
-})
 
 /** 初始化表单数据 */
 function initFormData(): void {
@@ -225,7 +220,7 @@ watch(
       <div class="pe-dialog" @click.stop>
         <!-- 头部 -->
         <div class="pe-dialog-header">
-          <h3 class="pe-dialog-title">{{ dialogTitle }}</h3>
+          <h3 class="pe-dialog-title">编辑示例</h3>
           <button class="pe-dialog-close" @click="handleClose">
             <svg
               width="16"
@@ -342,11 +337,24 @@ watch(
             <!-- 来源 -->
             <div class="pe-form-group pe-form-group-half">
               <label class="pe-form-label">来源</label>
-              <select v-model="formData.source" class="pe-select">
-                <option value="static">静态示例</option>
-                <option value="dynamic">动态示例</option>
-              </select>
-              <p class="pe-help-text">静态示例为预定义，动态示例从历史对话提取</p>
+              <div class="pe-source-preview">
+                <span
+                  class="pe-source-badge"
+                  :class="{
+                    'pe-source-static': formData.source === 'static',
+                    'pe-source-dynamic': formData.source === 'dynamic'
+                  }"
+                >
+                  {{ formData.source === 'static' ? '静态示例' : '动态示例' }}
+                </span>
+              </div>
+              <p class="pe-help-text">
+                {{
+                  formData.source === 'static'
+                    ? '系统预置示例，仅支持维护已有内容'
+                    : '来自历史对话提取或导入的示例'
+                }}
+              </p>
             </div>
           </div>
         </div>
@@ -379,7 +387,7 @@ watch(
 
 /* 对话框容器 */
 .pe-dialog {
-  background: var(--theme-background);
+  background: var(--theme-bg);
   border: 1px solid var(--theme-border);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -421,7 +429,7 @@ watch(
 }
 
 .pe-dialog-close:hover {
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   color: var(--theme-text);
 }
 
@@ -475,7 +483,7 @@ watch(
   padding: 8px 12px;
   font-size: 13px;
   color: var(--theme-text);
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   border: 1px solid var(--theme-border);
   border-radius: 4px;
   transition: border-color 0.15s ease;
@@ -502,8 +510,37 @@ watch(
 .pe-select {
   appearance: none;
   -webkit-appearance: none;
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   cursor: pointer;
+}
+
+.pe-source-preview {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  background: var(--theme-bg-secondary);
+  border: 1px solid var(--theme-border);
+  border-radius: 4px;
+}
+
+.pe-source-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.pe-source-static {
+  color: var(--theme-info, #3b82f6);
+  background: color-mix(in srgb, var(--theme-info, #3b82f6) 12%, transparent);
+}
+
+.pe-source-dynamic {
+  color: var(--theme-accent);
+  background: color-mix(in srgb, var(--theme-accent) 12%, transparent);
 }
 
 /* 滑块 */
@@ -606,13 +643,13 @@ watch(
 }
 
 .pe-btn-secondary {
-  background: var(--theme-background-secondary);
+  background: var(--theme-bg-secondary);
   color: var(--theme-text);
   border: 1px solid var(--theme-border);
 }
 
 .pe-btn-secondary:hover {
-  background: var(--theme-background-tertiary);
+  background: var(--theme-bg-tertiary);
 }
 
 .pe-btn-primary {
