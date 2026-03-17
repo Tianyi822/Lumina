@@ -237,12 +237,18 @@ async function handleDelete(name: string): Promise<void> {
 
 .pe-info-description,
 .pe-section-description,
-.pe-variable-description,
 .pe-variable-meta,
 .pe-empty-state {
   color: var(--theme-text-secondary);
   font-size: 13px;
   line-height: 1.6;
+}
+
+.pe-variable-description {
+  color: var(--theme-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 6px;
 }
 
 .pe-section {
