@@ -118,7 +118,7 @@ export class DynamicExampleExtractor {
     await this.ensureInitialized()
 
     const { minQualityScore = 0.6, maxExamples = 50 } = options
-    const result = exampleManager.extractAndScoreFromSessions(sessions, {
+    const result = await exampleManager.extractAndScoreFromSessionsAsync(sessions, {
       minQualityScore,
       maxExamples
     })

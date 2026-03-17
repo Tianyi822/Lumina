@@ -13,6 +13,17 @@ export interface ExtractAndScoreOptions {
   maxExamples?: number
 }
 
+const SCORING_YIELD_INTERVAL = 20
+
+/**
+ * 在批量评分期间让出事件循环，避免主线程长时间占用
+ */
+async function yieldToEventLoop(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setImmediate(resolve)
+  })
+}
+
 /**
  * 示例管理器
  * 统一协调示例提取和质量评分流程
@@ -47,10 +58,53 @@ export class ExampleManager {
   }
 
   /**
+   * 异步从会话中提取并评分示例
+   */
+  async extractAndScoreFromSessionsAsync(
+    sessions: SessionData[],
+    options: ExtractAndScoreOptions = {}
+  ): Promise<ExampleExtractionResult> {
+    const { minQualityScore = 0, maxExamples = Number.MAX_SAFE_INTEGER } = options
+    const extractionResult = await this.extractor.extractFromSessionsAsync(sessions)
+    const scoredExamples = await this.scoreExamplesAsync(extractionResult.examples)
+    const examples = scoredExamples
+      .filter((example) => example.qualityScore >= minQualityScore)
+      .sort((a, b) => b.qualityScore - a.qualityScore)
+      .slice(0, maxExamples)
+
+    return {
+      ...extractionResult,
+      examples
+    }
+  }
+
+  /**
    * 为示例批量打分
    */
   scoreExamples(examples: EnhancedFewShotExample[]): EnhancedFewShotExample[] {
     return this.scorer.calculateScores(examples)
+  }
+
+  /**
+   * 异步为示例批量打分
+   */
+  async scoreExamplesAsync(examples: EnhancedFewShotExample[]): Promise<EnhancedFewShotExample[]> {
+    const scoredExamples: EnhancedFewShotExample[] = []
+
+    for (let index = 0; index < examples.length; index++) {
+      const example = examples[index]
+
+      scoredExamples.push({
+        ...example,
+        qualityScore: this.scorer.calculateScore(example)
+      })
+
+      if ((index + 1) % SCORING_YIELD_INTERVAL === 0) {
+        await yieldToEventLoop()
+      }
+    }
+
+    return scoredExamples
   }
 
   /**
