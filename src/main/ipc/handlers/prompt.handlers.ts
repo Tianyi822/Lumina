@@ -10,6 +10,106 @@ import {
 } from '../../services/chat/cache/CacheMonitor'
 import type { PromptConfig } from '@main/types/config'
 import type { ReactPromptSections } from '../../services/chat/prompts/types'
+import type {
+  EnhancedFewShotExample,
+  TestPromptPayload,
+  TestPromptResult
+} from '@shared/types/prompt'
+import {
+  buildPromptVariableValueMap,
+  normalizeCustomPromptVariables,
+  replacePromptVariables
+} from '@shared/utils'
+import OpenAI from 'openai'
+
+const DEFAULT_SANDBOX_SYSTEM_PROMPT = '你是一个智能助手，请帮助用户解决问题。'
+
+/**
+ * 构建默认提示词配置
+ */
+function createDefaultPromptConfig(): PromptConfig {
+  return {
+    enableEnhancedPrompt: true,
+    toolDescriptionLevel: 'detailed',
+    fewShotCount: 3,
+    customSystemPrompt: '',
+    enablePromptCache: false,
+    enableDynamicExamples: false,
+    autoExtractIntervalDays: 7,
+    dynamicExampleMinQuality: 0.6,
+    maxStaticExamples: 10,
+    maxDynamicExamples: 20,
+    enablePromptOptimization: false,
+    optimizationAggressiveness: 'balanced',
+    customVariables: []
+  }
+}
+
+/**
+ * 格式化 Few-shot 示例文本
+ */
+function formatSandboxExampleText(examples: EnhancedFewShotExample[]): string {
+  if (examples.length === 0) {
+    return ''
+  }
+
+  let text = '\n\n# Few-shot 示例\n\n'
+
+  examples.forEach((example, index) => {
+    text += `## 示例 ${index + 1}\n`
+    text += `用户问题: ${example.userQuery}\n`
+
+    if (example.thought) {
+      text += `思考过程: ${example.thought}\n`
+    }
+
+    if (example.toolCalls && example.toolCalls.length > 0) {
+      example.toolCalls.forEach((toolCall) => {
+        text += `工具调用: ${toolCall.name}(${JSON.stringify(toolCall.arguments)})\n`
+        text += `结果: ${toolCall.result}\n`
+      })
+    }
+
+    text += `最终答案: ${example.finalAnswer}\n\n`
+  })
+
+  return text.trimEnd()
+}
+
+/**
+ * 构建沙盘提示词
+ */
+async function buildSandboxPrompt(
+  payload: TestPromptPayload,
+  promptConfig: PromptConfig
+): Promise<string> {
+  const resolvedVariables = buildPromptVariableValueMap(
+    promptConfig.customVariables,
+    payload.variables
+  )
+
+  const basePrompt = promptConfig.customSystemPrompt || DEFAULT_SANDBOX_SYSTEM_PROMPT
+  let assembledPrompt = replacePromptVariables(basePrompt, resolvedVariables)
+
+  if (payload.includeExamples) {
+    const { exampleRepository } = await import('../../services/chat/examples')
+    await exampleRepository.initialize()
+
+    const exampleCount = Math.max(0, Math.min(5, payload.exampleCount ?? 3))
+    const selectedExamples = (await exampleRepository.getAll())
+      .sort((left, right) => right.qualityScore - left.qualityScore)
+      .slice(0, exampleCount)
+
+    const examplesText = formatSandboxExampleText(selectedExamples)
+    if (examplesText) {
+      assembledPrompt += examplesText
+    }
+  }
+
+  assembledPrompt += `\n\n# 用户问题\n${payload.userQuery}`
+
+  return assembledPrompt
+}
 
 // 获取提示词配置，返回当前应用的提示词配置对象
 export async function handleGetPromptConfig(): Promise<PromptConfig | undefined> {
@@ -20,7 +120,11 @@ export async function handleGetPromptConfig(): Promise<PromptConfig | undefined>
       return undefined
     }
 
-    return config.promptConfig
+    return {
+      ...createDefaultPromptConfig(),
+      ...config.promptConfig,
+      customVariables: normalizeCustomPromptVariables(config.promptConfig?.customVariables)
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('获取提示词配置失败', 'main', { error: errorMessage })
@@ -41,11 +145,17 @@ export async function handleUpdatePromptConfig(
       return { success: false, error }
     }
 
+    const normalizedPromptConfig: PromptConfig = {
+      ...createDefaultPromptConfig(),
+      ...promptConfig,
+      customVariables: normalizeCustomPromptVariables(promptConfig.customVariables)
+    }
+
     // 更新配置
-    const result = configManager.updateConfig({ promptConfig })
+    const result = configManager.updateConfig({ promptConfig: normalizedPromptConfig })
 
     if (result.success) {
-      logger.info('提示词配置已更新', 'main', { promptConfig })
+      logger.info('提示词配置已更新', 'main', { promptConfig: normalizedPromptConfig })
     }
 
     return result
@@ -71,12 +181,7 @@ export async function handleResetPromptConfig(): Promise<{
     }
 
     // 默认配置
-    const defaultPromptConfig: PromptConfig = {
-      enableEnhancedPrompt: true,
-      toolDescriptionLevel: 'detailed',
-      fewShotCount: 3,
-      customSystemPrompt: ''
-    }
+    const defaultPromptConfig = createDefaultPromptConfig()
 
     // 更新配置
     const result = configManager.updateConfig({ promptConfig: defaultPromptConfig })
@@ -114,6 +219,21 @@ export function registerPromptHandlers(): void {
   ipcMain.handle('prompt:resetTemplate', handleResetTemplate)
   ipcMain.handle('prompt:exportTemplate', handleExportTemplate)
   ipcMain.handle('prompt:importTemplate', handleImportTemplate)
+
+  // 示例管理 handlers
+  ipcMain.handle('example:list', handleListExamples)
+  ipcMain.handle('example:get', handleGetExample)
+  ipcMain.handle('example:update', handleUpdateExample)
+  ipcMain.handle('example:delete', handleDeleteExamples)
+  ipcMain.handle('example:import', handleImportExamples)
+  ipcMain.handle('example:export', handleExportExamples)
+  ipcMain.handle('example:getStats', handleGetExampleStats)
+  ipcMain.handle('example:extractFromSessions', handleExtractFromSessions)
+  ipcMain.handle('example:clearDynamic', handleClearDynamicExamples)
+
+  // 测试沙盘 handlers
+  ipcMain.handle('prompt:preview', handlePromptPreview)
+  ipcMain.handle('prompt:test', handlePromptTest)
 
   // 设置缓存监控事件推送
   setupCacheMonitorEvents()
@@ -397,6 +517,474 @@ export async function handleImportTemplate(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('导入模板失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// ============ 示例管理 Handlers ============
+
+import type { ExampleStats, ExampleFilter, ImportResult } from '@shared/types/prompt'
+
+// 获取示例统计信息
+export async function handleGetExampleStats(): Promise<{
+  success: boolean
+  stats?: ExampleStats
+  error?: string
+}> {
+  try {
+    const { exampleRepository } = await import('../../services/chat/examples')
+    await exampleRepository.initialize()
+
+    const repoStats = await exampleRepository.getStats()
+    const allExamples = await exampleRepository.getAll()
+
+    // 计算额外统计信息
+    const lowQualityCount = allExamples.filter((ex) => ex.qualityScore < 0.5).length
+    const unusedCount = allExamples.filter((ex) => ex.usageCount === 0).length
+
+    const stats: ExampleStats = {
+      total: repoStats.total,
+      static: repoStats.static,
+      dynamic: repoStats.dynamic,
+      avgQualityScore: repoStats.avgQualityScore,
+      lastUpdated: repoStats.lastUpdated,
+      lowQualityCount,
+      unusedCount
+    }
+
+    logger.info('获取示例统计成功', 'main', { ...stats } as Record<string, unknown>)
+    return { success: true, stats }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('获取示例统计失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 获取示例列表（支持筛选）
+export async function handleListExamples(
+  _event: Electron.IpcMainInvokeEvent,
+  filter?: ExampleFilter
+): Promise<{
+  success: boolean
+  examples?: EnhancedFewShotExample[]
+  error?: string
+}> {
+  try {
+    const { exampleRepository } = await import('../../services/chat/examples')
+    await exampleRepository.initialize()
+
+    let examples = await exampleRepository.getAll()
+
+    // 应用筛选条件
+    if (filter) {
+      // 按来源筛选
+      if (filter.source && filter.source !== 'all') {
+        examples = examples.filter((ex) => ex.source === filter.source)
+      }
+
+      // 按质量分数筛选
+      if (filter.minQualityScore !== undefined) {
+        examples = examples.filter((ex) => ex.qualityScore >= filter.minQualityScore!)
+      }
+
+      // 按工具筛选（优先使用多选）
+      const toolsToFilter = filter.toolNames || (filter.toolName ? [filter.toolName] : [])
+      if (toolsToFilter.length > 0) {
+        examples = examples.filter((ex) =>
+          ex.toolsUsed.some((tool) => toolsToFilter.includes(tool))
+        )
+      }
+
+      // 按日期范围筛选
+      if (filter.dateRange) {
+        const startDate = new Date(filter.dateRange.start).getTime()
+        const endDate = new Date(filter.dateRange.end).getTime()
+        examples = examples.filter((ex) => {
+          const createdDate = new Date(ex.createdAt).getTime()
+          return createdDate >= startDate && createdDate <= endDate
+        })
+      }
+
+      // 搜索查询
+      if (filter.searchQuery) {
+        const query = filter.searchQuery.toLowerCase()
+        examples = examples.filter(
+          (ex) =>
+            ex.userQuery.toLowerCase().includes(query) ||
+            ex.finalAnswer.toLowerCase().includes(query) ||
+            ex.thought.toLowerCase().includes(query)
+        )
+      }
+
+      // 排序
+      const sortBy = filter.sortBy || 'quality'
+      const sortOrder = filter.sortOrder || 'desc'
+      examples.sort((a, b) => {
+        let comparison = 0
+        switch (sortBy) {
+          case 'quality':
+            comparison = a.qualityScore - b.qualityScore
+            break
+          case 'usage':
+            comparison = a.usageCount - b.usageCount
+            break
+          case 'date':
+            comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+            break
+        }
+        return sortOrder === 'asc' ? comparison : -comparison
+      })
+    }
+
+    logger.info('获取示例列表成功', 'main', { count: examples.length })
+    return { success: true, examples }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('获取示例列表失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 获取单个示例详情
+export async function handleGetExample(
+  _event: Electron.IpcMainInvokeEvent,
+  id: string
+): Promise<{
+  success: boolean
+  example?: EnhancedFewShotExample
+  error?: string
+}> {
+  try {
+    const { exampleRepository } = await import('../../services/chat/examples')
+    await exampleRepository.initialize()
+
+    const example = await exampleRepository.getById(id)
+    if (!example) {
+      return { success: false, error: '示例不存在' }
+    }
+
+    return { success: true, example }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('获取示例详情失败', 'main', { error: errorMessage, id })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 更新示例
+export async function handleUpdateExample(
+  _event: Electron.IpcMainInvokeEvent,
+  example: EnhancedFewShotExample
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { exampleRepository } = await import('../../services/chat/examples')
+    await exampleRepository.initialize()
+
+    await exampleRepository.update([example])
+
+    logger.info('更新示例成功', 'main', { id: example.id })
+    return { success: true }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('更新示例失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 批量删除示例
+export async function handleDeleteExamples(
+  _event: Electron.IpcMainInvokeEvent,
+  ids: string[]
+): Promise<{ success: boolean; error?: string; deleted?: number }> {
+  try {
+    const { exampleRepository } = await import('../../services/chat/examples')
+    await exampleRepository.initialize()
+
+    const beforeCount = (await exampleRepository.getAll()).length
+    await exampleRepository.delete(ids)
+    const afterCount = (await exampleRepository.getAll()).length
+    const deleted = beforeCount - afterCount
+
+    logger.info('删除示例成功', 'main', { ids, deleted })
+    return { success: true, deleted }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('删除示例失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 导入示例
+export async function handleImportExamples(
+  _event: Electron.IpcMainInvokeEvent,
+  json: string
+): Promise<ImportResult> {
+  try {
+    const { exampleRepository } = await import('../../services/chat/examples')
+    await exampleRepository.initialize()
+
+    const data = JSON.parse(json) as { examples: EnhancedFewShotExample[] }
+
+    if (!Array.isArray(data.examples)) {
+      return {
+        success: false,
+        imported: 0,
+        skipped: 0,
+        errors: ['无效的数据格式：缺少 examples 数组']
+      }
+    }
+
+    const allExamples = await exampleRepository.getAll()
+    const existingIds = new Set(allExamples.map((ex) => ex.id))
+
+    let imported = 0
+    let skipped = 0
+    const errors: string[] = []
+
+    for (const example of data.examples) {
+      // 验证必需字段
+      if (!example.id || !example.userQuery || !example.finalAnswer) {
+        errors.push(`示例缺少必需字段: ${example.id || '未知'}`)
+        continue
+      }
+
+      if (existingIds.has(example.id)) {
+        skipped++
+      } else {
+        imported++
+      }
+    }
+
+    // 执行导入
+    await exampleRepository.importFromJSON(json)
+
+    logger.info('导入示例成功', 'main', { imported, skipped, errors: errors.length })
+    return {
+      success: true,
+      imported,
+      skipped,
+      errors
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('导入示例失败', 'main', { error: errorMessage })
+    return {
+      success: false,
+      imported: 0,
+      skipped: 0,
+      errors: [errorMessage]
+    }
+  }
+}
+
+// 导出示例
+export async function handleExportExamples(): Promise<{
+  success: boolean
+  json?: string
+  error?: string
+}> {
+  try {
+    const { exampleRepository } = await import('../../services/chat/examples')
+    await exampleRepository.initialize()
+
+    const json = await exampleRepository.exportAsJSON()
+
+    logger.info('导出示例成功')
+    return { success: true, json }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('导出示例失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 从会话提取示例
+export async function handleExtractFromSessions(): Promise<{
+  success: boolean
+  result?: { extracted: number }
+  error?: string
+}> {
+  try {
+    const { exampleManager } = await import('../../services/chat/examples')
+    const { sessionService } = await import('../../services/session')
+
+    // 确保会话服务已初始化
+    sessionService.initialize()
+
+    // 异步加载全部会话，避免主线程长时间阻塞
+    const sessions = await sessionService.loadAllSessionsAsync()
+
+    if (sessions.length === 0) {
+      return { success: true, result: { extracted: 0 } }
+    }
+
+    // 使用 exampleManager 提取并评分示例
+    const extractionResult = await exampleManager.extractAndScoreFromSessionsAsync(sessions, {
+      minQualityScore: 0.5,
+      maxExamples: 100
+    })
+
+    if (extractionResult.examples.length > 0) {
+      // 将提取的示例添加到仓库
+      const { exampleRepository } = await import('../../services/chat/examples')
+      await exampleRepository.initialize()
+      await exampleRepository.add(extractionResult.examples)
+    }
+
+    logger.info('从会话提取示例成功', 'main', {
+      sessionsProcessed: extractionResult.processedSessions,
+      examplesExtracted: extractionResult.examples.length
+    })
+
+    return { success: true, result: { extracted: extractionResult.examples.length } }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('从会话提取示例失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// 清空动态示例
+export async function handleClearDynamicExamples(): Promise<{
+  success: boolean
+  deletedCount?: number
+  error?: string
+}> {
+  try {
+    const { exampleRepository } = await import('../../services/chat/examples')
+    await exampleRepository.initialize()
+
+    // 获取清空前的动态示例数量
+    const beforeStats = await exampleRepository.getStats()
+    const beforeDynamicCount = beforeStats.dynamic
+
+    // 清空动态示例
+    await exampleRepository.clearDynamicExamples()
+
+    // 获取清空后的统计
+    const afterStats = await exampleRepository.getStats()
+    const deletedCount = beforeDynamicCount - afterStats.dynamic
+
+    logger.info('清空动态示例成功', 'main', { deletedCount })
+
+    return { success: true, deletedCount }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('清空动态示例失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+// ============ 测试沙盘 Handlers ============
+
+/**
+ * 预览组装后的提示词（不调用模型）
+ */
+export async function handlePromptPreview(
+  _event: Electron.IpcMainInvokeEvent,
+  payload: TestPromptPayload
+): Promise<{ success: boolean; prompt?: string; error?: string }> {
+  try {
+    const config = configManager.getConfig()
+    if (!config) {
+      return { success: false, error: '配置未加载' }
+    }
+
+    const promptConfig: PromptConfig = {
+      ...createDefaultPromptConfig(),
+      ...config.promptConfig,
+      customVariables: normalizeCustomPromptVariables(config.promptConfig?.customVariables)
+    }
+    const assembledPrompt = await buildSandboxPrompt(payload, promptConfig)
+
+    logger.info('预览提示词成功', 'main', { promptLength: assembledPrompt.length })
+    return { success: true, prompt: assembledPrompt }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('预览提示词失败', 'main', { error: errorMessage })
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
+ * 执行测试（调用模型）
+ */
+export async function handlePromptTest(
+  _event: Electron.IpcMainInvokeEvent,
+  payload: TestPromptPayload
+): Promise<TestPromptResult> {
+  try {
+    // 先获取预览提示词
+    const previewResult = await handlePromptPreview(_event, payload)
+    if (!previewResult.success || !previewResult.prompt) {
+      return { success: false, error: previewResult.error || '生成提示词失败' }
+    }
+
+    const assembledPrompt = previewResult.prompt
+
+    // 获取配置
+    const config = configManager.getConfig()
+    if (!config) {
+      return { success: false, error: '配置未加载' }
+    }
+
+    // 获取 LLM 配置
+    const modelKey = payload.selectedModel || config.llm_config?.default_model
+    const llmConfig = config.llm_config?.models?.find((m) => m.model_name === modelKey)
+    if (!llmConfig) {
+      return { success: false, error: `模型配置不存在: ${modelKey}` }
+    }
+
+    // 创建 OpenAI 客户端
+    const client = new OpenAI({
+      apiKey: llmConfig.api_key,
+      baseURL: llmConfig.base_url,
+      timeout: 60000
+    })
+
+    const startTime = Date.now()
+
+    // 调用模型（非流式）
+    const response = await client.chat.completions.create({
+      model: llmConfig.model_name,
+      messages: [{ role: 'user', content: assembledPrompt }],
+      temperature: payload.temperature ?? llmConfig.temperature ?? 0.7,
+      max_tokens: llmConfig.max_tokens || 2000,
+      stream: false
+    })
+
+    const duration = Date.now() - startTime
+    const choice = response.choices[0]
+    const content = choice?.message?.content || ''
+
+    // 获取 token 使用量
+    const tokenUsage = response.usage
+      ? {
+          prompt: response.usage.prompt_tokens,
+          completion: response.usage.completion_tokens,
+          total: response.usage.total_tokens
+        }
+      : undefined
+
+    logger.info('测试沙盘执行成功', 'main', {
+      duration,
+      tokenUsage,
+      responseLength: content.length
+    })
+
+    return {
+      success: true,
+      assembledPrompt,
+      response: content,
+      tokenUsage,
+      duration,
+      modelUsed: llmConfig.model_name,
+      timestamp: new Date().toISOString()
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('测试沙盘执行失败', 'main', { error: errorMessage })
     return { success: false, error: errorMessage }
   }
 }

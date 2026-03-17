@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs'
+import { readFile as readFileAsync, readdir as readdirAsync } from 'fs/promises'
 import { join } from 'path'
 import {
   SessionData,
@@ -26,6 +27,17 @@ function generateTitle(firstMessage: string): string {
     return trimmed || '新对话'
   }
   return trimmed.substring(0, 20) + '...'
+}
+
+const SESSION_ASYNC_YIELD_INTERVAL = 10
+
+/**
+ * 主线程让出执行权，避免长时间同步任务阻塞 Electron 响应
+ */
+async function yieldToEventLoop(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setImmediate(resolve)
+  })
 }
 
 // 会话服务
@@ -242,6 +254,58 @@ export class SessionService {
       return sessions
     } catch (error) {
       const errorMessage = `获取会话列表失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return []
+    }
+  }
+
+  // 异步加载全部会话
+  // 用于长耗时批处理场景，避免在主进程内持续阻塞事件循环
+  async loadAllSessionsAsync(): Promise<SessionData[]> {
+    try {
+      const dataDir = getDataDirPath()
+      if (!existsSync(dataDir)) {
+        return []
+      }
+
+      const files = await readdirAsync(dataDir)
+      const sessions: SessionData[] = []
+      let processedCount = 0
+
+      for (const file of files) {
+        if (!file.endsWith('.json')) {
+          continue
+        }
+
+        const sessionId = extractSessionIdFromFileName(file)
+        if (!sessionId) {
+          continue
+        }
+
+        const filePath = join(dataDir, file)
+        if (!isPathInDataDir(filePath)) {
+          continue
+        }
+
+        try {
+          const content = await readFileAsync(filePath, 'utf-8')
+          const session = JSON.parse(content) as SessionData
+          sessions.push(session)
+          processedCount++
+
+          if (processedCount % SESSION_ASYNC_YIELD_INTERVAL === 0) {
+            await yieldToEventLoop()
+          }
+        } catch {
+          logger.warn('无法解析会话文件', 'main', { file })
+        }
+      }
+
+      sessions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+      return sessions
+    } catch (error) {
+      const errorMessage = `异步加载会话失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
       return []
     }

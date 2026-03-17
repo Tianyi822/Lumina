@@ -296,3 +296,6 @@ export class ExampleRepository {
     }
   }
 }
+
+// 默认示例仓库实例
+export const exampleRepository = new ExampleRepository()

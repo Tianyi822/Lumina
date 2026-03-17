@@ -7,7 +7,6 @@ import type {
   AppConfig,
   ThemeConfig,
   LLMConfig,
-  PromptConfig,
   VoiceRecognitionConfig
 } from '@shared/types/config'
 import { deepClone } from '@shared/utils'
@@ -33,16 +32,6 @@ export const useConfigStore = defineStore('config', () => {
   // 模型配置
   const llmConfigs = ref<LLMConfig[]>([])
   const defaultModel = ref('')
-
-  // 提示词配置
-  const promptConfig = ref<PromptConfig>({
-    enableEnhancedPrompt: true,
-    toolDescriptionLevel: 'detailed',
-    fewShotCount: 3,
-    enableDynamicExamples: false,
-    enablePromptOptimization: false,
-    optimizationAggressiveness: 'balanced'
-  })
 
   // 语音识别配置
   const voiceRecognitionConfig = ref<VoiceRecognitionConfig>({
@@ -78,10 +67,6 @@ export const useConfigStore = defineStore('config', () => {
           llmConfigs.value = config.llm_config.models
         }
         defaultModel.value = config.llm_config?.default_model || ''
-        // 加载提示词配置
-        if (config.promptConfig) {
-          promptConfig.value = { ...promptConfig.value, ...config.promptConfig }
-        }
         // 加载语音识别配置
         if (config.voiceRecognition) {
           voiceRecognitionConfig.value = {
@@ -107,7 +92,6 @@ export const useConfigStore = defineStore('config', () => {
     try {
       const plainThemeConfig = deepClone(themeConfig.value)
       const plainLlmConfigs = deepClone(llmConfigs.value)
-      const plainPromptConfig = deepClone(promptConfig.value)
       const plainVoiceRecognitionConfig = deepClone(voiceRecognitionConfig.value)
 
       const result = await window.api.config.updateConfig({
@@ -118,7 +102,6 @@ export const useConfigStore = defineStore('config', () => {
           enable_auto_compression: false,
           models: plainLlmConfigs
         },
-        promptConfig: plainPromptConfig,
         voiceRecognition: plainVoiceRecognitionConfig
       })
       if (result.success) {
@@ -189,23 +172,6 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
-  // 更新提示词配置
-  function updatePromptConfig(config: PromptConfig): void {
-    promptConfig.value = { ...promptConfig.value, ...config }
-  }
-
-  // 重置提示词配置
-  function resetPromptConfig(): void {
-    promptConfig.value = {
-      enableEnhancedPrompt: true,
-      toolDescriptionLevel: 'detailed',
-      fewShotCount: 3,
-      enableDynamicExamples: false,
-      enablePromptOptimization: false,
-      optimizationAggressiveness: 'balanced'
-    }
-  }
-
   // 更新语音识别配置
   function updateVoiceRecognitionConfig(config: VoiceRecognitionConfig): void {
     voiceRecognitionConfig.value = { ...voiceRecognitionConfig.value, ...config }
@@ -226,7 +192,6 @@ export const useConfigStore = defineStore('config', () => {
     themeConfig,
     llmConfigs,
     defaultModel,
-    promptConfig,
     voiceRecognitionConfig,
     // Getters
     hasModels,
@@ -240,8 +205,6 @@ export const useConfigStore = defineStore('config', () => {
     addModelConfig,
     deleteModelConfig,
     updateModelConfigField,
-    updatePromptConfig,
-    resetPromptConfig,
     updateVoiceRecognitionConfig,
     clearMessages
   }

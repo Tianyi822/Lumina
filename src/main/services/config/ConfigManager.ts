@@ -5,6 +5,7 @@ import { getConfigDirPath, getConfigFilePath } from './configPaths'
 import { logger } from '@main/services/logger'
 import type { EmbeddingConfig } from '@shared/types/config'
 import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
+import { normalizeCustomPromptVariables } from '@shared/utils'
 
 /**
  * 创建空的基础配置结构
@@ -27,9 +28,16 @@ function createEmptyConfig(): AppConfig {
       enableEnhancedPrompt: true,
       toolDescriptionLevel: 'detailed',
       fewShotCount: 3,
+      customSystemPrompt: '',
+      enablePromptCache: false,
       enableDynamicExamples: false,
+      autoExtractIntervalDays: 7,
+      dynamicExampleMinQuality: 0.6,
+      maxStaticExamples: 10,
+      maxDynamicExamples: 20,
       enablePromptOptimization: false,
-      optimizationAggressiveness: 'balanced'
+      optimizationAggressiveness: 'balanced',
+      customVariables: []
     },
     embeddingModels: {},
     knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG,
@@ -75,9 +83,16 @@ function migrateConfig(config: AppConfig): AppConfig {
       enableEnhancedPrompt: true,
       toolDescriptionLevel: 'detailed',
       fewShotCount: 3,
+      customSystemPrompt: '',
+      enablePromptCache: false,
       enableDynamicExamples: false,
+      autoExtractIntervalDays: 7,
+      dynamicExampleMinQuality: 0.6,
+      maxStaticExamples: 10,
+      maxDynamicExamples: 20,
       enablePromptOptimization: false,
-      optimizationAggressiveness: 'balanced'
+      optimizationAggressiveness: 'balanced',
+      customVariables: []
     }
   }
 
@@ -90,8 +105,26 @@ function migrateConfig(config: AppConfig): AppConfig {
   if (migrated.promptConfig.fewShotCount === undefined) {
     migrated.promptConfig.fewShotCount = 3
   }
+  if (migrated.promptConfig.customSystemPrompt === undefined) {
+    migrated.promptConfig.customSystemPrompt = ''
+  }
+  if (migrated.promptConfig.enablePromptCache === undefined) {
+    migrated.promptConfig.enablePromptCache = false
+  }
   if (migrated.promptConfig.enableDynamicExamples === undefined) {
     migrated.promptConfig.enableDynamicExamples = false
+  }
+  if (migrated.promptConfig.autoExtractIntervalDays === undefined) {
+    migrated.promptConfig.autoExtractIntervalDays = 7
+  }
+  if (migrated.promptConfig.dynamicExampleMinQuality === undefined) {
+    migrated.promptConfig.dynamicExampleMinQuality = 0.6
+  }
+  if (migrated.promptConfig.maxStaticExamples === undefined) {
+    migrated.promptConfig.maxStaticExamples = 10
+  }
+  if (migrated.promptConfig.maxDynamicExamples === undefined) {
+    migrated.promptConfig.maxDynamicExamples = 20
   }
   if (migrated.promptConfig.enablePromptOptimization === undefined) {
     migrated.promptConfig.enablePromptOptimization = false
@@ -99,6 +132,9 @@ function migrateConfig(config: AppConfig): AppConfig {
   if (!migrated.promptConfig.optimizationAggressiveness) {
     migrated.promptConfig.optimizationAggressiveness = 'balanced'
   }
+  migrated.promptConfig.customVariables = normalizeCustomPromptVariables(
+    migrated.promptConfig.customVariables
+  )
 
   migrated.embeddingModels = migrated.embeddingModels || {}
 

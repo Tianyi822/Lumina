@@ -62,16 +62,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="modal-overlay">
-    <div class="modal-container">
-      <!-- 模态框头部 -->
-      <div class="modal-header">
-        <h2 class="modal-title">设置</h2>
+  <div class="settings-overlay">
+    <div class="settings-container">
+      <!-- 设置窗口头部 -->
+      <div class="settings-header">
+        <h2 class="settings-title">设置</h2>
         <button class="btn close-btn" @click="handleClose">关闭</button>
       </div>
 
       <!-- 主体区域：左右布局 -->
-      <div class="modal-body">
+      <div class="settings-body">
         <!-- 左侧菜单 -->
         <div class="tabs">
           <button
@@ -79,7 +79,14 @@ onUnmounted(() => {
             :class="{ active: activeTab === 'model' }"
             @click="activeTab = 'model'"
           >
-            模型配置
+            对话模型配置
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'embedding' }"
+            @click="activeTab = 'embedding'"
+          >
+            嵌入模型配置
           </button>
           <button
             class="tab-btn"
@@ -90,24 +97,10 @@ onUnmounted(() => {
           </button>
           <button
             class="tab-btn"
-            :class="{ active: activeTab === 'embedding' }"
-            @click="activeTab = 'embedding'"
-          >
-            嵌入模型
-          </button>
-          <button
-            class="tab-btn"
             :class="{ active: activeTab === 'prompt' }"
             @click="activeTab = 'prompt'"
           >
             提示词
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'theme' }"
-            @click="activeTab = 'theme'"
-          >
-            主题设置
           </button>
           <button
             class="tab-btn"
@@ -130,10 +123,17 @@ onUnmounted(() => {
           >
             PPT 模板
           </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'theme' }"
+            @click="activeTab = 'theme'"
+          >
+            主题设置
+          </button>
         </div>
 
         <!-- 右侧内容区域 -->
-        <div class="modal-content">
+        <div class="settings-content">
           <!-- 加载状态 -->
           <div v-if="loading" class="loading-state">
             <span>加载中...</span>
@@ -217,7 +217,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.modal-overlay {
+.settings-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -234,9 +234,9 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.modal-container {
-  width: min(860px, calc(100vw - 48px));
-  height: min(620px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
+.settings-container {
+  width: min(1000px, calc(100vw - 48px));
+  height: min(750px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
   min-width: 400px;
   min-height: 300px;
   background:
@@ -266,18 +266,18 @@ onUnmounted(() => {
 }
 
 @media (max-width: 960px) {
-  .modal-container {
-    width: min(820px, calc(100vw - 40px));
-    height: min(600px, calc(100vh - 88px - env(safe-area-inset-top, 0px)));
+  .settings-container {
+    width: min(950px, calc(100vw - 40px));
+    height: min(700px, calc(100vh - 88px - env(safe-area-inset-top, 0px)));
   }
 }
 
 @media (max-width: 768px) {
-  .modal-overlay {
+  .settings-overlay {
     padding: calc(44px + env(safe-area-inset-top, 0px)) 12px 12px;
   }
 
-  .modal-container {
+  .settings-container {
     width: 100%;
     height: min(100%, calc(100vh - 56px - env(safe-area-inset-top, 0px)));
   }
@@ -291,7 +291,7 @@ onUnmounted(() => {
     font-size: 13px;
   }
 
-  .modal-content {
+  .settings-content {
     padding: 16px;
   }
 }
@@ -306,11 +306,11 @@ onUnmounted(() => {
     font-size: 12px;
   }
 
-  .modal-header {
+  .settings-header {
     padding: 12px 16px;
   }
 
-  .modal-title {
+  .settings-title {
     font-size: 16px;
   }
 
@@ -319,21 +319,21 @@ onUnmounted(() => {
     font-size: 12px;
   }
 
-  .modal-content {
+  .settings-content {
     padding: 12px;
   }
 }
 
-.modal-header {
+.settings-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid rgba(0, 0, 0, 0.25);
   flex-shrink: 0;
 }
 
-.modal-title {
+.settings-title {
   font-size: 16px;
   font-weight: 600;
   color: var(--theme-text);
@@ -352,14 +352,14 @@ onUnmounted(() => {
   border-radius: 999px;
 }
 
-.modal-body {
+.settings-body {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
 @media (max-width: 480px) {
-  .modal-body {
+  .settings-body {
     flex-direction: column;
   }
 
@@ -367,7 +367,7 @@ onUnmounted(() => {
     width: 100%;
     flex-direction: row;
     border-right: none;
-    border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+    border-bottom: 1px solid rgba(0, 0, 0, 0.25);
     flex-shrink: 0;
     overflow-x: auto;
     overflow-y: hidden;
@@ -389,7 +389,7 @@ onUnmounted(() => {
     background-color: transparent;
   }
 
-  .modal-content {
+  .settings-content {
     padding: 16px;
   }
 }
@@ -399,7 +399,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-right: 1px solid rgba(0, 0, 0, 0.25);
   padding: 8px;
   gap: 2px;
 }
@@ -430,7 +430,7 @@ onUnmounted(() => {
   border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
-.modal-content {
+.settings-content {
   flex: 1;
   overflow-y: auto;
   padding: 20px;

@@ -5,14 +5,13 @@ import { chatApi } from './apis/chat'
 import { mcpApi } from './apis/mcp'
 import { sessionApi } from './apis/session'
 import { configApi } from './apis/config'
-import { promptApi } from './apis/prompt'
 import { windowApi } from './apis/window'
 import { embeddingApi } from './apis/embedding'
 import { embeddingModelsApi } from './apis/embeddingModels'
 import { knowledgeApi, onFileProgress, onReindexProgress } from './apis/knowledge'
 import { fileApi } from './apis/file'
 import { sandboxApi } from './apis/sandbox'
-import { promptTemplateApi, cacheStatsApi } from './apis/promptEngineering'
+import { promptEngineeringApi } from './apis/promptEngineering'
 import { knowledgeMCPApi } from './apis/knowledgeMCP'
 import { documentApi } from './apis/document'
 import { voiceRecognitionApi } from './apis/voiceRecognition'
@@ -29,7 +28,6 @@ const api = {
   chat: chatApi,
   session: sessionApi,
   mcp: mcpApi,
-  prompt: promptApi,
   window: windowApi,
   embedding: embeddingApi,
   embeddingModels: embeddingModelsApi,
@@ -39,9 +37,8 @@ const api = {
   document: documentApi,
   onFileProgress,
   onReindexProgress,
-  // 提示词工程相关 API
-  promptTemplate: promptTemplateApi,
-  cacheStats: cacheStatsApi,
+  // 提示词工程统一 API
+  promptEngineering: promptEngineeringApi,
   // 知识库 MCP 服务 API
   knowledgeMCP: knowledgeMCPApi,
   // 语音识别相关 API

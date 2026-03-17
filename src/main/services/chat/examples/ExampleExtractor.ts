@@ -25,6 +25,17 @@ interface ReActPattern {
   hasErrors: boolean
 }
 
+const EXTRACTION_YIELD_INTERVAL = 5
+
+/**
+ * 在批量提取期间主动让出事件循环
+ */
+async function yieldToEventLoop(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setImmediate(resolve)
+  })
+}
+
 // 示例提取器
 export class ExampleExtractor {
   // 从会话列表中提取示例
@@ -51,6 +62,50 @@ export class ExampleExtractor {
         errors.push(
           `会话 ${session.sessionId}: ${error instanceof Error ? error.message : String(error)}`
         )
+      }
+    }
+
+    return {
+      examples,
+      processedSessions,
+      skippedSessions,
+      errors
+    }
+  }
+
+  /**
+   * 异步从会话列表中提取示例
+   * 大批量处理时定期让出事件循环，避免阻塞主线程
+   */
+  async extractFromSessionsAsync(sessions: SessionData[]): Promise<ExampleExtractionResult> {
+    const examples: EnhancedFewShotExample[] = []
+    let processedSessions = 0
+    let skippedSessions = 0
+    const errors: string[] = []
+
+    for (let index = 0; index < sessions.length; index++) {
+      const session = sessions[index]
+
+      try {
+        const patterns = this.extractPatternsFromSession(session)
+        if (patterns.length > 0) {
+          for (const pattern of patterns) {
+            const example = this.createExampleFromPattern(pattern, session.sessionId)
+            examples.push(example)
+          }
+          processedSessions++
+        } else {
+          skippedSessions++
+        }
+      } catch (error) {
+        skippedSessions++
+        errors.push(
+          `会话 ${session.sessionId}: ${error instanceof Error ? error.message : String(error)}`
+        )
+      }
+
+      if ((index + 1) % EXTRACTION_YIELD_INTERVAL === 0) {
+        await yieldToEventLoop()
       }
     }
 
