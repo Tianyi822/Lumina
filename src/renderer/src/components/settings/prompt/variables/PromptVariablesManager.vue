@@ -303,6 +303,10 @@ async function handleDelete(name: string): Promise<void> {
   gap: 8px;
 }
 
+.pe-form-actions {
+  margin-top: 16px;
+}
+
 .pe-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
