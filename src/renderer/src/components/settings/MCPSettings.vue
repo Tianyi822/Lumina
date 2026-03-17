@@ -265,11 +265,7 @@ onUnmounted(() => {
     </button>
 
     <!-- 导入 JSON 配置按钮 -->
-    <button
-      v-if="!showNewMCPForm"
-      class="btn import-btn"
-      @click="toggleImportPanel"
-    >
+    <button v-if="!showNewMCPForm" class="btn import-btn" @click="toggleImportPanel">
       {{ showImportPanel ? '收起导入' : '导入 JSON 配置' }}
     </button>
 
