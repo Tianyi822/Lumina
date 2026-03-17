@@ -171,7 +171,14 @@ async function handleDelete(name: string): Promise<void> {
         >
           <div class="pe-variable-row">
             <div>
-              <div class="pe-variable-name">{{ getPromptVariablePlaceholder(variable.name) }}</div>
+              <div class="pe-variable-header">
+                <div class="pe-variable-name">
+                  {{ getPromptVariablePlaceholder(variable.name) }}
+                </div>
+                <span class="pe-variable-default"
+                  >默认值：{{ variable.defaultValue || '未设置' }}</span
+                >
+              </div>
               <p class="pe-variable-description">
                 {{ variable.description || '未填写说明' }}
               </p>
@@ -185,10 +192,6 @@ async function handleDelete(name: string): Promise<void> {
               </button>
             </div>
           </div>
-
-          <p class="pe-variable-meta">
-            默认值：{{ variable.defaultValue || '未设置，运行时保留占位符' }}
-          </p>
         </article>
       </div>
 
@@ -296,10 +299,25 @@ async function handleDelete(name: string): Promise<void> {
   border-color: rgba(16, 185, 129, 0.2);
 }
 
+.pe-variable-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .pe-variable-name {
   font-size: 14px;
   font-weight: 600;
   color: var(--theme-text);
+}
+
+.pe-variable-default {
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+  background: var(--theme-background-tertiary, rgba(0, 0, 0, 0.05));
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 .pe-variable-row {
