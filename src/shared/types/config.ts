@@ -98,10 +98,6 @@ export interface PromptConfig {
   autoExtractIntervalDays?: number
   /** 动态示例的最低质量分数要求 */
   dynamicExampleMinQuality?: number
-  /** 最多保留的静态示例数量 */
-  maxStaticExamples?: number
-  /** 动态示例存储路径 */
-  dynamicExamplesPath?: string
   /** 最大动态示例数量 */
   maxDynamicExamples?: number
   /** 是否启用提示词优化 */
