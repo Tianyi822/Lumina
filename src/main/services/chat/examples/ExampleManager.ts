@@ -64,17 +64,64 @@ export class ExampleManager {
     sessions: SessionData[],
     options: ExtractAndScoreOptions = {}
   ): Promise<ExampleExtractionResult> {
+    return this.extractAndScoreFromSessionStreamAsync(sessions, options)
+  }
+
+  /**
+   * 异步从会话流中提取并评分示例
+   * 逐个消费 session，避免一次性加载全部会话和候选示例
+   */
+  async extractAndScoreFromSessionStreamAsync(
+    sessions: Iterable<SessionData> | AsyncIterable<SessionData>,
+    options: ExtractAndScoreOptions = {}
+  ): Promise<ExampleExtractionResult> {
     const { minQualityScore = 0, maxExamples = Number.MAX_SAFE_INTEGER } = options
-    const extractionResult = await this.extractor.extractFromSessionsAsync(sessions)
-    const scoredExamples = await this.scoreExamplesAsync(extractionResult.examples)
-    const examples = scoredExamples
-      .filter((example) => example.qualityScore >= minQualityScore)
-      .sort((a, b) => b.qualityScore - a.qualityScore)
-      .slice(0, maxExamples)
+    const examples: EnhancedFewShotExample[] = []
+    let processedSessions = 0
+    let skippedSessions = 0
+    const errors: string[] = []
+    let sessionCount = 0
+
+    for await (const session of this.toAsyncIterable(sessions)) {
+      sessionCount++
+
+      try {
+        const sessionExamples = await this.extractor.extractFromSessionAsync(session)
+        if (sessionExamples.length === 0) {
+          skippedSessions++
+        } else {
+          processedSessions++
+
+          for (const example of sessionExamples) {
+            const scoredExample: EnhancedFewShotExample = {
+              ...example,
+              qualityScore: this.scorer.calculateScore(example)
+            }
+
+            if (scoredExample.qualityScore < minQualityScore) {
+              continue
+            }
+
+            this.pushTopExample(examples, scoredExample, maxExamples)
+          }
+        }
+      } catch (error) {
+        skippedSessions++
+        errors.push(
+          `会话 ${session.sessionId}: ${error instanceof Error ? error.message : String(error)}`
+        )
+      }
+
+      if (sessionCount % SCORING_YIELD_INTERVAL === 0) {
+        await yieldToEventLoop()
+      }
+    }
 
     return {
-      ...extractionResult,
-      examples
+      examples: examples.sort((a, b) => b.qualityScore - a.qualityScore),
+      processedSessions,
+      skippedSessions,
+      errors
     }
   }
 
@@ -122,6 +169,44 @@ export class ExampleManager {
     exampleIds: string[]
   ): EnhancedFewShotExample[] {
     return this.scorer.updateUsageBatch(examples, exampleIds)
+  }
+
+  /**
+   * 将同步/异步会话源统一转为异步迭代
+   */
+  private async *toAsyncIterable(
+    sessions: Iterable<SessionData> | AsyncIterable<SessionData>
+  ): AsyncGenerator<SessionData, void, void> {
+    if (Symbol.asyncIterator in Object(sessions)) {
+      for await (const session of sessions as AsyncIterable<SessionData>) {
+        yield session
+      }
+      return
+    }
+
+    for (const session of sessions as Iterable<SessionData>) {
+      yield session
+    }
+  }
+
+  /**
+   * 维护固定大小的高质量示例集合
+   */
+  private pushTopExample(
+    examples: EnhancedFewShotExample[],
+    example: EnhancedFewShotExample,
+    maxExamples: number
+  ): void {
+    if (maxExamples <= 0) {
+      return
+    }
+
+    examples.push(example)
+    examples.sort((a, b) => b.qualityScore - a.qualityScore)
+
+    if (examples.length > maxExamples) {
+      examples.length = maxExamples
+    }
   }
 }
 
