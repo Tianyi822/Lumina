@@ -289,7 +289,22 @@ function handleClearResult(): void {
   line-height: 1.2;
 }
 
-.pe-switch-row,
+.pe-switch-row {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--theme-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pe-switch-row input[type='checkbox'] {
+  margin: 0;
+  cursor: pointer;
+}
+
 .pe-range-field {
   display: flex;
   flex-direction: column;
