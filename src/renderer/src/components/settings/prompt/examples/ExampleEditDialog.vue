@@ -28,7 +28,6 @@ interface FormData {
   toolCalls: string
   finalAnswer: string
   qualityScore: number
-  source: 'static' | 'dynamic'
 }
 
 const formData = reactive<FormData>({
@@ -36,8 +35,7 @@ const formData = reactive<FormData>({
   thought: '',
   toolCalls: '',
   finalAnswer: '',
-  qualityScore: 0.8,
-  source: 'dynamic'
+  qualityScore: 0.8
 })
 
 /** 验证错误 */
@@ -60,14 +58,12 @@ function initFormData(): void {
       : ''
     formData.finalAnswer = props.example.finalAnswer || ''
     formData.qualityScore = props.example.qualityScore ?? 0.8
-    formData.source = props.example.source || 'dynamic'
   } else {
     formData.userQuery = ''
     formData.thought = ''
     formData.toolCalls = ''
     formData.finalAnswer = ''
     formData.qualityScore = 0.8
-    formData.source = 'dynamic'
   }
   clearErrors()
 }
@@ -149,7 +145,7 @@ function handleSave(): void {
     toolCalls,
     finalAnswer: formData.finalAnswer.trim(),
     qualityScore: formData.qualityScore,
-    source: formData.source,
+    source: 'dynamic',
     toolsUsed
   })
 }
@@ -308,54 +304,23 @@ watch(
             </div>
           </div>
 
-          <!-- 质量分数和来源 -->
-          <div class="pe-form-row">
-            <!-- 质量分数 -->
-            <div
-              class="pe-form-group pe-form-group-half"
-              :class="{ 'pe-has-error': errors.qualityScore }"
-            >
-              <label class="pe-form-label">
-                质量分数: {{ formData.qualityScore.toFixed(2) }}
-              </label>
-              <input
-                v-model.number="formData.qualityScore"
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                class="pe-slider"
-              />
-              <div class="pe-slider-labels">
-                <span>0.0</span>
-                <span>1.0</span>
-              </div>
-              <p v-if="errors.qualityScore" class="pe-error-text">{{ errors.qualityScore }}</p>
-              <p v-else class="pe-help-text">示例的质量评分，用于筛选和排序</p>
+          <!-- 质量分数 -->
+          <div class="pe-form-group" :class="{ 'pe-has-error': errors.qualityScore }">
+            <label class="pe-form-label"> 质量分数: {{ formData.qualityScore.toFixed(2) }} </label>
+            <input
+              v-model.number="formData.qualityScore"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              class="pe-slider"
+            />
+            <div class="pe-slider-labels">
+              <span>0.0</span>
+              <span>1.0</span>
             </div>
-
-            <!-- 来源 -->
-            <div class="pe-form-group pe-form-group-half">
-              <label class="pe-form-label">来源</label>
-              <div class="pe-source-preview">
-                <span
-                  class="pe-source-badge"
-                  :class="{
-                    'pe-source-static': formData.source === 'static',
-                    'pe-source-dynamic': formData.source === 'dynamic'
-                  }"
-                >
-                  {{ formData.source === 'static' ? '静态示例' : '动态示例' }}
-                </span>
-              </div>
-              <p class="pe-help-text">
-                {{
-                  formData.source === 'static'
-                    ? '系统预置示例，仅支持维护已有内容'
-                    : '来自历史对话提取或导入的示例'
-                }}
-              </p>
-            </div>
+            <p v-if="errors.qualityScore" class="pe-error-text">{{ errors.qualityScore }}</p>
+            <p v-else class="pe-help-text">示例的质量评分，用于筛选和排序</p>
           </div>
         </div>
 
@@ -445,16 +410,6 @@ watch(
   margin-bottom: 20px;
 }
 
-.pe-form-group-half {
-  flex: 1;
-}
-
-.pe-form-row {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-
 .pe-form-label {
   display: block;
   font-size: 13px;
@@ -512,35 +467,6 @@ watch(
   -webkit-appearance: none;
   background: var(--theme-bg-secondary);
   cursor: pointer;
-}
-
-.pe-source-preview {
-  display: flex;
-  align-items: center;
-  min-height: 36px;
-  padding: 0 12px;
-  background: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-}
-
-.pe-source-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.pe-source-static {
-  color: var(--theme-info, #3b82f6);
-  background: color-mix(in srgb, var(--theme-info, #3b82f6) 12%, transparent);
-}
-
-.pe-source-dynamic {
-  color: var(--theme-accent);
-  background: color-mix(in srgb, var(--theme-accent) 12%, transparent);
 }
 
 /* 滑块 */

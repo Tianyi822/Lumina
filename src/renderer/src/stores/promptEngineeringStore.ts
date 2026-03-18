@@ -43,7 +43,6 @@ function createDefaultPromptConfig(): PromptConfig {
     enableDynamicExamples: false,
     autoExtractIntervalDays: 7,
     dynamicExampleMinQuality: 0.6,
-    maxStaticExamples: 10,
     maxDynamicExamples: 20,
     enablePromptOptimization: false,
     optimizationAggressiveness: 'balanced',
@@ -58,8 +57,20 @@ function normalizePromptConfig(config?: PromptConfig | null): PromptConfig {
   const defaults = createDefaultPromptConfig()
 
   return {
-    ...defaults,
-    ...config,
+    enableEnhancedPrompt: config?.enableEnhancedPrompt ?? defaults.enableEnhancedPrompt,
+    toolDescriptionLevel: config?.toolDescriptionLevel ?? defaults.toolDescriptionLevel,
+    fewShotCount: config?.fewShotCount ?? defaults.fewShotCount,
+    customSystemPrompt: config?.customSystemPrompt ?? defaults.customSystemPrompt,
+    enablePromptCache: config?.enablePromptCache ?? defaults.enablePromptCache,
+    cacheConfig: config?.cacheConfig,
+    enableDynamicExamples: config?.enableDynamicExamples ?? defaults.enableDynamicExamples,
+    autoExtractIntervalDays: config?.autoExtractIntervalDays ?? defaults.autoExtractIntervalDays,
+    dynamicExampleMinQuality: config?.dynamicExampleMinQuality ?? defaults.dynamicExampleMinQuality,
+    maxDynamicExamples: config?.maxDynamicExamples ?? defaults.maxDynamicExamples,
+    enablePromptOptimization: config?.enablePromptOptimization ?? defaults.enablePromptOptimization,
+    optimizationAggressiveness:
+      config?.optimizationAggressiveness ?? defaults.optimizationAggressiveness,
+    enableToolDescriptionAdaptation: config?.enableToolDescriptionAdaptation,
     customVariables: normalizeCustomPromptVariables(config?.customVariables)
   }
 }
@@ -88,7 +99,7 @@ export const usePromptEngineeringStore = defineStore(
     const promptConfig = ref<PromptConfig>(createDefaultPromptConfig())
     const examples = ref<EnhancedFewShotExample[]>([])
     const examplesStats = ref<ExampleStats | null>(null)
-    const exampleFilter = ref<ExampleFilter>({ source: 'all' })
+    const exampleFilter = ref<ExampleFilter>({})
     const sandboxResult = ref<TestPromptResult | null>(null)
     const assembledPrompt = ref('')
     const variableOverrides = ref<VariableOverrides>({})
@@ -126,10 +137,6 @@ export const usePromptEngineeringStore = defineStore(
     const filteredExamples = computed(() => {
       let result = [...examples.value]
       const filter = exampleFilter.value
-
-      if (filter.source && filter.source !== 'all') {
-        result = result.filter((example) => example.source === filter.source)
-      }
 
       if (filter.minQualityScore !== undefined) {
         const minQualityScore = filter.minQualityScore
@@ -187,14 +194,6 @@ export const usePromptEngineeringStore = defineStore(
       }
 
       return result
-    })
-
-    const staticExampleCount = computed(() => {
-      return examples.value.filter((example) => example.source === 'static').length
-    })
-
-    const dynamicExampleCount = computed(() => {
-      return examples.value.filter((example) => example.source === 'dynamic').length
     })
 
     // ==================== 私有方法 ====================
@@ -504,7 +503,7 @@ export const usePromptEngineeringStore = defineStore(
      * 重置示例筛选条件
      */
     function resetExampleFilter(): void {
-      exampleFilter.value = { source: 'all' }
+      exampleFilter.value = {}
     }
 
     /**
@@ -771,7 +770,7 @@ export const usePromptEngineeringStore = defineStore(
       promptConfig.value = createDefaultPromptConfig()
       examples.value = []
       examplesStats.value = null
-      exampleFilter.value = { source: 'all' }
+      exampleFilter.value = {}
       sandboxResult.value = null
       assembledPrompt.value = ''
       variableOverrides.value = {}
@@ -807,8 +806,6 @@ export const usePromptEngineeringStore = defineStore(
       allVariables,
       hasExamples,
       filteredExamples,
-      staticExampleCount,
-      dynamicExampleCount,
 
       // Actions - 通用
       setActiveTab,

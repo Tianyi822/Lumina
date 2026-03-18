@@ -76,8 +76,8 @@ function formatScore(score: number): string {
     <!-- 统计卡片区域 -->
     <div class="pe-stats-row">
       <div class="pe-stat-card">
-        <span class="pe-stat-label">动态</span>
-        <span class="pe-stat-value pe-stat-dynamic">{{ stats?.dynamic ?? 0 }}</span>
+        <span class="pe-stat-label">示例</span>
+        <span class="pe-stat-value pe-stat-dynamic">{{ stats?.total ?? 0 }}</span>
       </div>
       <div class="pe-stat-card">
         <span class="pe-stat-label">平均质量</span>
@@ -144,7 +144,7 @@ function formatScore(score: number): string {
       </button>
       <button
         class="pe-btn pe-btn-danger"
-        :disabled="loading || (stats?.dynamic ?? 0) === 0"
+        :disabled="loading || (stats?.total ?? 0) === 0"
         @click="emit('clear-dynamic')"
       >
         清除
