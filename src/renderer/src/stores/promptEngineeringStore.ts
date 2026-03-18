@@ -103,6 +103,7 @@ export const usePromptEngineeringStore = defineStore(
     const sandboxResult = ref<TestPromptResult | null>(null)
     const assembledPrompt = ref('')
     const variableOverrides = ref<VariableOverrides>({})
+    const sandboxTesting = ref(false)
     const initializingCounter = ref(0)
     const configLoadingCounter = ref(0)
     const examplesLoadingCounter = ref(0)
@@ -711,6 +712,7 @@ export const usePromptEngineeringStore = defineStore(
       startScopedLoading(sandboxLoadingCounter)
       error.value = null
       sandboxResult.value = null
+      sandboxTesting.value = true
 
       try {
         const result = await window.api.promptEngineering.testPrompt(buildSandboxPayload(payload))
@@ -735,6 +737,7 @@ export const usePromptEngineeringStore = defineStore(
         }
         return false
       } finally {
+        sandboxTesting.value = false
         stopScopedLoading(sandboxLoadingCounter)
       }
     }
@@ -745,6 +748,7 @@ export const usePromptEngineeringStore = defineStore(
     function clearSandboxResult(): void {
       sandboxResult.value = null
       assembledPrompt.value = ''
+      sandboxTesting.value = false
     }
 
     // ==================== 初始化 ====================
@@ -774,6 +778,7 @@ export const usePromptEngineeringStore = defineStore(
       sandboxResult.value = null
       assembledPrompt.value = ''
       variableOverrides.value = {}
+      sandboxTesting.value = false
       saving.value = false
       error.value = null
       initializingCounter.value = 0
@@ -792,6 +797,7 @@ export const usePromptEngineeringStore = defineStore(
       sandboxResult,
       assembledPrompt,
       variableOverrides,
+      sandboxTesting,
       initializing,
       configLoading,
       examplesLoading,
