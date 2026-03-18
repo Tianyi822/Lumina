@@ -33,7 +33,6 @@ function createEmptyConfig(): AppConfig {
       enableDynamicExamples: false,
       autoExtractIntervalDays: 7,
       dynamicExampleMinQuality: 0.6,
-      maxStaticExamples: 10,
       maxDynamicExamples: 20,
       enablePromptOptimization: false,
       optimizationAggressiveness: 'balanced',
@@ -88,7 +87,6 @@ function migrateConfig(config: AppConfig): AppConfig {
       enableDynamicExamples: false,
       autoExtractIntervalDays: 7,
       dynamicExampleMinQuality: 0.6,
-      maxStaticExamples: 10,
       maxDynamicExamples: 20,
       enablePromptOptimization: false,
       optimizationAggressiveness: 'balanced',
@@ -120,9 +118,6 @@ function migrateConfig(config: AppConfig): AppConfig {
   if (migrated.promptConfig.dynamicExampleMinQuality === undefined) {
     migrated.promptConfig.dynamicExampleMinQuality = 0.6
   }
-  if (migrated.promptConfig.maxStaticExamples === undefined) {
-    migrated.promptConfig.maxStaticExamples = 10
-  }
   if (migrated.promptConfig.maxDynamicExamples === undefined) {
     migrated.promptConfig.maxDynamicExamples = 20
   }
@@ -135,6 +130,7 @@ function migrateConfig(config: AppConfig): AppConfig {
   migrated.promptConfig.customVariables = normalizeCustomPromptVariables(
     migrated.promptConfig.customVariables
   )
+  delete (migrated.promptConfig as Record<string, unknown>).maxStaticExamples
 
   migrated.embeddingModels = migrated.embeddingModels || {}
 

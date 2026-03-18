@@ -19,7 +19,6 @@ const localConfig = reactive<PromptConfig>({
   enableDynamicExamples: false,
   autoExtractIntervalDays: 7,
   dynamicExampleMinQuality: 0.6,
-  maxStaticExamples: 10,
   maxDynamicExamples: 20,
   enablePromptOptimization: false,
   optimizationAggressiveness: 'balanced',
@@ -123,23 +122,6 @@ watch(
       <p class="pe-help-text">
         在系统提示词中包含的示例数量。示例可以帮助 AI 理解如何正确使用工具，但会增加 token 消耗。
       </p>
-    </div>
-
-    <div v-if="localConfig.enableDynamicExamples" class="pe-form-group">
-      <label>最大静态示例数量: {{ localConfig.maxStaticExamples }}</label>
-      <input
-        v-model.number="localConfig.maxStaticExamples"
-        type="range"
-        min="0"
-        max="50"
-        step="5"
-        class="pe-slider"
-      />
-      <div class="pe-slider-labels">
-        <span>0</span>
-        <span>50</span>
-      </div>
-      <p class="pe-help-text">最多保留的静态示例数量。静态示例是预定义的示例，不会自动更新。</p>
     </div>
 
     <div v-if="localConfig.enableDynamicExamples" class="pe-form-group">

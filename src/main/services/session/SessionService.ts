@@ -263,13 +263,32 @@ export class SessionService {
   // 用于长耗时批处理场景，避免在主进程内持续阻塞事件循环
   async loadAllSessionsAsync(): Promise<SessionData[]> {
     try {
+      const sessions: SessionData[] = []
+
+      for await (const session of this.iterateSessionsAsync()) {
+        sessions.push(session)
+      }
+
+      sessions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+      return sessions
+    } catch (error) {
+      const errorMessage = `异步加载会话失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return []
+    }
+  }
+
+  // 按顺序异步遍历会话
+  // 用于流式批处理，避免先将全部会话加载到内存
+  async *iterateSessionsAsync(): AsyncGenerator<SessionData, void, void> {
+    try {
       const dataDir = getDataDirPath()
       if (!existsSync(dataDir)) {
-        return []
+        return
       }
 
       const files = await readdirAsync(dataDir)
-      const sessions: SessionData[] = []
       let processedCount = 0
 
       for (const file of files) {
@@ -290,9 +309,10 @@ export class SessionService {
         try {
           const content = await readFileAsync(filePath, 'utf-8')
           const session = JSON.parse(content) as SessionData
-          sessions.push(session)
-          processedCount++
 
+          yield session
+
+          processedCount++
           if (processedCount % SESSION_ASYNC_YIELD_INTERVAL === 0) {
             await yieldToEventLoop()
           }
@@ -300,14 +320,9 @@ export class SessionService {
           logger.warn('无法解析会话文件', 'main', { file })
         }
       }
-
-      sessions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-
-      return sessions
     } catch (error) {
-      const errorMessage = `异步加载会话失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = `异步遍历会话失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
-      return []
     }
   }
 

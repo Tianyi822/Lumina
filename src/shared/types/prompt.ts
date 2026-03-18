@@ -147,41 +147,6 @@ export interface TemplateVariableOptions {
   truncateSuffix?: string
 }
 
-/**
- * 动态示例存储结构
- */
-export interface DynamicExampleStorage {
-  /** 存储版本 */
-  version: string
-  /** 示例列表 */
-  examples: Array<{
-    id: string
-    userQuery: string
-    thought: string
-    toolCalls?: Array<{
-      name: string
-      arguments: Record<string, unknown>
-      result: string
-    }>
-    finalAnswer: string
-    qualityScore: number
-    usageCount: number
-    source: 'static' | 'dynamic'
-    toolsUsed: string[]
-    createdAt: string
-    lastUsedAt?: string
-    sourceSessionId?: string
-  }>
-  /** 最后提取时间 */
-  lastExtractedAt?: string
-  /** 提取统计 */
-  extractionStats: {
-    totalExtracted: number
-    totalSessions: number
-    averageQualityScore: number
-  }
-}
-
 // ==================== 提示词工程增强相关类型 ====================
 
 /**
@@ -215,8 +180,8 @@ export interface EnhancedFewShotExample {
   qualityScore: number
   /** 使用次数 */
   usageCount: number
-  /** 来源：静态或动态 */
-  source: 'static' | 'dynamic'
+  /** 来源 */
+  source: 'dynamic'
   /** 使用的工具列表 */
   toolsUsed: string[]
   /** 创建时间（ISO 8601 格式） */
@@ -236,8 +201,6 @@ export interface EnhancedFewShotExample {
 export interface ExampleStats {
   /** 总示例数量 */
   total: number
-  /** 静态示例数量 */
-  static: number
   /** 动态示例数量 */
   dynamic: number
   /** 平均质量分数 (0-1) */
@@ -259,8 +222,6 @@ export interface ExampleStats {
  * 用于查询和过滤 Few-shot 示例
  */
 export interface ExampleFilter {
-  /** 按来源筛选：static/dynamic/all，默认 'all' */
-  source?: 'static' | 'dynamic' | 'all'
   /** 最低质量分数阈值（0-1），默认 0 */
   minQualityScore?: number
   /** 按使用过的工具筛选（单选，可选） */

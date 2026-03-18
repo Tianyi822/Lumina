@@ -7,6 +7,10 @@ export interface PromptBuildOptions {
   includeFewShotExamples?: boolean
   // Few-shot 示例数量 (0-5)
   fewShotCount?: number
+  // Few-shot 示例内容
+  fewShotExamples?: FewShotExample[]
+  // Few-shot 示例 ID（用于缓存）
+  exampleIds?: string[]
   // 是否强调错误处理
   emphasizeErrorHandling?: boolean
   // 工具描述详细程度
@@ -48,7 +52,7 @@ export interface EnhancedFewShotExample extends FewShotExample {
   // 使用次数
   usageCount: number
   // 来源类型
-  source: 'static' | 'dynamic'
+  source: 'dynamic'
   // 使用的工具列表
   toolsUsed: string[]
   // 创建时间
@@ -69,14 +73,6 @@ export interface ExampleSelectionCriteria {
   minQualityScore: number
   // 必需的工具列表
   requiredTools?: string[]
-  // 是否包含静态示例
-  includeStatic: boolean
-  // 是否包含动态示例
-  includeDynamic: boolean
-  // 最大静态示例数量
-  maxStaticCount?: number
-  // 最大动态示例数量
-  maxDynamicCount?: number
 }
 
 // 示例提取结果

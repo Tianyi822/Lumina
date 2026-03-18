@@ -1,5 +1,4 @@
 export { ExampleManager, exampleManager } from './ExampleManager'
-export { DynamicExampleExtractor, dynamicExampleExtractor } from './DynamicExampleExtractor'
 export { ExampleExtractor } from './ExampleExtractor'
 export { ExampleRepository, exampleRepository } from './ExampleRepository'
 export { ExampleScorer } from './ExampleScorer'

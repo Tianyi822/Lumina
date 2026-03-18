@@ -236,13 +236,13 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   async function confirmClearDynamicExamples(): Promise<boolean> {
-    const dynamicCount = examplesStats.value?.dynamic ?? 0
-    if (dynamicCount === 0) {
+    const exampleCount = examplesStats.value?.total ?? 0
+    if (exampleCount === 0) {
       return false
     }
 
     const confirmed = window.confirm(
-      `确定要清空全部 ${dynamicCount} 个动态示例吗？\n\n静态示例不会受到影响。`
+      `确定要清空全部 ${exampleCount} 个示例吗？\n\n清空后将无法恢复。`
     )
 
     if (!confirmed) {
@@ -258,7 +258,7 @@ export function usePromptManager(): PromptManagerResult {
     }
 
     selectedIds.value = []
-    showSuccess(`已清空 ${result.deletedCount ?? 0} 个动态示例`)
+    showSuccess(`已清空 ${result.deletedCount ?? 0} 个示例`)
 
     return true
   }

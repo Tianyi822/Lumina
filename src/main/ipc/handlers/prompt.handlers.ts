@@ -37,11 +37,35 @@ function createDefaultPromptConfig(): PromptConfig {
     enableDynamicExamples: false,
     autoExtractIntervalDays: 7,
     dynamicExampleMinQuality: 0.6,
-    maxStaticExamples: 10,
     maxDynamicExamples: 20,
     enablePromptOptimization: false,
     optimizationAggressiveness: 'balanced',
     customVariables: []
+  }
+}
+
+/**
+ * 规范化提示词配置
+ */
+function normalizePromptConfig(config?: PromptConfig | null): PromptConfig {
+  const defaults = createDefaultPromptConfig()
+
+  return {
+    enableEnhancedPrompt: config?.enableEnhancedPrompt ?? defaults.enableEnhancedPrompt,
+    toolDescriptionLevel: config?.toolDescriptionLevel ?? defaults.toolDescriptionLevel,
+    fewShotCount: config?.fewShotCount ?? defaults.fewShotCount,
+    customSystemPrompt: config?.customSystemPrompt ?? defaults.customSystemPrompt,
+    enablePromptCache: config?.enablePromptCache ?? defaults.enablePromptCache,
+    cacheConfig: config?.cacheConfig,
+    enableDynamicExamples: config?.enableDynamicExamples ?? defaults.enableDynamicExamples,
+    autoExtractIntervalDays: config?.autoExtractIntervalDays ?? defaults.autoExtractIntervalDays,
+    dynamicExampleMinQuality: config?.dynamicExampleMinQuality ?? defaults.dynamicExampleMinQuality,
+    maxDynamicExamples: config?.maxDynamicExamples ?? defaults.maxDynamicExamples,
+    enablePromptOptimization: config?.enablePromptOptimization ?? defaults.enablePromptOptimization,
+    optimizationAggressiveness:
+      config?.optimizationAggressiveness ?? defaults.optimizationAggressiveness,
+    enableToolDescriptionAdaptation: config?.enableToolDescriptionAdaptation,
+    customVariables: normalizeCustomPromptVariables(config?.customVariables)
   }
 }
 
@@ -120,11 +144,7 @@ export async function handleGetPromptConfig(): Promise<PromptConfig | undefined>
       return undefined
     }
 
-    return {
-      ...createDefaultPromptConfig(),
-      ...config.promptConfig,
-      customVariables: normalizeCustomPromptVariables(config.promptConfig?.customVariables)
-    }
+    return normalizePromptConfig(config.promptConfig)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('获取提示词配置失败', 'main', { error: errorMessage })
@@ -145,11 +165,7 @@ export async function handleUpdatePromptConfig(
       return { success: false, error }
     }
 
-    const normalizedPromptConfig: PromptConfig = {
-      ...createDefaultPromptConfig(),
-      ...promptConfig,
-      customVariables: normalizeCustomPromptVariables(promptConfig.customVariables)
-    }
+    const normalizedPromptConfig = normalizePromptConfig(promptConfig)
 
     // 更新配置
     const result = configManager.updateConfig({ promptConfig: normalizedPromptConfig })
@@ -544,7 +560,6 @@ export async function handleGetExampleStats(): Promise<{
 
     const stats: ExampleStats = {
       total: repoStats.total,
-      static: repoStats.static,
       dynamic: repoStats.dynamic,
       avgQualityScore: repoStats.avgQualityScore,
       lastUpdated: repoStats.lastUpdated,
@@ -578,11 +593,6 @@ export async function handleListExamples(
 
     // 应用筛选条件
     if (filter) {
-      // 按来源筛选
-      if (filter.source && filter.source !== 'all') {
-        examples = examples.filter((ex) => ex.source === filter.source)
-      }
-
       // 按质量分数筛选
       if (filter.minQualityScore !== undefined) {
         examples = examples.filter((ex) => ex.qualityScore >= filter.minQualityScore!)
@@ -812,18 +822,14 @@ export async function handleExtractFromSessions(): Promise<{
     // 确保会话服务已初始化
     sessionService.initialize()
 
-    // 异步加载全部会话，避免主线程长时间阻塞
-    const sessions = await sessionService.loadAllSessionsAsync()
-
-    if (sessions.length === 0) {
-      return { success: true, result: { extracted: 0 } }
-    }
-
-    // 使用 exampleManager 提取并评分示例
-    const extractionResult = await exampleManager.extractAndScoreFromSessionsAsync(sessions, {
-      minQualityScore: 0.5,
-      maxExamples: 100
-    })
+    // 逐个读取 session 并流式提取，避免一次性将历史会话全部加载到内存
+    const extractionResult = await exampleManager.extractAndScoreFromSessionStreamAsync(
+      sessionService.iterateSessionsAsync(),
+      {
+        minQualityScore: 0.5,
+        maxExamples: 100
+      }
+    )
 
     if (extractionResult.examples.length > 0) {
       // 将提取的示例添加到仓库
@@ -855,16 +861,16 @@ export async function handleClearDynamicExamples(): Promise<{
     const { exampleRepository } = await import('../../services/chat/examples')
     await exampleRepository.initialize()
 
-    // 获取清空前的动态示例数量
+    // 获取清空前的示例数量
     const beforeStats = await exampleRepository.getStats()
-    const beforeDynamicCount = beforeStats.dynamic
+    const beforeCount = beforeStats.total
 
-    // 清空动态示例
+    // 清空示例
     await exampleRepository.clearDynamicExamples()
 
     // 获取清空后的统计
     const afterStats = await exampleRepository.getStats()
-    const deletedCount = beforeDynamicCount - afterStats.dynamic
+    const deletedCount = beforeCount - afterStats.total
 
     logger.info('清空动态示例成功', 'main', { deletedCount })
 
@@ -891,11 +897,7 @@ export async function handlePromptPreview(
       return { success: false, error: '配置未加载' }
     }
 
-    const promptConfig: PromptConfig = {
-      ...createDefaultPromptConfig(),
-      ...config.promptConfig,
-      customVariables: normalizeCustomPromptVariables(config.promptConfig?.customVariables)
-    }
+    const promptConfig = normalizePromptConfig(config.promptConfig)
     const assembledPrompt = await buildSandboxPrompt(payload, promptConfig)
 
     logger.info('预览提示词成功', 'main', { promptLength: assembledPrompt.length })

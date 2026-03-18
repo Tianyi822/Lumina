@@ -13,7 +13,8 @@ const {
   assembledPrompt,
   sandboxResult,
   hasExamples,
-  sandboxLoading
+  sandboxLoading,
+  sandboxTesting
 } = storeToRefs(store)
 const {
   previewSandbox,
@@ -69,6 +70,18 @@ function handleClearResult(): void {
           rows="5"
           placeholder="输入要验证的提问内容..."
         ></textarea>
+      </div>
+
+      <div class="pe-panel pe-actions-panel">
+        <div class="pe-action-row">
+          <button class="pe-btn pe-btn-secondary" :disabled="!canRunAction" @click="handlePreview">
+            {{ sandboxLoading ? '处理中...' : '预览提示词' }}
+          </button>
+          <button class="pe-btn pe-btn-primary" :disabled="!canRunAction" @click="handleTest">
+            {{ sandboxLoading ? '执行中...' : '执行测试' }}
+          </button>
+          <button class="pe-btn pe-btn-secondary" @click="handleClearResult">清空结果</button>
+        </div>
       </div>
 
       <div class="pe-panel">
@@ -134,34 +147,23 @@ function handleClearResult(): void {
           }}
         </p>
       </div>
-
-      <div class="pe-panel pe-actions-panel">
-        <div class="pe-action-row">
-          <button class="pe-btn pe-btn-secondary" :disabled="!canRunAction" @click="handlePreview">
-            {{ sandboxLoading ? '处理中...' : '预览提示词' }}
-          </button>
-          <button class="pe-btn pe-btn-primary" :disabled="!canRunAction" @click="handleTest">
-            {{ sandboxLoading ? '执行中...' : '执行测试' }}
-          </button>
-          <button class="pe-btn pe-btn-secondary" @click="handleClearResult">清空结果</button>
-        </div>
-      </div>
     </div>
 
     <div class="pe-sandbox-column pe-sandbox-results">
-      <div class="pe-panel pe-result-panel">
+      <div v-if="sandboxTesting" class="pe-panel pe-result-panel">
         <div class="pe-panel-header">
           <div>
-            <h3 class="pe-panel-title">组装后的提示词</h3>
-            <p class="pe-panel-description">用于核对变量替换和示例拼装结果。</p>
+            <h3 class="pe-panel-title">响应中</h3>
+            <p class="pe-panel-description">正在等待模型返回结果。</p>
           </div>
         </div>
-
-        <pre v-if="assembledPrompt" class="pe-code-block">{{ assembledPrompt }}</pre>
-        <div v-else class="pe-empty-state">点击“预览提示词”后，这里会显示最终发给模型的内容。</div>
+        <div class="pe-loading-state">
+          <div class="pe-loading-spinner"></div>
+          <span>模型正在响应，请稍候...</span>
+        </div>
       </div>
 
-      <div class="pe-panel pe-result-panel">
+      <div v-else-if="sandboxResult" class="pe-panel pe-result-panel">
         <div class="pe-panel-header">
           <div>
             <h3 class="pe-panel-title">模型响应</h3>
@@ -185,8 +187,18 @@ function handleClearResult(): void {
         <div v-else-if="sandboxResult?.error" class="pe-error-box">
           {{ sandboxResult.error }}
         </div>
+      </div>
 
-        <div v-else class="pe-empty-state">点击“执行测试”后，这里会显示模型的单次响应结果。</div>
+      <div class="pe-panel pe-result-panel">
+        <div class="pe-panel-header">
+          <div>
+            <h3 class="pe-panel-title">组装后的提示词</h3>
+            <p class="pe-panel-description">用于核对变量替换和示例拼装结果。</p>
+          </div>
+        </div>
+
+        <pre v-if="assembledPrompt" class="pe-code-block pe-prompt-block">{{ assembledPrompt }}</pre>
+        <div v-else class="pe-empty-state">点击“预览提示词”后，这里会显示最终发给模型的内容。</div>
       </div>
     </div>
   </div>
@@ -289,7 +301,22 @@ function handleClearResult(): void {
   line-height: 1.2;
 }
 
-.pe-switch-row,
+.pe-switch-row {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--theme-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pe-switch-row input[type='checkbox'] {
+  margin: 0;
+  cursor: pointer;
+}
+
 .pe-range-field {
   display: flex;
   flex-direction: column;
@@ -322,7 +349,9 @@ function handleClearResult(): void {
 }
 
 .pe-btn-sm {
-  padding: 6px 10px;
+  padding: 5px 10px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .pe-btn-primary {
@@ -363,11 +392,37 @@ function handleClearResult(): void {
   min-height: 140px;
 }
 
+.pe-prompt-block {
+  max-height: 420px;
+  overflow: auto;
+}
+
 .pe-result-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   align-items: center;
+}
+
+.pe-loading-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 140px;
+  padding: 14px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.04);
+  color: var(--theme-text-secondary);
+  font-size: 13px;
+}
+
+.pe-loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(15, 23, 42, 0.12);
+  border-top-color: var(--theme-accent);
+  border-radius: 50%;
+  animation: pe-spin 0.8s linear infinite;
 }
 
 .pe-warning-box,
@@ -387,6 +442,16 @@ function handleClearResult(): void {
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.2);
   color: var(--theme-danger, #ef4444);
+}
+
+@keyframes pe-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 960px) {

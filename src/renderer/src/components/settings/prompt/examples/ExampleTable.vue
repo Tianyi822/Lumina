@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import type { EnhancedFewShotExample } from '@shared/types/prompt'
 
 interface Props {
@@ -18,6 +18,18 @@ const emit = defineEmits<{
   'update:selectedIds': [ids: string[]]
 }>()
 
+// 滚动容器引用
+const scrollContainerRef = ref<HTMLElement | null>(null)
+
+// 滚动状态
+const canScrollLeft = ref(false)
+const canScrollRight = ref(false)
+
+// 拖拽滚动状态
+const isDragging = ref(false)
+const dragStartX = ref(0)
+const scrollStartLeft = ref(0)
+
 // 全选状态
 const allSelected = computed(() => {
   return props.examples.length > 0 && props.selectedIds?.length === props.examples.length
@@ -28,6 +40,49 @@ const indeterminate = computed(() => {
   const selectedCount = props.selectedIds?.length || 0
   return selectedCount > 0 && selectedCount < props.examples.length
 })
+
+// 更新滚动指示器
+function updateScrollIndicators(): void {
+  const el = scrollContainerRef.value
+  if (!el) return
+
+  canScrollLeft.value = el.scrollLeft > 5
+  canScrollRight.value = el.scrollLeft < el.scrollWidth - el.clientWidth - 5
+}
+
+// 鼠标按下开始拖拽
+function handleMouseDown(event: MouseEvent): void {
+  const el = scrollContainerRef.value
+  if (!el) return
+
+  isDragging.value = true
+  dragStartX.value = event.pageX
+  scrollStartLeft.value = el.scrollLeft
+  el.style.cursor = 'grabbing'
+  el.style.userSelect = 'none'
+}
+
+// 鼠标移动时滚动
+function handleMouseMove(event: MouseEvent): void {
+  if (!isDragging.value) return
+
+  const el = scrollContainerRef.value
+  if (!el) return
+
+  const dx = event.pageX - dragStartX.value
+  el.scrollLeft = scrollStartLeft.value - dx
+  updateScrollIndicators()
+}
+
+// 鼠标释放结束拖拽
+function handleMouseUp(): void {
+  const el = scrollContainerRef.value
+  if (el) {
+    el.style.cursor = 'grab'
+    el.style.userSelect = ''
+  }
+  isDragging.value = false
+}
 
 // 切换单个选中状态
 function toggleSelection(id: string): void {
@@ -71,6 +126,27 @@ function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
   return text.slice(0, maxLength) + '...'
 }
+
+// 生命周期
+onMounted(() => {
+  const el = scrollContainerRef.value
+  if (el) {
+    el.addEventListener('scroll', updateScrollIndicators)
+    window.addEventListener('mouseup', handleMouseUp)
+    window.addEventListener('mousemove', handleMouseMove)
+    // 初始检查
+    setTimeout(updateScrollIndicators, 100)
+  }
+})
+
+onUnmounted(() => {
+  const el = scrollContainerRef.value
+  if (el) {
+    el.removeEventListener('scroll', updateScrollIndicators)
+  }
+  window.removeEventListener('mouseup', handleMouseUp)
+  window.removeEventListener('mousemove', handleMouseMove)
+})
 </script>
 
 <template>
@@ -90,7 +166,16 @@ function truncateText(text: string, maxLength: number): string {
         <span class="pe-loading-text">正在加载示例...</span>
       </div>
 
-      <div class="pe-table-scroll">
+      <!-- 左侧滚动阴影 -->
+      <div v-if="canScrollLeft" class="pe-scroll-shadow pe-scroll-shadow-left"></div>
+      <!-- 右侧滚动阴影 -->
+      <div v-if="canScrollRight" class="pe-scroll-shadow pe-scroll-shadow-right"></div>
+
+      <div
+        ref="scrollContainerRef"
+        class="pe-table-scroll"
+        @mousedown="handleMouseDown"
+      >
         <table class="pe-table">
           <thead>
             <tr class="pe-table-header">
@@ -247,6 +332,27 @@ function truncateText(text: string, maxLength: number): string {
 
 .pe-table-scroll {
   overflow-x: auto;
+  cursor: grab;
+}
+
+/* 滚动阴影指示器 */
+.pe-scroll-shadow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.pe-scroll-shadow-left {
+  left: 0;
+  background: linear-gradient(to right, var(--theme-bg-secondary), transparent);
+}
+
+.pe-scroll-shadow-right {
+  right: 0;
+  background: linear-gradient(to left, var(--theme-bg-secondary), transparent);
 }
 
 .pe-table-wrapper.pe-loading .pe-table-scroll {
