@@ -822,18 +822,14 @@ export async function handleExtractFromSessions(): Promise<{
     // 确保会话服务已初始化
     sessionService.initialize()
 
-    // 异步加载全部会话，避免主线程长时间阻塞
-    const sessions = await sessionService.loadAllSessionsAsync()
-
-    if (sessions.length === 0) {
-      return { success: true, result: { extracted: 0 } }
-    }
-
-    // 使用 exampleManager 提取并评分示例
-    const extractionResult = await exampleManager.extractAndScoreFromSessionsAsync(sessions, {
-      minQualityScore: 0.5,
-      maxExamples: 100
-    })
+    // 逐个读取 session 并流式提取，避免一次性将历史会话全部加载到内存
+    const extractionResult = await exampleManager.extractAndScoreFromSessionStreamAsync(
+      sessionService.iterateSessionsAsync(),
+      {
+        minQualityScore: 0.5,
+        maxExamples: 100
+      }
+    )
 
     if (extractionResult.examples.length > 0) {
       // 将提取的示例添加到仓库
