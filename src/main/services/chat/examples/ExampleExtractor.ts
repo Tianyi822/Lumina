@@ -8,6 +8,8 @@ import { logger } from '../../logger'
 interface ReActPattern {
   // 模式起始消息索引
   startIndex: number
+  // 模式结束消息索引（开区间）
+  endIndex: number
   // 用户查询
   userQuery: string
   // 思考过程
@@ -26,6 +28,7 @@ interface ReActPattern {
 }
 
 const EXTRACTION_YIELD_INTERVAL = 5
+const MESSAGE_SCAN_YIELD_INTERVAL = 20
 
 /**
  * 在批量提取期间主动让出事件循环
@@ -38,6 +41,22 @@ async function yieldToEventLoop(): Promise<void> {
 
 // 示例提取器
 export class ExampleExtractor {
+  /**
+   * 从单个会话中提取示例
+   */
+  extractFromSession(session: SessionData): EnhancedFewShotExample[] {
+    const patterns = this.extractPatternsFromSession(session)
+    return patterns.map((pattern) => this.createExampleFromPattern(pattern, session.sessionId))
+  }
+
+  /**
+   * 异步从单个会话中提取示例
+   */
+  async extractFromSessionAsync(session: SessionData): Promise<EnhancedFewShotExample[]> {
+    const patterns = await this.extractPatternsFromSessionAsync(session)
+    return patterns.map((pattern) => this.createExampleFromPattern(pattern, session.sessionId))
+  }
+
   // 从会话列表中提取示例
   extractFromSessions(sessions: SessionData[]): ExampleExtractionResult {
     const examples: EnhancedFewShotExample[] = []
@@ -47,12 +66,9 @@ export class ExampleExtractor {
 
     for (const session of sessions) {
       try {
-        const patterns = this.extractPatternsFromSession(session)
-        if (patterns.length > 0) {
-          for (const pattern of patterns) {
-            const example = this.createExampleFromPattern(pattern, session.sessionId)
-            examples.push(example)
-          }
+        const sessionExamples = this.extractFromSession(session)
+        if (sessionExamples.length > 0) {
+          examples.push(...sessionExamples)
           processedSessions++
         } else {
           skippedSessions++
@@ -87,12 +103,9 @@ export class ExampleExtractor {
       const session = sessions[index]
 
       try {
-        const patterns = this.extractPatternsFromSession(session)
-        if (patterns.length > 0) {
-          for (const pattern of patterns) {
-            const example = this.createExampleFromPattern(pattern, session.sessionId)
-            examples.push(example)
-          }
+        const sessionExamples = await this.extractFromSessionAsync(session)
+        if (sessionExamples.length > 0) {
+          examples.push(...sessionExamples)
           processedSessions++
         } else {
           skippedSessions++
@@ -122,33 +135,7 @@ export class ExampleExtractor {
     const patterns: ReActPattern[] = []
     const messages = session.messages
 
-    // 调试日志：检查会话消息结构
-    const assistantMsgs = messages.filter((m) => m.role === 'assistant')
-    const toolMsgs = messages.filter((m) => m.role === 'tool')
-    const assistantWithToolCalls = assistantMsgs.filter(
-      (m) => m.tool_calls && m.tool_calls.length > 0
-    )
-
-    // 打印 tool_calls 和 tool_call_id 详细信息
-    const toolCallIds: string[] = []
-    for (const m of assistantWithToolCalls) {
-      if (m.tool_calls) {
-        for (const tc of m.tool_calls) {
-          toolCallIds.push(tc.id)
-        }
-      }
-    }
-    const toolResultIds = toolMsgs.map((m) => m.tool_call_id)
-
-    logger.debug('会话消息分析', 'main', {
-      sessionId: session.sessionId,
-      totalMessages: messages.length,
-      assistantCount: assistantMsgs.length,
-      toolCount: toolMsgs.length,
-      assistantWithToolCalls: assistantWithToolCalls.length,
-      toolCallIds,
-      toolResultIds
-    })
+    this.logSessionMessageSummary(session, messages)
 
     // 寻找 ReAct 循环模式
     let i = 0
@@ -157,36 +144,48 @@ export class ExampleExtractor {
       attemptCount++
       const pattern = this.tryExtractReActPattern(messages, i)
       if (pattern) {
-        logger.info('提取到 ReAct 模式', 'main', {
-          startIndex: i,
-          toolCallsCount: pattern.toolCalls.length,
-          hasErrors: pattern.hasErrors,
-          userQueryPreview: pattern.userQuery.substring(0, 50) + '...'
-        })
-        // 只保留没有错误的模式
         if (!pattern.hasErrors && pattern.toolCalls.length > 0) {
           patterns.push(pattern)
         }
         // 跳过已处理的消息
         i += this.countMessagesInPattern(pattern)
       } else {
-        if (attemptCount <= 5) {
-          // 只打印前5次失败
-          logger.info('未能提取模式', 'main', {
-            startIndex: i,
-            messageRole: messages[i]?.role,
-            messageContentPreview: messages[i]?.content?.substring(0, 30)
-          })
-        }
         i++
       }
     }
 
-    logger.info('模式提取完成', 'main', {
-      sessionId: session.sessionId,
-      attemptCount,
-      patternsFound: patterns.length
-    })
+    this.logExtractionSummary(session.sessionId, attemptCount, patterns)
+
+    return patterns
+  }
+
+  // 异步从单个会话中提取 ReAct 模式
+  private async extractPatternsFromSessionAsync(session: SessionData): Promise<ReActPattern[]> {
+    const patterns: ReActPattern[] = []
+    const messages = session.messages
+
+    this.logSessionMessageSummary(session, messages)
+
+    let i = 0
+    let attemptCount = 0
+    while (i < messages.length) {
+      attemptCount++
+      const pattern = this.tryExtractReActPattern(messages, i)
+      if (pattern) {
+        if (!pattern.hasErrors && pattern.toolCalls.length > 0) {
+          patterns.push(pattern)
+        }
+        i += this.countMessagesInPattern(pattern)
+      } else {
+        i++
+      }
+
+      if (attemptCount % MESSAGE_SCAN_YIELD_INTERVAL === 0) {
+        await yieldToEventLoop()
+      }
+    }
+
+    this.logExtractionSummary(session.sessionId, attemptCount, patterns)
 
     return patterns
   }
@@ -200,6 +199,7 @@ export class ExampleExtractor {
 
     const pattern: ReActPattern = {
       startIndex,
+      endIndex: startIndex,
       userQuery: '',
       thoughts: [],
       toolCalls: [],
@@ -226,7 +226,7 @@ export class ExampleExtractor {
         // 提取思考过程
         if (msg.reasoning) {
           pattern.thoughts.push(msg.reasoning)
-        } else if (msg.content) {
+        } else if (msg.tool_calls && msg.tool_calls.length > 0 && msg.content) {
           pattern.thoughts.push(msg.content)
         }
 
@@ -255,8 +255,9 @@ export class ExampleExtractor {
               })
             }
           }
-          currentIndex++
         }
+
+        currentIndex++
       } else if (msg.role === 'tool') {
         // 工具消息，继续
         currentIndex++
@@ -279,7 +280,52 @@ export class ExampleExtractor {
       pattern.finalAnswer = lastAssistantMsg.content
     }
 
+    pattern.endIndex = currentIndex
+
     return pattern
+  }
+
+  /**
+   * 输出会话消息概览，避免逐条日志放大主进程压力
+   */
+  private logSessionMessageSummary(session: SessionData, messages: SessionMessage[]): void {
+    let assistantCount = 0
+    let toolCount = 0
+    let assistantWithToolCalls = 0
+
+    for (const message of messages) {
+      if (message.role === 'assistant') {
+        assistantCount++
+        if (message.tool_calls && message.tool_calls.length > 0) {
+          assistantWithToolCalls++
+        }
+      } else if (message.role === 'tool') {
+        toolCount++
+      }
+    }
+
+    logger.debug('会话消息分析', 'main', {
+      sessionId: session.sessionId,
+      totalMessages: messages.length,
+      assistantCount,
+      toolCount,
+      assistantWithToolCalls
+    })
+  }
+
+  /**
+   * 输出会话提取汇总
+   */
+  private logExtractionSummary(
+    sessionId: string,
+    attemptCount: number,
+    patterns: ReActPattern[]
+  ): void {
+    logger.info('模式提取完成', 'main', {
+      sessionId,
+      attemptCount,
+      patternsFound: patterns.length
+    })
   }
 
   // 查找工具结果
@@ -335,14 +381,7 @@ export class ExampleExtractor {
 
   // 计算模式包含的消息数
   private countMessagesInPattern(pattern: ReActPattern): number {
-    // 用户消息 + 思考消息 + 工具调用消息 + 工具结果消息 + 最终答案消息
-    let count = 1 // 用户消息
-    count += pattern.thoughts.length
-    count += pattern.toolCalls.length * 2 // 每个工具调用有1个调用消息和1个结果消息
-    if (pattern.finalAnswer) {
-      count += 1
-    }
-    return count
+    return Math.max(1, pattern.endIndex - pattern.startIndex)
   }
 
   // 从模式创建示例
