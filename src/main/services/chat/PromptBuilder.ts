@@ -11,7 +11,7 @@ import {
 import { PromptCache } from './prompts/PromptCache'
 import { PromptOptimizer } from './prompts/PromptOptimizer'
 import { promptTemplateManager } from './prompts/PromptTemplateManager'
-import { dynamicExampleExtractor } from './examples'
+import { exampleManager, exampleRepository } from './examples'
 import { getFewShotExamplesAsync } from './prompts/toolExamples'
 import { logger } from '@main/services/logger'
 import { buildPromptVariableValueMap, replacePromptVariables } from '@shared/utils'
@@ -108,6 +108,8 @@ export class PromptBuilder {
     // 获取构建选项
     const options = await this.buildOptions(modelConfig, selectedTools, knowledgeResults)
 
+    let exampleIds: string[] = []
+
     // 如果启用动态示例，获取动态示例
     if (
       this.promptConfig?.enableDynamicExamples &&
@@ -117,25 +119,31 @@ export class PromptBuilder {
       try {
         const toolNames = selectedTools?.map((t) => `${t.serverName}__${t.toolName}`) || []
         const dynamicExamples = await getFewShotExamplesAsync(options.fewShotCount, {
-          enableDynamicExamples: true,
           minQualityScore: this.promptConfig.dynamicExampleMinQuality ?? 0.6,
-          requiredTools: toolNames,
-          maxStaticExamples: this.promptConfig.maxStaticExamples ?? 2,
-          maxDynamicExamples: this.promptConfig.maxDynamicExamples ?? 3
+          requiredTools: toolNames
         })
 
         // 如果获取到动态示例，更新选项中的示例数量
         if (dynamicExamples.length > 0) {
           options.fewShotCount = dynamicExamples.length
+          options.fewShotExamples = dynamicExamples.map((example) => ({
+            userQuery: example.userQuery,
+            thought: example.thought,
+            toolCalls: example.toolCalls,
+            finalAnswer: example.finalAnswer
+          }))
+          exampleIds = dynamicExamples.map((example) => example.id)
           logger.debug('使用动态示例', 'main', { count: dynamicExamples.length })
+        } else {
+          options.fewShotCount = 0
+          options.fewShotExamples = []
         }
       } catch (error) {
-        logger.warn('获取动态示例失败，使用静态示例', 'main', { error })
+        options.fewShotCount = 0
+        options.fewShotExamples = []
+        logger.warn('获取动态示例失败', 'main', { error })
       }
     }
-
-    // 生成示例 ID 列表（用于缓存键）
-    const exampleIds = this.generateExampleIds(options.fewShotCount || 0)
 
     // 使用缓存构建提示词
     const prompt = this.cache.getSystemPrompt(
@@ -176,15 +184,6 @@ export class PromptBuilder {
     }
 
     return finalPrompt
-  }
-
-  // 生成示例 ID 列表
-  private generateExampleIds(count: number): string[] {
-    const ids: string[] = []
-    for (let i = 0; i < count; i++) {
-      ids.push(`static-${i}`)
-    }
-    return ids
   }
 
   // 构建提示词选项
@@ -324,10 +323,18 @@ export class PromptBuilder {
     error?: string
   }> {
     try {
-      const result = await dynamicExampleExtractor.extractFromSessions(sessions as SessionData[], {
-        minQualityScore: this.promptConfig?.dynamicExampleMinQuality ?? 0.6,
-        maxExamples: this.promptConfig?.maxDynamicExamples ?? 50
-      })
+      const result = await exampleManager.extractAndScoreFromSessionsAsync(
+        sessions as SessionData[],
+        {
+          minQualityScore: this.promptConfig?.dynamicExampleMinQuality ?? 0.6,
+          maxExamples: this.promptConfig?.maxDynamicExamples ?? 50
+        }
+      )
+
+      if (result.examples.length > 0) {
+        await exampleRepository.initialize()
+        await exampleRepository.add(result.examples)
+      }
 
       return {
         success: true,
@@ -351,15 +358,14 @@ export class PromptBuilder {
     averageQuality: number
     lastExtractedAt?: string
   } | null> {
-    const stats = await dynamicExampleExtractor.getStats()
-    const allExamples = await dynamicExampleExtractor.getAllExamples()
+    await exampleRepository.initialize()
 
-    if (!stats) return null
+    const stats = await exampleRepository.getStats()
 
     return {
-      totalExamples: allExamples.length,
-      averageQuality: stats.averageQualityScore,
-      lastExtractedAt: undefined // stats 中没有这个字段
+      totalExamples: stats.total,
+      averageQuality: stats.avgQualityScore,
+      lastExtractedAt: stats.lastUpdated
     }
   }
 
@@ -367,7 +373,8 @@ export class PromptBuilder {
    * 清除动态示例
    */
   async clearDynamicExamples(): Promise<void> {
-    await dynamicExampleExtractor.clearDynamicExamples()
+    await exampleRepository.initialize()
+    await exampleRepository.clearDynamicExamples()
   }
 }
 

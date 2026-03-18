@@ -1,6 +1,6 @@
-import type { PromptBuildOptions, ReactPromptSections } from './types'
+import type { FewShotExample, PromptBuildOptions, ReactPromptSections } from './types'
 import type { TemplateVariables } from '@shared/types/prompt'
-import { getFewShotExamples, formatFewShotExample } from './toolExamples'
+import { formatFewShotExample } from './toolExamples'
 import { promptTemplateManager } from './PromptTemplateManager'
 
 // 获取提示词章节配置（优先从模板管理器获取）
@@ -11,8 +11,7 @@ function getPromptSections(): ReactPromptSections {
 /**
  * 构建 Few-shot 示例文本
  */
-function buildFewShotExamplesText(count: number): string {
-  const examples = getFewShotExamples(count)
+function buildFewShotExamplesText(examples: FewShotExample[]): string {
   if (examples.length === 0) return ''
 
   let text = ''
@@ -31,8 +30,12 @@ function buildTemplateVariables(options: PromptBuildOptions): Partial<TemplateVa
   const variables: Partial<TemplateVariables> = {}
 
   // 构建 Few-shot 示例
-  if (options.includeFewShotExamples && options.fewShotCount && options.fewShotCount > 0) {
-    variables.fewShotExamples = buildFewShotExamplesText(options.fewShotCount)
+  if (
+    options.includeFewShotExamples &&
+    options.fewShotExamples &&
+    options.fewShotExamples.length > 0
+  ) {
+    variables.fewShotExamples = buildFewShotExamplesText(options.fewShotExamples)
   }
 
   // 添加当前日期时间
@@ -56,6 +59,7 @@ export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string
   const {
     includeFewShotExamples = true,
     fewShotCount = 3,
+    fewShotExamples = [],
     emphasizeErrorHandling = false,
     customSystemPrompt,
     toolDescriptionLevel = 'detailed',
@@ -84,10 +88,11 @@ export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string
     if (
       includeFewShotExamples &&
       fewShotCount > 0 &&
+      fewShotExamples.length > 0 &&
       !customSystemPrompt.includes('{{fewShotExamples}}')
     ) {
       prompt += '\n\n# 示例\n\n以下是使用工具的示例：\n\n'
-      prompt += buildFewShotExamplesText(fewShotCount)
+      prompt += buildFewShotExamplesText(fewShotExamples)
     }
 
     return prompt.trim()
@@ -120,7 +125,7 @@ export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string
 
   // 添加 few-shot 示例（如果模板中没有通过变量注入）
   if (includeFewShotExamples && fewShotCount > 0) {
-    const examplesText = buildFewShotExamplesText(fewShotCount)
+    const examplesText = buildFewShotExamplesText(fewShotExamples)
     if (examplesText) {
       prompt +=
         '\n\n# 示例\n\n以下是使用工具的示例，参考这些模式来回答用户问题：\n\n' + examplesText
