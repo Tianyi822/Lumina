@@ -471,6 +471,32 @@ export class PptPreviewGenerator {
         break
       }
 
+      if (block.type === 'subheading') {
+        const rect = {
+          x: contentZone.x,
+          y: currentY,
+          w: contentZone.w,
+          h: maxY - currentY
+        }
+        const fontSize = Math.max(bodyFontSize + 4, 18)
+        fragments.push(
+          this.renderPreviewTextBlock(
+            block.text,
+            rect,
+            {
+              fontSize,
+              fontFamily: style.bodyFont || DEFAULT_STYLE.bodyFont,
+              fill: '#1f2937',
+              fontWeight: 700,
+              maxLines: 2
+            },
+            canvas
+          )
+        )
+        currentY += Math.min(rect.h, Math.max(fontSize * 1.45, 28)) + Math.round(gap * 0.45)
+        continue
+      }
+
       if (block.type === 'paragraph') {
         const rect = {
           x: contentZone.x,

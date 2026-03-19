@@ -61,6 +61,19 @@ export class ElementRenderer {
             0.22
         }
 
+      case 'subheading':
+        this.addSubheading(slide, block.text, { x, y, w, h }, metrics.subheadingFontSize)
+        return {
+          nextY:
+            y +
+            this.layoutCalculator.calculateParagraphHeight(
+              block.text,
+              w,
+              metrics.subheadingFontSize
+            ) +
+            0.18
+        }
+
       case 'list':
         this.addList(slide, block.items, block.ordered, { x, y, w, h }, metrics)
         return {
@@ -126,6 +139,35 @@ export class ElementRenderer {
   }
 
   /**
+   * 添加页内小标题
+   * @param slide - 幻灯片对象
+   * @param text - 标题内容
+   * @param position - 位置信息
+   * @param fontSize - 字号
+   */
+  addSubheading(
+    slide: PptxGenJS.Slide,
+    text: string,
+    position: ElementPosition,
+    fontSize: number
+  ): void {
+    slide.addText(text, {
+      x: position.x,
+      y: position.y,
+      w: position.w,
+      h: position.h,
+      fontSize,
+      bold: true,
+      color: '333333',
+      fontFace: this.style.bodyFont,
+      align: 'left',
+      valign: 'top',
+      fit: 'none',
+      wrap: true
+    })
+  }
+
+  /**
    * 添加列表
    * @param slide - 幻灯片对象
    * @param items - 列表项
@@ -138,10 +180,11 @@ export class ElementRenderer {
     items: string[],
     ordered: boolean,
     position: ElementPosition,
-    metrics: SlideContentMetrics
+    metrics: SlideContentMetrics,
+    startAt = 1
   ): void {
     const listText = items
-      .map((item, index) => `${ordered ? `${index + 1}.` : '•'} ${item}`)
+      .map((item, index) => `${ordered ? `${startAt + index}.` : '•'} ${item}`)
       .join('\n')
 
     slide.addText(listText, {
@@ -155,7 +198,8 @@ export class ElementRenderer {
       align: 'left',
       valign: 'top',
       lineSpacing: metrics.listLineSpacing,
-      fit: 'shrink'
+      fit: 'none',
+      wrap: true
     })
   }
 
