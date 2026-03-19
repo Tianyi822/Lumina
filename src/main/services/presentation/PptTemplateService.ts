@@ -38,6 +38,7 @@ export class PptTemplateService {
   private analyzer: PptTemplateAnalyzer
   private loaded: boolean = false
   private templates: PptTemplateListItem[] = []
+  private analysisCache: Map<string, PptTemplateAnalysis> = new Map()
 
   constructor() {
     this.analyzer = new PptTemplateAnalyzer()
@@ -196,6 +197,7 @@ export class PptTemplateService {
       // 8. 保存分析结果
       const analysisPath = getTemplateAnalysisPath(templateId)
       writeFileSync(analysisPath, JSON.stringify(analysis, null, 2), 'utf-8')
+      this.analysisCache.set(templateId, analysis)
 
       // 10. 创建模板元数据
       const templateItem: PptTemplateListItem = {
@@ -227,6 +229,7 @@ export class PptTemplateService {
       }
 
       if (templateId) {
+        this.analysisCache.delete(templateId)
         this.cleanupTemplateDir(templateId)
       }
 
@@ -314,6 +317,11 @@ export class PptTemplateService {
       return null
     }
 
+    const cachedAnalysis = this.analysisCache.get(templateId)
+    if (cachedAnalysis) {
+      return cachedAnalysis
+    }
+
     const analysisPath = getTemplateAnalysisPath(templateId)
     if (!existsSync(analysisPath)) {
       return null
@@ -321,8 +329,11 @@ export class PptTemplateService {
 
     try {
       const content = readFileSync(analysisPath, 'utf-8')
-      return JSON.parse(content) as PptTemplateAnalysis
+      const analysis = JSON.parse(content) as PptTemplateAnalysis
+      this.analysisCache.set(templateId, analysis)
+      return analysis
     } catch (error) {
+      this.analysisCache.delete(templateId)
       logger.error('读取模板分析结果失败', 'main', { templateId, error })
       return null
     }
@@ -489,6 +500,7 @@ export class PptTemplateService {
 
       // 删除模板目录
       this.cleanupTemplateDir(templateId)
+      this.analysisCache.delete(templateId)
 
       // 从索引中移除
       this.templates.splice(index, 1)
