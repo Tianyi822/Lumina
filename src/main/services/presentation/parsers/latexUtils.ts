@@ -1,6 +1,6 @@
 /**
  * LaTeX 公式转换工具
- * 将简单的 LaTeX 公式转换为 Unicode 表示
+ * 优先输出字体兼容性更好的可读文本，避免 PPT 中出现缺字方框
  */
 
 const LATEX_SYMBOLS: Record<string, string> = {
@@ -29,8 +29,8 @@ const LATEX_SYMBOLS: Record<string, string> = {
   '\\psi': 'ψ',
   '\\omega': 'ω',
   // 数学符号
-  '\\sum': '∑',
-  '\\prod': '∏',
+  '\\sum': 'Σ',
+  '\\prod': 'Π',
   '\\int': '∫',
   '\\oint': '∮',
   '\\infty': '∞',
@@ -65,105 +65,50 @@ const LATEX_SYMBOLS: Record<string, string> = {
   '\\Leftrightarrow': '⇔'
 }
 
-const SUBSCRIPT_CHARS: Record<string, string> = {
-  '0': '₀',
-  '1': '₁',
-  '2': '₂',
-  '3': '₃',
-  '4': '₄',
-  '5': '₅',
-  '6': '₆',
-  '7': '₇',
-  '8': '₈',
-  '9': '₉',
-  a: 'ₐ',
-  e: 'ₑ',
-  h: 'ₕ',
-  i: 'ᵢ',
-  j: 'ⱼ',
-  k: 'ₖ',
-  l: 'ₗ',
-  m: 'ₘ',
-  n: 'ₙ',
-  o: 'ₒ',
-  p: 'ₚ',
-  r: 'ᵣ',
-  s: 'ₛ',
-  t: 'ₜ',
-  u: 'ᵤ',
-  v: 'ᵥ',
-  x: 'ₓ',
-  '+': '₊',
-  '-': '₋',
-  '=': '₌',
-  '(': '₍',
-  ')': '₎'
-}
-
-const SUPERSCRIPT_CHARS: Record<string, string> = {
-  '0': '⁰',
-  '1': '¹',
-  '2': '²',
-  '3': '³',
-  '4': '⁴',
-  '5': '⁵',
-  '6': '⁶',
-  '7': '⁷',
-  '8': '⁸',
-  '9': '⁹',
-  a: 'ᵃ',
-  b: 'ᵇ',
-  c: 'ᶜ',
-  d: 'ᵈ',
-  e: 'ᵉ',
-  f: 'ᶠ',
-  g: 'ᵍ',
-  h: 'ʰ',
-  i: 'ⁱ',
-  j: 'ʲ',
-  k: 'ᵏ',
-  l: 'ˡ',
-  m: 'ᵐ',
-  n: 'ⁿ',
-  o: 'ᵒ',
-  p: 'ᵖ',
-  r: 'ʳ',
-  s: 'ˢ',
-  t: 'ᵗ',
-  u: 'ᵘ',
-  v: 'ᵛ',
-  x: 'ˣ',
-  '+': '⁺',
-  '-': '⁻',
-  '=': '⁼',
-  '(': '⁽',
-  ')': '⁾'
-}
+const LATEX_TEXT_COMMANDS = [
+  'text',
+  'mathrm',
+  'mathbf',
+  'mathit',
+  'operatorname',
+  'mathcal',
+  'boldsymbol'
+]
 
 /**
- * 将 LaTeX 公式转换为 Unicode 表示
+ * 将 LaTeX 公式转换为兼容 PPT 字体的可读文本
  * @param latex - LaTeX 公式字符串
- * @returns Unicode 表示的公式
+ * @returns 转换后的文本
  */
 export function convertLatexToUnicode(latex: string): string {
   let result = latex.trim()
 
-  // 清理布局控制命令，避免残留不可见标记
+  // 清理不会影响语义的布局命令
   result = result.replace(/\\left|\\right|\\!/g, '')
-  result = result.replace(/\\text\{([^}]+)\}/g, '$1')
 
-  for (const [command, unicode] of Object.entries(LATEX_SYMBOLS)) {
-    result = result.split(command).join(unicode)
+  for (const command of LATEX_TEXT_COMMANDS) {
+    result = unwrapLatexCommand(result, command)
   }
 
-  // 先处理花括号形式，再处理单字符形式
-  result = result.replace(/_\{([^}]+)\}/g, (_, value: string) => `₍${toSubscriptText(value)}₎`)
-  result = result.replace(/\^\{([^}]+)\}/g, (_, value: string) => `⁽${toSuperscriptText(value)}⁾`)
-  result = result.replace(/_([a-zA-Z0-9+\-=()])/g, (_, value: string) => toSubscriptText(value))
-  result = result.replace(/\^([a-zA-Z0-9+\-=()])/g, (_, value: string) => toSuperscriptText(value))
+  // 优先处理结构化命令，避免后续普通符号替换破坏结构
+  result = result.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, (_, numerator, denominator) => {
+    return `(${normalizeFormulaFragment(numerator)})/(${normalizeFormulaFragment(denominator)})`
+  })
+  result = result.replace(/\\sqrt\{([^{}]+)\}/g, (_, value) => {
+    return `√(${normalizeFormulaFragment(value)})`
+  })
 
-  // 清理剩余花括号，保留内容本身
+  result = replaceLatexSymbols(result)
+
+  // 下标和上标统一转成字体更稳定的括号表示
+  result = result.replace(/_\{([^}]+)\}/g, (_, value) => `(${normalizeFormulaFragment(value)})`)
+  result = result.replace(/\^\{([^}]+)\}/g, (_, value) => `^(${normalizeFormulaFragment(value)})`)
+  result = result.replace(/_([a-zA-Z0-9])/g, (_, value) => `(${value})`)
+  result = result.replace(/\^([a-zA-Z0-9])/g, (_, value) => `^(${value})`)
+
+  // 清理残留花括号和多余空白
   result = result.replace(/[{}]/g, '')
+  result = result.replace(/\s+/g, ' ').trim()
 
   return result
 }
@@ -176,7 +121,6 @@ export function convertLatexToUnicode(latex: string): string {
 export function processLatexInText(text: string): string {
   let result = text
 
-  // 先处理块级公式，避免被行内公式规则截断
   result = result.replace(/\$\$([\s\S]+?)\$\$/g, (_, formula: string) =>
     convertLatexToUnicode(formula)
   )
@@ -188,19 +132,34 @@ export function processLatexInText(text: string): string {
 }
 
 /**
- * 将文本转换为下标字符
- * @param value - 原始文本
- * @returns 下标文本
+ * 展开形如 \text{...} 的文本命令
+ * @param source - 原始公式
+ * @param command - 命令名
+ * @returns 展开后的公式
  */
-function toSubscriptText(value: string): string {
-  return [...value].map((char) => SUBSCRIPT_CHARS[char] || char).join('')
+function unwrapLatexCommand(source: string, command: string): string {
+  const pattern = new RegExp(`\\\\${command}\\{([^{}]+)\\}`, 'g')
+  return source.replace(pattern, '$1')
 }
 
 /**
- * 将文本转换为上标字符
- * @param value - 原始文本
- * @returns 上标文本
+ * 替换 LaTeX 符号命令
+ * @param source - 原始公式
+ * @returns 替换后的文本
  */
-function toSuperscriptText(value: string): string {
-  return [...value].map((char) => SUPERSCRIPT_CHARS[char] || char).join('')
+function replaceLatexSymbols(source: string): string {
+  let result = source
+  for (const [command, replacement] of Object.entries(LATEX_SYMBOLS)) {
+    result = result.split(command).join(replacement)
+  }
+  return result
+}
+
+/**
+ * 标准化公式片段
+ * @param value - 原始片段
+ * @returns 适合拼回正文的片段
+ */
+function normalizeFormulaFragment(value: string): string {
+  return replaceLatexSymbols(value).replace(/[{}]/g, '').replace(/\s+/g, ' ').trim()
 }
