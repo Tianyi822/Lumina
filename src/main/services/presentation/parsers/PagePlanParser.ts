@@ -1,3 +1,4 @@
+import { parseMarkdownTableBlock } from './tableUtils'
 import type { ParsedSlide, SlideContentBlock } from '@shared/types/ppt-export'
 import type { PagePlanContentUnit, PagePlanSection, ParseStrategy, PptParseContext } from './types'
 
@@ -187,6 +188,19 @@ export class PagePlanParser implements ParseStrategy {
       const line = lines[index].trim()
       if (!line) {
         index += 1
+        continue
+      }
+
+      const markdownTableResult = parseMarkdownTableBlock(lines, index, (text) =>
+        context.blockParser.sanitizeInlineText(text)
+      )
+      if (markdownTableResult) {
+        units.push({
+          kind: 'table',
+          headers: markdownTableResult.headers,
+          rows: markdownTableResult.rows
+        })
+        index = markdownTableResult.nextIndex
         continue
       }
 

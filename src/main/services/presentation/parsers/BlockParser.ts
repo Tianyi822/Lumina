@@ -1,3 +1,4 @@
+import { isMarkdownTableStart, parseMarkdownTableBlock } from './tableUtils'
 import type { ParsedSlide, SlideContentBlock } from '@shared/types/ppt-export'
 import type { BlockParserLike, ExportContentType, ParsedSlideFactoryOptions } from './types'
 
@@ -73,7 +74,7 @@ export class BlockParser implements BlockParserLike {
         index = result.nextIndex
         continue
       }
-      if (this.isTableRow(trimmed)) {
+      if (this.isTableStart(lines, index)) {
         const result = this.parseTable(lines, index)
         if (result) {
           blocks.push(result.block)
@@ -232,45 +233,27 @@ export class BlockParser implements BlockParserLike {
     return { block: { type: 'list', items, ordered }, nextIndex: index }
   }
 
-  private isTableRow(line: string): boolean {
-    return /^\|.+?\|/.test(line.trim()) && line.split('|').filter((cell) => cell.trim()).length >= 2
+  private isTableStart(lines: string[], startIndex: number): boolean {
+    return isMarkdownTableStart(lines, startIndex, (text) => this.sanitizeInlineText(text))
   }
 
   private parseTable(
     lines: string[],
     startIndex: number
   ): { block: SlideContentBlock; nextIndex: number } | null {
-    const tableLines: string[] = []
-    let index = startIndex
+    const table = parseMarkdownTableBlock(lines, startIndex, (text) =>
+      this.sanitizeInlineText(text)
+    )
+    if (!table) return null
 
-    while (index < lines.length) {
-      const trimmed = lines[index].trim()
-      if (!trimmed) {
-        index += 1
-        break
-      }
-      if (!this.isTableRow(trimmed)) break
-
-      tableLines.push(trimmed)
-      index += 1
-    }
-
-    if (tableLines.length < 2) return null
     return {
       block: {
         type: 'table',
-        headers: this.parseTableRow(tableLines[0]),
-        rows: tableLines.slice(2).map((line) => this.parseTableRow(line))
+        headers: table.headers,
+        rows: table.rows
       },
-      nextIndex: index
+      nextIndex: table.nextIndex
     }
-  }
-
-  private parseTableRow(line: string): string[] {
-    let trimmed = line.trim()
-    if (trimmed.startsWith('|')) trimmed = trimmed.slice(1)
-    if (trimmed.endsWith('|')) trimmed = trimmed.slice(0, -1)
-    return trimmed.split('|').map((cell) => this.sanitizeInlineText(cell.trim()))
   }
 
   private isImage(line: string): boolean {
@@ -302,7 +285,7 @@ export class BlockParser implements BlockParserLike {
       if (
         this.isUnorderedListItem(trimmed) ||
         this.isOrderedListItem(trimmed) ||
-        this.isTableRow(trimmed) ||
+        this.isTableStart(lines, index) ||
         this.isImage(trimmed) ||
         this.isContentHeader(trimmed) ||
         this.isH1Header(trimmed)
