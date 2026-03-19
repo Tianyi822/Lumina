@@ -278,8 +278,8 @@ export class PptExportService {
         const templateSlide = resolveTemplateSlide(templateBundle, slide, i)
         const slideStyle = buildSlideStyle(request.config, templateSlide)
 
-        // 保持单页展示（PPT 导出目前不支持分页）
-        const shouldKeepSinglePage = true
+        // 仅在严格页数规划模式下强制单页，其余内容允许自动分页，避免内容被截断
+        const shouldKeepSinglePage = slide.strictPageCount === true
 
         const isTitleSlide =
           slide.type === 'title' || slide.type === 'section' || Boolean(slide.layoutHint)
