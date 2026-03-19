@@ -1,17 +1,17 @@
 import { extname } from 'path'
 import type { PptExportConfig, ParsedSlide, SlideStyle } from '@shared/types/ppt-export'
 import type { PptTemplateSlideAnalysis } from '@shared/types/ppt-template'
-import type { TemplateRenderBundle } from './types'
+import type { TemplateAnalysisContext } from './types'
 
 /**
  * 解析当前页面应复用的模板页
- * @param bundle - 模板渲染上下文
+ * @param bundle - 模板分析上下文
  * @param slide - 原始页面
  * @param generatedIndex - 当前生成顺序
  * @returns 模板页分析结果
  */
 export function resolveTemplateSlide(
-  bundle: TemplateRenderBundle | null,
+  bundle: TemplateAnalysisContext | null,
   slide: ParsedSlide,
   generatedIndex: number
 ): PptTemplateSlideAnalysis | undefined {
