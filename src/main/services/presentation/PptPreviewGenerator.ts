@@ -21,7 +21,7 @@ import type {
   PptTemplateSlideAnalysis,
   PptTemplateElementAnalysis
 } from '@shared/types/ppt-template'
-import type { PreviewCanvasSize, PreviewRect, TemplateRenderBundle } from './types'
+import type { PreviewCanvasSize, PreviewRect, TemplateAnalysisContext } from './types'
 import { resolveTemplateSlide, buildSlideStyle } from './utils'
 
 /**
@@ -34,13 +34,13 @@ export class PptPreviewGenerator {
    * @param previews - 预览数据
    * @param slides - 原始页面
    * @param config - 当前导出配置
-   * @param templateBundle - 模板渲染上下文
+   * @param templateContext - 模板分析上下文
    */
   attachSlidePreviewImages(
     previews: Array<{ index: number; previewImageDataUrl?: string }>,
     slides: ParsedSlide[],
     config: PptExportConfig,
-    templateBundle: TemplateRenderBundle | null
+    templateContext: TemplateAnalysisContext | null
   ): void {
     previews.forEach((preview, orderIndex) => {
       const slide = slides[orderIndex]
@@ -52,7 +52,7 @@ export class PptPreviewGenerator {
         preview.previewImageDataUrl = this.buildSlidePreviewImage(
           slide,
           config,
-          templateBundle,
+          templateContext,
           orderIndex
         )
       } catch (error) {
@@ -68,19 +68,19 @@ export class PptPreviewGenerator {
    * 构建单页 SVG 预览图
    * @param slide - 页面内容
    * @param config - 当前导出配置
-   * @param templateBundle - 模板资源
+   * @param templateContext - 模板分析上下文
    * @param orderIndex - 当前顺序
    * @returns SVG data URL
    */
   private buildSlidePreviewImage(
     slide: ParsedSlide,
     config: PptExportConfig,
-    templateBundle: TemplateRenderBundle | null,
+    templateContext: TemplateAnalysisContext | null,
     orderIndex: number
   ): string {
     const slideSize = config.slideSize || DEFAULT_TEMPLATE_SLIDE_SIZE
     const canvas = this.getPreviewCanvasSize(slideSize)
-    const templateSlide = resolveTemplateSlide(templateBundle, slide, orderIndex)
+    const templateSlide = resolveTemplateSlide(templateContext, slide, orderIndex)
     const slideStyle = buildSlideStyle(config, templateSlide)
     const zones = this.resolvePreviewZones(slide, slideSize)
     const backgroundColor = this.resolvePreviewColor(
