@@ -26,7 +26,7 @@ export class PagePlanParser implements ParseStrategy {
     let currentSection: PagePlanSection | null = null
 
     for (const rawLine of context.lines) {
-      const line = this.normalizePagePlanLine(rawLine, context)
+      const line = this.normalizePagePlanLine(rawLine)
       if (!line || this.isPlanningNoiseLine(line) || context.blockParser.isHorizontalRule(line))
         continue
 
@@ -56,6 +56,7 @@ export class PagePlanParser implements ParseStrategy {
     context: PptParseContext
   ): { startPage: number; endPage: number; title: string } | null {
     const normalized = line
+      .replace(/^\s*#{1,6}\s*/, '')
       .replace(/^[*-]\s+/, '')
       .replace(/^\d+[.)]\s+/, '')
       .trim()
@@ -124,18 +125,23 @@ export class PagePlanParser implements ParseStrategy {
     context: PptParseContext
   ): ParsedSlide[] {
     const title = context.blockParser.sanitizeInlineText(section.title)
-    const cleanedLines = section.lines
-      .map((line) => context.blockParser.sanitizeInlineText(line))
+    const normalizedLines = section.lines
+      .map((line) => this.normalizeSemanticLine(line, context))
       .filter((line) => line && !this.isPagePlanOutroLine(line))
+    const contentLines = section.lines
+      .map((line) => line.trim())
+      .filter(
+        (line) => line && !this.isPagePlanOutroLine(this.normalizeSemanticLine(line, context))
+      )
     const isCoverSlide =
-      /封面|首页|标题页/i.test(title) || cleanedLines.some((line) => /^标题[:：]/.test(line))
+      /封面|首页|标题页/i.test(title) || normalizedLines.some((line) => /^标题[:：]/.test(line))
     const isEndingSlide =
       /结束页|结束|致谢|结束语/i.test(title) ||
-      cleanedLines.some((line) => /汇报完毕|批评指正|感谢聆听/i.test(line))
+      normalizedLines.some((line) => /汇报完毕|批评指正|感谢聆听/i.test(line))
 
     if (isCoverSlide) {
-      const titleLine = cleanedLines.find((line) => /^标题[:：]/.test(line))
-      const subtitleLine = cleanedLines.find((line) => /^副标题[:：]/.test(line))
+      const titleLine = normalizedLines.find((line) => /^标题[:：]/.test(line))
+      const subtitleLine = normalizedLines.find((line) => /^副标题[:：]/.test(line))
       return [
         {
           index: startIndex,
@@ -144,9 +150,13 @@ export class PagePlanParser implements ParseStrategy {
           title: titleLine ? this.extractLabelValue(titleLine, context) : title,
           subtitle: subtitleLine ? this.extractLabelValue(subtitleLine, context) : undefined,
           blocks: this.buildPagePlanBlocks(
-            cleanedLines
-              .filter((line) => !/^标题[:：]/.test(line) && !/^副标题[:：]/.test(line))
-              .map((text) => ({ kind: 'text', text }))
+            contentLines
+              .filter((line) => {
+                const normalizedLine = this.normalizeSemanticLine(line, context)
+                return !/^标题[:：]/.test(normalizedLine) && !/^副标题[:：]/.test(normalizedLine)
+              })
+              .map((text) => ({ kind: 'text', text })),
+            context
           ),
           strictPageCount: true
         }
@@ -154,7 +164,7 @@ export class PagePlanParser implements ParseStrategy {
     }
 
     if (isEndingSlide) {
-      const endingParagraphs = cleanedLines
+      const endingParagraphs = normalizedLines
         .map((line) => this.extractLabelValue(line, context))
         .filter(Boolean)
       return [
@@ -170,12 +180,12 @@ export class PagePlanParser implements ParseStrategy {
       ]
     }
 
-    const groups = this.distributeUnits(this.parseContentUnits(cleanedLines, context), slideCount)
+    const groups = this.distributeUnits(this.parseContentUnits(contentLines, context), slideCount)
     return groups.map((group, offset) => ({
       index: startIndex + offset,
       type: group.length === 0 ? 'section' : 'content',
       title: slideCount > 1 ? `${title}（${offset + 1}/${slideCount}）` : title,
-      blocks: this.buildPagePlanBlocks(group),
+      blocks: this.buildPagePlanBlocks(group, context),
       strictPageCount: true
     }))
   }
@@ -288,9 +298,14 @@ export class PagePlanParser implements ParseStrategy {
     return groups
   }
 
-  private buildPagePlanBlocks(units: PagePlanContentUnit[]): SlideContentBlock[] {
+  private buildPagePlanBlocks(
+    units: PagePlanContentUnit[],
+    context: PptParseContext
+  ): SlideContentBlock[] {
     const blocks: SlideContentBlock[] = []
     let pendingTexts: string[] = []
+    let pendingList: Extract<SlideContentBlock, { type: 'list' }> | null = null
+
     const flushPendingTexts = (): void => {
       if (pendingTexts.length === 0) return
       blocks.push(
@@ -300,31 +315,56 @@ export class PagePlanParser implements ParseStrategy {
       )
       pendingTexts = []
     }
+    const flushPendingList = (): void => {
+      if (!pendingList || pendingList.items.length === 0) return
+      blocks.push(pendingList)
+      pendingList = null
+    }
 
     for (const unit of units) {
       if (unit.kind === 'text') {
-        pendingTexts.push(unit.text)
+        const subheadingText = this.parseSubheadingLine(unit.text, context)
+        if (subheadingText) {
+          flushPendingList()
+          flushPendingTexts()
+          blocks.push({ type: 'subheading', text: subheadingText })
+          continue
+        }
+
+        const listItem = this.parseExplicitListItem(unit.text, context)
+        if (listItem) {
+          flushPendingTexts()
+          if (!pendingList || pendingList.ordered !== listItem.ordered) {
+            flushPendingList()
+            pendingList = { type: 'list', items: [], ordered: listItem.ordered }
+          }
+          pendingList.items.push(listItem.text)
+          continue
+        }
+
+        flushPendingList()
+        const normalizedText = context.blockParser.sanitizeInlineText(unit.text)
+        if (normalizedText) {
+          pendingTexts.push(normalizedText)
+        }
         continue
       }
+      flushPendingList()
       flushPendingTexts()
       blocks.push({ type: 'table', headers: unit.headers, rows: unit.rows })
     }
 
+    flushPendingList()
     flushPendingTexts()
     return blocks
   }
 
-  private normalizePagePlanLine(line: string, context: PptParseContext): string {
-    return context.blockParser.sanitizeInlineText(
-      line
-        .replace(/^\s*>+\s*/, '')
-        .replace(/^\s*#{1,6}\s*/, '')
-        .replace(/^[-*]\s+/, '')
-        .replace(/^\d+[.)]\s+/, '')
-        .replace(/^`{3,}.*$/, '')
-        .replace(/^~{3,}.*$/, '')
-        .trim()
-    )
+  private normalizePagePlanLine(line: string): string {
+    return line
+      .replace(/^\s*>+\s*/, '')
+      .replace(/^`{3,}.*$/, '')
+      .replace(/^~{3,}.*$/, '')
+      .trim()
   }
 
   private isPlanningNoiseLine(line: string): boolean {
@@ -339,7 +379,50 @@ export class PagePlanParser implements ParseStrategy {
     return /^(请问.*满意|如果需要调整|确认后我将开始|请告诉我|如果需要.*告诉我)/.test(line)
   }
   private extractLabelValue(line: string, context: PptParseContext): string {
-    const match = line.match(/^[^：:]+[:：]\s*(.+)$/)
+    const normalized = this.normalizeSemanticLine(line, context)
+    const match = normalized.match(/^[^：:]+[:：]\s*(.+)$/)
     return context.blockParser.sanitizeInlineText(match?.[1] ?? line)
+  }
+
+  private normalizeSemanticLine(line: string, context: PptParseContext): string {
+    return context.blockParser.sanitizeInlineText(
+      line
+        .replace(/^\s*#{1,6}\s*/, '')
+        .replace(/^\s*[-*+]\s+/, '')
+        .replace(/^\s*\d+[.)]\s+/, '')
+        .trim()
+    )
+  }
+
+  private parseSubheadingLine(line: string, context: PptParseContext): string | null {
+    if (!/^\s*#{1,6}\s*.+/.test(line)) {
+      return null
+    }
+
+    const text = context.blockParser.extractTitle(line)
+    return text || null
+  }
+
+  private parseExplicitListItem(
+    line: string,
+    context: PptParseContext
+  ): { text: string; ordered: boolean } | null {
+    const unorderedMatch = line.match(/^\s*[-*+]\s+(.+)$/)
+    if (unorderedMatch) {
+      return {
+        text: context.blockParser.sanitizeInlineText(unorderedMatch[1]),
+        ordered: false
+      }
+    }
+
+    const orderedMatch = line.match(/^\s*\d+\.\s+(.+)$/)
+    if (orderedMatch) {
+      return {
+        text: context.blockParser.sanitizeInlineText(orderedMatch[1]),
+        ordered: true
+      }
+    }
+
+    return null
   }
 }
