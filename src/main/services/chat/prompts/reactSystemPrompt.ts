@@ -243,7 +243,7 @@ export function buildPresentationEnhancedPrompt(): string {
    - 如果当前没有可用模板，此工具会返回“请先上传模板”的提示，而不是空选项
 
 3. **presentation__get_template_analysis**
-   - 读取指定模板的结构分析结果
+   - 读取指定模板的上下文信息，包含结构分析结果，并在可用时附带 AI 总结
    - 参数：
      - templateId: 模板 ID（必需）
      - detailLevel: summary 或 full（可选，默认 summary）
@@ -262,7 +262,7 @@ export function buildPresentationEnhancedPrompt(): string {
 
 3. 当用户已经选定模板，或历史对话里出现了类似：
    - “我选择了 PPT 模板「...」（templateId: ...）”
-   - 这时优先调用 **presentation__get_template_analysis** 读取结构摘要，再继续规划内容
+   - 这时优先调用 **presentation__get_template_analysis** 读取模板上下文，再继续规划内容
 
 4. 当用户想先看看有哪些模板，但还不确定选哪个时：
    - 先调用 **presentation__list_templates**
