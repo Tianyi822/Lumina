@@ -137,6 +137,31 @@ export function registerPptTemplateHandlers(): void {
     }
   })
 
+  // 获取模板 AI 总结结果
+  ipcMain.handle('pptTemplate:getAiSummary', (_event, id: string) => {
+    try {
+      if (!isValidTemplateId(id)) {
+        return {
+          success: false,
+          error: '无效的模板 ID'
+        }
+      }
+
+      const summary = getPptTemplateService().getTemplateAiSummary(id)
+      return {
+        success: true,
+        data: summary
+      }
+    } catch (error) {
+      const errorMessage = `获取模板 AI 总结失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return {
+        success: false,
+        error: errorMessage
+      }
+    }
+  })
+
   // 获取模板源文件数据
   ipcMain.handle('pptTemplate:getSourceData', (_event, id: string) => {
     try {
@@ -220,6 +245,30 @@ export function registerPptTemplateHandlers(): void {
       return result
     } catch (error) {
       const errorMessage = `删除模板失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return {
+        success: false,
+        error: errorMessage
+      }
+    }
+  })
+
+  // 重试模板 AI 总结
+  ipcMain.handle('pptTemplate:retrySummary', async (_event, templateId: string) => {
+    try {
+      if (!isValidTemplateId(templateId)) {
+        return {
+          success: false,
+          error: '无效的模板 ID'
+        }
+      }
+
+      await getPptTemplateService().retrySummary(templateId)
+      return {
+        success: true
+      }
+    } catch (error) {
+      const errorMessage = `重试模板 AI 总结失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
       return {
         success: false,

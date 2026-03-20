@@ -333,7 +333,7 @@ async function validateSelectedPptTemplate(): Promise<void> {
 
   try {
     const result = await window.api.pptTemplate.getById(selectedTemplate.id)
-    if (result.success && result.data?.status === 'completed') {
+    if (result.success && result.data && result.data.status !== 'analyzing') {
       return
     }
 

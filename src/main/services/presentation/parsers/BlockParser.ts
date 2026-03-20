@@ -1,3 +1,5 @@
+import { isMarkdownTableStart, parseMarkdownTableBlock } from './tableUtils'
+import { processLatexInText } from './latexUtils'
 import type { ParsedSlide, SlideContentBlock } from '@shared/types/ppt-export'
 import type { BlockParserLike, ExportContentType, ParsedSlideFactoryOptions } from './types'
 
@@ -73,7 +75,7 @@ export class BlockParser implements BlockParserLike {
         index = result.nextIndex
         continue
       }
-      if (this.isTableRow(trimmed)) {
+      if (this.isTableStart(lines, index)) {
         const result = this.parseTable(lines, index)
         if (result) {
           blocks.push(result.block)
@@ -88,7 +90,7 @@ export class BlockParser implements BlockParserLike {
         continue
       }
       if (this.isContentHeader(trimmed)) {
-        blocks.push({ type: 'paragraph', text: this.extractTitle(trimmed) })
+        blocks.push({ type: 'subheading', text: this.extractTitle(trimmed) })
         index += 1
         continue
       }
@@ -131,7 +133,7 @@ export class BlockParser implements BlockParserLike {
     for (const block of slide.blocks) {
       if (block.type === 'table') hasTable = true
       if (block.type === 'list') hasList = true
-      if (block.type === 'paragraph') hasParagraph = true
+      if (block.type === 'paragraph' || block.type === 'subheading') hasParagraph = true
       if (block.type === 'image') hasImage = true
     }
 
@@ -151,13 +153,14 @@ export class BlockParser implements BlockParserLike {
     if (firstBlock.type === 'list') return `${firstBlock.items.length} 个列表项`
     if (firstBlock.type === 'table')
       return `${firstBlock.rows.length} 行 x ${firstBlock.headers.length} 列表格`
+    if (firstBlock.type === 'subheading') return this.truncateText(firstBlock.text, 50)
     if (firstBlock.type === 'paragraph') return this.truncateText(firstBlock.text, 50)
     if (firstBlock.type === 'image') return `图片: ${firstBlock.alt || '未命名'}`
     return '内容页'
   }
 
   sanitizeInlineText(text: string): string {
-    return text
+    return processLatexInText(text)
       .replace(/^\s*[-*]+\s*$/, '')
       .replace(/`([^`]+)`/g, '$1')
       .replace(/\*\*([^*]+)\*\*/g, '$1')
@@ -169,10 +172,10 @@ export class BlockParser implements BlockParserLike {
   }
 
   isH1Header(line: string): boolean {
-    return /^#\s+.+/.test(line.trim())
+    return /^#(?!#)\s*.+/.test(line.trim())
   }
   isH2Header(line: string): boolean {
-    return /^##\s+.+/.test(line.trim())
+    return /^##(?!#)\s*.+/.test(line.trim())
   }
   isHorizontalRule(line: string): boolean {
     return /^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())
@@ -184,17 +187,12 @@ export class BlockParser implements BlockParserLike {
     return this.sanitizeInlineText(
       line
         .trim()
-        .replace(/^#+\s+/, '')
+        .replace(/^#+\s*/, '')
         .trim()
     )
   }
   extractH2Title(line: string): string {
-    return this.sanitizeInlineText(
-      line
-        .trim()
-        .replace(/^##+\s+/, '')
-        .trim()
-    )
+    return this.extractTitle(line)
   }
 
   private isUnorderedListItem(line: string): boolean {
@@ -232,45 +230,27 @@ export class BlockParser implements BlockParserLike {
     return { block: { type: 'list', items, ordered }, nextIndex: index }
   }
 
-  private isTableRow(line: string): boolean {
-    return /^\|.+?\|/.test(line.trim()) && line.split('|').filter((cell) => cell.trim()).length >= 2
+  private isTableStart(lines: string[], startIndex: number): boolean {
+    return isMarkdownTableStart(lines, startIndex, (text) => this.sanitizeInlineText(text))
   }
 
   private parseTable(
     lines: string[],
     startIndex: number
   ): { block: SlideContentBlock; nextIndex: number } | null {
-    const tableLines: string[] = []
-    let index = startIndex
+    const table = parseMarkdownTableBlock(lines, startIndex, (text) =>
+      this.sanitizeInlineText(text)
+    )
+    if (!table) return null
 
-    while (index < lines.length) {
-      const trimmed = lines[index].trim()
-      if (!trimmed) {
-        index += 1
-        break
-      }
-      if (!this.isTableRow(trimmed)) break
-
-      tableLines.push(trimmed)
-      index += 1
-    }
-
-    if (tableLines.length < 2) return null
     return {
       block: {
         type: 'table',
-        headers: this.parseTableRow(tableLines[0]),
-        rows: tableLines.slice(2).map((line) => this.parseTableRow(line))
+        headers: table.headers,
+        rows: table.rows
       },
-      nextIndex: index
+      nextIndex: table.nextIndex
     }
-  }
-
-  private parseTableRow(line: string): string[] {
-    let trimmed = line.trim()
-    if (trimmed.startsWith('|')) trimmed = trimmed.slice(1)
-    if (trimmed.endsWith('|')) trimmed = trimmed.slice(0, -1)
-    return trimmed.split('|').map((cell) => this.sanitizeInlineText(cell.trim()))
   }
 
   private isImage(line: string): boolean {
@@ -281,7 +261,7 @@ export class BlockParser implements BlockParserLike {
     return match ? { type: 'image', alt: this.sanitizeInlineText(match[1]), url: match[2] } : null
   }
   private isSubHeader(line: string): boolean {
-    return /^#{3,6}\s+.+/.test(line.trim())
+    return /^#{3,6}\s*.+/.test(line.trim())
   }
 
   private parseParagraph(
@@ -302,7 +282,7 @@ export class BlockParser implements BlockParserLike {
       if (
         this.isUnorderedListItem(trimmed) ||
         this.isOrderedListItem(trimmed) ||
-        this.isTableRow(trimmed) ||
+        this.isTableStart(lines, index) ||
         this.isImage(trimmed) ||
         this.isContentHeader(trimmed) ||
         this.isH1Header(trimmed)

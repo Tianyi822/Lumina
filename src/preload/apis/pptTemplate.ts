@@ -4,7 +4,8 @@ import type {
   PptTemplateListResponse,
   CreatePptTemplateResult,
   CreatePptTemplateRequest,
-  PptTemplateAnalysis
+  PptTemplateAnalysis,
+  PptTemplateAiSummary
 } from '@shared/types/ppt-template'
 
 /**
@@ -52,6 +53,15 @@ export const pptTemplateApi = {
   },
 
   /**
+   * 获取模板 AI 总结结果
+   * @param id 模板 ID
+   * @returns AI 总结结果，不存在时返回 null
+   */
+  getAiSummary: (id: string): Promise<ApiResponse<PptTemplateAiSummary | null>> => {
+    return ipcRenderer.invoke('pptTemplate:getAiSummary', id)
+  },
+
+  /**
    * 获取模板源文件
    * @param id 模板 ID
    * @returns 模板二进制数据
@@ -82,6 +92,15 @@ export const pptTemplateApi = {
    */
   delete: (templateId: string): Promise<ApiResponse<void>> => {
     return ipcRenderer.invoke('pptTemplate:delete', templateId)
+  },
+
+  /**
+   * 重试模板 AI 总结
+   * @param templateId 模板 ID
+   * @returns 重试结果
+   */
+  retrySummary: (templateId: string): Promise<ApiResponse<void>> => {
+    return ipcRenderer.invoke('pptTemplate:retrySummary', templateId)
   },
 
   /**

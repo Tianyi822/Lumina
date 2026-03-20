@@ -201,6 +201,63 @@ export class SlideRenderer {
     const maxY = contentPos.y + contentPos.h
 
     for (const block of blocks) {
+      if (!options?.singlePage && block.type === 'list') {
+        const remainingItems = [...block.items]
+        let renderedItemCount = 0
+
+        while (remainingItems.length > 0) {
+          const availableHeight = Math.max(maxY - currentY, 0)
+          const chunkSize = this.getFittableListItemCount(
+            remainingItems,
+            contentPos.w,
+            metrics.bodyFontSize,
+            availableHeight
+          )
+
+          if (chunkSize === 0) {
+            const nextSlide = createSlideWithHeader()
+            slide = nextSlide.slide
+            currentY = nextSlide.startY
+            continue
+          }
+
+          const chunkBlock: SlideContentBlock = {
+            type: 'list',
+            ordered: block.ordered,
+            items: remainingItems.splice(0, chunkSize)
+          }
+
+          this.elementRenderer.addList(
+            slide,
+            chunkBlock.items,
+            chunkBlock.ordered,
+            {
+              x: contentPos.x,
+              y: currentY,
+              w: contentPos.w,
+              h: Math.max(maxY - currentY, 0.5)
+            },
+            metrics,
+            renderedItemCount + 1
+          )
+          currentY +=
+            this.layoutCalculator.calculateListHeight(
+              chunkBlock.items,
+              contentPos.w,
+              metrics.bodyFontSize
+            ) + 0.22
+          renderedItemCount += chunkBlock.items.length
+
+          if (remainingItems.length > 0) {
+            const nextSlide = createSlideWithHeader()
+            slide = nextSlide.slide
+            currentY = nextSlide.startY
+          }
+        }
+
+        continue
+      }
+
       const estimatedHeight = this.layoutCalculator.estimateBlockHeight(
         block,
         contentPos.w,
@@ -225,6 +282,39 @@ export class SlideRenderer {
       )
       currentY = result.nextY
     }
+  }
+
+  /**
+   * 计算当前剩余空间内可容纳的列表项数量
+   * @param items - 剩余列表项
+   * @param width - 内容区宽度
+   * @param bodyFontSize - 正文字号
+   * @param availableHeight - 当前页剩余高度
+   * @returns 可容纳的列表项数量
+   */
+  private getFittableListItemCount(
+    items: string[],
+    width: number,
+    bodyFontSize: number,
+    availableHeight: number
+  ): number {
+    if (availableHeight <= 0.2) {
+      return 0
+    }
+
+    let fitCount = 0
+    for (let index = 0; index < items.length; index += 1) {
+      const estimatedHeight =
+        this.layoutCalculator.calculateListHeight(items.slice(0, index + 1), width, bodyFontSize) +
+        0.22
+      if (estimatedHeight > availableHeight) {
+        break
+      }
+
+      fitCount = index + 1
+    }
+
+    return fitCount === 0 && items.length > 0 ? 1 : fitCount
   }
 
   /**

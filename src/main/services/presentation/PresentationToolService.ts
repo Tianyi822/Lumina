@@ -6,6 +6,7 @@
 import { logger } from '@main/services/logger'
 import type { MCPTool, MCPToolCallResult } from '@main/types/mcp'
 import { getPptTemplateService } from './PptTemplateService'
+import type { TemplateContext } from './types'
 
 interface ToolArgs {
   [key: string]: unknown
@@ -49,7 +50,7 @@ export class PresentationToolService {
       {
         name: 'presentation__get_template_analysis',
         description:
-          '仅在用户已经选定 PPT 模板后使用。读取指定 PPT 模板的结构分析结果，默认返回适合模型理解的摘要；需要完整分析时可将 detailLevel 设为 full。',
+          '仅在用户已经选定 PPT 模板后使用。读取指定 PPT 模板的结构分析结果，并在可用时附带 AI 总结；默认返回适合模型理解的摘要，需要完整分析时可将 detailLevel 设为 full。',
         inputSchema: {
           type: 'object',
           properties: {
@@ -83,7 +84,7 @@ export class PresentationToolService {
         case 'presentation__request_template_selection':
           return this.requestTemplateSelection()
         case 'presentation__get_template_analysis':
-          return this.getTemplateAnalysis(args)
+          return await this.getTemplateAnalysis(args)
         default:
           return {
             success: false,
@@ -179,7 +180,7 @@ export class PresentationToolService {
   /**
    * 获取模板分析结果
    */
-  private getTemplateAnalysis(args: ToolArgs): MCPToolCallResult {
+  private async getTemplateAnalysis(args: ToolArgs): Promise<MCPToolCallResult> {
     const templateId = typeof args.templateId === 'string' ? args.templateId : ''
     const detailLevel = args.detailLevel === 'full' ? 'full' : 'summary'
 
@@ -198,15 +199,11 @@ export class PresentationToolService {
       }
     }
 
-    const analysis = getPptTemplateService().getTemplateAnalysisForTool(
-      templateId,
-      detailLevel as AnalysisDetailLevel
-    )
-
-    if (!analysis) {
+    const context = await this.getTemplateContext(templateId, detailLevel as AnalysisDetailLevel)
+    if (!context) {
       return {
         success: false,
-        error: '模板分析结果不存在，请重新选择模板'
+        error: '模板上下文不存在，请重新选择模板'
       }
     }
 
@@ -215,9 +212,32 @@ export class PresentationToolService {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(analysis, null, 2)
+          text: JSON.stringify(context, null, 2)
         }
       ]
+    }
+  }
+
+  /**
+   * 获取模板上下文
+   * 优先提供 AI 总结，缺失时返回 null 以供上游回退到 analysis
+   */
+  private async getTemplateContext(
+    templateId: string,
+    detailLevel: AnalysisDetailLevel
+  ): Promise<{
+    analysis: Record<string, unknown>
+    aiSummary: TemplateContext['aiSummary']
+  } | null> {
+    const analysis = getPptTemplateService().getTemplateAnalysisForTool(templateId, detailLevel)
+
+    if (!analysis) {
+      return null
+    }
+
+    return {
+      analysis,
+      aiSummary: getPptTemplateService().getTemplateAiSummary(templateId) ?? null
     }
   }
 }

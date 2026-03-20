@@ -6,7 +6,15 @@
 // ==================== 模板状态 ====================
 
 /** 模板分析状态 */
-export type PptTemplateStatus = 'analyzing' | 'completed' | 'failed'
+export type PptTemplateStatus = 'analyzing' | 'summarizing' | 'completed' | 'failed'
+
+/** AI 总结错误信息 */
+export interface SummaryError {
+  /** 错误消息 */
+  message: string
+  /** 错误时间 */
+  timestamp: string
+}
 
 // ==================== 模板元数据 ====================
 
@@ -28,6 +36,10 @@ export interface PptTemplateListItem {
   analysisVersion: string
   /** 分析状态 */
   status: PptTemplateStatus
+  /** AI 总结错误 */
+  summaryError?: SummaryError
+  /** AI 总结完成时间 */
+  summaryCompletedAt?: string
 }
 
 /** 已选中的 PPT 模板引用 */
@@ -254,6 +266,47 @@ export interface PptTemplateAnalysis {
   presentation: PptPresentationOverview
   /** 幻灯片分析列表 */
   slides: PptTemplateSlideAnalysis[]
+}
+
+// ==================== AI 总结 ====================
+
+/** 单页总结 */
+export interface PptSlideSummary {
+  /** 幻灯片索引（从 0 开始） */
+  slideIndex: number
+  /** 页面类型 */
+  pageType: string
+  /** 页面用途 */
+  purpose: string
+  /** 关键信息 */
+  keyPoints: string[]
+  /** 设计说明 */
+  designNotes?: string
+}
+
+/** PPT 模板 AI 总结 */
+export interface PptTemplateAiSummary {
+  /** Schema 版本 */
+  schemaVersion: '1.0'
+  /** 模板 ID */
+  templateId: string
+  /** 生成时间 */
+  generatedAt: string
+  /** 模型名称 */
+  modelName: string
+  /** 总体总结 */
+  overallSummary: {
+    /** 风格描述 */
+    style: string
+    /** 适用场景 */
+    useCases: string[]
+    /** 设计亮点 */
+    designHighlights: string[]
+    /** 内容编写建议 */
+    contentGuidelines: string
+  }
+  /** 分页总结 */
+  slideSummaries: PptSlideSummary[]
 }
 
 // ==================== API 响应 ====================

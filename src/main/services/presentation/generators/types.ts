@@ -41,6 +41,7 @@ export interface TemplateDynamicZones {
  */
 export interface SlideContentMetrics {
   bodyFontSize: number
+  subheadingFontSize: number
   listLineSpacing: number
   tableHeaderFontSize: number
   tableBodyFontSize: number

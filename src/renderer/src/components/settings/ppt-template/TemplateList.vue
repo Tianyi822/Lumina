@@ -10,6 +10,8 @@ const { sortedTemplates, loading } = storeToRefs(pptTemplateStore)
 
 // 删除状态
 const deletingId = ref<string | null>(null)
+// 重试状态
+const retryingId = ref<string | null>(null)
 
 /** 格式化文件大小 */
 function formatFileSize(bytes: number): string {
@@ -55,10 +57,12 @@ function getStatusText(status: PptTemplateStatus): string {
   switch (status) {
     case 'analyzing':
       return '分析中'
+    case 'summarizing':
+      return '总结中'
     case 'completed':
-      return '分析完成'
+      return '已完成'
     case 'failed':
-      return '分析失败'
+      return '总结失败'
     default:
       return '未知'
   }
@@ -69,6 +73,8 @@ function getStatusClass(status: PptTemplateStatus): string {
   switch (status) {
     case 'analyzing':
       return 'status-analyzing'
+    case 'summarizing':
+      return 'status-summarizing'
     case 'completed':
       return 'status-completed'
     case 'failed':
@@ -94,6 +100,19 @@ async function handleDelete(templateId: string, templateName: string): Promise<v
 /** 刷新列表 */
 async function handleRefresh(): Promise<void> {
   await pptTemplateStore.refreshTemplates()
+}
+
+/** 重试 AI 总结 */
+async function handleRetrySummary(templateId: string): Promise<void> {
+  retryingId.value = templateId
+  try {
+    const success = await pptTemplateStore.retrySummary(templateId)
+    if (success) {
+      await pptTemplateStore.refreshTemplates()
+    }
+  } finally {
+    retryingId.value = null
+  }
 }
 </script>
 
@@ -123,9 +142,19 @@ async function handleRefresh(): Promise<void> {
               {{ getStatusText(template.status) }}
             </span>
             <button
+              v-if="template.status === 'failed'"
+              class="btn-retry"
+              title="重试 AI 总结"
+              :disabled="retryingId === template.id || deletingId === template.id"
+              @click="handleRetrySummary(template.id)"
+            >
+              <SvgIcon v-if="retryingId === template.id" name="spinner" :size="14" :spin="true" />
+              <SvgIcon v-else name="refresh" :size="14" />
+            </button>
+            <button
               class="btn-delete"
               title="删除模板"
-              :disabled="deletingId === template.id"
+              :disabled="deletingId === template.id || retryingId === template.id"
               @click="handleDelete(template.id, template.name)"
             >
               <SvgIcon v-if="deletingId === template.id" name="spinner" :size="14" :spin="true" />
@@ -154,6 +183,14 @@ async function handleRefresh(): Promise<void> {
         <div v-if="template.status === 'completed'" class="template-analysis-path">
           <span class="path-label">分析结果:</span>
           <code class="path-value">{{ pptTemplateStore.getAnalysisPath(template.id) }}</code>
+        </div>
+        <div v-if="template.summaryCompletedAt" class="template-analysis-path">
+          <span class="path-label">AI 总结:</span>
+          <code class="path-value">{{ pptTemplateStore.getAiSummaryPath(template.id) }}</code>
+        </div>
+        <div v-if="template.summaryError" class="template-error-message">
+          <span class="path-label">总结失败:</span>
+          <span class="error-value">{{ template.summaryError.message }}</span>
         </div>
       </div>
     </div>
@@ -275,11 +312,31 @@ async function handleRefresh(): Promise<void> {
   transition: all 0.15s ease;
 }
 
+.btn-retry {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--theme-radius-sm);
+  cursor: pointer;
+  color: var(--theme-text-tertiary);
+  transition: all 0.15s ease;
+}
+
+.btn-retry:hover:not(:disabled) {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
 .btn-delete:hover:not(:disabled) {
   background-color: rgba(239, 68, 68, 0.1);
   color: #ef4444;
 }
 
+.btn-retry:disabled,
 .btn-delete:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -293,6 +350,11 @@ async function handleRefresh(): Promise<void> {
 .status-completed {
   background-color: rgba(34, 197, 94, 0.1);
   color: #22c55e;
+}
+
+.status-summarizing {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
 }
 
 .status-failed {
@@ -344,5 +406,21 @@ async function handleRefresh(): Promise<void> {
   border-radius: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.template-error-message {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--theme-border);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.error-value {
+  color: #ef4444;
+  line-height: 1.5;
+  word-break: break-word;
 }
 </style>

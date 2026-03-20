@@ -6,11 +6,13 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { basename, extname } from 'path'
 import { PptTemplateAnalyzer } from './analyzers/PptTemplateAnalyzer'
+import { PptTemplateSummarizer } from './summarizer/PptTemplateSummarizer'
 import {
   getTemplatesIndexPath,
   getTemplateDirPath,
   getTemplateSourcePath,
   getTemplateAnalysisPath,
+  getTemplateAiSummaryPath,
   isValidTemplateId,
   ensureTemplateDir,
   initializePptTemplateStorage
@@ -20,7 +22,10 @@ import { truncateText } from '@shared/utils'
 import type {
   PptTemplateListItem,
   CreatePptTemplateRequest,
-  PptTemplateAnalysis
+  PptTemplateAnalysis,
+  PptTemplateAiSummary,
+  PptTemplateStatus,
+  SummaryError
 } from '@shared/types/ppt-template'
 
 /** 最大文件大小（50MB） */
@@ -31,16 +36,33 @@ const SUPPORTED_EXTENSIONS = ['.pptx']
 
 type PptTemplateAnalysisDetailLevel = 'summary' | 'full'
 
+interface RawPptTemplateListItem {
+  id?: unknown
+  name?: unknown
+  originalFileName?: unknown
+  fileSize?: unknown
+  slideCount?: unknown
+  createdAt?: unknown
+  analysisVersion?: unknown
+  status?: unknown
+  summaryError?: unknown
+  summaryCompletedAt?: unknown
+}
+
 /**
  * PPT 模板服务类
  */
 export class PptTemplateService {
   private analyzer: PptTemplateAnalyzer
+  private summarizer: PptTemplateSummarizer
   private loaded: boolean = false
   private templates: PptTemplateListItem[] = []
+  private analysisCache: Map<string, PptTemplateAnalysis> = new Map()
+  private activeSummaryTasks: Set<string> = new Set()
 
   constructor() {
     this.analyzer = new PptTemplateAnalyzer()
+    this.summarizer = new PptTemplateSummarizer()
   }
 
   /**
@@ -72,10 +94,107 @@ export class PptTemplateService {
 
     try {
       const content = readFileSync(indexPath, 'utf-8')
-      this.templates = JSON.parse(content) as PptTemplateListItem[]
+      const parsed = JSON.parse(content) as unknown
+
+      if (!Array.isArray(parsed)) {
+        throw new Error('模板索引格式无效')
+      }
+
+      const templates = parsed
+        .map((item) => this.normalizeTemplateListItem(item))
+        .filter((item): item is PptTemplateListItem => item !== null)
+
+      if (templates.length !== parsed.length) {
+        logger.warn('模板索引中存在无效条目，已忽略', 'main', {
+          invalidCount: parsed.length - templates.length
+        })
+      }
+
+      this.templates = templates
     } catch (error) {
       logger.error('加载模板索引失败', 'main', { error })
       this.templates = []
+    }
+  }
+
+  /**
+   * 归一化模板索引项
+   * 兼容旧版本 templates.json 中缺少 AI 总结字段的情况
+   */
+  private normalizeTemplateListItem(item: unknown): PptTemplateListItem | null {
+    if (typeof item !== 'object' || item === null) {
+      return null
+    }
+
+    const raw = item as RawPptTemplateListItem
+
+    if (
+      typeof raw.id !== 'string' ||
+      typeof raw.name !== 'string' ||
+      typeof raw.originalFileName !== 'string' ||
+      typeof raw.fileSize !== 'number' ||
+      typeof raw.slideCount !== 'number' ||
+      typeof raw.createdAt !== 'string' ||
+      typeof raw.analysisVersion !== 'string'
+    ) {
+      return null
+    }
+
+    const normalized: PptTemplateListItem = {
+      id: raw.id,
+      name: raw.name,
+      originalFileName: raw.originalFileName,
+      fileSize: raw.fileSize,
+      slideCount: raw.slideCount,
+      createdAt: raw.createdAt,
+      analysisVersion: raw.analysisVersion,
+      status: this.normalizeTemplateStatus(raw.status)
+    }
+
+    const summaryError = this.normalizeSummaryError(raw.summaryError)
+    if (summaryError) {
+      normalized.summaryError = summaryError
+    }
+
+    if (typeof raw.summaryCompletedAt === 'string') {
+      normalized.summaryCompletedAt = raw.summaryCompletedAt
+    }
+
+    return normalized
+  }
+
+  /**
+   * 归一化模板状态
+   */
+  private normalizeTemplateStatus(status: unknown): PptTemplateStatus {
+    if (
+      status === 'analyzing' ||
+      status === 'summarizing' ||
+      status === 'completed' ||
+      status === 'failed'
+    ) {
+      return status
+    }
+
+    return 'completed'
+  }
+
+  /**
+   * 归一化 AI 总结错误信息
+   */
+  private normalizeSummaryError(value: unknown): SummaryError | undefined {
+    if (typeof value !== 'object' || value === null) {
+      return undefined
+    }
+
+    const summaryError = value as Partial<SummaryError>
+    if (typeof summaryError.message !== 'string' || typeof summaryError.timestamp !== 'string') {
+      return undefined
+    }
+
+    return {
+      message: summaryError.message,
+      timestamp: summaryError.timestamp
     }
   }
 
@@ -115,7 +234,7 @@ export class PptTemplateService {
 
   /**
    * 获取可供模型使用的模板列表
-   * 仅返回分析完成的模板，按创建时间倒序排序
+   * 返回所有结构分析已完成的模板，按创建时间倒序排序
    */
   getAvailableTemplates(): PptTemplateListItem[] {
     if (!this.loaded) {
@@ -123,13 +242,13 @@ export class PptTemplateService {
     }
 
     return this.templates
-      .filter((template) => template.status === 'completed')
+      .filter((template) => template.status !== 'analyzing')
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .map((template) => ({ ...template }))
   }
 
   /**
-   * 获取分析完成的模板
+   * 获取结构分析已完成的模板
    */
   getAvailableTemplateById(templateId: string): PptTemplateListItem | null {
     return this.getAvailableTemplates().find((template) => template.id === templateId) || null
@@ -196,6 +315,7 @@ export class PptTemplateService {
       // 8. 保存分析结果
       const analysisPath = getTemplateAnalysisPath(templateId)
       writeFileSync(analysisPath, JSON.stringify(analysis, null, 2), 'utf-8')
+      this.analysisCache.set(templateId, analysis)
 
       // 10. 创建模板元数据
       const templateItem: PptTemplateListItem = {
@@ -206,7 +326,7 @@ export class PptTemplateService {
         slideCount: analysis.slides.length,
         createdAt: new Date().toISOString(),
         analysisVersion: analysis.schemaVersion,
-        status: 'completed'
+        status: 'summarizing'
       }
 
       // 11. 写入索引（最后一步，确保前面的操作都成功）
@@ -214,10 +334,13 @@ export class PptTemplateService {
       templateAddedToIndex = true
       this.saveTemplatesIndex()
 
+      this.triggerSummaryInBackground(templateId)
+
       logger.info('PPT 模板创建成功', 'main', {
         id: templateId,
         name: templateName,
-        slideCount: templateItem.slideCount
+        slideCount: templateItem.slideCount,
+        status: templateItem.status
       })
 
       return { success: true, data: templateItem }
@@ -227,6 +350,7 @@ export class PptTemplateService {
       }
 
       if (templateId) {
+        this.analysisCache.delete(templateId)
         this.cleanupTemplateDir(templateId)
       }
 
@@ -314,6 +438,11 @@ export class PptTemplateService {
       return null
     }
 
+    const cachedAnalysis = this.analysisCache.get(templateId)
+    if (cachedAnalysis) {
+      return cachedAnalysis
+    }
+
     const analysisPath = getTemplateAnalysisPath(templateId)
     if (!existsSync(analysisPath)) {
       return null
@@ -321,9 +450,34 @@ export class PptTemplateService {
 
     try {
       const content = readFileSync(analysisPath, 'utf-8')
-      return JSON.parse(content) as PptTemplateAnalysis
+      const analysis = JSON.parse(content) as PptTemplateAnalysis
+      this.analysisCache.set(templateId, analysis)
+      return analysis
     } catch (error) {
+      this.analysisCache.delete(templateId)
       logger.error('读取模板分析结果失败', 'main', { templateId, error })
+      return null
+    }
+  }
+
+  /**
+   * 获取模板 AI 总结结果
+   */
+  getTemplateAiSummary(templateId: string): PptTemplateAiSummary | null {
+    if (!isValidTemplateId(templateId)) {
+      return null
+    }
+
+    const summaryPath = getTemplateAiSummaryPath(templateId)
+    if (!existsSync(summaryPath)) {
+      return null
+    }
+
+    try {
+      const content = readFileSync(summaryPath, 'utf-8')
+      return JSON.parse(content) as PptTemplateAiSummary
+    } catch (error) {
+      logger.error('读取模板 AI 总结失败', 'main', { templateId, error })
       return null
     }
   }
@@ -424,6 +578,73 @@ export class PptTemplateService {
   }
 
   /**
+   * 启动模板 AI 总结
+   */
+  async startSummary(templateId: string): Promise<void> {
+    if (!this.loaded) {
+      this.initialize()
+    }
+
+    if (!isValidTemplateId(templateId)) {
+      throw new Error('无效的模板 ID')
+    }
+
+    if (this.activeSummaryTasks.has(templateId)) {
+      logger.warn('模板 AI 总结任务已在进行中，忽略重复请求', 'main', { templateId })
+      return
+    }
+
+    const template = this.getTemplateById(templateId)
+    if (!template) {
+      throw new Error('模板不存在')
+    }
+
+    const analysis = this.getTemplateAnalysis(templateId)
+    if (!analysis) {
+      throw new Error('模板分析结果不存在')
+    }
+
+    this.activeSummaryTasks.add(templateId)
+    this.cleanupTemplateAiSummary(templateId)
+    this.updateTemplateSummaryState(templateId, 'summarizing')
+
+    try {
+      const summary = await this.summarizer.summarize(templateId, analysis)
+      this.saveTemplateAiSummary(templateId, summary)
+      this.updateTemplateSummaryState(templateId, 'completed', {
+        summaryCompletedAt: summary.generatedAt
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      this.updateTemplateSummaryState(templateId, 'failed', {
+        summaryError: {
+          message: errorMessage,
+          timestamp: new Date().toISOString()
+        }
+      })
+      throw error
+    } finally {
+      this.activeSummaryTasks.delete(templateId)
+    }
+  }
+
+  /**
+   * 重试模板 AI 总结
+   */
+  async retrySummary(templateId: string): Promise<void> {
+    if (!this.loaded) {
+      this.initialize()
+    }
+
+    const template = this.getTemplateById(templateId)
+    if (!template) {
+      throw new Error('模板不存在')
+    }
+
+    this.triggerSummaryInBackground(templateId)
+  }
+
+  /**
    * 构建适合模型消费的模板摘要
    */
   private buildTemplateAnalysisSummary(
@@ -489,6 +710,8 @@ export class PptTemplateService {
 
       // 删除模板目录
       this.cleanupTemplateDir(templateId)
+      this.analysisCache.delete(templateId)
+      this.activeSummaryTasks.delete(templateId)
 
       // 从索引中移除
       this.templates.splice(index, 1)
@@ -501,6 +724,72 @@ export class PptTemplateService {
       logger.error(errorMessage)
       return { success: false, error: errorMessage }
     }
+  }
+
+  /**
+   * 保存模板 AI 总结结果
+   */
+  private saveTemplateAiSummary(templateId: string, summary: PptTemplateAiSummary): void {
+    const summaryPath = getTemplateAiSummaryPath(templateId)
+    writeFileSync(summaryPath, JSON.stringify(summary, null, 2), 'utf-8')
+  }
+
+  /**
+   * 清理模板 AI 总结文件
+   */
+  private cleanupTemplateAiSummary(templateId: string): void {
+    try {
+      const summaryPath = getTemplateAiSummaryPath(templateId)
+      if (existsSync(summaryPath)) {
+        rmSync(summaryPath, { force: true })
+      }
+    } catch (error) {
+      logger.warn('清理模板 AI 总结文件失败', 'main', { templateId, error })
+    }
+  }
+
+  /**
+   * 更新模板总结状态并持久化索引
+   */
+  private updateTemplateSummaryState(
+    templateId: string,
+    status: PptTemplateStatus,
+    options: {
+      summaryError?: SummaryError
+      summaryCompletedAt?: string
+    } = {}
+  ): void {
+    const template = this.templates.find((item) => item.id === templateId)
+    if (!template) {
+      throw new Error('模板不存在')
+    }
+
+    template.status = status
+
+    if (status === 'summarizing') {
+      delete template.summaryError
+      delete template.summaryCompletedAt
+    } else if (status === 'completed') {
+      delete template.summaryError
+      template.summaryCompletedAt = options.summaryCompletedAt || new Date().toISOString()
+    } else if (status === 'failed') {
+      template.summaryError = options.summaryError
+      delete template.summaryCompletedAt
+    }
+
+    this.saveTemplatesIndex()
+  }
+
+  /**
+   * 后台触发模板 AI 总结，不阻塞调用方
+   */
+  private triggerSummaryInBackground(templateId: string): void {
+    void this.startSummary(templateId).catch((error) => {
+      logger.error('异步执行 PPT 模板 AI 总结失败', 'main', {
+        templateId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    })
   }
 }
 

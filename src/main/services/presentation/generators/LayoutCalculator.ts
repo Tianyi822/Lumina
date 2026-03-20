@@ -142,6 +142,7 @@ export class LayoutCalculator {
     if (!options?.singlePage || blocks.length === 0) {
       return {
         bodyFontSize: baseFontSize,
+        subheadingFontSize: Math.max(baseFontSize + 2, Math.round(baseFontSize * 1.12)),
         listLineSpacing: 28,
         tableHeaderFontSize: baseFontSize,
         tableBodyFontSize: Math.max(baseFontSize - 2, MIN_BODY_FONT_SIZE)
@@ -161,6 +162,7 @@ export class LayoutCalculator {
     const bodyFontSize = Math.max(MIN_BODY_FONT_SIZE, Math.floor(baseFontSize * scale))
     return {
       bodyFontSize,
+      subheadingFontSize: Math.max(bodyFontSize + 2, Math.round(bodyFontSize * 1.12)),
       listLineSpacing: Math.max(18, Math.round(28 * (bodyFontSize / baseFontSize))),
       tableHeaderFontSize: Math.max(bodyFontSize, Math.floor(bodyFontSize + 1)),
       tableBodyFontSize: Math.max(MIN_BODY_FONT_SIZE - 1, bodyFontSize - 1)
@@ -178,6 +180,14 @@ export class LayoutCalculator {
     switch (block.type) {
       case 'paragraph':
         return this.calculateParagraphHeight(block.text, width, bodyFontSize) + 0.22
+      case 'subheading':
+        return (
+          this.calculateParagraphHeight(
+            block.text,
+            width,
+            Math.max(bodyFontSize + 2, Math.round(bodyFontSize * 1.12))
+          ) + 0.18
+        )
       case 'list':
         return this.calculateListHeight(block.items, width, bodyFontSize) + 0.22
       case 'table':

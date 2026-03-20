@@ -3,11 +3,10 @@
  * 协调内容解析、样式配置和生成流程
  */
 
-import { readFileSync } from 'fs'
+import { createHash } from 'crypto'
 import { unzipSync } from 'fflate'
 import { logger } from '@main/services/logger'
 import { getPptTemplateService } from './PptTemplateService'
-import { getTemplateSourcePath } from './templatePaths'
 import { PptContentParser } from './PptContentParser'
 import { PptGenerator } from './PptGenerator'
 import { PptPreviewGenerator } from './PptPreviewGenerator'
@@ -38,7 +37,12 @@ import type {
 } from '@shared/types/ppt-export'
 import type { ParsedSlide } from '@shared/types/ppt-export'
 import type { PptTemplateListItem } from '@shared/types/ppt-template'
-import type { TemplateRenderBundle } from './types'
+import type { TemplateAnalysisContext, TemplateRenderBundle } from './types'
+
+interface ParsedSlidesCacheEntry {
+  key: string
+  slides: ParsedSlide[]
+}
 
 /**
  * PPT 导出服务
@@ -48,6 +52,7 @@ export class PptExportService {
   private parser: PptContentParser
   private styleExtractor: PptTemplateStyleExtractor
   private previewGenerator: PptPreviewGenerator
+  private lastParsedSlidesCache: ParsedSlidesCacheEntry | null = null
 
   constructor() {
     this.parser = new PptContentParser()
@@ -103,24 +108,37 @@ export class PptExportService {
       let slideSize: PptSlideSize | undefined
       let styleSource: PptExportConfig['styleSource'] | undefined
       let expectedSlideCount: number | undefined
-      let templateBundle: TemplateRenderBundle | null = null
+      let templateContext: TemplateAnalysisContext | null = null
 
       if (effectiveTemplateId) {
-        const extraction = await this.loadTemplateExtraction(effectiveTemplateId)
+        templateContext = this.loadTemplateAnalysisContextByTemplateId(effectiveTemplateId)
+        if (templateContext) {
+          styleSource = { type: 'template', templateId: effectiveTemplateId }
+        }
+
+        const extraction = templateContext
+          ? this.styleExtractor.extract(templateContext.analysis)
+          : null
         if (extraction?.style) {
           style = extraction.style
-          styleSource = { type: 'template', templateId: effectiveTemplateId }
         }
         templateLayouts = extraction?.layouts
         slideSize = extraction?.slideSize
-        expectedSlideCount = extraction?.layouts?.length
-        if (styleSource) {
-          templateBundle = this.loadTemplateRenderBundle(styleSource)
+        expectedSlideCount = templateContext?.analysis.slides.length
+      }
+
+      if (!styleSource) {
+        return {
+          success: false,
+          error: '未找到可用的 PPT 模板'
         }
       }
 
       // 解析内容为幻灯片
-      const slides = this.parseContentToSlides(content, expectedSlideCount)
+      const slides = this.parseContentToSlides(content, {
+        expectedSlideCount,
+        templateId: styleSource.templateId
+      })
 
       // 检查幻灯片数量
       const slideCountWarning = this.getSlideCountWarning(slides.length)
@@ -146,17 +164,17 @@ export class PptExportService {
         slides,
         {
           slides: slidePreviews,
-          styleSource: styleSource!,
+          styleSource,
           style,
           templateLayouts,
           slideSize
         },
-        templateBundle
+        templateContext
       )
 
       const config: PptExportConfig = {
         slides: slidePreviews,
-        styleSource: styleSource!,
+        styleSource,
         style,
         templateLayouts,
         slideSize
@@ -197,14 +215,26 @@ export class PptExportService {
     let slides: ParsedSlide[] = []
 
     try {
-      const templateBundle = this.loadTemplateRenderBundle(request.config.styleSource)
+      const templateContext = this.loadTemplateAnalysisContext(request.config.styleSource)
+      if (!templateContext) {
+        return {
+          success: false,
+          error: '未找到模板分析结果'
+        }
+      }
+
+      const templateBundle = this.loadTemplateRenderBundle(
+        request.config.styleSource,
+        templateContext
+      )
       const expectedSlideCount =
-        request.config.styleSource.type === 'template'
-          ? templateBundle?.analysis.slides.length || request.config.slides.length
-          : undefined
+        templateContext.analysis.slides.length || request.config.slides.length
 
       // 解析内容
-      slides = this.parseContentToSlides(request.content, expectedSlideCount)
+      slides = this.parseContentToSlides(request.content, {
+        expectedSlideCount,
+        templateId: request.config.styleSource.templateId
+      })
 
       // 过滤选中的幻灯片
       const selectedIndices = request.config.slides.filter((s) => s.selected).map((s) => s.index)
@@ -248,8 +278,8 @@ export class PptExportService {
         const templateSlide = resolveTemplateSlide(templateBundle, slide, i)
         const slideStyle = buildSlideStyle(request.config, templateSlide)
 
-        // 保持单页展示（PPT 导出目前不支持分页）
-        const shouldKeepSinglePage = true
+        // 仅在严格页数规划模式下强制单页，其余内容允许自动分页，避免内容被截断
+        const shouldKeepSinglePage = slide.strictPageCount === true
 
         const isTitleSlide =
           slide.type === 'title' || slide.type === 'section' || Boolean(slide.layoutHint)
@@ -352,15 +382,13 @@ export class PptExportService {
    */
   async loadTemplateExtraction(templateId: string): Promise<TemplateStyleExtraction | null> {
     try {
-      const templateService = getPptTemplateService()
-      const analysis = await templateService.getTemplateAnalysis(templateId)
+      const templateContext = this.loadTemplateAnalysisContextByTemplateId(templateId)
 
-      if (!analysis) {
-        logger.warn('未找到模板分析结果', 'main', { templateId })
+      if (!templateContext) {
         return null
       }
 
-      return this.styleExtractor.extract(analysis)
+      return this.styleExtractor.extract(templateContext.analysis)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('加载模板完整样式失败', 'main', { templateId, error: errorMessage })
@@ -371,36 +399,108 @@ export class PptExportService {
   /**
    * 解析 Markdown 内容为幻灯片结构
    * @param content - Markdown 内容
-   * @param expectedSlideCount - 期望页数（通常来自模板）
+   * @param options - 解析选项
    * @returns 解析后的幻灯片数组
    */
-  private parseContentToSlides(content: string, expectedSlideCount?: number): ParsedSlide[] {
-    return this.parser.parse(content, { expectedSlideCount })
+  private parseContentToSlides(
+    content: string,
+    options: { expectedSlideCount?: number; templateId?: string } = {}
+  ): ParsedSlide[] {
+    const cacheKey = this.buildParsedSlidesCacheKey(content, options)
+
+    if (this.lastParsedSlidesCache?.key === cacheKey) {
+      logger.debug('PPT 内容解析命中缓存', 'main', {
+        templateId: options.templateId,
+        expectedSlideCount: options.expectedSlideCount
+      })
+      return this.lastParsedSlidesCache.slides
+    }
+
+    const slides = this.parser.parse(content, { expectedSlideCount: options.expectedSlideCount })
+    this.lastParsedSlidesCache = { key: cacheKey, slides }
+
+    return slides
+  }
+
+  /**
+   * 构建解析缓存 key
+   * @param content - Markdown 内容
+   * @param options - 解析选项
+   * @returns 缓存 key
+   */
+  private buildParsedSlidesCacheKey(
+    content: string,
+    options: { expectedSlideCount?: number; templateId?: string }
+  ): string {
+    const normalizedContent = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
+    const contentHash = createHash('sha1').update(normalizedContent).digest('hex')
+
+    return `${contentHash}:${options.expectedSlideCount ?? 'none'}:${options.templateId ?? 'none'}`
+  }
+
+  /**
+   * 加载模板分析上下文
+   * @param styleSource - 样式来源
+   * @returns 模板分析上下文
+   */
+  private loadTemplateAnalysisContext(
+    styleSource: PptExportConfig['styleSource']
+  ): TemplateAnalysisContext | null {
+    if (styleSource.type !== 'template') {
+      return null
+    }
+
+    return this.loadTemplateAnalysisContextByTemplateId(styleSource.templateId)
+  }
+
+  /**
+   * 按模板 ID 加载模板分析上下文
+   * @param templateId - 模板 ID
+   * @returns 模板分析上下文
+   */
+  private loadTemplateAnalysisContextByTemplateId(
+    templateId: string
+  ): TemplateAnalysisContext | null {
+    const templateService = getPptTemplateService()
+    const analysis = templateService.getTemplateAnalysis(templateId)
+
+    if (!analysis) {
+      logger.warn('未找到模板分析结果', 'main', { templateId })
+      return null
+    }
+
+    return { analysis }
   }
 
   /**
    * 加载模板渲染上下文
    * @param styleSource - 样式来源
+   * @param templateContext - 预加载的模板分析上下文
    * @returns 渲染上下文
    */
   private loadTemplateRenderBundle(
-    styleSource: PptExportConfig['styleSource']
+    styleSource: PptExportConfig['styleSource'],
+    templateContext?: TemplateAnalysisContext | null
   ): TemplateRenderBundle | null {
     if (styleSource.type !== 'template') {
       return null
     }
 
-    const templateId = styleSource.templateId
-    const templateService = getPptTemplateService()
-    const analysis = templateService.getTemplateAnalysis(templateId)
-
-    if (!analysis) {
-      logger.warn('模板渲染上下文缺失分析结果', 'main', { templateId })
+    const effectiveTemplateContext =
+      templateContext ?? this.loadTemplateAnalysisContext(styleSource)
+    if (!effectiveTemplateContext) {
       return null
     }
 
+    const templateId = styleSource.templateId
+    const templateService = getPptTemplateService()
+    const sourceBuffer = templateService.getTemplateSourceData(templateId)
+    if (!sourceBuffer) {
+      logger.warn('模板源文件缺失，将退回到纯样式模式', 'main', { templateId })
+      return { analysis: effectiveTemplateContext.analysis, mediaData: new Map() }
+    }
+
     try {
-      const sourceBuffer = readFileSync(getTemplateSourcePath(templateId))
       const archive = unzipSync(new Uint8Array(sourceBuffer))
       const mediaData = new Map<string, string>()
 
@@ -414,14 +514,14 @@ export class PptExportService {
         mediaData.set(path, `data:${mimeType};base64,${base64}`)
       }
 
-      return { analysis, mediaData }
+      return { analysis: effectiveTemplateContext.analysis, mediaData }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.warn('加载模板媒体资源失败，将退回到纯样式模式', 'main', {
         templateId,
         error: errorMessage
       })
-      return { analysis, mediaData: new Map() }
+      return { analysis: effectiveTemplateContext.analysis, mediaData: new Map() }
     }
   }
 

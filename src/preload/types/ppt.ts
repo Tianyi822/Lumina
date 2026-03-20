@@ -1,7 +1,15 @@
 /**
  * PPT 模板分析状态
  */
-export type PptTemplateStatus = 'analyzing' | 'completed' | 'failed'
+export type PptTemplateStatus = 'analyzing' | 'summarizing' | 'completed' | 'failed'
+
+/**
+ * AI 总结错误信息
+ */
+export interface SummaryError {
+  message: string
+  timestamp: string
+}
 
 /**
  * PPT 模板列表项
@@ -15,6 +23,8 @@ export interface PptTemplateListItem {
   createdAt: string
   analysisVersion: string
   status: PptTemplateStatus
+  summaryError?: SummaryError
+  summaryCompletedAt?: string
 }
 
 /**
@@ -51,18 +61,50 @@ export interface CreatePptTemplateResult {
 }
 
 /**
+ * 单页 AI 总结
+ */
+export interface PptSlideSummary {
+  slideIndex: number
+  pageType: string
+  purpose: string
+  keyPoints: string[]
+  designNotes?: string
+}
+
+/**
+ * PPT 模板 AI 总结
+ */
+export interface PptTemplateAiSummary {
+  schemaVersion: '1.0'
+  templateId: string
+  generatedAt: string
+  modelName: string
+  overallSummary: {
+    style: string
+    useCases: string[]
+    designHighlights: string[]
+    contentGuidelines: string
+  }
+  slideSummaries: PptSlideSummary[]
+}
+
+/**
  * PPT 模板 API
  */
 export interface PptTemplateApi {
   list: () => Promise<PptTemplateListResponse>
   getById: (id: string) => Promise<{ success: boolean; data?: PptTemplateListItem; error?: string }>
   getAnalysis: (id: string) => Promise<{ success: boolean; data?: unknown; error?: string }>
+  getAiSummary: (
+    id: string
+  ) => Promise<{ success: boolean; data?: PptTemplateAiSummary | null; error?: string }>
   getSourceData: (
     id: string
   ) => Promise<{ success: boolean; data?: { data: number[] }; error?: string }>
   getFirstSlidePreview: (id: string) => Promise<{ success: boolean; data?: string; error?: string }>
   create: (file: File, name?: string) => Promise<CreatePptTemplateResult>
   delete: (templateId: string) => Promise<{ success: boolean; error?: string }>
+  retrySummary: (templateId: string) => Promise<{ success: boolean; error?: string }>
 }
 
 /**

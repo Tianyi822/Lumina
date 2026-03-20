@@ -141,6 +141,7 @@ export interface PptExportConfig {
  */
 export type SlideContentBlock =
   | { type: 'paragraph'; text: string }
+  | { type: 'subheading'; text: string }
   | { type: 'list'; items: string[]; ordered: boolean }
   | { type: 'table'; headers: string[]; rows: string[][] }
   | { type: 'image'; alt: string; url: string }

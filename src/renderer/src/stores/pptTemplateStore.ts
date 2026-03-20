@@ -36,6 +36,7 @@ export const usePptTemplateStore = defineStore('pptTemplate', () => {
   const templatesByStatus = computed(() => {
     const grouped: Record<PptTemplateStatus, PptTemplateListItem[]> = {
       analyzing: [],
+      summarizing: [],
       completed: [],
       failed: []
     }
@@ -47,7 +48,7 @@ export const usePptTemplateStore = defineStore('pptTemplate', () => {
 
   // 是否有分析中的模板
   const hasAnalyzing = computed(() => {
-    return templates.value.some((t) => t.status === 'analyzing')
+    return templates.value.some((t) => t.status === 'analyzing' || t.status === 'summarizing')
   })
 
   // ==================== Actions ====================
@@ -91,10 +92,14 @@ export const usePptTemplateStore = defineStore('pptTemplate', () => {
       if (result.success && result.data) {
         // 添加到列表
         templates.value.push(result.data)
-        success.value = `模板 "${result.data.name}" 上传并分析成功`
+        success.value =
+          result.data.status === 'summarizing'
+            ? `模板 "${result.data.name}" 上传成功，正在生成 AI 总结`
+            : `模板 "${result.data.name}" 上传并分析成功`
         window.api.logger?.info('[PptTemplateStore] 模板创建成功', {
           id: result.data.id,
-          name: result.data.name
+          name: result.data.name,
+          status: result.data.status
         })
 
         // 3秒后清除成功消息
@@ -184,11 +189,60 @@ export const usePptTemplateStore = defineStore('pptTemplate', () => {
   }
 
   /**
+   * 重试模板 AI 总结
+   * @param templateId 模板 ID
+   */
+  async function retrySummary(templateId: string): Promise<boolean> {
+    error.value = null
+    success.value = null
+
+    try {
+      const result = await window.api.pptTemplate.retrySummary(templateId)
+      if (!result.success) {
+        error.value = result.error || '重试模板 AI 总结失败'
+        return false
+      }
+
+      const template = templates.value.find((item) => item.id === templateId)
+      if (template) {
+        template.status = 'summarizing'
+        delete template.summaryError
+        delete template.summaryCompletedAt
+        success.value = `模板 "${template.name}" 已重新开始生成 AI 总结`
+      } else {
+        success.value = '已重新开始生成 AI 总结'
+      }
+
+      setTimeout(() => {
+        success.value = null
+      }, 3000)
+
+      return true
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      error.value = `重试模板 AI 总结失败: ${message}`
+      window.api.logger?.error('[PptTemplateStore] 重试模板 AI 总结失败', {
+        templateId,
+        error: message
+      })
+      return false
+    }
+  }
+
+  /**
    * 获取模板的本地分析路径
    * @param templateId 模板 ID
    */
   function getAnalysisPath(templateId: string): string {
     return `~/.sparrow-manus/ppt-template/${templateId}/analysis.json`
+  }
+
+  /**
+   * 获取模板的本地 AI 总结路径
+   * @param templateId 模板 ID
+   */
+  function getAiSummaryPath(templateId: string): string {
+    return `~/.sparrow-manus/ppt-template/${templateId}/ai-summary.json`
   }
 
   return {
@@ -207,11 +261,13 @@ export const usePptTemplateStore = defineStore('pptTemplate', () => {
     // Actions
     loadTemplates,
     createTemplate,
+    retrySummary,
     deleteTemplate,
     refreshTemplates,
     clearError,
     clearSuccess,
     clearMessages,
-    getAnalysisPath
+    getAnalysisPath,
+    getAiSummaryPath
   }
 })

@@ -19,6 +19,9 @@ export const SOURCE_FILE_NAME = 'source.pptx'
 /** 分析结果文件名 */
 export const ANALYSIS_FILE_NAME = 'analysis.json'
 
+/** AI 总结文件名 */
+export const AI_SUMMARY_FILE_NAME = 'ai-summary.json'
+
 /** 缩略图文件名 */
 export const THUMBNAIL_FILE_NAME = 'thumbnail.jpg'
 
@@ -60,6 +63,14 @@ export function getTemplateSourcePath(templateId: string): string {
  */
 export function getTemplateAnalysisPath(templateId: string): string {
   return join(getTemplateDirPath(templateId), ANALYSIS_FILE_NAME)
+}
+
+/**
+ * 获取模板 AI 总结文件路径
+ * 返回 ~/.sparrow-manus/ppt-template/<templateId>/ai-summary.json
+ */
+export function getTemplateAiSummaryPath(templateId: string): string {
+  return join(getTemplateDirPath(templateId), AI_SUMMARY_FILE_NAME)
 }
 
 /**
