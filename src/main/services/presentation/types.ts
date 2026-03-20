@@ -1,4 +1,4 @@
-import type { PptTemplateAnalysis } from '@shared/types/ppt-template'
+import type { PptTemplateAiSummary, PptTemplateAnalysis } from '@shared/types/ppt-template'
 
 export interface PreviewCanvasSize {
   width: number
@@ -18,6 +18,14 @@ export interface PreviewRect {
  */
 export interface TemplateAnalysisContext {
   analysis: PptTemplateAnalysis
+}
+
+/**
+ * 模板上下文
+ * 供模型规划阶段读取分析结果与 AI 总结
+ */
+export interface TemplateContext extends TemplateAnalysisContext {
+  aiSummary: PptTemplateAiSummary | null
 }
 
 /**

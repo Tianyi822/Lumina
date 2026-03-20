@@ -11,6 +11,12 @@ export * from './templatePaths'
 // 分析器
 export { PptTemplateAnalyzer } from './analyzers/PptTemplateAnalyzer'
 
+// AI 总结
+export { PromptBuilder } from './summarizer/PromptBuilder'
+export { SummaryParser } from './summarizer/SummaryParser'
+export { SummaryValidator } from './summarizer/SummaryValidator'
+export { PptTemplateSummarizer } from './summarizer/PptTemplateSummarizer'
+
 // 服务
 export { getPptTemplateService, PptTemplateService } from './PptTemplateService'
 export { presentationToolService, PresentationToolService } from './PresentationToolService'
