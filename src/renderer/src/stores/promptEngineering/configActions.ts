@@ -8,10 +8,20 @@ import {
   stopScopedLoading
 } from './utils'
 
+/** 配置管理 Actions 返回类型 */
+interface ConfigActions {
+  loadConfig: () => Promise<void>
+  saveConfig: () => Promise<boolean>
+  updatePromptConfig: (config: Partial<PromptConfig>) => void
+  resetPromptConfig: () => Promise<{ success: boolean; config?: PromptConfig; error?: string }>
+}
+
 /**
  * 创建配置管理 Actions
  */
-export function createPromptEngineeringConfigActions(store: PromptEngineeringStoreRefs) {
+export function createPromptEngineeringConfigActions(
+  store: PromptEngineeringStoreRefs
+): ConfigActions {
   /**
    * 加载提示词配置
    */

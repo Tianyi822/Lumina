@@ -15,12 +15,22 @@ interface PromptEngineeringVariableActionOptions {
   saveConfig: () => Promise<boolean>
 }
 
+/** 变量管理 Actions 返回类型 */
+interface VariableActions {
+  validateVariableName: (name: string, originalName?: string) => string | null
+  saveCustomVariable: (
+    variable: Pick<PromptVariable, 'name' | 'description' | 'defaultValue'>,
+    originalName?: string
+  ) => Promise<{ success: boolean; error?: string }>
+  deleteCustomVariable: (name: string) => Promise<boolean>
+}
+
 /**
  * 创建变量管理 Actions
  */
 export function createPromptEngineeringVariableActions(
   options: PromptEngineeringVariableActionOptions
-) {
+): VariableActions {
   /**
    * 覆盖当前自定义变量并持久化
    */
