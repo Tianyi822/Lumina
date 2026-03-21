@@ -8,10 +8,22 @@ import {
   stopScopedLoading
 } from './utils'
 
+/** 测试沙盘 Actions 返回类型 */
+interface SandboxActions {
+  setVariableOverrides: (overrides: VariableOverrides) => void
+  updateVariableOverride: (name: string, value: string) => void
+  clearVariableOverrides: () => void
+  previewPrompt: (payload: TestPromptPayload) => Promise<boolean>
+  runSandboxTest: (payload: TestPromptPayload) => Promise<boolean>
+  clearSandboxResult: () => void
+}
+
 /**
  * 创建测试沙盘 Actions
  */
-export function createPromptEngineeringSandboxActions(store: PromptEngineeringStoreRefs) {
+export function createPromptEngineeringSandboxActions(
+  store: PromptEngineeringStoreRefs
+): SandboxActions {
   /**
    * 设置变量覆盖值
    */

@@ -197,7 +197,9 @@ function handleClearResult(): void {
           </div>
         </div>
 
-        <pre v-if="assembledPrompt" class="pe-code-block pe-prompt-block">{{ assembledPrompt }}</pre>
+        <pre v-if="assembledPrompt" class="pe-code-block pe-prompt-block">{{
+          assembledPrompt
+        }}</pre>
         <div v-else class="pe-empty-state">点击“预览提示词”后，这里会显示最终发给模型的内容。</div>
       </div>
     </div>

@@ -2,6 +2,7 @@
  * 沙箱基础类型
  */
 import type { ContainerState } from './container'
+import type { FrontendSandboxMetadata } from './frontend'
 
 /**
  * 平台类型
@@ -57,6 +58,8 @@ export interface SandboxData {
   composeFilePath?: string
   /** Dockerfile 配置 ID */
   dockerfileConfigId?: string
+  /** 前端项目元数据 */
+  frontend?: FrontendSandboxMetadata
   /** 是否为孤立沙箱（容器已丢失） */
   isOrphan?: boolean
 }

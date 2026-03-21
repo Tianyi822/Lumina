@@ -4,6 +4,8 @@ import { ToolArgs, SandboxToolDefinition } from './tools/types'
 import { queryTools } from './tools/queryTools'
 import { managementTools } from './tools/managementTools'
 import { execTools } from './tools/execTools'
+import { fileTools } from './tools/fileTools'
+import { frontendTools } from './tools/frontendTools'
 
 /**
  * 沙箱工具服务
@@ -13,7 +15,13 @@ export class SandboxToolService {
   private tools: Map<string, SandboxToolDefinition> = new Map()
 
   constructor() {
-    this.registerTools([...queryTools, ...managementTools, ...execTools])
+    this.registerTools([
+      ...queryTools,
+      ...managementTools,
+      ...execTools,
+      ...fileTools,
+      ...frontendTools
+    ])
   }
 
   /**

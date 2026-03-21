@@ -1,11 +1,27 @@
-import type { EnhancedFewShotExample, ExampleFilter } from '@shared/types/prompt'
+import type { EnhancedFewShotExample, ExampleFilter, ImportResult } from '@shared/types/prompt'
 import type { PromptEngineeringStoreRefs } from './types'
 import { getErrorMessage, startScopedLoading, stopScopedLoading } from './utils'
+
+/** 示例管理 Actions 返回类型 */
+interface ExampleActions {
+  loadExamples: () => Promise<void>
+  loadExampleStats: () => Promise<void>
+  setExampleFilter: (filter: Partial<ExampleFilter>) => void
+  resetExampleFilter: () => void
+  updateExample: (example: EnhancedFewShotExample) => Promise<boolean>
+  deleteExamples: (ids: string[]) => Promise<boolean>
+  extractFromSessions: () => Promise<{ success: boolean; extracted?: number }>
+  importExamples: (json: string) => Promise<ImportResult>
+  exportExamples: () => Promise<{ success: boolean; json?: string; error?: string }>
+  clearDynamicExamples: () => Promise<{ success: boolean; deletedCount?: number }>
+}
 
 /**
  * 创建示例管理 Actions
  */
-export function createPromptEngineeringExampleActions(store: PromptEngineeringStoreRefs) {
+export function createPromptEngineeringExampleActions(
+  store: PromptEngineeringStoreRefs
+): ExampleActions {
   /**
    * 加载示例列表
    */
@@ -137,7 +153,7 @@ export function createPromptEngineeringExampleActions(store: PromptEngineeringSt
   /**
    * 导入示例
    */
-  async function importExamples(json: string) {
+  async function importExamples(json: string): Promise<ImportResult> {
     startScopedLoading(store.examplesLoadingCounter)
     store.error.value = null
 
