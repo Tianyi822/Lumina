@@ -171,11 +171,7 @@ onUnmounted(() => {
       <!-- 右侧滚动阴影 -->
       <div v-if="canScrollRight" class="pe-scroll-shadow pe-scroll-shadow-right"></div>
 
-      <div
-        ref="scrollContainerRef"
-        class="pe-table-scroll"
-        @mousedown="handleMouseDown"
-      >
+      <div ref="scrollContainerRef" class="pe-table-scroll" @mousedown="handleMouseDown">
         <table class="pe-table">
           <thead>
             <tr class="pe-table-header">

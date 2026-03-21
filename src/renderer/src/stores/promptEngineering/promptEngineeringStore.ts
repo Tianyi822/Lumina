@@ -6,15 +6,8 @@ import type {
   ExampleStats,
   TestPromptResult
 } from '@shared/types/prompt'
-import {
-  getSystemPromptVariables,
-  normalizeCustomPromptVariables
-} from '@shared/utils'
-import type {
-  PromptEngineeringStoreRefs,
-  PromptEngineeringTab,
-  VariableOverrides
-} from './types'
+import { getSystemPromptVariables, normalizeCustomPromptVariables } from '@shared/utils'
+import type { PromptEngineeringStoreRefs, PromptEngineeringTab, VariableOverrides } from './types'
 import { createPromptEngineeringConfigActions } from './configActions'
 import { createPromptEngineeringVariableActions } from './variableActions'
 import { createPromptEngineeringExampleActions } from './exampleActions'

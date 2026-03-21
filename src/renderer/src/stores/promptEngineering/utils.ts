@@ -1,10 +1,7 @@
 import type { Ref } from 'vue'
 import type { PromptConfig } from '@shared/types/config'
 import type { TestPromptPayload } from '@shared/types/prompt'
-import {
-  normalizeCustomPromptVariables,
-  sanitizePromptVariableValue
-} from '@shared/utils'
+import { normalizeCustomPromptVariables, sanitizePromptVariableValue } from '@shared/utils'
 import type { VariableOverrides } from './types'
 
 /**
