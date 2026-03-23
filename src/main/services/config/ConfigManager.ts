@@ -3,7 +3,7 @@ import { join } from 'path'
 import { AppConfig, ConfigLoadResult } from '@main/types/config'
 import { getConfigDirPath, getConfigFilePath } from './configPaths'
 import { logger } from '@main/services/logger'
-import type { EmbeddingConfig } from '@shared/types/config'
+import { createDefaultVideoGenerationConfig, type EmbeddingConfig } from '@shared/types/config'
 import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
 import { normalizeCustomPromptVariables } from '@shared/utils'
 
@@ -43,7 +43,8 @@ function createEmptyConfig(): AppConfig {
     voiceRecognition: {
       provider: 'aliyun',
       enabled: false
-    }
+    },
+    videoGeneration: createDefaultVideoGenerationConfig()
   }
 }
 
@@ -145,6 +146,11 @@ function migrateConfig(config: AppConfig): AppConfig {
       provider: 'aliyun',
       enabled: false
     }
+  }
+
+  migrated.videoGeneration = {
+    ...createDefaultVideoGenerationConfig(),
+    ...migrated.videoGeneration
   }
 
   return migrated
