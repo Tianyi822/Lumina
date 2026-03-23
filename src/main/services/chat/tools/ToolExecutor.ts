@@ -408,6 +408,16 @@ export class ToolExecutor {
 
       this.checkStopped(sessionId)
 
+      const userInteraction = this.extractUserInteractionRequest(result)
+      if (userInteraction) {
+        this.pendingUserInteraction.add(sessionId)
+        this.sendStreamEvent(webContents, {
+          type: 'user_interaction',
+          sessionId,
+          userInteraction
+        })
+      }
+
       this.sendStreamEvent(webContents, {
         type: 'tool_result',
         sessionId,
@@ -580,6 +590,16 @@ export class ToolExecutor {
       )
 
       this.checkStopped(sessionId)
+
+      const userInteraction = this.extractUserInteractionRequest(result)
+      if (userInteraction) {
+        this.pendingUserInteraction.add(sessionId)
+        this.sendStreamEvent(webContents, {
+          type: 'user_interaction',
+          sessionId,
+          userInteraction
+        })
+      }
 
       this.sendStreamEvent(webContents, {
         type: 'tool_result',
@@ -759,9 +779,10 @@ export class ToolExecutor {
 
       return {
         question: parsed.question,
-        options: parsed.options,
+        options: Array.isArray(parsed.options) ? parsed.options : [],
         interactionType: parsed.interactionType,
-        initialVisibleCount: parsed.initialVisibleCount
+        initialVisibleCount: parsed.initialVisibleCount,
+        videoGenerationConfig: parsed.videoGenerationConfig
       }
     } catch {
       return null

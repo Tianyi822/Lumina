@@ -16,6 +16,7 @@ import type { MCPToolCallResult } from '@shared/types/mcp'
 const FORCED_SEQUENTIAL_TOOLS = new Set([
   'sandbox__ask_user',
   'presentation__request_template_selection',
+  'video__request_generation_config',
   'video__generate'
 ])
 
