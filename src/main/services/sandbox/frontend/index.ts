@@ -4,3 +4,4 @@ const frontendSandboxService = new FrontendSandboxService()
 
 export { frontendSandboxService, FrontendSandboxService }
 export * from './imageBuilder'
+export * from './waitForHttpReady'
