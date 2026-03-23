@@ -1,5 +1,7 @@
 import type { VideoGenerationProvider, VideoQuality, VideoSize } from '../config'
 
+export type VideoDuration = 5 | 10
+
 /**
  * 视频任务状态
  */
@@ -14,6 +16,7 @@ export interface VideoGenerationRequest {
   size?: VideoSize
   quality?: VideoQuality
   withAudio?: boolean
+  duration?: VideoDuration
   fps?: number
 }
 
