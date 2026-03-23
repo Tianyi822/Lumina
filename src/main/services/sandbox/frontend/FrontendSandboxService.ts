@@ -5,12 +5,16 @@ import { getDockerService } from '../docker/DockerService'
 import { DEFAULT_PROJECT_ROOT, normalizeProjectRoot, sandboxFileService } from '../file'
 import { templateService } from '../templates'
 import { ensureFrontendBaseImage } from './imageBuilder'
+import { checkHttpReady, waitForHttpReady } from './waitForHttpReady'
 
 const dockerService = getDockerService()
 
 const DEFAULT_PORT = 5173
 const INSTALL_TIMEOUT_SECONDS = 600
-const STARTUP_LOG_PATH = '/tmp/frontend-dev.log'
+const PREVIEW_READY_TIMEOUT_MS = 15000
+
+export const FRONTEND_STARTUP_LOG_PATH = '/tmp/frontend-dev.log'
+export const FRONTEND_LOG_HINT = `可稍后重试，或通过 sandbox__exec_command 查看 ${FRONTEND_STARTUP_LOG_PATH}`
 
 /**
  * 前端沙箱服务
@@ -83,6 +87,7 @@ export class FrontendSandboxService {
       sandboxId = createResult.sandbox.sandboxId
 
       const sandbox = createResult.sandbox
+      const previewUrl = `http://localhost:${hostPort}`
       sandbox.containerIds = [containerId]
       sandbox.primaryContainerId = containerId
       sandbox.status = 'running'
@@ -91,7 +96,7 @@ export class FrontendSandboxService {
         projectRoot,
         containerPort,
         hostPort,
-        previewUrl: `http://localhost:${hostPort}`
+        previewUrl
       }
 
       const saveResult = sandboxService.saveSandbox(sandbox)
@@ -131,7 +136,7 @@ export class FrontendSandboxService {
 
       if (options.autoStart !== false) {
         const startResult = await dockerService.execCommand(containerId, {
-          command: `nohup ${template.startCommand} > ${STARTUP_LOG_PATH} 2>&1 &`,
+          command: `nohup ${template.startCommand} > ${FRONTEND_STARTUP_LOG_PATH} 2>&1 &`,
           workdir: projectRoot,
           timeout: 30
         })
@@ -145,6 +150,20 @@ export class FrontendSandboxService {
             )
           )
         }
+      }
+
+      const previewReady =
+        options.autoStart !== false
+          ? await waitForHttpReady(previewUrl, PREVIEW_READY_TIMEOUT_MS)
+          : false
+      const message = this.buildPreviewMessage(options.autoStart !== false, previewReady)
+
+      if (!previewReady && options.autoStart !== false) {
+        logger.warn('前端预览服务尚未就绪', 'main', {
+          sandboxId,
+          previewUrl,
+          startupLogPath: FRONTEND_STARTUP_LOG_PATH
+        })
       }
 
       logger.info('前端沙箱创建成功', 'main', {
@@ -162,7 +181,10 @@ export class FrontendSandboxService {
         projectRoot,
         containerPort,
         hostPort,
-        previewUrl: `http://localhost:${hostPort}`,
+        previewUrl,
+        previewReady,
+        startupLogPath: FRONTEND_STARTUP_LOG_PATH,
+        message,
         status: 'running'
       }
     } catch (error) {
@@ -200,6 +222,36 @@ export class FrontendSandboxService {
   }
 
   /**
+   * 获取前端预览状态
+   */
+  async getPreviewInfo(
+    sandboxId: string,
+    waitTimeoutMs: number = 0
+  ): Promise<Pick<
+    FrontendSandboxInfo,
+    'previewUrl' | 'previewReady' | 'startupLogPath' | 'message'
+  > | null> {
+    const sandbox = sandboxService.loadSandbox(sandboxId)
+    const previewUrl = sandbox?.frontend?.previewUrl
+
+    if (!previewUrl) {
+      return null
+    }
+
+    const previewReady =
+      waitTimeoutMs > 0
+        ? await waitForHttpReady(previewUrl, waitTimeoutMs, 500)
+        : await checkHttpReady(previewUrl)
+
+    return {
+      previewUrl,
+      previewReady,
+      startupLogPath: FRONTEND_STARTUP_LOG_PATH,
+      message: previewReady ? undefined : `预览服务尚未就绪，${FRONTEND_LOG_HINT}`
+    }
+  }
+
+  /**
    * 生成容器名称
    */
   private buildContainerName(name: string): string {
@@ -231,5 +283,20 @@ export class FrontendSandboxService {
   private buildExecErrorMessage(prefix: string, stdout?: string, stderr?: string): string {
     const details = (stdout || stderr || '').trim()
     return details ? `${prefix}: ${details}` : prefix
+  }
+
+  /**
+   * 构建预览状态提示
+   */
+  private buildPreviewMessage(autoStarted: boolean, previewReady: boolean): string | undefined {
+    if (!autoStarted) {
+      return '开发服务器未自动启动，请稍后手动执行启动命令'
+    }
+
+    if (!previewReady) {
+      return `沙箱已创建，但预览服务尚未就绪，${FRONTEND_LOG_HINT}`
+    }
+
+    return undefined
   }
 }

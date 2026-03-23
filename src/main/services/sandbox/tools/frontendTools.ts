@@ -51,8 +51,11 @@ export const createFrontendSandboxTool: SandboxToolDefinition = {
             {
               sandbox_id: result.sandboxId,
               preview_url: result.previewUrl,
+              preview_ready: result.previewReady,
               framework: result.framework,
-              status: result.status
+              status: result.status,
+              startup_log_path: result.startupLogPath,
+              message: result.message
             },
             null,
             2
@@ -83,8 +86,8 @@ export const getPreviewUrlTool: SandboxToolDefinition = {
       return { success: false, error: '未找到指定的沙箱' }
     }
 
-    const previewUrl = frontendSandboxService.getPreviewUrl(sandbox.sandboxId)
-    if (!previewUrl) {
+    const previewInfo = await frontendSandboxService.getPreviewInfo(sandbox.sandboxId, 3000)
+    if (!previewInfo) {
       return { success: false, error: '该沙箱没有前端预览地址' }
     }
 
@@ -97,7 +100,10 @@ export const getPreviewUrlTool: SandboxToolDefinition = {
             {
               sandbox_id: sandbox.sandboxId,
               sandbox_name: sandbox.name,
-              preview_url: previewUrl
+              preview_url: previewInfo.previewUrl,
+              preview_ready: previewInfo.previewReady,
+              startup_log_path: previewInfo.startupLogPath,
+              message: previewInfo.message
             },
             null,
             2
