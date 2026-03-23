@@ -595,6 +595,16 @@ function handleStreamEvent(event: StreamEvent): void {
   // 流式响应完成或出错时保存会话
   if (event.type === 'done' || event.type === 'error') {
     sessionStore.saveCurrentSession()
+    return
+  }
+
+  // 对于后台异步回填的视频结果，在非流式状态下也立即持久化
+  if (
+    event.type === 'tool_result' &&
+    event.sessionId === currentChatId.value &&
+    !messages.value.some((message) => message.isStreaming)
+  ) {
+    sessionStore.saveCurrentSession()
   }
 }
 
