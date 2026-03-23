@@ -3,7 +3,12 @@ import { join } from 'path'
 import { AppConfig, ConfigLoadResult } from '@main/types/config'
 import { getConfigDirPath, getConfigFilePath } from './configPaths'
 import { logger } from '@main/services/logger'
-import { createDefaultVideoGenerationConfig, type EmbeddingConfig } from '@shared/types/config'
+import {
+  createDefaultVideoGenerationConfig,
+  DEFAULT_VIDEO_GENERATION_TIMEOUT_MS,
+  LEGACY_VIDEO_GENERATION_TIMEOUT_MS,
+  type EmbeddingConfig
+} from '@shared/types/config'
 import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
 import { normalizeCustomPromptVariables } from '@shared/utils'
 
@@ -148,9 +153,16 @@ function migrateConfig(config: AppConfig): AppConfig {
     }
   }
 
+  const originalVideoGeneration = migrated.videoGeneration
   migrated.videoGeneration = {
     ...createDefaultVideoGenerationConfig(),
     ...migrated.videoGeneration
+  }
+  if (
+    !originalVideoGeneration?.requestTimeoutMs ||
+    originalVideoGeneration.requestTimeoutMs === LEGACY_VIDEO_GENERATION_TIMEOUT_MS
+  ) {
+    migrated.videoGeneration.requestTimeoutMs = DEFAULT_VIDEO_GENERATION_TIMEOUT_MS
   }
 
   return migrated

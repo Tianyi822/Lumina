@@ -217,7 +217,8 @@ export interface VideoGenerationConfig {
 export const DEFAULT_VIDEO_GENERATION_BASE_URL = 'https://open.bigmodel.cn'
 export const DEFAULT_VIDEO_GENERATION_MODEL = 'cogvideox-3'
 export const DEFAULT_VIDEO_GENERATION_POLL_INTERVAL_MS = 5000
-export const DEFAULT_VIDEO_GENERATION_TIMEOUT_MS = 180000
+export const LEGACY_VIDEO_GENERATION_TIMEOUT_MS = 180000
+export const DEFAULT_VIDEO_GENERATION_TIMEOUT_MS = 600000
 
 /**
  * 创建默认的视频生成配置

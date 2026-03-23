@@ -231,7 +231,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="setting-note">当前轮询间隔和超时时间使用内置默认值：5 秒轮询，180 秒超时。</div>
+    <div class="setting-note">当前轮询间隔和超时时间使用内置默认值：5 秒轮询，10 分钟超时。</div>
 
     <div class="actions">
       <button class="btn btn-secondary" :disabled="!hasChanges" @click="handleReset">重置</button>
