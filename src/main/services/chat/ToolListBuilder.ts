@@ -3,6 +3,7 @@ import type { KnowledgeBaseReference } from '@shared/types/knowledge'
 import { sandboxToolService } from '../sandbox'
 import { knowledgeToolService } from '../knowledge'
 import { getPptTemplateService, presentationToolService } from '../presentation'
+import { videoToolService } from '../video'
 import type { StopController } from './StopController'
 import type { Logger } from '../logger'
 
@@ -60,6 +61,17 @@ export class ToolListBuilder {
       })
     }
 
+    const videoTools = this.buildVideoTools()
+    if (videoTools.length > 0) {
+      allTools.push(...videoTools)
+
+      this.logger.info('已添加视频工具到工具列表', 'main', {
+        sessionId,
+        videoToolCount: videoTools.length,
+        totalToolCount: allTools.length
+      })
+    }
+
     if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0 && sessionId) {
       const knowledgeTools = this.buildKnowledgeTools(selectedKnowledgeBases, sessionId)
       allTools.push(...knowledgeTools)
@@ -102,6 +114,23 @@ export class ToolListBuilder {
         : tool.name
       return {
         serverName: tool.serverName || 'presentation',
+        toolName,
+        description: tool.description,
+        inputSchema: tool.inputSchema
+      }
+    })
+  }
+
+  /**
+   * 构建视频工具列表
+   */
+  private buildVideoTools(): MCPToolReference[] {
+    return videoToolService.getTools().map((tool) => {
+      const toolName = tool.name.startsWith('video__')
+        ? tool.name.slice('video__'.length)
+        : tool.name
+      return {
+        serverName: tool.serverName || 'video',
         toolName,
         description: tool.description,
         inputSchema: tool.inputSchema
