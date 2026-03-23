@@ -568,7 +568,12 @@ export class ToolExecutor {
       this.checkStopped(sessionId)
 
       const result = await this.withTimeoutAndStopCheck(
-        videoToolService.callTool(`video__${toolName}`, args),
+        videoToolService.callTool(`video__${toolName}`, args, {
+          sessionId,
+          toolCallId: toolCall.id,
+          toolName,
+          webContents
+        }),
         sessionId,
         VIDEO_TOOL_TIMEOUT_MS,
         `视频工具调用 ${toolName}`
