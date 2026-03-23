@@ -19,7 +19,8 @@ export function sessionMessageToMessage(msg: SessionMessage): Message {
     reactSteps: msg.reactSteps,
     reactIterations: msg.reactIterations,
     attachedDocuments: msg.attachedDocuments,
-    attachedImages: msg.attachedImages
+    attachedImages: msg.attachedImages,
+    attachedVideos: msg.attachedVideos
   }
 }
 
@@ -50,7 +51,8 @@ export function messageToSessionMessage(msg: Message): SessionMessage {
       reactSteps: msg.reactSteps,
       reactIterations: msg.reactIterations,
       attachedDocuments: msg.attachedDocuments,
-      attachedImages: msg.attachedImages
+      attachedImages: msg.attachedImages,
+      attachedVideos: msg.attachedVideos
     })
   )
   return plainMsg

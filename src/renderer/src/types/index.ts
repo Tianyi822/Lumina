@@ -12,6 +12,7 @@ export type {
   ChatMessage,
   AttachedDocument,
   AttachedImage,
+  AttachedVideo,
   ToolCallMessage,
   MCPToolReference,
   ToolCallInfo,
@@ -37,6 +38,9 @@ export * from '@shared/types/session'
 // 配置相关类型
 export * from '@shared/types/config'
 
+// 视频相关类型
+export * from '@shared/types/video'
+
 // 知识库相关类型
 export * from '@shared/types/knowledge'
 
@@ -59,7 +63,7 @@ export type AttachmentFile = {
 // ==================== UI 特有类型 ====================
 
 import type { ToolCallInfo, ToolResultInfo, ToolCallMessage } from '@shared/types/chat'
-import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
+import type { AttachedDocument, AttachedImage, AttachedVideo } from '@shared/types/chat'
 
 /**
  * ReAct 步骤（UI 层特有）
@@ -104,6 +108,7 @@ export interface Message {
   tool_call_id?: string // 工具调用的 ID（仅 tool 消息，用于保存到会话）
   attachedDocuments?: AttachedDocument[] // 附加的文档（仅 user 消息）
   attachedImages?: AttachedImage[] // 附加的图片（仅 user 消息）
+  attachedVideos?: AttachedVideo[] // 附加的视频（仅 assistant 消息）
 }
 
 /**

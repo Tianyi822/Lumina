@@ -9,6 +9,7 @@ import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
 import VoiceRecognitionSettings from './settings/VoiceRecognitionSettings.vue'
 import PptTemplateSettings from './settings/PptTemplateSettings.vue'
+import VideoModelSettings from './settings/VideoModelSettings.vue'
 import { useConfigStore } from '@renderer/stores'
 
 const emit = defineEmits<{
@@ -22,7 +23,15 @@ const { loading, errorMessage, successMessage, themeConfig } = storeToRefs(confi
 
 // 当前激活的 Tab
 const activeTab = ref<
-  'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge' | 'voice' | 'pptTemplate'
+  | 'theme'
+  | 'model'
+  | 'video'
+  | 'mcp'
+  | 'prompt'
+  | 'embedding'
+  | 'knowledge'
+  | 'voice'
+  | 'pptTemplate'
 >('model')
 
 // 信息消息（仅用于嵌入模型设置）
@@ -80,6 +89,13 @@ onUnmounted(() => {
             @click="activeTab = 'model'"
           >
             对话模型配置
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'video' }"
+            @click="activeTab = 'video'"
+          >
+            视频模型配置
           </button>
           <button
             class="tab-btn"
@@ -150,6 +166,15 @@ onUnmounted(() => {
             @update:error-message="errorMessage = $event"
             @update:success-message="successMessage = $event"
             @mcp-updated="emit('mcp-updated')"
+          />
+
+          <!-- 视频模型配置 Tab -->
+          <VideoModelSettings
+            v-else-if="activeTab === 'video'"
+            :error-message="errorMessage"
+            :success-message="successMessage"
+            @update:error-message="errorMessage = $event"
+            @update:success-message="successMessage = $event"
           />
 
           <!-- 嵌入模型配置 Tab -->

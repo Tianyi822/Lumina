@@ -4,11 +4,13 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type {
+  AttachedVideo,
   Message,
   ReActIteration,
   ReActStep,
   StreamEvent,
-  UserInteractionRequest
+  UserInteractionRequest,
+  VideoToolResultPayload
 } from '@renderer/types'
 import { useMessageCacheStore } from './messageCacheStore'
 
@@ -151,6 +153,159 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     }
 
     currentIterationIndex.value.delete(sessionId)
+  }
+
+  /**
+   * 判断工具结果是否包含视频附件
+   */
+  function isVideoToolResultPayload(result: unknown): result is VideoToolResultPayload {
+    if (!result || typeof result !== 'object') {
+      return false
+    }
+
+    const payload = result as Partial<VideoToolResultPayload>
+    return (
+      typeof payload.taskId === 'string' &&
+      typeof payload.status === 'string' &&
+      !!payload.attachment &&
+      typeof payload.attachment === 'object' &&
+      (payload.attachment as { kind?: string }).kind === 'video'
+    )
+  }
+
+  /**
+   * 将工具结果转换为消息附件视频
+   */
+  function toAttachedVideo(result: VideoToolResultPayload): AttachedVideo {
+    return {
+      provider: result.attachment.provider,
+      model: result.attachment.model,
+      prompt: result.attachment.prompt,
+      url: result.attachment.url || '',
+      coverImageUrl: result.attachment.coverImageUrl,
+      taskId: result.attachment.taskId || result.taskId,
+      status: result.attachment.status,
+      errorMessage: result.attachment.errorMessage
+    }
+  }
+
+  /**
+   * 向 assistant 消息挂载或更新视频附件
+   */
+  function upsertAttachedVideo(message: Message, attachedVideo: AttachedVideo): void {
+    if (!message.attachedVideos) {
+      message.attachedVideos = []
+    }
+
+    const existingIndex = message.attachedVideos.findIndex(
+      (video) =>
+        (attachedVideo.taskId && video.taskId === attachedVideo.taskId) ||
+        (!attachedVideo.taskId &&
+          video.prompt === attachedVideo.prompt &&
+          video.model === attachedVideo.model)
+    )
+
+    if (existingIndex >= 0) {
+      message.attachedVideos[existingIndex] = attachedVideo
+      return
+    }
+
+    message.attachedVideos.push(attachedVideo)
+  }
+
+  /**
+   * 查找某个工具调用所属的 assistant 消息
+   */
+  function findToolOwnerMessage(messages: Message[], toolCallId: string): Message | undefined {
+    return [...messages]
+      .reverse()
+      .find(
+        (message) =>
+          message.role === 'assistant' &&
+          (message.tool_calls?.some((toolCall) => toolCall.id === toolCallId) ||
+            message.reactSteps?.some(
+              (step) =>
+                (step.type === 'tool_call' && step.toolCall?.id === toolCallId) ||
+                (step.type === 'tool_result' && step.toolResult?.id === toolCallId)
+            ))
+      )
+  }
+
+  /**
+   * 更新或创建对应的 tool 消息
+   */
+  function upsertToolMessage(
+    messages: Message[],
+    toolResult: NonNullable<StreamEvent['toolResult']>
+  ): void {
+    let toolContent: string
+    try {
+      if (toolResult.success) {
+        toolContent =
+          typeof toolResult.result === 'string'
+            ? toolResult.result
+            : JSON.stringify(toolResult.result)
+      } else if (toolResult.result !== undefined) {
+        toolContent = JSON.stringify({
+          error: toolResult.error,
+          result: toolResult.result
+        })
+      } else {
+        toolContent = JSON.stringify({ error: toolResult.error })
+      }
+    } catch {
+      toolContent = JSON.stringify({ raw: String(toolResult.result) })
+    }
+
+    const existingMessage = messages.find(
+      (message) => message.role === 'tool' && message.tool_call_id === toolResult.id
+    )
+
+    if (existingMessage) {
+      existingMessage.content = toolContent
+      existingMessage.timestamp = new Date().toISOString()
+      return
+    }
+
+    messages.push({
+      id: `msg-${Date.now()}`,
+      role: 'tool',
+      content: toolContent,
+      tool_call_id: toolResult.id,
+      timestamp: new Date().toISOString()
+    })
+  }
+
+  /**
+   * 更新已存在的 tool_result 步骤
+   */
+  function updateToolResultStep(
+    message: Message,
+    toolResult: NonNullable<StreamEvent['toolResult']>
+  ): boolean {
+    const timestamp = new Date().toISOString()
+
+    const existingLegacyStep = message.reactSteps?.find(
+      (step) => step.type === 'tool_result' && step.toolResult?.id === toolResult.id
+    )
+    if (existingLegacyStep) {
+      existingLegacyStep.toolResult = toolResult
+      existingLegacyStep.timestamp = timestamp
+    }
+
+    let updatedIteration = false
+    for (const iteration of message.reactIterations || []) {
+      const existingIterationStep = iteration.steps.find(
+        (step) => step.type === 'tool_result' && step.toolResult?.id === toolResult.id
+      )
+      if (existingIterationStep) {
+        existingIterationStep.toolResult = toolResult
+        existingIterationStep.timestamp = timestamp
+        updatedIteration = true
+      }
+    }
+
+    return Boolean(existingLegacyStep || updatedIteration)
   }
 
   // ==================== Actions ====================
@@ -310,41 +465,43 @@ export const useChatStreamStore = defineStore('chatStream', () => {
         break
 
       case 'tool_result':
-        if (streamingMessage && event.toolResult) {
-          // 1. 创建独立的 tool 消息（标准格式）
-          // 安全序列化 result，处理可能包含复杂对象的情况
-          let toolContent: string
-          try {
-            if (event.toolResult.success) {
-              const result = event.toolResult.result
-              // 如果 result 是字符串，直接使用；否则尝试序列化
-              if (typeof result === 'string') {
-                toolContent = result
-              } else {
-                toolContent = JSON.stringify(result)
+        if (event.toolResult) {
+          const targetAssistantMessage =
+            streamingMessage || findToolOwnerMessage(targetMessages, event.toolResult.id)
+
+          if (targetAssistantMessage && isVideoToolResultPayload(event.toolResult.result)) {
+            upsertAttachedVideo(targetAssistantMessage, toAttachedVideo(event.toolResult.result))
+          }
+
+          const hasExistingToolMessage = targetMessages.some(
+            (message) => message.role === 'tool' && message.tool_call_id === event.toolResult?.id
+          )
+          if (targetAssistantMessage || hasExistingToolMessage) {
+            upsertToolMessage(targetMessages, event.toolResult)
+          }
+
+          if (targetAssistantMessage) {
+            if (streamingMessage && targetAssistantMessage.id === streamingMessage.id) {
+              const updated = updateToolResultStep(targetAssistantMessage, event.toolResult)
+              if (!updated) {
+                const toolResultStep = {
+                  type: 'tool_result' as const,
+                  toolResult: event.toolResult,
+                  timestamp: new Date().toISOString()
+                }
+                appendToolStep(targetAssistantMessage, targetSessionId, toolResultStep)
               }
-            } else {
-              toolContent = JSON.stringify({ error: event.toolResult.error })
+            } else if (!updateToolResultStep(targetAssistantMessage, event.toolResult)) {
+              if (!targetAssistantMessage.reactSteps) {
+                targetAssistantMessage.reactSteps = []
+              }
+              targetAssistantMessage.reactSteps.push({
+                type: 'tool_result',
+                toolResult: event.toolResult,
+                timestamp: new Date().toISOString()
+              })
             }
-          } catch {
-            toolContent = JSON.stringify({ raw: String(event.toolResult.result) })
           }
-
-          const toolMessage: Message = {
-            id: `msg-${Date.now()}`,
-            role: 'tool',
-            content: toolContent,
-            tool_call_id: event.toolResult.id,
-            timestamp: new Date().toISOString()
-          }
-          targetMessages.push(toolMessage)
-
-          const toolResultStep = {
-            type: 'tool_result' as const,
-            toolResult: event.toolResult,
-            timestamp: new Date().toISOString()
-          }
-          appendToolStep(streamingMessage, targetSessionId, toolResultStep)
         }
         break
 

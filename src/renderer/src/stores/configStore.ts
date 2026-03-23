@@ -3,11 +3,13 @@
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type {
-  AppConfig,
-  ThemeConfig,
-  LLMConfig,
-  VoiceRecognitionConfig
+import {
+  createDefaultVideoGenerationConfig,
+  type AppConfig,
+  type ThemeConfig,
+  type LLMConfig,
+  type VoiceRecognitionConfig,
+  type VideoGenerationConfig
 } from '@shared/types/config'
 import { deepClone } from '@shared/utils'
 
@@ -38,6 +40,9 @@ export const useConfigStore = defineStore('config', () => {
     provider: 'aliyun',
     enabled: false
   })
+
+  // 视频生成配置
+  const videoGenerationConfig = ref<VideoGenerationConfig>(createDefaultVideoGenerationConfig())
 
   // ==================== Getters ====================
 
@@ -74,6 +79,10 @@ export const useConfigStore = defineStore('config', () => {
             ...config.voiceRecognition
           }
         }
+        videoGenerationConfig.value = {
+          ...createDefaultVideoGenerationConfig(),
+          ...config.videoGeneration
+        }
       }
     } catch (error) {
       errorMessage.value = `加载配置失败: ${error instanceof Error ? error.message : String(error)}`
@@ -93,6 +102,7 @@ export const useConfigStore = defineStore('config', () => {
       const plainThemeConfig = deepClone(themeConfig.value)
       const plainLlmConfigs = deepClone(llmConfigs.value)
       const plainVoiceRecognitionConfig = deepClone(voiceRecognitionConfig.value)
+      const plainVideoGenerationConfig = deepClone(videoGenerationConfig.value)
 
       const result = await window.api.config.updateConfig({
         theme: plainThemeConfig,
@@ -102,7 +112,8 @@ export const useConfigStore = defineStore('config', () => {
           enable_auto_compression: false,
           models: plainLlmConfigs
         },
-        voiceRecognition: plainVoiceRecognitionConfig
+        voiceRecognition: plainVoiceRecognitionConfig,
+        videoGeneration: plainVideoGenerationConfig
       })
       if (result.success) {
         if (!options.silent) {
@@ -177,6 +188,11 @@ export const useConfigStore = defineStore('config', () => {
     voiceRecognitionConfig.value = { ...voiceRecognitionConfig.value, ...config }
   }
 
+  // 更新视频生成配置
+  function updateVideoGenerationConfig(config: VideoGenerationConfig): void {
+    videoGenerationConfig.value = { ...config }
+  }
+
   // 清除消息
   function clearMessages(): void {
     errorMessage.value = ''
@@ -193,6 +209,7 @@ export const useConfigStore = defineStore('config', () => {
     llmConfigs,
     defaultModel,
     voiceRecognitionConfig,
+    videoGenerationConfig,
     // Getters
     hasModels,
     defaultModelConfig,
@@ -206,6 +223,7 @@ export const useConfigStore = defineStore('config', () => {
     deleteModelConfig,
     updateModelConfigField,
     updateVoiceRecognitionConfig,
+    updateVideoGenerationConfig,
     clearMessages
   }
 })
