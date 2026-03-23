@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { computed, toRef, useSlots } from 'vue'
+import { computed, ref, toRef, useSlots } from 'vue'
 import ReasoningPanel from './ReasoningPanel.vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import MessageContent from './message/MessageContent.vue'
 import StreamingContent from './message/StreamingContent.vue'
 import MessageAttachments from './message/MessageAttachments.vue'
+import MessageVideoAttachments from './message/MessageVideoAttachments.vue'
+import VideoPreviewDialog from './message/VideoPreviewDialog.vue'
 import MessageActions from './message/MessageActions.vue'
 import TokenStats from './message/TokenStats.vue'
 import { useStreamingReveal } from './composables/useStreamingReveal'
-import type { Message } from '@renderer/types'
+import type { AttachedVideo, Message } from '@renderer/types'
 import { estimateTokenCount, formatTokenCount } from '@renderer/utils/tokenEstimate'
 
 const slots = useSlots()
@@ -28,6 +30,7 @@ const emit = defineEmits<{
 
 // 使用流式显示逻辑
 const { displayedContent } = useStreamingReveal(toRef(props, 'message'))
+const selectedVideo = ref<AttachedVideo | null>(null)
 
 /**
  * 格式化时间戳
@@ -87,6 +90,13 @@ const showMetaRow = computed(() => {
       (!!props.message.usage || canExportMessage.value)) ||
     (props.message.role === 'user' && !props.message.isStreaming)
   )
+})
+
+/**
+ * 是否显示视频附件
+ */
+const hasVideoAttachments = computed(() => {
+  return props.message.role === 'assistant' && (props.message.attachedVideos?.length || 0) > 0
 })
 
 /**
@@ -169,6 +179,14 @@ function handleToggleReasoning(): void {
 function handleRequestExport(): void {
   emit('request-export')
 }
+
+function handlePreviewVideo(video: AttachedVideo): void {
+  selectedVideo.value = video
+}
+
+function handleClosePreviewDialog(): void {
+  selectedVideo.value = null
+}
 </script>
 
 <template>
@@ -240,6 +258,12 @@ function handleRequestExport(): void {
         />
       </div>
 
+      <MessageVideoAttachments
+        v-if="hasVideoAttachments"
+        :videos="message.attachedVideos || []"
+        @preview="handlePreviewVideo"
+      />
+
       <!-- 消息元信息行：Token统计、反馈按钮 -->
       <Transition name="meta-fade">
         <div v-if="showMetaRow" class="message-meta-row">
@@ -268,6 +292,12 @@ function handleRequestExport(): void {
           </MessageActions>
         </div>
       </Transition>
+
+      <VideoPreviewDialog
+        :visible="!!selectedVideo"
+        :video="selectedVideo"
+        @close="handleClosePreviewDialog"
+      />
     </div>
   </div>
 </template>
