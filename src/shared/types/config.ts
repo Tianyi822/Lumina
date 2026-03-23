@@ -174,6 +174,70 @@ export interface VoiceRecognitionConfig {
 }
 
 /**
+ * 视频生成服务提供商类型
+ */
+export type VideoGenerationProvider = 'zhipu'
+
+/**
+ * 视频分辨率
+ */
+export type VideoSize = '1920x1080' | '1080x1920' | '1280x720'
+
+/**
+ * 视频生成质量
+ */
+export type VideoQuality = 'quality' | 'speed'
+
+/**
+ * 视频生成配置
+ */
+export interface VideoGenerationConfig {
+  /** 是否启用视频生成功能 */
+  enabled: boolean
+  /** 服务提供商 */
+  provider: VideoGenerationProvider
+  /** 服务基础地址 */
+  baseUrl: string
+  /** 调用 API 所需的密钥 */
+  apiKey?: string
+  /** 视频生成模型名称 */
+  model: string
+  /** 默认分辨率 */
+  defaultSize: VideoSize
+  /** 默认质量 */
+  defaultQuality: VideoQuality
+  /** 默认是否生成音频 */
+  defaultWithAudio: boolean
+  /** 轮询间隔 */
+  pollIntervalMs?: number
+  /** 请求超时时间 */
+  requestTimeoutMs?: number
+}
+
+export const DEFAULT_VIDEO_GENERATION_BASE_URL = 'https://open.bigmodel.cn'
+export const DEFAULT_VIDEO_GENERATION_MODEL = 'cogvideox-3'
+export const DEFAULT_VIDEO_GENERATION_POLL_INTERVAL_MS = 5000
+export const DEFAULT_VIDEO_GENERATION_TIMEOUT_MS = 180000
+
+/**
+ * 创建默认的视频生成配置
+ */
+export function createDefaultVideoGenerationConfig(): VideoGenerationConfig {
+  return {
+    enabled: false,
+    provider: 'zhipu',
+    baseUrl: DEFAULT_VIDEO_GENERATION_BASE_URL,
+    apiKey: '',
+    model: DEFAULT_VIDEO_GENERATION_MODEL,
+    defaultSize: '1920x1080',
+    defaultQuality: 'quality',
+    defaultWithAudio: false,
+    pollIntervalMs: DEFAULT_VIDEO_GENERATION_POLL_INTERVAL_MS,
+    requestTimeoutMs: DEFAULT_VIDEO_GENERATION_TIMEOUT_MS
+  }
+}
+
+/**
  * MCP 服务器配置的集合
  */
 export interface MCPServers {
@@ -195,6 +259,8 @@ export interface AppConfig {
   knowledgeMCP?: KnowledgeMCPConfig
   /** 语音识别配置 */
   voiceRecognition?: VoiceRecognitionConfig
+  /** 视频生成配置 */
+  videoGeneration?: VideoGenerationConfig
 }
 
 /**

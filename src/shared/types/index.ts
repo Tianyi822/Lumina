@@ -14,6 +14,9 @@ export * from './session'
 // 配置相关的类型
 export * from './config'
 
+// 视频相关的类型
+export * from './video'
+
 // 日志相关的类型
 export * from './logger'
 
