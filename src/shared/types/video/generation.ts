@@ -44,6 +44,30 @@ export interface VideoGenerationAsset {
 }
 
 /**
+ * 聊天消息中使用的视频附件载荷
+ */
+export interface VideoToolAttachment {
+  kind: 'video'
+  provider: VideoGenerationProvider
+  model: string
+  prompt: string
+  taskId: string
+  status: VideoTaskStatus
+  url?: string
+  coverImageUrl?: string
+  errorMessage?: string
+}
+
+/**
+ * 视频工具的统一返回结构
+ */
+export interface VideoToolResultPayload {
+  taskId: string
+  status: VideoTaskStatus
+  attachment: VideoToolAttachment
+}
+
+/**
  * 视频生成结果
  */
 export interface VideoGenerationResult extends VideoGenerationTask {
