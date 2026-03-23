@@ -37,6 +37,9 @@ export * from '@shared/types/session'
 // 配置相关类型
 export * from '@shared/types/config'
 
+// 视频相关类型
+export * from '@shared/types/video'
+
 // 知识库相关类型
 export * from '@shared/types/knowledge'
 
