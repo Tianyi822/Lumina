@@ -41,6 +41,12 @@ export interface FrontendSandboxInfo {
   hostPort: number
   /** 预览地址 */
   previewUrl: string
+  /** 预览服务是否已就绪 */
+  previewReady?: boolean
+  /** 启动日志路径 */
+  startupLogPath?: string
+  /** 补充说明 */
+  message?: string
   /** 状态 */
   status: 'creating' | 'running' | 'stopped' | 'error'
 }
