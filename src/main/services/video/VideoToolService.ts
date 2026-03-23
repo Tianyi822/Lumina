@@ -36,6 +36,9 @@ interface PendingVideoTaskRecord {
   model: string
 }
 
+const VIDEO_SIZE_OPTIONS = ['1920x1080', '1080x1920', '1280x720'] as const
+const VIDEO_QUALITY_OPTIONS = ['quality', 'speed'] as const
+const VIDEO_DURATION_OPTIONS = [5, 10] as const
 const SESSION_UPDATE_RETRY_INTERVAL_MS = 1000
 const SESSION_UPDATE_MAX_WAIT_MS = 30000
 
@@ -58,9 +61,20 @@ export class VideoToolService {
 
     return [
       {
+        name: 'video__request_generation_config',
+        description:
+          '当用户想生成视频，但还没有明确确认当前视频的分辨率、质量、是否生成音频、视频时长时，先调用此工具向用户收集本次视频配置；这些选择只影响当前视频，不会修改全局默认配置。',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: []
+        },
+        serverName: 'video'
+      },
+      {
         name: 'video__generate',
         description:
-          '当用户明确要求生成视频、制作短视频片段、把文字场景转成视频时使用。输入自然语言描述即可生成一个 5-10 秒的视频，并返回可播放的视频附件信息。',
+          '当用户明确要求生成视频、制作短视频片段、把文字场景转成视频，并且已经明确给出或刚确认了本次视频配置时使用。若分辨率、质量、音频、时长尚未确认，先调用 video__request_generation_config。输入自然语言描述即可生成一个 5-10 秒的视频，并返回可播放的视频附件信息。',
         inputSchema: {
           type: 'object',
           properties: {
@@ -70,17 +84,22 @@ export class VideoToolService {
             },
             size: {
               type: 'string',
-              enum: ['1920x1080', '1080x1920', '1280x720'],
+              enum: [...VIDEO_SIZE_OPTIONS],
               description: '视频分辨率，可选；不传则使用设置中的默认分辨率'
             },
             quality: {
               type: 'string',
-              enum: ['quality', 'speed'],
+              enum: [...VIDEO_QUALITY_OPTIONS],
               description: '生成质量，可选；不传则使用设置中的默认质量'
             },
             withAudio: {
               type: 'boolean',
               description: '是否同时生成音频，可选；不传则使用设置中的默认值'
+            },
+            duration: {
+              type: 'integer',
+              enum: [...VIDEO_DURATION_OPTIONS],
+              description: '视频时长（秒），可选；不传则使用默认 5 秒'
             }
           },
           required: ['prompt']
@@ -102,6 +121,8 @@ export class VideoToolService {
 
     try {
       switch (name) {
+        case 'video__request_generation_config':
+          return this.requestGenerationConfig()
         case 'video__generate':
           return await this.generateVideo(args, context)
         default:
@@ -164,6 +185,35 @@ export class VideoToolService {
     }
   }
 
+  private requestGenerationConfig(): MCPToolCallResult {
+    const config = videoGenerationService.getConfig()
+
+    return {
+      success: true,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            user_interaction_required: true,
+            interactionType: 'video_generation_config',
+            question:
+              '请选择当前视频生成配置，我会只按这一次的选择继续生成，不会改动全局默认配置。',
+            options: [],
+            videoGenerationConfig: {
+              defaultSize: config.defaultSize,
+              sizeOptions: [...VIDEO_SIZE_OPTIONS],
+              defaultQuality: config.defaultQuality,
+              qualityOptions: [...VIDEO_QUALITY_OPTIONS],
+              defaultWithAudio: config.defaultWithAudio,
+              durationOptions: [...VIDEO_DURATION_OPTIONS],
+              defaultDuration: 5
+            }
+          })
+        }
+      ]
+    }
+  }
+
   private async generateVideo(
     args: ToolArgs,
     context?: VideoToolExecutionContext
@@ -174,6 +224,10 @@ export class VideoToolService {
         success: false,
         error: request.error
       }
+    }
+
+    if (context && !this.hasCompleteGenerationConfig(request.value)) {
+      return this.requestGenerationConfig()
     }
 
     if (!context) {
@@ -291,9 +345,19 @@ export class VideoToolService {
       request.withAudio = args.withAudio
     }
 
+    if (args.duration === 5 || args.duration === 10) {
+      request.duration = args.duration
+    }
+
     return {
       value: request
     }
+  }
+
+  private hasCompleteGenerationConfig(request: VideoGenerationRequest): boolean {
+    return Boolean(
+      request.size && request.quality && typeof request.withAudio === 'boolean' && request.duration
+    )
   }
 
   private buildToolPayload(prompt: string, result: VideoGenerationResult): VideoToolResultPayload {

@@ -1,7 +1,7 @@
 import type { KnowledgeBaseReference } from './knowledge'
 import type { SelectedPptTemplate } from './ppt-template'
-import type { VideoGenerationProvider } from './config'
-import type { VideoTaskStatus } from './video'
+import type { VideoGenerationProvider, VideoQuality, VideoSize } from './config'
+import type { VideoDuration, VideoTaskStatus } from './video'
 
 /**
  * 定义聊天消息中发送者的角色类型
@@ -213,6 +213,16 @@ export interface UserInteractionOption {
   description?: string
 }
 
+export interface VideoGenerationInteractionConfig {
+  defaultSize: VideoSize
+  sizeOptions: VideoSize[]
+  defaultQuality: VideoQuality
+  qualityOptions: VideoQuality[]
+  defaultWithAudio: boolean
+  durationOptions: VideoDuration[]
+  defaultDuration: VideoDuration
+}
+
 /**
  * 用户交互请求信息
  * 当模型需要用户做出选择时，返回此信息
@@ -223,9 +233,11 @@ export interface UserInteractionRequest {
   /** 选项列表 */
   options: UserInteractionOption[]
   /** 交互类型 */
-  interactionType?: 'generic' | 'presentation_template'
+  interactionType?: 'generic' | 'presentation_template' | 'video_generation_config'
   /** 首屏展示的最大选项数 */
   initialVisibleCount?: number
+  /** 视频生成配置交互的表单元数据 */
+  videoGenerationConfig?: VideoGenerationInteractionConfig
 }
 
 /**

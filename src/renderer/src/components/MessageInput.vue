@@ -8,6 +8,7 @@ import AttachedImages from './message-input/AttachedImages.vue'
 import InputTextarea from './message-input/InputTextarea.vue'
 import ProcessingFilesList from './message-input/ProcessingFilesList.vue'
 import ToolSelectionBar from './message-input/ToolSelectionBar.vue'
+import VideoGenerationConfigInteraction from './message-input/VideoGenerationConfigInteraction.vue'
 import { useConfiguredModels } from './message-input/composables/useConfiguredModels'
 import { useDocumentUpload } from './message-input/composables/useDocumentUpload'
 import { useFileDragDrop } from './message-input/composables/useFileDragDrop'
@@ -19,7 +20,10 @@ import type {
   KnowledgeBase,
   MCPTool,
   SelectedPptTemplate,
-  UserInteractionRequest
+  UserInteractionRequest,
+  VideoDuration,
+  VideoQuality,
+  VideoSize
 } from '@renderer/types'
 import { useChatStreamStore, useInputStateStore, useSessionStore } from '@renderer/stores'
 import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
@@ -90,6 +94,13 @@ const chatStreamStore = useChatStreamStore()
 const { showUserInteraction, userInteractionInfo } = storeToRefs(chatStreamStore)
 const inputStateStore = useInputStateStore()
 const sessionStore = useSessionStore()
+
+interface VideoGenerationConfigSelection {
+  size: VideoSize
+  quality: VideoQuality
+  withAudio: boolean
+  duration: VideoDuration
+}
 
 watch(
   () => props.inputMessage,
@@ -273,6 +284,15 @@ async function handleUserInteractionSelect(value: string, label: string): Promis
   sendMessage(`我选择：${label}`)
 }
 
+function handleVideoGenerationConfigSubmit(selection: VideoGenerationConfigSelection): void {
+  chatStreamStore.hideUserInteraction()
+
+  const structuredConfig = JSON.stringify(selection)
+  sendMessage(
+    `请继续生成刚才请求的视频。这些配置只对当前视频生效，不要修改全局默认配置：${structuredConfig}`
+  )
+}
+
 function handleExportInteractionSelect(value: string): void {
   emit('select-export-format', value as ExportFormat)
 }
@@ -286,8 +306,18 @@ function handleExportInteractionSelect(value: string): void {
       @select="handleExportInteractionSelect"
     />
 
+    <VideoGenerationConfigInteraction
+      v-if="
+        showUserInteraction &&
+        userInteractionInfo &&
+        userInteractionInfo.interactionType === 'video_generation_config'
+      "
+      :interaction-info="userInteractionInfo"
+      @submit="handleVideoGenerationConfigSubmit"
+    />
+
     <UserInteractionOptions
-      v-if="showUserInteraction && userInteractionInfo"
+      v-else-if="showUserInteraction && userInteractionInfo"
       :interaction-info="userInteractionInfo"
       @select="handleUserInteractionSelect"
     />

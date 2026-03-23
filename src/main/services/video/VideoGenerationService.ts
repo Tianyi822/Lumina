@@ -87,6 +87,7 @@ export class VideoGenerationService {
       prompt,
       quality: request.quality || config.defaultQuality,
       with_audio: request.withAudio ?? config.defaultWithAudio,
+      duration: request.duration ?? 5,
       size: request.size || config.defaultSize,
       fps: request.fps ?? DEFAULT_FPS
     }
@@ -95,7 +96,8 @@ export class VideoGenerationService {
       model: payload.model,
       size: payload.size,
       quality: payload.quality,
-      withAudio: payload.with_audio
+      withAudio: payload.with_audio,
+      duration: payload.duration
     })
 
     const response = await this.requestJson<ZhipuVideoTaskResponse>(
