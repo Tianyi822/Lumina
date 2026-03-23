@@ -1,5 +1,7 @@
 import type { KnowledgeBaseReference } from './knowledge'
 import type { SelectedPptTemplate } from './ppt-template'
+import type { VideoGenerationProvider } from './config'
+import type { VideoTaskStatus } from './video'
 
 /**
  * 定义聊天消息中发送者的角色类型
@@ -43,6 +45,31 @@ export interface AttachedImage {
 }
 
 /**
+ * 附加视频信息
+ * 作为 assistant 消息下方的附件展示
+ */
+export interface AttachedVideo {
+  /** 原始文件名，可选 */
+  fileName?: string
+  /** 服务提供商 */
+  provider: VideoGenerationProvider
+  /** 生成视频使用的模型名称 */
+  model: string
+  /** 生成提示词 */
+  prompt: string
+  /** 视频播放地址 */
+  url: string
+  /** 封面图地址 */
+  coverImageUrl?: string
+  /** 任务 ID */
+  taskId: string
+  /** 当前状态 */
+  status: VideoTaskStatus
+  /** 错误信息 */
+  errorMessage?: string
+}
+
+/**
  * 表示一条聊天消息的完整结构
  * 包含角色、内容、工具调用和思考过程等信息
  */
@@ -61,6 +88,8 @@ export interface ChatMessage {
   attachedDocuments?: AttachedDocument[]
   /** 附加的图片列表，仅 user 消息会有 */
   attachedImages?: AttachedImage[]
+  /** 附加的视频列表，仅 assistant 消息会有 */
+  attachedVideos?: AttachedVideo[]
 }
 
 /**
