@@ -1,5 +1,9 @@
 import { logger } from '@main/services/logger'
-import type { CreateFrontendSandboxOptions, FrontendSandboxInfo } from '@shared/types/sandbox'
+import type {
+  CreateFrontendSandboxOptions,
+  FrontendSandboxInfo,
+  SandboxData
+} from '@shared/types/sandbox'
 import { sandboxService } from '../SandboxService'
 import { getDockerService } from '../docker/DockerService'
 import { DEFAULT_PROJECT_ROOT, normalizeProjectRoot, sandboxFileService } from '../file'
@@ -11,10 +15,17 @@ const dockerService = getDockerService()
 
 const DEFAULT_PORT = 5173
 const INSTALL_TIMEOUT_SECONDS = 600
-const PREVIEW_READY_TIMEOUT_MS = 15000
+export const PREVIEW_READY_TIMEOUT_MS = 15000
 
 export const FRONTEND_STARTUP_LOG_PATH = '/tmp/frontend-dev.log'
 export const FRONTEND_LOG_HINT = `可稍后重试，或通过 sandbox__exec_command 查看 ${FRONTEND_STARTUP_LOG_PATH}`
+
+interface FrontendRuntimeRecoveryResult {
+  handled: boolean
+  previewReady: boolean
+  previewUrl?: string
+  warning?: string
+}
 
 /**
  * 前端沙箱服务
@@ -249,6 +260,114 @@ export class FrontendSandboxService {
       startupLogPath: FRONTEND_STARTUP_LOG_PATH,
       message: previewReady ? undefined : `预览服务尚未就绪，${FRONTEND_LOG_HINT}`
     }
+  }
+
+  /**
+   * 在容器 start/restart 后恢复前端开发服务器
+   */
+  async recoverFrontendRuntime(
+    sandbox: SandboxData
+  ): Promise<FrontendRuntimeRecoveryResult> {
+    if (!sandbox.frontend || !sandbox.primaryContainerId) {
+      return {
+        handled: false,
+        previewReady: false
+      }
+    }
+
+    const { framework, projectRoot, previewUrl } = sandbox.frontend
+
+    if (await checkHttpReady(previewUrl)) {
+      return {
+        handled: true,
+        previewReady: true,
+        previewUrl
+      }
+    }
+
+    try {
+      const template = templateService.getTemplate(framework)
+      const startResult = await dockerService.execCommand(sandbox.primaryContainerId, {
+        command: `nohup ${template.startCommand} > ${FRONTEND_STARTUP_LOG_PATH} 2>&1 &`,
+        workdir: projectRoot,
+        timeout: 30
+      })
+
+      if (!startResult || startResult.exitCode !== 0) {
+        logger.error('前端服务启动失败', 'main', {
+          sandboxId: sandbox.sandboxId,
+          stdout: startResult?.stdout,
+          stderr: startResult?.stderr
+        })
+        return {
+          handled: true,
+          previewReady: false,
+          previewUrl,
+          warning: '前端服务启动失败，请手动执行启动命令'
+        }
+      }
+
+      const previewReady = await waitForHttpReady(previewUrl, PREVIEW_READY_TIMEOUT_MS)
+      if (!previewReady) {
+        logger.warn('前端服务启动后未就绪', 'main', {
+          sandboxId: sandbox.sandboxId,
+          previewUrl
+        })
+        return {
+          handled: true,
+          previewReady: false,
+          previewUrl,
+          warning: `前端服务已启动但尚未就绪，可稍后重试或查看日志: ${FRONTEND_STARTUP_LOG_PATH}`
+        }
+      }
+
+      logger.info('前端服务恢复成功', 'main', {
+        sandboxId: sandbox.sandboxId,
+        previewUrl
+      })
+
+      return {
+        handled: true,
+        previewReady: true,
+        previewUrl
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('前端服务恢复异常', 'main', {
+        sandboxId: sandbox.sandboxId,
+        error: errorMessage
+      })
+      return {
+        handled: true,
+        previewReady: false,
+        previewUrl,
+        warning: `前端服务恢复异常: ${errorMessage}`
+      }
+    }
+  }
+
+  /**
+   * 根据容器 ID 恢复关联前端沙箱的开发服务器
+   */
+  async recoverFrontendRuntimeByContainerId(
+    containerId: string
+  ): Promise<FrontendRuntimeRecoveryResult> {
+    const sandbox = sandboxService.findSandboxByContainerId(containerId)
+    if (!sandbox?.frontend) {
+      return {
+        handled: false,
+        previewReady: false
+      }
+    }
+
+    if (sandbox.primaryContainerId && sandbox.primaryContainerId !== containerId) {
+      return {
+        handled: false,
+        previewReady: false
+      }
+    }
+
+    return this.recoverFrontendRuntime(sandbox)
   }
 
   /**
