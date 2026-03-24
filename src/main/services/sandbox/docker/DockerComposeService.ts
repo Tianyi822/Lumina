@@ -197,10 +197,13 @@ export class DockerComposeService {
 
         logger.info('执行 Docker Compose up', 'main', {
           projectName: options.projectName,
-          composePath
+          composePath,
+          noPull: options.noPull || false
         })
 
-        const command = `cd "${tempDir}" && docker compose -p "${options.projectName}" up -d`
+        // 构建命令，当 noPull 为 true 时添加 --pull never 参数禁止拉取镜像
+        const pullArg = options.noPull ? ' --pull never' : ''
+        const command = `cd "${tempDir}" && docker compose -p "${options.projectName}" up -d${pullArg}`
         const { stdout, stderr } = await execAsync(command, {
           timeout: 120000,
           maxBuffer: 1024 * 1024 * 10

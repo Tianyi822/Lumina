@@ -55,7 +55,9 @@ export class DockerImageService {
 
         const buildOpts: Docker.ImageBuildOptions = {
           dockerfile: 'Dockerfile',
-          t: options.tag || 'sparrow-manus-built'
+          t: options.tag || 'sparrow-manus-built',
+          // 当 noPull 为 true 时，禁止拉取基础镜像，强制使用本地缓存
+          pull: options.noPull ? false : undefined
         }
 
         if (options.buildArgs && Object.keys(options.buildArgs).length > 0) {
@@ -253,6 +255,86 @@ export class DockerImageService {
     } catch (error) {
       logger.error('获取镜像信息失败', 'main', { imageId, error: String(error) })
       return null
+    }
+  }
+
+  /**
+   * 获取本地镜像列表
+   * @returns 镜像信息列表
+   */
+  async listImages(): Promise<Docker.ImageInfo[]> {
+    try {
+      return await this.context.getDocker().listImages()
+    } catch (error) {
+      logger.error('获取镜像列表失败', 'main', { error: String(error) })
+      return []
+    }
+  }
+
+  /**
+   * 检查镜像是否存在
+   * @param imageTag 镜像标签（如 "nginx:latest" 或 "nginx"）
+   * @returns 如果存在返回镜像信息，否则返回 null
+   */
+  async checkImageExists(imageTag: string): Promise<Docker.ImageInfo | null> {
+    try {
+      const images = await this.listImages()
+
+      // 标准化标签格式（添加 :latest 如果没有指定标签）
+      const normalizedTag = imageTag.includes(':') ? imageTag : `${imageTag}:latest`
+
+      const foundImage = images.find((image) => {
+        if (!image.RepoTags) return false
+        return image.RepoTags.some((tag) => tag === normalizedTag || tag === imageTag)
+      })
+
+      if (foundImage) {
+        logger.debug('找到本地镜像', 'main', {
+          tag: imageTag,
+          imageId: foundImage.Id.substring(0, 12)
+        })
+      }
+
+      return foundImage || null
+    } catch (error) {
+      logger.error('检查镜像是否存在失败', 'main', { imageTag, error: String(error) })
+      return null
+    }
+  }
+
+  /**
+   * 批量检查多个镜像是否存在
+   * @param imageTags 镜像标签列表
+   * @returns 存在的镜像标签列表
+   */
+  async checkImagesExist(imageTags: string[]): Promise<string[]> {
+    try {
+      const images = await this.listImages()
+      const existingTags: string[] = []
+
+      for (const tag of imageTags) {
+        const normalizedTag = tag.includes(':') ? tag : `${tag}:latest`
+
+        const found = images.find((image) => {
+          if (!image.RepoTags) return false
+          return image.RepoTags.some((t) => t === normalizedTag || t === tag)
+        })
+
+        if (found) {
+          existingTags.push(tag)
+        }
+      }
+
+      logger.debug('批量检查镜像结果', 'main', {
+        total: imageTags.length,
+        existing: existingTags.length,
+        existingTags
+      })
+
+      return existingTags
+    } catch (error) {
+      logger.error('批量检查镜像失败', 'main', { error: String(error) })
+      return []
     }
   }
 

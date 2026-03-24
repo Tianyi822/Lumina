@@ -280,6 +280,32 @@ export class DockerService implements DockerServiceContext {
   }
 
   /**
+   * 获取本地镜像列表
+   * @returns 镜像信息列表
+   */
+  async listImages(): Promise<Docker.ImageInfo[]> {
+    return this.imageService.listImages()
+  }
+
+  /**
+   * 检查镜像是否存在
+   * @param imageTag 镜像标签（如 "nginx:latest" 或 "nginx"）
+   * @returns 如果存在返回镜像信息，否则返回 null
+   */
+  async checkImageExists(imageTag: string): Promise<Docker.ImageInfo | null> {
+    return this.imageService.checkImageExists(imageTag)
+  }
+
+  /**
+   * 批量检查多个镜像是否存在
+   * @param imageTags 镜像标签列表
+   * @returns 存在的镜像标签列表
+   */
+  async checkImagesExist(imageTags: string[]): Promise<string[]> {
+    return this.imageService.checkImagesExist(imageTags)
+  }
+
+  /**
    * 从镜像创建容器
    * @param options 创建参数
    * @returns 创建结果
@@ -426,6 +452,9 @@ export const dockerService = {
     getDockerService().composeDownExtended(projectName, options),
   composeUp: (options: ComposeUpOptions) => getDockerService().composeUp(options),
   inspectImage: (imageId: string) => getDockerService().inspectImage(imageId),
+  listImages: () => getDockerService().listImages(),
+  checkImageExists: (imageTag: string) => getDockerService().checkImageExists(imageTag),
+  checkImagesExist: (imageTags: string[]) => getDockerService().checkImagesExist(imageTags),
   buildImageFromDockerfile: (options: BuildImageFromDockerfileOptions) =>
     getDockerService().buildImageFromDockerfile(options),
   createContainerFromImage: (options: CreateContainerFromImageOptions) =>
