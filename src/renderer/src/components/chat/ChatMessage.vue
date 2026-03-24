@@ -105,7 +105,21 @@ const hasVideoAttachments = computed(() => {
 const hasStructuredReact = computed(() => {
   return (
     props.message.reactIterations?.some(
-      (iteration) => iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
+      (iteration) =>
+        iteration.isActive ||
+        iteration.reasoning.trim().length > 0 ||
+        iteration.steps.length > 0
+    ) || false
+  )
+})
+
+/**
+ * 是否有活跃但为空的迭代（需要显示占位符）
+ */
+const hasActiveIteration = computed(() => {
+  return (
+    props.message.reactIterations?.some(
+      (iteration) => iteration.isActive && !iteration.reasoning && iteration.steps.length === 0
     ) || false
   )
 })
@@ -142,7 +156,8 @@ const showWaitingPlaceholder = computed(() => {
     !displayedContent.value &&
     !showStandaloneReasoning.value &&
     !hasStructuredReact.value &&
-    !hasToolActivity.value
+    !hasToolActivity.value &&
+    !hasActiveIteration.value
   )
 })
 

@@ -88,7 +88,8 @@ export const useChatStreamStore = defineStore('chatStream', () => {
   function createIteration(
     message: Message,
     sessionId: string,
-    iterationNum?: number
+    iterationNum?: number,
+    status?: 'thinking' | 'calling_tools' | 'processing'
   ): ReActIteration {
     if (!message.reactIterations) {
       message.reactIterations = []
@@ -104,7 +105,8 @@ export const useChatStreamStore = defineStore('chatStream', () => {
       iteration: nextIterationNum,
       reasoning: '',
       steps: [],
-      isActive: true
+      isActive: true,
+      status: status || 'thinking'
     }
 
     message.reactIterations.push(newIteration)
@@ -423,7 +425,12 @@ export const useChatStreamStore = defineStore('chatStream', () => {
       case 'react_iteration_start':
         if (streamingMessage && event.content !== undefined) {
           const iterationNum = parseInt(event.content, 10)
-          createIteration(streamingMessage, targetSessionId, iterationNum)
+          createIteration(
+            streamingMessage,
+            targetSessionId,
+            iterationNum,
+            event.status as 'thinking' | 'calling_tools' | 'processing' | undefined
+          )
         }
         break
 
@@ -461,6 +468,12 @@ export const useChatStreamStore = defineStore('chatStream', () => {
             timestamp: new Date().toISOString()
           }
           appendToolStep(streamingMessage, targetSessionId, toolCallStep)
+
+          // 更新当前迭代状态为 calling_tools
+          const currentIter = getCurrentIteration(streamingMessage, targetSessionId)
+          if (currentIter && currentIter.status === 'thinking') {
+            currentIter.status = 'calling_tools'
+          }
         }
         break
 
