@@ -25,13 +25,18 @@ function renderMarkdown(content: string): string {
 }
 
 const renderedMarkdown = computed(() => renderMarkdown(props.content))
+
+/**
+ * 是否有实际内容可显示
+ */
+const hasContent = computed(() => !!props.content?.trim())
 </script>
 
 <template>
-  <div v-if="role === 'user'" class="message-text">
+  <div v-if="role === 'user' && hasContent" class="message-text">
     {{ content }}
   </div>
-  <template v-else>
+  <template v-else-if="role !== 'user' && hasContent">
     <!-- markdown-it 已禁用原生 HTML，这里仅渲染受控 Markdown -->
     <!-- eslint-disable vue/no-v-html -->
     <div

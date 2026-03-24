@@ -22,6 +22,8 @@ export interface BuildImageFromDockerfileOptions {
   context?: string
   tag?: string
   buildArgs?: Record<string, string>
+  /** 是否禁止拉取基础镜像，强制使用本地缓存 */
+  noPull?: boolean
 }
 
 export interface BuildImageFromDockerfileResult {
@@ -58,6 +60,8 @@ export interface ComposeUpOptions {
   projectName: string
   workingDir?: string
   dockerfileConfigs?: DockerfileConfigPayload[]
+  /** 是否禁止拉取镜像，强制使用本地缓存 */
+  noPull?: boolean
 }
 
 export interface ComposeUpResult {

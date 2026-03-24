@@ -309,7 +309,7 @@ export class ToolExecutor {
       const result = await this.withTimeoutAndStopCheck(
         sandboxToolService.callTool(`sandbox__${toolName}`, args),
         sessionId,
-        60000,
+        180000,
         `沙箱工具调用 ${toolName}`
       )
 
