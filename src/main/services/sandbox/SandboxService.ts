@@ -149,16 +149,17 @@ export class SandboxService {
   }
 
   /**
-   * 根据容器 ID 查找关联沙箱
+   * 加载所有沙箱元数据
    */
-  findSandboxByContainerId(containerId: string): SandboxData | null {
+  loadAllSandboxes(): SandboxData[] {
     try {
       const sandboxDir = getSandboxDirPath()
       if (!existsSync(sandboxDir)) {
-        return null
+        return []
       }
 
       const dirs = readdirSync(sandboxDir, { withFileTypes: true })
+      const sandboxes: SandboxData[] = []
 
       for (const dir of dirs) {
         if (!dir.isDirectory()) {
@@ -171,10 +172,26 @@ export class SandboxService {
         }
 
         const sandbox = this.loadSandbox(sandboxId)
-        if (!sandbox) {
-          continue
+        if (sandbox) {
+          sandboxes.push(sandbox)
         }
+      }
 
+      return sandboxes
+    } catch (error) {
+      logger.error('加载全部沙箱失败', 'main', {
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return []
+    }
+  }
+
+  /**
+   * 根据容器 ID 查找关联沙箱
+   */
+  findSandboxByContainerId(containerId: string): SandboxData | null {
+    try {
+      for (const sandbox of this.loadAllSandboxes()) {
         if (
           sandbox.primaryContainerId === containerId ||
           sandbox.containerIds.some((id) => id === containerId)
