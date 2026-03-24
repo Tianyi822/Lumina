@@ -14,6 +14,7 @@ import { checkHttpReady, waitForHttpReady } from './waitForHttpReady'
 const dockerService = getDockerService()
 
 const DEFAULT_PORT = 5173
+const HOST_PORT_BASE = 30000
 const INSTALL_TIMEOUT_SECONDS = 600
 export const PREVIEW_READY_TIMEOUT_MS = 15000
 
@@ -62,11 +63,14 @@ export class FrontendSandboxService {
     try {
       const imageId = await ensureFrontendBaseImage()
       const containerName = this.buildContainerName(name)
+      const hostPort = await this.allocateFixedHostPort(
+        this.getPreferredHostPort(containerPort)
+      )
 
       const containerResult = await dockerService.createContainerFromImage({
         imageId,
         name: containerName,
-        ports: [{ containerPort, protocol: 'tcp' }],
+        ports: [{ containerPort, hostPort, protocol: 'tcp' }],
         workingDir: projectRoot
       })
 
@@ -80,9 +84,9 @@ export class FrontendSandboxService {
       const boundPort = details?.ports.find(
         (item) => item.containerPort === containerPort && item.protocol === 'tcp'
       )
-      const hostPort = boundPort?.hostPort
+      const actualHostPort = boundPort?.hostPort
 
-      if (!hostPort) {
+      if (!actualHostPort) {
         throw new Error('未找到容器端口映射')
       }
 
@@ -98,7 +102,7 @@ export class FrontendSandboxService {
       sandboxId = createResult.sandbox.sandboxId
 
       const sandbox = createResult.sandbox
-      const previewUrl = `http://localhost:${hostPort}`
+      const previewUrl = this.buildPreviewUrl(actualHostPort)
       sandbox.containerIds = [containerId]
       sandbox.primaryContainerId = containerId
       sandbox.status = 'running'
@@ -106,7 +110,7 @@ export class FrontendSandboxService {
         framework,
         projectRoot,
         containerPort,
-        hostPort,
+        hostPort: actualHostPort,
         previewUrl
       }
 
@@ -181,7 +185,7 @@ export class FrontendSandboxService {
         sandboxId,
         framework,
         containerId: containerId.substring(0, 12),
-        hostPort
+        hostPort: actualHostPort
       })
 
       return {
@@ -191,7 +195,7 @@ export class FrontendSandboxService {
         containerId,
         projectRoot,
         containerPort,
-        hostPort,
+        hostPort: actualHostPort,
         previewUrl,
         previewReady,
         startupLogPath: FRONTEND_STARTUP_LOG_PATH,
@@ -243,11 +247,12 @@ export class FrontendSandboxService {
     'previewUrl' | 'previewReady' | 'startupLogPath' | 'message'
   > | null> {
     const sandbox = sandboxService.loadSandbox(sandboxId)
-    const previewUrl = sandbox?.frontend?.previewUrl
-
-    if (!previewUrl) {
+    if (!sandbox?.frontend) {
       return null
     }
+
+    await this.syncFrontendPortBinding(sandbox)
+    const previewUrl = sandbox.frontend.previewUrl
 
     const previewReady =
       waitTimeoutMs > 0
@@ -274,6 +279,8 @@ export class FrontendSandboxService {
         previewReady: false
       }
     }
+
+    await this.syncFrontendPortBinding(sandbox)
 
     const { framework, projectRoot, previewUrl } = sandbox.frontend
 
@@ -368,6 +375,118 @@ export class FrontendSandboxService {
     }
 
     return this.recoverFrontendRuntime(sandbox)
+  }
+
+  /**
+   * 为前端沙箱分配固定宿主机端口，避免 stop/start 或 restart 后随机变化
+   */
+  private async allocateFixedHostPort(preferredPort: number): Promise<number> {
+    const reservedPorts = new Set(
+      sandboxService
+        .loadAllSandboxes()
+        .map((sandbox) => sandbox.frontend?.hostPort)
+        .filter((port): port is number => typeof port === 'number' && Number.isInteger(port) && port > 0)
+    )
+
+    for (let port = preferredPort; port <= 65535; port += 1) {
+      if (reservedPorts.has(port)) {
+        continue
+      }
+
+      if (await this.isHostPortAvailable(port)) {
+        return port
+      }
+    }
+
+    throw new Error('未找到可用的宿主机端口')
+  }
+
+  /**
+   * 将容器开发端口映射到宿主机的稳定高位端口，避免与本机常见开发端口冲突
+   */
+  private getPreferredHostPort(containerPort: number): number {
+    const preferredHostPort = containerPort + HOST_PORT_BASE
+    if (preferredHostPort <= 65535) {
+      return preferredHostPort
+    }
+
+    return Math.min(Math.max(containerPort, 1024), 65535)
+  }
+
+  /**
+   * 检查宿主机端口是否可用
+   */
+  private async isHostPortAvailable(port: number): Promise<boolean> {
+    const net = await import('node:net')
+
+    return new Promise((resolve) => {
+      const server = net.createServer()
+
+      const finish = (available: boolean): void => {
+        server.removeAllListeners()
+        resolve(available)
+      }
+
+      server.once('error', () => finish(false))
+      server.once('listening', () => {
+        server.close(() => finish(true))
+      })
+      server.listen(port, '0.0.0.0')
+    })
+  }
+
+  /**
+   * 同步前端沙箱当前端口映射，兼容旧的动态端口沙箱
+   */
+  private async syncFrontendPortBinding(sandbox: SandboxData): Promise<void> {
+    if (!sandbox.frontend || !sandbox.primaryContainerId) {
+      return
+    }
+
+    const details = await dockerService.getContainerDetails(sandbox.primaryContainerId)
+    const boundPort = details?.ports.find(
+      (item) =>
+        item.containerPort === sandbox.frontend?.containerPort && item.protocol === 'tcp'
+    )
+    const hostPort = boundPort?.hostPort
+
+    if (!hostPort) {
+      return
+    }
+
+    const previewUrl = this.buildPreviewUrl(hostPort)
+    if (
+      sandbox.frontend.hostPort === hostPort &&
+      sandbox.frontend.previewUrl === previewUrl
+    ) {
+      return
+    }
+
+    sandbox.frontend.hostPort = hostPort
+    sandbox.frontend.previewUrl = previewUrl
+    const saveResult = sandboxService.saveSandbox(sandbox)
+
+    if (!saveResult.success) {
+      logger.warn('同步前端沙箱端口映射失败', 'main', {
+        sandboxId: sandbox.sandboxId,
+        hostPort,
+        error: saveResult.error
+      })
+      return
+    }
+
+    logger.info('前端沙箱端口映射已同步', 'main', {
+      sandboxId: sandbox.sandboxId,
+      hostPort,
+      previewUrl
+    })
+  }
+
+  /**
+   * 构建预览地址
+   */
+  private buildPreviewUrl(hostPort: number): string {
+    return `http://127.0.0.1:${hostPort}`
   }
 
   /**
