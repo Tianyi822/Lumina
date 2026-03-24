@@ -5,13 +5,27 @@ import { logger } from '@main/services/logger'
 import { MCPToolCallResult } from '@main/types/mcp'
 import {
   CreateSandboxRequest,
+  SandboxData,
   SandboxCreationType,
   DeleteSandboxOptions
 } from '@shared/types/sandbox'
 import { ToolArgs, SandboxToolDefinition } from './types'
 import { findSandbox } from './toolExecutor'
+import { frontendSandboxService } from '../frontend'
 
 const dockerService = getDockerService()
+
+async function recoverFrontendSandboxRuntimeIfNeeded(sandbox: SandboxData): Promise<{
+  warning?: string
+  previewUrl?: string
+}> {
+  const recoveryResult = await frontendSandboxService.recoverFrontendRuntime(sandbox)
+
+  return {
+    warning: recoveryResult.warning,
+    previewUrl: recoveryResult.previewUrl
+  }
+}
 
 /**
  * 创建沙箱
@@ -323,12 +337,20 @@ export const startSandboxTool: SandboxToolDefinition = {
       sandbox.updatedAt = new Date().toISOString()
       await sandboxService.saveSandbox(sandbox)
 
+      const frontendRecovery = await recoverFrontendSandboxRuntimeIfNeeded(sandbox)
+      let message = `沙箱 "${sandbox.name}" 启动成功！\n已启动 ${results.length} 个容器。`
+      if (frontendRecovery.warning) {
+        message += `\n\n⚠️ ${frontendRecovery.warning}`
+      } else if (sandbox.frontend && frontendRecovery.previewUrl) {
+        message += `\n\n前端服务已恢复，预览地址: ${frontendRecovery.previewUrl}`
+      }
+
       return {
         success: true,
         content: [
           {
             type: 'text',
-            text: `沙箱 "${sandbox.name}" 启动成功！\n已启动 ${results.length} 个容器。`
+            text: message
           }
         ]
       }
@@ -476,12 +498,21 @@ export const restartSandboxTool: SandboxToolDefinition = {
       sandbox.updatedAt = new Date().toISOString()
       await sandboxService.saveSandbox(sandbox)
 
+      const frontendRecovery = await recoverFrontendSandboxRuntimeIfNeeded(sandbox)
+
+      let message = `沙箱 "${sandbox.name}" 重启成功！\n已重启 ${results.length} 个容器。`
+      if (frontendRecovery.warning) {
+        message += `\n\n⚠️ ${frontendRecovery.warning}`
+      } else if (sandbox.frontend && frontendRecovery.previewUrl) {
+        message += `\n\n前端服务已恢复，预览地址: ${frontendRecovery.previewUrl}`
+      }
+
       return {
         success: true,
         content: [
           {
             type: 'text',
-            text: `沙箱 "${sandbox.name}" 重启成功！\n已重启 ${results.length} 个容器。`
+            text: message
           }
         ]
       }

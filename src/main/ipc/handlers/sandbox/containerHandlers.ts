@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { logger } from '@main/services/logger'
+import { frontendSandboxService } from '@main/services/sandbox/frontend'
 import type {
   ContainerFilter,
   ContainerListResult,
@@ -105,7 +106,19 @@ export function registerSandboxContainerHandlers(): void {
   ipcMain.handle(
     'sandbox:startContainer',
     async (_event, containerId: string): Promise<SandboxResult> => {
-      return dockerService.startContainer(containerId)
+      const result = await dockerService.startContainer(containerId)
+      if (result.success) {
+        const recoveryResult = await frontendSandboxService.recoverFrontendRuntimeByContainerId(
+          containerId
+        )
+        if (recoveryResult.warning) {
+          logger.warn('容器启动后前端服务未完全恢复', 'main', {
+            containerId,
+            warning: recoveryResult.warning
+          })
+        }
+      }
+      return result
     }
   )
 
@@ -119,7 +132,19 @@ export function registerSandboxContainerHandlers(): void {
   ipcMain.handle(
     'sandbox:restartContainer',
     async (_event, containerId: string): Promise<SandboxResult> => {
-      return dockerService.restartContainer(containerId)
+      const result = await dockerService.restartContainer(containerId)
+      if (result.success) {
+        const recoveryResult = await frontendSandboxService.recoverFrontendRuntimeByContainerId(
+          containerId
+        )
+        if (recoveryResult.warning) {
+          logger.warn('容器重启后前端服务未完全恢复', 'main', {
+            containerId,
+            warning: recoveryResult.warning
+          })
+        }
+      }
+      return result
     }
   )
 
