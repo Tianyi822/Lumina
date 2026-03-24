@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
 import { computed, ref, watch } from 'vue'
-import type { ReActIteration, ReActStep } from '@renderer/types'
+import type { ReactIterationStatus, ReActIteration, ReActStep } from '@renderer/types'
 import ToolCallPanel from './ToolCallPanel.vue'
 import type { ToolCallPanelItem } from './ToolCallPanel.vue'
 import SvgIcon from './icons/SvgIcon.vue'
+import IterationPlaceholder from './chat/message/IterationPlaceholder.vue'
 
 interface PhaseUnit {
   key: string
@@ -12,6 +13,7 @@ interface PhaseUnit {
   reasoning: string
   toolItems: ToolCallPanelItem[]
   isActive: boolean
+  status?: ReactIterationStatus
 }
 
 const md = new MarkdownIt({
@@ -37,7 +39,10 @@ const expandedReasoningSet = ref<Set<string>>(new Set())
 const useIterationMode = computed(() => {
   return (
     props.iterations?.some(
-      (iteration) => iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
+      (iteration) =>
+        iteration.isActive ||
+        iteration.reasoning.trim().length > 0 ||
+        iteration.steps.length > 0
     ) || false
   )
 })
@@ -73,9 +78,13 @@ const phaseUnits = computed<PhaseUnit[]>(() => {
       iteration: iteration.iteration,
       reasoning: iteration.reasoning,
       toolItems: stepsToToolCallItems(iteration.steps, props.isStreaming && !!iteration.isActive),
-      isActive: !!iteration.isActive
+      isActive: !!iteration.isActive,
+      status: iteration.status
     }))
-    .filter((unit) => unit.reasoning.trim().length > 0 || unit.toolItems.length > 0)
+    // 保留活跃的迭代（即使为空），或者有内容的迭代
+    .filter(
+      (unit) => unit.isActive || unit.reasoning.trim().length > 0 || unit.toolItems.length > 0
+    )
 })
 
 // 当前内容是否可展示
@@ -248,60 +257,68 @@ function getPhaseLabel(iteration: number): string {
                 </div>
 
                 <div class="phase-main">
-                  <div class="phase-meta">
-                    <span class="phase-label">{{ getPhaseLabel(unit.iteration) }}</span>
-                    <span v-if="unit.toolItems.length > 0" class="phase-count">
-                      {{ unit.toolItems.length }} 次工具调用
-                    </span>
-                    <span v-if="unit.isActive && isStreaming" class="phase-streaming">
-                      <span class="pulse-dot-sm"></span>
-                      实时更新中
-                    </span>
-                  </div>
+                  <!-- 活跃但空的迭代：显示占位符 -->
+                  <template v-if="unit.isActive && !unit.reasoning && unit.toolItems.length === 0">
+                    <IterationPlaceholder :iteration="unit.iteration" :status="unit.status" />
+                  </template>
 
-                  <div
-                    v-if="unit.reasoning"
-                    class="reasoning-panel"
-                    :class="{ expanded: isReasoningExpanded(unit) }"
-                  >
-                    <button
-                      class="reasoning-header"
-                      type="button"
-                      @click="toggleReasoning(unit.key)"
+                  <!-- 有内容的迭代：显示思考面板和工具列表 -->
+                  <template v-else>
+                    <div class="phase-meta">
+                      <span class="phase-label">{{ getPhaseLabel(unit.iteration) }}</span>
+                      <span v-if="unit.toolItems.length > 0" class="phase-count">
+                        {{ unit.toolItems.length }} 次工具调用
+                      </span>
+                      <span v-if="unit.isActive && isStreaming" class="phase-streaming">
+                        <span class="pulse-dot-sm"></span>
+                        实时更新中
+                      </span>
+                    </div>
+
+                    <div
+                      v-if="unit.reasoning"
+                      class="reasoning-panel"
+                      :class="{ expanded: isReasoningExpanded(unit) }"
                     >
-                      <div class="reasoning-header-left">
-                        <SvgIcon name="info" class="reasoning-icon" :size="16" />
-                        <span class="reasoning-label">思考</span>
-                      </div>
-
-                      <span class="reasoning-arrow" :class="{ expanded: isReasoningExpanded(unit) }"
-                        >▶</span
+                      <button
+                        class="reasoning-header"
+                        type="button"
+                        @click="toggleReasoning(unit.key)"
                       >
-                    </button>
+                        <div class="reasoning-header-left">
+                          <SvgIcon name="info" class="reasoning-icon" :size="16" />
+                          <span class="reasoning-label">思考</span>
+                        </div>
 
-                    <div class="reasoning-body" :class="{ expanded: isReasoningExpanded(unit) }">
-                      <div class="reasoning-content">
-                        <!-- markdown-it 已禁用原生 HTML，这里仅渲染受控 Markdown -->
-                        <!-- eslint-disable vue/no-v-html -->
-                        <div
-                          class="reasoning-text markdown-body"
-                          v-html="renderMarkdown(unit.reasoning)"
-                        ></div>
-                        <!-- eslint-enable vue/no-v-html -->
+                        <span class="reasoning-arrow" :class="{ expanded: isReasoningExpanded(unit) }"
+                          >▶</span
+                        >
+                      </button>
+
+                      <div class="reasoning-body" :class="{ expanded: isReasoningExpanded(unit) }">
+                        <div class="reasoning-content">
+                          <!-- markdown-it 已禁用原生 HTML，这里仅渲染受控 Markdown -->
+                          <!-- eslint-disable vue/no-v-html -->
+                          <div
+                            class="reasoning-text markdown-body"
+                            v-html="renderMarkdown(unit.reasoning)"
+                          ></div>
+                          <!-- eslint-enable vue/no-v-html -->
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div v-if="unit.toolItems.length > 0" class="tool-list">
-                    <TransitionGroup name="tool-item" tag="div" class="tool-list-inner">
-                      <ToolCallPanel
-                        v-for="(item, index) in unit.toolItems"
-                        :key="item.id"
-                        :tool-call="item"
-                        :index="index"
-                      />
-                    </TransitionGroup>
-                  </div>
+                    <div v-if="unit.toolItems.length > 0" class="tool-list">
+                      <TransitionGroup name="tool-item" tag="div" class="tool-list-inner">
+                        <ToolCallPanel
+                          v-for="(item, index) in unit.toolItems"
+                          :key="item.id"
+                          :tool-call="item"
+                          :index="index"
+                        />
+                      </TransitionGroup>
+                    </div>
+                  </template>
                 </div>
               </section>
             </TransitionGroup>
