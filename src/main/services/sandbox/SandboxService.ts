@@ -149,6 +149,68 @@ export class SandboxService {
   }
 
   /**
+   * 加载所有沙箱元数据
+   */
+  loadAllSandboxes(): SandboxData[] {
+    try {
+      const sandboxDir = getSandboxDirPath()
+      if (!existsSync(sandboxDir)) {
+        return []
+      }
+
+      const dirs = readdirSync(sandboxDir, { withFileTypes: true })
+      const sandboxes: SandboxData[] = []
+
+      for (const dir of dirs) {
+        if (!dir.isDirectory()) {
+          continue
+        }
+
+        const sandboxId = dir.name
+        if (!isValidSandboxId(sandboxId)) {
+          continue
+        }
+
+        const sandbox = this.loadSandbox(sandboxId)
+        if (sandbox) {
+          sandboxes.push(sandbox)
+        }
+      }
+
+      return sandboxes
+    } catch (error) {
+      logger.error('加载全部沙箱失败', 'main', {
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return []
+    }
+  }
+
+  /**
+   * 根据容器 ID 查找关联沙箱
+   */
+  findSandboxByContainerId(containerId: string): SandboxData | null {
+    try {
+      for (const sandbox of this.loadAllSandboxes()) {
+        if (
+          sandbox.primaryContainerId === containerId ||
+          sandbox.containerIds.some((id) => id === containerId)
+        ) {
+          return sandbox
+        }
+      }
+
+      return null
+    } catch (error) {
+      logger.error('根据容器 ID 查找沙箱失败', 'main', {
+        containerId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return null
+    }
+  }
+
+  /**
    * 列出所有沙箱（包含容器实时状态）
    */
   async listSandboxs(): Promise<SandboxListItem[]> {
