@@ -1,5 +1,5 @@
 import type { WebContents } from 'electron'
-import type { StreamEvent } from '../../types/chat'
+import type { ReactIterationStatus, StreamEvent } from '../../types/chat'
 
 /**
  * 流式处理器
@@ -71,11 +71,17 @@ export class StreamHandler {
   /**
    * 发送 ReAct 迭代开始事件
    */
-  sendReactIterationStart(webContents: WebContents, sessionId: string, iteration: number): void {
+  sendReactIterationStart(
+    webContents: WebContents,
+    sessionId: string,
+    iteration: number,
+    status: ReactIterationStatus = 'thinking'
+  ): void {
     this.sendStreamEvent(webContents, {
       type: 'react_iteration_start',
       content: String(iteration),
-      sessionId
+      sessionId,
+      status
     })
   }
 }
