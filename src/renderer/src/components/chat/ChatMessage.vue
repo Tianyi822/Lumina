@@ -162,6 +162,43 @@ const showWaitingPlaceholder = computed(() => {
 })
 
 /**
+ * AI 消息是否有实际内容（非空白）
+ */
+const hasAssistantContent = computed(() => {
+  if (props.message.role !== 'assistant') return true
+  // 流式传输中允许显示占位符
+  if (props.message.isStreaming) return true
+  // 有推理内容或工具活动时也算有内容
+  if (showStandaloneReasoning.value || hasStructuredReact.value || hasToolActivity.value) return true
+  // 检查正文内容是否非空
+  return !!props.message.content?.trim()
+})
+
+/**
+ * 是否应该渲染整个消息组件
+ */
+const shouldRenderMessage = computed(() => {
+  // 用户消息始终显示
+  if (props.message.role === 'user') return true
+  // AI 消息需要检查是否有实际内容
+  return hasAssistantContent.value
+})
+
+/**
+ * 是否应该显示消息气泡
+ */
+const shouldShowBubble = computed(() => {
+  // 用户消息始终显示气泡
+  if (props.message.role === 'user') return true
+  // 流式传输中且显示等待占位符时显示气泡
+  if (showWaitingPlaceholder.value) return true
+  // 检查是否有实际内容（同时检查原始内容和显示内容）
+  const originalContent = props.message.content?.trim()
+  const displayed = displayedContent.value?.trim()
+  return !!(originalContent || displayed)
+})
+
+/**
  * 用户消息的估算 Token 显示
  */
 const userTokenUsageLabel = computed(() => {
@@ -205,7 +242,11 @@ function handleClosePreviewDialog(): void {
 </script>
 
 <template>
-  <div class="chat-message" :class="[`role-${message.role}`, { streaming: message.isStreaming }]">
+  <div
+    v-if="shouldRenderMessage"
+    class="chat-message"
+    :class="[`role-${message.role}`, { streaming: message.isStreaming }]"
+  >
     <!-- 消息头部：头像和发送者信息 -->
     <div class="message-header">
       <!-- 头像 -->
@@ -258,7 +299,7 @@ function handleClosePreviewDialog(): void {
       />
 
       <!-- 消息气泡 -->
-      <div class="message-bubble" :class="{ streaming: message.isStreaming }">
+      <div v-if="shouldShowBubble" class="message-bubble" :class="{ streaming: message.isStreaming }">
         <StreamingContent
           v-if="showWaitingPlaceholder"
           :has-tool-activity="hasToolActivity"
