@@ -1,7 +1,7 @@
 /**
  * 沙箱基础类型
  */
-import type { ContainerState } from './container'
+import type { ContainerState, PortMapping } from './container'
 import type { FrontendSandboxMetadata } from './frontend'
 
 /**
@@ -60,6 +60,8 @@ export interface SandboxData {
   dockerfileConfigId?: string
   /** 前端项目元数据 */
   frontend?: FrontendSandboxMetadata
+  /** 端口映射配置（用于 dockerfile/compose 类型沙箱） */
+  portMappings?: PortMapping[]
   /** 是否为孤立沙箱（容器已丢失） */
   isOrphan?: boolean
 }
