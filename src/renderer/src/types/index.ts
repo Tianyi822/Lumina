@@ -76,6 +76,12 @@ export interface ReActStep {
 }
 
 /**
+ * ReAct 迭代状态（UI 层）
+ * 用于跟踪当前迭代的执行阶段
+ */
+export type ReactIterationStatus = 'thinking' | 'calling_tools' | 'processing' | 'complete'
+
+/**
  * ReAct 迭代（UI 层特有）
  * 每次 ReAct 循环迭代的思考过程和工具调用步骤
  */
@@ -88,6 +94,8 @@ export interface ReActIteration {
   steps: ReActStep[]
   /** 是否为当前正在流式输出的迭代 */
   isActive?: boolean
+  /** 当前迭代状态 */
+  status?: ReactIterationStatus
 }
 
 /**

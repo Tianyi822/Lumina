@@ -153,6 +153,12 @@ export interface ToolResultInfo {
 }
 
 /**
+ * ReAct 迭代状态
+ * 用于跟踪当前迭代的执行阶段
+ */
+export type ReactIterationStatus = 'thinking' | 'calling_tools' | 'processing'
+
+/**
  * 流式传输时的事件类型
  * 定义了聊天过程中可能发生的各种事件
  */
@@ -271,6 +277,8 @@ export interface StreamEvent {
   knowledgeResult?: KnowledgeResultInfo
   /** 用户交互请求，仅在事件类型为 user_interaction 时提供 */
   userInteraction?: UserInteractionRequest
+  /** ReAct 迭代状态，仅在事件类型为 react_iteration_start 时提供 */
+  status?: ReactIterationStatus
 }
 
 /**
