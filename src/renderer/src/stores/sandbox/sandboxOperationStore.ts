@@ -9,6 +9,9 @@ interface DeleteConfirmState {
   sandboxName: string
   creationType: SandboxCreationType | null
   containerCount: number
+  hasWorkspace: boolean
+  workspaceName?: string
+  isDeleting: boolean
 }
 
 interface OperationMessage {
@@ -29,7 +32,10 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
     sandboxId: null,
     sandboxName: '',
     creationType: null,
-    containerCount: 0
+    containerCount: 0,
+    hasWorkspace: false,
+    workspaceName: undefined,
+    isDeleting: false
   })
 
   const operationMessage = ref<OperationMessage | null>(null)
@@ -103,18 +109,36 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
     showError(title, message)
   }
 
-  function showDeleteConfirm(
+  async function showDeleteConfirm(
     sandboxId: string,
     sandboxName: string,
     creationType: SandboxCreationType,
     containerCount: number
-  ): void {
+  ): Promise<void> {
+    let hasWorkspace = false
+    let workspaceName: string | undefined
+
+    try {
+      const sandbox = await window.api.sandbox.loadSandbox(sandboxId)
+      hasWorkspace =
+        sandbox?.frontend?.storageType === 'docker-volume' && !!sandbox.frontend.volumeName
+      workspaceName = sandbox?.frontend?.volumeName
+    } catch (error) {
+      window.api.logger.warn('[SandboxOperationStore] 加载删除确认所需的沙箱详情失败', {
+        sandboxId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+
     deleteConfirmState.value = {
       show: true,
       sandboxId,
       sandboxName,
       creationType,
-      containerCount
+      containerCount,
+      hasWorkspace,
+      workspaceName,
+      isDeleting: false
     }
   }
 
@@ -124,7 +148,10 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
       sandboxId: null,
       sandboxName: '',
       creationType: null,
-      containerCount: 0
+      containerCount: 0,
+      hasWorkspace: false,
+      workspaceName: undefined,
+      isDeleting: false
     }
   }
 
@@ -173,6 +200,13 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
       }
     }
 
+    if (error.includes('删除前端工作区前必须同时删除关联容器')) {
+      return {
+        title: '无法删除工作区',
+        message: '删除前端工作区前必须同时删除关联容器。请勾选“同时删除容器”后再重试。'
+      }
+    }
+
     return {
       title: '删除失败',
       message: error
@@ -187,6 +221,9 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
     const fallbackMeta = resolveSandboxMeta(sandboxId)
     const creationType = meta?.creationType || fallbackMeta.creationType
 
+    // 设置删除中状态
+    deleteConfirmState.value.isDeleting = true
+
     try {
       const result = await window.api.sandbox.deleteSandbox(sandboxId, options)
 
@@ -200,7 +237,13 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         hideDeleteConfirm()
 
         window.api.logger.info('[SandboxOperationStore] 删除沙箱成功', { sandboxId })
-        showSuccess('删除成功', '沙箱已成功删除')
+        const successMessageParts = ['沙箱已成功删除']
+        if (result.removedWorkspace) {
+          successMessageParts.push('前端工作区已同时删除。')
+        } else if (result.keptWorkspace) {
+          successMessageParts.push('前端工作区已保留。')
+        }
+        showSuccess('删除成功', successMessageParts.join('\n'))
         return true
       }
 
@@ -209,6 +252,8 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         showError(formatted.title, formatted.message)
       }
 
+      // 删除失败，重置状态
+      deleteConfirmState.value.isDeleting = false
       return false
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -217,6 +262,8 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         sandboxId
       })
       showError('删除失败', '删除沙箱时发生错误，请稍后重试')
+      // 异常时重置状态
+      deleteConfirmState.value.isDeleting = false
       return false
     }
   }
@@ -234,10 +281,8 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
     })
   }
 
-  async function confirmDelete(deleteContainers?: boolean): Promise<void> {
-    await deleteSandboxWithConfirm(
-      deleteContainers === undefined ? undefined : { deleteContainers }
-    )
+  async function confirmDelete(options?: DeleteSandboxOptions): Promise<void> {
+    await deleteSandboxWithConfirm(options)
   }
 
   async function cleanupOrphanSandbox(sandboxId: string): Promise<boolean> {

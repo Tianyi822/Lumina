@@ -163,6 +163,10 @@ export const useSessionStore = defineStore('session', () => {
     title?: string,
     sessionType?: SessionType
   ): Promise<SessionData | null> {
+    // 保存当前输入状态，用于新会话继承
+    // 这确保了在没有当前会话时（如直接发送消息创建会话），输入状态不会丢失
+    const currentInputStateSnapshot = inputState.getCurrentSelectionState()
+
     try {
       // 保存当前会话状态（如果有）
       if (currentChatId.value) {
@@ -179,7 +183,11 @@ export const useSessionStore = defineStore('session', () => {
       currentChatId.value = session.sessionId
       messages.value = []
 
-      // 初始化新会话的输入状态
+      // 将当前输入状态应用到新会话
+      inputState.saveCurrentState(session.sessionId)
+      // 使用保存的快照更新新会话的选择状态
+      inputState.applySessionSelectionState(session.sessionId, currentInputStateSnapshot)
+      // 切换到新会话的输入状态
       inputState.switchToSession(session.sessionId)
 
       await refreshSessionList()
@@ -197,6 +205,7 @@ export const useSessionStore = defineStore('session', () => {
       })
 
       // 降级处理：创建本地会话
+      // 使用之前保存的快照，确保状态一致性
       const newSessionId = `chat-${Date.now()}`
       const fallbackSession: SessionData = {
         sessionId: newSessionId,
@@ -206,12 +215,17 @@ export const useSessionStore = defineStore('session', () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         messages: [],
-        selectionState: inputState.getCurrentSelectionState()
+        selectionState: currentInputStateSnapshot
       }
 
       currentSession.value = fallbackSession
       currentChatId.value = newSessionId
       messages.value = []
+
+      // 将快照状态应用到新会话并切换
+      inputState.saveCurrentState(newSessionId)
+      inputState.applySessionSelectionState(newSessionId, currentInputStateSnapshot)
+      inputState.switchToSession(newSessionId)
 
       return fallbackSession
     }

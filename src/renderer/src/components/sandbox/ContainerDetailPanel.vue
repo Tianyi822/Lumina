@@ -18,6 +18,9 @@ const props = defineProps<{
   refreshingStats?: boolean
   creationType?: SandboxCreationType | null // 沙箱创建类型
   sandboxName?: string // 沙箱名称（用于格式化监控页面标题）
+  startingContainer?: boolean // 启动中状态
+  stoppingContainer?: boolean // 停止中状态
+  restartingContainer?: boolean // 重启中状态
 }>()
 
 const emit = defineEmits<{
@@ -38,6 +41,11 @@ const { typeMeta, showLifecycleButtons, isReadOnly } = useSandboxPermissions(cre
 // ==================== Computed ====================
 
 const isRunning = computed(() => props.container?.state === 'running')
+
+// 是否有任何操作正在进行
+const isOperating = computed(
+  () => props.startingContainer || props.stoppingContainer || props.restartingContainer
+)
 
 /**
  * 格式化监控页面标题
@@ -150,9 +158,28 @@ function formatEnv(env: string[]): string[] {
 
           <!-- 生命周期操作按钮：根据权限显示/隐藏 -->
           <template v-if="showLifecycleButtons">
-            <button v-if="!isRunning" class="btn success" @click="emit('start')">启动</button>
-            <button v-else class="btn warning" @click="emit('stop')">停止</button>
-            <button class="btn" @click="emit('restart')">重启</button>
+            <button
+              v-if="!isRunning"
+              class="btn success"
+              :disabled="isOperating"
+              @click="emit('start')"
+            >
+              <SvgIcon v-if="startingContainer" name="loading" :size="14" :spin="true" />
+              <span>{{ startingContainer ? '启动中...' : '启动' }}</span>
+            </button>
+            <button
+              v-else
+              class="btn warning"
+              :disabled="isOperating"
+              @click="emit('stop')"
+            >
+              <SvgIcon v-if="stoppingContainer" name="loading" :size="14" :spin="true" />
+              <span>{{ stoppingContainer ? '停止中...' : '停止' }}</span>
+            </button>
+            <button class="btn" :disabled="isOperating" @click="emit('restart')">
+              <SvgIcon v-if="restartingContainer" name="loading" :size="14" :spin="true" />
+              <span>{{ restartingContainer ? '重启中...' : '重启' }}</span>
+            </button>
           </template>
 
           <!-- 只读模式提示：existing 类型显示 -->
@@ -438,6 +465,10 @@ function formatEnv(env: string[]): string[] {
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   padding: 6px 12px;
   font-size: 13px;
   font-family: var(--theme-font);

@@ -120,29 +120,40 @@ export const useContainerStore = defineStore('container', () => {
     listUpdateKey.value++
   }
 
-  async function loadContainerDetails(containerId: string): Promise<void> {
+  async function loadContainerDetails(
+    containerId: string,
+    options?: { silent?: boolean }
+  ): Promise<void> {
     try {
       const result = await window.api.sandbox.getContainerDetails(containerId)
 
       if (!result.success) {
         selectedContainer.value = null
-        operationStore.notifyDockerError('加载容器详情失败', result.error || '未知错误')
+        if (!options?.silent) {
+          operationStore.notifyDockerError('加载容器详情失败', result.error || '未知错误')
+        }
         return
       }
 
       selectedContainer.value = result.details || null
 
-      window.api.logger.info('[ContainerStore] 容器详情加载完成', {
-        containerId: containerId.substring(0, 12)
-      })
+      if (!options?.silent) {
+        window.api.logger.info('[ContainerStore] 容器详情加载完成', {
+          containerId: containerId.substring(0, 12)
+        })
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      window.api.logger.error('[ContainerStore] 加载容器详情失败', {
-        error: errorMessage,
-        containerId
-      })
+      if (!options?.silent) {
+        window.api.logger.error('[ContainerStore] 加载容器详情失败', {
+          error: errorMessage,
+          containerId
+        })
+      }
       selectedContainer.value = null
-      operationStore.notifyDockerError('加载容器详情失败', errorMessage)
+      if (!options?.silent) {
+        operationStore.notifyDockerError('加载容器详情失败', errorMessage)
+      }
     }
   }
 

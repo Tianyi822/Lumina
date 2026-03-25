@@ -15,6 +15,7 @@ import {
   SandboxLogEntry,
   CreateSandboxRequest,
   CreateSandboxResult,
+  DeleteSandboxResult,
   DeleteSandboxOptions,
   SandboxContainerStatus,
   ContainerState
@@ -81,7 +82,7 @@ export class SandboxService {
   /**
    * 保存沙箱元数据
    */
-  saveSandbox(data: SandboxData): SandboxResult {
+  saveSandbox(data: SandboxData, options?: { silent?: boolean }): SandboxResult {
     try {
       if (!isValidSandboxId(data.sandboxId)) {
         const error = '无效的沙箱 ID'
@@ -105,7 +106,9 @@ export class SandboxService {
       const content = JSON.stringify(data, null, 2)
       writeFileSync(filePath, content, 'utf-8')
 
-      logger.debug('沙箱保存成功', 'main', { sandboxId: data.sandboxId })
+      if (!options?.silent) {
+        logger.debug('沙箱保存成功', 'main', { sandboxId: data.sandboxId })
+      }
       return { success: true }
     } catch (error) {
       const errorMessage = `沙箱保存失败: ${error instanceof Error ? error.message : String(error)}`
@@ -117,7 +120,7 @@ export class SandboxService {
   /**
    * 加载沙箱
    */
-  loadSandbox(sandboxId: string): SandboxData | null {
+  loadSandbox(sandboxId: string, options?: { silent?: boolean }): SandboxData | null {
     try {
       if (!isValidSandboxId(sandboxId)) {
         logger.warn('无效的沙箱 ID', 'main', { sandboxId })
@@ -139,7 +142,9 @@ export class SandboxService {
       const content = readFileSync(filePath, 'utf-8')
       const sandbox = JSON.parse(content) as SandboxData
 
-      logger.debug('沙箱加载成功', 'main', { sandboxId })
+      if (!options?.silent) {
+        logger.debug('沙箱加载成功', 'main', { sandboxId })
+      }
       return sandbox
     } catch (error) {
       const errorMessage = `沙箱加载失败: ${error instanceof Error ? error.message : String(error)}`
@@ -495,7 +500,7 @@ export class SandboxService {
   async deleteSandbox(
     sandboxId: string,
     options?: DeleteSandboxOptions
-  ): Promise<{ success: boolean; removedContainers?: string[]; error?: string }> {
+  ): Promise<DeleteSandboxResult> {
     try {
       if (!isValidSandboxId(sandboxId)) {
         return { success: false, error: '无效的沙箱 ID' }
@@ -508,6 +513,8 @@ export class SandboxService {
       }
 
       const removedContainers: string[] = []
+      const clearedContainerIds: string[] = []
+      let removedWorkspace = false
       const force = options?.force || false
 
       // 导入 DockerService 和权限服务
@@ -519,6 +526,19 @@ export class SandboxService {
         sandbox.creationType,
         options?.deleteContainers
       )
+      const shouldDeleteWorkspace = options?.deleteWorkspace === true
+      const volumeName = sandbox.frontend?.volumeName
+      const hasWorkspace = sandbox.frontend?.storageType === 'docker-volume' && !!volumeName
+
+      if (shouldDeleteWorkspace && hasWorkspace && !deletePolicy.shouldDeleteContainers) {
+        return {
+          success: false,
+          removedContainers,
+          removedWorkspace: false,
+          keptWorkspace: true,
+          error: '删除前端工作区前必须同时删除关联容器'
+        }
+      }
 
       // 如果需要删除容器（且类型允许）
       const failedContainers: Array<{ id: string; reason: string }> = []
@@ -550,6 +570,7 @@ export class SandboxService {
             const result = await dockerService.removeContainer(containerId, force || isRunning)
             if (result.success) {
               removedContainers.push(containerId)
+              clearedContainerIds.push(containerId)
               this.logOperation(sandboxId, `删除容器: ${containerId.substring(0, 12)}`, 'info')
             } else {
               // 分析删除失败原因
@@ -564,14 +585,23 @@ export class SandboxService {
                 result.error?.includes('No such container')
               ) {
                 reason = `容器「${containerName}」不存在，可能已被手动删除`
+                clearedContainerIds.push(containerId)
+                this.logOperation(
+                  sandboxId,
+                  `关联容器已不存在，按已清理处理: ${containerId.substring(0, 12)}`,
+                  'warn'
+                )
               } else if (result.error?.includes('permission denied')) {
                 reason = `权限不足，无法删除容器「${containerName}」`
               }
-              failedContainers.push({ id: containerId, reason })
-              logger.warn('删除容器失败', 'main', {
-                containerId: containerId.substring(0, 12),
-                reason
-              })
+
+              if (!clearedContainerIds.includes(containerId)) {
+                failedContainers.push({ id: containerId, reason })
+                logger.warn('删除容器失败', 'main', {
+                  containerId: containerId.substring(0, 12),
+                  reason
+                })
+              }
             }
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
@@ -583,12 +613,21 @@ export class SandboxService {
               errorMsg.includes('No such container')
             ) {
               reason = '容器不存在，可能已被手动删除'
+              clearedContainerIds.push(containerId)
+              this.logOperation(
+                sandboxId,
+                `关联容器已不存在，按已清理处理: ${containerId.substring(0, 12)}`,
+                'warn'
+              )
             }
-            failedContainers.push({ id: containerId, reason })
-            logger.warn('删除容器失败', 'main', {
-              containerId: containerId.substring(0, 12),
-              error: errorMsg
-            })
+
+            if (!clearedContainerIds.includes(containerId)) {
+              failedContainers.push({ id: containerId, reason })
+              logger.warn('删除容器失败', 'main', {
+                containerId: containerId.substring(0, 12),
+                error: errorMsg
+              })
+            }
           }
         }
       } else if (deletePolicy.warning) {
@@ -600,6 +639,67 @@ export class SandboxService {
         })
       }
 
+      if (failedContainers.length > 0) {
+        this.removeClearedContainersFromSandbox(sandbox, clearedContainerIds)
+
+        sandbox.status = 'error'
+        sandbox.updatedAt = new Date().toISOString()
+        this.saveSandbox(sandbox)
+
+        logger.warn('部分容器删除失败，保留沙箱元数据以便后续处理', 'main', {
+          sandboxId,
+          failedCount: failedContainers.length,
+          reasons: failedContainers.map((f) => f.reason)
+        })
+
+        return {
+          success: false,
+          removedContainers,
+          removedWorkspace: false,
+          keptWorkspace: hasWorkspace,
+          error: failedContainers.map((f) => f.reason).join('; ')
+        }
+      }
+
+      if (shouldDeleteWorkspace && hasWorkspace && volumeName) {
+        const ownedBySandbox = await dockerService.isVolumeOwnedBySandbox(volumeName, sandboxId)
+        if (!ownedBySandbox) {
+          this.removeClearedContainersFromSandbox(sandbox, clearedContainerIds)
+
+          sandbox.status = 'error'
+          sandbox.updatedAt = new Date().toISOString()
+          this.saveSandbox(sandbox)
+
+          return {
+            success: false,
+            removedContainers,
+            removedWorkspace: false,
+            keptWorkspace: true,
+            error: `工作区 volume 不属于当前沙箱: ${volumeName}`
+          }
+        }
+
+        const removeWorkspaceResult = await dockerService.removeVolume(volumeName, { force })
+        if (!removeWorkspaceResult.success) {
+          this.removeClearedContainersFromSandbox(sandbox, clearedContainerIds)
+
+          sandbox.status = 'error'
+          sandbox.updatedAt = new Date().toISOString()
+          this.saveSandbox(sandbox)
+
+          return {
+            success: false,
+            removedContainers,
+            removedWorkspace: false,
+            keptWorkspace: true,
+            error: removeWorkspaceResult.error || '删除前端工作区失败'
+          }
+        }
+
+        removedWorkspace = true
+        this.logOperation(sandboxId, `删除工作区: ${volumeName}`, 'info')
+      }
+
       // 删除沙箱元数据目录
       const boxPath = getSandboxDirPath() + '/' + sandboxId
       if (isPathInSandboxDir(boxPath) && existsSync(boxPath)) {
@@ -607,30 +707,24 @@ export class SandboxService {
       }
 
       // 构建返回结果
-      const keptCount = sandbox.containerIds.length - removedContainers.length
+      const keptCount = sandbox.containerIds.length - clearedContainerIds.length
       const success = keptCount === 0 || !deletePolicy.shouldDeleteContainers
-
-      if (failedContainers.length > 0) {
-        logger.warn('部分容器删除失败', 'main', {
-          sandboxId,
-          failedCount: failedContainers.length,
-          reasons: failedContainers.map((f) => f.reason)
-        })
-      }
 
       logger.info('沙箱删除完成', 'main', {
         sandboxId,
         creationType: sandbox.creationType,
         removedContainers: removedContainers.length,
+        removedWorkspace,
+        keptWorkspace: hasWorkspace && !removedWorkspace,
         keptContainers: keptCount,
-        failedContainers: failedContainers.length
+        failedContainers: 0
       })
 
       return {
         success,
         removedContainers,
-        error:
-          failedContainers.length > 0 ? failedContainers.map((f) => f.reason).join('; ') : undefined
+        removedWorkspace,
+        keptWorkspace: hasWorkspace && !removedWorkspace
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -756,18 +850,46 @@ export class SandboxService {
         return { success: false, error: '该沙箱不是孤儿沙箱' }
       }
 
-      // 删除元数据
-      const boxPath = getSandboxDirPath() + '/' + sandboxId
-      if (isPathInSandboxDir(boxPath) && existsSync(boxPath)) {
-        rmSync(boxPath, { recursive: true, force: true })
+      const deleteResult = await this.deleteSandbox(sandboxId, {
+        deleteContainers: true,
+        deleteWorkspace: false,
+        force: true
+      })
+
+      if (!deleteResult.success) {
+        return {
+          success: false,
+          error: deleteResult.error || '清理孤儿沙箱失败'
+        }
       }
 
-      logger.info('孤儿沙箱清理成功', 'main', { sandboxId })
+      logger.info('孤儿沙箱清理成功', 'main', {
+        sandboxId,
+        keptWorkspace: deleteResult.keptWorkspace
+      })
+
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('清理孤儿沙箱失败', 'main', { error: errorMessage, sandboxId })
       return { success: false, error: errorMessage }
+    }
+  }
+
+  private removeClearedContainersFromSandbox(
+    sandbox: SandboxData,
+    clearedContainerIds: string[]
+  ): void {
+    if (clearedContainerIds.length === 0) {
+      return
+    }
+
+    sandbox.containerIds = sandbox.containerIds.filter(
+      (containerId) => !clearedContainerIds.includes(containerId)
+    )
+
+    if (sandbox.primaryContainerId && clearedContainerIds.includes(sandbox.primaryContainerId)) {
+      sandbox.primaryContainerId = sandbox.containerIds[0]
     }
   }
 

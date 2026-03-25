@@ -49,6 +49,25 @@ export interface CreateContainerFromImageResult {
   error?: string
 }
 
+export interface DockerVolumeInfo {
+  name: string
+  driver?: string
+  labels?: Record<string, string>
+  mountpoint?: string
+  createdAt?: string
+  scope?: string
+}
+
+export interface DockerVolumeCreateOptions {
+  name: string
+  driver?: string
+  labels?: Record<string, string>
+}
+
+export interface DockerVolumeRemoveOptions {
+  force?: boolean
+}
+
 export interface ComposeBuildContext {
   service: string
   context: string

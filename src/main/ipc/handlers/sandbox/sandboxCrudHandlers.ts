@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import type {
+  DeleteSandboxResult,
   SandboxData,
   SandboxListItem,
   SandboxResult,
@@ -56,7 +57,7 @@ export function registerSandboxCrudHandlers(): void {
       _event,
       sandboxId: string,
       options?: DeleteSandboxOptions
-    ): Promise<{ success: boolean; removedContainers?: string[]; error?: string }> => {
+    ): Promise<DeleteSandboxResult> => {
       return sandboxService.deleteSandbox(sandboxId, options)
     }
   )

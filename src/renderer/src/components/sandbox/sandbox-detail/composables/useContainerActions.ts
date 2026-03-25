@@ -159,6 +159,7 @@ export function useContainerActions(
     if (!currentSandbox.value) return
     await sandboxStore.checkContainerStatus(currentSandbox.value.sandboxId)
     await sandboxStore.refreshSandboxList()
+    await sandboxStore.loadSandbox(currentSandbox.value.sandboxId, true)
   }
 
   /**
@@ -179,6 +180,7 @@ export function useContainerActions(
 
     // 同时刷新沙箱列表以保持同步
     await sandboxStore.refreshSandboxList()
+    await sandboxStore.loadSandbox(currentSandbox.value.sandboxId, true)
   }
 
   return {

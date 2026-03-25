@@ -8,9 +8,10 @@ export const vueTemplate: ProjectTemplate = {
   name: 'Vue Vite Template',
   description: '基于 Vue 3 和 Vite 的最小可运行模板',
   framework: 'vue',
-  packageManager: 'pnpm',
-  installCommand: 'pnpm install',
-  startCommand: 'pnpm dev',
+  packageManager: 'bun',
+  installCommand: 'bun install',
+  startCommand: 'bun run dev',
+  buildCommand: 'bun run build',
   files: [
     {
       path: 'package.json',

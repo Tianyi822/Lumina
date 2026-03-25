@@ -46,15 +46,21 @@ export const useSandboxListStore = defineStore('sandboxList', () => {
     listUpdateKey.value++
   }
 
-  async function loadSandbox(sandboxId: string, force: boolean = false): Promise<boolean> {
+  async function loadSandbox(
+    sandboxId: string,
+    force: boolean = false,
+    options?: { silent?: boolean }
+  ): Promise<boolean> {
     if (!force && currentSandbox.value?.sandboxId === sandboxId) {
       return true
     }
 
     try {
-      isLoading.value = true
+      if (!options?.silent) {
+        isLoading.value = true
+      }
 
-      const sandbox = await window.api.sandbox.loadSandbox(sandboxId)
+      const sandbox = await window.api.sandbox.loadSandboxResolved(sandboxId)
       if (!sandbox) {
         return false
       }
@@ -66,24 +72,32 @@ export const useSandboxListStore = defineStore('sandboxList', () => {
       const containerStore = useContainerStore()
       const containerId = sandbox.primaryContainerId || sandbox.containerIds?.[0]
       if (containerId) {
-        await containerStore.loadContainerDetails(containerId)
+        await containerStore.loadContainerDetails(containerId, {
+          silent: options?.silent
+        })
       }
 
-      window.api.logger.info('[SandboxListStore] 沙箱加载成功', {
-        sandboxId,
-        name: sandbox.name,
-        containerId: containerId || 'none'
-      })
+      if (!options?.silent) {
+        window.api.logger.info('[SandboxListStore] 沙箱加载成功', {
+          sandboxId,
+          name: sandbox.name,
+          containerId: containerId || 'none'
+        })
+      }
 
       return true
     } catch (error) {
-      window.api.logger.error('[SandboxListStore] 加载沙箱失败', {
-        error: error instanceof Error ? error.message : String(error),
-        sandboxId
-      })
+      if (!options?.silent) {
+        window.api.logger.error('[SandboxListStore] 加载沙箱失败', {
+          error: error instanceof Error ? error.message : String(error),
+          sandboxId
+        })
+      }
       return false
     } finally {
-      isLoading.value = false
+      if (!options?.silent) {
+        isLoading.value = false
+      }
     }
   }
 

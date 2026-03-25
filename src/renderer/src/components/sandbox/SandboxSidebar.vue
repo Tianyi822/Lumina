@@ -9,6 +9,7 @@ const props = defineProps<{
   sandboxs: SandboxListItem[]
   activeSandboxId?: string
   listUpdateKey?: number
+  deletingSandboxId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -90,6 +91,7 @@ async function handleRefreshList(): Promise<void> {
     <SandboxList
       :sandboxs="filteredSandboxs"
       :active-sandbox-id="activeSandboxId"
+      :deleting-sandbox-id="deletingSandboxId"
       @select="handleSelectSandbox"
       @delete="handleDeleteSandbox"
     />

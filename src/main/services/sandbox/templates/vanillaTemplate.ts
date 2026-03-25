@@ -8,9 +8,10 @@ export const vanillaTemplate: ProjectTemplate = {
   name: 'Vanilla Vite Template',
   description: '基于原生 JavaScript 和 Vite 的最小可运行模板',
   framework: 'vanilla',
-  packageManager: 'pnpm',
-  installCommand: 'pnpm install',
-  startCommand: 'pnpm dev',
+  packageManager: 'bun',
+  installCommand: 'bun install',
+  startCommand: 'bun run dev',
+  buildCommand: 'bun run build',
   files: [
     {
       path: 'package.json',

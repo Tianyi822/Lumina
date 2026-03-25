@@ -34,6 +34,9 @@ export class TemplateService {
       ...template,
       name: this.renderString(template.name, variables),
       description: this.renderString(template.description, variables),
+      installCommand: this.renderString(template.installCommand, variables),
+      startCommand: this.renderString(template.startCommand, variables),
+      buildCommand: this.renderString(template.buildCommand, variables),
       files: template.files.map((file) => ({
         ...file,
         content: this.renderString(file.content, variables)

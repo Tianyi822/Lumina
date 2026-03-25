@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { SandboxCreationType } from '@shared/types/sandbox'
+import type { DeleteSandboxOptions, SandboxCreationType } from '@shared/types/sandbox'
 import { getDeleteDialogConfig } from '@renderer/utils/sandboxPermissions'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
@@ -11,16 +11,19 @@ interface SandboxItem {
   creationType?: SandboxCreationType
   containerIds?: string[]
   composeProjectName?: string
+  hasWorkspace?: boolean
+  workspaceName?: string
 }
 
 const props = defineProps<{
   visible: boolean
   sandbox?: SandboxItem | null
+  isDeleting?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'confirm', sandboxId: string, deleteContainers: boolean): void
+  (e: 'confirm', sandboxId: string, options: DeleteSandboxOptions): void
 }>()
 
 const deleteContainers = ref(false)
@@ -41,7 +44,6 @@ const confirmMessage = computed(() => dialogConfig.value?.message || '')
 const showDeleteContainerOption = computed(() => dialogConfig.value?.showDeleteOption ?? false)
 const deleteContainerLabel = computed(() => dialogConfig.value?.deleteOptionLabel || '')
 const warningMessage = computed(() => dialogConfig.value?.warningMessage || '')
-const confirmButtonText = computed(() => dialogConfig.value?.confirmButtonText || '确认删除')
 const typeTheme = computed(() => dialogConfig.value?.typeTheme || 'default')
 
 // 是否为 existing 类型
@@ -74,14 +76,18 @@ watch(
 )
 
 function handleClose(): void {
+  if (props.isDeleting) return // 删除中不允许关闭
   resetState()
   emit('close')
 }
 
 function handleConfirm(): void {
-  if (!props.sandbox) return
-  emit('confirm', props.sandbox.sandboxId, deleteContainers.value)
-  resetState()
+  if (!props.sandbox || props.isDeleting) return
+  // 简化删除逻辑：默认同时删除容器和工作区
+  emit('confirm', props.sandbox.sandboxId, {
+    deleteContainers: deleteContainers.value,
+    deleteWorkspace: deleteContainers.value // 工作区跟随容器一起删除
+  })
 }
 </script>
 
@@ -93,7 +99,7 @@ function handleConfirm(): void {
     >
       <div class="dialog-header">
         <h3>{{ confirmTitle }}</h3>
-        <button class="close-btn" @click="handleClose">×</button>
+        <button class="close-btn" :disabled="isDeleting" @click="handleClose">×</button>
       </div>
 
       <div class="dialog-body">
@@ -107,7 +113,7 @@ function handleConfirm(): void {
 
         <!-- 同时删除容器选项 -->
         <label v-if="showDeleteContainerOption" class="delete-option">
-          <input v-model="deleteContainers" type="checkbox" />
+          <input v-model="deleteContainers" type="checkbox" :disabled="isDeleting" />
           <span>{{ deleteContainerLabel }}</span>
         </label>
 
@@ -122,9 +128,15 @@ function handleConfirm(): void {
       </div>
 
       <div class="dialog-footer">
-        <button class="btn-cancel" @click="handleClose">取消</button>
-        <button class="btn-confirm" :class="{ 'btn-safe': isExistingType }" @click="handleConfirm">
-          {{ confirmButtonText }}
+        <button class="btn-cancel" :disabled="isDeleting" @click="handleClose">取消</button>
+        <button
+          class="btn-confirm"
+          :class="{ 'btn-safe': isExistingType, 'btn-loading': isDeleting }"
+          :disabled="isDeleting"
+          @click="handleConfirm"
+        >
+          <SvgIcon v-if="isDeleting" name="loading" :size="16" :spin="true" />
+          <span>{{ isDeleting ? '删除中...' : '确认删除' }}</span>
         </button>
       </div>
     </div>
@@ -250,6 +262,22 @@ function handleConfirm(): void {
   color: var(--theme-text);
 }
 
+.workspace-option input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.workspace-option.disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.hint-message {
+  margin: 10px 0 0 0;
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+}
+
 .warning-message {
   margin: 12px 0 0 0;
   padding: 10px 12px;
@@ -337,7 +365,29 @@ function handleConfirm(): void {
   color: white;
 }
 
-.btn-confirm:hover {
+.btn-confirm:hover:not(:disabled) {
   opacity: 0.9;
+}
+
+.btn-confirm:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-cancel:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.close-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 </style>

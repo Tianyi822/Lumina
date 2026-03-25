@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SandboxListItem, SandboxStatus } from '@shared/types/sandbox'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 // 创建类型 - 预留，待类型定义更新后使用
 
@@ -19,6 +20,7 @@ interface ExtendedSandboxListItem extends Omit<
 defineProps<{
   sandboxs: SandboxListItem[]
   activeSandboxId?: string
+  deletingSandboxId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -120,8 +122,20 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
         </div>
       </div>
 
-      <button class="btn-delete" title="删除沙箱" @click.stop="handleDeleteClick(sandbox)">
-        x
+      <button
+        class="btn-delete"
+        :class="{ 'is-deleting': sandbox.sandboxId === deletingSandboxId }"
+        title="删除沙箱"
+        :disabled="sandbox.sandboxId === deletingSandboxId"
+        @click.stop="handleDeleteClick(sandbox)"
+      >
+        <SvgIcon
+          v-if="sandbox.sandboxId === deletingSandboxId"
+          name="loading"
+          :size="14"
+          :spin="true"
+        />
+        <SvgIcon v-else name="trash" :size="14" />
       </button>
     </div>
   </div>
@@ -274,8 +288,10 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 }
 
 .btn-delete {
-  padding: 4px 8px;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
   background-color: transparent;
   border: 1px solid var(--theme-border);
   border-radius: 4px;
@@ -284,10 +300,20 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
   transition: all 0.15s ease;
 }
 
-.btn-delete:hover {
+.btn-delete:hover:not(:disabled) {
   background-color: var(--theme-danger);
   border-color: var(--theme-danger);
   color: white;
+}
+
+.btn-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-delete.is-deleting {
+  border-color: var(--theme-warning);
+  color: var(--theme-warning);
 }
 
 .delete-confirm {

@@ -26,6 +26,7 @@ import { DockerContainerService } from './DockerContainerService'
 import { DockerExecService } from './DockerExecService'
 import { DockerImageService } from './DockerImageService'
 import { DockerStatsService } from './DockerStatsService'
+import { DockerVolumeService } from './DockerVolumeService'
 import type {
   BuildImageFromDockerfileOptions,
   BuildImageFromDockerfileResult,
@@ -34,6 +35,9 @@ import type {
   CreateContainerFromImageOptions,
   CreateContainerFromImageResult,
   DockerAvailabilityResult,
+  DockerVolumeCreateOptions,
+  DockerVolumeInfo,
+  DockerVolumeRemoveOptions,
   DockerServiceContext
 } from './types'
 
@@ -49,6 +53,7 @@ export class DockerService implements DockerServiceContext {
   private readonly execService = new DockerExecService(this)
   private readonly statsService = new DockerStatsService(this)
   private readonly imageService = new DockerImageService(this)
+  private readonly volumeService = new DockerVolumeService(this)
   private readonly composeService = new DockerComposeService(
     this,
     this.containerService,
@@ -317,6 +322,48 @@ export class DockerService implements DockerServiceContext {
   }
 
   /**
+   * 创建 Docker volume
+   */
+  async createVolume(options: DockerVolumeCreateOptions): Promise<DockerVolumeInfo> {
+    return this.volumeService.createVolume(options)
+  }
+
+  /**
+   * 获取 Docker volume
+   */
+  async getVolume(name: string): Promise<DockerVolumeInfo | null> {
+    return this.volumeService.getVolume(name)
+  }
+
+  /**
+   * 列出 Docker volumes
+   */
+  async listVolumes(): Promise<DockerVolumeInfo[]> {
+    return this.volumeService.listVolumes()
+  }
+
+  /**
+   * 删除 Docker volume
+   */
+  async removeVolume(name: string, options?: DockerVolumeRemoveOptions): Promise<SandboxResult> {
+    return this.volumeService.removeVolume(name, options)
+  }
+
+  /**
+   * 检查 volume 是否存在
+   */
+  async volumeExists(name: string): Promise<boolean> {
+    return this.volumeService.volumeExists(name)
+  }
+
+  /**
+   * 检查 volume 归属
+   */
+  async isVolumeOwnedBySandbox(name: string, sandboxId: string): Promise<boolean> {
+    return this.volumeService.isVolumeOwnedBySandbox(name, sandboxId)
+  }
+
+  /**
    * 执行 docker compose up
    * @param options 启动参数
    * @returns 启动结果
@@ -459,6 +506,14 @@ export const dockerService = {
     getDockerService().buildImageFromDockerfile(options),
   createContainerFromImage: (options: CreateContainerFromImageOptions) =>
     getDockerService().createContainerFromImage(options),
+  createVolume: (options: DockerVolumeCreateOptions) => getDockerService().createVolume(options),
+  getVolume: (name: string) => getDockerService().getVolume(name),
+  listVolumes: () => getDockerService().listVolumes(),
+  removeVolume: (name: string, options?: DockerVolumeRemoveOptions) =>
+    getDockerService().removeVolume(name, options),
+  volumeExists: (name: string) => getDockerService().volumeExists(name),
+  isVolumeOwnedBySandbox: (name: string, sandboxId: string) =>
+    getDockerService().isVolumeOwnedBySandbox(name, sandboxId),
   execCommand: (id: string, cmd: ExecCommand) => getDockerService().execCommand(id, cmd),
   getContainerLogs: (id: string, opts?: LogOptions) =>
     getDockerService().getContainerLogs(id, opts),

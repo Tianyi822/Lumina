@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 // 沙箱项接口
 interface SandboxItem {
@@ -7,12 +7,17 @@ interface SandboxItem {
   name: string
   creationType?: string
   composeProjectName?: string
+  frontend?: {
+    volumeName?: string
+  }
 }
 
 const props = defineProps<{
   visible: boolean
   sandbox?: SandboxItem | null
   isReloading?: boolean
+  canRecover?: boolean
+  recoverLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -22,6 +27,27 @@ const emit = defineEmits<{
 }>()
 
 const isRecovering = ref(false)
+const recoveringLabel = computed(() =>
+  props.recoverLabel?.includes('重建') ? '重建中...' : '重新关联中...'
+)
+
+watch(
+  () => props.visible,
+  (visible) => {
+    if (!visible) {
+      isRecovering.value = false
+    }
+  }
+)
+
+watch(
+  () => props.isReloading,
+  (isReloading) => {
+    if (!isReloading) {
+      isRecovering.value = false
+    }
+  }
+)
 
 function handleClose(): void {
   emit('close')
@@ -53,15 +79,19 @@ function handleCleanup(): void {
           <p v-if="sandbox?.composeProjectName" class="project-info">
             Compose 项目：{{ sandbox.composeProjectName }}
           </p>
+          <p v-if="sandbox?.frontend?.volumeName" class="project-info">
+            工作区 Volume：{{ sandbox.frontend.volumeName }}
+          </p>
         </div>
         <div class="alert-actions">
           <button
+            v-if="canRecover"
             class="btn-recover"
             :disabled="isReloading || isRecovering"
             @click="handleRecover"
           >
-            <span v-if="isRecovering">重新关联中...</span>
-            <span v-else>重新关联容器</span>
+            <span v-if="isRecovering">{{ recoveringLabel }}</span>
+            <span v-else>{{ recoverLabel || '重新关联容器' }}</span>
           </button>
           <button class="btn-cleanup" :disabled="isReloading" @click="handleCleanup">
             清理沙箱

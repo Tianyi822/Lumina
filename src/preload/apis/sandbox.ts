@@ -27,7 +27,9 @@ import type {
   SaveConfigRequest,
   CreateSandboxRequest,
   CreateSandboxResult,
+  DeleteSandboxResult,
   DeleteSandboxOptions,
+  FrontendSandboxInfo,
   SandboxContainerStatus,
   ComposeStopOptions,
   ComposeStopResult,
@@ -61,6 +63,10 @@ export const sandboxApi = {
 
   loadSandbox: (sandboxId: string): Promise<SandboxData | null> => {
     return ipcRenderer.invoke('sandbox:load', sandboxId)
+  },
+
+  loadSandboxResolved: (sandboxId: string): Promise<SandboxData | null> => {
+    return ipcRenderer.invoke('sandbox:frontend:loadResolved', sandboxId)
   },
 
   listSandboxs: (): Promise<SandboxListItem[]> => {
@@ -268,8 +274,20 @@ export const sandboxApi = {
   deleteSandbox: (
     sandboxId: string,
     options?: DeleteSandboxOptions
-  ): Promise<{ success: boolean; removedContainers?: string[]; error?: string }> => {
+  ): Promise<DeleteSandboxResult> => {
     return ipcRenderer.invoke('sandbox:delete', sandboxId, options)
+  },
+
+  retryFrontendInitialization: (sandboxId: string): Promise<FrontendSandboxInfo> => {
+    return ipcRenderer.invoke('sandbox:frontend:retryInitialization', sandboxId)
+  },
+
+  rebuildFrontendRuntime: (sandboxId: string): Promise<FrontendSandboxInfo> => {
+    return ipcRenderer.invoke('sandbox:frontend:rebuildRuntime', sandboxId)
+  },
+
+  validateFrontendBuild: (sandboxId: string): Promise<FrontendSandboxInfo> => {
+    return ipcRenderer.invoke('sandbox:frontend:validateBuild', sandboxId)
   },
 
   checkContainerStatus: (sandboxId: string): Promise<SandboxContainerStatus | null> => {
