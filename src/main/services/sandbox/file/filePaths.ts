@@ -4,8 +4,11 @@ import { join, normalize, posix, sep } from 'path'
 /** 默认项目根目录 */
 export const DEFAULT_PROJECT_ROOT = '/app'
 
+/** 前端沙箱项目根目录 */
+export const FRONTEND_PROJECT_ROOT = '/workspace'
+
 /** 允许写入的项目根目录白名单 */
-export const ALLOWED_PROJECT_ROOTS = [DEFAULT_PROJECT_ROOT]
+export const ALLOWED_PROJECT_ROOTS = [DEFAULT_PROJECT_ROOT, FRONTEND_PROJECT_ROOT]
 
 /**
  * 获取沙箱文件服务的临时目录根路径
