@@ -44,6 +44,11 @@ const isRetryingFrontend = ref(false)
 const isRebuildingFrontend = ref(false)
 const isValidatingFrontendBuild = ref(false)
 
+// 容器生命周期操作加载状态
+const isStartingContainer = ref(false)
+const isStoppingContainer = ref(false)
+const isRestartingContainer = ref(false)
+
 // ==================== Computed ====================
 
 const hasSandbox = computed(() => !!props.currentSandbox)
@@ -81,13 +86,40 @@ const { containerLogs, logsLoading, loadContainerLogs, handleRefreshLogs, handle
 
 // 容器操作
 const {
-  handleContainerStart,
-  handleContainerStop,
-  handleContainerRestart,
-  handleContainerRemove,
+  handleContainerStart: _handleContainerStart,
+  handleContainerStop: _handleContainerStop,
+  handleContainerRestart: _handleContainerRestart,
   handleExecuteCommand,
   handleClearTerminal
 } = useContainerActions(currentSandboxRef, selectedContainerRef)
+
+// 包装容器操作函数，添加加载状态管理
+async function handleContainerStart(): Promise<void> {
+  isStartingContainer.value = true
+  try {
+    await _handleContainerStart()
+  } finally {
+    isStartingContainer.value = false
+  }
+}
+
+async function handleContainerStop(): Promise<void> {
+  isStoppingContainer.value = true
+  try {
+    await _handleContainerStop()
+  } finally {
+    isStoppingContainer.value = false
+  }
+}
+
+async function handleContainerRestart(): Promise<void> {
+  isRestartingContainer.value = true
+  try {
+    await _handleContainerRestart()
+  } finally {
+    isRestartingContainer.value = false
+  }
+}
 
 // ==================== Watch ====================
 
@@ -298,6 +330,15 @@ async function handleViewLogs(): Promise<void> {
   setDetailTab('logs')
 }
 
+/**
+ * 删除沙箱 - 弹出确认对话框
+ */
+function handleDeleteSandbox(): void {
+  if (props.currentSandbox) {
+    sandboxStore.handleDeleteSandbox(props.currentSandbox.sandboxId)
+  }
+}
+
 // ==================== 孤儿沙箱操作 ====================
 
 async function handleRecoverOrphan(): Promise<void> {
@@ -416,10 +457,13 @@ function handleCloseOrphanAlert(): void {
             :refreshing-stats="isManualRefreshingStats"
             :creation-type="currentSandbox?.creationType"
             :sandbox-name="currentSandbox?.name"
+            :starting-container="isStartingContainer"
+            :stopping-container="isStoppingContainer"
+            :restarting-container="isRestartingContainer"
             @start="handleContainerStart"
             @stop="handleContainerStop"
             @restart="handleContainerRestart"
-            @remove="handleContainerRemove"
+            @remove="handleDeleteSandbox"
             @open-terminal="handleOpenTerminal"
             @view-logs="handleViewLogs"
             @refresh-stats="handleRefreshStats"
