@@ -11,6 +11,7 @@ interface DeleteConfirmState {
   containerCount: number
   hasWorkspace: boolean
   workspaceName?: string
+  isDeleting: boolean
 }
 
 interface OperationMessage {
@@ -33,7 +34,8 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
     creationType: null,
     containerCount: 0,
     hasWorkspace: false,
-    workspaceName: undefined
+    workspaceName: undefined,
+    isDeleting: false
   })
 
   const operationMessage = ref<OperationMessage | null>(null)
@@ -135,7 +137,8 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
       creationType,
       containerCount,
       hasWorkspace,
-      workspaceName
+      workspaceName,
+      isDeleting: false
     }
   }
 
@@ -147,7 +150,8 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
       creationType: null,
       containerCount: 0,
       hasWorkspace: false,
-      workspaceName: undefined
+      workspaceName: undefined,
+      isDeleting: false
     }
   }
 
@@ -217,6 +221,9 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
     const fallbackMeta = resolveSandboxMeta(sandboxId)
     const creationType = meta?.creationType || fallbackMeta.creationType
 
+    // 设置删除中状态
+    deleteConfirmState.value.isDeleting = true
+
     try {
       const result = await window.api.sandbox.deleteSandbox(sandboxId, options)
 
@@ -245,6 +252,8 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         showError(formatted.title, formatted.message)
       }
 
+      // 删除失败，重置状态
+      deleteConfirmState.value.isDeleting = false
       return false
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -253,6 +262,8 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         sandboxId
       })
       showError('删除失败', '删除沙箱时发生错误，请稍后重试')
+      // 异常时重置状态
+      deleteConfirmState.value.isDeleting = false
       return false
     }
   }

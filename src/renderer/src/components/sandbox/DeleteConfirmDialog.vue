@@ -18,6 +18,7 @@ interface SandboxItem {
 const props = defineProps<{
   visible: boolean
   sandbox?: SandboxItem | null
+  isDeleting?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -26,7 +27,6 @@ const emit = defineEmits<{
 }>()
 
 const deleteContainers = ref(false)
-const deleteWorkspace = ref(false)
 
 // 使用工具函数获取对话框配置
 const dialogConfig = computed(() => {
@@ -44,14 +44,7 @@ const confirmMessage = computed(() => dialogConfig.value?.message || '')
 const showDeleteContainerOption = computed(() => dialogConfig.value?.showDeleteOption ?? false)
 const deleteContainerLabel = computed(() => dialogConfig.value?.deleteOptionLabel || '')
 const warningMessage = computed(() => dialogConfig.value?.warningMessage || '')
-const confirmButtonText = computed(() => dialogConfig.value?.confirmButtonText || '确认删除')
 const typeTheme = computed(() => dialogConfig.value?.typeTheme || 'default')
-const showDeleteWorkspaceOption = computed(() => props.sandbox?.hasWorkspace === true)
-const deleteWorkspaceLabel = computed(() => {
-  const volumeName = props.sandbox?.workspaceName
-  return volumeName ? `同时删除前端工作区 (${volumeName})` : '同时删除前端工作区'
-})
-const canDeleteWorkspace = computed(() => showDeleteWorkspaceOption.value && deleteContainers.value)
 
 // 是否为 existing 类型
 const isExistingType = computed(() => props.sandbox?.creationType === 'existing')
@@ -59,7 +52,6 @@ const isExistingType = computed(() => props.sandbox?.creationType === 'existing'
 // 重置状态
 function resetState(): void {
   deleteContainers.value = dialogConfig.value?.defaultDeleteContainers ?? false
-  deleteWorkspace.value = false
 }
 
 // 监听对话框显示，初始化状态
@@ -83,24 +75,19 @@ watch(
   }
 )
 
-watch(deleteContainers, (enabled) => {
-  if (!enabled) {
-    deleteWorkspace.value = false
-  }
-})
-
 function handleClose(): void {
+  if (props.isDeleting) return // 删除中不允许关闭
   resetState()
   emit('close')
 }
 
 function handleConfirm(): void {
-  if (!props.sandbox) return
+  if (!props.sandbox || props.isDeleting) return
+  // 简化删除逻辑：默认同时删除容器和工作区
   emit('confirm', props.sandbox.sandboxId, {
     deleteContainers: deleteContainers.value,
-    deleteWorkspace: deleteWorkspace.value
+    deleteWorkspace: deleteContainers.value // 工作区跟随容器一起删除
   })
-  resetState()
 }
 </script>
 
@@ -112,7 +99,7 @@ function handleConfirm(): void {
     >
       <div class="dialog-header">
         <h3>{{ confirmTitle }}</h3>
-        <button class="close-btn" @click="handleClose">×</button>
+        <button class="close-btn" :disabled="isDeleting" @click="handleClose">×</button>
       </div>
 
       <div class="dialog-body">
@@ -126,22 +113,9 @@ function handleConfirm(): void {
 
         <!-- 同时删除容器选项 -->
         <label v-if="showDeleteContainerOption" class="delete-option">
-          <input v-model="deleteContainers" type="checkbox" />
+          <input v-model="deleteContainers" type="checkbox" :disabled="isDeleting" />
           <span>{{ deleteContainerLabel }}</span>
         </label>
-
-        <label
-          v-if="showDeleteWorkspaceOption"
-          class="delete-option workspace-option"
-          :class="{ disabled: !canDeleteWorkspace }"
-        >
-          <input v-model="deleteWorkspace" type="checkbox" :disabled="!canDeleteWorkspace" />
-          <span>{{ deleteWorkspaceLabel }}</span>
-        </label>
-
-        <p v-if="showDeleteWorkspaceOption && !deleteContainers" class="hint-message">
-          删除工作区前必须同时删除关联容器。
-        </p>
 
         <!-- 警告提示 -->
         <p
@@ -154,9 +128,15 @@ function handleConfirm(): void {
       </div>
 
       <div class="dialog-footer">
-        <button class="btn-cancel" @click="handleClose">取消</button>
-        <button class="btn-confirm" :class="{ 'btn-safe': isExistingType }" @click="handleConfirm">
-          {{ confirmButtonText }}
+        <button class="btn-cancel" :disabled="isDeleting" @click="handleClose">取消</button>
+        <button
+          class="btn-confirm"
+          :class="{ 'btn-safe': isExistingType, 'btn-loading': isDeleting }"
+          :disabled="isDeleting"
+          @click="handleConfirm"
+        >
+          <SvgIcon v-if="isDeleting" name="loading" :size="16" :spin="true" />
+          <span>{{ isDeleting ? '删除中...' : '确认删除' }}</span>
         </button>
       </div>
     </div>
@@ -385,7 +365,29 @@ function handleConfirm(): void {
   color: white;
 }
 
-.btn-confirm:hover {
+.btn-confirm:hover:not(:disabled) {
   opacity: 0.9;
+}
+
+.btn-confirm:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-cancel:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.close-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 </style>

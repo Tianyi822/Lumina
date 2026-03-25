@@ -146,6 +146,7 @@ onMounted(async () => {
             :sandboxs="sandboxList"
             :active-sandbox-id="currentSandbox?.sandboxId"
             :list-update-key="listUpdateKey"
+            :deleting-sandbox-id="deleteConfirmState.isDeleting ? deleteConfirmState.sandboxId : null"
             @select-sandbox="sandboxStore.handleSelectSandbox"
             @delete-sandbox="sandboxStore.handleDeleteSandbox"
           />
@@ -163,6 +164,7 @@ onMounted(async () => {
 
       <DeleteConfirmDialog
         :visible="deleteConfirmState.show"
+        :is-deleting="deleteConfirmState.isDeleting"
         :sandbox="
           deleteConfirmState.sandboxId
             ? {
