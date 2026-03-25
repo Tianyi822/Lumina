@@ -2,7 +2,7 @@
  * 沙箱基础类型
  */
 import type { ContainerState, PortMapping } from './container'
-import type { FrontendSandboxMetadata } from './frontend'
+import type { FrontendWorkspaceMetadata } from './frontend'
 
 /**
  * 平台类型
@@ -59,7 +59,7 @@ export interface SandboxData {
   /** Dockerfile 配置 ID */
   dockerfileConfigId?: string
   /** 前端项目元数据 */
-  frontend?: FrontendSandboxMetadata
+  frontend?: FrontendWorkspaceMetadata
   /** 端口映射配置（用于 dockerfile/compose 类型沙箱） */
   portMappings?: PortMapping[]
   /** 是否为孤立沙箱（容器已丢失） */
@@ -207,6 +207,24 @@ export interface DeleteSandboxOptions {
    * - dockerfile/compose 类型：由用户选择，默认 true
    */
   deleteContainers?: boolean
+  /** 是否删除关联工作区（如 Docker volume），默认 false */
+  deleteWorkspace?: boolean
+}
+
+/**
+ * 删除沙箱结果
+ */
+export interface DeleteSandboxResult {
+  /** 是否成功 */
+  success: boolean
+  /** 已删除的容器 ID 列表 */
+  removedContainers?: string[]
+  /** 是否已删除工作区 */
+  removedWorkspace?: boolean
+  /** 是否保留了工作区 */
+  keptWorkspace?: boolean
+  /** 错误信息 */
+  error?: string
 }
 
 /**
