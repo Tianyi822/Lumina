@@ -121,10 +121,18 @@ function handleClearResult(): void {
       <div class="pe-panel">
         <h3 class="pe-panel-title">示例设置</h3>
 
-        <label class="pe-switch-row">
-          <input v-model="includeExamples" type="checkbox" />
-          <span>包含 Few-shot 示例</span>
-        </label>
+        <div class="form-group setting-switch-card">
+          <label class="form-label" for="include-examples">包含 Few-shot 示例</label>
+          <div class="toggle-wrapper">
+            <input
+              id="include-examples"
+              v-model="includeExamples"
+              type="checkbox"
+              class="toggle-input"
+            />
+            <label for="include-examples" class="toggle-label"></label>
+          </div>
+        </div>
 
         <label class="pe-range-field">
           <span>示例数量：{{ exampleCount }}</span>
@@ -200,7 +208,7 @@ function handleClearResult(): void {
         <pre v-if="assembledPrompt" class="pe-code-block pe-prompt-block">{{
           assembledPrompt
         }}</pre>
-        <div v-else class="pe-empty-state">点击“预览提示词”后，这里会显示最终发给模型的内容。</div>
+        <div v-else class="pe-empty-state">点击"预览提示词"后，这里会显示最终发给模型的内容。</div>
       </div>
     </div>
   </div>
@@ -303,20 +311,100 @@ function handleClearResult(): void {
   line-height: 1.2;
 }
 
-.pe-switch-row {
+/* Toggle Switch */
+.setting-switch-card {
   display: flex;
-  flex-direction: row-reverse;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  color: var(--theme-text);
-  font-size: 13px;
-  cursor: pointer;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: calc(var(--theme-radius-sm) + 2px);
+  border: 1px solid rgba(120, 134, 156, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%),
+    rgba(16, 24, 40, 0.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 10px 24px rgba(15, 23, 42, 0.05);
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
-.pe-switch-row input[type='checkbox'] {
+.setting-switch-card:hover {
+  border-color: rgba(120, 134, 156, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.045) 100%),
+    rgba(16, 24, 40, 0.05);
+}
+
+.setting-switch-card:focus-within {
+  border-color: color-mix(in srgb, var(--theme-accent) 58%, white 42%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 0 3px rgba(99, 102, 241, 0.12),
+    0 16px 30px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-text);
+  letter-spacing: 0.01em;
+  line-height: 1;
   margin: 0;
+}
+
+.toggle-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 26px;
+}
+
+.toggle-input {
+  display: none;
+}
+
+.toggle-label {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+  background: rgba(100, 116, 139, 0.22);
+  border: 1px solid rgba(100, 116, 139, 0.26);
+  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.14);
+  border-radius: 13px;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-label::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  transition: left 0.2s ease;
+}
+
+.toggle-input:checked + .toggle-label {
+  background: var(--theme-accent);
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.toggle-input:checked + .toggle-label::after {
+  left: 25px;
 }
 
 .pe-range-field {
