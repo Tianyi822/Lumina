@@ -56,20 +56,21 @@ watch(
     </div>
 
     <!-- 增强版 ReAct 提示词 -->
-    <div class="pe-form-group">
-      <label class="pe-switch-label">
+    <div class="form-group setting-switch-card">
+      <label class="form-label" for="enable-enhanced-prompt">启用增强版 ReAct 提示词</label>
+      <div class="toggle-wrapper">
         <input
+          id="enable-enhanced-prompt"
+          v-model="localConfig.enableEnhancedPrompt"
           type="checkbox"
-          class="pe-switch"
-          :checked="localConfig.enableEnhancedPrompt"
-          @change="localConfig.enableEnhancedPrompt = ($event.target as HTMLInputElement).checked"
+          class="toggle-input"
         />
-        <span>启用增强版 ReAct 提示词</span>
-      </label>
-      <p class="pe-help-text">
-        启用后将使用增强版的系统提示词，包含详细的推理指导、错误处理策略和最佳实践。
-      </p>
+        <label for="enable-enhanced-prompt" class="toggle-label"></label>
+      </div>
     </div>
+    <p class="pe-help-text">
+      启用后将使用增强版的系统提示词，包含详细的推理指导、错误处理策略和最佳实践。
+    </p>
 
     <!-- 工具描述配置 -->
     <h3 class="pe-section-title">工具描述配置</h3>
@@ -90,20 +91,21 @@ watch(
     <!-- Few-shot 示例配置 -->
     <h3 class="pe-section-title">Few-shot 示例配置</h3>
 
-    <div class="pe-form-group">
-      <label class="pe-switch-label">
+    <div class="form-group setting-switch-card">
+      <label class="form-label" for="enable-dynamic-examples">启用动态 Few-shot 示例</label>
+      <div class="toggle-wrapper">
         <input
+          id="enable-dynamic-examples"
+          v-model="localConfig.enableDynamicExamples"
           type="checkbox"
-          class="pe-switch"
-          :checked="localConfig.enableDynamicExamples"
-          @change="localConfig.enableDynamicExamples = ($event.target as HTMLInputElement).checked"
+          class="toggle-input"
         />
-        <span>启用动态 Few-shot 示例</span>
-      </label>
-      <p class="pe-help-text">
-        从历史对话中自动提取成功的工具调用作为示例，帮助 AI 学习如何正确使用工具。
-      </p>
+        <label for="enable-dynamic-examples" class="toggle-label"></label>
+      </div>
     </div>
+    <p class="pe-help-text">
+      从历史对话中自动提取成功的工具调用作为示例，帮助 AI 学习如何正确使用工具。
+    </p>
 
     <div class="pe-form-group">
       <label>Few-shot 示例数量: {{ localConfig.fewShotCount }}</label>
@@ -180,22 +182,21 @@ watch(
     <!-- 提示词压缩优化 -->
     <h3 class="pe-section-title">提示词压缩优化</h3>
 
-    <div class="pe-form-group">
-      <label class="pe-switch-label">
+    <div class="form-group setting-switch-card">
+      <label class="form-label" for="enable-prompt-optimization">启用提示词压缩优化</label>
+      <div class="toggle-wrapper">
         <input
+          id="enable-prompt-optimization"
+          v-model="localConfig.enablePromptOptimization"
           type="checkbox"
-          class="pe-switch"
-          :checked="localConfig.enablePromptOptimization"
-          @change="
-            localConfig.enablePromptOptimization = ($event.target as HTMLInputElement).checked
-          "
+          class="toggle-input"
         />
-        <span>启用提示词压缩优化</span>
-      </label>
-      <p class="pe-help-text">
-        当提示词超过模型 token 限制的一定比例时，自动压缩提示词以减少 token 消耗。
-      </p>
+        <label for="enable-prompt-optimization" class="toggle-label"></label>
+      </div>
     </div>
+    <p class="pe-help-text">
+      当提示词超过模型 token 限制的一定比例时，自动压缩提示词以减少 token 消耗。
+    </p>
 
     <div class="pe-form-group">
       <label>压缩激进程度</label>
@@ -212,20 +213,21 @@ watch(
     <!-- 提示词缓存 -->
     <h3 class="pe-section-title">提示词缓存</h3>
 
-    <div class="pe-form-group">
-      <label class="pe-switch-label">
+    <div class="form-group setting-switch-card">
+      <label class="form-label" for="enable-prompt-cache">启用提示词缓存</label>
+      <div class="toggle-wrapper">
         <input
+          id="enable-prompt-cache"
+          v-model="localConfig.enablePromptCache"
           type="checkbox"
-          class="pe-switch"
-          :checked="localConfig.enablePromptCache"
-          @change="localConfig.enablePromptCache = ($event.target as HTMLInputElement).checked"
+          class="toggle-input"
         />
-        <span>启用提示词缓存</span>
-      </label>
-      <p class="pe-help-text">
-        启用后将缓存构建好的提示词，减少重复构建的开销。适合配置和工具不频繁变化的场景。
-      </p>
+        <label for="enable-prompt-cache" class="toggle-label"></label>
+      </div>
     </div>
+    <p class="pe-help-text">
+      启用后将缓存构建好的提示词，减少重复构建的开销。适合配置和工具不频繁变化的场景。
+    </p>
 
     <!-- 自定义系统提示词 -->
     <h3 class="pe-section-title">自定义系统提示词</h3>
@@ -238,9 +240,7 @@ watch(
         rows="8"
         placeholder="输入自定义的系统提示词...留空则使用默认提示词"
       ></textarea>
-      <p class="pe-help-text">
-        如果提供自定义提示词，它将完全覆盖默认的 ReAct 系统提示词。仅高级用户使用。
-      </p>
+      <p class="pe-help-text">如果提供自定义提示词，它将完全覆盖默认的 ReAct 系统提示词。</p>
     </div>
 
     <!-- 操作按钮 -->
@@ -301,24 +301,102 @@ watch(
   margin-bottom: 8px;
 }
 
-/* 开关标签 */
-.pe-switch-label {
+/* 开关卡片样式 */
+.setting-switch-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: calc(var(--theme-radius-sm) + 2px);
+  border: 1px solid rgba(120, 134, 156, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%),
+    rgba(16, 24, 40, 0.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 10px 24px rgba(15, 23, 42, 0.05);
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
-.pe-switch-label > span {
-  line-height: 1.4;
+.setting-switch-card:hover {
+  border-color: rgba(120, 134, 156, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.045) 100%),
+    rgba(16, 24, 40, 0.05);
 }
 
-.pe-switch {
-  width: 16px;
-  height: 16px;
+.setting-switch-card:focus-within {
+  border-color: color-mix(in srgb, var(--theme-accent) 58%, white 42%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 0 3px rgba(99, 102, 241, 0.12),
+    0 16px 30px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-text);
+  letter-spacing: 0.01em;
+  line-height: 1;
   margin: 0;
+}
+
+/* Toggle Switch */
+.toggle-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 26px;
+}
+
+.toggle-input {
+  display: none;
+}
+
+.toggle-label {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+  margin: 0;
+  background: rgba(100, 116, 139, 0.22);
+  border: 1px solid rgba(100, 116, 139, 0.26);
+  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.14);
+  border-radius: 13px;
   cursor: pointer;
-  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.toggle-label::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  transition: left 0.2s ease;
+}
+
+.toggle-input:checked + .toggle-label {
+  background: var(--theme-accent);
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.toggle-input:checked + .toggle-label::after {
+  left: 25px;
 }
 
 /* 输入控件 */
