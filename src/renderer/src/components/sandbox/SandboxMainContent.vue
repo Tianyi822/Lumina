@@ -6,22 +6,17 @@ import TerminalPanel from './TerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
 import OrphanSandboxAlert from './OrphanSandboxAlert.vue'
-import { TabNavigation, SandboxInfoTab } from './sandbox-detail'
+import { TabNavigation } from './sandbox-detail'
 import {
   useContainerLogs as useContainerLogsComposable,
   useContainerActions
 } from './sandbox-detail'
-import type { SandboxData, SandboxLogEntry } from '@shared/types/sandbox'
+import type { SandboxData } from '@shared/types/sandbox'
 
 // ==================== Props & Emits ====================
 
 const props = defineProps<{
   currentSandbox: SandboxData | null
-  operationLogs: SandboxLogEntry[]
-}>()
-
-const emit = defineEmits<{
-  (e: 'rename', sandboxId: string, newName: string): void
 }>()
 
 // ==================== Store ====================
@@ -63,8 +58,7 @@ const {
   handleContainerRemove,
   handleRefreshStats,
   handleExecuteCommand,
-  handleClearTerminal,
-  handleRefreshStatus
+  handleClearTerminal
 } = useContainerActions(currentSandboxRef, selectedContainerRef)
 
 // ==================== Watch ====================
@@ -78,22 +72,27 @@ watch(
     } else if (tab === 'stats' && selectedContainer.value) {
       await containerStore.loadContainerStats(selectedContainer.value.id)
     }
-  }
+  },
+  { immediate: true }
 )
 
-// 容器变化时重新加载日志
+// 容器变化时重新加载数据
 watch(
   () => selectedContainer.value?.id,
   async (newId) => {
-    if (newId && sandboxDetailTab.value === 'logs') {
-      await loadContainerLogs()
+    if (newId) {
+      if (sandboxDetailTab.value === 'logs') {
+        await loadContainerLogs()
+      } else if (sandboxDetailTab.value === 'stats') {
+        await containerStore.loadContainerStats(newId)
+      }
     }
   }
 )
 
 // ==================== Methods ====================
 
-function setDetailTab(tab: 'info' | 'terminal' | 'logs' | 'stats'): void {
+function setDetailTab(tab: 'stats' | 'terminal' | 'logs'): void {
   uiStateStore.setSandboxDetailTab(tab)
 }
 
@@ -146,14 +145,30 @@ function handleCloseOrphanAlert(): void {
           @close="handleCloseOrphanAlert"
         />
 
-        <!-- 基本信息 Tab -->
-        <SandboxInfoTab
-          v-if="sandboxDetailTab === 'info'"
-          :current-sandbox="currentSandbox"
-          :operation-logs="operationLogs"
-          @rename="(id, name) => emit('rename', id, name)"
-          @refresh-status="handleRefreshStatus"
-        />
+        <!-- 监控 Tab -->
+        <div v-if="sandboxDetailTab === 'stats'" class="tab-content">
+          <div v-if="!selectedContainer" class="empty-state">
+            <div class="empty-content">
+              <p class="empty-text">请先选择一个 Docker 容器</p>
+              <p class="empty-hint">点击「创建新沙箱」选择已有容器</p>
+            </div>
+          </div>
+          <ContainerDetailPanel
+            v-else
+            :container="selectedContainer"
+            :stats="containerStats"
+            :loading="storeLoading"
+            :creation-type="currentSandbox?.creationType"
+            :sandbox-name="currentSandbox?.name"
+            @start="handleContainerStart"
+            @stop="handleContainerStop"
+            @restart="handleContainerRestart"
+            @remove="handleContainerRemove"
+            @open-terminal="handleOpenTerminal"
+            @view-logs="handleViewLogs"
+            @refresh-stats="handleRefreshStats"
+          />
+        </div>
 
         <!-- 终端 Tab -->
         <div v-else-if="sandboxDetailTab === 'terminal'" class="tab-content">
@@ -190,31 +205,6 @@ function handleCloseOrphanAlert(): void {
             :loading="logsLoading"
             @refresh="handleRefreshLogs"
             @export="handleExportLogs"
-          />
-        </div>
-
-        <!-- 监控 Tab -->
-        <div v-else-if="sandboxDetailTab === 'stats'" class="tab-content">
-          <div v-if="!selectedContainer" class="empty-state">
-            <div class="empty-content">
-              <p class="empty-text">请先选择一个 Docker 容器</p>
-              <p class="empty-hint">点击「创建新沙箱」选择已有容器</p>
-            </div>
-          </div>
-          <ContainerDetailPanel
-            v-else
-            :container="selectedContainer"
-            :stats="containerStats"
-            :loading="storeLoading"
-            :creation-type="currentSandbox?.creationType"
-            :sandbox-name="currentSandbox?.name"
-            @start="handleContainerStart"
-            @stop="handleContainerStop"
-            @restart="handleContainerRestart"
-            @remove="handleContainerRemove"
-            @open-terminal="handleOpenTerminal"
-            @view-logs="handleViewLogs"
-            @refresh-stats="handleRefreshStats"
           />
         </div>
       </template>

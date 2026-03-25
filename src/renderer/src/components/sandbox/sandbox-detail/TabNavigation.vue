@@ -5,7 +5,7 @@
 import { storeToRefs } from 'pinia'
 import { useUIStateStore } from '@renderer/stores'
 
-type TabType = 'info' | 'terminal' | 'logs' | 'stats'
+type TabType = 'stats' | 'terminal' | 'logs'
 
 defineProps<{
   visible: boolean
@@ -23,10 +23,10 @@ function setDetailTab(tab: TabType): void {
   <div v-if="visible" class="detail-tabs">
     <button
       class="tab-btn"
-      :class="{ active: sandboxDetailTab === 'info' }"
-      @click="setDetailTab('info')"
+      :class="{ active: sandboxDetailTab === 'stats' }"
+      @click="setDetailTab('stats')"
     >
-      基本信息
+      监控
     </button>
     <button
       class="tab-btn"
@@ -41,13 +41,6 @@ function setDetailTab(tab: TabType): void {
       @click="setDetailTab('logs')"
     >
       日志
-    </button>
-    <button
-      class="tab-btn"
-      :class="{ active: sandboxDetailTab === 'stats' }"
-      @click="setDetailTab('stats')"
-    >
-      监控
     </button>
   </div>
 </template>

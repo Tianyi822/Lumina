@@ -43,7 +43,6 @@ const uiStateStore = useUIStateStore()
 const {
   currentSandbox,
   sandboxList,
-  operationLogs,
   listUpdateKey,
   operationMessage,
   messageVisible,
@@ -153,8 +152,6 @@ onMounted(async () => {
         </div>
         <SandboxMainContent
           :current-sandbox="currentSandbox"
-          :operation-logs="operationLogs"
-          @rename="sandboxStore.renameSandbox"
         />
       </div>
 
