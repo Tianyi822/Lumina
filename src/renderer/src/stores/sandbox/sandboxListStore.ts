@@ -67,8 +67,6 @@ export const useSandboxListStore = defineStore('sandboxList', () => {
       const containerId = sandbox.primaryContainerId || sandbox.containerIds?.[0]
       if (containerId) {
         await containerStore.loadContainerDetails(containerId)
-        // 同时加载容器统计数据
-        await containerStore.loadContainerStats(containerId)
       }
 
       window.api.logger.info('[SandboxListStore] 沙箱加载成功', {

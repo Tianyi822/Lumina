@@ -147,7 +147,6 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
         const result = await creatorStore.createFromExisting(containerId)
         if (result?.success) {
           await containerStore.loadContainerDetails(containerId)
-          await containerStore.loadContainerStats(containerId)
           uiStateStore.setSandboxDetailTab('stats')
           options.closeDialog()
         }
