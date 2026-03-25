@@ -14,6 +14,7 @@ export type {
   CreateSandboxRequest,
   CreateSandboxResult,
   CreateFromDockerfileResult,
+  DeleteSandboxResult,
   DeleteSandboxOptions,
   SandboxContainerStatus
 } from '@shared/types/sandbox'
@@ -67,6 +68,16 @@ export type {
 } from '@shared/types/sandbox'
 
 export type {
+  FrontendFramework,
+  FrontendBootstrapStatus,
+  FrontendBootstrapState,
+  FrontendWorkspaceMetadata,
+  CreateFrontendSandboxOptions,
+  FrontendSandboxInfo,
+  FrontendSandboxMetadata
+} from '@shared/types/sandbox'
+
+export type {
   DockerfileConfigMeta,
   ComposeConfigMeta,
   DockerfileConfig,
@@ -92,7 +103,9 @@ import type {
   CreateSandboxRequest,
   CreateSandboxResult,
   CreateFromDockerfileResult,
+  DeleteSandboxResult,
   DeleteSandboxOptions,
+  FrontendSandboxInfo,
   SandboxContainerStatus,
   ContainerFilter,
   ContainerListResult,
@@ -173,6 +186,7 @@ export interface SandboxApi {
   // 沙箱管理
   saveSandbox: (data: SandboxData) => Promise<SandboxResult>
   loadSandbox: (sandboxId: string) => Promise<SandboxData | null>
+  loadSandboxResolved: (sandboxId: string) => Promise<SandboxData | null>
   listSandboxs: () => Promise<SandboxListItem[]>
   renameSandbox: (sandboxId: string, newName: string) => Promise<SandboxResult>
   readSandboxLog: (sandboxId: string) => Promise<SandboxLogEntry[]>
@@ -232,7 +246,10 @@ export interface SandboxApi {
   deleteSandbox: (
     sandboxId: string,
     options?: DeleteSandboxOptions
-  ) => Promise<{ success: boolean; removedContainers?: string[]; error?: string }>
+  ) => Promise<DeleteSandboxResult>
+  retryFrontendInitialization: (sandboxId: string) => Promise<FrontendSandboxInfo>
+  rebuildFrontendRuntime: (sandboxId: string) => Promise<FrontendSandboxInfo>
+  validateFrontendBuild: (sandboxId: string) => Promise<FrontendSandboxInfo>
   checkContainerStatus: (sandboxId: string) => Promise<SandboxContainerStatus | null>
   checkAllContainerStatus: () => Promise<SandboxContainerStatus[]>
   cleanupOrphan: (sandboxId: string) => Promise<SandboxResult>

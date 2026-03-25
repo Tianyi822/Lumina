@@ -6,6 +6,7 @@ import { registerSandboxSessionHandlers } from './sessionHandlers'
 import { registerSandboxCrudHandlers } from './sandboxCrudHandlers'
 import { registerSandboxCreationHandlers } from './creationHandlers'
 import { registerSandboxComposeHandlers } from './composeHandlers'
+import { registerSandboxFrontendHandlers } from './frontendHandlers'
 
 /**
  * 初始化沙箱服务
@@ -28,4 +29,5 @@ export function registerSandboxHandlers(): void {
   registerSandboxCrudHandlers()
   registerSandboxCreationHandlers()
   registerSandboxComposeHandlers()
+  registerSandboxFrontendHandlers()
 }

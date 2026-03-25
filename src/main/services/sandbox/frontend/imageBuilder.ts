@@ -10,9 +10,9 @@ const FRONTEND_BASE_IMAGE_TAG = 'sparrow-frontend-base'
 export async function ensureFrontendBaseImage(): Promise<string> {
   const buildResult = await dockerService.buildImageFromDockerfile({
     tag: FRONTEND_BASE_IMAGE_TAG,
-    dockerfile: `FROM node:20-slim
-WORKDIR /app
-RUN npm install -g pnpm
+    dockerfile: `FROM oven/bun:1
+WORKDIR /runtime
+RUN mkdir -p /workspace
 EXPOSE 5173 3000 8080
 CMD ["sleep", "infinity"]`
   })
