@@ -10,7 +10,7 @@ import type { ThemeConfig } from '@shared/types/config'
 export type ViewMode = 'chat' | 'knowledge' | 'sandbox'
 
 // 沙箱详情 Tab 类型
-export type SandboxDetailTab = 'info' | 'terminal' | 'logs' | 'stats'
+export type SandboxDetailTab = 'stats' | 'terminal' | 'logs'
 
 /**
  * 主题元数据
@@ -93,7 +93,7 @@ export const useUIStateStore = defineStore(
     // ==================== State: 沙箱页面 UI ====================
 
     // 沙箱详情当前 Tab
-    const sandboxDetailTab = ref<SandboxDetailTab>('info')
+    const sandboxDetailTab = ref<SandboxDetailTab>('stats')
 
     // 是否显示创建沙箱弹窗
     const showSandboxCreator = ref(false)

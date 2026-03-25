@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, shell } from 'electron'
 import { getMainWindow } from '@main/core'
 
 /**
@@ -40,6 +40,11 @@ export function registerWindowHandlers(): void {
       return window.isMaximized()
     }
     return false
+  })
+
+  // 使用系统默认浏览器打开外部链接
+  ipcMain.handle('window:openExternal', async (_event, url: string) => {
+    await shell.openExternal(url)
   })
 
   // 监听窗口最大化状态变化

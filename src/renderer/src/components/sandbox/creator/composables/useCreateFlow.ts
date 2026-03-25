@@ -1,5 +1,10 @@
 import { computed, type ComputedRef, type Ref } from 'vue'
-import { useContainerStore, useSandboxCreatorStore, useUIStateStore } from '@renderer/stores'
+import {
+  useContainerStore,
+  useSandboxCreatorStore,
+  useSandboxStore,
+  useUIStateStore
+} from '@renderer/stores'
 import type { ContainerInfo } from '@shared/types/sandbox'
 
 interface ContainerSelectorExpose {
@@ -25,6 +30,7 @@ interface UseCreateFlowResult {
 export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResult {
   const creatorStore = useSandboxCreatorStore()
   const containerStore = useContainerStore()
+  const sandboxStore = useSandboxStore()
   const uiStateStore = useUIStateStore()
 
   const canCreate = computed(() => {
@@ -114,14 +120,20 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
           projectName: creatorStore.composeProjectName || undefined
         })
 
-        if (result?.success) {
+        if (result?.success && result.sandbox?.sandboxId) {
+          // 加载新创建的沙箱
+          await sandboxStore.loadSandbox(result.sandbox.sandboxId)
+          uiStateStore.setSandboxDetailTab('stats')
           options.closeDialog()
         }
         break
       }
       case 'dockerfile': {
         const result = await creatorStore.createFromDockerfile()
-        if (result?.success) {
+        if (result?.success && result.sandbox?.sandboxId) {
+          // 加载新创建的沙箱
+          await sandboxStore.loadSandbox(result.sandbox.sandboxId)
+          uiStateStore.setSandboxDetailTab('stats')
           options.closeDialog()
         }
         break
@@ -135,7 +147,7 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
         const result = await creatorStore.createFromExisting(containerId)
         if (result?.success) {
           await containerStore.loadContainerDetails(containerId)
-          uiStateStore.setSandboxDetailTab('info')
+          uiStateStore.setSandboxDetailTab('stats')
           options.closeDialog()
         }
         break

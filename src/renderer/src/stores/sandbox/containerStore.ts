@@ -12,6 +12,7 @@ import { useSandboxOperationStore } from './sandboxOperationStore'
 
 export const useContainerStore = defineStore('container', () => {
   const operationStore = useSandboxOperationStore()
+  let latestStatsRequestId = 0
 
   // ==================== State ====================
 
@@ -145,25 +146,49 @@ export const useContainerStore = defineStore('container', () => {
     }
   }
 
-  async function loadContainerStats(containerId: string): Promise<void> {
+  async function loadContainerStats(
+    containerId: string,
+    options?: { silent?: boolean }
+  ): Promise<boolean> {
+    const requestId = ++latestStatsRequestId
+
     try {
       const result = await window.api.sandbox.getContainerStats(containerId)
+      if (requestId !== latestStatsRequestId) {
+        return false
+      }
+
       if (!result.success) {
         containerStats.value = null
-        operationStore.notifyDockerError('加载容器统计失败', result.error || '未知错误')
-        return
+        if (!options?.silent) {
+          operationStore.notifyDockerError('加载容器统计失败', result.error || '未知错误')
+        }
+        return false
       }
 
       containerStats.value = result.stats || null
+      return !!result.stats
     } catch (error) {
+      if (requestId !== latestStatsRequestId) {
+        return false
+      }
+
       const errorMessage = error instanceof Error ? error.message : String(error)
       window.api.logger.error('[ContainerStore] 加载容器统计失败', {
         error: errorMessage,
         containerId
       })
       containerStats.value = null
-      operationStore.notifyDockerError('加载容器统计失败', errorMessage)
+      if (!options?.silent) {
+        operationStore.notifyDockerError('加载容器统计失败', errorMessage)
+      }
+      return false
     }
+  }
+
+  function clearContainerStats(): void {
+    latestStatsRequestId++
+    containerStats.value = null
   }
 
   function setContainerFilter(filter: ContainerFilter): void {
@@ -596,6 +621,7 @@ export const useContainerStore = defineStore('container', () => {
     refreshContainers,
     loadContainerDetails,
     loadContainerStats,
+    clearContainerStats,
     setContainerFilter,
     setContainerSearchQuery,
 

@@ -13,6 +13,13 @@ export const windowApi = {
   }>('window', ['minimize', 'maximize', 'close', 'isMaximized']),
 
   /**
+   * 使用系统默认浏览器打开外部链接
+   */
+  openExternal: (url: string): Promise<void> => {
+    return ipcRenderer.invoke('window:openExternal', url)
+  },
+
+  /**
    * 监听窗口最大化状态的变化
    */
   onMaximizedChanged: (callback: (isMaximized: boolean) => void): (() => void) => {

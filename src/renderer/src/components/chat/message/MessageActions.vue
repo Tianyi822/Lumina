@@ -36,7 +36,6 @@ const emit = defineEmits<{
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
   flex-shrink: 0;
 }
 

@@ -15,6 +15,7 @@ const props = defineProps<{
   container: ContainerDetails | null
   stats: ContainerStats | null
   loading?: boolean
+  refreshingStats?: boolean
   creationType?: SandboxCreationType | null // 沙箱创建类型
   sandboxName?: string // 沙箱名称（用于格式化监控页面标题）
 }>()
@@ -166,10 +167,19 @@ function formatEnv(env: string[]): string[] {
 
       <!-- 资源监控 -->
       <div v-if="stats" class="stats-section">
-        <h3 class="section-title">
-          资源监控
-          <button class="btn-refresh" @click="emit('refresh-stats')">刷新</button>
-        </h3>
+        <div class="section-title-row">
+          <h3 class="section-title">资源监控</h3>
+          <button
+            class="btn-refresh"
+            type="button"
+            title="刷新资源监控"
+            aria-label="刷新资源监控"
+            :disabled="refreshingStats"
+            @click="emit('refresh-stats')"
+          >
+            <SvgIcon name="refresh" :size="14" :spin="refreshingStats" />
+          </button>
+        </div>
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-label">CPU 使用率</div>
@@ -502,28 +512,50 @@ function formatEnv(env: string[]): string[] {
 }
 
 .section-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   margin: 0 0 20px 0;
   font-size: 14px;
   font-weight: 600;
+  line-height: 1;
   color: var(--theme-text);
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.section-title-row > .section-title {
+  margin-bottom: 0;
 }
 
 .btn-refresh {
-  padding: 4px 8px;
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
   background: none;
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
+  border: none;
   cursor: pointer;
-  margin-left: auto;
   color: var(--theme-text);
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.btn-refresh svg {
+  flex-shrink: 0;
+}
+
+.btn-refresh:disabled {
+  cursor: default;
+  opacity: 0.72;
 }
 
 .btn-refresh:hover {
-  border-color: var(--theme-accent);
   color: var(--theme-accent);
 }
 

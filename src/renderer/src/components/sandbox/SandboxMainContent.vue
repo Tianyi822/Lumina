@@ -1,27 +1,24 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useContainerStore, useUIStateStore, useSandboxStore } from '@renderer/stores'
 import TerminalPanel from './TerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
 import OrphanSandboxAlert from './OrphanSandboxAlert.vue'
-import { TabNavigation, SandboxInfoTab } from './sandbox-detail'
+import { TabNavigation } from './sandbox-detail'
 import {
   useContainerLogs as useContainerLogsComposable,
   useContainerActions
 } from './sandbox-detail'
-import type { SandboxData, SandboxLogEntry } from '@shared/types/sandbox'
+import type { SandboxData } from '@shared/types/sandbox'
+
+const STATS_AUTO_REFRESH_INTERVAL = 5000
 
 // ==================== Props & Emits ====================
 
 const props = defineProps<{
   currentSandbox: SandboxData | null
-  operationLogs: SandboxLogEntry[]
-}>()
-
-const emit = defineEmits<{
-  (e: 'rename', sandboxId: string, newName: string): void
 }>()
 
 // ==================== Store ====================
@@ -38,6 +35,10 @@ const {
 } = storeToRefs(containerStore)
 
 const { sandboxDetailTab } = storeToRefs(uiStateStore)
+
+const statsRefreshTimerId = ref<number | null>(null)
+const isRefreshingStats = ref(false)
+const isManualRefreshingStats = ref(false)
 
 // ==================== Computed ====================
 
@@ -61,13 +62,86 @@ const {
   handleContainerStop,
   handleContainerRestart,
   handleContainerRemove,
-  handleRefreshStats,
   handleExecuteCommand,
-  handleClearTerminal,
-  handleRefreshStatus
+  handleClearTerminal
 } = useContainerActions(currentSandboxRef, selectedContainerRef)
 
 // ==================== Watch ====================
+
+async function refreshStats(options?: { silent?: boolean }): Promise<void> {
+  const containerId = selectedContainer.value?.id
+  if (!containerId || isRefreshingStats.value) {
+    return
+  }
+
+  isRefreshingStats.value = true
+  try {
+    await containerStore.loadContainerStats(containerId, options)
+  } finally {
+    isRefreshingStats.value = false
+  }
+}
+
+function stopStatsAutoRefresh(): void {
+  if (statsRefreshTimerId.value !== null) {
+    clearInterval(statsRefreshTimerId.value)
+    statsRefreshTimerId.value = null
+  }
+}
+
+function startStatsAutoRefresh(): void {
+  stopStatsAutoRefresh()
+
+  if (sandboxDetailTab.value !== 'stats' || !selectedContainer.value) {
+    return
+  }
+
+  statsRefreshTimerId.value = window.setInterval(() => {
+    if (sandboxDetailTab.value !== 'stats' || !selectedContainer.value) {
+      stopStatsAutoRefresh()
+      return
+    }
+
+    void refreshStats({ silent: true })
+  }, STATS_AUTO_REFRESH_INTERVAL)
+}
+
+async function syncStatsAutoRefresh(): Promise<void> {
+  const container = selectedContainer.value
+  if (sandboxDetailTab.value !== 'stats' || !container) {
+    stopStatsAutoRefresh()
+    return
+  }
+
+  if (container.state !== 'running') {
+    stopStatsAutoRefresh()
+    containerStore.clearContainerStats()
+    return
+  }
+
+  await refreshStats()
+
+  if (
+    sandboxDetailTab.value === 'stats' &&
+    selectedContainer.value?.id === container.id &&
+    selectedContainer.value.state === 'running'
+  ) {
+    startStatsAutoRefresh()
+  }
+}
+
+async function handleRefreshStats(): Promise<void> {
+  if (isManualRefreshingStats.value) {
+    return
+  }
+
+  isManualRefreshingStats.value = true
+  try {
+    await refreshStats()
+  } finally {
+    isManualRefreshingStats.value = false
+  }
+}
 
 // Tab 切换时加载数据
 watch(
@@ -75,25 +149,48 @@ watch(
   async (tab) => {
     if (tab === 'logs' && selectedContainer.value) {
       await loadContainerLogs()
-    } else if (tab === 'stats' && selectedContainer.value) {
-      await containerStore.loadContainerStats(selectedContainer.value.id)
     }
+
+    await syncStatsAutoRefresh()
+  },
+  { immediate: true }
+)
+
+// 容器变化时重新加载数据
+watch(
+  () => selectedContainer.value?.id,
+  async (newId, oldId) => {
+    if (newId !== oldId) {
+      containerStore.clearContainerStats()
+    }
+
+    if (newId) {
+      if (sandboxDetailTab.value === 'logs') {
+        await loadContainerLogs()
+      }
+
+      await syncStatsAutoRefresh()
+      return
+    }
+
+    stopStatsAutoRefresh()
   }
 )
 
-// 容器变化时重新加载日志
 watch(
-  () => selectedContainer.value?.id,
-  async (newId) => {
-    if (newId && sandboxDetailTab.value === 'logs') {
-      await loadContainerLogs()
-    }
+  () => selectedContainer.value?.state,
+  async () => {
+    await syncStatsAutoRefresh()
   }
 )
+
+onBeforeUnmount(() => {
+  stopStatsAutoRefresh()
+})
 
 // ==================== Methods ====================
 
-function setDetailTab(tab: 'info' | 'terminal' | 'logs' | 'stats'): void {
+function setDetailTab(tab: 'stats' | 'terminal' | 'logs'): void {
   uiStateStore.setSandboxDetailTab(tab)
 }
 
@@ -146,14 +243,31 @@ function handleCloseOrphanAlert(): void {
           @close="handleCloseOrphanAlert"
         />
 
-        <!-- 基本信息 Tab -->
-        <SandboxInfoTab
-          v-if="sandboxDetailTab === 'info'"
-          :current-sandbox="currentSandbox"
-          :operation-logs="operationLogs"
-          @rename="(id, name) => emit('rename', id, name)"
-          @refresh-status="handleRefreshStatus"
-        />
+        <!-- 监控 Tab -->
+        <div v-if="sandboxDetailTab === 'stats'" class="tab-content">
+          <div v-if="!selectedContainer" class="empty-state">
+            <div class="empty-content">
+              <p class="empty-text">请先选择一个 Docker 容器</p>
+              <p class="empty-hint">点击「创建新沙箱」选择已有容器</p>
+            </div>
+          </div>
+          <ContainerDetailPanel
+            v-else
+            :container="selectedContainer"
+            :stats="containerStats"
+            :loading="storeLoading"
+            :refreshing-stats="isManualRefreshingStats"
+            :creation-type="currentSandbox?.creationType"
+            :sandbox-name="currentSandbox?.name"
+            @start="handleContainerStart"
+            @stop="handleContainerStop"
+            @restart="handleContainerRestart"
+            @remove="handleContainerRemove"
+            @open-terminal="handleOpenTerminal"
+            @view-logs="handleViewLogs"
+            @refresh-stats="handleRefreshStats"
+          />
+        </div>
 
         <!-- 终端 Tab -->
         <div v-else-if="sandboxDetailTab === 'terminal'" class="tab-content">
@@ -190,31 +304,6 @@ function handleCloseOrphanAlert(): void {
             :loading="logsLoading"
             @refresh="handleRefreshLogs"
             @export="handleExportLogs"
-          />
-        </div>
-
-        <!-- 监控 Tab -->
-        <div v-else-if="sandboxDetailTab === 'stats'" class="tab-content">
-          <div v-if="!selectedContainer" class="empty-state">
-            <div class="empty-content">
-              <p class="empty-text">请先选择一个 Docker 容器</p>
-              <p class="empty-hint">点击「创建新沙箱」选择已有容器</p>
-            </div>
-          </div>
-          <ContainerDetailPanel
-            v-else
-            :container="selectedContainer"
-            :stats="containerStats"
-            :loading="storeLoading"
-            :creation-type="currentSandbox?.creationType"
-            :sandbox-name="currentSandbox?.name"
-            @start="handleContainerStart"
-            @stop="handleContainerStop"
-            @restart="handleContainerRestart"
-            @remove="handleContainerRemove"
-            @open-terminal="handleOpenTerminal"
-            @view-logs="handleViewLogs"
-            @refresh-stats="handleRefreshStats"
           />
         </div>
       </template>

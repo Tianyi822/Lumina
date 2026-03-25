@@ -83,7 +83,7 @@ async function handleRefreshList(): Promise<void> {
         :disabled="isRefreshing"
         @click="handleRefreshList"
       >
-        <SvgIcon name="refresh" :size="14" :class="{ rotating: isRefreshing }" />
+        <SvgIcon name="refresh" :size="14" :spin="isRefreshing" />
       </button>
     </div>
 
@@ -190,18 +190,5 @@ async function handleRefreshList(): Promise<void> {
 
 .btn-refresh svg {
   display: block;
-}
-
-.btn-refresh svg.rotating {
-  animation: rotate 1s linear infinite;
-}
-
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 </style>
