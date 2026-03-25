@@ -280,6 +280,11 @@ export const deleteSandboxTool: SandboxToolDefinition = {
         description: '是否同时删除关联的容器，默认为 true',
         default: true
       },
+      delete_workspace: {
+        type: 'boolean',
+        description: '是否同时删除前端工作区（Docker volume），默认为 false',
+        default: false
+      },
       force: {
         type: 'boolean',
         description: '是否强制删除运行中的容器，默认为 false',
@@ -299,19 +304,29 @@ export const deleteSandboxTool: SandboxToolDefinition = {
     }
 
     const deleteContainers = args.delete_containers !== false // 默认 true
+    const deleteWorkspace = args.delete_workspace === true // 默认 false
     const force = args.force === true // 默认 false
 
     const options: DeleteSandboxOptions = {
       deleteContainers,
+      deleteWorkspace,
       force
     }
 
     const result = await sandboxService.deleteSandbox(sandbox.sandboxId, options)
 
     if (result.success) {
-      const msg = deleteContainers
+      let msg = deleteContainers
         ? `沙箱 "${sandbox.name}" 及其关联容器已删除。`
         : `沙箱 "${sandbox.name}" 已删除（关联容器保留）。`
+
+      if (deleteWorkspace) {
+        msg += result.removedWorkspace
+          ? '\n前端工作区已删除。'
+          : '\n前端工作区未删除。'
+      } else if (result.keptWorkspace) {
+        msg += '\n前端工作区已保留。'
+      }
 
       return {
         success: true,

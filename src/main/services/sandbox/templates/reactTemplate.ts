@@ -8,9 +8,10 @@ export const reactTemplate: ProjectTemplate = {
   name: 'React Vite Template',
   description: '基于 React 和 Vite 的最小可运行模板',
   framework: 'react',
-  packageManager: 'pnpm',
-  installCommand: 'pnpm install',
-  startCommand: 'pnpm dev',
+  packageManager: 'bun',
+  installCommand: 'bun install',
+  startCommand: 'bun run dev',
+  buildCommand: 'bun run build',
   files: [
     {
       path: 'package.json',

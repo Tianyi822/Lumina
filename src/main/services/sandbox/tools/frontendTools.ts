@@ -53,6 +53,10 @@ export const createFrontendSandboxTool: SandboxToolDefinition = {
               preview_url: result.previewUrl,
               preview_ready: result.previewReady,
               framework: result.framework,
+              volume_name: result.volumeName,
+              mount_path: result.mountPath,
+              bootstrap_status: result.bootstrapStatus,
+              build_validated: result.buildValidated,
               status: result.status,
               startup_log_path: result.startupLogPath,
               message: result.message
@@ -114,4 +118,167 @@ export const getPreviewUrlTool: SandboxToolDefinition = {
   }
 }
 
-export const frontendTools = [createFrontendSandboxTool, getPreviewUrlTool]
+/**
+ * 重试前端沙箱初始化
+ */
+export const retryFrontendInitializationTool: SandboxToolDefinition = {
+  name: 'sandbox__retry_frontend_initialization',
+  description: '在保留当前工作区的前提下，重试前端沙箱的初始化与运行时恢复',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      sandbox_id: { type: 'string', description: '沙箱 ID' },
+      sandbox_name: { type: 'string', description: '沙箱名称，支持模糊匹配' }
+    }
+  },
+  serverName: 'sandbox',
+  async execute(args: ToolArgs): Promise<MCPToolCallResult> {
+    const sandbox = await findSandbox(args as { sandbox_id?: string; sandbox_name?: string })
+    if (!sandbox) {
+      return { success: false, error: '未找到指定的沙箱' }
+    }
+
+    if (!sandbox.frontend) {
+      return { success: false, error: '该沙箱不是前端沙箱' }
+    }
+
+    const result = await frontendSandboxService.retryFrontendInitialization(sandbox.sandboxId)
+
+    return {
+      success: true,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              sandbox_id: result.sandboxId,
+              container_id: result.containerId,
+              preview_url: result.previewUrl,
+              preview_ready: result.previewReady,
+              bootstrap_status: result.bootstrapStatus,
+              build_validated: result.buildValidated,
+              status: result.status,
+              startup_log_path: result.startupLogPath,
+              message: result.message
+            },
+            null,
+            2
+          )
+        }
+      ]
+    }
+  }
+}
+
+/**
+ * 重建前端运行容器
+ */
+export const rebuildFrontendRuntimeTool: SandboxToolDefinition = {
+  name: 'sandbox__rebuild_frontend_runtime',
+  description: '删除并重建前端运行容器，但复用原有工作区 volume',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      sandbox_id: { type: 'string', description: '沙箱 ID' },
+      sandbox_name: { type: 'string', description: '沙箱名称，支持模糊匹配' }
+    }
+  },
+  serverName: 'sandbox',
+  async execute(args: ToolArgs): Promise<MCPToolCallResult> {
+    const sandbox = await findSandbox(args as { sandbox_id?: string; sandbox_name?: string })
+    if (!sandbox) {
+      return { success: false, error: '未找到指定的沙箱' }
+    }
+
+    if (!sandbox.frontend) {
+      return { success: false, error: '该沙箱不是前端沙箱' }
+    }
+
+    const result = await frontendSandboxService.rebuildFrontendRuntimeContainer(sandbox.sandboxId)
+
+    return {
+      success: true,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              sandbox_id: result.sandboxId,
+              container_id: result.containerId,
+              volume_name: result.volumeName,
+              preview_url: result.previewUrl,
+              preview_ready: result.previewReady,
+              bootstrap_status: result.bootstrapStatus,
+              build_validated: result.buildValidated,
+              status: result.status,
+              startup_log_path: result.startupLogPath,
+              message: result.message
+            },
+            null,
+            2
+          )
+        }
+      ]
+    }
+  }
+}
+
+/**
+ * 校验前端工作区构建
+ */
+export const validateFrontendBuildTool: SandboxToolDefinition = {
+  name: 'sandbox__validate_frontend_build',
+  description: '使用 Bun 对指定前端沙箱执行一次构建校验，用于导出或预览前健康检查',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      sandbox_id: { type: 'string', description: '沙箱 ID' },
+      sandbox_name: { type: 'string', description: '沙箱名称，支持模糊匹配' }
+    }
+  },
+  serverName: 'sandbox',
+  async execute(args: ToolArgs): Promise<MCPToolCallResult> {
+    const sandbox = await findSandbox(args as { sandbox_id?: string; sandbox_name?: string })
+    if (!sandbox) {
+      return { success: false, error: '未找到指定的沙箱' }
+    }
+
+    if (!sandbox.frontend) {
+      return { success: false, error: '该沙箱不是前端沙箱' }
+    }
+
+    const result = await frontendSandboxService.validateFrontendBuild(sandbox.sandboxId)
+
+    return {
+      success: true,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              sandbox_id: result.sandboxId,
+              container_id: result.containerId,
+              preview_url: result.previewUrl,
+              preview_ready: result.previewReady,
+              bootstrap_status: result.bootstrapStatus,
+              build_validated: result.buildValidated,
+              status: result.status,
+              startup_log_path: result.startupLogPath,
+              message: result.message
+            },
+            null,
+            2
+          )
+        }
+      ]
+    }
+  }
+}
+
+export const frontendTools = [
+  createFrontendSandboxTool,
+  getPreviewUrlTool,
+  retryFrontendInitializationTool,
+  rebuildFrontendRuntimeTool,
+  validateFrontendBuildTool
+]

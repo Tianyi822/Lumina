@@ -23,11 +23,13 @@ export interface ProjectTemplate {
   /** 框架 */
   framework: FrontendFramework
   /** 包管理器 */
-  packageManager: 'npm' | 'pnpm'
+  packageManager: 'bun'
   /** 安装命令 */
   installCommand: string
   /** 启动命令 */
   startCommand: string
+  /** 构建命令 */
+  buildCommand: string
   /** 模板文件 */
   files: TemplateFile[]
 }
