@@ -95,6 +95,91 @@ export const useSandboxStore = defineStore('sandbox', () => {
     return operationStore.deleteSandboxById(sandboxId)
   }
 
+  async function retryFrontendInitialization(sandboxId: string): Promise<boolean> {
+    try {
+      const result = await window.api.sandbox.retryFrontendInitialization(sandboxId)
+
+      await listStore.refreshSandboxList()
+      if (currentSandbox.value?.sandboxId === sandboxId) {
+        await listStore.loadSandbox(sandboxId, true)
+      }
+
+      operationStore.showSuccess(
+        result.previewReady ? '前端恢复成功' : '前端初始化已重试',
+        result.message || (result.previewReady ? `预览地址: ${result.previewUrl}` : '可继续查看日志排查')
+      )
+
+      return true
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      window.api.logger.error('[SandboxStore] 重试前端初始化失败', {
+        error: errorMessage,
+        sandboxId
+      })
+      operationStore.showError('重试失败', errorMessage)
+      return false
+    }
+  }
+
+  async function rebuildFrontendRuntime(sandboxId: string): Promise<boolean> {
+    try {
+      const result = await window.api.sandbox.rebuildFrontendRuntime(sandboxId)
+
+      await listStore.refreshSandboxList()
+      if (currentSandbox.value?.sandboxId === sandboxId) {
+        await listStore.loadSandbox(sandboxId, true)
+      }
+
+      operationStore.showSuccess(
+        result.previewReady ? '运行容器已重建' : '运行容器已重建，但服务仍未就绪',
+        result.message || `工作区已复用，预览地址: ${result.previewUrl}`
+      )
+
+      return true
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      window.api.logger.error('[SandboxStore] 重建前端运行容器失败', {
+        error: errorMessage,
+        sandboxId
+      })
+      operationStore.showError('重建失败', errorMessage)
+      return false
+    }
+  }
+
+  async function validateFrontendBuild(
+    sandboxId: string,
+    options?: { silent?: boolean }
+  ): Promise<boolean> {
+    try {
+      const result = await window.api.sandbox.validateFrontendBuild(sandboxId)
+
+      await listStore.refreshSandboxList()
+      if (currentSandbox.value?.sandboxId === sandboxId) {
+        await listStore.loadSandbox(sandboxId, true)
+      }
+
+      if (!options?.silent) {
+        operationStore.showSuccess(
+          '构建校验通过',
+          result.message || '当前前端工作区已通过 Bun 构建校验'
+        )
+      }
+
+      return true
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      window.api.logger.error('[SandboxStore] 前端构建校验失败', {
+        error: errorMessage,
+        sandboxId
+      })
+      if (!options?.silent) {
+        operationStore.showError('构建校验失败', errorMessage)
+      }
+      return false
+    }
+  }
+
   async function renameSandbox(sandboxId: string, newName: string): Promise<boolean> {
     try {
       const result = await window.api.sandbox.renameSandbox(sandboxId, newName)
@@ -228,9 +313,9 @@ export const useSandboxStore = defineStore('sandbox', () => {
     await createSandbox(request)
   }
 
-  function handleDeleteSandbox(sandboxId: string): void {
+  async function handleDeleteSandbox(sandboxId: string): Promise<void> {
     const sandbox = sandboxList.value.find((item) => item.sandboxId === sandboxId)
-    operationStore.showDeleteConfirm(
+    await operationStore.showDeleteConfirm(
       sandboxId,
       sandbox?.name || '沙箱',
       (sandbox?.creationType || 'existing') as SandboxCreationType,
@@ -260,6 +345,9 @@ export const useSandboxStore = defineStore('sandbox', () => {
     createSandbox,
     saveCurrentSandbox,
     deleteSandbox,
+    retryFrontendInitialization,
+    rebuildFrontendRuntime,
+    validateFrontendBuild,
     renameSandbox,
     showDeleteConfirm: operationStore.showDeleteConfirm,
     hideDeleteConfirm: operationStore.hideDeleteConfirm,

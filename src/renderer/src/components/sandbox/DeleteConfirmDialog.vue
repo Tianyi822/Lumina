@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { SandboxCreationType } from '@shared/types/sandbox'
+import type { DeleteSandboxOptions, SandboxCreationType } from '@shared/types/sandbox'
 import { getDeleteDialogConfig } from '@renderer/utils/sandboxPermissions'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
@@ -11,6 +11,8 @@ interface SandboxItem {
   creationType?: SandboxCreationType
   containerIds?: string[]
   composeProjectName?: string
+  hasWorkspace?: boolean
+  workspaceName?: string
 }
 
 const props = defineProps<{
@@ -20,10 +22,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'confirm', sandboxId: string, deleteContainers: boolean): void
+  (e: 'confirm', sandboxId: string, options: DeleteSandboxOptions): void
 }>()
 
 const deleteContainers = ref(false)
+const deleteWorkspace = ref(false)
 
 // 使用工具函数获取对话框配置
 const dialogConfig = computed(() => {
@@ -43,6 +46,12 @@ const deleteContainerLabel = computed(() => dialogConfig.value?.deleteOptionLabe
 const warningMessage = computed(() => dialogConfig.value?.warningMessage || '')
 const confirmButtonText = computed(() => dialogConfig.value?.confirmButtonText || '确认删除')
 const typeTheme = computed(() => dialogConfig.value?.typeTheme || 'default')
+const showDeleteWorkspaceOption = computed(() => props.sandbox?.hasWorkspace === true)
+const deleteWorkspaceLabel = computed(() => {
+  const volumeName = props.sandbox?.workspaceName
+  return volumeName ? `同时删除前端工作区 (${volumeName})` : '同时删除前端工作区'
+})
+const canDeleteWorkspace = computed(() => showDeleteWorkspaceOption.value && deleteContainers.value)
 
 // 是否为 existing 类型
 const isExistingType = computed(() => props.sandbox?.creationType === 'existing')
@@ -50,6 +59,7 @@ const isExistingType = computed(() => props.sandbox?.creationType === 'existing'
 // 重置状态
 function resetState(): void {
   deleteContainers.value = dialogConfig.value?.defaultDeleteContainers ?? false
+  deleteWorkspace.value = false
 }
 
 // 监听对话框显示，初始化状态
@@ -73,6 +83,12 @@ watch(
   }
 )
 
+watch(deleteContainers, (enabled) => {
+  if (!enabled) {
+    deleteWorkspace.value = false
+  }
+})
+
 function handleClose(): void {
   resetState()
   emit('close')
@@ -80,7 +96,10 @@ function handleClose(): void {
 
 function handleConfirm(): void {
   if (!props.sandbox) return
-  emit('confirm', props.sandbox.sandboxId, deleteContainers.value)
+  emit('confirm', props.sandbox.sandboxId, {
+    deleteContainers: deleteContainers.value,
+    deleteWorkspace: deleteWorkspace.value
+  })
   resetState()
 }
 </script>
@@ -110,6 +129,19 @@ function handleConfirm(): void {
           <input v-model="deleteContainers" type="checkbox" />
           <span>{{ deleteContainerLabel }}</span>
         </label>
+
+        <label
+          v-if="showDeleteWorkspaceOption"
+          class="delete-option workspace-option"
+          :class="{ disabled: !canDeleteWorkspace }"
+        >
+          <input v-model="deleteWorkspace" type="checkbox" :disabled="!canDeleteWorkspace" />
+          <span>{{ deleteWorkspaceLabel }}</span>
+        </label>
+
+        <p v-if="showDeleteWorkspaceOption && !deleteContainers" class="hint-message">
+          删除工作区前必须同时删除关联容器。
+        </p>
 
         <!-- 警告提示 -->
         <p
@@ -248,6 +280,22 @@ function handleConfirm(): void {
 .delete-option span {
   font-size: 14px;
   color: var(--theme-text);
+}
+
+.workspace-option input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.workspace-option.disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.hint-message {
+  margin: 10px 0 0 0;
+  font-size: 12px;
+  color: var(--theme-text-secondary);
 }
 
 .warning-message {

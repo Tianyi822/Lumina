@@ -169,15 +169,16 @@ onMounted(async () => {
                 sandboxId: deleteConfirmState.sandboxId,
                 name: deleteConfirmState.sandboxName,
                 creationType: deleteConfirmState.creationType || 'existing',
-                containerIds: Array.from(
-                  { length: deleteConfirmState.containerCount },
-                  (_, index) => String(index)
-                )
+                containerIds: Array.from({ length: deleteConfirmState.containerCount }, (_, index) =>
+                  String(index)
+                ),
+                hasWorkspace: deleteConfirmState.hasWorkspace,
+                workspaceName: deleteConfirmState.workspaceName
               }
             : null
         "
         @close="sandboxStore.hideDeleteConfirm()"
-        @confirm="(_sandboxId, deleteContainers) => sandboxStore.confirmDelete(deleteContainers)"
+        @confirm="(_sandboxId, options) => sandboxStore.confirmDelete(options)"
       />
 
       <!-- 操作消息提示 -->
