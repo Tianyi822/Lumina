@@ -38,6 +38,7 @@ const { sandboxDetailTab } = storeToRefs(uiStateStore)
 
 const statsRefreshTimerId = ref<number | null>(null)
 const isRefreshingStats = ref(false)
+const isManualRefreshingStats = ref(false)
 
 // ==================== Computed ====================
 
@@ -130,7 +131,16 @@ async function syncStatsAutoRefresh(): Promise<void> {
 }
 
 async function handleRefreshStats(): Promise<void> {
-  await refreshStats()
+  if (isManualRefreshingStats.value) {
+    return
+  }
+
+  isManualRefreshingStats.value = true
+  try {
+    await refreshStats()
+  } finally {
+    isManualRefreshingStats.value = false
+  }
 }
 
 // Tab 切换时加载数据
@@ -246,6 +256,7 @@ function handleCloseOrphanAlert(): void {
             :container="selectedContainer"
             :stats="containerStats"
             :loading="storeLoading"
+            :refreshing-stats="isManualRefreshingStats"
             :creation-type="currentSandbox?.creationType"
             :sandbox-name="currentSandbox?.name"
             @start="handleContainerStart"
