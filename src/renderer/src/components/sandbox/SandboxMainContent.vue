@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useContainerStore, useUIStateStore, useSandboxStore } from '@renderer/stores'
 import TerminalPanel from './TerminalPanel.vue'
@@ -12,6 +12,8 @@ import {
   useContainerActions
 } from './sandbox-detail'
 import type { SandboxData } from '@shared/types/sandbox'
+
+const STATS_AUTO_REFRESH_INTERVAL = 5000
 
 // ==================== Props & Emits ====================
 
@@ -33,6 +35,9 @@ const {
 } = storeToRefs(containerStore)
 
 const { sandboxDetailTab } = storeToRefs(uiStateStore)
+
+const statsRefreshTimerId = ref<number | null>(null)
+const isRefreshingStats = ref(false)
 
 // ==================== Computed ====================
 
@@ -56,12 +61,77 @@ const {
   handleContainerStop,
   handleContainerRestart,
   handleContainerRemove,
-  handleRefreshStats,
   handleExecuteCommand,
   handleClearTerminal
 } = useContainerActions(currentSandboxRef, selectedContainerRef)
 
 // ==================== Watch ====================
+
+async function refreshStats(options?: { silent?: boolean }): Promise<void> {
+  const containerId = selectedContainer.value?.id
+  if (!containerId || isRefreshingStats.value) {
+    return
+  }
+
+  isRefreshingStats.value = true
+  try {
+    await containerStore.loadContainerStats(containerId, options)
+  } finally {
+    isRefreshingStats.value = false
+  }
+}
+
+function stopStatsAutoRefresh(): void {
+  if (statsRefreshTimerId.value !== null) {
+    clearInterval(statsRefreshTimerId.value)
+    statsRefreshTimerId.value = null
+  }
+}
+
+function startStatsAutoRefresh(): void {
+  stopStatsAutoRefresh()
+
+  if (sandboxDetailTab.value !== 'stats' || !selectedContainer.value) {
+    return
+  }
+
+  statsRefreshTimerId.value = window.setInterval(() => {
+    if (sandboxDetailTab.value !== 'stats' || !selectedContainer.value) {
+      stopStatsAutoRefresh()
+      return
+    }
+
+    void refreshStats({ silent: true })
+  }, STATS_AUTO_REFRESH_INTERVAL)
+}
+
+async function syncStatsAutoRefresh(): Promise<void> {
+  const container = selectedContainer.value
+  if (sandboxDetailTab.value !== 'stats' || !container) {
+    stopStatsAutoRefresh()
+    return
+  }
+
+  if (container.state !== 'running') {
+    stopStatsAutoRefresh()
+    containerStore.clearContainerStats()
+    return
+  }
+
+  await refreshStats()
+
+  if (
+    sandboxDetailTab.value === 'stats' &&
+    selectedContainer.value?.id === container.id &&
+    selectedContainer.value.state === 'running'
+  ) {
+    startStatsAutoRefresh()
+  }
+}
+
+async function handleRefreshStats(): Promise<void> {
+  await refreshStats()
+}
 
 // Tab 切换时加载数据
 watch(
@@ -69,9 +139,9 @@ watch(
   async (tab) => {
     if (tab === 'logs' && selectedContainer.value) {
       await loadContainerLogs()
-    } else if (tab === 'stats' && selectedContainer.value) {
-      await containerStore.loadContainerStats(selectedContainer.value.id)
     }
+
+    await syncStatsAutoRefresh()
   },
   { immediate: true }
 )
@@ -79,16 +149,34 @@ watch(
 // 容器变化时重新加载数据
 watch(
   () => selectedContainer.value?.id,
-  async (newId) => {
+  async (newId, oldId) => {
+    if (newId !== oldId) {
+      containerStore.clearContainerStats()
+    }
+
     if (newId) {
       if (sandboxDetailTab.value === 'logs') {
         await loadContainerLogs()
-      } else if (sandboxDetailTab.value === 'stats') {
-        await containerStore.loadContainerStats(newId)
       }
+
+      await syncStatsAutoRefresh()
+      return
     }
+
+    stopStatsAutoRefresh()
   }
 )
+
+watch(
+  () => selectedContainer.value?.state,
+  async () => {
+    await syncStatsAutoRefresh()
+  }
+)
+
+onBeforeUnmount(() => {
+  stopStatsAutoRefresh()
+})
 
 // ==================== Methods ====================
 
