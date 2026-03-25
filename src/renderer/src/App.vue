@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import TitleBar from './components/TitleBar.vue'
 import ChatPage from './pages/ChatPage.vue'
@@ -73,6 +73,35 @@ onMounted(async () => {
   await configStore.loadConfig()
   // 再初始化主题
   await initTheme()
+})
+
+// ==================== 全局外部链接拦截 ====================
+/**
+ * 拦截页面内所有 <a> 标签点击，将 http/https 外部链接通过系统默认浏览器打开
+ * 防止链接在 Electron 窗口内导航
+ */
+function handleGlobalLinkClick(event: MouseEvent): void {
+  const target = event.target as HTMLElement
+  const anchor = target.closest('a') as HTMLAnchorElement | null
+  if (!anchor || !anchor.href) return
+
+  try {
+    const url = new URL(anchor.href)
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      event.preventDefault()
+      window.api.window.openExternal(anchor.href)
+    }
+  } catch {
+    // 非合法 URL，忽略
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleGlobalLinkClick, true)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleGlobalLinkClick, true)
 })
 </script>
 

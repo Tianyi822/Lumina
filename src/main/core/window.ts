@@ -55,6 +55,17 @@ export function createMainWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
+  // 拦截页面内导航，将外部 http/https 链接用系统默认浏览器打开
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const parsedUrl = new URL(url)
+    if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+      // 开发环境允许 localhost 热重载导航
+      if (is.dev && parsedUrl.hostname === 'localhost') return
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+
   // 开发环境下使用 electron-vite cli 的热模块替换
   // 生产环境加载本地 html 文件
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
