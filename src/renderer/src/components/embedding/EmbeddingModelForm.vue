@@ -273,18 +273,18 @@ async function handleTestConnection(): Promise<void> {
 }
 
 .required {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .input-error {
-  border-color: var(--theme-danger) !important;
+  border-color: var(--sm-color-status-danger) !important;
 }
 
 .error-message {
   display: block;
   margin-top: 4px;
   font-size: 12px;
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .test-result {
@@ -296,13 +296,13 @@ async function handleTestConnection(): Promise<void> {
 
 .test-result.success {
   background: rgba(34, 197, 94, 0.15);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
   border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .test-result.error {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 

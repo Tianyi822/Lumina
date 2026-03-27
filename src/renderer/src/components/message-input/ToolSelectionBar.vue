@@ -331,12 +331,12 @@ onUnmounted(() => {
   gap: 8px;
   background: rgba(239, 68, 68, 0.15);
   border-color: rgba(239, 68, 68, 0.4);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .stop-btn:hover {
   background: rgba(239, 68, 68, 0.25);
-  border-color: var(--theme-danger);
+  border-color: var(--sm-color-status-danger);
 }
 
 .shortcut-hint {

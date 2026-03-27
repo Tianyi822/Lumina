@@ -121,7 +121,7 @@ async function handleTest(): Promise<void> {
 }
 
 .btn-danger-text {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .test-result {
@@ -133,13 +133,13 @@ async function handleTest(): Promise<void> {
 
 .test-result.success {
   background: rgba(34, 197, 94, 0.15);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
   border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .test-result.error {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 

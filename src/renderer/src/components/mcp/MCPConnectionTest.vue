@@ -38,17 +38,17 @@ withDefaults(defineProps<Props>(), {
 
 .connection-test.testing {
   background-color: rgba(255, 255, 255, 0.05);
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .connection-test.success {
   background-color: rgba(63, 185, 80, 0.1);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .connection-test.error {
   background-color: rgba(248, 81, 73, 0.1);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .test-icon {

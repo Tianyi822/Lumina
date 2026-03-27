@@ -70,7 +70,7 @@ const props = defineProps<{
 }
 
 .processing-status.failed {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .processing-error {

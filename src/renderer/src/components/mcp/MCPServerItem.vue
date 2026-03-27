@@ -391,7 +391,7 @@ watch(
 }
 
 .btn-danger-text {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .inline-warning {
@@ -400,7 +400,7 @@ watch(
   border-radius: var(--sm-radius-md);
   background: rgba(199, 120, 120, 0.08);
   border: 1px solid rgba(199, 120, 120, 0.22);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   font-size: 12px;
 }
 
@@ -417,13 +417,13 @@ watch(
 .status-indicator.connected {
   background: rgba(127, 176, 138, 0.12);
   border-color: rgba(127, 176, 138, 0.22);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .status-indicator.error {
   background: rgba(199, 120, 120, 0.12);
   border-color: rgba(199, 120, 120, 0.22);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .transport-badge {

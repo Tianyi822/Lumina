@@ -128,7 +128,7 @@ const emit = defineEmits<{
 
 .pending-doc-remove:hover {
   background: rgba(239, 68, 68, 0.1);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .pending-doc-remove:disabled {

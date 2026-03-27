@@ -239,7 +239,7 @@ function handleCancel(): void {
 }
 
 .required {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .form-group {
@@ -254,7 +254,7 @@ function handleCancel(): void {
 }
 
 .required {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .textarea-small {

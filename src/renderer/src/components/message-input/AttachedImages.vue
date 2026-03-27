@@ -134,7 +134,7 @@ const emit = defineEmits<{
 
 .pending-image-remove:hover {
   background: rgba(199, 120, 120, 0.16);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .pending-image-remove:disabled {
