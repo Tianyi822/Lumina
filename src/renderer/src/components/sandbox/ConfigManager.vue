@@ -147,24 +147,31 @@ function formatDate(dateStr: string): string {
 </script>
 
 <template>
-  <div v-if="visible" class="config-manager-overlay" @click.self="close">
-    <div class="config-manager">
-      <div class="manager-header">
-        <h2>配置管理</h2>
-        <button class="close-btn" @click="close">×</button>
+  <div v-if="visible" class="sm-modal__overlay config-manager-overlay" @click.self="close">
+    <div class="sm-modal__surface config-manager">
+      <div class="sm-pane-header manager-header">
+        <div class="manager-heading">
+          <span class="manager-eyebrow">配置管理</span>
+          <div class="manager-title-row">
+            <h2>Docker 模板资产</h2>
+            <span class="badge">{{ currentConfigs.length }}</span>
+          </div>
+          <p>统一维护 Dockerfile 与 Compose 模板，供沙箱创建流程复用。</p>
+        </div>
+        <button class="sm-button sm-button--secondary sm-button--small" @click="close">关闭</button>
       </div>
 
       <div class="manager-tabs">
         <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'dockerfile' }"
+          class="sm-tab manager-tab"
+          :class="{ 'is-active': activeTab === 'dockerfile' }"
           @click="activeTab = 'dockerfile'"
         >
           Dockerfile
         </button>
         <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'compose' }"
+          class="sm-tab manager-tab"
+          :class="{ 'is-active': activeTab === 'compose' }"
           @click="activeTab = 'compose'"
         >
           Docker Compose
@@ -174,24 +181,28 @@ function formatDate(dateStr: string): string {
       <div class="manager-body">
         <div class="config-list">
           <div class="list-header">
-            <span>配置列表</span>
-            <span class="count">{{ currentConfigs.length }}</span>
+            <div class="list-heading">
+              <span class="list-eyebrow">模板列表</span>
+              <strong>{{ activeTab === 'dockerfile' ? 'Dockerfile 模板' : 'Compose 模板' }}</strong>
+            </div>
+            <span class="badge count">{{ currentConfigs.length }}</span>
           </div>
-          <div v-if="configsLoading" class="list-loading">加载中...</div>
-          <div v-else-if="currentConfigs.length === 0" class="list-empty">
+          <div v-if="configsLoading" class="sm-empty list-state">加载配置中...</div>
+          <div v-else-if="currentConfigs.length === 0" class="sm-empty list-state">
             暂无{{ activeTab === 'dockerfile' ? 'Dockerfile' : 'Compose' }}配置
           </div>
           <div v-else class="list-items">
-            <div
+            <button
               v-for="config in currentConfigs"
               :key="config.id"
               class="list-item"
               :class="{ selected: selectedId === config.id }"
+              type="button"
               @click="selectConfig(config.id)"
             >
               <div class="item-name">{{ config.name }}</div>
-              <div class="item-date">{{ formatDate(config.updatedAt) }}</div>
-            </div>
+              <div class="item-date">更新于 {{ formatDate(config.updatedAt) }}</div>
+            </button>
           </div>
         </div>
 
@@ -202,13 +213,15 @@ function formatDate(dateStr: string): string {
                 <input
                   v-model="editingName"
                   type="text"
-                  class="name-input"
+                  class="name-input sm-input"
                   placeholder="配置名称"
                 />
               </template>
               <template v-else>
                 <h3 class="detail-title">{{ selectedConfig.name }}</h3>
-                <button class="btn-icon" title="编辑" @click="startEditing">✎</button>
+                <button class="sm-button sm-button--secondary sm-button--small" @click="startEditing">
+                  编辑
+                </button>
               </template>
             </div>
 
@@ -231,21 +244,25 @@ function formatDate(dateStr: string): string {
 
             <div class="detail-actions">
               <template v-if="isEditing">
-                <button class="btn" @click="cancelEditing">取消</button>
-                <button class="btn-primary" :disabled="!editingName.trim()" @click="saveChanges">
+                <button class="sm-button sm-button--secondary" @click="cancelEditing">取消</button>
+                <button
+                  class="sm-button sm-button--primary"
+                  :disabled="!editingName.trim()"
+                  @click="saveChanges"
+                >
                   保存更改
                 </button>
               </template>
               <template v-else>
                 <template v-if="deleteConfirmId === selectedConfig.id">
                   <span class="delete-hint">确定删除？</span>
-                  <button class="btn" @click="cancelDelete">取消</button>
-                  <button class="btn-danger" @click="deleteConfig(selectedConfig.id)">
+                  <button class="sm-button sm-button--secondary" @click="cancelDelete">取消</button>
+                  <button class="sm-button sm-button--danger" @click="deleteConfig(selectedConfig.id)">
                     确认删除
                   </button>
                 </template>
                 <template v-else>
-                  <button class="btn-danger" @click="confirmDelete(selectedConfig.id)">
+                  <button class="sm-button sm-button--danger" @click="confirmDelete(selectedConfig.id)">
                     删除配置
                   </button>
                 </template>
@@ -253,7 +270,7 @@ function formatDate(dateStr: string): string {
             </div>
           </template>
           <template v-else>
-            <div class="detail-empty">
+            <div class="sm-empty detail-empty">
               <p>选择左侧配置查看详情</p>
             </div>
           </template>
@@ -265,182 +282,162 @@ function formatDate(dateStr: string): string {
 
 <style scoped>
 .config-manager-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+  z-index: 1100;
 }
 
 .config-manager {
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
-  width: 90%;
-  max-width: 1000px;
-  height: 80vh;
+  width: min(1120px, calc(100vw - 72px));
+  height: min(820px, calc(100vh - 104px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.manager-header {
+.manager-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+}
+
+.manager-eyebrow,
+.list-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sm-color-text-tertiary);
+}
+
+.manager-title-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--theme-border);
+  gap: var(--sm-space-3);
 }
 
 .manager-header h2 {
   margin: 0;
   font-size: 18px;
-  font-weight: 600;
+  color: var(--sm-color-text-primary);
 }
 
-.close-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  border-radius: 4px;
-  color: var(--theme-text-secondary);
-  font-size: 24px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.close-btn:hover {
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
+.manager-header p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
 }
 
 .manager-tabs {
   display: flex;
-  gap: 0;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
-}
-
-.tab-btn {
-  padding: 12px 20px;
-  font-size: 13px;
-  font-family: var(--theme-font);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--theme-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.tab-btn:hover {
-  color: var(--theme-text);
-}
-
-.tab-btn.active {
-  color: var(--theme-accent);
-  border-bottom-color: var(--theme-accent);
+  gap: var(--sm-space-2);
+  padding: 0 var(--sm-space-5) var(--sm-space-4);
+  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
 .manager-body {
   flex: 1;
-  display: flex;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
   overflow: hidden;
 }
 
 .config-list {
-  width: 280px;
-  border-right: 1px solid var(--theme-border);
+  min-height: 0;
+  border-right: 1px solid var(--sm-color-border-subtle);
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
+  background: var(--sm-color-surface-1);
 }
 
 .list-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--theme-text-secondary);
-  border-bottom: 1px solid var(--theme-border);
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-4);
+  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
-.count {
-  background-color: var(--theme-bg-secondary);
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 12px;
-}
-
-.list-loading,
-.list-empty {
-  flex: 1;
+.list-heading {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--theme-text-secondary);
-  font-size: 13px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.list-heading strong {
+  font-size: 14px;
+  color: var(--sm-color-text-primary);
+}
+
+.list-state {
+  flex: 1;
+  margin: var(--sm-space-4);
+  background: var(--sm-color-surface-2);
 }
 
 .list-items {
   flex: 1;
   overflow-y: auto;
+  padding: var(--sm-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
 }
 
 .list-item {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--theme-border);
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--sm-radius-md);
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
 .list-item:hover {
-  background-color: var(--theme-bg-secondary);
+  background: var(--sm-color-surface-2);
+  border-color: var(--sm-color-border-default);
 }
 
 .list-item.selected {
-  background-color: rgba(63, 185, 80, 0.1);
-  border-left: 3px solid var(--theme-accent);
-  padding-left: 13px;
+  background: rgba(142, 149, 217, 0.08);
+  border-color: var(--sm-color-border-accent);
 }
 
 .item-name {
   font-size: 13px;
-  font-weight: 500;
-  color: var(--theme-text);
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
   margin-bottom: 4px;
 }
 
 .item-date {
   font-size: 11px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .config-detail {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--sm-color-surface-2);
 }
 
 .detail-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--theme-border);
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-5);
+  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
 .detail-title {
@@ -448,77 +445,48 @@ function formatDate(dateStr: string): string {
   font-size: 16px;
   font-weight: 600;
   flex: 1;
+  color: var(--sm-color-text-primary);
 }
 
 .name-input {
   flex: 1;
-  padding: 8px 12px;
-  font-size: 14px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  color: var(--theme-text);
-}
-
-.name-input:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-}
-
-.btn-icon {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  color: var(--theme-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-icon:hover {
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
-  border-color: var(--theme-text-secondary);
 }
 
 .detail-meta {
   display: flex;
-  gap: 16px;
-  padding: 8px 20px;
+  flex-wrap: wrap;
+  gap: var(--sm-space-3);
+  padding: 0 var(--sm-space-5) var(--sm-space-4);
   font-size: 12px;
-  color: var(--theme-text-secondary);
-  background-color: var(--theme-bg-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .detail-content {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 16px 20px;
+  gap: var(--sm-space-3);
+  padding: 0 var(--sm-space-5) var(--sm-space-5);
   overflow: hidden;
 }
 
 .content-label {
   font-size: 12px;
-  color: var(--theme-text-secondary);
-  margin-bottom: 8px;
+  color: var(--sm-color-text-secondary);
 }
 
 .code-editor {
   flex: 1;
-  padding: 12px;
-  font-family: var(--theme-font);
-  font-size: 13px;
-  line-height: 1.5;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  color: var(--theme-text);
+  min-height: 0;
+  padding: 16px;
+  font-family: var(--sm-font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  color: var(--sm-color-text-primary);
   resize: none;
   white-space: pre;
   tab-size: 2;
@@ -526,22 +494,23 @@ function formatDate(dateStr: string): string {
 
 .code-editor:focus {
   outline: none;
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-border-accent);
 }
 
 .code-editor:read-only {
-  background-color: var(--theme-bg);
+  background: rgba(11, 11, 12, 0.72);
   cursor: default;
 }
 
 .detail-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 20px;
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-4) var(--sm-space-5);
+  border-top: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-surface-1);
 }
 
 .delete-hint {
@@ -552,63 +521,38 @@ function formatDate(dateStr: string): string {
 
 .detail-empty {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--theme-text-secondary);
+  margin: var(--sm-space-5);
+  background: var(--sm-color-surface-1);
 }
 
-.btn {
-  padding: 6px 12px;
-  font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  color: var(--theme-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
+@media (max-width: 900px) {
+  .manager-body {
+    grid-template-columns: 1fr;
+  }
+
+  .config-list {
+    border-right: none;
+    border-bottom: 1px solid var(--sm-color-border-subtle);
+  }
 }
 
-.btn:hover {
-  border-color: var(--theme-text-secondary);
-  color: var(--theme-text);
-}
+@media (max-width: 720px) {
+  .config-manager {
+    width: calc(100vw - 32px);
+    height: calc(100vh - 72px);
+  }
 
-.btn-primary {
-  padding: 6px 12px;
-  font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-accent);
-  border: 1px solid var(--theme-accent);
-  border-radius: 4px;
-  color: var(--theme-bg);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
+  .manager-tabs,
+  .detail-header,
+  .detail-meta,
+  .detail-content,
+  .detail-actions {
+    padding-left: var(--sm-space-4);
+    padding-right: var(--sm-space-4);
+  }
 
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-danger {
-  padding: 6px 12px;
-  font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-danger);
-  border: 1px solid var(--theme-danger);
-  border-radius: 4px;
-  color: #fff;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-danger:hover {
-  opacity: 0.9;
+  .manager-tabs {
+    padding-bottom: var(--sm-space-3);
+  }
 }
 </style>

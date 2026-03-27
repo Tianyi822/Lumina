@@ -65,19 +65,24 @@ async function handleRefreshList(): Promise<void> {
 </script>
 
 <template>
-  <aside class="sandbox-sidebar">
-    <div class="sidebar-actions">
-      <button class="btn-primary new-sandbox-btn" @click="handleNewSandbox">新建沙箱</button>
-      <button class="manage-config-btn" @click="handleManageConfigs">管理配置</button>
-    </div>
+  <aside class="sandbox-sidebar sm-sidebar-shell">
+    <header class="sm-sidebar-shell__header">
+      <span class="sm-sidebar-shell__eyebrow">沙箱</span>
+      <div class="sm-sidebar-shell__headline">
+        <h2 class="sm-sidebar-shell__title">工程环境</h2>
+        <span class="sm-sidebar-shell__count">{{ sandboxs.length }}</span>
+      </div>
+      <p class="sm-sidebar-shell__description">管理运行环境、容器状态和模板配置。</p>
+      <div class="sm-sidebar-shell__actions">
+        <button class="btn-primary new-sandbox-btn" @click="handleNewSandbox">新建沙箱</button>
+        <button class="btn-secondary manage-config-btn" @click="handleManageConfigs">
+          管理配置
+        </button>
+      </div>
+    </header>
 
-    <div class="search-container">
-      <input
-        v-model="searchQuery"
-        type="text"
-        class="input search-input"
-        placeholder="搜索沙箱..."
-      />
+    <div class="sm-sidebar-shell__search search-container">
+      <input v-model="searchQuery" type="text" class="input search-input" placeholder="搜索沙箱" />
       <button
         class="btn-refresh"
         title="刷新列表"
@@ -88,72 +93,30 @@ async function handleRefreshList(): Promise<void> {
       </button>
     </div>
 
-    <SandboxList
-      :sandboxs="filteredSandboxs"
-      :active-sandbox-id="activeSandboxId"
-      :deleting-sandbox-id="deletingSandboxId"
-      @select="handleSelectSandbox"
-      @delete="handleDeleteSandbox"
-    />
+    <div class="sm-sidebar-shell__body sm-sidebar-shell__body--flush">
+      <SandboxList
+        :sandboxs="filteredSandboxs"
+        :active-sandbox-id="activeSandboxId"
+        :deleting-sandbox-id="deletingSandboxId"
+        @select="handleSelectSandbox"
+        @delete="handleDeleteSandbox"
+      />
+    </div>
   </aside>
 </template>
 
 <style scoped>
 .sandbox-sidebar {
-  width: 280px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--theme-bg);
-  border-right: 1px solid var(--theme-border);
-  flex-shrink: 0;
-}
-
-.sidebar-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  min-height: 0;
 }
 
 .new-sandbox-btn,
 .manage-config-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
   width: 100%;
-  margin: 0;
-}
-
-.new-sandbox-btn {
-  background: #46aa8f;
-  border-color: rgba(70, 170, 143, 0.4);
-}
-
-.new-sandbox-btn:hover {
-  background: #3d9980;
-}
-
-.manage-config-btn {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  color: var(--theme-text);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-family: var(--theme-font);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.manage-config-btn:hover {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-accent);
+  min-height: 36px;
 }
 
 .search-container {
-  padding: 0 12px 12px;
   display: flex;
   gap: 8px;
   align-items: center;
@@ -167,22 +130,22 @@ async function handleRefreshList(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   padding: 0;
-  background: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  color: var(--theme-accent);
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 8px;
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
 .btn-refresh:hover:not(:disabled) {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-accent);
-  color: var(--theme-text);
+  background-color: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
+  color: var(--sm-color-text-primary);
 }
 
 .btn-refresh:disabled {

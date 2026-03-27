@@ -110,25 +110,24 @@ function handleKeydown(event: KeyboardEvent): void {
 
 <template>
   <div class="terminal-panel">
-    <!-- 头部信息 -->
     <div class="terminal-header">
-      <div class="container-info">
-        <span class="info-label">容器:</span>
-        <span class="info-value">{{ containerName }}</span>
-        <span class="info-divider">|</span>
-        <span class="info-label">ID:</span>
-        <span class="info-value">{{ containerId.substring(0, 12) }}</span>
+      <div class="terminal-header__copy">
+        <span class="terminal-header__eyebrow">交互终端</span>
+        <div class="terminal-header__headline">
+          <h2>{{ containerName }}</h2>
+          <span class="badge terminal-id">{{ containerId.substring(0, 12) }}</span>
+        </div>
+        <p>直接向容器发送 Shell 命令，用于巡检、诊断和临时操作。</p>
       </div>
       <div class="terminal-actions">
         <label class="auto-scroll-toggle">
           <input v-model="autoScroll" type="checkbox" />
           <span>自动滚动</span>
         </label>
-        <button class="btn-sm" @click="handleClear">清空</button>
+        <button class="btn btn-small" @click="handleClear">清空</button>
       </div>
     </div>
 
-    <!-- 日志输出区域 -->
     <div ref="logsContainerRef" class="terminal-output">
       <div v-if="!hasLogs" class="empty-logs">
         <p>在下方输入命令开始执行</p>
@@ -148,14 +147,16 @@ function handleKeydown(event: KeyboardEvent): void {
         </div>
       </div>
 
-      <!-- 执行中指示器 -->
       <div v-if="loading" class="loading-indicator">
         <span class="loading-dots">执行中</span>
       </div>
     </div>
 
-    <!-- 命令输入区域 -->
     <div class="terminal-input-section">
+      <div class="input-caption">
+        <span>Shell</span>
+        <span>Enter 执行</span>
+      </div>
       <div class="input-wrapper">
         <span class="input-prompt">$</span>
         <input
@@ -167,7 +168,7 @@ function handleKeydown(event: KeyboardEvent): void {
           @keydown="handleKeydown"
         />
         <button
-          class="execute-btn"
+          class="btn-primary execute-btn"
           :disabled="!commandInput.trim() || loading"
           @click="handleExecute"
         >
@@ -176,9 +177,8 @@ function handleKeydown(event: KeyboardEvent): void {
       </div>
     </div>
 
-    <!-- 快捷命令 -->
     <div class="quick-commands">
-      <span class="quick-label">快捷命令:</span>
+      <span class="quick-label">快捷命令</span>
       <div class="quick-list">
         <button
           v-for="cmd in quickCommands"
@@ -199,47 +199,65 @@ function handleKeydown(event: KeyboardEvent): void {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
   overflow: hidden;
 }
 
-/* 头部 */
 .terminal-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 12px 16px;
-  background-color: var(--theme-bg);
-  border-bottom: 1px solid var(--theme-border);
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-5);
+  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
-.container-info {
+.terminal-header__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+}
+
+.terminal-header__eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sm-color-text-tertiary);
+}
+
+.terminal-header__headline {
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: var(--sm-space-2);
+}
+
+.terminal-header__headline h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--sm-color-text-primary);
+}
+
+.terminal-header__copy p {
+  margin: 0;
   font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
 }
 
-.info-label {
-  color: var(--theme-text-secondary);
-}
-
-.info-value {
-  color: var(--theme-text);
-  font-weight: 500;
-}
-
-.info-divider {
-  color: var(--theme-border);
-  margin: 0 4px;
+.terminal-id {
+  font-family: var(--sm-font-mono);
 }
 
 .terminal-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: var(--sm-space-3);
 }
 
 .auto-scroll-toggle {
@@ -247,40 +265,23 @@ function handleKeydown(event: KeyboardEvent): void {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
 }
 
 .auto-scroll-toggle input {
   margin: 0;
+  accent-color: var(--sm-color-accent);
 }
 
-.btn-sm {
-  padding: 4px 10px;
-  font-size: 12px;
-  font-family: var(--theme-font);
-  background-color: transparent;
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  color: var(--theme-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-sm:hover {
-  border-color: var(--theme-text);
-  color: var(--theme-text);
-}
-
-/* 输出区域 */
 .terminal-output {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
-  font-family: var(--theme-font);
+  padding: var(--sm-space-5);
+  font-family: var(--sm-font-mono);
   font-size: 13px;
-  line-height: 1.5;
-  background-color: #0d1117;
+  line-height: 1.6;
+  background: var(--sm-color-bg-embedded);
 }
 
 .empty-logs {
@@ -289,13 +290,12 @@ function handleKeydown(event: KeyboardEvent): void {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   text-align: center;
 }
 
 .empty-hint {
   font-size: 12px;
-  opacity: 0.7;
   margin-top: 8px;
 }
 
@@ -306,14 +306,16 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 .log-entry {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
   gap: 8px;
-  padding: 4px 0;
+  padding: 6px 0;
   word-break: break-word;
+  align-items: start;
 }
 
 .log-time {
-  color: #8b949e;
+  color: var(--sm-color-text-tertiary);
   flex-shrink: 0;
 }
 
@@ -323,39 +325,38 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 .log-input .log-prefix {
-  color: #58a6ff;
+  color: var(--sm-color-accent-hover);
 }
 
 .log-output .log-prefix {
-  color: #3fb950;
+  color: var(--theme-success);
 }
 
 .log-error .log-prefix {
-  color: #f85149;
+  color: var(--theme-danger);
 }
 
 .log-content {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #c9d1d9;
+  color: var(--sm-color-text-primary);
   font-family: inherit;
   font-size: inherit;
   flex: 1;
 }
 
 .log-input .log-content {
-  color: #58a6ff;
+  color: var(--sm-color-accent-hover);
 }
 
 .log-error .log-content {
-  color: #f85149;
+  color: var(--theme-danger);
 }
 
-/* 加载指示器 */
 .loading-indicator {
   padding: 8px 0;
-  color: #8b949e;
+  color: var(--sm-color-text-secondary);
   font-style: italic;
 }
 
@@ -381,27 +382,38 @@ function handleKeydown(event: KeyboardEvent): void {
   }
 }
 
-/* 输入区域 */
 .terminal-input-section {
-  padding: 12px 16px;
-  background-color: var(--theme-bg);
-  border-top: 1px solid var(--theme-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-4) var(--sm-space-5);
+  border-top: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-surface-1);
+}
+
+.input-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sm-space-3);
+  font-size: 12px;
+  color: var(--sm-color-text-secondary);
 }
 
 .input-wrapper {
   display: flex;
   align-items: center;
   gap: 8px;
-  background-color: #0d1117;
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   padding: 8px 12px;
 }
 
 .input-prompt {
-  color: #3fb950;
+  color: var(--theme-success);
   font-weight: 600;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-mono);
 }
 
 .terminal-input {
@@ -409,13 +421,13 @@ function handleKeydown(event: KeyboardEvent): void {
   background: transparent;
   border: none;
   outline: none;
-  color: #c9d1d9;
-  font-family: var(--theme-font);
+  color: var(--sm-color-text-primary);
+  font-family: var(--sm-font-mono);
   font-size: 14px;
 }
 
 .terminal-input::placeholder {
-  color: #6e7681;
+  color: var(--sm-color-text-tertiary);
 }
 
 .terminal-input:disabled {
@@ -424,20 +436,7 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 .execute-btn {
-  padding: 6px 16px;
-  font-size: 13px;
-  font-family: var(--theme-font);
-  font-weight: 500;
-  background-color: var(--theme-accent);
-  border: none;
-  border-radius: 4px;
-  color: var(--theme-bg);
-  cursor: pointer;
-  transition: opacity 0.15s ease;
-}
-
-.execute-btn:hover:not(:disabled) {
-  opacity: 0.9;
+  min-width: 64px;
 }
 
 .execute-btn:disabled {
@@ -445,20 +444,19 @@ function handleKeydown(event: KeyboardEvent): void {
   cursor: not-allowed;
 }
 
-/* 快捷命令 */
 .quick-commands {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background-color: var(--theme-bg);
-  border-top: 1px solid var(--theme-border);
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-4) var(--sm-space-5);
+  background: var(--sm-color-surface-1);
+  border-top: 1px solid var(--sm-color-border-subtle);
   overflow-x: auto;
 }
 
 .quick-label {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -470,25 +468,43 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 .quick-btn {
-  padding: 4px 10px;
+  min-height: 28px;
+  padding: 0 10px;
   font-size: 11px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  color: var(--theme-text-secondary);
+  font-family: var(--sm-font-mono);
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 999px;
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
 .quick-btn:hover:not(:disabled) {
-  border-color: var(--theme-accent);
-  color: var(--theme-accent);
+  background: rgba(142, 149, 217, 0.08);
+  border-color: var(--sm-color-border-accent);
+  color: var(--sm-color-text-primary);
 }
 
 .quick-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+@media (max-width: 820px) {
+  .terminal-header,
+  .quick-commands {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .terminal-actions,
+  .quick-list {
+    width: 100%;
+  }
 }
 </style>

@@ -11,11 +11,11 @@ const emit = defineEmits<{
 
 <template>
   <Transition name="toast">
-    <div v-if="visible" class="success-toast">
+    <div v-if="visible" class="success-toast" role="status" aria-live="polite" aria-atomic="true">
       <div class="toast-content">
         <span class="toast-icon">✓</span>
         <p class="toast-message">{{ message }}</p>
-        <button class="toast-close" @click="emit('close')">×</button>
+        <button type="button" class="toast-close" @click="emit('close')">×</button>
       </div>
     </div>
   </Transition>
@@ -28,11 +28,10 @@ const emit = defineEmits<{
   right: 16px;
   z-index: 1001;
   max-width: 400px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-success);
-  border-radius: 8px;
+  background-color: var(--sm-color-surface-3);
+  border: 1px solid rgba(127, 176, 138, 0.24);
+  border-radius: var(--sm-radius-md);
   padding: 12px 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .success-toast .toast-content {
@@ -57,31 +56,40 @@ const emit = defineEmits<{
 }
 
 .success-toast .toast-close {
-  background: none;
-  border: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--sm-radius-sm);
   font-size: 20px;
   color: var(--theme-success);
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0;
   line-height: 1;
   opacity: 0.7;
-  transition: opacity 0.2s;
+  transition:
+    opacity var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
   font-family: var(--theme-font);
   flex-shrink: 0;
 }
 
 .success-toast .toast-close:hover {
+  background: rgba(127, 176, 138, 0.08);
+  border-color: rgba(127, 176, 138, 0.22);
   opacity: 1;
 }
 
 .toast-enter-active,
 .toast-leave-active {
-  transition: all 0.3s ease;
+  transition:
+    opacity var(--sm-transition-medium),
+    transform var(--sm-transition-medium);
 }
 
 .toast-enter-from,
 .toast-leave-to {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(var(--sm-motion-distance-md));
 }
 </style>

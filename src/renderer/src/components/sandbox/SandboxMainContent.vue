@@ -74,6 +74,45 @@ const orphanRecoverLabel = computed(() =>
   isFrontendSandbox.value ? '重建运行容器' : '重新关联容器'
 )
 
+const sandboxCreationTypeLabel = computed(() => {
+  const labelMap: Record<SandboxData['creationType'], string> = {
+    existing: '已有容器',
+    compose: 'Docker Compose',
+    dockerfile: 'Dockerfile'
+  }
+
+  return props.currentSandbox ? labelMap[props.currentSandbox.creationType] : ''
+})
+
+const sandboxStatusLabel = computed(() => {
+  const labelMap: Record<SandboxData['status'], string> = {
+    creating: '创建中',
+    running: '运行中',
+    stopped: '已停止',
+    error: '异常'
+  }
+
+  return props.currentSandbox ? labelMap[props.currentSandbox.status] : ''
+})
+
+const sandboxStatusClass = computed(() => {
+  return props.currentSandbox ? `status-${props.currentSandbox.status}` : ''
+})
+
+const sandboxContainerCount = computed(() => props.currentSandbox?.containerIds.length || 0)
+
+const workspaceSummary = computed(() => {
+  if (isOrphan.value) {
+    return '当前沙箱的运行容器已丢失，请先完成恢复或清理。'
+  }
+
+  if (isFrontendSandbox.value) {
+    return '管理前端工作区的容器状态、终端检查、日志追踪与恢复动作。'
+  }
+
+  return '统一查看容器状态、终端输出、运行日志与工程级操作。'
+})
+
 // 用于 composables 的响应式引用
 const currentSandboxRef = computed(() => props.currentSandbox)
 const selectedContainerRef = computed(() => selectedContainer.value)
@@ -388,25 +427,60 @@ async function handleRebuildFrontendRuntime(): Promise<void> {
 function handleCloseOrphanAlert(): void {
   window.api.logger.info('[SandboxMainContent] 用户关闭孤儿沙箱提示')
 }
+
+function formatDateTime(value?: string): string {
+  if (!value) {
+    return '-'
+  }
+
+  return new Date(value).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
 </script>
 
 <template>
   <main class="sandbox-main-content">
-    <!-- Tab 导航 -->
-    <TabNavigation :visible="hasSandbox" />
-
-    <!-- 内容区域 -->
-    <div class="content-body">
-      <!-- 空状态 -->
-      <div v-if="!hasSandbox" class="empty-state">
-        <div class="empty-content">
-          <p class="empty-text">选择或创建一个沙箱开始</p>
-          <p class="empty-hint">或点击「创建新沙箱」选择已有容器</p>
-        </div>
+    <div v-if="!hasSandbox" class="sandbox-empty-state">
+      <div class="sm-empty sandbox-empty-card">
+        <span class="sandbox-empty-card__eyebrow">工程控制台</span>
+        <h2>选择一个沙箱开始</h2>
+        <p>从左侧接管现有环境，或新建一个沙箱以进入容器监控、终端和日志工作流。</p>
       </div>
+    </div>
 
-      <template v-else>
-        <!-- 孤儿沙箱警告 -->
+    <template v-else>
+      <header class="workspace-header">
+        <div class="workspace-header__copy">
+          <span class="workspace-header__eyebrow">工程控制台</span>
+          <div class="workspace-header__headline">
+            <div class="workspace-header__titles">
+              <h1>{{ currentSandbox?.name }}</h1>
+              <p>{{ workspaceSummary }}</p>
+            </div>
+            <div class="workspace-header__meta">
+              <span class="badge">{{ sandboxCreationTypeLabel }}</span>
+              <span class="badge">{{ sandboxContainerCount }} 个容器</span>
+              <span class="badge" :class="sandboxStatusClass">{{ sandboxStatusLabel }}</span>
+            </div>
+          </div>
+
+          <div class="workspace-header__submeta">
+            <span>
+              沙箱 ID
+              <code>{{ currentSandbox?.sandboxId }}</code>
+            </span>
+            <span>最近更新 {{ formatDateTime(currentSandbox?.updatedAt) }}</span>
+          </div>
+        </div>
+
+        <TabNavigation :visible="hasSandbox" />
+      </header>
+
+      <div class="content-body">
         <OrphanSandboxAlert
           :visible="isOrphan"
           :sandbox="currentSandbox"
@@ -420,6 +494,7 @@ function handleCloseOrphanAlert(): void {
 
         <div v-if="showFrontendRecoveryBanner" class="frontend-recovery-banner">
           <div class="frontend-recovery-copy">
+            <span class="frontend-recovery-copy__eyebrow">恢复提示</span>
             <h3>前端服务未就绪</h3>
             <p>{{ frontendRecoveryMessage }}</p>
           </div>
@@ -443,10 +518,10 @@ function handleCloseOrphanAlert(): void {
 
         <!-- 监控 Tab -->
         <div v-if="sandboxDetailTab === 'stats'" class="tab-content">
-          <div v-if="!selectedContainer" class="empty-state">
-            <div class="empty-content">
-              <p class="empty-text">请先选择一个 Docker 容器</p>
-              <p class="empty-hint">点击「创建新沙箱」选择已有容器</p>
+          <div v-if="!selectedContainer" class="detail-empty-state">
+            <div class="sm-empty detail-empty-card">
+              <h2>请先选择一个容器</h2>
+              <p>选中主容器后，这里会显示运行指标、端口映射和环境细节。</p>
             </div>
           </div>
           <ContainerDetailPanel
@@ -472,10 +547,10 @@ function handleCloseOrphanAlert(): void {
 
         <!-- 终端 Tab -->
         <div v-else-if="sandboxDetailTab === 'terminal'" class="tab-content">
-          <div v-if="!selectedContainer" class="empty-state">
-            <div class="empty-content">
-              <p class="empty-text">请先选择一个 Docker 容器</p>
-              <p class="empty-hint">点击「创建新沙箱」选择已有容器</p>
+          <div v-if="!selectedContainer" class="detail-empty-state">
+            <div class="sm-empty detail-empty-card">
+              <h2>终端尚未绑定容器</h2>
+              <p>选中目标容器后，可在这里执行临时命令、定位问题并确认运行环境。</p>
             </div>
           </div>
           <TerminalPanel
@@ -491,10 +566,10 @@ function handleCloseOrphanAlert(): void {
 
         <!-- 日志 Tab -->
         <div v-else-if="sandboxDetailTab === 'logs'" class="tab-content">
-          <div v-if="!selectedContainer" class="empty-state">
-            <div class="empty-content">
-              <p class="empty-text">请先选择一个 Docker 容器</p>
-              <p class="empty-hint">点击「创建新沙箱」选择已有容器</p>
+          <div v-if="!selectedContainer" class="detail-empty-state">
+            <div class="sm-empty detail-empty-card">
+              <h2>日志尚未绑定容器</h2>
+              <p>选中目标容器后，可在这里检索输出、导出日志并追踪最近的运行记录。</p>
             </div>
           </div>
           <ContainerLogs
@@ -507,127 +582,269 @@ function handleCloseOrphanAlert(): void {
             @export="handleExportLogs"
           />
         </div>
-      </template>
-    </div>
+      </div>
+    </template>
   </main>
 </template>
 
 <style scoped>
 .sandbox-main-content {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  background-color: var(--theme-bg);
   overflow: hidden;
 }
 
-/* 内容区域 */
+.sandbox-empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sm-space-6);
+}
+
+.sandbox-empty-card {
+  width: min(520px, 100%);
+  background: var(--sm-color-surface-2);
+  border-style: solid;
+}
+
+.sandbox-empty-card__eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sm-color-text-tertiary);
+}
+
+.sandbox-empty-card h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--sm-color-text-primary);
+}
+
+.sandbox-empty-card p {
+  margin: 0;
+  max-width: 420px;
+  line-height: 1.6;
+}
+
+.workspace-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sm-space-5);
+  padding: var(--sm-space-6);
+  border-bottom: 1px solid var(--sm-color-border-subtle);
+}
+
+.workspace-header__copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-3);
+}
+
+.workspace-header__eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sm-color-text-tertiary);
+}
+
+.workspace-header__headline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sm-space-4);
+}
+
+.workspace-header__titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  min-width: 0;
+}
+
+.workspace-header__titles h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--sm-color-text-primary);
+}
+
+.workspace-header__titles p {
+  margin: 0;
+  max-width: 680px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
+}
+
+.workspace-header__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sm-space-2);
+  justify-content: flex-end;
+}
+
+.workspace-header__submeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sm-space-4);
+  font-size: 12px;
+  color: var(--sm-color-text-secondary);
+}
+
+.workspace-header__submeta code {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: 999px;
+  background: var(--sm-color-bg-embedded);
+  color: var(--sm-color-text-primary);
+  font-family: var(--sm-font-mono);
+  font-size: 11px;
+}
+
+.workspace-header__meta .status-running {
+  border-color: rgba(127, 176, 138, 0.28);
+  background: rgba(127, 176, 138, 0.08);
+  color: var(--theme-success);
+}
+
+.workspace-header__meta .status-creating {
+  border-color: rgba(142, 149, 217, 0.28);
+  background: rgba(142, 149, 217, 0.08);
+  color: var(--sm-color-accent-hover);
+}
+
+.workspace-header__meta .status-stopped {
+  border-color: var(--sm-color-border-default);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--sm-color-text-secondary);
+}
+
+.workspace-header__meta .status-error {
+  border-color: rgba(199, 120, 120, 0.28);
+  background: rgba(199, 120, 120, 0.08);
+  color: var(--theme-danger);
+}
+
 .content-body {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
   overflow: hidden;
-  padding: 0;
+  padding: 0 var(--sm-space-6) var(--sm-space-6);
   position: relative;
 }
 
 .tab-content {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
 .frontend-recovery-banner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 14px 16px;
-  margin: 12px;
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-4);
   border: 1px solid rgba(210, 153, 34, 0.35);
-  border-radius: 10px;
+  border-radius: var(--sm-radius-md);
   background: rgba(210, 153, 34, 0.08);
 }
 
+.frontend-recovery-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+}
+
+.frontend-recovery-copy__eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--theme-warning);
+}
+
 .frontend-recovery-copy h3 {
-  margin: 0 0 6px 0;
+  margin: 0;
   font-size: 14px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .frontend-recovery-copy p {
   margin: 0;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .frontend-recovery-actions {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: var(--sm-space-2);
   flex-shrink: 0;
 }
 
-.btn-primary,
-.btn-secondary {
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-family: var(--theme-font);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-primary {
-  border: 1px solid rgba(70, 170, 143, 0.4);
-  background: #46aa8f;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #3d9980;
-}
-
-.btn-secondary {
-  border: 1px solid var(--theme-border);
-  background: var(--theme-bg-secondary);
-  color: var(--theme-text);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  border-color: var(--theme-text-secondary);
-}
-
-.btn-primary:disabled,
-.btn-secondary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* 空状态 */
-.empty-state {
+.detail-empty-state {
   display: flex;
+  height: 100%;
   align-items: center;
   justify-content: center;
-  height: 100%;
 }
 
-.empty-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  color: var(--theme-text-secondary);
+.detail-empty-card {
+  width: min(460px, 100%);
+  background: var(--sm-color-surface-2);
+  border-style: solid;
 }
 
-.empty-text {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--theme-text);
-  margin: 0 0 8px 0;
-}
-
-.empty-hint {
-  font-size: 14px;
+.detail-empty-card h2 {
   margin: 0;
-  opacity: 0.7;
+  font-size: 17px;
+  color: var(--sm-color-text-primary);
+}
+
+.detail-empty-card p {
+  margin: 0;
+  max-width: 380px;
+  line-height: 1.6;
+}
+
+@media (max-width: 920px) {
+  .workspace-header,
+  .workspace-header__headline,
+  .frontend-recovery-banner {
+    flex-direction: column;
+  }
+
+  .workspace-header__meta {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .workspace-header {
+    padding: var(--sm-space-5);
+  }
+
+  .content-body {
+    padding: 0 var(--sm-space-5) var(--sm-space-5);
+  }
 }
 </style>

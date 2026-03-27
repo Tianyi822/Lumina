@@ -145,13 +145,13 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 .sandbox-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 12px;
+  padding: 12px;
 }
 
 .empty-list {
   padding: 24px;
   text-align: center;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   font-size: 14px;
 }
 
@@ -159,34 +159,37 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
+  padding: 12px;
   margin-bottom: 8px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid transparent;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    opacity var(--sm-transition-fast);
 }
 
 .sandbox-item:hover {
-  border-color: var(--theme-text-secondary);
+  background-color: var(--sm-color-surface-2);
+  border-color: var(--sm-color-border-default);
 }
 
 .sandbox-item.active {
-  border-color: var(--theme-accent);
-  background-color: rgba(63, 185, 80, 0.1);
+  border-color: var(--sm-color-border-accent);
+  background-color: rgba(142, 149, 217, 0.12);
 }
 
-/* 孤儿沙箱样式 */
 .sandbox-item.orphan {
   border-color: var(--theme-danger);
-  background-color: rgba(248, 81, 73, 0.05);
+  background-color: rgba(199, 120, 120, 0.08);
   opacity: 0.7;
 }
 
 .sandbox-item.orphan:hover {
   border-color: var(--theme-danger);
-  background-color: rgba(248, 81, 73, 0.1);
+  background-color: rgba(199, 120, 120, 0.12);
   opacity: 0.85;
 }
 
@@ -197,8 +200,8 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 
 .sandbox-name {
   font-size: 14px;
-  font-weight: 500;
-  color: var(--theme-text);
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -207,30 +210,32 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
   gap: 6px;
 }
 
-/* 创建类型 Badge */
 .creation-type-badge {
   display: inline-flex;
   align-items: center;
   padding: 2px 6px;
   font-size: 11px;
   font-weight: 500;
-  border-radius: 3px;
+  border: 1px solid transparent;
+  border-radius: 999px;
   flex-shrink: 0;
 }
 
 .creation-type-badge.creation-type-existing {
-  border: 1px solid var(--theme-warning);
+  border-color: rgba(197, 161, 101, 0.32);
   color: var(--theme-warning);
-  background-color: rgba(210, 153, 34, 0.1);
+  background-color: rgba(197, 161, 101, 0.12);
 }
 
 .creation-type-badge.creation-type-compose {
-  background-color: rgba(63, 185, 80, 0.15);
+  border-color: rgba(127, 176, 138, 0.28);
+  background-color: rgba(127, 176, 138, 0.12);
   color: var(--theme-success);
 }
 
 .creation-type-badge.creation-type-dockerfile {
-  background-color: rgba(88, 166, 255, 0.15);
+  border-color: rgba(142, 149, 217, 0.28);
+  background-color: rgba(142, 149, 217, 0.12);
   color: var(--theme-info);
 }
 
@@ -245,65 +250,70 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 .sandbox-status {
   font-size: 12px;
   padding: 2px 6px;
-  border-radius: 3px;
+  border: 1px solid transparent;
+  border-radius: 999px;
 }
 
 .status-creating {
-  background-color: rgba(88, 166, 255, 0.2);
+  border-color: rgba(142, 149, 217, 0.28);
+  background-color: rgba(142, 149, 217, 0.12);
   color: var(--theme-info);
 }
 
 .status-running {
-  background-color: rgba(63, 185, 80, 0.2);
+  border-color: rgba(127, 176, 138, 0.28);
+  background-color: rgba(127, 176, 138, 0.12);
   color: var(--theme-success);
 }
 
 .status-stopped {
-  background-color: rgba(139, 148, 158, 0.2);
-  color: var(--theme-text-secondary);
+  border-color: var(--sm-color-border-default);
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--sm-color-text-secondary);
 }
 
 .status-error {
-  background-color: rgba(248, 81, 73, 0.2);
+  border-color: rgba(199, 120, 120, 0.28);
+  background-color: rgba(199, 120, 120, 0.12);
   color: var(--theme-danger);
 }
 
-/* 孤儿沙箱 Badge */
 .orphan-badge {
   font-size: 11px;
   padding: 2px 6px;
-  border-radius: 3px;
-  background-color: rgba(248, 81, 73, 0.15);
+  border-radius: 999px;
+  background-color: rgba(199, 120, 120, 0.12);
   color: var(--theme-danger);
-  border: 1px solid rgba(248, 81, 73, 0.3);
+  border: 1px solid rgba(199, 120, 120, 0.28);
 }
 
-/* 容器数量 Badge */
 .container-count {
   font-size: 11px;
   padding: 2px 6px;
-  border-radius: 3px;
-  background-color: rgba(139, 148, 158, 0.15);
-  color: var(--theme-text-secondary);
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--sm-color-text-secondary);
 }
 
 .btn-delete {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   background-color: transparent;
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  color: var(--theme-text-secondary);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all var(--sm-transition-fast);
 }
 
 .btn-delete:hover:not(:disabled) {
-  background-color: var(--theme-danger);
-  border-color: var(--theme-danger);
-  color: white;
+  background-color: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.28);
+  color: var(--theme-danger);
 }
 
 .btn-delete:disabled {
@@ -312,7 +322,7 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 }
 
 .btn-delete.is-deleting {
-  border-color: var(--theme-warning);
+  border-color: rgba(197, 161, 101, 0.32);
   color: var(--theme-warning);
 }
 
@@ -325,19 +335,19 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 .btn-cancel {
   padding: 4px 8px;
   font-size: 12px;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
 }
 
 .btn-confirm {
-  background-color: var(--theme-danger);
-  border: 1px solid var(--theme-danger);
-  color: white;
+  background-color: rgba(199, 120, 120, 0.12);
+  border: 1px solid rgba(199, 120, 120, 0.28);
+  color: var(--theme-danger);
 }
 
 .btn-cancel {
   background-color: transparent;
-  border: 1px solid var(--theme-border);
-  color: var(--theme-text-secondary);
+  border: 1px solid var(--sm-color-border-default);
+  color: var(--sm-color-text-secondary);
 }
 </style>

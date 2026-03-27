@@ -69,204 +69,139 @@ function handleCleanup(): void {
   <Transition name="alert">
     <div v-if="visible" class="orphan-alert">
       <div class="alert-content">
-        <div class="alert-icon">⚠️</div>
         <div class="alert-message">
+          <span class="alert-eyebrow">运行异常</span>
           <h4>容器已丢失</h4>
           <p>
-            沙箱「{{ sandbox?.name }}」关联的容器已丢失。这可能是因为容器被手动删除或 Docker
-            服务重启导致的。
+            沙箱「{{ sandbox?.name }}」关联的容器不再可用。这通常意味着容器被手动删除，或 Docker
+            服务在重启后未恢复到原状态。
           </p>
-          <p v-if="sandbox?.composeProjectName" class="project-info">
-            Compose 项目：{{ sandbox.composeProjectName }}
-          </p>
-          <p v-if="sandbox?.frontend?.volumeName" class="project-info">
-            工作区 Volume：{{ sandbox.frontend.volumeName }}
-          </p>
+
+          <div class="alert-meta">
+            <span v-if="sandbox?.composeProjectName" class="alert-meta-item">
+              Compose 项目 {{ sandbox.composeProjectName }}
+            </span>
+            <span v-if="sandbox?.frontend?.volumeName" class="alert-meta-item">
+              工作区 Volume {{ sandbox.frontend.volumeName }}
+            </span>
+          </div>
         </div>
+
         <div class="alert-actions">
           <button
             v-if="canRecover"
-            class="btn-recover"
+            class="btn-primary"
             :disabled="isReloading || isRecovering"
             @click="handleRecover"
           >
             <span v-if="isRecovering">{{ recoveringLabel }}</span>
             <span v-else>{{ recoverLabel || '重新关联容器' }}</span>
           </button>
-          <button class="btn-cleanup" :disabled="isReloading" @click="handleCleanup">
-            清理沙箱
+          <button class="btn-danger" :disabled="isReloading" @click="handleCleanup">清理沙箱</button>
+          <button class="btn-secondary" :disabled="isReloading" @click="handleClose">
+            暂时忽略
           </button>
-          <button class="btn-dismiss" :disabled="isReloading" @click="handleClose">暂时忽略</button>
         </div>
       </div>
-      <button class="alert-close" @click="handleClose">×</button>
     </div>
   </Transition>
 </template>
 
 <style scoped>
 .orphan-alert {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
-  background: linear-gradient(135deg, rgba(248, 81, 73, 0.95) 0%, rgba(213, 69, 62, 0.95) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 4px 16px rgba(248, 81, 73, 0.3);
-  z-index: 100;
-  color: white;
+  border: 1px solid rgba(199, 120, 120, 0.28);
+  border-radius: var(--sm-radius-md);
+  background: rgba(199, 120, 120, 0.08);
 }
 
 .alert-enter-active,
 .alert-leave-active {
-  transition: all 0.3s ease;
+  transition:
+    opacity var(--sm-transition-fast),
+    transform var(--sm-transition-fast);
 }
 
 .alert-enter-from,
 .alert-leave-to {
   opacity: 0;
-  transform: translateY(-20px);
+  transform: translateY(-6px);
 }
 
 .alert-content {
   display: flex;
-  gap: 16px;
-}
-
-.alert-icon {
-  font-size: 32px;
-  flex-shrink: 0;
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-4);
 }
 
 .alert-message {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+}
+
+.alert-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--theme-danger);
 }
 
 .alert-message h4 {
-  margin: 0 0 8px 0;
+  margin: 0;
   font-size: 16px;
   font-weight: 600;
+  color: var(--sm-color-text-primary);
 }
 
 .alert-message p {
-  margin: 0 0 4px 0;
+  margin: 0;
   font-size: 13px;
   line-height: 1.5;
-  opacity: 0.95;
+  color: var(--sm-color-text-secondary);
 }
 
-.project-info {
-  font-size: 12px !important;
-  opacity: 0.85 !important;
-  font-family: var(--theme-font);
-  background-color: rgba(0, 0, 0, 0.15);
-  padding: 4px 8px;
-  border-radius: 4px;
-  display: inline-block;
-  margin-top: 8px !important;
+.alert-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sm-space-2);
+}
+
+.alert-meta-item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(199, 120, 120, 0.24);
+  border-radius: 999px;
+  background: rgba(11, 11, 12, 0.36);
+  color: var(--sm-color-text-primary);
+  font-family: var(--sm-font-mono);
+  font-size: 11px;
 }
 
 .alert-actions {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 140px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sm-space-2);
 }
 
-.alert-actions button {
-  padding: 8px 12px;
-  font-size: 13px;
-  font-family: var(--theme-font);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
+@media (max-width: 768px) {
+  .alert-content {
+    flex-direction: column;
+  }
 
-.btn-recover {
-  background-color: white;
-  border: 1px solid white;
-  color: var(--theme-danger);
-  font-weight: 500;
-}
+  .alert-actions {
+    width: 100%;
+  }
 
-.btn-recover:hover:not(:disabled) {
-  background-color: rgba(255, 255, 255, 0.9);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.btn-recover:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-cleanup {
-  background-color: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  color: white;
-}
-
-.btn-cleanup:hover:not(:disabled) {
-  border-color: white;
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-.btn-cleanup:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-dismiss {
-  background-color: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 12px;
-  padding: 4px 8px;
-}
-
-.btn-dismiss:hover:not(:disabled) {
-  color: white;
-  text-decoration: underline;
-}
-
-.btn-dismiss:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.alert-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.15);
-  border: none;
-  border-radius: 4px;
-  color: white;
-  font-size: 16px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.alert-close:hover {
-  background: rgba(0, 0, 0, 0.25);
+  .alert-actions > button {
+    flex: 1;
+  }
 }
 </style>

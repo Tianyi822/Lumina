@@ -29,17 +29,26 @@ const icon = computed(() => {
 })
 
 const typeClass = computed(() => `message-${props.type}`)
+const liveRole = computed(() => (props.type === 'error' ? 'alert' : 'status'))
+const liveMode = computed(() => (props.type === 'error' ? 'assertive' : 'polite'))
 </script>
 
 <template>
   <Transition name="message">
-    <div v-if="visible" class="operation-message" :class="typeClass">
+    <div
+      v-if="visible"
+      class="operation-message"
+      :class="typeClass"
+      :role="liveRole"
+      :aria-live="liveMode"
+      aria-atomic="true"
+    >
       <div class="message-icon">{{ icon }}</div>
       <div class="message-content">
         <div class="message-title">{{ title }}</div>
         <div class="message-text">{{ message }}</div>
       </div>
-      <button class="message-close" @click="emit('close')">×</button>
+      <button type="button" class="message-close" @click="emit('close')">×</button>
     </div>
   </Transition>
 </template>
@@ -57,10 +66,9 @@ const typeClass = computed(() => `message-${props.type}`)
   padding: 16px 20px;
   min-width: 320px;
   max-width: 480px;
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  background-color: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   z-index: 9999;
 }
 
@@ -98,37 +106,43 @@ const typeClass = computed(() => `message-${props.type}`)
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   background: none;
-  border: none;
-  border-radius: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--sm-radius-sm);
   color: var(--theme-text-secondary);
   font-size: 18px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
   flex-shrink: 0;
 }
 
 .message-close:hover {
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
+  background-color: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-default);
+  color: var(--sm-color-text-primary);
 }
 
 /* 过渡动画 */
 .message-enter-active,
 .message-leave-active {
-  transition: all 0.3s ease;
+  transition:
+    opacity var(--sm-transition-medium),
+    transform var(--sm-transition-medium);
 }
 
 .message-enter-from {
   opacity: 0;
-  transform: translateX(100%);
+  transform: translateX(var(--sm-motion-distance-md));
 }
 
 .message-leave-to {
   opacity: 0;
-  transform: translateX(100%);
+  transform: translateX(var(--sm-motion-distance-md));
 }
 </style>

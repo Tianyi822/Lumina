@@ -64,6 +64,20 @@ const otherCommands = computed(() => {
   return installCommands.filter((cmd) => cmd.platform !== platform.value)
 })
 
+const currentPlatformLabel = computed(() => {
+  const labels: Record<PlatformType, string> = {
+    darwin: 'macOS',
+    win32: 'Windows',
+    linux: 'Linux'
+  }
+
+  return labels[platform.value]
+})
+
+const recommendedChannelLabel = computed(() => {
+  return filteredCommands.value[0]?.label || 'Docker Desktop'
+})
+
 // ==================== Docker 检测 ====================
 
 const checkDocker = async (): Promise<void> => {
@@ -131,29 +145,34 @@ onMounted(async () => {
 
 <template>
   <div class="sandbox-page">
-    <!-- Docker 检测中 -->
-    <div v-if="loading" class="loading-overlay">
-      <div class="loading-spinner"></div>
+    <div
+      v-if="loading"
+      class="sm-page-main loading-overlay"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <div class="sm-spinner sm-spinner--large loading-spinner"></div>
       <p>正在检测 Docker...</p>
     </div>
 
-    <!-- Docker 已安装 - 主界面 -->
     <template v-else-if="dockerStatus?.installed">
-      <!-- 内容区域 -->
-      <div class="sandbox-content">
-        <div class="sidebar-wrapper" :class="{ collapsed: sandboxSidebarCollapsed }">
+      <div class="sandbox-content sm-workspace-page">
+        <div class="sm-sidebar-frame" :class="{ 'is-collapsed': sandboxSidebarCollapsed }">
           <SandboxSidebar
             :sandboxs="sandboxList"
             :active-sandbox-id="currentSandbox?.sandboxId"
             :list-update-key="listUpdateKey"
-            :deleting-sandbox-id="deleteConfirmState.isDeleting ? deleteConfirmState.sandboxId : null"
+            :deleting-sandbox-id="
+              deleteConfirmState.isDeleting ? deleteConfirmState.sandboxId : null
+            "
             @select-sandbox="sandboxStore.handleSelectSandbox"
             @delete-sandbox="sandboxStore.handleDeleteSandbox"
           />
         </div>
-        <SandboxMainContent
-          :current-sandbox="currentSandbox"
-        />
+        <div class="sm-page-main">
+          <SandboxMainContent :current-sandbox="currentSandbox" />
+        </div>
       </div>
 
       <!-- 创建沙箱弹窗 -->
@@ -171,8 +190,9 @@ onMounted(async () => {
                 sandboxId: deleteConfirmState.sandboxId,
                 name: deleteConfirmState.sandboxName,
                 creationType: deleteConfirmState.creationType || 'existing',
-                containerIds: Array.from({ length: deleteConfirmState.containerCount }, (_, index) =>
-                  String(index)
+                containerIds: Array.from(
+                  { length: deleteConfirmState.containerCount },
+                  (_, index) => String(index)
                 ),
                 hasWorkspace: deleteConfirmState.hasWorkspace,
                 workspaceName: deleteConfirmState.workspaceName
@@ -194,64 +214,109 @@ onMounted(async () => {
       />
     </template>
 
-    <!-- Docker 未安装 - 安装引导 -->
-    <div v-else class="docker-install-guide">
-      <h1>需要安装 Docker</h1>
-      <p class="subtitle">沙箱功能需要 Docker 支持，请先安装 Docker</p>
-
-      <button class="btn-primary download-btn" @click="openDockerWebsite">
-        前往 Docker 官网下载
-      </button>
-
-      <p class="divider-text">或使用命令行安装</p>
-
-      <div v-if="filteredCommands.length > 0" class="commands-section">
-        <h3 class="section-title">
-          推荐命令 ({{
-            platform === 'darwin' ? 'macOS' : platform === 'win32' ? 'Windows' : 'Linux'
-          }})
-        </h3>
-        <div class="command-list">
-          <div
-            v-for="(cmd, index) in filteredCommands"
-            :key="index"
-            class="command-item recommended"
-          >
-            <span class="command-label">{{ cmd.label }}</span>
-            <div class="command-content">
-              <code>{{ cmd.cmd }}</code>
-              <button
-                class="copy-btn"
-                :class="{ copied: copiedIndex === index }"
-                @click="copyCommand(cmd.cmd, index)"
-              >
-                {{ copiedIndex === index ? '已复制' : '复制' }}
-              </button>
+    <div v-else class="sm-page-main docker-install-guide">
+      <div class="install-shell">
+        <section class="install-overview">
+          <div class="install-overview__copy">
+            <span class="install-overview__eyebrow">运行依赖</span>
+            <div class="install-overview__headline">
+              <div class="install-overview__titles">
+                <h1>Docker 未就绪</h1>
+                <p class="subtitle">
+                  沙箱工作区依赖本机 Docker 运行时。安装并启动服务后，
+                  返回这里重新检测即可进入工程控制台。
+                </p>
+              </div>
+              <span class="badge install-overview__platform">{{ currentPlatformLabel }}</span>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div v-if="otherCommands.length > 0" class="commands-section other-platforms">
-        <h3 class="section-title">其他平台</h3>
-        <div class="command-list">
-          <div v-for="(cmd, index) in otherCommands" :key="`other-${index}`" class="command-item">
-            <span class="command-label">{{ cmd.label }}</span>
-            <div class="command-content">
-              <code>{{ cmd.cmd }}</code>
-              <button
-                class="copy-btn"
-                :class="{ copied: copiedIndex === index + 100 }"
-                @click="copyCommand(cmd.cmd, index + 100)"
-              >
-                {{ copiedIndex === index + 100 ? '已复制' : '复制' }}
-              </button>
+          <div class="install-overview__cards">
+            <div class="install-status-card">
+              <span class="install-status-card__label">当前状态</span>
+              <strong>未检测到 Docker</strong>
+              <p>应用尚未发现可用的 Docker 运行时，因此沙箱、终端和日志能力均不可用。</p>
+            </div>
+            <div class="install-status-card">
+              <span class="install-status-card__label">推荐通道</span>
+              <strong>{{ recommendedChannelLabel }}</strong>
+              <p>优先使用与你当前平台匹配的官方安装方式，完成后保持 Docker 服务处于运行状态。</p>
+            </div>
+            <div class="install-status-card">
+              <span class="install-status-card__label">完成后动作</span>
+              <strong>返回并重新检测</strong>
+              <p>安装完成后无需重启应用，重新检测即可验证运行时状态并恢复沙箱工作区。</p>
             </div>
           </div>
+
+          <div class="install-actions">
+            <button class="btn-primary" @click="openDockerWebsite">前往 Docker 官网</button>
+            <button class="btn-secondary" @click="checkDocker">重新检测</button>
+          </div>
+        </section>
+
+        <section v-if="filteredCommands.length > 0" class="install-panel">
+          <div class="install-panel__header">
+            <div>
+              <span class="install-panel__eyebrow">推荐命令</span>
+              <h3>当前平台安装方式</h3>
+            </div>
+            <span class="badge">{{ currentPlatformLabel }}</span>
+          </div>
+
+          <div class="command-list">
+            <div
+              v-for="(cmd, index) in filteredCommands"
+              :key="index"
+              class="command-item recommended"
+            >
+              <span class="command-label">{{ cmd.label }}</span>
+              <div class="command-content">
+                <code>{{ cmd.cmd }}</code>
+                <button
+                  class="copy-btn"
+                  :class="{ copied: copiedIndex === index }"
+                  @click="copyCommand(cmd.cmd, index)"
+                >
+                  {{ copiedIndex === index ? '已复制' : '复制' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="otherCommands.length > 0" class="install-panel install-panel--muted">
+          <div class="install-panel__header">
+            <div>
+              <span class="install-panel__eyebrow">备用通道</span>
+              <h3>其他平台安装方式</h3>
+            </div>
+          </div>
+
+          <div class="command-list">
+            <div v-for="(cmd, index) in otherCommands" :key="`other-${index}`" class="command-item">
+              <span class="command-label">{{ cmd.label }}</span>
+              <div class="command-content">
+                <code>{{ cmd.cmd }}</code>
+                <button
+                  class="copy-btn"
+                  :class="{ copied: copiedIndex === index + 100 }"
+                  @click="copyCommand(cmd.cmd, index + 100)"
+                >
+                  {{ copiedIndex === index + 100 ? '已复制' : '复制' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div
+          v-if="dockerStatus?.error && dockerStatus.error !== 'Docker 未安装'"
+          class="sm-notice sm-notice--error install-error"
+        >
+          检测返回：{{ dockerStatus.error }}
         </div>
       </div>
-
-      <p v-if="dockerStatus?.error" class="error-hint">检测时出现错误: {{ dockerStatus.error }}</p>
     </div>
   </div>
 </template>
@@ -259,40 +324,20 @@ onMounted(async () => {
 <style scoped>
 .sandbox-page {
   display: flex;
-  flex-direction: column;
   width: 100%;
   height: 100%;
   overflow: hidden;
+  background: var(--sm-color-bg-canvas);
 }
 
-/* 内容区域 */
+.sandbox-page > .sm-page-main {
+  margin: var(--sm-space-3);
+}
+
 .sandbox-content {
   flex: 1;
-  display: flex;
-  overflow: hidden;
 }
 
-/* 侧边栏包装器 - 平滑过渡 */
-.sidebar-wrapper {
-  width: 280px;
-  min-width: 280px;
-  height: 100%;
-  overflow: hidden;
-  opacity: 1;
-  transition:
-    width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.2s ease-out;
-}
-
-.sidebar-wrapper.collapsed {
-  width: 0;
-  min-width: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* 加载状态 */
 .loading-overlay {
   display: flex;
   flex-direction: column;
@@ -301,162 +346,258 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   gap: 16px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--theme-border);
-  border-top-color: var(--theme-accent);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+  color: var(--sm-color-accent-hover);
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Docker 安装引导 */
 .docker-install-guide {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: flex-start;
   width: 100%;
   height: 100%;
-  padding: 40px 20px;
   overflow-y: auto;
 }
 
-.docker-install-guide h1 {
-  font-size: 24px;
+.install-shell {
+  width: min(960px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-6);
+  margin: 0 auto;
+}
+
+.install-overview,
+.install-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-6);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-2);
+}
+
+.install-overview__copy,
+.install-overview__titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-3);
+}
+
+.install-overview__eyebrow,
+.install-panel__eyebrow {
+  font-size: 11px;
   font-weight: 600;
-  color: var(--theme-text);
-  margin: 0 0 8px 0;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sm-color-text-tertiary);
+}
+
+.install-overview__headline,
+.install-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sm-space-4);
+}
+
+.install-overview__titles h1,
+.install-panel__header h3 {
+  margin: 0;
+  color: var(--sm-color-text-primary);
+}
+
+.install-overview__titles h1 {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.install-panel__header h3 {
+  font-size: 16px;
+  line-height: 1.3;
 }
 
 .subtitle {
-  font-size: 14px;
-  color: var(--theme-text-secondary);
-  margin: 0 0 24px 0;
-  text-align: center;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
+  max-width: 620px;
 }
 
-.download-btn {
-  padding: 12px 32px;
+.install-overview__platform {
+  flex-shrink: 0;
+}
+
+.install-overview__cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sm-space-4);
+}
+
+.install-status-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-4);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+}
+
+.install-status-card__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sm-color-text-tertiary);
+}
+
+.install-status-card strong {
   font-size: 15px;
   font-weight: 600;
+  color: var(--sm-color-text-primary);
 }
 
-.divider-text {
-  width: 100%;
-  max-width: 600px;
-  margin: 32px 0 24px 0;
-  color: var(--theme-text-secondary);
+.install-status-card p {
+  margin: 0;
   font-size: 13px;
-  text-align: center;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
 }
 
-.commands-section {
-  width: 100%;
-  max-width: 600px;
-  margin-bottom: 24px;
+.install-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sm-space-3);
 }
 
-.commands-section.other-platforms {
-  opacity: 0.7;
-}
-
-.section-title {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--theme-text-secondary);
-  margin: 0 0 12px 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.install-panel--muted {
+  background: var(--sm-color-surface-1);
 }
 
 .command-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sm-space-3);
 }
 
 .command-item {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  padding: 12px 16px;
-  transition: border-color 0.15s ease;
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  padding: var(--sm-space-4);
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .command-item.recommended {
-  border-color: var(--theme-accent);
-  background-color: rgba(63, 185, 80, 0.05);
+  border-color: var(--sm-color-border-accent);
+  background-color: rgba(142, 149, 217, 0.08);
 }
 
 .command-item:hover {
-  border-color: var(--theme-text-secondary);
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
 }
 
 .command-item.recommended:hover {
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-border-accent);
 }
 
 .command-label {
   display: block;
   font-size: 12px;
-  color: var(--theme-text-secondary);
-  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--sm-color-text-secondary);
+  margin-bottom: var(--sm-space-2);
 }
 
 .command-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sm-space-3);
 }
 
 .command-content code {
   flex: 1;
-  font-family: var(--theme-font);
-  font-size: 13px;
-  color: var(--theme-text);
+  display: block;
+  padding: 10px 12px;
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-bg-embedded);
+  font-family: var(--sm-font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--sm-color-text-primary);
   word-break: break-all;
 }
 
 .copy-btn {
   padding: 4px 12px;
   font-size: 12px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   background-color: transparent;
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  color: var(--theme-text-secondary);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
   white-space: nowrap;
 }
 
 .copy-btn:hover {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-text-secondary);
-  color: var(--theme-text);
+  background-color: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
+  color: var(--sm-color-text-primary);
 }
 
 .copy-btn.copied {
-  background-color: var(--theme-accent);
-  border-color: var(--theme-accent);
-  color: var(--theme-bg);
+  background-color: rgba(142, 149, 217, 0.14);
+  border-color: var(--sm-color-border-accent);
+  color: var(--sm-color-text-primary);
 }
 
-.error-hint {
-  font-size: 12px;
-  color: var(--theme-danger);
-  margin-top: 16px;
-  text-align: center;
+.install-error {
+  margin-top: calc(var(--sm-space-2) * -1);
+}
+
+@media (max-width: 900px) {
+  .install-overview__cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .install-shell {
+    padding: var(--sm-space-4);
+  }
+
+  .install-overview,
+  .install-panel {
+    padding: var(--sm-space-5);
+  }
+
+  .install-overview__headline,
+  .install-panel__header,
+  .command-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .copy-btn {
+    width: 100%;
+  }
 }
 </style>
