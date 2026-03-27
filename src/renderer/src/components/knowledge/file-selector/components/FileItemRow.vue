@@ -34,13 +34,14 @@ const fileStore = useFileStore()
     <div class="file-details">
       <div class="file-name">{{ file.name }}</div>
       <div class="file-meta">
+        <span class="badge">{{ file.fileType.toUpperCase() }}</span>
         <span>{{ fileStore.formatFileSize(file.size) }}</span>
         <span>{{ fileStore.formatDate(file.uploadedAt) }}</span>
       </div>
     </div>
 
     <div v-if="linking" class="linking-indicator">
-      <div class="spinner-small"></div>
+      <span class="sm-spinner"></span>
     </div>
   </div>
 </template>
@@ -49,21 +50,26 @@ const fileStore = useFileStore()
 .file-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-3);
   border: 1px solid transparent;
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+  cursor: pointer;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    opacity var(--sm-transition-fast);
 }
 
 .file-item:hover {
-  background-color: var(--theme-bg-secondary);
+  background: var(--sm-color-surface-2);
+  border-color: var(--sm-color-border-default);
 }
 
 .file-item.selected {
-  background-color: rgba(63, 185, 80, 0.1);
-  border-color: var(--theme-accent);
+  background: rgba(142, 149, 217, 0.08);
+  border-color: var(--sm-color-border-accent);
 }
 
 .file-item.linking {
@@ -79,7 +85,7 @@ const fileStore = useFileStore()
   width: 18px;
   height: 18px;
   cursor: pointer;
-  accent-color: var(--theme-accent);
+  accent-color: var(--sm-color-accent);
 }
 
 .file-details {
@@ -90,7 +96,7 @@ const fileStore = useFileStore()
 .file-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -99,27 +105,13 @@ const fileStore = useFileStore()
 
 .file-meta {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: var(--sm-space-2);
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .linking-indicator {
   flex-shrink: 0;
-}
-
-.spinner-small {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--theme-border);
-  border-top-color: var(--theme-accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 </style>

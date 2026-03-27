@@ -56,51 +56,57 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 </script>
 
 <template>
-  <aside class="kb-sidebar">
-    <!-- 按钮组 -->
-    <div class="sidebar-actions">
-      <button class="btn-primary new-kb-btn" @click="handleCreateKB">
-        <span>新建知识库</span>
-      </button>
-      <button class="btn-secondary manage-files-btn" @click="handleManageFiles">管理文件</button>
-    </div>
+  <aside class="kb-sidebar sm-sidebar-shell">
+    <header class="sm-sidebar-shell__header">
+      <span class="sm-sidebar-shell__eyebrow">知识库</span>
+      <div class="sm-sidebar-shell__headline">
+        <h2 class="sm-sidebar-shell__title">知识资产</h2>
+        <span class="sm-sidebar-shell__count">{{ knowledgeBases.length }}</span>
+      </div>
+      <p class="sm-sidebar-shell__description">管理知识库、文件挂载与检索基底。</p>
+      <div class="sm-sidebar-shell__actions">
+        <button class="btn-primary new-kb-btn" @click="handleCreateKB">新建知识库</button>
+        <button class="btn-secondary manage-files-btn" @click="handleManageFiles">管理文件</button>
+      </div>
+    </header>
 
-    <!-- 搜索框 -->
-    <div class="search-container">
+    <div class="sm-sidebar-shell__search search-container">
       <input
         v-model="searchQuery"
         type="text"
         class="input search-input"
-        placeholder="搜索知识库 ..."
+        placeholder="搜索知识库"
       />
     </div>
 
-    <!-- 知识库列表 -->
-    <div class="kb-list">
-      <div
-        v-for="kb in filteredKBs"
-        :key="kb.id"
-        :class="['kb-item', { active: kb.id === activeKbId }]"
-        @click="handleSelectKB(kb.id)"
-      >
-        <div class="kb-icon">
-          {{ kb.name.charAt(0).toUpperCase() }}
+    <div class="sm-sidebar-shell__body sm-sidebar-shell__body--flush">
+      <div class="kb-list">
+        <div
+          v-for="kb in filteredKBs"
+          :key="kb.id"
+          :class="['kb-item', { active: kb.id === activeKbId }]"
+          @click="handleSelectKB(kb.id)"
+        >
+          <div class="kb-icon">
+            {{ kb.name.charAt(0).toUpperCase() }}
+          </div>
+          <div class="kb-info">
+            <div class="kb-name">{{ kb.name }}</div>
+            <div class="kb-meta">{{ formatDocumentCount(kb.linkedFileIds) }}</div>
+          </div>
+          <button class="delete-btn" title="删除知识库" @click.stop="handleDeleteKB(kb.id)">
+            ✕
+          </button>
         </div>
-        <div class="kb-info">
-          <div class="kb-name">{{ kb.name }}</div>
-          <div class="kb-meta">{{ formatDocumentCount(kb.linkedFileIds) }}</div>
-        </div>
-        <button class="delete-btn" title="删除知识库" @click.stop="handleDeleteKB(kb.id)">✕</button>
-      </div>
 
-      <!-- 空状态 -->
-      <div v-if="filteredKBs.length === 0" class="empty-state">
-        <div class="empty-text">
-          {{ searchQuery ? '未找到匹配的知识库' : '暂无知识库' }}
+        <div v-if="filteredKBs.length === 0" class="empty-state">
+          <div class="empty-text">
+            {{ searchQuery ? '未找到匹配的知识库' : '暂无知识库' }}
+          </div>
+          <button v-if="!searchQuery" class="btn-text" @click="handleCreateKB">
+            创建第一个知识库
+          </button>
         </div>
-        <button v-if="!searchQuery" class="btn-text" @click="handleCreateKB">
-          创建第一个知识库
-        </button>
       </div>
     </div>
   </aside>
@@ -108,64 +114,17 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 
 <style scoped>
 .kb-sidebar {
-  width: 280px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--theme-bg);
-  border-right: 1px solid var(--theme-border);
-  flex-shrink: 0;
-}
-
-.sidebar-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  min-height: 0;
 }
 
 .new-kb-btn,
 .manage-files-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
   width: 100%;
-  margin: 0;
-}
-
-.new-kb-btn {
-  background: #46aa8f;
-  border-color: rgba(70, 170, 143, 0.4);
-}
-
-.new-kb-btn:hover {
-  background: #3d9980;
-}
-
-.manage-files-btn {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  color: var(--theme-text);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.manage-files-btn:hover {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-accent);
-}
-
-.btn-icon {
-  font-size: 16px;
-  font-weight: 600;
+  min-height: 36px;
 }
 
 .search-container {
-  padding: 0 12px 12px;
+  display: flex;
 }
 
 .search-input {
@@ -175,7 +134,7 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 .kb-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 8px;
+  padding: 12px;
 }
 
 .kb-item {
@@ -183,19 +142,24 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 4px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  margin-bottom: 8px;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
   position: relative;
 }
 
 .kb-item:hover {
-  background-color: var(--theme-bg-hover);
+  background-color: var(--sm-color-surface-2);
+  border-color: var(--sm-color-border-default);
 }
 
 .kb-item.active {
-  background-color: var(--theme-bg-secondary);
+  background-color: rgba(142, 149, 217, 0.12);
+  border-color: var(--sm-color-border-accent);
 }
 
 .kb-icon {
@@ -204,11 +168,12 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--theme-bg-hover);
-  border-radius: 8px;
-  font-size: 16px;
+  background-color: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 10px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--theme-accent);
+  color: var(--sm-color-text-primary);
   flex-shrink: 0;
 }
 
@@ -219,8 +184,8 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 
 .kb-name {
   font-size: 13px;
-  font-weight: 500;
-  color: var(--theme-text);
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
   margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -229,18 +194,18 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 
 .kb-meta {
   font-size: 11px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .delete-btn {
-  width: 20px;
-  height: 20px;
-  border: none;
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
   background: transparent;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-tertiary);
   font-size: 12px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -253,8 +218,9 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 }
 
 .delete-btn:hover {
-  background-color: var(--theme-bg-hover);
-  color: var(--theme-danger);
+  background-color: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.28);
+  color: rgba(199, 120, 120, 0.92);
 }
 
 .empty-state {
@@ -268,23 +234,23 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 
 .empty-text {
   font-size: 13px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   margin-bottom: 16px;
 }
 
 .btn-text {
   background: transparent;
-  border: 1px solid var(--theme-accent);
-  color: var(--theme-accent);
+  border: 1px solid var(--sm-color-border-accent);
+  color: var(--sm-color-text-primary);
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn-text:hover {
-  background-color: var(--theme-accent);
-  color: var(--theme-bg);
+  background-color: rgba(142, 149, 217, 0.12);
+  border-color: var(--sm-color-border-accent);
 }
 </style>

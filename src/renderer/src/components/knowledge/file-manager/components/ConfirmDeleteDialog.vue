@@ -2,6 +2,7 @@
 /**
  * 删除确认对话框组件
  */
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import type { FileItem } from '@renderer/types'
 
 defineProps<{
@@ -22,10 +23,14 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div v-if="show" class="confirm-dialog-overlay">
-    <div class="confirm-dialog">
+  <div v-if="show" class="sm-modal__overlay confirm-dialog-overlay">
+    <div class="sm-modal__surface confirm-dialog">
       <div class="confirm-dialog-header">
-        <h3>⚠️ 确认删除</h3>
+        <div class="confirm-dialog-title">
+          <SvgIcon name="warning" :size="20" />
+          <h3>确认删除文件</h3>
+        </div>
+        <p class="confirm-dialog-subtitle">此操作会同时影响已关联的知识库。</p>
       </div>
       <div class="confirm-dialog-body">
         <p v-if="file">
@@ -33,12 +38,16 @@ const emit = defineEmits<{
           >" 正在被 <strong>{{ file.usedByKBIds.length }}</strong> 个知识库使用。
         </p>
         <p>删除此文件将从所有关联的知识库中移除。此操作不可撤销。</p>
-        <p v-if="error" class="error-message">{{ error }}</p>
+        <p v-if="error" class="sm-notice sm-notice--error error-message">{{ error }}</p>
       </div>
       <div class="confirm-dialog-actions">
-        <button class="btn" @click="emit('cancel')">取消</button>
-        <button class="btn btn-danger" :disabled="isDeleting" @click="emit('confirm', true)">
-          <span v-if="isDeleting" class="spinner-small"></span>
+        <button class="sm-button sm-button--secondary" @click="emit('cancel')">取消</button>
+        <button
+          class="sm-button sm-button--danger"
+          :disabled="isDeleting"
+          @click="emit('confirm', true)"
+        >
+          <span v-if="isDeleting" class="sm-spinner"></span>
           <span v-else>强制删除</span>
         </button>
       </div>
@@ -48,43 +57,46 @@ const emit = defineEmits<{
 
 <style scoped>
 .confirm-dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 1100;
-  backdrop-filter: blur(4px);
+  padding-top: calc(var(--sm-titlebar-height) + 48px);
 }
 
 .confirm-dialog {
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 12px;
   width: 90%;
   max-width: 400px;
-  box-shadow: var(--theme-shadow);
+  overflow: hidden;
 }
 
 .confirm-dialog-header {
-  padding: 20px 20px 0;
+  padding: var(--sm-space-5) var(--sm-space-5) 0;
 }
 
-.confirm-dialog-header h3 {
+.confirm-dialog-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-3);
+  margin-bottom: 8px;
+  color: rgba(197, 161, 101, 0.92);
+}
+
+.confirm-dialog-title h3 {
+  margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
+}
+
+.confirm-dialog-subtitle {
   margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sm-color-text-secondary);
 }
 
 .confirm-dialog-body {
-  padding: 16px 20px;
+  padding: var(--sm-space-4) var(--sm-space-5);
   font-size: 14px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   line-height: 1.6;
 }
 
@@ -97,62 +109,13 @@ const emit = defineEmits<{
 }
 
 .error-message {
-  color: var(--theme-danger);
-  font-size: 13px;
-  margin-top: 8px;
+  margin-top: var(--sm-space-3);
 }
 
 .confirm-dialog-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  padding: 0 20px 20px;
-}
-
-/* 按钮样式 */
-.btn {
-  padding: 8px 16px;
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn:hover {
-  background-color: var(--theme-bg-hover);
-}
-
-.btn-danger {
-  background-color: var(--theme-danger);
-  border-color: var(--theme-danger);
-  color: white;
-}
-
-.btn-danger:hover {
-  opacity: 0.9;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.spinner-small {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--theme-border);
-  border-top-color: currentColor;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  gap: var(--sm-space-3);
+  padding: 0 var(--sm-space-5) var(--sm-space-5);
 }
 </style>

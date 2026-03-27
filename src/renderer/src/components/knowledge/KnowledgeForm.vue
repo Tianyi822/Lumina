@@ -130,21 +130,24 @@ function resetForm(): void {
 </script>
 
 <template>
-  <div class="form-overlay" @click.self="handleCancel">
-    <div class="form-container">
-      <div class="form-header">
-        <h2>创建知识库</h2>
-        <button class="close-btn" @click="handleCancel">✕</button>
+  <div class="sm-modal__overlay form-overlay" @click.self="handleCancel">
+    <div class="sm-modal__surface form-container">
+      <div class="sm-pane-header form-header">
+        <div>
+          <p class="form-eyebrow">知识库</p>
+          <h2>创建知识库</h2>
+        </div>
+        <button class="sm-icon-button close-btn" @click="handleCancel">✕</button>
       </div>
 
-      <form @submit.prevent="handleSubmit">
+      <form class="form-body" @submit.prevent="handleSubmit">
         <div class="form-group">
           <label for="kb-name">知识库名称 *</label>
           <input
             id="kb-name"
             v-model="name"
             type="text"
-            class="input"
+            class="sm-input"
             placeholder="例如：产品文档、技术规范..."
             required
           />
@@ -155,7 +158,7 @@ function resetForm(): void {
           <textarea
             id="kb-description"
             v-model="description"
-            class="input textarea"
+            class="sm-textarea"
             rows="3"
             placeholder="简要描述这个知识库的用途..."
           />
@@ -166,7 +169,7 @@ function resetForm(): void {
           <select
             id="kb-model"
             v-model="embeddingModel"
-            class="input select"
+            class="sm-select"
             :disabled="loadingModels"
           >
             <option v-if="loadingModels" value="" disabled>加载中...</option>
@@ -229,7 +232,7 @@ function resetForm(): void {
                       min="100"
                       max="8000"
                       step="100"
-                      class="input"
+                      class="sm-input"
                     />
                     <span class="unit">tokens</span>
                   </div>
@@ -241,7 +244,7 @@ function resetForm(): void {
                       min="0"
                       max="2000"
                       step="50"
-                      class="input"
+                      class="sm-input"
                     />
                     <span class="unit">tokens</span>
                   </div>
@@ -253,8 +256,14 @@ function resetForm(): void {
         </div>
 
         <div class="form-actions">
-          <button type="button" class="btn" @click="handleCancel">取消</button>
-          <button type="submit" class="btn-primary" :disabled="!isValid || loadingModels">
+          <button type="button" class="sm-button sm-button--secondary" @click="handleCancel">
+            取消
+          </button>
+          <button
+            type="submit"
+            class="sm-button sm-button--primary"
+            :disabled="!isValid || loadingModels"
+          >
             创建
           </button>
         </div>
@@ -265,109 +274,84 @@ function resetForm(): void {
 
 <style scoped>
 .form-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 1000;
-  backdrop-filter: blur(4px);
 }
 
 .form-container {
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 12px;
-  padding: 24px;
   width: 100%;
-  max-width: 500px;
-  max-height: calc(100vh - 40px);
+  max-width: 640px;
+  max-height: min(760px, calc(100vh - 96px));
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
-  box-shadow: var(--theme-shadow);
 }
 
 .form-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--theme-border);
+  flex-shrink: 0;
+}
+
+.form-eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sm-color-text-tertiary);
 }
 
 .form-header h2 {
+  margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--theme-text);
-  margin: 0;
+  color: var(--sm-color-text-primary);
 }
 
-.close-btn {
-  background: transparent;
-  border: none;
-  color: var(--theme-text-secondary);
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-}
-
-.close-btn:hover {
-  background-color: var(--theme-bg-hover);
-  color: var(--theme-text);
+.form-body {
+  padding: var(--sm-space-5);
 }
 
 .form-hint {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--theme-text-secondary);
-  line-height: 1.5;
+  color: var(--sm-color-text-secondary);
 }
 
 .form-actions.with-border {
-  padding-top: 20px;
+  padding-top: var(--sm-space-4);
 }
 
-/* 分块策略选项样式 */
 .strategy-options {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sm-space-3);
 }
 
 .strategy-option {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-4);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
 .strategy-option:hover {
-  background-color: var(--theme-bg-hover);
+  background: var(--sm-color-surface-2);
+  border-color: var(--sm-color-border-strong);
 }
 
 .strategy-option.active {
-  border-color: var(--theme-primary);
-  background-color: rgba(var(--theme-primary-rgb), 0.1);
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.08);
 }
 
 .strategy-option input[type='radio'] {
-  margin-top: 2px;
+  margin-top: 3px;
   flex-shrink: 0;
+  accent-color: var(--sm-color-accent);
 }
 
 .strategy-info {
@@ -375,49 +359,67 @@ function resetForm(): void {
 }
 
 .strategy-name {
+  margin-bottom: 4px;
+  font-size: 13px;
   font-weight: 500;
-  color: var(--theme-text);
-  margin-bottom: 2px;
+  color: var(--sm-color-text-primary);
 }
 
 .strategy-params {
   font-size: 12px;
-  color: var(--theme-text-secondary);
-  margin-bottom: 2px;
+  color: var(--sm-color-text-secondary);
+  font-family: var(--sm-font-mono);
+  margin-bottom: 4px;
 }
 
 .strategy-desc {
-  font-size: 11px;
-  color: var(--theme-text-secondary);
-  opacity: 0.8;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sm-color-text-secondary);
 }
 
 .custom-inputs {
-  display: flex;
-  gap: 16px;
-  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sm-space-3);
+  margin-top: var(--sm-space-3);
 }
 
 .custom-input {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px var(--sm-space-2);
   align-items: center;
-  gap: 6px;
 }
 
 .custom-input label {
+  grid-column: 1 / -1;
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   margin: 0;
 }
 
-.custom-input .input {
-  width: 80px;
-  padding: 4px 8px;
-  font-size: 13px;
+.custom-input :deep(.sm-input) {
+  min-width: 0;
 }
 
 .custom-input .unit {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
+  font-family: var(--sm-font-mono);
+}
+
+@media (max-width: 720px) {
+  .form-container {
+    max-width: none;
+  }
+
+  .form-body {
+    padding: var(--sm-space-4);
+  }
+
+  .custom-inputs {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

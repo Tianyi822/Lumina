@@ -31,8 +31,12 @@ const emit = defineEmits<{
       </div>
     </div>
     <div class="actions">
-      <button class="btn" @click="emit('close')">取消</button>
-      <button class="btn btn-primary" :disabled="!hasSelectedFiles" @click="emit('linkSelected')">
+      <button class="sm-button sm-button--secondary" @click="emit('close')">取消</button>
+      <button
+        class="sm-button sm-button--primary"
+        :disabled="!hasSelectedFiles"
+        @click="emit('linkSelected')"
+      >
         添加到知识库
       </button>
     </div>
@@ -44,75 +48,56 @@ const emit = defineEmits<{
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-4) var(--sm-space-5) var(--sm-space-5);
+  border-top: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-surface-2);
 }
 
 .left-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--sm-space-3);
+  flex-wrap: wrap;
 }
 
 .selection-count {
   font-size: 13px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .selection-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--sm-space-2);
 }
 
 .btn-link {
   background: transparent;
   border: none;
-  color: var(--theme-accent);
-  font-size: 13px;
+  color: var(--sm-color-accent-hover);
+  font-size: 12px;
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: 4px;
-  transition: all 0.15s ease;
+  border-radius: var(--sm-radius-sm);
+  transition:
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
 .btn-link:hover {
-  background-color: rgba(63, 185, 80, 0.1);
+  background: rgba(142, 149, 217, 0.08);
 }
 
 .actions {
   display: flex;
-  gap: 12px;
+  gap: var(--sm-space-3);
 }
 
-/* 按钮样式 */
-.btn {
-  padding: 8px 16px;
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn:hover {
-  background-color: var(--theme-bg-hover);
-}
-
-.btn-primary {
-  background-color: var(--theme-accent);
-  border-color: var(--theme-accent);
-  color: white;
-}
-
-.btn-primary:hover {
-  opacity: 0.9;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+@media (max-width: 720px) {
+  .bottom-bar,
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>

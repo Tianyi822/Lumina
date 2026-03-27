@@ -249,8 +249,10 @@ defineExpose({
   <div ref="panelContainerRef" class="knowledge-base-container">
     <!-- 触发按钮 -->
     <button
+      type="button"
       class="btn kb-trigger-btn"
       :class="{ active: showPanel, 'has-selection': selectedKBsCount > 0 }"
+      :aria-expanded="showPanel"
       @click="togglePanel"
     >
       <span v-if="selectedKBsCount > 0" class="selected-kb-name">
@@ -278,12 +280,13 @@ defineExpose({
           type="text"
           class="input search-input"
           placeholder="搜索知识库..."
+          aria-label="搜索知识库"
         />
       </div>
 
       <!-- 全选/取消全选按钮 -->
       <div v-if="filteredKnowledgeBases.length > 0" class="select-all-bar">
-        <button class="btn btn-select-all" @click="toggleSelectAll">
+        <button type="button" class="btn btn-select-all" @click="toggleSelectAll">
           {{ isAllSelected ? '取消全选' : '全选' }}
         </button>
       </div>
@@ -302,7 +305,12 @@ defineExpose({
           :key="kb.id"
           class="kb-item"
           :class="{ selected: isKBSelected(kb) }"
+          role="button"
+          tabindex="0"
+          :aria-selected="isKBSelected(kb)"
           @click="toggleKBSelection(kb)"
+          @keydown.enter.prevent="toggleKBSelection(kb)"
+          @keydown.space.prevent="toggleKBSelection(kb)"
         >
           <div class="kb-header">
             <span class="kb-checkbox">{{ isKBSelected(kb) ? '☑' : '☐' }}</span>
@@ -321,6 +329,7 @@ defineExpose({
             </div>
             <button
               v-if="shouldShowExpandButton(kb.id)"
+              type="button"
               class="description-toggle-btn"
               @click.stop="toggleDescription(kb.id)"
             >
@@ -347,12 +356,12 @@ defineExpose({
 }
 
 .kb-trigger-btn.active {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: rgba(142, 149, 217, 0.08);
+  border-color: var(--sm-color-border-accent);
 }
 
 .kb-trigger-btn.has-selection {
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
 }
 
 .selected-kb-name {
@@ -366,8 +375,9 @@ defineExpose({
 .kb-count {
   font-size: 11px;
   padding: 1px 6px;
-  background-color: var(--theme-accent);
-  color: white;
+  background: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-accent);
+  color: var(--sm-color-accent-hover);
   border-radius: 10px;
   min-width: 18px;
   text-align: center;
@@ -375,8 +385,8 @@ defineExpose({
 
 .dropdown-arrow {
   font-size: 10px;
-  color: var(--theme-text-tertiary);
-  transition: transform 0.2s ease;
+  color: var(--sm-color-text-tertiary);
+  transition: transform var(--sm-transition-fast);
 }
 
 .dropdown-arrow.open {
@@ -390,26 +400,9 @@ defineExpose({
   margin-bottom: 8px;
   width: 420px;
   max-height: 520px;
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
-      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
-    ),
-    linear-gradient(
-      225deg,
-      var(--glass-white-023, rgba(255, 255, 255, 0.023)) 0%,
-      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
-    ),
-    var(--theme-bg);
-  backdrop-filter: blur(28px) saturate(220%) brightness(1.12);
-  -webkit-backdrop-filter: blur(28px) saturate(220%) brightness(1.12);
-  border: 1px solid var(--glass-white-12, rgba(255, 255, 255, 0.12));
-  border-radius: var(--theme-radius);
-  box-shadow:
-    0 16px 48px rgba(0, 0, 0, 0.25),
-    0 4px 16px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  background: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   display: flex;
   flex-direction: column;
   z-index: 200;
@@ -420,23 +413,23 @@ defineExpose({
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
 .panel-title {
   font-weight: 600;
   font-size: 13px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .kb-info {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .search-box {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
 .search-input {
@@ -446,8 +439,8 @@ defineExpose({
 
 .select-all-bar {
   padding: 8px 16px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  background: var(--glass-white-03, rgba(255, 255, 255, 0.03));
+  border-bottom: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-surface-2);
 }
 
 .btn-select-all {
@@ -472,22 +465,22 @@ defineExpose({
 }
 
 .kb-list-container::-webkit-scrollbar-thumb {
-  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  border-radius: 2px;
+  background: var(--sm-color-border-default);
+  border-radius: 999px;
 }
 
 .empty-state {
   padding: 24px;
   text-align: center;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   font-size: 13px;
 }
 
 .kb-item {
   padding: 12px 16px;
   cursor: pointer;
-  transition: all 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  border-bottom: 1px solid var(--glass-white-06, rgba(255, 255, 255, 0.06));
+  transition: background-color var(--sm-transition-fast);
+  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
 .kb-item:last-child {
@@ -495,11 +488,15 @@ defineExpose({
 }
 
 .kb-item:hover {
-  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  background: var(--sm-color-surface-1);
 }
 
 .kb-item.selected {
-  background: rgba(99, 102, 241, 0.08);
+  background: rgba(142, 149, 217, 0.08);
+}
+
+.kb-item:focus-visible {
+  background: var(--sm-color-surface-1);
 }
 
 .kb-header {
@@ -511,17 +508,17 @@ defineExpose({
 
 .kb-checkbox {
   font-size: 14px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .kb-item.selected .kb-checkbox {
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
 }
 
 .kb-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .kb-meta {
@@ -534,7 +531,7 @@ defineExpose({
 
 .kb-doc-count {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .kb-description-wrapper {
@@ -543,7 +540,7 @@ defineExpose({
 
 .kb-description {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-secondary);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -561,12 +558,12 @@ defineExpose({
 .description-toggle-btn {
   background: none;
   border: none;
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
   font-size: 11px;
   cursor: pointer;
   padding: 4px 0;
   margin-top: 4px;
-  transition: opacity 0.15s;
+  transition: opacity var(--sm-transition-fast);
 }
 
 .description-toggle-btn:hover {

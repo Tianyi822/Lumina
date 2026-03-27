@@ -131,47 +131,82 @@ defineExpose({ handleFilesLinked })
 
 <template>
   <main class="kb-main">
-    <div v-if="currentKB" class="kb-content">
-      <header class="kb-header">
-        <div class="kb-title-row">
-          <h1 class="kb-title">{{ currentKB.name }}</h1>
+    <div v-if="currentKB" class="kb-workspace">
+      <section class="kb-overview">
+        <div class="kb-overview__header">
+          <div class="kb-overview__copy">
+            <span class="kb-overview__eyebrow">知识库详情</span>
+            <div class="kb-overview__title-row">
+              <div class="kb-overview__heading">
+                <h1 class="kb-title">{{ currentKB.name }}</h1>
+                <p class="kb-subtitle">管理挂载文件、索引参数与检索验证。</p>
+              </div>
+              <span class="kb-overview__count">{{ linkedFiles.length }} 个文档</span>
+            </div>
+          </div>
+
           <div class="kb-actions">
             <button
-              class="btn-secondary reindex-btn"
+              class="sm-button sm-button--secondary reindex-btn"
               :disabled="indexingStatus || reindexing || linkedFiles.length === 0"
               @click="handleReindex"
             >
-              <span v-if="reindexing" class="spinner-tiny"></span>
+              <span v-if="reindexing" class="sm-spinner"></span>
               {{ reindexing ? '索引中...' : '重新索引' }}
             </button>
-            <button class="btn-primary add-files-btn" @click="handleAddFiles">+ 添加文档</button>
+            <button class="sm-button sm-button--primary add-files-btn" @click="handleAddFiles">
+              添加文档
+            </button>
           </div>
         </div>
-        <div class="kb-description-container">
+
+        <div class="kb-description-panel">
+          <div class="kb-description-panel__header">
+            <span class="kb-section-label">知识库简介</span>
+            <button
+              v-if="!isEditingDescription"
+              class="sm-button sm-button--secondary sm-button--small"
+              @click="startEditDescription"
+            >
+              编辑
+            </button>
+          </div>
+
           <textarea
             v-if="isEditingDescription"
             ref="descriptionTextareaRef"
             v-model="editingDescription"
-            class="kb-description-input"
-            rows="2"
-            placeholder="输入知识库简介..."
-            @blur="saveDescription"
+            class="sm-textarea kb-description-input"
+            rows="3"
+            placeholder="补充知识库用途、范围和检索约束..."
             @keydown="handleDescriptionKeydown"
           ></textarea>
+
           <p
             v-else
             class="kb-description"
             :class="{ 'kb-description-empty': !currentKB.description }"
             @dblclick="startEditDescription"
           >
-            {{ currentKB.description || '双击添加简介...' }}
+            {{ currentKB.description || '双击或点击编辑，补充知识库用途、覆盖范围和检索约束。' }}
           </p>
-          <span v-if="!isEditingDescription" class="edit-hint" @click="startEditDescription"
-            >编辑</span
-          >
+
+          <div v-if="isEditingDescription" class="kb-description-actions">
+            <button
+              class="sm-button sm-button--secondary sm-button--small"
+              @click="cancelEditDescription"
+            >
+              取消
+            </button>
+            <button class="sm-button sm-button--primary sm-button--small" @click="saveDescription">
+              保存简介
+            </button>
+          </div>
         </div>
+
         <StatsPanel :stats="stats" :loading-stats="loadingStats" :current-k-b="currentKB" />
-      </header>
+      </section>
+
       <SearchPanel :current-k-b="currentKB" />
       <FileListPanel
         :linked-files="linkedFiles"
@@ -188,9 +223,9 @@ defineExpose({ handleFilesLinked })
         @unlink-file="(id) => handleUnlinkFile(id, handleReindex)"
       />
     </div>
-    <div v-else class="empty-kb">
+    <div v-else class="sm-empty empty-kb">
       <h2>选择或创建知识库</h2>
-      <p>从左侧选择一个知识库，或创建新的知识库开始使用</p>
+      <p>从左侧选择一个知识库，开始管理文档、索引和检索实验。</p>
     </div>
   </main>
 </template>
@@ -199,166 +234,197 @@ defineExpose({ handleFilesLinked })
 .kb-main {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  background-color: var(--theme-bg);
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
-.kb-content {
+
+.kb-workspace {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
   height: 100%;
+  padding: var(--sm-space-6);
+  gap: var(--sm-space-4);
   overflow: hidden;
 }
-.kb-header {
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--theme-border);
+
+.kb-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-5) var(--sm-space-6);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-2);
   flex-shrink: 0;
 }
-.kb-title-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.kb-title {
-  font-size: 28px;
-  font-weight: 600;
-  color: var(--theme-text);
-  margin: 0;
-  line-height: 28px;
-}
-.kb-description-container {
+
+.kb-overview__header {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 12px;
+  justify-content: space-between;
+  gap: var(--sm-space-5);
 }
-.kb-description {
-  font-size: 13px;
-  color: var(--theme-text-secondary);
-  margin: 0;
-  line-height: 1.5;
-  cursor: pointer;
-  flex: 1;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: all 0.15s ease;
-}
-.kb-description:hover {
-  background-color: var(--theme-bg-secondary);
-}
-.kb-description-empty {
-  color: var(--theme-text-muted);
-  font-style: italic;
-}
-.kb-description-input {
-  flex: 1;
-  font-size: 13px;
-  line-height: 1.5;
-  padding: 4px 8px;
-  border: 1px solid var(--theme-accent);
-  border-radius: 6px;
-  background-color: var(--theme-bg);
-  color: var(--theme-text);
-  resize: vertical;
-  min-height: 40px;
-  font-family: inherit;
-}
-.kb-description-input:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.2);
-}
-.edit-hint {
-  font-size: 11px;
-  color: var(--theme-text-muted);
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-  opacity: 0;
-}
-.kb-description-container:hover .edit-hint {
-  opacity: 1;
-}
-.edit-hint:hover {
-  color: var(--theme-accent);
-  background-color: var(--theme-bg-secondary);
-}
-.kb-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-.add-files-btn {
-  padding: 0 14px;
-  font-size: 13px;
-  height: 28px;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #46aa8f;
-  border-color: rgba(70, 170, 143, 0.4);
-}
-.add-files-btn:hover {
-  background: #3d9980;
-}
-.reindex-btn {
-  padding: 0 12px;
-  font-size: 13px;
-  height: 28px;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  color: var(--theme-text);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.reindex-btn:hover:not(:disabled) {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-accent);
-}
-.reindex-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.spinner-tiny {
-  width: 12px;
-  height: 12px;
-  border: 2px solid var(--theme-border);
-  border-top-color: currentColor;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  display: inline-block;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.empty-kb {
-  flex: 1;
+
+.kb-overview__copy {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 60px 20px;
+  gap: var(--sm-space-3);
+  flex: 1;
+  min-width: 0;
 }
-.empty-kb h2 {
-  font-size: 16px;
+
+.kb-overview__eyebrow {
+  font-size: 11px;
   font-weight: 600;
-  color: var(--theme-text);
-  margin: 0 0 8px 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sm-color-text-tertiary);
 }
-.empty-kb p {
-  font-size: 13px;
-  color: var(--theme-text-secondary);
+
+.kb-overview__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sm-space-4);
+}
+
+.kb-overview__heading {
+  min-width: 0;
+}
+
+.kb-overview__count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--sm-color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.kb-title {
   margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--sm-color-text-primary);
+}
+
+.kb-subtitle {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sm-color-text-secondary);
+}
+
+.kb-description-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-4);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+}
+
+.kb-description-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sm-space-3);
+}
+
+.kb-section-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sm-color-text-secondary);
+}
+
+.kb-description {
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sm-color-text-secondary);
+}
+
+.kb-description-empty {
+  color: var(--sm-color-text-tertiary);
+}
+
+.kb-description-input {
+  resize: vertical;
+  min-height: 88px;
+}
+
+.kb-description-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sm-space-2);
+}
+
+.kb-actions {
+  display: flex;
+  gap: var(--sm-space-2);
+  flex-shrink: 0;
+}
+
+.add-files-btn {
+  white-space: nowrap;
+}
+
+.reindex-btn {
+  white-space: nowrap;
+}
+
+.empty-kb {
+  flex: 1;
+  margin: var(--sm-space-6);
+}
+
+.empty-kb h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+}
+
+.empty-kb p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sm-color-text-secondary);
+}
+
+@media (max-width: 960px) {
+  .kb-workspace {
+    padding: var(--sm-space-4);
+  }
+
+  .kb-overview {
+    padding: var(--sm-space-4);
+  }
+
+  .kb-overview__header,
+  .kb-overview__title-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .kb-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .kb-actions > button {
+    flex: 1 1 180px;
+  }
 }
 </style>

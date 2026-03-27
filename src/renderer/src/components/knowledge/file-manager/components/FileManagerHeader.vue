@@ -10,9 +10,12 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="file-manager-header">
-    <h2>文件管理</h2>
-    <button class="close-btn" @click="emit('close')">
+  <div class="sm-pane-header file-manager-header">
+    <div class="file-manager-header__copy">
+      <p class="file-manager-header__eyebrow">文件资源池</p>
+      <h2>文件管理</h2>
+    </div>
+    <button class="sm-icon-button close-btn" @click="emit('close')">
       <SvgIcon name="close" :size="16" />
     </button>
   </div>
@@ -20,38 +23,26 @@ const emit = defineEmits<{
 
 <style scoped>
 .file-manager-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--theme-border);
+  flex-shrink: 0;
+}
+
+.file-manager-header__copy {
+  min-width: 0;
+}
+
+.file-manager-header__eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sm-color-text-tertiary);
 }
 
 .file-manager-header h2 {
+  margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--theme-text);
-  margin: 0;
-}
-
-.close-btn {
-  background: transparent;
-  border: none;
-  color: var(--theme-text-secondary);
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  transition: all 0.15s ease;
-}
-
-.close-btn:hover {
-  background-color: var(--theme-bg-hover);
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 </style>

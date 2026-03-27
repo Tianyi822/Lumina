@@ -33,8 +33,8 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
   >
     <div v-if="!isUploading" class="upload-content">
       <p class="upload-text">拖放文件到这里上传</p>
-      <p class="upload-hint">或</p>
-      <label class="btn btn-primary upload-btn">
+      <p class="upload-hint">或从本地资源中选择文件，系统会自动校验格式与大小。</p>
+      <label class="sm-button sm-button--primary upload-btn">
         选择文件
         <input
           type="file"
@@ -46,7 +46,7 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
       <p class="upload-types">支持 .txt、.md、.pdf、.doc、.docx、.csv，最大 50MB</p>
     </div>
     <div v-else class="uploading-content">
-      <div class="spinner"></div>
+      <span class="sm-spinner sm-spinner--large"></span>
       <p>正在上传...</p>
     </div>
   </div>
@@ -55,20 +55,26 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
 <style scoped>
 .upload-zone {
   flex: 1;
-  border: 2px dashed var(--theme-border);
-  border-radius: 12px;
+  min-height: 220px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-6);
+  border: 1px dashed var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-1);
   text-align: center;
-  transition: all 0.2s ease;
-  background-color: var(--theme-bg-secondary);
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    opacity var(--sm-transition-fast);
 }
 
 .upload-zone.dragging {
-  border-color: var(--theme-accent);
-  background-color: rgba(63, 185, 80, 0.05);
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.08);
 }
 
 .upload-zone.uploading {
@@ -77,26 +83,30 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
 }
 
 .upload-content {
-  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sm-space-3);
+  max-width: 360px;
 }
 
 .upload-text {
+  margin: 0;
   font-size: 16px;
   font-weight: 500;
-  color: var(--theme-text);
-  margin: 0 0 8px 0;
+  color: var(--sm-color-text-primary);
 }
 
 .upload-hint {
-  font-size: 14px;
-  color: var(--theme-text-secondary);
-  margin: 4px 0;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
 }
 
 .upload-btn {
   position: relative;
   overflow: hidden;
-  margin-top: 12px;
 }
 
 .upload-btn input[type='file'] {
@@ -110,58 +120,22 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
 }
 
 .upload-types {
+  margin: 0;
   font-size: 12px;
-  color: var(--theme-text-secondary);
-  margin-top: 12px;
+  line-height: 1.5;
+  color: var(--sm-color-text-tertiary);
 }
 
 .uploading-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 24px;
+  gap: var(--sm-space-3);
 }
 
-/* Spinner */
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--theme-border);
-  border-top-color: var(--theme-accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* 按钮样式 */
-.btn {
-  padding: 8px 16px;
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
+.uploading-content p {
+  margin: 0;
   font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn:hover {
-  background-color: var(--theme-bg-hover);
-}
-
-.btn-primary {
-  background-color: var(--theme-accent);
-  border-color: var(--theme-accent);
-  color: white;
-}
-
-.btn-primary:hover {
-  opacity: 0.9;
+  color: var(--sm-color-text-secondary);
 }
 </style>

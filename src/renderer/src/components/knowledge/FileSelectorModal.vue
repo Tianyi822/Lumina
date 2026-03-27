@@ -96,15 +96,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="file-selector-overlay" @click.self="emit('close')">
-    <div class="file-selector-container">
-      <!-- 头部 -->
+  <div class="sm-modal__overlay file-selector-overlay" @click.self="emit('close')">
+    <div class="sm-modal__surface file-selector-container">
       <FileSelectorHeader @close="emit('close')" />
 
-      <!-- 标签页 -->
       <FileSelectorTabs v-model:active-tab="activeTab" />
 
-      <!-- 已有文件列表 -->
       <ExistingFilesTab
         v-if="activeTab === 'existing'"
         :kb-id="kbId"
@@ -118,7 +115,6 @@ onMounted(async () => {
         @close="emit('close')"
       />
 
-      <!-- 上传新文件 -->
       <UploadTab
         v-else
         :kb-id="kbId"
@@ -131,28 +127,20 @@ onMounted(async () => {
 
 <style scoped>
 .file-selector-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 1000;
-  backdrop-filter: blur(4px);
 }
 
 .file-selector-container {
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 12px;
-  width: 90%;
-  max-width: 600px;
-  max-height: 80vh;
+  width: min(680px, calc(100vw - 72px));
+  max-height: min(760px, calc(100vh - 104px));
   display: flex;
   flex-direction: column;
-  box-shadow: var(--theme-shadow);
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .file-selector-container {
+    width: calc(100vw - 32px);
+  }
 }
 </style>

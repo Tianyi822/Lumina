@@ -18,13 +18,21 @@ const emit = defineEmits<{
 <template>
   <div class="tabs">
     <button
-      :class="['tab', { active: activeTab === 'existing' }]"
+      :class="[
+        'sm-tab',
+        'tab',
+        { active: activeTab === 'existing', 'is-active': activeTab === 'existing' }
+      ]"
       @click="emit('update:activeTab', 'existing')"
     >
       从已有文件选择
     </button>
     <button
-      :class="['tab', { active: activeTab === 'upload' }]"
+      :class="[
+        'sm-tab',
+        'tab',
+        { active: activeTab === 'upload', 'is-active': activeTab === 'upload' }
+      ]"
       @click="emit('update:activeTab', 'upload')"
     >
       上传新文件
@@ -35,29 +43,13 @@ const emit = defineEmits<{
 <style scoped>
 .tabs {
   display: flex;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--theme-border);
-  gap: 4px;
+  gap: var(--sm-space-2);
+  padding: 0 var(--sm-space-5) var(--sm-space-4);
 }
 
 .tab {
-  padding: 12px 20px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--theme-text-secondary);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  margin-bottom: -1px;
-}
-
-.tab:hover {
-  color: var(--theme-text);
-}
-
-.tab.active {
-  color: var(--theme-accent);
-  border-bottom-color: var(--theme-accent);
+  flex: 1;
+  justify-content: center;
+  text-align: center;
 }
 </style>

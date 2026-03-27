@@ -3,7 +3,7 @@
  * 文件管理模态框
  * 管理文件的上传、删除等操作
  */
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useFileStore } from '@renderer/stores'
 import { FileUploadZone } from './shared/components'
@@ -26,6 +26,8 @@ const fileStore = useFileStore()
 const { filteredFiles } = storeToRefs(fileStore)
 const { loadFiles } = fileStore
 
+const feedback = ref<{ type: 'info' | 'error'; message: string } | null>(null)
+
 // 删除逻辑
 const {
   deletingFileId,
@@ -39,14 +41,28 @@ const {
 
 // 上传完成回调
 function handleUploadComplete(result: UploadResult): void {
+  const messages: string[] = []
+
   if (result.duplicates.length > 0) {
     const names = result.duplicates.map((f) => f.name).join(', ')
-    alert(`以下文件已存在，已自动关联：${names}`)
+    messages.push(`以下文件已存在，已自动关联：${names}`)
   }
 
   if (result.errors.length > 0) {
-    alert(`部分文件上传失败：\n${result.errors.join('\n')}`)
+    feedback.value = {
+      type: 'error',
+      message: `部分文件上传失败：${result.errors.join('；')}`
+    }
+    return
   }
+
+  feedback.value =
+    messages.length > 0
+      ? {
+          type: 'info',
+          message: messages.join(' ')
+        }
+      : null
 }
 
 // 生命周期
@@ -56,20 +72,24 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="file-manager-overlay" @click.self="emit('close')">
-    <div class="file-manager-container">
-      <!-- 头部 -->
+  <div class="sm-modal__overlay file-manager-overlay" @click.self="emit('close')">
+    <div class="sm-modal__surface file-manager-container">
       <FileManagerHeader @close="emit('close')" />
 
-      <!-- 工具栏 -->
+      <div
+        v-if="feedback"
+        class="sm-notice file-manager-feedback"
+        :class="feedback.type === 'error' ? 'sm-notice--error' : 'sm-notice--info'"
+      >
+        {{ feedback.message }}
+      </div>
+
       <FileManagerToolbar />
 
-      <!-- 拖拽上传区域 -->
       <div class="drop-zone-wrapper">
         <FileUploadZone @upload-complete="handleUploadComplete" />
       </div>
 
-      <!-- 文件列表 -->
       <FileListState>
         <FileCard
           v-for="file in filteredFiles"
@@ -81,7 +101,6 @@ onMounted(async () => {
       </FileListState>
     </div>
 
-    <!-- 删除确认对话框 -->
     <ConfirmDeleteDialog
       :show="showConfirmDialog"
       :file="fileToDelete"
@@ -95,36 +114,32 @@ onMounted(async () => {
 
 <style scoped>
 .file-manager-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 1000;
-  backdrop-filter: blur(4px);
 }
 
 .file-manager-container {
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 12px;
-  width: 90%;
-  max-width: 900px;
-  max-height: 85vh;
+  width: min(960px, calc(100vw - 72px));
+  max-height: min(820px, calc(100vh - 104px));
   display: flex;
   flex-direction: column;
-  box-shadow: var(--theme-shadow);
+  overflow: hidden;
+}
+
+.file-manager-feedback {
+  margin: var(--sm-space-4) var(--sm-space-5) 0;
 }
 
 .drop-zone-wrapper {
-  margin: 16px 24px;
+  margin: var(--sm-space-4) var(--sm-space-5);
 }
 
 .drop-zone-wrapper :deep(.upload-zone) {
-  padding: 24px;
+  min-height: 180px;
+}
+
+@media (max-width: 720px) {
+  .file-manager-container {
+    width: calc(100vw - 32px);
+  }
 }
 </style>
