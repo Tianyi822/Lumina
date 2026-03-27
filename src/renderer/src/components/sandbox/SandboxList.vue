@@ -96,7 +96,7 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
           <!-- 创建类型 Badge -->
           <span
             v-if="(sandbox as unknown as ExtendedSandboxListItem).creationType"
-            class="creation-type-badge"
+            class="sm-badge sm-sandbox-list__creation-badge"
             :class="
               getCreationTypeClass((sandbox as unknown as ExtendedSandboxListItem).creationType)
             "
@@ -106,7 +106,7 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
           <!-- 孤儿沙箱警告 -->
           <span
             v-if="(sandbox as unknown as ExtendedSandboxListItem).isOrphan"
-            class="orphan-badge"
+            class="sm-badge sm-sandbox-list__orphan-badge"
             title="容器已丢失"
           >
             ⚠️ 容器已丢失
@@ -114,7 +114,7 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
           <!-- 容器数量 -->
           <span
             v-if="getContainerCount(sandbox) > 1"
-            class="container-count"
+            class="sm-badge sm-sandbox-list__container-count"
             :title="`包含 ${getContainerCount(sandbox)} 个容器`"
           >
             {{ getContainerCount(sandbox) }} 容器
@@ -123,7 +123,7 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
       </div>
 
       <button
-        class="btn-delete"
+        class="sm-icon-button sm-sandbox-list__delete-button"
         :class="{ 'is-deleting': sandbox.sandboxId === deletingSandboxId }"
         title="删除沙箱"
         :disabled="sandbox.sandboxId === deletingSandboxId"
@@ -182,13 +182,13 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 }
 
 .sandbox-item.orphan {
-  border-color: var(--theme-danger);
+  border-color: rgba(199, 120, 120, 0.32);
   background-color: rgba(199, 120, 120, 0.08);
   opacity: 0.7;
 }
 
 .sandbox-item.orphan:hover {
-  border-color: var(--theme-danger);
+  border-color: rgba(199, 120, 120, 0.32);
   background-color: rgba(199, 120, 120, 0.12);
   opacity: 0.85;
 }
@@ -210,7 +210,7 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
   gap: 6px;
 }
 
-.creation-type-badge {
+.sm-sandbox-list__creation-badge {
   display: inline-flex;
   align-items: center;
   padding: 2px 6px;
@@ -221,22 +221,22 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
   flex-shrink: 0;
 }
 
-.creation-type-badge.creation-type-existing {
+.sm-sandbox-list__creation-badge.creation-type-existing {
   border-color: rgba(197, 161, 101, 0.32);
-  color: var(--theme-warning);
+  color: #c5a165;
   background-color: rgba(197, 161, 101, 0.12);
 }
 
-.creation-type-badge.creation-type-compose {
+.sm-sandbox-list__creation-badge.creation-type-compose {
   border-color: rgba(127, 176, 138, 0.28);
   background-color: rgba(127, 176, 138, 0.12);
-  color: var(--theme-success);
+  color: #7fb08a;
 }
 
-.creation-type-badge.creation-type-dockerfile {
+.sm-sandbox-list__creation-badge.creation-type-dockerfile {
   border-color: rgba(142, 149, 217, 0.28);
   background-color: rgba(142, 149, 217, 0.12);
-  color: var(--theme-info);
+  color: var(--sm-color-accent-hover);
 }
 
 .sandbox-meta {
@@ -257,13 +257,13 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 .status-creating {
   border-color: rgba(142, 149, 217, 0.28);
   background-color: rgba(142, 149, 217, 0.12);
-  color: var(--theme-info);
+  color: var(--sm-color-accent-hover);
 }
 
 .status-running {
   border-color: rgba(127, 176, 138, 0.28);
   background-color: rgba(127, 176, 138, 0.12);
-  color: var(--theme-success);
+  color: #7fb08a;
 }
 
 .status-stopped {
@@ -275,19 +275,19 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 .status-error {
   border-color: rgba(199, 120, 120, 0.28);
   background-color: rgba(199, 120, 120, 0.12);
-  color: var(--theme-danger);
+  color: #c77878;
 }
 
-.orphan-badge {
+.sm-sandbox-list__orphan-badge {
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 999px;
   background-color: rgba(199, 120, 120, 0.12);
-  color: var(--theme-danger);
+  color: #c77878;
   border: 1px solid rgba(199, 120, 120, 0.28);
 }
 
-.container-count {
+.sm-sandbox-list__container-count {
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 999px;
@@ -295,7 +295,7 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
   color: var(--sm-color-text-secondary);
 }
 
-.btn-delete {
+.sm-sandbox-list__delete-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -310,44 +310,20 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
   transition: all var(--sm-transition-fast);
 }
 
-.btn-delete:hover:not(:disabled) {
+.sm-sandbox-list__delete-button:hover:not(:disabled) {
   background-color: rgba(199, 120, 120, 0.12);
   border-color: rgba(199, 120, 120, 0.28);
-  color: var(--theme-danger);
+  color: #c77878;
 }
 
-.btn-delete:disabled {
+.sm-sandbox-list__delete-button:disabled {
   cursor: not-allowed;
   opacity: 0.7;
 }
 
-.btn-delete.is-deleting {
+.sm-sandbox-list__delete-button.is-deleting {
   border-color: rgba(197, 161, 101, 0.32);
-  color: var(--theme-warning);
+  color: #c5a165;
 }
 
-.delete-confirm {
-  display: flex;
-  gap: 4px;
-}
-
-.btn-confirm,
-.btn-cancel {
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.btn-confirm {
-  background-color: rgba(199, 120, 120, 0.12);
-  border: 1px solid rgba(199, 120, 120, 0.28);
-  color: var(--theme-danger);
-}
-
-.btn-cancel {
-  background-color: transparent;
-  border: 1px solid var(--sm-color-border-default);
-  color: var(--sm-color-text-secondary);
-}
 </style>

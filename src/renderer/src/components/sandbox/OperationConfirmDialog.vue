@@ -39,17 +39,17 @@ watch(
 const riskConfig = computed(() => {
   const configs: Record<RiskLevel, { color: string; icon: string; title: string }> = {
     low: {
-      color: 'var(--theme-info)',
+      color: 'var(--sm-color-status-info)',
       icon: 'ℹ️',
       title: '确认操作'
     },
     medium: {
-      color: 'var(--theme-warning)',
+      color: 'var(--sm-color-status-warning)',
       icon: '⚠️',
       title: '确认操作'
     },
     high: {
-      color: 'var(--theme-danger)',
+      color: 'var(--sm-color-status-danger)',
       icon: '🚨',
       title: '高风险操作'
     },
@@ -185,8 +185,8 @@ function handleBackdropClick(): void {
 }
 
 .confirm-dialog {
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-bg-app);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 8px;
   width: 480px;
   max-width: 90vw;
@@ -207,15 +207,15 @@ function handleBackdropClick(): void {
 
 /* 风险等级边框 */
 .risk-low {
-  border-top: 4px solid var(--theme-info);
+  border-top: 4px solid var(--sm-color-status-info);
 }
 
 .risk-medium {
-  border-top: 4px solid var(--theme-warning);
+  border-top: 4px solid var(--sm-color-status-warning);
 }
 
 .risk-high {
-  border-top: 4px solid var(--theme-danger);
+  border-top: 4px solid var(--sm-color-status-danger);
 }
 
 .risk-critical {
@@ -227,7 +227,7 @@ function handleBackdropClick(): void {
   align-items: center;
   gap: 12px;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--theme-border);
+  border-bottom: 1px solid var(--sm-color-border-default);
 }
 
 .risk-icon {
@@ -238,7 +238,7 @@ function handleBackdropClick(): void {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .dialog-body {
@@ -249,7 +249,7 @@ function handleBackdropClick(): void {
   margin: 0 0 16px 0;
   font-size: 14px;
   line-height: 1.6;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .details-section {
@@ -258,15 +258,15 @@ function handleBackdropClick(): void {
 
 .details-section h4 {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   margin: 0 0 8px 0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .details-list {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 6px;
   padding: 12px;
 }
@@ -283,25 +283,25 @@ function handleBackdropClick(): void {
 }
 
 .detail-key {
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   min-width: 100px;
 }
 
 .detail-value {
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   font-family: monospace;
 }
 
 .warning-box {
   background-color: rgba(248, 81, 73, 0.1);
-  border: 1px solid var(--theme-danger);
+  border: 1px solid var(--sm-color-status-danger);
   border-radius: 6px;
   padding: 12px;
   margin-bottom: 16px;
 }
 
 .warning-box strong {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   display: block;
   margin-bottom: 4px;
 }
@@ -309,7 +309,7 @@ function handleBackdropClick(): void {
 .warning-box p {
   margin: 0;
   font-size: 13px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .dont-ask-again {
@@ -317,7 +317,7 @@ function handleBackdropClick(): void {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
 }
 
@@ -332,28 +332,28 @@ function handleBackdropClick(): void {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
+  border-top: 1px solid var(--sm-color-border-default);
+  background-color: var(--sm-color-surface-1);
 }
 
 .btn-cancel,
 .btn-confirm {
   padding: 8px 16px;
   font-size: 14px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn-cancel {
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  color: var(--theme-text);
+  background-color: var(--sm-color-bg-app);
+  border: 1px solid var(--sm-color-border-default);
+  color: var(--sm-color-text-primary);
 }
 
 .btn-cancel:hover {
-  border-color: var(--theme-text-secondary);
+  border-color: var(--sm-color-text-secondary);
 }
 
 .btn-confirm {
@@ -363,16 +363,16 @@ function handleBackdropClick(): void {
 
 /* 风险等级按钮样式 */
 .btn-risk-low {
-  background-color: var(--theme-info);
+  background-color: var(--sm-color-status-info);
 }
 
 .btn-risk-medium {
-  background-color: var(--theme-warning);
-  color: var(--theme-bg);
+  background-color: var(--sm-color-status-warning);
+  color: var(--sm-color-bg-app);
 }
 
 .btn-risk-high {
-  background-color: var(--theme-danger);
+  background-color: var(--sm-color-status-danger);
 }
 
 .btn-risk-critical {

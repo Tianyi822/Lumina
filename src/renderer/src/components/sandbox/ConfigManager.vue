@@ -154,7 +154,7 @@ function formatDate(dateStr: string): string {
           <span class="manager-eyebrow">配置管理</span>
           <div class="manager-title-row">
             <h2>Docker 模板资产</h2>
-            <span class="badge">{{ currentConfigs.length }}</span>
+            <span class="sm-badge">{{ currentConfigs.length }}</span>
           </div>
           <p>统一维护 Dockerfile 与 Compose 模板，供沙箱创建流程复用。</p>
         </div>
@@ -185,7 +185,7 @@ function formatDate(dateStr: string): string {
               <span class="list-eyebrow">模板列表</span>
               <strong>{{ activeTab === 'dockerfile' ? 'Dockerfile 模板' : 'Compose 模板' }}</strong>
             </div>
-            <span class="badge count">{{ currentConfigs.length }}</span>
+            <span class="sm-badge count">{{ currentConfigs.length }}</span>
           </div>
           <div v-if="configsLoading" class="sm-empty list-state">加载配置中...</div>
           <div v-else-if="currentConfigs.length === 0" class="sm-empty list-state">
@@ -515,7 +515,7 @@ function formatDate(dateStr: string): string {
 
 .delete-hint {
   font-size: 13px;
-  color: var(--theme-danger);
+  color: #c77878;
   margin-right: auto;
 }
 

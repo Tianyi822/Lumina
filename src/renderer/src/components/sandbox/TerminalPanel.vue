@@ -115,7 +115,7 @@ function handleKeydown(event: KeyboardEvent): void {
         <span class="terminal-header__eyebrow">交互终端</span>
         <div class="terminal-header__headline">
           <h2>{{ containerName }}</h2>
-          <span class="badge terminal-id">{{ containerId.substring(0, 12) }}</span>
+          <span class="sm-badge terminal-id">{{ containerId.substring(0, 12) }}</span>
         </div>
         <p>直接向容器发送 Shell 命令，用于巡检、诊断和临时操作。</p>
       </div>
@@ -124,7 +124,9 @@ function handleKeydown(event: KeyboardEvent): void {
           <input v-model="autoScroll" type="checkbox" />
           <span>自动滚动</span>
         </label>
-        <button class="btn btn-small" @click="handleClear">清空</button>
+        <button class="sm-button sm-button--secondary sm-button--small" @click="handleClear">
+          清空
+        </button>
       </div>
     </div>
 
@@ -168,7 +170,7 @@ function handleKeydown(event: KeyboardEvent): void {
           @keydown="handleKeydown"
         />
         <button
-          class="btn-primary execute-btn"
+          class="sm-button sm-button--primary execute-btn"
           :disabled="!commandInput.trim() || loading"
           @click="handleExecute"
         >
@@ -183,7 +185,7 @@ function handleKeydown(event: KeyboardEvent): void {
         <button
           v-for="cmd in quickCommands"
           :key="cmd.command"
-          class="quick-btn"
+          class="sm-terminal-panel__quick-button"
           :disabled="loading"
           @click="useQuickCommand(cmd.command)"
         >
@@ -329,11 +331,11 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 .log-output .log-prefix {
-  color: var(--theme-success);
+  color: #7fb08a;
 }
 
 .log-error .log-prefix {
-  color: var(--theme-danger);
+  color: #c77878;
 }
 
 .log-content {
@@ -351,7 +353,7 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 .log-error .log-content {
-  color: var(--theme-danger);
+  color: #c77878;
 }
 
 .loading-indicator {
@@ -411,7 +413,7 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 .input-prompt {
-  color: var(--theme-success);
+  color: #7fb08a;
   font-weight: 600;
   font-family: var(--sm-font-mono);
 }
@@ -467,7 +469,7 @@ function handleKeydown(event: KeyboardEvent): void {
   overflow-x: auto;
 }
 
-.quick-btn {
+.sm-terminal-panel__quick-button {
   min-height: 28px;
   padding: 0 10px;
   font-size: 11px;
@@ -484,13 +486,13 @@ function handleKeydown(event: KeyboardEvent): void {
     color var(--sm-transition-fast);
 }
 
-.quick-btn:hover:not(:disabled) {
+.sm-terminal-panel__quick-button:hover:not(:disabled) {
   background: rgba(142, 149, 217, 0.08);
   border-color: var(--sm-color-border-accent);
   color: var(--sm-color-text-primary);
 }
 
-.quick-btn:disabled {
+.sm-terminal-panel__quick-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

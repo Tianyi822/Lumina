@@ -123,7 +123,7 @@ function handleSaveConfig(): void {
   margin: 0 0 16px 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .form-field {
@@ -135,14 +135,14 @@ function handleSaveConfig(): void {
   align-items: center;
   justify-content: space-between;
   font-size: 13px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   margin-bottom: 8px;
 }
 
 .btn-link {
   background: none;
   border: none;
-  color: var(--theme-accent);
+  color: var(--sm-color-accent);
   font-size: 12px;
   cursor: pointer;
   text-decoration: underline;
@@ -151,17 +151,17 @@ function handleSaveConfig(): void {
 .input {
   width: 100%;
   padding: 8px 12px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   font-size: 13px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .input:focus {
   outline: none;
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-accent);
 }
 
 .config-selector {
@@ -172,31 +172,31 @@ function handleSaveConfig(): void {
 .select {
   flex: 1;
   padding: 8px 12px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   font-size: 13px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   cursor: pointer;
 }
 
 .select:focus {
   outline: none;
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-accent);
 }
 
 .code-editor {
   width: 100%;
   min-height: 300px;
   padding: 12px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   font-size: 13px;
   line-height: 1.5;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 6px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   resize: vertical;
   white-space: pre;
   tab-size: 2;
@@ -204,6 +204,6 @@ function handleSaveConfig(): void {
 
 .code-editor:focus {
   outline: none;
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-accent);
 }
 </style>

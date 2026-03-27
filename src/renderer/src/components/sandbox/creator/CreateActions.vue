@@ -29,25 +29,25 @@ const emit = defineEmits<{
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
+  border-top: 1px solid var(--sm-color-border-default);
+  background-color: var(--sm-color-surface-1);
 }
 
 .btn {
   padding: 6px 12px;
   font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn:hover {
-  border-color: var(--theme-text-secondary);
-  color: var(--theme-text);
+  border-color: var(--sm-color-text-secondary);
+  color: var(--sm-color-text-primary);
 }
 
 .btn:disabled,
@@ -59,11 +59,11 @@ const emit = defineEmits<{
 .btn-primary {
   padding: 6px 12px;
   font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-accent);
-  border: 1px solid var(--theme-accent);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-accent);
+  border: 1px solid var(--sm-color-accent);
   border-radius: 4px;
-  color: var(--theme-bg);
+  color: var(--sm-color-bg-app);
   cursor: pointer;
   transition: all 0.15s ease;
 }

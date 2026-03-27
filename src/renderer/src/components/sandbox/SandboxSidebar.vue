@@ -74,17 +74,19 @@ async function handleRefreshList(): Promise<void> {
       </div>
       <p class="sm-sidebar-shell__description">管理运行环境、容器状态和模板配置。</p>
       <div class="sm-sidebar-shell__actions">
-        <button class="btn-primary new-sandbox-btn" @click="handleNewSandbox">新建沙箱</button>
-        <button class="btn-secondary manage-config-btn" @click="handleManageConfigs">
+        <button class="sm-button sm-button--primary new-sandbox-btn" @click="handleNewSandbox">
+          新建沙箱
+        </button>
+        <button class="sm-button sm-button--secondary manage-config-btn" @click="handleManageConfigs">
           管理配置
         </button>
       </div>
     </header>
 
     <div class="sm-sidebar-shell__search search-container">
-      <input v-model="searchQuery" type="text" class="input search-input" placeholder="搜索沙箱" />
+      <input v-model="searchQuery" type="text" class="sm-input search-input" placeholder="搜索沙箱" />
       <button
-        class="btn-refresh"
+        class="sm-icon-button sm-sandbox-sidebar__refresh-button"
         title="刷新列表"
         :disabled="isRefreshing"
         @click="handleRefreshList"
@@ -126,7 +128,7 @@ async function handleRefreshList(): Promise<void> {
   flex: 1;
 }
 
-.btn-refresh {
+.sm-sandbox-sidebar__refresh-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -142,18 +144,18 @@ async function handleRefreshList(): Promise<void> {
   flex-shrink: 0;
 }
 
-.btn-refresh:hover:not(:disabled) {
+.sm-sandbox-sidebar__refresh-button:hover:not(:disabled) {
   background-color: var(--sm-color-surface-hover);
   border-color: var(--sm-color-border-strong);
   color: var(--sm-color-text-primary);
 }
 
-.btn-refresh:disabled {
+.sm-sandbox-sidebar__refresh-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.btn-refresh svg {
+.sm-sandbox-sidebar__refresh-button svg {
   display: block;
 }
 </style>

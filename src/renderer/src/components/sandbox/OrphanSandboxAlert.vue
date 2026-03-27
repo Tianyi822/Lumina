@@ -148,7 +148,7 @@ function handleCleanup(): void {
   line-height: 1;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .alert-message h4 {

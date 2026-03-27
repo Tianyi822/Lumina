@@ -462,9 +462,9 @@ function formatDateTime(value?: string): string {
               <p>{{ workspaceSummary }}</p>
             </div>
             <div class="workspace-header__meta">
-              <span class="badge">{{ sandboxCreationTypeLabel }}</span>
-              <span class="badge">{{ sandboxContainerCount }} 个容器</span>
-              <span class="badge" :class="sandboxStatusClass">{{ sandboxStatusLabel }}</span>
+              <span class="sm-badge">{{ sandboxCreationTypeLabel }}</span>
+              <span class="sm-badge">{{ sandboxContainerCount }} 个容器</span>
+              <span class="sm-badge" :class="sandboxStatusClass">{{ sandboxStatusLabel }}</span>
             </div>
           </div>
 
@@ -500,14 +500,14 @@ function formatDateTime(value?: string): string {
           </div>
           <div class="frontend-recovery-actions">
             <button
-              class="btn-secondary"
+              class="sm-button sm-button--secondary"
               :disabled="isRetryingFrontend || isRebuildingFrontend"
               @click="handleRetryFrontendInitialization"
             >
               {{ isRetryingFrontend ? '重试中...' : '重试初始化' }}
             </button>
             <button
-              class="btn-primary"
+              class="sm-button sm-button--primary"
               :disabled="isRetryingFrontend || isRebuildingFrontend"
               @click="handleRebuildFrontendRuntime"
             >
@@ -717,7 +717,7 @@ function formatDateTime(value?: string): string {
 .workspace-header__meta .status-running {
   border-color: rgba(127, 176, 138, 0.28);
   background: rgba(127, 176, 138, 0.08);
-  color: var(--theme-success);
+  color: #7fb08a;
 }
 
 .workspace-header__meta .status-creating {
@@ -735,7 +735,7 @@ function formatDateTime(value?: string): string {
 .workspace-header__meta .status-error {
   border-color: rgba(199, 120, 120, 0.28);
   background: rgba(199, 120, 120, 0.08);
-  color: var(--theme-danger);
+  color: #c77878;
 }
 
 .content-body {
@@ -778,7 +778,7 @@ function formatDateTime(value?: string): string {
   line-height: 1;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--theme-warning);
+  color: #c5a165;
 }
 
 .frontend-recovery-copy h3 {

@@ -93,8 +93,8 @@ const emit = defineEmits<{
 <style scoped>
 .port-mapping-section {
   padding: 16px 20px;
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg);
+  border-top: 1px solid var(--sm-color-border-default);
+  background-color: var(--sm-color-bg-app);
 }
 
 .port-mapping-header {
@@ -108,7 +108,7 @@ const emit = defineEmits<{
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -117,7 +117,7 @@ const emit = defineEmits<{
 .port-count {
   font-size: 12px;
   font-weight: 400;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .port-mapping-actions {
@@ -128,26 +128,26 @@ const emit = defineEmits<{
 .btn-small {
   padding: 4px 10px;
   font-size: 12px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
 }
 
 .port-mapping-hint {
   margin: 0 0 12px 0;
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   line-height: 1.5;
 }
 
 .port-mapping-empty {
   padding: 16px;
-  border: 1px dashed var(--theme-border);
+  border: 1px dashed var(--sm-color-border-default);
   border-radius: 8px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   font-size: 13px;
   text-align: center;
 }
@@ -173,31 +173,31 @@ const emit = defineEmits<{
 
 .port-field label {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .port-field input,
 .port-field select {
   padding: 8px 10px;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 6px;
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
-  font-family: var(--theme-font);
+  background-color: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
+  font-family: var(--sm-font-sans);
 }
 
 .port-arrow {
   padding-bottom: 8px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .btn-remove {
   width: 32px;
   height: 32px;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 6px;
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-danger);
+  background-color: var(--sm-color-surface-1);
+  color: var(--sm-color-status-danger);
   cursor: pointer;
 }
 

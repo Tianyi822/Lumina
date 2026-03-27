@@ -512,11 +512,11 @@ function formatEnv(env: string[]): string[] {
 .state-indicator.state-running {
   border-color: rgba(127, 176, 138, 0.28);
   background: rgba(127, 176, 138, 0.08);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .state-indicator.state-running {
-  background: var(--theme-success);
+  background: var(--sm-color-status-success);
 }
 
 .state-badge.state-paused,
@@ -525,12 +525,12 @@ function formatEnv(env: string[]): string[] {
 .state-indicator.state-restarting {
   border-color: rgba(197, 161, 101, 0.28);
   background: rgba(197, 161, 101, 0.08);
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
 }
 
 .state-indicator.state-paused,
 .state-indicator.state-restarting {
-  background: var(--theme-warning);
+  background: var(--sm-color-status-warning);
 }
 
 .state-badge.state-removing,
@@ -541,13 +541,13 @@ function formatEnv(env: string[]): string[] {
 .state-indicator.state-dead {
   border-color: rgba(199, 120, 120, 0.28);
   background: rgba(199, 120, 120, 0.08);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .state-indicator.state-removing,
 .state-indicator.state-exited,
 .state-indicator.state-dead {
-  background: var(--theme-danger);
+  background: var(--sm-color-status-danger);
 }
 
 .header-actions {
@@ -564,37 +564,37 @@ function formatEnv(env: string[]): string[] {
 .btn.success {
   background: rgba(127, 176, 138, 0.08);
   border-color: rgba(127, 176, 138, 0.28);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .btn.success:hover:not(:disabled) {
   background: rgba(127, 176, 138, 0.12);
   border-color: rgba(127, 176, 138, 0.4);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .btn.warning {
   background: rgba(197, 161, 101, 0.08);
   border-color: rgba(197, 161, 101, 0.28);
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
 }
 
 .btn.warning:hover:not(:disabled) {
   background: rgba(197, 161, 101, 0.12);
   border-color: rgba(197, 161, 101, 0.4);
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
 }
 
 .btn.danger {
   background: rgba(199, 120, 120, 0.08);
   border-color: rgba(199, 120, 120, 0.28);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .btn.danger:hover:not(:disabled) {
   background: rgba(199, 120, 120, 0.12);
   border-color: rgba(199, 120, 120, 0.4);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .read-only-hint {
@@ -612,7 +612,7 @@ function formatEnv(env: string[]): string[] {
 }
 
 .read-only-hint svg {
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
   flex-shrink: 0;
 }
 
@@ -711,7 +711,7 @@ function formatEnv(env: string[]): string[] {
 }
 
 .stat-bar-fill.memory {
-  background: var(--theme-success);
+  background: var(--sm-color-status-success);
 }
 
 .info-grid {
@@ -784,7 +784,7 @@ function formatEnv(env: string[]): string[] {
 }
 
 .port-hint {
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
 }
 
 .mounts-list {

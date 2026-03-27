@@ -120,8 +120,8 @@ function toggleExpand(): void {
 
 <style scoped>
 .tool-call-status {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 6px;
   overflow: hidden;
   margin: 8px 0;
@@ -137,7 +137,7 @@ function toggleExpand(): void {
 }
 
 .tool-header:hover {
-  background-color: var(--theme-bg-hover);
+  background-color: var(--sm-color-surface-hover);
 }
 
 .status-icon {
@@ -149,41 +149,41 @@ function toggleExpand(): void {
 .tool-name {
   font-family: monospace;
   font-size: 13px;
-  color: var(--theme-accent);
+  color: var(--sm-color-accent);
   flex: 1;
 }
 
 .status-text {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .expand-icon {
   font-size: 10px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 /* 状态样式 */
 .status-pending {
-  border-left: 3px solid var(--theme-info);
+  border-left: 3px solid var(--sm-color-status-info);
 }
 
 .status-running {
-  border-left: 3px solid var(--theme-warning);
+  border-left: 3px solid var(--sm-color-status-warning);
 }
 
 .status-success {
-  border-left: 3px solid var(--theme-success);
+  border-left: 3px solid var(--sm-color-status-success);
 }
 
 .status-error {
-  border-left: 3px solid var(--theme-danger);
+  border-left: 3px solid var(--sm-color-status-danger);
 }
 
 .tool-details {
   padding: 12px;
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg);
+  border-top: 1px solid var(--sm-color-border-default);
+  background-color: var(--sm-color-bg-app);
 }
 
 .detail-section {
@@ -196,20 +196,20 @@ function toggleExpand(): void {
 
 .detail-section h4 {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   margin: 0 0 6px 0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .code-block {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
   padding: 8px 12px;
   font-family: monospace;
   font-size: 12px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-word;
@@ -217,20 +217,20 @@ function toggleExpand(): void {
 }
 
 .code-block.success {
-  border-color: var(--theme-success);
+  border-color: var(--sm-color-status-success);
   background-color: rgba(63, 185, 80, 0.05);
 }
 
 .code-block.error {
-  border-color: var(--theme-danger);
+  border-color: var(--sm-color-status-danger);
   background-color: rgba(248, 81, 73, 0.05);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .timestamps {
   display: flex;
   gap: 16px;
   font-size: 11px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 </style>

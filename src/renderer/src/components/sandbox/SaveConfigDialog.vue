@@ -83,8 +83,8 @@ function handleClose(): void {
 }
 
 .save-dialog {
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-bg-app);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 8px;
   width: 320px;
   overflow: hidden;
@@ -95,7 +95,7 @@ function handleClose(): void {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--theme-border);
+  border-bottom: 1px solid var(--sm-color-border-default);
 }
 
 .save-dialog-header h4 {
@@ -114,14 +114,14 @@ function handleClose(): void {
   background: none;
   border: none;
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .close-btn.small:hover {
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
+  background-color: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
 }
 
 .save-dialog-body {
@@ -135,24 +135,24 @@ function handleClose(): void {
 .form-field label {
   display: block;
   font-size: 13px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   margin-bottom: 8px;
 }
 
 .input {
   width: 100%;
   padding: 8px 12px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   font-size: 13px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .input:focus {
   outline: none;
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-accent);
 }
 
 .save-dialog-footer {
@@ -160,35 +160,35 @@ function handleClose(): void {
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
+  border-top: 1px solid var(--sm-color-border-default);
+  background-color: var(--sm-color-surface-1);
 }
 
 .btn {
   padding: 6px 12px;
   font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn:hover {
-  border-color: var(--theme-text-secondary);
-  color: var(--theme-text);
+  border-color: var(--sm-color-text-secondary);
+  color: var(--sm-color-text-primary);
 }
 
 .btn-primary {
   padding: 6px 12px;
   font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-accent);
-  border: 1px solid var(--theme-accent);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-accent);
+  border: 1px solid var(--sm-color-accent);
   border-radius: 4px;
-  color: var(--theme-bg);
+  color: var(--sm-color-bg-app);
   cursor: pointer;
   transition: all 0.15s ease;
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 interface Props {
   type: 'error' | 'warning' | 'success' | 'info'
@@ -16,15 +17,15 @@ const emit = defineEmits<{
 const icon = computed(() => {
   switch (props.type) {
     case 'error':
-      return '✕'
+      return 'close'
     case 'warning':
-      return '⚠'
+      return 'warning'
     case 'success':
-      return '✓'
+      return 'check'
     case 'info':
-      return 'ℹ'
+      return 'info'
     default:
-      return 'ℹ'
+      return 'info'
   }
 })
 
@@ -43,12 +44,16 @@ const liveMode = computed(() => (props.type === 'error' ? 'assertive' : 'polite'
       :aria-live="liveMode"
       aria-atomic="true"
     >
-      <div class="message-icon">{{ icon }}</div>
+      <div class="message-icon">
+        <SvgIcon :name="icon" :size="14" />
+      </div>
       <div class="message-content">
         <div class="message-title">{{ title }}</div>
         <div class="message-text">{{ message }}</div>
       </div>
-      <button type="button" class="message-close" @click="emit('close')">×</button>
+      <button type="button" class="message-close" aria-label="关闭操作提示" @click="emit('close')">
+        <SvgIcon name="close" :size="14" />
+      </button>
     </div>
   </Transition>
 </template>
@@ -79,8 +84,6 @@ const liveMode = computed(() => (props.type === 'error' ? 'assertive' : 'polite'
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  font-size: 14px;
-  font-weight: bold;
   flex-shrink: 0;
 }
 
@@ -97,7 +100,7 @@ const liveMode = computed(() => (props.type === 'error' ? 'assertive' : 'polite'
 
 .message-text {
   font-size: 13px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   line-height: 1.5;
   word-break: break-word;
 }
@@ -112,8 +115,7 @@ const liveMode = computed(() => (props.type === 'error' ? 'assertive' : 'polite'
   background: none;
   border: 1px solid transparent;
   border-radius: var(--sm-radius-sm);
-  color: var(--theme-text-secondary);
-  font-size: 18px;
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition:
     background-color var(--sm-transition-fast),

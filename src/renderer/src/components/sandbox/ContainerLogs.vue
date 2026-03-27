@@ -94,8 +94,8 @@ function handleClearSearch(): void {
         <span class="logs-header__eyebrow">容器日志</span>
         <div class="logs-header__headline">
           <h2>{{ containerName }}</h2>
-          <span class="badge logs-meta">{{ containerId.substring(0, 12) }}</span>
-          <span class="badge logs-meta">{{ lineCount }} 行</span>
+          <span class="sm-badge logs-meta">{{ containerId.substring(0, 12) }}</span>
+          <span class="sm-badge logs-meta">{{ lineCount }} 行</span>
         </div>
         <p>检索容器输出，定位最近的服务状态和运行异常。</p>
       </div>
@@ -104,8 +104,12 @@ function handleClearSearch(): void {
           <input v-model="autoScroll" type="checkbox" />
           <span>自动滚动</span>
         </label>
-        <button class="btn btn-small" @click="handleRefresh">刷新</button>
-        <button class="btn btn-small" @click="handleExport">导出</button>
+        <button class="sm-button sm-button--secondary sm-button--small" @click="handleRefresh">
+          刷新
+        </button>
+        <button class="sm-button sm-button--secondary sm-button--small" @click="handleExport">
+          导出
+        </button>
       </div>
     </div>
 
@@ -126,7 +130,13 @@ function handleClearSearch(): void {
           <option :value="1000">1000 行</option>
         </select>
       </div>
-      <button v-if="searchQuery" class="btn-clear" @click="handleClearSearch">清除</button>
+      <button
+        v-if="searchQuery"
+        class="sm-button sm-button--secondary sm-button--small sm-container-logs__clear-button"
+        @click="handleClearSearch"
+      >
+        清除
+      </button>
     </div>
 
     <div ref="logsContainerRef" class="logs-content">
@@ -137,7 +147,9 @@ function handleClearSearch(): void {
 
       <div v-else-if="!logs" class="empty-state">
         <p>暂无日志</p>
-        <button class="btn btn-small" @click="handleRefresh">刷新</button>
+        <button class="sm-button sm-button--secondary sm-button--small" @click="handleRefresh">
+          刷新
+        </button>
       </div>
 
       <div v-else-if="filteredLogs" class="logs-text">
@@ -146,7 +158,9 @@ function handleClearSearch(): void {
 
       <div v-else class="no-results">
         <p>未找到匹配 "{{ searchQuery }}" 的日志</p>
-        <button class="btn btn-small" @click="handleClearSearch">清除搜索</button>
+        <button class="sm-button sm-button--secondary sm-button--small" @click="handleClearSearch">
+          清除搜索
+        </button>
       </div>
     </div>
 
@@ -261,7 +275,7 @@ function handleClearSearch(): void {
   white-space: nowrap;
 }
 
-.btn-clear {
+.sm-container-logs__clear-button {
   min-height: 36px;
   padding: 0 12px;
   background: transparent;
@@ -275,10 +289,10 @@ function handleClearSearch(): void {
     color var(--sm-transition-fast);
 }
 
-.btn-clear:hover {
+.sm-container-logs__clear-button:hover {
   background: rgba(199, 120, 120, 0.08);
   border-color: rgba(199, 120, 120, 0.28);
-  color: var(--theme-danger);
+  color: #c77878;
 }
 
 .logs-content {
