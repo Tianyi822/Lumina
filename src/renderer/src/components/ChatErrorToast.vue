@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onBeforeUnmount, watch } from 'vue'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 const props = defineProps<{
   show: boolean
@@ -10,11 +11,29 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
-// 3秒后自动关闭
-onMounted(() => {
-  if (props.show) {
-    setTimeout(() => emit('close'), 3000)
+let closeTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearCloseTimer(): void {
+  if (closeTimer !== null) {
+    clearTimeout(closeTimer)
+    closeTimer = null
   }
+}
+
+watch(
+  () => props.show,
+  (visible) => {
+    clearCloseTimer()
+
+    if (visible) {
+      closeTimer = setTimeout(() => emit('close'), 3000)
+    }
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  clearCloseTimer()
 })
 </script>
 
@@ -22,9 +41,11 @@ onMounted(() => {
   <Transition name="toast">
     <div v-if="show" class="chat-error-toast" role="alert" aria-live="assertive" aria-atomic="true">
       <div class="toast-content">
-        <span class="toast-icon">⚠️</span>
+        <SvgIcon class="toast-icon" name="warning" :size="16" />
         <p class="toast-message">{{ message }}</p>
-        <button type="button" class="toast-close" @click="$emit('close')">×</button>
+        <button type="button" class="toast-close" aria-label="关闭错误提示" @click="$emit('close')">
+          <SvgIcon name="close" :size="14" />
+        </button>
       </div>
     </div>
   </Transition>
@@ -50,14 +71,16 @@ onMounted(() => {
 }
 
 .toast-icon {
-  color: var(--theme-danger);
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sm-color-status-danger);
   flex-shrink: 0;
 }
 
 .toast-message {
   flex: 1;
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   font-size: 13px;
   line-height: 1.5;
   margin: 0;
@@ -65,21 +88,21 @@ onMounted(() => {
 }
 
 .toast-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 28px;
   height: 28px;
   border: 1px solid transparent;
   border-radius: var(--sm-radius-sm);
-  font-size: 18px;
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   cursor: pointer;
   padding: 0;
-  line-height: 1;
   opacity: 0.6;
   transition:
     opacity var(--sm-transition-fast),
     background-color var(--sm-transition-fast),
     border-color var(--sm-transition-fast);
-  font-family: var(--theme-font);
   flex-shrink: 0;
 }
 

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
+
 defineProps<{
   error: string | null
 }>()
@@ -9,11 +11,18 @@ defineEmits<{
 </script>
 
 <template>
-  <div v-if="error" class="error-banner" role="alert" aria-live="assertive" aria-atomic="true">
+  <div class="error-banner" role="alert" aria-live="assertive" aria-atomic="true">
     <div class="error-content">
-      <span class="error-icon">⚠️</span>
+      <SvgIcon class="error-icon" name="warning" :size="16" />
       <span class="error-message">{{ error }}</span>
-      <button type="button" class="error-dismiss" @click="$emit('dismiss')">×</button>
+      <button
+        type="button"
+        class="error-dismiss"
+        aria-label="关闭错误提示"
+        @click="$emit('dismiss')"
+      >
+        <SvgIcon name="close" :size="14" />
+      </button>
     </div>
   </div>
 </template>
@@ -35,33 +44,36 @@ defineEmits<{
 }
 
 .error-icon {
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sm-color-status-danger);
   flex-shrink: 0;
 }
 
 .error-message {
   flex: 1;
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   font-size: 13px;
   line-height: 1.5;
 }
 
 .error-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 28px;
   height: 28px;
   border: 1px solid transparent;
   border-radius: var(--sm-radius-sm);
-  font-size: 18px;
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   cursor: pointer;
   padding: 0;
-  line-height: 1;
   opacity: 0.6;
   transition:
     opacity var(--sm-transition-fast),
     background-color var(--sm-transition-fast),
     border-color var(--sm-transition-fast);
-  font-family: var(--theme-font);
 }
 
 .error-dismiss:hover {
