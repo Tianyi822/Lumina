@@ -36,16 +36,13 @@
   padding-left: 84px;
 }
 
-.sm-titlebar__brand,
+.sm-titlebar__start,
 .sm-titlebar__center,
 .sm-titlebar__controls {
   min-width: 0;
 }
 
-.sm-titlebar__brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sm-space-3);
+.sm-titlebar__start {
   justify-self: start;
 }
 

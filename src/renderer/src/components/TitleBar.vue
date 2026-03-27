@@ -29,27 +29,6 @@ const isMac = computed(() => {
   return window.electron?.process?.platform === 'darwin'
 })
 
-const currentViewMeta = computed(() => {
-  if (isKnowledgeView.value) {
-    return {
-      title: '知识库',
-      subtitle: '检索与管理'
-    }
-  }
-
-  if (isSandboxView.value) {
-    return {
-      title: '沙箱',
-      subtitle: '工程控制台'
-    }
-  }
-
-  return {
-    title: '智能体',
-    subtitle: '对话工作区'
-  }
-})
-
 function openSettings(): void {
   emit('open-settings')
 }
@@ -98,13 +77,19 @@ onUnmounted(() => {
 
 <template>
   <div class="sm-titlebar title-bar" :class="{ 'sm-titlebar--mac': isMac }">
-    <div class="sm-titlebar__brand title-bar-brand">
-      <div class="title-bar-brand-mark">SM</div>
-      <div class="title-bar-brand-copy">
-        <span class="title-bar-product">Sparrow Manus</span>
-        <span class="title-bar-context">
-          {{ currentViewMeta.title }} / {{ currentViewMeta.subtitle }}
-        </span>
+    <div class="sm-titlebar__start">
+      <div class="tool-buttons-group">
+        <button class="tool-btn" title="设置" aria-label="打开设置" @click="openSettings">
+          <SvgIcon name="settings" :size="14" />
+        </button>
+        <button
+          class="tool-btn"
+          :title="allSidebarsCollapsed ? '展开侧边栏' : '折叠侧边栏'"
+          :aria-label="allSidebarsCollapsed ? '展开侧边栏' : '折叠侧边栏'"
+          @click="toggleAllSidebars"
+        >
+          <SvgIcon name="sidebar-toggle" :size="14" />
+        </button>
       </div>
     </div>
 
@@ -138,20 +123,6 @@ onUnmounted(() => {
     </div>
 
     <div class="sm-titlebar__controls">
-      <div class="tool-buttons-group">
-        <button class="tool-btn" title="设置" aria-label="打开设置" @click="openSettings">
-          <SvgIcon name="settings" :size="14" />
-        </button>
-        <button
-          class="tool-btn"
-          :title="allSidebarsCollapsed ? '展开侧边栏' : '折叠侧边栏'"
-          :aria-label="allSidebarsCollapsed ? '展开侧边栏' : '折叠侧边栏'"
-          @click="toggleAllSidebars"
-        >
-          <SvgIcon name="sidebar-toggle" :size="14" />
-        </button>
-      </div>
-
       <div v-if="!isMac" class="title-bar-controls">
         <button
           class="title-bar-button"
@@ -188,51 +159,10 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-.title-bar-brand,
 .tool-buttons-group,
 .title-bar-controls,
 .view-switcher {
   -webkit-app-region: no-drag;
-}
-
-.title-bar-brand {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.title-bar-brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-  border: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-1);
-  color: var(--sm-color-text-primary);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.title-bar-brand-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.title-bar-product {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.1;
-  color: var(--sm-color-text-primary);
-}
-
-.title-bar-context {
-  font-size: 11px;
-  line-height: 1.1;
-  color: var(--sm-color-text-tertiary);
 }
 
 .view-switcher {
@@ -317,10 +247,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 760px) {
-  .title-bar-brand-copy {
-    display: none;
-  }
-
   .switcher-btn {
     min-width: 66px;
     padding: 0 10px;
