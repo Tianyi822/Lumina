@@ -67,7 +67,7 @@ function isSelected(themeId: string): boolean {
         <div>
           <h3 class="sm-settings-page__section-title">可用主题</h3>
           <p class="sm-settings-page__section-description">
-            当前阶段仅保留 1 个工作主题。旧主题保留在仓库中，但不再参与新 UI 的视觉驱动。
+            当前阶段仅保留 1 个工作主题。遗留主题样式已移除，新 UI 只由当前深色基准主题驱动。
           </p>
         </div>
 

@@ -427,6 +427,6 @@ onUnmounted(() => {
 }
 
 .description-block.warning h5 {
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
 }
 </style>

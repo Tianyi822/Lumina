@@ -492,7 +492,7 @@ async function handleSave(): Promise<void> {
 }
 
 .required {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .form-row {
@@ -531,7 +531,7 @@ async function handleSave(): Promise<void> {
 }
 
 .model-action--danger {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .save-actions {

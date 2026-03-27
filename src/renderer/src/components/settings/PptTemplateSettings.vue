@@ -38,7 +38,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="sm-settings-page ppt-template-settings">
+  <div class="sm-settings-page sm-ppt-template-settings">
     <header class="sm-settings-page__header">
       <p class="sm-settings-page__eyebrow">PPT Templates</p>
       <h2 class="sm-settings-page__title">PPT 模板</h2>
@@ -58,7 +58,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.ppt-template-settings {
+.sm-ppt-template-settings {
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-5);

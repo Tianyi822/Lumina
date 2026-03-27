@@ -33,7 +33,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="sm-settings-page prompt-engineering-settings">
+  <div class="sm-settings-page sm-prompt-settings">
     <header class="sm-settings-page__header">
       <p class="sm-settings-page__eyebrow">Prompts</p>
       <h2 class="sm-settings-page__title">提示词工程</h2>
@@ -42,50 +42,51 @@ onBeforeUnmount(() => {
       </p>
     </header>
 
-    <section class="sm-settings-page__section prompt-shell">
-      <div class="pe-tabs">
+    <section class="sm-settings-page__section sm-prompt-settings__shell">
+      <div class="sm-prompt-settings__tabs">
         <button
           v-for="tab in tabs"
           :key="tab.key"
-          :class="['pe-tab-item', { 'pe-tab-active': activeTab === tab.key }]"
+          :class="['sm-tab', 'sm-prompt-settings__tab', { 'is-active': activeTab === tab.key }]"
           @click="changeTab(tab.key)"
         >
           {{ tab.label }}
         </button>
       </div>
 
-      <Transition name="pe-feedback">
+      <Transition name="sm-prompt-feedback">
         <div
           v-if="hasFeedback"
           :class="[
-            'pe-feedback-box',
-            feedbackType === 'error' ? 'pe-feedback-error' : 'pe-feedback-success'
+            'sm-settings-feedback',
+            feedbackType === 'error' ? 'sm-settings-feedback--error' : 'sm-settings-feedback--success'
           ]"
         >
-          <span class="pe-feedback-message">{{ feedbackMessage }}</span>
-          <button class="pe-feedback-close" @click="dismissFeedback">关闭</button>
+          <span>{{ feedbackMessage }}</span>
+          <button class="sm-prompt-settings__feedback-close" @click="dismissFeedback">关闭</button>
         </div>
       </Transition>
 
-      <div class="pe-content">
-        <div v-if="activeTab === 'basic'" class="pe-tab-pane">
+      <div class="sm-prompt-settings__content">
+        <div v-if="activeTab === 'basic'" class="sm-prompt-settings__pane">
           <PromptBasicConfig />
         </div>
 
-        <div v-else-if="activeTab === 'variables'" class="pe-tab-pane">
+        <div v-else-if="activeTab === 'variables'" class="sm-prompt-settings__pane">
           <PromptVariablesManager />
         </div>
 
-        <div v-else-if="activeTab === 'examples'" class="pe-tab-pane">
+        <div v-else-if="activeTab === 'examples'" class="sm-prompt-settings__pane">
           <ExampleManager />
         </div>
 
-        <div v-else-if="activeTab === 'sandbox'" class="pe-tab-pane">
+        <div v-else-if="activeTab === 'sandbox'" class="sm-prompt-settings__pane">
           <PromptTestSandbox />
         </div>
 
-        <Transition name="pe-overlay">
-          <div v-if="initializing" class="pe-loading-overlay">
+        <Transition name="sm-prompt-overlay">
+          <div v-if="initializing" class="sm-prompt-settings__loading">
+            <span class="sm-spinner sm-spinner--large"></span>
             <span>加载中...</span>
           </div>
         </Transition>
@@ -95,81 +96,20 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.prompt-engineering-settings {
-  --pe-panel-padding: 16px;
-  --pe-panel-gap: 16px;
-  --pe-feedback-radius: var(--sm-radius-md);
-}
-
-.prompt-shell {
+.sm-prompt-settings__shell {
   min-height: 0;
   overflow: hidden;
 }
 
-.pe-tabs {
+.sm-prompt-settings__tabs {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--sm-color-border-subtle);
-  gap: 4px;
   flex-shrink: 0;
 }
 
-.pe-tab-item {
-  padding: 12px 16px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--sm-radius-sm);
-  color: var(--sm-color-text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast),
-    color var(--sm-transition-fast);
-}
-
-.pe-tab-item:hover {
-  color: var(--sm-color-text-primary);
-  background: var(--sm-color-surface-2);
-  border-color: var(--sm-color-border-subtle);
-}
-
-.pe-tab-active {
-  color: var(--sm-color-text-primary);
-  border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.08);
-}
-
-.pe-feedback-box {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
-  border-top: 1px solid transparent;
-  flex-shrink: 0;
-  gap: 12px;
-}
-
-.pe-feedback-error {
-  background: rgba(199, 120, 120, 0.08);
-  border-top-color: rgba(199, 120, 120, 0.24);
-}
-
-.pe-feedback-success {
-  background: rgba(127, 176, 138, 0.08);
-  border-top-color: rgba(127, 176, 138, 0.24);
-}
-
-.pe-feedback-message {
-  flex: 1;
-  font-size: 13px;
-  color: var(--sm-color-text-primary);
-  line-height: 1.5;
-}
-
-.pe-feedback-close {
+.sm-prompt-settings__feedback-close {
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--sm-radius-sm);
@@ -186,222 +126,58 @@ onBeforeUnmount(() => {
   opacity: 0.7;
 }
 
-.pe-feedback-close:hover {
+.sm-prompt-settings__feedback-close:hover {
   color: var(--sm-color-text-primary);
   border-color: var(--sm-color-border-default);
   background: var(--sm-color-surface-2);
 }
 
-.pe-content {
+.sm-prompt-settings__content {
   flex: 1;
   overflow-y: auto;
   position: relative;
   min-height: 0;
 }
 
-.pe-tab-pane {
+.sm-prompt-settings__pane {
   min-height: 100%;
 }
 
-.pe-loading-overlay {
+.sm-prompt-settings__loading {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--sm-space-3);
   background: rgba(11, 11, 12, 0.72);
   color: var(--sm-color-text-secondary);
   font-size: 14px;
   z-index: 2;
 }
 
-.pe-feedback-enter-active,
-.pe-feedback-leave-active,
-.pe-overlay-enter-active,
-.pe-overlay-leave-active {
+.sm-prompt-feedback-enter-active,
+.sm-prompt-feedback-leave-active,
+.sm-prompt-overlay-enter-active,
+.sm-prompt-overlay-leave-active {
   transition: opacity 0.18s ease;
 }
 
-.pe-feedback-enter-from,
-.pe-feedback-leave-to,
-.pe-overlay-enter-from,
-.pe-overlay-leave-to {
+.sm-prompt-feedback-enter-from,
+.sm-prompt-feedback-leave-to,
+.sm-prompt-overlay-enter-from,
+.sm-prompt-overlay-leave-to {
   opacity: 0;
 }
 
-:deep(.pe-info-box),
-:deep(.pe-form-card),
-:deep(.pe-panel),
-:deep(.pe-header-container),
-:deep(.pe-table),
-:deep(.pe-table-container),
-:deep(.pe-variable-card),
-:deep(.pe-dialog),
-:deep(.pe-form-container) {
-  background: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  box-shadow: none;
-}
-
-:deep(.pe-form-container) {
-  padding: 0;
-  border: none;
-  background: transparent;
-}
-
-:deep(.pe-info-title),
-:deep(.pe-panel-title),
-:deep(.pe-section-title),
-:deep(.pe-dialog-title),
-:deep(.pe-stat-value),
-:deep(.pe-variable-name),
-:deep(.pe-table-header) {
-  color: var(--sm-color-text-primary);
-}
-
-:deep(.pe-info-description),
-:deep(.pe-section-description),
-:deep(.pe-panel-description),
-:deep(.pe-empty-state),
-:deep(.pe-loading-text),
-:deep(.pe-result-meta),
-:deep(.pe-variable-hint),
-:deep(.pe-filter-label),
-:deep(.pe-stat-label),
-:deep(.pe-table-info),
-:deep(.pe-empty-text) {
-  color: var(--sm-color-text-secondary);
-}
-
-:deep(.setting-switch-card) {
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-2);
-  box-shadow: none;
-  transform: none;
-}
-
-:deep(.setting-switch-card:hover),
-:deep(.setting-switch-card:focus-within) {
-  border-color: var(--sm-color-border-accent);
-  background: var(--sm-color-surface-hover);
-  box-shadow: none;
-  transform: none;
-}
-
-:deep(.toggle-label) {
-  background: var(--sm-color-border-default);
-  border: 1px solid transparent;
-  box-shadow: none;
-}
-
-:deep(.toggle-label::after) {
-  box-shadow: none;
-}
-
-:deep(.toggle-input:checked + .toggle-label) {
-  background: var(--sm-color-accent);
-  border-color: var(--sm-color-border-accent);
-  box-shadow: none;
-}
-
-:deep(.pe-select),
-:deep(.pe-textarea),
-:deep(.pe-input),
-:deep(.pe-filter-input),
-:deep(.pe-filter-select) {
-  background: var(--sm-color-surface-1);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-sm);
-  color: var(--sm-color-text-primary);
-  box-shadow: none;
-}
-
-:deep(.pe-select:focus),
-:deep(.pe-textarea:focus),
-:deep(.pe-input:focus),
-:deep(.pe-filter-input:focus),
-:deep(.pe-filter-select:focus) {
-  border-color: var(--sm-color-border-accent);
-  box-shadow: none;
-}
-
-:deep(.pe-btn) {
-  border-radius: var(--sm-radius-sm);
-  box-shadow: none;
-}
-
-:deep(.pe-btn-secondary),
-:deep(.pe-text-btn) {
-  background: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-default);
-  color: var(--sm-color-text-primary);
-}
-
-:deep(.pe-btn-primary) {
-  background: rgba(142, 149, 217, 0.14);
-  border: 1px solid var(--sm-color-border-accent);
-  color: var(--sm-color-text-primary);
-}
-
-:deep(.pe-code-block),
-:deep(.pe-prompt-block),
-:deep(.pe-response-block) {
-  background: var(--sm-color-bg-embedded);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  color: var(--sm-color-text-secondary);
-  box-shadow: none;
-}
-
-:deep(.pe-loading-state) {
-  background: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-default);
-  color: var(--sm-color-text-secondary);
-}
-
-:deep(.pe-loading-spinner) {
-  border-color: rgba(255, 255, 255, 0.12);
-  border-top-color: var(--sm-color-accent);
-}
-
-:deep(.pe-warning-box) {
-  background: rgba(197, 161, 101, 0.08);
-  border: 1px solid rgba(197, 161, 101, 0.22);
-  color: var(--theme-warning);
-}
-
-:deep(.pe-error-box),
-:deep(.pe-error-message) {
-  background: rgba(199, 120, 120, 0.08);
-  border: 1px solid rgba(199, 120, 120, 0.22);
-  color: var(--theme-danger);
-}
-
-:deep(.pe-success-message) {
-  background: rgba(127, 176, 138, 0.08);
-  border: 1px solid rgba(127, 176, 138, 0.22);
-  color: var(--theme-success);
-}
-
-:deep(.pe-dialog-overlay),
-:deep(.pe-table-loading-mask) {
-  backdrop-filter: none;
-}
-
-:deep(.pe-table-wrapper.pe-loading .pe-table-scroll) {
-  filter: none;
-  opacity: 0.48;
-}
-
 @media (max-width: 720px) {
-  .pe-tabs {
+  .sm-prompt-settings__tabs {
     overflow-x: auto;
     padding: 0 12px;
   }
 
-  .pe-feedback-box {
+  .sm-settings-feedback {
     align-items: flex-start;
   }
 }

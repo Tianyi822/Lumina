@@ -72,28 +72,28 @@ function formatScore(score: number): string {
 </script>
 
 <template>
-  <div class="pe-header-container">
-    <!-- 统计卡片区域 -->
-    <div class="pe-stats-row">
-      <div class="pe-stat-card">
-        <span class="pe-stat-label">示例</span>
-        <span class="pe-stat-value pe-stat-dynamic">{{ stats?.total ?? 0 }}</span>
+  <div class="sm-settings-card sm-prompt-example-header">
+    <div class="sm-prompt-example-header__stats">
+      <div class="sm-prompt-example-header__stat-card">
+        <span class="sm-prompt-example-header__stat-label">示例</span>
+        <span class="sm-prompt-example-header__stat-value sm-prompt-example-header__stat-value--accent">
+          {{ stats?.total ?? 0 }}
+        </span>
       </div>
-      <div class="pe-stat-card">
-        <span class="pe-stat-label">平均质量</span>
-        <span class="pe-stat-value pe-stat-quality">{{
-          stats ? formatScore(stats.avgQualityScore) : '-'
-        }}</span>
+      <div class="sm-prompt-example-header__stat-card">
+        <span class="sm-prompt-example-header__stat-label">平均质量</span>
+        <span class="sm-prompt-example-header__stat-value sm-prompt-example-header__stat-value--success">
+          {{ stats ? formatScore(stats.avgQualityScore) : '-' }}
+        </span>
       </div>
     </div>
 
-    <!-- 筛选器区域 -->
-    <div class="pe-filter-row">
-      <div class="pe-filter-group">
-        <label class="pe-filter-label">最低分数</label>
+    <div class="sm-prompt-example-header__filters">
+      <div class="sm-prompt-example-header__filter-group">
+        <label class="sm-prompt-example-header__label">最低分数</label>
         <select
           :value="filter.minQualityScore ?? 0"
-          class="pe-select pe-filter-select"
+          class="sm-select"
           @change="
             updateFilter('minQualityScore', Number(($event.target as HTMLSelectElement).value))
           "
@@ -104,11 +104,11 @@ function formatScore(score: number): string {
         </select>
       </div>
 
-      <div class="pe-filter-group pe-filter-tool">
-        <label class="pe-filter-label">工具</label>
+      <div class="sm-prompt-example-header__filter-group sm-prompt-example-header__filter-group--tool">
+        <label class="sm-prompt-example-header__label">工具</label>
         <select
           :value="filter.toolName ?? ''"
-          class="pe-select pe-filter-select"
+          class="sm-select"
           @change="
             updateFilter('toolName', ($event.target as HTMLSelectElement).value || undefined)
           "
@@ -119,31 +119,30 @@ function formatScore(score: number): string {
         </select>
       </div>
 
-      <div class="pe-filter-group pe-filter-search">
-        <label class="pe-filter-label">搜索</label>
+      <div class="sm-prompt-example-header__filter-group sm-prompt-example-header__filter-group--search">
+        <label class="sm-prompt-example-header__label">搜索</label>
         <input
           type="text"
           :value="searchQuery ?? ''"
-          class="pe-input pe-filter-input"
+          class="sm-input"
           placeholder="搜索查询、思考或工具..."
           @input="emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
         />
       </div>
     </div>
 
-    <!-- 操作按钮区域 -->
-    <div class="pe-actions-row">
-      <button class="pe-btn pe-btn-secondary" :disabled="loading" @click="emit('extract')">
+    <div class="sm-prompt-example-header__actions">
+      <button class="sm-button sm-button--secondary" :disabled="loading" @click="emit('extract')">
         提取
       </button>
-      <button class="pe-btn pe-btn-secondary" :disabled="loading" @click="emit('import')">
+      <button class="sm-button sm-button--secondary" :disabled="loading" @click="emit('import')">
         导入
       </button>
-      <button class="pe-btn pe-btn-secondary" :disabled="loading" @click="emit('export')">
+      <button class="sm-button sm-button--secondary" :disabled="loading" @click="emit('export')">
         导出
       </button>
       <button
-        class="pe-btn pe-btn-danger"
+        class="sm-button sm-button--danger"
         :disabled="loading || (stats?.total ?? 0) === 0"
         @click="emit('clear-dynamic')"
       >
@@ -154,195 +153,82 @@ function formatScore(score: number): string {
 </template>
 
 <style scoped>
-/* 容器 */
-.pe-header-container {
-  padding: 16px;
-  background: var(--theme-bg-secondary);
-  border-bottom: 1px solid var(--theme-border);
+.sm-prompt-example-header {
+  gap: var(--sm-space-4);
 }
 
-/* 统计卡片区域 */
-.pe-stats-row {
+.sm-prompt-example-header__stats {
   display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--sm-space-3);
 }
 
-.pe-stat-card {
+.sm-prompt-example-header__stat-card {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 1;
   padding: 12px 8px;
-  background: var(--theme-bg-tertiary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  min-width: 0;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
 }
 
-.pe-stat-label {
+.sm-prompt-example-header__stat-label,
+.sm-prompt-example-header__label {
   font-size: 12px;
-  color: var(--theme-text-secondary);
-  margin-bottom: 4px;
+  color: var(--sm-color-text-secondary);
 }
 
-.pe-stat-value {
+.sm-prompt-example-header__stat-value {
   font-size: 18px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
-.pe-stat-dynamic {
-  color: var(--theme-accent);
+.sm-prompt-example-header__stat-value--accent {
+  color: var(--sm-color-accent-hover);
 }
 
-.pe-stat-quality {
-  color: var(--theme-success, #22c55e);
+.sm-prompt-example-header__stat-value--success {
+  color: #7fb08a;
 }
 
-/* 筛选器区域 */
-.pe-filter-row {
+.sm-prompt-example-header__filters {
   display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
   flex-wrap: wrap;
+  gap: var(--sm-space-3);
 }
 
-.pe-filter-group {
+.sm-prompt-example-header__filter-group {
+  min-width: 80px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 80px;
 }
 
-.pe-filter-tool {
+.sm-prompt-example-header__filter-group--tool {
   max-width: 120px;
 }
 
-.pe-filter-search {
+.sm-prompt-example-header__filter-group--search {
   flex: 1;
   min-width: 150px;
 }
 
-.pe-filter-label {
-  display: inline-flex;
-  align-items: center;
-  font-size: 12px;
-  color: var(--theme-text-secondary);
-  line-height: 1.2;
-}
-
-.pe-filter-select,
-.pe-filter-input {
-  padding: 6px 10px;
-  min-height: 34px;
-  font-size: 13px;
-  color: var(--theme-text);
-  background: var(--theme-bg-tertiary);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  transition: border-color 0.15s ease;
-  box-sizing: border-box;
-}
-
-.pe-filter-select:focus,
-.pe-filter-input:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-}
-
-.pe-filter-input {
-  width: 100%;
-}
-
-.pe-filter-input::placeholder {
-  color: var(--theme-text-tertiary);
-}
-
-/* 下拉框样式 */
-.pe-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background:
-    var(--icon-arrow-down-svg) no-repeat right 8px center,
-    var(--theme-bg-tertiary);
-  background-size: 10px;
-  padding-right: 28px;
-  cursor: pointer;
-  min-width: 80px;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pe-select:hover {
-  background:
-    var(--icon-arrow-down-svg) no-repeat right 8px center,
-    var(--theme-bg-hover, var(--theme-bg-tertiary));
-  background-size: 10px;
-}
-
-/* 操作按钮区域 */
-.pe-actions-row {
+.sm-prompt-example-header__actions {
   display: flex;
-  gap: 10px;
   flex-wrap: wrap;
-  align-items: center;
+  gap: var(--sm-space-3);
 }
 
-.pe-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 14px;
-  font-size: 13px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  line-height: 1.2;
-  box-sizing: border-box;
-}
+@media (max-width: 640px) {
+  .sm-prompt-example-header__stats {
+    flex-direction: column;
+  }
 
-.pe-btn-icon {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.pe-btn-primary {
-  background: var(--theme-accent);
-  color: white;
-  border: none;
-}
-
-.pe-btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.pe-btn-secondary {
-  background: var(--theme-bg-tertiary);
-  color: var(--theme-text);
-  border: 1px solid var(--theme-border);
-}
-
-.pe-btn-secondary:hover:not(:disabled) {
-  background: var(--theme-bg-hover, var(--theme-bg-tertiary));
-}
-
-.pe-btn-danger {
-  background: transparent;
-  color: var(--theme-error, #ef4444);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.pe-btn-danger:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.pe-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  .sm-prompt-example-header__actions .sm-button {
+    width: 100%;
+  }
 }
 </style>

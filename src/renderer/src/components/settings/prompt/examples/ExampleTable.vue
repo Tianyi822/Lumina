@@ -116,9 +116,9 @@ function formatQualityScore(score: number): string {
 
 // 获取质量分数颜色
 function getQualityScoreColor(score: number): string {
-  if (score >= 0.8) return 'var(--theme-success, #22c55e)'
-  if (score >= 0.6) return 'var(--theme-warning, #f59e0b)'
-  return 'var(--theme-error, #ef4444)'
+  if (score >= 0.8) return 'rgba(127, 176, 138, 0.92)'
+  if (score >= 0.6) return 'rgba(197, 161, 101, 0.92)'
+  return 'rgba(199, 120, 120, 0.92)'
 }
 
 // 截断长文本
@@ -150,128 +150,125 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="pe-table-container">
-    <!-- 批量操作栏 -->
-    <div v-if="selectedIds && selectedIds.length > 0" class="pe-batch-actions">
-      <span class="pe-batch-info">已选择 {{ selectedIds.length }} 项</span>
-      <div class="pe-batch-buttons">
-        <button class="pe-btn pe-btn-danger pe-btn-sm" @click="handleBatchDelete">批量删除</button>
-      </div>
+  <div class="sm-prompt-example-table">
+    <div v-if="selectedIds && selectedIds.length > 0" class="sm-settings-card sm-prompt-example-table__selection-bar">
+      <span class="sm-prompt-example-table__selection-info">已选择 {{ selectedIds.length }} 项</span>
+      <button class="sm-button sm-button--danger sm-button--small" @click="handleBatchDelete">
+        批量删除
+      </button>
     </div>
 
-    <!-- 表格 -->
-    <div class="pe-table-wrapper" :class="{ 'pe-loading': loading }">
-      <div v-if="loading" class="pe-table-loading-mask" aria-live="polite">
-        <span class="pe-loading-spinner"></span>
-        <span class="pe-loading-text">正在加载示例...</span>
+    <div class="sm-prompt-example-table__wrapper" :class="{ 'is-loading': loading }">
+      <div v-if="loading" class="sm-prompt-example-table__loading" aria-live="polite">
+        <span class="sm-spinner sm-spinner--large"></span>
+        <span>正在加载示例...</span>
       </div>
 
-      <!-- 左侧滚动阴影 -->
-      <div v-if="canScrollLeft" class="pe-scroll-shadow pe-scroll-shadow-left"></div>
-      <!-- 右侧滚动阴影 -->
-      <div v-if="canScrollRight" class="pe-scroll-shadow pe-scroll-shadow-right"></div>
+      <div v-if="canScrollLeft" class="sm-prompt-example-table__shadow sm-prompt-example-table__shadow--left"></div>
+      <div v-if="canScrollRight" class="sm-prompt-example-table__shadow sm-prompt-example-table__shadow--right"></div>
 
-      <div ref="scrollContainerRef" class="pe-table-scroll" @mousedown="handleMouseDown">
-        <table class="pe-table">
+      <div ref="scrollContainerRef" class="sm-prompt-example-table__scroll" @mousedown="handleMouseDown">
+        <table class="sm-prompt-example-table__table">
           <thead>
-            <tr class="pe-table-header">
-              <th class="pe-table-cell pe-checkbox-cell">
+            <tr class="sm-prompt-example-table__head-row">
+              <th class="sm-prompt-example-table__cell sm-prompt-example-table__cell--checkbox">
                 <input
                   type="checkbox"
-                  class="pe-checkbox"
+                  class="sm-prompt-example-table__checkbox"
                   :checked="allSelected"
                   :indeterminate="indeterminate"
                   @change="toggleSelectAll"
                 />
               </th>
-              <th class="pe-table-cell">用户查询</th>
-              <th class="pe-table-cell">思考过程</th>
-              <th class="pe-table-cell pe-sortable-cell">
+              <th class="sm-prompt-example-table__cell">用户查询</th>
+              <th class="sm-prompt-example-table__cell">思考过程</th>
+              <th class="sm-prompt-example-table__cell sm-prompt-example-table__cell--sortable">
                 质量分数
-                <span class="pe-sort-icon">↓</span>
+                <span class="sm-prompt-example-table__sort-icon">↓</span>
               </th>
-              <th class="pe-table-cell">使用的工具</th>
-              <th class="pe-table-cell pe-action-cell">操作</th>
+              <th class="sm-prompt-example-table__cell">使用的工具</th>
+              <th class="sm-prompt-example-table__cell sm-prompt-example-table__cell--action">操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="examples.length === 0" class="pe-table-row pe-empty-row">
-              <td colspan="6" class="pe-table-cell pe-empty-cell">
-                <div class="pe-empty-state">
-                  <p class="pe-empty-text">{{ loading ? '加载中...' : '暂无示例数据' }}</p>
+            <tr v-if="examples.length === 0" class="sm-prompt-example-table__row sm-prompt-example-table__row--empty">
+              <td colspan="6" class="sm-prompt-example-table__empty-cell">
+                <div class="sm-empty sm-prompt-example-table__empty">
+                  <p>{{ loading ? '加载中...' : '暂无示例数据' }}</p>
                 </div>
               </td>
             </tr>
             <tr
               v-for="example in examples"
               :key="example.id"
-              class="pe-table-row"
-              :class="{ 'pe-selected': selectedIds?.includes(example.id) }"
+              class="sm-prompt-example-table__row"
+              :class="{ 'is-selected': selectedIds?.includes(example.id) }"
             >
-              <td class="pe-table-cell pe-checkbox-cell">
+              <td class="sm-prompt-example-table__cell sm-prompt-example-table__cell--checkbox">
                 <input
                   type="checkbox"
-                  class="pe-checkbox"
+                  class="sm-prompt-example-table__checkbox"
                   :checked="selectedIds?.includes(example.id)"
                   @change="toggleSelection(example.id)"
                 />
               </td>
-              <td class="pe-table-cell pe-query-cell">
-                <div class="pe-cell-content" :title="example.userQuery">
+              <td class="sm-prompt-example-table__cell">
+                <div class="sm-prompt-example-table__cell-content" :title="example.userQuery">
                   {{ truncateText(example.userQuery, 50) }}
                 </div>
               </td>
-              <td class="pe-table-cell pe-thought-cell">
-                <div class="pe-cell-content" :title="example.thought">
+              <td class="sm-prompt-example-table__cell">
+                <div class="sm-prompt-example-table__cell-content" :title="example.thought">
                   {{ truncateText(example.thought, 50) }}
                 </div>
               </td>
-              <td class="pe-table-cell pe-score-cell">
+              <td class="sm-prompt-example-table__cell sm-prompt-example-table__cell--score">
                 <span
-                  class="pe-quality-badge"
+                  class="sm-prompt-example-table__score-badge"
                   :style="{ backgroundColor: getQualityScoreColor(example.qualityScore) }"
                 >
                   {{ formatQualityScore(example.qualityScore) }}
                 </span>
               </td>
-              <td class="pe-table-cell pe-tools-cell">
-                <div v-if="example.toolsUsed && example.toolsUsed.length > 0" class="pe-tools-list">
+              <td class="sm-prompt-example-table__cell sm-prompt-example-table__cell--tools">
+                <div
+                  v-if="example.toolsUsed && example.toolsUsed.length > 0"
+                  class="sm-prompt-example-table__tool-list"
+                >
                   <span
                     v-for="(tool, index) in example.toolsUsed.slice(0, 2)"
                     :key="index"
-                    class="pe-tool-tag"
+                    class="sm-prompt-example-table__tool-tag"
                   >
                     {{ tool }}
                   </span>
-                  <span v-if="example.toolsUsed.length > 2" class="pe-tool-more">
+                  <span v-if="example.toolsUsed.length > 2" class="sm-prompt-example-table__tool-tag">
                     +{{ example.toolsUsed.length - 2 }}
                   </span>
                 </div>
-                <span v-else class="pe-no-tools">-</span>
+                <span v-else class="sm-prompt-example-table__no-tools">-</span>
               </td>
-              <td class="pe-table-cell pe-action-cell">
-                <div class="pe-action-buttons">
-                  <button
-                    class="pe-btn pe-btn-icon pe-btn-delete"
-                    title="删除"
-                    @click="handleDelete(example.id)"
+              <td class="sm-prompt-example-table__cell sm-prompt-example-table__cell--action">
+                <button
+                  class="sm-icon-button sm-prompt-example-table__delete-button"
+                  title="删除"
+                  @click="handleDelete(example.id)"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                    >
-                      <path
-                        d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
+                    <path
+                      d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </button>
               </td>
             </tr>
           </tbody>
@@ -279,60 +276,48 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 分页信息 -->
-    <div v-if="examples.length > 0" class="pe-table-footer">
-      <span class="pe-table-info">共 {{ examples.length }} 条示例</span>
+    <div v-if="examples.length > 0" class="sm-settings-card sm-prompt-example-table__footer">
+      <span class="sm-prompt-example-table__footer-info">共 {{ examples.length }} 条示例</span>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* 容器 */
-.pe-table-container {
+.sm-prompt-example-table {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sm-space-3);
 }
 
-/* 批量操作栏 */
-.pe-batch-actions {
+.sm-prompt-example-table__selection-bar,
+.sm-prompt-example-table__footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
+  gap: var(--sm-space-3);
 }
 
-.pe-batch-info {
+.sm-prompt-example-table__selection-info,
+.sm-prompt-example-table__footer-info {
   font-size: 13px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-secondary);
 }
 
-.pe-batch-buttons {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-/* 表格包装器 */
-.pe-table-wrapper {
+.sm-prompt-example-table__wrapper {
   position: relative;
-  overflow: hidden;
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  background: var(--theme-bg-secondary);
   min-height: 260px;
+  overflow: hidden;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
 }
 
-.pe-table-scroll {
+.sm-prompt-example-table__scroll {
   overflow-x: auto;
   cursor: grab;
 }
 
-/* 滚动阴影指示器 */
-.pe-scroll-shadow {
+.sm-prompt-example-table__shadow {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -341,23 +326,23 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.pe-scroll-shadow-left {
+.sm-prompt-example-table__shadow--left {
   left: 0;
-  background: linear-gradient(to right, var(--theme-bg-secondary), transparent);
+  background: linear-gradient(to right, var(--sm-color-surface-2), transparent);
 }
 
-.pe-scroll-shadow-right {
+.sm-prompt-example-table__shadow--right {
   right: 0;
-  background: linear-gradient(to left, var(--theme-bg-secondary), transparent);
+  background: linear-gradient(to left, var(--sm-color-surface-2), transparent);
 }
 
-.pe-table-wrapper.pe-loading .pe-table-scroll {
-  opacity: 0.5;
+.sm-prompt-example-table__wrapper.is-loading .sm-prompt-example-table__scroll {
+  opacity: 0.48;
   pointer-events: none;
   user-select: none;
 }
 
-.pe-table-loading-mask {
+.sm-prompt-example-table__loading {
   position: absolute;
   inset: 0;
   z-index: 2;
@@ -365,105 +350,70 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  background: rgba(15, 23, 42, 0.08);
-  color: var(--theme-text-secondary);
+  gap: var(--sm-space-3);
+  background: rgba(11, 11, 12, 0.32);
+  color: var(--sm-color-text-secondary);
 }
 
-.pe-loading-spinner {
-  width: 28px;
-  height: 28px;
-  border: 2px solid rgba(70, 170, 143, 0.18);
-  border-top-color: var(--theme-accent);
-  border-radius: 50%;
-  animation: pe-table-spin 0.8s linear infinite;
-}
-
-.pe-loading-text {
-  font-size: 13px;
-}
-
-@keyframes pe-table-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* 表格 */
-.pe-table {
+.sm-prompt-example-table__table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
 }
 
-/* 表头 */
-.pe-table-header {
-  background: var(--theme-bg-tertiary);
+.sm-prompt-example-table__head-row {
+  background: var(--sm-color-surface-1);
 }
 
-.pe-table-header .pe-table-cell {
-  font-weight: 600;
-  color: var(--theme-text);
+.sm-prompt-example-table__cell {
   padding: 12px;
+  color: var(--sm-color-text-primary);
   text-align: left;
+  vertical-align: middle;
+}
+
+.sm-prompt-example-table__head-row .sm-prompt-example-table__cell {
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.pe-sortable-cell {
+.sm-prompt-example-table__cell--sortable {
   cursor: pointer;
   user-select: none;
 }
 
-.pe-sortable-cell:hover {
-  background: var(--theme-bg-tertiary);
-}
-
-.pe-sort-icon {
+.sm-prompt-example-table__sort-icon {
   margin-left: 4px;
   opacity: 0.5;
   font-size: 12px;
 }
 
-/* 表格行 */
-.pe-table-row {
-  border-top: 1px solid var(--theme-border);
-  transition: background 0.15s ease;
+.sm-prompt-example-table__row {
+  border-top: 1px solid var(--sm-color-border-default);
+  transition: background-color var(--sm-transition-fast);
 }
 
-.pe-table-row:hover {
-  background: var(--theme-bg-tertiary);
+.sm-prompt-example-table__row:hover {
+  background: var(--sm-color-surface-hover);
 }
 
-.pe-table-row.pe-selected {
-  background: rgba(var(--theme-accent-rgb, 59, 130, 246), 0.1);
+.sm-prompt-example-table__row.is-selected {
+  background: rgba(142, 149, 217, 0.08);
 }
 
-/* 表格单元格 */
-.pe-table-cell {
-  padding: 12px;
-  color: var(--theme-text);
-  vertical-align: middle;
-}
-
-/* 复选框单元格 */
-.pe-checkbox-cell {
+.sm-prompt-example-table__cell--checkbox {
   width: 40px;
   text-align: center;
 }
 
-.pe-checkbox {
+.sm-prompt-example-table__checkbox {
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: var(--theme-accent);
+  accent-color: var(--sm-color-accent);
 }
 
-/* 内容单元格 */
-.pe-cell-content {
+.sm-prompt-example-table__cell-content {
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -471,147 +421,77 @@ onUnmounted(() => {
   line-height: 1.5;
 }
 
-/* 质量分数单元格 */
-.pe-score-cell {
+.sm-prompt-example-table__cell--score {
   width: 100px;
 }
 
-.pe-quality-badge {
+.sm-prompt-example-table__score-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 22px;
   padding: 0 8px;
-  border-radius: 12px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.92);
   font-size: 12px;
-  font-weight: 500;
-  color: white;
-  line-height: 1;
-  box-sizing: border-box;
+  font-weight: 600;
 }
 
-/* 工具单元格 */
-.pe-tools-cell {
+.sm-prompt-example-table__cell--tools {
   width: 150px;
 }
 
-.pe-tools-list {
+.sm-prompt-example-table__tool-list {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  align-items: center;
 }
 
-.pe-tool-tag,
-.pe-tool-more {
+.sm-prompt-example-table__tool-tag {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   min-height: 20px;
   padding: 0 6px;
-  background: var(--theme-bg-tertiary);
-  border-radius: 3px;
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
   font-size: 11px;
-  color: var(--theme-text-secondary);
-  line-height: 1;
-  box-sizing: border-box;
-  white-space: nowrap;
 }
 
-.pe-no-tools {
-  color: var(--theme-text-secondary);
+.sm-prompt-example-table__no-tools {
+  color: var(--sm-color-text-secondary);
 }
 
-/* 操作单元格 */
-.pe-action-cell {
+.sm-prompt-example-table__cell--action {
   width: 60px;
   text-align: center;
 }
 
-.pe-action-buttons {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.sm-prompt-example-table__delete-button:hover {
+  background: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.28);
+  color: #c77878;
 }
 
-/* 按钮 */
-.pe-btn {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pe-btn-sm {
-  padding: 4px 12px;
-  font-size: 12px;
-  border-radius: 4px;
-  line-height: 1;
-}
-
-.pe-btn-danger {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--theme-error, #ef4444);
-}
-
-.pe-btn-danger:hover {
-  background: rgba(239, 68, 68, 0.2);
-}
-
-.pe-btn-icon {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: 4px;
-  color: var(--theme-text-secondary);
-}
-
-.pe-btn-icon svg {
-  display: block;
-}
-
-.pe-btn-icon:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--theme-error, #ef4444);
-}
-
-/* 空状态 */
-.pe-empty-row {
+.sm-prompt-example-table__row--empty {
   height: 120px;
 }
 
-.pe-empty-cell {
+.sm-prompt-example-table__empty-cell {
   padding: 0 !important;
 }
 
-.pe-empty-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 120px;
+.sm-prompt-example-table__empty {
+  min-height: 120px;
+  border: none;
+  background: transparent;
 }
 
-.pe-empty-text {
-  font-size: 14px;
-  color: var(--theme-text-secondary);
-}
-
-/* 表格底部 */
-.pe-table-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-}
-
-.pe-table-info {
-  font-size: 12px;
-  color: var(--theme-text-secondary);
+@media (max-width: 640px) {
+  .sm-prompt-example-table__selection-bar,
+  .sm-prompt-example-table__footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>

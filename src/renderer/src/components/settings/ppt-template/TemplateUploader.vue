@@ -38,14 +38,13 @@ const resetForm = createResetForm(fileInputRef)
 </script>
 
 <template>
-  <div class="upload-section">
-    <div class="section-header">
-      <h3 class="section-title">上传 PPT 模板</h3>
+  <div class="sm-ppt-upload">
+    <div class="sm-ppt-upload__header">
+      <h3 class="sm-settings-page__section-title">上传 PPT 模板</h3>
     </div>
 
-    <!-- 拖拽上传区域 -->
     <div
-      class="upload-dropzone"
+      class="sm-ppt-upload__dropzone"
       :class="{
         'is-dragging': isDragging,
         'has-file': selectedFile
@@ -60,46 +59,45 @@ const resetForm = createResetForm(fileInputRef)
         ref="fileInputRef"
         type="file"
         accept=".pptx"
-        class="hidden-input"
+        class="sm-ppt-upload__input"
         @change="handleFileSelect"
       />
 
-      <!-- 未选择文件时的状态 -->
-      <div v-if="!selectedFile" class="dropzone-content">
-        <div class="upload-icon">
+      <div v-if="!selectedFile" class="sm-ppt-upload__placeholder">
+        <div class="sm-ppt-upload__icon">
           <SvgIcon name="upload" :size="24" />
         </div>
-        <div class="upload-text">
-          <p class="upload-title">拖拽文件到此处，或 <span class="upload-link">点击上传</span></p>
-          <p class="upload-hint">支持 .pptx 格式，最大 50MB</p>
+        <div class="sm-ppt-upload__copy">
+          <p class="sm-ppt-upload__title">
+            拖拽文件到此处，或 <span class="sm-ppt-upload__link">点击上传</span>
+          </p>
+          <p class="sm-ppt-upload__subtitle">支持 .pptx 格式，最大 50MB</p>
         </div>
       </div>
 
-      <!-- 已选择文件时的状态 -->
-      <div v-else class="dropzone-file-info">
-        <div class="file-icon">
+      <div v-else class="sm-ppt-upload__file">
+        <div class="sm-ppt-upload__file-icon">
           <SvgIcon name="file" :size="20" />
         </div>
-        <div class="file-details">
-          <p class="file-name">{{ selectedFile.name }}</p>
-          <p class="file-size">{{ formatFileSize(selectedFile.size) }}</p>
+        <div class="sm-ppt-upload__file-details">
+          <p class="sm-ppt-upload__file-name">{{ selectedFile.name }}</p>
+          <p class="sm-ppt-upload__file-size">{{ formatFileSize(selectedFile.size) }}</p>
         </div>
-        <button class="btn-remove" title="移除文件" @click.stop="resetForm">
+        <button class="sm-icon-button sm-ppt-upload__remove" title="移除文件" @click.stop="resetForm">
           <SvgIcon name="close" :size="16" />
         </button>
       </div>
     </div>
 
-    <!-- 模板名称输入（文件选择后显示） -->
-    <div v-if="selectedFile" class="upload-form-footer">
-      <div class="form-group">
-        <label class="form-label" for="template-name">模板名称</label>
-        <div class="form-row">
+    <div v-if="selectedFile" class="sm-ppt-upload__form">
+      <div class="sm-ppt-upload__field">
+        <label class="sm-ppt-upload__label" for="template-name">模板名称</label>
+        <div class="sm-ppt-upload__row">
           <input
             id="template-name"
             v-model="templateName"
             type="text"
-            class="form-input"
+            class="sm-input"
             placeholder="输入模板名称"
           />
           <button
@@ -107,42 +105,33 @@ const resetForm = createResetForm(fileInputRef)
             :disabled="!templateName.trim() || uploading"
             @click="handleUpload"
           >
-            <span v-if="uploading" class="btn-loading">
+            <span v-if="uploading" class="sm-ppt-upload__button-label">
               <SvgIcon name="spinner" :size="14" :spin="true" />
               上传中
             </span>
             <span v-else>上传模板</span>
           </button>
         </div>
-        <span class="form-hint">保存后不可修改名称</span>
+        <span class="sm-ppt-upload__hint">保存后不可修改名称</span>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.upload-section {
+.sm-ppt-upload {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--sm-space-4);
 }
 
-.section-header {
+.sm-ppt-upload__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
 }
 
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-  margin: 0;
-}
-
-/* 拖拽上传区域 */
-.upload-dropzone {
+.sm-ppt-upload__dropzone {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -152,30 +141,29 @@ const resetForm = createResetForm(fileInputRef)
   padding: 24px;
   border: 1px dashed var(--sm-color-border-default);
   border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-2);
+  background: var(--sm-color-surface-1);
   cursor: pointer;
   transition:
     border-color var(--sm-transition-fast),
     background-color var(--sm-transition-fast);
 }
 
-.upload-dropzone:hover {
+.sm-ppt-upload__dropzone:hover {
   border-color: var(--sm-color-border-accent);
   background: var(--sm-color-surface-hover);
 }
 
-.upload-dropzone.is-dragging {
+.sm-ppt-upload__dropzone.is-dragging,
+.sm-ppt-upload__dropzone.has-file {
   border-color: var(--sm-color-border-accent);
   background: rgba(142, 149, 217, 0.08);
 }
 
-.upload-dropzone.has-file {
+.sm-ppt-upload__dropzone.has-file {
   border-style: solid;
-  border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.08);
 }
 
-.hidden-input {
+.sm-ppt-upload__input {
   position: absolute;
   width: 0;
   height: 0;
@@ -183,8 +171,7 @@ const resetForm = createResetForm(fileInputRef)
   pointer-events: none;
 }
 
-/* 拖拽区域内容 */
-.dropzone-content {
+.sm-ppt-upload__placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -192,141 +179,133 @@ const resetForm = createResetForm(fileInputRef)
   text-align: center;
 }
 
-.upload-icon {
+.sm-ppt-upload__icon {
   width: 48px;
   height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--sm-color-surface-1);
+  background: var(--sm-color-surface-2);
   border: 1px solid var(--sm-color-border-default);
   border-radius: 999px;
   color: var(--sm-color-accent-hover);
 }
 
-.upload-text {
+.sm-ppt-upload__copy {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.upload-title {
+.sm-ppt-upload__title {
+  margin: 0;
   font-size: 14px;
   color: var(--sm-color-text-primary);
-  margin: 0;
 }
 
-.upload-link {
+.sm-ppt-upload__link {
   color: var(--sm-color-accent-hover);
   font-weight: 500;
 }
 
-.upload-hint {
+.sm-ppt-upload__subtitle {
+  margin: 0;
   font-size: 12px;
   color: var(--sm-color-text-secondary);
-  margin: 0;
 }
 
-/* 已选文件信息 */
-.dropzone-file-info {
+.sm-ppt-upload__file {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 100%;
   padding: 8px;
 }
 
-.file-icon {
+.sm-ppt-upload__file-icon {
   width: 40px;
   height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--sm-color-surface-1);
+  background: var(--sm-color-surface-2);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-sm);
   color: var(--sm-color-accent-hover);
   flex-shrink: 0;
 }
 
-.file-details {
+.sm-ppt-upload__file-details {
   flex: 1;
   min-width: 0;
 }
 
-.file-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--sm-color-text-primary);
+.sm-ppt-upload__file-name {
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sm-color-text-primary);
 }
 
-.file-size {
+.sm-ppt-upload__file-size {
+  margin: 4px 0 0;
   font-size: 12px;
   color: var(--sm-color-text-secondary);
-  margin: 4px 0 0 0;
 }
 
-.btn-remove {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--sm-radius-sm);
-  cursor: pointer;
-  color: var(--sm-color-text-secondary);
-  transition: all 0.15s ease;
-  flex-shrink: 0;
+.sm-ppt-upload__remove:hover {
+  background-color: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.28);
+  color: #c77878;
 }
 
-.btn-remove:hover {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-/* 上传表单底部 */
-.upload-form-footer {
-  margin-top: 16px;
+.sm-ppt-upload__form {
   padding-top: 16px;
   border-top: 1px solid var(--sm-color-border-subtle);
 }
 
-.form-group {
+.sm-ppt-upload__field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.form-label {
+.sm-ppt-upload__label {
   font-size: 13px;
   font-weight: 500;
   color: var(--sm-color-text-primary);
 }
 
-.form-row {
+.sm-ppt-upload__row {
   display: flex;
   gap: 12px;
 }
 
-.form-input {
+.sm-ppt-upload__row .sm-input {
   flex: 1;
-  min-height: 36px;
 }
 
-.form-hint {
+.sm-ppt-upload__hint {
   font-size: 12px;
   color: var(--sm-color-text-secondary);
 }
 
-.btn-loading {
-  display: flex;
+.sm-ppt-upload__button-label {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+@media (max-width: 640px) {
+  .sm-ppt-upload__row {
+    flex-direction: column;
+  }
+
+  .sm-ppt-upload__row .sm-button {
+    width: 100%;
+  }
 }
 </style>

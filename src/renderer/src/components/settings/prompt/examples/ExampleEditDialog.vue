@@ -211,13 +211,12 @@ watch(
 </script>
 
 <template>
-  <Transition name="pe-fade">
-    <div v-if="visible" class="pe-dialog-overlay" @click.self="handleClose">
-      <div class="pe-dialog" @click.stop>
-        <!-- 头部 -->
-        <div class="pe-dialog-header">
-          <h3 class="pe-dialog-title">编辑示例</h3>
-          <button class="pe-dialog-close" @click="handleClose">
+  <Transition name="sm-prompt-dialog">
+    <div v-if="visible" class="sm-modal__overlay sm-prompt-example-dialog__overlay" @click.self="handleClose">
+      <div class="sm-modal__surface sm-prompt-example-dialog__surface" @click.stop>
+        <div class="sm-pane-header sm-prompt-example-dialog__header">
+          <h3 class="sm-prompt-example-dialog__title">编辑示例</h3>
+          <button class="sm-icon-button" @click="handleClose">
             <svg
               width="16"
               height="16"
@@ -235,99 +234,100 @@ watch(
           </button>
         </div>
 
-        <!-- 内容区 -->
-        <div class="pe-dialog-body">
-          <!-- 用户查询 -->
-          <div class="pe-form-group" :class="{ 'pe-has-error': errors.userQuery }">
-            <label class="pe-form-label"> 用户查询 <span class="pe-required">*</span> </label>
+        <div class="sm-prompt-example-dialog__body">
+          <div class="sm-prompt-example-dialog__field" :class="{ 'is-error': errors.userQuery }">
+            <label class="sm-prompt-example-dialog__label">
+              用户查询 <span class="sm-prompt-example-dialog__required">*</span>
+            </label>
             <textarea
               v-model="formData.userQuery"
-              class="pe-textarea"
+              class="sm-textarea"
               rows="3"
               placeholder="输入用户的问题或查询..."
               maxlength="2000"
             ></textarea>
-            <div class="pe-form-footer">
-              <span v-if="errors.userQuery" class="pe-error-text">{{ errors.userQuery }}</span>
-              <span v-else class="pe-char-count">{{ formData.userQuery.length }} / 2000</span>
+            <div class="sm-prompt-example-dialog__footer">
+              <span v-if="errors.userQuery" class="sm-prompt-example-dialog__error">{{ errors.userQuery }}</span>
+              <span v-else class="sm-prompt-example-dialog__count">{{ formData.userQuery.length }} / 2000</span>
             </div>
           </div>
 
-          <!-- 思考过程 -->
-          <div class="pe-form-group">
-            <label class="pe-form-label">思考过程</label>
+          <div class="sm-prompt-example-dialog__field">
+            <label class="sm-prompt-example-dialog__label">思考过程</label>
             <textarea
               v-model="formData.thought"
-              class="pe-textarea"
+              class="sm-textarea"
               rows="4"
               placeholder="输入 AI 的思考过程（可选）..."
             ></textarea>
-            <p class="pe-help-text">描述 AI 如何分析问题并决定使用哪些工具</p>
+            <p class="sm-prompt-example-dialog__help">描述 AI 如何分析问题并决定使用哪些工具</p>
           </div>
 
-          <!-- 工具调用 -->
-          <div class="pe-form-group" :class="{ 'pe-has-error': errors.toolCalls }">
-            <div class="pe-form-label-row">
-              <label class="pe-form-label">工具调用</label>
-              <div class="pe-form-actions-inline">
-                <button class="pe-text-btn" @click="insertExampleToolCall">插入示例</button>
-                <button class="pe-text-btn" @click="formatJSON">格式化</button>
+          <div class="sm-prompt-example-dialog__field" :class="{ 'is-error': errors.toolCalls }">
+            <div class="sm-prompt-example-dialog__label-row">
+              <label class="sm-prompt-example-dialog__label">工具调用</label>
+              <div class="sm-prompt-example-dialog__inline-actions">
+                <button class="sm-prompt-example-dialog__text-button" @click="insertExampleToolCall">
+                  插入示例
+                </button>
+                <button class="sm-prompt-example-dialog__text-button" @click="formatJSON">格式化</button>
               </div>
             </div>
             <textarea
               v-model="formData.toolCalls"
-              class="pe-textarea pe-code-editor"
+              class="sm-textarea sm-prompt-example-dialog__code"
               rows="8"
               placeholder='输入工具调用 JSON 数组，例如：[{"name":"tool_name","arguments":{},"result":"..."}]'
             ></textarea>
-            <div class="pe-form-footer">
-              <span v-if="errors.toolCalls" class="pe-error-text">{{ errors.toolCalls }}</span>
-              <p v-else class="pe-help-text">
+            <div class="sm-prompt-example-dialog__footer">
+              <span v-if="errors.toolCalls" class="sm-prompt-example-dialog__error">{{ errors.toolCalls }}</span>
+              <p v-else class="sm-prompt-example-dialog__help">
                 以 JSON 数组格式输入工具调用记录，包含工具名称、参数和执行结果
               </p>
             </div>
           </div>
 
-          <!-- 最终答案 -->
-          <div class="pe-form-group" :class="{ 'pe-has-error': errors.finalAnswer }">
-            <label class="pe-form-label"> 最终答案 <span class="pe-required">*</span> </label>
+          <div class="sm-prompt-example-dialog__field" :class="{ 'is-error': errors.finalAnswer }">
+            <label class="sm-prompt-example-dialog__label">
+              最终答案 <span class="sm-prompt-example-dialog__required">*</span>
+            </label>
             <textarea
               v-model="formData.finalAnswer"
-              class="pe-textarea"
+              class="sm-textarea"
               rows="5"
               placeholder="输入 AI 给用户的最终回答..."
               maxlength="5000"
             ></textarea>
-            <div class="pe-form-footer">
-              <span v-if="errors.finalAnswer" class="pe-error-text">{{ errors.finalAnswer }}</span>
-              <span v-else class="pe-char-count">{{ formData.finalAnswer.length }} / 5000</span>
+            <div class="sm-prompt-example-dialog__footer">
+              <span v-if="errors.finalAnswer" class="sm-prompt-example-dialog__error">{{ errors.finalAnswer }}</span>
+              <span v-else class="sm-prompt-example-dialog__count">{{ formData.finalAnswer.length }} / 5000</span>
             </div>
           </div>
 
-          <!-- 质量分数 -->
-          <div class="pe-form-group" :class="{ 'pe-has-error': errors.qualityScore }">
-            <label class="pe-form-label"> 质量分数: {{ formData.qualityScore.toFixed(2) }} </label>
+          <div class="sm-prompt-example-dialog__field" :class="{ 'is-error': errors.qualityScore }">
+            <label class="sm-prompt-example-dialog__label">
+              质量分数: {{ formData.qualityScore.toFixed(2) }}
+            </label>
             <input
               v-model.number="formData.qualityScore"
               type="range"
               min="0"
               max="1"
               step="0.05"
-              class="pe-slider"
+              class="sm-prompt-example-dialog__range"
             />
-            <div class="pe-slider-labels">
+            <div class="sm-prompt-example-dialog__range-labels">
               <span>0.0</span>
               <span>1.0</span>
             </div>
-            <p v-if="errors.qualityScore" class="pe-error-text">{{ errors.qualityScore }}</p>
-            <p v-else class="pe-help-text">示例的质量评分，用于筛选和排序</p>
+            <p v-if="errors.qualityScore" class="sm-prompt-example-dialog__error">{{ errors.qualityScore }}</p>
+            <p v-else class="sm-prompt-example-dialog__help">示例的质量评分，用于筛选和排序</p>
           </div>
         </div>
 
-        <!-- 底部按钮 -->
-        <div class="pe-dialog-footer">
-          <button class="pe-btn pe-btn-secondary" @click="handleCancel">取消</button>
-          <button class="pe-btn pe-btn-primary" @click="handleSave">保存</button>
+        <div class="sm-settings-actions sm-prompt-example-dialog__actions">
+          <button class="sm-button sm-button--secondary" @click="handleCancel">取消</button>
+          <button class="sm-button sm-button--primary" @click="handleSave">保存</button>
         </div>
       </div>
     </div>
@@ -335,280 +335,141 @@ watch(
 </template>
 
 <style scoped>
-/* 对话框遮罩 */
-.pe-dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.sm-prompt-example-dialog__overlay {
   z-index: 1000;
-  padding: 20px;
 }
 
-/* 对话框容器 */
-.pe-dialog {
-  background: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
+.sm-prompt-example-dialog__surface {
+  width: min(600px, 100%);
+  max-height: min(90vh, 780px);
   display: flex;
   flex-direction: column;
 }
 
-/* 头部 */
-.pe-dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--theme-border);
+.sm-prompt-example-dialog__header {
+  flex-shrink: 0;
 }
 
-.pe-dialog-title {
+.sm-prompt-example-dialog__title {
+  margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--theme-text);
-  margin: 0;
+  color: var(--sm-color-text-primary);
 }
 
-.pe-dialog-close {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--theme-text-secondary);
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-}
-
-.pe-dialog-close:hover {
-  background: var(--theme-bg-secondary);
-  color: var(--theme-text);
-}
-
-/* 内容区 */
-.pe-dialog-body {
-  padding: 20px;
-  overflow-y: auto;
+.sm-prompt-example-dialog__body {
   flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
 }
 
-/* 表单组 */
-.pe-form-group {
-  margin-bottom: 20px;
+.sm-prompt-example-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.pe-form-label {
-  display: block;
+.sm-prompt-example-dialog__field.is-error :deep(textarea) {
+  border-color: rgba(199, 120, 120, 0.4);
+}
+
+.sm-prompt-example-dialog__label,
+.sm-prompt-example-dialog__label-row {
   font-size: 13px;
   font-weight: 500;
-  color: var(--theme-text);
-  margin-bottom: 8px;
+  color: var(--sm-color-text-primary);
 }
 
-.pe-form-label-row {
+.sm-prompt-example-dialog__label-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: var(--sm-space-3);
 }
 
-.pe-required {
-  color: var(--theme-error, #ef4444);
-  margin-left: 2px;
+.sm-prompt-example-dialog__required,
+.sm-prompt-example-dialog__error {
+  color: #c77878;
 }
 
-/* 输入控件 */
-.pe-textarea,
-.pe-select {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--theme-text);
-  background: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  transition: border-color 0.15s ease;
-  box-sizing: border-box;
-}
-
-.pe-textarea:focus,
-.pe-select:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-}
-
-.pe-textarea {
-  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+.sm-prompt-example-dialog__code {
+  font-family: var(--sm-font-mono);
+  font-size: 12px;
   line-height: 1.6;
-  resize: vertical;
 }
 
-.pe-code-editor {
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.pe-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background: var(--theme-bg-secondary);
-  cursor: pointer;
-}
-
-/* 滑块 */
-.pe-slider {
+.sm-prompt-example-dialog__range {
   width: 100%;
-  margin: 8px 0;
-  cursor: pointer;
-  accent-color: var(--theme-accent);
+  accent-color: var(--sm-color-accent);
 }
 
-.pe-slider-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--theme-text-secondary);
-  margin-top: 4px;
-}
-
-/* 表单底部 */
-.pe-form-footer {
+.sm-prompt-example-dialog__range-labels,
+.sm-prompt-example-dialog__footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 8px;
+  gap: var(--sm-space-3);
 }
 
-.pe-char-count {
+.sm-prompt-example-dialog__count,
+.sm-prompt-example-dialog__help {
   font-size: 11px;
-  color: var(--theme-text-secondary);
+  line-height: 1.5;
+  color: var(--sm-color-text-secondary);
 }
 
-/* 错误状态 */
-.pe-has-error .pe-textarea,
-.pe-has-error .pe-select {
-  border-color: var(--theme-error, #ef4444);
-}
-
-.pe-error-text {
-  font-size: 12px;
-  color: var(--theme-error, #ef4444);
-}
-
-/* 帮助文本 */
-.pe-help-text {
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--theme-text-secondary);
-  line-height: 1.4;
-}
-
-/* 内联操作按钮 */
-.pe-form-actions-inline {
+.sm-prompt-example-dialog__inline-actions {
   display: flex;
   gap: 8px;
-  align-items: center;
 }
 
-.pe-text-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.sm-prompt-example-dialog__text-button {
   min-height: 24px;
   padding: 4px 8px;
-  font-size: 11px;
+  border: 1px solid var(--sm-color-border-accent);
+  border-radius: var(--sm-radius-sm);
   background: transparent;
-  color: var(--theme-accent);
-  border: 1px solid var(--theme-accent);
-  border-radius: 3px;
+  color: var(--sm-color-accent-hover);
+  font-size: 11px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  line-height: 1;
-  box-sizing: border-box;
+  transition:
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
-.pe-text-btn:hover {
-  background: var(--theme-accent);
-  color: white;
+.sm-prompt-example-dialog__text-button:hover {
+  background: rgba(142, 149, 217, 0.14);
+  color: var(--sm-color-text-primary);
 }
 
-/* 底部按钮区 */
-.pe-dialog-footer {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
+.sm-prompt-example-dialog__actions {
   padding: 16px 20px;
-  border-top: 1px solid var(--theme-border);
+  border-top: 1px solid var(--sm-color-border-subtle);
 }
 
-.pe-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 20px;
-  font-size: 13px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  line-height: 1.2;
-  box-sizing: border-box;
-}
-
-.pe-btn-secondary {
-  background: var(--theme-bg-secondary);
-  color: var(--theme-text);
-  border: 1px solid var(--theme-border);
-}
-
-.pe-btn-secondary:hover {
-  background: var(--theme-bg-tertiary);
-}
-
-.pe-btn-primary {
-  background: var(--theme-accent);
-  color: white;
-  border: none;
-}
-
-.pe-btn-primary:hover {
-  opacity: 0.9;
-}
-
-/* 过渡动画 */
-.pe-fade-enter-active,
-.pe-fade-leave-active {
+.sm-prompt-dialog-enter-active,
+.sm-prompt-dialog-leave-active {
   transition: opacity 0.2s ease;
 }
 
-.pe-fade-enter-from,
-.pe-fade-leave-to {
+.sm-prompt-dialog-enter-from,
+.sm-prompt-dialog-leave-to {
   opacity: 0;
 }
 
-.pe-fade-enter-active .pe-dialog,
-.pe-fade-leave-active .pe-dialog {
+.sm-prompt-dialog-enter-active .sm-prompt-example-dialog__surface,
+.sm-prompt-dialog-leave-active .sm-prompt-example-dialog__surface {
   transition:
     transform 0.2s ease,
     opacity 0.2s ease;
 }
 
-.pe-fade-enter-from .pe-dialog,
-.pe-fade-leave-to .pe-dialog {
-  transform: scale(0.95);
+.sm-prompt-dialog-enter-from .sm-prompt-example-dialog__surface,
+.sm-prompt-dialog-leave-to .sm-prompt-example-dialog__surface {
+  transform: scale(0.96);
   opacity: 0;
 }
 </style>

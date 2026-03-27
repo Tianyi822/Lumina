@@ -117,33 +117,42 @@ async function handleRetrySummary(templateId: string): Promise<void> {
 </script>
 
 <template>
-  <div class="template-list-section">
-    <div class="section-header">
-      <h3 class="section-title">模板列表</h3>
-      <button class="sm-icon-button btn-icon" title="刷新列表" @click="handleRefresh">
+  <div class="sm-ppt-template-list">
+    <div class="sm-ppt-template-list__header">
+      <h3 class="sm-settings-page__section-title">模板列表</h3>
+      <button
+        class="sm-icon-button sm-ppt-template-list__refresh"
+        title="刷新列表"
+        @click="handleRefresh"
+      >
         <SvgIcon name="refresh" :size="16" />
       </button>
     </div>
 
-    <div v-if="loading" class="loading-state">
+    <div v-if="loading" class="sm-empty sm-ppt-template-list__state">
+      <span class="sm-spinner sm-spinner--large"></span>
       <span>加载中...</span>
     </div>
 
-    <div v-else-if="sortedTemplates.length === 0" class="empty-state">
+    <div v-else-if="sortedTemplates.length === 0" class="sm-empty sm-ppt-template-list__state">
       <p>暂无模板，请上传您的第一个 PPT 模板</p>
     </div>
 
-    <div v-else class="template-list">
-      <div v-for="template in sortedTemplates" :key="template.id" class="template-item">
-        <div class="template-header">
-          <span class="template-name">{{ template.name }}</span>
-          <div class="template-actions">
-            <span class="template-status" :class="getStatusClass(template.status)">
+    <div v-else class="sm-ppt-template-list__items">
+      <div
+        v-for="template in sortedTemplates"
+        :key="template.id"
+        class="sm-ppt-template-list__item"
+      >
+        <div class="sm-ppt-template-list__item-header">
+          <span class="sm-ppt-template-list__item-name">{{ template.name }}</span>
+          <div class="sm-ppt-template-list__item-actions">
+            <span class="sm-badge sm-ppt-template-list__status" :class="getStatusClass(template.status)">
               {{ getStatusText(template.status) }}
             </span>
             <button
               v-if="template.status === 'failed'"
-              class="btn-retry"
+              class="sm-icon-button sm-ppt-template-list__icon-action sm-ppt-template-list__icon-action--retry"
               title="重试 AI 总结"
               :disabled="retryingId === template.id || deletingId === template.id"
               @click="handleRetrySummary(template.id)"
@@ -152,7 +161,7 @@ async function handleRetrySummary(templateId: string): Promise<void> {
               <SvgIcon v-else name="refresh" :size="14" />
             </button>
             <button
-              class="btn-delete"
+              class="sm-icon-button sm-ppt-template-list__icon-action sm-ppt-template-list__icon-action--delete"
               title="删除模板"
               :disabled="deletingId === template.id || retryingId === template.id"
               @click="handleDelete(template.id, template.name)"
@@ -162,35 +171,39 @@ async function handleRetrySummary(templateId: string): Promise<void> {
             </button>
           </div>
         </div>
-        <div class="template-info">
-          <span class="info-item">
-            <span class="info-label">原文件:</span>
-            <span class="info-value">{{ template.originalFileName }}</span>
+        <div class="sm-ppt-template-list__meta">
+          <span class="sm-ppt-template-list__meta-item">
+            <span class="sm-ppt-template-list__meta-label">原文件:</span>
+            <span class="sm-ppt-template-list__meta-value">{{ template.originalFileName }}</span>
           </span>
-          <span class="info-item">
-            <span class="info-label">页数:</span>
-            <span class="info-value">{{ template.slideCount }}</span>
+          <span class="sm-ppt-template-list__meta-item">
+            <span class="sm-ppt-template-list__meta-label">页数:</span>
+            <span class="sm-ppt-template-list__meta-value">{{ template.slideCount }}</span>
           </span>
-          <span class="info-item">
-            <span class="info-label">大小:</span>
-            <span class="info-value">{{ formatFileSize(template.fileSize) }}</span>
+          <span class="sm-ppt-template-list__meta-item">
+            <span class="sm-ppt-template-list__meta-label">大小:</span>
+            <span class="sm-ppt-template-list__meta-value">{{ formatFileSize(template.fileSize) }}</span>
           </span>
-          <span class="info-item">
-            <span class="info-label">上传时间:</span>
-            <span class="info-value">{{ formatTime(template.createdAt) }}</span>
+          <span class="sm-ppt-template-list__meta-item">
+            <span class="sm-ppt-template-list__meta-label">上传时间:</span>
+            <span class="sm-ppt-template-list__meta-value">{{ formatTime(template.createdAt) }}</span>
           </span>
         </div>
-        <div v-if="template.status === 'completed'" class="template-analysis-path">
-          <span class="path-label">分析结果:</span>
-          <code class="path-value">{{ pptTemplateStore.getAnalysisPath(template.id) }}</code>
+        <div v-if="template.status === 'completed'" class="sm-ppt-template-list__path">
+          <span class="sm-ppt-template-list__path-label">分析结果:</span>
+          <code class="sm-ppt-template-list__path-value">{{
+            pptTemplateStore.getAnalysisPath(template.id)
+          }}</code>
         </div>
-        <div v-if="template.summaryCompletedAt" class="template-analysis-path">
-          <span class="path-label">AI 总结:</span>
-          <code class="path-value">{{ pptTemplateStore.getAiSummaryPath(template.id) }}</code>
+        <div v-if="template.summaryCompletedAt" class="sm-ppt-template-list__path">
+          <span class="sm-ppt-template-list__path-label">AI 总结:</span>
+          <code class="sm-ppt-template-list__path-value">{{
+            pptTemplateStore.getAiSummaryPath(template.id)
+          }}</code>
         </div>
-        <div v-if="template.summaryError" class="template-error-message">
-          <span class="path-label">总结失败:</span>
-          <span class="error-value">{{ template.summaryError.message }}</span>
+        <div v-if="template.summaryError" class="sm-ppt-template-list__error">
+          <span class="sm-ppt-template-list__path-label">总结失败:</span>
+          <span class="sm-ppt-template-list__error-value">{{ template.summaryError.message }}</span>
         </div>
       </div>
     </div>
@@ -198,48 +211,34 @@ async function handleRetrySummary(templateId: string): Promise<void> {
 </template>
 
 <style scoped>
-.template-list-section {
+.sm-ppt-template-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sm-space-3);
 }
 
-.section-header {
+.sm-ppt-template-list__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-  margin: 0;
-}
-
-.btn-icon {
+.sm-ppt-template-list__refresh {
   width: 32px;
   height: 32px;
 }
 
-.loading-state,
-.empty-state {
-  text-align: center;
-  padding: 32px;
-  border: 1px dashed var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-2);
-  color: var(--sm-color-text-secondary);
-  font-size: 13px;
+.sm-ppt-template-list__state {
+  min-height: 168px;
 }
 
-.template-list {
+.sm-ppt-template-list__items {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sm-space-3);
 }
 
-.template-item {
+.sm-ppt-template-list__item {
   padding: 12px 16px;
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-md);
@@ -249,12 +248,12 @@ async function handleRetrySummary(templateId: string): Promise<void> {
     background-color var(--sm-transition-fast);
 }
 
-.template-item:hover {
+.sm-ppt-template-list__item:hover {
   border-color: var(--sm-color-border-strong);
   background: var(--sm-color-surface-hover);
 }
 
-.template-header {
+.sm-ppt-template-list__item-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -262,87 +261,51 @@ async function handleRetrySummary(templateId: string): Promise<void> {
   margin-bottom: 8px;
 }
 
-.template-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
+.sm-ppt-template-list__item-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.template-status {
-  font-size: 12px;
-  padding: 2px 8px;
-  border: 1px solid transparent;
-  border-radius: 999px;
+  font-size: 14px;
   font-weight: 600;
-  flex-shrink: 0;
+  color: var(--sm-color-text-primary);
 }
 
-.template-actions {
+.sm-ppt-template-list__item-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
 }
 
-.btn-delete {
+.sm-ppt-template-list__icon-action {
   width: 28px;
   height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--sm-radius-sm);
-  cursor: pointer;
-  color: var(--sm-color-text-secondary);
-  transition: all 0.15s ease;
 }
 
-.btn-retry {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--sm-radius-sm);
-  cursor: pointer;
-  color: var(--sm-color-text-secondary);
-  transition: all 0.15s ease;
+.sm-ppt-template-list__icon-action--retry:hover:not(:disabled) {
+  background-color: rgba(142, 149, 217, 0.14);
+  border-color: var(--sm-color-border-accent);
+  color: var(--sm-color-accent-hover);
 }
 
-.btn-retry:hover:not(:disabled) {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.btn-delete:hover:not(:disabled) {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.btn-retry:disabled,
-.btn-delete:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.sm-ppt-template-list__icon-action--delete:hover:not(:disabled) {
+  background-color: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.28);
+  color: #c77878;
 }
 
 .status-analyzing {
   background: rgba(197, 161, 101, 0.12);
   border-color: rgba(197, 161, 101, 0.22);
-  color: var(--theme-warning);
+  color: #c5a165;
 }
 
 .status-completed {
   background: rgba(127, 176, 138, 0.12);
   border-color: rgba(127, 176, 138, 0.22);
-  color: var(--theme-success);
+  color: #7fb08a;
 }
 
 .status-summarizing {
@@ -354,45 +317,46 @@ async function handleRetrySummary(templateId: string): Promise<void> {
 .status-failed {
   background: rgba(199, 120, 120, 0.12);
   border-color: rgba(199, 120, 120, 0.22);
-  color: var(--theme-danger);
+  color: #c77878;
 }
 
-.template-info {
+.sm-ppt-template-list__meta {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
   font-size: 12px;
 }
 
-.info-item {
+.sm-ppt-template-list__meta-item {
   display: flex;
   gap: 4px;
 }
 
-.info-label {
+.sm-ppt-template-list__meta-label {
   color: var(--sm-color-text-tertiary);
 }
 
-.info-value {
+.sm-ppt-template-list__meta-value {
   color: var(--sm-color-text-secondary);
 }
 
-.template-analysis-path {
+.sm-ppt-template-list__path,
+.sm-ppt-template-list__error {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--sm-color-border-subtle);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: 12px;
 }
 
-.path-label {
+.sm-ppt-template-list__path-label {
   color: var(--sm-color-text-tertiary);
   white-space: nowrap;
 }
 
-.path-value {
+.sm-ppt-template-list__path-value {
   font-family: var(--sm-font-mono);
   font-size: 11px;
   color: var(--sm-color-text-secondary);
@@ -403,19 +367,23 @@ async function handleRetrySummary(templateId: string): Promise<void> {
   text-overflow: ellipsis;
 }
 
-.template-error-message {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--sm-color-border-subtle);
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.error-value {
-  color: #ef4444;
+.sm-ppt-template-list__error-value {
+  color: #c77878;
   line-height: 1.5;
   word-break: break-word;
+}
+
+@media (max-width: 720px) {
+  .sm-ppt-template-list__item-header,
+  .sm-ppt-template-list__path,
+  .sm-ppt-template-list__error {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sm-ppt-template-list__item-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>
