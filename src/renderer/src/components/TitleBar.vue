@@ -4,12 +4,10 @@ import { storeToRefs } from 'pinia'
 import { useUIStateStore } from '@renderer/stores'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
-// ==================== Emits ====================
 const emit = defineEmits<{
   (e: 'open-settings'): void
 }>()
 
-// ==================== Stores ====================
 const uiState = useUIStateStore()
 const {
   currentView,
@@ -21,48 +19,47 @@ const {
   knowledgeSidebarCollapsed
 } = storeToRefs(uiState)
 
-// ==================== Computed ====================
-
-/**
- * 是否所有侧边栏都折叠
- */
 const allSidebarsCollapsed = computed(() => {
   return sidebarCollapsed.value && sandboxSidebarCollapsed.value && knowledgeSidebarCollapsed.value
 })
 
-// ==================== Methods ====================
-
-/**
- * 打开设置
- */
-function openSettings(): void {
-  emit('open-settings')
-}
-
-/**
- * 窗口是否最大化
- */
 const isMaximized = ref(false)
 
-/**
- * 当前平台是否为 macOS
- */
 const isMac = computed(() => {
   return window.electron?.process?.platform === 'darwin'
 })
 
-/**
- * 切换视图
- */
+const currentViewMeta = computed(() => {
+  if (isKnowledgeView.value) {
+    return {
+      title: '知识库',
+      subtitle: '检索与管理'
+    }
+  }
+
+  if (isSandboxView.value) {
+    return {
+      title: '沙箱',
+      subtitle: '工程控制台'
+    }
+  }
+
+  return {
+    title: '智能体',
+    subtitle: '对话工作区'
+  }
+})
+
+function openSettings(): void {
+  emit('open-settings')
+}
+
 async function switchView(view: 'chat' | 'knowledge' | 'sandbox'): Promise<void> {
   if (currentView.value !== view) {
     await uiState.setCurrentView(view)
   }
 }
 
-/**
- * 切换所有侧边栏
- */
 function toggleAllSidebars(): void {
   const newState = !allSidebarsCollapsed.value
   uiState.setSidebarCollapsed(newState)
@@ -70,9 +67,6 @@ function toggleAllSidebars(): void {
   uiState.setKnowledgeSidebarCollapsed(newState)
 }
 
-/**
- * 窗口控制操作
- */
 async function handleMinimize(): Promise<void> {
   await window.api.window.minimize()
 }
@@ -86,7 +80,6 @@ async function handleClose(): Promise<void> {
   await window.api.window.close()
 }
 
-// ==================== 生命周期 ====================
 let unsubscribeMaximizedChanged: (() => void) | null = null
 
 onMounted(async () => {
@@ -104,338 +97,233 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="title-bar" :class="{ 'is-mac': isMac }">
-    <!-- 左侧弹性占位 -->
-    <div class="title-bar-left-spacer"></div>
-
-    <!-- 中间区域：视图切换器 + 设置按钮 -->
-    <div class="title-bar-center-section">
-      <!-- 视图切换器 (聊天 | 知识库 | 沙箱) -->
-      <div class="view-switcher">
-        <div class="switcher-container">
-          <!-- 滑块背景 -->
-          <div
-            class="switcher-slider"
-            :class="{
-              'is-knowledge': isKnowledgeView,
-              'is-sandbox': isSandboxView
-            }"
-          ></div>
-          <!-- 智能体 按钮 -->
-          <button class="switcher-btn" :class="{ active: isChatView }" @click="switchView('chat')">
-            <span>智能体</span>
-          </button>
-          <!-- 知识库 按钮 -->
-          <button
-            class="switcher-btn"
-            :class="{ active: isKnowledgeView }"
-            @click="switchView('knowledge')"
-          >
-            <span>知识库</span>
-          </button>
-          <!-- 沙箱 按钮 -->
-          <button
-            class="switcher-btn"
-            :class="{ active: isSandboxView }"
-            @click="switchView('sandbox')"
-          >
-            <span>沙箱</span>
-          </button>
-        </div>
+  <div class="sm-titlebar title-bar" :class="{ 'sm-titlebar--mac': isMac }">
+    <div class="sm-titlebar__brand title-bar-brand">
+      <div class="title-bar-brand-mark">SM</div>
+      <div class="title-bar-brand-copy">
+        <span class="title-bar-product">Sparrow Manus</span>
+        <span class="title-bar-context">
+          {{ currentViewMeta.title }} / {{ currentViewMeta.subtitle }}
+        </span>
       </div>
+    </div>
 
-      <!-- 工具按钮组 -->
+    <div class="sm-titlebar__center">
+      <div class="view-switcher" role="tablist" aria-label="工作区切换">
+        <button
+          class="switcher-btn"
+          :class="{ active: isChatView }"
+          :aria-selected="isChatView"
+          @click="switchView('chat')"
+        >
+          智能体
+        </button>
+        <button
+          class="switcher-btn"
+          :class="{ active: isKnowledgeView }"
+          :aria-selected="isKnowledgeView"
+          @click="switchView('knowledge')"
+        >
+          知识库
+        </button>
+        <button
+          class="switcher-btn"
+          :class="{ active: isSandboxView }"
+          :aria-selected="isSandboxView"
+          @click="switchView('sandbox')"
+        >
+          沙箱
+        </button>
+      </div>
+    </div>
+
+    <div class="sm-titlebar__controls">
       <div class="tool-buttons-group">
-        <button class="tool-btn" title="设置" @click="openSettings">
+        <button class="tool-btn" title="设置" aria-label="打开设置" @click="openSettings">
           <SvgIcon name="settings" :size="14" />
         </button>
         <button
           class="tool-btn"
           :title="allSidebarsCollapsed ? '展开侧边栏' : '折叠侧边栏'"
+          :aria-label="allSidebarsCollapsed ? '展开侧边栏' : '折叠侧边栏'"
           @click="toggleAllSidebars"
         >
           <SvgIcon name="sidebar-toggle" :size="14" />
         </button>
       </div>
-    </div>
 
-    <!-- 右侧：窗口控制按钮（仅 Windows/Linux） -->
-    <div v-if="!isMac" class="title-bar-controls">
-      <button
-        class="title-bar-button title-bar-button-minimize"
-        title="最小化"
-        @click="handleMinimize"
-      >
-        <span class="button-icon">─</span>
-      </button>
-      <button
-        class="title-bar-button title-bar-button-maximize"
-        :title="isMaximized ? '还原' : '最大化'"
-        @click="handleMaximize"
-      >
-        <span class="button-icon">
+      <div v-if="!isMac" class="title-bar-controls">
+        <button
+          class="title-bar-button"
+          title="最小化"
+          aria-label="最小化窗口"
+          @click="handleMinimize"
+        >
+          <span class="button-icon">─</span>
+        </button>
+        <button
+          class="title-bar-button"
+          :title="isMaximized ? '还原' : '最大化'"
+          :aria-label="isMaximized ? '还原窗口' : '最大化窗口'"
+          @click="handleMaximize"
+        >
           <SvgIcon v-if="!isMaximized" name="window-maximize" :size="12" />
           <SvgIcon v-else name="window-restore" :size="12" />
-        </span>
-      </button>
-      <button class="title-bar-button title-bar-button-close" title="关闭" @click="handleClose">
-        <span class="button-icon">×</span>
-      </button>
+        </button>
+        <button
+          class="title-bar-button title-bar-button-close"
+          title="关闭"
+          aria-label="关闭窗口"
+          @click="handleClose"
+        >
+          <span class="button-icon">×</span>
+        </button>
+      </div>
     </div>
-
-    <!-- macOS 右侧占位 -->
-    <div v-else class="title-bar-right-spacer"></div>
   </div>
 </template>
 
 <style scoped>
 .title-bar {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: var(--title-bar-height, 38px);
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
-      var(--glass-white-01, rgba(255, 255, 255, 0.01)) 100%
-    ),
-    linear-gradient(
-      225deg,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
-      var(--glass-white-003, rgba(255, 255, 255, 0.003)) 100%
-    ),
-    var(--theme-bg);
-  backdrop-filter: blur(18px) saturate(190%) brightness(1.08);
-  -webkit-backdrop-filter: blur(18px) saturate(190%) brightness(1.08);
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  user-select: none;
-  -webkit-app-region: drag;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-/* macOS 样式 */
-.title-bar.is-mac {
-  padding-left: 80px;
-  border-bottom: 1px solid var(--theme-border);
-}
-
-.title-bar-left-spacer {
-  flex: 1;
   min-width: 0;
 }
 
-.title-bar.is-mac .title-bar-left-spacer {
-  flex: 0 0 auto;
-}
-
-.title-bar-center-section {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-}
-
-.title-bar-right-spacer {
-  flex: 1;
-  min-width: 0;
-}
-
-.title-bar-controls {
-  display: flex;
-  height: 100%;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 2;
-}
-
-/* 工具按钮组 - 玻璃效果 */
-.tool-buttons-group {
-  display: flex;
-  align-items: center;
-  background: linear-gradient(
-    135deg,
-    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
-    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
-  );
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-  border-radius: var(--theme-radius-sm, 6px);
-  padding: 2px;
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  gap: 0;
-  height: 26px;
-  box-sizing: border-box;
-}
-
-.tool-btn {
-  height: 100%;
-  padding: 0 7px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  -webkit-app-region: no-drag;
-  border-radius: 4px;
-  color: var(--theme-text-tertiary);
-}
-
-.tool-btn:hover {
-  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  color: var(--theme-text);
-}
-
-.tool-btn svg {
-  display: block;
-  width: 14px;
-  height: 14px;
-}
-
-.title-bar-controls .title-bar-button {
-  width: 46px;
-  height: 100%;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  -webkit-app-region: no-drag;
-  position: relative;
-  z-index: 3;
-}
-
-.title-bar-controls .title-bar-button .button-icon {
-  color: var(--theme-text-tertiary);
-  font-size: 12px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.title-bar-controls .title-bar-button:hover {
-  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
-}
-
-.title-bar-controls .title-bar-button:hover .button-icon {
-  color: var(--theme-text);
-}
-
-.title-bar-controls .title-bar-button-close:hover {
-  background-color: #e81123;
-}
-
-.title-bar-controls .title-bar-button-close:hover .button-icon {
-  color: white;
-}
-
-.title-bar-button svg {
-  display: block;
-}
-
-/* ==================== 视图切换器 - 玻璃效果 ==================== */
+.title-bar-brand,
+.tool-buttons-group,
+.title-bar-controls,
 .view-switcher {
-  position: relative;
-  z-index: 10;
-  display: flex;
+  -webkit-app-region: no-drag;
+}
+
+.title-bar-brand {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.title-bar-brand-mark {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
-  pointer-events: auto;
-  height: 100%;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  border: 1px solid var(--sm-color-border-default);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
-.switcher-container {
-  position: relative;
+.title-bar-brand-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title-bar-product {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--sm-color-text-primary);
+}
+
+.title-bar-context {
+  font-size: 11px;
+  line-height: 1.1;
+  color: var(--sm-color-text-tertiary);
+}
+
+.view-switcher {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: linear-gradient(
-    135deg,
-    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
-    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
-  );
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-  border-radius: var(--theme-radius-sm, 6px);
-  padding: 2px;
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  pointer-events: auto;
-  height: 26px;
-  box-sizing: border-box;
-}
-
-/* 滑块 - 使用主题色 */
-.switcher-slider {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: calc((100% - 4px) / 3);
-  height: calc(100% - 4px);
-  background: rgba(99, 102, 241, 0.2);
-  border-radius: 4px;
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
-}
-
-.switcher-slider.is-knowledge {
-  transform: translateX(100%);
-}
-
-.switcher-slider.is-sandbox {
-  transform: translateX(200%);
+  padding: 3px;
+  gap: 2px;
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 10px;
 }
 
 .switcher-btn {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  padding: 0 12px;
+  min-width: 78px;
+  height: 28px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sm-color-text-secondary);
   font-size: 12px;
   font-weight: 500;
-  color: var(--theme-text-tertiary);
-  background: transparent;
-  border: none;
   cursor: pointer;
-  transition: color 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  font-family: var(--theme-font);
-  white-space: nowrap;
-  -webkit-app-region: no-drag;
-  z-index: 11;
-  user-select: none;
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
-.switcher-btn span {
-  display: contents;
-}
-
-.switcher-btn:hover {
-  color: var(--theme-text-secondary);
+.switcher-btn:hover:not(.active) {
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
 }
 
 .switcher-btn.active {
-  color: var(--theme-accent);
+  background: var(--sm-color-surface-active);
+  border-color: var(--sm-color-border-default);
+  color: var(--sm-color-text-primary);
 }
 
-@media (max-width: 600px) {
-  .title-bar-center-section {
-    gap: 4px;
+.tool-buttons-group,
+.title-bar-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+}
+
+.tool-btn,
+.title-bar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 8px;
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+}
+
+.tool-btn:hover,
+.title-bar-button:hover {
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
+  color: var(--sm-color-text-primary);
+}
+
+.title-bar-button-close:hover {
+  border-color: rgba(199, 120, 120, 0.42);
+  background: rgba(199, 120, 120, 0.16);
+  color: #ffffff;
+}
+
+.button-icon {
+  line-height: 1;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .title-bar-brand-copy {
+    display: none;
   }
 
   .switcher-btn {
-    padding: 0 8px;
-    font-size: 11px;
+    min-width: 66px;
+    padding: 0 10px;
   }
 }
 </style>

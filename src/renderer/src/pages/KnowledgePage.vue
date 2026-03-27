@@ -127,8 +127,8 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
 </script>
 
 <template>
-  <div class="knowledge-page">
-    <div class="sidebar-wrapper" :class="{ collapsed: knowledgeSidebarCollapsed }">
+  <div class="knowledge-page sm-workspace-page">
+    <div class="sm-sidebar-frame" :class="{ 'is-collapsed': knowledgeSidebarCollapsed }">
       <KnowledgeSidebar
         :knowledge-bases="knowledgeBases"
         :active-kb-id="activeKbId"
@@ -138,13 +138,15 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
         @manage-files="handleManageFiles"
       />
     </div>
-    <KnowledgeMain
-      ref="knowledgeMainRef"
-      :knowledge-base="knowledgeBases.find((kb) => kb.id === activeKbId)"
-      @add-files="handleAddFiles"
-      @file-unlinked="handleFileUnlinked"
-      @description-updated="handleDescriptionUpdated"
-    />
+    <div class="sm-page-main">
+      <KnowledgeMain
+        ref="knowledgeMainRef"
+        :knowledge-base="knowledgeBases.find((kb) => kb.id === activeKbId)"
+        @add-files="handleAddFiles"
+        @file-unlinked="handleFileUnlinked"
+        @description-updated="handleDescriptionUpdated"
+      />
+    </div>
   </div>
 
   <!-- 知识库表单模态框 -->
@@ -171,29 +173,6 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
 
 <style scoped>
 .knowledge-page {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-/* 侧边栏包装器 - 平滑过渡 */
-.sidebar-wrapper {
-  width: 280px;
-  min-width: 280px;
-  height: 100%;
-  overflow: hidden;
-  opacity: 1;
-  transition:
-    width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.2s ease-out;
-}
-
-.sidebar-wrapper.collapsed {
-  width: 0;
-  min-width: 0;
-  opacity: 0;
-  pointer-events: none;
+  position: relative;
 }
 </style>

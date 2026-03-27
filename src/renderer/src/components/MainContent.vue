@@ -259,6 +259,19 @@ const activeQuickReply = computed<MessageOptionContext | null>(() => {
   return null
 })
 
+const visibleMessages = computed(() => {
+  return (props.messages ?? []).filter((message) => message.role !== 'tool')
+})
+
+const messageCountLabel = computed(() => {
+  const count = visibleMessages.value.length
+  return count > 0 ? `${count} 条消息` : '暂无消息'
+})
+
+const modelBadgeLabel = computed(() => {
+  return props.currentModelName || props.selectedModel || '未选择模型'
+})
+
 onMounted(() => {
   // 初始滚动到底部
   scrollToBottom(false)
@@ -372,111 +385,206 @@ function hasRenderableReact(message: Message): boolean {
 </script>
 
 <template>
-  <main class="main-content">
-    <!-- 消息区域 -->
-    <div
-      ref="messagesAreaRef"
-      class="messages-area"
-      @scroll="handleScroll"
-      @wheel.passive="handleWheel"
-    >
-      <!-- 空状态 -->
-      <div v-if="!currentChatId" class="empty-state">
-        <p class="empty-text">选择或创建一个对话开始</p>
-      </div>
+  <main class="sm-chat-layout">
+    <section class="sm-chat-stage">
+      <div
+        ref="messagesAreaRef"
+        class="sm-chat-stage__scroll"
+        @scroll="handleScroll"
+        @wheel.passive="handleWheel"
+      >
+        <div v-if="!currentChatId" class="sm-chat-empty sm-empty">
+          <span class="sm-chat-empty__eyebrow">聊天工作区</span>
+          <h2 class="sm-chat-empty__title">选择已有会话，或创建新的智能体会话。</h2>
+          <p class="sm-chat-empty__description">
+            消息、推理过程和工具结果会在这里按工作流持续沉淀。
+          </p>
+        </div>
 
-      <!-- 消息列表 -->
-      <div v-else class="messages-list">
-        <ChatMessage
-          v-for="msg in (messages ?? []).filter((m) => m.role !== 'tool')"
-          :key="msg.id"
-          :message="msg"
-          :current-model-name="props.currentModelName"
-          :is-reasoning-expanded="isReasoningExpanded(msg.id)"
-          :current-chat-id="currentChatId"
-          :is-exporting="props.exportingMessageId === msg.id"
-          @toggle-reasoning="toggleReasoning"
-          @request-export="handleRequestExport(msg)"
-        >
-          <!-- ReAct 步骤插槽 -->
-          <template #react-steps>
-            <ReActSteps
-              v-if="hasRenderableReact(msg)"
-              :steps="msg.reactSteps"
-              :iterations="msg.reactIterations"
-              :is-streaming="msg.isStreaming"
-            />
-          </template>
-        </ChatMessage>
-      </div>
-    </div>
+        <div v-else class="sm-message-stage">
+          <header class="sm-message-stage__header">
+            <div>
+              <span class="sm-message-stage__eyebrow">聊天工作区</span>
+              <h2 class="sm-message-stage__title">消息流</h2>
+            </div>
+            <div class="sm-message-stage__meta">
+              <span class="sm-badge">{{ messageCountLabel }}</span>
+              <span class="sm-badge">{{ modelBadgeLabel }}</span>
+            </div>
+          </header>
 
-    <!-- 输入区域 -->
-    <!-- 使用 :key 绑定 currentChatId 确保切换会话时输入组件完全重新创建 -->
-    <MessageInput
-      :key="props.currentChatId || 'no-chat-input'"
-      :is-sending="props.isSending"
-      :input-message="props.inputMessage"
-      :selected-model="props.selectedModel"
-      :selected-m-c-p-tools="props.selectedMCPTools"
-      :selected-knowledge-bases="props.selectedKnowledgeBases"
-      :enable-sandbox-tools="props.enableSandboxTools"
-      :export-interaction-info="props.exportInteractionInfo"
-      :quick-reply-info="activeQuickReply"
-      @send="handleSendMessage"
-      @stop="handleStopRequest"
-      @quick-reply-selected="handleQuickReplySelected"
-      @update:input-message="handleUpdateInputMessage"
-      @update:selected-model="handleUpdateSelectedModel"
-      @update:selected-m-c-p-tools="handleUpdateSelectedTools"
-      @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
-      @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
-      @select-export-format="handleSelectExportFormat"
-    />
+          <div class="sm-message-list">
+            <ChatMessage
+              v-for="msg in visibleMessages"
+              :key="msg.id"
+              :message="msg"
+              :current-model-name="props.currentModelName"
+              :is-reasoning-expanded="isReasoningExpanded(msg.id)"
+              :current-chat-id="currentChatId"
+              :is-exporting="props.exportingMessageId === msg.id"
+              @toggle-reasoning="toggleReasoning"
+              @request-export="handleRequestExport(msg)"
+            >
+              <template #react-steps>
+                <ReActSteps
+                  v-if="hasRenderableReact(msg)"
+                  :steps="msg.reactSteps"
+                  :iterations="msg.reactIterations"
+                  :is-streaming="msg.isStreaming"
+                />
+              </template>
+            </ChatMessage>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sm-composer-stage">
+      <div class="sm-composer-stage__inner">
+        <MessageInput
+          :key="props.currentChatId || 'no-chat-input'"
+          :is-sending="props.isSending"
+          :input-message="props.inputMessage"
+          :selected-model="props.selectedModel"
+          :selected-m-c-p-tools="props.selectedMCPTools"
+          :selected-knowledge-bases="props.selectedKnowledgeBases"
+          :enable-sandbox-tools="props.enableSandboxTools"
+          :export-interaction-info="props.exportInteractionInfo"
+          :quick-reply-info="activeQuickReply"
+          @send="handleSendMessage"
+          @stop="handleStopRequest"
+          @quick-reply-selected="handleQuickReplySelected"
+          @update:input-message="handleUpdateInputMessage"
+          @update:selected-model="handleUpdateSelectedModel"
+          @update:selected-m-c-p-tools="handleUpdateSelectedTools"
+          @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
+          @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
+          @select-export-format="handleSelectExportFormat"
+        />
+      </div>
+    </section>
   </main>
 </template>
 
 <style scoped>
-.main-content {
+.sm-chat-layout {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: var(--theme-bg);
+  background: var(--sm-color-bg-canvas);
   overflow: hidden;
 }
 
-.messages-area {
+.sm-chat-stage {
+  position: relative;
   flex: 1;
+  min-height: 0;
+  background: var(--sm-color-bg-canvas);
+}
+
+.sm-chat-stage__scroll {
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 24px;
-  background: linear-gradient(
-    180deg,
-    var(--theme-bg) 0%,
-    var(--glass-white-007, rgba(255, 255, 255, 0.007)) 50%,
-    var(--theme-bg) 100%
-  );
+  padding: var(--sm-space-6);
 }
 
-.empty-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-.empty-text {
-  color: var(--theme-text-tertiary);
-  font-size: 15px;
-}
-
-.messages-list {
+.sm-chat-empty {
   display: flex;
   flex-direction: column;
-  gap: var(--theme-spacing-lg);
-  max-width: 100%;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--sm-space-3);
+  height: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.sm-chat-empty__eyebrow,
+.sm-message-stage__eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sm-color-text-tertiary);
+}
+
+.sm-chat-empty__title,
+.sm-message-stage__title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.35;
+  color: var(--sm-color-text-primary);
+}
+
+.sm-chat-empty__description {
+  margin: 0;
+  max-width: 520px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--sm-color-text-secondary);
+}
+
+.sm-message-stage,
+.sm-composer-stage__inner {
+  width: min(100%, 920px);
+  margin: 0 auto;
+}
+
+.sm-message-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-5);
+}
+
+.sm-message-stage__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sm-space-4);
+  padding-bottom: var(--sm-space-4);
+  border-bottom: 1px solid var(--sm-color-border-subtle);
+}
+
+.sm-message-stage__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  flex-wrap: wrap;
+}
+
+.sm-message-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-5);
   min-width: 0;
-  overflow: hidden;
+}
+
+.sm-composer-stage {
+  padding: 0 var(--sm-space-6) var(--sm-space-6);
+  background: var(--sm-color-bg-canvas);
+}
+
+@media (max-width: 960px) {
+  .sm-chat-stage__scroll,
+  .sm-composer-stage {
+    padding-right: var(--sm-space-4);
+    padding-left: var(--sm-space-4);
+  }
+}
+
+@media (max-width: 768px) {
+  .sm-message-stage__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sm-chat-empty__title,
+  .sm-message-stage__title {
+    font-size: 16px;
+  }
 }
 </style>

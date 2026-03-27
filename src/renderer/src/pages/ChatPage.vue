@@ -657,9 +657,8 @@ watch(
 </script>
 
 <template>
-  <div class="chat-page">
-    <!-- 侧边栏 -->
-    <div class="sidebar-wrapper" :class="{ collapsed: sidebarCollapsed }">
+  <div class="chat-page sm-workspace-page">
+    <div class="sm-sidebar-frame" :class="{ 'is-collapsed': sidebarCollapsed }">
       <Sidebar
         :sessions="sessionList"
         :active-session-id="currentChatId"
@@ -670,33 +669,33 @@ watch(
       />
     </div>
 
-    <!-- 主内容区 -->
-    <!-- 使用 :key 绑定 currentChatId 确保切换会话时组件完全重新创建,实现状态隔离 -->
-    <MainContent
-      :key="currentChatId || 'no-chat'"
-      :current-chat-id="currentChatId"
-      :messages="messages"
-      :is-sending="isSending"
-      :current-model-name="currentModel"
-      :config-update-key="0"
-      :input-message="currentInputState.inputMessage"
-      :selected-model="currentInputState.selectedModel"
-      :selected-m-c-p-tools="currentInputState.selectedMCPTools"
-      :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
-      :enable-sandbox-tools="currentInputState.enableSandboxTools"
-      :session-id="currentSession?.sessionId"
-      :export-interaction-info="exportInteractionInfo"
-      :exporting-message-id="exportingMessageId"
-      @send-message="handleSendMessage"
-      @stop-request="handleStopRequest"
-      @update:input-message="handleUpdateInputMessage"
-      @update:selected-model="handleUpdateSelectedModel"
-      @update:selected-m-c-p-tools="handleUpdateSelectedTools"
-      @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
-      @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
-      @request-export="handleRequestExport"
-      @select-export-format="handleInlineExportFormatSelect"
-    />
+    <div class="sm-page-main">
+      <MainContent
+        :key="currentChatId || 'no-chat'"
+        :current-chat-id="currentChatId"
+        :messages="messages"
+        :is-sending="isSending"
+        :current-model-name="currentModel"
+        :config-update-key="0"
+        :input-message="currentInputState.inputMessage"
+        :selected-model="currentInputState.selectedModel"
+        :selected-m-c-p-tools="currentInputState.selectedMCPTools"
+        :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
+        :enable-sandbox-tools="currentInputState.enableSandboxTools"
+        :session-id="currentSession?.sessionId"
+        :export-interaction-info="exportInteractionInfo"
+        :exporting-message-id="exportingMessageId"
+        @send-message="handleSendMessage"
+        @stop-request="handleStopRequest"
+        @update:input-message="handleUpdateInputMessage"
+        @update:selected-model="handleUpdateSelectedModel"
+        @update:selected-m-c-p-tools="handleUpdateSelectedTools"
+        @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
+        @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
+        @request-export="handleRequestExport"
+        @select-export-format="handleInlineExportFormatSelect"
+      />
+    </div>
 
     <!-- 聊天错误提示(临时显示) -->
     <ChatErrorToast :show="showChatError" :message="chatErrorMessage" @close="closeChatError" />
@@ -725,29 +724,6 @@ watch(
 
 <style scoped>
 .chat-page {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-/* 侧边栏包装器 - 平滑过渡 */
-.sidebar-wrapper {
-  width: 280px;
-  min-width: 280px;
-  height: 100%;
-  overflow: hidden;
-  opacity: 1;
-  transition:
-    width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.2s ease-out;
-}
-
-.sidebar-wrapper.collapsed {
-  width: 0;
-  min-width: 0;
-  opacity: 0;
-  pointer-events: none;
+  position: relative;
 }
 </style>
