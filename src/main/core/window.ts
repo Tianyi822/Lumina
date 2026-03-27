@@ -10,17 +10,17 @@ let mainWindow: BrowserWindow | null = null
 
 /**
  * 默认主题背景色
- * 使用默认主题 blooming-flowers 的背景色
+ * 使用默认主题 sparrow-dark 的背景色
  * 注意：主题颜色现在由 CSS 主题文件管理，窗口背景色仅用于启动时的初始显示
  */
-const DEFAULT_BACKGROUND_COLOR = '#f4f7f6'
+const DEFAULT_BACKGROUND_COLOR = '#121212'
 
 /**
  * 创建主窗口
  */
 export function createMainWindow(): BrowserWindow {
-  // 设置为浅色模式，与默认主题 blooming-flowers 一致
-  nativeTheme.themeSource = 'light'
+  // 设置为深色模式，与默认主题 sparrow-dark 一致
+  nativeTheme.themeSource = 'dark'
 
   // 获取主显示器的工作区尺寸（排除任务栏/Dock）
   const primaryDisplay = screen.getPrimaryDisplay()
@@ -37,7 +37,7 @@ export function createMainWindow(): BrowserWindow {
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hidden', frame: true }
       : { frame: false }),
-    // 设置窗口背景色，使用默认主题的背景色
+    // 设置窗口背景色，使用默认深色主题的背景色
     backgroundColor: DEFAULT_BACKGROUND_COLOR,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {

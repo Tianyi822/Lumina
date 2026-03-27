@@ -20,7 +20,7 @@ import { normalizeCustomPromptVariables } from '@shared/utils'
 function createEmptyConfig(): AppConfig {
   return {
     theme: {
-      name: 'blooming-flowers'
+      name: 'sparrow-dark'
     },
     llm_config: {
       default_model: '',

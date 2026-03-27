@@ -28,7 +28,7 @@ export const useConfigStore = defineStore('config', () => {
 
   // 主题配置
   const themeConfig = ref<ThemeConfig>({
-    name: 'blooming-flowers'
+    name: 'sparrow-dark'
   })
 
   // 模型配置
@@ -65,7 +65,7 @@ export const useConfigStore = defineStore('config', () => {
       if (config) {
         // 加载主题配置
         if (config.theme) {
-          themeConfig.value.name = config.theme.name || 'blooming-flowers'
+          themeConfig.value.name = config.theme.name || 'sparrow-dark'
         }
         // 加载模型配置
         if (config.llm_config?.models) {

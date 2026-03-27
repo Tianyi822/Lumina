@@ -106,7 +106,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-container">
+  <div class="sm-app">
     <!-- 自定义标题栏 -->
     <TitleBar @open-settings="openSettings" />
 
@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
     <ErrorBanner :error="configError" @dismiss="dismissError" />
 
     <!-- 主布局 -->
-    <div class="app-layout">
+    <div class="sm-shell">
       <!-- Chat 视图 -->
       <ChatPage v-if="isChatView" @open-settings="openSettings" />
 
@@ -129,24 +129,3 @@ onBeforeUnmount(() => {
     <SettingsModal v-if="showSettings" @close="closeSettings" @mcp-updated="handleMCPUpdated" />
   </div>
 </template>
-
-<style scoped>
-.app-container {
-  width: 100%;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg);
-  color: var(--theme-text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* 主布局 */
-.app-layout {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-}
-</style>

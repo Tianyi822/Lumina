@@ -38,27 +38,15 @@ export interface ThemeMeta {
  */
 export const AVAILABLE_THEMES: ThemeMeta[] = [
   {
-    id: 'blooming-flowers',
-    name: 'Blooming Flowers',
-    description: '繁花主题，自然清新的绿色系',
+    id: 'sparrow-dark',
+    name: 'Sparrow Dark',
+    description: '当前重构阶段唯一基准主题，旧主题不再驱动新界面',
     previewColors: {
-      primary: '#0a594e',
-      secondary: '#46aa8f',
-      accent: '#70d75c',
-      extra1: '#d0ed35',
-      extra2: '#ffb003'
-    }
-  },
-  {
-    id: 'sunset-coast',
-    name: 'Sunset Coast',
-    description: '日落海岸，海洋与天空的温暖渐变',
-    previewColors: {
-      primary: '#014944',
-      secondary: '#347a73',
-      accent: '#7c93ce',
-      extra1: '#c7b6dc',
-      extra2: '#fcccc9'
+      primary: '#121212',
+      secondary: '#1b1f26',
+      accent: '#8e95d9',
+      extra1: '#272c36',
+      extra2: '#a1a7e6'
     }
   }
 ]
@@ -126,7 +114,7 @@ export const useUIStateStore = defineStore(
     // ==================== State: 主题 ====================
 
     // 当前主题 ID
-    const currentTheme = ref<string>('blooming-flowers')
+    const currentTheme = ref<string>('sparrow-dark')
 
     // 主题是否已初始化（从配置文件加载）
     const themeInitialized = ref(false)
@@ -395,13 +383,13 @@ export const useUIStateStore = defineStore(
         if (config?.theme?.name && AVAILABLE_THEMES.some((t) => t.id === config.theme!.name)) {
           currentTheme.value = config.theme.name
         } else {
-          currentTheme.value = 'blooming-flowers'
+          currentTheme.value = 'sparrow-dark'
         }
       } catch (error) {
         window.api.logger?.warn('[UIStateStore] 无法从配置文件加载主题，使用默认主题', {
           error: error instanceof Error ? error.message : String(error)
         })
-        currentTheme.value = 'blooming-flowers'
+        currentTheme.value = 'sparrow-dark'
       }
 
       applyThemeToDom(currentTheme.value)
