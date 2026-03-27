@@ -77,9 +77,9 @@
   overflow: hidden;
   opacity: 1;
   transition:
-    width 0.22s ease,
-    min-width 0.22s ease,
-    opacity 0.18s ease;
+    width var(--sm-transition-slow),
+    min-width var(--sm-transition-slow),
+    opacity var(--sm-transition-medium);
 }
 
 .sm-sidebar-frame.is-collapsed {

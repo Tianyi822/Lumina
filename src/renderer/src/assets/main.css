@@ -6,6 +6,7 @@
 @import './base.css';
 @import '../styles/sm-tokens.css';
 @import '../styles/sm-primitives.css';
+@import '../styles/animations.css';
 @import '../styles/sm-layout.css';
 @import '../styles/sm-components.css';
 @import '../styles/sm-settings.css';

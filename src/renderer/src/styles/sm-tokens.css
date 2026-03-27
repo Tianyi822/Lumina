@@ -24,13 +24,19 @@
   --sm-titlebar-height: 38px;
   --sm-scrollbar-size: 8px;
 
+  --sm-transition-instant: 140ms ease;
   --sm-transition-fast: 160ms ease;
   --sm-transition-medium: 180ms ease;
+  --sm-transition-slow: 220ms ease;
   --sm-focus-ring-size: 2px;
   --sm-focus-ring-offset: 2px;
+  --sm-focus-ring-color: rgba(142, 149, 217, 0.42);
+  --sm-selection-background: rgba(142, 149, 217, 0.28);
+  --sm-selection-color: #ffffff;
   --sm-disabled-opacity: 0.42;
   --sm-loading-opacity: 0.68;
   --sm-motion-distance-sm: 4px;
   --sm-motion-distance-md: 8px;
+  --sm-motion-distance-lg: 12px;
   --sm-shadow-none: none;
 }

@@ -1,337 +1,191 @@
 /**
- * 动画样式文件
- * 提供可复用的过渡动画效果
- * 遵循设计原则：流畅、自然、专业
+ * Sparrow Manus phase-7 motion system.
+ * Motion stays quiet, fast and low-noise.
  */
 
-/* ========== 缓动函数变量 ========== */
-:root {
-  /* 主要缓动函数 */
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
-  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-in-out-smooth: cubic-bezier(0.45, 0, 0.55, 1);
-  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-
-  /* 动画时长 */
-  --duration-fast: 0.15s;
-  --duration-normal: 0.25s;
-  --duration-slow: 0.35s;
-  --duration-slower: 0.5s;
+.fade-enter-active,
+.fade-leave-active,
+.sm-feedback-enter-active,
+.sm-feedback-leave-active {
+  transition:
+    opacity var(--sm-transition-fast),
+    transform var(--sm-transition-fast);
+  will-change: opacity, transform;
 }
 
-/* ========== 淡入淡出动画 ========== */
-.fade-enter-active {
-  animation: fadeIn var(--duration-normal) var(--ease-out-expo);
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
-.fade-leave-active {
-  animation: fadeOut var(--duration-fast) ease-out;
+.sm-feedback-enter-from,
+.sm-feedback-leave-to {
+  opacity: 0;
+  transform: translateY(calc(var(--sm-motion-distance-sm) * -1));
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-/* ========== 滑动淡入动画 ========== */
-.slide-fade-enter-active {
-  animation: slideFadeIn var(--duration-normal) var(--ease-out-expo);
-}
-
+.slide-fade-enter-active,
 .slide-fade-leave-active {
-  animation: slideFadeOut var(--duration-fast) ease-out;
+  transition:
+    opacity var(--sm-transition-medium),
+    transform var(--sm-transition-medium);
+  will-change: opacity, transform;
 }
 
-@keyframes slideFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(var(--sm-motion-distance-md));
 }
 
-@keyframes slideFadeOut {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-}
-
-/* ========== 展开收起动画 ========== */
-.expand-enter-active {
-  animation: expandIn var(--duration-normal) var(--ease-out-expo);
-}
-
+.expand-enter-active,
 .expand-leave-active {
-  animation: expandOut var(--duration-fast) ease-out;
+  overflow: hidden;
+  transition:
+    opacity var(--sm-transition-fast),
+    max-height var(--sm-transition-medium),
+    transform var(--sm-transition-fast);
+  will-change: opacity, max-height, transform;
 }
 
-@keyframes expandIn {
-  from {
-    opacity: 0;
-    max-height: 0;
-    transform: scaleY(0.9);
-    transform-origin: top;
-  }
-  to {
-    opacity: 1;
-    max-height: 1000px;
-    transform: scaleY(1);
-  }
+.expand-enter-from,
+.expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(calc(var(--sm-motion-distance-sm) * -1));
 }
 
-@keyframes expandOut {
-  from {
-    opacity: 1;
-    max-height: 1000px;
-    transform: scaleY(1);
-  }
-  to {
-    opacity: 0;
-    max-height: 0;
-    transform: scaleY(0.9);
-    transform-origin: top;
-  }
+.expand-enter-to,
+.expand-leave-from {
+  opacity: 1;
+  max-height: 1200px;
+  transform: translateY(0);
 }
 
-/* ========== 缩放动画 ========== */
-.scale-enter-active {
-  animation: scaleIn var(--duration-normal) var(--ease-out-back);
-}
-
+.scale-enter-active,
 .scale-leave-active {
-  animation: scaleOut var(--duration-fast) ease-out;
+  transition:
+    opacity var(--sm-transition-fast),
+    transform var(--sm-transition-fast);
+  will-change: opacity, transform;
 }
 
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+.scale-enter-from,
+.scale-leave-to {
+  opacity: 0;
+  transform: scale(0.985);
 }
 
-@keyframes scaleOut {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-}
-
-/* ========== 弹跳动画 ========== */
-.bounce-enter-active {
-  animation: bounceIn var(--duration-slow) var(--ease-spring);
-}
-
-.bounce-leave-active {
-  animation: bounceOut var(--duration-normal) ease-out;
-}
-
-@keyframes bounceIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.05);
-  }
-  70% {
-    transform: scale(0.95);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-@keyframes bounceOut {
-  0% {
-    transform: scale(1);
-  }
-  25% {
-    transform: scale(1.05);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-}
-
-/* ========== 列表项动画 ========== */
-.list-item-enter-active {
-  animation: listItemIn var(--duration-normal) var(--ease-out-expo);
-}
-
+.list-item-enter-active,
 .list-item-leave-active {
-  animation: listItemOut var(--duration-fast) ease-out;
+  transition:
+    opacity var(--sm-transition-fast),
+    transform var(--sm-transition-fast);
+  will-change: opacity, transform;
+}
+
+.list-item-enter-from,
+.list-item-leave-to {
+  opacity: 0;
+  transform: translateY(var(--sm-motion-distance-sm));
 }
 
 .list-item-move {
-  transition: transform var(--duration-normal) var(--ease-out-expo);
+  transition: transform var(--sm-transition-fast);
 }
 
-@keyframes listItemIn {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+.sm-workspace-switch-enter-active,
+.sm-workspace-switch-leave-active {
+  transition:
+    opacity var(--sm-transition-medium),
+    transform var(--sm-transition-medium);
+  will-change: opacity, transform;
 }
 
-@keyframes listItemOut {
-  from {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateX(20px);
-  }
+.sm-workspace-switch-enter-from,
+.sm-workspace-switch-leave-to {
+  opacity: 0;
+  transform: translateY(var(--sm-motion-distance-md));
 }
 
-/* ========== 脉冲动画 ========== */
-@keyframes pulse {
+.sm-modal-enter-active,
+.sm-modal-leave-active {
+  transition: opacity var(--sm-transition-medium);
+}
+
+.sm-modal-enter-from,
+.sm-modal-leave-to {
+  opacity: 0;
+}
+
+.sm-modal-enter-active .sm-modal__surface,
+.sm-modal-leave-active .sm-modal__surface {
+  transition:
+    opacity var(--sm-transition-medium),
+    transform var(--sm-transition-medium);
+  will-change: opacity, transform;
+}
+
+.sm-modal-enter-from .sm-modal__surface,
+.sm-modal-leave-to .sm-modal__surface {
+  opacity: 0;
+  transform: translateY(var(--sm-motion-distance-md));
+}
+
+@keyframes sm-soft-pulse {
   0%,
   100% {
-    opacity: 1;
-    transform: scale(1);
+    opacity: 0.45;
   }
   50% {
-    opacity: 0.6;
-    transform: scale(0.95);
+    opacity: 1;
   }
 }
 
 .animate-pulse {
-  animation: pulse 2s ease-in-out infinite;
+  animation: sm-soft-pulse 1.8s ease-in-out infinite;
 }
 
-/* ========== 闪烁动画 ========== */
-@keyframes blink {
+@keyframes sm-soft-blink {
   0%,
   100% {
     opacity: 1;
   }
   50% {
-    opacity: 0;
+    opacity: 0.35;
   }
 }
 
 .animate-blink {
-  animation: blink 1s step-end infinite;
+  animation: sm-soft-blink 1s step-end infinite;
 }
 
-/* ========== 涟漪动画 ========== */
-@keyframes ripple {
+@keyframes sm-skeleton-shimmer {
   0% {
-    transform: scale(0);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(2);
-    opacity: 0;
-  }
-}
-
-.ripple {
-  animation: ripple 0.6s ease-out;
-}
-
-/* ========== 骨架屏动画 ========== */
-@keyframes skeleton {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
     background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }
 
 .skeleton {
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.05) 25%,
-    rgba(255, 255, 255, 0.1) 50%,
-    rgba(255, 255, 255, 0.05) 75%
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 100%
   );
-  background-size: 200% 100%;
-  animation: skeleton 1.5s ease-in-out infinite;
+  background-size: 220% 100%;
+  animation: sm-skeleton-shimmer 1.6s linear infinite;
 }
 
-/* ========== 加载旋转动画 ========== */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
+@keyframes sm-rotate {
   to {
     transform: rotate(360deg);
   }
 }
 
 .animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-/* ========== 悬浮效果 ========== */
-.hover-lift {
-  transition: transform var(--duration-fast) var(--ease-out-expo);
-}
-
-.hover-lift:hover {
-  transform: translateY(-2px);
-}
-
-/* ========== 点击反馈效果 ========== */
-.click-scale {
-  transition: transform var(--duration-fast) ease-out;
-}
-
-.click-scale:active {
-  transform: scale(0.97);
-}
-
-/* ========== 减少动画模式支持 ========== */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+  animation: sm-rotate 0.9s linear infinite;
 }
