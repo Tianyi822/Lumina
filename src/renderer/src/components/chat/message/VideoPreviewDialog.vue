@@ -203,7 +203,7 @@ onUnmounted(() => {
   border: 1px solid rgba(199, 120, 120, 0.22);
   border-radius: var(--sm-radius-md);
   background: rgba(199, 120, 120, 0.08);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   font-size: 13px;
 }
 

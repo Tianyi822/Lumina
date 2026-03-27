@@ -509,7 +509,7 @@ function handleExportInteractionSelect(value: string): void {
   padding: 2px 8px;
   border-radius: 999px;
   background: rgba(197, 161, 101, 0.16);
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;

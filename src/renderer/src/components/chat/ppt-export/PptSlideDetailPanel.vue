@@ -106,9 +106,9 @@ const currentSlideColor = computed(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  border-radius: var(--theme-radius-lg);
-  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-2);
   overflow: hidden;
   padding: 14px;
 }
@@ -124,7 +124,7 @@ const currentSlideColor = computed(() => {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .ppt-export-preview-actions {
@@ -138,10 +138,10 @@ const currentSlideColor = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 999px;
-  background: var(--theme-bg);
-  color: var(--theme-text-secondary);
+  background: var(--sm-color-bg-app);
+  color: var(--sm-color-text-secondary);
   font-size: 12px;
   cursor: pointer;
   transition:
@@ -152,9 +152,9 @@ const currentSlideColor = computed(() => {
 }
 
 .ppt-export-select-all:hover:not(:disabled) {
-  border-color: var(--theme-accent);
-  color: var(--theme-accent);
-  background: var(--theme-bg-hover);
+  border-color: var(--sm-color-accent);
+  color: var(--sm-color-accent);
+  background: var(--sm-color-surface-hover);
 }
 
 .ppt-export-select-all:disabled {
@@ -226,14 +226,14 @@ const currentSlideColor = computed(() => {
 .ppt-export-slide-checkbox input[type='checkbox'] {
   width: 16px;
   height: 16px;
-  accent-color: var(--theme-accent);
+  accent-color: var(--sm-color-accent);
   cursor: pointer;
 }
 
 .ppt-export-slide-detail-index {
   font-size: 15px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .ppt-export-slide-detail-type {
@@ -247,7 +247,7 @@ const currentSlideColor = computed(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   line-height: 1.4;
 }
 

@@ -174,15 +174,15 @@ function getPromptPreview(prompt: string): string {
 }
 
 .video-status.success {
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .video-status.fail {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .video-status.processing {
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
 }
 
 .video-play-indicator {
@@ -221,7 +221,7 @@ function getPromptPreview(prompt: string): string {
 .video-error {
   font-size: 12px;
   line-height: 1.5;
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 @media (max-width: 768px) {

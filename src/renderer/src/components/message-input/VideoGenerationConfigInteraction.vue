@@ -82,7 +82,7 @@ watch(
 
 <template>
   <div class="video-config-panel">
-    <div class="panel-title">{{ interactionInfo.question }}</div>
+    <div class="sm-video-config__title">{{ interactionInfo.question }}</div>
 
     <div class="config-group">
       <div class="group-label">视频分辨率</div>
@@ -163,17 +163,18 @@ watch(
   margin-bottom: 12px;
   padding: 14px 16px;
   background:
-    linear-gradient(160deg, rgba(9, 48, 43, 0.92), rgba(18, 77, 68, 0.84)),
-    var(--theme-bg-secondary);
-  border: 1px solid rgba(112, 215, 92, 0.18);
-  border-radius: 18px;
-  color: #f5fffb;
+    linear-gradient(180deg, rgba(142, 149, 217, 0.08), rgba(142, 149, 217, 0.03)),
+    var(--sm-color-surface-2);
+  border: 1px solid rgba(142, 149, 217, 0.22);
+  border-radius: var(--sm-radius-lg);
+  color: var(--sm-color-text-primary);
 }
 
-.panel-title {
+.sm-video-config__title {
   font-size: 13px;
   line-height: 1.6;
   margin-bottom: 14px;
+  color: var(--sm-color-text-primary);
 }
 
 .config-group + .config-group {
@@ -184,7 +185,7 @@ watch(
   margin-bottom: 8px;
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--sm-color-text-secondary);
 }
 
 .chip-list {
@@ -194,41 +195,46 @@ watch(
 }
 
 .config-chip {
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 999px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #f5fffb;
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
   cursor: pointer;
   transition:
-    transform 0.15s ease,
-    border-color 0.15s ease,
-    background-color 0.15s ease;
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
 .config-chip:hover {
-  transform: translateY(-1px);
-  border-color: rgba(112, 215, 92, 0.42);
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
 }
 
 .config-chip.active {
-  border-color: rgba(112, 215, 92, 0.56);
-  background: rgba(112, 215, 92, 0.16);
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.14);
 }
 
 .submit-button {
   margin-top: 16px;
-  border: 0;
-  border-radius: 14px;
+  border: 1px solid var(--sm-color-border-accent);
+  border-radius: var(--sm-radius-md);
   padding: 10px 14px;
-  background: linear-gradient(135deg, #b7ff8f, #69d86f);
-  color: #12311b;
+  background: rgba(142, 149, 217, 0.16);
+  color: var(--sm-color-text-primary);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
 .submit-button:hover {
-  filter: brightness(1.03);
+  background: rgba(142, 149, 217, 0.22);
+  border-color: rgba(161, 167, 230, 0.6);
 }
 </style>

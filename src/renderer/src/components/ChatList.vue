@@ -159,7 +159,7 @@ function formatTime(isoString: string): string {
   opacity: 1;
   background: rgba(199, 120, 120, 0.12);
   border-color: rgba(199, 120, 120, 0.28);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .empty-state {

@@ -34,35 +34,35 @@ const statusConfig = computed(() => {
         icon: '·',
         text: '等待执行',
         class: 'status-pending',
-        color: 'var(--theme-info)'
+        color: 'var(--sm-color-status-info)'
       }
     case 'running':
       return {
         icon: '…',
         text: '执行中',
         class: 'status-running',
-        color: 'var(--theme-warning)'
+        color: 'var(--sm-color-status-warning)'
       }
     case 'success':
       return {
         icon: '✓',
         text: '执行成功',
         class: 'status-success',
-        color: 'var(--theme-success)'
+        color: 'var(--sm-color-status-success)'
       }
     case 'error':
       return {
         icon: '!',
         text: '执行失败',
         class: 'status-error',
-        color: 'var(--theme-danger)'
+        color: 'var(--sm-color-status-danger)'
       }
     default:
       return {
         icon: '•',
         text: '未知状态',
         class: 'status-unknown',
-        color: 'var(--theme-text-secondary)'
+        color: 'var(--sm-color-text-secondary)'
       }
   }
 })
@@ -197,19 +197,19 @@ function toggleExpand(): void {
 }
 
 .tool-call-panel.status-pending::before {
-  background-color: var(--theme-info);
+  background-color: var(--sm-color-status-info);
 }
 
 .tool-call-panel.status-running::before {
-  background-color: var(--theme-warning);
+  background-color: var(--sm-color-status-warning);
 }
 
 .tool-call-panel.status-success::before {
-  background-color: var(--theme-success);
+  background-color: var(--sm-color-status-success);
 }
 
 .tool-call-panel.status-error::before {
-  background-color: var(--theme-danger);
+  background-color: var(--sm-color-status-danger);
 }
 
 .tool-header {
@@ -372,18 +372,18 @@ function toggleExpand(): void {
 }
 
 .params-block {
-  border-left: 3px solid var(--theme-info);
+  border-left: 3px solid var(--sm-color-status-info);
 }
 
 .result-block.success {
-  border-left: 3px solid var(--theme-success);
+  border-left: 3px solid var(--sm-color-status-success);
   background: rgba(127, 176, 138, 0.08);
 }
 
 .result-block.error {
-  border-left: 3px solid var(--theme-danger);
+  border-left: 3px solid var(--sm-color-status-danger);
   background: rgba(199, 120, 120, 0.08);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .timestamps {

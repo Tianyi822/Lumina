@@ -236,8 +236,8 @@ onUnmounted(() => {
     <!-- 工具面板 -->
     <div v-if="showPanel" class="mcp-tools-panel">
       <!-- 头部 -->
-      <div class="panel-header">
-        <span class="panel-title">MCP 工具（多选）</span>
+      <div class="sm-mcp-tools__header">
+        <span class="sm-mcp-tools__title">MCP 工具（多选）</span>
         <span class="connection-info"> {{ connectedServersCount }} 个服务器已连接 </span>
       </div>
 
@@ -403,7 +403,7 @@ onUnmounted(() => {
   z-index: 200;
 }
 
-.panel-header {
+.sm-mcp-tools__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -411,7 +411,7 @@ onUnmounted(() => {
   border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
-.panel-title {
+.sm-mcp-tools__title {
   font-weight: 600;
   font-size: 13px;
   color: var(--sm-color-text-primary);
@@ -510,7 +510,7 @@ onUnmounted(() => {
 }
 
 .server-status.connected {
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .tools-count-badge {

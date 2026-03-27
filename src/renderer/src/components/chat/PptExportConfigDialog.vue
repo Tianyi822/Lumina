@@ -464,7 +464,7 @@ async function handleRetry(): Promise<void> {
 }
 
 .ppt-export-progress-step.done {
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .ppt-export-progress-dot {
@@ -496,31 +496,31 @@ async function handleRetry(): Promise<void> {
 .ppt-export-error-parse {
   background: rgba(197, 161, 101, 0.08);
   border-color: rgba(197, 161, 101, 0.22);
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
 }
 
 .ppt-export-error-style {
   background: rgba(199, 120, 120, 0.08);
   border-color: rgba(199, 120, 120, 0.22);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .ppt-export-error-generate {
   background: rgba(199, 120, 120, 0.08);
   border-color: rgba(199, 120, 120, 0.22);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .ppt-export-error-download {
   background: rgba(199, 120, 120, 0.08);
   border-color: rgba(199, 120, 120, 0.22);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .ppt-export-error-network {
   background: rgba(199, 120, 120, 0.08);
   border-color: rgba(199, 120, 120, 0.22);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .ppt-export-error-content {
@@ -590,7 +590,7 @@ async function handleRetry(): Promise<void> {
   border: 1px solid rgba(245, 158, 11, 0.2);
   border-radius: var(--sm-radius-md);
   background: rgba(245, 158, 11, 0.08);
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
   font-size: 12px;
   line-height: 1.5;
 }

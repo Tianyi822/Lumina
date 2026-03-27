@@ -70,7 +70,7 @@ const contentTokenLabel = computed(() => {
 <template>
   <div class="reasoning-panel" :class="{ expanded: isActuallyExpanded }">
     <!-- 头部（始终显示） -->
-    <div class="panel-header" @click="toggle">
+    <div class="sm-reasoning-panel__header" @click="toggle">
       <div class="header-left">
         <div class="header-icon">
           <SvgIcon name="thinking" :size="20" />
@@ -88,8 +88,8 @@ const contentTokenLabel = computed(() => {
     </div>
 
     <!-- 内容区域（可展开/收起） -->
-    <div class="panel-content-wrapper" :class="{ expanded: isActuallyExpanded }">
-      <div class="panel-content">
+    <div class="sm-reasoning-panel__content-shell" :class="{ expanded: isActuallyExpanded }">
+      <div class="sm-reasoning-panel__content">
         <!-- markdown-it 已禁用原生 HTML，这里仅渲染受控 Markdown -->
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div class="reasoning-text markdown-body" v-html="renderMarkdown(content)"></div>
@@ -120,7 +120,7 @@ const contentTokenLabel = computed(() => {
   border-color: rgba(142, 149, 217, 0.28);
 }
 
-.panel-header {
+.sm-reasoning-panel__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -133,11 +133,11 @@ const contentTokenLabel = computed(() => {
     border-color var(--sm-transition-fast);
 }
 
-.panel-header:hover {
+.sm-reasoning-panel__header:hover {
   background: var(--sm-color-surface-hover);
 }
 
-.reasoning-panel.expanded .panel-header {
+.reasoning-panel.expanded .sm-reasoning-panel__header {
   background: rgba(142, 149, 217, 0.08);
   border-bottom-color: rgba(142, 149, 217, 0.18);
 }
@@ -215,40 +215,40 @@ const contentTokenLabel = computed(() => {
   transform: rotate(180deg);
 }
 
-.panel-header:hover .expand-arrow {
+.sm-reasoning-panel__header:hover .expand-arrow {
   color: var(--sm-color-text-secondary);
 }
 
-.panel-content-wrapper {
+.sm-reasoning-panel__content-shell {
   max-height: 0;
   overflow: hidden;
   opacity: 0;
   transition:
-    max-height 180ms ease,
-    opacity 140ms ease-out;
+    max-height var(--sm-transition-medium),
+    opacity var(--sm-transition-instant);
 }
 
-.panel-content-wrapper.expanded {
+.sm-reasoning-panel__content-shell.expanded {
   max-height: 520px;
   opacity: 1;
 }
 
-.panel-content {
+.sm-reasoning-panel__content {
   padding: 14px;
   overflow-y: auto;
   max-height: 500px;
   border-top: 1px solid var(--sm-color-border-subtle);
 }
 
-.panel-content::-webkit-scrollbar {
+.sm-reasoning-panel__content::-webkit-scrollbar {
   width: 4px;
 }
 
-.panel-content::-webkit-scrollbar-track {
+.sm-reasoning-panel__content::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.panel-content::-webkit-scrollbar-thumb {
+.sm-reasoning-panel__content::-webkit-scrollbar-thumb {
   background: var(--sm-color-border-default);
   border-radius: 999px;
 }

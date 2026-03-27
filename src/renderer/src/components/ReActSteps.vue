@@ -447,13 +447,13 @@ function getPhaseLabel(iteration: number): string {
 .stat-badge.success {
   border-color: rgba(127, 176, 138, 0.24);
   background: rgba(127, 176, 138, 0.08);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .stat-badge.error {
   border-color: rgba(199, 120, 120, 0.24);
   background: rgba(199, 120, 120, 0.08);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .expand-icon {

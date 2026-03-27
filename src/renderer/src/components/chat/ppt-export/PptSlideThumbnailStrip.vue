@@ -101,12 +101,12 @@ function handleToggleSelection(event: Event, index: number): void {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .ppt-export-thumbnails-count {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .ppt-export-thumbnails-scroll {
@@ -126,7 +126,7 @@ function handleToggleSelection(event: Event, index: number): void {
 }
 
 .ppt-export-thumbnails-scroll::-webkit-scrollbar-thumb {
-  background: var(--theme-border);
+  background: var(--sm-color-border-default);
   border-radius: 3px;
 }
 

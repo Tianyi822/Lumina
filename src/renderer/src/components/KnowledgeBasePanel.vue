@@ -268,8 +268,8 @@ defineExpose({
     <!-- 知识库面板 -->
     <div v-if="showPanel" class="kb-panel">
       <!-- 头部 -->
-      <div class="panel-header">
-        <span class="panel-title">知识库选择（多选）</span>
+      <div class="sm-knowledge-base__header">
+        <span class="sm-knowledge-base__title">知识库选择（多选）</span>
         <span class="kb-info"> {{ allKnowledgeBases.length }} 个知识库可用 </span>
       </div>
 
@@ -408,7 +408,7 @@ defineExpose({
   z-index: 200;
 }
 
-.panel-header {
+.sm-knowledge-base__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -416,7 +416,7 @@ defineExpose({
   border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
-.panel-title {
+.sm-knowledge-base__title {
   font-weight: 600;
   font-size: 13px;
   color: var(--sm-color-text-primary);

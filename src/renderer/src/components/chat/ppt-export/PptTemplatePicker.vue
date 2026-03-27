@@ -97,7 +97,7 @@ function handleSelectTemplate(templateId: string): void {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .ppt-export-templates-grid {
@@ -117,7 +117,7 @@ function handleSelectTemplate(templateId: string): void {
 }
 
 .ppt-export-templates-grid::-webkit-scrollbar-thumb {
-  background: var(--theme-border);
+  background: var(--sm-color-border-default);
   border-radius: 2px;
 }
 
