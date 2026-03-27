@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import ThemeSettings from './settings/ThemeSettings.vue'
 import ModelSettings from './settings/ModelSettings.vue'
@@ -17,12 +17,7 @@ const emit = defineEmits<{
   (e: 'mcp-updated'): void
 }>()
 
-// 使用 configStore
-const configStore = useConfigStore()
-const { loading, errorMessage, successMessage, themeConfig } = storeToRefs(configStore)
-
-// 当前激活的 Tab
-const activeTab = ref<
+type SettingsTabKey =
   | 'theme'
   | 'model'
   | 'video'
@@ -32,7 +27,69 @@ const activeTab = ref<
   | 'knowledge'
   | 'voice'
   | 'pptTemplate'
->('model')
+
+// 使用 configStore
+const configStore = useConfigStore()
+const { loading, errorMessage, successMessage, themeConfig } = storeToRefs(configStore)
+
+// 当前激活的 Tab
+const activeTab = ref<SettingsTabKey>('model')
+
+const settingsTabs: Array<{
+  id: SettingsTabKey
+  label: string
+  description: string
+}> = [
+  {
+    id: 'model',
+    label: '对话模型配置',
+    description: '管理默认模型、接口地址与上下文参数。'
+  },
+  {
+    id: 'video',
+    label: '视频模型配置',
+    description: '配置视频生成接口、默认尺寸与输出偏好。'
+  },
+  {
+    id: 'embedding',
+    label: '嵌入模型配置',
+    description: '维护知识检索所需的向量模型清单。'
+  },
+  {
+    id: 'mcp',
+    label: 'MCP 服务',
+    description: '连接外部工具链并管理服务传输方式。'
+  },
+  {
+    id: 'prompt',
+    label: '提示词工程',
+    description: '调整系统提示词、变量、示例与测试沙箱。'
+  },
+  {
+    id: 'knowledge',
+    label: '知识库服务',
+    description: '管理知识库 MCP 对外服务与共享说明。'
+  },
+  {
+    id: 'voice',
+    label: '语音识别',
+    description: '配置语音识别服务凭据与调用入口。'
+  },
+  {
+    id: 'pptTemplate',
+    label: 'PPT 模板',
+    description: '上传模板、查看分析状态与素材结果。'
+  },
+  {
+    id: 'theme',
+    label: '主题设置',
+    description: '切换当前工作主题并查看主题预览。'
+  }
+]
+
+const currentTabMeta = computed(() => {
+  return settingsTabs.find((tab) => tab.id === activeTab.value) ?? settingsTabs[0]
+})
 
 // 信息消息（仅用于嵌入模型设置）
 const infoMessage = ref('')
@@ -71,169 +128,133 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="settings-overlay">
-    <div class="settings-container">
-      <!-- 设置窗口头部 -->
-      <div class="settings-header">
-        <h2 class="settings-title">设置</h2>
-        <button class="btn close-btn" @click="handleClose">关闭</button>
+  <div class="sm-modal__overlay settings-overlay" @click.self="handleClose">
+    <div class="sm-modal__surface settings-container">
+      <div class="sm-pane-header settings-header">
+        <div class="settings-header__info">
+          <p class="settings-header__eyebrow">Preferences</p>
+          <div>
+            <h2 class="settings-title">设置中心</h2>
+            <p class="settings-subtitle">统一管理模型、工具链、知识能力与工作偏好。</p>
+          </div>
+        </div>
+        <button class="sm-button close-btn" @click="handleClose">关闭</button>
       </div>
 
-      <!-- 主体区域：左右布局 -->
-      <div class="settings-body">
-        <!-- 左侧菜单 -->
-        <div class="tabs">
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'model' }"
-            @click="activeTab = 'model'"
-          >
-            对话模型配置
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'video' }"
-            @click="activeTab = 'video'"
-          >
-            视频模型配置
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'embedding' }"
-            @click="activeTab = 'embedding'"
-          >
-            嵌入模型配置
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'mcp' }"
-            @click="activeTab = 'mcp'"
-          >
-            MCP 服务
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'prompt' }"
-            @click="activeTab = 'prompt'"
-          >
-            提示词
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'knowledge' }"
-            @click="activeTab = 'knowledge'"
-          >
-            知识库服务
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'voice' }"
-            @click="activeTab = 'voice'"
-          >
-            语音识别
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'pptTemplate' }"
-            @click="activeTab = 'pptTemplate'"
-          >
-            PPT 模板
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'theme' }"
-            @click="activeTab = 'theme'"
-          >
-            主题设置
-          </button>
-        </div>
-
-        <!-- 右侧内容区域 -->
-        <div class="settings-content">
-          <!-- 加载状态 -->
-          <div v-if="loading" class="loading-state">
-            <span>加载中...</span>
+      <div class="sm-settings-layout settings-body">
+        <aside class="sm-settings-nav settings-nav">
+          <div class="sm-settings-nav__intro">
+            <p class="sm-settings-nav__eyebrow">Settings Workspace</p>
+            <h3 class="sm-settings-nav__title">配置导航</h3>
+            <p class="sm-settings-nav__description">
+              每个页签都是同一套设置系统中的表单场景，保持稳定、安静、可持续维护。
+            </p>
           </div>
 
-          <!-- 模型配置 Tab -->
-          <ModelSettings v-else-if="activeTab === 'model'" />
+          <div class="sm-settings-nav__list">
+            <button
+              v-for="tab in settingsTabs"
+              :key="tab.id"
+              class="sm-settings-nav__item"
+              :class="{ 'is-active': activeTab === tab.id }"
+              @click="activeTab = tab.id"
+            >
+              <span class="sm-settings-nav__label">{{ tab.label }}</span>
+              <span class="sm-settings-nav__meta">{{ tab.description }}</span>
+            </button>
+          </div>
+        </aside>
 
-          <!-- MCP 配置 Tab -->
-          <MCPSettings
-            v-else-if="activeTab === 'mcp'"
-            :error-message="errorMessage"
-            :success-message="successMessage"
-            @update:error-message="errorMessage = $event"
-            @update:success-message="successMessage = $event"
-            @mcp-updated="emit('mcp-updated')"
-          />
+        <section class="sm-settings-panel settings-panel">
+          <div class="sm-settings-panel__header">
+            <div>
+              <p class="sm-settings-panel__eyebrow">Configuration Panel</p>
+              <h3 class="sm-settings-panel__title">{{ currentTabMeta.label }}</h3>
+              <p class="sm-settings-panel__description">{{ currentTabMeta.description }}</p>
+            </div>
 
-          <!-- 视频模型配置 Tab -->
-          <VideoModelSettings
-            v-else-if="activeTab === 'video'"
-            :error-message="errorMessage"
-            :success-message="successMessage"
-            @update:error-message="errorMessage = $event"
-            @update:success-message="successMessage = $event"
-          />
+            <div class="settings-panel__status">
+              <span class="sm-settings-chip" :class="{ 'sm-settings-chip--accent': !loading }">
+                {{ loading ? '加载中' : '已就绪' }}
+              </span>
+            </div>
+          </div>
 
-          <!-- 嵌入模型配置 Tab -->
-          <EmbeddingModelSettings
-            v-else-if="activeTab === 'embedding'"
-            :error-message="errorMessage"
-            :success-message="successMessage"
-            :info-message="infoMessage"
-            @update:error-message="errorMessage = $event"
-            @update:success-message="successMessage = $event"
-            @update:info-message="infoMessage = $event"
-          />
+          <div class="sm-settings-panel__body settings-content">
+            <div v-if="loading" class="sm-settings-empty">正在加载当前配置...</div>
 
-          <!-- 提示词工程配置 Tab -->
-          <PromptEngineeringSettings v-else-if="activeTab === 'prompt'" />
+            <ModelSettings v-else-if="activeTab === 'model'" />
 
-          <!-- 主题设置 Tab -->
-          <ThemeSettings
-            v-else-if="activeTab === 'theme'"
-            :model-value="themeConfig"
-            @update:model-value="configStore.updateThemeConfig"
-            @theme-change="handleThemeChange"
-          />
+            <MCPSettings
+              v-else-if="activeTab === 'mcp'"
+              :error-message="errorMessage"
+              :success-message="successMessage"
+              @update:error-message="errorMessage = $event"
+              @update:success-message="successMessage = $event"
+              @mcp-updated="emit('mcp-updated')"
+            />
 
-          <!-- 知识库 MCP 服务 Tab -->
-          <KnowledgeMCPSettings
-            v-else-if="activeTab === 'knowledge'"
-            @update:error-message="errorMessage = $event"
-            @update:success-message="successMessage = $event"
-          />
+            <VideoModelSettings
+              v-else-if="activeTab === 'video'"
+              :error-message="errorMessage"
+              :success-message="successMessage"
+              @update:error-message="errorMessage = $event"
+              @update:success-message="successMessage = $event"
+            />
 
-          <!-- 语音识别配置 Tab -->
-          <VoiceRecognitionSettings
-            v-else-if="activeTab === 'voice'"
-            :error-message="errorMessage"
-            :success-message="successMessage"
-            @update:error-message="errorMessage = $event"
-            @update:success-message="successMessage = $event"
-          />
+            <EmbeddingModelSettings
+              v-else-if="activeTab === 'embedding'"
+              :error-message="errorMessage"
+              :success-message="successMessage"
+              :info-message="infoMessage"
+              @update:error-message="errorMessage = $event"
+              @update:success-message="successMessage = $event"
+              @update:info-message="infoMessage = $event"
+            />
 
-          <!-- PPT 模板配置 Tab -->
-          <PptTemplateSettings
-            v-else-if="activeTab === 'pptTemplate'"
-            :error-message="errorMessage"
-            :success-message="successMessage"
-            @update:error-message="errorMessage = $event"
-            @update:success-message="successMessage = $event"
-          />
-        </div>
+            <PromptEngineeringSettings v-else-if="activeTab === 'prompt'" />
+
+            <ThemeSettings
+              v-else-if="activeTab === 'theme'"
+              :model-value="themeConfig"
+              @update:model-value="configStore.updateThemeConfig"
+              @theme-change="handleThemeChange"
+            />
+
+            <KnowledgeMCPSettings
+              v-else-if="activeTab === 'knowledge'"
+              @update:error-message="errorMessage = $event"
+              @update:success-message="successMessage = $event"
+            />
+
+            <VoiceRecognitionSettings
+              v-else-if="activeTab === 'voice'"
+              :error-message="errorMessage"
+              :success-message="successMessage"
+              @update:error-message="errorMessage = $event"
+              @update:success-message="successMessage = $event"
+            />
+
+            <PptTemplateSettings
+              v-else-if="activeTab === 'pptTemplate'"
+              :error-message="errorMessage"
+              :success-message="successMessage"
+              @update:error-message="errorMessage = $event"
+              @update:success-message="successMessage = $event"
+            />
+          </div>
+        </section>
       </div>
 
-      <!-- 消息提示 -->
-      <div v-if="errorMessage" class="message error-message">
-        {{ errorMessage }}
+      <div v-if="errorMessage" class="sm-settings-feedback sm-settings-feedback--error">
+        <span>{{ errorMessage }}</span>
+        <button class="message-close" @click="errorMessage = ''">关闭</button>
       </div>
-      <div v-if="successMessage" class="message success-message">
-        {{ successMessage }}
+      <div v-if="successMessage" class="sm-settings-feedback sm-settings-feedback--success">
+        <span>{{ successMessage }}</span>
+        <button class="message-close" @click="successMessage = ''">关闭</button>
       </div>
-      <div v-if="infoMessage" class="message info-message">
+      <div v-if="infoMessage" class="sm-settings-feedback sm-settings-feedback--info">
         <span>{{ infoMessage }}</span>
         <button class="message-close" @click="infoMessage = ''">关闭</button>
       </div>
@@ -243,19 +264,7 @@ onUnmounted(() => {
 
 <style scoped>
 .settings-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px) saturate(120%);
-  -webkit-backdrop-filter: blur(12px) saturate(120%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 1000;
-  padding: calc(54px + env(safe-area-inset-top, 0px)) 24px 24px;
   overflow: hidden;
 }
 
@@ -264,30 +273,86 @@ onUnmounted(() => {
   height: min(750px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
   min-width: 400px;
   min-height: 300px;
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
-    ),
-    linear-gradient(
-      225deg,
-      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
-      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
-    ),
-    var(--theme-bg);
-  backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
-  -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  border-radius: var(--theme-radius-lg);
-  box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.35),
-    0 8px 24px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15)),
-    inset 0 -1px 0 var(--glass-white-05, rgba(255, 255, 255, 0.05));
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--sm-color-surface-3);
+  border-color: var(--sm-color-border-default);
+  box-shadow: none;
+}
+
+.settings-header {
+  flex-shrink: 0;
+}
+
+.settings-header__info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-header__eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sm-color-text-tertiary);
+}
+
+.settings-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.settings-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
+}
+
+.close-btn {
+  min-width: 64px;
+}
+
+.settings-body {
+  overflow: hidden;
+}
+
+.settings-content {
+  background: var(--sm-color-surface-2);
+}
+
+.settings-panel__status {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+}
+
+.message-close {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--sm-radius-sm);
+  color: inherit;
+  font-size: 12px;
+  font-family: var(--sm-font-sans);
+  padding: 0 8px;
+  min-width: 44px;
+  height: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+}
+
+.message-close:hover {
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-default);
 }
 
 @media (max-width: 960px) {
@@ -306,214 +371,22 @@ onUnmounted(() => {
     width: 100%;
     height: min(100%, calc(100vh - 56px - env(safe-area-inset-top, 0px)));
   }
-
-  .tabs {
-    width: 160px;
-  }
-
-  .tab-btn {
-    padding: 10px 12px;
-    font-size: 13px;
-  }
-
-  .settings-content {
-    padding: 16px;
-  }
 }
 
 @media (max-width: 600px) {
-  .tabs {
-    width: 140px;
-  }
-
-  .tab-btn {
-    padding: 8px 10px;
-    font-size: 12px;
-  }
-
-  .settings-header {
-    padding: 12px 16px;
-  }
-
   .settings-title {
     font-size: 16px;
   }
-
-  .btn {
-    padding: 6px 12px;
-    font-size: 12px;
-  }
-
-  .settings-content {
-    padding: 12px;
-  }
-}
-
-.settings-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.25);
-  flex-shrink: 0;
-}
-
-.settings-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--theme-text);
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-
-.close-btn {
-  min-width: 64px;
-  height: 32px;
-  padding: 0 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  border-radius: 999px;
-}
-
-.settings-body {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
 }
 
 @media (max-width: 480px) {
-  .settings-body {
+  .settings-header {
+    align-items: flex-start;
     flex-direction: column;
   }
 
-  .tabs {
+  .close-btn {
     width: 100%;
-    flex-direction: row;
-    border-right: none;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.25);
-    flex-shrink: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
   }
-
-  .tab-btn {
-    white-space: nowrap;
-    padding: 10px 16px;
-    border-radius: 0;
-    border: none;
-    border-bottom: 2px solid transparent;
-    font-size: 13px;
-  }
-
-  .tab-btn.active {
-    border-radius: 0;
-    border: none;
-    border-bottom: 2px solid var(--theme-accent);
-    background-color: transparent;
-  }
-
-  .settings-content {
-    padding: 16px;
-  }
-}
-
-.tabs {
-  width: 200px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid rgba(0, 0, 0, 0.25);
-  padding: 8px;
-  gap: 2px;
-}
-
-.tab-btn {
-  width: 100%;
-  padding: 10px 16px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--theme-text-secondary);
-  font-family: var(--theme-font);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  text-align: left;
-  border-radius: var(--theme-radius-sm);
-}
-
-.tab-btn:hover {
-  color: var(--theme-text);
-  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
-}
-
-.tab-btn.active {
-  background: rgba(99, 102, 241, 0.1);
-  color: var(--theme-accent);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-}
-
-.settings-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-}
-
-.loading-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 200px;
-  color: var(--theme-text-tertiary);
-}
-
-.message {
-  padding: 10px 20px;
-  font-size: 13px;
-  flex-shrink: 0;
-}
-
-.error-message {
-  background: rgba(239, 68, 68, 0.08);
-  color: var(--theme-danger);
-  border-top: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.success-message {
-  background: rgba(34, 197, 94, 0.08);
-  color: var(--theme-success);
-  border-top: 1px solid rgba(34, 197, 94, 0.2);
-}
-
-.info-message {
-  background: rgba(245, 158, 11, 0.08);
-  color: var(--theme-warning);
-  border-top: 1px solid rgba(245, 158, 11, 0.2);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.message-close {
-  background: transparent;
-  border: none;
-  color: var(--theme-warning);
-  font-size: 12px;
-  font-family: var(--theme-font);
-  padding: 4px 8px;
-  min-width: 44px;
-  height: 28px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 10px;
-  opacity: 0.7;
-}
-
-.message-close:hover {
-  opacity: 1;
 }
 </style>

@@ -130,81 +130,108 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="knowledge-mcp-settings">
-    <!-- 标题 -->
-    <h3 class="section-title">知识库 MCP 服务</h3>
+  <div class="sm-settings-page knowledge-mcp-settings">
+    <header class="sm-settings-page__header">
+      <p class="sm-settings-page__eyebrow">Knowledge Service</p>
+      <h2 class="sm-settings-page__title">知识库 MCP 服务</h2>
+      <p class="sm-settings-page__description">
+        将知识库检索能力暴露给外部 MCP 客户端，适用于桌面端、IDE 和其他 AI 工具链。
+      </p>
+    </header>
 
-    <!-- 功能开关 -->
-    <div
-      class="mcp-toggle"
-      :class="{ enabled: enabled, disabled: toggling || loading }"
-      @click="handleToggle"
-    >
-      <div class="toggle-switch">
-        <div class="toggle-thumb"></div>
+    <section class="sm-settings-page__section">
+      <div class="sm-settings-page__section-header">
+        <div>
+          <h3 class="sm-settings-page__section-title">服务状态</h3>
+          <p class="sm-settings-page__section-description">
+            启停服务后，配置 JSON 会自动更新，可直接复制到支持 MCP 的客户端中。
+          </p>
+        </div>
       </div>
-      <span class="toggle-label">启用 MCP 服务</span>
-      <span v-if="enabled" class="status-badge active">运行中</span>
-      <span v-else class="status-badge">已停止</span>
-    </div>
 
-    <!-- MCP 配置展示（启用后显示） -->
-    <div v-if="enabled && configJSON" class="config-section">
+      <button
+        class="mcp-toggle"
+        :class="{ enabled: enabled, disabled: toggling || loading }"
+        :disabled="toggling || loading"
+        type="button"
+        @click="handleToggle"
+      >
+        <div class="toggle-switch">
+          <div class="toggle-thumb"></div>
+        </div>
+        <span class="toggle-label">启用 MCP 服务</span>
+        <span v-if="enabled" class="status-badge active">运行中</span>
+        <span v-else class="status-badge">已停止</span>
+      </button>
+    </section>
+
+    <section v-if="enabled && configJSON" class="sm-settings-page__section">
       <div class="config-header">
-        <span class="config-title">MCP 配置</span>
-        <button class="btn btn-small copy-btn" :disabled="copying" @click="copyConfig">
+        <div>
+          <h3 class="sm-settings-page__section-title">服务配置</h3>
+          <p class="sm-settings-page__section-description">复制后可直接写入 MCP 客户端配置文件。</p>
+        </div>
+        <button class="sm-button sm-button--small copy-btn" :disabled="copying" @click="copyConfig">
           {{ copying ? '复制中...' : '复制' }}
         </button>
       </div>
       <div class="config-url">
-        <span class="url-label">服务地址：</span>
+        <span class="url-label">服务地址</span>
         <span class="url-value">{{ status.url }}</span>
       </div>
       <pre class="config-json"><code>{{ configJSON }}</code></pre>
-    </div>
+    </section>
 
-    <!-- 功能说明 -->
-    <div class="description-section">
-      <h4 class="description-title">功能说明</h4>
-
-      <div class="description-block">
-        <h5>知识库 MCP 服务</h5>
-        <p>
-          知识库 MCP 服务将您在本应用中创建的知识库通过 MCP 协议对外暴露，让外部 AI
-          工具能够搜索和引用您的知识库内容。启用后，其他支持 MCP
-          协议的工具可以直接调用知识库搜索功能，获取相关文档片段作为上下文。
-        </p>
+    <section class="sm-settings-page__section">
+      <div class="sm-settings-page__section-header">
+        <div>
+          <h3 class="sm-settings-page__section-title">使用说明</h3>
+          <p class="sm-settings-page__section-description">
+            统一说明服务用途、接入步骤和安全边界，避免页面与弹窗之间出现不同语气。
+          </p>
+        </div>
       </div>
 
-      <div class="description-block">
-        <h5>使用场景</h5>
-        <ul>
-          <li>在 Claude Desktop 中直接搜索和引用您的知识库内容</li>
-          <li>在 Cursor、Windsurf 等 IDE 中获取知识库上下文</li>
-          <li>让其他支持 MCP 协议的 AI 工具访问您的私有知识</li>
-        </ul>
-      </div>
+      <div class="description-section">
+        <div class="description-block">
+          <h5>知识库 MCP 服务</h5>
+          <p>
+            知识库 MCP 服务将您在本应用中创建的知识库通过 MCP 协议对外暴露，让外部 AI
+            工具能够搜索和引用您的知识库内容。启用后，其他支持 MCP
+            协议的工具可以直接调用知识库搜索功能，获取相关文档片段作为上下文。
+          </p>
+        </div>
 
-      <div class="description-block">
-        <h5>如何使用</h5>
-        <ol>
-          <li>开启上方开关启动 MCP 服务</li>
-          <li>复制上方显示的 JSON 配置</li>
-          <li>将配置添加到您的 MCP 客户端配置文件中</li>
-          <li>重启 MCP 客户端即可使用知识库工具</li>
-        </ol>
-      </div>
+        <div class="description-block">
+          <h5>使用场景</h5>
+          <ul>
+            <li>在 Claude Desktop 中直接搜索和引用您的知识库内容</li>
+            <li>在 Cursor、Windsurf 等 IDE 中获取知识库上下文</li>
+            <li>让其他支持 MCP 协议的 AI 工具访问您的私有知识</li>
+          </ul>
+        </div>
 
-      <div class="description-block warning">
-        <h5>安全注意事项</h5>
-        <ul>
-          <li>服务仅监听本地网络接口，外部设备需要通过局域网访问</li>
-          <li>请确保您的防火墙设置允许指定端口的访问</li>
-          <li>当前版本不包含认证机制，请在可信网络环境中使用</li>
-          <li>关闭应用时服务会自动停止</li>
-        </ul>
+        <div class="description-block">
+          <h5>如何使用</h5>
+          <ol>
+            <li>开启上方开关启动 MCP 服务</li>
+            <li>复制上方显示的 JSON 配置</li>
+            <li>将配置添加到您的 MCP 客户端配置文件中</li>
+            <li>重启 MCP 客户端即可使用知识库工具</li>
+          </ol>
+        </div>
+
+        <div class="description-block warning">
+          <h5>安全注意事项</h5>
+          <ul>
+            <li>服务仅监听本地网络接口，外部设备需要通过局域网访问</li>
+            <li>请确保您的防火墙设置允许指定端口的访问</li>
+            <li>当前版本不包含认证机制，请在可信网络环境中使用</li>
+            <li>关闭应用时服务会自动停止</li>
+          </ul>
+        </div>
       </div>
-    </div>
+    </section>
   </div>
 </template>
 
@@ -212,39 +239,34 @@ onUnmounted(() => {
 .knowledge-mcp-settings {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--sm-space-5);
 }
 
-.section-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--theme-text);
-  margin: 0 0 4px 0;
-}
-
-/* 开关样式 - 模仿 SandboxToolsToggle */
 .mcp-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  font-size: 12px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius-sm);
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 13px;
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
   user-select: none;
 }
 
 .mcp-toggle:hover:not(.disabled) {
-  border-color: var(--theme-border-hover);
-  background-color: var(--theme-bg-hover);
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
 }
 
 .mcp-toggle.enabled {
-  border-color: var(--theme-accent);
-  background-color: rgba(52, 122, 115, 0.1);
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.08);
 }
 
 .mcp-toggle.disabled {
@@ -255,14 +277,14 @@ onUnmounted(() => {
 .toggle-switch {
   width: 36px;
   height: 20px;
-  background-color: var(--theme-border);
+  background: var(--sm-color-border-default);
   border-radius: 10px;
   position: relative;
   transition: background-color 0.2s ease;
 }
 
 .mcp-toggle.enabled .toggle-switch {
-  background-color: var(--theme-accent);
+  background: var(--sm-color-accent);
 }
 
 .toggle-thumb {
@@ -277,91 +299,77 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   transition: transform 0.2s ease;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .mcp-toggle.enabled .toggle-thumb {
   transform: translateX(16px);
-  color: var(--theme-accent);
+  color: var(--sm-color-accent);
 }
 
 .toggle-label {
   font-size: 13px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   font-weight: 500;
 }
 
 .status-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 999px;
+  color: var(--sm-color-text-secondary);
   font-size: 11px;
-  padding: 1px 6px;
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 10px;
-  color: var(--theme-text-secondary);
+  font-weight: 600;
   min-width: 18px;
   text-align: center;
 }
 
 .status-badge.active {
-  background-color: var(--theme-accent);
-  border-color: transparent;
-  color: white;
-}
-
-/* 配置展示区域 */
-.config-section {
-  background: var(--glass-white-02, rgba(255, 255, 255, 0.02));
-  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  border-radius: var(--theme-radius-sm);
-  overflow: hidden;
+  background: rgba(142, 149, 217, 0.12);
+  border-color: var(--sm-color-border-accent);
+  color: var(--sm-color-accent-hover);
 }
 
 .config-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background: var(--glass-white-03, rgba(255, 255, 255, 0.03));
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
-}
-
-.config-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--theme-text);
 }
 
 .copy-btn {
   font-size: 12px;
-  padding: 4px 12px;
 }
 
 .config-url {
-  padding: 10px 16px;
-  background: var(--glass-white-02, rgba(255, 255, 255, 0.02));
-  border-bottom: 1px solid var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .url-label {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .url-value {
   font-size: 12px;
-  color: var(--theme-accent);
-  font-family: monospace;
+  color: var(--sm-color-accent-hover);
+  font-family: var(--sm-font-mono);
   word-break: break-all;
 }
 
 .config-json {
   margin: 0;
-  padding: 16px;
-  background: var(--theme-bg, rgba(0, 0, 0, 0.2));
-  font-family: 'SF Mono', 'Consolas', monospace;
+  padding: 14px 16px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-bg-embedded);
+  font-family: var(--sm-font-mono);
   font-size: 12px;
   line-height: 1.5;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
@@ -379,31 +387,24 @@ onUnmounted(() => {
   gap: 16px;
 }
 
-.description-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--theme-text);
-  margin: 0;
-}
-
 .description-block {
-  padding: 12px 16px;
-  background: var(--glass-white-02, rgba(255, 255, 255, 0.02));
-  border: 1px solid var(--glass-white-05, rgba(255, 255, 255, 0.05));
-  border-radius: var(--theme-radius-sm);
+  padding: 14px 16px;
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
 }
 
 .description-block h5 {
   font-size: 13px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin: 0 0 8px 0;
 }
 
 .description-block p {
   font-size: 13px;
   line-height: 1.6;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   margin: 0;
 }
 
@@ -416,13 +417,13 @@ onUnmounted(() => {
 .description-block li {
   font-size: 13px;
   line-height: 1.6;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   margin-bottom: 4px;
 }
 
 .description-block.warning {
-  background: rgba(245, 158, 11, 0.05);
-  border-color: rgba(245, 158, 11, 0.2);
+  background: rgba(197, 161, 101, 0.08);
+  border-color: rgba(197, 161, 101, 0.22);
 }
 
 .description-block.warning h5 {

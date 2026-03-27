@@ -103,7 +103,7 @@ const resetForm = createResetForm(fileInputRef)
             placeholder="输入模板名称"
           />
           <button
-            class="btn btn-primary"
+            class="sm-button sm-button--primary"
             :disabled="!templateName.trim() || uploading"
             @click="handleUpload"
           >
@@ -122,10 +122,9 @@ const resetForm = createResetForm(fileInputRef)
 
 <style scoped>
 .upload-section {
-  padding: 16px;
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
-  background-color: var(--theme-bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .section-header {
@@ -138,7 +137,7 @@ const resetForm = createResetForm(fileInputRef)
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin: 0;
 }
 
@@ -151,28 +150,29 @@ const resetForm = createResetForm(fileInputRef)
   justify-content: center;
   min-height: 140px;
   padding: 24px;
-  border: 2px dashed var(--theme-border);
-  border-radius: var(--theme-radius);
-  background-color: var(--theme-bg);
+  border: 1px dashed var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .upload-dropzone:hover {
-  border-color: var(--theme-accent);
-  background-color: rgba(var(--theme-accent-rgb, 59 130 246), 0.02);
+  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-surface-hover);
 }
 
 .upload-dropzone.is-dragging {
-  border-color: var(--theme-accent);
-  background-color: rgba(var(--theme-accent-rgb, 59 130 246), 0.05);
-  transform: scale(1.01);
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.08);
 }
 
 .upload-dropzone.has-file {
   border-style: solid;
-  border-color: var(--theme-accent);
-  background-color: rgba(var(--theme-accent-rgb, 59 130 246), 0.02);
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.08);
 }
 
 .hidden-input {
@@ -198,9 +198,10 @@ const resetForm = createResetForm(fileInputRef)
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--theme-bg-secondary);
-  border-radius: 50%;
-  color: var(--theme-accent);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 999px;
+  color: var(--sm-color-accent-hover);
 }
 
 .upload-text {
@@ -211,18 +212,18 @@ const resetForm = createResetForm(fileInputRef)
 
 .upload-title {
   font-size: 14px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin: 0;
 }
 
 .upload-link {
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
   font-weight: 500;
 }
 
 .upload-hint {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-secondary);
   margin: 0;
 }
 
@@ -241,9 +242,10 @@ const resetForm = createResetForm(fileInputRef)
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--theme-bg-secondary);
-  border-radius: var(--theme-radius-sm);
-  color: var(--theme-accent);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  color: var(--sm-color-accent-hover);
   flex-shrink: 0;
 }
 
@@ -255,7 +257,7 @@ const resetForm = createResetForm(fileInputRef)
 .file-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -264,7 +266,7 @@ const resetForm = createResetForm(fileInputRef)
 
 .file-size {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-secondary);
   margin: 4px 0 0 0;
 }
 
@@ -276,9 +278,9 @@ const resetForm = createResetForm(fileInputRef)
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: var(--theme-radius-sm);
+  border-radius: var(--sm-radius-sm);
   cursor: pointer;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-secondary);
   transition: all 0.15s ease;
   flex-shrink: 0;
 }
@@ -292,7 +294,7 @@ const resetForm = createResetForm(fileInputRef)
 .upload-form-footer {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid var(--theme-border);
+  border-top: 1px solid var(--sm-color-border-subtle);
 }
 
 .form-group {
@@ -304,7 +306,7 @@ const resetForm = createResetForm(fileInputRef)
 .form-label {
   font-size: 13px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .form-row {
@@ -314,56 +316,12 @@ const resetForm = createResetForm(fileInputRef)
 
 .form-input {
   flex: 1;
-  min-height: 38px;
-  padding: 8px 12px;
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius-sm);
-  color: var(--theme-text);
-  font-size: 13px;
-  transition: border-color 0.15s ease;
-}
-
-.form-input:hover:not(:disabled) {
-  border-color: var(--theme-border-hover);
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--theme-accent);
+  min-height: 36px;
 }
 
 .form-hint {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
-}
-
-/* 按钮 */
-.btn {
-  min-height: 38px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: var(--theme-font);
-  border-radius: var(--theme-radius-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background-color: var(--theme-accent);
-  border: 1px solid var(--theme-accent);
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
+  color: var(--sm-color-text-secondary);
 }
 
 .btn-loading {

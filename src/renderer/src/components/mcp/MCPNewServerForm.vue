@@ -146,13 +146,13 @@ function handleCancel(): void {
       <input
         v-model="formData.name"
         type="text"
-        class="input"
+        class="sm-input"
         placeholder="例如: filesystem, github"
       />
     </div>
     <div class="form-group">
       <label>传输类型</label>
-      <select v-model="formData.transport" class="input">
+      <select v-model="formData.transport" class="sm-select">
         <option value="stdio">stdio (本地进程)</option>
         <option value="sse">SSE (Server-Sent Events)</option>
         <option value="streamableHttp">Streamable HTTP</option>
@@ -166,7 +166,7 @@ function handleCancel(): void {
         <input
           v-model="formData.command"
           type="text"
-          class="input"
+          class="sm-input"
           placeholder="例如: npx, node, python"
         />
       </div>
@@ -174,7 +174,7 @@ function handleCancel(): void {
         <label>命令参数 (每行一个)</label>
         <textarea
           v-model="argsText"
-          class="input textarea-small"
+          class="sm-textarea textarea-small"
           placeholder="-y&#10;@modelcontextprotocol/server-xxx"
         ></textarea>
       </div>
@@ -195,7 +195,7 @@ function handleCancel(): void {
         <input
           v-model="formData.url"
           type="text"
-          class="input"
+          class="sm-input"
           placeholder="https://example.com/mcp"
         />
       </div>
@@ -210,45 +210,36 @@ function handleCancel(): void {
     </template>
 
     <div class="form-actions">
-      <button class="btn" @click="handleCancel">取消</button>
-      <button class="btn" :disabled="testing" @click="handleTest">
+      <button class="sm-button" @click="handleCancel">取消</button>
+      <button class="sm-button sm-button--secondary" :disabled="testing" @click="handleTest">
         {{ testing ? '测试中...' : '测试连接' }}
       </button>
-      <button class="btn-primary" @click="handleSubmit">添加</button>
+      <button class="sm-button sm-button--primary" @click="handleSubmit">添加</button>
     </div>
   </div>
 </template>
 
 <style scoped>
 .new-model-form {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   padding: 16px;
-  margin-bottom: 16px;
 }
 
 .form-section-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin: 0 0 16px;
 }
 
-/* 覆盖全局样式的特定变体 */
 .form-group label {
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .required {
   color: var(--theme-danger);
-}
-
-.form-section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--theme-text);
-  margin: 0 0 16px;
 }
 
 .form-group {
@@ -259,7 +250,7 @@ function handleCancel(): void {
   display: block;
   margin-bottom: 6px;
   font-size: 13px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .required {
@@ -269,26 +260,13 @@ function handleCancel(): void {
 .textarea-small {
   min-height: 60px;
   resize: vertical;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-mono);
   line-height: 1.5;
 }
 
 .form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid var(--theme-border);
-}
-
-.btn-primary {
-  background-color: var(--theme-accent);
-  color: white;
-  border: none;
-}
-
-.btn-primary:hover {
-  opacity: 0.9;
+  border-top: 1px solid var(--sm-color-border-subtle);
 }
 </style>

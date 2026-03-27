@@ -120,7 +120,7 @@ async function handleRetrySummary(templateId: string): Promise<void> {
   <div class="template-list-section">
     <div class="section-header">
       <h3 class="section-title">模板列表</h3>
-      <button class="btn-icon" title="刷新列表" @click="handleRefresh">
+      <button class="sm-icon-button btn-icon" title="刷新列表" @click="handleRefresh">
         <SvgIcon name="refresh" :size="16" />
       </button>
     </div>
@@ -213,36 +213,23 @@ async function handleRetrySummary(templateId: string): Promise<void> {
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin: 0;
 }
 
-/* 图标按钮 */
 .btn-icon {
   width: 32px;
   height: 32px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--theme-radius-sm);
-  cursor: pointer;
-  color: var(--theme-text-secondary);
-  transition: all 0.15s ease;
-}
-
-.btn-icon:hover {
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
 }
 
 .loading-state,
 .empty-state {
   text-align: center;
   padding: 32px;
-  color: var(--theme-text-secondary);
+  border: 1px dashed var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-secondary);
   font-size: 13px;
 }
 
@@ -254,14 +241,17 @@ async function handleRetrySummary(templateId: string): Promise<void> {
 
 .template-item {
   padding: 12px 16px;
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius-sm);
-  background-color: var(--theme-bg-secondary);
-  transition: border-color 0.15s ease;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .template-item:hover {
-  border-color: var(--theme-border-hover);
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
 }
 
 .template-header {
@@ -275,7 +265,7 @@ async function handleRetrySummary(templateId: string): Promise<void> {
 .template-name {
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -286,8 +276,9 @@ async function handleRetrySummary(templateId: string): Promise<void> {
 .template-status {
   font-size: 12px;
   padding: 2px 8px;
+  border: 1px solid transparent;
   border-radius: 999px;
-  font-weight: 500;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
@@ -306,9 +297,9 @@ async function handleRetrySummary(templateId: string): Promise<void> {
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: var(--theme-radius-sm);
+  border-radius: var(--sm-radius-sm);
   cursor: pointer;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-secondary);
   transition: all 0.15s ease;
 }
 
@@ -320,9 +311,9 @@ async function handleRetrySummary(templateId: string): Promise<void> {
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: var(--theme-radius-sm);
+  border-radius: var(--sm-radius-sm);
   cursor: pointer;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-secondary);
   transition: all 0.15s ease;
 }
 
@@ -343,23 +334,27 @@ async function handleRetrySummary(templateId: string): Promise<void> {
 }
 
 .status-analyzing {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  background: rgba(197, 161, 101, 0.12);
+  border-color: rgba(197, 161, 101, 0.22);
+  color: var(--theme-warning);
 }
 
 .status-completed {
-  background-color: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
+  background: rgba(127, 176, 138, 0.12);
+  border-color: rgba(127, 176, 138, 0.22);
+  color: var(--theme-success);
 }
 
 .status-summarizing {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background: rgba(142, 149, 217, 0.12);
+  border-color: rgba(142, 149, 217, 0.22);
+  color: var(--sm-color-accent-hover);
 }
 
 .status-failed {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.22);
+  color: var(--theme-danger);
 }
 
 .template-info {
@@ -375,17 +370,17 @@ async function handleRetrySummary(templateId: string): Promise<void> {
 }
 
 .info-label {
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .info-value {
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .template-analysis-path {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--theme-border);
+  border-top: 1px solid var(--sm-color-border-subtle);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -393,17 +388,17 @@ async function handleRetrySummary(templateId: string): Promise<void> {
 }
 
 .path-label {
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   white-space: nowrap;
 }
 
 .path-value {
-  font-family: var(--theme-font-mono, monospace);
+  font-family: var(--sm-font-mono);
   font-size: 11px;
-  color: var(--theme-text-secondary);
-  background-color: var(--theme-bg);
+  color: var(--sm-color-text-secondary);
+  background: var(--sm-color-bg-embedded);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--sm-radius-sm);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -411,7 +406,7 @@ async function handleRetrySummary(templateId: string): Promise<void> {
 .template-error-message {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--theme-border);
+  border-top: 1px solid var(--sm-color-border-subtle);
   display: flex;
   align-items: flex-start;
   gap: 8px;

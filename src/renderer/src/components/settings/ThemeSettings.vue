@@ -53,121 +53,135 @@ function isSelected(themeId: string): boolean {
 </script>
 
 <template>
-  <div class="theme-settings">
-    <h3 class="section-title">选择主题</h3>
-    <p class="section-desc">选择一个你喜欢的主题，选择后立即生效</p>
+  <div class="sm-settings-page theme-settings">
+    <header class="sm-settings-page__header">
+      <p class="sm-settings-page__eyebrow">Theme</p>
+      <h2 class="sm-settings-page__title">主题设置</h2>
+      <p class="sm-settings-page__description">
+        当前重构阶段只开放 Sparrow Dark，统一整个应用的深色、平面和受控交互基线。
+      </p>
+    </header>
 
-    <div class="theme-grid">
-      <div
-        v-for="theme in availableThemes"
-        :key="theme.id"
-        class="theme-card"
-        :class="{ selected: isSelected(theme.id) }"
-        @click="selectTheme(theme.id)"
-      >
-        <!-- 主题预览色块 -->
-        <div class="theme-preview">
-          <div
-            class="preview-color primary"
-            :style="{ backgroundColor: theme.previewColors?.primary }"
-          ></div>
-          <div
-            class="preview-color secondary"
-            :style="{ backgroundColor: theme.previewColors?.secondary }"
-          ></div>
-          <div
-            class="preview-color accent"
-            :style="{ backgroundColor: theme.previewColors?.accent }"
-          ></div>
-          <div
-            v-if="theme.previewColors?.extra1"
-            class="preview-color extra"
-            :style="{ backgroundColor: theme.previewColors?.extra1 }"
-          ></div>
-          <div
-            v-if="theme.previewColors?.extra2"
-            class="preview-color extra"
-            :style="{ backgroundColor: theme.previewColors?.extra2 }"
-          ></div>
+    <section class="sm-settings-page__section">
+      <div class="sm-settings-page__section-header">
+        <div>
+          <h3 class="sm-settings-page__section-title">可用主题</h3>
+          <p class="sm-settings-page__section-description">
+            当前阶段仅保留 1 个工作主题。旧主题保留在仓库中，但不再参与新 UI 的视觉驱动。
+          </p>
         </div>
 
-        <!-- 主题信息 -->
-        <div class="theme-info">
-          <span class="theme-name">{{ theme.name }}</span>
-          <span v-if="theme.description" class="theme-desc">{{ theme.description }}</span>
-        </div>
-
-        <!-- 选中指示器 -->
-        <div v-if="isSelected(theme.id)" class="selected-indicator">
-          <SvgIcon name="check" :size="14" />
-        </div>
+        <span class="sm-settings-chip sm-settings-chip--accent">
+          当前主题:
+          {{ availableThemes.find((t) => t.id === currentTheme)?.name || currentTheme }}
+        </span>
       </div>
-    </div>
 
-    <!-- 当前主题提示 -->
-    <div class="current-theme-hint">
-      <span>当前主题: </span>
-      <strong>{{
-        availableThemes.find((t) => t.id === currentTheme)?.name || currentTheme
-      }}</strong>
-    </div>
+      <div class="theme-grid">
+        <button
+          v-for="theme in availableThemes"
+          :key="theme.id"
+          type="button"
+          class="theme-card"
+          :class="{ 'is-selected': isSelected(theme.id) }"
+          :aria-label="`应用主题 ${theme.name}`"
+          :aria-pressed="isSelected(theme.id)"
+          @click="selectTheme(theme.id)"
+        >
+          <div class="theme-preview">
+            <div
+              class="preview-color primary"
+              :style="{ backgroundColor: theme.previewColors?.primary }"
+            ></div>
+            <div
+              class="preview-color secondary"
+              :style="{ backgroundColor: theme.previewColors?.secondary }"
+            ></div>
+            <div
+              class="preview-color accent"
+              :style="{ backgroundColor: theme.previewColors?.accent }"
+            ></div>
+            <div
+              v-if="theme.previewColors?.extra1"
+              class="preview-color extra"
+              :style="{ backgroundColor: theme.previewColors?.extra1 }"
+            ></div>
+            <div
+              v-if="theme.previewColors?.extra2"
+              class="preview-color extra"
+              :style="{ backgroundColor: theme.previewColors?.extra2 }"
+            ></div>
+          </div>
+
+          <div class="theme-info">
+            <span class="theme-name">{{ theme.name }}</span>
+            <span v-if="theme.description" class="theme-desc">{{ theme.description }}</span>
+          </div>
+
+          <div v-if="isSelected(theme.id)" class="selected-indicator">
+            <SvgIcon name="check" :size="14" />
+          </div>
+        </button>
+      </div>
+
+      <div class="sm-settings-banner">
+        阶段约束：阶段 7 的交互、动效、状态和细节只以当前深色基准主题收口，不再为旧主题做适配补丁。
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
 .theme-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.section-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--theme-text);
-  margin: 0;
-}
-
-.section-desc {
-  font-size: 13px;
-  color: var(--theme-text-secondary);
-  margin: -8px 0 0 0;
+  gap: var(--sm-space-5);
 }
 
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px;
-  margin-top: 8px;
 }
 
 .theme-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
   padding: 16px;
-  background-color: var(--theme-bg-secondary);
-  border: 2px solid var(--theme-border);
-  border-radius: var(--theme-radius);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
   cursor: pointer;
-  transition: all 0.2s ease;
+  text-align: left;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
 .theme-card:hover {
-  border-color: var(--theme-border-hover);
-  box-shadow: var(--theme-shadow);
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
 }
 
-.theme-card.selected {
-  border-color: var(--theme-accent);
-  background-color: var(--theme-bg-tertiary);
+.theme-card.is-selected {
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.08);
+}
+
+.theme-card:focus-visible {
+  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-surface-hover);
 }
 
 .theme-preview {
   display: flex;
   gap: 4px;
-  height: 40px;
-  border-radius: 6px;
+  height: 48px;
+  border-radius: var(--sm-radius-sm);
   overflow: hidden;
-  margin-bottom: 12px;
 }
 
 .preview-color {
@@ -192,23 +206,24 @@ function isSelected(themeId: string): boolean {
 .theme-name {
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .theme-desc {
   font-size: 12px;
-  color: var(--theme-text-secondary);
-  line-height: 1.4;
+  color: var(--sm-color-text-secondary);
+  line-height: 1.5;
 }
 
 .selected-indicator {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 12px;
+  right: 12px;
   width: 24px;
   height: 24px;
-  background-color: var(--theme-accent);
-  border-radius: 50%;
+  border: 1px solid var(--sm-color-border-accent);
+  border-radius: 999px;
+  background: rgba(142, 149, 217, 0.18);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -217,18 +232,6 @@ function isSelected(themeId: string): boolean {
 .selected-indicator svg {
   width: 14px;
   height: 14px;
-  color: white;
-}
-
-.current-theme-hint {
-  padding: 12px 16px;
-  background-color: var(--theme-bg-tertiary);
-  border-radius: var(--theme-radius-sm);
-  font-size: 13px;
-  color: var(--theme-text-secondary);
-}
-
-.current-theme-hint strong {
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
 }
 </style>

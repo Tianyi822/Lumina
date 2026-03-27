@@ -352,7 +352,6 @@ onUnmounted(() => {
 }
 
 .pe-table-wrapper.pe-loading .pe-table-scroll {
-  filter: blur(2px);
   opacity: 0.5;
   pointer-events: none;
   user-select: none;
@@ -368,7 +367,6 @@ onUnmounted(() => {
   justify-content: center;
   gap: 12px;
   background: rgba(15, 23, 42, 0.08);
-  backdrop-filter: blur(3px);
   color: var(--theme-text-secondary);
 }
 

@@ -138,77 +138,80 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="tab-content">
-    <!-- 模型列表 -->
-    <div v-if="!showAddForm" class="model-list">
-      <div v-if="loading" class="loading-state">
-        <p>加载中...</p>
+  <div class="sm-settings-page tab-content">
+    <header class="sm-settings-page__header">
+      <p class="sm-settings-page__eyebrow">Embeddings</p>
+      <h2 class="sm-settings-page__title">嵌入模型配置</h2>
+      <p class="sm-settings-page__description">
+        向量模型决定知识库检索质量。这里统一管理嵌入模型、测试连接和新建配置入口。
+      </p>
+    </header>
+
+    <section class="sm-settings-page__section">
+      <div class="sm-settings-page__section-header">
+        <div>
+          <h3 class="sm-settings-page__section-title">模型列表</h3>
+          <p class="sm-settings-page__section-description">
+            当前共 {{ Object.keys(embeddingModels).length }} 个嵌入模型配置。
+          </p>
+        </div>
       </div>
 
-      <EmbeddingModelItem
-        v-for="(config, id) in embeddingModels"
-        v-else
-        :id="String(id)"
-        :key="id"
-        :config="config"
-        :testing="testingModelId === id"
-        @edit="handleEdit"
-        @delete="handleDelete"
-        @test="handleTest"
+      <div v-if="!showAddForm" class="model-list">
+        <div v-if="loading" class="sm-settings-empty">
+          <p>加载中...</p>
+        </div>
+
+        <EmbeddingModelItem
+          v-for="(config, id) in embeddingModels"
+          v-else
+          :id="String(id)"
+          :key="id"
+          :config="config"
+          :testing="testingModelId === id"
+          @edit="handleEdit"
+          @delete="handleDelete"
+          @test="handleTest"
+        />
+
+        <div v-if="!loading && Object.keys(embeddingModels).length === 0" class="sm-settings-empty">
+          <p>暂无嵌入模型配置</p>
+        </div>
+      </div>
+
+      <EmbeddingModelForm
+        v-if="showAddForm"
+        :existing-names="existingNames"
+        :editing-name="editingModelId || undefined"
+        :editing-config="editingModelConfig"
+        @submit="handleSave"
+        @cancel="handleCancel"
+        @test="handleTestNew"
       />
 
-      <!-- 空状态 -->
-      <div v-if="!loading && Object.keys(embeddingModels).length === 0" class="empty-state">
-        <p>暂无嵌入模型配置</p>
-      </div>
-    </div>
-
-    <!-- 添加/编辑表单 -->
-    <EmbeddingModelForm
-      v-if="showAddForm"
-      :existing-names="existingNames"
-      :editing-name="editingModelId || undefined"
-      :editing-config="editingModelConfig"
-      @submit="handleSave"
-      @cancel="handleCancel"
-      @test="handleTestNew"
-    />
-
-    <!-- 添加模型按钮 -->
-    <button v-if="!showAddForm" class="btn add-model-btn" @click="showAddForm = true">
-      + 添加嵌入模型
-    </button>
+      <button v-if="!showAddForm" class="sm-button add-model-btn" @click="showAddForm = true">
+        添加嵌入模型
+      </button>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.tab-content {
-  min-height: 300px;
-}
-
 .model-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 16px;
-}
-
-.loading-state,
-.empty-state {
-  text-align: center;
-  padding: 32px;
-  color: var(--theme-text-secondary);
 }
 
 .add-model-btn {
   width: 100%;
   padding: 12px;
   border-style: dashed;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .add-model-btn:hover {
-  color: var(--theme-accent);
-  border-color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
+  border-color: var(--sm-color-border-accent);
 }
 </style>
