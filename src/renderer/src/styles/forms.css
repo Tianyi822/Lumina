@@ -31,7 +31,7 @@
   margin-top: 8px;
   font-size: 12px;
   line-height: 1.5;
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .form-actions {
@@ -59,13 +59,13 @@
 .test-result.success {
   border-color: rgba(127, 176, 138, 0.28);
   background: rgba(127, 176, 138, 0.08);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .test-result.error {
   border-color: rgba(199, 120, 120, 0.28);
   background: rgba(199, 120, 120, 0.08);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .test-result.info {

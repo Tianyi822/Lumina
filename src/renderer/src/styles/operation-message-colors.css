@@ -27,12 +27,12 @@
 
 .message-warning .message-icon {
   background-color: rgba(197, 161, 101, 0.12);
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
   border: 1px solid rgba(197, 161, 101, 0.24);
 }
 
 .message-warning .message-title {
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
 }
 
 /* 错误消息（error）配色 */
@@ -43,12 +43,12 @@
 
 .message-error .message-icon {
   background-color: rgba(199, 120, 120, 0.12);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   border: 1px solid rgba(199, 120, 120, 0.24);
 }
 
 .message-error .message-title {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 /* 成功消息（success）配色 */
@@ -59,10 +59,10 @@
 
 .message-success .message-icon {
   background-color: rgba(127, 176, 138, 0.12);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
   border: 1px solid rgba(127, 176, 138, 0.24);
 }
 
 .message-success .message-title {
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }

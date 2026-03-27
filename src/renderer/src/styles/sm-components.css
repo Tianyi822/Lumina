@@ -103,14 +103,14 @@
 .btn-danger {
   background: rgba(199, 120, 120, 0.08);
   border-color: rgba(199, 120, 120, 0.28);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .sm-button--danger:hover,
 .btn-danger:hover {
   background: rgba(199, 120, 120, 0.12);
   border-color: rgba(199, 120, 120, 0.4);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .sm-button--small,
@@ -364,13 +364,13 @@
 .badge-success {
   border-color: rgba(127, 176, 138, 0.28);
   background: rgba(127, 176, 138, 0.08);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .badge-error {
   border-color: rgba(199, 120, 120, 0.28);
   background: rgba(199, 120, 120, 0.08);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .badge-info {
@@ -398,13 +398,13 @@
 .sm-notice--success {
   border-color: rgba(127, 176, 138, 0.28);
   background: rgba(127, 176, 138, 0.08);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .sm-notice--error {
   border-color: rgba(199, 120, 120, 0.28);
   background: rgba(199, 120, 120, 0.08);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .sm-divider,

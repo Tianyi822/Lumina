@@ -29,6 +29,11 @@
   --sm-color-accent-hover: #a1a7e6;
   --sm-color-accent-active: #7178b8;
 
+  --sm-color-status-danger: #c77878;
+  --sm-color-status-warning: #c5a165;
+  --sm-color-status-info: var(--sm-color-accent);
+  --sm-color-status-success: #7fb08a;
+
   --sm-color-border-subtle: rgba(255, 255, 255, 0.08);
   --sm-color-border-default: rgba(255, 255, 255, 0.12);
   --sm-color-border-strong: rgba(255, 255, 255, 0.18);
@@ -51,10 +56,10 @@
   --theme-accent-tertiary: var(--sm-color-accent-active);
   --theme-highlight: var(--sm-color-accent-hover);
 
-  --theme-danger: #c77878;
-  --theme-warning: #c5a165;
-  --theme-info: var(--sm-color-accent);
-  --theme-success: #7fb08a;
+  --theme-danger: var(--sm-color-status-danger);
+  --theme-warning: var(--sm-color-status-warning);
+  --theme-info: var(--sm-color-status-info);
+  --theme-success: var(--sm-color-status-success);
 
   --theme-border: var(--sm-color-border-default);
   --theme-border-hover: var(--sm-color-border-strong);

@@ -299,19 +299,19 @@
 .sm-settings-feedback--error {
   border-top-color: rgba(199, 120, 120, 0.24);
   background: rgba(199, 120, 120, 0.08);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .sm-settings-feedback--success {
   border-top-color: rgba(127, 176, 138, 0.24);
   background: rgba(127, 176, 138, 0.08);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .sm-settings-feedback--info {
   border-top-color: rgba(197, 161, 101, 0.24);
   background: rgba(197, 161, 101, 0.08);
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
 }
 
 .sm-settings-empty {
