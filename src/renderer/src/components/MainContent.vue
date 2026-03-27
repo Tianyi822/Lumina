@@ -263,15 +263,6 @@ const visibleMessages = computed(() => {
   return (props.messages ?? []).filter((message) => message.role !== 'tool')
 })
 
-const messageCountLabel = computed(() => {
-  const count = visibleMessages.value.length
-  return count > 0 ? `${count} 条消息` : '暂无消息'
-})
-
-const modelBadgeLabel = computed(() => {
-  return props.currentModelName || props.selectedModel || '未选择模型'
-})
-
 onMounted(() => {
   // 初始滚动到底部
   scrollToBottom(false)
@@ -393,26 +384,7 @@ function hasRenderableReact(message: Message): boolean {
         @scroll="handleScroll"
         @wheel.passive="handleWheel"
       >
-        <div v-if="!currentChatId" class="sm-chat-empty sm-empty">
-          <span class="sm-chat-empty__eyebrow">聊天工作区</span>
-          <h2 class="sm-chat-empty__title">选择已有会话，或创建新的智能体会话。</h2>
-          <p class="sm-chat-empty__description">
-            消息、推理过程和工具结果会在这里按工作流持续沉淀。
-          </p>
-        </div>
-
-        <div v-else class="sm-message-stage">
-          <header class="sm-message-stage__header">
-            <div>
-              <span class="sm-message-stage__eyebrow">聊天工作区</span>
-              <h2 class="sm-message-stage__title">消息流</h2>
-            </div>
-            <div class="sm-message-stage__meta">
-              <span class="sm-badge">{{ messageCountLabel }}</span>
-              <span class="sm-badge">{{ modelBadgeLabel }}</span>
-            </div>
-          </header>
-
+        <div v-if="currentChatId" class="sm-message-stage">
           <div class="sm-message-list">
             <ChatMessage
               v-for="msg in visibleMessages"
@@ -492,42 +464,6 @@ function hasRenderableReact(message: Message): boolean {
   padding: var(--sm-space-6);
 }
 
-.sm-chat-empty {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  gap: var(--sm-space-3);
-  height: 100%;
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.sm-chat-empty__eyebrow,
-.sm-message-stage__eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
-}
-
-.sm-chat-empty__title,
-.sm-message-stage__title {
-  margin: 0;
-  font-size: 18px;
-  line-height: 1.35;
-  color: var(--sm-color-text-primary);
-}
-
-.sm-chat-empty__description {
-  margin: 0;
-  max-width: 520px;
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--sm-color-text-secondary);
-}
-
 .sm-message-stage,
 .sm-composer-stage__inner {
   width: min(100%, 920px);
@@ -538,22 +474,6 @@ function hasRenderableReact(message: Message): boolean {
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-5);
-}
-
-.sm-message-stage__header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--sm-space-4);
-  padding-bottom: var(--sm-space-4);
-  border-bottom: 1px solid var(--sm-color-border-subtle);
-}
-
-.sm-message-stage__meta {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-2);
-  flex-wrap: wrap;
 }
 
 .sm-message-list {
@@ -573,18 +493,6 @@ function hasRenderableReact(message: Message): boolean {
   .sm-composer-stage {
     padding-right: var(--sm-space-4);
     padding-left: var(--sm-space-4);
-  }
-}
-
-@media (max-width: 768px) {
-  .sm-message-stage__header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .sm-chat-empty__title,
-  .sm-message-stage__title {
-    font-size: 16px;
   }
 }
 </style>
