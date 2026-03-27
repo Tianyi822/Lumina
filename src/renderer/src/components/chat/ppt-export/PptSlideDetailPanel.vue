@@ -144,7 +144,11 @@ const currentSlideColor = computed(() => {
   color: var(--theme-text-secondary);
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    opacity var(--sm-transition-fast);
 }
 
 .ppt-export-select-all:hover:not(:disabled) {
@@ -176,12 +180,9 @@ const currentSlideColor = computed(() => {
   width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  border-radius: calc(var(--theme-radius-lg) - 2px);
-  background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.65), transparent 42%),
-    linear-gradient(135deg, #edf2f7 0%, #dbe4ee 100%);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.05);
+  border-radius: calc(var(--sm-radius-lg) - 2px);
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-default);
 }
 
 .ppt-export-slide-detail-image {
@@ -196,10 +197,10 @@ const currentSlideColor = computed(() => {
   align-items: center;
   justify-content: center;
   aspect-ratio: 16 / 9;
-  border: 1px dashed rgba(0, 0, 0, 0.1);
-  border-radius: calc(var(--theme-radius-lg) - 2px);
-  background: rgba(0, 0, 0, 0.02);
-  color: var(--theme-text-tertiary);
+  border: 1px dashed var(--sm-color-border-default);
+  border-radius: calc(var(--sm-radius-lg) - 2px);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-tertiary);
   font-size: 13px;
   font-weight: 500;
 }
@@ -254,33 +255,36 @@ const currentSlideColor = computed(() => {
   flex: 1;
   overflow-y: auto;
   padding: 12px;
-  border-radius: var(--theme-radius);
-  background: rgba(0, 0, 0, 0.02);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
 }
 
 .ppt-export-slide-detail-summary p {
   margin: 0;
   font-size: 13px;
   line-height: 1.6;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .ppt-export-slide-detail-status {
   padding: 8px 12px;
-  border-radius: var(--theme-radius);
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   text-align: center;
-  transition: all 0.2s ease;
+  transition:
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .ppt-export-slide-detail-status.selected {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.2);
-  color: var(--theme-accent);
+  background: rgba(142, 149, 217, 0.08);
+  border-color: var(--sm-color-border-accent);
+  color: var(--sm-color-accent-hover);
   font-weight: 500;
 }
 
@@ -289,6 +293,6 @@ const currentSlideColor = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 </style>

@@ -40,9 +40,7 @@ const useIterationMode = computed(() => {
   return (
     props.iterations?.some(
       (iteration) =>
-        iteration.isActive ||
-        iteration.reasoning.trim().length > 0 ||
-        iteration.steps.length > 0
+        iteration.isActive || iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
     ) || false
   )
 })
@@ -72,19 +70,21 @@ const legacyToolItems = computed(() => {
 
 // 按阶段组织后的展示单元
 const phaseUnits = computed<PhaseUnit[]>(() => {
-  return (props.iterations || [])
-    .map((iteration) => ({
-      key: `iter-${iteration.iteration}`,
-      iteration: iteration.iteration,
-      reasoning: iteration.reasoning,
-      toolItems: stepsToToolCallItems(iteration.steps, props.isStreaming && !!iteration.isActive),
-      isActive: !!iteration.isActive,
-      status: iteration.status
-    }))
-    // 保留活跃的迭代（即使为空），或者有内容的迭代
-    .filter(
-      (unit) => unit.isActive || unit.reasoning.trim().length > 0 || unit.toolItems.length > 0
-    )
+  return (
+    (props.iterations || [])
+      .map((iteration) => ({
+        key: `iter-${iteration.iteration}`,
+        iteration: iteration.iteration,
+        reasoning: iteration.reasoning,
+        toolItems: stepsToToolCallItems(iteration.steps, props.isStreaming && !!iteration.isActive),
+        isActive: !!iteration.isActive,
+        status: iteration.status
+      }))
+      // 保留活跃的迭代（即使为空），或者有内容的迭代
+      .filter(
+        (unit) => unit.isActive || unit.reasoning.trim().length > 0 || unit.toolItems.length > 0
+      )
+  )
 })
 
 // 当前内容是否可展示
@@ -220,7 +220,7 @@ function getPhaseLabel(iteration: number): string {
 
 <template>
   <div v-if="hasContent" class="react-steps-container">
-    <button class="react-header" type="button" @click="toggleExpand">
+    <button class="react-header" type="button" :aria-expanded="isExpanded" @click="toggleExpand">
       <div class="header-left">
         <span class="react-title">分阶段推理</span>
         <span class="react-badge">
@@ -283,6 +283,7 @@ function getPhaseLabel(iteration: number): string {
                       <button
                         class="reasoning-header"
                         type="button"
+                        :aria-expanded="isReasoningExpanded(unit)"
                         @click="toggleReasoning(unit.key)"
                       >
                         <div class="reasoning-header-left">
@@ -290,7 +291,9 @@ function getPhaseLabel(iteration: number): string {
                           <span class="reasoning-label">思考</span>
                         </div>
 
-                        <span class="reasoning-arrow" :class="{ expanded: isReasoningExpanded(unit) }"
+                        <span
+                          class="reasoning-arrow"
+                          :class="{ expanded: isReasoningExpanded(unit) }"
                           >▶</span
                         >
                       </button>
@@ -344,16 +347,10 @@ function getPhaseLabel(iteration: number): string {
 
 <style scoped>
 .react-steps-container {
-  margin: var(--theme-spacing) 0;
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
-  background:
-    linear-gradient(
-      180deg,
-      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
-      var(--glass-white-01, rgba(255, 255, 255, 0.01)) 100%
-    ),
-    var(--theme-bg-secondary);
+  margin: 0;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
   overflow: hidden;
 }
 
@@ -362,45 +359,50 @@ function getPhaseLabel(iteration: number): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--theme-spacing);
-  padding: 10px 14px;
+  gap: var(--sm-space-3);
+  padding: 11px 14px;
   border: 0;
   background: transparent;
   color: inherit;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background-color var(--sm-transition-fast);
 }
 
 .react-header:hover {
-  background: var(--theme-bg-hover);
+  background: var(--sm-color-surface-hover);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sm-space-2);
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sm-space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .react-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .react-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid rgba(142, 149, 217, 0.22);
   border-radius: 999px;
-  background: var(--theme-accent);
-  color: var(--theme-bg);
+  background: rgba(142, 149, 217, 0.08);
+  color: var(--sm-color-accent-hover);
   font-size: 11px;
   font-weight: 600;
 }
@@ -411,14 +413,14 @@ function getPhaseLabel(iteration: number): string {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: var(--theme-accent);
+  color: var(--sm-color-text-secondary);
 }
 
 .pulse-dot,
 .pulse-dot-sm {
   border-radius: 50%;
-  background: var(--theme-accent);
-  animation: pulse 1.5s infinite;
+  background: var(--sm-color-accent);
+  animation: pulse 1.8s infinite;
 }
 
 .pulse-dot {
@@ -434,26 +436,30 @@ function getPhaseLabel(iteration: number): string {
 .stat-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 6px;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid transparent;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
 }
 
 .stat-badge.success {
-  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(127, 176, 138, 0.24);
+  background: rgba(127, 176, 138, 0.08);
   color: var(--theme-success);
 }
 
 .stat-badge.error {
-  background: rgba(248, 81, 73, 0.14);
+  border-color: rgba(199, 120, 120, 0.24);
+  background: rgba(199, 120, 120, 0.08);
   color: var(--theme-danger);
 }
 
 .expand-icon {
   font-size: 10px;
-  color: var(--theme-text-secondary);
-  transition: transform 0.2s ease;
+  color: var(--sm-color-text-tertiary);
+  transition: transform var(--sm-transition-fast);
 }
 
 .expand-icon.expanded {
@@ -461,19 +467,19 @@ function getPhaseLabel(iteration: number): string {
 }
 
 .react-content {
-  border-top: 1px solid var(--theme-border);
+  border-top: 1px solid var(--sm-color-border-subtle);
 }
 
 .phase-timeline,
 .legacy-timeline {
-  padding: 12px;
+  padding: 14px;
 }
 
 .phase-unit {
   position: relative;
   display: flex;
   gap: 12px;
-  padding-bottom: 18px;
+  padding-bottom: 16px;
 }
 
 .phase-unit:last-child {
@@ -491,9 +497,9 @@ function getPhaseLabel(iteration: number): string {
   position: absolute;
   left: 6px;
   top: 14px;
-  bottom: -18px;
+  bottom: -16px;
   width: 2px;
-  background: linear-gradient(to bottom, var(--theme-border-hover), rgba(255, 255, 255, 0.04));
+  background: var(--sm-color-border-default);
 }
 
 .phase-unit:last-child .phase-rail::after {
@@ -506,14 +512,14 @@ function getPhaseLabel(iteration: number): string {
   display: block;
   width: 14px;
   height: 14px;
-  border: 2px solid var(--theme-border-hover);
+  border: 2px solid var(--sm-color-border-strong);
   border-radius: 50%;
-  background: var(--theme-bg);
+  background: var(--sm-color-surface-1);
 }
 
 .phase-node.active {
-  border-color: var(--theme-accent);
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+  border-color: var(--sm-color-accent);
+  background: rgba(142, 149, 217, 0.12);
 }
 
 .phase-main {
@@ -525,37 +531,31 @@ function getPhaseLabel(iteration: number): string {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--sm-space-2);
   margin-bottom: 8px;
 }
 
 .phase-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   letter-spacing: 0.02em;
 }
 
 .phase-count {
   font-size: 11px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .reasoning-panel {
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
-    ),
-    var(--theme-bg);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
   overflow: hidden;
 }
 
 .reasoning-panel.expanded {
-  border-color: var(--thinking-border, rgba(99, 102, 241, 0.2));
+  border-color: rgba(142, 149, 217, 0.28);
 }
 
 .reasoning-header {
@@ -569,6 +569,11 @@ function getPhaseLabel(iteration: number): string {
   background: transparent;
   color: inherit;
   cursor: pointer;
+  transition: background-color var(--sm-transition-fast);
+}
+
+.reasoning-header:hover {
+  background: var(--sm-color-surface-hover);
 }
 
 .reasoning-header-left {
@@ -580,19 +585,19 @@ function getPhaseLabel(iteration: number): string {
 .reasoning-icon {
   width: 16px;
   height: 16px;
-  color: var(--thinking-accent, var(--theme-accent-secondary));
+  color: var(--sm-color-accent-hover);
 }
 
 .reasoning-label {
   font-size: 13px;
   font-weight: 600;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-primary);
 }
 
 .reasoning-arrow {
   font-size: 10px;
-  color: var(--theme-text-tertiary);
-  transition: transform 0.2s ease;
+  color: var(--sm-color-text-tertiary);
+  transition: transform var(--sm-transition-fast);
 }
 
 .reasoning-arrow.expanded {
@@ -604,8 +609,8 @@ function getPhaseLabel(iteration: number): string {
   opacity: 0;
   overflow: hidden;
   transition:
-    max-height 0.25s ease,
-    opacity 0.2s ease;
+    max-height 180ms ease,
+    opacity 140ms ease;
 }
 
 .reasoning-body.expanded {
@@ -617,16 +622,17 @@ function getPhaseLabel(iteration: number): string {
   padding: 0 12px 12px;
   max-height: 400px;
   overflow-y: auto;
+  border-top: 1px solid var(--sm-color-border-subtle);
 }
 
 .reasoning-text {
   font-size: 12px;
-  line-height: 1.6;
-  color: var(--theme-text-secondary);
+  line-height: 1.55;
+  color: var(--sm-color-text-secondary);
 }
 
 .tool-list {
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .tool-list-inner :deep(.tool-call-panel) {
@@ -638,38 +644,36 @@ function getPhaseLabel(iteration: number): string {
 }
 
 .expand-collapse-enter-active {
-  animation: expandIn 0.24s ease;
+  animation: expandIn 160ms ease;
 }
 
 .expand-collapse-leave-active {
-  animation: expandOut 0.18s ease;
+  animation: expandOut 140ms ease;
 }
 
 .tool-item-enter-active,
 .phase-item-enter-active {
-  animation: itemIn 0.24s ease;
+  animation: itemIn 160ms ease;
 }
 
 .tool-item-move,
 .phase-item-move {
-  transition: transform 0.24s ease;
+  transition: transform 160ms ease;
 }
 
 .tool-item-leave-active,
 .phase-item-leave-active {
-  animation: itemOut 0.18s ease;
+  animation: itemOut 140ms ease;
 }
 
 @keyframes pulse {
   0%,
   100% {
-    opacity: 1;
-    transform: scale(1);
+    opacity: 0.35;
   }
 
   50% {
-    opacity: 0.55;
-    transform: scale(0.8);
+    opacity: 0.82;
   }
 }
 
@@ -728,7 +732,7 @@ function getPhaseLabel(iteration: number): string {
 
 .reasoning-content::-webkit-scrollbar-thumb,
 .react-content::-webkit-scrollbar-thumb {
-  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  background: var(--sm-color-border-default);
   border-radius: 999px;
 }
 
@@ -743,24 +747,26 @@ function getPhaseLabel(iteration: number): string {
 .reasoning-text.markdown-body :deep(code) {
   padding: 0.2em 0.4em;
   border-radius: 4px;
-  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  color: var(--theme-accent);
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
+  color: var(--sm-color-accent-hover);
   font-size: 0.92em;
 }
 
 .reasoning-text.markdown-body :deep(pre) {
   margin: 0.5em 0;
   padding: 10px 12px;
-  border-radius: var(--theme-radius);
+  border-radius: var(--sm-radius-md);
   overflow-x: auto;
-  background: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
 }
 
 .reasoning-text.markdown-body :deep(pre code) {
   padding: 0;
   background: transparent;
-  color: var(--theme-text-secondary);
+  border: 0;
+  color: var(--sm-color-text-secondary);
 }
 
 .reasoning-text.markdown-body :deep(ul),

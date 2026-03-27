@@ -405,32 +405,23 @@ function handleExportInteractionSelect(value: string): void {
 
 <style scoped>
 .message-input-container {
-  padding: 16px 24px 20px;
-  background:
-    linear-gradient(
-      180deg,
-      transparent 0%,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
-    ),
-    var(--theme-bg);
-  border-top: 1px solid var(--theme-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-5);
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
 }
 
 .quick-reply-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: var(--sm-space-3);
   padding: 14px 16px;
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--theme-accent) 6%, transparent) 0%,
-      var(--theme-bg-secondary) 100%
-    ),
-    var(--theme-bg-secondary);
-  border: 1px solid color-mix(in srgb, var(--theme-accent) 20%, var(--theme-border));
-  border-radius: calc(var(--theme-radius) + 2px);
+  background: var(--sm-color-surface-1);
+  border: 1px solid rgba(142, 149, 217, 0.24);
+  border-radius: var(--sm-radius-md);
 }
 
 .quick-reply-header {
@@ -442,28 +433,29 @@ function handleExportInteractionSelect(value: string): void {
 
 .quick-reply-title {
   font-size: 13px;
-  font-weight: 700;
-  color: var(--theme-text);
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
 }
 
 .quick-reply-custom-btn {
-  padding: 4px 10px;
-  border: 1px solid color-mix(in srgb, var(--theme-accent) 25%, var(--theme-border));
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 999px;
-  background: transparent;
-  color: var(--theme-text-secondary);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-secondary);
   font-size: 12px;
   cursor: pointer;
   transition:
-    border-color 0.16s ease,
-    color 0.16s ease,
-    background-color 0.16s ease;
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .quick-reply-custom-btn:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--theme-accent) 45%, var(--theme-border));
-  color: var(--theme-text);
-  background: color-mix(in srgb, var(--theme-accent) 8%, transparent);
+  border-color: var(--sm-color-border-strong);
+  color: var(--sm-color-text-primary);
+  background: var(--sm-color-surface-hover);
 }
 
 .quick-reply-custom-btn:disabled {
@@ -475,12 +467,11 @@ function handleExportInteractionSelect(value: string): void {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
   padding: 10px 12px;
-  border: 1px solid rgba(56, 189, 248, 0.28);
-  border-radius: var(--theme-radius-sm, 6px);
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(14, 165, 233, 0.05) 100%);
-  color: var(--theme-text);
+  border: 1px solid rgba(142, 149, 217, 0.24);
+  border-radius: var(--sm-radius-sm);
+  background: rgba(142, 149, 217, 0.08);
+  color: var(--sm-color-text-primary);
   font-size: 12px;
 }
 
@@ -491,10 +482,10 @@ function handleExportInteractionSelect(value: string): void {
   min-width: 40px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(14, 165, 233, 0.18);
-  color: #0369a1;
+  background: rgba(142, 149, 217, 0.16);
+  color: var(--sm-color-accent-hover);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
 }
 
@@ -502,14 +493,12 @@ function handleExportInteractionSelect(value: string): void {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
   padding: 10px 12px;
   border: 1px solid rgba(245, 158, 11, 0.28);
-  border-radius: var(--theme-radius-sm, 6px);
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.05) 100%);
-  color: var(--theme-text);
+  border-radius: var(--sm-radius-sm);
+  background: rgba(197, 161, 101, 0.08);
+  color: var(--sm-color-text-primary);
   font-size: 12px;
-  animation: shake 0.4s ease-in-out;
 }
 
 .warning-label {
@@ -519,23 +508,10 @@ function handleExportInteractionSelect(value: string): void {
   min-width: 40px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(245, 158, 11, 0.18);
-  color: #b45309;
+  background: rgba(197, 161, 101, 0.16);
+  color: var(--theme-warning);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
-}
-
-@keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-4px);
-  }
-  75% {
-    transform: translateX(4px);
-  }
 }
 </style>

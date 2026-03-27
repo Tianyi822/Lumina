@@ -50,7 +50,7 @@ onUnmounted(() => {
 <template>
   <Teleport to="body">
     <div v-if="visible && video" class="video-dialog-overlay" @click.self="handleClose">
-      <div class="video-dialog">
+      <div class="video-dialog" role="dialog" aria-modal="true">
         <div class="video-dialog-header">
           <div class="video-dialog-meta">
             <div class="video-dialog-title">{{ video.model }}</div>
@@ -98,20 +98,16 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(4, 12, 11, 0.72);
-  backdrop-filter: blur(14px);
+  background: rgba(11, 11, 12, 0.82);
 }
 
 .video-dialog {
   width: min(980px, calc(100vw - 48px));
   max-height: calc(100vh - 48px);
   overflow: hidden;
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at top right, rgba(112, 215, 92, 0.12), transparent 20%),
-    linear-gradient(180deg, rgba(10, 15, 14, 0.98), rgba(8, 12, 11, 0.96));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.4);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-default);
 }
 
 .video-dialog-header {
@@ -134,22 +130,32 @@ onUnmounted(() => {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(217, 255, 226, 0.74);
+  color: var(--sm-color-text-tertiary);
 }
 
 .video-dialog-prompt {
   font-size: 15px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--sm-color-text-primary);
 }
 
 .video-dialog-close {
-  border: 0;
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 999px;
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+}
+
+.video-dialog-close:hover {
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
 }
 
 .video-dialog-body {
@@ -162,8 +168,8 @@ onUnmounted(() => {
 .video-player {
   width: 100%;
   max-height: calc(100vh - 180px);
-  border-radius: 18px;
-  background: #000;
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-bg-embedded);
   outline: none;
 }
 
@@ -173,9 +179,9 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   min-height: 320px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.04);
-  color: #fff;
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
   text-align: center;
 }
 
@@ -189,14 +195,15 @@ onUnmounted(() => {
   max-width: 520px;
   font-size: 14px;
   line-height: 1.7;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--sm-color-text-secondary);
 }
 
 .video-dialog-error {
   padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(255, 120, 120, 0.12);
-  color: #ffd7d7;
+  border: 1px solid rgba(199, 120, 120, 0.22);
+  border-radius: var(--sm-radius-md);
+  background: rgba(199, 120, 120, 0.08);
+  color: var(--theme-danger);
   font-size: 13px;
 }
 

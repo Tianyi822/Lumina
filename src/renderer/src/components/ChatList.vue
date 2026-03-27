@@ -83,38 +83,31 @@ function formatTime(isoString: string): string {
 .chat-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px;
+  gap: 8px;
+  padding: 12px;
   overflow-y: auto;
   flex: 1;
-  border-top: 1px solid var(--theme-border);
 }
 
 .chat-item {
-  padding: 10px 12px;
-  background-color: transparent;
+  padding: 12px;
+  background-color: var(--sm-color-surface-1);
   border: 1px solid transparent;
-  border-radius: var(--theme-radius-sm);
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
 .chat-item:hover {
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
-      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
-    ),
-    var(--glass-white-02, rgba(255, 255, 255, 0.02));
-  border-color: var(--glass-white-12, rgba(255, 255, 255, 0.12));
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  background: var(--sm-color-surface-2);
+  border-color: var(--sm-color-border-default);
 }
 
 .chat-item.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(99, 102, 241, 0.06) 100%);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: rgba(142, 149, 217, 0.12);
+  border-color: var(--sm-color-border-accent);
 }
 
 .chat-header {
@@ -126,8 +119,8 @@ function formatTime(isoString: string): string {
 
 .chat-title {
   font-size: 13px;
-  color: var(--theme-text);
-  font-weight: 500;
+  color: var(--sm-color-text-primary);
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -144,30 +137,35 @@ function formatTime(isoString: string): string {
 
 .chat-time {
   font-size: 11px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .delete-btn {
-  background: none;
-  border: none;
-  color: var(--theme-text-tertiary);
-  font-size: 16px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--sm-color-text-tertiary);
+  font-size: 14px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0;
   line-height: 1;
   opacity: 0.6;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border-radius: 6px;
+  transition: all var(--sm-transition-fast);
 }
 
 .delete-btn:hover {
   opacity: 1;
+  background: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.28);
   color: var(--theme-danger);
 }
 
 .empty-state {
   padding: 24px 12px;
   text-align: center;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   font-size: 13px;
 }
 </style>

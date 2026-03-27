@@ -196,13 +196,20 @@ async function handleRetry(): Promise<void> {
   <Teleport to="body">
     <Transition name="fade">
       <div v-if="visible" class="ppt-export-dialog-overlay" @click.self="handleClose">
-        <div class="ppt-export-dialog" :class="`ppt-export-dialog-stage-${exportStage}`">
+        <div
+          class="ppt-export-dialog"
+          :class="`ppt-export-dialog-stage-${exportStage}`"
+          role="dialog"
+          aria-modal="true"
+          :aria-busy="isLoading || isGenerating"
+        >
           <div class="ppt-export-dialog-header">
             <div>
               <h3 class="ppt-export-dialog-title">导出 PowerPoint</h3>
               <p class="ppt-export-dialog-subtitle">选择要导出的页面和模板</p>
             </div>
             <button
+              type="button"
               class="btn ppt-export-dialog-close"
               :disabled="isGenerating"
               @click="handleClose"
@@ -212,7 +219,13 @@ async function handleRetry(): Promise<void> {
           </div>
 
           <div class="ppt-export-dialog-body">
-            <div v-if="isLoading" class="ppt-export-loading">
+            <div
+              v-if="isLoading"
+              class="ppt-export-loading"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               <div class="ppt-export-spinner"></div>
               <span>{{ loadingMessage }}</span>
             </div>
@@ -235,10 +248,15 @@ async function handleRetry(): Promise<void> {
                 <span class="ppt-export-error-message">{{ error.message }}</span>
               </div>
               <div class="ppt-export-error-actions">
-                <button v-if="error.retryable" class="ppt-export-error-retry" @click="handleRetry">
+                <button
+                  v-if="error.retryable"
+                  type="button"
+                  class="ppt-export-error-retry"
+                  @click="handleRetry"
+                >
                   重试
                 </button>
-                <button class="ppt-export-error-close" @click="clearError">×</button>
+                <button type="button" class="ppt-export-error-close" @click="clearError">×</button>
               </div>
             </div>
 
@@ -290,6 +308,7 @@ async function handleRetry(): Promise<void> {
             </span>
             <div class="ppt-export-actions">
               <button
+                type="button"
                 class="ppt-export-btn ppt-export-btn-cancel"
                 :disabled="isGenerating"
                 @click="handleClose"
@@ -297,6 +316,7 @@ async function handleRetry(): Promise<void> {
                 取消
               </button>
               <button
+                type="button"
                 class="ppt-export-btn ppt-export-btn-export"
                 :disabled="!canGenerate"
                 @click="handleExport"
@@ -319,9 +339,7 @@ async function handleRetry(): Promise<void> {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px) saturate(120%);
-  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  background: rgba(11, 11, 12, 0.82);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -333,35 +351,17 @@ async function handleRetry(): Promise<void> {
 .ppt-export-dialog {
   width: min(960px, calc(100vw - 48px));
   height: min(720px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
-    ),
-    linear-gradient(
-      225deg,
-      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
-      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
-    ),
-    var(--theme-bg);
-  backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
-  -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  border-radius: var(--theme-radius-lg);
-  box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.35),
-    0 8px 24px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15)),
-    inset 0 -1px 0 var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  background: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: border-color 0.3s ease;
+  transition: border-color var(--sm-transition-fast);
 }
 
 .ppt-export-dialog-stage-generating {
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-border-accent);
 }
 
 .ppt-export-dialog-header {
@@ -369,14 +369,14 @@ async function handleRetry(): Promise<void> {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--sm-color-border-subtle);
   flex-shrink: 0;
 }
 
 .ppt-export-dialog-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin: 0;
   letter-spacing: -0.01em;
 }
@@ -384,7 +384,7 @@ async function handleRetry(): Promise<void> {
 .ppt-export-dialog-subtitle {
   margin: 4px 0 0;
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .ppt-export-dialog-close {
@@ -396,12 +396,15 @@ async function handleRetry(): Promise<void> {
   justify-content: center;
   font-size: 13px;
   border-radius: 999px;
-  transition: all 0.2s ease;
+  transition:
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .ppt-export-dialog-close:hover:not(:disabled) {
-  border-color: var(--theme-accent);
-  color: var(--theme-accent);
+  border-color: var(--sm-color-border-accent);
+  color: var(--sm-color-text-primary);
 }
 
 .ppt-export-dialog-close:disabled {
@@ -424,14 +427,14 @@ async function handleRetry(): Promise<void> {
   justify-content: center;
   gap: 12px;
   padding: 32px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .ppt-export-spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid var(--theme-border);
-  border-top-color: var(--theme-accent);
+  border: 2px solid var(--sm-color-border-default);
+  border-top-color: var(--sm-color-accent);
   border-radius: 50%;
   animation: ppt-export-spin 0.8s linear infinite;
 }
@@ -441,9 +444,9 @@ async function handleRetry(): Promise<void> {
   gap: 10px;
   margin: 16px 20px 0;
   padding: 12px 14px;
-  border: 1px solid var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  border-radius: var(--theme-radius);
-  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
   flex-wrap: wrap;
 }
 
@@ -451,13 +454,13 @@ async function handleRetry(): Promise<void> {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   font-size: 12px;
   font-weight: 500;
 }
 
 .ppt-export-progress-step.active {
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
 }
 
 .ppt-export-progress-step.done {
@@ -485,53 +488,39 @@ async function handleRetry(): Promise<void> {
   gap: 12px;
   margin: 16px 20px 0;
   padding: 12px 14px;
-  border-radius: var(--theme-radius);
+  border-radius: var(--sm-radius-md);
   border: 1px solid;
   font-size: 13px;
-  animation: ppt-export-shake 0.3s ease;
 }
 
 .ppt-export-error-parse {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: rgba(245, 158, 11, 0.2);
+  background: rgba(197, 161, 101, 0.08);
+  border-color: rgba(197, 161, 101, 0.22);
   color: var(--theme-warning);
 }
 
 .ppt-export-error-style {
-  background: rgba(139, 92, 246, 0.08);
-  border-color: rgba(139, 92, 246, 0.2);
-  color: #8b5cf6;
+  background: rgba(199, 120, 120, 0.08);
+  border-color: rgba(199, 120, 120, 0.22);
+  color: var(--theme-danger);
 }
 
 .ppt-export-error-generate {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.2);
+  background: rgba(199, 120, 120, 0.08);
+  border-color: rgba(199, 120, 120, 0.22);
   color: var(--theme-danger);
 }
 
 .ppt-export-error-download {
-  background: rgba(236, 72, 153, 0.08);
-  border-color: rgba(236, 72, 153, 0.2);
-  color: #ec4899;
+  background: rgba(199, 120, 120, 0.08);
+  border-color: rgba(199, 120, 120, 0.22);
+  color: var(--theme-danger);
 }
 
 .ppt-export-error-network {
-  background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.2);
-  color: #3b82f6;
-}
-
-@keyframes ppt-export-shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-4px);
-  }
-  75% {
-    transform: translateX(4px);
-  }
+  background: rgba(199, 120, 120, 0.08);
+  border-color: rgba(199, 120, 120, 0.22);
+  color: var(--theme-danger);
 }
 
 .ppt-export-error-content {
@@ -566,7 +555,7 @@ async function handleRetry(): Promise<void> {
 .ppt-export-error-retry {
   padding: 4px 10px;
   border: 1px solid currentColor;
-  border-radius: var(--theme-radius);
+  border-radius: var(--sm-radius-sm);
   background: transparent;
   color: inherit;
   font-size: 11px;
@@ -599,7 +588,7 @@ async function handleRetry(): Promise<void> {
   margin: 16px 20px 0;
   padding: 10px 12px;
   border: 1px solid rgba(245, 158, 11, 0.2);
-  border-radius: var(--theme-radius);
+  border-radius: var(--sm-radius-md);
   background: rgba(245, 158, 11, 0.08);
   color: var(--theme-warning);
   font-size: 12px;
@@ -621,7 +610,7 @@ async function handleRetry(): Promise<void> {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-right: 1px solid var(--sm-color-border-subtle);
   padding: 16px;
 }
 
@@ -642,14 +631,14 @@ async function handleRetry(): Promise<void> {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 20px;
-  border-top: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  background: var(--glass-white-02, rgba(255, 255, 255, 0.02));
+  border-top: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-surface-2);
   flex-shrink: 0;
 }
 
 .ppt-export-status {
   font-size: 13px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .ppt-export-actions {
@@ -669,7 +658,11 @@ async function handleRetry(): Promise<void> {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    opacity var(--sm-transition-fast);
 }
 
 .ppt-export-btn:disabled {
@@ -678,28 +671,26 @@ async function handleRetry(): Promise<void> {
 }
 
 .ppt-export-btn-cancel {
-  border: 1px solid var(--theme-border);
-  background: var(--theme-bg);
-  color: var(--theme-text-secondary);
+  border: 1px solid var(--sm-color-border-default);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
 }
 
 .ppt-export-btn-cancel:hover:not(:disabled) {
-  border-color: var(--theme-text-tertiary);
-  color: var(--theme-text);
-  background: var(--theme-bg-hover);
+  border-color: var(--sm-color-border-strong);
+  color: var(--sm-color-text-primary);
+  background: var(--sm-color-surface-hover);
 }
 
 .ppt-export-btn-export {
-  border: none;
-  background: var(--theme-accent);
-  color: white;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+  border: 1px solid var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.12);
+  color: var(--sm-color-text-primary);
 }
 
 .ppt-export-btn-export:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--theme-accent) 85%, black);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
+  background: rgba(142, 149, 217, 0.18);
+  border-color: rgba(161, 167, 230, 0.6);
 }
 
 .ppt-export-btn-spinner {
@@ -713,7 +704,7 @@ async function handleRetry(): Promise<void> {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity var(--sm-transition-medium);
 }
 
 .fade-enter-from,
@@ -724,13 +715,13 @@ async function handleRetry(): Promise<void> {
 .fade-enter-active .ppt-export-dialog,
 .fade-leave-active .ppt-export-dialog {
   transition:
-    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 0.2s ease;
+    transform var(--sm-transition-medium),
+    opacity var(--sm-transition-medium);
 }
 
 .fade-enter-from .ppt-export-dialog,
 .fade-leave-to .ppt-export-dialog {
-  transform: scale(0.96) translateY(10px);
+  transform: translateY(var(--sm-motion-distance-md));
   opacity: 0;
 }
 
@@ -748,7 +739,7 @@ async function handleRetry(): Promise<void> {
     width: 100%;
     height: 200px;
     border-right: none;
-    border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+    border-bottom: 1px solid var(--sm-color-border-subtle);
   }
 
   .ppt-export-dialog-footer {

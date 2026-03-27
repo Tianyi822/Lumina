@@ -20,11 +20,11 @@ onMounted(() => {
 
 <template>
   <Transition name="toast">
-    <div v-if="show" class="chat-error-toast">
+    <div v-if="show" class="chat-error-toast" role="alert" aria-live="assertive" aria-atomic="true">
       <div class="toast-content">
         <span class="toast-icon">⚠️</span>
         <p class="toast-message">{{ message }}</p>
-        <button class="toast-close" @click="$emit('close')">×</button>
+        <button type="button" class="toast-close" @click="$emit('close')">×</button>
       </div>
     </div>
   </Transition>
@@ -37,22 +37,10 @@ onMounted(() => {
   right: 16px;
   z-index: 1000;
   max-width: 400px;
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
-      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
-    ),
-    var(--theme-bg-secondary);
-  backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
-  -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: var(--theme-radius);
+  background: var(--sm-color-surface-3);
+  border: 1px solid rgba(199, 120, 120, 0.24);
+  border-radius: var(--sm-radius-md);
   padding: 12px 16px;
-  box-shadow:
-    0 10px 36px rgba(0, 0, 0, 0.2),
-    0 3px 10px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 var(--glass-white-1, rgba(255, 255, 255, 0.1));
 }
 
 .toast-content {
@@ -77,31 +65,40 @@ onMounted(() => {
 }
 
 .toast-close {
-  background: none;
-  border: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--sm-radius-sm);
   font-size: 18px;
   color: var(--theme-danger);
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0;
   line-height: 1;
   opacity: 0.6;
-  transition: opacity 0.15s;
+  transition:
+    opacity var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
   font-family: var(--theme-font);
   flex-shrink: 0;
 }
 
 .toast-close:hover {
+  background: rgba(199, 120, 120, 0.08);
+  border-color: rgba(199, 120, 120, 0.2);
   opacity: 1;
 }
 
 .toast-enter-active,
 .toast-leave-active {
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition:
+    opacity var(--sm-transition-medium),
+    transform var(--sm-transition-medium);
 }
 
 .toast-enter-from,
 .toast-leave-to {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(var(--sm-motion-distance-md));
 }
 </style>

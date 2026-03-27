@@ -68,13 +68,9 @@ const statusSubtitle = computed(() => {
   flex-direction: column;
   gap: 12px;
   padding: 12px;
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
-  background: linear-gradient(
-    180deg,
-    var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
-    var(--glass-white-01, rgba(255, 255, 255, 0.01)) 100%
-  );
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
 }
 
 .iteration-placeholder-head {
@@ -91,25 +87,17 @@ const statusSubtitle = computed(() => {
   width: 34px;
   height: 34px;
   border-radius: 12px;
-  background: radial-gradient(
-      circle at top,
-      rgba(99, 102, 241, 0.22),
-      transparent 55%
-    ),
-    linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(99, 102, 241, 0.08));
-  border: 1px solid rgba(99, 102, 241, 0.18);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 10px 24px rgba(99, 102, 241, 0.08);
+  background: rgba(142, 149, 217, 0.08);
+  border: 1px solid rgba(142, 149, 217, 0.18);
 }
 
 .iteration-placeholder-pulse span {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--theme-accent-secondary, #6366f1) 72%, white);
+  background: var(--sm-color-accent-hover);
   opacity: 0.35;
-  animation: placeholderDotPulse 1.2s ease-in-out infinite;
+  animation: placeholderDotPulse 1.4s ease-in-out infinite;
 }
 
 .iteration-placeholder-pulse span:nth-child(2) {
@@ -130,20 +118,20 @@ const statusSubtitle = computed(() => {
 .iteration-placeholder-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   line-height: 1.2;
 }
 
 .iteration-placeholder-status {
   font-size: 12px;
   font-weight: 500;
-  color: var(--theme-accent-secondary, #6366f1);
+  color: var(--sm-color-accent-hover);
   line-height: 1.4;
 }
 
 .iteration-placeholder-subtitle {
   font-size: 11px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-secondary);
   line-height: 1.4;
 }
 
@@ -157,14 +145,7 @@ const statusSubtitle = computed(() => {
   display: block;
   height: 8px;
   border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    rgba(99, 102, 241, 0.12) 0%,
-    rgba(99, 102, 241, 0.26) 48%,
-    rgba(99, 102, 241, 0.12) 100%
-  );
-  background-size: 220% 100%;
-  animation: placeholderShimmer 1.8s linear infinite;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .iteration-placeholder-bar.primary {
@@ -173,28 +154,17 @@ const statusSubtitle = computed(() => {
 
 .iteration-placeholder-bar.secondary {
   width: min(132px, 72%);
-  animation-delay: 0.15s;
+  opacity: 0.72;
 }
 
 @keyframes placeholderDotPulse {
   0%,
   80%,
   100% {
-    transform: translateY(0) scale(0.92);
     opacity: 0.35;
   }
   40% {
-    transform: translateY(-2px) scale(1);
     opacity: 1;
-  }
-}
-
-@keyframes placeholderShimmer {
-  0% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: -100% 50%;
   }
 }
 </style>

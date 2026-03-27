@@ -76,13 +76,18 @@ onUnmounted(() => {
 
 <template>
   <div class="export-dialog-overlay" @click.self="handleClose">
-    <div class="export-dialog">
+    <div class="export-dialog" role="dialog" aria-modal="true" :aria-busy="isExporting">
       <div class="export-dialog-header">
         <div>
           <h3 class="export-dialog-title">导出内容</h3>
           <p class="export-dialog-subtitle">选择导出格式后会直接下载对应文件</p>
         </div>
-        <button class="btn export-dialog-close" :disabled="isExporting" @click="handleClose">
+        <button
+          type="button"
+          class="btn export-dialog-close"
+          :disabled="isExporting"
+          @click="handleClose"
+        >
           关闭
         </button>
       </div>
@@ -95,6 +100,7 @@ onUnmounted(() => {
         <button
           v-for="option in EXPORT_FORMAT_OPTIONS"
           :key="option.value"
+          type="button"
           class="export-option-card"
           :disabled="isExporting"
           @click="handleSelectFormat(option.value)"
@@ -121,9 +127,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px) saturate(120%);
-  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  background: rgba(11, 11, 12, 0.82);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -135,27 +139,9 @@ onUnmounted(() => {
 .export-dialog {
   width: min(560px, calc(100vw - 48px));
   max-height: min(620px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
-    ),
-    linear-gradient(
-      225deg,
-      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
-      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
-    ),
-    var(--theme-bg);
-  backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
-  -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  border-radius: var(--theme-radius-lg);
-  box-shadow:
-    0 24px 80px rgba(0, 0, 0, 0.35),
-    0 8px 24px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15)),
-    inset 0 -1px 0 var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  background: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -166,14 +152,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--sm-color-border-subtle);
   flex-shrink: 0;
 }
 
 .export-dialog-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin: 0;
   letter-spacing: -0.01em;
 }
@@ -181,7 +167,7 @@ onUnmounted(() => {
 .export-dialog-subtitle {
   margin: 4px 0 0;
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .export-dialog-close {
@@ -193,12 +179,15 @@ onUnmounted(() => {
   justify-content: center;
   font-size: 13px;
   border-radius: 999px;
-  transition: all 0.2s ease;
+  transition:
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .export-dialog-close:hover:not(:disabled) {
-  border-color: var(--theme-accent);
-  color: var(--theme-accent);
+  border-color: var(--sm-color-border-accent);
+  color: var(--sm-color-text-primary);
 }
 
 .export-dialog-close:disabled {
@@ -209,10 +198,10 @@ onUnmounted(() => {
 .export-preview {
   margin: 20px 20px 0;
   padding: 14px 16px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: var(--theme-radius);
-  background: rgba(0, 0, 0, 0.02);
-  color: var(--theme-text-secondary);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
   font-size: 13px;
   line-height: 1.6;
   word-break: break-word;
@@ -230,19 +219,20 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 8px;
   padding: 14px 16px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: var(--theme-radius-lg);
-  background: rgba(0, 0, 0, 0.02);
-  color: var(--theme-text);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
   cursor: pointer;
   text-align: left;
-  transition: all 0.2s ease;
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .export-option-card:hover:not(:disabled) {
-  border-color: var(--theme-accent);
-  background: rgba(0, 0, 0, 0.04);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
 }
 
 .export-option-card:disabled {
@@ -265,8 +255,9 @@ onUnmounted(() => {
 .export-option-shortcut {
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(99, 102, 241, 0.1);
-  color: var(--theme-accent);
+  border: 1px solid rgba(142, 149, 217, 0.22);
+  background: rgba(142, 149, 217, 0.08);
+  color: var(--sm-color-accent-hover);
   font-size: 10px;
   font-weight: 600;
 }
@@ -274,13 +265,13 @@ onUnmounted(() => {
 .export-option-desc {
   font-size: 12px;
   line-height: 1.5;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .export-dialog-footer {
   padding: 0 20px 20px;
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   text-align: center;
 }
 

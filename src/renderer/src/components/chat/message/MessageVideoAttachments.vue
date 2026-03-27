@@ -96,17 +96,15 @@ function getPromptPreview(prompt: string): string {
   gap: 12px;
   width: 100%;
   padding: 12px;
-  background:
-    linear-gradient(140deg, rgba(7, 53, 50, 0.92) 0%, rgba(10, 89, 78, 0.82) 100%),
-    rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(112, 215, 92, 0.18);
-  border-radius: 18px;
-  color: #f6fff8;
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  color: var(--sm-color-text-primary);
   text-align: left;
   transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease;
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
 .video-card.clickable {
@@ -114,35 +112,31 @@ function getPromptPreview(prompt: string): string {
 }
 
 .video-card.clickable:hover {
-  transform: translateY(-1px);
-  border-color: rgba(112, 215, 92, 0.34);
-  box-shadow: 0 14px 32px rgba(2, 24, 21, 0.22);
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
 }
 
 .video-card:disabled {
   cursor: default;
-  opacity: 0.96;
+  opacity: 0.94;
 }
 
 .video-card.failed {
-  border-color: rgba(255, 120, 120, 0.26);
-  background:
-    linear-gradient(140deg, rgba(58, 22, 22, 0.94) 0%, rgba(92, 31, 31, 0.86) 100%),
-    rgba(255, 255, 255, 0.04);
+  border-color: rgba(199, 120, 120, 0.24);
+  background: rgba(199, 120, 120, 0.08);
 }
 
 .video-card.processing {
-  border-color: rgba(255, 201, 71, 0.28);
+  border-color: rgba(197, 161, 101, 0.24);
+  background: rgba(197, 161, 101, 0.08);
 }
 
 .video-cover {
   position: relative;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  border-radius: 14px;
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.24), transparent 32%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-bg-embedded);
 }
 
 .video-cover-image {
@@ -158,15 +152,13 @@ function getPromptPreview(prompt: string): string {
   justify-content: center;
   width: 100%;
   height: 100%;
-  background:
-    radial-gradient(circle at 30% 20%, rgba(112, 215, 92, 0.32), transparent 35%),
-    linear-gradient(140deg, rgba(10, 89, 78, 0.96), rgba(1, 34, 30, 0.96));
+  background: var(--sm-color-bg-embedded);
 }
 
 .fallback-label {
   font-size: 28px;
   letter-spacing: 0.24em;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--sm-color-text-tertiary);
 }
 
 .video-status {
@@ -174,23 +166,23 @@ function getPromptPreview(prompt: string): string {
   top: 10px;
   left: 10px;
   padding: 5px 10px;
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  backdrop-filter: blur(8px);
-  background: rgba(0, 0, 0, 0.34);
+  background: rgba(11, 11, 12, 0.88);
 }
 
 .video-status.success {
-  color: #d9ffe2;
+  color: var(--theme-success);
 }
 
 .video-status.fail {
-  color: #ffd4d4;
+  color: var(--theme-danger);
 }
 
 .video-status.processing {
-  color: #fff1c3;
+  color: var(--theme-warning);
 }
 
 .video-play-indicator {
@@ -198,9 +190,10 @@ function getPromptPreview(prompt: string): string {
   right: 12px;
   bottom: 12px;
   padding: 6px 12px;
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.48);
-  color: #fff;
+  background: rgba(11, 11, 12, 0.88);
+  color: var(--sm-color-text-primary);
   font-size: 12px;
   font-weight: 600;
 }
@@ -214,7 +207,7 @@ function getPromptPreview(prompt: string): string {
 .video-model {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--sm-color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -222,13 +215,13 @@ function getPromptPreview(prompt: string): string {
 .video-prompt {
   font-size: 14px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.94);
+  color: var(--sm-color-text-primary);
 }
 
 .video-error {
   font-size: 12px;
   line-height: 1.5;
-  color: rgba(255, 226, 226, 0.92);
+  color: var(--theme-danger);
 }
 
 @media (max-width: 768px) {

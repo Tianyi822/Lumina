@@ -9,21 +9,19 @@ defineEmits<{
 </script>
 
 <template>
-  <div v-if="error" class="error-banner">
+  <div v-if="error" class="error-banner" role="alert" aria-live="assertive" aria-atomic="true">
     <div class="error-content">
       <span class="error-icon">⚠️</span>
       <span class="error-message">{{ error }}</span>
-      <button class="error-dismiss" @click="$emit('dismiss')">×</button>
+      <button type="button" class="error-dismiss" @click="$emit('dismiss')">×</button>
     </div>
   </div>
 </template>
 
 <style scoped>
 .error-banner {
-  background: rgba(239, 68, 68, 0.06);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(199, 120, 120, 0.08);
+  border-bottom: 1px solid rgba(199, 120, 120, 0.22);
   padding: 10px 16px;
   flex-shrink: 0;
 }
@@ -49,19 +47,26 @@ defineEmits<{
 }
 
 .error-dismiss {
-  background: none;
-  border: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--sm-radius-sm);
   font-size: 18px;
   color: var(--theme-danger);
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0;
   line-height: 1;
   opacity: 0.6;
-  transition: opacity 0.15s;
+  transition:
+    opacity var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
   font-family: var(--theme-font);
 }
 
 .error-dismiss:hover {
+  background: rgba(199, 120, 120, 0.08);
+  border-color: rgba(199, 120, 120, 0.22);
   opacity: 1;
 }
 </style>

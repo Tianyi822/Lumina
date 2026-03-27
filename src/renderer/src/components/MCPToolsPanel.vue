@@ -219,8 +219,10 @@ onUnmounted(() => {
   <div ref="mcpContainerRef" class="mcp-tools-container">
     <!-- 触发按钮 -->
     <button
+      type="button"
       class="btn mcp-trigger-btn"
       :class="{ active: showPanel, 'has-selection': selectedToolsCount > 0 }"
+      :aria-expanded="showPanel"
       @click="togglePanel"
     >
       <span v-if="selectedToolsCount > 0" class="selected-tool-name">
@@ -246,6 +248,7 @@ onUnmounted(() => {
           type="text"
           class="input search-input"
           placeholder="搜索工具..."
+          aria-label="搜索 MCP 工具"
         />
       </div>
 
@@ -261,12 +264,21 @@ onUnmounted(() => {
           :key="serverName"
           class="server-group"
         >
-          <div class="server-header" @click="handleToggleServer(serverName as string)">
+          <div
+            class="server-header"
+            role="button"
+            tabindex="0"
+            :aria-expanded="expandedServers.has(serverName as string)"
+            @click="handleToggleServer(serverName as string)"
+            @keydown.enter.prevent="handleToggleServer(serverName as string)"
+            @keydown.space.prevent="handleToggleServer(serverName as string)"
+          >
             <span class="expand-icon">{{
               expandedServers.has(serverName as string) ? '▼' : '▶'
             }}</span>
             <span class="server-name">{{ serverName }}</span>
             <button
+              type="button"
               class="btn server-select-all-btn"
               @click.stop="handleToggleServerGroupTools(tools)"
             >
@@ -288,7 +300,12 @@ onUnmounted(() => {
               :key="`${serverName}-${tool.name}`"
               class="tool-item"
               :class="{ selected: isToolSelected(tool) }"
+              role="button"
+              tabindex="0"
+              :aria-selected="isToolSelected(tool)"
               @click="handleToggleTool(tool)"
+              @keydown.enter.prevent="handleToggleTool(tool)"
+              @keydown.space.prevent="handleToggleTool(tool)"
             >
               <div class="tool-header">
                 <span class="tool-checkbox">{{ isToolSelected(tool) ? '☑' : '☐' }}</span>
@@ -304,6 +321,7 @@ onUnmounted(() => {
                 </div>
                 <button
                   v-if="shouldShowExpandButton(tool)"
+                  type="button"
                   class="description-toggle-btn"
                   @click.stop="toggleDescription(tool)"
                 >
@@ -332,12 +350,12 @@ onUnmounted(() => {
 }
 
 .mcp-trigger-btn.active {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: rgba(142, 149, 217, 0.08);
+  border-color: var(--sm-color-border-accent);
 }
 
 .mcp-trigger-btn.has-selection {
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
 }
 
 .selected-tool-name {
@@ -345,15 +363,16 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--theme-font-mono, monospace);
+  font-family: var(--sm-font-mono);
   font-size: 12px;
 }
 
 .tools-count {
   font-size: 11px;
   padding: 1px 6px;
-  background-color: var(--theme-accent);
-  color: white;
+  background: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-accent);
+  color: var(--sm-color-accent-hover);
   border-radius: 10px;
   min-width: 18px;
   text-align: center;
@@ -361,8 +380,8 @@ onUnmounted(() => {
 
 .dropdown-arrow {
   font-size: 10px;
-  color: var(--theme-text-tertiary);
-  transition: transform 0.2s ease;
+  color: var(--sm-color-text-tertiary);
+  transition: transform var(--sm-transition-fast);
 }
 
 .dropdown-arrow.open {
@@ -376,26 +395,9 @@ onUnmounted(() => {
   margin-bottom: 8px;
   width: 400px;
   max-height: 480px;
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
-      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
-    ),
-    linear-gradient(
-      225deg,
-      var(--glass-white-023, rgba(255, 255, 255, 0.023)) 0%,
-      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
-    ),
-    var(--theme-bg);
-  backdrop-filter: blur(28px) saturate(220%) brightness(1.12);
-  -webkit-backdrop-filter: blur(28px) saturate(220%) brightness(1.12);
-  border: 1px solid var(--glass-white-12, rgba(255, 255, 255, 0.12));
-  border-radius: var(--theme-radius);
-  box-shadow:
-    0 16px 48px rgba(0, 0, 0, 0.25),
-    0 4px 16px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  background: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   display: flex;
   flex-direction: column;
   z-index: 200;
@@ -406,23 +408,23 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
 .panel-title {
   font-weight: 600;
   font-size: 13px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .connection-info {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .search-box {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
 .search-input {
@@ -446,19 +448,19 @@ onUnmounted(() => {
 }
 
 .tools-container::-webkit-scrollbar-thumb {
-  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  border-radius: 2px;
+  background: var(--sm-color-border-default);
+  border-radius: 999px;
 }
 
 .empty-state {
   padding: 24px;
   text-align: center;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   font-size: 13px;
 }
 
 .server-group {
-  border-bottom: 1px solid var(--glass-white-06, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
 .server-group:last-child {
@@ -470,16 +472,20 @@ onUnmounted(() => {
   align-items: center;
   padding: 10px 16px;
   cursor: pointer;
-  transition: all 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: background-color var(--sm-transition-fast);
 }
 
 .server-header:hover {
-  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  background: var(--sm-color-surface-hover);
+}
+
+.server-header:focus-visible {
+  background: var(--sm-color-surface-hover);
 }
 
 .expand-icon {
   font-size: 10px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   margin-right: 8px;
   width: 12px;
 }
@@ -488,7 +494,7 @@ onUnmounted(() => {
   flex: 1;
   font-weight: 500;
   font-size: 13px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .server-select-all-btn {
@@ -500,7 +506,7 @@ onUnmounted(() => {
 
 .server-status {
   margin-right: 8px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .server-status.connected {
@@ -510,8 +516,9 @@ onUnmounted(() => {
 .tools-count-badge {
   font-size: 11px;
   padding: 2px 6px;
-  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
-  color: var(--theme-text-tertiary);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-subtle);
+  color: var(--sm-color-text-tertiary);
   border-radius: 10px;
 }
 
@@ -522,34 +529,31 @@ onUnmounted(() => {
 .tool-item {
   padding: 8px 16px 8px 36px;
   cursor: pointer;
-  transition: all 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: background-color var(--sm-transition-fast);
 }
 
 .tool-item:hover {
-  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  background: var(--sm-color-surface-1);
 }
 
 .tool-item.selected {
-  background: rgba(99, 102, 241, 0.08);
+  background: rgba(142, 149, 217, 0.08);
 }
 
-/* 高亮动画 */
+.tool-item:focus-visible {
+  background: var(--sm-color-surface-1);
+}
+
 .tool-item.highlight {
-  animation: highlight-pulse 1.5s ease-in-out;
+  animation: highlight-pulse 0.48s ease-out;
 }
 
 @keyframes highlight-pulse {
   0% {
-    background-color: rgba(99, 102, 241, 0.2);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
-  }
-  50% {
-    background-color: rgba(99, 102, 241, 0.3);
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+    background-color: rgba(142, 149, 217, 0.14);
   }
   100% {
-    background-color: rgba(99, 102, 241, 0.08);
-    box-shadow: none;
+    background-color: rgba(142, 149, 217, 0.08);
   }
 }
 
@@ -561,17 +565,17 @@ onUnmounted(() => {
 
 .tool-checkbox {
   font-size: 14px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .tool-item.selected .tool-checkbox {
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
 }
 
 .tool-name {
   font-size: 13px;
-  font-family: var(--theme-font-mono, monospace);
-  color: var(--theme-accent);
+  font-family: var(--sm-font-mono);
+  color: var(--sm-color-text-primary);
 }
 
 .tool-description-wrapper {
@@ -580,7 +584,7 @@ onUnmounted(() => {
 
 .tool-description {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-secondary);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -598,12 +602,12 @@ onUnmounted(() => {
 .description-toggle-btn {
   background: none;
   border: none;
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
   font-size: 11px;
   cursor: pointer;
   padding: 2px 0;
   margin-top: 4px;
-  transition: opacity 0.15s;
+  transition: opacity var(--sm-transition-fast);
 }
 
 .description-toggle-btn:hover {

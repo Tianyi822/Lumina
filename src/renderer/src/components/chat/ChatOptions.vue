@@ -35,7 +35,7 @@ function handleSelect(option: ParsedOption): void {
 .chat-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--sm-space-2);
   width: 100%;
   max-width: 100%;
 }
@@ -44,31 +44,23 @@ function handleSelect(option: ParsedOption): void {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  min-height: 42px;
+  min-height: 40px;
   max-width: 100%;
   padding: 10px 14px;
-  border: 1px solid color-mix(in srgb, var(--theme-accent) 20%, var(--theme-border));
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 999px;
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--theme-accent) 8%, transparent) 0%,
-      var(--theme-bg-secondary) 100%
-    ),
-    var(--theme-bg-secondary);
-  color: var(--theme-text);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-primary);
   cursor: pointer;
   transition:
-    transform 0.16s ease,
-    border-color 0.16s ease,
-    box-shadow 0.16s ease,
-    background-color 0.16s ease;
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
 .option-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--theme-accent) 45%, var(--theme-border));
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
 }
 
 .option-button:disabled {
@@ -83,8 +75,8 @@ function handleSelect(option: ParsedOption): void {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--theme-accent) 16%, transparent);
-  color: var(--theme-accent);
+  background: rgba(142, 149, 217, 0.12);
+  color: var(--sm-color-accent-hover);
   font-size: 12px;
   font-weight: 700;
   flex-shrink: 0;

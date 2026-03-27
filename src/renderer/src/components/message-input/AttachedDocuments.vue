@@ -46,8 +46,7 @@ const emit = defineEmits<{
 .pending-docs-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--sm-space-2);
 }
 
 .pending-doc-item {
@@ -55,18 +54,20 @@ const emit = defineEmits<{
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: linear-gradient(135deg, rgba(70, 170, 143, 0.08) 0%, rgba(70, 170, 143, 0.03) 100%);
-  border: 1px solid rgba(70, 170, 143, 0.2);
-  border-radius: var(--theme-radius-sm, 6px);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
   font-size: 12px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   max-width: 280px;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
 .pending-doc-item:hover {
-  background: linear-gradient(135deg, rgba(70, 170, 143, 0.12) 0%, rgba(70, 170, 143, 0.05) 100%);
-  border-color: rgba(70, 170, 143, 0.3);
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
 }
 
 .pending-doc-icon {
@@ -95,14 +96,14 @@ const emit = defineEmits<{
 .pending-doc-type {
   font-size: 10px;
   font-weight: 600;
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
   opacity: 0.8;
   line-height: 1.3;
 }
 
 .pending-doc-size {
   font-size: 10px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   opacity: 0.7;
   line-height: 1.3;
 }
@@ -118,9 +119,11 @@ const emit = defineEmits<{
   background: transparent;
   border: none;
   border-radius: 4px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
 .pending-doc-remove:hover {
