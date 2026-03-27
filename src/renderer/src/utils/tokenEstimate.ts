@@ -1,12 +1,12 @@
+import { encode } from 'gpt-tokenizer/encoding/cl100k_base'
+
 /**
- * 估算文本的 Token 数量
- * 中文按约 0.5 token/字符，其他字符按约 0.25 token/字符估算
+ * 计算文本的 Token 数量
+ * 使用 cl100k_base BPE 分词器（GPT-4 / GPT-3.5-turbo 编码）精确计算
  */
 export function estimateTokenCount(text: string): number {
-  const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length
-  const otherChars = text.length - chineseChars
-
-  return Math.ceil(chineseChars / 2 + otherChars / 4)
+  if (!text) return 0
+  return encode(text).length
 }
 
 /**
