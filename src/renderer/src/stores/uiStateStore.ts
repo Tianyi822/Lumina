@@ -130,6 +130,19 @@ export const useUIStateStore = defineStore(
     // 是否在沙箱视图
     const isSandboxView = computed(() => currentView.value === 'sandbox')
 
+    // 当前视图对应的侧边栏是否折叠
+    const isCurrentSidebarCollapsed = computed(() => {
+      if (currentView.value === 'chat') {
+        return sidebarCollapsed.value
+      }
+
+      if (currentView.value === 'knowledge') {
+        return knowledgeSidebarCollapsed.value
+      }
+
+      return sandboxSidebarCollapsed.value
+    })
+
     // 是否有任何错误显示
     const hasAnyError = computed(() => showConfigError.value || showChatError.value)
 
@@ -171,6 +184,32 @@ export const useUIStateStore = defineStore(
     // 设置知识库侧边栏折叠状态
     function setKnowledgeSidebarCollapsed(collapsed: boolean): void {
       knowledgeSidebarCollapsed.value = collapsed
+    }
+
+    // 切换当前视图对应的侧边栏状态
+    function toggleCurrentSidebar(): void {
+      const nextCollapsed = !isCurrentSidebarCollapsed.value
+      setCurrentSidebarCollapsed(nextCollapsed)
+
+      window.api.logger.debug('[UIStateStore] 切换当前视图侧边栏', {
+        view: currentView.value,
+        collapsed: nextCollapsed
+      })
+    }
+
+    // 设置当前视图对应的侧边栏状态
+    function setCurrentSidebarCollapsed(collapsed: boolean): void {
+      if (currentView.value === 'chat') {
+        setSidebarCollapsed(collapsed)
+        return
+      }
+
+      if (currentView.value === 'knowledge') {
+        setKnowledgeSidebarCollapsed(collapsed)
+        return
+      }
+
+      setSandboxSidebarCollapsed(collapsed)
     }
 
     // ==================== Actions: 沙箱页面 UI ====================
@@ -472,6 +511,7 @@ export const useUIStateStore = defineStore(
       isChatView,
       isKnowledgeView,
       isSandboxView,
+      isCurrentSidebarCollapsed,
       hasAnyError,
       currentThemeMeta,
 
@@ -481,6 +521,8 @@ export const useUIStateStore = defineStore(
       setSidebarCollapsed,
       setSandboxSidebarCollapsed,
       setKnowledgeSidebarCollapsed,
+      toggleCurrentSidebar,
+      setCurrentSidebarCollapsed,
       setCurrentModel,
 
       // Actions: 沙箱页面 UI
@@ -522,7 +564,12 @@ export const useUIStateStore = defineStore(
     persist: {
       key: 'sparrow-ui-state',
       // 只持久化 UI 偏好设置
-      pick: ['sidebarCollapsed', 'lastChatSessionId']
+      pick: [
+        'sidebarCollapsed',
+        'knowledgeSidebarCollapsed',
+        'sandboxSidebarCollapsed',
+        'lastChatSessionId'
+      ]
     }
   }
 )
