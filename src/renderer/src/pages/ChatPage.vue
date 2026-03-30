@@ -18,6 +18,7 @@ import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
 import MessageExportDialog from '@renderer/components/chat/MessageExportDialog.vue'
 import PptExportConfigDialog from '@renderer/components/chat/PptExportConfigDialog.vue'
+import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar.vue'
 import {
   createExportInteractionInfo,
   findLatestExportableAssistantMessage,
@@ -669,32 +670,38 @@ watch(
       />
     </div>
 
-    <div class="sm-page-main">
-      <MainContent
-        :key="currentChatId || 'no-chat'"
-        :current-chat-id="currentChatId"
-        :messages="messages"
-        :is-sending="isSending"
-        :current-model-name="currentModel"
-        :config-update-key="0"
-        :input-message="currentInputState.inputMessage"
-        :selected-model="currentInputState.selectedModel"
-        :selected-m-c-p-tools="currentInputState.selectedMCPTools"
-        :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
-        :enable-sandbox-tools="currentInputState.enableSandboxTools"
-        :session-id="currentSession?.sessionId"
-        :export-interaction-info="exportInteractionInfo"
-        :exporting-message-id="exportingMessageId"
-        @send-message="handleSendMessage"
-        @stop-request="handleStopRequest"
-        @update:input-message="handleUpdateInputMessage"
-        @update:selected-model="handleUpdateSelectedModel"
-        @update:selected-m-c-p-tools="handleUpdateSelectedTools"
-        @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
-        @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
-        @request-export="handleRequestExport"
-        @select-export-format="handleInlineExportFormatSelect"
-      />
+    <div class="sm-workspace-main">
+      <div class="sm-workspace-main__toolbar">
+        <WorkspaceToolbar @open-settings="$emit('open-settings')" />
+      </div>
+
+      <div class="sm-workspace-main__body sm-workspace-main__body--fill">
+        <MainContent
+          :key="currentChatId || 'no-chat'"
+          :current-chat-id="currentChatId"
+          :messages="messages"
+          :is-sending="isSending"
+          :current-model-name="currentModel"
+          :config-update-key="0"
+          :input-message="currentInputState.inputMessage"
+          :selected-model="currentInputState.selectedModel"
+          :selected-m-c-p-tools="currentInputState.selectedMCPTools"
+          :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
+          :enable-sandbox-tools="currentInputState.enableSandboxTools"
+          :session-id="currentSession?.sessionId"
+          :export-interaction-info="exportInteractionInfo"
+          :exporting-message-id="exportingMessageId"
+          @send-message="handleSendMessage"
+          @stop-request="handleStopRequest"
+          @update:input-message="handleUpdateInputMessage"
+          @update:selected-model="handleUpdateSelectedModel"
+          @update:selected-m-c-p-tools="handleUpdateSelectedTools"
+          @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
+          @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
+          @request-export="handleRequestExport"
+          @select-export-format="handleInlineExportFormatSelect"
+        />
+      </div>
     </div>
 
     <!-- 聊天错误提示(临时显示) -->

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
-import TitleBar from './components/TitleBar.vue'
 import ChatPage from './pages/ChatPage.vue'
 import KnowledgePage from './pages/KnowledgePage.vue'
 import SandboxPage from './pages/SandboxPage.vue'
@@ -106,9 +105,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="sm-app">
-    <!-- 自定义标题栏 -->
-    <TitleBar @open-settings="openSettings" />
-
     <!-- 配置加载错误提示(仅在加载失败时显示) -->
     <Transition name="sm-feedback" appear>
       <ErrorBanner v-if="configError" :error="configError" @dismiss="dismissError" />
@@ -121,10 +117,10 @@ onBeforeUnmount(() => {
         <ChatPage v-if="isChatView" key="chat" @open-settings="openSettings" />
 
         <!-- 知识库视图 -->
-        <KnowledgePage v-else-if="isKnowledgeView" key="knowledge" />
+        <KnowledgePage v-else-if="isKnowledgeView" key="knowledge" @open-settings="openSettings" />
 
         <!-- 沙箱视图 -->
-        <SandboxPage v-else key="sandbox" />
+        <SandboxPage v-else key="sandbox" @open-settings="openSettings" />
       </Transition>
     </div>
 

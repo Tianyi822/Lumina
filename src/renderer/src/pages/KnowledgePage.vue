@@ -4,11 +4,16 @@ import { storeToRefs } from 'pinia'
 import KnowledgeSidebar from '@renderer/components/KnowledgeSidebar.vue'
 import KnowledgeMain from '@renderer/components/KnowledgeMain.vue'
 import KnowledgeForm from '@renderer/components/knowledge/KnowledgeForm.vue'
+import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar.vue'
 
 import FileManagerModal from '@renderer/components/knowledge/FileManagerModal.vue'
 import FileSelectorModal from '@renderer/components/knowledge/FileSelectorModal.vue'
 import { useKnowledgeStore, useUIStateStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
+
+defineEmits<{
+  (e: 'open-settings'): void
+}>()
 
 // ==================== 知识库管理（直接使用 Store）====================
 const knowledgeStore = useKnowledgeStore()
@@ -138,14 +143,20 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
         @manage-files="handleManageFiles"
       />
     </div>
-    <div class="sm-page-main">
-      <KnowledgeMain
-        ref="knowledgeMainRef"
-        :knowledge-base="knowledgeBases.find((kb) => kb.id === activeKbId)"
-        @add-files="handleAddFiles"
-        @file-unlinked="handleFileUnlinked"
-        @description-updated="handleDescriptionUpdated"
-      />
+    <div class="sm-workspace-main">
+      <div class="sm-workspace-main__toolbar">
+        <WorkspaceToolbar @open-settings="$emit('open-settings')" />
+      </div>
+
+      <div class="sm-workspace-main__body sm-workspace-main__body--fill">
+        <KnowledgeMain
+          ref="knowledgeMainRef"
+          :knowledge-base="knowledgeBases.find((kb) => kb.id === activeKbId)"
+          @add-files="handleAddFiles"
+          @file-unlinked="handleFileUnlinked"
+          @description-updated="handleDescriptionUpdated"
+        />
+      </div>
     </div>
 
     <!-- 知识库表单模态框 -->
