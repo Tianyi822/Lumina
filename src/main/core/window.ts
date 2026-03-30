@@ -21,6 +21,7 @@ const DEFAULT_BACKGROUND_COLOR = '#121212'
 export function createMainWindow(): BrowserWindow {
   // 设置为深色模式，与默认主题 sparrow-dark 一致
   nativeTheme.themeSource = 'dark'
+  const isMac = process.platform === 'darwin'
 
   // 获取主显示器的工作区尺寸（排除任务栏/Dock）
   const primaryDisplay = screen.getPrimaryDisplay()
@@ -34,8 +35,15 @@ export function createMainWindow(): BrowserWindow {
     // 根据平台设置不同的标题栏样式
     // macOS: hidden 表示隐藏原生标题栏，但仍保留窗口控制按钮
     // Windows/Linux: frame: false 完全移除标题栏
-    ...(process.platform === 'darwin'
-      ? { titleBarStyle: 'hidden', frame: true }
+    ...(isMac
+      ? {
+          titleBarStyle: 'hidden',
+          frame: true,
+          trafficLightPosition: {
+            x: 24,
+            y: 20
+          }
+        }
       : { frame: false }),
     // 设置窗口背景色，使用默认深色主题的背景色
     backgroundColor: DEFAULT_BACKGROUND_COLOR,
