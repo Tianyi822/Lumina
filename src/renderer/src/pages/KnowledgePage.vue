@@ -147,28 +147,28 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
         @description-updated="handleDescriptionUpdated"
       />
     </div>
+
+    <!-- 知识库表单模态框 -->
+    <KnowledgeForm
+      v-if="showKnowledgeForm"
+      @submit="handleKnowledgeSubmit"
+      @cancel="handleKnowledgeCancel"
+    />
+
+    <!-- 文件管理模态框 -->
+    <FileManagerModal v-if="showFileManager" @close="handleFileManagerClose" />
+
+    <!-- 文件选择模态框 -->
+    <FileSelectorModal
+      v-if="showFileSelector"
+      :kb-id="currentKBIdForSelector"
+      :linked-file-ids="
+        knowledgeBases.find((kb) => kb.id === currentKBIdForSelector)?.linkedFileIds || []
+      "
+      @close="handleFileSelectorClose"
+      @files-linked="handleFilesLinked"
+    />
   </div>
-
-  <!-- 知识库表单模态框 -->
-  <KnowledgeForm
-    v-if="showKnowledgeForm"
-    @submit="handleKnowledgeSubmit"
-    @cancel="handleKnowledgeCancel"
-  />
-
-  <!-- 文件管理模态框 -->
-  <FileManagerModal v-if="showFileManager" @close="handleFileManagerClose" />
-
-  <!-- 文件选择模态框 -->
-  <FileSelectorModal
-    v-if="showFileSelector"
-    :kb-id="currentKBIdForSelector"
-    :linked-file-ids="
-      knowledgeBases.find((kb) => kb.id === currentKBIdForSelector)?.linkedFileIds || []
-    "
-    @close="handleFileSelectorClose"
-    @files-linked="handleFilesLinked"
-  />
 </template>
 
 <style scoped>
