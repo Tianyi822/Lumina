@@ -6,6 +6,7 @@ import KnowledgePage from './pages/KnowledgePage.vue'
 import SandboxPage from './pages/SandboxPage.vue'
 import ErrorBanner from './components/ErrorBanner.vue'
 import SettingsModal from './components/SettingsModal.vue'
+import WorkspaceSidebarHost from './components/chrome/WorkspaceSidebarHost.vue'
 
 // Composables
 import { useLifecycle } from './composables/lifecycle/useLifecycle'
@@ -111,7 +112,9 @@ onBeforeUnmount(() => {
     </Transition>
 
     <!-- 主布局 -->
-    <div class="sm-shell">
+    <div class="sm-shell sm-workspace-page">
+      <WorkspaceSidebarHost />
+
       <Transition name="sm-workspace-switch" mode="out-in" appear>
         <!-- Chat 视图 -->
         <ChatPage v-if="isChatView" key="chat" @open-settings="openSettings" />

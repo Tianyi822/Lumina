@@ -5,6 +5,7 @@ import WorkspaceViewSwitcher from './WorkspaceViewSwitcher.vue'
 
 defineProps<{
   count: number
+  actionsKey?: string
 }>()
 
 const isMac = computed(() => {
@@ -26,8 +27,14 @@ const isMac = computed(() => {
       <span class="sm-sidebar-shell__count">{{ count }}</span>
     </div>
 
-    <div v-if="$slots.actions" class="sm-sidebar-shell__actions">
-      <slot name="actions" />
-    </div>
+    <Transition name="sm-sidebar-actions-switch" mode="out-in" appear>
+      <div
+        v-if="$slots.actions"
+        :key="actionsKey || 'sidebar-actions'"
+        class="sm-sidebar-shell__actions"
+      >
+        <slot name="actions" />
+      </div>
+    </Transition>
   </header>
 </template>

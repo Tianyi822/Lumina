@@ -89,6 +89,9 @@ export const useUIStateStore = defineStore(
     // 是否显示配置管理器弹窗
     const showConfigManager = ref(false)
 
+    // 是否显示知识库文件管理弹窗
+    const showKnowledgeFileManager = ref(false)
+
     // ==================== State: 配置更新通知 ====================
 
     // 配置更新计数器（用于触发组件刷新）
@@ -238,6 +241,16 @@ export const useUIStateStore = defineStore(
     // 关闭配置管理器弹窗
     function closeConfigManager(): void {
       showConfigManager.value = false
+    }
+
+    // 打开知识库文件管理弹窗
+    function openKnowledgeFileManager(): void {
+      showKnowledgeFileManager.value = true
+    }
+
+    // 关闭知识库文件管理弹窗
+    function closeKnowledgeFileManager(): void {
+      showKnowledgeFileManager.value = false
     }
 
     // 设置当前模型
@@ -492,6 +505,7 @@ export const useUIStateStore = defineStore(
       sandboxDetailTab,
       showSandboxCreator,
       showConfigManager,
+      showKnowledgeFileManager,
 
       // State: 配置更新通知
       configUpdateKey,
@@ -531,6 +545,8 @@ export const useUIStateStore = defineStore(
       closeSandboxCreator,
       openConfigManager,
       closeConfigManager,
+      openKnowledgeFileManager,
+      closeKnowledgeFileManager,
 
       // Actions: 视图切换
       switchToChatView,
