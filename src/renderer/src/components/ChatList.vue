@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import type { SessionListItem } from '@renderer/types'
 
 defineProps<{
@@ -11,9 +11,6 @@ const emit = defineEmits<{
   (e: 'select', sessionId: string): void
   (e: 'delete', sessionId: string): void
 }>()
-
-// 悬停的会话 ID
-const hoveredSessionId = ref<string | null>(null)
 
 function selectSession(sessionId: string): void {
   emit('select', sessionId)
@@ -57,21 +54,21 @@ function formatTime(isoString: string): string {
       class="chat-item"
       :class="{ active: session.sessionId === activeSessionId }"
       @click="selectSession(session.sessionId)"
-      @mouseenter="hoveredSessionId = session.sessionId"
-      @mouseleave="hoveredSessionId = null"
     >
       <div class="chat-header">
         <div class="chat-title">{{ session.title }}</div>
         <div class="chat-actions">
-          <span class="chat-time">{{ formatTime(session.updatedAt) }}</span>
-          <button
-            v-show="hoveredSessionId === session.sessionId"
-            class="delete-btn"
-            title="删除对话"
-            @click="deleteSession($event, session.sessionId)"
-          >
-            ×
-          </button>
+          <div class="chat-action-slot">
+            <span class="chat-time">{{ formatTime(session.updatedAt) }}</span>
+            <button
+              class="delete-btn"
+              title="删除对话"
+              aria-label="删除对话"
+              @click="deleteSession($event, session.sessionId)"
+            >
+              <SvgIcon name="trash" :size="14" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -131,28 +128,63 @@ function formatTime(isoString: string): string {
 .chat-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: flex-end;
+  min-height: 24px;
   flex-shrink: 0;
 }
 
+.chat-action-slot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 24px;
+}
+
 .chat-time {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   font-size: 11px;
   color: var(--sm-color-text-tertiary);
+  transition:
+    opacity var(--sm-transition-fast),
+    visibility var(--sm-transition-fast);
 }
 
 .delete-btn {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 24px;
   height: 24px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--sm-color-text-tertiary);
-  font-size: 14px;
   cursor: pointer;
   padding: 0;
-  line-height: 1;
-  opacity: 0.6;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-50%);
   border-radius: 6px;
   transition: all var(--sm-transition-fast);
+}
+
+.chat-item:hover .chat-time,
+.chat-item:focus-within .chat-time {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.chat-item:hover .delete-btn,
+.chat-item:focus-within .delete-btn {
+  opacity: 0.6;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .delete-btn:hover {
