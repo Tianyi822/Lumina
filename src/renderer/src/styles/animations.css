@@ -94,6 +94,58 @@
   transition: transform var(--sm-transition-fast);
 }
 
+.sm-sidebar-list-item-enter-active {
+  transition:
+    opacity 120ms linear
+      calc(var(--sm-sidebar-item-enter-base-delay, 0ms) + var(--sm-sidebar-item-opacity-delay, 0ms)),
+    transform var(--sm-sidebar-item-enter-duration, 220ms) cubic-bezier(0.2, 0, 0, 1)
+      var(--sm-sidebar-item-enter-base-delay, 0ms) !important;
+  will-change: opacity, transform;
+}
+
+.sm-sidebar-list-item-appear-active {
+  transition:
+    opacity 120ms linear
+      calc(var(--sm-sidebar-item-enter-base-delay, 0ms) + var(--sm-sidebar-item-opacity-delay, 0ms)),
+    transform var(--sm-sidebar-item-enter-duration, 220ms) cubic-bezier(0.2, 0, 0, 1)
+      var(--sm-sidebar-item-enter-base-delay, 0ms)
+      !important;
+  will-change: opacity, transform;
+}
+
+.sm-sidebar-list-item-leave-active {
+  transition:
+    opacity 90ms linear,
+    transform 110ms cubic-bezier(0.2, 0, 0, 1) !important;
+  will-change: opacity, transform;
+}
+
+.sm-sidebar-list-item-enter-from,
+.sm-sidebar-list-item-appear-from {
+  opacity: 0;
+  transform: translateX(calc(var(--sm-motion-distance-md) * -1));
+}
+
+.sm-sidebar-list-item-leave-to {
+  opacity: 0;
+  transform: translateX(var(--sm-motion-distance-md));
+}
+
+.sm-sidebar-list-item-enter-to,
+.sm-sidebar-list-item-appear-to {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.sm-sidebar-list-item-leave-from {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.sm-sidebar-list-item-move {
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
 .sm-workspace-switch-enter-active,
 .sm-workspace-switch-leave-active {
   transition:
@@ -106,6 +158,54 @@
 .sm-workspace-switch-leave-to {
   opacity: 0;
   transform: translateY(var(--sm-motion-distance-md));
+}
+
+.sm-sidebar-actions-switch-enter-active,
+.sm-sidebar-actions-switch-leave-active,
+.sm-sidebar-search-switch-enter-active,
+.sm-sidebar-search-switch-leave-active,
+.sm-sidebar-body-switch-enter-active,
+.sm-sidebar-body-switch-leave-active {
+  transition:
+    opacity 150ms linear,
+    transform 180ms cubic-bezier(0.2, 0, 0, 1);
+  will-change: opacity, transform;
+}
+
+.sm-sidebar-actions-switch-enter-active {
+  transition-delay: 0ms;
+}
+
+.sm-sidebar-search-switch-enter-active {
+  transition-delay: 56ms;
+}
+
+.sm-sidebar-body-switch-enter-active {
+  transition-delay: var(--sm-sidebar-body-enter-delay, 112ms);
+}
+
+.sm-sidebar-actions-switch-enter-from,
+.sm-sidebar-search-switch-enter-from,
+.sm-sidebar-body-switch-enter-from {
+  opacity: 0;
+  transform: translateX(calc(var(--sm-motion-distance-md) * -1));
+}
+
+.sm-sidebar-actions-switch-leave-to,
+.sm-sidebar-search-switch-leave-to,
+.sm-sidebar-body-switch-leave-to {
+  opacity: 0;
+  transform: translateX(var(--sm-motion-distance-md));
+}
+
+.sm-sidebar-actions-switch-enter-to,
+.sm-sidebar-actions-switch-leave-from,
+.sm-sidebar-search-switch-enter-to,
+.sm-sidebar-search-switch-leave-from,
+.sm-sidebar-body-switch-enter-to,
+.sm-sidebar-body-switch-leave-from {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .sm-modal-enter-active,
