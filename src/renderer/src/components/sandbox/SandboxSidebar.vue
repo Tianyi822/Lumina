@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useUIStateStore, useSandboxStore } from '@renderer/stores'
+import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
 import SandboxList from './SandboxList.vue'
 import type { SandboxListItem } from '@shared/types/sandbox'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
@@ -66,23 +67,27 @@ async function handleRefreshList(): Promise<void> {
 
 <template>
   <aside class="sandbox-sidebar sm-sidebar-shell">
-    <header class="sm-sidebar-shell__header">
-      <div class="sm-sidebar-shell__headline">
-        <h2 class="sm-sidebar-shell__title">工程环境</h2>
-        <span class="sm-sidebar-shell__count">{{ sandboxs.length }}</span>
-      </div>
-      <div class="sm-sidebar-shell__actions">
+    <WorkspaceSidebarChrome :count="sandboxs.length">
+      <template #actions>
         <button class="sm-button sm-button--primary new-sandbox-btn" @click="handleNewSandbox">
           新建沙箱
         </button>
-        <button class="sm-button sm-button--secondary manage-config-btn" @click="handleManageConfigs">
+        <button
+          class="sm-button sm-button--secondary manage-config-btn"
+          @click="handleManageConfigs"
+        >
           管理配置
         </button>
-      </div>
-    </header>
+      </template>
+    </WorkspaceSidebarChrome>
 
     <div class="sm-sidebar-shell__search search-container">
-      <input v-model="searchQuery" type="text" class="sm-input search-input" placeholder="搜索沙箱" />
+      <input
+        v-model="searchQuery"
+        type="text"
+        class="sm-input search-input"
+        placeholder="搜索沙箱"
+      />
       <button
         class="sm-icon-button sm-sandbox-sidebar__refresh-button"
         title="刷新列表"

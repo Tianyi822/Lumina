@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import ChatList from './ChatList.vue'
+import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
 import type { SessionListItem } from '@renderer/types'
 
 const props = defineProps<{
@@ -42,18 +43,21 @@ function handleDeleteSession(sessionId: string): void {
 
 <template>
   <aside class="sidebar sm-sidebar-shell">
-    <header class="sm-sidebar-shell__header">
-      <div class="sm-sidebar-shell__headline">
-        <h2 class="sm-sidebar-shell__title">会话工作台</h2>
-        <span class="sm-sidebar-shell__count">{{ sessions.length }}</span>
-      </div>
-      <div class="sm-sidebar-shell__actions">
-        <button class="btn-primary new-chat-btn" @click="handleNewChat">创建智能体</button>
-      </div>
-    </header>
+    <WorkspaceSidebarChrome :count="sessions.length">
+      <template #actions>
+        <button class="sm-button sm-button--primary new-chat-btn" @click="handleNewChat">
+          创建智能体
+        </button>
+      </template>
+    </WorkspaceSidebarChrome>
 
     <div class="sm-sidebar-shell__search search-container">
-      <input v-model="searchQuery" type="text" class="input search-input" placeholder="搜索会话" />
+      <input
+        v-model="searchQuery"
+        type="text"
+        class="sm-input search-input"
+        placeholder="搜索会话"
+      />
     </div>
 
     <div class="sm-sidebar-shell__body sm-sidebar-shell__body--flush">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
 import type { KnowledgeBase } from '@renderer/types'
 
 const props = defineProps<{
@@ -57,22 +58,22 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 
 <template>
   <aside class="kb-sidebar sm-sidebar-shell">
-    <header class="sm-sidebar-shell__header">
-      <div class="sm-sidebar-shell__headline">
-        <h2 class="sm-sidebar-shell__title">知识资产</h2>
-        <span class="sm-sidebar-shell__count">{{ knowledgeBases.length }}</span>
-      </div>
-      <div class="sm-sidebar-shell__actions">
-        <button class="btn-primary new-kb-btn" @click="handleCreateKB">新建知识库</button>
-        <button class="btn-secondary manage-files-btn" @click="handleManageFiles">管理文件</button>
-      </div>
-    </header>
+    <WorkspaceSidebarChrome :count="knowledgeBases.length">
+      <template #actions>
+        <button class="sm-button sm-button--primary new-kb-btn" @click="handleCreateKB">
+          新建知识库
+        </button>
+        <button class="sm-button sm-button--secondary manage-files-btn" @click="handleManageFiles">
+          管理文件
+        </button>
+      </template>
+    </WorkspaceSidebarChrome>
 
     <div class="sm-sidebar-shell__search search-container">
       <input
         v-model="searchQuery"
         type="text"
-        class="input search-input"
+        class="sm-input search-input"
         placeholder="搜索知识库"
       />
     </div>
