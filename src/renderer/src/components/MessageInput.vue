@@ -15,6 +15,7 @@ import { useFileDragDrop } from './message-input/composables/useFileDragDrop'
 import { useImageUpload } from './message-input/composables/useImageUpload'
 import { useVoiceRecording } from './message-input/composables/useVoiceRecording'
 import { toAttachedDocuments, toAttachedImages } from './message-input/attachmentUtils'
+import { isImageFile } from '@renderer/stores/imageUploadStore'
 import type {
   ExportFormat,
   KnowledgeBase,
@@ -269,6 +270,64 @@ function handleKeydown(event: KeyboardEvent): void {
   }
 }
 
+/**
+ * 从剪贴板中提取图片文件
+ */
+function extractClipboardImageFiles(event: ClipboardEvent): File[] {
+  const clipboardData = event.clipboardData
+  if (!clipboardData) {
+    return []
+  }
+
+  const filesFromItems = Array.from(clipboardData.items)
+    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => file !== null)
+
+  if (filesFromItems.length > 0) {
+    return filesFromItems
+  }
+
+  return Array.from(clipboardData.files).filter(
+    (file) => file.type.startsWith('image/') || isImageFile(file)
+  )
+}
+
+async function handlePaste(event: ClipboardEvent): Promise<void> {
+  const imageFiles = extractClipboardImageFiles(event)
+
+  if (imageFiles.length === 0) {
+    return
+  }
+
+  const hasPlainText = Boolean(event.clipboardData?.getData('text/plain').trim())
+
+  if (!hasPlainText) {
+    event.preventDefault()
+  }
+
+  if (props.isSending) {
+    window.api.logger.warn('[MessageInput] 正在回复中，忽略粘贴图片', {
+      imageCount: imageFiles.length
+    })
+    return
+  }
+
+  window.api.logger.info('[MessageInput] 检测到剪贴板图片', {
+    imageCount: imageFiles.length
+  })
+
+  const errors = await addImages(imageFiles)
+
+  if (errors.length > 0) {
+    window.api.logger.warn('[MessageInput] 粘贴图片失败', {
+      imageCount: imageFiles.length,
+      errors
+    })
+    alert(errors.join('\n'))
+  }
+}
+
 async function handleUserInteractionSelect(value: string, label: string): Promise<void> {
   chatStreamStore.hideUserInteraction()
 
@@ -363,9 +422,10 @@ function handleExportInteractionSelect(value: string): void {
       :placeholder="
         props.quickReplyInfo
           ? '输入自定义回答，或点击上方快捷选项 ...'
-          : '输入命令或消息，可拖拽文件或图片上传 ...'
+          : '输入命令或消息，可拖拽文件或粘贴图片上传 ...'
       "
       @keydown="handleKeydown"
+      @paste="handlePaste"
       @dragover="handleDragOver"
       @dragleave="handleDragLeave"
       @drop="handleDrop"

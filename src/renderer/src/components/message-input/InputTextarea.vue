@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'keydown', event: KeyboardEvent): void
+  (e: 'paste', event: ClipboardEvent): void
   (e: 'dragover', event: DragEvent): void
   (e: 'dragleave', event: DragEvent): void
   (e: 'drop', event: DragEvent): void
@@ -47,6 +48,7 @@ defineExpose({ focus })
       rows="3"
       @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
       @keydown="emit('keydown', $event)"
+      @paste="emit('paste', $event)"
     ></textarea>
 
     <div v-if="props.isDragging" class="drag-overlay">
