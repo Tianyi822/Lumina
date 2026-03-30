@@ -58,12 +58,10 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 <template>
   <aside class="kb-sidebar sm-sidebar-shell">
     <header class="sm-sidebar-shell__header">
-      <span class="sm-sidebar-shell__eyebrow">知识库</span>
       <div class="sm-sidebar-shell__headline">
         <h2 class="sm-sidebar-shell__title">知识资产</h2>
         <span class="sm-sidebar-shell__count">{{ knowledgeBases.length }}</span>
       </div>
-      <p class="sm-sidebar-shell__description">管理知识库、文件挂载与检索基底。</p>
       <div class="sm-sidebar-shell__actions">
         <button class="btn-primary new-kb-btn" @click="handleCreateKB">新建知识库</button>
         <button class="btn-secondary manage-files-btn" @click="handleManageFiles">管理文件</button>

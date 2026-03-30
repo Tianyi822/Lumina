@@ -135,15 +135,6 @@
     var(--sm-color-surface-1);
 }
 
-.sm-sidebar-shell__eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
-}
-
 .sm-sidebar-shell__headline {
   display: flex;
   align-items: center;
@@ -171,13 +162,6 @@
   font-size: 11px;
   color: var(--sm-color-text-secondary);
   background: var(--sm-color-surface-2);
-}
-
-.sm-sidebar-shell__description {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--sm-color-text-secondary);
 }
 
 .sm-sidebar-shell__actions {

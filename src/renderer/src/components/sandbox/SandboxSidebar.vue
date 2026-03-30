@@ -67,12 +67,10 @@ async function handleRefreshList(): Promise<void> {
 <template>
   <aside class="sandbox-sidebar sm-sidebar-shell">
     <header class="sm-sidebar-shell__header">
-      <span class="sm-sidebar-shell__eyebrow">沙箱</span>
       <div class="sm-sidebar-shell__headline">
         <h2 class="sm-sidebar-shell__title">工程环境</h2>
         <span class="sm-sidebar-shell__count">{{ sandboxs.length }}</span>
       </div>
-      <p class="sm-sidebar-shell__description">管理运行环境、容器状态和模板配置。</p>
       <div class="sm-sidebar-shell__actions">
         <button class="sm-button sm-button--primary new-sandbox-btn" @click="handleNewSandbox">
           新建沙箱

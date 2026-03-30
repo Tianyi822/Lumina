@@ -43,12 +43,10 @@ function handleDeleteSession(sessionId: string): void {
 <template>
   <aside class="sidebar sm-sidebar-shell">
     <header class="sm-sidebar-shell__header">
-      <span class="sm-sidebar-shell__eyebrow">智能体</span>
       <div class="sm-sidebar-shell__headline">
         <h2 class="sm-sidebar-shell__title">会话工作台</h2>
         <span class="sm-sidebar-shell__count">{{ sessions.length }}</span>
       </div>
-      <p class="sm-sidebar-shell__description">集中管理会话上下文与当前任务入口。</p>
       <div class="sm-sidebar-shell__actions">
         <button class="btn-primary new-chat-btn" @click="handleNewChat">创建智能体</button>
       </div>
