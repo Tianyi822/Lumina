@@ -12,6 +12,25 @@ const emit = defineEmits<{
   (e: 'delete', sessionId: string): void
 }>()
 
+const SIDEBAR_ITEM_ENTER_BASE_DELAY_MS = 220
+const SIDEBAR_ITEM_ENTER_STAGGER_MS = 88
+const SIDEBAR_ITEM_ENTER_DURATION_MS = 320
+const SIDEBAR_ITEM_OPACITY_DELAY_MS = 36
+
+function getItemMotionStyle(index: number): {
+  '--sm-sidebar-item-enter-base-delay': string
+  '--sm-sidebar-item-enter-duration': string
+  '--sm-sidebar-item-opacity-delay': string
+} {
+  const enterBaseDelay = SIDEBAR_ITEM_ENTER_BASE_DELAY_MS + index * SIDEBAR_ITEM_ENTER_STAGGER_MS
+
+  return {
+    '--sm-sidebar-item-enter-base-delay': `${enterBaseDelay}ms`,
+    '--sm-sidebar-item-enter-duration': `${SIDEBAR_ITEM_ENTER_DURATION_MS}ms`,
+    '--sm-sidebar-item-opacity-delay': `${SIDEBAR_ITEM_OPACITY_DELAY_MS}ms`
+  }
+}
+
 function selectSession(sessionId: string): void {
   emit('select', sessionId)
 }
@@ -47,12 +66,19 @@ function formatTime(isoString: string): string {
 </script>
 
 <template>
-  <div class="chat-list">
+  <TransitionGroup
+    v-if="sessions.length > 0"
+    name="sm-sidebar-list-item"
+    tag="div"
+    class="chat-list"
+    appear
+  >
     <div
-      v-for="session in sessions"
+      v-for="(session, index) in sessions"
       :key="session.sessionId"
       class="chat-item"
       :class="{ active: session.sessionId === activeSessionId }"
+      :style="getItemMotionStyle(index)"
       @click="selectSession(session.sessionId)"
     >
       <div class="chat-header">
@@ -72,6 +98,9 @@ function formatTime(isoString: string): string {
         </div>
       </div>
     </div>
+  </TransitionGroup>
+
+  <div v-else class="chat-list">
     <div v-if="sessions.length === 0" class="empty-state">暂无对话记录</div>
   </div>
 </template>

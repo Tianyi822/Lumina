@@ -3,7 +3,6 @@ import { onMounted, onUnmounted, watch, computed, ref, toRaw } from 'vue'
 import { storeToRefs } from 'pinia'
 import type {
   MCPTool,
-  SessionType,
   KnowledgeBase,
   StreamEvent,
   ChatMessage,
@@ -13,7 +12,6 @@ import type {
   AttachedDocument,
   AttachedImage
 } from '@renderer/types'
-import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
 import MessageExportDialog from '@renderer/components/chat/MessageExportDialog.vue'
@@ -47,10 +45,9 @@ const inputStateStore = useInputStateStore()
 const uiStateStore = useUIStateStore()
 
 // 使用 storeToRefs 保持响应式连接（关键：确保数组内部变化能触发 UI 更新）
-const { currentChatId, messages, sessionList, sessionUpdateKey, currentSession } =
-  storeToRefs(sessionStore)
+const { currentChatId, messages, currentSession } = storeToRefs(sessionStore)
 const { isSending } = storeToRefs(chatStreamStore)
-const { sidebarCollapsed, currentModel } = storeToRefs(uiStateStore)
+const { currentModel } = storeToRefs(uiStateStore)
 
 // 聊天错误状态
 const { showChatError, chatError } = storeToRefs(uiStateStore)
@@ -547,23 +544,6 @@ async function handleStopRequest(): Promise<void> {
   await sessionStore.saveCurrentSession()
 }
 
-// ==================== 新聊天 ====================
-async function handleNewChat(sessionType?: SessionType): Promise<void> {
-  await sessionStore.handleNewChat(sessionType)
-
-  // 新会话创建后重置发送状态（需要传入 isCurrentSession: true 来更新全局 isSending）
-  const newSessionId = currentChatId.value
-  if (newSessionId) {
-    chatStreamStore.setSessionSendingState(newSessionId, false, true)
-  }
-}
-
-// ==================== 会话选择 ====================
-async function handleSelectChat(sessionId: string): Promise<void> {
-  const isSending = await sessionStore.handleSelectChat(sessionId)
-  chatStreamStore.setSessionSendingState(sessionId, isSending, true)
-}
-
 // ==================== 输入状态更新处理 ====================
 function handleUpdateInputMessage(value: string): void {
   inputStateStore.updateInputMessage(value)
@@ -658,50 +638,37 @@ watch(
 </script>
 
 <template>
-  <div class="chat-page sm-workspace-page">
-    <div class="sm-sidebar-frame" :class="{ 'is-collapsed': sidebarCollapsed }">
-      <Sidebar
-        :sessions="sessionList"
-        :active-session-id="currentChatId"
-        :session-update-key="sessionUpdateKey"
-        @new-chat="handleNewChat"
-        @select-chat="handleSelectChat"
-        @delete-session="sessionStore.handleDeleteSession"
-      />
+  <div class="chat-page sm-workspace-main">
+    <div class="sm-workspace-main__toolbar">
+      <WorkspaceToolbar @open-settings="$emit('open-settings')" />
     </div>
 
-    <div class="sm-workspace-main">
-      <div class="sm-workspace-main__toolbar">
-        <WorkspaceToolbar @open-settings="$emit('open-settings')" />
-      </div>
-
-      <div class="sm-workspace-main__body sm-workspace-main__body--fill">
-        <MainContent
-          :key="currentChatId || 'no-chat'"
-          :current-chat-id="currentChatId"
-          :messages="messages"
-          :is-sending="isSending"
-          :current-model-name="currentModel"
-          :config-update-key="0"
-          :input-message="currentInputState.inputMessage"
-          :selected-model="currentInputState.selectedModel"
-          :selected-m-c-p-tools="currentInputState.selectedMCPTools"
-          :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
-          :enable-sandbox-tools="currentInputState.enableSandboxTools"
-          :session-id="currentSession?.sessionId"
-          :export-interaction-info="exportInteractionInfo"
-          :exporting-message-id="exportingMessageId"
-          @send-message="handleSendMessage"
-          @stop-request="handleStopRequest"
-          @update:input-message="handleUpdateInputMessage"
-          @update:selected-model="handleUpdateSelectedModel"
-          @update:selected-m-c-p-tools="handleUpdateSelectedTools"
-          @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
-          @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
-          @request-export="handleRequestExport"
-          @select-export-format="handleInlineExportFormatSelect"
-        />
-      </div>
+    <div class="sm-workspace-main__body sm-workspace-main__body--fill">
+      <MainContent
+        :key="currentChatId || 'no-chat'"
+        :current-chat-id="currentChatId"
+        :messages="messages"
+        :is-sending="isSending"
+        :current-model-name="currentModel"
+        :config-update-key="0"
+        :input-message="currentInputState.inputMessage"
+        :selected-model="currentInputState.selectedModel"
+        :selected-m-c-p-tools="currentInputState.selectedMCPTools"
+        :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
+        :enable-sandbox-tools="currentInputState.enableSandboxTools"
+        :session-id="currentSession?.sessionId"
+        :export-interaction-info="exportInteractionInfo"
+        :exporting-message-id="exportingMessageId"
+        @send-message="handleSendMessage"
+        @stop-request="handleStopRequest"
+        @update:input-message="handleUpdateInputMessage"
+        @update:selected-model="handleUpdateSelectedModel"
+        @update:selected-m-c-p-tools="handleUpdateSelectedTools"
+        @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
+        @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
+        @request-export="handleRequestExport"
+        @select-export-format="handleInlineExportFormatSelect"
+      />
     </div>
 
     <!-- 聊天错误提示(临时显示) -->

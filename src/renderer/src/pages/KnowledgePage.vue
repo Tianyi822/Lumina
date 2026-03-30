@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import KnowledgeSidebar from '@renderer/components/KnowledgeSidebar.vue'
 import KnowledgeMain from '@renderer/components/KnowledgeMain.vue'
 import KnowledgeForm from '@renderer/components/knowledge/KnowledgeForm.vue'
 import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar.vue'
@@ -19,7 +18,7 @@ defineEmits<{
 const knowledgeStore = useKnowledgeStore()
 const { knowledgeBases, activeKbId: storeActiveKbId, showForm } = storeToRefs(knowledgeStore)
 const uiStateStore = useUIStateStore()
-const { knowledgeSidebarCollapsed } = storeToRefs(uiStateStore)
+const { showKnowledgeFileManager } = storeToRefs(uiStateStore)
 
 // 兼容旧接口命名（将 null 转为 undefined）
 const activeKbId = computed(() => storeActiveKbId.value ?? undefined)
@@ -29,24 +28,6 @@ const showKnowledgeForm = showForm
 onMounted(async () => {
   await knowledgeStore.loadKnowledgeBases()
 })
-
-// ==================== 知识库操作 ====================
-function handleSelectKB(kbId: string): void {
-  knowledgeStore.setActiveKb(kbId)
-}
-
-function handleCreateKB(): void {
-  knowledgeStore.openCreateForm()
-}
-
-async function handleDeleteKB(kbId: string): Promise<void> {
-  if (confirm('确定要删除这个知识库吗？此操作不可撤销。')) {
-    const success = await knowledgeStore.deleteKnowledgeBase(kbId)
-    if (!success) {
-      alert('删除知识库失败: ' + (knowledgeStore.error || '未知错误'))
-    }
-  }
-}
 
 async function handleKnowledgeSubmit(data: {
   name: string
@@ -73,19 +54,14 @@ function handleKnowledgeCancel(): void {
 }
 
 // ==================== 文件管理 ====================
-const showFileManager = ref(false)
 const showFileSelector = ref(false)
 const currentKBIdForSelector = ref<string>('')
 
 // KnowledgeMain 组件引用
 const knowledgeMainRef = ref<InstanceType<typeof KnowledgeMain> | null>(null)
 
-function handleManageFiles(): void {
-  showFileManager.value = true
-}
-
 function handleFileManagerClose(): void {
-  showFileManager.value = false
+  uiStateStore.closeKnowledgeFileManager()
 }
 
 function handleAddFiles(kbId: string): void {
@@ -132,31 +108,19 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
 </script>
 
 <template>
-  <div class="knowledge-page sm-workspace-page">
-    <div class="sm-sidebar-frame" :class="{ 'is-collapsed': knowledgeSidebarCollapsed }">
-      <KnowledgeSidebar
-        :knowledge-bases="knowledgeBases"
-        :active-kb-id="activeKbId"
-        @select-kb="handleSelectKB"
-        @create-kb="handleCreateKB"
-        @delete-kb="handleDeleteKB"
-        @manage-files="handleManageFiles"
-      />
+  <div class="knowledge-page sm-workspace-main">
+    <div class="sm-workspace-main__toolbar">
+      <WorkspaceToolbar @open-settings="$emit('open-settings')" />
     </div>
-    <div class="sm-workspace-main">
-      <div class="sm-workspace-main__toolbar">
-        <WorkspaceToolbar @open-settings="$emit('open-settings')" />
-      </div>
 
-      <div class="sm-workspace-main__body sm-workspace-main__body--fill">
-        <KnowledgeMain
-          ref="knowledgeMainRef"
-          :knowledge-base="knowledgeBases.find((kb) => kb.id === activeKbId)"
-          @add-files="handleAddFiles"
-          @file-unlinked="handleFileUnlinked"
-          @description-updated="handleDescriptionUpdated"
-        />
-      </div>
+    <div class="sm-workspace-main__body sm-workspace-main__body--fill">
+      <KnowledgeMain
+        ref="knowledgeMainRef"
+        :knowledge-base="knowledgeBases.find((kb) => kb.id === activeKbId)"
+        @add-files="handleAddFiles"
+        @file-unlinked="handleFileUnlinked"
+        @description-updated="handleDescriptionUpdated"
+      />
     </div>
 
     <!-- 知识库表单模态框 -->
@@ -167,7 +131,7 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
     />
 
     <!-- 文件管理模态框 -->
-    <FileManagerModal v-if="showFileManager" @close="handleFileManagerClose" />
+    <FileManagerModal v-if="showKnowledgeFileManager" @close="handleFileManagerClose" />
 
     <!-- 文件选择模态框 -->
     <FileSelectorModal

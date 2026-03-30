@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSandboxStore, useUIStateStore } from '@renderer/stores'
 import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar.vue'
-import SandboxSidebar from '@renderer/components/sandbox/SandboxSidebar.vue'
 import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
 import SandboxCreator from '@renderer/components/sandbox/SandboxCreator.vue'
 import ConfigManager from '@renderer/components/sandbox/ConfigManager.vue'
@@ -45,16 +44,10 @@ defineEmits<{
 const sandboxStore = useSandboxStore()
 const uiStateStore = useUIStateStore()
 
-const {
-  currentSandbox,
-  sandboxList,
-  listUpdateKey,
-  operationMessage,
-  messageVisible,
-  deleteConfirmState
-} = storeToRefs(sandboxStore)
+const { currentSandbox, operationMessage, messageVisible, deleteConfirmState } =
+  storeToRefs(sandboxStore)
 
-const { sandboxSidebarCollapsed, showSandboxCreator, showConfigManager } = storeToRefs(uiStateStore)
+const { showSandboxCreator, showConfigManager } = storeToRefs(uiStateStore)
 
 const dockerStatus = ref<DockerCheckResult | null>(null)
 const platform = ref<PlatformType>('darwin')
@@ -149,46 +142,25 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="sm-sandbox-page">
-    <div v-if="loading" class="sm-workspace-main">
-      <div class="sm-workspace-main__toolbar">
-        <WorkspaceToolbar @open-settings="$emit('open-settings')" />
-      </div>
+  <div class="sm-sandbox-page sm-workspace-main">
+    <div class="sm-workspace-main__toolbar">
+      <WorkspaceToolbar @open-settings="$emit('open-settings')" />
+    </div>
 
-      <div
-        class="sm-workspace-main__body sm-sandbox-page__loading"
-        role="status"
-        aria-live="polite"
-        aria-busy="true"
-      >
-        <div class="sm-spinner sm-spinner--large sm-sandbox-page__loading-spinner"></div>
-        <p>正在检测 Docker...</p>
-      </div>
+    <div
+      v-if="loading"
+      class="sm-workspace-main__body sm-sandbox-page__loading"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <div class="sm-spinner sm-spinner--large sm-sandbox-page__loading-spinner"></div>
+      <p>正在检测 Docker...</p>
     </div>
 
     <template v-else-if="dockerStatus?.installed">
-      <div class="sm-sandbox-workspace sm-workspace-page">
-        <div class="sm-sidebar-frame" :class="{ 'is-collapsed': sandboxSidebarCollapsed }">
-          <SandboxSidebar
-            :sandboxs="sandboxList"
-            :active-sandbox-id="currentSandbox?.sandboxId"
-            :list-update-key="listUpdateKey"
-            :deleting-sandbox-id="
-              deleteConfirmState.isDeleting ? deleteConfirmState.sandboxId : null
-            "
-            @select-sandbox="sandboxStore.handleSelectSandbox"
-            @delete-sandbox="sandboxStore.handleDeleteSandbox"
-          />
-        </div>
-        <div class="sm-workspace-main">
-          <div class="sm-workspace-main__toolbar">
-            <WorkspaceToolbar @open-settings="$emit('open-settings')" />
-          </div>
-
-          <div class="sm-workspace-main__body sm-workspace-main__body--fill">
-            <SandboxMainContent :current-sandbox="currentSandbox" />
-          </div>
-        </div>
+      <div class="sm-workspace-main__body sm-workspace-main__body--fill">
+        <SandboxMainContent :current-sandbox="currentSandbox" />
       </div>
 
       <!-- 创建沙箱弹窗 -->
@@ -230,124 +202,119 @@ onMounted(async () => {
       />
     </template>
 
-    <div v-else class="sm-workspace-main">
-      <div class="sm-workspace-main__toolbar">
-        <WorkspaceToolbar @open-settings="$emit('open-settings')" />
-      </div>
-
-      <div class="sm-workspace-main__body sm-workspace-main__body--scrollable sm-sandbox-install">
-        <div class="sm-sandbox-install__shell">
-          <section class="sm-sandbox-install__overview">
-            <div class="sm-sandbox-install__copy">
-              <span class="sm-sandbox-install__eyebrow">运行依赖</span>
-              <div class="sm-sandbox-install__headline">
-                <div class="sm-sandbox-install__titles">
-                  <h1>Docker 未就绪</h1>
-                  <p class="subtitle">
-                    沙箱工作区依赖本机 Docker 运行时。安装并启动服务后，
-                    返回这里重新检测即可进入工程控制台。
-                  </p>
-                </div>
-                <span class="sm-badge sm-sandbox-install__platform">{{
-                  currentPlatformLabel
-                }}</span>
+    <div
+      v-else
+      class="sm-workspace-main__body sm-workspace-main__body--scrollable sm-sandbox-install"
+    >
+      <div class="sm-sandbox-install__shell">
+        <section class="sm-sandbox-install__overview">
+          <div class="sm-sandbox-install__copy">
+            <span class="sm-sandbox-install__eyebrow">运行依赖</span>
+            <div class="sm-sandbox-install__headline">
+              <div class="sm-sandbox-install__titles">
+                <h1>Docker 未就绪</h1>
+                <p class="subtitle">
+                  沙箱工作区依赖本机 Docker 运行时。安装并启动服务后，
+                  返回这里重新检测即可进入工程控制台。
+                </p>
               </div>
+              <span class="sm-badge sm-sandbox-install__platform">{{ currentPlatformLabel }}</span>
             </div>
-
-            <div class="sm-sandbox-install__cards">
-              <div class="sm-sandbox-status-card">
-                <span class="sm-sandbox-status-card__label">当前状态</span>
-                <strong>未检测到 Docker</strong>
-                <p>应用尚未发现可用的 Docker 运行时，因此沙箱、终端和日志能力均不可用。</p>
-              </div>
-              <div class="sm-sandbox-status-card">
-                <span class="sm-sandbox-status-card__label">推荐通道</span>
-                <strong>{{ recommendedChannelLabel }}</strong>
-                <p>优先使用与你当前平台匹配的官方安装方式，完成后保持 Docker 服务处于运行状态。</p>
-              </div>
-              <div class="sm-sandbox-status-card">
-                <span class="sm-sandbox-status-card__label">完成后动作</span>
-                <strong>返回并重新检测</strong>
-                <p>安装完成后无需重启应用，重新检测即可验证运行时状态并恢复沙箱工作区。</p>
-              </div>
-            </div>
-
-            <div class="sm-sandbox-install__actions">
-              <button class="sm-button sm-button--primary" @click="openDockerWebsite">
-                前往 Docker 官网
-              </button>
-              <button class="sm-button sm-button--secondary" @click="checkDocker">重新检测</button>
-            </div>
-          </section>
-
-          <section v-if="filteredCommands.length > 0" class="sm-sandbox-install__panel">
-            <div class="sm-sandbox-install__panel-header">
-              <div>
-                <span class="sm-sandbox-install__eyebrow">推荐命令</span>
-                <h3>当前平台安装方式</h3>
-              </div>
-              <span class="sm-badge">{{ currentPlatformLabel }}</span>
-            </div>
-
-            <div class="sm-sandbox-command-list">
-              <div
-                v-for="(cmd, index) in filteredCommands"
-                :key="index"
-                class="sm-sandbox-command-item is-recommended"
-              >
-                <span class="sm-sandbox-command-item__label">{{ cmd.label }}</span>
-                <div class="sm-sandbox-command-item__content">
-                  <code>{{ cmd.cmd }}</code>
-                  <button
-                    class="sm-button sm-button--secondary sm-button--small sm-sandbox-copy-button"
-                    :class="{ 'is-copied': copiedIndex === index }"
-                    @click="copyCommand(cmd.cmd, index)"
-                  >
-                    {{ copiedIndex === index ? '已复制' : '复制' }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section
-            v-if="otherCommands.length > 0"
-            class="sm-sandbox-install__panel sm-sandbox-install__panel--muted"
-          >
-            <div class="sm-sandbox-install__panel-header">
-              <div>
-                <span class="sm-sandbox-install__eyebrow">备用通道</span>
-                <h3>其他平台安装方式</h3>
-              </div>
-            </div>
-
-            <div class="sm-sandbox-command-list">
-              <div
-                v-for="(cmd, index) in otherCommands"
-                :key="`other-${index}`"
-                class="sm-sandbox-command-item"
-              >
-                <span class="sm-sandbox-command-item__label">{{ cmd.label }}</span>
-                <div class="sm-sandbox-command-item__content">
-                  <code>{{ cmd.cmd }}</code>
-                  <button
-                    class="sm-button sm-button--secondary sm-button--small sm-sandbox-copy-button"
-                    :class="{ 'is-copied': copiedIndex === index + 100 }"
-                    @click="copyCommand(cmd.cmd, index + 100)"
-                  >
-                    {{ copiedIndex === index + 100 ? '已复制' : '复制' }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <div
-            v-if="dockerStatus?.error && dockerStatus.error !== 'Docker 未安装'"
-            class="sm-notice sm-notice--error sm-sandbox-install__error"
-          >
-            检测返回：{{ dockerStatus.error }}
           </div>
+
+          <div class="sm-sandbox-install__cards">
+            <div class="sm-sandbox-status-card">
+              <span class="sm-sandbox-status-card__label">当前状态</span>
+              <strong>未检测到 Docker</strong>
+              <p>应用尚未发现可用的 Docker 运行时，因此沙箱、终端和日志能力均不可用。</p>
+            </div>
+            <div class="sm-sandbox-status-card">
+              <span class="sm-sandbox-status-card__label">推荐通道</span>
+              <strong>{{ recommendedChannelLabel }}</strong>
+              <p>优先使用与你当前平台匹配的官方安装方式，完成后保持 Docker 服务处于运行状态。</p>
+            </div>
+            <div class="sm-sandbox-status-card">
+              <span class="sm-sandbox-status-card__label">完成后动作</span>
+              <strong>返回并重新检测</strong>
+              <p>安装完成后无需重启应用，重新检测即可验证运行时状态并恢复沙箱工作区。</p>
+            </div>
+          </div>
+
+          <div class="sm-sandbox-install__actions">
+            <button class="sm-button sm-button--primary" @click="openDockerWebsite">
+              前往 Docker 官网
+            </button>
+            <button class="sm-button sm-button--secondary" @click="checkDocker">重新检测</button>
+          </div>
+        </section>
+
+        <section v-if="filteredCommands.length > 0" class="sm-sandbox-install__panel">
+          <div class="sm-sandbox-install__panel-header">
+            <div>
+              <span class="sm-sandbox-install__eyebrow">推荐命令</span>
+              <h3>当前平台安装方式</h3>
+            </div>
+            <span class="sm-badge">{{ currentPlatformLabel }}</span>
+          </div>
+
+          <div class="sm-sandbox-command-list">
+            <div
+              v-for="(cmd, index) in filteredCommands"
+              :key="index"
+              class="sm-sandbox-command-item is-recommended"
+            >
+              <span class="sm-sandbox-command-item__label">{{ cmd.label }}</span>
+              <div class="sm-sandbox-command-item__content">
+                <code>{{ cmd.cmd }}</code>
+                <button
+                  class="sm-button sm-button--secondary sm-button--small sm-sandbox-copy-button"
+                  :class="{ 'is-copied': copiedIndex === index }"
+                  @click="copyCommand(cmd.cmd, index)"
+                >
+                  {{ copiedIndex === index ? '已复制' : '复制' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          v-if="otherCommands.length > 0"
+          class="sm-sandbox-install__panel sm-sandbox-install__panel--muted"
+        >
+          <div class="sm-sandbox-install__panel-header">
+            <div>
+              <span class="sm-sandbox-install__eyebrow">备用通道</span>
+              <h3>其他平台安装方式</h3>
+            </div>
+          </div>
+
+          <div class="sm-sandbox-command-list">
+            <div
+              v-for="(cmd, index) in otherCommands"
+              :key="`other-${index}`"
+              class="sm-sandbox-command-item"
+            >
+              <span class="sm-sandbox-command-item__label">{{ cmd.label }}</span>
+              <div class="sm-sandbox-command-item__content">
+                <code>{{ cmd.cmd }}</code>
+                <button
+                  class="sm-button sm-button--secondary sm-button--small sm-sandbox-copy-button"
+                  :class="{ 'is-copied': copiedIndex === index + 100 }"
+                  @click="copyCommand(cmd.cmd, index + 100)"
+                >
+                  {{ copiedIndex === index + 100 ? '已复制' : '复制' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div
+          v-if="dockerStatus?.error && dockerStatus.error !== 'Docker 未安装'"
+          class="sm-notice sm-notice--error sm-sandbox-install__error"
+        >
+          检测返回：{{ dockerStatus.error }}
         </div>
       </div>
     </div>
@@ -357,14 +324,7 @@ onMounted(async () => {
 <style scoped>
 .sm-sandbox-page {
   display: flex;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: var(--sm-color-bg-canvas);
-}
-
-.sm-sandbox-workspace {
-  flex: 1;
+  flex-direction: column;
 }
 
 .sm-sandbox-page__loading {

@@ -28,6 +28,25 @@ const emit = defineEmits<{
   (e: 'delete', sandboxId: string): void
 }>()
 
+const SIDEBAR_ITEM_ENTER_BASE_DELAY_MS = 220
+const SIDEBAR_ITEM_ENTER_STAGGER_MS = 88
+const SIDEBAR_ITEM_ENTER_DURATION_MS = 320
+const SIDEBAR_ITEM_OPACITY_DELAY_MS = 36
+
+function getItemMotionStyle(index: number): {
+  '--sm-sidebar-item-enter-base-delay': string
+  '--sm-sidebar-item-enter-duration': string
+  '--sm-sidebar-item-opacity-delay': string
+} {
+  const enterBaseDelay = SIDEBAR_ITEM_ENTER_BASE_DELAY_MS + index * SIDEBAR_ITEM_ENTER_STAGGER_MS
+
+  return {
+    '--sm-sidebar-item-enter-base-delay': `${enterBaseDelay}ms`,
+    '--sm-sidebar-item-enter-duration': `${SIDEBAR_ITEM_ENTER_DURATION_MS}ms`,
+    '--sm-sidebar-item-opacity-delay': `${SIDEBAR_ITEM_OPACITY_DELAY_MS}ms`
+  }
+}
+
 function getStatusLabel(status: SandboxStatus): string {
   const labels: Record<SandboxStatus, string> = {
     creating: '创建中',
@@ -72,17 +91,22 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 </script>
 
 <template>
-  <div class="sandbox-list">
-    <div v-if="sandboxs.length === 0" class="empty-list">暂无沙箱</div>
-
+  <TransitionGroup
+    v-if="sandboxs.length > 0"
+    name="sm-sidebar-list-item"
+    tag="div"
+    class="sandbox-list"
+    appear
+  >
     <div
-      v-for="sandbox in sandboxs"
+      v-for="(sandbox, index) in sandboxs"
       :key="sandbox.sandboxId"
       class="sandbox-item"
       :class="{
         active: sandbox.sandboxId === activeSandboxId,
         orphan: (sandbox as unknown as ExtendedSandboxListItem).isOrphan
       }"
+      :style="getItemMotionStyle(index)"
       @click="handleSelect(sandbox.sandboxId)"
     >
       <div class="sandbox-info">
@@ -138,6 +162,10 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
         <SvgIcon v-else name="trash" :size="14" />
       </button>
     </div>
+  </TransitionGroup>
+
+  <div v-else class="sandbox-list">
+    <div class="empty-list">暂无沙箱</div>
   </div>
 </template>
 
@@ -325,5 +353,4 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
   border-color: rgba(197, 161, 101, 0.32);
   color: #c5a165;
 }
-
 </style>
