@@ -25,6 +25,15 @@ export const IMAGE_SUPPORTED_MIME_TYPES = [
   'image/tiff'
 ]
 
+/** MIME 类型到默认扩展名的映射 */
+const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/bmp': '.bmp',
+  'image/tiff': '.tiff'
+}
+
 /** 图片文件选择器 accept 字符串 */
 export const IMAGE_ACCEPT_STRING = IMAGE_SUPPORTED_EXTENSIONS.join(',')
 
@@ -85,11 +94,53 @@ function getExtension(fileName: string): string {
 }
 
 /**
+ * 获取支持的图片 MIME 类型
+ */
+function getSupportedMimeType(file: Pick<File, 'type'>): string {
+  const mimeType = file.type.toLowerCase()
+  return IMAGE_SUPPORTED_MIME_TYPES.includes(mimeType) ? mimeType : ''
+}
+
+/**
+ * 推导图片文件扩展名
+ * 优先使用文件名扩展名，若缺失则回退到 MIME 类型
+ */
+function resolveImageExtension(file: Pick<File, 'name' | 'type'>): string {
+  const ext = getExtension(file.name)
+  if (IMAGE_SUPPORTED_EXTENSIONS.includes(ext)) {
+    return ext
+  }
+
+  return IMAGE_EXTENSION_BY_MIME_TYPE[file.type.toLowerCase()] || ''
+}
+
+/**
+ * 规范化图片文件名
+ * 处理剪贴板图片没有扩展名的情况，确保后续校验和展示稳定
+ */
+export function normalizeImageFile(file: File, index: number = 0): File {
+  const resolvedExtension = resolveImageExtension(file)
+  const currentExtension = getExtension(file.name)
+
+  if (file.name && (!resolvedExtension || currentExtension === resolvedExtension)) {
+    return file
+  }
+
+  const baseName =
+    file.name.replace(/\.[^.]+$/, '').trim() || `clipboard-image-${Date.now()}-${index + 1}`
+  const normalizedName = resolvedExtension ? `${baseName}${resolvedExtension}` : baseName
+
+  return new File([file], normalizedName, {
+    type: file.type,
+    lastModified: file.lastModified
+  })
+}
+
+/**
  * 判断文件是否为支持的图片格式
  */
 export function isImageFile(file: File): boolean {
-  const ext = getExtension(file.name)
-  return IMAGE_SUPPORTED_EXTENSIONS.includes(ext)
+  return Boolean(resolveImageExtension(file) || getSupportedMimeType(file))
 }
 
 /**
@@ -98,14 +149,15 @@ export function isImageFile(file: File): boolean {
  */
 export function validateImageFile(file: File): ImageValidationResult {
   const ext = getExtension(file.name)
+  const mimeType = file.type.toLowerCase()
 
   // 检查是否为不支持的动图格式
-  if (ext === '.gif') {
+  if (ext === '.gif' || mimeType === 'image/gif') {
     return { valid: false, error: `不支持 GIF 动图格式` }
   }
 
   // 检查是否为支持的图片格式
-  if (!IMAGE_SUPPORTED_EXTENSIONS.includes(ext)) {
+  if (!resolveImageExtension(file) && !getSupportedMimeType(file)) {
     return {
       valid: false,
       error: `图片格式不支持，仅支持 ${IMAGE_SUPPORTED_EXTENSIONS.join(', ')}`
@@ -174,16 +226,20 @@ function calculateScaledSize(
  * BMP/TIFF 统一转为 JPEG；PNG/WebP 原始大小 < 1MB 时保留原格式
  */
 function determineOutputMimeType(file: File): string {
-  const ext = getExtension(file.name)
+  const ext = resolveImageExtension(file)
+  const mimeType = getSupportedMimeType(file)
 
   // BMP 和 TIFF 不适合 Web，转为 JPEG
-  if (['.bmp', '.tiff', '.tif'].includes(ext)) {
+  if (['.bmp', '.tiff', '.tif'].includes(ext) || ['image/bmp', 'image/tiff'].includes(mimeType)) {
     return 'image/jpeg'
   }
 
   // PNG 和 WebP：原始大小小于 1MB 时保留原格式（保持透明通道等）
-  if (['.png', '.webp'].includes(ext) && file.size < 1024 * 1024) {
-    return file.type || 'image/png'
+  if (
+    (['.png', '.webp'].includes(ext) || ['image/png', 'image/webp'].includes(mimeType)) &&
+    file.size < 1024 * 1024
+  ) {
+    return mimeType || (ext === '.webp' ? 'image/webp' : 'image/png')
   }
 
   // 其他情况默认 JPEG

@@ -4,7 +4,8 @@ import {
   isImageFile,
   validateImageFile,
   compressImage,
-  IMAGE_MAX_COUNT
+  IMAGE_MAX_COUNT,
+  normalizeImageFile
 } from '../utils/imageCompress'
 import type { CompressedImage } from '../utils/imageCompress'
 
@@ -133,11 +134,13 @@ export const useImageUploadStore = defineStore('imageUpload', () => {
     }
 
     // 逐张压缩（串行，避免内存峰值）
-    for (const file of filesToProcess) {
+    for (const [fileIndex, file] of filesToProcess.entries()) {
+      const normalizedFile = normalizeImageFile(file, fileIndex)
+
       // 验证文件
-      const validation = validateImageFile(file)
+      const validation = validateImageFile(normalizedFile)
       if (!validation.valid) {
-        errors.push(validation.error || `图片 "${file.name}" 验证失败`)
+        errors.push(validation.error || `图片 "${normalizedFile.name}" 验证失败`)
         skipped++
         continue
       }
@@ -148,12 +151,12 @@ export const useImageUploadStore = defineStore('imageUpload', () => {
       // 添加到处理中列表
       processingList.push({
         tempId,
-        fileName: file.name,
+        fileName: normalizedFile.name,
         status: 'compressing'
       })
 
       try {
-        const compressed: CompressedImage = await compressImage(file)
+        const compressed: CompressedImage = await compressImage(normalizedFile)
 
         // 更新状态为完成
         const processingIndex = processingList.findIndex((f) => f.tempId === tempId)
@@ -185,7 +188,7 @@ export const useImageUploadStore = defineStore('imageUpload', () => {
         }
 
         const errorMessage = error instanceof Error ? error.message : String(error)
-        errors.push(`图片 "${file.name}" 压缩失败: ${errorMessage}`)
+        errors.push(`图片 "${normalizedFile.name}" 压缩失败: ${errorMessage}`)
         skipped++
       } finally {
         // 延迟移除处理中状态
