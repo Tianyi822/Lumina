@@ -733,4 +733,71 @@ watch(
 .chat-page {
   position: relative;
 }
+
+:deep(.sm-chat-stage) {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+:deep(.sm-chat-stage::before) {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 64px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(14, 14, 16, 0.92) 0%,
+    rgba(14, 14, 16, 0.78) 18%,
+    rgba(14, 14, 16, 0.52) 44%,
+    rgba(14, 14, 16, 0.22) 72%,
+    rgba(14, 14, 16, 0.04) 90%,
+    rgba(14, 14, 16, 0) 100%
+  );
+  backdrop-filter: blur(28px) saturate(165%);
+  -webkit-backdrop-filter: blur(28px) saturate(165%);
+  mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.98) 0%,
+    rgba(0, 0, 0, 0.92) 18%,
+    rgba(0, 0, 0, 0.74) 46%,
+    rgba(0, 0, 0, 0.34) 78%,
+    rgba(0, 0, 0, 0.08) 94%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.98) 0%,
+    rgba(0, 0, 0, 0.92) 18%,
+    rgba(0, 0, 0, 0.74) 46%,
+    rgba(0, 0, 0, 0.34) 78%,
+    rgba(0, 0, 0, 0.08) 94%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+:deep(.sm-chat-stage__scroll) {
+  mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.12) 8px,
+    rgba(0, 0, 0, 0.42) 24px,
+    rgba(0, 0, 0, 0.74) 44px,
+    rgba(0, 0, 0, 0.92) 64px,
+    rgba(0, 0, 0, 1) 82px
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.12) 8px,
+    rgba(0, 0, 0, 0.42) 24px,
+    rgba(0, 0, 0, 0.74) 44px,
+    rgba(0, 0, 0, 0.92) 64px,
+    rgba(0, 0, 0, 1) 82px
+  );
+}
 </style>
