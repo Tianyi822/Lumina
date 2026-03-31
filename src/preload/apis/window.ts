@@ -20,6 +20,13 @@ export const windowApi = {
   },
 
   /**
+   * 获取当前系统主题
+   */
+  getSystemTheme: (): Promise<'dark' | 'light'> => {
+    return ipcRenderer.invoke('window:getSystemTheme')
+  },
+
+  /**
    * 使用系统默认浏览器打开外部链接
    */
   openExternal: (url: string): Promise<void> => {
@@ -36,6 +43,19 @@ export const windowApi = {
     ipcRenderer.on('window:maximized-changed', listener)
     return () => {
       ipcRenderer.removeListener('window:maximized-changed', listener)
+    }
+  },
+
+  /**
+   * 监听系统主题变化
+   */
+  onSystemThemeChanged: (callback: (theme: 'dark' | 'light') => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, theme: 'dark' | 'light'): void => {
+      callback(theme)
+    }
+    ipcRenderer.on('window:system-theme-changed', listener)
+    return () => {
+      ipcRenderer.removeListener('window:system-theme-changed', listener)
     }
   }
 }
