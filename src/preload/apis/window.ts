@@ -13,6 +13,13 @@ export const windowApi = {
   }>('window', ['minimize', 'maximize', 'close', 'isMaximized']),
 
   /**
+   * 设置 Electron 原生主题
+   */
+  setNativeTheme: (themeSource: 'dark' | 'light' | 'system'): Promise<void> => {
+    return ipcRenderer.invoke('window:setNativeTheme', themeSource)
+  },
+
+  /**
    * 使用系统默认浏览器打开外部链接
    */
   openExternal: (url: string): Promise<void> => {

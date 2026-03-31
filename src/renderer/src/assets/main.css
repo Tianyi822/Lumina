@@ -13,6 +13,7 @@
 @import '../styles/base-components.css';
 @import '../styles/forms.css';
 @import '../themes/sparrow-dark.css';
+@import '../themes/sparrow-light.css';
 
 body {
   margin: 0;

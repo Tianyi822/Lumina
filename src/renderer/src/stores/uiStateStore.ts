@@ -40,13 +40,25 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
   {
     id: 'sparrow-dark',
     name: 'Sparrow Dark',
-    description: '当前重构阶段唯一基准主题，旧主题不再驱动新界面',
+    description: '深色基准主题，统一整个应用的深色、平面和受控交互基线',
     previewColors: {
       primary: '#121212',
       secondary: '#1b1f26',
       accent: '#8e95d9',
       extra1: '#272c36',
       extra2: '#a1a7e6'
+    }
+  },
+  {
+    id: 'sparrow-light',
+    name: 'Sparrow Light',
+    description: '浅色主题，清新明亮的界面风格',
+    previewColors: {
+      primary: '#f5f5f7',
+      secondary: '#f7f7f8',
+      accent: '#6c72b4',
+      extra1: '#e2e2e6',
+      extra2: '#5b60a3'
     }
   }
 ]
@@ -415,6 +427,13 @@ export const useUIStateStore = defineStore(
     // ==================== Actions: 主题管理 ====================
 
     /**
+     * 根据主题 ID 获取原生主题类型
+     */
+    function getNativeThemeSource(themeId: string): 'dark' | 'light' {
+      return themeId === 'sparrow-light' ? 'light' : 'dark'
+    }
+
+    /**
      * 应用主题到 DOM
      */
     function applyThemeToDom(themeId: string): void {
@@ -445,6 +464,7 @@ export const useUIStateStore = defineStore(
       }
 
       applyThemeToDom(currentTheme.value)
+      window.api.window.setNativeTheme(getNativeThemeSource(currentTheme.value)).catch(() => {})
       themeInitialized.value = true
     }
 
@@ -459,6 +479,7 @@ export const useUIStateStore = defineStore(
 
       currentTheme.value = themeId
       applyThemeToDom(themeId)
+      window.api.window.setNativeTheme(getNativeThemeSource(themeId)).catch(() => {})
 
       // 保存主题到配置文件
       try {

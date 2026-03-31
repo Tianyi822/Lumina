@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron'
+import { ipcMain, shell, nativeTheme } from 'electron'
 import { getMainWindow } from '@main/core'
 
 /**
@@ -45,6 +45,11 @@ export function registerWindowHandlers(): void {
   // 使用系统默认浏览器打开外部链接
   ipcMain.handle('window:openExternal', async (_event, url: string) => {
     await shell.openExternal(url)
+  })
+
+  // 设置 Electron 原生主题
+  ipcMain.handle('window:setNativeTheme', (_event, themeSource: 'dark' | 'light' | 'system') => {
+    nativeTheme.themeSource = themeSource
   })
 
   // 监听窗口最大化状态变化
