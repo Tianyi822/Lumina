@@ -9,8 +9,7 @@ import {
   initializeEmbedding,
   initializeKnowledge,
   initializeEmbeddingModels,
-  initializeSandbox,
-  initializePptTemplateService
+  initializeSandbox
 } from '@main/ipc'
 import { videoToolService } from '@main/services/video'
 
@@ -53,9 +52,6 @@ export function initializeApp(): void {
 
     // 初始化沙箱服务
     initializeSandbox()
-
-    // 初始化 PPT 模板服务
-    initializePptTemplateService()
 
     // 创建主窗口
     createMainWindow()

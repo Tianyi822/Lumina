@@ -11,7 +11,7 @@ import type { SandboxApi } from './sandbox'
 import type { DocumentApi } from './document'
 import type { KnowledgeMCPApi } from './knowledgeMCP'
 import type { VoiceRecognitionApi } from './voiceRecognition'
-import type { PptTemplateApi, PptExportApi } from './ppt'
+import type { PptExportApi } from './ppt'
 import type { PromptEngineeringApi } from './promptEngineering'
 
 /**
@@ -38,8 +38,6 @@ export interface CustomApi {
   knowledgeMCP: KnowledgeMCPApi
   // 语音识别 API
   voiceRecognition: VoiceRecognitionApi
-  // PPT 模板 API
-  pptTemplate: PptTemplateApi
   // PPT 导出 API
   pptExport: PptExportApi
 }
