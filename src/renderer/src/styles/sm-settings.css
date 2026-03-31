@@ -15,30 +15,11 @@
   min-width: 248px;
   display: flex;
   flex-direction: column;
-  gap: var(--sm-space-5);
   padding: var(--sm-space-5);
   border-right: 1px solid var(--sm-color-border-default);
   background: var(--sm-color-surface-1);
 }
 
-.sm-settings-nav__intro {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-2);
-}
-
-.sm-settings-nav__eyebrow,
-.sm-settings-panel__eyebrow,
-.sm-settings-page__eyebrow {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
-}
-
-.sm-settings-nav__title,
 .sm-settings-page__title {
   margin: 0;
   font-size: 18px;
@@ -47,8 +28,6 @@
   color: var(--sm-color-text-primary);
 }
 
-.sm-settings-nav__description,
-.sm-settings-panel__description,
 .sm-settings-page__description {
   margin: 0;
   font-size: 13px;
@@ -123,24 +102,6 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-.sm-settings-panel__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sm-space-4);
-  padding: var(--sm-space-5);
-  border-bottom: 1px solid var(--sm-color-border-subtle);
-  background: var(--sm-color-surface-2);
-}
-
-.sm-settings-panel__title {
-  margin: 4px 0 0;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--sm-color-text-primary);
 }
 
 .sm-settings-panel__body {
@@ -349,7 +310,6 @@
 }
 
 @media (max-width: 640px) {
-  .sm-settings-panel__header,
   .sm-settings-panel__body,
   .sm-settings-page__section,
   .sm-settings-nav {
@@ -361,8 +321,7 @@
   }
 
   .sm-settings-actions,
-  .sm-settings-page__section-header,
-  .sm-settings-panel__header {
+  .sm-settings-page__section-header {
     flex-direction: column;
     align-items: stretch;
   }

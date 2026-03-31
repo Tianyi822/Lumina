@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import ThemeSettings from './settings/ThemeSettings.vue'
 import ModelSettings from './settings/ModelSettings.vue'
@@ -87,10 +87,6 @@ const settingsTabs: Array<{
   }
 ]
 
-const currentTabMeta = computed(() => {
-  return settingsTabs.find((tab) => tab.id === activeTab.value) ?? settingsTabs[0]
-})
-
 // 信息消息（仅用于嵌入模型设置）
 const infoMessage = ref('')
 
@@ -132,25 +128,13 @@ onUnmounted(() => {
     <div class="sm-modal__surface settings-container">
       <div class="sm-pane-header settings-header">
         <div class="settings-header__info">
-          <p class="settings-header__eyebrow">Preferences</p>
-          <div>
-            <h2 class="settings-title">设置中心</h2>
-            <p class="settings-subtitle">统一管理模型、工具链、知识能力与工作偏好。</p>
-          </div>
+          <h2 class="settings-title">设置中心</h2>
         </div>
         <button class="sm-button close-btn" @click="handleClose">关闭</button>
       </div>
 
       <div class="sm-settings-layout settings-body">
         <aside class="sm-settings-nav settings-nav">
-          <div class="sm-settings-nav__intro">
-            <p class="sm-settings-nav__eyebrow">Settings Workspace</p>
-            <h3 class="sm-settings-nav__title">配置导航</h3>
-            <p class="sm-settings-nav__description">
-              每个页签都是同一套设置系统中的表单场景，保持稳定、安静、可持续维护。
-            </p>
-          </div>
-
           <div class="sm-settings-nav__list">
             <button
               v-for="tab in settingsTabs"
@@ -166,20 +150,6 @@ onUnmounted(() => {
         </aside>
 
         <section class="sm-settings-panel settings-panel">
-          <div class="sm-settings-panel__header">
-            <div>
-              <p class="sm-settings-panel__eyebrow">Configuration Panel</p>
-              <h3 class="sm-settings-panel__title">{{ currentTabMeta.label }}</h3>
-              <p class="sm-settings-panel__description">{{ currentTabMeta.description }}</p>
-            </div>
-
-            <div class="settings-panel__status">
-              <span class="sm-settings-chip" :class="{ 'sm-settings-chip--accent': !loading }">
-                {{ loading ? '加载中' : '已就绪' }}
-              </span>
-            </div>
-          </div>
-
           <div class="sm-settings-panel__body settings-content">
             <div v-if="loading" class="sm-settings-empty">正在加载当前配置...</div>
 
@@ -288,16 +258,6 @@ onUnmounted(() => {
 .settings-header__info {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-.settings-header__eyebrow {
-  margin: 0;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
 }
 
 .settings-title {
@@ -306,13 +266,6 @@ onUnmounted(() => {
   color: var(--sm-color-text-primary);
   margin: 0;
   letter-spacing: -0.01em;
-}
-
-.settings-subtitle {
-  margin: 4px 0 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--sm-color-text-secondary);
 }
 
 .close-btn {
@@ -325,12 +278,6 @@ onUnmounted(() => {
 
 .settings-content {
   background: var(--sm-color-surface-2);
-}
-
-.settings-panel__status {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-2);
 }
 
 .message-close {
