@@ -132,7 +132,6 @@ onUnmounted(() => {
 <template>
   <div class="sm-settings-page knowledge-mcp-settings">
     <header class="sm-settings-page__header">
-      <p class="sm-settings-page__eyebrow">Knowledge Service</p>
       <h2 class="sm-settings-page__title">知识库 MCP 服务</h2>
       <p class="sm-settings-page__description">
         将知识库检索能力暴露给外部 MCP 客户端，适用于桌面端、IDE 和其他 AI 工具链。

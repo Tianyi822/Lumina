@@ -226,7 +226,6 @@ onUnmounted(() => {
 <template>
   <div class="sm-settings-page tab-content">
     <header class="sm-settings-page__header">
-      <p class="sm-settings-page__eyebrow">MCP</p>
       <h2 class="sm-settings-page__title">MCP 服务配置</h2>
       <p class="sm-settings-page__description">
         管理工具服务的连接、传输方式和导入配置，保持与聊天工作区同一套工程控制台语言。

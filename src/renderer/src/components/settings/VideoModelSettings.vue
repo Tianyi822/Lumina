@@ -197,7 +197,6 @@ onMounted(() => {
 <template>
   <div class="sm-settings-page video-settings">
     <header class="sm-settings-page__header">
-      <p class="sm-settings-page__eyebrow">Video</p>
       <h2 class="sm-settings-page__title">视频模型配置</h2>
       <p class="sm-settings-page__description">
         统一维护视频生成接口、默认输出规格和音频偏好，用于聊天工具链调用。

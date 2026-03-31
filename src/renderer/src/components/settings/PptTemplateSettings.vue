@@ -40,7 +40,6 @@ onMounted(() => {
 <template>
   <div class="sm-settings-page sm-ppt-template-settings">
     <header class="sm-settings-page__header">
-      <p class="sm-settings-page__eyebrow">PPT Templates</p>
       <h2 class="sm-settings-page__title">PPT 模板</h2>
       <p class="sm-settings-page__description">
         管理演示文稿模板上传、分析结果和 AI 总结产物，保持上传区与列表区属于同一套配置系统。

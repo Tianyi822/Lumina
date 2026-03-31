@@ -140,7 +140,6 @@ onMounted(() => {
 <template>
   <div class="sm-settings-page tab-content">
     <header class="sm-settings-page__header">
-      <p class="sm-settings-page__eyebrow">Embeddings</p>
       <h2 class="sm-settings-page__title">嵌入模型配置</h2>
       <p class="sm-settings-page__description">
         向量模型决定知识库检索质量。这里统一管理嵌入模型、测试连接和新建配置入口。

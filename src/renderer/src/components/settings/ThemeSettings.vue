@@ -55,7 +55,6 @@ function isSelected(themeId: string): boolean {
 <template>
   <div class="sm-settings-page theme-settings">
     <header class="sm-settings-page__header">
-      <p class="sm-settings-page__eyebrow">Theme</p>
       <h2 class="sm-settings-page__title">主题设置</h2>
       <p class="sm-settings-page__description">
         选择适合你的界面风格，主题切换即时生效并会同步系统原生 UI。

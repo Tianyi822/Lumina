@@ -213,7 +213,6 @@ async function handleSave(): Promise<void> {
 <template>
   <div class="sm-settings-page tab-content">
     <header class="sm-settings-page__header">
-      <p class="sm-settings-page__eyebrow">Models</p>
       <h2 class="sm-settings-page__title">对话模型配置</h2>
       <p class="sm-settings-page__description">
         管理对话模型列表、默认模型和推理参数。修改字段后会自动同步到本地配置。

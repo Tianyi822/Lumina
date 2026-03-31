@@ -244,7 +244,6 @@ onMounted(() => {
 <template>
   <div class="sm-settings-page voice-settings">
     <header class="sm-settings-page__header">
-      <p class="sm-settings-page__eyebrow">Voice</p>
       <h2 class="sm-settings-page__title">语音识别配置</h2>
       <p class="sm-settings-page__description">
         配置阿里云语音识别服务的鉴权信息、自动获取 Token 和手动测试能力。

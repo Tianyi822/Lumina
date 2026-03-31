@@ -35,7 +35,6 @@ onBeforeUnmount(() => {
 <template>
   <div class="sm-settings-page sm-prompt-settings">
     <header class="sm-settings-page__header">
-      <p class="sm-settings-page__eyebrow">Prompts</p>
       <h2 class="sm-settings-page__title">提示词工程</h2>
       <p class="sm-settings-page__description">
         统一管理系统提示词、变量、Few-shot 示例与测试沙箱，让所有提示词配置保持同一套表单语言。
