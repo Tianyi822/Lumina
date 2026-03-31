@@ -1,161 +1,260 @@
 import { ipcMain } from 'electron'
-import { getPptExportService } from '@main/services/presentation/PptExportService'
 import { logger } from '@main/services/logger'
-import { z } from 'zod'
+import { aliyunConfig, aliyunMiaobiService } from '@main/services/presentation/aliyun'
 
-/**
- * 预览 PPT 导出请求参数验证
- */
-const previewPptExportSchema = z.object({
-  content: z.string().trim().min(1, '导出内容不能为空'),
-  templateId: z.string().optional()
-})
+interface GenerateOutlineRequest {
+  prompt: string
+  sessionId: string
+}
 
-/**
- * 生成 PPT 请求参数验证
- */
-const generatePptSchema = z.object({
-  content: z.string().trim().min(1, '导出内容不能为空'),
-  config: z.object({
-    slides: z.array(
-      z.object({
-        index: z.number(),
-        title: z.string().optional(),
-        contentType: z.enum(['title', 'content', 'table', 'list', 'mixed']),
-        summary: z.string(),
-        previewImageDataUrl: z.string().optional(),
-        selected: z.boolean()
-      })
-    ),
-    styleSource: z.object({ type: z.literal('template'), templateId: z.string() }),
-    style: z.object({
-      primaryColor: z.string().optional(),
-      backgroundColor: z.string().optional(),
-      titleFont: z.string().optional(),
-      bodyFont: z.string().optional(),
-      titleSize: z.number().optional(),
-      bodySize: z.number().optional()
-    }),
-    templateLayouts: z
-      .array(
-        z.object({
-          name: z.string(),
-          backgroundColor: z.string().optional(),
-          titlePosition: z
-            .object({
-              x: z.number(),
-              y: z.number(),
-              w: z.union([z.number(), z.string()]),
-              h: z.union([z.number(), z.string()])
-            })
-            .optional(),
-          contentPosition: z
-            .object({
-              x: z.number(),
-              y: z.number(),
-              w: z.union([z.number(), z.string()]),
-              h: z.union([z.number(), z.string()])
-            })
-            .optional()
-        })
-      )
-      .optional(),
-    slideSize: z
-      .object({
-        width: z.number().positive(),
-        height: z.number().positive()
-      })
-      .optional()
-  }),
-  title: z.string().trim().max(120).optional()
-})
+interface InitiateCreationRequest {
+  taskId: string
+  outline: string
+}
+
+interface BindArtifactRequest {
+  taskId: string
+  artifactId: number
+}
+
+function validateGenerateOutlineRequest(payload: unknown): {
+  success: boolean
+  data?: GenerateOutlineRequest
+  error?: string
+} {
+  if (!payload || typeof payload !== 'object') {
+    return { success: false, error: '请求参数格式不正确' }
+  }
+
+  const { prompt, sessionId } = payload as Partial<GenerateOutlineRequest>
+  if (!prompt?.trim()) {
+    return { success: false, error: 'prompt 不能为空' }
+  }
+
+  if (!sessionId?.trim()) {
+    return { success: false, error: 'sessionId 不能为空' }
+  }
+
+  return {
+    success: true,
+    data: {
+      prompt: prompt.trim(),
+      sessionId: sessionId.trim()
+    }
+  }
+}
+
+function validateInitiateCreationRequest(payload: unknown): {
+  success: boolean
+  data?: InitiateCreationRequest
+  error?: string
+} {
+  if (!payload || typeof payload !== 'object') {
+    return { success: false, error: '请求参数格式不正确' }
+  }
+
+  const { taskId, outline } = payload as Partial<InitiateCreationRequest>
+  if (!taskId?.trim()) {
+    return { success: false, error: 'taskId 不能为空' }
+  }
+
+  if (!outline?.trim()) {
+    return { success: false, error: 'outline 不能为空' }
+  }
+
+  return {
+    success: true,
+    data: {
+      taskId: taskId.trim(),
+      outline: outline.trim()
+    }
+  }
+}
+
+function validateBindArtifactRequest(payload: unknown): {
+  success: boolean
+  data?: BindArtifactRequest
+  error?: string
+} {
+  if (!payload || typeof payload !== 'object') {
+    return { success: false, error: '请求参数格式不正确' }
+  }
+
+  const { taskId, artifactId } = payload as Partial<BindArtifactRequest>
+  if (!taskId?.trim()) {
+    return { success: false, error: 'taskId 不能为空' }
+  }
+
+  const normalizedArtifactId = typeof artifactId === 'number' ? artifactId : Number.NaN
+  if (!Number.isFinite(normalizedArtifactId) || normalizedArtifactId <= 0) {
+    return { success: false, error: 'artifactId 非法' }
+  }
+
+  return {
+    success: true,
+    data: {
+      taskId: taskId.trim(),
+      artifactId: normalizedArtifactId
+    }
+  }
+}
 
 /**
  * 注册 PPT 导出相关的 IPC 处理程序
  * 处理 PPT 预览、生成等操作
  */
 export function registerPptExportHandlers(): void {
-  /**
-   * 预览 PPT 导出配置
-   * @param _event IPC 事件
-   * @param request 预览请求参数
-   * @returns 预览结果
-   */
-  ipcMain.handle('ppt:preview', async (_event, request: unknown) => {
+  ipcMain.handle('ppt:getConfig', async () => {
     try {
-      const parsedRequest = previewPptExportSchema.parse(request)
+      const result = aliyunConfig.getConfig()
+      return result
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('获取阿里云妙笔配置失败', 'main', { error: errorMessage })
+      return {
+        success: false,
+        configured: false,
+        config: {
+          accessKeyId: '',
+          accessKeySecret: '',
+          workspaceId: ''
+        },
+        error: errorMessage
+      }
+    }
+  })
 
-      logger.info('接收到 PPT 导出预览请求', 'main', {
-        contentLength: parsedRequest.content.length,
-        templateId: parsedRequest.templateId
+  ipcMain.handle('ppt:saveConfig', async (_event, config: unknown) => {
+    if (!config || typeof config !== 'object') {
+      return {
+        success: false,
+        error: '配置格式不正确'
+      }
+    }
+
+    const { accessKeyId, accessKeySecret, workspaceId } = config as Record<string, unknown>
+
+    const saveResult = aliyunConfig.saveConfig({
+      accessKeyId: typeof accessKeyId === 'string' ? accessKeyId : '',
+      accessKeySecret: typeof accessKeySecret === 'string' ? accessKeySecret : '',
+      workspaceId: typeof workspaceId === 'string' ? workspaceId : ''
+    })
+
+    return saveResult
+  })
+
+  ipcMain.handle('ppt:testConfig', async (_event, config: unknown) => {
+    logger.info('收到妙笔配置测试请求', 'main', { rawConfig: config })
+
+    if (!config || typeof config !== 'object') {
+      logger.warn('妙笔配置测试：参数格式不正确', 'main', { config })
+      return {
+        success: false,
+        error: '配置格式不正确'
+      }
+    }
+
+    const { accessKeyId, accessKeySecret, workspaceId } = config as Record<string, unknown>
+    const normalizedConfig = {
+      accessKeyId: typeof accessKeyId === 'string' ? accessKeyId : '',
+      accessKeySecret: typeof accessKeySecret === 'string' ? accessKeySecret : '',
+      workspaceId: typeof workspaceId === 'string' ? workspaceId : ''
+    }
+
+    logger.info('妙笔配置测试：开始测试', 'main', {
+      accessKeyIdLength: normalizedConfig.accessKeyId.length,
+      accessKeySecretLength: normalizedConfig.accessKeySecret.length,
+      workspaceIdLength: normalizedConfig.workspaceId.length
+    })
+
+    try {
+      const result = await aliyunMiaobiService.testConnection(normalizedConfig)
+      logger.info('妙笔配置测试：测试完成', 'main', {
+        success: result.success,
+        error: result.error
       })
+      return result
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('妙笔配置测试：IPC handler 异常', 'main', { error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  })
 
-      return await getPptExportService().previewExport(
-        parsedRequest.content,
-        parsedRequest.templateId
+  ipcMain.handle('ppt:generateOutline', async (event, payload: unknown) => {
+    const validation = validateGenerateOutlineRequest(payload)
+    if (!validation.success || !validation.data) {
+      return {
+        success: false,
+        error: validation.error || '请求参数校验失败'
+      }
+    }
+
+    const { prompt, sessionId } = validation.data
+
+    try {
+      const result = await aliyunMiaobiService.generateOutline(
+        prompt,
+        (text) => {
+          event.sender.send('ppt:outline:chunk', { sessionId, text })
+        },
+        sessionId
       )
+
+      if (result.success && result.taskId && result.outline) {
+        event.sender.send('ppt:outline:done', {
+          sessionId,
+          taskId: result.taskId,
+          outline: result.outline
+        })
+      } else {
+        event.sender.send('ppt:outline:error', {
+          sessionId,
+          error: result.error || '大纲生成失败'
+        })
+      }
+
+      return result
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('PPT 导出预览处理失败', 'main', { error: errorMessage })
-
-      return {
-        success: false,
-        error: `预览失败: ${errorMessage}`
-      }
-    }
-  })
-
-  /**
-   * 生成 PPT 文件
-   * @param _event IPC 事件
-   * @param request 生成请求参数
-   * @returns 生成结果
-   */
-  ipcMain.handle('ppt:generate', async (_event, request: unknown) => {
-    try {
-      const parsedRequest = generatePptSchema.parse(request)
-
-      logger.info('接收到 PPT 生成请求', 'main', {
-        title: parsedRequest.title,
-        slideCount: parsedRequest.config.slides.filter((s) => s.selected).length
+      logger.error('处理妙笔大纲生成请求失败', 'main', {
+        sessionId,
+        error: errorMessage
       })
-
-      return await getPptExportService().generatePpt(parsedRequest)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('PPT 生成处理失败', 'main', { error: errorMessage })
-
-      return {
-        success: false,
-        error: `生成失败: ${errorMessage}`
-      }
-    }
-  })
-
-  /**
-   * 从模板提取样式
-   * @param _event IPC 事件
-   * @param templateId 模板 ID
-   * @returns 提取的样式配置
-   */
-  ipcMain.handle('ppt:extractTemplateStyle', async (_event, templateId: string) => {
-    try {
-      logger.info('接收到模板样式提取请求', 'main', { templateId })
-
-      const extraction = await getPptExportService().loadTemplateExtraction(templateId)
-
-      return {
-        success: true,
-        data: extraction
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('模板样式提取失败', 'main', { templateId, error: errorMessage })
-
+      event.sender.send('ppt:outline:error', {
+        sessionId,
+        error: errorMessage
+      })
       return {
         success: false,
         error: errorMessage
       }
     }
+  })
+
+  ipcMain.handle('ppt:initiateCreation', async (_event, payload: unknown) => {
+    const validation = validateInitiateCreationRequest(payload)
+    if (!validation.success || !validation.data) {
+      return {
+        success: false,
+        error: validation.error || '请求参数校验失败'
+      }
+    }
+
+    const { taskId, outline } = validation.data
+    return aliyunMiaobiService.initiateCreation(taskId, outline)
+  })
+
+  ipcMain.handle('ppt:bindArtifact', async (_event, payload: unknown) => {
+    const validation = validateBindArtifactRequest(payload)
+    if (!validation.success || !validation.data) {
+      return {
+        success: false,
+        error: validation.error || '请求参数校验失败'
+      }
+    }
+
+    const { taskId, artifactId } = validation.data
+    return aliyunMiaobiService.bindArtifact(taskId, artifactId)
   })
 }

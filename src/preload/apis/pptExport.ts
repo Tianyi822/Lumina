@@ -1,47 +1,111 @@
 import { ipcRenderer } from 'electron'
-import type {
-  PreviewPptExportRequest,
-  PreviewPptExportResult,
-  GeneratePptRequest,
-  GeneratePptResult,
-  TemplateStyleExtraction
-} from '@shared/types/ppt-export'
 
 /**
  * PPT 导出 API
- * 提供预览、生成 PPT 等功能
+ * 提供妙笔 PPT 生成相关功能
  */
 export const pptExportApi = {
-  /**
-   * 预览 PPT 导出配置
-   * @param request 预览请求参数
-   * @returns 预览结果
-   */
-  preview: (request: PreviewPptExportRequest): Promise<PreviewPptExportResult> => {
-    return ipcRenderer.invoke('ppt:preview', request)
-  },
-
-  /**
-   * 生成 PPT 文件
-   * @param request 生成请求参数
-   * @returns 生成结果
-   */
-  generate: (request: GeneratePptRequest): Promise<GeneratePptResult> => {
-    return ipcRenderer.invoke('ppt:generate', request)
-  },
-
-  /**
-   * 从模板提取样式
-   * @param templateId 模板 ID
-   * @returns 提取的样式配置
-   */
-  extractTemplateStyle: (
-    templateId: string
-  ): Promise<{
+  getConfig: (): Promise<{
     success: boolean
-    data?: TemplateStyleExtraction | null
+    configured: boolean
+    config: {
+      accessKeyId: string
+      accessKeySecret: string
+      workspaceId: string
+    }
     error?: string
   }> => {
-    return ipcRenderer.invoke('ppt:extractTemplateStyle', templateId)
+    return ipcRenderer.invoke('ppt:getConfig')
+  },
+
+  saveConfig: (config: {
+    accessKeyId: string
+    accessKeySecret: string
+    workspaceId: string
+  }): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('ppt:saveConfig', config)
+  },
+
+  testConfig: (config: {
+    accessKeyId: string
+    accessKeySecret: string
+    workspaceId: string
+  }): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('ppt:testConfig', config)
+  },
+
+  generateOutline: (
+    prompt: string,
+    sessionId: string
+  ): Promise<{ success: boolean; taskId?: string; outline?: string; error?: string }> => {
+    return ipcRenderer.invoke('ppt:generateOutline', { prompt, sessionId })
+  },
+
+  onOutlineChunk: (
+    callback: (event: Electron.IpcRendererEvent, data: { sessionId: string; text: string }) => void
+  ): (() => void) => {
+    const listener = (
+      event: Electron.IpcRendererEvent,
+      data: { sessionId: string; text: string }
+    ): void => {
+      callback(event, data)
+    }
+    ipcRenderer.on('ppt:outline:chunk', listener)
+    return () => {
+      ipcRenderer.removeListener('ppt:outline:chunk', listener)
+    }
+  },
+
+  onOutlineDone: (
+    callback: (
+      event: Electron.IpcRendererEvent,
+      data: { sessionId: string; taskId: string; outline: string }
+    ) => void
+  ): (() => void) => {
+    const listener = (
+      event: Electron.IpcRendererEvent,
+      data: { sessionId: string; taskId: string; outline: string }
+    ): void => {
+      callback(event, data)
+    }
+    ipcRenderer.on('ppt:outline:done', listener)
+    return () => {
+      ipcRenderer.removeListener('ppt:outline:done', listener)
+    }
+  },
+
+  onOutlineError: (
+    callback: (event: Electron.IpcRendererEvent, data: { sessionId: string; error: string }) => void
+  ): (() => void) => {
+    const listener = (
+      event: Electron.IpcRendererEvent,
+      data: { sessionId: string; error: string }
+    ): void => {
+      callback(event, data)
+    }
+    ipcRenderer.on('ppt:outline:error', listener)
+    return () => {
+      ipcRenderer.removeListener('ppt:outline:error', listener)
+    }
+  },
+
+  removeOutlineListeners: (): void => {
+    ipcRenderer.removeAllListeners('ppt:outline:chunk')
+    ipcRenderer.removeAllListeners('ppt:outline:done')
+    ipcRenderer.removeAllListeners('ppt:outline:error')
+  },
+
+  initiateCreation: (
+    taskId: string,
+    outline: string
+  ): Promise<{ success: boolean; appkey?: string; code?: string; error?: string }> => {
+    return ipcRenderer.invoke('ppt:initiateCreation', { taskId, outline })
+  },
+
+  bindArtifact: (
+    taskId: string,
+    artifactId: number
+  ): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('ppt:bindArtifact', { taskId, artifactId })
   }
 }
