@@ -4,7 +4,17 @@
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { useSessionStore } from './sessionStore'
-import type { ThemeConfig } from '@shared/types/config'
+import type { ThemeConfig, ThemeMode } from '@shared/types/config'
+import {
+  DEFAULT_THEME_ID,
+  DEFAULT_THEME_MODE,
+  normalizeThemeId,
+  normalizeThemeMode,
+  resolveEffectiveTheme,
+  resolveNativeThemeSource,
+  type SystemTheme,
+  type ThemeId
+} from '@shared/utils'
 
 // 视图类型
 export type ViewMode = 'chat' | 'knowledge' | 'sandbox'
@@ -131,8 +141,21 @@ export const useUIStateStore = defineStore(
     // 当前主题 ID
     const currentTheme = ref<string>('sparrow-dark')
 
+    // 手动模式下选中的主题
+    const selectedTheme = ref<ThemeId>(DEFAULT_THEME_ID)
+
+    // 主题模式：手动 or 跟随系统
+    const themeMode = ref<ThemeMode>(DEFAULT_THEME_MODE)
+
+    // 当前系统主题
+    const systemTheme = ref<SystemTheme>('dark')
+
     // 主题是否已初始化（从配置文件加载）
     const themeInitialized = ref(false)
+
+    // 系统主题监听解绑函数
+    let cleanupSystemThemeListener: (() => void) | null = null
+    let systemThemeMediaQuery: MediaQueryList | null = null
 
     // ==================== Getters ====================
 
@@ -427,18 +450,101 @@ export const useUIStateStore = defineStore(
     // ==================== Actions: 主题管理 ====================
 
     /**
-     * 根据主题 ID 获取原生主题类型
-     */
-    function getNativeThemeSource(themeId: string): 'dark' | 'light' {
-      return themeId === 'sparrow-light' ? 'light' : 'dark'
-    }
-
-    /**
      * 应用主题到 DOM
      */
     function applyThemeToDom(themeId: string): void {
       const html = document.documentElement
       html.setAttribute('data-theme', themeId)
+      html.style.colorScheme = themeId === 'sparrow-light' ? 'light' : 'dark'
+      localStorage.setItem(
+        'sparrow-theme-preference',
+        JSON.stringify({
+          mode: themeMode.value,
+          name: selectedTheme.value,
+          effectiveTheme: themeId
+        })
+      )
+    }
+
+    function resolveCurrentTheme(): ThemeId {
+      return resolveEffectiveTheme(themeMode.value, selectedTheme.value, systemTheme.value)
+    }
+
+    async function syncNativeTheme(): Promise<void> {
+      const nativeSource = resolveNativeThemeSource(themeMode.value, selectedTheme.value)
+      await window.api.window.setNativeTheme(nativeSource)
+    }
+
+    async function applyResolvedTheme(persist: boolean): Promise<void> {
+      const resolvedTheme = resolveCurrentTheme()
+      currentTheme.value = resolvedTheme
+      applyThemeToDom(resolvedTheme)
+
+      try {
+        await syncNativeTheme()
+      } catch {
+        window.api.logger?.warn('[UIStateStore] 同步原生主题失败')
+      }
+
+      if (!persist) {
+        return
+      }
+
+      try {
+        const themeConfig: ThemeConfig = {
+          name: selectedTheme.value,
+          mode: themeMode.value
+        }
+        await window.api.config.updateConfig({ theme: themeConfig })
+        window.api.logger?.info('[UIStateStore] 主题偏好已保存', {
+          mode: themeMode.value,
+          selectedTheme: selectedTheme.value,
+          currentTheme: resolvedTheme
+        })
+      } catch (error) {
+        window.api.logger?.error('[UIStateStore] 保存主题配置失败', {
+          error: error instanceof Error ? error.message : String(error)
+        })
+      }
+    }
+
+    async function updateSystemTheme(nextTheme: SystemTheme): Promise<void> {
+      systemTheme.value = nextTheme
+
+      if (themeMode.value !== 'system') {
+        return
+      }
+
+      await applyResolvedTheme(false)
+      window.api.logger?.info('[UIStateStore] 跟随系统主题更新', {
+        systemTheme: nextTheme,
+        currentTheme: currentTheme.value
+      })
+    }
+
+    function ensureSystemThemeListener(): void {
+      if (cleanupSystemThemeListener) {
+        return
+      }
+
+      systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+      const listener = (event: MediaQueryListEvent): void => {
+        void updateSystemTheme(event.matches ? 'dark' : 'light')
+      }
+
+      if (typeof systemThemeMediaQuery.addEventListener === 'function') {
+        systemThemeMediaQuery.addEventListener('change', listener)
+        cleanupSystemThemeListener = () => {
+          systemThemeMediaQuery?.removeEventListener('change', listener)
+        }
+        return
+      }
+
+      systemThemeMediaQuery.addListener(listener)
+      cleanupSystemThemeListener = () => {
+        systemThemeMediaQuery?.removeListener(listener)
+      }
     }
 
     /**
@@ -451,20 +557,22 @@ export const useUIStateStore = defineStore(
 
       try {
         const config = (await window.api.config.getConfig()) as { theme?: ThemeConfig } | null
-        if (config?.theme?.name && AVAILABLE_THEMES.some((t) => t.id === config.theme!.name)) {
-          currentTheme.value = config.theme.name
-        } else {
-          currentTheme.value = 'sparrow-dark'
-        }
+        selectedTheme.value = normalizeThemeId(config?.theme?.name)
+        themeMode.value = normalizeThemeMode(config?.theme?.mode)
       } catch (error) {
         window.api.logger?.warn('[UIStateStore] 无法从配置文件加载主题，使用默认主题', {
           error: error instanceof Error ? error.message : String(error)
         })
-        currentTheme.value = 'sparrow-dark'
+        selectedTheme.value = DEFAULT_THEME_ID
+        themeMode.value = DEFAULT_THEME_MODE
       }
 
-      applyThemeToDom(currentTheme.value)
-      window.api.window.setNativeTheme(getNativeThemeSource(currentTheme.value)).catch(() => {})
+      systemTheme.value = window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+
+      ensureSystemThemeListener()
+      await applyResolvedTheme(false)
       themeInitialized.value = true
     }
 
@@ -477,20 +585,16 @@ export const useUIStateStore = defineStore(
         return
       }
 
-      currentTheme.value = themeId
-      applyThemeToDom(themeId)
-      window.api.window.setNativeTheme(getNativeThemeSource(themeId)).catch(() => {})
+      selectedTheme.value = normalizeThemeId(themeId)
+      await applyResolvedTheme(true)
+    }
 
-      // 保存主题到配置文件
-      try {
-        const themeConfig: ThemeConfig = { name: themeId }
-        await window.api.config.updateConfig({ theme: themeConfig })
-        window.api.logger?.info('[UIStateStore] 主题已保存', { themeId })
-      } catch (error) {
-        window.api.logger?.error('[UIStateStore] 保存主题配置失败', {
-          error: error instanceof Error ? error.message : String(error)
-        })
-      }
+    /**
+     * 设置主题模式（手动或跟随系统）
+     */
+    async function setThemeMode(mode: ThemeMode): Promise<void> {
+      themeMode.value = normalizeThemeMode(mode)
+      await applyResolvedTheme(true)
     }
 
     /**
@@ -540,6 +644,9 @@ export const useUIStateStore = defineStore(
 
       // State: 主题
       currentTheme,
+      selectedTheme,
+      themeMode,
+      systemTheme,
       themeInitialized,
 
       // Getters
@@ -593,6 +700,7 @@ export const useUIStateStore = defineStore(
       // Actions: 主题管理
       initTheme,
       setTheme,
+      setThemeMode,
       getAvailableThemes
     }
   },

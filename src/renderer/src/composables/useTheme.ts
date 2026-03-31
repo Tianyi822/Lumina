@@ -6,6 +6,8 @@
 import { type Ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useUIStateStore, type ThemeMeta } from '@renderer/stores/uiStateStore'
+import type { ThemeMode } from '@shared/types/config'
+import type { SystemTheme } from '@shared/utils'
 
 /**
  * 主题管理 composable
@@ -13,15 +15,19 @@ import { useUIStateStore, type ThemeMeta } from '@renderer/stores/uiStateStore'
  */
 export function useTheme(): {
   currentTheme: Ref<string>
+  selectedTheme: Ref<string>
+  themeMode: Ref<ThemeMode>
+  systemTheme: Ref<SystemTheme>
   initTheme: () => Promise<void>
   setTheme: (themeId: string) => Promise<void>
+  setThemeMode: (mode: ThemeMode) => Promise<void>
   getCurrentTheme: () => string
   getAvailableThemes: () => ThemeMeta[]
   getCurrentThemeMeta: () => ThemeMeta | undefined
   onThemeChange: (callback: (theme: string) => void) => () => void
 } {
   const store = useUIStateStore()
-  const { currentTheme } = storeToRefs(store)
+  const { currentTheme, selectedTheme, themeMode, systemTheme } = storeToRefs(store)
 
   // 主题变更回调集合
   const themeChangeCallbacks: Set<(theme: string) => void> = new Set()
@@ -59,11 +65,18 @@ export function useTheme(): {
 
   return {
     currentTheme,
+    selectedTheme,
+    themeMode,
+    systemTheme,
     initTheme: store.initTheme,
     setTheme: async (themeId: string) => {
       await store.setTheme(themeId)
       // 触发回调
-      themeChangeCallbacks.forEach((cb) => cb(themeId))
+      themeChangeCallbacks.forEach((cb) => cb(store.currentTheme))
+    },
+    setThemeMode: async (mode: ThemeMode) => {
+      await store.setThemeMode(mode)
+      themeChangeCallbacks.forEach((cb) => cb(store.currentTheme))
     },
     getCurrentTheme,
     getAvailableThemes,
