@@ -366,8 +366,14 @@ async function handleRefreshSandboxList(): Promise<void> {
 
 .sm-workspace-sidebar-host__search--sandbox {
   display: flex;
+  width: 100%;
   gap: 8px;
   align-items: center;
+}
+
+.sm-workspace-sidebar-host__search--sandbox .sm-input {
+  flex: 1;
+  min-width: 0;
 }
 
 .sm-workspace-sidebar-host__body {
