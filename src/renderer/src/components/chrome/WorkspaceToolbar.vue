@@ -66,12 +66,17 @@ function handleToggleSidebar(): void {
 .sm-workspace-toolbar__button {
   width: 32px;
   height: 32px;
-  border-color: var(--sm-color-border-default);
-  background: var(--sm-color-surface-1);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(22, 24, 29, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 20px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
 }
 
 .sm-workspace-toolbar__button:hover {
-  border-color: var(--sm-color-border-strong);
-  background: var(--sm-color-surface-hover);
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(34, 38, 46, 0.44);
 }
 </style>
