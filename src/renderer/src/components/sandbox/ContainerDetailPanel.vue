@@ -170,7 +170,6 @@ function formatEnv(env: string[]): string[] {
     <template v-else>
       <section class="overview-panel">
         <div class="overview-panel__copy">
-          <span class="overview-panel__eyebrow">容器概览</span>
           <div class="overview-panel__headline">
             <div class="header-title">
               <span class="state-indicator" :class="getStateClass(container.state)"></span>
@@ -391,10 +390,15 @@ function formatEnv(env: string[]): string[] {
 .container-detail-panel {
   height: 100%;
   overflow-y: auto;
-  padding: var(--sm-space-6);
+  -ms-overflow-style: none;
+  scrollbar-width: none;
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-4);
+}
+
+.container-detail-panel::-webkit-scrollbar {
+  display: none;
 }
 
 .empty-state {
@@ -437,15 +441,6 @@ function formatEnv(env: string[]): string[] {
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-3);
-}
-
-.overview-panel__eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
 }
 
 .overview-panel__headline {
@@ -882,10 +877,6 @@ function formatEnv(env: string[]): string[] {
 }
 
 @media (max-width: 720px) {
-  .container-detail-panel {
-    padding: var(--sm-space-5);
-  }
-
   .overview-panel,
   .detail-section {
     padding: var(--sm-space-4);
