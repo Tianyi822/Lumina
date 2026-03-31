@@ -20,6 +20,7 @@ export { PptTemplateSummarizer } from './summarizer/PptTemplateSummarizer'
 // 服务
 export { getPptTemplateService, PptTemplateService } from './PptTemplateService'
 export { presentationToolService, PresentationToolService } from './PresentationToolService'
+export * from './aliyun'
 
 // PPT 导出服务
 export { getPptExportService, PptExportService } from './PptExportService'
