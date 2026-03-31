@@ -38,7 +38,6 @@ function escapeRegex(string: string): string {
   <section class="search-section">
     <div class="search-header">
       <div>
-        <span class="search-eyebrow">检索验证</span>
         <h3>搜索测试</h3>
       </div>
       <span class="search-hint">验证当前知识库的召回质量与片段命中情况。</span>
@@ -103,16 +102,6 @@ function escapeRegex(string: string): string {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--sm-space-4);
-}
-
-.search-eyebrow {
-  display: inline-block;
-  margin-bottom: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
 }
 
 .search-header h3 {

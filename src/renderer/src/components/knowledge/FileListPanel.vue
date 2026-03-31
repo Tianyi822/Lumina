@@ -44,7 +44,6 @@ function getFileNameWithoutExtension(fileName: string): string {
   >
     <div class="section-header">
       <div>
-        <span class="section-eyebrow">文档挂载</span>
         <h3>关联文档</h3>
       </div>
       <div class="section-header__actions">
@@ -107,7 +106,6 @@ function getFileNameWithoutExtension(fileName: string): string {
           <div class="document-name" :title="file.name">
             {{ getFileNameWithoutExtension(file.name) }}
           </div>
-          <div class="document-filename">{{ file.name }}</div>
 
           <div v-if="kbIndexingFiles[file.id]" class="file-progress">
             <div class="file-progress__meta">
@@ -158,16 +156,6 @@ function getFileNameWithoutExtension(fileName: string): string {
   justify-content: space-between;
   gap: var(--sm-space-4);
   margin-bottom: var(--sm-space-5);
-}
-
-.section-eyebrow {
-  display: inline-block;
-  margin-bottom: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
 }
 
 .section-header h3 {
@@ -274,13 +262,6 @@ function getFileNameWithoutExtension(fileName: string): string {
   word-break: break-word;
 }
 
-.document-filename {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--sm-color-text-secondary);
-  word-break: break-all;
-}
-
 .file-progress {
   display: flex;
   flex-direction: column;
@@ -314,11 +295,18 @@ function getFileNameWithoutExtension(fileName: string): string {
 
 .document-meta {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: var(--sm-space-2);
   margin-top: auto;
   font-size: 11px;
   color: var(--sm-color-text-secondary);
+}
+
+.document-meta > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
 }
 
 .document-type {
