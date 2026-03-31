@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import type { SessionListItem } from '@renderer/types'
+import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 
 defineProps<{
   sessions: SessionListItem[]
@@ -11,25 +12,6 @@ const emit = defineEmits<{
   (e: 'select', sessionId: string): void
   (e: 'delete', sessionId: string): void
 }>()
-
-const SIDEBAR_ITEM_ENTER_BASE_DELAY_MS = 220
-const SIDEBAR_ITEM_ENTER_STAGGER_MS = 35
-const SIDEBAR_ITEM_ENTER_DURATION_MS = 320
-const SIDEBAR_ITEM_OPACITY_DELAY_MS = 36
-
-function getItemMotionStyle(index: number): {
-  '--sm-sidebar-item-enter-base-delay': string
-  '--sm-sidebar-item-enter-duration': string
-  '--sm-sidebar-item-opacity-delay': string
-} {
-  const enterBaseDelay = SIDEBAR_ITEM_ENTER_BASE_DELAY_MS + index * SIDEBAR_ITEM_ENTER_STAGGER_MS
-
-  return {
-    '--sm-sidebar-item-enter-base-delay': `${enterBaseDelay}ms`,
-    '--sm-sidebar-item-enter-duration': `${SIDEBAR_ITEM_ENTER_DURATION_MS}ms`,
-    '--sm-sidebar-item-opacity-delay': `${SIDEBAR_ITEM_OPACITY_DELAY_MS}ms`
-  }
-}
 
 function selectSession(sessionId: string): void {
   emit('select', sessionId)
@@ -78,7 +60,7 @@ function formatTime(isoString: string): string {
       :key="session.sessionId"
       class="chat-item"
       :class="{ active: session.sessionId === activeSessionId }"
-      :style="getItemMotionStyle(index)"
+      :style="getSidebarListItemMotionStyle(index)"
       @click="selectSession(session.sessionId)"
     >
       <div class="chat-header">

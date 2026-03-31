@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SandboxListItem, SandboxStatus } from '@shared/types/sandbox'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
+import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 
 // 创建类型 - 预留，待类型定义更新后使用
 
@@ -27,25 +28,6 @@ const emit = defineEmits<{
   (e: 'select', sandboxId: string): void
   (e: 'delete', sandboxId: string): void
 }>()
-
-const SIDEBAR_ITEM_ENTER_BASE_DELAY_MS = 220
-const SIDEBAR_ITEM_ENTER_STAGGER_MS = 88
-const SIDEBAR_ITEM_ENTER_DURATION_MS = 320
-const SIDEBAR_ITEM_OPACITY_DELAY_MS = 36
-
-function getItemMotionStyle(index: number): {
-  '--sm-sidebar-item-enter-base-delay': string
-  '--sm-sidebar-item-enter-duration': string
-  '--sm-sidebar-item-opacity-delay': string
-} {
-  const enterBaseDelay = SIDEBAR_ITEM_ENTER_BASE_DELAY_MS + index * SIDEBAR_ITEM_ENTER_STAGGER_MS
-
-  return {
-    '--sm-sidebar-item-enter-base-delay': `${enterBaseDelay}ms`,
-    '--sm-sidebar-item-enter-duration': `${SIDEBAR_ITEM_ENTER_DURATION_MS}ms`,
-    '--sm-sidebar-item-opacity-delay': `${SIDEBAR_ITEM_OPACITY_DELAY_MS}ms`
-  }
-}
 
 function getStatusLabel(status: SandboxStatus): string {
   const labels: Record<SandboxStatus, string> = {
@@ -106,7 +88,7 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
         active: sandbox.sandboxId === activeSandboxId,
         orphan: (sandbox as unknown as ExtendedSandboxListItem).isOrphan
       }"
-      :style="getItemMotionStyle(index)"
+      :style="getSidebarListItemMotionStyle(index)"
       @click="handleSelect(sandbox.sandboxId)"
     >
       <div class="sandbox-info">

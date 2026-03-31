@@ -5,6 +5,7 @@ import ChatList from '@renderer/components/ChatList.vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import SandboxList from '@renderer/components/sandbox/SandboxList.vue'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
+import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 import {
   useChatStreamStore,
   useKnowledgeStore,
@@ -75,25 +76,6 @@ const sidebarCount = computed(() => {
 const deletingSandboxId = computed(() => {
   return deleteConfirmState.value.isDeleting ? deleteConfirmState.value.sandboxId : null
 })
-
-const SIDEBAR_ITEM_ENTER_BASE_DELAY_MS = 220
-const SIDEBAR_ITEM_ENTER_STAGGER_MS = 88
-const SIDEBAR_ITEM_ENTER_DURATION_MS = 320
-const SIDEBAR_ITEM_OPACITY_DELAY_MS = 36
-
-function getItemMotionStyle(index: number): {
-  '--sm-sidebar-item-enter-base-delay': string
-  '--sm-sidebar-item-enter-duration': string
-  '--sm-sidebar-item-opacity-delay': string
-} {
-  const enterBaseDelay = SIDEBAR_ITEM_ENTER_BASE_DELAY_MS + index * SIDEBAR_ITEM_ENTER_STAGGER_MS
-
-  return {
-    '--sm-sidebar-item-enter-base-delay': `${enterBaseDelay}ms`,
-    '--sm-sidebar-item-enter-duration': `${SIDEBAR_ITEM_ENTER_DURATION_MS}ms`,
-    '--sm-sidebar-item-opacity-delay': `${SIDEBAR_ITEM_OPACITY_DELAY_MS}ms`
-  }
-}
 
 function handleDeleteSession(sessionId: string): void {
   void sessionStore.handleDeleteSession(sessionId)
@@ -290,6 +272,7 @@ async function handleRefreshSandboxList(): Promise<void> {
                     v-if="filteredKnowledgeBases.length > 0"
                     name="sm-sidebar-list-item"
                     tag="div"
+                    appear
                   >
                     <div
                       v-for="(kb, index) in filteredKnowledgeBases"
@@ -298,7 +281,7 @@ async function handleRefreshSandboxList(): Promise<void> {
                         'sm-workspace-sidebar-host__kb-item',
                         { 'is-active': kb.id === activeKbId }
                       ]"
-                      :style="getItemMotionStyle(index)"
+                      :style="getSidebarListItemMotionStyle(index)"
                       @click="handleSelectKnowledgeBase(kb.id)"
                     >
                       <div class="sm-workspace-sidebar-host__kb-icon">
