@@ -624,7 +624,6 @@ function formatDateTime(value?: string): string {
   justify-content: space-between;
   gap: var(--sm-space-5);
   padding: var(--sm-space-6);
-  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
 .workspace-header__copy {
