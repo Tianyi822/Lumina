@@ -168,8 +168,8 @@ function handleConfirm(): void {
 }
 
 .delete-confirm-dialog {
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-bg-app);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 8px;
   width: 400px;
   max-width: 90vw;
@@ -193,14 +193,14 @@ function handleConfirm(): void {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--theme-border);
+  border-bottom: 1px solid var(--sm-color-border-default);
 }
 
 .dialog-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .close-btn {
@@ -212,15 +212,15 @@ function handleConfirm(): void {
   background: none;
   border: none;
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   font-size: 20px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .close-btn:hover {
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
+  background-color: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
 }
 
 .dialog-body {
@@ -231,7 +231,7 @@ function handleConfirm(): void {
   margin: 0 0 16px 0;
   font-size: 14px;
   line-height: 1.6;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   white-space: pre-line;
 }
 
@@ -240,15 +240,15 @@ function handleConfirm(): void {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .delete-option:hover {
-  border-color: var(--theme-text-secondary);
+  border-color: var(--sm-color-text-secondary);
 }
 
 .delete-option input[type='checkbox'] {
@@ -259,7 +259,7 @@ function handleConfirm(): void {
 
 .delete-option span {
   font-size: 14px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .workspace-option input[type='checkbox']:disabled {
@@ -275,7 +275,7 @@ function handleConfirm(): void {
 .hint-message {
   margin: 10px 0 0 0;
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .warning-message {
@@ -283,14 +283,14 @@ function handleConfirm(): void {
   padding: 10px 12px;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
   background-color: rgba(210, 153, 34, 0.1);
   border: 1px solid rgba(210, 153, 34, 0.3);
   border-radius: 6px;
 }
 
 .info-message {
-  color: var(--theme-info);
+  color: var(--sm-color-status-info);
   background-color: rgba(88, 166, 255, 0.1);
   border-color: rgba(88, 166, 255, 0.3);
 }
@@ -305,7 +305,7 @@ function handleConfirm(): void {
   background-color: rgba(210, 153, 34, 0.1);
   border: 1px solid rgba(210, 153, 34, 0.3);
   border-radius: 6px;
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
   font-size: 14px;
   font-weight: 500;
 }
@@ -316,13 +316,13 @@ function handleConfirm(): void {
 
 /* existing 类型特殊样式 */
 .existing-type .dialog-header h3 {
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
 }
 
 /* 安全按钮样式（用于 existing 类型） */
 .btn-safe {
-  background-color: var(--theme-info) !important;
-  border-color: var(--theme-info) !important;
+  background-color: var(--sm-color-status-info) !important;
+  border-color: var(--sm-color-status-info) !important;
 }
 
 .btn-safe:hover {
@@ -334,34 +334,34 @@ function handleConfirm(): void {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
+  border-top: 1px solid var(--sm-color-border-default);
+  background-color: var(--sm-color-surface-1);
 }
 
 .btn-cancel,
 .btn-confirm {
   padding: 8px 16px;
   font-size: 14px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn-cancel {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  color: var(--theme-text-secondary);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  color: var(--sm-color-text-secondary);
 }
 
 .btn-cancel:hover {
-  border-color: var(--theme-text-secondary);
-  color: var(--theme-text);
+  border-color: var(--sm-color-text-secondary);
+  color: var(--sm-color-text-primary);
 }
 
 .btn-confirm {
-  background-color: var(--theme-danger);
-  border: 1px solid var(--theme-danger);
+  background-color: var(--sm-color-status-danger);
+  border: 1px solid var(--sm-color-status-danger);
   color: white;
 }
 

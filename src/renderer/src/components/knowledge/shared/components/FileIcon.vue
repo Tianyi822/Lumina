@@ -30,40 +30,25 @@ const iconInfo = computed(() => getFileIconInfo(props.fileType))
 
 <style scoped>
 .file-icon {
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 10px;
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-secondary);
   flex-shrink: 0;
 }
 
-.file-icon-pdf {
-  background-color: rgba(248, 81, 73, 0.15);
-  color: #f85149;
-}
-
-.file-icon-txt {
-  background-color: rgba(88, 166, 255, 0.15);
-  color: #58a6ff;
-}
-
-.file-icon-md {
-  background-color: rgba(63, 185, 80, 0.15);
-  color: #3fb950;
-}
-
-.file-icon-doc {
-  background-color: rgba(43, 87, 154, 0.15);
-  color: #2b579a;
-}
-
-.file-icon-csv {
-  background-color: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-}
-
+.file-icon-pdf,
+.file-icon-txt,
+.file-icon-md,
+.file-icon-doc,
+.file-icon-csv,
 .file-icon-default {
-  background-color: var(--theme-bg-hover);
-  color: var(--theme-text-secondary);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-secondary);
 }
 </style>

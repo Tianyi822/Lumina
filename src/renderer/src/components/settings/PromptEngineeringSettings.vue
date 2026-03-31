@@ -33,132 +33,87 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="prompt-engineering-settings">
-    <!-- Tab 导航 -->
-    <div class="pe-tabs">
-      <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        :class="['pe-tab-item', { 'pe-tab-active': activeTab === tab.key }]"
-        @click="changeTab(tab.key)"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
+  <div class="sm-settings-page sm-prompt-settings">
+    <header class="sm-settings-page__header">
+      <h2 class="sm-settings-page__title">提示词工程</h2>
+      <p class="sm-settings-page__description">
+        统一管理系统提示词、变量、Few-shot 示例与测试沙箱，让所有提示词配置保持同一套表单语言。
+      </p>
+    </header>
 
-    <Transition name="pe-feedback">
-      <div
-        v-if="hasFeedback"
-        :class="[
-          'pe-feedback-box',
-          feedbackType === 'error' ? 'pe-feedback-error' : 'pe-feedback-success'
-        ]"
-      >
-        <span class="pe-feedback-message">{{ feedbackMessage }}</span>
-        <button class="pe-feedback-close" @click="dismissFeedback">关闭</button>
-      </div>
-    </Transition>
-
-    <div class="pe-content">
-      <div v-if="activeTab === 'basic'" class="pe-tab-pane">
-        <PromptBasicConfig />
+    <section class="sm-settings-page__section sm-prompt-settings__shell">
+      <div class="sm-prompt-settings__tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          :class="['sm-tab', 'sm-prompt-settings__tab', { 'is-active': activeTab === tab.key }]"
+          @click="changeTab(tab.key)"
+        >
+          {{ tab.label }}
+        </button>
       </div>
 
-      <div v-else-if="activeTab === 'variables'" class="pe-tab-pane">
-        <PromptVariablesManager />
-      </div>
-
-      <div v-else-if="activeTab === 'examples'" class="pe-tab-pane">
-        <ExampleManager />
-      </div>
-
-      <div v-else-if="activeTab === 'sandbox'" class="pe-tab-pane">
-        <PromptTestSandbox />
-      </div>
-
-      <Transition name="pe-overlay">
-        <div v-if="initializing" class="pe-loading-overlay">
-          <span>加载中...</span>
+      <Transition name="sm-prompt-feedback">
+        <div
+          v-if="hasFeedback"
+          :class="[
+            'sm-settings-feedback',
+            feedbackType === 'error' ? 'sm-settings-feedback--error' : 'sm-settings-feedback--success'
+          ]"
+        >
+          <span>{{ feedbackMessage }}</span>
+          <button class="sm-prompt-settings__feedback-close" @click="dismissFeedback">关闭</button>
         </div>
       </Transition>
-    </div>
+
+      <div class="sm-prompt-settings__content">
+        <div v-if="activeTab === 'basic'" class="sm-prompt-settings__pane">
+          <PromptBasicConfig />
+        </div>
+
+        <div v-else-if="activeTab === 'variables'" class="sm-prompt-settings__pane">
+          <PromptVariablesManager />
+        </div>
+
+        <div v-else-if="activeTab === 'examples'" class="sm-prompt-settings__pane">
+          <ExampleManager />
+        </div>
+
+        <div v-else-if="activeTab === 'sandbox'" class="sm-prompt-settings__pane">
+          <PromptTestSandbox />
+        </div>
+
+        <Transition name="sm-prompt-overlay">
+          <div v-if="initializing" class="sm-prompt-settings__loading">
+            <span class="sm-spinner sm-spinner--large"></span>
+            <span>加载中...</span>
+          </div>
+        </Transition>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.prompt-engineering-settings {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+.sm-prompt-settings__shell {
+  min-height: 0;
   overflow: hidden;
-  --pe-panel-padding: 16px;
-  --pe-panel-gap: 16px;
-  --pe-feedback-radius: 10px;
 }
 
-.pe-tabs {
+.sm-prompt-settings__tabs {
   display: flex;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--theme-border);
   gap: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--sm-color-border-subtle);
   flex-shrink: 0;
 }
 
-.pe-tab-item {
-  padding: 12px 16px;
+.sm-prompt-settings__feedback-close {
   background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--theme-text-secondary);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  margin-bottom: -1px;
-  font-family: var(--theme-font);
-}
-
-.pe-tab-item:hover {
-  color: var(--theme-text);
-}
-
-.pe-tab-active {
-  color: var(--theme-accent);
-  border-bottom-color: var(--theme-accent);
-}
-
-.pe-feedback-box {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
-  border-top: 1px solid transparent;
-  flex-shrink: 0;
-  gap: 12px;
-}
-
-.pe-feedback-error {
-  background: rgba(239, 68, 68, 0.08);
-  border-top-color: rgba(239, 68, 68, 0.2);
-}
-
-.pe-feedback-success {
-  background: rgba(34, 197, 94, 0.08);
-  border-top-color: rgba(34, 197, 94, 0.2);
-}
-
-.pe-feedback-message {
-  flex: 1;
-  font-size: 13px;
-  color: var(--theme-text);
-  line-height: 1.5;
-}
-
-.pe-feedback-close {
-  background: transparent;
-  border: none;
-  color: var(--theme-text-secondary);
+  border: 1px solid transparent;
+  border-radius: var(--sm-radius-sm);
+  color: var(--sm-color-text-secondary);
   font-size: 12px;
-  font-family: var(--theme-font);
   padding: 4px 8px;
   min-width: 44px;
   height: 24px;
@@ -170,55 +125,58 @@ onBeforeUnmount(() => {
   opacity: 0.7;
 }
 
-.pe-feedback-close:hover {
-  opacity: 1;
+.sm-prompt-settings__feedback-close:hover {
+  color: var(--sm-color-text-primary);
+  border-color: var(--sm-color-border-default);
+  background: var(--sm-color-surface-2);
 }
 
-.pe-content {
+.sm-prompt-settings__content {
   flex: 1;
   overflow-y: auto;
   position: relative;
   min-height: 0;
 }
 
-.pe-tab-pane {
+.sm-prompt-settings__pane {
   min-height: 100%;
 }
 
-.pe-loading-overlay {
+.sm-prompt-settings__loading {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.12);
-  backdrop-filter: blur(2px);
-  color: var(--theme-text-tertiary);
+  gap: var(--sm-space-3);
+  background: rgba(11, 11, 12, 0.72);
+  color: var(--sm-color-text-secondary);
   font-size: 14px;
   z-index: 2;
 }
 
-.pe-feedback-enter-active,
-.pe-feedback-leave-active,
-.pe-overlay-enter-active,
-.pe-overlay-leave-active {
+.sm-prompt-feedback-enter-active,
+.sm-prompt-feedback-leave-active,
+.sm-prompt-overlay-enter-active,
+.sm-prompt-overlay-leave-active {
   transition: opacity 0.18s ease;
 }
 
-.pe-feedback-enter-from,
-.pe-feedback-leave-to,
-.pe-overlay-enter-from,
-.pe-overlay-leave-to {
+.sm-prompt-feedback-enter-from,
+.sm-prompt-feedback-leave-to,
+.sm-prompt-overlay-enter-from,
+.sm-prompt-overlay-leave-to {
   opacity: 0;
 }
 
 @media (max-width: 720px) {
-  .pe-tabs {
+  .sm-prompt-settings__tabs {
     overflow-x: auto;
     padding: 0 12px;
   }
 
-  .pe-feedback-box {
+  .sm-settings-feedback {
     align-items: flex-start;
   }
 }

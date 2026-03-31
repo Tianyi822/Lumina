@@ -3,7 +3,6 @@ import { onMounted, onUnmounted, watch, computed, ref, toRaw } from 'vue'
 import { storeToRefs } from 'pinia'
 import type {
   MCPTool,
-  SessionType,
   KnowledgeBase,
   StreamEvent,
   ChatMessage,
@@ -13,11 +12,11 @@ import type {
   AttachedDocument,
   AttachedImage
 } from '@renderer/types'
-import Sidebar from '@renderer/components/Sidebar.vue'
 import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
 import MessageExportDialog from '@renderer/components/chat/MessageExportDialog.vue'
 import PptExportConfigDialog from '@renderer/components/chat/PptExportConfigDialog.vue'
+import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar.vue'
 import {
   createExportInteractionInfo,
   findLatestExportableAssistantMessage,
@@ -46,10 +45,9 @@ const inputStateStore = useInputStateStore()
 const uiStateStore = useUIStateStore()
 
 // 使用 storeToRefs 保持响应式连接（关键：确保数组内部变化能触发 UI 更新）
-const { currentChatId, messages, sessionList, sessionUpdateKey, currentSession } =
-  storeToRefs(sessionStore)
+const { currentChatId, messages, currentSession } = storeToRefs(sessionStore)
 const { isSending } = storeToRefs(chatStreamStore)
-const { sidebarCollapsed, currentModel } = storeToRefs(uiStateStore)
+const { currentModel } = storeToRefs(uiStateStore)
 
 // 聊天错误状态
 const { showChatError, chatError } = storeToRefs(uiStateStore)
@@ -546,23 +544,6 @@ async function handleStopRequest(): Promise<void> {
   await sessionStore.saveCurrentSession()
 }
 
-// ==================== 新聊天 ====================
-async function handleNewChat(sessionType?: SessionType): Promise<void> {
-  await sessionStore.handleNewChat(sessionType)
-
-  // 新会话创建后重置发送状态（需要传入 isCurrentSession: true 来更新全局 isSending）
-  const newSessionId = currentChatId.value
-  if (newSessionId) {
-    chatStreamStore.setSessionSendingState(newSessionId, false, true)
-  }
-}
-
-// ==================== 会话选择 ====================
-async function handleSelectChat(sessionId: string): Promise<void> {
-  const isSending = await sessionStore.handleSelectChat(sessionId)
-  chatStreamStore.setSessionSendingState(sessionId, isSending, true)
-}
-
 // ==================== 输入状态更新处理 ====================
 function handleUpdateInputMessage(value: string): void {
   inputStateStore.updateInputMessage(value)
@@ -657,46 +638,38 @@ watch(
 </script>
 
 <template>
-  <div class="chat-page">
-    <!-- 侧边栏 -->
-    <div class="sidebar-wrapper" :class="{ collapsed: sidebarCollapsed }">
-      <Sidebar
-        :sessions="sessionList"
-        :active-session-id="currentChatId"
-        :session-update-key="sessionUpdateKey"
-        @new-chat="handleNewChat"
-        @select-chat="handleSelectChat"
-        @delete-session="sessionStore.handleDeleteSession"
-      />
+  <div class="chat-page sm-workspace-main">
+    <div class="sm-workspace-main__toolbar">
+      <WorkspaceToolbar @open-settings="$emit('open-settings')" />
     </div>
 
-    <!-- 主内容区 -->
-    <!-- 使用 :key 绑定 currentChatId 确保切换会话时组件完全重新创建,实现状态隔离 -->
-    <MainContent
-      :key="currentChatId || 'no-chat'"
-      :current-chat-id="currentChatId"
-      :messages="messages"
-      :is-sending="isSending"
-      :current-model-name="currentModel"
-      :config-update-key="0"
-      :input-message="currentInputState.inputMessage"
-      :selected-model="currentInputState.selectedModel"
-      :selected-m-c-p-tools="currentInputState.selectedMCPTools"
-      :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
-      :enable-sandbox-tools="currentInputState.enableSandboxTools"
-      :session-id="currentSession?.sessionId"
-      :export-interaction-info="exportInteractionInfo"
-      :exporting-message-id="exportingMessageId"
-      @send-message="handleSendMessage"
-      @stop-request="handleStopRequest"
-      @update:input-message="handleUpdateInputMessage"
-      @update:selected-model="handleUpdateSelectedModel"
-      @update:selected-m-c-p-tools="handleUpdateSelectedTools"
-      @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
-      @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
-      @request-export="handleRequestExport"
-      @select-export-format="handleInlineExportFormatSelect"
-    />
+    <div class="sm-workspace-main__body sm-workspace-main__body--fill">
+      <MainContent
+        :key="currentChatId || 'no-chat'"
+        :current-chat-id="currentChatId"
+        :messages="messages"
+        :is-sending="isSending"
+        :current-model-name="currentModel"
+        :config-update-key="0"
+        :input-message="currentInputState.inputMessage"
+        :selected-model="currentInputState.selectedModel"
+        :selected-m-c-p-tools="currentInputState.selectedMCPTools"
+        :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
+        :enable-sandbox-tools="currentInputState.enableSandboxTools"
+        :session-id="currentSession?.sessionId"
+        :export-interaction-info="exportInteractionInfo"
+        :exporting-message-id="exportingMessageId"
+        @send-message="handleSendMessage"
+        @stop-request="handleStopRequest"
+        @update:input-message="handleUpdateInputMessage"
+        @update:selected-model="handleUpdateSelectedModel"
+        @update:selected-m-c-p-tools="handleUpdateSelectedTools"
+        @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
+        @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
+        @request-export="handleRequestExport"
+        @select-export-format="handleInlineExportFormatSelect"
+      />
+    </div>
 
     <!-- 聊天错误提示(临时显示) -->
     <ChatErrorToast :show="showChatError" :message="chatErrorMessage" @close="closeChatError" />
@@ -725,29 +698,67 @@ watch(
 
 <style scoped>
 .chat-page {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+  position: relative;
+  overflow: visible;
 }
 
-/* 侧边栏包装器 - 平滑过渡 */
-.sidebar-wrapper {
-  width: 280px;
-  min-width: 280px;
-  height: 100%;
-  overflow: hidden;
-  opacity: 1;
-  transition:
-    width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.2s ease-out;
+.chat-page > .sm-workspace-main__toolbar {
+  position: absolute;
+  top: calc(var(--sm-space-3) * -1);
+  right: 0;
+  left: 0;
+  z-index: 4;
+  min-height: calc(var(--sm-titlebar-height) + var(--sm-space-3));
+  padding: var(--sm-space-3) var(--sm-space-2) 0;
+  background: transparent;
+  border: none;
 }
 
-.sidebar-wrapper.collapsed {
-  width: 0;
-  min-width: 0;
-  opacity: 0;
+.chat-page > .sm-workspace-main__toolbar::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 calc(var(--sm-space-4) * -1) 0;
+  background: var(
+    --sm-chat-toolbar-scrim,
+    linear-gradient(
+      180deg,
+      rgba(14, 14, 16, 0.28) 0%,
+      rgba(14, 14, 16, 0.18) 52%,
+      rgba(14, 14, 16, 0.08) 78%,
+      rgba(14, 14, 16, 0) 100%
+    )
+  );
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.92) 62%,
+    rgba(0, 0, 0, 0.36) 86%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.92) 62%,
+    rgba(0, 0, 0, 0.36) 86%,
+    rgba(0, 0, 0, 0) 100%
+  );
   pointer-events: none;
+}
+
+.chat-page > .sm-workspace-main__body {
+  position: relative;
+  z-index: 1;
+}
+
+:deep(.chat-page .sm-chat-stage__scroll) {
+  padding-top: calc(var(--sm-titlebar-height) + var(--sm-space-3) + var(--sm-space-6));
+}
+
+:deep(.sm-chat-stage) {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
 }
 </style>

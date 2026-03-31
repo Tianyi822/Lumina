@@ -64,6 +64,10 @@ const waitingPlaceholderSubtitle = computed(() => {
   flex-direction: column;
   gap: 12px;
   min-width: min(280px, 68vw);
+  padding: 12px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
 }
 
 .streaming-placeholder-head {
@@ -80,22 +84,17 @@ const waitingPlaceholderSubtitle = computed(() => {
   width: 34px;
   height: 34px;
   border-radius: 12px;
-  background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.22), transparent 55%),
-    linear-gradient(135deg, rgba(70, 170, 143, 0.22), rgba(70, 170, 143, 0.08));
-  border: 1px solid rgba(70, 170, 143, 0.18);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 10px 24px rgba(70, 170, 143, 0.08);
+  background: rgba(142, 149, 217, 0.08);
+  border: 1px solid rgba(142, 149, 217, 0.18);
 }
 
 .streaming-placeholder-pulse span {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--theme-accent) 72%, white);
+  background: var(--sm-color-accent-hover);
   opacity: 0.35;
-  animation: placeholderDotPulse 1.2s ease-in-out infinite;
+  animation: placeholderDotPulse 1.4s ease-in-out infinite;
 }
 
 .streaming-placeholder-pulse span:nth-child(2) {
@@ -116,13 +115,13 @@ const waitingPlaceholderSubtitle = computed(() => {
 .streaming-placeholder-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   line-height: 1.2;
 }
 
 .streaming-placeholder-subtitle {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-secondary);
   line-height: 1.4;
 }
 
@@ -136,14 +135,7 @@ const waitingPlaceholderSubtitle = computed(() => {
   display: block;
   height: 8px;
   border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    rgba(70, 170, 143, 0.12) 0%,
-    rgba(70, 170, 143, 0.26) 48%,
-    rgba(70, 170, 143, 0.12) 100%
-  );
-  background-size: 220% 100%;
-  animation: placeholderShimmer 1.8s linear infinite;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .streaming-placeholder-bar.primary {
@@ -152,28 +144,17 @@ const waitingPlaceholderSubtitle = computed(() => {
 
 .streaming-placeholder-bar.secondary {
   width: min(132px, 72%);
-  animation-delay: 0.15s;
+  opacity: 0.72;
 }
 
 @keyframes placeholderDotPulse {
   0%,
   80%,
   100% {
-    transform: translateY(0) scale(0.92);
     opacity: 0.35;
   }
   40% {
-    transform: translateY(-2px) scale(1);
     opacity: 1;
-  }
-}
-
-@keyframes placeholderShimmer {
-  0% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: -100% 50%;
   }
 }
 </style>

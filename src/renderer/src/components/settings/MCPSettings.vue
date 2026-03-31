@@ -224,97 +224,113 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="tab-content">
-    <!-- MCP 服务器列表 -->
-    <div class="mcp-server-list">
-      <MCPServerItem
-        v-for="config in mcpConfigs"
-        :key="config.name"
-        :config="config"
-        :status="getStatus(config.name)"
-        :expanded="expandedServers.has(config.name)"
-        :connecting="connecting === config.name"
-        :testing="testing === config.name"
-        @toggle-expand="toggleMCPExpand"
-        @connect="handleConnect"
-        @disconnect="handleDisconnect"
-        @delete="handleDelete"
-        @test="handleTest"
-        @save="handleSave"
-        @toggle-enabled="handleToggleEnabled"
+  <div class="sm-settings-page tab-content">
+    <header class="sm-settings-page__header">
+      <h2 class="sm-settings-page__title">MCP 服务配置</h2>
+      <p class="sm-settings-page__description">
+        管理工具服务的连接、传输方式和导入配置，保持与聊天工作区同一套工程控制台语言。
+      </p>
+    </header>
+
+    <section class="sm-settings-page__section">
+      <div class="sm-settings-page__section-header">
+        <div>
+          <h3 class="sm-settings-page__section-title">服务清单</h3>
+          <p class="sm-settings-page__section-description">
+            当前共 {{ mcpConfigs.length }} 个 MCP 服务配置，可逐项测试、连接或编辑。
+          </p>
+        </div>
+      </div>
+
+      <div class="mcp-server-list">
+        <MCPServerItem
+          v-for="config in mcpConfigs"
+          :key="config.name"
+          :config="config"
+          :status="getStatus(config.name)"
+          :expanded="expandedServers.has(config.name)"
+          :connecting="connecting === config.name"
+          :testing="testing === config.name"
+          @toggle-expand="toggleMCPExpand"
+          @connect="handleConnect"
+          @disconnect="handleDisconnect"
+          @delete="handleDelete"
+          @test="handleTest"
+          @save="handleSave"
+          @toggle-enabled="handleToggleEnabled"
+        />
+
+        <div v-if="mcpConfigs.length === 0 && !showNewMCPForm" class="sm-settings-empty">
+          <p>暂无 MCP 服务配置</p>
+        </div>
+      </div>
+
+      <MCPNewServerForm
+        v-if="showNewMCPForm"
+        :existing-names="mcpConfigs.map((c) => c.name)"
+        @submit="handleAddNew"
+        @cancel="showNewMCPForm = false"
+        @test="handleTestNew"
       />
 
-      <!-- 空状态 -->
-      <div v-if="mcpConfigs.length === 0 && !showNewMCPForm" class="empty-state">
-        <p>暂无 MCP 服务配置</p>
-      </div>
-    </div>
-
-    <!-- 添加新 MCP 服务器表单 -->
-    <MCPNewServerForm
-      v-if="showNewMCPForm"
-      :existing-names="mcpConfigs.map((c) => c.name)"
-      @submit="handleAddNew"
-      @cancel="showNewMCPForm = false"
-      @test="handleTestNew"
-    />
-
-    <!-- 添加 MCP 按钮 -->
-    <button v-if="!showNewMCPForm" class="btn add-mcp-btn" @click="showNewMCPForm = true">
-      添加 MCP 服务器
-    </button>
-
-    <!-- 导入 JSON 配置按钮 -->
-    <button v-if="!showNewMCPForm" class="btn import-btn" @click="toggleImportPanel">
-      {{ showImportPanel ? '收起导入' : '导入 JSON 配置' }}
-    </button>
-
-    <!-- 导入面板 -->
-    <div v-if="showImportPanel && !showNewMCPForm" class="import-panel">
-      <label class="import-label" for="mcp-import-json">粘贴 MCP 配置 JSON</label>
-      <textarea
-        id="mcp-import-json"
-        v-model="importJsonContent"
-        class="input import-textarea"
-        :placeholder="importPlaceholder"
-      />
-      <div class="import-actions">
-        <button class="btn btn-small" :disabled="isImporting" @click="importMCPConfigs">
-          {{ isImporting ? '导入中...' : '确认导入' }}
+      <div v-if="!showNewMCPForm" class="sm-settings-actions settings-actions">
+        <button class="sm-button add-mcp-btn" @click="showNewMCPForm = true">
+          添加 MCP 服务器
         </button>
-        <button
-          class="btn btn-small btn-secondary"
-          :disabled="isImporting"
-          @click="toggleImportPanel"
-        >
-          取消
+        <button class="sm-button import-btn" @click="toggleImportPanel">
+          {{ showImportPanel ? '收起导入' : '导入 JSON 配置' }}
         </button>
       </div>
-    </div>
+
+      <div v-if="showImportPanel && !showNewMCPForm" class="import-panel">
+        <label class="import-label" for="mcp-import-json">粘贴 MCP 配置 JSON</label>
+        <textarea
+          id="mcp-import-json"
+          v-model="importJsonContent"
+          class="sm-textarea import-textarea"
+          :placeholder="importPlaceholder"
+        />
+        <div class="import-actions">
+          <button
+            class="sm-button sm-button--small sm-button--primary"
+            :disabled="isImporting"
+            @click="importMCPConfigs"
+          >
+            {{ isImporting ? '导入中...' : '确认导入' }}
+          </button>
+          <button
+            class="sm-button sm-button--small sm-button--secondary"
+            :disabled="isImporting"
+            @click="toggleImportPanel"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
 .import-panel {
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px solid var(--theme-border, rgba(255, 255, 255, 0.08));
-  border-radius: 12px;
-  background: var(--glass-white-03, rgba(255, 255, 255, 0.03));
+  padding: 16px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
 }
 
 .import-label {
   display: block;
   margin-bottom: 8px;
   font-size: 13px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .import-textarea {
   width: 100%;
   min-height: 180px;
   resize: vertical;
-  font-family: var(--theme-font-mono, monospace);
+  font-family: var(--sm-font-mono);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -330,37 +346,39 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 16px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 32px;
-  color: var(--theme-text-secondary);
 }
 
 .add-mcp-btn {
-  width: 100%;
-  padding: 12px;
   border-style: dashed;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .add-mcp-btn:hover {
-  color: var(--theme-accent);
-  border-color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
+  border-color: var(--sm-color-border-accent);
 }
 
 .import-btn {
-  width: 100%;
-  padding: 12px;
   border-style: dashed;
-  color: var(--theme-text-secondary);
-  margin-top: 12px;
+  color: var(--sm-color-text-secondary);
 }
 
 .import-btn:hover {
-  color: var(--theme-accent);
-  border-color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
+  border-color: var(--sm-color-border-accent);
+}
+
+.settings-actions {
+  justify-content: stretch;
+}
+
+.settings-actions > button {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .settings-actions {
+    flex-direction: column;
+  }
 }
 </style>

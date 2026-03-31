@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useUIStateStore, useSandboxStore } from '@renderer/stores'
+import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
 import SandboxList from './SandboxList.vue'
 import type { SandboxListItem } from '@shared/types/sandbox'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
@@ -65,21 +66,30 @@ async function handleRefreshList(): Promise<void> {
 </script>
 
 <template>
-  <aside class="sandbox-sidebar">
-    <div class="sidebar-actions">
-      <button class="btn-primary new-sandbox-btn" @click="handleNewSandbox">新建沙箱</button>
-      <button class="manage-config-btn" @click="handleManageConfigs">管理配置</button>
-    </div>
+  <aside class="sandbox-sidebar sm-sidebar-shell">
+    <WorkspaceSidebarChrome :count="sandboxs.length">
+      <template #actions>
+        <button class="sm-button sm-button--primary new-sandbox-btn" @click="handleNewSandbox">
+          新建沙箱
+        </button>
+        <button
+          class="sm-button sm-button--secondary manage-config-btn"
+          @click="handleManageConfigs"
+        >
+          管理配置
+        </button>
+      </template>
+    </WorkspaceSidebarChrome>
 
-    <div class="search-container">
+    <div class="sm-sidebar-shell__search search-container">
       <input
         v-model="searchQuery"
         type="text"
-        class="input search-input"
-        placeholder="搜索沙箱..."
+        class="sm-input search-input"
+        placeholder="搜索沙箱"
       />
       <button
-        class="btn-refresh"
+        class="sm-icon-button sm-sandbox-sidebar__refresh-button"
         title="刷新列表"
         :disabled="isRefreshing"
         @click="handleRefreshList"
@@ -88,72 +98,30 @@ async function handleRefreshList(): Promise<void> {
       </button>
     </div>
 
-    <SandboxList
-      :sandboxs="filteredSandboxs"
-      :active-sandbox-id="activeSandboxId"
-      :deleting-sandbox-id="deletingSandboxId"
-      @select="handleSelectSandbox"
-      @delete="handleDeleteSandbox"
-    />
+    <div class="sm-sidebar-shell__body sm-sidebar-shell__body--flush">
+      <SandboxList
+        :sandboxs="filteredSandboxs"
+        :active-sandbox-id="activeSandboxId"
+        :deleting-sandbox-id="deletingSandboxId"
+        @select="handleSelectSandbox"
+        @delete="handleDeleteSandbox"
+      />
+    </div>
   </aside>
 </template>
 
 <style scoped>
 .sandbox-sidebar {
-  width: 280px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--theme-bg);
-  border-right: 1px solid var(--theme-border);
-  flex-shrink: 0;
-}
-
-.sidebar-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  min-height: 0;
 }
 
 .new-sandbox-btn,
 .manage-config-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
   width: 100%;
-  margin: 0;
-}
-
-.new-sandbox-btn {
-  background: #46aa8f;
-  border-color: rgba(70, 170, 143, 0.4);
-}
-
-.new-sandbox-btn:hover {
-  background: #3d9980;
-}
-
-.manage-config-btn {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  color: var(--theme-text);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-family: var(--theme-font);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.manage-config-btn:hover {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-accent);
+  min-height: 36px;
 }
 
 .search-container {
-  padding: 0 12px 12px;
   display: flex;
   gap: 8px;
   align-items: center;
@@ -163,34 +131,34 @@ async function handleRefreshList(): Promise<void> {
   flex: 1;
 }
 
-.btn-refresh {
+.sm-sandbox-sidebar__refresh-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   padding: 0;
-  background: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  color: var(--theme-accent);
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 8px;
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
-.btn-refresh:hover:not(:disabled) {
-  background-color: var(--theme-bg-hover);
-  border-color: var(--theme-accent);
-  color: var(--theme-text);
+.sm-sandbox-sidebar__refresh-button:hover:not(:disabled) {
+  background-color: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
+  color: var(--sm-color-text-primary);
 }
 
-.btn-refresh:disabled {
+.sm-sandbox-sidebar__refresh-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.btn-refresh svg {
+.sm-sandbox-sidebar__refresh-button svg {
   display: block;
 }
 </style>

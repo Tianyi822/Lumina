@@ -254,8 +254,8 @@ function formatDate(dateString: string): string {
 }
 
 .config-manager {
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-bg-app);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 8px;
   width: 90%;
   max-width: 800px;
@@ -270,7 +270,7 @@ function formatDate(dateString: string): string {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--theme-border);
+  border-bottom: 1px solid var(--sm-color-border-default);
 }
 
 .manager-header h2 {
@@ -288,46 +288,46 @@ function formatDate(dateString: string): string {
   background: none;
   border: none;
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   font-size: 24px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .close-btn:hover {
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
+  background-color: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
 }
 
 .manager-tabs {
   display: flex;
   gap: 8px;
   padding: 12px 20px;
-  border-bottom: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
+  border-bottom: 1px solid var(--sm-color-border-default);
+  background-color: var(--sm-color-surface-1);
 }
 
 .tab-btn {
   padding: 8px 16px;
   font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-bg-app);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .tab-btn:hover {
-  border-color: var(--theme-text-secondary);
-  color: var(--theme-text);
+  border-color: var(--sm-color-text-secondary);
+  color: var(--sm-color-text-primary);
 }
 
 .tab-btn.active {
-  background-color: var(--theme-accent);
-  border-color: var(--theme-accent);
-  color: var(--theme-bg);
+  background-color: var(--sm-color-accent);
+  border-color: var(--sm-color-accent);
+  color: var(--sm-color-bg-app);
 }
 
 .manager-content {
@@ -342,15 +342,15 @@ function formatDate(dateString: string): string {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   gap: 16px;
 }
 
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--theme-border);
-  border-top-color: var(--theme-accent);
+  border: 3px solid var(--sm-color-border-default);
+  border-top-color: var(--sm-color-accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -367,14 +367,14 @@ function formatDate(dateString: string): string {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   text-align: center;
 }
 
 .empty-title {
   font-size: 16px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin: 0 0 8px 0;
 }
 
@@ -394,8 +394,8 @@ function formatDate(dateString: string): string {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 6px;
 }
 
@@ -407,7 +407,7 @@ function formatDate(dateString: string): string {
 .config-name {
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin-bottom: 4px;
 }
 
@@ -415,7 +415,7 @@ function formatDate(dateString: string): string {
   display: flex;
   gap: 16px;
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .config-actions {
@@ -426,23 +426,23 @@ function formatDate(dateString: string): string {
 .btn-small {
   padding: 4px 10px;
   font-size: 12px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-bg-app);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn-small:hover {
-  border-color: var(--theme-accent);
-  color: var(--theme-accent);
+  border-color: var(--sm-color-accent);
+  color: var(--sm-color-accent);
 }
 
 .btn-small.danger:hover {
-  border-color: var(--theme-danger);
-  color: var(--theme-danger);
+  border-color: var(--sm-color-status-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .config-viewer {
@@ -460,18 +460,18 @@ function formatDate(dateString: string): string {
 .back-btn {
   padding: 6px 12px;
   font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .back-btn:hover {
-  border-color: var(--theme-text-secondary);
-  color: var(--theme-text);
+  border-color: var(--sm-color-text-secondary);
+  color: var(--sm-color-text-primary);
 }
 
 .viewer-header h4 {
@@ -484,20 +484,20 @@ function formatDate(dateString: string): string {
   display: flex;
   gap: 16px;
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .code-viewer {
   width: 100%;
   min-height: 300px;
   padding: 12px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   font-size: 13px;
   line-height: 1.5;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 6px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   resize: vertical;
   white-space: pre;
   tab-size: 2;
@@ -512,28 +512,28 @@ function formatDate(dateString: string): string {
 .btn {
   padding: 6px 12px;
   font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn:hover {
-  border-color: var(--theme-text-secondary);
-  color: var(--theme-text);
+  border-color: var(--sm-color-text-secondary);
+  color: var(--sm-color-text-primary);
 }
 
 .btn-primary {
   padding: 6px 12px;
   font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-accent);
-  border: 1px solid var(--theme-accent);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-accent);
+  border: 1px solid var(--sm-color-accent);
   border-radius: 4px;
-  color: var(--theme-bg);
+  color: var(--sm-color-bg-app);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -545,9 +545,9 @@ function formatDate(dateString: string): string {
 .btn-danger {
   padding: 6px 12px;
   font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-danger);
-  border: 1px solid var(--theme-danger);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-status-danger);
+  border: 1px solid var(--sm-color-status-danger);
   border-radius: 4px;
   color: white;
   cursor: pointer;
@@ -572,8 +572,8 @@ function formatDate(dateString: string): string {
 }
 
 .confirm-dialog {
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-bg-app);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 8px;
   padding: 20px;
   width: 320px;
@@ -588,7 +588,7 @@ function formatDate(dateString: string): string {
 .confirm-dialog p {
   margin: 0 0 16px 0;
   font-size: 14px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .confirm-actions {

@@ -20,24 +20,24 @@ function setDetailTab(tab: TabType): void {
 </script>
 
 <template>
-  <div v-if="visible" class="detail-tabs">
+  <div v-if="visible" class="detail-tabs" role="tablist" aria-label="沙箱详情视图">
     <button
       class="tab-btn"
-      :class="{ active: sandboxDetailTab === 'stats' }"
+      :class="{ 'is-active': sandboxDetailTab === 'stats' }"
       @click="setDetailTab('stats')"
     >
       监控
     </button>
     <button
       class="tab-btn"
-      :class="{ active: sandboxDetailTab === 'terminal' }"
+      :class="{ 'is-active': sandboxDetailTab === 'terminal' }"
       @click="setDetailTab('terminal')"
     >
       终端
     </button>
     <button
       class="tab-btn"
-      :class="{ active: sandboxDetailTab === 'logs' }"
+      :class="{ 'is-active': sandboxDetailTab === 'logs' }"
       @click="setDetailTab('logs')"
     >
       日志
@@ -47,33 +47,41 @@ function setDetailTab(tab: TabType): void {
 
 <style scoped>
 .detail-tabs {
-  display: flex;
-  gap: 4px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
   flex-shrink: 0;
 }
 
 .tab-btn {
-  padding: 6px 12px;
+  min-height: 36px;
+  padding: 0 14px;
   font-size: 13px;
-  font-family: var(--theme-font);
+  font-weight: 500;
   background-color: transparent;
-  border: none;
-  border-radius: 4px;
-  color: var(--theme-text-secondary);
+  border: 1px solid transparent;
+  border-radius: var(--sm-radius-sm);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
 .tab-btn:hover {
-  background-color: var(--theme-bg);
-  color: var(--theme-text);
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-subtle);
+  color: var(--sm-color-text-primary);
 }
 
-.tab-btn.active {
-  background-color: var(--theme-accent);
-  color: var(--theme-bg);
+.tab-btn.is-active {
+  background: rgba(142, 149, 217, 0.12);
+  border-color: var(--sm-color-border-accent);
+  color: var(--sm-color-text-primary);
 }
 </style>

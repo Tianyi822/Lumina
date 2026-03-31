@@ -4,7 +4,17 @@
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { useSessionStore } from './sessionStore'
-import type { ThemeConfig } from '@shared/types/config'
+import type { ThemeConfig, ThemeMode } from '@shared/types/config'
+import {
+  DEFAULT_THEME_ID,
+  DEFAULT_THEME_MODE,
+  normalizeThemeId,
+  normalizeThemeMode,
+  resolveEffectiveTheme,
+  resolveNativeThemeSource,
+  type SystemTheme,
+  type ThemeId
+} from '@shared/utils'
 
 // 视图类型
 export type ViewMode = 'chat' | 'knowledge' | 'sandbox'
@@ -38,27 +48,27 @@ export interface ThemeMeta {
  */
 export const AVAILABLE_THEMES: ThemeMeta[] = [
   {
-    id: 'blooming-flowers',
-    name: 'Blooming Flowers',
-    description: '繁花主题，自然清新的绿色系',
+    id: 'sparrow-dark',
+    name: 'Sparrow Dark',
+    description: '深色基准主题，统一整个应用的深色、平面和受控交互基线',
     previewColors: {
-      primary: '#0a594e',
-      secondary: '#46aa8f',
-      accent: '#70d75c',
-      extra1: '#d0ed35',
-      extra2: '#ffb003'
+      primary: '#121212',
+      secondary: '#1b1f26',
+      accent: '#8e95d9',
+      extra1: '#272c36',
+      extra2: '#a1a7e6'
     }
   },
   {
-    id: 'sunset-coast',
-    name: 'Sunset Coast',
-    description: '日落海岸，海洋与天空的温暖渐变',
+    id: 'sparrow-light',
+    name: 'Sparrow Light',
+    description: '浅色主题，清新明亮的界面风格',
     previewColors: {
-      primary: '#014944',
-      secondary: '#347a73',
-      accent: '#7c93ce',
-      extra1: '#c7b6dc',
-      extra2: '#fcccc9'
+      primary: '#f5f5f7',
+      secondary: '#f7f7f8',
+      accent: '#6c72b4',
+      extra1: '#e2e2e6',
+      extra2: '#5b60a3'
     }
   }
 ]
@@ -101,6 +111,9 @@ export const useUIStateStore = defineStore(
     // 是否显示配置管理器弹窗
     const showConfigManager = ref(false)
 
+    // 是否显示知识库文件管理弹窗
+    const showKnowledgeFileManager = ref(false)
+
     // ==================== State: 配置更新通知 ====================
 
     // 配置更新计数器（用于触发组件刷新）
@@ -126,10 +139,23 @@ export const useUIStateStore = defineStore(
     // ==================== State: 主题 ====================
 
     // 当前主题 ID
-    const currentTheme = ref<string>('blooming-flowers')
+    const currentTheme = ref<string>('sparrow-dark')
+
+    // 手动模式下选中的主题
+    const selectedTheme = ref<ThemeId>(DEFAULT_THEME_ID)
+
+    // 主题模式：手动 or 跟随系统
+    const themeMode = ref<ThemeMode>(DEFAULT_THEME_MODE)
+
+    // 当前系统主题
+    const systemTheme = ref<SystemTheme>('dark')
 
     // 主题是否已初始化（从配置文件加载）
     const themeInitialized = ref(false)
+
+    // 系统主题监听解绑函数
+    let cleanupSystemThemeListener: (() => void) | null = null
+    let systemThemeMediaQuery: MediaQueryList | null = null
 
     // ==================== Getters ====================
 
@@ -141,6 +167,19 @@ export const useUIStateStore = defineStore(
 
     // 是否在沙箱视图
     const isSandboxView = computed(() => currentView.value === 'sandbox')
+
+    // 当前视图对应的侧边栏是否折叠
+    const isCurrentSidebarCollapsed = computed(() => {
+      if (currentView.value === 'chat') {
+        return sidebarCollapsed.value
+      }
+
+      if (currentView.value === 'knowledge') {
+        return knowledgeSidebarCollapsed.value
+      }
+
+      return sandboxSidebarCollapsed.value
+    })
 
     // 是否有任何错误显示
     const hasAnyError = computed(() => showConfigError.value || showChatError.value)
@@ -185,6 +224,32 @@ export const useUIStateStore = defineStore(
       knowledgeSidebarCollapsed.value = collapsed
     }
 
+    // 切换当前视图对应的侧边栏状态
+    function toggleCurrentSidebar(): void {
+      const nextCollapsed = !isCurrentSidebarCollapsed.value
+      setCurrentSidebarCollapsed(nextCollapsed)
+
+      window.api.logger.debug('[UIStateStore] 切换当前视图侧边栏', {
+        view: currentView.value,
+        collapsed: nextCollapsed
+      })
+    }
+
+    // 设置当前视图对应的侧边栏状态
+    function setCurrentSidebarCollapsed(collapsed: boolean): void {
+      if (currentView.value === 'chat') {
+        setSidebarCollapsed(collapsed)
+        return
+      }
+
+      if (currentView.value === 'knowledge') {
+        setKnowledgeSidebarCollapsed(collapsed)
+        return
+      }
+
+      setSandboxSidebarCollapsed(collapsed)
+    }
+
     // ==================== Actions: 沙箱页面 UI ====================
 
     // 设置沙箱详情当前 Tab
@@ -211,6 +276,16 @@ export const useUIStateStore = defineStore(
     // 关闭配置管理器弹窗
     function closeConfigManager(): void {
       showConfigManager.value = false
+    }
+
+    // 打开知识库文件管理弹窗
+    function openKnowledgeFileManager(): void {
+      showKnowledgeFileManager.value = true
+    }
+
+    // 关闭知识库文件管理弹窗
+    function closeKnowledgeFileManager(): void {
+      showKnowledgeFileManager.value = false
     }
 
     // 设置当前模型
@@ -380,6 +455,96 @@ export const useUIStateStore = defineStore(
     function applyThemeToDom(themeId: string): void {
       const html = document.documentElement
       html.setAttribute('data-theme', themeId)
+      html.style.colorScheme = themeId === 'sparrow-light' ? 'light' : 'dark'
+      localStorage.setItem(
+        'sparrow-theme-preference',
+        JSON.stringify({
+          mode: themeMode.value,
+          name: selectedTheme.value,
+          effectiveTheme: themeId
+        })
+      )
+    }
+
+    function resolveCurrentTheme(): ThemeId {
+      return resolveEffectiveTheme(themeMode.value, selectedTheme.value, systemTheme.value)
+    }
+
+    async function syncNativeTheme(): Promise<void> {
+      const nativeSource = resolveNativeThemeSource(themeMode.value, selectedTheme.value)
+      await window.api.window.setNativeTheme(nativeSource)
+    }
+
+    async function applyResolvedTheme(persist: boolean): Promise<void> {
+      const resolvedTheme = resolveCurrentTheme()
+      currentTheme.value = resolvedTheme
+      applyThemeToDom(resolvedTheme)
+
+      try {
+        await syncNativeTheme()
+      } catch {
+        window.api.logger?.warn('[UIStateStore] 同步原生主题失败')
+      }
+
+      if (!persist) {
+        return
+      }
+
+      try {
+        const themeConfig: ThemeConfig = {
+          name: selectedTheme.value,
+          mode: themeMode.value
+        }
+        await window.api.config.updateConfig({ theme: themeConfig })
+        window.api.logger?.info('[UIStateStore] 主题偏好已保存', {
+          mode: themeMode.value,
+          selectedTheme: selectedTheme.value,
+          currentTheme: resolvedTheme
+        })
+      } catch (error) {
+        window.api.logger?.error('[UIStateStore] 保存主题配置失败', {
+          error: error instanceof Error ? error.message : String(error)
+        })
+      }
+    }
+
+    async function updateSystemTheme(nextTheme: SystemTheme): Promise<void> {
+      systemTheme.value = nextTheme
+
+      if (themeMode.value !== 'system') {
+        return
+      }
+
+      await applyResolvedTheme(false)
+      window.api.logger?.info('[UIStateStore] 跟随系统主题更新', {
+        systemTheme: nextTheme,
+        currentTheme: currentTheme.value
+      })
+    }
+
+    function ensureSystemThemeListener(): void {
+      if (cleanupSystemThemeListener) {
+        return
+      }
+
+      systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+      const listener = (event: MediaQueryListEvent): void => {
+        void updateSystemTheme(event.matches ? 'dark' : 'light')
+      }
+
+      if (typeof systemThemeMediaQuery.addEventListener === 'function') {
+        systemThemeMediaQuery.addEventListener('change', listener)
+        cleanupSystemThemeListener = () => {
+          systemThemeMediaQuery?.removeEventListener('change', listener)
+        }
+        return
+      }
+
+      systemThemeMediaQuery.addListener(listener)
+      cleanupSystemThemeListener = () => {
+        systemThemeMediaQuery?.removeListener(listener)
+      }
     }
 
     /**
@@ -392,19 +557,22 @@ export const useUIStateStore = defineStore(
 
       try {
         const config = (await window.api.config.getConfig()) as { theme?: ThemeConfig } | null
-        if (config?.theme?.name && AVAILABLE_THEMES.some((t) => t.id === config.theme!.name)) {
-          currentTheme.value = config.theme.name
-        } else {
-          currentTheme.value = 'blooming-flowers'
-        }
+        selectedTheme.value = normalizeThemeId(config?.theme?.name)
+        themeMode.value = normalizeThemeMode(config?.theme?.mode)
       } catch (error) {
         window.api.logger?.warn('[UIStateStore] 无法从配置文件加载主题，使用默认主题', {
           error: error instanceof Error ? error.message : String(error)
         })
-        currentTheme.value = 'blooming-flowers'
+        selectedTheme.value = DEFAULT_THEME_ID
+        themeMode.value = DEFAULT_THEME_MODE
       }
 
-      applyThemeToDom(currentTheme.value)
+      systemTheme.value = window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light'
+
+      ensureSystemThemeListener()
+      await applyResolvedTheme(false)
       themeInitialized.value = true
     }
 
@@ -417,19 +585,16 @@ export const useUIStateStore = defineStore(
         return
       }
 
-      currentTheme.value = themeId
-      applyThemeToDom(themeId)
+      selectedTheme.value = normalizeThemeId(themeId)
+      await applyResolvedTheme(true)
+    }
 
-      // 保存主题到配置文件
-      try {
-        const themeConfig: ThemeConfig = { name: themeId }
-        await window.api.config.updateConfig({ theme: themeConfig })
-        window.api.logger?.info('[UIStateStore] 主题已保存', { themeId })
-      } catch (error) {
-        window.api.logger?.error('[UIStateStore] 保存主题配置失败', {
-          error: error instanceof Error ? error.message : String(error)
-        })
-      }
+    /**
+     * 设置主题模式（手动或跟随系统）
+     */
+    async function setThemeMode(mode: ThemeMode): Promise<void> {
+      themeMode.value = normalizeThemeMode(mode)
+      await applyResolvedTheme(true)
     }
 
     /**
@@ -465,6 +630,7 @@ export const useUIStateStore = defineStore(
       sandboxDetailTab,
       showSandboxCreator,
       showConfigManager,
+      showKnowledgeFileManager,
 
       // State: 配置更新通知
       configUpdateKey,
@@ -478,12 +644,16 @@ export const useUIStateStore = defineStore(
 
       // State: 主题
       currentTheme,
+      selectedTheme,
+      themeMode,
+      systemTheme,
       themeInitialized,
 
       // Getters
       isChatView,
       isKnowledgeView,
       isSandboxView,
+      isCurrentSidebarCollapsed,
       hasAnyError,
       currentThemeMeta,
 
@@ -493,6 +663,8 @@ export const useUIStateStore = defineStore(
       setSidebarCollapsed,
       setSandboxSidebarCollapsed,
       setKnowledgeSidebarCollapsed,
+      toggleCurrentSidebar,
+      setCurrentSidebarCollapsed,
       setCurrentModel,
 
       // Actions: 沙箱页面 UI
@@ -501,6 +673,8 @@ export const useUIStateStore = defineStore(
       closeSandboxCreator,
       openConfigManager,
       closeConfigManager,
+      openKnowledgeFileManager,
+      closeKnowledgeFileManager,
 
       // Actions: 视图切换
       switchToChatView,
@@ -526,6 +700,7 @@ export const useUIStateStore = defineStore(
       // Actions: 主题管理
       initTheme,
       setTheme,
+      setThemeMode,
       getAvailableThemes
     }
   },
@@ -534,7 +709,12 @@ export const useUIStateStore = defineStore(
     persist: {
       key: 'sparrow-ui-state',
       // 只持久化 UI 偏好设置
-      pick: ['sidebarCollapsed', 'lastChatSessionId']
+      pick: [
+        'sidebarCollapsed',
+        'knowledgeSidebarCollapsed',
+        'sandboxSidebarCollapsed',
+        'lastChatSessionId'
+      ]
     }
   }
 )

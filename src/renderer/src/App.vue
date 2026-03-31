@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
-import TitleBar from './components/TitleBar.vue'
 import ChatPage from './pages/ChatPage.vue'
 import KnowledgePage from './pages/KnowledgePage.vue'
 import SandboxPage from './pages/SandboxPage.vue'
 import ErrorBanner from './components/ErrorBanner.vue'
 import SettingsModal from './components/SettingsModal.vue'
+import WorkspaceSidebarHost from './components/chrome/WorkspaceSidebarHost.vue'
 
 // Composables
 import { useLifecycle } from './composables/lifecycle/useLifecycle'
@@ -20,8 +20,7 @@ const { initTheme } = useTheme()
 
 // ==================== UI 状态管理（直接使用 Store）====================
 const uiState = useUIStateStore()
-const { currentView, isChatView, isKnowledgeView, isSandboxView, configError } =
-  storeToRefs(uiState)
+const { currentView, isChatView, isKnowledgeView, configError } = storeToRefs(uiState)
 
 // 配置 Store - 用于加载语音识别等配置
 const configStore = useConfigStore()
@@ -48,8 +47,8 @@ function handleMCPUpdated(): void {
 
 // ==================== 视图切换监听 ====================
 watch(
-  () => currentView,
-  async (newView, oldView) => {
+  () => currentView.value,
+  (newView, oldView) => {
     window.api.logger.debug('[App] 视图切换', {
       from: oldView,
       to: newView
@@ -106,47 +105,31 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-container">
-    <!-- 自定义标题栏 -->
-    <TitleBar @open-settings="openSettings" />
-
+  <div class="sm-app">
     <!-- 配置加载错误提示(仅在加载失败时显示) -->
-    <ErrorBanner :error="configError" @dismiss="dismissError" />
+    <Transition name="sm-feedback" appear>
+      <ErrorBanner v-if="configError" :error="configError" @dismiss="dismissError" />
+    </Transition>
 
     <!-- 主布局 -->
-    <div class="app-layout">
-      <!-- Chat 视图 -->
-      <ChatPage v-if="isChatView" @open-settings="openSettings" />
+    <div class="sm-shell sm-workspace-page">
+      <WorkspaceSidebarHost />
 
-      <!-- 知识库视图 -->
-      <KnowledgePage v-else-if="isKnowledgeView" />
+      <Transition name="sm-workspace-switch" mode="out-in" appear>
+        <!-- Chat 视图 -->
+        <ChatPage v-if="isChatView" key="chat" @open-settings="openSettings" />
 
-      <!-- 沙箱视图 -->
-      <SandboxPage v-else-if="isSandboxView" />
+        <!-- 知识库视图 -->
+        <KnowledgePage v-else-if="isKnowledgeView" key="knowledge" @open-settings="openSettings" />
+
+        <!-- 沙箱视图 -->
+        <SandboxPage v-else key="sandbox" @open-settings="openSettings" />
+      </Transition>
     </div>
 
     <!-- 设置弹窗 -->
-    <SettingsModal v-if="showSettings" @close="closeSettings" @mcp-updated="handleMCPUpdated" />
+    <Transition name="sm-modal" appear>
+      <SettingsModal v-if="showSettings" @close="closeSettings" @mcp-updated="handleMCPUpdated" />
+    </Transition>
   </div>
 </template>
-
-<style scoped>
-.app-container {
-  width: 100%;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg);
-  color: var(--theme-text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* 主布局 */
-.app-layout {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-}
-</style>

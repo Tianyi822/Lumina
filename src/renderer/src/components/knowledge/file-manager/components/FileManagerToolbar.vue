@@ -13,17 +13,19 @@ const { searchFiles } = fileStore
 
 <template>
   <div class="file-manager-toolbar">
-    <div class="search-box">
+    <div class="toolbar-search">
       <input
         v-model="searchQuery"
         type="text"
-        class="search-input"
+        class="sm-input search-input"
         placeholder="搜索文件..."
         @input="searchFiles(searchQuery)"
       />
-      <span class="search-icon">🔍</span>
     </div>
-    <div class="file-stats">共 {{ filteredFiles.length }} 个文件</div>
+    <div class="file-stats">
+      <span class="file-stats__label">文件资源池</span>
+      <span class="file-stats__count">{{ filteredFiles.length }} 个文件</span>
+    </div>
   </div>
 </template>
 
@@ -32,45 +34,51 @@ const { searchFiles } = fileStore
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  gap: 16px;
-  border-bottom: 1px solid var(--theme-border);
+  gap: var(--sm-space-4);
+  padding: 0 var(--sm-space-5);
 }
 
-.search-box {
-  position: relative;
+.toolbar-search {
   flex: 1;
-  max-width: 300px;
+  max-width: 360px;
 }
 
 .search-input {
   width: 100%;
-  padding: 8px 12px 8px 36px;
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
-  font-size: 14px;
-  outline: none;
-  transition: all 0.15s ease;
-}
-
-.search-input:focus {
-  border-color: var(--theme-accent);
-  box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.1);
-}
-
-.search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 14px;
-  opacity: 0.5;
 }
 
 .file-stats {
-  font-size: 13px;
-  color: var(--theme-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  white-space: nowrap;
+}
+
+.file-stats__label {
+  font-size: 12px;
+  color: var(--sm-color-text-tertiary);
+}
+
+.file-stats__count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  color: var(--sm-color-text-secondary);
+}
+
+@media (max-width: 720px) {
+  .file-manager-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-search {
+    max-width: none;
+  }
 }
 </style>

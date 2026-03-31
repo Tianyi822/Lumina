@@ -36,8 +36,7 @@ const emit = defineEmits<{
 <style scoped>
 .pending-images-list {
   display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--sm-space-2);
   overflow-x: auto;
   padding-bottom: 4px;
 }
@@ -47,8 +46,8 @@ const emit = defineEmits<{
 }
 
 .pending-images-list::-webkit-scrollbar-thumb {
-  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  border-radius: 2px;
+  background: var(--sm-color-border-default);
+  border-radius: 999px;
 }
 
 .pending-image-item {
@@ -58,18 +57,20 @@ const emit = defineEmits<{
   align-items: center;
   gap: 4px;
   padding: 6px;
-  background: linear-gradient(135deg, rgba(70, 170, 143, 0.08) 0%, rgba(70, 170, 143, 0.03) 100%);
-  border: 1px solid rgba(70, 170, 143, 0.2);
-  border-radius: var(--theme-radius-sm, 6px);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
   min-width: 80px;
   max-width: 100px;
   flex-shrink: 0;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
 .pending-image-item:hover {
-  background: linear-gradient(135deg, rgba(70, 170, 143, 0.12) 0%, rgba(70, 170, 143, 0.05) 100%);
-  border-color: rgba(70, 170, 143, 0.3);
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
 }
 
 .image-thumbnail {
@@ -77,7 +78,7 @@ const emit = defineEmits<{
   height: 64px;
   object-fit: cover;
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--sm-color-bg-embedded);
 }
 
 .pending-image-info {
@@ -96,14 +97,14 @@ const emit = defineEmits<{
   white-space: nowrap;
   font-size: 10px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   text-align: center;
   line-height: 1.3;
 }
 
 .pending-image-size {
   font-size: 9px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   opacity: 0.7;
   line-height: 1.3;
 }
@@ -118,13 +119,13 @@ const emit = defineEmits<{
   width: 16px;
   height: 16px;
   padding: 0;
-  background: rgba(0, 0, 0, 0.5);
-  border: none;
+  background: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 50%;
-  color: white;
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--sm-transition-fast);
 }
 
 .pending-image-item:hover .pending-image-remove {
@@ -132,7 +133,8 @@ const emit = defineEmits<{
 }
 
 .pending-image-remove:hover {
-  background: rgba(239, 68, 68, 0.8);
+  background: rgba(199, 120, 120, 0.16);
+  color: var(--sm-color-status-danger);
 }
 
 .pending-image-remove:disabled {

@@ -1,93 +1,18 @@
 /**
- * 全局表单样式
- * 统一表单组件的样式 - 玻璃效果增强
+ * Global form layout helpers.
+ * Field visuals are now owned by `sm-components.css`.
  */
 
-/* ==================== 表单组 ==================== */
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: var(--sm-space-5);
 }
 
 .form-group label {
   display: block;
+  margin-bottom: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--theme-text);
-  margin-bottom: 8px;
-}
-
-/* ==================== 表单输入框 ==================== */
-.form-input {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--theme-text);
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
-      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
-    ),
-    rgba(0, 0, 0, 0.017);
-  backdrop-filter: blur(8px) saturate(190%);
-  -webkit-backdrop-filter: blur(8px) saturate(190%);
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  border-radius: var(--theme-radius-sm, 6px);
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  font-family: var(--theme-font);
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
-    ),
-    rgba(0, 0, 0, 0.02);
-}
-
-.form-input::placeholder {
-  color: var(--theme-text-tertiary);
-}
-
-.form-input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ==================== 文本域 ==================== */
-.form-textarea,
-.textarea {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--theme-text);
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
-      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
-    ),
-    rgba(0, 0, 0, 0.017);
-  backdrop-filter: blur(8px) saturate(190%);
-  -webkit-backdrop-filter: blur(8px) saturate(190%);
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  border-radius: var(--theme-radius-sm, 6px);
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  font-family: var(--theme-font);
-  resize: vertical;
-  min-height: 80px;
-}
-
-.form-textarea:focus,
-.textarea:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  color: var(--sm-color-text-primary);
 }
 
 .form-textarea.small,
@@ -95,102 +20,56 @@
   min-height: 60px;
 }
 
-/* ==================== 下拉选择框 ==================== */
-.form-select,
-.select {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--theme-text);
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
-      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
-    ),
-    rgba(0, 0, 0, 0.017);
-  backdrop-filter: blur(8px) saturate(190%);
-  -webkit-backdrop-filter: blur(8px) saturate(190%);
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  border-radius: var(--theme-radius-sm, 6px);
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  font-family: var(--theme-font);
-  cursor: pointer;
-  appearance: none;
-  background-image: var(--icon-arrow-down-svg);
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 36px;
-}
-
-.form-select:focus,
-.select:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-}
-
-.form-select:disabled,
-.select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ==================== 表单提示文本 ==================== */
 .form-hint {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--theme-text-tertiary);
   line-height: 1.5;
+  color: var(--sm-color-text-secondary);
 }
 
 .form-error {
   margin-top: 8px;
   font-size: 12px;
-  color: var(--theme-danger);
+  line-height: 1.5;
+  color: var(--sm-color-status-danger);
 }
 
-/* ==================== 表单操作按钮区域 ==================== */
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
+  gap: var(--sm-space-3);
+  margin-top: var(--sm-space-5);
 }
 
 .form-actions.with-border {
-  padding-top: 16px;
-  border-top: 1px solid var(--theme-border);
+  padding-top: var(--sm-space-4);
+  border-top: 1px solid var(--sm-color-border-subtle);
 }
 
-/* ==================== 测试结果提示 ==================== */
 .test-result {
-  padding: 10px;
-  border-radius: var(--theme-radius-sm, 6px);
+  margin-top: var(--sm-space-4);
+  padding: var(--sm-space-3) var(--sm-space-4);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
   font-size: 13px;
-  margin-top: 16px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
 .test-result.success {
-  background: rgba(34, 197, 94, 0.15);
-  color: var(--theme-success);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-color: rgba(127, 176, 138, 0.28);
+  background: rgba(127, 176, 138, 0.08);
+  color: var(--sm-color-status-success);
 }
 
 .test-result.error {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--theme-danger);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-color: rgba(199, 120, 120, 0.28);
+  background: rgba(199, 120, 120, 0.08);
+  color: var(--sm-color-status-danger);
 }
 
 .test-result.info {
-  background: linear-gradient(
-    135deg,
-    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
-    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
-  );
-  color: var(--theme-text);
-  border: 1px solid var(--theme-border);
+  border-color: rgba(142, 149, 217, 0.28);
+  background: rgba(142, 149, 217, 0.08);
+  color: var(--sm-color-accent-hover);
 }

@@ -35,7 +35,7 @@ const emit = defineEmits<{
 .message-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sm-space-2);
   flex-shrink: 0;
 }
 
@@ -44,22 +44,18 @@ const emit = defineEmits<{
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 999px;
-  background: linear-gradient(
-    135deg,
-    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
-    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
-  );
+  background: var(--sm-color-surface-1);
   color: inherit;
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
   transition:
-    border-color 0.2s ease,
-    color 0.2s ease,
-    box-shadow 0.2s ease;
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .export-button svg {
@@ -68,9 +64,9 @@ const emit = defineEmits<{
 }
 
 .export-button:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
-  color: inherit;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  border-color: var(--sm-color-border-accent);
+  color: var(--sm-color-text-primary);
+  background: rgba(142, 149, 217, 0.08);
 }
 
 .export-button:disabled {
@@ -86,7 +82,7 @@ const emit = defineEmits<{
   font-size: 11px;
   line-height: 1;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--sm-radius-sm);
   box-sizing: border-box;
 }
 </style>

@@ -47,8 +47,8 @@ const emit = defineEmits<{
   display: flex;
   gap: 12px;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--theme-border);
-  background-color: var(--theme-bg-secondary);
+  border-bottom: 1px solid var(--sm-color-border-default);
+  background-color: var(--sm-color-surface-1);
 }
 
 .type-option {
@@ -58,8 +58,8 @@ const emit = defineEmits<{
   align-items: center;
   gap: 6px;
   padding: 12px 8px;
-  background-color: var(--theme-bg);
-  border: 2px solid var(--theme-border);
+  background-color: var(--sm-color-bg-app);
+  border: 2px solid var(--sm-color-border-default);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -70,17 +70,17 @@ const emit = defineEmits<{
 }
 
 .type-option:hover {
-  border-color: var(--theme-text-secondary);
+  border-color: var(--sm-color-text-secondary);
 }
 
 .type-option.active {
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-accent);
   background-color: rgba(63, 185, 80, 0.05);
 }
 
 .option-label {
   font-size: 13px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 </style>

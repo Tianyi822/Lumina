@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import type { SessionListItem } from '@renderer/types'
+import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 
 defineProps<{
   sessions: SessionListItem[]
@@ -11,9 +12,6 @@ const emit = defineEmits<{
   (e: 'select', sessionId: string): void
   (e: 'delete', sessionId: string): void
 }>()
-
-// 悬停的会话 ID
-const hoveredSessionId = ref<string | null>(null)
 
 function selectSession(sessionId: string): void {
   emit('select', sessionId)
@@ -50,31 +48,41 @@ function formatTime(isoString: string): string {
 </script>
 
 <template>
-  <div class="chat-list">
+  <TransitionGroup
+    v-if="sessions.length > 0"
+    name="sm-sidebar-list-item"
+    tag="div"
+    class="chat-list"
+    appear
+  >
     <div
-      v-for="session in sessions"
+      v-for="(session, index) in sessions"
       :key="session.sessionId"
       class="chat-item"
       :class="{ active: session.sessionId === activeSessionId }"
+      :style="getSidebarListItemMotionStyle(index)"
       @click="selectSession(session.sessionId)"
-      @mouseenter="hoveredSessionId = session.sessionId"
-      @mouseleave="hoveredSessionId = null"
     >
       <div class="chat-header">
         <div class="chat-title">{{ session.title }}</div>
         <div class="chat-actions">
-          <span class="chat-time">{{ formatTime(session.updatedAt) }}</span>
-          <button
-            v-show="hoveredSessionId === session.sessionId"
-            class="delete-btn"
-            title="删除对话"
-            @click="deleteSession($event, session.sessionId)"
-          >
-            ×
-          </button>
+          <div class="chat-action-slot">
+            <span class="chat-time">{{ formatTime(session.updatedAt) }}</span>
+            <button
+              class="delete-btn"
+              title="删除对话"
+              aria-label="删除对话"
+              @click="deleteSession($event, session.sessionId)"
+            >
+              <SvgIcon name="trash" :size="14" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
+  </TransitionGroup>
+
+  <div v-else class="chat-list">
     <div v-if="sessions.length === 0" class="empty-state">暂无对话记录</div>
   </div>
 </template>
@@ -83,38 +91,31 @@ function formatTime(isoString: string): string {
 .chat-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px;
+  gap: 8px;
+  padding: 12px;
   overflow-y: auto;
   flex: 1;
-  border-top: 1px solid var(--theme-border);
 }
 
 .chat-item {
-  padding: 10px 12px;
-  background-color: transparent;
+  padding: 12px;
+  background-color: var(--sm-color-surface-1);
   border: 1px solid transparent;
-  border-radius: var(--theme-radius-sm);
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
 .chat-item:hover {
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
-      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
-    ),
-    var(--glass-white-02, rgba(255, 255, 255, 0.02));
-  border-color: var(--glass-white-12, rgba(255, 255, 255, 0.12));
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  background: var(--sm-color-surface-2);
+  border-color: var(--sm-color-border-default);
 }
 
 .chat-item.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(99, 102, 241, 0.06) 100%);
-  border-color: rgba(99, 102, 241, 0.3);
+  background: rgba(142, 149, 217, 0.12);
+  border-color: var(--sm-color-border-accent);
 }
 
 .chat-header {
@@ -126,8 +127,8 @@ function formatTime(isoString: string): string {
 
 .chat-title {
   font-size: 13px;
-  color: var(--theme-text);
-  font-weight: 500;
+  color: var(--sm-color-text-primary);
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -138,36 +139,76 @@ function formatTime(isoString: string): string {
 .chat-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: flex-end;
+  min-height: 24px;
   flex-shrink: 0;
 }
 
+.chat-action-slot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 24px;
+}
+
 .chat-time {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   font-size: 11px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
+  transition:
+    opacity var(--sm-transition-fast),
+    visibility var(--sm-transition-fast);
 }
 
 .delete-btn {
-  background: none;
-  border: none;
-  color: var(--theme-text-tertiary);
-  font-size: 16px;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--sm-color-text-tertiary);
   cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
+  padding: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-50%);
+  border-radius: 6px;
+  transition: all var(--sm-transition-fast);
+}
+
+.chat-item:hover .chat-time,
+.chat-item:focus-within .chat-time {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.chat-item:hover .delete-btn,
+.chat-item:focus-within .delete-btn {
   opacity: 0.6;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .delete-btn:hover {
   opacity: 1;
-  color: var(--theme-danger);
+  background: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.28);
+  color: var(--sm-color-status-danger);
 }
 
 .empty-state {
   padding: 24px 12px;
   text-align: center;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   font-size: 13px;
 }
 </style>

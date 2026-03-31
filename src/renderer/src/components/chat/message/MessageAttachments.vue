@@ -66,9 +66,9 @@ function formatFileSize(bytes: number): string {
   padding: 4px 10px;
   background: linear-gradient(135deg, rgba(70, 170, 143, 0.12) 0%, rgba(70, 170, 143, 0.05) 100%);
   border: 1px solid rgba(70, 170, 143, 0.25);
-  border-radius: var(--theme-radius-sm, 6px);
+  border-radius: var(--sm-radius-sm);
   font-size: 12px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
@@ -79,7 +79,7 @@ function formatFileSize(bytes: number): string {
 
 .doc-icon {
   flex-shrink: 0;
-  color: var(--theme-accent);
+  color: var(--sm-color-accent);
 }
 
 .doc-name {
@@ -92,7 +92,7 @@ function formatFileSize(bytes: number): string {
 
 .doc-size {
   font-size: 10px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   opacity: 0.8;
 }
 
@@ -113,7 +113,7 @@ function formatFileSize(bytes: number): string {
   padding: 4px;
   background: linear-gradient(135deg, rgba(70, 170, 143, 0.12) 0%, rgba(70, 170, 143, 0.05) 100%);
   border: 1px solid rgba(70, 170, 143, 0.25);
-  border-radius: var(--theme-radius-sm, 6px);
+  border-radius: var(--sm-radius-sm);
   transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
@@ -137,7 +137,7 @@ function formatFileSize(bytes: number): string {
   white-space: nowrap;
   font-size: 10px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   text-align: center;
 }
 </style>

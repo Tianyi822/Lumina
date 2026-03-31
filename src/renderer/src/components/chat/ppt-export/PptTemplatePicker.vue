@@ -30,7 +30,12 @@ function handleSelectTemplate(templateId: string): void {
         :key="template.id"
         class="ppt-export-template-card"
         :class="{ active: selectedTemplateId === template.id }"
+        role="button"
+        tabindex="0"
+        :aria-pressed="selectedTemplateId === template.id"
         @click="handleSelectTemplate(template.id)"
+        @keydown.enter.prevent="handleSelectTemplate(template.id)"
+        @keydown.space.prevent="handleSelectTemplate(template.id)"
       >
         <div class="ppt-export-template-preview">
           <div
@@ -92,7 +97,7 @@ function handleSelectTemplate(templateId: string): void {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .ppt-export-templates-grid {
@@ -112,35 +117,43 @@ function handleSelectTemplate(templateId: string): void {
 }
 
 .ppt-export-templates-grid::-webkit-scrollbar-thumb {
-  background: var(--theme-border);
+  background: var(--sm-color-border-default);
   border-radius: 2px;
 }
 
 .ppt-export-template-card {
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: var(--theme-radius-lg);
-  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
   cursor: pointer;
   overflow: hidden;
-  transition: all 0.2s ease;
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
 .ppt-export-template-card:hover {
-  border-color: var(--theme-accent);
-  background: rgba(0, 0, 0, 0.04);
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
+}
+
+.ppt-export-template-card:focus-visible {
+  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-surface-hover);
 }
 
 .ppt-export-template-card.active {
-  border-color: var(--theme-accent);
-  background: rgba(99, 102, 241, 0.1);
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.08);
 }
 
 .ppt-export-template-preview {
   position: relative;
   aspect-ratio: 16 / 9;
-  background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+  background: var(--sm-color-bg-embedded);
   overflow: hidden;
 }
 
@@ -151,7 +164,7 @@ function handleSelectTemplate(templateId: string): void {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: #ffffff;
+  background: var(--sm-color-bg-embedded);
 }
 
 .ppt-export-template-preview-image {
@@ -169,7 +182,7 @@ function handleSelectTemplate(templateId: string): void {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  color: #64748b;
+  color: var(--sm-color-text-tertiary);
 }
 
 .ppt-export-template-preview-icon {
@@ -189,13 +202,12 @@ function handleSelectTemplate(templateId: string): void {
   bottom: 8px;
   padding: 2px 6px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.72);
-  color: #fff;
+  border: 1px solid var(--sm-color-border-default);
+  background: rgba(11, 11, 12, 0.88);
+  color: var(--sm-color-text-secondary);
   font-size: 10px;
   font-weight: 600;
   line-height: 1.4;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 
 .ppt-export-template-check-badge {
@@ -204,24 +216,23 @@ function handleSelectTemplate(templateId: string): void {
   right: 6px;
   width: 20px;
   height: 20px;
-  border-radius: 50%;
-  background: var(--theme-accent);
-  color: white;
+  border-radius: 999px;
+  border: 1px solid var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.16);
+  color: var(--sm-color-accent-hover);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
   font-weight: 700;
   opacity: 0;
-  transform: scale(0.8);
   transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
+    opacity var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .ppt-export-template-card.active .ppt-export-template-check-badge {
   opacity: 1;
-  transform: scale(1);
 }
 
 .ppt-export-template-card-info {
@@ -234,7 +245,7 @@ function handleSelectTemplate(templateId: string): void {
 .ppt-export-template-card-name {
   font-size: 13px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -242,13 +253,13 @@ function handleSelectTemplate(templateId: string): void {
 
 .ppt-export-template-card-meta {
   font-size: 11px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .ppt-export-empty-state {
   padding: 32px;
   text-align: center;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .ppt-export-empty-state p {
@@ -257,6 +268,6 @@ function handleSelectTemplate(templateId: string): void {
 
 .ppt-export-empty-hint {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 </style>

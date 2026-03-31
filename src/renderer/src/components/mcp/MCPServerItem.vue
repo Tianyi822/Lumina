@@ -211,19 +211,26 @@ watch(
       <div class="mcp-server-actions">
         <button
           v-if="!status?.connected"
-          class="btn btn-small"
+          class="sm-button sm-button--small"
           :disabled="connecting"
           @click.stop="emit('connect', config.name)"
         >
           {{ connecting ? '连接中...' : '连接' }}
         </button>
-        <button v-else class="btn btn-small" @click.stop="emit('disconnect', config.name)">
+        <button
+          v-else
+          class="sm-button sm-button--small"
+          @click.stop="emit('disconnect', config.name)"
+        >
           断开
         </button>
-        <button class="btn btn-small" :disabled="testing" @click.stop="handleTest">
+        <button class="sm-button sm-button--small" :disabled="testing" @click.stop="handleTest">
           {{ testing ? '测试中...' : '测试' }}
         </button>
-        <button class="btn btn-small btn-danger-text" @click.stop="emit('delete', config.name)">
+        <button
+          class="sm-button sm-button--small sm-button--danger btn-danger-text"
+          @click.stop="emit('delete', config.name)"
+        >
           删除
         </button>
       </div>
@@ -235,7 +242,7 @@ watch(
         <label>传输类型</label>
         <select
           :value="localConfig.transport"
-          class="input"
+          class="sm-select"
           @change="updateTransport(($event.target as HTMLSelectElement).value)"
         >
           <option value="stdio">stdio (本地进程)</option>
@@ -251,7 +258,7 @@ watch(
           <input
             v-model="localConfig.command"
             type="text"
-            class="input"
+            class="sm-input"
             placeholder="例如: npx, node, python"
             @blur="persistConfig"
           />
@@ -260,7 +267,7 @@ watch(
           <label>命令参数 (每行一个)</label>
           <textarea
             v-model="argsText"
-            class="input textarea-small"
+            class="sm-textarea textarea-small"
             placeholder="-y&#10;@modelcontextprotocol/server-xxx"
             @blur="handleArgsBlur"
           ></textarea>
@@ -282,7 +289,7 @@ watch(
           <input
             v-model="localConfig.url"
             type="text"
-            class="input"
+            class="sm-input"
             placeholder="https://example.com/mcp"
             @blur="persistConfig"
           />
@@ -330,9 +337,9 @@ watch(
 
 <style scoped>
 .mcp-server-item {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   overflow: hidden;
 }
 
@@ -345,19 +352,19 @@ watch(
 }
 
 .mcp-server-header:hover {
-  background-color: var(--theme-bg-hover);
+  background: var(--sm-color-surface-hover);
 }
 
 .expand-icon {
   font-size: 10px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   margin-right: 10px;
   width: 12px;
 }
 
 .mcp-server-name {
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   flex: 1;
 }
 
@@ -368,8 +375,8 @@ watch(
 
 .mcp-server-details {
   padding: 16px;
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg);
+  border-top: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-surface-1);
 }
 
 .form-group {
@@ -380,67 +387,60 @@ watch(
   display: block;
   margin-bottom: 6px;
   font-size: 13px;
-  color: var(--theme-text-secondary);
-}
-
-.btn-small {
-  padding: 4px 10px;
-  font-size: 12px;
+  color: var(--sm-color-text-secondary);
 }
 
 .btn-danger-text {
-  color: var(--theme-danger);
-  border-color: transparent;
-}
-
-.btn-danger-text:hover {
-  background-color: rgba(248, 81, 73, 0.1);
-  border-color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .inline-warning {
   margin-bottom: 16px;
   padding: 10px 12px;
-  border-radius: 6px;
-  background-color: rgba(248, 81, 73, 0.12);
-  border: 1px solid rgba(248, 81, 73, 0.2);
-  color: var(--theme-danger);
+  border-radius: var(--sm-radius-md);
+  background: rgba(199, 120, 120, 0.08);
+  border: 1px solid rgba(199, 120, 120, 0.22);
+  color: var(--sm-color-status-danger);
   font-size: 12px;
 }
 
 .status-indicator {
   font-size: 11px;
   padding: 2px 8px;
-  border-radius: 4px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 999px;
   margin-right: 8px;
-  background-color: var(--theme-bg-hover);
-  color: var(--theme-text-secondary);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
 }
 
 .status-indicator.connected {
-  background-color: rgba(63, 185, 80, 0.2);
-  color: var(--theme-accent);
+  background: rgba(127, 176, 138, 0.12);
+  border-color: rgba(127, 176, 138, 0.22);
+  color: var(--sm-color-status-success);
 }
 
 .status-indicator.error {
-  background-color: rgba(248, 81, 73, 0.2);
-  color: var(--theme-danger);
+  background: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.22);
+  color: var(--sm-color-status-danger);
 }
 
 .transport-badge {
   font-size: 10px;
   padding: 2px 6px;
-  border-radius: 3px;
-  background-color: var(--theme-bg-hover);
-  color: var(--theme-text-secondary);
+  border-radius: 999px;
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  color: var(--sm-color-text-secondary);
   margin-right: 12px;
-  font-family: monospace;
+  font-family: var(--sm-font-mono);
 }
 
 .textarea-small {
   min-height: 60px;
   resize: vertical;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-mono);
   line-height: 1.5;
 }
 
@@ -449,7 +449,7 @@ watch(
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .checkbox-label input[type='checkbox'] {
@@ -461,13 +461,13 @@ watch(
 .tools-section {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid var(--theme-border);
+  border-top: 1px solid var(--sm-color-border-subtle);
 }
 
 .tools-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin: 0 0 12px 0;
 }
 
@@ -483,27 +483,27 @@ watch(
   display: flex;
   flex-direction: column;
   padding: 8px 12px;
-  background-color: var(--theme-bg-secondary);
-  border-radius: 4px;
-  border: 1px solid var(--theme-border);
+  background: var(--sm-color-surface-2);
+  border-radius: var(--sm-radius-sm);
+  border: 1px solid var(--sm-color-border-default);
 }
 
 .tool-name {
   font-size: 13px;
   font-weight: 500;
-  color: var(--theme-accent);
-  font-family: monospace;
+  color: var(--sm-color-accent-hover);
+  font-family: var(--sm-font-mono);
 }
 
 .tool-desc {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   margin-top: 4px;
 }
 
 .empty-tools {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   font-style: italic;
 }
 </style>

@@ -1,21 +1,14 @@
 /**
- * Base CSS - Global styles
- * 全局基础样式 - Linear 设计风格
+ * Base CSS - global entry reset
  */
 
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
   margin: 0;
 }
 
+html,
 body {
-  min-height: 100vh;
-  color: var(--theme-text);
-  background: var(--theme-bg);
-  font-family: var(--theme-font);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+  min-height: 100%;
 }

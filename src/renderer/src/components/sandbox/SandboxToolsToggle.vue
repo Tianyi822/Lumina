@@ -56,22 +56,25 @@ onMounted(() => {
   gap: 8px;
   padding: 6px 12px;
   font-size: 12px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius-sm);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
   user-select: none;
 }
 
 .sandbox-tools-toggle:hover:not(.disabled) {
-  border-color: var(--theme-border-hover);
-  background-color: var(--theme-bg-hover);
+  border-color: var(--sm-color-border-strong);
+  background-color: var(--sm-color-surface-hover);
 }
 
 .sandbox-tools-toggle.enabled {
-  border-color: var(--theme-accent);
-  background-color: rgba(52, 122, 115, 0.1);
+  border-color: var(--sm-color-border-accent);
+  background-color: rgba(142, 149, 217, 0.08);
 }
 
 .sandbox-tools-toggle.disabled {
@@ -82,20 +85,20 @@ onMounted(() => {
 .toggle-switch {
   width: 36px;
   height: 20px;
-  background-color: var(--theme-border);
+  background-color: var(--sm-color-border-default);
   border-radius: 10px;
   position: relative;
   transition: background-color 0.2s ease;
 }
 
 .sandbox-tools-toggle.enabled .toggle-switch {
-  background-color: var(--theme-accent);
+  background-color: var(--sm-color-accent);
 }
 
 .toggle-thumb {
   width: 16px;
   height: 16px;
-  background-color: white;
+  background-color: var(--sm-color-text-primary);
   border-radius: 50%;
   position: absolute;
   top: 2px;
@@ -104,17 +107,17 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   transition: transform 0.2s ease;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .sandbox-tools-toggle.enabled .toggle-thumb {
   transform: translateX(16px);
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
 }
 
 .toggle-label {
   font-size: 12px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   font-weight: 500;
 }
 </style>

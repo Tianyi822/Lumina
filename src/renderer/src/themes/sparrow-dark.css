@@ -1,0 +1,136 @@
+/**
+ * Sparrow Manus phase-1 base theme.
+ * New surfaces use the `--sm-*` namespace. Legacy `--theme-*` and `--glass-*`
+ * variables are bridged here so untouched pages remain readable during migration.
+ */
+
+:root:not([data-theme]),
+[data-theme='sparrow-dark'] {
+  color-scheme: dark;
+}
+
+:root,
+[data-theme='sparrow-dark'] {
+  --sm-color-bg-app: #121212;
+  --sm-color-bg-canvas: #0e0e10;
+  --sm-color-bg-embedded: #0b0b0c;
+
+  --sm-color-surface-1: #16181d;
+  --sm-color-surface-2: #1b1f26;
+  --sm-color-surface-3: #1f242d;
+  --sm-color-surface-hover: #22262e;
+  --sm-color-surface-active: #272c36;
+
+  --sm-color-text-primary: rgba(255, 255, 255, 0.87);
+  --sm-color-text-secondary: rgba(255, 255, 255, 0.65);
+  --sm-color-text-tertiary: rgba(255, 255, 255, 0.3);
+
+  --sm-color-accent: #8e95d9;
+  --sm-color-accent-hover: #a1a7e6;
+  --sm-color-accent-active: #7178b8;
+
+  --sm-color-status-danger: #c77878;
+  --sm-color-status-warning: #c5a165;
+  --sm-color-status-info: var(--sm-color-accent);
+  --sm-color-status-success: #7fb08a;
+
+  --sm-color-border-subtle: rgba(255, 255, 255, 0.08);
+  --sm-color-border-default: rgba(255, 255, 255, 0.12);
+  --sm-color-border-strong: rgba(255, 255, 255, 0.18);
+  --sm-color-border-accent: rgba(142, 149, 217, 0.55);
+
+  --sm-titlebar-height: 38px;
+  --sm-shadow-none: none;
+
+  --sm-focus-ring-color: rgba(142, 149, 217, 0.42);
+  --sm-selection-background: rgba(142, 149, 217, 0.28);
+  --sm-selection-color: #ffffff;
+
+  --theme-bg: var(--sm-color-bg-app);
+  --theme-bg-secondary: var(--sm-color-surface-1);
+  --theme-bg-tertiary: var(--sm-color-surface-2);
+  --theme-bg-hover: var(--sm-color-surface-hover);
+
+  --theme-text: var(--sm-color-text-primary);
+  --theme-text-secondary: var(--sm-color-text-secondary);
+  --theme-text-tertiary: var(--sm-color-text-tertiary);
+
+  --theme-accent: var(--sm-color-accent);
+  --theme-accent-secondary: var(--sm-color-accent-hover);
+  --theme-accent-tertiary: var(--sm-color-accent-active);
+  --theme-highlight: var(--sm-color-accent-hover);
+
+  --theme-danger: var(--sm-color-status-danger);
+  --theme-warning: var(--sm-color-status-warning);
+  --theme-info: var(--sm-color-status-info);
+  --theme-success: var(--sm-color-status-success);
+
+  --theme-border: var(--sm-color-border-default);
+  --theme-border-hover: var(--sm-color-border-strong);
+  --theme-border-active: var(--sm-color-border-accent);
+
+  --theme-font: var(--sm-font-sans);
+  --theme-font-mono: var(--sm-font-mono);
+
+  --theme-radius: var(--sm-radius-md);
+  --theme-radius-sm: var(--sm-radius-sm);
+  --theme-radius-lg: var(--sm-radius-lg);
+
+  --theme-shadow: none;
+  --theme-shadow-glow: none;
+
+  --theme-spacing: var(--sm-space-3);
+  --theme-spacing-sm: var(--sm-space-2);
+  --theme-spacing-lg: var(--sm-space-4);
+
+  --title-bar-height: var(--sm-titlebar-height);
+  --title-bar-bg: var(--sm-color-bg-canvas);
+  --title-bar-border: var(--sm-color-border-default);
+  --title-bar-text: var(--sm-color-text-secondary);
+  --title-bar-text-hover: var(--sm-color-text-primary);
+
+  --scrollbar-width: var(--sm-scrollbar-size);
+  --scrollbar-track-bg: transparent;
+  --scrollbar-thumb-bg: rgba(255, 255, 255, 0.12);
+  --scrollbar-thumb-hover-bg: rgba(255, 255, 255, 0.18);
+  --scrollbar-thumb-radius: 999px;
+
+  --bubble-user-bg: rgba(142, 149, 217, 0.16);
+  --bubble-user-text: var(--sm-color-text-primary);
+  --bubble-ai-bg: var(--sm-color-surface-1);
+  --bubble-ai-text: var(--sm-color-text-primary);
+  --bubble-ai-border: var(--sm-color-border-default);
+
+  --thinking-bg: rgba(142, 149, 217, 0.08);
+  --thinking-border: rgba(142, 149, 217, 0.26);
+  --thinking-accent: var(--sm-color-accent-hover);
+
+  --glass-white-003: rgba(255, 255, 255, 0.003);
+  --glass-white-007: rgba(255, 255, 255, 0.007);
+  --glass-white-01: rgba(255, 255, 255, 0.01);
+  --glass-white-013: rgba(255, 255, 255, 0.013);
+  --glass-white-017: rgba(255, 255, 255, 0.017);
+  --glass-white-02: rgba(255, 255, 255, 0.02);
+  --glass-white-023: rgba(255, 255, 255, 0.023);
+  --glass-white-027: rgba(255, 255, 255, 0.027);
+  --glass-white-03: rgba(255, 255, 255, 0.03);
+  --glass-white-033: rgba(255, 255, 255, 0.033);
+  --glass-white-04: rgba(255, 255, 255, 0.04);
+  --glass-white-05: rgba(255, 255, 255, 0.05);
+  --glass-white-06: rgba(255, 255, 255, 0.06);
+  --glass-white-08: rgba(255, 255, 255, 0.08);
+  --glass-white-1: rgba(255, 255, 255, 0.1);
+  --glass-white-12: rgba(255, 255, 255, 0.12);
+  --glass-white-15: rgba(255, 255, 255, 0.15);
+  --glass-white-18: rgba(255, 255, 255, 0.18);
+  --glass-white-2: rgba(255, 255, 255, 0.2);
+  --glass-white-25: rgba(255, 255, 255, 0.25);
+  --glass-white-3: rgba(255, 255, 255, 0.3);
+  --glass-white-4: rgba(255, 255, 255, 0.4);
+
+  --glass-black-017: rgba(0, 0, 0, 0.017);
+  --glass-black-02: rgba(0, 0, 0, 0.02);
+  --glass-black-027: rgba(0, 0, 0, 0.027);
+
+  --icon-arrow-down-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23989dad' d='M2.2 4.2a.75.75 0 0 1 1.06 0L6 6.94 8.74 4.2a.75.75 0 1 1 1.06 1.06L6.53 8.53a.75.75 0 0 1-1.06 0L2.2 5.26a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
+}

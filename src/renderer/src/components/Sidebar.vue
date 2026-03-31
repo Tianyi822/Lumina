@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import ChatList from './ChatList.vue'
+import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
 import type { SessionListItem } from '@renderer/types'
 
 const props = defineProps<{
@@ -41,113 +42,46 @@ function handleDeleteSession(sessionId: string): void {
 </script>
 
 <template>
-  <aside class="sidebar">
-    <!-- 创建智能体按钮 -->
-    <button class="btn-primary new-chat-btn" @click="handleNewChat">
-      <span>创建智能体</span>
-    </button>
+  <aside class="sidebar sm-sidebar-shell">
+    <WorkspaceSidebarChrome :count="sessions.length">
+      <template #actions>
+        <button class="sm-button sm-button--primary new-chat-btn" @click="handleNewChat">
+          创建智能体
+        </button>
+      </template>
+    </WorkspaceSidebarChrome>
 
-    <!-- 搜索框 -->
-    <div class="search-container">
+    <div class="sm-sidebar-shell__search search-container">
       <input
         v-model="searchQuery"
         type="text"
-        class="input search-input"
-        placeholder="搜索对话 ..."
+        class="sm-input search-input"
+        placeholder="搜索会话"
       />
     </div>
 
-    <!-- 对话列表 -->
-    <ChatList
-      :sessions="filteredSessions"
-      :active-session-id="activeSessionId"
-      @select="handleSelectChat"
-      @delete="handleDeleteSession"
-    />
+    <div class="sm-sidebar-shell__body sm-sidebar-shell__body--flush">
+      <ChatList
+        :sessions="filteredSessions"
+        :active-session-id="activeSessionId"
+        @select="handleSelectChat"
+        @delete="handleDeleteSession"
+      />
+    </div>
   </aside>
 </template>
 
 <style scoped>
 .sidebar {
-  width: 280px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background:
-    linear-gradient(
-      180deg,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 0%,
-      var(--glass-white-007, rgba(255, 255, 255, 0.007)) 100%
-    ),
-    var(--theme-bg);
-  border-right: 1px solid var(--theme-border);
-  flex-shrink: 0;
-  /* 平滑过渡动画 */
-  transition:
-    width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    min-width 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.2s ease-out;
-  will-change: width, transform;
-  overflow: hidden;
-}
-
-/* 侧边栏内容容器动画 */
-.sidebar > * {
-  transition:
-    opacity 0.2s ease-out,
-    transform 0.2s ease-out;
+  min-height: 0;
 }
 
 .new-chat-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin: 12px;
-  width: calc(100% - 24px);
-  background: #46aa8f;
-  border-color: rgba(70, 170, 143, 0.4);
-  /* 按钮点击动画 */
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.new-chat-btn:hover {
-  background: #3d9980;
-}
-
-.new-chat-btn:active {
-  transform: scale(0.98);
-}
-
-.btn-icon {
-  font-size: 16px;
-  font-weight: 600;
+  width: 100%;
+  min-height: 36px;
 }
 
 .search-container {
-  padding: 0 12px 12px;
-}
-
-.search-input {
-  width: 100%;
-  /* 输入框焦点动画 */
-  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.search-input:focus {
-  animation: inputFocus 0.3s ease-out;
-}
-
-@keyframes inputFocus {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.01);
-  }
-  100% {
-    transform: scale(1);
-  }
+  display: flex;
 }
 </style>

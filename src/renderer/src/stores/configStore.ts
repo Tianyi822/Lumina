@@ -7,6 +7,7 @@ import {
   createDefaultVideoGenerationConfig,
   type AppConfig,
   type ThemeConfig,
+  type ThemeMode,
   type LLMConfig,
   type VoiceRecognitionConfig,
   type VideoGenerationConfig
@@ -28,7 +29,8 @@ export const useConfigStore = defineStore('config', () => {
 
   // 主题配置
   const themeConfig = ref<ThemeConfig>({
-    name: 'blooming-flowers'
+    name: 'sparrow-dark',
+    mode: 'manual'
   })
 
   // 模型配置
@@ -65,7 +67,8 @@ export const useConfigStore = defineStore('config', () => {
       if (config) {
         // 加载主题配置
         if (config.theme) {
-          themeConfig.value.name = config.theme.name || 'blooming-flowers'
+          themeConfig.value.name = config.theme.name || 'sparrow-dark'
+          themeConfig.value.mode = (config.theme.mode as ThemeMode | undefined) || 'manual'
         }
         // 加载模型配置
         if (config.llm_config?.models) {

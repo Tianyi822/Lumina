@@ -195,112 +195,135 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="video-settings">
-    <!-- 提示信息 -->
-    <div class="hint-banner">
-      <span class="hint-text">
-        首版使用智谱 AI 的 CogVideoX 视频接口，当前设置仅供聊天工具链在主进程内调用。
-      </span>
+  <div class="sm-settings-page video-settings">
+    <header class="sm-settings-page__header">
+      <h2 class="sm-settings-page__title">视频模型配置</h2>
+      <p class="sm-settings-page__description">
+        统一维护视频生成接口、默认输出规格和音频偏好，用于聊天工具链调用。
+      </p>
+    </header>
+
+    <div class="sm-settings-banner">
+      首版使用智谱 AI 的 CogVideoX 视频接口，当前设置仅供聊天工具链在主进程内调用。
     </div>
 
-    <!-- 启用开关 -->
-    <div class="form-group setting-switch-card">
-      <label class="form-label">启用视频生成</label>
-      <div class="toggle-wrapper">
+    <section class="sm-settings-page__section">
+      <div class="sm-settings-page__section-header">
+        <div>
+          <h3 class="sm-settings-page__section-title">服务凭据</h3>
+          <p class="sm-settings-page__section-description">
+            启用状态即时保存，其余字段按需统一提交。
+          </p>
+        </div>
+      </div>
+
+      <div class="form-group setting-switch-card">
+        <label class="form-label">启用视频生成</label>
+        <div class="toggle-wrapper">
+          <input
+            id="video-generation-enabled"
+            v-model="localConfig.enabled"
+            type="checkbox"
+            class="toggle-input"
+          />
+          <label for="video-generation-enabled" class="toggle-label"></label>
+        </div>
+      </div>
+
+      <div class="form-group field-card">
+        <label class="form-label">Provider</label>
+        <div class="provider-display">智谱 AI</div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group field-card flex-1">
+          <label class="form-label" for="video-base-url">Base URL</label>
+          <input
+            id="video-base-url"
+            v-model="localConfig.baseUrl"
+            type="text"
+            class="sm-input"
+            placeholder="https://open.bigmodel.cn"
+          />
+        </div>
+
+        <div class="form-group field-card flex-1">
+          <label class="form-label" for="video-model">模型名</label>
+          <input
+            id="video-model"
+            v-model="localConfig.model"
+            type="text"
+            class="sm-input"
+            placeholder="cogvideox-3"
+          />
+        </div>
+      </div>
+
+      <div class="form-group field-card">
+        <label class="form-label" for="video-api-key">API Key</label>
         <input
-          id="video-generation-enabled"
-          v-model="localConfig.enabled"
-          type="checkbox"
-          class="toggle-input"
-        />
-        <label for="video-generation-enabled" class="toggle-label"></label>
-      </div>
-    </div>
-
-    <!-- Provider -->
-    <div class="form-group field-card">
-      <label class="form-label">Provider</label>
-      <div class="provider-display">智谱 AI</div>
-    </div>
-
-    <!-- Base URL 和 模型名 -->
-    <div class="form-row">
-      <div class="form-group field-card flex-1">
-        <label class="form-label" for="video-base-url">Base URL</label>
-        <input
-          id="video-base-url"
-          v-model="localConfig.baseUrl"
-          type="text"
-          class="form-input"
-          placeholder="https://open.bigmodel.cn"
+          id="video-api-key"
+          v-model="localConfig.apiKey"
+          type="password"
+          class="sm-input"
+          placeholder="填写智谱 API Key"
+          autocomplete="new-password"
         />
       </div>
+    </section>
 
-      <div class="form-group field-card flex-1">
-        <label class="form-label" for="video-model">模型名</label>
-        <input
-          id="video-model"
-          v-model="localConfig.model"
-          type="text"
-          class="form-input"
-          placeholder="cogvideox-3"
-        />
-      </div>
-    </div>
-
-    <!-- API Key -->
-    <div class="form-group field-card">
-      <label class="form-label" for="video-api-key">API Key</label>
-      <input
-        id="video-api-key"
-        v-model="localConfig.apiKey"
-        type="password"
-        class="form-input"
-        placeholder="填写智谱 API Key"
-        autocomplete="new-password"
-      />
-    </div>
-
-    <!-- 默认分辨率和默认质量 -->
-    <div class="form-row">
-      <div class="form-group field-card flex-1">
-        <label class="form-label" for="video-size">默认分辨率</label>
-        <select id="video-size" v-model="localConfig.defaultSize" class="form-input">
-          <option v-for="option in sizeOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
+    <section class="sm-settings-page__section">
+      <div class="sm-settings-page__section-header">
+        <div>
+          <h3 class="sm-settings-page__section-title">默认输出</h3>
+          <p class="sm-settings-page__section-description">控制默认分辨率、质量和音频输出。</p>
+        </div>
       </div>
 
-      <div class="form-group field-card flex-1">
-        <label class="form-label" for="video-quality">默认质量</label>
-        <select id="video-quality" v-model="localConfig.defaultQuality" class="form-input">
-          <option v-for="option in qualityOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </div>
-    </div>
+      <div class="form-row">
+        <div class="form-group field-card flex-1">
+          <label class="form-label" for="video-size">默认分辨率</label>
+          <select id="video-size" v-model="localConfig.defaultSize" class="sm-select">
+            <option v-for="option in sizeOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
 
-    <!-- 默认生成音频开关 -->
-    <div class="form-group setting-switch-card">
-      <label class="form-label">默认生成音频</label>
-      <div class="toggle-wrapper">
-        <input
-          id="video-with-audio"
-          v-model="localConfig.defaultWithAudio"
-          type="checkbox"
-          class="toggle-input"
-        />
-        <label for="video-with-audio" class="toggle-label"></label>
+        <div class="form-group field-card flex-1">
+          <label class="form-label" for="video-quality">默认质量</label>
+          <select id="video-quality" v-model="localConfig.defaultQuality" class="sm-select">
+            <option v-for="option in qualityOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
       </div>
-    </div>
 
-    <!-- 操作按钮 -->
-    <div class="form-actions">
-      <button class="btn btn-secondary" :disabled="!hasChanges" @click="handleReset">重置</button>
-      <button class="btn btn-primary" :disabled="!hasChanges" @click="handleSave">保存配置</button>
-    </div>
+      <div class="form-group setting-switch-card">
+        <label class="form-label">默认生成音频</label>
+        <div class="toggle-wrapper">
+          <input
+            id="video-with-audio"
+            v-model="localConfig.defaultWithAudio"
+            type="checkbox"
+            class="toggle-input"
+          />
+          <label for="video-with-audio" class="toggle-label"></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="sm-settings-page__section sm-settings-page__section--compact">
+      <div class="form-actions">
+        <button class="sm-button sm-button--secondary" :disabled="!hasChanges" @click="handleReset">
+          重置
+        </button>
+        <button class="sm-button sm-button--primary" :disabled="!hasChanges" @click="handleSave">
+          保存配置
+        </button>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -308,19 +331,7 @@ onMounted(() => {
 .video-settings {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-.hint-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  border-radius: var(--theme-radius-sm);
-  color: var(--theme-text-secondary);
-  font-size: 13px;
+  gap: var(--sm-space-5);
 }
 
 .form-group {
@@ -342,107 +353,44 @@ onMounted(() => {
 .setting-switch-card,
 .field-card {
   padding: 14px 16px;
-  border-radius: calc(var(--theme-radius-sm) + 2px);
-  border: 1px solid rgba(120, 134, 156, 0.18);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%),
-    rgba(16, 24, 40, 0.04);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 10px 24px rgba(15, 23, 42, 0.05);
+  border-radius: var(--sm-radius-md);
+  border: 1px solid var(--sm-color-border-default);
+  background: var(--sm-color-surface-2);
   transition:
-    border-color 0.2s ease,
-    background 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .field-card:hover,
 .setting-switch-card:hover {
-  border-color: rgba(120, 134, 156, 0.28);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.045) 100%),
-    rgba(16, 24, 40, 0.05);
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
 }
 
 .field-card:focus-within,
 .setting-switch-card:focus-within {
-  border-color: color-mix(in srgb, var(--theme-accent) 58%, white 42%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 0 0 3px rgba(99, 102, 241, 0.12),
-    0 16px 30px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
+  border-color: var(--sm-color-border-accent);
 }
 
 .form-label {
   font-size: 13px;
   font-weight: 600;
-  color: var(--theme-text);
-  letter-spacing: 0.01em;
-}
-
-.form-input {
-  min-height: 42px;
-  padding: 11px 13px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(248, 250, 252, 0.88) 100%),
-    rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(148, 163, 184, 0.42);
-  border-radius: var(--theme-radius-sm);
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: var(--theme-font);
-  box-shadow:
-    inset 0 1px 2px rgba(15, 23, 42, 0.06),
-    0 1px 0 rgba(255, 255, 255, 0.45);
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
-}
-
-.form-input:hover {
-  border-color: rgba(100, 116, 139, 0.56);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.92) 100%),
-    rgba(255, 255, 255, 0.92);
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(248, 250, 252, 0.96) 100%),
-    rgba(255, 255, 255, 0.96);
-  box-shadow:
-    inset 0 1px 2px rgba(15, 23, 42, 0.05),
-    0 0 0 3px rgba(99, 102, 241, 0.16);
-  transform: translateY(-1px);
-}
-
-.form-input::placeholder {
-  color: rgba(71, 85, 105, 0.72);
+  color: var(--sm-color-text-primary);
 }
 
 .provider-display {
-  min-height: 42px;
-  padding: 11px 13px;
-  border-radius: var(--theme-radius-sm);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(248, 250, 252, 0.04) 100%),
-    rgba(16, 24, 40, 0.03);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  color: var(--theme-text);
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: var(--sm-radius-sm);
+  border: 1px solid var(--sm-color-border-default);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
   font-size: 13px;
   font-weight: 500;
   display: flex;
   align-items: center;
 }
 
-/* Toggle Switch */
 .toggle-wrapper {
   display: flex;
   align-items: center;
@@ -459,9 +407,8 @@ onMounted(() => {
   display: inline-block;
   width: 48px;
   height: 26px;
-  background: rgba(100, 116, 139, 0.22);
-  border: 1px solid rgba(100, 116, 139, 0.26);
-  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.14);
+  background: var(--sm-color-border-default);
+  border: 1px solid transparent;
   border-radius: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -475,63 +422,24 @@ onMounted(() => {
   width: 20px;
   height: 20px;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
   border-radius: 50%;
   transform: translateY(-50%);
   transition: left 0.2s ease;
 }
 
 .toggle-input:checked + .toggle-label {
-  background: var(--theme-accent);
-  border-color: var(--theme-accent);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  background: var(--sm-color-accent);
+  border-color: var(--sm-color-border-accent);
 }
 
 .toggle-input:checked + .toggle-label::after {
   left: 25px;
 }
 
-/* Buttons */
 .form-actions {
   display: flex;
   gap: 12px;
-  margin-top: 8px;
-}
-
-.btn {
-  padding: 10px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: var(--theme-font);
-  border-radius: var(--theme-radius-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  border: 1px solid var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  color: var(--theme-text-secondary);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  color: var(--theme-text);
-}
-
-.btn-primary {
-  background: var(--theme-accent);
-  border: 1px solid var(--theme-accent);
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
+  justify-content: flex-end;
 }
 
 @media (max-width: 768px) {
@@ -548,7 +456,7 @@ onMounted(() => {
     justify-content: stretch;
   }
 
-  .form-actions .btn {
+  .form-actions .sm-button {
     flex: 1;
   }
 }

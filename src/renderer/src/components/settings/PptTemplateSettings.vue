@@ -38,19 +38,28 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="ppt-template-settings">
-    <!-- 上传区域 -->
-    <TemplateUploader @error="showError" @success="showSuccess" />
+  <div class="sm-settings-page sm-ppt-template-settings">
+    <header class="sm-settings-page__header">
+      <h2 class="sm-settings-page__title">PPT 模板</h2>
+      <p class="sm-settings-page__description">
+        管理演示文稿模板上传、分析结果和 AI 总结产物，保持上传区与列表区属于同一套配置系统。
+      </p>
+    </header>
 
-    <!-- 模板列表 -->
-    <TemplateList />
+    <section class="sm-settings-page__section">
+      <TemplateUploader @error="showError" @success="showSuccess" />
+    </section>
+
+    <section class="sm-settings-page__section">
+      <TemplateList />
+    </section>
   </div>
 </template>
 
 <style scoped>
-.ppt-template-settings {
+.sm-ppt-template-settings {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--sm-space-5);
 }
 </style>

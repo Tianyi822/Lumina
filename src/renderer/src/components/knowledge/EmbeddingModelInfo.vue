@@ -74,8 +74,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="stat-item">
-    <span class="stat-label">显示名称:</span>
+  <div class="stat-card stat-card--wide">
+    <span class="stat-label">嵌入模型</span>
     <span class="stat-value">{{
       embeddingModelDisplayName || (loadingEmbeddingModels ? '...' : '')
     }}</span>
@@ -83,20 +83,33 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.stat-item {
+.stat-card {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 6px;
-  font-size: 12px;
+  min-height: 88px;
+  padding: var(--sm-space-4);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.stat-card--wide {
+  min-width: 0;
 }
 
 .stat-label {
-  color: var(--theme-text-secondary);
+  font-size: 12px;
+  color: var(--sm-color-text-secondary);
 }
 
 .stat-value {
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
+  font-size: 15px;
   font-weight: 500;
-  font-family: var(--font-mono);
+  font-family: var(--sm-font-mono);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

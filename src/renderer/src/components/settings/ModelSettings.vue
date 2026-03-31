@@ -211,223 +211,268 @@ async function handleSave(): Promise<void> {
 </script>
 
 <template>
-  <div class="tab-content">
-    <!-- 已配置的模型列表 -->
-    <div class="model-list">
-      <div v-for="(config, index) in llmConfigs" :key="index" class="model-item">
-        <div class="model-header" @click="toggleModelExpand(index)">
-          <span class="model-name">{{ config.model_name || '未命名模型' }}</span>
-          <span v-if="defaultModel === config.model_name" class="default-badge">默认</span>
-          <span class="expand-state">{{ expandedModels.has(index) ? '收起' : '展开' }}</span>
-          <div class="model-actions">
-            <button
-              v-if="defaultModel !== config.model_name"
-              class="btn btn-small"
-              @click.stop="setDefaultModel(config.model_name)"
-            >
-              设为默认
-            </button>
-            <button class="btn btn-small btn-danger-text" @click.stop="deleteModel(index)">
-              删除
-            </button>
-          </div>
+  <div class="sm-settings-page tab-content">
+    <header class="sm-settings-page__header">
+      <h2 class="sm-settings-page__title">对话模型配置</h2>
+      <p class="sm-settings-page__description">
+        管理对话模型列表、默认模型和推理参数。修改字段后会自动同步到本地配置。
+      </p>
+    </header>
+
+    <section class="sm-settings-page__section">
+      <div class="sm-settings-page__section-header">
+        <div>
+          <h3 class="sm-settings-page__section-title">模型列表</h3>
+          <p class="sm-settings-page__section-description">
+            当前共 {{ llmConfigs.length }} 个模型，默认模型会同步到会话工作区的模型选择器。
+          </p>
         </div>
-        <div v-if="expandedModels.has(index)" class="model-details">
-          <div class="form-group">
-            <label>API Base URL</label>
-            <input
-              :value="config.base_url"
-              type="text"
-              class="input"
-              placeholder="https://api.openai.com/v1"
-              @input="
-                (e) => updateModelConfig(index, 'base_url', (e.target as HTMLInputElement).value)
-              "
-            />
+
+        <span
+          class="sm-settings-chip"
+          :class="{ 'sm-settings-chip--accent': llmConfigs.length > 0 }"
+        >
+          默认模型: {{ defaultModel || '未设置' }}
+        </span>
+      </div>
+
+      <div class="model-list">
+        <div v-for="(config, index) in llmConfigs" :key="index" class="model-item">
+          <div class="model-header" @click="toggleModelExpand(index)">
+            <span class="model-name">{{ config.model_name || '未命名模型' }}</span>
+            <span v-if="defaultModel === config.model_name" class="default-badge">默认</span>
+            <span class="expand-state">{{ expandedModels.has(index) ? '收起' : '展开' }}</span>
+            <div class="model-actions">
+              <button
+                v-if="defaultModel !== config.model_name"
+                class="sm-button sm-button--small"
+                @click.stop="setDefaultModel(config.model_name)"
+              >
+                设为默认
+              </button>
+              <button
+                class="sm-button sm-button--small sm-button--danger model-action--danger"
+                @click.stop="deleteModel(index)"
+              >
+                删除
+              </button>
+            </div>
           </div>
-          <div class="form-group">
-            <label>API Key</label>
-            <input
-              :value="config.api_key"
-              type="password"
-              class="input"
-              placeholder="sk-..."
-              @input="
-                (e) => updateModelConfig(index, 'api_key', (e.target as HTMLInputElement).value)
-              "
-            />
-          </div>
-          <div class="form-group">
-            <label>模型名称</label>
-            <input
-              :value="config.model_name"
-              type="text"
-              class="input"
-              placeholder="gpt-4"
-              @input="
-                (e) => updateModelConfig(index, 'model_name', (e.target as HTMLInputElement).value)
-              "
-            />
-          </div>
-          <div class="form-row">
-            <div class="form-group half">
-              <label>Temperature</label>
+          <div v-if="expandedModels.has(index)" class="model-details">
+            <div class="form-group">
+              <label>API Base URL</label>
               <input
-                :value="config.temperature"
-                type="number"
-                class="input"
-                min="0"
-                max="2"
-                step="0.1"
+                :value="config.base_url"
+                type="text"
+                class="sm-input"
+                placeholder="https://api.openai.com/v1"
                 @input="
-                  (e) =>
-                    updateModelConfig(
-                      index,
-                      'temperature',
-                      Number((e.target as HTMLInputElement).value)
-                    )
+                  (e) => updateModelConfig(index, 'base_url', (e.target as HTMLInputElement).value)
                 "
               />
             </div>
-            <div class="form-group half">
-              <label>Max Tokens</label>
+            <div class="form-group">
+              <label>API Key</label>
               <input
-                :value="config.max_tokens"
-                type="number"
-                class="input"
-                min="1"
+                :value="config.api_key"
+                type="password"
+                class="sm-input"
+                placeholder="sk-..."
                 @input="
-                  (e) =>
-                    updateModelConfig(
-                      index,
-                      'max_tokens',
-                      Number((e.target as HTMLInputElement).value)
-                    )
+                  (e) => updateModelConfig(index, 'api_key', (e.target as HTMLInputElement).value)
                 "
               />
             </div>
+            <div class="form-group">
+              <label>模型名称</label>
+              <input
+                :value="config.model_name"
+                type="text"
+                class="sm-input"
+                placeholder="gpt-4"
+                @input="
+                  (e) =>
+                    updateModelConfig(index, 'model_name', (e.target as HTMLInputElement).value)
+                "
+              />
+            </div>
+            <div class="form-row">
+              <div class="form-group half">
+                <label>Temperature</label>
+                <input
+                  :value="config.temperature"
+                  type="number"
+                  class="sm-input"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                  @input="
+                    (e) =>
+                      updateModelConfig(
+                        index,
+                        'temperature',
+                        Number((e.target as HTMLInputElement).value)
+                      )
+                  "
+                />
+              </div>
+              <div class="form-group half">
+                <label>Max Tokens</label>
+                <input
+                  :value="config.max_tokens"
+                  type="number"
+                  class="sm-input"
+                  min="1"
+                  @input="
+                    (e) =>
+                      updateModelConfig(
+                        index,
+                        'max_tokens',
+                        Number((e.target as HTMLInputElement).value)
+                      )
+                  "
+                />
+              </div>
+            </div>
           </div>
+        </div>
+
+        <div v-if="llmConfigs.length === 0 && !showNewModelForm" class="sm-settings-empty">
+          <p>暂无模型配置</p>
         </div>
       </div>
 
-      <!-- 空状态 -->
-      <div v-if="llmConfigs.length === 0 && !showNewModelForm" class="empty-state">
-        <p>暂无模型配置</p>
-      </div>
-    </div>
-
-    <!-- 添加新模型表单 -->
-    <div v-if="showNewModelForm" class="new-model-form">
-      <h3 class="form-section-title">添加新模型配置</h3>
-      <div class="form-group">
-        <label>API Base URL <span class="required">*</span></label>
-        <input
-          v-model="newModelConfig.base_url"
-          type="text"
-          class="input"
-          placeholder="https://api.openai.com/v1"
-        />
-      </div>
-      <div class="form-group">
-        <label>API Key <span class="required">*</span></label>
-        <input
-          v-model="newModelConfig.api_key"
-          type="password"
-          class="input"
-          placeholder="sk-..."
-        />
-      </div>
-      <div class="form-group">
-        <label>模型名称 <span class="required">*</span></label>
-        <input v-model="newModelConfig.model_name" type="text" class="input" placeholder="gpt-4" />
-      </div>
-      <div class="form-row">
-        <div class="form-group half">
-          <label>Temperature</label>
+      <div v-if="showNewModelForm" class="new-model-form">
+        <h3 class="form-section-title">添加新模型配置</h3>
+        <div class="form-group">
+          <label>API Base URL <span class="required">*</span></label>
           <input
-            v-model.number="newModelConfig.temperature"
-            type="number"
-            class="input"
-            min="0"
-            max="2"
-            step="0.1"
+            v-model="newModelConfig.base_url"
+            type="text"
+            class="sm-input"
+            placeholder="https://api.openai.com/v1"
           />
         </div>
-        <div class="form-group half">
-          <label>Max Tokens</label>
-          <input v-model.number="newModelConfig.max_tokens" type="number" class="input" min="1" />
+        <div class="form-group">
+          <label>API Key <span class="required">*</span></label>
+          <input
+            v-model="newModelConfig.api_key"
+            type="password"
+            class="sm-input"
+            placeholder="sk-..."
+          />
+        </div>
+        <div class="form-group">
+          <label>模型名称 <span class="required">*</span></label>
+          <input
+            v-model="newModelConfig.model_name"
+            type="text"
+            class="sm-input"
+            placeholder="gpt-4"
+          />
+        </div>
+        <div class="form-row">
+          <div class="form-group half">
+            <label>Temperature</label>
+            <input
+              v-model.number="newModelConfig.temperature"
+              type="number"
+              class="sm-input"
+              min="0"
+              max="2"
+              step="0.1"
+            />
+          </div>
+          <div class="form-group half">
+            <label>Max Tokens</label>
+            <input
+              v-model.number="newModelConfig.max_tokens"
+              type="number"
+              class="sm-input"
+              min="1"
+            />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="sm-button" @click="resetNewModelForm">取消</button>
+          <button class="sm-button sm-button--primary" @click="addNewModel">添加</button>
         </div>
       </div>
-      <div class="form-actions">
-        <button class="btn" @click="resetNewModelForm">取消</button>
-        <button class="btn-primary" @click="addNewModel">添加</button>
-      </div>
-    </div>
 
-    <!-- 添加模型按钮 -->
-    <button v-if="!showNewModelForm" class="btn add-model-btn" @click="showNewModelForm = true">
-      添加模型配置
-    </button>
-
-    <!-- 保存配置按钮 -->
-    <div class="save-actions">
-      <button class="btn-primary" :disabled="saving" @click="handleSave">
-        {{ saving ? '保存中...' : '保存配置' }}
+      <button
+        v-if="!showNewModelForm"
+        class="sm-button add-model-btn"
+        @click="showNewModelForm = true"
+      >
+        添加模型配置
       </button>
-    </div>
+    </section>
+
+    <section class="sm-settings-page__section sm-settings-page__section--compact">
+      <div class="sm-settings-page__section-header">
+        <div>
+          <h3 class="sm-settings-page__section-title">写入配置</h3>
+          <p class="sm-settings-page__section-description">
+            自动保存会持续同步修改，必要时也可以手动触发一次完整保存。
+          </p>
+        </div>
+      </div>
+
+      <div class="save-actions">
+        <button class="sm-button sm-button--primary" :disabled="saving" @click="handleSave">
+          {{ saving ? '保存中...' : '保存配置' }}
+        </button>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.tab-content {
-  min-height: 300px;
-}
-
 .model-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 16px;
 }
 
 .model-item {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   overflow: hidden;
 }
 
 .model-header {
   display: flex;
   align-items: center;
+  gap: 12px;
   padding: 12px 16px;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background-color var(--sm-transition-fast);
 }
 
 .model-header:hover {
-  background-color: var(--theme-bg-hover);
+  background: var(--sm-color-surface-hover);
 }
 
 .model-name {
-  font-weight: 500;
-  color: var(--theme-text);
   flex: 1;
+  font-weight: 500;
+  color: var(--sm-color-text-primary);
 }
 
 .expand-state {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
-  margin-right: 12px;
+  color: var(--sm-color-text-tertiary);
 }
 
 .default-badge {
+  padding: 3px 8px;
+  border: 1px solid var(--sm-color-border-accent);
+  border-radius: 999px;
+  background: rgba(142, 149, 217, 0.12);
+  color: var(--sm-color-accent-hover);
   font-size: 11px;
-  padding: 2px 8px;
-  background-color: var(--theme-accent);
-  color: var(--theme-bg);
-  border-radius: 4px;
-  margin-right: 12px;
+  font-weight: 600;
 }
 
 .model-actions {
@@ -437,17 +482,16 @@ async function handleSave(): Promise<void> {
 
 .model-details {
   padding: 16px;
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg);
+  border-top: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-surface-1);
 }
 
-/* 覆盖全局样式的特定变体 */
 .form-group label {
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .required {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .form-row {
@@ -460,68 +504,53 @@ async function handleSave(): Promise<void> {
 }
 
 .form-section-title {
+  margin: 0 0 16px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
-  margin: 20px 0 16px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--theme-border);
-}
-
-.form-section-title:first-child {
-  margin-top: 0;
+  color: var(--sm-color-text-primary);
 }
 
 .new-model-form {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
   padding: 16px;
-  margin-bottom: 16px;
-}
-
-.new-model-form .form-section-title {
-  margin-top: 0;
-  border-bottom: none;
-  padding-bottom: 0;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
 }
 
 .add-model-btn {
   width: 100%;
   padding: 12px;
   border-style: dashed;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .add-model-btn:hover {
-  color: var(--theme-accent);
-  border-color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
+  border-color: var(--sm-color-border-accent);
 }
 
-.empty-state {
-  text-align: center;
-  padding: 32px;
-  color: var(--theme-text-secondary);
-}
-
-.btn-small {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-
-.btn-danger-text {
-  color: var(--theme-danger);
-  border-color: transparent;
-}
-
-.btn-danger-text:hover {
-  background-color: rgba(248, 81, 73, 0.1);
-  border-color: var(--theme-danger);
+.model-action--danger {
+  color: var(--sm-color-status-danger);
 }
 
 .save-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+}
+
+@media (max-width: 720px) {
+  .model-header {
+    flex-wrap: wrap;
+  }
+
+  .model-actions,
+  .save-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
 }
 </style>

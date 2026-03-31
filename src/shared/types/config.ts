@@ -136,9 +136,13 @@ export interface LLMConfigObject {
  * 界面主题配置
  * 主题颜色由 CSS 主题文件管理（见 src/renderer/src/themes/ 目录）
  */
+export type ThemeMode = 'manual' | 'system'
+
 export interface ThemeConfig {
   /** 主题的名称（对应 CSS 主题文件的 data-theme 属性值） */
   name: string
+  /** 主题切换模式：手动选择或跟随系统 */
+  mode?: ThemeMode
 }
 
 // MCP 相关类型已移至 @shared/types/mcp.ts，避免重复定义

@@ -35,7 +35,12 @@ function handleToggleSelection(event: Event, index: number): void {
           active: currentSlideIndex === slide.index,
           selected: slide.selected
         }"
+        role="button"
+        tabindex="0"
+        :aria-pressed="currentSlideIndex === slide.index"
         @click="emit('select-slide', slide.index)"
+        @keydown.enter.prevent="emit('select-slide', slide.index)"
+        @keydown.space.prevent="emit('select-slide', slide.index)"
       >
         <div class="ppt-export-thumbnail-preview">
           <img
@@ -61,9 +66,13 @@ function handleToggleSelection(event: Event, index: number): void {
           </span>
         </div>
 
-        <div class="ppt-export-thumbnail-check" @click="handleToggleSelection($event, slide.index)">
+        <button
+          type="button"
+          class="ppt-export-thumbnail-check"
+          @click="handleToggleSelection($event, slide.index)"
+        >
           <span v-if="slide.selected">✓</span>
-        </div>
+        </button>
       </div>
     </div>
   </div>
@@ -74,9 +83,9 @@ function handleToggleSelection(event: Event, index: number): void {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  border-radius: var(--theme-radius-lg);
-  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-2);
   overflow: hidden;
   padding: 14px;
 }
@@ -92,12 +101,12 @@ function handleToggleSelection(event: Event, index: number): void {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .ppt-export-thumbnails-count {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .ppt-export-thumbnails-scroll {
@@ -117,7 +126,7 @@ function handleToggleSelection(event: Event, index: number): void {
 }
 
 .ppt-export-thumbnails-scroll::-webkit-scrollbar-thumb {
-  background: var(--theme-border);
+  background: var(--sm-color-border-default);
   border-radius: 3px;
 }
 
@@ -126,16 +135,23 @@ function handleToggleSelection(event: Event, index: number): void {
   flex-shrink: 0;
   width: 100px;
   cursor: pointer;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: var(--theme-radius);
-  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
   overflow: hidden;
-  transition: all 0.2s ease;
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .ppt-export-thumbnail-item:hover {
-  border-color: var(--theme-accent);
-  background: rgba(0, 0, 0, 0.04);
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
+}
+
+.ppt-export-thumbnail-item:focus-visible {
+  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-surface-hover);
 }
 
 .ppt-export-thumbnail-item:hover .ppt-export-thumbnail-check {
@@ -143,23 +159,22 @@ function handleToggleSelection(event: Event, index: number): void {
 }
 
 .ppt-export-thumbnail-item.active {
-  border-color: var(--theme-accent);
-  background: rgba(99, 102, 241, 0.1);
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.08);
 }
 
 .ppt-export-thumbnail-item.selected {
-  background: color-mix(in srgb, var(--theme-accent) 5%, var(--theme-bg));
+  background: rgba(142, 149, 217, 0.08);
 }
 
 .ppt-export-thumbnail-item.selected .ppt-export-thumbnail-check {
   opacity: 1;
-  background: var(--theme-accent);
 }
 
 .ppt-export-thumbnail-preview {
   position: relative;
   aspect-ratio: 16 / 9;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: var(--sm-color-bg-embedded);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -176,7 +191,7 @@ function handleToggleSelection(event: Event, index: number): void {
 .ppt-export-thumbnail-number {
   font-size: 18px;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--sm-color-text-tertiary);
 }
 
 .ppt-export-thumbnail-type {
@@ -195,7 +210,7 @@ function handleToggleSelection(event: Event, index: number): void {
 .ppt-export-thumbnail-title {
   display: block;
   font-size: 11px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -207,20 +222,25 @@ function handleToggleSelection(event: Event, index: number): void {
   right: 4px;
   width: 18px;
   height: 18px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.2);
-  color: white;
+  padding: 0;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 999px;
+  background: rgba(11, 11, 12, 0.86);
+  color: var(--sm-color-text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
   font-weight: 700;
   opacity: 0;
-  transition: all 0.2s ease;
+  transition:
+    opacity var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
 .ppt-export-thumbnail-check:hover {
-  transform: scale(1.1);
-  background: var(--theme-accent);
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.16);
 }
 </style>

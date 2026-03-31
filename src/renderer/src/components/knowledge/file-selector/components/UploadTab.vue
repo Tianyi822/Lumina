@@ -23,6 +23,11 @@ function handleUploadComplete(result: UploadResult): void {
 
 <template>
   <div class="tab-content">
+    <div class="upload-copy">
+      <span class="upload-copy__label">上传到资源池</span>
+      <p>新文件会先进入文件资源池，再自动挂载到当前知识库。</p>
+    </div>
+
     <div class="upload-wrapper">
       <FileUploadZone
         :auto-link-to-k-b="true"
@@ -32,7 +37,7 @@ function handleUploadComplete(result: UploadResult): void {
     </div>
 
     <div class="upload-actions">
-      <button class="btn" @click="emit('close')">关闭</button>
+      <button class="sm-button sm-button--secondary" @click="emit('close')">关闭</button>
     </div>
   </div>
 </template>
@@ -46,30 +51,43 @@ function handleUploadComplete(result: UploadResult): void {
   min-height: 400px;
 }
 
+.upload-copy {
+  padding: 0 var(--sm-space-5) var(--sm-space-4);
+}
+
+.upload-copy__label {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--sm-color-text-tertiary);
+}
+
+.upload-copy p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sm-color-text-secondary);
+}
+
 .upload-wrapper {
   flex: 1;
-  margin: 24px;
+  margin: 0 var(--sm-space-5) var(--sm-space-4);
 }
 
 .upload-actions {
   display: flex;
   justify-content: flex-end;
-  padding: 0 24px 24px;
+  padding: 0 var(--sm-space-5) var(--sm-space-5);
 }
 
-/* 按钮样式 */
-.btn {
-  padding: 8px 16px;
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn:hover {
-  background-color: var(--theme-bg-hover);
+@media (max-width: 720px) {
+  .upload-copy,
+  .upload-wrapper,
+  .upload-actions {
+    margin-left: var(--sm-space-4);
+    margin-right: var(--sm-space-4);
+    padding-left: 0;
+    padding-right: 0;
+  }
 }
 </style>

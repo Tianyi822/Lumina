@@ -52,25 +52,27 @@ const selectedCount = computed(() => props.selectedFileIds.size)
 
 <template>
   <div class="tab-content">
-    <!-- 搜索栏 -->
     <div class="search-bar">
+      <div class="search-bar__copy">
+        <span class="search-bar__label">文件资源池</span>
+        <span class="search-bar__count">{{ availableFiles.length }} 个可挂载文件</span>
+      </div>
       <input
         v-model="searchQuery"
         type="text"
-        class="search-input"
+        class="sm-input search-input"
         placeholder="搜索文件..."
         @input="searchFiles(searchQuery)"
       />
     </div>
 
-    <!-- 可选择的文件列表 -->
     <div class="file-list">
       <div v-if="loading" class="state-message">
-        <div class="spinner"></div>
+        <span class="sm-spinner sm-spinner--large"></span>
         <p>加载中...</p>
       </div>
 
-      <div v-else-if="availableFiles.length === 0" class="state-message">
+      <div v-else-if="availableFiles.length === 0" class="state-message sm-empty">
         <p v-if="searchQuery">未找到匹配的文件</p>
         <p v-else>没有可添加的文件，请先上传文件或切换到"上传新文件"标签页</p>
       </div>
@@ -87,7 +89,6 @@ const selectedCount = computed(() => props.selectedFileIds.size)
       </div>
     </div>
 
-    <!-- 底部操作栏 -->
     <FileSelectorBottomBar
       :selected-count="selectedCount"
       :has-selected-files="hasSelectedFiles"
@@ -106,43 +107,48 @@ const selectedCount = computed(() => props.selectedFileIds.size)
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-height: 400px;
+  min-height: 420px;
 }
 
 .search-bar {
   display: flex;
   align-items: center;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--theme-border);
+  justify-content: space-between;
+  gap: var(--sm-space-4);
+  padding: 0 var(--sm-space-5) var(--sm-space-4);
+}
+
+.search-bar__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.search-bar__label {
+  font-size: 12px;
+  color: var(--sm-color-text-tertiary);
+}
+
+.search-bar__count {
+  font-size: 13px;
+  color: var(--sm-color-text-secondary);
 }
 
 .search-input {
   flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
-  font-size: 14px;
-  outline: none;
-  transition: all 0.15s ease;
-}
-
-.search-input:focus {
-  border-color: var(--theme-accent);
-  box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.1);
+  max-width: 320px;
 }
 
 .file-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 0 var(--sm-space-4) var(--sm-space-4);
 }
 
 .file-items {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sm-space-2);
 }
 
 .state-message {
@@ -150,9 +156,11 @@ const selectedCount = computed(() => props.selectedFileIds.size)
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
+  min-height: 240px;
+  padding: var(--sm-space-6) var(--sm-space-4);
+  gap: var(--sm-space-3);
   text-align: center;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .state-message p {
@@ -160,24 +168,8 @@ const selectedCount = computed(() => props.selectedFileIds.size)
   font-size: 14px;
 }
 
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--theme-border);
-  border-top-color: var(--theme-accent);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-bottom: 12px;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .file-list::-webkit-scrollbar {
-  width: 6px;
+  width: var(--sm-scrollbar-size);
 }
 
 .file-list::-webkit-scrollbar-track {
@@ -185,11 +177,27 @@ const selectedCount = computed(() => props.selectedFileIds.size)
 }
 
 .file-list::-webkit-scrollbar-thumb {
-  background-color: var(--theme-border);
-  border-radius: 3px;
+  background-color: var(--sm-color-border-default);
+  border-radius: 999px;
 }
 
 .file-list::-webkit-scrollbar-thumb:hover {
-  background-color: var(--theme-text-secondary);
+  background-color: var(--sm-color-border-strong);
+}
+
+@media (max-width: 720px) {
+  .search-bar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0 var(--sm-space-4) var(--sm-space-4);
+  }
+
+  .search-input {
+    max-width: none;
+  }
+
+  .file-list {
+    padding: 0 var(--sm-space-3) var(--sm-space-4);
+  }
 }
 </style>

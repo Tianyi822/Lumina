@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onBeforeUnmount, watch } from 'vue'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 const props = defineProps<{
   show: boolean
@@ -10,21 +11,41 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
-// 3秒后自动关闭
-onMounted(() => {
-  if (props.show) {
-    setTimeout(() => emit('close'), 3000)
+let closeTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearCloseTimer(): void {
+  if (closeTimer !== null) {
+    clearTimeout(closeTimer)
+    closeTimer = null
   }
+}
+
+watch(
+  () => props.show,
+  (visible) => {
+    clearCloseTimer()
+
+    if (visible) {
+      closeTimer = setTimeout(() => emit('close'), 3000)
+    }
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  clearCloseTimer()
 })
 </script>
 
 <template>
   <Transition name="toast">
-    <div v-if="show" class="chat-error-toast">
+    <div v-if="show" class="chat-error-toast" role="alert" aria-live="assertive" aria-atomic="true">
       <div class="toast-content">
-        <span class="toast-icon">⚠️</span>
+        <SvgIcon class="toast-icon" name="warning" :size="16" />
         <p class="toast-message">{{ message }}</p>
-        <button class="toast-close" @click="$emit('close')">×</button>
+        <button type="button" class="toast-close" aria-label="关闭错误提示" @click="$emit('close')">
+          <SvgIcon name="close" :size="14" />
+        </button>
       </div>
     </div>
   </Transition>
@@ -37,22 +58,10 @@ onMounted(() => {
   right: 16px;
   z-index: 1000;
   max-width: 400px;
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
-      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
-    ),
-    var(--theme-bg-secondary);
-  backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
-  -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: var(--theme-radius);
+  background: var(--sm-color-surface-3);
+  border: 1px solid rgba(199, 120, 120, 0.24);
+  border-radius: var(--sm-radius-md);
   padding: 12px 16px;
-  box-shadow:
-    0 10px 36px rgba(0, 0, 0, 0.2),
-    0 3px 10px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 var(--glass-white-1, rgba(255, 255, 255, 0.1));
 }
 
 .toast-content {
@@ -62,14 +71,16 @@ onMounted(() => {
 }
 
 .toast-icon {
-  color: var(--theme-danger);
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sm-color-status-danger);
   flex-shrink: 0;
 }
 
 .toast-message {
   flex: 1;
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   font-size: 13px;
   line-height: 1.5;
   margin: 0;
@@ -77,31 +88,40 @@ onMounted(() => {
 }
 
 .toast-close {
-  background: none;
-  border: none;
-  font-size: 18px;
-  color: var(--theme-danger);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--sm-radius-sm);
+  color: var(--sm-color-status-danger);
   cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
+  padding: 0;
   opacity: 0.6;
-  transition: opacity 0.15s;
-  font-family: var(--theme-font);
+  transition:
+    opacity var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
   flex-shrink: 0;
 }
 
 .toast-close:hover {
+  background: rgba(199, 120, 120, 0.08);
+  border-color: rgba(199, 120, 120, 0.2);
   opacity: 1;
 }
 
 .toast-enter-active,
 .toast-leave-active {
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition:
+    opacity var(--sm-transition-medium),
+    transform var(--sm-transition-medium);
 }
 
 .toast-enter-from,
 .toast-leave-to {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(var(--sm-motion-distance-md));
 }
 </style>

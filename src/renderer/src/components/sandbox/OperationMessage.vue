@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 interface Props {
   type: 'error' | 'warning' | 'success' | 'info'
@@ -16,30 +17,43 @@ const emit = defineEmits<{
 const icon = computed(() => {
   switch (props.type) {
     case 'error':
-      return '✕'
+      return 'close'
     case 'warning':
-      return '⚠'
+      return 'warning'
     case 'success':
-      return '✓'
+      return 'check'
     case 'info':
-      return 'ℹ'
+      return 'info'
     default:
-      return 'ℹ'
+      return 'info'
   }
 })
 
 const typeClass = computed(() => `message-${props.type}`)
+const liveRole = computed(() => (props.type === 'error' ? 'alert' : 'status'))
+const liveMode = computed(() => (props.type === 'error' ? 'assertive' : 'polite'))
 </script>
 
 <template>
   <Transition name="message">
-    <div v-if="visible" class="operation-message" :class="typeClass">
-      <div class="message-icon">{{ icon }}</div>
+    <div
+      v-if="visible"
+      class="operation-message"
+      :class="typeClass"
+      :role="liveRole"
+      :aria-live="liveMode"
+      aria-atomic="true"
+    >
+      <div class="message-icon">
+        <SvgIcon :name="icon" :size="14" />
+      </div>
       <div class="message-content">
         <div class="message-title">{{ title }}</div>
         <div class="message-text">{{ message }}</div>
       </div>
-      <button class="message-close" @click="emit('close')">×</button>
+      <button type="button" class="message-close" aria-label="关闭操作提示" @click="emit('close')">
+        <SvgIcon name="close" :size="14" />
+      </button>
     </div>
   </Transition>
 </template>
@@ -57,10 +71,9 @@ const typeClass = computed(() => `message-${props.type}`)
   padding: 16px 20px;
   min-width: 320px;
   max-width: 480px;
-  background-color: var(--theme-bg);
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  background-color: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   z-index: 9999;
 }
 
@@ -71,8 +84,6 @@ const typeClass = computed(() => `message-${props.type}`)
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  font-size: 14px;
-  font-weight: bold;
   flex-shrink: 0;
 }
 
@@ -89,7 +100,7 @@ const typeClass = computed(() => `message-${props.type}`)
 
 .message-text {
   font-size: 13px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   line-height: 1.5;
   word-break: break-word;
 }
@@ -98,37 +109,42 @@ const typeClass = computed(() => `message-${props.type}`)
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   background: none;
-  border: none;
-  border-radius: 4px;
-  color: var(--theme-text-secondary);
-  font-size: 18px;
+  border: 1px solid transparent;
+  border-radius: var(--sm-radius-sm);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
   flex-shrink: 0;
 }
 
 .message-close:hover {
-  background-color: var(--theme-bg-secondary);
-  color: var(--theme-text);
+  background-color: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-default);
+  color: var(--sm-color-text-primary);
 }
 
 /* 过渡动画 */
 .message-enter-active,
 .message-leave-active {
-  transition: all 0.3s ease;
+  transition:
+    opacity var(--sm-transition-medium),
+    transform var(--sm-transition-medium);
 }
 
 .message-enter-from {
   opacity: 0;
-  transform: translateX(100%);
+  transform: translateX(var(--sm-motion-distance-md));
 }
 
 .message-leave-to {
   opacity: 0;
-  transform: translateX(100%);
+  transform: translateX(var(--sm-motion-distance-md));
 }
 </style>

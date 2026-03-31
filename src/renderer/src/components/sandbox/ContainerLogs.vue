@@ -24,17 +24,33 @@ const tailLines = ref(100)
 
 // ==================== Computed ====================
 
-const filteredLogs = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return props.logs
+const allLines = computed(() => {
+  if (!props.logs) {
+    return [] as string[]
   }
-  const lines = props.logs.split('\n')
+
+  return props.logs.split('\n')
+})
+
+const matchedLines = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return allLines.value
+  }
+
   const query = searchQuery.value.toLowerCase()
-  return lines.filter((line) => line.toLowerCase().includes(query)).join('\n')
+  return allLines.value.filter((line) => line.toLowerCase().includes(query))
+})
+
+const filteredLogs = computed(() => {
+  return matchedLines.value.slice(-tailLines.value).join('\n')
 })
 
 const lineCount = computed(() => {
-  return props.logs.split('\n').filter((line) => line.trim()).length
+  return allLines.value.filter((line) => line.trim()).length
+})
+
+const matchedLineCount = computed(() => {
+  return matchedLines.value.filter((line) => line.trim()).length
 })
 
 // ==================== Watch ====================
@@ -73,34 +89,56 @@ function handleClearSearch(): void {
 
 <template>
   <div class="container-logs">
-    <!-- 头部工具栏 -->
     <div class="logs-header">
-      <div class="header-info">
-        <span class="container-name">日志: {{ containerName }}</span>
-        <span class="logs-meta">{{ lineCount }} 行</span>
+      <div class="logs-header__copy">
+        <span class="logs-header__eyebrow">容器日志</span>
+        <div class="logs-header__headline">
+          <h2>{{ containerName }}</h2>
+          <span class="sm-badge logs-meta">{{ containerId.substring(0, 12) }}</span>
+          <span class="sm-badge logs-meta">{{ lineCount }} 行</span>
+        </div>
+        <p>检索容器输出，定位最近的服务状态和运行异常。</p>
       </div>
       <div class="header-actions">
         <label class="toggle-label">
           <input v-model="autoScroll" type="checkbox" />
           <span>自动滚动</span>
         </label>
-        <button class="btn-sm" @click="handleRefresh">刷新</button>
-        <button class="btn-sm" @click="handleExport">导出</button>
+        <button class="sm-button sm-button--secondary sm-button--small" @click="handleRefresh">
+          刷新
+        </button>
+        <button class="sm-button sm-button--secondary sm-button--small" @click="handleExport">
+          导出
+        </button>
       </div>
     </div>
 
-    <!-- 搜索栏 -->
-    <div class="logs-search">
+    <div class="logs-toolbar">
       <input
         v-model="searchQuery"
         type="text"
         class="input search-input"
-        placeholder="搜索日志内容..."
+        placeholder="搜索日志内容"
       />
-      <button v-if="searchQuery" class="btn-clear" @click="handleClearSearch">×</button>
+      <div class="toolbar-tail">
+        <label for="tail-lines">显示最近</label>
+        <select id="tail-lines" v-model="tailLines" class="select-sm">
+          <option :value="50">50 行</option>
+          <option :value="100">100 行</option>
+          <option :value="200">200 行</option>
+          <option :value="500">500 行</option>
+          <option :value="1000">1000 行</option>
+        </select>
+      </div>
+      <button
+        v-if="searchQuery"
+        class="sm-button sm-button--secondary sm-button--small sm-container-logs__clear-button"
+        @click="handleClearSearch"
+      >
+        清除
+      </button>
     </div>
 
-    <!-- 日志内容 -->
     <div ref="logsContainerRef" class="logs-content">
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner"></div>
@@ -109,7 +147,9 @@ function handleClearSearch(): void {
 
       <div v-else-if="!logs" class="empty-state">
         <p>暂无日志</p>
-        <button class="btn-sm" @click="handleRefresh">刷新</button>
+        <button class="sm-button sm-button--secondary sm-button--small" @click="handleRefresh">
+          刷新
+        </button>
       </div>
 
       <div v-else-if="filteredLogs" class="logs-text">
@@ -118,23 +158,17 @@ function handleClearSearch(): void {
 
       <div v-else class="no-results">
         <p>未找到匹配 "{{ searchQuery }}" 的日志</p>
-        <button class="btn-sm" @click="handleClearSearch">清除搜索</button>
+        <button class="sm-button sm-button--secondary sm-button--small" @click="handleClearSearch">
+          清除搜索
+        </button>
       </div>
     </div>
 
-    <!-- 底部工具栏 -->
     <div class="logs-footer">
-      <div class="tail-selector">
-        <label>显示最后:</label>
-        <select v-model="tailLines" class="select-sm">
-          <option :value="50">50 行</option>
-          <option :value="100">100 行</option>
-          <option :value="200">200 行</option>
-          <option :value="500">500 行</option>
-          <option :value="1000">1000 行</option>
-        </select>
+      <div class="footer-meta">
+        <span>当前展示 {{ Math.min(matchedLineCount, tailLines) }} / {{ matchedLineCount }} 行</span>
+        <span v-if="searchQuery">关键字 "{{ searchQuery }}"</span>
       </div>
-      <div v-if="searchQuery" class="search-info">搜索: "{{ searchQuery }}"</div>
     </div>
   </div>
 </template>
@@ -144,46 +178,65 @@ function handleClearSearch(): void {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: #0d1117;
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
   overflow: hidden;
 }
 
-/* 头部 */
 .logs-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 12px 16px;
-  background-color: var(--theme-bg);
-  border-bottom: 1px solid var(--theme-border);
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-5);
+  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
-.header-info {
+.logs-header__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+}
+
+.logs-header__eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sm-color-text-tertiary);
+}
+
+.logs-header__headline {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: var(--sm-space-2);
 }
 
-.container-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--theme-text);
+.logs-header__headline h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--sm-color-text-primary);
 }
 
 .logs-meta {
-  font-size: 12px;
-  color: var(--theme-text-secondary);
-  padding: 2px 8px;
-  background-color: var(--theme-bg-secondary);
-  border-radius: 10px;
+  font-family: var(--sm-font-mono);
+}
+
+.logs-header__copy p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
 }
 
 .header-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: var(--sm-space-3);
 }
 
 .toggle-label {
@@ -191,76 +244,65 @@ function handleClearSearch(): void {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
 }
 
 .toggle-label input {
   margin: 0;
+  accent-color: var(--sm-color-accent);
 }
 
-.btn-sm {
-  padding: 4px 10px;
-  font-size: 12px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  color: var(--theme-text);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-sm:hover {
-  border-color: var(--theme-accent);
-  color: var(--theme-accent);
-}
-
-/* 搜索栏 */
-.logs-search {
-  position: relative;
-  padding: 8px 16px;
-  background-color: var(--theme-bg);
-  border-bottom: 1px solid var(--theme-border);
+.logs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-4) var(--sm-space-5);
+  border-bottom: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-surface-1);
 }
 
 .search-input {
-  width: 100%;
-  padding-right: 32px;
+  flex: 1;
 }
 
-.btn-clear {
-  position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
+.toolbar-tail {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background-color: var(--theme-border);
-  border: none;
-  border-radius: 50%;
-  color: var(--theme-text-secondary);
-  font-size: 14px;
+  gap: var(--sm-space-2);
+  font-size: 12px;
+  color: var(--sm-color-text-secondary);
+  white-space: nowrap;
+}
+
+.sm-container-logs__clear-button {
+  min-height: 36px;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
-.btn-clear:hover {
-  background-color: var(--theme-danger);
-  color: white;
+.sm-container-logs__clear-button:hover {
+  background: rgba(199, 120, 120, 0.08);
+  border-color: rgba(199, 120, 120, 0.28);
+  color: #c77878;
 }
 
-/* 日志内容 */
 .logs-content {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
-  font-family: var(--theme-font);
+  padding: var(--sm-space-5);
+  font-family: var(--sm-font-mono);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.6;
+  background: var(--sm-color-bg-embedded);
 }
 
 .loading-state {
@@ -269,15 +311,15 @@ function handleClearSearch(): void {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   gap: 16px;
 }
 
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--theme-border);
-  border-top-color: var(--theme-accent);
+  border: 3px solid var(--sm-color-border-default);
+  border-top-color: var(--sm-color-accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -294,7 +336,7 @@ function handleClearSearch(): void {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   text-align: center;
   gap: 12px;
 }
@@ -303,7 +345,7 @@ function handleClearSearch(): void {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #c9d1d9;
+  color: var(--sm-color-text-primary);
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
@@ -315,42 +357,56 @@ function handleClearSearch(): void {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   text-align: center;
   gap: 12px;
 }
 
-/* 底部工具栏 */
 .logs-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
-  background-color: var(--theme-bg);
-  border-top: 1px solid var(--theme-border);
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-4) var(--sm-space-5);
+  background: var(--sm-color-surface-1);
+  border-top: 1px solid var(--sm-color-border-subtle);
 }
 
-.tail-selector {
+.footer-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: var(--sm-space-3);
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .select-sm {
-  padding: 4px 8px;
+  min-height: 36px;
+  padding: 0 32px 0 12px;
   font-size: 12px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  color: var(--theme-text);
+  font-family: var(--sm-font-sans);
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  color: var(--sm-color-text-primary);
   cursor: pointer;
+  appearance: none;
+  background-image: var(--icon-arrow-down-svg);
+  background-repeat: no-repeat;
+  background-position: right 12px center;
 }
 
-.search-info {
-  font-size: 12px;
-  color: var(--theme-accent);
+@media (max-width: 920px) {
+  .logs-header,
+  .logs-toolbar,
+  .logs-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions {
+    justify-content: flex-start;
+  }
 }
 </style>

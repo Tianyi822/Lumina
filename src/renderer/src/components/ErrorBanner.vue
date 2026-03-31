@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
+
 defineProps<{
   error: string | null
 }>()
@@ -9,21 +11,26 @@ defineEmits<{
 </script>
 
 <template>
-  <div v-if="error" class="error-banner">
+  <div class="error-banner" role="alert" aria-live="assertive" aria-atomic="true">
     <div class="error-content">
-      <span class="error-icon">⚠️</span>
+      <SvgIcon class="error-icon" name="warning" :size="16" />
       <span class="error-message">{{ error }}</span>
-      <button class="error-dismiss" @click="$emit('dismiss')">×</button>
+      <button
+        type="button"
+        class="error-dismiss"
+        aria-label="关闭错误提示"
+        @click="$emit('dismiss')"
+      >
+        <SvgIcon name="close" :size="14" />
+      </button>
     </div>
   </div>
 </template>
 
 <style scoped>
 .error-banner {
-  background: rgba(239, 68, 68, 0.06);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(199, 120, 120, 0.08);
+  border-bottom: 1px solid rgba(199, 120, 120, 0.22);
   padding: 10px 16px;
   flex-shrink: 0;
 }
@@ -37,31 +44,41 @@ defineEmits<{
 }
 
 .error-icon {
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sm-color-status-danger);
   flex-shrink: 0;
 }
 
 .error-message {
   flex: 1;
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   font-size: 13px;
   line-height: 1.5;
 }
 
 .error-dismiss {
-  background: none;
-  border: none;
-  font-size: 18px;
-  color: var(--theme-danger);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--sm-radius-sm);
+  color: var(--sm-color-status-danger);
   cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
+  padding: 0;
   opacity: 0.6;
-  transition: opacity 0.15s;
-  font-family: var(--theme-font);
+  transition:
+    opacity var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
 .error-dismiss:hover {
+  background: rgba(199, 120, 120, 0.08);
+  border-color: rgba(199, 120, 120, 0.22);
   opacity: 1;
 }
 </style>

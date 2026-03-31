@@ -96,15 +96,15 @@ watch(
 .user-interaction-options {
   margin-bottom: 12px;
   padding: 12px 16px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: var(--theme-radius);
+  background-color: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
 }
 
 .options-question {
   margin-bottom: 10px;
   font-size: 13px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .options-list {
@@ -126,45 +126,48 @@ watch(
   flex-direction: column;
   align-items: flex-start;
   padding: 10px 12px;
-  background-color: var(--theme-bg);
-  border: 2px solid var(--theme-border);
-  border-radius: var(--theme-radius);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
   text-align: left;
 }
 
 .option-card:hover {
-  border-color: var(--theme-accent);
-  background-color: var(--theme-bg-hover);
+  border-color: var(--sm-color-border-accent);
+  background-color: var(--sm-color-surface-hover);
 }
 
 .option-label {
   font-size: 13px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .option-desc {
   margin-top: 4px;
   font-size: 11px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   line-height: 1.4;
 }
 
 .expand-button {
   margin-top: 10px;
   padding: 8px 12px;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 999px;
   background-color: transparent;
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
 }
 
 .expand-button:hover {
-  background-color: var(--theme-bg-hover);
+  background-color: var(--sm-color-surface-hover);
 }
 </style>

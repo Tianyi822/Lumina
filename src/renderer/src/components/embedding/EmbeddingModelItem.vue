@@ -41,11 +41,16 @@ async function handleTest(): Promise<void> {
       <span class="model-dimensions">{{ config.dimensions }}维</span>
       <span class="expand-state">{{ expanded ? '收起' : '展开' }}</span>
       <div class="model-actions">
-        <button class="btn btn-small" :disabled="testing" @click.stop="handleTest">
+        <button class="sm-button sm-button--small" :disabled="testing" @click.stop="handleTest">
           {{ testing ? '测试中...' : '测试' }}
         </button>
-        <button class="btn btn-small" @click.stop="emit('edit', id)">编辑</button>
-        <button class="btn btn-small btn-danger-text" @click.stop="emit('delete', id)">删除</button>
+        <button class="sm-button sm-button--small" @click.stop="emit('edit', id)">编辑</button>
+        <button
+          class="sm-button sm-button--small sm-button--danger btn-danger-text"
+          @click.stop="emit('delete', id)"
+        >
+          删除
+        </button>
       </div>
     </div>
 
@@ -70,9 +75,9 @@ async function handleTest(): Promise<void> {
 
 <style scoped>
 .model-item {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   overflow: hidden;
 }
 
@@ -85,27 +90,28 @@ async function handleTest(): Promise<void> {
 }
 
 .model-header:hover {
-  background-color: var(--theme-bg-hover);
+  background: var(--sm-color-surface-hover);
 }
 
 .model-name {
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   flex: 1;
 }
 
 .model-dimensions {
   font-size: 11px;
   padding: 2px 8px;
-  background-color: var(--theme-accent);
-  color: var(--theme-bg);
-  border-radius: 4px;
+  background: rgba(142, 149, 217, 0.12);
+  border: 1px solid var(--sm-color-border-accent);
+  color: var(--sm-color-accent-hover);
+  border-radius: 999px;
   margin-right: 12px;
 }
 
 .expand-state {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   margin-right: 12px;
 }
 
@@ -114,19 +120,8 @@ async function handleTest(): Promise<void> {
   gap: 8px;
 }
 
-.btn-small {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-
 .btn-danger-text {
-  color: var(--theme-danger);
-  border-color: transparent;
-}
-
-.btn-danger-text:hover {
-  background-color: rgba(248, 81, 73, 0.1);
-  border-color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .test-result {
@@ -138,20 +133,20 @@ async function handleTest(): Promise<void> {
 
 .test-result.success {
   background: rgba(34, 197, 94, 0.15);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
   border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .test-result.error {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .model-details {
   padding: 16px;
-  border-top: 1px solid var(--theme-border);
-  background-color: var(--theme-bg);
+  border-top: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-surface-1);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -163,13 +158,13 @@ async function handleTest(): Promise<void> {
 }
 
 .detail-label {
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   min-width: 80px;
 }
 
 .detail-value {
-  color: var(--theme-text);
-  font-family: monospace;
+  color: var(--sm-color-text-primary);
+  font-family: var(--sm-font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
 }

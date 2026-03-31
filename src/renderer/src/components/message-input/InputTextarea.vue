@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'keydown', event: KeyboardEvent): void
+  (e: 'paste', event: ClipboardEvent): void
   (e: 'dragover', event: DragEvent): void
   (e: 'dragleave', event: DragEvent): void
   (e: 'drop', event: DragEvent): void
@@ -47,6 +48,7 @@ defineExpose({ focus })
       rows="3"
       @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
       @keydown="emit('keydown', $event)"
+      @paste="emit('paste', $event)"
     ></textarea>
 
     <div v-if="props.isDragging" class="drag-overlay">
@@ -61,47 +63,36 @@ defineExpose({ focus })
 <style scoped>
 .input-wrapper {
   position: relative;
-  margin-bottom: 12px;
 }
 
 .message-textarea {
   width: 100%;
-  min-height: 80px;
+  min-height: 104px;
   resize: vertical;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   line-height: 1.5;
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
-      var(--glass-white-01, rgba(255, 255, 255, 0.01)) 100%
-    ),
-    var(--glass-black-017, rgba(0, 0, 0, 0.017));
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
-  border: 1px solid #46aa8f;
-  border-radius: var(--theme-radius);
-  color: var(--theme-text);
-  padding: 12px 16px;
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  color: var(--sm-color-text-primary);
+  padding: 14px 16px;
   font-size: 13px;
-  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
 }
 
 .message-textarea:hover {
-  border-color: #3d9980;
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
 }
 
 .message-textarea:focus {
-  border-color: var(--theme-accent);
-  box-shadow: 0 0 0 3px rgba(70, 170, 143, 0.15);
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
-      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
-    ),
-    var(--glass-black-02, rgba(0, 0, 0, 0.02));
-  outline: none;
+  background: var(--sm-color-surface-1);
+  border-color: var(--sm-color-border-accent);
+  outline: 1px solid var(--sm-color-border-accent);
+  outline-offset: 0;
 }
 
 .message-textarea:disabled {
@@ -110,17 +101,16 @@ defineExpose({ focus })
 }
 
 .message-textarea.is-sending {
-  border-color: color-mix(in srgb, var(--theme-accent) 40%, var(--theme-border));
+  border-color: var(--sm-color-border-default);
 }
 
 .message-textarea.is-sending:focus {
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-border-accent);
 }
 
 .message-textarea.dragging {
-  border-color: var(--theme-accent);
-  background: rgba(70, 170, 143, 0.05);
-  box-shadow: 0 0 0 3px rgba(70, 170, 143, 0.2);
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.08);
 }
 
 .drag-overlay {
@@ -129,16 +119,16 @@ defineExpose({ focus })
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(70, 170, 143, 0.1);
-  border: 2px dashed var(--theme-accent);
-  border-radius: var(--theme-radius);
+  background: rgba(142, 149, 217, 0.1);
+  border: 1px dashed var(--sm-color-border-accent);
+  border-radius: var(--sm-radius-md);
   pointer-events: none;
   z-index: 10;
 }
 
 .drag-hint {
   text-align: center;
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
 }
 
 .drag-hint svg {

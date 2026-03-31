@@ -5,60 +5,64 @@
 
 /* 一般消息（info）配色 */
 .message-info {
-  border-color: #47709b;
-  background-color: rgba(71, 112, 155, 0.05);
+  border-color: rgba(142, 149, 217, 0.24);
+  background-color: rgba(142, 149, 217, 0.08);
 }
 
 .message-info .message-icon {
-  background-color: #47709b;
-  color: white;
+  background-color: rgba(142, 149, 217, 0.14);
+  color: var(--sm-color-accent-hover);
+  border: 1px solid rgba(142, 149, 217, 0.24);
 }
 
 .message-info .message-title {
-  color: #47709b;
+  color: var(--sm-color-accent-hover);
 }
 
 /* 警告消息（warning）配色 */
 .message-warning {
-  border-color: #fbfe8d;
-  background-color: rgba(251, 254, 141, 0.08);
+  border-color: rgba(197, 161, 101, 0.24);
+  background-color: rgba(197, 161, 101, 0.08);
 }
 
 .message-warning .message-icon {
-  background-color: #fbfe8d;
-  color: #5a5800;
+  background-color: rgba(197, 161, 101, 0.12);
+  color: var(--sm-color-status-warning);
+  border: 1px solid rgba(197, 161, 101, 0.24);
 }
 
 .message-warning .message-title {
-  color: #b5a200;
+  color: var(--sm-color-status-warning);
 }
 
 /* 错误消息（error）配色 */
 .message-error {
-  border-color: #eb2129;
-  background-color: rgba(235, 33, 41, 0.05);
+  border-color: rgba(199, 120, 120, 0.24);
+  background-color: rgba(199, 120, 120, 0.08);
 }
 
 .message-error .message-icon {
-  background-color: #eb2129;
-  color: white;
+  background-color: rgba(199, 120, 120, 0.12);
+  color: var(--sm-color-status-danger);
+  border: 1px solid rgba(199, 120, 120, 0.24);
 }
 
 .message-error .message-title {
-  color: #eb2129;
+  color: var(--sm-color-status-danger);
 }
 
 /* 成功消息（success）配色 */
 .message-success {
-  border-color: var(--theme-success);
-  background-color: rgba(63, 185, 80, 0.05);
+  border-color: rgba(127, 176, 138, 0.24);
+  background-color: rgba(127, 176, 138, 0.08);
 }
 
 .message-success .message-icon {
-  background-color: var(--theme-success);
-  color: white;
+  background-color: rgba(127, 176, 138, 0.12);
+  color: var(--sm-color-status-success);
+  border: 1px solid rgba(127, 176, 138, 0.24);
 }
 
 .message-success .message-title {
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }

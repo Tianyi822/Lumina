@@ -98,32 +98,26 @@ const hasContent = computed(() => !!props.content?.trim())
 }
 
 .markdown-body :deep(code) {
-  background-color: var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  background-color: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
   padding: 0.2em 0.4em;
   border-radius: 4px;
-  font-family: var(--theme-font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+  font-family: var(--sm-font-mono);
   font-size: 0.9em;
 }
 
 .markdown-body :deep(pre) {
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
-      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
-    ),
-    var(--theme-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--sm-color-bg-embedded);
   padding: 12px 16px;
-  border-radius: var(--theme-radius);
+  border-radius: var(--sm-radius-md);
   overflow-x: auto;
   margin: 0.75em 0;
-  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--sm-color-border-subtle);
 }
 
 .markdown-body :deep(pre code) {
   background: none;
+  border: 0;
   padding: 0;
   font-size: 0.85em;
   line-height: 1.5;
@@ -132,13 +126,13 @@ const hasContent = computed(() => !!props.content?.trim())
 .markdown-body :deep(blockquote) {
   margin: 0.75em 0;
   padding: 0.5em 1em;
-  border-left: 3px solid var(--theme-accent);
-  background: var(--thinking-bg, rgba(99, 102, 241, 0.08));
-  border-radius: 0 var(--theme-radius-sm) var(--theme-radius-sm) 0;
+  border-left: 3px solid var(--sm-color-accent);
+  background: rgba(142, 149, 217, 0.08);
+  border-radius: 0 var(--sm-radius-sm) var(--sm-radius-sm) 0;
 }
 
 .markdown-body :deep(a) {
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
   text-decoration: none;
 }
 
@@ -157,19 +151,19 @@ const hasContent = computed(() => !!props.content?.trim())
 
 .markdown-body :deep(th),
 .markdown-body :deep(td) {
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--sm-color-border-default);
   padding: 8px 12px;
   text-align: left;
 }
 
 .markdown-body :deep(th) {
-  background-color: var(--theme-bg-tertiary, rgba(0, 0, 0, 0.2));
+  background-color: var(--sm-color-surface-2);
   font-weight: 600;
 }
 
 .markdown-body :deep(hr) {
   border: none;
-  border-top: 1px solid var(--theme-border);
+  border-top: 1px solid var(--sm-color-border-subtle);
   margin: 1em 0;
 }
 

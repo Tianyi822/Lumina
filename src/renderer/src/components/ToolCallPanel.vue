@@ -31,38 +31,38 @@ const statusConfig = computed(() => {
   switch (props.toolCall.status) {
     case 'pending':
       return {
-        icon: '⏳',
+        icon: '·',
         text: '等待执行',
         class: 'status-pending',
-        color: 'var(--theme-info)'
+        color: 'var(--sm-color-status-info)'
       }
     case 'running':
       return {
-        icon: '▶️',
-        text: '执行中...',
+        icon: '…',
+        text: '执行中',
         class: 'status-running',
-        color: 'var(--theme-warning)'
+        color: 'var(--sm-color-status-warning)'
       }
     case 'success':
       return {
         icon: '✓',
         text: '执行成功',
         class: 'status-success',
-        color: 'var(--theme-success)'
+        color: 'var(--sm-color-status-success)'
       }
     case 'error':
       return {
-        icon: '✗',
+        icon: '!',
         text: '执行失败',
         class: 'status-error',
-        color: 'var(--theme-danger)'
+        color: 'var(--sm-color-status-danger)'
       }
     default:
       return {
         icon: '•',
         text: '未知状态',
         class: 'status-unknown',
-        color: 'var(--theme-text-secondary)'
+        color: 'var(--sm-color-text-secondary)'
       }
   }
 })
@@ -109,7 +109,7 @@ function toggleExpand(): void {
 <template>
   <div class="tool-call-panel" :class="[statusConfig.class, { expanded: isExpanded }]">
     <!-- 卡片头部 -->
-    <div class="tool-header" @click="toggleExpand">
+    <button type="button" class="tool-header" :aria-expanded="isExpanded" @click="toggleExpand">
       <div class="header-left">
         <span v-if="index !== undefined" class="step-number">#{{ index + 1 }}</span>
         <span class="status-icon" :style="{ color: statusConfig.color }">
@@ -124,14 +124,13 @@ function toggleExpand(): void {
         <span v-if="executionTime" class="execution-time">{{ executionTime }}</span>
         <span class="expand-icon">{{ isExpanded ? '▼' : '▶' }}</span>
       </div>
-    </div>
+    </button>
 
     <!-- 卡片内容 -->
     <div v-if="isExpanded" class="tool-content">
       <!-- 参数部分 -->
       <div class="content-section">
         <div class="section-header">
-          <span class="section-icon">📋</span>
           <span class="section-title">参数</span>
         </div>
         <pre class="code-block params-block">{{ formattedParams }}</pre>
@@ -140,7 +139,6 @@ function toggleExpand(): void {
       <!-- 结果部分 -->
       <div v-if="toolCall.status === 'success' && toolCall.result" class="content-section">
         <div class="section-header">
-          <span class="section-icon">✓</span>
           <span class="section-title">执行结果</span>
         </div>
         <pre class="code-block result-block success">{{ formattedResult }}</pre>
@@ -149,7 +147,6 @@ function toggleExpand(): void {
       <!-- 错误部分 -->
       <div v-if="toolCall.status === 'error' && toolCall.error" class="content-section">
         <div class="section-header">
-          <span class="section-icon">✗</span>
           <span class="section-title">错误信息</span>
         </div>
         <pre class="code-block result-block error">{{ toolCall.error }}</pre>
@@ -174,28 +171,21 @@ function toggleExpand(): void {
 .tool-call-panel {
   position: relative;
   padding-left: 3px;
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
-    ),
-    var(--theme-bg-secondary);
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  border-radius: var(--theme-radius);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   overflow: hidden;
-  margin: var(--theme-spacing-sm) 0;
-  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  margin: var(--sm-space-2) 0;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
 .tool-call-panel:hover {
-  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  background: var(--sm-color-surface-2);
+  border-color: var(--sm-color-border-strong);
 }
 
-/* 状态指示条 */
 .tool-call-panel::before {
   content: '';
   position: absolute;
@@ -203,44 +193,48 @@ function toggleExpand(): void {
   top: 0;
   bottom: 0;
   width: 3px;
-  background-color: var(--theme-text-tertiary);
+  background-color: var(--sm-color-text-tertiary);
 }
 
 .tool-call-panel.status-pending::before {
-  background-color: var(--theme-info);
+  background-color: var(--sm-color-status-info);
 }
 
 .tool-call-panel.status-running::before {
-  background-color: var(--theme-warning);
+  background-color: var(--sm-color-status-warning);
 }
 
 .tool-call-panel.status-success::before {
-  background-color: var(--theme-success);
+  background-color: var(--sm-color-status-success);
 }
 
 .tool-call-panel.status-error::before {
-  background-color: var(--theme-danger);
+  background-color: var(--sm-color-status-danger);
 }
 
-/* 头部 */
 .tool-header {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--theme-spacing-sm);
-  padding: var(--theme-spacing-sm) var(--theme-spacing);
+  gap: var(--sm-space-2);
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
   cursor: pointer;
-  transition: background 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: background-color var(--sm-transition-fast);
 }
 
 .tool-header:hover {
-  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  background: var(--sm-color-surface-hover);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sm-space-2);
   flex: 1;
   min-width: 0;
 }
@@ -248,29 +242,33 @@ function toggleExpand(): void {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sm-space-2);
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .step-number {
-  font-family: var(--theme-font-mono, monospace);
+  font-family: var(--sm-font-mono);
   font-size: 11px;
-  color: var(--theme-text-tertiary);
-  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  color: var(--sm-color-text-tertiary);
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
   padding: 2px 6px;
-  border-radius: var(--theme-radius-sm);
+  border-radius: var(--sm-radius-sm);
 }
 
 .status-icon {
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 700;
   width: 20px;
   text-align: center;
 }
 
 .tool-name {
-  font-family: var(--theme-font-mono, monospace);
+  font-family: var(--sm-font-mono);
   font-size: 13px;
-  color: var(--theme-accent);
+  color: var(--sm-color-text-primary);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -283,36 +281,36 @@ function toggleExpand(): void {
 }
 
 .execution-time {
-  font-family: var(--theme-font-mono, monospace);
+  font-family: var(--sm-font-mono);
   font-size: 11px;
-  color: var(--theme-text-tertiary);
-  background: var(--glass-white-05, rgba(255, 255, 255, 0.05));
+  color: var(--sm-color-text-tertiary);
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
   padding: 2px 6px;
-  border-radius: var(--theme-radius-sm);
+  border-radius: var(--sm-radius-sm);
 }
 
 .expand-icon {
   font-size: 10px;
-  color: var(--theme-text-tertiary);
-  transition: transform 0.2s ease;
+  color: var(--sm-color-text-tertiary);
+  transition: transform var(--sm-transition-fast);
 }
 
 .tool-call-panel.expanded .expand-icon {
   transform: rotate(90deg);
 }
 
-/* 内容区域 */
 .tool-content {
-  padding: var(--theme-spacing);
-  border-top: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  background: var(--glass-white-013, rgba(255, 255, 255, 0.013));
-  animation: slideDown 0.2s ease;
+  padding: 12px;
+  border-top: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-surface-2);
+  animation: slideDown 160ms ease;
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;
@@ -321,7 +319,7 @@ function toggleExpand(): void {
 }
 
 .content-section {
-  margin-bottom: var(--theme-spacing);
+  margin-bottom: var(--sm-space-3);
 }
 
 .content-section:last-child {
@@ -331,38 +329,26 @@ function toggleExpand(): void {
 .section-header {
   display: flex;
   align-items: center;
-  gap: 6px;
   margin-bottom: 8px;
-}
-
-.section-icon {
-  font-size: 12px;
 }
 
 .section-title {
   font-size: 11px;
   font-weight: 600;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
 }
 
-/* 代码块 */
 .code-block {
-  font-family: var(--theme-font-mono, monospace);
+  font-family: var(--sm-font-mono);
   font-size: 12px;
   line-height: 1.5;
   padding: 10px 12px;
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
-      var(--glass-white-01, rgba(255, 255, 255, 0.01)) 100%
-    ),
-    var(--theme-bg);
-  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  border-radius: var(--theme-radius-sm);
-  color: var(--theme-text);
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-sm);
+  color: var(--sm-color-text-secondary);
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-word;
@@ -381,43 +367,42 @@ function toggleExpand(): void {
 }
 
 .code-block::-webkit-scrollbar-thumb {
-  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  border-radius: 2px;
+  background: var(--sm-color-border-default);
+  border-radius: 999px;
 }
 
 .params-block {
-  border-left: 3px solid var(--theme-info);
+  border-left: 3px solid var(--sm-color-status-info);
 }
 
 .result-block.success {
-  border-left: 3px solid var(--theme-success);
-  background: rgba(34, 197, 94, 0.04);
+  border-left: 3px solid var(--sm-color-status-success);
+  background: rgba(127, 176, 138, 0.08);
 }
 
 .result-block.error {
-  border-left: 3px solid var(--theme-danger);
-  background: rgba(239, 68, 68, 0.04);
-  color: var(--theme-danger);
+  border-left: 3px solid var(--sm-color-status-danger);
+  background: rgba(199, 120, 120, 0.08);
+  color: var(--sm-color-status-danger);
 }
 
-/* 时间戳 */
 .timestamps {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--theme-spacing);
-  margin-top: var(--theme-spacing);
-  padding-top: var(--theme-spacing);
-  border-top: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  gap: var(--sm-space-3);
+  margin-top: var(--sm-space-3);
+  padding-top: var(--sm-space-3);
+  border-top: 1px solid var(--sm-color-border-subtle);
 }
 
 .timestamp {
-  font-family: var(--theme-font-mono, monospace);
+  font-family: var(--sm-font-mono);
   font-size: 11px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .timestamp-label {
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   margin-right: 4px;
   opacity: 0.7;
 }

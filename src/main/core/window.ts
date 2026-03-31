@@ -1,6 +1,15 @@
 import { BrowserWindow, shell, nativeTheme, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
+import { configManager } from '@main/services/config'
+import type { ThemeConfig } from '@shared/types/config'
+import {
+  getThemeBackgroundColor,
+  normalizeThemeId,
+  normalizeThemeMode,
+  resolveEffectiveTheme,
+  resolveNativeThemeSource
+} from '@shared/utils'
 import icon from '../../../resources/icon.png?asset'
 
 /**
@@ -8,19 +17,30 @@ import icon from '../../../resources/icon.png?asset'
  */
 let mainWindow: BrowserWindow | null = null
 
-/**
- * 默认主题背景色
- * 使用默认主题 blooming-flowers 的背景色
- * 注意：主题颜色现在由 CSS 主题文件管理，窗口背景色仅用于启动时的初始显示
- */
-const DEFAULT_BACKGROUND_COLOR = '#f4f7f6'
+function getInitialThemeState(themeConfig?: ThemeConfig): {
+  backgroundColor: string
+  nativeSource: 'dark' | 'light' | 'system'
+} {
+  const mode = normalizeThemeMode(themeConfig?.mode)
+  const manualTheme = normalizeThemeId(themeConfig?.name)
+  const systemTheme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+  const effectiveTheme = resolveEffectiveTheme(mode, manualTheme, systemTheme)
+
+  return {
+    backgroundColor: getThemeBackgroundColor(effectiveTheme),
+    nativeSource: resolveNativeThemeSource(mode, manualTheme)
+  }
+}
 
 /**
  * 创建主窗口
  */
 export function createMainWindow(): BrowserWindow {
-  // 设置为浅色模式，与默认主题 blooming-flowers 一致
-  nativeTheme.themeSource = 'light'
+  const config = configManager.getConfig()
+  nativeTheme.themeSource = 'system'
+  const { backgroundColor, nativeSource } = getInitialThemeState(config?.theme)
+  nativeTheme.themeSource = nativeSource
+  const isMac = process.platform === 'darwin'
 
   // 获取主显示器的工作区尺寸（排除任务栏/Dock）
   const primaryDisplay = screen.getPrimaryDisplay()
@@ -34,11 +54,18 @@ export function createMainWindow(): BrowserWindow {
     // 根据平台设置不同的标题栏样式
     // macOS: hidden 表示隐藏原生标题栏，但仍保留窗口控制按钮
     // Windows/Linux: frame: false 完全移除标题栏
-    ...(process.platform === 'darwin'
-      ? { titleBarStyle: 'hidden', frame: true }
+    ...(isMac
+      ? {
+          titleBarStyle: 'hidden',
+          frame: true,
+          trafficLightPosition: {
+            x: 24,
+            y: 20
+          }
+        }
       : { frame: false }),
-    // 设置窗口背景色，使用默认主题的背景色
-    backgroundColor: DEFAULT_BACKGROUND_COLOR,
+    // 设置窗口背景色，尽量与首屏实际主题保持一致，减少闪烁
+    backgroundColor,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

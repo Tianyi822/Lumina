@@ -78,117 +78,124 @@ async function handleDelete(name: string): Promise<void> {
 </script>
 
 <template>
-  <div class="pe-variables-manager">
-    <div class="pe-info-box">
-      <h3 class="pe-info-title">动态变量管理</h3>
-      <p class="pe-info-description">
-        系统变量会在运行时自动求值，自定义变量会持久化到提示词配置中，可在系统提示词和测试沙盘里复用。
-      </p>
+  <div class="sm-prompt-variables">
+    <div class="sm-settings-banner">
+      <div>
+        <h3 class="sm-settings-page__section-title">动态变量管理</h3>
+        <p class="sm-settings-page__section-description">
+          系统变量会在运行时自动求值，自定义变量会持久化到提示词配置中，可在系统提示词和测试沙盘里复用。
+        </p>
+      </div>
     </div>
 
-    <section class="pe-section">
-      <div class="pe-section-header">
+    <section class="sm-prompt-variables__section">
+      <div class="sm-prompt-variables__section-header">
         <div>
-          <h4 class="pe-section-title">系统变量</h4>
-          <p class="pe-section-description">只读显示，可直接在提示词中使用。</p>
+          <h4 class="sm-prompt-variables__section-title">系统变量</h4>
+          <p class="sm-prompt-variables__section-description">只读显示，可直接在提示词中使用。</p>
         </div>
       </div>
 
-      <div class="pe-variable-grid">
+      <div class="sm-prompt-variables__grid">
         <article
           v-for="variable in systemVariables"
           :key="variable.name"
-          class="pe-variable-card pe-variable-card-system"
+          class="sm-settings-card sm-prompt-variables__card sm-prompt-variables__card--system"
         >
-          <div class="pe-variable-name">{{ getPromptVariablePlaceholder(variable.name) }}</div>
-          <p class="pe-variable-description">{{ variable.description }}</p>
-          <p class="pe-variable-meta">
+          <div class="sm-prompt-variables__name">{{ getPromptVariablePlaceholder(variable.name) }}</div>
+          <p class="sm-prompt-variables__description">{{ variable.description }}</p>
+          <p class="sm-prompt-variables__meta">
             当前值：{{ systemVariableValues[variable.name] || '运行时生成' }}
           </p>
-          <p class="pe-variable-meta">求值规则：{{ variable.evalRule || '运行时求值' }}</p>
+          <p class="sm-prompt-variables__meta">求值规则：{{ variable.evalRule || '运行时求值' }}</p>
         </article>
       </div>
     </section>
 
-    <section class="pe-section">
-      <div class="pe-section-header">
+    <section class="sm-prompt-variables__section">
+      <div class="sm-prompt-variables__section-header">
         <div>
-          <h4 class="pe-section-title">自定义变量</h4>
-          <p class="pe-section-description">
+          <h4 class="sm-prompt-variables__section-title">自定义变量</h4>
+          <p class="sm-prompt-variables__section-description">
             适合维护 `user_name`、`user_info`、`context` 等业务变量。
           </p>
         </div>
       </div>
 
-      <form class="pe-form-card" @submit.prevent="handleSubmit">
-        <div class="pe-form-grid">
-          <label class="pe-form-field">
-            <span class="pe-form-label">变量名</span>
+      <form class="sm-settings-card sm-prompt-variables__form" @submit.prevent="handleSubmit">
+        <div class="sm-prompt-variables__form-grid">
+          <label class="sm-prompt-variables__field">
+            <span class="sm-prompt-variables__label">变量名</span>
             <input
               v-model="formState.name"
-              class="pe-input"
+              class="sm-input"
               type="text"
               placeholder="例如 user_name"
             />
           </label>
 
-          <label class="pe-form-field">
-            <span class="pe-form-label">默认值</span>
+          <label class="sm-prompt-variables__field">
+            <span class="sm-prompt-variables__label">默认值</span>
             <input
               v-model="formState.defaultValue"
-              class="pe-input"
+              class="sm-input"
               type="text"
               placeholder="留空则运行时保留占位符"
             />
           </label>
         </div>
 
-        <label class="pe-form-field">
-          <span class="pe-form-label">说明</span>
+        <label class="sm-prompt-variables__field">
+          <span class="sm-prompt-variables__label">说明</span>
           <textarea
             v-model="formState.description"
-            class="pe-textarea"
+            class="sm-textarea"
             rows="3"
             placeholder="说明变量的用途和内容来源"
           ></textarea>
         </label>
 
-        <div class="pe-form-actions">
-          <button class="pe-btn pe-btn-primary" :disabled="configLoading || saving" type="submit">
+        <div class="sm-settings-actions sm-prompt-variables__form-actions">
+          <button class="sm-button sm-button--primary" :disabled="configLoading || saving" type="submit">
             {{ saving ? '保存中...' : isEditing ? '更新变量' : '添加变量' }}
           </button>
-          <button v-if="isEditing" class="pe-btn pe-btn-secondary" type="button" @click="resetForm">
+          <button
+            v-if="isEditing"
+            class="sm-button sm-button--secondary"
+            type="button"
+            @click="resetForm"
+          >
             取消编辑
           </button>
         </div>
       </form>
 
-      <div v-if="customVariables.length > 0" class="pe-custom-list">
+      <div v-if="customVariables.length > 0" class="sm-prompt-variables__custom-list">
         <article
           v-for="variable in customVariables"
           :key="variable.name"
-          class="pe-variable-card pe-variable-card-custom"
+          class="sm-settings-card sm-prompt-variables__card sm-prompt-variables__card--custom"
         >
-          <div class="pe-variable-main">
-            <div class="pe-variable-info">
-              <div class="pe-variable-name-row">
-                <span class="pe-variable-name">{{
+          <div class="sm-prompt-variables__card-main">
+            <div class="sm-prompt-variables__card-info">
+              <div class="sm-prompt-variables__name-row">
+                <span class="sm-prompt-variables__name">{{
                   getPromptVariablePlaceholder(variable.name)
                 }}</span>
               </div>
-              <p class="pe-variable-description">
+              <p class="sm-prompt-variables__description">
                 {{ variable.description || '未填写说明' }}
               </p>
-              <div class="pe-variable-meta-row">
-                <span class="pe-variable-meta-label">默认值:</span>
-                <span class="pe-variable-meta-value">{{ variable.defaultValue || '未设置' }}</span>
+              <div class="sm-prompt-variables__meta-row">
+                <span class="sm-prompt-variables__meta-label">默认值:</span>
+                <span class="sm-prompt-variables__meta-value">{{ variable.defaultValue || '未设置' }}</span>
               </div>
             </div>
-            <div class="pe-card-actions">
-              <button class="pe-btn pe-btn-secondary pe-btn-sm" @click="handleEdit(variable.name)">
+            <div class="sm-prompt-variables__card-actions">
+              <button class="sm-button sm-button--secondary sm-button--small" @click="handleEdit(variable.name)">
                 编辑
               </button>
-              <button class="pe-btn pe-btn-danger pe-btn-sm" @click="handleDelete(variable.name)">
+              <button class="sm-button sm-button--danger sm-button--small" @click="handleDelete(variable.name)">
                 删除
               </button>
             </div>
@@ -196,7 +203,7 @@ async function handleDelete(name: string): Promise<void> {
         </article>
       </div>
 
-      <div v-else class="pe-empty-state">
+      <div v-else class="sm-empty sm-prompt-variables__empty">
         暂无自定义变量。保存后可在系统提示词中使用
         <code v-pre>{{ variable_name }}</code>
         形式引用。
@@ -206,289 +213,141 @@ async function handleDelete(name: string): Promise<void> {
 </template>
 
 <style scoped>
-.pe-variables-manager {
+.sm-prompt-variables {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 16px;
+  gap: var(--sm-space-5);
 }
 
-.pe-info-box,
-.pe-form-card,
-.pe-variable-card,
-.pe-empty-state {
-  background: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
+.sm-prompt-variables__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-3);
 }
 
-.pe-info-box,
-.pe-form-card,
-.pe-empty-state {
-  padding: 16px;
-}
-
-.pe-info-title,
-.pe-section-title {
+.sm-prompt-variables__section-title {
   margin: 0;
-  color: var(--theme-text);
-}
-
-.pe-info-title {
-  font-size: 16px;
-  margin-bottom: 8px;
-}
-
-.pe-info-description,
-.pe-section-description,
-.pe-empty-state {
-  color: var(--theme-text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.pe-variable-meta {
-  color: var(--theme-text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.pe-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.pe-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.pe-section-title {
   font-size: 15px;
-  margin-bottom: 4px;
+  color: var(--sm-color-text-primary);
 }
 
-.pe-variable-grid {
+.sm-prompt-variables__section-description,
+.sm-prompt-variables__description,
+.sm-prompt-variables__meta {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
+}
+
+.sm-prompt-variables__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
+  gap: var(--sm-space-3);
 }
 
-.pe-custom-list {
+.sm-prompt-variables__custom-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sm-space-3);
 }
 
-.pe-variable-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px;
+.sm-prompt-variables__card--system {
+  border-color: rgba(142, 149, 217, 0.28);
 }
 
-.pe-variable-card-system {
-  border-color: rgba(59, 130, 246, 0.2);
-}
-
-.pe-variable-card-custom {
+.sm-prompt-variables__card--custom {
   width: 50%;
-  border-color: rgba(16, 185, 129, 0.2);
-  padding: 12px 16px;
 }
 
-.pe-variable-main {
+.sm-prompt-variables__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+  font-family: var(--sm-font-mono);
+}
+
+.sm-prompt-variables__card-main {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--sm-space-4);
 }
 
-.pe-variable-info {
+.sm-prompt-variables__card-info {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sm-space-2);
 }
 
-.pe-variable-name-row {
+.sm-prompt-variables__meta-row,
+.sm-prompt-variables__card-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sm-space-2);
 }
 
-.pe-variable-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--theme-text);
-  font-family: var(--theme-font-mono, monospace);
-}
-
-.pe-variable-description {
-  color: var(--theme-text-secondary);
-  font-size: 13px;
-  line-height: 1.5;
-  margin: 0;
-}
-
-.pe-variable-meta-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.sm-prompt-variables__meta-label {
   font-size: 12px;
+  color: var(--sm-color-text-tertiary);
 }
 
-.pe-variable-meta-label {
-  color: var(--theme-text-tertiary);
-}
-
-.pe-variable-meta-value {
-  color: var(--theme-text-secondary);
-  font-family: var(--theme-font-mono, monospace);
-  background: var(--theme-bg-tertiary);
+.sm-prompt-variables__meta-value {
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-bg-embedded);
+  color: var(--sm-color-text-secondary);
+  font-size: 12px;
+  font-family: var(--sm-font-mono);
 }
 
-.pe-card-actions,
-.pe-form-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.sm-prompt-variables__form {
+  gap: var(--sm-space-4);
 }
 
-.pe-form-actions {
-  margin-top: 16px;
-}
-
-.pe-form-grid {
+.sm-prompt-variables__form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--sm-space-3);
 }
 
-.pe-form-field {
+.sm-prompt-variables__field {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.pe-form-label {
+.sm-prompt-variables__label {
   font-size: 13px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
-.pe-input,
-.pe-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  background: var(--theme-bg-tertiary);
-  color: var(--theme-text);
-  font-family: var(--theme-font);
-  font-size: 13px;
+.sm-prompt-variables__form-actions {
+  margin-top: var(--sm-space-2);
 }
 
-.pe-input:focus,
-.pe-textarea:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-}
-
-.pe-textarea {
-  resize: vertical;
-}
-
-.pe-btn {
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 8px 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 13px;
-  font-family: var(--theme-font);
-  line-height: 1.2;
-  box-sizing: border-box;
-}
-
-.pe-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.pe-btn-sm {
-  padding: 6px 10px;
-}
-
-.pe-btn-primary {
-  background: var(--theme-accent);
-  color: #fff;
-}
-
-.pe-btn-secondary {
-  background: transparent;
-  border-color: var(--theme-border);
-  color: var(--theme-text);
-}
-
-.pe-btn-danger {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.2);
-  color: var(--theme-danger, #ef4444);
-}
-
-.pe-error-message,
-.pe-success-message {
-  padding: 12px 14px;
-  border-radius: 6px;
-  font-size: 13px;
-}
-
-.pe-error-message {
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: var(--theme-danger, #ef4444);
-}
-
-.pe-success-message {
-  background: rgba(34, 197, 94, 0.08);
-  border: 1px solid rgba(34, 197, 94, 0.2);
-  color: var(--theme-success, #22c55e);
+.sm-prompt-variables__empty code {
+  font-family: var(--sm-font-mono);
 }
 
 @media (max-width: 768px) {
-  .pe-form-grid {
+  .sm-prompt-variables__form-grid {
     grid-template-columns: 1fr;
   }
 
-  .pe-section-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .pe-custom-list {
-    align-items: stretch;
-  }
-
-  .pe-variable-card-custom {
+  .sm-prompt-variables__card--custom {
     width: 100%;
   }
 
-  .pe-variable-main {
+  .sm-prompt-variables__card-main {
     flex-direction: column;
-    gap: 12px;
   }
 
-  .pe-card-actions,
-  .pe-form-actions {
+  .sm-prompt-variables__card-actions,
+  .sm-prompt-variables__form-actions {
     flex-wrap: wrap;
   }
 }

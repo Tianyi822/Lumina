@@ -176,7 +176,7 @@ async function handleTestConnection(): Promise<void> {
         <input
           v-model="displayName"
           type="text"
-          class="input"
+          class="sm-input"
           :class="{ 'input-error': nameConflictError }"
           placeholder="例如: OpenAI Embedding Small"
           required
@@ -190,7 +190,7 @@ async function handleTestConnection(): Promise<void> {
         <input
           v-model="baseUrl"
           type="url"
-          class="input"
+          class="sm-input"
           placeholder="https://api.openai.com/v1"
           required
         />
@@ -199,7 +199,7 @@ async function handleTestConnection(): Promise<void> {
       <!-- API 密钥 -->
       <div class="form-group">
         <label>API 密钥 <span class="required">*</span></label>
-        <input v-model="apiKey" type="password" class="input" placeholder="sk-..." required />
+        <input v-model="apiKey" type="password" class="sm-input" placeholder="sk-..." required />
       </div>
 
       <!-- 模型名称 -->
@@ -208,7 +208,7 @@ async function handleTestConnection(): Promise<void> {
         <input
           v-model="modelName"
           type="text"
-          class="input"
+          class="sm-input"
           placeholder="text-embedding-3-small"
           required
         />
@@ -220,7 +220,7 @@ async function handleTestConnection(): Promise<void> {
         <input
           v-model="dimensions"
           type="text"
-          class="input"
+          class="sm-input"
           :class="{ 'input-error': dimensionError }"
           placeholder="1536"
           required
@@ -236,11 +236,16 @@ async function handleTestConnection(): Promise<void> {
 
       <!-- 按钮组 -->
       <div class="form-actions">
-        <button type="button" class="btn" @click="emit('cancel')">取消</button>
-        <button type="button" class="btn" :disabled="testing" @click="handleTestConnection">
+        <button type="button" class="sm-button" @click="emit('cancel')">取消</button>
+        <button
+          type="button"
+          class="sm-button sm-button--secondary"
+          :disabled="testing"
+          @click="handleTestConnection"
+        >
           {{ testing ? '测试中...' : '测试连接' }}
         </button>
-        <button type="submit" class="btn-primary">保存</button>
+        <button type="submit" class="sm-button sm-button--primary">保存</button>
       </div>
     </form>
   </div>
@@ -248,39 +253,38 @@ async function handleTestConnection(): Promise<void> {
 
 <style scoped>
 .new-model-form {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
   padding: 16px;
-  margin-bottom: 16px;
 }
 
 .form-section-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin: 0 0 16px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--theme-border);
+  border-bottom: 1px solid var(--sm-color-border-subtle);
 }
 
 .form-group label {
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .required {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .input-error {
-  border-color: var(--theme-danger) !important;
+  border-color: var(--sm-color-status-danger) !important;
 }
 
 .error-message {
   display: block;
   margin-top: 4px;
   font-size: 12px;
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .test-result {
@@ -292,13 +296,13 @@ async function handleTestConnection(): Promise<void> {
 
 .test-result.success {
   background: rgba(34, 197, 94, 0.15);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
   border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .test-result.error {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 

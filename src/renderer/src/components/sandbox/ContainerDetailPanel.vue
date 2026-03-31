@@ -85,6 +85,28 @@ const formattedNetwork = computed(() => {
   }
 })
 
+const formattedBlockIO = computed(() => {
+  if (!props.stats) return { read: '-', write: '-' }
+  return {
+    read: formatBytes(props.stats.blockIO.readBytes),
+    write: formatBytes(props.stats.blockIO.writeBytes)
+  }
+})
+
+const creationTypeLabel = computed(() => {
+  const labelMap: Record<SandboxCreationType, string> = {
+    existing: '已有容器',
+    compose: 'Docker Compose',
+    dockerfile: 'Dockerfile'
+  }
+
+  if (!props.creationType) {
+    return '未指定'
+  }
+
+  return labelMap[props.creationType]
+})
+
 // 有主机端口映射的端口
 const mappedPorts = computed(() => {
   if (!props.container?.ports) return []
@@ -139,61 +161,70 @@ function formatEnv(env: string[]): string[] {
 <template>
   <div class="container-detail-panel">
     <div v-if="!container" class="empty-state">
-      <p>选择一个容器查看详情</p>
+      <div class="sm-empty empty-card">
+        <h2>选择一个容器查看详情</h2>
+        <p>这里会汇总运行状态、资源指标和工程元数据。</p>
+      </div>
     </div>
 
     <template v-else>
-      <!-- 容器头部信息 -->
-      <div class="panel-header">
-        <div class="header-title">
-          <span class="state-indicator" :class="getStateClass(container.state)"></span>
-          <h2>{{ headerTitle }}</h2>
-          <span class="state-badge" :class="getStateClass(container.state)">
-            {{ getStateLabel(container.state) }}
-          </span>
+      <section class="overview-panel">
+        <div class="overview-panel__copy">
+          <div class="overview-panel__headline">
+            <div class="header-title">
+              <span class="state-indicator" :class="getStateClass(container.state)"></span>
+              <h2>{{ headerTitle }}</h2>
+              <span class="state-badge" :class="getStateClass(container.state)">
+                {{ getStateLabel(container.state) }}
+              </span>
+            </div>
+            <div class="header-actions">
+              <button class="btn" :disabled="!isRunning" @click="emit('open-terminal')">终端</button>
+              <button class="btn" @click="emit('view-logs')">日志</button>
+
+              <template v-if="showLifecycleButtons">
+                <button
+                  v-if="!isRunning"
+                  class="btn success"
+                  :disabled="isOperating"
+                  @click="emit('start')"
+                >
+                  <SvgIcon v-if="startingContainer" name="loading" :size="14" :spin="true" />
+                  <span>{{ startingContainer ? '启动中...' : '启动' }}</span>
+                </button>
+                <button
+                  v-else
+                  class="btn warning"
+                  :disabled="isOperating"
+                  @click="emit('stop')"
+                >
+                  <SvgIcon v-if="stoppingContainer" name="loading" :size="14" :spin="true" />
+                  <span>{{ stoppingContainer ? '停止中...' : '停止' }}</span>
+                </button>
+                <button class="btn" :disabled="isOperating" @click="emit('restart')">
+                  <SvgIcon v-if="restartingContainer" name="loading" :size="14" :spin="true" />
+                  <span>{{ restartingContainer ? '重启中...' : '重启' }}</span>
+                </button>
+              </template>
+
+              <span v-else-if="isReadOnly" class="read-only-hint" :title="typeMeta?.description">
+                <SvgIcon name="info" :size="14" />
+                只读模式
+              </span>
+
+              <button class="btn danger" @click="emit('remove')">删除</button>
+            </div>
+          </div>
+
+          <div class="overview-meta">
+            <span class="badge">{{ creationTypeLabel }}</span>
+            <span class="badge overview-meta__code">ID {{ container.shortId }}</span>
+            <span class="badge">创建于 {{ formatCreated(container.created) }}</span>
+          </div>
         </div>
-        <div class="header-actions">
-          <button class="btn" :disabled="!isRunning" @click="emit('open-terminal')">终端</button>
-          <button class="btn" @click="emit('view-logs')">日志</button>
+      </section>
 
-          <!-- 生命周期操作按钮：根据权限显示/隐藏 -->
-          <template v-if="showLifecycleButtons">
-            <button
-              v-if="!isRunning"
-              class="btn success"
-              :disabled="isOperating"
-              @click="emit('start')"
-            >
-              <SvgIcon v-if="startingContainer" name="loading" :size="14" :spin="true" />
-              <span>{{ startingContainer ? '启动中...' : '启动' }}</span>
-            </button>
-            <button
-              v-else
-              class="btn warning"
-              :disabled="isOperating"
-              @click="emit('stop')"
-            >
-              <SvgIcon v-if="stoppingContainer" name="loading" :size="14" :spin="true" />
-              <span>{{ stoppingContainer ? '停止中...' : '停止' }}</span>
-            </button>
-            <button class="btn" :disabled="isOperating" @click="emit('restart')">
-              <SvgIcon v-if="restartingContainer" name="loading" :size="14" :spin="true" />
-              <span>{{ restartingContainer ? '重启中...' : '重启' }}</span>
-            </button>
-          </template>
-
-          <!-- 只读模式提示：existing 类型显示 -->
-          <span v-else-if="isReadOnly" class="read-only-hint" :title="typeMeta?.description">
-            <SvgIcon name="info" :size="14" />
-            只读模式
-          </span>
-
-          <button class="btn danger" @click="emit('remove')">删除</button>
-        </div>
-      </div>
-
-      <!-- 资源监控 -->
-      <div v-if="stats" class="stats-section">
+      <section v-if="stats" class="detail-section">
         <div class="section-title-row">
           <h3 class="section-title">资源监控</h3>
           <button
@@ -236,24 +267,31 @@ function formatEnv(env: string[]): string[] {
             <div class="stat-label">网络发送</div>
             <div class="stat-value">{{ formattedNetwork.tx }}</div>
           </div>
+          <div class="stat-card">
+            <div class="stat-label">块设备读取</div>
+            <div class="stat-value">{{ formattedBlockIO.read }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">块设备写入</div>
+            <div class="stat-value">{{ formattedBlockIO.write }}</div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <!-- 基本信息 -->
-      <div class="info-section">
+      <section class="detail-section">
         <h3 class="section-title">基本信息</h3>
         <div class="info-grid">
           <div class="info-item">
             <span class="info-label">容器 ID</span>
-            <span class="info-value">{{ container.id }}</span>
+            <span class="info-value info-value--code">{{ container.id }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">短 ID</span>
-            <span class="info-value">{{ container.shortId }}</span>
+            <span class="info-value info-value--code">{{ container.shortId }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">镜像</span>
-            <span class="info-value">{{ container.image }}</span>
+            <span class="info-value info-value--code">{{ container.image }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">创建时间</span>
@@ -265,21 +303,22 @@ function formatEnv(env: string[]): string[] {
           </div>
           <div class="info-item">
             <span class="info-label">工作目录</span>
-            <span class="info-value">{{ container.workingDir || '-' }}</span>
+            <span class="info-value info-value--code">{{ container.workingDir || '-' }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">命令</span>
-            <span class="info-value">{{ container.cmd?.join(' ') || '-' }}</span>
+            <span class="info-value info-value--code">{{ container.cmd?.join(' ') || '-' }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">入口点</span>
-            <span class="info-value">{{ container.entrypoint?.join(' ') || '-' }}</span>
+            <span class="info-value info-value--code">
+              {{ container.entrypoint?.join(' ') || '-' }}
+            </span>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- 端口映射 -->
-      <div class="info-section">
+      <section class="detail-section">
         <h3 class="section-title">端口映射</h3>
         <div v-if="mappedPorts.length > 0" class="ports-list">
           <div v-for="(port, index) in mappedPorts" :key="index" class="port-item">
@@ -289,10 +328,9 @@ function formatEnv(env: string[]): string[] {
           </div>
         </div>
         <p v-else class="empty-text">无端口映射（容器未暴露到主机）</p>
-      </div>
+      </section>
 
-      <!-- 暴露端口 -->
-      <div v-if="exposedPorts.length > 0" class="info-section">
+      <section v-if="exposedPorts.length > 0" class="detail-section">
         <h3 class="section-title">容器暴露端口</h3>
         <div class="ports-list exposed">
           <div v-for="(port, index) in exposedPorts" :key="index" class="port-item">
@@ -300,10 +338,9 @@ function formatEnv(env: string[]): string[] {
             <span class="port-hint">(未映射)</span>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- 挂载点 -->
-      <div class="info-section">
+      <section class="detail-section">
         <h3 class="section-title">挂载点</h3>
         <div v-if="container.mounts && container.mounts.length > 0" class="mounts-list">
           <div v-for="(mount, index) in container.mounts" :key="index" class="mount-item">
@@ -315,10 +352,9 @@ function formatEnv(env: string[]): string[] {
           </div>
         </div>
         <p v-else class="empty-text">无挂载点</p>
-      </div>
+      </section>
 
-      <!-- 环境变量 -->
-      <div class="info-section">
+      <section class="detail-section">
         <h3 class="section-title">环境变量（前20个，已过滤敏感信息）</h3>
         <div v-if="container.env && container.env.length > 0" class="env-list">
           <code v-for="(env, index) in formatEnv(container.env)" :key="index" class="env-item">
@@ -326,10 +362,9 @@ function formatEnv(env: string[]): string[] {
           </code>
         </div>
         <p v-else class="empty-text">无环境变量</p>
-      </div>
+      </section>
 
-      <!-- 网络配置 -->
-      <div class="info-section">
+      <section class="detail-section">
         <h3 class="section-title">网络配置</h3>
         <div v-if="container.networkSettings?.networks" class="networks-list">
           <div
@@ -346,7 +381,7 @@ function formatEnv(env: string[]): string[] {
           </div>
         </div>
         <p v-else class="empty-text">无网络配置</p>
-      </div>
+      </section>
     </template>
   </div>
 </template>
@@ -355,452 +390,503 @@ function formatEnv(env: string[]): string[] {
 .container-detail-panel {
   height: 100%;
   overflow-y: auto;
-  padding: 20px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
+}
+
+.container-detail-panel::-webkit-scrollbar {
+  display: none;
 }
 
 .empty-state {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--theme-text-secondary);
-  text-align: center;
 }
 
-/* 头部 */
-.panel-header {
+.empty-card {
+  width: min(420px, 100%);
+  background: var(--sm-color-surface-2);
+  border-style: solid;
+}
+
+.empty-card h2 {
+  margin: 0;
+  font-size: 17px;
+  color: var(--sm-color-text-primary);
+}
+
+.empty-card p {
+  margin: 0;
+  max-width: 340px;
+  line-height: 1.6;
+}
+
+.overview-panel,
+.detail-section {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-5);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-2);
+}
+
+.overview-panel__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-3);
+}
+
+.overview-panel__headline {
+  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--theme-border);
-  margin-bottom: 24px;
+  gap: var(--sm-space-4);
 }
 
 .header-title {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: var(--sm-space-3);
 }
 
 .header-title h2 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+  color: var(--sm-color-text-primary);
 }
 
 .state-indicator {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
+  border: 1px solid transparent;
   border-radius: 50%;
 }
 
 .state-badge {
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
-  border-radius: 4px;
 }
 
-.state-created {
-  background-color: rgba(88, 166, 255, 0.2);
-  color: var(--theme-info);
+.overview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sm-space-2);
 }
 
-.state-created.state-indicator {
-  background-color: var(--theme-info);
+.overview-meta__code {
+  font-family: var(--sm-font-mono);
 }
 
-.state-running {
-  background-color: rgba(63, 185, 80, 0.2);
-  color: var(--theme-success);
+.state-badge.state-created,
+.state-indicator.state-created {
+  border-color: rgba(142, 149, 217, 0.28);
+  background: rgba(142, 149, 217, 0.08);
+  color: var(--sm-color-accent-hover);
 }
 
-.state-running.state-indicator {
-  background-color: var(--theme-success);
+.state-indicator.state-created {
+  background: var(--sm-color-accent);
 }
 
-.state-paused {
-  background-color: rgba(210, 153, 34, 0.2);
-  color: var(--theme-warning);
+.state-badge.state-running,
+.state-indicator.state-running {
+  border-color: rgba(127, 176, 138, 0.28);
+  background: rgba(127, 176, 138, 0.08);
+  color: var(--sm-color-status-success);
 }
 
-.state-paused.state-indicator {
-  background-color: var(--theme-warning);
+.state-indicator.state-running {
+  background: var(--sm-color-status-success);
 }
 
-.state-restarting {
-  background-color: rgba(88, 166, 255, 0.2);
-  color: var(--theme-info);
+.state-badge.state-paused,
+.state-badge.state-restarting,
+.state-indicator.state-paused,
+.state-indicator.state-restarting {
+  border-color: rgba(197, 161, 101, 0.28);
+  background: rgba(197, 161, 101, 0.08);
+  color: var(--sm-color-status-warning);
 }
 
-.state-restarting.state-indicator {
-  background-color: var(--theme-info);
+.state-indicator.state-paused,
+.state-indicator.state-restarting {
+  background: var(--sm-color-status-warning);
 }
 
-.state-removing {
-  background-color: rgba(139, 148, 158, 0.2);
-  color: var(--theme-text-secondary);
+.state-badge.state-removing,
+.state-badge.state-exited,
+.state-badge.state-dead,
+.state-indicator.state-removing,
+.state-indicator.state-exited,
+.state-indicator.state-dead {
+  border-color: rgba(199, 120, 120, 0.28);
+  background: rgba(199, 120, 120, 0.08);
+  color: var(--sm-color-status-danger);
 }
 
-.state-removing.state-indicator {
-  background-color: var(--theme-text-secondary);
-}
-
-.state-exited,
-.state-dead {
-  background-color: rgba(248, 81, 73, 0.2);
-  color: var(--theme-danger);
-}
-
-.state-exited.state-indicator,
-.state-dead.state-indicator {
-  background-color: var(--theme-danger);
+.state-indicator.state-removing,
+.state-indicator.state-exited,
+.state-indicator.state-dead {
+  background: var(--sm-color-status-danger);
 }
 
 .header-actions {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sm-space-2);
 }
 
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  color: var(--theme-text);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn:hover:not(:disabled) {
-  border-color: var(--theme-text-secondary);
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  min-height: 32px;
 }
 
 .btn.success {
-  background-color: var(--theme-success);
-  border-color: var(--theme-success);
-  color: var(--theme-bg);
+  background: rgba(127, 176, 138, 0.08);
+  border-color: rgba(127, 176, 138, 0.28);
+  color: var(--sm-color-status-success);
+}
+
+.btn.success:hover:not(:disabled) {
+  background: rgba(127, 176, 138, 0.12);
+  border-color: rgba(127, 176, 138, 0.4);
+  color: var(--sm-color-status-success);
 }
 
 .btn.warning {
-  background-color: var(--theme-warning);
-  border-color: var(--theme-warning);
-  color: var(--theme-bg);
+  background: rgba(197, 161, 101, 0.08);
+  border-color: rgba(197, 161, 101, 0.28);
+  color: var(--sm-color-status-warning);
+}
+
+.btn.warning:hover:not(:disabled) {
+  background: rgba(197, 161, 101, 0.12);
+  border-color: rgba(197, 161, 101, 0.4);
+  color: var(--sm-color-status-warning);
 }
 
 .btn.danger {
-  background-color: var(--theme-danger);
-  border-color: var(--theme-danger);
-  color: white;
+  background: rgba(199, 120, 120, 0.08);
+  border-color: rgba(199, 120, 120, 0.28);
+  color: var(--sm-color-status-danger);
 }
 
-/* 只读模式提示 */
+.btn.danger:hover:not(:disabled) {
+  background: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.4);
+  color: var(--sm-color-status-danger);
+}
+
 .read-only-hint {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  min-height: 32px;
+  padding: 0 10px;
   font-size: 13px;
-  color: var(--theme-text-secondary);
-  background-color: var(--theme-bg-secondary);
-  border: 1px dashed var(--theme-border);
-  border-radius: 4px;
+  color: var(--sm-color-text-secondary);
+  background: var(--sm-color-surface-1);
+  border: 1px dashed var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
   cursor: help;
 }
 
 .read-only-hint svg {
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
   flex-shrink: 0;
 }
 
-/* 通用区块样式 */
-.info-section {
-  margin-bottom: 24px;
-}
-
-/* 紧跟在 stats-section 后面的 info-section（基本信息） */
-.stats-section + .info-section {
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid var(--theme-border);
-}
-
-.stats-section {
-  margin-top: 16px;
-}
-
 .section-title {
-  margin: 0 0 20px 0;
+  margin: 0;
   font-size: 14px;
   font-weight: 600;
   line-height: 1;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .section-title-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.section-title-row > .section-title {
-  margin-bottom: 0;
+  justify-content: space-between;
+  gap: var(--sm-space-3);
 }
 
 .btn-refresh {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  background: none;
-  border: none;
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
   cursor: pointer;
-  color: var(--theme-text);
+  color: var(--sm-color-text-secondary);
   transition:
-    color 0.15s ease,
-    background-color 0.15s ease;
+    color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
 .btn-refresh svg {
   flex-shrink: 0;
 }
 
-.btn-refresh:disabled {
-  cursor: default;
-  opacity: 0.72;
-}
-
-.btn-refresh:hover {
-  color: var(--theme-accent);
+.btn-refresh:hover:not(:disabled) {
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
+  color: var(--sm-color-text-primary);
 }
 
 .empty-text {
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   font-size: 13px;
   font-style: italic;
 }
 
-/* 资源监控 */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--sm-space-3);
 }
 
 .stat-card {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  padding: var(--sm-space-4);
 }
 
 .stat-label {
   font-size: 12px;
-  color: var(--theme-text-secondary);
-  margin-bottom: 8px;
+  color: var(--sm-color-text-secondary);
 }
 
 .stat-value {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  color: var(--theme-text);
-  margin-bottom: 12px;
+  line-height: 1.4;
+  color: var(--sm-color-text-primary);
+  font-family: var(--sm-font-mono);
 }
 
 .stat-bar {
   height: 6px;
-  background-color: var(--theme-border);
-  border-radius: 3px;
+  background: var(--sm-color-bg-embedded);
+  border-radius: 999px;
   overflow: hidden;
 }
 
 .stat-bar-fill {
   height: 100%;
-  border-radius: 3px;
-  transition: width 0.3s ease;
+  border-radius: 999px;
 }
 
 .stat-bar-fill.cpu {
-  background-color: var(--theme-info);
+  background: var(--sm-color-accent);
 }
 
 .stat-bar-fill.memory {
-  background-color: var(--theme-accent);
+  background: var(--sm-color-status-success);
 }
 
-/* 基本信息网格 */
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--sm-space-3);
 }
 
 .info-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding: var(--sm-space-4);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
 }
 
 .info-label {
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .info-value {
   font-size: 13px;
-  color: var(--theme-text);
-  word-break: break-all;
-  font-family: var(--theme-font);
+  line-height: 1.6;
+  color: var(--sm-color-text-primary);
+  word-break: break-word;
 }
 
-/* 端口列表 */
+.info-value--code {
+  font-family: var(--sm-font-mono);
+  font-size: 12px;
+}
+
 .ports-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: var(--sm-space-3);
 }
 
 .port-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: var(--sm-space-4);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  font-family: var(--sm-font-mono);
   font-size: 13px;
-  font-family: var(--theme-font);
+}
+
+.port-host,
+.port-container {
+  color: var(--sm-color-text-primary);
 }
 
 .port-host {
-  color: var(--theme-accent);
-  font-weight: 500;
+  color: var(--sm-color-accent-hover);
 }
 
 .port-arrow {
-  color: var(--theme-text-secondary);
-}
-
-.port-container {
-  color: var(--theme-text);
+  color: var(--sm-color-text-secondary);
 }
 
 .ports-list.exposed .port-item {
-  opacity: 0.7;
-  border-style: dashed;
+  opacity: 0.78;
 }
 
 .port-hint {
-  color: var(--theme-text-secondary);
-  font-size: 12px;
-  margin-left: 4px;
+  color: var(--sm-color-status-warning);
 }
 
-/* 挂载点列表 */
 .mounts-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sm-space-3);
 }
 
 .mount-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 4px;
-  font-size: 13px;
-  font-family: var(--theme-font);
   flex-wrap: wrap;
+  gap: 8px;
+  padding: var(--sm-space-4);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  font-family: var(--sm-font-mono);
+  font-size: 12px;
 }
 
 .mount-type {
-  color: var(--theme-text-secondary);
-  font-size: 11px;
+  color: var(--sm-color-accent-hover);
 }
 
-.mount-source {
-  color: var(--theme-accent);
-}
-
-.mount-arrow {
-  color: var(--theme-text-secondary);
-}
-
+.mount-source,
 .mount-destination {
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
+  word-break: break-all;
 }
 
+.mount-arrow,
 .mount-mode {
-  color: var(--theme-warning);
-  font-size: 11px;
+  color: var(--sm-color-text-secondary);
 }
 
-/* 环境变量 */
 .env-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  padding: 12px;
-  max-height: 200px;
-  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--sm-space-3);
 }
 
 .env-item {
+  display: block;
+  padding: 12px;
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  font-family: var(--sm-font-mono);
   font-size: 12px;
-  font-family: var(--theme-font);
-  color: var(--theme-text);
-  padding: 2px 0;
+  line-height: 1.6;
+  color: var(--sm-color-text-primary);
+  word-break: break-all;
 }
 
-/* 网络配置 */
 .networks-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sm-space-3);
 }
 
 .network-item {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 6px;
-  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  padding: var(--sm-space-4);
 }
 
 .network-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
-  margin-bottom: 8px;
+  color: var(--sm-color-text-primary);
 }
 
 .network-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
   font-size: 12px;
-  font-family: var(--theme-font);
-  color: var(--theme-text-secondary);
+  font-family: var(--sm-font-mono);
+  color: var(--sm-color-text-secondary);
+}
+
+@media (max-width: 840px) {
+  .overview-panel__headline {
+    flex-direction: column;
+  }
+
+  .header-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .overview-panel,
+  .detail-section {
+    padding: var(--sm-space-4);
+  }
+
+  .stats-grid,
+  .info-grid,
+  .env-list,
+  .network-details {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

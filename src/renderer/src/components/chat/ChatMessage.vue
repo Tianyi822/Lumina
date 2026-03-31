@@ -106,9 +106,7 @@ const hasStructuredReact = computed(() => {
   return (
     props.message.reactIterations?.some(
       (iteration) =>
-        iteration.isActive ||
-        iteration.reasoning.trim().length > 0 ||
-        iteration.steps.length > 0
+        iteration.isActive || iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
     ) || false
   )
 })
@@ -169,7 +167,8 @@ const hasAssistantContent = computed(() => {
   // 流式传输中允许显示占位符
   if (props.message.isStreaming) return true
   // 有推理内容或工具活动时也算有内容
-  if (showStandaloneReasoning.value || hasStructuredReact.value || hasToolActivity.value) return true
+  if (showStandaloneReasoning.value || hasStructuredReact.value || hasToolActivity.value)
+    return true
   // 检查正文内容是否非空
   return !!props.message.content?.trim()
 })
@@ -299,7 +298,11 @@ function handleClosePreviewDialog(): void {
       />
 
       <!-- 消息气泡 -->
-      <div v-if="shouldShowBubble" class="message-bubble" :class="{ streaming: message.isStreaming }">
+      <div
+        v-if="shouldShowBubble"
+        class="message-bubble"
+        :class="{ streaming: message.isStreaming }"
+      >
         <StreamingContent
           v-if="showWaitingPlaceholder"
           :has-tool-activity="hasToolActivity"
@@ -360,21 +363,20 @@ function handleClosePreviewDialog(): void {
 
 <style scoped>
 .chat-message {
-  --message-avatar-size: 34px;
-  --message-header-gap: var(--theme-spacing-sm);
+  --message-avatar-size: 32px;
+  --message-header-gap: var(--sm-space-2);
   --message-content-offset: calc(var(--message-avatar-size) + var(--message-header-gap));
   display: flex;
   flex-direction: column;
-  gap: var(--theme-spacing-sm);
-  max-width: 85%;
-  animation: messageAppear 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  gap: var(--sm-space-2);
+  width: min(100%, 820px);
+  animation: messageAppear 160ms ease;
 }
 
-/* 消息出现动画 */
 @keyframes messageAppear {
   0% {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(6px);
   }
   100% {
     opacity: 1;
@@ -382,63 +384,28 @@ function handleClosePreviewDialog(): void {
   }
 }
 
-/* 用户消息从右侧出现 */
 .chat-message.role-user {
-  animation: messageAppearRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes messageAppearRight {
-  0% {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* AI消息从左侧出现 */
-.chat-message.role-assistant {
-  animation: messageAppearLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes messageAppearLeft {
-  0% {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* 用户消息：右侧对齐 */
-.chat-message.role-user {
+  width: min(100%, 640px);
   align-self: flex-end;
   align-items: flex-end;
 }
 
-/* AI 消息：左侧对齐 */
 .chat-message.role-assistant {
   align-self: flex-start;
   align-items: flex-start;
 }
 
-/* 消息头部 */
 .message-header {
   display: flex;
   align-items: center;
-  gap: var(--theme-spacing-sm);
+  gap: var(--sm-space-2);
+  min-height: var(--message-avatar-size);
 }
 
-/* 用户消息头部反向排列 */
 .chat-message.role-user .message-header {
   flex-direction: row-reverse;
 }
 
-/* 头像 */
 .message-avatar {
   flex-shrink: 0;
 }
@@ -446,11 +413,13 @@ function handleClosePreviewDialog(): void {
 .avatar {
   width: var(--message-avatar-size);
   height: var(--message-avatar-size);
-  border-radius: 50%;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  border: 1px solid var(--sm-color-border-default);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
 }
 
 .avatar svg {
@@ -459,22 +428,22 @@ function handleClosePreviewDialog(): void {
 }
 
 .user-avatar {
-  background: #46aa8f;
-  color: white;
-  box-shadow: 0 2px 8px rgba(70, 170, 143, 0.25);
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.14);
+  color: var(--sm-color-accent-hover);
 }
 
 .ai-avatar {
-  background: var(--theme-accent);
-  color: white;
-  box-shadow: 0 2px 8px rgba(70, 170, 143, 0.2);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-primary);
 }
 
-/* 发送者信息 */
 .sender-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sm-space-2);
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .chat-message.role-user .sender-info {
@@ -484,12 +453,12 @@ function handleClosePreviewDialog(): void {
 .sender-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-primary);
 }
 
 .sender-time {
   font-size: 11px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   line-height: 1;
 }
 
@@ -498,11 +467,11 @@ function handleClosePreviewDialog(): void {
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  background: var(--thinking-bg, rgba(99, 102, 241, 0.08));
-  border: 1px solid var(--thinking-border, rgba(99, 102, 241, 0.2));
+  background: rgba(142, 149, 217, 0.08);
+  border: 1px solid rgba(142, 149, 217, 0.18);
   border-radius: 12px;
   font-size: 11px;
-  color: var(--thinking-accent, var(--theme-accent-secondary));
+  color: var(--sm-color-accent-hover);
 }
 
 .thinking-indicator svg {
@@ -510,16 +479,14 @@ function handleClosePreviewDialog(): void {
   height: 12px;
 }
 
-/* 消息内容区域 */
 .message-body {
   display: flex;
   flex-direction: column;
-  gap: var(--theme-spacing-sm);
+  gap: var(--sm-space-3);
   margin-left: var(--message-content-offset);
   width: fit-content;
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
 }
 
 .chat-message.role-user .message-body {
@@ -527,80 +494,61 @@ function handleClosePreviewDialog(): void {
   margin-right: var(--message-content-offset);
 }
 
-/* 消息气泡 */
 .message-bubble {
-  padding: 14px 18px;
-  border-radius: var(--theme-radius-lg);
+  padding: var(--sm-space-4) 18px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-primary);
   font-size: 14px;
-  line-height: 1.7;
+  line-height: 1.65;
   align-self: flex-start;
   width: fit-content;
   word-break: break-word;
   overflow-wrap: break-word;
   max-width: 100%;
   min-width: 0;
-  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
-/* 用户消息气泡 */
 .chat-message.role-user .message-bubble {
   align-self: flex-end;
-  background: #46aa8f;
-  color: var(--bubble-user-text, white);
-  border-bottom-right-radius: 4px;
-  box-shadow: 0 4px 16px rgba(70, 170, 143, 0.2);
+  background: rgba(142, 149, 217, 0.12);
+  border-color: var(--sm-color-border-accent);
 }
 
 .chat-message.role-user .message-bubble:hover {
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
+  background: rgba(142, 149, 217, 0.18);
+  border-color: rgba(161, 167, 230, 0.6);
 }
 
-/* AI 消息气泡 - 玻璃效果 */
 .chat-message.role-assistant .message-bubble {
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
-    ),
-    var(--bubble-ai-bg, var(--theme-bg-secondary));
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  color: var(--bubble-ai-text, var(--theme-text));
-  border-bottom-left-radius: 4px;
-  box-shadow:
-    0 2px 12px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 var(--glass-white-1, rgba(255, 255, 255, 0.1));
+  background: var(--sm-color-surface-1);
 }
 
 .chat-message.role-assistant .message-bubble:hover {
-  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
 }
 
-/* 流式输出状态 */
 .message-bubble.streaming {
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow:
-    0 0 0 2px rgba(99, 102, 241, 0.1),
-    0 2px 12px rgba(99, 102, 241, 0.08);
+  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-surface-active);
 }
 
-/* 消息元信息行：时间戳、Token统计、反馈按钮 */
 .message-meta-row {
-  --message-meta-text-color: var(--theme-text-tertiary);
+  --message-meta-text-color: var(--sm-color-text-tertiary);
   display: flex;
   align-items: center;
   justify-content: flex-start;
   align-self: flex-start;
-  gap: 8px;
+  gap: var(--sm-space-2);
   width: 100%;
   max-width: 100%;
   margin-top: 4px;
-  min-height: calc(11px + 8px + 2px); /* font-size + padding-top/bottom + border */
+  min-height: 26px;
   color: var(--message-meta-text-color);
 }
 
@@ -610,25 +558,22 @@ function handleClosePreviewDialog(): void {
 }
 
 /* ========== 过渡动画 ========== */
-/* 思考面板淡入动画 */
 .panel-fade-enter-active {
-  animation: panelFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: panelFadeIn 160ms ease;
 }
 
 .panel-fade-leave-active {
-  animation: panelFadeOut 0.2s ease-out;
+  animation: panelFadeOut 140ms ease-out;
 }
 
 @keyframes panelFadeIn {
   0% {
     opacity: 0;
-    transform: translateY(-10px);
-    max-height: 0;
+    transform: translateY(-4px);
   }
   100% {
     opacity: 1;
     transform: translateY(0);
-    max-height: 500px;
   }
 }
 
@@ -636,28 +581,25 @@ function handleClosePreviewDialog(): void {
   0% {
     opacity: 1;
     transform: translateY(0);
-    max-height: 500px;
   }
   100% {
     opacity: 0;
-    transform: translateY(-10px);
-    max-height: 0;
+    transform: translateY(-4px);
   }
 }
 
-/* 元信息行淡入动画 */
 .meta-fade-enter-active {
-  animation: metaFadeIn 0.25s ease-out;
+  animation: metaFadeIn 160ms ease;
 }
 
 .meta-fade-leave-active {
-  animation: metaFadeOut 0.15s ease-out;
+  animation: metaFadeOut 120ms ease-out;
 }
 
 @keyframes metaFadeIn {
   0% {
     opacity: 0;
-    transform: translateY(5px);
+    transform: translateY(4px);
   }
   100% {
     opacity: 1;
@@ -672,7 +614,24 @@ function handleClosePreviewDialog(): void {
   }
   100% {
     opacity: 0;
-    transform: translateY(5px);
+    transform: translateY(4px);
+  }
+}
+
+@media (max-width: 768px) {
+  .chat-message,
+  .chat-message.role-user {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .message-body {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .chat-message.role-user .message-body {
+    margin-right: 0;
   }
 }
 </style>

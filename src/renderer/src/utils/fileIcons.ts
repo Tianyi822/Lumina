@@ -47,7 +47,7 @@ const FILE_ICONS: Record<string, FileIconConfig> = {
 
 const DEFAULT_ICON: FileIconConfig = {
   name: 'file',
-  color: 'var(--theme-accent)'
+  color: 'var(--sm-color-accent)'
 }
 
 /**

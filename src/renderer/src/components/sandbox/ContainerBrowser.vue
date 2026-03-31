@@ -262,8 +262,8 @@ function handleViewLogs(containerId: string): void {
 /* 头部样式 */
 .browser-header {
   padding: 16px;
-  border-bottom: 1px solid var(--theme-border);
-  background-color: var(--theme-bg);
+  border-bottom: 1px solid var(--sm-color-border-default);
+  background-color: var(--sm-color-bg-app);
 }
 
 .search-section {
@@ -289,24 +289,24 @@ function handleViewLogs(containerId: string): void {
 .filter-btn {
   padding: 6px 12px;
   font-size: 13px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   background-color: transparent;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .filter-btn:hover {
-  border-color: var(--theme-text-secondary);
-  color: var(--theme-text);
+  border-color: var(--sm-color-text-secondary);
+  color: var(--sm-color-text-primary);
 }
 
 .filter-btn.active {
-  background-color: var(--theme-accent);
-  border-color: var(--theme-accent);
-  color: var(--theme-bg);
+  background-color: var(--sm-color-accent);
+  border-color: var(--sm-color-accent);
+  color: var(--sm-color-bg-app);
 }
 
 /* 列表样式 */
@@ -325,15 +325,15 @@ function handleViewLogs(containerId: string): void {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   gap: 16px;
 }
 
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--theme-border);
-  border-top-color: var(--theme-accent);
+  border: 3px solid var(--sm-color-border-default);
+  border-top-color: var(--sm-color-accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -350,14 +350,14 @@ function handleViewLogs(containerId: string): void {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   text-align: center;
 }
 
 .empty-title {
   font-size: 16px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   margin: 0 0 8px 0;
 }
 
@@ -368,8 +368,8 @@ function handleViewLogs(containerId: string): void {
 
 /* 容器卡片样式 */
 .container-card {
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 8px;
   padding: 16px;
   cursor: pointer;
@@ -377,16 +377,16 @@ function handleViewLogs(containerId: string): void {
 }
 
 .container-card:hover {
-  border-color: var(--theme-text-secondary);
+  border-color: var(--sm-color-text-secondary);
 }
 
 .container-card.active {
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-accent);
   background-color: rgba(63, 185, 80, 0.05);
 }
 
 .container-card.running {
-  border-left: 3px solid var(--theme-success);
+  border-left: 3px solid var(--sm-color-status-success);
 }
 
 /* 容器头部 */
@@ -412,7 +412,7 @@ function handleViewLogs(containerId: string): void {
 .container-name {
   font-size: 15px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .container-state {
@@ -425,58 +425,58 @@ function handleViewLogs(containerId: string): void {
 /* 状态样式 */
 .state-created {
   background-color: rgba(88, 166, 255, 0.2);
-  color: var(--theme-info);
+  color: var(--sm-color-status-info);
 }
 
 .state-created.state-indicator {
-  background-color: var(--theme-info);
+  background-color: var(--sm-color-status-info);
 }
 
 .state-running {
   background-color: rgba(63, 185, 80, 0.2);
-  color: var(--theme-success);
+  color: var(--sm-color-status-success);
 }
 
 .state-running.state-indicator {
-  background-color: var(--theme-success);
+  background-color: var(--sm-color-status-success);
 }
 
 .state-paused {
   background-color: rgba(210, 153, 34, 0.2);
-  color: var(--theme-warning);
+  color: var(--sm-color-status-warning);
 }
 
 .state-paused.state-indicator {
-  background-color: var(--theme-warning);
+  background-color: var(--sm-color-status-warning);
 }
 
 .state-restarting {
   background-color: rgba(88, 166, 255, 0.2);
-  color: var(--theme-info);
+  color: var(--sm-color-status-info);
 }
 
 .state-restarting.state-indicator {
-  background-color: var(--theme-info);
+  background-color: var(--sm-color-status-info);
 }
 
 .state-removing {
   background-color: rgba(139, 148, 158, 0.2);
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .state-removing.state-indicator {
-  background-color: var(--theme-text-secondary);
+  background-color: var(--sm-color-text-secondary);
 }
 
 .state-exited,
 .state-dead {
   background-color: rgba(248, 81, 73, 0.2);
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .state-exited.state-indicator,
 .state-dead.state-indicator {
-  background-color: var(--theme-danger);
+  background-color: var(--sm-color-status-danger);
 }
 
 /* 容器信息 */
@@ -495,13 +495,13 @@ function handleViewLogs(containerId: string): void {
 }
 
 .info-label {
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   min-width: 60px;
   flex-shrink: 0;
 }
 
 .info-value {
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -517,18 +517,18 @@ function handleViewLogs(containerId: string): void {
 .action-btn {
   padding: 6px 12px;
   font-size: 12px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   background-color: transparent;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .action-btn:hover:not(:disabled) {
-  border-color: var(--theme-text);
-  color: var(--theme-text);
+  border-color: var(--sm-color-text-primary);
+  color: var(--sm-color-text-primary);
 }
 
 .action-btn:disabled {
@@ -537,9 +537,9 @@ function handleViewLogs(containerId: string): void {
 }
 
 .action-btn.primary {
-  background-color: var(--theme-accent);
-  border-color: var(--theme-accent);
-  color: var(--theme-bg);
+  background-color: var(--sm-color-accent);
+  border-color: var(--sm-color-accent);
+  color: var(--sm-color-bg-app);
 }
 
 .action-btn.primary:hover:not(:disabled) {
@@ -547,20 +547,20 @@ function handleViewLogs(containerId: string): void {
 }
 
 .action-btn.success {
-  background-color: var(--theme-success);
-  border-color: var(--theme-success);
-  color: var(--theme-bg);
+  background-color: var(--sm-color-status-success);
+  border-color: var(--sm-color-status-success);
+  color: var(--sm-color-bg-app);
 }
 
 .action-btn.warning {
-  background-color: var(--theme-warning);
-  border-color: var(--theme-warning);
-  color: var(--theme-bg);
+  background-color: var(--sm-color-status-warning);
+  border-color: var(--sm-color-status-warning);
+  color: var(--sm-color-bg-app);
 }
 
 .action-btn.danger {
-  background-color: var(--theme-danger);
-  border-color: var(--theme-danger);
+  background-color: var(--sm-color-status-danger);
+  border-color: var(--sm-color-status-danger);
   color: white;
 }
 

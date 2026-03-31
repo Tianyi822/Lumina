@@ -261,7 +261,7 @@ function clearContent(): void {
   margin: 0 0 16px 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .form-field {
@@ -273,14 +273,14 @@ function clearContent(): void {
   align-items: center;
   justify-content: space-between;
   font-size: 13px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   margin-bottom: 8px;
 }
 
 .btn-link {
   background: none;
   border: none;
-  color: var(--theme-accent);
+  color: var(--sm-color-accent);
   font-size: 12px;
   cursor: pointer;
   text-decoration: underline;
@@ -289,17 +289,17 @@ function clearContent(): void {
 .input {
   width: 100%;
   padding: 8px 12px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   font-size: 13px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .input:focus {
   outline: none;
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-accent);
 }
 
 .config-selector {
@@ -310,23 +310,23 @@ function clearContent(): void {
 .select {
   flex: 1;
   padding: 8px 12px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   font-size: 13px;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   cursor: pointer;
 }
 
 .select:focus {
   outline: none;
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-accent);
 }
 
 .generator-section {
   margin-bottom: 16px;
-  border: 1px solid var(--theme-border);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -336,7 +336,7 @@ function clearContent(): void {
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  background-color: var(--theme-bg-secondary);
+  background-color: var(--sm-color-surface-1);
   cursor: pointer;
   user-select: none;
 }
@@ -348,12 +348,12 @@ function clearContent(): void {
 .generator-title {
   font-size: 13px;
   font-weight: 500;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .generator-toggle {
   font-size: 10px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   transition: transform 0.2s ease;
 }
 
@@ -363,15 +363,15 @@ function clearContent(): void {
 
 .generator-form {
   padding: 16px;
-  background-color: var(--theme-bg);
-  border-top: 1px solid var(--theme-border);
+  background-color: var(--sm-color-bg-app);
+  border-top: 1px solid var(--sm-color-border-default);
 }
 
 .generator-form .input:disabled,
 .generator-form .select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  background-color: var(--theme-bg);
+  background-color: var(--sm-color-bg-app);
 }
 
 .form-row {
@@ -387,7 +387,7 @@ function clearContent(): void {
 .form-field-inline label {
   display: block;
   font-size: 12px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   margin-bottom: 4px;
 }
 
@@ -402,7 +402,7 @@ function clearContent(): void {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   cursor: pointer;
 }
 
@@ -416,34 +416,34 @@ function clearContent(): void {
   gap: 8px;
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid var(--theme-border);
+  border-top: 1px solid var(--sm-color-border-default);
 }
 
 .btn-secondary {
   padding: 6px 12px;
   font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn-secondary:hover {
-  border-color: var(--theme-text-secondary);
-  color: var(--theme-text);
+  border-color: var(--sm-color-text-secondary);
+  color: var(--sm-color-text-primary);
 }
 
 .btn-primary {
   padding: 6px 12px;
   font-size: 13px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-accent);
-  border: 1px solid var(--theme-accent);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-accent);
+  border: 1px solid var(--sm-color-accent);
   border-radius: 4px;
-  color: var(--theme-bg);
+  color: var(--sm-color-bg-app);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -460,18 +460,18 @@ function clearContent(): void {
 .btn-template {
   padding: 4px 8px;
   font-size: 11px;
-  font-family: var(--theme-font);
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  font-family: var(--sm-font-sans);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 4px;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn-template:hover {
-  border-color: var(--theme-accent);
-  color: var(--theme-accent);
+  border-color: var(--sm-color-accent);
+  color: var(--sm-color-accent);
 }
 
 .btn-template.btn-clear {
@@ -489,13 +489,13 @@ function clearContent(): void {
   width: 100%;
   min-height: 300px;
   padding: 12px;
-  font-family: var(--theme-font);
+  font-family: var(--sm-font-sans);
   font-size: 13px;
   line-height: 1.5;
-  background-color: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
   border-radius: 6px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
   resize: vertical;
   white-space: pre;
   tab-size: 2;
@@ -503,6 +503,6 @@ function clearContent(): void {
 
 .code-editor:focus {
   outline: none;
-  border-color: var(--theme-accent);
+  border-color: var(--sm-color-accent);
 }
 </style>

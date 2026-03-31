@@ -33,23 +33,18 @@ const props = defineProps<{
 .processing-files-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
+  gap: 6px;
 }
 
 .processing-file-item {
   display: flex;
   align-items: center;
   padding: 6px 12px;
-  background: linear-gradient(
-    135deg,
-    var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
-    var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
-  );
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  border-radius: var(--theme-radius-sm, 6px);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
   font-size: 12px;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .processing-status {
@@ -67,15 +62,15 @@ const props = defineProps<{
 
 .processing-status.uploading,
 .processing-status.parsing {
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .processing-status.completed {
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
 }
 
 .processing-status.failed {
-  color: var(--theme-danger);
+  color: var(--sm-color-status-danger);
 }
 
 .processing-error {

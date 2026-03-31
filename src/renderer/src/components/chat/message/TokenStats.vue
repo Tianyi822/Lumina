@@ -42,13 +42,9 @@ function formatTokenUsage(usage: {
   padding: 4px 8px;
   font-size: 11px;
   color: inherit;
-  background: linear-gradient(
-    135deg,
-    var(--glass-white-05, rgba(255, 255, 255, 0.05)) 0%,
-    var(--glass-white-027, rgba(255, 255, 255, 0.027)) 100%
-  );
-  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
-  border-radius: 4px;
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-sm);
   line-height: 1;
   display: flex;
   align-items: center;

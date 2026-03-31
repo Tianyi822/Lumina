@@ -242,109 +242,123 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="voice-settings">
-    <!-- 提示信息 -->
-    <div class="hint-banner">
-      <span class="hint-text">当前仅支持阿里云语音识别配置，后续可扩展其他服务商</span>
-    </div>
+  <div class="sm-settings-page voice-settings">
+    <header class="sm-settings-page__header">
+      <h2 class="sm-settings-page__title">语音识别配置</h2>
+      <p class="sm-settings-page__description">
+        配置阿里云语音识别服务的鉴权信息、自动获取 Token 和手动测试能力。
+      </p>
+    </header>
 
-    <!-- 启用开关 -->
-    <div class="form-group setting-switch-card">
-      <label class="form-label">启用语音识别</label>
-      <div class="toggle-wrapper">
-        <input
-          id="voice-enabled"
-          v-model="localConfig.enabled"
-          type="checkbox"
-          class="toggle-input"
-        />
-        <label for="voice-enabled" class="toggle-label"></label>
+    <div class="sm-settings-banner">当前仅支持阿里云语音识别配置，后续可扩展其他服务商。</div>
+
+    <section class="sm-settings-page__section">
+      <div class="sm-settings-page__section-header">
+        <div>
+          <h3 class="sm-settings-page__section-title">服务凭据</h3>
+          <p class="sm-settings-page__section-description">
+            启用状态即时保存，凭据字段按需统一提交。
+          </p>
+        </div>
       </div>
-    </div>
 
-    <!-- AccessKey ID -->
-    <div class="form-group field-card">
-      <label class="form-label" for="access-key-id">AccessKey ID</label>
-      <input
-        id="access-key-id"
-        v-model="localConfig.accessKeyId"
-        type="text"
-        class="form-input"
-        placeholder="请输入阿里云 AccessKey ID"
-      />
-    </div>
+      <div class="form-group setting-switch-card">
+        <label class="form-label">启用语音识别</label>
+        <div class="toggle-wrapper">
+          <input
+            id="voice-enabled"
+            v-model="localConfig.enabled"
+            type="checkbox"
+            class="toggle-input"
+          />
+          <label for="voice-enabled" class="toggle-label"></label>
+        </div>
+      </div>
 
-    <!-- AccessKey Secret -->
-    <div class="form-group field-card">
-      <label class="form-label" for="access-key-secret">AccessKey Secret</label>
-      <input
-        id="access-key-secret"
-        v-model="localConfig.accessKeySecret"
-        type="password"
-        class="form-input"
-        placeholder="请输入阿里云 AccessKey Secret"
-        autocomplete="new-password"
-      />
-      <span class="form-hint">用于自动获取 Token，可选配置</span>
-    </div>
+      <div class="form-group field-card">
+        <label class="form-label" for="access-key-id">AccessKey ID</label>
+        <input
+          id="access-key-id"
+          v-model="localConfig.accessKeyId"
+          type="text"
+          class="sm-input"
+          placeholder="请输入阿里云 AccessKey ID"
+        />
+      </div>
 
-    <!-- 获取 Token 按钮 -->
-    <div class="form-group action-group">
-      <button
-        class="btn btn-secondary fetch-token-btn"
-        :disabled="fetchingToken || !localConfig.accessKeyId || !localConfig.accessKeySecret"
-        @click="handleFetchToken"
-      >
-        {{ fetchingToken ? '获取中...' : '自动获取 Token' }}
-      </button>
-    </div>
+      <div class="form-group field-card">
+        <label class="form-label" for="access-key-secret">AccessKey Secret</label>
+        <input
+          id="access-key-secret"
+          v-model="localConfig.accessKeySecret"
+          type="password"
+          class="sm-input"
+          placeholder="请输入阿里云 AccessKey Secret"
+          autocomplete="new-password"
+        />
+        <span class="form-hint">用于自动获取 Token，可选配置</span>
+      </div>
 
-    <!-- Token -->
-    <div class="form-group field-card">
-      <label class="form-label" for="token">服务鉴权 Token</label>
-      <input
-        id="token"
-        v-model="localConfig.token"
-        type="text"
-        class="form-input"
-        placeholder="请输入语音识别服务 Token"
-      />
-      <span class="form-hint">
-        可通过 AccessKey 自动获取，或从
-        <a href="https://nls-portal.console.aliyun.com/" target="_blank">阿里云控制台</a>
-        获取
-      </span>
-    </div>
+      <div class="form-group action-group">
+        <button
+          class="sm-button sm-button--secondary fetch-token-btn"
+          :disabled="fetchingToken || !localConfig.accessKeyId || !localConfig.accessKeySecret"
+          @click="handleFetchToken"
+        >
+          {{ fetchingToken ? '获取中...' : '自动获取 Token' }}
+        </button>
+      </div>
 
-    <!-- Appkey -->
-    <div class="form-group field-card">
-      <label class="form-label" for="appkey">项目 Appkey</label>
-      <input
-        id="appkey"
-        v-model="localConfig.appkey"
-        type="text"
-        class="form-input"
-        placeholder="请输入语音识别项目 Appkey"
-      />
-      <span class="form-hint">
-        从
-        <a href="https://nls-portal.console.aliyun.com/applist" target="_blank">智能语音控制台</a>
-        获取
-      </span>
-    </div>
+      <div class="form-group field-card">
+        <label class="form-label" for="token">服务鉴权 Token</label>
+        <input
+          id="token"
+          v-model="localConfig.token"
+          type="text"
+          class="sm-input"
+          placeholder="请输入语音识别服务 Token"
+        />
+        <span class="form-hint">
+          可通过 AccessKey 自动获取，或从
+          <a href="https://nls-portal.console.aliyun.com/" target="_blank">阿里云控制台</a>
+          获取
+        </span>
+      </div>
 
-    <!-- 操作按钮 -->
-    <div class="form-actions">
-      <button class="btn btn-secondary" :disabled="!hasChanges" @click="handleReset">重置</button>
-      <button
-        class="btn btn-secondary"
-        :disabled="testing || !localConfig.token || !localConfig.appkey"
-        @click="handleTest"
-      >
-        {{ testing ? '测试中...' : '测试连接' }}
-      </button>
-      <button class="btn btn-primary" :disabled="!hasChanges" @click="handleSave">保存配置</button>
-    </div>
+      <div class="form-group field-card">
+        <label class="form-label" for="appkey">项目 Appkey</label>
+        <input
+          id="appkey"
+          v-model="localConfig.appkey"
+          type="text"
+          class="sm-input"
+          placeholder="请输入语音识别项目 Appkey"
+        />
+        <span class="form-hint">
+          从
+          <a href="https://nls-portal.console.aliyun.com/applist" target="_blank">智能语音控制台</a>
+          获取
+        </span>
+      </div>
+    </section>
+
+    <section class="sm-settings-page__section sm-settings-page__section--compact">
+      <div class="form-actions">
+        <button class="sm-button sm-button--secondary" :disabled="!hasChanges" @click="handleReset">
+          重置
+        </button>
+        <button
+          class="sm-button sm-button--secondary"
+          :disabled="testing || !localConfig.token || !localConfig.appkey"
+          @click="handleTest"
+        >
+          {{ testing ? '测试中...' : '测试连接' }}
+        </button>
+        <button class="sm-button sm-button--primary" :disabled="!hasChanges" @click="handleSave">
+          保存配置
+        </button>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -352,19 +366,7 @@ onMounted(() => {
 .voice-settings {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-.hint-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  border-radius: var(--theme-radius-sm);
-  color: var(--theme-text-secondary);
-  font-size: 13px;
+  gap: var(--sm-space-5);
 }
 
 .form-group {
@@ -377,99 +379,39 @@ onMounted(() => {
 .setting-switch-card,
 .field-card {
   padding: 14px 16px;
-  border-radius: calc(var(--theme-radius-sm) + 2px);
-  border: 1px solid rgba(120, 134, 156, 0.18);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%),
-    rgba(16, 24, 40, 0.04);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 10px 24px rgba(15, 23, 42, 0.05);
+  border-radius: var(--sm-radius-md);
+  border: 1px solid var(--sm-color-border-default);
+  background: var(--sm-color-surface-2);
   transition:
-    border-color 0.2s ease,
-    background 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .field-card:hover,
 .setting-switch-card:hover {
-  border-color: rgba(120, 134, 156, 0.28);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.045) 100%),
-    rgba(16, 24, 40, 0.05);
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
 }
 
 .field-card:focus-within,
 .setting-switch-card:focus-within {
-  border-color: color-mix(in srgb, var(--theme-accent) 58%, white 42%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 0 0 3px rgba(99, 102, 241, 0.12),
-    0 16px 30px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
+  border-color: var(--sm-color-border-accent);
 }
 
 .form-label {
   font-size: 13px;
   font-weight: 600;
-  color: var(--theme-text);
-  letter-spacing: 0.01em;
-}
-
-.form-input {
-  min-height: 42px;
-  padding: 11px 13px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(248, 250, 252, 0.88) 100%),
-    rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(148, 163, 184, 0.42);
-  border-radius: var(--theme-radius-sm);
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: var(--theme-font);
-  box-shadow:
-    inset 0 1px 2px rgba(15, 23, 42, 0.06),
-    0 1px 0 rgba(255, 255, 255, 0.45);
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
-}
-
-.form-input:hover {
-  border-color: rgba(100, 116, 139, 0.56);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.92) 100%),
-    rgba(255, 255, 255, 0.92);
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--theme-accent);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(248, 250, 252, 0.96) 100%),
-    rgba(255, 255, 255, 0.96);
-  box-shadow:
-    inset 0 1px 2px rgba(15, 23, 42, 0.05),
-    0 0 0 3px rgba(99, 102, 241, 0.16);
-  transform: translateY(-1px);
-}
-
-.form-input::placeholder {
-  color: rgba(71, 85, 105, 0.72);
+  color: var(--sm-color-text-primary);
 }
 
 .form-hint {
   font-size: 12px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-secondary);
   line-height: 1.5;
 }
 
 .form-hint a {
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
   text-decoration: none;
 }
 
@@ -494,9 +436,8 @@ onMounted(() => {
   display: inline-block;
   width: 48px;
   height: 26px;
-  background: rgba(100, 116, 139, 0.22);
-  border: 1px solid rgba(100, 116, 139, 0.26);
-  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.14);
+  background: var(--sm-color-border-default);
+  border: 1px solid transparent;
   border-radius: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -510,27 +451,24 @@ onMounted(() => {
   width: 20px;
   height: 20px;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
   border-radius: 50%;
   transform: translateY(-50%);
   transition: left 0.2s ease;
 }
 
 .toggle-input:checked + .toggle-label {
-  background: var(--theme-accent);
-  border-color: var(--theme-accent);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  background: var(--sm-color-accent);
+  border-color: var(--sm-color-border-accent);
 }
 
 .toggle-input:checked + .toggle-label::after {
   left: 25px;
 }
 
-/* Buttons */
 .form-actions {
   display: flex;
   gap: 12px;
-  margin-top: 8px;
+  justify-content: flex-end;
 }
 
 .action-group {
@@ -541,79 +479,19 @@ onMounted(() => {
   width: 100%;
   min-height: 44px;
   justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--theme-accent) 42%, white 58%);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--theme-accent) 14%, white 86%) 0%,
-    color-mix(in srgb, var(--theme-accent) 8%, white 92%) 100%
-  );
-  color: color-mix(in srgb, var(--theme-accent) 72%, black 28%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 8px 18px rgba(15, 23, 42, 0.06);
+  border-color: var(--sm-color-border-accent);
+  background: rgba(142, 149, 217, 0.12);
+  color: var(--sm-color-accent-hover);
   font-weight: 600;
-  letter-spacing: 0.01em;
 }
 
 .fetch-token-btn:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--theme-accent) 65%, white 35%);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--theme-accent) 20%, white 80%) 0%,
-    color-mix(in srgb, var(--theme-accent) 12%, white 88%) 100%
-  );
-  color: color-mix(in srgb, var(--theme-accent) 82%, black 18%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 12px 24px rgba(15, 23, 42, 0.08),
-    0 0 0 3px rgba(99, 102, 241, 0.08);
-  transform: translateY(-1px);
-}
-
-.fetch-token-btn:active:not(:disabled) {
-  transform: translateY(0);
+  background: rgba(142, 149, 217, 0.18);
 }
 
 .fetch-token-btn:disabled {
-  border-color: rgba(148, 163, 184, 0.32);
-  background: linear-gradient(135deg, rgba(241, 245, 249, 0.88) 0%, rgba(248, 250, 252, 0.82) 100%);
-  color: rgba(100, 116, 139, 0.72);
-  box-shadow: none;
-}
-
-.btn {
-  padding: 10px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: var(--theme-font);
-  border-radius: var(--theme-radius-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  border: 1px solid var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  color: var(--theme-text-secondary);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  color: var(--theme-text);
-}
-
-.btn-primary {
-  background: var(--theme-accent);
-  border: 1px solid var(--theme-accent);
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
+  border-color: var(--sm-color-border-default);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-tertiary);
 }
 </style>

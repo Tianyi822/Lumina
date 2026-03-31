@@ -22,3 +22,6 @@ export { deepClone } from './data-processors'
 
 // 提示词变量相关工具
 export * from './prompt-variables'
+
+// 主题相关工具
+export * from './theme'

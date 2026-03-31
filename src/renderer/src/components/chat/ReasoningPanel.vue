@@ -70,7 +70,7 @@ const contentTokenLabel = computed(() => {
 <template>
   <div class="reasoning-panel" :class="{ expanded: isActuallyExpanded }">
     <!-- 头部（始终显示） -->
-    <div class="panel-header" @click="toggle">
+    <div class="sm-reasoning-panel__header" @click="toggle">
       <div class="header-left">
         <div class="header-icon">
           <SvgIcon name="thinking" :size="20" />
@@ -88,8 +88,8 @@ const contentTokenLabel = computed(() => {
     </div>
 
     <!-- 内容区域（可展开/收起） -->
-    <div class="panel-content-wrapper" :class="{ expanded: isActuallyExpanded }">
-      <div class="panel-content">
+    <div class="sm-reasoning-panel__content-shell" :class="{ expanded: isActuallyExpanded }">
+      <div class="sm-reasoning-panel__content">
         <!-- markdown-it 已禁用原生 HTML，这里仅渲染受控 Markdown -->
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div class="reasoning-text markdown-body" v-html="renderMarkdown(content)"></div>
@@ -101,56 +101,45 @@ const contentTokenLabel = computed(() => {
 <style scoped>
 .reasoning-panel {
   width: 100%;
-  border-radius: var(--theme-radius);
+  border-radius: var(--sm-radius-md);
   overflow: hidden;
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-027, rgba(255, 255, 255, 0.027)) 0%,
-      var(--glass-white-013, rgba(255, 255, 255, 0.013)) 100%
-    ),
-    var(--theme-bg-tertiary);
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-  border: 1px solid var(--glass-white-1, rgba(255, 255, 255, 0.1));
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
 .reasoning-panel:hover {
-  border-color: var(--glass-white-15, rgba(255, 255, 255, 0.15));
+  background: var(--sm-color-surface-2);
+  border-color: var(--sm-color-border-strong);
 }
 
 .reasoning-panel.expanded {
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-02, rgba(255, 255, 255, 0.02)) 0%,
-      var(--glass-white-01, rgba(255, 255, 255, 0.01)) 100%
-    ),
-    var(--theme-bg-tertiary);
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  background: var(--sm-color-surface-2);
+  border-color: rgba(142, 149, 217, 0.28);
 }
 
-/* 头部样式 */
-.panel-header {
+.sm-reasoning-panel__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--theme-spacing);
-  padding: 10px 14px;
+  gap: var(--sm-space-3);
+  padding: 11px 14px;
   border-bottom: 1px solid transparent;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
 }
 
-.panel-header:hover {
-  background: var(--glass-white-03, rgba(255, 255, 255, 0.03));
+.sm-reasoning-panel__header:hover {
+  background: var(--sm-color-surface-hover);
 }
 
-.reasoning-panel.expanded .panel-header {
-  background: var(--thinking-bg, rgba(99, 102, 241, 0.08));
-  border-bottom: 1px solid var(--thinking-border, rgba(99, 102, 241, 0.2));
+.reasoning-panel.expanded .sm-reasoning-panel__header {
+  background: rgba(142, 149, 217, 0.08);
+  border-bottom-color: rgba(142, 149, 217, 0.18);
 }
 
 .header-left {
@@ -168,12 +157,7 @@ const contentTokenLabel = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--thinking-accent, var(--theme-accent-secondary));
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.reasoning-panel.expanded .header-icon {
-  transform: scale(1.05);
+  color: var(--sm-color-accent-hover);
 }
 
 .header-icon svg {
@@ -190,19 +174,17 @@ const contentTokenLabel = computed(() => {
 
 .header-label {
   font-size: 13px;
-  font-weight: 500;
-  color: var(--theme-text-secondary);
-  transition: color 0.2s ease;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
 }
 
 .reasoning-panel.expanded .header-label {
-  font-weight: 600;
-  color: var(--thinking-accent, var(--theme-accent-secondary));
+  color: var(--sm-color-accent-hover);
 }
 
 .header-meta {
   font-size: 11px;
-  color: var(--theme-text-tertiary);
+  color: var(--sm-color-text-tertiary);
   white-space: nowrap;
 }
 
@@ -218,8 +200,10 @@ const contentTokenLabel = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--theme-text-tertiary);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--sm-color-text-tertiary);
+  transition:
+    color var(--sm-transition-fast),
+    transform var(--sm-transition-fast);
 }
 
 .expand-arrow svg {
@@ -231,57 +215,57 @@ const contentTokenLabel = computed(() => {
   transform: rotate(180deg);
 }
 
-.panel-header:hover .expand-arrow {
-  color: var(--theme-text-secondary);
+.sm-reasoning-panel__header:hover .expand-arrow {
+  color: var(--sm-color-text-secondary);
 }
 
-/* 内容区域 - 平滑高度过渡 */
-.panel-content-wrapper {
+.sm-reasoning-panel__content-shell {
   max-height: 0;
   overflow: hidden;
   opacity: 0;
   transition:
-    max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.25s ease-out;
+    max-height var(--sm-transition-medium),
+    opacity var(--sm-transition-instant);
 }
 
-.panel-content-wrapper.expanded {
-  max-height: 500px;
+.sm-reasoning-panel__content-shell.expanded {
+  max-height: 520px;
   opacity: 1;
 }
 
-.panel-content {
+.sm-reasoning-panel__content {
   padding: 14px;
   overflow-y: auto;
-  max-height: 480px;
+  max-height: 500px;
+  border-top: 1px solid var(--sm-color-border-subtle);
 }
 
-.panel-content::-webkit-scrollbar {
+.sm-reasoning-panel__content::-webkit-scrollbar {
   width: 4px;
 }
 
-.panel-content::-webkit-scrollbar-track {
+.sm-reasoning-panel__content::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.panel-content::-webkit-scrollbar-thumb {
-  background: var(--glass-white-15, rgba(255, 255, 255, 0.15));
-  border-radius: 2px;
+.sm-reasoning-panel__content::-webkit-scrollbar-thumb {
+  background: var(--sm-color-border-default);
+  border-radius: 999px;
 }
 
 .reasoning-text {
-  font-family: var(--theme-font-mono, 'JetBrains Mono', monospace);
+  font-family: var(--sm-font-mono);
   font-size: 13px;
-  line-height: 1.42;
-  color: var(--theme-text-secondary);
+  line-height: 1.55;
+  color: var(--sm-color-text-secondary);
   white-space: normal;
-  animation: contentFadeIn 0.3s ease-out;
+  animation: contentFadeIn 140ms ease;
 }
 
 @keyframes contentFadeIn {
   0% {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-4px);
   }
   100% {
     opacity: 1;
@@ -289,7 +273,6 @@ const contentTokenLabel = computed(() => {
   }
 }
 
-/* Markdown 样式 */
 .markdown-body :deep(p) {
   margin: 0 0 0.34em 0;
 }
@@ -307,7 +290,7 @@ const contentTokenLabel = computed(() => {
   margin: 0.8em 0 0.3em 0;
   font-weight: 700;
   line-height: 1.28;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .markdown-body :deep(h1:first-child),
@@ -342,43 +325,39 @@ const contentTokenLabel = computed(() => {
 }
 
 .markdown-body :deep(code) {
-  background: var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
   padding: 0.2em 0.4em;
   border-radius: 4px;
-  font-family: var(--theme-font-mono, 'JetBrains Mono', monospace);
+  font-family: var(--sm-font-mono);
   font-size: 0.9em;
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
 }
 
 .markdown-body :deep(pre) {
-  background:
-    linear-gradient(
-      135deg,
-      var(--glass-white-03, rgba(255, 255, 255, 0.03)) 0%,
-      var(--glass-white-017, rgba(255, 255, 255, 0.017)) 100%
-    ),
-    var(--theme-bg);
+  background: var(--sm-color-bg-embedded);
   padding: 12px 16px;
-  border-radius: var(--theme-radius);
+  border-radius: var(--sm-radius-md);
   overflow-x: auto;
   margin: 0.4em 0;
-  border: 1px solid var(--glass-white-08, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--sm-color-border-subtle);
 }
 
 .markdown-body :deep(pre code) {
   background: none;
+  border: 0;
   padding: 0;
   font-size: 0.85em;
   line-height: 1.4;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .markdown-body :deep(blockquote) {
   margin: 0.4em 0;
   padding: 0.4em 0.9em;
-  border-left: 3px solid var(--theme-accent);
-  background: var(--thinking-bg, rgba(99, 102, 241, 0.08));
-  border-radius: 0 var(--theme-radius-sm) var(--theme-radius-sm) 0;
+  border-left: 3px solid var(--sm-color-accent);
+  background: rgba(142, 149, 217, 0.08);
+  border-radius: 0 var(--sm-radius-sm) var(--sm-radius-sm) 0;
 }
 
 .markdown-body :deep(ul),
@@ -396,16 +375,16 @@ const contentTokenLabel = computed(() => {
 
 .markdown-body :deep(strong) {
   font-weight: 600;
-  color: var(--theme-text);
+  color: var(--sm-color-text-primary);
 }
 
 .markdown-body :deep(em) {
   font-style: italic;
-  color: var(--theme-text-secondary);
+  color: var(--sm-color-text-secondary);
 }
 
 .markdown-body :deep(a) {
-  color: var(--theme-accent);
+  color: var(--sm-color-accent-hover);
   text-decoration: none;
 }
 
@@ -413,10 +392,9 @@ const contentTokenLabel = computed(() => {
   text-decoration: underline;
 }
 
-/* 淡入淡出过渡 */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.15s ease;
+  transition: opacity 140ms ease;
 }
 
 .fade-enter-from,

@@ -45,13 +45,14 @@ function handleFilter(filter: Partial<ExampleFilter>): void {
 </script>
 
 <template>
-  <div class="pe-example-manager">
-    <!-- 说明区域 -->
-    <div class="pe-info-box">
-      <h3 class="pe-info-title">Few-shot 示例管理</h3>
-      <p class="pe-info-description">
-        管理用于增强 AI 工具调用能力的 Few-shot 示例，可在此查看和筛选已有示例。
-      </p>
+  <div class="sm-prompt-example-manager">
+    <div class="sm-settings-banner">
+      <div>
+        <h3 class="sm-settings-page__section-title">Few-shot 示例管理</h3>
+        <p class="sm-settings-page__section-description">
+          管理用于增强 AI 工具调用能力的 Few-shot 示例，可在此查看和筛选已有示例。
+        </p>
+      </div>
     </div>
 
     <!-- 头部操作栏 -->
@@ -80,32 +81,9 @@ function handleFilter(filter: Partial<ExampleFilter>): void {
 </template>
 
 <style scoped>
-.pe-example-manager {
+.sm-prompt-example-manager {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-}
-
-/* 说明区域 */
-.pe-info-box {
-  padding: 16px;
-  background: var(--theme-bg-secondary);
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
-}
-
-.pe-info-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--theme-text);
-  margin: 0 0 8px 0;
-}
-
-.pe-info-description {
-  font-size: 13px;
-  color: var(--theme-text-secondary);
-  margin: 0;
-  line-height: 1.6;
+  gap: var(--sm-space-4);
 }
 </style>
