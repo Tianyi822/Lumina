@@ -9,6 +9,12 @@ import {
   LEGACY_VIDEO_GENERATION_TIMEOUT_MS,
   type EmbeddingConfig
 } from '@shared/types/config'
+import {
+  DEFAULT_THEME_ID,
+  DEFAULT_THEME_MODE,
+  normalizeThemeId,
+  normalizeThemeMode
+} from '@shared/utils'
 import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
 import { normalizeCustomPromptVariables } from '@shared/utils'
 
@@ -20,7 +26,8 @@ import { normalizeCustomPromptVariables } from '@shared/utils'
 function createEmptyConfig(): AppConfig {
   return {
     theme: {
-      name: 'sparrow-dark'
+      name: DEFAULT_THEME_ID,
+      mode: DEFAULT_THEME_MODE
     },
     llm_config: {
       default_model: '',
@@ -82,6 +89,11 @@ function migrateEmbeddingModels(config: AppConfig): AppConfig {
  */
 function migrateConfig(config: AppConfig): AppConfig {
   const migrated = { ...config }
+
+  migrated.theme = {
+    name: normalizeThemeId(migrated.theme?.name),
+    mode: normalizeThemeMode(migrated.theme?.mode)
+  }
 
   if (!migrated.promptConfig) {
     migrated.promptConfig = {
