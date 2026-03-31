@@ -718,12 +718,15 @@ watch(
   content: '';
   position: absolute;
   inset: 0 0 calc(var(--sm-space-4) * -1) 0;
-  background: linear-gradient(
-    180deg,
-    rgba(14, 14, 16, 0.28) 0%,
-    rgba(14, 14, 16, 0.18) 52%,
-    rgba(14, 14, 16, 0.08) 78%,
-    rgba(14, 14, 16, 0) 100%
+  background: var(
+    --sm-chat-toolbar-scrim,
+    linear-gradient(
+      180deg,
+      rgba(14, 14, 16, 0.28) 0%,
+      rgba(14, 14, 16, 0.18) 52%,
+      rgba(14, 14, 16, 0.08) 78%,
+      rgba(14, 14, 16, 0) 100%
+    )
   );
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
