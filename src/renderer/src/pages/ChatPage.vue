@@ -699,72 +699,63 @@ watch(
 <style scoped>
 .chat-page {
   position: relative;
+  overflow: visible;
+}
+
+.chat-page > .sm-workspace-main__toolbar {
+  position: absolute;
+  top: calc(var(--sm-space-3) * -1);
+  right: 0;
+  left: 0;
+  z-index: 4;
+  min-height: calc(var(--sm-titlebar-height) + var(--sm-space-3));
+  padding: var(--sm-space-3) var(--sm-space-2) 0;
+  background: transparent;
+  border: none;
+}
+
+.chat-page > .sm-workspace-main__toolbar::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 calc(var(--sm-space-4) * -1) 0;
+  background: linear-gradient(
+    180deg,
+    rgba(14, 14, 16, 0.28) 0%,
+    rgba(14, 14, 16, 0.18) 52%,
+    rgba(14, 14, 16, 0.08) 78%,
+    rgba(14, 14, 16, 0) 100%
+  );
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.92) 62%,
+    rgba(0, 0, 0, 0.36) 86%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.92) 62%,
+    rgba(0, 0, 0, 0.36) 86%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  pointer-events: none;
+}
+
+.chat-page > .sm-workspace-main__body {
+  position: relative;
+  z-index: 1;
+}
+
+:deep(.chat-page .sm-chat-stage__scroll) {
+  padding-top: calc(var(--sm-titlebar-height) + var(--sm-space-3) + var(--sm-space-6));
 }
 
 :deep(.sm-chat-stage) {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-}
-
-:deep(.sm-chat-stage::before) {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 64px;
-  z-index: 2;
-  pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    rgba(14, 14, 16, 0.92) 0%,
-    rgba(14, 14, 16, 0.78) 18%,
-    rgba(14, 14, 16, 0.52) 44%,
-    rgba(14, 14, 16, 0.22) 72%,
-    rgba(14, 14, 16, 0.04) 90%,
-    rgba(14, 14, 16, 0) 100%
-  );
-  backdrop-filter: blur(28px) saturate(165%);
-  -webkit-backdrop-filter: blur(28px) saturate(165%);
-  mask-image: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0.98) 0%,
-    rgba(0, 0, 0, 0.92) 18%,
-    rgba(0, 0, 0, 0.74) 46%,
-    rgba(0, 0, 0, 0.34) 78%,
-    rgba(0, 0, 0, 0.08) 94%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0.98) 0%,
-    rgba(0, 0, 0, 0.92) 18%,
-    rgba(0, 0, 0, 0.74) 46%,
-    rgba(0, 0, 0, 0.34) 78%,
-    rgba(0, 0, 0, 0.08) 94%,
-    rgba(0, 0, 0, 0) 100%
-  );
-}
-
-:deep(.sm-chat-stage__scroll) {
-  mask-image: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0) 0%,
-    rgba(0, 0, 0, 0.12) 8px,
-    rgba(0, 0, 0, 0.42) 24px,
-    rgba(0, 0, 0, 0.74) 44px,
-    rgba(0, 0, 0, 0.92) 64px,
-    rgba(0, 0, 0, 1) 82px
-  );
-  -webkit-mask-image: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0) 0%,
-    rgba(0, 0, 0, 0.12) 8px,
-    rgba(0, 0, 0, 0.42) 24px,
-    rgba(0, 0, 0, 0.74) 44px,
-    rgba(0, 0, 0, 0.92) 64px,
-    rgba(0, 0, 0, 1) 82px
-  );
 }
 </style>
