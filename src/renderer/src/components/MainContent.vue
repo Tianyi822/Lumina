@@ -483,6 +483,10 @@ function hasRenderableReact(message: Message): boolean {
   min-width: 0;
 }
 
+.sm-message-list > :first-child {
+  margin-top: var(--sm-space-6);
+}
+
 .sm-composer-stage {
   padding: 0 var(--sm-space-6) var(--sm-space-6);
   background: var(--sm-color-bg-canvas);
