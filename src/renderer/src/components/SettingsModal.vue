@@ -8,7 +8,7 @@ import PromptEngineeringSettings from './settings/PromptEngineeringSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
 import VoiceRecognitionSettings from './settings/VoiceRecognitionSettings.vue'
-import PptTemplateSettings from './settings/PptTemplateSettings.vue'
+import AliyunMiaobiSettings from './settings/AliyunMiaobiSettings.vue'
 import VideoModelSettings from './settings/VideoModelSettings.vue'
 import { useConfigStore } from '@renderer/stores'
 
@@ -26,7 +26,7 @@ type SettingsTabKey =
   | 'embedding'
   | 'knowledge'
   | 'voice'
-  | 'pptTemplate'
+  | 'aliyunMiaobi'
 
 // 使用 configStore
 const configStore = useConfigStore()
@@ -76,9 +76,9 @@ const settingsTabs: Array<{
     description: '配置语音识别服务凭据与调用入口。'
   },
   {
-    id: 'pptTemplate',
-    label: 'PPT 模板',
-    description: '上传模板、查看分析状态与素材结果。'
+    id: 'aliyunMiaobi',
+    label: '妙笔 PPT',
+    description: '配置阿里云妙笔凭据，启用新的 PPT 生成链路。'
   },
   {
     id: 'theme',
@@ -205,8 +205,8 @@ onUnmounted(() => {
               @update:success-message="successMessage = $event"
             />
 
-            <PptTemplateSettings
-              v-else-if="activeTab === 'pptTemplate'"
+            <AliyunMiaobiSettings
+              v-else-if="activeTab === 'aliyunMiaobi'"
               :error-message="errorMessage"
               :success-message="successMessage"
               @update:error-message="errorMessage = $event"
