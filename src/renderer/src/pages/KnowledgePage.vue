@@ -149,5 +149,6 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
 <style scoped>
 .knowledge-page {
   position: relative;
+  gap: var(--sm-space-1);
 }
 </style>

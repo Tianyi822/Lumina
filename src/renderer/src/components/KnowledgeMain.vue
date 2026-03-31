@@ -135,13 +135,11 @@ defineExpose({ handleFilesLinked })
       <section class="kb-overview">
         <div class="kb-overview__header">
           <div class="kb-overview__copy">
-            <span class="kb-overview__eyebrow">知识库详情</span>
             <div class="kb-overview__title-row">
               <div class="kb-overview__heading">
                 <h1 class="kb-title">{{ currentKB.name }}</h1>
-                <p class="kb-subtitle">管理挂载文件、索引参数与检索验证。</p>
+                <span class="kb-overview__count">{{ linkedFiles.length }} 个文档</span>
               </div>
-              <span class="kb-overview__count">{{ linkedFiles.length }} 个文档</span>
             </div>
           </div>
 
@@ -276,14 +274,6 @@ defineExpose({ handleFilesLinked })
   min-width: 0;
 }
 
-.kb-overview__eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
-}
-
 .kb-overview__title-row {
   display: flex;
   align-items: center;
@@ -292,16 +282,19 @@ defineExpose({ handleFilesLinked })
 }
 
 .kb-overview__heading {
+  display: flex;
+  align-items: stretch;
+  gap: var(--sm-space-3);
   min-width: 0;
 }
 
 .kb-overview__count {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
+  align-self: stretch;
   padding: 0 10px;
   border: 1px solid var(--sm-color-border-default);
-  border-radius: 999px;
+  border-radius: var(--sm-radius-md);
   background: rgba(255, 255, 255, 0.03);
   color: var(--sm-color-text-secondary);
   font-size: 12px;
@@ -315,13 +308,6 @@ defineExpose({ handleFilesLinked })
   font-weight: 600;
   line-height: 1.2;
   color: var(--sm-color-text-primary);
-}
-
-.kb-subtitle {
-  margin: 6px 0 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--sm-color-text-secondary);
 }
 
 .kb-description-panel {
@@ -416,6 +402,15 @@ defineExpose({ handleFilesLinked })
   .kb-overview__title-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .kb-overview__heading {
+    flex-direction: column;
+  }
+
+  .kb-overview__count {
+    align-self: flex-start;
+    min-height: 28px;
   }
 
   .kb-actions {
