@@ -30,9 +30,6 @@
   --sm-transition-slow: 220ms ease;
   --sm-focus-ring-size: 2px;
   --sm-focus-ring-offset: 2px;
-  --sm-focus-ring-color: rgba(142, 149, 217, 0.42);
-  --sm-selection-background: rgba(142, 149, 217, 0.28);
-  --sm-selection-color: #ffffff;
   --sm-disabled-opacity: 0.42;
   --sm-loading-opacity: 0.68;
   --sm-motion-distance-sm: 4px;

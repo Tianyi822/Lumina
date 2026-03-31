@@ -42,6 +42,10 @@
   --sm-titlebar-height: 38px;
   --sm-shadow-none: none;
 
+  --sm-focus-ring-color: rgba(142, 149, 217, 0.42);
+  --sm-selection-background: rgba(142, 149, 217, 0.28);
+  --sm-selection-color: #ffffff;
+
   --theme-bg: var(--sm-color-bg-app);
   --theme-bg-secondary: var(--sm-color-surface-1);
   --theme-bg-tertiary: var(--sm-color-surface-2);
