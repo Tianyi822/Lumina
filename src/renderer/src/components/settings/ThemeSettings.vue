@@ -58,7 +58,7 @@ function isSelected(themeId: string): boolean {
       <p class="sm-settings-page__eyebrow">Theme</p>
       <h2 class="sm-settings-page__title">主题设置</h2>
       <p class="sm-settings-page__description">
-        当前重构阶段只开放 Sparrow Dark，统一整个应用的深色、平面和受控交互基线。
+        选择适合你的界面风格，主题切换即时生效并会同步系统原生 UI。
       </p>
     </header>
 
@@ -67,7 +67,7 @@ function isSelected(themeId: string): boolean {
         <div>
           <h3 class="sm-settings-page__section-title">可用主题</h3>
           <p class="sm-settings-page__section-description">
-            当前阶段仅保留 1 个工作主题。遗留主题样式已移除，新 UI 只由当前深色基准主题驱动。
+            选择一个主题作为全局外观，所有界面元素将自动适配。
           </p>
         </div>
 
@@ -122,10 +122,6 @@ function isSelected(themeId: string): boolean {
             <SvgIcon name="check" :size="14" />
           </div>
         </button>
-      </div>
-
-      <div class="sm-settings-banner">
-        阶段约束：阶段 7 的交互、动效、状态和细节只以当前深色基准主题收口，不再为旧主题做适配补丁。
       </div>
     </section>
   </div>
