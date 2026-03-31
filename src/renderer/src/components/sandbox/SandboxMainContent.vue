@@ -101,18 +101,6 @@ const sandboxStatusClass = computed(() => {
 
 const sandboxContainerCount = computed(() => props.currentSandbox?.containerIds.length || 0)
 
-const workspaceSummary = computed(() => {
-  if (isOrphan.value) {
-    return '当前沙箱的运行容器已丢失，请先完成恢复或清理。'
-  }
-
-  if (isFrontendSandbox.value) {
-    return '管理前端工作区的容器状态、终端检查、日志追踪与恢复动作。'
-  }
-
-  return '统一查看容器状态、终端输出、运行日志与工程级操作。'
-})
-
 // 用于 composables 的响应式引用
 const currentSandboxRef = computed(() => props.currentSandbox)
 const selectedContainerRef = computed(() => selectedContainer.value)
@@ -455,16 +443,14 @@ function formatDateTime(value?: string): string {
     <template v-else>
       <header class="workspace-header">
         <div class="workspace-header__copy">
-          <span class="workspace-header__eyebrow">工程控制台</span>
           <div class="workspace-header__headline">
             <div class="workspace-header__titles">
               <h1>{{ currentSandbox?.name }}</h1>
-              <p>{{ workspaceSummary }}</p>
-            </div>
-            <div class="workspace-header__meta">
-              <span class="sm-badge">{{ sandboxCreationTypeLabel }}</span>
-              <span class="sm-badge">{{ sandboxContainerCount }} 个容器</span>
-              <span class="sm-badge" :class="sandboxStatusClass">{{ sandboxStatusLabel }}</span>
+              <div class="workspace-header__badges">
+                <span class="sm-badge">{{ sandboxCreationTypeLabel }}</span>
+                <span class="sm-badge">{{ sandboxContainerCount }} 个容器</span>
+                <span class="sm-badge" :class="sandboxStatusClass">{{ sandboxStatusLabel }}</span>
+              </div>
             </div>
           </div>
 
@@ -649,15 +635,6 @@ function formatDateTime(value?: string): string {
   gap: var(--sm-space-3);
 }
 
-.workspace-header__eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
-}
-
 .workspace-header__headline {
   display: flex;
   align-items: flex-start;
@@ -669,6 +646,7 @@ function formatDateTime(value?: string): string {
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-2);
+  flex: 1;
   min-width: 0;
 }
 
@@ -679,19 +657,11 @@ function formatDateTime(value?: string): string {
   color: var(--sm-color-text-primary);
 }
 
-.workspace-header__titles p {
-  margin: 0;
-  max-width: 680px;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--sm-color-text-secondary);
-}
-
-.workspace-header__meta {
+.workspace-header__badges {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sm-space-2);
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .workspace-header__submeta {
@@ -714,25 +684,25 @@ function formatDateTime(value?: string): string {
   font-size: 11px;
 }
 
-.workspace-header__meta .status-running {
+.workspace-header__badges .status-running {
   border-color: rgba(127, 176, 138, 0.28);
   background: rgba(127, 176, 138, 0.08);
   color: #7fb08a;
 }
 
-.workspace-header__meta .status-creating {
+.workspace-header__badges .status-creating {
   border-color: rgba(142, 149, 217, 0.28);
   background: rgba(142, 149, 217, 0.08);
   color: var(--sm-color-accent-hover);
 }
 
-.workspace-header__meta .status-stopped {
+.workspace-header__badges .status-stopped {
   border-color: var(--sm-color-border-default);
   background: rgba(255, 255, 255, 0.04);
   color: var(--sm-color-text-secondary);
 }
 
-.workspace-header__meta .status-error {
+.workspace-header__badges .status-error {
   border-color: rgba(199, 120, 120, 0.28);
   background: rgba(199, 120, 120, 0.08);
   color: #c77878;
@@ -831,10 +801,6 @@ function formatDateTime(value?: string): string {
   .workspace-header__headline,
   .frontend-recovery-banner {
     flex-direction: column;
-  }
-
-  .workspace-header__meta {
-    justify-content: flex-start;
   }
 }
 
