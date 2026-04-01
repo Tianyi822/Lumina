@@ -223,7 +223,7 @@ defineExpose({ handleFilesLinked })
   padding: var(--sm-space-5) var(--sm-space-6);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-lg);
-  background: var(--sm-color-surface-2);
+  background: var(--sm-color-surface-1);
   flex-shrink: 0;
 }
 
