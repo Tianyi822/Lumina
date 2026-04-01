@@ -454,7 +454,7 @@ export class ToolExecutor {
   }
 
   /**
-   * 执行 PPT 模板工具调用
+   * 执行 PPT 工具调用
    */
   private async executePresentationTool(
     toolCall: ToolCallDefinition,
@@ -468,7 +468,7 @@ export class ToolExecutor {
     }
     const args = parsedArgsResult.args
 
-    this.logger.info('执行 PPT 模板工具调用', 'main', {
+    this.logger.info('执行 PPT 工具调用', 'main', {
       sessionId,
       toolName,
       args
@@ -489,10 +489,15 @@ export class ToolExecutor {
       this.checkStopped(sessionId)
 
       const result = await this.withTimeoutAndStopCheck(
-        presentationToolService.callTool(`presentation__${toolName}`, args),
+        presentationToolService.callTool(`presentation__${toolName}`, args, {
+          sessionId,
+          onOutlineChunk: (text) => {
+            webContents.send('ppt:outline:chunk', { sessionId, text })
+          }
+        }),
         sessionId,
         60000,
-        `PPT 模板工具调用 ${toolName}`
+        `PPT 工具调用 ${toolName}`
       )
 
       this.checkStopped(sessionId)
@@ -531,7 +536,7 @@ export class ToolExecutor {
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error)
-      this.logger.error('PPT 模板工具调用失败', 'main', {
+      this.logger.error('PPT 工具调用失败', 'main', {
         sessionId,
         toolName,
         error: errorMessage
@@ -781,6 +786,9 @@ export class ToolExecutor {
         question: parsed.question,
         options: Array.isArray(parsed.options) ? parsed.options : [],
         interactionType: parsed.interactionType,
+        prompt: typeof parsed.prompt === 'string' ? parsed.prompt : undefined,
+        outline: typeof parsed.outline === 'string' ? parsed.outline : undefined,
+        taskId: typeof parsed.taskId === 'string' ? parsed.taskId : undefined,
         initialVisibleCount: parsed.initialVisibleCount,
         videoGenerationConfig: parsed.videoGenerationConfig
       }

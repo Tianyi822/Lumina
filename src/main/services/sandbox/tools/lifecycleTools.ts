@@ -321,9 +321,7 @@ export const deleteSandboxTool: SandboxToolDefinition = {
         : `沙箱 "${sandbox.name}" 已删除（关联容器保留）。`
 
       if (deleteWorkspace) {
-        msg += result.removedWorkspace
-          ? '\n前端工作区已删除。'
-          : '\n前端工作区未删除。'
+        msg += result.removedWorkspace ? '\n前端工作区已删除。' : '\n前端工作区未删除。'
       } else if (result.keptWorkspace) {
         msg += '\n前端工作区已保留。'
       }

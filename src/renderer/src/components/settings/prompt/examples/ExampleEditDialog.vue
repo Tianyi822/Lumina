@@ -212,7 +212,11 @@ watch(
 
 <template>
   <Transition name="sm-prompt-dialog">
-    <div v-if="visible" class="sm-modal__overlay sm-prompt-example-dialog__overlay" @click.self="handleClose">
+    <div
+      v-if="visible"
+      class="sm-modal__overlay sm-prompt-example-dialog__overlay"
+      @click.self="handleClose"
+    >
       <div class="sm-modal__surface sm-prompt-example-dialog__surface" @click.stop>
         <div class="sm-pane-header sm-prompt-example-dialog__header">
           <h3 class="sm-prompt-example-dialog__title">编辑示例</h3>
@@ -247,8 +251,12 @@ watch(
               maxlength="2000"
             ></textarea>
             <div class="sm-prompt-example-dialog__footer">
-              <span v-if="errors.userQuery" class="sm-prompt-example-dialog__error">{{ errors.userQuery }}</span>
-              <span v-else class="sm-prompt-example-dialog__count">{{ formData.userQuery.length }} / 2000</span>
+              <span v-if="errors.userQuery" class="sm-prompt-example-dialog__error">{{
+                errors.userQuery
+              }}</span>
+              <span v-else class="sm-prompt-example-dialog__count"
+                >{{ formData.userQuery.length }} / 2000</span
+              >
             </div>
           </div>
 
@@ -267,10 +275,15 @@ watch(
             <div class="sm-prompt-example-dialog__label-row">
               <label class="sm-prompt-example-dialog__label">工具调用</label>
               <div class="sm-prompt-example-dialog__inline-actions">
-                <button class="sm-prompt-example-dialog__text-button" @click="insertExampleToolCall">
+                <button
+                  class="sm-prompt-example-dialog__text-button"
+                  @click="insertExampleToolCall"
+                >
                   插入示例
                 </button>
-                <button class="sm-prompt-example-dialog__text-button" @click="formatJSON">格式化</button>
+                <button class="sm-prompt-example-dialog__text-button" @click="formatJSON">
+                  格式化
+                </button>
               </div>
             </div>
             <textarea
@@ -280,7 +293,9 @@ watch(
               placeholder='输入工具调用 JSON 数组，例如：[{"name":"tool_name","arguments":{},"result":"..."}]'
             ></textarea>
             <div class="sm-prompt-example-dialog__footer">
-              <span v-if="errors.toolCalls" class="sm-prompt-example-dialog__error">{{ errors.toolCalls }}</span>
+              <span v-if="errors.toolCalls" class="sm-prompt-example-dialog__error">{{
+                errors.toolCalls
+              }}</span>
               <p v-else class="sm-prompt-example-dialog__help">
                 以 JSON 数组格式输入工具调用记录，包含工具名称、参数和执行结果
               </p>
@@ -299,8 +314,12 @@ watch(
               maxlength="5000"
             ></textarea>
             <div class="sm-prompt-example-dialog__footer">
-              <span v-if="errors.finalAnswer" class="sm-prompt-example-dialog__error">{{ errors.finalAnswer }}</span>
-              <span v-else class="sm-prompt-example-dialog__count">{{ formData.finalAnswer.length }} / 5000</span>
+              <span v-if="errors.finalAnswer" class="sm-prompt-example-dialog__error">{{
+                errors.finalAnswer
+              }}</span>
+              <span v-else class="sm-prompt-example-dialog__count"
+                >{{ formData.finalAnswer.length }} / 5000</span
+              >
             </div>
           </div>
 
@@ -320,7 +339,9 @@ watch(
               <span>0.0</span>
               <span>1.0</span>
             </div>
-            <p v-if="errors.qualityScore" class="sm-prompt-example-dialog__error">{{ errors.qualityScore }}</p>
+            <p v-if="errors.qualityScore" class="sm-prompt-example-dialog__error">
+              {{ errors.qualityScore }}
+            </p>
             <p v-else class="sm-prompt-example-dialog__help">示例的质量评分，用于筛选和排序</p>
           </div>
         </div>

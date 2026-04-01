@@ -102,7 +102,9 @@ async function handleDelete(name: string): Promise<void> {
           :key="variable.name"
           class="sm-settings-card sm-prompt-variables__card sm-prompt-variables__card--system"
         >
-          <div class="sm-prompt-variables__name">{{ getPromptVariablePlaceholder(variable.name) }}</div>
+          <div class="sm-prompt-variables__name">
+            {{ getPromptVariablePlaceholder(variable.name) }}
+          </div>
           <p class="sm-prompt-variables__description">{{ variable.description }}</p>
           <p class="sm-prompt-variables__meta">
             当前值：{{ systemVariableValues[variable.name] || '运行时生成' }}
@@ -156,7 +158,11 @@ async function handleDelete(name: string): Promise<void> {
         </label>
 
         <div class="sm-settings-actions sm-prompt-variables__form-actions">
-          <button class="sm-button sm-button--primary" :disabled="configLoading || saving" type="submit">
+          <button
+            class="sm-button sm-button--primary"
+            :disabled="configLoading || saving"
+            type="submit"
+          >
             {{ saving ? '保存中...' : isEditing ? '更新变量' : '添加变量' }}
           </button>
           <button
@@ -188,14 +194,22 @@ async function handleDelete(name: string): Promise<void> {
               </p>
               <div class="sm-prompt-variables__meta-row">
                 <span class="sm-prompt-variables__meta-label">默认值:</span>
-                <span class="sm-prompt-variables__meta-value">{{ variable.defaultValue || '未设置' }}</span>
+                <span class="sm-prompt-variables__meta-value">{{
+                  variable.defaultValue || '未设置'
+                }}</span>
               </div>
             </div>
             <div class="sm-prompt-variables__card-actions">
-              <button class="sm-button sm-button--secondary sm-button--small" @click="handleEdit(variable.name)">
+              <button
+                class="sm-button sm-button--secondary sm-button--small"
+                @click="handleEdit(variable.name)"
+              >
                 编辑
               </button>
-              <button class="sm-button sm-button--danger sm-button--small" @click="handleDelete(variable.name)">
+              <button
+                class="sm-button sm-button--danger sm-button--small"
+                @click="handleDelete(variable.name)"
+              >
                 删除
               </button>
             </div>

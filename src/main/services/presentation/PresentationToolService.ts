@@ -1,70 +1,61 @@
 /**
- * PPT 模板工具服务
- * 将本地 PPT 模板能力封装为模型可调用的内建工具
+ * PPT 工具服务
+ * 将妙笔 PPT 生成能力封装为模型可调用的内建工具
  */
 
 import { logger } from '@main/services/logger'
+import { aliyunMiaobiService } from './aliyun'
 import type { MCPTool, MCPToolCallResult } from '@main/types/mcp'
-import { getPptTemplateService } from './PptTemplateService'
-import type { TemplateContext } from './types'
 
 interface ToolArgs {
   [key: string]: unknown
 }
 
-type AnalysisDetailLevel = 'summary' | 'full'
+interface PresentationToolCallContext {
+  sessionId?: string
+  onOutlineChunk?: (text: string) => void
+}
 
-const TEMPLATE_SELECTION_VISIBLE_COUNT = 6
+interface OutlineConfirmationContext {
+  prompt: string
+  outline: string
+  taskId: string
+}
 
 /**
- * PPT 模板工具服务
+ * PPT 工具服务
  */
 export class PresentationToolService {
+  private latestOutlineContextBySession = new Map<string, OutlineConfirmationContext>()
+
   /**
    * 获取可用工具定义
    */
   getTools(): MCPTool[] {
     return [
       {
-        name: 'presentation__list_templates',
-        description:
-          '仅在用户要制作 PPT、幻灯片、演示文稿，或明确询问模板时使用。获取当前可用的 PPT 模板列表，只返回已完成解析的模板。',
-        inputSchema: {
-          type: 'object',
-          properties: {},
-          required: []
-        },
-        serverName: 'presentation'
-      },
-      {
-        name: 'presentation__request_template_selection',
-        description:
-          '仅在用户明确要做 PPT/幻灯片且还未选模板时使用。请求用户从已有 PPT 模板中选择一个模板继续；若当前没有可用模板，会返回提示信息而不会弹出空选项。',
-        inputSchema: {
-          type: 'object',
-          properties: {},
-          required: []
-        },
-        serverName: 'presentation'
-      },
-      {
-        name: 'presentation__get_template_analysis',
-        description:
-          '仅在用户已经选定 PPT 模板后使用。读取指定 PPT 模板的结构分析结果，并在可用时附带 AI 总结；默认返回适合模型理解的摘要，需要完整分析时可将 detailLevel 设为 full。',
+        name: 'presentation__generate_ppt',
+        description: '当用户要制作 PPT、幻灯片、演示文稿时使用。根据用户描述生成 PPT 大纲内容。',
         inputSchema: {
           type: 'object',
           properties: {
-            templateId: {
+            prompt: {
               type: 'string',
-              description: 'PPT 模板 ID'
-            },
-            detailLevel: {
-              type: 'string',
-              enum: ['summary', 'full'],
-              description: '分析详情级别，默认 summary'
+              description: 'PPT 主题或用户需求描述'
             }
           },
-          required: ['templateId']
+          required: ['prompt']
+        },
+        serverName: 'presentation'
+      },
+      {
+        name: 'presentation__request_outline_confirmation',
+        description:
+          '在 PPT 大纲生成完成后使用。将大纲展示给用户确认或修改，等待用户确认后再继续。',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: []
         },
         serverName: 'presentation'
       }
@@ -74,17 +65,19 @@ export class PresentationToolService {
   /**
    * 执行工具调用
    */
-  async callTool(name: string, args: ToolArgs): Promise<MCPToolCallResult> {
-    logger.info(`执行 PPT 模板工具: ${name}`, 'main', { args })
+  async callTool(
+    name: string,
+    args: ToolArgs,
+    context: PresentationToolCallContext = {}
+  ): Promise<MCPToolCallResult> {
+    logger.info(`执行 PPT 工具: ${name}`, 'main', { args })
 
     try {
       switch (name) {
-        case 'presentation__list_templates':
-          return this.listTemplates()
-        case 'presentation__request_template_selection':
-          return this.requestTemplateSelection()
-        case 'presentation__get_template_analysis':
-          return await this.getTemplateAnalysis(args)
+        case 'presentation__generate_ppt':
+          return await this.generatePpt(args, context)
+        case 'presentation__request_outline_confirmation':
+          return this.requestOutlineConfirmation(context)
         default:
           return {
             success: false,
@@ -93,7 +86,7 @@ export class PresentationToolService {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error(`PPT 模板工具执行失败: ${name}`, 'main', { error: errorMessage, args })
+      logger.error(`PPT 工具执行失败: ${name}`, 'main', { error: errorMessage, args })
       return {
         success: false,
         error: errorMessage
@@ -102,57 +95,73 @@ export class PresentationToolService {
   }
 
   /**
-   * 获取可用模板列表
+   * 生成 PPT 大纲
    */
-  private listTemplates(): MCPToolCallResult {
-    const templates = getPptTemplateService().getAvailableTemplates()
+  private async generatePpt(
+    args: ToolArgs,
+    context: PresentationToolCallContext
+  ): Promise<MCPToolCallResult> {
+    const prompt = typeof args.prompt === 'string' ? args.prompt : ''
 
-    if (templates.length === 0) {
+    if (!prompt.trim()) {
       return {
-        success: true,
-        content: [
-          {
-            type: 'text',
-            text: '当前没有可用的 PPT 模板。请先在设置页上传并完成解析，然后再继续生成 PPT。'
-          }
-        ]
+        success: false,
+        error: '缺少必需参数: prompt'
       }
     }
 
-    const payload = templates.map((template) => ({
-      id: template.id,
-      name: template.name,
-      originalFileName: template.originalFileName,
-      slideCount: template.slideCount,
-      createdAt: template.createdAt
-    }))
+    const normalizedPrompt = prompt.trim()
+    const sessionId = context.sessionId?.trim() || ''
+    const result = await aliyunMiaobiService.generateOutline(
+      normalizedPrompt,
+      (text) => {
+        context.onOutlineChunk?.(text)
+      },
+      sessionId
+    )
+
+    if (!result.success || !result.outline) {
+      return {
+        success: false,
+        error: result.error || '大纲生成失败'
+      }
+    }
+
+    if (sessionId && result.taskId) {
+      this.latestOutlineContextBySession.set(sessionId, {
+        prompt: normalizedPrompt,
+        outline: result.outline,
+        taskId: result.taskId
+      })
+    }
 
     return {
       success: true,
       content: [
         {
           type: 'text',
-          text: JSON.stringify(payload, null, 2)
+          text: JSON.stringify({
+            taskId: result.taskId,
+            outline: result.outline
+          })
         }
       ]
     }
   }
 
   /**
-   * 请求用户选择模板
+   * 请求用户确认大纲
    */
-  private requestTemplateSelection(): MCPToolCallResult {
-    const templates = getPptTemplateService().getAvailableTemplates()
+  private requestOutlineConfirmation(context: PresentationToolCallContext): MCPToolCallResult {
+    const sessionId = context.sessionId?.trim() || ''
+    const latestOutlineContext = sessionId
+      ? this.latestOutlineContextBySession.get(sessionId)
+      : undefined
 
-    if (templates.length === 0) {
+    if (!latestOutlineContext) {
       return {
-        success: true,
-        content: [
-          {
-            type: 'text',
-            text: '当前没有可用的 PPT 模板。请先提醒用户到设置页上传模板，再继续生成 PPT。'
-          }
-        ]
+        success: false,
+        error: '当前会话暂无可确认的 PPT 大纲，请先生成大纲'
       }
     }
 
@@ -163,86 +172,27 @@ export class PresentationToolService {
           type: 'text',
           text: JSON.stringify({
             user_interaction_required: true,
-            interactionType: 'presentation_template',
-            initialVisibleCount: TEMPLATE_SELECTION_VISIBLE_COUNT,
-            question: '请选择一个 PPT 模板继续，我会根据你选中的模板结构来规划内容。',
-            options: templates.map((template) => ({
-              value: template.id,
-              label: template.name,
-              description: `${template.slideCount} 页 · ${template.originalFileName}`
-            }))
+            interactionType: 'ppt_outline_confirmation',
+            question: 'PPT 大纲已生成，请确认或修改后继续。',
+            prompt: latestOutlineContext.prompt,
+            outline: latestOutlineContext.outline,
+            taskId: latestOutlineContext.taskId,
+            options: [
+              {
+                value: 'confirm',
+                label: '确认并生成 PPT',
+                description: '使用当前大纲直接生成 PPT'
+              },
+              { value: 'edit', label: '修改大纲', description: '在大纲编辑器中修改内容' }
+            ]
           })
         }
       ]
     }
   }
-
-  /**
-   * 获取模板分析结果
-   */
-  private async getTemplateAnalysis(args: ToolArgs): Promise<MCPToolCallResult> {
-    const templateId = typeof args.templateId === 'string' ? args.templateId : ''
-    const detailLevel = args.detailLevel === 'full' ? 'full' : 'summary'
-
-    if (!templateId.trim()) {
-      return {
-        success: false,
-        error: '缺少必需参数: templateId'
-      }
-    }
-
-    const template = getPptTemplateService().getAvailableTemplateById(templateId)
-    if (!template) {
-      return {
-        success: false,
-        error: '模板不存在或尚未分析完成，请重新选择模板'
-      }
-    }
-
-    const context = await this.getTemplateContext(templateId, detailLevel as AnalysisDetailLevel)
-    if (!context) {
-      return {
-        success: false,
-        error: '模板上下文不存在，请重新选择模板'
-      }
-    }
-
-    return {
-      success: true,
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(context, null, 2)
-        }
-      ]
-    }
-  }
-
-  /**
-   * 获取模板上下文
-   * 优先提供 AI 总结，缺失时返回 null 以供上游回退到 analysis
-   */
-  private async getTemplateContext(
-    templateId: string,
-    detailLevel: AnalysisDetailLevel
-  ): Promise<{
-    analysis: Record<string, unknown>
-    aiSummary: TemplateContext['aiSummary']
-  } | null> {
-    const analysis = getPptTemplateService().getTemplateAnalysisForTool(templateId, detailLevel)
-
-    if (!analysis) {
-      return null
-    }
-
-    return {
-      analysis,
-      aiSummary: getPptTemplateService().getTemplateAiSummary(templateId) ?? null
-    }
-  }
 }
 
 /**
- * PPT 模板工具服务单例
+ * PPT 工具服务单例
  */
 export const presentationToolService = new PresentationToolService()

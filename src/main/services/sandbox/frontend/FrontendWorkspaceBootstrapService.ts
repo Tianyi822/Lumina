@@ -189,7 +189,9 @@ export class FrontendWorkspaceBootstrapService {
     })
 
     if (!result || result.exitCode !== 0) {
-      throw new Error(this.buildExecErrorMessage('安装项目依赖失败', result?.stdout, result?.stderr))
+      throw new Error(
+        this.buildExecErrorMessage('安装项目依赖失败', result?.stdout, result?.stderr)
+      )
     }
 
     return this.writeBootstrapState(sandbox, {
@@ -238,7 +240,11 @@ export class FrontendWorkspaceBootstrapService {
 
     if (!startResult || startResult.exitCode !== 0) {
       throw new Error(
-        this.buildExecErrorMessage('启动前端开发服务器失败', startResult?.stdout, startResult?.stderr)
+        this.buildExecErrorMessage(
+          '启动前端开发服务器失败',
+          startResult?.stdout,
+          startResult?.stderr
+        )
       )
     }
 
@@ -304,7 +310,9 @@ export class FrontendWorkspaceBootstrapService {
     })
 
     if (!result || result.exitCode !== 0) {
-      throw new Error(this.buildExecErrorMessage('执行项目构建失败', result?.stdout, result?.stderr))
+      throw new Error(
+        this.buildExecErrorMessage('执行项目构建失败', result?.stdout, result?.stderr)
+      )
     }
 
     return this.writeBootstrapState(sandbox, {

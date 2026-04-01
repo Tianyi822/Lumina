@@ -1,5 +1,4 @@
 import type { KnowledgeBaseReference } from './knowledge'
-import type { SelectedPptTemplate } from './ppt-template'
 import type { VideoGenerationProvider, VideoQuality, VideoSize } from './config'
 import type { VideoDuration, VideoTaskStatus } from './video'
 
@@ -239,7 +238,13 @@ export interface UserInteractionRequest {
   /** 选项列表 */
   options: UserInteractionOption[]
   /** 交互类型 */
-  interactionType?: 'generic' | 'presentation_template' | 'video_generation_config'
+  interactionType?: 'generic' | 'ppt_outline_confirmation' | 'video_generation_config'
+  /** PPT 原始生成提示词 */
+  prompt?: string
+  /** PPT 大纲内容 */
+  outline?: string
+  /** PPT 妙笔任务 ID */
+  taskId?: string
   /** 首屏展示的最大选项数 */
   initialVisibleCount?: number
   /** 视频生成配置交互的表单元数据 */
@@ -341,8 +346,6 @@ export interface ChatRequest {
   maxReactIterations?: number
   /** 是否启用沙箱管理工具 */
   enableSandboxTools?: boolean
-  /** 当前会话已选中的 PPT 模板 */
-  selectedPptTemplate?: SelectedPptTemplate | null
 }
 
 /**

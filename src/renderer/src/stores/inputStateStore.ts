@@ -3,7 +3,7 @@
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { MCPTool, KnowledgeBase, SelectedPptTemplate } from '@renderer/types'
+import type { MCPTool, KnowledgeBase } from '@renderer/types'
 import type { SessionSelectionState } from '@shared/types/session'
 import { deepClone } from '@shared/utils'
 import type { SessionInputState } from './types'
@@ -15,8 +15,7 @@ function createDefaultInputState(): SessionInputState {
     selectedModel: '',
     selectedMCPTools: [],
     selectedKnowledgeBases: [],
-    enableSandboxTools: false,
-    selectedPptTemplate: null
+    enableSandboxTools: false
   }
 }
 
@@ -26,8 +25,7 @@ function cloneInputState(state: SessionInputState): SessionInputState {
     selectedModel: state.selectedModel,
     selectedMCPTools: deepClone(state.selectedMCPTools),
     selectedKnowledgeBases: deepClone(state.selectedKnowledgeBases),
-    enableSandboxTools: state.enableSandboxTools,
-    selectedPptTemplate: deepClone(state.selectedPptTemplate)
+    enableSandboxTools: state.enableSandboxTools
   }
 }
 
@@ -63,9 +61,6 @@ export const useInputStateStore = defineStore(
     // 获取当前沙箱工具开关状态
     const enableSandboxTools = computed(() => currentInputState.value.enableSandboxTools)
 
-    // 获取当前选中的 PPT 模板
-    const selectedPptTemplate = computed(() => currentInputState.value.selectedPptTemplate)
-
     // 获取已保存状态的会话数量
     const savedStateCount = computed(() => sessionInputStates.value.size)
 
@@ -85,8 +80,7 @@ export const useInputStateStore = defineStore(
       return {
         selectedMCPTools: deepClone(sessionState.selectedMCPTools),
         selectedKnowledgeBases: deepClone(sessionState.selectedKnowledgeBases),
-        enableSandboxTools: sessionState.enableSandboxTools,
-        selectedPptTemplate: deepClone(sessionState.selectedPptTemplate)
+        enableSandboxTools: sessionState.enableSandboxTools
       }
     }
 
@@ -95,8 +89,7 @@ export const useInputStateStore = defineStore(
       return {
         selectedMCPTools: deepClone(currentInputState.value.selectedMCPTools),
         selectedKnowledgeBases: deepClone(currentInputState.value.selectedKnowledgeBases),
-        enableSandboxTools: currentInputState.value.enableSandboxTools,
-        selectedPptTemplate: deepClone(currentInputState.value.selectedPptTemplate)
+        enableSandboxTools: currentInputState.value.enableSandboxTools
       }
     }
 
@@ -118,11 +111,7 @@ export const useInputStateStore = defineStore(
         selectedKnowledgeBases: selectionState?.selectedKnowledgeBases
           ? deepClone(selectionState.selectedKnowledgeBases)
           : deepClone(previousState.selectedKnowledgeBases),
-        enableSandboxTools: selectionState?.enableSandboxTools ?? previousState.enableSandboxTools,
-        selectedPptTemplate:
-          selectionState?.selectedPptTemplate !== undefined
-            ? deepClone(selectionState.selectedPptTemplate)
-            : deepClone(previousState.selectedPptTemplate)
+        enableSandboxTools: selectionState?.enableSandboxTools ?? previousState.enableSandboxTools
       }
 
       sessionInputStates.value.set(sessionId, nextState)
@@ -136,7 +125,6 @@ export const useInputStateStore = defineStore(
         toolCount: nextState.selectedMCPTools.length,
         knowledgeBaseCount: nextState.selectedKnowledgeBases.length,
         enableSandboxTools: nextState.enableSandboxTools,
-        selectedPptTemplateId: nextState.selectedPptTemplate?.id || null,
         source: selectionState ? 'file' : 'memory'
       })
     }
@@ -155,8 +143,7 @@ export const useInputStateStore = defineStore(
         sessionId,
         hasTools: currentInputState.value.selectedMCPTools.length > 0,
         hasKnowledgeBases: currentInputState.value.selectedKnowledgeBases.length > 0,
-        model: currentInputState.value.selectedModel,
-        selectedPptTemplateId: currentInputState.value.selectedPptTemplate?.id || null
+        model: currentInputState.value.selectedModel
       })
     }
 
@@ -169,8 +156,7 @@ export const useInputStateStore = defineStore(
       window.api.logger.debug('[InputStateStore] 切换到会话输入状态', {
         sessionId,
         hasTools: state.selectedMCPTools.length > 0,
-        hasKnowledgeBases: state.selectedKnowledgeBases.length > 0,
-        selectedPptTemplateId: state.selectedPptTemplate?.id || null
+        hasKnowledgeBases: state.selectedKnowledgeBases.length > 0
       })
     }
 
@@ -213,16 +199,6 @@ export const useInputStateStore = defineStore(
       })
     }
 
-    // 更新选中的 PPT 模板
-    function updateSelectedPptTemplate(template: SelectedPptTemplate | null): void {
-      currentInputState.value.selectedPptTemplate = template ? { ...template } : null
-
-      window.api.logger.debug('[InputStateStore] 更新选中的 PPT 模板', {
-        templateId: template?.id || null,
-        templateName: template?.name || null
-      })
-    }
-
     // 切换工具选择状态（添加或移除）
     function toggleToolSelection(tool: MCPTool): void {
       const tools = currentInputState.value.selectedMCPTools
@@ -258,11 +234,6 @@ export const useInputStateStore = defineStore(
       currentInputState.value.selectedKnowledgeBases = []
     }
 
-    // 清除当前会话的选中 PPT 模板
-    function clearSelectedPptTemplate(): void {
-      currentInputState.value.selectedPptTemplate = null
-    }
-
     // 删除会话的输入状态
     function deleteSessionState(sessionId: string): void {
       sessionInputStates.value.delete(sessionId)
@@ -295,8 +266,7 @@ export const useInputStateStore = defineStore(
         window.api.logger.info('[InputStateStore] 恢复会话输入状态', {
           sessionId,
           hasTools: state.selectedMCPTools.length > 0,
-          hasKnowledgeBases: state.selectedKnowledgeBases.length > 0,
-          selectedPptTemplateId: state.selectedPptTemplate?.id || null
+          hasKnowledgeBases: state.selectedKnowledgeBases.length > 0
         })
         return true
       }
@@ -314,7 +284,6 @@ export const useInputStateStore = defineStore(
       selectedMCPTools,
       selectedKnowledgeBases,
       enableSandboxTools,
-      selectedPptTemplate,
       savedStateCount,
       // Actions
       getSessionState,
@@ -328,12 +297,10 @@ export const useInputStateStore = defineStore(
       updateSelectedTools,
       updateSelectedKnowledgeBases,
       updateEnableSandboxTools,
-      updateSelectedPptTemplate,
       toggleToolSelection,
       clearInputMessage,
       clearSelectedTools,
       clearSelectedKnowledgeBases,
-      clearSelectedPptTemplate,
       deleteSessionState,
       clearAllStates,
       restoreSessionState

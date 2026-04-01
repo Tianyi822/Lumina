@@ -1,16 +1,13 @@
 import { logger } from '@main/services/logger'
 import type { ExportFormat, ExportMessageRequest, ExportMessageResult } from '@shared/types'
-import type { ExportPptRequest } from '@shared/types/export'
-import type { PptExportConfig } from '@shared/types/ppt-export'
 import { MarkdownExporter } from './exporters/MarkdownExporter'
 import { PdfExporter } from './exporters/PdfExporter'
 import { WordExporter } from './exporters/WordExporter'
 import { MarkdownParser } from './parsers/MarkdownParser'
-import { getPptExportService } from '../presentation/PptExportService'
 
 /**
  * 文档导出服务
- * 负责协调 Markdown、Word、PDF、TXT、PPT 导出流程
+ * 负责协调 Markdown、Word、PDF、TXT 导出流程
  */
 export class DocumentExportService {
   private readonly markdownParser = new MarkdownParser()
@@ -50,9 +47,6 @@ export class DocumentExportService {
         case 'pdf':
           buffer = await this.pdfExporter.buildDocument(normalizedMarkdown, baseTitle)
           break
-        case 'ppt':
-          buffer = await this.buildPptDocument(normalizedContent, request)
-          break
         default:
           return {
             success: false,
@@ -83,54 +77,6 @@ export class DocumentExportService {
         success: false,
         error: `导出失败: ${errorMessage}`
       }
-    }
-  }
-
-  private async buildPptDocument(content: string, request: ExportMessageRequest): Promise<Buffer> {
-    const pptExportService = getPptExportService()
-    const previewResult = await pptExportService.previewExport(content)
-
-    if (!previewResult.success || !previewResult.config) {
-      throw new Error(previewResult.error || 'PPT 内容解析失败')
-    }
-
-    const config = previewResult.config
-    if (this.isExportPptRequest(request)) {
-      this.applyPptExportOptions(config, request)
-    }
-
-    const generateResult = await pptExportService.generatePpt({
-      content,
-      config,
-      title: request.title
-    })
-
-    if (!generateResult.success || !generateResult.data) {
-      throw new Error(generateResult.error || 'PPT 生成失败')
-    }
-
-    return Buffer.from(generateResult.data)
-  }
-
-  private isExportPptRequest(request: ExportMessageRequest): request is ExportPptRequest {
-    return request.format === 'ppt' && 'options' in request
-  }
-
-  private applyPptExportOptions(config: PptExportConfig, request: ExportPptRequest): void {
-    if (!request.options) {
-      return
-    }
-
-    if (request.options.style) {
-      config.style = { ...config.style, ...request.options.style }
-    }
-
-    if (request.options.pageIndices && request.options.pageIndices.length > 0) {
-      const selectedIndexSet = new Set(request.options.pageIndices)
-      config.slides = config.slides.map((slide) => ({
-        ...slide,
-        selected: selectedIndexSet.has(slide.index)
-      }))
     }
   }
 
@@ -180,8 +126,6 @@ export class DocumentExportService {
         return 'pdf'
       case 'txt':
         return 'txt'
-      case 'ppt':
-        return 'pptx'
     }
   }
 
@@ -195,8 +139,6 @@ export class DocumentExportService {
         return 'application/pdf'
       case 'txt':
         return 'text/plain;charset=utf-8'
-      case 'ppt':
-        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
       default:
         return 'application/octet-stream'
     }

@@ -108,9 +108,8 @@ export function registerSandboxContainerHandlers(): void {
     async (_event, containerId: string): Promise<SandboxResult> => {
       const result = await dockerService.startContainer(containerId)
       if (result.success) {
-        const recoveryResult = await frontendSandboxService.recoverFrontendRuntimeByContainerId(
-          containerId
-        )
+        const recoveryResult =
+          await frontendSandboxService.recoverFrontendRuntimeByContainerId(containerId)
         if (recoveryResult.warning) {
           logger.warn('容器启动后前端服务未完全恢复', 'main', {
             containerId,
@@ -134,9 +133,8 @@ export function registerSandboxContainerHandlers(): void {
     async (_event, containerId: string): Promise<SandboxResult> => {
       const result = await dockerService.restartContainer(containerId)
       if (result.success) {
-        const recoveryResult = await frontendSandboxService.recoverFrontendRuntimeByContainerId(
-          containerId
-        )
+        const recoveryResult =
+          await frontendSandboxService.recoverFrontendRuntimeByContainerId(containerId)
         if (recoveryResult.warning) {
           logger.warn('容器重启后前端服务未完全恢复', 'main', {
             containerId,

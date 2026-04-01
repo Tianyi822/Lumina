@@ -1,4 +1,4 @@
-import type { ParsedSlide, PptExportSlidePreview } from '@shared/types/ppt-export'
+import type { ParsedSlide } from '@shared/types/ppt-export'
 import { BlockParser } from './BlockParser'
 import { H1HeaderParser } from './H1HeaderParser'
 import { H2HeaderParser } from './H2HeaderParser'
@@ -7,7 +7,7 @@ import type { ParseStrategy, ParserMetrics, PptParseOptions } from './types'
 
 /**
  * PPT 内容解析器
- * 负责策略选择与预览数据生成
+ * 负责策略选择与幻灯片数据生成
  */
 export class PptContentParser {
   private readonly blockParser = new BlockParser()
@@ -51,21 +51,6 @@ export class PptContentParser {
     }
 
     return this.h1HeaderParser.parseWithoutH1(lines, this.blockParser)
-  }
-
-  /**
-   * 生成导出预览数据
-   * @param slides - 解析后的幻灯片数组
-   * @returns 导出预览数组
-   */
-  generatePreview(slides: ParsedSlide[]): PptExportSlidePreview[] {
-    return slides.map((slide) => ({
-      index: slide.index,
-      title: slide.title,
-      contentType: this.blockParser.detectContentType(slide),
-      summary: this.blockParser.generateSummary(slide),
-      selected: true
-    }))
   }
 
   /**

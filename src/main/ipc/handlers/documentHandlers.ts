@@ -6,26 +6,10 @@ import { z } from 'zod'
 
 const exportRequestSchema = z.object({
   content: z.string().trim().min(1, '导出内容不能为空'),
-  format: z.enum(['markdown', 'word', 'pdf', 'txt', 'ppt']),
+  format: z.enum(['markdown', 'word', 'pdf', 'txt']),
   title: z.string().trim().max(120).optional(),
   timestamp: z.string().optional(),
-  modelName: z.string().optional(),
-  // PPT 导出可选配置
-  options: z
-    .object({
-      pageIndices: z.array(z.number()).optional(),
-      style: z
-        .object({
-          primaryColor: z.string().optional(),
-          backgroundColor: z.string().optional(),
-          titleFont: z.string().optional(),
-          bodyFont: z.string().optional(),
-          titleSize: z.number().optional(),
-          bodySize: z.number().optional()
-        })
-        .optional()
-    })
-    .optional()
+  modelName: z.string().optional()
 })
 
 /**
@@ -116,8 +100,7 @@ export function registerDocumentHandlers(): void {
       logger.info('接收到消息导出请求', 'main', {
         format: parsedRequest.format,
         title: parsedRequest.title,
-        contentLength: parsedRequest.content.length,
-        hasOptions: !!parsedRequest.options
+        contentLength: parsedRequest.content.length
       })
 
       return await getDocumentExportService().exportMessage(parsedRequest)

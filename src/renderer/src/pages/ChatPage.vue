@@ -59,7 +59,11 @@ const currentInputState = computed(() => inputStateStore.currentInputState)
 const pendingExportMessageId = ref<string | null>(null)
 const exportDialogMessageId = ref<string | null>(null)
 const exportingMessageId = ref<string | null>(null)
-const pptConfigMessageId = ref<string | null>(null)
+const pptConfigState = ref<{
+  prompt: string
+  outline: string
+  taskId: string
+} | null>(null)
 
 // 聊天错误消息（兼容旧命名）
 const chatErrorMessage = computed(() => chatError.value ?? '')
@@ -73,13 +77,6 @@ const exportDialogMessage = computed<Message | null>(() => {
   if (!exportDialogMessageId.value) return null
 
   const targetMessage = messages.value.find((message) => message.id === exportDialogMessageId.value)
-  return isExportableAssistantMessage(targetMessage) ? targetMessage : null
-})
-
-const pptConfigMessage = computed<Message | null>(() => {
-  if (!pptConfigMessageId.value) return null
-
-  const targetMessage = messages.value.find((message) => message.id === pptConfigMessageId.value)
   return isExportableAssistantMessage(targetMessage) ? targetMessage : null
 })
 
@@ -99,7 +96,6 @@ function createLocalMessageId(): string {
 function clearExportState(): void {
   pendingExportMessageId.value = null
   exportDialogMessageId.value = null
-  pptConfigMessageId.value = null
 }
 
 function closeExportDialog(): void {
@@ -107,23 +103,7 @@ function closeExportDialog(): void {
 }
 
 function closePptConfigDialog(): void {
-  pptConfigMessageId.value = null
-}
-
-/**
- * 处理打开 PPT 导出配置对话框
- */
-function handleOpenPptConfig(): void {
-  const targetMessage = exportDialogMessage.value
-  if (!targetMessage) {
-    closeExportDialog()
-    handleChatError('当前没有可导出的 AI 助手消息')
-    return
-  }
-
-  // 关闭导出对话框，打开 PPT 配置对话框
-  pptConfigMessageId.value = targetMessage.id
-  exportDialogMessageId.value = null
+  pptConfigState.value = null
 }
 
 function getPendingExportTarget(): Message | null {
@@ -260,6 +240,40 @@ function handlePptExportToast(message: string, type: 'success' | 'error' | 'info
   window.api.logger.info('[ChatPage] PPT 导出提示', { type, message })
 }
 
+function handlePptCreated(): void {
+  window.api.logger.info('[ChatPage] PPT 已在弹窗中生成完成', {
+    sessionId: currentSession.value?.sessionId,
+    title: currentSession.value?.title
+  })
+}
+
+function handleSelectPptOutlineAction(
+  selection: 'confirm' | 'edit',
+  interactionInfo: UserInteractionRequest
+): void {
+  const prompt = interactionInfo.prompt?.trim() || ''
+  const outline = interactionInfo.outline?.trim() || ''
+  const taskId = interactionInfo.taskId?.trim() || ''
+
+  if (!outline || !taskId) {
+    handleChatError('PPT 大纲数据不完整，暂时无法继续生成')
+    return
+  }
+
+  pptConfigState.value = {
+    prompt,
+    outline,
+    taskId
+  }
+
+  window.api.logger.info('[ChatPage] 打开 PPT 配置对话框', {
+    selection,
+    hasPrompt: Boolean(prompt),
+    outlineLength: outline.length,
+    taskId
+  })
+}
+
 async function tryHandleExportIntent(content: string): Promise<boolean> {
   const trimmedContent = content.trim()
   const requestedFormat = parseExportFormat(trimmedContent)
@@ -311,40 +325,6 @@ async function tryHandleExportIntent(content: string): Promise<boolean> {
   return true
 }
 
-async function clearInvalidSelectedPptTemplate(templateId: string): Promise<void> {
-  inputStateStore.clearSelectedPptTemplate()
-
-  if (currentChatId.value && currentSession.value) {
-    await sessionStore.persistCurrentSelectionState()
-  }
-
-  window.api.logger.warn('[ChatPage] 已清除失效的 PPT 模板选择', {
-    templateId
-  })
-}
-
-async function validateSelectedPptTemplate(): Promise<void> {
-  const selectedTemplate = currentInputState.value.selectedPptTemplate
-  if (!selectedTemplate) {
-    return
-  }
-
-  try {
-    const result = await window.api.pptTemplate.getById(selectedTemplate.id)
-    if (result.success && result.data && result.data.status !== 'analyzing') {
-      return
-    }
-
-    await clearInvalidSelectedPptTemplate(selectedTemplate.id)
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    window.api.logger.warn('[ChatPage] 校验 PPT 模板选择失败，保留当前选择', {
-      templateId: selectedTemplate.id,
-      error: errorMessage
-    })
-  }
-}
-
 // ==================== 发送消息处理 ====================
 async function handleSendMessage(
   content: string,
@@ -367,8 +347,6 @@ async function handleSendMessage(
   if (await tryHandleExportIntent(trimmedContent)) {
     return
   }
-
-  await validateSelectedPptTemplate()
 
   // 如果没有当前对话，先创建一个
   if (!currentChatId.value || !currentSession.value) {
@@ -502,16 +480,13 @@ async function handleSendMessage(
         : undefined
 
     // 发送请求
-    const selectedPptTemplate = currentInputState.value.selectedPptTemplate
-
     const result = await window.api.chat.send({
       messages: chatMessages,
       modelKey: model,
       sessionId,
       selectedTools: toolReferences,
       selectedKnowledgeBases: kbReferences,
-      enableSandboxTools,
-      selectedPptTemplate
+      enableSandboxTools
     })
 
     if (!result.success && result.error) {
@@ -628,6 +603,7 @@ watch(
   () => currentChatId.value,
   (newSessionId, oldSessionId) => {
     clearExportState()
+    closePptConfigDialog()
 
     window.api.logger.debug('[ChatPage] 当前会话变化', {
       from: oldSessionId,
@@ -668,6 +644,7 @@ watch(
         @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
         @request-export="handleRequestExport"
         @select-export-format="handleInlineExportFormatSelect"
+        @select-ppt-outline-action="handleSelectPptOutlineAction"
       />
     </div>
 
@@ -680,18 +657,18 @@ watch(
       :is-exporting="exportingMessageId === exportDialogMessage.id"
       @close="closeExportDialog"
       @select-format="handleDialogExportFormatSelect"
-      @open-ppt-config="handleOpenPptConfig"
     />
 
     <PptExportConfigDialog
-      v-if="pptConfigMessage"
-      :visible="!!pptConfigMessage"
-      :content="pptConfigMessage.content"
+      v-if="pptConfigState"
+      :visible="!!pptConfigState"
+      :content="pptConfigState.prompt"
+      :initial-outline="pptConfigState.outline"
+      :initial-task-id="pptConfigState.taskId"
       :title="currentSession?.title"
-      :initial-template-id="currentInputState.selectedPptTemplate?.id || ''"
       @close="closePptConfigDialog"
       @show-toast="handlePptExportToast"
-      @exported="closePptConfigDialog"
+      @ppt-created="handlePptCreated"
     />
   </div>
 </template>

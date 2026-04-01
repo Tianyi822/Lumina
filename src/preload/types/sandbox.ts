@@ -243,10 +243,7 @@ export interface SandboxApi {
 
   // 沙箱管理
   createSandbox: (request: CreateSandboxRequest) => Promise<CreateSandboxResult>
-  deleteSandbox: (
-    sandboxId: string,
-    options?: DeleteSandboxOptions
-  ) => Promise<DeleteSandboxResult>
+  deleteSandbox: (sandboxId: string, options?: DeleteSandboxOptions) => Promise<DeleteSandboxResult>
   retryFrontendInitialization: (sandboxId: string) => Promise<FrontendSandboxInfo>
   rebuildFrontendRuntime: (sandboxId: string) => Promise<FrontendSandboxInfo>
   validateFrontendBuild: (sandboxId: string) => Promise<FrontendSandboxInfo>

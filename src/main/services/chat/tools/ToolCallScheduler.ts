@@ -15,7 +15,7 @@ import type { MCPToolCallResult } from '@shared/types/mcp'
 
 const FORCED_SEQUENTIAL_TOOLS = new Set([
   'sandbox__ask_user',
-  'presentation__request_template_selection',
+  'presentation__request_outline_confirmation',
   'video__request_generation_config',
   'video__generate'
 ])
@@ -224,7 +224,12 @@ export class ToolCallScheduler {
           this.getSelectedKnowledgeBaseIds?.(sessionId)
         )
       } else if (serverName === 'presentation') {
-        toolCallResult = await presentationToolService.callTool(toolName, parsedArgs)
+        toolCallResult = await presentationToolService.callTool(toolName, parsedArgs, {
+          sessionId,
+          onOutlineChunk: (text) => {
+            webContents.send('ppt:outline:chunk', { sessionId, text })
+          }
+        })
       } else if (serverName === 'video') {
         toolCallResult = await videoToolService.callTool(toolName, parsedArgs)
       } else {

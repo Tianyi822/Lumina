@@ -178,6 +178,18 @@ export interface VoiceRecognitionConfig {
 }
 
 /**
+ * 阿里云妙笔 PPT 配置
+ */
+export interface AliyunMiaobiConfig {
+  /** 阿里云 AccessKey ID */
+  accessKeyId: string
+  /** 阿里云 AccessKey Secret */
+  accessKeySecret: string
+  /** 百炼业务空间 ID */
+  workspaceId: string
+}
+
+/**
  * 视频生成服务提供商类型
  */
 export type VideoGenerationProvider = 'zhipu'
@@ -264,6 +276,8 @@ export interface AppConfig {
   knowledgeMCP?: KnowledgeMCPConfig
   /** 语音识别配置 */
   voiceRecognition?: VoiceRecognitionConfig
+  /** 阿里云妙笔 PPT 配置 */
+  aliyunMiaobi?: AliyunMiaobiConfig
   /** 视频生成配置 */
   videoGeneration?: VideoGenerationConfig
 }

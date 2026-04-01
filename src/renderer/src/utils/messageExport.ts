@@ -31,12 +31,6 @@ export const EXPORT_FORMAT_OPTIONS: ExportFormatOption[] = [
     label: 'TXT',
     description: '导出为纯文本，适合快速留档',
     shortcut: '4 / T'
-  },
-  {
-    value: 'ppt',
-    label: 'PowerPoint',
-    description: '生成 PPT 演示文稿',
-    shortcut: '5 / PPT'
   }
 ]
 
@@ -110,14 +104,6 @@ export function parseExportFormat(text: string): ExportFormat | null {
 
   if (/(^|[^a-z])(txt|text)([^a-z]|$)|纯文本|文本格式/i.test(normalized)) {
     return 'txt'
-  }
-
-  if (
-    /(^|[^a-z])ppt([^a-z]|$)|(^|[^a-z])powerpoint([^a-z]|$)|(^|[^a-z])power([^a-z]|$)|演示文稿|幻灯片/i.test(
-      normalized
-    )
-  ) {
-    return 'ppt'
   }
 
   return null

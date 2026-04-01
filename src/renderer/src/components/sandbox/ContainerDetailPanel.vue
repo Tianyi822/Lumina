@@ -179,7 +179,9 @@ function formatEnv(env: string[]): string[] {
               </span>
             </div>
             <div class="header-actions">
-              <button class="btn" :disabled="!isRunning" @click="emit('open-terminal')">终端</button>
+              <button class="btn" :disabled="!isRunning" @click="emit('open-terminal')">
+                终端
+              </button>
               <button class="btn" @click="emit('view-logs')">日志</button>
 
               <template v-if="showLifecycleButtons">
@@ -192,12 +194,7 @@ function formatEnv(env: string[]): string[] {
                   <SvgIcon v-if="startingContainer" name="loading" :size="14" :spin="true" />
                   <span>{{ startingContainer ? '启动中...' : '启动' }}</span>
                 </button>
-                <button
-                  v-else
-                  class="btn warning"
-                  :disabled="isOperating"
-                  @click="emit('stop')"
-                >
+                <button v-else class="btn warning" :disabled="isOperating" @click="emit('stop')">
                   <SvgIcon v-if="stoppingContainer" name="loading" :size="14" :spin="true" />
                   <span>{{ stoppingContainer ? '停止中...' : '停止' }}</span>
                 </button>

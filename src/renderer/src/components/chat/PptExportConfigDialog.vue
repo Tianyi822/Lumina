@@ -1,330 +1,454 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, nextTick } from 'vue'
 import { usePptExport } from '@renderer/composables/usePptExport'
-import { usePptTemplatePreview } from '@renderer/composables/usePptTemplatePreview'
-import { getPptExportErrorIcon, getPptExportProgressSteps } from '@renderer/utils/pptExportDialog'
-import PptTemplatePicker from './ppt-export/PptTemplatePicker.vue'
-import PptSlideDetailPanel from './ppt-export/PptSlideDetailPanel.vue'
-import PptSlideThumbnailStrip from './ppt-export/PptSlideThumbnailStrip.vue'
+import { useQuanmiaoSDK } from '@renderer/composables/useQuanmiaoSDK'
 
 interface Props {
   /** 是否显示对话框 */
   visible: boolean
-  /** 消息内容（Markdown 格式） */
+  /** 消息内容（提示词/用户请求） */
   content: string
+  /** 初始大纲内容 */
+  initialOutline?: string
+  /** 初始任务 ID */
+  initialTaskId?: string
   /** 文件标题（可选） */
   title?: string
-  /** 初始模板 ID（来自当前会话已选模板） */
-  initialTemplateId?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  title: '',
-  initialTemplateId: ''
+  title: ''
 })
 
 interface Emits {
   (e: 'close'): void
-  (e: 'exported'): void
   (e: 'showToast', message: string, type?: 'success' | 'error' | 'info'): void
+  (e: 'ppt-created'): void
 }
 
 const emit = defineEmits<Emits>()
 
+// ==================== Composables ====================
+
 const {
-  isLoading,
-  isGenerating,
-  exportStage,
-  exportConfig,
-  error,
-  selectedCount,
-  hasPreview,
-  canGenerate,
-  loadingMessage,
-  previewData,
-  preview,
-  toggleSlideSelection,
-  selectAllSlides,
-  deselectAllSlides,
-  updateStyleSource,
-  generate,
-  download,
-  reset,
-  clearError
+  isConfigured,
+  outlineStatus,
+  outlineText,
+  taskId,
+  appkey,
+  code,
+  renderingStatus,
+  artifactId,
+  error: pptError,
+  checkConfig,
+  generateOutline,
+  initiateCreation,
+  bindArtifact,
+  reset
 } = usePptExport()
 
-/** 选中的模板 ID */
-const selectedTemplateId = ref('')
+const {
+  loading: sdkLoading,
+  loadSDK,
+  createPPT,
+  destroy: destroySDK
+} = useQuanmiaoSDK()
 
-/** 当前查看的页面索引 */
-const currentSlideIndex = ref(0)
+// ==================== 状态定义 ====================
 
-/** 可用模板列表 */
-const availableTemplates = computed(() => previewData.value?.availableTemplates ?? [])
+/** PPT 容器 ref */
+const pptContainer = ref<HTMLElement | null>(null)
 
-/** 当前查看的幻灯片 */
-const currentSlide = computed(() => {
-  return exportConfig.value?.slides.find((slide) => slide.index === currentSlideIndex.value)
+/** 用户编辑的大纲文本 */
+const editedOutlineText = ref('')
+
+/** 是否在处理中 */
+const isProcessing = computed(() => {
+  return (
+    outlineStatus.value === 'generating' || sdkLoading.value || renderingStatus.value === 'making'
+  )
 })
 
-/** 生成进度步骤 */
-const progressSteps = computed(() => getPptExportProgressSteps(exportStage.value))
+/** 当前对话框阶段 */
+const dialogPhase = computed(() => {
+  if (!isConfigured.value) return 'unconfigured'
+  if (renderingStatus.value !== 'idle') return 'rendering'
+  return 'outline'
+})
 
-const { templatePreviewMap } = usePptTemplatePreview(availableTemplates)
+/** 是否显示生成完成状态 */
+const isRenderComplete = computed(() => {
+  return renderingStatus.value === 'done'
+})
+
+// ==================== 状态 ====================
+
+/** 初始化加载中 */
+const initializing = ref(true)
+
+/** 渲染阶段标题 */
+const renderingTitle = computed(() => {
+  if (sdkLoading.value) {
+    return '正在加载妙笔编辑器...'
+  }
+
+  if (renderingStatus.value === 'error') {
+    return 'PPT 渲染失败'
+  }
+
+  if (isRenderComplete.value) {
+    return 'PPT 已生成'
+  }
+
+  return '正在生成 PPT...'
+})
+
+/** 渲染阶段说明 */
+const renderingDescription = computed(() => {
+  if (renderingStatus.value === 'error') {
+    return pptError.value || '妙笔渲染失败，请关闭后重试'
+  }
+
+  if (isRenderComplete.value) {
+    return '生成结果已经在下方妙笔编辑区打开，你可以继续编辑，并在编辑区内导出或下载。'
+  }
+
+  if (sdkLoading.value) {
+    return '正在准备妙笔编辑器，完成后会在下方显示可操作的 PPT 编辑区。'
+  }
+
+  return '请稍候，生成完成后会在下方直接打开妙笔编辑区。'
+})
+
+// ==================== 生命周期 ====================
+
+onMounted(async () => {
+  try {
+    await checkConfig()
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : '初始化失败'
+    emit('showToast', errorMsg, 'error')
+  } finally {
+    initializing.value = false
+  }
+
+  if (!isConfigured.value) {
+    return
+  }
+
+  // 加载从外部传入的大纲数据
+  if (props.initialOutline?.trim() && props.initialTaskId?.trim()) {
+    outlineStatus.value = 'done'
+    outlineText.value = props.initialOutline
+    taskId.value = props.initialTaskId
+    editedOutlineText.value = props.initialOutline
+    return
+  }
+
+  // 没有预生成大纲，自动开始生成
+  if (props.content) {
+    await handleGenerateOutline()
+  }
+})
+
+// ==================== 监听器 ====================
 
 watch(
   () => props.visible,
   async (visible) => {
     if (!visible) {
+      // 对话框关闭时清理
       reset()
-      currentSlideIndex.value = 0
-      return
+      destroySDK()
+      editedOutlineText.value = ''
     }
-
-    if (!props.content) {
-      return
-    }
-
-    clearError()
-    const initialTemplateId = props.initialTemplateId || undefined
-
-    if (initialTemplateId) {
-      selectedTemplateId.value = initialTemplateId
-    }
-
-    await preview(props.content, initialTemplateId)
-    currentSlideIndex.value = 0
-  },
-  { immediate: true }
+  }
 )
 
-watch(selectedTemplateId, (templateId) => {
-  if (!exportConfig.value || !templateId) {
-    return
-  }
+// ==================== 方法 ====================
 
-  if (
-    exportConfig.value.styleSource.type === 'template' &&
-    exportConfig.value.styleSource.templateId === templateId
-  ) {
-    return
-  }
-
-  void updateStyleSource({ type: 'template', templateId })
-})
-
-watch(
-  exportConfig,
-  (config) => {
-    if (!config) {
-      return
-    }
-
-    if (config.styleSource.type === 'template') {
-      selectedTemplateId.value = config.styleSource.templateId
-    }
-  },
-  { immediate: true }
-)
-
-watch(availableTemplates, (templates) => {
-  if (!templates.length) {
-    selectedTemplateId.value = ''
-    return
-  }
-
-  const hasSelectedTemplate = templates.some((template) => template.id === selectedTemplateId.value)
-  if (!hasSelectedTemplate) {
-    selectedTemplateId.value = templates[0].id
-  }
-})
-
-watch(
-  () => exportConfig.value?.slides,
-  (slides) => {
-    if (!slides?.length) {
-      currentSlideIndex.value = 0
-      return
-    }
-
-    const hasCurrentSlide = slides.some((slide) => slide.index === currentSlideIndex.value)
-    if (!hasCurrentSlide) {
-      currentSlideIndex.value = slides[0].index
-    }
-  },
-  { immediate: true }
-)
-
-function handleClose(): void {
-  if (!isGenerating.value) {
-    emit('close')
-  }
-}
-
-function handleToggleAll(): void {
-  if (selectedCount.value === exportConfig.value?.slides.length) {
-    deselectAllSlides()
-  } else {
-    selectAllSlides()
-  }
-}
-
-async function handleExport(): Promise<void> {
-  if (!canGenerate.value) {
-    return
-  }
-
-  const result = await generate(props.content, props.title || '演示文稿')
-  if (result?.success) {
-    download(result)
-    emit('showToast', 'PPT 已开始下载', 'success')
-    emit('exported')
-  }
-}
-
-async function handleRetry(): Promise<void> {
+/**
+ * 生成大纲
+ */
+async function handleGenerateOutline(): Promise<void> {
   if (!props.content) {
+    emit('showToast', '内容不能为空', 'error')
     return
   }
 
-  clearError()
-  await preview(props.content, selectedTemplateId.value || undefined)
+  try {
+    await generateOutline(props.content)
+    editedOutlineText.value = outlineText.value
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : '生成大纲失败'
+    emit('showToast', errorMsg, 'error')
+  }
+}
+
+/**
+ * 重新生成大纲
+ */
+async function handleRegenerateOutline(): Promise<void> {
+  editedOutlineText.value = ''
+  await handleGenerateOutline()
+}
+
+/**
+ * 确认大纲并开始创建 PPT
+ */
+async function handleConfirmOutline(): Promise<void> {
+  // 更新大纲文本为用户编辑后的版本
+  outlineText.value = editedOutlineText.value
+
+  // 发起创建
+  await initiateCreation()
+  if (pptError.value) {
+    emit('showToast', pptError.value, 'error')
+    return
+  }
+
+  if (!appkey.value || !code.value) {
+    emit('showToast', '获取创建凭证失败', 'error')
+    return
+  }
+
+  // 加载 SDK
+  try {
+    await loadSDK()
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : '加载 SDK 失败'
+    emit('showToast', errorMsg, 'error')
+    return
+  }
+
+  // 等待 DOM 更新后创建 PPT
+  await nextTick()
+
+  if (!pptContainer.value) {
+    emit('showToast', 'PPT 容器未找到', 'error')
+    return
+  }
+
+  // 创建 PPT
+  createPPT({
+    appkey: appkey.value,
+    code: code.value,
+    container: pptContainer.value,
+    content: editedOutlineText.value,
+    speaker: props.title,
+    onMessage: (type, data) => {
+      // 处理 SDK 消息
+      switch (type) {
+        case 'GENERATE_PPT_SUCCESS':
+          if (artifactId.value !== null) {
+            void bindArtifact().then(() => {
+              if (pptError.value) {
+                emit('showToast', pptError.value, 'error')
+              }
+            })
+          }
+          break
+        case 'SET_PPT_MAKING_STATUS': {
+          // 直接从 data 判断状态，不依赖 wrappedOnMessage 的内部更新顺序
+          const raw =
+            typeof data === 'object' && data !== null
+              ? (data as Record<string, unknown>).status
+              : data
+          if (raw === '0' || raw === 'done' || raw === 'success' || raw === 0) {
+            emit('ppt-created')
+          }
+          break
+        }
+        case 'ERROR': {
+          const errMsg =
+            typeof data === 'string'
+              ? data
+              : typeof data === 'object' &&
+                  data !== null &&
+                  typeof (data as { message?: unknown }).message === 'string'
+                ? ((data as { message?: string }).message ?? 'PPT 渲染出错')
+                : 'PPT 渲染出错'
+          emit('showToast', errMsg, 'error')
+          break
+        }
+      }
+    }
+  })
+}
+
+/**
+ * 关闭对话框
+ */
+function handleClose(): void {
+  if (isProcessing.value) {
+    emit('showToast', '正在处理中，请稍候...', 'info')
+    return
+  }
+  emit('close')
+}
+
+/**
+ * 跳转到设置页面
+ */
+function handleOpenSettings(): void {
+  emit('close')
+  // 用户需要手动打开设置页面
+  emit('showToast', '请在设置中配置阿里云妙笔 AccessKey', 'info')
 }
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="fade">
-      <div v-if="visible" class="ppt-export-dialog-overlay" @click.self="handleClose">
-        <div
-          class="ppt-export-dialog"
-          :class="`ppt-export-dialog-stage-${exportStage}`"
-          role="dialog"
-          aria-modal="true"
-          :aria-busy="isLoading || isGenerating"
-        >
-          <div class="ppt-export-dialog-header">
-            <div>
-              <h3 class="ppt-export-dialog-title">导出 PowerPoint</h3>
-              <p class="ppt-export-dialog-subtitle">选择要导出的页面和模板</p>
-            </div>
+      <div v-if="visible" class="sm-ppt-dialog-overlay" @click.self="handleClose">
+        <div class="sm-ppt-dialog" role="dialog" aria-modal="true" :aria-busy="isProcessing">
+          <!-- 头部 -->
+          <div class="sm-ppt-dialog__header">
+            <h2 class="sm-ppt-dialog__title">生成 PPT</h2>
             <button
               type="button"
-              class="btn ppt-export-dialog-close"
-              :disabled="isGenerating"
+              class="sm-ppt-dialog__close"
+              :disabled="isProcessing"
               @click="handleClose"
             >
-              关闭
+              ✕
             </button>
           </div>
 
-          <div class="ppt-export-dialog-body">
-            <div
-              v-if="isLoading"
-              class="ppt-export-loading"
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              <div class="ppt-export-spinner"></div>
-              <span>{{ loadingMessage }}</span>
+          <!-- 主体内容 -->
+          <div class="sm-ppt-dialog__body">
+            <!-- 初始化加载中 -->
+            <div v-if="initializing" class="sm-ppt-dialog__generating">
+              <div class="sm-ppt-dialog__spinner"></div>
+              <p class="sm-ppt-dialog__status">正在初始化...</p>
             </div>
 
-            <div v-if="exportStage !== 'idle' && !isLoading" class="ppt-export-progress">
-              <div
-                v-for="step in progressSteps"
-                :key="step.key"
-                class="ppt-export-progress-step"
-                :class="{ active: step.active, done: step.done }"
+            <!-- 未配置状态 -->
+            <div v-else-if="dialogPhase === 'unconfigured'" class="sm-ppt-dialog__unconfigured">
+              <div class="sm-ppt-dialog__icon">⚙️</div>
+              <h3 class="sm-ppt-dialog__empty-title">请先配置阿里云妙笔</h3>
+              <p class="sm-ppt-dialog__empty-desc">
+                您需要先在设置中配置阿里云妙笔的 AccessKey 才能使用 PPT 生成功能
+              </p>
+              <button
+                type="button"
+                class="sm-button sm-button--primary"
+                @click="handleOpenSettings"
               >
-                <span class="ppt-export-progress-dot"></span>
-                <span>{{ step.label }}</span>
-              </div>
+                前往设置
+              </button>
             </div>
 
-            <div v-if="error" class="ppt-export-error" :class="`ppt-export-error-${error.type}`">
-              <div class="ppt-export-error-content">
-                <span class="ppt-export-error-icon">{{ getPptExportErrorIcon(error.type) }}</span>
-                <span class="ppt-export-error-message">{{ error.message }}</span>
+            <!-- 大纲生成/编辑状态 -->
+            <template v-else-if="dialogPhase === 'outline'">
+              <!-- 生成中 -->
+              <div v-if="outlineStatus === 'generating'" class="sm-ppt-dialog__generating">
+                <div class="sm-ppt-dialog__spinner"></div>
+                <p class="sm-ppt-dialog__status">正在生成大纲...</p>
+                <pre class="sm-ppt-dialog__outline-preview">{{ outlineText }}</pre>
               </div>
-              <div class="ppt-export-error-actions">
+
+              <!-- 生成错误 -->
+              <div
+                v-else-if="outlineStatus === 'error'"
+                class="sm-ppt-dialog__error sm-ppt-dialog__error--block"
+              >
+                <div class="sm-ppt-dialog__error-icon">⚠️</div>
+                <p class="sm-ppt-dialog__error-message">{{ pptError || '生成大纲失败' }}</p>
                 <button
-                  v-if="error.retryable"
                   type="button"
-                  class="ppt-export-error-retry"
-                  @click="handleRetry"
+                  class="sm-button sm-button--secondary"
+                  @click="handleRegenerateOutline"
                 >
                   重试
                 </button>
-                <button type="button" class="ppt-export-error-close" @click="clearError">×</button>
-              </div>
-            </div>
-
-            <template v-if="hasPreview">
-              <div v-if="previewData?.warning" class="ppt-export-warning">
-                {{ previewData.warning }}
               </div>
 
-              <div class="ppt-export-main-layout">
-                <div class="ppt-export-left-panel">
-                  <PptTemplatePicker
-                    :templates="availableTemplates"
-                    :selected-template-id="selectedTemplateId"
-                    :template-preview-map="templatePreviewMap"
-                    @select-template="selectedTemplateId = $event"
-                  />
+              <!-- 生成完成，可编辑 -->
+              <div v-else class="sm-ppt-dialog__outline-editor">
+                <label class="sm-ppt-dialog__label" for="outline-textarea">
+                  PPT 大纲（可编辑）
+                </label>
+                <p class="sm-ppt-dialog__hint">
+                  确认后会在当前弹窗下方直接打开妙笔编辑区，生成完成后可继续编辑并导出。
+                </p>
+                <textarea
+                  id="outline-textarea"
+                  v-model="editedOutlineText"
+                  class="sm-ppt-dialog__textarea"
+                  rows="12"
+                  placeholder="大纲内容..."
+                ></textarea>
+              </div>
+            </template>
+
+            <!-- PPT 渲染状态 -->
+            <template v-else-if="dialogPhase === 'rendering'">
+              <div class="sm-ppt-dialog__render-shell">
+                <div
+                  class="sm-ppt-dialog__render-banner"
+                  :class="{
+                    'sm-ppt-dialog__render-banner--error': renderingStatus === 'error',
+                    'sm-ppt-dialog__render-banner--success': isRenderComplete
+                  }"
+                >
+                  <div
+                    v-if="sdkLoading || renderingStatus === 'making'"
+                    class="sm-ppt-dialog__spinner"
+                  ></div>
+                  <div v-else-if="isRenderComplete" class="sm-ppt-dialog__success-icon">✓</div>
+                  <div v-else class="sm-ppt-dialog__error-icon">⚠️</div>
+                  <div class="sm-ppt-dialog__render-copy">
+                    <p class="sm-ppt-dialog__render-title">{{ renderingTitle }}</p>
+                    <p class="sm-ppt-dialog__render-desc">{{ renderingDescription }}</p>
+                    <p v-if="artifactId !== null" class="sm-ppt-dialog__render-meta">
+                      当前 Artifact ID：{{ artifactId }}
+                    </p>
+                  </div>
                 </div>
 
-                <div class="ppt-export-right-panel">
-                  <PptSlideDetailPanel
-                    :slide="currentSlide"
-                    :is-generating="isGenerating"
-                    :selected-count="selectedCount"
-                    :total-slides="exportConfig?.slides.length || 0"
-                    @toggle-all="handleToggleAll"
-                    @toggle-slide-selection="
-                      currentSlide && toggleSlideSelection(currentSlide.index)
-                    "
-                  />
-
-                  <PptSlideThumbnailStrip
-                    :slides="exportConfig?.slides || []"
-                    :current-slide-index="currentSlideIndex"
-                    @select-slide="currentSlideIndex = $event"
-                    @toggle-selection="toggleSlideSelection"
-                  />
-                </div>
+                <div ref="pptContainer" class="sm-ppt-dialog__ppt-container"></div>
               </div>
             </template>
           </div>
 
-          <div class="ppt-export-dialog-footer">
-            <span class="ppt-export-status">
-              <template v-if="isGenerating">{{ loadingMessage }}</template>
-              <template v-else-if="hasPreview">
-                已选择 {{ selectedCount }} / {{ exportConfig?.slides.length }} 页
-              </template>
-              <template v-else-if="isLoading">{{ loadingMessage }}</template>
-            </span>
-            <div class="ppt-export-actions">
+          <!-- 底部操作栏 -->
+          <div class="sm-ppt-dialog__footer">
+            <template v-if="dialogPhase === 'outline' && outlineStatus === 'done'">
               <button
                 type="button"
-                class="ppt-export-btn ppt-export-btn-cancel"
-                :disabled="isGenerating"
+                class="sm-button sm-button--secondary"
+                :disabled="isProcessing"
+                @click="handleRegenerateOutline"
+              >
+                重新生成
+              </button>
+              <button
+                type="button"
+                class="sm-button sm-button--primary"
+                :disabled="isProcessing || !editedOutlineText.trim()"
+                @click="handleConfirmOutline"
+              >
+                确认生成
+              </button>
+            </template>
+
+            <template v-else-if="isRenderComplete">
+              <button type="button" class="sm-button sm-button--primary" @click="handleClose">
+                完成
+              </button>
+            </template>
+
+            <template v-else>
+              <button
+                type="button"
+                class="sm-button sm-button--secondary"
+                :disabled="isProcessing || initializing"
                 @click="handleClose"
               >
                 取消
               </button>
-              <button
-                type="button"
-                class="ppt-export-btn ppt-export-btn-export"
-                :disabled="!canGenerate"
-                @click="handleExport"
-              >
-                <span v-if="isGenerating" class="ppt-export-btn-spinner"></span>
-                {{ isGenerating ? '生成中...' : '导出 PPT' }}
-              </button>
-            </div>
+            </template>
           </div>
         </div>
       </div>
@@ -333,7 +457,7 @@ async function handleRetry(): Promise<void> {
 </template>
 
 <style scoped>
-.ppt-export-dialog-overlay {
+.sm-ppt-dialog-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -348,23 +472,18 @@ async function handleRetry(): Promise<void> {
   overflow: hidden;
 }
 
-.ppt-export-dialog {
-  width: min(960px, calc(100vw - 48px));
-  height: min(720px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
+.sm-ppt-dialog {
+  width: min(800px, calc(100vw - 48px));
+  height: min(600px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
   background: var(--sm-color-surface-3);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: border-color var(--sm-transition-fast);
 }
 
-.ppt-export-dialog-stage-generating {
-  border-color: var(--sm-color-border-accent);
-}
-
-.ppt-export-dialog-header {
+.sm-ppt-dialog__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -373,285 +492,297 @@ async function handleRetry(): Promise<void> {
   flex-shrink: 0;
 }
 
-.ppt-export-dialog-title {
+.sm-ppt-dialog__title {
   font-size: 16px;
   font-weight: 600;
   color: var(--sm-color-text-primary);
   margin: 0;
-  letter-spacing: -0.01em;
 }
 
-.ppt-export-dialog-subtitle {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-}
-
-.ppt-export-dialog-close {
-  min-width: 64px;
+.sm-ppt-dialog__close {
+  width: 32px;
   height: 32px;
-  padding: 0 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  border-radius: 999px;
-  transition:
-    border-color var(--sm-transition-fast),
-    color var(--sm-transition-fast),
-    background-color var(--sm-transition-fast);
+  border: none;
+  background: transparent;
+  color: var(--sm-color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--sm-radius-sm);
+  transition: background-color var(--sm-transition-fast);
 }
 
-.ppt-export-dialog-close:hover:not(:disabled) {
-  border-color: var(--sm-color-border-accent);
-  color: var(--sm-color-text-primary);
+.sm-ppt-dialog__close:hover:not(:disabled) {
+  background: var(--sm-color-surface-hover);
 }
 
-.ppt-export-dialog-close:disabled {
+.sm-ppt-dialog__close:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
-  opacity: 0.6;
 }
 
-.ppt-export-dialog-body {
+.sm-ppt-dialog__body {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  padding: 0;
+  overflow: auto;
+  padding: 20px;
 }
 
-.ppt-export-loading {
+.sm-ppt-dialog__unconfigured {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 32px;
-  color: var(--sm-color-text-secondary);
+  gap: 16px;
+  text-align: center;
+  height: 100%;
 }
 
-.ppt-export-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--sm-color-border-default);
+.sm-ppt-dialog__icon {
+  font-size: 48px;
+  opacity: 0.8;
+}
+
+.sm-ppt-dialog__empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+  margin: 0;
+}
+
+.sm-ppt-dialog__empty-desc {
+  font-size: 14px;
+  color: var(--sm-color-text-secondary);
+  max-width: 400px;
+  margin: 0;
+}
+
+.sm-ppt-dialog__generating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 100%;
+}
+
+.sm-ppt-dialog__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--sm-color-border-default);
   border-top-color: var(--sm-color-accent);
   border-radius: 50%;
-  animation: ppt-export-spin 0.8s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
 
-.ppt-export-progress {
-  display: flex;
-  gap: 10px;
-  margin: 16px 20px 0;
-  padding: 12px 14px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-2);
-  flex-wrap: wrap;
-}
-
-.ppt-export-progress-step {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--sm-color-text-tertiary);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.ppt-export-progress-step.active {
-  color: var(--sm-color-accent-hover);
-}
-
-.ppt-export-progress-step.done {
-  color: var(--sm-color-status-success);
-}
-
-.ppt-export-progress-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.9;
-}
-
-@keyframes ppt-export-spin {
+@keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.ppt-export-error {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 16px 20px 0;
-  padding: 12px 14px;
+.sm-ppt-dialog__status {
+  font-size: 14px;
+  color: var(--sm-color-text-secondary);
+  margin: 0;
+}
+
+.sm-ppt-dialog__outline-preview {
+  font-size: 12px;
+  color: var(--sm-color-text-tertiary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  background: var(--sm-color-surface-2);
   border-radius: var(--sm-radius-md);
-  border: 1px solid;
-  font-size: 13px;
 }
 
-.ppt-export-error-parse {
-  background: rgba(197, 161, 101, 0.08);
-  border-color: rgba(197, 161, 101, 0.22);
-  color: var(--sm-color-status-warning);
-}
-
-.ppt-export-error-style {
-  background: rgba(199, 120, 120, 0.08);
-  border-color: rgba(199, 120, 120, 0.22);
-  color: var(--sm-color-status-danger);
-}
-
-.ppt-export-error-generate {
-  background: rgba(199, 120, 120, 0.08);
-  border-color: rgba(199, 120, 120, 0.22);
-  color: var(--sm-color-status-danger);
-}
-
-.ppt-export-error-download {
-  background: rgba(199, 120, 120, 0.08);
-  border-color: rgba(199, 120, 120, 0.22);
-  color: var(--sm-color-status-danger);
-}
-
-.ppt-export-error-network {
-  background: rgba(199, 120, 120, 0.08);
-  border-color: rgba(199, 120, 120, 0.22);
-  color: var(--sm-color-status-danger);
-}
-
-.ppt-export-error-content {
+.sm-ppt-dialog__error {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-}
-
-.ppt-export-error-icon {
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: color-mix(in srgb, currentColor 15%, transparent);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.ppt-export-error-message {
-  flex: 1;
-}
-
-.ppt-export-error-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ppt-export-error-retry {
-  padding: 4px 10px;
-  border: 1px solid currentColor;
-  border-radius: var(--sm-radius-sm);
-  background: transparent;
-  color: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.ppt-export-error-retry:hover {
-  background: color-mix(in srgb, currentColor 10%, transparent);
-}
-
-.ppt-export-error-close {
-  padding: 0;
-  border: none;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-}
-
-.ppt-export-error-close:hover {
-  opacity: 1;
-}
-
-.ppt-export-warning {
-  margin: 16px 20px 0;
-  padding: 10px 12px;
-  border: 1px solid rgba(245, 158, 11, 0.2);
+  gap: 12px;
+  padding: 24px;
+  background: rgba(199, 120, 120, 0.08);
+  border: 1px solid rgba(199, 120, 120, 0.22);
   border-radius: var(--sm-radius-md);
-  background: rgba(245, 158, 11, 0.08);
-  color: var(--sm-color-status-warning);
-  font-size: 12px;
-  line-height: 1.5;
+  color: var(--sm-color-status-danger);
 }
 
-.ppt-export-main-layout {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  gap: 0;
-  overflow: hidden;
+.sm-ppt-dialog__error--block {
+  height: 100%;
 }
 
-.ppt-export-left-panel {
-  width: 260px;
-  flex-shrink: 0;
-  min-height: 0;
+.sm-ppt-dialog__error-icon {
+  font-size: 32px;
+}
+
+.sm-ppt-dialog__error-message {
+  font-size: 14px;
+  margin: 0;
+  text-align: center;
+}
+
+.sm-ppt-dialog__outline-editor {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  border-right: 1px solid var(--sm-color-border-subtle);
-  padding: 16px;
+  gap: 12px;
+  height: 100%;
 }
 
-.ppt-export-right-panel {
+.sm-ppt-dialog__label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sm-color-text-primary);
+}
+
+.sm-ppt-dialog__hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
+}
+
+.sm-ppt-dialog__textarea {
   flex: 1;
-  min-width: 0;
-  min-height: 0;
+  min-height: 200px;
+  padding: 12px;
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  color: var(--sm-color-text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+  resize: none;
+  font-family: inherit;
+}
+
+.sm-ppt-dialog__textarea:focus {
+  outline: none;
+  border-color: var(--sm-color-border-accent);
+}
+
+.sm-ppt-dialog__rendering {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.sm-ppt-dialog__render-complete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  background: rgba(130, 170, 130, 0.08);
+  border: 1px solid rgba(130, 170, 130, 0.22);
+  border-radius: var(--sm-radius-md);
+  color: var(--sm-color-status-success);
+}
+
+.sm-ppt-dialog__render-shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
   flex-direction: column;
   gap: 16px;
-  overflow: hidden;
-  padding: 20px;
 }
 
-.ppt-export-dialog-footer {
+.sm-ppt-dialog__render-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  flex-shrink: 0;
+}
+
+.sm-ppt-dialog__render-banner--success {
+  background: rgba(130, 170, 130, 0.08);
+  border-color: rgba(130, 170, 130, 0.22);
+}
+
+.sm-ppt-dialog__render-banner--error {
+  background: rgba(199, 120, 120, 0.08);
+  border-color: rgba(199, 120, 120, 0.22);
+}
+
+.sm-ppt-dialog__render-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sm-ppt-dialog__render-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+}
+
+.sm-ppt-dialog__render-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
+}
+
+.sm-ppt-dialog__render-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--sm-color-text-tertiary);
+}
+
+.sm-ppt-dialog__success-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.sm-ppt-dialog__success-message {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.sm-ppt-dialog__ppt-container {
+  flex: 1;
+  min-height: 300px;
+  min-width: 0;
+  border-radius: var(--sm-radius-md);
+  overflow: hidden;
+  background: var(--sm-color-surface-1);
+}
+
+.sm-ppt-dialog__footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: flex-end;
+  gap: 12px;
   padding: 16px 20px;
   border-top: 1px solid var(--sm-color-border-subtle);
   background: var(--sm-color-surface-2);
   flex-shrink: 0;
 }
 
-.ppt-export-status {
-  font-size: 13px;
-  color: var(--sm-color-text-secondary);
-}
-
-.ppt-export-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.ppt-export-btn {
+.sm-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   padding: 0 16px;
   height: 36px;
   border-radius: 999px;
@@ -663,43 +794,35 @@ async function handleRetry(): Promise<void> {
     color var(--sm-transition-fast),
     background-color var(--sm-transition-fast),
     opacity var(--sm-transition-fast);
+  border: 1px solid transparent;
 }
 
-.ppt-export-btn:disabled {
+.sm-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
 
-.ppt-export-btn-cancel {
-  border: 1px solid var(--sm-color-border-default);
+.sm-button--secondary {
+  border-color: var(--sm-color-border-default);
   background: var(--sm-color-surface-1);
   color: var(--sm-color-text-secondary);
 }
 
-.ppt-export-btn-cancel:hover:not(:disabled) {
+.sm-button--secondary:hover:not(:disabled) {
   border-color: var(--sm-color-border-strong);
   color: var(--sm-color-text-primary);
   background: var(--sm-color-surface-hover);
 }
 
-.ppt-export-btn-export {
-  border: 1px solid var(--sm-color-border-accent);
+.sm-button--primary {
+  border-color: var(--sm-color-border-accent);
   background: rgba(142, 149, 217, 0.12);
   color: var(--sm-color-text-primary);
 }
 
-.ppt-export-btn-export:hover:not(:disabled) {
+.sm-button--primary:hover:not(:disabled) {
   background: rgba(142, 149, 217, 0.18);
   border-color: rgba(161, 167, 230, 0.6);
-}
-
-.ppt-export-btn-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: ppt-export-spin 0.6s linear infinite;
 }
 
 .fade-enter-active,
@@ -712,48 +835,16 @@ async function handleRetry(): Promise<void> {
   opacity: 0;
 }
 
-.fade-enter-active .ppt-export-dialog,
-.fade-leave-active .ppt-export-dialog {
+.fade-enter-active .sm-ppt-dialog,
+.fade-leave-active .sm-ppt-dialog {
   transition:
     transform var(--sm-transition-medium),
     opacity var(--sm-transition-medium);
 }
 
-.fade-enter-from .ppt-export-dialog,
-.fade-leave-to .ppt-export-dialog {
+.fade-enter-from .sm-ppt-dialog,
+.fade-leave-to .sm-ppt-dialog {
   transform: translateY(var(--sm-motion-distance-md));
   opacity: 0;
-}
-
-@media (max-width: 960px) {
-  .ppt-export-dialog {
-    width: min(1120px, calc(100vw - 24px));
-    height: calc(100vh - 48px);
-  }
-
-  .ppt-export-main-layout {
-    flex-direction: column;
-  }
-
-  .ppt-export-left-panel {
-    width: 100%;
-    height: 200px;
-    border-right: none;
-    border-bottom: 1px solid var(--sm-color-border-subtle);
-  }
-
-  .ppt-export-dialog-footer {
-    padding: 12px 16px;
-  }
-
-  .ppt-export-actions {
-    gap: 8px;
-  }
-
-  .ppt-export-btn {
-    height: 32px;
-    padding: 0 12px;
-    font-size: 12px;
-  }
 }
 </style>

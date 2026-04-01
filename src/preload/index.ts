@@ -15,7 +15,6 @@ import { promptEngineeringApi } from './apis/promptEngineering'
 import { knowledgeMCPApi } from './apis/knowledgeMCP'
 import { documentApi } from './apis/document'
 import { voiceRecognitionApi } from './apis/voiceRecognition'
-import { pptTemplateApi } from './apis/pptTemplate'
 import { pptExportApi } from './apis/pptExport'
 
 /**
@@ -43,8 +42,6 @@ const api = {
   knowledgeMCP: knowledgeMCPApi,
   // 语音识别相关 API
   voiceRecognition: voiceRecognitionApi,
-  // PPT 模板相关 API
-  pptTemplate: pptTemplateApi,
   // PPT 导出相关 API
   pptExport: pptExportApi
 }

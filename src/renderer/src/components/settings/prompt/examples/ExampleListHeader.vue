@@ -76,13 +76,17 @@ function formatScore(score: number): string {
     <div class="sm-prompt-example-header__stats">
       <div class="sm-prompt-example-header__stat-card">
         <span class="sm-prompt-example-header__stat-label">示例</span>
-        <span class="sm-prompt-example-header__stat-value sm-prompt-example-header__stat-value--accent">
+        <span
+          class="sm-prompt-example-header__stat-value sm-prompt-example-header__stat-value--accent"
+        >
           {{ stats?.total ?? 0 }}
         </span>
       </div>
       <div class="sm-prompt-example-header__stat-card">
         <span class="sm-prompt-example-header__stat-label">平均质量</span>
-        <span class="sm-prompt-example-header__stat-value sm-prompt-example-header__stat-value--success">
+        <span
+          class="sm-prompt-example-header__stat-value sm-prompt-example-header__stat-value--success"
+        >
           {{ stats ? formatScore(stats.avgQualityScore) : '-' }}
         </span>
       </div>
@@ -104,7 +108,9 @@ function formatScore(score: number): string {
         </select>
       </div>
 
-      <div class="sm-prompt-example-header__filter-group sm-prompt-example-header__filter-group--tool">
+      <div
+        class="sm-prompt-example-header__filter-group sm-prompt-example-header__filter-group--tool"
+      >
         <label class="sm-prompt-example-header__label">工具</label>
         <select
           :value="filter.toolName ?? ''"
@@ -119,7 +125,9 @@ function formatScore(score: number): string {
         </select>
       </div>
 
-      <div class="sm-prompt-example-header__filter-group sm-prompt-example-header__filter-group--search">
+      <div
+        class="sm-prompt-example-header__filter-group sm-prompt-example-header__filter-group--search"
+      >
         <label class="sm-prompt-example-header__label">搜索</label>
         <input
           type="text"

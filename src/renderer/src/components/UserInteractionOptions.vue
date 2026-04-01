@@ -40,18 +40,19 @@ const hiddenOptionCount = computed(() => {
 })
 
 const showScrollableList = computed(() => {
-  return (
-    expanded.value &&
-    props.interactionInfo.interactionType === 'presentation_template' &&
-    props.interactionInfo.options.length > initialVisibleCount.value
-  )
+  return expanded.value && props.interactionInfo.options.length > initialVisibleCount.value
 })
 
 const expandButtonText = computed(() => {
-  if (props.interactionInfo.interactionType === 'presentation_template') {
-    return `查看更多模板（剩余 ${hiddenOptionCount.value} 个）`
-  }
   return `查看更多选项（剩余 ${hiddenOptionCount.value} 个）`
+})
+
+const shouldShowPptOutline = computed(() => {
+  return (
+    props.interactionInfo.interactionType === 'ppt_outline_confirmation' &&
+    typeof props.interactionInfo.outline === 'string' &&
+    props.interactionInfo.outline.trim().length > 0
+  )
 })
 
 function handleExpand(): void {
@@ -70,6 +71,10 @@ watch(
 <template>
   <div class="user-interaction-options">
     <div class="options-question">{{ interactionInfo.question }}</div>
+    <div v-if="shouldShowPptOutline" class="ppt-outline-preview">
+      <div class="ppt-outline-preview__label">大纲预览</div>
+      <pre class="ppt-outline-preview__content">{{ interactionInfo.outline }}</pre>
+    </div>
     <div class="options-list" :class="{ 'is-scrollable': showScrollableList }">
       <button
         v-for="option in visibleOptions"
@@ -111,6 +116,32 @@ watch(
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.ppt-outline-preview {
+  margin-bottom: 12px;
+  padding: 12px;
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+}
+
+.ppt-outline-preview__label {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sm-color-text-secondary);
+}
+
+.ppt-outline-preview__content {
+  margin: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--sm-color-text-primary);
 }
 
 .options-list.is-scrollable {

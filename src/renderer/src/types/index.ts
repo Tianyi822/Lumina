@@ -44,9 +44,6 @@ export * from '@shared/types/video'
 // 知识库相关类型
 export * from '@shared/types/knowledge'
 
-// PPT 模板相关类型
-export * from '@shared/types/ppt-template'
-
 // 提示词工程相关类型
 export * from '@shared/types/prompt'
 

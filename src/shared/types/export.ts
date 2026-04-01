@@ -1,9 +1,7 @@
-import type { PptStyleConfig } from './ppt-export'
-
 /**
  * 支持的导出格式
  */
-export type ExportFormat = 'markdown' | 'word' | 'pdf' | 'txt' | 'ppt'
+export type ExportFormat = 'markdown' | 'word' | 'pdf' | 'txt'
 
 /**
  * 消息导出请求
@@ -35,23 +33,4 @@ export interface ExportMessageResult {
   mimeType?: string
   /** 错误信息 */
   error?: string
-}
-
-/**
- * PPT 导出专用请求
- */
-export interface ExportPptRequest extends ExportMessageRequest {
-  format: 'ppt'
-  /** 导出配置选项 */
-  options?: PptExportOptions
-}
-
-/**
- * PPT 导出配置选项
- */
-export interface PptExportOptions {
-  /** 指定导出的页面索引（null 表示全部） */
-  pageIndices?: number[] | null
-  /** 样式配置 */
-  style?: PptStyleConfig
 }

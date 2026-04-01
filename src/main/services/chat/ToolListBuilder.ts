@@ -2,7 +2,7 @@ import type { ChatRequest, MCPToolReference } from '../../types/chat'
 import type { KnowledgeBaseReference } from '@shared/types/knowledge'
 import { sandboxToolService } from '../sandbox'
 import { knowledgeToolService } from '../knowledge'
-import { getPptTemplateService, presentationToolService } from '../presentation'
+import { presentationToolService } from '../presentation'
 import { videoToolService } from '../video'
 import type { StopController } from './StopController'
 import type { Logger } from '../logger'
@@ -18,13 +18,18 @@ export class ToolListBuilder {
   ) {}
 
   /**
-   * 判断当前请求是否需要暴露 PPT 模板工具
+   * 判断当前请求是否需要暴露 PPT 工具
+   * 通过关键词匹配检测 PPT 意图
    */
   shouldExposePresentationTools(request: ChatRequest): boolean {
-    if (request.selectedPptTemplate) {
-      return true
-    }
-    return getPptTemplateService().getAvailableTemplates().length > 0
+    const content = request.messages
+      .map((m) => m.content)
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+
+    const pptKeywords = ['ppt', '幻灯片', '演示文稿', 'presentation', 'slide', 'powerpoint']
+    return pptKeywords.some((keyword) => content.includes(keyword))
   }
 
   /**
@@ -54,7 +59,7 @@ export class ToolListBuilder {
       const presentationTools = this.buildPresentationTools()
       allTools.push(...presentationTools)
 
-      this.logger.info('已添加 PPT 模板工具到工具列表', 'main', {
+      this.logger.info('已添加 PPT 工具到工具列表', 'main', {
         sessionId,
         presentationToolCount: presentationTools.length,
         totalToolCount: allTools.length
@@ -105,7 +110,7 @@ export class ToolListBuilder {
   }
 
   /**
-   * 构建 PPT 模板工具列表
+   * 构建 PPT 工具列表
    */
   private buildPresentationTools(): MCPToolReference[] {
     return presentationToolService.getTools().map((tool) => {
@@ -154,7 +159,7 @@ export class ToolListBuilder {
         : tool.name
       return {
         serverName: tool.serverName || 'knowledge',
-        toolName: toolName,
+        toolName,
         description: tool.description,
         inputSchema: tool.inputSchema
       }

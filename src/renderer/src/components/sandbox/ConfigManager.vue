@@ -219,7 +219,10 @@ function formatDate(dateStr: string): string {
               </template>
               <template v-else>
                 <h3 class="detail-title">{{ selectedConfig.name }}</h3>
-                <button class="sm-button sm-button--secondary sm-button--small" @click="startEditing">
+                <button
+                  class="sm-button sm-button--secondary sm-button--small"
+                  @click="startEditing"
+                >
                   编辑
                 </button>
               </template>
@@ -257,12 +260,18 @@ function formatDate(dateStr: string): string {
                 <template v-if="deleteConfirmId === selectedConfig.id">
                   <span class="delete-hint">确定删除？</span>
                   <button class="sm-button sm-button--secondary" @click="cancelDelete">取消</button>
-                  <button class="sm-button sm-button--danger" @click="deleteConfig(selectedConfig.id)">
+                  <button
+                    class="sm-button sm-button--danger"
+                    @click="deleteConfig(selectedConfig.id)"
+                  >
                     确认删除
                   </button>
                 </template>
                 <template v-else>
-                  <button class="sm-button sm-button--danger" @click="confirmDelete(selectedConfig.id)">
+                  <button
+                    class="sm-button sm-button--danger"
+                    @click="confirmDelete(selectedConfig.id)"
+                  >
                     删除配置
                   </button>
                 </template>

@@ -106,7 +106,8 @@ export const useSandboxStore = defineStore('sandbox', () => {
 
       operationStore.showSuccess(
         result.previewReady ? '前端恢复成功' : '前端初始化已重试',
-        result.message || (result.previewReady ? `预览地址: ${result.previewUrl}` : '可继续查看日志排查')
+        result.message ||
+          (result.previewReady ? `预览地址: ${result.previewUrl}` : '可继续查看日志排查')
       )
 
       return true

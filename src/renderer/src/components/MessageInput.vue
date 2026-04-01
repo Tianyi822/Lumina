@@ -20,13 +20,12 @@ import type {
   ExportFormat,
   KnowledgeBase,
   MCPTool,
-  SelectedPptTemplate,
   UserInteractionRequest,
   VideoDuration,
   VideoQuality,
   VideoSize
 } from '@renderer/types'
-import { useChatStreamStore, useInputStateStore, useSessionStore } from '@renderer/stores'
+import { useChatStreamStore } from '@renderer/stores'
 import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
 import type { MessageOptionContext, ParsedOption } from '@renderer/utils/optionParser'
 
@@ -59,6 +58,7 @@ const emit = defineEmits<{
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableSandboxTools', value: boolean): void
   (e: 'select-export-format', format: ExportFormat): void
+  (e: 'select-ppt-outline-action', value: 'confirm' | 'edit', info: UserInteractionRequest): void
   (e: 'quick-reply-selected', messageId: string): void
 }>()
 
@@ -93,8 +93,6 @@ const { isDragging, handleDragOver, handleDragLeave, handleDrop, triggerFileUplo
 
 const chatStreamStore = useChatStreamStore()
 const { showUserInteraction, userInteractionInfo } = storeToRefs(chatStreamStore)
-const inputStateStore = useInputStateStore()
-const sessionStore = useSessionStore()
 
 interface VideoGenerationConfigSelection {
   size: VideoSize
@@ -328,17 +326,16 @@ async function handlePaste(event: ClipboardEvent): Promise<void> {
   }
 }
 
-async function handleUserInteractionSelect(value: string, label: string): Promise<void> {
-  chatStreamStore.hideUserInteraction()
-
-  if (userInteractionInfo.value?.interactionType === 'presentation_template') {
-    const selectedTemplate: SelectedPptTemplate = { id: value, name: label }
-    inputStateStore.updateSelectedPptTemplate(selectedTemplate)
-    await sessionStore.persistCurrentSelectionState()
-
-    sendMessage(`我选择了 PPT 模板「${label}」（templateId: ${value}）`)
+async function handleUserInteractionSelect(_value: string, label: string): Promise<void> {
+  if (userInteractionInfo.value?.interactionType === 'ppt_outline_confirmation') {
+    const selectedValue = _value === 'edit' ? 'edit' : 'confirm'
+    const interactionInfo = userInteractionInfo.value
+    chatStreamStore.hideUserInteraction()
+    emit('select-ppt-outline-action', selectedValue, interactionInfo)
     return
   }
+
+  chatStreamStore.hideUserInteraction()
 
   sendMessage(`我选择：${label}`)
 }
