@@ -210,10 +210,10 @@ defineExpose({ handleFilesLinked })
   flex-direction: column;
   flex: 1;
   min-width: 0;
-  height: 100%;
+  min-height: 0;
   padding: var(--sm-space-6);
   gap: var(--sm-space-4);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .kb-overview {

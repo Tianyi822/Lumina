@@ -138,13 +138,10 @@ function getFileNameWithoutExtension(fileName: string): string {
   position: relative;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
   padding: var(--sm-space-5) var(--sm-space-6) var(--sm-space-6);
   border: 1px solid var(--sm-color-border-subtle);
   border-radius: var(--sm-radius-lg);
   background: var(--sm-color-surface-1);
-  overflow-y: auto;
 }
 
 .section-header {
