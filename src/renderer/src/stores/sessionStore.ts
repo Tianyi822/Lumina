@@ -4,7 +4,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { Message, SessionListItem, SessionType } from '@renderer/types'
-import type { SessionData } from '@shared/types/session'
+import type { SessionData, SessionSelectionState } from '@shared/types/session'
 import { sessionMessageToMessage, messageToSessionMessage } from '@renderer/utils/messageHelpers'
 import { useMessageCacheStore } from './messageCacheStore'
 import { useInputStateStore } from './inputStateStore'
@@ -12,6 +12,18 @@ import { useChatStreamStore } from './chatStreamStore'
 
 // 默认新会话标题
 const DEFAULT_NEW_CHAT_TITLE = '新对话'
+
+interface CreateSessionOptions {
+  inheritSelectionState?: boolean
+}
+
+function createDefaultSelectionState(): SessionSelectionState {
+  return {
+    selectedMCPTools: [],
+    selectedKnowledgeBases: [],
+    enableSandboxTools: false
+  }
+}
 
 export const useSessionStore = defineStore('session', () => {
   // ==================== Dependencies ====================
@@ -161,11 +173,13 @@ export const useSessionStore = defineStore('session', () => {
   // 创建新会话
   async function createSession(
     title?: string,
-    sessionType?: SessionType
+    sessionType?: SessionType,
+    options: CreateSessionOptions = {}
   ): Promise<SessionData | null> {
-    // 保存当前输入状态，用于新会话继承
-    // 这确保了在没有当前会话时（如直接发送消息创建会话），输入状态不会丢失
-    const currentInputStateSnapshot = inputState.getCurrentSelectionState()
+    const { inheritSelectionState = true } = options
+    const initialSelectionState = inheritSelectionState
+      ? inputState.getCurrentSelectionState()
+      : createDefaultSelectionState()
 
     try {
       // 保存当前会话状态（如果有）
@@ -185,17 +199,19 @@ export const useSessionStore = defineStore('session', () => {
 
       // 将当前输入状态应用到新会话
       inputState.saveCurrentState(session.sessionId)
-      // 使用保存的快照更新新会话的选择状态
-      inputState.applySessionSelectionState(session.sessionId, currentInputStateSnapshot)
+      // 根据创建来源决定是否继承上一个会话的工具选择状态
+      inputState.applySessionSelectionState(session.sessionId, initialSelectionState)
       // 切换到新会话的输入状态
       inputState.switchToSession(session.sessionId)
+      currentSession.value.selectionState = initialSelectionState
 
       await refreshSessionList()
 
       window.api.logger.info('[SessionStore] 创建新会话', {
         sessionId: session.sessionId,
         title: session.title,
-        type: sessionType
+        type: sessionType,
+        inheritSelectionState
       })
 
       return session
@@ -215,7 +231,7 @@ export const useSessionStore = defineStore('session', () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         messages: [],
-        selectionState: currentInputStateSnapshot
+        selectionState: initialSelectionState
       }
 
       currentSession.value = fallbackSession
@@ -224,7 +240,7 @@ export const useSessionStore = defineStore('session', () => {
 
       // 将快照状态应用到新会话并切换
       inputState.saveCurrentState(newSessionId)
-      inputState.applySessionSelectionState(newSessionId, currentInputStateSnapshot)
+      inputState.applySessionSelectionState(newSessionId, initialSelectionState)
       inputState.switchToSession(newSessionId)
 
       return fallbackSession
