@@ -22,13 +22,32 @@ interface MiaobiBaseResponse<T> {
   Data?: T
 }
 
+/** 妙笔大纲生成 SSE 事件的实际响应结构 */
 interface OutlineEventPayload {
   TaskId?: string
   Outline?: string
   Text?: string
   Delta?: string
   Content?: string
-  FinishReason?: string
+  Header?: {
+    ErrorCode?: string
+    ErrorMessage?: string
+    Event?: string
+    SessionId?: string
+    StatusCode?: number
+    TaskId?: string
+    TraceId?: string
+  }
+  Payload?: {
+    Output?: {
+      Text?: string
+    }
+  }
+  RequestId?: string
+  HttpStatusCode?: number
+  Code?: string
+  Message?: string
+  Success?: boolean
 }
 
 interface InitiateCreationData {
@@ -82,7 +101,34 @@ function normalizeConfig(config?: Partial<AliyunMiaobiConfig> | null): AliyunMia
 }
 
 function extractChunkText(payload: OutlineEventPayload): string {
-  return payload.Text || payload.Delta || payload.Content || ''
+  return (
+    payload.Payload?.Output?.Text ||
+    payload.Outline ||
+    payload.Text ||
+    payload.Delta ||
+    payload.Content ||
+    ''
+  )
+}
+
+function extractTaskId(payload: OutlineEventPayload): string {
+  return payload.Header?.TaskId || payload.TaskId || ''
+}
+
+function extractSnapshotDelta(previous: string, next: string): string {
+  if (!next) {
+    return ''
+  }
+
+  if (!previous) {
+    return next
+  }
+
+  if (next.startsWith(previous)) {
+    return next.slice(previous.length)
+  }
+
+  return ''
 }
 
 export class AliyunMiaobiService {
@@ -316,12 +362,12 @@ export class AliyunMiaobiService {
 
     const params = this.buildParams(
       'RunPptOutlineGeneration',
-      '/quanmiao/miaosou/runPptOutlineGeneration',
+      '/pop/ppt/runPptOutlineGeneration',
       'sse'
     )
 
     let taskId = ''
-    let outline = ''
+    let outlineSnapshot = ''
 
     try {
       logger.info('开始生成妙笔 PPT 大纲', 'main', {
@@ -347,24 +393,52 @@ export class AliyunMiaobiService {
           continue
         }
 
-        if (payload.TaskId) {
-          taskId = payload.TaskId
+        const headerEvent = payload.Header?.Event
+        logger.debug('妙笔大纲 SSE 事件', 'main', {
+          sessionId,
+          event: headerEvent,
+          hasTaskId: !!payload.Header?.TaskId,
+          hasText: !!payload.Payload?.Output?.Text,
+          textLength: payload.Payload?.Output?.Text?.length ?? 0
+        })
+
+        // 从 Header 中提取 TaskId
+        const nextTaskId = extractTaskId(payload)
+        if (nextTaskId) {
+          taskId = nextTaskId
         }
 
-        if (payload.Outline) {
-          outline = payload.Outline
-        }
+        // 从 Payload.Output.Text 提取流式文本
+        const outlineText = extractChunkText(payload)
+        if (outlineText) {
+          const deltaText = extractSnapshotDelta(outlineSnapshot, outlineText)
 
-        const chunkText = extractChunkText(payload)
-        if (chunkText) {
-          outline += chunkText
-          onChunk?.(chunkText)
+          if (!deltaText && outlineSnapshot && outlineSnapshot !== outlineText) {
+            logger.debug('妙笔大纲 SSE 返回了重置后的完整快照', 'main', {
+              sessionId,
+              event: headerEvent,
+              previousLength: outlineSnapshot.length,
+              nextLength: outlineText.length
+            })
+          }
+
+          outlineSnapshot = outlineText
+
+          if (deltaText) {
+            onChunk?.(deltaText)
+          }
         }
       }
 
-      const finalOutline = outline.trim()
+      const finalOutline = outlineSnapshot.trim()
       if (!taskId || !finalOutline) {
         logger.warn('妙笔大纲生成结果缺少必要字段', 'main', {
+          sessionId,
+          taskId,
+          outlineLength: finalOutline.length
+        })
+      } else {
+        logger.info('妙笔大纲生成完成', 'main', {
           sessionId,
           taskId,
           outlineLength: finalOutline.length
