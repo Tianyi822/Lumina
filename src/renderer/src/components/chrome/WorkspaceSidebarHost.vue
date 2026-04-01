@@ -170,7 +170,7 @@ async function handleRefreshSandboxList(): Promise<void> {
               class="sm-button sm-button--primary sm-workspace-sidebar-host__action"
               @click="handleNewChat"
             >
-              创建智能体
+              创建会话
             </button>
           </template>
 

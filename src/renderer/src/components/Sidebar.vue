@@ -46,7 +46,7 @@ function handleDeleteSession(sessionId: string): void {
     <WorkspaceSidebarChrome :count="sessions.length">
       <template #actions>
         <button class="sm-button sm-button--primary new-chat-btn" @click="handleNewChat">
-          创建智能体
+          创建会话
         </button>
       </template>
     </WorkspaceSidebarChrome>
