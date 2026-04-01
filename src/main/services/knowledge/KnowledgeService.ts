@@ -3,6 +3,7 @@ import { join, extname, isAbsolute } from 'path'
 
 import mammoth from 'mammoth'
 import WordExtractor from 'word-extractor'
+import officeParser from 'officeparser'
 import { getVectorDBService, type DocumentChunk, type SearchResult } from '@main/services/vector'
 import { EmbeddingService } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
@@ -46,7 +47,17 @@ export function writeKnowledgeBases(knowledgeBases: KnowledgeBase[]): void {
 }
 
 // 支持的文件类型
-const SUPPORTED_FILE_TYPES = new Set(['.txt', '.md', '.pdf', '.doc', '.docx', '.csv'])
+const SUPPORTED_FILE_TYPES = new Set([
+  '.txt',
+  '.md',
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.csv',
+  '.xls',
+  '.xlsx',
+  '.pptx'
+])
 
 // 读取文本文件内容
 async function readTextFile(filePath: string): Promise<string> {
@@ -127,6 +138,45 @@ async function readDocFile(filePath: string): Promise<string> {
   }
 }
 
+// 读取 pptx 文件内容（仅提取文本，忽略格式和动画）
+async function readPptxFile(filePath: string): Promise<string> {
+  try {
+    logger.info('开始解析 pptx 文件', 'main', { filePath })
+    const config = {
+      ignoreNotes: false,
+      newlineDelimiter: '\n',
+      outputErrorToConsole: false
+    }
+    const ast = await officeParser.parseOffice(filePath, config)
+    const fullText = ast.toText()
+    logger.info('pptx 解析完成', 'main', { textLength: fullText.length })
+    return fullText
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('pptx 解析失败', 'main', { filePath, error: errorMessage })
+    throw new Error(`pptx 解析失败: ${errorMessage}`)
+  }
+}
+
+// 读取 excel 文件内容（仅提取文本）
+async function readExcelFile(filePath: string): Promise<string> {
+  try {
+    logger.info('开始解析 excel 文件', 'main', { filePath })
+    const config = {
+      newlineDelimiter: '\n',
+      outputErrorToConsole: false
+    }
+    const ast = await officeParser.parseOffice(filePath, config)
+    const fullText = ast.toText()
+    logger.info('excel 解析完成', 'main', { textLength: fullText.length })
+    return fullText
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('excel 解析失败', 'main', { filePath, error: errorMessage })
+    throw new Error(`excel 解析失败: ${errorMessage}`)
+  }
+}
+
 // 根据文件类型读取文件内容
 async function readFileContent(filePath: string, fileName: string): Promise<string> {
   const ext = extname(fileName).toLowerCase()
@@ -141,6 +191,14 @@ async function readFileContent(filePath: string, fileName: string): Promise<stri
 
   if (ext === '.doc') {
     return readDocFile(filePath)
+  }
+
+  if (ext === '.pptx') {
+    return readPptxFile(filePath)
+  }
+
+  if (ext === '.xls' || ext === '.xlsx') {
+    return readExcelFile(filePath)
   }
 
   // 其他类型作为文本文件读取

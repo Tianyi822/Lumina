@@ -47,12 +47,7 @@ const {
   reset
 } = usePptExport()
 
-const {
-  loading: sdkLoading,
-  loadSDK,
-  createPPT,
-  destroy: destroySDK
-} = useQuanmiaoSDK()
+const { loading: sdkLoading, loadSDK, createPPT, destroy: destroySDK } = useQuanmiaoSDK()
 
 // ==================== 状态定义 ====================
 
