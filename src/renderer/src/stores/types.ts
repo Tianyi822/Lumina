@@ -1,6 +1,6 @@
 // Store 共享类型定义
 
-import type { MCPTool, KnowledgeBase, SelectedPptTemplate } from '@renderer/types'
+import type { MCPTool, KnowledgeBase } from '@renderer/types'
 
 // 会话输入状态
 export interface SessionInputState {
@@ -9,7 +9,6 @@ export interface SessionInputState {
   selectedMCPTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
   enableSandboxTools: boolean
-  selectedPptTemplate: SelectedPptTemplate | null
 }
 
 // 序列化后的输入状态（用于持久化）
@@ -28,7 +27,6 @@ export interface SerializedInputState extends Omit<
     name: string
     description?: string
   }>
-  selectedPptTemplate: SelectedPptTemplate | null
 }
 
 // 会话发送状态

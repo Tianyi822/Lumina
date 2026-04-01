@@ -1,5 +1,3 @@
-import type { SelectedPptTemplate } from './ppt'
-
 /**
  * 聊天消息的结构
  */
@@ -83,7 +81,10 @@ export interface UserInteractionOption {
 export interface UserInteractionRequest {
   question: string
   options: UserInteractionOption[]
-  interactionType?: 'generic' | 'presentation_template'
+  interactionType?: 'generic' | 'ppt_outline_confirmation'
+  prompt?: string
+  outline?: string
+  taskId?: string
   initialVisibleCount?: number
 }
 
@@ -99,7 +100,6 @@ export interface ChatRequest {
   selectedKnowledgeBases?: KnowledgeBaseReference[]
   maxReactIterations?: number
   enableSandboxTools?: boolean
-  selectedPptTemplate?: SelectedPptTemplate | null
 }
 
 /**

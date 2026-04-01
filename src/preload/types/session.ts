@@ -1,7 +1,6 @@
 import type { TokenUsage } from './chat'
 import type { MCPTool } from './mcp'
 import type { KnowledgeBase } from './knowledge'
-import type { SelectedPptTemplate } from './ppt'
 
 /**
  * 持久化的消息结构
@@ -28,7 +27,6 @@ export interface SessionSelectionState {
   selectedMCPTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
   enableSandboxTools: boolean
-  selectedPptTemplate?: SelectedPptTemplate | null
 }
 
 /**
