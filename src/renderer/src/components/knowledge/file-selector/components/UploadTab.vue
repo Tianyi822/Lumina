@@ -37,7 +37,9 @@ function formatSize(bytes: number): string {
 <template>
   <div class="tab-content">
     <div class="upload-copy">
-      <p>新文件会先进入文件资源池，再自动挂载到当前知识库。文件删除需重建索引，请在知识库中操作。</p>
+      <p>
+        新文件会先进入文件资源池，再自动挂载到当前知识库。文件删除需重建索引，请在知识库中操作。
+      </p>
     </div>
 
     <div class="upload-wrapper">
@@ -49,11 +51,7 @@ function formatSize(bytes: number): string {
     </div>
 
     <div v-if="uploadedFiles.length > 0" class="upload-result-list">
-      <div
-        v-for="file in uploadedFiles"
-        :key="file.id"
-        class="upload-result-item"
-      >
+      <div v-for="file in uploadedFiles" :key="file.id" class="upload-result-item">
         <span class="upload-result-item__name">{{ file.name }}</span>
         <span class="upload-result-item__size">{{ formatSize(file.size) }}</span>
       </div>
