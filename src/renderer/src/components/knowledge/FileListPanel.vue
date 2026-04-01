@@ -48,9 +48,6 @@ function getFileNameWithoutExtension(fileName: string): string {
       </div>
       <div class="section-header__actions">
         <span class="document-count">{{ linkedFiles.length }} 个文件</span>
-        <button class="sm-button sm-button--secondary sm-button--small" @click="emit('add-files')">
-          添加文档
-        </button>
       </div>
     </div>
 
