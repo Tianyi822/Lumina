@@ -1,6 +1,8 @@
 import { existsSync, readFileSync, writeFileSync, readFile } from 'fs'
 import { join, extname, isAbsolute } from 'path'
 
+import mammoth from 'mammoth'
+import WordExtractor from 'word-extractor'
 import { getVectorDBService, type DocumentChunk, type SearchResult } from '@main/services/vector'
 import { EmbeddingService } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
@@ -95,12 +97,50 @@ async function readPdfFile(filePath: string): Promise<string> {
   }
 }
 
+// 读取 docx 文件内容
+async function readDocxFile(filePath: string): Promise<string> {
+  try {
+    logger.info('开始解析 docx 文件', 'main', { filePath })
+    const result = await mammoth.extractRawText({ path: filePath })
+    logger.info('docx 解析完成', 'main', { textLength: result.value.length })
+    return result.value
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('docx 解析失败', 'main', { filePath, error: errorMessage })
+    throw new Error(`docx 解析失败: ${errorMessage}`)
+  }
+}
+
+// 读取 doc 文件内容
+async function readDocFile(filePath: string): Promise<string> {
+  try {
+    logger.info('开始解析 doc 文件', 'main', { filePath })
+    const extractor = new WordExtractor()
+    const doc = await extractor.extract(filePath)
+    const text = doc.getText()
+    logger.info('doc 解析完成', 'main', { textLength: text.length })
+    return text
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('doc 解析失败', 'main', { filePath, error: errorMessage })
+    throw new Error(`doc 解析失败: ${errorMessage}`)
+  }
+}
+
 // 根据文件类型读取文件内容
 async function readFileContent(filePath: string, fileName: string): Promise<string> {
   const ext = extname(fileName).toLowerCase()
 
   if (ext === '.pdf') {
     return readPdfFile(filePath)
+  }
+
+  if (ext === '.docx') {
+    return readDocxFile(filePath)
+  }
+
+  if (ext === '.doc') {
+    return readDocFile(filePath)
   }
 
   // 其他类型作为文本文件读取
