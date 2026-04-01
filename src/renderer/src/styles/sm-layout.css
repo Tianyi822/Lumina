@@ -68,6 +68,11 @@
   padding: var(--sm-space-3);
   overflow: hidden;
   background: var(--sm-color-bg-canvas);
+  transition: gap var(--sm-transition-slow);
+}
+
+.sm-workspace-page:has(.is-collapsed) {
+  gap: 0;
 }
 
 .sm-sidebar-frame {
