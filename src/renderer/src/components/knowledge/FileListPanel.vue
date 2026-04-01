@@ -126,8 +126,8 @@ function getFileNameWithoutExtension(fileName: string): string {
       </article>
 
       <button class="add-file-card" @click="emit('add-files')">
-        <span class="add-file-icon">+</span>
-        <span class="add-file-text">添加更多文档</span>
+        <span class="add-file-icon" aria-hidden="true"></span>
+        <span class="add-file-text">添加更多文档或拖拽上传</span>
       </button>
     </div>
   </section>
@@ -333,6 +333,7 @@ function getFileNameWithoutExtension(fileName: string): string {
 }
 
 .add-file-icon {
+  position: relative;
   width: 48px;
   height: 48px;
   display: inline-flex;
@@ -340,12 +341,35 @@ function getFileNameWithoutExtension(fileName: string): string {
   justify-content: center;
   border: 1px dashed currentColor;
   border-radius: 999px;
-  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.add-file-icon::before,
+.add-file-icon::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+
+.add-file-icon::before {
+  width: 16px;
+  height: 2px;
+}
+
+.add-file-icon::after {
+  width: 2px;
+  height: 16px;
 }
 
 .add-file-text {
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.5;
+  color: var(--sm-color-text-tertiary);
 }
 
 .drag-over {
