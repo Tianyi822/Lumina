@@ -84,7 +84,8 @@ export function usePptExport(): UsePptExportReturn {
     editPPT: sdkEditPPT,
     destroy: sdkDestroy,
     renderingStatus: sdkRenderingStatus,
-    artifactId: sdkArtifactId
+    artifactId: sdkArtifactId,
+    error
   } = useQuanmiaoSDK()
 
   // ==================== 状态定义 ====================
@@ -101,13 +102,20 @@ export function usePptExport(): UsePptExportReturn {
   const appkey = ref('')
   /** 授权码 */
   const code = ref('')
-  /** 错误信息 */
-  const error = ref<string | null>(null)
-
   // ==================== 内部状态 ====================
 
   /** 当前会话 ID */
   let currentSessionId: string | null = null
+  /** 大纲监听器注销函数 */
+  let outlineUnregisters: (() => void)[] = []
+
+  /** 清理大纲监听器（使用独立注销函数，避免 removeAllListeners 竞态） */
+  function cleanupOutlineListeners(): void {
+    for (const unregister of outlineUnregisters) {
+      unregister()
+    }
+    outlineUnregisters = []
+  }
 
   // ==================== API 方法 ====================
 
@@ -138,9 +146,7 @@ export function usePptExport(): UsePptExportReturn {
    */
   const generateOutline = async (prompt: string): Promise<void> => {
     // 清理之前的监听器
-    if (currentSessionId) {
-      window.api.pptExport.removeOutlineListeners()
-    }
+    cleanupOutlineListeners()
 
     // 生成新的会话 ID
     currentSessionId = crypto.randomUUID()
@@ -162,10 +168,7 @@ export function usePptExport(): UsePptExportReturn {
           taskId.value = data.taskId
           outlineText.value = data.outline
           outlineStatus.value = 'done'
-          // 清理监听器
-          unregisterChunk()
-          unregisterDone()
-          window.api.pptExport.removeOutlineListeners()
+          cleanupOutlineListeners()
         }
       })
 
@@ -173,13 +176,11 @@ export function usePptExport(): UsePptExportReturn {
         if (data.sessionId === currentSessionId) {
           error.value = data.error
           outlineStatus.value = 'error'
-          // 清理监听器
-          unregisterChunk()
-          unregisterDone()
-          unregisterError()
-          window.api.pptExport.removeOutlineListeners()
+          cleanupOutlineListeners()
         }
       })
+
+      outlineUnregisters = [unregisterChunk, unregisterDone, unregisterError]
 
       // 调用生成大纲 API
       const result = await window.api.pptExport.generateOutline(prompt, currentSessionId)
@@ -187,17 +188,13 @@ export function usePptExport(): UsePptExportReturn {
       if (!result.success) {
         error.value = result.error ?? '生成大纲失败'
         outlineStatus.value = 'error'
-        // 清理监听器
-        unregisterChunk()
-        unregisterDone()
-        unregisterError()
-        window.api.pptExport.removeOutlineListeners()
+        cleanupOutlineListeners()
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '生成大纲时发生错误'
       error.value = errorMsg
       outlineStatus.value = 'error'
-      window.api.pptExport.removeOutlineListeners()
+      cleanupOutlineListeners()
     }
   }
 
@@ -344,7 +341,7 @@ export function usePptExport(): UsePptExportReturn {
 
   // 组件卸载时清理监听器
   onUnmounted(() => {
-    window.api.pptExport.removeOutlineListeners()
+    cleanupOutlineListeners()
   })
 
   // ==================== 返回 ====================
