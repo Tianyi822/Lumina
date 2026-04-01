@@ -58,7 +58,9 @@ onBeforeUnmount(() => {
           v-if="hasFeedback"
           :class="[
             'sm-settings-feedback',
-            feedbackType === 'error' ? 'sm-settings-feedback--error' : 'sm-settings-feedback--success'
+            feedbackType === 'error'
+              ? 'sm-settings-feedback--error'
+              : 'sm-settings-feedback--success'
           ]"
         >
           <span>{{ feedbackMessage }}</span>

@@ -15,11 +15,7 @@ import {
 } from '@shared/types/sandbox'
 import { ToolArgs, SandboxToolDefinition } from './types'
 import { frontendSandboxService } from '../frontend'
-import {
-  parseDockerfileExposedPorts,
-  allocatePortMappings,
-  checkLocalImages
-} from './utils'
+import { parseDockerfileExposedPorts, allocatePortMappings, checkLocalImages } from './utils'
 
 const dockerService = getDockerService()
 

@@ -267,7 +267,10 @@ async function syncSandboxAutoRefresh(): Promise<void> {
 
   await runSandboxRefreshCycle()
 
-  if (shouldKeepSandboxAutoRefresh(selectedContainer.value) && selectedContainer.value?.id === container.id) {
+  if (
+    shouldKeepSandboxAutoRefresh(selectedContainer.value) &&
+    selectedContainer.value?.id === container.id
+  ) {
     startSandboxAutoRefresh()
   } else {
     stopSandboxAutoRefresh()

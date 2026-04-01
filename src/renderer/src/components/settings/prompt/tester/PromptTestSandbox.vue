@@ -74,13 +74,23 @@ function handleClearResult(): void {
 
       <div class="sm-settings-card sm-prompt-sandbox__panel">
         <div class="sm-prompt-sandbox__actions">
-          <button class="sm-button sm-button--secondary" :disabled="!canRunAction" @click="handlePreview">
+          <button
+            class="sm-button sm-button--secondary"
+            :disabled="!canRunAction"
+            @click="handlePreview"
+          >
             {{ sandboxLoading ? '处理中...' : '预览提示词' }}
           </button>
-          <button class="sm-button sm-button--primary" :disabled="!canRunAction" @click="handleTest">
+          <button
+            class="sm-button sm-button--primary"
+            :disabled="!canRunAction"
+            @click="handleTest"
+          >
             {{ sandboxLoading ? '执行中...' : '执行测试' }}
           </button>
-          <button class="sm-button sm-button--secondary" @click="handleClearResult">清空结果</button>
+          <button class="sm-button sm-button--secondary" @click="handleClearResult">
+            清空结果
+          </button>
         </div>
       </div>
 
@@ -90,7 +100,10 @@ function handleClearResult(): void {
             <h3 class="sm-prompt-sandbox__title">变量覆盖</h3>
             <p class="sm-prompt-sandbox__description">留空时使用系统值或自定义变量默认值。</p>
           </div>
-          <button class="sm-button sm-button--secondary sm-button--small" @click="clearVariableOverrides()">
+          <button
+            class="sm-button sm-button--secondary sm-button--small"
+            @click="clearVariableOverrides()"
+          >
             清空覆盖
           </button>
         </div>
@@ -218,7 +231,8 @@ function handleClearResult(): void {
         <pre
           v-if="assembledPrompt"
           class="sm-settings-code sm-prompt-sandbox__code sm-prompt-sandbox__code--prompt"
-        >{{ assembledPrompt }}</pre>
+          >{{ assembledPrompt }}</pre
+        >
         <div v-else class="sm-empty sm-prompt-sandbox__empty">
           点击"预览提示词"后，这里会显示最终发给模型的内容。
         </div>

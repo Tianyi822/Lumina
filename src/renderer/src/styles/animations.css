@@ -108,8 +108,7 @@
     opacity 120ms linear
       calc(var(--sm-sidebar-item-enter-base-delay, 0ms) + var(--sm-sidebar-item-opacity-delay, 0ms)),
     transform var(--sm-sidebar-item-enter-duration, 220ms) cubic-bezier(0.2, 0, 0, 1)
-      var(--sm-sidebar-item-enter-base-delay, 0ms)
-      !important;
+      var(--sm-sidebar-item-enter-base-delay, 0ms) !important;
   will-change: opacity, transform;
 }
 

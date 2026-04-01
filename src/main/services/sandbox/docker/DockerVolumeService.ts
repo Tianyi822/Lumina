@@ -76,9 +76,12 @@ export class DockerVolumeService {
    */
   async removeVolume(name: string, options?: DockerVolumeRemoveOptions): Promise<SandboxResult> {
     try {
-      await this.context.getDocker().getVolume(name).remove({
-        force: options?.force || false
-      })
+      await this.context
+        .getDocker()
+        .getVolume(name)
+        .remove({
+          force: options?.force || false
+        })
 
       logger.info('Docker volume 删除成功', 'main', { volumeName: name })
       return { success: true }

@@ -97,7 +97,9 @@ function handleCleanup(): void {
             <span v-if="isRecovering">{{ recoveringLabel }}</span>
             <span v-else>{{ recoverLabel || '重新关联容器' }}</span>
           </button>
-          <button class="btn-danger" :disabled="isReloading" @click="handleCleanup">清理沙箱</button>
+          <button class="btn-danger" :disabled="isReloading" @click="handleCleanup">
+            清理沙箱
+          </button>
           <button class="btn-secondary" :disabled="isReloading" @click="handleClose">
             暂时忽略
           </button>

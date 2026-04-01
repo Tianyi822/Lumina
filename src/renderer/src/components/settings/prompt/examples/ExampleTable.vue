@@ -151,8 +151,13 @@ onUnmounted(() => {
 
 <template>
   <div class="sm-prompt-example-table">
-    <div v-if="selectedIds && selectedIds.length > 0" class="sm-settings-card sm-prompt-example-table__selection-bar">
-      <span class="sm-prompt-example-table__selection-info">已选择 {{ selectedIds.length }} 项</span>
+    <div
+      v-if="selectedIds && selectedIds.length > 0"
+      class="sm-settings-card sm-prompt-example-table__selection-bar"
+    >
+      <span class="sm-prompt-example-table__selection-info"
+        >已选择 {{ selectedIds.length }} 项</span
+      >
       <button class="sm-button sm-button--danger sm-button--small" @click="handleBatchDelete">
         批量删除
       </button>
@@ -164,10 +169,20 @@ onUnmounted(() => {
         <span>正在加载示例...</span>
       </div>
 
-      <div v-if="canScrollLeft" class="sm-prompt-example-table__shadow sm-prompt-example-table__shadow--left"></div>
-      <div v-if="canScrollRight" class="sm-prompt-example-table__shadow sm-prompt-example-table__shadow--right"></div>
+      <div
+        v-if="canScrollLeft"
+        class="sm-prompt-example-table__shadow sm-prompt-example-table__shadow--left"
+      ></div>
+      <div
+        v-if="canScrollRight"
+        class="sm-prompt-example-table__shadow sm-prompt-example-table__shadow--right"
+      ></div>
 
-      <div ref="scrollContainerRef" class="sm-prompt-example-table__scroll" @mousedown="handleMouseDown">
+      <div
+        ref="scrollContainerRef"
+        class="sm-prompt-example-table__scroll"
+        @mousedown="handleMouseDown"
+      >
         <table class="sm-prompt-example-table__table">
           <thead>
             <tr class="sm-prompt-example-table__head-row">
@@ -187,11 +202,16 @@ onUnmounted(() => {
                 <span class="sm-prompt-example-table__sort-icon">↓</span>
               </th>
               <th class="sm-prompt-example-table__cell">使用的工具</th>
-              <th class="sm-prompt-example-table__cell sm-prompt-example-table__cell--action">操作</th>
+              <th class="sm-prompt-example-table__cell sm-prompt-example-table__cell--action">
+                操作
+              </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="examples.length === 0" class="sm-prompt-example-table__row sm-prompt-example-table__row--empty">
+            <tr
+              v-if="examples.length === 0"
+              class="sm-prompt-example-table__row sm-prompt-example-table__row--empty"
+            >
               <td colspan="6" class="sm-prompt-example-table__empty-cell">
                 <div class="sm-empty sm-prompt-example-table__empty">
                   <p>{{ loading ? '加载中...' : '暂无示例数据' }}</p>
@@ -242,7 +262,10 @@ onUnmounted(() => {
                   >
                     {{ tool }}
                   </span>
-                  <span v-if="example.toolsUsed.length > 2" class="sm-prompt-example-table__tool-tag">
+                  <span
+                    v-if="example.toolsUsed.length > 2"
+                    class="sm-prompt-example-table__tool-tag"
+                  >
                     +{{ example.toolsUsed.length - 2 }}
                   </span>
                 </div>
@@ -254,13 +277,7 @@ onUnmounted(() => {
                   title="删除"
                   @click="handleDelete(example.id)"
                 >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                  >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path
                       d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
                       stroke-width="2"

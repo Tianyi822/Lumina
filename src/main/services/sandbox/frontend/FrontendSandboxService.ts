@@ -109,9 +109,7 @@ export class FrontendSandboxService {
 
       const imageId = await ensureFrontendBaseImage()
       const containerName = this.buildContainerName(name)
-      const hostPort = await this.allocateFixedHostPort(
-        this.getPreferredHostPort(containerPort)
-      )
+      const hostPort = await this.allocateFixedHostPort(this.getPreferredHostPort(containerPort))
       volumeName = this.buildWorkspaceVolumeName(sandboxId)
 
       await dockerService.createVolume({
@@ -181,10 +179,9 @@ export class FrontendSandboxService {
           throwOnFailure: true
         }
       )
-      const message = bootstrapResult.warning || this.buildPreviewMessage(
-        options.autoStart !== false,
-        bootstrapResult.previewReady
-      )
+      const message =
+        bootstrapResult.warning ||
+        this.buildPreviewMessage(options.autoStart !== false, bootstrapResult.previewReady)
 
       await this.persistFrontendSandboxStatus(
         sandbox,
@@ -363,8 +360,7 @@ export class FrontendSandboxService {
       const containerId = containerResult.containerId
       const details = await dockerService.getContainerDetails(containerId)
       const boundPort = details?.ports.find(
-        (item) =>
-          item.containerPort === sandbox.frontend!.containerPort && item.protocol === 'tcp'
+        (item) => item.containerPort === sandbox.frontend!.containerPort && item.protocol === 'tcp'
       )
       const actualHostPort = boundPort?.hostPort
 
@@ -443,14 +439,9 @@ export class FrontendSandboxService {
         template,
         state
       )
-      await frontendWorkspaceBootstrapService.ensureBuildReady(
-        refreshedSandbox,
-        template,
-        state,
-        {
-          force: true
-        }
-      )
+      await frontendWorkspaceBootstrapService.ensureBuildReady(refreshedSandbox, template, state, {
+        force: true
+      })
 
       const latestSandbox = this.loadFrontendSandboxOrThrow(sandboxId, true)
       await this.syncFrontendLifecycleStatus(latestSandbox)
@@ -526,9 +517,7 @@ export class FrontendSandboxService {
   /**
    * 在容器 start/restart 后恢复前端开发服务器
    */
-  async recoverFrontendRuntime(
-    sandbox: SandboxData
-  ): Promise<FrontendRuntimeRecoveryResult> {
+  async recoverFrontendRuntime(sandbox: SandboxData): Promise<FrontendRuntimeRecoveryResult> {
     if (!sandbox.frontend || !sandbox.primaryContainerId) {
       return {
         handled: false,
@@ -676,7 +665,9 @@ export class FrontendSandboxService {
         .loadAllSandboxes()
         .filter((sandbox) => sandbox.sandboxId !== ignoredSandboxId)
         .map((sandbox) => sandbox.frontend?.hostPort)
-        .filter((port): port is number => typeof port === 'number' && Number.isInteger(port) && port > 0)
+        .filter(
+          (port): port is number => typeof port === 'number' && Number.isInteger(port) && port > 0
+        )
     )
 
     for (let port = preferredPort; port <= 65535; port += 1) {
@@ -744,8 +735,7 @@ export class FrontendSandboxService {
 
     const details = await dockerService.getContainerDetails(sandbox.primaryContainerId)
     const boundPort = details?.ports.find(
-      (item) =>
-        item.containerPort === sandbox.frontend?.containerPort && item.protocol === 'tcp'
+      (item) => item.containerPort === sandbox.frontend?.containerPort && item.protocol === 'tcp'
     )
     const hostPort = boundPort?.hostPort
 
@@ -754,10 +744,7 @@ export class FrontendSandboxService {
     }
 
     const previewUrl = this.buildPreviewUrl(hostPort)
-    if (
-      sandbox.frontend.hostPort === hostPort &&
-      sandbox.frontend.previewUrl === previewUrl
-    ) {
+    if (sandbox.frontend.hostPort === hostPort && sandbox.frontend.previewUrl === previewUrl) {
       return
     }
 

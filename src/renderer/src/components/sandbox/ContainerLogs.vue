@@ -166,7 +166,9 @@ function handleClearSearch(): void {
 
     <div class="logs-footer">
       <div class="footer-meta">
-        <span>当前展示 {{ Math.min(matchedLineCount, tailLines) }} / {{ matchedLineCount }} 行</span>
+        <span
+          >当前展示 {{ Math.min(matchedLineCount, tailLines) }} / {{ matchedLineCount }} 行</span
+        >
         <span v-if="searchQuery">关键字 "{{ searchQuery }}"</span>
       </div>
     </div>
