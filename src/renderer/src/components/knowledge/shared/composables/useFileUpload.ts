@@ -8,7 +8,7 @@ import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 
 /** 支持的文件类型 */
-const SUPPORTED_TYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv']
+const SUPPORTED_TYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.xls', '.xlsx', '.pptx']
 
 /** 最大文件大小 50MB */
 const MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -144,7 +144,9 @@ export function useFileUpload(options?: UploadOptions): {
 
     // 如果有无效文件，提示用户
     if (validationErrors.length > 0 && validFiles.length < fileList.length) {
-      alert(`部分文件格式不支持。仅支持 .txt、.md、.pdf、.doc、.docx 和 .csv 文件。`)
+      alert(
+        `部分文件格式不支持。仅支持 .txt、.md、.pdf、.doc、.docx、.csv、.xls、.xlsx 和 .pptx 文件。`
+      )
     }
 
     isUploading.value = true

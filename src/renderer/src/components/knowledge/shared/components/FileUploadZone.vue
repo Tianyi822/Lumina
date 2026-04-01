@@ -34,7 +34,9 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
     <div v-if="!isUploading" class="upload-content">
       <p class="upload-text">拖放文件到这里，或点击选择文件</p>
       <p class="upload-hint">系统会自动校验格式与大小。</p>
-      <p class="upload-types">支持 .txt、.md、.pdf、.doc、.docx、.csv，最大 50MB</p>
+      <p class="upload-types">
+        支持 .txt、.md、.pdf、.doc、.docx、.csv、.xls、.xlsx、.pptx，最大 50MB
+      </p>
     </div>
     <div v-else class="uploading-content">
       <span class="sm-spinner sm-spinner--large"></span>
@@ -43,7 +45,7 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
     <input
       type="file"
       multiple
-      accept=".txt,.md,.pdf,.doc,.docx,.csv"
+      accept=".txt,.md,.pdf,.doc,.docx,.csv,.xls,.xlsx,.pptx"
       class="upload-file-input"
       @change="handleFileSelect"
     />
