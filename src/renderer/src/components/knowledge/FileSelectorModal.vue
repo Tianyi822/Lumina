@@ -28,7 +28,7 @@ const activeTab = ref<TabType>('existing')
 // 文件管理
 const fileStore = useFileStore()
 const { files } = storeToRefs(fileStore)
-const { loadFiles, linkFileToKB } = fileStore
+const { loadFiles } = fileStore
 
 // 文件选择逻辑
 const {
@@ -59,33 +59,11 @@ async function handleLinkSelected(): Promise<void> {
 }
 
 // 处理上传完成
-async function handleUploadComplete(result: UploadResult): Promise<void> {
-  // 上传成功后，自动关联到当前知识库
-  const newlyUploaded: FileItem[] = []
-  for (const file of result.uploaded) {
-    const linkResult = await linkFileToKB(file.id, props.kbId)
-    if (linkResult.success) {
-      newlyUploaded.push(file)
-    }
-  }
-
-  // 处理重复文件：询问是否关联
-  for (const file of result.duplicates) {
-    if (!props.linkedFileIds.includes(file.id)) {
-      const linkResult = await linkFileToKB(file.id, props.kbId)
-      if (linkResult.success) {
-        newlyUploaded.push(file)
-      }
-    }
-  }
-
-  if (newlyUploaded.length > 0) {
-    emit('filesLinked', newlyUploaded)
-  }
-
-  // 上传完成后切换到已有文件标签页
-  if (newlyUploaded.length > 0 || result.duplicates.length > 0) {
-    activeTab.value = 'existing'
+function handleUploadComplete(result: UploadResult): void {
+  // useFileUpload 已在 autoLinkToKB 模式下完成关联，直接通知父组件更新 UI
+  const newFiles = [...result.uploaded, ...result.duplicates]
+  if (newFiles.length > 0) {
+    emit('filesLinked', newFiles)
   }
 }
 

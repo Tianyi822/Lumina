@@ -58,7 +58,7 @@ const kbIndexingFiles = computed(() =>
   currentKB.value ? indexStore.getKBIndexingFilesMap(currentKB.value.id) : {}
 )
 
-// 知识库简介编辑
+// 知识库简介编辑（双击编辑，失焦自动保存）
 const isEditingDescription = ref(false)
 const editingDescription = ref('')
 const descriptionTextareaRef = ref<HTMLTextAreaElement | null>(null)
@@ -73,31 +73,23 @@ function startEditDescription(): void {
 async function saveDescription(): Promise<void> {
   if (!currentKB.value) return
   const text = editingDescription.value.trim()
-  if (text === (currentKB.value.description || '')) {
-    isEditingDescription.value = false
-    return
-  }
+  isEditingDescription.value = false
+  if (text === (currentKB.value.description || '')) return
   try {
     const res = await window.api.knowledge.update(currentKB.value.id, { description: text })
     if (res.success) {
       if (currentKB.value) currentKB.value.description = text
       emit('description-updated', currentKB.value.id, text)
-    } else alert('保存简介失败: ' + res.error)
-  } catch (e) {
-    alert('保存失败: ' + e)
-  } finally {
-    isEditingDescription.value = false
+    }
+  } catch {
+    // 静默失败，不阻断用户操作
   }
 }
 
-function cancelEditDescription(): void {
-  isEditingDescription.value = false
-  editingDescription.value = ''
-}
-
 function handleDescriptionKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') cancelEditDescription()
-  else if (e.key === 'Enter' && e.metaKey) void saveDescription()
+  if (e.key === 'Escape') {
+    isEditingDescription.value = false
+  }
 }
 
 function handleVisibilityChange(): void {
@@ -158,49 +150,25 @@ defineExpose({ handleFilesLinked })
           </div>
         </div>
 
-        <div class="kb-description-panel">
-          <div class="kb-description-panel__header">
-            <span class="kb-section-label">知识库简介</span>
-            <button
-              v-if="!isEditingDescription"
-              class="sm-button sm-button--secondary sm-button--small"
-              @click="startEditDescription"
-            >
-              编辑
-            </button>
-          </div>
+        <textarea
+          v-if="isEditingDescription"
+          ref="descriptionTextareaRef"
+          v-model="editingDescription"
+          class="sm-textarea kb-description kb-description--editing"
+          rows="3"
+          placeholder="补充知识库用途、范围和检索约束..."
+          @blur="saveDescription"
+          @keydown="handleDescriptionKeydown"
+        ></textarea>
 
-          <textarea
-            v-if="isEditingDescription"
-            ref="descriptionTextareaRef"
-            v-model="editingDescription"
-            class="sm-textarea kb-description-input"
-            rows="3"
-            placeholder="补充知识库用途、范围和检索约束..."
-            @keydown="handleDescriptionKeydown"
-          ></textarea>
-
-          <p
-            v-else
-            class="kb-description"
-            :class="{ 'kb-description-empty': !currentKB.description }"
-            @dblclick="startEditDescription"
-          >
-            {{ currentKB.description || '双击或点击编辑，补充知识库用途、覆盖范围和检索约束。' }}
-          </p>
-
-          <div v-if="isEditingDescription" class="kb-description-actions">
-            <button
-              class="sm-button sm-button--secondary sm-button--small"
-              @click="cancelEditDescription"
-            >
-              取消
-            </button>
-            <button class="sm-button sm-button--primary sm-button--small" @click="saveDescription">
-              保存简介
-            </button>
-          </div>
-        </div>
+        <p
+          v-else
+          class="kb-description"
+          :class="{ 'kb-description-empty': !currentKB.description }"
+          @dblclick="startEditDescription"
+        >
+          {{ currentKB.description || '双击编辑，补充知识库用途、覆盖范围和检索约束。' }}
+        </p>
 
         <StatsPanel :stats="stats" :loading-stats="loadingStats" :current-k-b="currentKB" />
       </section>
@@ -242,10 +210,10 @@ defineExpose({ handleFilesLinked })
   flex-direction: column;
   flex: 1;
   min-width: 0;
-  height: 100%;
+  min-height: 0;
   padding: var(--sm-space-6);
   gap: var(--sm-space-4);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .kb-overview {
@@ -255,7 +223,7 @@ defineExpose({ handleFilesLinked })
   padding: var(--sm-space-5) var(--sm-space-6);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-lg);
-  background: var(--sm-color-surface-2);
+  background: var(--sm-color-surface-1);
   flex-shrink: 0;
 }
 
@@ -310,29 +278,6 @@ defineExpose({ handleFilesLinked })
   color: var(--sm-color-text-primary);
 }
 
-.kb-description-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-3);
-  padding: var(--sm-space-4);
-  border: 1px solid var(--sm-color-border-subtle);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-1);
-}
-
-.kb-description-panel__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sm-space-3);
-}
-
-.kb-section-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--sm-color-text-secondary);
-}
-
 .kb-description {
   margin: 0;
   padding: 0;
@@ -341,19 +286,12 @@ defineExpose({ handleFilesLinked })
   color: var(--sm-color-text-secondary);
 }
 
+.kb-description--editing {
+  padding: var(--sm-space-3);
+}
+
 .kb-description-empty {
   color: var(--sm-color-text-tertiary);
-}
-
-.kb-description-input {
-  resize: vertical;
-  min-height: 88px;
-}
-
-.kb-description-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--sm-space-2);
 }
 
 .kb-actions {

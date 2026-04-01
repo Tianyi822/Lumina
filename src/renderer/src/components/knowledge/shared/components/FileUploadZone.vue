@@ -32,30 +32,28 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
     @drop="handleDrop"
   >
     <div v-if="!isUploading" class="upload-content">
-      <p class="upload-text">拖放文件到这里上传</p>
-      <p class="upload-hint">或从本地资源中选择文件，系统会自动校验格式与大小。</p>
-      <label class="sm-button sm-button--primary upload-btn">
-        选择文件
-        <input
-          type="file"
-          multiple
-          accept=".txt,.md,.pdf,.doc,.docx,.csv"
-          @change="handleFileSelect"
-        />
-      </label>
+      <p class="upload-text">拖放文件到这里，或点击选择文件</p>
+      <p class="upload-hint">系统会自动校验格式与大小。</p>
       <p class="upload-types">支持 .txt、.md、.pdf、.doc、.docx、.csv，最大 50MB</p>
     </div>
     <div v-else class="uploading-content">
       <span class="sm-spinner sm-spinner--large"></span>
       <p>正在上传...</p>
     </div>
+    <input
+      type="file"
+      multiple
+      accept=".txt,.md,.pdf,.doc,.docx,.csv"
+      class="upload-file-input"
+      @change="handleFileSelect"
+    />
   </div>
 </template>
 
 <style scoped>
 .upload-zone {
-  flex: 1;
-  min-height: 220px;
+  min-height: 180px;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -66,6 +64,7 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
   border-radius: var(--sm-radius-lg);
   background: var(--sm-color-surface-1);
   text-align: center;
+  cursor: pointer;
   transition:
     background-color var(--sm-transition-fast),
     border-color var(--sm-transition-fast),
@@ -104,12 +103,7 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
   color: var(--sm-color-text-secondary);
 }
 
-.upload-btn {
-  position: relative;
-  overflow: hidden;
-}
-
-.upload-btn input[type='file'] {
+.upload-file-input {
   position: absolute;
   top: 0;
   left: 0;

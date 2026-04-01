@@ -21,7 +21,7 @@ async function switchView(view: ViewMode): Promise<void> {
       :aria-selected="isChatView"
       @click="switchView('chat')"
     >
-      智能体
+      会话
     </button>
     <button
       class="sm-view-switcher__button"
