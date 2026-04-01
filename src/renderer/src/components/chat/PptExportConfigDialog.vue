@@ -49,7 +49,6 @@ const {
 
 const {
   loading: sdkLoading,
-  error: sdkError,
   loadSDK,
   createPPT,
   destroy: destroySDK
@@ -107,7 +106,7 @@ const renderingTitle = computed(() => {
 /** 渲染阶段说明 */
 const renderingDescription = computed(() => {
   if (renderingStatus.value === 'error') {
-    return pptError.value || sdkError.value || '妙笔渲染失败，请关闭后重试'
+    return pptError.value || '妙笔渲染失败，请关闭后重试'
   }
 
   if (isRenderComplete.value) {
@@ -124,8 +123,14 @@ const renderingDescription = computed(() => {
 // ==================== 生命周期 ====================
 
 onMounted(async () => {
-  await checkConfig()
-  initializing.value = false
+  try {
+    await checkConfig()
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : '初始化失败'
+    emit('showToast', errorMsg, 'error')
+  } finally {
+    initializing.value = false
+  }
 
   if (!isConfigured.value) {
     return
@@ -236,14 +241,24 @@ async function handleConfirmOutline(): Promise<void> {
       switch (type) {
         case 'GENERATE_PPT_SUCCESS':
           if (artifactId.value !== null) {
-            void bindArtifact()
+            void bindArtifact().then(() => {
+              if (pptError.value) {
+                emit('showToast', pptError.value, 'error')
+              }
+            })
           }
           break
-        case 'SET_PPT_MAKING_STATUS':
-          if (renderingStatus.value === 'done') {
+        case 'SET_PPT_MAKING_STATUS': {
+          // 直接从 data 判断状态，不依赖 wrappedOnMessage 的内部更新顺序
+          const raw =
+            typeof data === 'object' && data !== null
+              ? (data as Record<string, unknown>).status
+              : data
+          if (raw === '0' || raw === 'done' || raw === 'success' || raw === 0) {
             emit('ppt-created')
           }
           break
+        }
         case 'ERROR': {
           const errMsg =
             typeof data === 'string'
