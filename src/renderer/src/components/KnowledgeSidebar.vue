@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import type { KnowledgeBase } from '@renderer/types'
 
 const props = defineProps<{
@@ -94,7 +95,7 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
             <div class="kb-meta">{{ formatDocumentCount(kb.linkedFileIds) }}</div>
           </div>
           <button class="delete-btn" title="删除知识库" @click.stop="handleDeleteKB(kb.id)">
-            ✕
+            <SvgIcon name="trash" :size="14" />
           </button>
         </div>
 

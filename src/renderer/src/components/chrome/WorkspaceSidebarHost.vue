@@ -300,7 +300,7 @@ async function handleRefreshSandboxList(): Promise<void> {
                         title="删除知识库"
                         @click.stop="handleDeleteKnowledgeBase(kb.id)"
                       >
-                        ✕
+                        <SvgIcon name="trash" :size="14" />
                       </button>
                     </div>
                   </TransitionGroup>

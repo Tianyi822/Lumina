@@ -95,7 +95,7 @@ function getFileNameWithoutExtension(fileName: string): string {
             @click.stop="emit('unlink-file', file.id)"
           >
             <span v-if="unlinkingFileId === file.id" class="sm-spinner"></span>
-            <SvgIcon v-else name="close" :size="12" />
+            <SvgIcon v-else name="trash" :size="12" />
           </button>
         </div>
 
