@@ -220,7 +220,6 @@ export function usePptExport(): UsePptExportReturn {
       if (result.success && result.appkey && result.code) {
         appkey.value = result.appkey
         code.value = result.code
-        sdkRenderingStatus.value = 'idle' // 等待 SDK 实际开始渲染
       } else {
         error.value = result.error ?? '发起创建失败'
         sdkRenderingStatus.value = 'error'
@@ -277,11 +276,7 @@ export function usePptExport(): UsePptExportReturn {
         code: code.value,
         container,
         content: outlineText.value,
-        speaker,
-        onMessage: (message) => {
-          // 处理 SDK 消息回调
-          console.log('[usePptExport] SDK message:', message)
-        }
+        speaker
       }
       sdkCreatePPT(options)
     } catch (err) {
@@ -308,10 +303,7 @@ export function usePptExport(): UsePptExportReturn {
         appkey: appkey.value,
         code: code.value,
         container,
-        speaker,
-        onMessage: (message) => {
-          console.log('[usePptExport] SDK message:', message)
-        }
+        speaker
       })
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '编辑 PPT 实例失败'

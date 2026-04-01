@@ -20,21 +20,17 @@ export interface CreatePPTOptions {
   /** 讲师信息 */
   speaker?: string
   /** 消息回调 */
-  onMessage?: (message: QuanmiaoMessage) => void
+  onMessage?: (type: QuanmiaoMessageType | string, data?: unknown) => void
 }
 
 /**
  * 妙笔 SDK 消息类型
  */
-export type QuanmiaoMessageType = 'CHARGING' | 'SET_PPT_MAKING_STATUS' | 'ERROR'
-
-/**
- * 妙笔 SDK 消息结构
- */
-export interface QuanmiaoMessage {
-  type: QuanmiaoMessageType
-  data?: unknown
-}
+export type QuanmiaoMessageType =
+  | 'CHARGING'
+  | 'SET_PPT_MAKING_STATUS'
+  | 'GENERATE_PPT_SUCCESS'
+  | 'ERROR'
 
 /**
  * 编辑 PPT 方法选项
@@ -49,7 +45,7 @@ export interface EditPPTOptions {
   /** 讲师信息 */
   speaker?: string
   /** 消息回调 */
-  onMessage?: (message: unknown) => void
+  onMessage?: (type: QuanmiaoMessageType | string, data?: unknown) => void
 }
 
 /**
@@ -120,20 +116,63 @@ export interface UseQuanmiaoSDKReturn {
  */
 const SDK_URL = 'https://quanmiao-public.oss-cn-beijing.aliyuncs.com/quanmiao-sdk/v1.0.0/index.js'
 
+/** 使用模块级状态，确保多个调用方共享同一份妙笔 SDK 状态 */
+const sdkLoaded = ref(false)
+const loading = ref(false)
+const error = ref<string | null>(null)
+const renderingStatus = ref<PptRenderingStatus>('idle')
+const artifactId = ref<number | null>(null)
+
+function extractArtifactId(data: unknown): number | null {
+  if (typeof data === 'number' && Number.isFinite(data)) {
+    return data
+  }
+
+  if (!data || typeof data !== 'object') {
+    return null
+  }
+
+  const payload = data as { id?: unknown; artifactId?: unknown }
+  const candidate = payload.artifactId ?? payload.id
+
+  return typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : null
+}
+
+function extractStatus(data: unknown): string {
+  if (typeof data === 'string' || typeof data === 'number') {
+    return String(data)
+  }
+
+  if (!data || typeof data !== 'object') {
+    return ''
+  }
+
+  const payload = data as { status?: unknown }
+  const status = payload.status
+
+  return typeof status === 'string' || typeof status === 'number' ? String(status) : ''
+}
+
+function extractErrorMessage(data: unknown, fallback: string): string {
+  if (typeof data === 'string' && data.trim()) {
+    return data
+  }
+
+  if (!data || typeof data !== 'object') {
+    return fallback
+  }
+
+  const payload = data as {
+    msg?: unknown
+    message?: unknown
+    error?: unknown
+  }
+
+  const candidate = payload.msg ?? payload.message ?? payload.error
+  return typeof candidate === 'string' && candidate.trim() ? candidate : fallback
+}
+
 export function useQuanmiaoSDK(): UseQuanmiaoSDKReturn {
-  // ==================== 状态定义 ====================
-
-  /** SDK 是否已加载 */
-  const sdkLoaded = ref(false)
-  /** 是否正在加载 */
-  const loading = ref(false)
-  /** 错误信息 */
-  const error = ref<string | null>(null)
-  /** PPT 渲染状态 */
-  const renderingStatus = ref<PptRenderingStatus>('idle')
-  /** Artifact ID（用于绑定到任务） */
-  const artifactId = ref<number | null>(null)
-
   // ==================== 方法实现 ====================
 
   /**
@@ -143,33 +182,73 @@ export function useQuanmiaoSDK(): UseQuanmiaoSDKReturn {
   const loadSDK = async (): Promise<void> => {
     // 如果已加载或正在加载，直接返回
     if (sdkLoaded.value || loading.value) {
+      void window.api.logger?.debug('[QuanmiaoSDK] 跳过 SDK 加载', {
+        sdkLoaded: sdkLoaded.value,
+        loading: loading.value
+      })
       return
     }
 
     // 检查 window.Quanmiao 是否已存在
     if (window.Quanmiao) {
       sdkLoaded.value = true
+      void window.api.logger?.info('[QuanmiaoSDK] 检测到已有妙笔 SDK 实例')
       return
     }
 
     loading.value = true
     error.value = null
 
+    void window.api.logger?.info('[QuanmiaoSDK] 开始加载妙笔 SDK', {
+      sdkUrl: SDK_URL
+    })
+
     return new Promise((resolve, reject) => {
       const script = document.createElement('script')
       script.src = SDK_URL
       script.async = true
+      const handleSecurityPolicyViolation = (event: SecurityPolicyViolationEvent): void => {
+        const blockedURI = event.blockedURI || ''
+        const originalPolicy = event.originalPolicy || ''
+        const effectiveDirective = event.effectiveDirective || ''
+
+        const isQuanmiaoRelated =
+          blockedURI.includes('quanmiao') ||
+          blockedURI.includes('aippt') ||
+          blockedURI === 'eval' ||
+          originalPolicy.includes('unsafe-eval') ||
+          effectiveDirective.includes('script-src')
+
+        if (!isQuanmiaoRelated) {
+          return
+        }
+
+        void window.api.logger?.warn('[QuanmiaoSDK] CSP 拦截了妙笔资源加载', {
+          blockedURI,
+          effectiveDirective,
+          violatedDirective: event.violatedDirective,
+          originalPolicy
+        })
+      }
+
+      document.addEventListener('securitypolicyviolation', handleSecurityPolicyViolation)
 
       script.onload = () => {
         sdkLoaded.value = true
         loading.value = false
+        document.removeEventListener('securitypolicyviolation', handleSecurityPolicyViolation)
+        void window.api.logger?.info('[QuanmiaoSDK] 妙笔 SDK 加载成功')
         resolve()
       }
 
       script.onerror = () => {
         loading.value = false
+        document.removeEventListener('securitypolicyviolation', handleSecurityPolicyViolation)
         const errorMsg = '加载妙笔 SDK 失败，请检查网络连接'
         error.value = errorMsg
+        void window.api.logger?.error('[QuanmiaoSDK] 妙笔 SDK 加载失败', {
+          sdkUrl: SDK_URL
+        })
         reject(new Error(errorMsg))
       }
 
@@ -194,50 +273,42 @@ export function useQuanmiaoSDK(): UseQuanmiaoSDKReturn {
     artifactId.value = null
 
     // 包装 onMessage 回调以处理内部状态
-    const wrappedOnMessage = (message: QuanmiaoMessage): void => {
-      // 调用外部回调
-      options.onMessage?.(message)
-
-      // 处理内部状态
-      switch (message.type) {
+    const wrappedOnMessage = (type: QuanmiaoMessageType | string, data?: unknown): void => {
+      switch (type) {
         case 'CHARGING':
-          // 获取 artifactId
-          if (typeof message.data === 'number') {
-            artifactId.value = message.data
-          } else if (typeof message.data === 'object' && message.data !== null) {
-            const data = message.data as { artifactId?: number }
-            if (typeof data.artifactId === 'number') {
-              artifactId.value = data.artifactId
-            }
-          }
+          renderingStatus.value = 'making'
           break
 
         case 'SET_PPT_MAKING_STATUS':
-          // 更新渲染状态
-          if (typeof message.data === 'string') {
-            const status = message.data
-            if (status === 'done' || status === 'success' || status === 'completed') {
+          {
+            const status = extractStatus(data)
+            if (status === '0' || status === 'done' || status === 'success') {
               renderingStatus.value = 'done'
-            } else if (status === 'error' || status === 'failed') {
+            } else if (status === '1' || status === 'making' || status === 'processing') {
+              renderingStatus.value = 'making'
+            } else if (status === '-1' || status === 'error' || status === 'failed') {
               renderingStatus.value = 'error'
-              error.value = 'PPT 渲染失败'
-            }
-          } else if (typeof message.data === 'object' && message.data !== null) {
-            const data = message.data as { status?: string; message?: string }
-            if (data.status === 'done' || data.status === 'success') {
-              renderingStatus.value = 'done'
-            } else if (data.status === 'error' || data.status === 'failed') {
-              renderingStatus.value = 'error'
-              error.value = data.message || 'PPT 渲染失败'
+              error.value = extractErrorMessage(data, 'PPT 渲染失败')
             }
           }
           break
 
+        case 'GENERATE_PPT_SUCCESS': {
+          const nextArtifactId = extractArtifactId(data)
+          if (nextArtifactId !== null) {
+            artifactId.value = nextArtifactId
+          }
+          break
+        }
+
         case 'ERROR':
           renderingStatus.value = 'error'
-          error.value = typeof message.data === 'string' ? message.data : 'PPT 渲染出错'
+          error.value = extractErrorMessage(data, 'PPT 渲染出错')
           break
       }
+
+      // 先更新内部状态，再通知外层，避免外层读取到旧状态
+      options.onMessage?.(type, data)
     }
 
     try {
@@ -291,6 +362,7 @@ export function useQuanmiaoSDK(): UseQuanmiaoSDKReturn {
       throw err
     } finally {
       // 重置渲染状态
+      error.value = null
       renderingStatus.value = 'idle'
       artifactId.value = null
     }
