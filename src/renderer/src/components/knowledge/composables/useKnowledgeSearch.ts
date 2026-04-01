@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import type { ComputedRef } from 'vue'
 import type { KnowledgeBase } from '@renderer/types'
 
@@ -18,6 +18,16 @@ export function useKnowledgeSearch(currentKB: ComputedRef<KnowledgeBase | undefi
   >([])
   const searching = ref(false)
   const searchPerformed = ref(false)
+
+  // 切换知识库时清空搜索结果
+  watch(
+    () => currentKB.value?.id,
+    () => {
+      searchQuery.value = ''
+      searchResults.value = []
+      searchPerformed.value = false
+    }
+  )
 
   async function handleSearch(): Promise<void> {
     if (!currentKB.value || !searchQuery.value.trim()) return

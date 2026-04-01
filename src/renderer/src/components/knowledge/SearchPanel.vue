@@ -99,7 +99,7 @@ function escapeRegex(string: string): string {
 
 .search-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--sm-space-4);
 }
