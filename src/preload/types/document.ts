@@ -11,7 +11,7 @@ export interface ParsedDocumentData {
 /**
  * 支持的导出格式
  */
-export type ExportFormat = 'markdown' | 'word' | 'pdf' | 'txt' | 'ppt'
+export type ExportFormat = 'markdown' | 'word' | 'pdf' | 'txt'
 
 /**
  * 消息导出请求
