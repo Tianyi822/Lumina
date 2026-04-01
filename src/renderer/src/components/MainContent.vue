@@ -56,6 +56,7 @@ const emit = defineEmits<{
   (e: 'update:enableSandboxTools', value: boolean): void
   (e: 'request-export', message: Message): void
   (e: 'select-export-format', format: ExportFormat): void
+  (e: 'select-ppt-outline-action', value: 'confirm' | 'edit', info: UserInteractionRequest): void
 }>()
 
 // 展开的思考内容消息ID集合
@@ -342,6 +343,13 @@ function handleSelectExportFormat(format: ExportFormat): void {
   emit('select-export-format', format)
 }
 
+function handleSelectPptOutlineAction(
+  value: 'confirm' | 'edit',
+  info: UserInteractionRequest
+): void {
+  emit('select-ppt-outline-action', value, info)
+}
+
 /**
  * 切换思考内容展开/折叠
  */
@@ -432,6 +440,7 @@ function hasRenderableReact(message: Message): boolean {
           @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
           @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
           @select-export-format="handleSelectExportFormat"
+          @select-ppt-outline-action="handleSelectPptOutlineAction"
         />
       </div>
     </section>
