@@ -79,13 +79,71 @@ const dialogPhase = computed(() => {
 
 /** 是否显示生成完成状态 */
 const isRenderComplete = computed(() => {
-  return renderingStatus.value === 'done' && artifactId.value !== null
+  return renderingStatus.value === 'done'
+})
+
+// ==================== 状态 ====================
+
+/** 初始化加载中 */
+const initializing = ref(true)
+
+/** 渲染阶段标题 */
+const renderingTitle = computed(() => {
+  if (sdkLoading.value) {
+    return '正在加载妙笔编辑器...'
+  }
+
+  if (renderingStatus.value === 'error') {
+    return 'PPT 渲染失败'
+  }
+
+  if (isRenderComplete.value) {
+    return 'PPT 已生成'
+  }
+
+  return '正在生成 PPT...'
+})
+
+/** 渲染阶段说明 */
+const renderingDescription = computed(() => {
+  if (renderingStatus.value === 'error') {
+    return pptError.value || sdkError.value || '妙笔渲染失败，请关闭后重试'
+  }
+
+  if (isRenderComplete.value) {
+    return '生成结果已经在下方妙笔编辑区打开，你可以继续编辑，并在编辑区内导出或下载。'
+  }
+
+  if (sdkLoading.value) {
+    return '正在准备妙笔编辑器，完成后会在下方显示可操作的 PPT 编辑区。'
+  }
+
+  return '请稍候，生成完成后会在下方直接打开妙笔编辑区。'
 })
 
 // ==================== 生命周期 ====================
 
 onMounted(async () => {
   await checkConfig()
+  initializing.value = false
+
+  if (!isConfigured.value) {
+    return
+  }
+
+  // 加载从外部传入的大纲数据
+  if (props.initialOutline?.trim() && props.initialTaskId?.trim()) {
+    outlineStatus.value = 'done'
+    outlineText.value = props.initialOutline
+    taskId.value = props.initialTaskId
+    editedOutlineText.value = props.initialOutline
+    return
+  }
+
+  // 没有预生成大纲，自动开始生成
+  if (props.content) {
+    await handleGenerateOutline()
+  }
 })
 
 // ==================== 监听器 ====================
@@ -93,31 +151,7 @@ onMounted(async () => {
 watch(
   () => props.visible,
   async (visible) => {
-    if (visible) {
-      reset()
-      destroySDK()
-      editedOutlineText.value = ''
-
-      // 对话框打开时检查配置
-      await checkConfig()
-
-      if (!isConfigured.value) {
-        return
-      }
-
-      if (props.initialOutline?.trim() && props.initialTaskId?.trim()) {
-        outlineStatus.value = 'done'
-        outlineText.value = props.initialOutline
-        taskId.value = props.initialTaskId
-        editedOutlineText.value = props.initialOutline
-        return
-      }
-
-      // 如果已配置且大纲状态为空闲，自动开始生成大纲
-      if (outlineStatus.value === 'idle' && props.content) {
-        await handleGenerateOutline()
-      }
-    } else {
+    if (!visible) {
       // 对话框关闭时清理
       reset()
       destroySDK()
@@ -197,12 +231,11 @@ async function handleConfirmOutline(): Promise<void> {
     container: pptContainer.value,
     content: editedOutlineText.value,
     speaker: props.title,
-    onMessage: (message) => {
+    onMessage: (type, data) => {
       // 处理 SDK 消息
-      switch (message.type) {
-        case 'CHARGING':
-          // 获取到 artifactId 后绑定
-          if (artifactId.value) {
+      switch (type) {
+        case 'GENERATE_PPT_SUCCESS':
+          if (artifactId.value !== null) {
             void bindArtifact()
           }
           break
@@ -212,7 +245,14 @@ async function handleConfirmOutline(): Promise<void> {
           }
           break
         case 'ERROR': {
-          const errMsg = typeof message.data === 'string' ? message.data : 'PPT 渲染出错'
+          const errMsg =
+            typeof data === 'string'
+              ? data
+              : typeof data === 'object' &&
+                  data !== null &&
+                  typeof (data as { message?: unknown }).message === 'string'
+                ? ((data as { message?: string }).message ?? 'PPT 渲染出错')
+                : 'PPT 渲染出错'
           emit('showToast', errMsg, 'error')
           break
         }
@@ -262,8 +302,14 @@ function handleOpenSettings(): void {
 
           <!-- 主体内容 -->
           <div class="sm-ppt-dialog__body">
+            <!-- 初始化加载中 -->
+            <div v-if="initializing" class="sm-ppt-dialog__generating">
+              <div class="sm-ppt-dialog__spinner"></div>
+              <p class="sm-ppt-dialog__status">正在初始化...</p>
+            </div>
+
             <!-- 未配置状态 -->
-            <div v-if="dialogPhase === 'unconfigured'" class="sm-ppt-dialog__unconfigured">
+            <div v-else-if="dialogPhase === 'unconfigured'" class="sm-ppt-dialog__unconfigured">
               <div class="sm-ppt-dialog__icon">⚙️</div>
               <h3 class="sm-ppt-dialog__empty-title">请先配置阿里云妙笔</h3>
               <p class="sm-ppt-dialog__empty-desc">
@@ -308,6 +354,9 @@ function handleOpenSettings(): void {
                 <label class="sm-ppt-dialog__label" for="outline-textarea">
                   PPT 大纲（可编辑）
                 </label>
+                <p class="sm-ppt-dialog__hint">
+                  确认后会在当前弹窗下方直接打开妙笔编辑区，生成完成后可继续编辑并导出。
+                </p>
                 <textarea
                   id="outline-textarea"
                   v-model="editedOutlineText"
@@ -320,28 +369,31 @@ function handleOpenSettings(): void {
 
             <!-- PPT 渲染状态 -->
             <template v-else-if="dialogPhase === 'rendering'">
-              <!-- 渲染中 -->
-              <div v-if="renderingStatus === 'making'" class="sm-ppt-dialog__rendering">
-                <div class="sm-ppt-dialog__spinner"></div>
-                <p class="sm-ppt-dialog__status">正在渲染 PPT...</p>
-              </div>
+              <div class="sm-ppt-dialog__render-shell">
+                <div
+                  class="sm-ppt-dialog__render-banner"
+                  :class="{
+                    'sm-ppt-dialog__render-banner--error': renderingStatus === 'error',
+                    'sm-ppt-dialog__render-banner--success': isRenderComplete
+                  }"
+                >
+                  <div
+                    v-if="sdkLoading || renderingStatus === 'making'"
+                    class="sm-ppt-dialog__spinner"
+                  ></div>
+                  <div v-else-if="isRenderComplete" class="sm-ppt-dialog__success-icon">✓</div>
+                  <div v-else class="sm-ppt-dialog__error-icon">⚠️</div>
+                  <div class="sm-ppt-dialog__render-copy">
+                    <p class="sm-ppt-dialog__render-title">{{ renderingTitle }}</p>
+                    <p class="sm-ppt-dialog__render-desc">{{ renderingDescription }}</p>
+                    <p v-if="artifactId !== null" class="sm-ppt-dialog__render-meta">
+                      当前 Artifact ID：{{ artifactId }}
+                    </p>
+                  </div>
+                </div>
 
-              <!-- 渲染完成 -->
-              <div v-else-if="isRenderComplete" class="sm-ppt-dialog__render-complete">
-                <div class="sm-ppt-dialog__success-icon">✓</div>
-                <p class="sm-ppt-dialog__success-message">PPT 生成完成！</p>
+                <div ref="pptContainer" class="sm-ppt-dialog__ppt-container"></div>
               </div>
-
-              <!-- 渲染错误 -->
-              <div v-else-if="renderingStatus === 'error'" class="sm-ppt-dialog__error">
-                <div class="sm-ppt-dialog__error-icon">⚠️</div>
-                <p class="sm-ppt-dialog__error-message">
-                  {{ pptError || sdkError || 'PPT 渲染失败' }}
-                </p>
-              </div>
-
-              <!-- PPT 容器 -->
-              <div ref="pptContainer" class="sm-ppt-dialog__ppt-container"></div>
             </template>
           </div>
 
@@ -376,7 +428,7 @@ function handleOpenSettings(): void {
               <button
                 type="button"
                 class="sm-button sm-button--secondary"
-                :disabled="isProcessing"
+                :disabled="isProcessing || initializing"
                 @click="handleClose"
               >
                 取消
@@ -576,6 +628,13 @@ function handleOpenSettings(): void {
   color: var(--sm-color-text-primary);
 }
 
+.sm-ppt-dialog__hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
+}
+
 .sm-ppt-dialog__textarea {
   flex: 1;
   min-height: 200px;
@@ -601,7 +660,6 @@ function handleOpenSettings(): void {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  height: 100%;
 }
 
 .sm-ppt-dialog__render-complete {
@@ -617,8 +675,66 @@ function handleOpenSettings(): void {
   color: var(--sm-color-status-success);
 }
 
+.sm-ppt-dialog__render-shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sm-ppt-dialog__render-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  flex-shrink: 0;
+}
+
+.sm-ppt-dialog__render-banner--success {
+  background: rgba(130, 170, 130, 0.08);
+  border-color: rgba(130, 170, 130, 0.22);
+}
+
+.sm-ppt-dialog__render-banner--error {
+  background: rgba(199, 120, 120, 0.08);
+  border-color: rgba(199, 120, 120, 0.22);
+}
+
+.sm-ppt-dialog__render-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sm-ppt-dialog__render-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+}
+
+.sm-ppt-dialog__render-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
+}
+
+.sm-ppt-dialog__render-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--sm-color-text-tertiary);
+}
+
 .sm-ppt-dialog__success-icon {
   font-size: 48px;
+  line-height: 1;
 }
 
 .sm-ppt-dialog__success-message {
@@ -630,6 +746,7 @@ function handleOpenSettings(): void {
 .sm-ppt-dialog__ppt-container {
   flex: 1;
   min-height: 300px;
+  min-width: 0;
   border-radius: var(--sm-radius-md);
   overflow: hidden;
   background: var(--sm-color-surface-1);

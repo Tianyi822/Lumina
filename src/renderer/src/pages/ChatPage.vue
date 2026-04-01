@@ -240,6 +240,13 @@ function handlePptExportToast(message: string, type: 'success' | 'error' | 'info
   window.api.logger.info('[ChatPage] PPT 导出提示', { type, message })
 }
 
+function handlePptCreated(): void {
+  window.api.logger.info('[ChatPage] PPT 已在弹窗中生成完成', {
+    sessionId: currentSession.value?.sessionId,
+    title: currentSession.value?.title
+  })
+}
+
 function handleSelectPptOutlineAction(
   selection: 'confirm' | 'edit',
   interactionInfo: UserInteractionRequest
@@ -661,7 +668,7 @@ watch(
       :title="currentSession?.title"
       @close="closePptConfigDialog"
       @show-toast="handlePptExportToast"
-      @ppt-created="closePptConfigDialog"
+      @ppt-created="handlePptCreated"
     />
   </div>
 </template>
