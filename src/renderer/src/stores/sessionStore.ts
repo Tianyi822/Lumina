@@ -364,7 +364,9 @@ export const useSessionStore = defineStore('session', () => {
     }
 
     // 创建新会话
-    await createSession(DEFAULT_NEW_CHAT_TITLE, sessionType)
+    await createSession(DEFAULT_NEW_CHAT_TITLE, sessionType, {
+      inheritSelectionState: false
+    })
 
     // 重置新会话的发送状态
     if (currentChatId.value) {
