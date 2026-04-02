@@ -239,7 +239,7 @@ onUnmounted(() => {
 }
 
 .settings-container {
-  width: min(1000px, calc(100vw - 48px));
+  width: min(1100px, calc(100vw - 48px));
   height: min(750px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
   min-width: 400px;
   min-height: 300px;
@@ -302,9 +302,9 @@ onUnmounted(() => {
   border-color: var(--sm-color-border-default);
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1060px) {
   .settings-container {
-    width: min(950px, calc(100vw - 40px));
+    width: min(1050px, calc(100vw - 40px));
     height: min(700px, calc(100vh - 88px - env(safe-area-inset-top, 0px)));
   }
 }

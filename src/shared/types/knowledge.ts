@@ -107,3 +107,21 @@ export interface KnowledgeBaseReference {
   /** 知识库中包含的文档数量 */
   documentCount: number
 }
+
+/**
+ * 文件预览数据
+ */
+export interface FilePreviewData {
+  /** 文件提取的文本内容 */
+  content: string
+  /** 文件名 */
+  fileName: string
+  /** 文件类型 */
+  fileType: string
+  /** 文件大小（字节） */
+  fileSize: number
+  /** 文件上传时间 */
+  uploadedAt: string
+  /** 内容是否因过长而截断 */
+  isTruncated: boolean
+}

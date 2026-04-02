@@ -1,5 +1,5 @@
-import { ipcMain } from 'electron'
-import { getFileService } from '@main/services/file'
+import { ipcMain, shell } from 'electron'
+import { getFileService, readFilePreviewData } from '@main/services/file'
 import { logger } from '@main/services/logger'
 // FileItem type is not directly used in this file, but handlers return typed responses
 
@@ -205,6 +205,50 @@ export function registerFileHandlers(): void {
       const errorMessage = `选择文件失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
       return []
+    }
+  })
+
+  // 获取文件预览内容
+  ipcMain.handle('file:preview', async (_event, fileId: string) => {
+    try {
+      const file = getFileService().getFileById(fileId)
+      if (!file) {
+        return { success: false, error: '文件不存在' }
+      }
+
+      const result = await readFilePreviewData(
+        file.absolutePath,
+        file.name,
+        file.size,
+        file.uploadedAt,
+        file.fileType
+      )
+      return result
+    } catch (error) {
+      const errorMessage = `获取文件预览失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return { success: false, error: errorMessage }
+    }
+  })
+
+  // 使用系统默认程序打开文件
+  ipcMain.handle('file:openExternal', async (_event, fileId: string) => {
+    try {
+      const file = getFileService().getFileById(fileId)
+      if (!file) {
+        return { success: false, error: '文件不存在' }
+      }
+
+      const result = await shell.openPath(file.absolutePath)
+      if (result === '') {
+        return { success: true }
+      } else {
+        return { success: false, error: `打开文件失败: ${result}` }
+      }
+    } catch (error) {
+      const errorMessage = `打开文件失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return { success: false, error: errorMessage }
     }
   })
 }

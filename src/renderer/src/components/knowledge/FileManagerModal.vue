@@ -6,6 +6,7 @@
 import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useFileStore } from '@renderer/stores'
+import type { FileItem } from '@renderer/types'
 import { FileUploadZone } from './shared/components'
 import type { UploadResult } from './shared/composables/useFileUpload'
 import {
@@ -16,6 +17,7 @@ import {
   ConfirmDeleteDialog
 } from './file-manager'
 import { useFileDelete } from './file-manager/composables/useFileDelete'
+import FilePreviewDialog from './FilePreviewDialog.vue'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -65,6 +67,22 @@ function handleUploadComplete(result: UploadResult): void {
       : null
 }
 
+// 文件预览
+const previewFile = ref<FileItem | null>(null)
+const showPreview = ref(false)
+
+function handlePreview(file: FileItem): void {
+  previewFile.value = file
+  showPreview.value = true
+}
+
+function handleClosePreview(): void {
+  showPreview.value = false
+  setTimeout(() => {
+    previewFile.value = null
+  }, 300)
+}
+
 // 生命周期
 onMounted(async () => {
   await loadFiles()
@@ -97,6 +115,7 @@ onMounted(async () => {
           :file="file"
           :is-deleting="deletingFileId === file.id"
           @delete="handleDeleteClick"
+          @preview="handlePreview"
         />
       </FileListState>
     </div>
@@ -109,6 +128,8 @@ onMounted(async () => {
       @confirm="performDelete"
       @cancel="cancelDelete"
     />
+
+    <FilePreviewDialog :visible="showPreview" :file="previewFile" @close="handleClosePreview" />
   </div>
 </template>
 
