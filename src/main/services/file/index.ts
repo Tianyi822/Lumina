@@ -4,3 +4,4 @@
 
 export * from './FileService'
 export { getFileService } from './FileService'
+export { readFileContent, readFilePreviewData, SUPPORTED_FILE_TYPES } from './FileContentReader'
