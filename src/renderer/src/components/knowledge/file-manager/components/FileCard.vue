@@ -16,13 +16,14 @@ defineProps<{
 
 const emit = defineEmits<{
   (e: 'delete', file: FileItem): void
+  (e: 'preview', file: FileItem): void
 }>()
 
 const fileStore = useFileStore()
 </script>
 
 <template>
-  <div class="file-card">
+  <div class="file-card" @click="emit('preview', file)">
     <div class="file-card__top">
       <FileIcon :file-type="file.fileType" :size="28" />
 
@@ -32,7 +33,7 @@ const fileStore = useFileStore()
           class="sm-button sm-button--danger sm-button--small delete-btn"
           :disabled="isDeleting"
           :title="file.usedByKBIds.length > 0 ? '文件被知识库使用，删除需谨慎' : '删除文件'"
-          @click="emit('delete', file)"
+          @click.stop="emit('delete', file)"
         >
           <span v-if="isDeleting" class="sm-spinner"></span>
           <span v-else class="delete-text">删除</span>
@@ -60,6 +61,7 @@ const fileStore = useFileStore()
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-md);
   background: var(--sm-color-surface-2);
+  cursor: pointer;
   transition:
     background-color var(--sm-transition-fast),
     border-color var(--sm-transition-fast);

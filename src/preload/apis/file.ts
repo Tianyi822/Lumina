@@ -1,5 +1,5 @@
 import { ipcRenderer } from 'electron'
-import type { FileItem } from '@shared/types/knowledge'
+import type { FileItem, FilePreviewData } from '@shared/types/knowledge'
 
 /**
  * 选中的附件文件信息
@@ -117,5 +117,19 @@ export const fileApi = {
    */
   selectFiles: (): Promise<AttachmentFile[]> => {
     return ipcRenderer.invoke('file:selectFiles')
+  },
+
+  /**
+   * 获取文件预览内容
+   */
+  preview: (fileId: string): Promise<ApiResponse<FilePreviewData>> => {
+    return ipcRenderer.invoke('file:preview', fileId)
+  },
+
+  /**
+   * 使用系统默认程序打开文件
+   */
+  openExternal: (fileId: string): Promise<ApiResponse<void>> => {
+    return ipcRenderer.invoke('file:openExternal', fileId)
   }
 }

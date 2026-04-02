@@ -1,4 +1,4 @@
-import type { FileItem } from './knowledge'
+import type { FileItem, FilePreviewData } from './knowledge'
 
 /**
  * 文件上传的结果
@@ -37,4 +37,8 @@ export interface FileApi {
   getUsage: (fileId: string) => Promise<{ success: boolean; data?: string[]; error?: string }>
   /** 打开文件选择对话框 */
   selectFiles: () => Promise<AttachmentFile[]>
+  /** 获取文件预览内容 */
+  preview: (fileId: string) => Promise<{ success: boolean; data?: FilePreviewData; error?: string }>
+  /** 使用系统默认程序打开文件 */
+  openExternal: (fileId: string) => Promise<{ success: boolean; error?: string }>
 }

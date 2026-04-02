@@ -101,6 +101,18 @@ export interface ReindexProgressEvent {
 }
 
 /**
+ * 文件预览数据
+ */
+export interface FilePreviewData {
+  content: string
+  fileName: string
+  fileType: string
+  fileSize: number
+  uploadedAt: string
+  isTruncated: boolean
+}
+
+/**
  * 知识库相关的 API
  */
 export interface KnowledgeApi {

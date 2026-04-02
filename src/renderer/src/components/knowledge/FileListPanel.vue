@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 import { FileIcon } from './shared'
-
+import FilePreviewDialog from './FilePreviewDialog.vue'
 defineProps<{
   linkedFiles: FileItem[]
   loadingFiles: boolean
@@ -23,6 +24,22 @@ const emit = defineEmits<{
 }>()
 
 const fileStore = useFileStore()
+
+// 文件预览
+const previewFile = ref<FileItem | null>(null)
+const showPreview = ref(false)
+
+function handlePreviewFile(file: FileItem): void {
+  previewFile.value = file
+  showPreview.value = true
+}
+
+function handleClosePreview(): void {
+  showPreview.value = false
+  setTimeout(() => {
+    previewFile.value = null
+  }, 300)
+}
 
 function getFileNameWithoutExtension(fileName: string): string {
   const lastDotIndex = fileName.lastIndexOf('.')
@@ -85,6 +102,7 @@ function getFileNameWithoutExtension(fileName: string): string {
             'indexing-disabled': indexingStatus
           }
         ]"
+        @click="handlePreviewFile(file)"
       >
         <div class="document-card__header">
           <FileIcon :file-type="file.fileType" :size="20" />
@@ -130,6 +148,8 @@ function getFileNameWithoutExtension(fileName: string): string {
         <span class="add-file-text">添加更多文档或拖拽上传</span>
       </button>
     </div>
+
+    <FilePreviewDialog :visible="showPreview" :file="previewFile" @close="handleClosePreview" />
   </section>
 </template>
 
@@ -213,6 +233,7 @@ function getFileNameWithoutExtension(fileName: string): string {
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-md);
   background: var(--sm-color-surface-2);
+  cursor: pointer;
   transition:
     background-color var(--sm-transition-fast),
     border-color var(--sm-transition-fast),
