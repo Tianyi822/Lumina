@@ -39,7 +39,7 @@ function getFileNameWithoutExtension(fileName: string): string {
       <div class="file-actions">
         <div v-if="file.usedByKBIds.length > 0" class="usage-badge">使用中</div>
         <button
-          class="sm-icon-button delete-btn"
+          class="delete-btn"
           :disabled="isDeleting"
           :title="file.usedByKBIds.length > 0 ? '文件被知识库使用，删除需谨慎' : '删除文件'"
           @click.stop="emit('delete', file)"
@@ -149,12 +149,24 @@ function getFileNameWithoutExtension(fileName: string): string {
 }
 
 .delete-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
   color: var(--sm-color-text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .delete-btn:disabled {
   opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .file-card:hover .delete-btn:not(:disabled) {
@@ -163,8 +175,8 @@ function getFileNameWithoutExtension(fileName: string): string {
 
 .delete-btn:hover:not(:disabled),
 .delete-btn:focus-visible:not(:disabled) {
-  color: var(--sm-color-danger);
-  background: rgba(199, 120, 120, 0.12);
+  background-color: rgba(199, 120, 120, 0.12);
   border-color: rgba(199, 120, 120, 0.28);
+  color: rgba(199, 120, 120, 0.92);
 }
 </style>
