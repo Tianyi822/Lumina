@@ -68,11 +68,6 @@ function handleToggleSidebar(): void {
   height: 32px;
   border-color: var(--sm-workspace-toolbar-button-border, rgba(255, 255, 255, 0.12));
   background: var(--sm-workspace-toolbar-button-bg, rgba(22, 24, 29, 0.34));
-  box-shadow: var(
-    --sm-workspace-toolbar-button-shadow,
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 8px 20px rgba(0, 0, 0, 0.16)
-  );
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
 }
