@@ -469,7 +469,7 @@ async function handleSave(): Promise<void> {
   padding: 3px 8px;
   border: 1px solid var(--sm-color-border-accent);
   border-radius: 999px;
-  background: rgba(142, 149, 217, 0.12);
+  background: var(--sm-color-accent-12);
   color: var(--sm-color-accent-hover);
   font-size: 11px;
   font-weight: 600;

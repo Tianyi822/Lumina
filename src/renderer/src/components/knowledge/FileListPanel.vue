@@ -107,7 +107,7 @@ function getFileNameWithoutExtension(fileName: string): string {
         <div class="document-card__header">
           <FileIcon :file-type="file.fileType" :size="20" />
           <button
-            class="sm-icon-button document-remove-btn"
+            class="document-remove-btn"
             :disabled="unlinkingFileId === file.id || indexingStatus"
             title="取消关联"
             @click.stop="emit('unlink-file', file.id)"
@@ -258,7 +258,35 @@ function getFileNameWithoutExtension(fileName: string): string {
 }
 
 .document-remove-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sm-color-text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.document-remove-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.document-card:hover .document-remove-btn:not(:disabled) {
+  opacity: 1;
+}
+
+.document-remove-btn:hover:not(:disabled),
+.document-remove-btn:focus-visible:not(:disabled) {
+  background-color: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.28);
+  color: rgba(199, 120, 120, 0.92);
 }
 
 .document-info {
@@ -349,7 +377,7 @@ function getFileNameWithoutExtension(fileName: string): string {
 
 .add-file-card:hover {
   border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
   color: var(--sm-color-text-primary);
 }
 
@@ -395,7 +423,7 @@ function getFileNameWithoutExtension(fileName: string): string {
 
 .drag-over {
   border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.05);
+  background: var(--sm-color-accent-05);
 }
 
 .drag-overlay {

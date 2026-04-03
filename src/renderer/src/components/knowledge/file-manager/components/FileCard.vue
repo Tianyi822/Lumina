@@ -5,6 +5,7 @@
  */
 import type { FileItem } from '@renderer/types'
 import { useFileStore } from '@renderer/stores'
+import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { FileIcon } from '../../shared/components'
 
 defineProps<{
@@ -20,6 +21,14 @@ const emit = defineEmits<{
 }>()
 
 const fileStore = useFileStore()
+
+function getFileNameWithoutExtension(fileName: string): string {
+  const lastDotIndex = fileName.lastIndexOf('.')
+  if (lastDotIndex > 0) {
+    return fileName.substring(0, lastDotIndex)
+  }
+  return fileName
+}
 </script>
 
 <template>
@@ -30,24 +39,25 @@ const fileStore = useFileStore()
       <div class="file-actions">
         <div v-if="file.usedByKBIds.length > 0" class="usage-badge">使用中</div>
         <button
-          class="sm-button sm-button--danger sm-button--small delete-btn"
+          class="delete-btn"
           :disabled="isDeleting"
           :title="file.usedByKBIds.length > 0 ? '文件被知识库使用，删除需谨慎' : '删除文件'"
           @click.stop="emit('delete', file)"
         >
           <span v-if="isDeleting" class="sm-spinner"></span>
-          <span v-else class="delete-text">删除</span>
+          <SvgIcon v-else name="trash" :size="12" />
         </button>
       </div>
     </div>
 
     <div class="file-info">
-      <div class="file-name" :title="file.name">{{ file.name }}</div>
-      <div class="file-meta">
-        <span class="badge">{{ file.fileType.toUpperCase() }}</span>
-        <span class="file-size">{{ fileStore.formatFileSize(file.size) }}</span>
-        <span class="file-date">{{ fileStore.formatDate(file.uploadedAt) }}</span>
-      </div>
+      <div class="file-name" :title="file.name">{{ getFileNameWithoutExtension(file.name) }}</div>
+    </div>
+
+    <div class="file-meta">
+      <span class="badge file-type-badge">{{ file.fileType.toUpperCase() }}</span>
+      <span>{{ fileStore.formatFileSize(file.size) }}</span>
+      <span>{{ fileStore.formatDate(file.uploadedAt) }}</span>
     </div>
   </div>
 </template>
@@ -57,6 +67,7 @@ const fileStore = useFileStore()
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-4);
+  min-height: 220px;
   padding: var(--sm-space-4);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-md);
@@ -80,8 +91,12 @@ const fileStore = useFileStore()
 }
 
 .file-info {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: var(--sm-space-2);
   min-width: 0;
+  min-height: 0;
 }
 
 .file-name {
@@ -94,10 +109,22 @@ const fileStore = useFileStore()
 
 .file-meta {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: var(--sm-space-2);
-  font-size: 12px;
+  margin-top: auto;
+  font-size: 11px;
   color: var(--sm-color-text-secondary);
+}
+
+.file-meta > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+}
+
+.file-type-badge {
+  color: var(--sm-color-text-primary);
 }
 
 .file-actions {
@@ -113,23 +140,43 @@ const fileStore = useFileStore()
   align-items: center;
   min-height: 22px;
   padding: 0 8px;
-  border: 1px solid rgba(142, 149, 217, 0.28);
+  border: 1px solid var(--sm-color-accent-28);
   border-radius: 999px;
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
   font-size: 11px;
   font-weight: 500;
   color: var(--sm-color-accent-hover);
 }
 
 .delete-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sm-color-text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .delete-btn:disabled {
   opacity: 0.45;
+  cursor: not-allowed;
 }
 
-.delete-text {
-  font-size: 12px;
+.file-card:hover .delete-btn:not(:disabled) {
+  opacity: 1;
+}
+
+.delete-btn:hover:not(:disabled),
+.delete-btn:focus-visible:not(:disabled) {
+  background-color: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.28);
+  color: rgba(199, 120, 120, 0.92);
 }
 </style>

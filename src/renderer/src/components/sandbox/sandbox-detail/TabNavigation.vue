@@ -80,8 +80,8 @@ function setDetailTab(tab: TabType): void {
 }
 
 .tab-btn.is-active {
-  background: rgba(142, 149, 217, 0.12);
-  border-color: var(--sm-color-border-accent);
-  color: var(--sm-color-text-primary);
+  background: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
+  color: var(--sm-color-text-selected);
 }
 </style>

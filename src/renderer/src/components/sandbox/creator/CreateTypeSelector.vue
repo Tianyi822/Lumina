@@ -74,8 +74,8 @@ const emit = defineEmits<{
 }
 
 .type-option.active {
-  border-color: var(--sm-color-accent);
-  background-color: rgba(63, 185, 80, 0.05);
+  border-color: var(--sm-color-border-selected);
+  background-color: var(--sm-color-surface-selected);
 }
 
 .option-label {

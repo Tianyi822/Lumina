@@ -75,7 +75,7 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
 
 .upload-zone.dragging {
   border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
 }
 
 .upload-zone.uploading {

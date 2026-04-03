@@ -25,9 +25,26 @@
   --sm-color-text-secondary: rgba(255, 255, 255, 0.65);
   --sm-color-text-tertiary: rgba(255, 255, 255, 0.3);
 
-  --sm-color-accent: #8e95d9;
-  --sm-color-accent-hover: #a1a7e6;
-  --sm-color-accent-active: #7178b8;
+  --sm-color-accent: #9ca9ba;
+  --sm-color-accent-hover: #b1bdcc;
+  --sm-color-accent-active: #8592a3;
+  --sm-color-accent-03: rgba(156, 169, 186, 0.03);
+  --sm-color-accent-05: rgba(156, 169, 186, 0.05);
+  --sm-color-accent-06: rgba(156, 169, 186, 0.06);
+  --sm-color-accent-08: rgba(156, 169, 186, 0.08);
+  --sm-color-accent-10: rgba(156, 169, 186, 0.1);
+  --sm-color-accent-12: rgba(156, 169, 186, 0.12);
+  --sm-color-accent-14: rgba(156, 169, 186, 0.14);
+  --sm-color-accent-16: rgba(156, 169, 186, 0.16);
+  --sm-color-accent-18: rgba(156, 169, 186, 0.18);
+  --sm-color-accent-22: rgba(156, 169, 186, 0.22);
+  --sm-color-accent-24: rgba(156, 169, 186, 0.24);
+  --sm-color-accent-28: rgba(156, 169, 186, 0.28);
+
+  --sm-color-surface-selected: #2d333b;
+  --sm-color-surface-selected-hover: #343b44;
+  --sm-color-border-selected: rgba(255, 255, 255, 0.1);
+  --sm-color-text-selected: rgba(255, 255, 255, 0.92);
 
   --sm-color-status-danger: #c77878;
   --sm-color-status-warning: #c5a165;
@@ -37,13 +54,13 @@
   --sm-color-border-subtle: rgba(255, 255, 255, 0.08);
   --sm-color-border-default: rgba(255, 255, 255, 0.12);
   --sm-color-border-strong: rgba(255, 255, 255, 0.18);
-  --sm-color-border-accent: rgba(142, 149, 217, 0.55);
+  --sm-color-border-accent: rgba(156, 169, 186, 0.36);
 
   --sm-titlebar-height: 38px;
   --sm-shadow-none: none;
 
-  --sm-focus-ring-color: rgba(142, 149, 217, 0.42);
-  --sm-selection-background: rgba(142, 149, 217, 0.28);
+  --sm-focus-ring-color: var(--sm-color-accent-24);
+  --sm-selection-background: var(--sm-color-accent-18);
   --sm-selection-color: #ffffff;
 
   --theme-bg: var(--sm-color-bg-app);
@@ -95,14 +112,14 @@
   --scrollbar-thumb-hover-bg: rgba(255, 255, 255, 0.18);
   --scrollbar-thumb-radius: 999px;
 
-  --bubble-user-bg: rgba(142, 149, 217, 0.16);
+  --bubble-user-bg: var(--sm-color-accent-16);
   --bubble-user-text: var(--sm-color-text-primary);
   --bubble-ai-bg: var(--sm-color-surface-1);
   --bubble-ai-text: var(--sm-color-text-primary);
   --bubble-ai-border: var(--sm-color-border-default);
 
-  --thinking-bg: rgba(142, 149, 217, 0.08);
-  --thinking-border: rgba(142, 149, 217, 0.26);
+  --thinking-bg: var(--sm-color-accent-08);
+  --thinking-border: var(--sm-color-accent-24);
   --thinking-accent: var(--sm-color-accent-hover);
 
   --glass-white-003: rgba(255, 255, 255, 0.003);

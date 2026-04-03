@@ -84,8 +84,8 @@ const waitingPlaceholderSubtitle = computed(() => {
   width: 34px;
   height: 34px;
   border-radius: 12px;
-  background: rgba(142, 149, 217, 0.08);
-  border: 1px solid rgba(142, 149, 217, 0.18);
+  background: var(--sm-color-accent-08);
+  border: 1px solid var(--sm-color-accent-18);
 }
 
 .streaming-placeholder-pulse span {

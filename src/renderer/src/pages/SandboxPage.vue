@@ -2,7 +2,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSandboxStore, useUIStateStore } from '@renderer/stores'
-import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar.vue'
 import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
 import SandboxCreator from '@renderer/components/sandbox/SandboxCreator.vue'
 import ConfigManager from '@renderer/components/sandbox/ConfigManager.vue'
@@ -36,10 +35,6 @@ const installCommands: InstallCommand[] = [
   { platform: 'linux', label: 'Fedora', cmd: 'sudo dnf install -y docker' },
   { platform: 'linux', label: 'Arch Linux', cmd: 'sudo pacman -S docker' }
 ]
-
-defineEmits<{
-  (e: 'open-settings'): void
-}>()
 
 const sandboxStore = useSandboxStore()
 const uiStateStore = useUIStateStore()
@@ -142,14 +137,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="sm-sandbox-page sm-workspace-main">
-    <div class="sm-workspace-main__toolbar">
-      <WorkspaceToolbar @open-settings="$emit('open-settings')" />
-    </div>
-
+  <div class="sm-sandbox-page sm-workspace-view">
     <div
       v-if="loading"
-      class="sm-workspace-main__body sm-sandbox-page__loading"
+      class="sm-sandbox-page__loading"
       role="status"
       aria-live="polite"
       aria-busy="true"
@@ -159,9 +150,7 @@ onMounted(async () => {
     </div>
 
     <template v-else-if="dockerStatus?.installed">
-      <div class="sm-workspace-main__body sm-workspace-main__body--fill">
-        <SandboxMainContent :current-sandbox="currentSandbox" />
-      </div>
+      <SandboxMainContent :current-sandbox="currentSandbox" />
 
       <!-- 创建沙箱弹窗 -->
       <SandboxCreator :visible="showSandboxCreator" @close="handleCloseCreator" />
@@ -202,10 +191,7 @@ onMounted(async () => {
       />
     </template>
 
-    <div
-      v-else
-      class="sm-workspace-main__body sm-workspace-main__body--scrollable sm-sandbox-install"
-    >
+    <div v-else class="sm-sandbox-install">
       <div class="sm-sandbox-install__shell">
         <section class="sm-sandbox-install__overview">
           <div class="sm-sandbox-install__copy">
@@ -328,6 +314,8 @@ onMounted(async () => {
 }
 
 .sm-sandbox-page__loading {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -343,6 +331,8 @@ onMounted(async () => {
 }
 
 .sm-sandbox-install {
+  flex: 1;
+  min-height: 0;
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
@@ -488,7 +478,7 @@ onMounted(async () => {
 
 .sm-sandbox-command-item.is-recommended {
   border-color: var(--sm-color-border-accent);
-  background-color: rgba(142, 149, 217, 0.08);
+  background-color: var(--sm-color-accent-08);
 }
 
 .sm-sandbox-command-item:hover {
@@ -534,7 +524,7 @@ onMounted(async () => {
 }
 
 .sm-sandbox-copy-button.is-copied {
-  background-color: rgba(142, 149, 217, 0.14);
+  background-color: var(--sm-color-accent-14);
   border-color: var(--sm-color-border-accent);
   color: var(--sm-color-text-primary);
 }

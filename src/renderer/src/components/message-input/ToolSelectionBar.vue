@@ -202,8 +202,8 @@ onUnmounted(() => {
 }
 
 .model-option.active {
-  background: rgba(142, 149, 217, 0.08);
-  color: var(--sm-color-accent-hover);
+  background: var(--sm-color-surface-selected);
+  color: var(--sm-color-text-selected);
 }
 
 .model-option.empty {
@@ -254,9 +254,9 @@ onUnmounted(() => {
 }
 
 .document-upload-btn.has-docs {
-  color: var(--sm-color-accent-hover);
-  border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.08);
+  color: var(--sm-color-text-primary);
+  border-color: var(--sm-color-border-selected);
+  background: var(--sm-color-surface-selected);
 }
 
 .doc-count {
@@ -268,9 +268,9 @@ onUnmounted(() => {
   justify-content: center;
   width: 16px;
   height: 16px;
-  background: var(--sm-color-surface-3);
-  border: 1px solid var(--sm-color-border-accent);
-  color: var(--sm-color-accent-hover);
+  background: var(--sm-color-surface-selected);
+  border: 1px solid var(--sm-color-border-selected);
+  color: var(--sm-color-text-primary);
   font-size: 10px;
   font-weight: 600;
   border-radius: 50%;
@@ -308,21 +308,21 @@ onUnmounted(() => {
 .voice-input-btn.recording {
   color: var(--sm-color-accent-hover);
   border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.12);
+  background: var(--sm-color-accent-12);
 }
 
 .execute-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(142, 149, 217, 0.12);
+  background: var(--sm-color-accent-12);
   border-color: var(--sm-color-border-accent);
   color: var(--sm-color-text-primary);
 }
 
 .execute-btn:hover {
-  background: rgba(142, 149, 217, 0.18);
-  border-color: rgba(161, 167, 230, 0.6);
+  background: var(--sm-color-accent-18);
+  border-color: var(--sm-color-accent-28);
 }
 
 .stop-btn {

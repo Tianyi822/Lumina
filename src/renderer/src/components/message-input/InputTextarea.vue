@@ -110,7 +110,7 @@ defineExpose({ focus })
 
 .message-textarea.dragging {
   border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
 }
 
 .drag-overlay {
@@ -119,7 +119,7 @@ defineExpose({ focus })
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(142, 149, 217, 0.1);
+  background: var(--sm-color-accent-10);
   border: 1px dashed var(--sm-color-border-accent);
   border-radius: var(--sm-radius-md);
   pointer-events: none;

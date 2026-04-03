@@ -462,7 +462,7 @@ watch(
 }
 
 .sm-prompt-example-dialog__text-button:hover {
-  background: rgba(142, 149, 217, 0.14);
+  background: var(--sm-color-accent-14);
   color: var(--sm-color-text-primary);
 }
 

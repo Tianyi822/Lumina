@@ -429,7 +429,7 @@ function handleClosePreviewDialog(): void {
 
 .user-avatar {
   border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.14);
+  background: var(--sm-color-accent-14);
   color: var(--sm-color-accent-hover);
 }
 
@@ -467,8 +467,8 @@ function handleClosePreviewDialog(): void {
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  background: rgba(142, 149, 217, 0.08);
-  border: 1px solid rgba(142, 149, 217, 0.18);
+  background: var(--sm-color-accent-08);
+  border: 1px solid var(--sm-color-accent-18);
   border-radius: 12px;
   font-size: 11px;
   color: var(--sm-color-accent-hover);
@@ -515,13 +515,13 @@ function handleClosePreviewDialog(): void {
 
 .chat-message.role-user .message-bubble {
   align-self: flex-end;
-  background: rgba(142, 149, 217, 0.12);
+  background: var(--sm-color-accent-12);
   border-color: var(--sm-color-border-accent);
 }
 
 .chat-message.role-user .message-bubble:hover {
-  background: rgba(142, 149, 217, 0.18);
-  border-color: rgba(161, 167, 230, 0.6);
+  background: var(--sm-color-accent-18);
+  border-color: var(--sm-color-accent-28);
 }
 
 .chat-message.role-assistant .message-bubble {

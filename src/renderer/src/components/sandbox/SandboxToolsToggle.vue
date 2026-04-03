@@ -74,7 +74,7 @@ onMounted(() => {
 
 .sandbox-tools-toggle.enabled {
   border-color: var(--sm-color-border-accent);
-  background-color: rgba(142, 149, 217, 0.08);
+  background-color: var(--sm-color-accent-08);
 }
 
 .sandbox-tools-toggle.disabled {

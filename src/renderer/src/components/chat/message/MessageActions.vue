@@ -66,7 +66,7 @@ const emit = defineEmits<{
 .export-button:hover:not(:disabled) {
   border-color: var(--sm-color-border-accent);
   color: var(--sm-color-text-primary);
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
 }
 
 .export-button:disabled {

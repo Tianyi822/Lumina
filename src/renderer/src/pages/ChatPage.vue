@@ -16,7 +16,6 @@ import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
 import MessageExportDialog from '@renderer/components/chat/MessageExportDialog.vue'
 import PptExportConfigDialog from '@renderer/components/chat/PptExportConfigDialog.vue'
-import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar.vue'
 import {
   createExportInteractionInfo,
   findLatestExportableAssistantMessage,
@@ -32,11 +31,6 @@ import {
   useInputStateStore,
   useUIStateStore
 } from '@renderer/stores'
-
-// ==================== Props & Emits ====================
-defineEmits<{
-  (e: 'open-settings'): void
-}>()
 
 // ==================== Stores ====================
 const sessionStore = useSessionStore()
@@ -614,39 +608,33 @@ watch(
 </script>
 
 <template>
-  <div class="chat-page sm-workspace-main">
-    <div class="sm-workspace-main__toolbar">
-      <WorkspaceToolbar @open-settings="$emit('open-settings')" />
-    </div>
-
-    <div class="sm-workspace-main__body sm-workspace-main__body--fill">
-      <MainContent
-        :key="currentChatId || 'no-chat'"
-        :current-chat-id="currentChatId"
-        :messages="messages"
-        :is-sending="isSending"
-        :current-model-name="currentModel"
-        :config-update-key="0"
-        :input-message="currentInputState.inputMessage"
-        :selected-model="currentInputState.selectedModel"
-        :selected-m-c-p-tools="currentInputState.selectedMCPTools"
-        :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
-        :enable-sandbox-tools="currentInputState.enableSandboxTools"
-        :session-id="currentSession?.sessionId"
-        :export-interaction-info="exportInteractionInfo"
-        :exporting-message-id="exportingMessageId"
-        @send-message="handleSendMessage"
-        @stop-request="handleStopRequest"
-        @update:input-message="handleUpdateInputMessage"
-        @update:selected-model="handleUpdateSelectedModel"
-        @update:selected-m-c-p-tools="handleUpdateSelectedTools"
-        @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
-        @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
-        @request-export="handleRequestExport"
-        @select-export-format="handleInlineExportFormatSelect"
-        @select-ppt-outline-action="handleSelectPptOutlineAction"
-      />
-    </div>
+  <div class="chat-page sm-workspace-view">
+    <MainContent
+      :key="currentChatId || 'no-chat'"
+      :current-chat-id="currentChatId"
+      :messages="messages"
+      :is-sending="isSending"
+      :current-model-name="currentModel"
+      :config-update-key="0"
+      :input-message="currentInputState.inputMessage"
+      :selected-model="currentInputState.selectedModel"
+      :selected-m-c-p-tools="currentInputState.selectedMCPTools"
+      :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
+      :enable-sandbox-tools="currentInputState.enableSandboxTools"
+      :session-id="currentSession?.sessionId"
+      :export-interaction-info="exportInteractionInfo"
+      :exporting-message-id="exportingMessageId"
+      @send-message="handleSendMessage"
+      @stop-request="handleStopRequest"
+      @update:input-message="handleUpdateInputMessage"
+      @update:selected-model="handleUpdateSelectedModel"
+      @update:selected-m-c-p-tools="handleUpdateSelectedTools"
+      @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
+      @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
+      @request-export="handleRequestExport"
+      @select-export-format="handleInlineExportFormatSelect"
+      @select-ppt-outline-action="handleSelectPptOutlineAction"
+    />
 
     <!-- 聊天错误提示(临时显示) -->
     <ChatErrorToast :show="showChatError" :message="chatErrorMessage" @close="closeChatError" />
@@ -678,58 +666,7 @@ watch(
   position: relative;
   overflow: visible;
 }
-
-.chat-page > .sm-workspace-main__toolbar {
-  position: absolute;
-  top: calc(var(--sm-space-3) * -1);
-  right: 0;
-  left: 0;
-  z-index: 4;
-  min-height: calc(var(--sm-titlebar-height) + var(--sm-space-3));
-  padding: var(--sm-space-3) var(--sm-space-2) 0;
-  background: transparent;
-  border: none;
-}
-
-.chat-page > .sm-workspace-main__toolbar::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 calc(var(--sm-space-4) * -1) 0;
-  background: var(
-    --sm-chat-toolbar-scrim,
-    linear-gradient(
-      180deg,
-      rgba(14, 14, 16, 0.28) 0%,
-      rgba(14, 14, 16, 0.18) 52%,
-      rgba(14, 14, 16, 0.08) 78%,
-      rgba(14, 14, 16, 0) 100%
-    )
-  );
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  mask-image: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 0.92) 62%,
-    rgba(0, 0, 0, 0.36) 86%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 0.92) 62%,
-    rgba(0, 0, 0, 0.36) 86%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  pointer-events: none;
-}
-
-.chat-page > .sm-workspace-main__body {
-  position: relative;
-  z-index: 1;
-}
-
-:deep(.chat-page .sm-chat-stage__scroll) {
+:deep(.sm-chat-stage__scroll) {
   padding-top: calc(var(--sm-titlebar-height) + var(--sm-space-3) + var(--sm-space-6));
 }
 

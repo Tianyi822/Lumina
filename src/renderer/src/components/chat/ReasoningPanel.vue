@@ -117,7 +117,7 @@ const contentTokenLabel = computed(() => {
 
 .reasoning-panel.expanded {
   background: var(--sm-color-surface-2);
-  border-color: rgba(142, 149, 217, 0.28);
+  border-color: var(--sm-color-accent-28);
 }
 
 .sm-reasoning-panel__header {
@@ -138,8 +138,8 @@ const contentTokenLabel = computed(() => {
 }
 
 .reasoning-panel.expanded .sm-reasoning-panel__header {
-  background: rgba(142, 149, 217, 0.08);
-  border-bottom-color: rgba(142, 149, 217, 0.18);
+  background: var(--sm-color-accent-08);
+  border-bottom-color: var(--sm-color-accent-18);
 }
 
 .header-left {
@@ -356,7 +356,7 @@ const contentTokenLabel = computed(() => {
   margin: 0.4em 0;
   padding: 0.4em 0.9em;
   border-left: 3px solid var(--sm-color-accent);
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
   border-radius: 0 var(--sm-radius-sm) var(--sm-radius-sm) 0;
 }
 

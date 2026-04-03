@@ -304,9 +304,9 @@ function handleViewLogs(containerId: string): void {
 }
 
 .filter-btn.active {
-  background-color: var(--sm-color-accent);
-  border-color: var(--sm-color-accent);
-  color: var(--sm-color-bg-app);
+  background-color: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
+  color: var(--sm-color-text-selected);
 }
 
 /* 列表样式 */
@@ -381,8 +381,8 @@ function handleViewLogs(containerId: string): void {
 }
 
 .container-card.active {
-  border-color: var(--sm-color-accent);
-  background-color: rgba(63, 185, 80, 0.05);
+  border-color: var(--sm-color-border-selected);
+  background-color: var(--sm-color-surface-selected);
 }
 
 .container-card.running {

@@ -35,7 +35,7 @@ const { searchFiles } = fileStore
   align-items: center;
   justify-content: space-between;
   gap: var(--sm-space-4);
-  padding: 0 var(--sm-space-5);
+  padding: var(--sm-space-3) var(--sm-space-5) 0;
 }
 
 .toolbar-search {

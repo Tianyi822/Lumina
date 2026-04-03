@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import ChatPage from './pages/ChatPage.vue'
 import KnowledgePage from './pages/KnowledgePage.vue'
@@ -7,6 +7,7 @@ import SandboxPage from './pages/SandboxPage.vue'
 import ErrorBanner from './components/ErrorBanner.vue'
 import SettingsModal from './components/SettingsModal.vue'
 import WorkspaceSidebarHost from './components/chrome/WorkspaceSidebarHost.vue'
+import WorkspaceToolbar from './components/chrome/WorkspaceToolbar.vue'
 
 // Composables
 import { useLifecycle } from './composables/lifecycle/useLifecycle'
@@ -27,6 +28,11 @@ const configStore = useConfigStore()
 
 // 设置弹窗状态（本地状态）
 const showSettings = ref(false)
+const workspaceMainClass = computed(() => ({
+  'sm-workspace-main--chat': isChatView.value,
+  'sm-workspace-main--knowledge': isKnowledgeView.value,
+  'sm-workspace-main--sandbox': !isChatView.value && !isKnowledgeView.value
+}))
 
 function openSettings(): void {
   showSettings.value = true
@@ -115,16 +121,24 @@ onBeforeUnmount(() => {
     <div class="sm-shell sm-workspace-page">
       <WorkspaceSidebarHost />
 
-      <Transition name="sm-workspace-switch" mode="out-in" appear>
-        <!-- Chat 视图 -->
-        <ChatPage v-if="isChatView" key="chat" @open-settings="openSettings" />
+      <div class="sm-workspace-main" :class="workspaceMainClass">
+        <div class="sm-workspace-main__toolbar">
+          <WorkspaceToolbar @open-settings="openSettings" />
+        </div>
 
-        <!-- 知识库视图 -->
-        <KnowledgePage v-else-if="isKnowledgeView" key="knowledge" @open-settings="openSettings" />
+        <div class="sm-workspace-main__body sm-workspace-main__body--fill">
+          <Transition name="sm-workspace-switch" mode="out-in" appear>
+            <!-- Chat 视图 -->
+            <ChatPage v-if="isChatView" key="chat" />
 
-        <!-- 沙箱视图 -->
-        <SandboxPage v-else key="sandbox" @open-settings="openSettings" />
-      </Transition>
+            <!-- 知识库视图 -->
+            <KnowledgePage v-else-if="isKnowledgeView" key="knowledge" />
+
+            <!-- 沙箱视图 -->
+            <SandboxPage v-else key="sandbox" />
+          </Transition>
+        </div>
+      </div>
     </div>
 
     <!-- 设置弹窗 -->
@@ -133,3 +147,60 @@ onBeforeUnmount(() => {
     </Transition>
   </div>
 </template>
+
+<style scoped>
+.sm-workspace-main--chat {
+  position: relative;
+  overflow: visible;
+}
+
+.sm-workspace-main--chat > .sm-workspace-main__toolbar {
+  position: absolute;
+  top: calc(var(--sm-space-3) * -1);
+  right: 0;
+  left: 0;
+  z-index: 4;
+  min-height: calc(var(--sm-titlebar-height) + var(--sm-space-3));
+  padding-top: var(--sm-space-3);
+  background: transparent;
+  border: none;
+}
+
+.sm-workspace-main--chat > .sm-workspace-main__toolbar::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 calc(var(--sm-space-4) * -1) 0;
+  background: var(
+    --sm-chat-toolbar-scrim,
+    linear-gradient(
+      180deg,
+      rgba(14, 14, 16, 0.28) 0%,
+      rgba(14, 14, 16, 0.18) 52%,
+      rgba(14, 14, 16, 0.08) 78%,
+      rgba(14, 14, 16, 0) 100%
+    )
+  );
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.92) 62%,
+    rgba(0, 0, 0, 0.36) 86%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.92) 62%,
+    rgba(0, 0, 0, 0.36) 86%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  pointer-events: none;
+}
+
+.sm-workspace-main--chat > .sm-workspace-main__body {
+  position: relative;
+  z-index: 1;
+}
+</style>

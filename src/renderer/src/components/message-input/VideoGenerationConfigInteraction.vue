@@ -163,9 +163,9 @@ watch(
   margin-bottom: 12px;
   padding: 14px 16px;
   background:
-    linear-gradient(180deg, rgba(142, 149, 217, 0.08), rgba(142, 149, 217, 0.03)),
+    linear-gradient(180deg, var(--sm-color-accent-08), var(--sm-color-accent-03)),
     var(--sm-color-surface-2);
-  border: 1px solid rgba(142, 149, 217, 0.22);
+  border: 1px solid var(--sm-color-accent-22);
   border-radius: var(--sm-radius-lg);
   color: var(--sm-color-text-primary);
 }
@@ -213,8 +213,8 @@ watch(
 }
 
 .config-chip.active {
-  border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.14);
+  border-color: var(--sm-color-border-selected);
+  background: var(--sm-color-surface-selected);
 }
 
 .submit-button {
@@ -222,7 +222,7 @@ watch(
   border: 1px solid var(--sm-color-border-accent);
   border-radius: var(--sm-radius-md);
   padding: 10px 14px;
-  background: rgba(142, 149, 217, 0.16);
+  background: var(--sm-color-accent-16);
   color: var(--sm-color-text-primary);
   font-size: 13px;
   font-weight: 600;
@@ -234,7 +234,7 @@ watch(
 }
 
 .submit-button:hover {
-  background: rgba(142, 149, 217, 0.22);
-  border-color: rgba(161, 167, 230, 0.6);
+  background: var(--sm-color-accent-22);
+  border-color: var(--sm-color-accent-28);
 }
 </style>

@@ -22,6 +22,12 @@ const iconData = computed(() => {
 const iconSize = computed(() => {
   return typeof props.size === 'number' ? `${props.size}px` : props.size
 })
+
+const iconStyle = computed(() => {
+  return {
+    color: props.color === 'currentColor' ? 'inherit' : props.color
+  }
+})
 </script>
 
 <template>
@@ -31,6 +37,7 @@ const iconSize = computed(() => {
     :viewBox="iconData.viewBox"
     :width="iconSize"
     :height="iconSize"
+    :style="iconStyle"
     :fill="iconData.fill || 'none'"
     :stroke="iconData.stroke || 'none'"
     :stroke-width="iconData.strokeWidth"
@@ -56,6 +63,7 @@ const iconSize = computed(() => {
   display: inline-block;
   vertical-align: middle;
   flex-shrink: 0;
+  color: inherit;
 }
 
 .svg-icon-spin {

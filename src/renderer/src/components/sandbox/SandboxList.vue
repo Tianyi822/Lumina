@@ -187,8 +187,8 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 }
 
 .sandbox-item.active {
-  border-color: var(--sm-color-border-accent);
-  background-color: rgba(142, 149, 217, 0.12);
+  border-color: var(--sm-color-border-selected);
+  background-color: var(--sm-color-surface-selected);
 }
 
 .sandbox-item.orphan {
@@ -244,8 +244,8 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 }
 
 .sm-sandbox-list__creation-badge.creation-type-dockerfile {
-  border-color: rgba(142, 149, 217, 0.28);
-  background-color: rgba(142, 149, 217, 0.12);
+  border-color: var(--sm-color-accent-28);
+  background-color: var(--sm-color-accent-12);
   color: var(--sm-color-accent-hover);
 }
 
@@ -265,8 +265,8 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
 }
 
 .status-creating {
-  border-color: rgba(142, 149, 217, 0.28);
-  background-color: rgba(142, 149, 217, 0.12);
+  border-color: var(--sm-color-accent-28);
+  background-color: var(--sm-color-accent-12);
   color: var(--sm-color-accent-hover);
 }
 

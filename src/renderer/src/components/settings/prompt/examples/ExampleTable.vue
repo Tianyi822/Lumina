@@ -415,7 +415,7 @@ onUnmounted(() => {
 }
 
 .sm-prompt-example-table__row.is-selected {
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
 }
 
 .sm-prompt-example-table__cell--checkbox {

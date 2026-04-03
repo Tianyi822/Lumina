@@ -85,7 +85,7 @@ const emit = defineEmits<{
 }
 
 .btn-link:hover {
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
 }
 
 .actions {

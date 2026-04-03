@@ -480,13 +480,13 @@ onMounted(() => {
   min-height: 44px;
   justify-content: center;
   border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.12);
+  background: var(--sm-color-accent-12);
   color: var(--sm-color-accent-hover);
   font-weight: 600;
 }
 
 .fetch-token-btn:hover:not(:disabled) {
-  background: rgba(142, 149, 217, 0.18);
+  background: var(--sm-color-accent-18);
 }
 
 .fetch-token-btn:disabled {

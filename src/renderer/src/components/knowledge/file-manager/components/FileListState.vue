@@ -37,7 +37,7 @@ const { loading, searchQuery, filteredFiles } = storeToRefs(fileStore)
 
 .file-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: var(--sm-space-4);
 }
 
