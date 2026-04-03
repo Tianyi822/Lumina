@@ -133,10 +133,7 @@ function resetForm(): void {
   <div class="sm-modal__overlay form-overlay" @click.self="handleCancel">
     <div class="sm-modal__surface form-container">
       <div class="sm-pane-header form-header">
-        <div>
-          <p class="form-eyebrow">知识库</p>
-          <h2>创建知识库</h2>
-        </div>
+        <h2>创建知识库</h2>
         <button class="sm-icon-button close-btn" @click="handleCancel">✕</button>
       </div>
 
@@ -288,15 +285,6 @@ function resetForm(): void {
 
 .form-header {
   flex-shrink: 0;
-}
-
-.form-eyebrow {
-  margin: 0 0 6px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
 }
 
 .form-header h2 {
