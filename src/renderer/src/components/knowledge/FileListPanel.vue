@@ -259,6 +259,23 @@ function getFileNameWithoutExtension(fileName: string): string {
 
 .document-remove-btn {
   flex-shrink: 0;
+  color: var(--sm-color-text-tertiary);
+}
+
+.document-card:hover .document-remove-btn:not(:disabled) {
+  opacity: 1;
+}
+
+.document-remove-btn:hover:not(:disabled),
+.document-remove-btn:focus-visible:not(:disabled) {
+  color: var(--sm-color-danger);
+  background: rgba(199, 120, 120, 0.12);
+  border-color: rgba(199, 120, 120, 0.28);
+}
+
+.document-remove-btn:hover:not(:disabled) .svg-icon,
+.document-remove-btn:focus-visible:not(:disabled) .svg-icon {
+  color: currentColor;
 }
 
 .document-info {
