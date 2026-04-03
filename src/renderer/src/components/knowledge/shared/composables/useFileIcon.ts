@@ -30,6 +30,9 @@ export function getFileIconInfo(fileType: string): FileIconInfo {
       return { iconClass: 'file-icon-doc', iconName: 'file-doc' }
     case 'csv':
       return { iconClass: 'file-icon-csv', iconName: 'file-csv' }
+    case 'xls':
+    case 'xlsx':
+      return { iconClass: 'file-icon-xlsx', iconName: 'file-xlsx' }
     default:
       return { iconClass: 'file-icon-default', iconName: 'file' }
   }
