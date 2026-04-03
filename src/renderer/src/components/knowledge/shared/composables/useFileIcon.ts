@@ -33,6 +33,9 @@ export function getFileIconInfo(fileType: string): FileIconInfo {
     case 'xls':
     case 'xlsx':
       return { iconClass: 'file-icon-xlsx', iconName: 'file-xlsx' }
+    case 'ppt':
+    case 'pptx':
+      return { iconClass: 'file-icon-ppt', iconName: 'file-ppt' }
     default:
       return { iconClass: 'file-icon-default', iconName: 'file' }
   }
