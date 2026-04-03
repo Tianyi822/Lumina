@@ -68,8 +68,8 @@ const fileStore = useFileStore()
 }
 
 .file-item.selected {
-  background: rgba(142, 149, 217, 0.08);
-  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
 }
 
 .file-item.linking {

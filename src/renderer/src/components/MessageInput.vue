@@ -477,7 +477,7 @@ function handleExportInteractionSelect(value: string): void {
   gap: var(--sm-space-3);
   padding: 14px 16px;
   background: var(--sm-color-surface-1);
-  border: 1px solid rgba(142, 149, 217, 0.24);
+  border: 1px solid var(--sm-color-accent-24);
   border-radius: var(--sm-radius-md);
 }
 
@@ -525,9 +525,9 @@ function handleExportInteractionSelect(value: string): void {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid rgba(142, 149, 217, 0.24);
+  border: 1px solid var(--sm-color-accent-24);
   border-radius: var(--sm-radius-sm);
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
   color: var(--sm-color-text-primary);
   font-size: 12px;
 }
@@ -539,7 +539,7 @@ function handleExportInteractionSelect(value: string): void {
   min-width: 40px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(142, 149, 217, 0.16);
+  background: var(--sm-color-accent-16);
   color: var(--sm-color-accent-hover);
   font-size: 11px;
   font-weight: 600;

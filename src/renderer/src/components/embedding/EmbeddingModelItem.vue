@@ -102,7 +102,7 @@ async function handleTest(): Promise<void> {
 .model-dimensions {
   font-size: 11px;
   padding: 2px 8px;
-  background: rgba(142, 149, 217, 0.12);
+  background: var(--sm-color-accent-12);
   border: 1px solid var(--sm-color-border-accent);
   color: var(--sm-color-accent-hover);
   border-radius: 999px;

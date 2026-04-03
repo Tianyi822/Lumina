@@ -356,12 +356,12 @@ defineExpose({
 }
 
 .kb-trigger-btn.active {
-  background: rgba(142, 149, 217, 0.08);
-  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
 }
 
 .kb-trigger-btn.has-selection {
-  color: var(--sm-color-accent-hover);
+  color: var(--sm-color-text-primary);
 }
 
 .selected-kb-name {
@@ -375,9 +375,9 @@ defineExpose({
 .kb-count {
   font-size: 11px;
   padding: 1px 6px;
-  background: var(--sm-color-surface-3);
-  border: 1px solid var(--sm-color-border-accent);
-  color: var(--sm-color-accent-hover);
+  background: var(--sm-color-surface-selected);
+  border: 1px solid var(--sm-color-border-selected);
+  color: var(--sm-color-text-primary);
   border-radius: 10px;
   min-width: 18px;
   text-align: center;
@@ -492,7 +492,7 @@ defineExpose({
 }
 
 .kb-item.selected {
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-surface-selected);
 }
 
 .kb-item:focus-visible {
@@ -512,7 +512,7 @@ defineExpose({
 }
 
 .kb-item.selected .kb-checkbox {
-  color: var(--sm-color-accent-hover);
+  color: var(--sm-color-text-primary);
 }
 
 .kb-name {

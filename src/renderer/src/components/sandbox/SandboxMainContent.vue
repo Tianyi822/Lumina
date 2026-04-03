@@ -693,8 +693,8 @@ function formatDateTime(value?: string): string {
 }
 
 .workspace-header__badges .status-creating {
-  border-color: rgba(142, 149, 217, 0.28);
-  background: rgba(142, 149, 217, 0.08);
+  border-color: var(--sm-color-accent-28);
+  background: var(--sm-color-accent-08);
   color: var(--sm-color-accent-hover);
 }
 

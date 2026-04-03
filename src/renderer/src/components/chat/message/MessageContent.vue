@@ -127,7 +127,7 @@ const hasContent = computed(() => !!props.content?.trim())
   margin: 0.75em 0;
   padding: 0.5em 1em;
   border-left: 3px solid var(--sm-color-accent);
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
   border-radius: 0 var(--sm-radius-sm) var(--sm-radius-sm) 0;
 }
 

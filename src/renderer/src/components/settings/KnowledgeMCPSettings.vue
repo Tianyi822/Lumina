@@ -265,7 +265,7 @@ onUnmounted(() => {
 
 .mcp-toggle.enabled {
   border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
 }
 
 .mcp-toggle.disabled {
@@ -326,9 +326,9 @@ onUnmounted(() => {
 }
 
 .status-badge.active {
-  background: rgba(142, 149, 217, 0.12);
-  border-color: var(--sm-color-border-accent);
-  color: var(--sm-color-accent-hover);
+  background: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
+  color: var(--sm-color-text-selected);
 }
 
 .config-header {

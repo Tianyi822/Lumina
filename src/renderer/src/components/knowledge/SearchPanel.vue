@@ -202,9 +202,9 @@ function escapeRegex(string: string): string {
   align-items: center;
   min-height: 22px;
   padding: 0 8px;
-  border: 1px solid rgba(142, 149, 217, 0.28);
+  border: 1px solid var(--sm-color-accent-28);
   border-radius: 999px;
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
   font-size: 11px;
   color: var(--sm-color-accent-hover);
   font-family: var(--sm-font-mono);
@@ -224,7 +224,7 @@ function escapeRegex(string: string): string {
 .search-highlight {
   padding: 1px 4px;
   border-radius: 4px;
-  background: rgba(142, 149, 217, 0.18);
+  background: var(--sm-color-accent-18);
   color: var(--sm-color-text-primary);
   font-weight: 600;
 }

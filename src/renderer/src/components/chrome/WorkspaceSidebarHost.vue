@@ -441,8 +441,8 @@ async function handleRefreshSandboxList(): Promise<void> {
 }
 
 .sm-workspace-sidebar-host__kb-item.is-active {
-  background-color: rgba(142, 149, 217, 0.12);
-  border-color: var(--sm-color-border-accent);
+  background-color: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
 }
 
 .sm-workspace-sidebar-host__kb-icon {

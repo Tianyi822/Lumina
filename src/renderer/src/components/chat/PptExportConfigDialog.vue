@@ -811,13 +811,13 @@ function handleOpenSettings(): void {
 
 .sm-button--primary {
   border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.12);
+  background: var(--sm-color-accent-12);
   color: var(--sm-color-text-primary);
 }
 
 .sm-button--primary:hover:not(:disabled) {
-  background: rgba(142, 149, 217, 0.18);
-  border-color: rgba(161, 167, 230, 0.6);
+  background: var(--sm-color-accent-18);
+  border-color: var(--sm-color-accent-28);
 }
 
 .fade-enter-active,

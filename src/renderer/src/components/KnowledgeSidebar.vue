@@ -158,8 +158,8 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 }
 
 .kb-item.active {
-  background-color: rgba(142, 149, 217, 0.12);
-  border-color: var(--sm-color-border-accent);
+  background-color: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
 }
 
 .kb-icon {
@@ -250,7 +250,7 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 }
 
 .btn-text:hover {
-  background-color: rgba(142, 149, 217, 0.12);
-  border-color: var(--sm-color-border-accent);
+  background-color: var(--sm-color-surface-selected-hover);
+  border-color: var(--sm-color-border-selected);
 }
 </style>

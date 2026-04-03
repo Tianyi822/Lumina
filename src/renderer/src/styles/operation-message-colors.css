@@ -5,14 +5,14 @@
 
 /* 一般消息（info）配色 */
 .message-info {
-  border-color: rgba(142, 149, 217, 0.24);
-  background-color: rgba(142, 149, 217, 0.08);
+  border-color: var(--sm-color-accent-24);
+  background-color: var(--sm-color-accent-08);
 }
 
 .message-info .message-icon {
-  background-color: rgba(142, 149, 217, 0.14);
+  background-color: var(--sm-color-accent-14);
   color: var(--sm-color-accent-hover);
-  border: 1px solid rgba(142, 149, 217, 0.24);
+  border: 1px solid var(--sm-color-accent-24);
 }
 
 .message-info .message-title {

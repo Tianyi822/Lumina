@@ -194,7 +194,7 @@ onUnmounted(() => {
   min-height: 20px;
   padding: 0 6px;
   border-radius: 4px;
-  background: rgba(142, 149, 217, 0.12);
+  background: var(--sm-color-accent-12);
   font-size: 11px;
   font-weight: 500;
   color: var(--sm-color-text-primary);
@@ -274,9 +274,9 @@ onUnmounted(() => {
 
 .file-preview-notice {
   padding: 10px 14px;
-  border: 1px solid rgba(142, 149, 217, 0.22);
+  border: 1px solid var(--sm-color-accent-22);
   border-radius: var(--sm-radius-md);
-  background: rgba(142, 149, 217, 0.06);
+  background: var(--sm-color-accent-06);
   font-size: 12px;
   line-height: 1.6;
   color: var(--sm-color-text-secondary);

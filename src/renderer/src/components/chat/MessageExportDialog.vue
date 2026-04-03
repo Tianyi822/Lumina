@@ -248,8 +248,8 @@ onUnmounted(() => {
 .export-option-shortcut {
   padding: 2px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(142, 149, 217, 0.22);
-  background: rgba(142, 149, 217, 0.08);
+  border: 1px solid var(--sm-color-accent-22);
+  background: var(--sm-color-accent-08);
   color: var(--sm-color-accent-hover);
   font-size: 10px;
   font-weight: 600;

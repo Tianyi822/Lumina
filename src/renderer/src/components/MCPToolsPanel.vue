@@ -350,12 +350,12 @@ onUnmounted(() => {
 }
 
 .mcp-trigger-btn.active {
-  background: rgba(142, 149, 217, 0.08);
-  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
 }
 
 .mcp-trigger-btn.has-selection {
-  color: var(--sm-color-accent-hover);
+  color: var(--sm-color-text-primary);
 }
 
 .selected-tool-name {
@@ -370,9 +370,9 @@ onUnmounted(() => {
 .tools-count {
   font-size: 11px;
   padding: 1px 6px;
-  background: var(--sm-color-surface-3);
-  border: 1px solid var(--sm-color-border-accent);
-  color: var(--sm-color-accent-hover);
+  background: var(--sm-color-surface-selected);
+  border: 1px solid var(--sm-color-border-selected);
+  color: var(--sm-color-text-primary);
   border-radius: 10px;
   min-width: 18px;
   text-align: center;
@@ -537,7 +537,7 @@ onUnmounted(() => {
 }
 
 .tool-item.selected {
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-surface-selected);
 }
 
 .tool-item:focus-visible {
@@ -550,10 +550,10 @@ onUnmounted(() => {
 
 @keyframes highlight-pulse {
   0% {
-    background-color: rgba(142, 149, 217, 0.14);
+    background-color: var(--sm-color-surface-selected-hover);
   }
   100% {
-    background-color: rgba(142, 149, 217, 0.08);
+    background-color: var(--sm-color-surface-selected);
   }
 }
 
@@ -569,7 +569,7 @@ onUnmounted(() => {
 }
 
 .tool-item.selected .tool-checkbox {
-  color: var(--sm-color-accent-hover);
+  color: var(--sm-color-text-primary);
 }
 
 .tool-name {

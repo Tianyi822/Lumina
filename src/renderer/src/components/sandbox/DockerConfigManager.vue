@@ -325,9 +325,9 @@ function formatDate(dateString: string): string {
 }
 
 .tab-btn.active {
-  background-color: var(--sm-color-accent);
-  border-color: var(--sm-color-accent);
-  color: var(--sm-color-bg-app);
+  background-color: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
+  color: var(--sm-color-text-selected);
 }
 
 .manager-content {

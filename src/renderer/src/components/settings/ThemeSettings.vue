@@ -321,8 +321,8 @@ function isSelected(themeId: string): boolean {
 }
 
 .theme-card.is-selected {
-  border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.08);
+  border-color: var(--sm-color-border-selected);
+  background: var(--sm-color-surface-selected);
 }
 
 .theme-card:focus-visible {

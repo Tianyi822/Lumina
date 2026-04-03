@@ -332,8 +332,8 @@ function resetForm(): void {
 }
 
 .strategy-option.active {
-  border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.08);
+  border-color: var(--sm-color-border-selected);
+  background: var(--sm-color-surface-selected);
 }
 
 .strategy-option input[type='radio'] {

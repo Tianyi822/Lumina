@@ -487,7 +487,7 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 .sm-terminal-panel__quick-button:hover:not(:disabled) {
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
   border-color: var(--sm-color-border-accent);
   color: var(--sm-color-text-primary);
 }

@@ -75,7 +75,7 @@ function handleSelect(option: ParsedOption): void {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: rgba(142, 149, 217, 0.12);
+  background: var(--sm-color-accent-12);
   color: var(--sm-color-accent-hover);
   font-size: 12px;
   font-weight: 700;

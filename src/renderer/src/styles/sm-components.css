@@ -82,15 +82,15 @@
 
 .sm-button--primary,
 .btn-primary {
-  background: rgba(142, 149, 217, 0.12);
+  background: var(--sm-color-accent-12);
   border-color: var(--sm-color-border-accent);
   color: var(--sm-color-text-primary);
 }
 
 .sm-button--primary:hover,
 .btn-primary:hover {
-  background: rgba(142, 149, 217, 0.18);
-  border-color: rgba(161, 167, 230, 0.6);
+  background: var(--sm-color-accent-18);
+  border-color: var(--sm-color-accent-28);
 }
 
 .sm-button--secondary,
@@ -333,15 +333,15 @@
 
 .sm-list-item.is-active,
 .sm-list-item[aria-selected='true'] {
-  background: var(--sm-color-surface-active);
-  border-color: var(--sm-color-border-accent);
-  color: var(--sm-color-text-primary);
+  background: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
+  color: var(--sm-color-text-selected);
 }
 
 .sm-list-item:focus-visible {
-  border-color: var(--sm-color-border-accent);
-  background: var(--sm-color-surface-hover);
-  color: var(--sm-color-text-primary);
+  border-color: var(--sm-color-border-selected);
+  background: var(--sm-color-surface-selected-hover);
+  color: var(--sm-color-text-selected);
 }
 
 .sm-badge,
@@ -374,8 +374,8 @@
 }
 
 .badge-info {
-  border-color: rgba(142, 149, 217, 0.28);
-  background: rgba(142, 149, 217, 0.08);
+  border-color: var(--sm-color-accent-28);
+  background: var(--sm-color-accent-08);
   color: var(--sm-color-accent-hover);
 }
 
@@ -390,8 +390,8 @@
 }
 
 .sm-notice--info {
-  border-color: rgba(142, 149, 217, 0.28);
-  background: rgba(142, 149, 217, 0.08);
+  border-color: var(--sm-color-accent-28);
+  background: var(--sm-color-accent-08);
   color: var(--sm-color-accent-hover);
 }
 
@@ -449,20 +449,21 @@ hr {
 }
 
 .sm-tab.is-active {
-  background: var(--sm-color-surface-2);
-  border-color: var(--sm-color-border-accent);
-  color: var(--sm-color-text-primary);
+  background: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
+  color: var(--sm-color-text-selected);
 }
 
 .sm-tab[aria-selected='true'] {
-  background: var(--sm-color-surface-2);
-  border-color: var(--sm-color-border-accent);
-  color: var(--sm-color-text-primary);
+  background: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
+  color: var(--sm-color-text-selected);
 }
 
 .sm-tab:focus-visible {
-  border-color: var(--sm-color-border-accent);
-  color: var(--sm-color-text-primary);
+  border-color: var(--sm-color-border-selected);
+  background: var(--sm-color-surface-selected-hover);
+  color: var(--sm-color-text-selected);
 }
 
 .sm-modal__overlay {

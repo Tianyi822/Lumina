@@ -366,7 +366,7 @@ function getFileNameWithoutExtension(fileName: string): string {
 
 .add-file-card:hover {
   border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.08);
+  background: var(--sm-color-accent-08);
   color: var(--sm-color-text-primary);
 }
 
@@ -412,7 +412,7 @@ function getFileNameWithoutExtension(fileName: string): string {
 
 .drag-over {
   border-color: var(--sm-color-border-accent);
-  background: rgba(142, 149, 217, 0.05);
+  background: var(--sm-color-accent-05);
 }
 
 .drag-overlay {

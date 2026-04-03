@@ -114,8 +114,8 @@ function formatTime(isoString: string): string {
 }
 
 .chat-item.active {
-  background: rgba(142, 149, 217, 0.12);
-  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
 }
 
 .chat-header {

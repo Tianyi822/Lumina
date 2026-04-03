@@ -267,7 +267,7 @@ async function handleDelete(name: string): Promise<void> {
 }
 
 .sm-prompt-variables__card--system {
-  border-color: rgba(142, 149, 217, 0.28);
+  border-color: var(--sm-color-accent-28);
 }
 
 .sm-prompt-variables__card--custom {
