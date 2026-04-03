@@ -54,9 +54,9 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
     previewColors: {
       primary: '#121212',
       secondary: '#1b1f26',
-      accent: '#8e95d9',
-      extra1: '#272c36',
-      extra2: '#a1a7e6'
+      accent: '#9ca9ba',
+      extra1: '#2d333b',
+      extra2: '#b1bdcc'
     }
   },
   {
@@ -65,10 +65,10 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
     description: '浅色主题，清新明亮的界面风格',
     previewColors: {
       primary: '#f5f5f7',
-      secondary: '#f7f7f8',
-      accent: '#6c72b4',
-      extra1: '#e2e2e6',
-      extra2: '#5b60a3'
+      secondary: '#ffffff',
+      accent: '#5f6b7a',
+      extra1: '#f7f7f8',
+      extra2: '#4d5866'
     }
   }
 ]
