@@ -48,6 +48,7 @@ const iconInfo = computed(() => getFileIconInfo(props.fileType))
 .file-icon-doc,
 .file-icon-csv,
 .file-icon-xlsx,
+.file-icon-ppt,
 .file-icon-default {
   background: var(--sm-color-surface-2);
   color: var(--sm-color-text-secondary);
