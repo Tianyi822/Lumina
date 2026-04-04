@@ -1,6 +1,16 @@
 import type { PaperDocument, PaperStatus } from '@shared/types/paper'
 import type { OcrProviderId } from '@shared/types/config'
 
+export interface OcrProgressInfo {
+  paperId: string
+  currentPage: number
+  totalPages: number
+  completedPages: number
+  failedPages: number[]
+  status: 'idle' | 'processing' | 'completed' | 'partial_failed' | 'failed' | 'cancelled'
+  errorMessage?: string
+}
+
 /**
  * 论文相关的 Preload API 类型
  */
@@ -96,4 +106,25 @@ export interface PaperApi {
     success: boolean
     error?: string
   }>
+
+  startOcr: (paperId: string) => Promise<{
+    success: boolean
+    error?: string
+  }>
+
+  cancelOcr: (paperId: string) => Promise<{
+    success: boolean
+  }>
+
+  getOcrProgress: (paperId: string) => Promise<{
+    success: boolean
+    data?: OcrProgressInfo
+  }>
+
+  retryPage: (params: { paperId: string; pageIndex: number }) => Promise<{
+    success: boolean
+    error?: string
+  }>
+
+  onOcrProgress: (callback: (progress: OcrProgressInfo) => void) => () => void
 }

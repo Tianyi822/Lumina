@@ -2,6 +2,16 @@ import { ipcRenderer } from 'electron'
 import type { PaperDocument, PaperStatus } from '@shared/types/paper'
 import type { OcrProviderId } from '@shared/types/config'
 
+export interface OcrProgressInfo {
+  paperId: string
+  currentPage: number
+  totalPages: number
+  completedPages: number
+  failedPages: number[]
+  status: 'idle' | 'processing' | 'completed' | 'partial_failed' | 'failed' | 'cancelled'
+  errorMessage?: string
+}
+
 /**
  * 创建论文的结果
  */
@@ -188,5 +198,37 @@ export const paperApi = {
     apiKey: string
   }): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('paper:testOcrConnection', params)
+  },
+
+  startOcr: (paperId: string): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('paper:startOcr', paperId)
+  },
+
+  cancelOcr: (paperId: string): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke('paper:cancelOcr', paperId)
+  },
+
+  getOcrProgress: (paperId: string): Promise<{ success: boolean; data?: OcrProgressInfo }> => {
+    return ipcRenderer.invoke('paper:getOcrProgress', paperId)
+  },
+
+  retryPage: (params: {
+    paperId: string
+    pageIndex: number
+  }): Promise<{
+    success: boolean
+    error?: string
+  }> => {
+    return ipcRenderer.invoke('paper:retryPage', params)
+  },
+
+  onOcrProgress: (callback: (progress: OcrProgressInfo) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, progress: OcrProgressInfo): void => {
+      callback(progress)
+    }
+    ipcRenderer.on('paper:ocrProgress', handler)
+    return () => {
+      ipcRenderer.removeListener('paper:ocrProgress', handler)
+    }
   }
 }

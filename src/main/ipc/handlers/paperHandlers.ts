@@ -1,5 +1,5 @@
-import { ipcMain, dialog, net } from 'electron'
-import { paperStorageService } from '@main/services/paper'
+import { ipcMain, dialog, net, BrowserWindow } from 'electron'
+import { paperStorageService, getPaperService, type OcrProgressInfo } from '@main/services/paper'
 import { logger } from '@main/services/logger'
 import {
   getOcrProviderPreset,
@@ -223,6 +223,51 @@ export function registerPaperHandlers(): void {
         logger.error('OCR 连接测试失败', 'main', { error: errorMessage })
         return { success: false, error: `网络连接失败，请检查网络后重试` }
       }
+    }
+  )
+
+  ipcMain.handle('paper:startOcr', async (_event, paperId: string) => {
+    const paperService = getPaperService()
+
+    const sender = _event.sender
+    paperService.onOcrProgress(paperId, (progress: OcrProgressInfo) => {
+      try {
+        if (!sender.isDestroyed()) {
+          const win = BrowserWindow.fromWebContents(sender)
+          if (win && !win.isDestroyed()) {
+            win.webContents.send('paper:ocrProgress', progress)
+          }
+        }
+      } catch {
+        paperService.offOcrProgress(paperId)
+      }
+    })
+
+    try {
+      const result = await paperService.startOcr(paperId)
+      if (!result.success) {
+        logger.warn('IPC: OCR 启动失败', 'main', { paperId, error: result.error })
+      }
+      return result
+    } finally {
+      paperService.offOcrProgress(paperId)
+    }
+  })
+
+  ipcMain.handle('paper:cancelOcr', (_event, paperId: string) => {
+    getPaperService().cancelOcr(paperId)
+    return { success: true }
+  })
+
+  ipcMain.handle('paper:getOcrProgress', (_event, paperId: string) => {
+    const progress = getPaperService().getOcrProgress(paperId)
+    return { success: true, data: progress }
+  })
+
+  ipcMain.handle(
+    'paper:retryPage',
+    async (_event, params: { paperId: string; pageIndex: number }) => {
+      return getPaperService().retryPage(params.paperId, params.pageIndex)
     }
   )
 }
