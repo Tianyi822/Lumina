@@ -5,12 +5,14 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import {
   createDefaultVideoGenerationConfig,
+  DEFAULT_OCR_PROVIDER,
   type AppConfig,
   type ThemeConfig,
   type ThemeMode,
   type LLMConfig,
   type VoiceRecognitionConfig,
-  type VideoGenerationConfig
+  type VideoGenerationConfig,
+  type PaperOcrConfig
 } from '@shared/types/config'
 import { deepClone } from '@shared/utils'
 
@@ -45,6 +47,9 @@ export const useConfigStore = defineStore('config', () => {
 
   // 视频生成配置
   const videoGenerationConfig = ref<VideoGenerationConfig>(createDefaultVideoGenerationConfig())
+
+  // 论文 OCR 配置
+  const paperOcrConfig = ref<PaperOcrConfig>({ provider: DEFAULT_OCR_PROVIDER })
 
   // ==================== Getters ====================
 
@@ -86,6 +91,13 @@ export const useConfigStore = defineStore('config', () => {
           ...createDefaultVideoGenerationConfig(),
           ...config.videoGeneration
         }
+        // 加载论文 OCR 配置
+        if (config.paperOcr) {
+          paperOcrConfig.value = {
+            ...paperOcrConfig.value,
+            ...config.paperOcr
+          }
+        }
       }
     } catch (error) {
       errorMessage.value = `加载配置失败: ${error instanceof Error ? error.message : String(error)}`
@@ -106,6 +118,7 @@ export const useConfigStore = defineStore('config', () => {
       const plainLlmConfigs = deepClone(llmConfigs.value)
       const plainVoiceRecognitionConfig = deepClone(voiceRecognitionConfig.value)
       const plainVideoGenerationConfig = deepClone(videoGenerationConfig.value)
+      const plainPaperOcrConfig = deepClone(paperOcrConfig.value)
 
       const result = await window.api.config.updateConfig({
         theme: plainThemeConfig,
@@ -116,7 +129,8 @@ export const useConfigStore = defineStore('config', () => {
           models: plainLlmConfigs
         },
         voiceRecognition: plainVoiceRecognitionConfig,
-        videoGeneration: plainVideoGenerationConfig
+        videoGeneration: plainVideoGenerationConfig,
+        paperOcr: plainPaperOcrConfig
       })
       if (result.success) {
         if (!options.silent) {
@@ -196,6 +210,11 @@ export const useConfigStore = defineStore('config', () => {
     videoGenerationConfig.value = { ...config }
   }
 
+  // 更新论文 OCR 配置
+  function updatePaperOcrConfig(config: Partial<PaperOcrConfig>): void {
+    paperOcrConfig.value = { ...paperOcrConfig.value, ...config }
+  }
+
   // 清除消息
   function clearMessages(): void {
     errorMessage.value = ''
@@ -213,6 +232,7 @@ export const useConfigStore = defineStore('config', () => {
     defaultModel,
     voiceRecognitionConfig,
     videoGenerationConfig,
+    paperOcrConfig,
     // Getters
     hasModels,
     defaultModelConfig,
@@ -227,6 +247,7 @@ export const useConfigStore = defineStore('config', () => {
     updateModelConfigField,
     updateVoiceRecognitionConfig,
     updateVideoGenerationConfig,
+    updatePaperOcrConfig,
     clearMessages
   }
 })

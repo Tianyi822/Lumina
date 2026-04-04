@@ -4,7 +4,8 @@ import { useUIStateStore } from '@renderer/stores'
 import type { ViewMode } from '@renderer/stores/uiStateStore'
 
 const uiStateStore = useUIStateStore()
-const { currentView, isChatView, isKnowledgeView, isSandboxView } = storeToRefs(uiStateStore)
+const { currentView, isChatView, isKnowledgeView, isSandboxView, isPaperView } =
+  storeToRefs(uiStateStore)
 
 async function switchView(view: ViewMode): Promise<void> {
   if (currentView.value !== view) {
@@ -39,6 +40,14 @@ async function switchView(view: ViewMode): Promise<void> {
     >
       沙箱
     </button>
+    <button
+      class="sm-view-switcher__button"
+      :class="{ 'is-active': isPaperView }"
+      :aria-selected="isPaperView"
+      @click="switchView('paper')"
+    >
+      论文
+    </button>
   </div>
 </template>
 
@@ -55,7 +64,7 @@ async function switchView(view: ViewMode): Promise<void> {
 }
 
 .sm-view-switcher__button {
-  min-width: 78px;
+  min-width: 66px;
   height: 28px;
   padding: 0 14px;
   border: 1px solid transparent;
