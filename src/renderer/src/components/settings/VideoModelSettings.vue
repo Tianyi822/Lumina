@@ -312,9 +312,7 @@ onMounted(() => {
           <label for="video-with-audio" class="toggle-label"></label>
         </div>
       </div>
-    </section>
 
-    <section class="sm-settings-page__section sm-settings-page__section--compact">
       <div class="form-actions">
         <button class="sm-button sm-button--secondary" :disabled="!hasChanges" @click="handleReset">
           重置
@@ -440,6 +438,7 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+  margin-top: calc(var(--sm-space-2) / -4);
 }
 
 @media (max-width: 768px) {

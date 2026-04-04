@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, nextTick } from 'vue'
+import { computed, onMounted, onUnmounted, ref, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useConfigStore, useUIStateStore } from '@renderer/stores'
 import {
@@ -31,15 +31,24 @@ const localConfig = ref<PaperOcrConfig>({ provider: DEFAULT_OCR_PROVIDER })
 
 const syncingLocalConfig = ref(false)
 const testing = ref(false)
-const testResult = ref<{ success: boolean; message: string } | null>(null)
+let successMessageTimer: ReturnType<typeof setTimeout> | null = null
 
 function showError(message: string): void {
+  if (successMessageTimer) {
+    clearTimeout(successMessageTimer)
+    successMessageTimer = null
+  }
+  emit('update:successMessage', '')
   emit('update:errorMessage', message)
 }
 
 function showSuccess(message: string): void {
+  if (successMessageTimer) {
+    clearTimeout(successMessageTimer)
+  }
+  emit('update:errorMessage', '')
   emit('update:successMessage', message)
-  setTimeout(() => {
+  successMessageTimer = setTimeout(() => {
     emit('update:successMessage', '')
   }, 2000)
 }
@@ -75,24 +84,30 @@ function buildPlainConfig(): PaperOcrConfig {
 
 function handleProviderChange(providerId: OcrProviderId): void {
   localConfig.value.provider = providerId
-  testResult.value = null
 }
 
 async function handleTestConnection(): Promise<void> {
+  if (!localConfig.value.apiKey?.trim()) {
+    showError('请先填写 API Key')
+    return
+  }
+
   testing.value = true
-  testResult.value = null
+  try {
+    const result = await window.api.paper.testOcrConnection({
+      provider: localConfig.value.provider,
+      apiKey: localConfig.value.apiKey ?? ''
+    })
 
-  const result = await window.api.paper.testOcrConnection({
-    provider: localConfig.value.provider,
-    apiKey: localConfig.value.apiKey ?? ''
-  })
-
-  testing.value = false
-
-  if (result.success) {
-    testResult.value = { success: true, message: '连接成功' }
-  } else {
-    testResult.value = { success: false, message: result.error ?? '连接失败' }
+    if (result.success) {
+      showSuccess('连接测试成功')
+    } else {
+      showError(result.error ?? '连接测试失败')
+    }
+  } catch (error) {
+    showError(`测试失败: ${error instanceof Error ? error.message : String(error)}`)
+  } finally {
+    testing.value = false
   }
 }
 
@@ -113,11 +128,16 @@ async function handleSave(): Promise<void> {
 
 function handleReset(): void {
   void loadLocalConfig()
-  testResult.value = null
 }
 
 onMounted(() => {
   void loadLocalConfig()
+})
+
+onUnmounted(() => {
+  if (successMessageTimer) {
+    clearTimeout(successMessageTimer)
+  }
 })
 </script>
 
@@ -166,7 +186,6 @@ onMounted(() => {
             class="sm-input"
             placeholder="填写对应的 API Key"
             autocomplete="new-password"
-            @input="testResult = null"
           />
         </div>
       </div>
@@ -175,18 +194,8 @@ onMounted(() => {
         <label class="form-label">请求地址</label>
         <div class="provider-display">{{ currentPreset?.url ?? '-' }}</div>
       </div>
-    </section>
 
-    <section class="sm-settings-page__section sm-settings-page__section--compact">
       <div class="form-actions">
-        <div
-          v-if="testResult"
-          class="test-result"
-          :class="testResult.success ? 'test-success' : 'test-failed'"
-        >
-          {{ testResult.message }}
-        </div>
-
         <div class="form-actions__buttons">
           <button
             class="sm-button sm-button--secondary"
@@ -222,7 +231,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .form-row {
@@ -286,28 +295,12 @@ select.sm-input {
   flex-direction: column;
   gap: 12px;
   align-items: flex-end;
+  margin-top: calc(var(--sm-space-2) / -4);
 }
 
 .form-actions__buttons {
   display: flex;
   gap: 12px;
-}
-
-.test-result {
-  font-size: 13px;
-  font-weight: 500;
-  padding: 6px 12px;
-  border-radius: var(--sm-radius-sm);
-}
-
-.test-success {
-  color: var(--sm-color-text-success, #22c55e);
-  background: var(--sm-color-surface-1);
-}
-
-.test-failed {
-  color: var(--sm-color-text-error, #ef4444);
-  background: var(--sm-color-surface-1);
 }
 
 @media (max-width: 768px) {
