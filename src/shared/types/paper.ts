@@ -10,6 +10,27 @@ export type PaperStatus =
   | 'failed'
 
 /**
+ * OCR 进度信息
+ * 跨进程共享，主进程通过 IPC 推送实时进度
+ */
+export interface OcrProgressInfo {
+  /** 关联的论文 ID */
+  paperId: string
+  /** 当前正在处理的页码（从 0 开始） */
+  currentPage: number
+  /** 总页数 */
+  totalPages: number
+  /** 已完成处理的页数 */
+  completedPages: number
+  /** 失败的页码列表 */
+  failedPages: number[]
+  /** 当前状态 */
+  status: 'idle' | 'processing' | 'completed' | 'partial_failed' | 'failed' | 'cancelled'
+  /** 错误信息（可选） */
+  errorMessage?: string
+}
+
+/**
  * 布局块标签
  */
 export type BlockLabel = 'text' | 'image' | 'table' | 'formula'
