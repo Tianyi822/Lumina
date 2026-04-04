@@ -7,7 +7,7 @@ import {
   type OcrProviderId
 } from '@shared/types/config'
 import type { PaperStatus } from '@shared/types/paper'
-import { statSync } from 'fs'
+import { statSync, readFileSync } from 'fs'
 
 export function registerPaperHandlers(): void {
   ipcMain.handle(
@@ -78,6 +78,21 @@ export function registerPaperHandlers(): void {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('IPC: 选择 PDF 文件失败', 'main', { error: errorMessage })
       return null
+    }
+  })
+
+  /**
+   * 读取本地文件内容为 base64（用于渲染进程无法直接 fetch file:// 的场景）
+   * 返回: { success: boolean, data?: string (base64), error?: string }
+   */
+  ipcMain.handle('paper:readFileAsBase64', async (_event, filePath: string) => {
+    try {
+      const buffer = readFileSync(filePath)
+      return { success: true, data: buffer.toString('base64') }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('IPC: 读取文件失败', 'main', { filePath, error: errorMessage })
+      return { success: false, error: errorMessage }
     }
   })
 

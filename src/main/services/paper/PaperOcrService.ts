@@ -45,10 +45,10 @@ interface RawLayoutBlock {
 }
 
 interface RawOcrResponse {
-  md_results?: string[]
-  mdResults?: string[]
-  layout_details?: RawLayoutBlock[][]
-  layoutDetails?: RawLayoutBlock[][]
+  md_results?: string | string[]
+  mdResults?: string | string[]
+  layout_details?: RawLayoutBlock[] | RawLayoutBlock[][]
+  layoutDetails?: RawLayoutBlock[] | RawLayoutBlock[][]
   data_info?: Record<string, unknown>
   dataInfo?: Record<string, unknown>
   request_id?: string
@@ -100,11 +100,14 @@ function normalizeGlmOcrResponse(
   requestId?: string
   taskId?: string
 } {
-  const mdResults = raw.md_results || raw.mdResults || []
-  const markdown = mdResults[0] || ''
+  const mdResults = raw.md_results ?? raw.mdResults ?? []
+  const markdown = typeof mdResults === 'string' ? mdResults : mdResults[0] || ''
 
-  const layoutDetails = raw.layout_details || raw.layoutDetails || []
-  const pageBlocks = layoutDetails[0] || layoutDetails.flat() || []
+  const layoutDetails = raw.layout_details ?? raw.layoutDetails ?? []
+  const pageBlocks =
+    layoutDetails.length > 0 && Array.isArray(layoutDetails[0])
+      ? (layoutDetails[0] as RawLayoutBlock[])
+      : (layoutDetails as RawLayoutBlock[])
 
   const blocks: PaperLayoutBlock[] = pageBlocks.map((block: RawLayoutBlock, idx: number) => {
     const rawBbox = block.bbox_2d || block.bbox2d

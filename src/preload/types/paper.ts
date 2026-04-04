@@ -62,6 +62,13 @@ export interface PaperApi {
     size: number
   } | null>
 
+  /** 读取本地文件内容为 base64 字符串 */
+  readFileAsBase64: (filePath: string) => Promise<{
+    success: boolean
+    data?: string
+    error?: string
+  }>
+
   /** 上传 PDF 并创建论文记录 */
   uploadPdf: (params: { sourcePdfPath: string; pageCount: number }) => Promise<{
     success: boolean

@@ -18,6 +18,40 @@ export interface GlmOcrRawResponse {
   statusCode?: number
 }
 
+function normalizeImagePayload(base64Image: string): string {
+  const trimmed = base64Image.trim()
+  if (trimmed.startsWith('data:')) {
+    return trimmed
+  }
+
+  // 论文页图当前统一保存为 JPEG，这里补齐 data URL 前缀以匹配 OCR 接口示例。
+  return `data:image/jpeg;base64,${trimmed}`
+}
+
+function extractRemoteErrorMessage(responseText: string): string | undefined {
+  if (!responseText) {
+    return undefined
+  }
+
+  try {
+    const parsed = JSON.parse(responseText) as {
+      error?: { message?: string }
+      message?: string
+      msg?: string
+      detail?: string
+    }
+    return (
+      parsed.error?.message ||
+      parsed.message ||
+      parsed.msg ||
+      parsed.detail ||
+      undefined
+    )
+  } catch {
+    return responseText.trim().slice(0, 200)
+  }
+}
+
 export class PaperGlmOcrClient {
   async recognizePage(params: GlmOcrRequestParams): Promise<GlmOcrRawResponse> {
     const preset = getOcrProviderPreset(params.provider)
@@ -32,7 +66,7 @@ export class PaperGlmOcrClient {
     try {
       const body = JSON.stringify({
         model: preset.modelName,
-        file: params.base64Image,
+        file: normalizeImagePayload(params.base64Image),
         return_crop_images: true,
         need_layout_visualization: false
       })
@@ -68,9 +102,17 @@ export class PaperGlmOcrClient {
       }
 
       if (!response.ok) {
+        const responseText = await response.text()
+        const remoteErrorMessage = extractRemoteErrorMessage(responseText)
+        logger.warn('OCR 请求返回非成功状态码', 'main', {
+          statusCode: response.status,
+          responseText: responseText.slice(0, 500)
+        })
         return {
           success: false,
-          error: `请求失败（${response.status}）`,
+          error: remoteErrorMessage
+            ? `请求失败（${response.status}）：${remoteErrorMessage}`
+            : `请求失败（${response.status}）`,
           statusCode: response.status
         }
       }
