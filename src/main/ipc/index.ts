@@ -17,6 +17,7 @@ import {
 import { registerDocumentHandlers } from './handlers/documentHandlers'
 import { registerVoiceRecognitionHandlers } from './handlers/voiceRecognitionHandlers'
 import { registerPptExportHandlers } from './handlers/pptExportHandlers'
+import { registerPaperHandlers } from './handlers/paperHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -79,4 +80,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册 PPT 导出相关处理程序
   registerPptExportHandlers()
+
+  // 注册论文相关处理程序
+  registerPaperHandlers()
 }

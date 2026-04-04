@@ -1,0 +1,157 @@
+/**
+ * 论文状态
+ */
+export type PaperStatus =
+  | 'draft'
+  | 'rendering'
+  | 'ocr_processing'
+  | 'completed'
+  | 'partial_failed'
+  | 'failed'
+
+/**
+ * 布局块标签
+ */
+export type BlockLabel = 'text' | 'image' | 'table' | 'formula'
+
+/**
+ * 论文文档元信息
+ */
+export interface PaperDocument {
+  /** 论文唯一标识（UUID v4） */
+  id: string
+  /** 原始文件名 */
+  fileName: string
+  /** 本地 PDF 文件路径 */
+  filePath: string
+  /** 文件 hash（用于去重） */
+  fileHash: string
+  /** 文件大小（字节） */
+  fileSize: number
+  /** 总页数 */
+  pageCount: number
+  /** 当前状态 */
+  status: PaperStatus
+  /** 创建时间 */
+  createdAt: string
+  /** 最后更新时间 */
+  updatedAt: string
+  /** 最后打开时间 */
+  lastOpenedAt: string
+  /** OCR 服务提供商 */
+  ocrProvider: string
+  /** OCR 使用的模型 */
+  ocrModel: string
+  /** 已完成 OCR 的页数 */
+  completedPageCount: number
+  /** 已持久化的页面图片资源 */
+  pageAssets?: PaperPageAsset[]
+  /** 错误信息（可选） */
+  errorMessage?: string
+}
+
+/**
+ * 论文页面图片资源信息
+ */
+export interface PaperPageAsset {
+  /** 所属论文 ID */
+  paperId: string
+  /** 页码（从 0 开始） */
+  pageIndex: number
+  /** 图片本地路径 */
+  imagePath: string
+  /** 图片 MIME 类型 */
+  imageMimeType: string
+  /** 图片宽度 */
+  imageWidth: number
+  /** 图片高度 */
+  imageHeight: number
+  /** PDF 原始页宽度（scale=1.0） */
+  sourceWidth?: number
+  /** PDF 原始页高度（scale=1.0） */
+  sourceHeight?: number
+  /** 渲染时使用的缩放比例 */
+  renderScale: number
+  /** base64 数据大小（字节） */
+  base64Size: number
+}
+
+/**
+ * 布局块信息
+ */
+export interface PaperLayoutBlock {
+  /** 块在页面中的索引 */
+  index: number
+  /** 所属页码 */
+  pageIndex: number
+  /** 块类型标签 */
+  label: BlockLabel
+  /** 块的内容文本 */
+  content: string
+  /** 边界框坐标 */
+  bbox: { x: number; y: number; width: number; height: number }
+  /** 归一化边界框（0-1 范围） */
+  normalizedBbox?: { x: number; y: number; width: number; height: number }
+  /** 像素边界框 */
+  pixelBbox?: { x: number; y: number; width: number; height: number }
+  /** 块宽度 */
+  width: number
+  /** 块高度 */
+  height: number
+  /** 本地资源路径（图片/表格等） */
+  localAssetPath?: string
+  /** 远程资源 URL */
+  remoteAssetUrl?: string
+}
+
+/**
+ * 单页 OCR 结果
+ */
+export interface PaperPageOcrResult {
+  /** 所属论文 ID */
+  paperId: string
+  /** 页码 */
+  pageIndex: number
+  /** 页面 Markdown 内容 */
+  markdown: string
+  /** 布局块列表 */
+  blocks: PaperLayoutBlock[]
+  /** Token 使用量 */
+  usage?: { total_tokens?: number }
+  /** 请求 ID */
+  requestId?: string
+  /** 任务 ID */
+  taskId?: string
+  /** 处理状态 */
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  /** 错误信息（可选） */
+  errorMessage?: string
+}
+
+/**
+ * 论文批注信息
+ */
+export interface PaperAnnotation {
+  /** 批注唯一标识 */
+  id: string
+  /** 所属论文 ID */
+  paperId: string
+  /** 页码 */
+  pageIndex: number
+  /** 块索引 */
+  blockIndex: number
+  /** 选中文本起始偏移 */
+  startOffset: number
+  /** 选中文本结束偏移 */
+  endOffset: number
+  /** 选中的文本内容 */
+  selectedText: string
+  /** 批注内容 */
+  comment: string
+  /** 高亮颜色 */
+  color: string
+  /** 创建时间 */
+  createdAt: string
+  /** 最后更新时间 */
+  updatedAt: string
+}
