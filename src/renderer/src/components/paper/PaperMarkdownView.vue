@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { marked } from 'marked'
+import MarkdownIt from 'markdown-it'
+import texmath from 'markdown-it-texmath'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
+import 'markdown-it-texmath/css/texmath.css'
 
 const props = defineProps<{
   content: string
@@ -16,27 +20,46 @@ const renderedHtml = ref('')
 /** 解析错误信息 */
 const parseError = ref<string | null>(null)
 
-// ==================== 配置 marked ====================
+// ==================== 配置 Markdown 渲染器 ====================
 
-marked.setOptions({
+const markdownRenderer = new MarkdownIt({
+  html: true,
   breaks: true,
-  gfm: true
+  linkify: true
+}).use(texmath, {
+  engine: katex,
+  delimiters: ['dollars', 'beg_end'],
+  katexOptions: {
+    throwOnError: false,
+    strict: 'ignore',
+    output: 'htmlAndMathml'
+  }
 })
 
 // ==================== 渲染逻辑 ====================
 
+/**
+ * 规范化 OCR 输出中的行内数学公式定界符。
+ * GLM-OCR 常输出 `$ ... $` 这种带首尾空格的写法，texmath 默认不会把它识别为行内公式。
+ */
+function normalizeInlineMath(content: string): string {
+  return content.replace(/\$([^\n$]+?)\$/g, (_match, expression: string) => {
+    return `$${expression.trim()}$`
+  })
+}
+
 /** 处理图片路径：将相对路径转为 file:// 绝对路径 */
 function resolveImagePaths(html: string, basePath: string | undefined): string {
-  // 匹配 src="assets/page-xxxx/crop-xxxx.png" 形式的相对路径
   if (!basePath) return html
-  return html.replace(/src="(assets\/[^"]+)"/g, (_match, relativePath: string) => {
+
+  return html.replace(/src=(['"])(assets\/[^'"]+)\1/g, (_match, quote: string, relativePath: string) => {
     const normalizedBase = basePath.endsWith('/') ? basePath : basePath + '/'
-    return `src="file://${normalizedBase}${relativePath}"`
+    return `src=${quote}file://${normalizedBase}${relativePath}${quote}`
   })
 }
 
 /** 渲染 Markdown 内容 */
-async function renderContent(): Promise<void> {
+function renderContent(): void {
   parseError.value = null
   if (!props.content) {
     renderedHtml.value = ''
@@ -44,7 +67,8 @@ async function renderContent(): Promise<void> {
   }
 
   try {
-    const rawHtml = await marked(props.content)
+    const normalizedContent = normalizeInlineMath(props.content)
+    const rawHtml = markdownRenderer.render(normalizedContent)
     renderedHtml.value = resolveImagePaths(rawHtml, props.basePath)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -55,7 +79,7 @@ async function renderContent(): Promise<void> {
 
 // 监听内容变化自动重新渲染
 watch(
-  () => props.content,
+  () => [props.content, props.basePath],
   () => {
     renderContent()
   },
@@ -187,6 +211,31 @@ const hasContent = computed(() => !!props.content.trim())
 
 .paper-markdown-view__content :where(a:hover) {
   opacity: 0.85;
+}
+
+.paper-markdown-view__content :where(eq) {
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+.paper-markdown-view__content :where(eqn) {
+  display: block;
+}
+
+.paper-markdown-view__content :where(.katex) {
+  font-size: 1em;
+}
+
+.paper-markdown-view__content :where(.katex-display) {
+  margin: 1.25em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2em 0;
+}
+
+.paper-markdown-view__content :where(.katex-display > .katex) {
+  display: inline-block;
+  min-width: min-content;
 }
 
 /* 代码块 */
