@@ -12,8 +12,18 @@ const emit = defineEmits<{
 const uiStateStore = useUIStateStore()
 const { isCurrentSidebarCollapsed, isPaperView } = storeToRefs(uiStateStore)
 
+const paperReaderStore = usePaperReaderStore()
+const { currentPaper } = storeToRefs(paperReaderStore)
+
 const shouldAvoidMacWindowControls = computed(() => {
   return window.electron?.process?.platform === 'darwin' && isCurrentSidebarCollapsed.value
+})
+
+/** 论文文件名（去掉 .pdf 后缀） */
+const paperFileName = computed(() => {
+  const name = currentPaper.value?.fileName
+  if (!name) return ''
+  return name.replace(/\.pdf$/i, '')
 })
 
 function handleOpenSettings(): void {
@@ -26,9 +36,8 @@ function handleToggleSidebar(): void {
 
 /** 刷新论文 Markdown 内容 */
 function handleRefreshMarkdown(): void {
-  const paperStore = usePaperReaderStore()
-  if (paperStore.currentPaperId) {
-    paperStore.loadMarkdown(paperStore.currentPaperId)
+  if (paperReaderStore.currentPaperId) {
+    paperReaderStore.loadMarkdown(paperReaderStore.currentPaperId)
   }
 }
 </script>
@@ -38,41 +47,54 @@ function handleRefreshMarkdown(): void {
     class="sm-workspace-toolbar"
     :class="{ 'sm-workspace-toolbar--avoid-window-controls': shouldAvoidMacWindowControls }"
   >
-    <button
-      class="sm-icon-button sm-workspace-toolbar__button"
-      title="设置"
-      aria-label="打开设置"
-      @click="handleOpenSettings"
-    >
-      <SvgIcon name="settings" :size="14" />
-    </button>
+    <div class="sm-workspace-toolbar__controls">
+      <button
+        class="sm-icon-button sm-workspace-toolbar__button"
+        title="设置"
+        aria-label="打开设置"
+        @click="handleOpenSettings"
+      >
+        <SvgIcon name="settings" :size="14" />
+      </button>
 
-    <button
-      class="sm-icon-button sm-workspace-toolbar__button"
-      :title="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
-      :aria-label="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
-      @click="handleToggleSidebar"
-    >
-      <SvgIcon name="sidebar-toggle" :size="14" />
-    </button>
+      <button
+        class="sm-icon-button sm-workspace-toolbar__button"
+        :title="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
+        :aria-label="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
+        @click="handleToggleSidebar"
+      >
+        <SvgIcon name="sidebar-toggle" :size="14" />
+      </button>
 
-    <button
-      v-if="isPaperView"
-      class="sm-icon-button sm-workspace-toolbar__button"
-      title="刷新内容"
-      aria-label="刷新论文内容"
-      @click="handleRefreshMarkdown"
-    >
-      <SvgIcon name="refresh" :size="14" />
-    </button>
+      <button
+        v-if="isPaperView"
+        class="sm-icon-button sm-workspace-toolbar__button"
+        title="刷新内容"
+        aria-label="刷新论文内容"
+        @click="handleRefreshMarkdown"
+      >
+        <SvgIcon name="refresh" :size="14" />
+      </button>
+    </div>
+
+    <div v-if="isPaperView && paperFileName" class="sm-workspace-toolbar__paper-file">
+      <span class="sm-workspace-toolbar__paper-name" :title="paperFileName">
+        {{ paperFileName }}
+      </span>
+    </div>
+
+    <div class="sm-workspace-toolbar__balance-spacer" aria-hidden="true"></div>
   </div>
 </template>
 
 <style scoped>
 .sm-workspace-toolbar {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
   align-items: center;
-  gap: var(--sm-space-2);
+  column-gap: var(--sm-space-4);
+  width: 100%;
+  min-height: var(--sm-titlebar-height);
   margin-left: 0;
   transition: margin-left var(--sm-transition-medium);
   -webkit-app-region: no-drag;
@@ -82,17 +104,47 @@ function handleRefreshMarkdown(): void {
   margin-left: 84px;
 }
 
+.sm-workspace-toolbar__controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  justify-self: start;
+}
+
 .sm-workspace-toolbar__button {
   width: 32px;
   height: 32px;
-  border-color: var(--sm-workspace-toolbar-button-border, rgba(255, 255, 255, 0.12));
-  background: var(--sm-workspace-toolbar-button-bg, rgba(22, 24, 29, 0.34));
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border-color: var(--sm-color-border-default);
+  background: var(--sm-color-surface-2);
 }
 
 .sm-workspace-toolbar__button:hover {
-  border-color: var(--sm-workspace-toolbar-button-border-hover, rgba(255, 255, 255, 0.18));
-  background: var(--sm-workspace-toolbar-button-bg-hover, rgba(34, 38, 46, 0.44));
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
+}
+
+.sm-workspace-toolbar__paper-file {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 100%;
+  justify-self: center;
+}
+
+.sm-workspace-toolbar__paper-name {
+  max-width: min(100%, 420px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sm-color-text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.sm-workspace-toolbar__balance-spacer {
+  min-width: 0;
 }
 </style>
