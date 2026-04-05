@@ -165,41 +165,5 @@ onBeforeUnmount(() => {
   z-index: 4;
   min-height: calc(var(--sm-titlebar-height) + var(--sm-space-3));
   padding-top: var(--sm-space-3);
-  background: transparent;
-  border: none;
 }
-
-.sm-workspace-main--chat > .sm-workspace-main__toolbar::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 calc(var(--sm-space-4) * -1) 0;
-  background: var(
-    --sm-chat-toolbar-scrim,
-    linear-gradient(
-      180deg,
-      rgba(14, 14, 16, 0.28) 0%,
-      rgba(14, 14, 16, 0.18) 52%,
-      rgba(14, 14, 16, 0.08) 78%,
-      rgba(14, 14, 16, 0) 100%
-    )
-  );
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  mask-image: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 0.92) 62%,
-    rgba(0, 0, 0, 0.36) 86%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 0.92) 62%,
-    rgba(0, 0, 0, 0.36) 86%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  pointer-events: none;
-}
-
 </style>

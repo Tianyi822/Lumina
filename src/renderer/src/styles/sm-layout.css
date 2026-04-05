@@ -118,8 +118,9 @@
   min-height: var(--sm-titlebar-height);
   display: flex;
   align-items: center;
-  padding: 0 var(--sm-space-2);
-  background: transparent;
+  justify-content: space-between;
+  padding: 0 var(--sm-space-3);
+  background-color: var(--sm-color-bg-canvas);
   -webkit-app-region: drag;
   user-select: none;
 }
@@ -132,6 +133,7 @@
   z-index: 1;
   display: flex;
   overflow: hidden;
+  padding-top: var(--sm-titlebar-height);
 }
 
 .sm-workspace-main__body--scrollable {
