@@ -121,6 +121,7 @@
   padding: 0 var(--sm-space-2);
   background: transparent;
   -webkit-app-region: drag;
+  user-select: none;
 }
 
 .sm-workspace-main__body {
@@ -193,6 +194,7 @@
 
 .sm-sidebar-shell__header--chrome {
   -webkit-app-region: drag;
+  user-select: none;
 }
 
 .sm-sidebar-shell__header--chrome-mac {
