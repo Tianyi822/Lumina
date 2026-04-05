@@ -31,10 +31,7 @@ const configStore = useConfigStore()
 // 设置弹窗状态（本地状态）
 const showSettings = ref(false)
 const workspaceMainClass = computed(() => ({
-  'sm-workspace-main--chat': isChatView.value,
-  'sm-workspace-main--knowledge': isKnowledgeView.value,
-  'sm-workspace-main--paper': isPaperView.value,
-  'sm-workspace-main--sandbox': isSandboxView.value
+  'sm-workspace-main--chat': isChatView.value
 }))
 
 function openSettings(): void {
@@ -205,8 +202,4 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-.sm-workspace-main--chat > .sm-workspace-main__body {
-  position: relative;
-  z-index: 1;
-}
 </style>
