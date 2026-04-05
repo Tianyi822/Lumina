@@ -267,7 +267,7 @@ const hasContent = computed(() => !!props.content.trim())
   max-width: 100%;
   height: auto;
   border-radius: 8px;
-  margin: 16px 0;
+  margin: 16px auto;
   display: block;
 }
 
