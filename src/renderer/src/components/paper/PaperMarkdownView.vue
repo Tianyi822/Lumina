@@ -9,11 +9,6 @@ const props = defineProps<{
   basePath?: string
 }>()
 
-const emit = defineEmits<{
-  back: []
-  refresh: []
-}>()
-
 // ==================== 状态 ====================
 
 /** 渲染后的 HTML */
@@ -74,15 +69,6 @@ const hasContent = computed(() => !!props.content.trim())
 
 <template>
   <div class="paper-markdown-view">
-    <!-- 工具栏 -->
-    <div class="paper-markdown-view__toolbar">
-      <button class="sm-button sm-button--ghost" @click="emit('back')">返回列表</button>
-      <span class="paper-markdown-view__toolbar-title">论文阅读</span>
-      <button class="sm-button sm-button--ghost" :disabled="loading" @click="emit('refresh')">
-        刷新
-      </button>
-    </div>
-
     <!-- 滚动内容区 -->
     <div class="paper-markdown-view__scroll">
       <!-- 加载状态 -->
@@ -109,29 +95,14 @@ const hasContent = computed(() => !!props.content.trim())
 
 <style scoped>
 .paper-markdown-view {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-}
-
-/* 工具栏 */
-.paper-markdown-view__toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-3);
-  padding: var(--sm-space-3) var(--sm-space-5);
-  border-bottom: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-2);
-  flex-shrink: 0;
-}
-
-.paper-markdown-view__toolbar-title {
-  flex: 1;
-  text-align: center;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
 }
 
 /* 滚动区域 */
@@ -139,7 +110,7 @@ const hasContent = computed(() => !!props.content.trim())
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--sm-space-6) var(--sm-space-4);
+  padding: var(--sm-space-3) var(--sm-space-4) var(--sm-space-6);
 }
 
 /* 加载/错误/空状态 */
@@ -160,6 +131,7 @@ const hasContent = computed(() => !!props.content.trim())
 
 /* Markdown 内容区 */
 .paper-markdown-view__content {
+  width: min(100%, 720px);
   max-width: 720px;
   margin: 0 auto;
   font-size: 15px;
@@ -168,6 +140,14 @@ const hasContent = computed(() => !!props.content.trim())
   user-select: text;
   word-wrap: break-word;
   overflow-wrap: break-word;
+}
+
+.paper-markdown-view__content > :first-child {
+  margin-top: 0;
+}
+
+.paper-markdown-view__content > :last-child {
+  margin-bottom: 0;
 }
 
 /* 使用 :where() 降低选择器特异性，方便用户自定义覆盖 */

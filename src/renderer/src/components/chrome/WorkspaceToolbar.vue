@@ -3,13 +3,14 @@ import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { useUIStateStore } from '@renderer/stores'
+import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 
 const emit = defineEmits<{
   (e: 'open-settings'): void
 }>()
 
 const uiStateStore = useUIStateStore()
-const { isCurrentSidebarCollapsed } = storeToRefs(uiStateStore)
+const { isCurrentSidebarCollapsed, isPaperView } = storeToRefs(uiStateStore)
 
 const shouldAvoidMacWindowControls = computed(() => {
   return window.electron?.process?.platform === 'darwin' && isCurrentSidebarCollapsed.value
@@ -21,6 +22,14 @@ function handleOpenSettings(): void {
 
 function handleToggleSidebar(): void {
   uiStateStore.toggleCurrentSidebar()
+}
+
+/** 刷新论文 Markdown 内容 */
+function handleRefreshMarkdown(): void {
+  const paperStore = usePaperReaderStore()
+  if (paperStore.currentPaperId) {
+    paperStore.loadMarkdown(paperStore.currentPaperId)
+  }
 }
 </script>
 
@@ -45,6 +54,16 @@ function handleToggleSidebar(): void {
       @click="handleToggleSidebar"
     >
       <SvgIcon name="sidebar-toggle" :size="14" />
+    </button>
+
+    <button
+      v-if="isPaperView"
+      class="sm-icon-button sm-workspace-toolbar__button"
+      title="刷新内容"
+      aria-label="刷新论文内容"
+      @click="handleRefreshMarkdown"
+    >
+      <SvgIcon name="refresh" :size="14" />
     </button>
   </div>
 </template>

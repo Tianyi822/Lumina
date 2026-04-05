@@ -118,22 +118,14 @@ function handleRetryPage(pageIndex: number): void {
 function handleStartReading(): void {
   // 已完成状态，Markdown 应已自动加载，无需额外操作
 }
-
-function handleBackToList(): void {
-  store.selectPaper(null)
-  store.markdownContent = ''
-}
-
-function handleRefreshMarkdown(): void {
-  if (currentPaperId.value) {
-    store.loadMarkdown(currentPaperId.value)
-  }
-}
 </script>
 
 <template>
   <div class="paper-reader-page sm-workspace-view">
-    <div class="paper-reader-page__main">
+    <div
+      class="paper-reader-page__main"
+      :class="{ 'paper-reader-page__main--reader': isOcrCompleted }"
+    >
       <!-- 无选中论文 → 空状态引导 -->
       <PaperEmptyState v-if="!currentPaper" @upload="handleUpload" />
 
@@ -162,8 +154,6 @@ function handleRefreshMarkdown(): void {
         :loading="markdownLoading"
         :paper-id="currentPaperId || ''"
         :base-path="paperBasePath || undefined"
-        @back="handleBackToList"
-        @refresh="handleRefreshMarkdown"
       />
 
       <!-- 其他非完成状态（draft/failed）→ 状态卡片 -->
@@ -191,5 +181,12 @@ function handleRefreshMarkdown(): void {
   min-height: 0;
   overflow: auto;
   padding: var(--sm-space-5);
+}
+
+.paper-reader-page__main--reader {
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
+  padding: 0;
 }
 </style>
