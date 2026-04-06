@@ -27,7 +27,8 @@ const { currentView, isCurrentSidebarCollapsed } = storeToRefs(uiStateStore)
 const { sessionList, currentChatId } = storeToRefs(sessionStore)
 const { knowledgeBases, activeKbId } = storeToRefs(knowledgeStore)
 const { currentSandbox, sandboxList, deleteConfirmState } = storeToRefs(sandboxStore)
-const { papers, currentPaperId } = storeToRefs(paperReaderStore)
+const { papers, currentPaperId, renderProgressByPaperId, ocrProgressByPaperId } =
+  storeToRefs(paperReaderStore)
 
 const chatSearchQuery = ref('')
 const knowledgeSearchQuery = ref('')
@@ -179,21 +180,7 @@ async function handleRefreshSandboxList(): Promise<void> {
 
 // ==================== 论文相关事件处理 ====================
 
-const selectedPaper = computed(() => {
-  return papers.value.find((paper) => paper.id === currentPaperId.value) || null
-})
-
-const startableDraftPaperId = computed(() => {
-  if (selectedPaper.value?.status === 'draft') {
-    return selectedPaper.value.id
-  }
-
-  return papers.value.find((paper) => paper.status === 'draft')?.id || null
-})
-
 async function handleSelectPaper(paperId: string): Promise<void> {
-  paperReaderStore.selectPaper(paperId)
-
   const openedPaper = await paperReaderStore.openPaper(paperId)
   if (!openedPaper) {
     window.api.logger.warn('[WorkspaceSidebarHost] 打开论文失败', { paperId })
@@ -212,52 +199,10 @@ function handleDeletePaper(paperId: string): void {
   void paperReaderStore.deletePaper(paperId)
 }
 
-// 检查是否有 draft 状态的论文
-const hasDraftPapers = computed(() => startableDraftPaperId.value !== null)
-
-async function handleStartOcrForPaper(paperId?: string | null): Promise<void> {
-  const targetPaperId = paperId || startableDraftPaperId.value
-  if (!targetPaperId) {
-    window.api.logger.warn('[WorkspaceSidebarHost] 未找到可启动 OCR 的论文')
-    return
-  }
-
-  const targetPaper = papers.value.find((paper) => paper.id === targetPaperId)
-  if (!targetPaper) {
-    window.api.logger.warn('[WorkspaceSidebarHost] 目标论文不存在，无法启动 OCR', {
-      paperId: targetPaperId
-    })
-    return
-  }
-
-  if (targetPaper.status !== 'draft') {
-    window.api.logger.warn('[WorkspaceSidebarHost] 当前论文状态不支持启动 OCR', {
-      paperId: targetPaperId,
-      status: targetPaper.status
-    })
-    return
-  }
-
-  paperReaderStore.selectPaper(targetPaperId)
-
-  const openedPaper = await paperReaderStore.openPaper(targetPaperId)
-  if (!openedPaper) {
-    window.api.logger.warn('[WorkspaceSidebarHost] 启动 OCR 前加载论文失败', {
-      paperId: targetPaperId
-    })
-    alert('启动 OCR 失败：无法加载当前论文')
-    return
-  }
-
-  window.api.logger.info('[WorkspaceSidebarHost] 开始 OCR 识别', { paperId: targetPaperId })
-
-  const result = await paperReaderStore.startOcrWithProgress(targetPaperId)
+async function handleRetryPaper(paperId: string): Promise<void> {
+  const result = await paperReaderStore.retryPaper(paperId)
   if (!result.success) {
-    window.api.logger.error('[WorkspaceSidebarHost] 启动 OCR 失败', {
-      paperId: targetPaperId,
-      error: result.error || '未知错误'
-    })
-    alert(`启动 OCR 失败：${result.error || '未知错误'}`)
+    alert(`重试失败：${result.error || '未知错误'}`)
   }
 }
 </script>
@@ -297,13 +242,6 @@ async function handleStartOcrForPaper(paperId?: string | null): Promise<void> {
               @click="handleUploadPdf"
             >
               上传 PDF
-            </button>
-            <button
-              v-if="hasDraftPapers"
-              class="sm-button sm-button--secondary sm-workspace-sidebar-host__action"
-              @click="handleStartOcrForPaper()"
-            >
-              开始识别
             </button>
           </template>
 
@@ -451,10 +389,12 @@ async function handleStartOcrForPaper(paperId?: string | null): Promise<void> {
                 <PaperSidebar
                   :papers="filteredPapers"
                   :current-paper-id="currentPaperId"
+                  :render-progress-by-paper-id="renderProgressByPaperId"
+                  :ocr-progress-by-paper-id="ocrProgressByPaperId"
                   @select-paper="handleSelectPaper"
                   @upload-pdf="handleUploadPdf"
                   @delete-paper="handleDeletePaper"
-                  @start-ocr="handleStartOcrForPaper"
+                  @retry-paper="handleRetryPaper"
                 />
               </template>
 

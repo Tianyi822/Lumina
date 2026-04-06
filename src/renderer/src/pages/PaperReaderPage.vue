@@ -1,14 +1,10 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount } from 'vue'
+import { onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
-
-// 子组件
 import PaperMarkdownView from '@renderer/components/paper/PaperMarkdownView.vue'
 
 const store = usePaperReaderStore()
-
-// ==================== Store 状态解构 ====================
 
 const {
   currentPaperId,
@@ -18,19 +14,13 @@ const {
   paperBasePath
 } = storeToRefs(store)
 
-// ==================== 生命周期 ====================
-
 onMounted(async () => {
+  store.ensureOcrProgressListener()
   await store.loadPapers()
 
-  // 如果已有选中论文且已完成 OCR，自动加载 Markdown
   if (currentPaperId.value && isOcrCompleted.value) {
     await store.loadMarkdown(currentPaperId.value)
   }
-})
-
-onBeforeUnmount(() => {
-  store.cleanupOcrListener()
 })
 </script>
 
@@ -40,7 +30,6 @@ onBeforeUnmount(() => {
       class="paper-reader-page__main"
       :class="{ 'paper-reader-page__main--reader': isOcrCompleted }"
     >
-      <!-- 已完成 OCR → Markdown 阅读视图 -->
       <PaperMarkdownView
         v-if="isOcrCompleted"
         :content="markdownContent"
