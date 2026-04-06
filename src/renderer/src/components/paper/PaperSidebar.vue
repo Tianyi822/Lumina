@@ -207,7 +207,7 @@ function handleRetryPaper(paperId: string, event: Event): void {
           @click="handleSelectPaper(paper)"
         >
           <div class="paper-item__icon">
-            <SvgIcon name="file-pdf" :size="18" />
+            <SvgIcon name="file-pdf" :size="20" />
           </div>
 
           <div class="paper-item__info">
@@ -287,8 +287,8 @@ function handleRetryPaper(paperId: string, event: Event): void {
 .paper-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px;
+  gap: 12px;
+  padding: 13px 12px;
   margin-bottom: 8px;
   border: 1px solid transparent;
   border-radius: 12px;
@@ -320,14 +320,14 @@ function handleRetryPaper(paperId: string, event: Event): void {
 }
 
 .paper-item__icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: var(--sm-color-surface-2);
   border: 1px solid var(--sm-color-border-subtle);
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--sm-color-text-secondary);
   flex-shrink: 0;
 }
@@ -335,25 +335,33 @@ function handleRetryPaper(paperId: string, event: Event): void {
 .paper-item__info {
   flex: 1;
   min-width: 0;
+  padding-right: 40px;
+  box-sizing: border-box;
 }
 
 .paper-item__name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1.4;
   color: var(--sm-color-text-primary);
-  margin-bottom: 2px;
+  margin-bottom: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .paper-item__meta {
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.4;
   color: var(--sm-color-text-tertiary);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   margin-bottom: 8px;
+}
+
+.paper-item__meta:last-child {
+  margin-bottom: 0;
 }
 
 .paper-item__meta-sep {
@@ -462,8 +470,8 @@ function handleRetryPaper(paperId: string, event: Event): void {
 
 .paper-item__delete-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 10px;
+  right: 10px;
   width: 22px;
   height: 22px;
   display: flex;
