@@ -52,10 +52,39 @@ function normalizeInlineMath(content: string): string {
 function resolveImagePaths(html: string, basePath: string | undefined): string {
   if (!basePath) return html
 
-  return html.replace(/src=(['"])(assets\/[^'"]+)\1/g, (_match, quote: string, relativePath: string) => {
-    const normalizedBase = basePath.endsWith('/') ? basePath : basePath + '/'
-    return `src=${quote}file://${normalizedBase}${relativePath}${quote}`
+  return html.replace(
+    /src=(['"])(assets\/[^'"]+)\1/g,
+    (_match, quote: string, relativePath: string) => {
+      const normalizedBase = basePath.endsWith('/') ? basePath : basePath + '/'
+      return `src=${quote}file://${normalizedBase}${relativePath}${quote}`
+    }
+  )
+}
+
+function postProcessRenderedHtml(html: string): string {
+  if (typeof DOMParser === 'undefined') return html
+
+  const parser = new DOMParser()
+  const document = parser.parseFromString(`<div>${html}</div>`, 'text/html')
+  const root = document.body.firstElementChild
+  if (!root) return html
+
+  root.querySelectorAll('hr').forEach((separator) => {
+    separator.remove()
   })
+
+  root.querySelectorAll('table').forEach((table) => {
+    if (table.parentElement?.classList.contains('paper-markdown-view__table-wrap')) {
+      return
+    }
+
+    const wrap = document.createElement('div')
+    wrap.className = 'paper-markdown-view__table-wrap'
+    table.parentNode?.insertBefore(wrap, table)
+    wrap.appendChild(table)
+  })
+
+  return root.innerHTML
 }
 
 /** 渲染 Markdown 内容 */
@@ -69,7 +98,8 @@ function renderContent(): void {
   try {
     const normalizedContent = normalizeInlineMath(props.content)
     const rawHtml = markdownRenderer.render(normalizedContent)
-    renderedHtml.value = resolveImagePaths(rawHtml, props.basePath)
+    const resolvedHtml = resolveImagePaths(rawHtml, props.basePath)
+    renderedHtml.value = postProcessRenderedHtml(resolvedHtml)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     parseError.value = `Markdown 解析失败: ${message}`
@@ -134,6 +164,7 @@ const hasContent = computed(() => !!props.content.trim())
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: var(--sm-space-3) var(--sm-space-4) var(--sm-space-6);
 }
 
@@ -155,13 +186,15 @@ const hasContent = computed(() => !!props.content.trim())
 
 /* Markdown 内容区 */
 .paper-markdown-view__content {
-  width: min(100%, 720px);
+  width: 100%;
   max-width: 720px;
   margin: 0 auto;
   font-size: 15px;
   line-height: 1.75;
   color: var(--sm-color-text-primary);
   user-select: text;
+  box-sizing: border-box;
+  overflow-x: hidden;
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
@@ -272,11 +305,24 @@ const hasContent = computed(() => !!props.content.trim())
 }
 
 /* 表格 */
-.paper-markdown-view__content :where(table) {
+.paper-markdown-view__content :where(.paper-markdown-view__table-wrap) {
+  display: block;
   width: 100%;
+  max-width: 100%;
   margin: 1em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable both-edges;
+}
+
+.paper-markdown-view__content :where(.paper-markdown-view__table-wrap > table) {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
   border-collapse: collapse;
   border-spacing: 0;
+  table-layout: auto;
   font-size: 14px;
 }
 
@@ -285,6 +331,7 @@ const hasContent = computed(() => !!props.content.trim())
   padding: var(--sm-space-2) var(--sm-space-3);
   border: 1px solid var(--sm-color-border-subtle);
   text-align: left;
+  vertical-align: top;
 }
 
 .paper-markdown-view__content :where(th) {
@@ -304,14 +351,6 @@ const hasContent = computed(() => !!props.content.trim())
 
 .paper-markdown-view__content :where(blockquote p) {
   margin: 0.4em 0;
-}
-
-/* 分隔线（页间分隔符） */
-.paper-markdown-view__content :where(hr) {
-  margin: 1.5em 0;
-  border: none;
-  height: 1px;
-  background: var(--sm-color-border-subtle);
 }
 
 /* 列表 */
