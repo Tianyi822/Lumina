@@ -19,6 +19,19 @@ export interface RenderingProgress {
   error?: string
 }
 
+/**
+ * 论文目录项
+ * 仅在渲染进程内使用，用于工具栏目录浮层展示与跳转
+ */
+export interface PaperTocItem {
+  /** 标题锚点 ID */
+  id: string
+  /** 标题文本 */
+  text: string
+  /** 标题层级，仅保留 H1-H3 */
+  level: 1 | 2 | 3
+}
+
 interface RenderPipelineContext {
   paperId: string
   pageInfos: PageInfo[]
@@ -81,6 +94,9 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   /** Markdown 加载状态 */
   const markdownLoading = ref(false)
 
+  /** 当前论文目录 */
+  const paperTocItems = ref<PaperTocItem[]>([])
+
   /** OCR 进度监听清理函数 */
   let ocrProgressCleanup: (() => void) | null = null
 
@@ -133,6 +149,32 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     const nextOcrProgress = { ...ocrProgressByPaperId.value }
     delete nextOcrProgress[paperId]
     ocrProgressByPaperId.value = nextOcrProgress
+  }
+
+  function setPaperTocItems(items: PaperTocItem[]): void {
+    paperTocItems.value = items
+  }
+
+  function clearPaperToc(): void {
+    paperTocItems.value = []
+  }
+
+  function scrollToHeading(headingId: string): boolean {
+    if (typeof document === 'undefined') {
+      return false
+    }
+
+    const heading = document.getElementById(headingId)
+    if (!heading) {
+      return false
+    }
+
+    heading.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+
+    return true
   }
 
   function upsertPaper(paper: PaperDocument): void {
@@ -301,11 +343,13 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     if (selectedPaper && !isPaperReadableStatus(selectedPaper.status)) {
       currentPaperId.value = null
       markdownContent.value = ''
+      clearPaperToc()
     }
 
     if (currentPaperId.value && !selectedPaper) {
       currentPaperId.value = null
       markdownContent.value = ''
+      clearPaperToc()
     }
   }
 
@@ -313,6 +357,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   function selectPaper(paperId: string | null): void {
     if (!paperId) {
       currentPaperId.value = null
+      clearPaperToc()
       return
     }
 
@@ -382,6 +427,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     if (currentPaperId.value === paperId) {
       currentPaperId.value = null
       markdownContent.value = ''
+      clearPaperToc()
     }
 
     return true
@@ -417,16 +463,19 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     const paper = papers.value.find((item) => item.id === paperId)
     if (!paper || !isPaperReadableStatus(paper.status)) {
       markdownContent.value = ''
+      clearPaperToc()
       return
     }
 
     markdownLoading.value = true
+    clearPaperToc()
     try {
       const result = await window.api.paper.getMergedMd(paperId)
       if (result.success && result.data !== undefined) {
         markdownContent.value = result.data
       } else {
         markdownContent.value = ''
+        clearPaperToc()
       }
     } finally {
       markdownLoading.value = false
@@ -748,6 +797,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     ocrProgressByPaperId,
     markdownContent,
     markdownLoading,
+    paperTocItems,
     currentPaper,
     isOcrCompleted,
     paperBasePath,
@@ -758,6 +808,9 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     updatePaperStatus,
     uploadAndRenderPdf,
     loadMarkdown,
+    setPaperTocItems,
+    clearPaperToc,
+    scrollToHeading,
     ensureOcrProgressListener,
     retryPaper
   }
