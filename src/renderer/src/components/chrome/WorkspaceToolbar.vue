@@ -97,7 +97,7 @@ function handleRefreshMarkdown(): void {
   min-height: var(--sm-titlebar-height);
   margin-left: 0;
   transition: margin-left var(--sm-transition-medium);
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
 }
 
 .sm-workspace-toolbar--avoid-window-controls {
@@ -109,6 +109,7 @@ function handleRefreshMarkdown(): void {
   align-items: center;
   gap: var(--sm-space-2);
   justify-self: start;
+  -webkit-app-region: no-drag;
 }
 
 .sm-workspace-toolbar__button {
@@ -116,6 +117,7 @@ function handleRefreshMarkdown(): void {
   height: 32px;
   border-color: var(--sm-color-border-default);
   background: var(--sm-color-surface-2);
+  -webkit-app-region: no-drag;
 }
 
 .sm-workspace-toolbar__button:hover {
