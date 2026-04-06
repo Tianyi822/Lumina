@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { marked } from 'marked'
+import MarkdownIt from 'markdown-it'
+import texmath from 'markdown-it-texmath'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
+import 'markdown-it-texmath/css/texmath.css'
 
 const props = defineProps<{
   content: string
   loading: boolean
   paperId: string
   basePath?: string
-}>()
-
-const emit = defineEmits<{
-  back: []
-  refresh: []
 }>()
 
 // ==================== 状态 ====================
@@ -21,27 +20,75 @@ const renderedHtml = ref('')
 /** 解析错误信息 */
 const parseError = ref<string | null>(null)
 
-// ==================== 配置 marked ====================
+// ==================== 配置 Markdown 渲染器 ====================
 
-marked.setOptions({
+const markdownRenderer = new MarkdownIt({
+  html: true,
   breaks: true,
-  gfm: true
+  linkify: true
+}).use(texmath, {
+  engine: katex,
+  delimiters: ['dollars', 'beg_end'],
+  katexOptions: {
+    throwOnError: false,
+    strict: 'ignore',
+    output: 'htmlAndMathml'
+  }
 })
 
 // ==================== 渲染逻辑 ====================
 
-/** 处理图片路径：将相对路径转为 file:// 绝对路径 */
-function resolveImagePaths(html: string, basePath: string | undefined): string {
-  // 匹配 src="assets/page-xxxx/crop-xxxx.png" 形式的相对路径
-  if (!basePath) return html
-  return html.replace(/src="(assets\/[^"]+)"/g, (_match, relativePath: string) => {
-    const normalizedBase = basePath.endsWith('/') ? basePath : basePath + '/'
-    return `src="file://${normalizedBase}${relativePath}"`
+/**
+ * 规范化 OCR 输出中的行内数学公式定界符。
+ * GLM-OCR 常输出 `$ ... $` 这种带首尾空格的写法，texmath 默认不会把它识别为行内公式。
+ */
+function normalizeInlineMath(content: string): string {
+  return content.replace(/\$([^\n$]+?)\$/g, (_match, expression: string) => {
+    return `$${expression.trim()}$`
   })
 }
 
+/** 处理图片路径：将相对路径转为 file:// 绝对路径 */
+function resolveImagePaths(html: string, basePath: string | undefined): string {
+  if (!basePath) return html
+
+  return html.replace(
+    /src=(['"])(assets\/[^'"]+)\1/g,
+    (_match, quote: string, relativePath: string) => {
+      const normalizedBase = basePath.endsWith('/') ? basePath : basePath + '/'
+      return `src=${quote}file://${normalizedBase}${relativePath}${quote}`
+    }
+  )
+}
+
+function postProcessRenderedHtml(html: string): string {
+  if (typeof DOMParser === 'undefined') return html
+
+  const parser = new DOMParser()
+  const document = parser.parseFromString(`<div>${html}</div>`, 'text/html')
+  const root = document.body.firstElementChild
+  if (!root) return html
+
+  root.querySelectorAll('hr').forEach((separator) => {
+    separator.remove()
+  })
+
+  root.querySelectorAll('table').forEach((table) => {
+    if (table.parentElement?.classList.contains('paper-markdown-view__table-wrap')) {
+      return
+    }
+
+    const wrap = document.createElement('div')
+    wrap.className = 'paper-markdown-view__table-wrap'
+    table.parentNode?.insertBefore(wrap, table)
+    wrap.appendChild(table)
+  })
+
+  return root.innerHTML
+}
+
 /** 渲染 Markdown 内容 */
-async function renderContent(): Promise<void> {
+function renderContent(): void {
   parseError.value = null
   if (!props.content) {
     renderedHtml.value = ''
@@ -49,8 +96,10 @@ async function renderContent(): Promise<void> {
   }
 
   try {
-    const rawHtml = await marked(props.content)
-    renderedHtml.value = resolveImagePaths(rawHtml, props.basePath)
+    const normalizedContent = normalizeInlineMath(props.content)
+    const rawHtml = markdownRenderer.render(normalizedContent)
+    const resolvedHtml = resolveImagePaths(rawHtml, props.basePath)
+    renderedHtml.value = postProcessRenderedHtml(resolvedHtml)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     parseError.value = `Markdown 解析失败: ${message}`
@@ -60,7 +109,7 @@ async function renderContent(): Promise<void> {
 
 // 监听内容变化自动重新渲染
 watch(
-  () => props.content,
+  () => [props.content, props.basePath],
   () => {
     renderContent()
   },
@@ -74,15 +123,6 @@ const hasContent = computed(() => !!props.content.trim())
 
 <template>
   <div class="paper-markdown-view">
-    <!-- 工具栏 -->
-    <div class="paper-markdown-view__toolbar">
-      <button class="sm-button sm-button--ghost" @click="emit('back')">返回列表</button>
-      <span class="paper-markdown-view__toolbar-title">论文阅读</span>
-      <button class="sm-button sm-button--ghost" :disabled="loading" @click="emit('refresh')">
-        刷新
-      </button>
-    </div>
-
     <!-- 滚动内容区 -->
     <div class="paper-markdown-view__scroll">
       <!-- 加载状态 -->
@@ -109,29 +149,14 @@ const hasContent = computed(() => !!props.content.trim())
 
 <style scoped>
 .paper-markdown-view {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-}
-
-/* 工具栏 */
-.paper-markdown-view__toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-3);
-  padding: var(--sm-space-3) var(--sm-space-5);
-  border-bottom: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-2);
-  flex-shrink: 0;
-}
-
-.paper-markdown-view__toolbar-title {
-  flex: 1;
-  text-align: center;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
 }
 
 /* 滚动区域 */
@@ -139,7 +164,8 @@ const hasContent = computed(() => !!props.content.trim())
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--sm-space-6) var(--sm-space-4);
+  overflow-x: hidden;
+  padding: var(--sm-space-3) var(--sm-space-4) var(--sm-space-6);
 }
 
 /* 加载/错误/空状态 */
@@ -160,14 +186,25 @@ const hasContent = computed(() => !!props.content.trim())
 
 /* Markdown 内容区 */
 .paper-markdown-view__content {
+  width: 100%;
   max-width: 720px;
   margin: 0 auto;
   font-size: 15px;
   line-height: 1.75;
   color: var(--sm-color-text-primary);
   user-select: text;
+  box-sizing: border-box;
+  overflow-x: hidden;
   word-wrap: break-word;
   overflow-wrap: break-word;
+}
+
+.paper-markdown-view__content > :first-child {
+  margin-top: 0;
+}
+
+.paper-markdown-view__content > :last-child {
+  margin-bottom: 0;
 }
 
 /* 使用 :where() 降低选择器特异性，方便用户自定义覆盖 */
@@ -209,6 +246,31 @@ const hasContent = computed(() => !!props.content.trim())
   opacity: 0.85;
 }
 
+.paper-markdown-view__content :where(eq) {
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+.paper-markdown-view__content :where(eqn) {
+  display: block;
+}
+
+.paper-markdown-view__content :where(.katex) {
+  font-size: 1em;
+}
+
+.paper-markdown-view__content :where(.katex-display) {
+  margin: 1.25em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2em 0;
+}
+
+.paper-markdown-view__content :where(.katex-display > .katex) {
+  display: inline-block;
+  min-width: min-content;
+}
+
 /* 代码块 */
 .paper-markdown-view__content :where(pre) {
   margin: 1em 0;
@@ -238,16 +300,29 @@ const hasContent = computed(() => !!props.content.trim())
   max-width: 100%;
   height: auto;
   border-radius: 8px;
-  margin: 16px 0;
+  margin: 16px auto;
   display: block;
 }
 
 /* 表格 */
-.paper-markdown-view__content :where(table) {
+.paper-markdown-view__content :where(.paper-markdown-view__table-wrap) {
+  display: block;
   width: 100%;
+  max-width: 100%;
   margin: 1em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable both-edges;
+}
+
+.paper-markdown-view__content :where(.paper-markdown-view__table-wrap > table) {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
   border-collapse: collapse;
   border-spacing: 0;
+  table-layout: auto;
   font-size: 14px;
 }
 
@@ -256,6 +331,7 @@ const hasContent = computed(() => !!props.content.trim())
   padding: var(--sm-space-2) var(--sm-space-3);
   border: 1px solid var(--sm-color-border-subtle);
   text-align: left;
+  vertical-align: top;
 }
 
 .paper-markdown-view__content :where(th) {
@@ -275,14 +351,6 @@ const hasContent = computed(() => !!props.content.trim())
 
 .paper-markdown-view__content :where(blockquote p) {
   margin: 0.4em 0;
-}
-
-/* 分隔线（页间分隔符） */
-.paper-markdown-view__content :where(hr) {
-  margin: 1.5em 0;
-  border: none;
-  height: 1px;
-  background: var(--sm-color-border-subtle);
 }
 
 /* 列表 */

@@ -22,7 +22,7 @@ const { initTheme } = useTheme()
 
 // ==================== UI 状态管理（直接使用 Store）====================
 const uiState = useUIStateStore()
-const { currentView, isChatView, isKnowledgeView, isPaperView, isSandboxView, configError } =
+const { currentView, isChatView, isKnowledgeView, isPaperView, configError } =
   storeToRefs(uiState)
 
 // 配置 Store - 用于加载语音识别等配置
@@ -31,10 +31,7 @@ const configStore = useConfigStore()
 // 设置弹窗状态（本地状态）
 const showSettings = ref(false)
 const workspaceMainClass = computed(() => ({
-  'sm-workspace-main--chat': isChatView.value,
-  'sm-workspace-main--knowledge': isKnowledgeView.value,
-  'sm-workspace-main--paper': isPaperView.value,
-  'sm-workspace-main--sandbox': isSandboxView.value
+  'sm-workspace-main--chat': isChatView.value
 }))
 
 function openSettings(): void {
@@ -168,45 +165,5 @@ onBeforeUnmount(() => {
   z-index: 4;
   min-height: calc(var(--sm-titlebar-height) + var(--sm-space-3));
   padding-top: var(--sm-space-3);
-  background: transparent;
-  border: none;
-}
-
-.sm-workspace-main--chat > .sm-workspace-main__toolbar::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 calc(var(--sm-space-4) * -1) 0;
-  background: var(
-    --sm-chat-toolbar-scrim,
-    linear-gradient(
-      180deg,
-      rgba(14, 14, 16, 0.28) 0%,
-      rgba(14, 14, 16, 0.18) 52%,
-      rgba(14, 14, 16, 0.08) 78%,
-      rgba(14, 14, 16, 0) 100%
-    )
-  );
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  mask-image: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 0.92) 62%,
-    rgba(0, 0, 0, 0.36) 86%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 1) 0%,
-    rgba(0, 0, 0, 0.92) 62%,
-    rgba(0, 0, 0, 0.36) 86%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  pointer-events: none;
-}
-
-.sm-workspace-main--chat > .sm-workspace-main__body {
-  position: relative;
-  z-index: 1;
 }
 </style>
