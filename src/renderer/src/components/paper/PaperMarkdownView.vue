@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import MarkdownIt from 'markdown-it'
 import texmath from 'markdown-it-texmath'
 import katex from 'katex'
+import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import type { PaperTocItem } from '@renderer/stores/paperReaderStore'
 import 'katex/dist/katex.min.css'
 import 'markdown-it-texmath/css/texmath.css'
 
@@ -19,6 +21,8 @@ const props = defineProps<{
 const renderedHtml = ref('')
 /** 解析错误信息 */
 const parseError = ref<string | null>(null)
+
+const paperReaderStore = usePaperReaderStore()
 
 // ==================== 配置 Markdown 渲染器 ====================
 
@@ -61,16 +65,58 @@ function resolveImagePaths(html: string, basePath: string | undefined): string {
   )
 }
 
-function postProcessRenderedHtml(html: string): string {
-  if (typeof DOMParser === 'undefined') return html
+function slugifyHeadingText(text: string): string {
+  const normalized = text
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  return normalized || 'section'
+}
+
+function postProcessRenderedHtml(html: string): { html: string; tocItems: PaperTocItem[] } {
+  if (typeof DOMParser === 'undefined') {
+    return { html, tocItems: [] }
+  }
 
   const parser = new DOMParser()
   const document = parser.parseFromString(`<div>${html}</div>`, 'text/html')
   const root = document.body.firstElementChild
-  if (!root) return html
+  if (!root) {
+    return { html, tocItems: [] }
+  }
 
   root.querySelectorAll('hr').forEach((separator) => {
     separator.remove()
+  })
+
+  const tocItems: PaperTocItem[] = []
+  const headingCounts = new Map<string, number>()
+
+  root.querySelectorAll('h1, h2, h3').forEach((heading) => {
+    const text = heading.textContent?.replace(/\s+/g, ' ').trim() || ''
+    if (!text) {
+      return
+    }
+
+    const level = Number(heading.tagName.slice(1)) as PaperTocItem['level']
+    const baseSlug = slugifyHeadingText(text)
+    const count = (headingCounts.get(baseSlug) || 0) + 1
+    headingCounts.set(baseSlug, count)
+
+    const id = count === 1 ? baseSlug : `${baseSlug}-${count}`
+    heading.id = id
+
+    tocItems.push({
+      id,
+      text,
+      level
+    })
   })
 
   root.querySelectorAll('table').forEach((table) => {
@@ -84,7 +130,10 @@ function postProcessRenderedHtml(html: string): string {
     wrap.appendChild(table)
   })
 
-  return root.innerHTML
+  return {
+    html: root.innerHTML,
+    tocItems
+  }
 }
 
 /** 渲染 Markdown 内容 */
@@ -92,6 +141,7 @@ function renderContent(): void {
   parseError.value = null
   if (!props.content) {
     renderedHtml.value = ''
+    paperReaderStore.clearPaperToc()
     return
   }
 
@@ -99,11 +149,14 @@ function renderContent(): void {
     const normalizedContent = normalizeInlineMath(props.content)
     const rawHtml = markdownRenderer.render(normalizedContent)
     const resolvedHtml = resolveImagePaths(rawHtml, props.basePath)
-    renderedHtml.value = postProcessRenderedHtml(resolvedHtml)
+    const processedResult = postProcessRenderedHtml(resolvedHtml)
+    renderedHtml.value = processedResult.html
+    paperReaderStore.setPaperTocItems(processedResult.tocItems)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     parseError.value = `Markdown 解析失败: ${message}`
     renderedHtml.value = ''
+    paperReaderStore.clearPaperToc()
   }
 }
 
@@ -119,6 +172,10 @@ watch(
 // ==================== 计算属性 ====================
 
 const hasContent = computed(() => !!props.content.trim())
+
+onBeforeUnmount(() => {
+  paperReaderStore.clearPaperToc()
+})
 </script>
 
 <template>
