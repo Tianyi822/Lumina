@@ -452,7 +452,7 @@ export class PaperOcrService {
       parts.push(`${header}\n\n${pageMd}`)
     }
 
-    const mergedMd = parts.join('\n\n---\n\n')
+    const mergedMd = parts.join('\n\n')
 
     try {
       const mdPath = getPaperMergedMdPath(paperId)
