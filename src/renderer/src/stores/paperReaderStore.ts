@@ -1,10 +1,7 @@
-// 论文阅读器 Store
-// 管理 PDF 上传、逐页渲染、OCR 识别、Markdown 阅读的完整流程
-
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { PaperDocument, PaperStatus, OcrProgressInfo } from '@shared/types/paper'
-import { usePdfPageRasterizer } from '@renderer/composables/usePdfPageRasterizer'
+import type { OcrProgressInfo, PaperDocument, PaperStatus } from '@shared/types/paper'
+import { usePdfPageRasterizer, type PageInfo } from '@renderer/composables/usePdfPageRasterizer'
 
 /**
  * 渲染进度信息
@@ -22,35 +19,64 @@ export interface RenderingProgress {
   error?: string
 }
 
+interface RenderPipelineContext {
+  paperId: string
+  pageInfos: PageInfo[]
+  rasterizer: ReturnType<typeof usePdfPageRasterizer>
+}
+
+interface PipelineControl {
+  aborted: boolean
+  deleted: boolean
+}
+
+const READABLE_PAPER_STATUS: PaperStatus = 'completed'
+
+function isPaperReadableStatus(status: PaperStatus): boolean {
+  return status === READABLE_PAPER_STATUS
+}
+
+function createIdleOcrProgress(paperId: string, totalPages: number): OcrProgressInfo {
+  return {
+    paperId,
+    currentPage: 0,
+    totalPages,
+    completedPages: 0,
+    failedPages: [],
+    status: 'idle'
+  }
+}
+
+function decodeBase64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binaryString = atob(base64)
+  const bytes = new Uint8Array(binaryString.length)
+
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i)
+  }
+
+  return bytes.buffer as ArrayBuffer
+}
+
 /**
  * 论文阅读器 Store
  * 管理 PDF 上传 → 逐页渲染 → OCR 识别 → Markdown 阅读的完整流程
  */
 export const usePaperReaderStore = defineStore('paperReader', () => {
-  // ==================== State ====================
-
   /** 论文列表 */
   const papers = ref<PaperDocument[]>([])
 
   /** 当前选中的论文 ID */
   const currentPaperId = ref<string | null>(null)
 
-  /** 渲染进度 */
-  const renderingProgress = ref<RenderingProgress>({
-    currentPage: 0,
-    totalPages: 0,
-    completedPages: 0,
-    stage: 'idle'
-  })
+  /** 每篇论文的页图渲染进度 */
+  const renderProgressByPaperId = ref<Record<string, RenderingProgress>>({})
 
-  /** 是否正在渲染 */
-  const isRendering = computed(() => renderingProgress.value.stage === 'rendering')
-
-  /** OCR 实时进度 */
-  const ocrProgress = ref<OcrProgressInfo | null>(null)
+  /** 每篇论文的 OCR 进度 */
+  const ocrProgressByPaperId = ref<Record<string, OcrProgressInfo>>({})
 
   /** Markdown 内容 */
-  const markdownContent = ref<string>('')
+  const markdownContent = ref('')
 
   /** Markdown 加载状态 */
   const markdownLoading = ref(false)
@@ -58,108 +84,307 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   /** OCR 进度监听清理函数 */
   let ocrProgressCleanup: (() => void) | null = null
 
-  /** 取消标记 */
-  let abortRendering = false
+  /** 正在运行的论文任务 */
+  const activePipelines = new Set<string>()
 
-  // PDF 渲染器实例
-  const rasterizer = usePdfPageRasterizer()
-
-  // ==================== Getters ====================
+  /** 每篇论文的取消控制 */
+  const pipelineControls = new Map<string, PipelineControl>()
 
   /** 获取当前论文 */
   const currentPaper = computed<PaperDocument | null>(
-    () => papers.value.find((p) => p.id === currentPaperId.value) || null
+    () => papers.value.find((paper) => paper.id === currentPaperId.value) || null
   )
 
-  /** 渲染进度百分比 */
-  const progressPercent = computed(() => {
-    const { totalPages, completedPages } = renderingProgress.value
-    if (totalPages === 0) return 0
-    return Math.round((completedPages / totalPages) * 100)
-  })
-
-  /** 当前论文是否已完成 OCR（可阅读） */
+  /** 当前论文是否可阅读 */
   const isOcrCompleted = computed(() => {
-    const p = currentPaper.value
-    return p?.status === 'completed' || p?.status === 'partial_failed'
-  })
-
-  /** 当前论文是否正在进行 OCR */
-  const isOcrProcessing = computed(() => {
-    return (
-      currentPaper.value?.status === 'ocr_processing' ||
-      currentPaper.value?.status === 'rendering' ||
-      ocrProgress.value?.status === 'processing'
-    )
-  })
-
-  /** OCR 进度百分比 */
-  const ocrProgressPercent = computed(() => {
-    if (!ocrProgress.value || ocrProgress.value.totalPages === 0) return 0
-    return Math.round((ocrProgress.value.completedPages / ocrProgress.value.totalPages) * 100)
+    return currentPaper.value?.status === READABLE_PAPER_STATUS
   })
 
   /** 当前论文的数据目录基础路径（用于 Markdown 中图片的 file:// URL 解析） */
   const paperBasePath = computed(() => {
     const paper = currentPaper.value
     if (!paper?.filePath) return null
-    // filePath 指向 source.pdf，论文目录为其父目录
+
     const lastSlash = paper.filePath.lastIndexOf('/')
     if (lastSlash < 0) return null
+
     return paper.filePath.substring(0, lastSlash)
   })
 
-  // ==================== Actions ====================
-
-  /** 加载论文列表 */
-  async function loadPapers(): Promise<void> {
-    const result = await window.api.paper.list()
-    if (result.success && result.data) {
-      papers.value = result.data
+  function setRenderProgress(paperId: string, progress: RenderingProgress): void {
+    renderProgressByPaperId.value = {
+      ...renderProgressByPaperId.value,
+      [paperId]: progress
     }
   }
 
-  /** 选择当前论文 */
+  function setOcrProgress(progress: OcrProgressInfo): void {
+    ocrProgressByPaperId.value = {
+      ...ocrProgressByPaperId.value,
+      [progress.paperId]: progress
+    }
+  }
+
+  function removePaperProgress(paperId: string): void {
+    const nextRenderProgress = { ...renderProgressByPaperId.value }
+    delete nextRenderProgress[paperId]
+    renderProgressByPaperId.value = nextRenderProgress
+
+    const nextOcrProgress = { ...ocrProgressByPaperId.value }
+    delete nextOcrProgress[paperId]
+    ocrProgressByPaperId.value = nextOcrProgress
+  }
+
+  function upsertPaper(paper: PaperDocument): void {
+    const index = papers.value.findIndex((item) => item.id === paper.id)
+    if (index >= 0) {
+      papers.value[index] = paper
+      return
+    }
+
+    papers.value = [paper, ...papers.value]
+  }
+
+  function updatePaperInList(paperId: string, updates: Partial<PaperDocument>): void {
+    const index = papers.value.findIndex((paper) => paper.id === paperId)
+    if (index < 0) return
+
+    papers.value[index] = {
+      ...papers.value[index],
+      ...updates
+    }
+  }
+
+  function ensurePaperProgressSnapshot(paper: PaperDocument): void {
+    const totalPages = paper.pageCount
+    const savedRenderedPages = Math.min(paper.pageAssets?.length || 0, totalPages)
+    const hasActivePipeline = activePipelines.has(paper.id)
+
+    if (!hasActivePipeline || !renderProgressByPaperId.value[paper.id]) {
+      if (paper.status === 'rendering') {
+        setRenderProgress(paper.id, {
+          currentPage: Math.min(savedRenderedPages, Math.max(totalPages - 1, 0)),
+          totalPages,
+          completedPages: savedRenderedPages,
+          stage: 'rendering'
+        })
+      } else if (savedRenderedPages > 0 || paper.status !== 'draft') {
+        const completedPages =
+          paper.status === 'failed' && savedRenderedPages < totalPages
+            ? savedRenderedPages
+            : Math.max(savedRenderedPages, totalPages)
+
+        setRenderProgress(paper.id, {
+          currentPage: Math.max(totalPages - 1, 0),
+          totalPages,
+          completedPages,
+          stage:
+            paper.status === 'failed' && savedRenderedPages < totalPages ? 'failed' : 'completed'
+        })
+      }
+    }
+
+    const currentOcrProgress = ocrProgressByPaperId.value[paper.id]
+    if (
+      paper.status === 'ocr_processing' &&
+      (!currentOcrProgress || currentOcrProgress.status !== 'processing')
+    ) {
+      setOcrProgress({
+        paperId: paper.id,
+        currentPage: Math.min(paper.completedPageCount, Math.max(totalPages - 1, 0)),
+        totalPages,
+        completedPages: paper.completedPageCount,
+        failedPages: [],
+        status: 'processing'
+      })
+      return
+    }
+
+    if (
+      (paper.status === 'completed' ||
+        paper.status === 'partial_failed' ||
+        paper.status === 'failed') &&
+      (!currentOcrProgress || currentOcrProgress.status !== 'processing')
+    ) {
+      const statusMap: Record<
+        'completed' | 'partial_failed' | 'failed',
+        OcrProgressInfo['status']
+      > = {
+        completed: 'completed',
+        partial_failed: 'partial_failed',
+        failed: 'failed'
+      }
+
+      setOcrProgress({
+        paperId: paper.id,
+        currentPage: Math.min(paper.completedPageCount, Math.max(totalPages - 1, 0)),
+        totalPages,
+        completedPages: paper.completedPageCount,
+        failedPages: [],
+        status: statusMap[paper.status]
+      })
+    }
+  }
+
+  function ensureOcrProgressListener(): void {
+    if (ocrProgressCleanup) {
+      return
+    }
+
+    ocrProgressCleanup = window.api.paper.onOcrProgress((progress) => {
+      const paper = papers.value.find((item) => item.id === progress.paperId)
+      if (!paper) {
+        return
+      }
+
+      setOcrProgress(progress)
+
+      if (
+        progress.status === 'processing' ||
+        progress.status === 'completed' ||
+        progress.status === 'partial_failed' ||
+        progress.status === 'failed'
+      ) {
+        setRenderProgress(progress.paperId, {
+          currentPage: Math.max(progress.totalPages - 1, 0),
+          totalPages: progress.totalPages,
+          completedPages: progress.totalPages,
+          stage: 'completed'
+        })
+      }
+
+      const statusMap: Record<OcrProgressInfo['status'], PaperStatus> = {
+        idle: 'draft',
+        processing: 'ocr_processing',
+        completed: 'completed',
+        partial_failed: 'partial_failed',
+        failed: 'failed',
+        cancelled: 'draft'
+      }
+
+      updatePaperInList(progress.paperId, {
+        status: statusMap[progress.status],
+        completedPageCount: progress.completedPages,
+        errorMessage: progress.errorMessage
+      })
+    })
+  }
+
+  /** 加载论文列表，并为进行中的 OCR 回填进度 */
+  async function loadPapers(): Promise<void> {
+    ensureOcrProgressListener()
+
+    const result = await window.api.paper.list()
+    if (!result.success || !result.data) {
+      return
+    }
+
+    papers.value = result.data
+    for (const paper of result.data) {
+      ensurePaperProgressSnapshot(paper)
+    }
+
+    const ocrProcessingPapers = result.data.filter((paper) => paper.status === 'ocr_processing')
+    await Promise.all(
+      ocrProcessingPapers.map(async (paper) => {
+        const progressResult = await window.api.paper.getOcrProgress(paper.id)
+        if (progressResult.success && progressResult.data) {
+          setOcrProgress(progressResult.data)
+        }
+      })
+    )
+
+    const selectedPaper = currentPaperId.value
+      ? result.data.find((paper) => paper.id === currentPaperId.value)
+      : null
+
+    if (selectedPaper && !isPaperReadableStatus(selectedPaper.status)) {
+      currentPaperId.value = null
+      markdownContent.value = ''
+    }
+
+    if (currentPaperId.value && !selectedPaper) {
+      currentPaperId.value = null
+      markdownContent.value = ''
+    }
+  }
+
+  /** 选择当前论文，仅允许选中已完成 OCR 的论文 */
   function selectPaper(paperId: string | null): void {
+    if (!paperId) {
+      currentPaperId.value = null
+      return
+    }
+
+    const paper = papers.value.find((item) => item.id === paperId)
+    if (!paper || !isPaperReadableStatus(paper.status)) {
+      return
+    }
+
     currentPaperId.value = paperId
   }
 
   /**
    * 选中并打开论文（更新 lastOpenedAt）
-   * 如果论文已完成 OCR，自动加载 Markdown
+   * 仅完成 OCR 的论文允许打开阅读
    */
   async function openPaper(paperId: string): Promise<PaperDocument | null> {
-    const result = await window.api.paper.get(paperId)
-    if (result.success && result.data) {
-      // 更新列表中的对应项
-      const index = papers.value.findIndex((p) => p.id === paperId)
-      if (index >= 0) {
-        papers.value[index] = result.data
-      }
-      currentPaperId.value = paperId
-
-      // 已完成 OCR 时自动加载 Markdown
-      if (result.data.status === 'completed' || result.data.status === 'partial_failed') {
-        await loadMarkdown(paperId)
-      }
-
-      return result.data
+    const localPaper = papers.value.find((paper) => paper.id === paperId)
+    if (localPaper && !isPaperReadableStatus(localPaper.status)) {
+      return null
     }
-    return null
+
+    const result = await window.api.paper.get(paperId)
+    if (!result.success || !result.data) {
+      return null
+    }
+
+    upsertPaper(result.data)
+    ensurePaperProgressSnapshot(result.data)
+
+    if (!isPaperReadableStatus(result.data.status)) {
+      return null
+    }
+
+    currentPaperId.value = paperId
+    await loadMarkdown(paperId)
+
+    return result.data
+  }
+
+  function markPipelineDeleted(paperId: string): void {
+    const control = pipelineControls.get(paperId)
+    if (control) {
+      control.aborted = true
+      control.deleted = true
+      return
+    }
+
+    pipelineControls.set(paperId, {
+      aborted: true,
+      deleted: true
+    })
   }
 
   /** 删除论文 */
   async function deletePaper(paperId: string): Promise<boolean> {
+    markPipelineDeleted(paperId)
+    await window.api.paper.cancelOcr(paperId)
+
     const result = await window.api.paper.delete(paperId)
-    if (result.success) {
-      papers.value = papers.value.filter((p) => p.id !== paperId)
-      if (currentPaperId.value === paperId) {
-        currentPaperId.value = null
-        markdownContent.value = ''
-      }
-      return true
+    if (!result.success) {
+      return false
     }
-    return false
+
+    papers.value = papers.value.filter((paper) => paper.id !== paperId)
+    removePaperProgress(paperId)
+
+    if (currentPaperId.value === paperId) {
+      currentPaperId.value = null
+      markdownContent.value = ''
+    }
+
+    return true
   }
 
   /** 同步论文状态到主进程 */
@@ -177,273 +402,363 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     if (!result.success) {
       throw new Error(result.error || '更新论文状态失败')
     }
-  }
 
-  /**
-   * 启动 OCR 并注册进度监听
-   * 先清理旧监听器，再注册新的进度回调，完成后刷新论文列表
-   */
-  async function startOcrWithProgress(
-    paperId: string
-  ): Promise<{ success: boolean; error?: string }> {
-    // 清理旧监听器
-    cleanupOcrListener()
-
-    // 注册 OCR 进度回调
-    ocrProgressCleanup = window.api.paper.onOcrProgress((progress) => {
-      ocrProgress.value = progress
-
-      // 同步 papers 列表中的 status
-      const idx = papers.value.findIndex((p) => p.id === progress.paperId)
-      if (idx >= 0) {
-        const statusMap: Record<OcrProgressInfo['status'], PaperStatus> = {
-          idle: 'draft',
-          processing: 'ocr_processing',
-          completed: 'completed',
-          partial_failed: 'partial_failed',
-          failed: 'failed',
-          cancelled: 'draft'
-        }
-        papers.value[idx] = {
-          ...papers.value[idx],
-          status: statusMap[progress.status]
-        }
-      }
+    updatePaperInList(paperId, {
+      status,
+      errorMessage
     })
-
-    // 调用主进程启动 OCR
-    const result = await window.api.paper.startOcr(paperId)
-    if (result.success) {
-      await loadPapers()
-    }
-    return result
   }
 
   /**
    * 加载合并后的 Markdown 内容
+   * 仅完成 OCR 的论文允许读取
    */
   async function loadMarkdown(paperId: string): Promise<void> {
+    const paper = papers.value.find((item) => item.id === paperId)
+    if (!paper || !isPaperReadableStatus(paper.status)) {
+      markdownContent.value = ''
+      return
+    }
+
     markdownLoading.value = true
     try {
       const result = await window.api.paper.getMergedMd(paperId)
       if (result.success && result.data !== undefined) {
         markdownContent.value = result.data
+      } else {
+        markdownContent.value = ''
       }
     } finally {
       markdownLoading.value = false
     }
   }
 
-  /** 取消 OCR 任务 */
-  async function cancelOcr(paperId: string): Promise<{ success: boolean }> {
-    return window.api.paper.cancelOcr(paperId)
-  }
-
-  /** 重试失败的页面 */
-  async function retryFailedPage(
-    paperId: string,
-    pageIndex: number
-  ): Promise<{ success: boolean; error?: string }> {
-    return window.api.paper.retryPage({ paperId, pageIndex })
-  }
-
-  /** 清理 OCR 进度监听器 */
-  function cleanupOcrListener(): void {
-    if (ocrProgressCleanup) {
-      ocrProgressCleanup()
-      ocrProgressCleanup = null
+  function getPipelineControl(paperId: string): PipelineControl {
+    const control = pipelineControls.get(paperId)
+    if (control) {
+      return control
     }
-    ocrProgress.value = null
+
+    const nextControl = { aborted: false, deleted: false }
+    pipelineControls.set(paperId, nextControl)
+    return nextControl
+  }
+
+  async function loadPdfContextFromPaper(paper: PaperDocument): Promise<RenderPipelineContext> {
+    const fileResult = await window.api.paper.readFileAsBase64(paper.filePath)
+    if (!fileResult.success || !fileResult.data) {
+      throw new Error(fileResult.error || '读取本地论文文件失败')
+    }
+
+    const rasterizer = usePdfPageRasterizer()
+
+    try {
+      const pageInfos = await rasterizer.loadPdf(decodeBase64ToArrayBuffer(fileResult.data))
+      return {
+        paperId: paper.id,
+        pageInfos,
+        rasterizer
+      }
+    } catch (error) {
+      rasterizer.dispose()
+      throw error
+    }
+  }
+
+  function hasIncompleteRender(paper: PaperDocument): boolean {
+    const savedRenderedPages = Math.min(paper.pageAssets?.length || 0, paper.pageCount)
+    const renderProgress = renderProgressByPaperId.value[paper.id]
+
+    if (renderProgress?.stage === 'failed') {
+      return true
+    }
+
+    return savedRenderedPages < paper.pageCount
+  }
+
+  async function retryPaper(paperId: string): Promise<{
+    success: boolean
+    error?: string
+  }> {
+    ensureOcrProgressListener()
+
+    if (activePipelines.has(paperId)) {
+      return { success: false, error: '论文正在处理中，请稍后再试' }
+    }
+
+    const paper = papers.value.find((item) => item.id === paperId)
+    if (!paper) {
+      return { success: false, error: '论文不存在' }
+    }
+
+    const totalPages = paper.pageCount
+
+    if (hasIncompleteRender(paper)) {
+      try {
+        const context = await loadPdfContextFromPaper(paper)
+
+        await updatePaperStatus(paperId, 'rendering')
+        updatePaperInList(paperId, {
+          completedPageCount: 0
+        })
+
+        setRenderProgress(paperId, {
+          currentPage: 0,
+          totalPages: context.pageInfos.length,
+          completedPages: 0,
+          stage: 'rendering'
+        })
+        setOcrProgress(createIdleOcrProgress(paperId, context.pageInfos.length))
+
+        void runRenderAndOcrPipeline(context)
+
+        return { success: true }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        return { success: false, error: errorMessage }
+      }
+    }
+
+    activePipelines.add(paperId)
+
+    try {
+      await updatePaperStatus(paperId, 'ocr_processing')
+      updatePaperInList(paperId, {
+        completedPageCount: 0
+      })
+
+      setRenderProgress(paperId, {
+        currentPage: Math.max(totalPages - 1, 0),
+        totalPages,
+        completedPages: totalPages,
+        stage: 'completed'
+      })
+      setOcrProgress(createIdleOcrProgress(paperId, totalPages))
+
+      const result = await window.api.paper.startOcr(paperId)
+      if (!result.success) {
+        throw new Error(result.error || 'OCR 重试失败')
+      }
+
+      await loadPapers()
+      return { success: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      setOcrProgress({
+        ...(ocrProgressByPaperId.value[paperId] || createIdleOcrProgress(paperId, totalPages)),
+        status: 'failed',
+        errorMessage
+      })
+
+      try {
+        await updatePaperStatus(paperId, 'failed', errorMessage)
+      } catch {
+        // 保留首次失败原因
+      }
+
+      return { success: false, error: errorMessage }
+    } finally {
+      activePipelines.delete(paperId)
+    }
+  }
+
+  async function runRenderAndOcrPipeline(context: RenderPipelineContext): Promise<void> {
+    const { paperId, pageInfos, rasterizer } = context
+    if (activePipelines.has(paperId)) {
+      rasterizer.dispose()
+      return
+    }
+
+    activePipelines.add(paperId)
+    const control = getPipelineControl(paperId)
+    const totalPages = pageInfos.length
+
+    try {
+      for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+        if (control.aborted) {
+          return
+        }
+
+        setRenderProgress(paperId, {
+          currentPage: pageIndex,
+          totalPages,
+          completedPages: pageIndex,
+          stage: 'rendering'
+        })
+
+        const renderResult = await rasterizer.renderPage(pageIndex, 2.0)
+        if (control.aborted) {
+          return
+        }
+
+        const saveResult = await window.api.paper.savePageImage({
+          paperId,
+          pageIndex,
+          base64Data: renderResult.base64,
+          imageWidth: renderResult.width,
+          imageHeight: renderResult.height,
+          sourceWidth: pageInfos[pageIndex]?.width,
+          sourceHeight: pageInfos[pageIndex]?.height,
+          renderScale: 2.0
+        })
+
+        if (!saveResult.success) {
+          throw new Error(`保存第 ${pageIndex + 1} 页图片失败: ${saveResult.error || '未知错误'}`)
+        }
+
+        setRenderProgress(paperId, {
+          currentPage: pageIndex,
+          totalPages,
+          completedPages: pageIndex + 1,
+          stage: pageIndex === totalPages - 1 ? 'completed' : 'rendering'
+        })
+      }
+
+      if (control.aborted) {
+        return
+      }
+
+      setRenderProgress(paperId, {
+        currentPage: Math.max(totalPages - 1, 0),
+        totalPages,
+        completedPages: totalPages,
+        stage: 'completed'
+      })
+
+      updatePaperInList(paperId, {
+        status: 'ocr_processing',
+        errorMessage: undefined
+      })
+
+      setOcrProgress(createIdleOcrProgress(paperId, totalPages))
+
+      const result = await window.api.paper.startOcr(paperId)
+      if (!result.success) {
+        throw new Error(result.error || 'OCR 启动失败')
+      }
+
+      if (!control.deleted) {
+        await loadPapers()
+      }
+    } catch (error) {
+      if (control.deleted) {
+        return
+      }
+
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const lastRenderProgress = renderProgressByPaperId.value[paperId]
+      const renderCompleted = (lastRenderProgress?.completedPages || 0) >= totalPages
+
+      setRenderProgress(paperId, {
+        currentPage: lastRenderProgress?.currentPage || 0,
+        totalPages,
+        completedPages: lastRenderProgress?.completedPages || 0,
+        stage: renderCompleted ? 'completed' : 'failed',
+        error: errorMessage
+      })
+
+      setOcrProgress({
+        ...(ocrProgressByPaperId.value[paperId] || createIdleOcrProgress(paperId, totalPages)),
+        status: 'failed',
+        errorMessage
+      })
+
+      try {
+        await updatePaperStatus(paperId, 'failed', errorMessage)
+      } catch {
+        // 论文已删除或状态同步失败时，不覆盖首个渲染错误
+      }
+    } finally {
+      rasterizer.dispose()
+      activePipelines.delete(paperId)
+      pipelineControls.delete(paperId)
+    }
   }
 
   /**
-   * 上传 PDF 并逐页渲染保存
-   * 完整流程：选择文件 → 加载 PDF → 逐页渲染 → 保存页图 → 更新 meta
+   * 上传 PDF 并立即创建论文记录，后台自动执行渲染和 OCR
    */
   async function uploadAndRenderPdf(): Promise<{
     success: boolean
     paperId?: string
     error?: string
   }> {
-    window.api.logger.info('[PaperReaderStore] uploadAndRenderPdf 开始')
-    if (renderingProgress.value.stage !== 'idle') {
-      window.api.logger.warn('[PaperReaderStore] 当前已有渲染任务在进行中，拒绝重复调用')
-      return { success: false, error: '当前正在进行渲染任务' }
-    }
+    ensureOcrProgressListener()
 
-    abortRendering = false
-    let paperId: string | undefined
+    let rasterizer: ReturnType<typeof usePdfPageRasterizer> | null = null
 
     try {
-      // 1. 选择 PDF 文件
-      renderingProgress.value = {
-        currentPage: 0,
-        totalPages: 0,
-        completedPages: 0,
-        stage: 'selecting'
-      }
-      window.api.logger.info('[PaperReaderStore] 步骤1: 调用 selectPdfFile 打开文件选择器')
       const fileInfo = await window.api.paper.selectPdfFile()
-      window.api.logger.info('[PaperReaderStore] selectPdfFile 返回', { fileInfo })
       if (!fileInfo) {
-        resetProgress()
         return { success: false, error: '未选择文件' }
       }
 
-      // 2. 读取 PDF 文件为 ArrayBuffer
-      renderingProgress.value.stage = 'loading'
-      window.api.logger.info('[PaperReaderStore] 步骤2: 读取 PDF 文件', { path: fileInfo.path })
       const fileResult = await window.api.paper.readFileAsBase64(fileInfo.path)
       if (!fileResult.success || !fileResult.data) {
         throw new Error(fileResult.error || '读取 PDF 文件失败')
       }
-      // base64 → Uint8Array → ArrayBuffer（pdf.js 兼容格式）
-      const binaryString = atob(fileResult.data)
-      const bytes = new Uint8Array(binaryString.length)
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i)
-      }
-      const arrayBuffer = bytes.buffer as ArrayBuffer
-      window.api.logger.info('[PaperReaderStore] PDF 文件读取完成', { size: arrayBuffer.byteLength })
 
-      // 3. 加载 PDF 获取页数
-      window.api.logger.info('[PaperReaderStore] 步骤3: 加载 PDF 解析页数')
-      const pageInfos = await rasterizer.loadPdf(arrayBuffer)
+      rasterizer = usePdfPageRasterizer()
+      const pageInfos = await rasterizer.loadPdf(decodeBase64ToArrayBuffer(fileResult.data))
       const totalPageCount = pageInfos.length
-      window.api.logger.info('[PaperReaderStore] PDF 加载完成', { totalPageCount })
 
-      // 4. 创建论文记录
-      window.api.logger.info('[PaperReaderStore] 步骤4: 创建论文记录', { path: fileInfo.path, totalPageCount })
       const createResult = await window.api.paper.uploadPdf({
         sourcePdfPath: fileInfo.path,
         pageCount: totalPageCount
       })
-      window.api.logger.info('[PaperReaderStore] uploadPdf 返回', { result: createResult })
 
       if (!createResult.success || !createResult.data) {
-        rasterizer.dispose()
         throw new Error(createResult.error || '创建论文记录失败')
       }
 
-      paperId = createResult.data.id
-      window.api.logger.info('[PaperReaderStore] 论文记录已创建', { paperId })
+      const paperId = createResult.data.id
+      upsertPaper({
+        ...createResult.data,
+        status: 'rendering',
+        errorMessage: undefined
+      })
 
-      // 5. 逐页渲染并保存
-      renderingProgress.value = {
+      setRenderProgress(paperId, {
         currentPage: 0,
         totalPages: totalPageCount,
         completedPages: 0,
         stage: 'rendering'
-      }
-      window.api.logger.info('[PaperReaderStore] 步骤5: 开始逐页渲染', { totalPageCount })
+      })
+      setOcrProgress(createIdleOcrProgress(paperId, totalPageCount))
 
-      for (let i = 0; i < totalPageCount; i++) {
-        if (abortRendering) {
-          throw new Error('渲染已取消')
-        }
+      void runRenderAndOcrPipeline({
+        paperId,
+        pageInfos,
+        rasterizer
+      })
+      rasterizer = null
 
-        renderingProgress.value.currentPage = i
-
-        // 渲染单页
-        const renderResult = await rasterizer.renderPage(i, 2.0)
-
-        // 保存页图到主进程
-        const saveResult = await window.api.paper.savePageImage({
-          paperId,
-          pageIndex: i,
-          base64Data: renderResult.base64,
-          imageWidth: renderResult.width,
-          imageHeight: renderResult.height,
-          sourceWidth: pageInfos[i]?.width,
-          sourceHeight: pageInfos[i]?.height,
-          renderScale: 2.0
-        })
-
-        if (!saveResult.success) {
-          throw new Error(`保存第 ${i + 1} 页图片失败: ${saveResult.error}`)
-        }
-
-        renderingProgress.value.completedPages = i + 1
-        window.api.logger.debug('[PaperReaderStore] 页面渲染完成', { pageIndex: i, total: totalPageCount })
-      }
-
-      // 6. 恢复论文状态，等待后续 OCR 阶段继续推进
-      window.api.logger.info('[PaperReaderStore] 步骤6: 更新论文状态为 draft')
-      await updatePaperStatus(paperId, 'draft')
-
-      // 7. 清理资源并更新前端进度
-      rasterizer.dispose()
-      renderingProgress.value.stage = 'completed'
-
-      // 刷新论文列表并选中新论文
-      await loadPapers()
-      currentPaperId.value = paperId
-
-      window.api.logger.info('[PaperReaderStore] uploadAndRenderPdf 完成', { paperId })
       return { success: true, paperId }
     } catch (error) {
-      rasterizer.dispose()
+      rasterizer?.dispose()
       const errorMessage = error instanceof Error ? error.message : String(error)
-      window.api.logger.error('[PaperReaderStore] uploadAndRenderPdf 失败', { error: errorMessage })
-
-      if (paperId) {
-        try {
-          await updatePaperStatus(paperId, 'failed', errorMessage)
-        } catch {
-          // 状态同步失败时保留原始渲染错误，避免覆盖首个失败原因
-        }
-      }
-
-      renderingProgress.value.stage = 'failed'
-      renderingProgress.value.error = errorMessage
-      return { success: false, error: errorMessage, paperId }
+      return { success: false, error: errorMessage }
     }
-  }
-
-  /** 取消当前渲染任务 */
-  function cancelRendering(): void {
-    abortRendering = true
-  }
-
-  /** 重置渲染进度 */
-  function resetProgress(): void {
-    renderingProgress.value = {
-      currentPage: 0,
-      totalPages: 0,
-      completedPages: 0,
-      stage: 'idle'
-    }
-    abortRendering = false
   }
 
   return {
-    // State
     papers,
     currentPaperId,
-    renderingProgress,
-    isRendering,
-    ocrProgress,
+    renderProgressByPaperId,
+    ocrProgressByPaperId,
     markdownContent,
     markdownLoading,
-    // Getters
     currentPaper,
-    progressPercent,
     isOcrCompleted,
-    isOcrProcessing,
-    ocrProgressPercent,
     paperBasePath,
-    // Actions
     loadPapers,
     selectPaper,
     openPaper,
     deletePaper,
+    updatePaperStatus,
     uploadAndRenderPdf,
-    cancelRendering,
-    resetProgress,
-    startOcrWithProgress,
     loadMarkdown,
-    cancelOcr,
-    retryFailedPage,
-    cleanupOcrListener
+    ensureOcrProgressListener,
+    retryPaper
   }
 })
