@@ -1,5 +1,5 @@
 import { ipcRenderer } from 'electron'
-import type { PaperDocument, PaperStatus } from '@shared/types/paper'
+import type { PaperDocument, PaperFigureItem, PaperStatus } from '@shared/types/paper'
 import type { OcrProviderId } from '@shared/types/config'
 
 export interface OcrProgressInfo {
@@ -139,6 +139,22 @@ export const paperApi = {
   },
 
   /**
+   * 获取阅读版 Markdown（正文已去图）
+   */
+  getReaderMarkdown: (paperId: string): Promise<MergedMdResult> => {
+    return ipcRenderer.invoke('paper:getReaderMarkdown', paperId)
+  },
+
+  /**
+   * 获取论文图片列表
+   */
+  listFigures: (
+    paperId: string
+  ): Promise<{ success: boolean; data?: PaperFigureItem[]; error?: string }> => {
+    return ipcRenderer.invoke('paper:listFigures', paperId)
+  },
+
+  /**
    * 保存编辑后的 Markdown
    */
   saveMergedMd: (params: { paperId: string; content: string }): Promise<SaveMdResult> => {
@@ -155,7 +171,9 @@ export const paperApi = {
   /**
    * 读取本地文件内容为 base64 字符串
    */
-  readFileAsBase64: (filePath: string): Promise<{ success: boolean; data?: string; error?: string }> => {
+  readFileAsBase64: (
+    filePath: string
+  ): Promise<{ success: boolean; data?: string; error?: string }> => {
     return ipcRenderer.invoke('paper:readFileAsBase64', filePath)
   },
 

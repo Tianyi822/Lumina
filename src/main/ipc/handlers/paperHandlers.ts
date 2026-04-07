@@ -177,6 +177,14 @@ export function registerPaperHandlers(): void {
     return paperStorageService.readMergedMd(paperId)
   })
 
+  ipcMain.handle('paper:getReaderMarkdown', (_event, paperId: string) => {
+    return getPaperService().getReaderMarkdown(paperId)
+  })
+
+  ipcMain.handle('paper:listFigures', async (_event, paperId: string) => {
+    return getPaperService().listFigures(paperId)
+  })
+
   ipcMain.handle('paper:saveMergedMd', (_event, params: { paperId: string; content: string }) => {
     return paperStorageService.saveMergedMd(params.paperId, params.content)
   })

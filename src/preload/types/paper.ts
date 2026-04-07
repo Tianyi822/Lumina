@@ -1,4 +1,4 @@
-import type { PaperDocument, PaperStatus } from '@shared/types/paper'
+import type { PaperDocument, PaperFigureItem, PaperStatus } from '@shared/types/paper'
 import type { OcrProviderId } from '@shared/types/config'
 
 export interface OcrProgressInfo {
@@ -46,6 +46,20 @@ export interface PaperApi {
   getMergedMd: (paperId: string) => Promise<{
     success: boolean
     data?: string
+    error?: string
+  }>
+
+  /** 获取阅读版 Markdown（正文已去图） */
+  getReaderMarkdown: (paperId: string) => Promise<{
+    success: boolean
+    data?: string
+    error?: string
+  }>
+
+  /** 获取论文图片列表 */
+  listFigures: (paperId: string) => Promise<{
+    success: boolean
+    data?: PaperFigureItem[]
     error?: string
   }>
 
