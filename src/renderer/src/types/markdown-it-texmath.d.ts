@@ -4,7 +4,15 @@ declare module 'markdown-it-texmath' {
 
   interface TexmathOptions {
     engine: typeof import('katex')
-    delimiters?: 'dollars' | 'brackets' | 'doxygen' | 'gitlab' | 'julia' | 'kramdown' | 'beg_end' | Array<'dollars' | 'brackets' | 'doxygen' | 'gitlab' | 'julia' | 'kramdown' | 'beg_end'>
+    delimiters?:
+      | 'dollars'
+      | 'brackets'
+      | 'doxygen'
+      | 'gitlab'
+      | 'julia'
+      | 'kramdown'
+      | 'beg_end'
+      | Array<'dollars' | 'brackets' | 'doxygen' | 'gitlab' | 'julia' | 'kramdown' | 'beg_end'>
     katexOptions?: KatexOptions
     outerSpace?: boolean
   }

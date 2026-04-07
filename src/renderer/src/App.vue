@@ -22,8 +22,7 @@ const { initTheme } = useTheme()
 
 // ==================== UI 状态管理（直接使用 Store）====================
 const uiState = useUIStateStore()
-const { currentView, isChatView, isKnowledgeView, isPaperView, configError } =
-  storeToRefs(uiState)
+const { currentView, isChatView, isKnowledgeView, isPaperView, configError } = storeToRefs(uiState)
 
 // 配置 Store - 用于加载语音识别等配置
 const configStore = useConfigStore()
