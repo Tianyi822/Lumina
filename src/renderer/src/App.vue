@@ -118,12 +118,11 @@ onBeforeUnmount(() => {
 
     <!-- 主布局 -->
     <div class="sm-shell sm-workspace-page">
+      <div class="sm-workspace-page__drag-region" aria-hidden="true"></div>
       <WorkspaceSidebarHost />
 
       <div class="sm-workspace-main" :class="workspaceMainClass">
-        <div class="sm-workspace-main__toolbar">
-          <WorkspaceToolbar @open-settings="openSettings" />
-        </div>
+        <WorkspaceToolbar @open-settings="openSettings" />
 
         <div class="sm-workspace-main__body sm-workspace-main__body--fill">
           <Transition name="sm-workspace-switch" mode="out-in" appear>
@@ -151,18 +150,30 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.sm-workspace-page__drag-region {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--sm-space-3);
+  z-index: 3;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
 .sm-workspace-main--chat {
   position: relative;
   overflow: visible;
 }
 
-.sm-workspace-main--chat > .sm-workspace-main__toolbar {
-  position: absolute;
-  top: calc(var(--sm-space-3) * -1);
-  right: 0;
-  left: 0;
-  z-index: 4;
-  min-height: calc(var(--sm-titlebar-height) + var(--sm-space-3));
-  padding-top: var(--sm-space-3);
+.sm-workspace-main--chat > .sm-workspace-toolbar__controls {
+  top: calc(var(--sm-space-2) * -1);
+  min-height: calc(var(--sm-titlebar-height) + var(--sm-space-2));
+  padding-top: var(--sm-space-2);
+}
+
+.sm-workspace-main--chat
+  > .sm-workspace-toolbar__controls.sm-workspace-toolbar__controls--avoid-window-controls {
+  top: calc(var(--sm-titlebar-height) - var(--sm-space-2));
 }
 </style>
