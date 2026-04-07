@@ -1,6 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
-import { pathToFileURL } from 'url'
 import { net } from 'electron'
 import { logger } from '@main/services/logger'
 import { paperStorageService } from './index'
@@ -10,7 +9,11 @@ import {
   extractPaperFigureData,
   type ExtractedPaperFigureData
 } from './paperFigureExtractor'
-import { getPaperAssetsDirPath, getPaperDirPath } from './paperPaths'
+import {
+  getPaperDirPath,
+  getPaperFigureAssetPath,
+  getPaperFigureAssetRelativePath
+} from './paperPaths'
 import type {
   PaperDocument,
   PaperFigureItem,
@@ -34,10 +37,6 @@ function getBlockRemoteImageUrl(block: PaperLayoutBlock): string | undefined {
   return undefined
 }
 
-function toFileUrl(filePath: string): string {
-  return pathToFileURL(filePath).toString()
-}
-
 function getLocalAssetFilePath(paperId: string, localAssetPath: string): string {
   return join(getPaperDirPath(paperId), localAssetPath)
 }
@@ -46,11 +45,11 @@ function getResolvedFigureImagePath(paperId: string, block: PaperLayoutBlock): s
   if (block.localAssetPath) {
     const localFilePath = getLocalAssetFilePath(paperId, block.localAssetPath)
     if (existsSync(localFilePath)) {
-      return toFileUrl(localFilePath)
+      return localFilePath
     }
   }
 
-  return getBlockRemoteImageUrl(block)
+  return undefined
 }
 
 async function downloadCropImage(remoteUrl: string, localPath: string): Promise<boolean> {
@@ -204,14 +203,11 @@ export class PaperService {
           return nextBlock
         }
 
-        const paddedPageIndex = String(pageResult.pageIndex + 1).padStart(4, '0')
-        const paddedBlockIndex = String(block.index).padStart(4, '0')
-        const localFileName = `crop-${paddedBlockIndex}.png`
-        const localRelativePath = `assets/page-${paddedPageIndex}/${localFileName}`
-        const localAbsolutePath = join(
-          getPaperAssetsDirPath(paperId),
-          `page-${paddedPageIndex}`,
-          localFileName
+        const localRelativePath = getPaperFigureAssetRelativePath(pageResult.pageIndex, block.index)
+        const localAbsolutePath = getPaperFigureAssetPath(
+          paperId,
+          pageResult.pageIndex,
+          block.index
         )
 
         const downloaded = await downloadCropImage(remoteImageUrl, localAbsolutePath)

@@ -12,7 +12,8 @@ import {
   getPaperOcrNormalizedDirPath,
   getPaperOcrNormalizedPath,
   getPaperPageAssetsDirPath,
-  getPaperAssetsDirPath,
+  getPaperFigureAssetPath,
+  getPaperFigureAssetRelativePath,
   getPaperMergedMdPath
 } from './paperPaths'
 
@@ -390,10 +391,8 @@ export class PaperOcrService {
         (block.label === 'image' || block.label === 'table' || block.label === 'formula') &&
         block.remoteAssetUrl
       ) {
-        const paddedBlockIndex = String(block.index).padStart(4, '0')
-        const localFileName = `crop-${paddedBlockIndex}.png`
-        const localRelativePath = `assets/page-${String(pageIndex + 1).padStart(4, '0')}/${localFileName}`
-        const localAbsolutePath = `${getPaperAssetsDirPath(paperId)}/page-${String(pageIndex + 1).padStart(4, '0')}/${localFileName}`
+        const localRelativePath = getPaperFigureAssetRelativePath(pageIndex, block.index)
+        const localAbsolutePath = getPaperFigureAssetPath(paperId, pageIndex, block.index)
 
         const downloaded = await downloadCropImage(block.remoteAssetUrl, localAbsolutePath)
         if (downloaded) {
