@@ -150,6 +150,30 @@ export interface PaperPageOcrResult {
 }
 
 /**
+ * 论文图片项
+ */
+export interface PaperFigureItem {
+  /** 图片项唯一标识 */
+  id: string
+  /** 所属论文 ID */
+  paperId: string
+  /** 页码 */
+  pageIndex: number
+  /** 块索引 */
+  blockIndex: number
+  /** 图片所属分组 ID */
+  groupId: string
+  /** 图片资源路径（file:// 或远程 URL） */
+  imagePath: string
+  /** 图片对应的主图注 */
+  caption: string
+  /** 图片对应的子图注（可选） */
+  subCaption?: string
+  /** 图片边界框 */
+  bbox: { x: number; y: number; width: number; height: number }
+}
+
+/**
  * 论文批注信息
  */
 export interface PaperAnnotation {

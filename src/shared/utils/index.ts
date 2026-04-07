@@ -17,6 +17,9 @@ export * from './stream-utils'
 // 错误处理相关
 export * from './error-handlers'
 
+// URL 与文件路径工具
+export * from './file-url'
+
 // 导出常用的深度克隆函数
 export { deepClone } from './data-processors'
 
