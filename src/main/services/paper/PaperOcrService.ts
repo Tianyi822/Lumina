@@ -59,6 +59,10 @@ interface RawOcrResponse {
   [key: string]: unknown
 }
 
+function isRemoteImageUrl(content: string | undefined): boolean {
+  return typeof content === 'string' && /^https?:\/\/\S+$/i.test(content.trim())
+}
+
 function normalizeBbox(raw: number[] | undefined): {
   bbox: { x: number; y: number; width: number; height: number }
   normalizedBbox?: { x: number; y: number; width: number; height: number }
@@ -115,7 +119,12 @@ function normalizeGlmOcrResponse(
 
     const label = (block.label || 'text') as BlockLabel
     const content = block.text || block.content || ''
-    const remoteUrl = block.crop_image_url || block.crop_url
+    const remoteUrl =
+      block.crop_image_url ||
+      block.crop_url ||
+      ((label === 'image' || label === 'table' || label === 'formula') && isRemoteImageUrl(content)
+        ? content.trim()
+        : undefined)
 
     return {
       index: block.index ?? idx,
