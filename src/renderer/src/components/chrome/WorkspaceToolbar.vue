@@ -5,6 +5,7 @@ import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { useUIStateStore } from '@renderer/stores'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperTocItem } from '@renderer/stores/paperReaderStore'
+import type { PaperFigureItem } from '@shared/types/paper'
 
 const emit = defineEmits<{
   (e: 'open-settings'): void
@@ -14,8 +15,15 @@ const uiStateStore = useUIStateStore()
 const { isCurrentSidebarCollapsed, isPaperView } = storeToRefs(uiStateStore)
 
 const paperReaderStore = usePaperReaderStore()
-const { currentPaper, currentPaperId, paperTocItems, markdownLoading } =
-  storeToRefs(paperReaderStore)
+const {
+  currentPaper,
+  currentPaperId,
+  currentPaperFigures,
+  figureLoadingByPaperId,
+  paperTocItems,
+  markdownLoading,
+  showFigurePanel
+} = storeToRefs(paperReaderStore)
 
 interface PaperTocTreeNode {
   item: PaperTocItem
@@ -23,6 +31,7 @@ interface PaperTocTreeNode {
 }
 
 const tocContainerRef = ref<HTMLElement | null>(null)
+const figureContainerRef = ref<HTMLElement | null>(null)
 const showTocPanel = ref(false)
 
 const shouldAvoidMacWindowControls = computed(() => {
@@ -31,6 +40,18 @@ const shouldAvoidMacWindowControls = computed(() => {
 
 const canOpenToc = computed(() => {
   return !!currentPaperId.value
+})
+
+const canOpenFigurePanel = computed(() => {
+  return !!currentPaperId.value
+})
+
+const currentFigureLoading = computed(() => {
+  if (!currentPaperId.value) {
+    return false
+  }
+
+  return !!figureLoadingByPaperId.value[currentPaperId.value]
 })
 
 const paperTocTree = computed<PaperTocTreeNode[]>(() => {
@@ -89,6 +110,10 @@ function closeTocPanel(): void {
   showTocPanel.value = false
 }
 
+function closeFigurePanel(): void {
+  paperReaderStore.closeFigurePanel()
+}
+
 function handleToggleSidebar(): void {
   uiStateStore.toggleCurrentSidebar()
 }
@@ -96,6 +121,7 @@ function handleToggleSidebar(): void {
 /** 刷新论文 Markdown 内容 */
 function handleRefreshMarkdown(): void {
   closeTocPanel()
+  closeFigurePanel()
 
   if (currentPaperId.value) {
     paperReaderStore.loadMarkdown(currentPaperId.value)
@@ -107,7 +133,17 @@ function handleToggleToc(): void {
     return
   }
 
+  closeFigurePanel()
   showTocPanel.value = !showTocPanel.value
+}
+
+async function handleToggleFigurePanel(): Promise<void> {
+  if (!canOpenFigurePanel.value) {
+    return
+  }
+
+  closeTocPanel()
+  await paperReaderStore.toggleFigurePanel()
 }
 
 function handleSelectTocItem(headingId: string): void {
@@ -116,36 +152,58 @@ function handleSelectTocItem(headingId: string): void {
   }
 }
 
+function getFigureItemLabel(figure: PaperFigureItem): string {
+  return figure.caption || figure.subCaption || '暂无图注'
+}
+
+function handlePreviewFigure(figure: PaperFigureItem): void {
+  paperReaderStore.openFigurePreview(figure)
+}
+
 function handleClickOutside(event: MouseEvent): void {
-  if (!showTocPanel.value || !tocContainerRef.value) {
-    return
+  const target = event.target as Node
+
+  if (showTocPanel.value && tocContainerRef.value && !tocContainerRef.value.contains(target)) {
+    closeTocPanel()
   }
 
-  const target = event.target as Node
-  if (!tocContainerRef.value.contains(target)) {
-    closeTocPanel()
+  if (
+    showFigurePanel.value &&
+    figureContainerRef.value &&
+    !figureContainerRef.value.contains(target)
+  ) {
+    closeFigurePanel()
   }
 }
 
 function handleKeyDown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && showTocPanel.value) {
-    closeTocPanel()
+  if (event.key === 'Escape') {
+    if (showTocPanel.value) {
+      closeTocPanel()
+    }
+
+    if (showFigurePanel.value) {
+      closeFigurePanel()
+    }
   }
 }
 
 watch(isPaperView, (value) => {
   if (!value) {
     closeTocPanel()
+    closeFigurePanel()
   }
 })
 
 watch(currentPaperId, () => {
   closeTocPanel()
+  closeFigurePanel()
 })
 
 watch(markdownLoading, (loading) => {
   if (loading) {
     closeTocPanel()
+    closeFigurePanel()
   }
 })
 
@@ -285,6 +343,70 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+
+      <div v-if="isPaperView" ref="figureContainerRef" class="sm-workspace-toolbar__figures">
+        <button
+          class="sm-icon-button sm-workspace-toolbar__button"
+          :class="{ 'is-active': showFigurePanel }"
+          title="论文图片"
+          aria-label="打开论文图片列表"
+          aria-haspopup="dialog"
+          :aria-expanded="showFigurePanel"
+          :disabled="!canOpenFigurePanel"
+          @click="handleToggleFigurePanel"
+        >
+          <SvgIcon name="image" :size="14" />
+        </button>
+
+        <div
+          v-if="showFigurePanel"
+          class="sm-workspace-toolbar__figure-panel"
+          role="dialog"
+          aria-label="论文图片列表"
+        >
+          <div class="sm-workspace-toolbar__toc-header">论文图片</div>
+
+          <div v-if="currentFigureLoading" class="sm-workspace-toolbar__toc-state">图片加载中</div>
+
+          <div v-else-if="currentPaperFigures.length === 0" class="sm-workspace-toolbar__toc-state">
+            未识别到可用图片
+          </div>
+
+          <div v-else class="sm-workspace-toolbar__figure-scroll">
+            <div
+              v-for="figure in currentPaperFigures"
+              :key="figure.id"
+              class="sm-workspace-toolbar__figure-item"
+            >
+              <img
+                :src="figure.imagePath"
+                :alt="getFigureItemLabel(figure)"
+                class="sm-workspace-toolbar__figure-thumb"
+              />
+
+              <div class="sm-workspace-toolbar__figure-copy">
+                <div class="sm-workspace-toolbar__figure-page">
+                  第 {{ figure.pageIndex + 1 }} 页
+                </div>
+                <div
+                  class="sm-workspace-toolbar__figure-caption"
+                  :title="getFigureItemLabel(figure)"
+                >
+                  {{ getFigureItemLabel(figure) }}
+                </div>
+              </div>
+
+              <button
+                class="sm-workspace-toolbar__figure-preview"
+                type="button"
+                @click="handlePreviewFigure(figure)"
+              >
+                预览
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-if="isPaperView && paperFileName" class="sm-workspace-toolbar__paper-file">
@@ -350,7 +472,8 @@ onUnmounted(() => {
   position: relative;
 }
 
-.sm-workspace-toolbar__toc-panel {
+.sm-workspace-toolbar__toc-panel,
+.sm-workspace-toolbar__figure-panel {
   position: absolute;
   top: calc(100% + var(--sm-space-2));
   left: 0;
@@ -382,6 +505,82 @@ onUnmounted(() => {
 .sm-workspace-toolbar__toc-scroll {
   max-height: 360px;
   overflow-y: auto;
+}
+
+.sm-workspace-toolbar__figures {
+  position: relative;
+}
+
+.sm-workspace-toolbar__figure-panel {
+  width: 380px;
+  max-width: min(380px, calc(100vw - 48px));
+}
+
+.sm-workspace-toolbar__figure-scroll {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.sm-workspace-toolbar__figure-item {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-2) 0;
+}
+
+.sm-workspace-toolbar__figure-item + .sm-workspace-toolbar__figure-item {
+  border-top: 1px solid var(--sm-color-border-subtle);
+}
+
+.sm-workspace-toolbar__figure-thumb {
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 10px;
+  background: var(--sm-color-surface-1);
+  object-fit: cover;
+}
+
+.sm-workspace-toolbar__figure-copy {
+  min-width: 0;
+}
+
+.sm-workspace-toolbar__figure-page {
+  color: var(--sm-color-text-tertiary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.sm-workspace-toolbar__figure-caption {
+  margin-top: 4px;
+  color: var(--sm-color-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  display: -webkit-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.sm-workspace-toolbar__figure-preview {
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 8px;
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
+  font-size: 12px;
+  line-height: 1;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
+}
+
+.sm-workspace-toolbar__figure-preview:hover {
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-strong);
 }
 
 .sm-workspace-toolbar__toc-list {
