@@ -8,6 +8,7 @@
   ],
   "compilerOptions": {
     "composite": true,
+    "noEmit": true,
     "allowImportingTsExtensions": true,
     "types": ["electron-vite/node"],
     "paths": {
