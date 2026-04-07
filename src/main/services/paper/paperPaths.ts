@@ -124,6 +124,36 @@ export function getPaperPageAssetsDirPath(paperId: string, pageIndex: number): s
 }
 
 /**
+ * 获取指定块的图片资源文件名
+ */
+export function getPaperFigureAssetFileName(blockIndex: number): string {
+  const paddedBlockIndex = String(blockIndex).padStart(4, '0')
+  return `crop-${paddedBlockIndex}.png`
+}
+
+/**
+ * 获取指定块的图片资源相对路径
+ */
+export function getPaperFigureAssetRelativePath(pageIndex: number, blockIndex: number): string {
+  const paddedPageIndex = String(pageIndex + 1).padStart(4, '0')
+  return `assets/page-${paddedPageIndex}/${getPaperFigureAssetFileName(blockIndex)}`
+}
+
+/**
+ * 获取指定块的图片资源绝对路径
+ */
+export function getPaperFigureAssetPath(
+  paperId: string,
+  pageIndex: number,
+  blockIndex: number
+): string {
+  return join(
+    getPaperPageAssetsDirPath(paperId, pageIndex),
+    getPaperFigureAssetFileName(blockIndex)
+  )
+}
+
+/**
  * 获取合并后的 Markdown 文件路径
  */
 export function getPaperMergedMdPath(paperId: string): string {

@@ -6,6 +6,7 @@ import {
   DEFAULT_OCR_PROVIDER,
   type OcrProviderId
 } from '@shared/types/config'
+import { fileUrlToPath, isFileUrl } from '@shared/utils'
 import type { PaperStatus } from '@shared/types/paper'
 import { statSync, readFileSync } from 'fs'
 
@@ -87,7 +88,8 @@ export function registerPaperHandlers(): void {
    */
   ipcMain.handle('paper:readFileAsBase64', async (_event, filePath: string) => {
     try {
-      const buffer = readFileSync(filePath)
+      const resolvedFilePath = isFileUrl(filePath) ? fileUrlToPath(filePath) || filePath : filePath
+      const buffer = readFileSync(resolvedFilePath)
       return { success: true, data: buffer.toString('base64') }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -175,6 +177,14 @@ export function registerPaperHandlers(): void {
 
   ipcMain.handle('paper:getMergedMd', (_event, paperId: string) => {
     return paperStorageService.readMergedMd(paperId)
+  })
+
+  ipcMain.handle('paper:getReaderMarkdown', (_event, paperId: string) => {
+    return getPaperService().getReaderMarkdown(paperId)
+  })
+
+  ipcMain.handle('paper:listFigures', async (_event, paperId: string) => {
+    return getPaperService().listFigures(paperId)
   })
 
   ipcMain.handle('paper:saveMergedMd', (_event, params: { paperId: string; content: string }) => {

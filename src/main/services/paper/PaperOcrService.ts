@@ -12,7 +12,8 @@ import {
   getPaperOcrNormalizedDirPath,
   getPaperOcrNormalizedPath,
   getPaperPageAssetsDirPath,
-  getPaperAssetsDirPath,
+  getPaperFigureAssetPath,
+  getPaperFigureAssetRelativePath,
   getPaperMergedMdPath
 } from './paperPaths'
 
@@ -57,6 +58,10 @@ interface RawOcrResponse {
   taskId?: string
   usage?: { total_tokens?: number }
   [key: string]: unknown
+}
+
+function isRemoteImageUrl(content: string | undefined): boolean {
+  return typeof content === 'string' && /^https?:\/\/\S+$/i.test(content.trim())
 }
 
 function normalizeBbox(raw: number[] | undefined): {
@@ -115,7 +120,12 @@ function normalizeGlmOcrResponse(
 
     const label = (block.label || 'text') as BlockLabel
     const content = block.text || block.content || ''
-    const remoteUrl = block.crop_image_url || block.crop_url
+    const remoteUrl =
+      block.crop_image_url ||
+      block.crop_url ||
+      ((label === 'image' || label === 'table' || label === 'formula') && isRemoteImageUrl(content)
+        ? content.trim()
+        : undefined)
 
     return {
       index: block.index ?? idx,
@@ -381,10 +391,8 @@ export class PaperOcrService {
         (block.label === 'image' || block.label === 'table' || block.label === 'formula') &&
         block.remoteAssetUrl
       ) {
-        const paddedBlockIndex = String(block.index).padStart(4, '0')
-        const localFileName = `crop-${paddedBlockIndex}.png`
-        const localRelativePath = `assets/page-${String(pageIndex + 1).padStart(4, '0')}/${localFileName}`
-        const localAbsolutePath = `${getPaperAssetsDirPath(paperId)}/page-${String(pageIndex + 1).padStart(4, '0')}/${localFileName}`
+        const localRelativePath = getPaperFigureAssetRelativePath(pageIndex, block.index)
+        const localAbsolutePath = getPaperFigureAssetPath(paperId, pageIndex, block.index)
 
         const downloaded = await downloadCropImage(block.remoteAssetUrl, localAbsolutePath)
         if (downloaded) {

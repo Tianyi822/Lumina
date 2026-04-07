@@ -1,18 +1,14 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onBeforeUnmount, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import PaperMarkdownView from '@renderer/components/paper/PaperMarkdownView.vue'
+import PaperFigurePreview from '@renderer/components/paper/PaperFigurePreview.vue'
 
 const store = usePaperReaderStore()
 
-const {
-  currentPaperId,
-  markdownContent,
-  markdownLoading,
-  isOcrCompleted,
-  paperBasePath
-} = storeToRefs(store)
+const { currentPaperId, markdownContent, markdownLoading, isOcrCompleted, paperBasePath } =
+  storeToRefs(store)
 
 onMounted(async () => {
   store.ensureOcrProgressListener()
@@ -21,6 +17,10 @@ onMounted(async () => {
   if (currentPaperId.value && isOcrCompleted.value) {
     await store.loadMarkdown(currentPaperId.value)
   }
+})
+
+onBeforeUnmount(() => {
+  store.resetFigureUiState()
 })
 </script>
 
@@ -38,6 +38,8 @@ onMounted(async () => {
         :base-path="paperBasePath || undefined"
       />
     </div>
+
+    <PaperFigurePreview />
   </div>
 </template>
 

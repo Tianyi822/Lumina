@@ -1,6 +1,17 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { OcrProgressInfo, PaperDocument, PaperStatus } from '@shared/types/paper'
+import type {
+  OcrProgressInfo,
+  PaperDocument,
+  PaperFigureItem,
+  PaperStatus
+} from '@shared/types/paper'
+import {
+  buildBase64DataUrl,
+  fileUrlToPath,
+  getImageMimeTypeFromPath,
+  isFileUrl
+} from '@shared/utils'
 import { usePdfPageRasterizer, type PageInfo } from '@renderer/composables/usePdfPageRasterizer'
 
 /**
@@ -19,6 +30,19 @@ export interface RenderingProgress {
   error?: string
 }
 
+/**
+ * 论文目录项
+ * 仅在渲染进程内使用，用于工具栏目录浮层展示与跳转
+ */
+export interface PaperTocItem {
+  /** 标题锚点 ID */
+  id: string
+  /** 标题文本 */
+  text: string
+  /** 标题层级，仅保留 H1-H3 */
+  level: 1 | 2 | 3
+}
+
 interface RenderPipelineContext {
   paperId: string
   pageInfos: PageInfo[]
@@ -28,6 +52,12 @@ interface RenderPipelineContext {
 interface PipelineControl {
   aborted: boolean
   deleted: boolean
+}
+
+export interface PaperFigurePreviewRect {
+  left: number
+  top: number
+  width: number
 }
 
 const READABLE_PAPER_STATUS: PaperStatus = 'completed'
@@ -58,6 +88,17 @@ function decodeBase64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer as ArrayBuffer
 }
 
+function createDefaultFigurePreviewRect(): PaperFigurePreviewRect {
+  const width = 420
+  const left = typeof window === 'undefined' ? 32 : Math.max(window.innerWidth - width - 32, 32)
+
+  return {
+    left,
+    top: 88,
+    width
+  }
+}
+
 /**
  * 论文阅读器 Store
  * 管理 PDF 上传 → 逐页渲染 → OCR 识别 → Markdown 阅读的完整流程
@@ -81,6 +122,30 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   /** Markdown 加载状态 */
   const markdownLoading = ref(false)
 
+  /** 各论文的图片列表 */
+  const figuresByPaperId = ref<Record<string, PaperFigureItem[]>>({})
+
+  /** 各论文图片列表加载状态 */
+  const figureLoadingByPaperId = ref<Record<string, boolean>>({})
+
+  /** 图片下拉面板是否展开 */
+  const showFigurePanel = ref(false)
+
+  /** 当前预览中的图片 */
+  const activeFigure = ref<PaperFigureItem | null>(null)
+
+  /** 图片预览是否置顶 */
+  const figurePreviewPinned = ref(false)
+
+  /** 图片预览窗口位置与宽度 */
+  const figurePreviewRect = ref<PaperFigurePreviewRect>(createDefaultFigurePreviewRect())
+
+  /** 图片预览的宽高比 */
+  const figurePreviewImageRatio = ref(0.75)
+
+  /** 当前论文目录 */
+  const paperTocItems = ref<PaperTocItem[]>([])
+
   /** OCR 进度监听清理函数 */
   let ocrProgressCleanup: (() => void) | null = null
 
@@ -94,6 +159,15 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   const currentPaper = computed<PaperDocument | null>(
     () => papers.value.find((paper) => paper.id === currentPaperId.value) || null
   )
+
+  /** 当前论文图片列表 */
+  const currentPaperFigures = computed<PaperFigureItem[]>(() => {
+    if (!currentPaperId.value) {
+      return []
+    }
+
+    return figuresByPaperId.value[currentPaperId.value] || []
+  })
 
   /** 当前论文是否可阅读 */
   const isOcrCompleted = computed(() => {
@@ -133,6 +207,155 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     const nextOcrProgress = { ...ocrProgressByPaperId.value }
     delete nextOcrProgress[paperId]
     ocrProgressByPaperId.value = nextOcrProgress
+
+    const nextFigures = { ...figuresByPaperId.value }
+    delete nextFigures[paperId]
+    figuresByPaperId.value = nextFigures
+
+    const nextFigureLoading = { ...figureLoadingByPaperId.value }
+    delete nextFigureLoading[paperId]
+    figureLoadingByPaperId.value = nextFigureLoading
+  }
+
+  function setPaperTocItems(items: PaperTocItem[]): void {
+    paperTocItems.value = items
+  }
+
+  function clearPaperToc(): void {
+    paperTocItems.value = []
+  }
+
+  function resetFigurePreviewRect(): void {
+    figurePreviewRect.value = createDefaultFigurePreviewRect()
+  }
+
+  function setFigurePanelVisible(value: boolean): void {
+    showFigurePanel.value = value
+  }
+
+  function closeFigurePanel(): void {
+    showFigurePanel.value = false
+  }
+
+  function closeFigurePreview(): void {
+    activeFigure.value = null
+    figurePreviewPinned.value = false
+    figurePreviewImageRatio.value = 0.75
+  }
+
+  function resetFigureUiState(): void {
+    closeFigurePanel()
+    closeFigurePreview()
+  }
+
+  function setFigurePreviewPinned(value: boolean): void {
+    figurePreviewPinned.value = value
+  }
+
+  function setFigurePreviewImageRatio(ratio: number): void {
+    if (!Number.isFinite(ratio) || ratio <= 0) {
+      return
+    }
+
+    figurePreviewImageRatio.value = ratio
+  }
+
+  function clampPreviewLeft(left: number, width: number): number {
+    if (typeof window === 'undefined') {
+      return Math.max(left, 16)
+    }
+
+    return Math.min(Math.max(left, 16), Math.max(window.innerWidth - width - 16, 16))
+  }
+
+  function clampPreviewTop(top: number): number {
+    if (typeof window === 'undefined') {
+      return Math.max(top, 16)
+    }
+
+    return Math.min(Math.max(top, 16), Math.max(window.innerHeight - 120, 16))
+  }
+
+  function moveFigurePreview(delta: { x: number; y: number }): void {
+    figurePreviewRect.value = {
+      ...figurePreviewRect.value,
+      left: clampPreviewLeft(figurePreviewRect.value.left + delta.x, figurePreviewRect.value.width),
+      top: clampPreviewTop(figurePreviewRect.value.top + delta.y)
+    }
+  }
+
+  function resizeFigurePreview(nextWidth: number): void {
+    if (!Number.isFinite(nextWidth)) {
+      return
+    }
+
+    const maxWidth =
+      typeof window === 'undefined' ? 720 : Math.max(Math.min(window.innerWidth - 32, 720), 320)
+    const width = Math.min(Math.max(nextWidth, 320), maxWidth)
+
+    figurePreviewRect.value = {
+      ...figurePreviewRect.value,
+      width,
+      left: clampPreviewLeft(figurePreviewRect.value.left, width)
+    }
+  }
+
+  function setFigureLoading(paperId: string, loading: boolean): void {
+    figureLoadingByPaperId.value = {
+      ...figureLoadingByPaperId.value,
+      [paperId]: loading
+    }
+  }
+
+  function setPaperFigures(paperId: string, figures: PaperFigureItem[]): void {
+    figuresByPaperId.value = {
+      ...figuresByPaperId.value,
+      [paperId]: figures
+    }
+  }
+
+  async function resolveFigureImagePath(imagePath: string): Promise<string> {
+    if (!imagePath || /^(data:|blob:|https?:\/\/)/i.test(imagePath)) {
+      return imagePath
+    }
+
+    const localFilePath = isFileUrl(imagePath) ? fileUrlToPath(imagePath) || imagePath : imagePath
+    const result = await window.api.paper.readFileAsBase64(localFilePath)
+    if (!result.success || !result.data) {
+      return imagePath
+    }
+
+    return buildBase64DataUrl(result.data, getImageMimeTypeFromPath(localFilePath))
+  }
+
+  async function normalizePaperFigures(figures: PaperFigureItem[]): Promise<PaperFigureItem[]> {
+    return Promise.all(
+      figures.map(async (figure) => {
+        const imagePath = await resolveFigureImagePath(figure.imagePath)
+        return {
+          ...figure,
+          imagePath
+        }
+      })
+    )
+  }
+
+  function scrollToHeading(headingId: string): boolean {
+    if (typeof document === 'undefined') {
+      return false
+    }
+
+    const heading = document.getElementById(headingId)
+    if (!heading) {
+      return false
+    }
+
+    heading.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    })
+
+    return true
   }
 
   function upsertPaper(paper: PaperDocument): void {
@@ -301,11 +524,15 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     if (selectedPaper && !isPaperReadableStatus(selectedPaper.status)) {
       currentPaperId.value = null
       markdownContent.value = ''
+      clearPaperToc()
+      resetFigureUiState()
     }
 
     if (currentPaperId.value && !selectedPaper) {
       currentPaperId.value = null
       markdownContent.value = ''
+      clearPaperToc()
+      resetFigureUiState()
     }
   }
 
@@ -313,12 +540,18 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   function selectPaper(paperId: string | null): void {
     if (!paperId) {
       currentPaperId.value = null
+      clearPaperToc()
+      resetFigureUiState()
       return
     }
 
     const paper = papers.value.find((item) => item.id === paperId)
     if (!paper || !isPaperReadableStatus(paper.status)) {
       return
+    }
+
+    if (currentPaperId.value !== paperId) {
+      resetFigureUiState()
     }
 
     currentPaperId.value = paperId
@@ -344,6 +577,10 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
 
     if (!isPaperReadableStatus(result.data.status)) {
       return null
+    }
+
+    if (currentPaperId.value !== paperId) {
+      resetFigureUiState()
     }
 
     currentPaperId.value = paperId
@@ -382,6 +619,8 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     if (currentPaperId.value === paperId) {
       currentPaperId.value = null
       markdownContent.value = ''
+      clearPaperToc()
+      resetFigureUiState()
     }
 
     return true
@@ -417,20 +656,71 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     const paper = papers.value.find((item) => item.id === paperId)
     if (!paper || !isPaperReadableStatus(paper.status)) {
       markdownContent.value = ''
+      clearPaperToc()
       return
     }
 
     markdownLoading.value = true
+    clearPaperToc()
     try {
-      const result = await window.api.paper.getMergedMd(paperId)
+      const result = await window.api.paper.getReaderMarkdown(paperId)
       if (result.success && result.data !== undefined) {
         markdownContent.value = result.data
       } else {
         markdownContent.value = ''
+        clearPaperToc()
       }
     } finally {
       markdownLoading.value = false
     }
+  }
+
+  async function loadFigures(paperId: string, force = false): Promise<PaperFigureItem[]> {
+    const cachedFigures = figuresByPaperId.value[paperId]
+    if (!force && cachedFigures) {
+      return cachedFigures
+    }
+
+    setFigureLoading(paperId, true)
+    try {
+      const result = await window.api.paper.listFigures(paperId)
+      if (!result.success || !result.data) {
+        setPaperFigures(paperId, [])
+        return []
+      }
+
+      const normalizedFigures = await normalizePaperFigures(result.data)
+      setPaperFigures(paperId, normalizedFigures)
+      return normalizedFigures
+    } finally {
+      setFigureLoading(paperId, false)
+    }
+  }
+
+  async function toggleFigurePanel(): Promise<void> {
+    if (!currentPaperId.value) {
+      return
+    }
+
+    if (showFigurePanel.value) {
+      closeFigurePanel()
+      return
+    }
+
+    showFigurePanel.value = true
+    await loadFigures(currentPaperId.value)
+  }
+
+  function openFigurePreview(item: PaperFigureItem): void {
+    if (!activeFigure.value) {
+      resetFigurePreviewRect()
+      figurePreviewPinned.value = false
+    }
+
+    activeFigure.value = item
+    figurePreviewImageRatio.value =
+      item.bbox.width > 0 && item.bbox.height > 0 ? item.bbox.height / item.bbox.width : 0.75
+    closeFigurePanel()
   }
 
   function getPipelineControl(paperId: string): PipelineControl {
@@ -748,7 +1038,16 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     ocrProgressByPaperId,
     markdownContent,
     markdownLoading,
+    figuresByPaperId,
+    figureLoadingByPaperId,
+    showFigurePanel,
+    activeFigure,
+    figurePreviewPinned,
+    figurePreviewRect,
+    figurePreviewImageRatio,
+    paperTocItems,
     currentPaper,
+    currentPaperFigures,
     isOcrCompleted,
     paperBasePath,
     loadPapers,
@@ -758,7 +1057,21 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     updatePaperStatus,
     uploadAndRenderPdf,
     loadMarkdown,
+    loadFigures,
+    setPaperTocItems,
+    clearPaperToc,
+    scrollToHeading,
     ensureOcrProgressListener,
-    retryPaper
+    retryPaper,
+    setFigurePanelVisible,
+    closeFigurePanel,
+    toggleFigurePanel,
+    openFigurePreview,
+    closeFigurePreview,
+    setFigurePreviewPinned,
+    setFigurePreviewImageRatio,
+    moveFigurePreview,
+    resizeFigurePreview,
+    resetFigureUiState
   }
 })

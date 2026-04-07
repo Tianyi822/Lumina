@@ -11,12 +11,19 @@ import {
 import { join } from 'path'
 import { createHash } from 'crypto'
 import { logger } from '@main/services/logger'
-import type { PaperDocument, PaperPageAsset, PaperStatus } from '@shared/types/paper'
+import type {
+  PaperDocument,
+  PaperPageAsset,
+  PaperPageOcrResult,
+  PaperStatus
+} from '@shared/types/paper'
 import {
   ensurePaperDirs,
   getPaperDirPath,
   getPaperMetaPath,
   getPaperMergedMdPath,
+  getPaperOcrNormalizedDirPath,
+  getPaperOcrNormalizedPath,
   getPapersDirPath,
   getPaperPageImagePath,
   getPaperPagesDirPath
@@ -321,6 +328,87 @@ export class PaperStorageService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('保存 Markdown 失败', 'main', { paperId, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  readNormalizedResult(
+    paperId: string,
+    pageIndex: number
+  ): { success: boolean; data?: PaperPageOcrResult; error?: string } {
+    try {
+      const normalizedPath = getPaperOcrNormalizedPath(paperId, pageIndex)
+      if (!existsSync(normalizedPath)) {
+        return { success: false, error: '归一化 OCR 结果不存在' }
+      }
+
+      const content = readFileSync(normalizedPath, 'utf-8')
+      return { success: true, data: JSON.parse(content) as PaperPageOcrResult }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('读取归一化 OCR 结果失败', 'main', { paperId, pageIndex, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  saveNormalizedResult(
+    paperId: string,
+    pageIndex: number,
+    result: PaperPageOcrResult
+  ): { success: boolean; error?: string } {
+    try {
+      const normalizedDir = getPaperOcrNormalizedDirPath(paperId)
+      if (!existsSync(normalizedDir)) {
+        mkdirSync(normalizedDir, { recursive: true })
+      }
+
+      writeFileSync(
+        getPaperOcrNormalizedPath(paperId, pageIndex),
+        JSON.stringify(result, null, 2),
+        'utf-8'
+      )
+      return { success: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('保存归一化 OCR 结果失败', 'main', { paperId, pageIndex, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  listNormalizedResults(paperId: string): {
+    success: boolean
+    data?: PaperPageOcrResult[]
+    error?: string
+  } {
+    const metaResult = this.readMeta(paperId)
+    if (!metaResult.success || !metaResult.data) {
+      return { success: false, error: metaResult.error || '论文元信息不存在' }
+    }
+
+    try {
+      const results: PaperPageOcrResult[] = []
+
+      for (let pageIndex = 0; pageIndex < metaResult.data.pageCount; pageIndex++) {
+        const normalizedPath = getPaperOcrNormalizedPath(paperId, pageIndex)
+        if (!existsSync(normalizedPath)) {
+          results.push({
+            paperId,
+            pageIndex,
+            markdown: '',
+            blocks: [],
+            status: 'pending'
+          })
+          continue
+        }
+
+        const content = readFileSync(normalizedPath, 'utf-8')
+        results.push(JSON.parse(content) as PaperPageOcrResult)
+      }
+
+      return { success: true, data: results }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('获取归一化 OCR 结果列表失败', 'main', { paperId, error: errorMessage })
       return { success: false, error: errorMessage }
     }
   }

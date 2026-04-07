@@ -40,13 +40,7 @@ function extractRemoteErrorMessage(responseText: string): string | undefined {
       msg?: string
       detail?: string
     }
-    return (
-      parsed.error?.message ||
-      parsed.message ||
-      parsed.msg ||
-      parsed.detail ||
-      undefined
-    )
+    return parsed.error?.message || parsed.message || parsed.msg || parsed.detail || undefined
   } catch {
     return responseText.trim().slice(0, 200)
   }
