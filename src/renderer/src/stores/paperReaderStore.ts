@@ -315,15 +315,11 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   }
 
   async function resolveFigureImagePath(imagePath: string): Promise<string> {
-    if (!isFileUrl(imagePath)) {
+    if (!imagePath || /^(data:|blob:|https?:\/\/)/i.test(imagePath)) {
       return imagePath
     }
 
-    const localFilePath = fileUrlToPath(imagePath)
-    if (!localFilePath) {
-      return imagePath
-    }
-
+    const localFilePath = isFileUrl(imagePath) ? fileUrlToPath(imagePath) || imagePath : imagePath
     const result = await window.api.paper.readFileAsBase64(localFilePath)
     if (!result.success || !result.data) {
       return imagePath

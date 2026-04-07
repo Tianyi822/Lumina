@@ -163,7 +163,7 @@ export interface PaperFigureItem {
   blockIndex: number
   /** 图片所属分组 ID */
   groupId: string
-  /** 图片资源路径（file:// 或远程 URL） */
+  /** 图片资源本地路径（绝对路径，位于论文目录 assets/page-* 下） */
   imagePath: string
   /** 图片对应的主图注 */
   caption: string
