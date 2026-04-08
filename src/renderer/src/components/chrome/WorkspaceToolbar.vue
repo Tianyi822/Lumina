@@ -6,6 +6,7 @@ import { useUIStateStore } from '@renderer/stores'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperTocItem } from '@renderer/stores/paperReaderStore'
 import type { PaperFigureItem } from '@shared/types/paper'
+import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 
 const emit = defineEmits<{
   (e: 'open-settings'): void
@@ -49,7 +50,7 @@ const canOpenFigurePanel = computed(() => {
 })
 
 const hasTranslationCache = computed(() => {
-  return !!currentTranslationCache.value?.entries.length
+  return hasPaperTranslationResult(currentTranslationCache.value)
 })
 
 const translationButtonTitle = computed(() => {

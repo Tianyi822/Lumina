@@ -15,6 +15,7 @@ import {
   getImageMimeTypeFromPath,
   isFileUrl
 } from '@shared/utils'
+import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 import { usePdfPageRasterizer, type PageInfo } from '@renderer/composables/usePdfPageRasterizer'
 
 /**
@@ -173,6 +174,9 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   /** 各论文的翻译任务状态 */
   const translationTaskByPaperId = ref<Record<string, PaperTranslationTaskState>>({})
 
+  /** 各论文是否存在可删除的译文结果 */
+  const hasTranslationByPaperId = ref<Record<string, boolean>>({})
+
   /** OCR 进度监听清理函数 */
   let ocrProgressCleanup: (() => void) | null = null
 
@@ -274,6 +278,10 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     const nextTranslationTask = { ...translationTaskByPaperId.value }
     delete nextTranslationTask[paperId]
     translationTaskByPaperId.value = nextTranslationTask
+
+    const nextTranslationState = { ...hasTranslationByPaperId.value }
+    delete nextTranslationState[paperId]
+    hasTranslationByPaperId.value = nextTranslationState
   }
 
   function setPaperTocItems(items: PaperTocItem[]): void {
@@ -398,6 +406,13 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       delete nextTaskMap[paperId]
     }
     translationTaskByPaperId.value = nextTaskMap
+  }
+
+  function setHasTranslationState(paperId: string, hasTranslation: boolean): void {
+    hasTranslationByPaperId.value = {
+      ...hasTranslationByPaperId.value,
+      [paperId]: hasTranslation
+    }
   }
 
   function upsertTranslationEntry(
@@ -639,6 +654,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
         nextCache.updatedAt = now
 
         setTranslationCache(progress.paperId, nextCache)
+        setHasTranslationState(progress.paperId, hasPaperTranslationResult(nextCache))
         setTranslationTaskState(progress.paperId, {
           isRunning: progress.isRunning,
           completedSegments: progress.completedSegments,
@@ -660,6 +676,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     setTranslationCache(paperId, result.data.cache)
+    setHasTranslationState(paperId, hasPaperTranslationResult(result.data.cache))
     setTranslationTaskState(paperId, {
       isRunning: result.data.isRunning,
       completedSegments: result.data.cache?.completedSegments ?? 0,
@@ -719,6 +736,37 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     return { success: true }
   }
 
+  async function loadTranslationStatus(paperIds: string[]): Promise<void> {
+    if (paperIds.length === 0) {
+      hasTranslationByPaperId.value = {}
+      return
+    }
+
+    const result = await window.api.paper.listTranslationStatus(paperIds)
+    if (!result.success || !result.data) {
+      return
+    }
+
+    hasTranslationByPaperId.value = result.data
+  }
+
+  async function deleteTranslation(paperId: string): Promise<{ success: boolean; error?: string }> {
+    const result = await window.api.paper.deleteTranslation(paperId)
+    if (!result.success) {
+      return { success: false, error: result.error }
+    }
+
+    setTranslationCache(paperId, null)
+    setTranslationTaskState(paperId, createIdleTranslationTaskState())
+    setHasTranslationState(paperId, false)
+
+    if (currentPaperId.value === paperId) {
+      hideTranslation()
+    }
+
+    return { success: true }
+  }
+
   /** 加载论文列表，并为进行中的 OCR 回填进度 */
   async function loadPapers(): Promise<void> {
     ensureOcrProgressListener()
@@ -729,6 +777,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     papers.value = result.data
+    await loadTranslationStatus(result.data.map((paper) => paper.id))
     for (const paper of result.data) {
       ensurePaperProgressSnapshot(paper)
     }
@@ -891,6 +940,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       clearPaperToc()
       setTranslationCache(paperId, null)
       setTranslationTaskState(paperId, createIdleTranslationTaskState())
+      setHasTranslationState(paperId, false)
       return
     }
 
@@ -906,6 +956,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
         clearPaperToc()
         setTranslationCache(paperId, null)
         setTranslationTaskState(paperId, createIdleTranslationTaskState())
+        setHasTranslationState(paperId, false)
       }
     } finally {
       markdownLoading.value = false
@@ -1286,6 +1337,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     translationVisible,
     translationByPaperId,
     translationTaskByPaperId,
+    hasTranslationByPaperId,
     currentPaper,
     currentPaperFigures,
     currentTranslationCache,
@@ -1308,6 +1360,8 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     ensureTranslationProgressListener,
     loadTranslationState,
     ensureTranslation,
+    loadTranslationStatus,
+    deleteTranslation,
     toggleTranslationVisible,
     retryPaper,
     setFigurePanelVisible,

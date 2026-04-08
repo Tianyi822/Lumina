@@ -19,6 +19,7 @@ interface RenderedSegment {
   originalHtml: string
   translationHtml: string | null
   translationStatus: PaperTranslationStatus | 'idle'
+  showTranslation: boolean
 }
 
 const props = defineProps<{
@@ -127,6 +128,22 @@ function renderMarkdownBlock(markdown: string, headingId?: string): string {
   return postProcessRenderedHtml(resolvedHtml, headingId)
 }
 
+function shouldRenderTranslationBlock(
+  visible: boolean,
+  status: PaperTranslationStatus | 'idle',
+  translationHtml: string | null
+): boolean {
+  if (!visible || status === 'idle' || status === 'skipped') {
+    return false
+  }
+
+  if (status === 'completed') {
+    return !!translationHtml
+  }
+
+  return true
+}
+
 function buildTocAndRenderedSegments(): { tocItems: PaperTocItem[]; segments: RenderedSegment[] } {
   const segments = parsePaperTranslationSegments(props.content)
   const tocItems: PaperTocItem[] = []
@@ -157,11 +174,10 @@ function buildTocAndRenderedSegments(): { tocItems: PaperTocItem[]; segments: Re
     }
 
     const translationEntry = translationMap.get(segment.id)
-    const translationStatus =
-      translationEntry?.status ?? (props.translationVisible ? 'queued' : 'idle')
+    const translationStatus = translationEntry?.status ?? 'idle'
     const translationHtml =
       translationEntry &&
-      (translationEntry.status === 'completed' || translationEntry.status === 'skipped') &&
+      translationEntry.status === 'completed' &&
       translationEntry.translatedMarkdown
         ? renderMarkdownBlock(translationEntry.translatedMarkdown)
         : null
@@ -170,7 +186,12 @@ function buildTocAndRenderedSegments(): { tocItems: PaperTocItem[]; segments: Re
       id: segment.id,
       originalHtml: renderMarkdownBlock(segment.originalMarkdown, headingId),
       translationHtml,
-      translationStatus
+      translationStatus,
+      showTranslation: shouldRenderTranslationBlock(
+        props.translationVisible,
+        translationStatus,
+        translationHtml
+      )
     })
   }
 
@@ -248,7 +269,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div
-            v-if="translationVisible"
+            v-if="segment.showTranslation"
             class="paper-markdown-view__segment-translation"
             :class="`is-${segment.translationStatus}`"
           >
@@ -331,19 +352,11 @@ onBeforeUnmount(() => {
 
 .paper-markdown-view__segment-translation {
   margin-top: var(--sm-space-2);
-  padding: var(--sm-space-3) var(--sm-space-4);
-  border: 1px solid var(--sm-color-border-subtle);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--sm-color-surface-1) 82%, transparent);
 }
 
 .paper-markdown-view__segment-translation.is-queued,
 .paper-markdown-view__segment-translation.is-translating {
-  border-style: dashed;
-}
-
-.paper-markdown-view__segment-translation.is-skipped {
-  opacity: 0.86;
+  opacity: 0.9;
 }
 
 .paper-markdown-view__translation-error {
@@ -355,6 +368,7 @@ onBeforeUnmount(() => {
 .paper-markdown-view__translation-placeholder {
   display: grid;
   gap: var(--sm-space-2);
+  padding: var(--sm-space-1) 0;
 }
 
 .paper-markdown-view__translation-placeholder-bar {
@@ -395,7 +409,7 @@ onBeforeUnmount(() => {
 }
 
 .paper-markdown-view__segment-translation-body {
-  color: var(--sm-color-text-secondary);
+  width: 100%;
 }
 
 .paper-markdown-view__markdown > :first-child {
