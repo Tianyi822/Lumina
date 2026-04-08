@@ -269,6 +269,16 @@ export const paperApi = {
     return ipcRenderer.invoke('paper:getTranslationState', paperId)
   },
 
+  listTranslationStatus: (
+    paperIds: string[]
+  ): Promise<{ success: boolean; data?: Record<string, boolean>; error?: string }> => {
+    return ipcRenderer.invoke('paper:listTranslationStatus', paperIds)
+  },
+
+  deleteTranslation: (paperId: string): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('paper:deleteTranslation', paperId)
+  },
+
   startTranslation: (
     paperId: string
   ): Promise<{ success: boolean; alreadyRunning?: boolean; error?: string }> => {

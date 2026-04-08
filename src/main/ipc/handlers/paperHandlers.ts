@@ -12,6 +12,7 @@ import {
   type OcrProviderId
 } from '@shared/types/config'
 import { fileUrlToPath, isFileUrl } from '@shared/utils'
+import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 import type { PaperStatus } from '@shared/types/paper'
 import { statSync, readFileSync } from 'fs'
 
@@ -350,6 +351,23 @@ export function registerPaperHandlers(): void {
     }
 
     return stateResult
+  })
+
+  ipcMain.handle('paper:listTranslationStatus', (_event, paperIds: string[]) => {
+    const statuses: Record<string, boolean> = {}
+
+    for (const paperId of paperIds) {
+      const cacheResult = paperStorageService.readTranslationCache(paperId)
+      statuses[paperId] =
+        !!cacheResult.success && !!cacheResult.data && hasPaperTranslationResult(cacheResult.data)
+    }
+
+    return { success: true, data: statuses }
+  })
+
+  ipcMain.handle('paper:deleteTranslation', (_event, paperId: string) => {
+    paperTranslationService.cancelTranslation(paperId)
+    return paperStorageService.clearTranslationCache(paperId)
   })
 
   ipcMain.handle('paper:startTranslation', async (_event, params: { paperId: string }) => {
