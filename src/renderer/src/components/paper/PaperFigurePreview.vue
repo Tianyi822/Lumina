@@ -5,8 +5,13 @@ import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 
 const paperReaderStore = usePaperReaderStore()
-const { activeFigure, figurePreviewPinned, figurePreviewRect, figurePreviewImageRatio } =
-  storeToRefs(paperReaderStore)
+const {
+  activeFigure,
+  currentPaperFigures,
+  figurePreviewPinned,
+  figurePreviewRect,
+  figurePreviewImageRatio
+} = storeToRefs(paperReaderStore)
 
 const previewRef = ref<HTMLElement | null>(null)
 
@@ -43,6 +48,18 @@ const previewCaption = computed(() => {
   }
 
   return '暂无图注'
+})
+
+const currentFigureIndex = computed(() => {
+  if (!activeFigure.value) {
+    return -1
+  }
+
+  return currentPaperFigures.value.findIndex((figure) => figure.id === activeFigure.value?.id)
+})
+
+const canSwitchFigures = computed(() => {
+  return currentPaperFigures.value.length > 1 && currentFigureIndex.value >= 0
 })
 
 function stopInteractions(): void {
@@ -128,17 +145,49 @@ function handleDocumentMouseDown(event: MouseEvent): void {
 }
 
 function handleDocumentKeyDown(event: KeyboardEvent): void {
-  if (!activeFigure.value || figurePreviewPinned.value) {
+  if (!activeFigure.value) {
     return
   }
 
   if (event.key === 'Escape') {
+    if (figurePreviewPinned.value) {
+      return
+    }
+
     paperReaderStore.closeFigurePreview()
+    return
+  }
+
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    switchFigure(-1)
+    return
+  }
+
+  if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    switchFigure(1)
   }
 }
 
 function togglePinned(): void {
   paperReaderStore.setFigurePreviewPinned(!figurePreviewPinned.value)
+}
+
+function switchFigure(step: number): void {
+  if (!canSwitchFigures.value) {
+    return
+  }
+
+  const nextIndex =
+    (currentFigureIndex.value + step + currentPaperFigures.value.length) %
+    currentPaperFigures.value.length
+  const nextFigure = currentPaperFigures.value[nextIndex]
+  if (!nextFigure) {
+    return
+  }
+
+  paperReaderStore.openFigurePreview(nextFigure)
 }
 
 watch(activeFigure, (value) => {
@@ -207,6 +256,28 @@ onBeforeUnmount(() => {
             class="paper-figure-preview__image"
             @load="handleImageLoad"
           />
+
+          <div v-if="canSwitchFigures" class="paper-figure-preview__nav" @mousedown.stop>
+            <button
+              class="sm-icon-button paper-figure-preview__nav-button"
+              type="button"
+              title="上一张"
+              aria-label="查看上一张图片"
+              @click.stop="switchFigure(-1)"
+            >
+              <SvgIcon name="arrow-left" :size="14" />
+            </button>
+
+            <button
+              class="sm-icon-button paper-figure-preview__nav-button"
+              type="button"
+              title="下一张"
+              aria-label="查看下一张图片"
+              @click.stop="switchFigure(1)"
+            >
+              <SvgIcon name="arrow-right" :size="14" />
+            </button>
+          </div>
         </div>
 
         <div class="paper-figure-preview__caption">
@@ -219,7 +290,9 @@ onBeforeUnmount(() => {
         type="button"
         aria-label="缩放图片预览"
         @mousedown.prevent.stop="handleResizeStart"
-      ></button>
+      >
+        <SvgIcon name="resize-diagonal" :size="12" />
+      </button>
     </div>
   </Teleport>
 </template>
@@ -292,6 +365,7 @@ onBeforeUnmount(() => {
 }
 
 .paper-figure-preview__image-shell {
+  position: relative;
   width: 100%;
   background: var(--sm-color-surface-1);
   overflow: hidden;
@@ -302,6 +376,41 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.paper-figure-preview__nav {
+  position: absolute;
+  right: var(--sm-space-3);
+  bottom: var(--sm-space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  opacity: 0.28;
+  transition:
+    opacity var(--sm-transition-fast),
+    transform var(--sm-transition-fast);
+}
+
+.paper-figure-preview__image-shell:hover .paper-figure-preview__nav,
+.paper-figure-preview__image-shell:focus-within .paper-figure-preview__nav {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.paper-figure-preview__nav-button {
+  width: 30px;
+  height: 30px;
+  border-color: color-mix(in srgb, var(--sm-color-border-default) 80%, transparent);
+  background: color-mix(in srgb, var(--sm-color-surface-2) 82%, transparent);
+  color: var(--sm-color-text-secondary);
+  backdrop-filter: blur(8px);
+}
+
+.paper-figure-preview__nav-button:hover,
+.paper-figure-preview__nav-button:focus-visible {
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
 }
 
 .paper-figure-preview__caption {
@@ -318,22 +427,19 @@ onBeforeUnmount(() => {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 22px;
-  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   border: none;
   background: transparent;
+  color: #999999;
   cursor: nwse-resize;
 }
 
-.paper-figure-preview__resize::before {
-  content: '';
-  position: absolute;
-  right: 5px;
-  bottom: 5px;
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid var(--sm-color-border-strong);
-  border-bottom: 2px solid var(--sm-color-border-strong);
-  opacity: 0.7;
+.paper-figure-preview__resize:hover,
+.paper-figure-preview__resize:focus-visible {
+  color: var(--sm-color-text-secondary);
 }
 </style>

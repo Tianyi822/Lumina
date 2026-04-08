@@ -16,7 +16,6 @@ const { isCurrentSidebarCollapsed, isPaperView } = storeToRefs(uiStateStore)
 
 const paperReaderStore = usePaperReaderStore()
 const {
-  currentPaper,
   currentPaperId,
   currentPaperFigures,
   figureLoadingByPaperId,
@@ -93,13 +92,6 @@ const paperTocTree = computed<PaperTocTreeNode[]>(() => {
   }
 
   return roots
-})
-
-/** 论文文件名（去掉 .pdf 后缀） */
-const paperFileName = computed(() => {
-  const name = currentPaper.value?.fileName
-  if (!name) return ''
-  return name.replace(/\.pdf$/i, '')
 })
 
 function handleOpenSettings(): void {
@@ -220,233 +212,219 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="sm-workspace-toolbar"
-    :class="{ 'sm-workspace-toolbar--avoid-window-controls': shouldAvoidMacWindowControls }"
+    class="sm-workspace-toolbar__controls"
+    :class="{
+      'sm-workspace-toolbar__controls--avoid-window-controls': shouldAvoidMacWindowControls
+    }"
   >
-    <div class="sm-workspace-toolbar__controls">
+    <button
+      class="sm-icon-button sm-workspace-toolbar__button"
+      title="设置"
+      aria-label="打开设置"
+      @click="handleOpenSettings"
+    >
+      <SvgIcon name="settings" :size="14" />
+    </button>
+
+    <button
+      class="sm-icon-button sm-workspace-toolbar__button"
+      :title="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
+      :aria-label="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
+      @click="handleToggleSidebar"
+    >
+      <SvgIcon name="sidebar-toggle" :size="14" />
+    </button>
+
+    <button
+      v-if="isPaperView"
+      class="sm-icon-button sm-workspace-toolbar__button"
+      title="刷新内容"
+      aria-label="刷新论文内容"
+      @click="handleRefreshMarkdown"
+    >
+      <SvgIcon name="refresh" :size="14" />
+    </button>
+
+    <div v-if="isPaperView" ref="tocContainerRef" class="sm-workspace-toolbar__toc">
       <button
         class="sm-icon-button sm-workspace-toolbar__button"
-        title="设置"
-        aria-label="打开设置"
-        @click="handleOpenSettings"
+        :class="{ 'is-active': showTocPanel }"
+        title="论文目录"
+        aria-label="打开论文目录"
+        aria-haspopup="dialog"
+        :aria-expanded="showTocPanel"
+        :disabled="!canOpenToc"
+        @click="handleToggleToc"
       >
-        <SvgIcon name="settings" :size="14" />
+        <SvgIcon name="toc" :size="14" />
       </button>
 
-      <button
-        class="sm-icon-button sm-workspace-toolbar__button"
-        :title="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
-        :aria-label="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
-        @click="handleToggleSidebar"
+      <div
+        v-if="showTocPanel"
+        class="sm-workspace-toolbar__toc-panel"
+        role="dialog"
+        aria-label="论文目录"
       >
-        <SvgIcon name="sidebar-toggle" :size="14" />
-      </button>
+        <div class="sm-workspace-toolbar__toc-header">论文目录</div>
 
-      <button
-        v-if="isPaperView"
-        class="sm-icon-button sm-workspace-toolbar__button"
-        title="刷新内容"
-        aria-label="刷新论文内容"
-        @click="handleRefreshMarkdown"
-      >
-        <SvgIcon name="refresh" :size="14" />
-      </button>
+        <div v-if="markdownLoading" class="sm-workspace-toolbar__toc-state">目录加载中</div>
 
-      <div v-if="isPaperView" ref="tocContainerRef" class="sm-workspace-toolbar__toc">
-        <button
-          class="sm-icon-button sm-workspace-toolbar__button"
-          :class="{ 'is-active': showTocPanel }"
-          title="论文目录"
-          aria-label="打开论文目录"
-          aria-haspopup="dialog"
-          :aria-expanded="showTocPanel"
-          :disabled="!canOpenToc"
-          @click="handleToggleToc"
-        >
-          <SvgIcon name="toc" :size="14" />
-        </button>
-
-        <div
-          v-if="showTocPanel"
-          class="sm-workspace-toolbar__toc-panel"
-          role="dialog"
-          aria-label="论文目录"
-        >
-          <div class="sm-workspace-toolbar__toc-header">论文目录</div>
-
-          <div v-if="markdownLoading" class="sm-workspace-toolbar__toc-state">目录加载中</div>
-
-          <div v-else-if="paperTocItems.length === 0" class="sm-workspace-toolbar__toc-state">
-            未识别到可用目录
-          </div>
-
-          <div v-else class="sm-workspace-toolbar__toc-scroll">
-            <ul class="sm-workspace-toolbar__toc-list">
-              <li
-                v-for="node in paperTocTree"
-                :key="node.item.id"
-                class="sm-workspace-toolbar__toc-node"
-              >
-                <button
-                  class="sm-workspace-toolbar__toc-item"
-                  :class="`sm-workspace-toolbar__toc-item--level-${node.item.level}`"
-                  :title="node.item.text"
-                  type="button"
-                  @click="handleSelectTocItem(node.item.id)"
-                >
-                  {{ node.item.text }}
-                </button>
-
-                <ul
-                  v-if="node.children.length > 0"
-                  class="sm-workspace-toolbar__toc-list sm-workspace-toolbar__toc-list--child"
-                >
-                  <li
-                    v-for="child in node.children"
-                    :key="child.item.id"
-                    class="sm-workspace-toolbar__toc-node"
-                  >
-                    <button
-                      class="sm-workspace-toolbar__toc-item"
-                      :class="`sm-workspace-toolbar__toc-item--level-${child.item.level}`"
-                      :title="child.item.text"
-                      type="button"
-                      @click="handleSelectTocItem(child.item.id)"
-                    >
-                      {{ child.item.text }}
-                    </button>
-
-                    <ul
-                      v-if="child.children.length > 0"
-                      class="sm-workspace-toolbar__toc-list sm-workspace-toolbar__toc-list--child"
-                    >
-                      <li
-                        v-for="grandchild in child.children"
-                        :key="grandchild.item.id"
-                        class="sm-workspace-toolbar__toc-node"
-                      >
-                        <button
-                          class="sm-workspace-toolbar__toc-item"
-                          :class="`sm-workspace-toolbar__toc-item--level-${grandchild.item.level}`"
-                          :title="grandchild.item.text"
-                          type="button"
-                          @click="handleSelectTocItem(grandchild.item.id)"
-                        >
-                          {{ grandchild.item.text }}
-                        </button>
-                      </li>
-                    </ul>
-                  </li>
-                </ul>
-              </li>
-            </ul>
-          </div>
+        <div v-else-if="paperTocItems.length === 0" class="sm-workspace-toolbar__toc-state">
+          未识别到可用目录
         </div>
-      </div>
 
-      <div v-if="isPaperView" ref="figureContainerRef" class="sm-workspace-toolbar__figures">
-        <button
-          class="sm-icon-button sm-workspace-toolbar__button"
-          :class="{ 'is-active': showFigurePanel }"
-          title="论文图片"
-          aria-label="打开论文图片列表"
-          aria-haspopup="dialog"
-          :aria-expanded="showFigurePanel"
-          :disabled="!canOpenFigurePanel"
-          @click="handleToggleFigurePanel"
-        >
-          <SvgIcon name="image" :size="14" />
-        </button>
-
-        <div
-          v-if="showFigurePanel"
-          class="sm-workspace-toolbar__figure-panel"
-          role="dialog"
-          aria-label="论文图片列表"
-        >
-          <div class="sm-workspace-toolbar__toc-header">论文图片</div>
-
-          <div v-if="currentFigureLoading" class="sm-workspace-toolbar__toc-state">图片加载中</div>
-
-          <div v-else-if="currentPaperFigures.length === 0" class="sm-workspace-toolbar__toc-state">
-            未识别到可用图片
-          </div>
-
-          <div v-else class="sm-workspace-toolbar__figure-scroll">
-            <div
-              v-for="figure in currentPaperFigures"
-              :key="figure.id"
-              class="sm-workspace-toolbar__figure-item"
+        <div v-else class="sm-workspace-toolbar__toc-scroll">
+          <ul class="sm-workspace-toolbar__toc-list">
+            <li
+              v-for="node in paperTocTree"
+              :key="node.item.id"
+              class="sm-workspace-toolbar__toc-node"
             >
-              <img
-                :src="figure.imagePath"
-                :alt="getFigureItemLabel(figure)"
-                class="sm-workspace-toolbar__figure-thumb"
-              />
-
-              <div class="sm-workspace-toolbar__figure-copy">
-                <div class="sm-workspace-toolbar__figure-page">
-                  第 {{ figure.pageIndex + 1 }} 页
-                </div>
-                <div
-                  class="sm-workspace-toolbar__figure-caption"
-                  :title="getFigureItemLabel(figure)"
-                >
-                  {{ getFigureItemLabel(figure) }}
-                </div>
-              </div>
-
               <button
-                class="sm-workspace-toolbar__figure-preview"
+                class="sm-workspace-toolbar__toc-item"
+                :class="`sm-workspace-toolbar__toc-item--level-${node.item.level}`"
+                :title="node.item.text"
                 type="button"
-                @click="handlePreviewFigure(figure)"
+                @click="handleSelectTocItem(node.item.id)"
               >
-                预览
+                {{ node.item.text }}
               </button>
-            </div>
-          </div>
+
+              <ul
+                v-if="node.children.length > 0"
+                class="sm-workspace-toolbar__toc-list sm-workspace-toolbar__toc-list--child"
+              >
+                <li
+                  v-for="child in node.children"
+                  :key="child.item.id"
+                  class="sm-workspace-toolbar__toc-node"
+                >
+                  <button
+                    class="sm-workspace-toolbar__toc-item"
+                    :class="`sm-workspace-toolbar__toc-item--level-${child.item.level}`"
+                    :title="child.item.text"
+                    type="button"
+                    @click="handleSelectTocItem(child.item.id)"
+                  >
+                    {{ child.item.text }}
+                  </button>
+
+                  <ul
+                    v-if="child.children.length > 0"
+                    class="sm-workspace-toolbar__toc-list sm-workspace-toolbar__toc-list--child"
+                  >
+                    <li
+                      v-for="grandchild in child.children"
+                      :key="grandchild.item.id"
+                      class="sm-workspace-toolbar__toc-node"
+                    >
+                      <button
+                        class="sm-workspace-toolbar__toc-item"
+                        :class="`sm-workspace-toolbar__toc-item--level-${grandchild.item.level}`"
+                        :title="grandchild.item.text"
+                        type="button"
+                        @click="handleSelectTocItem(grandchild.item.id)"
+                      >
+                        {{ grandchild.item.text }}
+                      </button>
+                    </li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
 
-    <div v-if="isPaperView && paperFileName" class="sm-workspace-toolbar__paper-file">
-      <span class="sm-workspace-toolbar__paper-name" :title="paperFileName">
-        {{ paperFileName }}
-      </span>
-    </div>
+    <div v-if="isPaperView" ref="figureContainerRef" class="sm-workspace-toolbar__figures">
+      <button
+        class="sm-icon-button sm-workspace-toolbar__button"
+        :class="{ 'is-active': showFigurePanel }"
+        title="论文图片"
+        aria-label="打开论文图片列表"
+        aria-haspopup="dialog"
+        :aria-expanded="showFigurePanel"
+        :disabled="!canOpenFigurePanel"
+        @click="handleToggleFigurePanel"
+      >
+        <SvgIcon name="image" :size="14" />
+      </button>
 
-    <div class="sm-workspace-toolbar__balance-spacer" aria-hidden="true"></div>
+      <div
+        v-if="showFigurePanel"
+        class="sm-workspace-toolbar__figure-panel"
+        role="dialog"
+        aria-label="论文图片列表"
+      >
+        <div class="sm-workspace-toolbar__toc-header">论文图片</div>
+
+        <div v-if="currentFigureLoading" class="sm-workspace-toolbar__toc-state">图片加载中</div>
+
+        <div v-else-if="currentPaperFigures.length === 0" class="sm-workspace-toolbar__toc-state">
+          未识别到可用图片
+        </div>
+
+        <div v-else class="sm-workspace-toolbar__figure-scroll">
+          <div
+            v-for="figure in currentPaperFigures"
+            :key="figure.id"
+            class="sm-workspace-toolbar__figure-item"
+          >
+            <img
+              :src="figure.imagePath"
+              :alt="getFigureItemLabel(figure)"
+              class="sm-workspace-toolbar__figure-thumb"
+            />
+
+            <div class="sm-workspace-toolbar__figure-copy">
+              <div class="sm-workspace-toolbar__figure-page">第 {{ figure.pageIndex + 1 }} 页</div>
+              <div class="sm-workspace-toolbar__figure-caption" :title="getFigureItemLabel(figure)">
+                {{ getFigureItemLabel(figure) }}
+              </div>
+            </div>
+
+            <button
+              class="sm-workspace-toolbar__figure-preview"
+              type="button"
+              @click="handlePreviewFigure(figure)"
+            >
+              预览
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.sm-workspace-toolbar {
-  display: grid;
-  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
-  align-items: center;
-  column-gap: var(--sm-space-4);
-  width: 100%;
-  min-height: var(--sm-titlebar-height);
-  margin-left: 0;
-  transition: margin-left var(--sm-transition-medium);
-  -webkit-app-region: drag;
-}
-
-.sm-workspace-toolbar--avoid-window-controls {
-  margin-left: 84px;
-}
-
 .sm-workspace-toolbar__controls {
-  display: inline-flex;
-  align-items: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: var(--sm-space-2);
-  justify-self: start;
-  -webkit-app-region: no-drag;
+  width: max-content;
+  margin-left: 0;
+  transition:
+    top var(--sm-transition-medium),
+    left var(--sm-transition-medium);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.sm-workspace-toolbar__controls--avoid-window-controls {
+  left: calc(24px - var(--sm-space-3));
+  top: var(--sm-titlebar-height);
 }
 
 .sm-workspace-toolbar__button {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-color: var(--sm-color-border-default);
   background: var(--sm-color-surface-2);
   -webkit-app-region: no-drag;
@@ -470,13 +448,14 @@ onUnmounted(() => {
 
 .sm-workspace-toolbar__toc {
   position: relative;
+  -webkit-app-region: no-drag;
 }
 
 .sm-workspace-toolbar__toc-panel,
 .sm-workspace-toolbar__figure-panel {
   position: absolute;
-  top: calc(100% + var(--sm-space-2));
-  left: 0;
+  top: 0;
+  left: calc(100% + var(--sm-space-2));
   z-index: 20;
   width: 320px;
   max-width: min(320px, calc(100vw - 48px));
@@ -509,6 +488,7 @@ onUnmounted(() => {
 
 .sm-workspace-toolbar__figures {
   position: relative;
+  -webkit-app-region: no-drag;
 }
 
 .sm-workspace-toolbar__figure-panel {
@@ -634,30 +614,5 @@ onUnmounted(() => {
 
 .sm-workspace-toolbar__toc-item--level-3 {
   color: var(--sm-color-text-tertiary);
-}
-
-.sm-workspace-toolbar__paper-file {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  height: 100%;
-  justify-self: center;
-}
-
-.sm-workspace-toolbar__paper-name {
-  max-width: min(100%, 420px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--sm-color-text-primary);
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.2;
-  text-align: center;
-}
-
-.sm-workspace-toolbar__balance-spacer {
-  min-width: 0;
 }
 </style>
