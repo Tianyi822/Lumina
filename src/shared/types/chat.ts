@@ -1,6 +1,4 @@
 import type { KnowledgeBaseReference } from './knowledge'
-import type { VideoGenerationProvider, VideoQuality, VideoSize } from './config'
-import type { VideoDuration, VideoTaskStatus } from './video'
 
 /**
  * 定义聊天消息中发送者的角色类型
@@ -44,31 +42,6 @@ export interface AttachedImage {
 }
 
 /**
- * 附加视频信息
- * 作为 assistant 消息下方的附件展示
- */
-export interface AttachedVideo {
-  /** 原始文件名，可选 */
-  fileName?: string
-  /** 服务提供商 */
-  provider: VideoGenerationProvider
-  /** 生成视频使用的模型名称 */
-  model: string
-  /** 生成提示词 */
-  prompt: string
-  /** 视频播放地址 */
-  url: string
-  /** 封面图地址 */
-  coverImageUrl?: string
-  /** 任务 ID */
-  taskId: string
-  /** 当前状态 */
-  status: VideoTaskStatus
-  /** 错误信息 */
-  errorMessage?: string
-}
-
-/**
  * 表示一条聊天消息的完整结构
  * 包含角色、内容、工具调用和思考过程等信息
  */
@@ -87,8 +60,6 @@ export interface ChatMessage {
   attachedDocuments?: AttachedDocument[]
   /** 附加的图片列表，仅 user 消息会有 */
   attachedImages?: AttachedImage[]
-  /** 附加的视频列表，仅 assistant 消息会有 */
-  attachedVideos?: AttachedVideo[]
 }
 
 /**
@@ -218,16 +189,6 @@ export interface UserInteractionOption {
   description?: string
 }
 
-export interface VideoGenerationInteractionConfig {
-  defaultSize: VideoSize
-  sizeOptions: VideoSize[]
-  defaultQuality: VideoQuality
-  qualityOptions: VideoQuality[]
-  defaultWithAudio: boolean
-  durationOptions: VideoDuration[]
-  defaultDuration: VideoDuration
-}
-
 /**
  * 用户交互请求信息
  * 当模型需要用户做出选择时，返回此信息
@@ -238,17 +199,9 @@ export interface UserInteractionRequest {
   /** 选项列表 */
   options: UserInteractionOption[]
   /** 交互类型 */
-  interactionType?: 'generic' | 'ppt_outline_confirmation' | 'video_generation_config'
-  /** PPT 原始生成提示词 */
-  prompt?: string
-  /** PPT 大纲内容 */
-  outline?: string
-  /** PPT 妙笔任务 ID */
-  taskId?: string
+  interactionType?: 'generic'
   /** 首屏展示的最大选项数 */
   initialVisibleCount?: number
-  /** 视频生成配置交互的表单元数据 */
-  videoGenerationConfig?: VideoGenerationInteractionConfig
 }
 
 /**

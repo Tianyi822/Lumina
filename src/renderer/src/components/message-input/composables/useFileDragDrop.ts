@@ -16,7 +16,7 @@ interface UseFileDragDropReturn {
   triggerFileUpload: () => void
 }
 
-const FILE_ACCEPT_STRING = `.txt,.md,.pdf,.doc,.docx,.csv,.pptx,${IMAGE_ACCEPT_STRING}`
+const FILE_ACCEPT_STRING = `.txt,.md,.pdf,.doc,.docx,.csv,${IMAGE_ACCEPT_STRING}`
 
 /**
  * 文件拖拽与选择逻辑

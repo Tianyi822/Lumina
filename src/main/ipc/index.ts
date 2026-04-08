@@ -15,8 +15,6 @@ import {
   initializeKnowledgeMCP
 } from './handlers/knowledgeMCPHandlers'
 import { registerDocumentHandlers } from './handlers/documentHandlers'
-import { registerVoiceRecognitionHandlers } from './handlers/voiceRecognitionHandlers'
-import { registerPptExportHandlers } from './handlers/pptExportHandlers'
 import { registerPaperHandlers } from './handlers/paperHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
@@ -74,12 +72,6 @@ export function registerAllIpcHandlers(): void {
 
   // 注册文档处理相关处理程序
   registerDocumentHandlers()
-
-  // 注册语音识别相关处理程序
-  registerVoiceRecognitionHandlers()
-
-  // 注册 PPT 导出相关处理程序
-  registerPptExportHandlers()
 
   // 注册论文相关处理程序
   registerPaperHandlers()

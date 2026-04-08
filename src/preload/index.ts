@@ -14,8 +14,6 @@ import { sandboxApi } from './apis/sandbox'
 import { promptEngineeringApi } from './apis/promptEngineering'
 import { knowledgeMCPApi } from './apis/knowledgeMCP'
 import { documentApi } from './apis/document'
-import { voiceRecognitionApi } from './apis/voiceRecognition'
-import { pptExportApi } from './apis/pptExport'
 import { paperApi } from './apis/paper'
 
 /**
@@ -41,10 +39,6 @@ const api = {
   promptEngineering: promptEngineeringApi,
   // 知识库 MCP 服务 API
   knowledgeMCP: knowledgeMCPApi,
-  // 语音识别相关 API
-  voiceRecognition: voiceRecognitionApi,
-  // PPT 导出相关 API
-  pptExport: pptExportApi,
   // 论文相关 API
   paper: paperApi
 }

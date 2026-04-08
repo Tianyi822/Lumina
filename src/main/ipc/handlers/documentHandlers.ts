@@ -1,16 +1,6 @@
 import { ipcMain } from 'electron'
 import { getDocumentManagerService } from '@main/services/document/DocumentManagerService'
-import { getDocumentExportService } from '@main/services/document/DocumentExportService'
 import { logger } from '@main/services/logger'
-import { z } from 'zod'
-
-const exportRequestSchema = z.object({
-  content: z.string().trim().min(1, '导出内容不能为空'),
-  format: z.enum(['markdown', 'word', 'pdf', 'txt']),
-  title: z.string().trim().max(120).optional(),
-  timestamp: z.string().optional(),
-  modelName: z.string().optional()
-})
 
 /**
  * 注册文档处理相关的 IPC 处理程序
@@ -86,32 +76,4 @@ export function registerDocumentHandlers(): void {
       }
     }
   )
-
-  /**
-   * 导出单条 AI 消息为文档
-   * @param _event IPC 事件
-   * @param request 导出参数
-   * @returns 导出结果
-   */
-  ipcMain.handle('document:exportMessage', async (_event, request: unknown) => {
-    try {
-      const parsedRequest = exportRequestSchema.parse(request)
-
-      logger.info('接收到消息导出请求', 'main', {
-        format: parsedRequest.format,
-        title: parsedRequest.title,
-        contentLength: parsedRequest.content.length
-      })
-
-      return await getDocumentExportService().exportMessage(parsedRequest)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('消息导出处理失败', 'main', { error: errorMessage })
-
-      return {
-        success: false,
-        error: `消息导出失败: ${errorMessage}`
-      }
-    }
-  })
 }

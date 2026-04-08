@@ -4,13 +4,11 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type {
-  AttachedVideo,
   Message,
   ReActIteration,
   ReActStep,
   StreamEvent,
-  UserInteractionRequest,
-  VideoToolResultPayload
+  UserInteractionRequest
 } from '@renderer/types'
 import { useMessageCacheStore } from './messageCacheStore'
 
@@ -155,64 +153,6 @@ export const useChatStreamStore = defineStore('chatStream', () => {
     }
 
     currentIterationIndex.value.delete(sessionId)
-  }
-
-  /**
-   * 判断工具结果是否包含视频附件
-   */
-  function isVideoToolResultPayload(result: unknown): result is VideoToolResultPayload {
-    if (!result || typeof result !== 'object') {
-      return false
-    }
-
-    const payload = result as Partial<VideoToolResultPayload>
-    return (
-      typeof payload.taskId === 'string' &&
-      typeof payload.status === 'string' &&
-      !!payload.attachment &&
-      typeof payload.attachment === 'object' &&
-      (payload.attachment as { kind?: string }).kind === 'video'
-    )
-  }
-
-  /**
-   * 将工具结果转换为消息附件视频
-   */
-  function toAttachedVideo(result: VideoToolResultPayload): AttachedVideo {
-    return {
-      provider: result.attachment.provider,
-      model: result.attachment.model,
-      prompt: result.attachment.prompt,
-      url: result.attachment.url || '',
-      coverImageUrl: result.attachment.coverImageUrl,
-      taskId: result.attachment.taskId || result.taskId,
-      status: result.attachment.status,
-      errorMessage: result.attachment.errorMessage
-    }
-  }
-
-  /**
-   * 向 assistant 消息挂载或更新视频附件
-   */
-  function upsertAttachedVideo(message: Message, attachedVideo: AttachedVideo): void {
-    if (!message.attachedVideos) {
-      message.attachedVideos = []
-    }
-
-    const existingIndex = message.attachedVideos.findIndex(
-      (video) =>
-        (attachedVideo.taskId && video.taskId === attachedVideo.taskId) ||
-        (!attachedVideo.taskId &&
-          video.prompt === attachedVideo.prompt &&
-          video.model === attachedVideo.model)
-    )
-
-    if (existingIndex >= 0) {
-      message.attachedVideos[existingIndex] = attachedVideo
-      return
-    }
-
-    message.attachedVideos.push(attachedVideo)
   }
 
   /**
@@ -481,10 +421,6 @@ export const useChatStreamStore = defineStore('chatStream', () => {
         if (event.toolResult) {
           const targetAssistantMessage =
             streamingMessage || findToolOwnerMessage(targetMessages, event.toolResult.id)
-
-          if (targetAssistantMessage && isVideoToolResultPayload(event.toolResult.result)) {
-            upsertAttachedVideo(targetAssistantMessage, toAttachedVideo(event.toolResult.result))
-          }
 
           const hasExistingToolMessage = targetMessages.some(
             (message) => message.role === 'tool' && message.tool_call_id === event.toolResult?.id

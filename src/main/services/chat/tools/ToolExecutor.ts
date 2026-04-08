@@ -5,14 +5,10 @@ import type { Logger } from '../../logger'
 import type { MCPService } from '../../mcp'
 import { sandboxToolService } from '../../sandbox'
 import { knowledgeToolService } from '../../knowledge'
-import { presentationToolService } from '../../presentation'
-import { videoToolService } from '../../video'
 import type { MCPToolReference, StreamEvent, UserInteractionRequest } from '../../../types/chat'
 import { enhanceToolDescriptions } from './ToolDescriptionEnhancer'
 import type { ToolCallScheduler } from './ToolCallScheduler'
 import type { MCPToolCallResult } from '@shared/types/mcp'
-
-const VIDEO_TOOL_TIMEOUT_MS = 660000
 
 export interface ToolCallDefinition {
   id: string
@@ -95,30 +91,6 @@ export class ToolExecutor {
           type: 'function' as const,
           function: {
             name: `knowledge__${tool.toolName}`,
-            description: tool.description,
-            parameters: tool.inputSchema as Record<string, unknown>
-          }
-        })
-        continue
-      }
-
-      if (tool.serverName === 'presentation') {
-        openAITools.push({
-          type: 'function' as const,
-          function: {
-            name: `presentation__${tool.toolName}`,
-            description: tool.description,
-            parameters: tool.inputSchema as Record<string, unknown>
-          }
-        })
-        continue
-      }
-
-      if (tool.serverName === 'video') {
-        openAITools.push({
-          type: 'function' as const,
-          function: {
-            name: `video__${tool.toolName}`,
             description: tool.description,
             parameters: tool.inputSchema as Record<string, unknown>
           }
@@ -258,14 +230,6 @@ export class ToolExecutor {
 
     if (serverName === 'knowledge') {
       return this.executeKnowledgeTool(toolCall, toolName, webContents, sessionId)
-    }
-
-    if (serverName === 'presentation') {
-      return this.executePresentationTool(toolCall, toolName, webContents, sessionId)
-    }
-
-    if (serverName === 'video') {
-      return this.executeVideoTool(toolCall, toolName, webContents, sessionId)
     }
 
     return this.executeMcpTool(toolCall, serverName, toolName, webContents, sessionId)
@@ -454,197 +418,6 @@ export class ToolExecutor {
   }
 
   /**
-   * 执行 PPT 工具调用
-   */
-  private async executePresentationTool(
-    toolCall: ToolCallDefinition,
-    toolName: string,
-    webContents: WebContents,
-    sessionId: string
-  ): Promise<string> {
-    const parsedArgsResult = this.parseToolArguments(toolCall, toolName, webContents, sessionId)
-    if ('error' in parsedArgsResult) {
-      return JSON.stringify({ error: parsedArgsResult.error })
-    }
-    const args = parsedArgsResult.args
-
-    this.logger.info('执行 PPT 工具调用', 'main', {
-      sessionId,
-      toolName,
-      args
-    })
-
-    this.sendStreamEvent(webContents, {
-      type: 'tool_call',
-      sessionId,
-      toolCall: {
-        id: toolCall.id,
-        name: toolName,
-        serverName: 'presentation',
-        arguments: args
-      }
-    })
-
-    try {
-      this.checkStopped(sessionId)
-
-      const result = await this.withTimeoutAndStopCheck(
-        presentationToolService.callTool(`presentation__${toolName}`, args, {
-          sessionId,
-          onOutlineChunk: (text) => {
-            webContents.send('ppt:outline:chunk', { sessionId, text })
-          }
-        }),
-        sessionId,
-        60000,
-        `PPT 工具调用 ${toolName}`
-      )
-
-      this.checkStopped(sessionId)
-
-      const userInteraction = this.extractUserInteractionRequest(result)
-      if (userInteraction) {
-        this.pendingUserInteraction.add(sessionId)
-        this.sendStreamEvent(webContents, {
-          type: 'user_interaction',
-          sessionId,
-          userInteraction
-        })
-      }
-
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolName,
-          success: result.success,
-          result: result.content,
-          error: result.error
-        }
-      })
-
-      return result.success
-        ? JSON.stringify(result.content)
-        : JSON.stringify({ error: result.error })
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        (error.name === 'AbortError' || error.message.includes('超时'))
-      ) {
-        throw error
-      }
-
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      this.logger.error('PPT 工具调用失败', 'main', {
-        sessionId,
-        toolName,
-        error: errorMessage
-      })
-
-      this.sendErrorToolResult(webContents, sessionId, toolCall.id, toolName, errorMessage)
-      return JSON.stringify({ error: errorMessage })
-    }
-  }
-
-  /**
-   * 执行视频工具调用
-   */
-  private async executeVideoTool(
-    toolCall: ToolCallDefinition,
-    toolName: string,
-    webContents: WebContents,
-    sessionId: string
-  ): Promise<string> {
-    const parsedArgsResult = this.parseToolArguments(toolCall, toolName, webContents, sessionId)
-    if ('error' in parsedArgsResult) {
-      return JSON.stringify({ error: parsedArgsResult.error })
-    }
-    const args = parsedArgsResult.args
-
-    this.logger.info('执行视频工具调用', 'main', {
-      sessionId,
-      toolName,
-      args
-    })
-
-    this.sendStreamEvent(webContents, {
-      type: 'tool_call',
-      sessionId,
-      toolCall: {
-        id: toolCall.id,
-        name: toolName,
-        serverName: 'video',
-        arguments: args
-      }
-    })
-
-    try {
-      this.checkStopped(sessionId)
-
-      const result = await this.withTimeoutAndStopCheck(
-        videoToolService.callTool(`video__${toolName}`, args, {
-          sessionId,
-          toolCallId: toolCall.id,
-          toolName,
-          webContents
-        }),
-        sessionId,
-        VIDEO_TOOL_TIMEOUT_MS,
-        `视频工具调用 ${toolName}`
-      )
-
-      this.checkStopped(sessionId)
-
-      const userInteraction = this.extractUserInteractionRequest(result)
-      if (userInteraction) {
-        this.pendingUserInteraction.add(sessionId)
-        this.sendStreamEvent(webContents, {
-          type: 'user_interaction',
-          sessionId,
-          userInteraction
-        })
-      }
-
-      this.sendStreamEvent(webContents, {
-        type: 'tool_result',
-        sessionId,
-        toolResult: {
-          id: toolCall.id,
-          name: toolName,
-          success: result.success,
-          result: result.content,
-          error: result.error
-        }
-      })
-
-      return result.success
-        ? JSON.stringify(result.content)
-        : JSON.stringify({
-            error: result.error,
-            result: result.content
-          })
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        (error.name === 'AbortError' || error.message.includes('超时'))
-      ) {
-        throw error
-      }
-
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      this.logger.error('视频工具调用失败', 'main', {
-        sessionId,
-        toolName,
-        error: errorMessage
-      })
-
-      this.sendErrorToolResult(webContents, sessionId, toolCall.id, toolName, errorMessage)
-      return JSON.stringify({ error: errorMessage })
-    }
-  }
-
-  /**
    * 执行 MCP 工具调用
    */
   private async executeMcpTool(
@@ -785,12 +558,8 @@ export class ToolExecutor {
       return {
         question: parsed.question,
         options: Array.isArray(parsed.options) ? parsed.options : [],
-        interactionType: parsed.interactionType,
-        prompt: typeof parsed.prompt === 'string' ? parsed.prompt : undefined,
-        outline: typeof parsed.outline === 'string' ? parsed.outline : undefined,
-        taskId: typeof parsed.taskId === 'string' ? parsed.taskId : undefined,
-        initialVisibleCount: parsed.initialVisibleCount,
-        videoGenerationConfig: parsed.videoGenerationConfig
+        interactionType: parsed.interactionType === 'generic' ? 'generic' : undefined,
+        initialVisibleCount: parsed.initialVisibleCount
       }
     } catch {
       return null

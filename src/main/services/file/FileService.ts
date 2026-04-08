@@ -230,17 +230,7 @@ export class FileService {
     }
 
     try {
-      const supportedTypes = [
-        '.txt',
-        '.md',
-        '.pdf',
-        '.doc',
-        '.docx',
-        '.csv',
-        '.xls',
-        '.xlsx',
-        '.pptx'
-      ]
+      const supportedTypes = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.xls', '.xlsx']
       const ext = extname(fileName).toLowerCase()
       if (!supportedTypes.includes(ext)) {
         return {

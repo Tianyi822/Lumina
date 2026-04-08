@@ -1,28 +1,16 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, watch, computed, ref, toRaw } from 'vue'
+import { onMounted, onUnmounted, watch, computed, toRaw } from 'vue'
 import { storeToRefs } from 'pinia'
 import type {
   MCPTool,
   KnowledgeBase,
   StreamEvent,
   ChatMessage,
-  ExportFormat,
-  Message,
-  UserInteractionRequest,
   AttachedDocument,
   AttachedImage
 } from '@renderer/types'
 import MainContent from '@renderer/components/MainContent.vue'
 import ChatErrorToast from '@renderer/components/ChatErrorToast.vue'
-import MessageExportDialog from '@renderer/components/chat/MessageExportDialog.vue'
-import PptExportConfigDialog from '@renderer/components/chat/PptExportConfigDialog.vue'
-import {
-  createExportInteractionInfo,
-  findLatestExportableAssistantMessage,
-  isExportIntent,
-  isExportableAssistantMessage,
-  parseExportFormat
-} from '@renderer/utils/messageExport'
 
 // Stores
 import {
@@ -49,30 +37,8 @@ const { showChatError, chatError } = storeToRefs(uiStateStore)
 // computed 用于派生状态
 const currentInputState = computed(() => inputStateStore.currentInputState)
 
-// 导出相关状态
-const pendingExportMessageId = ref<string | null>(null)
-const exportDialogMessageId = ref<string | null>(null)
-const exportingMessageId = ref<string | null>(null)
-const pptConfigState = ref<{
-  prompt: string
-  outline: string
-  taskId: string
-} | null>(null)
-
 // 聊天错误消息（兼容旧命名）
 const chatErrorMessage = computed(() => chatError.value ?? '')
-
-const exportInteractionInfo = computed<UserInteractionRequest | null>(() => {
-  const targetMessage = getPendingExportTarget()
-  return targetMessage ? createExportInteractionInfo() : null
-})
-
-const exportDialogMessage = computed<Message | null>(() => {
-  if (!exportDialogMessageId.value) return null
-
-  const targetMessage = messages.value.find((message) => message.id === exportDialogMessageId.value)
-  return isExportableAssistantMessage(targetMessage) ? targetMessage : null
-})
 
 // 聊天错误处理
 function handleChatError(error: string): void {
@@ -81,242 +47,6 @@ function handleChatError(error: string): void {
 
 function closeChatError(): void {
   uiStateStore.closeChatError()
-}
-
-function createLocalMessageId(): string {
-  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-}
-
-function clearExportState(): void {
-  pendingExportMessageId.value = null
-  exportDialogMessageId.value = null
-}
-
-function closeExportDialog(): void {
-  exportDialogMessageId.value = null
-}
-
-function closePptConfigDialog(): void {
-  pptConfigState.value = null
-}
-
-function getPendingExportTarget(): Message | null {
-  if (!pendingExportMessageId.value) return null
-
-  const targetMessage = messages.value.find(
-    (message) => message.id === pendingExportMessageId.value
-  )
-  return isExportableAssistantMessage(targetMessage) ? targetMessage : null
-}
-
-function appendLocalUserMessage(content: string): void {
-  sessionStore.addMessage({
-    id: createLocalMessageId(),
-    role: 'user',
-    content,
-    timestamp: new Date().toISOString()
-  })
-}
-
-function triggerBrowserDownload(result: {
-  data?: number[]
-  fileName?: string
-  mimeType?: string
-}): void {
-  if (!result.data || !result.fileName) {
-    throw new Error('导出结果缺少文件内容')
-  }
-
-  const blob = new Blob([Uint8Array.from(result.data)], {
-    type: result.mimeType || 'application/octet-stream'
-  })
-  const downloadUrl = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-
-  anchor.href = downloadUrl
-  anchor.download = result.fileName
-  anchor.style.display = 'none'
-
-  document.body.appendChild(anchor)
-  anchor.click()
-  document.body.removeChild(anchor)
-
-  window.setTimeout(() => {
-    URL.revokeObjectURL(downloadUrl)
-  }, 1000)
-}
-
-async function exportAssistantMessage(message: Message, format: ExportFormat): Promise<void> {
-  if (!isExportableAssistantMessage(message)) {
-    handleChatError('当前消息内容不完整，暂时无法导出')
-    return
-  }
-
-  clearExportState()
-  exportingMessageId.value = message.id
-
-  try {
-    const result = await window.api.document.exportMessage({
-      content: message.content,
-      format,
-      title: currentSession.value?.title,
-      timestamp: message.timestamp,
-      modelName: message.modelName
-    })
-
-    if (!result.success) {
-      handleChatError(result.error || '导出失败')
-      return
-    }
-
-    triggerBrowserDownload(result)
-
-    window.api.logger.info('[ChatPage] 导出消息成功', {
-      format,
-      messageId: message.id,
-      fileName: result.fileName
-    })
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    window.api.logger.error('[ChatPage] 导出消息异常', {
-      error: errorMessage,
-      messageId: message.id,
-      format
-    })
-    handleChatError(errorMessage)
-  } finally {
-    exportingMessageId.value = null
-  }
-}
-
-async function handleInlineExportFormatSelect(format: ExportFormat): Promise<void> {
-  const targetMessage = getPendingExportTarget()
-  if (!targetMessage) {
-    clearExportState()
-    handleChatError('当前没有待导出的 AI 助手消息')
-    return
-  }
-
-  await exportAssistantMessage(targetMessage, format)
-}
-
-async function handleDialogExportFormatSelect(format: ExportFormat): Promise<void> {
-  const targetMessage = exportDialogMessage.value
-  if (!targetMessage) {
-    closeExportDialog()
-    handleChatError('当前没有可导出的 AI 助手消息')
-    return
-  }
-
-  await exportAssistantMessage(targetMessage, format)
-}
-
-function handleRequestExport(message: Message): void {
-  if (exportingMessageId.value) {
-    return
-  }
-
-  if (!isExportableAssistantMessage(message)) {
-    handleChatError('当前消息内容尚未完成，暂时无法导出')
-    return
-  }
-
-  pendingExportMessageId.value = null
-  exportDialogMessageId.value = message.id
-}
-
-function handlePptExportToast(message: string, type: 'success' | 'error' | 'info' = 'info'): void {
-  if (type === 'error') {
-    handleChatError(message)
-    return
-  }
-
-  window.api.logger.info('[ChatPage] PPT 导出提示', { type, message })
-}
-
-function handlePptCreated(): void {
-  window.api.logger.info('[ChatPage] PPT 已在弹窗中生成完成', {
-    sessionId: currentSession.value?.sessionId,
-    title: currentSession.value?.title
-  })
-}
-
-function handleSelectPptOutlineAction(
-  selection: 'confirm' | 'edit',
-  interactionInfo: UserInteractionRequest
-): void {
-  const prompt = interactionInfo.prompt?.trim() || ''
-  const outline = interactionInfo.outline?.trim() || ''
-  const taskId = interactionInfo.taskId?.trim() || ''
-
-  if (!outline || !taskId) {
-    handleChatError('PPT 大纲数据不完整，暂时无法继续生成')
-    return
-  }
-
-  pptConfigState.value = {
-    prompt,
-    outline,
-    taskId
-  }
-
-  window.api.logger.info('[ChatPage] 打开 PPT 配置对话框', {
-    selection,
-    hasPrompt: Boolean(prompt),
-    outlineLength: outline.length,
-    taskId
-  })
-}
-
-async function tryHandleExportIntent(content: string): Promise<boolean> {
-  const trimmedContent = content.trim()
-  const requestedFormat = parseExportFormat(trimmedContent)
-
-  if (pendingExportMessageId.value) {
-    const targetMessage = getPendingExportTarget()
-    if (!targetMessage) {
-      clearExportState()
-      handleChatError('当前待导出的内容已不可用，请重新发起导出')
-      return true
-    }
-
-    if (requestedFormat) {
-      appendLocalUserMessage(trimmedContent)
-      await sessionStore.saveCurrentSession()
-      await exportAssistantMessage(targetMessage, requestedFormat)
-      return true
-    }
-
-    if (isExportIntent(trimmedContent)) {
-      appendLocalUserMessage(trimmedContent)
-      await sessionStore.saveCurrentSession()
-      return true
-    }
-
-    pendingExportMessageId.value = null
-    return false
-  }
-
-  if (!isExportIntent(trimmedContent)) {
-    return false
-  }
-
-  const targetMessage = findLatestExportableAssistantMessage(messages.value)
-  if (!targetMessage) {
-    handleChatError('当前没有可导出的 AI 助手消息')
-    return true
-  }
-
-  appendLocalUserMessage(trimmedContent)
-  await sessionStore.saveCurrentSession()
-
-  if (requestedFormat) {
-    await exportAssistantMessage(targetMessage, requestedFormat)
-  } else {
-    pendingExportMessageId.value = targetMessage.id
-  }
-
-  return true
 }
 
 // ==================== 发送消息处理 ====================
@@ -337,10 +67,6 @@ async function handleSendMessage(
 
   // 立即清空输入消息状态，避免界面延迟
   inputStateStore.clearInputMessage()
-
-  if (await tryHandleExportIntent(trimmedContent)) {
-    return
-  }
 
   // 如果没有当前对话，先创建一个
   if (!currentChatId.value || !currentSession.value) {
@@ -596,9 +322,6 @@ onUnmounted(() => {
 watch(
   () => currentChatId.value,
   (newSessionId, oldSessionId) => {
-    clearExportState()
-    closePptConfigDialog()
-
     window.api.logger.debug('[ChatPage] 当前会话变化', {
       from: oldSessionId,
       to: newSessionId
@@ -622,8 +345,6 @@ watch(
       :selected-knowledge-bases="currentInputState.selectedKnowledgeBases"
       :enable-sandbox-tools="currentInputState.enableSandboxTools"
       :session-id="currentSession?.sessionId"
-      :export-interaction-info="exportInteractionInfo"
-      :exporting-message-id="exportingMessageId"
       @send-message="handleSendMessage"
       @stop-request="handleStopRequest"
       @update:input-message="handleUpdateInputMessage"
@@ -631,33 +352,10 @@ watch(
       @update:selected-m-c-p-tools="handleUpdateSelectedTools"
       @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
       @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
-      @request-export="handleRequestExport"
-      @select-export-format="handleInlineExportFormatSelect"
-      @select-ppt-outline-action="handleSelectPptOutlineAction"
     />
 
     <!-- 聊天错误提示(临时显示) -->
     <ChatErrorToast :show="showChatError" :message="chatErrorMessage" @close="closeChatError" />
-
-    <MessageExportDialog
-      v-if="exportDialogMessage"
-      :message="exportDialogMessage"
-      :is-exporting="exportingMessageId === exportDialogMessage.id"
-      @close="closeExportDialog"
-      @select-format="handleDialogExportFormatSelect"
-    />
-
-    <PptExportConfigDialog
-      v-if="pptConfigState"
-      :visible="!!pptConfigState"
-      :content="pptConfigState.prompt"
-      :initial-outline="pptConfigState.outline"
-      :initial-task-id="pptConfigState.taskId"
-      :title="currentSession?.title"
-      @close="closePptConfigDialog"
-      @show-toast="handlePptExportToast"
-      @ppt-created="handlePptCreated"
-    />
   </div>
 </template>
 

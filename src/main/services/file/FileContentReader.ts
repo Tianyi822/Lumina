@@ -20,8 +20,7 @@ export const SUPPORTED_FILE_TYPES = new Set([
   '.docx',
   '.csv',
   '.xls',
-  '.xlsx',
-  '.pptx'
+  '.xlsx'
 ])
 
 // 读取文本文件内容
@@ -103,26 +102,6 @@ async function readDocFile(filePath: string): Promise<string> {
   }
 }
 
-// 读取 pptx 文件内容（仅提取文本，忽略格式和动画）
-async function readPptxFile(filePath: string): Promise<string> {
-  try {
-    logger.info('开始解析 pptx 文件', 'main', { filePath })
-    const config = {
-      ignoreNotes: false,
-      newlineDelimiter: '\n',
-      outputErrorToConsole: false
-    }
-    const ast = await officeParser.parseOffice(filePath, config)
-    const fullText = ast.toText()
-    logger.info('pptx 解析完成', 'main', { textLength: fullText.length })
-    return fullText
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logger.error('pptx 解析失败', 'main', { filePath, error: errorMessage })
-    throw new Error(`pptx 解析失败: ${errorMessage}`)
-  }
-}
-
 // 读取 excel 文件内容（仅提取文本）
 async function readExcelFile(filePath: string): Promise<string> {
   try {
@@ -156,10 +135,6 @@ export async function readFileContent(filePath: string, fileName: string): Promi
 
   if (ext === '.doc') {
     return readDocFile(filePath)
-  }
-
-  if (ext === '.pptx') {
-    return readPptxFile(filePath)
   }
 
   if (ext === '.xls' || ext === '.xlsx') {

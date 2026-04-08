@@ -25,10 +25,6 @@ export function sessionToChatMessage(msg: SessionMessage): ChatMessage {
     chatMsg.attachedImages = msg.attachedImages
   }
 
-  if (msg.attachedVideos?.length) {
-    chatMsg.attachedVideos = msg.attachedVideos
-  }
-
   return chatMsg
 }
 

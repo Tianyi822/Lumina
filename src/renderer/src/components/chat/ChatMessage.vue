@@ -1,16 +1,14 @@
 <script setup lang="ts">
-import { computed, ref, toRef, useSlots } from 'vue'
+import { computed, toRef, useSlots } from 'vue'
 import ReasoningPanel from './ReasoningPanel.vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import MessageContent from './message/MessageContent.vue'
 import StreamingContent from './message/StreamingContent.vue'
 import MessageAttachments from './message/MessageAttachments.vue'
-import MessageVideoAttachments from './message/MessageVideoAttachments.vue'
-import VideoPreviewDialog from './message/VideoPreviewDialog.vue'
 import MessageActions from './message/MessageActions.vue'
 import TokenStats from './message/TokenStats.vue'
 import { useStreamingReveal } from './composables/useStreamingReveal'
-import type { AttachedVideo, Message } from '@renderer/types'
+import type { Message } from '@renderer/types'
 import { estimateTokenCount, formatTokenCount } from '@renderer/utils/tokenEstimate'
 
 const slots = useSlots()
@@ -20,17 +18,14 @@ const props = defineProps<{
   currentModelName?: string
   isReasoningExpanded?: boolean
   currentChatId?: string
-  isExporting?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'toggle-reasoning', messageId: string): void
-  (e: 'request-export'): void
 }>()
 
 // 使用流式显示逻辑
 const { displayedContent } = useStreamingReveal(toRef(props, 'message'))
-const selectedVideo = ref<AttachedVideo | null>(null)
 
 /**
  * 格式化时间戳
@@ -52,17 +47,6 @@ const showTimestamp = computed(() => {
 })
 
 /**
- * 当前消息是否可导出
- */
-const canExportMessage = computed(() => {
-  return (
-    props.message.role === 'assistant' &&
-    !props.message.isStreaming &&
-    !!props.message.content.trim()
-  )
-})
-
-/**
  * 是否存在反馈插槽内容
  */
 const hasFeedbackSlot = computed(() => {
@@ -73,11 +57,7 @@ const hasFeedbackSlot = computed(() => {
  * 是否展示 AI 消息操作区
  */
 const showAssistantActions = computed(() => {
-  return (
-    props.message.role === 'assistant' &&
-    !props.message.isStreaming &&
-    (canExportMessage.value || hasFeedbackSlot.value)
-  )
+  return props.message.role === 'assistant' && !props.message.isStreaming && hasFeedbackSlot.value
 })
 
 /**
@@ -87,16 +67,9 @@ const showMetaRow = computed(() => {
   return (
     (props.message.role === 'assistant' &&
       !props.message.isStreaming &&
-      (!!props.message.usage || canExportMessage.value)) ||
+      (!!props.message.usage || showAssistantActions.value)) ||
     (props.message.role === 'user' && !props.message.isStreaming)
   )
-})
-
-/**
- * 是否显示视频附件
- */
-const hasVideoAttachments = computed(() => {
-  return props.message.role === 'assistant' && (props.message.attachedVideos?.length || 0) > 0
 })
 
 /**
@@ -223,21 +196,6 @@ const senderName = computed(() => {
 function handleToggleReasoning(): void {
   emit('toggle-reasoning', props.message.id)
 }
-
-/**
- * 处理导出请求
- */
-function handleRequestExport(): void {
-  emit('request-export')
-}
-
-function handlePreviewVideo(video: AttachedVideo): void {
-  selectedVideo.value = video
-}
-
-function handleClosePreviewDialog(): void {
-  selectedVideo.value = null
-}
 </script>
 
 <template>
@@ -317,12 +275,6 @@ function handleClosePreviewDialog(): void {
         />
       </div>
 
-      <MessageVideoAttachments
-        v-if="hasVideoAttachments"
-        :videos="message.attachedVideos || []"
-        @preview="handlePreviewVideo"
-      />
-
       <!-- 消息元信息行：Token统计、反馈按钮 -->
       <Transition name="meta-fade">
         <div v-if="showMetaRow" class="message-meta-row">
@@ -333,13 +285,7 @@ function handleClosePreviewDialog(): void {
           />
 
           <!-- 操作按钮（仅 AI 消息） -->
-          <MessageActions
-            v-if="showAssistantActions"
-            :can-export="canExportMessage"
-            :is-exporting="isExporting"
-            :has-feedback-slot="hasFeedbackSlot"
-            @export="handleRequestExport"
-          >
+          <MessageActions v-if="showAssistantActions" :has-feedback-slot="hasFeedbackSlot">
             <template #feedback>
               <slot
                 name="feedback"
@@ -351,12 +297,6 @@ function handleClosePreviewDialog(): void {
           </MessageActions>
         </div>
       </Transition>
-
-      <VideoPreviewDialog
-        :visible="!!selectedVideo"
-        :video="selectedVideo"
-        @close="handleClosePreviewDialog"
-      />
     </div>
   </div>
 </template>

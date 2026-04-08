@@ -10,8 +10,6 @@ import type { FileApi } from './file'
 import type { SandboxApi } from './sandbox'
 import type { DocumentApi } from './document'
 import type { KnowledgeMCPApi } from './knowledgeMCP'
-import type { VoiceRecognitionApi } from './voiceRecognition'
-import type { PptExportApi } from './ppt'
 import type { PromptEngineeringApi } from './promptEngineering'
 import type { PaperApi } from './paper'
 
@@ -37,10 +35,6 @@ export interface CustomApi {
   promptEngineering: PromptEngineeringApi
   // 知识库 MCP 服务 API
   knowledgeMCP: KnowledgeMCPApi
-  // 语音识别 API
-  voiceRecognition: VoiceRecognitionApi
-  // PPT 导出 API
-  pptExport: PptExportApi
   // 论文阅读器 API
   paper: PaperApi
 }

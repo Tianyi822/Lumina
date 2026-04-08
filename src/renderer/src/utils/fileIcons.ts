@@ -42,14 +42,6 @@ const FILE_ICONS: Record<string, FileIconConfig> = {
   xlsx: {
     name: 'file-xlsx',
     color: '#45B058'
-  },
-  pptx: {
-    name: 'file-ppt',
-    color: '#D24726'
-  },
-  ppt: {
-    name: 'file-ppt',
-    color: '#D24726'
   }
 }
 

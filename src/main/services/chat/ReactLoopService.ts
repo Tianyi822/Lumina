@@ -60,13 +60,6 @@ export class ReactLoopService {
   }
 
   /**
-   * 判断当前请求是否需要暴露 PPT 模板工具
-   */
-  shouldExposePresentationTools(request: ChatRequest): boolean {
-    return this.toolListBuilder.shouldExposePresentationTools(request)
-  }
-
-  /**
    * 使用 ReAct 模式发送消息
    */
   async sendMessageWithReact(
@@ -76,7 +69,6 @@ export class ReactLoopService {
     selectedKnowledgeBases?: KnowledgeBaseReference[]
   ): Promise<ChatResult> {
     const { messages, modelKey, sessionId, maxReactIterations = 10 } = request
-    const enablePresentationTools = this.shouldExposePresentationTools(request)
 
     this.logger.info('开始发送聊天消息（ReAct 模式）', 'main', {
       sessionId,
@@ -84,8 +76,7 @@ export class ReactLoopService {
       messageCount: messages.length,
       toolCount: request.selectedTools?.length,
       selectedToolNames: request.selectedTools?.map((t) => `${t.serverName}/${t.toolName}`),
-      enableSandboxTools: request.enableSandboxTools,
-      exposePresentationTools: enablePresentationTools
+      enableSandboxTools: request.enableSandboxTools
     })
 
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
@@ -111,8 +102,7 @@ export class ReactLoopService {
       const allTools = this.toolListBuilder.buildToolList(
         request,
         selectedKnowledgeBases,
-        sessionId,
-        enablePresentationTools
+        sessionId
       )
 
       const tools = this.toolExecutor.buildOpenAITools(allTools)

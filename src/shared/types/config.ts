@@ -155,56 +155,6 @@ import type { KnowledgeMCPConfig } from './knowledgeMCP'
 export type { MCPServerConfig, MCPTransportType }
 
 /**
- * 语音识别服务提供商类型
- */
-export type VoiceRecognitionProvider = 'aliyun'
-
-/**
- * 语音识别配置
- */
-export interface VoiceRecognitionConfig {
-  /** 服务提供商 */
-  provider: VoiceRecognitionProvider
-  /** 阿里云 AccessKey ID */
-  accessKeyId?: string
-  /** 阿里云 AccessKey Secret */
-  accessKeySecret?: string
-  /** 服务鉴权 Token */
-  token?: string
-  /** 项目 Appkey */
-  appkey?: string
-  /** 是否启用语音识别功能 */
-  enabled?: boolean
-}
-
-/**
- * 阿里云妙笔 PPT 配置
- */
-export interface AliyunMiaobiConfig {
-  /** 阿里云 AccessKey ID */
-  accessKeyId: string
-  /** 阿里云 AccessKey Secret */
-  accessKeySecret: string
-  /** 百炼业务空间 ID */
-  workspaceId: string
-}
-
-/**
- * 视频生成服务提供商类型
- */
-export type VideoGenerationProvider = 'zhipu'
-
-/**
- * 视频分辨率
- */
-export type VideoSize = '1920x1080' | '1080x1920' | '1280x720'
-
-/**
- * 视频生成质量
- */
-export type VideoQuality = 'quality' | 'speed'
-
-/**
  * OCR 服务提供商标识
  */
 export type OcrProviderId = 'glm-ocr'
@@ -251,56 +201,6 @@ export interface PaperOcrConfig {
 }
 
 /**
- * 视频生成配置
- */
-export interface VideoGenerationConfig {
-  /** 是否启用视频生成功能 */
-  enabled: boolean
-  /** 服务提供商 */
-  provider: VideoGenerationProvider
-  /** 服务基础地址 */
-  baseUrl: string
-  /** 调用 API 所需的密钥 */
-  apiKey?: string
-  /** 视频生成模型名称 */
-  model: string
-  /** 默认分辨率 */
-  defaultSize: VideoSize
-  /** 默认质量 */
-  defaultQuality: VideoQuality
-  /** 默认是否生成音频 */
-  defaultWithAudio: boolean
-  /** 轮询间隔 */
-  pollIntervalMs?: number
-  /** 请求超时时间 */
-  requestTimeoutMs?: number
-}
-
-export const DEFAULT_VIDEO_GENERATION_BASE_URL = 'https://open.bigmodel.cn'
-export const DEFAULT_VIDEO_GENERATION_MODEL = 'cogvideox-3'
-export const DEFAULT_VIDEO_GENERATION_POLL_INTERVAL_MS = 5000
-export const LEGACY_VIDEO_GENERATION_TIMEOUT_MS = 180000
-export const DEFAULT_VIDEO_GENERATION_TIMEOUT_MS = 600000
-
-/**
- * 创建默认的视频生成配置
- */
-export function createDefaultVideoGenerationConfig(): VideoGenerationConfig {
-  return {
-    enabled: false,
-    provider: 'zhipu',
-    baseUrl: DEFAULT_VIDEO_GENERATION_BASE_URL,
-    apiKey: '',
-    model: DEFAULT_VIDEO_GENERATION_MODEL,
-    defaultSize: '1920x1080',
-    defaultQuality: 'quality',
-    defaultWithAudio: false,
-    pollIntervalMs: DEFAULT_VIDEO_GENERATION_POLL_INTERVAL_MS,
-    requestTimeoutMs: DEFAULT_VIDEO_GENERATION_TIMEOUT_MS
-  }
-}
-
-/**
  * MCP 服务器配置的集合
  */
 export interface MCPServers {
@@ -320,12 +220,6 @@ export interface AppConfig {
   embeddingModels?: EmbeddingConfigs
   /** 知识库 MCP 服务配置 */
   knowledgeMCP?: KnowledgeMCPConfig
-  /** 语音识别配置 */
-  voiceRecognition?: VoiceRecognitionConfig
-  /** 阿里云妙笔 PPT 配置 */
-  aliyunMiaobi?: AliyunMiaobiConfig
-  /** 视频生成配置 */
-  videoGeneration?: VideoGenerationConfig
   /** GLM-OCR 配置 */
   paperOcr?: PaperOcrConfig
 }

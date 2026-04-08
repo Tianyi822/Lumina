@@ -4,14 +4,11 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import {
-  createDefaultVideoGenerationConfig,
   DEFAULT_OCR_PROVIDER,
   type AppConfig,
   type ThemeConfig,
   type ThemeMode,
   type LLMConfig,
-  type VoiceRecognitionConfig,
-  type VideoGenerationConfig,
   type PaperOcrConfig
 } from '@shared/types/config'
 import { deepClone } from '@shared/utils'
@@ -38,15 +35,6 @@ export const useConfigStore = defineStore('config', () => {
   // 模型配置
   const llmConfigs = ref<LLMConfig[]>([])
   const defaultModel = ref('')
-
-  // 语音识别配置
-  const voiceRecognitionConfig = ref<VoiceRecognitionConfig>({
-    provider: 'aliyun',
-    enabled: false
-  })
-
-  // 视频生成配置
-  const videoGenerationConfig = ref<VideoGenerationConfig>(createDefaultVideoGenerationConfig())
 
   // 论文 OCR 配置
   const paperOcrConfig = ref<PaperOcrConfig>({ provider: DEFAULT_OCR_PROVIDER })
@@ -80,17 +68,6 @@ export const useConfigStore = defineStore('config', () => {
           llmConfigs.value = config.llm_config.models
         }
         defaultModel.value = config.llm_config?.default_model || ''
-        // 加载语音识别配置
-        if (config.voiceRecognition) {
-          voiceRecognitionConfig.value = {
-            ...voiceRecognitionConfig.value,
-            ...config.voiceRecognition
-          }
-        }
-        videoGenerationConfig.value = {
-          ...createDefaultVideoGenerationConfig(),
-          ...config.videoGeneration
-        }
         // 加载论文 OCR 配置
         if (config.paperOcr) {
           paperOcrConfig.value = {
@@ -116,8 +93,6 @@ export const useConfigStore = defineStore('config', () => {
     try {
       const plainThemeConfig = deepClone(themeConfig.value)
       const plainLlmConfigs = deepClone(llmConfigs.value)
-      const plainVoiceRecognitionConfig = deepClone(voiceRecognitionConfig.value)
-      const plainVideoGenerationConfig = deepClone(videoGenerationConfig.value)
       const plainPaperOcrConfig = deepClone(paperOcrConfig.value)
 
       const result = await window.api.config.updateConfig({
@@ -128,8 +103,6 @@ export const useConfigStore = defineStore('config', () => {
           enable_auto_compression: false,
           models: plainLlmConfigs
         },
-        voiceRecognition: plainVoiceRecognitionConfig,
-        videoGeneration: plainVideoGenerationConfig,
         paperOcr: plainPaperOcrConfig
       })
       if (result.success) {
@@ -200,16 +173,6 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
-  // 更新语音识别配置
-  function updateVoiceRecognitionConfig(config: VoiceRecognitionConfig): void {
-    voiceRecognitionConfig.value = { ...voiceRecognitionConfig.value, ...config }
-  }
-
-  // 更新视频生成配置
-  function updateVideoGenerationConfig(config: VideoGenerationConfig): void {
-    videoGenerationConfig.value = { ...config }
-  }
-
   // 更新论文 OCR 配置
   function updatePaperOcrConfig(config: Partial<PaperOcrConfig>): void {
     paperOcrConfig.value = { ...paperOcrConfig.value, ...config }
@@ -230,8 +193,6 @@ export const useConfigStore = defineStore('config', () => {
     themeConfig,
     llmConfigs,
     defaultModel,
-    voiceRecognitionConfig,
-    videoGenerationConfig,
     paperOcrConfig,
     // Getters
     hasModels,
@@ -245,8 +206,6 @@ export const useConfigStore = defineStore('config', () => {
     addModelConfig,
     deleteModelConfig,
     updateModelConfigField,
-    updateVoiceRecognitionConfig,
-    updateVideoGenerationConfig,
     updatePaperOcrConfig,
     clearMessages
   }

@@ -81,10 +81,7 @@ export interface UserInteractionOption {
 export interface UserInteractionRequest {
   question: string
   options: UserInteractionOption[]
-  interactionType?: 'generic' | 'ppt_outline_confirmation'
-  prompt?: string
-  outline?: string
-  taskId?: string
+  interactionType?: 'generic'
   initialVisibleCount?: number
 }
 

@@ -153,17 +153,7 @@ export function useKnowledgeFiles(
 
     for (const file of files) {
       try {
-        const supportedTypes = [
-          '.txt',
-          '.md',
-          '.pdf',
-          '.doc',
-          '.docx',
-          '.csv',
-          '.xls',
-          '.xlsx',
-          '.pptx'
-        ]
+        const supportedTypes = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.xls', '.xlsx']
         const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
         if (!supportedTypes.includes(ext)) {
           errors.push(`${file.name}: 不支持的文件类型`)

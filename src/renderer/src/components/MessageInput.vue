@@ -8,23 +8,13 @@ import AttachedImages from './message-input/AttachedImages.vue'
 import InputTextarea from './message-input/InputTextarea.vue'
 import ProcessingFilesList from './message-input/ProcessingFilesList.vue'
 import ToolSelectionBar from './message-input/ToolSelectionBar.vue'
-import VideoGenerationConfigInteraction from './message-input/VideoGenerationConfigInteraction.vue'
 import { useConfiguredModels } from './message-input/composables/useConfiguredModels'
 import { useDocumentUpload } from './message-input/composables/useDocumentUpload'
 import { useFileDragDrop } from './message-input/composables/useFileDragDrop'
 import { useImageUpload } from './message-input/composables/useImageUpload'
-import { useVoiceRecording } from './message-input/composables/useVoiceRecording'
 import { toAttachedDocuments, toAttachedImages } from './message-input/attachmentUtils'
 import { isImageFile } from '@renderer/stores/imageUploadStore'
-import type {
-  ExportFormat,
-  KnowledgeBase,
-  MCPTool,
-  UserInteractionRequest,
-  VideoDuration,
-  VideoQuality,
-  VideoSize
-} from '@renderer/types'
+import type { KnowledgeBase, MCPTool } from '@renderer/types'
 import { useChatStreamStore } from '@renderer/stores'
 import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
 import type { MessageOptionContext, ParsedOption } from '@renderer/utils/optionParser'
@@ -36,7 +26,6 @@ const props = defineProps<{
   selectedMCPTools?: MCPTool[]
   selectedKnowledgeBases?: KnowledgeBase[]
   enableSandboxTools?: boolean
-  exportInteractionInfo?: UserInteractionRequest | null
   quickReplyInfo?: MessageOptionContext | null
 }>()
 
@@ -57,8 +46,6 @@ const emit = defineEmits<{
   (e: 'update:selectedMCPTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableSandboxTools', value: boolean): void
-  (e: 'select-export-format', format: ExportFormat): void
-  (e: 'select-ppt-outline-action', value: 'confirm' | 'edit', info: UserInteractionRequest): void
   (e: 'quick-reply-selected', messageId: string): void
 }>()
 
@@ -82,8 +69,6 @@ const { pendingImages, addImages, removePendingImage, clearPendingImages } =
 const totalAttachmentCount = computed(() => pendingDocs.value.length + pendingImages.value.length)
 
 const { modelOptions } = useConfiguredModels(localSelectedModel, updateSelectedModel)
-const { voiceRecognitionEnabled, isRecording, voiceInfoMessage, toggleVoiceRecording } =
-  useVoiceRecording(localInputMessage)
 const { isDragging, handleDragOver, handleDragLeave, handleDrop, triggerFileUpload } =
   useFileDragDrop({
     isSending: () => Boolean(props.isSending),
@@ -93,13 +78,6 @@ const { isDragging, handleDragOver, handleDragLeave, handleDrop, triggerFileUplo
 
 const chatStreamStore = useChatStreamStore()
 const { showUserInteraction, userInteractionInfo } = storeToRefs(chatStreamStore)
-
-interface VideoGenerationConfigSelection {
-  size: VideoSize
-  quality: VideoQuality
-  withAudio: boolean
-  duration: VideoDuration
-}
 
 watch(
   () => props.inputMessage,
@@ -327,53 +305,16 @@ async function handlePaste(event: ClipboardEvent): Promise<void> {
 }
 
 async function handleUserInteractionSelect(_value: string, label: string): Promise<void> {
-  if (userInteractionInfo.value?.interactionType === 'ppt_outline_confirmation') {
-    const selectedValue = _value === 'edit' ? 'edit' : 'confirm'
-    const interactionInfo = userInteractionInfo.value
-    chatStreamStore.hideUserInteraction()
-    emit('select-ppt-outline-action', selectedValue, interactionInfo)
-    return
-  }
-
   chatStreamStore.hideUserInteraction()
 
   sendMessage(`我选择：${label}`)
-}
-
-function handleVideoGenerationConfigSubmit(selection: VideoGenerationConfigSelection): void {
-  chatStreamStore.hideUserInteraction()
-
-  const structuredConfig = JSON.stringify(selection)
-  sendMessage(
-    `请继续生成刚才请求的视频。这些配置只对当前视频生效，不要修改全局默认配置：${structuredConfig}`
-  )
-}
-
-function handleExportInteractionSelect(value: string): void {
-  emit('select-export-format', value as ExportFormat)
 }
 </script>
 
 <template>
   <div class="message-input-container">
     <UserInteractionOptions
-      v-if="props.exportInteractionInfo"
-      :interaction-info="props.exportInteractionInfo"
-      @select="handleExportInteractionSelect"
-    />
-
-    <VideoGenerationConfigInteraction
-      v-if="
-        showUserInteraction &&
-        userInteractionInfo &&
-        userInteractionInfo.interactionType === 'video_generation_config'
-      "
-      :interaction-info="userInteractionInfo"
-      @submit="handleVideoGenerationConfigSubmit"
-    />
-
-    <UserInteractionOptions
-      v-else-if="showUserInteraction && userInteractionInfo"
+      v-if="showUserInteraction && userInteractionInfo"
       :interaction-info="userInteractionInfo"
       @select="handleUserInteractionSelect"
     />
@@ -428,11 +369,6 @@ function handleExportInteractionSelect(value: string): void {
       @drop="handleDrop"
     />
 
-    <div v-if="voiceInfoMessage" class="voice-info-banner">
-      <span class="voice-info-label">INFO</span>
-      <span>{{ voiceInfoMessage }}</span>
-    </div>
-
     <div v-if="showWarning" class="warning-banner">
       <span class="warning-label">警告</span>
       <span>正在回复中，请稍候再发送...</span>
@@ -446,14 +382,11 @@ function handleExportInteractionSelect(value: string): void {
       :selected-knowledge-bases="localSelectedKnowledgeBases"
       :enable-sandbox-tools="localEnableSandboxTools"
       :total-attachment-count="totalAttachmentCount"
-      :voice-recognition-enabled="voiceRecognitionEnabled"
-      :is-recording="isRecording"
       @update:selected-model="updateSelectedModel"
       @update:selected-tools="updateSelectedTools"
       @update:selected-knowledge-bases="updateSelectedKnowledgeBases"
       @update:enable-sandbox-tools="updateEnableSandboxTools"
       @upload="triggerFileUpload"
-      @toggle-voice="toggleVoiceRecording"
       @send="handleSend"
       @stop="handleStop"
     />
