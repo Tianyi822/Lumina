@@ -50,6 +50,10 @@
   --sm-color-status-warning: #c5a165;
   --sm-color-status-info: var(--sm-color-accent);
   --sm-color-status-success: #7fb08a;
+  --sm-color-paper-progress-track: rgba(255, 255, 255, 0.08);
+  --sm-color-paper-progress-render: #6f8fb7;
+  --sm-color-paper-progress-ocr: #7fb08a;
+  --sm-color-paper-progress-retry: #d3b47b;
 
   --sm-color-border-subtle: rgba(255, 255, 255, 0.08);
   --sm-color-border-default: rgba(255, 255, 255, 0.12);

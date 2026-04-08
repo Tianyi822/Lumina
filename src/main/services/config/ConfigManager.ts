@@ -7,6 +7,7 @@ import {
   createDefaultVideoGenerationConfig,
   DEFAULT_VIDEO_GENERATION_TIMEOUT_MS,
   LEGACY_VIDEO_GENERATION_TIMEOUT_MS,
+  DEFAULT_OCR_PROVIDER,
   type EmbeddingConfig
 } from '@shared/types/config'
 import {
@@ -56,7 +57,10 @@ function createEmptyConfig(): AppConfig {
       provider: 'aliyun',
       enabled: false
     },
-    videoGeneration: createDefaultVideoGenerationConfig()
+    videoGeneration: createDefaultVideoGenerationConfig(),
+    paperOcr: {
+      provider: DEFAULT_OCR_PROVIDER
+    }
   }
 }
 
@@ -175,6 +179,12 @@ function migrateConfig(config: AppConfig): AppConfig {
     originalVideoGeneration.requestTimeoutMs === LEGACY_VIDEO_GENERATION_TIMEOUT_MS
   ) {
     migrated.videoGeneration.requestTimeoutMs = DEFAULT_VIDEO_GENERATION_TIMEOUT_MS
+  }
+
+  if (!migrated.paperOcr) {
+    migrated.paperOcr = {
+      provider: DEFAULT_OCR_PROVIDER
+    }
   }
 
   return migrated

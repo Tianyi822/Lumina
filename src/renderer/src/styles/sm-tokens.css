@@ -36,4 +36,7 @@
   --sm-motion-distance-md: 8px;
   --sm-motion-distance-lg: 12px;
   --sm-shadow-none: none;
+
+  --sm-paper-progress-height: 6px;
+  --sm-paper-progress-radius: 999px;
 }

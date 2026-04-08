@@ -31,3 +31,6 @@ export * from './export'
 
 // PPT 导出相关的类型
 export * from './ppt-export'
+
+// 论文相关的类型
+export * from './paper'

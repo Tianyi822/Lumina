@@ -17,6 +17,7 @@ export * from './document'
 export * from './voiceRecognition'
 export * from './ppt'
 export * from './promptEngineering'
+export * from './paper'
 export * from './customApi'
 
 // 全局 Window 接口声明

@@ -205,6 +205,52 @@ export type VideoSize = '1920x1080' | '1080x1920' | '1280x720'
 export type VideoQuality = 'quality' | 'speed'
 
 /**
+ * OCR 服务提供商标识
+ */
+export type OcrProviderId = 'glm-ocr'
+
+/**
+ * OCR 服务提供商预设
+ */
+export interface OcrProviderPreset {
+  id: OcrProviderId
+  label: string
+  modelName: string
+  url: string
+}
+
+/**
+ * 可选的 OCR 服务提供商列表
+ */
+export const OCR_PROVIDER_PRESETS: OcrProviderPreset[] = [
+  {
+    id: 'glm-ocr',
+    label: 'GLM-OCR',
+    modelName: 'glm-ocr',
+    url: 'https://open.bigmodel.cn/api/paas/v4/layout_parsing'
+  }
+]
+
+export const DEFAULT_OCR_PROVIDER: OcrProviderId = 'glm-ocr'
+
+/**
+ * 根据 provider ID 获取预设配置
+ */
+export function getOcrProviderPreset(providerId: OcrProviderId): OcrProviderPreset | undefined {
+  return OCR_PROVIDER_PRESETS.find((p) => p.id === providerId)
+}
+
+/**
+ * 论文 OCR 配置
+ */
+export interface PaperOcrConfig {
+  /** API Key */
+  apiKey?: string
+  /** 当前选择的 OCR 服务提供商 */
+  provider: OcrProviderId
+}
+
+/**
  * 视频生成配置
  */
 export interface VideoGenerationConfig {
@@ -280,6 +326,8 @@ export interface AppConfig {
   aliyunMiaobi?: AliyunMiaobiConfig
   /** 视频生成配置 */
   videoGeneration?: VideoGenerationConfig
+  /** GLM-OCR 配置 */
+  paperOcr?: PaperOcrConfig
 }
 
 /**

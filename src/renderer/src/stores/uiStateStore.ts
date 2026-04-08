@@ -17,7 +17,7 @@ import {
 } from '@shared/utils'
 
 // 视图类型
-export type ViewMode = 'chat' | 'knowledge' | 'sandbox'
+export type ViewMode = 'chat' | 'knowledge' | 'sandbox' | 'paper'
 
 // 沙箱详情 Tab 类型
 export type SandboxDetailTab = 'stats' | 'terminal' | 'logs'
@@ -90,6 +90,9 @@ export const useUIStateStore = defineStore(
 
     // 知识库侧边栏是否折叠
     const knowledgeSidebarCollapsed = ref(false)
+
+    // 论文侧边栏是否折叠
+    const paperSidebarCollapsed = ref(false)
 
     // 当前视图模式
     const currentView = ref<ViewMode>('chat')
@@ -168,6 +171,9 @@ export const useUIStateStore = defineStore(
     // 是否在沙箱视图
     const isSandboxView = computed(() => currentView.value === 'sandbox')
 
+    // 是否在论文视图
+    const isPaperView = computed(() => currentView.value === 'paper')
+
     // 当前视图对应的侧边栏是否折叠
     const isCurrentSidebarCollapsed = computed(() => {
       if (currentView.value === 'chat') {
@@ -176,6 +182,10 @@ export const useUIStateStore = defineStore(
 
       if (currentView.value === 'knowledge') {
         return knowledgeSidebarCollapsed.value
+      }
+
+      if (currentView.value === 'paper') {
+        return paperSidebarCollapsed.value
       }
 
       return sandboxSidebarCollapsed.value
@@ -224,6 +234,11 @@ export const useUIStateStore = defineStore(
       knowledgeSidebarCollapsed.value = collapsed
     }
 
+    // 设置论文侧边栏折叠状态
+    function setPaperSidebarCollapsed(collapsed: boolean): void {
+      paperSidebarCollapsed.value = collapsed
+    }
+
     // 切换当前视图对应的侧边栏状态
     function toggleCurrentSidebar(): void {
       const nextCollapsed = !isCurrentSidebarCollapsed.value
@@ -244,6 +259,11 @@ export const useUIStateStore = defineStore(
 
       if (currentView.value === 'knowledge') {
         setKnowledgeSidebarCollapsed(collapsed)
+        return
+      }
+
+      if (currentView.value === 'paper') {
+        setPaperSidebarCollapsed(collapsed)
         return
       }
 
@@ -352,6 +372,26 @@ export const useUIStateStore = defineStore(
       window.api.logger.info('[UIStateStore] 切换到沙箱视图')
     }
 
+    // 切换到论文视图
+    async function switchToPaperView(saveSessionState: boolean = true): Promise<void> {
+      const previousView = currentView.value
+
+      if (previousView === 'chat' && saveSessionState) {
+        // 保存当前聊天会话状态
+        if (sessionStore.currentChatId) {
+          lastChatSessionId.value = sessionStore.currentChatId
+          await sessionStore.saveCurrentStateBeforeLeave()
+
+          window.api.logger.info('[UIStateStore] 离开聊天视图，保存状态', {
+            sessionId: sessionStore.currentChatId
+          })
+        }
+      }
+
+      currentView.value = 'paper'
+      window.api.logger.info('[UIStateStore] 切换到论文视图')
+    }
+
     // 设置当前视图
     async function setCurrentView(view: ViewMode, autoHandleState: boolean = true): Promise<void> {
       if (currentView.value === view) return
@@ -360,6 +400,8 @@ export const useUIStateStore = defineStore(
         await switchToChatView(autoHandleState)
       } else if (view === 'knowledge') {
         await switchToKnowledgeView(autoHandleState)
+      } else if (view === 'paper') {
+        await switchToPaperView(autoHandleState)
       } else {
         await switchToSandboxView(autoHandleState)
       }
@@ -622,6 +664,7 @@ export const useUIStateStore = defineStore(
       sidebarCollapsed,
       sandboxSidebarCollapsed,
       knowledgeSidebarCollapsed,
+      paperSidebarCollapsed,
       currentView,
       currentModel,
       lastChatSessionId,
@@ -653,6 +696,7 @@ export const useUIStateStore = defineStore(
       isChatView,
       isKnowledgeView,
       isSandboxView,
+      isPaperView,
       isCurrentSidebarCollapsed,
       hasAnyError,
       currentThemeMeta,
@@ -663,6 +707,7 @@ export const useUIStateStore = defineStore(
       setSidebarCollapsed,
       setSandboxSidebarCollapsed,
       setKnowledgeSidebarCollapsed,
+      setPaperSidebarCollapsed,
       toggleCurrentSidebar,
       setCurrentSidebarCollapsed,
       setCurrentModel,
@@ -680,6 +725,7 @@ export const useUIStateStore = defineStore(
       switchToChatView,
       switchToKnowledgeView,
       switchToSandboxView,
+      switchToPaperView,
       setCurrentView,
       updateLastChatSessionId,
 
@@ -713,6 +759,7 @@ export const useUIStateStore = defineStore(
         'sidebarCollapsed',
         'knowledgeSidebarCollapsed',
         'sandboxSidebarCollapsed',
+        'paperSidebarCollapsed',
         'lastChatSessionId'
       ]
     }

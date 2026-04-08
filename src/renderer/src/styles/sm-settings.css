@@ -141,10 +141,6 @@
   background: var(--sm-color-surface-1);
 }
 
-.sm-settings-page__section--compact {
-  padding: var(--sm-space-4);
-}
-
 .sm-settings-page__section-header {
   display: flex;
   align-items: flex-start;
@@ -246,33 +242,56 @@
 }
 
 .sm-settings-feedback {
+  --sm-settings-feedback-color: var(--sm-color-text-secondary);
+  --sm-settings-feedback-border: var(--sm-color-border-subtle);
+  --sm-settings-feedback-background: var(--sm-color-surface-2);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sm-space-3);
   padding: 12px var(--sm-space-5);
-  border-top: 1px solid var(--sm-color-border-subtle);
-  background: var(--sm-color-surface-2);
-  color: var(--sm-color-text-secondary);
+  border-top: 1px solid var(--sm-settings-feedback-border);
+  background: var(--sm-settings-feedback-background);
+  color: var(--sm-settings-feedback-color);
   font-size: 13px;
 }
 
 .sm-settings-feedback--error {
-  border-top-color: rgba(199, 120, 120, 0.24);
-  background: rgba(199, 120, 120, 0.08);
-  color: var(--sm-color-status-danger);
+  --sm-settings-feedback-color: var(--sm-color-status-danger);
+  --sm-settings-feedback-border: color-mix(in srgb, var(--sm-color-status-danger) 36%, transparent);
+  --sm-settings-feedback-background: color-mix(
+    in srgb,
+    var(--sm-color-status-danger) 14%,
+    var(--sm-color-surface-2)
+  );
 }
 
 .sm-settings-feedback--success {
-  border-top-color: rgba(127, 176, 138, 0.24);
-  background: rgba(127, 176, 138, 0.08);
-  color: var(--sm-color-status-success);
+  --sm-settings-feedback-color: var(--sm-color-status-success);
+  --sm-settings-feedback-border: color-mix(
+    in srgb,
+    var(--sm-color-status-success) 36%,
+    transparent
+  );
+  --sm-settings-feedback-background: color-mix(
+    in srgb,
+    var(--sm-color-status-success) 16%,
+    var(--sm-color-surface-2)
+  );
 }
 
 .sm-settings-feedback--info {
-  border-top-color: rgba(197, 161, 101, 0.24);
-  background: rgba(197, 161, 101, 0.08);
-  color: var(--sm-color-status-warning);
+  --sm-settings-feedback-color: var(--sm-color-status-warning);
+  --sm-settings-feedback-border: color-mix(
+    in srgb,
+    var(--sm-color-status-warning) 36%,
+    transparent
+  );
+  --sm-settings-feedback-background: color-mix(
+    in srgb,
+    var(--sm-color-status-warning) 18%,
+    var(--sm-color-surface-2)
+  );
 }
 
 .sm-settings-empty {

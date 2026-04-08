@@ -13,6 +13,7 @@ import type { KnowledgeMCPApi } from './knowledgeMCP'
 import type { VoiceRecognitionApi } from './voiceRecognition'
 import type { PptExportApi } from './ppt'
 import type { PromptEngineeringApi } from './promptEngineering'
+import type { PaperApi } from './paper'
 
 /**
  * 自定义的完整 API
@@ -40,4 +41,6 @@ export interface CustomApi {
   voiceRecognition: VoiceRecognitionApi
   // PPT 导出 API
   pptExport: PptExportApi
+  // 论文阅读器 API
+  paper: PaperApi
 }

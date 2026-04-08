@@ -5,10 +5,12 @@ import ChatList from '@renderer/components/ChatList.vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import SandboxList from '@renderer/components/sandbox/SandboxList.vue'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
+import PaperSidebar from '@renderer/components/paper/PaperSidebar.vue'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 import {
   useChatStreamStore,
   useKnowledgeStore,
+  usePaperReaderStore,
   useSessionStore,
   useSandboxStore,
   useUIStateStore
@@ -19,15 +21,19 @@ const sessionStore = useSessionStore()
 const chatStreamStore = useChatStreamStore()
 const knowledgeStore = useKnowledgeStore()
 const sandboxStore = useSandboxStore()
+const paperReaderStore = usePaperReaderStore()
 
 const { currentView, isCurrentSidebarCollapsed } = storeToRefs(uiStateStore)
 const { sessionList, currentChatId } = storeToRefs(sessionStore)
 const { knowledgeBases, activeKbId } = storeToRefs(knowledgeStore)
 const { currentSandbox, sandboxList, deleteConfirmState } = storeToRefs(sandboxStore)
+const { papers, currentPaperId, renderProgressByPaperId, ocrProgressByPaperId } =
+  storeToRefs(paperReaderStore)
 
 const chatSearchQuery = ref('')
 const knowledgeSearchQuery = ref('')
 const sandboxSearchQuery = ref('')
+const paperSearchQuery = ref('')
 const isRefreshingSandboxList = ref(false)
 
 const filteredSessions = computed(() => {
@@ -61,6 +67,15 @@ const filteredSandboxs = computed(() => {
   return sandboxList.value.filter((sandbox) => sandbox.name.toLowerCase().includes(query))
 })
 
+const filteredPapers = computed(() => {
+  if (!paperSearchQuery.value.trim()) {
+    return papers.value
+  }
+
+  const query = paperSearchQuery.value.toLowerCase()
+  return papers.value.filter((paper) => paper.fileName.toLowerCase().includes(query))
+})
+
 const sidebarCount = computed(() => {
   if (currentView.value === 'chat') {
     return sessionList.value.length
@@ -68,6 +83,10 @@ const sidebarCount = computed(() => {
 
   if (currentView.value === 'knowledge') {
     return knowledgeBases.value.length
+  }
+
+  if (currentView.value === 'paper') {
+    return papers.value.length
   }
 
   return sandboxList.value.length
@@ -158,6 +177,34 @@ async function handleRefreshSandboxList(): Promise<void> {
     isRefreshingSandboxList.value = false
   }
 }
+
+// ==================== 论文相关事件处理 ====================
+
+async function handleSelectPaper(paperId: string): Promise<void> {
+  const openedPaper = await paperReaderStore.openPaper(paperId)
+  if (!openedPaper) {
+    window.api.logger.warn('[WorkspaceSidebarHost] 打开论文失败', { paperId })
+  }
+}
+
+async function handleUploadPdf(): Promise<void> {
+  await paperReaderStore.uploadAndRenderPdf()
+}
+
+function handleDeletePaper(paperId: string): void {
+  if (!confirm('确定要删除这篇论文吗？此操作不可撤销。')) {
+    return
+  }
+
+  void paperReaderStore.deletePaper(paperId)
+}
+
+async function handleRetryPaper(paperId: string): Promise<void> {
+  const result = await paperReaderStore.retryPaper(paperId)
+  if (!result.success) {
+    alert(`重试失败：${result.error || '未知错误'}`)
+  }
+}
 </script>
 
 <template>
@@ -186,6 +233,15 @@ async function handleRefreshSandboxList(): Promise<void> {
               @click="handleManageKnowledgeFiles"
             >
               管理文件
+            </button>
+          </template>
+
+          <template v-else-if="currentView === 'paper'">
+            <button
+              class="sm-button sm-button--primary sm-workspace-sidebar-host__action"
+              @click="handleUploadPdf"
+            >
+              上传 PDF
             </button>
           </template>
 
@@ -228,6 +284,15 @@ async function handleRefreshSandboxList(): Promise<void> {
                   type="text"
                   class="sm-input"
                   placeholder="搜索知识库"
+                />
+              </template>
+
+              <template v-else-if="currentView === 'paper'">
+                <input
+                  v-model="paperSearchQuery"
+                  type="text"
+                  class="sm-input"
+                  placeholder="搜索论文"
                 />
               </template>
 
@@ -318,6 +383,19 @@ async function handleRefreshSandboxList(): Promise<void> {
                     </button>
                   </div>
                 </div>
+              </template>
+
+              <template v-else-if="currentView === 'paper'">
+                <PaperSidebar
+                  :papers="filteredPapers"
+                  :current-paper-id="currentPaperId"
+                  :render-progress-by-paper-id="renderProgressByPaperId"
+                  :ocr-progress-by-paper-id="ocrProgressByPaperId"
+                  @select-paper="handleSelectPaper"
+                  @upload-pdf="handleUploadPdf"
+                  @delete-paper="handleDeletePaper"
+                  @retry-paper="handleRetryPaper"
+                />
               </template>
 
               <template v-else>

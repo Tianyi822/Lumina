@@ -10,6 +10,7 @@ import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
 import VoiceRecognitionSettings from './settings/VoiceRecognitionSettings.vue'
 import AliyunMiaobiSettings from './settings/AliyunMiaobiSettings.vue'
 import VideoModelSettings from './settings/VideoModelSettings.vue'
+import PaperOcrSettings from './settings/PaperOcrSettings.vue'
 import { useConfigStore } from '@renderer/stores'
 
 const emit = defineEmits<{
@@ -27,6 +28,7 @@ type SettingsTabKey =
   | 'knowledge'
   | 'voice'
   | 'aliyunMiaobi'
+  | 'paperOcr'
 
 // 使用 configStore
 const configStore = useConfigStore()
@@ -54,6 +56,11 @@ const settingsTabs: Array<{
     id: 'embedding',
     label: '嵌入模型配置',
     description: '维护知识检索所需的向量模型清单。'
+  },
+  {
+    id: 'paperOcr',
+    label: 'OCR 模型配置',
+    description: '配置论文 OCR 识别服务凭据与模型。'
   },
   {
     id: 'mcp',
@@ -207,6 +214,14 @@ onUnmounted(() => {
 
             <AliyunMiaobiSettings
               v-else-if="activeTab === 'aliyunMiaobi'"
+              :error-message="errorMessage"
+              :success-message="successMessage"
+              @update:error-message="errorMessage = $event"
+              @update:success-message="successMessage = $event"
+            />
+
+            <PaperOcrSettings
+              v-else-if="activeTab === 'paperOcr'"
               :error-message="errorMessage"
               :success-message="successMessage"
               @update:error-message="errorMessage = $event"
