@@ -23,13 +23,10 @@
     "build:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
-    "@alicloud/openapi-core": "^1.0.7",
-    "@darabonba/typescript": "^1.0.4",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@lancedb/lancedb": "^0.27.1",
     "@modelcontextprotocol/sdk": "^1.25.3",
-    "alibabacloud-nls": "^1.0.4",
     "apache-arrow": "^21.1.0",
     "dockerode": "^4.0.9",
     "docx": "^9.6.0",
