@@ -18,10 +18,13 @@ const paperReaderStore = usePaperReaderStore()
 const {
   currentPaperId,
   currentPaperFigures,
+  currentTranslationCache,
   figureLoadingByPaperId,
+  isCurrentPaperTranslating,
   paperTocItems,
   markdownLoading,
-  showFigurePanel
+  showFigurePanel,
+  translationVisible
 } = storeToRefs(paperReaderStore)
 
 interface PaperTocTreeNode {
@@ -43,6 +46,22 @@ const canOpenToc = computed(() => {
 
 const canOpenFigurePanel = computed(() => {
   return !!currentPaperId.value
+})
+
+const hasTranslationCache = computed(() => {
+  return !!currentTranslationCache.value?.entries.length
+})
+
+const translationButtonTitle = computed(() => {
+  if (translationVisible.value) {
+    return isCurrentPaperTranslating.value ? '隐藏译文（后台继续翻译）' : '隐藏译文'
+  }
+
+  if (hasTranslationCache.value) {
+    return isCurrentPaperTranslating.value ? '显示译文（后台正在翻译）' : '显示译文'
+  }
+
+  return isCurrentPaperTranslating.value ? '显示译文（后台正在翻译）' : '翻译论文'
 })
 
 const currentFigureLoading = computed(() => {
@@ -118,6 +137,16 @@ function handleRefreshMarkdown(): void {
   if (currentPaperId.value) {
     paperReaderStore.loadMarkdown(currentPaperId.value)
   }
+}
+
+async function handleToggleTranslation(): Promise<void> {
+  if (!currentPaperId.value) {
+    return
+  }
+
+  closeTocPanel()
+  closeFigurePanel()
+  await paperReaderStore.toggleTranslationVisible()
 }
 
 function handleToggleToc(): void {
@@ -243,6 +272,21 @@ onUnmounted(() => {
       @click="handleRefreshMarkdown"
     >
       <SvgIcon name="refresh" :size="14" />
+    </button>
+
+    <button
+      v-if="isPaperView"
+      class="sm-icon-button sm-workspace-toolbar__button"
+      :class="{
+        'is-active': translationVisible,
+        'is-pending': isCurrentPaperTranslating
+      }"
+      :title="translationButtonTitle"
+      :aria-label="translationButtonTitle"
+      :disabled="!currentPaperId"
+      @click="handleToggleTranslation"
+    >
+      <SvgIcon name="translate" :size="14" />
     </button>
 
     <div v-if="isPaperView" ref="tocContainerRef" class="sm-workspace-toolbar__toc">
@@ -439,6 +483,10 @@ onUnmounted(() => {
 .sm-workspace-toolbar__button:hover {
   background: var(--sm-color-surface-hover);
   border-color: var(--sm-color-border-strong);
+}
+
+.sm-workspace-toolbar__button.is-pending {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sm-color-accent-default) 14%, transparent);
 }
 
 .sm-workspace-toolbar__button:hover:disabled {
