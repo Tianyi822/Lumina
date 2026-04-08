@@ -1,5 +1,11 @@
 import { ipcRenderer } from 'electron'
-import type { PaperDocument, PaperFigureItem, PaperStatus } from '@shared/types/paper'
+import type {
+  PaperDocument,
+  PaperFigureItem,
+  PaperStatus,
+  PaperTranslationProgress,
+  PaperTranslationState
+} from '@shared/types/paper'
 import type { OcrProviderId } from '@shared/types/config'
 
 export interface OcrProgressInfo {
@@ -254,6 +260,31 @@ export const paperApi = {
     ipcRenderer.on('paper:ocrProgress', handler)
     return () => {
       ipcRenderer.removeListener('paper:ocrProgress', handler)
+    }
+  },
+
+  getTranslationState: (
+    paperId: string
+  ): Promise<{ success: boolean; data?: PaperTranslationState; error?: string }> => {
+    return ipcRenderer.invoke('paper:getTranslationState', paperId)
+  },
+
+  startTranslation: (
+    paperId: string
+  ): Promise<{ success: boolean; alreadyRunning?: boolean; error?: string }> => {
+    return ipcRenderer.invoke('paper:startTranslation', { paperId })
+  },
+
+  onTranslationProgress: (callback: (progress: PaperTranslationProgress) => void): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      progress: PaperTranslationProgress
+    ): void => {
+      callback(progress)
+    }
+    ipcRenderer.on('paper:translationProgress', handler)
+    return () => {
+      ipcRenderer.removeListener('paper:translationProgress', handler)
     }
   }
 }

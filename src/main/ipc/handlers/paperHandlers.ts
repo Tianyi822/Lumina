@@ -1,5 +1,10 @@
 import { ipcMain, dialog, net, BrowserWindow } from 'electron'
-import { paperStorageService, getPaperService, type OcrProgressInfo } from '@main/services/paper'
+import {
+  paperStorageService,
+  getPaperService,
+  paperTranslationService,
+  type OcrProgressInfo
+} from '@main/services/paper'
 import { logger } from '@main/services/logger'
 import {
   getOcrProviderPreset,
@@ -11,6 +16,43 @@ import type { PaperStatus } from '@shared/types/paper'
 import { statSync, readFileSync } from 'fs'
 
 export function registerPaperHandlers(): void {
+  const translationProgressCleanupByKey = new Map<string, () => void>()
+
+  const registerTranslationSubscriber = (paperId: string, sender: Electron.WebContents): void => {
+    const subscriptionKey = `${paperId}:${sender.id}`
+    if (translationProgressCleanupByKey.has(subscriptionKey)) {
+      return
+    }
+
+    const cleanup = paperTranslationService.onProgress(paperId, (progress) => {
+      try {
+        if (sender.isDestroyed()) {
+          const release = translationProgressCleanupByKey.get(subscriptionKey)
+          release?.()
+          translationProgressCleanupByKey.delete(subscriptionKey)
+          return
+        }
+
+        const win = BrowserWindow.fromWebContents(sender)
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('paper:translationProgress', progress)
+        }
+      } catch {
+        const release = translationProgressCleanupByKey.get(subscriptionKey)
+        release?.()
+        translationProgressCleanupByKey.delete(subscriptionKey)
+      }
+    })
+
+    translationProgressCleanupByKey.set(subscriptionKey, cleanup)
+
+    sender.once('destroyed', () => {
+      const release = translationProgressCleanupByKey.get(subscriptionKey)
+      release?.()
+      translationProgressCleanupByKey.delete(subscriptionKey)
+    })
+  }
+
   ipcMain.handle(
     'paper:create',
     async (_event, params: { sourcePdfPath: string; pageCount: number }) => {
@@ -295,4 +337,36 @@ export function registerPaperHandlers(): void {
       return getPaperService().retryPage(params.paperId, params.pageIndex)
     }
   )
+
+  ipcMain.handle('paper:getTranslationState', (_event, paperId: string) => {
+    const markdownResult = getPaperService().getReaderMarkdown(paperId)
+    if (!markdownResult.success || !markdownResult.data) {
+      return { success: false, error: markdownResult.error || '读取论文正文失败' }
+    }
+
+    const stateResult = paperTranslationService.getTranslationState(paperId, markdownResult.data)
+    if (stateResult.success && stateResult.data?.isRunning) {
+      registerTranslationSubscriber(paperId, _event.sender)
+    }
+
+    return stateResult
+  })
+
+  ipcMain.handle('paper:startTranslation', async (_event, params: { paperId: string }) => {
+    const { paperId } = params
+    const markdownResult = getPaperService().getReaderMarkdown(paperId)
+    if (!markdownResult.success || !markdownResult.data) {
+      return { success: false, error: markdownResult.error || '读取论文正文失败' }
+    }
+
+    registerTranslationSubscriber(paperId, _event.sender)
+
+    try {
+      return await paperTranslationService.startTranslation(paperId, markdownResult.data)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('IPC: 启动论文翻译失败', 'main', { paperId, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  })
 }
