@@ -9,33 +9,6 @@ export interface ParsedDocumentData {
 }
 
 /**
- * 支持的导出格式
- */
-export type ExportFormat = 'markdown' | 'word' | 'pdf' | 'txt'
-
-/**
- * 消息导出请求
- */
-export interface ExportMessageRequest {
-  content: string
-  format: ExportFormat
-  title?: string
-  timestamp?: string
-  modelName?: string
-}
-
-/**
- * 消息导出结果
- */
-export interface ExportMessageResult {
-  success: boolean
-  data?: number[]
-  fileName?: string
-  mimeType?: string
-  error?: string
-}
-
-/**
  * 文档上传 API
  */
 export interface DocumentApi {
@@ -54,5 +27,4 @@ export interface DocumentApi {
     }>
     error?: string
   }>
-  exportMessage: (request: ExportMessageRequest) => Promise<ExportMessageResult>
 }
