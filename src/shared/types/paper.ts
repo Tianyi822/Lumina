@@ -200,3 +200,103 @@ export interface PaperAnnotation {
   /** 最后更新时间 */
   updatedAt: string
 }
+
+/**
+ * 论文翻译段落类型
+ */
+export type PaperTranslationSegmentKind =
+  | 'heading'
+  | 'paragraph'
+  | 'list'
+  | 'quote'
+  | 'table'
+  | 'code'
+
+/**
+ * 论文翻译段落状态
+ */
+export type PaperTranslationStatus = 'queued' | 'translating' | 'completed' | 'failed' | 'skipped'
+
+/**
+ * 可翻译段落信息
+ */
+export interface PaperTranslationSegment {
+  /** 段落唯一标识 */
+  id: string
+  /** 段落顺序 */
+  index: number
+  /** 段落类型 */
+  kind: PaperTranslationSegmentKind
+  /** 原始 Markdown 内容 */
+  originalMarkdown: string
+  /** 去除大部分标记后的纯文本 */
+  originalText: string
+}
+
+/**
+ * 单段翻译结果
+ */
+export interface PaperTranslationEntry extends PaperTranslationSegment {
+  /** 当前翻译状态 */
+  status: PaperTranslationStatus
+  /** 翻译后的 Markdown */
+  translatedMarkdown?: string
+  /** 翻译后的纯文本 */
+  translatedText?: string
+  /** 错误信息 */
+  errorMessage?: string
+  /** 最后更新时间 */
+  updatedAt?: string
+}
+
+/**
+ * 论文翻译缓存
+ */
+export interface PaperTranslationCache {
+  /** 论文 ID */
+  paperId: string
+  /** 当前阅读版 Markdown 的内容哈希 */
+  sourceHash: string
+  /** 段落总数 */
+  totalSegments: number
+  /** 已完成或跳过的段落数 */
+  completedSegments: number
+  /** 段落翻译条目 */
+  entries: PaperTranslationEntry[]
+  /** 最后更新时间 */
+  updatedAt: string
+}
+
+/**
+ * 单段翻译进度事件
+ */
+export interface PaperTranslationProgress {
+  /** 论文 ID */
+  paperId: string
+  /** 内容哈希 */
+  sourceHash: string
+  /** 更新的段落 ID */
+  segmentId: string
+  /** 当前段落状态 */
+  status: PaperTranslationStatus
+  /** 已完成段落数 */
+  completedSegments: number
+  /** 总段落数 */
+  totalSegments: number
+  /** 当前任务是否仍在运行 */
+  isRunning: boolean
+  /** 当前段落完整数据 */
+  entry: PaperTranslationEntry
+  /** 错误信息 */
+  errorMessage?: string
+}
+
+/**
+ * 论文翻译状态
+ */
+export interface PaperTranslationState {
+  /** 当前缓存 */
+  cache: PaperTranslationCache | null
+  /** 是否仍在后台翻译 */
+  isRunning: boolean
+}
