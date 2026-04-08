@@ -7,8 +7,6 @@ import type {
   Message,
   MCPTool,
   KnowledgeBase,
-  ExportFormat,
-  UserInteractionRequest,
   AttachedDocument,
   AttachedImage
 } from '@renderer/types'
@@ -27,8 +25,6 @@ const props = defineProps<{
   selectedKnowledgeBases?: KnowledgeBase[]
   enableSandboxTools?: boolean
   sessionId?: string
-  exportInteractionInfo?: UserInteractionRequest | null
-  exportingMessageId?: string | null
 }>()
 
 // 提供 sessionId 给子组件
@@ -54,9 +50,6 @@ const emit = defineEmits<{
   (e: 'update:selectedMCPTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableSandboxTools', value: boolean): void
-  (e: 'request-export', message: Message): void
-  (e: 'select-export-format', format: ExportFormat): void
-  (e: 'select-ppt-outline-action', value: 'confirm' | 'edit', info: UserInteractionRequest): void
 }>()
 
 // 展开的思考内容消息ID集合
@@ -331,23 +324,8 @@ function handleUpdateEnableSandboxTools(value: boolean): void {
   emit('update:enableSandboxTools', value)
 }
 
-function handleRequestExport(message: Message): void {
-  emit('request-export', message)
-}
-
 function handleQuickReplySelected(messageId: string): void {
   dismissedQuickReplyIds.value = new Set(dismissedQuickReplyIds.value).add(messageId)
-}
-
-function handleSelectExportFormat(format: ExportFormat): void {
-  emit('select-export-format', format)
-}
-
-function handleSelectPptOutlineAction(
-  value: 'confirm' | 'edit',
-  info: UserInteractionRequest
-): void {
-  emit('select-ppt-outline-action', value, info)
 }
 
 /**
@@ -401,9 +379,7 @@ function hasRenderableReact(message: Message): boolean {
               :current-model-name="props.currentModelName"
               :is-reasoning-expanded="isReasoningExpanded(msg.id)"
               :current-chat-id="currentChatId"
-              :is-exporting="props.exportingMessageId === msg.id"
               @toggle-reasoning="toggleReasoning"
-              @request-export="handleRequestExport(msg)"
             >
               <template #react-steps>
                 <ReActSteps
@@ -429,7 +405,6 @@ function hasRenderableReact(message: Message): boolean {
           :selected-m-c-p-tools="props.selectedMCPTools"
           :selected-knowledge-bases="props.selectedKnowledgeBases"
           :enable-sandbox-tools="props.enableSandboxTools"
-          :export-interaction-info="props.exportInteractionInfo"
           :quick-reply-info="activeQuickReply"
           @send="handleSendMessage"
           @stop="handleStopRequest"
@@ -439,8 +414,6 @@ function hasRenderableReact(message: Message): boolean {
           @update:selected-m-c-p-tools="handleUpdateSelectedTools"
           @update:selected-knowledge-bases="handleUpdateSelectedKnowledgeBases"
           @update:enable-sandbox-tools="handleUpdateEnableSandboxTools"
-          @select-export-format="handleSelectExportFormat"
-          @select-ppt-outline-action="handleSelectPptOutlineAction"
         />
       </div>
     </section>

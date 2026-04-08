@@ -14,8 +14,6 @@ const props = defineProps<{
   selectedKnowledgeBases: KnowledgeBase[]
   enableSandboxTools?: boolean
   totalAttachmentCount?: number
-  voiceRecognitionEnabled?: boolean
-  isRecording?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -24,7 +22,6 @@ const emit = defineEmits<{
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableSandboxTools', value: boolean): void
   (e: 'upload'): void
-  (e: 'toggle-voice'): void
   (e: 'send'): void
   (e: 'stop'): void
 }>()
@@ -106,24 +103,13 @@ onUnmounted(() => {
         class="document-upload-btn"
         :class="{ 'has-docs': (props.totalAttachmentCount || 0) > 0 }"
         :disabled="props.isSending"
-        title="上传文件 (文档: txt, md, pdf, doc, docx, csv, pptx / 图片: jpg, png, webp, bmp, tiff)"
+        title="上传文件 (文档: txt, md, pdf, doc, docx, csv / 图片: jpg, png, webp, bmp, tiff)"
         @click="emit('upload')"
       >
         <SvgIcon name="attachment" :size="18" />
         <span v-if="(props.totalAttachmentCount || 0) > 0" class="doc-count">
           {{ props.totalAttachmentCount }}
         </span>
-      </button>
-
-      <button
-        v-if="props.voiceRecognitionEnabled"
-        class="voice-input-btn"
-        :class="{ recording: props.isRecording }"
-        :disabled="props.isSending"
-        :title="props.isRecording ? '正在录音...点击停止' : '语音输入'"
-        @click="emit('toggle-voice')"
-      >
-        <SvgIcon name="microphone" :size="18" />
       </button>
 
       <button v-if="!props.isSending" class="btn-primary execute-btn" @click="emit('send')">

@@ -7,9 +7,6 @@ import MCPSettings from './settings/MCPSettings.vue'
 import PromptEngineeringSettings from './settings/PromptEngineeringSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
-import VoiceRecognitionSettings from './settings/VoiceRecognitionSettings.vue'
-import AliyunMiaobiSettings from './settings/AliyunMiaobiSettings.vue'
-import VideoModelSettings from './settings/VideoModelSettings.vue'
 import PaperOcrSettings from './settings/PaperOcrSettings.vue'
 import { useConfigStore } from '@renderer/stores'
 
@@ -18,17 +15,7 @@ const emit = defineEmits<{
   (e: 'mcp-updated'): void
 }>()
 
-type SettingsTabKey =
-  | 'theme'
-  | 'model'
-  | 'video'
-  | 'mcp'
-  | 'prompt'
-  | 'embedding'
-  | 'knowledge'
-  | 'voice'
-  | 'aliyunMiaobi'
-  | 'paperOcr'
+type SettingsTabKey = 'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge' | 'paperOcr'
 
 // 使用 configStore
 const configStore = useConfigStore()
@@ -46,11 +33,6 @@ const settingsTabs: Array<{
     id: 'model',
     label: '对话模型配置',
     description: '管理默认模型、接口地址与上下文参数。'
-  },
-  {
-    id: 'video',
-    label: '视频模型配置',
-    description: '配置视频生成接口、默认尺寸与输出偏好。'
   },
   {
     id: 'embedding',
@@ -76,16 +58,6 @@ const settingsTabs: Array<{
     id: 'knowledge',
     label: '知识库服务',
     description: '管理知识库 MCP 对外服务与共享说明。'
-  },
-  {
-    id: 'voice',
-    label: '语音识别',
-    description: '配置语音识别服务凭据与调用入口。'
-  },
-  {
-    id: 'aliyunMiaobi',
-    label: '妙笔 PPT',
-    description: '配置阿里云妙笔凭据，启用新的 PPT 生成链路。'
   },
   {
     id: 'theme',
@@ -171,14 +143,6 @@ onUnmounted(() => {
               @mcp-updated="emit('mcp-updated')"
             />
 
-            <VideoModelSettings
-              v-else-if="activeTab === 'video'"
-              :error-message="errorMessage"
-              :success-message="successMessage"
-              @update:error-message="errorMessage = $event"
-              @update:success-message="successMessage = $event"
-            />
-
             <EmbeddingModelSettings
               v-else-if="activeTab === 'embedding'"
               :error-message="errorMessage"
@@ -200,22 +164,6 @@ onUnmounted(() => {
 
             <KnowledgeMCPSettings
               v-else-if="activeTab === 'knowledge'"
-              @update:error-message="errorMessage = $event"
-              @update:success-message="successMessage = $event"
-            />
-
-            <VoiceRecognitionSettings
-              v-else-if="activeTab === 'voice'"
-              :error-message="errorMessage"
-              :success-message="successMessage"
-              @update:error-message="errorMessage = $event"
-              @update:success-message="successMessage = $event"
-            />
-
-            <AliyunMiaobiSettings
-              v-else-if="activeTab === 'aliyunMiaobi'"
-              :error-message="errorMessage"
-              :success-message="successMessage"
               @update:error-message="errorMessage = $event"
               @update:success-message="successMessage = $event"
             />
