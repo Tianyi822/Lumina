@@ -1,8 +1,40 @@
-import type { PaperTranslationSegment, PaperTranslationSegmentKind } from '../types/paper'
+import type {
+  PaperTranslationCache,
+  PaperTranslationSegment,
+  PaperTranslationSegmentKind
+} from '../types/paper'
+
+function isImageOnlyBlock(block: string): boolean {
+  const trimmed = block.trim()
+  if (!trimmed) {
+    return false
+  }
+
+  const withoutMarkdownImages = trimmed.replace(/!\[[^\]]*]\([^)]+\)/g, '').trim()
+  if (!withoutMarkdownImages) {
+    return true
+  }
+
+  if (!/<img\b/i.test(trimmed)) {
+    return false
+  }
+
+  const withoutImgTags = trimmed
+    .replace(/<img\b[^>]*\/?>/gi, '')
+    .replace(/<\/?(?:div|p|span|figure|a)\b[^>]*>/gi, '')
+    .replace(/&nbsp;/gi, ' ')
+    .trim()
+
+  return withoutImgTags.length === 0
+}
 
 function detectPaperTranslationSegmentKind(block: string): PaperTranslationSegmentKind {
   if (/^#{1,6}\s/.test(block)) {
     return 'heading'
+  }
+
+  if (isImageOnlyBlock(block)) {
+    return 'image'
   }
 
   if (/^```[\s\S]*```$/m.test(block) || /^ {4,}\S/m.test(block)) {
@@ -38,6 +70,22 @@ export function stripPaperTranslationMarkdown(markdown: string): string {
     .replace(/\|/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+export function hasPaperTranslationResult(
+  cache: PaperTranslationCache | null | undefined
+): boolean {
+  if (!cache || cache.entries.length === 0) {
+    return false
+  }
+
+  return cache.entries.some((entry) => {
+    if (entry.status === 'completed') {
+      return !!entry.translatedMarkdown?.trim()
+    }
+
+    return entry.status === 'failed' || entry.status === 'translating'
+  })
 }
 
 export function parsePaperTranslationSegments(markdown: string): PaperTranslationSegment[] {

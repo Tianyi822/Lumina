@@ -210,6 +210,7 @@ export type PaperTranslationSegmentKind =
   | 'list'
   | 'quote'
   | 'table'
+  | 'image'
   | 'code'
 
 /**
