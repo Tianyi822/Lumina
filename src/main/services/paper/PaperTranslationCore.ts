@@ -44,9 +44,156 @@ interface ActiveTranslationTask {
 }
 
 const DEFAULT_CONCURRENCY = 3
+const PERSON_NAME_CHUNK_PATTERN =
+  /(?:[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3})(?:\s+\d+(?:,\d+)*[*†‡]*)*/g
+const AFFILIATION_KEYWORD_PATTERN =
+  /\b(?:university|institute|school|college|laboratory|department|academy|center|centre|ministry|faculty|hospital|research\s+center|engineering\s+research)\b|(?:大学|学院|研究所|实验室|中心|系|院|部|国家|中国)/gi
+const PROMPT_ARTIFACT_LINE_PATTERN =
+  /^\s*(?:\[(?:上一段(?:原文)?参考|下一段(?:原文)?参考|当前(?:需要翻译的)?段落|翻译输出)\]|(?:上一段(?:原文)?参考|下一段(?:原文)?参考|当前(?:需要翻译的)?段落|翻译输出)|(?:previous_context|next_context|current_segment|translation))\s*:?\s*$/i
+const PROMPT_ARTIFACT_TAG_PATTERN =
+  /<\/?(?:previous_context|next_context|current_segment|translation)(?:\s+[^>]*)?>/gi
 
 export function computePaperTranslationSourceHash(markdown: string): string {
   return createHash('sha256').update(markdown).digest('hex')
+}
+
+function normalizeSegmentText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
+function isContactLikeText(text: string): boolean {
+  return (
+    /@/.test(text) ||
+    /\bORCID\b/i.test(text) ||
+    /correspond(?:ing)?\s+author/i.test(text) ||
+    /通讯作者|共同一作|equal contribution/i.test(text)
+  )
+}
+
+function isPersonClusterText(text: string): boolean {
+  const matches = text.match(PERSON_NAME_CHUNK_PATTERN) ?? []
+  if (matches.length < 2) {
+    return false
+  }
+
+  const remainder = text
+    .replace(PERSON_NAME_CHUNK_PATTERN, '')
+    .replace(/\b(?:and|et)\b/gi, '')
+    .replace(/[,\s*†‡()[\].-]+/g, '')
+
+  return remainder.length === 0
+}
+
+function isAffiliationLikeText(text: string): boolean {
+  const keywordMatches = text.match(AFFILIATION_KEYWORD_PATTERN) ?? []
+  if (keywordMatches.length === 0) {
+    return false
+  }
+
+  const startsWithAffiliationMarker = /^(?:\(?\d+(?:,\d+)*\)?|[*†‡]+\s*\d*)\s*/.test(text)
+  const commaCount = (text.match(/[，,]/g) ?? []).length
+  const hasSentenceTerminator = /[.!?。？！]\s*$/.test(text)
+  const hasMultipleInstitutionKeywords = keywordMatches.length >= 2
+  const hasLocationCue =
+    /\b(?:china|beijing|shanghai|tianjin|province|city)\b/i.test(text) ||
+    /(?:中国|北京|上海|天津|省|市)/.test(text)
+
+  return (
+    startsWithAffiliationMarker ||
+    hasMultipleInstitutionKeywords ||
+    (commaCount >= 2 && !hasSentenceTerminator) ||
+    (hasLocationCue && !hasSentenceTerminator)
+  )
+}
+
+function normalizeSegmentForFormulaDetection(segment: string): string {
+  return segment
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(div|p|li|tr|td|th|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function isStandaloneFormulaDelimiter(segment: string): boolean {
+  return /^(?:\${1,2}|\\\(|\\\)|\\\[|\\\])$/.test(segment.trim())
+}
+
+function hasFormulaDelimiters(segment: string): boolean {
+  const normalized = normalizeSegmentForFormulaDetection(segment)
+  if (!normalized) {
+    return false
+  }
+
+  return /(^|[^\\])\${1,2}/.test(normalized) || /\\\[|\\\]|\\\(|\\\)/.test(normalized)
+}
+
+function hasLatexEnvironment(segment: string): boolean {
+  return /\\(?:begin|end)\{[^}]+\}/.test(normalizeSegmentForFormulaDetection(segment))
+}
+
+function looksLikeFormulaBody(segment: string): boolean {
+  const normalized = normalizeSegmentForFormulaDetection(segment)
+  if (!normalized) {
+    return false
+  }
+
+  const texCommandCount = (normalized.match(/\\[A-Za-z]+/g) || []).length
+  const mathStructureCount = (normalized.match(/[=^_{}]/g) || []).length
+  const formulaLikeWordCount = (normalized.match(/[A-Za-z]{2,}/g) || []).length
+
+  if (/^\\[A-Za-z]+/.test(normalized)) {
+    return true
+  }
+
+  if (texCommandCount >= 2) {
+    return true
+  }
+
+  if (texCommandCount >= 1 && mathStructureCount >= 2) {
+    return true
+  }
+
+  if (
+    texCommandCount >= 1 &&
+    mathStructureCount >= 1 &&
+    formulaLikeWordCount <= texCommandCount + 4 &&
+    !/[.!?。？！]/.test(normalized)
+  ) {
+    return true
+  }
+
+  return false
+}
+
+function isFormulaLikeSegment(segment: PaperTranslationSegment): boolean {
+  const source = segment.originalMarkdown.trim()
+
+  return (
+    isStandaloneFormulaDelimiter(source) ||
+    hasFormulaDelimiters(source) ||
+    hasLatexEnvironment(source) ||
+    looksLikeFormulaBody(source)
+  )
+}
+
+function isDividerLikeSegment(segment: PaperTranslationSegment): boolean {
+  const normalized = segment.originalMarkdown
+    .replace(/<\/?(?:div|p|span|section|article|figure)\b[^>]*>/gi, '')
+    .replace(/&nbsp;/gi, ' ')
+    .trim()
+
+  if (!normalized) {
+    return true
+  }
+
+  return /^(?:-{3,}|\*{3,}|_{3,}|<hr\b[^>]*\/?>)$/i.test(normalized)
 }
 
 export function isAuthorLikeSegment(segment: PaperTranslationSegment): boolean {
@@ -54,17 +201,12 @@ export function isAuthorLikeSegment(segment: PaperTranslationSegment): boolean {
     return true
   }
 
-  const text = segment.originalText.replace(/\s+/g, ' ').trim()
+  const text = normalizeSegmentText(segment.originalText)
   if (!text) {
     return true
   }
 
-  if (
-    /@/.test(text) ||
-    /\bORCID\b/i.test(text) ||
-    /correspond(?:ing)?\s+author/i.test(text) ||
-    /通讯作者|共同一作|equal contribution/i.test(text)
-  ) {
+  if (isContactLikeText(text)) {
     return true
   }
 
@@ -76,11 +218,41 @@ export function isAuthorLikeSegment(segment: PaperTranslationSegment): boolean {
     return true
   }
 
-  const compactText = text.replace(/\s+/g, ' ').trim()
-  const personClusterPattern =
-    /^(?:[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3}(?:\s+\d+(?:,\d+)*[*†‡]*)?\s*){2,}$/
+  if (isAffiliationLikeText(text)) {
+    return true
+  }
 
-  return personClusterPattern.test(compactText)
+  return isPersonClusterText(text)
+}
+
+function shouldSkipTranslationSegment(segment: PaperTranslationSegment): boolean {
+  return (
+    segment.kind === 'image' ||
+    isDividerLikeSegment(segment) ||
+    isAuthorLikeSegment(segment) ||
+    isFormulaLikeSegment(segment)
+  )
+}
+
+function stripPromptArtifacts(content: string): string {
+  const translationMatch = content.match(/<translation>([\s\S]*?)<\/translation>/i)
+  const strippedContent = translationMatch ? translationMatch[1] : content
+
+  return strippedContent
+    .replace(PROMPT_ARTIFACT_TAG_PATTERN, '')
+    .split('\n')
+    .filter((line) => !PROMPT_ARTIFACT_LINE_PATTERN.test(line.trim()))
+    .join('\n')
+    .trim()
+}
+
+function getFirstMeaningfulBlock(content: string): string {
+  return (
+    content
+      .split(/\n{2,}/)
+      .map((block) => block.trim())
+      .find(Boolean) ?? ''
+  )
 }
 
 function cloneEntry(entry: PaperTranslationEntry): PaperTranslationEntry {
@@ -250,7 +422,7 @@ export class PaperTranslationCore {
 
     const entries = segments.map<PaperTranslationEntry>((segment) => {
       const previousEntry = previousEntries.get(segment.id)
-      const shouldSkip = isAuthorLikeSegment(segment)
+      const shouldSkip = shouldSkipTranslationSegment(segment)
 
       if (shouldSkip) {
         return {
@@ -398,25 +570,32 @@ export class PaperTranslationCore {
 
     const parts = [
       '你是一个专业的学术论文翻译助手，请将当前 Markdown 段落翻译成中文。',
+      '只翻译 <current_segment> 标签内的内容。',
+      '<previous_context> 和 <next_context> 仅用于术语与语境参考，绝不能复述、复制或翻译到输出中。',
       '翻译要求：',
       '1. 只输出翻译后的 Markdown，不要输出解释、前言、注释或额外说明。',
       '2. 作者姓名、人名、邮箱、ORCID、参考文献中的作者名、机构专名保持原样，不要翻译。',
       '3. 保留公式、变量名、引用编号、链接、图片语法、表格结构和列表层级。',
       '4. 如原文已经是中文，仅做必要的学术化润色并保持原意。',
-      '5. 不要遗漏内容，也不要补充原文没有的信息。'
+      '5. 不要遗漏内容，也不要补充原文没有的信息。',
+      '6. 如果当前段落是标题，只输出标题本身，不要并入后续正文。',
+      '7. 不要输出任何 XML 标签。'
     ]
 
     if (previousEntry) {
-      parts.push('[上一段原文参考]')
+      parts.push('<previous_context>')
       parts.push(previousEntry.originalMarkdown)
+      parts.push('</previous_context>')
     }
 
-    parts.push('[当前需要翻译的段落]')
+    parts.push(`<current_segment kind="${currentEntry.kind}">`)
     parts.push(currentEntry.originalMarkdown)
+    parts.push('</current_segment>')
 
     if (nextEntry) {
-      parts.push('[下一段原文参考]')
+      parts.push('<next_context>')
       parts.push(nextEntry.originalMarkdown)
+      parts.push('</next_context>')
     }
 
     return parts.join('\n\n')
@@ -429,6 +608,8 @@ export class PaperTranslationCore {
       content = fenceMatch[1].trim()
     }
 
+    content = stripPromptArtifacts(content)
+
     if (!content) {
       throw new Error('模型未返回有效翻译结果')
     }
@@ -437,7 +618,20 @@ export class PaperTranslationCore {
       const headingMatch = segment.originalMarkdown.match(/^(#{1,6})\s+/)
       if (headingMatch) {
         const headingPrefix = headingMatch[1]
-        content = `${headingPrefix} ${content.replace(/^#{1,6}\s+/, '').trim()}`
+        const headingBlock = getFirstMeaningfulBlock(content)
+        const headingText = headingBlock
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .join(' ')
+          .replace(/^#{1,6}\s+/, '')
+          .trim()
+
+        if (!headingText) {
+          throw new Error('标题段翻译结果为空')
+        }
+
+        content = `${headingPrefix} ${headingText}`
       }
     }
 
