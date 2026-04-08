@@ -3,13 +3,7 @@ import { join } from 'path'
 import { AppConfig, ConfigLoadResult } from '@main/types/config'
 import { getConfigDirPath, getConfigFilePath } from './configPaths'
 import { logger } from '@main/services/logger'
-import {
-  createDefaultVideoGenerationConfig,
-  DEFAULT_VIDEO_GENERATION_TIMEOUT_MS,
-  LEGACY_VIDEO_GENERATION_TIMEOUT_MS,
-  DEFAULT_OCR_PROVIDER,
-  type EmbeddingConfig
-} from '@shared/types/config'
+import { DEFAULT_OCR_PROVIDER, type EmbeddingConfig } from '@shared/types/config'
 import {
   DEFAULT_THEME_ID,
   DEFAULT_THEME_MODE,
@@ -53,11 +47,6 @@ function createEmptyConfig(): AppConfig {
     },
     embeddingModels: {},
     knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG,
-    voiceRecognition: {
-      provider: 'aliyun',
-      enabled: false
-    },
-    videoGeneration: createDefaultVideoGenerationConfig(),
     paperOcr: {
       provider: DEFAULT_OCR_PROVIDER
     }
@@ -161,31 +150,15 @@ function migrateConfig(config: AppConfig): AppConfig {
     migrated.knowledgeMCP = DEFAULT_KNOWLEDGE_MCP_CONFIG
   }
 
-  // 迁移语音识别配置
-  if (!migrated.voiceRecognition) {
-    migrated.voiceRecognition = {
-      provider: 'aliyun',
-      enabled: false
-    }
-  }
-
-  const originalVideoGeneration = migrated.videoGeneration
-  migrated.videoGeneration = {
-    ...createDefaultVideoGenerationConfig(),
-    ...migrated.videoGeneration
-  }
-  if (
-    !originalVideoGeneration?.requestTimeoutMs ||
-    originalVideoGeneration.requestTimeoutMs === LEGACY_VIDEO_GENERATION_TIMEOUT_MS
-  ) {
-    migrated.videoGeneration.requestTimeoutMs = DEFAULT_VIDEO_GENERATION_TIMEOUT_MS
-  }
-
   if (!migrated.paperOcr) {
     migrated.paperOcr = {
       provider: DEFAULT_OCR_PROVIDER
     }
   }
+
+  delete (migrated as Record<string, unknown>).voiceRecognition
+  delete (migrated as Record<string, unknown>).aliyunMiaobi
+  delete (migrated as Record<string, unknown>).videoGeneration
 
   return migrated
 }
@@ -305,8 +278,9 @@ export class ConfigManager {
    */
   saveConfig(config: AppConfig): { success: boolean; error?: string } {
     try {
-      this.writeConfigFile(config)
-      this.config = config
+      const sanitizedConfig = migrateConfig(config)
+      this.writeConfigFile(sanitizedConfig)
+      this.config = sanitizedConfig
       this.loadError = null
       logger.info('配置保存成功')
       return { success: true }
@@ -333,7 +307,10 @@ export class ConfigManager {
       return { success: false, error: '无法更新：当前没有有效配置' }
     }
 
-    const newConfig = { ...this.config, ...partialConfig }
+    const newConfig = {
+      ...this.config,
+      ...partialConfig
+    }
     return this.saveConfig(newConfig)
   }
 

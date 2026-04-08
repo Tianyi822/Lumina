@@ -293,11 +293,11 @@ function endsWithStrongTerminalPunctuation(text: string): boolean {
 }
 
 function startsWithContinuationText(text: string): boolean {
-  return /^[a-z0-9(,:;'"“‘\[]/.test(text)
+  return /^(?:\[|[a-z0-9(,:;'"“‘])/.test(text)
 }
 
 function startsWithInlineContinuationCue(text: string): boolean {
-  return /^[a-z(,:;'"“‘\[]/.test(text)
+  return /^(?:\[|[a-z(,:;'"“‘])/.test(text)
 }
 
 function startsWithUppercaseLatin(text: string): boolean {
