@@ -60,15 +60,11 @@ export class ChatService {
    */
   async sendMessage(request: ChatRequest, webContents: WebContents): Promise<ChatResult> {
     const { selectedTools, selectedKnowledgeBases, sessionId } = request
-    const enablePresentationTools = this.reactLoopService.shouldExposePresentationTools(request)
 
     this.stopController.clearStoppedSession(sessionId)
 
     const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
-    const hasTools =
-      (selectedTools && selectedTools.length > 0) ||
-      request.enableSandboxTools ||
-      enablePresentationTools
+    const hasTools = (selectedTools && selectedTools.length > 0) || request.enableSandboxTools
 
     if (hasKnowledgeBases || hasTools) {
       const result = await this.reactLoopService.sendMessageWithReact(

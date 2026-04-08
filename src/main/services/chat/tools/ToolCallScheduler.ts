@@ -9,16 +9,9 @@ import type { MCPService } from '../../mcp'
 import type { Logger } from '../../logger'
 import { sandboxToolService } from '../../sandbox'
 import { knowledgeToolService } from '../../knowledge'
-import { presentationToolService } from '../../presentation'
-import { videoToolService } from '../../video'
 import type { MCPToolCallResult } from '@shared/types/mcp'
 
-const FORCED_SEQUENTIAL_TOOLS = new Set([
-  'sandbox__ask_user',
-  'presentation__request_outline_confirmation',
-  'video__request_generation_config',
-  'video__generate'
-])
+const FORCED_SEQUENTIAL_TOOLS = new Set(['sandbox__ask_user'])
 
 /**
  * 工具调用定义
@@ -223,15 +216,6 @@ export class ToolCallScheduler {
           parsedArgs,
           this.getSelectedKnowledgeBaseIds?.(sessionId)
         )
-      } else if (serverName === 'presentation') {
-        toolCallResult = await presentationToolService.callTool(toolName, parsedArgs, {
-          sessionId,
-          onOutlineChunk: (text) => {
-            webContents.send('ppt:outline:chunk', { sessionId, text })
-          }
-        })
-      } else if (serverName === 'video') {
-        toolCallResult = await videoToolService.callTool(toolName, parsedArgs)
       } else {
         toolCallResult = await this.mcpService.callTool(serverName, actualToolName, parsedArgs)
       }
