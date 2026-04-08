@@ -27,8 +27,13 @@ const { currentView, isCurrentSidebarCollapsed } = storeToRefs(uiStateStore)
 const { sessionList, currentChatId } = storeToRefs(sessionStore)
 const { knowledgeBases, activeKbId } = storeToRefs(knowledgeStore)
 const { currentSandbox, sandboxList, deleteConfirmState } = storeToRefs(sandboxStore)
-const { papers, currentPaperId, renderProgressByPaperId, ocrProgressByPaperId } =
-  storeToRefs(paperReaderStore)
+const {
+  papers,
+  currentPaperId,
+  renderProgressByPaperId,
+  ocrProgressByPaperId,
+  hasTranslationByPaperId
+} = storeToRefs(paperReaderStore)
 
 const chatSearchQuery = ref('')
 const knowledgeSearchQuery = ref('')
@@ -203,6 +208,13 @@ async function handleRetryPaper(paperId: string): Promise<void> {
   const result = await paperReaderStore.retryPaper(paperId)
   if (!result.success) {
     alert(`重试失败：${result.error || '未知错误'}`)
+  }
+}
+
+async function handleDeleteTranslation(paperId: string): Promise<void> {
+  const result = await paperReaderStore.deleteTranslation(paperId)
+  if (!result.success) {
+    alert(`删除翻译失败：${result.error || '未知错误'}`)
   }
 }
 </script>
@@ -391,9 +403,11 @@ async function handleRetryPaper(paperId: string): Promise<void> {
                   :current-paper-id="currentPaperId"
                   :render-progress-by-paper-id="renderProgressByPaperId"
                   :ocr-progress-by-paper-id="ocrProgressByPaperId"
+                  :has-translation-by-paper-id="hasTranslationByPaperId"
                   @select-paper="handleSelectPaper"
                   @upload-pdf="handleUploadPdf"
                   @delete-paper="handleDeletePaper"
+                  @delete-translation="handleDeleteTranslation"
                   @retry-paper="handleRetryPaper"
                 />
               </template>

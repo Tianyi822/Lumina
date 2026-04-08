@@ -15,6 +15,7 @@ import type {
   PaperDocument,
   PaperPageAsset,
   PaperPageOcrResult,
+  PaperTranslationCache,
   PaperStatus
 } from '@shared/types/paper'
 import {
@@ -26,7 +27,8 @@ import {
   getPaperOcrNormalizedPath,
   getPapersDirPath,
   getPaperPageImagePath,
-  getPaperPagesDirPath
+  getPaperPagesDirPath,
+  getPaperTranslationPath
 } from './paperPaths'
 
 export const MAX_PAPER_PAGES = 200
@@ -328,6 +330,60 @@ export class PaperStorageService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('保存 Markdown 失败', 'main', { paperId, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  readTranslationCache(paperId: string): {
+    success: boolean
+    data?: PaperTranslationCache
+    error?: string
+  } {
+    try {
+      const translationPath = getPaperTranslationPath(paperId)
+      if (!existsSync(translationPath)) {
+        return { success: false, error: '翻译缓存不存在' }
+      }
+
+      const content = readFileSync(translationPath, 'utf-8')
+      return { success: true, data: JSON.parse(content) as PaperTranslationCache }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('读取翻译缓存失败', 'main', { paperId, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  saveTranslationCache(
+    paperId: string,
+    cache: PaperTranslationCache
+  ): { success: boolean; error?: string } {
+    try {
+      const paperDir = getPaperDirPath(paperId)
+      if (!existsSync(paperDir)) {
+        mkdirSync(paperDir, { recursive: true })
+      }
+
+      writeFileSync(getPaperTranslationPath(paperId), JSON.stringify(cache, null, 2), 'utf-8')
+      return { success: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('保存翻译缓存失败', 'main', { paperId, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  clearTranslationCache(paperId: string): { success: boolean; error?: string } {
+    try {
+      const translationPath = getPaperTranslationPath(paperId)
+      if (existsSync(translationPath)) {
+        rmSync(translationPath, { force: true })
+      }
+
+      return { success: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('清理翻译缓存失败', 'main', { paperId, error: errorMessage })
       return { success: false, error: errorMessage }
     }
   }

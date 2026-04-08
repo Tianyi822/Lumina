@@ -28,3 +28,6 @@ export * from './prompt-variables'
 
 // 主题相关工具
 export * from './theme'
+
+// 论文翻译相关工具
+export * from './paperTranslation'

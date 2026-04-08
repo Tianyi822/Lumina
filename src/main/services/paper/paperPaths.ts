@@ -38,6 +38,11 @@ export const META_FILE_NAME = 'meta.json'
 export const MERGED_MD_FILE_NAME = 'merged.md'
 
 /**
+ * 翻译缓存文件名
+ */
+export const TRANSLATION_FILE_NAME = 'translation.json'
+
+/**
  * 批注文件名
  */
 export const ANNOTATIONS_FILE_NAME = 'annotations.json'
@@ -158,6 +163,13 @@ export function getPaperFigureAssetPath(
  */
 export function getPaperMergedMdPath(paperId: string): string {
   return join(getPaperDirPath(paperId), MERGED_MD_FILE_NAME)
+}
+
+/**
+ * 获取翻译缓存文件路径
+ */
+export function getPaperTranslationPath(paperId: string): string {
+  return join(getPaperDirPath(paperId), TRANSLATION_FILE_NAME)
 }
 
 /**

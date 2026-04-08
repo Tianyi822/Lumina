@@ -1,4 +1,10 @@
-import type { PaperDocument, PaperFigureItem, PaperStatus } from '@shared/types/paper'
+import type {
+  PaperDocument,
+  PaperFigureItem,
+  PaperStatus,
+  PaperTranslationProgress,
+  PaperTranslationState
+} from '@shared/types/paper'
 import type { OcrProviderId } from '@shared/types/config'
 
 export interface OcrProgressInfo {
@@ -148,4 +154,34 @@ export interface PaperApi {
   }>
 
   onOcrProgress: (callback: (progress: OcrProgressInfo) => void) => () => void
+
+  /** 获取翻译状态 */
+  getTranslationState: (paperId: string) => Promise<{
+    success: boolean
+    data?: PaperTranslationState
+    error?: string
+  }>
+
+  /** 查询论文是否已有完整翻译 */
+  listTranslationStatus: (paperIds: string[]) => Promise<{
+    success: boolean
+    data?: Record<string, boolean>
+    error?: string
+  }>
+
+  /** 删除论文翻译缓存 */
+  deleteTranslation: (paperId: string) => Promise<{
+    success: boolean
+    error?: string
+  }>
+
+  /** 启动或继续翻译 */
+  startTranslation: (paperId: string) => Promise<{
+    success: boolean
+    alreadyRunning?: boolean
+    error?: string
+  }>
+
+  /** 监听翻译进度 */
+  onTranslationProgress: (callback: (progress: PaperTranslationProgress) => void) => () => void
 }

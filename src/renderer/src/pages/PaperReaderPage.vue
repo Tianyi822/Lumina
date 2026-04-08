@@ -7,8 +7,15 @@ import PaperFigurePreview from '@renderer/components/paper/PaperFigurePreview.vu
 
 const store = usePaperReaderStore()
 
-const { currentPaperId, markdownContent, markdownLoading, isOcrCompleted, paperBasePath } =
-  storeToRefs(store)
+const {
+  currentPaperId,
+  markdownContent,
+  markdownLoading,
+  isOcrCompleted,
+  paperBasePath,
+  translationVisible,
+  currentTranslationCache
+} = storeToRefs(store)
 
 onMounted(async () => {
   store.ensureOcrProgressListener()
@@ -36,6 +43,8 @@ onBeforeUnmount(() => {
         :loading="markdownLoading"
         :paper-id="currentPaperId || ''"
         :base-path="paperBasePath || undefined"
+        :translation-visible="translationVisible"
+        :translation-cache="currentTranslationCache"
       />
     </div>
 

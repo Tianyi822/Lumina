@@ -8,12 +8,14 @@ const props = defineProps<{
   currentPaperId: string | null
   renderProgressByPaperId: Record<string, RenderingProgress>
   ocrProgressByPaperId: Record<string, OcrProgressInfo>
+  hasTranslationByPaperId: Record<string, boolean>
 }>()
 
 const emit = defineEmits<{
   (e: 'select-paper', paperId: string): void
   (e: 'upload-pdf'): void
   (e: 'delete-paper', paperId: string): void
+  (e: 'delete-translation', paperId: string): void
   (e: 'retry-paper', paperId: string): void
 }>()
 
@@ -25,22 +27,6 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatTime(dateStr: string): string {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMin = Math.floor(diffMs / 60000)
-  const diffHour = Math.floor(diffMs / 3600000)
-  const diffDay = Math.floor(diffMs / 86400000)
-
-  if (diffMin < 1) return '刚刚'
-  if (diffMin < 60) return `${diffMin} 分钟前`
-  if (diffHour < 24) return `${diffHour} 小时前`
-  if (diffDay < 7) return `${diffDay} 天前`
-
-  return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
 function getRenderProgress(paper: PaperDocument): { completedPages: number; totalPages: number } {
@@ -187,6 +173,15 @@ function handleRetryPaper(paperId: string, event: Event): void {
   event.stopPropagation()
   emit('retry-paper', paperId)
 }
+
+function hasTranslated(paperId: string): boolean {
+  return props.hasTranslationByPaperId[paperId] === true
+}
+
+function handleDeleteTranslation(paperId: string, event: Event): void {
+  event.stopPropagation()
+  emit('delete-translation', paperId)
+}
 </script>
 
 <template>
@@ -212,12 +207,23 @@ function handleRetryPaper(paperId: string, event: Event): void {
 
           <div class="paper-item__info">
             <div class="paper-item__name" :title="paper.fileName">{{ paper.fileName }}</div>
-            <div class="paper-item__meta">
-              <span>{{ paper.pageCount }} 页</span>
-              <span class="paper-item__meta-sep">·</span>
-              <span>{{ formatFileSize(paper.fileSize) }}</span>
-              <span class="paper-item__meta-sep">·</span>
-              <span>{{ formatTime(paper.updatedAt) }}</span>
+            <div class="paper-item__meta-row">
+              <div class="paper-item__meta">
+                <span>{{ paper.pageCount }} 页</span>
+                <span class="paper-item__meta-sep">·</span>
+                <span>{{ formatFileSize(paper.fileSize) }}</span>
+              </div>
+
+              <button
+                v-if="hasTranslated(paper.id)"
+                class="paper-item__translation-tag"
+                type="button"
+                title="点击删除翻译内容"
+                @click="handleDeleteTranslation(paper.id, $event)"
+              >
+                <span class="paper-item__translation-tag-default">有译文</span>
+                <span class="paper-item__translation-tag-delete">删除翻译</span>
+              </button>
             </div>
 
             <div v-if="shouldShowRenderProgress(paper)" class="paper-item__progress">
@@ -263,14 +269,16 @@ function handleRetryPaper(paperId: string, event: Event): void {
             </div>
           </div>
 
-          <button
-            class="paper-item__delete-btn"
-            title="删除论文"
-            type="button"
-            @click="handleDeletePaper(paper.id, $event)"
-          >
-            <SvgIcon name="trash" :size="14" />
-          </button>
+          <div class="paper-item__actions">
+            <button
+              class="paper-item__delete-btn"
+              title="删除论文"
+              type="button"
+              @click="handleDeletePaper(paper.id, $event)"
+            >
+              <SvgIcon name="trash" :size="14" />
+            </button>
+          </div>
         </div>
       </TransitionGroup>
     </div>
@@ -335,7 +343,6 @@ function handleRetryPaper(paperId: string, event: Event): void {
 .paper-item__info {
   flex: 1;
   min-width: 0;
-  padding-right: 40px;
   box-sizing: border-box;
 }
 
@@ -345,9 +352,23 @@ function handleRetryPaper(paperId: string, event: Event): void {
   line-height: 1.4;
   color: var(--sm-color-text-primary);
   margin-bottom: 3px;
+  padding-right: 40px;
+  box-sizing: border-box;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.paper-item__meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+.paper-item__meta-row:last-child {
+  margin-bottom: 0;
 }
 
 .paper-item__meta {
@@ -356,12 +377,16 @@ function handleRetryPaper(paperId: string, event: Event): void {
   color: var(--sm-color-text-tertiary);
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 5px;
-  margin-bottom: 8px;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-.paper-item__meta:last-child {
-  margin-bottom: 0;
+.paper-item__meta > span {
+  flex-shrink: 0;
 }
 
 .paper-item__meta-sep {
@@ -468,10 +493,16 @@ function handleRetryPaper(paperId: string, event: Event): void {
   color: var(--sm-color-text-tertiary);
 }
 
-.paper-item__delete-btn {
+.paper-item__actions {
   position: absolute;
   top: 10px;
-  right: 10px;
+  right: 12px;
+  display: flex;
+  align-items: flex-end;
+  z-index: 1;
+}
+
+.paper-item__delete-btn {
   width: 22px;
   height: 22px;
   display: flex;
@@ -484,11 +515,12 @@ function handleRetryPaper(paperId: string, event: Event): void {
   cursor: pointer;
   opacity: 0;
   transition: all 0.15s ease;
-  z-index: 1;
 }
 
 .paper-item:hover .paper-item__delete-btn,
-.paper-item--disabled .paper-item__delete-btn {
+.paper-item--disabled .paper-item__delete-btn,
+.paper-item:hover .paper-item__translation-tag,
+.paper-item--disabled .paper-item__translation-tag {
   opacity: 1;
 }
 
@@ -496,5 +528,47 @@ function handleRetryPaper(paperId: string, event: Event): void {
   background-color: rgba(199, 120, 120, 0.12);
   border-color: rgba(199, 120, 120, 0.28);
   color: rgba(199, 120, 120, 0.92);
+}
+
+.paper-item__translation-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: 22px;
+  min-width: 56px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--sm-color-success, #23a26d) 24%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sm-color-success, #23a26d) 10%, transparent);
+  color: var(--sm-color-success, #23a26d);
+  font-size: 11px;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0.92;
+  transition:
+    opacity var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+}
+
+.paper-item__translation-tag-delete {
+  display: none;
+}
+
+.paper-item__translation-tag:hover {
+  border-color: color-mix(in srgb, var(--sm-color-danger, #ef4444) 34%, transparent);
+  background: color-mix(in srgb, var(--sm-color-danger, #ef4444) 12%, transparent);
+  color: var(--sm-color-danger, #ef4444);
+}
+
+.paper-item__translation-tag:hover .paper-item__translation-tag-default {
+  display: none;
+}
+
+.paper-item__translation-tag:hover .paper-item__translation-tag-delete {
+  display: inline;
 }
 </style>
