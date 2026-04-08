@@ -60,6 +60,7 @@
 }
 
 .sm-workspace-page {
+  position: relative;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -109,22 +110,6 @@
   justify-content: center;
 }
 
-.sm-workspace-main__toolbar {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 4;
-  min-height: var(--sm-titlebar-height);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--sm-space-3);
-  background-color: var(--sm-color-bg-canvas);
-  -webkit-app-region: drag;
-  user-select: none;
-}
-
 .sm-workspace-main__body {
   flex: 1;
   min-width: 0;
@@ -133,7 +118,6 @@
   z-index: 1;
   display: flex;
   overflow: hidden;
-  padding-top: var(--sm-titlebar-height);
 }
 
 .sm-workspace-main__body--scrollable {

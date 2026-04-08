@@ -145,7 +145,7 @@ export class PaperService {
 
     return {
       success: true,
-      data: buildReaderMarkdown(pageResults, figureData.pageRemovalBlockIndexes)
+      data: buildReaderMarkdown(pageResults, figureData)
     }
   }
 
