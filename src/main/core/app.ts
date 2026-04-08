@@ -11,7 +11,6 @@ import {
   initializeEmbeddingModels,
   initializeSandbox
 } from '@main/ipc'
-import { videoToolService } from '@main/services/video'
 
 /**
  * 初始化应用
@@ -55,9 +54,6 @@ export function initializeApp(): void {
 
     // 创建主窗口
     createMainWindow()
-
-    // 恢复会话里未完成的视频任务
-    void videoToolService.recoverPendingTasks()
 
     // 在 macOS 上，当点击 dock 图标且没有其他窗口打开时，通常会重新创建一个窗口
     app.on('activate', function () {
