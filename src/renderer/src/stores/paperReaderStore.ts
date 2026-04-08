@@ -4,7 +4,10 @@ import type {
   OcrProgressInfo,
   PaperDocument,
   PaperFigureItem,
-  PaperStatus
+  PaperStatus,
+  PaperTranslationCache,
+  PaperTranslationEntry,
+  PaperTranslationProgress
 } from '@shared/types/paper'
 import {
   buildBase64DataUrl,
@@ -54,6 +57,13 @@ interface PipelineControl {
   deleted: boolean
 }
 
+interface PaperTranslationTaskState {
+  isRunning: boolean
+  completedSegments: number
+  totalSegments: number
+  lastError?: string
+}
+
 export interface PaperFigurePreviewRect {
   left: number
   top: number
@@ -74,6 +84,14 @@ function createIdleOcrProgress(paperId: string, totalPages: number): OcrProgress
     completedPages: 0,
     failedPages: [],
     status: 'idle'
+  }
+}
+
+function createIdleTranslationTaskState(): PaperTranslationTaskState {
+  return {
+    isRunning: false,
+    completedSegments: 0,
+    totalSegments: 0
   }
 }
 
@@ -146,8 +164,20 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   /** 当前论文目录 */
   const paperTocItems = ref<PaperTocItem[]>([])
 
+  /** 是否显示译文 */
+  const translationVisible = ref(false)
+
+  /** 各论文的翻译缓存 */
+  const translationByPaperId = ref<Record<string, PaperTranslationCache>>({})
+
+  /** 各论文的翻译任务状态 */
+  const translationTaskByPaperId = ref<Record<string, PaperTranslationTaskState>>({})
+
   /** OCR 进度监听清理函数 */
   let ocrProgressCleanup: (() => void) | null = null
+
+  /** 翻译进度监听清理函数 */
+  let translationProgressCleanup: (() => void) | null = null
 
   /** 正在运行的论文任务 */
   const activePipelines = new Set<string>()
@@ -168,6 +198,27 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
 
     return figuresByPaperId.value[currentPaperId.value] || []
   })
+
+  /** 当前论文翻译缓存 */
+  const currentTranslationCache = computed<PaperTranslationCache | null>(() => {
+    if (!currentPaperId.value) {
+      return null
+    }
+
+    return translationByPaperId.value[currentPaperId.value] || null
+  })
+
+  /** 当前论文翻译任务状态 */
+  const currentTranslationTask = computed<PaperTranslationTaskState>(() => {
+    if (!currentPaperId.value) {
+      return createIdleTranslationTaskState()
+    }
+
+    return translationTaskByPaperId.value[currentPaperId.value] || createIdleTranslationTaskState()
+  })
+
+  /** 当前论文是否正在翻译 */
+  const isCurrentPaperTranslating = computed(() => currentTranslationTask.value.isRunning)
 
   /** 当前论文是否可阅读 */
   const isOcrCompleted = computed(() => {
@@ -215,6 +266,14 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     const nextFigureLoading = { ...figureLoadingByPaperId.value }
     delete nextFigureLoading[paperId]
     figureLoadingByPaperId.value = nextFigureLoading
+
+    const nextTranslationCache = { ...translationByPaperId.value }
+    delete nextTranslationCache[paperId]
+    translationByPaperId.value = nextTranslationCache
+
+    const nextTranslationTask = { ...translationTaskByPaperId.value }
+    delete nextTranslationTask[paperId]
+    translationTaskByPaperId.value = nextTranslationTask
   }
 
   function setPaperTocItems(items: PaperTocItem[]): void {
@@ -223,6 +282,10 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
 
   function clearPaperToc(): void {
     paperTocItems.value = []
+  }
+
+  function hideTranslation(): void {
+    translationVisible.value = false
   }
 
   function resetFigurePreviewRect(): void {
@@ -311,6 +374,51 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     figuresByPaperId.value = {
       ...figuresByPaperId.value,
       [paperId]: figures
+    }
+  }
+
+  function setTranslationCache(paperId: string, cache: PaperTranslationCache | null): void {
+    const nextCacheMap = { ...translationByPaperId.value }
+    if (cache) {
+      nextCacheMap[paperId] = cache
+    } else {
+      delete nextCacheMap[paperId]
+    }
+    translationByPaperId.value = nextCacheMap
+  }
+
+  function setTranslationTaskState(
+    paperId: string,
+    taskState: PaperTranslationTaskState | null
+  ): void {
+    const nextTaskMap = { ...translationTaskByPaperId.value }
+    if (taskState) {
+      nextTaskMap[paperId] = taskState
+    } else {
+      delete nextTaskMap[paperId]
+    }
+    translationTaskByPaperId.value = nextTaskMap
+  }
+
+  function upsertTranslationEntry(
+    cache: PaperTranslationCache,
+    nextEntry: PaperTranslationEntry
+  ): PaperTranslationCache {
+    const entries = [...cache.entries]
+    const existingIndex = entries.findIndex((entry) => entry.id === nextEntry.id)
+    if (existingIndex >= 0) {
+      entries[existingIndex] = nextEntry
+    } else {
+      entries.push(nextEntry)
+    }
+
+    entries.sort((left, right) => left.index - right.index)
+
+    return {
+      ...cache,
+      completedSegments: cache.completedSegments,
+      totalSegments: Math.max(cache.totalSegments, entries.length),
+      entries
     }
   }
 
@@ -493,6 +601,124 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     })
   }
 
+  function ensureTranslationProgressListener(): void {
+    if (translationProgressCleanup) {
+      return
+    }
+
+    translationProgressCleanup = window.api.paper.onTranslationProgress(
+      (progress: PaperTranslationProgress) => {
+        const now = new Date().toISOString()
+        const existingCache = translationByPaperId.value[progress.paperId]
+        const baseCache: PaperTranslationCache =
+          existingCache && existingCache.sourceHash === progress.sourceHash
+            ? existingCache
+            : {
+                paperId: progress.paperId,
+                sourceHash: progress.sourceHash,
+                totalSegments: progress.totalSegments,
+                completedSegments: progress.completedSegments,
+                entries: [],
+                updatedAt: now
+              }
+
+        const nextCache = upsertTranslationEntry(
+          {
+            ...baseCache,
+            sourceHash: progress.sourceHash,
+            totalSegments: progress.totalSegments,
+            completedSegments: progress.completedSegments,
+            updatedAt: now
+          },
+          {
+            ...progress.entry
+          }
+        )
+
+        nextCache.completedSegments = progress.completedSegments
+        nextCache.updatedAt = now
+
+        setTranslationCache(progress.paperId, nextCache)
+        setTranslationTaskState(progress.paperId, {
+          isRunning: progress.isRunning,
+          completedSegments: progress.completedSegments,
+          totalSegments: progress.totalSegments,
+          lastError: progress.status === 'failed' ? progress.errorMessage : undefined
+        })
+      }
+    )
+  }
+
+  async function loadTranslationState(paperId: string): Promise<void> {
+    ensureTranslationProgressListener()
+
+    const result = await window.api.paper.getTranslationState(paperId)
+    if (!result.success || !result.data) {
+      setTranslationCache(paperId, null)
+      setTranslationTaskState(paperId, createIdleTranslationTaskState())
+      return
+    }
+
+    setTranslationCache(paperId, result.data.cache)
+    setTranslationTaskState(paperId, {
+      isRunning: result.data.isRunning,
+      completedSegments: result.data.cache?.completedSegments ?? 0,
+      totalSegments: result.data.cache?.totalSegments ?? 0
+    })
+
+    if (result.data.isRunning) {
+      await window.api.paper.startTranslation(paperId)
+    }
+  }
+
+  async function ensureTranslation(paperId: string): Promise<{ success: boolean; error?: string }> {
+    ensureTranslationProgressListener()
+
+    const cachedTranslation = translationByPaperId.value[paperId]
+    const taskState = translationTaskByPaperId.value[paperId] || createIdleTranslationTaskState()
+
+    if (
+      cachedTranslation &&
+      cachedTranslation.totalSegments > 0 &&
+      cachedTranslation.completedSegments >= cachedTranslation.totalSegments &&
+      !taskState.isRunning
+    ) {
+      return { success: true }
+    }
+
+    const result = await window.api.paper.startTranslation(paperId)
+    if (!result.success) {
+      setTranslationTaskState(paperId, {
+        ...taskState,
+        lastError: result.error
+      })
+      return { success: false, error: result.error }
+    }
+
+    await loadTranslationState(paperId)
+    return { success: true }
+  }
+
+  async function toggleTranslationVisible(): Promise<{ success: boolean; error?: string }> {
+    if (!currentPaperId.value) {
+      return { success: false, error: '当前没有打开论文' }
+    }
+
+    if (translationVisible.value) {
+      hideTranslation()
+      return { success: true }
+    }
+
+    translationVisible.value = true
+    const result = await ensureTranslation(currentPaperId.value)
+    if (!result.success) {
+      hideTranslation()
+      return result
+    }
+
+    return { success: true }
+  }
+
   /** 加载论文列表，并为进行中的 OCR 回填进度 */
   async function loadPapers(): Promise<void> {
     ensureOcrProgressListener()
@@ -525,6 +751,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       currentPaperId.value = null
       markdownContent.value = ''
       clearPaperToc()
+      hideTranslation()
       resetFigureUiState()
     }
 
@@ -532,6 +759,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       currentPaperId.value = null
       markdownContent.value = ''
       clearPaperToc()
+      hideTranslation()
       resetFigureUiState()
     }
   }
@@ -541,6 +769,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     if (!paperId) {
       currentPaperId.value = null
       clearPaperToc()
+      hideTranslation()
       resetFigureUiState()
       return
     }
@@ -551,6 +780,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     if (currentPaperId.value !== paperId) {
+      hideTranslation()
       resetFigureUiState()
     }
 
@@ -580,6 +810,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     if (currentPaperId.value !== paperId) {
+      hideTranslation()
       resetFigureUiState()
     }
 
@@ -620,6 +851,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       currentPaperId.value = null
       markdownContent.value = ''
       clearPaperToc()
+      hideTranslation()
       resetFigureUiState()
     }
 
@@ -657,6 +889,8 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     if (!paper || !isPaperReadableStatus(paper.status)) {
       markdownContent.value = ''
       clearPaperToc()
+      setTranslationCache(paperId, null)
+      setTranslationTaskState(paperId, createIdleTranslationTaskState())
       return
     }
 
@@ -666,9 +900,12 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       const result = await window.api.paper.getReaderMarkdown(paperId)
       if (result.success && result.data !== undefined) {
         markdownContent.value = result.data
+        await loadTranslationState(paperId)
       } else {
         markdownContent.value = ''
         clearPaperToc()
+        setTranslationCache(paperId, null)
+        setTranslationTaskState(paperId, createIdleTranslationTaskState())
       }
     } finally {
       markdownLoading.value = false
@@ -1046,9 +1283,15 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     figurePreviewRect,
     figurePreviewImageRatio,
     paperTocItems,
+    translationVisible,
+    translationByPaperId,
+    translationTaskByPaperId,
     currentPaper,
     currentPaperFigures,
+    currentTranslationCache,
+    currentTranslationTask,
     isOcrCompleted,
+    isCurrentPaperTranslating,
     paperBasePath,
     loadPapers,
     selectPaper,
@@ -1062,6 +1305,10 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     clearPaperToc,
     scrollToHeading,
     ensureOcrProgressListener,
+    ensureTranslationProgressListener,
+    loadTranslationState,
+    ensureTranslation,
+    toggleTranslationVisible,
     retryPaper,
     setFigurePanelVisible,
     closeFigurePanel,
@@ -1072,6 +1319,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     setFigurePreviewImageRatio,
     moveFigurePreview,
     resizeFigurePreview,
-    resetFigureUiState
+    resetFigureUiState,
+    hideTranslation
   }
 })
