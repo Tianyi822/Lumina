@@ -289,6 +289,7 @@ onBeforeUnmount(() => {
             </div>
 
             <div v-else class="paper-markdown-view__translation-placeholder" aria-hidden="true">
+              <span class="paper-markdown-view__translation-placeholder-text">正在翻译...</span>
               <span class="paper-markdown-view__translation-placeholder-bar" />
               <span class="paper-markdown-view__translation-placeholder-bar" />
               <span class="paper-markdown-view__translation-placeholder-bar" />
@@ -369,6 +370,13 @@ onBeforeUnmount(() => {
   display: grid;
   gap: var(--sm-space-2);
   padding: var(--sm-space-1) 0;
+}
+
+.paper-markdown-view__translation-placeholder-text {
+  display: block;
+  font-size: 13px;
+  color: var(--sm-color-text-tertiary);
+  margin-bottom: var(--sm-space-1);
 }
 
 .paper-markdown-view__translation-placeholder-bar {
