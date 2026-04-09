@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
 import { computed, ref, watch } from 'vue'
-import type { ReactIterationStatus, ReActIteration, ReActStep } from '@renderer/types'
+import type { ReActIteration, ReActStep, UiReactIterationStatus } from '@renderer/types'
 import ToolCallPanel from './ToolCallPanel.vue'
 import type { ToolCallPanelItem } from './ToolCallPanel.vue'
 import SvgIcon from './icons/SvgIcon.vue'
@@ -13,7 +13,7 @@ interface PhaseUnit {
   reasoning: string
   toolItems: ToolCallPanelItem[]
   isActive: boolean
-  status?: ReactIterationStatus
+  status?: UiReactIterationStatus
 }
 
 const md = new MarkdownIt({

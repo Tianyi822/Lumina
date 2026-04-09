@@ -69,7 +69,7 @@ export interface ReActStep {
  * ReAct 迭代状态（UI 层）
  * 用于跟踪当前迭代的执行阶段
  */
-export type ReactIterationStatus = 'thinking' | 'calling_tools' | 'processing' | 'complete'
+export type UiReactIterationStatus = 'thinking' | 'calling_tools' | 'processing' | 'complete'
 
 /**
  * ReAct 迭代（UI 层特有）
@@ -85,7 +85,7 @@ export interface ReActIteration {
   /** 是否为当前正在流式输出的迭代 */
   isActive?: boolean
   /** 当前迭代状态 */
-  status?: ReactIterationStatus
+  status?: UiReactIterationStatus
 }
 
 /**
@@ -106,18 +106,4 @@ export interface Message {
   tool_call_id?: string // 工具调用的 ID（仅 tool 消息，用于保存到会话）
   attachedDocuments?: AttachedDocument[] // 附加的文档（仅 user 消息）
   attachedImages?: AttachedImage[] // 附加的图片（仅 user 消息）
-}
-
-/**
- * 搜索结果（UI 层特有）
- */
-export interface SearchResult {
-  chunkId: string
-  documentId: string
-  documentName: string
-  content: string
-  score: number
-  distance: number
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  metadata?: Record<string, any>
 }
