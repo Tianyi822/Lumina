@@ -3,6 +3,7 @@
  * 文件上传区域组件
  * 支持拖拽上传和点击上传
  */
+import { SUPPORTED_DOCUMENT_ACCEPT, SUPPORTED_DOCUMENT_LABEL } from '@shared/constants/document'
 import { useFileUpload, type UploadResult } from '../composables/useFileUpload'
 
 const props = defineProps<{
@@ -34,7 +35,7 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
     <div v-if="!isUploading" class="upload-content">
       <p class="upload-text">拖放文件到这里，或点击选择文件</p>
       <p class="upload-hint">系统会自动校验格式与大小。</p>
-      <p class="upload-types">支持 .txt、.md、.pdf、.doc、.docx、.csv、.xls、.xlsx，最大 50MB</p>
+      <p class="upload-types">支持 {{ SUPPORTED_DOCUMENT_LABEL }}，最大 50MB</p>
     </div>
     <div v-else class="uploading-content">
       <span class="sm-spinner sm-spinner--large"></span>
@@ -43,7 +44,7 @@ const { isDragging, isUploading, handleDragOver, handleDragLeave, handleDrop, ha
     <input
       type="file"
       multiple
-      accept=".txt,.md,.pdf,.doc,.docx,.csv,.xls,.xlsx"
+      :accept="SUPPORTED_DOCUMENT_ACCEPT"
       class="upload-file-input"
       @change="handleFileSelect"
     />

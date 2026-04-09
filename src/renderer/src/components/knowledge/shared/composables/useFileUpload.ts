@@ -4,11 +4,16 @@
  */
 
 import { ref, type Ref } from 'vue'
+import {
+  SUPPORTED_DOCUMENT_EXTENSIONS,
+  SUPPORTED_DOCUMENT_LABEL,
+  isSupportedDocumentExtension
+} from '@shared/constants/document'
 import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 
 /** 支持的文件类型 */
-const SUPPORTED_TYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.xls', '.xlsx']
+const SUPPORTED_TYPES = [...SUPPORTED_DOCUMENT_EXTENSIONS]
 
 /** 最大文件大小 50MB */
 const MAX_FILE_SIZE = 50 * 1024 * 1024
@@ -69,7 +74,7 @@ export function useFileUpload(options?: UploadOptions): {
       const ext = '.' + file.name.split('.').pop()?.toLowerCase()
 
       // 检查文件类型
-      if (!SUPPORTED_TYPES.includes(ext)) {
+      if (!isSupportedDocumentExtension(ext)) {
         errors.push(`${file.name}: 不支持的文件格式`)
         continue
       }
@@ -144,7 +149,7 @@ export function useFileUpload(options?: UploadOptions): {
 
     // 如果有无效文件，提示用户
     if (validationErrors.length > 0 && validFiles.length < fileList.length) {
-      alert(`部分文件格式不支持。仅支持 .txt、.md、.pdf、.doc、.docx、.csv、.xls 和 .xlsx 文件。`)
+      alert(`部分文件格式不支持。仅支持 ${SUPPORTED_DOCUMENT_LABEL} 文件。`)
     }
 
     isUploading.value = true

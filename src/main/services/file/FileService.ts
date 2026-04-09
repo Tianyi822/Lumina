@@ -2,6 +2,10 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from '
 import { join, extname } from 'path'
 import { createHash } from 'crypto'
 import { logger } from '@main/services/logger'
+import {
+  SUPPORTED_DOCUMENT_EXTENSIONS,
+  isSupportedDocumentExtension
+} from '@shared/constants/document'
 import type { FileItem, KnowledgeBase } from '@shared/types/knowledge'
 import {
   getFilesMetadataPath as getFilesMetadataStoragePath,
@@ -169,6 +173,8 @@ export class FileService {
       case '.doc':
       case '.docx':
         return 'doc'
+      case '.pptx':
+        return 'pptx'
       case '.csv':
         return 'csv'
       default:
@@ -230,12 +236,11 @@ export class FileService {
     }
 
     try {
-      const supportedTypes = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.xls', '.xlsx']
       const ext = extname(fileName).toLowerCase()
-      if (!supportedTypes.includes(ext)) {
+      if (!isSupportedDocumentExtension(ext)) {
         return {
           success: false,
-          error: `不支持的文件类型: ${ext}，仅支持 ${supportedTypes.join(', ')}`
+          error: `不支持的文件类型: ${ext}，仅支持 ${SUPPORTED_DOCUMENT_EXTENSIONS.join(', ')}`
         }
       }
 

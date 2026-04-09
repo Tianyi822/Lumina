@@ -5,6 +5,7 @@ import MCPToolsPanel from '@renderer/components/MCPToolsPanel.vue'
 import KnowledgeBasePanel from '@renderer/components/KnowledgeBasePanel.vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import SandboxToolsToggle from '@renderer/components/sandbox/SandboxToolsToggle.vue'
+import { SUPPORTED_DOC_TYPES } from './attachmentUtils'
 
 const props = defineProps<{
   isSending?: boolean
@@ -28,6 +29,7 @@ const emit = defineEmits<{
 
 const showModelDropdown = ref(false)
 const modelSelectorRef = ref<HTMLElement | null>(null)
+const supportedDocumentLabel = SUPPORTED_DOC_TYPES.map((type) => type.slice(1)).join(', ')
 
 function selectModel(model: string): void {
   emit('update:selectedModel', model)
@@ -103,7 +105,7 @@ onUnmounted(() => {
         class="document-upload-btn"
         :class="{ 'has-docs': (props.totalAttachmentCount || 0) > 0 }"
         :disabled="props.isSending"
-        title="上传文件 (文档: txt, md, pdf, doc, docx, csv / 图片: jpg, png, webp, bmp, tiff)"
+        :title="`上传文件 (文档: ${supportedDocumentLabel} / 图片: jpg, png, webp, bmp, tiff)`"
         @click="emit('upload')"
       >
         <SvgIcon name="attachment" :size="18" />
