@@ -1,0 +1,597 @@
+import type { PaperLayoutBlock, PaperPageOcrResult } from '../../../shared/types/paper'
+import {
+  getBlockImageSourceCandidates,
+  getPlainText,
+  isTableCaptionBlock
+} from './paperBlockClassifiers.ts'
+import {
+  getBodyBlockGapReplacement,
+  isBodyTextBlock,
+  isSimpleTextContainerSegment,
+  normalizeMergeableTextBlockContent,
+  shouldMergeAdjacentTextBlocks
+} from './paperTextProcessing.ts'
+import type {
+  BlockOccurrence,
+  ExtractedPaperFigureData,
+  ReaderPageFragment,
+  ReplaceBlockResult,
+  TextRunReplacement
+} from './paperFigureExtractorTypes.ts'
+
+function escapeRegExp(content: string): string {
+  return content.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function replaceLiteral(
+  markdown: string,
+  searchValue: string,
+  replacement: string
+): ReplaceBlockResult {
+  const matchIndex = markdown.indexOf(searchValue)
+  if (matchIndex < 0) {
+    return { markdown, replaced: false }
+  }
+
+  return {
+    markdown:
+      markdown.slice(0, matchIndex) + replacement + markdown.slice(matchIndex + searchValue.length),
+    replaced: true
+  }
+}
+
+function replaceImageBlock(
+  markdown: string,
+  block: PaperLayoutBlock,
+  replacement: string
+): ReplaceBlockResult {
+  for (const source of getBlockImageSourceCandidates(block)) {
+    const escapedSource = escapeRegExp(source)
+    const patterns = [
+      new RegExp(
+        `<div[^>]*>\\s*<img\\b[^>]*src=['"]${escapedSource}['"][^>]*\\/?>(?:\\s*</img>)?\\s*</div>`,
+        'i'
+      ),
+      new RegExp(`<img\\b[^>]*src=['"]${escapedSource}['"][^>]*\\/?>(?:\\s*</img>)?`, 'i'),
+      new RegExp(`!\\[[^\\]]*\\]\\(${escapedSource}\\)`, 'i')
+    ]
+
+    for (const pattern of patterns) {
+      const nextMarkdown = markdown.replace(pattern, replacement)
+      if (nextMarkdown !== markdown) {
+        return { markdown: nextMarkdown, replaced: true }
+      }
+    }
+  }
+
+  return { markdown, replaced: false }
+}
+
+function replaceNonImageBlock(
+  markdown: string,
+  block: PaperLayoutBlock,
+  replacement: string
+): ReplaceBlockResult {
+  if (!block.content) {
+    return { markdown, replaced: false }
+  }
+
+  return replaceLiteral(markdown, block.content, replacement)
+}
+
+function replaceBlockWithToken(
+  markdown: string,
+  block: PaperLayoutBlock,
+  replacement: string
+): ReplaceBlockResult {
+  return block.label === 'image'
+    ? replaceImageBlock(markdown, block, replacement)
+    : replaceNonImageBlock(markdown, block, replacement)
+}
+
+function replaceRemovalGroupWithToken(
+  markdown: string,
+  pageBlocks: PaperLayoutBlock[],
+  blockIndexes: Set<number>,
+  token: string
+): string {
+  let nextMarkdown = markdown
+  let insertedToken = false
+
+  for (const block of pageBlocks) {
+    if (!blockIndexes.has(block.index)) {
+      continue
+    }
+
+    const result = replaceBlockWithToken(nextMarkdown, block, insertedToken ? '' : token)
+    if (!result.replaced) {
+      continue
+    }
+
+    nextMarkdown = result.markdown
+    insertedToken = true
+  }
+
+  return nextMarkdown
+}
+
+function replaceTokenWithGap(markdown: string, token: string, replacement: string): string {
+  const tokenPattern = new RegExp(`\\s*${escapeRegExp(token)}\\s*`, 'g')
+  return markdown.replace(tokenPattern, replacement)
+}
+
+export function findBlockOccurrences(
+  markdown: string,
+  pageBlocks: PaperLayoutBlock[],
+  removalIndexes: Set<number>
+): Map<number, BlockOccurrence> {
+  const occurrences = new Map<number, BlockOccurrence>()
+  let searchStart = 0
+
+  for (const block of pageBlocks) {
+    if (removalIndexes.has(block.index) || !block.content) {
+      continue
+    }
+
+    const searchValues = [
+      block.content,
+      ...(block.label === 'text' ? [normalizeMergeableTextBlockContent(block.content)] : [])
+    ].filter((value, index, values) => value && values.indexOf(value) === index)
+
+    let matchedStart = -1
+    let matchedContent = ''
+
+    for (const searchValue of searchValues) {
+      const start = markdown.indexOf(searchValue, searchStart)
+      if (start < 0) {
+        continue
+      }
+
+      if (matchedStart < 0 || start < matchedStart) {
+        matchedStart = start
+        matchedContent = searchValue
+      }
+    }
+
+    if (matchedStart < 0) {
+      continue
+    }
+
+    const end = matchedStart + matchedContent.length
+    occurrences.set(block.index, {
+      block,
+      start: matchedStart,
+      end,
+      content: markdown.slice(matchedStart, end)
+    })
+    searchStart = end
+  }
+
+  return occurrences
+}
+
+function applyTextRunReplacements(markdown: string, replacements: TextRunReplacement[]): string {
+  if (replacements.length === 0) {
+    return markdown
+  }
+
+  let nextMarkdown = ''
+  let cursor = 0
+
+  for (const replacement of replacements) {
+    nextMarkdown += markdown.slice(cursor, replacement.start)
+    nextMarkdown += replacement.replacement
+    cursor = replacement.end
+  }
+
+  nextMarkdown += markdown.slice(cursor)
+  return nextMarkdown
+}
+
+function normalizeVisibleTextBlocks(
+  markdown: string,
+  pageBlocks: PaperLayoutBlock[],
+  removalIndexes: Set<number>
+): string {
+  const occurrences = findBlockOccurrences(markdown, pageBlocks, removalIndexes)
+  const replacements: TextRunReplacement[] = []
+
+  for (const block of pageBlocks) {
+    if (removalIndexes.has(block.index) || block.label !== 'text') {
+      continue
+    }
+
+    const occurrence = occurrences.get(block.index)
+    if (!occurrence) {
+      continue
+    }
+
+    const replacement = normalizeMergeableTextBlockContent(occurrence.content)
+    if (replacement === occurrence.content) {
+      continue
+    }
+
+    replacements.push({
+      start: occurrence.start,
+      end: occurrence.end,
+      replacement
+    })
+  }
+
+  return applyTextRunReplacements(markdown, replacements)
+}
+
+function getMergeableTextContent(content: string): string {
+  return isSimpleTextContainerSegment(content) ? getPlainText(content) : content.trim()
+}
+
+function buildMergedTextRunContent(
+  blocks: PaperLayoutBlock[],
+  occurrences: Map<number, BlockOccurrence>
+): string {
+  const [firstBlock, ...restBlocks] = blocks
+  const firstOccurrence = occurrences.get(firstBlock.index)
+  let mergedContent = getMergeableTextContent(firstOccurrence?.content || firstBlock.content)
+  let previousBlock = firstBlock
+
+  for (const block of restBlocks) {
+    const occurrence = occurrences.get(block.index)
+    const gapReplacement = getBodyBlockGapReplacement(previousBlock, block)
+    const nextContent = getMergeableTextContent(occurrence?.content || block.content).trimStart()
+    mergedContent += `${gapReplacement}${nextContent}`
+    previousBlock = block
+  }
+
+  return mergedContent
+}
+
+function mergeAdjacentTextBlocks(
+  markdown: string,
+  pageBlocks: PaperLayoutBlock[],
+  removalIndexes: Set<number>
+): string {
+  const visibleBlocks = pageBlocks.filter((block) => !removalIndexes.has(block.index))
+  const occurrences = findBlockOccurrences(markdown, pageBlocks, removalIndexes)
+  const replacements: TextRunReplacement[] = []
+
+  for (let index = 0; index < visibleBlocks.length; index += 1) {
+    const currentBlock = visibleBlocks[index]
+    if (currentBlock.label !== 'text' || !occurrences.has(currentBlock.index)) {
+      continue
+    }
+
+    const runBlocks = [currentBlock]
+    let cursor = index
+
+    while (cursor + 1 < visibleBlocks.length) {
+      const previousBlock = visibleBlocks[cursor]
+      const nextBlock = visibleBlocks[cursor + 1]
+      if (
+        previousBlock.label !== 'text' ||
+        nextBlock.label !== 'text' ||
+        !shouldMergeAdjacentTextBlocks(previousBlock, nextBlock)
+      ) {
+        break
+      }
+
+      const previousOccurrence = occurrences.get(previousBlock.index)
+      const nextOccurrence = occurrences.get(nextBlock.index)
+      if (!previousOccurrence || !nextOccurrence || previousOccurrence.end > nextOccurrence.start) {
+        break
+      }
+
+      const gapContent = markdown.slice(previousOccurrence.end, nextOccurrence.start)
+      if (!/^\s+$/.test(gapContent)) {
+        break
+      }
+
+      runBlocks.push(nextBlock)
+      cursor += 1
+    }
+
+    if (runBlocks.length > 1) {
+      const firstOccurrence = occurrences.get(runBlocks[0].index)
+      const lastOccurrence = occurrences.get(runBlocks[runBlocks.length - 1].index)
+      if (firstOccurrence && lastOccurrence) {
+        replacements.push({
+          start: firstOccurrence.start,
+          end: lastOccurrence.end,
+          replacement: buildMergedTextRunContent(runBlocks, occurrences)
+        })
+      }
+      index = cursor
+    }
+  }
+
+  return applyTextRunReplacements(markdown, replacements)
+}
+
+function cleanupReaderMarkdown(markdown: string): string {
+  return markdown
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\n+\s*$/g, '')
+    .trim()
+}
+
+function buildPageComment(pageIndex: number): string {
+  return `<!-- Page ${pageIndex + 1} -->`
+}
+
+function appendMarkdownBlock(markdown: string, block: string | undefined): string {
+  if (!block) {
+    return markdown
+  }
+
+  if (!markdown) {
+    return block
+  }
+
+  return `${markdown}\n\n${block}`
+}
+
+function findNeighborBlock(
+  pageBlocks: PaperLayoutBlock[],
+  startPosition: number,
+  step: -1 | 1,
+  removalIndexes: Set<number>
+): PaperLayoutBlock | undefined {
+  for (
+    let position = startPosition;
+    position >= 0 && position < pageBlocks.length;
+    position += step
+  ) {
+    const block = pageBlocks[position]
+    if (!removalIndexes.has(block.index)) {
+      return block
+    }
+  }
+
+  return undefined
+}
+
+function findBoundaryBlock(
+  pageBlocks: PaperLayoutBlock[],
+  removalIndexes: Set<number>,
+  direction: 'start' | 'end'
+): PaperLayoutBlock | undefined {
+  const startPosition = direction === 'start' ? 0 : pageBlocks.length - 1
+  const step = direction === 'start' ? 1 : -1
+
+  return findNeighborBlock(pageBlocks, startPosition, step, removalIndexes)
+}
+
+function collectLeadingFloatingTableBlocks(visibleBlocks: PaperLayoutBlock[]): PaperLayoutBlock[] {
+  const leadingBlocks: PaperLayoutBlock[] = []
+
+  for (const block of visibleBlocks) {
+    if (block.label === 'table') {
+      leadingBlocks.push(block)
+      continue
+    }
+
+    if (leadingBlocks.length > 0 && isTableCaptionBlock(block)) {
+      leadingBlocks.push(block)
+      continue
+    }
+
+    break
+  }
+
+  return leadingBlocks
+}
+
+function extractLeadingFloatingTableLayout(
+  markdown: string,
+  pageBlocks: PaperLayoutBlock[],
+  removalIndexes: Set<number>
+): Pick<
+  ReaderPageFragment,
+  | 'leadingContinuationBlock'
+  | 'leadingContinuationMarkdown'
+  | 'leadingFloatingTableMarkdown'
+  | 'markdownAfterLeadingContinuation'
+> | null {
+  const visibleBlocks = pageBlocks.filter((block) => !removalIndexes.has(block.index))
+  const leadingFloatingTableBlocks = collectLeadingFloatingTableBlocks(visibleBlocks)
+  if (leadingFloatingTableBlocks.length === 0) {
+    return null
+  }
+
+  const leadingContinuationBlock = visibleBlocks[leadingFloatingTableBlocks.length]
+  if (!isBodyTextBlock(leadingContinuationBlock)) {
+    return null
+  }
+
+  const occurrences = findBlockOccurrences(markdown, pageBlocks, removalIndexes)
+  const firstFloatingOccurrence = occurrences.get(leadingFloatingTableBlocks[0].index)
+  const lastFloatingOccurrence = occurrences.get(
+    leadingFloatingTableBlocks[leadingFloatingTableBlocks.length - 1].index
+  )
+  const continuationOccurrence = occurrences.get(leadingContinuationBlock.index)
+
+  if (!firstFloatingOccurrence || !lastFloatingOccurrence || !continuationOccurrence) {
+    return null
+  }
+
+  if (markdown.slice(0, firstFloatingOccurrence.start).trim()) {
+    return null
+  }
+
+  if (lastFloatingOccurrence.end > continuationOccurrence.start) {
+    return null
+  }
+
+  if (markdown.slice(lastFloatingOccurrence.end, continuationOccurrence.start).trim()) {
+    return null
+  }
+
+  const leadingFloatingTableMarkdown = cleanupReaderMarkdown(
+    markdown.slice(firstFloatingOccurrence.start, lastFloatingOccurrence.end)
+  )
+  const leadingContinuationMarkdown = cleanupReaderMarkdown(
+    markdown.slice(continuationOccurrence.start, continuationOccurrence.end)
+  )
+  const markdownAfterLeadingContinuation = cleanupReaderMarkdown(
+    markdown.slice(continuationOccurrence.end)
+  )
+
+  if (!leadingFloatingTableMarkdown || !leadingContinuationMarkdown) {
+    return null
+  }
+
+  return {
+    leadingContinuationBlock,
+    leadingContinuationMarkdown,
+    leadingFloatingTableMarkdown,
+    markdownAfterLeadingContinuation
+  }
+}
+
+function buildReaderPageFragment(
+  pageResult: PaperPageOcrResult,
+  figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
+): ReaderPageFragment {
+  const removalIndexes = new Set(figureData.pageRemovalBlockIndexes[pageResult.pageIndex] || [])
+  const blockPositions = new Map(
+    pageResult.blocks.map((block, position) => [block.index, position] as const)
+  )
+  const removalGroups = [...(figureData.pageRemovalGroups[pageResult.pageIndex] || [])].sort(
+    (left, right) =>
+      (blockPositions.get(left.startBlockIndex) ?? Number.MAX_SAFE_INTEGER) -
+      (blockPositions.get(right.startBlockIndex) ?? Number.MAX_SAFE_INTEGER)
+  )
+
+  let pageMarkdown = pageResult.markdown
+  const gapReplacements: Array<{ token: string; replacement: string }> = []
+
+  for (let groupIndex = 0; groupIndex < removalGroups.length; groupIndex += 1) {
+    const group = removalGroups[groupIndex]
+    const startPosition = blockPositions.get(group.startBlockIndex)
+    const endPosition = blockPositions.get(group.endBlockIndex)
+    if (startPosition === undefined || endPosition === undefined) {
+      continue
+    }
+
+    const previousBlock = findNeighborBlock(
+      pageResult.blocks,
+      startPosition - 1,
+      -1,
+      removalIndexes
+    )
+    const nextBlock = findNeighborBlock(pageResult.blocks, endPosition + 1, 1, removalIndexes)
+    const token = `__PAPER_FIGURE_GAP_${pageResult.pageIndex}_${groupIndex}__`
+
+    pageMarkdown = replaceRemovalGroupWithToken(
+      pageMarkdown,
+      pageResult.blocks,
+      new Set(group.blockIndexes),
+      token
+    )
+
+    gapReplacements.push({
+      token,
+      replacement: getBodyBlockGapReplacement(previousBlock, nextBlock)
+    })
+  }
+
+  for (const gapReplacement of gapReplacements) {
+    pageMarkdown = replaceTokenWithGap(
+      pageMarkdown,
+      gapReplacement.token,
+      gapReplacement.replacement
+    )
+  }
+
+  pageMarkdown = normalizeVisibleTextBlocks(pageMarkdown, pageResult.blocks, removalIndexes)
+  pageMarkdown = mergeAdjacentTextBlocks(pageMarkdown, pageResult.blocks, removalIndexes)
+  const cleanedMarkdown = cleanupReaderMarkdown(pageMarkdown)
+  if (!cleanedMarkdown) {
+    return {
+      pageIndex: pageResult.pageIndex,
+      markdown: ''
+    }
+  }
+
+  const leadingFloatingTableLayout = extractLeadingFloatingTableLayout(
+    cleanedMarkdown,
+    pageResult.blocks,
+    removalIndexes
+  )
+
+  return {
+    pageIndex: pageResult.pageIndex,
+    markdown: cleanedMarkdown,
+    leadingBlock: findBoundaryBlock(pageResult.blocks, removalIndexes, 'start'),
+    trailingBlock: findBoundaryBlock(pageResult.blocks, removalIndexes, 'end'),
+    ...leadingFloatingTableLayout
+  }
+}
+
+export function buildReaderMarkdown(
+  pageResults: PaperPageOcrResult[],
+  figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
+): string {
+  let combinedMarkdown = ''
+  let previousFragment: ReaderPageFragment | null = null
+  let encounteredHardBoundary = false
+
+  for (const pageResult of pageResults) {
+    const fragment = buildReaderPageFragment(pageResult, figureData)
+    if (!fragment.markdown) {
+      encounteredHardBoundary = true
+      continue
+    }
+
+    if (!previousFragment) {
+      combinedMarkdown = `${buildPageComment(fragment.pageIndex)}\n\n${fragment.markdown}`
+      previousFragment = fragment
+      encounteredHardBoundary = false
+      continue
+    }
+
+    const boundaryToken = `__PAPER_PAGE_BOUNDARY_${fragment.pageIndex}__`
+    const canMergeAcrossLeadingTable =
+      !encounteredHardBoundary &&
+      !!fragment.leadingFloatingTableMarkdown &&
+      !!fragment.leadingContinuationMarkdown &&
+      !!fragment.leadingContinuationBlock &&
+      getBodyBlockGapReplacement(
+        previousFragment.trailingBlock,
+        fragment.leadingContinuationBlock
+      ) !== '\n\n'
+
+    if (canMergeAcrossLeadingTable) {
+      const boundaryGap = getBodyBlockGapReplacement(
+        previousFragment.trailingBlock,
+        fragment.leadingContinuationBlock
+      )
+
+      combinedMarkdown += `${boundaryToken}${buildPageComment(fragment.pageIndex)}${boundaryToken}${fragment.leadingContinuationMarkdown}`
+      combinedMarkdown = replaceTokenWithGap(combinedMarkdown, boundaryToken, boundaryGap)
+      combinedMarkdown = appendMarkdownBlock(
+        combinedMarkdown,
+        fragment.leadingFloatingTableMarkdown
+      )
+      combinedMarkdown = appendMarkdownBlock(
+        combinedMarkdown,
+        fragment.markdownAfterLeadingContinuation
+      )
+      previousFragment = fragment
+      encounteredHardBoundary = false
+      continue
+    }
+
+    const boundaryGap = encounteredHardBoundary
+      ? '\n\n'
+      : getBodyBlockGapReplacement(previousFragment.trailingBlock, fragment.leadingBlock)
+
+    combinedMarkdown += `${boundaryToken}${buildPageComment(fragment.pageIndex)}${boundaryToken}${fragment.markdown}`
+    combinedMarkdown = replaceTokenWithGap(combinedMarkdown, boundaryToken, boundaryGap)
+
+    previousFragment = fragment
+    encounteredHardBoundary = false
+  }
+
+  return combinedMarkdown
+}
