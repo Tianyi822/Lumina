@@ -179,8 +179,7 @@ const NATURAL_LANGUAGE_KINDS: ReadonlySet<PaperTranslationSegmentKind> = new Set
   'paragraph',
   'heading',
   'list',
-  'quote',
-  'table'
+  'quote'
 ])
 
 function isFormulaLikeSegment(segment: PaperTranslationSegment): boolean {
@@ -252,9 +251,22 @@ export function isAuthorLikeSegment(segment: PaperTranslationSegment): boolean {
   return isPersonClusterText(text)
 }
 
+function isStructuralMarkerSegment(segment: PaperTranslationSegment): boolean {
+  const trimmed = segment.originalMarkdown.trim()
+  if (!trimmed) return true
+  if (/^<!--[\s\S]*-->$/.test(trimmed)) return true
+  if (/^[-*_]{3,}\s*$/.test(trimmed)) return true
+  return false
+}
+
 function shouldSkipTranslationSegment(segment: PaperTranslationSegment): boolean {
   return (
-    segment.kind === 'image' || isFormulaLikeSegment(segment) || isReferenceLikeSegment(segment)
+    segment.kind === 'image' ||
+    segment.kind === 'table' ||
+    isStructuralMarkerSegment(segment) ||
+    isFormulaLikeSegment(segment) ||
+    isReferenceLikeSegment(segment) ||
+    isAuthorLikeSegment(segment)
   )
 }
 
