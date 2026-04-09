@@ -14,7 +14,6 @@ import { ensureFrontendBaseImage } from './imageBuilder'
 import {
   DEFAULT_FRONTEND_PORT,
   FRONTEND_BUILDER,
-  FRONTEND_HOST_PORT_BASE,
   FRONTEND_LOG_HINT,
   FRONTEND_MOUNT_PATH,
   FRONTEND_PACKAGE_MANAGER,
@@ -23,6 +22,26 @@ import {
   FRONTEND_STORAGE_TYPE
 } from './constants'
 import { checkHttpReady, waitForHttpReady } from './waitForHttpReady'
+import {
+  allocateFixedHostPort,
+  buildPreviewUrl,
+  getPreferredHostPort,
+  getReusableHostPort
+} from './frontendSandboxPorts'
+import {
+  buildContainerName,
+  buildProjectName,
+  buildWorkspaceVolumeLabels,
+  buildWorkspaceVolumeName,
+  ensureFrontendContainerRunning,
+  invalidateFrontendBuildValidation,
+  persistFrontendBuildValidationFailure,
+  persistFrontendSandboxStatus,
+  removeContainerIfExists,
+  saveSandboxOrThrow,
+  syncFrontendLifecycleStatus,
+  syncFrontendPortBinding
+} from './frontendSandboxPersistence'
 
 const dockerService = getDockerService()
 
@@ -108,13 +127,16 @@ export class FrontendSandboxService {
       sandboxId = createResult.sandbox.sandboxId
 
       const imageId = await ensureFrontendBaseImage()
-      const containerName = this.buildContainerName(name)
-      const hostPort = await this.allocateFixedHostPort(this.getPreferredHostPort(containerPort))
-      volumeName = this.buildWorkspaceVolumeName(sandboxId)
+      const containerName = buildContainerName(name)
+      const hostPort = await allocateFixedHostPort(
+        getPreferredHostPort(containerPort),
+        sandboxService
+      )
+      volumeName = buildWorkspaceVolumeName(sandboxId)
 
       await dockerService.createVolume({
         name: volumeName,
-        labels: this.buildWorkspaceVolumeLabels(sandboxId)
+        labels: buildWorkspaceVolumeLabels(sandboxId)
       })
 
       const containerResult = await dockerService.createContainerFromImage({
@@ -142,7 +164,7 @@ export class FrontendSandboxService {
       }
 
       const sandbox = createResult.sandbox
-      const previewUrl = this.buildPreviewUrl(actualHostPort)
+      const previewUrl = buildPreviewUrl(actualHostPort)
       sandbox.containerIds = [containerId]
       sandbox.primaryContainerId = containerId
       sandbox.status = 'running'
@@ -183,8 +205,9 @@ export class FrontendSandboxService {
         bootstrapResult.warning ||
         this.buildPreviewMessage(options.autoStart !== false, bootstrapResult.previewReady)
 
-      await this.persistFrontendSandboxStatus(
+      await persistFrontendSandboxStatus(
         sandbox,
+        sandboxService,
         bootstrapResult.previewReady || options.autoStart === false ? 'running' : 'error',
         bootstrapResult.warning
       )
@@ -272,8 +295,8 @@ export class FrontendSandboxService {
     const sandbox = this.loadFrontendSandboxOrThrow(sandboxId, true)
 
     try {
-      await this.ensureFrontendContainerRunning(sandbox)
-      await this.syncFrontendPortBinding(sandbox)
+      await ensureFrontendContainerRunning(sandbox, dockerService)
+      await syncFrontendPortBinding(sandbox, dockerService, sandboxService)
 
       const refreshedSandbox = this.loadFrontendSandboxOrThrow(sandboxId, true)
       const template = this.getRenderedTemplate(
@@ -290,8 +313,9 @@ export class FrontendSandboxService {
         }
       )
 
-      await this.persistFrontendSandboxStatus(
+      await persistFrontendSandboxStatus(
         refreshedSandbox,
+        sandboxService,
         bootstrapResult.previewReady ? 'running' : 'error',
         bootstrapResult.warning
       )
@@ -304,7 +328,7 @@ export class FrontendSandboxService {
       )
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      await this.persistFrontendSandboxStatus(sandbox, 'error', errorMessage)
+      await persistFrontendSandboxStatus(sandbox, sandboxService, 'error', errorMessage)
       throw error
     }
   }
@@ -319,23 +343,24 @@ export class FrontendSandboxService {
       await this.ensureFrontendWorkspaceVolumeReady(sandbox)
 
       for (const containerId of sandbox.containerIds) {
-        await this.removeContainerIfExists(containerId)
+        await removeContainerIfExists(containerId, dockerService)
       }
 
       sandbox.containerIds = []
       sandbox.primaryContainerId = undefined
       sandbox.status = 'error'
       sandbox.isOrphan = false
-      this.saveSandboxOrThrow(sandbox, '更新前端沙箱状态失败')
+      saveSandboxOrThrow(sandbox, sandboxService, '更新前端沙箱状态失败')
 
       const imageId = await ensureFrontendBaseImage()
-      const desiredHostPort = await this.getReusableHostPort(
+      const desiredHostPort = await getReusableHostPort(
         sandbox.frontend.hostPort,
-        sandbox.sandboxId
+        sandbox.sandboxId,
+        sandboxService
       )
       const containerResult = await dockerService.createContainerFromImage({
         imageId,
-        name: this.buildContainerName(sandbox.name),
+        name: buildContainerName(sandbox.name),
         ports: [
           {
             containerPort: sandbox.frontend.containerPort,
@@ -373,8 +398,8 @@ export class FrontendSandboxService {
       sandbox.status = 'running'
       sandbox.isOrphan = false
       sandbox.frontend.hostPort = actualHostPort
-      sandbox.frontend.previewUrl = this.buildPreviewUrl(actualHostPort)
-      this.saveSandboxOrThrow(sandbox, '保存重建后的前端沙箱元数据失败')
+      sandbox.frontend.previewUrl = buildPreviewUrl(actualHostPort)
+      saveSandboxOrThrow(sandbox, sandboxService, '保存重建后的前端沙箱元数据失败')
 
       const refreshedSandbox = this.loadFrontendSandboxOrThrow(sandboxId, true)
       const template = this.getRenderedTemplate(
@@ -391,8 +416,9 @@ export class FrontendSandboxService {
         }
       )
 
-      await this.persistFrontendSandboxStatus(
+      await persistFrontendSandboxStatus(
         refreshedSandbox,
+        sandboxService,
         bootstrapResult.previewReady ? 'running' : 'error',
         bootstrapResult.warning
       )
@@ -405,7 +431,7 @@ export class FrontendSandboxService {
       )
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      await this.persistFrontendSandboxStatus(sandbox, 'error', errorMessage)
+      await persistFrontendSandboxStatus(sandbox, sandboxService, 'error', errorMessage)
       throw error
     }
   }
@@ -418,9 +444,9 @@ export class FrontendSandboxService {
 
     try {
       await this.ensureFrontendWorkspaceVolumeReady(sandbox)
-      await this.ensureFrontendContainerRunning(sandbox)
-      await this.syncFrontendLifecycleStatus(sandbox)
-      await this.syncFrontendPortBinding(sandbox)
+      await ensureFrontendContainerRunning(sandbox, dockerService)
+      await syncFrontendLifecycleStatus(sandbox, dockerService, sandboxService)
+      await syncFrontendPortBinding(sandbox, dockerService, sandboxService)
 
       const refreshedSandbox = this.loadFrontendSandboxOrThrow(sandboxId, true)
       const template = this.getRenderedTemplate(
@@ -444,7 +470,7 @@ export class FrontendSandboxService {
       })
 
       const latestSandbox = this.loadFrontendSandboxOrThrow(sandboxId, true)
-      await this.syncFrontendLifecycleStatus(latestSandbox)
+      await syncFrontendLifecycleStatus(latestSandbox, dockerService, sandboxService)
       const finalizedSandbox = this.loadFrontendSandboxOrThrow(sandboxId, true)
       const previewReady = await checkHttpReady(finalizedSandbox.frontend.previewUrl)
 
@@ -458,7 +484,12 @@ export class FrontendSandboxService {
       const errorMessage = error instanceof Error ? error.message : String(error)
 
       try {
-        await this.persistFrontendBuildValidationFailure(sandboxId, errorMessage)
+        await persistFrontendBuildValidationFailure(
+          sandboxId,
+          errorMessage,
+          sandboxService,
+          frontendWorkspaceBootstrapService
+        )
       } catch (stateError) {
         logger.warn('写入前端构建校验错误状态失败', 'main', {
           sandboxId,
@@ -468,7 +499,7 @@ export class FrontendSandboxService {
 
       try {
         const current = this.loadFrontendSandboxOrThrow(sandboxId, true)
-        await this.syncFrontendLifecycleStatus(current, {
+        await syncFrontendLifecycleStatus(current, dockerService, sandboxService, {
           preserveBootstrapError: true
         })
       } catch (statusError) {
@@ -497,7 +528,7 @@ export class FrontendSandboxService {
       return null
     }
 
-    await this.syncFrontendPortBinding(sandbox)
+    await syncFrontendPortBinding(sandbox, dockerService, sandboxService)
     const refreshedSandbox = sandboxService.loadSandbox(sandboxId) || sandbox
     const previewUrl = refreshedSandbox.frontend?.previewUrl || sandbox.frontend.previewUrl
 
@@ -525,12 +556,12 @@ export class FrontendSandboxService {
       }
     }
 
-    await this.syncFrontendPortBinding(sandbox)
+    await syncFrontendPortBinding(sandbox, dockerService, sandboxService)
 
     const { framework, previewUrl } = sandbox.frontend
 
     if (await checkHttpReady(previewUrl)) {
-      await this.persistFrontendSandboxStatus(sandbox, 'running')
+      await persistFrontendSandboxStatus(sandbox, sandboxService, 'running')
       return {
         handled: true,
         previewReady: true,
@@ -551,7 +582,7 @@ export class FrontendSandboxService {
       )
 
       if (!bootstrapResult.previewReady) {
-        await this.persistFrontendSandboxStatus(sandbox, 'error')
+        await persistFrontendSandboxStatus(sandbox, sandboxService, 'error')
         logger.warn('前端服务启动后未就绪', 'main', {
           sandboxId: sandbox.sandboxId,
           previewUrl
@@ -564,14 +595,14 @@ export class FrontendSandboxService {
         }
       }
 
-      await this.invalidateFrontendBuildValidation(sandbox)
+      await invalidateFrontendBuildValidation(sandbox, frontendWorkspaceBootstrapService)
 
       logger.info('前端服务恢复成功', 'main', {
         sandboxId: sandbox.sandboxId,
         previewUrl
       })
 
-      await this.persistFrontendSandboxStatus(sandbox, 'running')
+      await persistFrontendSandboxStatus(sandbox, sandboxService, 'running')
 
       return {
         handled: true,
@@ -584,7 +615,7 @@ export class FrontendSandboxService {
         sandboxId: sandbox.sandboxId,
         error: errorMessage
       })
-      await this.persistFrontendSandboxStatus(sandbox, 'error', errorMessage)
+      await persistFrontendSandboxStatus(sandbox, sandboxService, 'error', errorMessage)
       return {
         handled: true,
         previewReady: false,
@@ -633,165 +664,24 @@ export class FrontendSandboxService {
       if (!sandbox.isOrphan || sandbox.status !== 'error') {
         sandbox.isOrphan = true
         sandbox.status = 'error'
-        this.saveSandboxOrThrow(sandbox, '保存前端孤儿沙箱状态失败')
+        saveSandboxOrThrow(sandbox, sandboxService, '保存前端孤儿沙箱状态失败')
       }
       return
     }
 
     if (sandbox.isOrphan) {
       sandbox.isOrphan = false
-      this.saveSandboxOrThrow(sandbox, '保存前端沙箱关联状态失败')
+      saveSandboxOrThrow(sandbox, sandboxService, '保存前端沙箱关联状态失败')
     }
 
-    await this.syncFrontendPortBinding(sandbox)
+    await syncFrontendPortBinding(sandbox, dockerService, sandboxService)
 
     if (details.state !== 'running') {
-      await this.persistFrontendSandboxStatus(sandbox, 'stopped')
+      await persistFrontendSandboxStatus(sandbox, sandboxService, 'stopped')
       return
     }
 
     await this.recoverFrontendRuntime(sandbox)
-  }
-
-  /**
-   * 为前端沙箱分配固定宿主机端口，避免 stop/start 或 restart 后随机变化
-   */
-  private async allocateFixedHostPort(
-    preferredPort: number,
-    ignoredSandboxId?: string
-  ): Promise<number> {
-    const reservedPorts = new Set(
-      sandboxService
-        .loadAllSandboxes()
-        .filter((sandbox) => sandbox.sandboxId !== ignoredSandboxId)
-        .map((sandbox) => sandbox.frontend?.hostPort)
-        .filter(
-          (port): port is number => typeof port === 'number' && Number.isInteger(port) && port > 0
-        )
-    )
-
-    for (let port = preferredPort; port <= 65535; port += 1) {
-      if (reservedPorts.has(port)) {
-        continue
-      }
-
-      if (await this.isHostPortAvailable(port)) {
-        return port
-      }
-    }
-
-    throw new Error('未找到可用的宿主机端口')
-  }
-
-  /**
-   * 将容器开发端口映射到宿主机的稳定高位端口，避免与本机常见开发端口冲突
-   */
-  private getPreferredHostPort(containerPort: number): number {
-    const preferredHostPort = containerPort + FRONTEND_HOST_PORT_BASE
-    if (preferredHostPort <= 65535) {
-      return preferredHostPort
-    }
-
-    return Math.min(Math.max(containerPort, 1024), 65535)
-  }
-
-  private async getReusableHostPort(preferredPort: number, sandboxId: string): Promise<number> {
-    if (await this.isHostPortAvailable(preferredPort)) {
-      return preferredPort
-    }
-
-    return this.allocateFixedHostPort(preferredPort, sandboxId)
-  }
-
-  /**
-   * 检查宿主机端口是否可用
-   */
-  private async isHostPortAvailable(port: number): Promise<boolean> {
-    const net = await import('node:net')
-
-    return new Promise((resolve) => {
-      const server = net.createServer()
-
-      const finish = (available: boolean): void => {
-        server.removeAllListeners()
-        resolve(available)
-      }
-
-      server.once('error', () => finish(false))
-      server.once('listening', () => {
-        server.close(() => finish(true))
-      })
-      server.listen(port, '0.0.0.0')
-    })
-  }
-
-  /**
-   * 同步前端沙箱当前端口映射，兼容旧的动态端口沙箱
-   */
-  private async syncFrontendPortBinding(sandbox: SandboxData): Promise<void> {
-    if (!sandbox.frontend || !sandbox.primaryContainerId) {
-      return
-    }
-
-    const details = await dockerService.getContainerDetails(sandbox.primaryContainerId)
-    const boundPort = details?.ports.find(
-      (item) => item.containerPort === sandbox.frontend?.containerPort && item.protocol === 'tcp'
-    )
-    const hostPort = boundPort?.hostPort
-
-    if (!hostPort) {
-      return
-    }
-
-    const previewUrl = this.buildPreviewUrl(hostPort)
-    if (sandbox.frontend.hostPort === hostPort && sandbox.frontend.previewUrl === previewUrl) {
-      return
-    }
-
-    sandbox.frontend.hostPort = hostPort
-    sandbox.frontend.previewUrl = previewUrl
-    const saveResult = sandboxService.saveSandbox(sandbox)
-
-    if (!saveResult.success) {
-      logger.warn('同步前端沙箱端口映射失败', 'main', {
-        sandboxId: sandbox.sandboxId,
-        hostPort,
-        error: saveResult.error
-      })
-      return
-    }
-
-    logger.info('前端沙箱端口映射已同步', 'main', {
-      sandboxId: sandbox.sandboxId,
-      hostPort,
-      previewUrl
-    })
-  }
-
-  private async syncFrontendLifecycleStatus(
-    sandbox: SandboxData,
-    options?: { preserveBootstrapError?: boolean }
-  ): Promise<void> {
-    const containerId = sandbox.primaryContainerId || sandbox.containerIds[0]
-
-    if (!containerId) {
-      return
-    }
-
-    const details = await dockerService.getContainerDetails(containerId)
-    if (!details) {
-      return
-    }
-
-    const nextStatus: SandboxData['status'] = details.state === 'running' ? 'running' : 'stopped'
-    await this.persistFrontendSandboxStatus(sandbox, nextStatus, undefined, options)
-  }
-
-  /**
-   * 构建预览地址
-   */
-  private buildPreviewUrl(hostPort: number): string {
-    return `http://127.0.0.1:${hostPort}`
   }
 
   private loadFrontendSandboxOrThrow(
@@ -829,190 +719,13 @@ export class FrontendSandboxService {
     }
   }
 
-  private async ensureFrontendContainerRunning(sandbox: SandboxData): Promise<void> {
-    const containerId = sandbox.primaryContainerId || sandbox.containerIds[0]
-
-    if (!containerId) {
-      throw new Error('前端沙箱没有关联容器，请改用重建容器')
-    }
-
-    const exists = await dockerService.containerExists(containerId)
-    if (!exists) {
-      throw new Error('前端容器不存在，请改用重建容器')
-    }
-
-    const details = await dockerService.getContainerDetails(containerId)
-    if (details?.state === 'running') {
-      return
-    }
-
-    const startResult = await dockerService.startContainer(containerId)
-    if (!startResult.success) {
-      throw new Error(startResult.error || '启动前端容器失败')
-    }
-  }
-
-  private async removeContainerIfExists(containerId: string): Promise<void> {
-    const details = await dockerService.getContainerDetails(containerId)
-    if (!details) {
-      return
-    }
-
-    if (details.state === 'running') {
-      const stopResult = await dockerService.stopContainer(containerId, 10)
-      if (!stopResult.success) {
-        throw new Error(stopResult.error || '停止旧前端容器失败')
-      }
-    }
-
-    const removeResult = await dockerService.removeContainer(containerId, true)
-    if (!removeResult.success) {
-      throw new Error(removeResult.error || '删除旧前端容器失败')
-    }
-  }
-
-  private async persistFrontendBuildValidationFailure(
-    sandboxId: string,
-    errorMessage: string
-  ): Promise<void> {
-    const sandbox = this.loadFrontendSandboxOrThrow(sandboxId, true)
-    const currentState = await frontendWorkspaceBootstrapService.readBootstrapState(sandbox)
-
-    await frontendWorkspaceBootstrapService.writeBootstrapState(sandbox, {
-      ...currentState,
-      buildValidated: false,
-      bootstrapStatus: 'error',
-      lastBootstrapAt: new Date().toISOString(),
-      bootstrapError: errorMessage
-    })
-  }
-
-  private async invalidateFrontendBuildValidation(sandbox: SandboxData): Promise<void> {
-    if (!sandbox.frontend || !sandbox.primaryContainerId) {
-      return
-    }
-
-    const currentState = await frontendWorkspaceBootstrapService.readBootstrapState(sandbox)
-    if (!currentState.buildValidated) {
-      return
-    }
-
-    const nextBootstrapStatus = currentState.dependenciesInstalled
-      ? 'runtime-ready'
-      : currentState.workspaceInitialized
-        ? 'workspace-ready'
-        : 'pending'
-
-    await frontendWorkspaceBootstrapService.writeBootstrapState(sandbox, {
-      ...currentState,
-      buildValidated: false,
-      bootstrapStatus: nextBootstrapStatus,
-      lastBootstrapAt: new Date().toISOString(),
-      bootstrapError: undefined
-    })
-  }
-
-  private async persistFrontendSandboxStatus(
-    sandbox: SandboxData,
-    status: SandboxData['status'],
-    bootstrapError?: string,
-    options?: { preserveBootstrapError?: boolean }
-  ): Promise<void> {
-    const current =
-      sandboxService.loadSandbox(sandbox.sandboxId, {
-        silent: true
-      }) || sandbox
-
-    let nextBootstrapError = current.frontend?.bootstrapError
-
-    if (current.frontend) {
-      nextBootstrapError =
-        status === 'error' ? bootstrapError || current.frontend.bootstrapError : undefined
-      if (options?.preserveBootstrapError) {
-        nextBootstrapError = sandbox.frontend?.bootstrapError || nextBootstrapError
-      }
-    }
-
-    if (current.status === status && current.frontend?.bootstrapError === nextBootstrapError) {
-      return
-    }
-
-    current.status = status
-    current.updatedAt = new Date().toISOString()
-    sandbox.status = status
-    sandbox.updatedAt = current.updatedAt
-
-    if (current.frontend) {
-      current.frontend.lastBootstrapAt = new Date().toISOString()
-      current.frontend.bootstrapError = nextBootstrapError
-      if (sandbox.frontend) {
-        sandbox.frontend.lastBootstrapAt = current.frontend.lastBootstrapAt
-        sandbox.frontend.bootstrapError = current.frontend.bootstrapError
-      }
-    }
-
-    this.saveSandboxOrThrow(current, '保存前端沙箱状态失败')
-  }
-
-  private saveSandboxOrThrow(sandbox: SandboxData, fallbackMessage: string): void {
-    const saveResult = sandboxService.saveSandbox(sandbox, {
-      silent: true
-    })
-    if (!saveResult.success) {
-      throw new Error(saveResult.error || fallbackMessage)
-    }
-  }
-
-  /**
-   * 生成容器名称
-   */
-  private buildContainerName(name: string): string {
-    const sanitized = name
-      .toLowerCase()
-      .replace(/[^a-z0-9_.-]/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 40)
-
-    return `sandbox-frontend-${sanitized || 'app'}-${Date.now()}`
-  }
-
-  /**
-   * 生成模板项目名
-   */
-  private buildProjectName(name: string): string {
-    return (
-      name
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9_.-]/g, '-')
-        .replace(/^-+|-+$/g, '') || 'sandbox-app'
-    )
-  }
-
   private getRenderedTemplate(
     name: string,
     framework: FrontendFramework
   ): ReturnType<typeof templateService.renderTemplate> {
     return templateService.renderTemplate(framework, {
-      projectName: this.buildProjectName(name)
+      projectName: buildProjectName(name)
     })
-  }
-
-  /**
-   * 生成前端工作区 volume 名称
-   */
-  private buildWorkspaceVolumeName(sandboxId: string): string {
-    return `sandbox-frontend-workspace-${sandboxId}`
-  }
-
-  /**
-   * 构建前端工作区 volume 标签
-   */
-  private buildWorkspaceVolumeLabels(sandboxId: string): Record<string, string> {
-    return {
-      'sparrow-manus.sandbox-id': sandboxId,
-      'sparrow-manus.volume-role': 'frontend-workspace'
-    }
   }
 
   private buildFrontendSandboxInfo(
