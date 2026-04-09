@@ -2,9 +2,38 @@ import { extname } from 'path'
 import { writeFileSync, unlinkSync, existsSync, mkdtempSync, readFileSync, rmdirSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { logger } from '@main/services/logger'
 import mammoth from 'mammoth'
-import officeParser from 'officeparser'
+import officeParser, { type OfficeParserConfig } from 'officeparser'
+import { logger } from '@main/services/logger'
+
+interface PdfjsTextContentItem {
+  str?: string
+}
+
+interface PdfjsTextContent {
+  items: PdfjsTextContentItem[]
+}
+
+interface PdfjsPage {
+  getTextContent(): Promise<PdfjsTextContent>
+}
+
+interface PdfjsDocument {
+  numPages: number
+  getPage(pageNumber: number): Promise<PdfjsPage>
+}
+
+interface PdfjsLoadingTask {
+  promise: Promise<PdfjsDocument>
+}
+
+interface PdfjsModule {
+  VerbosityLevel?: {
+    ERRORS: number
+  }
+  setVerbosityLevel?: (level: number) => void
+  getDocument: (src: { data: Uint8Array; verbosity?: number }) => PdfjsLoadingTask
+}
 
 /**
  * 文档解析服务
@@ -54,6 +83,10 @@ export class DocumentParserService {
           content = await this.parseExcel(tempPath)
           break
 
+        case '.pptx':
+          content = await this.parsePptx(tempPath)
+          break
+
         default:
           throw new Error(`不支持的文件类型: ${ext}`)
       }
@@ -84,18 +117,24 @@ export class DocumentParserService {
 
       // 使用 pdfjs-dist 解析 PDF
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.mjs')
+      const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.mjs') as PdfjsModule
+      const verbosity = pdfjsLib.VerbosityLevel?.ERRORS
 
-      // 禁用 worker（在 Electron 主进程中不需要）
-      pdfjsLib.GlobalWorkerOptions.disableWorker = true
+      if (typeof verbosity === 'number' && typeof pdfjsLib.setVerbosityLevel === 'function') {
+        pdfjsLib.setVerbosityLevel(verbosity)
+      }
 
-      // 设置日志级别为 ERROR，抑制字体解析警告
-      pdfjsLib.verbosity = pdfjsLib.VerbosityLevel.ERRORS
+      const loadingTask =
+        typeof verbosity === 'number'
+          ? pdfjsLib.getDocument({
+              data: new Uint8Array(dataBuffer),
+              verbosity
+            })
+          : pdfjsLib.getDocument({
+              data: new Uint8Array(dataBuffer)
+            })
 
-      const pdf = await pdfjsLib.getDocument({
-        data: new Uint8Array(dataBuffer),
-        verbosity: pdfjsLib.VerbosityLevel.ERRORS
-      }).promise
+      const pdf = await loadingTask.promise
       logger.info('PDF 文档已加载', 'main', { pages: pdf.numPages })
 
       let fullText = ''
@@ -104,7 +143,10 @@ export class DocumentParserService {
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i)
         const textContent = await page.getTextContent()
-        const pageText = textContent.items.map((item: { str: string }) => item.str).join(' ')
+        const pageText = textContent.items
+          .map((item) => (typeof item.str === 'string' ? item.str : ''))
+          .filter(Boolean)
+          .join(' ')
         fullText += pageText + '\n'
       }
 
@@ -180,7 +222,7 @@ export class DocumentParserService {
     try {
       logger.info('开始解析 Excel 电子表格', 'main', { filePath })
 
-      const config = {
+      const config: OfficeParserConfig = {
         newlineDelimiter: '\n',
         outputErrorToConsole: false
       }
@@ -207,6 +249,39 @@ export class DocumentParserService {
       } else {
         throw new Error(`Excel 解析失败: ${errorMessage}`)
       }
+    }
+  }
+
+  /**
+   * 解析 PPTX 演示文稿
+   */
+  private async parsePptx(filePath: string): Promise<string> {
+    try {
+      logger.info('开始解析 PPTX 演示文稿', 'main', { filePath })
+
+      const config: OfficeParserConfig = {
+        newlineDelimiter: '\n',
+        outputErrorToConsole: false,
+        ignoreNotes: true,
+        putNotesAtLast: true
+      }
+
+      const ast = await officeParser.parseOffice(filePath, config)
+      const fullText = ast.toText()
+
+      logger.info('PPTX 解析完成', 'main', {
+        filePath,
+        contentLength: fullText.length
+      })
+
+      return fullText
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('PPTX 解析失败', 'main', {
+        filePath,
+        error: errorMessage
+      })
+      throw new Error(`PPTX 解析失败: ${errorMessage}`)
     }
   }
 

@@ -6,22 +6,43 @@ import { existsSync, readFileSync, readFile } from 'fs'
 import { extname } from 'path'
 
 import mammoth from 'mammoth'
+import officeParser, { type OfficeParserConfig } from 'officeparser'
 import WordExtractor from 'word-extractor'
-import officeParser from 'officeparser'
 import { logger } from '@main/services/logger'
+import { SUPPORTED_DOCUMENT_EXTENSIONS } from '@shared/constants/document'
 import type { FilePreviewData } from '@shared/types/knowledge'
 
+interface PdfjsTextContentItem {
+  str?: string
+}
+
+interface PdfjsTextContent {
+  items: PdfjsTextContentItem[]
+}
+
+interface PdfjsPage {
+  getTextContent(): Promise<PdfjsTextContent>
+}
+
+interface PdfjsDocument {
+  numPages: number
+  getPage(pageNumber: number): Promise<PdfjsPage>
+}
+
+interface PdfjsLoadingTask {
+  promise: Promise<PdfjsDocument>
+}
+
+interface PdfjsModule {
+  VerbosityLevel?: {
+    ERRORS: number
+  }
+  setVerbosityLevel?: (level: number) => void
+  getDocument: (src: { data: Uint8Array; verbosity?: number }) => PdfjsLoadingTask
+}
+
 // 支持的文件类型
-export const SUPPORTED_FILE_TYPES = new Set([
-  '.txt',
-  '.md',
-  '.pdf',
-  '.doc',
-  '.docx',
-  '.csv',
-  '.xls',
-  '.xlsx'
-])
+export const SUPPORTED_FILE_TYPES = new Set<string>(SUPPORTED_DOCUMENT_EXTENSIONS)
 
 // 读取文本文件内容
 async function readTextFile(filePath: string): Promise<string> {
@@ -45,12 +66,19 @@ async function readPdfFile(filePath: string): Promise<string> {
 
     // 使用 pdfjs-dist 解析 PDF
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.mjs')
+    const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.mjs') as PdfjsModule
+    const verbosity = pdfjsLib.VerbosityLevel?.ERRORS
 
-    // 禁用 worker（在 Electron 主进程中不需要）
-    pdfjsLib.GlobalWorkerOptions.disableWorker = true
+    if (typeof verbosity === 'number' && typeof pdfjsLib.setVerbosityLevel === 'function') {
+      pdfjsLib.setVerbosityLevel(verbosity)
+    }
 
-    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(dataBuffer) }).promise
+    const loadingTask =
+      typeof verbosity === 'number'
+        ? pdfjsLib.getDocument({ data: new Uint8Array(dataBuffer), verbosity })
+        : pdfjsLib.getDocument({ data: new Uint8Array(dataBuffer) })
+
+    const pdf = await loadingTask.promise
     logger.info('PDF 文档已加载', 'main', { pages: pdf.numPages })
 
     let fullText = ''
@@ -59,7 +87,10 @@ async function readPdfFile(filePath: string): Promise<string> {
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i)
       const textContent = await page.getTextContent()
-      const pageText = textContent.items.map((item: { str: string }) => item.str).join(' ')
+      const pageText = textContent.items
+        .map((item) => (typeof item.str === 'string' ? item.str : ''))
+        .filter(Boolean)
+        .join(' ')
       fullText += pageText + '\n'
     }
 
@@ -106,7 +137,7 @@ async function readDocFile(filePath: string): Promise<string> {
 async function readExcelFile(filePath: string): Promise<string> {
   try {
     logger.info('开始解析 excel 文件', 'main', { filePath })
-    const config = {
+    const config: OfficeParserConfig = {
       newlineDelimiter: '\n',
       outputErrorToConsole: false
     }
@@ -118,6 +149,27 @@ async function readExcelFile(filePath: string): Promise<string> {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('excel 解析失败', 'main', { filePath, error: errorMessage })
     throw new Error(`excel 解析失败: ${errorMessage}`)
+  }
+}
+
+// 读取 pptx 文件内容（提取幻灯片文本）
+async function readPptxFile(filePath: string): Promise<string> {
+  try {
+    logger.info('开始解析 pptx 文件', 'main', { filePath })
+    const config: OfficeParserConfig = {
+      newlineDelimiter: '\n',
+      outputErrorToConsole: false,
+      ignoreNotes: true,
+      putNotesAtLast: true
+    }
+    const ast = await officeParser.parseOffice(filePath, config)
+    const fullText = ast.toText()
+    logger.info('pptx 解析完成', 'main', { textLength: fullText.length })
+    return fullText
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('pptx 解析失败', 'main', { filePath, error: errorMessage })
+    throw new Error(`pptx 解析失败: ${errorMessage}`)
   }
 }
 
@@ -139,6 +191,10 @@ export async function readFileContent(filePath: string, fileName: string): Promi
 
   if (ext === '.xls' || ext === '.xlsx') {
     return readExcelFile(filePath)
+  }
+
+  if (ext === '.pptx') {
+    return readPptxFile(filePath)
   }
 
   // 其他类型作为文本文件读取
