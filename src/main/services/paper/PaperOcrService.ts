@@ -6,6 +6,7 @@ import { DEFAULT_OCR_PROVIDER } from '@shared/types/config'
 import type { PaperLayoutBlock, PaperPageOcrResult, BlockLabel } from '@shared/types/paper'
 import { PaperGlmOcrClient } from './PaperGlmOcrClient'
 import { paperStorageService } from './index'
+import { buildMergedMarkdown, runPaperOcrPipeline, MAX_OCR_CONCURRENCY } from './paperOcrPipeline'
 import {
   getPaperOcrRawDirPath,
   getPaperOcrRawPath,
@@ -16,8 +17,6 @@ import {
   getPaperFigureAssetRelativePath,
   getPaperMergedMdPath
 } from './paperPaths'
-
-export const MAX_OCR_CONCURRENCY = 1
 
 export interface OcrProgressInfo {
   paperId: string
@@ -150,18 +149,6 @@ function normalizeGlmOcrResponse(
   }
 }
 
-function buildPageMarkdown(pageResult: PaperPageOcrResult): string {
-  let md = pageResult.markdown
-
-  for (const block of pageResult.blocks) {
-    if (block.localAssetPath && block.remoteAssetUrl) {
-      md = md.replaceAll(block.remoteAssetUrl, block.localAssetPath)
-    }
-  }
-
-  return md
-}
-
 async function downloadCropImage(remoteUrl: string, localPath: string): Promise<boolean> {
   try {
     const response = await net.fetch(remoteUrl)
@@ -251,38 +238,42 @@ export class PaperOcrService {
       errorMessage: undefined
     })
 
-    const normalizedResults: PaperPageOcrResult[] = []
-
-    for (let i = 0; i < totalPages; i++) {
-      if (this.abortControllers.get(paperId)) {
-        progress.status = 'cancelled'
+    const { aborted, results: normalizedResults } = await runPaperOcrPipeline({
+      paperId,
+      totalPages,
+      concurrency: MAX_OCR_CONCURRENCY,
+      shouldCancel: () => this.abortControllers.get(paperId) === true,
+      processPage: async (pageIndex) => this.processPage(paperId, pageIndex, apiKey, provider),
+      onPageDispatched: (pageIndex) => {
+        progress.currentPage = pageIndex
         this.emitProgress(paperId, progress)
-        logger.info('OCR 任务已取消', 'main', { paperId, completedPages: progress.completedPages })
-        break
+      },
+      onPageSettled: (pageIndex, pageResult) => {
+        if (pageResult.status === 'completed') {
+          progress.completedPages += 1
+          paperStorageService.updateMeta(paperId, {
+            completedPageCount: progress.completedPages
+          })
+        } else {
+          progress.failedPages = [...progress.failedPages, pageIndex].sort(
+            (left, right) => left - right
+          )
+        }
+
+        this.emitProgress(paperId, progress)
       }
+    })
 
-      progress.currentPage = i
-      this.emitProgress(paperId, progress)
-
-      const pageResult = await this.processPage(paperId, i, apiKey, provider)
-      normalizedResults.push(pageResult)
-
-      if (pageResult.status === 'completed') {
-        progress.completedPages += 1
-        paperStorageService.updateMeta(paperId, {
-          completedPageCount: progress.completedPages
-        })
-      } else {
-        progress.failedPages.push(i)
-      }
-
-      this.emitProgress(paperId, progress)
-    }
-
-    const aborted = this.abortControllers.get(paperId)
     this.abortControllers.delete(paperId)
 
-    if (!aborted) {
+    if (aborted) {
+      progress.status = 'cancelled'
+      paperStorageService.updateMeta(paperId, {
+        status: 'draft',
+        completedPageCount: progress.completedPages,
+        errorMessage: undefined
+      })
+    } else {
       if (progress.failedPages.length === 0) {
         progress.status = 'completed'
         paperStorageService.updateMeta(paperId, { status: 'completed' })
@@ -452,15 +443,7 @@ export class PaperOcrService {
   }
 
   private buildAndSaveMergedMd(paperId: string, results: PaperPageOcrResult[]): void {
-    const parts: string[] = []
-
-    for (const pageResult of results) {
-      const pageMd = buildPageMarkdown(pageResult)
-      const header = `<!-- Page ${pageResult.pageIndex + 1} -->`
-      parts.push(`${header}\n\n${pageMd}`)
-    }
-
-    const mergedMd = parts.join('\n\n')
+    const mergedMd = buildMergedMarkdown(results)
 
     try {
       const mdPath = getPaperMergedMdPath(paperId)
