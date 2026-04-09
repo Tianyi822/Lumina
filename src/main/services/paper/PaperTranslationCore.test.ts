@@ -1,7 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { LLMConfig } from '../../../shared/types/config.ts'
-import type { PaperTranslationCache, PaperTranslationSegment } from '../../../shared/types/paper.ts'
+import type {
+  PaperFigureItem,
+  PaperTranslationCache,
+  PaperTranslationSegment
+} from '../../../shared/types/paper.ts'
 import { PaperTranslationCore, computePaperTranslationSourceHash } from './PaperTranslationCore.ts'
 import { parsePaperTranslationSegments } from '../../../shared/utils/paperTranslation.ts'
 
@@ -34,6 +38,20 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
     }
 
     await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+}
+
+function createFigure(overrides: Partial<PaperFigureItem> = {}): PaperFigureItem {
+  return {
+    id: overrides.id ?? 'fig-1',
+    paperId: overrides.paperId ?? 'paper-figure',
+    pageIndex: overrides.pageIndex ?? 0,
+    blockIndex: overrides.blockIndex ?? 0,
+    groupId: overrides.groupId ?? 'group-1',
+    imagePath: overrides.imagePath ?? '/tmp/figure-1.png',
+    caption: overrides.caption ?? '',
+    subCaption: overrides.subCaption,
+    bbox: overrides.bbox ?? { x: 0, y: 0, width: 100, height: 80 }
   }
 }
 
@@ -217,6 +235,61 @@ test('图片段会被跳过且不会触发翻译调用', async () => {
   assert.equal(translateCallCount, 2)
 })
 
+test('图片 caption 会作为附加段落参与翻译并在未变化时复用缓存', async () => {
+  const markdown = 'The qualitative comparison is shown below.'
+  const figures: PaperFigureItem[] = [
+    createFigure({
+      id: 'fig-1',
+      caption: 'Figure 1. Overall framework.'
+    }),
+    createFigure({
+      id: 'fig-2',
+      blockIndex: 1,
+      imagePath: '/tmp/figure-2.png',
+      caption: '',
+      subCaption: '(a) Encoder branch'
+    })
+  ]
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      translateCallCount += 1
+      return `译文：${segment.originalMarkdown}`
+    }
+  })
+
+  const firstResult = await core.startTranslation('paper-caption', markdown, figures)
+  assert.equal(firstResult.success, true)
+  await waitFor(() => !core.isRunning('paper-caption'))
+
+  const firstCache = cacheStore.get('paper-caption')
+  assert.ok(firstCache)
+  assert.equal(firstCache.entries.length, 3)
+  assert.equal(firstCache.entries[1].id, 'fig-caption-fig-1')
+  assert.equal(firstCache.entries[1].translatedText, '译文：Figure 1. Overall framework.')
+  assert.equal(firstCache.entries[2].id, 'fig-caption-fig-2')
+  assert.equal(firstCache.entries[2].translatedText, '译文：(a) Encoder branch')
+  assert.equal(translateCallCount, 3)
+
+  const secondResult = await core.startTranslation('paper-caption', markdown, figures)
+  assert.equal(secondResult.success, true)
+  await waitFor(() => !core.isRunning('paper-caption'))
+  assert.equal(translateCallCount, 3)
+})
+
 test('分隔线段会被跳过且不会触发翻译调用', async () => {
   const markdown = ['---', '', '# DEYOLO', '', 'This is the first paragraph.'].join('\n')
   const cacheStore = new Map<string, PaperTranslationCache>()
@@ -359,6 +432,165 @@ test('会复用已完成缓存并在正文哈希变化时使旧缓存失效', as
   assert.equal(reusedCache.entries[0].translatedMarkdown, '译文：Paragraph A.')
 
   const changedState = core.getTranslationState('paper-cache', `${markdown}\n\nParagraph C.`)
+  assert.equal(changedState.success, true)
+  assert.equal(changedState.data?.cache, null)
+})
+
+test('旧哈希缓存会在描述符一致时自动迁移并恢复', () => {
+  const markdown = ['Paragraph A.', '', 'Paragraph B.'].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  const savedCaches: PaperTranslationCache[] = []
+  const segments = parsePaperTranslationSegments(markdown)
+
+  cacheStore.set('paper-legacy-cache', {
+    paperId: 'paper-legacy-cache',
+    sourceHash: 'legacy-hash',
+    totalSegments: 2,
+    completedSegments: 2,
+    updatedAt: new Date().toISOString(),
+    entries: [
+      {
+        ...segments[0],
+        status: 'completed',
+        translatedMarkdown: '译文：Paragraph A.',
+        translatedText: '译文：Paragraph A.'
+      },
+      {
+        ...segments[1],
+        status: 'completed',
+        translatedMarkdown: '译文：Paragraph B.',
+        translatedText: '译文：Paragraph B.'
+      }
+    ]
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      savedCaches.push(structuredClone(cache))
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => `译文：${segment.originalMarkdown}`
+  })
+
+  const state = core.getTranslationState('paper-legacy-cache', markdown)
+  assert.equal(state.success, true)
+  assert.ok(state.data?.cache)
+  assert.equal(state.data?.cache?.entries[0].translatedMarkdown, '译文：Paragraph A.')
+  assert.equal(state.data?.cache?.sourceHash, computePaperTranslationSourceHash(markdown))
+  assert.equal(state.data?.cache?.sourceHashVersion, 2)
+  assert.equal(savedCaches.length, 1)
+  assert.equal(savedCaches[0].sourceHashVersion, 2)
+  assert.equal(savedCaches[0].sourceHash, computePaperTranslationSourceHash(markdown))
+})
+
+test('旧哈希缓存在描述符变化时仍会失效并清理', () => {
+  const markdown = ['Paragraph A.', '', 'Paragraph B.'].join('\n')
+  const changedMarkdown = ['Paragraph A.', '', 'Paragraph C.'].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let clearCount = 0
+
+  cacheStore.set('paper-legacy-invalid', {
+    paperId: 'paper-legacy-invalid',
+    sourceHash: 'legacy-hash',
+    totalSegments: 2,
+    completedSegments: 2,
+    updatedAt: new Date().toISOString(),
+    entries: [
+      {
+        ...parsePaperTranslationSegments(markdown)[0],
+        status: 'completed',
+        translatedMarkdown: '译文：Paragraph A.',
+        translatedText: '译文：Paragraph A.'
+      },
+      {
+        ...parsePaperTranslationSegments(markdown)[1],
+        status: 'completed',
+        translatedMarkdown: '译文：Paragraph B.',
+        translatedText: '译文：Paragraph B.'
+      }
+    ]
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      clearCount += 1
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => `译文：${segment.originalMarkdown}`
+  })
+
+  const state = core.getTranslationState('paper-legacy-invalid', changedMarkdown)
+  assert.equal(state.success, true)
+  assert.equal(state.data?.cache, null)
+  assert.equal(clearCount, 1)
+  assert.equal(cacheStore.has('paper-legacy-invalid'), false)
+})
+
+test('图片 caption 变化时会使旧缓存失效', () => {
+  const markdown = 'The qualitative comparison is shown below.'
+  const figures = [createFigure({ id: 'fig-1', caption: 'Figure 1. Overall framework.' })]
+  const sourceHash = computePaperTranslationSourceHash(markdown, figures)
+  const cacheStore = new Map<string, PaperTranslationCache>()
+
+  cacheStore.set('paper-caption-cache', {
+    paperId: 'paper-caption-cache',
+    sourceHash,
+    totalSegments: 2,
+    completedSegments: 2,
+    updatedAt: new Date().toISOString(),
+    entries: [
+      {
+        ...parsePaperTranslationSegments(markdown)[0],
+        status: 'completed',
+        translatedMarkdown: '译文：The qualitative comparison is shown below.',
+        translatedText: '译文：The qualitative comparison is shown below.'
+      },
+      {
+        id: 'fig-caption-fig-1',
+        index: 1,
+        kind: 'paragraph',
+        originalMarkdown: 'Figure 1. Overall framework.',
+        originalText: 'Figure 1. Overall framework.',
+        status: 'completed',
+        translatedMarkdown: '译文：Figure 1. Overall framework.',
+        translatedText: '译文：Figure 1. Overall framework.'
+      }
+    ]
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => `译文：${segment.originalMarkdown}`
+  })
+
+  const changedFigures = [createFigure({ id: 'fig-1', caption: 'Figure 1. Updated framework.' })]
+  const changedState = core.getTranslationState('paper-caption-cache', markdown, changedFigures)
   assert.equal(changedState.success, true)
   assert.equal(changedState.data?.cache, null)
 })

@@ -339,13 +339,20 @@ export function registerPaperHandlers(): void {
     }
   )
 
-  ipcMain.handle('paper:getTranslationState', (_event, paperId: string) => {
+  ipcMain.handle('paper:getTranslationState', async (_event, paperId: string) => {
     const markdownResult = getPaperService().getReaderMarkdown(paperId)
     if (!markdownResult.success || !markdownResult.data) {
       return { success: false, error: markdownResult.error || '读取论文正文失败' }
     }
 
-    const stateResult = paperTranslationService.getTranslationState(paperId, markdownResult.data)
+    const figuresResult = await getPaperService().listFigures(paperId)
+    const figures = figuresResult.success && figuresResult.data ? figuresResult.data : undefined
+
+    const stateResult = paperTranslationService.getTranslationState(
+      paperId,
+      markdownResult.data,
+      figures
+    )
     if (stateResult.success && stateResult.data?.isRunning) {
       registerTranslationSubscriber(paperId, _event.sender)
     }
@@ -379,8 +386,12 @@ export function registerPaperHandlers(): void {
 
     registerTranslationSubscriber(paperId, _event.sender)
 
+    // 获取图片列表用于 caption 翻译
+    const figuresResult = await getPaperService().listFigures(paperId)
+    const figures = figuresResult.success && figuresResult.data ? figuresResult.data : undefined
+
     try {
-      return await paperTranslationService.startTranslation(paperId, markdownResult.data)
+      return await paperTranslationService.startTranslation(paperId, markdownResult.data, figures)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('IPC: 启动论文翻译失败', 'main', { paperId, error: errorMessage })

@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import type { LLMConfig } from '../../../shared/types/config'
 import type {
+  PaperFigureItem,
   PaperTranslationCache,
   PaperTranslationEntry,
   PaperTranslationProgress,
@@ -48,15 +49,144 @@ interface ActiveTranslationTask {
   promise: Promise<void> | null
 }
 
+interface PaperTranslationSourceDescriptorEntry {
+  id: string
+  kind: PaperTranslationSegmentKind
+  originalMarkdown: string
+}
+
+interface PaperTranslationSource {
+  segments: PaperTranslationSegment[]
+  descriptorEntries: PaperTranslationSourceDescriptorEntry[]
+  sourceHash: string
+  sourceHashVersion: 2
+}
+
 const DEFAULT_CONCURRENCY = 3
+const PAPER_TRANSLATION_SOURCE_HASH_VERSION = 2
 const PROMPT_ARTIFACT_LINE_PATTERN =
   /^\s*(?:\[(?:上一段(?:原文)?参考|下一段(?:原文)?参考|当前(?:需要翻译的)?段落|翻译输出)\]|(?:上一段(?:原文)?参考|下一段(?:原文)?参考|当前(?:需要翻译的)?段落|翻译输出)|(?:previous_context|next_context|current_segment|translation))\s*:?\s*$/i
 const PROMPT_ARTIFACT_TAG_PATTERN =
   /<\/?(?:previous_context|next_context|current_segment|translation)(?:\s+[^>]*)?>/gi
 const LEADING_MARKER_PATTERN = /^(\s*(?:\[\d+\]|\[\[\d+\]\]|\d+[.)]|[-*+]))\s+/
 
-export function computePaperTranslationSourceHash(markdown: string): string {
-  return createHash('sha256').update(markdown).digest('hex')
+function getFigureCaptionSourceText(figure: PaperFigureItem): string {
+  return figure.caption || figure.subCaption || ''
+}
+
+function buildFigureCaptionSegments(figures?: PaperFigureItem[]): PaperTranslationSegment[] {
+  if (!figures || figures.length === 0) {
+    return []
+  }
+
+  const segments: PaperTranslationSegment[] = []
+
+  for (const figure of figures) {
+    const captionText = getFigureCaptionSourceText(figure)
+    if (!captionText) {
+      continue
+    }
+
+    segments.push({
+      id: `fig-caption-${figure.id}`,
+      index: segments.length,
+      kind: 'paragraph',
+      originalMarkdown: captionText,
+      originalText: captionText
+    })
+  }
+
+  return segments
+}
+
+function buildPaperTranslationSourceSegments(
+  markdown: string,
+  figures?: PaperFigureItem[]
+): PaperTranslationSegment[] {
+  const contentSegments = parsePaperTranslationSegments(markdown)
+  const captionSegments = buildFigureCaptionSegments(figures).map((segment, index) => ({
+    ...segment,
+    index: contentSegments.length + index
+  }))
+
+  return [...contentSegments, ...captionSegments]
+}
+
+function buildPaperTranslationSourceDescriptorEntries(
+  segments: PaperTranslationSegment[]
+): PaperTranslationSourceDescriptorEntry[] {
+  return segments.map((segment) => ({
+    id: segment.id,
+    kind: segment.kind,
+    originalMarkdown: segment.originalMarkdown
+  }))
+}
+
+function serializePaperTranslationSourceDescriptor(
+  entries: PaperTranslationSourceDescriptorEntry[]
+): string {
+  return JSON.stringify({
+    version: PAPER_TRANSLATION_SOURCE_HASH_VERSION,
+    entries
+  })
+}
+
+function computePaperTranslationSourceHashFromDescriptor(
+  entries: PaperTranslationSourceDescriptorEntry[]
+): string {
+  return createHash('sha256')
+    .update(serializePaperTranslationSourceDescriptor(entries))
+    .digest('hex')
+}
+
+function buildPaperTranslationSource(
+  markdown: string,
+  figures?: PaperFigureItem[]
+): PaperTranslationSource {
+  const segments = buildPaperTranslationSourceSegments(markdown, figures)
+  const descriptorEntries = buildPaperTranslationSourceDescriptorEntries(segments)
+
+  return {
+    segments,
+    descriptorEntries,
+    sourceHash: computePaperTranslationSourceHashFromDescriptor(descriptorEntries),
+    sourceHashVersion: PAPER_TRANSLATION_SOURCE_HASH_VERSION
+  }
+}
+
+function buildSourceDescriptorEntriesFromCache(
+  cache: PaperTranslationCache
+): PaperTranslationSourceDescriptorEntry[] {
+  return cache.entries.map((entry) => ({
+    id: entry.id,
+    kind: entry.kind,
+    originalMarkdown: entry.originalMarkdown
+  }))
+}
+
+function areSourceDescriptorEntriesEqual(
+  left: PaperTranslationSourceDescriptorEntry[],
+  right: PaperTranslationSourceDescriptorEntry[]
+): boolean {
+  if (left.length !== right.length) {
+    return false
+  }
+
+  return left.every((entry, index) => {
+    const counterpart = right[index]
+    return (
+      entry.id === counterpart?.id &&
+      entry.kind === counterpart.kind &&
+      entry.originalMarkdown === counterpart.originalMarkdown
+    )
+  })
+}
+
+export function computePaperTranslationSourceHash(
+  markdown: string,
+  figures?: PaperFigureItem[]
+): string {
+  return buildPaperTranslationSource(markdown, figures).sourceHash
 }
 
 function normalizeSegmentForFormulaDetection(segment: string): string {
@@ -282,38 +412,39 @@ export class PaperTranslationCore {
 
   getTranslationState(
     paperId: string,
-    markdown: string
+    markdown: string,
+    figures?: PaperFigureItem[]
   ): {
     success: boolean
     data?: { cache: PaperTranslationCache | null; isRunning: boolean }
     error?: string
   } {
-    const sourceHash = computePaperTranslationSourceHash(markdown)
-    const validCache = this.readValidCache(paperId, sourceHash)
+    const source = buildPaperTranslationSource(markdown, figures)
+    const validCache = this.readValidCache(paperId, source)
     const runningTask = this.tasks.get(paperId)
 
     return {
       success: true,
       data: {
         cache: runningTask?.cache ?? validCache,
-        isRunning: runningTask?.sourceHash === sourceHash
+        isRunning: runningTask?.sourceHash === source.sourceHash
       }
     }
   }
 
   async startTranslation(
     paperId: string,
-    markdown: string
+    markdown: string,
+    figures?: PaperFigureItem[]
   ): Promise<{ success: boolean; alreadyRunning?: boolean; error?: string }> {
-    const sourceHash = computePaperTranslationSourceHash(markdown)
-    const segments = parsePaperTranslationSegments(markdown)
+    const source = buildPaperTranslationSource(markdown, figures)
 
-    if (segments.length === 0) {
+    if (source.segments.length === 0) {
       return { success: false, error: '没有可翻译的正文内容' }
     }
 
     const existingTask = this.tasks.get(paperId)
-    if (existingTask && existingTask.sourceHash === sourceHash) {
+    if (existingTask && existingTask.sourceHash === source.sourceHash) {
       return { success: true, alreadyRunning: true }
     }
 
@@ -322,7 +453,7 @@ export class PaperTranslationCore {
       this.tasks.delete(paperId)
     }
 
-    const cache = this.buildCache(paperId, sourceHash, segments)
+    const cache = this.buildCache(paperId, source)
     this.persistCache(paperId, cache)
 
     const pendingEntries = cache.entries.filter(
@@ -340,7 +471,7 @@ export class PaperTranslationCore {
 
     const task: ActiveTranslationTask = {
       paperId,
-      sourceHash,
+      sourceHash: source.sourceHash,
       cache,
       abortController: new AbortController(),
       promise: null
@@ -352,38 +483,72 @@ export class PaperTranslationCore {
     return { success: true }
   }
 
-  private readValidCache(paperId: string, sourceHash: string): PaperTranslationCache | null {
+  private readValidCache(
+    paperId: string,
+    source: PaperTranslationSource
+  ): PaperTranslationCache | null {
     const cachedResult = this.deps.readCache(paperId)
     if (!cachedResult.success || !cachedResult.data) {
       return null
     }
 
-    if (cachedResult.data.sourceHash !== sourceHash) {
-      const clearResult = this.deps.clearCache(paperId)
-      if (!clearResult.success) {
-        this.deps.logger.warn('翻译缓存失效后清理失败', 'main', {
-          paperId,
-          error: clearResult.error
-        })
-      }
-      return null
+    const cachedCache = cachedResult.data
+    if (
+      cachedCache.sourceHash === source.sourceHash &&
+      cachedCache.sourceHashVersion === source.sourceHashVersion
+    ) {
+      return cachedCache
     }
 
-    return cachedResult.data
+    const cachedDescriptorEntries = buildSourceDescriptorEntriesFromCache(cachedCache)
+    if (areSourceDescriptorEntriesEqual(cachedDescriptorEntries, source.descriptorEntries)) {
+      const upgradedCache: PaperTranslationCache = {
+        ...cachedCache,
+        paperId,
+        sourceHash: source.sourceHash,
+        sourceHashVersion: source.sourceHashVersion,
+        totalSegments: source.segments.length,
+        completedSegments: countCompletedSegments(cachedCache.entries),
+        updatedAt: this.now()
+      }
+
+      if (
+        cachedCache.sourceHash !== upgradedCache.sourceHash ||
+        cachedCache.sourceHashVersion !== upgradedCache.sourceHashVersion ||
+        cachedCache.totalSegments !== upgradedCache.totalSegments ||
+        cachedCache.completedSegments !== upgradedCache.completedSegments
+      ) {
+        const saveResult = this.deps.saveCache(paperId, upgradedCache)
+        if (!saveResult.success) {
+          this.deps.logger.warn('升级翻译缓存指纹失败', 'main', {
+            paperId,
+            error: saveResult.error
+          })
+        }
+      }
+
+      return upgradedCache
+    }
+
+    const clearResult = this.deps.clearCache(paperId)
+    if (!clearResult.success) {
+      this.deps.logger.warn('翻译缓存失效后清理失败', 'main', {
+        paperId,
+        error: clearResult.error
+      })
+    }
+
+    return null
   }
 
-  private buildCache(
-    paperId: string,
-    sourceHash: string,
-    segments: PaperTranslationSegment[]
-  ): PaperTranslationCache {
-    const existingCache = this.readValidCache(paperId, sourceHash)
+  private buildCache(paperId: string, source: PaperTranslationSource): PaperTranslationCache {
+    const existingCache = this.readValidCache(paperId, source)
     const previousEntries = new Map(
       (existingCache?.entries ?? []).map((entry) => [entry.id, entry] as const)
     )
     const updatedAt = this.now()
 
-    const entries = segments.map<PaperTranslationEntry>((segment) => {
+    const entries = source.segments.map<PaperTranslationEntry>((segment) => {
       const previousEntry = previousEntries.get(segment.id)
       const shouldSkip = shouldSkipTranslationSegment(segment)
       const hasStaleVerbatimTranslation =
@@ -433,7 +598,8 @@ export class PaperTranslationCore {
 
     return {
       paperId,
-      sourceHash,
+      sourceHash: source.sourceHash,
+      sourceHashVersion: source.sourceHashVersion,
       totalSegments: entries.length,
       completedSegments: countCompletedSegments(entries),
       entries,

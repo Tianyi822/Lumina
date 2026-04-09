@@ -258,6 +258,8 @@ export interface PaperTranslationCache {
   paperId: string
   /** 当前阅读版 Markdown 的内容哈希 */
   sourceHash: string
+  /** 内容哈希版本 */
+  sourceHashVersion?: 1 | 2
   /** 段落总数 */
   totalSegments: number
   /** 已完成或跳过的段落数 */
