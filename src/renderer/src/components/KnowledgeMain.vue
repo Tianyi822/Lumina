@@ -28,7 +28,10 @@ async function loadStats(): Promise<void> {
     const res = await window.api.knowledge.getStats(currentKB.value.id)
     if (res.success && res.data) stats.value = res.data
   } catch (e) {
-    console.error('加载统计失败:', e)
+    window.api.logger.error('[KnowledgeMain] 加载统计失败', {
+      error: e instanceof Error ? e.message : String(e),
+      kbId: currentKB.value.id
+    })
   } finally {
     loadingStats.value = false
   }

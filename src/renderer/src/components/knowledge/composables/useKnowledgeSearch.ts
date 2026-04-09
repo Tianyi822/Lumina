@@ -1,21 +1,11 @@
 import { ref, watch } from 'vue'
 import type { ComputedRef } from 'vue'
-import type { KnowledgeBase } from '@renderer/types'
+import type { KnowledgeBase, KnowledgeSearchHit } from '@renderer/types'
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useKnowledgeSearch(currentKB: ComputedRef<KnowledgeBase | undefined>) {
   const searchQuery = ref('')
-  const searchResults = ref<
-    Array<{
-      chunkId: number
-      fileId: string
-      fileName: string
-      content: string
-      chunkIndex: number
-      totalChunks: number
-      similarity: number
-    }>
-  >([])
+  const searchResults = ref<KnowledgeSearchHit[]>([])
   const searching = ref(false)
   const searchPerformed = ref(false)
 
@@ -48,11 +38,13 @@ export function useKnowledgeSearch(currentKB: ComputedRef<KnowledgeBase | undefi
       } else {
         searchResults.value = []
         if (result.error) {
-          console.error('搜索失败:', result.error)
+          window.api.logger.error('[KnowledgeSearch] 搜索失败', { error: result.error })
         }
       }
     } catch (error) {
-      console.error('搜索失败:', error)
+      window.api.logger.error('[KnowledgeSearch] 搜索失败', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       searchResults.value = []
     } finally {
       searching.value = false

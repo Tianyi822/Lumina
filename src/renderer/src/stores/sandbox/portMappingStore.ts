@@ -130,7 +130,9 @@ export const usePortMappingStore = defineStore('sandboxPortMapping', () => {
         }
       }
     } catch (e) {
-      console.error('解析 docker-compose 端口失败:', e)
+      window.api.logger.error('[PortMappingStore] 解析 docker-compose 端口失败', {
+        error: e instanceof Error ? e.message : String(e)
+      })
     }
 
     return ports

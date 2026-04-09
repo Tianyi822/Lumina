@@ -83,7 +83,10 @@ export function useKnowledgeFiles(
     )
 
     if (!result.success) {
-      console.error('索引文件失败:', file.name, result.error)
+      window.api.logger.error('[KnowledgeMain] 索引文件失败', {
+        fileName: file.name,
+        error: result.error || '索引失败'
+      })
       indexStore.setFileFailed(currentKB.value.id, file.id, result.error || '索引失败')
     } else {
       window.api.logger.info('[KnowledgeMain] 文件索引成功', { fileName: file.name })

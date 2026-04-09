@@ -195,7 +195,9 @@ async function importMCPConfigs(): Promise<void> {
     if (result.success) {
       showSuccess(`成功导入 ${result.imported} 个配置`)
       if (result.errors.length > 0) {
-        console.warn('导入过程中的错误:', result.errors)
+        window.api.logger.warn('[MCPSettings] 导入过程中存在错误', {
+          errors: result.errors
+        })
       }
       importJsonContent.value = ''
       showImportPanel.value = false

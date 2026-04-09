@@ -57,7 +57,9 @@ onMounted(async () => {
       }
     }
   } catch (error) {
-    console.error('加载嵌入模型失败:', error)
+    window.api.logger.error('[KnowledgeForm] 加载嵌入模型失败', {
+      error: error instanceof Error ? error.message : String(error)
+    })
   } finally {
     loadingModels.value = false
   }
