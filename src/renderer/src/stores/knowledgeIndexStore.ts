@@ -3,21 +3,13 @@
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
+import type {
+  KnowledgeFileProcessingProgress,
+  KnowledgeFileProgressEvent
+} from '@shared/types/knowledge'
 
-// 文件处理进度
-export interface FileProcessingProgress {
-  fileId: string
-  fileName: string
-  status: 'processing' | 'completed' | 'failed'
-  progress?: number
-  error?: string
-}
-
-// 文件进度事件
-interface FileProgressEvent {
-  kbId: string
-  progress: FileProcessingProgress
-}
+export type FileProcessingProgress = KnowledgeFileProcessingProgress
+type FileProgressEvent = KnowledgeFileProgressEvent
 
 export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
   // ==================== State ====================
@@ -278,7 +270,9 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
       // 触发响应式更新
       kbFileProgress.value = { ...kbFileProgress.value }
     } catch (error) {
-      console.error('刷新索引状态失败:', error)
+      window.api.logger.error('[KnowledgeIndexStore] 刷新索引状态失败', {
+        error: error instanceof Error ? error.message : String(error)
+      })
     }
   }
 

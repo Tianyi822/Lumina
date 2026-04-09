@@ -1,21 +1,15 @@
-/**
- * 知识库 MCP 服务状态
- */
-export interface KnowledgeMCPServerStatus {
-  running: boolean
-  port: number
-  localIP: string
-  url: string
-  error?: string
-}
+import type { KnowledgeMCPConfig, KnowledgeMCPServerStatus } from '@shared/types/knowledgeMCP'
 
-/**
- * 知识库 MCP 服务配置
- */
-export interface KnowledgeMCPConfig {
-  enabled: boolean
-  port: number
-}
+export type {
+  DEFAULT_KNOWLEDGE_MCP_CONFIG,
+  KnowledgeBaseListItem,
+  KnowledgeDocumentListItem,
+  KnowledgeMCPConfig,
+  KnowledgeMCPServerStatus,
+  KnowledgeSearchResult as KnowledgeMCPSearchResult,
+  KnowledgeSearchToolArgs,
+  MCPClientConfig
+} from '@shared/types/knowledgeMCP'
 
 /**
  * 知识库 MCP 服务 API

@@ -125,3 +125,105 @@ export interface FilePreviewData {
   /** 内容是否因过长而截断 */
   isTruncated: boolean
 }
+
+/**
+ * 知识库搜索命中的文档块
+ */
+export interface KnowledgeSearchHit {
+  /** 向量索引中的块 ID */
+  chunkId: number
+  /** 文件 ID */
+  fileId: string
+  /** 文件名 */
+  fileName: string
+  /** 命中的文档内容 */
+  content: string
+  /** 块在原文中的序号 */
+  chunkIndex: number
+  /** 原文总块数 */
+  totalChunks: number
+  /** 相似度分数 */
+  similarity: number
+}
+
+/**
+ * 知识库搜索结果包装结构
+ */
+export interface KnowledgeSearchResponse {
+  results?: KnowledgeSearchHit[]
+}
+
+/**
+ * 重新索引完成后的汇总结果
+ */
+export interface KnowledgeReindexSummary {
+  indexedCount: number
+  failedFiles: string[]
+  failedErrors?: string[]
+}
+
+/**
+ * 知识库统计信息
+ */
+export interface KnowledgeBaseStats {
+  fileCount: number
+  chunkCount: number
+  dbSize: number
+}
+
+/**
+ * 文件索引进度
+ */
+export interface KnowledgeFileProcessingProgress {
+  fileId: string
+  fileName: string
+  status: 'processing' | 'completed' | 'failed'
+  progress?: number
+  error?: string
+}
+
+/**
+ * 文件索引进度事件
+ */
+export interface KnowledgeFileProgressEvent {
+  kbId: string
+  progress: KnowledgeFileProcessingProgress
+}
+
+/**
+ * 重建索引进度
+ */
+export interface KnowledgeReindexProgress {
+  current: number
+  total: number
+  currentFile?: string
+}
+
+/**
+ * 重建索引进度事件
+ */
+export interface KnowledgeReindexProgressEvent {
+  kbId: string
+  progress: KnowledgeReindexProgress
+}
+
+/**
+ * 当前索引中的文件条目
+ */
+export interface KnowledgeIndexingFile {
+  kbId: string
+  fileId: string
+  fileName?: string
+  progress?: number
+  status?: KnowledgeFileProcessingProgress['status']
+}
+
+/**
+ * 全局索引状态
+ */
+export interface KnowledgeIndexingStatus {
+  isIndexing: boolean
+  indexingFiles: KnowledgeIndexingFile[]
+  activeIndexingKbId: string | null
+  queueLength: number
+}

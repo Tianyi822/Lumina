@@ -1,3 +1,7 @@
+import type { LogResult, LoggerConfig } from '@shared/types/logger'
+
+export type { LogEntry, LogRequest, LogResult, LogSource, LoggerConfig } from '@shared/types/logger'
+
 /**
  * 日志级别常量
  */
@@ -7,23 +11,6 @@ export interface LogLevelEnum {
   readonly WARN: 2
   readonly ERROR: 3
   readonly FATAL: 4
-}
-
-/**
- * 日志记录的结果
- */
-export interface LogResult {
-  success: boolean
-  error?: string
-}
-
-/**
- * 日志系统的配置
- */
-export interface LoggerConfig {
-  minLevel: number
-  enableConsole: boolean
-  enableFile: boolean
 }
 
 /**

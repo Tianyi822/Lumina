@@ -1,21 +1,33 @@
+import type { OcrProviderId } from '@shared/types/config'
 import type {
+  OcrProgressInfo,
   PaperDocument,
   PaperFigureItem,
   PaperStatus,
   PaperTranslationProgress,
   PaperTranslationState
 } from '@shared/types/paper'
-import type { OcrProviderId } from '@shared/types/config'
 
-export interface OcrProgressInfo {
-  paperId: string
-  currentPage: number
-  totalPages: number
-  completedPages: number
-  failedPages: number[]
-  status: 'idle' | 'processing' | 'completed' | 'partial_failed' | 'failed' | 'cancelled'
-  errorMessage?: string
-}
+export type {
+  BlockLabel,
+  OcrProgressInfo,
+  PaperAnnotation,
+  PaperDocument,
+  PaperFigureItem,
+  PaperLayoutBlock,
+  PaperPageAsset,
+  PaperPageOcrResult,
+  PaperStatus,
+  PaperTocEntry,
+  PaperTocItem,
+  PaperTocOutline,
+  PaperTranslationEntry,
+  PaperTranslationProgress,
+  PaperTranslationSegment,
+  PaperTranslationSegmentKind,
+  PaperTranslationState,
+  PaperTranslationStatus
+} from '@shared/types/paper'
 
 /**
  * 论文相关的 Preload API 类型

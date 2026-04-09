@@ -147,10 +147,8 @@ export interface MCPConfigFile {
  * MCP 状态变更事件
  */
 export interface MCPStatusChangeEvent {
-  /** 事件类型 */
-  type: 'connected' | 'disconnected' | 'error' | 'tools_updated'
   /** MCP 服务器名称 */
   serverName: string
-  /** 事件携带的额外数据 */
-  data?: unknown
+  /** 当前最新连接状态快照 */
+  status: MCPConnectionStatus
 }

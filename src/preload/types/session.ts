@@ -1,66 +1,21 @@
-import type { TokenUsage } from './chat'
-import type { MCPTool } from './mcp'
-import type { KnowledgeBase } from './knowledge'
+import type {
+  SessionData,
+  SessionListItem,
+  SessionResult,
+  SessionType
+} from '@shared/types/session'
 
-/**
- * 持久化的消息结构
- */
-export interface SessionMessage {
-  id: string
-  role: 'system' | 'user' | 'assistant' | 'tool'
-  content: string
-  reasoning?: string
-  timestamp: string
-  modelName?: string
-  usage?: TokenUsage
-}
-
-/**
- * 会话的类型
- */
-export type SessionType = 'default' | 'tool' | 'knowledge'
-
-/**
- * 会话级选择状态
- */
-export interface SessionSelectionState {
-  selectedMCPTools: MCPTool[]
-  selectedKnowledgeBases: KnowledgeBase[]
-  enableSandboxTools: boolean
-}
-
-/**
- * 会话的完整数据
- */
-export interface SessionData {
-  sessionId: string
-  title: string
-  description?: string
-  sessionType: SessionType
-  createdAt: string
-  updatedAt: string
-  messages: SessionMessage[]
-  selectionState?: SessionSelectionState
-}
-
-/**
- * 会话列表项
- */
-export interface SessionListItem {
-  sessionId: string
-  title: string
-  sessionType: SessionType
-  createdAt: string
-  updatedAt: string
-}
-
-/**
- * 会话操作的结果
- */
-export interface SessionResult {
-  success: boolean
-  error?: string
-}
+export type {
+  ReActIterationData,
+  ReActStepData,
+  SessionData,
+  SessionListItem,
+  SessionMessage,
+  SessionMeta,
+  SessionResult,
+  SessionSelectionState,
+  SessionType
+} from '@shared/types/session'
 
 /**
  * 会话相关的 API
