@@ -2,6 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   hasPaperTranslationResult,
+  isPaperAffiliationLikeSegment,
+  isPaperAuthorLikeSegment,
+  isPaperReferenceLikeSegment,
   parsePaperTranslationSegments,
   stripPaperTranslationMarkdown
 } from './paperTranslation.ts'
@@ -51,6 +54,22 @@ test('标题、作者、机构和正文会保持独立分段', () => {
     segments[2].originalText,
     '1 College of Artificial Intelligence, Nankai University, Tianjin 300350, China'
   )
+})
+
+test('可以识别作者段、机构段和参考文献段', () => {
+  const markdown = [
+    'Yishuo Chen ¹, Boran Wang ¹,¹, Xinyu Guo ¹',
+    '',
+    '¹ College of Artificial Intelligence, Nankai University, Tianjin 300350, China {chen@example.com}',
+    '',
+    '31. Xu, H., Ma, J., Jiang, J., Guo, X., Ling, H.: U2fusion: A unified unsupervised image fusion network. IEEE Transactions on Pattern Analysis and Machine Intelligence 44(1), 502-518 (2020)'
+  ].join('\n')
+
+  const segments = parsePaperTranslationSegments(markdown)
+
+  assert.equal(isPaperAuthorLikeSegment(segments[0]), true)
+  assert.equal(isPaperAffiliationLikeSegment(segments[1]), true)
+  assert.equal(isPaperReferenceLikeSegment(segments[2]), true)
 })
 
 test('纯图片块会被识别为 image 段', () => {
