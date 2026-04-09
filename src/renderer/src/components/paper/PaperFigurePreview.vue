@@ -8,9 +8,11 @@ const paperReaderStore = usePaperReaderStore()
 const {
   activeFigure,
   currentPaperFigures,
+  figureCaptionTranslationMap,
   figurePreviewPinned,
   figurePreviewRect,
-  figurePreviewImageRatio
+  figurePreviewImageRatio,
+  translationVisible
 } = storeToRefs(paperReaderStore)
 
 const previewRef = ref<HTMLElement | null>(null)
@@ -39,15 +41,14 @@ const imageShellStyle = computed(() => {
 })
 
 const previewCaption = computed(() => {
-  if (activeFigure.value?.caption) {
-    return activeFigure.value.caption
+  if (!activeFigure.value) return '暂无图注'
+
+  if (translationVisible.value) {
+    const translated = figureCaptionTranslationMap.value[activeFigure.value.id]
+    if (translated) return translated
   }
 
-  if (activeFigure.value?.subCaption) {
-    return activeFigure.value.subCaption
-  }
-
-  return '暂无图注'
+  return activeFigure.value.caption || activeFigure.value.subCaption || '暂无图注'
 })
 
 const currentFigureIndex = computed(() => {
@@ -221,7 +222,6 @@ onBeforeUnmount(() => {
       <div class="paper-figure-preview__header" @mousedown.prevent="handleDragStart">
         <div class="paper-figure-preview__meta">
           <div class="paper-figure-preview__title">论文图片预览</div>
-          <div class="paper-figure-preview__subtitle">第 {{ activeFigure.pageIndex + 1 }} 页</div>
         </div>
 
         <div class="paper-figure-preview__actions" @mousedown.stop>
@@ -330,13 +330,6 @@ onBeforeUnmount(() => {
   color: var(--sm-color-text-primary);
   font-size: 13px;
   font-weight: 600;
-  line-height: 1.4;
-}
-
-.paper-figure-preview__subtitle {
-  margin-top: 2px;
-  color: var(--sm-color-text-tertiary);
-  font-size: 12px;
   line-height: 1.4;
 }
 

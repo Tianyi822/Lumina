@@ -20,6 +20,7 @@ const {
   currentPaperId,
   currentPaperFigures,
   currentTranslationCache,
+  figureCaptionTranslationMap,
   figureLoadingByPaperId,
   isCurrentPaperTranslating,
   paperTocItems,
@@ -175,7 +176,18 @@ function handleSelectTocItem(headingId: string): void {
 }
 
 function getFigureItemLabel(figure: PaperFigureItem): string {
+  if (translationVisible.value) {
+    const translated = figureCaptionTranslationMap.value[figure.id]
+    if (translated) return translated
+  }
   return figure.caption || figure.subCaption || '暂无图注'
+}
+
+function getTocItemDisplayText(item: PaperTocItem): string {
+  if (translationVisible.value && item.translatedText) {
+    return item.translatedText
+  }
+  return item.text
 }
 
 function handlePreviewFigure(figure: PaperFigureItem): void {
@@ -328,11 +340,11 @@ onUnmounted(() => {
               <button
                 class="sm-workspace-toolbar__toc-item"
                 :class="`sm-workspace-toolbar__toc-item--level-${node.item.level}`"
-                :title="node.item.text"
+                :title="getTocItemDisplayText(node.item)"
                 type="button"
                 @click="handleSelectTocItem(node.item.id)"
               >
-                {{ node.item.text }}
+                {{ getTocItemDisplayText(node.item) }}
               </button>
 
               <ul
@@ -347,11 +359,11 @@ onUnmounted(() => {
                   <button
                     class="sm-workspace-toolbar__toc-item"
                     :class="`sm-workspace-toolbar__toc-item--level-${child.item.level}`"
-                    :title="child.item.text"
+                    :title="getTocItemDisplayText(child.item)"
                     type="button"
                     @click="handleSelectTocItem(child.item.id)"
                   >
-                    {{ child.item.text }}
+                    {{ getTocItemDisplayText(child.item) }}
                   </button>
 
                   <ul
@@ -366,11 +378,11 @@ onUnmounted(() => {
                       <button
                         class="sm-workspace-toolbar__toc-item"
                         :class="`sm-workspace-toolbar__toc-item--level-${grandchild.item.level}`"
-                        :title="grandchild.item.text"
+                        :title="getTocItemDisplayText(grandchild.item)"
                         type="button"
                         @click="handleSelectTocItem(grandchild.item.id)"
                       >
-                        {{ grandchild.item.text }}
+                        {{ getTocItemDisplayText(grandchild.item) }}
                       </button>
                     </li>
                   </ul>
@@ -423,7 +435,6 @@ onUnmounted(() => {
             />
 
             <div class="sm-workspace-toolbar__figure-copy">
-              <div class="sm-workspace-toolbar__figure-page">第 {{ figure.pageIndex + 1 }} 页</div>
               <div class="sm-workspace-toolbar__figure-caption" :title="getFigureItemLabel(figure)">
                 {{ getFigureItemLabel(figure) }}
               </div>
@@ -575,14 +586,7 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-.sm-workspace-toolbar__figure-page {
-  color: var(--sm-color-text-tertiary);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
 .sm-workspace-toolbar__figure-caption {
-  margin-top: 4px;
   color: var(--sm-color-text-secondary);
   font-size: 12px;
   line-height: 1.5;

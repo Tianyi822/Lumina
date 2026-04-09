@@ -44,6 +44,8 @@ export interface PaperTocItem {
   id: string
   /** 标题文本 */
   text: string
+  /** 翻译后的标题文本 */
+  translatedText?: string
   /** 标题层级，仅保留 H1-H3 */
   level: 1 | 2 | 3
 }
@@ -211,6 +213,25 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     return translationByPaperId.value[currentPaperId.value] || null
+  })
+
+  /** 图片 caption 翻译文本映射 (figureId -> translatedText) */
+  const figureCaptionTranslationMap = computed<Record<string, string>>(() => {
+    const cache = currentTranslationCache.value
+    if (!cache) return {}
+
+    const map: Record<string, string> = {}
+    for (const entry of cache.entries) {
+      if (
+        entry.id.startsWith('fig-caption-') &&
+        entry.status === 'completed' &&
+        entry.translatedText
+      ) {
+        const figureId = entry.id.replace('fig-caption-', '')
+        map[figureId] = entry.translatedText
+      }
+    }
+    return map
   })
 
   /** 当前论文翻译任务状态 */
@@ -1410,6 +1431,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     currentPaper,
     currentPaperFigures,
     currentTranslationCache,
+    figureCaptionTranslationMap,
     currentTranslationTask,
     isOcrCompleted,
     isCurrentPaperTranslating,

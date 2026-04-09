@@ -202,9 +202,14 @@ function buildTocAndRenderedSegments(): { tocItems: PaperTocItem[]; segments: Re
       headingCounts.set(baseSlug, count)
 
       headingId = count === 1 ? baseSlug : `${baseSlug}-${count}`
+      const headingTranslation = translationMap.get(segment.id)
       tocItems.push({
         id: headingId,
         text,
+        translatedText:
+          headingTranslation?.status === 'completed'
+            ? headingTranslation.translatedText
+            : undefined,
         level
       })
     }
