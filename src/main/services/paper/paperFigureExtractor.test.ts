@@ -41,6 +41,23 @@ function createImageBlock(
   }
 }
 
+function createTableBlock(
+  index: number,
+  content: string,
+  bbox = { x: 120, y: 200, width: 720, height: 280 },
+  pageIndex = 0
+): PaperLayoutBlock {
+  return {
+    index,
+    pageIndex,
+    label: 'table',
+    content,
+    bbox,
+    width: 1224,
+    height: 1584
+  }
+}
+
 function extractFigureData(pageResults: PaperPageOcrResult[]): ExtractedPaperFigureData {
   return extractPaperFigureData(pageResults, {
     resolveImagePath: (_pageResult, block) =>
@@ -578,6 +595,109 @@ test('页尾图片清理后，下一页正文续写仍会跨页合并', () => {
   )
   assert.doesNotMatch(readerMarkdown, /Figure 6:/)
   assert.doesNotMatch(readerMarkdown, /img src=/)
+})
+
+test('页首表格打断的跨页续写会先接正文再回插表格', () => {
+  const tableMarkdown = '<table border="1"><tr><td>Method</td></tr></table>'
+  const tableCaption = '<div align="center">\n\nTable 1: Comparison of methods.\n\n</div>'
+  const continuation =
+    '2023) and merges the sequences from the different directions so that the features are extracted to the global features.'
+  const rgParagraph =
+    'RG Block The original MLP is still the most widely adopted in this architecture.'
+
+  const pageResults: PaperPageOcrResult[] = [
+    {
+      paperId: 'paper-page-table-merge',
+      pageIndex: 0,
+      status: 'completed',
+      markdown:
+        'The scan merge operation in SS2D takes the obtained sequences as inputs to the S6 block (Gu and Dao',
+      blocks: [
+        createTextBlock(
+          0,
+          'The scan merge operation in SS2D takes the obtained sequences as inputs to the S6 block (Gu and Dao',
+          { x: 120, y: 1460, width: 520, height: 40 },
+          0
+        )
+      ]
+    },
+    {
+      paperId: 'paper-page-table-merge',
+      pageIndex: 1,
+      status: 'completed',
+      markdown: [tableMarkdown, tableCaption, continuation, rgParagraph].join('\n\n'),
+      blocks: [
+        createTableBlock(0, tableMarkdown, { x: 120, y: 96, width: 880, height: 420 }, 1),
+        createTextBlock(1, tableCaption, { x: 140, y: 544, width: 860, height: 80 }, 1),
+        createTextBlock(2, continuation, { x: 120, y: 672, width: 460, height: 48 }, 1),
+        createTextBlock(3, rgParagraph, { x: 120, y: 760, width: 460, height: 96 }, 1)
+      ]
+    }
+  ]
+
+  const figureData = extractFigureData(pageResults)
+  const readerMarkdown = buildReaderMarkdown(pageResults, figureData)
+
+  assert.match(
+    readerMarkdown,
+    /Gu and Dao\s*<!-- Page 2 -->\s*2023\) and merges the sequences from the different directions/
+  )
+
+  const continuationIndex = readerMarkdown.indexOf(continuation)
+  const tableIndex = readerMarkdown.indexOf(tableMarkdown)
+  const rgParagraphIndex = readerMarkdown.indexOf(rgParagraph)
+
+  assert.ok(continuationIndex >= 0)
+  assert.ok(tableIndex > continuationIndex)
+  assert.ok(rgParagraphIndex > tableIndex)
+})
+
+test('页首表格后若不是续写正文则保持原始顺序', () => {
+  const tableMarkdown = '<table border="1"><tr><td>Method</td></tr></table>'
+  const tableCaption = '<div align="center">\n\nTable 1: Comparison of methods.\n\n</div>'
+  const nextParagraph = 'RG Block The original MLP is still the most widely adopted in this architecture.'
+
+  const pageResults: PaperPageOcrResult[] = [
+    {
+      paperId: 'paper-page-table-stable',
+      pageIndex: 0,
+      status: 'completed',
+      markdown: 'The previous section ends here.',
+      blocks: [
+        createTextBlock(
+          0,
+          'The previous section ends here.',
+          { x: 120, y: 1460, width: 420, height: 40 },
+          0
+        )
+      ]
+    },
+    {
+      paperId: 'paper-page-table-stable',
+      pageIndex: 1,
+      status: 'completed',
+      markdown: [tableMarkdown, tableCaption, nextParagraph].join('\n\n'),
+      blocks: [
+        createTableBlock(0, tableMarkdown, { x: 120, y: 96, width: 880, height: 420 }, 1),
+        createTextBlock(1, tableCaption, { x: 140, y: 544, width: 860, height: 80 }, 1),
+        createTextBlock(2, nextParagraph, { x: 120, y: 672, width: 460, height: 96 }, 1)
+      ]
+    }
+  ]
+
+  const figureData = extractFigureData(pageResults)
+  const readerMarkdown = buildReaderMarkdown(pageResults, figureData)
+
+  assert.match(
+    readerMarkdown,
+    /The previous section ends here\.\n\n<!-- Page 2 -->\n\n<table border="1">/
+  )
+
+  const tableIndex = readerMarkdown.indexOf(tableMarkdown)
+  const nextParagraphIndex = readerMarkdown.indexOf(nextParagraph)
+
+  assert.ok(tableIndex >= 0)
+  assert.ok(nextParagraphIndex > tableIndex)
 })
 
 test('多图共享同一主图注时不会把正文错误并入图注块', () => {

@@ -3,6 +3,7 @@ import type {
   PaperLayoutBlock,
   PaperPageOcrResult
 } from '../../../shared/types/paper'
+import { isFalseOrderedListContinuation } from '../../../shared/utils/paperMarkdown.ts'
 
 interface PendingFigureImage {
   block: PaperLayoutBlock
@@ -37,9 +38,13 @@ interface ReaderPageFragment {
   markdown: string
   leadingBlock?: PaperLayoutBlock
   trailingBlock?: PaperLayoutBlock
+  leadingContinuationBlock?: PaperLayoutBlock
+  leadingContinuationMarkdown?: string
+  leadingFloatingTableMarkdown?: string
+  markdownAfterLeadingContinuation?: string
 }
 
-interface TextBlockOccurrence {
+interface BlockOccurrence {
   block: PaperLayoutBlock
   start: number
   end: number
@@ -152,6 +157,15 @@ function isFigureCaptionBlock(block: PaperLayoutBlock): boolean {
 
   const text = getFigureCaptionText(block)
   return /^(figure|fig\.?|图)\s*[\d一二三四五六七八九十]+(?:[\s.:：-]|$)/i.test(text)
+}
+
+function isTableCaptionBlock(block: PaperLayoutBlock): boolean {
+  if (block.label !== 'text') {
+    return false
+  }
+
+  const text = getPlainText(block.content)
+  return /^(table|tab\.?|表)\s*[\d一二三四五六七八九十]+(?:[\s.:：-]|$)/i.test(text)
 }
 
 function isHeadingBlock(block: PaperLayoutBlock): boolean {
@@ -305,6 +319,10 @@ function startsWithUppercaseLatin(text: string): boolean {
 }
 
 function startsWithNewParagraphMarker(content: string): boolean {
+  if (isFalseOrderedListContinuation(content)) {
+    return false
+  }
+
   return /^\s{0,3}(?:[-*+]\s+|\d+[.)]\s+|>\s+)/.test(content)
 }
 
@@ -530,10 +548,13 @@ function isMergeableTextSegment(segment: string): boolean {
     return false
   }
 
+  const startsWithOrderedListMarker = /^\s{0,3}\d+[.)]\s+/.test(trimmed)
+
   if (
     /^<!--[\s\S]*?-->$/.test(trimmed) ||
     /^\s{0,3}#{1,6}\s+/.test(trimmed) ||
-    /^\s{0,3}(?:[-*+]\s+|\d+[.)]\s+|>\s+)/.test(trimmed) ||
+    /^\s{0,3}(?:[-*+]\s+|>\s+)/.test(trimmed) ||
+    (startsWithOrderedListMarker && !isFalseOrderedListContinuation(trimmed)) ||
     /^\s*(?:```|~~~)/.test(trimmed) ||
     /^\s*\|/.test(trimmed) ||
     isMathLikeSegment(trimmed)
@@ -885,22 +906,22 @@ function replaceTokenWithGap(markdown: string, token: string, replacement: strin
   return markdown.replace(tokenPattern, replacement)
 }
 
-function findTextBlockOccurrences(
+function findBlockOccurrences(
   markdown: string,
   pageBlocks: PaperLayoutBlock[],
   removalIndexes: Set<number>
-): Map<number, TextBlockOccurrence> {
-  const occurrences = new Map<number, TextBlockOccurrence>()
+): Map<number, BlockOccurrence> {
+  const occurrences = new Map<number, BlockOccurrence>()
   let searchStart = 0
 
   for (const block of pageBlocks) {
-    if (removalIndexes.has(block.index) || block.label !== 'text' || !block.content) {
+    if (removalIndexes.has(block.index) || !block.content) {
       continue
     }
 
     const searchValues = [
       block.content,
-      normalizeMergeableTextBlockContent(block.content)
+      ...(block.label === 'text' ? [normalizeMergeableTextBlockContent(block.content)] : [])
     ].filter((value, index, values) => value && values.indexOf(value) === index)
 
     let matchedStart = -1
@@ -940,7 +961,7 @@ function normalizeVisibleTextBlocks(
   pageBlocks: PaperLayoutBlock[],
   removalIndexes: Set<number>
 ): string {
-  const occurrences = findTextBlockOccurrences(markdown, pageBlocks, removalIndexes)
+  const occurrences = findBlockOccurrences(markdown, pageBlocks, removalIndexes)
   const replacements: TextRunReplacement[] = []
 
   for (const block of pageBlocks) {
@@ -974,7 +995,7 @@ function getMergeableTextContent(content: string): string {
 
 function buildMergedTextRunContent(
   blocks: PaperLayoutBlock[],
-  occurrences: Map<number, TextBlockOccurrence>
+  occurrences: Map<number, BlockOccurrence>
 ): string {
   const [firstBlock, ...restBlocks] = blocks
   const firstOccurrence = occurrences.get(firstBlock.index)
@@ -1016,7 +1037,7 @@ function mergeAdjacentTextBlocks(
   removalIndexes: Set<number>
 ): string {
   const visibleBlocks = pageBlocks.filter((block) => !removalIndexes.has(block.index))
-  const occurrences = findTextBlockOccurrences(markdown, pageBlocks, removalIndexes)
+  const occurrences = findBlockOccurrences(markdown, pageBlocks, removalIndexes)
   const replacements: TextRunReplacement[] = []
 
   for (let index = 0; index < visibleBlocks.length; index += 1) {
@@ -1083,6 +1104,18 @@ function buildPageComment(pageIndex: number): string {
   return `<!-- Page ${pageIndex + 1} -->`
 }
 
+function appendMarkdownBlock(markdown: string, block: string | undefined): string {
+  if (!block) {
+    return markdown
+  }
+
+  if (!markdown) {
+    return block
+  }
+
+  return `${markdown}\n\n${block}`
+}
+
 function findNeighborBlock(
   pageBlocks: PaperLayoutBlock[],
   startPosition: number,
@@ -1112,6 +1145,92 @@ function findBoundaryBlock(
   const step = direction === 'start' ? 1 : -1
 
   return findNeighborBlock(pageBlocks, startPosition, step, removalIndexes)
+}
+
+function collectLeadingFloatingTableBlocks(visibleBlocks: PaperLayoutBlock[]): PaperLayoutBlock[] {
+  const leadingBlocks: PaperLayoutBlock[] = []
+
+  for (const block of visibleBlocks) {
+    if (block.label === 'table') {
+      leadingBlocks.push(block)
+      continue
+    }
+
+    if (leadingBlocks.length > 0 && isTableCaptionBlock(block)) {
+      leadingBlocks.push(block)
+      continue
+    }
+
+    break
+  }
+
+  return leadingBlocks
+}
+
+function extractLeadingFloatingTableLayout(
+  markdown: string,
+  pageBlocks: PaperLayoutBlock[],
+  removalIndexes: Set<number>
+): Pick<
+  ReaderPageFragment,
+  | 'leadingContinuationBlock'
+  | 'leadingContinuationMarkdown'
+  | 'leadingFloatingTableMarkdown'
+  | 'markdownAfterLeadingContinuation'
+> | null {
+  const visibleBlocks = pageBlocks.filter((block) => !removalIndexes.has(block.index))
+  const leadingFloatingTableBlocks = collectLeadingFloatingTableBlocks(visibleBlocks)
+  if (leadingFloatingTableBlocks.length === 0) {
+    return null
+  }
+
+  const leadingContinuationBlock = visibleBlocks[leadingFloatingTableBlocks.length]
+  if (!isBodyTextBlock(leadingContinuationBlock)) {
+    return null
+  }
+
+  const occurrences = findBlockOccurrences(markdown, pageBlocks, removalIndexes)
+  const firstFloatingOccurrence = occurrences.get(leadingFloatingTableBlocks[0].index)
+  const lastFloatingOccurrence =
+    occurrences.get(leadingFloatingTableBlocks[leadingFloatingTableBlocks.length - 1].index)
+  const continuationOccurrence = occurrences.get(leadingContinuationBlock.index)
+
+  if (!firstFloatingOccurrence || !lastFloatingOccurrence || !continuationOccurrence) {
+    return null
+  }
+
+  if (markdown.slice(0, firstFloatingOccurrence.start).trim()) {
+    return null
+  }
+
+  if (lastFloatingOccurrence.end > continuationOccurrence.start) {
+    return null
+  }
+
+  if (markdown.slice(lastFloatingOccurrence.end, continuationOccurrence.start).trim()) {
+    return null
+  }
+
+  const leadingFloatingTableMarkdown = cleanupReaderMarkdown(
+    markdown.slice(firstFloatingOccurrence.start, lastFloatingOccurrence.end)
+  )
+  const leadingContinuationMarkdown = cleanupReaderMarkdown(
+    markdown.slice(continuationOccurrence.start, continuationOccurrence.end)
+  )
+  const markdownAfterLeadingContinuation = cleanupReaderMarkdown(
+    markdown.slice(continuationOccurrence.end)
+  )
+
+  if (!leadingFloatingTableMarkdown || !leadingContinuationMarkdown) {
+    return null
+  }
+
+  return {
+    leadingContinuationBlock,
+    leadingContinuationMarkdown,
+    leadingFloatingTableMarkdown,
+    markdownAfterLeadingContinuation
+  }
 }
 
 function buildReaderPageFragment(
@@ -1170,11 +1289,18 @@ function buildReaderPageFragment(
     }
   }
 
+  const leadingFloatingTableLayout = extractLeadingFloatingTableLayout(
+    cleanedMarkdown,
+    pageResult.blocks,
+    removalIndexes
+  )
+
   return {
     pageIndex: pageResult.pageIndex,
     markdown: cleanedMarkdown,
     leadingBlock: findBoundaryBlock(pageResult.blocks, removalIndexes, 'start'),
-    trailingBlock: findBoundaryBlock(pageResult.blocks, removalIndexes, 'end')
+    trailingBlock: findBoundaryBlock(pageResult.blocks, removalIndexes, 'end'),
+    ...leadingFloatingTableLayout
   }
 }
 
@@ -1201,6 +1327,32 @@ export function buildReaderMarkdown(
     }
 
     const boundaryToken = `__PAPER_PAGE_BOUNDARY_${fragment.pageIndex}__`
+    const canMergeAcrossLeadingTable =
+      !encounteredHardBoundary &&
+      !!fragment.leadingFloatingTableMarkdown &&
+      !!fragment.leadingContinuationMarkdown &&
+      !!fragment.leadingContinuationBlock &&
+      getBodyBlockGapReplacement(previousFragment.trailingBlock, fragment.leadingContinuationBlock) !==
+        '\n\n'
+
+    if (canMergeAcrossLeadingTable) {
+      const boundaryGap = getBodyBlockGapReplacement(
+        previousFragment.trailingBlock,
+        fragment.leadingContinuationBlock
+      )
+
+      combinedMarkdown += `${boundaryToken}${buildPageComment(fragment.pageIndex)}${boundaryToken}${fragment.leadingContinuationMarkdown}`
+      combinedMarkdown = replaceTokenWithGap(combinedMarkdown, boundaryToken, boundaryGap)
+      combinedMarkdown = appendMarkdownBlock(combinedMarkdown, fragment.leadingFloatingTableMarkdown)
+      combinedMarkdown = appendMarkdownBlock(
+        combinedMarkdown,
+        fragment.markdownAfterLeadingContinuation
+      )
+      previousFragment = fragment
+      encounteredHardBoundary = false
+      continue
+    }
+
     const boundaryGap = encounteredHardBoundary
       ? '\n\n'
       : getBodyBlockGapReplacement(previousFragment.trailingBlock, fragment.leadingBlock)
