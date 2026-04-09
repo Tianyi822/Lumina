@@ -4,6 +4,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { FileItem } from '@renderer/types'
+import { formatFileSize } from '@shared/utils'
 
 export const useFileStore = defineStore('fileStore', () => {
   // 文件列表
@@ -24,6 +25,13 @@ export const useFileStore = defineStore('fileStore', () => {
     return files.value.filter((f) => f.name.toLowerCase().includes(query))
   })
 
+  function logError(message: string, error: unknown, context?: Record<string, unknown>): void {
+    window.api.logger.error(`[FileStore] ${message}`, {
+      ...context,
+      error: error instanceof Error ? error.message : String(error)
+    })
+  }
+
   // 加载所有文件列表
   async function loadFiles(): Promise<void> {
     try {
@@ -32,10 +40,10 @@ export const useFileStore = defineStore('fileStore', () => {
       if (result.success && result.data) {
         files.value = result.data
       } else {
-        console.error('加载文件列表失败:', result.error)
+        window.api.logger.error('[FileStore] 加载文件列表失败', { error: result.error })
       }
     } catch (error) {
-      console.error('加载文件列表失败:', error)
+      logError('加载文件列表失败', error)
     } finally {
       loading.value = false
     }
@@ -76,7 +84,7 @@ export const useFileStore = defineStore('fileStore', () => {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error('上传文件失败:', error)
+      logError('上传文件失败', error, { fileName: file.name })
       return {
         success: false,
         error: errorMessage
@@ -127,7 +135,7 @@ export const useFileStore = defineStore('fileStore', () => {
       return { success: false, error: result.error }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error('删除文件失败:', error)
+      logError('删除文件失败', error, { fileId })
       return { success: false, error: errorMessage }
     }
   }
@@ -149,7 +157,7 @@ export const useFileStore = defineStore('fileStore', () => {
       return { success: false, error: result.error }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error('关联文件失败:', error)
+      logError('关联文件失败', error, { fileId, kbId })
       return { success: false, error: errorMessage }
     }
   }
@@ -171,7 +179,7 @@ export const useFileStore = defineStore('fileStore', () => {
       return { success: false, error: result.error }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error('取消关联失败:', error)
+      logError('取消关联失败', error, { fileId, kbId })
       return { success: false, error: errorMessage }
     }
   }
@@ -183,10 +191,13 @@ export const useFileStore = defineStore('fileStore', () => {
       if (result.success && result.data) {
         return result.data
       }
-      console.error('获取知识库文件列表失败:', result.error)
+      window.api.logger.error('[FileStore] 获取知识库文件列表失败', {
+        kbId,
+        error: result.error
+      })
       return []
     } catch (error) {
-      console.error('获取知识库文件列表失败:', error)
+      logError('获取知识库文件列表失败', error, { kbId })
       return []
     }
   }
@@ -200,16 +211,9 @@ export const useFileStore = defineStore('fileStore', () => {
       }
       return []
     } catch (error) {
-      console.error('获取文件使用情况失败:', error)
+      logError('获取文件使用情况失败', error, { fileId })
       return []
     }
-  }
-
-  // 格式化文件大小
-  function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
   // 格式化日期（2025/02/03）

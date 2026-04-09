@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
+import { formatFileSize } from '@shared/utils'
 import type { OcrProgressInfo, PaperDocument, PaperStatus } from '@shared/types/paper'
 import type { RenderingProgress } from '@renderer/stores/paperReaderStore'
 
@@ -21,12 +22,6 @@ const emit = defineEmits<{
 
 function isPaperReadable(paper: PaperDocument): boolean {
   return paper.status === 'completed'
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function getRenderProgress(paper: PaperDocument): { completedPages: number; totalPages: number } {

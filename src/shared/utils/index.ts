@@ -20,6 +20,9 @@ export * from './error-handlers'
 // URL 与文件路径工具
 export * from './file-url'
 
+// 文件大小格式化工具
+export * from './file-size'
+
 // 导出常用的深度克隆函数
 export { deepClone } from './data-processors'
 
