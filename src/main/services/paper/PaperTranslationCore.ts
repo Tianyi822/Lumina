@@ -8,6 +8,10 @@ import type {
   PaperTranslationSegmentKind
 } from '../../../shared/types/paper'
 import {
+  isPaperAffiliationLikeSegment,
+  isPaperAuthorLikeSegment,
+  isPaperContactLikeSegment,
+  isPaperReferenceLikeSegment,
   parsePaperTranslationSegments,
   stripPaperTranslationMarkdown
 } from '../../../shared/utils/paperTranslation.ts'
@@ -45,66 +49,14 @@ interface ActiveTranslationTask {
 }
 
 const DEFAULT_CONCURRENCY = 3
-const PERSON_NAME_CHUNK_PATTERN =
-  /(?:[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3})(?:\s+\d+(?:,\d+)*[*†‡]*)*/g
-const AFFILIATION_KEYWORD_PATTERN =
-  /\b(?:university|institute|school|college|laboratory|department|academy|center|centre|ministry|faculty|hospital|research\s+center|engineering\s+research)\b|(?:大学|学院|研究所|实验室|中心|系|院|部|国家|中国)/gi
 const PROMPT_ARTIFACT_LINE_PATTERN =
   /^\s*(?:\[(?:上一段(?:原文)?参考|下一段(?:原文)?参考|当前(?:需要翻译的)?段落|翻译输出)\]|(?:上一段(?:原文)?参考|下一段(?:原文)?参考|当前(?:需要翻译的)?段落|翻译输出)|(?:previous_context|next_context|current_segment|translation))\s*:?\s*$/i
 const PROMPT_ARTIFACT_TAG_PATTERN =
   /<\/?(?:previous_context|next_context|current_segment|translation)(?:\s+[^>]*)?>/gi
+const LEADING_MARKER_PATTERN = /^(\s*(?:\[\d+\]|\[\[\d+\]\]|\d+[.)]|[-*+]))\s+/
 
 export function computePaperTranslationSourceHash(markdown: string): string {
   return createHash('sha256').update(markdown).digest('hex')
-}
-
-function normalizeSegmentText(text: string): string {
-  return text.replace(/\s+/g, ' ').trim()
-}
-
-function isContactLikeText(text: string): boolean {
-  return (
-    /@/.test(text) ||
-    /\bORCID\b/i.test(text) ||
-    /correspond(?:ing)?\s+author/i.test(text) ||
-    /通讯作者|共同一作|equal contribution/i.test(text)
-  )
-}
-
-function isPersonClusterText(text: string): boolean {
-  const matches = text.match(PERSON_NAME_CHUNK_PATTERN) ?? []
-  if (matches.length < 2) {
-    return false
-  }
-
-  const remainder = text
-    .replace(PERSON_NAME_CHUNK_PATTERN, '')
-    .replace(/\b(?:and|et)\b/gi, '')
-    .replace(/[,\s*†‡()[\].-]+/g, '')
-
-  return remainder.length === 0
-}
-
-function isAffiliationLikeText(text: string): boolean {
-  const keywordMatches = text.match(AFFILIATION_KEYWORD_PATTERN) ?? []
-  if (keywordMatches.length === 0) {
-    return false
-  }
-
-  const startsWithAffiliationMarker = /^(?:\(?\d+(?:,\d+)*\)?|[*†‡]+\s*\d*)\s*/.test(text)
-  const commaCount = (text.match(/[，,]/g) ?? []).length
-  const hasSentenceTerminator = /[.!?。？！]\s*$/.test(text)
-  const hasMultipleInstitutionKeywords = keywordMatches.length >= 2
-  const hasLocationCue =
-    /\b(?:china|beijing|shanghai|tianjin|province|city)\b/i.test(text) ||
-    /(?:中国|北京|上海|天津|省|市)/.test(text)
-
-  return (
-    startsWithAffiliationMarker ||
-    (hasMultipleInstitutionKeywords && !hasSentenceTerminator) ||
-    (commaCount >= 2 && !hasSentenceTerminator) ||
-    (hasLocationCue && !hasSentenceTerminator)
-  )
 }
 
 function normalizeSegmentForFormulaDetection(segment: string): string {
@@ -200,57 +152,6 @@ function isFormulaLikeSegment(segment: PaperTranslationSegment): boolean {
   return looksLikeFormulaBody(source)
 }
 
-function isReferenceLikeSegment(segment: PaperTranslationSegment): boolean {
-  const text = normalizeSegmentText(segment.originalText)
-  if (!text) return false
-
-  const lines = segment.originalMarkdown
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-
-  const refLinePattern = /^\s*(?:\[\d+\]|\[\[\d+\]\])\s/
-  const allLinesAreRefs = lines.length > 0 && lines.every((line) => refLinePattern.test(line))
-
-  const refHeadingPattern =
-    /(?:^|\n)\s*(?:#{1,6}\s*)?(?:references?|bibliography|参考文献|文献)\s*[：:\s]*$/im
-
-  if (allLinesAreRefs || refHeadingPattern.test(text)) {
-    return true
-  }
-
-  return false
-}
-
-export function isAuthorLikeSegment(segment: PaperTranslationSegment): boolean {
-  if (segment.kind === 'code') {
-    return true
-  }
-
-  const text = normalizeSegmentText(segment.originalText)
-  if (!text) {
-    return true
-  }
-
-  if (isContactLikeText(text)) {
-    return true
-  }
-
-  if (/^\d+(?:\s*,\s*\d+)*$/.test(text)) {
-    return true
-  }
-
-  if (/^\*+\s*[A-Za-z]/.test(text)) {
-    return true
-  }
-
-  if (isAffiliationLikeText(text)) {
-    return true
-  }
-
-  return isPersonClusterText(text)
-}
-
 function isStructuralMarkerSegment(segment: PaperTranslationSegment): boolean {
   const trimmed = segment.originalMarkdown.trim()
   if (!trimmed) return true
@@ -263,10 +164,11 @@ function shouldSkipTranslationSegment(segment: PaperTranslationSegment): boolean
   return (
     segment.kind === 'image' ||
     segment.kind === 'table' ||
+    segment.kind === 'code' ||
     isStructuralMarkerSegment(segment) ||
     isFormulaLikeSegment(segment) ||
-    isReferenceLikeSegment(segment) ||
-    isAuthorLikeSegment(segment)
+    isPaperContactLikeSegment(segment) ||
+    isPaperAuthorLikeSegment(segment)
   )
 }
 
@@ -289,6 +191,31 @@ function getFirstMeaningfulBlock(content: string): string {
       .map((block) => block.trim())
       .find(Boolean) ?? ''
   )
+}
+
+function preserveLeadingMarker(segment: PaperTranslationSegment, content: string): string {
+  const sourceMarkerMatch = segment.originalMarkdown.match(LEADING_MARKER_PATTERN)
+  if (!sourceMarkerMatch) {
+    return content
+  }
+
+  const sourceMarker = sourceMarkerMatch[1].trim()
+  const trimmedContent = content.trimStart()
+  const translatedMarkerMatch = trimmedContent.match(LEADING_MARKER_PATTERN)
+
+  if (!translatedMarkerMatch) {
+    return `${sourceMarker} ${trimmedContent}`
+  }
+
+  if (translatedMarkerMatch[1].trim() === sourceMarker) {
+    return content
+  }
+
+  if (segment.kind === 'list' || isPaperReferenceLikeSegment(segment)) {
+    return trimmedContent.replace(LEADING_MARKER_PATTERN, `${sourceMarker} `)
+  }
+
+  return content
 }
 
 function cloneEntry(entry: PaperTranslationEntry): PaperTranslationEntry {
@@ -459,6 +386,11 @@ export class PaperTranslationCore {
     const entries = segments.map<PaperTranslationEntry>((segment) => {
       const previousEntry = previousEntries.get(segment.id)
       const shouldSkip = shouldSkipTranslationSegment(segment)
+      const hasStaleVerbatimTranslation =
+        previousEntry?.status === 'completed' &&
+        previousEntry.translatedMarkdown?.trim() === segment.originalMarkdown.trim() &&
+        !/[\u4e00-\u9fff]/.test(segment.originalText) &&
+        (isPaperAffiliationLikeSegment(segment) || isPaperReferenceLikeSegment(segment))
 
       if (shouldSkip) {
         return {
@@ -470,10 +402,18 @@ export class PaperTranslationCore {
         }
       }
 
+      if (hasStaleVerbatimTranslation) {
+        return {
+          ...segment,
+          status: 'queued'
+        }
+      }
+
       if (
         previousEntry &&
         previousEntry.originalMarkdown === segment.originalMarkdown &&
-        (previousEntry.status === 'completed' || previousEntry.status === 'skipped') &&
+        (previousEntry.status === 'completed' ||
+          (previousEntry.status === 'skipped' && shouldSkip)) &&
         previousEntry.translatedMarkdown
       ) {
         return {
@@ -603,6 +543,8 @@ export class PaperTranslationCore {
     const currentEntry = entries[currentIndex]
     const previousEntry = entries[currentIndex - 1]
     const nextEntry = entries[currentIndex + 1]
+    const isAffiliationSegment = isPaperAffiliationLikeSegment(currentEntry)
+    const isReferenceSegment = isPaperReferenceLikeSegment(currentEntry)
 
     const parts = [
       '你是一个专业的学术论文翻译助手，请将当前 Markdown 段落翻译成中文。',
@@ -610,13 +552,25 @@ export class PaperTranslationCore {
       '<previous_context> 和 <next_context> 仅用于术语与语境参考，绝不能复述、复制或翻译到输出中。',
       '翻译要求：',
       '1. 只输出翻译后的 Markdown，不要输出解释、前言、注释或额外说明。',
-      '2. 作者姓名、人名、邮箱、ORCID、机构专名保持原样不要翻译，可直接保留英文。',
-      '3. 保留公式、变量名、引用编号、链接、图片语法、表格结构和列表层级。',
+      '2. 作者姓名、人名、邮箱、ORCID 保持原样不要翻译；机构、院系、实验室、学校和地名请翻译为常用中文译法，必要时保留英文缩写。',
+      '3. 保留公式、变量名、引用编号、列表序号、链接、图片语法、表格结构和列表层级。',
       '4. 如原文已经是中文，仅做必要的学术化润色并保持原意。',
       '5. 不要遗漏内容，也不要补充原文没有的信息。',
       '6. 如果当前段落是标题，只输出标题本身，不要并入后续正文。',
       '7. 不要输出任何 XML 标签。'
     ]
+
+    if (isAffiliationSegment) {
+      parts.push(
+        '8. 当前段落是作者机构信息：请完整翻译单位、院系、实验室与地址信息，但保留邮箱、人员姓名与常见英文缩写。'
+      )
+    }
+
+    if (isReferenceSegment) {
+      parts.push(
+        '9. 当前段落是参考文献：保留作者姓名、年份、卷期、页码、DOI、arXiv、编号和链接；翻译论文标题、书名、期刊/会议名称、出版说明以及连接词（如 In:）。'
+      )
+    }
 
     if (previousEntry) {
       parts.push('<previous_context>')
@@ -671,7 +625,7 @@ export class PaperTranslationCore {
       }
     }
 
-    return content
+    return preserveLeadingMarker(segment, content)
   }
 
   private persistCache(paperId: string, cache: PaperTranslationCache): void {

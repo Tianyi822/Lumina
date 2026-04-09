@@ -37,7 +37,7 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
   }
 }
 
-test('作者、机构与邮箱段现在会参与翻译', async () => {
+test('作者与联系信息会跳过翻译，但机构段仍会参与翻译', async () => {
   const markdown = [
     '# Sample Paper',
     '',
@@ -76,10 +76,12 @@ test('作者、机构与邮箱段现在会参与翻译', async () => {
 
   const cache = cacheStore.get('paper-author')
   assert.ok(cache)
-  assert.equal(cache.entries[1].status, 'completed')
+  assert.equal(cache.entries[1].status, 'skipped')
   assert.equal(cache.entries[2].status, 'completed')
-  assert.equal(cache.entries[3].status, 'completed')
-  assert.equal(translateCallCount, 5)
+  assert.equal(cache.entries[3].status, 'skipped')
+  assert.equal(cache.entries[1].translatedMarkdown, cache.entries[1].originalMarkdown)
+  assert.equal(cache.entries[3].translatedMarkdown, cache.entries[3].originalMarkdown)
+  assert.equal(translateCallCount, 3)
 })
 
 test('标题段会清理参考标签并截断误并入的正文', async () => {
@@ -215,7 +217,7 @@ test('图片段会被跳过且不会触发翻译调用', async () => {
   assert.equal(translateCallCount, 2)
 })
 
-test('分隔线段现在会参与翻译', async () => {
+test('分隔线段会被跳过且不会触发翻译调用', async () => {
   const markdown = ['---', '', '# DEYOLO', '', 'This is the first paragraph.'].join('\n')
   const cacheStore = new Map<string, PaperTranslationCache>()
   let translateCallCount = 0
@@ -244,8 +246,9 @@ test('分隔线段现在会参与翻译', async () => {
 
   const cache = cacheStore.get('paper-divider')
   assert.ok(cache)
-  assert.equal(cache.entries[0].status, 'completed')
-  assert.equal(translateCallCount, 3)
+  assert.equal(cache.entries[0].status, 'skipped')
+  assert.equal(cache.entries[0].translatedMarkdown, cache.entries[0].originalMarkdown)
+  assert.equal(translateCallCount, 2)
 })
 
 test('翻译任务会限制最大并发数并按段持久化缓存', async () => {
@@ -416,19 +419,115 @@ test('中断后遗留为 translating 的段落可以重新排队翻译', async (
   assert.equal(resumedCache.entries[1].status, 'completed')
 })
 
-test('参考文献段会被跳过且不会触发翻译调用', async () => {
+test('旧缓存中被误标记为 skipped 的参考文献会重新进入翻译队列', async () => {
+  const markdown =
+    'Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; and Zagoruyko, S. 2020. End-to-End Object Detection with Transformers. arXiv:2005.12872.'
+  const sourceHash = computePaperTranslationSourceHash(markdown)
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  cacheStore.set('paper-ref-retry', {
+    paperId: 'paper-ref-retry',
+    sourceHash,
+    totalSegments: 1,
+    completedSegments: 1,
+    updatedAt: new Date().toISOString(),
+    entries: [
+      {
+        ...parsePaperTranslationSegments(markdown)[0],
+        status: 'skipped',
+        translatedMarkdown: markdown,
+        translatedText: markdown
+      }
+    ]
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async () => {
+      translateCallCount += 1
+      return 'Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; and Zagoruyko, S. 2020. 使用 Transformers 的端到端目标检测。arXiv:2005.12872.'
+    }
+  })
+
+  const result = await core.startTranslation('paper-ref-retry', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-ref-retry'))
+
+  const cache = cacheStore.get('paper-ref-retry')
+  assert.ok(cache)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.match(cache.entries[0].translatedMarkdown || '', /端到端目标检测/)
+  assert.equal(translateCallCount, 1)
+})
+
+test('旧缓存中原文未翻译的参考文献会重新进入翻译队列', async () => {
+  const markdown =
+    'Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; and Zagoruyko, S. 2020. End-to-End Object Detection with Transformers. arXiv:2005.12872.'
+  const sourceHash = computePaperTranslationSourceHash(markdown)
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  cacheStore.set('paper-ref-refresh', {
+    paperId: 'paper-ref-refresh',
+    sourceHash,
+    totalSegments: 1,
+    completedSegments: 1,
+    updatedAt: new Date().toISOString(),
+    entries: [
+      {
+        ...parsePaperTranslationSegments(markdown)[0],
+        status: 'completed',
+        translatedMarkdown: markdown,
+        translatedText: markdown
+      }
+    ]
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async () => {
+      translateCallCount += 1
+      return 'Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; and Zagoruyko, S. 2020. 使用 Transformers 的端到端目标检测。arXiv:2005.12872.'
+    }
+  })
+
+  const result = await core.startTranslation('paper-ref-refresh', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-ref-refresh'))
+
+  const cache = cacheStore.get('paper-ref-refresh')
+  assert.ok(cache)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.match(cache.entries[0].translatedMarkdown || '', /端到端目标检测/)
+  assert.equal(translateCallCount, 1)
+})
+
+test('参考文献段会参与翻译并保留原始编号', async () => {
   const markdown = [
-    '# Conclusion',
+    '31. Xu, H., Ma, J., Jiang, J., Guo, X., Ling, H.: U2fusion: A unified unsupervised image fusion network. IEEE Transactions on Pattern Analysis and Machine Intelligence 44(1), 502-518 (2020)',
     '',
-    'This is the conclusion paragraph.',
-    '',
-    '[1] Chen, Y., Wang, B., and Zhang, R. "A Survey on Object Detection." CVPR, 2024.',
-    '',
-    '[2] Li, H., Liu, Y., et al. "Deep Learning for Vision." ICCV, 2023.',
-    '',
-    'References',
-    '',
-    '[3] Smith, J. "Neural Networks." NeurIPS, 2022.'
+    'Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; and Zagoruyko, S. 2020. End-to-End Object Detection with Transformers. arXiv:2005.12872.'
   ].join('\n')
   const cacheStore = new Map<string, PaperTranslationCache>()
   let translateCallCount = 0
@@ -447,7 +546,11 @@ test('参考文献段会被跳过且不会触发翻译调用', async () => {
     },
     translateSegment: async (_config, _prompt, segment) => {
       translateCallCount += 1
-      return `译文：${segment.originalMarkdown}`
+      if (segment.originalMarkdown.startsWith('31.')) {
+        return '徐, H., 马, J., 江, J., 郭, X., 凌, H.: U2fusion：一种统一的无监督图像融合网络。IEEE Transactions on Pattern Analysis and Machine Intelligence 44(1), 502-518 (2020)'
+      }
+
+      return 'Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; and Zagoruyko, S. 2020. 使用 Transformers 的端到端目标检测。arXiv:2005.12872.'
     }
   })
 
@@ -457,14 +560,15 @@ test('参考文献段会被跳过且不会触发翻译调用', async () => {
 
   const cache = cacheStore.get('paper-ref')
   assert.ok(cache)
-  assert.equal(cache.entries[2].status, 'skipped')
-  assert.equal(cache.entries[3].status, 'skipped')
-  assert.equal(cache.entries[4].status, 'skipped')
-  assert.equal(cache.entries[5].status, 'skipped')
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.equal(cache.entries[1].status, 'completed')
+  assert.match(cache.entries[0].translatedMarkdown || '', /^31\.\s/)
+  assert.match(cache.entries[0].translatedMarkdown || '', /统一的无监督图像融合网络/)
+  assert.match(cache.entries[1].translatedMarkdown || '', /端到端目标检测/)
   assert.equal(translateCallCount, 2)
 })
 
-test('首个标题前的摘要和元数据段现在会参与翻译', async () => {
+test('标题前的作者段会跳过，但机构与摘要会参与翻译', async () => {
   const markdown = [
     'Yishuo Chen ¹, Boran Wang ¹,¹, Xinyu Guo ¹',
     '',
@@ -503,8 +607,10 @@ test('首个标题前的摘要和元数据段现在会参与翻译', async () =>
 
   const cache = cacheStore.get('paper-preheading')
   assert.ok(cache)
-  assert.equal(cache.entries[0].status, 'completed')
+  assert.equal(cache.entries[0].status, 'skipped')
   assert.equal(cache.entries[1].status, 'completed')
   assert.equal(cache.entries[2].status, 'completed')
-  assert.equal(translateCallCount, 5)
+  assert.equal(cache.entries[3].status, 'completed')
+  assert.equal(cache.entries[4].status, 'completed')
+  assert.equal(translateCallCount, 4)
 })
