@@ -8,7 +8,8 @@ import {
   getOcrProviderPreset,
   type EmbeddingConfig,
   type OcrProviderId,
-  type PaperOcrConfig
+  type PaperOcrConfig,
+  type PromptConfig
 } from '@shared/types/config'
 import {
   DEFAULT_THEME_ID,
@@ -35,6 +36,23 @@ function sanitizePaperOcrConfig(config: PaperOcrConfig | undefined): PaperOcrCon
   return sanitized
 }
 
+function createDefaultPromptConfig(): PromptConfig {
+  return {
+    enableEnhancedPrompt: true,
+    toolDescriptionLevel: 'detailed',
+    fewShotCount: 3,
+    customSystemPrompt: '',
+    enablePromptCache: false,
+    enableDynamicExamples: false,
+    autoExtractIntervalDays: 7,
+    dynamicExampleMinQuality: 0.6,
+    maxDynamicExamples: 20,
+    enablePromptOptimization: false,
+    optimizationAggressiveness: 'balanced',
+    customVariables: []
+  }
+}
+
 /**
  * 创建空的基础配置结构
  * 包含所有必要的字段，但值为空或默认值
@@ -53,20 +71,7 @@ function createEmptyConfig(): AppConfig {
       models: []
     },
     mcpServers: {},
-    promptConfig: {
-      enableEnhancedPrompt: true,
-      toolDescriptionLevel: 'detailed',
-      fewShotCount: 3,
-      customSystemPrompt: '',
-      enablePromptCache: false,
-      enableDynamicExamples: false,
-      autoExtractIntervalDays: 7,
-      dynamicExampleMinQuality: 0.6,
-      maxDynamicExamples: 20,
-      enablePromptOptimization: false,
-      optimizationAggressiveness: 'balanced',
-      customVariables: []
-    },
+    promptConfig: createDefaultPromptConfig(),
     embeddingModels: {},
     knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG,
     paperOcr: sanitizePaperOcrConfig(undefined)
@@ -109,20 +114,7 @@ function migrateConfig(config: AppConfig): AppConfig {
   }
 
   if (!migrated.promptConfig) {
-    migrated.promptConfig = {
-      enableEnhancedPrompt: true,
-      toolDescriptionLevel: 'detailed',
-      fewShotCount: 3,
-      customSystemPrompt: '',
-      enablePromptCache: false,
-      enableDynamicExamples: false,
-      autoExtractIntervalDays: 7,
-      dynamicExampleMinQuality: 0.6,
-      maxDynamicExamples: 20,
-      enablePromptOptimization: false,
-      optimizationAggressiveness: 'balanced',
-      customVariables: []
-    }
+    migrated.promptConfig = createDefaultPromptConfig()
   }
 
   if (migrated.promptConfig.enableEnhancedPrompt === undefined) {
