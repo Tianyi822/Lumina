@@ -614,3 +614,58 @@ test('标题前的作者段会跳过，但机构与摘要会参与翻译', async
   assert.equal(cache.entries[4].status, 'completed')
   assert.equal(translateCallCount, 4)
 })
+
+test('各种格式的表格段会被跳过且不会触发翻译调用', async () => {
+  const markdown = [
+    '# Results',
+    '',
+    '| Method | AP |',
+    '|---|---|',
+    '| Ours | 52.3 |',
+    '',
+    '| Ours | 52.3 |',
+    '| Baseline | 45.6 |',
+    '',
+    '<table><tr><td>A</td></tr></table>',
+    '',
+    'The qualitative comparison is shown below.'
+  ].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      translateCallCount += 1
+      return `译文：${segment.originalMarkdown}`
+    }
+  })
+
+  const result = await core.startTranslation('paper-table', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-table'))
+
+  const cache = cacheStore.get('paper-table')
+  assert.ok(cache)
+  // seg-0: heading (translated)
+  // seg-1: standard pipe table (skipped)
+  // seg-2: pipe rows without separator (skipped)
+  // seg-3: HTML table (skipped)
+  // seg-4: normal paragraph (translated)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.equal(cache.entries[1].status, 'skipped')
+  assert.equal(cache.entries[2].status, 'skipped')
+  assert.equal(cache.entries[3].status, 'skipped')
+  assert.equal(cache.entries[4].status, 'completed')
+  assert.equal(translateCallCount, 2)
+})

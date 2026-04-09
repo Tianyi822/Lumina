@@ -97,6 +97,30 @@ test('会去除常见 Markdown 标记，保留正文文本', () => {
   assert.equal(plainText, 'Heading A link with code and')
 })
 
+test('各种格式的表格段都会被识别为 table 段', () => {
+  // 标准分隔行表格
+  const standardTable = ['| Method | AP |', '|---|---|', '| Ours | 52.3 |'].join('\n')
+  assert.equal(parsePaperTranslationSegments(standardTable)[0].kind, 'table')
+
+  // 无分隔行的纯管道表格（因空行拆分残留的数据行）
+  const noSeparatorTable = ['| Ours | 52.3 |', '| Baseline | 45.6 |', '| SOTA | 51.0 |'].join('\n')
+  assert.equal(parsePaperTranslationSegments(noSeparatorTable)[0].kind, 'table')
+
+  // HTML 表格
+  const htmlTable = '<table><tr><td>A</td><td>B</td></tr></table>'
+  assert.equal(parsePaperTranslationSegments(htmlTable)[0].kind, 'table')
+
+  // 含对齐标记的分隔行表格
+  const alignTable = ['| Left | Center | Right |', '|:-----|:------:|------:|', '| a | b | c |'].join('\n')
+  assert.equal(parsePaperTranslationSegments(alignTable)[0].kind, 'table')
+})
+
+test('普通段落不会被误判为表格', () => {
+  // 含管道符但不是表格的普通文本
+  const textWithPipe = 'The value is a | b in the expression.'
+  assert.equal(parsePaperTranslationSegments(textWithPipe)[0].kind, 'paragraph')
+})
+
 test('仅当存在实际译文结果或中断态结果时，才视为可删除译文', () => {
   assert.equal(
     hasPaperTranslationResult({

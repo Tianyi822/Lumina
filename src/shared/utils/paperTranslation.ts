@@ -41,6 +41,34 @@ function isImageOnlyBlock(block: string): boolean {
   return withoutImgTags.length === 0
 }
 
+/**
+ * 检测块是否为表格（含标准分隔行表格、纯管道行表格、HTML 表格）
+ */
+function isTableLikeBlock(block: string): boolean {
+  // HTML 表格
+  if (/<table[\s>]/i.test(block)) {
+    return true
+  }
+
+  if (!/\|/.test(block)) {
+    return false
+  }
+
+  // 含标准分隔行的管道表格（原有逻辑）
+  if (/\n\s*\|?[\s:-]+(?:\|[\s:-]+)+\|?\s*(?:\n|$)/.test(block)) {
+    return true
+  }
+
+  // 无分隔行但多行为管道行的表格（因空行拆分后残留的数据行等场景）
+  const lines = block.split('\n').filter((line) => line.trim().length > 0)
+  if (lines.length < 2) {
+    return false
+  }
+
+  const pipeRows = lines.filter((line) => /^\s*\|.+\|\s*$/.test(line))
+  return pipeRows.length >= Math.ceil(lines.length * 0.5)
+}
+
 function detectPaperTranslationSegmentKind(block: string): PaperTranslationSegmentKind {
   if (/^#{1,6}\s/.test(block)) {
     return 'heading'
@@ -62,7 +90,7 @@ function detectPaperTranslationSegmentKind(block: string): PaperTranslationSegme
     return 'list'
   }
 
-  if (/\|/.test(block) && /\n\s*\|?[\s:-]+(?:\|[\s:-]+)+\|?\s*(?:\n|$)/.test(block)) {
+  if (isTableLikeBlock(block)) {
     return 'table'
   }
 
