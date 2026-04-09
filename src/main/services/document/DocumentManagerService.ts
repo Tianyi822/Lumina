@@ -1,4 +1,8 @@
 import { logger } from '@main/services/logger'
+import {
+  SUPPORTED_DOCUMENT_EXTENSIONS,
+  isSupportedDocumentExtension
+} from '@shared/constants/document'
 import { getDocumentParserService, DocumentParserService } from './DocumentParserService'
 
 /**
@@ -46,11 +50,10 @@ export class DocumentManagerService {
       }
 
       // 2. 检查文件类型
-      const supportedTypes = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.xls', '.xlsx']
-      if (!supportedTypes.includes(ext)) {
+      if (!isSupportedDocumentExtension(ext)) {
         return {
           success: false,
-          error: `不支持的文件类型: ${ext}，仅支持 ${supportedTypes.join(', ')}`
+          error: `不支持的文件类型: ${ext}，仅支持 ${SUPPORTED_DOCUMENT_EXTENSIONS.join(', ')}`
         }
       }
 

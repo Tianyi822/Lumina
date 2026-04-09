@@ -1,10 +1,11 @@
 import { computed, type ComputedRef } from 'vue'
+import { getFileExtension, isSupportedDocumentExtension } from '@shared/constants/document'
 import {
   useDocumentUploadStore,
   type PendingDocument,
   type ProcessingFile
 } from '@renderer/stores/documentUploadStore'
-import { DOC_MAX_SIZE, SUPPORTED_DOC_TYPES, formatFileSize } from '../attachmentUtils'
+import { DOC_MAX_SIZE, formatFileSize } from '../attachmentUtils'
 
 interface UseDocumentUploadReturn {
   pendingDocs: ComputedRef<PendingDocument[]>
@@ -27,9 +28,9 @@ export function useDocumentUpload(sessionId: ComputedRef<string>): UseDocumentUp
     const errors: string[] = []
 
     for (const file of files) {
-      const extension = `.${file.name.split('.').pop()?.toLowerCase() || ''}`
+      const extension = getFileExtension(file.name)
 
-      if (!SUPPORTED_DOC_TYPES.includes(extension)) {
+      if (!isSupportedDocumentExtension(extension)) {
         errors.push(`文件 "${file.name}" 格式不支持`)
         continue
       }

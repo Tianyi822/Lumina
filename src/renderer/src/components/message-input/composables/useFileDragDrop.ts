@@ -1,6 +1,7 @@
 import { ref, type Ref } from 'vue'
 import { isImageFile } from '@renderer/stores/imageUploadStore'
 import { IMAGE_ACCEPT_STRING } from '@renderer/utils/imageCompress'
+import { SUPPORTED_DOC_ACCEPT } from '../attachmentUtils'
 
 interface UseFileDragDropOptions {
   isSending: () => boolean
@@ -16,7 +17,7 @@ interface UseFileDragDropReturn {
   triggerFileUpload: () => void
 }
 
-const FILE_ACCEPT_STRING = `.txt,.md,.pdf,.doc,.docx,.csv,${IMAGE_ACCEPT_STRING}`
+const FILE_ACCEPT_STRING = `${SUPPORTED_DOC_ACCEPT},${IMAGE_ACCEPT_STRING}`
 
 /**
  * 文件拖拽与选择逻辑

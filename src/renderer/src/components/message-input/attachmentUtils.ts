@@ -1,9 +1,14 @@
 import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
+import {
+  SUPPORTED_DOCUMENT_ACCEPT,
+  SUPPORTED_DOCUMENT_EXTENSIONS
+} from '@shared/constants/document'
 import type { PendingDocument } from '@renderer/stores/documentUploadStore'
 import type { PendingImage } from '@renderer/stores/imageUploadStore'
 
 export const DOC_MAX_SIZE = 10 * 1024 * 1024
-export const SUPPORTED_DOC_TYPES = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.xls', '.xlsx']
+export const SUPPORTED_DOC_TYPES = [...SUPPORTED_DOCUMENT_EXTENSIONS]
+export const SUPPORTED_DOC_ACCEPT = SUPPORTED_DOCUMENT_ACCEPT
 
 /**
  * 格式化文件大小

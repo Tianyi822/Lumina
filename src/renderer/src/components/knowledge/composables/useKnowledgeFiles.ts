@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import type { ComputedRef } from 'vue'
+import { getFileExtension, isSupportedDocumentExtension } from '@shared/constants/document'
 import { useFileStore, useKnowledgeIndexStore } from '@renderer/stores'
 import type { KnowledgeBase, FileItem } from '@renderer/types'
 
@@ -153,9 +154,8 @@ export function useKnowledgeFiles(
 
     for (const file of files) {
       try {
-        const supportedTypes = ['.txt', '.md', '.pdf', '.doc', '.docx', '.csv', '.xls', '.xlsx']
-        const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
-        if (!supportedTypes.includes(ext)) {
+        const ext = getFileExtension(file.name)
+        if (!isSupportedDocumentExtension(ext)) {
           errors.push(`${file.name}: 不支持的文件类型`)
           continue
         }
