@@ -1,5 +1,9 @@
 import type {
   PaperTranslationCache,
+  PaperTocEntry,
+  PaperTocItem,
+  PaperTocOutline,
+  PaperTranslationEntry,
   PaperTranslationSegment,
   PaperTranslationSegmentKind
 } from '../types/paper'
@@ -16,6 +20,51 @@ const REFERENCE_PUBLICATION_KEYWORD_PATTERN =
   /\b(?:arxiv|doi|journal|transactions|conference|proceedings|proc\.|symposium|workshop|letters|press|springer|elsevier|wiley|acm|ieee|cvpr|iccv|eccv|aaai|neurips|icml|iclr|pattern\s+analysis|machine\s+intelligence|vol\.|no\.|pp\.|pages)\b|(?:会议|期刊|学报|出版社|卷|页)/i
 const REFERENCE_HEADING_PATTERN = /^(?:references?|bibliography|参考文献|文献)\s*[：:\s]*$/i
 const REFERENCE_MARKER_PATTERN = /^\s*(?:\[\d+\]|\[\[\d+\]\]|\d+\.)\s+/
+const HEADING_PREFIX_PATTERN = /^(#{1,6})\s+(.+?)\s*$/
+const HEADING_NUMBERING_PATTERN = /^(\d+(?:\.\d+)*)(?:\.)?(?:\s+|$)/
+const ABSTRACT_PARAGRAPH_PATTERN = /^(abstract|摘要)\s*(?:[:：.。]\s*|\s+|$)/i
+const KEYWORD_SECTION_PATTERN = /^(?:keywords?|index terms)\s*[:：.。]|^关键词\s*[:：.。]/i
+const PAGE_COMMENT_PATTERN = /^\s*<!--\s*Page\s+\d+\s*-->\s*$/i
+const STRUCTURAL_SECTION_TITLES = new Set([
+  'abstract',
+  '摘要',
+  'introduction',
+  '引言',
+  'related work',
+  '相关工作',
+  'method',
+  'methods',
+  '方法',
+  'experiment',
+  'experiments',
+  '实验',
+  'conclusion',
+  'conclusions',
+  '结论',
+  'references',
+  'bibliography',
+  '参考文献',
+  'appendix',
+  'appendices',
+  '附录',
+  'acknowledgment',
+  'acknowledgements',
+  '致谢'
+])
+
+interface ParsedPaperHeading {
+  markdownLevel: number
+  titleText: string
+}
+
+interface PaperTocCandidate {
+  segmentId: string
+  segmentIndex: number
+  text: string
+  translatedText?: string
+  markdownLevel: number
+  isSynthetic: boolean
+}
 
 function isImageOnlyBlock(block: string): boolean {
   const trimmed = block.trim()
@@ -95,6 +144,186 @@ function detectPaperTranslationSegmentKind(block: string): PaperTranslationSegme
   }
 
   return 'paragraph'
+}
+
+function normalizePaperHeadingText(text: string): string {
+  return text
+    .replace(/\s+#+\s*$/g, '')
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/<\/?[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function normalizePaperSectionTitleForMatch(text: string): string {
+  return normalizePaperHeadingText(text)
+    .replace(HEADING_NUMBERING_PATTERN, '')
+    .replace(/^[\s:：.。-]+/, '')
+    .replace(/[\s:：.。-]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+function clampPaperTocLevel(level: number): PaperTocItem['level'] {
+  if (level <= 1) {
+    return 1
+  }
+
+  if (level === 2) {
+    return 2
+  }
+
+  return 3
+}
+
+function parsePaperHeading(markdown: string): ParsedPaperHeading | null {
+  const firstMeaningfulLine = markdown
+    .split('\n')
+    .map((line) => line.trim())
+    .find(Boolean)
+
+  if (!firstMeaningfulLine) {
+    return null
+  }
+
+  const match = firstMeaningfulLine.match(HEADING_PREFIX_PATTERN)
+  if (!match) {
+    return null
+  }
+
+  const titleText = normalizePaperHeadingText(match[2])
+  if (!titleText) {
+    return null
+  }
+
+  return {
+    markdownLevel: match[1].length,
+    titleText
+  }
+}
+
+function extractParagraphAbstractTitle(text: string): string | undefined {
+  const normalizedText = normalizePaperTranslationText(text)
+  if (!normalizedText) {
+    return undefined
+  }
+
+  const match = normalizedText.match(ABSTRACT_PARAGRAPH_PATTERN)
+  if (!match) {
+    return undefined
+  }
+
+  return /摘要/.test(match[1]) ? '摘要' : 'Abstract'
+}
+
+function extractTranslatedHeadingText(entry: PaperTranslationEntry | undefined): string | undefined {
+  if (!entry || entry.status !== 'completed') {
+    return undefined
+  }
+
+  const translatedHeading = entry.translatedMarkdown
+    ? parsePaperHeading(entry.translatedMarkdown)
+    : null
+
+  if (translatedHeading?.titleText) {
+    return translatedHeading.titleText
+  }
+
+  const fallbackText = entry.translatedText ? normalizePaperHeadingText(entry.translatedText) : ''
+  return fallbackText || undefined
+}
+
+function extractTranslatedAbstractTitle(entry: PaperTranslationEntry | undefined): string | undefined {
+  if (!entry || entry.status !== 'completed') {
+    return undefined
+  }
+
+  const translatedMarkdownText = entry.translatedMarkdown
+    ? stripPaperTranslationMarkdown(entry.translatedMarkdown)
+    : ''
+  const translatedParagraphTitle =
+    extractParagraphAbstractTitle(translatedMarkdownText) ||
+    extractParagraphAbstractTitle(entry.translatedText || '')
+
+  return translatedParagraphTitle || '摘要'
+}
+
+function isPaperStructuralSectionTitle(titleText: string): boolean {
+  return STRUCTURAL_SECTION_TITLES.has(normalizePaperSectionTitleForMatch(titleText))
+}
+
+function isPaperKeywordLikeSegment(
+  segment: Pick<PaperTranslationSegment, 'originalText'>
+): boolean {
+  return KEYWORD_SECTION_PATTERN.test(normalizePaperTranslationText(segment.originalText))
+}
+
+function isPaperPageCommentSegment(
+  segment: Pick<PaperTranslationSegment, 'originalMarkdown'>
+): boolean {
+  return PAGE_COMMENT_PATTERN.test(segment.originalMarkdown)
+}
+
+function looksLikePaperTitleText(titleText: string): boolean {
+  const normalizedText = normalizePaperHeadingText(titleText)
+  const wordCount = normalizedText.split(/\s+/).filter(Boolean).length
+  const englishWordCount = (normalizedText.match(/[A-Za-z][A-Za-z-]*/g) ?? []).length
+  const cjkCharCount = (normalizedText.match(/[\u4e00-\u9fff]/g) ?? []).length
+
+  return (
+    /[:：]/.test(normalizedText) ||
+    normalizedText.length >= 36 ||
+    wordCount >= 6 ||
+    englishWordCount >= 5 ||
+    cjkCharCount >= 12
+  )
+}
+
+function resolvePaperTocLevel(
+  titleText: string,
+  markdownLevel: number
+): PaperTocItem['level'] {
+  const numberingMatch = titleText.match(HEADING_NUMBERING_PATTERN)
+  if (numberingMatch) {
+    return clampPaperTocLevel(numberingMatch[1].split('.').length)
+  }
+
+  if (isPaperStructuralSectionTitle(titleText)) {
+    return 1
+  }
+
+  return clampPaperTocLevel(markdownLevel)
+}
+
+export function slugifyPaperHeadingText(text: string): string {
+  const normalized = text
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{Letter}\p{Number}]+/gu, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  return normalized || 'section'
+}
+
+function createUniquePaperTocId(
+  text: string,
+  usedCounts: Map<string, number>
+): string {
+  const baseSlug = slugifyPaperHeadingText(text)
+  const count = (usedCounts.get(baseSlug) || 0) + 1
+  usedCounts.set(baseSlug, count)
+  return count === 1 ? baseSlug : `${baseSlug}-${count}`
 }
 
 export function normalizePaperTranslationText(text: string): string {
@@ -253,6 +482,106 @@ export function isPaperReferenceLikeSegment(
   return hasAuthorCluster && hasYear && hasPublicationKeyword
 }
 
+function buildPaperTocCandidates(
+  segments: PaperTranslationSegment[],
+  translationMap: Map<string, PaperTranslationEntry>
+): PaperTocCandidate[] {
+  const candidates: PaperTocCandidate[] = []
+
+  for (const segment of segments) {
+    if (isPaperPageCommentSegment(segment)) {
+      continue
+    }
+
+    if (segment.kind === 'heading') {
+      const heading = parsePaperHeading(segment.originalMarkdown)
+      if (!heading) {
+        continue
+      }
+
+      candidates.push({
+        segmentId: segment.id,
+        segmentIndex: segment.index,
+        text: heading.titleText,
+        translatedText: extractTranslatedHeadingText(translationMap.get(segment.id)),
+        markdownLevel: heading.markdownLevel,
+        isSynthetic: false
+      })
+      continue
+    }
+
+    const abstractTitle = extractParagraphAbstractTitle(segment.originalText)
+    if (!abstractTitle) {
+      continue
+    }
+
+    candidates.push({
+      segmentId: segment.id,
+      segmentIndex: segment.index,
+      text: abstractTitle,
+      translatedText: extractTranslatedAbstractTitle(translationMap.get(segment.id)),
+      markdownLevel: 1,
+      isSynthetic: true
+    })
+  }
+
+  return candidates
+}
+
+function shouldTreatFirstHeadingAsDocumentTitle(
+  segments: PaperTranslationSegment[],
+  candidate: PaperTocCandidate
+): boolean {
+  if (candidate.isSynthetic) {
+    return false
+  }
+
+  if (candidate.segmentIndex > 2) {
+    return false
+  }
+
+  if (HEADING_NUMBERING_PATTERN.test(candidate.text) || isPaperStructuralSectionTitle(candidate.text)) {
+    return false
+  }
+
+  const followingSegments = segments.slice(candidate.segmentIndex + 1, candidate.segmentIndex + 7)
+
+  for (const segment of followingSegments) {
+    if (isPaperPageCommentSegment(segment)) {
+      continue
+    }
+
+    if (
+      isPaperAuthorLikeSegment(segment) ||
+      isPaperAffiliationLikeSegment(segment) ||
+      isPaperContactLikeSegment(segment) ||
+      isPaperKeywordLikeSegment(segment) ||
+      !!extractParagraphAbstractTitle(segment.originalText)
+    ) {
+      return true
+    }
+
+    if (segment.kind === 'heading') {
+      const heading = parsePaperHeading(segment.originalMarkdown)
+      if (!heading) {
+        continue
+      }
+
+      if (HEADING_NUMBERING_PATTERN.test(heading.titleText) || isPaperStructuralSectionTitle(heading.titleText)) {
+        return looksLikePaperTitleText(candidate.text)
+      }
+
+      break
+    }
+
+    if (segment.originalText.trim()) {
+      break
+    }
+  }
+
+  return looksLikePaperTitleText(candidate.text)
+}
+
 export function parsePaperTranslationSegments(markdown: string): PaperTranslationSegment[] {
   const normalizedMarkdown = markdown.replace(/\r\n/g, '\n').trim()
   if (!normalizedMarkdown) {
@@ -271,4 +600,45 @@ export function parsePaperTranslationSegments(markdown: string): PaperTranslatio
     originalMarkdown: block,
     originalText: stripPaperTranslationMarkdown(block)
   }))
+}
+
+export function buildPaperTocOutline(
+  segments: PaperTranslationSegment[],
+  entries: PaperTranslationEntry[] = []
+): PaperTocOutline {
+  const translationMap = new Map(entries.map((entry) => [entry.id, entry]))
+  const candidates = buildPaperTocCandidates(segments, translationMap)
+  const usedIdCounts = new Map<string, number>()
+  const firstHeadingCandidate = candidates.find((candidate) => !candidate.isSynthetic)
+  const documentTitleCandidate =
+    firstHeadingCandidate && shouldTreatFirstHeadingAsDocumentTitle(segments, firstHeadingCandidate)
+      ? firstHeadingCandidate
+      : undefined
+  const outline: PaperTocOutline = {
+    items: []
+  }
+
+  for (const candidate of candidates) {
+    const id = createUniquePaperTocId(candidate.text, usedIdCounts)
+    const entry: PaperTocEntry = {
+      id,
+      segmentId: candidate.segmentId,
+      text: candidate.text,
+      translatedText: candidate.translatedText
+    }
+
+    if (documentTitleCandidate && candidate.segmentId === documentTitleCandidate.segmentId) {
+      outline.documentTitle = entry
+      continue
+    }
+
+    outline.items.push({
+      ...entry,
+      level: candidate.isSynthetic
+        ? 1
+        : resolvePaperTocLevel(candidate.text, candidate.markdownLevel)
+    })
+  }
+
+  return outline
 }

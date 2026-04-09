@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  buildPaperTocOutline,
   hasPaperTranslationResult,
   isPaperAffiliationLikeSegment,
   isPaperAuthorLikeSegment,
@@ -119,6 +120,204 @@ test('普通段落不会被误判为表格', () => {
   // 含管道符但不是表格的普通文本
   const textWithPipe = 'The value is a | b in the expression.'
   assert.equal(parsePaperTranslationSegments(textWithPipe)[0].kind, 'paragraph')
+})
+
+test('目录层级会优先根据标题编号恢复，最多三级', () => {
+  const markdown = [
+    '# 3. Method',
+    '',
+    '# 3.1. Preliminary',
+    '',
+    '# 3.1.1. Details',
+    '',
+    '# 3.1.1.1. Extra'
+  ].join('\n')
+
+  const outline = buildPaperTocOutline(parsePaperTranslationSegments(markdown))
+
+  assert.deepEqual(
+    outline.items.map((item) => ({
+      text: item.text,
+      level: item.level
+    })),
+    [
+      { text: '3. Method', level: 1 },
+      { text: '3.1. Preliminary', level: 2 },
+      { text: '3.1.1. Details', level: 3 },
+      { text: '3.1.1.1. Extra', level: 3 }
+    ]
+  )
+})
+
+test('无编号标题会按 Markdown 标题级别生成目录', () => {
+  const markdown = ['# Method', '', '## Preliminary', '', '### Details'].join('\n')
+
+  const outline = buildPaperTocOutline(parsePaperTranslationSegments(markdown))
+
+  assert.deepEqual(
+    outline.items.map((item) => ({
+      text: item.text,
+      level: item.level
+    })),
+    [
+      { text: 'Method', level: 1 },
+      { text: 'Preliminary', level: 2 },
+      { text: 'Details', level: 3 }
+    ]
+  )
+})
+
+test('标题与正文落在同一段时，目录只保留标题第一行', () => {
+  const markdown = ['# 3. Method', 'This section introduces the overall architecture.'].join('\n')
+
+  const outline = buildPaperTocOutline(parsePaperTranslationSegments(markdown))
+
+  assert.equal(outline.items.length, 1)
+  assert.equal(outline.items[0].text, '3. Method')
+  assert.equal(outline.items[0].id, '3-method')
+})
+
+test('目录译文会取翻译 Markdown 的标题第一行，并保留原文锚点', () => {
+  const segments = parsePaperTranslationSegments(['# 3.1. Preliminary', 'Body text.'].join('\n'))
+  const outline = buildPaperTocOutline(segments, [
+    {
+      ...segments[0],
+      status: 'completed',
+      translatedMarkdown: '# 3.1. 预备知识\n这是正文译文。',
+      translatedText: '3.1. 预备知识 这是正文译文。'
+    }
+  ])
+
+  assert.equal(outline.items.length, 1)
+  assert.equal(outline.items[0].text, '3.1. Preliminary')
+  assert.equal(outline.items[0].translatedText, '3.1. 预备知识')
+  assert.equal(outline.items[0].id, '3-1-preliminary')
+  assert.equal(outline.items[0].segmentId, segments[0].id)
+})
+
+test('同名标题会生成稳定的去重锚点', () => {
+  const markdown = ['# Introduction', '', '# Introduction'].join('\n\n')
+
+  const outline = buildPaperTocOutline(parsePaperTranslationSegments(markdown))
+
+  assert.deepEqual(
+    outline.items.map((item) => item.id),
+    ['introduction', 'introduction-2']
+  )
+})
+
+test('论文 title 会单独展示，Abstract 与 Introduction 作为同级一级目录', () => {
+  const markdown = [
+    '# DA-Mamba: Learning Domain-Aware State Space Model for Global-Local Alignment',
+    '',
+    'Yishuo Chen 1, Boran Wang 1, Xinyu Guo 1',
+    '',
+    '1 College of Artificial Intelligence, Nankai University',
+    '',
+    'Abstract. Object detection in poor-illumination environments is a challenging task...',
+    '',
+    '# 1 Introduction'
+  ].join('\n')
+
+  const outline = buildPaperTocOutline(parsePaperTranslationSegments(markdown))
+
+  assert.equal(
+    outline.documentTitle?.text,
+    'DA-Mamba: Learning Domain-Aware State Space Model for Global-Local Alignment'
+  )
+  assert.deepEqual(
+    outline.items.map((item) => ({
+      text: item.text,
+      level: item.level
+    })),
+    [
+      { text: 'Abstract', level: 1 },
+      { text: '1 Introduction', level: 1 }
+    ]
+  )
+})
+
+test('标题后的 # Abstract 会作为一级目录，而不是挂在 title 下', () => {
+  const markdown = [
+    '# DA-Mamba: Learning Domain-Aware State Space Model',
+    '',
+    '# Abstract',
+    '',
+    '# 1 Introduction'
+  ].join('\n')
+
+  const outline = buildPaperTocOutline(parsePaperTranslationSegments(markdown))
+
+  assert.equal(outline.documentTitle?.text, 'DA-Mamba: Learning Domain-Aware State Space Model')
+  assert.deepEqual(
+    outline.items.map((item) => ({
+      text: item.text,
+      level: item.level
+    })),
+    [
+      { text: 'Abstract', level: 1 },
+      { text: '1 Introduction', level: 1 }
+    ]
+  )
+})
+
+test('直接开篇的 Introduction 不会被误判为论文 title', () => {
+  const markdown = ['# Introduction', '', 'This is the first paragraph.'].join('\n')
+
+  const outline = buildPaperTocOutline(parsePaperTranslationSegments(markdown))
+
+  assert.equal(outline.documentTitle, undefined)
+  assert.deepEqual(
+    outline.items.map((item) => ({
+      text: item.text,
+      level: item.level
+    })),
+    [{ text: 'Introduction', level: 1 }]
+  )
+})
+
+test('References 和 参考文献即使 Markdown 级别错误，也会被提升为一级目录', () => {
+  const markdown = ['### References', '', '## 参考文献'].join('\n')
+
+  const outline = buildPaperTocOutline(parsePaperTranslationSegments(markdown))
+
+  assert.deepEqual(
+    outline.items.map((item) => ({
+      text: item.text,
+      level: item.level
+    })),
+    [
+      { text: 'References', level: 1 },
+      { text: '参考文献', level: 1 }
+    ]
+  )
+})
+
+test('文档标题和 synthetic 摘要都能保留翻译标题文本', () => {
+  const markdown = [
+    '# DA-Mamba: Learning Domain-Aware State Space Model',
+    '',
+    'Abstract. Object detection in poor-illumination environments is a challenging task...'
+  ].join('\n')
+  const segments = parsePaperTranslationSegments(markdown)
+  const outline = buildPaperTocOutline(segments, [
+    {
+      ...segments[0],
+      status: 'completed',
+      translatedMarkdown: '# DA-Mamba：面向全局-局部对齐的领域感知状态空间模型',
+      translatedText: 'DA-Mamba：面向全局-局部对齐的领域感知状态空间模型'
+    },
+    {
+      ...segments[1],
+      status: 'completed',
+      translatedMarkdown: '摘要：在低照度环境中的目标检测是一项具有挑战性的任务……',
+      translatedText: '摘要：在低照度环境中的目标检测是一项具有挑战性的任务……'
+    }
+  ])
+
+  assert.equal(outline.documentTitle?.translatedText, 'DA-Mamba：面向全局-局部对齐的领域感知状态空间模型')
+  assert.equal(outline.items[0].text, 'Abstract')
+  assert.equal(outline.items[0].translatedText, '摘要')
 })
 
 test('仅当存在实际译文结果或中断态结果时，才视为可删除译文', () => {
