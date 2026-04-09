@@ -2,11 +2,11 @@ import { net } from 'electron'
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
 import { logger } from '@main/services/logger'
 import { configManager } from '@main/services/config'
-import { DEFAULT_OCR_PROVIDER } from '@shared/types/config'
+import { DEFAULT_OCR_PROVIDER, getOcrProviderPreset, type OcrProviderId } from '@shared/types/config'
 import type { PaperLayoutBlock, PaperPageOcrResult, BlockLabel } from '@shared/types/paper'
 import { PaperGlmOcrClient } from './PaperGlmOcrClient'
 import { paperStorageService } from './index'
-import { buildMergedMarkdown, runPaperOcrPipeline, MAX_OCR_CONCURRENCY } from './paperOcrPipeline'
+import { buildMergedMarkdown, runPaperOcrPipeline } from './paperOcrPipeline'
 import {
   getPaperOcrRawDirPath,
   getPaperOcrRawPath,
@@ -171,12 +171,15 @@ export class PaperOcrService {
   private abortControllers: Map<string, boolean> = new Map()
   private progressCallbacks: Map<string, ProgressCallback> = new Map()
 
-  private getOcrConfig(): { apiKey: string; provider: typeof DEFAULT_OCR_PROVIDER } {
+  private getOcrConfig(): { apiKey: string; provider: OcrProviderId; concurrency: number } {
     const config = configManager.getConfig()
     const paperOcr = config?.paperOcr
+    const provider = paperOcr?.provider || DEFAULT_OCR_PROVIDER
+    const preset = getOcrProviderPreset(provider)!
     return {
       apiKey: paperOcr?.apiKey || '',
-      provider: paperOcr?.provider || DEFAULT_OCR_PROVIDER
+      provider,
+      concurrency: preset.concurrency
     }
   }
 
@@ -204,7 +207,7 @@ export class PaperOcrService {
   }
 
   async startOcr(paperId: string): Promise<{ success: boolean; error?: string }> {
-    const { apiKey, provider } = this.getOcrConfig()
+    const { apiKey, provider, concurrency } = this.getOcrConfig()
     if (!apiKey) {
       return { success: false, error: '请先在设置中配置 GLM-OCR API Key' }
     }
@@ -241,7 +244,7 @@ export class PaperOcrService {
     const { aborted, results: normalizedResults } = await runPaperOcrPipeline({
       paperId,
       totalPages,
-      concurrency: MAX_OCR_CONCURRENCY,
+      concurrency,
       shouldCancel: () => this.abortControllers.get(paperId) === true,
       processPage: async (pageIndex) => this.processPage(paperId, pageIndex, apiKey, provider),
       onPageDispatched: (pageIndex) => {
@@ -327,7 +330,7 @@ export class PaperOcrService {
     paperId: string,
     pageIndex: number,
     apiKey: string,
-    provider: typeof DEFAULT_OCR_PROVIDER
+    provider: OcrProviderId
   ): Promise<PaperPageOcrResult> {
     const pageImageResult = paperStorageService.readPageImage(paperId, pageIndex)
     if (!pageImageResult.success || !pageImageResult.data) {

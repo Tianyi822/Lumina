@@ -1,11 +1,9 @@
 import type { PaperPageOcrResult } from '../../../shared/types/paper.ts'
 
-export const MAX_OCR_CONCURRENCY = 1
-
 export interface RunPaperOcrPipelineOptions {
   paperId: string
   totalPages: number
-  concurrency?: number
+  concurrency: number
   shouldCancel?: () => boolean
   processPage: (pageIndex: number) => Promise<PaperPageOcrResult>
   onPageDispatched?: (pageIndex: number) => void
@@ -25,10 +23,6 @@ export function createPendingOcrResult(paperId: string, pageIndex: number): Pape
     blocks: [],
     status: 'pending'
   }
-}
-
-export function getAdaptiveOcrConcurrency(totalPages: number): number {
-  return Math.max(1, Math.min(MAX_OCR_CONCURRENCY, totalPages))
 }
 
 function buildPageMarkdown(pageResult: PaperPageOcrResult): string {
@@ -72,10 +66,7 @@ export async function runPaperOcrPipeline(
   }
 
   let nextPageIndex = 0
-  const workerCount = Math.min(
-    Math.max(1, options.concurrency ?? getAdaptiveOcrConcurrency(totalPages)),
-    totalPages
-  )
+  const workerCount = Math.min(Math.max(1, options.concurrency), totalPages)
 
   const claimNextPage = (): number | null => {
     if (shouldCancel?.()) {
