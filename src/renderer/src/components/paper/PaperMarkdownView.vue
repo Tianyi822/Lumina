@@ -9,8 +9,10 @@ import type {
   PaperTranslationCache,
   PaperTranslationEntry,
   PaperTranslationSegment,
+  PaperTranslationSegmentKind,
   PaperTranslationStatus
 } from '@shared/types/paper'
+import { normalizePaperMarkdownForRender } from '@shared/utils/paperMarkdown'
 import {
   isPaperAffiliationLikeSegment,
   isPaperAuthorLikeSegment,
@@ -44,12 +46,6 @@ const renderedSegments = ref<RenderedSegment[]>([])
 /** 解析错误信息 */
 const parseError = ref<string | null>(null)
 
-const katexRenderOptions = {
-  throwOnError: false,
-  strict: 'ignore' as const,
-  output: 'htmlAndMathml' as const
-}
-
 const markdownRenderer = new MarkdownIt({
   html: true,
   breaks: true,
@@ -57,11 +53,12 @@ const markdownRenderer = new MarkdownIt({
 }).use(texmath, {
   engine: katex,
   delimiters: ['dollars', 'beg_end'],
-  katexOptions: katexRenderOptions
+  katexOptions: {
+    throwOnError: false,
+    strict: 'ignore',
+    output: 'htmlAndMathml'
+  }
 })
-
-const TABLE_CELL_MATH_PATTERN =
-  /\\\[[\s\S]+?\\\]|\\\(.+?\\\)|\${2}[^$]*?[^\]\${2}|\$(?:[^\s\\]|\S.*?[^\s\\])\$/g
 
 function normalizeInlineMath(content: string): string {
   return content.replace(/\$([^\n$]+?)\$/g, (_match, expression: string) => {
@@ -93,115 +90,6 @@ function slugifyHeadingText(text: string): string {
     .replace(/^-|-$/g, '')
 
   return normalized || 'section'
-}
-
-function containsTableCellMath(text: string): boolean {
-  if (!/[$\\]/.test(text)) {
-    return false
-  }
-
-  TABLE_CELL_MATH_PATTERN.lastIndex = 0
-  return TABLE_CELL_MATH_PATTERN.test(text)
-}
-
-function extractMathExpression(token: string): string {
-  if (token.startsWith('$$') && token.endsWith('$$')) {
-    return token.slice(2, -2).trim()
-  }
-
-  if (token.startsWith('\\[') && token.endsWith('\\]')) {
-    return token.slice(2, -2).trim()
-  }
-
-  if (token.startsWith('\\(') && token.endsWith('\\)')) {
-    return token.slice(2, -2).trim()
-  }
-
-  return token.slice(1, -1).trim()
-}
-
-function createInlineMathFragment(text: string, document: Document): DocumentFragment | null {
-  TABLE_CELL_MATH_PATTERN.lastIndex = 0
-
-  const fragment = document.createDocumentFragment()
-  let lastIndex = 0
-  let hasReplacement = false
-
-  for (const match of text.matchAll(TABLE_CELL_MATH_PATTERN)) {
-    const token = match[0]
-    const start = match.index ?? 0
-
-    if (start > lastIndex) {
-      fragment.append(document.createTextNode(text.slice(lastIndex, start)))
-    }
-
-    const expression = extractMathExpression(token)
-    if (!expression) {
-      fragment.append(document.createTextNode(token))
-      lastIndex = start + token.length
-      continue
-    }
-
-    try {
-      const wrapper = document.createElement('span')
-      // HTML 表格中的数学内容不会经过 markdown-it-texmath，这里补一次行内渲染。
-      wrapper.innerHTML = katex.renderToString(expression, {
-        ...katexRenderOptions,
-        displayMode: false
-      })
-
-      while (wrapper.firstChild) {
-        fragment.append(wrapper.firstChild)
-      }
-      hasReplacement = true
-    } catch {
-      fragment.append(document.createTextNode(token))
-    }
-
-    lastIndex = start + token.length
-  }
-
-  if (!hasReplacement) {
-    return null
-  }
-
-  if (lastIndex < text.length) {
-    fragment.append(document.createTextNode(text.slice(lastIndex)))
-  }
-
-  return fragment
-}
-
-function renderMathInTableCells(root: Element, document: Document): void {
-  for (const cell of root.querySelectorAll('table td, table th, table caption')) {
-    const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
-    const textNodes: Text[] = []
-
-    for (let current = walker.nextNode(); current; current = walker.nextNode()) {
-      const textNode = current as Text
-      const parent = textNode.parentElement
-      const text = textNode.textContent ?? ''
-
-      if (!parent || !text.trim() || !containsTableCellMath(text)) {
-        continue
-      }
-
-      if (parent.closest('eq, eqn, .katex, math, annotation, code, pre, script, style')) {
-        continue
-      }
-
-      textNodes.push(textNode)
-    }
-
-    for (const textNode of textNodes) {
-      const fragment = createInlineMathFragment(textNode.textContent ?? '', document)
-      if (!fragment) {
-        continue
-      }
-
-      textNode.replaceWith(fragment)
-    }
-  }
 }
 
 function postProcessRenderedHtml(html: string, headingId?: string): string {
@@ -241,8 +129,12 @@ function postProcessRenderedHtml(html: string, headingId?: string): string {
   return root.innerHTML
 }
 
-function renderMarkdownBlock(markdown: string, headingId?: string): string {
-  const normalizedContent = normalizeInlineMath(markdown)
+function renderMarkdownBlock(
+  markdown: string,
+  kind: PaperTranslationSegmentKind,
+  headingId?: string
+): string {
+  const normalizedContent = normalizeInlineMath(normalizePaperMarkdownForRender(markdown, kind))
   const rawHtml = markdownRenderer.render(normalizedContent)
   const resolvedHtml = resolveImagePaths(rawHtml, props.basePath)
   return postProcessRenderedHtml(resolvedHtml, headingId)
@@ -323,12 +215,12 @@ function buildTocAndRenderedSegments(): { tocItems: PaperTocItem[]; segments: Re
       translationEntry &&
       translationEntry.status === 'completed' &&
       translationEntry.translatedMarkdown
-        ? renderMarkdownBlock(translationEntry.translatedMarkdown)
+        ? renderMarkdownBlock(translationEntry.translatedMarkdown, translationEntry.kind)
         : null
 
     rendered.push({
       id: segment.id,
-      originalHtml: renderMarkdownBlock(segment.originalMarkdown, headingId),
+      originalHtml: renderMarkdownBlock(segment.originalMarkdown, segment.kind, headingId),
       translationHtml,
       translationStatus,
       showTranslation: shouldRenderTranslationBlock(
