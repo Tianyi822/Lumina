@@ -8,9 +8,14 @@ import type { PaperTocItem } from '@renderer/stores/paperReaderStore'
 import type {
   PaperTranslationCache,
   PaperTranslationEntry,
+  PaperTranslationSegment,
   PaperTranslationStatus
 } from '@shared/types/paper'
-import { parsePaperTranslationSegments } from '@shared/utils/paperTranslation'
+import {
+  isPaperAffiliationLikeSegment,
+  isPaperAuthorLikeSegment,
+  parsePaperTranslationSegments
+} from '@shared/utils/paperTranslation'
 import 'katex/dist/katex.min.css'
 import 'markdown-it-texmath/css/texmath.css'
 
@@ -20,6 +25,7 @@ interface RenderedSegment {
   translationHtml: string | null
   translationStatus: PaperTranslationStatus | 'idle'
   showTranslation: boolean
+  isCenteredMeta: boolean
 }
 
 const props = defineProps<{
@@ -144,12 +150,36 @@ function shouldRenderTranslationBlock(
   return true
 }
 
+function collectFrontMatterMetadataIds(segments: PaperTranslationSegment[]): Set<string> {
+  const metadataIds = new Set<string>()
+  const startIndex = segments[0]?.kind === 'heading' ? 1 : 0
+
+  for (let index = startIndex; index < segments.length; index += 1) {
+    const segment = segments[index]
+    if (segment.kind === 'heading') {
+      break
+    }
+
+    const isMetadataSegment =
+      isPaperAuthorLikeSegment(segment) || isPaperAffiliationLikeSegment(segment)
+
+    if (!isMetadataSegment) {
+      break
+    }
+
+    metadataIds.add(segment.id)
+  }
+
+  return metadataIds
+}
+
 function buildTocAndRenderedSegments(): { tocItems: PaperTocItem[]; segments: RenderedSegment[] } {
   const segments = parsePaperTranslationSegments(props.content)
   const tocItems: PaperTocItem[] = []
   const rendered: RenderedSegment[] = []
   const headingCounts = new Map<string, number>()
   const translationMap = new Map<string, PaperTranslationEntry>()
+  const frontMatterMetadataIds = collectFrontMatterMetadataIds(segments)
 
   for (const entry of props.translationCache?.entries ?? []) {
     translationMap.set(entry.id, entry)
@@ -191,7 +221,8 @@ function buildTocAndRenderedSegments(): { tocItems: PaperTocItem[]; segments: Re
         props.translationVisible,
         translationStatus,
         translationHtml
-      )
+      ),
+      isCenteredMeta: frontMatterMetadataIds.has(segment.id)
     })
   }
 
@@ -262,6 +293,7 @@ onBeforeUnmount(() => {
           v-for="segment in renderedSegments"
           :key="segment.id"
           class="paper-markdown-view__segment"
+          :class="{ 'paper-markdown-view__segment--meta': segment.isCenteredMeta }"
         >
           <div class="paper-markdown-view__segment-original paper-markdown-view__markdown">
             <!-- eslint-disable-next-line vue/no-v-html -->
@@ -420,6 +452,10 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
+.paper-markdown-view__segment--meta .paper-markdown-view__markdown {
+  text-align: center;
+}
+
 .paper-markdown-view__markdown > :first-child {
   margin-top: 0;
 }
@@ -428,7 +464,7 @@ onBeforeUnmount(() => {
   margin-bottom: 0;
 }
 
-.paper-markdown-view__markdown :where(h1) {
+.paper-markdown-view__markdown :deep(h1) {
   font-size: 24px;
   font-weight: 700;
   line-height: 1.3;
@@ -436,7 +472,7 @@ onBeforeUnmount(() => {
   color: var(--sm-color-text-primary);
 }
 
-.paper-markdown-view__markdown :where(h2) {
+.paper-markdown-view__markdown :deep(h2) {
   font-size: 20px;
   font-weight: 600;
   line-height: 1.35;
@@ -444,7 +480,7 @@ onBeforeUnmount(() => {
   color: var(--sm-color-text-primary);
 }
 
-.paper-markdown-view__markdown :where(h3) {
+.paper-markdown-view__markdown :deep(h3) {
   font-size: 17px;
   font-weight: 600;
   line-height: 1.4;
@@ -452,46 +488,46 @@ onBeforeUnmount(() => {
   color: var(--sm-color-text-primary);
 }
 
-.paper-markdown-view__markdown :where(p) {
+.paper-markdown-view__markdown :deep(p) {
   margin: 0.8em 0;
 }
 
-.paper-markdown-view__markdown :where(a) {
+.paper-markdown-view__markdown :deep(a) {
   color: var(--sm-color-accent-default, #6366f1);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.paper-markdown-view__markdown :where(a:hover) {
+.paper-markdown-view__markdown :deep(a:hover) {
   opacity: 0.85;
 }
 
-.paper-markdown-view__markdown :where(eq) {
+.paper-markdown-view__markdown :deep(eq) {
   display: inline-block;
   vertical-align: baseline;
 }
 
-.paper-markdown-view__markdown :where(eqn) {
+.paper-markdown-view__markdown :deep(eqn) {
   display: block;
 }
 
-.paper-markdown-view__markdown :where(.katex) {
+.paper-markdown-view__markdown :deep(.katex) {
   font-size: 1em;
 }
 
-.paper-markdown-view__markdown :where(.katex-display) {
+.paper-markdown-view__markdown :deep(.katex-display) {
   margin: 1.25em 0;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0.2em 0;
 }
 
-.paper-markdown-view__markdown :where(.katex-display > .katex) {
+.paper-markdown-view__markdown :deep(.katex-display > .katex) {
   display: inline-block;
   min-width: min-content;
 }
 
-.paper-markdown-view__markdown :where(pre) {
+.paper-markdown-view__markdown :deep(pre) {
   margin: 1em 0;
   padding: var(--sm-space-4);
   border-radius: var(--sm-radius-sm);
@@ -502,19 +538,19 @@ onBeforeUnmount(() => {
   overflow-x: auto;
 }
 
-.paper-markdown-view__markdown :where(code) {
+.paper-markdown-view__markdown :deep(code) {
   font-family: var(--sm-font-mono);
   font-size: 0.9em;
 }
 
-.paper-markdown-view__markdown :where(:not(pre) > code) {
+.paper-markdown-view__markdown :deep(:not(pre) > code) {
   padding: 2px 6px;
   border-radius: 4px;
   background: var(--sm-color-surface-hover);
   font-size: 0.88em;
 }
 
-.paper-markdown-view__markdown :where(img) {
+.paper-markdown-view__markdown :deep(img) {
   max-width: 100%;
   height: auto;
   border-radius: 8px;
@@ -522,7 +558,7 @@ onBeforeUnmount(() => {
   display: block;
 }
 
-.paper-markdown-view__markdown :where(.paper-markdown-view__table-wrap) {
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap) {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -533,7 +569,7 @@ onBeforeUnmount(() => {
   scrollbar-gutter: stable both-edges;
 }
 
-.paper-markdown-view__markdown :where(.paper-markdown-view__table-wrap > table) {
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap > table) {
   width: max-content;
   min-width: 100%;
   margin: 0;
@@ -543,20 +579,20 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
-.paper-markdown-view__markdown :where(th),
-.paper-markdown-view__markdown :where(td) {
+.paper-markdown-view__markdown :deep(th),
+.paper-markdown-view__markdown :deep(td) {
   padding: var(--sm-space-2) var(--sm-space-3);
   border: 1px solid var(--sm-color-border-subtle);
   text-align: left;
   vertical-align: top;
 }
 
-.paper-markdown-view__markdown :where(th) {
+.paper-markdown-view__markdown :deep(th) {
   font-weight: 600;
   background: var(--sm-color-surface-1);
 }
 
-.paper-markdown-view__markdown :where(blockquote) {
+.paper-markdown-view__markdown :deep(blockquote) {
   margin: 1em 0;
   padding: var(--sm-space-3) var(--sm-space-4);
   border-left: 3px solid var(--sm-color-border-strong);
@@ -565,22 +601,26 @@ onBeforeUnmount(() => {
   color: var(--sm-color-text-secondary);
 }
 
-.paper-markdown-view__markdown :where(blockquote p) {
+.paper-markdown-view__markdown :deep(blockquote p) {
   margin: 0.4em 0;
 }
 
-.paper-markdown-view__markdown :where(ul),
-.paper-markdown-view__markdown :where(ol) {
+.paper-markdown-view__markdown :deep(ul),
+.paper-markdown-view__markdown :deep(ol) {
   margin: 0.6em 0;
-  padding-left: 1.5em;
+  padding-inline-start: 2.8em;
 }
 
-.paper-markdown-view__markdown :where(li) {
+.paper-markdown-view__markdown :deep(li) {
   margin: 0.25em 0;
 }
 
-.paper-markdown-view__markdown :where(li > ul),
-.paper-markdown-view__markdown :where(li > ol) {
+.paper-markdown-view__markdown :deep(li > p) {
+  margin: 0.2em 0;
+}
+
+.paper-markdown-view__markdown :deep(li > ul),
+.paper-markdown-view__markdown :deep(li > ol) {
   margin: 0.25em 0;
 }
 
