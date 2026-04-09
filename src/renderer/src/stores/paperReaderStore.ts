@@ -5,6 +5,9 @@ import type {
   PaperDocument,
   PaperFigureItem,
   PaperStatus,
+  PaperTocEntry,
+  PaperTocItem,
+  PaperTocOutline,
   PaperTranslationCache,
   PaperTranslationEntry,
   PaperTranslationProgress,
@@ -33,21 +36,6 @@ export interface RenderingProgress {
   stage: 'idle' | 'selecting' | 'loading' | 'rendering' | 'completed' | 'failed'
   /** 错误信息 */
   error?: string
-}
-
-/**
- * 论文目录项
- * 仅在渲染进程内使用，用于工具栏目录浮层展示与跳转
- */
-export interface PaperTocItem {
-  /** 标题锚点 ID */
-  id: string
-  /** 标题文本 */
-  text: string
-  /** 翻译后的标题文本 */
-  translatedText?: string
-  /** 标题层级，仅保留 H1-H3 */
-  level: 1 | 2 | 3
 }
 
 interface RenderPipelineContext {
@@ -164,6 +152,9 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
 
   /** 图片预览的宽高比 */
   const figurePreviewImageRatio = ref(0.75)
+
+  /** 当前论文标题目录项 */
+  const paperTocTitle = ref<PaperTocEntry | null>(null)
 
   /** 当前论文目录 */
   const paperTocItems = ref<PaperTocItem[]>([])
@@ -306,11 +297,13 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     hasTranslationByPaperId.value = nextTranslationState
   }
 
-  function setPaperTocItems(items: PaperTocItem[]): void {
-    paperTocItems.value = items
+  function setPaperTocOutline(outline: PaperTocOutline): void {
+    paperTocTitle.value = outline.documentTitle || null
+    paperTocItems.value = outline.items
   }
 
   function clearPaperToc(): void {
+    paperTocTitle.value = null
     paperTocItems.value = []
   }
 
@@ -1423,6 +1416,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     figurePreviewPinned,
     figurePreviewRect,
     figurePreviewImageRatio,
+    paperTocTitle,
     paperTocItems,
     translationVisible,
     translationByPaperId,
@@ -1444,7 +1438,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     uploadAndRenderPdf,
     loadMarkdown,
     loadFigures,
-    setPaperTocItems,
+    setPaperTocOutline,
     clearPaperToc,
     scrollToHeading,
     ensureOcrProgressListener,
