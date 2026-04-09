@@ -4,8 +4,9 @@ import MarkdownIt from 'markdown-it'
 import texmath from 'markdown-it-texmath'
 import katex from 'katex'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
-import type { PaperTocItem } from '@renderer/stores/paperReaderStore'
 import type {
+  PaperTocOutline,
+  PaperTocItem,
   PaperTranslationCache,
   PaperTranslationEntry,
   PaperTranslationSegment,
@@ -14,6 +15,7 @@ import type {
 } from '@shared/types/paper'
 import { normalizePaperMarkdownForRender } from '@shared/utils/paperMarkdown'
 import {
+  buildPaperTocOutline,
   isPaperAffiliationLikeSegment,
   isPaperAuthorLikeSegment,
   parsePaperTranslationSegments
@@ -27,6 +29,7 @@ interface RenderedSegment {
   translationHtml: string | null
   translationStatus: PaperTranslationStatus | 'idle'
   showTranslation: boolean
+  segmentAnchorId?: string
   isCenteredMeta: boolean
 }
 
@@ -78,20 +81,6 @@ function resolveImagePaths(html: string, basePath: string | undefined): string {
   )
 }
 
-function slugifyHeadingText(text: string): string {
-  const normalized = text
-    .trim()
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-
-  return normalized || 'section'
-}
-
 function postProcessRenderedHtml(html: string, headingId?: string): string {
   if (typeof DOMParser === 'undefined') {
     return html
@@ -109,7 +98,7 @@ function postProcessRenderedHtml(html: string, headingId?: string): string {
   })
 
   if (headingId) {
-    const heading = root.querySelector('h1, h2, h3')
+    const heading = root.querySelector('h1, h2, h3, h4, h5, h6')
     if (heading) {
       heading.id = headingId
     }
@@ -179,40 +168,30 @@ function collectFrontMatterMetadataIds(segments: PaperTranslationSegment[]): Set
   return metadataIds
 }
 
-function buildTocAndRenderedSegments(): { tocItems: PaperTocItem[]; segments: RenderedSegment[] } {
+function buildTocAndRenderedSegments(): { outline: PaperTocOutline; segments: RenderedSegment[] } {
   const segments = parsePaperTranslationSegments(props.content)
-  const tocItems: PaperTocItem[] = []
   const rendered: RenderedSegment[] = []
-  const headingCounts = new Map<string, number>()
   const translationMap = new Map<string, PaperTranslationEntry>()
   const frontMatterMetadataIds = collectFrontMatterMetadataIds(segments)
+  const outline = buildPaperTocOutline(segments, props.translationCache?.entries ?? [])
+  const outlineEntryMap = new Map<string, PaperTocItem | PaperTocOutline['documentTitle']>()
+
+  if (outline.documentTitle) {
+    outlineEntryMap.set(outline.documentTitle.segmentId, outline.documentTitle)
+  }
+
+  for (const item of outline.items) {
+    outlineEntryMap.set(item.segmentId, item)
+  }
 
   for (const entry of props.translationCache?.entries ?? []) {
     translationMap.set(entry.id, entry)
   }
 
   for (const segment of segments) {
-    let headingId: string | undefined
-    const headingMatch = segment.originalMarkdown.match(/^(#{1,3})\s+(.+)$/s)
-    if (headingMatch) {
-      const text = segment.originalText
-      const level = Number(headingMatch[1].length) as PaperTocItem['level']
-      const baseSlug = slugifyHeadingText(text)
-      const count = (headingCounts.get(baseSlug) || 0) + 1
-      headingCounts.set(baseSlug, count)
-
-      headingId = count === 1 ? baseSlug : `${baseSlug}-${count}`
-      const headingTranslation = translationMap.get(segment.id)
-      tocItems.push({
-        id: headingId,
-        text,
-        translatedText:
-          headingTranslation?.status === 'completed'
-            ? headingTranslation.translatedText
-            : undefined,
-        level
-      })
-    }
+    const outlineEntry = outlineEntryMap.get(segment.id)
+    const headingId = segment.kind === 'heading' ? outlineEntry?.id : undefined
+    const segmentAnchorId = segment.kind === 'heading' ? undefined : outlineEntry?.id
 
     const translationEntry = translationMap.get(segment.id)
     const translationStatus = translationEntry?.status ?? 'idle'
@@ -233,12 +212,13 @@ function buildTocAndRenderedSegments(): { tocItems: PaperTocItem[]; segments: Re
         translationStatus,
         translationHtml
       ),
+      segmentAnchorId,
       isCenteredMeta: frontMatterMetadataIds.has(segment.id)
     })
   }
 
   return {
-    tocItems,
+    outline,
     segments: rendered
   }
 }
@@ -254,7 +234,7 @@ function renderContent(): void {
   try {
     const result = buildTocAndRenderedSegments()
     renderedSegments.value = result.segments
-    paperReaderStore.setPaperTocItems(result.tocItems)
+    paperReaderStore.setPaperTocOutline(result.outline)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     parseError.value = `Markdown 解析失败: ${message}`
@@ -303,6 +283,7 @@ onBeforeUnmount(() => {
         <section
           v-for="segment in renderedSegments"
           :key="segment.id"
+          :id="segment.segmentAnchorId"
           class="paper-markdown-view__segment"
           :class="{ 'paper-markdown-view__segment--meta': segment.isCenteredMeta }"
         >
