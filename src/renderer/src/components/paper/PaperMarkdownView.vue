@@ -44,6 +44,12 @@ const renderedSegments = ref<RenderedSegment[]>([])
 /** 解析错误信息 */
 const parseError = ref<string | null>(null)
 
+const katexRenderOptions = {
+  throwOnError: false,
+  strict: 'ignore' as const,
+  output: 'htmlAndMathml' as const
+}
+
 const markdownRenderer = new MarkdownIt({
   html: true,
   breaks: true,
@@ -51,12 +57,11 @@ const markdownRenderer = new MarkdownIt({
 }).use(texmath, {
   engine: katex,
   delimiters: ['dollars', 'beg_end'],
-  katexOptions: {
-    throwOnError: false,
-    strict: 'ignore',
-    output: 'htmlAndMathml'
-  }
+  katexOptions: katexRenderOptions
 })
+
+const TABLE_CELL_MATH_PATTERN =
+  /\\\[[\s\S]+?\\\]|\\\(.+?\\\)|\${2}[^$]*?[^\]\${2}|\$(?:[^\s\\]|\S.*?[^\s\\])\$/g
 
 function normalizeInlineMath(content: string): string {
   return content.replace(/\$([^\n$]+?)\$/g, (_match, expression: string) => {
