@@ -167,6 +167,7 @@ export interface OcrProviderPreset {
   label: string
   modelName: string
   url: string
+  concurrency: number
 }
 
 /**
@@ -177,7 +178,8 @@ export const OCR_PROVIDER_PRESETS: OcrProviderPreset[] = [
     id: 'glm-ocr',
     label: 'GLM-OCR',
     modelName: 'glm-ocr',
-    url: 'https://open.bigmodel.cn/api/paas/v4/layout_parsing'
+    url: 'https://open.bigmodel.cn/api/paas/v4/layout_parsing',
+    concurrency: 2
   }
 ]
 

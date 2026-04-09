@@ -3,7 +3,13 @@ import { join } from 'path'
 import { AppConfig, ConfigLoadResult } from '@main/types/config'
 import { getConfigDirPath, getConfigFilePath } from './configPaths'
 import { logger } from '@main/services/logger'
-import { DEFAULT_OCR_PROVIDER, type EmbeddingConfig } from '@shared/types/config'
+import {
+  DEFAULT_OCR_PROVIDER,
+  getOcrProviderPreset,
+  type EmbeddingConfig,
+  type OcrProviderId,
+  type PaperOcrConfig
+} from '@shared/types/config'
 import {
   DEFAULT_THEME_ID,
   DEFAULT_THEME_MODE,
@@ -12,6 +18,22 @@ import {
 } from '@shared/utils'
 import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
 import { normalizeCustomPromptVariables } from '@shared/utils'
+
+function sanitizePaperOcrConfig(config: PaperOcrConfig | undefined): PaperOcrConfig {
+  const provider =
+    config?.provider && getOcrProviderPreset(config.provider as OcrProviderId)
+      ? config.provider
+      : DEFAULT_OCR_PROVIDER
+  const sanitized: PaperOcrConfig = {
+    provider
+  }
+
+  if (typeof config?.apiKey === 'string') {
+    sanitized.apiKey = config.apiKey
+  }
+
+  return sanitized
+}
 
 /**
  * 创建空的基础配置结构
@@ -47,9 +69,7 @@ function createEmptyConfig(): AppConfig {
     },
     embeddingModels: {},
     knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG,
-    paperOcr: {
-      provider: DEFAULT_OCR_PROVIDER
-    }
+    paperOcr: sanitizePaperOcrConfig(undefined)
   }
 }
 
@@ -150,11 +170,7 @@ function migrateConfig(config: AppConfig): AppConfig {
     migrated.knowledgeMCP = DEFAULT_KNOWLEDGE_MCP_CONFIG
   }
 
-  if (!migrated.paperOcr) {
-    migrated.paperOcr = {
-      provider: DEFAULT_OCR_PROVIDER
-    }
-  }
+  migrated.paperOcr = sanitizePaperOcrConfig(migrated.paperOcr)
 
   delete (migrated as Record<string, unknown>).voiceRecognition
   delete (migrated as Record<string, unknown>).aliyunMiaobi

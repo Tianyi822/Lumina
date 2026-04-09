@@ -4,8 +4,7 @@ import { storeToRefs } from 'pinia'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { useUIStateStore } from '@renderer/stores'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
-import type { PaperTocItem } from '@renderer/stores/paperReaderStore'
-import type { PaperFigureItem } from '@shared/types/paper'
+import type { PaperFigureItem, PaperTocEntry, PaperTocItem } from '@shared/types/paper'
 import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 
 const emit = defineEmits<{
@@ -20,8 +19,10 @@ const {
   currentPaperId,
   currentPaperFigures,
   currentTranslationCache,
+  figureCaptionTranslationMap,
   figureLoadingByPaperId,
   isCurrentPaperTranslating,
+  paperTocTitle,
   paperTocItems,
   markdownLoading,
   showFigurePanel,
@@ -71,6 +72,10 @@ const currentFigureLoading = computed(() => {
   }
 
   return !!figureLoadingByPaperId.value[currentPaperId.value]
+})
+
+const hasAnyTocEntries = computed(() => {
+  return !!paperTocTitle.value || paperTocItems.value.length > 0
 })
 
 const paperTocTree = computed<PaperTocTreeNode[]>(() => {
@@ -175,7 +180,18 @@ function handleSelectTocItem(headingId: string): void {
 }
 
 function getFigureItemLabel(figure: PaperFigureItem): string {
+  if (translationVisible.value) {
+    const translated = figureCaptionTranslationMap.value[figure.id]
+    if (translated) return translated
+  }
   return figure.caption || figure.subCaption || '暂无图注'
+}
+
+function getTocEntryDisplayText(entry: PaperTocEntry): string {
+  if (translationVisible.value && entry.translatedText) {
+    return entry.translatedText
+  }
+  return entry.text
 }
 
 function handlePreviewFigure(figure: PaperFigureItem): void {
@@ -314,12 +330,28 @@ onUnmounted(() => {
 
         <div v-if="markdownLoading" class="sm-workspace-toolbar__toc-state">目录加载中</div>
 
-        <div v-else-if="paperTocItems.length === 0" class="sm-workspace-toolbar__toc-state">
+        <div v-else-if="!hasAnyTocEntries" class="sm-workspace-toolbar__toc-state">
           未识别到可用目录
         </div>
 
         <div v-else class="sm-workspace-toolbar__toc-scroll">
-          <ul class="sm-workspace-toolbar__toc-list">
+          <button
+            v-if="paperTocTitle"
+            class="sm-workspace-toolbar__toc-title"
+            :title="getTocEntryDisplayText(paperTocTitle)"
+            type="button"
+            @click="handleSelectTocItem(paperTocTitle.id)"
+          >
+            {{ getTocEntryDisplayText(paperTocTitle) }}
+          </button>
+
+          <div
+            v-if="paperTocTitle && paperTocItems.length > 0"
+            class="sm-workspace-toolbar__toc-divider"
+            aria-hidden="true"
+          />
+
+          <ul v-if="paperTocItems.length > 0" class="sm-workspace-toolbar__toc-list">
             <li
               v-for="node in paperTocTree"
               :key="node.item.id"
@@ -328,11 +360,11 @@ onUnmounted(() => {
               <button
                 class="sm-workspace-toolbar__toc-item"
                 :class="`sm-workspace-toolbar__toc-item--level-${node.item.level}`"
-                :title="node.item.text"
+                :title="getTocEntryDisplayText(node.item)"
                 type="button"
                 @click="handleSelectTocItem(node.item.id)"
               >
-                {{ node.item.text }}
+                {{ getTocEntryDisplayText(node.item) }}
               </button>
 
               <ul
@@ -347,11 +379,11 @@ onUnmounted(() => {
                   <button
                     class="sm-workspace-toolbar__toc-item"
                     :class="`sm-workspace-toolbar__toc-item--level-${child.item.level}`"
-                    :title="child.item.text"
+                    :title="getTocEntryDisplayText(child.item)"
                     type="button"
                     @click="handleSelectTocItem(child.item.id)"
                   >
-                    {{ child.item.text }}
+                    {{ getTocEntryDisplayText(child.item) }}
                   </button>
 
                   <ul
@@ -366,11 +398,11 @@ onUnmounted(() => {
                       <button
                         class="sm-workspace-toolbar__toc-item"
                         :class="`sm-workspace-toolbar__toc-item--level-${grandchild.item.level}`"
-                        :title="grandchild.item.text"
+                        :title="getTocEntryDisplayText(grandchild.item)"
                         type="button"
                         @click="handleSelectTocItem(grandchild.item.id)"
                       >
-                        {{ grandchild.item.text }}
+                        {{ getTocEntryDisplayText(grandchild.item) }}
                       </button>
                     </li>
                   </ul>
@@ -423,7 +455,6 @@ onUnmounted(() => {
             />
 
             <div class="sm-workspace-toolbar__figure-copy">
-              <div class="sm-workspace-toolbar__figure-page">第 {{ figure.pageIndex + 1 }} 页</div>
               <div class="sm-workspace-toolbar__figure-caption" :title="getFigureItemLabel(figure)">
                 {{ getFigureItemLabel(figure) }}
               </div>
@@ -515,6 +546,10 @@ onUnmounted(() => {
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
 }
 
+.sm-workspace-toolbar__toc-panel {
+  --sm-paper-toc-tree-indent: var(--sm-space-4);
+}
+
 .sm-workspace-toolbar__toc-header {
   margin-bottom: var(--sm-space-2);
   color: var(--sm-color-text-primary);
@@ -533,6 +568,31 @@ onUnmounted(() => {
 .sm-workspace-toolbar__toc-scroll {
   max-height: 360px;
   overflow-y: auto;
+}
+
+.sm-workspace-toolbar__toc-title {
+  display: block;
+  width: 100%;
+  padding: 4px 0 0;
+  border: none;
+  background: transparent;
+  color: var(--sm-color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sm-workspace-toolbar__toc-title:hover {
+  color: var(--sm-color-text-primary);
+  opacity: 0.9;
+}
+
+.sm-workspace-toolbar__toc-divider {
+  height: 1px;
+  margin: var(--sm-space-3) 0 var(--sm-space-2);
+  background: var(--sm-color-border-subtle);
 }
 
 .sm-workspace-toolbar__figures {
@@ -575,14 +635,7 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-.sm-workspace-toolbar__figure-page {
-  color: var(--sm-color-text-tertiary);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
 .sm-workspace-toolbar__figure-caption {
-  margin-top: 4px;
   color: var(--sm-color-text-secondary);
   font-size: 12px;
   line-height: 1.5;
@@ -621,8 +674,33 @@ onUnmounted(() => {
 .sm-workspace-toolbar__toc-list--child {
   margin-top: var(--sm-space-1);
   margin-left: var(--sm-space-2);
-  padding-left: var(--sm-space-2);
+  padding-left: var(--sm-paper-toc-tree-indent);
   border-left: 1px solid var(--sm-color-border-subtle);
+}
+
+.sm-workspace-toolbar__toc-node {
+  position: relative;
+}
+
+.sm-workspace-toolbar__toc-list--child > .sm-workspace-toolbar__toc-node::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--sm-paper-toc-tree-indent) * -1);
+  top: 15px;
+  width: calc(var(--sm-paper-toc-tree-indent) - var(--sm-space-2));
+  height: 1px;
+  background: var(--sm-color-border-subtle);
+}
+
+.sm-workspace-toolbar__toc-list--child > .sm-workspace-toolbar__toc-node::after {
+  content: '';
+  position: absolute;
+  left: calc(var(--sm-paper-toc-tree-indent) * -1 + var(--sm-space-2) - 2px);
+  top: 12px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--sm-color-border-strong);
 }
 
 .sm-workspace-toolbar__toc-node + .sm-workspace-toolbar__toc-node {
@@ -658,10 +736,12 @@ onUnmounted(() => {
 }
 
 .sm-workspace-toolbar__toc-item--level-2 {
+  padding-left: 10px;
   font-weight: 500;
 }
 
 .sm-workspace-toolbar__toc-item--level-3 {
+  padding-left: 12px;
   color: var(--sm-color-text-tertiary);
 }
 </style>

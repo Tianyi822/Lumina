@@ -2,10 +2,11 @@ import { net } from 'electron'
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
 import { logger } from '@main/services/logger'
 import { configManager } from '@main/services/config'
-import { DEFAULT_OCR_PROVIDER } from '@shared/types/config'
+import { DEFAULT_OCR_PROVIDER, getOcrProviderPreset, type OcrProviderId } from '@shared/types/config'
 import type { PaperLayoutBlock, PaperPageOcrResult, BlockLabel } from '@shared/types/paper'
 import { PaperGlmOcrClient } from './PaperGlmOcrClient'
 import { paperStorageService } from './index'
+import { buildMergedMarkdown, runPaperOcrPipeline } from './paperOcrPipeline'
 import {
   getPaperOcrRawDirPath,
   getPaperOcrRawPath,
@@ -16,8 +17,6 @@ import {
   getPaperFigureAssetRelativePath,
   getPaperMergedMdPath
 } from './paperPaths'
-
-export const MAX_OCR_CONCURRENCY = 1
 
 export interface OcrProgressInfo {
   paperId: string
@@ -150,18 +149,6 @@ function normalizeGlmOcrResponse(
   }
 }
 
-function buildPageMarkdown(pageResult: PaperPageOcrResult): string {
-  let md = pageResult.markdown
-
-  for (const block of pageResult.blocks) {
-    if (block.localAssetPath && block.remoteAssetUrl) {
-      md = md.replaceAll(block.remoteAssetUrl, block.localAssetPath)
-    }
-  }
-
-  return md
-}
-
 async function downloadCropImage(remoteUrl: string, localPath: string): Promise<boolean> {
   try {
     const response = await net.fetch(remoteUrl)
@@ -184,12 +171,15 @@ export class PaperOcrService {
   private abortControllers: Map<string, boolean> = new Map()
   private progressCallbacks: Map<string, ProgressCallback> = new Map()
 
-  private getOcrConfig(): { apiKey: string; provider: typeof DEFAULT_OCR_PROVIDER } {
+  private getOcrConfig(): { apiKey: string; provider: OcrProviderId; concurrency: number } {
     const config = configManager.getConfig()
     const paperOcr = config?.paperOcr
+    const provider = paperOcr?.provider || DEFAULT_OCR_PROVIDER
+    const preset = getOcrProviderPreset(provider)!
     return {
       apiKey: paperOcr?.apiKey || '',
-      provider: paperOcr?.provider || DEFAULT_OCR_PROVIDER
+      provider,
+      concurrency: preset.concurrency
     }
   }
 
@@ -217,7 +207,7 @@ export class PaperOcrService {
   }
 
   async startOcr(paperId: string): Promise<{ success: boolean; error?: string }> {
-    const { apiKey, provider } = this.getOcrConfig()
+    const { apiKey, provider, concurrency } = this.getOcrConfig()
     if (!apiKey) {
       return { success: false, error: '请先在设置中配置 GLM-OCR API Key' }
     }
@@ -251,38 +241,42 @@ export class PaperOcrService {
       errorMessage: undefined
     })
 
-    const normalizedResults: PaperPageOcrResult[] = []
-
-    for (let i = 0; i < totalPages; i++) {
-      if (this.abortControllers.get(paperId)) {
-        progress.status = 'cancelled'
+    const { aborted, results: normalizedResults } = await runPaperOcrPipeline({
+      paperId,
+      totalPages,
+      concurrency,
+      shouldCancel: () => this.abortControllers.get(paperId) === true,
+      processPage: async (pageIndex) => this.processPage(paperId, pageIndex, apiKey, provider),
+      onPageDispatched: (pageIndex) => {
+        progress.currentPage = pageIndex
         this.emitProgress(paperId, progress)
-        logger.info('OCR 任务已取消', 'main', { paperId, completedPages: progress.completedPages })
-        break
+      },
+      onPageSettled: (pageIndex, pageResult) => {
+        if (pageResult.status === 'completed') {
+          progress.completedPages += 1
+          paperStorageService.updateMeta(paperId, {
+            completedPageCount: progress.completedPages
+          })
+        } else {
+          progress.failedPages = [...progress.failedPages, pageIndex].sort(
+            (left, right) => left - right
+          )
+        }
+
+        this.emitProgress(paperId, progress)
       }
+    })
 
-      progress.currentPage = i
-      this.emitProgress(paperId, progress)
-
-      const pageResult = await this.processPage(paperId, i, apiKey, provider)
-      normalizedResults.push(pageResult)
-
-      if (pageResult.status === 'completed') {
-        progress.completedPages += 1
-        paperStorageService.updateMeta(paperId, {
-          completedPageCount: progress.completedPages
-        })
-      } else {
-        progress.failedPages.push(i)
-      }
-
-      this.emitProgress(paperId, progress)
-    }
-
-    const aborted = this.abortControllers.get(paperId)
     this.abortControllers.delete(paperId)
 
-    if (!aborted) {
+    if (aborted) {
+      progress.status = 'cancelled'
+      paperStorageService.updateMeta(paperId, {
+        status: 'draft',
+        completedPageCount: progress.completedPages,
+        errorMessage: undefined
+      })
+    } else {
       if (progress.failedPages.length === 0) {
         progress.status = 'completed'
         paperStorageService.updateMeta(paperId, { status: 'completed' })
@@ -336,7 +330,7 @@ export class PaperOcrService {
     paperId: string,
     pageIndex: number,
     apiKey: string,
-    provider: typeof DEFAULT_OCR_PROVIDER
+    provider: OcrProviderId
   ): Promise<PaperPageOcrResult> {
     const pageImageResult = paperStorageService.readPageImage(paperId, pageIndex)
     if (!pageImageResult.success || !pageImageResult.data) {
@@ -452,15 +446,7 @@ export class PaperOcrService {
   }
 
   private buildAndSaveMergedMd(paperId: string, results: PaperPageOcrResult[]): void {
-    const parts: string[] = []
-
-    for (const pageResult of results) {
-      const pageMd = buildPageMarkdown(pageResult)
-      const header = `<!-- Page ${pageResult.pageIndex + 1} -->`
-      parts.push(`${header}\n\n${pageMd}`)
-    }
-
-    const mergedMd = parts.join('\n\n')
+    const mergedMd = buildMergedMarkdown(results)
 
     try {
       const mdPath = getPaperMergedMdPath(paperId)

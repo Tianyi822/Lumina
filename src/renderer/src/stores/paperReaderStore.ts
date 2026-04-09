@@ -5,9 +5,13 @@ import type {
   PaperDocument,
   PaperFigureItem,
   PaperStatus,
+  PaperTocEntry,
+  PaperTocItem,
+  PaperTocOutline,
   PaperTranslationCache,
   PaperTranslationEntry,
-  PaperTranslationProgress
+  PaperTranslationProgress,
+  PaperTranslationStatus
 } from '@shared/types/paper'
 import {
   buildBase64DataUrl,
@@ -32,19 +36,6 @@ export interface RenderingProgress {
   stage: 'idle' | 'selecting' | 'loading' | 'rendering' | 'completed' | 'failed'
   /** 错误信息 */
   error?: string
-}
-
-/**
- * 论文目录项
- * 仅在渲染进程内使用，用于工具栏目录浮层展示与跳转
- */
-export interface PaperTocItem {
-  /** 标题锚点 ID */
-  id: string
-  /** 标题文本 */
-  text: string
-  /** 标题层级，仅保留 H1-H3 */
-  level: 1 | 2 | 3
 }
 
 interface RenderPipelineContext {
@@ -162,6 +153,9 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   /** 图片预览的宽高比 */
   const figurePreviewImageRatio = ref(0.75)
 
+  /** 当前论文标题目录项 */
+  const paperTocTitle = ref<PaperTocEntry | null>(null)
+
   /** 当前论文目录 */
   const paperTocItems = ref<PaperTocItem[]>([])
 
@@ -210,6 +204,25 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     return translationByPaperId.value[currentPaperId.value] || null
+  })
+
+  /** 图片 caption 翻译文本映射 (figureId -> translatedText) */
+  const figureCaptionTranslationMap = computed<Record<string, string>>(() => {
+    const cache = currentTranslationCache.value
+    if (!cache) return {}
+
+    const map: Record<string, string> = {}
+    for (const entry of cache.entries) {
+      if (
+        entry.id.startsWith('fig-caption-') &&
+        entry.status === 'completed' &&
+        entry.translatedText
+      ) {
+        const figureId = entry.id.replace('fig-caption-', '')
+        map[figureId] = entry.translatedText
+      }
+    }
+    return map
   })
 
   /** 当前论文翻译任务状态 */
@@ -284,11 +297,13 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     hasTranslationByPaperId.value = nextTranslationState
   }
 
-  function setPaperTocItems(items: PaperTocItem[]): void {
-    paperTocItems.value = items
+  function setPaperTocOutline(outline: PaperTocOutline): void {
+    paperTocTitle.value = outline.documentTitle || null
+    paperTocItems.value = outline.items
   }
 
   function clearPaperToc(): void {
+    paperTocTitle.value = null
     paperTocItems.value = []
   }
 
@@ -434,6 +449,55 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       completedSegments: cache.completedSegments,
       totalSegments: Math.max(cache.totalSegments, entries.length),
       entries
+    }
+  }
+
+  const STATUS_PRIORITY: Record<PaperTranslationStatus, number> = {
+    queued: 0,
+    translating: 1,
+    failed: 2,
+    completed: 3,
+    skipped: 4
+  }
+
+  function mergeTranslationEntries(
+    snapshot: PaperTranslationCache,
+    live: PaperTranslationCache
+  ): PaperTranslationCache {
+    const liveEntryMap = new Map(live.entries.map((e) => [e.id, e]))
+    const mergedEntries = snapshot.entries.map((snapshotEntry) => {
+      const liveEntry = liveEntryMap.get(snapshotEntry.id)
+      if (!liveEntry) return snapshotEntry
+
+      const livePriority = STATUS_PRIORITY[liveEntry.status] ?? 0
+      const snapPriority = STATUS_PRIORITY[snapshotEntry.status] ?? 0
+
+      if (liveEntry.updatedAt && snapshotEntry.updatedAt) {
+        const liveTime = Date.parse(liveEntry.updatedAt)
+        const snapTime = Date.parse(snapshotEntry.updatedAt)
+        if (liveTime > snapTime) return liveEntry
+        if (liveTime < snapTime) return snapshotEntry
+      }
+
+      return livePriority >= snapPriority ? liveEntry : snapshotEntry
+    })
+
+    for (const [id, liveEntry] of liveEntryMap) {
+      if (!mergedEntries.find((e) => e.id === id)) {
+        mergedEntries.push(liveEntry)
+      }
+    }
+
+    mergedEntries.sort((left, right) => left.index - right.index)
+
+    return {
+      ...snapshot,
+      entries: mergedEntries,
+      completedSegments: mergedEntries.filter(
+        (e) => e.status === 'completed' || e.status === 'skipped'
+      ).length,
+      totalSegments: Math.max(snapshot.totalSegments, mergedEntries.length),
+      updatedAt: live.updatedAt > snapshot.updatedAt ? live.updatedAt : snapshot.updatedAt
     }
   }
 
@@ -675,12 +739,27 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       return
     }
 
-    setTranslationCache(paperId, result.data.cache)
-    setHasTranslationState(paperId, hasPaperTranslationResult(result.data.cache))
+    const snapshot = result.data.cache
+    const existingCache = translationByPaperId.value[paperId]
+
+    if (
+      existingCache &&
+      snapshot &&
+      existingCache.sourceHash === snapshot.sourceHash &&
+      existingCache.entries.length > 0
+    ) {
+      const merged = mergeTranslationEntries(snapshot, existingCache)
+      setTranslationCache(paperId, merged)
+      setHasTranslationState(paperId, hasPaperTranslationResult(merged))
+    } else {
+      setTranslationCache(paperId, snapshot)
+      setHasTranslationState(paperId, hasPaperTranslationResult(snapshot))
+    }
+
     setTranslationTaskState(paperId, {
       isRunning: result.data.isRunning,
-      completedSegments: result.data.cache?.completedSegments ?? 0,
-      totalSegments: result.data.cache?.totalSegments ?? 0
+      completedSegments: (snapshot ?? existingCache)?.completedSegments ?? 0,
+      totalSegments: (snapshot ?? existingCache)?.totalSegments ?? 0
     })
 
     if (result.data.isRunning) {
@@ -710,6 +789,10 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
         lastError: result.error
       })
       return { success: false, error: result.error }
+    }
+
+    if (result.alreadyRunning) {
+      return { success: true }
     }
 
     await loadTranslationState(paperId)
@@ -1333,6 +1416,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     figurePreviewPinned,
     figurePreviewRect,
     figurePreviewImageRatio,
+    paperTocTitle,
     paperTocItems,
     translationVisible,
     translationByPaperId,
@@ -1341,6 +1425,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     currentPaper,
     currentPaperFigures,
     currentTranslationCache,
+    figureCaptionTranslationMap,
     currentTranslationTask,
     isOcrCompleted,
     isCurrentPaperTranslating,
@@ -1353,7 +1438,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     uploadAndRenderPdf,
     loadMarkdown,
     loadFigures,
-    setPaperTocItems,
+    setPaperTocOutline,
     clearPaperToc,
     scrollToHeading,
     ensureOcrProgressListener,

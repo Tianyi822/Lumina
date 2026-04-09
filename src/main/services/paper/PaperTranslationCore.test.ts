@@ -1,12 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { LLMConfig } from '../../../shared/types/config.ts'
-import type { PaperTranslationCache, PaperTranslationSegment } from '../../../shared/types/paper.ts'
-import {
-  PaperTranslationCore,
-  computePaperTranslationSourceHash,
-  isAuthorLikeSegment
-} from './PaperTranslationCore.ts'
+import type {
+  PaperFigureItem,
+  PaperTranslationCache,
+  PaperTranslationSegment
+} from '../../../shared/types/paper.ts'
+import { PaperTranslationCore, computePaperTranslationSourceHash } from './PaperTranslationCore.ts'
 import { parsePaperTranslationSegments } from '../../../shared/utils/paperTranslation.ts'
 
 const TEST_LLM_CONFIG: LLMConfig = {
@@ -41,7 +41,21 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
   }
 }
 
-test('作者、机构与邮箱段会被直接跳过且保留原文', async () => {
+function createFigure(overrides: Partial<PaperFigureItem> = {}): PaperFigureItem {
+  return {
+    id: overrides.id ?? 'fig-1',
+    paperId: overrides.paperId ?? 'paper-figure',
+    pageIndex: overrides.pageIndex ?? 0,
+    blockIndex: overrides.blockIndex ?? 0,
+    groupId: overrides.groupId ?? 'group-1',
+    imagePath: overrides.imagePath ?? '/tmp/figure-1.png',
+    caption: overrides.caption ?? '',
+    subCaption: overrides.subCaption,
+    bbox: overrides.bbox ?? { x: 0, y: 0, width: 100, height: 80 }
+  }
+}
+
+test('作者与联系信息会跳过翻译，但机构段仍会参与翻译', async () => {
   const markdown = [
     '# Sample Paper',
     '',
@@ -74,14 +88,6 @@ test('作者、机构与邮箱段会被直接跳过且保留原文', async () =>
     }
   })
 
-  const segments = parsePaperTranslationSegments(markdown)
-  const authorSegment = segments[1]
-  const affiliationSegment = segments[2]
-  const emailSegment = segments[3]
-  assert.equal(isAuthorLikeSegment(authorSegment), true)
-  assert.equal(isAuthorLikeSegment(affiliationSegment), true)
-  assert.equal(isAuthorLikeSegment(emailSegment), true)
-
   const result = await core.startTranslation('paper-author', markdown)
   assert.equal(result.success, true)
   await waitFor(() => !core.isRunning('paper-author'))
@@ -89,12 +95,11 @@ test('作者、机构与邮箱段会被直接跳过且保留原文', async () =>
   const cache = cacheStore.get('paper-author')
   assert.ok(cache)
   assert.equal(cache.entries[1].status, 'skipped')
-  assert.equal(cache.entries[2].status, 'skipped')
+  assert.equal(cache.entries[2].status, 'completed')
   assert.equal(cache.entries[3].status, 'skipped')
   assert.equal(cache.entries[1].translatedMarkdown, cache.entries[1].originalMarkdown)
-  assert.equal(cache.entries[2].translatedMarkdown, cache.entries[2].originalMarkdown)
   assert.equal(cache.entries[3].translatedMarkdown, cache.entries[3].originalMarkdown)
-  assert.equal(translateCallCount, 2)
+  assert.equal(translateCallCount, 3)
 })
 
 test('标题段会清理参考标签并截断误并入的正文', async () => {
@@ -230,7 +235,62 @@ test('图片段会被跳过且不会触发翻译调用', async () => {
   assert.equal(translateCallCount, 2)
 })
 
-test('分隔线段会被跳过且不会在开头触发无意义翻译', async () => {
+test('图片 caption 会作为附加段落参与翻译并在未变化时复用缓存', async () => {
+  const markdown = 'The qualitative comparison is shown below.'
+  const figures: PaperFigureItem[] = [
+    createFigure({
+      id: 'fig-1',
+      caption: 'Figure 1. Overall framework.'
+    }),
+    createFigure({
+      id: 'fig-2',
+      blockIndex: 1,
+      imagePath: '/tmp/figure-2.png',
+      caption: '',
+      subCaption: '(a) Encoder branch'
+    })
+  ]
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      translateCallCount += 1
+      return `译文：${segment.originalMarkdown}`
+    }
+  })
+
+  const firstResult = await core.startTranslation('paper-caption', markdown, figures)
+  assert.equal(firstResult.success, true)
+  await waitFor(() => !core.isRunning('paper-caption'))
+
+  const firstCache = cacheStore.get('paper-caption')
+  assert.ok(firstCache)
+  assert.equal(firstCache.entries.length, 3)
+  assert.equal(firstCache.entries[1].id, 'fig-caption-fig-1')
+  assert.equal(firstCache.entries[1].translatedText, '译文：Figure 1. Overall framework.')
+  assert.equal(firstCache.entries[2].id, 'fig-caption-fig-2')
+  assert.equal(firstCache.entries[2].translatedText, '译文：(a) Encoder branch')
+  assert.equal(translateCallCount, 3)
+
+  const secondResult = await core.startTranslation('paper-caption', markdown, figures)
+  assert.equal(secondResult.success, true)
+  await waitFor(() => !core.isRunning('paper-caption'))
+  assert.equal(translateCallCount, 3)
+})
+
+test('分隔线段会被跳过且不会触发翻译调用', async () => {
   const markdown = ['---', '', '# DEYOLO', '', 'This is the first paragraph.'].join('\n')
   const cacheStore = new Map<string, PaperTranslationCache>()
   let translateCallCount = 0
@@ -376,6 +436,165 @@ test('会复用已完成缓存并在正文哈希变化时使旧缓存失效', as
   assert.equal(changedState.data?.cache, null)
 })
 
+test('旧哈希缓存会在描述符一致时自动迁移并恢复', () => {
+  const markdown = ['Paragraph A.', '', 'Paragraph B.'].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  const savedCaches: PaperTranslationCache[] = []
+  const segments = parsePaperTranslationSegments(markdown)
+
+  cacheStore.set('paper-legacy-cache', {
+    paperId: 'paper-legacy-cache',
+    sourceHash: 'legacy-hash',
+    totalSegments: 2,
+    completedSegments: 2,
+    updatedAt: new Date().toISOString(),
+    entries: [
+      {
+        ...segments[0],
+        status: 'completed',
+        translatedMarkdown: '译文：Paragraph A.',
+        translatedText: '译文：Paragraph A.'
+      },
+      {
+        ...segments[1],
+        status: 'completed',
+        translatedMarkdown: '译文：Paragraph B.',
+        translatedText: '译文：Paragraph B.'
+      }
+    ]
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      savedCaches.push(structuredClone(cache))
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => `译文：${segment.originalMarkdown}`
+  })
+
+  const state = core.getTranslationState('paper-legacy-cache', markdown)
+  assert.equal(state.success, true)
+  assert.ok(state.data?.cache)
+  assert.equal(state.data?.cache?.entries[0].translatedMarkdown, '译文：Paragraph A.')
+  assert.equal(state.data?.cache?.sourceHash, computePaperTranslationSourceHash(markdown))
+  assert.equal(state.data?.cache?.sourceHashVersion, 2)
+  assert.equal(savedCaches.length, 1)
+  assert.equal(savedCaches[0].sourceHashVersion, 2)
+  assert.equal(savedCaches[0].sourceHash, computePaperTranslationSourceHash(markdown))
+})
+
+test('旧哈希缓存在描述符变化时仍会失效并清理', () => {
+  const markdown = ['Paragraph A.', '', 'Paragraph B.'].join('\n')
+  const changedMarkdown = ['Paragraph A.', '', 'Paragraph C.'].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let clearCount = 0
+
+  cacheStore.set('paper-legacy-invalid', {
+    paperId: 'paper-legacy-invalid',
+    sourceHash: 'legacy-hash',
+    totalSegments: 2,
+    completedSegments: 2,
+    updatedAt: new Date().toISOString(),
+    entries: [
+      {
+        ...parsePaperTranslationSegments(markdown)[0],
+        status: 'completed',
+        translatedMarkdown: '译文：Paragraph A.',
+        translatedText: '译文：Paragraph A.'
+      },
+      {
+        ...parsePaperTranslationSegments(markdown)[1],
+        status: 'completed',
+        translatedMarkdown: '译文：Paragraph B.',
+        translatedText: '译文：Paragraph B.'
+      }
+    ]
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      clearCount += 1
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => `译文：${segment.originalMarkdown}`
+  })
+
+  const state = core.getTranslationState('paper-legacy-invalid', changedMarkdown)
+  assert.equal(state.success, true)
+  assert.equal(state.data?.cache, null)
+  assert.equal(clearCount, 1)
+  assert.equal(cacheStore.has('paper-legacy-invalid'), false)
+})
+
+test('图片 caption 变化时会使旧缓存失效', () => {
+  const markdown = 'The qualitative comparison is shown below.'
+  const figures = [createFigure({ id: 'fig-1', caption: 'Figure 1. Overall framework.' })]
+  const sourceHash = computePaperTranslationSourceHash(markdown, figures)
+  const cacheStore = new Map<string, PaperTranslationCache>()
+
+  cacheStore.set('paper-caption-cache', {
+    paperId: 'paper-caption-cache',
+    sourceHash,
+    totalSegments: 2,
+    completedSegments: 2,
+    updatedAt: new Date().toISOString(),
+    entries: [
+      {
+        ...parsePaperTranslationSegments(markdown)[0],
+        status: 'completed',
+        translatedMarkdown: '译文：The qualitative comparison is shown below.',
+        translatedText: '译文：The qualitative comparison is shown below.'
+      },
+      {
+        id: 'fig-caption-fig-1',
+        index: 1,
+        kind: 'paragraph',
+        originalMarkdown: 'Figure 1. Overall framework.',
+        originalText: 'Figure 1. Overall framework.',
+        status: 'completed',
+        translatedMarkdown: '译文：Figure 1. Overall framework.',
+        translatedText: '译文：Figure 1. Overall framework.'
+      }
+    ]
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => `译文：${segment.originalMarkdown}`
+  })
+
+  const changedFigures = [createFigure({ id: 'fig-1', caption: 'Figure 1. Updated framework.' })]
+  const changedState = core.getTranslationState('paper-caption-cache', markdown, changedFigures)
+  assert.equal(changedState.success, true)
+  assert.equal(changedState.data?.cache, null)
+})
+
 test('中断后遗留为 translating 的段落可以重新排队翻译', async () => {
   const markdown = ['Paragraph A.', '', 'Paragraph B.'].join('\n')
   const sourceHash = computePaperTranslationSourceHash(markdown)
@@ -430,4 +649,255 @@ test('中断后遗留为 translating 的段落可以重新排队翻译', async (
   assert.equal(resumedCache.completedSegments, 2)
   assert.equal(resumedCache.entries[0].translatedMarkdown, '译文：Paragraph A.')
   assert.equal(resumedCache.entries[1].status, 'completed')
+})
+
+test('旧缓存中被误标记为 skipped 的参考文献会重新进入翻译队列', async () => {
+  const markdown =
+    'Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; and Zagoruyko, S. 2020. End-to-End Object Detection with Transformers. arXiv:2005.12872.'
+  const sourceHash = computePaperTranslationSourceHash(markdown)
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  cacheStore.set('paper-ref-retry', {
+    paperId: 'paper-ref-retry',
+    sourceHash,
+    totalSegments: 1,
+    completedSegments: 1,
+    updatedAt: new Date().toISOString(),
+    entries: [
+      {
+        ...parsePaperTranslationSegments(markdown)[0],
+        status: 'skipped',
+        translatedMarkdown: markdown,
+        translatedText: markdown
+      }
+    ]
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async () => {
+      translateCallCount += 1
+      return 'Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; and Zagoruyko, S. 2020. 使用 Transformers 的端到端目标检测。arXiv:2005.12872.'
+    }
+  })
+
+  const result = await core.startTranslation('paper-ref-retry', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-ref-retry'))
+
+  const cache = cacheStore.get('paper-ref-retry')
+  assert.ok(cache)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.match(cache.entries[0].translatedMarkdown || '', /端到端目标检测/)
+  assert.equal(translateCallCount, 1)
+})
+
+test('旧缓存中原文未翻译的参考文献会重新进入翻译队列', async () => {
+  const markdown =
+    'Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; and Zagoruyko, S. 2020. End-to-End Object Detection with Transformers. arXiv:2005.12872.'
+  const sourceHash = computePaperTranslationSourceHash(markdown)
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  cacheStore.set('paper-ref-refresh', {
+    paperId: 'paper-ref-refresh',
+    sourceHash,
+    totalSegments: 1,
+    completedSegments: 1,
+    updatedAt: new Date().toISOString(),
+    entries: [
+      {
+        ...parsePaperTranslationSegments(markdown)[0],
+        status: 'completed',
+        translatedMarkdown: markdown,
+        translatedText: markdown
+      }
+    ]
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async () => {
+      translateCallCount += 1
+      return 'Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; and Zagoruyko, S. 2020. 使用 Transformers 的端到端目标检测。arXiv:2005.12872.'
+    }
+  })
+
+  const result = await core.startTranslation('paper-ref-refresh', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-ref-refresh'))
+
+  const cache = cacheStore.get('paper-ref-refresh')
+  assert.ok(cache)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.match(cache.entries[0].translatedMarkdown || '', /端到端目标检测/)
+  assert.equal(translateCallCount, 1)
+})
+
+test('参考文献段会参与翻译并保留原始编号', async () => {
+  const markdown = [
+    '31. Xu, H., Ma, J., Jiang, J., Guo, X., Ling, H.: U2fusion: A unified unsupervised image fusion network. IEEE Transactions on Pattern Analysis and Machine Intelligence 44(1), 502-518 (2020)',
+    '',
+    'Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; and Zagoruyko, S. 2020. End-to-End Object Detection with Transformers. arXiv:2005.12872.'
+  ].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      translateCallCount += 1
+      if (segment.originalMarkdown.startsWith('31.')) {
+        return '徐, H., 马, J., 江, J., 郭, X., 凌, H.: U2fusion：一种统一的无监督图像融合网络。IEEE Transactions on Pattern Analysis and Machine Intelligence 44(1), 502-518 (2020)'
+      }
+
+      return 'Carion, N.; Massa, F.; Synnaeve, G.; Usunier, N.; Kirillov, A.; and Zagoruyko, S. 2020. 使用 Transformers 的端到端目标检测。arXiv:2005.12872.'
+    }
+  })
+
+  const result = await core.startTranslation('paper-ref', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-ref'))
+
+  const cache = cacheStore.get('paper-ref')
+  assert.ok(cache)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.equal(cache.entries[1].status, 'completed')
+  assert.match(cache.entries[0].translatedMarkdown || '', /^31\.\s/)
+  assert.match(cache.entries[0].translatedMarkdown || '', /统一的无监督图像融合网络/)
+  assert.match(cache.entries[1].translatedMarkdown || '', /端到端目标检测/)
+  assert.equal(translateCallCount, 2)
+})
+
+test('标题前的作者段会跳过，但机构与摘要会参与翻译', async () => {
+  const markdown = [
+    'Yishuo Chen ¹, Boran Wang ¹,¹, Xinyu Guo ¹',
+    '',
+    '¹ College of Artificial Intelligence, Nankai University',
+    '',
+    'Abstract. Object detection in poor-illumination environments is a challenging task...',
+    '',
+    '# Introduction',
+    '',
+    'The rest of the paper...'
+  ].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      translateCallCount += 1
+      return `译文：${segment.originalMarkdown}`
+    }
+  })
+
+  const result = await core.startTranslation('paper-preheading', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-preheading'))
+
+  const cache = cacheStore.get('paper-preheading')
+  assert.ok(cache)
+  assert.equal(cache.entries[0].status, 'skipped')
+  assert.equal(cache.entries[1].status, 'completed')
+  assert.equal(cache.entries[2].status, 'completed')
+  assert.equal(cache.entries[3].status, 'completed')
+  assert.equal(cache.entries[4].status, 'completed')
+  assert.equal(translateCallCount, 4)
+})
+
+test('各种格式的表格段会被跳过且不会触发翻译调用', async () => {
+  const markdown = [
+    '# Results',
+    '',
+    '| Method | AP |',
+    '|---|---|',
+    '| Ours | 52.3 |',
+    '',
+    '| Ours | 52.3 |',
+    '| Baseline | 45.6 |',
+    '',
+    '<table><tr><td>A</td></tr></table>',
+    '',
+    'The qualitative comparison is shown below.'
+  ].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      translateCallCount += 1
+      return `译文：${segment.originalMarkdown}`
+    }
+  })
+
+  const result = await core.startTranslation('paper-table', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-table'))
+
+  const cache = cacheStore.get('paper-table')
+  assert.ok(cache)
+  // seg-0: heading (translated)
+  // seg-1: standard pipe table (skipped)
+  // seg-2: pipe rows without separator (skipped)
+  // seg-3: HTML table (skipped)
+  // seg-4: normal paragraph (translated)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.equal(cache.entries[1].status, 'skipped')
+  assert.equal(cache.entries[2].status, 'skipped')
+  assert.equal(cache.entries[3].status, 'skipped')
+  assert.equal(cache.entries[4].status, 'completed')
+  assert.equal(translateCallCount, 2)
 })

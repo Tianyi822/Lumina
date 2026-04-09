@@ -179,6 +179,13 @@ onUnmounted(() => {
         </div>
 
         <div class="form-group field-card flex-1">
+          <label class="form-label">并发数</label>
+          <div class="provider-display">{{ currentPreset?.concurrency ?? '-' }}</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group field-card flex-1">
           <label class="form-label">API Key</label>
           <input
             v-model="localConfig.apiKey"

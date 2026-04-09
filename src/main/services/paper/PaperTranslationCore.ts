@@ -1,12 +1,18 @@
 import { createHash } from 'crypto'
 import type { LLMConfig } from '../../../shared/types/config'
 import type {
+  PaperFigureItem,
   PaperTranslationCache,
   PaperTranslationEntry,
   PaperTranslationProgress,
-  PaperTranslationSegment
+  PaperTranslationSegment,
+  PaperTranslationSegmentKind
 } from '../../../shared/types/paper'
 import {
+  isPaperAffiliationLikeSegment,
+  isPaperAuthorLikeSegment,
+  isPaperContactLikeSegment,
+  isPaperReferenceLikeSegment,
   parsePaperTranslationSegments,
   stripPaperTranslationMarkdown
 } from '../../../shared/utils/paperTranslation.ts'
@@ -43,67 +49,144 @@ interface ActiveTranslationTask {
   promise: Promise<void> | null
 }
 
+interface PaperTranslationSourceDescriptorEntry {
+  id: string
+  kind: PaperTranslationSegmentKind
+  originalMarkdown: string
+}
+
+interface PaperTranslationSource {
+  segments: PaperTranslationSegment[]
+  descriptorEntries: PaperTranslationSourceDescriptorEntry[]
+  sourceHash: string
+  sourceHashVersion: 2
+}
+
 const DEFAULT_CONCURRENCY = 3
-const PERSON_NAME_CHUNK_PATTERN =
-  /(?:[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3})(?:\s+\d+(?:,\d+)*[*†‡]*)*/g
-const AFFILIATION_KEYWORD_PATTERN =
-  /\b(?:university|institute|school|college|laboratory|department|academy|center|centre|ministry|faculty|hospital|research\s+center|engineering\s+research)\b|(?:大学|学院|研究所|实验室|中心|系|院|部|国家|中国)/gi
+const PAPER_TRANSLATION_SOURCE_HASH_VERSION = 2
 const PROMPT_ARTIFACT_LINE_PATTERN =
   /^\s*(?:\[(?:上一段(?:原文)?参考|下一段(?:原文)?参考|当前(?:需要翻译的)?段落|翻译输出)\]|(?:上一段(?:原文)?参考|下一段(?:原文)?参考|当前(?:需要翻译的)?段落|翻译输出)|(?:previous_context|next_context|current_segment|translation))\s*:?\s*$/i
 const PROMPT_ARTIFACT_TAG_PATTERN =
   /<\/?(?:previous_context|next_context|current_segment|translation)(?:\s+[^>]*)?>/gi
+const LEADING_MARKER_PATTERN = /^(\s*(?:\[\d+\]|\[\[\d+\]\]|\d+[.)]|[-*+]))\s+/
 
-export function computePaperTranslationSourceHash(markdown: string): string {
-  return createHash('sha256').update(markdown).digest('hex')
+function getFigureCaptionSourceText(figure: PaperFigureItem): string {
+  return figure.caption || figure.subCaption || ''
 }
 
-function normalizeSegmentText(text: string): string {
-  return text.replace(/\s+/g, ' ').trim()
+function buildFigureCaptionSegments(figures?: PaperFigureItem[]): PaperTranslationSegment[] {
+  if (!figures || figures.length === 0) {
+    return []
+  }
+
+  const segments: PaperTranslationSegment[] = []
+
+  for (const figure of figures) {
+    const captionText = getFigureCaptionSourceText(figure)
+    if (!captionText) {
+      continue
+    }
+
+    segments.push({
+      id: `fig-caption-${figure.id}`,
+      index: segments.length,
+      kind: 'paragraph',
+      originalMarkdown: captionText,
+      originalText: captionText
+    })
+  }
+
+  return segments
 }
 
-function isContactLikeText(text: string): boolean {
-  return (
-    /@/.test(text) ||
-    /\bORCID\b/i.test(text) ||
-    /correspond(?:ing)?\s+author/i.test(text) ||
-    /通讯作者|共同一作|equal contribution/i.test(text)
-  )
+function buildPaperTranslationSourceSegments(
+  markdown: string,
+  figures?: PaperFigureItem[]
+): PaperTranslationSegment[] {
+  const contentSegments = parsePaperTranslationSegments(markdown)
+  const captionSegments = buildFigureCaptionSegments(figures).map((segment, index) => ({
+    ...segment,
+    index: contentSegments.length + index
+  }))
+
+  return [...contentSegments, ...captionSegments]
 }
 
-function isPersonClusterText(text: string): boolean {
-  const matches = text.match(PERSON_NAME_CHUNK_PATTERN) ?? []
-  if (matches.length < 2) {
+function buildPaperTranslationSourceDescriptorEntries(
+  segments: PaperTranslationSegment[]
+): PaperTranslationSourceDescriptorEntry[] {
+  return segments.map((segment) => ({
+    id: segment.id,
+    kind: segment.kind,
+    originalMarkdown: segment.originalMarkdown
+  }))
+}
+
+function serializePaperTranslationSourceDescriptor(
+  entries: PaperTranslationSourceDescriptorEntry[]
+): string {
+  return JSON.stringify({
+    version: PAPER_TRANSLATION_SOURCE_HASH_VERSION,
+    entries
+  })
+}
+
+function computePaperTranslationSourceHashFromDescriptor(
+  entries: PaperTranslationSourceDescriptorEntry[]
+): string {
+  return createHash('sha256')
+    .update(serializePaperTranslationSourceDescriptor(entries))
+    .digest('hex')
+}
+
+function buildPaperTranslationSource(
+  markdown: string,
+  figures?: PaperFigureItem[]
+): PaperTranslationSource {
+  const segments = buildPaperTranslationSourceSegments(markdown, figures)
+  const descriptorEntries = buildPaperTranslationSourceDescriptorEntries(segments)
+
+  return {
+    segments,
+    descriptorEntries,
+    sourceHash: computePaperTranslationSourceHashFromDescriptor(descriptorEntries),
+    sourceHashVersion: PAPER_TRANSLATION_SOURCE_HASH_VERSION
+  }
+}
+
+function buildSourceDescriptorEntriesFromCache(
+  cache: PaperTranslationCache
+): PaperTranslationSourceDescriptorEntry[] {
+  return cache.entries.map((entry) => ({
+    id: entry.id,
+    kind: entry.kind,
+    originalMarkdown: entry.originalMarkdown
+  }))
+}
+
+function areSourceDescriptorEntriesEqual(
+  left: PaperTranslationSourceDescriptorEntry[],
+  right: PaperTranslationSourceDescriptorEntry[]
+): boolean {
+  if (left.length !== right.length) {
     return false
   }
 
-  const remainder = text
-    .replace(PERSON_NAME_CHUNK_PATTERN, '')
-    .replace(/\b(?:and|et)\b/gi, '')
-    .replace(/[,\s*†‡()[\].-]+/g, '')
-
-  return remainder.length === 0
+  return left.every((entry, index) => {
+    const counterpart = right[index]
+    return (
+      entry.id === counterpart?.id &&
+      entry.kind === counterpart.kind &&
+      entry.originalMarkdown === counterpart.originalMarkdown
+    )
+  })
 }
 
-function isAffiliationLikeText(text: string): boolean {
-  const keywordMatches = text.match(AFFILIATION_KEYWORD_PATTERN) ?? []
-  if (keywordMatches.length === 0) {
-    return false
-  }
-
-  const startsWithAffiliationMarker = /^(?:\(?\d+(?:,\d+)*\)?|[*†‡]+\s*\d*)\s*/.test(text)
-  const commaCount = (text.match(/[，,]/g) ?? []).length
-  const hasSentenceTerminator = /[.!?。？！]\s*$/.test(text)
-  const hasMultipleInstitutionKeywords = keywordMatches.length >= 2
-  const hasLocationCue =
-    /\b(?:china|beijing|shanghai|tianjin|province|city)\b/i.test(text) ||
-    /(?:中国|北京|上海|天津|省|市)/.test(text)
-
-  return (
-    startsWithAffiliationMarker ||
-    hasMultipleInstitutionKeywords ||
-    (commaCount >= 2 && !hasSentenceTerminator) ||
-    (hasLocationCue && !hasSentenceTerminator)
-  )
+export function computePaperTranslationSourceHash(
+  markdown: string,
+  figures?: PaperFigureItem[]
+): string {
+  return buildPaperTranslationSource(markdown, figures).sourceHash
 }
 
 function normalizeSegmentForFormulaDetection(segment: string): string {
@@ -131,7 +214,9 @@ function hasFormulaDelimiters(segment: string): boolean {
     return false
   }
 
-  return /(^|[^\\])\${1,2}/.test(normalized) || /\\\[|\\\]|\\\(|\\\)/.test(normalized)
+  // 仅匹配独立的展示公式块（整个段落是公式），不匹配包含内联公式的正常文本
+  const trimmed = normalized.trim()
+  return /^\$\$[\s\S]*\$\$$/.test(trimmed) || /^\\\[.*\\\]$/.test(trimmed)
 }
 
 function hasLatexEnvironment(segment: string): boolean {
@@ -172,65 +257,48 @@ function looksLikeFormulaBody(segment: string): boolean {
   return false
 }
 
+const NATURAL_LANGUAGE_KINDS: ReadonlySet<PaperTranslationSegmentKind> = new Set([
+  'paragraph',
+  'heading',
+  'list',
+  'quote'
+])
+
 function isFormulaLikeSegment(segment: PaperTranslationSegment): boolean {
   const source = segment.originalMarkdown.trim()
 
-  return (
+  if (
     isStandaloneFormulaDelimiter(source) ||
     hasFormulaDelimiters(source) ||
-    hasLatexEnvironment(source) ||
-    looksLikeFormulaBody(source)
-  )
+    hasLatexEnvironment(source)
+  ) {
+    return true
+  }
+
+  if (NATURAL_LANGUAGE_KINDS.has(segment.kind)) {
+    return false
+  }
+
+  return looksLikeFormulaBody(source)
 }
 
-function isDividerLikeSegment(segment: PaperTranslationSegment): boolean {
-  const normalized = segment.originalMarkdown
-    .replace(/<\/?(?:div|p|span|section|article|figure)\b[^>]*>/gi, '')
-    .replace(/&nbsp;/gi, ' ')
-    .trim()
-
-  if (!normalized) {
-    return true
-  }
-
-  return /^(?:-{3,}|\*{3,}|_{3,}|<hr\b[^>]*\/?>)$/i.test(normalized)
-}
-
-export function isAuthorLikeSegment(segment: PaperTranslationSegment): boolean {
-  if (segment.kind === 'code') {
-    return true
-  }
-
-  const text = normalizeSegmentText(segment.originalText)
-  if (!text) {
-    return true
-  }
-
-  if (isContactLikeText(text)) {
-    return true
-  }
-
-  if (/^\d+(?:\s*,\s*\d+)*$/.test(text)) {
-    return true
-  }
-
-  if (/^\*+\s*[A-Za-z]/.test(text)) {
-    return true
-  }
-
-  if (isAffiliationLikeText(text)) {
-    return true
-  }
-
-  return isPersonClusterText(text)
+function isStructuralMarkerSegment(segment: PaperTranslationSegment): boolean {
+  const trimmed = segment.originalMarkdown.trim()
+  if (!trimmed) return true
+  if (/^<!--[\s\S]*-->$/.test(trimmed)) return true
+  if (/^[-*_]{3,}\s*$/.test(trimmed)) return true
+  return false
 }
 
 function shouldSkipTranslationSegment(segment: PaperTranslationSegment): boolean {
   return (
     segment.kind === 'image' ||
-    isDividerLikeSegment(segment) ||
-    isAuthorLikeSegment(segment) ||
-    isFormulaLikeSegment(segment)
+    segment.kind === 'table' ||
+    segment.kind === 'code' ||
+    isStructuralMarkerSegment(segment) ||
+    isFormulaLikeSegment(segment) ||
+    isPaperContactLikeSegment(segment) ||
+    isPaperAuthorLikeSegment(segment)
   )
 }
 
@@ -253,6 +321,31 @@ function getFirstMeaningfulBlock(content: string): string {
       .map((block) => block.trim())
       .find(Boolean) ?? ''
   )
+}
+
+function preserveLeadingMarker(segment: PaperTranslationSegment, content: string): string {
+  const sourceMarkerMatch = segment.originalMarkdown.match(LEADING_MARKER_PATTERN)
+  if (!sourceMarkerMatch) {
+    return content
+  }
+
+  const sourceMarker = sourceMarkerMatch[1].trim()
+  const trimmedContent = content.trimStart()
+  const translatedMarkerMatch = trimmedContent.match(LEADING_MARKER_PATTERN)
+
+  if (!translatedMarkerMatch) {
+    return `${sourceMarker} ${trimmedContent}`
+  }
+
+  if (translatedMarkerMatch[1].trim() === sourceMarker) {
+    return content
+  }
+
+  if (segment.kind === 'list' || isPaperReferenceLikeSegment(segment)) {
+    return trimmedContent.replace(LEADING_MARKER_PATTERN, `${sourceMarker} `)
+  }
+
+  return content
 }
 
 function cloneEntry(entry: PaperTranslationEntry): PaperTranslationEntry {
@@ -319,38 +412,39 @@ export class PaperTranslationCore {
 
   getTranslationState(
     paperId: string,
-    markdown: string
+    markdown: string,
+    figures?: PaperFigureItem[]
   ): {
     success: boolean
     data?: { cache: PaperTranslationCache | null; isRunning: boolean }
     error?: string
   } {
-    const sourceHash = computePaperTranslationSourceHash(markdown)
-    const validCache = this.readValidCache(paperId, sourceHash)
+    const source = buildPaperTranslationSource(markdown, figures)
+    const validCache = this.readValidCache(paperId, source)
     const runningTask = this.tasks.get(paperId)
 
     return {
       success: true,
       data: {
         cache: runningTask?.cache ?? validCache,
-        isRunning: runningTask?.sourceHash === sourceHash
+        isRunning: runningTask?.sourceHash === source.sourceHash
       }
     }
   }
 
   async startTranslation(
     paperId: string,
-    markdown: string
+    markdown: string,
+    figures?: PaperFigureItem[]
   ): Promise<{ success: boolean; alreadyRunning?: boolean; error?: string }> {
-    const sourceHash = computePaperTranslationSourceHash(markdown)
-    const segments = parsePaperTranslationSegments(markdown)
+    const source = buildPaperTranslationSource(markdown, figures)
 
-    if (segments.length === 0) {
+    if (source.segments.length === 0) {
       return { success: false, error: '没有可翻译的正文内容' }
     }
 
     const existingTask = this.tasks.get(paperId)
-    if (existingTask && existingTask.sourceHash === sourceHash) {
+    if (existingTask && existingTask.sourceHash === source.sourceHash) {
       return { success: true, alreadyRunning: true }
     }
 
@@ -359,7 +453,7 @@ export class PaperTranslationCore {
       this.tasks.delete(paperId)
     }
 
-    const cache = this.buildCache(paperId, sourceHash, segments)
+    const cache = this.buildCache(paperId, source)
     this.persistCache(paperId, cache)
 
     const pendingEntries = cache.entries.filter(
@@ -377,7 +471,7 @@ export class PaperTranslationCore {
 
     const task: ActiveTranslationTask = {
       paperId,
-      sourceHash,
+      sourceHash: source.sourceHash,
       cache,
       abortController: new AbortController(),
       promise: null
@@ -389,40 +483,79 @@ export class PaperTranslationCore {
     return { success: true }
   }
 
-  private readValidCache(paperId: string, sourceHash: string): PaperTranslationCache | null {
+  private readValidCache(
+    paperId: string,
+    source: PaperTranslationSource
+  ): PaperTranslationCache | null {
     const cachedResult = this.deps.readCache(paperId)
     if (!cachedResult.success || !cachedResult.data) {
       return null
     }
 
-    if (cachedResult.data.sourceHash !== sourceHash) {
-      const clearResult = this.deps.clearCache(paperId)
-      if (!clearResult.success) {
-        this.deps.logger.warn('翻译缓存失效后清理失败', 'main', {
-          paperId,
-          error: clearResult.error
-        })
-      }
-      return null
+    const cachedCache = cachedResult.data
+    if (
+      cachedCache.sourceHash === source.sourceHash &&
+      cachedCache.sourceHashVersion === source.sourceHashVersion
+    ) {
+      return cachedCache
     }
 
-    return cachedResult.data
+    const cachedDescriptorEntries = buildSourceDescriptorEntriesFromCache(cachedCache)
+    if (areSourceDescriptorEntriesEqual(cachedDescriptorEntries, source.descriptorEntries)) {
+      const upgradedCache: PaperTranslationCache = {
+        ...cachedCache,
+        paperId,
+        sourceHash: source.sourceHash,
+        sourceHashVersion: source.sourceHashVersion,
+        totalSegments: source.segments.length,
+        completedSegments: countCompletedSegments(cachedCache.entries),
+        updatedAt: this.now()
+      }
+
+      if (
+        cachedCache.sourceHash !== upgradedCache.sourceHash ||
+        cachedCache.sourceHashVersion !== upgradedCache.sourceHashVersion ||
+        cachedCache.totalSegments !== upgradedCache.totalSegments ||
+        cachedCache.completedSegments !== upgradedCache.completedSegments
+      ) {
+        const saveResult = this.deps.saveCache(paperId, upgradedCache)
+        if (!saveResult.success) {
+          this.deps.logger.warn('升级翻译缓存指纹失败', 'main', {
+            paperId,
+            error: saveResult.error
+          })
+        }
+      }
+
+      return upgradedCache
+    }
+
+    const clearResult = this.deps.clearCache(paperId)
+    if (!clearResult.success) {
+      this.deps.logger.warn('翻译缓存失效后清理失败', 'main', {
+        paperId,
+        error: clearResult.error
+      })
+    }
+
+    return null
   }
 
-  private buildCache(
-    paperId: string,
-    sourceHash: string,
-    segments: PaperTranslationSegment[]
-  ): PaperTranslationCache {
-    const existingCache = this.readValidCache(paperId, sourceHash)
+  private buildCache(paperId: string, source: PaperTranslationSource): PaperTranslationCache {
+    const existingCache = this.readValidCache(paperId, source)
     const previousEntries = new Map(
       (existingCache?.entries ?? []).map((entry) => [entry.id, entry] as const)
     )
     const updatedAt = this.now()
 
-    const entries = segments.map<PaperTranslationEntry>((segment) => {
+    const entries = source.segments.map<PaperTranslationEntry>((segment) => {
       const previousEntry = previousEntries.get(segment.id)
       const shouldSkip = shouldSkipTranslationSegment(segment)
+      const hasStaleVerbatimTranslation =
+        previousEntry?.status === 'completed' &&
+        previousEntry.translatedMarkdown?.trim() === segment.originalMarkdown.trim() &&
+        !/[\u4e00-\u9fff]/.test(segment.originalText) &&
+        (isPaperAffiliationLikeSegment(segment) || isPaperReferenceLikeSegment(segment))
 
       if (shouldSkip) {
         return {
@@ -434,10 +567,18 @@ export class PaperTranslationCore {
         }
       }
 
+      if (hasStaleVerbatimTranslation) {
+        return {
+          ...segment,
+          status: 'queued'
+        }
+      }
+
       if (
         previousEntry &&
         previousEntry.originalMarkdown === segment.originalMarkdown &&
-        (previousEntry.status === 'completed' || previousEntry.status === 'skipped') &&
+        (previousEntry.status === 'completed' ||
+          (previousEntry.status === 'skipped' && shouldSkip)) &&
         previousEntry.translatedMarkdown
       ) {
         return {
@@ -457,7 +598,8 @@ export class PaperTranslationCore {
 
     return {
       paperId,
-      sourceHash,
+      sourceHash: source.sourceHash,
+      sourceHashVersion: source.sourceHashVersion,
       totalSegments: entries.length,
       completedSegments: countCompletedSegments(entries),
       entries,
@@ -567,6 +709,8 @@ export class PaperTranslationCore {
     const currentEntry = entries[currentIndex]
     const previousEntry = entries[currentIndex - 1]
     const nextEntry = entries[currentIndex + 1]
+    const isAffiliationSegment = isPaperAffiliationLikeSegment(currentEntry)
+    const isReferenceSegment = isPaperReferenceLikeSegment(currentEntry)
 
     const parts = [
       '你是一个专业的学术论文翻译助手，请将当前 Markdown 段落翻译成中文。',
@@ -574,13 +718,25 @@ export class PaperTranslationCore {
       '<previous_context> 和 <next_context> 仅用于术语与语境参考，绝不能复述、复制或翻译到输出中。',
       '翻译要求：',
       '1. 只输出翻译后的 Markdown，不要输出解释、前言、注释或额外说明。',
-      '2. 作者姓名、人名、邮箱、ORCID、参考文献中的作者名、机构专名保持原样，不要翻译。',
-      '3. 保留公式、变量名、引用编号、链接、图片语法、表格结构和列表层级。',
+      '2. 作者姓名、人名、邮箱、ORCID 保持原样不要翻译；机构、院系、实验室、学校和地名请翻译为常用中文译法，必要时保留英文缩写。',
+      '3. 保留公式、变量名、引用编号、列表序号、链接、图片语法、表格结构和列表层级。',
       '4. 如原文已经是中文，仅做必要的学术化润色并保持原意。',
       '5. 不要遗漏内容，也不要补充原文没有的信息。',
       '6. 如果当前段落是标题，只输出标题本身，不要并入后续正文。',
       '7. 不要输出任何 XML 标签。'
     ]
+
+    if (isAffiliationSegment) {
+      parts.push(
+        '8. 当前段落是作者机构信息：请完整翻译单位、院系、实验室与地址信息，但保留邮箱、人员姓名与常见英文缩写。'
+      )
+    }
+
+    if (isReferenceSegment) {
+      parts.push(
+        '9. 当前段落是参考文献：保留作者姓名、年份、卷期、页码、DOI、arXiv、编号和链接；翻译论文标题、书名、期刊/会议名称、出版说明以及连接词（如 In:）。'
+      )
+    }
 
     if (previousEntry) {
       parts.push('<previous_context>')
@@ -635,7 +791,7 @@ export class PaperTranslationCore {
       }
     }
 
-    return content
+    return preserveLeadingMarker(segment, content)
   }
 
   private persistCache(paperId: string, cache: PaperTranslationCache): void {

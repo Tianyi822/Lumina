@@ -4,13 +4,22 @@ import MarkdownIt from 'markdown-it'
 import texmath from 'markdown-it-texmath'
 import katex from 'katex'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
-import type { PaperTocItem } from '@renderer/stores/paperReaderStore'
 import type {
+  PaperTocOutline,
+  PaperTocItem,
   PaperTranslationCache,
   PaperTranslationEntry,
+  PaperTranslationSegment,
+  PaperTranslationSegmentKind,
   PaperTranslationStatus
 } from '@shared/types/paper'
-import { parsePaperTranslationSegments } from '@shared/utils/paperTranslation'
+import { normalizePaperMarkdownForRender } from '@shared/utils/paperMarkdown'
+import {
+  buildPaperTocOutline,
+  isPaperAffiliationLikeSegment,
+  isPaperAuthorLikeSegment,
+  parsePaperTranslationSegments
+} from '@shared/utils/paperTranslation'
 import 'katex/dist/katex.min.css'
 import 'markdown-it-texmath/css/texmath.css'
 
@@ -20,6 +29,8 @@ interface RenderedSegment {
   translationHtml: string | null
   translationStatus: PaperTranslationStatus | 'idle'
   showTranslation: boolean
+  segmentAnchorId?: string
+  isCenteredMeta: boolean
 }
 
 const props = defineProps<{
@@ -70,20 +81,6 @@ function resolveImagePaths(html: string, basePath: string | undefined): string {
   )
 }
 
-function slugifyHeadingText(text: string): string {
-  const normalized = text
-    .trim()
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-
-  return normalized || 'section'
-}
-
 function postProcessRenderedHtml(html: string, headingId?: string): string {
   if (typeof DOMParser === 'undefined') {
     return html
@@ -101,7 +98,7 @@ function postProcessRenderedHtml(html: string, headingId?: string): string {
   })
 
   if (headingId) {
-    const heading = root.querySelector('h1, h2, h3')
+    const heading = root.querySelector('h1, h2, h3, h4, h5, h6')
     if (heading) {
       heading.id = headingId
     }
@@ -121,8 +118,12 @@ function postProcessRenderedHtml(html: string, headingId?: string): string {
   return root.innerHTML
 }
 
-function renderMarkdownBlock(markdown: string, headingId?: string): string {
-  const normalizedContent = normalizeInlineMath(markdown)
+function renderMarkdownBlock(
+  markdown: string,
+  kind: PaperTranslationSegmentKind,
+  headingId?: string
+): string {
+  const normalizedContent = normalizeInlineMath(normalizePaperMarkdownForRender(markdown, kind))
   const rawHtml = markdownRenderer.render(normalizedContent)
   const resolvedHtml = resolveImagePaths(rawHtml, props.basePath)
   return postProcessRenderedHtml(resolvedHtml, headingId)
@@ -144,34 +145,53 @@ function shouldRenderTranslationBlock(
   return true
 }
 
-function buildTocAndRenderedSegments(): { tocItems: PaperTocItem[]; segments: RenderedSegment[] } {
+function collectFrontMatterMetadataIds(segments: PaperTranslationSegment[]): Set<string> {
+  const metadataIds = new Set<string>()
+  const startIndex = segments[0]?.kind === 'heading' ? 1 : 0
+
+  for (let index = startIndex; index < segments.length; index += 1) {
+    const segment = segments[index]
+    if (segment.kind === 'heading') {
+      break
+    }
+
+    const isMetadataSegment =
+      isPaperAuthorLikeSegment(segment) || isPaperAffiliationLikeSegment(segment)
+
+    if (!isMetadataSegment) {
+      break
+    }
+
+    metadataIds.add(segment.id)
+  }
+
+  return metadataIds
+}
+
+function buildTocAndRenderedSegments(): { outline: PaperTocOutline; segments: RenderedSegment[] } {
   const segments = parsePaperTranslationSegments(props.content)
-  const tocItems: PaperTocItem[] = []
   const rendered: RenderedSegment[] = []
-  const headingCounts = new Map<string, number>()
   const translationMap = new Map<string, PaperTranslationEntry>()
+  const frontMatterMetadataIds = collectFrontMatterMetadataIds(segments)
+  const outline = buildPaperTocOutline(segments, props.translationCache?.entries ?? [])
+  const outlineEntryMap = new Map<string, PaperTocItem | PaperTocOutline['documentTitle']>()
+
+  if (outline.documentTitle) {
+    outlineEntryMap.set(outline.documentTitle.segmentId, outline.documentTitle)
+  }
+
+  for (const item of outline.items) {
+    outlineEntryMap.set(item.segmentId, item)
+  }
 
   for (const entry of props.translationCache?.entries ?? []) {
     translationMap.set(entry.id, entry)
   }
 
   for (const segment of segments) {
-    let headingId: string | undefined
-    const headingMatch = segment.originalMarkdown.match(/^(#{1,3})\s+(.+)$/s)
-    if (headingMatch) {
-      const text = segment.originalText
-      const level = Number(headingMatch[1].length) as PaperTocItem['level']
-      const baseSlug = slugifyHeadingText(text)
-      const count = (headingCounts.get(baseSlug) || 0) + 1
-      headingCounts.set(baseSlug, count)
-
-      headingId = count === 1 ? baseSlug : `${baseSlug}-${count}`
-      tocItems.push({
-        id: headingId,
-        text,
-        level
-      })
-    }
+    const outlineEntry = outlineEntryMap.get(segment.id)
+    const headingId = segment.kind === 'heading' ? outlineEntry?.id : undefined
+    const segmentAnchorId = segment.kind === 'heading' ? undefined : outlineEntry?.id
 
     const translationEntry = translationMap.get(segment.id)
     const translationStatus = translationEntry?.status ?? 'idle'
@@ -179,24 +199,26 @@ function buildTocAndRenderedSegments(): { tocItems: PaperTocItem[]; segments: Re
       translationEntry &&
       translationEntry.status === 'completed' &&
       translationEntry.translatedMarkdown
-        ? renderMarkdownBlock(translationEntry.translatedMarkdown)
+        ? renderMarkdownBlock(translationEntry.translatedMarkdown, translationEntry.kind)
         : null
 
     rendered.push({
       id: segment.id,
-      originalHtml: renderMarkdownBlock(segment.originalMarkdown, headingId),
+      originalHtml: renderMarkdownBlock(segment.originalMarkdown, segment.kind, headingId),
       translationHtml,
       translationStatus,
       showTranslation: shouldRenderTranslationBlock(
         props.translationVisible,
         translationStatus,
         translationHtml
-      )
+      ),
+      segmentAnchorId,
+      isCenteredMeta: frontMatterMetadataIds.has(segment.id)
     })
   }
 
   return {
-    tocItems,
+    outline,
     segments: rendered
   }
 }
@@ -212,7 +234,7 @@ function renderContent(): void {
   try {
     const result = buildTocAndRenderedSegments()
     renderedSegments.value = result.segments
-    paperReaderStore.setPaperTocItems(result.tocItems)
+    paperReaderStore.setPaperTocOutline(result.outline)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     parseError.value = `Markdown 解析失败: ${message}`
@@ -261,7 +283,9 @@ onBeforeUnmount(() => {
         <section
           v-for="segment in renderedSegments"
           :key="segment.id"
+          :id="segment.segmentAnchorId"
           class="paper-markdown-view__segment"
+          :class="{ 'paper-markdown-view__segment--meta': segment.isCenteredMeta }"
         >
           <div class="paper-markdown-view__segment-original paper-markdown-view__markdown">
             <!-- eslint-disable-next-line vue/no-v-html -->
@@ -289,6 +313,7 @@ onBeforeUnmount(() => {
             </div>
 
             <div v-else class="paper-markdown-view__translation-placeholder" aria-hidden="true">
+              <span class="paper-markdown-view__translation-placeholder-text">正在翻译...</span>
               <span class="paper-markdown-view__translation-placeholder-bar" />
               <span class="paper-markdown-view__translation-placeholder-bar" />
               <span class="paper-markdown-view__translation-placeholder-bar" />
@@ -371,6 +396,13 @@ onBeforeUnmount(() => {
   padding: var(--sm-space-1) 0;
 }
 
+.paper-markdown-view__translation-placeholder-text {
+  display: block;
+  font-size: 13px;
+  color: var(--sm-color-text-tertiary);
+  margin-bottom: var(--sm-space-1);
+}
+
 .paper-markdown-view__translation-placeholder-bar {
   display: block;
   width: 100%;
@@ -412,6 +444,10 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
+.paper-markdown-view__segment--meta .paper-markdown-view__markdown {
+  text-align: center;
+}
+
 .paper-markdown-view__markdown > :first-child {
   margin-top: 0;
 }
@@ -420,7 +456,7 @@ onBeforeUnmount(() => {
   margin-bottom: 0;
 }
 
-.paper-markdown-view__markdown :where(h1) {
+.paper-markdown-view__markdown :deep(h1) {
   font-size: 24px;
   font-weight: 700;
   line-height: 1.3;
@@ -428,7 +464,7 @@ onBeforeUnmount(() => {
   color: var(--sm-color-text-primary);
 }
 
-.paper-markdown-view__markdown :where(h2) {
+.paper-markdown-view__markdown :deep(h2) {
   font-size: 20px;
   font-weight: 600;
   line-height: 1.35;
@@ -436,7 +472,7 @@ onBeforeUnmount(() => {
   color: var(--sm-color-text-primary);
 }
 
-.paper-markdown-view__markdown :where(h3) {
+.paper-markdown-view__markdown :deep(h3) {
   font-size: 17px;
   font-weight: 600;
   line-height: 1.4;
@@ -444,46 +480,46 @@ onBeforeUnmount(() => {
   color: var(--sm-color-text-primary);
 }
 
-.paper-markdown-view__markdown :where(p) {
+.paper-markdown-view__markdown :deep(p) {
   margin: 0.8em 0;
 }
 
-.paper-markdown-view__markdown :where(a) {
+.paper-markdown-view__markdown :deep(a) {
   color: var(--sm-color-accent-default, #6366f1);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.paper-markdown-view__markdown :where(a:hover) {
+.paper-markdown-view__markdown :deep(a:hover) {
   opacity: 0.85;
 }
 
-.paper-markdown-view__markdown :where(eq) {
+.paper-markdown-view__markdown :deep(eq) {
   display: inline-block;
   vertical-align: baseline;
 }
 
-.paper-markdown-view__markdown :where(eqn) {
+.paper-markdown-view__markdown :deep(eqn) {
   display: block;
 }
 
-.paper-markdown-view__markdown :where(.katex) {
+.paper-markdown-view__markdown :deep(.katex) {
   font-size: 1em;
 }
 
-.paper-markdown-view__markdown :where(.katex-display) {
+.paper-markdown-view__markdown :deep(.katex-display) {
   margin: 1.25em 0;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0.2em 0;
 }
 
-.paper-markdown-view__markdown :where(.katex-display > .katex) {
+.paper-markdown-view__markdown :deep(.katex-display > .katex) {
   display: inline-block;
   min-width: min-content;
 }
 
-.paper-markdown-view__markdown :where(pre) {
+.paper-markdown-view__markdown :deep(pre) {
   margin: 1em 0;
   padding: var(--sm-space-4);
   border-radius: var(--sm-radius-sm);
@@ -494,19 +530,19 @@ onBeforeUnmount(() => {
   overflow-x: auto;
 }
 
-.paper-markdown-view__markdown :where(code) {
+.paper-markdown-view__markdown :deep(code) {
   font-family: var(--sm-font-mono);
   font-size: 0.9em;
 }
 
-.paper-markdown-view__markdown :where(:not(pre) > code) {
+.paper-markdown-view__markdown :deep(:not(pre) > code) {
   padding: 2px 6px;
   border-radius: 4px;
   background: var(--sm-color-surface-hover);
   font-size: 0.88em;
 }
 
-.paper-markdown-view__markdown :where(img) {
+.paper-markdown-view__markdown :deep(img) {
   max-width: 100%;
   height: auto;
   border-radius: 8px;
@@ -514,7 +550,7 @@ onBeforeUnmount(() => {
   display: block;
 }
 
-.paper-markdown-view__markdown :where(.paper-markdown-view__table-wrap) {
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap) {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -525,7 +561,7 @@ onBeforeUnmount(() => {
   scrollbar-gutter: stable both-edges;
 }
 
-.paper-markdown-view__markdown :where(.paper-markdown-view__table-wrap > table) {
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap > table) {
   width: max-content;
   min-width: 100%;
   margin: 0;
@@ -535,20 +571,20 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
-.paper-markdown-view__markdown :where(th),
-.paper-markdown-view__markdown :where(td) {
+.paper-markdown-view__markdown :deep(th),
+.paper-markdown-view__markdown :deep(td) {
   padding: var(--sm-space-2) var(--sm-space-3);
   border: 1px solid var(--sm-color-border-subtle);
   text-align: left;
   vertical-align: top;
 }
 
-.paper-markdown-view__markdown :where(th) {
+.paper-markdown-view__markdown :deep(th) {
   font-weight: 600;
   background: var(--sm-color-surface-1);
 }
 
-.paper-markdown-view__markdown :where(blockquote) {
+.paper-markdown-view__markdown :deep(blockquote) {
   margin: 1em 0;
   padding: var(--sm-space-3) var(--sm-space-4);
   border-left: 3px solid var(--sm-color-border-strong);
@@ -557,22 +593,26 @@ onBeforeUnmount(() => {
   color: var(--sm-color-text-secondary);
 }
 
-.paper-markdown-view__markdown :where(blockquote p) {
+.paper-markdown-view__markdown :deep(blockquote p) {
   margin: 0.4em 0;
 }
 
-.paper-markdown-view__markdown :where(ul),
-.paper-markdown-view__markdown :where(ol) {
+.paper-markdown-view__markdown :deep(ul),
+.paper-markdown-view__markdown :deep(ol) {
   margin: 0.6em 0;
-  padding-left: 1.5em;
+  padding-inline-start: 2.8em;
 }
 
-.paper-markdown-view__markdown :where(li) {
+.paper-markdown-view__markdown :deep(li) {
   margin: 0.25em 0;
 }
 
-.paper-markdown-view__markdown :where(li > ul),
-.paper-markdown-view__markdown :where(li > ol) {
+.paper-markdown-view__markdown :deep(li > p) {
+  margin: 0.2em 0;
+}
+
+.paper-markdown-view__markdown :deep(li > ul),
+.paper-markdown-view__markdown :deep(li > ol) {
   margin: 0.25em 0;
 }
 

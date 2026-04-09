@@ -235,6 +235,38 @@ export interface PaperTranslationSegment {
 }
 
 /**
+ * 论文目录条目
+ */
+export interface PaperTocEntry {
+  /** 标题锚点 ID */
+  id: string
+  /** 对应的段落 ID */
+  segmentId: string
+  /** 原始标题文本 */
+  text: string
+  /** 翻译后的标题文本 */
+  translatedText?: string
+}
+
+/**
+ * 论文目录项
+ */
+export interface PaperTocItem extends PaperTocEntry {
+  /** 目录层级，最多三级 */
+  level: 1 | 2 | 3
+}
+
+/**
+ * 论文目录结构
+ */
+export interface PaperTocOutline {
+  /** 文档标题，单独展示，不参与目录树 */
+  documentTitle?: PaperTocEntry
+  /** 正文目录项 */
+  items: PaperTocItem[]
+}
+
+/**
  * 单段翻译结果
  */
 export interface PaperTranslationEntry extends PaperTranslationSegment {
@@ -258,6 +290,8 @@ export interface PaperTranslationCache {
   paperId: string
   /** 当前阅读版 Markdown 的内容哈希 */
   sourceHash: string
+  /** 内容哈希版本 */
+  sourceHashVersion?: 1 | 2
   /** 段落总数 */
   totalSegments: number
   /** 已完成或跳过的段落数 */
