@@ -2,11 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { LLMConfig } from '../../../shared/types/config.ts'
 import type { PaperTranslationCache, PaperTranslationSegment } from '../../../shared/types/paper.ts'
-import {
-  PaperTranslationCore,
-  computePaperTranslationSourceHash,
-  isAuthorLikeSegment
-} from './PaperTranslationCore.ts'
+import { PaperTranslationCore, computePaperTranslationSourceHash } from './PaperTranslationCore.ts'
 import { parsePaperTranslationSegments } from '../../../shared/utils/paperTranslation.ts'
 
 const TEST_LLM_CONFIG: LLMConfig = {
@@ -41,7 +37,7 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
   }
 }
 
-test('作者、机构与邮箱段会被直接跳过且保留原文', async () => {
+test('作者、机构与邮箱段现在会参与翻译', async () => {
   const markdown = [
     '# Sample Paper',
     '',
@@ -74,27 +70,16 @@ test('作者、机构与邮箱段会被直接跳过且保留原文', async () =>
     }
   })
 
-  const segments = parsePaperTranslationSegments(markdown)
-  const authorSegment = segments[1]
-  const affiliationSegment = segments[2]
-  const emailSegment = segments[3]
-  assert.equal(isAuthorLikeSegment(authorSegment), true)
-  assert.equal(isAuthorLikeSegment(affiliationSegment), true)
-  assert.equal(isAuthorLikeSegment(emailSegment), true)
-
   const result = await core.startTranslation('paper-author', markdown)
   assert.equal(result.success, true)
   await waitFor(() => !core.isRunning('paper-author'))
 
   const cache = cacheStore.get('paper-author')
   assert.ok(cache)
-  assert.equal(cache.entries[1].status, 'skipped')
-  assert.equal(cache.entries[2].status, 'skipped')
-  assert.equal(cache.entries[3].status, 'skipped')
-  assert.equal(cache.entries[1].translatedMarkdown, cache.entries[1].originalMarkdown)
-  assert.equal(cache.entries[2].translatedMarkdown, cache.entries[2].originalMarkdown)
-  assert.equal(cache.entries[3].translatedMarkdown, cache.entries[3].originalMarkdown)
-  assert.equal(translateCallCount, 2)
+  assert.equal(cache.entries[1].status, 'completed')
+  assert.equal(cache.entries[2].status, 'completed')
+  assert.equal(cache.entries[3].status, 'completed')
+  assert.equal(translateCallCount, 5)
 })
 
 test('标题段会清理参考标签并截断误并入的正文', async () => {
@@ -230,7 +215,7 @@ test('图片段会被跳过且不会触发翻译调用', async () => {
   assert.equal(translateCallCount, 2)
 })
 
-test('分隔线段会被跳过且不会在开头触发无意义翻译', async () => {
+test('分隔线段现在会参与翻译', async () => {
   const markdown = ['---', '', '# DEYOLO', '', 'This is the first paragraph.'].join('\n')
   const cacheStore = new Map<string, PaperTranslationCache>()
   let translateCallCount = 0
@@ -259,9 +244,8 @@ test('分隔线段会被跳过且不会在开头触发无意义翻译', async ()
 
   const cache = cacheStore.get('paper-divider')
   assert.ok(cache)
-  assert.equal(cache.entries[0].status, 'skipped')
-  assert.equal(cache.entries[0].translatedMarkdown, cache.entries[0].originalMarkdown)
-  assert.equal(translateCallCount, 2)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.equal(translateCallCount, 3)
 })
 
 test('翻译任务会限制最大并发数并按段持久化缓存', async () => {
@@ -430,4 +414,97 @@ test('中断后遗留为 translating 的段落可以重新排队翻译', async (
   assert.equal(resumedCache.completedSegments, 2)
   assert.equal(resumedCache.entries[0].translatedMarkdown, '译文：Paragraph A.')
   assert.equal(resumedCache.entries[1].status, 'completed')
+})
+
+test('参考文献段会被跳过且不会触发翻译调用', async () => {
+  const markdown = [
+    '# Conclusion',
+    '',
+    'This is the conclusion paragraph.',
+    '',
+    '[1] Chen, Y., Wang, B., and Zhang, R. "A Survey on Object Detection." CVPR, 2024.',
+    '',
+    '[2] Li, H., Liu, Y., et al. "Deep Learning for Vision." ICCV, 2023.',
+    '',
+    'References',
+    '',
+    '[3] Smith, J. "Neural Networks." NeurIPS, 2022.'
+  ].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      translateCallCount += 1
+      return `译文：${segment.originalMarkdown}`
+    }
+  })
+
+  const result = await core.startTranslation('paper-ref', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-ref'))
+
+  const cache = cacheStore.get('paper-ref')
+  assert.ok(cache)
+  assert.equal(cache.entries[2].status, 'skipped')
+  assert.equal(cache.entries[3].status, 'skipped')
+  assert.equal(cache.entries[4].status, 'skipped')
+  assert.equal(cache.entries[5].status, 'skipped')
+  assert.equal(translateCallCount, 2)
+})
+
+test('首个标题前的摘要和元数据段现在会参与翻译', async () => {
+  const markdown = [
+    'Yishuo Chen ¹, Boran Wang ¹,¹, Xinyu Guo ¹',
+    '',
+    '¹ College of Artificial Intelligence, Nankai University',
+    '',
+    'Abstract. Object detection in poor-illumination environments is a challenging task...',
+    '',
+    '# Introduction',
+    '',
+    'The rest of the paper...'
+  ].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      translateCallCount += 1
+      return `译文：${segment.originalMarkdown}`
+    }
+  })
+
+  const result = await core.startTranslation('paper-preheading', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-preheading'))
+
+  const cache = cacheStore.get('paper-preheading')
+  assert.ok(cache)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.equal(cache.entries[1].status, 'completed')
+  assert.equal(cache.entries[2].status, 'completed')
+  assert.equal(translateCallCount, 5)
 })

@@ -4,7 +4,8 @@ import type {
   PaperTranslationCache,
   PaperTranslationEntry,
   PaperTranslationProgress,
-  PaperTranslationSegment
+  PaperTranslationSegment,
+  PaperTranslationSegmentKind
 } from '../../../shared/types/paper'
 import {
   parsePaperTranslationSegments,
@@ -100,7 +101,7 @@ function isAffiliationLikeText(text: string): boolean {
 
   return (
     startsWithAffiliationMarker ||
-    hasMultipleInstitutionKeywords ||
+    (hasMultipleInstitutionKeywords && !hasSentenceTerminator) ||
     (commaCount >= 2 && !hasSentenceTerminator) ||
     (hasLocationCue && !hasSentenceTerminator)
   )
@@ -131,7 +132,9 @@ function hasFormulaDelimiters(segment: string): boolean {
     return false
   }
 
-  return /(^|[^\\])\${1,2}/.test(normalized) || /\\\[|\\\]|\\\(|\\\)/.test(normalized)
+  // 仅匹配独立的展示公式块（整个段落是公式），不匹配包含内联公式的正常文本
+  const trimmed = normalized.trim()
+  return /^\$\$[\s\S]*\$\$$/.test(trimmed) || /^\\\[.*\\\]$/.test(trimmed)
 }
 
 function hasLatexEnvironment(segment: string): boolean {
@@ -172,28 +175,52 @@ function looksLikeFormulaBody(segment: string): boolean {
   return false
 }
 
+const NATURAL_LANGUAGE_KINDS: ReadonlySet<PaperTranslationSegmentKind> = new Set([
+  'paragraph',
+  'heading',
+  'list',
+  'quote',
+  'table'
+])
+
 function isFormulaLikeSegment(segment: PaperTranslationSegment): boolean {
   const source = segment.originalMarkdown.trim()
 
-  return (
+  if (
     isStandaloneFormulaDelimiter(source) ||
     hasFormulaDelimiters(source) ||
-    hasLatexEnvironment(source) ||
-    looksLikeFormulaBody(source)
-  )
-}
-
-function isDividerLikeSegment(segment: PaperTranslationSegment): boolean {
-  const normalized = segment.originalMarkdown
-    .replace(/<\/?(?:div|p|span|section|article|figure)\b[^>]*>/gi, '')
-    .replace(/&nbsp;/gi, ' ')
-    .trim()
-
-  if (!normalized) {
+    hasLatexEnvironment(source)
+  ) {
     return true
   }
 
-  return /^(?:-{3,}|\*{3,}|_{3,}|<hr\b[^>]*\/?>)$/i.test(normalized)
+  if (NATURAL_LANGUAGE_KINDS.has(segment.kind)) {
+    return false
+  }
+
+  return looksLikeFormulaBody(source)
+}
+
+function isReferenceLikeSegment(segment: PaperTranslationSegment): boolean {
+  const text = normalizeSegmentText(segment.originalText)
+  if (!text) return false
+
+  const lines = segment.originalMarkdown
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+  const refLinePattern = /^\s*(?:\[\d+\]|\[\[\d+\]\])\s/
+  const allLinesAreRefs = lines.length > 0 && lines.every((line) => refLinePattern.test(line))
+
+  const refHeadingPattern =
+    /(?:^|\n)\s*(?:#{1,6}\s*)?(?:references?|bibliography|参考文献|文献)\s*[：:\s]*$/im
+
+  if (allLinesAreRefs || refHeadingPattern.test(text)) {
+    return true
+  }
+
+  return false
 }
 
 export function isAuthorLikeSegment(segment: PaperTranslationSegment): boolean {
@@ -227,10 +254,7 @@ export function isAuthorLikeSegment(segment: PaperTranslationSegment): boolean {
 
 function shouldSkipTranslationSegment(segment: PaperTranslationSegment): boolean {
   return (
-    segment.kind === 'image' ||
-    isDividerLikeSegment(segment) ||
-    isAuthorLikeSegment(segment) ||
-    isFormulaLikeSegment(segment)
+    segment.kind === 'image' || isFormulaLikeSegment(segment) || isReferenceLikeSegment(segment)
   )
 }
 
@@ -574,7 +598,7 @@ export class PaperTranslationCore {
       '<previous_context> 和 <next_context> 仅用于术语与语境参考，绝不能复述、复制或翻译到输出中。',
       '翻译要求：',
       '1. 只输出翻译后的 Markdown，不要输出解释、前言、注释或额外说明。',
-      '2. 作者姓名、人名、邮箱、ORCID、参考文献中的作者名、机构专名保持原样，不要翻译。',
+      '2. 作者姓名、人名、邮箱、ORCID、机构专名保持原样不要翻译，可直接保留英文。',
       '3. 保留公式、变量名、引用编号、链接、图片语法、表格结构和列表层级。',
       '4. 如原文已经是中文，仅做必要的学术化润色并保持原意。',
       '5. 不要遗漏内容，也不要补充原文没有的信息。',
