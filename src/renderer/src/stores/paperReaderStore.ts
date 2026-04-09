@@ -7,7 +7,8 @@ import type {
   PaperStatus,
   PaperTranslationCache,
   PaperTranslationEntry,
-  PaperTranslationProgress
+  PaperTranslationProgress,
+  PaperTranslationStatus
 } from '@shared/types/paper'
 import {
   buildBase64DataUrl,
@@ -437,6 +438,55 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
   }
 
+  const STATUS_PRIORITY: Record<PaperTranslationStatus, number> = {
+    queued: 0,
+    translating: 1,
+    failed: 2,
+    completed: 3,
+    skipped: 4
+  }
+
+  function mergeTranslationEntries(
+    snapshot: PaperTranslationCache,
+    live: PaperTranslationCache
+  ): PaperTranslationCache {
+    const liveEntryMap = new Map(live.entries.map((e) => [e.id, e]))
+    const mergedEntries = snapshot.entries.map((snapshotEntry) => {
+      const liveEntry = liveEntryMap.get(snapshotEntry.id)
+      if (!liveEntry) return snapshotEntry
+
+      const livePriority = STATUS_PRIORITY[liveEntry.status] ?? 0
+      const snapPriority = STATUS_PRIORITY[snapshotEntry.status] ?? 0
+
+      if (liveEntry.updatedAt && snapshotEntry.updatedAt) {
+        const liveTime = Date.parse(liveEntry.updatedAt)
+        const snapTime = Date.parse(snapshotEntry.updatedAt)
+        if (liveTime > snapTime) return liveEntry
+        if (liveTime < snapTime) return snapshotEntry
+      }
+
+      return livePriority >= snapPriority ? liveEntry : snapshotEntry
+    })
+
+    for (const [id, liveEntry] of liveEntryMap) {
+      if (!mergedEntries.find((e) => e.id === id)) {
+        mergedEntries.push(liveEntry)
+      }
+    }
+
+    mergedEntries.sort((left, right) => left.index - right.index)
+
+    return {
+      ...snapshot,
+      entries: mergedEntries,
+      completedSegments: mergedEntries.filter(
+        (e) => e.status === 'completed' || e.status === 'skipped'
+      ).length,
+      totalSegments: Math.max(snapshot.totalSegments, mergedEntries.length),
+      updatedAt: live.updatedAt > snapshot.updatedAt ? live.updatedAt : snapshot.updatedAt
+    }
+  }
+
   async function resolveFigureImagePath(imagePath: string): Promise<string> {
     if (!imagePath || /^(data:|blob:|https?:\/\/)/i.test(imagePath)) {
       return imagePath
@@ -675,12 +725,27 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       return
     }
 
-    setTranslationCache(paperId, result.data.cache)
-    setHasTranslationState(paperId, hasPaperTranslationResult(result.data.cache))
+    const snapshot = result.data.cache
+    const existingCache = translationByPaperId.value[paperId]
+
+    if (
+      existingCache &&
+      snapshot &&
+      existingCache.sourceHash === snapshot.sourceHash &&
+      existingCache.entries.length > 0
+    ) {
+      const merged = mergeTranslationEntries(snapshot, existingCache)
+      setTranslationCache(paperId, merged)
+      setHasTranslationState(paperId, hasPaperTranslationResult(merged))
+    } else {
+      setTranslationCache(paperId, snapshot)
+      setHasTranslationState(paperId, hasPaperTranslationResult(snapshot))
+    }
+
     setTranslationTaskState(paperId, {
       isRunning: result.data.isRunning,
-      completedSegments: result.data.cache?.completedSegments ?? 0,
-      totalSegments: result.data.cache?.totalSegments ?? 0
+      completedSegments: (snapshot ?? existingCache)?.completedSegments ?? 0,
+      totalSegments: (snapshot ?? existingCache)?.totalSegments ?? 0
     })
 
     if (result.data.isRunning) {
@@ -710,6 +775,10 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
         lastError: result.error
       })
       return { success: false, error: result.error }
+    }
+
+    if (result.alreadyRunning) {
+      return { success: true }
     }
 
     await loadTranslationState(paperId)
