@@ -14,7 +14,7 @@ import {
   shouldIgnoreCaptionlessFigureGroup
 } from './paperBlockClassifiers.ts'
 
-export { buildReaderMarkdown } from './paperMarkdownBuilder.ts'
+export { buildReaderDocument, buildReaderMarkdown } from './paperMarkdownBuilder.ts'
 export type {
   ExtractedPaperFigureData,
   PaperFigureRemovalGroup

@@ -1,4 +1,12 @@
-import type { PaperLayoutBlock, PaperPageOcrResult } from '../../../shared/types/paper'
+import { createHash } from 'crypto'
+import type {
+  PaperLayoutBlock,
+  PaperPageOcrResult,
+  PaperReaderDocument,
+  PaperReaderSegment,
+  PaperReaderSegmentSourceRefs
+} from '../../../shared/types/paper'
+import { parsePaperTranslationSegments } from '../../../shared/utils/paperTranslation.ts'
 import {
   getBlockImageSourceCandidates,
   getPlainText,
@@ -18,6 +26,13 @@ import type {
   ReplaceBlockResult,
   TextRunReplacement
 } from './paperFigureExtractorTypes.ts'
+
+interface ReaderVisibleBlockOccurrence {
+  pageIndex: number
+  blockIndex: number
+  start: number
+  end: number
+}
 
 function escapeRegExp(content: string): string {
   return content.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -525,6 +540,167 @@ function buildReaderPageFragment(
     leadingBlock: findBoundaryBlock(pageResult.blocks, removalIndexes, 'start'),
     trailingBlock: findBoundaryBlock(pageResult.blocks, removalIndexes, 'end'),
     ...leadingFloatingTableLayout
+  }
+}
+
+function createReaderHash(content: string): string {
+  return createHash('sha256').update(content).digest('hex')
+}
+
+function findDocumentBlockOccurrences(
+  markdown: string,
+  pageResults: PaperPageOcrResult[],
+  figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes'>
+): ReaderVisibleBlockOccurrence[] {
+  const occurrences: ReaderVisibleBlockOccurrence[] = []
+  let searchStart = 0
+
+  for (const pageResult of pageResults) {
+    const removalIndexes = new Set(figureData.pageRemovalBlockIndexes[pageResult.pageIndex] || [])
+
+    for (const block of pageResult.blocks) {
+      if (removalIndexes.has(block.index) || !block.content) {
+        continue
+      }
+
+      const searchValues = [
+        block.content,
+        ...(block.label === 'text' ? [normalizeMergeableTextBlockContent(block.content)] : [])
+      ].filter((value, index, values) => value && values.indexOf(value) === index)
+
+      let matchedStart = -1
+      let matchedContent = ''
+
+      for (const searchValue of searchValues) {
+        const start = markdown.indexOf(searchValue, searchStart)
+        if (start < 0) {
+          continue
+        }
+
+        if (matchedStart < 0 || start < matchedStart) {
+          matchedStart = start
+          matchedContent = searchValue
+        }
+      }
+
+      if (matchedStart < 0) {
+        continue
+      }
+
+      const end = matchedStart + matchedContent.length
+      occurrences.push({
+        pageIndex: pageResult.pageIndex,
+        blockIndex: block.index,
+        start: matchedStart,
+        end
+      })
+      searchStart = end
+    }
+  }
+
+  return occurrences
+}
+
+function buildSegmentSourceRefs(
+  segmentStart: number,
+  segmentEnd: number,
+  occurrences: ReaderVisibleBlockOccurrence[]
+): PaperReaderSegmentSourceRefs {
+  const matched = occurrences.filter((occurrence) => {
+    return occurrence.start < segmentEnd && occurrence.end > segmentStart
+  })
+
+  const pageIndexes = Array.from(new Set(matched.map((occurrence) => occurrence.pageIndex))).sort(
+    (left, right) => left - right
+  )
+  const blockIndexes = Array.from(new Set(matched.map((occurrence) => occurrence.blockIndex))).sort(
+    (left, right) => left - right
+  )
+  const first = matched[0]
+  const last = matched[matched.length - 1]
+
+  return {
+    pageIndexes,
+    blockIndexes,
+    start: first
+      ? {
+          pageIndex: first.pageIndex,
+          blockIndex: first.blockIndex
+        }
+      : undefined,
+    end: last
+      ? {
+          pageIndex: last.pageIndex,
+          blockIndex: last.blockIndex
+        }
+      : undefined
+  }
+}
+
+function buildReaderSegments(
+  paperId: string,
+  markdown: string,
+  pageResults: PaperPageOcrResult[],
+  figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes'>,
+  sourceRevisionId: string
+): PaperReaderSegment[] {
+  const parsedSegments = parsePaperTranslationSegments(markdown)
+  const blockOccurrences = findDocumentBlockOccurrences(markdown, pageResults, figureData)
+  const duplicateCounts = new Map<string, number>()
+  const segments: PaperReaderSegment[] = []
+  let searchStart = 0
+
+  for (const segment of parsedSegments) {
+    const renderId = segment.id
+    const segmentStart = markdown.indexOf(segment.originalMarkdown, searchStart)
+    const segmentEnd =
+      segmentStart >= 0 ? segmentStart + segment.originalMarkdown.length : searchStart
+    const sourceRefs = buildSegmentSourceRefs(segmentStart, segmentEnd, blockOccurrences)
+    const textHash = createReaderHash(segment.originalText)
+    const stableBase = [
+      segment.kind,
+      textHash,
+      sourceRefs.start?.pageIndex ?? -1,
+      sourceRefs.start?.blockIndex ?? -1,
+      sourceRefs.end?.pageIndex ?? -1,
+      sourceRefs.end?.blockIndex ?? -1
+    ].join('|')
+    const duplicateOrdinal = (duplicateCounts.get(stableBase) || 0) + 1
+    duplicateCounts.set(stableBase, duplicateOrdinal)
+    const stableId = createReaderHash(`${paperId}|${stableBase}|${duplicateOrdinal}`)
+
+    segments.push({
+      ...segment,
+      renderId,
+      stableId,
+      textHash,
+      duplicateOrdinal,
+      sourceRevisionId,
+      sourceRefs
+    })
+
+    if (segmentStart >= 0) {
+      searchStart = segmentEnd
+    }
+  }
+
+  return segments
+}
+
+export function buildReaderDocument(
+  paperId: string,
+  pageResults: PaperPageOcrResult[],
+  figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
+): PaperReaderDocument {
+  const markdown = buildReaderMarkdown(pageResults, figureData)
+  const sourceRevisionId = createReaderHash(markdown)
+
+  return {
+    paperId,
+    markdown,
+    sourceRevisionId,
+    updatedAt: new Date().toISOString(),
+    segments: buildReaderSegments(paperId, markdown, pageResults, figureData, sourceRevisionId)
   }
 }
 
