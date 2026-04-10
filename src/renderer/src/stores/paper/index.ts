@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import type { PaperDocument, PaperStatus } from '@shared/types/paper'
 import { createIdleTranslationTaskState, isPaperReadableStatus } from './shared'
 import { usePaperFigurePreview } from './composables/usePaperFigurePreview'
+import { usePaperAnnotations } from './composables/usePaperAnnotations'
 import { usePaperTranslation } from './composables/usePaperTranslation'
 import { usePaperRenderPipeline } from './composables/usePaperRenderPipeline'
 
@@ -56,6 +57,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   }
 
   const figurePreview = usePaperFigurePreview(currentPaperId)
+  const annotations = usePaperAnnotations(currentPaperId)
   const translation = usePaperTranslation(currentPaperId)
   const renderPipeline = usePaperRenderPipeline({
     papers,
@@ -95,6 +97,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     renderPipeline.clearRenderPipelineState(paperId)
     figurePreview.clearPaperFigureState(paperId)
     translation.clearTranslationState(paperId)
+    annotations.clearAnnotationState(paperId)
   }
 
   async function loadPapers(): Promise<void> {
@@ -219,26 +222,40 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       translation.setTranslationCache(paperId, null)
       translation.setTranslationTaskState(paperId, createIdleTranslationTaskState())
       translation.setHasTranslationState(paperId, false)
+      annotations.setReaderDocument(paperId, null)
+      annotations.setAnnotations(paperId, [])
       return
     }
 
     markdownLoading.value = true
     figurePreview.clearPaperToc()
     try {
-      const result = await window.api.paper.getReaderMarkdown(paperId)
-      if (result.success && result.data !== undefined) {
-        markdownContent.value = result.data
+      const readerDocument = await annotations.loadReaderDocument(paperId)
+      if (readerDocument) {
+        markdownContent.value = readerDocument.markdown
         await translation.loadTranslationState(paperId)
+        await annotations.loadAnnotations(paperId)
       } else {
         markdownContent.value = ''
         figurePreview.clearPaperToc()
         translation.setTranslationCache(paperId, null)
         translation.setTranslationTaskState(paperId, createIdleTranslationTaskState())
         translation.setHasTranslationState(paperId, false)
+        annotations.setAnnotations(paperId, [])
       }
     } finally {
       markdownLoading.value = false
     }
+  }
+
+  async function deleteTranslation(paperId: string): Promise<{ success: boolean; error?: string }> {
+    const result = await translation.deleteTranslation(paperId)
+    if (!result.success) {
+      return result
+    }
+
+    await annotations.loadAnnotations(paperId)
+    return result
   }
 
   return {
@@ -249,6 +266,8 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     markdownContent,
     markdownLoading,
     figuresByPaperId: figurePreview.figuresByPaperId,
+    readerDocumentByPaperId: annotations.readerDocumentByPaperId,
+    annotationsByPaperId: annotations.annotationsByPaperId,
     figureLoadingByPaperId: figurePreview.figureLoadingByPaperId,
     showFigurePanel: figurePreview.showFigurePanel,
     activeFigure: figurePreview.activeFigure,
@@ -263,6 +282,8 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     hasTranslationByPaperId: translation.hasTranslationByPaperId,
     currentPaper,
     currentPaperFigures: figurePreview.currentPaperFigures,
+    currentReaderDocument: annotations.currentReaderDocument,
+    currentAnnotations: annotations.currentAnnotations,
     currentTranslationCache: translation.currentTranslationCache,
     figureCaptionTranslationMap: translation.figureCaptionTranslationMap,
     currentTranslationTask: translation.currentTranslationTask,
@@ -276,6 +297,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     updatePaperStatus,
     uploadAndRenderPdf: renderPipeline.uploadAndRenderPdf,
     loadMarkdown,
+    loadAnnotations: annotations.loadAnnotations,
     loadFigures: figurePreview.loadFigures,
     setPaperTocOutline: figurePreview.setPaperTocOutline,
     clearPaperToc: figurePreview.clearPaperToc,
@@ -285,7 +307,10 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     loadTranslationState: translation.loadTranslationState,
     ensureTranslation: translation.ensureTranslation,
     loadTranslationStatus: translation.loadTranslationStatus,
-    deleteTranslation: translation.deleteTranslation,
+    deleteTranslation,
+    createAnnotation: annotations.createAnnotation,
+    reanchorAnnotation: annotations.reanchorAnnotation,
+    deleteAnnotation: annotations.deleteAnnotation,
     toggleTranslationVisible: translation.toggleTranslationVisible,
     retryPaper: renderPipeline.retryPaper,
     setFigurePanelVisible: figurePreview.setFigurePanelVisible,

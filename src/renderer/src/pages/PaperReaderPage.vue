@@ -13,6 +13,8 @@ const {
   markdownLoading,
   isOcrCompleted,
   paperBasePath,
+  currentAnnotations,
+  currentReaderDocument,
   translationVisible,
   currentTranslationCache
 } = storeToRefs(store)
@@ -43,6 +45,8 @@ onBeforeUnmount(() => {
         :loading="markdownLoading"
         :paper-id="currentPaperId || ''"
         :base-path="paperBasePath || undefined"
+        :annotations="currentAnnotations"
+        :reader-document="currentReaderDocument"
         :translation-visible="translationVisible"
         :translation-cache="currentTranslationCache"
       />
