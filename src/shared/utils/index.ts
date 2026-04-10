@@ -34,3 +34,6 @@ export * from './theme'
 
 // 论文翻译相关工具
 export * from './paperTranslation'
+
+// 论文批注锚点工具
+export * from './paperAnnotationAnchors'
