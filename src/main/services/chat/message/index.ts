@@ -1,7 +1,6 @@
 export {
   buildKnowledgeContext,
   formatDocumentsContext,
-  formatFileSize,
   formatMessagesWithKnowledge
 } from './MessageFormatter'
 export {
