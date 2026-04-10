@@ -224,7 +224,9 @@ function extractParagraphAbstractTitle(text: string): string | undefined {
   return /摘要/.test(match[1]) ? '摘要' : 'Abstract'
 }
 
-function extractTranslatedHeadingText(entry: PaperTranslationEntry | undefined): string | undefined {
+function extractTranslatedHeadingText(
+  entry: PaperTranslationEntry | undefined
+): string | undefined {
   if (!entry || entry.status !== 'completed') {
     return undefined
   }
@@ -241,7 +243,9 @@ function extractTranslatedHeadingText(entry: PaperTranslationEntry | undefined):
   return fallbackText || undefined
 }
 
-function extractTranslatedAbstractTitle(entry: PaperTranslationEntry | undefined): string | undefined {
+function extractTranslatedAbstractTitle(
+  entry: PaperTranslationEntry | undefined
+): string | undefined {
   if (!entry || entry.status !== 'completed') {
     return undefined
   }
@@ -287,10 +291,7 @@ function looksLikePaperTitleText(titleText: string): boolean {
   )
 }
 
-function resolvePaperTocLevel(
-  titleText: string,
-  markdownLevel: number
-): PaperTocItem['level'] {
+function resolvePaperTocLevel(titleText: string, markdownLevel: number): PaperTocItem['level'] {
   const numberingMatch = titleText.match(HEADING_NUMBERING_PATTERN)
   if (numberingMatch) {
     return clampPaperTocLevel(numberingMatch[1].split('.').length)
@@ -316,10 +317,7 @@ export function slugifyPaperHeadingText(text: string): string {
   return normalized || 'section'
 }
 
-function createUniquePaperTocId(
-  text: string,
-  usedCounts: Map<string, number>
-): string {
+function createUniquePaperTocId(text: string, usedCounts: Map<string, number>): string {
   const baseSlug = slugifyPaperHeadingText(text)
   const count = (usedCounts.get(baseSlug) || 0) + 1
   usedCounts.set(baseSlug, count)
@@ -540,7 +538,10 @@ function shouldTreatFirstHeadingAsDocumentTitle(
     return false
   }
 
-  if (HEADING_NUMBERING_PATTERN.test(candidate.text) || isPaperStructuralSectionTitle(candidate.text)) {
+  if (
+    HEADING_NUMBERING_PATTERN.test(candidate.text) ||
+    isPaperStructuralSectionTitle(candidate.text)
+  ) {
     return false
   }
 
@@ -567,7 +568,10 @@ function shouldTreatFirstHeadingAsDocumentTitle(
         continue
       }
 
-      if (HEADING_NUMBERING_PATTERN.test(heading.titleText) || isPaperStructuralSectionTitle(heading.titleText)) {
+      if (
+        HEADING_NUMBERING_PATTERN.test(heading.titleText) ||
+        isPaperStructuralSectionTitle(heading.titleText)
+      ) {
         return looksLikePaperTitleText(candidate.text)
       }
 

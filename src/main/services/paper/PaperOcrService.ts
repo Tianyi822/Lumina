@@ -2,7 +2,11 @@ import { net } from 'electron'
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
 import { logger } from '@main/services/logger'
 import { configManager } from '@main/services/config'
-import { DEFAULT_OCR_PROVIDER, getOcrProviderPreset, type OcrProviderId } from '@shared/types/config'
+import {
+  DEFAULT_OCR_PROVIDER,
+  getOcrProviderPreset,
+  type OcrProviderId
+} from '@shared/types/config'
 import type { PaperLayoutBlock, PaperPageOcrResult, BlockLabel } from '@shared/types/paper'
 import { PaperGlmOcrClient } from './PaperGlmOcrClient'
 import { paperStorageService } from './index'

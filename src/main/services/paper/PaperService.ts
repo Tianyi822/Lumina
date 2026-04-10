@@ -597,8 +597,8 @@ export class PaperService {
       }
 
       const currentAnnotation = annotationStoreResult.data.annotations[annotationIndex]
-      const translationAvailable =
-        !!paperStorageService.readTranslationCache(params.paperId).success
+      const translationAvailable = !!paperStorageService.readTranslationCache(params.paperId)
+        .success
       const nextOriginalAnchor = params.originalAnchor || currentAnnotation.originalAnchor
       const nextTranslationAnchor = params.translationAnchor
         ? { ...params.translationAnchor }
