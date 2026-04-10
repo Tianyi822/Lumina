@@ -13,7 +13,11 @@ import {
 } from '@shared/types/config'
 import { fileUrlToPath, isFileUrl } from '@shared/utils'
 import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
-import type { PaperStatus } from '@shared/types/paper'
+import type {
+  CreatePaperAnnotationPayload,
+  PaperStatus,
+  ReanchorPaperAnnotationPayload
+} from '@shared/types/paper'
 import { statSync, readFileSync } from 'fs'
 
 export function registerPaperHandlers(): void {
@@ -226,9 +230,32 @@ export function registerPaperHandlers(): void {
     return getPaperService().getReaderMarkdown(paperId)
   })
 
+  ipcMain.handle('paper:getReaderDocument', (_event, paperId: string) => {
+    return getPaperService().getReaderDocument(paperId)
+  })
+
   ipcMain.handle('paper:listFigures', async (_event, paperId: string) => {
     return getPaperService().listFigures(paperId)
   })
+
+  ipcMain.handle('paper:listAnnotations', (_event, paperId: string) => {
+    return getPaperService().listAnnotations(paperId)
+  })
+
+  ipcMain.handle('paper:createAnnotation', (_event, params: CreatePaperAnnotationPayload) => {
+    return getPaperService().createAnnotation(params)
+  })
+
+  ipcMain.handle('paper:reanchorAnnotation', (_event, params: ReanchorPaperAnnotationPayload) => {
+    return getPaperService().reanchorAnnotation(params)
+  })
+
+  ipcMain.handle(
+    'paper:deleteAnnotation',
+    (_event, params: { paperId: string; annotationId: string }) => {
+      return getPaperService().deleteAnnotation(params.paperId, params.annotationId)
+    }
+  )
 
   ipcMain.handle('paper:saveMergedMd', (_event, params: { paperId: string; content: string }) => {
     return paperStorageService.saveMergedMd(params.paperId, params.content)

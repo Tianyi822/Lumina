@@ -1,8 +1,12 @@
 import type { OcrProviderId } from '@shared/types/config'
 import type {
+  CreatePaperAnnotationPayload,
   OcrProgressInfo,
+  PaperAnnotation,
   PaperDocument,
   PaperFigureItem,
+  PaperReaderDocument,
+  ReanchorPaperAnnotationPayload,
   PaperStatus,
   PaperTranslationProgress,
   PaperTranslationState
@@ -10,6 +14,8 @@ import type {
 
 export type {
   BlockLabel,
+  CreatePaperAnnotationPayload,
+  LegacyPaperAnnotation,
   OcrProgressInfo,
   PaperAnnotation,
   PaperDocument,
@@ -17,7 +23,20 @@ export type {
   PaperLayoutBlock,
   PaperPageAsset,
   PaperPageOcrResult,
+  PaperReaderDocument,
+  PaperReaderSegment,
+  PaperReaderSegmentSourceRefs,
+  PaperReaderSourcePosition,
+  ReanchorPaperAnnotationPayload,
   PaperStatus,
+  PaperAnnotationNoteType,
+  PaperAnnotationRecoveryMeta,
+  PaperAnnotationSemanticAnchor,
+  PaperAnnotationStatus,
+  PaperAnnotationTextAnchor,
+  PaperAnnotationTranslationAnchor,
+  PaperAnnotationView,
+  PaperAnnotationStore,
   PaperTocEntry,
   PaperTocItem,
   PaperTocOutline,
@@ -74,10 +93,45 @@ export interface PaperApi {
     error?: string
   }>
 
+  /** 获取阅读器权威文档结构 */
+  getReaderDocument: (paperId: string) => Promise<{
+    success: boolean
+    data?: PaperReaderDocument
+    error?: string
+  }>
+
   /** 获取论文图片列表 */
   listFigures: (paperId: string) => Promise<{
     success: boolean
     data?: PaperFigureItem[]
+    error?: string
+  }>
+
+  /** 获取论文批注列表 */
+  listAnnotations: (paperId: string) => Promise<{
+    success: boolean
+    data?: PaperAnnotation[]
+    error?: string
+  }>
+
+  /** 创建论文批注 */
+  createAnnotation: (params: CreatePaperAnnotationPayload) => Promise<{
+    success: boolean
+    data?: PaperAnnotation
+    error?: string
+  }>
+
+  /** 重新绑定论文批注 */
+  reanchorAnnotation: (params: ReanchorPaperAnnotationPayload) => Promise<{
+    success: boolean
+    data?: PaperAnnotation
+    error?: string
+  }>
+
+  /** 删除论文批注 */
+  deleteAnnotation: (params: { paperId: string; annotationId: string }) => Promise<{
+    success: boolean
+    data?: PaperAnnotation[]
     error?: string
   }>
 
