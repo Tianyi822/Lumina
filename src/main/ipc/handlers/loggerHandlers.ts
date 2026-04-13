@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { logger } from '@main/services/logger'
-import { LogLevel, LogRequest, LogResult } from '@main/types/logger'
+import { LogLevel } from '@main/types/logger'
+import type { LogRequest, LogResult } from '@main/types/logger'
 
 /**
  * 初始化日志系统
