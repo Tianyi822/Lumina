@@ -7,6 +7,7 @@ import SandboxList from '@renderer/components/sandbox/SandboxList.vue'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
 import PaperSidebar from '@renderer/components/paper/PaperSidebar.vue'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
+import { summarizeTranslationAnnotations } from '@shared/utils/paperTranslationAnnotations'
 import {
   useChatStreamStore,
   useKnowledgeStore,
@@ -212,6 +213,32 @@ async function handleRetryPaper(paperId: string): Promise<void> {
 }
 
 async function handleDeleteTranslation(paperId: string): Promise<void> {
+  const cachedAnnotations = paperReaderStore.annotationsByPaperId[paperId]
+  const annotations = cachedAnnotations ?? (await paperReaderStore.loadAnnotations(paperId))
+  const translationSummary = summarizeTranslationAnnotations(annotations)
+
+  if (translationSummary.totalCount > 0) {
+    const confirmLines = [
+      '当前译文里已经有标注内容。',
+      `其中包含 ${translationSummary.totalCount} 条译文标注。`
+    ]
+
+    if (translationSummary.noteCount > 0) {
+      confirmLines.push(`笔记 ${translationSummary.noteCount} 条`)
+    }
+
+    if (translationSummary.highlightCount > 0) {
+      confirmLines.push(`标记 ${translationSummary.highlightCount} 条`)
+    }
+
+    confirmLines.push('删除译文后，这些译文标注也会一起删除。')
+    confirmLines.push('确定继续删除译文吗？')
+
+    if (!confirm(confirmLines.join('\n'))) {
+      return
+    }
+  }
+
   const result = await paperReaderStore.deleteTranslation(paperId)
   if (!result.success) {
     alert(`删除翻译失败：${result.error || '未知错误'}`)
