@@ -16,7 +16,8 @@ import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 import type {
   CreatePaperAnnotationPayload,
   PaperStatus,
-  ReanchorPaperAnnotationPayload
+  ReanchorPaperAnnotationPayload,
+  UpdatePaperAnnotationPayload
 } from '@shared/types/paper'
 import { statSync, readFileSync } from 'fs'
 
@@ -250,6 +251,10 @@ export function registerPaperHandlers(): void {
     return getPaperService().reanchorAnnotation(params)
   })
 
+  ipcMain.handle('paper:updateAnnotation', (_event, params: UpdatePaperAnnotationPayload) => {
+    return getPaperService().updateAnnotation(params)
+  })
+
   ipcMain.handle(
     'paper:deleteAnnotation',
     (_event, params: { paperId: string; annotationId: string }) => {
@@ -401,7 +406,7 @@ export function registerPaperHandlers(): void {
 
   ipcMain.handle('paper:deleteTranslation', (_event, paperId: string) => {
     paperTranslationService.cancelTranslation(paperId)
-    return paperStorageService.clearTranslationCache(paperId)
+    return getPaperService().deleteTranslation(paperId)
   })
 
   ipcMain.handle('paper:startTranslation', async (_event, params: { paperId: string }) => {
