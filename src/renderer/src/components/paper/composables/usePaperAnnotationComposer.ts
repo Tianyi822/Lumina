@@ -451,7 +451,16 @@ export function usePaperAnnotationComposer(
   }
 
   function openHoverPopover(annotation: PaperAnnotation, x: number, y: number): void {
-    const position = clampFloatingPosition(x, y, HOVER_POPOVER_WIDTH, HOVER_POPOVER_HEIGHT)
+    const offset = 12
+    const preferredX = x
+    const preferredY = y + offset
+
+    const position = clampFloatingPosition(
+      preferredX,
+      preferredY,
+      HOVER_POPOVER_WIDTH,
+      HOVER_POPOVER_HEIGHT
+    )
     annotationHoverPopover.value = {
       annotationId: annotation.id,
       x: position.x,
