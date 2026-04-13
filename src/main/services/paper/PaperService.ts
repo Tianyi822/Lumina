@@ -27,10 +27,16 @@ import type {
   PaperLayoutBlock,
   PaperReaderDocument,
   PaperReaderSegment,
-  PaperPageOcrResult
+  PaperPageOcrResult,
+  UpdatePaperAnnotationPayload
 } from '@shared/types/paper'
-import type { ReanchorPaperAnnotationPayload } from '@shared/types/paper'
+import {
+  PAPER_ANNOTATION_NOTE_COLOR_KEY,
+  type ReanchorPaperAnnotationPayload
+} from '@shared/types/paper'
 import { buildPaperTextAnchor } from '@shared/utils/paperAnnotationAnchors'
+import { removeTranslationAnnotationsFromStore } from '@shared/utils/paperTranslationAnnotations'
+import { createEmptyPaperAnnotationStore, normalizeAnnotationContent } from './paperAnnotationRules'
 
 function isRemoteImageUrl(content: string | undefined): boolean {
   return typeof content === 'string' && /^https?:\/\/\S+$/i.test(content.trim())
@@ -86,12 +92,7 @@ export class PaperService {
   private readonly ocrService = new PaperOcrService()
 
   private createEmptyAnnotationStore(paperId: string): PaperAnnotationStore {
-    return {
-      version: 2,
-      paperId,
-      annotations: [],
-      updatedAt: new Date().toISOString()
-    }
+    return createEmptyPaperAnnotationStore(paperId)
   }
 
   private findLegacyAnnotationSegment(
@@ -206,6 +207,7 @@ export class PaperService {
         annotations.push({
           id: legacyAnnotation.id,
           paperId,
+          kind: 'note' as const,
           noteType: 'original_span' as const,
           createdInView: 'original' as const,
           semanticAnchor: {
@@ -226,7 +228,7 @@ export class PaperService {
           contextBefore: originalAnchor.prefixText,
           contextAfter: originalAnchor.suffixText,
           comment: legacyAnnotation.comment,
-          color: legacyAnnotation.color,
+          colorKey: PAPER_ANNOTATION_NOTE_COLOR_KEY,
           status: matched?.matchedOffset !== null ? 'active' : 'needs_reanchor',
           recoveryMeta: {
             recoveryFailureCount: matched?.matchedOffset !== null ? 0 : 1,
@@ -243,7 +245,7 @@ export class PaperService {
     )
 
     return {
-      version: 2,
+      version: 3,
       paperId,
       annotations: migratedAnnotations,
       updatedAt: now
@@ -309,6 +311,38 @@ export class PaperService {
   deletePaper(paperId: string): { success: boolean; error?: string } {
     this.ocrService.offProgress(paperId)
     return paperStorageService.deletePaper(paperId)
+  }
+
+  deleteTranslation(paperId: string): { success: boolean; error?: string } {
+    const clearResult = paperStorageService.clearTranslationCache(paperId)
+    if (!clearResult.success) {
+      return { success: false, error: clearResult.error || '删除译文失败' }
+    }
+
+    const storeResult = paperStorageService.readAnnotationStore(paperId)
+    if (!storeResult.success || !storeResult.data) {
+      return { success: false, error: storeResult.error || '读取论文标注失败' }
+    }
+
+    const cleanupResult = removeTranslationAnnotationsFromStore(
+      storeResult.data,
+      new Date().toISOString()
+    )
+    if (cleanupResult.removedAnnotations.length === 0) {
+      return { success: true }
+    }
+
+    const saveResult = paperStorageService.saveAnnotationStore(paperId, cleanupResult.nextStore)
+    if (!saveResult.success) {
+      return { success: false, error: saveResult.error || '清理译文标注失败' }
+    }
+
+    logger.info('删除译文时已同步清理译文标注', 'main', {
+      paperId,
+      removedCount: cleanupResult.removedAnnotations.length
+    })
+
+    return { success: true }
   }
 
   async startOcr(paperId: string): Promise<{ success: boolean; error?: string }> {
@@ -471,6 +505,15 @@ export class PaperService {
         return { success: false, error: '译文视图批注缺少译文文本锚点' }
       }
 
+      const normalizedContentResult = normalizeAnnotationContent(
+        params.kind,
+        params.colorKey,
+        params.comment
+      )
+      if (!normalizedContentResult.success) {
+        return { success: false, error: normalizedContentResult.error }
+      }
+
       const annotationStoreResult = this.resolveAnnotationStore(params.paperId, readerResult.data)
       if (!annotationStoreResult.success) {
         return { success: false, error: annotationStoreResult.error || '读取论文批注失败' }
@@ -480,6 +523,7 @@ export class PaperService {
       const nextAnnotation: PaperAnnotation = {
         id: randomUUID(),
         paperId: params.paperId,
+        kind: params.kind,
         noteType: params.noteType,
         createdInView: params.createdInView,
         semanticAnchor: {
@@ -494,8 +538,8 @@ export class PaperService {
         selectedTextSnapshot: params.selectedTextSnapshot,
         contextBefore: params.contextBefore,
         contextAfter: params.contextAfter,
-        comment: params.comment,
-        color: params.color,
+        comment: normalizedContentResult.data.comment,
+        colorKey: normalizedContentResult.data.colorKey,
         status:
           params.noteType === 'translation_view' &&
           !paperStorageService.readTranslationCache(params.paperId).success
@@ -597,8 +641,20 @@ export class PaperService {
       }
 
       const currentAnnotation = annotationStoreResult.data.annotations[annotationIndex]
+      if (params.kind !== currentAnnotation.kind) {
+        return { success: false, error: '重新绑定时不允许修改标注类型' }
+      }
+
       const translationAvailable = !!paperStorageService.readTranslationCache(params.paperId)
         .success
+      const normalizedContentResult = normalizeAnnotationContent(
+        params.kind,
+        params.colorKey,
+        params.comment
+      )
+      if (!normalizedContentResult.success) {
+        return { success: false, error: normalizedContentResult.error }
+      }
       const nextOriginalAnchor = params.originalAnchor || currentAnnotation.originalAnchor
       const nextTranslationAnchor = params.translationAnchor
         ? { ...params.translationAnchor }
@@ -621,6 +677,7 @@ export class PaperService {
       const now = new Date().toISOString()
       const nextAnnotation: PaperAnnotation = {
         ...currentAnnotation,
+        kind: params.kind,
         semanticAnchor: {
           segmentStableId: targetSegment.stableId,
           renderSegmentIdAtCreation: targetSegment.renderId,
@@ -633,8 +690,8 @@ export class PaperService {
         selectedTextSnapshot: params.selectedTextSnapshot,
         contextBefore: params.contextBefore,
         contextAfter: params.contextAfter,
-        comment: params.comment,
-        color: params.color,
+        comment: normalizedContentResult.data.comment,
+        colorKey: normalizedContentResult.data.colorKey,
         status:
           currentAnnotation.noteType === 'translation_view' && !translationAvailable
             ? 'translation_missing'
@@ -673,6 +730,102 @@ export class PaperService {
         error: errorMessage
       })
       return { success: false, error: errorMessage || '重新绑定批注时发生内部错误' }
+    }
+  }
+
+  updateAnnotation(params: UpdatePaperAnnotationPayload): {
+    success: boolean
+    data?: PaperAnnotation
+    error?: string
+  } {
+    try {
+      const annotationStoreResult = this.resolveAnnotationStore(params.paperId)
+      if (!annotationStoreResult.success || !annotationStoreResult.data) {
+        return { success: false, error: annotationStoreResult.error || '读取论文批注失败' }
+      }
+
+      const annotationIndex = annotationStoreResult.data.annotations.findIndex((annotation) => {
+        return annotation.id === params.annotationId
+      })
+      if (annotationIndex < 0) {
+        return { success: false, error: '要更新的标注不存在' }
+      }
+
+      const currentAnnotation = annotationStoreResult.data.annotations[annotationIndex]
+      const now = new Date().toISOString()
+
+      let nextAnnotation: PaperAnnotation
+      if (currentAnnotation.kind === 'highlight') {
+        if (typeof params.comment !== 'undefined') {
+          return { success: false, error: '普通标记不支持修改笔记内容' }
+        }
+
+        if (!params.colorKey) {
+          return { success: false, error: '请先选择新的标记颜色' }
+        }
+
+        const normalizedContentResult = normalizeAnnotationContent('highlight', params.colorKey, '')
+        if (!normalizedContentResult.success) {
+          return { success: false, error: normalizedContentResult.error }
+        }
+
+        nextAnnotation = {
+          ...currentAnnotation,
+          comment: '',
+          colorKey: normalizedContentResult.data.colorKey,
+          updatedAt: now
+        }
+      } else {
+        if (typeof params.colorKey !== 'undefined') {
+          return { success: false, error: '笔记不支持修改高亮颜色' }
+        }
+
+        if (typeof params.comment !== 'string') {
+          return { success: false, error: '请先填写笔记内容' }
+        }
+
+        const normalizedContentResult = normalizeAnnotationContent(
+          'note',
+          currentAnnotation.colorKey,
+          params.comment
+        )
+        if (!normalizedContentResult.success) {
+          return { success: false, error: normalizedContentResult.error }
+        }
+
+        nextAnnotation = {
+          ...currentAnnotation,
+          comment: normalizedContentResult.data.comment,
+          colorKey: PAPER_ANNOTATION_NOTE_COLOR_KEY,
+          updatedAt: now
+        }
+      }
+
+      const nextAnnotations = [...annotationStoreResult.data.annotations]
+      nextAnnotations[annotationIndex] = nextAnnotation
+
+      const nextStore: PaperAnnotationStore = {
+        ...annotationStoreResult.data,
+        annotations: nextAnnotations,
+        updatedAt: now
+      }
+      const saveResult = paperStorageService.saveAnnotationStore(params.paperId, nextStore)
+      if (!saveResult.success) {
+        return { success: false, error: saveResult.error || '更新论文批注失败' }
+      }
+
+      return {
+        success: true,
+        data: nextAnnotation
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('更新论文批注失败', 'main', {
+        paperId: params.paperId,
+        annotationId: params.annotationId,
+        error: errorMessage
+      })
+      return { success: false, error: errorMessage || '更新批注时发生内部错误' }
     }
   }
 
