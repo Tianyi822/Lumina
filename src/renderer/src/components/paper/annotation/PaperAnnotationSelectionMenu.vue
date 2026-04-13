@@ -74,6 +74,7 @@ const emit = defineEmits<{
 .paper-annotation-selection-menu {
   position: fixed;
   width: min(248px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
   padding: 16px;
   border-radius: 18px;
   border: 1px solid var(--sm-color-border-default);
@@ -83,6 +84,7 @@ const emit = defineEmits<{
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(18px);
   z-index: 20;
+  overflow: auto;
 }
 
 .paper-annotation-selection-menu__title {
@@ -100,6 +102,8 @@ const emit = defineEmits<{
   font-size: 12px;
   line-height: 1.6;
   color: var(--sm-color-text-secondary);
+  max-height: 120px;
+  overflow: auto;
 }
 
 .paper-annotation-selection-menu__actions,

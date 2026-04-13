@@ -21,10 +21,6 @@ const emit = defineEmits<{
   (e: 'update-translation'): void
   (e: 'dismiss-outdated'): void
   (e: 'delete'): void
-  (e: 'pointer-enter'): void
-  (e: 'pointer-leave'): void
-  (e: 'focus-in'): void
-  (e: 'focus-out', event: FocusEvent): void
 }>()
 </script>
 
@@ -36,10 +32,6 @@ const emit = defineEmits<{
       top: `${state.y}px`
     }"
     @mousedown.stop
-    @pointerenter="emit('pointer-enter')"
-    @pointerleave="emit('pointer-leave')"
-    @focusin="emit('focus-in')"
-    @focusout="emit('focus-out', $event)"
   >
     <div class="paper-annotation-hover-popover__header">
       <div class="paper-annotation-hover-popover__title">
@@ -144,6 +136,7 @@ const emit = defineEmits<{
 .paper-annotation-hover-popover {
   position: fixed;
   width: min(336px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
   padding: 16px;
   border-radius: 18px;
   border: 1px solid var(--sm-color-border-default);
@@ -153,6 +146,7 @@ const emit = defineEmits<{
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(18px);
   z-index: 20;
+  overflow: auto;
 }
 
 .paper-annotation-hover-popover__header {
@@ -188,6 +182,8 @@ const emit = defineEmits<{
   font-size: 12px;
   line-height: 1.6;
   color: var(--sm-color-text-secondary);
+  max-height: 104px;
+  overflow: auto;
 }
 
 .paper-annotation-hover-popover__palette {
