@@ -36,6 +36,7 @@ interface PaperTocTreeNode {
 
 const tocContainerRef = ref<HTMLElement | null>(null)
 const figureContainerRef = ref<HTMLElement | null>(null)
+const figurePanelRef = ref<HTMLElement | null>(null)
 const showTocPanel = ref(false)
 
 const shouldAvoidMacWindowControls = computed(() => {
@@ -195,7 +196,17 @@ function getTocEntryDisplayText(entry: PaperTocEntry): string {
 }
 
 function handlePreviewFigure(figure: PaperFigureItem): void {
-  paperReaderStore.openFigurePreview(figure)
+  const panelRect = figurePanelRef.value?.getBoundingClientRect()
+
+  paperReaderStore.openFigurePreview(figure, {
+    initialRect: panelRect
+      ? {
+          left: panelRect.left,
+          top: panelRect.top,
+          width: panelRect.width
+        }
+      : undefined
+  })
 }
 
 function handleClickOutside(event: MouseEvent): void {
@@ -430,6 +441,7 @@ onUnmounted(() => {
 
       <div
         v-if="showFigurePanel"
+        ref="figurePanelRef"
         class="sm-workspace-toolbar__figure-panel"
         role="dialog"
         aria-label="论文图片列表"
