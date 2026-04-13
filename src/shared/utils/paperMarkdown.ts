@@ -68,7 +68,13 @@ export function normalizePaperMarkdownForRender(
       offset: number,
       source: string
     ) => {
-      const lineStart = offset + linePrefix.length + indentation.length + indexText.length + delimiter.length + spacing.length
+      const lineStart =
+        offset +
+        linePrefix.length +
+        indentation.length +
+        indexText.length +
+        delimiter.length +
+        spacing.length
       const lineEnd = source.indexOf('\n', lineStart)
       const content = source.slice(lineStart, lineEnd >= 0 ? lineEnd : source.length)
 

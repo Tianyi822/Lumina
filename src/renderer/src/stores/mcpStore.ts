@@ -447,17 +447,13 @@ export const useMCPStore = defineStore(
 
       statusListenerCleanup = window.api.mcp.onStatusChange((event: MCPStatusChangeEvent) => {
         window.api.logger?.debug('[MCPStore] 收到状态变更事件', {
-          type: event.type,
-          serverName: event.serverName
+          serverName: event.serverName,
+          connected: event.status.connected,
+          error: event.status.error
         })
 
-        // 更新连接状态
-        if (event.type === 'connected' || event.type === 'disconnected') {
-          refreshStatuses()
-          loadAllTools()
-        } else if (event.type === 'tools_updated') {
-          loadAllTools()
-        }
+        refreshStatuses()
+        loadAllTools()
       })
 
       window.api.logger?.debug('[MCPStore] 状态监听器已设置')

@@ -12,6 +12,8 @@ import { join } from 'path'
 import { createHash } from 'crypto'
 import { logger } from '@main/services/logger'
 import type {
+  LegacyPaperAnnotation,
+  PaperAnnotationStore,
   PaperDocument,
   PaperPageAsset,
   PaperPageOcrResult,
@@ -20,6 +22,7 @@ import type {
 } from '@shared/types/paper'
 import {
   ensurePaperDirs,
+  getPaperAnnotationsPath,
   getPaperDirPath,
   getPaperMetaPath,
   getPaperMergedMdPath,
@@ -33,6 +36,40 @@ import {
 
 export const MAX_PAPER_PAGES = 200
 export const MAX_PAPER_FILE_SIZE = 200 * 1024 * 1024
+
+function createEmptyAnnotationStore(paperId: string): PaperAnnotationStore {
+  return {
+    version: 2,
+    paperId,
+    annotations: [],
+    updatedAt: new Date().toISOString()
+  }
+}
+
+function looksLikeLegacyAnnotationArray(value: unknown): value is LegacyPaperAnnotation[] {
+  if (!Array.isArray(value)) {
+    return false
+  }
+
+  return value.every((item) => {
+    return (
+      item &&
+      typeof item === 'object' &&
+      'id' in item &&
+      'paperId' in item &&
+      'pageIndex' in item &&
+      'blockIndex' in item &&
+      'selectedText' in item &&
+      'comment' in item
+    )
+  })
+}
+
+interface PaperAnnotationData {
+  kind: 'store' | 'legacy'
+  store?: PaperAnnotationStore
+  legacyAnnotations?: LegacyPaperAnnotation[]
+}
 
 export class PaperStorageService {
   private upsertPageAsset(document: PaperDocument, asset: PaperPageAsset): PaperPageAsset[] {
@@ -384,6 +421,120 @@ export class PaperStorageService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('清理翻译缓存失败', 'main', { paperId, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  readAnnotationStore(paperId: string): {
+    success: boolean
+    data?: PaperAnnotationStore
+    error?: string
+  } {
+    const result = this.readAnnotationData(paperId)
+    if (!result.success) {
+      return { success: false, error: result.error }
+    }
+
+    if (result.data?.kind === 'store' && result.data.store) {
+      return { success: true, data: result.data.store }
+    }
+
+    return { success: true, data: createEmptyAnnotationStore(paperId) }
+  }
+
+  readAnnotationData(paperId: string): {
+    success: boolean
+    data?: PaperAnnotationData
+    error?: string
+  } {
+    try {
+      const annotationsPath = getPaperAnnotationsPath(paperId)
+      if (!existsSync(annotationsPath)) {
+        return {
+          success: true,
+          data: {
+            kind: 'store',
+            store: createEmptyAnnotationStore(paperId)
+          }
+        }
+      }
+
+      const content = readFileSync(annotationsPath, 'utf-8')
+      const parsed = JSON.parse(content) as unknown
+
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        'version' in parsed &&
+        'annotations' in parsed &&
+        Array.isArray(parsed.annotations)
+      ) {
+        const store = parsed as PaperAnnotationStore
+        return {
+          success: true,
+          data: {
+            kind: 'store',
+            store: {
+              ...createEmptyAnnotationStore(paperId),
+              ...store,
+              paperId
+            }
+          }
+        }
+      }
+
+      if (looksLikeLegacyAnnotationArray(parsed)) {
+        return {
+          success: true,
+          data: {
+            kind: 'legacy',
+            legacyAnnotations: parsed
+          }
+        }
+      }
+
+      return {
+        success: true,
+        data: {
+          kind: 'store',
+          store: createEmptyAnnotationStore(paperId)
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('读取论文批注失败', 'main', { paperId, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  saveAnnotationStore(
+    paperId: string,
+    store: PaperAnnotationStore
+  ): { success: boolean; error?: string } {
+    try {
+      const paperDir = getPaperDirPath(paperId)
+      if (!existsSync(paperDir)) {
+        mkdirSync(paperDir, { recursive: true })
+      }
+
+      writeFileSync(
+        getPaperAnnotationsPath(paperId),
+        JSON.stringify(
+          {
+            ...store,
+            version: 2,
+            paperId,
+            updatedAt: store.updatedAt || new Date().toISOString()
+          },
+          null,
+          2
+        ),
+        'utf-8'
+      )
+      return { success: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('保存论文批注失败', 'main', { paperId, error: errorMessage })
       return { success: false, error: errorMessage }
     }
   }

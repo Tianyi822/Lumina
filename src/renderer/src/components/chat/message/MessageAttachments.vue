@@ -2,6 +2,7 @@
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { getFileTypeIcon } from '@renderer/utils/fileIcons'
 import type { Message } from '@renderer/types'
+import { formatFileSize } from '@shared/utils'
 
 defineProps<{
   attachments: {
@@ -9,15 +10,6 @@ defineProps<{
     images?: Message['attachedImages']
   }
 }>()
-
-/**
- * 格式化文件大小
- */
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
 </script>
 
 <template>

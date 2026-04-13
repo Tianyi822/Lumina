@@ -7,6 +7,7 @@ import {
   IMAGE_MAX_COUNT,
   normalizeImageFile
 } from '../utils/imageCompress'
+import { formatFileSize } from '@shared/utils'
 import type { CompressedImage } from '../utils/imageCompress'
 
 /**
@@ -225,15 +226,6 @@ export const useImageUploadStore = defineStore('imageUpload', () => {
    */
   function clearImages(sessionId: string): void {
     pendingImages.value.set(sessionId, [])
-  }
-
-  /**
-   * 格式化文件大小
-   */
-  function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
   return {

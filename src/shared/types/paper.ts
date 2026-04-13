@@ -174,9 +174,9 @@ export interface PaperFigureItem {
 }
 
 /**
- * 论文批注信息
+ * 历史论文批注信息（已废弃，仅用于兼容旧数据迁移）
  */
-export interface PaperAnnotation {
+export interface LegacyPaperAnnotation {
   /** 批注唯一标识 */
   id: string
   /** 所属论文 ID */
@@ -290,6 +290,10 @@ export interface PaperTranslationCache {
   paperId: string
   /** 当前阅读版 Markdown 的内容哈希 */
   sourceHash: string
+  /** 当前译文修订版本 ID */
+  translationRevisionId?: string
+  /** 当前翻译使用的模型名 */
+  modelName?: string
   /** 内容哈希版本 */
   sourceHashVersion?: 1 | 2
   /** 段落总数 */
@@ -334,4 +338,239 @@ export interface PaperTranslationState {
   cache: PaperTranslationCache | null
   /** 是否仍在后台翻译 */
   isRunning: boolean
+}
+
+/**
+ * 阅读器段落来源位置
+ */
+export interface PaperReaderSourcePosition {
+  /** 页码 */
+  pageIndex: number
+  /** 块索引 */
+  blockIndex: number
+}
+
+/**
+ * 阅读器段落来源信息
+ */
+export interface PaperReaderSegmentSourceRefs {
+  /** 覆盖的页码集合 */
+  pageIndexes: number[]
+  /** 覆盖的块索引集合 */
+  blockIndexes: number[]
+  /** 起始来源位置 */
+  start?: PaperReaderSourcePosition
+  /** 结束来源位置 */
+  end?: PaperReaderSourcePosition
+}
+
+/**
+ * 阅读器段落信息
+ */
+export interface PaperReaderSegment extends PaperTranslationSegment {
+  /** 当前渲染段落 ID */
+  renderId: string
+  /** 稳定语义锚点 ID */
+  stableId: string
+  /** 文本哈希 */
+  textHash: string
+  /** 重复内容序号（从 1 开始） */
+  duplicateOrdinal: number
+  /** 阅读器来源修订 ID */
+  sourceRevisionId: string
+  /** 来源位置信息 */
+  sourceRefs: PaperReaderSegmentSourceRefs
+}
+
+/**
+ * 权威阅读器文档结构
+ */
+export interface PaperReaderDocument {
+  /** 论文 ID */
+  paperId: string
+  /** 当前阅读版 Markdown */
+  markdown: string
+  /** 阅读器内容修订 ID */
+  sourceRevisionId: string
+  /** 构建时间 */
+  updatedAt: string
+  /** 阅读器段落 */
+  segments: PaperReaderSegment[]
+}
+
+/**
+ * 批注锚定类型
+ */
+export type PaperAnnotationNoteType = 'original_span' | 'translation_view'
+
+/**
+ * 批注创建视图
+ */
+export type PaperAnnotationView = 'original' | 'translation'
+
+/**
+ * 批注状态
+ */
+export type PaperAnnotationStatus = 'active' | 'translation_missing' | 'needs_reanchor' | 'invalid'
+
+/**
+ * 文本引用锚点
+ */
+export interface PaperAnnotationTextAnchor {
+  /** 选中文本 */
+  selectedText: string
+  /** 选区前缀快照 */
+  prefixText: string
+  /** 选区后缀快照 */
+  suffixText: string
+  /** 起始偏移 */
+  startOffset: number
+  /** 结束偏移 */
+  endOffset: number
+  /** 归一化后的文本 */
+  normalizedText: string
+}
+
+/**
+ * 原文语义锚点
+ */
+export interface PaperAnnotationSemanticAnchor {
+  /** 稳定段落 ID */
+  segmentStableId: string
+  /** 创建时的渲染段落 ID */
+  renderSegmentIdAtCreation: string
+  /** 创建时阅读器修订 ID */
+  sourceRevisionId: string
+  /** 创建时段落文本哈希 */
+  segmentTextHash: string
+  /** 段落来源信息 */
+  sourceRefs: PaperReaderSegmentSourceRefs
+}
+
+/**
+ * 译文辅助锚点
+ */
+export interface PaperAnnotationTranslationAnchor extends PaperAnnotationTextAnchor {
+  /** 创建时译文修订 ID */
+  translationRevisionId: string
+  /** 创建时翻译模型 */
+  modelName?: string
+}
+
+/**
+ * 批注恢复状态
+ */
+export interface PaperAnnotationRecoveryMeta {
+  /** 最后一次成功定位时间 */
+  lastResolvedAt?: string
+  /** 最后一次恢复尝试时间 */
+  lastRecoveryAttemptAt?: string
+  /** 恢复失败次数 */
+  recoveryFailureCount: number
+}
+
+/**
+ * 新版论文批注信息
+ */
+export interface PaperAnnotation {
+  /** 批注唯一标识 */
+  id: string
+  /** 所属论文 ID */
+  paperId: string
+  /** 批注类型 */
+  noteType: PaperAnnotationNoteType
+  /** 创建视图 */
+  createdInView: PaperAnnotationView
+  /** 原文语义锚点 */
+  semanticAnchor: PaperAnnotationSemanticAnchor
+  /** 原文文本锚点 */
+  originalAnchor?: PaperAnnotationTextAnchor
+  /** 译文辅助锚点 */
+  translationAnchor?: PaperAnnotationTranslationAnchor
+  /** 选中文本快照 */
+  selectedTextSnapshot: string
+  /** 前文快照 */
+  contextBefore: string
+  /** 后文快照 */
+  contextAfter: string
+  /** 批注内容 */
+  comment: string
+  /** 高亮颜色 */
+  color: string
+  /** 当前状态 */
+  status: PaperAnnotationStatus
+  /** 恢复元数据 */
+  recoveryMeta: PaperAnnotationRecoveryMeta
+  /** 创建时间 */
+  createdAt: string
+  /** 最后更新时间 */
+  updatedAt: string
+}
+
+/**
+ * 批注存储文件
+ */
+export interface PaperAnnotationStore {
+  /** 存储版本 */
+  version: 2
+  /** 论文 ID */
+  paperId: string
+  /** 批注列表 */
+  annotations: PaperAnnotation[]
+  /** 最后更新时间 */
+  updatedAt: string
+}
+
+/**
+ * 创建批注请求
+ */
+export interface CreatePaperAnnotationPayload {
+  /** 论文 ID */
+  paperId: string
+  /** 批注类型 */
+  noteType: PaperAnnotationNoteType
+  /** 创建视图 */
+  createdInView: PaperAnnotationView
+  /** 原文语义锚点 */
+  semanticAnchor: PaperAnnotationSemanticAnchor
+  /** 原文文本锚点 */
+  originalAnchor?: PaperAnnotationTextAnchor
+  /** 译文辅助锚点 */
+  translationAnchor?: PaperAnnotationTranslationAnchor
+  /** 选中文本快照 */
+  selectedTextSnapshot: string
+  /** 前文快照 */
+  contextBefore: string
+  /** 后文快照 */
+  contextAfter: string
+  /** 批注内容 */
+  comment: string
+  /** 高亮颜色 */
+  color: string
+}
+
+/**
+ * 重新绑定批注请求
+ */
+export interface ReanchorPaperAnnotationPayload {
+  /** 论文 ID */
+  paperId: string
+  /** 批注 ID */
+  annotationId: string
+  /** 原文语义锚点 */
+  semanticAnchor: PaperAnnotationSemanticAnchor
+  /** 原文文本锚点 */
+  originalAnchor?: PaperAnnotationTextAnchor
+  /** 译文辅助锚点 */
+  translationAnchor?: PaperAnnotationTranslationAnchor
+  /** 选中文本快照 */
+  selectedTextSnapshot: string
+  /** 前文快照 */
+  contextBefore: string
+  /** 后文快照 */
+  contextAfter: string
+  /** 批注内容 */
+  comment: string
+  /** 高亮颜色 */
+  color: string
 }

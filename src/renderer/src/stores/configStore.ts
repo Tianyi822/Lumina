@@ -91,20 +91,36 @@ export const useConfigStore = defineStore('config', () => {
       successMessage.value = ''
     }
     try {
+      const currentConfig = (await window.api.config.getConfig()) as AppConfig | null
       const plainThemeConfig = deepClone(themeConfig.value)
       const plainLlmConfigs = deepClone(llmConfigs.value)
       const plainPaperOcrConfig = deepClone(paperOcrConfig.value)
+      const baseConfig = currentConfig
+        ? deepClone(currentConfig)
+        : ({
+            theme: plainThemeConfig,
+            llm_config: {
+              default_model: defaultModel.value,
+              compression_threshold: 0,
+              enable_auto_compression: false,
+              models: []
+            },
+            mcpServers: {},
+            paperOcr: plainPaperOcrConfig
+          } satisfies AppConfig)
 
-      const result = await window.api.config.updateConfig({
+      const nextConfig: AppConfig = {
+        ...baseConfig,
         theme: plainThemeConfig,
         llm_config: {
+          ...baseConfig.llm_config,
           default_model: defaultModel.value,
-          compression_threshold: 0,
-          enable_auto_compression: false,
           models: plainLlmConfigs
         },
         paperOcr: plainPaperOcrConfig
-      })
+      }
+
+      const result = await window.api.config.saveConfig(nextConfig)
       if (result.success) {
         if (!options.silent) {
           successMessage.value = '配置保存成功'

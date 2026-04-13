@@ -112,7 +112,11 @@ test('各种格式的表格段都会被识别为 table 段', () => {
   assert.equal(parsePaperTranslationSegments(htmlTable)[0].kind, 'table')
 
   // 含对齐标记的分隔行表格
-  const alignTable = ['| Left | Center | Right |', '|:-----|:------:|------:|', '| a | b | c |'].join('\n')
+  const alignTable = [
+    '| Left | Center | Right |',
+    '|:-----|:------:|------:|',
+    '| a | b | c |'
+  ].join('\n')
   assert.equal(parsePaperTranslationSegments(alignTable)[0].kind, 'table')
 })
 
@@ -315,7 +319,10 @@ test('文档标题和 synthetic 摘要都能保留翻译标题文本', () => {
     }
   ])
 
-  assert.equal(outline.documentTitle?.translatedText, 'DA-Mamba：面向全局-局部对齐的领域感知状态空间模型')
+  assert.equal(
+    outline.documentTitle?.translatedText,
+    'DA-Mamba：面向全局-局部对齐的领域感知状态空间模型'
+  )
   assert.equal(outline.items[0].text, 'Abstract')
   assert.equal(outline.items[0].translatedText, '摘要')
 })

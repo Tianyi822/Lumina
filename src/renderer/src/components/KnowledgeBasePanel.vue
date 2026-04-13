@@ -66,10 +66,14 @@ async function loadKnowledgeBases(): Promise<void> {
     if (result.success && result.data) {
       allKnowledgeBases.value = result.data
     } else {
-      console.error('加载知识库列表失败:', result.error)
+      window.api.logger.error('[KnowledgeBasePanel] 加载知识库列表失败', {
+        error: result.error
+      })
     }
   } catch (error) {
-    console.error('加载知识库列表出错:', error)
+    window.api.logger.error('[KnowledgeBasePanel] 加载知识库列表失败', {
+      error: error instanceof Error ? error.message : String(error)
+    })
   }
 }
 

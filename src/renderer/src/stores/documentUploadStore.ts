@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
+import { formatFileSize } from '@shared/utils'
 
 /**
  * 待发送文档信息
@@ -188,17 +189,6 @@ export const useDocumentUploadStore = defineStore('documentUpload', () => {
    */
   function getPendingDocumentsForSending(sessionId: string): PendingDocument[] {
     return pendingDocuments.value.get(sessionId) || []
-  }
-
-  /**
-   * 格式化文件大小
-   * @param bytes 字节数
-   * @returns 格式化后的字符串
-   */
-  function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
   return {

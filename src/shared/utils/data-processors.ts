@@ -14,10 +14,9 @@ export function deepClone<T>(obj: T): T {
   if (typeof structuredClone !== 'undefined') {
     try {
       return structuredClone(obj)
-    } catch (error) {
-      // structuredClone 无法克隆某些对象（如包含循环引用的对象）
-      // 降级到 JSON 序列化
-      console.warn('structuredClone failed, falling back to JSON serialization', error)
+    } catch {
+      // structuredClone 无法克隆某些对象（如包含循环引用的对象），
+      // 这里静默降级，避免 shared 层引入日志依赖。
       return JSON.parse(JSON.stringify(obj))
     }
   }

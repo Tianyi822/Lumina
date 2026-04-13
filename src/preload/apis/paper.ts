@@ -1,7 +1,11 @@
 import { ipcRenderer } from 'electron'
 import type {
+  CreatePaperAnnotationPayload,
+  PaperAnnotation,
   PaperDocument,
   PaperFigureItem,
+  PaperReaderDocument,
+  ReanchorPaperAnnotationPayload,
   PaperStatus,
   PaperTranslationProgress,
   PaperTranslationState
@@ -152,12 +156,58 @@ export const paperApi = {
   },
 
   /**
+   * 获取阅读器权威文档结构
+   */
+  getReaderDocument: (
+    paperId: string
+  ): Promise<{ success: boolean; data?: PaperReaderDocument; error?: string }> => {
+    return ipcRenderer.invoke('paper:getReaderDocument', paperId)
+  },
+
+  /**
    * 获取论文图片列表
    */
   listFigures: (
     paperId: string
   ): Promise<{ success: boolean; data?: PaperFigureItem[]; error?: string }> => {
     return ipcRenderer.invoke('paper:listFigures', paperId)
+  },
+
+  /**
+   * 获取论文批注列表
+   */
+  listAnnotations: (
+    paperId: string
+  ): Promise<{ success: boolean; data?: PaperAnnotation[]; error?: string }> => {
+    return ipcRenderer.invoke('paper:listAnnotations', paperId)
+  },
+
+  /**
+   * 创建论文批注
+   */
+  createAnnotation: (
+    params: CreatePaperAnnotationPayload
+  ): Promise<{ success: boolean; data?: PaperAnnotation; error?: string }> => {
+    return ipcRenderer.invoke('paper:createAnnotation', params)
+  },
+
+  /**
+   * 重新绑定论文批注
+   */
+  reanchorAnnotation: (
+    params: ReanchorPaperAnnotationPayload
+  ): Promise<{ success: boolean; data?: PaperAnnotation; error?: string }> => {
+    return ipcRenderer.invoke('paper:reanchorAnnotation', params)
+  },
+
+  /**
+   * 删除论文批注
+   */
+  deleteAnnotation: (params: {
+    paperId: string
+    annotationId: string
+  }): Promise<{ success: boolean; data?: PaperAnnotation[]; error?: string }> => {
+    return ipcRenderer.invoke('paper:deleteAnnotation', params)
   },
 
   /**

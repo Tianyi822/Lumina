@@ -1,46 +1,15 @@
 import { ipcRenderer } from 'electron'
+import type {
+  KnowledgeApi,
+  KnowledgeBase,
+  KnowledgeBaseStats,
+  KnowledgeFileProgressEvent,
+  KnowledgeIndexingStatus,
+  KnowledgeReindexProgressEvent,
+  KnowledgeReindexSummary,
+  KnowledgeSearchResponse
+} from '../types/knowledge'
 import { createIpcListener } from './base'
-
-/**
- * 知识库绑定的嵌入模型配置
- */
-export interface KnowledgeBaseEmbeddingConfig {
-  baseUrl: string
-  apiKey?: string
-  displayName?: string
-  model: string
-  dimensions: number
-}
-
-/**
- * 知识库的配置
- */
-export interface KnowledgeBase {
-  id: string
-  name: string
-  description?: string
-  embeddingConfig: KnowledgeBaseEmbeddingConfig
-  embeddingDimension: number
-  chunkSize: number
-  chunkOverlap: number
-  createdAt: string
-  updatedAt: string
-  documentCount?: number
-  linkedFileIds: string[]
-}
-
-/**
- * 搜索结果
- */
-export interface SearchResult {
-  chunkId: number
-  fileId: string
-  fileName: string
-  content: string
-  chunkIndex: number
-  totalChunks: number
-  similarity: number
-}
 
 /**
  * API 响应的通用格式
@@ -52,61 +21,9 @@ export interface ApiResponse<T = unknown> {
 }
 
 /**
- * 搜索结果响应
- */
-export interface SearchResponse {
-  results?: SearchResult[]
-}
-
-/**
- * 重新索引的响应
- */
-export interface ReindexResponse {
-  indexedCount: number
-  failedFiles: string[]
-  failedErrors?: string[]
-}
-
-/**
- * 知识库的统计信息
- */
-export interface KnowledgeBaseStats {
-  fileCount: number
-  chunkCount: number
-  dbSize: number
-}
-
-/**
- * 文件处理的进度
- */
-export interface FileProcessingProgress {
-  fileId: string
-  fileName: string
-  status: 'processing' | 'completed' | 'failed'
-  progress?: number
-  error?: string
-}
-
-/**
- * 文件进度事件的数据
- */
-export interface FileProgressEvent {
-  kbId: string
-  progress: FileProcessingProgress
-}
-
-/**
- * 重新索引进度事件的数据
- */
-export interface ReindexProgressEvent {
-  kbId: string
-  progress: { current: number; total: number; currentFile?: string }
-}
-
-/**
  * 知识库相关的 API
  */
-export const knowledgeApi = {
+export const knowledgeApi: KnowledgeApi = {
   /**
    * 获取所有知识库
    */
@@ -172,14 +89,18 @@ export const knowledgeApi = {
   reindex: (
     kbId: string,
     files: Array<{ fileId: string; filePath: string; fileName: string }>
-  ): Promise<ApiResponse<ReindexResponse>> => {
+  ): Promise<ApiResponse<KnowledgeReindexSummary>> => {
     return ipcRenderer.invoke('knowledge:reindex', kbId, files)
   },
 
   /**
    * 在知识库中搜索
    */
-  search: (kbId: string, query: string, limit?: number): Promise<ApiResponse<SearchResponse>> => {
+  search: (
+    kbId: string,
+    query: string,
+    limit?: number
+  ): Promise<ApiResponse<KnowledgeSearchResponse>> => {
     return ipcRenderer.invoke('knowledge:search', kbId, query, limit)
   },
 
@@ -200,20 +121,7 @@ export const knowledgeApi = {
   /**
    * 获取索引的状态
    */
-  getIndexingStatus: (): Promise<
-    ApiResponse<{
-      isIndexing: boolean
-      indexingFiles: Array<{
-        kbId: string
-        fileId: string
-        fileName?: string
-        progress?: number
-        status?: string
-      }>
-      activeIndexingKbId: string | null
-      queueLength: number
-    }>
-  > => {
+  getIndexingStatus: (): Promise<ApiResponse<KnowledgeIndexingStatus>> => {
     return ipcRenderer.invoke('knowledge:getIndexingStatus')
   },
 
@@ -228,13 +136,15 @@ export const knowledgeApi = {
 /**
  * 监听文件索引的进度事件
  */
-export function onFileProgress(callback: (data: FileProgressEvent) => void): () => void {
-  return createIpcListener<FileProgressEvent>('knowledge:file-progress', callback)
+export function onFileProgress(callback: (data: KnowledgeFileProgressEvent) => void): () => void {
+  return createIpcListener<KnowledgeFileProgressEvent>('knowledge:file-progress', callback)
 }
 
 /**
  * 监听重新索引的进度事件
  */
-export function onReindexProgress(callback: (data: ReindexProgressEvent) => void): () => void {
-  return createIpcListener<ReindexProgressEvent>('knowledge:reindex-progress', callback)
+export function onReindexProgress(
+  callback: (data: KnowledgeReindexProgressEvent) => void
+): () => void {
+  return createIpcListener<KnowledgeReindexProgressEvent>('knowledge:reindex-progress', callback)
 }

@@ -70,6 +70,10 @@ const PROMPT_ARTIFACT_TAG_PATTERN =
   /<\/?(?:previous_context|next_context|current_segment|translation)(?:\s+[^>]*)?>/gi
 const LEADING_MARKER_PATTERN = /^(\s*(?:\[\d+\]|\[\[\d+\]\]|\d+[.)]|[-*+]))\s+/
 
+function createPaperTranslationRevisionId(sourceHash: string, updatedAt: string): string {
+  return `${sourceHash.slice(0, 12)}:${updatedAt}`
+}
+
 function getFigureCaptionSourceText(figure: PaperFigureItem): string {
   return figure.caption || figure.subCaption || ''
 }
@@ -454,19 +458,32 @@ export class PaperTranslationCore {
     }
 
     const cache = this.buildCache(paperId, source)
-    this.persistCache(paperId, cache)
 
     const pendingEntries = cache.entries.filter(
       (entry) => entry.status === 'queued' || entry.status === 'failed'
     )
 
-    if (pendingEntries.length === 0) {
-      return { success: true }
+    let llmConfig: LLMConfig | null = null
+    if (pendingEntries.length > 0) {
+      llmConfig = this.deps.getDefaultLlmConfig()
+      if (!llmConfig) {
+        return { success: false, error: '未找到可用的默认模型配置' }
+      }
+
+      cache.modelName = llmConfig.model_name
     }
 
-    const llmConfig = this.deps.getDefaultLlmConfig()
-    if (!llmConfig) {
-      return { success: false, error: '未找到可用的默认模型配置' }
+    if (!cache.translationRevisionId) {
+      cache.translationRevisionId = createPaperTranslationRevisionId(
+        cache.sourceHash,
+        cache.updatedAt
+      )
+    }
+
+    this.persistCache(paperId, cache)
+
+    if (pendingEntries.length === 0) {
+      return { success: true }
     }
 
     const task: ActiveTranslationTask = {
@@ -478,7 +495,7 @@ export class PaperTranslationCore {
     }
 
     this.tasks.set(paperId, task)
-    task.promise = this.runTask(task, llmConfig)
+    task.promise = this.runTask(task, llmConfig!)
 
     return { success: true }
   }
@@ -497,7 +514,26 @@ export class PaperTranslationCore {
       cachedCache.sourceHash === source.sourceHash &&
       cachedCache.sourceHashVersion === source.sourceHashVersion
     ) {
-      return cachedCache
+      if (cachedCache.translationRevisionId) {
+        return cachedCache
+      }
+
+      const upgradedCache: PaperTranslationCache = {
+        ...cachedCache,
+        translationRevisionId: createPaperTranslationRevisionId(
+          cachedCache.sourceHash,
+          cachedCache.updatedAt
+        )
+      }
+      const saveResult = this.deps.saveCache(paperId, upgradedCache)
+      if (!saveResult.success) {
+        this.deps.logger.warn('补齐翻译修订信息失败', 'main', {
+          paperId,
+          error: saveResult.error
+        })
+      }
+
+      return upgradedCache
     }
 
     const cachedDescriptorEntries = buildSourceDescriptorEntriesFromCache(cachedCache)
@@ -506,6 +542,9 @@ export class PaperTranslationCore {
         ...cachedCache,
         paperId,
         sourceHash: source.sourceHash,
+        translationRevisionId:
+          cachedCache.translationRevisionId ||
+          createPaperTranslationRevisionId(source.sourceHash, cachedCache.updatedAt),
         sourceHashVersion: source.sourceHashVersion,
         totalSegments: source.segments.length,
         completedSegments: countCompletedSegments(cachedCache.entries),
@@ -599,6 +638,10 @@ export class PaperTranslationCore {
     return {
       paperId,
       sourceHash: source.sourceHash,
+      translationRevisionId:
+        existingCache?.translationRevisionId ||
+        createPaperTranslationRevisionId(source.sourceHash, updatedAt),
+      modelName: existingCache?.modelName,
       sourceHashVersion: source.sourceHashVersion,
       totalSegments: entries.length,
       completedSegments: countCompletedSegments(entries),

@@ -17,7 +17,10 @@ async function loadEmbeddingModels(): Promise<void> {
       embeddingModels.value = result.data
     }
   } catch (error) {
-    console.error('加载嵌入模型配置失败:', error)
+    window.api.logger.error('[EmbeddingModelInfo] 加载嵌入模型配置失败', {
+      error: error instanceof Error ? error.message : String(error),
+      kbId: props.currentKB.id
+    })
   } finally {
     loadingEmbeddingModels.value = false
   }

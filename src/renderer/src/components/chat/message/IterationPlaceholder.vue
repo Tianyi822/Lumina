@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ReactIterationStatus } from '@renderer/types'
+import type { UiReactIterationStatus } from '@renderer/types'
 
 const props = defineProps<{
   iteration: number
-  status?: ReactIterationStatus
+  status?: UiReactIterationStatus
 }>()
 
 /**

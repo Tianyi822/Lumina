@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import type { AttachedDocument } from '@shared/types/chat'
+import { formatFileSize } from '@shared/utils'
 import type { ChatMessage, KnowledgeSearchResult } from '../../../types/chat'
 
 /**
@@ -56,15 +57,6 @@ export function formatDocumentsContext(documents: AttachedDocument[]): string {
   })
 
   return context
-}
-
-/**
- * 格式化文件大小
- */
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 /**

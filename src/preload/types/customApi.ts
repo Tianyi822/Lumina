@@ -5,7 +5,11 @@ import type { SessionApi } from './session'
 import type { MCPApi } from './mcp'
 import type { WindowApi } from './window'
 import type { EmbeddingApi, EmbeddingModelsApi } from './embedding'
-import type { KnowledgeApi, FileProgressEvent, ReindexProgressEvent } from './knowledge'
+import type {
+  KnowledgeApi,
+  KnowledgeFileProgressEvent,
+  KnowledgeReindexProgressEvent
+} from './knowledge'
 import type { FileApi } from './file'
 import type { SandboxApi } from './sandbox'
 import type { DocumentApi } from './document'
@@ -29,8 +33,8 @@ export interface CustomApi {
   file: FileApi
   sandbox: SandboxApi
   document: DocumentApi
-  onFileProgress: (callback: (data: FileProgressEvent) => void) => () => void
-  onReindexProgress: (callback: (data: ReindexProgressEvent) => void) => () => void
+  onFileProgress: (callback: (data: KnowledgeFileProgressEvent) => void) => () => void
+  onReindexProgress: (callback: (data: KnowledgeReindexProgressEvent) => void) => () => void
   // 提示词工程统一 API
   promptEngineering: PromptEngineeringApi
   // 知识库 MCP 服务 API
