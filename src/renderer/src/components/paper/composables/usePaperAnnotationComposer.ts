@@ -19,6 +19,7 @@ import {
   mapPaperTextAnchorBetweenTexts
 } from '@shared/utils/paperAnnotationAnchors'
 import {
+  clampFloatingPosition,
   computeFloatingPosition,
   HOVER_POPOVER_HEIGHT,
   HOVER_POPOVER_WIDTH,
@@ -133,12 +134,7 @@ export interface PaperAnnotationComposer {
   isAnnotationOutdated: (annotation: PaperAnnotation) => boolean
   handleDocumentPointerDown: (event: MouseEvent) => void
   handleDocumentKeyDown: (event: KeyboardEvent) => void
-  handleSurfacePointerMove: (event: PointerEvent) => void
-  handleSurfacePointerLeave: () => void
-  handleHoverPopoverPointerEnter: () => void
-  handleHoverPopoverPointerLeave: () => void
-  handleHoverPopoverFocusIn: () => void
-  handleHoverPopoverFocusOut: (event: FocusEvent) => void
+  handleSurfaceAnnotationClick: (event: MouseEvent) => void
 }
 
 export function usePaperAnnotationComposer(
@@ -156,10 +152,6 @@ export function usePaperAnnotationComposer(
   const hoverPopoverError = ref<string | null>(null)
   const rebindAnnotationId = ref<string | null>(null)
   const ignoredOutdatedAnnotationIds = ref<Record<string, true>>({})
-
-  const hoverPopoverPointerInside = ref(false)
-  const hoverPopoverFocusInside = ref(false)
-  let hoverPopoverCloseTimer: ReturnType<typeof setTimeout> | null = null
 
   const currentTranslationRevisionId = computed(() => {
     const cache = options.translationCache()
@@ -208,15 +200,6 @@ export function usePaperAnnotationComposer(
     return getAnnotationById(annotationHoverPopover.value.annotationId)
   })
 
-  function clearHoverPopoverCloseTimer(): void {
-    if (!hoverPopoverCloseTimer) {
-      return
-    }
-
-    clearTimeout(hoverPopoverCloseTimer)
-    hoverPopoverCloseTimer = null
-  }
-
   function createTranslationAnchorPayload(
     anchor: PaperAnnotationTextAnchor | undefined
   ): CreatePaperAnnotationPayload['translationAnchor'] {
@@ -245,14 +228,19 @@ export function usePaperAnnotationComposer(
     hoverPopoverComment.value = ''
     hoverPopoverSaving.value = false
     hoverPopoverError.value = null
-    hoverPopoverPointerInside.value = false
-    hoverPopoverFocusInside.value = false
-    clearHoverPopoverCloseTimer()
   }
 
   function clearComposer(): void {
     clearSelectionUi()
     clearHoverPopover()
+  }
+
+  function clearNativeSelection(): void {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.getSelection()?.removeAllRanges()
   }
 
   function cancelRebindMode(): void {
@@ -261,6 +249,7 @@ export function usePaperAnnotationComposer(
 
   function handleCancelComposer(): void {
     clearComposer()
+    clearNativeSelection()
     if (rebindAnnotationId.value) {
       cancelRebindMode()
     }
@@ -440,6 +429,16 @@ export function usePaperAnnotationComposer(
 
   function openNoteEditor(draft: SelectionDraft, rect: DOMRect, comment: string): void {
     const position = computeFloatingPosition(rect, NOTE_EDITOR_WIDTH, NOTE_EDITOR_HEIGHT)
+    openNoteEditorAtPosition(draft, position.x, position.y, comment)
+  }
+
+  function openNoteEditorAtPosition(
+    draft: SelectionDraft,
+    x: number,
+    y: number,
+    comment: string
+  ): void {
+    const position = clampFloatingPosition(x, y, NOTE_EDITOR_WIDTH, NOTE_EDITOR_HEIGHT)
     noteEditorDraft.value = {
       draft,
       x: position.x,
@@ -466,15 +465,6 @@ export function usePaperAnnotationComposer(
     }
     hoverPopoverSaving.value = false
     hoverPopoverError.value = null
-  }
-
-  function scheduleHoverPopoverClose(): void {
-    clearHoverPopoverCloseTimer()
-    hoverPopoverCloseTimer = setTimeout(() => {
-      if (!hoverPopoverPointerInside.value && !hoverPopoverFocusInside.value) {
-        clearHoverPopover()
-      }
-    }, 120)
   }
 
   async function persistSelectionDraft(
@@ -540,7 +530,6 @@ export function usePaperAnnotationComposer(
     }
 
     clearComposer()
-    window.getSelection()?.removeAllRanges()
 
     if (selectionResult.targetAnnotation) {
       if (selectionResult.targetAnnotation.kind === 'note') {
@@ -587,6 +576,7 @@ export function usePaperAnnotationComposer(
     }
 
     clearSelectionUi()
+    clearNativeSelection()
   }
 
   function handleOpenNoteEditorFromSelection(): void {
@@ -595,13 +585,12 @@ export function usePaperAnnotationComposer(
     }
 
     const targetAnnotation = getAnnotationById(selectionActionMenu.value.draft.annotationId || null)
-    const rect = new DOMRect(
+    openNoteEditorAtPosition(
+      selectionActionMenu.value.draft,
       selectionActionMenu.value.x,
       selectionActionMenu.value.y,
-      SELECTION_MENU_WIDTH,
-      SELECTION_MENU_HEIGHT
+      targetAnnotation?.comment || ''
     )
-    openNoteEditor(selectionActionMenu.value.draft, rect, targetAnnotation?.comment || '')
   }
 
   async function handleSaveNote(): Promise<void> {
@@ -626,10 +615,12 @@ export function usePaperAnnotationComposer(
 
     noteEditorSaving.value = false
     clearSelectionUi()
+    clearNativeSelection()
   }
 
   function handleCancelNoteEditor(): void {
     clearSelectionUi()
+    clearNativeSelection()
   }
 
   async function handleUpdateHoverColor(colorKey: PaperAnnotationColorKey): Promise<void> {
@@ -796,6 +787,7 @@ export function usePaperAnnotationComposer(
     }
 
     clearSelectionUi()
+    clearNativeSelection()
 
     if (!target.closest('mark.paper-annotation-highlight')) {
       clearHoverPopover()
@@ -805,11 +797,12 @@ export function usePaperAnnotationComposer(
   function handleDocumentKeyDown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
       clearComposer()
+      clearNativeSelection()
       cancelRebindMode()
     }
   }
 
-  function handleSurfacePointerMove(event: PointerEvent): void {
+  function handleSurfaceAnnotationClick(event: MouseEvent): void {
     if (selectionActionMenu.value || noteEditorDraft.value) {
       return
     }
@@ -817,9 +810,6 @@ export function usePaperAnnotationComposer(
     const target = event.target as HTMLElement | null
     const markElement = target?.closest<HTMLElement>('mark.paper-annotation-highlight')
     if (!markElement) {
-      if (!hoverPopoverPointerInside.value && !hoverPopoverFocusInside.value) {
-        scheduleHoverPopoverClose()
-      }
       return
     }
 
@@ -828,41 +818,12 @@ export function usePaperAnnotationComposer(
       return
     }
 
-    clearHoverPopoverCloseTimer()
-    openHoverPopover(annotation, markElement)
-  }
-
-  function handleSurfacePointerLeave(): void {
-    if (!hoverPopoverPointerInside.value && !hoverPopoverFocusInside.value) {
-      scheduleHoverPopoverClose()
-    }
-  }
-
-  function handleHoverPopoverPointerEnter(): void {
-    hoverPopoverPointerInside.value = true
-    clearHoverPopoverCloseTimer()
-  }
-
-  function handleHoverPopoverPointerLeave(): void {
-    hoverPopoverPointerInside.value = false
-    scheduleHoverPopoverClose()
-  }
-
-  function handleHoverPopoverFocusIn(): void {
-    hoverPopoverFocusInside.value = true
-    clearHoverPopoverCloseTimer()
-  }
-
-  function handleHoverPopoverFocusOut(event: FocusEvent): void {
-    const nextTarget = event.relatedTarget as Node | null
-    const currentTarget = event.currentTarget as HTMLElement | null
-
-    if (nextTarget && currentTarget?.contains(nextTarget)) {
+    if (annotationHoverPopover.value?.annotationId === annotation.id) {
+      clearHoverPopover()
       return
     }
 
-    hoverPopoverFocusInside.value = false
-    scheduleHoverPopoverClose()
+    openHoverPopover(annotation, markElement)
   }
 
   return {
@@ -906,11 +867,6 @@ export function usePaperAnnotationComposer(
     isAnnotationOutdated,
     handleDocumentPointerDown,
     handleDocumentKeyDown,
-    handleSurfacePointerMove,
-    handleSurfacePointerLeave,
-    handleHoverPopoverPointerEnter,
-    handleHoverPopoverPointerLeave,
-    handleHoverPopoverFocusIn,
-    handleHoverPopoverFocusOut
+    handleSurfaceAnnotationClick
   }
 }

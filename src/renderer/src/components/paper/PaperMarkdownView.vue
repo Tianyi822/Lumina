@@ -124,8 +124,7 @@ onBeforeUnmount(() => {
     <div
       class="paper-markdown-view__scroll"
       @mouseup="composer.updateComposerFromSelection"
-      @pointermove="composer.handleSurfacePointerMove"
-      @pointerleave="composer.handleSurfacePointerLeave"
+      @click="composer.handleSurfaceAnnotationClick"
     >
       <div v-if="loading" class="paper-markdown-view__loading">
         <p>正在加载内容...</p>
@@ -341,10 +340,6 @@ onBeforeUnmount(() => {
       @update-translation="handleHoverPopoverUpdateTranslation"
       @dismiss-outdated="handleHoverPopoverDismissOutdated"
       @delete="handleHoverPopoverDelete"
-      @pointer-enter="composer.handleHoverPopoverPointerEnter"
-      @pointer-leave="composer.handleHoverPopoverPointerLeave"
-      @focus-in="composer.handleHoverPopoverFocusIn"
-      @focus-out="composer.handleHoverPopoverFocusOut"
     />
   </div>
 </template>
