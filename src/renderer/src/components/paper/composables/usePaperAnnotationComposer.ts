@@ -450,9 +450,8 @@ export function usePaperAnnotationComposer(
     selectionActionMenu.value = null
   }
 
-  function openHoverPopover(annotation: PaperAnnotation, markElement: HTMLElement): void {
-    const rect = markElement.getBoundingClientRect()
-    const position = computeFloatingPosition(rect, HOVER_POPOVER_WIDTH, HOVER_POPOVER_HEIGHT)
+  function openHoverPopover(annotation: PaperAnnotation, x: number, y: number): void {
+    const position = clampFloatingPosition(x, y, HOVER_POPOVER_WIDTH, HOVER_POPOVER_HEIGHT)
     annotationHoverPopover.value = {
       annotationId: annotation.id,
       x: position.x,
@@ -823,7 +822,7 @@ export function usePaperAnnotationComposer(
       return
     }
 
-    openHoverPopover(annotation, markElement)
+    openHoverPopover(annotation, event.clientX, event.clientY)
   }
 
   return {
