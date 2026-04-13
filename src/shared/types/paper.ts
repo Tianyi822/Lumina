@@ -404,6 +404,26 @@ export interface PaperReaderDocument {
 export type PaperAnnotationNoteType = 'original_span' | 'translation_view'
 
 /**
+ * 批注内容类型
+ */
+export type PaperAnnotationKind = 'highlight' | 'note'
+
+/**
+ * 批注颜色标识
+ */
+export type PaperAnnotationColorKey = 'blue' | 'yellow' | 'orange' | 'green'
+
+/**
+ * 可用于普通标记的颜色列表
+ */
+export const PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS = ['blue', 'yellow', 'orange'] as const
+
+/**
+ * 笔记固定颜色
+ */
+export const PAPER_ANNOTATION_NOTE_COLOR_KEY = 'green' as const
+
+/**
  * 批注创建视图
  */
 export type PaperAnnotationView = 'original' | 'translation'
@@ -477,6 +497,8 @@ export interface PaperAnnotation {
   id: string
   /** 所属论文 ID */
   paperId: string
+  /** 批注内容类型 */
+  kind: PaperAnnotationKind
   /** 批注类型 */
   noteType: PaperAnnotationNoteType
   /** 创建视图 */
@@ -495,8 +517,8 @@ export interface PaperAnnotation {
   contextAfter: string
   /** 批注内容 */
   comment: string
-  /** 高亮颜色 */
-  color: string
+  /** 高亮颜色标识 */
+  colorKey: PaperAnnotationColorKey
   /** 当前状态 */
   status: PaperAnnotationStatus
   /** 恢复元数据 */
@@ -512,7 +534,7 @@ export interface PaperAnnotation {
  */
 export interface PaperAnnotationStore {
   /** 存储版本 */
-  version: 2
+  version: 3
   /** 论文 ID */
   paperId: string
   /** 批注列表 */
@@ -527,6 +549,8 @@ export interface PaperAnnotationStore {
 export interface CreatePaperAnnotationPayload {
   /** 论文 ID */
   paperId: string
+  /** 批注内容类型 */
+  kind: PaperAnnotationKind
   /** 批注类型 */
   noteType: PaperAnnotationNoteType
   /** 创建视图 */
@@ -545,8 +569,8 @@ export interface CreatePaperAnnotationPayload {
   contextAfter: string
   /** 批注内容 */
   comment: string
-  /** 高亮颜色 */
-  color: string
+  /** 高亮颜色标识 */
+  colorKey: PaperAnnotationColorKey
 }
 
 /**
@@ -557,6 +581,8 @@ export interface ReanchorPaperAnnotationPayload {
   paperId: string
   /** 批注 ID */
   annotationId: string
+  /** 批注内容类型 */
+  kind: PaperAnnotationKind
   /** 原文语义锚点 */
   semanticAnchor: PaperAnnotationSemanticAnchor
   /** 原文文本锚点 */
@@ -571,6 +597,20 @@ export interface ReanchorPaperAnnotationPayload {
   contextAfter: string
   /** 批注内容 */
   comment: string
-  /** 高亮颜色 */
-  color: string
+  /** 高亮颜色标识 */
+  colorKey: PaperAnnotationColorKey
+}
+
+/**
+ * 更新批注请求
+ */
+export interface UpdatePaperAnnotationPayload {
+  /** 论文 ID */
+  paperId: string
+  /** 批注 ID */
+  annotationId: string
+  /** 新的批注内容 */
+  comment?: string
+  /** 新的颜色标识 */
+  colorKey?: PaperAnnotationColorKey
 }

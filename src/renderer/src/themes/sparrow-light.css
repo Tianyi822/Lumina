@@ -50,6 +50,10 @@
   --sm-color-paper-progress-render: #5c748f;
   --sm-color-paper-progress-ocr: #2f855a;
   --sm-color-paper-progress-retry: #a86914;
+  --sm-color-paper-annotation-blue: rgba(126, 176, 222, 0.32);
+  --sm-color-paper-annotation-yellow: rgba(243, 214, 118, 0.42);
+  --sm-color-paper-annotation-orange: rgba(242, 175, 108, 0.38);
+  --sm-color-paper-annotation-green: rgba(126, 197, 148, 0.34);
 
   --sm-color-border-subtle: rgba(0, 0, 0, 0.06);
   --sm-color-border-default: rgba(0, 0, 0, 0.1);

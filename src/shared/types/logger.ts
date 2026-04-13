@@ -1,14 +1,16 @@
 /**
- * 日志级别的枚举
+ * 日志级别常量
  * 按严重程度从低到高排序
  */
-export enum LogLevel {
-  DEBUG = 0,
-  INFO = 1,
-  WARN = 2,
-  ERROR = 3,
-  FATAL = 4
-}
+export const LogLevel = {
+  DEBUG: 0,
+  INFO: 1,
+  WARN: 2,
+  ERROR: 3,
+  FATAL: 4
+} as const
+
+export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel]
 
 /**
  * 日志级别名称的映射表

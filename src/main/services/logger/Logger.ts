@@ -1,13 +1,7 @@
 import { existsSync, mkdirSync } from 'fs'
 import { appendFile } from 'fs/promises'
-import {
-  LogLevel,
-  LogLevelNames,
-  LogSource,
-  LogEntry,
-  LoggerConfig,
-  LogResult
-} from '@main/types/logger'
+import { LogLevel, LogLevelNames } from '@main/types/logger'
+import type { LogSource, LogEntry, LoggerConfig, LogResult } from '@main/types/logger'
 import { getLogDirPath, getLogFilePath, formatDateForFilename, isLogPathSafe } from './loggerPaths'
 
 // 最大日志消息长度（10KB）

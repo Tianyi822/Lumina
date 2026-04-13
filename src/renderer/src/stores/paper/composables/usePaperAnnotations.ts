@@ -3,7 +3,8 @@ import type {
   CreatePaperAnnotationPayload,
   PaperAnnotation,
   PaperReaderDocument,
-  ReanchorPaperAnnotationPayload
+  ReanchorPaperAnnotationPayload,
+  UpdatePaperAnnotationPayload
 } from '@shared/types/paper'
 import { deepClone } from '@shared/utils'
 
@@ -19,6 +20,9 @@ export interface PaperAnnotationComposable {
   ) => Promise<{ success: boolean; data?: PaperAnnotation; error?: string }>
   reanchorAnnotation: (
     params: ReanchorPaperAnnotationPayload
+  ) => Promise<{ success: boolean; data?: PaperAnnotation; error?: string }>
+  updateAnnotation: (
+    params: UpdatePaperAnnotationPayload
   ) => Promise<{ success: boolean; data?: PaperAnnotation; error?: string }>
   deleteAnnotation: (
     paperId: string,
@@ -131,6 +135,23 @@ export function usePaperAnnotations(currentPaperId: Ref<string | null>): PaperAn
     return result
   }
 
+  async function updateAnnotation(
+    params: UpdatePaperAnnotationPayload
+  ): Promise<{ success: boolean; data?: PaperAnnotation; error?: string }> {
+    const plainParams = toPlainPayload(params)
+    const result = await window.api.paper.updateAnnotation(plainParams)
+    if (!result.success || !result.data) {
+      return { success: false, error: result.error }
+    }
+
+    const current = annotationsByPaperId.value[plainParams.paperId] || []
+    const nextAnnotations = current.map((annotation) => {
+      return annotation.id === plainParams.annotationId ? result.data! : annotation
+    })
+    setAnnotations(plainParams.paperId, nextAnnotations)
+    return result
+  }
+
   async function deleteAnnotation(
     paperId: string,
     annotationId: string
@@ -156,6 +177,7 @@ export function usePaperAnnotations(currentPaperId: Ref<string | null>): PaperAn
     loadAnnotations,
     createAnnotation,
     reanchorAnnotation,
+    updateAnnotation,
     deleteAnnotation,
     setReaderDocument,
     setAnnotations,

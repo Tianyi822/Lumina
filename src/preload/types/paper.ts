@@ -6,6 +6,7 @@ import type {
   PaperDocument,
   PaperFigureItem,
   PaperReaderDocument,
+  UpdatePaperAnnotationPayload,
   ReanchorPaperAnnotationPayload,
   PaperStatus,
   PaperTranslationProgress,
@@ -27,6 +28,7 @@ export type {
   PaperReaderSegment,
   PaperReaderSegmentSourceRefs,
   PaperReaderSourcePosition,
+  UpdatePaperAnnotationPayload,
   ReanchorPaperAnnotationPayload,
   PaperStatus,
   PaperAnnotationNoteType,
@@ -123,6 +125,13 @@ export interface PaperApi {
 
   /** 重新绑定论文批注 */
   reanchorAnnotation: (params: ReanchorPaperAnnotationPayload) => Promise<{
+    success: boolean
+    data?: PaperAnnotation
+    error?: string
+  }>
+
+  /** 更新论文批注 */
+  updateAnnotation: (params: UpdatePaperAnnotationPayload) => Promise<{
     success: boolean
     data?: PaperAnnotation
     error?: string

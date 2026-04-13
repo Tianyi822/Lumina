@@ -21,6 +21,10 @@ import type {
   PaperStatus
 } from '@shared/types/paper'
 import {
+  createEmptyPaperAnnotationStore,
+  normalizeStoredAnnotationStore
+} from './paperAnnotationRules'
+import {
   ensurePaperDirs,
   getPaperAnnotationsPath,
   getPaperDirPath,
@@ -38,12 +42,7 @@ export const MAX_PAPER_PAGES = 200
 export const MAX_PAPER_FILE_SIZE = 200 * 1024 * 1024
 
 function createEmptyAnnotationStore(paperId: string): PaperAnnotationStore {
-  return {
-    version: 2,
-    paperId,
-    annotations: [],
-    updatedAt: new Date().toISOString()
-  }
+  return createEmptyPaperAnnotationStore(paperId)
 }
 
 function looksLikeLegacyAnnotationArray(value: unknown): value is LegacyPaperAnnotation[] {
@@ -474,11 +473,7 @@ export class PaperStorageService {
           success: true,
           data: {
             kind: 'store',
-            store: {
-              ...createEmptyAnnotationStore(paperId),
-              ...store,
-              paperId
-            }
+            store: normalizeStoredAnnotationStore(paperId, store)
           }
         }
       }
@@ -521,9 +516,7 @@ export class PaperStorageService {
         getPaperAnnotationsPath(paperId),
         JSON.stringify(
           {
-            ...store,
-            version: 2,
-            paperId,
+            ...normalizeStoredAnnotationStore(paperId, store),
             updatedAt: store.updatedAt || new Date().toISOString()
           },
           null,

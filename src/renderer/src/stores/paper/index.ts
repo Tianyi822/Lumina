@@ -310,6 +310,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     deleteTranslation,
     createAnnotation: annotations.createAnnotation,
     reanchorAnnotation: annotations.reanchorAnnotation,
+    updateAnnotation: annotations.updateAnnotation,
     deleteAnnotation: annotations.deleteAnnotation,
     toggleTranslationVisible: translation.toggleTranslationVisible,
     retryPaper: renderPipeline.retryPaper,

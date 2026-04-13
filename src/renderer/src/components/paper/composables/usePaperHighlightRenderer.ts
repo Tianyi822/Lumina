@@ -1,9 +1,13 @@
-import type { PaperAnnotation, PaperAnnotationTextAnchor } from '@shared/types/paper'
+import type {
+  PaperAnnotation,
+  PaperAnnotationColorKey,
+  PaperAnnotationKind,
+  PaperAnnotationTextAnchor
+} from '@shared/types/paper'
 import type { PaperTranslationSegmentKind } from '@shared/types/paper'
 import {
   buildPaperTextAnchor,
-  findPaperTextAnchorOffset,
-  mapPaperTextAnchorBetweenTexts
+  findPaperTextAnchorOffset
 } from '@shared/utils/paperAnnotationAnchors'
 
 export interface RenderSourceSegment {
@@ -22,81 +26,45 @@ export interface QuoteHighlight {
   id: string
   startOffset: number
   endOffset: number
-  color: string
+  kind: PaperAnnotationKind
+  colorKey: PaperAnnotationColorKey
 }
 
 function resolveOriginalViewAnchor(
   segment: RenderSourceSegment,
-  translationText: string,
   annotation: PaperAnnotation
 ): PaperAnnotationTextAnchor | null {
-  if (!annotation.originalAnchor && (!translationText || !annotation.translationAnchor)) {
+  if (!annotation.originalAnchor) {
     return null
   }
 
-  if (annotation.originalAnchor) {
-    const startOffset = findPaperTextAnchorOffset(segment.originalText, annotation.originalAnchor)
-    if (startOffset !== null) {
-      return buildPaperTextAnchor(
-        segment.originalText,
-        startOffset,
-        startOffset + annotation.originalAnchor.selectedText.length
-      )
-    }
-  }
-
-  if (translationText && annotation.translationAnchor) {
-    const mapped = mapPaperTextAnchorBetweenTexts(
-      translationText,
+  const startOffset = findPaperTextAnchorOffset(segment.originalText, annotation.originalAnchor)
+  if (startOffset !== null) {
+    return buildPaperTextAnchor(
       segment.originalText,
-      annotation.translationAnchor
+      startOffset,
+      startOffset + annotation.originalAnchor.selectedText.length
     )
-    if (mapped && mapped.confidence >= 0.58) {
-      return mapped.anchor
-    }
   }
 
   return null
 }
 
 function resolveTranslationViewAnchor(
-  segment: RenderSourceSegment,
   translationText: string,
   annotation: PaperAnnotation
 ): PaperAnnotationTextAnchor | null {
-  if (!translationText) {
+  if (!translationText || !annotation.translationAnchor) {
     return null
   }
 
-  if (annotation.translationAnchor) {
-    const startOffset = findPaperTextAnchorOffset(translationText, annotation.translationAnchor)
-    if (startOffset !== null) {
-      return buildPaperTextAnchor(
-        translationText,
-        startOffset,
-        startOffset + annotation.translationAnchor.selectedText.length
-      )
-    }
-  }
-
-  if (annotation.originalAnchor) {
-    const startOffset = findPaperTextAnchorOffset(segment.originalText, annotation.originalAnchor)
-    const currentOriginalAnchor =
-      startOffset !== null
-        ? buildPaperTextAnchor(
-            segment.originalText,
-            startOffset,
-            startOffset + annotation.originalAnchor.selectedText.length
-          )
-        : annotation.originalAnchor
-    const mapped = mapPaperTextAnchorBetweenTexts(
-      segment.originalText,
+  const startOffset = findPaperTextAnchorOffset(translationText, annotation.translationAnchor)
+  if (startOffset !== null) {
+    return buildPaperTextAnchor(
       translationText,
-      currentOriginalAnchor
+      startOffset,
+      startOffset + annotation.translationAnchor.selectedText.length
     )
-    if (mapped && mapped.confidence >= 0.58) {
-      return mapped.anchor
-    }
   }
 
   return null
@@ -104,7 +72,6 @@ function resolveTranslationViewAnchor(
 
 function collectOriginalHighlights(
   segment: RenderSourceSegment,
-  translationText: string,
   annotations: PaperAnnotation[]
 ): QuoteHighlight[] {
   return annotations
@@ -113,10 +80,10 @@ function collectOriginalHighlights(
         return false
       }
 
-      return annotation.noteType === 'original_span' || !!annotation.originalAnchor
+      return annotation.noteType === 'original_span'
     })
     .flatMap((annotation) => {
-      const resolvedAnchor = resolveOriginalViewAnchor(segment, translationText, annotation)
+      const resolvedAnchor = resolveOriginalViewAnchor(segment, annotation)
       if (!resolvedAnchor) {
         return []
       }
@@ -131,23 +98,26 @@ function collectOriginalHighlights(
           id: annotation.id,
           startOffset,
           endOffset: startOffset + resolvedAnchor.selectedText.length,
-          color: annotation.color
+          kind: annotation.kind,
+          colorKey: annotation.colorKey
         }
       ]
     })
 }
 
 function collectTranslationHighlights(
-  segment: RenderSourceSegment,
   translationText: string,
   annotations: PaperAnnotation[]
 ): QuoteHighlight[] {
   return annotations
     .filter((annotation) => {
-      return annotation.status === 'active' || annotation.status === 'translation_missing'
+      return (
+        annotation.noteType === 'translation_view' &&
+        (annotation.status === 'active' || annotation.status === 'translation_missing')
+      )
     })
     .flatMap((annotation) => {
-      const resolvedAnchor = resolveTranslationViewAnchor(segment, translationText, annotation)
+      const resolvedAnchor = resolveTranslationViewAnchor(translationText, annotation)
       if (!resolvedAnchor) {
         return []
       }
@@ -162,7 +132,8 @@ function collectTranslationHighlights(
           id: annotation.id,
           startOffset,
           endOffset: startOffset + resolvedAnchor.selectedText.length,
-          color: annotation.color
+          kind: annotation.kind,
+          colorKey: annotation.colorKey
         }
       ]
     })
@@ -242,9 +213,14 @@ function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): stri
     }
 
     const mark = document.createElement('mark')
-    mark.className = 'paper-annotation-highlight'
+    mark.className = [
+      'paper-annotation-highlight',
+      `paper-annotation-highlight--${highlight.kind}`,
+      `paper-annotation-highlight--${highlight.colorKey}`
+    ].join(' ')
     mark.setAttribute('data-annotation-id', highlight.id)
-    mark.setAttribute('style', `background-color: ${highlight.color};`)
+    mark.setAttribute('data-annotation-kind', highlight.kind)
+    mark.setAttribute('data-color-key', highlight.colorKey)
 
     const fragment = range.extractContents()
     mark.appendChild(fragment)
@@ -257,11 +233,9 @@ function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): stri
 export interface PaperHighlightRenderer {
   collectOriginalHighlights: (
     segment: RenderSourceSegment,
-    translationText: string,
     annotations: PaperAnnotation[]
   ) => QuoteHighlight[]
   collectTranslationHighlights: (
-    segment: RenderSourceSegment,
     translationText: string,
     annotations: PaperAnnotation[]
   ) => QuoteHighlight[]
