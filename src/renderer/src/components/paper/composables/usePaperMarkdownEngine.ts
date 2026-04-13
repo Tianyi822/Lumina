@@ -285,7 +285,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
 
       const originalHtml = highlighter.applyHighlightsToHtml(
         renderMarkdownBlock(segment.originalMarkdown, segment.kind, headingId),
-        highlighter.collectOriginalHighlights(segment, translationText, annotations)
+        highlighter.collectOriginalHighlights(segment, annotations)
       )
 
       const translationHtml =
@@ -294,7 +294,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         translationEntry.translatedMarkdown
           ? highlighter.applyHighlightsToHtml(
               renderMarkdownBlock(translationEntry.translatedMarkdown, translationEntry.kind),
-              highlighter.collectTranslationHighlights(segment, translationText, annotations)
+              highlighter.collectTranslationHighlights(translationText, annotations)
             )
           : null
 

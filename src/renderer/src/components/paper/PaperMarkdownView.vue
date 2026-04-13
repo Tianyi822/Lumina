@@ -8,6 +8,9 @@ import type {
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { usePaperMarkdownEngine } from './composables/usePaperMarkdownEngine'
 import { usePaperAnnotationComposer } from './composables/usePaperAnnotationComposer'
+import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopover.vue'
+import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor.vue'
+import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu.vue'
 
 const props = defineProps<{
   content: string
@@ -41,6 +44,7 @@ const composer = usePaperAnnotationComposer({
   getSourceSegments: engine.getSourceSegments,
   createAnnotation: paperReaderStore.createAnnotation,
   reanchorAnnotation: paperReaderStore.reanchorAnnotation,
+  updateAnnotation: paperReaderStore.updateAnnotation,
   deleteAnnotation: paperReaderStore.deleteAnnotation
 })
 
@@ -65,6 +69,41 @@ watch(
 )
 
 const hasContent = computed(() => !!props.content.trim())
+const hoverPopoverStatusLabel = computed(() => {
+  const annotation = composer.hoverPopoverAnnotation.value
+  return annotation ? composer.getAnnotationStatusLabel(annotation) : null
+})
+const hoverPopoverOutdated = computed(() => {
+  const annotation = composer.hoverPopoverAnnotation.value
+  return annotation ? composer.isAnnotationOutdated(annotation) : false
+})
+
+function handleHoverPopoverUpdateTranslation(): void {
+  const annotation = composer.hoverPopoverAnnotation.value
+  if (!annotation) {
+    return
+  }
+
+  void composer.updateAnnotationToCurrentTranslation(annotation)
+}
+
+function handleHoverPopoverDismissOutdated(): void {
+  const annotation = composer.hoverPopoverAnnotation.value
+  if (!annotation) {
+    return
+  }
+
+  composer.dismissOutdatedAnnotation(annotation.id)
+}
+
+function handleHoverPopoverDelete(): void {
+  const annotation = composer.hoverPopoverAnnotation.value
+  if (!annotation) {
+    return
+  }
+
+  void composer.handleDeleteAnnotation(annotation.id)
+}
 
 if (typeof document !== 'undefined') {
   document.addEventListener('mousedown', composer.handleDocumentPointerDown)
@@ -82,7 +121,12 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="paper-markdown-view">
-    <div class="paper-markdown-view__scroll" @mouseup="composer.updateComposerFromSelection">
+    <div
+      class="paper-markdown-view__scroll"
+      @mouseup="composer.updateComposerFromSelection"
+      @pointermove="composer.handleSurfacePointerMove"
+      @pointerleave="composer.handleSurfacePointerLeave"
+    >
       <div v-if="loading" class="paper-markdown-view__loading">
         <p>正在加载内容...</p>
       </div>
@@ -100,10 +144,10 @@ onBeforeUnmount(() => {
           v-if="composer.translationMissingAnnotations.value.length > 0"
           class="paper-markdown-view__status-panel paper-markdown-view__status-panel--warning"
         >
-          <div class="paper-markdown-view__status-title">译文已删除，但相关笔记仍然保留</div>
+          <div class="paper-markdown-view__status-title">译文已删除，但相关标注仍然保留</div>
           <p class="paper-markdown-view__status-text">
             {{ composer.translationMissingAnnotations.value.length }}
-            条译文笔记已自动降级到原文语义归属， 重新翻译后可以继续恢复到译文视图。
+            条译文标注已自动降级到原文语义归属，重新翻译后可以继续恢复到译文视图。
           </p>
           <div class="paper-markdown-view__status-actions">
             <button
@@ -127,11 +171,11 @@ onBeforeUnmount(() => {
           v-if="composer.outdatedAnnotations.value.length > 0"
           class="paper-markdown-view__status-panel paper-markdown-view__status-panel--info"
         >
-          <div class="paper-markdown-view__status-title">检测到基于旧版译文创建的笔记</div>
+          <div class="paper-markdown-view__status-title">检测到基于旧版译文创建的标注</div>
           <p class="paper-markdown-view__status-text">
             当前共有
             {{ composer.outdatedAnnotations.value.length }}
-            条笔记依赖旧译文版本。系统会优先保留原文归属，
+            条标注依赖旧译文版本。系统会优先保留原文归属，
             你可以直接更新到当前译文，或手动重新绑定到新的选区。
           </p>
         </section>
@@ -142,9 +186,9 @@ onBeforeUnmount(() => {
         >
           <div class="paper-markdown-view__manager-header">
             <div>
-              <div class="paper-markdown-view__manager-title">异常笔记管理</div>
+              <div class="paper-markdown-view__manager-title">异常标注管理</div>
               <p class="paper-markdown-view__manager-text">
-                这里集中显示需要人工确认的笔记。点击"手动重新绑定"后，直接在正文里重新选择对应文本即可。
+                这里集中显示需要人工确认的标注。点击“手动重新绑定”后，直接在正文里重新选择对应文本即可。
               </p>
             </div>
             <button
@@ -174,7 +218,9 @@ onBeforeUnmount(() => {
                 {{ composer.getAnnotationStatusLabel(annotation) || '待人工处理' }}
               </span>
             </div>
-            <div class="paper-markdown-view__manager-comment">{{ annotation.comment }}</div>
+            <div v-if="annotation.comment" class="paper-markdown-view__manager-comment">
+              {{ annotation.comment }}
+            </div>
             <div class="paper-markdown-view__manager-selection">
               {{ annotation.selectedTextSnapshot }}
             </div>
@@ -198,7 +244,7 @@ onBeforeUnmount(() => {
                 type="button"
                 @click="composer.handleDeleteAnnotation(annotation.id)"
               >
-                删除笔记
+                删除标注
               </button>
             </div>
           </article>
@@ -212,10 +258,6 @@ onBeforeUnmount(() => {
           :class="{ 'paper-markdown-view__segment--meta': segment.isCenteredMeta }"
           :data-paper-segment-stable-id="segment.stableId"
         >
-          <div v-if="segment.annotations.length > 0" class="paper-markdown-view__segment-tag">
-            {{ segment.annotations.length }} 条笔记
-          </div>
-
           <div
             class="paper-markdown-view__segment-original paper-markdown-view__markdown"
             data-paper-selection-surface="true"
@@ -256,155 +298,54 @@ onBeforeUnmount(() => {
               <span class="paper-markdown-view__translation-placeholder-bar" />
             </div>
           </div>
-
-          <div v-if="segment.annotations.length > 0" class="paper-markdown-view__notes">
-            <article
-              v-for="annotation in segment.annotations"
-              :key="annotation.id"
-              class="paper-markdown-view__note"
-            >
-              <div class="paper-markdown-view__note-meta">
-                <span class="paper-markdown-view__note-type">
-                  {{ composer.getAnnotationTypeLabel(annotation) }}
-                </span>
-                <span
-                  v-if="composer.getAnnotationStatusLabel(annotation)"
-                  class="paper-markdown-view__note-status"
-                >
-                  {{ composer.getAnnotationStatusLabel(annotation) }}
-                </span>
-              </div>
-              <div class="paper-markdown-view__note-comment">{{ annotation.comment }}</div>
-              <div class="paper-markdown-view__note-selection">
-                {{ annotation.selectedTextSnapshot }}
-              </div>
-              <div
-                v-if="composer.isAnnotationOutdated(annotation)"
-                class="paper-markdown-view__note-banner paper-markdown-view__note-banner--info"
-              >
-                <div class="paper-markdown-view__note-banner-title">该笔记基于旧版译文创建</div>
-                <div class="paper-markdown-view__note-banner-text">
-                  当前译文版本已更新，若高亮位置有偏移，可以一键更新到当前译文，或手动重新选择。
-                </div>
-                <div class="paper-markdown-view__status-actions">
-                  <button
-                    class="sm-button sm-button--secondary"
-                    type="button"
-                    @click="paperReaderStore.hideTranslation()"
-                  >
-                    查看原文位置
-                  </button>
-                  <button
-                    class="sm-button sm-button--primary"
-                    type="button"
-                    @click="composer.updateAnnotationToCurrentTranslation(annotation)"
-                  >
-                    更新到当前译文
-                  </button>
-                  <button
-                    class="sm-button sm-button--secondary"
-                    type="button"
-                    @click="composer.dismissOutdatedAnnotation(annotation.id)"
-                  >
-                    忽略
-                  </button>
-                </div>
-              </div>
-              <div class="paper-markdown-view__note-actions">
-                <button
-                  v-if="annotation.status === 'needs_reanchor' || annotation.status === 'invalid'"
-                  class="sm-button sm-button--secondary sm-button--small"
-                  type="button"
-                  @click="composer.startRebind(annotation)"
-                >
-                  手动重新绑定
-                </button>
-                <button
-                  class="paper-markdown-view__note-delete"
-                  type="button"
-                  @click="composer.handleDeleteAnnotation(annotation.id)"
-                >
-                  删除
-                </button>
-              </div>
-            </article>
-          </div>
         </section>
       </article>
     </div>
 
-    <div
-      v-if="composer.composerDraft.value"
-      class="paper-markdown-view__composer"
-      :style="{
-        left: `${composer.composerDraft.value.x}px`,
-        top: `${composer.composerDraft.value.y}px`
-      }"
-    >
-      <div class="paper-markdown-view__composer-title">
-        {{
-          composer.composerDraft.value.mode === 'rebind'
-            ? composer.composerDraft.value.viewKind === 'original'
-              ? '重新绑定到原文位置'
-              : '重新绑定到译文位置'
-            : composer.composerDraft.value.viewKind === 'original'
-              ? '新增原文笔记'
-              : '新增译文视图笔记'
-        }}
-      </div>
-      <div class="paper-markdown-view__composer-selection">
-        {{ composer.composerDraft.value.selectedText }}
-      </div>
-      <textarea
-        v-model="composer.composerComment.value"
-        class="paper-markdown-view__composer-input"
-        rows="7"
-        placeholder="写下这段内容的笔记..."
-      />
-      <div class="paper-markdown-view__composer-row">
-        <input
-          v-model="composer.composerColor.value"
-          class="paper-markdown-view__composer-color"
-          type="color"
-        />
-        <button
-          class="sm-button sm-button--secondary"
-          type="button"
-          @click="composer.handleCancelComposer"
-        >
-          {{ composer.composerDraft.value.mode === 'rebind' ? '取消重绑' : '取消' }}
-        </button>
-        <button
-          class="sm-button sm-button--primary"
-          type="button"
-          :disabled="composer.composerSaving.value"
-          @click="composer.handleCreateAnnotation"
-        >
-          {{
-            composer.composerSaving.value
-              ? '保存中...'
-              : composer.composerDraft.value.mode === 'rebind'
-                ? '确认重新绑定'
-                : '保存笔记'
-          }}
-        </button>
-      </div>
-      <p v-if="composer.composerError.value" class="paper-markdown-view__composer-error">
-        {{ composer.composerError.value }}
-      </p>
-      <p
-        v-if="composer.composerDraft.value.mode === 'rebind'"
-        class="paper-markdown-view__composer-hint"
-      >
-        当前正在重绑已有笔记。保存后会保留原始创建时间，只更新定位与笔记内容。
-      </p>
-      <p
-        v-if="composer.composerDraft.value.viewKind === 'translation'"
-        class="paper-markdown-view__composer-hint"
-      >
-        该笔记会归属于当前原文段落语义，译文位置依赖当前翻译版本。
-      </p>
-    </div>
+    <PaperAnnotationSelectionMenu
+      v-if="composer.selectionActionMenu.value"
+      :state="composer.selectionActionMenu.value"
+      :highlight-color-options="composer.highlightColorOptions"
+      :error="composer.selectionActionMenuError.value"
+      @open-highlight-palette="composer.handleOpenHighlightPalette"
+      @create-highlight="composer.handleCreateHighlight"
+      @open-note-editor="composer.handleOpenNoteEditorFromSelection"
+      @cancel="composer.handleCancelComposer"
+    />
+
+    <PaperAnnotationNoteEditor
+      v-if="composer.noteEditorDraft.value"
+      :state="composer.noteEditorDraft.value"
+      :comment="composer.noteEditorComment.value"
+      :saving="composer.noteEditorSaving.value"
+      :error="composer.noteEditorError.value"
+      @update:comment="composer.noteEditorComment.value = $event"
+      @save="composer.handleSaveNote"
+      @cancel="composer.handleCancelNoteEditor"
+    />
+
+    <PaperAnnotationHoverPopover
+      v-if="composer.annotationHoverPopover.value && composer.hoverPopoverAnnotation.value"
+      :state="composer.annotationHoverPopover.value"
+      :annotation="composer.hoverPopoverAnnotation.value"
+      :highlight-color-options="composer.highlightColorOptions"
+      :comment="composer.hoverPopoverComment.value"
+      :saving="composer.hoverPopoverSaving.value"
+      :error="composer.hoverPopoverError.value"
+      :status-label="hoverPopoverStatusLabel"
+      :outdated="hoverPopoverOutdated"
+      @update:comment="composer.hoverPopoverComment.value = $event"
+      @update-color="composer.handleUpdateHoverColor"
+      @save-note="composer.handleSaveHoverNote"
+      @hide-translation="paperReaderStore.hideTranslation()"
+      @update-translation="handleHoverPopoverUpdateTranslation"
+      @dismiss-outdated="handleHoverPopoverDismissOutdated"
+      @delete="handleHoverPopoverDelete"
+      @pointer-enter="composer.handleHoverPopoverPointerEnter"
+      @pointer-leave="composer.handleHoverPopoverPointerLeave"
+      @focus-in="composer.handleHoverPopoverFocusIn"
+      @focus-out="composer.handleHoverPopoverFocusOut"
+    />
   </div>
 </template>
 
@@ -541,18 +482,6 @@ onBeforeUnmount(() => {
   margin-top: var(--sm-space-3);
 }
 
-.paper-markdown-view__segment-tag {
-  position: absolute;
-  top: -8px;
-  right: 0;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--sm-color-accent-12);
-  color: var(--sm-color-text-secondary);
-  font-size: 11px;
-  z-index: 1;
-}
-
 .paper-markdown-view__segment-original,
 .paper-markdown-view__segment-translation {
   box-sizing: border-box;
@@ -631,26 +560,6 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-.paper-markdown-view__notes {
-  display: grid;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.paper-markdown-view__note {
-  border: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-1);
-  border-radius: 12px;
-  padding: 12px 14px;
-}
-
-.paper-markdown-view__note-meta {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
 .paper-markdown-view__note-type,
 .paper-markdown-view__note-status {
   display: inline-flex;
@@ -669,19 +578,6 @@ onBeforeUnmount(() => {
 .paper-markdown-view__note-status {
   background: color-mix(in srgb, var(--sm-color-status-warning) 18%, transparent);
   color: var(--sm-color-text-secondary);
-}
-
-.paper-markdown-view__note-comment {
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--sm-color-text-primary);
-}
-
-.paper-markdown-view__note-selection {
-  margin-top: 6px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--sm-color-text-tertiary);
 }
 
 .paper-markdown-view__note-banner {
@@ -710,100 +606,6 @@ onBeforeUnmount(() => {
   color: var(--sm-color-text-secondary);
 }
 
-.paper-markdown-view__note-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sm-space-2);
-  margin-top: var(--sm-space-3);
-}
-
-.paper-markdown-view__note-delete {
-  border: none;
-  background: transparent;
-  color: var(--sm-color-text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  padding: 0;
-}
-
-.paper-markdown-view__composer {
-  position: fixed;
-  width: min(440px, calc(100vw - 32px));
-  min-height: 320px;
-  padding: 18px;
-  border-radius: 18px;
-  border: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-1);
-  box-shadow:
-    0 24px 56px rgba(15, 23, 42, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  z-index: 20;
-  backdrop-filter: blur(18px);
-}
-
-.paper-markdown-view__composer-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.paper-markdown-view__composer-selection {
-  margin-top: 8px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid var(--sm-color-border-subtle);
-  background: var(--sm-color-surface-2);
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--sm-color-text-secondary);
-  max-height: 104px;
-  overflow: auto;
-}
-
-.paper-markdown-view__composer-input {
-  width: 100%;
-  min-height: 180px;
-  margin-top: 12px;
-  border-radius: 12px;
-  border: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-2);
-  color: var(--sm-color-text-primary);
-  padding: 12px;
-  resize: vertical;
-  font: inherit;
-  box-sizing: border-box;
-}
-
-.paper-markdown-view__composer-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.paper-markdown-view__composer-color {
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 12px;
-  background: var(--sm-color-surface-2);
-}
-
-.paper-markdown-view__composer-error {
-  margin: 8px 0 0;
-  color: var(--sm-color-status-danger);
-  font-size: 12px;
-}
-
-.paper-markdown-view__composer-hint {
-  margin: 8px 0 0;
-  color: var(--sm-color-text-tertiary);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
 .paper-markdown-view__markdown > :first-child {
   margin-top: 0;
 }
@@ -816,6 +618,28 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   color: inherit;
   padding: 0 1px;
+  cursor: pointer;
+  transition: box-shadow 0.16s ease;
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight:hover) {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sm-color-border-default) 70%, transparent);
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--blue) {
+  background: var(--sm-color-paper-annotation-blue);
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--yellow) {
+  background: var(--sm-color-paper-annotation-yellow);
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--orange) {
+  background: var(--sm-color-paper-annotation-orange);
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--green) {
+  background: var(--sm-color-paper-annotation-green);
 }
 
 .paper-markdown-view__markdown :deep(h1) {
