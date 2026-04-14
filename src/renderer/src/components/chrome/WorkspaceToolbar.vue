@@ -136,16 +136,6 @@ function handleToggleSidebar(): void {
   uiStateStore.toggleCurrentSidebar()
 }
 
-/** 刷新论文 Markdown 内容 */
-function handleRefreshMarkdown(): void {
-  closeTocPanel()
-  closeFigurePanel()
-
-  if (currentPaperId.value) {
-    paperReaderStore.loadMarkdown(currentPaperId.value)
-  }
-}
-
 async function handleToggleTranslation(): Promise<void> {
   if (!currentPaperId.value) {
     return
@@ -293,17 +283,7 @@ onUnmounted(() => {
     </button>
 
     <button
-      v-if="isPaperView"
-      class="sm-icon-button sm-workspace-toolbar__button"
-      title="刷新内容"
-      aria-label="刷新论文内容"
-      @click="handleRefreshMarkdown"
-    >
-      <SvgIcon name="refresh" :size="14" />
-    </button>
-
-    <button
-      v-if="isPaperView"
+      v-if="isPaperView && currentPaperId"
       class="sm-icon-button sm-workspace-toolbar__button"
       :class="{
         'is-active': translationVisible,
@@ -311,13 +291,16 @@ onUnmounted(() => {
       }"
       :title="translationButtonTitle"
       :aria-label="translationButtonTitle"
-      :disabled="!currentPaperId"
       @click="handleToggleTranslation"
     >
       <SvgIcon name="translate" :size="14" />
     </button>
 
-    <div v-if="isPaperView" ref="tocContainerRef" class="sm-workspace-toolbar__toc">
+    <div
+      v-if="isPaperView && currentPaperId"
+      ref="tocContainerRef"
+      class="sm-workspace-toolbar__toc"
+    >
       <button
         class="sm-icon-button sm-workspace-toolbar__button"
         :class="{ 'is-active': showTocPanel }"
@@ -425,7 +408,11 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div v-if="isPaperView" ref="figureContainerRef" class="sm-workspace-toolbar__figures">
+    <div
+      v-if="isPaperView && currentPaperId"
+      ref="figureContainerRef"
+      class="sm-workspace-toolbar__figures"
+    >
       <button
         class="sm-icon-button sm-workspace-toolbar__button"
         :class="{ 'is-active': showFigurePanel }"
