@@ -163,21 +163,9 @@ function resolveTextPoint(
 }
 
 function sortHighlights(highlights: QuoteHighlight[]): QuoteHighlight[] {
-  const sorted = [...highlights].sort((left, right) => {
+  return [...highlights].sort((left, right) => {
     return left.startOffset - right.startOffset || left.endOffset - right.endOffset
   })
-
-  const filtered: QuoteHighlight[] = []
-  let lastEnd = -1
-  for (const highlight of sorted) {
-    if (highlight.startOffset < lastEnd) {
-      continue
-    }
-    filtered.push(highlight)
-    lastEnd = highlight.endOffset
-  }
-
-  return filtered
 }
 
 function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): string {

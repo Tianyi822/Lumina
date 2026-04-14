@@ -67,7 +67,8 @@ const emit = defineEmits<{
 .paper-annotation-note-editor {
   position: fixed;
   width: min(420px, calc(100vw - 32px));
-  min-height: 320px;
+  min-height: min(320px, calc(100vh - 32px));
+  max-height: calc(100vh - 32px);
   padding: 18px;
   border-radius: 18px;
   border: 1px solid var(--sm-color-border-default);
@@ -77,6 +78,7 @@ const emit = defineEmits<{
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(18px);
   z-index: 20;
+  overflow: auto;
 }
 
 .paper-annotation-note-editor__title {

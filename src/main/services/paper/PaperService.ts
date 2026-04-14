@@ -641,9 +641,6 @@ export class PaperService {
       }
 
       const currentAnnotation = annotationStoreResult.data.annotations[annotationIndex]
-      if (params.kind !== currentAnnotation.kind) {
-        return { success: false, error: '重新绑定时不允许修改标注类型' }
-      }
 
       const translationAvailable = !!paperStorageService.readTranslationCache(params.paperId)
         .success

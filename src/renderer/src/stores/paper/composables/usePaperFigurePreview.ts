@@ -32,11 +32,17 @@ export interface PaperFigurePreviewComposable {
   resetFigureUiState: () => void
   setFigurePreviewPinned: (value: boolean) => void
   setFigurePreviewImageRatio: (ratio: number) => void
+  setFigurePreviewRect: (nextRect: Partial<PaperFigurePreviewRect>) => void
   moveFigurePreview: (delta: { x: number; y: number }) => void
   resizeFigurePreview: (nextWidth: number) => void
   loadFigures: (paperId: string, force?: boolean) => Promise<PaperFigureItem[]>
   toggleFigurePanel: () => Promise<void>
-  openFigurePreview: (item: PaperFigureItem) => void
+  openFigurePreview: (
+    item: PaperFigureItem,
+    options?: {
+      initialRect?: Partial<PaperFigurePreviewRect>
+    }
+  ) => void
   scrollToHeading: (headingId: string) => boolean
   clearPaperFigureState: (paperId: string) => void
 }
@@ -105,6 +111,22 @@ export function usePaperFigurePreview(
     }
 
     figurePreviewImageRatio.value = ratio
+  }
+
+  function setFigurePreviewRect(nextRect: Partial<PaperFigurePreviewRect>): void {
+    const nextWidth =
+      typeof nextRect.width === 'number' && Number.isFinite(nextRect.width)
+        ? nextRect.width
+        : figurePreviewRect.value.width
+    const maxWidth =
+      typeof window === 'undefined' ? 720 : Math.max(Math.min(window.innerWidth - 32, 720), 320)
+    const width = Math.min(Math.max(nextWidth, 320), maxWidth)
+
+    figurePreviewRect.value = {
+      left: clampPreviewLeft(nextRect.left ?? figurePreviewRect.value.left, width),
+      top: clampPreviewTop(nextRect.top ?? figurePreviewRect.value.top),
+      width
+    }
   }
 
   function clampPreviewLeft(left: number, width: number): number {
@@ -233,9 +255,18 @@ export function usePaperFigurePreview(
     await loadFigures(currentPaperId.value)
   }
 
-  function openFigurePreview(item: PaperFigureItem): void {
+  function openFigurePreview(
+    item: PaperFigureItem,
+    options?: {
+      initialRect?: Partial<PaperFigurePreviewRect>
+    }
+  ): void {
     if (!activeFigure.value) {
-      resetFigurePreviewRect()
+      if (options?.initialRect) {
+        setFigurePreviewRect(options.initialRect)
+      } else {
+        resetFigurePreviewRect()
+      }
       figurePreviewPinned.value = false
     }
 
@@ -282,6 +313,7 @@ export function usePaperFigurePreview(
     resetFigureUiState,
     setFigurePreviewPinned,
     setFigurePreviewImageRatio,
+    setFigurePreviewRect,
     moveFigurePreview,
     resizeFigurePreview,
     loadFigures,

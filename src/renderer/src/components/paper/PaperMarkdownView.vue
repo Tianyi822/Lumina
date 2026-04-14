@@ -69,32 +69,6 @@ watch(
 )
 
 const hasContent = computed(() => !!props.content.trim())
-const hoverPopoverStatusLabel = computed(() => {
-  const annotation = composer.hoverPopoverAnnotation.value
-  return annotation ? composer.getAnnotationStatusLabel(annotation) : null
-})
-const hoverPopoverOutdated = computed(() => {
-  const annotation = composer.hoverPopoverAnnotation.value
-  return annotation ? composer.isAnnotationOutdated(annotation) : false
-})
-
-function handleHoverPopoverUpdateTranslation(): void {
-  const annotation = composer.hoverPopoverAnnotation.value
-  if (!annotation) {
-    return
-  }
-
-  void composer.updateAnnotationToCurrentTranslation(annotation)
-}
-
-function handleHoverPopoverDismissOutdated(): void {
-  const annotation = composer.hoverPopoverAnnotation.value
-  if (!annotation) {
-    return
-  }
-
-  composer.dismissOutdatedAnnotation(annotation.id)
-}
 
 function handleHoverPopoverDelete(): void {
   const annotation = composer.hoverPopoverAnnotation.value
@@ -103,6 +77,10 @@ function handleHoverPopoverDelete(): void {
   }
 
   void composer.handleDeleteAnnotation(annotation.id)
+}
+
+function handleHoverPopoverOpenNoteEditor(): void {
+  composer.handleOpenNoteEditorFromHover()
 }
 
 if (typeof document !== 'undefined') {
@@ -124,8 +102,7 @@ onBeforeUnmount(() => {
     <div
       class="paper-markdown-view__scroll"
       @mouseup="composer.updateComposerFromSelection"
-      @pointermove="composer.handleSurfacePointerMove"
-      @pointerleave="composer.handleSurfacePointerLeave"
+      @click="composer.handleSurfaceAnnotationClick"
     >
       <div v-if="loading" class="paper-markdown-view__loading">
         <p>正在加载内容...</p>
@@ -307,7 +284,6 @@ onBeforeUnmount(() => {
       :state="composer.selectionActionMenu.value"
       :highlight-color-options="composer.highlightColorOptions"
       :error="composer.selectionActionMenuError.value"
-      @open-highlight-palette="composer.handleOpenHighlightPalette"
       @create-highlight="composer.handleCreateHighlight"
       @open-note-editor="composer.handleOpenNoteEditorFromSelection"
       @cancel="composer.handleCancelComposer"
@@ -329,22 +305,10 @@ onBeforeUnmount(() => {
       :state="composer.annotationHoverPopover.value"
       :annotation="composer.hoverPopoverAnnotation.value"
       :highlight-color-options="composer.highlightColorOptions"
-      :comment="composer.hoverPopoverComment.value"
-      :saving="composer.hoverPopoverSaving.value"
       :error="composer.hoverPopoverError.value"
-      :status-label="hoverPopoverStatusLabel"
-      :outdated="hoverPopoverOutdated"
-      @update:comment="composer.hoverPopoverComment.value = $event"
-      @update-color="composer.handleUpdateHoverColor"
-      @save-note="composer.handleSaveHoverNote"
-      @hide-translation="paperReaderStore.hideTranslation()"
-      @update-translation="handleHoverPopoverUpdateTranslation"
-      @dismiss-outdated="handleHoverPopoverDismissOutdated"
       @delete="handleHoverPopoverDelete"
-      @pointer-enter="composer.handleHoverPopoverPointerEnter"
-      @pointer-leave="composer.handleHoverPopoverPointerLeave"
-      @focus-in="composer.handleHoverPopoverFocusIn"
-      @focus-out="composer.handleHoverPopoverFocusOut"
+      @open-note-editor="handleHoverPopoverOpenNoteEditor"
+      @update-color="composer.handleUpdateHoverColor"
     />
   </div>
 </template>
@@ -620,6 +584,7 @@ onBeforeUnmount(() => {
   padding: 0 1px;
   cursor: pointer;
   transition: box-shadow 0.16s ease;
+  mix-blend-mode: multiply;
 }
 
 .paper-markdown-view__markdown :deep(mark.paper-annotation-highlight:hover) {
