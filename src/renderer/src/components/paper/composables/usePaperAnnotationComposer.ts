@@ -115,6 +115,7 @@ export interface PaperAnnotationComposer {
   updateComposerFromSelection: () => void
   handleCreateHighlight: (colorKey: PaperAnnotationColorKey) => Promise<void>
   handleOpenNoteEditorFromSelection: () => void
+  handleOpenNoteEditorFromHover: () => void
   handleSaveNote: () => Promise<void>
   handleCancelNoteEditor: () => void
   handleUpdateHoverColor: (colorKey: PaperAnnotationColorKey) => Promise<void>
@@ -441,6 +442,36 @@ export function usePaperAnnotationComposer(
     noteEditorSaving.value = false
     noteEditorError.value = null
     selectionActionMenu.value = null
+  }
+
+  function handleOpenNoteEditorFromHover(): void {
+    const annotation = hoverPopoverAnnotation.value
+    if (!annotation || !annotationHoverPopover.value) {
+      return
+    }
+
+    const draft: SelectionDraft = {
+      mode: 'rebind',
+      annotationId: annotation.id,
+      viewKind: annotation.noteType === 'translation_view' ? 'translation' : 'original',
+      noteType: annotation.noteType,
+      segmentStableId: annotation.semanticAnchor.segmentStableId,
+      renderSegmentId: annotation.semanticAnchor.renderSegmentIdAtCreation,
+      sourceRevisionId: annotation.semanticAnchor.sourceRevisionId,
+      segmentTextHash: annotation.semanticAnchor.segmentTextHash,
+      sourceRefs: annotation.semanticAnchor.sourceRefs,
+      selectedText: annotation.selectedTextSnapshot,
+      contextBefore: annotation.contextBefore,
+      contextAfter: annotation.contextAfter,
+      originalAnchor: annotation.originalAnchor,
+      translationAnchor: annotation.translationAnchor
+    }
+
+    const x = annotationHoverPopover.value.x
+    const y = annotationHoverPopover.value.y
+    clearHoverPopover()
+
+    openNoteEditorAtPosition(draft, x, y, annotation.comment)
   }
 
   function openHoverPopover(annotation: PaperAnnotation, x: number, y: number): void {
@@ -836,6 +867,7 @@ export function usePaperAnnotationComposer(
     updateComposerFromSelection,
     handleCreateHighlight,
     handleOpenNoteEditorFromSelection,
+    handleOpenNoteEditorFromHover,
     handleSaveNote,
     handleCancelNoteEditor,
     handleUpdateHoverColor,

@@ -5,8 +5,8 @@ export const SELECTION_MENU_WIDTH = 220
 export const SELECTION_MENU_HEIGHT = 44
 export const NOTE_EDITOR_WIDTH = 420
 export const NOTE_EDITOR_HEIGHT = 420
-export const HOVER_POPOVER_WIDTH = 336
-export const HOVER_POPOVER_HEIGHT = 248
+export const HOVER_POPOVER_WIDTH = 180
+export const HOVER_POPOVER_HEIGHT = 44
 
 function clamp(value: number, min: number, max: number): number {
   if (max <= min) {
