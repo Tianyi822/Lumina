@@ -57,7 +57,6 @@ export interface SelectionActionMenuState {
   draft: SelectionDraft
   x: number
   y: number
-  showHighlightPalette: boolean
 }
 
 export interface NoteEditorState {
@@ -114,7 +113,6 @@ export interface PaperAnnotationComposer {
   translationMissingAnnotations: ComputedRef<PaperAnnotation[]>
   currentTranslationRevisionId: ComputedRef<string | null>
   updateComposerFromSelection: () => void
-  handleOpenHighlightPalette: () => void
   handleCreateHighlight: (colorKey: PaperAnnotationColorKey) => Promise<void>
   handleOpenNoteEditorFromSelection: () => void
   handleSaveNote: () => Promise<void>
@@ -412,17 +410,12 @@ export function usePaperAnnotationComposer(
     }
   }
 
-  function openSelectionActionMenu(
-    draft: SelectionDraft,
-    rect: DOMRect,
-    showHighlightPalette = false
-  ): void {
+  function openSelectionActionMenu(draft: SelectionDraft, rect: DOMRect): void {
     const position = computeFloatingPosition(rect, SELECTION_MENU_WIDTH, SELECTION_MENU_HEIGHT)
     selectionActionMenu.value = {
       draft,
       x: position.x,
-      y: position.y,
-      showHighlightPalette
+      y: position.y
     }
     selectionActionMenuError.value = null
   }
@@ -548,23 +541,9 @@ export function usePaperAnnotationComposer(
         )
         return
       }
-
-      openSelectionActionMenu(selectionResult.draft, selectionResult.rect, true)
-      return
     }
 
-    openSelectionActionMenu(selectionResult.draft, selectionResult.rect, false)
-  }
-
-  function handleOpenHighlightPalette(): void {
-    if (!selectionActionMenu.value) {
-      return
-    }
-
-    selectionActionMenu.value = {
-      ...selectionActionMenu.value,
-      showHighlightPalette: true
-    }
+    openSelectionActionMenu(selectionResult.draft, selectionResult.rect)
   }
 
   async function handleCreateHighlight(colorKey: PaperAnnotationColorKey): Promise<void> {
@@ -855,7 +834,6 @@ export function usePaperAnnotationComposer(
     translationMissingAnnotations,
     currentTranslationRevisionId,
     updateComposerFromSelection,
-    handleOpenHighlightPalette,
     handleCreateHighlight,
     handleOpenNoteEditorFromSelection,
     handleSaveNote,

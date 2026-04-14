@@ -306,7 +306,6 @@ onBeforeUnmount(() => {
       :state="composer.selectionActionMenu.value"
       :highlight-color-options="composer.highlightColorOptions"
       :error="composer.selectionActionMenuError.value"
-      @open-highlight-palette="composer.handleOpenHighlightPalette"
       @create-highlight="composer.handleCreateHighlight"
       @open-note-editor="composer.handleOpenNoteEditorFromSelection"
       @cancel="composer.handleCancelComposer"

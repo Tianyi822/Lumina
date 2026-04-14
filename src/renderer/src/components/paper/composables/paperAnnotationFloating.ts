@@ -1,8 +1,8 @@
 const FLOATING_PANEL_MARGIN = 16
 const FLOATING_PANEL_OFFSET = 12
 
-export const SELECTION_MENU_WIDTH = 248
-export const SELECTION_MENU_HEIGHT = 176
+export const SELECTION_MENU_WIDTH = 220
+export const SELECTION_MENU_HEIGHT = 44
 export const NOTE_EDITOR_WIDTH = 420
 export const NOTE_EDITOR_HEIGHT = 420
 export const HOVER_POPOVER_WIDTH = 336
@@ -27,16 +27,8 @@ export function clampFloatingPosition(
   }
 
   return {
-    x: clamp(
-      x,
-      FLOATING_PANEL_MARGIN,
-      window.innerWidth - width - FLOATING_PANEL_MARGIN
-    ),
-    y: clamp(
-      y,
-      FLOATING_PANEL_MARGIN,
-      window.innerHeight - height - FLOATING_PANEL_MARGIN
-    )
+    x: clamp(x, FLOATING_PANEL_MARGIN, window.innerWidth - width - FLOATING_PANEL_MARGIN),
+    y: clamp(y, FLOATING_PANEL_MARGIN, window.innerHeight - height - FLOATING_PANEL_MARGIN)
   }
 }
 
