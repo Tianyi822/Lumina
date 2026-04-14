@@ -53,17 +53,30 @@ watch(
     props.content,
     props.basePath,
     props.translationVisible,
-    props.translationCache?.updatedAt,
     props.translationCache?.completedSegments,
     props.translationCache?.translationRevisionId,
     props.readerDocument?.sourceRevisionId,
     composer.currentAnnotations.value.length,
     composer.currentAnnotations.value.map((annotation) => annotation.updatedAt).join('|')
   ],
-  () => {
+  (newValues, oldValues) => {
     engine.renderContent()
-    composer.clearComposer()
-    composer.cancelRebindMode()
+
+    if (!oldValues) {
+      composer.clearComposer()
+      composer.cancelRebindMode()
+      return
+    }
+
+    const contentChanged = newValues[0] !== oldValues[0]
+    const basePathChanged = newValues[1] !== oldValues[1]
+    const translationVisibleChanged = newValues[2] !== oldValues[2]
+    const sourceRevisionIdChanged = newValues[5] !== oldValues[5]
+
+    if (contentChanged || basePathChanged || translationVisibleChanged || sourceRevisionIdChanged) {
+      composer.clearComposer()
+      composer.cancelRebindMode()
+    }
   },
   { immediate: true }
 )
