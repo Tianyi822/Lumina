@@ -23,6 +23,12 @@ import {
   stripPaperTranslationMarkdown
 } from '@shared/utils/paperTranslation'
 import {
+  buildBase64DataUrl,
+  fileUrlToPath,
+  getImageMimeTypeFromPath,
+  isFileUrl
+} from '@shared/utils'
+import {
   usePaperHighlightRenderer,
   type RenderSourceSegment,
   type QuoteHighlight
@@ -53,6 +59,9 @@ const EMPTY_SOURCE_REFS: PaperReaderSegmentSourceRefs = {
   blockIndexes: []
 }
 
+const LOCAL_IMAGE_DATA_URL_CACHE_LIMIT = 200
+const localImageDataUrlCache = new Map<string, Promise<string | null>>()
+
 function createFallbackSourceSegments(markdown: string): RenderSourceSegment[] {
   return parsePaperTranslationSegments(markdown).map((segment) => ({
     renderId: segment.id,
@@ -73,16 +82,82 @@ function normalizeInlineMath(content: string): string {
   })
 }
 
-function resolveImagePaths(html: string, basePath: string | undefined): string {
-  if (!basePath) return html
+function resolveLocalImageFilePath(src: string, basePath: string | undefined): string | null {
+  if (!src || /^(data:|blob:|https?:\/\/)/i.test(src)) {
+    return null
+  }
 
-  return html.replace(
-    /src=(['"])(assets\/[^'"]+)\1/g,
-    (_match, quote: string, relativePath: string) => {
-      const normalizedBase = basePath.endsWith('/') ? basePath : basePath + '/'
-      return `src=${quote}file://${normalizedBase}${relativePath}${quote}`
+  if (isFileUrl(src)) {
+    return fileUrlToPath(src)
+  }
+
+  const localAssetPath = String(src)
+  if (!basePath || !localAssetPath.startsWith('assets/')) {
+    return null
+  }
+
+  const normalizedBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath
+  return `${normalizedBase}/${localAssetPath}`
+}
+
+function readLocalImageAsDataUrl(localFilePath: string): Promise<string | null> {
+  const cached = localImageDataUrlCache.get(localFilePath)
+  if (cached) {
+    return cached
+  }
+
+  if (localImageDataUrlCache.size >= LOCAL_IMAGE_DATA_URL_CACHE_LIMIT) {
+    const oldestKey = localImageDataUrlCache.keys().next().value
+    if (oldestKey) {
+      localImageDataUrlCache.delete(oldestKey)
     }
+  }
+
+  const pending = window.api.paper
+    .readFileAsBase64(localFilePath)
+    .then((result) => {
+      if (!result.success || !result.data) {
+        return null
+      }
+
+      return buildBase64DataUrl(result.data, getImageMimeTypeFromPath(localFilePath))
+    })
+    .catch(() => null)
+  localImageDataUrlCache.set(localFilePath, pending)
+  return pending
+}
+
+async function resolveImagePaths(html: string, basePath: string | undefined): Promise<string> {
+  if (typeof DOMParser === 'undefined' || typeof window === 'undefined') {
+    return html
+  }
+
+  const parser = new DOMParser()
+  const document = parser.parseFromString(`<div>${html}</div>`, 'text/html')
+  const root = document.body.firstElementChild
+  if (!root) {
+    return html
+  }
+
+  const images = Array.from(root.querySelectorAll('img'))
+  await Promise.all(
+    images.map(async (image) => {
+      const src = image.getAttribute('src') || ''
+      const localFilePath = resolveLocalImageFilePath(src, basePath)
+      if (!localFilePath) {
+        return
+      }
+
+      const dataUrl = await readLocalImageAsDataUrl(localFilePath)
+      if (!dataUrl) {
+        return
+      }
+
+      image.setAttribute('src', dataUrl)
+    })
   )
+
+  return root.innerHTML
 }
 
 function postProcessRenderedHtml(html: string, headingId?: string): string {
@@ -176,12 +251,13 @@ export interface PaperMarkdownEngine {
   renderedSegments: Ref<RenderedSegment[]>
   parseError: Ref<string | null>
   getSourceSegments: () => RenderSourceSegment[]
-  renderContent: () => void
+  renderContent: () => Promise<void>
 }
 
 export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): PaperMarkdownEngine {
   const renderedSegments = ref<RenderedSegment[]>([])
   const parseError = ref<string | null>(null)
+  let renderRunId = 0
 
   const markdownRenderer = new MarkdownIt({
     html: true,
@@ -199,14 +275,14 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
 
   const highlighter = usePaperHighlightRenderer()
 
-  function renderMarkdownBlock(
+  async function renderMarkdownBlock(
     markdown: string,
     kind: PaperTranslationSegmentKind,
     headingId?: string
-  ): string {
+  ): Promise<string> {
     const normalizedContent = normalizeInlineMath(normalizePaperMarkdownForRender(markdown, kind))
     const rawHtml = markdownRenderer.render(normalizedContent)
-    const resolvedHtml = resolveImagePaths(rawHtml, options.basePath())
+    const resolvedHtml = await resolveImagePaths(rawHtml, options.basePath())
     return postProcessRenderedHtml(resolvedHtml, headingId)
   }
 
@@ -229,10 +305,10 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
     return createFallbackSourceSegments(options.content())
   }
 
-  function buildTocAndRenderedSegments(): {
+  async function buildTocAndRenderedSegments(): Promise<{
     outline: PaperTocOutline
     segments: RenderedSegment[]
-  } {
+  }> {
     const sourceSegments = getSourceSegments()
     const rendered: RenderedSegment[] = []
     const translationMap = new Map<string, PaperTranslationEntry>()
@@ -284,7 +360,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
           : ''
 
       const originalHtml = highlighter.applyHighlightsToHtml(
-        renderMarkdownBlock(segment.originalMarkdown, segment.kind, headingId),
+        await renderMarkdownBlock(segment.originalMarkdown, segment.kind, headingId),
         highlighter.collectOriginalHighlights(segment, annotations)
       )
 
@@ -293,7 +369,10 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         translationEntry.status === 'completed' &&
         translationEntry.translatedMarkdown
           ? highlighter.applyHighlightsToHtml(
-              renderMarkdownBlock(translationEntry.translatedMarkdown, translationEntry.kind),
+              await renderMarkdownBlock(
+                translationEntry.translatedMarkdown,
+                translationEntry.kind
+              ),
               highlighter.collectTranslationHighlights(translationText, annotations)
             )
           : null
@@ -327,7 +406,8 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
     }
   }
 
-  function renderContent(): void {
+  async function renderContent(): Promise<void> {
+    const currentRunId = ++renderRunId
     parseError.value = null
     if (!options.content().trim()) {
       renderedSegments.value = []
@@ -336,10 +416,16 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
     }
 
     try {
-      const result = buildTocAndRenderedSegments()
+      const result = await buildTocAndRenderedSegments()
+      if (currentRunId !== renderRunId) {
+        return
+      }
       renderedSegments.value = result.segments
       options.setTocOutline(result.outline)
     } catch (error) {
+      if (currentRunId !== renderRunId) {
+        return
+      }
       const message = error instanceof Error ? error.message : String(error)
       parseError.value = `Markdown 解析失败: ${message}`
       renderedSegments.value = []

@@ -60,7 +60,7 @@ watch(
     composer.currentAnnotations.value.map((annotation) => annotation.updatedAt).join('|')
   ],
   (newValues, oldValues) => {
-    engine.renderContent()
+    void engine.renderContent()
 
     if (!oldValues) {
       composer.clearComposer()
