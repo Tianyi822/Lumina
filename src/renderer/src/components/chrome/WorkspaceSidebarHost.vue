@@ -44,11 +44,13 @@ const isRefreshingSandboxList = ref(false)
 
 const filteredSessions = computed(() => {
   if (!chatSearchQuery.value.trim()) {
-    return sessionList.value
+    return sessionList.value.filter((session) => session.sessionType !== 'paper')
   }
 
   const query = chatSearchQuery.value.toLowerCase()
-  return sessionList.value.filter((session) => session.title.toLowerCase().includes(query))
+  return sessionList.value.filter(
+    (session) => session.sessionType !== 'paper' && session.title.toLowerCase().includes(query)
+  )
 })
 
 const filteredKnowledgeBases = computed(() => {
