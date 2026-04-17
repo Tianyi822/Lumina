@@ -37,6 +37,10 @@ import {
   getPaperPagesDirPath,
   getPaperTranslationPath
 } from './paperPaths'
+import {
+  createLocalAssetReplacementMapFromDisk,
+  localizePaperTranslationCacheAssets
+} from './paperAssetLocalizer'
 
 export const MAX_PAPER_PAGES = 200
 export const MAX_PAPER_FILE_SIZE = 200 * 1024 * 1024
@@ -382,7 +386,14 @@ export class PaperStorageService {
       }
 
       const content = readFileSync(translationPath, 'utf-8')
-      return { success: true, data: JSON.parse(content) as PaperTranslationCache }
+      const cache = JSON.parse(content) as PaperTranslationCache
+      const replacements = createLocalAssetReplacementMapFromDisk(paperId)
+      const localized = localizePaperTranslationCacheAssets(cache, replacements)
+      if (localized.changed) {
+        writeFileSync(translationPath, JSON.stringify(localized.cache, null, 2), 'utf-8')
+      }
+
+      return { success: true, data: localized.cache }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('读取翻译缓存失败', 'main', { paperId, error: errorMessage })
