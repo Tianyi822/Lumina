@@ -203,6 +203,17 @@ export interface PaperOcrConfig {
 }
 
 /**
+ * 论文阅读配置
+ * 包含 OCR 服务和翻译模型配置
+ */
+export interface PaperReaderConfig {
+  /** OCR 服务配置 */
+  ocr: PaperOcrConfig
+  /** 翻译使用的模型名称；空或未设置表示使用默认模型 */
+  translationModel?: string
+}
+
+/**
  * MCP 服务器配置的集合
  */
 export interface MCPServers {
@@ -222,8 +233,8 @@ export interface AppConfig {
   embeddingModels?: EmbeddingConfigs
   /** 知识库 MCP 服务配置 */
   knowledgeMCP?: KnowledgeMCPConfig
-  /** GLM-OCR 配置 */
-  paperOcr?: PaperOcrConfig
+  /** 论文阅读配置（含 OCR 与翻译模型） */
+  paperReader?: PaperReaderConfig
 }
 
 /**

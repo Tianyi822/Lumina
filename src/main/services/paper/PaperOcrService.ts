@@ -176,11 +176,11 @@ export class PaperOcrService {
 
   private getOcrConfig(): { apiKey: string; provider: OcrProviderId; concurrency: number } {
     const config = configManager.getConfig()
-    const paperOcr = config?.paperOcr
-    const provider = paperOcr?.provider || DEFAULT_OCR_PROVIDER
+    const ocr = config?.paperReader?.ocr
+    const provider = ocr?.provider || DEFAULT_OCR_PROVIDER
     const preset = getOcrProviderPreset(provider)!
     return {
-      apiKey: paperOcr?.apiKey || '',
+      apiKey: ocr?.apiKey || '',
       provider,
       concurrency: preset.concurrency
     }

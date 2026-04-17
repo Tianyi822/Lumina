@@ -8,7 +8,7 @@ import {
   getOcrProviderPreset,
   type EmbeddingConfig,
   type OcrProviderId,
-  type PaperOcrConfig,
+  type PaperReaderConfig,
   type PromptConfig
 } from '@shared/types/config'
 import {
@@ -20,17 +20,23 @@ import {
 import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
 import { normalizeCustomPromptVariables } from '@shared/utils'
 
-function sanitizePaperOcrConfig(config: PaperOcrConfig | undefined): PaperOcrConfig {
+function sanitizePaperReaderConfig(config: PaperReaderConfig | undefined): PaperReaderConfig {
   const provider =
-    config?.provider && getOcrProviderPreset(config.provider as OcrProviderId)
-      ? config.provider
+    config?.ocr?.provider && getOcrProviderPreset(config.ocr.provider as OcrProviderId)
+      ? config.ocr.provider
       : DEFAULT_OCR_PROVIDER
-  const sanitized: PaperOcrConfig = {
-    provider
+  const sanitized: PaperReaderConfig = {
+    ocr: {
+      provider
+    }
   }
 
-  if (typeof config?.apiKey === 'string') {
-    sanitized.apiKey = config.apiKey
+  if (typeof config?.ocr?.apiKey === 'string') {
+    sanitized.ocr.apiKey = config.ocr.apiKey
+  }
+
+  if (typeof config?.translationModel === 'string' && config.translationModel.trim()) {
+    sanitized.translationModel = config.translationModel.trim()
   }
 
   return sanitized
@@ -74,7 +80,7 @@ function createEmptyConfig(): AppConfig {
     promptConfig: createDefaultPromptConfig(),
     embeddingModels: {},
     knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG,
-    paperOcr: sanitizePaperOcrConfig(undefined)
+    paperReader: sanitizePaperReaderConfig(undefined)
   }
 }
 
@@ -162,7 +168,22 @@ function migrateConfig(config: AppConfig): AppConfig {
     migrated.knowledgeMCP = DEFAULT_KNOWLEDGE_MCP_CONFIG
   }
 
-  migrated.paperOcr = sanitizePaperOcrConfig(migrated.paperOcr)
+  // 迁移旧 paperOcr 配置到 paperReader
+  if ((migrated as Record<string, unknown>).paperOcr && !migrated.paperReader) {
+    const oldPaperOcr = (migrated as Record<string, unknown>).paperOcr as {
+      provider?: OcrProviderId
+      apiKey?: string
+    }
+    migrated.paperReader = sanitizePaperReaderConfig({
+      ocr: {
+        provider: oldPaperOcr.provider || DEFAULT_OCR_PROVIDER,
+        apiKey: oldPaperOcr.apiKey
+      }
+    })
+    delete (migrated as Record<string, unknown>).paperOcr
+  }
+
+  migrated.paperReader = sanitizePaperReaderConfig(migrated.paperReader)
 
   delete (migrated as Record<string, unknown>).voiceRecognition
   delete (migrated as Record<string, unknown>).aliyunMiaobi
