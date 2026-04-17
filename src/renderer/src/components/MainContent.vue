@@ -254,7 +254,7 @@ const activeQuickReply = computed<MessageOptionContext | null>(() => {
 })
 
 const visibleMessages = computed(() => {
-  return (props.messages ?? []).filter((message) => message.role !== 'tool')
+  return (props.messages ?? []).filter((message) => !message.hidden && message.role !== 'tool')
 })
 
 onMounted(() => {

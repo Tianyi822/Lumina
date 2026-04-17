@@ -5,7 +5,7 @@ import MarkdownIt from 'markdown-it'
 const props = defineProps<{
   content: string
   isStreaming?: boolean
-  role: 'user' | 'assistant' | 'tool'
+  role: 'system' | 'user' | 'assistant' | 'tool'
 }>()
 
 // 初始化 markdown-it 实例

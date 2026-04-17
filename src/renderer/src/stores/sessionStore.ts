@@ -227,7 +227,7 @@ export const useSessionStore = defineStore('session', () => {
         sessionId: newSessionId,
         title: title || DEFAULT_NEW_CHAT_TITLE,
         description: '',
-        sessionType: (sessionType || 'chat') as SessionType,
+        sessionType: sessionType || 'default',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         messages: [],

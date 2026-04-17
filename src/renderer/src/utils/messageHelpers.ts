@@ -7,7 +7,7 @@ import type { SessionMessage } from '@shared/types'
 export function sessionMessageToMessage(msg: SessionMessage): Message {
   return {
     id: msg.id,
-    role: msg.role as 'user' | 'assistant' | 'tool',
+    role: msg.role,
     content: msg.content,
     reasoning: msg.reasoning,
     timestamp: msg.timestamp,
@@ -19,7 +19,10 @@ export function sessionMessageToMessage(msg: SessionMessage): Message {
     reactSteps: msg.reactSteps,
     reactIterations: msg.reactIterations,
     attachedDocuments: msg.attachedDocuments,
-    attachedImages: msg.attachedImages
+    attachedImages: msg.attachedImages,
+    hidden: msg.hidden,
+    contextKind: msg.contextKind,
+    sourcePaperId: msg.sourcePaperId
   }
 }
 
@@ -50,7 +53,10 @@ export function messageToSessionMessage(msg: Message): SessionMessage {
       reactSteps: msg.reactSteps,
       reactIterations: msg.reactIterations,
       attachedDocuments: msg.attachedDocuments,
-      attachedImages: msg.attachedImages
+      attachedImages: msg.attachedImages,
+      hidden: msg.hidden,
+      contextKind: msg.contextKind,
+      sourcePaperId: msg.sourcePaperId
     })
   )
   return plainMsg
@@ -85,6 +91,12 @@ export function buildChatMessages(messages: Message[]): ChatMessage[] {
       }
       if (msg.reasoning) {
         result.reasoning_content = msg.reasoning
+      }
+      if (msg.attachedDocuments && msg.attachedDocuments.length > 0) {
+        result.attachedDocuments = msg.attachedDocuments
+      }
+      if (msg.attachedImages && msg.attachedImages.length > 0) {
+        result.attachedImages = msg.attachedImages
       }
       return result
     })

@@ -15,6 +15,7 @@ const props = defineProps<{
   selectedKnowledgeBases: KnowledgeBase[]
   enableSandboxTools?: boolean
   totalAttachmentCount?: number
+  variant?: 'default' | 'compact'
 }>()
 
 const emit = defineEmits<{
@@ -63,7 +64,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="input-actions">
+  <div class="input-actions" :class="{ 'input-actions--compact': props.variant === 'compact' }">
     <div ref="modelSelectorRef" class="model-selector">
       <button class="btn model-btn" :disabled="props.isSending" @click="toggleModelDropdown">
         <span>{{ props.selectedModel || '选择模型' }}</span>
@@ -84,16 +85,19 @@ onUnmounted(() => {
     </div>
 
     <MCPToolsPanel
+      :compact="props.variant === 'compact'"
       :selected-tools="props.selectedTools"
       @tools-selected="emit('update:selectedTools', $event)"
     />
 
     <KnowledgeBasePanel
+      :compact="props.variant === 'compact'"
       :selected-knowledge-bases="props.selectedKnowledgeBases"
       @selection-change="emit('update:selectedKnowledgeBases', $event)"
     />
 
     <SandboxToolsToggle
+      :compact="props.variant === 'compact'"
       :model-value="props.enableSandboxTools"
       :disabled="props.isSending"
       @update:model-value="emit('update:enableSandboxTools', $event)"
@@ -114,9 +118,19 @@ onUnmounted(() => {
         </span>
       </button>
 
-      <button v-if="!props.isSending" class="btn-primary execute-btn" @click="emit('send')">
-        <span>执行</span>
-        <span class="shortcut-hint">⌘↵</span>
+      <button
+        v-if="!props.isSending"
+        class="btn-primary execute-btn"
+        :class="{ 'execute-btn--compact': props.variant === 'compact' }"
+        title="执行"
+        aria-label="执行"
+        @click="emit('send')"
+      >
+        <SvgIcon v-if="props.variant === 'compact'" name="send" :size="17" />
+        <template v-else>
+          <span>执行</span>
+          <span class="shortcut-hint">⌘↵</span>
+        </template>
       </button>
       <button v-else class="btn-danger stop-btn" @click="emit('stop')">
         <span>停止</span>
@@ -131,6 +145,47 @@ onUnmounted(() => {
   align-items: center;
   gap: var(--sm-space-2);
   flex-wrap: wrap;
+}
+
+.input-actions--compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: var(--sm-space-2);
+}
+
+.input-actions--compact .model-selector {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.input-actions--compact .model-btn {
+  width: 100%;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.input-actions--compact .model-btn span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.input-actions--compact .model-dropdown {
+  width: 100%;
+  min-width: 0;
+}
+
+.input-actions--compact .action-buttons-group {
+  grid-column: 4;
+  gap: var(--sm-space-2);
+  margin-left: 0;
+}
+
+.input-actions--compact :deep(.mcp-tools-panel),
+.input-actions--compact :deep(.kb-panel) {
+  width: min(320px, calc(100vw - 48px));
+  max-height: 420px;
 }
 
 .model-selector {
@@ -306,6 +361,14 @@ onUnmounted(() => {
   background: var(--sm-color-accent-12);
   border-color: var(--sm-color-border-accent);
   color: var(--sm-color-text-primary);
+}
+
+.execute-btn--compact {
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  gap: 0;
 }
 
 .execute-btn:hover {

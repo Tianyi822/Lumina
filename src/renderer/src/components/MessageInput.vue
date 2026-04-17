@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref, watch } from 'vue'
+import { computed, inject, ref, unref, watch, type ComputedRef, type Ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import UserInteractionOptions from './UserInteractionOptions.vue'
 import ChatOptions from './chat/ChatOptions.vue'
@@ -19,6 +19,8 @@ import { useChatStreamStore } from '@renderer/stores'
 import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
 import type { MessageOptionContext, ParsedOption } from '@renderer/utils/optionParser'
 
+type InjectedSessionId = string | Ref<string> | ComputedRef<string>
+
 const props = defineProps<{
   isSending?: boolean
   inputMessage?: string
@@ -27,6 +29,7 @@ const props = defineProps<{
   selectedKnowledgeBases?: KnowledgeBase[]
   enableSandboxTools?: boolean
   quickReplyInfo?: MessageOptionContext | null
+  variant?: 'default' | 'compact'
 }>()
 
 const emit = defineEmits<{
@@ -49,7 +52,7 @@ const emit = defineEmits<{
   (e: 'quick-reply-selected', messageId: string): void
 }>()
 
-const sessionId = inject<string>('sessionId', '')
+const sessionId = inject<InjectedSessionId>('sessionId', '')
 const TEMP_SESSION_ID = 'temp'
 
 const localInputMessage = ref(props.inputMessage ?? '')
@@ -61,7 +64,7 @@ const textareaRef = ref<InstanceType<typeof InputTextarea> | null>(null)
 const showWarning = ref(false)
 const warningTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
 
-const effectiveSessionId = computed(() => sessionId || TEMP_SESSION_ID)
+const effectiveSessionId = computed(() => unref(sessionId) || TEMP_SESSION_ID)
 const { pendingDocs, processingFiles, uploadDocuments, removePendingDoc, clearPendingDocs } =
   useDocumentUpload(effectiveSessionId)
 const { pendingImages, addImages, removePendingImage, clearPendingImages } =
@@ -312,7 +315,10 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
 </script>
 
 <template>
-  <div class="message-input-container">
+  <div
+    class="message-input-container"
+    :class="{ 'message-input-container--compact': props.variant === 'compact' }"
+  >
     <UserInteractionOptions
       v-if="showUserInteraction && userInteractionInfo"
       :interaction-info="userInteractionInfo"
@@ -376,6 +382,7 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
 
     <ToolSelectionBar
       :is-sending="props.isSending"
+      :variant="props.variant"
       :selected-model="localSelectedModel"
       :model-options="modelOptions"
       :selected-tools="localSelectedTools"
@@ -402,6 +409,19 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
   background: var(--sm-color-surface-2);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-lg);
+}
+
+.message-input-container--compact {
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-3);
+  border-radius: var(--sm-radius-md);
+}
+
+.message-input-container--compact :deep(.message-textarea) {
+  min-height: 86px;
+  max-height: 168px;
+  padding: 12px;
+  resize: vertical;
 }
 
 .quick-reply-panel {

@@ -7,6 +7,7 @@ import { useMCPUI } from '@renderer/composables/mcp/useMCPUI'
 
 const props = defineProps<{
   selectedTools?: MCPTool[]
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -216,7 +217,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="mcpContainerRef" class="mcp-tools-container">
+  <div ref="mcpContainerRef" class="mcp-tools-container" :class="{ 'is-compact': props.compact }">
     <!-- 触发按钮 -->
     <button
       type="button"
@@ -228,7 +229,7 @@ onUnmounted(() => {
       <span v-if="selectedToolsCount > 0" class="selected-tool-name">
         已选 {{ selectedToolsCount }} 个工具
       </span>
-      <span v-else>MCP 工具</span>
+      <span v-else>{{ props.compact ? 'MCP' : 'MCP 工具' }}</span>
       <span v-if="totalToolsCount > 0" class="tools-count">{{ totalToolsCount }}</span>
       <span class="dropdown-arrow" :class="{ open: showPanel }">▼</span>
     </button>
@@ -339,6 +340,20 @@ onUnmounted(() => {
 <style scoped>
 .mcp-tools-container {
   position: relative;
+}
+
+.mcp-tools-container.is-compact .mcp-trigger-btn {
+  min-height: 32px;
+  padding: 6px 10px;
+}
+
+.mcp-tools-container.is-compact .selected-tool-name {
+  max-width: 56px;
+}
+
+.mcp-tools-container.is-compact .mcp-tools-panel {
+  width: min(320px, calc(100vw - 48px));
+  max-height: 420px;
 }
 
 .mcp-trigger-btn {

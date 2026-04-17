@@ -5,6 +5,7 @@ import type { KnowledgeBase } from '@renderer/types'
 // ==================== Props 和 Emits ====================
 const props = defineProps<{
   selectedKnowledgeBases?: KnowledgeBase[]
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -250,7 +251,11 @@ defineExpose({
 </script>
 
 <template>
-  <div ref="panelContainerRef" class="knowledge-base-container">
+  <div
+    ref="panelContainerRef"
+    class="knowledge-base-container"
+    :class="{ 'is-compact': props.compact }"
+  >
     <!-- 触发按钮 -->
     <button
       type="button"
@@ -262,7 +267,7 @@ defineExpose({
       <span v-if="selectedKBsCount > 0" class="selected-kb-name">
         已选 {{ selectedKBsCount }} 个知识库
       </span>
-      <span v-else>知识库</span>
+      <span v-else>{{ props.compact ? '知识' : '知识库' }}</span>
       <span v-if="allKnowledgeBases.length > 0" class="kb-count">{{
         allKnowledgeBases.length
       }}</span>
@@ -349,6 +354,20 @@ defineExpose({
 <style scoped>
 .knowledge-base-container {
   position: relative;
+}
+
+.knowledge-base-container.is-compact .kb-trigger-btn {
+  min-height: 32px;
+  padding: 6px 10px;
+}
+
+.knowledge-base-container.is-compact .selected-kb-name {
+  max-width: 56px;
+}
+
+.knowledge-base-container.is-compact .kb-panel {
+  width: min(320px, calc(100vw - 48px));
+  max-height: 420px;
 }
 
 .kb-trigger-btn {
