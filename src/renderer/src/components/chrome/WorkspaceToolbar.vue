@@ -432,6 +432,14 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <button
+      class="sm-icon-button sm-workspace-toolbar__button"
+      title="聊天"
+      aria-label="聊天"
+      type="button"
+    >
+      <SvgIcon name="chat" :size="14" />
+    </button>
   </div>
 </template>
 
