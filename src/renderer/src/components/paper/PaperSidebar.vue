@@ -3,6 +3,7 @@ import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { formatFileSize } from '@shared/utils'
 import type { OcrProgressInfo, PaperDocument, PaperStatus } from '@shared/types/paper'
 import type { RenderingProgress } from '@renderer/stores/paperReaderStore'
+import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 
 const props = defineProps<{
   papers: PaperDocument[]
@@ -182,10 +183,11 @@ function handleDeleteTranslation(paperId: string, event: Event): void {
 <template>
   <div class="paper-sidebar sm-sidebar-shell__body sm-sidebar-shell__body--flush">
     <div class="paper-list">
-      <TransitionGroup name="paper-list-item" tag="div" appear>
+      <TransitionGroup name="sm-sidebar-list-item" tag="div" appear>
         <div
-          v-for="paper in papers"
+          v-for="(paper, index) in papers"
           :key="paper.id"
+          :style="getSidebarListItemMotionStyle(index)"
           :class="[
             'paper-item',
             {
