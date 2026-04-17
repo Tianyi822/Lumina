@@ -457,6 +457,10 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
 </template>
 
 <style scoped>
+.sm-sidebar-frame {
+  position: relative;
+}
+
 .sm-workspace-sidebar-host {
   position: relative;
 }

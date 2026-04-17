@@ -18,6 +18,12 @@ const isMac = computed(() => {
     class="sm-sidebar-shell__header sm-sidebar-shell__header--chrome"
     :class="{ 'sm-sidebar-shell__header--chrome-mac': isMac }"
   >
+    <div
+      v-if="isMac"
+      class="sm-sidebar-shell__chrome-action-hitbox"
+      aria-hidden="true"
+    ></div>
+
     <WindowControls />
 
     <div class="sm-sidebar-shell__switcher-row">
@@ -38,3 +44,19 @@ const isMac = computed(() => {
     </Transition>
   </header>
 </template>
+
+<style scoped>
+.sm-sidebar-shell__header {
+  position: relative;
+}
+
+.sm-sidebar-shell__chrome-action-hitbox {
+  position: absolute;
+  top: 0;
+  left: 74px;
+  z-index: 1;
+  width: 62px;
+  height: 30px;
+  -webkit-app-region: no-drag;
+}
+</style>
