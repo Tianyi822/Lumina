@@ -7,7 +7,7 @@ import MCPSettings from './settings/MCPSettings.vue'
 import PromptEngineeringSettings from './settings/PromptEngineeringSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
-import PaperOcrSettings from './settings/PaperOcrSettings.vue'
+import PaperReaderSettings from './settings/PaperReaderSettings.vue'
 import { useConfigStore } from '@renderer/stores'
 
 const emit = defineEmits<{
@@ -15,7 +15,7 @@ const emit = defineEmits<{
   (e: 'mcp-updated'): void
 }>()
 
-type SettingsTabKey = 'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge' | 'paperOcr'
+type SettingsTabKey = 'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge' | 'paperReader'
 
 // 使用 configStore
 const configStore = useConfigStore()
@@ -40,9 +40,9 @@ const settingsTabs: Array<{
     description: '维护知识检索所需的向量模型清单。'
   },
   {
-    id: 'paperOcr',
-    label: 'OCR 模型配置',
-    description: '配置论文 OCR 识别服务凭据与模型。'
+    id: 'paperReader',
+    label: '论文阅读配置',
+    description: '配置论文 OCR 识别服务与翻译模型。'
   },
   {
     id: 'mcp',
@@ -168,8 +168,8 @@ onUnmounted(() => {
               @update:success-message="successMessage = $event"
             />
 
-            <PaperOcrSettings
-              v-else-if="activeTab === 'paperOcr'"
+            <PaperReaderSettings
+              v-else-if="activeTab === 'paperReader'"
               :error-message="errorMessage"
               :success-message="successMessage"
               @update:error-message="errorMessage = $event"
