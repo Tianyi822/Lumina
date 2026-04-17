@@ -206,65 +206,36 @@ export class KnowledgeService {
       // 生成嵌入向量（使用知识库绑定的配置）
       this.embeddingService.setConfig(this.kbData.embeddingConfig)
 
-      // 并行处理嵌入向量生成
-      const batchSize = 10
-      const maxConcurrentBatches = 5 // 最大并发批次数
-      const embeddings: number[][] = new Array(chunks.length)
-
-      // 创建批次任务
-      const batches: Array<{ index: number; texts: string[] }> = []
-      for (let i = 0; i < chunks.length; i += batchSize) {
-        batches.push({
-          index: i,
-          texts: chunks.slice(i, i + batchSize)
-        })
-      }
-
-      // 并行执行批次任务（控制并发数）
-      let completedBatches = 0
-      const processBatch = async (batch: { index: number; texts: string[] }): Promise<void> => {
-        // 检查是否已请求停止（在每批次开始时检查）
-        if (this.stopRequested) {
-          throw new Error('索引操作已被用户取消')
-        }
-
-        const result = await this.embeddingService.embedBatch(batch.texts)
-
-        // 将结果放入正确位置
-        for (let j = 0; j < result.embeddings.length; j++) {
-          embeddings[batch.index + j] = result.embeddings[j]
-        }
-
-        completedBatches++
-        const progress = 40 + Math.floor((completedBatches / batches.length) * 40)
-        wrappedOnProgress({
-          fileId,
-          fileName,
-          status: 'processing',
-          progress
-        })
-
-        // 每10批次或最后一批打印日志
-        if (completedBatches % 10 === 0 || completedBatches === batches.length) {
-          logger.debug('indexFile 批次嵌入进度', 'main', {
-            kbId,
+      const { embeddings } = await this.embeddingService.embedBatchWithOptions(chunks, {
+        shouldAbort: () => this.stopRequested,
+        onProgress: ({
+          processedTexts,
+          totalTexts,
+          currentBatchSize,
+          currentBatchEstimatedTokens,
+          requestCount
+        }) => {
+          const progress = 40 + Math.floor((processedTexts / totalTexts) * 40)
+          wrappedOnProgress({
             fileId,
-            completedBatches,
-            totalBatches: batches.length
+            fileName,
+            status: 'processing',
+            progress
           })
-        }
-      }
 
-      // 使用 Promise.all 控制并发
-      for (let i = 0; i < batches.length; i += maxConcurrentBatches) {
-        // 检查是否已请求停止
-        if (this.stopRequested) {
-          throw new Error('索引操作已被用户取消')
+          if (requestCount % 10 === 0 || processedTexts === totalTexts) {
+            logger.debug('indexFile 嵌入进度', 'main', {
+              kbId,
+              fileId,
+              requestCount,
+              processedTexts,
+              totalTexts,
+              currentBatchSize,
+              currentBatchEstimatedTokens
+            })
+          }
         }
-
-        const concurrentBatches = batches.slice(i, i + maxConcurrentBatches)
-        await Promise.all(concurrentBatches.map(processBatch))
-      }
+      })
 
       // 检查是否已请求停止
       if (this.stopRequested) {
