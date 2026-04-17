@@ -41,7 +41,6 @@ onBeforeUnmount(() => {
     >
       <div v-if="!currentPaperId" class="paper-reader-page__empty-state">
         <div class="sm-empty paper-reader-page__empty-card">
-          <span class="paper-reader-page__empty-eyebrow">论文阅读</span>
           <h2>选择一篇论文开始阅读</h2>
           <p>从左侧列表中选择已有文献，或直接上传 PDF 开始阅读。</p>
           <button
@@ -105,15 +104,6 @@ onBeforeUnmount(() => {
   width: min(520px, 100%);
   background: var(--sm-color-surface-2);
   border-style: solid;
-}
-
-.paper-reader-page__empty-card .paper-reader-page__empty-eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
 }
 
 .paper-reader-page__empty-card h2 {
