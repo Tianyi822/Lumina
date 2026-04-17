@@ -94,6 +94,9 @@ export const useUIStateStore = defineStore(
     // 论文侧边栏是否折叠
     const paperSidebarCollapsed = ref(false)
 
+    const paperChatPanelOpen = ref(false)
+    const paperChatPanelWidth = ref(420)
+
     // 当前视图模式
     const currentView = ref<ViewMode>('chat')
 
@@ -237,6 +240,18 @@ export const useUIStateStore = defineStore(
     // 设置论文侧边栏折叠状态
     function setPaperSidebarCollapsed(collapsed: boolean): void {
       paperSidebarCollapsed.value = collapsed
+    }
+
+    function setPaperChatPanelOpen(open: boolean): void {
+      paperChatPanelOpen.value = open
+    }
+
+    function togglePaperChatPanel(): void {
+      paperChatPanelOpen.value = !paperChatPanelOpen.value
+    }
+
+    function setPaperChatPanelWidth(width: number): void {
+      paperChatPanelWidth.value = Math.min(680, Math.max(340, Math.round(width)))
     }
 
     // 切换当前视图对应的侧边栏状态
@@ -665,6 +680,8 @@ export const useUIStateStore = defineStore(
       sandboxSidebarCollapsed,
       knowledgeSidebarCollapsed,
       paperSidebarCollapsed,
+      paperChatPanelOpen,
+      paperChatPanelWidth,
       currentView,
       currentModel,
       lastChatSessionId,
@@ -708,6 +725,9 @@ export const useUIStateStore = defineStore(
       setSandboxSidebarCollapsed,
       setKnowledgeSidebarCollapsed,
       setPaperSidebarCollapsed,
+      setPaperChatPanelOpen,
+      togglePaperChatPanel,
+      setPaperChatPanelWidth,
       toggleCurrentSidebar,
       setCurrentSidebarCollapsed,
       setCurrentModel,
@@ -760,6 +780,7 @@ export const useUIStateStore = defineStore(
         'knowledgeSidebarCollapsed',
         'sandboxSidebarCollapsed',
         'paperSidebarCollapsed',
+        'paperChatPanelWidth',
         'lastChatSessionId'
       ]
     }
