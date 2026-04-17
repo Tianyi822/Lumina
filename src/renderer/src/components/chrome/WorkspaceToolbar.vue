@@ -433,6 +433,7 @@ onUnmounted(() => {
     </div>
 
     <button
+      v-if="isPaperView"
       class="sm-icon-button sm-workspace-toolbar__button"
       title="聊天"
       aria-label="聊天"
