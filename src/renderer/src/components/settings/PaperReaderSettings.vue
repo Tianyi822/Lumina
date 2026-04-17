@@ -7,7 +7,7 @@ import {
   DEFAULT_OCR_PROVIDER,
   getOcrProviderPreset,
   type OcrProviderId,
-  type PaperOcrConfig
+  type PaperReaderConfig
 } from '@shared/types/config'
 
 interface Props {
@@ -25,9 +25,11 @@ const emit = defineEmits<Emits>()
 
 const configStore = useConfigStore()
 const uiStateStore = useUIStateStore()
-const { paperOcrConfig } = storeToRefs(configStore)
+const { paperReaderConfig, llmConfigs, defaultModel } = storeToRefs(configStore)
 
-const localConfig = ref<PaperOcrConfig>({ provider: DEFAULT_OCR_PROVIDER })
+const localConfig = ref<PaperReaderConfig>({
+  ocr: { provider: DEFAULT_OCR_PROVIDER }
+})
 
 const syncingLocalConfig = ref(false)
 const testing = ref(false)
@@ -56,38 +58,62 @@ function showSuccess(message: string): void {
 async function loadLocalConfig(): Promise<void> {
   syncingLocalConfig.value = true
   localConfig.value = {
-    ...paperOcrConfig.value
+    ...paperReaderConfig.value
   }
   await nextTick()
   syncingLocalConfig.value = false
 }
 
-const currentPreset = computed(() => getOcrProviderPreset(localConfig.value.provider))
+const currentPreset = computed(() => getOcrProviderPreset(localConfig.value.ocr.provider))
 
 const hasChanges = computed(() => {
   const current = localConfig.value
-  const saved = paperOcrConfig.value
+  const saved = paperReaderConfig.value
 
-  return current.provider !== saved.provider || (current.apiKey ?? '') !== (saved.apiKey ?? '')
+  const ocrChanged =
+    current.ocr.provider !== saved.ocr.provider ||
+    (current.ocr.apiKey ?? '') !== (saved.ocr.apiKey ?? '')
+  const translationModelChanged =
+    (current.translationModel ?? '') !== (saved.translationModel ?? '')
+
+  return ocrChanged || translationModelChanged
 })
 
 const canTest = computed(() => {
-  return !!localConfig.value.apiKey?.trim() && !testing.value
+  return !!localConfig.value.ocr.apiKey?.trim() && !testing.value
 })
 
-function buildPlainConfig(): PaperOcrConfig {
-  return {
-    provider: localConfig.value.provider || DEFAULT_OCR_PROVIDER,
-    apiKey: localConfig.value.apiKey?.trim() || undefined
+const translationModelOptions = computed(() => {
+  const options = [{ label: '使用默认模型', value: '' }]
+  for (const model of llmConfigs.value) {
+    options.push({
+      label: model.model_name + (model.model_name === defaultModel.value ? ' (默认)' : ''),
+      value: model.model_name
+    })
   }
+  return options
+})
+
+function buildPlainConfig(): PaperReaderConfig {
+  const config: PaperReaderConfig = {
+    ocr: {
+      provider: localConfig.value.ocr.provider || DEFAULT_OCR_PROVIDER,
+      apiKey: localConfig.value.ocr.apiKey?.trim() || undefined
+    }
+  }
+  const model = localConfig.value.translationModel?.trim()
+  if (model) {
+    config.translationModel = model
+  }
+  return config
 }
 
 function handleProviderChange(providerId: OcrProviderId): void {
-  localConfig.value.provider = providerId
+  localConfig.value.ocr.provider = providerId
 }
 
 async function handleTestConnection(): Promise<void> {
-  if (!localConfig.value.apiKey?.trim()) {
+  if (!localConfig.value.ocr.apiKey?.trim()) {
     showError('请先填写 API Key')
     return
   }
@@ -95,8 +121,8 @@ async function handleTestConnection(): Promise<void> {
   testing.value = true
   try {
     const result = await window.api.paper.testOcrConnection({
-      provider: localConfig.value.provider,
-      apiKey: localConfig.value.apiKey ?? ''
+      provider: localConfig.value.ocr.provider,
+      apiKey: localConfig.value.ocr.apiKey ?? ''
     })
 
     if (result.success) {
@@ -114,7 +140,7 @@ async function handleTestConnection(): Promise<void> {
 async function handleSave(): Promise<void> {
   const plainConfig = buildPlainConfig()
 
-  configStore.updatePaperOcrConfig(plainConfig)
+  configStore.updatePaperReaderConfig(plainConfig)
   const success = await configStore.saveConfig({ silent: true })
 
   if (!success) {
@@ -123,7 +149,7 @@ async function handleSave(): Promise<void> {
   }
 
   uiStateStore.notifyConfigUpdate()
-  showSuccess('OCR 模型配置已保存')
+  showSuccess('论文阅读配置已保存')
 }
 
 function handleReset(): void {
@@ -142,18 +168,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="sm-settings-page paper-ocr-settings">
+  <div class="sm-settings-page paper-reader-settings">
     <header class="sm-settings-page__header">
-      <h2 class="sm-settings-page__title">OCR 模型配置</h2>
-      <p class="sm-settings-page__description">配置论文 OCR 识别服务凭据与模型。</p>
+      <h2 class="sm-settings-page__title">论文阅读配置</h2>
+      <p class="sm-settings-page__description">配置论文 OCR 识别服务与翻译模型。</p>
     </header>
-
-    <div class="sm-settings-banner">OCR 将在论文页面上传后自动执行。</div>
 
     <section class="sm-settings-page__section">
       <div class="sm-settings-page__section-header">
         <div>
-          <h3 class="sm-settings-page__section-title">服务配置</h3>
+          <h3 class="sm-settings-page__section-title">OCR 服务配置</h3>
           <p class="sm-settings-page__section-description">选择 OCR 服务提供商并配置对应的凭据。</p>
         </div>
       </div>
@@ -162,9 +186,9 @@ onUnmounted(() => {
         <label class="form-label" for="paper-ocr-provider">OCR 服务</label>
         <select
           id="paper-ocr-provider"
-          v-model="localConfig.provider"
+          v-model="localConfig.ocr.provider"
           class="sm-input"
-          @change="handleProviderChange(localConfig.provider)"
+          @change="handleProviderChange(localConfig.ocr.provider)"
         >
           <option v-for="preset in OCR_PROVIDER_PRESETS" :key="preset.id" :value="preset.id">
             {{ preset.label }}
@@ -188,7 +212,7 @@ onUnmounted(() => {
         <div class="form-group field-card flex-1">
           <label class="form-label">API Key</label>
           <input
-            v-model="localConfig.apiKey"
+            v-model="localConfig.ocr.apiKey"
             type="password"
             class="sm-input"
             placeholder="填写对应的 API Key"
@@ -224,11 +248,54 @@ onUnmounted(() => {
         </div>
       </div>
     </section>
+
+    <section class="sm-settings-page__section">
+      <div class="sm-settings-page__section-header">
+        <div>
+          <h3 class="sm-settings-page__section-title">翻译模型配置</h3>
+          <p class="sm-settings-page__section-description">
+            选择用于论文翻译的 LLM 模型。翻译需要上下文关联能力，只能从已配置的对话模型中选择。
+          </p>
+        </div>
+      </div>
+
+      <div class="form-group field-card">
+        <label class="form-label" for="paper-translation-model">翻译模型</label>
+        <select
+          id="paper-translation-model"
+          v-model="localConfig.translationModel"
+          class="sm-input"
+        >
+          <option
+            v-for="option in translationModelOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-actions">
+        <div class="form-actions__buttons">
+          <button
+            class="sm-button sm-button--secondary"
+            :disabled="!hasChanges"
+            @click="handleReset"
+          >
+            重置
+          </button>
+          <button class="sm-button sm-button--primary" :disabled="!hasChanges" @click="handleSave">
+            保存配置
+          </button>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.paper-ocr-settings {
+.paper-reader-settings {
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-5);

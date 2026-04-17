@@ -9,7 +9,7 @@ import {
   type ThemeConfig,
   type ThemeMode,
   type LLMConfig,
-  type PaperOcrConfig
+  type PaperReaderConfig
 } from '@shared/types/config'
 import { deepClone } from '@shared/utils'
 
@@ -36,8 +36,10 @@ export const useConfigStore = defineStore('config', () => {
   const llmConfigs = ref<LLMConfig[]>([])
   const defaultModel = ref('')
 
-  // 论文 OCR 配置
-  const paperOcrConfig = ref<PaperOcrConfig>({ provider: DEFAULT_OCR_PROVIDER })
+  // 论文阅读配置
+  const paperReaderConfig = ref<PaperReaderConfig>({
+    ocr: { provider: DEFAULT_OCR_PROVIDER }
+  })
 
   // ==================== Getters ====================
 
@@ -68,11 +70,11 @@ export const useConfigStore = defineStore('config', () => {
           llmConfigs.value = config.llm_config.models
         }
         defaultModel.value = config.llm_config?.default_model || ''
-        // 加载论文 OCR 配置
-        if (config.paperOcr) {
-          paperOcrConfig.value = {
-            ...paperOcrConfig.value,
-            ...config.paperOcr
+        // 加载论文阅读配置
+        if (config.paperReader) {
+          paperReaderConfig.value = {
+            ...paperReaderConfig.value,
+            ...config.paperReader
           }
         }
       }
@@ -94,7 +96,7 @@ export const useConfigStore = defineStore('config', () => {
       const currentConfig = (await window.api.config.getConfig()) as AppConfig | null
       const plainThemeConfig = deepClone(themeConfig.value)
       const plainLlmConfigs = deepClone(llmConfigs.value)
-      const plainPaperOcrConfig = deepClone(paperOcrConfig.value)
+      const plainPaperReaderConfig = deepClone(paperReaderConfig.value)
       const baseConfig = currentConfig
         ? deepClone(currentConfig)
         : ({
@@ -106,7 +108,7 @@ export const useConfigStore = defineStore('config', () => {
               models: []
             },
             mcpServers: {},
-            paperOcr: plainPaperOcrConfig
+            paperReader: plainPaperReaderConfig
           } satisfies AppConfig)
 
       const nextConfig: AppConfig = {
@@ -117,7 +119,7 @@ export const useConfigStore = defineStore('config', () => {
           default_model: defaultModel.value,
           models: plainLlmConfigs
         },
-        paperOcr: plainPaperOcrConfig
+        paperReader: plainPaperReaderConfig
       }
 
       const result = await window.api.config.saveConfig(nextConfig)
@@ -189,9 +191,9 @@ export const useConfigStore = defineStore('config', () => {
     }
   }
 
-  // 更新论文 OCR 配置
-  function updatePaperOcrConfig(config: Partial<PaperOcrConfig>): void {
-    paperOcrConfig.value = { ...paperOcrConfig.value, ...config }
+  // 更新论文阅读配置
+  function updatePaperReaderConfig(config: Partial<PaperReaderConfig>): void {
+    paperReaderConfig.value = { ...paperReaderConfig.value, ...config }
   }
 
   // 清除消息
@@ -209,7 +211,7 @@ export const useConfigStore = defineStore('config', () => {
     themeConfig,
     llmConfigs,
     defaultModel,
-    paperOcrConfig,
+    paperReaderConfig,
     // Getters
     hasModels,
     defaultModelConfig,
@@ -222,7 +224,7 @@ export const useConfigStore = defineStore('config', () => {
     addModelConfig,
     deleteModelConfig,
     updateModelConfigField,
-    updatePaperOcrConfig,
+    updatePaperReaderConfig,
     clearMessages
   }
 })

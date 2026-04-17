@@ -1,5 +1,6 @@
 import { net } from 'electron'
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
+import { dirname } from 'path'
 import { logger } from '@main/services/logger'
 import { configManager } from '@main/services/config'
 import {
@@ -16,11 +17,9 @@ import {
   getPaperOcrRawPath,
   getPaperOcrNormalizedDirPath,
   getPaperOcrNormalizedPath,
-  getPaperPageAssetsDirPath,
-  getPaperFigureAssetPath,
-  getPaperFigureAssetRelativePath,
   getPaperMergedMdPath
 } from './paperPaths'
+import { localizePaperPageAssets } from './paperAssetLocalizer'
 
 export interface OcrProgressInfo {
   paperId: string
@@ -158,7 +157,7 @@ async function downloadCropImage(remoteUrl: string, localPath: string): Promise<
     const response = await net.fetch(remoteUrl)
     if (!response.ok) return false
     const buffer = Buffer.from(await response.arrayBuffer())
-    const dir = localPath.substring(0, localPath.lastIndexOf('/'))
+    const dir = dirname(localPath)
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true })
     }
@@ -177,11 +176,11 @@ export class PaperOcrService {
 
   private getOcrConfig(): { apiKey: string; provider: OcrProviderId; concurrency: number } {
     const config = configManager.getConfig()
-    const paperOcr = config?.paperOcr
-    const provider = paperOcr?.provider || DEFAULT_OCR_PROVIDER
+    const ocr = config?.paperReader?.ocr
+    const provider = ocr?.provider || DEFAULT_OCR_PROVIDER
     const preset = getOcrProviderPreset(provider)!
     return {
-      apiKey: paperOcr?.apiKey || '',
+      apiKey: ocr?.apiKey || '',
       provider,
       concurrency: preset.concurrency
     }
@@ -379,31 +378,52 @@ export class PaperOcrService {
     const rawResponse = response.data as RawOcrResponse
     const normalized = normalizeGlmOcrResponse(rawResponse, pageIndex)
 
-    const assetsDir = getPaperPageAssetsDirPath(paperId, pageIndex)
-    if (!existsSync(assetsDir)) {
-      mkdirSync(assetsDir, { recursive: true })
-    }
-
-    for (const block of normalized.blocks) {
-      if (
-        (block.label === 'image' || block.label === 'table' || block.label === 'formula') &&
-        block.remoteAssetUrl
-      ) {
-        const localRelativePath = getPaperFigureAssetRelativePath(pageIndex, block.index)
-        const localAbsolutePath = getPaperFigureAssetPath(paperId, pageIndex, block.index)
-
-        const downloaded = await downloadCropImage(block.remoteAssetUrl, localAbsolutePath)
-        if (downloaded) {
-          block.localAssetPath = localRelativePath
-        }
+    const localizedResult = await localizePaperPageAssets(
+      paperId,
+      {
+        paperId,
+        pageIndex,
+        markdown: normalized.markdown,
+        blocks: normalized.blocks,
+        usage: normalized.usage,
+        requestId: normalized.requestId,
+        taskId: normalized.taskId,
+        status: 'completed'
+      },
+      {
+        downloadAsset: downloadCropImage
       }
+    )
+
+    if (localizedResult.failedAssets.length > 0) {
+      const failedBlocks = localizedResult.failedAssets
+        .map((asset) => `block ${asset.blockIndex}`)
+        .join(', ')
+      const result: PaperPageOcrResult = {
+        paperId,
+        pageIndex,
+        markdown: '',
+        blocks: [],
+        usage: normalized.usage,
+        requestId: normalized.requestId,
+        taskId: normalized.taskId,
+        status: 'failed',
+        errorMessage: `OCR 图片下载失败: ${failedBlocks}`
+      }
+      this.saveOcrResults(paperId, pageIndex, rawResponse, result)
+      logger.warn(`第 ${pageIndex + 1} 页 OCR 图片下载失败`, 'main', {
+        paperId,
+        pageIndex,
+        failedAssets: localizedResult.failedAssets.length
+      })
+      return result
     }
 
     const result: PaperPageOcrResult = {
       paperId,
       pageIndex,
-      markdown: normalized.markdown,
-      blocks: normalized.blocks,
+      markdown: localizedResult.pageResult.markdown,
+      blocks: localizedResult.pageResult.blocks,
       usage: normalized.usage,
       requestId: normalized.requestId,
       taskId: normalized.taskId,

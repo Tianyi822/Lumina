@@ -7,12 +7,8 @@ import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperFigureItem, PaperTocEntry, PaperTocItem } from '@shared/types/paper'
 import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 
-const emit = defineEmits<{
-  (e: 'open-settings'): void
-}>()
-
 const uiStateStore = useUIStateStore()
-const { isCurrentSidebarCollapsed, isPaperView } = storeToRefs(uiStateStore)
+const { isPaperView } = storeToRefs(uiStateStore)
 
 const paperReaderStore = usePaperReaderStore()
 const {
@@ -38,10 +34,6 @@ const tocContainerRef = ref<HTMLElement | null>(null)
 const figureContainerRef = ref<HTMLElement | null>(null)
 const figurePanelRef = ref<HTMLElement | null>(null)
 const showTocPanel = ref(false)
-
-const shouldAvoidMacWindowControls = computed(() => {
-  return window.electron?.process?.platform === 'darwin' && isCurrentSidebarCollapsed.value
-})
 
 const canOpenToc = computed(() => {
   return !!currentPaperId.value
@@ -120,30 +112,12 @@ const paperTocTree = computed<PaperTocTreeNode[]>(() => {
   return roots
 })
 
-function handleOpenSettings(): void {
-  emit('open-settings')
-}
-
 function closeTocPanel(): void {
   showTocPanel.value = false
 }
 
 function closeFigurePanel(): void {
   paperReaderStore.closeFigurePanel()
-}
-
-function handleToggleSidebar(): void {
-  uiStateStore.toggleCurrentSidebar()
-}
-
-/** 刷新论文 Markdown 内容 */
-function handleRefreshMarkdown(): void {
-  closeTocPanel()
-  closeFigurePanel()
-
-  if (currentPaperId.value) {
-    paperReaderStore.loadMarkdown(currentPaperId.value)
-  }
 }
 
 async function handleToggleTranslation(): Promise<void> {
@@ -268,42 +242,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    class="sm-workspace-toolbar__controls"
-    :class="{
-      'sm-workspace-toolbar__controls--avoid-window-controls': shouldAvoidMacWindowControls
-    }"
-  >
+  <div class="sm-workspace-toolbar__controls">
     <button
-      class="sm-icon-button sm-workspace-toolbar__button"
-      title="设置"
-      aria-label="打开设置"
-      @click="handleOpenSettings"
-    >
-      <SvgIcon name="settings" :size="14" />
-    </button>
-
-    <button
-      class="sm-icon-button sm-workspace-toolbar__button"
-      :title="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
-      :aria-label="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
-      @click="handleToggleSidebar"
-    >
-      <SvgIcon name="sidebar-toggle" :size="14" />
-    </button>
-
-    <button
-      v-if="isPaperView"
-      class="sm-icon-button sm-workspace-toolbar__button"
-      title="刷新内容"
-      aria-label="刷新论文内容"
-      @click="handleRefreshMarkdown"
-    >
-      <SvgIcon name="refresh" :size="14" />
-    </button>
-
-    <button
-      v-if="isPaperView"
+      v-if="isPaperView && currentPaperId"
       class="sm-icon-button sm-workspace-toolbar__button"
       :class="{
         'is-active': translationVisible,
@@ -311,13 +252,16 @@ onUnmounted(() => {
       }"
       :title="translationButtonTitle"
       :aria-label="translationButtonTitle"
-      :disabled="!currentPaperId"
       @click="handleToggleTranslation"
     >
       <SvgIcon name="translate" :size="14" />
     </button>
 
-    <div v-if="isPaperView" ref="tocContainerRef" class="sm-workspace-toolbar__toc">
+    <div
+      v-if="isPaperView && currentPaperId"
+      ref="tocContainerRef"
+      class="sm-workspace-toolbar__toc"
+    >
       <button
         class="sm-icon-button sm-workspace-toolbar__button"
         :class="{ 'is-active': showTocPanel }"
@@ -425,7 +369,11 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div v-if="isPaperView" ref="figureContainerRef" class="sm-workspace-toolbar__figures">
+    <div
+      v-if="isPaperView && currentPaperId"
+      ref="figureContainerRef"
+      class="sm-workspace-toolbar__figures"
+    >
       <button
         class="sm-icon-button sm-workspace-toolbar__button"
         :class="{ 'is-active': showFigurePanel }"
@@ -483,6 +431,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
   </div>
 </template>
 
@@ -490,24 +439,18 @@ onUnmounted(() => {
 .sm-workspace-toolbar__controls {
   position: absolute;
   top: 0;
-  left: 0;
+  right: 0;
   z-index: 4;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--sm-space-2);
   width: max-content;
-  margin-left: 0;
+  margin-right: 0;
   transition:
     top var(--sm-transition-medium),
-    left var(--sm-transition-medium);
+    right var(--sm-transition-medium);
   -webkit-app-region: drag;
   user-select: none;
-}
-
-.sm-workspace-toolbar__controls--avoid-window-controls {
-  left: calc(24px - var(--sm-space-3));
-  top: var(--sm-titlebar-height);
 }
 
 .sm-workspace-toolbar__button {
@@ -546,8 +489,8 @@ onUnmounted(() => {
 .sm-workspace-toolbar__toc-panel,
 .sm-workspace-toolbar__figure-panel {
   position: absolute;
-  top: 0;
-  left: calc(100% + var(--sm-space-2));
+  top: calc(100% + var(--sm-space-2));
+  right: 0;
   z-index: 20;
   width: 320px;
   max-width: min(320px, calc(100vw - 48px));

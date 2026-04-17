@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import ChatPage from './pages/ChatPage.vue'
 import KnowledgePage from './pages/KnowledgePage.vue'
@@ -7,6 +7,7 @@ import SandboxPage from './pages/SandboxPage.vue'
 import PaperReaderPage from './pages/PaperReaderPage.vue'
 import ErrorBanner from './components/ErrorBanner.vue'
 import SettingsModal from './components/SettingsModal.vue'
+import SvgIcon from './components/icons/SvgIcon.vue'
 import WorkspaceSidebarHost from './components/chrome/WorkspaceSidebarHost.vue'
 import WorkspaceToolbar from './components/chrome/WorkspaceToolbar.vue'
 
@@ -22,16 +23,20 @@ const { initTheme } = useTheme()
 
 // ==================== UI 状态管理（直接使用 Store）====================
 const uiState = useUIStateStore()
-const { currentView, isChatView, isKnowledgeView, isPaperView, configError } = storeToRefs(uiState)
+const {
+  currentView,
+  isChatView,
+  isKnowledgeView,
+  isPaperView,
+  isCurrentSidebarCollapsed,
+  configError
+} = storeToRefs(uiState)
 
 // 配置 Store - 用于加载语音识别等配置
 const configStore = useConfigStore()
 
 // 设置弹窗状态（本地状态）
 const showSettings = ref(false)
-const workspaceMainClass = computed(() => ({
-  'sm-workspace-main--chat': isChatView.value
-}))
 
 function openSettings(): void {
   showSettings.value = true
@@ -39,6 +44,10 @@ function openSettings(): void {
 
 function closeSettings(): void {
   showSettings.value = false
+}
+
+function toggleSidebar(): void {
+  uiState.toggleCurrentSidebar()
 }
 
 function dismissError(): void {
@@ -119,10 +128,30 @@ onBeforeUnmount(() => {
     <!-- 主布局 -->
     <div class="sm-shell sm-workspace-page">
       <div class="sm-workspace-page__drag-region" aria-hidden="true"></div>
+      <div class="sm-workspace-page__chrome-actions" aria-label="窗口快捷操作">
+        <button
+          class="sm-icon-button sm-workspace-page__chrome-button"
+          title="设置"
+          aria-label="打开设置"
+          @click="openSettings"
+        >
+          <SvgIcon name="settings" :size="14" />
+        </button>
+
+        <button
+          class="sm-icon-button sm-workspace-page__chrome-button"
+          :title="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
+          :aria-label="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
+          @click="toggleSidebar"
+        >
+          <SvgIcon name="sidebar-toggle" :size="14" />
+        </button>
+      </div>
+
       <WorkspaceSidebarHost />
 
-      <div class="sm-workspace-main" :class="workspaceMainClass">
-        <WorkspaceToolbar @open-settings="openSettings" />
+      <div class="sm-workspace-main">
+        <WorkspaceToolbar />
 
         <div class="sm-workspace-main__body sm-workspace-main__body--fill">
           <Transition name="sm-workspace-switch" mode="out-in" appear>
@@ -161,19 +190,32 @@ onBeforeUnmount(() => {
   user-select: none;
 }
 
-.sm-workspace-main--chat {
-  position: relative;
-  overflow: visible;
+.sm-workspace-page__chrome-actions {
+  position: absolute;
+  top: 12px;
+  left: 90px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  -webkit-app-region: no-drag;
 }
 
-.sm-workspace-main--chat > .sm-workspace-toolbar__controls {
-  top: calc(var(--sm-space-2) * -1);
-  min-height: calc(var(--sm-titlebar-height) + var(--sm-space-2));
-  padding-top: var(--sm-space-2);
+.sm-workspace-page__chrome-button {
+  width: 24px;
+  height: 30px;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  -webkit-app-region: no-drag;
 }
 
-.sm-workspace-main--chat
-  > .sm-workspace-toolbar__controls.sm-workspace-toolbar__controls--avoid-window-controls {
-  top: calc(var(--sm-titlebar-height) - var(--sm-space-2));
+.sm-workspace-page__chrome-button:hover,
+.sm-workspace-page__chrome-button:active,
+.sm-workspace-page__chrome-button:focus-visible {
+  border-color: transparent;
+  background: transparent;
+  color: var(--sm-color-text-primary);
 }
+
 </style>

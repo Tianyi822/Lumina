@@ -7,10 +7,18 @@ import { PaperTranslationCore } from './PaperTranslationCore'
 
 const paperTranslationStorage = new PaperStorageService()
 
-function getDefaultLlmConfig(): LLMConfig | null {
+function getTranslationLlmConfig(): LLMConfig | null {
   const config = configManager.getConfig()
   if (!config) {
     return null
+  }
+
+  const translationModel = config.paperReader?.translationModel
+  if (translationModel) {
+    const matched = config.llm_config.models.find((model) => model.model_name === translationModel)
+    if (matched) {
+      return matched
+    }
   }
 
   const defaultModelKey = config.llm_config.default_model
@@ -22,7 +30,7 @@ export class PaperTranslationService extends PaperTranslationCore {
     super({
       concurrency: 3,
       logger,
-      getDefaultLlmConfig,
+      getDefaultLlmConfig: getTranslationLlmConfig,
       readCache: (paperId) => paperTranslationStorage.readTranslationCache(paperId),
       saveCache: (paperId, cache) => paperTranslationStorage.saveTranslationCache(paperId, cache),
       clearCache: (paperId) => paperTranslationStorage.clearTranslationCache(paperId),

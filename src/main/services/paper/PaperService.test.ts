@@ -1,12 +1,16 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { PaperService } from './PaperService.ts'
 import { paperStorageService } from './index.ts'
+import { getPaperDirPath, getPaperFigureAssetPath } from './paperPaths.ts'
 import {
   PAPER_ANNOTATION_NOTE_COLOR_KEY,
   type CreatePaperAnnotationPayload,
   type PaperAnnotation,
   type PaperAnnotationStore,
+  type PaperPageOcrResult,
   type PaperReaderDocument,
   type PaperReaderSegment,
   type UpdatePaperAnnotationPayload
@@ -14,15 +18,23 @@ import {
 import { buildPaperTextAnchor } from '../../../shared/utils/paperAnnotationAnchors.ts'
 
 type MutablePaperService = {
-  getReaderDocument: (paperId: string) => {
-    success: boolean
-    data?: PaperReaderDocument
-    error?: string
-  }
+  getReaderDocument: (paperId: string) =>
+    | {
+        success: boolean
+        data?: PaperReaderDocument
+        error?: string
+      }
+    | Promise<{
+        success: boolean
+        data?: PaperReaderDocument
+        error?: string
+      }>
   resolveAnnotationStore: (
     paperId: string,
     readerDocument?: PaperReaderDocument
-  ) => { success: boolean; data?: PaperAnnotationStore; error?: string }
+  ) =>
+    | { success: boolean; data?: PaperAnnotationStore; error?: string }
+    | Promise<{ success: boolean; data?: PaperAnnotationStore; error?: string }>
 }
 
 function asMutableService(service: PaperService): MutablePaperService {
@@ -129,7 +141,78 @@ function createBasePayload(segment: PaperReaderSegment): CreatePaperAnnotationPa
   }
 }
 
-test('createAnnotation 可以创建普通标记并强制清空 comment', () => {
+test('getReaderDocument 会写回历史 normalized 中残留的远端图片 URL', async () => {
+  const service = new PaperService()
+  const paperId = 'paper-history-localize'
+  const remoteUrl = 'https://example.com/ocr/crop/history.png?token=1'
+  const localAssetPath = 'assets/page-0001/crop-0000.png'
+  const localAbsolutePath = getPaperFigureAssetPath(paperId, 0, 0)
+  const pageResult: PaperPageOcrResult = {
+    paperId,
+    pageIndex: 0,
+    status: 'completed',
+    markdown: [
+      `<div style='text-align: center;'><img src='${remoteUrl}' alt='OCR图片'/></div>`,
+      'Readable paragraph after the figure.'
+    ].join('\n\n'),
+    blocks: [
+      {
+        index: 0,
+        pageIndex: 0,
+        label: 'image',
+        content: remoteUrl,
+        bbox: { x: 100, y: 100, width: 200, height: 120 },
+        width: 1000,
+        height: 1200,
+        remoteAssetUrl: remoteUrl,
+        localAssetPath
+      },
+      {
+        index: 1,
+        pageIndex: 0,
+        label: 'text',
+        content: 'Readable paragraph after the figure.',
+        bbox: { x: 100, y: 260, width: 500, height: 40 },
+        width: 1000,
+        height: 1200
+      }
+    ]
+  }
+  let savedResult: PaperPageOcrResult | null = null
+
+  const originalListNormalizedResults = paperStorageService.listNormalizedResults
+  const originalSaveNormalizedResult = paperStorageService.saveNormalizedResult
+
+  rmSync(getPaperDirPath(paperId), { recursive: true, force: true })
+  mkdirSync(dirname(localAbsolutePath), { recursive: true })
+  writeFileSync(localAbsolutePath, 'png')
+
+  paperStorageService.listNormalizedResults = () => ({ success: true, data: [pageResult] })
+  paperStorageService.saveNormalizedResult = (_paperId, _pageIndex, result) => {
+    savedResult = structuredClone(result)
+    return { success: true }
+  }
+
+  try {
+    const result = await service.getReaderDocument(paperId)
+
+    assert.equal(result.success, true)
+    if (!savedResult) {
+      throw new Error('saveNormalizedResult 未被调用')
+    }
+
+    const ensuredResult = savedResult as PaperPageOcrResult
+    assert.match(ensuredResult.markdown, /assets\/page-0001\/crop-0000\.png/)
+    assert.doesNotMatch(ensuredResult.markdown, /https:\/\/example\.com/)
+    assert.equal(ensuredResult.blocks[0].content, localAssetPath)
+  } finally {
+    paperStorageService.listNormalizedResults = originalListNormalizedResults
+    paperStorageService.saveNormalizedResult = originalSaveNormalizedResult
+    rmSync(getPaperDirPath(paperId), { recursive: true, force: true })
+  }
+})
+
+test('createAnnotation 可以创建普通标记并强制清空 comment', async () => {
   const service = new PaperService()
   const mutableService = asMutableService(service)
   const segment = createSegment()
@@ -148,7 +231,7 @@ test('createAnnotation 可以创建普通标记并强制清空 comment', () => {
   }
 
   try {
-    const result = service.createAnnotation({
+    const result = await service.createAnnotation({
       ...createBasePayload(segment),
       comment: '这段内容需要关注'
     })
@@ -168,7 +251,7 @@ test('createAnnotation 可以创建普通标记并强制清空 comment', () => {
   }
 })
 
-test('createAnnotation 会拒绝普通标记使用绿色', () => {
+test('createAnnotation 会拒绝普通标记使用绿色', async () => {
   const service = new PaperService()
   const mutableService = asMutableService(service)
   const segment = createSegment()
@@ -176,7 +259,7 @@ test('createAnnotation 会拒绝普通标记使用绿色', () => {
   mutableService.getReaderDocument = () => ({ success: true, data: createReaderDocument(segment) })
   mutableService.resolveAnnotationStore = () => ({ success: true, data: createStore() })
 
-  const result = service.createAnnotation({
+  const result = await service.createAnnotation({
     ...createBasePayload(segment),
     colorKey: 'green'
   })
@@ -185,7 +268,7 @@ test('createAnnotation 会拒绝普通标记使用绿色', () => {
   assert.equal(result.error, '普通标记只能使用蓝色、黄色或橙色')
 })
 
-test('createAnnotation 会拒绝空笔记内容', () => {
+test('createAnnotation 会拒绝空笔记内容', async () => {
   const service = new PaperService()
   const mutableService = asMutableService(service)
   const segment = createSegment()
@@ -193,7 +276,7 @@ test('createAnnotation 会拒绝空笔记内容', () => {
   mutableService.getReaderDocument = () => ({ success: true, data: createReaderDocument(segment) })
   mutableService.resolveAnnotationStore = () => ({ success: true, data: createStore() })
 
-  const result = service.createAnnotation({
+  const result = await service.createAnnotation({
     ...createBasePayload(segment),
     kind: 'note',
     comment: '   ',
@@ -204,7 +287,7 @@ test('createAnnotation 会拒绝空笔记内容', () => {
   assert.equal(result.error, '请先填写笔记内容')
 })
 
-test('updateAnnotation 只允许普通标记修改颜色', () => {
+test('updateAnnotation 只允许普通标记修改颜色', async () => {
   const service = new PaperService()
   const mutableService = asMutableService(service)
   const segment = createSegment()
@@ -224,7 +307,7 @@ test('updateAnnotation 只允许普通标记修改颜色', () => {
   mutableService.resolveAnnotationStore = () => ({ success: true, data: store })
 
   try {
-    const rejected = service.updateAnnotation({
+    const rejected = await service.updateAnnotation({
       paperId: 'paper-1',
       annotationId: annotation.id,
       comment: '不允许'
@@ -232,7 +315,7 @@ test('updateAnnotation 只允许普通标记修改颜色', () => {
     assert.equal(rejected.success, false)
     assert.equal(rejected.error, '普通标记不支持修改笔记内容')
 
-    const updated = service.updateAnnotation({
+    const updated = await service.updateAnnotation({
       paperId: 'paper-1',
       annotationId: annotation.id,
       colorKey: 'orange'
@@ -251,7 +334,7 @@ test('updateAnnotation 只允许普通标记修改颜色', () => {
   }
 })
 
-test('updateAnnotation 允许笔记修改内容但不允许改颜色', () => {
+test('updateAnnotation 允许笔记修改内容但不允许改颜色', async () => {
   const service = new PaperService()
   const mutableService = asMutableService(service)
   const segment = createSegment()
@@ -271,7 +354,7 @@ test('updateAnnotation 允许笔记修改内容但不允许改颜色', () => {
   mutableService.resolveAnnotationStore = () => ({ success: true, data: store })
 
   try {
-    const rejected = service.updateAnnotation({
+    const rejected = await service.updateAnnotation({
       paperId: 'paper-1',
       annotationId: annotation.id,
       colorKey: 'blue'
@@ -279,7 +362,7 @@ test('updateAnnotation 允许笔记修改内容但不允许改颜色', () => {
     assert.equal(rejected.success, false)
     assert.equal(rejected.error, '笔记不支持修改高亮颜色')
 
-    const updated = service.updateAnnotation({
+    const updated = await service.updateAnnotation({
       paperId: 'paper-1',
       annotationId: annotation.id,
       comment: '  新内容  '
@@ -298,7 +381,7 @@ test('updateAnnotation 允许笔记修改内容但不允许改颜色', () => {
   }
 })
 
-test('reanchorAnnotation 会保留普通标记的类型与颜色', () => {
+test('reanchorAnnotation 会保留普通标记的类型与颜色', async () => {
   const service = new PaperService()
   const mutableService = asMutableService(service)
   const segment = createSegment()
@@ -324,7 +407,7 @@ test('reanchorAnnotation 会保留普通标记的类型与颜色', () => {
 
   try {
     const nextAnchor = buildPaperTextAnchor(segment.originalText, 5, 12)
-    const result = service.reanchorAnnotation({
+    const result = await service.reanchorAnnotation({
       paperId: 'paper-1',
       annotationId: annotation.id,
       kind: 'highlight',

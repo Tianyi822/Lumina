@@ -227,11 +227,11 @@ export function registerPaperHandlers(): void {
     return paperStorageService.readMergedMd(paperId)
   })
 
-  ipcMain.handle('paper:getReaderMarkdown', (_event, paperId: string) => {
+  ipcMain.handle('paper:getReaderMarkdown', async (_event, paperId: string) => {
     return getPaperService().getReaderMarkdown(paperId)
   })
 
-  ipcMain.handle('paper:getReaderDocument', (_event, paperId: string) => {
+  ipcMain.handle('paper:getReaderDocument', async (_event, paperId: string) => {
     return getPaperService().getReaderDocument(paperId)
   })
 
@@ -239,25 +239,28 @@ export function registerPaperHandlers(): void {
     return getPaperService().listFigures(paperId)
   })
 
-  ipcMain.handle('paper:listAnnotations', (_event, paperId: string) => {
+  ipcMain.handle('paper:listAnnotations', async (_event, paperId: string) => {
     return getPaperService().listAnnotations(paperId)
   })
 
-  ipcMain.handle('paper:createAnnotation', (_event, params: CreatePaperAnnotationPayload) => {
+  ipcMain.handle('paper:createAnnotation', async (_event, params: CreatePaperAnnotationPayload) => {
     return getPaperService().createAnnotation(params)
   })
 
-  ipcMain.handle('paper:reanchorAnnotation', (_event, params: ReanchorPaperAnnotationPayload) => {
-    return getPaperService().reanchorAnnotation(params)
-  })
+  ipcMain.handle(
+    'paper:reanchorAnnotation',
+    async (_event, params: ReanchorPaperAnnotationPayload) => {
+      return getPaperService().reanchorAnnotation(params)
+    }
+  )
 
-  ipcMain.handle('paper:updateAnnotation', (_event, params: UpdatePaperAnnotationPayload) => {
+  ipcMain.handle('paper:updateAnnotation', async (_event, params: UpdatePaperAnnotationPayload) => {
     return getPaperService().updateAnnotation(params)
   })
 
   ipcMain.handle(
     'paper:deleteAnnotation',
-    (_event, params: { paperId: string; annotationId: string }) => {
+    async (_event, params: { paperId: string; annotationId: string }) => {
       return getPaperService().deleteAnnotation(params.paperId, params.annotationId)
     }
   )
@@ -372,7 +375,7 @@ export function registerPaperHandlers(): void {
   )
 
   ipcMain.handle('paper:getTranslationState', async (_event, paperId: string) => {
-    const markdownResult = getPaperService().getReaderMarkdown(paperId)
+    const markdownResult = await getPaperService().getReaderMarkdown(paperId)
     if (!markdownResult.success || !markdownResult.data) {
       return { success: false, error: markdownResult.error || '读取论文正文失败' }
     }
@@ -411,7 +414,7 @@ export function registerPaperHandlers(): void {
 
   ipcMain.handle('paper:startTranslation', async (_event, params: { paperId: string }) => {
     const { paperId } = params
-    const markdownResult = getPaperService().getReaderMarkdown(paperId)
+    const markdownResult = await getPaperService().getReaderMarkdown(paperId)
     if (!markdownResult.success || !markdownResult.data) {
       return { success: false, error: markdownResult.error || '读取论文正文失败' }
     }
