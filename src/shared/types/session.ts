@@ -13,7 +13,7 @@ import type { MCPTool } from './mcp'
 /**
  * 会话的类型
  */
-export type SessionType = 'default' | 'tool' | 'knowledge'
+export type SessionType = 'default' | 'tool' | 'knowledge' | 'paper'
 
 /**
  * ReAct 步骤（持久化用）
@@ -69,6 +69,12 @@ export interface SessionMessage {
   attachedDocuments?: AttachedDocument[]
   /** 附加的图片列表，仅 user 消息会有 */
   attachedImages?: AttachedImage[]
+  /** 是否为隐藏上下文消息 */
+  hidden?: boolean
+  /** 隐藏上下文类型 */
+  contextKind?: 'paper_fulltext'
+  /** 隐藏上下文来源论文 ID */
+  sourcePaperId?: string
 }
 
 /**

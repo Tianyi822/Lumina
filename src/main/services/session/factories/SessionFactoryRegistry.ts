@@ -3,6 +3,7 @@ import { SessionType } from '@main/types/session'
 import { DefaultSessionFactory } from './DefaultSessionFactory'
 import { ToolSessionFactory } from './ToolSessionFactory'
 import { KnowledgeSessionFactory } from './KnowledgeSessionFactory'
+import { PaperSessionFactory } from './PaperSessionFactory'
 
 // 会话工厂注册表
 // 管理所有工厂实例，根据类型获取对应工厂
@@ -29,6 +30,7 @@ export class SessionFactoryRegistry {
     this.register(new DefaultSessionFactory())
     this.register(new ToolSessionFactory())
     this.register(new KnowledgeSessionFactory())
+    this.register(new PaperSessionFactory())
   }
 
   // 注册新的会话工厂
