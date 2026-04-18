@@ -22,6 +22,7 @@ export { useKnowledgeStore } from './knowledgeStore'
 export { useFileStore } from './fileStore'
 export { usePaperChatDocumentUploadStore } from './paperChatDocumentUploadStore'
 export { usePaperChatImageUploadStore } from './paperChatImageUploadStore'
+export { usePaperChatQuoteStore } from './paperChatQuoteStore'
 
 // Sandbox Stores (拆分后的模块)
 export {
