@@ -4,6 +4,7 @@ import { ref, watch, onMounted } from 'vue'
 const props = defineProps<{
   modelValue: boolean
   disabled?: boolean
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -39,7 +40,7 @@ onMounted(() => {
 <template>
   <div
     class="sandbox-tools-toggle"
-    :class="{ enabled: isEnabled, disabled: disabled }"
+    :class="{ enabled: isEnabled, disabled: disabled, 'is-compact': props.compact }"
     @click="toggle"
   >
     <div class="toggle-switch">
@@ -65,6 +66,26 @@ onMounted(() => {
     border-color var(--sm-transition-fast),
     color var(--sm-transition-fast);
   user-select: none;
+}
+
+.sandbox-tools-toggle.is-compact {
+  min-height: 32px;
+  padding: 6px 10px;
+  gap: 6px;
+}
+
+.sandbox-tools-toggle.is-compact .toggle-switch {
+  width: 28px;
+  height: 16px;
+}
+
+.sandbox-tools-toggle.is-compact .toggle-thumb {
+  width: 12px;
+  height: 12px;
+}
+
+.sandbox-tools-toggle.is-compact.enabled .toggle-thumb {
+  transform: translateX(12px);
 }
 
 .sandbox-tools-toggle:hover:not(.disabled) {

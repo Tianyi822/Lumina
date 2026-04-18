@@ -8,7 +8,7 @@ import type { PaperFigureItem, PaperTocEntry, PaperTocItem } from '@shared/types
 import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 
 const uiStateStore = useUIStateStore()
-const { isPaperView } = storeToRefs(uiStateStore)
+const { isPaperView, paperChatPanelOpen } = storeToRefs(uiStateStore)
 
 const paperReaderStore = usePaperReaderStore()
 const {
@@ -17,6 +17,7 @@ const {
   currentTranslationCache,
   figureCaptionTranslationMap,
   figureLoadingByPaperId,
+  isOcrCompleted,
   isCurrentPaperTranslating,
   paperTocTitle,
   paperTocItems,
@@ -41,6 +42,10 @@ const canOpenToc = computed(() => {
 
 const canOpenFigurePanel = computed(() => {
   return !!currentPaperId.value
+})
+
+const canOpenPaperChat = computed(() => {
+  return !!currentPaperId.value && isOcrCompleted.value
 })
 
 const hasTranslationCache = computed(() => {
@@ -146,6 +151,16 @@ async function handleToggleFigurePanel(): Promise<void> {
 
   closeTocPanel()
   await paperReaderStore.toggleFigurePanel()
+}
+
+function handleTogglePaperChat(): void {
+  if (!canOpenPaperChat.value) {
+    return
+  }
+
+  closeTocPanel()
+  closeFigurePanel()
+  uiStateStore.togglePaperChatPanel()
 }
 
 function handleSelectTocItem(headingId: string): void {
@@ -432,6 +447,17 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <button
+      v-if="isPaperView && canOpenPaperChat"
+      class="sm-icon-button sm-workspace-toolbar__button"
+      :class="{ 'is-active': paperChatPanelOpen }"
+      title="聊天"
+      aria-label="聊天"
+      type="button"
+      @click="handleTogglePaperChat"
+    >
+      <SvgIcon name="chat" :size="14" />
+    </button>
   </div>
 </template>
 

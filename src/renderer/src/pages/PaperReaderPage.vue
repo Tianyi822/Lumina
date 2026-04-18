@@ -1,14 +1,21 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { useUIStateStore } from '@renderer/stores/uiStateStore'
+import { usePaperChatQuoteStore } from '@renderer/stores/paperChatQuoteStore'
+import type { PaperQuote } from '@shared/types/chat'
 import PaperMarkdownView from '@renderer/components/paper/PaperMarkdownView.vue'
 import PaperFigurePreview from '@renderer/components/paper/PaperFigurePreview.vue'
+import PaperChatPanel from '@renderer/components/paper/chat/PaperChatPanel.vue'
 
 const store = usePaperReaderStore()
+const uiStateStore = useUIStateStore()
+const paperChatQuoteStore = usePaperChatQuoteStore()
 
 const {
   currentPaperId,
+  currentPaper,
   markdownContent,
   markdownLoading,
   isOcrCompleted,
@@ -18,6 +25,53 @@ const {
   translationVisible,
   currentTranslationCache
 } = storeToRefs(store)
+const { paperChatPanelOpen, paperChatPanelWidth } = storeToRefs(uiStateStore)
+const isResizingPaperChat = ref(false)
+const markdownViewRef = ref<InstanceType<typeof PaperMarkdownView> | null>(null)
+
+provide('scrollToQuote', (quote: PaperQuote) => {
+  markdownViewRef.value?.scrollToQuoteAndHighlight(quote)
+})
+
+function handleAddToChat(quote: PaperQuote): void {
+  const sessionId = currentPaper.value?.chatSessionId
+  if (!sessionId) {
+    return
+  }
+
+  paperChatQuoteStore.addQuote(sessionId, quote)
+  uiStateStore.setPaperChatPanelOpen(true)
+}
+
+function handlePaperChatResizeMove(event: PointerEvent): void {
+  if (!isResizingPaperChat.value) {
+    return
+  }
+
+  uiStateStore.setPaperChatPanelWidth(window.innerWidth - event.clientX)
+}
+
+function stopPaperChatResize(): void {
+  if (!isResizingPaperChat.value) {
+    return
+  }
+
+  isResizingPaperChat.value = false
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+  window.removeEventListener('pointermove', handlePaperChatResizeMove)
+  window.removeEventListener('pointerup', stopPaperChatResize)
+}
+
+function startPaperChatResize(event: PointerEvent): void {
+  event.preventDefault()
+  isResizingPaperChat.value = true
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  window.addEventListener('pointermove', handlePaperChatResizeMove)
+  window.addEventListener('pointerup', stopPaperChatResize)
+  handlePaperChatResizeMove(event)
+}
 
 onMounted(async () => {
   store.ensureOcrProgressListener()
@@ -28,7 +82,14 @@ onMounted(async () => {
   }
 })
 
+watch([currentPaperId, isOcrCompleted], ([paperId, completed]) => {
+  if (!paperId || !completed) {
+    uiStateStore.setPaperChatPanelOpen(false)
+  }
+})
+
 onBeforeUnmount(() => {
+  stopPaperChatResize()
   store.resetFigureUiState()
 })
 </script>
@@ -55,6 +116,7 @@ onBeforeUnmount(() => {
 
       <PaperMarkdownView
         v-else-if="isOcrCompleted"
+        ref="markdownViewRef"
         :content="markdownContent"
         :loading="markdownLoading"
         :paper-id="currentPaperId || ''"
@@ -63,8 +125,24 @@ onBeforeUnmount(() => {
         :reader-document="currentReaderDocument"
         :translation-visible="translationVisible"
         :translation-cache="currentTranslationCache"
+        @add-to-chat="handleAddToChat"
       />
     </div>
+
+    <aside
+      v-if="paperChatPanelOpen && currentPaper && isOcrCompleted"
+      class="paper-reader-page__chat"
+      :style="{ width: `${paperChatPanelWidth}px` }"
+    >
+      <div
+        class="paper-reader-page__chat-resize"
+        role="separator"
+        aria-orientation="vertical"
+        title="拖拽调整聊天窗口宽度"
+        @pointerdown="startPaperChatResize"
+      ></div>
+      <PaperChatPanel :paper="currentPaper" @close="uiStateStore.setPaperChatPanelOpen(false)" />
+    </aside>
 
     <PaperFigurePreview />
   </div>
@@ -73,6 +151,8 @@ onBeforeUnmount(() => {
 <style scoped>
 .paper-reader-page {
   position: relative;
+  flex-direction: row;
+  background: var(--sm-color-bg-canvas);
 }
 
 .paper-reader-page__main {
@@ -116,5 +196,60 @@ onBeforeUnmount(() => {
   margin: 0;
   max-width: 420px;
   line-height: 1.6;
+}
+
+.paper-reader-page__chat {
+  position: relative;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  min-width: 340px;
+  max-width: min(680px, 100vw);
+  height: calc(100% - 44px - var(--sm-space-2));
+  min-height: 0;
+  margin-top: 44px;
+  margin-bottom: var(--sm-space-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-bg-canvas);
+  overflow: hidden;
+}
+
+.paper-reader-page__chat-resize {
+  position: absolute;
+  top: 0;
+  left: -4px;
+  z-index: 3;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.paper-reader-page__chat-resize::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 3px;
+  width: 1px;
+  height: 100%;
+  background: transparent;
+  transition: background-color var(--sm-transition-fast);
+}
+
+.paper-reader-page__chat-resize:hover::after {
+  background: var(--sm-color-border-selected);
+}
+
+@media (max-width: 760px) {
+  .paper-reader-page__chat {
+    position: absolute;
+    top: 44px;
+    right: 0;
+    bottom: var(--sm-space-2);
+    z-index: 20;
+    width: min(100vw, 420px) !important;
+    height: auto;
+    margin: 0;
+    min-width: min(100vw, 340px);
+  }
 }
 </style>

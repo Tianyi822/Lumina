@@ -75,10 +75,7 @@ test('localizePaperPageAssets 复用已存在的本地图片并替换 markdown �
     assert.equal(downloadCalled, false)
     assert.equal(result.failedAssets.length, 0)
     assert.match(result.pageResult.markdown, /assets\/page-0001\/crop-0000\.png/)
-    assert.match(
-      result.pageResult.markdown,
-      /<img\b[^>]*src='assets\/page-0001\/crop-0000\.png'/i
-    )
+    assert.match(result.pageResult.markdown, /<img\b[^>]*src='assets\/page-0001\/crop-0000\.png'/i)
     assert.doesNotMatch(result.pageResult.markdown, /https:\/\/example\.com/)
     assert.doesNotMatch(result.pageResult.markdown, /^assets\/page-0001\/crop-0000\.png$/m)
     assert.equal(result.pageResult.blocks[0].content, 'assets/page-0001/crop-0000.png')
@@ -107,10 +104,7 @@ test('localizePaperPageAssets 在本地图片缺失时下载并写入 localAsset
     assert.equal(result.pageResult.blocks[0].localAssetPath, 'assets/page-0001/crop-0000.png')
     assert.equal(result.pageResult.blocks[0].content, 'assets/page-0001/crop-0000.png')
     assert.match(result.pageResult.markdown, /assets\/page-0001\/crop-0000\.png/)
-    assert.match(
-      result.pageResult.markdown,
-      /<img\b[^>]*src='assets\/page-0001\/crop-0000\.png'/i
-    )
+    assert.match(result.pageResult.markdown, /<img\b[^>]*src='assets\/page-0001\/crop-0000\.png'/i)
   } finally {
     cleanupPaper(paperId)
   }
@@ -138,10 +132,7 @@ test('localizePaperPageAssets 会修复历史裸本地图片路径', async () =>
     )
 
     assert.equal(result.changed, true)
-    assert.match(
-      result.pageResult.markdown,
-      /<img\b[^>]*src='assets\/page-0001\/crop-0000\.png'/i
-    )
+    assert.match(result.pageResult.markdown, /<img\b[^>]*src='assets\/page-0001\/crop-0000\.png'/i)
     assert.doesNotMatch(result.pageResult.markdown, /^assets\/page-0001\/crop-0000\.png$/m)
     assert.match(result.pageResult.markdown, /正文内容/)
   } finally {

@@ -86,7 +86,7 @@ function createFakeClient(
 test('批量嵌入会按可持续 Token 预算动态拆批并保持输出顺序', async () => {
   const clock = createVirtualClock()
   const records: EmbeddingCallRecord[] = []
-  const tokenEstimator = (text: string) => Number(text.split(':')[1])
+  const tokenEstimator = (text: string): number => Number(text.split(':')[1])
   const service = new EmbeddingService({
     now: clock.now,
     sleep: clock.sleep,
@@ -97,7 +97,12 @@ test('批量嵌入会按可持续 Token 预算动态拆批并保持输出顺序'
 
   service.setConfig(TEST_CONFIG)
 
-  const result = await service.embedBatch(['chunk-a:20000', 'chunk-b:20000', 'chunk-c:20000', 'chunk-d:20000'])
+  const result = await service.embedBatch([
+    'chunk-a:20000',
+    'chunk-b:20000',
+    'chunk-c:20000',
+    'chunk-d:20000'
+  ])
 
   assert.deepEqual(
     records.map((record) => record.inputs.length),
@@ -119,7 +124,7 @@ test('同一模型的多个嵌入服务实例会共享 20 RPS 限流窗口', asy
   const clock = createVirtualClock()
   const limiterRegistry = new Map()
   const records: EmbeddingCallRecord[] = []
-  const tokenEstimator = () => 10
+  const tokenEstimator = (): number => 10
 
   const createService = (): EmbeddingService => {
     const service = new EmbeddingService({
@@ -152,7 +157,7 @@ test('同一模型的多个嵌入服务实例会共享 20 RPS 限流窗口', asy
 test('分钟 Token 余量不足时会先发送可容纳的子批次而不是整批等待', async () => {
   const clock = createVirtualClock()
   const records: EmbeddingCallRecord[] = []
-  const tokenEstimator = (text: string) => Number(text.split(':')[1])
+  const tokenEstimator = (text: string): number => Number(text.split(':')[1])
   const service = new EmbeddingService({
     now: clock.now,
     sleep: clock.sleep,

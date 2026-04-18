@@ -1,4 +1,5 @@
 import type { KnowledgeBaseReference } from './knowledge'
+import type { PaperAnnotationTextAnchor } from './paper'
 
 /**
  * 定义聊天消息中发送者的角色类型
@@ -42,6 +43,35 @@ export interface AttachedImage {
 }
 
 /**
+ * 论文引用信息
+ * 用户从论文阅读页选中的内容片段
+ */
+export interface PaperQuote {
+  /** 引用唯一标识 */
+  id: string
+  /** 所属论文 ID */
+  paperId: string
+  /** 段落稳定 ID */
+  segmentStableId: string
+  /** 段落索引 */
+  segmentIndex: number
+  /** 视图类型：原文或译文 */
+  viewKind: 'original' | 'translation'
+  /** 选中的文本内容 */
+  selectedText: string
+  /** 当前视图内的文本锚点 */
+  textAnchor: PaperAnnotationTextAnchor
+  /** 原文修订 ID */
+  sourceRevisionId?: string
+  /** 原文段落文本哈希 */
+  segmentTextHash?: string
+  /** 译文修订 ID */
+  translationRevisionId?: string
+  /** 译文模型名 */
+  translationModelName?: string
+}
+
+/**
  * 表示一条聊天消息的完整结构
  * 包含角色、内容、工具调用和思考过程等信息
  */
@@ -60,6 +90,8 @@ export interface ChatMessage {
   attachedDocuments?: AttachedDocument[]
   /** 附加的图片列表，仅 user 消息会有 */
   attachedImages?: AttachedImage[]
+  /** 附加的论文引用列表，仅 user 消息会有 */
+  attachedQuotes?: PaperQuote[]
 }
 
 /**

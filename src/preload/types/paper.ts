@@ -75,6 +75,13 @@ export interface PaperApi {
     error?: string
   }>
 
+  /** 绑定论文聊天会话 */
+  setChatSession: (params: { paperId: string; sessionId: string }) => Promise<{
+    success: boolean
+    data?: PaperDocument
+    error?: string
+  }>
+
   /** 删除论文及其所有数据 */
   delete: (paperId: string) => Promise<{
     success: boolean

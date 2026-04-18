@@ -93,6 +93,15 @@ export function registerPaperHandlers(): void {
     return result
   })
 
+  ipcMain.handle(
+    'paper:setChatSession',
+    (_event, params: { paperId: string; sessionId: string }) => {
+      return paperStorageService.updateMeta(params.paperId, {
+        chatSessionId: params.sessionId
+      })
+    }
+  )
+
   ipcMain.handle('paper:delete', (_event, paperId: string) => {
     const result = paperStorageService.deletePaper(paperId)
     if (result.success) {

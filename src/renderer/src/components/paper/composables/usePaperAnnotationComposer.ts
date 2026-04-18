@@ -1,4 +1,5 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import type { PaperQuote } from '@shared/types/chat'
 import type {
   CreatePaperAnnotationPayload,
   PaperAnnotation,
@@ -90,6 +91,7 @@ export interface PaperAnnotationComposerOptions {
     paperId: string,
     annotationId: string
   ) => Promise<{ success: boolean; error?: string }>
+  onAddToChat?: (quote: PaperQuote) => void
 }
 
 export interface PaperAnnotationComposer {
@@ -115,6 +117,7 @@ export interface PaperAnnotationComposer {
   updateComposerFromSelection: () => void
   handleCreateHighlight: (colorKey: PaperAnnotationColorKey) => Promise<void>
   handleOpenNoteEditorFromSelection: () => void
+  handleAddToChat: () => void
   handleOpenNoteEditorFromHover: () => void
   handleSaveNote: () => Promise<void>
   handleCancelNoteEditor: () => void
@@ -611,6 +614,58 @@ export function usePaperAnnotationComposer(
     )
   }
 
+  function handleAddToChat(): void {
+    if (!selectionActionMenu.value) {
+      return
+    }
+
+    const draft = selectionActionMenu.value.draft
+    const selectedAnchor =
+      draft.viewKind === 'original' ? draft.originalAnchor : draft.translationAnchor
+    if (!selectedAnchor) {
+      selectionActionMenuError.value = '当前选区无法添加到对话'
+      return
+    }
+
+    const sourceSegments = options.getSourceSegments()
+    const segment = sourceSegments.find((s) => s.stableId === draft.segmentStableId)
+    if (!segment) {
+      return
+    }
+
+    const textAnchor: PaperAnnotationTextAnchor = {
+      selectedText: selectedAnchor.selectedText,
+      prefixText: selectedAnchor.prefixText,
+      suffixText: selectedAnchor.suffixText,
+      startOffset: selectedAnchor.startOffset,
+      endOffset: selectedAnchor.endOffset,
+      normalizedText: selectedAnchor.normalizedText
+    }
+
+    const quote: PaperQuote = {
+      id: `quote-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      paperId: options.paperId(),
+      segmentStableId: draft.segmentStableId,
+      segmentIndex: segment.index,
+      viewKind: draft.viewKind,
+      selectedText: textAnchor.selectedText,
+      textAnchor,
+      ...(draft.viewKind === 'original'
+        ? {
+            sourceRevisionId: draft.sourceRevisionId,
+            segmentTextHash: draft.segmentTextHash
+          }
+        : {
+            translationRevisionId: currentTranslationRevisionId.value || undefined,
+            translationModelName: currentTranslationModelName.value || undefined
+          })
+    }
+
+    options.onAddToChat?.(quote)
+    clearSelectionUi()
+    clearNativeSelection()
+  }
+
   async function handleSaveNote(): Promise<void> {
     if (!noteEditorDraft.value) {
       return
@@ -867,6 +922,7 @@ export function usePaperAnnotationComposer(
     updateComposerFromSelection,
     handleCreateHighlight,
     handleOpenNoteEditorFromSelection,
+    handleAddToChat,
     handleOpenNoteEditorFromHover,
     handleSaveNote,
     handleCancelNoteEditor,

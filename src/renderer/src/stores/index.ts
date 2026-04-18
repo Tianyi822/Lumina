@@ -10,10 +10,8 @@ export const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
 
 // 导出所有 stores
-export { useSessionStore } from './sessionStore'
-export { useChatStreamStore } from './chatStreamStore'
-export { useInputStateStore } from './inputStateStore'
-export { useMessageCacheStore } from './messageCacheStore'
+export { usePaperChatStreamStore } from './paperChatStreamStore'
+export { usePaperChatMessageCacheStore } from './paperChatMessageCacheStore'
 export { useUIStateStore } from './uiStateStore'
 export { useKnowledgeIndexStore } from './knowledgeIndexStore'
 export { useConfigStore } from './configStore'
@@ -22,8 +20,9 @@ export { useConfigStore } from './configStore'
 export { useMCPStore } from './mcpStore'
 export { useKnowledgeStore } from './knowledgeStore'
 export { useFileStore } from './fileStore'
-export { useDocumentUploadStore } from './documentUploadStore'
-export { useImageUploadStore } from './imageUploadStore'
+export { usePaperChatDocumentUploadStore } from './paperChatDocumentUploadStore'
+export { usePaperChatImageUploadStore } from './paperChatImageUploadStore'
+export { usePaperChatQuoteStore } from './paperChatQuoteStore'
 
 // Sandbox Stores (拆分后的模块)
 export {

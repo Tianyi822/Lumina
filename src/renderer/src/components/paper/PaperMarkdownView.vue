@@ -5,6 +5,8 @@ import type {
   PaperReaderDocument,
   PaperTranslationCache
 } from '@shared/types/paper'
+import type { PaperQuote } from '@shared/types/chat'
+import { findPaperTextAnchorOffset } from '@shared/utils/paperAnnotationAnchors'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { usePaperMarkdownEngine } from './composables/usePaperMarkdownEngine'
 import { usePaperAnnotationComposer } from './composables/usePaperAnnotationComposer'
@@ -22,6 +24,110 @@ const props = defineProps<{
   readerDocument?: PaperReaderDocument | null
   annotations?: PaperAnnotation[]
 }>()
+
+const emit = defineEmits<{
+  (e: 'add-to-chat', quote: PaperQuote): void
+}>()
+
+function removeQuoteHighlights(): void {
+  document.querySelectorAll('mark.paper-markdown-view__quote-highlight').forEach((mark) => {
+    const parent = mark.parentNode
+    if (!parent) {
+      return
+    }
+
+    mark.replaceWith(...Array.from(mark.childNodes))
+    parent.normalize()
+  })
+}
+
+function resolveTextPoint(
+  root: Element,
+  absoluteOffset: number
+): { node: Text; offset: number } | null {
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let currentOffset = 0
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text
+    const length = node.textContent?.length || 0
+    const endOffset = currentOffset + length
+    if (absoluteOffset <= endOffset) {
+      return {
+        node,
+        offset: Math.max(0, absoluteOffset - currentOffset)
+      }
+    }
+    currentOffset = endOffset
+  }
+
+  return null
+}
+
+function highlightQuoteText(surface: HTMLElement, quote: PaperQuote): HTMLElement | null {
+  const textContent = surface.textContent || ''
+  const startOffset = findPaperTextAnchorOffset(textContent, quote.textAnchor)
+  if (startOffset === null) {
+    return null
+  }
+
+  const endOffset = startOffset + quote.textAnchor.selectedText.length
+  const startPoint = resolveTextPoint(surface, startOffset)
+  const endPoint = resolveTextPoint(surface, endOffset)
+  if (!startPoint || !endPoint) {
+    return null
+  }
+
+  const range = document.createRange()
+  range.setStart(startPoint.node, startPoint.offset)
+  range.setEnd(endPoint.node, endPoint.offset)
+  if (range.collapsed) {
+    return null
+  }
+
+  const mark = document.createElement('mark')
+  mark.className = 'paper-markdown-view__quote-highlight'
+  mark.dataset.paperQuoteId = quote.id
+  const fragment = range.extractContents()
+  mark.appendChild(fragment)
+  range.insertNode(mark)
+  return mark
+}
+
+function scrollToQuoteAndHighlight(quote: PaperQuote): void {
+  const segmentElement = document.querySelector<HTMLElement>(
+    `[data-paper-segment-stable-id="${quote.segmentStableId}"]`
+  )
+  if (!segmentElement) {
+    return
+  }
+
+  removeQuoteHighlights()
+  segmentElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+  const surface = segmentElement.querySelector<HTMLElement>(
+    `[data-paper-selection-surface="true"][data-view-kind="${quote.viewKind}"]`
+  )
+  if (!surface) {
+    return
+  }
+
+  const mark = highlightQuoteText(surface, quote)
+  if (!mark) {
+    return
+  }
+
+  window.setTimeout(() => {
+    if (!mark.isConnected) {
+      return
+    }
+    const parent = mark.parentNode
+    mark.replaceWith(...Array.from(mark.childNodes))
+    parent?.normalize()
+  }, 1800)
+}
+
+defineExpose({ scrollToQuoteAndHighlight })
 
 const paperReaderStore = usePaperReaderStore()
 
@@ -45,7 +151,8 @@ const composer = usePaperAnnotationComposer({
   createAnnotation: paperReaderStore.createAnnotation,
   reanchorAnnotation: paperReaderStore.reanchorAnnotation,
   updateAnnotation: paperReaderStore.updateAnnotation,
-  deleteAnnotation: paperReaderStore.deleteAnnotation
+  deleteAnnotation: paperReaderStore.deleteAnnotation,
+  onAddToChat: (quote) => emit('add-to-chat', quote)
 })
 
 watch(
@@ -299,6 +406,7 @@ onBeforeUnmount(() => {
       :error="composer.selectionActionMenuError.value"
       @create-highlight="composer.handleCreateHighlight"
       @open-note-editor="composer.handleOpenNoteEditorFromSelection"
+      @add-to-chat="composer.handleAddToChat"
       @cancel="composer.handleCancelComposer"
     />
 
@@ -343,7 +451,12 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
   padding: var(--sm-space-3) var(--sm-space-4) var(--sm-space-6);
+}
+
+.paper-markdown-view__scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .paper-markdown-view__loading,
@@ -453,6 +566,29 @@ onBeforeUnmount(() => {
 
 .paper-markdown-view__segment {
   position: relative;
+}
+
+:deep(mark.paper-markdown-view__quote-highlight) {
+  background: color-mix(in srgb, var(--sm-color-accent) 22%, transparent);
+  border-radius: 3px;
+  color: inherit;
+  animation: quote-highlight-fade 1.8s ease-out forwards;
+}
+
+:deep(mark.paper-markdown-view__quote-highlight *) {
+  color: inherit;
+}
+
+@keyframes quote-highlight-fade {
+  0% {
+    background: color-mix(in srgb, var(--sm-color-accent) 30%, transparent);
+  }
+  70% {
+    background: color-mix(in srgb, var(--sm-color-accent) 12%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
 }
 
 .paper-markdown-view__segment + .paper-markdown-view__segment {

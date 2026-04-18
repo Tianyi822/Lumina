@@ -194,12 +194,17 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   }
 
   async function deletePaper(paperId: string): Promise<boolean> {
+    const targetPaper = papers.value.find((paper) => paper.id === paperId)
     renderPipeline.markPipelineDeleted(paperId)
     await window.api.paper.cancelOcr(paperId)
 
     const result = await window.api.paper.delete(paperId)
     if (!result.success) {
       return false
+    }
+
+    if (targetPaper?.chatSessionId) {
+      void window.api.session.delete(targetPaper.chatSessionId)
     }
 
     papers.value = papers.value.filter((paper) => paper.id !== paperId)
@@ -258,6 +263,17 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     return result
   }
 
+  async function setPaperChatSession(
+    paperId: string,
+    sessionId: string
+  ): Promise<{ success: boolean; data?: PaperDocument; error?: string }> {
+    const result = await window.api.paper.setChatSession({ paperId, sessionId })
+    if (result.success && result.data) {
+      updatePaperInList(paperId, result.data)
+    }
+    return result
+  }
+
   return {
     papers,
     currentPaperId,
@@ -308,6 +324,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     ensureTranslation: translation.ensureTranslation,
     loadTranslationStatus: translation.loadTranslationStatus,
     deleteTranslation,
+    setPaperChatSession,
     createAnnotation: annotations.createAnnotation,
     reanchorAnnotation: annotations.reanchorAnnotation,
     updateAnnotation: annotations.updateAnnotation,

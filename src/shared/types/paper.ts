@@ -67,6 +67,8 @@ export interface PaperDocument {
   completedPageCount: number
   /** 已持久化的页面图片资源 */
   pageAssets?: PaperPageAsset[]
+  /** 绑定的论文聊天会话 ID */
+  chatSessionId?: string
   /** 错误信息（可选） */
   errorMessage?: string
 }

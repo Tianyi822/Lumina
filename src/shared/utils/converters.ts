@@ -25,6 +25,10 @@ export function sessionToChatMessage(msg: SessionMessage): ChatMessage {
     chatMsg.attachedImages = msg.attachedImages
   }
 
+  if (msg.attachedQuotes?.length) {
+    chatMsg.attachedQuotes = msg.attachedQuotes
+  }
+
   return chatMsg
 }
 

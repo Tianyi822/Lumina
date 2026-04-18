@@ -135,6 +135,13 @@ export const paperApi = {
     return ipcRenderer.invoke('paper:get', paperId)
   },
 
+  setChatSession: (params: {
+    paperId: string
+    sessionId: string
+  }): Promise<PaperStatusUpdateResult> => {
+    return ipcRenderer.invoke('paper:setChatSession', params)
+  },
+
   /**
    * 删除论文及其所有数据
    */

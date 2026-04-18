@@ -12,6 +12,7 @@ export type {
   ChatMessage,
   AttachedDocument,
   AttachedImage,
+  PaperQuote,
   ToolCallMessage,
   MCPToolReference,
   ToolCallInfo,
@@ -53,7 +54,7 @@ export type AttachmentFile = {
 // ==================== UI 特有类型 ====================
 
 import type { ToolCallInfo, ToolResultInfo, ToolCallMessage } from '@shared/types/chat'
-import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
+import type { AttachedDocument, AttachedImage, PaperQuote } from '@shared/types/chat'
 
 /**
  * ReAct 步骤（UI 层特有）
@@ -93,7 +94,7 @@ export interface ReActIteration {
  */
 export interface Message {
   id: string
-  role: 'user' | 'assistant' | 'tool'
+  role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
   reasoning?: string
   isStreaming?: boolean
@@ -106,4 +107,8 @@ export interface Message {
   tool_call_id?: string // 工具调用的 ID（仅 tool 消息，用于保存到会话）
   attachedDocuments?: AttachedDocument[] // 附加的文档（仅 user 消息）
   attachedImages?: AttachedImage[] // 附加的图片（仅 user 消息）
+  attachedQuotes?: PaperQuote[] // 附加的论文引用（仅 user 消息）
+  hidden?: boolean // 隐藏上下文消息，不在 UI 中显示
+  contextKind?: 'paper_fulltext'
+  sourcePaperId?: string
 }
