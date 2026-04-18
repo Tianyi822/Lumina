@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
+import { usePaperChatQuoteStore } from '@renderer/stores/paperChatQuoteStore'
+import type { PaperQuote } from '@shared/types/chat'
 import PaperMarkdownView from '@renderer/components/paper/PaperMarkdownView.vue'
 import PaperFigurePreview from '@renderer/components/paper/PaperFigurePreview.vue'
 import PaperChatPanel from '@renderer/components/paper/chat/PaperChatPanel.vue'
 
 const store = usePaperReaderStore()
 const uiStateStore = useUIStateStore()
+const paperChatQuoteStore = usePaperChatQuoteStore()
 
 const {
   currentPaperId,
@@ -24,6 +27,21 @@ const {
 } = storeToRefs(store)
 const { paperChatPanelOpen, paperChatPanelWidth } = storeToRefs(uiStateStore)
 const isResizingPaperChat = ref(false)
+const markdownViewRef = ref<InstanceType<typeof PaperMarkdownView> | null>(null)
+
+provide('scrollToQuote', (quote: PaperQuote) => {
+  markdownViewRef.value?.scrollToQuoteAndHighlight(quote)
+})
+
+function handleAddToChat(quote: PaperQuote): void {
+  const sessionId = currentPaper.value?.chatSessionId
+  if (!sessionId) {
+    return
+  }
+
+  paperChatQuoteStore.addQuote(sessionId, quote)
+  uiStateStore.setPaperChatPanelOpen(true)
+}
 
 function handlePaperChatResizeMove(event: PointerEvent): void {
   if (!isResizingPaperChat.value) {
@@ -98,6 +116,7 @@ onBeforeUnmount(() => {
 
       <PaperMarkdownView
         v-else-if="isOcrCompleted"
+        ref="markdownViewRef"
         :content="markdownContent"
         :loading="markdownLoading"
         :paper-id="currentPaperId || ''"
@@ -106,6 +125,7 @@ onBeforeUnmount(() => {
         :reader-document="currentReaderDocument"
         :translation-visible="translationVisible"
         :translation-cache="currentTranslationCache"
+        @add-to-chat="handleAddToChat"
       />
     </div>
 
