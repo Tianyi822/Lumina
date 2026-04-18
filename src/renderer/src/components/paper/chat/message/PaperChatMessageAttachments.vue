@@ -1,15 +1,33 @@
 <script setup lang="ts">
+import { inject } from 'vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { getFileTypeIcon } from '@renderer/utils/fileIcons'
 import type { Message } from '@renderer/types'
+import type { PaperQuote } from '@shared/types/chat'
 import { formatFileSize } from '@shared/utils'
 
-defineProps<{
+const props = defineProps<{
   attachments: {
     documents?: Message['attachedDocuments']
     images?: Message['attachedImages']
+    quotes?: PaperQuote[]
   }
 }>()
+
+const scrollToQuote = inject<(quote: PaperQuote) => void>('scrollToQuote')
+
+function getQuoteLabel(quote: PaperQuote, index: number): string {
+  const quotes = props.attachments.quotes || []
+  const quoteIndex = quotes
+    .slice(0, index + 1)
+    .filter((item) => item.viewKind === quote.viewKind).length
+  const viewLabel = quote.viewKind === 'original' ? '原文引用' : '译文引用'
+  return `${viewLabel} ${quoteIndex}`
+}
+
+function handleQuoteClick(quote: PaperQuote): void {
+  scrollToQuote?.(quote)
+}
 </script>
 
 <template>
@@ -28,6 +46,19 @@ defineProps<{
         />
         <span class="doc-name" :title="doc.fileName">{{ doc.fileName }}</span>
         <span class="doc-size">{{ formatFileSize(doc.fileSize) }}</span>
+      </div>
+    </div>
+
+    <!-- 引用指示器（仅用户消息） -->
+    <div v-if="attachments.quotes && attachments.quotes.length > 0" class="quote-indicators">
+      <div
+        v-for="(quote, index) in attachments.quotes"
+        :key="quote.id"
+        class="quote-badge"
+        @click="handleQuoteClick(quote)"
+      >
+        <SvgIcon class="quote-badge__icon" name="quote" :size="12" />
+        <span class="quote-badge__label">{{ getQuoteLabel(quote, index) }}</span>
       </div>
     </div>
 
@@ -86,6 +117,44 @@ defineProps<{
   font-size: 10px;
   color: var(--sm-color-text-tertiary);
   opacity: 0.8;
+}
+
+/* ==================== 引用指示器样式 ==================== */
+.quote-indicators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.quote-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.12) 0%, rgba(70, 170, 143, 0.05) 100%);
+  border: 1px solid rgba(70, 170, 143, 0.25);
+  border-radius: var(--sm-radius-sm);
+  font-size: 12px;
+  color: var(--sm-color-text-primary);
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.quote-badge:hover {
+  background: linear-gradient(135deg, rgba(70, 170, 143, 0.22) 0%, rgba(70, 170, 143, 0.1) 100%);
+  border-color: rgba(70, 170, 143, 0.4);
+}
+
+.quote-badge__icon {
+  flex-shrink: 0;
+  color: var(--sm-color-accent-hover);
+}
+
+.quote-badge__label {
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 /* ==================== 图片指示器样式 ==================== */

@@ -20,6 +20,7 @@ export function sessionMessageToMessage(msg: SessionMessage): Message {
     reactIterations: msg.reactIterations,
     attachedDocuments: msg.attachedDocuments,
     attachedImages: msg.attachedImages,
+    attachedQuotes: msg.attachedQuotes,
     hidden: msg.hidden,
     contextKind: msg.contextKind,
     sourcePaperId: msg.sourcePaperId
@@ -54,6 +55,7 @@ export function messageToSessionMessage(msg: Message): SessionMessage {
       reactIterations: msg.reactIterations,
       attachedDocuments: msg.attachedDocuments,
       attachedImages: msg.attachedImages,
+      attachedQuotes: msg.attachedQuotes,
       hidden: msg.hidden,
       contextKind: msg.contextKind,
       sourcePaperId: msg.sourcePaperId
@@ -97,6 +99,9 @@ export function buildChatMessages(messages: Message[]): ChatMessage[] {
       }
       if (msg.attachedImages && msg.attachedImages.length > 0) {
         result.attachedImages = msg.attachedImages
+      }
+      if (msg.attachedQuotes && msg.attachedQuotes.length > 0) {
+        result.attachedQuotes = msg.attachedQuotes
       }
       return result
     })

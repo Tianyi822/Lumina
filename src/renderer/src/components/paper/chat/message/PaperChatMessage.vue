@@ -259,7 +259,8 @@ function handleToggleReasoning(): void {
       <PaperChatMessageAttachments
         :attachments="{
           documents: message.attachedDocuments,
-          images: message.attachedImages
+          images: message.attachedImages,
+          quotes: message.attachedQuotes
         }"
       />
 
