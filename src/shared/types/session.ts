@@ -5,7 +5,8 @@ import {
   ToolCallInfo,
   ToolResultInfo,
   AttachedDocument,
-  AttachedImage
+  AttachedImage,
+  PaperQuote
 } from './chat'
 import type { KnowledgeBase } from './knowledge'
 import type { MCPTool } from './mcp'
@@ -69,6 +70,8 @@ export interface SessionMessage {
   attachedDocuments?: AttachedDocument[]
   /** 附加的图片列表，仅 user 消息会有 */
   attachedImages?: AttachedImage[]
+  /** 附加的论文引用列表，仅 user 消息会有 */
+  attachedQuotes?: PaperQuote[]
   /** 是否为隐藏上下文消息 */
   hidden?: boolean
   /** 隐藏上下文类型 */
