@@ -15,7 +15,14 @@ const emit = defineEmits<{
   (e: 'mcp-updated'): void
 }>()
 
-type SettingsTabKey = 'theme' | 'model' | 'mcp' | 'prompt' | 'embedding' | 'knowledge' | 'paperReader'
+type SettingsTabKey =
+  | 'theme'
+  | 'model'
+  | 'mcp'
+  | 'prompt'
+  | 'embedding'
+  | 'knowledge'
+  | 'paperReader'
 
 // 使用 configStore
 const configStore = useConfigStore()

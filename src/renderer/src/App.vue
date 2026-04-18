@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
-import ChatPage from './pages/ChatPage.vue'
 import KnowledgePage from './pages/KnowledgePage.vue'
 import SandboxPage from './pages/SandboxPage.vue'
 import PaperReaderPage from './pages/PaperReaderPage.vue'
@@ -23,14 +22,8 @@ const { initTheme } = useTheme()
 
 // ==================== UI 状态管理（直接使用 Store）====================
 const uiState = useUIStateStore()
-const {
-  currentView,
-  isChatView,
-  isKnowledgeView,
-  isPaperView,
-  isCurrentSidebarCollapsed,
-  configError
-} = storeToRefs(uiState)
+const { currentView, isKnowledgeView, isPaperView, isCurrentSidebarCollapsed, configError } =
+  storeToRefs(uiState)
 
 // 配置 Store - 用于加载语音识别等配置
 const configStore = useConfigStore()
@@ -155,14 +148,11 @@ onBeforeUnmount(() => {
 
         <div class="sm-workspace-main__body sm-workspace-main__body--fill">
           <Transition name="sm-workspace-switch" mode="out-in" appear>
-            <!-- Chat 视图 -->
-            <ChatPage v-if="isChatView" key="chat" />
+            <!-- 论文阅读器视图 -->
+            <PaperReaderPage v-if="isPaperView" key="paper" />
 
             <!-- 知识库视图 -->
             <KnowledgePage v-else-if="isKnowledgeView" key="knowledge" />
-
-            <!-- 论文阅读器视图 -->
-            <PaperReaderPage v-else-if="isPaperView" key="paper" />
 
             <!-- 沙箱视图 -->
             <SandboxPage v-else key="sandbox" />
@@ -217,5 +207,4 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--sm-color-text-primary);
 }
-
 </style>

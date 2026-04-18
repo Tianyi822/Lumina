@@ -343,7 +343,12 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
   padding: var(--sm-space-3) var(--sm-space-4) var(--sm-space-6);
+}
+
+.paper-markdown-view__scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .paper-markdown-view__loading,

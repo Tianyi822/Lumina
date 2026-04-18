@@ -18,11 +18,7 @@ const isMac = computed(() => {
     class="sm-sidebar-shell__header sm-sidebar-shell__header--chrome"
     :class="{ 'sm-sidebar-shell__header--chrome-mac': isMac }"
   >
-    <div
-      v-if="isMac"
-      class="sm-sidebar-shell__chrome-action-hitbox"
-      aria-hidden="true"
-    ></div>
+    <div v-if="isMac" class="sm-sidebar-shell__chrome-action-hitbox" aria-hidden="true"></div>
 
     <WindowControls />
 

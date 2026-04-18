@@ -11,7 +11,7 @@ import type {
   SessionData,
   StreamEvent
 } from '@renderer/types'
-import { useChatStreamStore } from '@renderer/stores'
+import { usePaperChatStreamStore } from '@renderer/stores'
 import { buildChatMessages } from '@renderer/utils/messageHelpers'
 
 interface UsePaperChatStreamOptions {
@@ -65,10 +65,10 @@ function toPlainRequest<T>(request: T): T {
 }
 
 export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaperChatStreamReturn {
-  const chatStreamStore = useChatStreamStore()
+  const paperChatStreamStore = usePaperChatStreamStore()
   const sessionId = computed(() => options.session.value?.sessionId || '')
   const isSending = computed(() => {
-    return sessionId.value ? chatStreamStore.getSessionSendingState(sessionId.value) : false
+    return sessionId.value ? paperChatStreamStore.getSessionSendingState(sessionId.value) : false
   })
 
   function handleStreamEvent(event: StreamEvent): void {
@@ -77,7 +77,7 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
       return
     }
 
-    chatStreamStore.handleStreamEvent(event, currentSessionId, options.messages.value)
+    paperChatStreamStore.handleStreamEvent(event, currentSessionId, options.messages.value)
 
     if (event.sessionId && event.sessionId !== currentSessionId) {
       return
@@ -110,7 +110,7 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
       return
     }
 
-    if (chatStreamStore.getSessionSendingState(currentSessionId)) {
+    if (paperChatStreamStore.getSessionSendingState(currentSessionId)) {
       return
     }
 
@@ -125,8 +125,8 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
     }
 
     const snapshot = JSON.parse(JSON.stringify(options.messages.value)) as Message[]
-    chatStreamStore.saveMessagesSnapshot(currentSessionId, snapshot)
-    chatStreamStore.streamingSessionId = currentSessionId
+    paperChatStreamStore.saveMessagesSnapshot(currentSessionId, snapshot)
+    paperChatStreamStore.streamingSessionId = currentSessionId
 
     const userMessage: Message = {
       id: `msg-${Date.now()}`,
@@ -149,7 +149,7 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
       reactIterations: []
     }
     options.messages.value.push(assistantMessage)
-    chatStreamStore.setSessionSendingState(currentSessionId, true, true)
+    paperChatStreamStore.setSessionSendingState(currentSessionId, true, true)
 
     try {
       const chatMessages: ChatMessage[] = JSON.parse(
@@ -180,8 +180,8 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
       const message = caught instanceof Error ? caught.message : String(caught)
       options.messages.value.length = 0
       options.messages.value.push(...snapshot)
-      chatStreamStore.setSessionSendingState(currentSessionId, false, true)
-      chatStreamStore.streamingSessionId = null
+      paperChatStreamStore.setSessionSendingState(currentSessionId, false, true)
+      paperChatStreamStore.streamingSessionId = null
       options.setError(message)
     }
   }
@@ -191,16 +191,16 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
       return
     }
 
-    await chatStreamStore.stopRequest(sessionId.value, options.messages.value)
+    await paperChatStreamStore.stopRequest(sessionId.value, options.messages.value)
     await options.saveCurrentSession()
   }
 
   onMounted(() => {
-    chatStreamStore.setupStreamListener(handleStreamEvent)
+    paperChatStreamStore.setupStreamListener(handleStreamEvent)
   })
 
   onBeforeUnmount(() => {
-    chatStreamStore.cleanupStreamListener()
+    paperChatStreamStore.cleanupStreamListener()
   })
 
   return {

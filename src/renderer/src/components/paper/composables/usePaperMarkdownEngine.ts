@@ -369,10 +369,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         translationEntry.status === 'completed' &&
         translationEntry.translatedMarkdown
           ? highlighter.applyHighlightsToHtml(
-              await renderMarkdownBlock(
-                translationEntry.translatedMarkdown,
-                translationEntry.kind
-              ),
+              await renderMarkdownBlock(translationEntry.translatedMarkdown, translationEntry.kind),
               highlighter.collectTranslationHighlights(translationText, annotations)
             )
           : null

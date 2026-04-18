@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import ChatList from '@renderer/components/ChatList.vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import SandboxList from '@renderer/components/sandbox/SandboxList.vue'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
@@ -9,23 +8,18 @@ import PaperSidebar from '@renderer/components/paper/PaperSidebar.vue'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 import { summarizeTranslationAnnotations } from '@shared/utils/paperTranslationAnnotations'
 import {
-  useChatStreamStore,
   useKnowledgeStore,
   usePaperReaderStore,
-  useSessionStore,
   useSandboxStore,
   useUIStateStore
 } from '@renderer/stores'
 
 const uiStateStore = useUIStateStore()
-const sessionStore = useSessionStore()
-const chatStreamStore = useChatStreamStore()
 const knowledgeStore = useKnowledgeStore()
 const sandboxStore = useSandboxStore()
 const paperReaderStore = usePaperReaderStore()
 
 const { currentView, isCurrentSidebarCollapsed } = storeToRefs(uiStateStore)
-const { sessionList, currentChatId } = storeToRefs(sessionStore)
 const { knowledgeBases, activeKbId } = storeToRefs(knowledgeStore)
 const { currentSandbox, sandboxList, deleteConfirmState } = storeToRefs(sandboxStore)
 const {
@@ -36,22 +30,10 @@ const {
   hasTranslationByPaperId
 } = storeToRefs(paperReaderStore)
 
-const chatSearchQuery = ref('')
 const knowledgeSearchQuery = ref('')
 const sandboxSearchQuery = ref('')
 const paperSearchQuery = ref('')
 const isRefreshingSandboxList = ref(false)
-
-const filteredSessions = computed(() => {
-  if (!chatSearchQuery.value.trim()) {
-    return sessionList.value.filter((session) => session.sessionType !== 'paper')
-  }
-
-  const query = chatSearchQuery.value.toLowerCase()
-  return sessionList.value.filter(
-    (session) => session.sessionType !== 'paper' && session.title.toLowerCase().includes(query)
-  )
-})
 
 const filteredKnowledgeBases = computed(() => {
   if (!knowledgeSearchQuery.value.trim()) {
@@ -85,16 +67,12 @@ const filteredPapers = computed(() => {
 })
 
 const sidebarCount = computed(() => {
-  if (currentView.value === 'chat') {
-    return sessionList.value.length
+  if (currentView.value === 'paper') {
+    return papers.value.length
   }
 
   if (currentView.value === 'knowledge') {
     return knowledgeBases.value.length
-  }
-
-  if (currentView.value === 'paper') {
-    return papers.value.length
   }
 
   return sandboxList.value.length
@@ -103,24 +81,6 @@ const sidebarCount = computed(() => {
 const deletingSandboxId = computed(() => {
   return deleteConfirmState.value.isDeleting ? deleteConfirmState.value.sandboxId : null
 })
-
-function handleDeleteSession(sessionId: string): void {
-  void sessionStore.handleDeleteSession(sessionId)
-}
-
-async function handleNewChat(): Promise<void> {
-  await sessionStore.handleNewChat()
-
-  const newSessionId = currentChatId.value
-  if (newSessionId) {
-    chatStreamStore.setSessionSendingState(newSessionId, false, true)
-  }
-}
-
-async function handleSelectChat(sessionId: string): Promise<void> {
-  const isSending = await sessionStore.handleSelectChat(sessionId)
-  chatStreamStore.setSessionSendingState(sessionId, isSending, true)
-}
 
 function handleSelectKnowledgeBase(kbId: string): void {
   knowledgeStore.setActiveKb(kbId)
@@ -253,12 +213,12 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
     <aside class="sm-sidebar-shell sm-workspace-sidebar-host">
       <WorkspaceSidebarChrome :count="sidebarCount" :actions-key="currentView">
         <template #actions>
-          <template v-if="currentView === 'chat'">
+          <template v-if="currentView === 'paper'">
             <button
               class="sm-button sm-button--primary sm-workspace-sidebar-host__action"
-              @click="handleNewChat"
+              @click="handleUploadPdf"
             >
-              创建会话
+              上传 PDF
             </button>
           </template>
 
@@ -274,15 +234,6 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
               @click="handleManageKnowledgeFiles"
             >
               管理文件
-            </button>
-          </template>
-
-          <template v-else-if="currentView === 'paper'">
-            <button
-              class="sm-button sm-button--primary sm-workspace-sidebar-host__action"
-              @click="handleUploadPdf"
-            >
-              上传 PDF
             </button>
           </template>
 
@@ -310,12 +261,12 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
               :key="`search-${currentView}`"
               class="sm-sidebar-shell__search sm-workspace-sidebar-host__search"
             >
-              <template v-if="currentView === 'chat'">
+              <template v-if="currentView === 'paper'">
                 <input
-                  v-model="chatSearchQuery"
+                  v-model="paperSearchQuery"
                   type="text"
                   class="sm-input"
-                  placeholder="搜索会话"
+                  placeholder="搜索论文"
                 />
               </template>
 
@@ -325,15 +276,6 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
                   type="text"
                   class="sm-input"
                   placeholder="搜索知识库"
-                />
-              </template>
-
-              <template v-else-if="currentView === 'paper'">
-                <input
-                  v-model="paperSearchQuery"
-                  type="text"
-                  class="sm-input"
-                  placeholder="搜索论文"
                 />
               </template>
 
@@ -363,12 +305,18 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
               :key="`body-${currentView}`"
               class="sm-sidebar-shell__body sm-sidebar-shell__body--flush sm-workspace-sidebar-host__body"
             >
-              <template v-if="currentView === 'chat'">
-                <ChatList
-                  :sessions="filteredSessions"
-                  :active-session-id="currentChatId"
-                  @select="handleSelectChat"
-                  @delete="handleDeleteSession"
+              <template v-if="currentView === 'paper'">
+                <PaperSidebar
+                  :papers="filteredPapers"
+                  :current-paper-id="currentPaperId"
+                  :render-progress-by-paper-id="renderProgressByPaperId"
+                  :ocr-progress-by-paper-id="ocrProgressByPaperId"
+                  :has-translation-by-paper-id="hasTranslationByPaperId"
+                  @select-paper="handleSelectPaper"
+                  @upload-pdf="handleUploadPdf"
+                  @delete-paper="handleDeletePaper"
+                  @delete-translation="handleDeleteTranslation"
+                  @retry-paper="handleRetryPaper"
                 />
               </template>
 
@@ -424,21 +372,6 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
                     </button>
                   </div>
                 </div>
-              </template>
-
-              <template v-else-if="currentView === 'paper'">
-                <PaperSidebar
-                  :papers="filteredPapers"
-                  :current-paper-id="currentPaperId"
-                  :render-progress-by-paper-id="renderProgressByPaperId"
-                  :ocr-progress-by-paper-id="ocrProgressByPaperId"
-                  :has-translation-by-paper-id="hasTranslationByPaperId"
-                  @select-paper="handleSelectPaper"
-                  @upload-pdf="handleUploadPdf"
-                  @delete-paper="handleDeletePaper"
-                  @delete-translation="handleDeleteTranslation"
-                  @retry-paper="handleRetryPaper"
-                />
               </template>
 
               <template v-else>

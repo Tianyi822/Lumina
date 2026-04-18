@@ -286,7 +286,12 @@ function handleDeleteTranslation(paperId: string, event: Event): void {
 .paper-list {
   flex: 1;
   overflow-y: auto;
+  scrollbar-width: none;
   padding: 12px;
+}
+
+.paper-list::-webkit-scrollbar {
+  display: none;
 }
 
 .paper-item {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, provide, ref, watch } from 'vue'
-import MessageInput from '@renderer/components/MessageInput.vue'
+import PaperChatInput from '@renderer/components/paper/chat/PaperChatInput.vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import PaperChatMessageList from './PaperChatMessageList.vue'
 import { usePaperChatSession } from './usePaperChatSession'
@@ -228,7 +228,7 @@ function dismissError(): void {
       />
 
       <div class="paper-chat-panel__composer">
-        <MessageInput
+        <PaperChatInput
           :key="sessionId || props.paper.id"
           variant="compact"
           :is-sending="isSending"
@@ -382,7 +382,7 @@ function dismissError(): void {
   background: var(--sm-color-surface-1);
 }
 
-.paper-chat-panel__composer :deep(.message-input-container) {
+.paper-chat-panel__composer :deep(.paper-chat-input) {
   border: 0;
   background: var(--sm-color-surface-2);
 }

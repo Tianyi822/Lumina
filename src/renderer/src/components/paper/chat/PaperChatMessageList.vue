@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import ChatMessage from '@renderer/components/chat/ChatMessage.vue'
-import ReActSteps from '@renderer/components/ReActSteps.vue'
+import PaperChatMessage from '@renderer/components/paper/chat/message/PaperChatMessage.vue'
+import PaperChatReActSteps from '@renderer/components/paper/chat/message/PaperChatReActSteps.vue'
 import type { Message } from '@renderer/types'
 
 const props = defineProps<{
@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-else class="paper-chat-message-list__items">
-      <ChatMessage
+      <PaperChatMessage
         v-for="message in visibleMessages"
         :key="message.id"
         :message="message"
@@ -172,14 +172,14 @@ onBeforeUnmount(() => {
         @toggle-reasoning="toggleReasoning"
       >
         <template #react-steps>
-          <ReActSteps
+          <PaperChatReActSteps
             v-if="hasRenderableReact(message)"
             :steps="message.reactSteps"
             :iterations="message.reactIterations"
             :is-streaming="message.isStreaming"
           />
         </template>
-      </ChatMessage>
+      </PaperChatMessage>
     </div>
   </div>
 </template>
@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
-.paper-chat-message-list__items :deep(.chat-message) {
+.paper-chat-message-list__items :deep(.paper-chat-message) {
   min-width: 0;
 }
 </style>
