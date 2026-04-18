@@ -12,6 +12,7 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'create-highlight', colorKey: PaperAnnotationColorKey): void
   (e: 'open-note-editor'): void
+  (e: 'add-to-chat'): void
   (e: 'cancel'): void
 }>()
 </script>
@@ -49,6 +50,17 @@ const emit = defineEmits<{
       >
         <SvgIcon class="paper-annotation-selection-menu__icon" name="note" :size="14" />
         <span class="paper-annotation-selection-menu__label">记录笔记</span>
+      </button>
+
+      <div class="paper-annotation-selection-menu__divider-v" />
+
+      <button
+        class="paper-annotation-selection-menu__note-btn"
+        type="button"
+        @click="emit('add-to-chat')"
+      >
+        <SvgIcon class="paper-annotation-selection-menu__icon" name="chat" :size="14" />
+        <span class="paper-annotation-selection-menu__label">添加到对话</span>
       </button>
     </div>
 
