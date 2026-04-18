@@ -5,6 +5,7 @@ import PaperChatInteractionOptions from './input/PaperChatInteractionOptions.vue
 import PaperChatOptions from './input/PaperChatOptions.vue'
 import PaperChatAttachedDocuments from './input/PaperChatAttachedDocuments.vue'
 import PaperChatAttachedImages from './input/PaperChatAttachedImages.vue'
+import PaperChatAttachedQuotes from './input/PaperChatAttachedQuotes.vue'
 import PaperChatTextarea from './input/PaperChatTextarea.vue'
 import PaperChatProcessingFiles from './input/PaperChatProcessingFiles.vue'
 import PaperChatToolSelectionBar from './input/PaperChatToolSelectionBar.vue'
@@ -14,9 +15,10 @@ import { usePaperChatFileDragDrop } from './input/usePaperChatFileDragDrop'
 import { usePaperChatImageUpload } from './input/usePaperChatImageUpload'
 import { toPaperChatAttachedDocuments, toPaperChatAttachedImages } from './input/attachmentUtils'
 import { isImageFile } from '@renderer/stores/paperChatImageUploadStore'
+import { usePaperChatQuoteStore } from '@renderer/stores/paperChatQuoteStore'
 import type { KnowledgeBase, MCPTool } from '@renderer/types'
 import { usePaperChatStreamStore } from '@renderer/stores'
-import type { AttachedDocument, AttachedImage } from '@shared/types/chat'
+import type { AttachedDocument, AttachedImage, PaperQuote } from '@shared/types/chat'
 import type { MessageOptionContext, ParsedOption } from '@renderer/utils/optionParser'
 
 type InjectedSessionId = string | Ref<string> | ComputedRef<string>
@@ -41,7 +43,8 @@ const emit = defineEmits<{
     selectedKnowledgeBases: KnowledgeBase[],
     enableSandboxTools: boolean,
     attachedDocuments: AttachedDocument[],
-    attachedImages: AttachedImage[]
+    attachedImages: AttachedImage[],
+    attachedQuotes: PaperQuote[]
   ): void
   (e: 'stop'): void
   (e: 'update:inputMessage', value: string): void
@@ -69,7 +72,11 @@ const { pendingDocs, processingFiles, uploadDocuments, removePendingDoc, clearPe
   usePaperChatDocumentUpload(effectiveSessionId)
 const { pendingImages, addImages, removePendingImage, clearPendingImages } =
   usePaperChatImageUpload(effectiveSessionId)
-const totalAttachmentCount = computed(() => pendingDocs.value.length + pendingImages.value.length)
+const paperChatQuoteStore = usePaperChatQuoteStore()
+const pendingQuotes = computed(() => paperChatQuoteStore.getSessionQuotes(effectiveSessionId.value))
+const totalAttachmentCount = computed(
+  () => pendingDocs.value.length + pendingImages.value.length + pendingQuotes.value.length
+)
 
 const { modelOptions } = usePaperChatConfiguredModels(localSelectedModel, updateSelectedModel)
 const { isDragging, handleDragOver, handleDragLeave, handleDrop, triggerFileUpload } =
@@ -167,9 +174,14 @@ function buildPaperChatAttachedImages(): AttachedImage[] {
   return toPaperChatAttachedImages(pendingImages.value)
 }
 
+function buildPaperChatAttachedQuotes(): PaperQuote[] {
+  return paperChatQuoteStore.getPendingQuotesForSending(effectiveSessionId.value)
+}
+
 function clearAttachments(): void {
   clearPendingDocs()
   clearPendingImages()
+  paperChatQuoteStore.clearQuotes(effectiveSessionId.value)
 }
 
 function sendMessage(message: string): void {
@@ -181,7 +193,8 @@ function sendMessage(message: string): void {
     localSelectedKnowledgeBases.value,
     localEnableSandboxTools.value,
     buildPaperChatAttachedDocuments(),
-    buildPaperChatAttachedImages()
+    buildPaperChatAttachedImages(),
+    buildPaperChatAttachedQuotes()
   )
 
   localInputMessage.value = ''
@@ -191,7 +204,8 @@ function sendMessage(message: string): void {
 
 function handleSend(): void {
   const message = localInputMessage.value.trim()
-  const hasAttachments = pendingDocs.value.length > 0 || pendingImages.value.length > 0
+  const hasAttachments =
+    pendingDocs.value.length > 0 || pendingImages.value.length > 0 || pendingQuotes.value.length > 0
 
   if (props.isSending) {
     showWarning.value = true
@@ -209,7 +223,8 @@ function handleSend(): void {
   window.api.logger.debug('[PaperChatInput] 发送消息，选中的工具', {
     count: localSelectedTools.value.length,
     sandboxToolsEnabled: localEnableSandboxTools.value,
-    imageCount: pendingImages.value.length
+    imageCount: pendingImages.value.length,
+    quoteCount: pendingQuotes.value.length
   })
 
   sendMessage(message)
@@ -354,6 +369,11 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
       :images="pendingImages"
       :disabled="props.isSending"
       @remove="removePendingImage"
+    />
+    <PaperChatAttachedQuotes
+      :quotes="pendingQuotes"
+      :disabled="props.isSending"
+      @remove="(id) => paperChatQuoteStore.removeQuote(effectiveSessionId, id)"
     />
     <PaperChatProcessingFiles :files="processingFiles" />
 

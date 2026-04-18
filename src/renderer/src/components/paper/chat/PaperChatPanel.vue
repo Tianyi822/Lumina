@@ -14,6 +14,7 @@ import type {
   Message
 } from '@renderer/types'
 import type { PaperDocument } from '@shared/types/paper'
+import type { PaperQuote } from '@shared/types/chat'
 
 const props = defineProps<{
   paper: PaperDocument
@@ -138,13 +139,14 @@ async function handleSend(
   selectedKnowledgeBases: KnowledgeBase[],
   sandboxToolsEnabled: boolean,
   attachedDocuments: AttachedDocument[],
-  attachedImages: AttachedImage[]
+  attachedImages: AttachedImage[],
+  attachedQuotes: PaperQuote[]
 ): Promise<void> {
   updateSelectedModel(model)
   updateSelectedTools(selectedTools)
   updateSelectedKnowledgeBases(selectedKnowledgeBases)
   updateEnableSandboxTools(sandboxToolsEnabled)
-  await sendMessage(message, attachedDocuments, attachedImages)
+  await sendMessage(message, attachedDocuments, attachedImages, attachedQuotes)
 }
 
 async function handleClearContext(): Promise<void> {

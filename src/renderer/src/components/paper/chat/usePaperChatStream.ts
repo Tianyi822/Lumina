@@ -11,6 +11,7 @@ import type {
   SessionData,
   StreamEvent
 } from '@renderer/types'
+import type { PaperQuote } from '@shared/types/chat'
 import { usePaperChatStreamStore } from '@renderer/stores'
 import { buildChatMessages } from '@renderer/utils/messageHelpers'
 
@@ -31,7 +32,8 @@ interface UsePaperChatStreamReturn {
   sendMessage: (
     content: string,
     attachedDocuments?: AttachedDocument[],
-    attachedImages?: AttachedImage[]
+    attachedImages?: AttachedImage[],
+    attachedQuotes?: PaperQuote[]
   ) => Promise<void>
   stopRequest: () => Promise<void>
 }
@@ -94,7 +96,8 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
   async function sendMessage(
     content: string,
     attachedDocuments: AttachedDocument[] = [],
-    attachedImages: AttachedImage[] = []
+    attachedImages: AttachedImage[] = [],
+    attachedQuotes: PaperQuote[] = []
   ): Promise<void> {
     const targetSession = options.session.value
     if (!targetSession) {
@@ -104,7 +107,8 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
 
     const currentSessionId = targetSession.sessionId
     const trimmedContent = content.trim()
-    const hasAttachments = attachedDocuments.length > 0 || attachedImages.length > 0
+    const hasAttachments =
+      attachedDocuments.length > 0 || attachedImages.length > 0 || attachedQuotes.length > 0
 
     if (!trimmedContent && !hasAttachments) {
       return
@@ -134,7 +138,8 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
       content: trimmedContent,
       timestamp: new Date().toISOString(),
       attachedDocuments: attachedDocuments.length > 0 ? attachedDocuments : undefined,
-      attachedImages: attachedImages.length > 0 ? attachedImages : undefined
+      attachedImages: attachedImages.length > 0 ? attachedImages : undefined,
+      attachedQuotes: attachedQuotes.length > 0 ? attachedQuotes : undefined
     }
     options.messages.value.push(userMessage)
 
