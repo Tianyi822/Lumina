@@ -525,7 +525,9 @@ export class EmbeddingService {
       const batchTexts = texts.slice(processedTexts, processedTexts + reservation.batchSize)
 
       try {
-        const response = await client.embeddings.create(this.buildEmbeddingParams(config, batchTexts))
+        const response = await client.embeddings.create(
+          this.buildEmbeddingParams(config, batchTexts)
+        )
         responseModel = response.model
 
         const sortedData = [...response.data].sort((a, b) => a.index - b.index)
