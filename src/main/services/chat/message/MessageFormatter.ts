@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import type { AttachedDocument } from '@shared/types/chat'
+import type { AttachedDocument, PaperQuote } from '@shared/types/chat'
 import { formatFileSize } from '@shared/utils'
 import type { ChatMessage, KnowledgeSearchResult } from '../../../types/chat'
 
@@ -60,6 +60,29 @@ export function formatDocumentsContext(documents: AttachedDocument[]): string {
 }
 
 /**
+ * 格式化论文引用内容为文本
+ */
+export function formatQuotesContext(quotes: PaperQuote[]): string {
+  if (!quotes || quotes.length === 0) {
+    return ''
+  }
+
+  let context = '\n\n--- 用户选中的论文内容 ---\n'
+  let originalIndex = 0
+  let translationIndex = 0
+
+  for (const quote of quotes) {
+    const label =
+      quote.viewKind === 'original'
+        ? `原文引用 ${++originalIndex}`
+        : `译文引用 ${++translationIndex}`
+    context += `\n【${label}】\n${quote.selectedText}\n`
+  }
+
+  return context
+}
+
+/**
  * 格式化消息为 OpenAI 格式
  * 过滤掉空内容的助手消息，将知识库结果和附加文档附加到最后一条用户消息
  * 如果最后一条用户消息包含图片，则使用多模态 content 格式
@@ -87,6 +110,10 @@ export function formatMessagesWithKnowledge(
       }
       if (msg.attachedDocuments && msg.attachedDocuments.length > 0) {
         textContent += formatDocumentsContext(msg.attachedDocuments)
+      }
+
+      if (msg.attachedQuotes && msg.attachedQuotes.length > 0) {
+        textContent += formatQuotesContext(msg.attachedQuotes)
       }
 
       if (msg.attachedImages && msg.attachedImages.length > 0) {
