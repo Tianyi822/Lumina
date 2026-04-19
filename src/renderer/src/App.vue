@@ -4,7 +4,6 @@ import { storeToRefs } from 'pinia'
 import KnowledgePage from './pages/KnowledgePage.vue'
 import SandboxPage from './pages/SandboxPage.vue'
 import PaperReaderPage from './pages/PaperReaderPage.vue'
-import ErrorBanner from './components/ErrorBanner.vue'
 import NotificationCenter from './components/NotificationCenter.vue'
 import SettingsModal from './components/SettingsModal.vue'
 import SvgIcon from './components/icons/SvgIcon.vue'
@@ -23,7 +22,7 @@ const { initTheme } = useTheme()
 
 // ==================== UI 状态管理（直接使用 Store）====================
 const uiState = useUIStateStore()
-const { currentView, isKnowledgeView, isPaperView, isCurrentSidebarCollapsed, configError } =
+const { currentView, isKnowledgeView, isPaperView, isCurrentSidebarCollapsed } =
   storeToRefs(uiState)
 
 // 配置 Store - 用于加载语音识别等配置
@@ -42,10 +41,6 @@ function closeSettings(): void {
 
 function toggleSidebar(): void {
   uiState.toggleCurrentSidebar()
-}
-
-function dismissError(): void {
-  uiState.dismissConfigError()
 }
 
 function handleMCPUpdated(): void {
@@ -114,11 +109,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="sm-app">
-    <!-- 配置加载错误提示(仅在加载失败时显示) -->
-    <Transition name="sm-feedback" appear>
-      <ErrorBanner v-if="configError" :error="configError" @dismiss="dismissError" />
-    </Transition>
-
     <!-- 全局通知中心 -->
     <NotificationCenter />
 
