@@ -4,26 +4,15 @@ import { storeToRefs } from 'pinia'
 import EmbeddingModelItem from '../embedding/EmbeddingModelItem.vue'
 import EmbeddingModelForm from '../embedding/EmbeddingModelForm.vue'
 import { useKnowledgeStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { EmbeddingConfig } from '@shared/types/config'
-
-interface Props {
-  errorMessage: string
-  successMessage: string
-}
-
-interface Emits {
-  (e: 'update:errorMessage', value: string): void
-  (e: 'update:successMessage', value: string): void
-  (e: 'update:infoMessage', value: string): void
-}
-
-defineProps<Props>()
-const emit = defineEmits<Emits>()
 
 // 直接使用 Knowledge Store
 const knowledgeStore = useKnowledgeStore()
 const { embeddingModels, embeddingLoading } = storeToRefs(knowledgeStore)
 const loading = embeddingLoading
+
+const notify = useNotification()
 
 // UI 状态
 const showAddForm = ref(false)
@@ -33,14 +22,15 @@ const editingModelConfig = ref<EmbeddingConfig | null>(null)
 
 // 显示消息
 function showError(message: string): void {
-  emit('update:errorMessage', message)
+  notify.error('嵌入模型', message, { source: 'settings' })
 }
 
 function showSuccess(message: string): void {
-  emit('update:successMessage', message)
-  setTimeout(() => {
-    emit('update:successMessage', '')
-  }, 2000)
+  notify.success('嵌入模型', message, { source: 'settings' })
+}
+
+function showInfo(message: string): void {
+  notify.info('嵌入模型', message, { source: 'settings' })
 }
 
 // 编辑模型
@@ -91,7 +81,7 @@ async function handleSave(id: string, config: EmbeddingConfig): Promise<void> {
   if (success) {
     showSuccess(editingModelId.value ? '嵌入模型已更新' : '嵌入模型已添加')
     if (editingModelId.value) {
-      emit('update:infoMessage', '编辑后保存为新配置是正常逻辑，原配置不受影响。')
+      showInfo('编辑后保存为新配置是正常逻辑，原配置不受影响。')
     }
     showAddForm.value = false
     editingModelId.value = null

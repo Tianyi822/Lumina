@@ -1,13 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { KnowledgeMCPServerStatus } from '@shared/types/knowledgeMCP'
 
-interface Emits {
-  (e: 'update:errorMessage', value: string): void
-  (e: 'update:successMessage', value: string): void
-}
-
-const emit = defineEmits<Emits>()
+const notify = useNotification()
 
 // 服务状态
 const status = ref<KnowledgeMCPServerStatus>({
@@ -30,14 +26,11 @@ const enabled = computed(() => status.value.running)
 
 // 显示消息
 function showError(message: string): void {
-  emit('update:errorMessage', message)
+  notify.error('知识库 MCP', message, { source: 'settings' })
 }
 
 function showSuccess(message: string): void {
-  emit('update:successMessage', message)
-  setTimeout(() => {
-    emit('update:successMessage', '')
-  }, 2000)
+  notify.success('知识库 MCP', message, { source: 'settings' })
 }
 
 // 获取服务状态

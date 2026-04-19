@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useConfigStore, useUIStateStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import {
   OCR_PROVIDER_PRESETS,
   DEFAULT_OCR_PROVIDER,
@@ -10,22 +11,11 @@ import {
   type PaperReaderConfig
 } from '@shared/types/config'
 
-interface Props {
-  errorMessage: string
-  successMessage: string
-}
-
-interface Emits {
-  (e: 'update:errorMessage', value: string): void
-  (e: 'update:successMessage', value: string): void
-}
-
-defineProps<Props>()
-const emit = defineEmits<Emits>()
-
 const configStore = useConfigStore()
 const uiStateStore = useUIStateStore()
 const { paperReaderConfig, llmConfigs, defaultModel } = storeToRefs(configStore)
+
+const notify = useNotification()
 
 const localConfig = ref<PaperReaderConfig>({
   ocr: { provider: DEFAULT_OCR_PROVIDER }
@@ -33,26 +23,13 @@ const localConfig = ref<PaperReaderConfig>({
 
 const syncingLocalConfig = ref(false)
 const testing = ref(false)
-let successMessageTimer: ReturnType<typeof setTimeout> | null = null
 
 function showError(message: string): void {
-  if (successMessageTimer) {
-    clearTimeout(successMessageTimer)
-    successMessageTimer = null
-  }
-  emit('update:successMessage', '')
-  emit('update:errorMessage', message)
+  notify.error('论文阅读配置', message, { source: 'settings' })
 }
 
 function showSuccess(message: string): void {
-  if (successMessageTimer) {
-    clearTimeout(successMessageTimer)
-  }
-  emit('update:errorMessage', '')
-  emit('update:successMessage', message)
-  successMessageTimer = setTimeout(() => {
-    emit('update:successMessage', '')
-  }, 2000)
+  notify.success('论文阅读配置', message, { source: 'settings' })
 }
 
 async function loadLocalConfig(): Promise<void> {
@@ -144,7 +121,7 @@ async function handleSave(): Promise<void> {
   const success = await configStore.saveConfig({ silent: true })
 
   if (!success) {
-    showError(configStore.errorMessage || '保存失败')
+    showError('保存失败')
     return
   }
 
@@ -161,9 +138,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (successMessageTimer) {
-    clearTimeout(successMessageTimer)
-  }
+  // 清理逻辑已移除，通知中心自动管理定时器
 })
 </script>
 

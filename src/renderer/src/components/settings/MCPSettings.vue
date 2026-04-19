@@ -4,20 +4,13 @@ import { storeToRefs } from 'pinia'
 import MCPServerItem from '../mcp/MCPServerItem.vue'
 import MCPNewServerForm from '../mcp/MCPNewServerForm.vue'
 import { useMCPStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { MCPServerConfig } from '@renderer/types'
 
-interface Props {
-  errorMessage: string
-  successMessage: string
-}
-
 interface Emits {
-  (e: 'update:errorMessage', value: string): void
-  (e: 'update:successMessage', value: string): void
   (e: 'mcp-updated'): void
 }
 
-defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 // 使用 MCP Store
@@ -25,6 +18,8 @@ const mcpStore = useMCPStore()
 const { configs: mcpConfigs, connecting, testing, expandedServers } = storeToRefs(mcpStore)
 const { loadConfigs, saveConfig, deleteConfig, getStatus, connect, disconnect, testConnection } =
   mcpStore
+
+const notify = useNotification()
 
 // UI 状态
 const showNewMCPForm = ref(false)
@@ -46,17 +41,11 @@ const importPlaceholder = `例如：
 
 // 显示消息
 function showError(message: string): void {
-  emit('update:errorMessage', message)
+  notify.error('MCP 服务', message, { source: 'settings' })
 }
 
 function showSuccess(message: string): void {
-  emit('update:successMessage', message)
-  setTimeout(
-    () => {
-      emit('update:successMessage', '')
-    },
-    message.includes('工具') ? 3000 : 2000
-  )
+  notify.success('MCP 服务', message, { source: 'settings' })
 }
 
 function validateMCPConfig(config: MCPServerConfig): string {
