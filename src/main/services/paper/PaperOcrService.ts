@@ -62,8 +62,87 @@ interface RawOcrResponse {
   [key: string]: unknown
 }
 
+const FENCED_CODE_PATTERN = /^\s{0,3}(?:`{3,}|~{3,})/m
+const CODE_KEYWORD_PATTERN =
+  /\b(?:async|await|class|const|def|else|for|from|function|if|import|let|return|try|var|while)\b/i
+
 function isRemoteImageUrl(content: string | undefined): boolean {
   return typeof content === 'string' && /^https?:\/\/\S+$/i.test(content.trim())
+}
+
+function normalizeBlockLabel(label: string | undefined): BlockLabel {
+  if (
+    label === 'text' ||
+    label === 'image' ||
+    label === 'table' ||
+    label === 'formula' ||
+    label === 'code'
+  ) {
+    return label
+  }
+
+  return 'text'
+}
+
+function hasFencedCodeBlock(content: string): boolean {
+  return FENCED_CODE_PATTERN.test(content.trim())
+}
+
+function isLikelyCodeLine(line: string): boolean {
+  const trimmed = line.trim()
+  if (!trimmed) {
+    return false
+  }
+
+  return (
+    /^(?:#|\/\/|\/\*|\*|--)\s*\S/.test(trimmed) ||
+    CODE_KEYWORD_PATTERN.test(trimmed) ||
+    /(?:=>|->|::|\.\w+\(|[{}();=<>*/]|\[|\])/.test(trimmed)
+  )
+}
+
+function isNaturalLanguageSentenceLine(line: string): boolean {
+  const trimmed = line.trim()
+  return /^[A-Z][a-z][^=;{}]*[.!?]$/.test(trimmed)
+}
+
+function isLikelyUnfencedCodeBlock(content: string): boolean {
+  const lines = content
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length < 4) {
+    return false
+  }
+
+  const codeLineCount = lines.filter(isLikelyCodeLine).length
+  const sentenceLineCount = lines.filter(isNaturalLanguageSentenceLine).length
+
+  return codeLineCount >= Math.ceil(lines.length * 0.45) && sentenceLineCount <= lines.length * 0.25
+}
+
+function ensureFencedCodeBlock(content: string): string {
+  const trimmed = content.trim()
+  if (!trimmed || hasFencedCodeBlock(trimmed)) {
+    return trimmed
+  }
+
+  return ['```', trimmed, '```'].join('\n')
+}
+
+function replaceFirstLiteral(content: string, searchValue: string, replacement: string): string {
+  if (!searchValue || searchValue === replacement) {
+    return content
+  }
+
+  const matchIndex = content.indexOf(searchValue)
+  if (matchIndex < 0) {
+    return content
+  }
+
+  return content.slice(0, matchIndex) + replacement + content.slice(matchIndex + searchValue.length)
 }
 
 function normalizeBbox(raw: number[] | undefined): {
@@ -108,7 +187,7 @@ function normalizeGlmOcrResponse(
   taskId?: string
 } {
   const mdResults = raw.md_results ?? raw.mdResults ?? []
-  const markdown = typeof mdResults === 'string' ? mdResults : mdResults[0] || ''
+  let markdown = typeof mdResults === 'string' ? mdResults : mdResults[0] || ''
 
   const layoutDetails = raw.layout_details ?? raw.layoutDetails ?? []
   const pageBlocks =
@@ -120,8 +199,13 @@ function normalizeGlmOcrResponse(
     const rawBbox = block.bbox_2d || block.bbox2d
     const { bbox, normalizedBbox, pixelBbox } = normalizeBbox(rawBbox)
 
-    const label = (block.label || 'text') as BlockLabel
-    const content = block.text || block.content || ''
+    const rawLabel = normalizeBlockLabel(block.label)
+    const rawContent = block.text || block.content || ''
+    const shouldTreatAsCode =
+      rawLabel === 'code' || hasFencedCodeBlock(rawContent) || isLikelyUnfencedCodeBlock(rawContent)
+    const label: BlockLabel = shouldTreatAsCode ? 'code' : rawLabel
+    const content = shouldTreatAsCode ? ensureFencedCodeBlock(rawContent) : rawContent
+    markdown = replaceFirstLiteral(markdown, rawContent, content)
     const remoteUrl =
       block.crop_image_url ||
       block.crop_url ||

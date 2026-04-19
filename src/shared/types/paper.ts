@@ -33,7 +33,7 @@ export interface OcrProgressInfo {
 /**
  * 布局块标签
  */
-export type BlockLabel = 'text' | 'image' | 'table' | 'formula'
+export type BlockLabel = 'text' | 'image' | 'table' | 'formula' | 'code'
 
 /**
  * 论文文档元信息
