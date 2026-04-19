@@ -1,0 +1,122 @@
+/* 通知中心全局容器 */
+.sm-notification-center {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  width: min(480px, calc(100vw - 40px));
+  max-height: 60vh;
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.sm-notification-center > * {
+  pointer-events: auto;
+}
+
+/* 通知列表过渡动画 */
+.sm-notification-enter-active {
+  transition:
+    opacity var(--sm-transition-medium),
+    transform var(--sm-transition-medium);
+}
+
+.sm-notification-leave-active {
+  transition:
+    opacity var(--sm-transition-medium),
+    transform var(--sm-transition-medium);
+}
+
+.sm-notification-enter-from {
+  opacity: 0;
+  transform: translateX(var(--sm-motion-distance-md));
+}
+
+.sm-notification-leave-to {
+  opacity: 0;
+  transform: translateX(var(--sm-motion-distance-md));
+}
+
+.sm-notification-move {
+  transition: transform var(--sm-transition-fast);
+}
+
+/* 确认对话框遮罩 */
+.sm-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.sm-confirm-surface {
+  min-width: 400px;
+  max-width: min(520px, calc(100vw - 40px));
+  padding: 24px;
+  background-color: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+}
+
+.sm-confirm-surface__title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.sm-confirm-surface__message {
+  font-size: 14px;
+  color: var(--sm-color-text-secondary);
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.sm-confirm-surface__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sm-space-2);
+}
+
+.sm-confirm-surface__btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-3);
+  color: var(--sm-color-text-primary);
+  cursor: pointer;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
+}
+
+.sm-confirm-surface__btn:hover {
+  background-color: var(--sm-color-surface-hover);
+}
+
+.sm-confirm-surface__btn--danger {
+  background-color: var(--sm-color-status-danger);
+  border-color: var(--sm-color-status-danger);
+  color: #fff;
+}
+
+.sm-confirm-surface__btn--danger:hover {
+  opacity: 0.9;
+}
+
+/* 确认对话框过渡 */
+.sm-confirm-enter-active,
+.sm-confirm-leave-active {
+  transition: opacity var(--sm-transition-medium);
+}
+
+.sm-confirm-enter-from,
+.sm-confirm-leave-to {
+  opacity: 0;
+}
