@@ -14,7 +14,10 @@ import type {
   PaperTranslationSegmentKind,
   PaperTranslationStatus
 } from '@shared/types/paper'
-import { normalizePaperMarkdownForRender } from '@shared/utils/paperMarkdown'
+import {
+  normalizePaperInlineMathForRender,
+  normalizePaperMarkdownForRender
+} from '@shared/utils/paperMarkdown'
 import {
   buildPaperTocOutline,
   isPaperAffiliationLikeSegment,
@@ -74,12 +77,6 @@ function createFallbackSourceSegments(markdown: string): RenderSourceSegment[] {
     sourceRevisionId: '',
     sourceRefs: EMPTY_SOURCE_REFS
   }))
-}
-
-function normalizeInlineMath(content: string): string {
-  return content.replace(/\$([^\n$]+?)\$/g, (_match, expression: string) => {
-    return `$${expression.trim()}$`
-  })
 }
 
 function resolveLocalImageFilePath(src: string, basePath: string | undefined): string | null {
@@ -280,7 +277,10 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
     kind: PaperTranslationSegmentKind,
     headingId?: string
   ): Promise<string> {
-    const normalizedContent = normalizeInlineMath(normalizePaperMarkdownForRender(markdown, kind))
+    const normalizedContent = normalizePaperInlineMathForRender(
+      normalizePaperMarkdownForRender(markdown, kind),
+      kind
+    )
     const rawHtml = markdownRenderer.render(normalizedContent)
     const resolvedHtml = await resolveImagePaths(rawHtml, options.basePath())
     return postProcessRenderedHtml(resolvedHtml, headingId)

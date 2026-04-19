@@ -86,3 +86,16 @@ export function normalizePaperMarkdownForRender(
     }
   )
 }
+
+export function normalizePaperInlineMathForRender(
+  content: string,
+  kind: PaperTranslationSegmentKind
+): string {
+  if (kind === 'code') {
+    return content
+  }
+
+  return content.replace(/\$([^\n$]+?)\$/g, (_match, expression: string) => {
+    return `$${expression.trim()}$`
+  })
+}
