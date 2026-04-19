@@ -130,10 +130,6 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-.file-manager-feedback {
-  margin: var(--sm-space-4) var(--sm-space-5) 0;
-}
-
 .drop-zone-wrapper {
   margin: var(--sm-space-4) var(--sm-space-5);
 }

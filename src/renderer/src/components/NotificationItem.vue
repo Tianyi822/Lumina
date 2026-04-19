@@ -63,7 +63,7 @@ function handleClose(): void {
 </template>
 
 <style scoped>
-@import '@renderer/styles/operation-message-colors.css';
+@import '@renderer/styles/notification-center.css';
 
 .sm-notification-item {
   display: flex;
