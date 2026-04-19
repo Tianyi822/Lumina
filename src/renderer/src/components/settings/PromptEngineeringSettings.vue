@@ -10,17 +10,7 @@ import PromptTestSandbox from './prompt/tester/PromptTestSandbox.vue'
 
 const store = usePromptEngineeringStore()
 const { initializing } = storeToRefs(store)
-const {
-  tabs,
-  activeTab,
-  feedbackMessage,
-  feedbackType,
-  hasFeedback,
-  changeTab,
-  dismissFeedback,
-  initialize,
-  cleanup
-} = usePromptManager()
+const { tabs, activeTab, changeTab, initialize, cleanup } = usePromptManager()
 
 /** 组件挂载时初始化 */
 onMounted(() => {
@@ -52,21 +42,6 @@ onBeforeUnmount(() => {
           {{ tab.label }}
         </button>
       </div>
-
-      <Transition name="sm-prompt-feedback">
-        <div
-          v-if="hasFeedback"
-          :class="[
-            'sm-settings-feedback',
-            feedbackType === 'error'
-              ? 'sm-settings-feedback--error'
-              : 'sm-settings-feedback--success'
-          ]"
-        >
-          <span>{{ feedbackMessage }}</span>
-          <button class="sm-prompt-settings__feedback-close" @click="dismissFeedback">关闭</button>
-        </div>
-      </Transition>
 
       <div class="sm-prompt-settings__content">
         <div v-if="activeTab === 'basic'" class="sm-prompt-settings__pane">
@@ -108,29 +83,6 @@ onBeforeUnmount(() => {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--sm-color-border-subtle);
   flex-shrink: 0;
-}
-
-.sm-prompt-settings__feedback-close {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--sm-radius-sm);
-  color: var(--sm-color-text-secondary);
-  font-size: 12px;
-  padding: 4px 8px;
-  min-width: 44px;
-  height: 24px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 10px;
-  opacity: 0.7;
-}
-
-.sm-prompt-settings__feedback-close:hover {
-  color: var(--sm-color-text-primary);
-  border-color: var(--sm-color-border-default);
-  background: var(--sm-color-surface-2);
 }
 
 .sm-prompt-settings__content {
@@ -176,10 +128,6 @@ onBeforeUnmount(() => {
   .sm-prompt-settings__tabs {
     overflow-x: auto;
     padding: 0 12px;
-  }
-
-  .sm-settings-feedback {
-    align-items: flex-start;
   }
 }
 </style>
