@@ -3,6 +3,7 @@
 
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { ThemeConfig, ThemeMode } from '@shared/types/config'
 import {
   DEFAULT_THEME_ID,
@@ -114,14 +115,6 @@ export const useUIStateStore = defineStore(
     // MCP 配置更新计数器
     const mcpUpdateKey = ref(0)
 
-    // ==================== State: 错误提示 ====================
-
-    // 配置错误信息
-    const configError = ref<string | null>(null)
-
-    // 是否显示配置错误
-    const showConfigError = ref(false)
-
     // ==================== State: 主题 ====================
 
     // 当前主题 ID
@@ -166,9 +159,6 @@ export const useUIStateStore = defineStore(
 
       return sandboxSidebarCollapsed.value
     })
-
-    // 是否有任何错误显示
-    const hasAnyError = computed(() => showConfigError.value)
 
     // ==================== Getters: 主题 ====================
 
@@ -327,35 +317,19 @@ export const useUIStateStore = defineStore(
 
     // ==================== Actions: 错误管理 ====================
 
-    // 显示配置错误
-    function showConfigErrorMessage(message: string): void {
-      configError.value = message
-      showConfigError.value = true
-      window.api.logger?.warn('[UIStateStore] 显示配置错误', { message })
-    }
-
-    // 关闭配置错误
-    function dismissConfigError(): void {
-      showConfigError.value = false
-      configError.value = null
-    }
-
-    // 关闭所有错误
-    function dismissAllErrors(): void {
-      dismissConfigError()
-    }
-
     // 加载配置状态并检查错误
     async function loadConfigStatus(): Promise<void> {
       try {
         const status = await window.api.config.getStatus()
         if (!status.success && status.error) {
-          showConfigErrorMessage(status.error)
+          const notify = useNotification()
+          notify.error('配置错误', status.error, { source: 'config', sticky: true })
+          window.api.logger?.warn('[UIStateStore] 配置加载失败', { error: status.error })
         }
       } catch (error) {
-        showConfigErrorMessage(
-          `无法获取配置状态: ${error instanceof Error ? error.message : String(error)}`
-        )
+        const msg = `无法获取配置状态: ${error instanceof Error ? error.message : String(error)}`
+        const notify = useNotification()
+        notify.error('配置错误', msg, { source: 'config', sticky: true })
       }
     }
 
@@ -548,10 +522,6 @@ export const useUIStateStore = defineStore(
       configUpdateKey,
       mcpUpdateKey,
 
-      // State: 错误提示
-      configError,
-      showConfigError,
-
       // State: 主题
       currentTheme,
       selectedTheme,
@@ -564,7 +534,6 @@ export const useUIStateStore = defineStore(
       isSandboxView,
       isPaperView,
       isCurrentSidebarCollapsed,
-      hasAnyError,
       currentThemeMeta,
 
       // Actions: 侧边栏
@@ -598,9 +567,6 @@ export const useUIStateStore = defineStore(
       notifyMcpUpdate,
 
       // Actions: 错误管理
-      showConfigErrorMessage,
-      dismissConfigError,
-      dismissAllErrors,
       loadConfigStatus,
 
       // Actions: 主题管理

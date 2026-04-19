@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import KeyValueEditor from './KeyValueEditor.vue'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { MCPServerConfig } from '@renderer/types'
+import KeyValueEditor from './KeyValueEditor.vue'
 
 interface Props {
   existingNames: string[]
@@ -15,6 +16,7 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+const notify = useNotification()
 
 // 表单数据
 const formData = ref<MCPServerConfig>({
@@ -109,7 +111,7 @@ function validateConfig(): string | null {
 function handleSubmit(): void {
   const error = validateConfig()
   if (error) {
-    alert(error)
+    notify.warning('配置校验失败', error, { source: 'settings' })
     return
   }
 
@@ -122,7 +124,7 @@ function handleSubmit(): void {
 function handleTest(): void {
   const error = validateConfig()
   if (error) {
-    alert(error)
+    notify.warning('配置校验失败', error, { source: 'settings' })
     return
   }
 

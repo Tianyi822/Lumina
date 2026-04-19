@@ -168,22 +168,8 @@ function migrateConfig(config: AppConfig): AppConfig {
     migrated.knowledgeMCP = DEFAULT_KNOWLEDGE_MCP_CONFIG
   }
 
-  // 迁移旧 paperOcr 配置到 paperReader
-  if ((migrated as Record<string, unknown>).paperOcr && !migrated.paperReader) {
-    const oldPaperOcr = (migrated as Record<string, unknown>).paperOcr as {
-      provider?: OcrProviderId
-      apiKey?: string
-    }
-    migrated.paperReader = sanitizePaperReaderConfig({
-      ocr: {
-        provider: oldPaperOcr.provider || DEFAULT_OCR_PROVIDER,
-        apiKey: oldPaperOcr.apiKey
-      }
-    })
-    delete (migrated as Record<string, unknown>).paperOcr
-  }
-
   migrated.paperReader = sanitizePaperReaderConfig(migrated.paperReader)
+  delete (migrated as Record<string, unknown>).paperOcr
 
   delete (migrated as Record<string, unknown>).voiceRecognition
   delete (migrated as Record<string, unknown>).aliyunMiaobi

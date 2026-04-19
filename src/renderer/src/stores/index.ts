@@ -15,6 +15,7 @@ export { usePaperChatMessageCacheStore } from './paperChatMessageCacheStore'
 export { useUIStateStore } from './uiStateStore'
 export { useKnowledgeIndexStore } from './knowledgeIndexStore'
 export { useConfigStore } from './configStore'
+export { useNotificationCenterStore } from './notificationCenterStore'
 
 // 新增 Stores
 export { useMCPStore } from './mcpStore'

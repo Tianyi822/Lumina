@@ -1,5 +1,6 @@
 import { ref, type Ref } from 'vue'
 import { isImageFile } from '@renderer/stores/paperChatImageUploadStore'
+import { useNotification } from '@renderer/composables/useNotification'
 import { IMAGE_ACCEPT_STRING } from '@renderer/utils/imageCompress'
 import { SUPPORTED_DOC_ACCEPT } from './attachmentUtils'
 
@@ -24,6 +25,7 @@ const FILE_ACCEPT_STRING = `${SUPPORTED_DOC_ACCEPT},${IMAGE_ACCEPT_STRING}`
  */
 export function usePaperChatFileDragDrop(options: UseFileDragDropOptions): UseFileDragDropReturn {
   const isDragging = ref(false)
+  const notify = useNotification()
 
   async function processFiles(files: File[]): Promise<void> {
     const imageFiles: File[] = []
@@ -48,7 +50,7 @@ export function usePaperChatFileDragDrop(options: UseFileDragDropOptions): UseFi
     }
 
     if (errors.length > 0) {
-      alert(errors.join('\n'))
+      notify.error('文件添加失败', errors.join('\n'), { source: 'chat' })
     }
   }
 

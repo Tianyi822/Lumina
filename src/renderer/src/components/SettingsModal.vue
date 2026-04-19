@@ -9,6 +9,7 @@ import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
 import PaperReaderSettings from './settings/PaperReaderSettings.vue'
 import { useConfigStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -26,7 +27,8 @@ type SettingsTabKey =
 
 // 使用 configStore
 const configStore = useConfigStore()
-const { loading, errorMessage, successMessage, themeConfig } = storeToRefs(configStore)
+const { loading, themeConfig } = storeToRefs(configStore)
+const notify = useNotification()
 
 // 当前激活的 Tab
 const activeTab = ref<SettingsTabKey>('model')
@@ -73,23 +75,15 @@ const settingsTabs: Array<{
   }
 ]
 
-// 信息消息（仅用于嵌入模型设置）
-const infoMessage = ref('')
-
 // 关闭弹窗
 function handleClose(): void {
-  infoMessage.value = ''
-  configStore.clearMessages()
   emit('close')
 }
 
 // 主题变化处理（立即生效，无需保存）
 function handleThemeChange(themeId: string): void {
   window.api.logger.info('[SettingsModal] 主题已切换', { themeId })
-  configStore.successMessage = '主题已应用'
-  setTimeout(() => {
-    configStore.successMessage = ''
-  }, 1500)
+  notify.success('主题设置', '主题已应用', { source: 'settings' })
 }
 
 // 键盘事件处理
@@ -141,24 +135,9 @@ onUnmounted(() => {
 
             <ModelSettings v-else-if="activeTab === 'model'" />
 
-            <MCPSettings
-              v-else-if="activeTab === 'mcp'"
-              :error-message="errorMessage"
-              :success-message="successMessage"
-              @update:error-message="errorMessage = $event"
-              @update:success-message="successMessage = $event"
-              @mcp-updated="emit('mcp-updated')"
-            />
+            <MCPSettings v-else-if="activeTab === 'mcp'" @mcp-updated="emit('mcp-updated')" />
 
-            <EmbeddingModelSettings
-              v-else-if="activeTab === 'embedding'"
-              :error-message="errorMessage"
-              :success-message="successMessage"
-              :info-message="infoMessage"
-              @update:error-message="errorMessage = $event"
-              @update:success-message="successMessage = $event"
-              @update:info-message="infoMessage = $event"
-            />
+            <EmbeddingModelSettings v-else-if="activeTab === 'embedding'" />
 
             <PromptEngineeringSettings v-else-if="activeTab === 'prompt'" />
 
@@ -169,34 +148,11 @@ onUnmounted(() => {
               @theme-change="handleThemeChange"
             />
 
-            <KnowledgeMCPSettings
-              v-else-if="activeTab === 'knowledge'"
-              @update:error-message="errorMessage = $event"
-              @update:success-message="successMessage = $event"
-            />
+            <KnowledgeMCPSettings v-else-if="activeTab === 'knowledge'" />
 
-            <PaperReaderSettings
-              v-else-if="activeTab === 'paperReader'"
-              :error-message="errorMessage"
-              :success-message="successMessage"
-              @update:error-message="errorMessage = $event"
-              @update:success-message="successMessage = $event"
-            />
+            <PaperReaderSettings v-else-if="activeTab === 'paperReader'" />
           </div>
         </section>
-      </div>
-
-      <div v-if="errorMessage" class="sm-settings-feedback sm-settings-feedback--error">
-        <span>{{ errorMessage }}</span>
-        <button class="message-close" @click="errorMessage = ''">关闭</button>
-      </div>
-      <div v-if="successMessage" class="sm-settings-feedback sm-settings-feedback--success">
-        <span>{{ successMessage }}</span>
-        <button class="message-close" @click="successMessage = ''">关闭</button>
-      </div>
-      <div v-if="infoMessage" class="sm-settings-feedback sm-settings-feedback--info">
-        <span>{{ infoMessage }}</span>
-        <button class="message-close" @click="infoMessage = ''">关闭</button>
       </div>
     </div>
   </div>
@@ -248,28 +204,6 @@ onUnmounted(() => {
 
 .settings-content {
   background: var(--sm-color-surface-2);
-}
-
-.message-close {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--sm-radius-sm);
-  color: inherit;
-  font-size: 12px;
-  font-family: var(--sm-font-sans);
-  padding: 0 8px;
-  min-width: 44px;
-  height: 28px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 10px;
-}
-
-.message-close:hover {
-  background: var(--sm-color-surface-hover);
-  border-color: var(--sm-color-border-default);
 }
 
 @media (max-width: 1060px) {

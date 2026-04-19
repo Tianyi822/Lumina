@@ -7,6 +7,7 @@ import KnowledgeForm from '@renderer/components/knowledge/KnowledgeForm.vue'
 import FileManagerModal from '@renderer/components/knowledge/FileManagerModal.vue'
 import FileSelectorModal from '@renderer/components/knowledge/FileSelectorModal.vue'
 import { useKnowledgeStore, useUIStateStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
 
 // ==================== 知识库管理（直接使用 Store）====================
@@ -14,6 +15,7 @@ const knowledgeStore = useKnowledgeStore()
 const { knowledgeBases, activeKbId: storeActiveKbId, showForm } = storeToRefs(knowledgeStore)
 const uiStateStore = useUIStateStore()
 const { showKnowledgeFileManager } = storeToRefs(uiStateStore)
+const notify = useNotification()
 
 // 兼容旧接口命名（将 null 转为 undefined）
 const activeKbId = computed(() => storeActiveKbId.value ?? undefined)
@@ -40,7 +42,7 @@ async function handleKnowledgeSubmit(data: {
 }): Promise<void> {
   const success = await knowledgeStore.handleFormSubmit(data)
   if (!success) {
-    alert('创建知识库失败: ' + (knowledgeStore.error || '未知错误'))
+    notify.error('创建知识库失败', knowledgeStore.error || '未知错误', { source: 'knowledge' })
   }
 }
 

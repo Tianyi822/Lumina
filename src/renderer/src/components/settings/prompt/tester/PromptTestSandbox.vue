@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePromptEngineeringStore } from '@renderer/stores/promptEngineeringStore'
 import { usePromptManager } from '@renderer/composables/settings/usePromptManager'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { TestPromptPayload } from '@shared/types/prompt'
 import { getPromptVariablePlaceholder, resolveSystemPromptVariables } from '@shared/utils'
 
 const store = usePromptEngineeringStore()
+const notify = useNotification()
 const {
   allVariables,
   variableOverrides,
@@ -32,6 +34,16 @@ const systemVariableValues = computed(() => resolveSystemPromptVariables())
 const canRunAction = computed(() => {
   return !sandboxLoading.value
 })
+
+// 将测试错误转为通知
+watch(
+  () => sandboxResult.value?.error,
+  (err) => {
+    if (err) {
+      notify.error('提示词测试', err, { source: 'prompt' })
+    }
+  }
+)
 
 function buildPayload(): TestPromptPayload {
   return {
@@ -214,10 +226,6 @@ function handleClearResult(): void {
             </span>
           </div>
         </template>
-
-        <div v-else-if="sandboxResult?.error" class="sm-notice sm-notice--error">
-          {{ sandboxResult.error }}
-        </div>
       </div>
 
       <div class="sm-settings-card sm-prompt-sandbox__panel">

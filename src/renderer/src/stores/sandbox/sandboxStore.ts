@@ -6,6 +6,7 @@ import type {
   CreateSandboxRequest,
   CreateSandboxResult
 } from '@shared/types/sandbox'
+import { useNotification } from '@renderer/composables/useNotification'
 import { useContainerStore } from './containerStore'
 import { useSandboxListStore } from './sandboxListStore'
 import { useSandboxOperationStore } from './sandboxOperationStore'
@@ -14,6 +15,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
   const containerStore = useContainerStore()
   const listStore = useSandboxListStore()
   const operationStore = useSandboxOperationStore()
+  const notify = useNotification()
 
   const {
     currentSandbox,
@@ -29,7 +31,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
     sandboxCount
   } = storeToRefs(listStore)
 
-  const { deleteConfirmState, operationMessage, messageVisible } = storeToRefs(operationStore)
+  const { deleteConfirmState } = storeToRefs(operationStore)
 
   async function createSandbox(request: CreateSandboxRequest): Promise<CreateSandboxResult | null> {
     try {
@@ -47,7 +49,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
           creationType: request.creationType
         })
       } else if (result.error) {
-        operationStore.showError('创建失败', result.error)
+        notify.error('创建失败', result.error, { source: 'sandbox' })
       }
 
       return result
@@ -57,7 +59,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
         error: errorMessage,
         creationType: request.creationType
       })
-      operationStore.showError('创建失败', errorMessage)
+      notify.error('创建失败', errorMessage, { source: 'sandbox' })
       return null
     }
   }
@@ -77,7 +79,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
           sandboxId: currentSandbox.value.sandboxId
         })
       } else if (result.error) {
-        operationStore.showError('保存失败', result.error)
+        notify.error('保存失败', result.error, { source: 'sandbox' })
       }
 
       return result.success
@@ -86,7 +88,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
       window.api.logger.error('[SandboxStore] 保存沙箱失败', {
         error: errorMessage
       })
-      operationStore.showError('保存失败', errorMessage)
+      notify.error('保存失败', errorMessage, { source: 'sandbox' })
       return false
     }
   }
@@ -104,10 +106,11 @@ export const useSandboxStore = defineStore('sandbox', () => {
         await listStore.loadSandbox(sandboxId, true)
       }
 
-      operationStore.showSuccess(
+      notify.success(
         result.previewReady ? '前端恢复成功' : '前端初始化已重试',
         result.message ||
-          (result.previewReady ? `预览地址: ${result.previewUrl}` : '可继续查看日志排查')
+          (result.previewReady ? `预览地址: ${result.previewUrl}` : '可继续查看日志排查'),
+        { source: 'sandbox' }
       )
 
       return true
@@ -117,7 +120,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
         error: errorMessage,
         sandboxId
       })
-      operationStore.showError('重试失败', errorMessage)
+      notify.error('重试失败', errorMessage, { source: 'sandbox' })
       return false
     }
   }
@@ -131,9 +134,10 @@ export const useSandboxStore = defineStore('sandbox', () => {
         await listStore.loadSandbox(sandboxId, true)
       }
 
-      operationStore.showSuccess(
+      notify.success(
         result.previewReady ? '运行容器已重建' : '运行容器已重建，但服务仍未就绪',
-        result.message || `工作区已复用，预览地址: ${result.previewUrl}`
+        result.message || `工作区已复用，预览地址: ${result.previewUrl}`,
+        { source: 'sandbox' }
       )
 
       return true
@@ -143,7 +147,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
         error: errorMessage,
         sandboxId
       })
-      operationStore.showError('重建失败', errorMessage)
+      notify.error('重建失败', errorMessage, { source: 'sandbox' })
       return false
     }
   }
@@ -161,10 +165,9 @@ export const useSandboxStore = defineStore('sandbox', () => {
       }
 
       if (!options?.silent) {
-        operationStore.showSuccess(
-          '构建校验通过',
-          result.message || '当前前端工作区已通过 Bun 构建校验'
-        )
+        notify.success('构建校验通过', result.message || '当前前端工作区已通过 Bun 构建校验', {
+          source: 'sandbox'
+        })
       }
 
       return true
@@ -175,7 +178,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
         sandboxId
       })
       if (!options?.silent) {
-        operationStore.showError('构建校验失败', errorMessage)
+        notify.error('构建校验失败', errorMessage, { source: 'sandbox' })
       }
       return false
     }
@@ -196,7 +199,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
       }
 
       if (result.error) {
-        operationStore.showError('重命名失败', result.error)
+        notify.error('重命名失败', result.error, { source: 'sandbox' })
       }
 
       return false
@@ -206,7 +209,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
         error: errorMessage,
         sandboxId
       })
-      operationStore.showError('重命名失败', errorMessage)
+      notify.error('重命名失败', errorMessage, { source: 'sandbox' })
       return false
     }
   }
@@ -225,7 +228,10 @@ export const useSandboxStore = defineStore('sandbox', () => {
           containerCount: result.containerIds.length
         })
       } else if (result.error) {
-        operationStore.notifyDockerError('模板创建失败', result.error)
+        notify.error('模板创建失败', result.error, {
+          source: 'sandbox',
+          dedupeKey: 'template-create'
+        })
       }
 
       return result
@@ -235,7 +241,10 @@ export const useSandboxStore = defineStore('sandbox', () => {
         error: errorMessage,
         templateId
       })
-      operationStore.notifyDockerError('模板创建失败', errorMessage)
+      notify.error('模板创建失败', errorMessage, {
+        source: 'sandbox',
+        dedupeKey: 'template-create'
+      })
       return null
     }
   }
@@ -254,7 +263,10 @@ export const useSandboxStore = defineStore('sandbox', () => {
           containerCount: result.containerIds.length
         })
       } else if (result.error) {
-        operationStore.notifyDockerError('Compose 创建失败', result.error)
+        notify.error('Compose 创建失败', result.error, {
+          source: 'sandbox',
+          dedupeKey: 'compose-create'
+        })
       }
 
       return result
@@ -263,7 +275,10 @@ export const useSandboxStore = defineStore('sandbox', () => {
       window.api.logger.error('[SandboxStore] 从 Compose 创建沙箱失败', {
         error: errorMessage
       })
-      operationStore.notifyDockerError('Compose 创建失败', errorMessage)
+      notify.error('Compose 创建失败', errorMessage, {
+        source: 'sandbox',
+        dedupeKey: 'compose-create'
+      })
       return null
     }
   }
@@ -290,14 +305,20 @@ export const useSandboxStore = defineStore('sandbox', () => {
         return result.containerId
       }
 
-      operationStore.notifyDockerError('Dockerfile 创建失败', result.error || '未知错误')
+      notify.error('Dockerfile 创建失败', result.error || '未知错误', {
+        source: 'sandbox',
+        dedupeKey: 'dockerfile-create'
+      })
       return null
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       window.api.logger.error('[SandboxStore] 从 Dockerfile 创建沙箱失败', {
         error: errorMessage
       })
-      operationStore.notifyDockerError('Dockerfile 创建失败', errorMessage)
+      notify.error('Dockerfile 创建失败', errorMessage, {
+        source: 'sandbox',
+        dedupeKey: 'dockerfile-create'
+      })
       return null
     }
   }
@@ -335,8 +356,6 @@ export const useSandboxStore = defineStore('sandbox', () => {
     currentSessionSandbox,
     sandboxContainerStatus,
     deleteConfirmState,
-    operationMessage,
-    messageVisible,
     currentSandboxId,
     sandboxCount,
     loadSandboxList: listStore.loadSandboxList,
@@ -367,12 +386,6 @@ export const useSandboxStore = defineStore('sandbox', () => {
     getSessionSandbox: listStore.getSessionSandbox,
     handleSelectSandbox,
     handleNewSandbox,
-    handleDeleteSandbox,
-    showMessage: operationStore.showMessage,
-    hideMessage: operationStore.hideMessage,
-    showError: operationStore.showError,
-    showWarning: operationStore.showWarning,
-    showSuccess: operationStore.showSuccess,
-    notifyDockerError: operationStore.notifyDockerError
+    handleDeleteSandbox
   }
 })

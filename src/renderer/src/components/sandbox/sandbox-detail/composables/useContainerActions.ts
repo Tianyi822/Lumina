@@ -2,6 +2,7 @@
  * 容器操作 composable
  * 处理容器的启动、停止、重启、删除等操作
  */
+import { useNotification } from '@renderer/composables/useNotification'
 import { useContainerStore, useSandboxStore } from '@renderer/stores'
 import type { SandboxData } from '@shared/types/sandbox'
 
@@ -24,6 +25,7 @@ export function useContainerActions(
 ): UseContainerActionsReturn {
   const containerStore = useContainerStore()
   const sandboxStore = useSandboxStore()
+  const notify = useNotification()
 
   /**
    * 启动容器
@@ -36,7 +38,10 @@ export function useContainerActions(
     ) {
       const result = await containerStore.composeStart(currentSandbox.value.composeProjectName)
       if (!result.success && result.error) {
-        sandboxStore.notifyDockerError('启动 Compose 项目失败', result.error)
+        notify.error('启动 Compose 项目失败', result.error, {
+          source: 'sandbox',
+          dedupeKey: 'container-action'
+        })
       } else if (result.success) {
         await refreshSandboxStatus()
       }
@@ -46,7 +51,10 @@ export function useContainerActions(
     if (selectedContainer.value) {
       const result = await containerStore.startContainer(selectedContainer.value.id)
       if (!result.success && result.error) {
-        sandboxStore.notifyDockerError('启动容器失败', result.error)
+        notify.error('启动容器失败', result.error, {
+          source: 'sandbox',
+          dedupeKey: 'container-action'
+        })
       } else if (result.success) {
         await refreshSandboxStatus()
       }
@@ -64,13 +72,18 @@ export function useContainerActions(
     ) {
       const result = await containerStore.composeStop(currentSandbox.value.composeProjectName)
       if (!result.success && result.error) {
-        sandboxStore.notifyDockerError('停止 Compose 项目失败', result.error)
+        notify.error('停止 Compose 项目失败', result.error, {
+          source: 'sandbox',
+          dedupeKey: 'container-action'
+        })
       } else if (
         result.success &&
         result.stoppedContainerIds &&
         result.stoppedContainerIds.length > 0
       ) {
-        sandboxStore.showSuccess('停止成功', `已停止 ${result.stoppedContainerIds.length} 个容器`)
+        notify.success('停止成功', `已停止 ${result.stoppedContainerIds.length} 个容器`, {
+          source: 'sandbox'
+        })
         await refreshSandboxStatus()
       } else if (result.success) {
         await refreshSandboxStatus()
@@ -81,7 +94,10 @@ export function useContainerActions(
     if (selectedContainer.value) {
       const result = await containerStore.stopContainer(selectedContainer.value.id)
       if (!result.success && result.error) {
-        sandboxStore.notifyDockerError('停止容器失败', result.error)
+        notify.error('停止容器失败', result.error, {
+          source: 'sandbox',
+          dedupeKey: 'container-action'
+        })
       } else if (result.success) {
         await refreshSandboxStatus()
       }
@@ -99,7 +115,10 @@ export function useContainerActions(
     ) {
       const result = await containerStore.composeRestart(currentSandbox.value.composeProjectName)
       if (!result.success && result.error) {
-        sandboxStore.notifyDockerError('重启 Compose 项目失败', result.error)
+        notify.error('重启 Compose 项目失败', result.error, {
+          source: 'sandbox',
+          dedupeKey: 'container-action'
+        })
       } else if (result.success) {
         await refreshSandboxStatus()
       }
@@ -109,7 +128,10 @@ export function useContainerActions(
     if (selectedContainer.value) {
       const result = await containerStore.restartContainer(selectedContainer.value.id)
       if (!result.success && result.error) {
-        sandboxStore.notifyDockerError('重启容器失败', result.error)
+        notify.error('重启容器失败', result.error, {
+          source: 'sandbox',
+          dedupeKey: 'container-action'
+        })
       } else if (result.success) {
         await refreshSandboxStatus()
       }
@@ -123,7 +145,10 @@ export function useContainerActions(
     if (selectedContainer.value) {
       const result = await containerStore.removeContainer(selectedContainer.value.id)
       if (!result.success && result.error) {
-        sandboxStore.notifyDockerError('删除容器失败', result.error)
+        notify.error('删除容器失败', result.error, {
+          source: 'sandbox',
+          dedupeKey: 'container-action'
+        })
       }
     }
   }

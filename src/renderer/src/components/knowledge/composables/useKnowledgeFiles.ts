@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import type { ComputedRef } from 'vue'
 import { getFileExtension, isSupportedDocumentExtension } from '@shared/constants/document'
 import { useFileStore, useKnowledgeIndexStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { KnowledgeBase, FileItem } from '@renderer/types'
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -13,6 +14,7 @@ export function useKnowledgeFiles(
 ) {
   const fileStore = useFileStore()
   const indexStore = useKnowledgeIndexStore()
+  const notify = useNotification()
 
   const linkedFiles = ref<FileItem[]>([])
   const loadingFiles = ref(false)
@@ -39,7 +41,13 @@ export function useKnowledgeFiles(
   ): Promise<void> {
     if (!currentKB.value) return
 
-    if (!confirm('确定要从知识库中移除此文档吗？移除后索引将与文档不匹配，需要手动重新索引。')) {
+    const confirmed = await notify.confirm('移除后索引将与文档不匹配，需要手动重新索引。', {
+      title: '移除知识库文档',
+      source: 'knowledge',
+      danger: true
+    })
+
+    if (!confirmed) {
       return
     }
 
@@ -54,12 +62,20 @@ export function useKnowledgeFiles(
       emit('file-unlinked', currentKB.value.id, fileId)
 
       if (linkedFiles.value.length > 0) {
-        if (confirm('文档删除，需要重新索引，不然索引与原文不匹配。\n\n是否立即重新索引？')) {
+        const shouldReindex = await notify.confirm(
+          '文档删除后，索引与原文可能不匹配。是否立即重新索引？',
+          {
+            title: '重新索引知识库',
+            source: 'knowledge'
+          }
+        )
+
+        if (shouldReindex) {
           await handleReindex()
         }
       }
     } else {
-      alert('取消关联失败: ' + (result.error || '未知错误'))
+      notify.error('取消关联失败', result.error || '未知错误', { source: 'knowledge' })
     }
   }
 
@@ -139,7 +155,7 @@ export function useKnowledgeFiles(
     isDragging.value = false
 
     if (!currentKB.value) {
-      alert('请先选择知识库')
+      notify.warning('请先选择知识库', undefined, { source: 'knowledge' })
       return
     }
 
@@ -185,9 +201,17 @@ export function useKnowledgeFiles(
     }
 
     if (errors.length > 0) {
-      alert(`上传完成\n成功: ${uploadedFiles.length} 个\n失败: ${errors.join('\n')}`)
+      notify.warning(
+        '文件上传完成',
+        `成功 ${uploadedFiles.length} 个，失败 ${errors.length} 个\n${errors.join('\n')}`,
+        {
+          source: 'knowledge'
+        }
+      )
     } else if (uploadedFiles.length > 0) {
-      alert(`成功上传 ${uploadedFiles.length} 个文件`)
+      notify.success('文件已添加', `成功上传并索引 ${uploadedFiles.length} 个文件`, {
+        source: 'knowledge'
+      })
     }
   }
 

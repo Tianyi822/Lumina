@@ -11,6 +11,7 @@ import {
   type LLMConfig,
   type PaperReaderConfig
 } from '@shared/types/config'
+import { useNotification } from '@renderer/composables/useNotification'
 import { deepClone } from '@shared/utils'
 
 interface SaveConfigOptions {
@@ -23,8 +24,6 @@ export const useConfigStore = defineStore('config', () => {
   // 加载状态
   const loading = ref(false)
   const saving = ref(false)
-  const errorMessage = ref('')
-  const successMessage = ref('')
 
   // 主题配置
   const themeConfig = ref<ThemeConfig>({
@@ -56,7 +55,6 @@ export const useConfigStore = defineStore('config', () => {
   // 加载配置
   async function loadConfig(): Promise<void> {
     loading.value = true
-    errorMessage.value = ''
     try {
       const config = (await window.api.config.getConfig()) as AppConfig | null
       if (config) {
@@ -79,7 +77,9 @@ export const useConfigStore = defineStore('config', () => {
         }
       }
     } catch (error) {
-      errorMessage.value = `加载配置失败: ${error instanceof Error ? error.message : String(error)}`
+      const msg = `加载配置失败: ${error instanceof Error ? error.message : String(error)}`
+      const notify = useNotification()
+      notify.error('配置加载失败', msg, { source: 'config' })
     } finally {
       loading.value = false
     }
@@ -88,10 +88,6 @@ export const useConfigStore = defineStore('config', () => {
   // 保存配置
   async function saveConfig(options: SaveConfigOptions = {}): Promise<boolean> {
     saving.value = true
-    errorMessage.value = ''
-    if (!options.silent) {
-      successMessage.value = ''
-    }
     try {
       const currentConfig = (await window.api.config.getConfig()) as AppConfig | null
       const plainThemeConfig = deepClone(themeConfig.value)
@@ -125,18 +121,20 @@ export const useConfigStore = defineStore('config', () => {
       const result = await window.api.config.saveConfig(nextConfig)
       if (result.success) {
         if (!options.silent) {
-          successMessage.value = '配置保存成功'
-          setTimeout(() => {
-            successMessage.value = ''
-          }, 2000)
+          const notify = useNotification()
+          notify.success('配置保存成功', '', { source: 'config' })
         }
         return true
       } else {
-        errorMessage.value = result.error || '保存失败'
+        const msg = result.error || '保存失败'
+        const notify = useNotification()
+        notify.error('配置保存失败', msg, { source: 'config' })
         return false
       }
     } catch (error) {
-      errorMessage.value = `保存配置失败: ${error instanceof Error ? error.message : String(error)}`
+      const msg = `保存配置失败: ${error instanceof Error ? error.message : String(error)}`
+      const notify = useNotification()
+      notify.error('配置保存失败', msg, { source: 'config' })
       return false
     } finally {
       saving.value = false
@@ -196,18 +194,10 @@ export const useConfigStore = defineStore('config', () => {
     paperReaderConfig.value = { ...paperReaderConfig.value, ...config }
   }
 
-  // 清除消息
-  function clearMessages(): void {
-    errorMessage.value = ''
-    successMessage.value = ''
-  }
-
   return {
     // State
     loading,
     saving,
-    errorMessage,
-    successMessage,
     themeConfig,
     llmConfigs,
     defaultModel,
@@ -224,7 +214,6 @@ export const useConfigStore = defineStore('config', () => {
     addModelConfig,
     deleteModelConfig,
     updateModelConfigField,
-    updatePaperReaderConfig,
-    clearMessages
+    updatePaperReaderConfig
   }
 })

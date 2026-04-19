@@ -1,7 +1,8 @@
-import { computed, ref } from 'vue'
-import type { ComputedRef, Ref } from 'vue'
+import { ref } from 'vue'
+import type { Ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { usePromptEngineeringStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { PromptConfig } from '@shared/types/config'
 import type {
   EnhancedFewShotExample,
@@ -10,8 +11,6 @@ import type {
   TestPromptPayload
 } from '@shared/types/prompt'
 import type { PromptEngineeringTab } from '@renderer/stores/promptEngineeringStore'
-
-type FeedbackType = 'success' | 'error'
 
 interface PromptManagerTab {
   key: PromptEngineeringTab
@@ -25,11 +24,7 @@ interface PromptManagerResult {
   editingExample: Ref<EnhancedFewShotExample | null>
   selectedIds: Ref<string[]>
   searchQuery: Ref<string>
-  feedbackMessage: Ref<string>
-  feedbackType: Ref<FeedbackType | null>
-  hasFeedback: ComputedRef<boolean>
   changeTab: (tab: PromptEngineeringTab) => void
-  dismissFeedback: () => void
   setSelectedIds: (ids: string[]) => void
   updateExampleFilter: (filter: Partial<ExampleFilter>) => void
   updateSearchQuery: (value: string) => void
@@ -66,22 +61,12 @@ const tabs: PromptManagerTab[] = [
   { key: 'sandbox', label: '测试沙盘' }
 ]
 
-const feedbackMessage = ref('')
-const feedbackType = ref<FeedbackType | null>(null)
 const showEditDialog = ref(false)
 const editingExample = ref<EnhancedFewShotExample | null>(null)
 const selectedIds = ref<string[]>([])
 const searchQuery = ref('')
 
-let feedbackTimer: number | null = null
 let searchTimer: number | null = null
-
-function clearFeedbackTimer(): void {
-  if (feedbackTimer !== null) {
-    window.clearTimeout(feedbackTimer)
-    feedbackTimer = null
-  }
-}
 
 function clearSearchTimer(): void {
   if (searchTimer !== null) {
@@ -99,38 +84,16 @@ export function usePromptManager(): PromptManagerResult {
   const store = usePromptEngineeringStore()
   const { activeTab, error, examples, exampleFilter, examplesStats } = storeToRefs(store)
 
-  const hasFeedback = computed(() => feedbackMessage.value.trim().length > 0)
-
-  function dismissFeedback(): void {
-    clearFeedbackTimer()
-    feedbackMessage.value = ''
-    feedbackType.value = null
-    store.clearError()
-  }
-
-  function showFeedback(message: string, type: FeedbackType, duration = 2600): void {
-    clearFeedbackTimer()
-    feedbackMessage.value = message
-    feedbackType.value = type
-
-    feedbackTimer = window.setTimeout(() => {
-      feedbackMessage.value = ''
-      feedbackType.value = null
-      feedbackTimer = null
-      if (type === 'error') {
-        store.clearError()
-      }
-    }, duration)
-  }
+  const notify = useNotification()
 
   function showSuccess(message: string): void {
     store.clearError()
-    showFeedback(message, 'success')
+    notify.success('提示词工程', message, { source: 'prompt' })
   }
 
   function showError(message: string): void {
     store.setError(message)
-    showFeedback(message, 'error', 4200)
+    notify.error('提示词工程', message, { source: 'prompt' })
   }
 
   function resolveActionError(fallbackMessage: string): string {
@@ -139,7 +102,6 @@ export function usePromptManager(): PromptManagerResult {
 
   function changeTab(tab: PromptEngineeringTab): void {
     store.setActiveTab(tab)
-    dismissFeedback()
   }
 
   function setSelectedIds(ids: string[]): void {
@@ -168,7 +130,6 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   function openEditExampleDialog(example: EnhancedFewShotExample): void {
-    dismissFeedback()
     editingExample.value = { ...example }
     showEditDialog.value = true
   }
@@ -181,8 +142,6 @@ export function usePromptManager(): PromptManagerResult {
   async function saveExample(
     example: Omit<EnhancedFewShotExample, 'id' | 'createdAt' | 'usageCount'>
   ): Promise<boolean> {
-    dismissFeedback()
-
     if (!editingExample.value) {
       showError('当前仅支持编辑已有示例')
       return false
@@ -210,17 +169,16 @@ export function usePromptManager(): PromptManagerResult {
       return false
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await notify.confirm(
       ids.length > 1
         ? `确定要删除选中的 ${ids.length} 个示例吗？\n\n删除后将无法恢复。`
-        : '确定要删除这个示例吗？\n\n删除后将无法恢复。'
+        : '确定要删除这个示例吗？\n\n删除后将无法恢复。',
+      { title: '删除确认', danger: true }
     )
 
     if (!confirmed) {
       return false
     }
-
-    dismissFeedback()
 
     const deleted = await store.deleteExamples(ids)
     if (!deleted) {
@@ -241,15 +199,14 @@ export function usePromptManager(): PromptManagerResult {
       return false
     }
 
-    const confirmed = window.confirm(
-      `确定要清空全部 ${exampleCount} 个示例吗？\n\n清空后将无法恢复。`
+    const confirmed = await notify.confirm(
+      `确定要清空全部 ${exampleCount} 个示例吗？\n\n清空后将无法恢复。`,
+      { title: '清空确认', danger: true }
     )
 
     if (!confirmed) {
       return false
     }
-
-    dismissFeedback()
 
     const result = await store.clearDynamicExamples()
     if (!result.success) {
@@ -264,8 +221,6 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   async function importExamplesFromFile(): Promise<void> {
-    dismissFeedback()
-
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = '.json'
@@ -305,8 +260,6 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   async function exportExamplesToFile(): Promise<boolean> {
-    dismissFeedback()
-
     const result = await store.exportExamples()
     if (!result.success || !result.json) {
       showError(result.error || resolveActionError('导出示例失败'))
@@ -327,8 +280,6 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   async function extractExamplesFromSessions(): Promise<boolean> {
-    dismissFeedback()
-
     const result = await store.extractFromSessions()
     if (!result.success) {
       showError(resolveActionError('从会话提取示例失败'))
@@ -341,7 +292,6 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   async function savePromptConfig(config: PromptConfig): Promise<boolean> {
-    dismissFeedback()
     store.updatePromptConfig(config)
 
     const saved = await store.saveConfig()
@@ -356,8 +306,6 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   async function resetPromptConfig(): Promise<boolean> {
-    dismissFeedback()
-
     const result = await store.resetPromptConfig()
     if (!result.success) {
       showError(result.error || resolveActionError('重置提示词配置失败'))
@@ -373,8 +321,6 @@ export function usePromptManager(): PromptManagerResult {
     variable: Pick<PromptVariable, 'name' | 'description' | 'defaultValue'>,
     originalName?: string
   ): Promise<{ success: boolean; error?: string }> {
-    dismissFeedback()
-
     const result = await store.saveCustomVariable(variable, originalName)
     if (!result.success) {
       showError(result.error || resolveActionError('保存变量失败'))
@@ -387,8 +333,6 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   async function deleteCustomVariable(name: string): Promise<boolean> {
-    dismissFeedback()
-
     const deleted = await store.deleteCustomVariable(name)
     if (!deleted) {
       showError(resolveActionError('删除变量失败'))
@@ -401,8 +345,6 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   async function previewSandbox(payload: TestPromptPayload): Promise<boolean> {
-    dismissFeedback()
-
     if (!payload.userQuery.trim()) {
       showError('请先输入要测试的问题')
       return false
@@ -417,8 +359,6 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   async function runSandboxTest(payload: TestPromptPayload): Promise<boolean> {
-    dismissFeedback()
-
     if (!payload.userQuery.trim()) {
       showError('请先输入要测试的问题')
       return false
@@ -433,7 +373,6 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   function clearSandboxResult(): void {
-    dismissFeedback()
     store.clearSandboxResult()
   }
 
@@ -446,10 +385,7 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   async function initialize(): Promise<void> {
-    clearFeedbackTimer()
     clearSearchTimer()
-    feedbackMessage.value = ''
-    feedbackType.value = null
     selectedIds.value = []
     closeEditDialog()
 
@@ -463,7 +399,6 @@ export function usePromptManager(): PromptManagerResult {
   }
 
   function cleanup(): void {
-    clearFeedbackTimer()
     clearSearchTimer()
   }
 
@@ -474,11 +409,7 @@ export function usePromptManager(): PromptManagerResult {
     editingExample,
     selectedIds,
     searchQuery,
-    feedbackMessage,
-    feedbackType,
-    hasFeedback,
     changeTab,
-    dismissFeedback,
     setSelectedIds,
     updateExampleFilter,
     updateSearchQuery,

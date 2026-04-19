@@ -174,7 +174,8 @@ class EmbeddingRateLimiter {
   private planBatch(
     tokenEstimates: number[],
     startIndex: number,
-    tokenBudget: number
+    tokenBudget: number,
+    maxBatchSize = 10
   ): { batchSize: number; totalTokens: number } {
     let batchSize = 0
     let totalTokens = 0
@@ -188,7 +189,7 @@ class EmbeddingRateLimiter {
       totalTokens += textTokens
       batchSize++
 
-      if (totalTokens >= tokenBudget) {
+      if (batchSize >= maxBatchSize || totalTokens >= tokenBudget) {
         break
       }
     }

@@ -8,10 +8,10 @@ import type {
   LogOptions
 } from '@shared/types/sandbox'
 import type { ContainerInfo, ContainerDetails, ContainerStats } from '@shared/types/sandbox'
-import { useSandboxOperationStore } from './sandboxOperationStore'
+import { useNotification } from '@renderer/composables/useNotification'
 
 export const useContainerStore = defineStore('container', () => {
-  const operationStore = useSandboxOperationStore()
+  const notify = useNotification()
   let latestStatsRequestId = 0
 
   // ==================== State ====================
@@ -92,7 +92,10 @@ export const useContainerStore = defineStore('container', () => {
 
       if (!result.success) {
         containers.value = []
-        operationStore.notifyDockerError('加载容器列表失败', result.error || '未知错误')
+        notify.error('加载容器列表失败', result.error || '未知错误', {
+          source: 'sandbox',
+          dedupeKey: 'container-error'
+        })
         return
       }
 
@@ -109,7 +112,10 @@ export const useContainerStore = defineStore('container', () => {
         name: error instanceof Error ? error.name : undefined
       })
       containers.value = []
-      operationStore.notifyDockerError('加载容器列表失败', errorMessage)
+      notify.error('加载容器列表失败', errorMessage, {
+        source: 'sandbox',
+        dedupeKey: 'container-error'
+      })
     } finally {
       isLoading.value = false
     }
@@ -130,7 +136,10 @@ export const useContainerStore = defineStore('container', () => {
       if (!result.success) {
         selectedContainer.value = null
         if (!options?.silent) {
-          operationStore.notifyDockerError('加载容器详情失败', result.error || '未知错误')
+          notify.error('加载容器详情失败', result.error || '未知错误', {
+            source: 'sandbox',
+            dedupeKey: 'container-error'
+          })
         }
         return
       }
@@ -152,7 +161,10 @@ export const useContainerStore = defineStore('container', () => {
       }
       selectedContainer.value = null
       if (!options?.silent) {
-        operationStore.notifyDockerError('加载容器详情失败', errorMessage)
+        notify.error('加载容器详情失败', errorMessage, {
+          source: 'sandbox',
+          dedupeKey: 'container-error'
+        })
       }
     }
   }
@@ -172,7 +184,10 @@ export const useContainerStore = defineStore('container', () => {
       if (!result.success) {
         containerStats.value = null
         if (!options?.silent) {
-          operationStore.notifyDockerError('加载容器统计失败', result.error || '未知错误')
+          notify.error('加载容器统计失败', result.error || '未知错误', {
+            source: 'sandbox',
+            dedupeKey: 'container-error'
+          })
         }
         return false
       }
@@ -191,7 +206,10 @@ export const useContainerStore = defineStore('container', () => {
       })
       containerStats.value = null
       if (!options?.silent) {
-        operationStore.notifyDockerError('加载容器统计失败', errorMessage)
+        notify.error('加载容器统计失败', errorMessage, {
+          source: 'sandbox',
+          dedupeKey: 'container-error'
+        })
       }
       return false
     }
@@ -457,7 +475,10 @@ export const useContainerStore = defineStore('container', () => {
 
       if (!result.success || !result.result) {
         const errorMessage = result.error || '命令执行失败'
-        operationStore.notifyDockerError('执行命令失败', errorMessage)
+        notify.error('执行命令失败', errorMessage, {
+          source: 'sandbox',
+          dedupeKey: 'container-error'
+        })
         terminalLogs.value.push({
           timestamp: new Date().toISOString(),
           type: 'error',
@@ -558,7 +579,10 @@ export const useContainerStore = defineStore('container', () => {
     try {
       const result = await window.api.sandbox.getContainerLogs(containerId, options)
       if (!result.success) {
-        operationStore.notifyDockerError('加载容器日志失败', result.error || '未知错误')
+        notify.error('加载容器日志失败', result.error || '未知错误', {
+          source: 'sandbox',
+          dedupeKey: 'container-error'
+        })
         return ''
       }
 
@@ -568,10 +592,10 @@ export const useContainerStore = defineStore('container', () => {
         error: error instanceof Error ? error.message : String(error),
         containerId
       })
-      operationStore.notifyDockerError(
-        '加载容器日志失败',
-        error instanceof Error ? error.message : String(error)
-      )
+      notify.error('加载容器日志失败', error instanceof Error ? error.message : String(error), {
+        source: 'sandbox',
+        dedupeKey: 'container-error'
+      })
       return ''
     }
   }

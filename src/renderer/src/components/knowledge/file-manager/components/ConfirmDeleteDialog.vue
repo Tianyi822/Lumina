@@ -12,8 +12,6 @@ defineProps<{
   file: FileItem | null
   /** 是否正在删除 */
   isDeleting?: boolean
-  /** 错误信息 */
-  error?: string
 }>()
 
 const emit = defineEmits<{
@@ -38,7 +36,6 @@ const emit = defineEmits<{
           >" 正在被 <strong>{{ file.usedByKBIds.length }}</strong> 个知识库使用。
         </p>
         <p>删除此文件将从所有关联的知识库中移除。此操作不可撤销。</p>
-        <p v-if="error" class="sm-notice sm-notice--error error-message">{{ error }}</p>
       </div>
       <div class="confirm-dialog-actions">
         <button class="sm-button sm-button--secondary" @click="emit('cancel')">取消</button>

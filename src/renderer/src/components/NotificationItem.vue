@@ -1,21 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
+import type { Notification } from '@renderer/types/notification'
 
-interface Props {
-  type: 'error' | 'warning' | 'success' | 'info'
-  title: string
-  message: string
-  visible: boolean
-}
+const props = defineProps<{
+  notification: Notification
+}>()
 
-const props = defineProps<Props>()
 const emit = defineEmits<{
-  (e: 'close'): void
+  (e: 'dismiss', id: string): void
 }>()
 
 const icon = computed(() => {
-  switch (props.type) {
+  switch (props.notification.type) {
     case 'error':
       return 'close'
     case 'warning':
@@ -29,42 +26,46 @@ const icon = computed(() => {
   }
 })
 
-const typeClass = computed(() => `message-${props.type}`)
-const liveRole = computed(() => (props.type === 'error' ? 'alert' : 'status'))
-const liveMode = computed(() => (props.type === 'error' ? 'assertive' : 'polite'))
+const typeClass = computed(() => `message-${props.notification.type}`)
+const liveRole = computed(() => (props.notification.type === 'error' ? 'alert' : 'status'))
+const liveMode = computed(() => (props.notification.type === 'error' ? 'assertive' : 'polite'))
+
+function handleClose(): void {
+  emit('dismiss', props.notification.id)
+}
 </script>
 
 <template>
-  <Transition name="message">
-    <div
-      v-if="visible"
-      class="operation-message"
-      :class="typeClass"
-      :role="liveRole"
-      :aria-live="liveMode"
-      aria-atomic="true"
-    >
-      <div class="message-icon">
-        <SvgIcon :name="icon" :size="14" />
-      </div>
-      <div class="message-content">
-        <div class="message-title">{{ title }}</div>
-        <div class="message-text">{{ message }}</div>
-      </div>
-      <button type="button" class="message-close" aria-label="关闭操作提示" @click="emit('close')">
-        <SvgIcon name="close" :size="14" />
-      </button>
+  <div
+    class="sm-notification-item"
+    :class="typeClass"
+    :role="liveRole"
+    :aria-live="liveMode"
+    aria-atomic="true"
+  >
+    <div class="message-icon">
+      <SvgIcon :name="icon" :size="14" />
     </div>
-  </Transition>
+    <div class="message-content">
+      <div class="message-title">{{ notification.title }}</div>
+      <div v-if="notification.message" class="message-text">{{ notification.message }}</div>
+    </div>
+    <button
+      v-if="notification.dismissible"
+      type="button"
+      class="message-close"
+      aria-label="关闭通知"
+      @click="handleClose"
+    >
+      <SvgIcon name="close" :size="14" />
+    </button>
+  </div>
 </template>
 
 <style scoped>
-@import '@renderer/styles/operation-message-colors.css';
+@import '@renderer/styles/notification-center.css';
 
-.operation-message {
-  position: fixed;
-  top: 20px;
-  right: 20px;
+.sm-notification-item {
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -74,7 +75,6 @@ const liveMode = computed(() => (props.type === 'error' ? 'assertive' : 'polite'
   background-color: var(--sm-color-surface-3);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-md);
-  z-index: 9999;
 }
 
 .message-icon {
@@ -102,6 +102,7 @@ const liveMode = computed(() => (props.type === 'error' ? 'assertive' : 'polite'
   font-size: 13px;
   color: var(--sm-color-text-secondary);
   line-height: 1.5;
+  white-space: pre-line;
   word-break: break-word;
 }
 
@@ -128,23 +129,5 @@ const liveMode = computed(() => (props.type === 'error' ? 'assertive' : 'polite'
   background-color: var(--sm-color-surface-hover);
   border-color: var(--sm-color-border-default);
   color: var(--sm-color-text-primary);
-}
-
-/* 过渡动画 */
-.message-enter-active,
-.message-leave-active {
-  transition:
-    opacity var(--sm-transition-medium),
-    transform var(--sm-transition-medium);
-}
-
-.message-enter-from {
-  opacity: 0;
-  transform: translateX(var(--sm-motion-distance-md));
-}
-
-.message-leave-to {
-  opacity: 0;
-  transform: translateX(var(--sm-motion-distance-md));
 }
 </style>

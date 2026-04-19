@@ -13,6 +13,7 @@ import { useSandboxStore } from './sandboxStore'
 import { usePortMappingStore } from './portMappingStore'
 import { useComposeConfigStore } from './composeConfigStore'
 import { useDockerfileConfigStore } from './dockerfileConfigStore'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { SandboxCreateType, CreatePhase, ComposeTemplateType } from './types'
 
 export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
@@ -23,6 +24,7 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
   const portMappingStore = usePortMappingStore()
   const composeConfigStore = useComposeConfigStore()
   const dockerfileConfigStore = useDockerfileConfigStore()
+  const notify = useNotification()
 
   const { containers } = storeToRefs(containerStore)
   const { loadDockerfileConfig, loadComposeConfig, saveDockerfileConfig, saveComposeConfig } =
@@ -53,13 +55,6 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
   const saveDialogType = ref<'dockerfile' | 'compose'>('compose')
   /** 保存配置名称 */
   const saveConfigName = ref('')
-
-  // ==================== State: 成功提示 ====================
-
-  /** 成功提示显示状态 */
-  const showSuccessToast = ref(false)
-  /** 成功提示消息 */
-  const successMessage = ref('')
 
   // ==================== State: 创建状态跟踪 ====================
 
@@ -209,15 +204,10 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     }
 
     showSaveDialog.value = false
-    showSuccessToast.value = true
-    successMessage.value = `配置「${saveConfigName.value.trim()}」保存成功`
-    setTimeout(() => {
-      showSuccessToast.value = false
-    }, 3000)
-  }
-
-  function closeSuccessToast(): void {
-    showSuccessToast.value = false
+    const notify = useNotification()
+    notify.success('保存成功', `配置「${saveConfigName.value.trim()}」保存成功`, {
+      source: 'creator'
+    })
   }
 
   // ==================== Actions: 加载已保存配置 ====================
@@ -274,7 +264,7 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
         createError.value = errorMsg
         createPhase.value = 'idle'
         isCreating.value = false
-        sandboxStore.notifyDockerError('创建沙箱失败', errorMsg)
+        notify.error('创建沙箱失败', errorMsg, { source: 'sandbox', dedupeKey: 'sandbox:creator' })
         window.api.logger.error('[SandboxCreatorStore] 创建沙箱元数据失败', {
           error: errorMsg
         })
@@ -314,7 +304,10 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
           createError.value = composeResult.error || 'Docker Compose 创建失败'
           createPhase.value = 'idle'
           isCreating.value = false
-          sandboxStore.notifyDockerError('Compose 创建失败', createError.value)
+          notify.error('Compose 创建失败', createError.value, {
+            source: 'sandbox',
+            dedupeKey: 'sandbox:creator'
+          })
           window.api.logger.error('[SandboxCreatorStore] Docker Compose 创建失败', {
             error: createError.value
           })
@@ -347,7 +340,10 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
         createError.value = dockerError instanceof Error ? dockerError.message : String(dockerError)
         createPhase.value = 'idle'
         isCreating.value = false
-        sandboxStore.notifyDockerError('Compose 创建失败', createError.value)
+        notify.error('Compose 创建失败', createError.value, {
+          source: 'sandbox',
+          dedupeKey: 'sandbox:creator'
+        })
         window.api.logger.error('[SandboxCreatorStore] Docker Compose API 调用失败', {
           error: createError.value
         })
@@ -362,7 +358,10 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
       createError.value = error instanceof Error ? error.message : String(error)
       createPhase.value = 'idle'
       isCreating.value = false
-      sandboxStore.notifyDockerError('Compose 创建失败', createError.value)
+      notify.error('Compose 创建失败', createError.value, {
+        source: 'sandbox',
+        dedupeKey: 'sandbox:creator'
+      })
       window.api.logger.error('[SandboxCreatorStore] 从 Compose 创建沙箱失败', {
         error: createError.value
       })
@@ -415,7 +414,7 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
         createError.value = errorMsg
         createPhase.value = 'idle'
         isCreating.value = false
-        sandboxStore.notifyDockerError('创建沙箱失败', errorMsg)
+        notify.error('创建沙箱失败', errorMsg, { source: 'sandbox', dedupeKey: 'sandbox:creator' })
         window.api.logger.error('[SandboxCreatorStore] 创建沙箱元数据失败', {
           error: errorMsg
         })
@@ -451,7 +450,10 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
           createError.value = dockerResult.error || 'Docker 构建失败'
           createPhase.value = 'idle'
           isCreating.value = false
-          sandboxStore.notifyDockerError('Dockerfile 创建失败', createError.value)
+          notify.error('Dockerfile 创建失败', createError.value, {
+            source: 'sandbox',
+            dedupeKey: 'sandbox:creator'
+          })
           window.api.logger.error('[SandboxCreatorStore] Dockerfile 创建失败', {
             error: createError.value
           })
@@ -484,7 +486,10 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
         createError.value = dockerError instanceof Error ? dockerError.message : String(dockerError)
         createPhase.value = 'idle'
         isCreating.value = false
-        sandboxStore.notifyDockerError('Dockerfile 创建失败', createError.value)
+        notify.error('Dockerfile 创建失败', createError.value, {
+          source: 'sandbox',
+          dedupeKey: 'sandbox:creator'
+        })
         window.api.logger.error('[SandboxCreatorStore] Dockerfile API 调用失败', {
           error: createError.value
         })
@@ -499,7 +504,10 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
       createError.value = error instanceof Error ? error.message : String(error)
       createPhase.value = 'idle'
       isCreating.value = false
-      sandboxStore.notifyDockerError('Dockerfile 创建失败', createError.value)
+      notify.error('Dockerfile 创建失败', createError.value, {
+        source: 'sandbox',
+        dedupeKey: 'sandbox:creator'
+      })
       window.api.logger.error('[SandboxCreatorStore] 从 Dockerfile 创建沙箱失败', {
         error: createError.value
       })
@@ -542,12 +550,14 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
           containerId: containerId.substring(0, 12)
         })
       } else if (result?.error) {
-        sandboxStore.showError('创建沙箱失败', result.error)
+        notify.error('创建沙箱失败', result.error, { source: 'sandbox' })
       }
 
       return result
     } catch (error) {
-      sandboxStore.showError('创建沙箱失败', error instanceof Error ? error.message : String(error))
+      notify.error('创建沙箱失败', error instanceof Error ? error.message : String(error), {
+        source: 'sandbox'
+      })
       window.api.logger.error('[SandboxCreatorStore] 从已有容器创建沙箱失败', {
         error: error instanceof Error ? error.message : String(error)
       })
@@ -612,10 +622,6 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     saveDialogType,
     saveConfigName,
 
-    // State: 成功提示
-    showSuccessToast,
-    successMessage,
-
     // State: 创建状态跟踪
     isCreating,
     createError,
@@ -656,7 +662,6 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     openSaveDialog,
     closeSaveDialog,
     handleSaveConfig,
-    closeSuccessToast,
 
     // Actions: 加载已保存配置
     loadSelectedDockerfile,
