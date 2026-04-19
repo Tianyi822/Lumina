@@ -10,6 +10,7 @@ import {
   isSupportedDocumentExtension
 } from '@shared/constants/document'
 import { useFileStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
 
 /** 支持的文件类型 */
@@ -54,6 +55,7 @@ export function useFileUpload(options?: UploadOptions): {
   SUPPORTED_TYPES: string[]
 } {
   const fileStore = useFileStore()
+  const notify = useNotification()
 
   /** 是否正在拖拽 */
   const isDragging = ref(false)
@@ -142,14 +144,16 @@ export function useFileUpload(options?: UploadOptions): {
 
     if (validFiles.length === 0) {
       if (validationErrors.length > 0) {
-        alert(`文件验证失败：\n${validationErrors.join('\n')}`)
+        notify.error('文件验证失败', validationErrors.join('\n'), { source: 'file' })
       }
       return { uploaded: [], duplicates: [], errors: validationErrors }
     }
 
     // 如果有无效文件，提示用户
     if (validationErrors.length > 0 && validFiles.length < fileList.length) {
-      alert(`部分文件格式不支持。仅支持 ${SUPPORTED_DOCUMENT_LABEL} 文件。`)
+      notify.warning('部分文件已跳过', `仅支持 ${SUPPORTED_DOCUMENT_LABEL} 文件。`, {
+        source: 'file'
+      })
     }
 
     isUploading.value = true

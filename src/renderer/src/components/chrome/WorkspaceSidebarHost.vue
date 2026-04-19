@@ -13,11 +13,13 @@ import {
   useSandboxStore,
   useUIStateStore
 } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 
 const uiStateStore = useUIStateStore()
 const knowledgeStore = useKnowledgeStore()
 const sandboxStore = useSandboxStore()
 const paperReaderStore = usePaperReaderStore()
+const notify = useNotification()
 
 const { currentView, isCurrentSidebarCollapsed } = storeToRefs(uiStateStore)
 const { knowledgeBases, activeKbId } = storeToRefs(knowledgeStore)
@@ -95,13 +97,19 @@ function handleManageKnowledgeFiles(): void {
 }
 
 async function handleDeleteKnowledgeBase(kbId: string): Promise<void> {
-  if (!confirm('确定要删除这个知识库吗？此操作不可撤销。')) {
+  const confirmed = await notify.confirm('此操作不可撤销。', {
+    title: '删除知识库',
+    source: 'knowledge',
+    danger: true
+  })
+
+  if (!confirmed) {
     return
   }
 
   const success = await knowledgeStore.deleteKnowledgeBase(kbId)
   if (!success) {
-    alert(`删除知识库失败: ${knowledgeStore.error || '未知错误'}`)
+    notify.error('删除知识库失败', knowledgeStore.error || '未知错误', { source: 'knowledge' })
   }
 }
 
@@ -159,18 +167,27 @@ async function handleUploadPdf(): Promise<void> {
   await paperReaderStore.uploadAndRenderPdf()
 }
 
-function handleDeletePaper(paperId: string): void {
-  if (!confirm('确定要删除这篇论文吗？此操作不可撤销。')) {
+async function handleDeletePaper(paperId: string): Promise<void> {
+  const confirmed = await notify.confirm('此操作不可撤销。', {
+    title: '删除论文',
+    source: 'paper',
+    danger: true
+  })
+
+  if (!confirmed) {
     return
   }
 
-  void paperReaderStore.deletePaper(paperId)
+  const success = await paperReaderStore.deletePaper(paperId)
+  if (!success) {
+    notify.error('删除论文失败', '请稍后重试或查看日志获取更多信息。', { source: 'paper' })
+  }
 }
 
 async function handleRetryPaper(paperId: string): Promise<void> {
   const result = await paperReaderStore.retryPaper(paperId)
   if (!result.success) {
-    alert(`重试失败：${result.error || '未知错误'}`)
+    notify.error('重试失败', result.error || '未知错误', { source: 'paper' })
   }
 }
 
@@ -196,14 +213,20 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
     confirmLines.push('删除译文后，这些译文标注也会一起删除。')
     confirmLines.push('确定继续删除译文吗？')
 
-    if (!confirm(confirmLines.join('\n'))) {
+    const confirmed = await notify.confirm(confirmLines.join('\n'), {
+      title: '删除译文',
+      source: 'paper',
+      danger: true
+    })
+
+    if (!confirmed) {
       return
     }
   }
 
   const result = await paperReaderStore.deleteTranslation(paperId)
   if (!result.success) {
-    alert(`删除翻译失败：${result.error || '未知错误'}`)
+    notify.error('删除译文失败', result.error || '未知错误', { source: 'paper' })
   }
 }
 </script>

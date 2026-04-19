@@ -6,6 +6,7 @@
 import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useFileStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
 import { FileUploadZone } from './shared/components'
 import type { UploadResult } from './shared/composables/useFileUpload'
@@ -28,14 +29,13 @@ const fileStore = useFileStore()
 const { filteredFiles } = storeToRefs(fileStore)
 const { loadFiles } = fileStore
 
-const feedback = ref<{ type: 'info' | 'error'; message: string } | null>(null)
+const notify = useNotification()
 
 // 删除逻辑
 const {
   deletingFileId,
   showConfirmDialog,
   fileToDelete,
-  deleteError,
   handleDeleteClick,
   performDelete,
   cancelDelete
@@ -51,20 +51,13 @@ function handleUploadComplete(result: UploadResult): void {
   }
 
   if (result.errors.length > 0) {
-    feedback.value = {
-      type: 'error',
-      message: `部分文件上传失败：${result.errors.join('；')}`
-    }
+    notify.error('文件上传', `部分文件上传失败：${result.errors.join('；')}`, { source: 'file' })
     return
   }
 
-  feedback.value =
-    messages.length > 0
-      ? {
-          type: 'info',
-          message: messages.join(' ')
-        }
-      : null
+  if (messages.length > 0) {
+    notify.info('文件上传', messages.join(' '), { source: 'file' })
+  }
 }
 
 // 文件预览
@@ -94,14 +87,6 @@ onMounted(async () => {
     <div class="sm-modal__surface file-manager-container">
       <FileManagerHeader @close="emit('close')" />
 
-      <div
-        v-if="feedback"
-        class="sm-notice file-manager-feedback"
-        :class="feedback.type === 'error' ? 'sm-notice--error' : 'sm-notice--info'"
-      >
-        {{ feedback.message }}
-      </div>
-
       <FileManagerToolbar />
 
       <div class="drop-zone-wrapper">
@@ -124,7 +109,6 @@ onMounted(async () => {
       :show="showConfirmDialog"
       :file="fileToDelete"
       :is-deleting="!!deletingFileId"
-      :error="deleteError"
       @confirm="performDelete"
       @cancel="cancelDelete"
     />

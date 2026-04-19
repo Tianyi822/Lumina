@@ -5,6 +5,7 @@
 
 import { ref, type Ref } from 'vue'
 import { useFileStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
 
 /**
@@ -14,12 +15,12 @@ export function useFileDelete(): {
   deletingFileId: Ref<string | null>
   showConfirmDialog: Ref<boolean>
   fileToDelete: Ref<FileItem | null>
-  deleteError: Ref<string>
   handleDeleteClick: (file: FileItem) => Promise<void>
   performDelete: (forceDelete?: boolean) => Promise<boolean>
   cancelDelete: () => void
 } {
   const fileStore = useFileStore()
+  const notify = useNotification()
 
   /** 正在删除的文件 ID */
   const deletingFileId = ref<string | null>(null)
@@ -30,16 +31,12 @@ export function useFileDelete(): {
   /** 待删除的文件 */
   const fileToDelete = ref<FileItem | null>(null)
 
-  /** 删除错误信息 */
-  const deleteError = ref('')
-
   /**
    * 处理删除点击
    * @param file 要删除的文件
    */
   async function handleDeleteClick(file: FileItem): Promise<void> {
     fileToDelete.value = file
-    deleteError.value = ''
 
     if (file.usedByKBIds.length > 0) {
       // 如果文件被使用，显示确认对话框
@@ -66,7 +63,7 @@ export function useFileDelete(): {
       fileToDelete.value = null
       return true
     } else {
-      deleteError.value = result.error || '删除失败'
+      notify.error('文件删除', result.error || '删除失败', { source: 'file' })
       return false
     }
   }
@@ -77,14 +74,12 @@ export function useFileDelete(): {
   function cancelDelete(): void {
     showConfirmDialog.value = false
     fileToDelete.value = null
-    deleteError.value = ''
   }
 
   return {
     deletingFileId,
     showConfirmDialog,
     fileToDelete,
-    deleteError,
     handleDeleteClick,
     performDelete,
     cancelDelete
