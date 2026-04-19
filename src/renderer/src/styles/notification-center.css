@@ -74,6 +74,7 @@
   font-size: 14px;
   color: var(--sm-color-text-secondary);
   line-height: 1.5;
+  white-space: pre-line;
   margin-bottom: 20px;
 }
 

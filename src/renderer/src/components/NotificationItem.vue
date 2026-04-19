@@ -102,6 +102,7 @@ function handleClose(): void {
   font-size: 13px;
   color: var(--sm-color-text-secondary);
   line-height: 1.5;
+  white-space: pre-line;
   word-break: break-word;
 }
 
