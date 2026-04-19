@@ -3,6 +3,7 @@
 
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { ThemeConfig, ThemeMode } from '@shared/types/config'
 import {
   DEFAULT_THEME_ID,
@@ -331,6 +332,8 @@ export const useUIStateStore = defineStore(
     function showConfigErrorMessage(message: string): void {
       configError.value = message
       showConfigError.value = true
+      const notify = useNotification()
+      notify.error('配置错误', message, { source: 'config', sticky: true })
       window.api.logger?.warn('[UIStateStore] 显示配置错误', { message })
     }
 

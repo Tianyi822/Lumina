@@ -11,6 +11,7 @@ import {
   type LLMConfig,
   type PaperReaderConfig
 } from '@shared/types/config'
+import { useNotification } from '@renderer/composables/useNotification'
 import { deepClone } from '@shared/utils'
 
 interface SaveConfigOptions {
@@ -79,7 +80,10 @@ export const useConfigStore = defineStore('config', () => {
         }
       }
     } catch (error) {
-      errorMessage.value = `加载配置失败: ${error instanceof Error ? error.message : String(error)}`
+      const msg = `加载配置失败: ${error instanceof Error ? error.message : String(error)}`
+      errorMessage.value = msg
+      const notify = useNotification()
+      notify.error('配置加载失败', msg, { source: 'config' })
     } finally {
       loading.value = false
     }
@@ -126,17 +130,25 @@ export const useConfigStore = defineStore('config', () => {
       if (result.success) {
         if (!options.silent) {
           successMessage.value = '配置保存成功'
+          const notify = useNotification()
+          notify.success('配置保存成功', '', { source: 'config' })
           setTimeout(() => {
             successMessage.value = ''
           }, 2000)
         }
         return true
       } else {
-        errorMessage.value = result.error || '保存失败'
+        const msg = result.error || '保存失败'
+        errorMessage.value = msg
+        const notify = useNotification()
+        notify.error('配置保存失败', msg, { source: 'config' })
         return false
       }
     } catch (error) {
-      errorMessage.value = `保存配置失败: ${error instanceof Error ? error.message : String(error)}`
+      const msg = `保存配置失败: ${error instanceof Error ? error.message : String(error)}`
+      errorMessage.value = msg
+      const notify = useNotification()
+      notify.error('配置保存失败', msg, { source: 'config' })
       return false
     } finally {
       saving.value = false
