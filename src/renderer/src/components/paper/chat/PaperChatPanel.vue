@@ -5,6 +5,7 @@ import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import PaperChatMessageList from './PaperChatMessageList.vue'
 import { usePaperChatSession } from './usePaperChatSession'
 import { usePaperChatStream } from './usePaperChatStream'
+import { useNotification } from '@renderer/composables/useNotification'
 import { parseMessageOptions, type MessageOptionContext } from '@renderer/utils/optionParser'
 import type {
   AttachedDocument,
@@ -26,6 +27,7 @@ const emit = defineEmits<{
 
 const paperRef = computed(() => props.paper)
 const dismissedQuickReplyIds = ref<Set<string>>(new Set())
+const notify = useNotification()
 
 const {
   session,
@@ -38,7 +40,6 @@ const {
   enableSandboxTools,
   loading,
   contextLoading,
-  error,
   ensurePaperContextLoaded,
   loadSessionWithContext,
   saveCurrentSession,
@@ -62,7 +63,7 @@ const { isSending, sendMessage, stopRequest } = usePaperChatStream({
   ensurePaperContextLoaded,
   saveCurrentSession,
   setError: (message) => {
-    error.value = message
+    notify.error('论文对话', message, { source: 'chat' })
   }
 })
 
@@ -151,11 +152,14 @@ async function handleSend(
 
 async function handleClearContext(): Promise<void> {
   if (isSending.value) {
-    error.value = '正在回复中，停止后再清空上下文'
+    notify.warning('论文对话', '正在回复中，停止后再清空上下文', { source: 'chat' })
     return
   }
 
-  const confirmed = window.confirm('清空当前论文聊天上下文？聊天记录和隐藏全文上下文都会被清空。')
+  const confirmed = await notify.confirm('聊天记录和隐藏全文上下文都会被清空。', {
+    title: '清空当前论文聊天上下文？',
+    danger: true
+  })
   if (!confirmed) {
     return
   }
@@ -168,10 +172,6 @@ async function handleClearContext(): Promise<void> {
 
 function handleQuickReplySelected(messageId: string): void {
   dismissedQuickReplyIds.value = new Set(dismissedQuickReplyIds.value).add(messageId)
-}
-
-function dismissError(): void {
-  error.value = ''
 }
 </script>
 
@@ -205,11 +205,6 @@ function dismissError(): void {
         </button>
       </div>
     </header>
-
-    <div v-if="error" class="paper-chat-panel__error">
-      <span>{{ error }}</span>
-      <button type="button" @click="dismissError">关闭</button>
-    </div>
 
     <div v-if="loading" class="paper-chat-panel__loading">
       <SvgIcon name="spinner" :size="18" spin />
@@ -336,7 +331,6 @@ function dismissError(): void {
   opacity: 0.55;
 }
 
-.paper-chat-panel__error,
 .paper-chat-panel__context-status,
 .paper-chat-panel__loading {
   flex-shrink: 0;
@@ -346,28 +340,6 @@ function dismissError(): void {
   padding: var(--sm-space-3) var(--sm-space-4);
   border-bottom: 1px solid var(--sm-color-border-subtle);
   color: var(--sm-color-text-secondary);
-  font-size: 12px;
-}
-
-.paper-chat-panel__error {
-  justify-content: space-between;
-  color: var(--sm-color-status-danger);
-  background: var(--sm-color-surface-1);
-}
-
-.paper-chat-panel__error span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.paper-chat-panel__error button {
-  flex-shrink: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
   font-size: 12px;
 }
 

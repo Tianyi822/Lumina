@@ -17,6 +17,7 @@ import { toPaperChatAttachedDocuments, toPaperChatAttachedImages } from './input
 import { isImageFile } from '@renderer/stores/paperChatImageUploadStore'
 import { usePaperChatQuoteStore } from '@renderer/stores/paperChatQuoteStore'
 import type { KnowledgeBase, MCPTool } from '@renderer/types'
+import { useNotification } from '@renderer/composables/useNotification'
 import { usePaperChatStreamStore } from '@renderer/stores'
 import type { AttachedDocument, AttachedImage, PaperQuote } from '@shared/types/chat'
 import type { MessageOptionContext, ParsedOption } from '@renderer/utils/optionParser'
@@ -64,8 +65,7 @@ const localSelectedTools = ref<MCPTool[]>(props.selectedMCPTools ?? [])
 const localSelectedKnowledgeBases = ref<KnowledgeBase[]>(props.selectedKnowledgeBases ?? [])
 const localEnableSandboxTools = ref(props.enableSandboxTools ?? false)
 const textareaRef = ref<InstanceType<typeof PaperChatTextarea> | null>(null)
-const showWarning = ref(false)
-const warningTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
+const notify = useNotification()
 
 const effectiveSessionId = computed(() => unref(sessionId) || TEMP_SESSION_ID)
 const { pendingDocs, processingFiles, uploadDocuments, removePendingDoc, clearPendingDocs } =
@@ -208,11 +208,7 @@ function handleSend(): void {
     pendingDocs.value.length > 0 || pendingImages.value.length > 0 || pendingQuotes.value.length > 0
 
   if (props.isSending) {
-    showWarning.value = true
-    if (warningTimeout.value) clearTimeout(warningTimeout.value)
-    warningTimeout.value = setTimeout(() => {
-      showWarning.value = false
-    }, 3000)
+    notify.warning('论文对话', '正在回复中，请稍候再发送...', { source: 'chat' })
     return
   }
 
@@ -318,7 +314,7 @@ async function handlePaste(event: ClipboardEvent): Promise<void> {
       imageCount: imageFiles.length,
       errors
     })
-    alert(errors.join('\n'))
+    notify.error('粘贴图片失败', errors.join('\n'), { source: 'chat' })
   }
 }
 
@@ -394,11 +390,6 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
       @dragleave="handleDragLeave"
       @drop="handleDrop"
     />
-
-    <div v-if="showWarning" class="paper-chat-input__warning">
-      <span class="paper-chat-input__warning-label">警告</span>
-      <span>正在回复中，请稍候再发送...</span>
-    </div>
 
     <PaperChatToolSelectionBar
       :is-sending="props.isSending"
