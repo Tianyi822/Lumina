@@ -386,17 +386,6 @@ export const useSandboxStore = defineStore('sandbox', () => {
     getSessionSandbox: listStore.getSessionSandbox,
     handleSelectSandbox,
     handleNewSandbox,
-    handleDeleteSandbox,
-    showError: (title: string, message?: string) =>
-      notify.error(title, message, { source: 'sandbox' }),
-    showWarning: (title: string, message?: string) =>
-      notify.warning(title, message, { source: 'sandbox' }),
-    showSuccess: (title: string, message?: string) =>
-      notify.success(title, message, { source: 'sandbox' }),
-    notifyDockerError: (title: string, message?: string, dedupeKey?: string) =>
-      notify.error(title, message, {
-        source: 'sandbox',
-        dedupeKey: dedupeKey || 'docker-error'
-      })
+    handleDeleteSandbox
   }
 })

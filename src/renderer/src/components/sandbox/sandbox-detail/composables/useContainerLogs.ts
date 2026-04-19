@@ -3,7 +3,8 @@
  * 处理容器日志的加载、刷新和导出
  */
 import { ref, type Ref } from 'vue'
-import { useContainerStore, useSandboxStore } from '@renderer/stores'
+import { useContainerStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { ContainerInfo } from '@shared/types/sandbox'
 
 /** 容器日志 composable 返回值类型 */
@@ -19,7 +20,7 @@ export function useContainerLogs(selectedContainer: {
   value: ContainerInfo | null
 }): UseContainerLogsReturn {
   const containerStore = useContainerStore()
-  const sandboxStore = useSandboxStore()
+  const notify = useNotification()
 
   // 状态
   const containerLogs = ref('')
@@ -63,10 +64,10 @@ export function useContainerLogs(selectedContainer: {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (error) {
-      sandboxStore.notifyDockerError(
-        '导出日志失败',
-        error instanceof Error ? error.message : String(error)
-      )
+      notify.error('导出日志失败', error instanceof Error ? error.message : String(error), {
+        source: 'sandbox',
+        dedupeKey: 'container-logs'
+      })
     }
   }
 

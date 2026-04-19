@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSandboxStore, useUIStateStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
 import SandboxCreator from '@renderer/components/sandbox/SandboxCreator.vue'
 import ConfigManager from '@renderer/components/sandbox/ConfigManager.vue'
@@ -37,6 +38,7 @@ const installCommands: InstallCommand[] = [
 
 const sandboxStore = useSandboxStore()
 const uiStateStore = useUIStateStore()
+const notify = useNotification()
 
 const { currentSandbox, deleteConfirmState } = storeToRefs(sandboxStore)
 
@@ -82,12 +84,18 @@ const checkDocker = async (): Promise<void> => {
     platform.value = platformResult
 
     if (!statusResult.installed && statusResult.error && statusResult.error !== 'Docker 未安装') {
-      sandboxStore.notifyDockerError('Docker 检测失败', statusResult.error, 'sandbox:checkDocker')
+      notify.error('Docker 检测失败', statusResult.error, {
+        source: 'sandbox',
+        dedupeKey: 'sandbox:checkDocker'
+      })
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     dockerStatus.value = { installed: false, error: errorMessage }
-    sandboxStore.notifyDockerError('Docker 检测失败', errorMessage, 'sandbox:checkDocker')
+    notify.error('Docker 检测失败', errorMessage, {
+      source: 'sandbox',
+      dedupeKey: 'sandbox:checkDocker'
+    })
   } finally {
     loading.value = false
   }
@@ -96,7 +104,7 @@ const checkDocker = async (): Promise<void> => {
 const openDockerWebsite = async (): Promise<void> => {
   const result = await window.api.sandbox.openExternal(DOCKER_WEBSITE)
   if (!result.success) {
-    sandboxStore.notifyDockerError('打开 Docker 官网失败', result.error || '未知错误')
+    notify.error('打开 Docker 官网失败', result.error || '未知错误', { source: 'sandbox' })
   }
 }
 
@@ -108,10 +116,9 @@ const copyCommand = async (cmd: string, index: number): Promise<void> => {
       copiedIndex.value = null
     }, 2000)
   } catch (error) {
-    sandboxStore.notifyDockerError(
-      '复制命令失败',
-      error instanceof Error ? error.message : String(error)
-    )
+    notify.error('复制命令失败', error instanceof Error ? error.message : String(error), {
+      source: 'sandbox'
+    })
   }
 }
 

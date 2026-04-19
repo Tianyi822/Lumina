@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useContainerStore, useUIStateStore, useSandboxStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import TerminalPanel from './TerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
@@ -26,6 +27,7 @@ const props = defineProps<{
 const containerStore = useContainerStore()
 const uiStateStore = useUIStateStore()
 const sandboxStore = useSandboxStore()
+const notify = useNotification()
 
 const {
   selectedContainer,
@@ -377,9 +379,10 @@ async function handleRecoverOrphan(): Promise<void> {
     return
   }
 
-  sandboxStore.showWarning(
+  notify.warning(
     '暂不支持自动恢复',
-    '当前只有前端沙箱支持基于持久化工作区自动重建容器。其他类型请手动恢复容器后重新关联。'
+    '当前只有前端沙箱支持基于持久化工作区自动重建容器。其他类型请手动恢复容器后重新关联。',
+    { source: 'sandbox' }
   )
 }
 

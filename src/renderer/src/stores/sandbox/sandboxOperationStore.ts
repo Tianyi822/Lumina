@@ -18,6 +18,7 @@ interface DeleteConfirmState {
 export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
   const listStore = useSandboxListStore()
   const { currentSandbox, sandboxList } = storeToRefs(listStore)
+  const notify = useNotification()
 
   const deleteConfirmState = ref<DeleteConfirmState>({
     show: false,
@@ -29,59 +30,6 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
     workspaceName: undefined,
     isDeleting: false
   })
-
-  /** @deprecated 请直接使用 useNotification() composable */
-  function showMessage(
-    type: 'error' | 'warning' | 'success' | 'info',
-    title: string,
-    message: string,
-    duration: number = 5000
-  ): void {
-    const notify = useNotification()
-    notify.notify(type, title, message, {
-      source: 'sandbox',
-      duration: duration > 0 ? duration : undefined,
-      sticky: duration === 0
-    })
-  }
-
-  /** @deprecated 通知中心已接管消失逻辑，无需手动调用 */
-  function hideMessage(): void {
-    // 新通知中心不支持按消息 ID 隐藏，由自动计时器或用户点击关闭
-  }
-
-  /** @deprecated 请直接使用 useNotification().error() */
-  function showError(title: string, message: string): void {
-    const notify = useNotification()
-    notify.error(title, message, { source: 'sandbox' })
-  }
-
-  /** @deprecated 请直接使用 useNotification().warning() */
-  function showWarning(title: string, message: string): void {
-    const notify = useNotification()
-    notify.warning(title, message, { source: 'sandbox' })
-  }
-
-  /** @deprecated 请直接使用 useNotification().success() */
-  function showSuccess(title: string, message: string): void {
-    const notify = useNotification()
-    notify.success(title, message, { source: 'sandbox' })
-  }
-
-  /** @deprecated 请直接使用 useNotification().info() */
-  function showInfo(title: string, message: string): void {
-    const notify = useNotification()
-    notify.info(title, message, { source: 'sandbox' })
-  }
-
-  /** @deprecated 请直接使用 useNotification().error()，去重由通知中心处理 */
-  function notifyDockerError(title: string, message: string, dedupeKey?: string): void {
-    const notify = useNotification()
-    notify.error(title, message, {
-      source: 'sandbox',
-      dedupeKey: dedupeKey || `${title}:${message}`
-    })
-  }
 
   async function showDeleteConfirm(
     sandboxId: string,
@@ -155,7 +103,7 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         title: '无法删除运行中的容器',
         message:
           creationType === 'dockerfile' || creationType === 'compose'
-            ? '容器正在运行，请先停止容器后再删除沙箱。您可以在监控面板中点击“停止”按钮。'
+            ? '容器正在运行，请先停止容器后再删除沙箱。您可以在监控面板中点击"停止"按钮。'
             : '容器正在运行，请先停止容器后再删除沙箱。'
       }
     }
@@ -177,7 +125,7 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
     if (error.includes('删除前端工作区前必须同时删除关联容器')) {
       return {
         title: '无法删除工作区',
-        message: '删除前端工作区前必须同时删除关联容器。请勾选“同时删除容器”后再重试。'
+        message: '删除前端工作区前必须同时删除关联容器。请勾选"同时删除容器"后再重试。'
       }
     }
 
@@ -217,13 +165,13 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         } else if (result.keptWorkspace) {
           successMessageParts.push('前端工作区已保留。')
         }
-        showSuccess('删除成功', successMessageParts.join('\n'))
+        notify.success('删除成功', successMessageParts.join('\n'), { source: 'sandbox' })
         return true
       }
 
       if (result.error) {
         const formatted = formatDeleteError(result.error, creationType)
-        showError(formatted.title, formatted.message)
+        notify.error(formatted.title, formatted.message, { source: 'sandbox' })
       }
 
       // 删除失败，重置状态
@@ -235,7 +183,7 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         error: errorMessage,
         sandboxId
       })
-      showError('删除失败', '删除沙箱时发生错误，请稍后重试')
+      notify.error('删除失败', '删除沙箱时发生错误，请稍后重试', { source: 'sandbox' })
       // 异常时重置状态
       deleteConfirmState.value.isDeleting = false
       return false
@@ -270,13 +218,13 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
 
         listStore.removeSandboxStatus(sandboxId)
         await listStore.refreshSandboxList()
-        showSuccess('清理成功', '孤儿沙箱已清理')
+        notify.success('清理成功', '孤儿沙箱已清理', { source: 'sandbox' })
 
         window.api.logger.info('[SandboxOperationStore] 清理孤儿沙箱成功', { sandboxId })
         return true
       }
 
-      showError('清理失败', result.error || '清理孤儿沙箱失败')
+      notify.error('清理失败', result.error || '清理孤儿沙箱失败', { source: 'sandbox' })
       return false
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -284,7 +232,7 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         error: errorMessage,
         sandboxId
       })
-      showError('清理失败', errorMessage || '清理孤儿沙箱失败')
+      notify.error('清理失败', errorMessage || '清理孤儿沙箱失败', { source: 'sandbox' })
       return false
     }
   }
@@ -300,7 +248,7 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         }
 
         await listStore.refreshSandboxList()
-        showSuccess('恢复成功', '孤儿沙箱已重新关联容器')
+        notify.success('恢复成功', '孤儿沙箱已重新关联容器', { source: 'sandbox' })
 
         window.api.logger.info('[SandboxOperationStore] 恢复孤儿沙箱成功', {
           sandboxId,
@@ -309,7 +257,7 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         return true
       }
 
-      showError('恢复失败', result.error || '恢复孤儿沙箱失败')
+      notify.error('恢复失败', result.error || '恢复孤儿沙箱失败', { source: 'sandbox' })
       return false
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -317,7 +265,7 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         error: errorMessage,
         sandboxId
       })
-      showError('恢复失败', errorMessage || '恢复孤儿沙箱失败')
+      notify.error('恢复失败', errorMessage || '恢复孤儿沙箱失败', { source: 'sandbox' })
       return false
     }
   }
@@ -330,13 +278,6 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
     deleteSandboxWithConfirm,
     confirmDelete,
     cleanupOrphanSandbox,
-    recoverOrphanSandbox,
-    showMessage,
-    hideMessage,
-    showError,
-    showWarning,
-    showSuccess,
-    showInfo,
-    notifyDockerError
+    recoverOrphanSandbox
   }
 })
