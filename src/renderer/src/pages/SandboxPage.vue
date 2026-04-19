@@ -5,7 +5,6 @@ import { useSandboxStore, useUIStateStore } from '@renderer/stores'
 import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
 import SandboxCreator from '@renderer/components/sandbox/SandboxCreator.vue'
 import ConfigManager from '@renderer/components/sandbox/ConfigManager.vue'
-import OperationMessage from '@renderer/components/sandbox/OperationMessage.vue'
 import DeleteConfirmDialog from '@renderer/components/sandbox/DeleteConfirmDialog.vue'
 import type { PlatformType, DockerCheckResult } from '@shared/types/sandbox'
 
@@ -39,8 +38,7 @@ const installCommands: InstallCommand[] = [
 const sandboxStore = useSandboxStore()
 const uiStateStore = useUIStateStore()
 
-const { currentSandbox, operationMessage, messageVisible, deleteConfirmState } =
-  storeToRefs(sandboxStore)
+const { currentSandbox, deleteConfirmState } = storeToRefs(sandboxStore)
 
 const { showSandboxCreator, showConfigManager } = storeToRefs(uiStateStore)
 
@@ -179,16 +177,6 @@ onMounted(async () => {
         @close="sandboxStore.hideDeleteConfirm()"
         @confirm="(_sandboxId, options) => sandboxStore.confirmDelete(options)"
       />
-
-      <!-- 操作消息提示 -->
-      <OperationMessage
-        v-if="operationMessage"
-        :type="operationMessage.type"
-        :title="operationMessage.title"
-        :message="operationMessage.message"
-        :visible="messageVisible"
-        @close="sandboxStore.hideMessage()"
-      />
     </template>
 
     <div v-else class="sm-sandbox-install">
@@ -296,12 +284,7 @@ onMounted(async () => {
           </div>
         </section>
 
-        <div
-          v-if="dockerStatus?.error && dockerStatus.error !== 'Docker 未安装'"
-          class="sm-notice sm-notice--error sm-sandbox-install__error"
-        >
-          检测返回：{{ dockerStatus.error }}
-        </div>
+        <!-- Docker 检测错误已通过通知中心显示 -->
       </div>
     </div>
   </div>

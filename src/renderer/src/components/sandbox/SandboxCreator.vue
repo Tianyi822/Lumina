@@ -6,7 +6,6 @@ import ContainerSelector from './ContainerSelector.vue'
 import ComposeEditor from './ComposeEditor.vue'
 import DockerfileEditor from './DockerfileEditor.vue'
 import SaveConfigDialog from './SaveConfigDialog.vue'
-import SuccessToast from './SuccessToast.vue'
 import { CreateActions, CreateTypeSelector, PortMappingSection } from './creator'
 import { useCreateFlow } from './creator/composables/useCreateFlow'
 
@@ -25,8 +24,6 @@ const creatorStore = useSandboxCreatorStore()
 const {
   showSaveDialog,
   saveDialogType,
-  showSuccessToast,
-  successMessage,
   isCreating,
   createError,
   portMappings,
@@ -191,12 +188,6 @@ async function handleSaveConfig(name: string): Promise<void> {
         @save="handleSaveConfig"
       />
     </div>
-
-    <SuccessToast
-      :visible="showSuccessToast"
-      :message="successMessage"
-      @close="creatorStore.closeSuccessToast()"
-    />
   </div>
 </template>
 

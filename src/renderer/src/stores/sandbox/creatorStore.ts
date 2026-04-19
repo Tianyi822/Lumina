@@ -13,6 +13,7 @@ import { useSandboxStore } from './sandboxStore'
 import { usePortMappingStore } from './portMappingStore'
 import { useComposeConfigStore } from './composeConfigStore'
 import { useDockerfileConfigStore } from './dockerfileConfigStore'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { SandboxCreateType, CreatePhase, ComposeTemplateType } from './types'
 
 export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
@@ -53,13 +54,6 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
   const saveDialogType = ref<'dockerfile' | 'compose'>('compose')
   /** 保存配置名称 */
   const saveConfigName = ref('')
-
-  // ==================== State: 成功提示 ====================
-
-  /** 成功提示显示状态 */
-  const showSuccessToast = ref(false)
-  /** 成功提示消息 */
-  const successMessage = ref('')
 
   // ==================== State: 创建状态跟踪 ====================
 
@@ -209,15 +203,10 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     }
 
     showSaveDialog.value = false
-    showSuccessToast.value = true
-    successMessage.value = `配置「${saveConfigName.value.trim()}」保存成功`
-    setTimeout(() => {
-      showSuccessToast.value = false
-    }, 3000)
-  }
-
-  function closeSuccessToast(): void {
-    showSuccessToast.value = false
+    const notify = useNotification()
+    notify.success('保存成功', `配置「${saveConfigName.value.trim()}」保存成功`, {
+      source: 'creator'
+    })
   }
 
   // ==================== Actions: 加载已保存配置 ====================
@@ -612,10 +601,6 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     saveDialogType,
     saveConfigName,
 
-    // State: 成功提示
-    showSuccessToast,
-    successMessage,
-
     // State: 创建状态跟踪
     isCreating,
     createError,
@@ -656,7 +641,6 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     openSaveDialog,
     closeSaveDialog,
     handleSaveConfig,
-    closeSuccessToast,
 
     // Actions: 加载已保存配置
     loadSelectedDockerfile,

@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
 import type { SandboxCreationType, DeleteSandboxOptions } from '@shared/types/sandbox'
+import { useNotification } from '@renderer/composables/useNotification'
 import { useSandboxListStore } from './sandboxListStore'
 
 interface DeleteConfirmState {
@@ -13,15 +14,6 @@ interface DeleteConfirmState {
   workspaceName?: string
   isDeleting: boolean
 }
-
-interface OperationMessage {
-  type: 'error' | 'warning' | 'success' | 'info'
-  title: string
-  message: string
-  timestamp: number
-}
-
-const MESSAGE_DEDUP_WINDOW = 3000
 
 export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
   const listStore = useSandboxListStore()
@@ -38,75 +30,57 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
     isDeleting: false
   })
 
-  const operationMessage = ref<OperationMessage | null>(null)
-  const messageVisible = ref(false)
-  const recentMessageTimestamps = new Map<string, number>()
-  let messageTimer: ReturnType<typeof setTimeout> | null = null
-
+  /** @deprecated 请直接使用 useNotification() composable */
   function showMessage(
-    type: OperationMessage['type'],
+    type: 'error' | 'warning' | 'success' | 'info',
     title: string,
     message: string,
     duration: number = 5000
   ): void {
-    if (messageTimer) {
-      clearTimeout(messageTimer)
-    }
-
-    operationMessage.value = {
-      type,
-      title,
-      message,
-      timestamp: Date.now()
-    }
-    messageVisible.value = true
-
-    if (duration > 0) {
-      messageTimer = setTimeout(() => {
-        hideMessage()
-      }, duration)
-    }
+    const notify = useNotification()
+    notify.notify(type, title, message, {
+      source: 'sandbox',
+      duration: duration > 0 ? duration : undefined,
+      sticky: duration === 0
+    })
   }
 
+  /** @deprecated 通知中心已接管消失逻辑，无需手动调用 */
   function hideMessage(): void {
-    messageVisible.value = false
-    if (messageTimer) {
-      clearTimeout(messageTimer)
-      messageTimer = null
-    }
-
-    setTimeout(() => {
-      operationMessage.value = null
-    }, 300)
+    // 新通知中心不支持按消息 ID 隐藏，由自动计时器或用户点击关闭
   }
 
+  /** @deprecated 请直接使用 useNotification().error() */
   function showError(title: string, message: string): void {
-    showMessage('error', title, message)
+    const notify = useNotification()
+    notify.error(title, message, { source: 'sandbox' })
   }
 
+  /** @deprecated 请直接使用 useNotification().warning() */
   function showWarning(title: string, message: string): void {
-    showMessage('warning', title, message)
+    const notify = useNotification()
+    notify.warning(title, message, { source: 'sandbox' })
   }
 
+  /** @deprecated 请直接使用 useNotification().success() */
   function showSuccess(title: string, message: string): void {
-    showMessage('success', title, message, 3000)
+    const notify = useNotification()
+    notify.success(title, message, { source: 'sandbox' })
   }
 
+  /** @deprecated 请直接使用 useNotification().info() */
   function showInfo(title: string, message: string): void {
-    showMessage('info', title, message)
+    const notify = useNotification()
+    notify.info(title, message, { source: 'sandbox' })
   }
 
+  /** @deprecated 请直接使用 useNotification().error()，去重由通知中心处理 */
   function notifyDockerError(title: string, message: string, dedupeKey?: string): void {
-    const messageKey = dedupeKey || `${title}:${message}`
-    const now = Date.now()
-    const lastShownAt = recentMessageTimestamps.get(messageKey)
-
-    if (lastShownAt && now - lastShownAt < MESSAGE_DEDUP_WINDOW) {
-      return
-    }
-
-    recentMessageTimestamps.set(messageKey, now)
-    showError(title, message)
+    const notify = useNotification()
+    notify.error(title, message, {
+      source: 'sandbox',
+      dedupeKey: dedupeKey || `${title}:${message}`
+    })
   }
 
   async function showDeleteConfirm(
@@ -350,8 +324,6 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
 
   return {
     deleteConfirmState,
-    operationMessage,
-    messageVisible,
     showDeleteConfirm,
     hideDeleteConfirm,
     deleteSandboxById,
