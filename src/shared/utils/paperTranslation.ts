@@ -25,6 +25,7 @@ const HEADING_NUMBERING_PATTERN = /^(\d+(?:\.\d+)*)(?:\.)?(?:\s+|$)/
 const ABSTRACT_PARAGRAPH_PATTERN = /^(abstract|摘要)\s*(?:[:：.。]\s*|\s+|$)/i
 const KEYWORD_SECTION_PATTERN = /^(?:keywords?|index terms)\s*[:：.。]|^关键词\s*[:：.。]/i
 const PAGE_COMMENT_PATTERN = /^\s*<!--\s*Page\s+\d+\s*-->\s*$/i
+const FENCE_OPEN_PATTERN = /^ {0,3}(`{3,}|~{3,})/
 const STRUCTURAL_SECTION_TITLES = new Set([
   'abstract',
   '摘要',
@@ -57,6 +58,11 @@ interface ParsedPaperHeading {
   titleText: string
 }
 
+interface MarkdownFence {
+  marker: '`' | '~'
+  length: number
+}
+
 interface PaperTocCandidate {
   segmentId: string
   segmentIndex: number
@@ -64,6 +70,106 @@ interface PaperTocCandidate {
   translatedText?: string
   markdownLevel: number
   isSynthetic: boolean
+}
+
+function parseMarkdownFenceOpener(line: string): MarkdownFence | null {
+  const match = line.match(FENCE_OPEN_PATTERN)
+  if (!match) {
+    return null
+  }
+
+  const sequence = match[1]
+  return {
+    marker: sequence[0] as MarkdownFence['marker'],
+    length: sequence.length
+  }
+}
+
+function isMarkdownFenceCloser(line: string, fence: MarkdownFence): boolean {
+  const leadingSpaceLength = line.match(/^ */)?.[0].length ?? 0
+  if (leadingSpaceLength > 3) {
+    return false
+  }
+
+  const trimmed = line.trim()
+  if (trimmed.length < fence.length) {
+    return false
+  }
+
+  for (const char of trimmed) {
+    if (char !== fence.marker) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function isFencedCodeBlock(block: string): boolean {
+  const firstLine = block.replace(/\r\n/g, '\n').trim().split('\n')[0] || ''
+  return !!parseMarkdownFenceOpener(firstLine)
+}
+
+function splitPaperMarkdownBlocks(markdown: string): string[] {
+  const blocks: string[] = []
+  const lines = markdown.replace(/\r\n/g, '\n').trim().split('\n')
+  let buffer: string[] = []
+  let activeFence: MarkdownFence | null = null
+
+  const flushBuffer = (): void => {
+    const block = buffer.join('\n').trim()
+    if (block) {
+      blocks.push(block)
+    }
+    buffer = []
+  }
+
+  for (const line of lines) {
+    if (activeFence) {
+      buffer.push(line)
+      if (isMarkdownFenceCloser(line, activeFence)) {
+        activeFence = null
+        flushBuffer()
+      }
+      continue
+    }
+
+    const fence = parseMarkdownFenceOpener(line)
+    if (fence) {
+      flushBuffer()
+      buffer.push(line)
+      activeFence = fence
+      continue
+    }
+
+    if (!line.trim()) {
+      flushBuffer()
+      continue
+    }
+
+    buffer.push(line)
+  }
+
+  flushBuffer()
+  return blocks
+}
+
+function extractFencedCodeText(markdown: string): string {
+  const lines = markdown.replace(/\r\n/g, '\n').trim().split('\n')
+  const fence = parseMarkdownFenceOpener(lines[0] || '')
+  if (!fence) {
+    return markdown.replace(/^ {4}/gm, '').replace(/\s+$/g, '')
+  }
+
+  let closeIndex = lines.length
+  for (let index = 1; index < lines.length; index += 1) {
+    if (isMarkdownFenceCloser(lines[index], fence)) {
+      closeIndex = index
+      break
+    }
+  }
+
+  return lines.slice(1, closeIndex).join('\n')
 }
 
 function isImageOnlyBlock(block: string): boolean {
@@ -119,16 +225,16 @@ function isTableLikeBlock(block: string): boolean {
 }
 
 function detectPaperTranslationSegmentKind(block: string): PaperTranslationSegmentKind {
+  if (isFencedCodeBlock(block) || /^ {4,}\S/m.test(block)) {
+    return 'code'
+  }
+
   if (/^#{1,6}\s/.test(block)) {
     return 'heading'
   }
 
   if (isImageOnlyBlock(block)) {
     return 'image'
-  }
-
-  if (/^```[\s\S]*```$/m.test(block) || /^ {4,}\S/m.test(block)) {
-    return 'code'
   }
 
   if (/^\s{0,3}>\s/m.test(block)) {
@@ -326,6 +432,14 @@ function createUniquePaperTocId(text: string, usedCounts: Map<string, number>): 
 
 export function normalizePaperTranslationText(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
+}
+
+function getPaperSegmentOriginalText(kind: PaperTranslationSegmentKind, markdown: string): string {
+  if (kind === 'code') {
+    return extractFencedCodeText(markdown)
+  }
+
+  return stripPaperTranslationMarkdown(markdown)
 }
 
 export function stripPaperTranslationMarkdown(markdown: string): string {
@@ -592,18 +706,18 @@ export function parsePaperTranslationSegments(markdown: string): PaperTranslatio
     return []
   }
 
-  const blocks = normalizedMarkdown
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter(Boolean)
+  const blocks = splitPaperMarkdownBlocks(normalizedMarkdown)
 
-  return blocks.map((block, index) => ({
-    id: `seg-${index}`,
-    index,
-    kind: detectPaperTranslationSegmentKind(block),
-    originalMarkdown: block,
-    originalText: stripPaperTranslationMarkdown(block)
-  }))
+  return blocks.map((block, index) => {
+    const kind = detectPaperTranslationSegmentKind(block)
+    return {
+      id: `seg-${index}`,
+      index,
+      kind,
+      originalMarkdown: block,
+      originalText: getPaperSegmentOriginalText(kind, block)
+    }
+  })
 }
 
 export function buildPaperTocOutline(

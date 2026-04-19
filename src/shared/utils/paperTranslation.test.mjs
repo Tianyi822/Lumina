@@ -32,6 +32,74 @@ test('可以按空段稳定切分论文 Markdown 段落', () => {
   assert.equal(segments[1].originalText, 'First paragraph with bold text.')
 })
 
+test('代码块内部空行不会被拆成标题段', () => {
+  const markdown = [
+    '```python',
+    '',
+    '# image_encoder - ResNet or Vision Transformer',
+    '',
+    '# text_encoder - CBOW or Text Transformer',
+    '',
+    'I_f = image_encoder(I) #[n, d_i]',
+    '',
+    'loss   = (loss_i + loss_t)/2',
+    '',
+    '```',
+    '',
+    'Figure 3. Numpy-like pseudocode for CLIP.'
+  ].join('\n')
+
+  const segments = parsePaperTranslationSegments(markdown)
+  const outline = buildPaperTocOutline(segments)
+
+  assert.equal(segments[0].kind, 'code')
+  assert.match(segments[0].originalMarkdown, /^```python/)
+  assert.match(segments[0].originalText, /# image_encoder - ResNet/)
+  assert.match(segments[0].originalText, /loss\s+=/)
+  assert.equal(segments.filter((segment) => segment.kind === 'heading').length, 0)
+  assert.deepEqual(outline.items, [])
+})
+
+test('不同代码围栏格式都会保持为单个代码段', () => {
+  const markdown = [
+    '```',
+    '',
+    '# heading-like comment',
+    '',
+    'value = 1',
+    '',
+    '```',
+    '',
+    '~~~js',
+    '',
+    'const value = 1',
+    '',
+    '~~~'
+  ].join('\n')
+
+  const segments = parsePaperTranslationSegments(markdown)
+
+  assert.equal(segments.length, 2)
+  assert.deepEqual(
+    segments.map((segment) => segment.kind),
+    ['code', 'code']
+  )
+  assert.equal(segments[0].originalText, '\n# heading-like comment\n\nvalue = 1\n')
+  assert.equal(segments[1].originalText, '\nconst value = 1\n')
+})
+
+test('未闭合代码围栏不会把内部注释识别为目录标题', () => {
+  const markdown = ['```python', '', '# not a heading', '', 'loss = 1'].join('\n')
+
+  const segments = parsePaperTranslationSegments(markdown)
+  const outline = buildPaperTocOutline(segments)
+
+  assert.equal(segments.length, 1)
+  assert.equal(segments[0].kind, 'code')
+  assert.match(segments[0].originalText, /# not a heading/)
+  assert.deepEqual(outline.items, [])
+})
+
 test('标题、作者、机构和正文会保持独立分段', () => {
   const markdown = [
     '# DEYOLO: Dual-Feature-Enhancement YOLO for Cross-Modality Object Detection',

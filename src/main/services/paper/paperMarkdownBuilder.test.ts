@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { PaperPageOcrResult } from '../../../shared/types/paper.ts'
-import { buildReaderMarkdown } from './paperFigureExtractor.ts'
+import { buildPaperTocOutline } from '../../../shared/utils/paperTranslation.ts'
+import { buildReaderDocument, buildReaderMarkdown } from './paperFigureExtractor.ts'
 import {
   createImageBlock,
   createTableBlock,
@@ -177,6 +178,51 @@ test('独立展示公式块会原样保留，不会被并入正文段落', () =>
     )
   )
   assert.doesNotMatch(readerMarkdown, /\$\$The discretized version/)
+})
+
+test('代码块会作为独立 reader 段落保留，不会被拆成标题或并入正文', () => {
+  const codeMarkdown = [
+    '```python',
+    '',
+    '# image_encoder - ResNet or Vision Transformer',
+    '',
+    '# text_encoder - CBOW or Text Transformer',
+    '',
+    'I_f = image_encoder(I) #[n, d_i]',
+    '',
+    'loss   = (loss_i + loss_t)/2',
+    '',
+    '```'
+  ].join('\n')
+  const caption = '<div align="center">\n\nFigure 3. Numpy-like pseudocode for CLIP.\n\n</div>'
+  const body = 'The method continues with the text encoder.'
+  const pageResult: PaperPageOcrResult = {
+    paperId: 'paper-code-block',
+    pageIndex: 0,
+    status: 'completed',
+    markdown: [codeMarkdown, caption, body].join('\n\n'),
+    blocks: [
+      createTextBlock(0, codeMarkdown, { x: 120, y: 120, width: 460, height: 420 }),
+      createTextBlock(1, caption, { x: 120, y: 560, width: 460, height: 48 }),
+      createTextBlock(2, body, { x: 120, y: 640, width: 520, height: 40 })
+    ]
+  }
+
+  const figureData = extractFigureData([pageResult])
+  const readerDocument = buildReaderDocument('paper-code-block', [pageResult], figureData)
+  const codeSegment = readerDocument.segments.find((segment) => segment.kind === 'code')
+  const outline = buildPaperTocOutline(readerDocument.segments)
+
+  assert.ok(codeSegment)
+  assert.equal(codeSegment.originalMarkdown, codeMarkdown)
+  assert.match(codeSegment.originalText, /# image_encoder - ResNet/)
+  assert.deepEqual(codeSegment.sourceRefs.pageIndexes, [0])
+  assert.deepEqual(codeSegment.sourceRefs.blockIndexes, [0])
+  assert.ok(readerDocument.segments.some((segment) => segment.originalMarkdown === body))
+  assert.equal(
+    outline.items.some((item) => item.text.includes('image_encoder')),
+    false
+  )
 })
 
 test('独立的单个数学定界符分行时会保持原有结构，不会污染后续正文', () => {

@@ -451,12 +451,30 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sm-color-border-strong) transparent;
+  scrollbar-gutter: stable;
   padding: var(--sm-space-3) var(--sm-space-4) var(--sm-space-6);
 }
 
 .paper-markdown-view__scroll::-webkit-scrollbar {
-  display: none;
+  width: 10px;
+}
+
+.paper-markdown-view__scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.paper-markdown-view__scroll::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--sm-color-border-strong);
+  background-clip: content-box;
+}
+
+.paper-markdown-view__scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--sm-color-text-tertiary);
+  background-clip: content-box;
 }
 
 .paper-markdown-view__loading,
