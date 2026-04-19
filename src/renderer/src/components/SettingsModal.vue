@@ -77,7 +77,6 @@ const settingsTabs: Array<{
 
 // 关闭弹窗
 function handleClose(): void {
-  configStore.clearMessages()
   emit('close')
 }
 
@@ -205,28 +204,6 @@ onUnmounted(() => {
 
 .settings-content {
   background: var(--sm-color-surface-2);
-}
-
-.message-close {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--sm-radius-sm);
-  color: inherit;
-  font-size: 12px;
-  font-family: var(--sm-font-sans);
-  padding: 0 8px;
-  min-width: 44px;
-  height: 28px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 10px;
-}
-
-.message-close:hover {
-  background: var(--sm-color-surface-hover);
-  border-color: var(--sm-color-border-default);
 }
 
 @media (max-width: 1060px) {

@@ -4,9 +4,11 @@ import { storeToRefs } from 'pinia'
 import type { LLMConfig } from '@renderer/types'
 import { useConfigStore } from '@renderer/stores'
 import { useUIStateStore } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 
 const configStore = useConfigStore()
 const uiStateStore = useUIStateStore()
+const notify = useNotification()
 const { llmConfigs, defaultModel, saving } = storeToRefs(configStore)
 
 // 展开的模型配置项（使用索引避免编辑 model_name 时丢失展开状态）
@@ -31,8 +33,7 @@ const newModelConfig = reactive<LLMConfig>({
 })
 
 function showValidationWarning(message: string): void {
-  configStore.successMessage = ''
-  configStore.errorMessage = message
+  notify.warning('模型配置校验失败', message, { source: 'settings' })
 }
 
 function getModelItemName(config: LLMConfig, index: number): string {
