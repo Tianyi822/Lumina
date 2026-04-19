@@ -5,6 +5,7 @@ import KnowledgePage from './pages/KnowledgePage.vue'
 import SandboxPage from './pages/SandboxPage.vue'
 import PaperReaderPage from './pages/PaperReaderPage.vue'
 import ErrorBanner from './components/ErrorBanner.vue'
+import NotificationCenter from './components/NotificationCenter.vue'
 import SettingsModal from './components/SettingsModal.vue'
 import SvgIcon from './components/icons/SvgIcon.vue'
 import WorkspaceSidebarHost from './components/chrome/WorkspaceSidebarHost.vue'
@@ -117,6 +118,9 @@ onBeforeUnmount(() => {
     <Transition name="sm-feedback" appear>
       <ErrorBanner v-if="configError" :error="configError" @dismiss="dismissError" />
     </Transition>
+
+    <!-- 全局通知中心 -->
+    <NotificationCenter />
 
     <!-- 主布局 -->
     <div class="sm-shell sm-workspace-page">
