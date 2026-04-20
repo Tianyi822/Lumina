@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { PaperDocument, PaperStatus } from '@shared/types/paper'
 import { createIdleTranslationTaskState, isPaperReadableStatus } from './shared'
+import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperFigurePreview } from './composables/usePaperFigurePreview'
 import { usePaperAnnotations } from './composables/usePaperAnnotations'
 import { usePaperTranslation } from './composables/usePaperTranslation'
@@ -177,8 +178,11 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   }
 
   function selectPaper(paperId: string | null): void {
+    const uiStateStore = useUIStateStore()
+
     if (!paperId) {
       currentPaperId.value = null
+      uiStateStore.setLastPaperId(null)
       resetReaderViewState()
       return
     }
@@ -194,6 +198,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     currentPaperId.value = paperId
+    uiStateStore.setLastPaperId(paperId)
   }
 
   async function openPaper(paperId: string): Promise<PaperDocument | null> {
@@ -220,6 +225,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     currentPaperId.value = paperId
+    useUIStateStore().setLastPaperId(paperId)
     await loadMarkdown(paperId)
 
     return result.data
@@ -244,6 +250,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
 
     if (currentPaperId.value === paperId) {
       currentPaperId.value = null
+      useUIStateStore().setLastPaperId(null)
       markdownContent.value = ''
       resetReaderViewState()
     }
