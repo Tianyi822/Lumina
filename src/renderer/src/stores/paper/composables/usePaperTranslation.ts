@@ -5,7 +5,10 @@ import type {
   PaperTranslationProgress,
   PaperTranslationStatus
 } from '@shared/types/paper'
-import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
+import {
+  buildFigureCaptionTranslationMap,
+  hasPaperTranslationResult
+} from '@shared/utils/paperTranslation'
 import { createIdleTranslationTaskState, type PaperTranslationTaskState } from '../shared'
 
 const STATUS_PRIORITY: Record<PaperTranslationStatus, number> = {
@@ -57,23 +60,7 @@ export function usePaperTranslation(
   })
 
   const figureCaptionTranslationMap = computed<Record<string, string>>(() => {
-    const cache = currentTranslationCache.value
-    if (!cache) {
-      return {}
-    }
-
-    const map: Record<string, string> = {}
-    for (const entry of cache.entries) {
-      if (
-        entry.id.startsWith('fig-caption-') &&
-        entry.status === 'completed' &&
-        entry.translatedText
-      ) {
-        const figureId = entry.id.replace('fig-caption-', '')
-        map[figureId] = entry.translatedText
-      }
-    }
-    return map
+    return buildFigureCaptionTranslationMap(currentTranslationCache.value)
   })
 
   const currentTranslationTask = computed<PaperTranslationTaskState>(() => {
@@ -288,17 +275,7 @@ export function usePaperTranslation(
   async function ensureTranslation(paperId: string): Promise<{ success: boolean; error?: string }> {
     ensureTranslationProgressListener()
 
-    const cachedTranslation = translationByPaperId.value[paperId]
     const taskState = translationTaskByPaperId.value[paperId] || createIdleTranslationTaskState()
-
-    if (
-      cachedTranslation &&
-      cachedTranslation.totalSegments > 0 &&
-      cachedTranslation.completedSegments >= cachedTranslation.totalSegments &&
-      !taskState.isRunning
-    ) {
-      return { success: true }
-    }
 
     const result = await window.api.paper.startTranslation(paperId)
     if (!result.success) {
@@ -307,10 +284,6 @@ export function usePaperTranslation(
         lastError: result.error
       })
       return { success: false, error: result.error }
-    }
-
-    if (result.alreadyRunning) {
-      return { success: true }
     }
 
     await loadTranslationState(paperId)
