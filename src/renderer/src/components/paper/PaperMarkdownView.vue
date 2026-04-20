@@ -131,6 +131,31 @@ defineExpose({ scrollToQuoteAndHighlight })
 
 const paperReaderStore = usePaperReaderStore()
 
+function getTranslationRenderKey(cache: PaperTranslationCache | null | undefined): string {
+  if (!cache) {
+    return ''
+  }
+
+  return [
+    cache.sourceHash,
+    cache.translationRevisionId || '',
+    cache.updatedAt,
+    cache.completedSegments,
+    cache.totalSegments,
+    cache.entries
+      .map((entry) =>
+        [
+          entry.id,
+          entry.status,
+          entry.updatedAt || '',
+          entry.translatedText || '',
+          entry.translatedMarkdown || ''
+        ].join('\u0001')
+      )
+      .join('\u0002')
+  ].join('\u0003')
+}
+
 const engine = usePaperMarkdownEngine({
   content: () => props.content,
   basePath: () => props.basePath,
@@ -160,8 +185,7 @@ watch(
     props.content,
     props.basePath,
     props.translationVisible,
-    props.translationCache?.completedSegments,
-    props.translationCache?.translationRevisionId,
+    getTranslationRenderKey(props.translationCache),
     props.readerDocument?.sourceRevisionId,
     composer.currentAnnotations.value.length,
     composer.currentAnnotations.value.map((annotation) => annotation.updatedAt).join('|')
@@ -178,7 +202,7 @@ watch(
     const contentChanged = newValues[0] !== oldValues[0]
     const basePathChanged = newValues[1] !== oldValues[1]
     const translationVisibleChanged = newValues[2] !== oldValues[2]
-    const sourceRevisionIdChanged = newValues[5] !== oldValues[5]
+    const sourceRevisionIdChanged = newValues[4] !== oldValues[4]
 
     if (contentChanged || basePathChanged || translationVisibleChanged || sourceRevisionIdChanged) {
       composer.clearComposer()
