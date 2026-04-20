@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import type {
   PaperAnnotation,
+  PaperReadingProgress,
   PaperReaderDocument,
   PaperTranslationCache
 } from '@shared/types/paper'
@@ -13,6 +14,7 @@ import {
 } from './composables/usePaperMarkdownEngine'
 import { usePaperAnnotationComposer } from './composables/usePaperAnnotationComposer'
 import { usePaperQuoteHighlight } from './composables/usePaperQuoteHighlight'
+import { usePaperReadingProgress } from './composables/usePaperReadingProgress'
 import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopover.vue'
 import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor.vue'
 import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu.vue'
@@ -29,6 +31,7 @@ const props = defineProps<{
   translationCache?: PaperTranslationCache | null
   readerDocument?: PaperReaderDocument | null
   annotations?: PaperAnnotation[]
+  readingProgress?: PaperReadingProgress | null
 }>()
 
 const emit = defineEmits<{
@@ -39,6 +42,7 @@ const quoteHighlight = usePaperQuoteHighlight()
 
 defineExpose({ scrollToQuoteAndHighlight: quoteHighlight.scrollToQuoteAndHighlight })
 
+const scrollContainerRef = ref<HTMLElement | null>(null)
 const paperReaderStore = usePaperReaderStore()
 const { zoomLevel } = storeToRefs(paperReaderStore)
 
@@ -55,6 +59,16 @@ const engine = usePaperMarkdownEngine({
   annotations: () => props.annotations,
   setTocOutline: paperReaderStore.setPaperTocOutline,
   clearToc: paperReaderStore.clearPaperToc
+})
+
+usePaperReadingProgress({
+  scrollContainer: scrollContainerRef,
+  paperId: () => props.paperId,
+  renderedSegments: engine.renderedSegments,
+  loading: () => props.loading,
+  sourceRevisionId: () => props.readerDocument?.sourceRevisionId,
+  readingProgress: () => props.readingProgress,
+  translationVisible: () => props.translationVisible
 })
 
 const composer = usePaperAnnotationComposer({
@@ -145,6 +159,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="paper-markdown-view">
     <div
+      ref="scrollContainerRef"
       class="paper-markdown-view__scroll"
       @mouseup="composer.updateComposerFromSelection"
       @click="composer.handleSurfaceAnnotationClick"
