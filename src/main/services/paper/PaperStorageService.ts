@@ -233,7 +233,7 @@ export class PaperStorageService {
         }
       }
 
-      papers.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      papers.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       return { success: true, data: papers }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
