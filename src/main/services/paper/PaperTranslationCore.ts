@@ -64,6 +64,7 @@ interface PaperTranslationSource {
 
 const DEFAULT_CONCURRENCY = 3
 const PAPER_TRANSLATION_SOURCE_HASH_VERSION = 2
+const FIGURE_CAPTION_TRANSLATION_ID_PREFIX = 'fig-caption-'
 const PROMPT_ARTIFACT_LINE_PATTERN =
   /^\s*(?:\[(?:上一段(?:原文)?参考|下一段(?:原文)?参考|当前(?:需要翻译的)?段落|翻译输出)\]|(?:上一段(?:原文)?参考|下一段(?:原文)?参考|当前(?:需要翻译的)?段落|翻译输出)|(?:previous_context|next_context|current_segment|translation))\s*:?\s*$/i
 const PROMPT_ARTIFACT_TAG_PATTERN =
@@ -186,6 +187,36 @@ function areSourceDescriptorEntriesEqual(
   })
 }
 
+function canReuseSourceDescriptorEntries(
+  cachedEntries: PaperTranslationSourceDescriptorEntry[],
+  sourceEntries: PaperTranslationSourceDescriptorEntry[]
+): boolean {
+  const cachedEntryMap = new Map(cachedEntries.map((entry) => [entry.id, entry]))
+  const sourceEntryMap = new Map(sourceEntries.map((entry) => [entry.id, entry]))
+
+  const cachedEntriesMatchSource = cachedEntries.every((entry) => {
+    const sourceEntry = sourceEntryMap.get(entry.id)
+    return (
+      !!sourceEntry &&
+      entry.kind === sourceEntry.kind &&
+      entry.originalMarkdown === sourceEntry.originalMarkdown
+    )
+  })
+
+  if (!cachedEntriesMatchSource) {
+    return false
+  }
+
+  return sourceEntries.every((entry) => {
+    const cachedEntry = cachedEntryMap.get(entry.id)
+    if (cachedEntry) {
+      return true
+    }
+
+    return entry.id.startsWith(FIGURE_CAPTION_TRANSLATION_ID_PREFIX)
+  })
+}
+
 export function computePaperTranslationSourceHash(
   markdown: string,
   figures?: PaperFigureItem[]
@@ -295,6 +326,10 @@ function isStructuralMarkerSegment(segment: PaperTranslationSegment): boolean {
 }
 
 function shouldSkipTranslationSegment(segment: PaperTranslationSegment): boolean {
+  if (segment.kind === 'heading') {
+    return isStructuralMarkerSegment(segment)
+  }
+
   return (
     segment.kind === 'image' ||
     segment.kind === 'table' ||
@@ -537,7 +572,10 @@ export class PaperTranslationCore {
     }
 
     const cachedDescriptorEntries = buildSourceDescriptorEntriesFromCache(cachedCache)
-    if (areSourceDescriptorEntriesEqual(cachedDescriptorEntries, source.descriptorEntries)) {
+    if (
+      areSourceDescriptorEntriesEqual(cachedDescriptorEntries, source.descriptorEntries) ||
+      canReuseSourceDescriptorEntries(cachedDescriptorEntries, source.descriptorEntries)
+    ) {
       const upgradedCache: PaperTranslationCache = {
         ...cachedCache,
         paperId,

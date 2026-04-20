@@ -147,6 +147,100 @@ test('标题段会清理参考标签并截断误并入的正文', async () => {
   assert.doesNotMatch(cache.entries[0].translatedMarkdown || '', /下一段原文参考|基础任务/)
 })
 
+test('看起来像作者姓名的标题段仍会参与翻译', async () => {
+  const markdown = '# Alice Bob Charlie David'
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async () => {
+      translateCallCount += 1
+      return '作者式标题'
+    }
+  })
+
+  const result = await core.startTranslation('paper-author-like-heading', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-author-like-heading'))
+
+  const cache = cacheStore.get('paper-author-like-heading')
+  assert.ok(cache)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.equal(cache.entries[0].translatedMarkdown, '# 作者式标题')
+  assert.equal(translateCallCount, 1)
+})
+
+test('旧缓存中被跳过的标题段会在重新翻译时补译', async () => {
+  const markdown = ['# Alice Bob Charlie David', '', 'Paragraph A.'].join('\n')
+  const segments = parsePaperTranslationSegments(markdown)
+  const sourceHash = computePaperTranslationSourceHash(markdown)
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  cacheStore.set('paper-stale-heading', {
+    paperId: 'paper-stale-heading',
+    sourceHash,
+    sourceHashVersion: 2,
+    totalSegments: 2,
+    completedSegments: 2,
+    updatedAt: new Date().toISOString(),
+    entries: [
+      {
+        ...segments[0],
+        status: 'skipped',
+        translatedMarkdown: segments[0].originalMarkdown,
+        translatedText: segments[0].originalText
+      },
+      {
+        ...segments[1],
+        status: 'completed',
+        translatedMarkdown: '段落 A。',
+        translatedText: '段落 A。'
+      }
+    ]
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      translateCallCount += 1
+      return segment.kind === 'heading' ? '补译标题' : `译文：${segment.originalMarkdown}`
+    }
+  })
+
+  const result = await core.startTranslation('paper-stale-heading', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-stale-heading'))
+
+  const cache = cacheStore.get('paper-stale-heading')
+  assert.ok(cache)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.equal(cache.entries[0].translatedMarkdown, '# 补译标题')
+  assert.equal(cache.entries[1].translatedText, '段落 A。')
+  assert.equal(translateCallCount, 1)
+})
+
 test('独立公式段会被跳过且不会触发翻译调用', async () => {
   const markdown = [
     '# Method',
@@ -288,6 +382,64 @@ test('图片 caption 会作为附加段落参与翻译并在未变化时复用�
   assert.equal(secondResult.success, true)
   await waitFor(() => !core.isRunning('paper-caption'))
   assert.equal(translateCallCount, 3)
+})
+
+test('旧缓存缺少图片 caption 条目时会复用正文并补齐 caption', async () => {
+  const markdown = 'The qualitative comparison is shown below.'
+  const figures = [createFigure({ id: 'fig-1', caption: 'Figure 1. Overall framework.' })]
+  const segments = parsePaperTranslationSegments(markdown)
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let clearCount = 0
+  let translateCallCount = 0
+
+  cacheStore.set('paper-missing-caption', {
+    paperId: 'paper-missing-caption',
+    sourceHash: computePaperTranslationSourceHash(markdown),
+    sourceHashVersion: 2,
+    totalSegments: 1,
+    completedSegments: 1,
+    updatedAt: new Date().toISOString(),
+    entries: [
+      {
+        ...segments[0],
+        status: 'completed',
+        translatedMarkdown: '定性比较如下所示。',
+        translatedText: '定性比较如下所示。'
+      }
+    ]
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      clearCount += 1
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      translateCallCount += 1
+      return `译文：${segment.originalMarkdown}`
+    }
+  })
+
+  const result = await core.startTranslation('paper-missing-caption', markdown, figures)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-missing-caption'))
+
+  const cache = cacheStore.get('paper-missing-caption')
+  assert.ok(cache)
+  assert.equal(cache.entries.length, 2)
+  assert.equal(cache.entries[0].translatedText, '定性比较如下所示。')
+  assert.equal(cache.entries[1].id, 'fig-caption-fig-1')
+  assert.equal(cache.entries[1].translatedText, '译文：Figure 1. Overall framework.')
+  assert.equal(clearCount, 0)
+  assert.equal(translateCallCount, 1)
 })
 
 test('分隔线段会被跳过且不会触发翻译调用', async () => {
