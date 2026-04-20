@@ -41,6 +41,31 @@ import 'markdown-it-texmath/css/texmath.css'
 
 export type { RenderSourceSegment, QuoteHighlight }
 
+export function getTranslationRenderKey(cache: PaperTranslationCache | null | undefined): string {
+  if (!cache) {
+    return ''
+  }
+
+  return [
+    cache.sourceHash,
+    cache.translationRevisionId || '',
+    cache.updatedAt,
+    cache.completedSegments,
+    cache.totalSegments,
+    cache.entries
+      .map((entry) =>
+        [
+          entry.id,
+          entry.status,
+          entry.updatedAt || '',
+          entry.translatedText || '',
+          entry.translatedMarkdown || ''
+        ].join('\u0001')
+      )
+      .join('\u0002')
+  ].join('\u0003')
+}
+
 export interface RenderedSegment {
   renderId: string
   stableId: string

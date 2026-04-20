@@ -139,7 +139,7 @@ function collectTranslationHighlights(
     })
 }
 
-function resolveTextPoint(
+export function resolveTextPoint(
   root: Element,
   absoluteOffset: number
 ): { node: Text; offset: number } | null {
