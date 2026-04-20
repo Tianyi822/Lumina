@@ -1,0 +1,355 @@
+<script setup lang="ts">
+import type { RenderedSegment } from './composables/usePaperMarkdownEngine'
+
+defineProps<{
+  segments: RenderedSegment[]
+}>()
+</script>
+
+<template>
+  <section
+    v-for="segment in segments"
+    :id="segment.segmentAnchorId"
+    :key="segment.renderId"
+    class="paper-markdown-view__segment"
+    :class="{ 'paper-markdown-view__segment--meta': segment.isCenteredMeta }"
+    :data-paper-segment-stable-id="segment.stableId"
+  >
+    <div
+      class="paper-markdown-view__segment-original paper-markdown-view__markdown"
+      data-paper-selection-surface="true"
+      data-view-kind="original"
+      :data-segment-stable-id="segment.stableId"
+    >
+      <!-- eslint-disable-next-line vue/no-v-html -->
+      <div v-html="segment.originalHtml" />
+    </div>
+
+    <div
+      v-if="segment.showTranslation"
+      class="paper-markdown-view__segment-translation"
+      :class="`is-${segment.translationStatus}`"
+    >
+      <div
+        v-if="segment.translationHtml"
+        class="paper-markdown-view__segment-translation-body paper-markdown-view__markdown"
+        data-paper-selection-surface="true"
+        data-view-kind="translation"
+        :data-segment-stable-id="segment.stableId"
+      >
+        <!-- eslint-disable-next-line vue/no-v-html -->
+        <div v-html="segment.translationHtml" />
+      </div>
+
+      <div
+        v-else-if="segment.translationStatus === 'failed'"
+        class="paper-markdown-view__translation-error"
+      >
+        该段翻译暂时失败，再次点击翻译按钮时会继续补全剩余内容。
+      </div>
+
+      <div v-else class="paper-markdown-view__translation-placeholder" aria-hidden="true">
+        <span class="paper-markdown-view__translation-placeholder-text">正在翻译...</span>
+        <span class="paper-markdown-view__translation-placeholder-bar" />
+        <span class="paper-markdown-view__translation-placeholder-bar" />
+        <span class="paper-markdown-view__translation-placeholder-bar" />
+      </div>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.paper-markdown-view__segment {
+  position: relative;
+}
+
+.paper-markdown-view__segment + .paper-markdown-view__segment {
+  margin-top: var(--sm-space-3);
+}
+
+.paper-markdown-view__segment-original,
+.paper-markdown-view__segment-translation {
+  box-sizing: border-box;
+}
+
+.paper-markdown-view__segment-translation {
+  margin-top: var(--sm-space-2);
+}
+
+.paper-markdown-view__segment-translation.is-queued,
+.paper-markdown-view__segment-translation.is-translating {
+  opacity: 0.9;
+}
+
+.paper-markdown-view__translation-error {
+  color: var(--sm-color-text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.paper-markdown-view__translation-placeholder {
+  display: grid;
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-1) 0;
+}
+
+.paper-markdown-view__translation-placeholder-text {
+  display: block;
+  font-size: 13px;
+  color: var(--sm-color-text-tertiary);
+  margin-bottom: var(--sm-space-1);
+}
+
+.paper-markdown-view__translation-placeholder-bar {
+  display: block;
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--sm-color-border-subtle) 65%, transparent) 0%,
+    color-mix(in srgb, var(--sm-color-text-tertiary) 16%, transparent) 50%,
+    color-mix(in srgb, var(--sm-color-border-subtle) 65%, transparent) 100%
+  );
+  background-size: 180% 100%;
+  animation: paper-translation-breathe 1.8s ease-in-out infinite;
+}
+
+.paper-markdown-view__translation-placeholder-bar:nth-child(2) {
+  width: 92%;
+  animation-delay: 0.12s;
+}
+
+.paper-markdown-view__translation-placeholder-bar:nth-child(3) {
+  width: 78%;
+  animation-delay: 0.24s;
+}
+
+.paper-markdown-view__markdown {
+  width: 100%;
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--sm-color-text-primary);
+  user-select: text;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.paper-markdown-view__segment-translation-body {
+  width: 100%;
+}
+
+.paper-markdown-view__segment--meta .paper-markdown-view__markdown {
+  text-align: center;
+}
+
+.paper-markdown-view__markdown > :first-child {
+  margin-top: 0;
+}
+
+.paper-markdown-view__markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight) {
+  border-radius: 4px;
+  color: inherit;
+  padding: 0 1px;
+  cursor: pointer;
+  transition: box-shadow 0.16s ease;
+  mix-blend-mode: multiply;
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight:hover) {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sm-color-border-default) 70%, transparent);
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--blue) {
+  background: var(--sm-color-paper-annotation-blue);
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--yellow) {
+  background: var(--sm-color-paper-annotation-yellow);
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--orange) {
+  background: var(--sm-color-paper-annotation-orange);
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--green) {
+  background: var(--sm-color-paper-annotation-green);
+}
+
+.paper-markdown-view__markdown :deep(h1) {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 1.2em 0 0.6em;
+  color: var(--sm-color-text-primary);
+}
+
+.paper-markdown-view__markdown :deep(h2) {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 1.1em 0 0.55em;
+  color: var(--sm-color-text-primary);
+}
+
+.paper-markdown-view__markdown :deep(h3) {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 1em 0 0.5em;
+  color: var(--sm-color-text-primary);
+}
+
+.paper-markdown-view__markdown :deep(p) {
+  margin: 0.8em 0;
+}
+
+.paper-markdown-view__markdown :deep(a) {
+  color: var(--sm-color-accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.paper-markdown-view__markdown :deep(a:hover) {
+  opacity: 0.85;
+}
+
+.paper-markdown-view__markdown :deep(eq) {
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+.paper-markdown-view__markdown :deep(eqn) {
+  display: block;
+}
+
+.paper-markdown-view__markdown :deep(.katex) {
+  font-size: 1em;
+}
+
+.paper-markdown-view__markdown :deep(.katex-display) {
+  margin: 1.25em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2em 0;
+}
+
+.paper-markdown-view__markdown :deep(.katex-display > .katex) {
+  display: inline-block;
+  min-width: min-content;
+}
+
+.paper-markdown-view__markdown :deep(pre) {
+  margin: 1em 0;
+  padding: var(--sm-space-4);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-1);
+  font-family: var(--sm-font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.paper-markdown-view__markdown :deep(code) {
+  font-family: var(--sm-font-mono);
+  font-size: 0.9em;
+}
+
+.paper-markdown-view__markdown :deep(:not(pre) > code) {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--sm-color-surface-hover);
+  font-size: 0.88em;
+}
+
+.paper-markdown-view__markdown :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 16px auto;
+  display: block;
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 1em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable both-edges;
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap > table) {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
+  table-layout: auto;
+  font-size: 14px;
+}
+
+.paper-markdown-view__markdown :deep(th),
+.paper-markdown-view__markdown :deep(td) {
+  padding: var(--sm-space-2) var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+
+.paper-markdown-view__markdown :deep(th) {
+  font-weight: 600;
+  background: var(--sm-color-surface-1);
+}
+
+.paper-markdown-view__markdown :deep(blockquote) {
+  margin: 1em 0;
+  padding: var(--sm-space-3) var(--sm-space-4);
+  border-left: 3px solid var(--sm-color-border-strong);
+  border-radius: 0 var(--sm-radius-sm) var(--sm-radius-sm) 0;
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
+}
+
+.paper-markdown-view__markdown :deep(blockquote p) {
+  margin: 0.4em 0;
+}
+
+.paper-markdown-view__markdown :deep(ul),
+.paper-markdown-view__markdown :deep(ol) {
+  margin: 0.6em 0;
+  padding-inline-start: 2.8em;
+}
+
+.paper-markdown-view__markdown :deep(li) {
+  margin: 0.25em 0;
+}
+
+.paper-markdown-view__markdown :deep(li > p) {
+  margin: 0.2em 0;
+}
+
+.paper-markdown-view__markdown :deep(li > ul),
+.paper-markdown-view__markdown :deep(li > ol) {
+  margin: 0.25em 0;
+}
+
+@keyframes paper-translation-breathe {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+</style>
