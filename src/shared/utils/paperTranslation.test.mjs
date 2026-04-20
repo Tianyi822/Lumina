@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  buildFigureCaptionTranslationMap,
   buildPaperTocOutline,
   hasPaperTranslationResult,
   isPaperAffiliationLikeSegment,
@@ -393,6 +394,89 @@ test('文档标题和 synthetic 摘要都能保留翻译标题文本', () => {
   )
   assert.equal(outline.items[0].text, 'Abstract')
   assert.equal(outline.items[0].translatedText, '摘要')
+})
+
+test('图片 caption 译文映射优先使用 translatedText', () => {
+  const map = buildFigureCaptionTranslationMap({
+    paperId: 'paper-1',
+    sourceHash: 'hash-1',
+    totalSegments: 1,
+    completedSegments: 1,
+    updatedAt: '2026-04-08T00:00:00.000Z',
+    entries: [
+      {
+        id: 'fig-caption-fig-1',
+        index: 0,
+        kind: 'paragraph',
+        originalMarkdown: 'Figure 1. Overview.',
+        originalText: 'Figure 1. Overview.',
+        status: 'completed',
+        translatedMarkdown: '图一的 Markdown 译文。',
+        translatedText: '图 1. 总览。'
+      }
+    ]
+  })
+
+  assert.deepEqual(map, {
+    'fig-1': '图 1. 总览。'
+  })
+})
+
+test('图片 caption 译文映射可从 translatedMarkdown 回退生成', () => {
+  const map = buildFigureCaptionTranslationMap({
+    paperId: 'paper-1',
+    sourceHash: 'hash-1',
+    totalSegments: 1,
+    completedSegments: 1,
+    updatedAt: '2026-04-08T00:00:00.000Z',
+    entries: [
+      {
+        id: 'fig-caption-fig-1',
+        index: 0,
+        kind: 'paragraph',
+        originalMarkdown: 'Figure 1. Overview.',
+        originalText: 'Figure 1. Overview.',
+        status: 'completed',
+        translatedMarkdown: '**图 1.** 总览。'
+      }
+    ]
+  })
+
+  assert.deepEqual(map, {
+    'fig-1': '图 1. 总览。'
+  })
+})
+
+test('图片 caption 译文映射会忽略未完成条目', () => {
+  const map = buildFigureCaptionTranslationMap({
+    paperId: 'paper-1',
+    sourceHash: 'hash-1',
+    totalSegments: 2,
+    completedSegments: 0,
+    updatedAt: '2026-04-08T00:00:00.000Z',
+    entries: [
+      {
+        id: 'fig-caption-fig-1',
+        index: 0,
+        kind: 'paragraph',
+        originalMarkdown: 'Figure 1. Overview.',
+        originalText: 'Figure 1. Overview.',
+        status: 'queued',
+        translatedText: '图 1. 总览。'
+      },
+      {
+        id: 'seg-1',
+        index: 1,
+        kind: 'paragraph',
+        originalMarkdown: 'Figure 2. Body text.',
+        originalText: 'Figure 2. Body text.',
+        status: 'completed',
+        translatedText: '图 2. 正文。'
+      }
+    ]
+  })
+
+  assert.deepEqual(map, {})
 })
 
 test('仅当存在实际译文结果或中断态结果时，才视为可删除译文', () => {

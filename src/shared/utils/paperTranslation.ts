@@ -26,6 +26,7 @@ const ABSTRACT_PARAGRAPH_PATTERN = /^(abstract|摘要)\s*(?:[:：.。]\s*|\s+|$)
 const KEYWORD_SECTION_PATTERN = /^(?:keywords?|index terms)\s*[:：.。]|^关键词\s*[:：.。]/i
 const PAGE_COMMENT_PATTERN = /^\s*<!--\s*Page\s+\d+\s*-->\s*$/i
 const FENCE_OPEN_PATTERN = /^ {0,3}(`{3,}|~{3,})/
+const FIGURE_CAPTION_TRANSLATION_ID_PREFIX = 'fig-caption-'
 const STRUCTURAL_SECTION_TITLES = new Set([
   'abstract',
   '摘要',
@@ -472,6 +473,37 @@ export function hasPaperTranslationResult(
 
     return entry.status === 'failed' || entry.status === 'translating'
   })
+}
+
+export function buildFigureCaptionTranslationMap(
+  cache: PaperTranslationCache | null | undefined
+): Record<string, string> {
+  if (!cache) {
+    return {}
+  }
+
+  const map: Record<string, string> = {}
+
+  for (const entry of cache.entries) {
+    if (
+      !entry.id.startsWith(FIGURE_CAPTION_TRANSLATION_ID_PREFIX) ||
+      entry.status !== 'completed'
+    ) {
+      continue
+    }
+
+    const translatedText = normalizePaperTranslationText(
+      entry.translatedText ||
+        (entry.translatedMarkdown ? stripPaperTranslationMarkdown(entry.translatedMarkdown) : '')
+    )
+    if (!translatedText) {
+      continue
+    }
+
+    map[entry.id.slice(FIGURE_CAPTION_TRANSLATION_ID_PREFIX.length)] = translatedText
+  }
+
+  return map
 }
 
 export function isPaperPersonClusterText(text: string): boolean {
