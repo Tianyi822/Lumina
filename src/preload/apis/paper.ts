@@ -142,6 +142,15 @@ export const paperApi = {
     return ipcRenderer.invoke('paper:setChatSession', params)
   },
 
+  saveReadingProgress: (params: {
+    paperId: string
+    lastReadSegmentStableId: string
+    sourceRevisionId: string
+    translationVisible?: boolean
+  }): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('paper:saveReadingProgress', params)
+  },
+
   /**
    * 删除论文及其所有数据
    */

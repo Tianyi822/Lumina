@@ -102,6 +102,28 @@ export function registerPaperHandlers(): void {
     }
   )
 
+  ipcMain.handle(
+    'paper:saveReadingProgress',
+    (
+      _event,
+      params: {
+        paperId: string
+        lastReadSegmentStableId: string
+        sourceRevisionId: string
+        translationVisible?: boolean
+      }
+    ) => {
+      return paperStorageService.updateMeta(params.paperId, {
+        readingProgress: {
+          lastReadSegmentStableId: params.lastReadSegmentStableId,
+          sourceRevisionId: params.sourceRevisionId,
+          readAt: new Date().toISOString(),
+          translationVisible: params.translationVisible
+        }
+      })
+    }
+  )
+
   ipcMain.handle('paper:delete', (_event, paperId: string) => {
     const result = paperStorageService.deletePaper(paperId)
     if (result.success) {
