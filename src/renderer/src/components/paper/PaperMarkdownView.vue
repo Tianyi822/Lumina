@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import type {
   PaperAnnotation,
   PaperReaderDocument,
@@ -130,6 +131,11 @@ function scrollToQuoteAndHighlight(quote: PaperQuote): void {
 defineExpose({ scrollToQuoteAndHighlight })
 
 const paperReaderStore = usePaperReaderStore()
+const { zoomLevel } = storeToRefs(paperReaderStore)
+
+const contentZoomStyle = computed(() => ({
+  zoom: zoomLevel.value
+}))
 
 function getTranslationRenderKey(cache: PaperTranslationCache | null | undefined): string {
   if (!cache) {
@@ -247,6 +253,7 @@ onBeforeUnmount(() => {
       class="paper-markdown-view__scroll"
       @mouseup="composer.updateComposerFromSelection"
       @click="composer.handleSurfaceAnnotationClick"
+      @wheel="paperReaderStore.handleWheelZoom"
     >
       <div v-if="loading" class="paper-markdown-view__loading">
         <p>正在加载内容...</p>
@@ -260,7 +267,7 @@ onBeforeUnmount(() => {
         <p>暂无内容</p>
       </div>
 
-      <article v-else class="paper-markdown-view__content">
+      <article v-else class="paper-markdown-view__content" :style="contentZoomStyle">
         <section
           v-if="composer.translationMissingAnnotations.value.length > 0"
           class="paper-markdown-view__status-panel paper-markdown-view__status-panel--warning"

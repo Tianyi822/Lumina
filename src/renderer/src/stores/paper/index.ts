@@ -13,6 +13,37 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   const markdownContent = ref('')
   const markdownLoading = ref(false)
 
+  // 缩放状态
+  const ZOOM_MIN = 0.5
+  const ZOOM_MAX = 2.0
+  const ZOOM_STEP = 0.1
+  const zoomLevel = ref(1.0)
+
+  const zoomPercent = computed(() => Math.round(zoomLevel.value * 100))
+  const canZoomIn = computed(() => zoomLevel.value < ZOOM_MAX)
+  const canZoomOut = computed(() => zoomLevel.value > ZOOM_MIN)
+
+  function zoomIn(): void {
+    zoomLevel.value = Math.min(ZOOM_MAX, +(zoomLevel.value + ZOOM_STEP).toFixed(1))
+  }
+
+  function zoomOut(): void {
+    zoomLevel.value = Math.max(ZOOM_MIN, +(zoomLevel.value - ZOOM_STEP).toFixed(1))
+  }
+
+  function resetZoom(): void {
+    zoomLevel.value = 1.0
+  }
+
+  function handleWheelZoom(event: WheelEvent): void {
+    if (!event.ctrlKey) return
+    event.preventDefault()
+    // deltaY > 0 为缩小（pinch in），< 0 为放大（pinch out）
+    const delta = -event.deltaY * 0.01
+    const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomLevel.value + delta))
+    zoomLevel.value = +next.toFixed(2)
+  }
+
   function upsertPaper(paper: PaperDocument): void {
     const index = papers.value.findIndex((item) => item.id === paper.id)
     if (index >= 0) {
@@ -91,6 +122,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     figurePreview.clearPaperToc()
     translation.hideTranslation()
     figurePreview.resetFigureUiState()
+    resetZoom()
   }
 
   function clearPaperState(paperId: string): void {
@@ -341,6 +373,14 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     moveFigurePreview: figurePreview.moveFigurePreview,
     resizeFigurePreview: figurePreview.resizeFigurePreview,
     resetFigureUiState: figurePreview.resetFigureUiState,
-    hideTranslation: translation.hideTranslation
+    hideTranslation: translation.hideTranslation,
+    zoomLevel,
+    zoomPercent,
+    canZoomIn,
+    canZoomOut,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    handleWheelZoom
   }
 })

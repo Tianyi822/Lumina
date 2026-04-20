@@ -23,7 +23,10 @@ const {
   paperTocItems,
   markdownLoading,
   showFigurePanel,
-  translationVisible
+  translationVisible,
+  canZoomIn,
+  canZoomOut,
+  zoomPercent
 } = storeToRefs(paperReaderStore)
 
 interface PaperTocTreeNode {
@@ -258,6 +261,36 @@ onUnmounted(() => {
 
 <template>
   <div class="sm-workspace-toolbar__controls">
+    <template v-if="isPaperView && currentPaperId">
+      <button
+        class="sm-icon-button sm-workspace-toolbar__button"
+        title="缩小"
+        aria-label="缩小"
+        :disabled="!canZoomOut"
+        @click="paperReaderStore.zoomOut()"
+      >
+        <SvgIcon name="zoom-out" :size="14" />
+      </button>
+      <button
+        class="sm-icon-button sm-workspace-toolbar__button sm-workspace-toolbar__zoom-display"
+        :title="`${zoomPercent}%`"
+        aria-label="重置缩放"
+        :disabled="zoomPercent === 100"
+        @click="paperReaderStore.resetZoom()"
+      >
+        <span class="sm-workspace-toolbar__zoom-text">{{ zoomPercent }}%</span>
+      </button>
+      <button
+        class="sm-icon-button sm-workspace-toolbar__button"
+        title="放大"
+        aria-label="放大"
+        :disabled="!canZoomIn"
+        @click="paperReaderStore.zoomIn()"
+      >
+        <SvgIcon name="zoom-in" :size="14" />
+      </button>
+    </template>
+
     <button
       v-if="isPaperView && currentPaperId"
       class="sm-icon-button sm-workspace-toolbar__button"
@@ -505,6 +538,20 @@ onUnmounted(() => {
 .sm-workspace-toolbar__button:hover:disabled {
   background: var(--sm-color-surface-2);
   border-color: var(--sm-color-border-default);
+}
+
+.sm-workspace-toolbar__zoom-display {
+  width: auto;
+  min-width: 30px;
+  padding: 0 6px;
+  cursor: pointer;
+}
+
+.sm-workspace-toolbar__zoom-text {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--sm-color-text-tertiary);
 }
 
 .sm-workspace-toolbar__toc {
