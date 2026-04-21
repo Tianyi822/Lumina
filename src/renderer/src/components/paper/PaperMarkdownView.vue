@@ -206,11 +206,16 @@ onBeforeUnmount(() => {
       v-if="composer.noteEditorDraft.value"
       :state="composer.noteEditorDraft.value"
       :comment="composer.noteEditorComment.value"
+      :is-existing-note="composer.noteEditorIsExistingNote.value"
+      :can-update="composer.noteEditorCanUpdate.value"
       :saving="composer.noteEditorSaving.value"
       :error="composer.noteEditorError.value"
       @update:comment="composer.noteEditorComment.value = $event"
       @save="composer.handleSaveNote"
+      @update-note="composer.handleUpdateNote"
+      @delete-note="composer.handleDeleteNoteFromEditor"
       @cancel="composer.handleCancelNoteEditor"
+      @move="composer.handleMoveNoteEditor"
     />
 
     <PaperAnnotationHoverPopover

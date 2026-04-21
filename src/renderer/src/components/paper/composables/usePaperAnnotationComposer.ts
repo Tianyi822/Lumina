@@ -62,6 +62,7 @@ export interface SelectionActionMenuState {
 
 export interface NoteEditorState {
   draft: SelectionDraft
+  intent: 'create' | 'rebind' | 'edit'
   x: number
   y: number
 }
@@ -99,6 +100,8 @@ export interface PaperAnnotationComposer {
   selectionActionMenuError: Ref<string | null>
   noteEditorDraft: Ref<NoteEditorState | null>
   noteEditorComment: Ref<string>
+  noteEditorIsExistingNote: ComputedRef<boolean>
+  noteEditorCanUpdate: ComputedRef<boolean>
   noteEditorSaving: Ref<boolean>
   noteEditorError: Ref<string | null>
   annotationHoverPopover: Ref<AnnotationHoverPopoverState | null>
@@ -120,7 +123,10 @@ export interface PaperAnnotationComposer {
   handleAddToChat: () => void
   handleOpenNoteEditorFromHover: () => void
   handleSaveNote: () => Promise<void>
+  handleUpdateNote: () => Promise<void>
+  handleDeleteNoteFromEditor: () => Promise<void>
   handleCancelNoteEditor: () => void
+  handleMoveNoteEditor: (delta: { x: number; y: number }) => void
   handleUpdateHoverColor: (colorKey: PaperAnnotationColorKey) => Promise<void>
   handleSaveHoverNote: () => Promise<void>
   handleDeleteAnnotation: (annotationId: string) => Promise<void>
@@ -146,6 +152,7 @@ export function usePaperAnnotationComposer(
   const selectionActionMenuError = ref<string | null>(null)
   const noteEditorDraft = ref<NoteEditorState | null>(null)
   const noteEditorComment = ref('')
+  const noteEditorOriginalComment = ref('')
   const noteEditorSaving = ref(false)
   const noteEditorError = ref<string | null>(null)
   const annotationHoverPopover = ref<AnnotationHoverPopoverState | null>(null)
@@ -202,6 +209,16 @@ export function usePaperAnnotationComposer(
     return getAnnotationById(annotationHoverPopover.value.annotationId)
   })
 
+  const noteEditorIsExistingNote = computed(() => noteEditorDraft.value?.intent === 'edit')
+
+  const noteEditorCanUpdate = computed(() => {
+    return (
+      noteEditorIsExistingNote.value &&
+      !noteEditorSaving.value &&
+      noteEditorComment.value !== noteEditorOriginalComment.value
+    )
+  })
+
   function createTranslationAnchorPayload(
     anchor: PaperAnnotationTextAnchor | undefined
   ): CreatePaperAnnotationPayload['translationAnchor'] {
@@ -221,6 +238,7 @@ export function usePaperAnnotationComposer(
     selectionActionMenuError.value = null
     noteEditorDraft.value = null
     noteEditorComment.value = ''
+    noteEditorOriginalComment.value = ''
     noteEditorSaving.value = false
     noteEditorError.value = null
   }
@@ -263,6 +281,25 @@ export function usePaperAnnotationComposer(
     }
 
     return currentAnnotations.value.find((annotation) => annotation.id === annotationId) || null
+  }
+
+  function buildSelectionDraftFromAnnotation(annotation: PaperAnnotation): SelectionDraft {
+    return {
+      mode: 'rebind',
+      annotationId: annotation.id,
+      viewKind: annotation.noteType === 'translation_view' ? 'translation' : 'original',
+      noteType: annotation.noteType,
+      segmentStableId: annotation.semanticAnchor.segmentStableId,
+      renderSegmentId: annotation.semanticAnchor.renderSegmentIdAtCreation,
+      sourceRevisionId: annotation.semanticAnchor.sourceRevisionId,
+      segmentTextHash: annotation.semanticAnchor.segmentTextHash,
+      sourceRefs: annotation.semanticAnchor.sourceRefs,
+      selectedText: annotation.selectedTextSnapshot,
+      contextBefore: annotation.contextBefore,
+      contextAfter: annotation.contextAfter,
+      originalAnchor: annotation.originalAnchor,
+      translationAnchor: annotation.translationAnchor
+    }
   }
 
   function isAnnotationOutdated(annotation: PaperAnnotation): boolean {
@@ -424,24 +461,31 @@ export function usePaperAnnotationComposer(
     selectionActionMenuError.value = null
   }
 
+  function getNoteEditorIntent(draft: SelectionDraft): NoteEditorState['intent'] {
+    return draft.mode === 'rebind' ? 'rebind' : 'create'
+  }
+
   function openNoteEditor(draft: SelectionDraft, rect: DOMRect, comment: string): void {
     const position = computeFloatingPosition(rect, NOTE_EDITOR_WIDTH, NOTE_EDITOR_HEIGHT)
-    openNoteEditorAtPosition(draft, position.x, position.y, comment)
+    openNoteEditorAtPosition(draft, position.x, position.y, comment, getNoteEditorIntent(draft))
   }
 
   function openNoteEditorAtPosition(
     draft: SelectionDraft,
     x: number,
     y: number,
-    comment: string
+    comment: string,
+    intent: NoteEditorState['intent']
   ): void {
     const position = clampFloatingPosition(x, y, NOTE_EDITOR_WIDTH, NOTE_EDITOR_HEIGHT)
     noteEditorDraft.value = {
       draft,
+      intent,
       x: position.x,
       y: position.y
     }
     noteEditorComment.value = comment
+    noteEditorOriginalComment.value = comment
     noteEditorSaving.value = false
     noteEditorError.value = null
     selectionActionMenu.value = null
@@ -453,28 +497,29 @@ export function usePaperAnnotationComposer(
       return
     }
 
-    const draft: SelectionDraft = {
-      mode: 'rebind',
-      annotationId: annotation.id,
-      viewKind: annotation.noteType === 'translation_view' ? 'translation' : 'original',
-      noteType: annotation.noteType,
-      segmentStableId: annotation.semanticAnchor.segmentStableId,
-      renderSegmentId: annotation.semanticAnchor.renderSegmentIdAtCreation,
-      sourceRevisionId: annotation.semanticAnchor.sourceRevisionId,
-      segmentTextHash: annotation.semanticAnchor.segmentTextHash,
-      sourceRefs: annotation.semanticAnchor.sourceRefs,
-      selectedText: annotation.selectedTextSnapshot,
-      contextBefore: annotation.contextBefore,
-      contextAfter: annotation.contextAfter,
-      originalAnchor: annotation.originalAnchor,
-      translationAnchor: annotation.translationAnchor
-    }
-
     const x = annotationHoverPopover.value.x
     const y = annotationHoverPopover.value.y
     clearHoverPopover()
 
-    openNoteEditorAtPosition(draft, x, y, annotation.comment)
+    openNoteEditorAtPosition(
+      buildSelectionDraftFromAnnotation(annotation),
+      x,
+      y,
+      annotation.comment,
+      'rebind'
+    )
+  }
+
+  function openExistingNoteEditor(annotation: PaperAnnotation, x: number, y: number): void {
+    const offset = 12
+    clearHoverPopover()
+    openNoteEditorAtPosition(
+      buildSelectionDraftFromAnnotation(annotation),
+      x,
+      y + offset,
+      annotation.comment,
+      'edit'
+    )
   }
 
   function openHoverPopover(annotation: PaperAnnotation, x: number, y: number): void {
@@ -610,7 +655,8 @@ export function usePaperAnnotationComposer(
       selectionActionMenu.value.draft,
       selectionActionMenu.value.x,
       selectionActionMenu.value.y,
-      targetAnnotation?.comment || ''
+      targetAnnotation?.comment || '',
+      getNoteEditorIntent(selectionActionMenu.value.draft)
     )
   }
 
@@ -691,9 +737,94 @@ export function usePaperAnnotationComposer(
     clearNativeSelection()
   }
 
+  async function handleUpdateNote(): Promise<void> {
+    const annotationId = noteEditorDraft.value?.draft.annotationId
+    if (!annotationId || !noteEditorCanUpdate.value) {
+      return
+    }
+
+    noteEditorSaving.value = true
+    noteEditorError.value = null
+    const result = await options.updateAnnotation({
+      paperId: options.paperId(),
+      annotationId,
+      comment: noteEditorComment.value
+    })
+    noteEditorSaving.value = false
+
+    if (!result.success) {
+      noteEditorError.value = result.error || '更新笔记失败'
+      return
+    }
+
+    clearSelectionUi()
+    clearNativeSelection()
+  }
+
+  async function deleteAnnotationById(
+    annotationId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!options.paperId()) {
+      return { success: false, error: '论文不存在' }
+    }
+
+    const result = await options.deleteAnnotation(options.paperId(), annotationId)
+    if (!result.success) {
+      return { success: false, error: result.error }
+    }
+
+    if (rebindAnnotationId.value === annotationId) {
+      cancelRebindMode()
+    }
+
+    if (noteEditorDraft.value?.draft.annotationId === annotationId) {
+      clearSelectionUi()
+    }
+
+    if (annotationHoverPopover.value?.annotationId === annotationId) {
+      clearHoverPopover()
+    }
+
+    return { success: true }
+  }
+
+  async function handleDeleteNoteFromEditor(): Promise<void> {
+    const annotationId = noteEditorDraft.value?.draft.annotationId
+    if (!annotationId) {
+      return
+    }
+
+    noteEditorSaving.value = true
+    noteEditorError.value = null
+    const result = await deleteAnnotationById(annotationId)
+    noteEditorSaving.value = false
+
+    if (!result.success) {
+      noteEditorError.value = result.error || '删除笔记失败'
+    }
+  }
+
   function handleCancelNoteEditor(): void {
     clearSelectionUi()
     clearNativeSelection()
+  }
+
+  function handleMoveNoteEditor(delta: { x: number; y: number }): void {
+    if (!noteEditorDraft.value) {
+      return
+    }
+
+    const position = clampFloatingPosition(
+      noteEditorDraft.value.x + delta.x,
+      noteEditorDraft.value.y + delta.y,
+      NOTE_EDITOR_WIDTH,
+      NOTE_EDITOR_HEIGHT
+    )
+    noteEditorDraft.value = {
+      ...noteEditorDraft.value,
+      x: position.x,
+      y: position.y
+    }
   }
 
   async function handleUpdateHoverColor(colorKey: PaperAnnotationColorKey): Promise<void> {
@@ -739,22 +870,9 @@ export function usePaperAnnotationComposer(
   }
 
   async function handleDeleteAnnotation(annotationId: string): Promise<void> {
-    if (!options.paperId()) {
-      return
-    }
-
-    await options.deleteAnnotation(options.paperId(), annotationId)
-
-    if (rebindAnnotationId.value === annotationId) {
-      cancelRebindMode()
-    }
-
-    if (noteEditorDraft.value?.draft.annotationId === annotationId) {
-      clearSelectionUi()
-    }
-
-    if (annotationHoverPopover.value?.annotationId === annotationId) {
-      clearHoverPopover()
+    const result = await deleteAnnotationById(annotationId)
+    if (!result.success && annotationHoverPopover.value?.annotationId === annotationId) {
+      hoverPopoverError.value = result.error || '删除标注失败'
     }
   }
 
@@ -896,6 +1014,11 @@ export function usePaperAnnotationComposer(
       return
     }
 
+    if (annotation.kind === 'note') {
+      openExistingNoteEditor(annotation, event.clientX, event.clientY)
+      return
+    }
+
     openHoverPopover(annotation, event.clientX, event.clientY)
   }
 
@@ -904,6 +1027,8 @@ export function usePaperAnnotationComposer(
     selectionActionMenuError,
     noteEditorDraft,
     noteEditorComment,
+    noteEditorIsExistingNote,
+    noteEditorCanUpdate,
     noteEditorSaving,
     noteEditorError,
     annotationHoverPopover,
@@ -925,7 +1050,10 @@ export function usePaperAnnotationComposer(
     handleAddToChat,
     handleOpenNoteEditorFromHover,
     handleSaveNote,
+    handleUpdateNote,
+    handleDeleteNoteFromEditor,
     handleCancelNoteEditor,
+    handleMoveNoteEditor,
     handleUpdateHoverColor,
     handleSaveHoverNote,
     handleDeleteAnnotation,
