@@ -155,15 +155,31 @@ defineProps<{
 
 .paper-markdown-view__markdown :deep(mark.paper-annotation-highlight) {
   border-radius: 4px;
-  color: inherit;
+  color: var(--sm-color-paper-annotation-text);
   padding: 0 1px;
   cursor: pointer;
-  transition: box-shadow 0.16s ease;
-  mix-blend-mode: multiply;
+  box-shadow: inset 0 0 0 1px var(--sm-color-paper-annotation-border);
+  mix-blend-mode: normal;
+  transition:
+    background-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease;
 }
 
 .paper-markdown-view__markdown :deep(mark.paper-annotation-highlight:hover) {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sm-color-border-default) 70%, transparent);
+  box-shadow:
+    inset 0 0 0 1px var(--sm-color-paper-annotation-border-hover),
+    0 0 0 2px var(--sm-color-paper-annotation-active-ring);
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight:active) {
+  box-shadow:
+    inset 0 0 0 1px var(--sm-color-paper-annotation-border-hover),
+    0 0 0 3px var(--sm-color-paper-annotation-active-ring);
+}
+
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight *) {
+  color: inherit;
 }
 
 .paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--blue) {

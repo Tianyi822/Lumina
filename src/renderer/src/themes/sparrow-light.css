@@ -54,6 +54,10 @@
   --sm-color-paper-annotation-yellow: rgba(243, 214, 118, 0.42);
   --sm-color-paper-annotation-orange: rgba(242, 175, 108, 0.38);
   --sm-color-paper-annotation-green: rgba(126, 197, 148, 0.34);
+  --sm-color-paper-annotation-text: rgba(0, 0, 0, 0.88);
+  --sm-color-paper-annotation-border: rgba(0, 0, 0, 0.1);
+  --sm-color-paper-annotation-border-hover: rgba(0, 0, 0, 0.22);
+  --sm-color-paper-annotation-active-ring: rgba(0, 0, 0, 0.14);
 
   --sm-color-border-subtle: rgba(0, 0, 0, 0.06);
   --sm-color-border-default: rgba(0, 0, 0, 0.1);

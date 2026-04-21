@@ -12,7 +12,7 @@ import type {
   StreamEvent
 } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
-import { usePaperChatStreamStore } from '@renderer/stores'
+import { usePaperChatMessageCacheStore, usePaperChatStreamStore } from '@renderer/stores'
 import { buildChatMessages } from '@renderer/utils/messageHelpers'
 
 interface UsePaperChatStreamOptions {
@@ -68,20 +68,19 @@ function toPlainRequest<T>(request: T): T {
 
 export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaperChatStreamReturn {
   const paperChatStreamStore = usePaperChatStreamStore()
+  const paperChatMessageCache = usePaperChatMessageCacheStore()
   const sessionId = computed(() => options.session.value?.sessionId || '')
   const isSending = computed(() => {
     return sessionId.value ? paperChatStreamStore.getSessionSendingState(sessionId.value) : false
   })
 
   function handleStreamEvent(event: StreamEvent): void {
-    const currentSessionId = sessionId.value
-    if (!currentSessionId) {
-      return
-    }
+    const currentSessionId = sessionId.value || null
+    const targetSessionId = event.sessionId || paperChatStreamStore.streamingSessionId
 
     paperChatStreamStore.handleStreamEvent(event, currentSessionId, options.messages.value)
 
-    if (event.sessionId && event.sessionId !== currentSessionId) {
+    if (!currentSessionId || targetSessionId !== currentSessionId) {
       return
     }
 
@@ -127,6 +126,12 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
     if (!contextReady) {
       return
     }
+
+    options.messages.value = paperChatMessageCache.retainSessionMessages(
+      currentSessionId,
+      options.messages.value,
+      targetSession.title
+    )
 
     const snapshot = JSON.parse(JSON.stringify(options.messages.value)) as Message[]
     paperChatStreamStore.saveMessagesSnapshot(currentSessionId, snapshot)
@@ -205,6 +210,15 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
   })
 
   onBeforeUnmount(() => {
+    if (sessionId.value && paperChatStreamStore.getSessionSendingState(sessionId.value)) {
+      paperChatMessageCache.retainSessionMessages(
+        sessionId.value,
+        options.messages.value,
+        options.session.value?.title
+      )
+      return
+    }
+
     paperChatStreamStore.cleanupStreamListener()
   })
 
