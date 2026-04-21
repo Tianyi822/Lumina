@@ -3,6 +3,7 @@ import type { KnowledgeBase, MCPTool, Message, SessionData } from '@renderer/typ
 import type { PaperDocument } from '@shared/types/paper'
 import { sessionMessageToMessage, messageToSessionMessage } from '@renderer/utils/messageHelpers'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { usePaperChatMessageCacheStore } from '@renderer/stores'
 
 const PAPER_CONTEXT_KIND = 'paper_fulltext'
 
@@ -67,6 +68,7 @@ export function usePaperChatSession(
   paper: Ref<PaperDocument | null | undefined>
 ): UsePaperChatSessionReturn {
   const paperReaderStore = usePaperReaderStore()
+  const paperChatMessageCache = usePaperChatMessageCacheStore()
   const session = ref<SessionData | null>(null)
   const messages = ref<Message[]>([])
   const inputMessage = ref('')
@@ -82,7 +84,14 @@ export function usePaperChatSession(
 
   function applySessionData(nextSession: SessionData): void {
     session.value = nextSession
-    messages.value = nextSession.messages.map(sessionMessageToMessage)
+    const cachedSession = paperChatMessageCache.getCachedSession(nextSession.sessionId, true)
+    messages.value =
+      cachedSession?.messages ??
+      paperChatMessageCache.retainSessionMessages(
+        nextSession.sessionId,
+        nextSession.messages.map(sessionMessageToMessage),
+        nextSession.title
+      )
     selectedMCPTools.value = nextSession.selectionState?.selectedMCPTools || []
     selectedKnowledgeBases.value = nextSession.selectionState?.selectedKnowledgeBases || []
     enableSandboxTools.value = nextSession.selectionState?.enableSandboxTools || false
@@ -193,7 +202,14 @@ export function usePaperChatSession(
   }
 
   async function clearContext(): Promise<boolean> {
-    messages.value = []
+    messages.value.length = 0
+    if (session.value) {
+      paperChatMessageCache.retainSessionMessages(
+        session.value.sessionId,
+        messages.value,
+        session.value.title
+      )
+    }
     return await saveCurrentSession()
   }
 
