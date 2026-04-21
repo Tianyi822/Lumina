@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import type {
   PaperAnnotation,
@@ -44,10 +44,10 @@ defineExpose({ scrollToQuoteAndHighlight: quoteHighlight.scrollToQuoteAndHighlig
 
 const scrollContainerRef = ref<HTMLElement | null>(null)
 const paperReaderStore = usePaperReaderStore()
-const { zoomLevel } = storeToRefs(paperReaderStore)
+const { markdownZoomLevel } = storeToRefs(paperReaderStore)
 
 const contentZoomStyle = computed(() => ({
-  zoom: zoomLevel.value
+  zoom: markdownZoomLevel.value
 }))
 
 const engine = usePaperMarkdownEngine({
@@ -95,6 +95,34 @@ const annotationManagerActions = computed(() => ({
   handleCancelComposer: composer.handleCancelComposer
 }))
 
+function recordMarkdownScrollPosition(): void {
+  if (!props.paperId || !scrollContainerRef.value) {
+    return
+  }
+
+  paperReaderStore.setMarkdownScrollPosition(props.paperId, {
+    scrollTop: scrollContainerRef.value.scrollTop,
+    scrollLeft: scrollContainerRef.value.scrollLeft
+  })
+}
+
+async function restoreMarkdownScrollPosition(paperId: string): Promise<void> {
+  const position = paperReaderStore.getMarkdownScrollPosition(paperId)
+  if (!position) {
+    return
+  }
+
+  await nextTick()
+  requestAnimationFrame(() => {
+    if (props.paperId !== paperId || !scrollContainerRef.value) {
+      return
+    }
+
+    scrollContainerRef.value.scrollTop = position.scrollTop
+    scrollContainerRef.value.scrollLeft = position.scrollLeft
+  })
+}
+
 watch(
   () => [
     props.content,
@@ -105,12 +133,13 @@ watch(
     composer.currentAnnotations.value.length,
     composer.currentAnnotations.value.map((annotation) => annotation.updatedAt).join('|')
   ],
-  (newValues, oldValues) => {
-    void engine.renderContent()
+  async (newValues, oldValues) => {
+    await engine.renderContent()
 
     if (!oldValues) {
       composer.clearComposer()
       composer.cancelRebindMode()
+      await restoreMarkdownScrollPosition(props.paperId)
       return
     }
 
@@ -122,6 +151,10 @@ watch(
     if (contentChanged || basePathChanged || translationVisibleChanged || sourceRevisionIdChanged) {
       composer.clearComposer()
       composer.cancelRebindMode()
+    }
+
+    if (contentChanged || basePathChanged || sourceRevisionIdChanged) {
+      await restoreMarkdownScrollPosition(props.paperId)
     }
   },
   { immediate: true }
@@ -148,6 +181,7 @@ if (typeof document !== 'undefined') {
 }
 
 onBeforeUnmount(() => {
+  recordMarkdownScrollPosition()
   paperReaderStore.clearPaperToc()
   if (typeof document !== 'undefined') {
     document.removeEventListener('mousedown', composer.handleDocumentPointerDown)
@@ -163,6 +197,7 @@ onBeforeUnmount(() => {
       class="paper-markdown-view__scroll"
       @mouseup="composer.updateComposerFromSelection"
       @click="composer.handleSurfaceAnnotationClick"
+      @scroll="recordMarkdownScrollPosition"
       @wheel="paperReaderStore.handleWheelZoom"
     >
       <div v-if="loading" class="paper-markdown-view__loading">
