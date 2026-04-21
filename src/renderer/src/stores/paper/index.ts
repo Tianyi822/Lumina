@@ -9,21 +9,33 @@ import { usePaperAnnotations } from './composables/usePaperAnnotations'
 import { usePaperTranslation } from './composables/usePaperTranslation'
 import { usePaperRenderPipeline } from './composables/usePaperRenderPipeline'
 
+interface PaperViewScrollPosition {
+  scrollTop: number
+  scrollLeft: number
+}
+
 export const usePaperReaderStore = defineStore('paperReader', () => {
   const papers = ref<PaperDocument[]>([])
   const currentPaperId = ref<string | null>(null)
   const markdownContent = ref('')
   const markdownLoading = ref(false)
+  const originalPdfVisible = ref(false)
+  const markdownScrollPositionByPaperId = new Map<string, PaperViewScrollPosition>()
+  const originalPdfScrollPositionByPaperId = new Map<string, PaperViewScrollPosition>()
 
   // 缩放状态
   const ZOOM_DEFAULT = 1.0
   const ZOOM_MIN = 0.5
   const ZOOM_MAX = 2.0
   const ZOOM_STEP = 0.1
-  const zoomLevel = ref(ZOOM_DEFAULT)
+  const markdownZoomLevel = ref(ZOOM_DEFAULT)
+  const originalPdfZoomLevel = ref(ZOOM_DEFAULT)
   let zoomPersistenceReady = false
   let zoomSaveTimer: ReturnType<typeof setTimeout> | null = null
 
+  const zoomLevel = computed(() =>
+    originalPdfVisible.value ? originalPdfZoomLevel.value : markdownZoomLevel.value
+  )
   const zoomPercent = computed(() => Math.round(zoomLevel.value * 100))
   const canZoomIn = computed(() => zoomLevel.value < ZOOM_MAX)
   const canZoomOut = computed(() => zoomLevel.value > ZOOM_MIN)
@@ -42,7 +54,11 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     const configStore = useConfigStore()
-    configStore.updatePaperReaderConfig({ zoomLevel: zoomLevel.value })
+    configStore.updatePaperReaderConfig(
+      originalPdfVisible.value
+        ? { originalPdfZoomLevel: originalPdfZoomLevel.value }
+        : { zoomLevel: markdownZoomLevel.value }
+    )
 
     if (zoomSaveTimer) {
       clearTimeout(zoomSaveTimer)
@@ -56,11 +72,12 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
 
   function setZoomLevel(value: number, options: { persist?: boolean } = {}): void {
     const nextZoomLevel = normalizeZoomLevel(value)
-    if (zoomLevel.value === nextZoomLevel) {
+    const targetZoomLevel = originalPdfVisible.value ? originalPdfZoomLevel : markdownZoomLevel
+    if (targetZoomLevel.value === nextZoomLevel) {
       return
     }
 
-    zoomLevel.value = nextZoomLevel
+    targetZoomLevel.value = nextZoomLevel
 
     if (options.persist !== false) {
       scheduleZoomPersistence()
@@ -69,7 +86,10 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
 
   function loadPaperReaderPreferences(): void {
     const configStore = useConfigStore()
-    setZoomLevel(configStore.paperReaderConfig.zoomLevel ?? ZOOM_DEFAULT, { persist: false })
+    markdownZoomLevel.value = normalizeZoomLevel(configStore.paperReaderConfig.zoomLevel)
+    originalPdfZoomLevel.value = normalizeZoomLevel(
+      configStore.paperReaderConfig.originalPdfZoomLevel
+    )
     zoomPersistenceReady = true
   }
 
@@ -91,6 +111,40 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     // deltaY > 0 为缩小（pinch in），< 0 为放大（pinch out）
     const delta = -event.deltaY * 0.01
     setZoomLevel(zoomLevel.value + delta)
+  }
+
+  function normalizeScrollPosition(position: PaperViewScrollPosition): PaperViewScrollPosition {
+    const scrollTop = Number.isFinite(position.scrollTop) ? Math.max(position.scrollTop, 0) : 0
+    const scrollLeft = Number.isFinite(position.scrollLeft) ? Math.max(position.scrollLeft, 0) : 0
+
+    return {
+      scrollTop,
+      scrollLeft
+    }
+  }
+
+  function setMarkdownScrollPosition(paperId: string, position: PaperViewScrollPosition): void {
+    if (!paperId) {
+      return
+    }
+
+    markdownScrollPositionByPaperId.set(paperId, normalizeScrollPosition(position))
+  }
+
+  function getMarkdownScrollPosition(paperId: string): PaperViewScrollPosition | null {
+    return markdownScrollPositionByPaperId.get(paperId) || null
+  }
+
+  function setOriginalPdfScrollPosition(paperId: string, position: PaperViewScrollPosition): void {
+    if (!paperId) {
+      return
+    }
+
+    originalPdfScrollPositionByPaperId.set(paperId, normalizeScrollPosition(position))
+  }
+
+  function getOriginalPdfScrollPosition(paperId: string): PaperViewScrollPosition | null {
+    return originalPdfScrollPositionByPaperId.get(paperId) || null
   }
 
   function upsertPaper(paper: PaperDocument): void {
@@ -171,6 +225,18 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     figurePreview.clearPaperToc()
     translation.hideTranslation()
     figurePreview.resetFigureUiState()
+    hideOriginalPdf()
+  }
+
+  function hideOriginalPdf(): void {
+    originalPdfVisible.value = false
+  }
+
+  function toggleOriginalPdfVisible(): void {
+    originalPdfVisible.value = !originalPdfVisible.value
+    if (originalPdfVisible.value) {
+      figurePreview.resetFigureUiState()
+    }
   }
 
   function clearPaperState(paperId: string): void {
@@ -178,6 +244,8 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     figurePreview.clearPaperFigureState(paperId)
     translation.clearTranslationState(paperId)
     annotations.clearAnnotationState(paperId)
+    markdownScrollPositionByPaperId.delete(paperId)
+    originalPdfScrollPositionByPaperId.delete(paperId)
   }
 
   async function loadPapers(): Promise<void> {
@@ -242,6 +310,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     if (currentPaperId.value !== paperId) {
       translation.hideTranslation()
       figurePreview.resetFigureUiState()
+      hideOriginalPdf()
     }
 
     currentPaperId.value = paperId
@@ -269,6 +338,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     if (currentPaperId.value !== paperId) {
       translation.hideTranslation()
       figurePreview.resetFigureUiState()
+      hideOriginalPdf()
     }
 
     currentPaperId.value = paperId
@@ -372,6 +442,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     annotationsByPaperId: annotations.annotationsByPaperId,
     figureLoadingByPaperId: figurePreview.figureLoadingByPaperId,
     showFigurePanel: figurePreview.showFigurePanel,
+    originalPdfVisible,
     activeFigure: figurePreview.activeFigure,
     figurePreviewPinned: figurePreview.figurePreviewPinned,
     figurePreviewRect: figurePreview.figurePreviewRect,
@@ -429,7 +500,11 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     resizeFigurePreviewFromLeft: figurePreview.resizeFigurePreviewFromLeft,
     resetFigureUiState: figurePreview.resetFigureUiState,
     hideTranslation: translation.hideTranslation,
+    hideOriginalPdf,
+    toggleOriginalPdfVisible,
     loadPaperReaderPreferences,
+    markdownZoomLevel,
+    originalPdfZoomLevel,
     zoomLevel,
     zoomPercent,
     canZoomIn,
@@ -437,6 +512,10 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     zoomIn,
     zoomOut,
     resetZoom,
-    handleWheelZoom
+    handleWheelZoom,
+    setMarkdownScrollPosition,
+    getMarkdownScrollPosition,
+    setOriginalPdfScrollPosition,
+    getOriginalPdfScrollPosition
   }
 })
