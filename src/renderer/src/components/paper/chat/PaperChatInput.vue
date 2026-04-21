@@ -255,9 +255,16 @@ function handleStop(): void {
 }
 
 function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-    handleSend()
+  if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) {
+    return
   }
+
+  if (event.shiftKey) {
+    return
+  }
+
+  event.preventDefault()
+  handleSend()
 }
 
 /**
