@@ -48,6 +48,26 @@ export const usePaperChatMessageCacheStore = defineStore('paperChatMessageCache'
     return messagesToCache
   }
 
+  function retainSessionMessages(
+    sessionId: string,
+    messages: Message[],
+    title?: string
+  ): Message[] {
+    sessionMessagesCache.value.set(sessionId, messages)
+
+    if (title) {
+      sessionTitleCache.value.set(sessionId, title)
+    }
+
+    window.api.logger.debug('[PaperChatMessageCacheStore] 保留会话消息引用', {
+      sessionId,
+      title,
+      messageCount: messages.length
+    })
+
+    return messages
+  }
+
   // 更新缓存中的会话消息（用于流式更新）
   function updateCachedMessages(sessionId: string, messages: Message[]): void {
     if (!sessionMessagesCache.value.has(sessionId)) {
@@ -185,6 +205,7 @@ export const usePaperChatMessageCacheStore = defineStore('paperChatMessageCache'
     cacheSize,
     // Actions
     cacheSession,
+    retainSessionMessages,
     updateCachedMessages,
     getCachedSession,
     getCachedMessagesRef,
