@@ -66,7 +66,7 @@ export function createMainWindow(): BrowserWindow {
       : { frame: false }),
     // 设置窗口背景色，尽量与首屏实际主题保持一致，减少闪烁
     backgroundColor,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    ...(!isMac ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
