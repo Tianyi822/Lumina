@@ -24,6 +24,7 @@ export type {
   PaperLayoutBlock,
   PaperPageAsset,
   PaperPageOcrResult,
+  PaperReadingProgress,
   PaperReaderDocument,
   PaperReaderSegment,
   PaperReaderSegmentSourceRefs,
@@ -79,6 +80,17 @@ export interface PaperApi {
   setChatSession: (params: { paperId: string; sessionId: string }) => Promise<{
     success: boolean
     data?: PaperDocument
+    error?: string
+  }>
+
+  /** 保存阅读进度 */
+  saveReadingProgress: (params: {
+    paperId: string
+    lastReadSegmentStableId: string
+    sourceRevisionId: string
+    translationVisible?: boolean
+  }) => Promise<{
+    success: boolean
     error?: string
   }>
 

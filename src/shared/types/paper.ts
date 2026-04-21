@@ -36,6 +36,21 @@ export interface OcrProgressInfo {
 export type BlockLabel = 'text' | 'image' | 'table' | 'formula' | 'code'
 
 /**
+ * 论文阅读进度
+ * 基于 segment stable ID 锚定，不依赖像素偏移
+ */
+export interface PaperReadingProgress {
+  /** 最后阅读的段落 stable ID */
+  lastReadSegmentStableId: string
+  /** 阅读时的内容修订 ID（内容变更后不恢复） */
+  sourceRevisionId: string
+  /** 最后阅读时间 */
+  readAt: string
+  /** 译文是否可见 */
+  translationVisible?: boolean
+}
+
+/**
  * 论文文档元信息
  */
 export interface PaperDocument {
@@ -71,6 +86,8 @@ export interface PaperDocument {
   chatSessionId?: string
   /** 错误信息（可选） */
   errorMessage?: string
+  /** 阅读进度（可选） */
+  readingProgress?: PaperReadingProgress
 }
 
 /**

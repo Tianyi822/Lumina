@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { PaperDocument, PaperStatus } from '@shared/types/paper'
 import { createIdleTranslationTaskState, isPaperReadableStatus } from './shared'
+import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperFigurePreview } from './composables/usePaperFigurePreview'
 import { usePaperAnnotations } from './composables/usePaperAnnotations'
 import { usePaperTranslation } from './composables/usePaperTranslation'
@@ -12,6 +13,37 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   const currentPaperId = ref<string | null>(null)
   const markdownContent = ref('')
   const markdownLoading = ref(false)
+
+  // 缩放状态
+  const ZOOM_MIN = 0.5
+  const ZOOM_MAX = 2.0
+  const ZOOM_STEP = 0.1
+  const zoomLevel = ref(1.0)
+
+  const zoomPercent = computed(() => Math.round(zoomLevel.value * 100))
+  const canZoomIn = computed(() => zoomLevel.value < ZOOM_MAX)
+  const canZoomOut = computed(() => zoomLevel.value > ZOOM_MIN)
+
+  function zoomIn(): void {
+    zoomLevel.value = Math.min(ZOOM_MAX, +(zoomLevel.value + ZOOM_STEP).toFixed(1))
+  }
+
+  function zoomOut(): void {
+    zoomLevel.value = Math.max(ZOOM_MIN, +(zoomLevel.value - ZOOM_STEP).toFixed(1))
+  }
+
+  function resetZoom(): void {
+    zoomLevel.value = 1.0
+  }
+
+  function handleWheelZoom(event: WheelEvent): void {
+    if (!event.ctrlKey) return
+    event.preventDefault()
+    // deltaY > 0 为缩小（pinch in），< 0 为放大（pinch out）
+    const delta = -event.deltaY * 0.01
+    const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomLevel.value + delta))
+    zoomLevel.value = +next.toFixed(2)
+  }
 
   function upsertPaper(paper: PaperDocument): void {
     const index = papers.value.findIndex((item) => item.id === paper.id)
@@ -91,6 +123,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     figurePreview.clearPaperToc()
     translation.hideTranslation()
     figurePreview.resetFigureUiState()
+    resetZoom()
   }
 
   function clearPaperState(paperId: string): void {
@@ -145,8 +178,11 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   }
 
   function selectPaper(paperId: string | null): void {
+    const uiStateStore = useUIStateStore()
+
     if (!paperId) {
       currentPaperId.value = null
+      uiStateStore.setLastPaperId(null)
       resetReaderViewState()
       return
     }
@@ -162,6 +198,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     currentPaperId.value = paperId
+    uiStateStore.setLastPaperId(paperId)
   }
 
   async function openPaper(paperId: string): Promise<PaperDocument | null> {
@@ -188,6 +225,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     currentPaperId.value = paperId
+    useUIStateStore().setLastPaperId(paperId)
     await loadMarkdown(paperId)
 
     return result.data
@@ -212,6 +250,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
 
     if (currentPaperId.value === paperId) {
       currentPaperId.value = null
+      useUIStateStore().setLastPaperId(null)
       markdownContent.value = ''
       resetReaderViewState()
     }
@@ -341,6 +380,14 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     moveFigurePreview: figurePreview.moveFigurePreview,
     resizeFigurePreview: figurePreview.resizeFigurePreview,
     resetFigureUiState: figurePreview.resetFigureUiState,
-    hideTranslation: translation.hideTranslation
+    hideTranslation: translation.hideTranslation,
+    zoomLevel,
+    zoomPercent,
+    canZoomIn,
+    canZoomOut,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    handleWheelZoom
   }
 })

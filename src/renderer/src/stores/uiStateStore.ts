@@ -89,6 +89,7 @@ export const useUIStateStore = defineStore(
 
     const paperChatPanelOpen = ref(false)
     const paperChatPanelWidth = ref(420)
+    const lastPaperId = ref<string | null>(null)
 
     // 当前视图模式
     const currentView = ref<ViewMode>('paper')
@@ -202,6 +203,10 @@ export const useUIStateStore = defineStore(
 
     function setPaperChatPanelWidth(width: number): void {
       paperChatPanelWidth.value = Math.min(680, Math.max(340, Math.round(width)))
+    }
+
+    function setLastPaperId(paperId: string | null): void {
+      lastPaperId.value = paperId
     }
 
     // 切换当前视图对应的侧边栏状态
@@ -510,6 +515,7 @@ export const useUIStateStore = defineStore(
       paperSidebarCollapsed,
       paperChatPanelOpen,
       paperChatPanelWidth,
+      lastPaperId,
       currentView,
 
       // State: 沙箱页面 UI
@@ -544,6 +550,7 @@ export const useUIStateStore = defineStore(
       setPaperChatPanelOpen,
       togglePaperChatPanel,
       setPaperChatPanelWidth,
+      setLastPaperId,
       toggleCurrentSidebar,
       setCurrentSidebarCollapsed,
 
@@ -585,7 +592,8 @@ export const useUIStateStore = defineStore(
         'knowledgeSidebarCollapsed',
         'sandboxSidebarCollapsed',
         'paperSidebarCollapsed',
-        'paperChatPanelWidth'
+        'paperChatPanelWidth',
+        'lastPaperId'
       ]
     }
   }

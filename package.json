@@ -22,7 +22,7 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
-    "build:mac": "npm run build && electron-builder --mac",
+    "build:mac": "npm run build && npm_config_electron_mirror= npm_config_electron_builder_binaries_mirror=https://cdn.npmmirror.com/binaries/electron-builder-binaries/ electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
@@ -61,7 +61,7 @@
     "@types/pdf-parse": "^1.1.5",
     "@vitejs/plugin-vue": "^6.0.2",
     "electron": "^40.8.5",
-    "electron-builder": "^26.0.12",
+    "electron-builder": "^26.9.0",
     "electron-vite": "^5.0.0",
     "eslint": "^10.0.0",
     "eslint-plugin-vue": "^10.6.2",

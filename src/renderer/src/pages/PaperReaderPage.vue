@@ -77,6 +77,10 @@ onMounted(async () => {
   store.ensureOcrProgressListener()
   await store.loadPapers()
 
+  if (!currentPaperId.value && uiStateStore.lastPaperId) {
+    store.selectPaper(uiStateStore.lastPaperId)
+  }
+
   if (currentPaperId.value && isOcrCompleted.value) {
     await store.loadMarkdown(currentPaperId.value)
   }
@@ -85,6 +89,20 @@ onMounted(async () => {
 watch([currentPaperId, isOcrCompleted], ([paperId, completed]) => {
   if (!paperId || !completed) {
     uiStateStore.setPaperChatPanelOpen(false)
+  }
+})
+
+watch(markdownLoading, async (loading, wasLoading) => {
+  if (loading || !wasLoading) return
+
+  const progress = currentPaper.value?.readingProgress
+  if (!progress?.translationVisible) return
+
+  const revisionId = currentReaderDocument.value?.sourceRevisionId
+  if (revisionId && progress.sourceRevisionId !== revisionId) return
+
+  if (!store.translationVisible) {
+    await store.toggleTranslationVisible()
   }
 })
 
@@ -125,6 +143,7 @@ onBeforeUnmount(() => {
         :reader-document="currentReaderDocument"
         :translation-visible="translationVisible"
         :translation-cache="currentTranslationCache"
+        :reading-progress="currentPaper?.readingProgress"
         @add-to-chat="handleAddToChat"
       />
     </div>

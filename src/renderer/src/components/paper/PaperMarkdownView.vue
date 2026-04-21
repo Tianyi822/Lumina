@@ -1,18 +1,26 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import type {
   PaperAnnotation,
+  PaperReadingProgress,
   PaperReaderDocument,
   PaperTranslationCache
 } from '@shared/types/paper'
-import type { PaperQuote } from '@shared/types/chat'
-import { findPaperTextAnchorOffset } from '@shared/utils/paperAnnotationAnchors'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
-import { usePaperMarkdownEngine } from './composables/usePaperMarkdownEngine'
+import {
+  usePaperMarkdownEngine,
+  getTranslationRenderKey
+} from './composables/usePaperMarkdownEngine'
 import { usePaperAnnotationComposer } from './composables/usePaperAnnotationComposer'
+import { usePaperQuoteHighlight } from './composables/usePaperQuoteHighlight'
+import { usePaperReadingProgress } from './composables/usePaperReadingProgress'
 import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopover.vue'
 import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor.vue'
 import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu.vue'
+import PaperMarkdownSegmentList from './PaperMarkdownSegmentList.vue'
+import PaperMarkdownStatusPanels from './PaperMarkdownStatusPanels.vue'
+import PaperMarkdownAnnotationManager from './PaperMarkdownAnnotationManager.vue'
 
 const props = defineProps<{
   content: string
@@ -23,138 +31,24 @@ const props = defineProps<{
   translationCache?: PaperTranslationCache | null
   readerDocument?: PaperReaderDocument | null
   annotations?: PaperAnnotation[]
+  readingProgress?: PaperReadingProgress | null
 }>()
 
 const emit = defineEmits<{
-  (e: 'add-to-chat', quote: PaperQuote): void
+  (e: 'add-to-chat', quote: import('@shared/types/chat').PaperQuote): void
 }>()
 
-function removeQuoteHighlights(): void {
-  document.querySelectorAll('mark.paper-markdown-view__quote-highlight').forEach((mark) => {
-    const parent = mark.parentNode
-    if (!parent) {
-      return
-    }
+const quoteHighlight = usePaperQuoteHighlight()
 
-    mark.replaceWith(...Array.from(mark.childNodes))
-    parent.normalize()
-  })
-}
+defineExpose({ scrollToQuoteAndHighlight: quoteHighlight.scrollToQuoteAndHighlight })
 
-function resolveTextPoint(
-  root: Element,
-  absoluteOffset: number
-): { node: Text; offset: number } | null {
-  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  let currentOffset = 0
-
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Text
-    const length = node.textContent?.length || 0
-    const endOffset = currentOffset + length
-    if (absoluteOffset <= endOffset) {
-      return {
-        node,
-        offset: Math.max(0, absoluteOffset - currentOffset)
-      }
-    }
-    currentOffset = endOffset
-  }
-
-  return null
-}
-
-function highlightQuoteText(surface: HTMLElement, quote: PaperQuote): HTMLElement | null {
-  const textContent = surface.textContent || ''
-  const startOffset = findPaperTextAnchorOffset(textContent, quote.textAnchor)
-  if (startOffset === null) {
-    return null
-  }
-
-  const endOffset = startOffset + quote.textAnchor.selectedText.length
-  const startPoint = resolveTextPoint(surface, startOffset)
-  const endPoint = resolveTextPoint(surface, endOffset)
-  if (!startPoint || !endPoint) {
-    return null
-  }
-
-  const range = document.createRange()
-  range.setStart(startPoint.node, startPoint.offset)
-  range.setEnd(endPoint.node, endPoint.offset)
-  if (range.collapsed) {
-    return null
-  }
-
-  const mark = document.createElement('mark')
-  mark.className = 'paper-markdown-view__quote-highlight'
-  mark.dataset.paperQuoteId = quote.id
-  const fragment = range.extractContents()
-  mark.appendChild(fragment)
-  range.insertNode(mark)
-  return mark
-}
-
-function scrollToQuoteAndHighlight(quote: PaperQuote): void {
-  const segmentElement = document.querySelector<HTMLElement>(
-    `[data-paper-segment-stable-id="${quote.segmentStableId}"]`
-  )
-  if (!segmentElement) {
-    return
-  }
-
-  removeQuoteHighlights()
-  segmentElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-
-  const surface = segmentElement.querySelector<HTMLElement>(
-    `[data-paper-selection-surface="true"][data-view-kind="${quote.viewKind}"]`
-  )
-  if (!surface) {
-    return
-  }
-
-  const mark = highlightQuoteText(surface, quote)
-  if (!mark) {
-    return
-  }
-
-  window.setTimeout(() => {
-    if (!mark.isConnected) {
-      return
-    }
-    const parent = mark.parentNode
-    mark.replaceWith(...Array.from(mark.childNodes))
-    parent?.normalize()
-  }, 1800)
-}
-
-defineExpose({ scrollToQuoteAndHighlight })
-
+const scrollContainerRef = ref<HTMLElement | null>(null)
 const paperReaderStore = usePaperReaderStore()
+const { zoomLevel } = storeToRefs(paperReaderStore)
 
-function getTranslationRenderKey(cache: PaperTranslationCache | null | undefined): string {
-  if (!cache) {
-    return ''
-  }
-
-  return [
-    cache.sourceHash,
-    cache.translationRevisionId || '',
-    cache.updatedAt,
-    cache.completedSegments,
-    cache.totalSegments,
-    cache.entries
-      .map((entry) =>
-        [
-          entry.id,
-          entry.status,
-          entry.updatedAt || '',
-          entry.translatedText || '',
-          entry.translatedMarkdown || ''
-        ].join('\u0001')
-      )
-      .join('\u0002')
-  ].join('\u0003')
-}
+const contentZoomStyle = computed(() => ({
+  zoom: zoomLevel.value
+}))
 
 const engine = usePaperMarkdownEngine({
   content: () => props.content,
@@ -165,6 +59,16 @@ const engine = usePaperMarkdownEngine({
   annotations: () => props.annotations,
   setTocOutline: paperReaderStore.setPaperTocOutline,
   clearToc: paperReaderStore.clearPaperToc
+})
+
+usePaperReadingProgress({
+  scrollContainer: scrollContainerRef,
+  paperId: () => props.paperId,
+  renderedSegments: engine.renderedSegments,
+  loading: () => props.loading,
+  sourceRevisionId: () => props.readerDocument?.sourceRevisionId,
+  readingProgress: () => props.readingProgress,
+  translationVisible: () => props.translationVisible
 })
 
 const composer = usePaperAnnotationComposer({
@@ -179,6 +83,17 @@ const composer = usePaperAnnotationComposer({
   deleteAnnotation: paperReaderStore.deleteAnnotation,
   onAddToChat: (quote) => emit('add-to-chat', quote)
 })
+
+const annotationManagerActions = computed(() => ({
+  orphanAnnotations: composer.orphanAnnotations.value,
+  rebindAnnotationId: composer.rebindAnnotationId.value,
+  getAnnotationTypeLabel: composer.getAnnotationTypeLabel,
+  getAnnotationStatusLabel: composer.getAnnotationStatusLabel,
+  startRebind: composer.startRebind,
+  scrollToSegment: composer.scrollToSegment,
+  handleDeleteAnnotation: composer.handleDeleteAnnotation,
+  handleCancelComposer: composer.handleCancelComposer
+}))
 
 watch(
   () => [
@@ -244,9 +159,11 @@ onBeforeUnmount(() => {
 <template>
   <div class="paper-markdown-view">
     <div
+      ref="scrollContainerRef"
       class="paper-markdown-view__scroll"
       @mouseup="composer.updateComposerFromSelection"
       @click="composer.handleSurfaceAnnotationClick"
+      @wheel="paperReaderStore.handleWheelZoom"
     >
       <div v-if="loading" class="paper-markdown-view__loading">
         <p>正在加载内容...</p>
@@ -260,166 +177,17 @@ onBeforeUnmount(() => {
         <p>暂无内容</p>
       </div>
 
-      <article v-else class="paper-markdown-view__content">
-        <section
-          v-if="composer.translationMissingAnnotations.value.length > 0"
-          class="paper-markdown-view__status-panel paper-markdown-view__status-panel--warning"
-        >
-          <div class="paper-markdown-view__status-title">译文已删除，但相关标注仍然保留</div>
-          <p class="paper-markdown-view__status-text">
-            {{ composer.translationMissingAnnotations.value.length }}
-            条译文标注已自动降级到原文语义归属，重新翻译后可以继续恢复到译文视图。
-          </p>
-          <div class="paper-markdown-view__status-actions">
-            <button
-              class="sm-button sm-button--primary"
-              type="button"
-              @click="paperReaderStore.toggleTranslationVisible()"
-            >
-              重新翻译
-            </button>
-            <button
-              class="sm-button sm-button--secondary"
-              type="button"
-              @click="paperReaderStore.hideTranslation()"
-            >
-              在原文中查看
-            </button>
-          </div>
-        </section>
+      <article v-else class="paper-markdown-view__content" :style="contentZoomStyle">
+        <PaperMarkdownStatusPanels
+          :translation-missing-count="composer.translationMissingAnnotations.value.length"
+          :outdated-count="composer.outdatedAnnotations.value.length"
+          :on-retranslate="paperReaderStore.toggleTranslationVisible"
+          :on-view-in-original="paperReaderStore.hideTranslation"
+        />
 
-        <section
-          v-if="composer.outdatedAnnotations.value.length > 0"
-          class="paper-markdown-view__status-panel paper-markdown-view__status-panel--info"
-        >
-          <div class="paper-markdown-view__status-title">检测到基于旧版译文创建的标注</div>
-          <p class="paper-markdown-view__status-text">
-            当前共有
-            {{ composer.outdatedAnnotations.value.length }}
-            条标注依赖旧译文版本。系统会优先保留原文归属，
-            你可以直接更新到当前译文，或手动重新绑定到新的选区。
-          </p>
-        </section>
+        <PaperMarkdownAnnotationManager :actions="annotationManagerActions" />
 
-        <section
-          v-if="composer.orphanAnnotations.value.length > 0 || composer.rebindAnnotationId.value"
-          class="paper-markdown-view__manager"
-        >
-          <div class="paper-markdown-view__manager-header">
-            <div>
-              <div class="paper-markdown-view__manager-title">异常标注管理</div>
-              <p class="paper-markdown-view__manager-text">
-                这里集中显示需要人工确认的标注。点击“手动重新绑定”后，直接在正文里重新选择对应文本即可。
-              </p>
-            </div>
-            <button
-              v-if="composer.rebindAnnotationId.value"
-              class="sm-button sm-button--secondary"
-              type="button"
-              @click="composer.handleCancelComposer"
-            >
-              取消重绑
-            </button>
-          </div>
-
-          <article
-            v-for="annotation in composer.orphanAnnotations.value"
-            :key="annotation.id"
-            class="paper-markdown-view__manager-card"
-            :class="{
-              'paper-markdown-view__manager-card--active':
-                composer.rebindAnnotationId.value === annotation.id
-            }"
-          >
-            <div class="paper-markdown-view__manager-meta">
-              <span class="paper-markdown-view__note-type">
-                {{ composer.getAnnotationTypeLabel(annotation) }}
-              </span>
-              <span class="paper-markdown-view__note-status">
-                {{ composer.getAnnotationStatusLabel(annotation) || '待人工处理' }}
-              </span>
-            </div>
-            <div v-if="annotation.comment" class="paper-markdown-view__manager-comment">
-              {{ annotation.comment }}
-            </div>
-            <div class="paper-markdown-view__manager-selection">
-              {{ annotation.selectedTextSnapshot }}
-            </div>
-            <div class="paper-markdown-view__status-actions">
-              <button
-                class="sm-button sm-button--secondary"
-                type="button"
-                @click="composer.startRebind(annotation)"
-              >
-                手动重新绑定
-              </button>
-              <button
-                class="sm-button sm-button--secondary"
-                type="button"
-                @click="composer.scrollToSegment(annotation.semanticAnchor.segmentStableId)"
-              >
-                查看当前段落
-              </button>
-              <button
-                class="sm-button sm-button--danger"
-                type="button"
-                @click="composer.handleDeleteAnnotation(annotation.id)"
-              >
-                删除标注
-              </button>
-            </div>
-          </article>
-        </section>
-
-        <section
-          v-for="segment in engine.renderedSegments.value"
-          :id="segment.segmentAnchorId"
-          :key="segment.renderId"
-          class="paper-markdown-view__segment"
-          :class="{ 'paper-markdown-view__segment--meta': segment.isCenteredMeta }"
-          :data-paper-segment-stable-id="segment.stableId"
-        >
-          <div
-            class="paper-markdown-view__segment-original paper-markdown-view__markdown"
-            data-paper-selection-surface="true"
-            data-view-kind="original"
-            :data-segment-stable-id="segment.stableId"
-          >
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <div v-html="segment.originalHtml" />
-          </div>
-
-          <div
-            v-if="segment.showTranslation"
-            class="paper-markdown-view__segment-translation"
-            :class="`is-${segment.translationStatus}`"
-          >
-            <div
-              v-if="segment.translationHtml"
-              class="paper-markdown-view__segment-translation-body paper-markdown-view__markdown"
-              data-paper-selection-surface="true"
-              data-view-kind="translation"
-              :data-segment-stable-id="segment.stableId"
-            >
-              <!-- eslint-disable-next-line vue/no-v-html -->
-              <div v-html="segment.translationHtml" />
-            </div>
-
-            <div
-              v-else-if="segment.translationStatus === 'failed'"
-              class="paper-markdown-view__translation-error"
-            >
-              该段翻译暂时失败，再次点击翻译按钮时会继续补全剩余内容。
-            </div>
-
-            <div v-else class="paper-markdown-view__translation-placeholder" aria-hidden="true">
-              <span class="paper-markdown-view__translation-placeholder-text">正在翻译...</span>
-              <span class="paper-markdown-view__translation-placeholder-bar" />
-              <span class="paper-markdown-view__translation-placeholder-bar" />
-              <span class="paper-markdown-view__translation-placeholder-bar" />
-            </div>
-          </div>
-        </section>
+        <PaperMarkdownSegmentList :segments="engine.renderedSegments.value" />
       </article>
     </div>
 
@@ -522,94 +290,6 @@ onBeforeUnmount(() => {
   margin: 0 auto;
 }
 
-.paper-markdown-view__status-panel,
-.paper-markdown-view__manager {
-  margin-bottom: var(--sm-space-4);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 16px;
-  background: var(--sm-color-surface-1);
-  padding: var(--sm-space-4);
-}
-
-.paper-markdown-view__status-panel--warning {
-  background: linear-gradient(180deg, var(--sm-color-surface-1), var(--sm-color-surface-2));
-}
-
-.paper-markdown-view__status-panel--info {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--sm-color-accent-08) 70%, var(--sm-color-surface-1)),
-    var(--sm-color-surface-1)
-  );
-}
-
-.paper-markdown-view__status-title,
-.paper-markdown-view__manager-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.paper-markdown-view__status-text,
-.paper-markdown-view__manager-text {
-  margin: 8px 0 0;
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--sm-color-text-secondary);
-}
-
-.paper-markdown-view__status-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sm-space-2);
-  margin-top: var(--sm-space-3);
-}
-
-.paper-markdown-view__manager-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sm-space-3);
-}
-
-.paper-markdown-view__manager-card {
-  margin-top: var(--sm-space-3);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 14px;
-  background: var(--sm-color-surface-2);
-  padding: var(--sm-space-3);
-}
-
-.paper-markdown-view__manager-card--active {
-  border-color: var(--sm-color-border-accent);
-  background: color-mix(in srgb, var(--sm-color-accent-08) 68%, var(--sm-color-surface-2));
-}
-
-.paper-markdown-view__manager-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sm-space-2);
-  align-items: center;
-}
-
-.paper-markdown-view__manager-comment {
-  margin-top: var(--sm-space-2);
-  font-size: 13px;
-  line-height: 1.75;
-  color: var(--sm-color-text-primary);
-}
-
-.paper-markdown-view__manager-selection {
-  margin-top: var(--sm-space-2);
-  font-size: 12px;
-  line-height: 1.65;
-  color: var(--sm-color-text-secondary);
-}
-
-.paper-markdown-view__segment {
-  position: relative;
-}
-
 :deep(mark.paper-markdown-view__quote-highlight) {
   background: color-mix(in srgb, var(--sm-color-accent) 22%, transparent);
   border-radius: 3px;
@@ -630,342 +310,6 @@ onBeforeUnmount(() => {
   }
   100% {
     background: transparent;
-  }
-}
-
-.paper-markdown-view__segment + .paper-markdown-view__segment {
-  margin-top: var(--sm-space-3);
-}
-
-.paper-markdown-view__segment-original,
-.paper-markdown-view__segment-translation {
-  box-sizing: border-box;
-}
-
-.paper-markdown-view__segment-translation {
-  margin-top: var(--sm-space-2);
-}
-
-.paper-markdown-view__segment-translation.is-queued,
-.paper-markdown-view__segment-translation.is-translating {
-  opacity: 0.9;
-}
-
-.paper-markdown-view__translation-error {
-  color: var(--sm-color-text-secondary);
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.paper-markdown-view__translation-placeholder {
-  display: grid;
-  gap: var(--sm-space-2);
-  padding: var(--sm-space-1) 0;
-}
-
-.paper-markdown-view__translation-placeholder-text {
-  display: block;
-  font-size: 13px;
-  color: var(--sm-color-text-tertiary);
-  margin-bottom: var(--sm-space-1);
-}
-
-.paper-markdown-view__translation-placeholder-bar {
-  display: block;
-  width: 100%;
-  height: 12px;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--sm-color-border-subtle) 65%, transparent) 0%,
-    color-mix(in srgb, var(--sm-color-text-tertiary) 16%, transparent) 50%,
-    color-mix(in srgb, var(--sm-color-border-subtle) 65%, transparent) 100%
-  );
-  background-size: 180% 100%;
-  animation: paper-translation-breathe 1.8s ease-in-out infinite;
-}
-
-.paper-markdown-view__translation-placeholder-bar:nth-child(2) {
-  width: 92%;
-  animation-delay: 0.12s;
-}
-
-.paper-markdown-view__translation-placeholder-bar:nth-child(3) {
-  width: 78%;
-  animation-delay: 0.24s;
-}
-
-.paper-markdown-view__markdown {
-  width: 100%;
-  font-size: 15px;
-  line-height: 1.75;
-  color: var(--sm-color-text-primary);
-  user-select: text;
-  box-sizing: border-box;
-  overflow-x: hidden;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-}
-
-.paper-markdown-view__segment-translation-body {
-  width: 100%;
-}
-
-.paper-markdown-view__segment--meta .paper-markdown-view__markdown {
-  text-align: center;
-}
-
-.paper-markdown-view__note-type,
-.paper-markdown-view__note-status {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.paper-markdown-view__note-type {
-  background: var(--sm-color-accent-12);
-  color: var(--sm-color-text-secondary);
-}
-
-.paper-markdown-view__note-status {
-  background: color-mix(in srgb, var(--sm-color-status-warning) 18%, transparent);
-  color: var(--sm-color-text-secondary);
-}
-
-.paper-markdown-view__note-banner {
-  margin-top: var(--sm-space-3);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 12px;
-  padding: 12px;
-  background: var(--sm-color-surface-2);
-}
-
-.paper-markdown-view__note-banner--info {
-  border-color: var(--sm-color-border-accent);
-  background: color-mix(in srgb, var(--sm-color-accent-08) 72%, var(--sm-color-surface-2));
-}
-
-.paper-markdown-view__note-banner-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.paper-markdown-view__note-banner-text {
-  margin-top: 6px;
-  font-size: 12px;
-  line-height: 1.65;
-  color: var(--sm-color-text-secondary);
-}
-
-.paper-markdown-view__markdown > :first-child {
-  margin-top: 0;
-}
-
-.paper-markdown-view__markdown > :last-child {
-  margin-bottom: 0;
-}
-
-.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight) {
-  border-radius: 4px;
-  color: inherit;
-  padding: 0 1px;
-  cursor: pointer;
-  transition: box-shadow 0.16s ease;
-  mix-blend-mode: multiply;
-}
-
-.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight:hover) {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sm-color-border-default) 70%, transparent);
-}
-
-.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--blue) {
-  background: var(--sm-color-paper-annotation-blue);
-}
-
-.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--yellow) {
-  background: var(--sm-color-paper-annotation-yellow);
-}
-
-.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--orange) {
-  background: var(--sm-color-paper-annotation-orange);
-}
-
-.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--green) {
-  background: var(--sm-color-paper-annotation-green);
-}
-
-.paper-markdown-view__markdown :deep(h1) {
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.3;
-  margin: 1.2em 0 0.6em;
-  color: var(--sm-color-text-primary);
-}
-
-.paper-markdown-view__markdown :deep(h2) {
-  font-size: 20px;
-  font-weight: 600;
-  line-height: 1.35;
-  margin: 1.1em 0 0.55em;
-  color: var(--sm-color-text-primary);
-}
-
-.paper-markdown-view__markdown :deep(h3) {
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 1.4;
-  margin: 1em 0 0.5em;
-  color: var(--sm-color-text-primary);
-}
-
-.paper-markdown-view__markdown :deep(p) {
-  margin: 0.8em 0;
-}
-
-.paper-markdown-view__markdown :deep(a) {
-  color: var(--sm-color-accent-hover);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.paper-markdown-view__markdown :deep(a:hover) {
-  opacity: 0.85;
-}
-
-.paper-markdown-view__markdown :deep(eq) {
-  display: inline-block;
-  vertical-align: baseline;
-}
-
-.paper-markdown-view__markdown :deep(eqn) {
-  display: block;
-}
-
-.paper-markdown-view__markdown :deep(.katex) {
-  font-size: 1em;
-}
-
-.paper-markdown-view__markdown :deep(.katex-display) {
-  margin: 1.25em 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0.2em 0;
-}
-
-.paper-markdown-view__markdown :deep(.katex-display > .katex) {
-  display: inline-block;
-  min-width: min-content;
-}
-
-.paper-markdown-view__markdown :deep(pre) {
-  margin: 1em 0;
-  padding: var(--sm-space-4);
-  border-radius: var(--sm-radius-sm);
-  background: var(--sm-color-surface-1);
-  font-family: var(--sm-font-mono);
-  font-size: 13px;
-  line-height: 1.6;
-  overflow-x: auto;
-}
-
-.paper-markdown-view__markdown :deep(code) {
-  font-family: var(--sm-font-mono);
-  font-size: 0.9em;
-}
-
-.paper-markdown-view__markdown :deep(:not(pre) > code) {
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--sm-color-surface-hover);
-  font-size: 0.88em;
-}
-
-.paper-markdown-view__markdown :deep(img) {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
-  margin: 16px auto;
-  display: block;
-}
-
-.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap) {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  margin: 1em 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-gutter: stable both-edges;
-}
-
-.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap > table) {
-  width: max-content;
-  min-width: 100%;
-  margin: 0;
-  border-collapse: collapse;
-  border-spacing: 0;
-  table-layout: auto;
-  font-size: 14px;
-}
-
-.paper-markdown-view__markdown :deep(th),
-.paper-markdown-view__markdown :deep(td) {
-  padding: var(--sm-space-2) var(--sm-space-3);
-  border: 1px solid var(--sm-color-border-subtle);
-  text-align: left;
-  vertical-align: top;
-}
-
-.paper-markdown-view__markdown :deep(th) {
-  font-weight: 600;
-  background: var(--sm-color-surface-1);
-}
-
-.paper-markdown-view__markdown :deep(blockquote) {
-  margin: 1em 0;
-  padding: var(--sm-space-3) var(--sm-space-4);
-  border-left: 3px solid var(--sm-color-border-strong);
-  border-radius: 0 var(--sm-radius-sm) var(--sm-radius-sm) 0;
-  background: var(--sm-color-surface-1);
-  color: var(--sm-color-text-secondary);
-}
-
-.paper-markdown-view__markdown :deep(blockquote p) {
-  margin: 0.4em 0;
-}
-
-.paper-markdown-view__markdown :deep(ul),
-.paper-markdown-view__markdown :deep(ol) {
-  margin: 0.6em 0;
-  padding-inline-start: 2.8em;
-}
-
-.paper-markdown-view__markdown :deep(li) {
-  margin: 0.25em 0;
-}
-
-.paper-markdown-view__markdown :deep(li > p) {
-  margin: 0.2em 0;
-}
-
-.paper-markdown-view__markdown :deep(li > ul),
-.paper-markdown-view__markdown :deep(li > ol) {
-  margin: 0.25em 0;
-}
-
-@keyframes paper-translation-breathe {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
   }
 }
 </style>

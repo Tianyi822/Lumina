@@ -1657,10 +1657,10 @@ app-builder-bin@5.0.0-alpha.12:
   resolved "https://registry.npmmirror.com/app-builder-bin/-/app-builder-bin-5.0.0-alpha.12.tgz"
   integrity sha512-j87o0j6LqPL3QRr8yid6c+Tt5gC7xNfYo6uQIQkorAC6MpeayVMZrEDzKmJJ/Hlv7EnOQpaRm53k6ktDYZyB6w==
 
-app-builder-lib@26.7.0:
-  version "26.7.0"
-  resolved "https://registry.npmmirror.com/app-builder-lib/-/app-builder-lib-26.7.0.tgz"
-  integrity sha512-/UgCD8VrO79Wv8aBNpjMfsS1pIUfIPURoRn0Ik6tMe5avdZF+vQgl/juJgipcMmH3YS0BD573lCdCHyoi84USg==
+app-builder-lib@26.9.0:
+  version "26.9.0"
+  resolved "https://registry.npmmirror.com/app-builder-lib/-/app-builder-lib-26.9.0.tgz#4e9bc25cffa20f338f950ba291b0f4e68c95533c"
+  integrity sha512-f/1GhVrDfBH7sSzhAwiXa1rpR/7pB7Av5woUjmt+QYE0QyNvrOAiY05rngtR/PK4/1BzS6/zVoYobIwDAsrtBA==
   dependencies:
     "@develar/schema-utils" "~2.6.5"
     "@electron/asar" "3.4.1"
@@ -1673,15 +1673,15 @@ app-builder-lib@26.7.0:
     "@malept/flatpak-bundler" "^0.4.0"
     "@types/fs-extra" "9.0.13"
     async-exit-hook "^2.0.1"
-    builder-util "26.4.1"
-    builder-util-runtime "9.5.1"
+    builder-util "26.9.0"
+    builder-util-runtime "9.6.0"
     chromium-pickle-js "^0.2.0"
     ci-info "4.3.1"
     debug "^4.3.4"
     dotenv "^16.4.5"
     dotenv-expand "^11.0.6"
     ejs "^3.1.8"
-    electron-publish "26.6.0"
+    electron-publish "26.9.0"
     fs-extra "^10.1.0"
     hosted-git-info "^4.1.0"
     isbinaryfile "^5.0.0"
@@ -1903,15 +1903,23 @@ builder-util-runtime@9.5.1:
     debug "^4.3.4"
     sax "^1.2.4"
 
-builder-util@26.4.1:
-  version "26.4.1"
-  resolved "https://registry.npmmirror.com/builder-util/-/builder-util-26.4.1.tgz"
-  integrity sha512-FlgH43XZ50w3UtS1RVGDWOz8v9qMXPC7upMtKMtBEnYdt1OVoS61NYhKm/4x+cIaWqJTXua0+VVPI+fSPGXNIw==
+builder-util-runtime@9.6.0:
+  version "9.6.0"
+  resolved "https://registry.npmmirror.com/builder-util-runtime/-/builder-util-runtime-9.6.0.tgz#c663cd84adea60209ccc57e233a93d08776102fe"
+  integrity sha512-k9V5I18PXLepLZ8jVmPzsH+gVCVZ+9aMVLyCZ0ZLOkT2KSyiBblDCCN8WxDbjOpfLGNHZqqJPBmW0HYeqxlgkQ==
+  dependencies:
+    debug "^4.3.4"
+    sax "^1.2.4"
+
+builder-util@26.9.0:
+  version "26.9.0"
+  resolved "https://registry.npmmirror.com/builder-util/-/builder-util-26.9.0.tgz#62db68b13da5f12541f8d9c23f4254d719452750"
+  integrity sha512-+eocmbdisnyb40B9nAp/KREfYLXvGagxV50KZv/Zh4aflsr1fdY9Qxs6QG1Jtx1vH5d5NQ3hIcemUi4RSlFK/Q==
   dependencies:
     "7zip-bin" "~5.2.0"
     "@types/debug" "^4.1.6"
     app-builder-bin "5.0.0-alpha.12"
-    builder-util-runtime "9.5.1"
+    builder-util-runtime "9.6.0"
     chalk "^4.1.2"
     cross-spawn "^7.0.6"
     debug "^4.3.4"
@@ -2313,13 +2321,13 @@ dir-compare@^4.2.0:
     minimatch "^3.0.5"
     p-limit "^3.1.0 "
 
-dmg-builder@26.7.0:
-  version "26.7.0"
-  resolved "https://registry.npmmirror.com/dmg-builder/-/dmg-builder-26.7.0.tgz"
-  integrity sha512-uOOBA3f+kW3o4KpSoMQ6SNpdXU7WtxlJRb9vCZgOvqhTz4b3GjcoWKstdisizNZLsylhTMv8TLHFPFW0Uxsj/g==
+dmg-builder@26.9.0:
+  version "26.9.0"
+  resolved "https://registry.npmmirror.com/dmg-builder/-/dmg-builder-26.9.0.tgz#05060cbe321ba59469acd7e63aae3229603444a7"
+  integrity sha512-5uSyg0yY+JRMMGwFjIweaukYkCGcZSZwvH5VPlBHiKkTEP1a1/uV+bs4y+VAxPMgzg67YB4CF1vD4U/2d3chfg==
   dependencies:
-    app-builder-lib "26.7.0"
-    builder-util "26.4.1"
+    app-builder-lib "26.9.0"
+    builder-util "26.9.0"
     fs-extra "^10.1.0"
     iconv-lite "^0.6.2"
     js-yaml "^4.1.0"
@@ -2420,30 +2428,30 @@ ejs@^3.1.8:
   dependencies:
     jake "^10.8.5"
 
-electron-builder@^26.0.12:
-  version "26.7.0"
-  resolved "https://registry.npmmirror.com/electron-builder/-/electron-builder-26.7.0.tgz"
-  integrity sha512-LoXbCvSFxLesPneQ/fM7FB4OheIDA2tjqCdUkKlObV5ZKGhYgi5VHPHO/6UUOUodAlg7SrkPx7BZJPby+Vrtbg==
+electron-builder@^26.9.0:
+  version "26.9.0"
+  resolved "https://registry.npmmirror.com/electron-builder/-/electron-builder-26.9.0.tgz#e3ce52ca87f9b6e944d3b7be8f97360639fb2664"
+  integrity sha512-7BEeGz8Xlk7Qvitj70nGAQaq7WQIZ2amsDvsyKSZbxgtL2pM9fm/woZrtn0hoID6Fl7wkn456dK3OmtFNzgiOA==
   dependencies:
-    app-builder-lib "26.7.0"
-    builder-util "26.4.1"
-    builder-util-runtime "9.5.1"
+    app-builder-lib "26.9.0"
+    builder-util "26.9.0"
+    builder-util-runtime "9.6.0"
     chalk "^4.1.2"
     ci-info "^4.2.0"
-    dmg-builder "26.7.0"
+    dmg-builder "26.9.0"
     fs-extra "^10.1.0"
     lazy-val "^1.0.5"
     simple-update-notifier "2.0.0"
     yargs "^17.6.2"
 
-electron-publish@26.6.0:
-  version "26.6.0"
-  resolved "https://registry.npmmirror.com/electron-publish/-/electron-publish-26.6.0.tgz"
-  integrity sha512-LsyHMMqbvJ2vsOvuWJ19OezgF2ANdCiHpIucDHNiLhuI+/F3eW98ouzWSRmXXi82ZOPZXC07jnIravY4YYwCLQ==
+electron-publish@26.9.0:
+  version "26.9.0"
+  resolved "https://registry.npmmirror.com/electron-publish/-/electron-publish-26.9.0.tgz#1093d50f4c7fa2f6139180811faae7bf2485dc3e"
+  integrity sha512-gsy+U7JfDuD1lPOrCXeECDQoUsWjFah3s1Fv3pqKnjdJuKYDDvGdvC74kLHVG6nl5G0uQ7YN0eftCQ4rUmhvVw==
   dependencies:
     "@types/fs-extra" "^9.0.11"
-    builder-util "26.4.1"
-    builder-util-runtime "9.5.1"
+    builder-util "26.9.0"
+    builder-util-runtime "9.6.0"
     chalk "^4.1.2"
     form-data "^4.0.5"
     fs-extra "^10.1.0"
