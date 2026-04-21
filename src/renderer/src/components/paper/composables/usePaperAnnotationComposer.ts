@@ -29,6 +29,11 @@ import {
   SELECTION_MENU_HEIGHT,
   SELECTION_MENU_WIDTH
 } from './paperAnnotationFloating'
+import {
+  buildCanonicalTextIndex,
+  getCanonicalRangeOffsets,
+  trimCanonicalTextRange
+} from './paperCanonicalTextIndex'
 import type { RenderSourceSegment } from './usePaperHighlightRenderer'
 import type { RenderedSegment } from './usePaperMarkdownEngine'
 
@@ -338,11 +343,8 @@ export function usePaperAnnotationComposer(
     scrollToSegment(annotation.semanticAnchor.segmentStableId)
   }
 
-  function getSelectionTextOffset(root: HTMLElement, container: Node, offset: number): number {
-    const range = document.createRange()
-    range.selectNodeContents(root)
-    range.setEnd(container, offset)
-    return range.toString().length
+  function getSelectionContentRoot(surface: HTMLElement): Element {
+    return surface.firstElementChild || surface
   }
 
   function buildSelectionDraftFromCurrentSelection(): {
@@ -384,8 +386,8 @@ export function usePaperAnnotationComposer(
       return null
     }
 
-    const selectedText = selection.toString().trim()
-    if (!selectedText) {
+    const contentRoot = getSelectionContentRoot(startSurface)
+    if (!contentRoot.contains(range.startContainer) || !contentRoot.contains(range.endContainer)) {
       return null
     }
 
@@ -396,18 +398,26 @@ export function usePaperAnnotationComposer(
       return null
     }
 
-    const textContent = startSurface.textContent || ''
-    const startOffset = getSelectionTextOffset(
-      startSurface,
-      range.startContainer,
-      range.startOffset
-    )
-    const endOffset = getSelectionTextOffset(startSurface, range.endContainer, range.endOffset)
-    if (startOffset >= endOffset) {
+    const canonicalIndex = buildCanonicalTextIndex(contentRoot)
+    const rangeOffsets = getCanonicalRangeOffsets(canonicalIndex, range)
+    if (!rangeOffsets) {
       return null
     }
 
-    const textAnchor = buildPaperTextAnchor(textContent, startOffset, endOffset)
+    const trimmedRange = trimCanonicalTextRange(
+      canonicalIndex.text,
+      rangeOffsets.startOffset,
+      rangeOffsets.endOffset
+    )
+    if (!trimmedRange) {
+      return null
+    }
+
+    const textAnchor = buildPaperTextAnchor(
+      canonicalIndex.text,
+      trimmedRange.startOffset,
+      trimmedRange.endOffset
+    )
     const viewKind = (startSurface.dataset.viewKind as 'original' | 'translation') || 'original'
     const renderSourceSegment = options
       .getSourceSegments()
@@ -419,7 +429,7 @@ export function usePaperAnnotationComposer(
     const targetAnnotation = getAnnotationById(rebindAnnotationId.value)
     const mappedOriginalAnchor =
       viewKind === 'translation' && segment.translationText
-        ? mapPaperTextAnchorBetweenTexts(segment.translationText, segment.originalText, textAnchor)
+        ? mapPaperTextAnchorBetweenTexts(canonicalIndex.text, segment.originalText, textAnchor)
         : null
 
     return {
@@ -438,8 +448,14 @@ export function usePaperAnnotationComposer(
         segmentTextHash: segment.textHash,
         sourceRefs: renderSourceSegment.sourceRefs,
         selectedText: textAnchor.selectedText,
-        contextBefore: textContent.slice(Math.max(0, startOffset - 64), startOffset),
-        contextAfter: textContent.slice(endOffset, Math.min(textContent.length, endOffset + 64)),
+        contextBefore: canonicalIndex.text.slice(
+          Math.max(0, trimmedRange.startOffset - 64),
+          trimmedRange.startOffset
+        ),
+        contextAfter: canonicalIndex.text.slice(
+          trimmedRange.endOffset,
+          Math.min(canonicalIndex.text.length, trimmedRange.endOffset + 64)
+        ),
         originalAnchor:
           viewKind === 'original'
             ? textAnchor
