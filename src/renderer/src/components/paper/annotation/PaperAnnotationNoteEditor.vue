@@ -1,9 +1,17 @@
 <script setup lang="ts">
+import { onBeforeUnmount, ref } from 'vue'
 import type { NoteEditorState } from '../composables/usePaperAnnotationComposer'
+
+interface PointerState {
+  clientX: number
+  clientY: number
+}
 
 defineProps<{
   state: NoteEditorState
   comment: string
+  isExistingNote: boolean
+  canUpdate: boolean
   saving: boolean
   error: string | null
 }>()
@@ -11,8 +19,55 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'update:comment', value: string): void
   (e: 'save'): void
+  (e: 'update-note'): void
+  (e: 'delete-note'): void
   (e: 'cancel'): void
+  (e: 'move', delta: { x: number; y: number }): void
 }>()
+
+const dragState = ref<PointerState | null>(null)
+
+function stopDrag(): void {
+  dragState.value = null
+  window.removeEventListener('mousemove', handleDragMove)
+  window.removeEventListener('mouseup', handleDragEnd)
+}
+
+function handleDragMove(event: MouseEvent): void {
+  if (!dragState.value) {
+    return
+  }
+
+  emit('move', {
+    x: event.clientX - dragState.value.clientX,
+    y: event.clientY - dragState.value.clientY
+  })
+  dragState.value = {
+    clientX: event.clientX,
+    clientY: event.clientY
+  }
+}
+
+function handleDragEnd(): void {
+  stopDrag()
+}
+
+function handleDragStart(event: MouseEvent): void {
+  if (event.button !== 0) {
+    return
+  }
+
+  dragState.value = {
+    clientX: event.clientX,
+    clientY: event.clientY
+  }
+  window.addEventListener('mousemove', handleDragMove)
+  window.addEventListener('mouseup', handleDragEnd)
+}
+
+onBeforeUnmount(() => {
+  stopDrag()
+})
 </script>
 
 <template>
@@ -24,8 +79,12 @@ const emit = defineEmits<{
     }"
     @mousedown.stop
   >
-    <div class="paper-annotation-note-editor__title">
-      {{ state.draft.mode === 'rebind' ? '重新绑定笔记' : '记录笔记' }}
+    <div class="paper-annotation-note-editor__header" @mousedown.prevent="handleDragStart">
+      <div class="paper-annotation-note-editor__title">
+        {{
+          isExistingNote ? '编辑笔记' : state.draft.mode === 'rebind' ? '重新绑定笔记' : '记录笔记'
+        }}
+      </div>
     </div>
     <div class="paper-annotation-note-editor__selection">
       {{ state.draft.selectedText }}
@@ -39,22 +98,45 @@ const emit = defineEmits<{
     />
     <div class="paper-annotation-note-editor__actions">
       <div class="paper-annotation-note-editor__color-chip" />
-      <button class="sm-button sm-button--secondary" type="button" @click="emit('cancel')">
-        {{ state.draft.mode === 'rebind' ? '取消重绑' : '取消' }}
-      </button>
-      <button
-        class="sm-button sm-button--primary"
-        type="button"
-        :disabled="saving"
-        @click="emit('save')"
-      >
-        {{ saving ? '保存中...' : '保存笔记' }}
-      </button>
+      <template v-if="isExistingNote">
+        <button
+          class="sm-button sm-button--danger"
+          type="button"
+          :disabled="saving"
+          @click="emit('delete-note')"
+        >
+          删除笔记
+        </button>
+        <button
+          class="sm-button sm-button--primary"
+          type="button"
+          :disabled="saving || !canUpdate"
+          @click="emit('update-note')"
+        >
+          {{ saving ? '更新中...' : '更新笔记' }}
+        </button>
+      </template>
+      <template v-else>
+        <button class="sm-button sm-button--secondary" type="button" @click="emit('cancel')">
+          {{ state.draft.mode === 'rebind' ? '取消重绑' : '取消' }}
+        </button>
+        <button
+          class="sm-button sm-button--primary"
+          type="button"
+          :disabled="saving"
+          @click="emit('save')"
+        >
+          {{ saving ? '保存中...' : '保存笔记' }}
+        </button>
+      </template>
     </div>
     <p v-if="error" class="paper-annotation-note-editor__error">
       {{ error }}
     </p>
-    <p v-if="state.draft.mode === 'rebind'" class="paper-annotation-note-editor__hint">
+    <p
+      v-if="!isExistingNote && state.draft.mode === 'rebind'"
+      class="paper-annotation-note-editor__hint"
+    >
       保存后会保留原始创建时间，只更新定位与笔记内容。
     </p>
     <p v-if="state.draft.viewKind === 'translation'" class="paper-annotation-note-editor__hint">
@@ -79,6 +161,11 @@ const emit = defineEmits<{
   backdrop-filter: blur(18px);
   z-index: 20;
   overflow: auto;
+}
+
+.paper-annotation-note-editor__header {
+  cursor: move;
+  user-select: none;
 }
 
 .paper-annotation-note-editor__title {
