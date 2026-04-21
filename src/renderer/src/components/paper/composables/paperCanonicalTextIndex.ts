@@ -1,0 +1,316 @@
+export interface CanonicalTextBoundary {
+  node: Node
+  offset: number
+}
+
+export interface CanonicalTextSegment {
+  kind: 'text' | 'math'
+  text: string
+  startOffset: number
+  endOffset: number
+  startBoundary: CanonicalTextBoundary
+  endBoundary: CanonicalTextBoundary
+  sourceNode: Node
+}
+
+export interface CanonicalTextIndex {
+  root: Element
+  text: string
+  segments: CanonicalTextSegment[]
+}
+
+export type CanonicalTextPointAffinity = 'start' | 'end'
+
+const ELEMENT_NODE = 1
+const TEXT_NODE = 3
+
+function isElementNode(node: Node): node is Element {
+  return node.nodeType === ELEMENT_NODE
+}
+
+function isTextNode(node: Node): node is Text {
+  return node.nodeType === TEXT_NODE
+}
+
+function getNodeText(node: Node): string {
+  return node.textContent || ''
+}
+
+function getNodeIndex(node: Node): number {
+  const parent = node.parentNode
+  if (!parent) {
+    return 0
+  }
+
+  return Array.prototype.indexOf.call(parent.childNodes, node)
+}
+
+function matchesElement(element: Element, selector: string): boolean {
+  return typeof element.matches === 'function' && element.matches(selector)
+}
+
+function containsNode(parent: Node, child: Node): boolean {
+  if (parent === child) {
+    return true
+  }
+
+  if (typeof (parent as Node & { contains?: (node: Node) => boolean }).contains === 'function') {
+    return (parent as Node & { contains: (node: Node) => boolean }).contains(child)
+  }
+
+  let current: Node | null = child.parentNode
+  while (current) {
+    if (current === parent) {
+      return true
+    }
+    current = current.parentNode
+  }
+
+  return false
+}
+
+function readKatexTex(element: Element): string {
+  const annotation =
+    typeof element.querySelector === 'function'
+      ? element.querySelector('annotation[encoding="application/x-tex"]')
+      : null
+  const tex = annotation?.textContent?.trim()
+  if (tex) {
+    return `$${tex}$`
+  }
+
+  return element.textContent || ''
+}
+
+function getElementBoundary(element: Element, edge: 'before' | 'after'): CanonicalTextBoundary {
+  const parent = element.parentNode
+  if (!parent) {
+    return {
+      node: element,
+      offset: edge === 'before' ? 0 : element.childNodes.length
+    }
+  }
+
+  const index = getNodeIndex(element)
+  return {
+    node: parent,
+    offset: edge === 'before' ? index : index + 1
+  }
+}
+
+function clampOffset(offset: number, length: number): number {
+  return Math.max(0, Math.min(length, offset))
+}
+
+function appendSegment(
+  segments: CanonicalTextSegment[],
+  textParts: string[],
+  segment: Omit<CanonicalTextSegment, 'startOffset' | 'endOffset'>
+): void {
+  if (!segment.text) {
+    return
+  }
+
+  const startOffset = textParts.join('').length
+  const endOffset = startOffset + segment.text.length
+  textParts.push(segment.text)
+  segments.push({
+    ...segment,
+    startOffset,
+    endOffset
+  })
+}
+
+export function buildCanonicalTextIndex(root: Element): CanonicalTextIndex {
+  const textParts: string[] = []
+  const segments: CanonicalTextSegment[] = []
+
+  function walk(node: Node): void {
+    if (isElementNode(node) && matchesElement(node, '.katex')) {
+      appendSegment(segments, textParts, {
+        kind: 'math',
+        text: readKatexTex(node),
+        startBoundary: getElementBoundary(node, 'before'),
+        endBoundary: getElementBoundary(node, 'after'),
+        sourceNode: node
+      })
+      return
+    }
+
+    if (isTextNode(node)) {
+      const text = getNodeText(node)
+      appendSegment(segments, textParts, {
+        kind: 'text',
+        text,
+        startBoundary: {
+          node,
+          offset: 0
+        },
+        endBoundary: {
+          node,
+          offset: text.length
+        },
+        sourceNode: node
+      })
+      return
+    }
+
+    Array.from(node.childNodes).forEach(walk)
+  }
+
+  walk(root)
+
+  return {
+    root,
+    text: textParts.join(''),
+    segments
+  }
+}
+
+export function resolveCanonicalTextPoint(
+  index: CanonicalTextIndex,
+  absoluteOffset: number,
+  affinity: CanonicalTextPointAffinity
+): CanonicalTextBoundary | null {
+  if (index.segments.length === 0) {
+    return null
+  }
+
+  const offset = clampOffset(absoluteOffset, index.text.length)
+
+  for (const segment of index.segments) {
+    if (offset < segment.startOffset || offset > segment.endOffset) {
+      continue
+    }
+
+    if (segment.kind === 'math') {
+      if (offset <= segment.startOffset) {
+        return segment.startBoundary
+      }
+
+      if (offset >= segment.endOffset) {
+        return segment.endBoundary
+      }
+
+      return affinity === 'end' ? segment.endBoundary : segment.startBoundary
+    }
+
+    return {
+      node: segment.sourceNode,
+      offset: clampOffset(offset - segment.startOffset, segment.text.length)
+    }
+  }
+
+  const lastSegment = index.segments[index.segments.length - 1]
+  return offset <= 0 ? index.segments[0].startBoundary : lastSegment.endBoundary
+}
+
+function findSegmentContainingNode(
+  index: CanonicalTextIndex,
+  node: Node
+): CanonicalTextSegment | null {
+  return (
+    index.segments.find((segment) => {
+      return segment.kind === 'math' && containsNode(segment.sourceNode, node)
+    }) || null
+  )
+}
+
+function getCanonicalOffsetForElementPoint(
+  index: CanonicalTextIndex,
+  container: Element,
+  offset: number
+): number {
+  const childNodes = Array.from(container.childNodes)
+  const targetChild = childNodes[offset] || null
+
+  if (!targetChild) {
+    const containedSegments = index.segments.filter((segment) => {
+      return containsNode(container, segment.sourceNode)
+    })
+    return containedSegments.length > 0
+      ? containedSegments[containedSegments.length - 1].endOffset
+      : index.text.length
+  }
+
+  const nextSegment = index.segments.find((segment) => {
+    return containsNode(targetChild, segment.sourceNode) || segment.sourceNode === targetChild
+  })
+
+  return nextSegment?.startOffset ?? index.text.length
+}
+
+export function getCanonicalOffsetForDomPoint(
+  index: CanonicalTextIndex,
+  container: Node,
+  offset: number,
+  affinity: CanonicalTextPointAffinity
+): number | null {
+  const mathSegment = findSegmentContainingNode(index, container)
+  if (mathSegment) {
+    return affinity === 'end' ? mathSegment.endOffset : mathSegment.startOffset
+  }
+
+  if (isTextNode(container)) {
+    const textSegment = index.segments.find((segment) => segment.sourceNode === container)
+    if (!textSegment) {
+      return null
+    }
+
+    return textSegment.startOffset + clampOffset(offset, textSegment.text.length)
+  }
+
+  if (isElementNode(container)) {
+    return getCanonicalOffsetForElementPoint(index, container, offset)
+  }
+
+  return null
+}
+
+export function getCanonicalRangeOffsets(
+  index: CanonicalTextIndex,
+  range: Range
+): { startOffset: number; endOffset: number } | null {
+  const startOffset = getCanonicalOffsetForDomPoint(
+    index,
+    range.startContainer,
+    range.startOffset,
+    'start'
+  )
+  const endOffset = getCanonicalOffsetForDomPoint(index, range.endContainer, range.endOffset, 'end')
+
+  if (startOffset === null || endOffset === null) {
+    return null
+  }
+
+  return {
+    startOffset: Math.min(startOffset, endOffset),
+    endOffset: Math.max(startOffset, endOffset)
+  }
+}
+
+export function trimCanonicalTextRange(
+  text: string,
+  startOffset: number,
+  endOffset: number
+): { startOffset: number; endOffset: number } | null {
+  let nextStartOffset = clampOffset(startOffset, text.length)
+  let nextEndOffset = clampOffset(endOffset, text.length)
+
+  while (nextStartOffset < nextEndOffset && /\s/.test(text[nextStartOffset])) {
+    nextStartOffset += 1
+  }
+
+  while (nextEndOffset > nextStartOffset && /\s/.test(text[nextEndOffset - 1])) {
+    nextEndOffset -= 1
+  }
+
+  if (nextStartOffset >= nextEndOffset) {
+    return null
+  }
+
+  return {
+    startOffset: nextStartOffset,
+    endOffset: nextEndOffset
+  }
+}
