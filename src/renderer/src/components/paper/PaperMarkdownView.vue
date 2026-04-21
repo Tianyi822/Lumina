@@ -15,6 +15,7 @@ import {
 import { usePaperAnnotationComposer } from './composables/usePaperAnnotationComposer'
 import { usePaperQuoteHighlight } from './composables/usePaperQuoteHighlight'
 import { usePaperReadingProgress } from './composables/usePaperReadingProgress'
+import { usePaperTextSearch } from './composables/usePaperTextSearch'
 import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopover.vue'
 import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor.vue'
 import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu.vue'
@@ -43,8 +44,10 @@ const quoteHighlight = usePaperQuoteHighlight()
 defineExpose({ scrollToQuoteAndHighlight: quoteHighlight.scrollToQuoteAndHighlight })
 
 const scrollContainerRef = ref<HTMLElement | null>(null)
+const searchInputRef = ref<HTMLInputElement | null>(null)
 const paperReaderStore = usePaperReaderStore()
 const { markdownZoomLevel } = storeToRefs(paperReaderStore)
+const textSearch = usePaperTextSearch()
 
 const contentZoomStyle = computed(() => ({
   zoom: markdownZoomLevel.value
@@ -175,23 +178,161 @@ function handleHoverPopoverOpenNoteEditor(): void {
   composer.handleOpenNoteEditorFromHover()
 }
 
+function handleDocumentKeyDown(event: KeyboardEvent): void {
+  // 搜索快捷键优先处理
+  if ((event.metaKey || event.ctrlKey) && event.key === 'f') {
+    event.preventDefault()
+    if (textSearch.isOpen.value) {
+      searchInputRef.value?.focus()
+      searchInputRef.value?.select()
+    } else {
+      textSearch.openSearch()
+      const selection = window.getSelection()?.toString().trim()
+      if (selection && selection.length <= 200) {
+        textSearch.query.value = selection
+      }
+    }
+    return
+  }
+
+  if (event.key === 'Escape' && textSearch.isOpen.value) {
+    event.preventDefault()
+    textSearch.closeSearch()
+    return
+  }
+
+  composer.handleDocumentKeyDown(event)
+}
+
+function handleSearchInputKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Enter' && !event.isComposing) {
+    event.preventDefault()
+    const contentEl = scrollContainerRef.value?.querySelector('.paper-markdown-view__content')
+    if (contentEl instanceof HTMLElement) {
+      textSearch.search(contentEl, textSearch.query.value)
+    }
+    if (event.shiftKey) {
+      textSearch.goToPrevious()
+    } else {
+      textSearch.goToNext()
+    }
+  }
+}
+
+watch(textSearch.query, (newQuery) => {
+  if (!textSearch.isOpen.value) return
+  const contentEl = scrollContainerRef.value?.querySelector('.paper-markdown-view__content')
+  if (contentEl instanceof HTMLElement) {
+    textSearch.search(contentEl, newQuery)
+  }
+})
+
+watch(textSearch.isOpen, (open) => {
+  if (open) {
+    nextTick(() => {
+      searchInputRef.value?.focus()
+      if (textSearch.query.value) {
+        searchInputRef.value?.select()
+      }
+    })
+  }
+})
+
 if (typeof document !== 'undefined') {
   document.addEventListener('mousedown', composer.handleDocumentPointerDown)
-  document.addEventListener('keydown', composer.handleDocumentKeyDown)
+  document.addEventListener('keydown', handleDocumentKeyDown)
 }
 
 onBeforeUnmount(() => {
   recordMarkdownScrollPosition()
   paperReaderStore.clearPaperToc()
+  textSearch.closeSearch()
   if (typeof document !== 'undefined') {
     document.removeEventListener('mousedown', composer.handleDocumentPointerDown)
-    document.removeEventListener('keydown', composer.handleDocumentKeyDown)
+    document.removeEventListener('keydown', handleDocumentKeyDown)
   }
 })
 </script>
 
 <template>
   <div class="paper-markdown-view">
+    <div v-if="textSearch.isOpen.value" class="paper-markdown-view__search-bar">
+      <input
+        ref="searchInputRef"
+        v-model="textSearch.query.value"
+        type="text"
+        class="paper-markdown-view__search-input"
+        placeholder="搜索..."
+        @keydown="handleSearchInputKeydown"
+      />
+      <span v-if="textSearch.hasMatches.value" class="paper-markdown-view__search-count">
+        {{ textSearch.currentIndex.value + 1 }} / {{ textSearch.matchCount.value }}
+      </span>
+      <span v-else-if="textSearch.query.value.trim()" class="paper-markdown-view__search-count">
+        无结果
+      </span>
+      <button
+        class="paper-markdown-view__search-btn"
+        type="button"
+        :disabled="!textSearch.hasMatches.value"
+        title="上一个 (Shift+Enter)"
+        @click="textSearch.goToPrevious()"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="18 15 12 9 6 15" />
+        </svg>
+      </button>
+      <button
+        class="paper-markdown-view__search-btn"
+        type="button"
+        :disabled="!textSearch.hasMatches.value"
+        title="下一个 (Enter)"
+        @click="textSearch.goToNext()"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      <button
+        class="paper-markdown-view__search-btn paper-markdown-view__search-btn--close"
+        type="button"
+        title="关闭 (Esc)"
+        @click="textSearch.closeSearch()"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+
     <div
       ref="scrollContainerRef"
       class="paper-markdown-view__scroll"
@@ -276,6 +417,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 .paper-markdown-view__scroll {
@@ -351,5 +493,88 @@ onBeforeUnmount(() => {
   100% {
     background: transparent;
   }
+}
+
+.paper-markdown-view__search-bar {
+  position: absolute;
+  top: 52px;
+  right: 24px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--sm-color-border-default);
+  background: var(--sm-color-surface-1);
+  box-shadow:
+    0 16px 40px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
+  font-size: 13px;
+}
+
+.paper-markdown-view__search-input {
+  width: 180px;
+  padding: 4px 8px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--sm-transition-fast);
+}
+
+.paper-markdown-view__search-input:focus {
+  border-color: var(--sm-color-accent);
+}
+
+.paper-markdown-view__search-count {
+  color: var(--sm-color-text-secondary);
+  font-size: 12px;
+  min-width: 48px;
+  text-align: center;
+  user-select: none;
+}
+
+.paper-markdown-view__search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--sm-radius-sm);
+  background: transparent;
+  color: var(--sm-color-text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition:
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+}
+
+.paper-markdown-view__search-btn:hover:not(:disabled) {
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
+}
+
+.paper-markdown-view__search-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+:deep(mark.paper-markdown-view__search-highlight) {
+  background: color-mix(in srgb, var(--sm-color-accent) 20%, transparent);
+  border-radius: 2px;
+  color: inherit;
+}
+
+:deep(mark.paper-markdown-view__search-highlight--current) {
+  background: color-mix(in srgb, var(--sm-color-accent) 50%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sm-color-accent) 70%, transparent);
 }
 </style>
