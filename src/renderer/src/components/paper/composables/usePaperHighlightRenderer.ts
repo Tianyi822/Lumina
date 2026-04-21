@@ -9,6 +9,7 @@ import {
   buildPaperTextAnchor,
   findPaperTextAnchorOffset
 } from '@shared/utils/paperAnnotationAnchors'
+import { buildCanonicalTextIndex, resolveCanonicalTextPoint } from './paperCanonicalTextIndex'
 
 export interface RenderSourceSegment {
   renderId: string
@@ -26,6 +27,7 @@ export interface QuoteHighlight {
   id: string
   startOffset: number
   endOffset: number
+  anchor: PaperAnnotationTextAnchor
   kind: PaperAnnotationKind
   colorKey: PaperAnnotationColorKey
 }
@@ -96,8 +98,9 @@ function collectOriginalHighlights(
       return [
         {
           id: annotation.id,
-          startOffset,
-          endOffset: startOffset + resolvedAnchor.selectedText.length,
+          startOffset: resolvedAnchor.startOffset,
+          endOffset: resolvedAnchor.endOffset,
+          anchor: resolvedAnchor,
           kind: annotation.kind,
           colorKey: annotation.colorKey
         }
@@ -130,8 +133,9 @@ function collectTranslationHighlights(
       return [
         {
           id: annotation.id,
-          startOffset,
-          endOffset: startOffset + resolvedAnchor.selectedText.length,
+          startOffset: resolvedAnchor.startOffset,
+          endOffset: resolvedAnchor.endOffset,
+          anchor: resolvedAnchor,
           kind: annotation.kind,
           colorKey: annotation.colorKey
         }
@@ -139,33 +143,36 @@ function collectTranslationHighlights(
     })
 }
 
-export function resolveTextPoint(
-  root: Element,
-  absoluteOffset: number
-): { node: Text; offset: number } | null {
-  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  let currentOffset = 0
-
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Text
-    const length = node.textContent?.length || 0
-    const endOffset = currentOffset + length
-    if (absoluteOffset <= endOffset) {
-      return {
-        node,
-        offset: Math.max(0, absoluteOffset - currentOffset)
-      }
-    }
-    currentOffset = endOffset
-  }
-
-  return null
-}
-
 function sortHighlights(highlights: QuoteHighlight[]): QuoteHighlight[] {
   return [...highlights].sort((left, right) => {
     return left.startOffset - right.startOffset || left.endOffset - right.endOffset
   })
+}
+
+function resolveHighlightRange(
+  root: Element,
+  highlight: QuoteHighlight
+): { startPoint: { node: Node; offset: number }; endPoint: { node: Node; offset: number } } | null {
+  const canonicalIndex = buildCanonicalTextIndex(root)
+  const startOffset = findPaperTextAnchorOffset(canonicalIndex.text, highlight.anchor)
+  if (startOffset === null) {
+    return null
+  }
+
+  const startPoint = resolveCanonicalTextPoint(canonicalIndex, startOffset, 'start')
+  const endPoint = resolveCanonicalTextPoint(
+    canonicalIndex,
+    startOffset + highlight.anchor.selectedText.length,
+    'end'
+  )
+  if (!startPoint || !endPoint) {
+    return null
+  }
+
+  return {
+    startPoint,
+    endPoint
+  }
 }
 
 function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): string {
@@ -187,15 +194,14 @@ function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): stri
       continue
     }
 
-    const startPoint = resolveTextPoint(root, highlight.startOffset)
-    const endPoint = resolveTextPoint(root, highlight.endOffset)
-    if (!startPoint || !endPoint) {
+    const resolvedRange = resolveHighlightRange(root, highlight)
+    if (!resolvedRange) {
       continue
     }
 
     const range = document.createRange()
-    range.setStart(startPoint.node, startPoint.offset)
-    range.setEnd(endPoint.node, endPoint.offset)
+    range.setStart(resolvedRange.startPoint.node, resolvedRange.startPoint.offset)
+    range.setEnd(resolvedRange.endPoint.node, resolvedRange.endPoint.offset)
     if (range.collapsed) {
       continue
     }

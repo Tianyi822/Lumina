@@ -56,3 +56,25 @@ test('文本锚点可以恢复公式邻近文本中的选区', () => {
 
   assert.equal(recoveredOffset, shiftedText.indexOf('margin term'))
 })
+
+test('文本锚点可以把旧 KaTeX DOM 偏移恢复到源码文本位置', () => {
+  const selectedText = '训练中使用的唯一数据增强方法是从调整尺寸后的图像中随机裁剪正方形区域。'
+  const source =
+    '我们还移除了函数 $t_{u}$。我们也简化了图像变换函数 $t_{v}$。' +
+    `${selectedText}最后，用于控制 softmax 中 logits 范围的温度参数 $\\tau$。`
+  const legacyDomText =
+    '我们还移除了函数 tut_{u}tu\u200b。我们也简化了图像变换函数 tvt_{v}tv\u200b。' +
+    `${selectedText}最后，用于控制 softmax 中 logits 范围的温度参数 τ\\tauτ。`
+  const sourceStartOffset = source.indexOf(selectedText)
+  const legacyStartOffset = legacyDomText.indexOf(selectedText)
+  const anchor = buildPaperTextAnchor(
+    legacyDomText,
+    legacyStartOffset,
+    legacyStartOffset + selectedText.length
+  )
+
+  const recoveredOffset = findPaperTextAnchorOffset(source, anchor)
+
+  assert.notEqual(legacyStartOffset, sourceStartOffset)
+  assert.equal(recoveredOffset, sourceStartOffset)
+})

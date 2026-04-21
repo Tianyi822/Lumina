@@ -15,6 +15,7 @@
     "test:paper": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/paper/paperBlockClassifiers.test.ts src/main/services/paper/paperTextProcessing.test.ts src/main/services/paper/paperMarkdownBuilder.test.ts src/main/services/paper/paperFigureExtractor.test.ts src/main/services/paper/paperAssetLocalizer.test.ts src/main/services/paper/PaperService.test.ts src/main/services/paper/paperAnnotationRecovery.test.ts",
     "test:paper-ocr": "node --test --experimental-strip-types src/main/services/paper/paperOcrPipeline.test.ts",
     "test:paper-markdown": "node --test --experimental-strip-types src/shared/utils/paperMarkdown.test.mjs",
+    "test:paper-annotations": "node --test --experimental-strip-types src/shared/utils/paperAnnotationAnchors.test.mjs src/renderer/src/components/paper/composables/paperCanonicalTextIndex.test.mjs",
     "test:paper-translation": "node --test --experimental-strip-types src/shared/utils/paperTranslation.test.mjs src/main/services/paper/PaperTranslationCore.test.ts",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",

@@ -1,6 +1,6 @@
 import type { PaperQuote } from '@shared/types/chat'
 import { findPaperTextAnchorOffset } from '@shared/utils/paperAnnotationAnchors'
-import { resolveTextPoint } from './usePaperHighlightRenderer'
+import { buildCanonicalTextIndex, resolveCanonicalTextPoint } from './paperCanonicalTextIndex'
 
 interface PaperQuoteHighlightController {
   scrollToQuoteAndHighlight: (quote: PaperQuote) => void
@@ -19,15 +19,16 @@ function removeQuoteHighlights(): void {
 }
 
 function highlightQuoteText(surface: HTMLElement, quote: PaperQuote): HTMLElement | null {
-  const textContent = surface.textContent || ''
-  const startOffset = findPaperTextAnchorOffset(textContent, quote.textAnchor)
+  const contentRoot = surface.firstElementChild || surface
+  const canonicalIndex = buildCanonicalTextIndex(contentRoot)
+  const startOffset = findPaperTextAnchorOffset(canonicalIndex.text, quote.textAnchor)
   if (startOffset === null) {
     return null
   }
 
   const endOffset = startOffset + quote.textAnchor.selectedText.length
-  const startPoint = resolveTextPoint(surface, startOffset)
-  const endPoint = resolveTextPoint(surface, endOffset)
+  const startPoint = resolveCanonicalTextPoint(canonicalIndex, startOffset, 'start')
+  const endPoint = resolveCanonicalTextPoint(canonicalIndex, endOffset, 'end')
   if (!startPoint || !endPoint) {
     return null
   }
