@@ -20,6 +20,18 @@ import {
 import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
 import { normalizeCustomPromptVariables } from '@shared/utils'
 
+const PAPER_READER_ZOOM_DEFAULT = 1
+const PAPER_READER_ZOOM_MIN = 0.5
+const PAPER_READER_ZOOM_MAX = 2
+
+function sanitizePaperReaderZoomLevel(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return PAPER_READER_ZOOM_DEFAULT
+  }
+
+  return Math.min(PAPER_READER_ZOOM_MAX, Math.max(PAPER_READER_ZOOM_MIN, +value.toFixed(2)))
+}
+
 function sanitizePaperReaderConfig(config: PaperReaderConfig | undefined): PaperReaderConfig {
   const provider =
     config?.ocr?.provider && getOcrProviderPreset(config.ocr.provider as OcrProviderId)
@@ -28,7 +40,8 @@ function sanitizePaperReaderConfig(config: PaperReaderConfig | undefined): Paper
   const sanitized: PaperReaderConfig = {
     ocr: {
       provider
-    }
+    },
+    zoomLevel: sanitizePaperReaderZoomLevel(config?.zoomLevel)
   }
 
   if (typeof config?.ocr?.apiKey === 'string') {
