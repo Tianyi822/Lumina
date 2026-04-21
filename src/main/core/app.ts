@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createMainWindow } from './window'
+import icon from '../../../resources/icon.png?asset'
 import {
   registerAllIpcHandlers,
   initializeConfig,
@@ -20,7 +21,11 @@ export function initializeApp(): void {
   // 当 Electron 完成初始化并准备创建浏览器窗口时调用此方法
   app.whenReady().then(() => {
     // 为 Windows 设置应用用户模型 ID
-    electronApp.setAppUserModelId('com.electron')
+    electronApp.setAppUserModelId('com.sparrow.manus')
+
+    if (process.platform === 'darwin') {
+      app.dock?.setIcon(icon)
+    }
 
     // 开发环境下默认按 F12 打开或关闭开发者工具
     // 生产环境下忽略 CommandOrControl + R
