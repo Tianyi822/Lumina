@@ -428,7 +428,8 @@ onBeforeUnmount(() => {
   scrollbar-width: thin;
   scrollbar-color: var(--sm-color-border-strong) transparent;
   scrollbar-gutter: stable;
-  padding: var(--sm-space-3) var(--sm-space-4) var(--sm-space-6);
+  padding: calc(var(--sm-paper-toolbar-height) + var(--sm-space-2)) var(--sm-space-4)
+    var(--sm-space-6);
 }
 
 .paper-markdown-view__scroll::-webkit-scrollbar {
@@ -497,7 +498,7 @@ onBeforeUnmount(() => {
 
 .paper-markdown-view__search-bar {
   position: absolute;
-  top: 52px;
+  top: calc(var(--sm-paper-toolbar-height) + var(--sm-space-2));
   right: 24px;
   z-index: 20;
   display: flex;
