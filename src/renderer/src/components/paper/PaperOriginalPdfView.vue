@@ -363,7 +363,8 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 52px var(--sm-space-5) var(--sm-space-6);
+  padding: calc(var(--sm-paper-toolbar-height) + var(--sm-space-2)) var(--sm-space-5)
+    var(--sm-space-6);
   scrollbar-width: thin;
   scrollbar-color: var(--sm-color-border-strong) transparent;
   scrollbar-gutter: stable;

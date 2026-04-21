@@ -270,9 +270,9 @@ onBeforeUnmount(() => {
   width: var(--paper-chat-panel-width);
   min-width: 340px;
   max-width: min(680px, 100vw);
-  height: calc(100% - 44px - var(--sm-space-2));
+  height: calc(100% - var(--sm-paper-toolbar-height) - var(--sm-space-2));
   min-height: 0;
-  margin-top: 44px;
+  margin-top: var(--sm-paper-toolbar-height);
   margin-bottom: var(--sm-space-2);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-lg);
@@ -328,7 +328,7 @@ onBeforeUnmount(() => {
 @media (max-width: 760px) {
   .paper-reader-page__chat-slot {
     position: absolute;
-    top: 44px;
+    top: var(--sm-paper-toolbar-height);
     right: 0;
     bottom: var(--sm-space-2);
     z-index: 20;
