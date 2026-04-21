@@ -148,11 +148,16 @@ onUnmounted(() => {
         <SvgIcon v-if="props.variant === 'compact'" name="send" :size="17" />
         <template v-else>
           <span>执行</span>
-          <span class="paper-chat-input-toolbar__shortcut">⌘↵</span>
         </template>
       </button>
-      <button v-else class="btn-danger paper-chat-input-toolbar__stop-button" @click="emit('stop')">
-        <span>停止</span>
+      <button
+        v-else
+        class="btn-danger paper-chat-input-toolbar__stop-button"
+        title="停止"
+        aria-label="停止"
+        @click="emit('stop')"
+      >
+        <SvgIcon name="stop" :size="18" />
       </button>
     </div>
   </div>
@@ -363,7 +368,11 @@ onUnmounted(() => {
 .paper-chat-input-toolbar__stop-button {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   background: rgba(239, 68, 68, 0.15);
   border-color: rgba(239, 68, 68, 0.4);
   color: var(--sm-color-status-danger);
@@ -372,11 +381,6 @@ onUnmounted(() => {
 .paper-chat-input-toolbar__stop-button:hover {
   background: rgba(239, 68, 68, 0.25);
   border-color: var(--sm-color-status-danger);
-}
-
-.paper-chat-input-toolbar__shortcut {
-  font-size: 11px;
-  opacity: 0.6;
 }
 
 @media (max-width: 768px) {
