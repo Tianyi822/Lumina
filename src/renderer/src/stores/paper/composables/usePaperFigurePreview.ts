@@ -35,6 +35,7 @@ export interface PaperFigurePreviewComposable {
   setFigurePreviewRect: (nextRect: Partial<PaperFigurePreviewRect>) => void
   moveFigurePreview: (delta: { x: number; y: number }) => void
   resizeFigurePreview: (nextWidth: number) => void
+  resizeFigurePreviewFromLeft: (nextWidth: number) => void
   loadFigures: (paperId: string, force?: boolean) => Promise<PaperFigureItem[]>
   toggleFigurePanel: () => Promise<void>
   openFigurePreview: (
@@ -118,9 +119,7 @@ export function usePaperFigurePreview(
       typeof nextRect.width === 'number' && Number.isFinite(nextRect.width)
         ? nextRect.width
         : figurePreviewRect.value.width
-    const maxWidth =
-      typeof window === 'undefined' ? 720 : Math.max(Math.min(window.innerWidth - 32, 720), 320)
-    const width = Math.min(Math.max(nextWidth, 320), maxWidth)
+    const width = Math.max(nextWidth, 320)
 
     figurePreviewRect.value = {
       left: clampPreviewLeft(nextRect.left ?? figurePreviewRect.value.left, width),
@@ -158,14 +157,27 @@ export function usePaperFigurePreview(
       return
     }
 
-    const maxWidth =
-      typeof window === 'undefined' ? 720 : Math.max(Math.min(window.innerWidth - 32, 720), 320)
-    const width = Math.min(Math.max(nextWidth, 320), maxWidth)
+    const width = Math.max(nextWidth, 320)
 
     figurePreviewRect.value = {
       ...figurePreviewRect.value,
       width,
       left: clampPreviewLeft(figurePreviewRect.value.left, width)
+    }
+  }
+
+  function resizeFigurePreviewFromLeft(nextWidth: number): void {
+    if (!Number.isFinite(nextWidth)) {
+      return
+    }
+
+    const right = figurePreviewRect.value.left + figurePreviewRect.value.width
+    const width = Math.max(nextWidth, 320)
+
+    figurePreviewRect.value = {
+      ...figurePreviewRect.value,
+      width,
+      left: clampPreviewLeft(right - width, width)
     }
   }
 
@@ -316,6 +328,7 @@ export function usePaperFigurePreview(
     setFigurePreviewRect,
     moveFigurePreview,
     resizeFigurePreview,
+    resizeFigurePreviewFromLeft,
     loadFigures,
     toggleFigurePanel,
     openFigurePreview,
