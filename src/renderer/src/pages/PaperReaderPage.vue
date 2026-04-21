@@ -6,6 +6,7 @@ import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperChatQuoteStore } from '@renderer/stores/paperChatQuoteStore'
 import type { PaperQuote } from '@shared/types/chat'
 import PaperMarkdownView from '@renderer/components/paper/PaperMarkdownView.vue'
+import PaperOriginalPdfView from '@renderer/components/paper/PaperOriginalPdfView.vue'
 import PaperFigurePreview from '@renderer/components/paper/PaperFigurePreview.vue'
 import PaperChatPanel from '@renderer/components/paper/chat/PaperChatPanel.vue'
 
@@ -22,6 +23,7 @@ const {
   paperBasePath,
   currentAnnotations,
   currentReaderDocument,
+  originalPdfVisible,
   translationVisible,
   currentTranslationCache
 } = storeToRefs(store)
@@ -112,6 +114,7 @@ watch(markdownLoading, async (loading, wasLoading) => {
 onBeforeUnmount(() => {
   stopPaperChatResize()
   store.resetFigureUiState()
+  store.hideOriginalPdf()
 })
 </script>
 
@@ -134,6 +137,13 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </div>
+
+      <PaperOriginalPdfView
+        v-else-if="isOcrCompleted && originalPdfVisible && currentPaper"
+        :paper-id="currentPaperId || ''"
+        :page-assets="currentPaper.pageAssets"
+        :page-count="currentPaper.pageCount"
+      />
 
       <PaperMarkdownView
         v-else-if="isOcrCompleted"
