@@ -47,13 +47,14 @@ export class SandboxToolService {
     // 添加交互类工具定义
     mcpTools.push({
       name: 'sandbox__ask_user',
-      description: '向用户提问并提供选项，等待用户选择后继续。当需要用户确认或选择时使用此工具',
+      description:
+        '向用户提问并提供选项，等待用户选择后继续。仅在缺少无法根据上下文安全推断的关键决策、继续会产生高成本/不可逆影响，或用户明确要求选择时使用；能用合理默认值继续时不要调用此工具',
       inputSchema: {
         type: 'object',
         properties: {
           question: {
             type: 'string',
-            description: '向用户提出的问题'
+            description: '向用户提出的问题，应只包含当前无法自行判断且必须由用户决定的内容'
           },
           options: {
             type: 'array',

@@ -136,6 +136,8 @@ export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string
   const reminders = [
     '仔细思考后再行动，不要盲目调用工具',
     '如果不需要使用工具就能回答问题，直接给出答案',
+    '不要过早要求用户交互：能根据上下文、常见惯例或安全默认值继续时，先继续推进',
+    '只有缺少不可推断的关键决策、继续会产生明显风险/高成本/不可逆影响，或用户明确要求选择时，才调用 `sandbox__ask_user`',
     '始终以清晰、有用的方式回应用户',
     '工具名称格式为 `serverName__toolName`'
   ]
