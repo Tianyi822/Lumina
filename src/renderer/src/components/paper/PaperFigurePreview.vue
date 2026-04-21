@@ -22,8 +22,14 @@ interface PointerState {
   clientY: number
 }
 
+type ResizeEdge = 'left' | 'right'
+
+interface ResizeState extends PointerState {
+  edge: ResizeEdge
+}
+
 const dragState = ref<PointerState | null>(null)
-const resizeState = ref<PointerState | null>(null)
+const resizeState = ref<ResizeState | null>(null)
 
 const previewStyle = computed(() => {
   return {
@@ -83,12 +89,17 @@ function handlePointerMove(event: MouseEvent): void {
   }
 
   if (resizeState.value) {
-    paperReaderStore.resizeFigurePreview(
-      figurePreviewRect.value.width + (event.clientX - resizeState.value.clientX)
-    )
+    const deltaX = event.clientX - resizeState.value.clientX
+    const edge = resizeState.value.edge
+    if (edge === 'left') {
+      paperReaderStore.resizeFigurePreviewFromLeft(figurePreviewRect.value.width - deltaX)
+    } else {
+      paperReaderStore.resizeFigurePreview(figurePreviewRect.value.width + deltaX)
+    }
     resizeState.value = {
       clientX: event.clientX,
-      clientY: event.clientY
+      clientY: event.clientY,
+      edge
     }
   }
 }
@@ -111,14 +122,15 @@ function handleDragStart(event: MouseEvent): void {
   window.addEventListener('mouseup', handlePointerUp)
 }
 
-function handleResizeStart(event: MouseEvent): void {
+function handleResizeStart(event: MouseEvent, edge: ResizeEdge): void {
   if (event.button !== 0) {
     return
   }
 
   resizeState.value = {
     clientX: event.clientX,
-    clientY: event.clientY
+    clientY: event.clientY,
+    edge
   }
 
   window.addEventListener('mousemove', handlePointerMove)
@@ -286,12 +298,21 @@ onBeforeUnmount(() => {
       </div>
 
       <button
-        class="paper-figure-preview__resize"
+        class="paper-figure-preview__resize paper-figure-preview__resize--left"
         type="button"
-        aria-label="缩放图片预览"
-        @mousedown.prevent.stop="handleResizeStart"
+        aria-label="从左下缩放图片预览"
+        @mousedown.prevent.stop="handleResizeStart($event, 'left')"
       >
-        <SvgIcon name="resize-diagonal" :size="12" />
+        <SvgIcon class="paper-figure-preview__resize-icon" name="resize-diagonal" :size="12" />
+      </button>
+
+      <button
+        class="paper-figure-preview__resize paper-figure-preview__resize--right"
+        type="button"
+        aria-label="从右下缩放图片预览"
+        @mousedown.prevent.stop="handleResizeStart($event, 'right')"
+      >
+        <SvgIcon class="paper-figure-preview__resize-icon" name="resize-diagonal" :size="12" />
       </button>
     </div>
   </Teleport>
@@ -308,7 +329,6 @@ onBeforeUnmount(() => {
   background: var(--sm-color-surface-2);
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.22);
   overflow: hidden;
-  max-height: calc(100vh - 32px);
 }
 
 .paper-figure-preview__header {
@@ -418,7 +438,6 @@ onBeforeUnmount(() => {
 
 .paper-figure-preview__resize {
   position: absolute;
-  right: 0;
   bottom: 0;
   display: inline-flex;
   align-items: center;
@@ -428,7 +447,20 @@ onBeforeUnmount(() => {
   border: none;
   background: transparent;
   color: #999999;
+}
+
+.paper-figure-preview__resize--left {
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.paper-figure-preview__resize--right {
+  right: 0;
   cursor: nwse-resize;
+}
+
+.paper-figure-preview__resize--left .paper-figure-preview__resize-icon {
+  transform: rotate(90deg);
 }
 
 .paper-figure-preview__resize:hover,

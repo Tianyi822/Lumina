@@ -22,6 +22,7 @@ const {
   paperTocTitle,
   paperTocItems,
   markdownLoading,
+  originalPdfVisible,
   showFigurePanel,
   translationVisible,
   canZoomIn,
@@ -126,6 +127,17 @@ function closeTocPanel(): void {
 
 function closeFigurePanel(): void {
   paperReaderStore.closeFigurePanel()
+}
+
+function handleToggleOriginalPdf(): void {
+  if (!currentPaperId.value) {
+    return
+  }
+
+  closeTocPanel()
+  closeFigurePanel()
+  paperReaderStore.closeFigurePreview()
+  paperReaderStore.toggleOriginalPdfVisible()
 }
 
 async function handleToggleTranslation(): Promise<void> {
@@ -292,7 +304,7 @@ onUnmounted(() => {
     </template>
 
     <button
-      v-if="isPaperView && currentPaperId"
+      v-if="isPaperView && currentPaperId && !originalPdfVisible"
       class="sm-icon-button sm-workspace-toolbar__button"
       :class="{
         'is-active': translationVisible,
@@ -306,7 +318,7 @@ onUnmounted(() => {
     </button>
 
     <div
-      v-if="isPaperView && currentPaperId"
+      v-if="isPaperView && currentPaperId && !originalPdfVisible"
       ref="tocContainerRef"
       class="sm-workspace-toolbar__toc"
     >
@@ -418,7 +430,7 @@ onUnmounted(() => {
     </div>
 
     <div
-      v-if="isPaperView && currentPaperId"
+      v-if="isPaperView && currentPaperId && !originalPdfVisible"
       ref="figureContainerRef"
       class="sm-workspace-toolbar__figures"
     >
@@ -479,6 +491,18 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <button
+      v-if="isPaperView && currentPaperId"
+      class="sm-icon-button sm-workspace-toolbar__button"
+      :class="{ 'is-active': originalPdfVisible }"
+      title="PDF 原件"
+      aria-label="PDF 原件"
+      type="button"
+      @click="handleToggleOriginalPdf"
+    >
+      <span class="sm-workspace-toolbar__original-text">原</span>
+    </button>
 
     <button
       v-if="isPaperView && canOpenPaperChat"
@@ -552,6 +576,13 @@ onUnmounted(() => {
   font-variant-numeric: tabular-nums;
   line-height: 1;
   color: var(--sm-color-text-tertiary);
+}
+
+.sm-workspace-toolbar__original-text {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--sm-color-text-secondary);
 }
 
 .sm-workspace-toolbar__toc {
