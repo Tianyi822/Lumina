@@ -176,6 +176,10 @@ onBeforeUnmount(() => {
   user-select: none;
 }
 
+.sm-workspace-page {
+  --sm-workspace-chrome-actions-safe-width: 140px;
+}
+
 .sm-workspace-page__chrome-actions {
   position: absolute;
   top: 12px;
