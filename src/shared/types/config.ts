@@ -211,6 +211,8 @@ export interface PaperReaderConfig {
   ocr: PaperOcrConfig
   /** 翻译使用的模型名称；空或未设置表示使用默认模型 */
   translationModel?: string
+  /** 论文页面全局缩放倍数 */
+  zoomLevel?: number
 }
 
 /**
