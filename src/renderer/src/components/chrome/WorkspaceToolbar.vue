@@ -8,7 +8,7 @@ import type { PaperFigureItem, PaperTocEntry, PaperTocItem } from '@shared/types
 import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 
 const uiStateStore = useUIStateStore()
-const { isPaperView, paperChatPanelOpen } = storeToRefs(uiStateStore)
+const { isPaperView, isCurrentSidebarCollapsed, paperChatPanelOpen } = storeToRefs(uiStateStore)
 
 const paperReaderStore = usePaperReaderStore()
 const {
@@ -278,7 +278,10 @@ onUnmounted(() => {
 <template>
   <div
     class="sm-workspace-toolbar__controls"
-    :class="{ 'sm-workspace-toolbar__controls--paper': isPaperToolbar }"
+    :class="{
+      'sm-workspace-toolbar__controls--paper': isPaperToolbar,
+      'sm-workspace-toolbar__controls--chrome-safe': isPaperToolbar && isCurrentSidebarCollapsed
+    }"
   >
     <template v-if="isPaperView && currentPaperId">
       <button
@@ -544,8 +547,10 @@ onUnmounted(() => {
 }
 
 .sm-workspace-toolbar__controls--paper {
+  --sm-paper-toolbar-chrome-safe-left: 0px;
+
   top: calc(var(--sm-space-3) * -1);
-  left: 0;
+  left: var(--sm-paper-toolbar-chrome-safe-left);
   right: 0;
   box-sizing: border-box;
   width: auto;
@@ -556,11 +561,15 @@ onUnmounted(() => {
   overflow: visible;
 }
 
+.sm-workspace-toolbar__controls--chrome-safe {
+  --sm-paper-toolbar-chrome-safe-left: var(--sm-workspace-chrome-actions-safe-width, 140px);
+}
+
 .sm-workspace-toolbar__controls--paper::before {
   content: '';
   position: absolute;
   top: 0;
-  left: 0;
+  left: calc(var(--sm-paper-toolbar-chrome-safe-left) * -1);
   right: 0;
   z-index: 0;
   height: calc(var(--sm-paper-toolbar-height) + var(--sm-space-6));
