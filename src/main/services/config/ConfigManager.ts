@@ -41,7 +41,8 @@ function sanitizePaperReaderConfig(config: PaperReaderConfig | undefined): Paper
     ocr: {
       provider
     },
-    zoomLevel: sanitizePaperReaderZoomLevel(config?.zoomLevel)
+    zoomLevel: sanitizePaperReaderZoomLevel(config?.zoomLevel),
+    originalPdfZoomLevel: sanitizePaperReaderZoomLevel(config?.originalPdfZoomLevel)
   }
 
   if (typeof config?.ocr?.apiKey === 'string') {

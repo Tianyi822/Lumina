@@ -38,7 +38,8 @@ export const useConfigStore = defineStore('config', () => {
   // 论文阅读配置
   const paperReaderConfig = ref<PaperReaderConfig>({
     ocr: { provider: DEFAULT_OCR_PROVIDER },
-    zoomLevel: 1
+    zoomLevel: 1,
+    originalPdfZoomLevel: 1
   })
 
   // ==================== Getters ====================
