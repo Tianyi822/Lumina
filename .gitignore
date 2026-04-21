@@ -13,7 +13,8 @@ dev-app-update.yml
 .qoder/
 .claude/
 .opencode/
-build/
+build/*
+!build/entitlements.mac.plist
 node_modules/
 dist/
 out/
