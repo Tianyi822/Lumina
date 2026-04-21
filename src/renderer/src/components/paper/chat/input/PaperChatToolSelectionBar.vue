@@ -173,7 +173,7 @@ onUnmounted(() => {
 
 .paper-chat-input-toolbar--compact {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--sm-space-2);
 }
@@ -201,7 +201,7 @@ onUnmounted(() => {
 }
 
 .paper-chat-input-toolbar--compact .paper-chat-input-toolbar__actions {
-  grid-column: 4;
+  grid-column: 5;
   gap: var(--sm-space-2);
   margin-left: 0;
 }
