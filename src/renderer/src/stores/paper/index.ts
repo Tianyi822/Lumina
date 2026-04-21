@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import type { PaperDocument, PaperStatus } from '@shared/types/paper'
 import { createIdleTranslationTaskState, isPaperReadableStatus } from './shared'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
+import { useConfigStore } from '@renderer/stores/configStore'
 import { usePaperFigurePreview } from './composables/usePaperFigurePreview'
 import { usePaperAnnotations } from './composables/usePaperAnnotations'
 import { usePaperTranslation } from './composables/usePaperTranslation'
@@ -15,25 +16,73 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   const markdownLoading = ref(false)
 
   // 缩放状态
+  const ZOOM_DEFAULT = 1.0
   const ZOOM_MIN = 0.5
   const ZOOM_MAX = 2.0
   const ZOOM_STEP = 0.1
-  const zoomLevel = ref(1.0)
+  const zoomLevel = ref(ZOOM_DEFAULT)
+  let zoomPersistenceReady = false
+  let zoomSaveTimer: ReturnType<typeof setTimeout> | null = null
 
   const zoomPercent = computed(() => Math.round(zoomLevel.value * 100))
   const canZoomIn = computed(() => zoomLevel.value < ZOOM_MAX)
   const canZoomOut = computed(() => zoomLevel.value > ZOOM_MIN)
 
+  function normalizeZoomLevel(value: unknown): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return ZOOM_DEFAULT
+    }
+
+    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +value.toFixed(2)))
+  }
+
+  function scheduleZoomPersistence(): void {
+    if (!zoomPersistenceReady) {
+      return
+    }
+
+    const configStore = useConfigStore()
+    configStore.updatePaperReaderConfig({ zoomLevel: zoomLevel.value })
+
+    if (zoomSaveTimer) {
+      clearTimeout(zoomSaveTimer)
+    }
+
+    zoomSaveTimer = setTimeout(() => {
+      zoomSaveTimer = null
+      void configStore.saveConfig({ silent: true })
+    }, 240)
+  }
+
+  function setZoomLevel(value: number, options: { persist?: boolean } = {}): void {
+    const nextZoomLevel = normalizeZoomLevel(value)
+    if (zoomLevel.value === nextZoomLevel) {
+      return
+    }
+
+    zoomLevel.value = nextZoomLevel
+
+    if (options.persist !== false) {
+      scheduleZoomPersistence()
+    }
+  }
+
+  function loadPaperReaderPreferences(): void {
+    const configStore = useConfigStore()
+    setZoomLevel(configStore.paperReaderConfig.zoomLevel ?? ZOOM_DEFAULT, { persist: false })
+    zoomPersistenceReady = true
+  }
+
   function zoomIn(): void {
-    zoomLevel.value = Math.min(ZOOM_MAX, +(zoomLevel.value + ZOOM_STEP).toFixed(1))
+    setZoomLevel(+(zoomLevel.value + ZOOM_STEP).toFixed(1))
   }
 
   function zoomOut(): void {
-    zoomLevel.value = Math.max(ZOOM_MIN, +(zoomLevel.value - ZOOM_STEP).toFixed(1))
+    setZoomLevel(+(zoomLevel.value - ZOOM_STEP).toFixed(1))
   }
 
   function resetZoom(): void {
-    zoomLevel.value = 1.0
+    setZoomLevel(ZOOM_DEFAULT)
   }
 
   function handleWheelZoom(event: WheelEvent): void {
@@ -41,8 +90,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     event.preventDefault()
     // deltaY > 0 为缩小（pinch in），< 0 为放大（pinch out）
     const delta = -event.deltaY * 0.01
-    const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomLevel.value + delta))
-    zoomLevel.value = +next.toFixed(2)
+    setZoomLevel(zoomLevel.value + delta)
   }
 
   function upsertPaper(paper: PaperDocument): void {
@@ -123,7 +171,6 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     figurePreview.clearPaperToc()
     translation.hideTranslation()
     figurePreview.resetFigureUiState()
-    resetZoom()
   }
 
   function clearPaperState(paperId: string): void {
@@ -381,6 +428,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     resizeFigurePreview: figurePreview.resizeFigurePreview,
     resetFigureUiState: figurePreview.resetFigureUiState,
     hideTranslation: translation.hideTranslation,
+    loadPaperReaderPreferences,
     zoomLevel,
     zoomPercent,
     canZoomIn,
