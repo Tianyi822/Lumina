@@ -40,6 +40,10 @@ const figureContainerRef = ref<HTMLElement | null>(null)
 const figurePanelRef = ref<HTMLElement | null>(null)
 const showTocPanel = ref(false)
 
+const isPaperToolbar = computed(() => {
+  return isPaperView.value && !!currentPaperId.value
+})
+
 const canOpenToc = computed(() => {
   return !!currentPaperId.value
 })
@@ -272,7 +276,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="sm-workspace-toolbar__controls">
+  <div
+    class="sm-workspace-toolbar__controls"
+    :class="{ 'sm-workspace-toolbar__controls--paper': isPaperToolbar }"
+  >
     <template v-if="isPaperView && currentPaperId">
       <button
         class="sm-icon-button sm-workspace-toolbar__button"
@@ -534,6 +541,46 @@ onUnmounted(() => {
     right var(--sm-transition-medium);
   -webkit-app-region: drag;
   user-select: none;
+}
+
+.sm-workspace-toolbar__controls--paper {
+  top: calc(var(--sm-space-3) * -1);
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+  width: auto;
+  min-height: var(--sm-paper-toolbar-height);
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-top: var(--sm-space-3);
+  overflow: visible;
+}
+
+.sm-workspace-toolbar__controls--paper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  height: calc(var(--sm-paper-toolbar-height) + var(--sm-space-6));
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--sm-color-bg-canvas) 82%, transparent) 0%,
+    color-mix(in srgb, var(--sm-color-bg-canvas) 58%, transparent) 46%,
+    color-mix(in srgb, var(--sm-color-bg-canvas) 24%, transparent) 76%,
+    transparent 100%
+  );
+  backdrop-filter: blur(12px) saturate(1.04);
+  -webkit-backdrop-filter: blur(12px) saturate(1.04);
+  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.92) 42%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.92) 42%, transparent 100%);
+}
+
+.sm-workspace-toolbar__controls--paper > * {
+  position: relative;
+  z-index: 1;
 }
 
 .sm-workspace-toolbar__button {
