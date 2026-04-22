@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject } from 'vue'
+import { computed, inject } from 'vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { getFileTypeIcon } from '@renderer/utils/fileIcons'
 import type { Message } from '@renderer/types'
@@ -16,6 +16,14 @@ const props = defineProps<{
 
 const scrollToQuote = inject<(quote: PaperQuote) => void>('scrollToQuote')
 
+const hasAttachments = computed(() => {
+  return (
+    (props.attachments.documents?.length || 0) > 0 ||
+    (props.attachments.images?.length || 0) > 0 ||
+    (props.attachments.quotes?.length || 0) > 0
+  )
+})
+
 function getQuoteLabel(quote: PaperQuote, index: number): string {
   const quotes = props.attachments.quotes || []
   const quoteIndex = quotes
@@ -31,7 +39,7 @@ function handleQuoteClick(quote: PaperQuote): void {
 </script>
 
 <template>
-  <div>
+  <div v-if="hasAttachments">
     <!-- 文档指示器（仅用户消息） -->
     <div
       v-if="attachments.documents && attachments.documents.length > 0"
