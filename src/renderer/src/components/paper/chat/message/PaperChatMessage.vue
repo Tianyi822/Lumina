@@ -103,6 +103,17 @@ const showStandaloneReasoning = computed(() => {
 })
 
 /**
+ * 是否存在可展示的附件
+ */
+const hasMessageAttachments = computed(() => {
+  return (
+    (props.message.attachedDocuments?.length || 0) > 0 ||
+    (props.message.attachedImages?.length || 0) > 0 ||
+    (props.message.attachedQuotes?.length || 0) > 0
+  )
+})
+
+/**
  * 是否已有工具阶段活动
  */
 const hasToolActivity = computed(() => {
@@ -257,6 +268,8 @@ function handleToggleReasoning(): void {
 
       <!-- 附件指示器（仅用户消息） -->
       <PaperChatMessageAttachments
+        v-if="hasMessageAttachments"
+        class="paper-chat-message__attachments"
         :attachments="{
           documents: message.attachedDocuments,
           images: message.attachedImages,
@@ -313,7 +326,7 @@ function handleToggleReasoning(): void {
 <style scoped>
 .paper-chat-message {
   --paper-chat-message-avatar-size: 32px;
-  --paper-chat-message-header-gap: var(--sm-space-2);
+  --paper-chat-message-header-gap: var(--sm-space-3);
   --paper-chat-message-content-offset: calc(
     var(--paper-chat-message-avatar-size) + var(--paper-chat-message-header-gap)
   );
@@ -350,11 +363,14 @@ function handleToggleReasoning(): void {
   display: flex;
   align-items: center;
   gap: var(--sm-space-2);
+  justify-content: flex-start;
   min-height: var(--paper-chat-message-avatar-size);
+  width: 100%;
 }
 
 .paper-chat-message.paper-chat-message--user .paper-chat-message__header {
   flex-direction: row-reverse;
+  justify-content: flex-start;
 }
 
 .paper-chat-message__avatar {
@@ -394,11 +410,14 @@ function handleToggleReasoning(): void {
   align-items: center;
   gap: var(--sm-space-2);
   min-width: 0;
+  max-width: calc(100% - var(--paper-chat-message-content-offset));
   flex-wrap: wrap;
 }
 
 .paper-chat-message.paper-chat-message--user .paper-chat-message__sender {
   flex-direction: row-reverse;
+  justify-content: flex-start;
+  text-align: right;
 }
 
 .paper-chat-message__sender-name {
@@ -433,16 +452,15 @@ function handleToggleReasoning(): void {
 .paper-chat-message__body {
   display: flex;
   flex-direction: column;
-  gap: var(--sm-space-3);
-  margin-left: var(--paper-chat-message-content-offset);
-  width: fit-content;
+  align-items: flex-start;
+  gap: var(--sm-space-2);
+  width: 100%;
   max-width: 100%;
   min-width: 0;
 }
 
 .paper-chat-message.paper-chat-message--user .paper-chat-message__body {
-  margin-left: 0;
-  margin-right: var(--paper-chat-message-content-offset);
+  align-items: flex-end;
 }
 
 .paper-chat-message__bubble {
@@ -457,7 +475,7 @@ function handleToggleReasoning(): void {
   width: fit-content;
   word-break: break-word;
   overflow-wrap: break-word;
-  max-width: 100%;
+  max-width: calc(100% - var(--paper-chat-message-content-offset));
   min-width: 0;
   transition:
     background-color var(--sm-transition-fast),
@@ -466,8 +484,47 @@ function handleToggleReasoning(): void {
 
 .paper-chat-message.paper-chat-message--user .paper-chat-message__bubble {
   align-self: flex-end;
-  background: var(--sm-color-accent-12);
+  background: var(--sm-color-accent-14);
   border-color: var(--sm-color-border-accent);
+}
+
+.paper-chat-message__attachments {
+  max-width: calc(100% - var(--paper-chat-message-content-offset));
+  min-width: 0;
+}
+
+.paper-chat-message.paper-chat-message--user .paper-chat-message__attachments {
+  align-self: flex-end;
+}
+
+.paper-chat-message.paper-chat-message--user
+  .paper-chat-message__attachments
+  :deep(.document-indicators),
+.paper-chat-message.paper-chat-message--user
+  .paper-chat-message__attachments
+  :deep(.quote-indicators),
+.paper-chat-message.paper-chat-message--user
+  .paper-chat-message__attachments
+  :deep(.image-indicators) {
+  justify-content: flex-end;
+  padding-right: 0;
+}
+
+.paper-chat-message__attachments :deep(.document-indicators),
+.paper-chat-message__attachments :deep(.quote-indicators),
+.paper-chat-message__attachments :deep(.image-indicators) {
+  margin-bottom: 0;
+}
+
+.paper-chat-message.paper-chat-message--assistant .paper-chat-message__attachments {
+  align-self: flex-start;
+}
+
+.paper-chat-message__body :deep(.reasoning-panel),
+.paper-chat-message__body :deep(.paper-chat-react-steps) {
+  align-self: flex-start;
+  width: calc(100% - var(--paper-chat-message-content-offset));
+  max-width: calc(100% - var(--paper-chat-message-content-offset));
 }
 
 .paper-chat-message.paper-chat-message--user .paper-chat-message__bubble:hover {
@@ -477,6 +534,7 @@ function handleToggleReasoning(): void {
 
 .paper-chat-message.paper-chat-message--assistant .paper-chat-message__bubble {
   background: var(--sm-color-surface-1);
+  border-color: var(--sm-color-border-default);
 }
 
 .paper-chat-message.paper-chat-message--assistant .paper-chat-message__bubble:hover {
@@ -498,14 +556,15 @@ function handleToggleReasoning(): void {
   gap: var(--sm-space-2);
   width: 100%;
   max-width: 100%;
-  margin-top: 4px;
-  min-height: 26px;
+  margin-top: 0;
+  min-height: 0;
   color: var(--paper-chat-message-meta-text-color);
 }
 
 .paper-chat-message.paper-chat-message--user .paper-chat-message__meta-row {
   align-self: flex-end;
   width: fit-content;
+  justify-content: flex-end;
 }
 
 /* ========== 过渡动画 ========== */
@@ -577,12 +636,20 @@ function handleToggleReasoning(): void {
   }
 
   .paper-chat-message__body {
-    margin-left: 0;
-    margin-right: 0;
+    width: 100%;
+    max-width: 100%;
   }
 
-  .paper-chat-message.paper-chat-message--user .paper-chat-message__body {
-    margin-right: 0;
+  .paper-chat-message__bubble,
+  .paper-chat-message__attachments,
+  .paper-chat-message__body :deep(.reasoning-panel),
+  .paper-chat-message__body :deep(.paper-chat-react-steps) {
+    max-width: 100%;
+  }
+
+  .paper-chat-message__body :deep(.reasoning-panel),
+  .paper-chat-message__body :deep(.paper-chat-react-steps) {
+    width: 100%;
   }
 }
 </style>

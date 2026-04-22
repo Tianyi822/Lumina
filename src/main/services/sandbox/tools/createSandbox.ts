@@ -52,7 +52,7 @@ export const createSandboxTool: SandboxToolDefinition = {
         type: 'string',
         enum: ['existing', 'compose', 'dockerfile'],
         description:
-          '创建类型：compose 使用 docker-compose，dockerfile 从 Dockerfile 构建，existing 关联已有容器'
+          '创建类型：compose 使用 docker-compose，dockerfile 从 Dockerfile 构建，existing 关联已有容器。能根据用户需求推断时应直接提供该参数；只有必须让用户选择时才省略'
       },
       compose_content: {
         type: 'string',

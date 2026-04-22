@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import MarkdownIt from 'markdown-it'
+import texmath from 'markdown-it-texmath'
+import katex from 'katex'
+import { normalizePaperInlineMathForRender } from '@shared/utils/paperMarkdown'
+import 'katex/dist/katex.min.css'
+import 'markdown-it-texmath/css/texmath.css'
 
 const props = defineProps<{
   content: string
@@ -14,6 +19,14 @@ const md = new MarkdownIt({
   breaks: true,
   linkify: true,
   typographer: true
+}).use(texmath, {
+  engine: katex,
+  delimiters: ['dollars', 'beg_end'],
+  katexOptions: {
+    throwOnError: false,
+    strict: 'ignore',
+    output: 'htmlAndMathml'
+  }
 })
 
 /**
@@ -21,7 +34,7 @@ const md = new MarkdownIt({
  */
 function renderMarkdown(content: string): string {
   if (!content) return ''
-  return md.render(content)
+  return md.render(normalizePaperInlineMathForRender(content, 'paragraph'))
 }
 
 const renderedMarkdown = computed(() => renderMarkdown(props.content))

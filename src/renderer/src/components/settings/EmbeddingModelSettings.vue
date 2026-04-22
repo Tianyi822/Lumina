@@ -146,7 +146,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-if="!showAddForm" class="model-list">
+      <div class="model-list">
         <div v-if="loading" class="sm-settings-empty">
           <p>加载中...</p>
         </div>

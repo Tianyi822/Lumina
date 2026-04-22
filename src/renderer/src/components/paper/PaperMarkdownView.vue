@@ -16,6 +16,7 @@ import { usePaperAnnotationComposer } from './composables/usePaperAnnotationComp
 import { usePaperQuoteHighlight } from './composables/usePaperQuoteHighlight'
 import { usePaperReadingProgress } from './composables/usePaperReadingProgress'
 import { usePaperTextSearch } from './composables/usePaperTextSearch'
+import { useZoomAnchor } from './composables/useZoomAnchor'
 import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopover.vue'
 import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor.vue'
 import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu.vue'
@@ -74,6 +75,11 @@ usePaperReadingProgress({
   translationVisible: () => props.translationVisible
 })
 
+const zoomAnchor = useZoomAnchor({
+  containerRef: scrollContainerRef,
+  zoomLevelRef: markdownZoomLevel
+})
+
 const composer = usePaperAnnotationComposer({
   paperId: () => props.paperId,
   translationCache: () => props.translationCache,
@@ -99,7 +105,7 @@ const annotationManagerActions = computed(() => ({
 }))
 
 function recordMarkdownScrollPosition(): void {
-  if (!props.paperId || !scrollContainerRef.value) {
+  if (!props.paperId || !scrollContainerRef.value || zoomAnchor.isZooming()) {
     return
   }
 

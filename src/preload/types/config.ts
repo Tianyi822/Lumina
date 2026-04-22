@@ -26,6 +26,14 @@ export interface ConfigSaveResult {
 }
 
 /**
+ * 对话模型连接测试结果
+ */
+export interface ModelConnectionTestResult {
+  success: boolean
+  error?: string
+}
+
+/**
  * 配置相关的 API
  */
 export interface ConfigApi {
@@ -35,4 +43,5 @@ export interface ConfigApi {
   saveConfig: (config: unknown) => Promise<ConfigSaveResult>
   updateConfig: (partialConfig: unknown) => Promise<ConfigSaveResult>
   exists: () => Promise<boolean>
+  testModelConnection: (config: unknown) => Promise<ModelConnectionTestResult>
 }

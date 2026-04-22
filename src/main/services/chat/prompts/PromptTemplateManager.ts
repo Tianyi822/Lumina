@@ -127,17 +127,18 @@ const DEFAULT_PROMPT_TEMPLATE: PromptTemplate = {
 
 当用户要求创建沙箱时，按以下流程操作：
 
-1. **确定创建方式**：如果用户未明确说明创建方式，调用 sandbox__create_sandbox 工具只传 name 参数（不传 creation_type）。系统会展示选项供用户选择。
+1. **确定创建方式**：优先根据用户目标和上下文推断创建方式。常见服务或多服务编排优先使用 Docker Compose；单个自定义运行环境优先使用 Dockerfile；用户明确提到已有容器时才使用 existing。只有无法安全推断且必须由用户做主观选择时，才调用 sandbox__create_sandbox 工具只传 name 参数（不传 creation_type）来展示选项。
 
 2. **收集必要参数**：根据用户选择的方式：
-   - **已有容器**：用 sandbox__list_containers 查看可用容器，让用户选择
-   - **Dockerfile**：根据用户需求生成 Dockerfile 内容，或请用户提供
-   - **Docker Compose**：根据用户需求生成 docker-compose.yaml 内容，或请用户提供
+   - **已有容器**：用 sandbox__list_containers 查看可用容器；如果只有一个明显匹配项可直接使用，否则让用户选择
+   - **Dockerfile**：根据用户需求生成 Dockerfile 内容；只有缺少不可推断的关键约束时才请用户提供
+   - **Docker Compose**：根据用户需求生成 docker-compose.yaml 内容；只有缺少不可推断的关键约束时才请用户提供
 
 3. **执行创建**：参数齐全后，再次调用 sandbox__create_sandbox 带完整参数
 
 注意：
-- 逐步引导，每次只问1-2个问题
+- 尽量先使用合理默认值推进，不要为了普通偏好中断流程
+- 必须提问时逐步引导，每次只问1-2个问题
 - 对于常见环境（MySQL、Redis、Node.js 等）可主动生成配置内容
 - Dockerfile 内容通过 dockerfile_content 参数传递
 - Compose 内容通过 compose_content 参数传递`
