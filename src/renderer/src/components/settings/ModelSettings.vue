@@ -15,6 +15,8 @@ const { llmConfigs, defaultModel, saving } = storeToRefs(configStore)
 const expandedModels = ref<Set<number>>(new Set())
 const autoSavePending = ref(false)
 const autoSaveRunning = ref(false)
+const testingModelIndex = ref<number | null>(null)
+const testingNewModel = ref(false)
 
 const MODEL_FIELD_LABELS: Record<'base_url' | 'api_key' | 'model_name', string> = {
   base_url: 'API Base URL',
@@ -139,6 +141,63 @@ function setDefaultModel(modelName: string): void {
   triggerAutoSave()
 }
 
+async function testModelConnection(modelIndex: number): Promise<void> {
+  const config = llmConfigs.value[modelIndex]
+  if (!config) {
+    return
+  }
+
+  const validationMessage = validateModelConfig(config, modelIndex)
+  if (validationMessage) {
+    showValidationWarning(validationMessage)
+    return
+  }
+
+  testingModelIndex.value = modelIndex
+  try {
+    const result = await window.api.config.testModelConnection({ ...config })
+    if (result.success) {
+      notify.success('模型连接测试成功', `模型“${getModelItemName(config, modelIndex)}”可用`, {
+        source: 'settings'
+      })
+    } else {
+      notify.error('模型连接测试失败', result.error || '连接测试失败', { source: 'settings' })
+    }
+  } catch (error) {
+    notify.error('模型连接测试失败', error instanceof Error ? error.message : String(error), {
+      source: 'settings'
+    })
+  } finally {
+    testingModelIndex.value = null
+  }
+}
+
+async function testNewModelConnection(): Promise<void> {
+  const validationMessage = validateModelConfig(newModelConfig, llmConfigs.value.length)
+  if (validationMessage) {
+    showValidationWarning(validationMessage)
+    return
+  }
+
+  testingNewModel.value = true
+  try {
+    const result = await window.api.config.testModelConnection({ ...newModelConfig })
+    if (result.success) {
+      notify.success('模型连接测试成功', `模型“${newModelConfig.model_name}”可用`, {
+        source: 'settings'
+      })
+    } else {
+      notify.error('模型连接测试失败', result.error || '连接测试失败', { source: 'settings' })
+    }
+  } catch (error) {
+    notify.error('模型连接测试失败', error instanceof Error ? error.message : String(error), {
+      source: 'settings'
+    })
+  } finally {
+    testingNewModel.value = false
+  }
+}
+
 function updateModelConfig(modelIndex: number, field: keyof LLMConfig, value: unknown): void {
   const currentConfig = llmConfigs.value[modelIndex]
   if (!currentConfig || currentConfig[field] === value) {
@@ -244,6 +303,13 @@ async function handleSave(): Promise<void> {
             <span v-if="defaultModel === config.model_name" class="default-badge">默认</span>
             <span class="expand-state">{{ expandedModels.has(index) ? '收起' : '展开' }}</span>
             <div class="model-actions">
+              <button
+                class="sm-button sm-button--small"
+                :disabled="testingModelIndex === index"
+                @click.stop="testModelConnection(index)"
+              >
+                {{ testingModelIndex === index ? '测试中...' : '测试' }}
+              </button>
               <button
                 v-if="defaultModel !== config.model_name"
                 class="sm-button sm-button--small"
@@ -396,6 +462,13 @@ async function handleSave(): Promise<void> {
         </div>
         <div class="form-actions">
           <button class="sm-button" @click="resetNewModelForm">取消</button>
+          <button
+            class="sm-button sm-button--secondary"
+            :disabled="testingNewModel"
+            @click="testNewModelConnection"
+          >
+            {{ testingNewModel ? '测试中...' : '测试连接' }}
+          </button>
           <button class="sm-button sm-button--primary" @click="addNewModel">添加</button>
         </div>
       </div>
