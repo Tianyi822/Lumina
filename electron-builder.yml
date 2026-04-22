@@ -9,13 +9,19 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!**/node_modules/**/*.map'
+  - '!node_modules/cpu-features/build/Release/*.node'
+  - '!node_modules/ssh2/lib/protocol/crypto/build/Release/*.node'
 asarUnpack:
   - resources/**
+afterPack: scripts/build/prunePlatformArtifacts.cjs
 win:
   icon: icon.ico
+  target:
+    - nsis
   executableName: sparrow-manus
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: ${name}-${version}-${arch}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
