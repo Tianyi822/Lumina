@@ -1,12 +1,74 @@
+import OpenAI from 'openai'
 import { ipcMain } from 'electron'
 import { configManager } from '@main/services/config'
 import { logger } from '@main/services/logger'
-import { AppConfig, ConfigLoadResult } from '@main/types/config'
+import { AppConfig, ConfigLoadResult, LLMConfig } from '@main/types/config'
 
 /**
  * 缓存配置加载的结果
  */
 let configLoadResult: ConfigLoadResult
+
+interface ModelConnectionTestResult {
+  success: boolean
+  error?: string
+}
+
+function validateLLMConfig(config: LLMConfig): string | null {
+  if (!config.base_url.trim()) {
+    return 'API Base URL 不能为空'
+  }
+  if (!config.api_key.trim()) {
+    return 'API Key 不能为空'
+  }
+  if (!config.model_name.trim()) {
+    return '模型名称不能为空'
+  }
+  return null
+}
+
+function normalizeModelConnectionError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  return String(error)
+}
+
+async function testModelConnection(config: LLMConfig): Promise<ModelConnectionTestResult> {
+  const validationMessage = validateLLMConfig(config)
+  if (validationMessage) {
+    return { success: false, error: validationMessage }
+  }
+
+  const client = new OpenAI({
+    apiKey: config.api_key,
+    baseURL: config.base_url,
+    timeout: 30000
+  })
+
+  try {
+    await client.chat.completions.create({
+      model: config.model_name,
+      messages: [{ role: 'user', content: 'ping' }],
+      temperature: config.temperature,
+      max_tokens: 1
+    })
+
+    logger.info('对话模型连接测试成功', 'main', {
+      model: config.model_name,
+      baseUrl: config.base_url
+    })
+    return { success: true }
+  } catch (error) {
+    const errorMessage = normalizeModelConnectionError(error)
+    logger.warn('对话模型连接测试失败', 'main', {
+      model: config.model_name,
+      baseUrl: config.base_url,
+      error: errorMessage
+    })
+    return { success: false, error: errorMessage }
+  }
+}
 
 /**
  * 初始化配置
@@ -81,5 +143,10 @@ export function registerConfigHandlers(): void {
   // 检查配置是否存在
   ipcMain.handle('config:exists', () => {
     return configManager.configExists()
+  })
+
+  // 测试对话模型连接
+  ipcMain.handle('config:testModelConnection', (_event, config: LLMConfig) => {
+    return testModelConnection(config)
   })
 }
