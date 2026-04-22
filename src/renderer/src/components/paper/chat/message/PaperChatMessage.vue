@@ -497,9 +497,15 @@ function handleToggleReasoning(): void {
   align-self: flex-end;
 }
 
-.paper-chat-message.paper-chat-message--user .paper-chat-message__attachments :deep(.document-indicators),
-.paper-chat-message.paper-chat-message--user .paper-chat-message__attachments :deep(.quote-indicators),
-.paper-chat-message.paper-chat-message--user .paper-chat-message__attachments :deep(.image-indicators) {
+.paper-chat-message.paper-chat-message--user
+  .paper-chat-message__attachments
+  :deep(.document-indicators),
+.paper-chat-message.paper-chat-message--user
+  .paper-chat-message__attachments
+  :deep(.quote-indicators),
+.paper-chat-message.paper-chat-message--user
+  .paper-chat-message__attachments
+  :deep(.image-indicators) {
   justify-content: flex-end;
   padding-right: 0;
 }
