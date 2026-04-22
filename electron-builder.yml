@@ -12,6 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
+  icon: icon.ico
   executableName: sparrow-manus
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
@@ -19,6 +20,7 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  icon: icon.icns
   target:
     - dmg
   identity: '-'
@@ -33,6 +35,7 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
+  icon: icon.png
   target:
     - AppImage
     - snap
