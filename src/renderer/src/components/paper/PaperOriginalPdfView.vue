@@ -12,6 +12,7 @@ import { storeToRefs } from 'pinia'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperPageAsset } from '@shared/types/paper'
 import { buildBase64DataUrl } from '@shared/utils'
+import { useZoomAnchor } from './composables/useZoomAnchor'
 
 const props = defineProps<{
   paperId: string
@@ -37,6 +38,11 @@ const paperReaderStore = usePaperReaderStore()
 const { originalPdfZoomLevel } = storeToRefs(paperReaderStore)
 
 const scrollContainerRef = ref<HTMLElement | null>(null)
+
+const zoomAnchor = useZoomAnchor({
+  containerRef: scrollContainerRef,
+  zoomLevelRef: originalPdfZoomLevel
+})
 const pageStates = ref<Record<number, PageLoadState>>({})
 const pageElementByIndex = new Map<number, HTMLElement>()
 const observedPageIndexes = new Set<number>()
@@ -76,7 +82,7 @@ const contentZoomStyle = computed(() => ({
 const hasPages = computed(() => originalPages.value.length > 0)
 
 function recordOriginalPdfScrollPosition(): void {
-  if (!props.paperId || !scrollContainerRef.value) {
+  if (!props.paperId || !scrollContainerRef.value || zoomAnchor.isZooming()) {
     return
   }
 
