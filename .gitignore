@@ -15,6 +15,9 @@ dev-app-update.yml
 .opencode/
 build/*
 !build/entitlements.mac.plist
+!build/icon.icns
+!build/icon.ico
+!build/icon.png
 node_modules/
 dist/
 out/
