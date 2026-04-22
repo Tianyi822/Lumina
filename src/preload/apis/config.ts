@@ -28,6 +28,14 @@ export interface ConfigResult {
 }
 
 /**
+ * 对话模型连接测试的结果
+ */
+export interface ModelConnectionTestResult {
+  success: boolean
+  error?: string
+}
+
+/**
  * 配置相关的 API
  */
 export const configApi = {
@@ -71,5 +79,12 @@ export const configApi = {
    */
   exists: (): Promise<boolean> => {
     return ipcRenderer.invoke('config:exists')
+  },
+
+  /**
+   * 测试对话模型连接
+   */
+  testModelConnection: (config: unknown): Promise<ModelConnectionTestResult> => {
+    return ipcRenderer.invoke('config:testModelConnection', config)
   }
 }
