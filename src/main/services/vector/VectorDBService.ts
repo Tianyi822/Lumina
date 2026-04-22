@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'fs'
 import { join } from 'path'
-import * as lancedb from '@lancedb/lancedb'
 import { Int32, Int64, Utf8, Schema, Field, FixedSizeList, Float32 } from 'apache-arrow'
+import type { Connection, Table } from '@lancedb/lancedb'
 
 import { logger } from '@main/services/logger'
 import { getVectorDBDirPath } from '@main/services/knowledge/knowledgePaths'
@@ -38,12 +38,31 @@ interface VectorRecord extends Record<string, unknown> {
   embedding: number[]
 }
 
+type LanceDBModule = typeof import('@lancedb/lancedb')
+
+let lancedbModule: LanceDBModule | null = null
+
+function getLanceDB(): LanceDBModule {
+  if (lancedbModule) {
+    return lancedbModule
+  }
+
+  try {
+    lancedbModule = require('@lancedb/lancedb') as LanceDBModule
+    return lancedbModule
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('LanceDB 原生模块加载失败', 'main', { error: errorMessage })
+    throw new Error(`LanceDB 原生模块加载失败，请确认安装包包含当前系统架构的依赖: ${errorMessage}`)
+  }
+}
+
 // 向量数据库服务
 // 使用 LanceDB 为每个知识库管理独立的向量数据库
 // 支持文档块添加、删除、相似性搜索等功能
 export class VectorDBService {
-  private dbConnections: Map<string, lancedb.Connection> = new Map()
-  private tables: Map<string, lancedb.Table> = new Map()
+  private dbConnections: Map<string, Connection> = new Map()
+  private tables: Map<string, Table> = new Map()
   private indexedTables: Set<string> = new Set()
 
   // 确保数据目录存在
@@ -64,13 +83,13 @@ export class VectorDBService {
   }
 
   // 获取或创建数据库连接
-  private async getConnection(kbId: string): Promise<lancedb.Connection> {
+  private async getConnection(kbId: string): Promise<Connection> {
     if (this.dbConnections.has(kbId)) {
       return this.dbConnections.get(kbId)!
     }
 
     const dbPath = this.getDatabasePath(kbId)
-    const db = await lancedb.connect(dbPath)
+    const db = await getLanceDB().connect(dbPath)
 
     this.dbConnections.set(kbId, db)
     logger.info('LanceDB 连接已建立', 'main', { kbId, path: dbPath })
@@ -115,7 +134,7 @@ export class VectorDBService {
       const db = await this.getConnection(kbId)
 
       // 尝试打开现有表
-      let table: lancedb.Table | undefined
+      let table: Table | undefined
       let isNewTable = false
 
       try {
@@ -173,7 +192,7 @@ export class VectorDBService {
   // 创建向量索引
   // 使用 IVF_PQ 索引提高搜索性能
   private async createVectorIndex(
-    table: lancedb.Table,
+    table: Table,
     kbId: string,
     tableKey: string
   ): Promise<void> {
@@ -186,7 +205,7 @@ export class VectorDBService {
 
       // 创建 IVF_PQ 索引
       await table.createIndex('embedding', {
-        config: lancedb.Index.ivfPq({
+        config: getLanceDB().Index.ivfPq({
           distanceType: 'cosine'
         })
       })
@@ -208,7 +227,7 @@ export class VectorDBService {
       }
 
       const db = await this.getConnection(kbId)
-      let table: lancedb.Table
+      let table: Table
 
       try {
         table = await db.openTable('chunks')
@@ -234,7 +253,7 @@ export class VectorDBService {
       }
 
       const db = await this.getConnection(kbId)
-      let table: lancedb.Table
+      let table: Table
 
       try {
         table = await db.openTable('chunks')
@@ -274,7 +293,7 @@ export class VectorDBService {
       }
 
       const db = await this.getConnection(kbId)
-      let table: lancedb.Table
+      let table: Table
 
       try {
         table = await db.openTable('chunks')
