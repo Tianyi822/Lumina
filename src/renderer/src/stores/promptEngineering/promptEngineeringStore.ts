@@ -237,7 +237,7 @@ export const usePromptEngineeringStore = defineStore(
   },
   {
     persist: {
-      key: 'sparrow-prompt-engineering-state',
+      key: 'lumina-prompt-engineering-state',
       pick: ['activeTab']
     }
   }

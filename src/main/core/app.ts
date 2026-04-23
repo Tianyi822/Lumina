@@ -13,15 +13,20 @@ import {
   initializeSandbox
 } from '@main/ipc'
 
+const appDisplayName = 'Lumina'
+
 /**
  * 初始化应用
  * 设置应用的生命周期和启动流程
  */
 export function initializeApp(): void {
+  // 设置应用名称，必须在 ready 之前调用，确保 macOS 菜单栏显示正确
+  app.setName(appDisplayName)
+
   // 当 Electron 完成初始化并准备创建浏览器窗口时调用此方法
   app.whenReady().then(() => {
     // 为 Windows 设置应用用户模型 ID
-    electronApp.setAppUserModelId('com.sparrow.manus')
+    electronApp.setAppUserModelId('com.lumina.app')
 
     if (process.platform === 'darwin') {
       app.dock?.setIcon(icon)

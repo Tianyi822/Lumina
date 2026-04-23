@@ -60,7 +60,7 @@ export function getSandboxTypeMeta(type: SandboxCreationType): SandboxTypeMeta {
         fullLabel: '已有容器关联',
         theme: 'warning',
         description: '外部容器 · 仅监控',
-        deleteWarning: '此操作仅删除 Sparrow 中的记录，不影响实际容器'
+        deleteWarning: '此操作仅删除 Lumina 中的记录，不影响实际容器'
       }
     case 'dockerfile':
       return {

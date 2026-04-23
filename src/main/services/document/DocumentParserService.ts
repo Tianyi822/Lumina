@@ -49,7 +49,7 @@ export class DocumentParserService {
    */
   async parseDocument(fileData: Buffer, fileName: string): Promise<string> {
     const ext = extname(fileName).toLowerCase()
-    const tempDir = mkdtempSync(join(tmpdir(), 'sparrow-doc-'))
+    const tempDir = mkdtempSync(join(tmpdir(), 'lumina-doc-'))
     const tempPath = join(tempDir, fileName)
 
     try {

@@ -27,7 +27,7 @@ export const useConfigStore = defineStore('config', () => {
 
   // 主题配置
   const themeConfig = ref<ThemeConfig>({
-    name: 'sparrow-dark',
+    name: 'lumina-dark',
     mode: 'manual'
   })
 
@@ -62,7 +62,7 @@ export const useConfigStore = defineStore('config', () => {
       if (config) {
         // 加载主题配置
         if (config.theme) {
-          themeConfig.value.name = config.theme.name || 'sparrow-dark'
+          themeConfig.value.name = config.theme.name || 'lumina-dark'
           themeConfig.value.mode = (config.theme.mode as ThemeMode | undefined) || 'manual'
         }
         // 加载模型配置

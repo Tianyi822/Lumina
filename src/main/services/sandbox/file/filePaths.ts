@@ -14,7 +14,7 @@ export const ALLOWED_PROJECT_ROOTS = [DEFAULT_PROJECT_ROOT, FRONTEND_PROJECT_ROO
  * 获取沙箱文件服务的临时目录根路径
  */
 export function getSandboxFileTempRoot(): string {
-  return join(tmpdir(), 'sparrow-manus', 'sandbox-files')
+  return join(tmpdir(), 'lumina', 'sandbox-files')
 }
 
 /**

@@ -372,7 +372,7 @@ export const useKnowledgeStore = defineStore(
   {
     // 持久化配置
     persist: {
-      key: 'sparrow-knowledge-state',
+      key: 'lumina-knowledge-state',
       pick: ['activeKbId']
     }
   }

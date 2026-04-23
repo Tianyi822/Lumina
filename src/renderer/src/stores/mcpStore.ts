@@ -534,7 +534,7 @@ export const useMCPStore = defineStore(
   {
     // 持久化配置
     persist: {
-      key: 'sparrow-mcp-state',
+      key: 'lumina-mcp-state',
       pick: ['expandedServers'],
       serializer: {
         serialize: (value) => {

@@ -1,5 +1,5 @@
 /**
- * Sparrow Manus phase-1 shared component language.
+ * Lumina phase-1 shared component language.
  * New `.sm-*` primitives are defined here, while legacy utility classes
  * are bridged onto the same visual system during migration.
  */

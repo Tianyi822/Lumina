@@ -1,16 +1,16 @@
 /**
- * Sparrow Manus phase-1 base theme.
+ * Lumina phase-1 base theme.
  * New surfaces use the `--sm-*` namespace. Legacy `--theme-*` and `--glass-*`
  * variables are bridged here so untouched pages remain readable during migration.
  */
 
 :root:not([data-theme]),
-[data-theme='sparrow-dark'] {
+[data-theme='lumina-dark'] {
   color-scheme: dark;
 }
 
 :root,
-[data-theme='sparrow-dark'] {
+[data-theme='lumina-dark'] {
   --sm-color-bg-app: #121212;
   --sm-color-bg-canvas: #0e0e10;
   --sm-color-bg-embedded: #0b0b0c;

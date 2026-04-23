@@ -13,8 +13,8 @@
 @import '../styles/base-components.css';
 @import '../styles/forms.css';
 @import '../styles/notification-center.css';
-@import '../themes/sparrow-dark.css';
-@import '../themes/sparrow-light.css';
+@import '../themes/lumina-dark.css';
+@import '../themes/lumina-light.css';
 
 body {
   margin: 0;

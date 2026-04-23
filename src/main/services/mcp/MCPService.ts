@@ -87,7 +87,7 @@ export class MCPService {
       logger.info(`正在连接 MCP 服务器: ${serverName}`)
 
       const client = new Client({
-        name: 'sparrow-manus',
+        name: 'lumina',
         version: '1.0.0'
       })
 
@@ -131,7 +131,7 @@ export class MCPService {
 
       // 记录失败状态
       this.connections.set(serverName, {
-        client: new Client({ name: 'sparrow-manus', version: '1.0.0' }),
+        client: new Client({ name: 'lumina', version: '1.0.0' }),
         config,
         tools: [],
         connected: false,
@@ -308,7 +308,7 @@ export class MCPService {
       logger.info(`测试 MCP 服务器连接: ${config.name}`)
 
       const client = new Client({
-        name: 'sparrow-manus-test',
+        name: 'lumina-test',
         version: '1.0.0'
       })
 

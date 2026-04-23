@@ -16,7 +16,7 @@ const MCP_CONFIG_DIR_NAME = 'mcp'
 // 获取旧的 MCP 配置目录路径（用于迁移）
 function getOldMCPConfigDirPath(): string {
   const homeDir = app.getPath('home')
-  return join(homeDir, '.sparrow-manus', MCP_CONFIG_DIR_NAME)
+  return join(homeDir, '.lumina', MCP_CONFIG_DIR_NAME)
 }
 
 // MCP 配置管理器

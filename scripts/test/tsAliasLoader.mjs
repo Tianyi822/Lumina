@@ -16,7 +16,7 @@ const electronStubModule = `
   import path from 'node:path'
   import { tmpdir } from 'node:os'
 
-  const basePath = path.join(tmpdir(), 'sparrow-manus-test')
+  const basePath = path.join(tmpdir(), 'lumina-test')
 
   export const app = {
     getPath(name) {

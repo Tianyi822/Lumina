@@ -2,7 +2,7 @@ import { getDockerService } from '../docker/DockerService'
 
 const dockerService = getDockerService()
 
-const FRONTEND_BASE_IMAGE_TAG = 'sparrow-frontend-base'
+const FRONTEND_BASE_IMAGE_TAG = 'lumina-frontend-base'
 
 /**
  * 确保前端基础镜像可用
