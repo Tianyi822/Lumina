@@ -1,5 +1,5 @@
 type StartupThemeMode = 'manual' | 'system'
-type StartupThemeId = 'sparrow-dark' | 'sparrow-light'
+type StartupThemeId = 'lumina-dark' | 'lumina-light'
 
 interface ThemeSnapshot {
   mode?: StartupThemeMode
@@ -7,38 +7,38 @@ interface ThemeSnapshot {
   effectiveTheme?: StartupThemeId
 }
 
-const STORAGE_KEY = 'sparrow-theme-preference'
+const STORAGE_KEY = 'lumina-theme-preference'
 
 function resolveStartupTheme(): StartupThemeId {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
-      return 'sparrow-dark'
+      return 'lumina-dark'
     }
 
     const snapshot = JSON.parse(raw) as ThemeSnapshot
     if (snapshot.mode === 'system') {
       return window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'sparrow-dark'
-        : 'sparrow-light'
+        ? 'lumina-dark'
+        : 'lumina-light'
     }
 
-    if (snapshot.name === 'sparrow-light' || snapshot.name === 'sparrow-dark') {
+    if (snapshot.name === 'lumina-light' || snapshot.name === 'lumina-dark') {
       return snapshot.name
     }
 
-    if (snapshot.effectiveTheme === 'sparrow-light' || snapshot.effectiveTheme === 'sparrow-dark') {
+    if (snapshot.effectiveTheme === 'lumina-light' || snapshot.effectiveTheme === 'lumina-dark') {
       return snapshot.effectiveTheme
     }
   } catch {
     // 忽略本地缓存异常，回退到默认主题
   }
 
-  return 'sparrow-dark'
+  return 'lumina-dark'
 }
 
 const startupTheme = resolveStartupTheme()
 const html = document.documentElement
 
 html.setAttribute('data-theme', startupTheme)
-html.style.colorScheme = startupTheme === 'sparrow-light' ? 'light' : 'dark'
+html.style.colorScheme = startupTheme === 'lumina-light' ? 'light' : 'dark'

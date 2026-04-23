@@ -1,19 +1,19 @@
 import type { ThemeMode } from '../types/config'
 
-export type ThemeId = 'sparrow-dark' | 'sparrow-light'
+export type ThemeId = 'lumina-dark' | 'lumina-light'
 export type SystemTheme = 'dark' | 'light'
 export type NativeThemeSource = SystemTheme | 'system'
 
-export const DEFAULT_THEME_ID: ThemeId = 'sparrow-dark'
+export const DEFAULT_THEME_ID: ThemeId = 'lumina-dark'
 export const DEFAULT_THEME_MODE: ThemeMode = 'manual'
 
 const THEME_BACKGROUND_COLORS: Record<ThemeId, string> = {
-  'sparrow-dark': '#121212',
-  'sparrow-light': '#f5f5f7'
+  'lumina-dark': '#121212',
+  'lumina-light': '#f5f5f7'
 }
 
 export function isThemeId(value: string): value is ThemeId {
-  return value === 'sparrow-dark' || value === 'sparrow-light'
+  return value === 'lumina-dark' || value === 'lumina-light'
 }
 
 export function normalizeThemeId(value?: string): ThemeId {
@@ -25,7 +25,7 @@ export function normalizeThemeMode(value?: ThemeMode): ThemeMode {
 }
 
 export function resolveThemeFromSystem(systemTheme: SystemTheme): ThemeId {
-  return systemTheme === 'dark' ? 'sparrow-dark' : 'sparrow-light'
+  return systemTheme === 'dark' ? 'lumina-dark' : 'lumina-light'
 }
 
 export function resolveEffectiveTheme(
@@ -45,7 +45,7 @@ export function resolveNativeThemeSource(mode: ThemeMode, manualTheme: ThemeId):
     return 'system'
   }
 
-  return manualTheme === 'sparrow-light' ? 'light' : 'dark'
+  return manualTheme === 'lumina-light' ? 'light' : 'dark'
 }
 
 export function getThemeBackgroundColor(themeId: ThemeId): string {

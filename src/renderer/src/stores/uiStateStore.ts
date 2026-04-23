@@ -48,8 +48,8 @@ export interface ThemeMeta {
  */
 export const AVAILABLE_THEMES: ThemeMeta[] = [
   {
-    id: 'sparrow-dark',
-    name: 'Sparrow Dark',
+    id: 'lumina-dark',
+    name: 'Lumina Dark',
     description: '深色基准主题，统一整个应用的深色、平面和受控交互基线',
     previewColors: {
       primary: '#121212',
@@ -60,8 +60,8 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
     }
   },
   {
-    id: 'sparrow-light',
-    name: 'Sparrow Light',
+    id: 'lumina-light',
+    name: 'Lumina Light',
     description: '浅色主题，清新明亮的界面风格',
     previewColors: {
       primary: '#f5f5f7',
@@ -119,7 +119,7 @@ export const useUIStateStore = defineStore(
     // ==================== State: 主题 ====================
 
     // 当前主题 ID
-    const currentTheme = ref<string>('sparrow-dark')
+    const currentTheme = ref<string>('lumina-dark')
 
     // 手动模式下选中的主题
     const selectedTheme = ref<ThemeId>(DEFAULT_THEME_ID)
@@ -346,9 +346,9 @@ export const useUIStateStore = defineStore(
     function applyThemeToDom(themeId: string): void {
       const html = document.documentElement
       html.setAttribute('data-theme', themeId)
-      html.style.colorScheme = themeId === 'sparrow-light' ? 'light' : 'dark'
+      html.style.colorScheme = themeId === 'lumina-light' ? 'light' : 'dark'
       localStorage.setItem(
-        'sparrow-theme-preference',
+        'lumina-theme-preference',
         JSON.stringify({
           mode: themeMode.value,
           name: selectedTheme.value,
@@ -586,7 +586,7 @@ export const useUIStateStore = defineStore(
   {
     // 持久化配置
     persist: {
-      key: 'sparrow-ui-state',
+      key: 'lumina-ui-state',
       // 只持久化 UI 偏好设置
       pick: [
         'knowledgeSidebarCollapsed',

@@ -1,10 +1,10 @@
 /**
- * Sparrow Manus light theme.
+ * Lumina light theme.
  * Mirrors the dark-theme variable surface but with light-friendly values.
  * Glass variables are inverted: white → black overlays to deepen on light backgrounds.
  */
 
-[data-theme='sparrow-light'] {
+[data-theme='lumina-light'] {
   color-scheme: light;
 
   --sm-color-bg-app: #f5f5f7;
