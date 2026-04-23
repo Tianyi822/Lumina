@@ -55,7 +55,7 @@ export class DockerImageService {
 
         const buildOpts: Docker.ImageBuildOptions = {
           dockerfile: 'Dockerfile',
-          t: options.tag || 'sparrow-manus-built',
+          t: options.tag || 'lumina-built',
           // 当 noPull 为 true 时，禁止拉取基础镜像，强制使用本地缓存
           pull: options.noPull ? false : undefined
         }

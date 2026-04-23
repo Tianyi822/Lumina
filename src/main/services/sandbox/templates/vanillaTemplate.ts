@@ -55,7 +55,7 @@ if (app) {
   app.innerHTML = \`
     <main class="app-shell">
       <section class="hero-card">
-        <p class="eyebrow">Sparrow Sandbox</p>
+        <p class="eyebrow">Lumina Sandbox</p>
         <h1>{{projectName}}</h1>
         <p class="summary">原生 Vite 模板已经完成初始化，可以直接继续生成页面与脚本。</p>
         <div class="grid">

@@ -86,7 +86,7 @@ export default function App() {
   return (
     <main className="app-shell">
       <section className="hero-card">
-        <p className="eyebrow">Sparrow Sandbox</p>
+        <p className="eyebrow">Lumina Sandbox</p>
         <h1>{{projectName}}</h1>
         <p className="summary">
           React 模板已经准备完成，现在可以继续生成页面、组件和业务逻辑。

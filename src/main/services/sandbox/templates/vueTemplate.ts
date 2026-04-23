@@ -81,7 +81,7 @@ const features = ['模板初始化', '依赖安装', '开发服务器启动']
 <template>
   <main class="app-shell">
     <section class="hero-card">
-      <p class="eyebrow">Sparrow Sandbox</p>
+      <p class="eyebrow">Lumina Sandbox</p>
       <h1>{{projectName}}</h1>
       <p class="summary">Vue 模板已经在 Docker 沙箱中成功启动，你可以直接继续让 AI 写页面和组件。</p>
 

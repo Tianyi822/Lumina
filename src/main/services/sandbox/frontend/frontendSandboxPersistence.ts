@@ -266,7 +266,7 @@ export function buildWorkspaceVolumeName(sandboxId: string): string {
  */
 export function buildWorkspaceVolumeLabels(sandboxId: string): Record<string, string> {
   return {
-    'sparrow-manus.sandbox-id': sandboxId,
-    'sparrow-manus.volume-role': 'frontend-workspace'
+    'lumina.sandbox-id': sandboxId,
+    'lumina.volume-role': 'frontend-workspace'
   }
 }

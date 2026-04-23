@@ -110,7 +110,7 @@ export class DockerVolumeService {
    */
   async isVolumeOwnedBySandbox(name: string, sandboxId: string): Promise<boolean> {
     const volume = await this.getVolume(name)
-    return volume?.labels?.['sparrow-manus.sandbox-id'] === sandboxId
+    return volume?.labels?.['lumina.sandbox-id'] === sandboxId
   }
 
   private mapVolumeInfo(volume: {
