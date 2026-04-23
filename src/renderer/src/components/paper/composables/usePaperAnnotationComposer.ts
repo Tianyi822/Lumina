@@ -1,5 +1,5 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
-import type { PaperQuote } from '@shared/types/chat'
+import type { PaperQuote, PaperQuoteSurroundingContext } from '@shared/types/chat'
 import type {
   CreatePaperAnnotationPayload,
   PaperAnnotation,
@@ -19,6 +19,7 @@ import {
   buildPaperTextAnchor,
   mapPaperTextAnchorBetweenTexts
 } from '@shared/utils/paperAnnotationAnchors'
+import { buildPaperQuoteContext } from '@shared/utils/paperQuoteContext'
 import {
   clampFloatingPosition,
   computeFloatingPosition,
@@ -55,6 +56,7 @@ export interface SelectionDraft {
   selectedText: string
   contextBefore: string
   contextAfter: string
+  quoteContext?: PaperQuoteSurroundingContext
   originalAnchor?: PaperAnnotationTextAnchor
   translationAnchor?: PaperAnnotationTextAnchor
 }
@@ -456,6 +458,7 @@ export function usePaperAnnotationComposer(
           trimmedRange.endOffset,
           Math.min(canonicalIndex.text.length, trimmedRange.endOffset + 64)
         ),
+        quoteContext: buildPaperQuoteContext(canonicalIndex.text, textAnchor),
         originalAnchor:
           viewKind === 'original'
             ? textAnchor
@@ -711,6 +714,16 @@ export function usePaperAnnotationComposer(
       segmentIndex: segment.index,
       viewKind: draft.viewKind,
       selectedText: textAnchor.selectedText,
+      sourceType: draft.viewKind,
+      surroundingContext: draft.quoteContext ? { ...draft.quoteContext } : undefined,
+      sourceLocation: {
+        segmentStableId: draft.segmentStableId,
+        segmentIndex: segment.index,
+        pageIndexes: [...draft.sourceRefs.pageIndexes],
+        blockIndexes: [...draft.sourceRefs.blockIndexes],
+        startOffset: textAnchor.startOffset,
+        endOffset: textAnchor.endOffset
+      },
       textAnchor,
       ...(draft.viewKind === 'original'
         ? {

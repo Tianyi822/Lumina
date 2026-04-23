@@ -15,6 +15,7 @@ const props = defineProps<{
 }>()
 
 const scrollToQuote = inject<(quote: PaperQuote) => void>('scrollToQuote')
+const QUOTE_PREVIEW_MAX_LENGTH = 42
 
 const hasAttachments = computed(() => {
   return (
@@ -31,6 +32,19 @@ function getQuoteLabel(quote: PaperQuote, index: number): string {
     .filter((item) => item.viewKind === quote.viewKind).length
   const viewLabel = quote.viewKind === 'original' ? '原文引用' : '译文引用'
   return `${viewLabel} ${quoteIndex}`
+}
+
+function getQuotePreview(quote: PaperQuote): string {
+  const normalizedText = quote.selectedText.replace(/\s+/g, ' ').trim()
+  if (normalizedText.length <= QUOTE_PREVIEW_MAX_LENGTH) {
+    return normalizedText
+  }
+
+  return `${normalizedText.slice(0, QUOTE_PREVIEW_MAX_LENGTH)}...`
+}
+
+function hasQuoteContext(quote: PaperQuote): boolean {
+  return Boolean(quote.surroundingContext?.contextualText.trim())
 }
 
 function handleQuoteClick(quote: PaperQuote): void {
@@ -67,6 +81,10 @@ function handleQuoteClick(quote: PaperQuote): void {
       >
         <SvgIcon class="quote-badge__icon" name="quote" :size="12" />
         <span class="quote-badge__label">{{ getQuoteLabel(quote, index) }}</span>
+        <span class="quote-badge__preview" :title="quote.selectedText">
+          {{ getQuotePreview(quote) }}
+        </span>
+        <span v-if="hasQuoteContext(quote)" class="quote-badge__context">上下文</span>
       </div>
     </div>
 
@@ -140,6 +158,7 @@ function handleQuoteClick(quote: PaperQuote): void {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: min(100%, 420px);
   padding: 4px 10px;
   background: linear-gradient(135deg, rgba(70, 170, 143, 0.12) 0%, rgba(70, 170, 143, 0.05) 100%);
   border: 1px solid rgba(70, 170, 143, 0.25);
@@ -161,7 +180,24 @@ function handleQuoteClick(quote: PaperQuote): void {
 }
 
 .quote-badge__label {
+  flex-shrink: 0;
   font-weight: 500;
+  white-space: nowrap;
+}
+
+.quote-badge__preview {
+  min-width: 0;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sm-color-text-secondary);
+}
+
+.quote-badge__context {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--sm-color-text-tertiary);
   white-space: nowrap;
 }
 

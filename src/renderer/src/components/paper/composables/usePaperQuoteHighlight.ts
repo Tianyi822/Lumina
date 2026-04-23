@@ -1,6 +1,7 @@
 import type { PaperQuote } from '@shared/types/chat'
 import { findPaperTextAnchorOffset } from '@shared/utils/paperAnnotationAnchors'
-import { buildCanonicalTextIndex, resolveCanonicalTextPoint } from './paperCanonicalTextIndex'
+import { buildCanonicalTextIndex } from './paperCanonicalTextIndex'
+import type { CanonicalTextSegment } from './paperCanonicalTextIndex'
 
 interface PaperQuoteHighlightController {
   scrollToQuoteAndHighlight: (quote: PaperQuote) => void
@@ -18,6 +19,49 @@ function removeQuoteHighlights(): void {
   })
 }
 
+function wrapTextSegment(
+  segment: CanonicalTextSegment,
+  rangeStartOffset: number,
+  rangeEndOffset: number,
+  quoteId: string
+): HTMLElement | null {
+  if (segment.kind !== 'text' || !(segment.sourceNode instanceof Text)) {
+    return null
+  }
+
+  const localStartOffset = Math.max(0, rangeStartOffset - segment.startOffset)
+  const localEndOffset = Math.min(segment.text.length, rangeEndOffset - segment.startOffset)
+  if (localStartOffset >= localEndOffset) {
+    return null
+  }
+
+  const sourceNode = segment.sourceNode
+  if (sourceNode.parentElement?.closest('mark.paper-markdown-view__quote-highlight')) {
+    return null
+  }
+
+  const text = sourceNode.textContent || ''
+  if (!text) {
+    return null
+  }
+
+  const afterNode =
+    localEndOffset < text.length ? sourceNode.splitText(localEndOffset) : sourceNode.nextSibling
+  const matchedNode = localStartOffset > 0 ? sourceNode.splitText(localStartOffset) : sourceNode
+  const parent = matchedNode.parentNode
+  if (!parent) {
+    return null
+  }
+
+  const mark = document.createElement('mark')
+  mark.className = 'paper-markdown-view__quote-highlight'
+  mark.dataset.paperQuoteId = quoteId
+  mark.textContent = matchedNode.textContent || ''
+  parent.insertBefore(mark, afterNode)
+  parent.removeChild(matchedNode)
+  return mark
+}
+
 function highlightQuoteText(surface: HTMLElement, quote: PaperQuote): HTMLElement | null {
   const contentRoot = surface.firstElementChild || surface
   const canonicalIndex = buildCanonicalTextIndex(contentRoot)
@@ -27,26 +71,27 @@ function highlightQuoteText(surface: HTMLElement, quote: PaperQuote): HTMLElemen
   }
 
   const endOffset = startOffset + quote.textAnchor.selectedText.length
-  const startPoint = resolveCanonicalTextPoint(canonicalIndex, startOffset, 'start')
-  const endPoint = resolveCanonicalTextPoint(canonicalIndex, endOffset, 'end')
-  if (!startPoint || !endPoint) {
+  if (startOffset >= endOffset) {
     return null
   }
 
-  const range = document.createRange()
-  range.setStart(startPoint.node, startPoint.offset)
-  range.setEnd(endPoint.node, endPoint.offset)
-  if (range.collapsed) {
-    return null
+  const affectedSegments = canonicalIndex.segments.filter((segment) => {
+    return (
+      segment.kind === 'text' &&
+      segment.endOffset > startOffset &&
+      segment.startOffset < endOffset
+    )
+  })
+  const marks: HTMLElement[] = []
+
+  for (let index = affectedSegments.length - 1; index >= 0; index -= 1) {
+    const mark = wrapTextSegment(affectedSegments[index], startOffset, endOffset, quote.id)
+    if (mark) {
+      marks.unshift(mark)
+    }
   }
 
-  const mark = document.createElement('mark')
-  mark.className = 'paper-markdown-view__quote-highlight'
-  mark.dataset.paperQuoteId = quote.id
-  const fragment = range.extractContents()
-  mark.appendChild(fragment)
-  range.insertNode(mark)
-  return mark
+  return marks[0] || null
 }
 
 function scrollToQuoteAndHighlight(quote: PaperQuote): void {

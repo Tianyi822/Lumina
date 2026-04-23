@@ -46,6 +46,40 @@ export interface AttachedImage {
  * 论文引用信息
  * 用户从论文阅读页选中的内容片段
  */
+export type PaperQuoteSourceType = 'original' | 'translation'
+
+export interface PaperQuoteSurroundingContext {
+  /** 选区前方的上下文文本 */
+  beforeText: string
+  /** 选区后方的上下文文本 */
+  afterText: string
+  /** 包含选中文本的完整上下文文本 */
+  contextualText: string
+  /** 选中文本在 contextualText 中的起始偏移 */
+  selectedStartOffset: number
+  /** 选中文本在 contextualText 中的结束偏移 */
+  selectedEndOffset: number
+  /** contextualText 在当前视图纯文本中的起始偏移 */
+  contextStartOffset: number
+  /** contextualText 在当前视图纯文本中的结束偏移 */
+  contextEndOffset: number
+}
+
+export interface PaperQuoteSourceLocation {
+  /** 段落稳定 ID */
+  segmentStableId: string
+  /** 段落索引 */
+  segmentIndex: number
+  /** 页码索引列表 */
+  pageIndexes?: number[]
+  /** 原始块索引列表 */
+  blockIndexes?: number[]
+  /** 选中文本在当前视图纯文本中的起始偏移 */
+  startOffset: number
+  /** 选中文本在当前视图纯文本中的结束偏移 */
+  endOffset: number
+}
+
 export interface PaperQuote {
   /** 引用唯一标识 */
   id: string
@@ -56,9 +90,15 @@ export interface PaperQuote {
   /** 段落索引 */
   segmentIndex: number
   /** 视图类型：原文或译文 */
-  viewKind: 'original' | 'translation'
+  viewKind: PaperQuoteSourceType
+  /** 来源类型，兼容旧数据时可回退到 viewKind */
+  sourceType?: PaperQuoteSourceType
   /** 选中的文本内容 */
   selectedText: string
+  /** 围绕选中文本附带给模型理解的上下文 */
+  surroundingContext?: PaperQuoteSurroundingContext
+  /** 来源定位信息 */
+  sourceLocation?: PaperQuoteSourceLocation
   /** 当前视图内的文本锚点 */
   textAnchor: PaperAnnotationTextAnchor
   /** 原文修订 ID */
