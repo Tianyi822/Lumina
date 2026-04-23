@@ -1,4 +1,4 @@
-# Sparrow Manus
+# Lumina
 
 桌面端 AI 助手应用，基于 Electron + Vue 3 + TypeScript 构建，集成智能对话、知识库管理、代码沙箱执行等功能。
 
@@ -52,7 +52,7 @@
 ## 项目架构
 
 ```
-sparrow-manus/
+lumina/
 ├── src/
 │   ├── main/           # Electron 主进程
 │   │   ├── core/       # 应用核心（窗口管理、生命周期）

@@ -1,5 +1,5 @@
-appId: com.sparrow.manus
-productName: sparrow-manus
+appId: com.lumina.app
+productName: Lumina
 directories:
   buildResources: build
 files:
@@ -19,7 +19,7 @@ win:
   icon: icon.ico
   target:
     - nsis
-  executableName: sparrow-manus
+  executableName: Lumina
 nsis:
   artifactName: ${name}-${version}-${arch}-setup.${ext}
   shortcutName: ${productName}
