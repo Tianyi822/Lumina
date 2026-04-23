@@ -95,7 +95,20 @@ export const usePaperChatQuoteStore = defineStore('paperChatQuote', () => {
       segmentStableId: q.segmentStableId,
       segmentIndex: q.segmentIndex,
       viewKind: q.viewKind,
+      sourceType: q.sourceType,
       selectedText: q.selectedText,
+      surroundingContext: q.surroundingContext ? { ...q.surroundingContext } : undefined,
+      sourceLocation: q.sourceLocation
+        ? {
+            ...q.sourceLocation,
+            pageIndexes: q.sourceLocation.pageIndexes
+              ? [...q.sourceLocation.pageIndexes]
+              : undefined,
+            blockIndexes: q.sourceLocation.blockIndexes
+              ? [...q.sourceLocation.blockIndexes]
+              : undefined
+          }
+        : undefined,
       textAnchor: { ...q.textAnchor },
       sourceRevisionId: q.sourceRevisionId,
       segmentTextHash: q.segmentTextHash,
