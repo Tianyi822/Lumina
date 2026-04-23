@@ -4,7 +4,7 @@ import { join } from 'path'
 /**
  * 配置目录名称
  */
-export const CONFIG_DIR_NAME = '.sparrow-manus'
+export const CONFIG_DIR_NAME = '.lumina'
 
 /**
  * 知识库存储目录名称
@@ -28,7 +28,7 @@ export const VECTOR_DB_DIR_NAME = 'db'
 
 /**
  * 获取配置目录路径
- * 返回用户主目录下的 .sparrow-manus 目录
+ * 返回用户主目录下的 .lumina 目录
  */
 export function getConfigDirPath(): string {
   const homeDir = app.getPath('home')

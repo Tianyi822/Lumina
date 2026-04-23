@@ -1,5 +1,5 @@
 // 示例仓库，负责动态示例的持久化存储和管理
-// 按会话分文件存储在 ~/.sparrow-manus/few-shot-samples/ 目录下
+// 按会话分文件存储在 ~/.lumina/few-shot-samples/ 目录下
 
 import { readFile, writeFile, mkdir, unlink } from 'fs/promises'
 import { existsSync } from 'fs'
