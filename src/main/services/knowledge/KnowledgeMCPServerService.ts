@@ -92,7 +92,7 @@ export class KnowledgeMCPServerService {
     // 使用标准 MCP 配置格式
     const config = {
       mcpServers: {
-        'sparrow-knowledge': {
+        'lumina-knowledge': {
           type: 'streamableHttp',
           url: status.url
         }
@@ -140,7 +140,7 @@ export class KnowledgeMCPServerService {
 
           const mcpServer = new McpServer(
             {
-              name: 'sparrow-knowledge-server',
+              name: 'lumina-knowledge-server',
               version: '1.0.0'
             },
             {
