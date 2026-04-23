@@ -13,6 +13,7 @@ const emit = defineEmits<{
 }>()
 
 const scrollToQuote = inject<(quote: PendingQuote) => void>('scrollToQuote')
+const QUOTE_PREVIEW_MAX_LENGTH = 42
 
 function handleTagClick(quote: PendingQuote): void {
   scrollToQuote?.(quote)
@@ -24,6 +25,19 @@ function getQuoteLabel(quote: PendingQuote, index: number): string {
     .filter((item) => item.viewKind === quote.viewKind).length
   const viewLabel = quote.viewKind === 'original' ? '原文引用' : '译文引用'
   return `${viewLabel} ${quoteIndex}`
+}
+
+function getQuotePreview(quote: PendingQuote): string {
+  const normalizedText = quote.selectedText.replace(/\s+/g, ' ').trim()
+  if (normalizedText.length <= QUOTE_PREVIEW_MAX_LENGTH) {
+    return normalizedText
+  }
+
+  return `${normalizedText.slice(0, QUOTE_PREVIEW_MAX_LENGTH)}...`
+}
+
+function hasQuoteContext(quote: PendingQuote): boolean {
+  return Boolean(quote.surroundingContext?.contextualText.trim())
 }
 </script>
 
@@ -37,6 +51,12 @@ function getQuoteLabel(quote: PendingQuote, index: number): string {
     >
       <SvgIcon class="paper-chat-input__pending-quote-icon" name="quote" :size="12" />
       <span class="paper-chat-input__pending-quote-label">{{ getQuoteLabel(quote, index) }}</span>
+      <span class="paper-chat-input__pending-quote-preview" :title="quote.selectedText">
+        {{ getQuotePreview(quote) }}
+      </span>
+      <span v-if="hasQuoteContext(quote)" class="paper-chat-input__pending-quote-context">
+        上下文
+      </span>
       <button
         class="paper-chat-input__pending-quote-remove"
         title="移除"
@@ -60,6 +80,7 @@ function getQuoteLabel(quote: PendingQuote, index: number): string {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: min(100%, 420px);
   padding: 4px 10px;
   background: color-mix(in srgb, var(--sm-color-accent) 10%, var(--sm-color-surface-1));
   border: 1px solid color-mix(in srgb, var(--sm-color-accent) 25%, var(--sm-color-border-default));
@@ -85,9 +106,27 @@ function getQuoteLabel(quote: PendingQuote, index: number): string {
 }
 
 .paper-chat-input__pending-quote-label {
+  flex-shrink: 0;
   font-weight: 500;
   line-height: 1.4;
   white-space: nowrap;
+}
+
+.paper-chat-input__pending-quote-preview {
+  min-width: 0;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sm-color-text-secondary);
+  line-height: 1.4;
+}
+
+.paper-chat-input__pending-quote-context {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--sm-color-text-tertiary);
+  line-height: 1.4;
 }
 
 .paper-chat-input__pending-quote-remove {
