@@ -48,6 +48,7 @@ function getLanceDB(): LanceDBModule {
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     lancedbModule = require('@lancedb/lancedb') as LanceDBModule
     return lancedbModule
   } catch (error) {
@@ -191,11 +192,7 @@ export class VectorDBService {
 
   // 创建向量索引
   // 使用 IVF_PQ 索引提高搜索性能
-  private async createVectorIndex(
-    table: Table,
-    kbId: string,
-    tableKey: string
-  ): Promise<void> {
+  private async createVectorIndex(table: Table, kbId: string, tableKey: string): Promise<void> {
     try {
       const rowCount = await table.countRows()
 
