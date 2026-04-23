@@ -37,3 +37,6 @@ export * from './paperTranslation'
 
 // 论文批注锚点工具
 export * from './paperAnnotationAnchors'
+
+// 论文引用上下文工具
+export * from './paperQuoteContext'
