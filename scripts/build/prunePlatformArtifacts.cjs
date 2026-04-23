@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
 const fs = require('fs/promises')
 const path = require('path')
 const { Arch } = require('builder-util')
@@ -115,6 +117,8 @@ exports.default = async function prunePlatformArtifacts(context) {
   }
 
   if (removed > 0) {
-    console.log(`[platform-prune] removed ${removed} unused native package directories for ${targetKey}`)
+    console.log(
+      `[platform-prune] removed ${removed} unused native package directories for ${targetKey}`
+    )
   }
 }
