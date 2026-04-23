@@ -62,21 +62,84 @@ export function formatDocumentsContext(documents: AttachedDocument[]): string {
 /**
  * 格式化论文引用内容为文本
  */
+function getQuoteSourceType(quote: PaperQuote): PaperQuote['viewKind'] {
+  return quote.sourceType || quote.viewKind
+}
+
+function formatQuoteSourceLabel(sourceType: PaperQuote['viewKind']): string {
+  return sourceType === 'original' ? '原文' : '译文'
+}
+
+function formatQuoteLocation(quote: PaperQuote): string {
+  const location = quote.sourceLocation
+  const segmentIndex = location?.segmentIndex ?? quote.segmentIndex
+  const parts = [`来源：${formatQuoteSourceLabel(getQuoteSourceType(quote))}`]
+
+  if (Number.isFinite(segmentIndex)) {
+    parts.push(`段落：第 ${segmentIndex + 1} 段`)
+  }
+
+  if (location?.pageIndexes?.length) {
+    parts.push(`页码：${location.pageIndexes.map((pageIndex) => pageIndex + 1).join(', ')}`)
+  }
+
+  if (location?.blockIndexes?.length) {
+    parts.push(`块索引：${location.blockIndexes.join(', ')}`)
+  }
+
+  const startOffset = location?.startOffset ?? quote.textAnchor.startOffset
+  const endOffset = location?.endOffset ?? quote.textAnchor.endOffset
+  parts.push(`选区偏移：${startOffset}-${endOffset}`)
+
+  return parts.join('；')
+}
+
+function normalizeQuotePromptText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
+function formatSingleQuoteContext(quote: PaperQuote): string {
+  const selectedText = quote.selectedText.trim() || quote.selectedText
+  let context = `来源位置：${formatQuoteLocation(quote)}\n`
+  context += `用户实际选中：\n${selectedText}\n`
+
+  const surroundingContext = quote.surroundingContext
+  if (!surroundingContext?.contextualText.trim()) {
+    return context
+  }
+
+  const beforeText = normalizeQuotePromptText(surroundingContext.beforeText)
+  const afterText = normalizeQuotePromptText(surroundingContext.afterText)
+
+  context += '上下文：\n'
+  if (beforeText) {
+    context += `前文：${beforeText}\n`
+  }
+  context += `用户选中：<用户选中>${selectedText}</用户选中>\n`
+  if (afterText) {
+    context += `后文：${afterText}\n`
+  }
+
+  return context
+}
+
 export function formatQuotesContext(quotes: PaperQuote[]): string {
   if (!quotes || quotes.length === 0) {
     return ''
   }
 
-  let context = '\n\n--- 用户选中的论文内容 ---\n'
+  let context = '\n\n--- 用户选中的论文内容（含上下文） ---\n'
+  context += '说明：“用户实际选中”是用户关注的引用主体；“上下文”仅用于理解语义、指代和来源位置。\n'
   let originalIndex = 0
   let translationIndex = 0
 
   for (const quote of quotes) {
+    const sourceType = getQuoteSourceType(quote)
     const label =
-      quote.viewKind === 'original'
+      sourceType === 'original'
         ? `原文引用 ${++originalIndex}`
         : `译文引用 ${++translationIndex}`
-    context += `\n【${label}】\n${quote.selectedText}\n`
+    context += `\n【${label}】\n${formatSingleQuoteContext(quote)}`
   }
 
   return context
