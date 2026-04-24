@@ -204,6 +204,31 @@ export async function readFileContent(filePath: string, fileName: string): Promi
 // 预览内容最大长度（约 50 万字符）
 const MAX_PREVIEW_CONTENT_LENGTH = 500_000
 
+export function createFilePreviewDataFromContent(
+  content: string,
+  fileName: string,
+  fileSize: number,
+  uploadedAt: string,
+  fileType: string
+): { success: boolean; data?: FilePreviewData; error?: string } {
+  const isTruncated = content.length > MAX_PREVIEW_CONTENT_LENGTH
+  const displayContent = isTruncated
+    ? content.slice(0, MAX_PREVIEW_CONTENT_LENGTH) + '\n\n... [内容过长，已截断显示]'
+    : content
+
+  return {
+    success: true,
+    data: {
+      content: displayContent,
+      fileName,
+      fileType,
+      fileSize,
+      uploadedAt,
+      isTruncated
+    }
+  }
+}
+
 // 读取文件预览数据
 export async function readFilePreviewData(
   filePath: string,
@@ -223,22 +248,7 @@ export async function readFilePreviewData(
     }
 
     const content = await readFileContent(filePath, fileName)
-    const isTruncated = content.length > MAX_PREVIEW_CONTENT_LENGTH
-    const displayContent = isTruncated
-      ? content.slice(0, MAX_PREVIEW_CONTENT_LENGTH) + '\n\n... [内容过长，已截断显示]'
-      : content
-
-    return {
-      success: true,
-      data: {
-        content: displayContent,
-        fileName,
-        fileType,
-        fileSize,
-        uploadedAt,
-        isTruncated
-      }
-    }
+    return createFilePreviewDataFromContent(content, fileName, fileSize, uploadedAt, fileType)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     return { success: false, error: `文件读取失败: ${errorMessage}` }
