@@ -67,13 +67,8 @@ export const knowledgeApi: KnowledgeApi = {
   /**
    * 将文件索引到知识库
    */
-  indexFile: (
-    kbId: string,
-    fileId: string,
-    filePath: string,
-    fileName: string
-  ): Promise<ApiResponse<void>> => {
-    return ipcRenderer.invoke('knowledge:indexFile', kbId, fileId, filePath, fileName)
+  indexFile: (kbId: string, fileId: string): Promise<ApiResponse<void>> => {
+    return ipcRenderer.invoke('knowledge:indexFile', kbId, fileId)
   },
 
   /**
@@ -86,11 +81,8 @@ export const knowledgeApi: KnowledgeApi = {
   /**
    * 重新索引整个知识库
    */
-  reindex: (
-    kbId: string,
-    files: Array<{ fileId: string; filePath: string; fileName: string }>
-  ): Promise<ApiResponse<KnowledgeReindexSummary>> => {
-    return ipcRenderer.invoke('knowledge:reindex', kbId, files)
+  reindex: (kbId: string, fileIds: string[]): Promise<ApiResponse<KnowledgeReindexSummary>> => {
+    return ipcRenderer.invoke('knowledge:reindex', kbId, fileIds)
   },
 
   /**

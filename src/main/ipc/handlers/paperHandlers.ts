@@ -5,6 +5,7 @@ import {
   paperTranslationService,
   type OcrProgressInfo
 } from '@main/services/paper'
+import { getFileService } from '@main/services/file'
 import { logger } from '@main/services/logger'
 import {
   getOcrProviderPreset,
@@ -69,6 +70,7 @@ export function registerPaperHandlers(): void {
         params.pageCount
       )
       if (result.success) {
+        getFileService().registerPaperFile(result.data!)
         logger.info('IPC: 论文创建成功', 'main', { paperId: result.data?.id })
       } else {
         logger.warn('IPC: 论文创建失败', 'main', { error: result.error })
@@ -124,8 +126,8 @@ export function registerPaperHandlers(): void {
     }
   )
 
-  ipcMain.handle('paper:delete', (_event, paperId: string) => {
-    const result = paperStorageService.deletePaper(paperId)
+  ipcMain.handle('paper:delete', async (_event, paperId: string) => {
+    const result = await getPaperService().deletePaper(paperId)
     if (result.success) {
       logger.info('IPC: 论文删除成功', 'main', { paperId })
     } else {
@@ -191,7 +193,10 @@ export function registerPaperHandlers(): void {
         params.pageCount
       )
       if (result.success) {
-        paperStorageService.updateMeta(result.data!.id, { status: 'rendering' })
+        const updateResult = paperStorageService.updateMeta(result.data!.id, {
+          status: 'rendering'
+        })
+        getFileService().registerPaperFile(updateResult.data || result.data!)
         logger.info('IPC: PDF 上传成功', 'main', { paperId: result.data?.id })
       }
       return result
