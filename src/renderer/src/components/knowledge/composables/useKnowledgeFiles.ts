@@ -91,12 +91,7 @@ export function useKnowledgeFiles(
     indexStore.startRefresh()
 
     window.api.logger.info('[KnowledgeMain] 开始索引文件', { fileName: file.name })
-    const result = await window.api.knowledge.indexFile(
-      currentKB.value.id,
-      file.id,
-      file.absolutePath,
-      file.name
-    )
+    const result = await window.api.knowledge.indexFile(currentKB.value.id, file.id)
 
     if (!result.success) {
       window.api.logger.error('[KnowledgeMain] 索引文件失败', {

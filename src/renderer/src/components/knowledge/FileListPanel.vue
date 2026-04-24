@@ -5,6 +5,7 @@ import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 import { FileIcon } from './shared'
 import FilePreviewDialog from './FilePreviewDialog.vue'
+import { getFileSourceClass, getFileSourceLabel, getFileSubtitle } from './utils/fileSource'
 defineProps<{
   linkedFiles: FileItem[]
   loadingFiles: boolean
@@ -121,6 +122,9 @@ function getFileNameWithoutExtension(fileName: string): string {
           <div class="document-name" :title="file.name">
             {{ getFileNameWithoutExtension(file.name) }}
           </div>
+          <div class="document-subtitle" :title="getFileSubtitle(file)">
+            {{ getFileSubtitle(file) }}
+          </div>
 
           <div v-if="kbIndexingFiles[file.id]" class="file-progress">
             <div class="file-progress__meta">
@@ -137,6 +141,9 @@ function getFileNameWithoutExtension(fileName: string): string {
         </div>
 
         <div class="document-meta">
+          <span :class="['source-badge', getFileSourceClass(file)]">
+            {{ getFileSourceLabel(file) }}
+          </span>
           <span class="badge document-type">{{ file.fileType.toUpperCase() }}</span>
           <span>{{ fileStore.formatFileSize(file.size) }}</span>
           <span>{{ fileStore.formatDate(file.uploadedAt) }}</span>
@@ -305,6 +312,16 @@ function getFileNameWithoutExtension(fileName: string): string {
   word-break: break-word;
 }
 
+.document-subtitle {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--sm-color-text-tertiary);
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
 .file-progress {
   display: flex;
   flex-direction: column;
@@ -344,6 +361,25 @@ function getFileNameWithoutExtension(fileName: string): string {
   margin-top: auto;
   font-size: 11px;
   color: var(--sm-color-text-secondary);
+}
+
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 999px;
+  background: var(--sm-color-surface-1);
+  font-size: 11px;
+  color: var(--sm-color-text-secondary);
+}
+
+.source-paper_file,
+.source-paper_note {
+  border-color: var(--sm-color-accent-28);
+  background: var(--sm-color-accent-08);
+  color: var(--sm-color-accent-hover);
 }
 
 .document-meta > span {

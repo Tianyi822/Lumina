@@ -7,6 +7,12 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import type { FileItem, FilePreviewData } from '@renderer/types'
 import { FileIcon } from './shared'
 import { useFileStore } from '@renderer/stores'
+import {
+  canOpenFileExternally,
+  getFileSourceClass,
+  getFileSourceLabel,
+  getFileSubtitle
+} from './utils/fileSource'
 
 const props = defineProps<{
   visible: boolean
@@ -89,13 +95,22 @@ onUnmounted(() => {
               <span class="file-preview-name">{{ file.name }}</span>
             </div>
             <div class="file-preview-info">
+              <span :class="['file-preview-badge', getFileSourceClass(file)]">
+                {{ getFileSourceLabel(file) }}
+              </span>
               <span class="file-preview-badge">{{ file.fileType.toUpperCase() }}</span>
               <span>{{ fileStore.formatFileSize(file.size) }}</span>
               <span>{{ fileStore.formatDate(file.uploadedAt) }}</span>
             </div>
+            <div class="file-preview-subtitle">{{ getFileSubtitle(file) }}</div>
           </div>
           <div class="file-preview-actions">
-            <button type="button" class="preview-action-btn" @click="handleOpenExternal">
+            <button
+              v-if="canOpenFileExternally(file)"
+              type="button"
+              class="preview-action-btn"
+              @click="handleOpenExternal"
+            >
               外部打开
             </button>
             <button type="button" class="preview-action-btn" @click="handleClose">关闭</button>
@@ -188,6 +203,13 @@ onUnmounted(() => {
   color: var(--sm-color-text-secondary);
 }
 
+.file-preview-subtitle {
+  max-width: 720px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sm-color-text-tertiary);
+}
+
 .file-preview-badge {
   display: inline-flex;
   align-items: center;
@@ -198,6 +220,13 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 500;
   color: var(--sm-color-text-primary);
+}
+
+.file-preview-badge.source-paper_file,
+.file-preview-badge.source-paper_note {
+  border: 1px solid var(--sm-color-accent-28);
+  background: var(--sm-color-accent-08);
+  color: var(--sm-color-accent-hover);
 }
 
 .file-preview-actions {

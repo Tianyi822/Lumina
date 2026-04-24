@@ -6,6 +6,7 @@
 import type { FileItem } from '@renderer/types'
 import { useFileStore } from '@renderer/stores'
 import { FileIcon } from '../../shared/components'
+import { getFileSourceClass, getFileSourceLabel, getFileSubtitle } from '../../utils/fileSource'
 
 defineProps<{
   /** 文件信息 */
@@ -32,7 +33,15 @@ const fileStore = useFileStore()
     <FileIcon :file-type="file.fileType" :size="24" />
 
     <div class="file-details">
-      <div class="file-name">{{ file.name }}</div>
+      <div class="file-title-line">
+        <div class="file-name">{{ file.name }}</div>
+        <span :class="['source-badge', getFileSourceClass(file)]">
+          {{ getFileSourceLabel(file) }}
+        </span>
+      </div>
+      <div class="file-subtitle" :title="getFileSubtitle(file)">
+        {{ getFileSubtitle(file) }}
+      </div>
       <div class="file-meta">
         <span class="badge">{{ file.fileType.toUpperCase() }}</span>
         <span>{{ fileStore.formatFileSize(file.size) }}</span>
@@ -93,14 +102,31 @@ const fileStore = useFileStore()
   min-width: 0;
 }
 
+.file-title-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  min-width: 0;
+  margin-bottom: 4px;
+}
+
 .file-name {
+  min-width: 0;
   font-size: 14px;
   font-weight: 500;
   color: var(--sm-color-text-primary);
-  margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.file-subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--sm-color-text-tertiary);
 }
 
 .file-meta {
@@ -113,5 +139,25 @@ const fileStore = useFileStore()
 
 .linking-indicator {
   flex-shrink: 0;
+}
+
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 999px;
+  background: var(--sm-color-surface-2);
+  font-size: 11px;
+  color: var(--sm-color-text-secondary);
+}
+
+.source-paper_file,
+.source-paper_note {
+  border-color: var(--sm-color-accent-28);
+  background: var(--sm-color-accent-08);
+  color: var(--sm-color-accent-hover);
 }
 </style>

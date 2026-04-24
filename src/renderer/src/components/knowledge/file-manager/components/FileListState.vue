@@ -22,7 +22,7 @@ const { loading, searchQuery, filteredFiles } = storeToRefs(fileStore)
       <p v-else>暂无文件，请上传文件</p>
     </div>
 
-    <div v-else class="file-grid">
+    <div v-else class="file-list">
       <slot></slot>
     </div>
   </div>
@@ -35,10 +35,10 @@ const { loading, searchQuery, filteredFiles } = storeToRefs(fileStore)
   padding: 0 var(--sm-space-5) var(--sm-space-5);
 }
 
-.file-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--sm-space-4);
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
 }
 
 .loading-state,
@@ -82,8 +82,8 @@ const { loading, searchQuery, filteredFiles } = storeToRefs(fileStore)
     padding: 0 var(--sm-space-4) var(--sm-space-4);
   }
 
-  .file-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .file-list {
+    gap: var(--sm-space-2);
   }
 }
 </style>
