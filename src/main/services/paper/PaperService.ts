@@ -3,6 +3,7 @@ import { dirname, join } from 'path'
 import { randomUUID } from 'crypto'
 import { net } from 'electron'
 import { logger } from '@main/services/logger'
+import { getFileService } from '@main/services/file'
 import { paperStorageService } from './index'
 import { PaperOcrService, type OcrProgressInfo } from './PaperOcrService'
 import {
@@ -74,6 +75,37 @@ export class PaperService {
 
   private createEmptyAnnotationStore(paperId: string): PaperAnnotationStore {
     return createEmptyPaperAnnotationStore(paperId)
+  }
+
+  private syncPaperNoteResource(paperId: string, annotation: PaperAnnotation): void {
+    if (annotation.kind !== 'note') {
+      return
+    }
+
+    const metaResult = paperStorageService.readMeta(paperId)
+    if (!metaResult.success || !metaResult.data) {
+      logger.warn('同步论文笔记到文件池失败：论文元信息不存在', 'main', {
+        paperId,
+        annotationId: annotation.id
+      })
+      return
+    }
+
+    const result = getFileService().upsertPaperNoteResource(metaResult.data, annotation)
+    if (!result.success) {
+      logger.warn('同步论文笔记到文件池失败', 'main', {
+        paperId,
+        annotationId: annotation.id,
+        error: result.error
+      })
+    }
+  }
+
+  private async removePaperNoteResource(paperId: string, annotationId: string): Promise<void> {
+    const result = await getFileService().removePaperNoteResource(paperId, annotationId)
+    if (!result.success) {
+      logger.warn('移除论文笔记资源失败', 'main', { paperId, annotationId, error: result.error })
+    }
   }
 
   private findLegacyAnnotationSegment(
@@ -288,12 +320,19 @@ export class PaperService {
     return paperStorageService.readMeta(paperId)
   }
 
-  deletePaper(paperId: string): { success: boolean; error?: string } {
+  async deletePaper(paperId: string): Promise<{ success: boolean; error?: string }> {
     this.ocrService.offProgress(paperId)
+    const removeResourceResult = await getFileService().removePaperResources(paperId)
+    if (!removeResourceResult.success) {
+      return {
+        success: false,
+        error: removeResourceResult.error || '清理论文知识库资源失败'
+      }
+    }
     return paperStorageService.deletePaper(paperId)
   }
 
-  deleteTranslation(paperId: string): { success: boolean; error?: string } {
+  async deleteTranslation(paperId: string): Promise<{ success: boolean; error?: string }> {
     const clearResult = paperStorageService.clearTranslationCache(paperId)
     if (!clearResult.success) {
       return { success: false, error: clearResult.error || '删除译文失败' }
@@ -316,6 +355,12 @@ export class PaperService {
     if (!saveResult.success) {
       return { success: false, error: saveResult.error || '清理译文标注失败' }
     }
+
+    await Promise.all(
+      cleanupResult.removedAnnotations
+        .filter((annotation) => annotation.kind === 'note')
+        .map((annotation) => this.removePaperNoteResource(paperId, annotation.id))
+    )
 
     logger.info('删除译文时已同步清理译文标注', 'main', {
       paperId,
@@ -550,6 +595,8 @@ export class PaperService {
         return { success: false, error: saveResult.error || '保存论文批注失败' }
       }
 
+      this.syncPaperNoteResource(params.paperId, nextAnnotation)
+
       return {
         success: true,
         data: nextAnnotation
@@ -571,6 +618,9 @@ export class PaperService {
         return { success: false, error: annotationStoreResult.error || '读取论文批注失败' }
       }
 
+      const removedAnnotation = annotationStoreResult.data.annotations.find((annotation) => {
+        return annotation.id === annotationId
+      })
       const nextAnnotations = annotationStoreResult.data.annotations.filter((annotation) => {
         return annotation.id !== annotationId
       })
@@ -582,6 +632,10 @@ export class PaperService {
       const saveResult = paperStorageService.saveAnnotationStore(paperId, nextStore)
       if (!saveResult.success) {
         return { success: false, error: saveResult.error || '删除论文批注失败' }
+      }
+
+      if (removedAnnotation?.kind === 'note') {
+        await this.removePaperNoteResource(paperId, annotationId)
       }
 
       return {
@@ -703,6 +757,8 @@ export class PaperService {
         return { success: false, error: saveResult.error || '更新论文批注失败' }
       }
 
+      this.syncPaperNoteResource(params.paperId, nextAnnotation)
+
       return {
         success: true,
         data: nextAnnotation
@@ -798,6 +854,8 @@ export class PaperService {
       if (!saveResult.success) {
         return { success: false, error: saveResult.error || '更新论文批注失败' }
       }
+
+      this.syncPaperNoteResource(params.paperId, nextAnnotation)
 
       return {
         success: true,
