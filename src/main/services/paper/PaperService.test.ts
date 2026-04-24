@@ -441,7 +441,7 @@ test('reanchorAnnotation 会保留普通标记的类型与颜色', async () => {
   }
 })
 
-test('deleteTranslation 会同步删除译文标注并保留原文标注', () => {
+test('deleteTranslation 会同步删除译文标注并保留原文标注', async () => {
   const service = new PaperService()
   const segment = createSegment()
   const originalAnnotation = createAnnotation(segment, {
@@ -479,7 +479,7 @@ test('deleteTranslation 会同步删除译文标注并保留原文标注', () =>
   }
 
   try {
-    const result = service.deleteTranslation('paper-1')
+    const result = await service.deleteTranslation('paper-1')
 
     assert.equal(result.success, true)
     if (!savedStore) {

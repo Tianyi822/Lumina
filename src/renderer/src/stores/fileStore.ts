@@ -22,7 +22,19 @@ export const useFileStore = defineStore('fileStore', () => {
       return files.value
     }
     const query = searchQuery.value.toLowerCase()
-    return files.value.filter((f) => f.name.toLowerCase().includes(query))
+    return files.value.filter((file) => {
+      const searchableText = [
+        file.name,
+        file.sourceKind,
+        file.origin?.paperName,
+        file.origin?.displayName,
+        file.origin?.summary
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return searchableText.includes(query)
+    })
   })
 
   function logError(message: string, error: unknown, context?: Record<string, unknown>): void {

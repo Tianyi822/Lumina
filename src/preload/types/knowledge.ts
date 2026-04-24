@@ -8,7 +8,9 @@ import type {
 
 export type {
   FileItem,
+  FileOriginInfo,
   FilePreviewData,
+  FileSourceKind,
   KnowledgeBase,
   KnowledgeBaseEmbeddingConfig,
   KnowledgeBaseReference,
@@ -38,16 +40,11 @@ export interface KnowledgeApi {
     updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>
   ) => Promise<{ success: boolean; data?: KnowledgeBase; error?: string }>
   delete: (id: string) => Promise<{ success: boolean; error?: string }>
-  indexFile: (
-    kbId: string,
-    fileId: string,
-    filePath: string,
-    fileName: string
-  ) => Promise<{ success: boolean; error?: string }>
+  indexFile: (kbId: string, fileId: string) => Promise<{ success: boolean; error?: string }>
   removeFileIndex: (kbId: string, fileId: string) => Promise<{ success: boolean; error?: string }>
   reindex: (
     kbId: string,
-    files: Array<{ fileId: string; filePath: string; fileName: string }>
+    fileIds: string[]
   ) => Promise<{ success: boolean; data?: KnowledgeReindexSummary; error?: string }>
   search: (
     kbId: string,

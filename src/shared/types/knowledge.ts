@@ -1,14 +1,47 @@
 /**
- * 表示一个被统一管理的文件
+ * 文件资源来源类型
+ */
+export type FileSourceKind = 'uploaded' | 'paper_file' | 'paper_note'
+
+/**
+ * 文件资源来源元信息
+ */
+export interface FileOriginInfo {
+  /** 来源论文 ID */
+  paperId?: string
+  /** 来源论文批注 ID */
+  annotationId?: string
+  /** 来源论文名称 */
+  paperName?: string
+  /** 来源显示名称 */
+  displayName?: string
+  /** 列表与预览中展示的摘要 */
+  summary?: string
+  /** 论文笔记生成的索引内容 */
+  noteContent?: string
+  /** 资源能否用系统默认程序打开 */
+  allowExternalOpen?: boolean
+  /** 资源能否在文件管理中直接删除 */
+  allowDelete?: boolean
+  /** 论文笔记选中的原文或译文 */
+  selectedText?: string
+  /** 论文笔记创建视图 */
+  viewKind?: 'original' | 'translation'
+  /** 最近更新时间 */
+  updatedAt?: string
+}
+
+/**
+ * 表示一个被统一管理的知识库资源
  */
 export interface FileItem {
   /** 文件的唯一标识 */
   id: string
   /** 文件名 */
   name: string
-  /** 文件的相对路径 */
+  /** 文件的相对路径或虚拟资源路径 */
   filePath: string
-  /** 文件的绝对路径，用于直接读取文件内容 */
+  /** 文件的绝对路径，用于直接读取文件内容；虚拟资源可为空 */
   absolutePath: string
   /** 文件类型 */
   fileType: string
@@ -20,6 +53,10 @@ export interface FileItem {
   usedByKBIds: string[]
   /** 文件内容的哈希值，用于去重 */
   contentHash?: string
+  /** 文件资源来源 */
+  sourceKind: FileSourceKind
+  /** 来源元信息 */
+  origin?: FileOriginInfo
 }
 
 /**

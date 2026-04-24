@@ -1,15 +1,11 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { join, extname, isAbsolute } from 'path'
 
 import { getVectorDBService, type DocumentChunk, type SearchResult } from '@main/services/vector'
 import { EmbeddingService } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
 import type { KnowledgeBase } from '@shared/types/knowledge'
-import {
-  getFilesStoragePath,
-  getKnowledgeBaseFilePath as getKnowledgeBaseStorageFilePath
-} from './knowledgePaths'
-import { readFileContent, SUPPORTED_FILE_TYPES } from '@main/services/file/FileContentReader'
+import { getKnowledgeBaseFilePath as getKnowledgeBaseStorageFilePath } from './knowledgePaths'
+import { getFileService } from '@main/services/file'
 
 // 获取知识库数据文件路径
 export function getKnowledgeBaseFilePath(): string {
@@ -139,19 +135,18 @@ export class KnowledgeService {
   async indexFile(
     kbId: string,
     fileId: string,
-    filePath: string,
-    fileName: string,
     onProgress?: (progress: FileProcessingProgress) => void
   ): Promise<{ success: boolean; error?: string }> {
     if (kbId !== this.kbData.id) {
       return { success: false, error: '知识库ID不匹配' }
     }
 
-    // 检查文件类型
-    const ext = extname(fileName).toLowerCase()
-    if (!SUPPORTED_FILE_TYPES.has(ext)) {
-      return { success: false, error: `不支持的文件类型: ${ext}` }
+    const resourceResult = await getFileService().readFileResourceContent(fileId)
+    if (!resourceResult.success || !resourceResult.data) {
+      return { success: false, error: resourceResult.error || '读取文件内容失败' }
     }
+    const { file, content } = resourceResult.data
+    const fileName = file.name
 
     // 检查是否正在处理
     const processingKey = `${kbId}:${fileId}`
@@ -174,12 +169,6 @@ export class KnowledgeService {
         status: 'processing',
         progress: 0
       })
-
-      // 将相对路径转换为完整路径（如果传入的是相对路径）
-      const fullFilePath = isAbsolute(filePath) ? filePath : join(getFilesStoragePath(), filePath)
-
-      // 读取文件内容
-      const content = await readFileContent(fullFilePath, fileName)
 
       wrappedOnProgress({
         fileId,
@@ -345,7 +334,7 @@ export class KnowledgeService {
   // 支持整体进度和单个文件进度的回调
   async reindexKnowledgeBase(
     kbId: string,
-    files: Array<{ fileId: string; filePath: string; fileName: string }>,
+    fileIds: string[],
     onProgress?: (progress: { current: number; total: number; currentFile?: string }) => void,
     onFileProgress?: (progress: FileProcessingProgress) => void
   ): Promise<{
@@ -363,7 +352,7 @@ export class KnowledgeService {
       // 删除现有向量数据库
       getVectorDBService().deleteKnowledgeBase(kbId)
 
-      logger.info('开始重新索引知识库', 'main', { kbId, fileCount: files.length })
+      logger.info('开始重新索引知识库', 'main', { kbId, fileCount: fileIds.length })
 
       const failedFiles: string[] = []
       const failedErrors: string[] = []
@@ -373,40 +362,34 @@ export class KnowledgeService {
       const maxConcurrentFiles = 3
 
       // 处理单个文件的函数
-      const processFile = async (file: {
-        fileId: string
-        filePath: string
-        fileName: string
-      }): Promise<void> => {
-        const result = await this.indexFile(
-          kbId,
-          file.fileId,
-          file.filePath,
-          file.fileName,
-          onFileProgress
-        )
+      const processFile = async (fileId: string): Promise<void> => {
+        const file = getFileService().getFileById(fileId)
+        const fileName = file?.name || fileId
+        const result = await this.indexFile(kbId, fileId, onFileProgress)
 
         if (result.success) {
           indexedCount++
         } else {
-          failedFiles.push(file.fileName)
-          failedErrors.push(`${file.fileName}: ${result.error || '未知错误'}`)
+          failedFiles.push(fileName)
+          failedErrors.push(`${fileName}: ${result.error || '未知错误'}`)
           logger.error('文件索引失败详情', 'main', {
-            fileName: file.fileName,
+            fileName,
             error: result.error
           })
         }
       }
 
       // 并行处理文件（控制并发数）
-      for (let i = 0; i < files.length; i += maxConcurrentFiles) {
-        const batch = files.slice(i, i + maxConcurrentFiles)
+      for (let i = 0; i < fileIds.length; i += maxConcurrentFiles) {
+        const batch = fileIds.slice(i, i + maxConcurrentFiles)
 
         // 更新进度
         onProgress?.({
           current: i + 1,
-          total: files.length,
-          currentFile: batch.map((f) => f.fileName).join(', ')
+          total: fileIds.length,
+          currentFile: batch
+            .map((fileId) => getFileService().getFileById(fileId)?.name || fileId)
+            .join(', ')
         })
 
         // 并行执行当前批次的文件
@@ -414,8 +397,8 @@ export class KnowledgeService {
 
         // 更新进度为当前批次完成
         onProgress?.({
-          current: Math.min(i + maxConcurrentFiles, files.length),
-          total: files.length,
+          current: Math.min(i + maxConcurrentFiles, fileIds.length),
+          total: fileIds.length,
           currentFile: ''
         })
       }
@@ -441,7 +424,7 @@ export class KnowledgeService {
       return {
         success: false,
         indexedCount: 0,
-        failedFiles: files.map((f) => f.fileName),
+        failedFiles: fileIds.map((fileId) => getFileService().getFileById(fileId)?.name || fileId),
         error: errorMessage
       }
     }

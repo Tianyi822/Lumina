@@ -1,5 +1,5 @@
 import { ipcMain, shell } from 'electron'
-import { getFileService, readFilePreviewData } from '@main/services/file'
+import { getFileService } from '@main/services/file'
 import { logger } from '@main/services/logger'
 // FileItem type is not directly used in this file, but handlers return typed responses
 
@@ -94,9 +94,9 @@ export function registerFileHandlers(): void {
   })
 
   // 删除文件，forceDelete 参数控制是否强制删除被知识库引用的文件
-  ipcMain.handle('file:delete', (_event, fileId: string, forceDelete: boolean = false) => {
+  ipcMain.handle('file:delete', async (_event, fileId: string, forceDelete: boolean = false) => {
     try {
-      const result = getFileService().deleteFile(fileId, forceDelete)
+      const result = await getFileService().deleteFile(fileId, forceDelete)
       return result
     } catch (error) {
       const errorMessage = `删除文件失败: ${error instanceof Error ? error.message : String(error)}`
@@ -216,13 +216,7 @@ export function registerFileHandlers(): void {
         return { success: false, error: '文件不存在' }
       }
 
-      const result = await readFilePreviewData(
-        file.absolutePath,
-        file.name,
-        file.size,
-        file.uploadedAt,
-        file.fileType
-      )
+      const result = await getFileService().readFileResourcePreview(fileId)
       return result
     } catch (error) {
       const errorMessage = `获取文件预览失败: ${error instanceof Error ? error.message : String(error)}`
@@ -237,6 +231,10 @@ export function registerFileHandlers(): void {
       const file = getFileService().getFileById(fileId)
       if (!file) {
         return { success: false, error: '文件不存在' }
+      }
+
+      if (file.origin?.allowExternalOpen === false || !file.absolutePath) {
+        return { success: false, error: '此资源不支持外部打开' }
       }
 
       const result = await shell.openPath(file.absolutePath)

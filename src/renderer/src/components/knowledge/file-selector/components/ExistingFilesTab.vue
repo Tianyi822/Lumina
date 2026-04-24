@@ -40,7 +40,19 @@ const availableFiles = computed(() => {
 
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase()
-    result = result.filter((f) => f.name.toLowerCase().includes(query))
+    result = result.filter((file) => {
+      const searchableText = [
+        file.name,
+        file.sourceKind,
+        file.origin?.paperName,
+        file.origin?.displayName,
+        file.origin?.summary
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return searchableText.includes(query)
+    })
   }
 
   return result

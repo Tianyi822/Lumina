@@ -49,13 +49,9 @@ export function useReindex(
     indexStore.startRefresh()
 
     try {
-      const files = linkedFiles.value.map((f) => ({
-        fileId: f.id,
-        filePath: f.absolutePath,
-        fileName: f.name
-      }))
+      const fileIds = linkedFiles.value.map((file) => file.id)
 
-      const result = await window.api.knowledge.reindex(kbId, files)
+      const result = await window.api.knowledge.reindex(kbId, fileIds)
 
       if (result.success) {
         notify.success('重新索引完成', `成功索引 ${result.data?.indexedCount || 0} 个文件`, {

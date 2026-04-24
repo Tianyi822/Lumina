@@ -143,45 +143,36 @@ export function registerKnowledgeHandlers(): void {
   })
 
   // 索引文件到知识库，使用队列控制并发以避免多个知识库同时索引导致阻塞
-  ipcMain.handle(
-    'knowledge:indexFile',
-    async (_event, kbId: string, fileId: string, filePath: string, fileName: string) => {
-      try {
-        const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
-        if (!kb) {
-          return { success: false, error: '知识库不存在' }
-        }
+  ipcMain.handle('knowledge:indexFile', async (_event, kbId: string, fileId: string) => {
+    try {
+      const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+      if (!kb) {
+        return { success: false, error: '知识库不存在' }
+      }
 
-        const manager = getKnowledgeServiceManager()
-        const service = manager.getOrCreateInstance(kbId, kb)
+      const manager = getKnowledgeServiceManager()
+      const service = manager.getOrCreateInstance(kbId, kb)
 
-        // 使用队列执行索引任务，避免多个知识库同时索引导致阻塞
-        const result = await manager.executeIndexingTask(kbId, () =>
-          service.indexFile(
-            kbId,
-            fileId,
-            filePath,
-            fileName,
-            (progress: FileProcessingProgress) => {
-              const win = getMainWindow()
-              if (win) {
-                win.webContents.send('knowledge:file-progress', { kbId, progress })
-              }
-              // 文件索引进度通过 IPC 事件发送，不打印日志
-            }
-          )
-        )
-        return result as { success: boolean; error?: string }
-      } catch (error) {
-        const errorMessage = `索引文件失败: ${error instanceof Error ? error.message : String(error)}`
-        logger.error(errorMessage)
-        return {
-          success: false,
-          error: errorMessage
-        }
+      // 使用队列执行索引任务，避免多个知识库同时索引导致阻塞
+      const result = await manager.executeIndexingTask(kbId, () =>
+        service.indexFile(kbId, fileId, (progress: FileProcessingProgress) => {
+          const win = getMainWindow()
+          if (win) {
+            win.webContents.send('knowledge:file-progress', { kbId, progress })
+          }
+          // 文件索引进度通过 IPC 事件发送，不打印日志
+        })
+      )
+      return result as { success: boolean; error?: string }
+    } catch (error) {
+      const errorMessage = `索引文件失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return {
+        success: false,
+        error: errorMessage
       }
     }
-  )
+  })
 
   // 从知识库移除文件索引
   ipcMain.handle('knowledge:removeFileIndex', async (_event, kbId: string, fileId: string) => {
@@ -205,63 +196,56 @@ export function registerKnowledgeHandlers(): void {
   })
 
   // 重新索引整个知识库，使用队列控制并发以避免多个知识库同时索引导致阻塞
-  ipcMain.handle(
-    'knowledge:reindex',
-    async (
-      _event,
-      kbId: string,
-      files: Array<{ fileId: string; filePath: string; fileName: string }>
-    ) => {
-      try {
-        const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
-        if (!kb) {
-          return { success: false, error: '知识库不存在' }
-        }
+  ipcMain.handle('knowledge:reindex', async (_event, kbId: string, fileIds: string[]) => {
+    try {
+      const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+      if (!kb) {
+        return { success: false, error: '知识库不存在' }
+      }
 
-        const manager = getKnowledgeServiceManager()
-        const service = manager.getOrCreateInstance(kbId, kb)
+      const manager = getKnowledgeServiceManager()
+      const service = manager.getOrCreateInstance(kbId, kb)
 
-        // 使用队列执行重新索引任务，避免多个知识库同时索引导致阻塞
-        const result = await manager.executeIndexingTask(kbId, () =>
-          service.reindexKnowledgeBase(
-            kbId,
-            files,
-            (progress) => {
-              const win = getMainWindow()
-              if (win) {
-                win.webContents.send('knowledge:reindex-progress', { kbId, progress })
-              }
-              // 重新索引进度通过 IPC 事件发送，不打印日志
-            },
-            (fileProgress) => {
-              const win = getMainWindow()
-              if (win) {
-                win.webContents.send('knowledge:file-progress', { kbId, progress: fileProgress })
-              }
-              // 文件索引进度通过 IPC 事件发送，不打印日志
+      // 使用队列执行重新索引任务，避免多个知识库同时索引导致阻塞
+      const result = await manager.executeIndexingTask(kbId, () =>
+        service.reindexKnowledgeBase(
+          kbId,
+          fileIds,
+          (progress) => {
+            const win = getMainWindow()
+            if (win) {
+              win.webContents.send('knowledge:reindex-progress', { kbId, progress })
             }
-          )
-        )
-        // result 直接是 reindexKnowledgeBase 的返回类型
-        return {
-          success: result.success,
-          data: {
-            indexedCount: result.indexedCount,
-            failedFiles: result.failedFiles,
-            failedErrors: result.failedErrors
+            // 重新索引进度通过 IPC 事件发送，不打印日志
           },
-          error: result.error
-        }
-      } catch (error) {
-        const errorMessage = `重新索引知识库失败: ${error instanceof Error ? error.message : String(error)}`
-        logger.error(errorMessage)
-        return {
-          success: false,
-          error: errorMessage
-        }
+          (fileProgress) => {
+            const win = getMainWindow()
+            if (win) {
+              win.webContents.send('knowledge:file-progress', { kbId, progress: fileProgress })
+            }
+            // 文件索引进度通过 IPC 事件发送，不打印日志
+          }
+        )
+      )
+      // result 直接是 reindexKnowledgeBase 的返回类型
+      return {
+        success: result.success,
+        data: {
+          indexedCount: result.indexedCount,
+          failedFiles: result.failedFiles,
+          failedErrors: result.failedErrors
+        },
+        error: result.error
+      }
+    } catch (error) {
+      const errorMessage = `重新索引知识库失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage)
+      return {
+        success: false,
+        error: errorMessage
       }
     }
-  )
+  })
 
   // 在知识库中搜索相关内容
   ipcMain.handle(
