@@ -633,3 +633,13 @@ export interface UpdatePaperAnnotationPayload {
   /** 新的颜色标识 */
   colorKey?: PaperAnnotationColorKey
 }
+
+/**
+ * 论文笔记更新影响的知识库
+ */
+export interface PaperAnnotationAffectedKnowledgeBase {
+  /** 知识库 ID */
+  id: string
+  /** 知识库名称 */
+  name: string
+}

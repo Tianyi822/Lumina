@@ -3,6 +3,7 @@ import type {
   CreatePaperAnnotationPayload,
   OcrProgressInfo,
   PaperAnnotation,
+  PaperAnnotationAffectedKnowledgeBase,
   PaperDocument,
   PaperFigureItem,
   PaperReaderDocument,
@@ -19,6 +20,7 @@ export type {
   LegacyPaperAnnotation,
   OcrProgressInfo,
   PaperAnnotation,
+  PaperAnnotationAffectedKnowledgeBase,
   PaperDocument,
   PaperFigureItem,
   PaperLayoutBlock,
@@ -153,6 +155,7 @@ export interface PaperApi {
   updateAnnotation: (params: UpdatePaperAnnotationPayload) => Promise<{
     success: boolean
     data?: PaperAnnotation
+    affectedKnowledgeBases?: PaperAnnotationAffectedKnowledgeBase[]
     error?: string
   }>
 

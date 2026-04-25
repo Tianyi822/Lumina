@@ -77,6 +77,41 @@ export interface KnowledgeBaseEmbeddingConfig {
 }
 
 /**
+ * 知识库索引失效原因
+ */
+export type KnowledgeIndexInvalidationReason = 'paper_note_updated'
+
+/**
+ * 导致索引失效的文件信息
+ */
+export interface KnowledgeIndexInvalidatedFile {
+  /** 文件 ID */
+  fileId: string
+  /** 文件名 */
+  fileName: string
+  /** 来源论文 ID */
+  paperId?: string
+  /** 来源论文批注 ID */
+  annotationId?: string
+  /** 文件最近更新时间 */
+  updatedAt: string
+}
+
+/**
+ * 知识库索引失效状态
+ */
+export interface KnowledgeIndexInvalidationState {
+  /** 是否需要重新索引 */
+  needsReindex: boolean
+  /** 失效原因 */
+  reason: KnowledgeIndexInvalidationReason
+  /** 标记时间 */
+  markedAt: string
+  /** 受影响文件列表 */
+  files: KnowledgeIndexInvalidatedFile[]
+}
+
+/**
  * 知识库的配置信息
  */
 export interface KnowledgeBase {
@@ -102,6 +137,8 @@ export interface KnowledgeBase {
   documentCount?: number
   /** 关联的文件 ID 列表 */
   linkedFileIds: string[]
+  /** 索引失效状态 */
+  indexInvalidation?: KnowledgeIndexInvalidationState
 }
 
 /**
