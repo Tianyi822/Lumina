@@ -327,9 +327,9 @@ export interface TestPromptPayload {
   userQuery: string
   /** 动态变量值映射（变量名 -> 值，可选） */
   variables?: Record<string, string>
-  /** 是否包含 Few-shot 示例，默认 true */
+  /** 是否包含 Few-shot 示例，默认 false */
   includeExamples?: boolean
-  /** 包含的示例数量（0-5，默认 3，当 includeExamples 为 true 时） */
+  /** 包含的示例数量（0-2，默认 0，当 includeExamples 为 true 时） */
   exampleCount?: number
   /** 临时覆盖温度参数（0-1，可选） */
   temperature?: number

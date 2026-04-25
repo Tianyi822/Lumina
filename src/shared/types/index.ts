@@ -35,6 +35,9 @@ export {
 // 提示词相关的类型
 export * from './prompt'
 
+// 工具统计相关的类型
+export * from './tool-stats'
+
 // 论文相关的类型
 export * from './paper'
 

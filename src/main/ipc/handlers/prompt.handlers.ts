@@ -31,7 +31,7 @@ function createDefaultPromptConfig(): PromptConfig {
   return {
     enableEnhancedPrompt: true,
     toolDescriptionLevel: 'detailed',
-    fewShotCount: 3,
+    fewShotCount: 0,
     customSystemPrompt: '',
     enablePromptCache: false,
     enableDynamicExamples: false,
@@ -53,7 +53,7 @@ function normalizePromptConfig(config?: PromptConfig | null): PromptConfig {
   return {
     enableEnhancedPrompt: config?.enableEnhancedPrompt ?? defaults.enableEnhancedPrompt,
     toolDescriptionLevel: config?.toolDescriptionLevel ?? defaults.toolDescriptionLevel,
-    fewShotCount: config?.fewShotCount ?? defaults.fewShotCount,
+    fewShotCount: Math.max(0, Math.min(2, config?.fewShotCount ?? defaults.fewShotCount ?? 0)),
     customSystemPrompt: config?.customSystemPrompt ?? defaults.customSystemPrompt,
     enablePromptCache: config?.enablePromptCache ?? defaults.enablePromptCache,
     cacheConfig: config?.cacheConfig,
@@ -89,8 +89,14 @@ function formatSandboxExampleText(examples: EnhancedFewShotExample[]): string {
 
     if (example.toolCalls && example.toolCalls.length > 0) {
       example.toolCalls.forEach((toolCall) => {
+        const maxResultLength = 500
+        const result =
+          toolCall.result.length > maxResultLength
+            ? toolCall.result.slice(0, maxResultLength) + '\n...[结果已截断]'
+            : toolCall.result
+
         text += `工具调用: ${toolCall.name}(${JSON.stringify(toolCall.arguments)})\n`
-        text += `结果: ${toolCall.result}\n`
+        text += `结果: ${result}\n`
       })
     }
 
@@ -119,7 +125,7 @@ async function buildSandboxPrompt(
     const { exampleRepository } = await import('../../services/chat/examples')
     await exampleRepository.initialize()
 
-    const exampleCount = Math.max(0, Math.min(5, payload.exampleCount ?? 3))
+    const exampleCount = Math.max(0, Math.min(2, payload.exampleCount ?? 0))
     const selectedExamples = (await exampleRepository.getAll())
       .sort((left, right) => right.qualityScore - left.qualityScore)
       .slice(0, exampleCount)

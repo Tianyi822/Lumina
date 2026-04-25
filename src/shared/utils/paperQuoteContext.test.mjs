@@ -1,10 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { buildPaperTextAnchor } from './paperAnnotationAnchors.ts'
-import {
-  buildPaperQuoteContext,
-  PAPER_QUOTE_CONTEXT_SIDE_CHAR_LIMIT
-} from './paperQuoteContext.ts'
+import { buildPaperQuoteContext, PAPER_QUOTE_CONTEXT_SIDE_CHAR_LIMIT } from './paperQuoteContext.ts'
 
 test('中文引用上下文包含前后句且不会无限扩张', () => {
   const selectedText = '用户选中的关键句子。'

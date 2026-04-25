@@ -11,7 +11,7 @@ export function createDefaultPromptConfig(): PromptConfig {
   return {
     enableEnhancedPrompt: true,
     toolDescriptionLevel: 'detailed',
-    fewShotCount: 3,
+    fewShotCount: 0,
     customSystemPrompt: '',
     enablePromptCache: false,
     enableDynamicExamples: false,
@@ -33,7 +33,7 @@ export function normalizePromptConfig(config?: PromptConfig | null): PromptConfi
   return {
     enableEnhancedPrompt: config?.enableEnhancedPrompt ?? defaults.enableEnhancedPrompt,
     toolDescriptionLevel: config?.toolDescriptionLevel ?? defaults.toolDescriptionLevel,
-    fewShotCount: config?.fewShotCount ?? defaults.fewShotCount,
+    fewShotCount: Math.max(0, Math.min(2, config?.fewShotCount ?? defaults.fewShotCount ?? 0)),
     customSystemPrompt: config?.customSystemPrompt ?? defaults.customSystemPrompt,
     enablePromptCache: config?.enablePromptCache ?? defaults.enablePromptCache,
     cacheConfig: config?.cacheConfig,
@@ -100,8 +100,8 @@ export function buildSandboxPayload(payload: TestPromptPayload): TestPromptPaylo
   return {
     ...payload,
     userQuery: payload.userQuery.trim(),
-    includeExamples: payload.includeExamples ?? true,
-    exampleCount: Math.max(0, Math.min(5, payload.exampleCount ?? 3)),
+    includeExamples: payload.includeExamples ?? false,
+    exampleCount: Math.max(0, Math.min(2, payload.exampleCount ?? 0)),
     variables: sanitizeVariableOverrides(payload.variables)
   }
 }

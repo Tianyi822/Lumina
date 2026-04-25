@@ -84,7 +84,7 @@ export interface PromptConfig {
   enableEnhancedPrompt?: boolean
   /** 工具描述的详细程度 */
   toolDescriptionLevel?: ToolDescriptionLevel
-  /** Few-shot 示例的数量，范围 0 到 5 */
+  /** Few-shot 示例的数量，范围 0 到 2 */
   fewShotCount?: number
   /** 自定义的系统提示词，会覆盖默认生成的提示词 */
   customSystemPrompt?: string

@@ -12,7 +12,6 @@ import {
   splitThinkTaggedContent
 } from './message'
 import { ModelRetryHandler } from './ModelRetryHandler'
-import { ToolCallScheduler } from './tools'
 import { StopController } from './StopController'
 import { StreamHandler } from './StreamHandler'
 import { ReactLoopService } from './ReactLoopService'
@@ -25,15 +24,11 @@ export class ChatService {
   private stopController: StopController
   private streamHandler: StreamHandler
   private reactLoopService: ReactLoopService
-  private toolScheduler: ToolCallScheduler
   private modelRetryHandler: ModelRetryHandler
 
   constructor() {
     this.stopController = new StopController()
     this.streamHandler = new StreamHandler()
-    this.toolScheduler = new ToolCallScheduler(mcpService, logger, 3, (sessionId) =>
-      this.stopController.getSelectedKnowledgeBaseIds(sessionId)
-    )
 
     this.modelRetryHandler = new ModelRetryHandler({
       logger,
@@ -47,7 +42,6 @@ export class ChatService {
       mcpService,
       stopController: this.stopController,
       streamHandler: this.streamHandler,
-      toolScheduler: this.toolScheduler,
       createClient: (config) => this.createClient(config),
       validateAndGetLLMConfig: (modelKey, sessionId, webContents) =>
         this.validateAndGetLLMConfig(modelKey, sessionId, webContents)

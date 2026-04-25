@@ -77,9 +77,7 @@ function highlightQuoteText(surface: HTMLElement, quote: PaperQuote): HTMLElemen
 
   const affectedSegments = canonicalIndex.segments.filter((segment) => {
     return (
-      segment.kind === 'text' &&
-      segment.endOffset > startOffset &&
-      segment.startOffset < endOffset
+      segment.kind === 'text' && segment.endOffset > startOffset && segment.startOffset < endOffset
     )
   })
   const marks: HTMLElement[] = []

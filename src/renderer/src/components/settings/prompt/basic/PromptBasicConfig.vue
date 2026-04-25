@@ -13,7 +13,7 @@ const { savePromptConfig, resetPromptConfig } = usePromptManager()
 const localConfig = reactive<PromptConfig>({
   enableEnhancedPrompt: true,
   toolDescriptionLevel: 'detailed',
-  fewShotCount: 3,
+  fewShotCount: 0,
   customSystemPrompt: '',
   enablePromptCache: false,
   enableDynamicExamples: false,
@@ -69,7 +69,7 @@ watch(
       </div>
     </div>
     <p class="pe-help-text">
-      启用后将使用增强版的系统提示词，包含详细的推理指导、错误处理策略和最佳实践。
+      启用后将使用面向工具场景的系统提示词，保留必要角色约束和沙箱流程说明。
     </p>
 
     <!-- 工具描述配置 -->
@@ -113,13 +113,13 @@ watch(
         v-model.number="localConfig.fewShotCount"
         type="range"
         min="0"
-        max="5"
+        max="2"
         step="1"
         class="pe-slider"
       />
       <div class="pe-slider-labels">
         <span>0</span>
-        <span>5</span>
+        <span>2</span>
       </div>
       <p class="pe-help-text">
         在系统提示词中包含的示例数量。示例可以帮助 AI 理解如何正确使用工具，但会增加 token 消耗。

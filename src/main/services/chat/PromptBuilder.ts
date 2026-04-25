@@ -1,9 +1,9 @@
 import type { LLMConfig } from '@main/types/config'
-import type { MCPToolReference, KnowledgeSearchResult } from '@main/types/chat'
+import type { MCPToolReference } from '@main/types/chat'
 import type { PromptBuildOptions } from './prompts/types'
 import type { PromptConfig as SharedPromptConfig } from '@shared/types/config'
 import type { SessionData } from '@shared/types/session'
-import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt } from './prompts/reactSystemPrompt'
+import { buildReactSystemPrompt } from './prompts/reactSystemPrompt'
 import { PromptCache } from './prompts/PromptCache'
 import { PromptOptimizer } from './prompts/PromptOptimizer'
 import { promptTemplateManager } from './prompts/PromptTemplateManager'
@@ -87,8 +87,7 @@ export class PromptBuilder {
   async buildSystemPrompt(
     modelConfig: LLMConfig,
     hasTools: boolean,
-    selectedTools?: MCPToolReference[],
-    knowledgeResults?: KnowledgeSearchResult[]
+    selectedTools?: MCPToolReference[]
   ): Promise<string> {
     // 检查是否有知识库工具
     const hasKnowledgeTools =
@@ -100,7 +99,7 @@ export class PromptBuilder {
     }
 
     // 获取构建选项
-    const options = await this.buildOptions(modelConfig, selectedTools, knowledgeResults)
+    const options = await this.buildOptions(modelConfig, selectedTools)
 
     let exampleIds: string[] = []
 
@@ -147,13 +146,8 @@ export class PromptBuilder {
       () => buildReactSystemPrompt(options)
     )
 
-    // 如果有知识库工具，添加知识库增强提示词
-    let finalPrompt = prompt
-    if (hasKnowledgeTools) {
-      finalPrompt += '\n\n' + buildKnowledgeEnhancedPrompt()
-    }
-
     // 应用优化
+    const finalPrompt = prompt
     if (this.promptConfig?.enablePromptOptimization && modelConfig.max_tokens) {
       const result = this.optimizer.optimize(finalPrompt, {
         maxTokens: modelConfig.max_tokens,
@@ -179,8 +173,7 @@ export class PromptBuilder {
   // 构建提示词选项
   private async buildOptions(
     modelConfig: LLMConfig,
-    selectedTools?: MCPToolReference[],
-    knowledgeResults?: KnowledgeSearchResult[]
+    selectedTools?: MCPToolReference[]
   ): Promise<PromptBuildOptions> {
     // 计算工具数量
     const toolCount = selectedTools?.length || 0
@@ -191,8 +184,7 @@ export class PromptBuilder {
     // 初始化选项
     const options: PromptBuildOptions = {
       includeFewShotExamples: true,
-      fewShotCount: 3,
-      emphasizeErrorHandling: true,
+      fewShotCount: 0,
       toolDescriptionLevel: defaultDescriptionLevel,
       modelName: modelConfig.model_name
     }
@@ -203,12 +195,11 @@ export class PromptBuilder {
       if (this.promptConfig.enableEnhancedPrompt === false) {
         // 禁用时使用基本配置
         options.includeFewShotExamples = false
-        options.emphasizeErrorHandling = false
         options.toolDescriptionLevel = 'minimal'
       } else {
         // 应用配置
         if (this.promptConfig.fewShotCount !== undefined) {
-          options.fewShotCount = Math.max(0, Math.min(5, this.promptConfig.fewShotCount))
+          options.fewShotCount = Math.max(0, Math.min(2, this.promptConfig.fewShotCount))
         }
         // 只有用户明确配置了描述级别时才覆盖自动选择的级别
         if (this.promptConfig.toolDescriptionLevel) {
@@ -224,11 +215,6 @@ export class PromptBuilder {
       }
     }
 
-    // 添加知识库上下文
-    if (knowledgeResults && knowledgeResults.length > 0) {
-      options.knowledgeContext = this.formatKnowledgeResults(knowledgeResults)
-    }
-
     // 记录工具数量和选择的描述级别
     logger.debug('基于工具数量选择描述级别', 'main', {
       toolCount,
@@ -236,42 +222,6 @@ export class PromptBuilder {
     })
 
     return options
-  }
-
-  /**
-   * 格式化知识库搜索结果为上下文字符串
-   */
-  private formatKnowledgeResults(results: KnowledgeSearchResult[]): string {
-    if (!results || results.length === 0) return ''
-
-    const allChunks: Array<{
-      knowledgeBaseName: string
-      fileName: string
-      content: string
-      similarity: number
-    }> = []
-
-    // 收集所有知识库的结果
-    for (const kbResult of results) {
-      for (const chunk of kbResult.results) {
-        allChunks.push({
-          knowledgeBaseName: kbResult.knowledgeBaseName,
-          fileName: chunk.fileName,
-          content: chunk.content,
-          similarity: chunk.similarity
-        })
-      }
-    }
-
-    // 按相似度排序
-    allChunks.sort((a, b) => b.similarity - a.similarity)
-
-    const formatted = allChunks.map((chunk, index) => {
-      const similarity = ` (相关度: ${(chunk.similarity * 100).toFixed(1)}%)`
-      return `[${index + 1}] 来源: ${chunk.knowledgeBaseName}/${chunk.fileName}${similarity}\n${chunk.content}`
-    })
-
-    return `以下是从知识库中检索到的相关信息:\n\n${formatted.join('\n\n---\n\n')}`
   }
 
   // 获取基础系统提示词（无工具时使用）

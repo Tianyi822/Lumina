@@ -58,9 +58,8 @@ function buildTemplateVariables(options: PromptBuildOptions): Partial<TemplateVa
 export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string {
   const {
     includeFewShotExamples = true,
-    fewShotCount = 3,
+    fewShotCount = 0,
     fewShotExamples = [],
-    emphasizeErrorHandling = false,
     customSystemPrompt,
     toolDescriptionLevel = 'detailed',
     knowledgeContext,
@@ -104,21 +103,13 @@ export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string
   // 应用变量替换到各个章节
   sections = promptTemplateManager.applyVariablesToSections(sections, variables)
 
-  // 构建标准提示词
+  // 构建标准提示词（只组装保留的 3 个 section）
   let prompt = ''
 
-  // 添加各个章节
   prompt += sections.coreInstructions + '\n\n'
-  prompt += sections.reactProcess + '\n\n'
-  prompt += sections.toolBestPractices + '\n\n'
   prompt += sections.outputFormat
 
-  // 根据配置决定是否强调错误处理
-  if (emphasizeErrorHandling) {
-    prompt += '\n\n' + sections.errorHandling
-  }
-
-  // 添加沙箱管理指南
+  // 添加沙箱管理指南（业务特有流程）
   if (sections.sandboxManagement) {
     prompt += '\n\n' + sections.sandboxManagement
   }
@@ -134,12 +125,9 @@ export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string
 
   // 添加最终提醒
   const reminders = [
-    '仔细思考后再行动，不要盲目调用工具',
-    '如果不需要使用工具就能回答问题，直接给出答案',
-    '不要过早要求用户交互：能根据上下文、常见惯例或安全默认值继续时，先继续推进',
-    '只有缺少不可推断的关键决策、继续会产生明显风险/高成本/不可逆影响，或用户明确要求选择时，才调用 `sandbox__ask_user`',
-    '始终以清晰、有用的方式回应用户',
-    '工具名称格式为 `serverName__toolName`'
+    '先思考再行动，不需要工具时直接回答',
+    '不要过早要求用户交互，能用合理默认值推进时先推进',
+    '只有缺少不可推断的关键决策时才调用 `sandbox__ask_user`'
   ]
 
   // 根据工具描述级别添加额外提醒
@@ -164,63 +152,6 @@ ${reminders.map((r) => `- ${r}`).join('\n')}
 export function getDefaultReactPrompt(): string {
   return buildReactSystemPrompt({
     includeFewShotExamples: true,
-    fewShotCount: 3,
-    emphasizeErrorHandling: true
+    fewShotCount: 0
   })
-}
-
-// 知识库增强提示词
-// 当用户选中了知识库时添加到系统提示词中
-// 现在知识库作为工具提供给模型，由模型决定是否调用
-export function buildKnowledgeEnhancedPrompt(): string {
-  return `# 知识库工具使用指南
-
-你可以使用以下知识库工具来获取相关信息：
-
-## 可用工具
-
-1. **knowledge__search** - 在知识库中搜索相关内容
-   - 参数：
-     - query: 搜索查询文本（必需）
-     - knowledgeBaseId: 知识库ID（可选，不指定则搜索所有可用知识库）
-     - limit: 返回结果数量（可选，默认5，最大20）
-   - 使用场景：当用户问题需要参考知识库中的特定信息时
-
-2. **knowledge__list** - 获取可用知识库列表
-   - 无参数
-   - 使用场景：需要了解有哪些知识库可用时
-
-3. **knowledge__documents** - 获取知识库文档列表
-   - 参数：
-     - knowledgeBaseId: 知识库ID（必需）
-   - 使用场景：需要了解知识库中有哪些文档时
-
-## 使用建议
-
-1. **何时搜索知识库**：
-   - 用户问题涉及特定领域的专业知识
-   - 用户明确要求从知识库中查找信息
-   - 你的训练数据可能不够准确或过时
-   - 用户提到知识库中可能有的特定内容
-
-2. **何时不需搜索**：
-   - 通用常识问题（如问候、闲聊）
-   - 你已有足够信心回答的通用问题
-   - 编程、数学等通用知识问题
-   - 用户没有明确需要知识库信息的意图
-
-3. **最佳实践**：
-   - 先理解用户意图，再决定是否搜索
-   - 使用精确的搜索查询词以获得更好的结果
-   - 基于搜索结果回答时，注明来源
-   - 如果搜索结果不相关，告知用户并尝试其他方式回答
-
-## 回答策略
-
-- 首先判断用户问题是否需要知识库信息
-- 如需知识库，调用 knowledge__search 工具搜索
-- 整合搜索结果形成结构化回答
-- 引用来源时格式："根据知识库中的《文档名》..."
-- 如果知识库中没有相关信息，明确告知用户
-`
 }

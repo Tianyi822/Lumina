@@ -16,6 +16,7 @@ import type { DocumentApi } from './document'
 import type { KnowledgeMCPApi } from './knowledgeMCP'
 import type { PromptEngineeringApi } from './promptEngineering'
 import type { PaperApi } from './paper'
+import type { ToolStatsApi } from './toolStats'
 
 /**
  * 自定义的完整 API
@@ -41,4 +42,6 @@ export interface CustomApi {
   knowledgeMCP: KnowledgeMCPApi
   // 论文阅读器 API
   paper: PaperApi
+  // 工具统计 API
+  toolStats: ToolStatsApi
 }

@@ -66,12 +66,12 @@ export interface ContextBudget {
  * 默认的预算分配比例
  */
 const DEFAULT_BUDGET_RATIOS = {
-  systemPrompt: 0.15,
+  systemPrompt: 0.05,
   toolDescriptions: 0.2,
-  fewShotExamples: 0.1,
-  knowledgeContext: 0.15,
-  userMessage: 0.2,
-  modelResponse: 0.2
+  fewShotExamples: 0.02,
+  knowledgeContext: 0.25,
+  userMessage: 0.25,
+  modelResponse: 0.23
 }
 
 /**

@@ -16,6 +16,7 @@ import {
 } from './handlers/knowledgeMCPHandlers'
 import { registerDocumentHandlers } from './handlers/documentHandlers'
 import { registerPaperHandlers } from './handlers/paperHandlers'
+import { registerToolStatsHandlers } from './handlers/toolStatsHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -75,4 +76,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册论文相关处理程序
   registerPaperHandlers()
+
+  // 注册工具统计相关处理程序
+  registerToolStatsHandlers()
 }

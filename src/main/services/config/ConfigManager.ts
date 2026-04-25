@@ -60,7 +60,7 @@ function createDefaultPromptConfig(): PromptConfig {
   return {
     enableEnhancedPrompt: true,
     toolDescriptionLevel: 'detailed',
-    fewShotCount: 3,
+    fewShotCount: 0,
     customSystemPrompt: '',
     enablePromptCache: false,
     enableDynamicExamples: false,
@@ -143,8 +143,16 @@ function migrateConfig(config: AppConfig): AppConfig {
   if (!migrated.promptConfig.toolDescriptionLevel) {
     migrated.promptConfig.toolDescriptionLevel = 'detailed'
   }
-  if (migrated.promptConfig.fewShotCount === undefined) {
-    migrated.promptConfig.fewShotCount = 3
+  if (
+    typeof migrated.promptConfig.fewShotCount !== 'number' ||
+    !Number.isFinite(migrated.promptConfig.fewShotCount)
+  ) {
+    migrated.promptConfig.fewShotCount = 0
+  } else {
+    migrated.promptConfig.fewShotCount = Math.max(
+      0,
+      Math.min(2, Math.floor(migrated.promptConfig.fewShotCount))
+    )
   }
   if (migrated.promptConfig.customSystemPrompt === undefined) {
     migrated.promptConfig.customSystemPrompt = ''

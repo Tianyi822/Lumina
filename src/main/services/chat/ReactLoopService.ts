@@ -1,15 +1,25 @@
 import OpenAI from 'openai'
 import type { WebContents } from 'electron'
 import { configManager } from '../config'
-import type { ChatRequest, ChatResult, KnowledgeSearchResult } from '../../types/chat'
+import type {
+  ChatRequest,
+  ChatResult,
+  KnowledgeSearchResult,
+  MCPToolReference
+} from '../../types/chat'
 import type { KnowledgeBaseReference } from '@shared/types/knowledge'
 import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
 import { formatMessagesWithKnowledge } from './message'
 import { ModelRetryHandler } from './ModelRetryHandler'
-import { ToolExecutor } from './tools'
+import {
+  KnowledgeToolAdapter,
+  MCPToolAdapter,
+  SandboxToolAdapter,
+  UnifiedToolExecutor,
+  UnifiedToolRegistry
+} from './tools'
 import type { ReactLoopServiceOptions } from './chatInternal'
-import { ToolListBuilder } from './ToolListBuilder'
 import { StreamProcessor } from './StreamProcessor'
 
 /**
@@ -23,8 +33,11 @@ export class ReactLoopService {
   private readonly createClient: ReactLoopServiceOptions['createClient']
   private readonly validateAndGetLLMConfig: ReactLoopServiceOptions['validateAndGetLLMConfig']
   private readonly modelRetryHandler: ModelRetryHandler
-  private readonly toolExecutor: ToolExecutor
-  private readonly toolListBuilder: ToolListBuilder
+  private readonly unifiedToolExecutor: UnifiedToolExecutor
+  private readonly toolRegistry: UnifiedToolRegistry
+  private readonly sandboxAdapter: SandboxToolAdapter
+  private readonly knowledgeAdapter: KnowledgeToolAdapter
+  private readonly mcpAdapter: MCPToolAdapter | null
   private readonly streamProcessor: StreamProcessor
 
   constructor(options: ReactLoopServiceOptions) {
@@ -41,21 +54,23 @@ export class ReactLoopService {
         this.stopController.delayWithAbort(ms, sessionId, signal)
     })
 
-    this.toolExecutor = new ToolExecutor({
+    this.toolRegistry = new UnifiedToolRegistry()
+    this.sandboxAdapter = new SandboxToolAdapter()
+    this.knowledgeAdapter = new KnowledgeToolAdapter()
+    this.mcpAdapter = options.mcpService ? new MCPToolAdapter(options.mcpService) : null
+
+    const pendingUserInteraction = new Set<string>()
+    this.unifiedToolExecutor = new UnifiedToolExecutor({
       logger: this.logger,
-      mcpService: options.mcpService,
-      toolScheduler: options.toolScheduler,
+      registry: this.toolRegistry,
       checkStopped: (sessionId) => this.stopController.checkStopped(sessionId),
       withTimeoutAndStopCheck: (promise, sessionId, timeoutMs, operationName) =>
         this.stopController.withTimeoutAndStopCheck(promise, sessionId, timeoutMs, operationName),
       sendStreamEvent: (webContents, event) =>
         this.streamHandler.sendStreamEvent(webContents, event),
-      pendingUserInteraction: new Set(),
-      getSelectedKnowledgeBaseIds: (sessionId) =>
-        this.stopController.getSelectedKnowledgeBaseIds(sessionId)
+      pendingUserInteraction
     })
 
-    this.toolListBuilder = new ToolListBuilder(this.logger, this.stopController)
     this.streamProcessor = new StreamProcessor(this.streamHandler)
   }
 
@@ -99,20 +114,12 @@ export class ReactLoopService {
         promptBuilder.updatePromptConfig(config.promptConfig || null)
       }
 
-      const allTools = this.toolListBuilder.buildToolList(
-        request,
-        selectedKnowledgeBases,
-        sessionId
-      )
+      this.buildToolRegistry(request, selectedKnowledgeBases, sessionId)
 
-      const tools = this.toolExecutor.buildOpenAITools(allTools)
+      const tools = this.toolRegistry.buildOpenAITools()
 
-      const systemPrompt = await promptBuilder.buildSystemPrompt(
-        llmConfig,
-        true,
-        allTools,
-        knowledgeResults
-      )
+      const allToolRefs = this.toolRegistry.getAllToolReferences()
+      const systemPrompt = await promptBuilder.buildSystemPrompt(llmConfig, true, allToolRefs)
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
         ...formatMessagesWithKnowledge(messages, knowledgeResults)
@@ -164,6 +171,54 @@ export class ReactLoopService {
       this.stopController.clearStoppedSession(sessionId)
       this.stopController.deletePendingUserInteraction(sessionId)
     }
+  }
+
+  /**
+   * 按请求刷新统一工具注册表
+   */
+  private buildToolRegistry(
+    request: ChatRequest,
+    selectedKnowledgeBases?: KnowledgeBaseReference[],
+    sessionId?: string
+  ): MCPToolReference[] {
+    const { selectedTools, enableSandboxTools } = request
+
+    this.toolRegistry.unregisterByCategory('sandbox')
+    this.toolRegistry.unregisterByCategory('knowledge')
+    this.toolRegistry.unregisterByCategory('mcp')
+
+    if (selectedTools && selectedTools.length > 0 && this.mcpAdapter) {
+      this.toolRegistry.registerBatch(selectedTools, this.mcpAdapter, 'mcp')
+    }
+
+    if (enableSandboxTools) {
+      const sandboxTools = this.sandboxAdapter.getTools()
+      this.toolRegistry.registerBatch(sandboxTools, this.sandboxAdapter, 'sandbox')
+
+      this.logger.info('已添加沙箱工具到工具列表', 'main', {
+        sessionId,
+        sandboxToolCount: sandboxTools.length,
+        totalToolCount: this.toolRegistry.size
+      })
+    }
+
+    if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0 && sessionId) {
+      const kbIds = selectedKnowledgeBases.map((kb) => kb.id)
+      this.stopController.setSessionKnowledgeBases(sessionId, kbIds)
+
+      this.knowledgeAdapter.setKnowledgeBaseIds(kbIds)
+      const knowledgeTools = this.knowledgeAdapter.getTools()
+      this.toolRegistry.registerBatch(knowledgeTools, this.knowledgeAdapter, 'knowledge')
+
+      this.logger.info('已添加知识库工具到工具列表', 'main', {
+        sessionId,
+        knowledgeToolCount: knowledgeTools.length,
+        totalToolCount: this.toolRegistry.size,
+        selectedKnowledgeBases: selectedKnowledgeBases.map((kb) => kb.name)
+      })
+    }
+
+    return this.toolRegistry.getAllToolReferences()
   }
 
   /**
@@ -263,7 +318,7 @@ export class ReactLoopService {
       assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
     )
 
-    const needUserInteraction = await this.toolExecutor.executeToolCallsWithScheduler(
+    const needUserInteraction = await this.unifiedToolExecutor.executeToolCalls(
       toolCallsArray,
       webContents,
       sessionId,

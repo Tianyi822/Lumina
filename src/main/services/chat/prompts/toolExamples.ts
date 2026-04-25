@@ -66,9 +66,15 @@ export function formatFewShotExample(example: FewShotExample): string {
   if (example.toolCalls && example.toolCalls.length > 0) {
     text += `**工具调用**:\n`
     for (const toolCall of example.toolCalls) {
+      const MAX_RESULT_LENGTH = 500
+      const result =
+        toolCall.result.length > MAX_RESULT_LENGTH
+          ? toolCall.result.slice(0, MAX_RESULT_LENGTH) + '\n...[结果已截断]'
+          : toolCall.result
+
       text += `- 工具: ${toolCall.name}\n`
       text += `  参数: ${JSON.stringify(toolCall.arguments, null, 2)}\n`
-      text += `  结果: ${toolCall.result}\n\n`
+      text += `  结果: ${result}\n\n`
     }
   }
 

@@ -5,14 +5,12 @@ export type ToolDescriptionLevel = 'basic' | 'detailed' | 'minimal'
 export interface PromptBuildOptions {
   // 是否包含 few-shot 示例
   includeFewShotExamples?: boolean
-  // Few-shot 示例数量 (0-5)
+  // Few-shot 示例数量 (0-2)
   fewShotCount?: number
   // Few-shot 示例内容
   fewShotExamples?: FewShotExample[]
   // Few-shot 示例 ID（用于缓存）
   exampleIds?: string[]
-  // 是否强调错误处理
-  emphasizeErrorHandling?: boolean
   // 工具描述详细程度
   toolDescriptionLevel?: ToolDescriptionLevel
   // 自定义系统提示词 (覆盖默认提示词）
@@ -91,12 +89,12 @@ export interface ExampleExtractionResult {
 export interface ReactPromptSections {
   // 核心角色和指令
   coreInstructions: string
-  // ReAct 推理流程
-  reactProcess: string
-  // 错误处理策略
-  errorHandling: string
-  // 工具使用最佳实践
-  toolBestPractices: string
+  // ReAct 推理流程（已废弃，模型已内化 ReAct）
+  reactProcess?: string
+  // 错误处理策略（已废弃）
+  errorHandling?: string
+  // 工具使用最佳实践（已废弃，模型已内化 tool use）
+  toolBestPractices?: string
   // 输出格式要求
   outputFormat: string
   // 沙箱管理指南

@@ -27,8 +27,8 @@ const {
 } = usePromptManager()
 
 const testQuery = ref('')
-const includeExamples = ref(true)
-const exampleCount = ref(3)
+const includeExamples = ref(false)
+const exampleCount = ref(0)
 const systemVariableValues = computed(() => resolveSystemPromptVariables())
 
 const canRunAction = computed(() => {
@@ -174,7 +174,7 @@ function handleClearResult(): void {
             class="sm-prompt-sandbox__range-input"
             type="range"
             min="0"
-            max="5"
+            max="2"
             step="1"
             :disabled="!includeExamples"
           />
