@@ -8,7 +8,8 @@ import type { KnowledgeBase, FileItem } from '@renderer/types'
 export function useReindex(
   currentKB: ComputedRef<KnowledgeBase | undefined>,
   linkedFiles: Ref<FileItem[]>,
-  onStatsNeedUpdate: () => Promise<void>
+  onStatsNeedUpdate: () => Promise<void>,
+  onKnowledgeBaseNeedUpdate?: () => Promise<void> | void
 ) {
   const indexStore = useKnowledgeIndexStore()
   const notify = useNotification()
@@ -57,6 +58,7 @@ export function useReindex(
         notify.success('重新索引完成', `成功索引 ${result.data?.indexedCount || 0} 个文件`, {
           source: 'knowledge'
         })
+        await onKnowledgeBaseNeedUpdate?.()
       } else {
         const failedCount = result.data?.failedFiles?.length || 0
         if (failedCount > 0) {

@@ -120,6 +120,10 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
   return `${count} 个文档`
 }
 
+function needsReindex(kb: { indexInvalidation?: { needsReindex?: boolean } }): boolean {
+  return kb.indexInvalidation?.needsReindex === true
+}
+
 function handleOpenSandboxCreator(): void {
   uiStateStore.openSandboxCreator()
 }
@@ -366,7 +370,12 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
                       </div>
 
                       <div class="sm-workspace-sidebar-host__kb-info">
-                        <div class="sm-workspace-sidebar-host__kb-name">{{ kb.name }}</div>
+                        <div class="sm-workspace-sidebar-host__kb-name-row">
+                          <div class="sm-workspace-sidebar-host__kb-name">{{ kb.name }}</div>
+                          <span v-if="needsReindex(kb)" class="sm-workspace-sidebar-host__kb-stale">
+                            需重索引
+                          </span>
+                        </div>
                         <div class="sm-workspace-sidebar-host__kb-meta">
                           {{ formatDocumentCount(kb.linkedFileIds) }}
                         </div>
@@ -547,6 +556,8 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
 }
 
 .sm-workspace-sidebar-host__kb-name {
+  flex: 1;
+  min-width: 0;
   margin-bottom: 2px;
   font-size: 13px;
   font-weight: 600;
@@ -554,6 +565,24 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sm-workspace-sidebar-host__kb-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sm-workspace-sidebar-host__kb-stale {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border: 1px solid rgba(213, 161, 74, 0.36);
+  border-radius: var(--sm-radius-sm);
+  background: rgba(213, 161, 74, 0.12);
+  color: rgba(226, 181, 99, 0.95);
+  font-size: 10px;
+  line-height: 1.2;
 }
 
 .sm-workspace-sidebar-host__kb-meta {
