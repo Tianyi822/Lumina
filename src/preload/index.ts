@@ -11,7 +11,6 @@ import { embeddingModelsApi } from './apis/embeddingModels'
 import { knowledgeApi, onFileProgress, onReindexProgress } from './apis/knowledge'
 import { fileApi } from './apis/file'
 import { sandboxApi } from './apis/sandbox'
-import { promptEngineeringApi } from './apis/promptEngineering'
 import { knowledgeMCPApi } from './apis/knowledgeMCP'
 import { documentApi } from './apis/document'
 import { paperApi } from './apis/paper'
@@ -36,8 +35,6 @@ const api = {
   document: documentApi,
   onFileProgress,
   onReindexProgress,
-  // 提示词工程统一 API
-  promptEngineering: promptEngineeringApi,
   // 知识库 MCP 服务 API
   knowledgeMCP: knowledgeMCPApi,
   // 论文相关 API

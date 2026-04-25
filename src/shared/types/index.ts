@@ -32,9 +32,6 @@ export {
   type MCPClientConfig
 } from './knowledgeMCP'
 
-// 提示词相关的类型
-export * from './prompt'
-
 // 工具统计相关的类型
 export * from './tool-stats'
 

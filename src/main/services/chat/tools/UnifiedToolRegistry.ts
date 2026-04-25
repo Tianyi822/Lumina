@@ -1,8 +1,20 @@
 import OpenAI from 'openai'
 import type { MCPToolReference } from '../../../types/chat'
 import type { MCPToolCallResult } from '@shared/types/mcp'
-import { configManager } from '../../config'
 import { enhanceToolDescriptions } from './ToolDescriptionEnhancer'
+import type { ToolDescriptionLevel } from '../prompts/types'
+
+function getDescriptionLevelByToolCount(toolCount: number): ToolDescriptionLevel {
+  if (toolCount > 20) {
+    return 'minimal'
+  }
+
+  if (toolCount > 10) {
+    return 'basic'
+  }
+
+  return 'detailed'
+}
 
 /**
  * 工具适配器接口
@@ -147,10 +159,8 @@ export class UnifiedToolRegistry {
    * 替代 ToolExecutor.buildOpenAITools()，从注册表中直接生成
    */
   buildOpenAITools(): OpenAI.Chat.Completions.ChatCompletionTool[] {
-    const config = configManager.getConfig()
-    const descriptionLevel = config?.promptConfig?.toolDescriptionLevel || 'detailed'
-
     const allRefs = this.getAllToolReferences()
+    const descriptionLevel = getDescriptionLevelByToolCount(allRefs.length)
     const enhancedDescriptions = this.enhanceDescriptionsByCategory(allRefs, descriptionLevel)
     const openAITools: OpenAI.Chat.Completions.ChatCompletionTool[] = []
 
@@ -218,10 +228,10 @@ export class UnifiedToolRegistry {
    */
   private enhanceDescriptionsByCategory(
     tools: MCPToolReference[],
-    level: string
+    level: ToolDescriptionLevel
   ): Map<string, string> {
     const mcpTools = tools.filter((t) => t.serverName !== 'sandbox' && t.serverName !== 'knowledge')
-    return enhanceToolDescriptions(mcpTools, level as 'minimal' | 'basic' | 'detailed')
+    return enhanceToolDescriptions(mcpTools, level)
   }
 
   /**

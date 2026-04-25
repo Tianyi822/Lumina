@@ -1,6 +1,5 @@
 import OpenAI from 'openai'
 import type { WebContents } from 'electron'
-import { configManager } from '../config'
 import type {
   ChatRequest,
   ChatResult,
@@ -108,11 +107,6 @@ export class ReactLoopService {
 
     try {
       const client = this.createClient(llmConfig)
-
-      const config = configManager.getConfig()
-      if (config) {
-        promptBuilder.updatePromptConfig(config.promptConfig || null)
-      }
 
       this.buildToolRegistry(request, selectedKnowledgeBases, sessionId)
 

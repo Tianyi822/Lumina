@@ -14,7 +14,6 @@ import type { FileApi } from './file'
 import type { SandboxApi } from './sandbox'
 import type { DocumentApi } from './document'
 import type { KnowledgeMCPApi } from './knowledgeMCP'
-import type { PromptEngineeringApi } from './promptEngineering'
 import type { PaperApi } from './paper'
 import type { ToolStatsApi } from './toolStats'
 
@@ -36,8 +35,6 @@ export interface CustomApi {
   document: DocumentApi
   onFileProgress: (callback: (data: KnowledgeFileProgressEvent) => void) => () => void
   onReindexProgress: (callback: (data: KnowledgeReindexProgressEvent) => void) => () => void
-  // 提示词工程统一 API
-  promptEngineering: PromptEngineeringApi
   // 知识库 MCP 服务 API
   knowledgeMCP: KnowledgeMCPApi
   // 论文阅读器 API
