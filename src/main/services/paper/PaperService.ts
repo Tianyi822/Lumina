@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto'
 import { net } from 'electron'
 import { logger } from '@main/services/logger'
 import { getFileService } from '@main/services/file'
+import { getKnowledgeServiceManager } from '@main/services/knowledge'
 import { paperStorageService } from './index'
 import { PaperOcrService, type OcrProgressInfo } from './PaperOcrService'
 import {
@@ -19,6 +20,7 @@ import type {
   CreatePaperAnnotationPayload,
   LegacyPaperAnnotation,
   PaperAnnotation,
+  PaperAnnotationAffectedKnowledgeBase,
   PaperAnnotationStore,
   PaperDocument,
   PaperFigureItem,
@@ -77,9 +79,12 @@ export class PaperService {
     return createEmptyPaperAnnotationStore(paperId)
   }
 
-  private syncPaperNoteResource(paperId: string, annotation: PaperAnnotation): void {
+  private syncPaperNoteResource(
+    paperId: string,
+    annotation: PaperAnnotation
+  ): PaperAnnotationAffectedKnowledgeBase[] {
     if (annotation.kind !== 'note') {
-      return
+      return []
     }
 
     const metaResult = paperStorageService.readMeta(paperId)
@@ -88,7 +93,7 @@ export class PaperService {
         paperId,
         annotationId: annotation.id
       })
-      return
+      return []
     }
 
     const result = getFileService().upsertPaperNoteResource(metaResult.data, annotation)
@@ -98,7 +103,20 @@ export class PaperService {
         annotationId: annotation.id,
         error: result.error
       })
+      return []
     }
+
+    if (!result.contentChanged || !result.file || !result.previousUsedByKBIds?.length) {
+      return []
+    }
+
+    return getKnowledgeServiceManager().markKnowledgeBasesNeedReindex(result.previousUsedByKBIds, {
+      fileId: result.file.id,
+      fileName: result.file.name,
+      paperId,
+      annotationId: annotation.id,
+      updatedAt: annotation.updatedAt
+    })
   }
 
   private async removePaperNoteResource(paperId: string, annotationId: string): Promise<void> {
@@ -777,6 +795,7 @@ export class PaperService {
   async updateAnnotation(params: UpdatePaperAnnotationPayload): Promise<{
     success: boolean
     data?: PaperAnnotation
+    affectedKnowledgeBases?: PaperAnnotationAffectedKnowledgeBase[]
     error?: string
   }> {
     try {
@@ -855,11 +874,12 @@ export class PaperService {
         return { success: false, error: saveResult.error || '更新论文批注失败' }
       }
 
-      this.syncPaperNoteResource(params.paperId, nextAnnotation)
+      const affectedKnowledgeBases = this.syncPaperNoteResource(params.paperId, nextAnnotation)
 
       return {
         success: true,
-        data: nextAnnotation
+        data: nextAnnotation,
+        affectedKnowledgeBases
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)

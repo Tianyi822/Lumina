@@ -11,6 +11,7 @@ import type {
   FileItem,
   FileOriginInfo,
   FilePreviewData,
+  KnowledgeIndexInvalidationState,
   KnowledgeBase
 } from '@shared/types/knowledge'
 import type { PaperAnnotation, PaperDocument } from '@shared/types/paper'
@@ -149,6 +150,35 @@ async function removeFileChunksFromKnowledgeBases(fileId: string, kbIds: string[
       })
     }
   }
+}
+
+function removeInvalidatedFileFromKnowledgeBase(kb: KnowledgeBase, fileId: string): KnowledgeBase {
+  const invalidation = kb.indexInvalidation
+  if (!invalidation) {
+    return kb
+  }
+
+  const nextFiles = invalidation.files.filter((file) => file.fileId !== fileId)
+  const nextInvalidation: KnowledgeIndexInvalidationState | undefined =
+    nextFiles.length > 0
+      ? {
+          ...invalidation,
+          files: nextFiles
+        }
+      : undefined
+
+  return {
+    ...kb,
+    indexInvalidation: nextInvalidation
+  }
+}
+
+export interface PaperNoteResourceSyncResult {
+  success: boolean
+  file?: FileItem
+  error?: string
+  contentChanged?: boolean
+  previousUsedByKBIds?: string[]
 }
 
 /**
@@ -474,7 +504,7 @@ export class FileService {
   upsertPaperNoteResource(
     paper: PaperDocument,
     annotation: PaperAnnotation
-  ): { success: boolean; file?: FileItem; error?: string } {
+  ): PaperNoteResourceSyncResult {
     if (!this.loaded) {
       this.initialize()
     }
@@ -486,6 +516,8 @@ export class FileService {
     try {
       const fileId = getPaperNoteResourceId(paper.id, annotation.id)
       const existingFile = this.files.find((file) => file.id === fileId)
+      const previousContentHash = existingFile?.contentHash
+      const previousUsedByKBIds = [...(existingFile?.usedByKBIds || [])]
       const content = buildPaperNoteContent(paper, annotation)
       const contentHash = calculateFileHash(Buffer.from(content, 'utf-8'))
       const selectedText =
@@ -535,7 +567,13 @@ export class FileService {
         annotationId: annotation.id,
         fileId
       })
-      return { success: true, file: existingFile || noteFile }
+      return {
+        success: true,
+        file: existingFile || noteFile,
+        contentChanged:
+          typeof previousContentHash === 'string' && previousContentHash !== contentHash,
+        previousUsedByKBIds
+      }
     } catch (error) {
       const errorMessage = `同步论文笔记失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage, 'main', { paperId: paper.id, annotationId: annotation.id })
@@ -690,6 +728,10 @@ export class FileService {
           knowledgeBases[kbIndex].linkedFileIds = knowledgeBases[kbIndex].linkedFileIds.filter(
             (id) => id !== file.id
           )
+          knowledgeBases[kbIndex] = removeInvalidatedFileFromKnowledgeBase(
+            knowledgeBases[kbIndex],
+            file.id
+          )
           knowledgeBases[kbIndex].documentCount = knowledgeBases[kbIndex].linkedFileIds.length
           knowledgeBases[kbIndex].updatedAt = new Date().toISOString()
         }
@@ -817,6 +859,10 @@ export class FileService {
         }
         knowledgeBases[kbIndex2].linkedFileIds = knowledgeBases[kbIndex2].linkedFileIds.filter(
           (id) => id !== fileId
+        )
+        knowledgeBases[kbIndex2] = removeInvalidatedFileFromKnowledgeBase(
+          knowledgeBases[kbIndex2],
+          fileId
         )
         knowledgeBases[kbIndex2].documentCount = Math.max(
           0,
