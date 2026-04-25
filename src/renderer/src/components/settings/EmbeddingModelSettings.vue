@@ -121,6 +121,18 @@ async function handleTestNew(config: EmbeddingConfig): Promise<void> {
   }
 }
 
+// 保存配置
+const saving = ref(false)
+async function handleSaveConfig(): Promise<void> {
+  saving.value = true
+  try {
+    await knowledgeStore.loadEmbeddingModels()
+    showSuccess('嵌入模型配置已保存')
+  } finally {
+    saving.value = false
+  }
+}
+
 // 组件挂载时加载模型
 onMounted(() => {
   knowledgeStore.loadEmbeddingModels()
@@ -182,6 +194,12 @@ onMounted(() => {
         添加嵌入模型
       </button>
     </section>
+
+    <div class="save-actions">
+      <button class="sm-button sm-button--primary" :disabled="saving" @click="handleSaveConfig">
+        {{ saving ? '保存中...' : '保存配置' }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -202,5 +220,10 @@ onMounted(() => {
 .add-model-btn:hover {
   color: var(--sm-color-accent-hover);
   border-color: var(--sm-color-border-accent);
+}
+
+.save-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

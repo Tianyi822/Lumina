@@ -482,15 +482,6 @@ async function handleSave(): Promise<void> {
       </button>
     </section>
 
-    <div class="sm-settings-page__section-header">
-      <div>
-        <h3 class="sm-settings-page__section-title">写入配置</h3>
-        <p class="sm-settings-page__section-description">
-          自动保存会持续同步修改，必要时也可以手动触发一次完整保存。
-        </p>
-      </div>
-    </div>
-
     <div class="save-actions">
       <button class="sm-button sm-button--primary" :disabled="saving" @click="handleSave">
         {{ saving ? '保存中...' : '保存配置' }}

@@ -1,6 +1,6 @@
 import { ipcMain, app } from 'electron'
 import { toolStatsCollector } from '../../services/chat/tools/ToolStatsCollector'
-import type { TimeRange } from '@shared/types/tool-stats'
+import type { TimeRange, ToolStatsCategory } from '@shared/types/tool-stats'
 
 /**
  * 注册工具统计相关 IPC 处理程序
@@ -38,4 +38,11 @@ export function registerToolStatsHandlers(): void {
     toolStatsCollector.clear()
     return { success: true }
   })
+
+  ipcMain.handle(
+    'tool-stats:getByCategory',
+    async (_, category: ToolStatsCategory, timeRange?: TimeRange) => {
+      return toolStatsCollector.getCategoryStats(category, timeRange)
+    }
+  )
 }
