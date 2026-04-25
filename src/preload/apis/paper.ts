@@ -2,6 +2,7 @@ import { ipcRenderer } from 'electron'
 import type {
   CreatePaperAnnotationPayload,
   PaperAnnotation,
+  PaperAnnotationAffectedKnowledgeBase,
   PaperDocument,
   PaperFigureItem,
   PaperReaderDocument,
@@ -222,7 +223,12 @@ export const paperApi = {
    */
   updateAnnotation: (
     params: UpdatePaperAnnotationPayload
-  ): Promise<{ success: boolean; data?: PaperAnnotation; error?: string }> => {
+  ): Promise<{
+    success: boolean
+    data?: PaperAnnotation
+    affectedKnowledgeBases?: PaperAnnotationAffectedKnowledgeBase[]
+    error?: string
+  }> => {
     return ipcRenderer.invoke('paper:updateAnnotation', params)
   },
 

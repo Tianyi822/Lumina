@@ -163,6 +163,9 @@ export function registerKnowledgeHandlers(): void {
           // 文件索引进度通过 IPC 事件发送，不打印日志
         })
       )
+      if (result.success) {
+        manager.clearKnowledgeBaseFileInvalidation(kbId, fileId)
+      }
       return result as { success: boolean; error?: string }
     } catch (error) {
       const errorMessage = `索引文件失败: ${error instanceof Error ? error.message : String(error)}`
@@ -228,6 +231,9 @@ export function registerKnowledgeHandlers(): void {
         )
       )
       // result 直接是 reindexKnowledgeBase 的返回类型
+      if (result.success) {
+        manager.clearKnowledgeBaseInvalidation(kbId)
+      }
       return {
         success: result.success,
         data: {
