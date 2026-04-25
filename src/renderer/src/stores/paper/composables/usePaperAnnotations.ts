@@ -2,11 +2,13 @@ import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import type {
   CreatePaperAnnotationPayload,
   PaperAnnotation,
+  PaperAnnotationAffectedKnowledgeBase,
   PaperReaderDocument,
   ReanchorPaperAnnotationPayload,
   UpdatePaperAnnotationPayload
 } from '@shared/types/paper'
 import { deepClone } from '@shared/utils'
+import { useNotification } from '@renderer/composables/useNotification'
 
 export interface PaperAnnotationComposable {
   readerDocumentByPaperId: Ref<Record<string, PaperReaderDocument>>
@@ -21,9 +23,12 @@ export interface PaperAnnotationComposable {
   reanchorAnnotation: (
     params: ReanchorPaperAnnotationPayload
   ) => Promise<{ success: boolean; data?: PaperAnnotation; error?: string }>
-  updateAnnotation: (
-    params: UpdatePaperAnnotationPayload
-  ) => Promise<{ success: boolean; data?: PaperAnnotation; error?: string }>
+  updateAnnotation: (params: UpdatePaperAnnotationPayload) => Promise<{
+    success: boolean
+    data?: PaperAnnotation
+    affectedKnowledgeBases?: PaperAnnotationAffectedKnowledgeBase[]
+    error?: string
+  }>
   deleteAnnotation: (
     paperId: string,
     annotationId: string
@@ -36,6 +41,7 @@ export interface PaperAnnotationComposable {
 export function usePaperAnnotations(currentPaperId: Ref<string | null>): PaperAnnotationComposable {
   const readerDocumentByPaperId = ref<Record<string, PaperReaderDocument>>({})
   const annotationsByPaperId = ref<Record<string, PaperAnnotation[]>>({})
+  const notify = useNotification()
 
   function toPlainPayload<T>(payload: T): T {
     return deepClone(payload)
@@ -135,9 +141,12 @@ export function usePaperAnnotations(currentPaperId: Ref<string | null>): PaperAn
     return result
   }
 
-  async function updateAnnotation(
-    params: UpdatePaperAnnotationPayload
-  ): Promise<{ success: boolean; data?: PaperAnnotation; error?: string }> {
+  async function updateAnnotation(params: UpdatePaperAnnotationPayload): Promise<{
+    success: boolean
+    data?: PaperAnnotation
+    affectedKnowledgeBases?: PaperAnnotationAffectedKnowledgeBase[]
+    error?: string
+  }> {
     const plainParams = toPlainPayload(params)
     const result = await window.api.paper.updateAnnotation(plainParams)
     if (!result.success || !result.data) {
@@ -149,6 +158,24 @@ export function usePaperAnnotations(currentPaperId: Ref<string | null>): PaperAn
       return annotation.id === plainParams.annotationId ? result.data! : annotation
     })
     setAnnotations(plainParams.paperId, nextAnnotations)
+
+    if (result.affectedKnowledgeBases?.length) {
+      const affectedList = result.affectedKnowledgeBases.map((kb) => `- ${kb.name}`).join('\n')
+      notify.warning(
+        '论文笔记已更新',
+        [
+          '以下知识库需要重新索引以确保检索结果使用最新笔记内容：',
+          affectedList,
+          '请前往知识库页面点击“重新索引”。'
+        ].join('\n'),
+        {
+          source: 'paper',
+          sticky: true,
+          dedupeKey: `paper-note-index-invalidation:${plainParams.paperId}:${plainParams.annotationId}`
+        }
+      )
+    }
+
     return result
   }
 

@@ -1,15 +1,20 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { PaperService } from './PaperService.ts'
 import { paperStorageService } from './index.ts'
+import { getFileService } from '../file/FileService.ts'
+import { getKnowledgeBaseFilePath } from '../knowledge/knowledgePaths.ts'
+import { getKnowledgeDirPath } from '../config/configPaths.ts'
 import { getPaperDirPath, getPaperFigureAssetPath } from './paperPaths.ts'
+import type { KnowledgeBase } from '../../../shared/types/knowledge.ts'
 import {
   PAPER_ANNOTATION_NOTE_COLOR_KEY,
   type CreatePaperAnnotationPayload,
   type PaperAnnotation,
   type PaperAnnotationStore,
+  type PaperDocument,
   type PaperPageOcrResult,
   type PaperReaderDocument,
   type PaperReaderSegment,
@@ -69,6 +74,43 @@ function createReaderDocument(segment: PaperReaderSegment): PaperReaderDocument 
     sourceRevisionId: segment.sourceRevisionId,
     updatedAt: '2025-01-01T00:00:00.000Z',
     segments: [segment]
+  }
+}
+
+function createPaperDocument(): PaperDocument {
+  return {
+    id: 'paper-1',
+    fileName: 'sample-paper.pdf',
+    filePath: '/tmp/sample-paper.pdf',
+    fileHash: 'paper-hash',
+    fileSize: 12,
+    pageCount: 1,
+    status: 'completed',
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2025-01-01T00:00:00.000Z',
+    lastOpenedAt: '2025-01-01T00:00:00.000Z',
+    ocrProvider: 'glm-ocr',
+    ocrModel: 'glm-ocr',
+    completedPageCount: 1
+  }
+}
+
+function createKnowledgeBase(id: string, name: string): KnowledgeBase {
+  return {
+    id,
+    name,
+    embeddingConfig: {
+      baseUrl: 'http://localhost',
+      model: 'test-embedding',
+      dimensions: 3
+    },
+    embeddingDimension: 3,
+    chunkSize: 500,
+    chunkOverlap: 50,
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2025-01-01T00:00:00.000Z',
+    documentCount: 0,
+    linkedFileIds: []
   }
 }
 
@@ -324,6 +366,7 @@ test('updateAnnotation 只允许普通标记修改颜色', async () => {
     assert.equal(updated.success, true)
     assert.equal(updated.data?.colorKey, 'orange')
     assert.equal(updated.data?.comment, '')
+    assert.deepEqual(updated.affectedKnowledgeBases, [])
     if (!savedStore) {
       throw new Error('saveAnnotationStore 未被调用')
     }
@@ -378,6 +421,90 @@ test('updateAnnotation 允许笔记修改内容但不允许改颜色', async () 
     assert.equal(ensuredStore.annotations[0].comment, '新内容')
   } finally {
     paperStorageService.saveAnnotationStore = originalSaveAnnotationStore
+  }
+})
+
+test('updateAnnotation 会将已加入知识库的论文笔记标记为需要重新索引', async () => {
+  rmSync(getKnowledgeDirPath(), { recursive: true, force: true })
+  mkdirSync(getKnowledgeDirPath(), { recursive: true })
+  writeFileSync(
+    getKnowledgeBaseFilePath(),
+    JSON.stringify(
+      [createKnowledgeBase('kb-1', '知识库一'), createKnowledgeBase('kb-2', '知识库二')],
+      null,
+      2
+    )
+  )
+
+  const fileService = getFileService()
+  fileService.initialize()
+
+  const service = new PaperService()
+  const mutableService = asMutableService(service)
+  const segment = createSegment()
+  const paper = createPaperDocument()
+  const annotation = createAnnotation(segment, {
+    kind: 'note',
+    comment: '旧内容',
+    colorKey: PAPER_ANNOTATION_NOTE_COLOR_KEY
+  })
+  const store = createStore(annotation)
+  const noteFile = fileService.upsertPaperNoteResource(paper, annotation).file
+  if (!noteFile) {
+    throw new Error('论文笔记资源未创建')
+  }
+  assert.equal(fileService.linkFileToKB(noteFile.id, 'kb-1').success, true)
+  assert.equal(fileService.linkFileToKB(noteFile.id, 'kb-2').success, true)
+
+  const originalReadMeta = paperStorageService.readMeta
+  const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
+
+  mutableService.resolveAnnotationStore = () => ({ success: true, data: store })
+  paperStorageService.readMeta = () => ({ success: true, data: paper })
+  paperStorageService.saveAnnotationStore = () => ({ success: true })
+
+  try {
+    const result = await service.updateAnnotation({
+      paperId: 'paper-1',
+      annotationId: annotation.id,
+      comment: '新内容'
+    })
+
+    assert.equal(result.success, true)
+    assert.deepEqual(
+      result.affectedKnowledgeBases?.map((kb) => kb.name),
+      ['知识库一', '知识库二']
+    )
+
+    const knowledgeBases = JSON.parse(
+      readFileSync(getKnowledgeBaseFilePath(), 'utf-8')
+    ) as KnowledgeBase[]
+
+    assert.equal(knowledgeBases[0].indexInvalidation?.needsReindex, true)
+    assert.equal(knowledgeBases[1].indexInvalidation?.needsReindex, true)
+    assert.deepEqual(
+      knowledgeBases.map((kb) => kb.indexInvalidation?.files.map((file) => file.fileId)),
+      [[noteFile.id], [noteFile.id]]
+    )
+
+    const secondResult = await service.updateAnnotation({
+      paperId: 'paper-1',
+      annotationId: annotation.id,
+      comment: '再次更新'
+    })
+    assert.equal(secondResult.success, true)
+
+    const nextKnowledgeBases = JSON.parse(
+      readFileSync(getKnowledgeBaseFilePath(), 'utf-8')
+    ) as KnowledgeBase[]
+    assert.deepEqual(
+      nextKnowledgeBases.map((kb) => kb.indexInvalidation?.files.length),
+      [1, 1]
+    )
+  } finally {
+    paperStorageService.readMeta = originalReadMeta
+    paperStorageService.saveAnnotationStore = originalSaveAnnotationStore
+    rmSync(getKnowledgeDirPath(), { recursive: true, force: true })
   }
 })
 

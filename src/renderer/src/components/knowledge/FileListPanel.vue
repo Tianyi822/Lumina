@@ -6,13 +6,14 @@ import type { FileItem } from '@renderer/types'
 import { FileIcon } from './shared'
 import FilePreviewDialog from './FilePreviewDialog.vue'
 import { getFileSourceClass, getFileSourceLabel, getFileSubtitle } from './utils/fileSource'
-defineProps<{
+const props = defineProps<{
   linkedFiles: FileItem[]
   loadingFiles: boolean
   isDragging: boolean
   unlinkingFileId: string | null
   indexingStatus: boolean
   kbIndexingFiles: Record<string, { progress?: number }>
+  invalidatedFileIds?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -48,6 +49,10 @@ function getFileNameWithoutExtension(fileName: string): string {
     return fileName.substring(0, lastDotIndex)
   }
   return fileName
+}
+
+function isInvalidatedFile(file: FileItem): boolean {
+  return props.invalidatedFileIds?.includes(file.id) === true
 }
 </script>
 
@@ -100,7 +105,8 @@ function getFileNameWithoutExtension(fileName: string): string {
           'document-card',
           {
             unlinking: unlinkingFileId === file.id,
-            'indexing-disabled': indexingStatus
+            'indexing-disabled': indexingStatus,
+            'needs-reindex': isInvalidatedFile(file)
           }
         ]"
         @click="handlePreviewFile(file)"
@@ -141,6 +147,7 @@ function getFileNameWithoutExtension(fileName: string): string {
         </div>
 
         <div class="document-meta">
+          <span v-if="isInvalidatedFile(file)" class="stale-badge">需重新索引</span>
           <span :class="['source-badge', getFileSourceClass(file)]">
             {{ getFileSourceLabel(file) }}
           </span>
@@ -257,6 +264,10 @@ function getFileNameWithoutExtension(fileName: string): string {
   opacity: 0.7;
 }
 
+.document-card.needs-reindex {
+  border-color: rgba(213, 161, 74, 0.34);
+}
+
 .document-card__header {
   display: flex;
   align-items: flex-start;
@@ -337,6 +348,19 @@ function getFileNameWithoutExtension(fileName: string): string {
   font-size: 11px;
   color: var(--sm-color-text-secondary);
   font-family: var(--sm-font-mono);
+}
+
+.stale-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid rgba(213, 161, 74, 0.36);
+  border-radius: var(--sm-radius-sm);
+  background: rgba(213, 161, 74, 0.12);
+  color: rgba(226, 181, 99, 0.95);
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .progress-bar {

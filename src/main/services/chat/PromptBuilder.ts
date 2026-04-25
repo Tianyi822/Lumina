@@ -1,6 +1,6 @@
 import type { LLMConfig } from '@main/types/config'
 import type { MCPToolReference } from '@main/types/chat'
-import { buildReactSystemPrompt } from './prompts/reactSystemPrompt'
+import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt } from './prompts/reactSystemPrompt'
 
 /**
  * PromptBuilder 只负责选择内置系统提示词。
@@ -18,9 +18,17 @@ export class PromptBuilder {
       return this.getBasicSystemPrompt()
     }
 
-    return buildReactSystemPrompt({
+    let prompt = buildReactSystemPrompt({
       modelName: modelConfig.model_name
     })
+
+    // 当存在知识库工具时，追加知识库使用指南
+    const hasKnowledgeTools = selectedTools?.some((t) => t.serverName === 'knowledge')
+    if (hasKnowledgeTools) {
+      prompt += '\n\n' + buildKnowledgeEnhancedPrompt()
+    }
+
+    return prompt
   }
 
   private getBasicSystemPrompt(): string {

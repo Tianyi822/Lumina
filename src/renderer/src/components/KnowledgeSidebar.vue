@@ -55,6 +55,10 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
   if (count === 1) return '1 个文档'
   return `${count} 个文档`
 }
+
+function needsReindex(kb: KnowledgeBase): boolean {
+  return kb.indexInvalidation?.needsReindex === true
+}
 </script>
 
 <template>
@@ -91,7 +95,10 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
             {{ kb.name.charAt(0).toUpperCase() }}
           </div>
           <div class="kb-info">
-            <div class="kb-name">{{ kb.name }}</div>
+            <div class="kb-name-row">
+              <div class="kb-name">{{ kb.name }}</div>
+              <span v-if="needsReindex(kb)" class="kb-stale-badge">需重索引</span>
+            </div>
             <div class="kb-meta">{{ formatDocumentCount(kb.linkedFileIds) }}</div>
           </div>
           <button class="delete-btn" title="删除知识库" @click.stop="handleDeleteKB(kb.id)">
@@ -183,6 +190,8 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
 }
 
 .kb-name {
+  flex: 1;
+  min-width: 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--sm-color-text-primary);
@@ -190,6 +199,24 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.kb-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.kb-stale-badge {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border: 1px solid rgba(213, 161, 74, 0.36);
+  border-radius: var(--sm-radius-sm);
+  background: rgba(213, 161, 74, 0.12);
+  color: rgba(226, 181, 99, 0.95);
+  font-size: 10px;
+  line-height: 1.2;
 }
 
 .kb-meta {

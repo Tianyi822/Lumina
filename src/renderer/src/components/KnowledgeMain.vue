@@ -21,6 +21,10 @@ const indexStore = useKnowledgeIndexStore()
 const stats = ref({ fileCount: 0, chunkCount: 0, dbSize: 0 })
 const loadingStats = ref(false)
 
+const needsReindex = computed(() => currentKB.value?.indexInvalidation?.needsReindex === true)
+const invalidatedFiles = computed(() => currentKB.value?.indexInvalidation?.files || [])
+const invalidatedFileIds = computed(() => invalidatedFiles.value.map((file) => file.fileId))
+
 async function loadStats(): Promise<void> {
   if (!currentKB.value) return
   loadingStats.value = true
@@ -52,7 +56,20 @@ const {
   handleDrop
 } = useKnowledgeFiles(currentKB, emit, loadStats)
 
-const { reindexing, handleReindex } = useReindex(currentKB, linkedFiles, loadStats)
+async function refreshCurrentKnowledgeBase(): Promise<void> {
+  if (!currentKB.value) return
+  const result = await window.api.knowledge.getById(currentKB.value.id)
+  if (result.success && result.data) {
+    Object.assign(currentKB.value, result.data)
+  }
+}
+
+const { reindexing, handleReindex } = useReindex(
+  currentKB,
+  linkedFiles,
+  loadStats,
+  refreshCurrentKnowledgeBase
+)
 
 const indexingStatus = computed(() =>
   currentKB.value ? indexStore.isKBIndexing(currentKB.value.id) : false
@@ -173,6 +190,23 @@ defineExpose({ handleFilesLinked })
           {{ currentKB.description || '双击编辑，补充知识库用途、覆盖范围和检索约束。' }}
         </p>
 
+        <div v-if="needsReindex" class="kb-reindex-notice">
+          <div class="kb-reindex-notice__copy">
+            <strong>需要重新索引</strong>
+            <span>论文笔记已更新，重新索引后检索结果会使用最新笔记内容。</span>
+            <ul v-if="invalidatedFiles.length > 0">
+              <li v-for="file in invalidatedFiles" :key="file.fileId">{{ file.fileName }}</li>
+            </ul>
+          </div>
+          <button
+            class="sm-button sm-button--primary kb-reindex-notice__action"
+            :disabled="indexingStatus || reindexing || linkedFiles.length === 0"
+            @click="handleReindex"
+          >
+            {{ reindexing ? '索引中...' : '重新索引' }}
+          </button>
+        </div>
+
         <StatsPanel :stats="stats" :loading-stats="loadingStats" :current-k-b="currentKB" />
       </section>
 
@@ -184,6 +218,7 @@ defineExpose({ handleFilesLinked })
         :unlinking-file-id="unlinkingFileId"
         :indexing-status="indexingStatus"
         :kb-indexing-files="kbIndexingFiles"
+        :invalidated-file-ids="invalidatedFileIds"
         @dragenter="handleDragEnter"
         @dragleave="handleDragLeave"
         @dragover="handleDragOver"
@@ -297,6 +332,47 @@ defineExpose({ handleFilesLinked })
   color: var(--sm-color-text-tertiary);
 }
 
+.kb-reindex-notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-4);
+  border: 1px solid rgba(213, 161, 74, 0.32);
+  border-radius: var(--sm-radius-md);
+  background: rgba(213, 161, 74, 0.1);
+}
+
+.kb-reindex-notice__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  min-width: 0;
+  color: var(--sm-color-text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.kb-reindex-notice__copy strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.kb-reindex-notice__copy span {
+  color: var(--sm-color-text-secondary);
+}
+
+.kb-reindex-notice__copy ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--sm-color-text-secondary);
+}
+
+.kb-reindex-notice__action {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .kb-actions {
   display: flex;
   gap: var(--sm-space-2);
@@ -357,6 +433,11 @@ defineExpose({ handleFilesLinked })
   .kb-actions {
     width: 100%;
     flex-wrap: wrap;
+  }
+
+  .kb-reindex-notice {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .kb-actions > button {

@@ -214,11 +214,25 @@ export function formatMessagesWithKnowledge(
     }
 
     if (msg.role === 'assistant' && msg.tool_calls) {
-      return {
+      const assistantMsg: OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam & {
+        reasoning_content?: string
+      } = {
         role: 'assistant' as const,
         content: msg.content,
         tool_calls: msg.tool_calls
       }
+      if (msg.reasoning_content) {
+        assistantMsg.reasoning_content = msg.reasoning_content
+      }
+      return assistantMsg as OpenAI.Chat.Completions.ChatCompletionMessageParam
+    }
+
+    if (msg.role === 'assistant' && msg.reasoning_content) {
+      return {
+        role: 'assistant' as const,
+        content: msg.content || '',
+        reasoning_content: msg.reasoning_content
+      } as OpenAI.Chat.Completions.ChatCompletionMessageParam
     }
 
     return {

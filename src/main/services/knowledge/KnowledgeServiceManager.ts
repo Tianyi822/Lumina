@@ -1,7 +1,7 @@
 import { getVectorDBService } from '@main/services/vector'
 import { getFileService } from '@main/services/file/FileService'
 import { logger } from '@main/services/logger'
-import type { KnowledgeBase } from '@shared/types/knowledge'
+import type { KnowledgeBase, KnowledgeIndexInvalidatedFile } from '@shared/types/knowledge'
 import type { FileProcessingProgress } from './KnowledgeService'
 import { KnowledgeService } from './KnowledgeService'
 import { readKnowledgeBases, writeKnowledgeBases } from './KnowledgeService'
@@ -119,6 +119,144 @@ export class KnowledgeServiceManager {
       instance.updateKBData(updatedKB)
     }
 
+    return updatedKB
+  }
+
+  markKnowledgeBasesNeedReindex(
+    kbIds: string[],
+    invalidatedFile: KnowledgeIndexInvalidatedFile
+  ): Array<{ id: string; name: string }> {
+    if (!this.loaded) {
+      this.initialize()
+    }
+
+    const uniqueKbIds = Array.from(new Set(kbIds))
+    if (uniqueKbIds.length === 0) {
+      return []
+    }
+
+    const knowledgeBases = readKnowledgeBases()
+    const now = new Date().toISOString()
+    const affectedKnowledgeBases: Array<{ id: string; name: string }> = []
+    let changed = false
+
+    for (const kbId of uniqueKbIds) {
+      const kbIndex = knowledgeBases.findIndex((kb) => kb.id === kbId)
+      if (kbIndex === -1) {
+        continue
+      }
+
+      const kb = knowledgeBases[kbIndex]
+      const existingInvalidation = kb.indexInvalidation
+      const existingFiles = existingInvalidation?.files || []
+      const fileIndex = existingFiles.findIndex((file) => file.fileId === invalidatedFile.fileId)
+      const nextFiles =
+        fileIndex >= 0
+          ? existingFiles.map((file, index) => (index === fileIndex ? invalidatedFile : file))
+          : [...existingFiles, invalidatedFile]
+
+      knowledgeBases[kbIndex] = {
+        ...kb,
+        updatedAt: now,
+        indexInvalidation: {
+          needsReindex: true,
+          reason: 'paper_note_updated',
+          markedAt: now,
+          files: nextFiles
+        }
+      }
+
+      affectedKnowledgeBases.push({ id: kb.id, name: kb.name })
+      changed = true
+    }
+
+    if (changed) {
+      writeKnowledgeBases(knowledgeBases)
+      for (const kb of knowledgeBases) {
+        const instance = this.instances.get(kb.id)
+        if (instance) {
+          instance.updateKBData(kb)
+        }
+      }
+      logger.info('知识库已标记为需要重新索引', 'main', {
+        kbIds: affectedKnowledgeBases.map((kb) => kb.id),
+        fileId: invalidatedFile.fileId
+      })
+    }
+
+    return affectedKnowledgeBases
+  }
+
+  clearKnowledgeBaseInvalidation(kbId: string): KnowledgeBase | null {
+    if (!this.loaded) {
+      this.initialize()
+    }
+
+    const knowledgeBases = readKnowledgeBases()
+    const kbIndex = knowledgeBases.findIndex((kb) => kb.id === kbId)
+    if (kbIndex === -1) {
+      return null
+    }
+
+    if (!knowledgeBases[kbIndex].indexInvalidation) {
+      return knowledgeBases[kbIndex]
+    }
+
+    const updatedKB: KnowledgeBase = {
+      ...knowledgeBases[kbIndex],
+      updatedAt: new Date().toISOString(),
+      indexInvalidation: undefined
+    }
+    knowledgeBases[kbIndex] = updatedKB
+    writeKnowledgeBases(knowledgeBases)
+
+    const instance = this.instances.get(kbId)
+    if (instance) {
+      instance.updateKBData(updatedKB)
+    }
+
+    logger.info('知识库索引失效状态已清除', 'main', { kbId })
+    return updatedKB
+  }
+
+  clearKnowledgeBaseFileInvalidation(kbId: string, fileId: string): KnowledgeBase | null {
+    if (!this.loaded) {
+      this.initialize()
+    }
+
+    const knowledgeBases = readKnowledgeBases()
+    const kbIndex = knowledgeBases.findIndex((kb) => kb.id === kbId)
+    if (kbIndex === -1) {
+      return null
+    }
+
+    const invalidation = knowledgeBases[kbIndex].indexInvalidation
+    if (!invalidation) {
+      return knowledgeBases[kbIndex]
+    }
+
+    const nextFiles = invalidation.files.filter((file) => file.fileId !== fileId)
+    const updatedKB: KnowledgeBase = {
+      ...knowledgeBases[kbIndex],
+      updatedAt: new Date().toISOString(),
+      indexInvalidation:
+        nextFiles.length > 0
+          ? {
+              ...invalidation,
+              files: nextFiles
+            }
+          : undefined
+    }
+
+    knowledgeBases[kbIndex] = updatedKB
+    writeKnowledgeBases(knowledgeBases)
+
+    const instance = this.instances.get(kbId)
+    if (instance) {
+      instance.updateKBData(updatedKB)
+    }
+
+    logger.info('知识库文件索引失效状态已清除', 'main', { kbId, fileId })
     return updatedKB
   }
 

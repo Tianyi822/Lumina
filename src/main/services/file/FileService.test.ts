@@ -173,3 +173,43 @@ test('removePaperResources 会移除论文资源、笔记资源和知识库关�
   assert.deepEqual(knowledgeBases[0].linkedFileIds, [])
   assert.equal(knowledgeBases[0].documentCount, 0)
 })
+
+test('unlinkFileFromKB 会清理论文笔记对应的索引失效状态', async () => {
+  resetKnowledgeStorage()
+  const service = new FileService()
+  service.initialize()
+  mkdirSync(getKnowledgeDirPath(), { recursive: true })
+  writeFileSync(getKnowledgeBaseFilePath(), JSON.stringify([createKnowledgeBase()], null, 2))
+  const paper = createPaper()
+  const annotation = createNoteAnnotation()
+  const noteFile = service.upsertPaperNoteResource(paper, annotation).file as FileItem
+
+  assert.equal(service.linkFileToKB(noteFile.id, 'kb-1').success, true)
+
+  const knowledgeBases = JSON.parse(
+    readFileSync(getKnowledgeBaseFilePath(), 'utf-8')
+  ) as KnowledgeBase[]
+  knowledgeBases[0].indexInvalidation = {
+    needsReindex: true,
+    reason: 'paper_note_updated',
+    markedAt: '2026-01-02T00:00:00.000Z',
+    files: [
+      {
+        fileId: noteFile.id,
+        fileName: noteFile.name,
+        paperId: paper.id,
+        annotationId: annotation.id,
+        updatedAt: annotation.updatedAt
+      }
+    ]
+  }
+  writeFileSync(getKnowledgeBaseFilePath(), JSON.stringify(knowledgeBases, null, 2))
+
+  const result = service.unlinkFileFromKB(noteFile.id, 'kb-1')
+  const nextKnowledgeBases = JSON.parse(
+    readFileSync(getKnowledgeBaseFilePath(), 'utf-8')
+  ) as KnowledgeBase[]
+
+  assert.equal(result.success, true)
+  assert.equal(nextKnowledgeBases[0].indexInvalidation, undefined)
+})
