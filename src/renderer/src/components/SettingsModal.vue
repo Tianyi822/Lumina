@@ -7,6 +7,7 @@ import MCPSettings from './settings/MCPSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
 import PaperReaderSettings from './settings/PaperReaderSettings.vue'
+import ToolStatsSettings from './settings/ToolStatsSettings.vue'
 import { useConfigStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 
@@ -15,7 +16,14 @@ const emit = defineEmits<{
   (e: 'mcp-updated'): void
 }>()
 
-type SettingsTabKey = 'theme' | 'model' | 'mcp' | 'embedding' | 'knowledge' | 'paperReader'
+type SettingsTabKey =
+  | 'theme'
+  | 'model'
+  | 'mcp'
+  | 'embedding'
+  | 'knowledge'
+  | 'toolStats'
+  | 'paperReader'
 
 // 使用 configStore
 const configStore = useConfigStore()
@@ -54,6 +62,11 @@ const settingsTabs: Array<{
     id: 'knowledge',
     label: '知识库服务',
     description: '管理知识库 MCP 对外服务与共享说明。'
+  },
+  {
+    id: 'toolStats',
+    label: '工具调用统计',
+    description: '查看工具调用量、成功率和耗时分布。'
   },
   {
     id: 'theme',
@@ -133,6 +146,8 @@ onUnmounted(() => {
             />
 
             <KnowledgeMCPSettings v-else-if="activeTab === 'knowledge'" />
+
+            <ToolStatsSettings v-else-if="activeTab === 'toolStats'" />
 
             <PaperReaderSettings v-else-if="activeTab === 'paperReader'" />
           </div>
