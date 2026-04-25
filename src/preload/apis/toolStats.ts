@@ -1,5 +1,5 @@
 import { ipcRenderer } from 'electron'
-import type { TimeRange } from '@shared/types/tool-stats'
+import type { TimeRange, ToolStatsCategory } from '@shared/types/tool-stats'
 import type { ToolStatsApi } from '../types/toolStats'
 
 export const toolStatsApi: ToolStatsApi = {
@@ -20,5 +20,8 @@ export const toolStatsApi: ToolStatsApi = {
   },
   clear: () => {
     return ipcRenderer.invoke('tool-stats:clear')
+  },
+  getByCategory: (category: ToolStatsCategory, timeRange?: TimeRange) => {
+    return ipcRenderer.invoke('tool-stats:getByCategory', category, timeRange)
   }
 }
