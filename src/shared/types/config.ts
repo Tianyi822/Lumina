@@ -1,5 +1,3 @@
-import type { PromptVariable } from './prompt'
-
 /**
  * 定义嵌入模型支持的提供商类型
  */
@@ -43,71 +41,6 @@ export interface PresetEmbeddingModel {
  */
 export interface EmbeddingConfigs {
   [modelId: string]: EmbeddingConfig
-}
-
-/**
- * 工具描述的详细程度
- * 控制传递给模型的工具描述信息量
- */
-export type ToolDescriptionLevel = 'basic' | 'detailed' | 'minimal'
-
-/**
- * 缓存配置接口
- */
-export interface CacheConfig {
-  /** 是否启用缓存 */
-  enabled: boolean
-  /** 系统提示词缓存的最大数量 */
-  systemPromptMaxSize: number
-  /** 系统提示词缓存的有效时间，单位小时 */
-  systemPromptTTL: number
-  /** 工具描述缓存的最大数量 */
-  toolDescriptionMaxSize: number
-  /** 工具描述缓存的有效时间，单位小时 */
-  toolDescriptionTTL: number
-  /** 示例格式化缓存的最大数量 */
-  exampleFormattingMaxSize: number
-  /** 示例格式化缓存的有效时间，单位小时 */
-  exampleFormattingTTL: number
-  /** 是否启用缓存命中率监控 */
-  enableMetrics: boolean
-  /** 监控数据保留的最大快照数 */
-  maxMetricsSnapshots: number
-}
-
-/**
- * 提示词生成的相关配置
- * 影响聊天时发送给模型的系统提示词内容
- */
-export interface PromptConfig {
-  /** 是否使用增强版的提示词生成逻辑 */
-  enableEnhancedPrompt?: boolean
-  /** 工具描述的详细程度 */
-  toolDescriptionLevel?: ToolDescriptionLevel
-  /** Few-shot 示例的数量，范围 0 到 5 */
-  fewShotCount?: number
-  /** 自定义的系统提示词，会覆盖默认生成的提示词 */
-  customSystemPrompt?: string
-  /** 是否启用提示词缓存，减少重复构建的开销 */
-  enablePromptCache?: boolean
-  /** 详细的缓存配置 */
-  cacheConfig?: CacheConfig
-  /** 是否启用动态 Few-shot 示例 */
-  enableDynamicExamples?: boolean
-  /** 自动提取动态示例的间隔天数 */
-  autoExtractIntervalDays?: number
-  /** 动态示例的最低质量分数要求 */
-  dynamicExampleMinQuality?: number
-  /** 最大动态示例数量 */
-  maxDynamicExamples?: number
-  /** 是否启用提示词优化 */
-  enablePromptOptimization?: boolean
-  /** 提示词优化的激进程度 */
-  optimizationAggressiveness?: 'conservative' | 'balanced' | 'aggressive'
-  /** 是否启用工具描述智能适配 */
-  enableToolDescriptionAdaptation?: boolean
-  /** 用户自定义提示词变量 */
-  customVariables?: PromptVariable[]
 }
 
 /**
@@ -231,8 +164,6 @@ export interface AppConfig {
   theme: ThemeConfig
   llm_config: LLMConfigObject
   mcpServers: MCPServers
-  /** 提示词生成相关的配置 */
-  promptConfig?: PromptConfig
   /** 知识库使用的嵌入模型配置集合 */
   embeddingModels?: EmbeddingConfigs
   /** 知识库 MCP 服务配置 */

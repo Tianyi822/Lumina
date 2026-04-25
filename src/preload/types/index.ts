@@ -14,8 +14,8 @@ export * from './file'
 export * from './sandbox'
 export * from './knowledgeMCP'
 export * from './document'
-export * from './promptEngineering'
 export * from './paper'
+export * from './toolStats'
 export * from './customApi'
 
 // 全局 Window 接口声明

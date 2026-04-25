@@ -11,10 +11,10 @@ import { embeddingModelsApi } from './apis/embeddingModels'
 import { knowledgeApi, onFileProgress, onReindexProgress } from './apis/knowledge'
 import { fileApi } from './apis/file'
 import { sandboxApi } from './apis/sandbox'
-import { promptEngineeringApi } from './apis/promptEngineering'
 import { knowledgeMCPApi } from './apis/knowledgeMCP'
 import { documentApi } from './apis/document'
 import { paperApi } from './apis/paper'
+import { toolStatsApi } from './apis/toolStats'
 
 /**
  * 自定义渲染器 API
@@ -35,12 +35,12 @@ const api = {
   document: documentApi,
   onFileProgress,
   onReindexProgress,
-  // 提示词工程统一 API
-  promptEngineering: promptEngineeringApi,
   // 知识库 MCP 服务 API
   knowledgeMCP: knowledgeMCPApi,
   // 论文相关 API
-  paper: paperApi
+  paper: paperApi,
+  // 工具统计 API
+  toolStats: toolStatsApi
 }
 
 // 使用 contextBridge 向渲染器暴露 API

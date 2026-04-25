@@ -3,7 +3,6 @@ import { registerLoggerHandlers } from './handlers/loggerHandlers'
 import { registerChatHandlers } from './handlers/chatHandlers'
 import { registerSessionHandlers } from './handlers/sessionHandlers'
 import { registerMCPHandlers } from './handlers/mcpHandlers'
-import { registerPromptHandlers } from './handlers/prompt.handlers'
 import { registerWindowHandlers } from './handlers/windowHandlers'
 import { registerEmbeddingHandlers } from './handlers/embeddingHandlers'
 import { registerKnowledgeHandlers } from './handlers/knowledgeHandlers'
@@ -16,6 +15,7 @@ import {
 } from './handlers/knowledgeMCPHandlers'
 import { registerDocumentHandlers } from './handlers/documentHandlers'
 import { registerPaperHandlers } from './handlers/paperHandlers'
+import { registerToolStatsHandlers } from './handlers/toolStatsHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -46,9 +46,6 @@ export function registerAllIpcHandlers(): void {
   // 注册 MCP 相关处理程序
   registerMCPHandlers()
 
-  // 注册提示词配置相关处理程序
-  registerPromptHandlers()
-
   // 注册窗口控制相关处理程序
   registerWindowHandlers()
 
@@ -75,4 +72,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册论文相关处理程序
   registerPaperHandlers()
+
+  // 注册工具统计相关处理程序
+  registerToolStatsHandlers()
 }

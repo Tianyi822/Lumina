@@ -4,7 +4,6 @@ import { storeToRefs } from 'pinia'
 import ThemeSettings from './settings/ThemeSettings.vue'
 import ModelSettings from './settings/ModelSettings.vue'
 import MCPSettings from './settings/MCPSettings.vue'
-import PromptEngineeringSettings from './settings/PromptEngineeringSettings.vue'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
 import PaperReaderSettings from './settings/PaperReaderSettings.vue'
@@ -16,14 +15,7 @@ const emit = defineEmits<{
   (e: 'mcp-updated'): void
 }>()
 
-type SettingsTabKey =
-  | 'theme'
-  | 'model'
-  | 'mcp'
-  | 'prompt'
-  | 'embedding'
-  | 'knowledge'
-  | 'paperReader'
+type SettingsTabKey = 'theme' | 'model' | 'mcp' | 'embedding' | 'knowledge' | 'paperReader'
 
 // 使用 configStore
 const configStore = useConfigStore()
@@ -57,11 +49,6 @@ const settingsTabs: Array<{
     id: 'mcp',
     label: 'MCP 服务',
     description: '连接外部工具链并管理服务传输方式。'
-  },
-  {
-    id: 'prompt',
-    label: '提示词工程',
-    description: '调整系统提示词、变量、示例与测试沙箱。'
   },
   {
     id: 'knowledge',
@@ -138,9 +125,6 @@ onUnmounted(() => {
             <MCPSettings v-else-if="activeTab === 'mcp'" @mcp-updated="emit('mcp-updated')" />
 
             <EmbeddingModelSettings v-else-if="activeTab === 'embedding'" />
-
-            <PromptEngineeringSettings v-else-if="activeTab === 'prompt'" />
-
             <ThemeSettings
               v-else-if="activeTab === 'theme'"
               :model-value="themeConfig"

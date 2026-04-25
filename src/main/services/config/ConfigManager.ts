@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import { AppConfig, ConfigLoadResult } from '@main/types/config'
+import type { AppConfig, ConfigLoadResult } from '@main/types/config'
 import { getConfigDirPath, getConfigFilePath } from './configPaths'
 import { logger } from '@main/services/logger'
 import {
@@ -8,8 +8,7 @@ import {
   getOcrProviderPreset,
   type EmbeddingConfig,
   type OcrProviderId,
-  type PaperReaderConfig,
-  type PromptConfig
+  type PaperReaderConfig
 } from '@shared/types/config'
 import {
   DEFAULT_THEME_ID,
@@ -18,7 +17,6 @@ import {
   normalizeThemeMode
 } from '@shared/utils'
 import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
-import { normalizeCustomPromptVariables } from '@shared/utils'
 
 const PAPER_READER_ZOOM_DEFAULT = 1
 const PAPER_READER_ZOOM_MIN = 0.5
@@ -56,23 +54,6 @@ function sanitizePaperReaderConfig(config: PaperReaderConfig | undefined): Paper
   return sanitized
 }
 
-function createDefaultPromptConfig(): PromptConfig {
-  return {
-    enableEnhancedPrompt: true,
-    toolDescriptionLevel: 'detailed',
-    fewShotCount: 3,
-    customSystemPrompt: '',
-    enablePromptCache: false,
-    enableDynamicExamples: false,
-    autoExtractIntervalDays: 7,
-    dynamicExampleMinQuality: 0.6,
-    maxDynamicExamples: 20,
-    enablePromptOptimization: false,
-    optimizationAggressiveness: 'balanced',
-    customVariables: []
-  }
-}
-
 /**
  * 创建空的基础配置结构
  * 包含所有必要的字段，但值为空或默认值
@@ -91,7 +72,6 @@ function createEmptyConfig(): AppConfig {
       models: []
     },
     mcpServers: {},
-    promptConfig: createDefaultPromptConfig(),
     embeddingModels: {},
     knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG,
     paperReader: sanitizePaperReaderConfig(undefined)
@@ -125,7 +105,7 @@ function migrateEmbeddingModels(config: AppConfig): AppConfig {
  * 迁移配置，确保新字段存在
  * 用于向后兼容性，处理配置结构的变更
  */
-function migrateConfig(config: AppConfig): AppConfig {
+export function migrateConfig(config: AppConfig): AppConfig {
   const migrated = { ...config }
 
   migrated.theme = {
@@ -133,47 +113,7 @@ function migrateConfig(config: AppConfig): AppConfig {
     mode: normalizeThemeMode(migrated.theme?.mode)
   }
 
-  if (!migrated.promptConfig) {
-    migrated.promptConfig = createDefaultPromptConfig()
-  }
-
-  if (migrated.promptConfig.enableEnhancedPrompt === undefined) {
-    migrated.promptConfig.enableEnhancedPrompt = true
-  }
-  if (!migrated.promptConfig.toolDescriptionLevel) {
-    migrated.promptConfig.toolDescriptionLevel = 'detailed'
-  }
-  if (migrated.promptConfig.fewShotCount === undefined) {
-    migrated.promptConfig.fewShotCount = 3
-  }
-  if (migrated.promptConfig.customSystemPrompt === undefined) {
-    migrated.promptConfig.customSystemPrompt = ''
-  }
-  if (migrated.promptConfig.enablePromptCache === undefined) {
-    migrated.promptConfig.enablePromptCache = false
-  }
-  if (migrated.promptConfig.enableDynamicExamples === undefined) {
-    migrated.promptConfig.enableDynamicExamples = false
-  }
-  if (migrated.promptConfig.autoExtractIntervalDays === undefined) {
-    migrated.promptConfig.autoExtractIntervalDays = 7
-  }
-  if (migrated.promptConfig.dynamicExampleMinQuality === undefined) {
-    migrated.promptConfig.dynamicExampleMinQuality = 0.6
-  }
-  if (migrated.promptConfig.maxDynamicExamples === undefined) {
-    migrated.promptConfig.maxDynamicExamples = 20
-  }
-  if (migrated.promptConfig.enablePromptOptimization === undefined) {
-    migrated.promptConfig.enablePromptOptimization = false
-  }
-  if (!migrated.promptConfig.optimizationAggressiveness) {
-    migrated.promptConfig.optimizationAggressiveness = 'balanced'
-  }
-  migrated.promptConfig.customVariables = normalizeCustomPromptVariables(
-    migrated.promptConfig.customVariables
-  )
-  delete (migrated.promptConfig as Record<string, unknown>).maxStaticExamples
+  delete (migrated as Record<string, unknown>).promptConfig
 
   migrated.embeddingModels = migrated.embeddingModels || {}
 

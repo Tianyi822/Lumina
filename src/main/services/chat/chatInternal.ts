@@ -4,7 +4,6 @@ import type { Logger } from '../logger'
 import type { MCPService } from '../mcp'
 import type { StopController } from './StopController'
 import type { StreamHandler } from './StreamHandler'
-import type { ToolCallScheduler } from './tools'
 import type {
   ChatRequest,
   KnowledgeSearchResult,
@@ -22,7 +21,6 @@ export interface ReactLoopServiceOptions {
   mcpService: MCPService
   stopController: StopController
   streamHandler: StreamHandler
-  toolScheduler: ToolCallScheduler
   createClient: (config: LLMConfig) => OpenAI
   validateAndGetLLMConfig: (
     modelKey: string,

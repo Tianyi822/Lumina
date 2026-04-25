@@ -136,9 +136,7 @@ export function formatQuotesContext(quotes: PaperQuote[]): string {
   for (const quote of quotes) {
     const sourceType = getQuoteSourceType(quote)
     const label =
-      sourceType === 'original'
-        ? `原文引用 ${++originalIndex}`
-        : `译文引用 ${++translationIndex}`
+      sourceType === 'original' ? `原文引用 ${++originalIndex}` : `译文引用 ${++translationIndex}`
     context += `\n【${label}】\n${formatSingleQuoteContext(quote)}`
   }
 

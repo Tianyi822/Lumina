@@ -33,9 +33,6 @@ export {
   useDockerConfigStore
 } from './sandbox'
 
-// Prompt Engineering Store (提示词工程增强)
-export { usePromptEngineeringStore } from './promptEngineeringStore'
-
 // Paper Reader Store (论文阅读器)
 export { usePaperReaderStore } from './paperReaderStore'
 

@@ -105,7 +105,11 @@ export function buildPaperQuoteContext(
   const selectionStartOffset = resolveSelectionStartOffset(text, anchor)
   const fallbackStartOffset = clampOffset(anchor.startOffset, textLength)
   const startOffset = selectionStartOffset ?? fallbackStartOffset
-  const anchorLength = Math.max(anchor.selectedText.length, anchor.endOffset - anchor.startOffset, 0)
+  const anchorLength = Math.max(
+    anchor.selectedText.length,
+    anchor.endOffset - anchor.startOffset,
+    0
+  )
   const endOffset = clampOffset(Math.max(startOffset, startOffset + anchorLength), textLength)
   const units = splitPaperQuoteContextUnits(text)
 
