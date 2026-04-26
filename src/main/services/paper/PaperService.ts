@@ -3,7 +3,7 @@ import { dirname, join } from 'path'
 import { randomUUID } from 'crypto'
 import { net } from 'electron'
 import { logger } from '@main/services/logger'
-import { getFileService } from '@main/services/file'
+import { getFileService, getPaperFileResourceId, getPaperNoteResourceId } from '@main/services/file'
 import { getKnowledgeServiceManager } from '@main/services/knowledge'
 import { paperStorageService } from './index'
 import { PaperOcrService, type OcrProgressInfo } from './PaperOcrService'
@@ -79,34 +79,47 @@ export class PaperService {
     return createEmptyPaperAnnotationStore(paperId)
   }
 
-  private syncPaperNoteResource(
+  private getLatestAnnotationUpdatedAt(annotations: PaperAnnotation[]): string {
+    return (
+      annotations
+        .filter((annotation) => annotation.kind === 'note')
+        .map((annotation) => annotation.updatedAt)
+        .filter(Boolean)
+        .sort((a, b) => b.localeCompare(a))[0] || new Date().toISOString()
+    )
+  }
+
+  private async syncPaperNotesResource(
     paperId: string,
-    annotation: PaperAnnotation
-  ): PaperAnnotationAffectedKnowledgeBase[] {
-    if (annotation.kind !== 'note') {
+    annotations: PaperAnnotation[]
+  ): Promise<PaperAnnotationAffectedKnowledgeBase[]> {
+    if (!annotations.some((annotation) => annotation.kind === 'note')) {
+      const result = await getFileService().removePaperNotesResource(paperId)
+      if (!result.success) {
+        logger.warn('移除论文笔记资源失败', 'main', { paperId, error: result.error })
+      }
       return []
     }
 
     const metaResult = paperStorageService.readMeta(paperId)
     if (!metaResult.success || !metaResult.data) {
       logger.warn('同步论文笔记到文件池失败：论文元信息不存在', 'main', {
-        paperId,
-        annotationId: annotation.id
+        paperId
       })
       return []
     }
 
-    const result = getFileService().upsertPaperNoteResource(metaResult.data, annotation)
+    const result = await getFileService().upsertPaperNotesResource(metaResult.data, annotations)
     if (!result.success) {
       logger.warn('同步论文笔记到文件池失败', 'main', {
         paperId,
-        annotationId: annotation.id,
         error: result.error
       })
       return []
     }
 
-    if (!result.contentChanged || !result.file || !result.previousUsedByKBIds?.length) {
+    const shouldReindex = result.contentChanged || result.legacyMigrated
+    if (!shouldReindex || !result.file || !result.previousUsedByKBIds?.length) {
       return []
     }
 
@@ -114,15 +127,173 @@ export class PaperService {
       fileId: result.file.id,
       fileName: result.file.name,
       paperId,
-      annotationId: annotation.id,
-      updatedAt: annotation.updatedAt
+      updatedAt: this.getLatestAnnotationUpdatedAt(annotations)
     })
   }
 
-  private async removePaperNoteResource(paperId: string, annotationId: string): Promise<void> {
-    const result = await getFileService().removePaperNoteResource(paperId, annotationId)
-    if (!result.success) {
-      logger.warn('移除论文笔记资源失败', 'main', { paperId, annotationId, error: result.error })
+  private markPaperNoteKnowledgeBasesNeedReindex(
+    kbIds: string[],
+    paperId: string,
+    fileId: string,
+    fileName: string,
+    updatedAt: string
+  ): PaperAnnotationAffectedKnowledgeBase[] {
+    return getKnowledgeServiceManager().markKnowledgeBasesNeedReindex(kbIds, {
+      fileId,
+      fileName,
+      paperId,
+      updatedAt
+    })
+  }
+
+  async repairPaperResources(paperId: string): Promise<{
+    success: boolean
+    paperFileRepaired?: boolean
+    noteFilesRepaired?: number
+    affectedKnowledgeBaseCount?: number
+    error?: string
+  }> {
+    try {
+      const fileService = getFileService()
+      const metaResult = paperStorageService.readMeta(paperId)
+      if (!metaResult.success || !metaResult.data) {
+        return { success: false, error: metaResult.error || '论文元信息不存在' }
+      }
+
+      const paper = metaResult.data
+      let paperFileRepaired = false
+      let noteFilesRepaired = 0
+      let affectedKnowledgeBaseCount = 0
+      const errors: string[] = []
+
+      const paperFileId = getPaperFileResourceId(paperId)
+      const existingPaperFile = fileService.getFileById(paperFileId)
+      const paperFileNeedsRepair =
+        !existingPaperFile ||
+        existingPaperFile.absolutePath !== paper.filePath ||
+        existingPaperFile.name !== paper.fileName ||
+        existingPaperFile.size !== paper.fileSize ||
+        existingPaperFile.contentHash !== paper.fileHash
+      const registerResult = fileService.registerPaperFile(paper)
+      if (!registerResult.success) {
+        errors.push(registerResult.error || '同步论文文件失败')
+      } else if (paperFileNeedsRepair) {
+        paperFileRepaired = true
+      }
+
+      const storeResult = paperStorageService.readAnnotationStore(paperId)
+      if (storeResult.success && storeResult.data) {
+        const noteFileId = getPaperNoteResourceId(paperId)
+        const existingNoteFile = fileService.getFileById(noteFileId)
+        const upsertResult = await fileService.upsertPaperNotesResource(
+          paper,
+          storeResult.data.annotations
+        )
+        if (!upsertResult.success) {
+          errors.push(upsertResult.error || '同步论文笔记失败')
+        } else {
+          const removedFileCount = upsertResult.removedFileIds?.length || 0
+          if (
+            !existingNoteFile ||
+            upsertResult.contentChanged ||
+            upsertResult.legacyMigrated ||
+            removedFileCount > 0
+          ) {
+            noteFilesRepaired = upsertResult.file ? 1 : removedFileCount
+          }
+
+          const shouldReindex = upsertResult.contentChanged || upsertResult.legacyMigrated
+          if (shouldReindex && upsertResult.file && upsertResult.previousUsedByKBIds?.length) {
+            const affectedKnowledgeBases = this.markPaperNoteKnowledgeBasesNeedReindex(
+              upsertResult.previousUsedByKBIds,
+              paperId,
+              upsertResult.file.id,
+              upsertResult.file.name,
+              this.getLatestAnnotationUpdatedAt(storeResult.data.annotations)
+            )
+            affectedKnowledgeBaseCount += affectedKnowledgeBases.length
+          }
+        }
+      } else if (!storeResult.success) {
+        errors.push(storeResult.error || '读取论文批注失败')
+      }
+
+      if (paperFileRepaired || noteFilesRepaired > 0 || affectedKnowledgeBaseCount > 0) {
+        logger.info('论文资源修复完成', 'main', {
+          paperId,
+          paperFileRepaired,
+          noteFilesRepaired,
+          affectedKnowledgeBaseCount
+        })
+      }
+
+      return {
+        success: errors.length === 0,
+        paperFileRepaired,
+        noteFilesRepaired,
+        affectedKnowledgeBaseCount,
+        error: errors.length > 0 ? errors.join('; ') : undefined
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('修复论文资源失败', 'main', { paperId, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  async repairAllPaperResources(): Promise<{
+    success: boolean
+    repairedPapers: number
+    paperFilesRepaired: number
+    noteFilesRepaired: number
+    affectedKnowledgeBaseCount: number
+    failedPaperIds: string[]
+    error?: string
+  }> {
+    const listResult = paperStorageService.listPapers()
+    if (!listResult.success || !listResult.data) {
+      return {
+        success: false,
+        repairedPapers: 0,
+        paperFilesRepaired: 0,
+        noteFilesRepaired: 0,
+        affectedKnowledgeBaseCount: 0,
+        failedPaperIds: [],
+        error: listResult.error || '获取论文列表失败'
+      }
+    }
+
+    let repairedPapers = 0
+    let paperFilesRepaired = 0
+    let noteFilesRepaired = 0
+    let affectedKnowledgeBaseCount = 0
+    const failedPaperIds: string[] = []
+
+    for (const paper of listResult.data) {
+      const result = await this.repairPaperResources(paper.id)
+      if (!result.success) {
+        failedPaperIds.push(paper.id)
+      }
+
+      if (result.paperFileRepaired || (result.noteFilesRepaired || 0) > 0) {
+        repairedPapers++
+      }
+      if (result.paperFileRepaired) {
+        paperFilesRepaired++
+      }
+      noteFilesRepaired += result.noteFilesRepaired || 0
+      affectedKnowledgeBaseCount += result.affectedKnowledgeBaseCount || 0
+    }
+
+    return {
+      success: failedPaperIds.length === 0,
+      repairedPapers,
+      paperFilesRepaired,
+      noteFilesRepaired,
+      affectedKnowledgeBaseCount,
+      failedPaperIds,
+      error:
+        failedPaperIds.length > 0 ? `部分论文资源修复失败: ${failedPaperIds.join(', ')}` : undefined
     }
   }
 
@@ -374,11 +545,9 @@ export class PaperService {
       return { success: false, error: saveResult.error || '清理译文标注失败' }
     }
 
-    await Promise.all(
-      cleanupResult.removedAnnotations
-        .filter((annotation) => annotation.kind === 'note')
-        .map((annotation) => this.removePaperNoteResource(paperId, annotation.id))
-    )
+    if (cleanupResult.removedAnnotations.some((annotation) => annotation.kind === 'note')) {
+      await this.syncPaperNotesResource(paperId, cleanupResult.nextStore.annotations)
+    }
 
     logger.info('删除译文时已同步清理译文标注', 'main', {
       paperId,
@@ -613,7 +782,9 @@ export class PaperService {
         return { success: false, error: saveResult.error || '保存论文批注失败' }
       }
 
-      this.syncPaperNoteResource(params.paperId, nextAnnotation)
+      if (nextAnnotation.kind === 'note') {
+        await this.syncPaperNotesResource(params.paperId, nextStore.annotations)
+      }
 
       return {
         success: true,
@@ -653,7 +824,7 @@ export class PaperService {
       }
 
       if (removedAnnotation?.kind === 'note') {
-        await this.removePaperNoteResource(paperId, annotationId)
+        await this.syncPaperNotesResource(paperId, nextAnnotations)
       }
 
       return {
@@ -775,7 +946,9 @@ export class PaperService {
         return { success: false, error: saveResult.error || '更新论文批注失败' }
       }
 
-      this.syncPaperNoteResource(params.paperId, nextAnnotation)
+      if (nextAnnotation.kind === 'note') {
+        await this.syncPaperNotesResource(params.paperId, nextStore.annotations)
+      }
 
       return {
         success: true,
@@ -874,7 +1047,10 @@ export class PaperService {
         return { success: false, error: saveResult.error || '更新论文批注失败' }
       }
 
-      const affectedKnowledgeBases = this.syncPaperNoteResource(params.paperId, nextAnnotation)
+      const affectedKnowledgeBases =
+        nextAnnotation.kind === 'note'
+          ? await this.syncPaperNotesResource(params.paperId, nextStore.annotations)
+          : []
 
       return {
         success: true,
