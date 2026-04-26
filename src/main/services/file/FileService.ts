@@ -74,11 +74,15 @@ function writeKnowledgeBases(knowledgeBases: KnowledgeBase[]): void {
   writeFileSync(filePath, JSON.stringify(knowledgeBases, null, 2), 'utf-8')
 }
 
-function getPaperFileResourceId(paperId: string): string {
+export function getPaperFileResourceId(paperId: string): string {
   return `paper-file-${paperId}`
 }
 
-function getPaperNoteResourceId(paperId: string, annotationId: string): string {
+export function getPaperNoteResourceId(paperId: string): string {
+  return `paper-note-${paperId}`
+}
+
+export function getLegacyPaperNoteResourceId(paperId: string, annotationId: string): string {
   return `paper-note-${paperId}-${annotationId}`
 }
 
@@ -98,7 +102,40 @@ function formatPaperSourceLocation(annotation: PaperAnnotation): string {
   return `${pages} / ${viewName}`
 }
 
-function buildPaperNoteContent(paper: PaperDocument, annotation: PaperAnnotation): string {
+function getPaperAnnotationSortKey(annotation: PaperAnnotation): {
+  pageIndex: number
+  blockIndex: number
+  createdAt: string
+  id: string
+} {
+  const sourceRefs = annotation.semanticAnchor.sourceRefs
+  return {
+    pageIndex: sourceRefs.start?.pageIndex ?? sourceRefs.pageIndexes[0] ?? Number.MAX_SAFE_INTEGER,
+    blockIndex:
+      sourceRefs.start?.blockIndex ?? sourceRefs.blockIndexes[0] ?? Number.MAX_SAFE_INTEGER,
+    createdAt: annotation.createdAt,
+    id: annotation.id
+  }
+}
+
+function sortPaperNoteAnnotations(annotations: PaperAnnotation[]): PaperAnnotation[] {
+  return [...annotations].sort((a, b) => {
+    const aKey = getPaperAnnotationSortKey(a)
+    const bKey = getPaperAnnotationSortKey(b)
+    return (
+      aKey.pageIndex - bKey.pageIndex ||
+      aKey.blockIndex - bKey.blockIndex ||
+      aKey.createdAt.localeCompare(bKey.createdAt) ||
+      aKey.id.localeCompare(bKey.id)
+    )
+  })
+}
+
+function getLatestTimestamp(values: string[]): string {
+  return values.filter(Boolean).sort((a, b) => b.localeCompare(a))[0] || new Date().toISOString()
+}
+
+function buildPaperNoteSection(annotation: PaperAnnotation, index: number): string[] {
   const sourceLocation = formatPaperSourceLocation(annotation)
   const selectedText =
     annotation.selectedTextSnapshot ||
@@ -109,24 +146,50 @@ function buildPaperNoteContent(paper: PaperDocument, annotation: PaperAnnotation
   const contextAfter = annotation.contextAfter || annotation.originalAnchor?.suffixText || ''
 
   return [
-    `# ${paper.fileName} - 论文笔记`,
+    `## ${index + 1}. ${sourceLocation}`,
     '',
-    `论文：${paper.fileName}`,
-    `位置：${sourceLocation}`,
-    `视图：${annotation.createdInView === 'translation' ? '译文' : '原文'}`,
     `创建时间：${annotation.createdAt}`,
     `更新时间：${annotation.updatedAt}`,
     '',
-    '## 笔记',
+    '### 笔记',
     annotation.comment,
     '',
-    '## 选中文本',
+    '### 选中文本',
     selectedText || '无选中文本',
     '',
-    '## 上下文',
+    '### 上下文',
     contextBefore ? `前文：${contextBefore}` : '前文：无',
     contextAfter ? `后文：${contextAfter}` : '后文：无'
+  ]
+}
+
+function buildPaperNotesContent(paper: PaperDocument, annotations: PaperAnnotation[]): string {
+  const sortedAnnotations = sortPaperNoteAnnotations(annotations)
+  const latestUpdatedAt = getLatestTimestamp(
+    sortedAnnotations.map((annotation) => annotation.updatedAt)
+  )
+  const sections = sortedAnnotations.flatMap((annotation, index) => [
+    '',
+    ...buildPaperNoteSection(annotation, index)
+  ])
+
+  return [
+    `# ${paper.fileName} - 论文笔记`,
+    '',
+    `论文：${paper.fileName}`,
+    `笔记数量：${sortedAnnotations.length}`,
+    `最近更新：${latestUpdatedAt}`,
+    ...sections
   ].join('\n')
+}
+
+function buildPaperNotesSummary(paper: PaperDocument, annotations: PaperAnnotation[]): string {
+  const latestUpdatedAt = getLatestTimestamp(annotations.map((annotation) => annotation.updatedAt))
+  return `${paper.fileName} · ${annotations.length} 条笔记 · 最近更新 ${latestUpdatedAt}`
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)))
 }
 
 function createUploadedOrigin(): FileOriginInfo {
@@ -179,6 +242,8 @@ export interface PaperNoteResourceSyncResult {
   error?: string
   contentChanged?: boolean
   previousUsedByKBIds?: string[]
+  legacyMigrated?: boolean
+  removedFileIds?: string[]
 }
 
 /**
@@ -501,57 +566,213 @@ export class FileService {
     }
   }
 
-  upsertPaperNoteResource(
+  private getPaperNoteResourceKnowledgeBaseIds(files: FileItem[]): string[] {
+    const fileIds = new Set(files.map((file) => file.id))
+    const knowledgeBases = readKnowledgeBases()
+    const linkedKBIds = knowledgeBases
+      .filter((kb) => (kb.linkedFileIds || []).some((fileId) => fileIds.has(fileId)))
+      .map((kb) => kb.id)
+
+    return uniqueStrings([...files.flatMap((file) => file.usedByKBIds || []), ...linkedKBIds])
+  }
+
+  private getPaperNoteFilesByPaperId(paperId: string): FileItem[] {
+    return this.files.filter((file) => {
+      return file.sourceKind === 'paper_note' && file.origin?.paperId === paperId
+    })
+  }
+
+  private getLegacyPaperNoteFiles(paperId: string): FileItem[] {
+    const aggregateFileId = getPaperNoteResourceId(paperId)
+    return this.getPaperNoteFilesByPaperId(paperId).filter((file) => file.id !== aggregateFileId)
+  }
+
+  private async removePaperNoteFiles(files: FileItem[]): Promise<void> {
+    if (files.length === 0) {
+      return
+    }
+
+    const fileIds = new Set(files.map((file) => file.id))
+    const affectedKBIds = this.getPaperNoteResourceKnowledgeBaseIds(files)
+    const knowledgeBases = readKnowledgeBases()
+    const now = new Date().toISOString()
+    let knowledgeBasesChanged = false
+
+    for (let index = 0; index < knowledgeBases.length; index++) {
+      let nextKB = knowledgeBases[index]
+      let kbChanged = false
+      const linkedFileIds = nextKB.linkedFileIds || []
+      const nextLinkedFileIds = linkedFileIds.filter((fileId) => !fileIds.has(fileId))
+
+      if (nextLinkedFileIds.length !== linkedFileIds.length) {
+        nextKB = {
+          ...nextKB,
+          linkedFileIds: nextLinkedFileIds,
+          documentCount: nextLinkedFileIds.length
+        }
+        kbChanged = true
+      }
+
+      for (const fileId of fileIds) {
+        const previousInvalidation = nextKB.indexInvalidation
+        nextKB = removeInvalidatedFileFromKnowledgeBase(nextKB, fileId)
+        kbChanged = kbChanged || previousInvalidation !== nextKB.indexInvalidation
+      }
+
+      if (kbChanged) {
+        knowledgeBases[index] = {
+          ...nextKB,
+          updatedAt: now
+        }
+        knowledgeBasesChanged = true
+      }
+    }
+
+    if (knowledgeBasesChanged) {
+      writeKnowledgeBases(knowledgeBases)
+    }
+
+    for (const file of files) {
+      await removeFileChunksFromKnowledgeBases(file.id, affectedKBIds)
+    }
+
+    this.files = this.files.filter((file) => !fileIds.has(file.id))
+    this.saveFilesMetadata()
+  }
+
+  private async migrateLegacyPaperNoteResources(
+    aggregateFileId: string,
+    legacyFiles: FileItem[],
+    aggregateUsedByKBIds: string[]
+  ): Promise<void> {
+    if (legacyFiles.length === 0) {
+      return
+    }
+
+    const legacyFileIds = new Set(legacyFiles.map((file) => file.id))
+    const legacyUsedByKBIds = this.getPaperNoteResourceKnowledgeBaseIds(legacyFiles)
+    const targetKBIds = uniqueStrings([...aggregateUsedByKBIds, ...legacyUsedByKBIds])
+    const knowledgeBases = readKnowledgeBases()
+    const now = new Date().toISOString()
+    let knowledgeBasesChanged = false
+
+    for (let index = 0; index < knowledgeBases.length; index++) {
+      let nextKB = knowledgeBases[index]
+      let kbChanged = false
+      const linkedFileIds = nextKB.linkedFileIds || []
+      const nextLinkedFileIds = linkedFileIds.filter((fileId) => !legacyFileIds.has(fileId))
+
+      if (targetKBIds.includes(nextKB.id) && !nextLinkedFileIds.includes(aggregateFileId)) {
+        nextLinkedFileIds.push(aggregateFileId)
+      }
+
+      if (
+        nextLinkedFileIds.length !== linkedFileIds.length ||
+        nextLinkedFileIds.some((fileId, itemIndex) => linkedFileIds[itemIndex] !== fileId)
+      ) {
+        nextKB = {
+          ...nextKB,
+          linkedFileIds: nextLinkedFileIds,
+          documentCount: nextLinkedFileIds.length
+        }
+        kbChanged = true
+      }
+
+      for (const legacyFileId of legacyFileIds) {
+        const previousInvalidation = nextKB.indexInvalidation
+        nextKB = removeInvalidatedFileFromKnowledgeBase(nextKB, legacyFileId)
+        kbChanged = kbChanged || previousInvalidation !== nextKB.indexInvalidation
+      }
+
+      if (kbChanged) {
+        knowledgeBases[index] = {
+          ...nextKB,
+          updatedAt: now
+        }
+        knowledgeBasesChanged = true
+      }
+    }
+
+    if (knowledgeBasesChanged) {
+      writeKnowledgeBases(knowledgeBases)
+    }
+
+    for (const legacyFile of legacyFiles) {
+      await removeFileChunksFromKnowledgeBases(legacyFile.id, targetKBIds)
+    }
+
+    this.files = this.files.filter((file) => !legacyFileIds.has(file.id))
+    this.saveFilesMetadata()
+
+    logger.info('旧版逐批注论文笔记资源已合并为论文级资源', 'main', {
+      aggregateFileId,
+      legacyFileIds: [...legacyFileIds],
+      kbIds: targetKBIds
+    })
+  }
+
+  async upsertPaperNotesResource(
     paper: PaperDocument,
-    annotation: PaperAnnotation
-  ): PaperNoteResourceSyncResult {
+    annotations: PaperAnnotation[]
+  ): Promise<PaperNoteResourceSyncResult> {
     if (!this.loaded) {
       this.initialize()
     }
 
-    if (annotation.kind !== 'note') {
-      return { success: true }
+    const noteAnnotations = sortPaperNoteAnnotations(
+      annotations.filter((annotation) => annotation.kind === 'note')
+    )
+    if (noteAnnotations.length === 0) {
+      return this.removePaperNotesResource(paper.id)
     }
 
     try {
-      const fileId = getPaperNoteResourceId(paper.id, annotation.id)
+      const fileId = getPaperNoteResourceId(paper.id)
       const existingFile = this.files.find((file) => file.id === fileId)
+      const legacyFiles = this.getLegacyPaperNoteFiles(paper.id)
       const previousContentHash = existingFile?.contentHash
-      const previousUsedByKBIds = [...(existingFile?.usedByKBIds || [])]
-      const content = buildPaperNoteContent(paper, annotation)
+      const previousUsedByKBIds = uniqueStrings([
+        ...(existingFile ? this.getPaperNoteResourceKnowledgeBaseIds([existingFile]) : []),
+        ...this.getPaperNoteResourceKnowledgeBaseIds(legacyFiles)
+      ])
+      const content = buildPaperNotesContent(paper, noteAnnotations)
       const contentHash = calculateFileHash(Buffer.from(content, 'utf-8'))
-      const selectedText =
-        annotation.selectedTextSnapshot ||
-        annotation.originalAnchor?.selectedText ||
-        annotation.translationAnchor?.selectedText ||
-        ''
-      const sourceLocation = formatPaperSourceLocation(annotation)
-      const summaryText = [paper.fileName, sourceLocation, compactText(selectedText, 72)]
+      const selectedText = noteAnnotations
+        .map((annotation) => {
+          return (
+            annotation.selectedTextSnapshot ||
+            annotation.originalAnchor?.selectedText ||
+            annotation.translationAnchor?.selectedText ||
+            ''
+          )
+        })
         .filter(Boolean)
-        .join(' · ')
+        .map((text) => compactText(text, 80))
+        .join('\n')
+      const latestUpdatedAt = getLatestTimestamp(
+        noteAnnotations.map((annotation) => annotation.updatedAt)
+      )
       const noteFile: FileItem = {
         id: fileId,
-        name: `${paper.fileName} - 笔记 ${annotation.id.slice(0, 8)}.md`,
-        filePath: `paper://${paper.id}/annotations/${annotation.id}.md`,
+        name: `${paper.fileName} - 论文笔记.md`,
+        filePath: `paper://${paper.id}/notes.md`,
         absolutePath: '',
         fileType: 'md',
         size: Buffer.byteLength(content, 'utf-8'),
-        uploadedAt: existingFile?.uploadedAt || annotation.createdAt,
-        usedByKBIds: existingFile?.usedByKBIds || [],
+        uploadedAt: existingFile?.uploadedAt || noteAnnotations[0]?.createdAt || paper.createdAt,
+        usedByKBIds: previousUsedByKBIds,
         contentHash,
         sourceKind: 'paper_note',
         origin: {
           paperId: paper.id,
-          annotationId: annotation.id,
           paperName: paper.fileName,
           displayName: '论文笔记',
-          summary: summaryText,
+          summary: buildPaperNotesSummary(paper, noteAnnotations),
           noteContent: content,
           allowExternalOpen: false,
           allowDelete: false,
           selectedText,
-          viewKind: annotation.createdInView,
-          updatedAt: annotation.updatedAt
+          updatedAt: latestUpdatedAt
         }
       }
 
@@ -562,21 +783,50 @@ export class FileService {
       }
 
       this.saveFilesMetadata()
+      if (legacyFiles.length > 0) {
+        await this.migrateLegacyPaperNoteResources(fileId, legacyFiles, previousUsedByKBIds)
+      }
+
       logger.info('论文笔记已同步到文件资源池', 'main', {
         paperId: paper.id,
-        annotationId: annotation.id,
-        fileId
+        fileId,
+        noteCount: noteAnnotations.length
       })
       return {
         success: true,
         file: existingFile || noteFile,
         contentChanged:
           typeof previousContentHash === 'string' && previousContentHash !== contentHash,
-        previousUsedByKBIds
+        previousUsedByKBIds,
+        legacyMigrated: legacyFiles.length > 0,
+        removedFileIds: legacyFiles.map((file) => file.id)
       }
     } catch (error) {
       const errorMessage = `同步论文笔记失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage, 'main', { paperId: paper.id, annotationId: annotation.id })
+      logger.error(errorMessage, 'main', { paperId: paper.id })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  async removePaperNotesResource(paperId: string): Promise<PaperNoteResourceSyncResult> {
+    if (!this.loaded) {
+      this.initialize()
+    }
+
+    try {
+      const noteFiles = this.getPaperNoteFilesByPaperId(paperId)
+      if (noteFiles.length === 0) {
+        return { success: true, removedFileIds: [] }
+      }
+
+      await this.removePaperNoteFiles(noteFiles)
+      return {
+        success: true,
+        removedFileIds: noteFiles.map((file) => file.id)
+      }
+    } catch (error) {
+      const errorMessage = `移除论文笔记失败: ${error instanceof Error ? error.message : String(error)}`
+      logger.error(errorMessage, 'main', { paperId })
       return { success: false, error: errorMessage }
     }
   }
@@ -589,7 +839,7 @@ export class FileService {
       this.initialize()
     }
 
-    const fileId = getPaperNoteResourceId(paperId, annotationId)
+    const fileId = getLegacyPaperNoteResourceId(paperId, annotationId)
     const fileIndex = this.files.findIndex((file) => file.id === fileId)
     if (fileIndex === -1) {
       return { success: true }
