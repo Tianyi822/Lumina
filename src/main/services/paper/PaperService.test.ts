@@ -4,10 +4,21 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { PaperService } from './PaperService.ts'
 import { paperStorageService } from './index.ts'
-import { getFileService } from '../file/FileService.ts'
+import {
+  getFileService,
+  getLegacyPaperNoteResourceId,
+  getPaperFileResourceId,
+  getPaperNoteResourceId
+} from '../file/FileService.ts'
 import { getKnowledgeBaseFilePath } from '../knowledge/knowledgePaths.ts'
 import { getKnowledgeDirPath } from '../config/configPaths.ts'
-import { getPaperDirPath, getPaperFigureAssetPath } from './paperPaths.ts'
+import {
+  getPaperAnnotationsPath,
+  getPaperDirPath,
+  getPaperFigureAssetPath,
+  getPaperMetaPath,
+  getPaperSourcePdfPath
+} from './paperPaths.ts'
 import type { KnowledgeBase } from '../../../shared/types/knowledge.ts'
 import {
   PAPER_ANNOTATION_NOTE_COLOR_KEY,
@@ -112,6 +123,10 @@ function createKnowledgeBase(id: string, name: string): KnowledgeBase {
     documentCount: 0,
     linkedFileIds: []
   }
+}
+
+function resetPaperData(paperId: string): void {
+  rmSync(getPaperDirPath(paperId), { recursive: true, force: true })
 }
 
 function createStore(annotation?: PaperAnnotation): PaperAnnotationStore {
@@ -449,7 +464,7 @@ test('updateAnnotation 会将已加入知识库的论文笔记标记为需要重
     colorKey: PAPER_ANNOTATION_NOTE_COLOR_KEY
   })
   const store = createStore(annotation)
-  const noteFile = fileService.upsertPaperNoteResource(paper, annotation).file
+  const noteFile = (await fileService.upsertPaperNotesResource(paper, [annotation])).file
   if (!noteFile) {
     throw new Error('论文笔记资源未创建')
   }
@@ -486,6 +501,7 @@ test('updateAnnotation 会将已加入知识库的论文笔记标记为需要重
       knowledgeBases.map((kb) => kb.indexInvalidation?.files.map((file) => file.fileId)),
       [[noteFile.id], [noteFile.id]]
     )
+    assert.equal(knowledgeBases[0].indexInvalidation?.files[0]?.annotationId, undefined)
 
     const secondResult = await service.updateAnnotation({
       paperId: 'paper-1',
@@ -504,6 +520,172 @@ test('updateAnnotation 会将已加入知识库的论文笔记标记为需要重
   } finally {
     paperStorageService.readMeta = originalReadMeta
     paperStorageService.saveAnnotationStore = originalSaveAnnotationStore
+    rmSync(getKnowledgeDirPath(), { recursive: true, force: true })
+  }
+})
+
+test('deleteAnnotation 删除最后一条笔记时会移除论文级笔记资源', async () => {
+  rmSync(getKnowledgeDirPath(), { recursive: true, force: true })
+  mkdirSync(getKnowledgeDirPath(), { recursive: true })
+  writeFileSync(
+    getKnowledgeBaseFilePath(),
+    JSON.stringify([createKnowledgeBase('kb-1', '知识库一')], null, 2)
+  )
+
+  const fileService = getFileService()
+  fileService.initialize()
+
+  const service = new PaperService()
+  const mutableService = asMutableService(service)
+  const segment = createSegment()
+  const paper = createPaperDocument()
+  const annotation = createAnnotation(segment, {
+    kind: 'note',
+    comment: '待删除内容',
+    colorKey: PAPER_ANNOTATION_NOTE_COLOR_KEY
+  })
+  const store = createStore(annotation)
+  const noteFile = (await fileService.upsertPaperNotesResource(paper, [annotation])).file
+  if (!noteFile) {
+    throw new Error('论文笔记资源未创建')
+  }
+  assert.equal(fileService.linkFileToKB(noteFile.id, 'kb-1').success, true)
+
+  const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
+
+  mutableService.resolveAnnotationStore = () => ({ success: true, data: store })
+  paperStorageService.saveAnnotationStore = () => ({ success: true })
+
+  try {
+    const result = await service.deleteAnnotation('paper-1', annotation.id)
+    const knowledgeBases = JSON.parse(
+      readFileSync(getKnowledgeBaseFilePath(), 'utf-8')
+    ) as KnowledgeBase[]
+
+    assert.equal(result.success, true)
+    assert.equal(fileService.getFileById(getPaperNoteResourceId('paper-1')), null)
+    assert.deepEqual(knowledgeBases[0].linkedFileIds, [])
+    assert.equal(knowledgeBases[0].documentCount, 0)
+  } finally {
+    paperStorageService.saveAnnotationStore = originalSaveAnnotationStore
+    rmSync(getKnowledgeDirPath(), { recursive: true, force: true })
+  }
+})
+
+test('repairPaperResources 会覆盖失效论文路径、补齐聚合笔记并标记重索引', async () => {
+  const paperId = 'paper-repair-resources'
+  const changedNoteId = 'annotation-changed'
+  const missingNoteId = 'annotation-missing'
+  resetPaperData(paperId)
+  rmSync(getKnowledgeDirPath(), { recursive: true, force: true })
+  mkdirSync(getKnowledgeDirPath(), { recursive: true })
+  writeFileSync(
+    getKnowledgeBaseFilePath(),
+    JSON.stringify([createKnowledgeBase('kb-1', '知识库一')], null, 2)
+  )
+
+  const sourcePdfPath = getPaperSourcePdfPath(paperId)
+  mkdirSync(dirname(sourcePdfPath), { recursive: true })
+  writeFileSync(sourcePdfPath, 'current-pdf')
+
+  const paper: PaperDocument = {
+    ...createPaperDocument(),
+    id: paperId,
+    fileName: 'repair-paper.pdf',
+    filePath: `/Users/chentianyi/.sparrow-manus/papers/${paperId}/source.pdf`,
+    fileHash: 'current-paper-hash',
+    fileSize: 11
+  }
+  writeFileSync(getPaperMetaPath(paperId), JSON.stringify(paper, null, 2), 'utf-8')
+
+  const segment = createSegment()
+  const changedNote = createAnnotation(segment, {
+    id: changedNoteId,
+    paperId,
+    kind: 'note',
+    comment: '新笔记内容',
+    updatedAt: '2025-01-02T00:00:00.000Z'
+  })
+  const missingNote = createAnnotation(segment, {
+    id: missingNoteId,
+    paperId,
+    kind: 'note',
+    comment: '补齐的笔记',
+    updatedAt: '2025-01-03T00:00:00.000Z'
+  })
+  const highlight = createAnnotation(segment, {
+    id: 'annotation-highlight',
+    paperId,
+    kind: 'highlight',
+    comment: ''
+  })
+  writeFileSync(
+    getPaperAnnotationsPath(paperId),
+    JSON.stringify(
+      {
+        version: 3,
+        paperId,
+        annotations: [changedNote, missingNote, highlight],
+        updatedAt: '2025-01-03T00:00:00.000Z'
+      } satisfies PaperAnnotationStore,
+      null,
+      2
+    ),
+    'utf-8'
+  )
+
+  const fileService = getFileService()
+  fileService.initialize()
+  const oldPaperFile = fileService.registerPaperFile({
+    ...paper,
+    filePath: `/Users/chentianyi/.sparrow-manus/papers/${paperId}/source.pdf`
+  }).file
+  if (!oldPaperFile) {
+    throw new Error('论文资源未创建')
+  }
+  assert.equal(fileService.linkFileToKB(oldPaperFile.id, 'kb-1').success, true)
+
+  const oldNote = (
+    await fileService.upsertPaperNotesResource({ ...paper, filePath: sourcePdfPath }, [
+      {
+        ...changedNote,
+        comment: '旧笔记内容',
+        updatedAt: '2025-01-01T00:00:00.000Z'
+      }
+    ])
+  ).file
+  if (!oldNote) {
+    throw new Error('论文笔记资源未创建')
+  }
+  assert.equal(fileService.linkFileToKB(oldNote.id, 'kb-1').success, true)
+
+  try {
+    const result = await new PaperService().repairPaperResources(paperId)
+    const repairedPaperFile = fileService.getFileById(getPaperFileResourceId(paperId))
+    const repairedNote = fileService.getFileById(getPaperNoteResourceId(paperId))
+    const skippedHighlight = fileService.getFileById(
+      getLegacyPaperNoteResourceId(paperId, 'annotation-highlight')
+    )
+    const knowledgeBases = JSON.parse(
+      readFileSync(getKnowledgeBaseFilePath(), 'utf-8')
+    ) as KnowledgeBase[]
+
+    assert.equal(result.success, true)
+    assert.equal(result.paperFileRepaired, true)
+    assert.equal(result.noteFilesRepaired, 1)
+    assert.equal(repairedPaperFile?.absolutePath, sourcePdfPath)
+    assert.deepEqual(repairedPaperFile?.usedByKBIds, ['kb-1'])
+    assert.match(repairedNote?.origin?.noteContent || '', /新笔记内容/)
+    assert.match(repairedNote?.origin?.noteContent || '', /补齐的笔记/)
+    assert.equal(skippedHighlight, null)
+    assert.equal(knowledgeBases[0].indexInvalidation?.needsReindex, true)
+    assert.deepEqual(
+      knowledgeBases[0].indexInvalidation?.files.map((file) => file.fileId),
+      [getPaperNoteResourceId(paperId)]
+    )
+    assert.equal(knowledgeBases[0].indexInvalidation?.files[0]?.annotationId, undefined)
+  } finally {
+    resetPaperData(paperId)
     rmSync(getKnowledgeDirPath(), { recursive: true, force: true })
   }
 })

@@ -4,8 +4,13 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-import { FileService, getFilesStoragePath } from './FileService.ts'
-import { getKnowledgeBaseFilePath } from '../knowledge/knowledgePaths.ts'
+import {
+  FileService,
+  getFilesStoragePath,
+  getLegacyPaperNoteResourceId,
+  getPaperNoteResourceId
+} from './FileService.ts'
+import { getFilesMetadataPath, getKnowledgeBaseFilePath } from '../knowledge/knowledgePaths.ts'
 import { getKnowledgeDirPath } from '../config/configPaths.ts'
 import type { KnowledgeBase, FileItem } from '../../../shared/types/knowledge.ts'
 import type {
@@ -59,6 +64,15 @@ function createSegment(): PaperReaderSegment {
       start: { pageIndex: 0, blockIndex: 2 },
       end: { pageIndex: 0, blockIndex: 2 }
     }
+  }
+}
+
+function createSourceRefs(pageIndex: number, blockIndex: number): PaperReaderSegment['sourceRefs'] {
+  return {
+    pageIndexes: [pageIndex],
+    blockIndexes: [blockIndex],
+    start: { pageIndex, blockIndex },
+    end: { pageIndex, blockIndex }
   }
 }
 
@@ -128,25 +142,159 @@ test('registerPaperFile 只登记论文引用资源，不复制 PDF 到知识库
   assert.equal(readdirSync(getFilesStoragePath()).length, 0)
 })
 
-test('upsertPaperNoteResource 生成带论文上下文的可索引笔记内容', async () => {
+test('upsertPaperNotesResource 会按论文聚合并按页码排序笔记内容', async () => {
   resetKnowledgeStorage()
   const service = new FileService()
   service.initialize()
   const paper = createPaper()
-  const annotation = createNoteAnnotation()
+  const laterAnnotation = createNoteAnnotation({
+    id: 'annotation-page-2',
+    comment: '第二页笔记',
+    semanticAnchor: {
+      ...createNoteAnnotation().semanticAnchor,
+      sourceRefs: createSourceRefs(1, 1)
+    },
+    updatedAt: '2026-01-03T00:00:00.000Z'
+  })
+  const earlierAnnotation = createNoteAnnotation({
+    id: 'annotation-page-1',
+    comment: '第一页笔记',
+    semanticAnchor: {
+      ...createNoteAnnotation().semanticAnchor,
+      sourceRefs: createSourceRefs(0, 2)
+    },
+    updatedAt: '2026-01-02T00:00:00.000Z'
+  })
 
-  const result = service.upsertPaperNoteResource(paper, annotation)
+  const result = await service.upsertPaperNotesResource(paper, [laterAnnotation, earlierAnnotation])
   const contentResult = await service.readFileResourceContent(result.file!.id)
 
   assert.equal(result.success, true)
+  assert.equal(result.file?.id, getPaperNoteResourceId(paper.id))
+  assert.equal(result.file?.name, `${paper.fileName} - 论文笔记.md`)
+  assert.equal(result.file?.name.includes(laterAnnotation.id.slice(0, 8)), false)
   assert.equal(result.file?.sourceKind, 'paper_note')
   assert.equal(result.file?.origin?.allowExternalOpen, false)
+  assert.equal(result.file?.origin?.annotationId, undefined)
+  assert.match(result.file?.origin?.summary || '', /2 条笔记/)
   assert.equal(contentResult.success, true)
   assert.match(contentResult.data!.content, /sample-paper\.pdf/)
-  assert.match(contentResult.data!.content, /这是一条进入知识库的论文笔记/)
+  assert.match(contentResult.data!.content, /笔记数量：2/)
+  assert.match(contentResult.data!.content, /第一页笔记/)
+  assert.match(contentResult.data!.content, /第二页笔记/)
+  assert.ok(
+    contentResult.data!.content.indexOf('第一页笔记') <
+      contentResult.data!.content.indexOf('第二页笔记')
+  )
   assert.match(contentResult.data!.content, /Selected claim/)
   assert.match(contentResult.data!.content, /Before context/)
   assert.match(contentResult.data!.content, /After context/)
+})
+
+test('upsertPaperNotesResource 会合并旧版逐批注资源并迁移知识库关联', async () => {
+  resetKnowledgeStorage()
+  mkdirSync(getKnowledgeDirPath(), { recursive: true })
+  const kb1 = createKnowledgeBase()
+  const kb2: KnowledgeBase = { ...createKnowledgeBase(), id: 'kb-2', name: '测试知识库二' }
+  const paper = createPaper()
+  const firstAnnotation = createNoteAnnotation({
+    id: 'annotation-legacy-1',
+    comment: '旧资源一的新内容',
+    semanticAnchor: {
+      ...createNoteAnnotation().semanticAnchor,
+      sourceRefs: createSourceRefs(0, 1)
+    }
+  })
+  const secondAnnotation = createNoteAnnotation({
+    id: 'annotation-legacy-2',
+    comment: '旧资源二的新内容',
+    semanticAnchor: {
+      ...createNoteAnnotation().semanticAnchor,
+      sourceRefs: createSourceRefs(1, 1)
+    }
+  })
+  const legacyFile1Id = getLegacyPaperNoteResourceId(paper.id, firstAnnotation.id)
+  const legacyFile2Id = getLegacyPaperNoteResourceId(paper.id, secondAnnotation.id)
+  const legacyFiles: FileItem[] = [
+    {
+      id: legacyFile1Id,
+      name: `${paper.fileName} - 笔记 legacy1.md`,
+      filePath: `paper://${paper.id}/annotations/${firstAnnotation.id}.md`,
+      absolutePath: '',
+      fileType: 'md',
+      size: 10,
+      uploadedAt: firstAnnotation.createdAt,
+      usedByKBIds: ['kb-1'],
+      contentHash: 'legacy-hash-1',
+      sourceKind: 'paper_note',
+      origin: {
+        paperId: paper.id,
+        annotationId: firstAnnotation.id,
+        paperName: paper.fileName,
+        displayName: '论文笔记',
+        summary: '旧资源一',
+        noteContent: '旧资源一',
+        allowExternalOpen: false,
+        allowDelete: false,
+        updatedAt: firstAnnotation.updatedAt
+      }
+    },
+    {
+      id: legacyFile2Id,
+      name: `${paper.fileName} - 笔记 legacy2.md`,
+      filePath: `paper://${paper.id}/annotations/${secondAnnotation.id}.md`,
+      absolutePath: '',
+      fileType: 'md',
+      size: 10,
+      uploadedAt: secondAnnotation.createdAt,
+      usedByKBIds: ['kb-2'],
+      contentHash: 'legacy-hash-2',
+      sourceKind: 'paper_note',
+      origin: {
+        paperId: paper.id,
+        annotationId: secondAnnotation.id,
+        paperName: paper.fileName,
+        displayName: '论文笔记',
+        summary: '旧资源二',
+        noteContent: '旧资源二',
+        allowExternalOpen: false,
+        allowDelete: false,
+        updatedAt: secondAnnotation.updatedAt
+      }
+    }
+  ]
+
+  kb1.linkedFileIds = [legacyFile1Id]
+  kb1.documentCount = 1
+  kb2.linkedFileIds = [legacyFile2Id]
+  kb2.documentCount = 1
+  writeFileSync(getKnowledgeBaseFilePath(), JSON.stringify([kb1, kb2], null, 2), 'utf-8')
+  writeFileSync(getFilesMetadataPath(), JSON.stringify(legacyFiles, null, 2), 'utf-8')
+
+  const service = new FileService()
+  service.initialize()
+  const result = await service.upsertPaperNotesResource(paper, [secondAnnotation, firstAnnotation])
+  const aggregateFileId = getPaperNoteResourceId(paper.id)
+  const knowledgeBases = JSON.parse(
+    readFileSync(getKnowledgeBaseFilePath(), 'utf-8')
+  ) as KnowledgeBase[]
+
+  assert.equal(result.success, true)
+  assert.equal(result.legacyMigrated, true)
+  assert.deepEqual(result.previousUsedByKBIds?.sort(), ['kb-1', 'kb-2'])
+  assert.deepEqual(result.removedFileIds?.sort(), [legacyFile1Id, legacyFile2Id].sort())
+  assert.equal(service.getFileById(legacyFile1Id), null)
+  assert.equal(service.getFileById(legacyFile2Id), null)
+  assert.equal(service.getFileById(aggregateFileId)?.id, aggregateFileId)
+  assert.deepEqual(service.getFileById(aggregateFileId)?.usedByKBIds.sort(), ['kb-1', 'kb-2'])
+  assert.deepEqual(
+    knowledgeBases.map((kb) => kb.linkedFileIds),
+    [[aggregateFileId], [aggregateFileId]]
+  )
+  assert.deepEqual(
+    knowledgeBases.map((kb) => kb.documentCount),
+    [1, 1]
+  )
 })
 
 test('removePaperResources 会移除论文资源、笔记资源和知识库关联', async () => {
@@ -158,7 +306,7 @@ test('removePaperResources 会移除论文资源、笔记资源和知识库关�
   const paper = createPaper()
   const annotation = createNoteAnnotation()
   const paperFile = service.registerPaperFile(paper).file as FileItem
-  const noteFile = service.upsertPaperNoteResource(paper, annotation).file as FileItem
+  const noteFile = (await service.upsertPaperNotesResource(paper, [annotation])).file as FileItem
 
   assert.equal(service.linkFileToKB(paperFile.id, 'kb-1').success, true)
   assert.equal(service.linkFileToKB(noteFile.id, 'kb-1').success, true)
@@ -182,7 +330,7 @@ test('unlinkFileFromKB 会清理论文笔记对应的索引失效状态', async 
   writeFileSync(getKnowledgeBaseFilePath(), JSON.stringify([createKnowledgeBase()], null, 2))
   const paper = createPaper()
   const annotation = createNoteAnnotation()
-  const noteFile = service.upsertPaperNoteResource(paper, annotation).file as FileItem
+  const noteFile = (await service.upsertPaperNotesResource(paper, [annotation])).file as FileItem
 
   assert.equal(service.linkFileToKB(noteFile.id, 'kb-1').success, true)
 
@@ -198,7 +346,6 @@ test('unlinkFileFromKB 会清理论文笔记对应的索引失效状态', async 
         fileId: noteFile.id,
         fileName: noteFile.name,
         paperId: paper.id,
-        annotationId: annotation.id,
         updatedAt: annotation.updatedAt
       }
     ]

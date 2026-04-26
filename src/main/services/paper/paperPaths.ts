@@ -48,6 +48,11 @@ export const TRANSLATION_FILE_NAME = 'translation.json'
 export const ANNOTATIONS_FILE_NAME = 'annotations.json'
 
 /**
+ * 原始 PDF 文件名
+ */
+export const SOURCE_PDF_FILE_NAME = 'source.pdf'
+
+/**
  * 获取论文根目录路径
  */
 export function getPapersDirPath(): string {
@@ -66,6 +71,13 @@ export function getPaperDirPath(paperId: string): string {
  */
 export function getPaperMetaPath(paperId: string): string {
   return join(getPaperDirPath(paperId), META_FILE_NAME)
+}
+
+/**
+ * 获取论文原始 PDF 文件路径
+ */
+export function getPaperSourcePdfPath(paperId: string): string {
+  return join(getPaperDirPath(paperId), SOURCE_PDF_FILE_NAME)
 }
 
 /**

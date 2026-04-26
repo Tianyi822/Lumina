@@ -1,5 +1,6 @@
 import { ipcMain, shell } from 'electron'
 import { getFileService } from '@main/services/file'
+import { getPaperService } from '@main/services/paper'
 import { logger } from '@main/services/logger'
 // FileItem type is not directly used in this file, but handlers return typed responses
 
@@ -8,6 +9,29 @@ export function initializeFileService(): void {
   try {
     getFileService().initialize()
     logger.info('文件服务已初始化')
+
+    void getPaperService()
+      .repairAllPaperResources()
+      .then((repairResult) => {
+        if (repairResult.success) {
+          logger.info('论文资源池修复完成', 'main', {
+            repairedPapers: repairResult.repairedPapers,
+            paperFilesRepaired: repairResult.paperFilesRepaired,
+            noteFilesRepaired: repairResult.noteFilesRepaired,
+            affectedKnowledgeBaseCount: repairResult.affectedKnowledgeBaseCount
+          })
+        } else {
+          logger.warn('论文资源池修复未完全完成', 'main', {
+            failedPaperIds: repairResult.failedPaperIds,
+            error: repairResult.error
+          })
+        }
+      })
+      .catch((error) => {
+        logger.warn('论文资源池修复失败', 'main', {
+          error: error instanceof Error ? error.message : String(error)
+        })
+      })
   } catch (error) {
     const errorMessage = `文件服务初始化失败: ${error instanceof Error ? error.message : String(error)}`
     logger.error(errorMessage)
