@@ -8,7 +8,6 @@ import {
   statSync,
   readdirSync
 } from 'fs'
-import { join } from 'path'
 import { createHash } from 'crypto'
 import { logger } from '@main/services/logger'
 import type {
@@ -35,6 +34,7 @@ import {
   getPapersDirPath,
   getPaperPageImagePath,
   getPaperPagesDirPath,
+  getPaperSourcePdfPath,
   getPaperTranslationPath
 } from './paperPaths'
 import {
@@ -75,6 +75,40 @@ interface PaperAnnotationData {
 }
 
 export class PaperStorageService {
+  private normalizeMetaPaths(
+    paperId: string,
+    document: PaperDocument
+  ): { document: PaperDocument; changed: boolean } {
+    let nextDocument = document
+    let changed = false
+
+    const currentPdfPath = getPaperSourcePdfPath(paperId)
+    if (existsSync(currentPdfPath) && document.filePath !== currentPdfPath) {
+      nextDocument = { ...nextDocument, filePath: currentPdfPath }
+      changed = true
+    }
+
+    if (document.pageAssets?.length) {
+      let pageAssetsChanged = false
+      const pageAssets = document.pageAssets.map((asset) => {
+        const currentImagePath = getPaperPageImagePath(paperId, asset.pageIndex)
+        if (!existsSync(currentImagePath) || asset.imagePath === currentImagePath) {
+          return asset
+        }
+
+        pageAssetsChanged = true
+        return { ...asset, imagePath: currentImagePath }
+      })
+
+      if (pageAssetsChanged) {
+        nextDocument = { ...nextDocument, pageAssets }
+        changed = true
+      }
+    }
+
+    return { document: nextDocument, changed }
+  }
+
   private upsertPageAsset(document: PaperDocument, asset: PaperPageAsset): PaperPageAsset[] {
     const pageAssets = [...(document.pageAssets || [])]
     const existingIndex = pageAssets.findIndex((item) => item.pageIndex === asset.pageIndex)
@@ -135,7 +169,7 @@ export class PaperStorageService {
       ensurePaperDirs(paperId)
 
       const fileName = sourcePdfPath.split('/').pop() || 'unknown.pdf'
-      const localPdfPath = join(paperDir, 'source.pdf')
+      const localPdfPath = getPaperSourcePdfPath(paperId)
       copyFileSync(sourcePdfPath, localPdfPath)
 
       const fileHash = this.calculateFileHash(localPdfPath)
@@ -177,7 +211,17 @@ export class PaperStorageService {
 
       const content = readFileSync(metaPath, 'utf-8')
       const meta = JSON.parse(content) as PaperDocument
-      return { success: true, data: meta }
+      const normalized = this.normalizeMetaPaths(paperId, meta)
+      if (normalized.changed) {
+        const saveResult = this.saveMeta(paperId, normalized.document)
+        if (!saveResult.success) {
+          logger.warn('论文元信息路径规范化写回失败', 'main', {
+            paperId,
+            error: saveResult.error
+          })
+        }
+      }
+      return { success: true, data: normalized.document }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('读取论文元信息失败', 'main', { paperId, error: errorMessage })
