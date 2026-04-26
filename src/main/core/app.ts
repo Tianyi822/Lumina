@@ -10,6 +10,7 @@ import {
   initializeEmbedding,
   initializeKnowledge,
   initializeEmbeddingModels,
+  initializeFileService,
   initializeSandbox
 } from '@main/ipc'
 
@@ -58,6 +59,9 @@ export function initializeApp(): void {
 
     // 初始化知识库服务
     initializeKnowledge()
+
+    // 初始化文件服务，并修复历史论文资源池数据
+    initializeFileService()
 
     // 初始化沙箱服务
     initializeSandbox()
