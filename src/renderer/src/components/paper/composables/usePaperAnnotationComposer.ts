@@ -880,8 +880,7 @@ export function usePaperAnnotationComposer(
       return
     }
 
-    clearSelectionUi()
-    clearNativeSelection()
+    noteEditorOriginalComment.value = noteEditorComment.value
   }
 
   async function deleteAnnotationById(
@@ -1100,8 +1099,14 @@ export function usePaperAnnotationComposer(
       return
     }
 
-    clearSelectionUi()
-    clearNativeSelection()
+    if (noteEditorDraft.value) {
+      selectionActionMenu.value = null
+      selectionActionMenuError.value = null
+      clearNativeSelection()
+    } else {
+      clearSelectionUi()
+      clearNativeSelection()
+    }
 
     if (!target.closest('mark.paper-annotation-highlight')) {
       clearHoverPopover()
