@@ -396,7 +396,7 @@ onBeforeUnmount(() => {
       @save="composer.handleSaveNote"
       @update-note="composer.handleUpdateNote"
       @delete-note="composer.handleDeleteNoteFromEditor"
-      @cancel="composer.handleCancelNoteEditor"
+      @close="composer.handleCloseNoteEditor"
       @move="composer.handleMoveNoteEditor"
     />
 

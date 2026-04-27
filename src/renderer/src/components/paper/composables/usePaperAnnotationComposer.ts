@@ -136,6 +136,7 @@ export interface PaperAnnotationComposer {
   handleUpdateNote: () => Promise<void>
   handleDeleteNoteFromEditor: () => Promise<void>
   handleCancelNoteEditor: () => void
+  handleCloseNoteEditor: () => void
   handleMoveNoteEditor: (delta: { x: number; y: number }) => void
   handleUpdateHoverColor: (colorKey: PaperAnnotationColorKey) => Promise<void>
   handleSaveHoverNote: () => Promise<void>
@@ -931,6 +932,11 @@ export function usePaperAnnotationComposer(
     clearNativeSelection()
   }
 
+  function handleCloseNoteEditor(): void {
+    clearSelectionUi()
+    clearNativeSelection()
+  }
+
   function handleMoveNoteEditor(delta: { x: number; y: number }): void {
     if (!noteEditorDraft.value) {
       return
@@ -1181,6 +1187,7 @@ export function usePaperAnnotationComposer(
     handleUpdateNote,
     handleDeleteNoteFromEditor,
     handleCancelNoteEditor,
+    handleCloseNoteEditor,
     handleMoveNoteEditor,
     handleUpdateHoverColor,
     handleSaveHoverNote,
