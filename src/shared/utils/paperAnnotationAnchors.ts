@@ -50,14 +50,37 @@ function scoreContextMatch(
 
   if (anchor.prefixText && actualPrefix.endsWith(anchor.prefixText)) {
     score += anchor.prefixText.length * 2
+  } else if (anchor.prefixText && actualPrefix.length > 0) {
+    let matchLen = 0
+    while (
+      matchLen < Math.min(anchor.prefixText.length, actualPrefix.length) &&
+      anchor.prefixText[anchor.prefixText.length - 1 - matchLen] ===
+        actualPrefix[actualPrefix.length - 1 - matchLen]
+    ) {
+      matchLen += 1
+    }
+    if (matchLen >= anchor.prefixText.length * 0.5) {
+      score += matchLen
+    }
   }
 
   if (anchor.suffixText && actualSuffix.startsWith(anchor.suffixText)) {
     score += anchor.suffixText.length * 2
+  } else if (anchor.suffixText && actualSuffix.length > 0) {
+    let matchLen = 0
+    while (
+      matchLen < Math.min(anchor.suffixText.length, actualSuffix.length) &&
+      anchor.suffixText[matchLen] === actualSuffix[matchLen]
+    ) {
+      matchLen += 1
+    }
+    if (matchLen >= anchor.suffixText.length * 0.5) {
+      score += matchLen
+    }
   }
 
   if (startOffset === anchor.startOffset) {
-    score += 8
+    score += 3
   }
 
   return score
@@ -207,7 +230,18 @@ export function findPaperTextAnchorOffset(
 
   const exactSlice = text.slice(anchor.startOffset, anchor.endOffset)
   if (exactSlice === anchor.selectedText) {
-    return anchor.startOffset
+    const actualPrefix = text.slice(
+      Math.max(0, anchor.startOffset - anchor.prefixText.length),
+      anchor.startOffset
+    )
+    const actualSuffix = text.slice(anchor.startOffset + anchor.selectedText.length)
+
+    const prefixOk = !anchor.prefixText || actualPrefix.endsWith(anchor.prefixText)
+    const suffixOk = !anchor.suffixText || actualSuffix.startsWith(anchor.suffixText)
+
+    if (prefixOk && suffixOk) {
+      return anchor.startOffset
+    }
   }
 
   let bestOffset: number | null = null

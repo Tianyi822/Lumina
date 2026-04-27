@@ -78,3 +78,46 @@ test('文本锚点可以把旧 KaTeX DOM 偏移恢复到源码文本位置', () 
   assert.notEqual(legacyStartOffset, sourceStartOffset)
   assert.equal(recoveredOffset, sourceStartOffset)
 })
+
+test('精确切片命中但上下文不匹配时降级到片段搜索', () => {
+  const creationText = 'First sentence. Important concept appears here. Important concept appears later.'
+  const renderText =
+    'Opening note. Important concept appears here. Another bridge. Important concept appears later.'
+
+  const secondStart = creationText.indexOf('Important concept appears later')
+  const anchor = buildPaperTextAnchor(
+    creationText,
+    secondStart,
+    secondStart + 'Important concept'.length
+  )
+
+  const recovered = findPaperTextAnchorOffset(renderText, anchor)
+
+  assert.equal(recovered, renderText.indexOf('Important concept appears later'))
+})
+
+test('完全相同的两个词 — 上下文消歧选择正确位置', () => {
+  const source = 'The data analysis shows the trend. The data analysis confirms the result.'
+
+  const firstStart = source.indexOf('data')
+  const anchor = buildPaperTextAnchor(source, firstStart, firstStart + 'data'.length)
+
+  const shifted = 'Introduction. The data analysis shows the trend. The data analysis confirms the result.'
+
+  const recovered = findPaperTextAnchorOffset(shifted, anchor)
+
+  assert.equal(recovered, shifted.indexOf('data'))
+})
+
+test('相邻相同词 — 锚定到正确的那一个', () => {
+  const source = 'example example'
+
+  const firstStart = 0
+  const anchor = buildPaperTextAnchor(source, firstStart, firstStart + 'example'.length)
+
+  const shifted = 'An example example'
+
+  const recovered = findPaperTextAnchorOffset(shifted, anchor)
+
+  assert.equal(recovered, shifted.indexOf('example'))
+})
