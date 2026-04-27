@@ -148,17 +148,9 @@ export const useUIStateStore = defineStore(
     // 是否在论文视图
     const isPaperView = computed(() => currentView.value === 'paper')
 
-    // 当前视图对应的侧边栏是否折叠
+    // 只有论文页允许折叠侧边栏，知识库和沙箱页始终展开。
     const isCurrentSidebarCollapsed = computed(() => {
-      if (currentView.value === 'knowledge') {
-        return knowledgeSidebarCollapsed.value
-      }
-
-      if (currentView.value === 'paper') {
-        return paperSidebarCollapsed.value
-      }
-
-      return sandboxSidebarCollapsed.value
+      return currentView.value === 'paper' && paperSidebarCollapsed.value
     })
 
     // ==================== Getters: 主题 ====================
@@ -211,6 +203,10 @@ export const useUIStateStore = defineStore(
 
     // 切换当前视图对应的侧边栏状态
     function toggleCurrentSidebar(): void {
+      if (currentView.value !== 'paper') {
+        return
+      }
+
       const nextCollapsed = !isCurrentSidebarCollapsed.value
       setCurrentSidebarCollapsed(nextCollapsed)
 
@@ -222,17 +218,11 @@ export const useUIStateStore = defineStore(
 
     // 设置当前视图对应的侧边栏状态
     function setCurrentSidebarCollapsed(collapsed: boolean): void {
-      if (currentView.value === 'knowledge') {
-        setKnowledgeSidebarCollapsed(collapsed)
+      if (currentView.value !== 'paper') {
         return
       }
 
-      if (currentView.value === 'paper') {
-        setPaperSidebarCollapsed(collapsed)
-        return
-      }
-
-      setSandboxSidebarCollapsed(collapsed)
+      setPaperSidebarCollapsed(collapsed)
     }
 
     // ==================== Actions: 沙箱页面 UI ====================
@@ -277,12 +267,14 @@ export const useUIStateStore = defineStore(
 
     // 切换到知识库视图
     async function switchToKnowledgeView(): Promise<void> {
+      knowledgeSidebarCollapsed.value = false
       currentView.value = 'knowledge'
       window.api.logger.info('[UIStateStore] 切换到知识库视图')
     }
 
     // 切换到沙箱视图
     async function switchToSandboxView(): Promise<void> {
+      sandboxSidebarCollapsed.value = false
       currentView.value = 'sandbox'
       window.api.logger.info('[UIStateStore] 切换到沙箱视图')
     }

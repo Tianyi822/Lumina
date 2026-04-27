@@ -43,34 +43,41 @@ function formatDBSize(bytes: number): string {
 
 <style scoped>
 .kb-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--sm-space-3);
-  padding-top: var(--sm-space-4);
-  border-top: 1px solid var(--sm-color-border-subtle);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sm-space-2);
+  margin-top: var(--sm-space-2);
 }
 
 .stat-card {
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-  min-height: 88px;
-  padding: var(--sm-space-4);
+  max-width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 12px;
   border: 1px solid var(--sm-color-border-subtle);
-  border-radius: var(--sm-radius-md);
-  background: rgba(255, 255, 255, 0.02);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  white-space: nowrap;
 }
 
 .stat-label {
+  flex-shrink: 0;
   font-size: 12px;
-  color: var(--sm-color-text-secondary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .stat-value {
-  color: var(--sm-color-text-primary);
-  font-size: 15px;
-  font-weight: 500;
+  min-width: 0;
+  color: var(--sm-color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
   font-family: var(--sm-font-mono);
-  line-height: 1.4;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

@@ -49,6 +49,10 @@ export function useReindex(
 
     indexStore.startRefresh()
 
+    for (const file of linkedFiles.value) {
+      indexStore.markIndexCallStarted(kbId, file.id)
+    }
+
     try {
       const fileIds = linkedFiles.value.map((file) => file.id)
 
@@ -79,6 +83,9 @@ export function useReindex(
     } finally {
       indexStore.setKBReindexing(kbId, false)
       reindexProgress.value = { current: 0, total: 0, currentFile: '' }
+      for (const file of linkedFiles.value) {
+        indexStore.markIndexCallFinished(kbId, file.id)
+      }
       await onStatsNeedUpdate()
     }
   }

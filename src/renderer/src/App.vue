@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import KnowledgePage from './pages/KnowledgePage.vue'
 import SandboxPage from './pages/SandboxPage.vue'
@@ -24,6 +24,11 @@ const { initTheme } = useTheme()
 const uiState = useUIStateStore()
 const { currentView, isKnowledgeView, isPaperView, isCurrentSidebarCollapsed } =
   storeToRefs(uiState)
+
+const workspacePageClasses = computed(() => ({
+  [`sm-workspace-page--${currentView.value}`]: true,
+  'sm-workspace-page--sidebar-collapsed': isCurrentSidebarCollapsed.value
+}))
 
 // 配置 Store - 用于加载语音识别等配置
 const configStore = useConfigStore()
@@ -115,7 +120,7 @@ onBeforeUnmount(() => {
     <NotificationCenter />
 
     <!-- 主布局 -->
-    <div class="sm-shell sm-workspace-page">
+    <div class="sm-shell sm-workspace-page" :class="workspacePageClasses">
       <div class="sm-workspace-page__drag-region" aria-hidden="true"></div>
       <div class="sm-workspace-page__chrome-actions" aria-label="窗口快捷操作">
         <button
@@ -128,6 +133,7 @@ onBeforeUnmount(() => {
         </button>
 
         <button
+          v-if="isPaperView"
           class="sm-icon-button sm-workspace-page__chrome-button"
           :title="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
           :aria-label="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
@@ -184,11 +190,12 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 12px;
   left: 90px;
-  z-index: 6;
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: 0;
   -webkit-app-region: no-drag;
+  pointer-events: auto;
 }
 
 .sm-workspace-page__chrome-button {

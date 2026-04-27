@@ -150,45 +150,32 @@ defineExpose({ handleFilesLinked })
             <div class="kb-overview__title-row">
               <div class="kb-overview__heading">
                 <h1 class="kb-title">{{ currentKB.name }}</h1>
-                <span class="kb-overview__count">{{ linkedFiles.length }} 个文档</span>
               </div>
             </div>
-          </div>
 
-          <div class="kb-actions">
-            <button
-              class="sm-button sm-button--secondary reindex-btn"
-              :disabled="indexingStatus || reindexing || linkedFiles.length === 0"
-              @click="handleReindex"
+            <textarea
+              v-if="isEditingDescription"
+              ref="descriptionTextareaRef"
+              v-model="editingDescription"
+              class="sm-textarea kb-description kb-description--editing"
+              rows="3"
+              placeholder="补充知识库用途、范围和检索约束..."
+              @blur="saveDescription"
+              @keydown="handleDescriptionKeydown"
+            ></textarea>
+
+            <p
+              v-else
+              class="kb-description"
+              :class="{ 'kb-description-empty': !currentKB.description }"
+              @dblclick="startEditDescription"
             >
-              <span v-if="reindexing" class="sm-spinner"></span>
-              {{ reindexing ? '索引中...' : '重新索引' }}
-            </button>
-            <button class="sm-button sm-button--primary add-files-btn" @click="handleAddFiles">
-              添加文档
-            </button>
+              {{ currentKB.description || '双击编辑，补充知识库用途、覆盖范围和检索约束。' }}
+            </p>
+
+            <StatsPanel :stats="stats" :loading-stats="loadingStats" :current-k-b="currentKB" />
           </div>
         </div>
-
-        <textarea
-          v-if="isEditingDescription"
-          ref="descriptionTextareaRef"
-          v-model="editingDescription"
-          class="sm-textarea kb-description kb-description--editing"
-          rows="3"
-          placeholder="补充知识库用途、范围和检索约束..."
-          @blur="saveDescription"
-          @keydown="handleDescriptionKeydown"
-        ></textarea>
-
-        <p
-          v-else
-          class="kb-description"
-          :class="{ 'kb-description-empty': !currentKB.description }"
-          @dblclick="startEditDescription"
-        >
-          {{ currentKB.description || '双击编辑，补充知识库用途、覆盖范围和检索约束。' }}
-        </p>
 
         <div v-if="needsReindex" class="kb-reindex-notice">
           <div class="kb-reindex-notice__copy">
@@ -206,8 +193,6 @@ defineExpose({ handleFilesLinked })
             {{ reindexing ? '索引中...' : '重新索引' }}
           </button>
         </div>
-
-        <StatsPanel :stats="stats" :loading-stats="loadingStats" :current-k-b="currentKB" />
       </section>
 
       <SearchPanel :current-k-b="currentKB" />
@@ -217,6 +202,7 @@ defineExpose({ handleFilesLinked })
         :is-dragging="isDragging"
         :unlinking-file-id="unlinkingFileId"
         :indexing-status="indexingStatus"
+        :reindexing="reindexing"
         :kb-indexing-files="kbIndexingFiles"
         :invalidated-file-ids="invalidatedFileIds"
         @dragenter="handleDragEnter"
@@ -224,6 +210,7 @@ defineExpose({ handleFilesLinked })
         @dragover="handleDragOver"
         @drop="handleDrop"
         @add-files="handleAddFiles"
+        @reindex="handleReindex"
         @unlink-file="(id) => handleUnlinkFile(id, handleReindex)"
       />
     </div>
@@ -256,7 +243,7 @@ defineExpose({ handleFilesLinked })
 .kb-overview {
   display: flex;
   flex-direction: column;
-  gap: var(--sm-space-4);
+  gap: var(--sm-space-3);
   flex-shrink: 0;
 }
 
@@ -270,7 +257,7 @@ defineExpose({ handleFilesLinked })
 .kb-overview__copy {
   display: flex;
   flex-direction: column;
-  gap: var(--sm-space-3);
+  gap: var(--sm-space-2);
   flex: 1;
   min-width: 0;
 }
@@ -284,31 +271,20 @@ defineExpose({ handleFilesLinked })
 
 .kb-overview__heading {
   display: flex;
-  align-items: stretch;
-  gap: var(--sm-space-3);
-  min-width: 0;
-}
-
-.kb-overview__count {
-  display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  align-self: stretch;
-  padding: 0 10px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--sm-color-text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
+  gap: var(--sm-space-2);
+  min-width: 0;
 }
 
 .kb-title {
   margin: 0;
-  font-size: 20px;
+  max-width: 100%;
+  font-size: 28px;
   font-weight: 600;
   line-height: 1.2;
   color: var(--sm-color-text-primary);
+  overflow-wrap: anywhere;
 }
 
 .kb-description {
@@ -368,20 +344,6 @@ defineExpose({ handleFilesLinked })
   white-space: nowrap;
 }
 
-.kb-actions {
-  display: flex;
-  gap: var(--sm-space-2);
-  flex-shrink: 0;
-}
-
-.add-files-btn {
-  white-space: nowrap;
-}
-
-.reindex-btn {
-  white-space: nowrap;
-}
-
 .empty-kb {
   flex: 1;
   margin: var(--sm-space-6);
@@ -409,26 +371,12 @@ defineExpose({ handleFilesLinked })
   }
 
   .kb-overview__heading {
-    flex-direction: column;
-  }
-
-  .kb-overview__count {
-    align-self: flex-start;
-    min-height: 28px;
-  }
-
-  .kb-actions {
-    width: 100%;
-    flex-wrap: wrap;
+    align-items: flex-start;
   }
 
   .kb-reindex-notice {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .kb-actions > button {
-    flex: 1 1 180px;
   }
 }
 </style>
