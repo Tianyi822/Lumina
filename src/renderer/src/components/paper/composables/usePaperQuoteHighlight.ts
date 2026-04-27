@@ -19,12 +19,39 @@ function removeQuoteHighlights(): void {
   })
 }
 
+function wrapMathSegment(segment: CanonicalTextSegment, quoteId: string): HTMLElement | null {
+  const sourceNode = segment.sourceNode
+  if (!(sourceNode instanceof Element)) {
+    return null
+  }
+
+  if (sourceNode.closest('mark.paper-markdown-view__quote-highlight')) {
+    return null
+  }
+
+  const parent = sourceNode.parentNode
+  if (!parent) {
+    return null
+  }
+
+  const mark = document.createElement('mark')
+  mark.className = 'paper-markdown-view__quote-highlight'
+  mark.dataset.paperQuoteId = quoteId
+  parent.insertBefore(mark, sourceNode)
+  mark.appendChild(sourceNode)
+  return mark
+}
+
 function wrapTextSegment(
   segment: CanonicalTextSegment,
   rangeStartOffset: number,
   rangeEndOffset: number,
   quoteId: string
 ): HTMLElement | null {
+  if (segment.kind === 'math') {
+    return wrapMathSegment(segment, quoteId)
+  }
+
   if (segment.kind !== 'text' || !(segment.sourceNode instanceof Text)) {
     return null
   }
@@ -77,7 +104,9 @@ function highlightQuoteText(surface: HTMLElement, quote: PaperQuote): HTMLElemen
 
   const affectedSegments = canonicalIndex.segments.filter((segment) => {
     return (
-      segment.kind === 'text' && segment.endOffset > startOffset && segment.startOffset < endOffset
+      (segment.kind === 'text' || segment.kind === 'math') &&
+      segment.endOffset > startOffset &&
+      segment.startOffset < endOffset
     )
   })
   const marks: HTMLElement[] = []
