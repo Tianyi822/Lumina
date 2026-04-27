@@ -32,8 +32,11 @@ import {
 } from './paperAnnotationFloating'
 import {
   buildCanonicalTextIndex,
+  findCanonicalMathSegmentByNode,
+  getCanonicalRangeClientRect,
   getCanonicalRangeOffsets,
-  trimCanonicalTextRange
+  trimCanonicalTextRange,
+  type CanonicalTextClientRect
 } from './paperCanonicalTextIndex'
 import type { RenderSourceSegment } from './usePaperHighlightRenderer'
 import type { RenderedSegment } from './usePaperMarkdownEngine'
@@ -124,7 +127,7 @@ export interface PaperAnnotationComposer {
   outdatedAnnotations: ComputedRef<PaperAnnotation[]>
   translationMissingAnnotations: ComputedRef<PaperAnnotation[]>
   currentTranslationRevisionId: ComputedRef<string | null>
-  updateComposerFromSelection: () => void
+  updateComposerFromSelection: (event?: MouseEvent) => void
   handleCreateHighlight: (colorKey: PaperAnnotationColorKey) => Promise<void>
   handleOpenNoteEditorFromSelection: () => void
   handleAddToChat: () => void
@@ -349,93 +352,39 @@ export function usePaperAnnotationComposer(
     return surface.firstElementChild || surface
   }
 
-  function buildSelectionDraftFromCurrentSelection(): {
+  function resolveSelectionSurface(container: Node): HTMLElement | null {
+    return container instanceof Element
+      ? container.closest<HTMLElement>('[data-paper-selection-surface="true"]')
+      : container.parentElement?.closest<HTMLElement>('[data-paper-selection-surface="true"]') ||
+          null
+  }
+
+  function buildSelectionResult(
+    surface: HTMLElement,
+    canonicalText: string,
+    selectedRange: { startOffset: number; endOffset: number },
+    selectionRect: CanonicalTextClientRect,
+    segment: RenderedSegment,
+    renderSourceSegment: RenderSourceSegment
+  ): {
     draft: SelectionDraft
-    rect: DOMRect
+    rect: CanonicalTextClientRect
     targetAnnotation: PaperAnnotation | null
-  } | null {
-    if (typeof window === 'undefined') {
-      return null
-    }
-
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-      return null
-    }
-
-    const range = selection.getRangeAt(0)
-    const startSurface =
-      range.startContainer instanceof Element
-        ? range.startContainer.closest<HTMLElement>('[data-paper-selection-surface="true"]')
-        : range.startContainer.parentElement?.closest<HTMLElement>(
-            '[data-paper-selection-surface="true"]'
-          )
-    const endSurface =
-      range.endContainer instanceof Element
-        ? range.endContainer.closest<HTMLElement>('[data-paper-selection-surface="true"]')
-        : range.endContainer.parentElement?.closest<HTMLElement>(
-            '[data-paper-selection-surface="true"]'
-          )
-
-    if (!startSurface || !endSurface || startSurface !== endSurface) {
-      return null
-    }
-
-    if (
-      !startSurface.contains(range.startContainer) ||
-      !startSurface.contains(range.endContainer)
-    ) {
-      return null
-    }
-
-    const contentRoot = getSelectionContentRoot(startSurface)
-    if (!contentRoot.contains(range.startContainer) || !contentRoot.contains(range.endContainer)) {
-      return null
-    }
-
-    const segment = options.renderedSegments.value.find((item) => {
-      return item.stableId === startSurface.dataset.segmentStableId
-    })
-    if (!segment) {
-      return null
-    }
-
-    const canonicalIndex = buildCanonicalTextIndex(contentRoot)
-    const rangeOffsets = getCanonicalRangeOffsets(canonicalIndex, range)
-    if (!rangeOffsets) {
-      return null
-    }
-
-    const trimmedRange = trimCanonicalTextRange(
-      canonicalIndex.text,
-      rangeOffsets.startOffset,
-      rangeOffsets.endOffset
-    )
-    if (!trimmedRange) {
-      return null
-    }
-
+  } {
     const textAnchor = buildPaperTextAnchor(
-      canonicalIndex.text,
-      trimmedRange.startOffset,
-      trimmedRange.endOffset
+      canonicalText,
+      selectedRange.startOffset,
+      selectedRange.endOffset
     )
-    const viewKind = (startSurface.dataset.viewKind as 'original' | 'translation') || 'original'
-    const renderSourceSegment = options
-      .getSourceSegments()
-      .find((item) => item.stableId === segment.stableId)
-    if (!renderSourceSegment) {
-      return null
-    }
-
+    const viewKind = (surface.dataset.viewKind as 'original' | 'translation') || 'original'
     const targetAnnotation = getAnnotationById(rebindAnnotationId.value)
     const mappedOriginalAnchor =
       viewKind === 'translation' && segment.translationText
-        ? mapPaperTextAnchorBetweenTexts(canonicalIndex.text, segment.originalText, textAnchor)
+        ? mapPaperTextAnchorBetweenTexts(canonicalText, segment.originalText, textAnchor)
         : null
 
     return {
-      rect: range.getBoundingClientRect(),
+      rect: selectionRect,
       targetAnnotation,
       draft: {
         mode: targetAnnotation ? 'rebind' : 'create',
@@ -450,15 +399,15 @@ export function usePaperAnnotationComposer(
         segmentTextHash: segment.textHash,
         sourceRefs: renderSourceSegment.sourceRefs,
         selectedText: textAnchor.selectedText,
-        contextBefore: canonicalIndex.text.slice(
-          Math.max(0, trimmedRange.startOffset - 64),
-          trimmedRange.startOffset
+        contextBefore: canonicalText.slice(
+          Math.max(0, selectedRange.startOffset - 64),
+          selectedRange.startOffset
         ),
-        contextAfter: canonicalIndex.text.slice(
-          trimmedRange.endOffset,
-          Math.min(canonicalIndex.text.length, trimmedRange.endOffset + 64)
+        contextAfter: canonicalText.slice(
+          selectedRange.endOffset,
+          Math.min(canonicalText.length, selectedRange.endOffset + 64)
         ),
-        quoteContext: buildPaperQuoteContext(canonicalIndex.text, textAnchor),
+        quoteContext: buildPaperQuoteContext(canonicalText, textAnchor),
         originalAnchor:
           viewKind === 'original'
             ? textAnchor
@@ -470,7 +419,144 @@ export function usePaperAnnotationComposer(
     }
   }
 
-  function openSelectionActionMenu(draft: SelectionDraft, rect: DOMRect): void {
+  function buildFormulaSelectionFromPointerTarget(target: EventTarget | null): {
+    draft: SelectionDraft
+    rect: CanonicalTextClientRect
+    targetAnnotation: PaperAnnotation | null
+  } | null {
+    if (!(target instanceof Element)) {
+      return null
+    }
+
+    const mathElement = target.closest('.katex')
+    const surface = target.closest<HTMLElement>('[data-paper-selection-surface="true"]')
+    if (!mathElement || !surface) {
+      return null
+    }
+
+    const contentRoot = getSelectionContentRoot(surface)
+    if (!contentRoot.contains(mathElement)) {
+      return null
+    }
+
+    const segment = options.renderedSegments.value.find((item) => {
+      return item.stableId === surface.dataset.segmentStableId
+    })
+    const renderSourceSegment = options
+      .getSourceSegments()
+      .find((item) => item.stableId === segment?.stableId)
+    if (!segment || !renderSourceSegment) {
+      return null
+    }
+
+    const canonicalIndex = buildCanonicalTextIndex(contentRoot)
+    const mathSegment = findCanonicalMathSegmentByNode(canonicalIndex, mathElement)
+    if (!mathSegment) {
+      return null
+    }
+
+    const selectionRect = getCanonicalRangeClientRect(
+      canonicalIndex,
+      mathSegment.startOffset,
+      mathSegment.endOffset
+    )
+    if (!selectionRect) {
+      return null
+    }
+
+    return buildSelectionResult(
+      surface,
+      canonicalIndex.text,
+      {
+        startOffset: mathSegment.startOffset,
+        endOffset: mathSegment.endOffset
+      },
+      selectionRect,
+      segment,
+      renderSourceSegment
+    )
+  }
+
+  function buildSelectionDraftFromCurrentSelection(event?: MouseEvent): {
+    draft: SelectionDraft
+    rect: CanonicalTextClientRect
+    targetAnnotation: PaperAnnotation | null
+  } | null {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      return null
+    }
+
+    const range = selection.getRangeAt(0)
+    const startSurface = resolveSelectionSurface(range.startContainer)
+    const endSurface = resolveSelectionSurface(range.endContainer)
+
+    if (!startSurface || !endSurface || startSurface !== endSurface) {
+      return buildFormulaSelectionFromPointerTarget(event?.target || null)
+    }
+
+    if (
+      !startSurface.contains(range.startContainer) ||
+      !startSurface.contains(range.endContainer)
+    ) {
+      return buildFormulaSelectionFromPointerTarget(event?.target || null)
+    }
+
+    const contentRoot = getSelectionContentRoot(startSurface)
+    if (!contentRoot.contains(range.startContainer) || !contentRoot.contains(range.endContainer)) {
+      return buildFormulaSelectionFromPointerTarget(event?.target || null)
+    }
+
+    const segment = options.renderedSegments.value.find((item) => {
+      return item.stableId === startSurface.dataset.segmentStableId
+    })
+    const renderSourceSegment = options
+      .getSourceSegments()
+      .find((item) => item.stableId === segment?.stableId)
+    if (!segment || !renderSourceSegment) {
+      return null
+    }
+
+    const canonicalIndex = buildCanonicalTextIndex(contentRoot)
+    const rangeOffsets = getCanonicalRangeOffsets(canonicalIndex, range)
+    if (!rangeOffsets) {
+      return buildFormulaSelectionFromPointerTarget(event?.target || null)
+    }
+
+    const trimmedRange = trimCanonicalTextRange(
+      canonicalIndex.text,
+      rangeOffsets.startOffset,
+      rangeOffsets.endOffset
+    )
+    if (!trimmedRange) {
+      return buildFormulaSelectionFromPointerTarget(event?.target || null)
+    }
+
+    const selectionRect = getCanonicalRangeClientRect(
+      canonicalIndex,
+      trimmedRange.startOffset,
+      trimmedRange.endOffset,
+      range
+    )
+    if (!selectionRect) {
+      return buildFormulaSelectionFromPointerTarget(event?.target || null)
+    }
+
+    return buildSelectionResult(
+      startSurface,
+      canonicalIndex.text,
+      trimmedRange,
+      selectionRect,
+      segment,
+      renderSourceSegment
+    )
+  }
+
+  function openSelectionActionMenu(draft: SelectionDraft, rect: CanonicalTextClientRect): void {
     const position = computeFloatingPosition(rect, SELECTION_MENU_WIDTH, SELECTION_MENU_HEIGHT)
     selectionActionMenu.value = {
       draft,
@@ -484,7 +570,11 @@ export function usePaperAnnotationComposer(
     return draft.mode === 'rebind' ? 'rebind' : 'create'
   }
 
-  function openNoteEditor(draft: SelectionDraft, rect: DOMRect, comment: string): void {
+  function openNoteEditor(
+    draft: SelectionDraft,
+    rect: CanonicalTextClientRect,
+    comment: string
+  ): void {
     const position = computeFloatingPosition(rect, NOTE_EDITOR_WIDTH, NOTE_EDITOR_HEIGHT)
     openNoteEditorAtPosition(draft, position.x, position.y, comment, getNoteEditorIntent(draft))
   }
@@ -622,8 +712,8 @@ export function usePaperAnnotationComposer(
     return { success: true }
   }
 
-  function updateComposerFromSelection(): void {
-    const selectionResult = buildSelectionDraftFromCurrentSelection()
+  function updateComposerFromSelection(event?: MouseEvent): void {
+    const selectionResult = buildSelectionDraftFromCurrentSelection(event)
     if (!selectionResult) {
       return
     }
@@ -686,7 +776,11 @@ export function usePaperAnnotationComposer(
 
     const draft = selectionActionMenu.value.draft
     const selectedAnchor =
-      draft.viewKind === 'original' ? draft.originalAnchor : draft.translationAnchor
+      draft.viewKind === 'original'
+        ? draft.originalAnchor
+        : draft.viewKind === 'translation'
+          ? draft.translationAnchor
+          : draft.originalAnchor || draft.translationAnchor
     if (!selectedAnchor) {
       selectionActionMenuError.value = '当前选区无法添加到对话'
       return

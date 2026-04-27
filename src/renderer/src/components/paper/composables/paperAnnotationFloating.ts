@@ -8,6 +8,13 @@ export const NOTE_EDITOR_HEIGHT = 420
 export const HOVER_POPOVER_WIDTH = 180
 export const HOVER_POPOVER_HEIGHT = 44
 
+interface FloatingAnchorRect {
+  left: number
+  top: number
+  bottom: number
+  width: number
+}
+
 function clamp(value: number, min: number, max: number): number {
   if (max <= min) {
     return min
@@ -33,7 +40,7 @@ export function clampFloatingPosition(
 }
 
 export function computeFloatingPosition(
-  rect: DOMRect,
+  rect: FloatingAnchorRect,
   width: number,
   height: number
 ): { x: number; y: number } {
