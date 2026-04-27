@@ -5,7 +5,7 @@ import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 import { FileIcon } from './shared'
 import FilePreviewDialog from './FilePreviewDialog.vue'
-import { getFileSourceClass, getFileSourceLabel, getFileSubtitle } from './utils/fileSource'
+import { getFileSourceClass, getFileSourceLabel } from './utils/fileSource'
 const props = defineProps<{
   linkedFiles: FileItem[]
   loadingFiles: boolean
@@ -128,9 +128,6 @@ function isInvalidatedFile(file: FileItem): boolean {
           <div class="document-name" :title="file.name">
             {{ getFileNameWithoutExtension(file.name) }}
           </div>
-          <div class="document-subtitle" :title="getFileSubtitle(file)">
-            {{ getFileSubtitle(file) }}
-          </div>
 
           <div v-if="kbIndexingFiles[file.id]" class="file-progress">
             <div class="file-progress__meta">
@@ -234,7 +231,7 @@ function isInvalidatedFile(file: FileItem): boolean {
 
 .documents-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--sm-space-4);
 }
 
@@ -323,16 +320,6 @@ function isInvalidatedFile(file: FileItem): boolean {
   word-break: break-word;
 }
 
-.document-subtitle {
-  display: -webkit-box;
-  overflow: hidden;
-  color: var(--sm-color-text-tertiary);
-  font-size: 12px;
-  line-height: 1.45;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
 .file-progress {
   display: flex;
   flex-direction: column;
@@ -380,11 +367,12 @@ function isInvalidatedFile(file: FileItem): boolean {
 .document-meta {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--sm-space-2);
   margin-top: auto;
   font-size: 11px;
   color: var(--sm-color-text-secondary);
+  overflow: hidden;
 }
 
 .source-badge {

@@ -249,7 +249,6 @@ defineExpose({ handleFilesLinked })
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: var(--sm-space-6);
   gap: var(--sm-space-4);
   overflow-y: auto;
 }
@@ -258,10 +257,6 @@ defineExpose({ handleFilesLinked })
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-4);
-  padding: var(--sm-space-5) var(--sm-space-6);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-lg);
-  background: var(--sm-color-surface-1);
   flex-shrink: 0;
 }
 
@@ -407,14 +402,6 @@ defineExpose({ handleFilesLinked })
 }
 
 @media (max-width: 960px) {
-  .kb-workspace {
-    padding: var(--sm-space-4);
-  }
-
-  .kb-overview {
-    padding: var(--sm-space-4);
-  }
-
   .kb-overview__header,
   .kb-overview__title-row {
     flex-direction: column;
