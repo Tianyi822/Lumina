@@ -95,6 +95,7 @@ export function usePaperChatSession(
     selectedMCPTools.value = nextSession.selectionState?.selectedMCPTools || []
     selectedKnowledgeBases.value = nextSession.selectionState?.selectedKnowledgeBases || []
     enableSandboxTools.value = nextSession.selectionState?.enableSandboxTools || false
+    selectedModel.value = nextSession.selectionState?.selectedModel || ''
   }
 
   async function saveCurrentSession(): Promise<boolean> {
@@ -108,7 +109,8 @@ export function usePaperChatSession(
       selectionState: {
         selectedMCPTools: selectedMCPTools.value,
         selectedKnowledgeBases: selectedKnowledgeBases.value,
-        enableSandboxTools: enableSandboxTools.value
+        enableSandboxTools: enableSandboxTools.value,
+        selectedModel: selectedModel.value
       }
     }
 
@@ -219,6 +221,7 @@ export function usePaperChatSession(
 
   function updateSelectedModel(value: string): void {
     selectedModel.value = value
+    void saveCurrentSession()
   }
 
   function updateSelectedTools(value: MCPTool[]): void {
