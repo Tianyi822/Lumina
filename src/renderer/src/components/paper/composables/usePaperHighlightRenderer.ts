@@ -32,6 +32,8 @@ export interface QuoteHighlight {
   colorKey: PaperAnnotationColorKey
 }
 
+const PAPER_ANNOTATION_HIGHLIGHT_SELECTOR = 'mark.paper-annotation-highlight'
+
 function resolveOriginalViewAnchor(
   segment: RenderSourceSegment,
   annotation: PaperAnnotation
@@ -149,6 +151,85 @@ function sortHighlights(highlights: QuoteHighlight[]): QuoteHighlight[] {
   })
 }
 
+function isElementNode(node: Node): node is Element {
+  return node.nodeType === Node.ELEMENT_NODE
+}
+
+function getClosestHighlightMark(root: Element, node: Node): HTMLElement | null {
+  const element = isElementNode(node) ? node : node.parentElement
+  const mark = element?.closest<HTMLElement>(PAPER_ANNOTATION_HIGHLIGHT_SELECTOR) || null
+  if (!mark || !root.contains(mark)) {
+    return null
+  }
+
+  return mark
+}
+
+function isBoundaryAtHighlightEdge(
+  mark: HTMLElement,
+  boundary: { node: Node; offset: number },
+  edge: 'start' | 'end'
+): boolean {
+  const document = mark.ownerDocument
+  const range = document.createRange()
+
+  if (edge === 'start') {
+    range.setStart(mark, 0)
+    range.setEnd(boundary.node, boundary.offset)
+  } else {
+    range.setStart(boundary.node, boundary.offset)
+    range.setEnd(mark, mark.childNodes.length)
+  }
+
+  return range.toString().length === 0
+}
+
+function getElementBoundary(
+  element: Element,
+  edge: 'before' | 'after'
+): { node: Node; offset: number } {
+  const parent = element.parentNode
+  if (!parent) {
+    return {
+      node: element,
+      offset: edge === 'before' ? 0 : element.childNodes.length
+    }
+  }
+
+  const offset = Array.prototype.indexOf.call(parent.childNodes, element)
+  return {
+    node: parent,
+    offset: edge === 'before' ? offset : offset + 1
+  }
+}
+
+function normalizeHighlightBoundary(
+  root: Element,
+  boundary: { node: Node; offset: number }
+): { node: Node; offset: number } {
+  let nextBoundary = boundary
+  for (let depth = 0; depth < 8; depth += 1) {
+    const mark = getClosestHighlightMark(root, nextBoundary.node)
+    if (!mark) {
+      return nextBoundary
+    }
+
+    if (isBoundaryAtHighlightEdge(mark, nextBoundary, 'start')) {
+      nextBoundary = getElementBoundary(mark, 'before')
+      continue
+    }
+
+    if (isBoundaryAtHighlightEdge(mark, nextBoundary, 'end')) {
+      nextBoundary = getElementBoundary(mark, 'after')
+      continue
+    }
+
+    return nextBoundary
+  }
+
+  return nextBoundary
+}
+
 function resolveHighlightRange(
   root: Element,
   highlight: QuoteHighlight
@@ -170,9 +251,19 @@ function resolveHighlightRange(
   }
 
   return {
-    startPoint,
-    endPoint
+    startPoint: normalizeHighlightBoundary(root, startPoint),
+    endPoint: normalizeHighlightBoundary(root, endPoint)
   }
+}
+
+function removeEmptyHighlightMarks(root: Element): void {
+  root.querySelectorAll(PAPER_ANNOTATION_HIGHLIGHT_SELECTOR).forEach((mark) => {
+    if ((mark.textContent || '').length > 0) {
+      return
+    }
+
+    mark.remove()
+  })
 }
 
 function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): string {
@@ -219,8 +310,10 @@ function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): stri
     const fragment = range.extractContents()
     mark.appendChild(fragment)
     range.insertNode(mark)
+    removeEmptyHighlightMarks(root)
   }
 
+  removeEmptyHighlightMarks(root)
   return root.innerHTML
 }
 
@@ -234,6 +327,11 @@ export interface PaperHighlightRenderer {
     annotations: PaperAnnotation[]
   ) => QuoteHighlight[]
   applyHighlightsToHtml: (html: string, highlights: QuoteHighlight[]) => string
+}
+
+export const __paperHighlightRendererTestHooks = {
+  normalizeHighlightBoundary,
+  removeEmptyHighlightMarks
 }
 
 export function usePaperHighlightRenderer(): PaperHighlightRenderer {
