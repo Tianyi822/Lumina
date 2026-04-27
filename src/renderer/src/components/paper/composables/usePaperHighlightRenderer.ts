@@ -9,7 +9,11 @@ import {
   buildPaperTextAnchor,
   findPaperTextAnchorOffset
 } from '@shared/utils/paperAnnotationAnchors'
-import { buildCanonicalTextIndex, resolveCanonicalTextPoint } from './paperCanonicalTextIndex'
+import {
+  buildCanonicalTextIndex,
+  resolveCanonicalTextPoint,
+  trimCanonicalTextRange
+} from './paperCanonicalTextIndex'
 
 export interface RenderSourceSegment {
   renderId: string
@@ -240,10 +244,19 @@ function resolveHighlightRange(
     return null
   }
 
-  const startPoint = resolveCanonicalTextPoint(canonicalIndex, startOffset, 'start')
+  const trimmedRange = trimCanonicalTextRange(
+    canonicalIndex.text,
+    startOffset,
+    startOffset + highlight.anchor.selectedText.length
+  )
+  if (!trimmedRange) {
+    return null
+  }
+
+  const startPoint = resolveCanonicalTextPoint(canonicalIndex, trimmedRange.startOffset, 'start')
   const endPoint = resolveCanonicalTextPoint(
     canonicalIndex,
-    startOffset + highlight.anchor.selectedText.length,
+    trimmedRange.endOffset,
     'end'
   )
   if (!startPoint || !endPoint) {
@@ -331,6 +344,7 @@ export interface PaperHighlightRenderer {
 
 export const __paperHighlightRendererTestHooks = {
   normalizeHighlightBoundary,
+  resolveHighlightRange,
   removeEmptyHighlightMarks
 }
 
