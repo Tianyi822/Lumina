@@ -87,31 +87,36 @@ onMounted(() => {
 
 <style scoped>
 .stat-card {
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-  min-height: 88px;
-  padding: var(--sm-space-4);
+  max-width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 12px;
   border: 1px solid var(--sm-color-border-subtle);
-  border-radius: var(--sm-radius-md);
-  background: rgba(255, 255, 255, 0.02);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  white-space: nowrap;
 }
 
 .stat-card--wide {
-  min-width: 0;
+  flex: 0 1 auto;
 }
 
 .stat-label {
+  flex-shrink: 0;
   font-size: 12px;
-  color: var(--sm-color-text-secondary);
+  color: var(--sm-color-text-tertiary);
 }
 
 .stat-value {
-  color: var(--sm-color-text-primary);
-  font-size: 15px;
-  font-weight: 500;
+  min-width: 0;
+  color: var(--sm-color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
   font-family: var(--sm-font-mono);
-  line-height: 1.4;
+  line-height: 1;
   overflow: hidden;
   text-overflow: ellipsis;
 }
