@@ -3,7 +3,7 @@
  * 文件选择模态框
  * 从已有文件选择或上传新文件到知识库
  */
-import { ref, onMounted } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
@@ -24,6 +24,15 @@ const emit = defineEmits<{
 // 标签页
 type TabType = 'existing' | 'upload'
 const activeTab = ref<TabType>('existing')
+const panelShellRef = ref<HTMLElement | null>(null)
+const panelContentRef = ref<HTMLElement | null>(null)
+const panelHeight = ref<number | null>(null)
+let panelResizeObserver: ResizeObserver | null = null
+let panelHeightFrame: number | null = null
+
+const panelShellStyle = computed(() => {
+  return panelHeight.value === null ? undefined : { height: `${panelHeight.value}px` }
+})
 
 // 文件管理
 const fileStore = useFileStore()
@@ -67,9 +76,72 @@ function handleUploadComplete(result: UploadResult): void {
   }
 }
 
+function readPanelHeight(): number {
+  const panelContent = panelContentRef.value
+  if (!panelContent) {
+    return 0
+  }
+
+  return panelContent.getBoundingClientRect().height
+}
+
+function syncPanelHeight(): void {
+  const nextHeight = readPanelHeight()
+  if (nextHeight > 0) {
+    panelHeight.value = nextHeight
+  }
+}
+
+function schedulePanelHeightSync(): void {
+  if (panelHeightFrame !== null) {
+    window.cancelAnimationFrame(panelHeightFrame)
+  }
+
+  panelHeightFrame = window.requestAnimationFrame(() => {
+    panelHeightFrame = null
+    syncPanelHeight()
+  })
+}
+
+function observePanelContent(): void {
+  panelResizeObserver?.disconnect()
+
+  if (panelContentRef.value && typeof ResizeObserver !== 'undefined') {
+    panelResizeObserver = new ResizeObserver(() => schedulePanelHeightSync())
+    panelResizeObserver.observe(panelContentRef.value)
+  }
+}
+
+function handlePanelAfterEnter(): void {
+  observePanelContent()
+  schedulePanelHeightSync()
+}
+
+watch(activeTab, async () => {
+  const panelShell = panelShellRef.value
+  if (panelShell) {
+    panelHeight.value = panelShell.getBoundingClientRect().height
+  }
+
+  await nextTick()
+  observePanelContent()
+  schedulePanelHeightSync()
+})
+
 // 生命周期
 onMounted(async () => {
   await loadFiles()
+  await nextTick()
+  observePanelContent()
+  syncPanelHeight()
+})
+
+onBeforeUnmount(() => {
+  panelResizeObserver?.disconnect()
+
+  if (panelHeightFrame !== null) {
+    window.cancelAnimationFrame(panelHeightFrame)
+  }
 })
 </script>
 
@@ -80,25 +152,31 @@ onMounted(async () => {
 
       <FileSelectorTabs v-model:active-tab="activeTab" />
 
-      <ExistingFilesTab
-        v-if="activeTab === 'existing'"
-        :kb-id="kbId"
-        :linked-file-ids="linkedFileIds"
-        :selected-file-ids="selectedFileIds"
-        :linking-file-ids="linkingFileIds"
-        @toggle="handleToggle"
-        @select-all="handleSelectAll"
-        @deselect-all="deselectAll"
-        @link-selected="handleLinkSelected"
-        @close="emit('close')"
-      />
+      <div ref="panelShellRef" class="file-selector-panel-shell" :style="panelShellStyle">
+        <Transition name="file-selector-panel" @after-enter="handlePanelAfterEnter">
+          <div :key="activeTab" ref="panelContentRef" class="file-selector-panel">
+            <ExistingFilesTab
+              v-if="activeTab === 'existing'"
+              :kb-id="kbId"
+              :linked-file-ids="linkedFileIds"
+              :selected-file-ids="selectedFileIds"
+              :linking-file-ids="linkingFileIds"
+              @toggle="handleToggle"
+              @select-all="handleSelectAll"
+              @deselect-all="deselectAll"
+              @link-selected="handleLinkSelected"
+              @close="emit('close')"
+            />
 
-      <UploadTab
-        v-else
-        :kb-id="kbId"
-        @close="emit('close')"
-        @upload-complete="handleUploadComplete"
-      />
+            <UploadTab
+              v-else
+              :kb-id="kbId"
+              @close="emit('close')"
+              @upload-complete="handleUploadComplete"
+            />
+          </div>
+        </Transition>
+      </div>
     </div>
   </div>
 </template>
@@ -116,9 +194,56 @@ onMounted(async () => {
   overflow: hidden;
 }
 
+.file-selector-panel-shell {
+  position: relative;
+  overflow: hidden;
+  transition: height 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.file-selector-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.file-selector-panel-enter-active,
+.file-selector-panel-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.file-selector-panel-leave-active {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  pointer-events: none;
+}
+
+.file-selector-panel-enter-from {
+  opacity: 0;
+  transform: translateY(8px) scale(0.992);
+}
+
+.file-selector-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.996);
+}
+
 @media (max-width: 720px) {
   .file-selector-container {
     width: calc(100vw - 32px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-selector-panel-enter-active,
+  .file-selector-panel-leave-active {
+    transition: none;
+  }
+
+  .file-selector-panel-shell {
+    transition: none;
   }
 }
 </style>
