@@ -101,7 +101,20 @@ function scrollToQuoteAndHighlight(quote: PaperQuote): void {
   }
 
   removeQuoteHighlights()
-  segmentElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+  const scrollContainer = segmentElement.closest<HTMLElement>('.paper-markdown-view__scroll')
+  if (scrollContainer) {
+    const containerRect = scrollContainer.getBoundingClientRect()
+    const elementRect = segmentElement.getBoundingClientRect()
+    const elementTopInContent = elementRect.top - containerRect.top + scrollContainer.scrollTop
+    const targetScrollTop = elementTopInContent - containerRect.height / 2 + elementRect.height / 2
+    scrollContainer.scrollTo({
+      top: Math.max(0, targetScrollTop),
+      behavior: 'smooth'
+    })
+  } else {
+    segmentElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
 
   const surface = segmentElement.querySelector<HTMLElement>(
     `[data-paper-selection-surface="true"][data-view-kind="${quote.viewKind}"]`
