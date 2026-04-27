@@ -8,7 +8,8 @@ import type { PaperFigureItem, PaperTocEntry, PaperTocItem } from '@shared/types
 import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 
 const uiStateStore = useUIStateStore()
-const { isPaperView, isCurrentSidebarCollapsed, paperChatPanelOpen } = storeToRefs(uiStateStore)
+const { isPaperView, isKnowledgeView, isCurrentSidebarCollapsed, paperChatPanelOpen } =
+  storeToRefs(uiStateStore)
 
 const paperReaderStore = usePaperReaderStore()
 const {
@@ -42,6 +43,10 @@ const showTocPanel = ref(false)
 
 const isPaperToolbar = computed(() => {
   return isPaperView.value && !!currentPaperId.value
+})
+
+const isKnowledgeToolbar = computed(() => {
+  return isKnowledgeView.value
 })
 
 const canOpenToc = computed(() => {
@@ -280,6 +285,7 @@ onUnmounted(() => {
     class="sm-workspace-toolbar__controls"
     :class="{
       'sm-workspace-toolbar__controls--paper': isPaperToolbar,
+      'sm-workspace-toolbar__controls--knowledge': isKnowledgeToolbar && !isPaperToolbar,
       'sm-workspace-toolbar__controls--chrome-safe': isPaperToolbar && isCurrentSidebarCollapsed
     }"
   >
@@ -563,6 +569,22 @@ onUnmounted(() => {
 
 .sm-workspace-toolbar__controls--chrome-safe {
   --sm-paper-toolbar-chrome-safe-left: var(--sm-workspace-chrome-actions-safe-width, 140px);
+}
+
+/* ==================== 知识库视图拖拽区域 ==================== */
+.sm-workspace-toolbar__controls--knowledge {
+  --sm-knowledge-toolbar-safe-left: 0px;
+
+  top: calc(var(--sm-space-3) * -1);
+  left: var(--sm-knowledge-toolbar-safe-left);
+  right: 0;
+  box-sizing: border-box;
+  width: auto;
+  min-height: var(--sm-paper-toolbar-height);
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-top: var(--sm-space-3);
+  overflow: visible;
 }
 
 .sm-workspace-toolbar__controls--paper::before {
