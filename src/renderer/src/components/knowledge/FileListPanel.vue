@@ -12,6 +12,7 @@ const props = defineProps<{
   isDragging: boolean
   unlinkingFileId: string | null
   indexingStatus: boolean
+  reindexing: boolean
   kbIndexingFiles: Record<string, { progress?: number }>
   invalidatedFileIds?: string[]
 }>()
@@ -22,6 +23,7 @@ const emit = defineEmits<{
   (e: 'dragover', event: DragEvent): void
   (e: 'drop', event: DragEvent): void
   (e: 'add-files'): void
+  (e: 'reindex'): void
   (e: 'unlink-file', fileId: string): void
 }>()
 
@@ -71,6 +73,17 @@ function isInvalidatedFile(file: FileItem): boolean {
       </div>
       <div class="section-header__actions">
         <span class="document-count">{{ linkedFiles.length }} 个文件</span>
+        <button
+          class="sm-button sm-button--secondary reindex-btn"
+          :disabled="indexingStatus || reindexing || linkedFiles.length === 0"
+          @click="emit('reindex')"
+        >
+          <span v-if="reindexing" class="sm-spinner"></span>
+          {{ reindexing ? '索引中...' : '重新索引' }}
+        </button>
+        <button class="sm-button sm-button--primary add-files-btn" @click="emit('add-files')">
+          添加文档
+        </button>
       </div>
     </div>
 
@@ -199,6 +212,12 @@ function isInvalidatedFile(file: FileItem): boolean {
 .document-count {
   font-size: 12px;
   color: var(--sm-color-text-secondary);
+  white-space: nowrap;
+}
+
+.add-files-btn,
+.reindex-btn {
+  white-space: nowrap;
 }
 
 .loading-state {
@@ -546,6 +565,10 @@ function isInvalidatedFile(file: FileItem): boolean {
   .section-header__actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .section-header__actions > button {
+    width: 100%;
   }
 
   .documents-grid {
