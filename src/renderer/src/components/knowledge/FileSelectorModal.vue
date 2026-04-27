@@ -186,24 +186,30 @@ function finishPendingPanelTransition(): void {
 }
 
 function handlePanelShellTransitionEnd(event: TransitionEvent): void {
-  if (event.target === panelShellRef.value && event.propertyName === 'height') {
-    isPanelHeightTransitioning = false
-
-    if (pendingVisibleTab) {
-      finishPendingPanelTransition()
-      return
-    }
-
-    clearPanelTransitionTimer()
-    observePanelContent()
+  if (
+    event.target !== panelShellRef.value ||
+    event.propertyName !== 'height' ||
+    !isPanelHeightTransitioning
+  ) {
+    return
   }
+
+  isPanelHeightTransitioning = false
+
+  if (pendingVisibleTab) {
+    finishPendingPanelTransition()
+    return
+  }
+
+  clearPanelTransitionTimer()
+  observePanelContent()
 }
 
 watch(activeTab, async () => {
   pendingVisibleTab = null
   clearPanelTransitionTimer()
   clearPanelHeightAnimationFrame()
-  const fromHeight = lockPanelShellHeight()
+  lockPanelShellHeight()
 
   await nextTick()
   const nextHeight = readPanelHeight(activeTab.value)
@@ -211,31 +217,16 @@ watch(activeTab, async () => {
     return
   }
 
-  const isGrowing = nextHeight > fromHeight + 1
   isPanelHeightTransitioning = true
-
-  if (isGrowing) {
-    isPanelContentVisible.value = false
-    pendingVisibleTab = activeTab.value
-    await nextTick()
-    panelShellRef.value?.offsetHeight
-    animatePanelShellHeightTo(nextHeight)
-    panelTransitionTimer = window.setTimeout(
-      finishPendingPanelTransition,
-      PANEL_HEIGHT_TRANSITION_FALLBACK_MS
-    )
-    return
-  }
-
-  visibleTab.value = activeTab.value
-  isPanelContentVisible.value = true
+  isPanelContentVisible.value = false
+  pendingVisibleTab = activeTab.value
   await nextTick()
+  panelShellRef.value?.offsetHeight
   animatePanelShellHeightTo(nextHeight)
-  panelTransitionTimer = window.setTimeout(() => {
-    isPanelHeightTransitioning = false
-    clearPanelTransitionTimer()
-    observePanelContent()
-  }, PANEL_HEIGHT_TRANSITION_FALLBACK_MS)
+  panelTransitionTimer = window.setTimeout(
+    finishPendingPanelTransition,
+    PANEL_HEIGHT_TRANSITION_FALLBACK_MS
+  )
 })
 
 // 生命周期
