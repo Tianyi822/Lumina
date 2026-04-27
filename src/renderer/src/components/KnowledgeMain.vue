@@ -193,7 +193,6 @@ defineExpose({ handleFilesLinked })
             {{ reindexing ? '索引中...' : '重新索引' }}
           </button>
         </div>
-
       </section>
 
       <SearchPanel :current-k-b="currentKB" />
@@ -280,10 +279,12 @@ defineExpose({ handleFilesLinked })
 
 .kb-title {
   margin: 0;
+  max-width: 100%;
   font-size: 28px;
   font-weight: 600;
   line-height: 1.2;
   color: var(--sm-color-text-primary);
+  overflow-wrap: anywhere;
 }
 
 .kb-description {
