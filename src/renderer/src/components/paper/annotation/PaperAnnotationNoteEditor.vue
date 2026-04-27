@@ -21,7 +21,7 @@ const emit = defineEmits<{
   (e: 'save'): void
   (e: 'update-note'): void
   (e: 'delete-note'): void
-  (e: 'cancel'): void
+  (e: 'close'): void
   (e: 'move', delta: { x: number; y: number }): void
 }>()
 
@@ -85,6 +85,15 @@ onBeforeUnmount(() => {
           isExistingNote ? '编辑笔记' : state.draft.mode === 'rebind' ? '重新绑定笔记' : '记录笔记'
         }}
       </div>
+      <button
+        class="paper-annotation-note-editor__close"
+        type="button"
+        aria-label="关闭笔记编辑器"
+        @mousedown.stop
+        @click="emit('close')"
+      >
+        ✕
+      </button>
     </div>
     <div class="paper-annotation-note-editor__selection">
       {{ state.draft.selectedText }}
@@ -117,9 +126,6 @@ onBeforeUnmount(() => {
         </button>
       </template>
       <template v-else>
-        <button class="sm-button sm-button--secondary" type="button" @click="emit('cancel')">
-          {{ state.draft.mode === 'rebind' ? '取消重绑' : '取消' }}
-        </button>
         <button
           class="sm-button sm-button--primary"
           type="button"
@@ -164,8 +170,35 @@ onBeforeUnmount(() => {
 }
 
 .paper-annotation-note-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   cursor: move;
   user-select: none;
+}
+
+.paper-annotation-note-editor__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sm-color-text-tertiary);
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.paper-annotation-note-editor__close:hover {
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
 }
 
 .paper-annotation-note-editor__title {

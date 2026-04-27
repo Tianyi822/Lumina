@@ -19,6 +19,17 @@ export interface CanonicalTextIndex {
   segments: CanonicalTextSegment[]
 }
 
+export interface CanonicalTextClientRect {
+  x: number
+  y: number
+  width: number
+  height: number
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
+
 export type CanonicalTextPointAffinity = 'start' | 'end'
 
 const ELEMENT_NODE = 1
@@ -49,6 +60,10 @@ function matchesElement(element: Element, selector: string): boolean {
   return typeof element.matches === 'function' && element.matches(selector)
 }
 
+function queryElement(element: Element, selector: string): Element | null {
+  return typeof element.querySelector === 'function' ? element.querySelector(selector) : null
+}
+
 function containsNode(parent: Node, child: Node): boolean {
   if (parent === child) {
     return true
@@ -70,10 +85,7 @@ function containsNode(parent: Node, child: Node): boolean {
 }
 
 function readKatexTex(element: Element): string {
-  const annotation =
-    typeof element.querySelector === 'function'
-      ? element.querySelector('annotation[encoding="application/x-tex"]')
-      : null
+  const annotation = queryElement(element, 'annotation[encoding="application/x-tex"]')
   const tex = annotation?.textContent?.trim()
   if (tex) {
     return `$${tex}$`
@@ -100,6 +112,86 @@ function getElementBoundary(element: Element, edge: 'before' | 'after'): Canonic
 
 function clampOffset(offset: number, length: number): number {
   return Math.max(0, Math.min(length, offset))
+}
+
+function isFiniteRect(rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>): boolean {
+  return [rect.left, rect.top, rect.width, rect.height].every((value) => Number.isFinite(value))
+}
+
+function normalizeClientRect(
+  rect: Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom' | 'width' | 'height'>
+): CanonicalTextClientRect | null {
+  if (!isFiniteRect(rect) || rect.width <= 0 || rect.height <= 0) {
+    return null
+  }
+
+  const left = rect.left
+  const top = rect.top
+  const width = rect.width
+  const height = rect.height
+  const right = Number.isFinite(rect.right) ? rect.right : left + width
+  const bottom = Number.isFinite(rect.bottom) ? rect.bottom : top + height
+
+  return {
+    x: left,
+    y: top,
+    left,
+    top,
+    right,
+    bottom,
+    width,
+    height
+  }
+}
+
+function unionClientRects(rects: CanonicalTextClientRect[]): CanonicalTextClientRect | null {
+  if (rects.length === 0) {
+    return null
+  }
+
+  const left = Math.min(...rects.map((rect) => rect.left))
+  const top = Math.min(...rects.map((rect) => rect.top))
+  const right = Math.max(...rects.map((rect) => rect.right))
+  const bottom = Math.max(...rects.map((rect) => rect.bottom))
+
+  return {
+    x: left,
+    y: top,
+    left,
+    top,
+    right,
+    bottom,
+    width: right - left,
+    height: bottom - top
+  }
+}
+
+function getElementClientRects(element: Element): CanonicalTextClientRect[] {
+  const rects =
+    typeof element.getClientRects === 'function'
+      ? Array.from(element.getClientRects())
+      : typeof element.getBoundingClientRect === 'function'
+        ? [element.getBoundingClientRect()]
+        : []
+
+  return rects
+    .map((rect) => normalizeClientRect(rect))
+    .filter((rect): rect is CanonicalTextClientRect => rect !== null)
+}
+
+function getMathVisibleElement(element: Element): Element {
+  return queryElement(element, '.katex-html') || element
+}
+
+export function findCanonicalMathSegmentByNode(
+  index: CanonicalTextIndex,
+  node: Node
+): CanonicalTextSegment | null {
+  return (
+    index.segments.find((segment) => {
+      return segment.kind === 'math' && containsNode(segment.sourceNode, node)
+    }) || null
+  )
 }
 
 function appendSegment(
@@ -209,11 +301,7 @@ function findSegmentContainingNode(
   index: CanonicalTextIndex,
   node: Node
 ): CanonicalTextSegment | null {
-  return (
-    index.segments.find((segment) => {
-      return segment.kind === 'math' && containsNode(segment.sourceNode, node)
-    }) || null
-  )
+  return findCanonicalMathSegmentByNode(index, node)
 }
 
 function getCanonicalOffsetForElementPoint(
@@ -253,11 +341,16 @@ export function getCanonicalOffsetForDomPoint(
 
   if (isTextNode(container)) {
     const textSegment = index.segments.find((segment) => segment.sourceNode === container)
-    if (!textSegment) {
-      return null
+    if (textSegment) {
+      return textSegment.startOffset + clampOffset(offset, textSegment.text.length)
     }
 
-    return textSegment.startOffset + clampOffset(offset, textSegment.text.length)
+    const parentElement = container.parentElement
+    if (parentElement && index.root.contains(parentElement)) {
+      return getCanonicalOffsetForElementPoint(index, parentElement, getNodeIndex(container))
+    }
+
+    return null
   }
 
   if (isElementNode(container)) {
@@ -287,6 +380,41 @@ export function getCanonicalRangeOffsets(
     startOffset: Math.min(startOffset, endOffset),
     endOffset: Math.max(startOffset, endOffset)
   }
+}
+
+export function getCanonicalRangeClientRect(
+  index: CanonicalTextIndex,
+  startOffset: number,
+  endOffset: number,
+  fallbackRange?: Pick<Range, 'getBoundingClientRect'>
+): CanonicalTextClientRect | null {
+  const nextStartOffset = clampOffset(Math.min(startOffset, endOffset), index.text.length)
+  const nextEndOffset = clampOffset(Math.max(startOffset, endOffset), index.text.length)
+  if (nextStartOffset >= nextEndOffset) {
+    return null
+  }
+
+  const selectedSegments = index.segments.filter((segment) => {
+    return segment.endOffset > nextStartOffset && segment.startOffset < nextEndOffset
+  })
+  const mathRects = selectedSegments.flatMap((segment) => {
+    if (segment.kind !== 'math' || !isElementNode(segment.sourceNode)) {
+      return []
+    }
+
+    return getElementClientRects(getMathVisibleElement(segment.sourceNode))
+  })
+
+  const fallbackRect =
+    fallbackRange && typeof fallbackRange.getBoundingClientRect === 'function'
+      ? normalizeClientRect(fallbackRange.getBoundingClientRect())
+      : null
+
+  if (selectedSegments.length > 0 && selectedSegments.every((segment) => segment.kind === 'math')) {
+    return unionClientRects(mathRects) || fallbackRect
+  }
+
+  return unionClientRects([...(fallbackRect ? [fallbackRect] : []), ...mathRects])
 }
 
 export function trimCanonicalTextRange(

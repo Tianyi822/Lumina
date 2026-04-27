@@ -3,32 +3,56 @@ import assert from 'node:assert/strict'
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 import {
   buildCanonicalTextIndex,
+  getCanonicalRangeClientRect,
+  getCanonicalRangeOffsets,
   getCanonicalOffsetForDomPoint,
   resolveCanonicalTextPoint,
   trimCanonicalTextRange
 } from './paperCanonicalTextIndex.ts'
+
+function createRect(left, top, width, height) {
+  return {
+    x: left,
+    y: top,
+    left,
+    top,
+    right: left + width,
+    bottom: top + height,
+    width,
+    height
+  }
+}
 
 function createTextNode(text) {
   return {
     nodeType: 3,
     textContent: text,
     childNodes: [],
-    parentNode: null
+    parentNode: null,
+    parentElement: null
   }
 }
 
 function createElement(tagName, attrs = {}, children = []) {
+  function hasClass(className) {
+    return String(attrs.class || '')
+      .split(/\s+/)
+      .includes(className)
+  }
+
   const element = {
     nodeType: 1,
     tagName: tagName.toUpperCase(),
     attrs,
     childNodes: children,
     parentNode: null,
+    parentElement: null,
     matches(selector) {
       if (selector === '.katex') {
-        return String(attrs.class || '')
-          .split(/\s+/)
-          .includes('katex')
+        return hasClass('katex')
+      }
+      if (selector.startsWith('.')) {
+        return hasClass(selector.slice(1))
       }
       return false
     },
@@ -38,6 +62,9 @@ function createElement(tagName, attrs = {}, children = []) {
         tagName === 'annotation' &&
         attrs.encoding === 'application/x-tex'
       ) {
+        return element
+      }
+      if (selector.startsWith('.') && element.matches(selector)) {
         return element
       }
 
@@ -52,6 +79,12 @@ function createElement(tagName, attrs = {}, children = []) {
       }
 
       return null
+    },
+    getBoundingClientRect() {
+      return attrs.rect || createRect(0, 0, 0, 0)
+    },
+    getClientRects() {
+      return attrs.rects || (attrs.rect ? [attrs.rect] : [])
     },
     contains(node) {
       if (node === element) {
@@ -77,12 +110,15 @@ function createElement(tagName, attrs = {}, children = []) {
 
   for (const child of children) {
     child.parentNode = element
+    child.parentElement = element
   }
 
   return element
 }
 
-function createKatexElement(tex, duplicateText) {
+function createKatexElement(tex, duplicateText, options = {}) {
+  const htmlText = createTextNode(duplicateText)
+  const html = createElement('span', { class: 'katex-html', rects: options.htmlRects }, [htmlText])
   return createElement('span', { class: 'katex' }, [
     createElement('span', { class: 'katex-mathml' }, [
       createElement('math', {}, [
@@ -91,7 +127,7 @@ function createKatexElement(tex, duplicateText) {
         ])
       ])
     ]),
-    createElement('span', { class: 'katex-html' }, [createTextNode(duplicateText)])
+    html
   ])
 }
 
@@ -131,6 +167,66 @@ test('canonical text point 会把公式内部偏移扩展到完整公式节点',
 
   assert.deepEqual(startPoint, { node: root, offset: 1 })
   assert.deepEqual(endPoint, { node: root, offset: 2 })
+})
+
+test('canonical range 会把 display 公式内部选区扩展为完整 LaTeX', () => {
+  const math = createKatexElement(
+    '\\begin{array}{l} \\sigma_l = \\sqrt{E(I^2) - \\mu_l^2} \\end{array}',
+    'sigma visual text'
+  )
+  const root = createElement('div', {}, [createTextNode('Since '), math, createTextNode('.')])
+  const index = buildCanonicalTextIndex(root)
+  const htmlText = math.childNodes[1].childNodes[0]
+  const offsets = getCanonicalRangeOffsets(
+    index,
+    {
+      startContainer: htmlText,
+      startOffset: 2,
+      endContainer: htmlText,
+      endOffset: 8
+    }
+  )
+
+  assert.ok(offsets)
+  assert.equal(
+    index.text.slice(offsets.startOffset, offsets.endOffset),
+    '$\\begin{array}{l} \\sigma_l = \\sqrt{E(I^2) - \\mu_l^2} \\end{array}$'
+  )
+})
+
+test('canonical range rect 对公式使用可见 KaTeX HTML 的矩形', () => {
+  const math = createKatexElement('\\sigma_l = \\sqrt{E(I^2) - \\mu_l^2}', 'sigma visual text', {
+    htmlRects: [createRect(120, 40, 160, 28), createRect(90, 76, 240, 30)]
+  })
+  const root = createElement('div', {}, [createTextNode('Since '), math, createTextNode('.')])
+  const index = buildCanonicalTextIndex(root)
+  const mathStartOffset = index.text.indexOf('$\\sigma_l')
+  const rect = getCanonicalRangeClientRect(
+    index,
+    mathStartOffset + 3,
+    mathStartOffset + 10,
+    {
+      getBoundingClientRect() {
+        return createRect(0, 0, 1, 1)
+      }
+    }
+  )
+
+  assert.deepEqual(rect, createRect(90, 40, 240, 66))
+})
+
+test('canonical range rect 对普通文本保留原生 range 矩形', () => {
+  const text = createTextNode('A random square crop')
+  const root = createElement('div', {}, [text])
+  const index = buildCanonicalTextIndex(root)
+  const nativeRect = createRect(24, 36, 128, 18)
+  const rect = getCanonicalRangeClientRect(index, 2, 8, {
+    getBoundingClientRect() {
+      return nativeRect
+    }
+  })
+
+  assert.deepEqual(rect, nativeRect)
 })
 
 test('canonical text range 会同步修剪选区首尾空白', () => {

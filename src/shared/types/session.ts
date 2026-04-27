@@ -109,6 +109,8 @@ export interface SessionSelectionState {
   selectedKnowledgeBases: KnowledgeBase[]
   /** 当前会话是否启用沙箱工具 */
   enableSandboxTools: boolean
+  /** 当前会话选中的模型 */
+  selectedModel: string
 }
 
 /**
