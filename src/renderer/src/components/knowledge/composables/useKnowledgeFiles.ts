@@ -87,21 +87,27 @@ export function useKnowledgeFiles(
   async function indexSingleFile(file: FileItem): Promise<void> {
     if (!currentKB.value) return
 
-    indexStore.setFileIndexing(currentKB.value.id, file.id, file.name)
+    const kbId = currentKB.value.id
+    indexStore.setFileIndexing(kbId, file.id, file.name)
+    indexStore.markIndexCallStarted(kbId, file.id)
     indexStore.startRefresh()
 
-    window.api.logger.info('[KnowledgeMain] 开始索引文件', { fileName: file.name })
-    const result = await window.api.knowledge.indexFile(currentKB.value.id, file.id)
+    try {
+      window.api.logger.info('[KnowledgeMain] 开始索引文件', { fileName: file.name })
+      const result = await window.api.knowledge.indexFile(kbId, file.id)
 
-    if (!result.success) {
-      window.api.logger.error('[KnowledgeMain] 索引文件失败', {
-        fileName: file.name,
-        error: result.error || '索引失败'
-      })
-      indexStore.setFileFailed(currentKB.value.id, file.id, result.error || '索引失败')
-    } else {
-      window.api.logger.info('[KnowledgeMain] 文件索引成功', { fileName: file.name })
-      await onStatsNeedUpdate()
+      if (!result.success) {
+        window.api.logger.error('[KnowledgeMain] 索引文件失败', {
+          fileName: file.name,
+          error: result.error || '索引失败'
+        })
+        indexStore.setFileFailed(kbId, file.id, result.error || '索引失败')
+      } else {
+        window.api.logger.info('[KnowledgeMain] 文件索引成功', { fileName: file.name })
+        await onStatsNeedUpdate()
+      }
+    } finally {
+      indexStore.markIndexCallFinished(kbId, file.id)
     }
   }
 

@@ -27,6 +27,10 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
   // 定时刷新定时器 ID
   const refreshTimerId = ref<number | null>(null)
 
+  // 正在进行 IPC 调用的文件集合（防止轮询清理掉排队中的文件）
+  // 格式: "kbId:fileId"
+  const activeIndexCalls = ref<Set<string>>(new Set())
+
   // IPC 事件监听器清理函数
   let progressCleanup: (() => void) | null = null
 
@@ -182,6 +186,18 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     }, 1000)
   }
 
+  // 标记文件索引 IPC 调用开始
+  function markIndexCallStarted(kbId: string, fileId: string): void {
+    activeIndexCalls.value.add(`${kbId}:${fileId}`)
+    activeIndexCalls.value = new Set(activeIndexCalls.value)
+  }
+
+  // 标记文件索引 IPC 调用结束
+  function markIndexCallFinished(kbId: string, fileId: string): void {
+    activeIndexCalls.value.delete(`${kbId}:${fileId}`)
+    activeIndexCalls.value = new Set(activeIndexCalls.value)
+  }
+
   // 清除单个文件的进度状态
   function clearFileProgress(kbId: string, fileId: string): void {
     if (!kbFileProgress.value[kbId]?.[fileId]) return
@@ -252,7 +268,11 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
       for (const [kbId, files] of Object.entries(kbFileProgress.value)) {
         const activeFileIds = new Set(groupedByKb[kbId]?.map((f) => f.fileId) || [])
         for (const [fileId, progress] of Object.entries(files)) {
-          if (!activeFileIds.has(fileId) && progress.status === 'processing') {
+          if (
+            !activeFileIds.has(fileId) &&
+            progress.status === 'processing' &&
+            !activeIndexCalls.value.has(`${kbId}:${fileId}`)
+          ) {
             // 标记为完成
             kbFileProgress.value[kbId][fileId] = {
               ...progress,
@@ -355,6 +375,8 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
     setFileFailed,
     clearFileProgress,
     clearKBProgress,
+    markIndexCallStarted,
+    markIndexCallFinished,
     refreshFromBackend,
     restoreStatus,
     startRefresh,
