@@ -26,6 +26,7 @@ type TabType = 'existing' | 'upload'
 const activeTab = ref<TabType>('existing')
 const visibleTab = ref<TabType>('existing')
 const isPanelContentVisible = ref(true)
+const containerRef = ref<HTMLElement | null>(null)
 const panelShellRef = ref<HTMLElement | null>(null)
 const existingPanelRef = ref<HTMLElement | null>(null)
 const uploadPanelRef = ref<HTMLElement | null>(null)
@@ -91,7 +92,27 @@ function readPanelHeight(tab: TabType): number {
     return 0
   }
 
-  return Math.ceil(panel.scrollHeight)
+  return Math.min(Math.ceil(panel.scrollHeight), readPanelAvailableHeight())
+}
+
+function readPanelAvailableHeight(): number {
+  const container = containerRef.value
+  const panelShell = panelShellRef.value
+  if (!container || !panelShell) {
+    return Number.POSITIVE_INFINITY
+  }
+
+  const containerStyles = window.getComputedStyle(container)
+  const panelShellRect = panelShell.getBoundingClientRect()
+  const containerRect = container.getBoundingClientRect()
+  const maxContainerHeight = parseFloat(containerStyles.maxHeight)
+  const containerHeightLimit = Number.isFinite(maxContainerHeight)
+    ? maxContainerHeight
+    : container.clientHeight
+  const panelShellTop = panelShellRect.top - containerRect.top
+  const availableHeight = Math.floor(containerHeightLimit - panelShellTop)
+
+  return Math.max(1, availableHeight)
 }
 
 function clearPanelHeightAnimationFrame(): void {
@@ -108,7 +129,7 @@ function setPanelShellHeight(height: number): void {
   }
 
   isPanelMeasured.value = true
-  panelShell.style.height = `${height}px`
+  panelShell.style.height = `${Math.min(height, readPanelAvailableHeight())}px`
 }
 
 function lockPanelShellHeight(): number {
@@ -235,18 +256,20 @@ onMounted(async () => {
   await nextTick()
   observePanelContent()
   syncVisiblePanelHeight()
+  window.addEventListener('resize', syncVisiblePanelHeight)
 })
 
 onBeforeUnmount(() => {
   panelResizeObserver?.disconnect()
   clearPanelTransitionTimer()
   clearPanelHeightAnimationFrame()
+  window.removeEventListener('resize', syncVisiblePanelHeight)
 })
 </script>
 
 <template>
   <div class="sm-modal__overlay file-selector-overlay" @click.self="emit('close')">
-    <div class="sm-modal__surface file-selector-container">
+    <div ref="containerRef" class="sm-modal__surface file-selector-container">
       <FileSelectorHeader @close="emit('close')" />
 
       <FileSelectorTabs v-model:active-tab="activeTab" />
@@ -306,12 +329,15 @@ onBeforeUnmount(() => {
 
 .file-selector-panel-shell {
   position: relative;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   transition: height 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .file-selector-panel {
   width: 100%;
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -323,7 +349,7 @@ onBeforeUnmount(() => {
     transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.file-selector-panel-shell.is-measured .file-selector-panel,
+.file-selector-panel-shell.is-measured .file-selector-panel:not(.is-active),
 .file-selector-panel-shell:not(.is-measured) .file-selector-panel:not(.is-active) {
   position: absolute;
   top: 0;
@@ -332,6 +358,7 @@ onBeforeUnmount(() => {
 }
 
 .file-selector-panel.is-active {
+  height: 100%;
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;
