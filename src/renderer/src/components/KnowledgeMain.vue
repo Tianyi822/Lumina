@@ -238,6 +238,7 @@ defineExpose({ handleFilesLinked })
   min-height: 0;
   gap: var(--sm-space-4);
   overflow-y: auto;
+  padding: var(--sm-space-6);
 }
 
 .kb-overview {
@@ -346,7 +347,7 @@ defineExpose({ handleFilesLinked })
 
 .empty-kb {
   flex: 1;
-  margin: var(--sm-space-6);
+  padding: var(--sm-space-6);
 }
 
 .empty-kb h2 {
@@ -377,6 +378,16 @@ defineExpose({ handleFilesLinked })
   .kb-reindex-notice {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+@media (max-width: 720px) {
+  .kb-workspace {
+    padding: var(--sm-space-5);
+  }
+
+  .empty-kb {
+    padding: var(--sm-space-5);
   }
 }
 </style>
