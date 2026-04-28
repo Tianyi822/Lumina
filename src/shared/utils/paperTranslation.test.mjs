@@ -366,6 +366,112 @@ test('References 和 参考文献即使 Markdown 级别错误，也会被提升�
   )
 })
 
+test('参考文献后的后置章节和附录标题会恢复为正确目录层级', () => {
+  const markdown = [
+    '# 5 CONCLUSION',
+    '',
+    '## Future work can extend this study in several directions:',
+    '',
+    '## ACKNOWLEDGMENTS',
+    '',
+    '## ETHICS STATEMENT',
+    '',
+    '## REPRODUCIBILITY STATEMENT',
+    '',
+    '## REFERENCES',
+    '',
+    '## LLM USAGE',
+    '',
+    '## A PARTIAL INFORMATION DECOMPOSITION AND ITS ESTIMATION',
+    '',
+    '## A.1 INTRODUCTION OF PARTIAL INFORMATION DECOMPOSITION',
+    '',
+    '## A.2 THE ESTIMATOR WE LEVERAGE: BATCH FOR CONTINUOUS REPRESENTATIONS',
+    '',
+    '## B ABLATION STUDY',
+    '',
+    '## E FULL RESULTS',
+    '',
+    '## E.1 FULL INFORMATION SPECTRA ON FOUR DATASETS'
+  ].join('\n')
+
+  const outline = buildPaperTocOutline(parsePaperTranslationSegments(markdown))
+
+  assert.deepEqual(
+    outline.items.map((item) => ({
+      text: item.text,
+      level: item.level
+    })),
+    [
+      { text: '5 CONCLUSION', level: 1 },
+      { text: 'Future work can extend this study in several directions:', level: 2 },
+      { text: 'ACKNOWLEDGMENTS', level: 1 },
+      { text: 'ETHICS STATEMENT', level: 1 },
+      { text: 'REPRODUCIBILITY STATEMENT', level: 1 },
+      { text: 'REFERENCES', level: 1 },
+      { text: 'LLM USAGE', level: 1 },
+      { text: 'A PARTIAL INFORMATION DECOMPOSITION AND ITS ESTIMATION', level: 1 },
+      { text: 'A.1 INTRODUCTION OF PARTIAL INFORMATION DECOMPOSITION', level: 2 },
+      {
+        text: 'A.2 THE ESTIMATOR WE LEVERAGE: BATCH FOR CONTINUOUS REPRESENTATIONS',
+        level: 2
+      },
+      { text: 'B ABLATION STUDY', level: 1 },
+      { text: 'E FULL RESULTS', level: 1 },
+      { text: 'E.1 FULL INFORMATION SPECTRA ON FOUR DATASETS', level: 2 }
+    ]
+  )
+})
+
+test('A 开头的论文标题不会被误判为附录根标题', () => {
+  const markdown = [
+    '# A COMPREHENSIVE INFORMATION-DECOMPOSITION ANALYSIS OF LARGE VISION-LANGUAGE MODELS',
+    '',
+    'Lixin Xiu, Xufang Luo, Hideki Nakayama',
+    '',
+    '## ABSTRACT',
+    '',
+    '## 1 INTRODUCTION'
+  ].join('\n')
+
+  const outline = buildPaperTocOutline(parsePaperTranslationSegments(markdown))
+
+  assert.equal(
+    outline.documentTitle?.text,
+    'A COMPREHENSIVE INFORMATION-DECOMPOSITION ANALYSIS OF LARGE VISION-LANGUAGE MODELS'
+  )
+  assert.deepEqual(
+    outline.items.map((item) => ({
+      text: item.text,
+      level: item.level
+    })),
+    [
+      { text: 'ABSTRACT', level: 1 },
+      { text: '1 INTRODUCTION', level: 1 }
+    ]
+  )
+})
+
+test('正文中的 A 开头普通二级标题不会被误判为附录根标题', () => {
+  const markdown = ['# 1 Introduction', '', '## A Method Overview', '', '## Related Setup'].join(
+    '\n'
+  )
+
+  const outline = buildPaperTocOutline(parsePaperTranslationSegments(markdown))
+
+  assert.deepEqual(
+    outline.items.map((item) => ({
+      text: item.text,
+      level: item.level
+    })),
+    [
+      { text: '1 Introduction', level: 1 },
+      { text: 'A Method Overview', level: 2 },
+      { text: 'Related Setup', level: 2 }
+    ]
+  )
+})
+
 test('文档标题和 synthetic 摘要都能保留翻译标题文本', () => {
   const markdown = [
     '# DA-Mamba: Learning Domain-Aware State Space Model',

@@ -22,6 +22,10 @@ const REFERENCE_HEADING_PATTERN = /^(?:references?|bibliography|参考文献|文
 const REFERENCE_MARKER_PATTERN = /^\s*(?:\[\d+\]|\[\[\d+\]\]|\d+\.)\s+/
 const HEADING_PREFIX_PATTERN = /^(#{1,6})\s+(.+?)\s*$/
 const HEADING_NUMBERING_PATTERN = /^(\d+(?:\.\d+)*)(?:\.)?(?:\s+|$)/
+const APPENDIX_EXPLICIT_HEADING_PATTERN =
+  /^(?:appendix|附录)\s*([A-Z])(?:\.(\d+(?:\.\d+)*))?(?:[\s:：.-]+|$)/i
+const APPENDIX_DOTTED_HEADING_PATTERN = /^([A-Z])\.(\d+(?:\.\d+)*)(?:\.)?(?:\s+|$)/i
+const APPENDIX_ROOT_HEADING_PATTERN = /^([A-Z])\s+\S.+$/
 const ABSTRACT_PARAGRAPH_PATTERN = /^(abstract|摘要)\s*(?:[:：.。]\s*|\s+|$)/i
 const KEYWORD_SECTION_PATTERN = /^(?:keywords?|index terms)\s*[:：.。]|^关键词\s*[:：.。]/i
 const PAGE_COMMENT_PATTERN = /^\s*<!--\s*Page\s+\d+\s*-->\s*$/i
@@ -50,13 +54,39 @@ const STRUCTURAL_SECTION_TITLES = new Set([
   'appendices',
   '附录',
   'acknowledgment',
+  'acknowledgments',
   'acknowledgements',
+  'ethics statement',
+  'reproducibility statement',
+  'llm usage',
+  '致谢'
+])
+const BACK_MATTER_SECTION_TITLES = new Set([
+  'references',
+  'bibliography',
+  '参考文献',
+  '文献',
+  'appendix',
+  'appendices',
+  '附录',
+  'acknowledgment',
+  'acknowledgments',
+  'acknowledgements',
+  'ethics statement',
+  'reproducibility statement',
+  'llm usage',
   '致谢'
 ])
 
 interface ParsedPaperHeading {
   markdownLevel: number
   titleText: string
+}
+
+interface ParsedPaperAppendixHeading {
+  letter: string
+  level: PaperTocItem['level']
+  kind: 'explicit' | 'dotted' | 'root'
 }
 
 interface MarkdownFence {
@@ -71,6 +101,17 @@ interface PaperTocCandidate {
   translatedText?: string
   markdownLevel: number
   isSynthetic: boolean
+}
+
+interface PaperTocLevelState {
+  afterBackMatter: boolean
+  inAppendix: boolean
+}
+
+interface ResolvedPaperTocLevel {
+  level: PaperTocItem['level']
+  isAppendix: boolean
+  isBackMatter: boolean
 }
 
 function parseMarkdownFenceOpener(line: string): MarkdownFence | null {
@@ -371,6 +412,82 @@ function isPaperStructuralSectionTitle(titleText: string): boolean {
   return STRUCTURAL_SECTION_TITLES.has(normalizePaperSectionTitleForMatch(titleText))
 }
 
+function isPaperBackMatterSectionTitle(titleText: string): boolean {
+  return BACK_MATTER_SECTION_TITLES.has(normalizePaperSectionTitleForMatch(titleText))
+}
+
+function isPaperAppendixSectionTitle(titleText: string): boolean {
+  return ['appendix', 'appendices', '附录'].includes(normalizePaperSectionTitleForMatch(titleText))
+}
+
+function parsePaperAppendixHeading(titleText: string): ParsedPaperAppendixHeading | null {
+  const normalizedText = normalizePaperHeadingText(titleText)
+  if (!normalizedText) {
+    return null
+  }
+
+  const explicitMatch = normalizedText.match(APPENDIX_EXPLICIT_HEADING_PATTERN)
+  if (explicitMatch) {
+    const numbering = explicitMatch[2]
+    return {
+      letter: explicitMatch[1].toUpperCase(),
+      level: numbering ? clampPaperTocLevel(numbering.split('.').length + 1) : 1,
+      kind: 'explicit'
+    }
+  }
+
+  const dottedMatch = normalizedText.match(APPENDIX_DOTTED_HEADING_PATTERN)
+  if (dottedMatch) {
+    return {
+      letter: dottedMatch[1].toUpperCase(),
+      level: clampPaperTocLevel(dottedMatch[2].split('.').length + 1),
+      kind: 'dotted'
+    }
+  }
+
+  const rootMatch = normalizedText.match(APPENDIX_ROOT_HEADING_PATTERN)
+  if (!rootMatch) {
+    return null
+  }
+
+  return {
+    letter: rootMatch[1].toUpperCase(),
+    level: 1,
+    kind: 'root'
+  }
+}
+
+function findNextNonSyntheticTocCandidate(
+  candidates: PaperTocCandidate[],
+  candidateIndex: number
+): PaperTocCandidate | undefined {
+  return candidates.slice(candidateIndex + 1).find((candidate) => !candidate.isSynthetic)
+}
+
+function shouldTreatAppendixRootHeading(
+  appendixHeading: ParsedPaperAppendixHeading,
+  candidates: PaperTocCandidate[],
+  candidateIndex: number,
+  state: PaperTocLevelState
+): boolean {
+  if (appendixHeading.kind !== 'root') {
+    return true
+  }
+
+  if (state.afterBackMatter || state.inAppendix) {
+    return true
+  }
+
+  const nextCandidate = findNextNonSyntheticTocCandidate(candidates, candidateIndex)
+  const nextAppendixHeading = nextCandidate ? parsePaperAppendixHeading(nextCandidate.text) : null
+
+  return (
+    !!nextAppendixHeading &&
+    nextAppendixHeading.kind === 'dotted' &&
+    nextAppendixHeading.letter === appendixHeading.letter
+  )
+}
+
 function isPaperKeywordLikeSegment(
   segment: Pick<PaperTranslationSegment, 'originalText'>
 ): boolean {
@@ -398,17 +515,46 @@ function looksLikePaperTitleText(titleText: string): boolean {
   )
 }
 
-function resolvePaperTocLevel(titleText: string, markdownLevel: number): PaperTocItem['level'] {
-  const numberingMatch = titleText.match(HEADING_NUMBERING_PATTERN)
+function resolvePaperTocLevel(
+  candidate: PaperTocCandidate,
+  candidates: PaperTocCandidate[],
+  candidateIndex: number,
+  state: PaperTocLevelState
+): ResolvedPaperTocLevel {
+  const appendixHeading = parsePaperAppendixHeading(candidate.text)
+  if (
+    appendixHeading &&
+    shouldTreatAppendixRootHeading(appendixHeading, candidates, candidateIndex, state)
+  ) {
+    return {
+      level: appendixHeading.level,
+      isAppendix: true,
+      isBackMatter: true
+    }
+  }
+
+  const numberingMatch = candidate.text.match(HEADING_NUMBERING_PATTERN)
   if (numberingMatch) {
-    return clampPaperTocLevel(numberingMatch[1].split('.').length)
+    return {
+      level: clampPaperTocLevel(numberingMatch[1].split('.').length),
+      isAppendix: false,
+      isBackMatter: false
+    }
   }
 
-  if (isPaperStructuralSectionTitle(titleText)) {
-    return 1
+  if (isPaperStructuralSectionTitle(candidate.text)) {
+    return {
+      level: 1,
+      isAppendix: isPaperAppendixSectionTitle(candidate.text),
+      isBackMatter: isPaperBackMatterSectionTitle(candidate.text)
+    }
   }
 
-  return clampPaperTocLevel(markdownLevel)
+  return {
+    level: clampPaperTocLevel(candidate.markdownLevel),
+    isAppendix: false,
+    isBackMatter: false
+  }
 }
 
 export function slugifyPaperHeadingText(text: string): string {
@@ -764,11 +910,16 @@ export function buildPaperTocOutline(
     firstHeadingCandidate && shouldTreatFirstHeadingAsDocumentTitle(segments, firstHeadingCandidate)
       ? firstHeadingCandidate
       : undefined
+  const levelState: PaperTocLevelState = {
+    afterBackMatter: false,
+    inAppendix: false
+  }
   const outline: PaperTocOutline = {
     items: []
   }
 
-  for (const candidate of candidates) {
+  for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
+    const candidate = candidates[candidateIndex]
     const id = createUniquePaperTocId(candidate.text, usedIdCounts)
     const entry: PaperTocEntry = {
       id,
@@ -782,12 +933,27 @@ export function buildPaperTocOutline(
       continue
     }
 
+    const resolvedLevel = candidate.isSynthetic
+      ? {
+          level: 1 as PaperTocItem['level'],
+          isAppendix: false,
+          isBackMatter: false
+        }
+      : resolvePaperTocLevel(candidate, candidates, candidateIndex, levelState)
+
     outline.items.push({
       ...entry,
-      level: candidate.isSynthetic
-        ? 1
-        : resolvePaperTocLevel(candidate.text, candidate.markdownLevel)
+      level: resolvedLevel.level
     })
+
+    if (resolvedLevel.isBackMatter) {
+      levelState.afterBackMatter = true
+    }
+
+    if (resolvedLevel.isAppendix) {
+      levelState.afterBackMatter = true
+      levelState.inAppendix = true
+    }
   }
 
   return outline
