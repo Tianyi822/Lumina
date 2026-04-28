@@ -35,6 +35,10 @@ import {
   type ReanchorPaperAnnotationPayload
 } from '@shared/types/paper'
 import { buildPaperTextAnchor } from '@shared/utils/paperAnnotationAnchors'
+import {
+  PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE,
+  findPaperAnnotationNoteConflict
+} from '@shared/utils/paperAnnotationConflicts'
 import { removeTranslationAnnotationsFromStore } from '@shared/utils/paperTranslationAnnotations'
 import { createEmptyPaperAnnotationStore, normalizeAnnotationContent } from './paperAnnotationRules'
 
@@ -772,6 +776,16 @@ export class PaperService {
 
       const currentStore =
         annotationStoreResult.data || this.createEmptyAnnotationStore(params.paperId)
+      const noteConflict = findPaperAnnotationNoteConflict(currentStore.annotations, {
+        kind: params.kind,
+        segmentStableId: targetSegment.stableId,
+        originalAnchor: params.originalAnchor,
+        translationAnchor: params.translationAnchor
+      })
+      if (noteConflict) {
+        return { success: false, error: PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE }
+      }
+
       const nextStore: PaperAnnotationStore = {
         ...currentStore,
         annotations: [...currentStore.annotations, nextAnnotation],
@@ -931,6 +945,17 @@ export class PaperService {
           lastResolvedAt: now
         },
         updatedAt: now
+      }
+
+      const noteConflict = findPaperAnnotationNoteConflict(annotationStoreResult.data.annotations, {
+        kind: params.kind,
+        segmentStableId: targetSegment.stableId,
+        originalAnchor: nextAnnotation.originalAnchor,
+        translationAnchor: nextAnnotation.translationAnchor,
+        ignoreAnnotationId: params.annotationId
+      })
+      if (noteConflict) {
+        return { success: false, error: PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE }
       }
 
       const nextAnnotations = [...annotationStoreResult.data.annotations]
