@@ -2,8 +2,11 @@
 defineProps<{
   translationMissingCount: number
   outdatedCount: number
+  outdatedUpdating: boolean
+  outdatedError: string | null
   onRetranslate: () => void
   onViewInOriginal: () => void
+  onUpdateOutdated: () => void
 }>()
 </script>
 
@@ -35,8 +38,19 @@ defineProps<{
     <p class="paper-markdown-view__status-text">
       当前共有 {{ outdatedCount }}
       条标注依赖旧译文版本。系统会优先保留原文归属，
-      你可以直接更新到当前译文，或手动重新绑定到新的选区。
+      你可以先自动更新到当前译文；无法可靠映射的标注会进入手动重新绑定流程。
     </p>
+    <p v-if="outdatedError" class="paper-markdown-view__status-error">{{ outdatedError }}</p>
+    <div class="paper-markdown-view__status-actions">
+      <button
+        class="sm-button sm-button--primary"
+        type="button"
+        :disabled="outdatedUpdating"
+        @click="onUpdateOutdated"
+      >
+        {{ outdatedUpdating ? '正在处理...' : '更新或定位处理' }}
+      </button>
+    </div>
   </section>
 </template>
 
@@ -44,7 +58,7 @@ defineProps<{
 .paper-markdown-view__status-panel {
   margin-bottom: var(--sm-space-4);
   border: 1px solid var(--sm-color-border-default);
-  border-radius: 16px;
+  border-radius: var(--sm-radius-md);
   background: var(--sm-color-surface-1);
   padding: var(--sm-space-4);
 }
@@ -54,11 +68,8 @@ defineProps<{
 }
 
 .paper-markdown-view__status-panel--info {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--sm-color-accent-08) 70%, var(--sm-color-surface-1)),
-    var(--sm-color-surface-1)
-  );
+  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-surface-1);
 }
 
 .paper-markdown-view__status-title {
@@ -72,6 +83,13 @@ defineProps<{
   font-size: 13px;
   line-height: 1.7;
   color: var(--sm-color-text-secondary);
+}
+
+.paper-markdown-view__status-error {
+  margin: var(--sm-space-2) 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--sm-color-status-warning);
 }
 
 .paper-markdown-view__status-actions {

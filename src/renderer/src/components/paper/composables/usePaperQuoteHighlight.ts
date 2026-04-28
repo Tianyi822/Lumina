@@ -7,6 +7,8 @@ interface PaperQuoteHighlightController {
   scrollToQuoteAndHighlight: (quote: PaperQuote) => void
 }
 
+const QUOTE_HIGHLIGHT_DURATION_MS = 8000
+
 function removeQuoteHighlights(): void {
   document.querySelectorAll('mark.paper-markdown-view__quote-highlight').forEach((mark) => {
     const parent = mark.parentNode
@@ -164,7 +166,7 @@ function scrollToQuoteAndHighlight(quote: PaperQuote): void {
     const parent = mark.parentNode
     mark.replaceWith(...Array.from(mark.childNodes))
     parent?.normalize()
-  }, 1800)
+  }, QUOTE_HIGHLIGHT_DURATION_MS)
 }
 
 export function usePaperQuoteHighlight(): PaperQuoteHighlightController {

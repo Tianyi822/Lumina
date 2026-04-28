@@ -55,6 +55,8 @@ export function usePaperAnnotationComposer(
   const hoverPopoverError = ref<string | null>(null)
   const rebindAnnotationId = ref<string | null>(null)
   const ignoredOutdatedAnnotationIds = ref<Record<string, true>>({})
+  const outdatedAnnotationUpdating = ref(false)
+  const outdatedAnnotationError = ref<string | null>(null)
 
   const currentTranslationRevisionId = computed(() => {
     const cache = options.translationCache()
@@ -571,8 +573,45 @@ export function usePaperAnnotationComposer(
     }
   }
 
-  async function updateAnnotationToCurrentTranslation(annotation: PaperAnnotation): Promise<void> {
-    await actions.updateAnnotationToCurrentTranslation(annotation)
+  async function updateAnnotationToCurrentTranslation(
+    annotation: PaperAnnotation
+  ): Promise<{ success: boolean; requiresRebind?: boolean; error?: string }> {
+    outdatedAnnotationError.value = null
+    const result = await actions.updateAnnotationToCurrentTranslation(annotation)
+    if (!result.success && result.error) {
+      outdatedAnnotationError.value = result.error
+    }
+    return result
+  }
+
+  async function updateOutdatedAnnotationsToCurrentTranslation(): Promise<void> {
+    if (outdatedAnnotationUpdating.value) {
+      return
+    }
+
+    outdatedAnnotationUpdating.value = true
+    outdatedAnnotationError.value = null
+
+    try {
+      const pendingAnnotations = [...outdatedAnnotations.value]
+      let updatedCount = 0
+
+      for (const annotation of pendingAnnotations) {
+        const result = await actions.updateAnnotationToCurrentTranslation(annotation)
+        if (result.success) {
+          updatedCount += 1
+          continue
+        }
+
+        outdatedAnnotationError.value =
+          updatedCount > 0
+            ? `已更新 ${updatedCount} 条标注，下一条需要手动重新绑定。`
+            : result.error || '当前译文变化较大，需要手动重新绑定。'
+        break
+      }
+    } finally {
+      outdatedAnnotationUpdating.value = false
+    }
   }
 
   function dismissOutdatedAnnotation(annotationId: string): void {
@@ -690,6 +729,8 @@ export function usePaperAnnotationComposer(
     currentAnnotations,
     orphanAnnotations,
     outdatedAnnotations,
+    outdatedAnnotationUpdating,
+    outdatedAnnotationError,
     translationMissingAnnotations,
     currentTranslationRevisionId,
     updateComposerFromSelection,
@@ -708,6 +749,7 @@ export function usePaperAnnotationComposer(
     handleDeleteAnnotation,
     startRebind,
     updateAnnotationToCurrentTranslation,
+    updateOutdatedAnnotationsToCurrentTranslation,
     cancelRebindMode,
     clearComposer,
     handleCancelComposer,

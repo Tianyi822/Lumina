@@ -60,7 +60,9 @@ export interface PaperAnnotationComposerActions {
   ) => Promise<{ success: boolean; error?: string }>
   addSelectionDraftToChat: (draft: SelectionDraft) => { success: boolean; error?: string }
   deleteAnnotationById: (annotationId: string) => Promise<{ success: boolean; error?: string }>
-  updateAnnotationToCurrentTranslation: (annotation: PaperAnnotation) => Promise<void>
+  updateAnnotationToCurrentTranslation: (
+    annotation: PaperAnnotation
+  ) => Promise<{ success: boolean; requiresRebind?: boolean; error?: string }>
   dismissOutdatedAnnotation: (annotationId: string) => void
 }
 
@@ -95,6 +97,8 @@ export function createPaperAnnotationComposerActions(
       sourceRefs: draft.sourceRefs
     }
     const translationAnchor = createTranslationAnchorPayload(draft.translationAnchor)
+    const rebindTranslationAnchor =
+      draft.mode === 'rebind' && draft.viewKind === 'original' ? null : translationAnchor
 
     const result =
       draft.mode === 'rebind' && draft.annotationId
@@ -104,7 +108,7 @@ export function createPaperAnnotationComposerActions(
             kind,
             semanticAnchor,
             originalAnchor: draft.originalAnchor,
-            translationAnchor,
+            translationAnchor: rebindTranslationAnchor,
             selectedTextSnapshot: draft.selectedText,
             contextBefore: draft.contextBefore,
             contextAfter: draft.contextAfter,
@@ -224,13 +228,15 @@ export function createPaperAnnotationComposerActions(
     return { success: true }
   }
 
-  async function updateAnnotationToCurrentTranslation(annotation: PaperAnnotation): Promise<void> {
+  async function updateAnnotationToCurrentTranslation(
+    annotation: PaperAnnotation
+  ): Promise<{ success: boolean; requiresRebind?: boolean; error?: string }> {
     const segment = options.renderedSegments.value.find(
       (item) => item.stableId === annotation.semanticAnchor.segmentStableId
     )
     if (!segment || !segment.translationText || !annotation.originalAnchor) {
       options.startRebind(annotation)
-      return
+      return { success: false, requiresRebind: true, error: '无法自动映射到当前译文' }
     }
 
     const mapped = mapPaperTextAnchorBetweenTexts(
@@ -240,7 +246,7 @@ export function createPaperAnnotationComposerActions(
     )
     if (!mapped || mapped.confidence < 0.58) {
       options.startRebind(annotation)
-      return
+      return { success: false, requiresRebind: true, error: '当前译文变化较大，需要手动重新绑定' }
     }
 
     const payload: ReanchorPaperAnnotationPayload = {
@@ -271,11 +277,12 @@ export function createPaperAnnotationComposerActions(
         ...options.ignoredOutdatedAnnotationIds.value,
         [annotation.id]: true
       }
-      return
+      return { success: true }
     }
 
     options.hoverPopoverError.value = result.error || '更新到当前译文失败'
     options.startRebind(annotation)
+    return { success: false, requiresRebind: true, error: result.error || '更新到当前译文失败' }
   }
 
   function dismissOutdatedAnnotation(annotationId: string): void {
