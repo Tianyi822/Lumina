@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
@@ -32,6 +32,7 @@ const fileStore = useFileStore()
 // 文件预览
 const previewFile = ref<FileItem | null>(null)
 const showPreview = ref(false)
+const hasInvalidatedFiles = computed(() => (props.invalidatedFileIds?.length ?? 0) > 0)
 
 function handlePreviewFile(file: FileItem): void {
   previewFile.value = file
@@ -75,6 +76,7 @@ function isInvalidatedFile(file: FileItem): boolean {
         <span class="document-count">{{ linkedFiles.length }} 个文件</span>
         <button
           class="sm-button sm-button--secondary reindex-btn"
+          :class="{ 'reindex-btn--warning': hasInvalidatedFiles }"
           :disabled="indexingStatus || reindexing || linkedFiles.length === 0"
           @click="emit('reindex')"
         >
@@ -157,7 +159,6 @@ function isInvalidatedFile(file: FileItem): boolean {
         </div>
 
         <div class="document-meta">
-          <span v-if="isInvalidatedFile(file)" class="stale-badge">需重新索引</span>
           <span :class="['source-badge', getFileSourceClass(file)]">
             {{ getFileSourceLabel(file) }}
           </span>
@@ -218,6 +219,19 @@ function isInvalidatedFile(file: FileItem): boolean {
 .add-files-btn,
 .reindex-btn {
   white-space: nowrap;
+}
+
+.reindex-btn--warning {
+  border-color: rgba(197, 161, 101, 0.44);
+  background: rgba(197, 161, 101, 0.12);
+  color: var(--sm-color-status-warning);
+}
+
+.reindex-btn--warning:hover:not(:disabled),
+.reindex-btn--warning:focus-visible:not(:disabled) {
+  border-color: var(--sm-color-status-warning);
+  background: rgba(197, 161, 101, 0.18);
+  color: var(--sm-color-status-warning);
 }
 
 .loading-state {
@@ -281,7 +295,11 @@ function isInvalidatedFile(file: FileItem): boolean {
 }
 
 .document-card.needs-reindex {
-  border-color: rgba(213, 161, 74, 0.34);
+  border-color: var(--sm-color-status-warning);
+}
+
+.document-card.needs-reindex:hover {
+  border-color: var(--sm-color-status-warning);
 }
 
 .document-card__header {
@@ -354,19 +372,6 @@ function isInvalidatedFile(file: FileItem): boolean {
   font-size: 11px;
   color: var(--sm-color-text-secondary);
   font-family: var(--sm-font-mono);
-}
-
-.stale-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  padding: 0 8px;
-  border: 1px solid rgba(213, 161, 74, 0.36);
-  border-radius: var(--sm-radius-sm);
-  background: rgba(213, 161, 74, 0.12);
-  color: rgba(226, 181, 99, 0.95);
-  font-size: 11px;
-  font-weight: 500;
 }
 
 .progress-bar {

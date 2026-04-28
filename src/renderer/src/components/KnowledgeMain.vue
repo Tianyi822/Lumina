@@ -185,13 +185,6 @@ defineExpose({ handleFilesLinked })
               <li v-for="file in invalidatedFiles" :key="file.fileId">{{ file.fileName }}</li>
             </ul>
           </div>
-          <button
-            class="sm-button sm-button--primary kb-reindex-notice__action"
-            :disabled="indexingStatus || reindexing || linkedFiles.length === 0"
-            @click="handleReindex"
-          >
-            {{ reindexing ? '索引中...' : '重新索引' }}
-          </button>
         </div>
       </section>
 
@@ -338,11 +331,6 @@ defineExpose({ handleFilesLinked })
   margin: 0;
   padding-left: 18px;
   color: var(--sm-color-text-secondary);
-}
-
-.kb-reindex-notice__action {
-  flex-shrink: 0;
-  white-space: nowrap;
 }
 
 .empty-kb {
