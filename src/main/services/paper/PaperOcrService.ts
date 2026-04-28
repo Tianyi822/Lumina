@@ -20,6 +20,11 @@ import {
   getPaperMergedMdPath
 } from './paperPaths'
 import { localizePaperPageAssets } from './paperAssetLocalizer'
+import {
+  isFencedSimpleTextContainerHtml,
+  isSimpleTextContainerSegment,
+  unwrapFencedSimpleTextContainerHtml
+} from './paperTextProcessing'
 
 export interface OcrProgressInfo {
   paperId: string
@@ -107,6 +112,10 @@ function isNaturalLanguageSentenceLine(line: string): boolean {
 }
 
 function isLikelyUnfencedCodeBlock(content: string): boolean {
+  if (isSimpleTextContainerSegment(content)) {
+    return false
+  }
+
   const lines = content
     .replace(/\r\n/g, '\n')
     .split('\n')
@@ -201,10 +210,15 @@ function normalizeGlmOcrResponse(
 
     const rawLabel = normalizeBlockLabel(block.label)
     const rawContent = block.text || block.content || ''
+    const unwrappedContent = unwrapFencedSimpleTextContainerHtml(rawContent)
+    const isMisfencedTextContainer = isFencedSimpleTextContainerHtml(rawContent)
     const shouldTreatAsCode =
-      rawLabel === 'code' || hasFencedCodeBlock(rawContent) || isLikelyUnfencedCodeBlock(rawContent)
+      !isMisfencedTextContainer &&
+      (rawLabel === 'code' ||
+        hasFencedCodeBlock(rawContent) ||
+        isLikelyUnfencedCodeBlock(rawContent))
     const label: BlockLabel = shouldTreatAsCode ? 'code' : rawLabel
-    const content = shouldTreatAsCode ? ensureFencedCodeBlock(rawContent) : rawContent
+    const content = shouldTreatAsCode ? ensureFencedCodeBlock(rawContent) : unwrappedContent
     markdown = replaceFirstLiteral(markdown, rawContent, content)
     const remoteUrl =
       block.crop_image_url ||

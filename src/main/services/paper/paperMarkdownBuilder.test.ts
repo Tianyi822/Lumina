@@ -225,6 +225,54 @@ test('代码块会作为独立 reader 段落保留，不会被拆成标题或并
   )
 })
 
+test('误包代码围栏的表题 HTML 会作为普通段落进入 reader', () => {
+  const tableTitle = [
+    '<div align="center">',
+    '',
+    'PERFORMANCE OF THE PROPOSED IRPNET ON THE IRSTD-1K DATASET',
+    '',
+    'WHEN DIFFERENT BACKBONES ARE USED',
+    '',
+    '</div>'
+  ].join('\n')
+  const fencedTableTitle = ['```', tableTitle, '```'].join('\n')
+  const tableMarkdown =
+    '<table border="1"><tr><td>Backbone</td><td>IoU↑</td></tr><tr><td>resnet34</td><td>69.77</td></tr></table>'
+  const pageResult: PaperPageOcrResult = {
+    paperId: 'paper-fenced-table-title',
+    pageIndex: 0,
+    status: 'completed',
+    markdown: ['<div align="center">\n\nTABLE VIII\n\n</div>', fencedTableTitle, tableMarkdown].join(
+      '\n\n'
+    ),
+    blocks: [
+      createTextBlock(0, '<div align="center">\n\nTABLE VIII\n\n</div>'),
+      createTextBlock(1, fencedTableTitle),
+      createTableBlock(2, tableMarkdown)
+    ]
+  }
+
+  const figureData = extractFigureData([pageResult])
+  const readerDocument = buildReaderDocument('paper-fenced-table-title', [pageResult], figureData)
+  const titleSegment = readerDocument.segments.find((segment) =>
+    segment.originalText.includes('PERFORMANCE OF THE PROPOSED IRPNET')
+  )
+
+  assert.doesNotMatch(readerDocument.markdown, /```\s*<div align="center">/)
+  assert.doesNotMatch(readerDocument.markdown, /<div align="center">\s*PERFORMANCE/)
+  assert.ok(
+    readerDocument.markdown.includes(
+      'PERFORMANCE OF THE PROPOSED IRPNET ON THE IRSTD-1K DATASET WHEN DIFFERENT BACKBONES ARE USED'
+    )
+  )
+  assert.ok(titleSegment)
+  assert.equal(titleSegment.kind, 'paragraph')
+  assert.equal(
+    titleSegment.originalText,
+    'PERFORMANCE OF THE PROPOSED IRPNET ON THE IRSTD-1K DATASET WHEN DIFFERENT BACKBONES ARE USED'
+  )
+})
+
 test('独立的单个数学定界符分行时会保持原有结构，不会污染后续正文', () => {
   const pageResult: PaperPageOcrResult = {
     paperId: 'paper-single-dollar',

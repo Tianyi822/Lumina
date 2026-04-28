@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import {
   getBodyBlockGapReplacement,
   getTextFlowReplacement,
+  isFencedSimpleTextContainerHtml,
+  normalizeFencedSimpleTextContainerHtml,
   normalizeMergeableTextBlockContent,
   shouldMergeAdjacentTextBlocks
 } from './paperTextProcessing.ts'
@@ -90,6 +92,48 @@ test('简单 HTML 文本块内部的断段会按正文规则合并', () => {
     normalized,
     'In the downstream task of object detection, CNNs are predominantly used.'
   )
+})
+
+test('误包代码围栏的简单居中 HTML 会被恢复为普通文本容器', () => {
+  const content = [
+    '```',
+    '<div align="center">',
+    '',
+    'PERFORMANCE OF THE PROPOSED IRPNET ON THE IRSTD-1K DATASET',
+    '',
+    'WHEN DIFFERENT BACKBONES ARE USED',
+    '',
+    '</div>',
+    '```'
+  ].join('\n')
+
+  assert.equal(isFencedSimpleTextContainerHtml(content), true)
+  assert.equal(
+    normalizeFencedSimpleTextContainerHtml(content),
+    [
+      '<div align="center">',
+      '',
+      'PERFORMANCE OF THE PROPOSED IRPNET ON THE IRSTD-1K DATASET',
+      '',
+      'WHEN DIFFERENT BACKBONES ARE USED',
+      '',
+      '</div>'
+    ].join('\n')
+  )
+})
+
+test('真实代码围栏和结构性 HTML 不会被简单文本容器清理误伤', () => {
+  const codeBlock = ['```python', 'def run():', '    return 1', '```'].join('\n')
+  const tableBlock = [
+    '```',
+    '<table><tr><td>Method</td></tr></table>',
+    '```'
+  ].join('\n')
+
+  assert.equal(isFencedSimpleTextContainerHtml(codeBlock), false)
+  assert.equal(normalizeFencedSimpleTextContainerHtml(codeBlock), codeBlock)
+  assert.equal(isFencedSimpleTextContainerHtml(tableBlock), false)
+  assert.equal(normalizeFencedSimpleTextContainerHtml(tableBlock), tableBlock)
 })
 
 test('参考文献标题与相邻条目边界会被保留', () => {
