@@ -35,5 +35,8 @@ export * from './paperTranslation'
 // 论文批注锚点工具
 export * from './paperAnnotationAnchors'
 
+// 论文批注冲突判断工具
+export * from './paperAnnotationConflicts'
+
 // 论文引用上下文工具
 export * from './paperQuoteContext'

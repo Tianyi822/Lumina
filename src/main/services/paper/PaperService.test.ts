@@ -32,6 +32,7 @@ import {
   type UpdatePaperAnnotationPayload
 } from '../../../shared/types/paper.ts'
 import { buildPaperTextAnchor } from '../../../shared/utils/paperAnnotationAnchors.ts'
+import { PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE } from '../../../shared/utils/paperAnnotationConflicts.ts'
 
 type MutablePaperService = {
   getReaderDocument: (paperId: string) =>
@@ -344,6 +345,75 @@ test('createAnnotation 会拒绝空笔记内容', async () => {
   assert.equal(result.error, '请先填写笔记内容')
 })
 
+test('createAnnotation 会拒绝同一段落重复创建笔记', async () => {
+  const service = new PaperService()
+  const mutableService = asMutableService(service)
+  const segment = createSegment()
+  const existingNote = createAnnotation(segment)
+  let saveCalled = false
+
+  const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
+  mutableService.getReaderDocument = () => ({ success: true, data: createReaderDocument(segment) })
+  mutableService.resolveAnnotationStore = () => ({ success: true, data: createStore(existingNote) })
+  paperStorageService.saveAnnotationStore = () => {
+    saveCalled = true
+    return { success: true }
+  }
+
+  try {
+    const result = await service.createAnnotation({
+      ...createBasePayload(segment),
+      kind: 'note',
+      comment: '新的重复笔记',
+      colorKey: PAPER_ANNOTATION_NOTE_COLOR_KEY
+    })
+
+    assert.equal(result.success, false)
+    assert.equal(result.error, PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE)
+    assert.equal(saveCalled, false)
+  } finally {
+    paperStorageService.saveAnnotationStore = originalSaveAnnotationStore
+  }
+})
+
+test('createAnnotation 允许普通标记与已有笔记重叠', async () => {
+  const service = new PaperService()
+  const mutableService = asMutableService(service)
+  const segment = createSegment()
+  const existingNote = createAnnotation(segment)
+  let savedStore: PaperAnnotationStore | null = null
+
+  const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
+  mutableService.getReaderDocument = () => ({ success: true, data: createReaderDocument(segment) })
+  mutableService.resolveAnnotationStore = () => ({ success: true, data: createStore(existingNote) })
+  paperStorageService.saveAnnotationStore = (_paperId, store) => {
+    savedStore = structuredClone(store)
+    return { success: true }
+  }
+
+  try {
+    const result = await service.createAnnotation({
+      ...createBasePayload(segment),
+      kind: 'highlight',
+      comment: '普通标记不会保存笔记内容',
+      colorKey: 'blue'
+    })
+
+    assert.equal(result.success, true)
+    assert.equal(result.data?.kind, 'highlight')
+    if (!savedStore) {
+      throw new Error('saveAnnotationStore 未被调用')
+    }
+    const ensuredStore = savedStore as PaperAnnotationStore
+    assert.deepEqual(
+      ensuredStore.annotations.map((annotation) => annotation.kind),
+      ['note', 'highlight']
+    )
+  } finally {
+    paperStorageService.saveAnnotationStore = originalSaveAnnotationStore
+  }
+})
+
 test('updateAnnotation 只允许普通标记修改颜色', async () => {
   const service = new PaperService()
   const mutableService = asMutableService(service)
@@ -572,6 +642,43 @@ test('deleteAnnotation 删除最后一条笔记时会移除论文级笔记资源
   }
 })
 
+test('deleteAnnotation 删除笔记后允许同一段落重新创建笔记', async () => {
+  const service = new PaperService()
+  const mutableService = asMutableService(service)
+  const segment = createSegment()
+  const existingNote = createAnnotation(segment)
+  let store = createStore(existingNote)
+
+  const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
+
+  mutableService.getReaderDocument = () => ({ success: true, data: createReaderDocument(segment) })
+  mutableService.resolveAnnotationStore = () => ({ success: true, data: store })
+  paperStorageService.saveAnnotationStore = (_paperId, nextStore) => {
+    store = structuredClone(nextStore)
+    return { success: true }
+  }
+
+  try {
+    const deleted = await service.deleteAnnotation('paper-1', existingNote.id)
+
+    assert.equal(deleted.success, true)
+    assert.deepEqual(store.annotations, [])
+
+    const recreated = await service.createAnnotation({
+      ...createBasePayload(segment),
+      kind: 'note',
+      comment: '删除后重新创建',
+      colorKey: PAPER_ANNOTATION_NOTE_COLOR_KEY
+    })
+
+    assert.equal(recreated.success, true)
+    assert.equal(recreated.data?.kind, 'note')
+    assert.equal(store.annotations.length, 1)
+  } finally {
+    paperStorageService.saveAnnotationStore = originalSaveAnnotationStore
+  }
+})
+
 test('repairPaperResources 会覆盖失效论文路径、补齐聚合笔记并标记重索引', async () => {
   const paperId = 'paper-repair-resources'
   const changedNoteId = 'annotation-changed'
@@ -744,6 +851,84 @@ test('reanchorAnnotation 会保留普通标记的类型与颜色', async () => {
     }
     const ensuredStore = savedStore as PaperAnnotationStore
     assert.equal(ensuredStore.annotations[0].comment, '')
+  } finally {
+    paperStorageService.readTranslationCache = originalReadTranslationCache
+    paperStorageService.saveAnnotationStore = originalSaveAnnotationStore
+  }
+})
+
+test('reanchorAnnotation 会拒绝把笔记重新绑定到已有其他笔记的段落', async () => {
+  const service = new PaperService()
+  const mutableService = asMutableService(service)
+  const sourceSegment = createSegment()
+  const targetSegment = createSegment({
+    id: 'segment-2',
+    renderId: 'render-2',
+    stableId: 'stable-2',
+    index: 1,
+    originalMarkdown: 'Another segment for notes.',
+    originalText: 'Another segment for notes.',
+    textHash: 'hash-2',
+    sourceRefs: {
+      pageIndexes: [0],
+      blockIndexes: [1],
+      start: { pageIndex: 0, blockIndex: 1 },
+      end: { pageIndex: 0, blockIndex: 1 }
+    }
+  })
+  const currentNote = createAnnotation(sourceSegment, {
+    id: 'annotation-current',
+    kind: 'note'
+  })
+  const existingTargetNote = createAnnotation(targetSegment, {
+    id: 'annotation-target',
+    kind: 'note'
+  })
+  const store = createStore()
+  store.annotations = [currentNote, existingTargetNote]
+  let saveCalled = false
+
+  const originalReadTranslationCache = paperStorageService.readTranslationCache
+  const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
+
+  mutableService.getReaderDocument = () => ({
+    success: true,
+    data: {
+      ...createReaderDocument(sourceSegment),
+      segments: [sourceSegment, targetSegment]
+    }
+  })
+  mutableService.resolveAnnotationStore = () => ({ success: true, data: store })
+  paperStorageService.readTranslationCache = () => ({ success: true, data: undefined })
+  paperStorageService.saveAnnotationStore = () => {
+    saveCalled = true
+    return { success: true }
+  }
+
+  try {
+    const nextAnchor = buildPaperTextAnchor(targetSegment.originalText, 0, 7)
+    const result = await service.reanchorAnnotation({
+      paperId: 'paper-1',
+      annotationId: currentNote.id,
+      kind: 'note',
+      semanticAnchor: {
+        segmentStableId: targetSegment.stableId,
+        renderSegmentIdAtCreation: targetSegment.renderId,
+        sourceRevisionId: targetSegment.sourceRevisionId,
+        segmentTextHash: targetSegment.textHash,
+        sourceRefs: targetSegment.sourceRefs
+      },
+      originalAnchor: nextAnchor,
+      selectedTextSnapshot: nextAnchor.selectedText,
+      contextBefore: nextAnchor.prefixText,
+      contextAfter: nextAnchor.suffixText,
+      comment: '重新绑定内容',
+      colorKey: PAPER_ANNOTATION_NOTE_COLOR_KEY
+    })
+
+    assert.equal(result.success, false)
+    assert.equal(result.error, PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE)
+    assert.equal(saveCalled, false)
   } finally {
     paperStorageService.readTranslationCache = originalReadTranslationCache
     paperStorageService.saveAnnotationStore = originalSaveAnnotationStore

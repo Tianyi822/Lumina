@@ -240,6 +240,41 @@ test('highlight boundary 不会提升已有标记内部的中间选区', () => {
   assert.deepEqual(boundary, { node: text, offset: 4 })
 })
 
+test('highlight range 会跳过 Markdown 列表项周围的空白节点', () => {
+  const listItemText = new FakeText('随机粘贴与上下文线索中断：')
+  const listItem = new FakeElement('li', '', [listItemText])
+  const orderedList = new FakeElement('ol', '', [
+    new FakeText('\n'),
+    listItem,
+    new FakeText('\n')
+  ])
+  const root = new FakeElement('div', '', [new FakeText('\n'), orderedList, new FakeText('\n')])
+
+  const selectedText = `\n${listItemText.textContent}\n`
+  const range = __paperHighlightRendererTestHooks.resolveHighlightRange(root, {
+    id: 'annotation-list-start',
+    startOffset: 0,
+    endOffset: selectedText.length,
+    kind: 'highlight',
+    colorKey: 'blue',
+    anchor: {
+      selectedText,
+      prefixText: '',
+      suffixText: '',
+      startOffset: 1,
+      endOffset: 1 + selectedText.length,
+      normalizedText: listItemText.textContent
+    }
+  })
+
+  assert.ok(range)
+  assert.deepEqual(range.startPoint, { node: listItemText, offset: 0 })
+  assert.deepEqual(range.endPoint, {
+    node: listItemText,
+    offset: listItemText.textContent.length
+  })
+})
+
 test('highlight renderer 会移除没有文本内容的空标记', () => {
   const emptyMark = createMark([])
   const filledMark = createMark([new FakeText('ABCDE')])

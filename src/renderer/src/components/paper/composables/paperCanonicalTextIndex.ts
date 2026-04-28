@@ -275,6 +275,10 @@ export function resolveCanonicalTextPoint(
       continue
     }
 
+    if (affinity === 'start' && offset === segment.endOffset && offset < index.text.length) {
+      continue
+    }
+
     if (segment.kind === 'math') {
       if (offset <= segment.startOffset) {
         return segment.startBoundary
