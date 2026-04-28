@@ -440,7 +440,6 @@ function formatDateTime(value?: string): string {
   <main class="sandbox-main-content">
     <div v-if="!hasSandbox" class="sandbox-empty-state">
       <div class="sm-empty sandbox-empty-card">
-        <span class="sandbox-empty-card__eyebrow">工程控制台</span>
         <h2>选择一个沙箱开始</h2>
         <p>从左侧接管现有环境，或新建一个沙箱以进入容器监控、终端和日志工作流。</p>
       </div>
@@ -602,16 +601,6 @@ function formatDateTime(value?: string): string {
   background: var(--sm-color-surface-2);
   border-style: solid;
 }
-
-.sandbox-empty-card__eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
-}
-
 .sandbox-empty-card h2 {
   margin: 0;
   font-size: 18px;
