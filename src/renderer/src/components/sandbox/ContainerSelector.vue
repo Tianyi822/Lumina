@@ -105,7 +105,7 @@ defineExpose({
 
       <div v-else-if="filteredContainers.length === 0" class="empty-state">
         <p class="empty-title">暂无容器</p>
-        <p class="empty-desc">Docker 中没有发现容器，请使用其他方式创建沙箱</p>
+        <p class="empty-desc">Docker 中没有发现容器，请使用其他方式创建实验室</p>
       </div>
 
       <div

@@ -1,4 +1,4 @@
-.sandbox-creator-overlay {
+.lab-creator-overlay {
   position: fixed;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.5);
@@ -8,7 +8,7 @@
   z-index: 1000;
 }
 
-.sandbox-creator {
+.lab-creator {
   background-color: var(--sm-color-bg-app);
   border: 1px solid var(--sm-color-border-default);
   border-radius: 8px;

@@ -4,7 +4,7 @@ import type { KnowledgeBase, MCPTool } from '@renderer/types'
 import PaperChatMcpToolsPanel from '@renderer/components/paper/chat/input/PaperChatMcpToolsPanel.vue'
 import PaperChatKnowledgeBasePanel from '@renderer/components/paper/chat/input/PaperChatKnowledgeBasePanel.vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
-import SandboxToolsToggle from '@renderer/components/sandbox/SandboxToolsToggle.vue'
+import LabToolsToggle from '@renderer/components/sandbox/LabToolsToggle.vue'
 import { SUPPORTED_DOC_TYPES } from './attachmentUtils'
 
 const props = defineProps<{
@@ -110,7 +110,7 @@ onUnmounted(() => {
       @selection-change="emit('update:selectedKnowledgeBases', $event)"
     />
 
-    <SandboxToolsToggle
+    <LabToolsToggle
       :compact="props.variant === 'compact'"
       :model-value="props.enableSandboxTools"
       :disabled="props.isSending"

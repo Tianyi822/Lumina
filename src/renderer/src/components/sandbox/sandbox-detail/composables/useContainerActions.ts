@@ -31,7 +31,7 @@ export function useContainerActions(
    * 启动容器
    */
   async function handleContainerStart(): Promise<void> {
-    // 如果是 Compose 类型沙箱，使用 composeStart 启动所有容器
+    // 如果是 Compose 类型实验室，使用 composeStart 启动所有容器
     if (
       currentSandbox.value?.creationType === 'compose' &&
       currentSandbox.value.composeProjectName
@@ -65,7 +65,7 @@ export function useContainerActions(
    * 停止容器
    */
   async function handleContainerStop(): Promise<void> {
-    // 如果是 Compose 类型沙箱，使用 composeStop 停止所有容器
+    // 如果是 Compose 类型实验室，使用 composeStop 停止所有容器
     if (
       currentSandbox.value?.creationType === 'compose' &&
       currentSandbox.value.composeProjectName
@@ -108,7 +108,7 @@ export function useContainerActions(
    * 重启容器
    */
   async function handleContainerRestart(): Promise<void> {
-    // 如果是 Compose 类型沙箱，使用 composeRestart 重启所有容器
+    // 如果是 Compose 类型实验室，使用 composeRestart 重启所有容器
     if (
       currentSandbox.value?.creationType === 'compose' &&
       currentSandbox.value.composeProjectName
@@ -178,7 +178,7 @@ export function useContainerActions(
   }
 
   /**
-   * 刷新沙箱状态
+   * 刷新实验室状态
    */
   async function refreshSandboxStatus(): Promise<void> {
     if (!currentSandbox.value) return
@@ -188,7 +188,7 @@ export function useContainerActions(
   }
 
   /**
-   * 刷新当前沙箱状态（包括容器列表和详情）
+   * 刷新当前实验室状态（包括容器列表和详情）
    */
   async function handleRefreshStatus(): Promise<void> {
     if (!currentSandbox.value) return
@@ -203,7 +203,7 @@ export function useContainerActions(
       await containerStore.loadContainerDetails(containerId)
     }
 
-    // 同时刷新沙箱列表以保持同步
+    // 同时刷新实验室列表以保持同步
     await sandboxStore.refreshSandboxList()
     await sandboxStore.loadSandbox(currentSandbox.value.sandboxId, true)
   }

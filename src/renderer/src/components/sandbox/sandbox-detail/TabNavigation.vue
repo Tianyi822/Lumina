@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 沙箱详情 Tab 导航组件
+ * 实验室详情 Tab 导航组件
  */
 import { storeToRefs } from 'pinia'
 import { useUIStateStore } from '@renderer/stores'
@@ -20,7 +20,7 @@ function setDetailTab(tab: TabType): void {
 </script>
 
 <template>
-  <div v-if="visible" class="detail-tabs" role="tablist" aria-label="沙箱详情视图">
+  <div v-if="visible" class="detail-tabs" role="tablist" aria-label="实验室详情视图">
     <button
       class="tab-btn"
       :class="{ 'is-active': sandboxDetailTab === 'stats' }"

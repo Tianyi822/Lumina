@@ -99,10 +99,10 @@ async function handleSaveConfig(name: string): Promise<void> {
 </script>
 
 <template>
-  <div v-if="visible" class="sandbox-creator-overlay" @click.self="close">
-    <div class="sandbox-creator">
+  <div v-if="visible" class="lab-creator-overlay" @click.self="close">
+    <div class="lab-creator">
       <div class="creator-header">
-        <h2>创建新沙箱</h2>
+        <h2>创建新实验室</h2>
         <button class="close-btn" @click="close">×</button>
       </div>
 
@@ -147,12 +147,12 @@ async function handleSaveConfig(name: string): Promise<void> {
 
       <template v-else-if="createType === 'dockerfile'">
         <div class="project-name-section">
-          <label class="form-label">沙箱名称 <span class="required">*</span></label>
+          <label class="form-label">实验室名称 <span class="required">*</span></label>
           <input
             v-model="dockerfileProjectName"
             type="text"
             class="form-input"
-            placeholder="请输入沙箱名称"
+            placeholder="请输入实验室名称"
           />
         </div>
         <DockerfileEditor
@@ -192,5 +192,5 @@ async function handleSaveConfig(name: string): Promise<void> {
 </template>
 
 <style scoped>
-@import './creator/sandbox-creator.css';
+@import './creator/lab-creator.css';
 </style>

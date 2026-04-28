@@ -72,8 +72,8 @@ const formattedDetails = computed(() => {
 
 function formatKey(key: string): string {
   const keyMap: Record<string, string> = {
-    sandbox_id: '沙箱 ID',
-    sandbox_name: '沙箱名称',
+    sandbox_id: '实验室 ID',
+    sandbox_name: '实验室名称',
     container_id: '容器 ID',
     container_name: '容器名称',
     command: '命令',

@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useUIStateStore, useSandboxStore } from '@renderer/stores'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
-import SandboxList from './SandboxList.vue'
+import LabList from './LabList.vue'
 import type { SandboxListItem } from '@shared/types/sandbox'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
@@ -52,10 +52,10 @@ async function handleRefreshList(): Promise<void> {
   if (isRefreshing.value) return
   isRefreshing.value = true
   try {
-    // 刷新沙箱列表
+    // 刷新实验室列表
     await sandboxStore.refreshSandboxList()
 
-    // 如果有选中的沙箱，强制重新加载其容器详情
+    // 如果有选中的实验室，强制重新加载其容器详情
     if (props.activeSandboxId) {
       await sandboxStore.loadSandbox(props.activeSandboxId, true)
     }
@@ -66,11 +66,11 @@ async function handleRefreshList(): Promise<void> {
 </script>
 
 <template>
-  <aside class="sandbox-sidebar sm-sidebar-shell">
+  <aside class="lab-sidebar sm-sidebar-shell">
     <WorkspaceSidebarChrome :count="sandboxs.length">
       <template #actions>
-        <button class="sm-button sm-button--primary new-sandbox-btn" @click="handleNewSandbox">
-          新建沙箱
+        <button class="sm-button sm-button--primary new-lab-btn" @click="handleNewSandbox">
+          创建实验室
         </button>
         <button
           class="sm-button sm-button--secondary manage-config-btn"
@@ -86,10 +86,10 @@ async function handleRefreshList(): Promise<void> {
         v-model="searchQuery"
         type="text"
         class="sm-input search-input"
-        placeholder="搜索沙箱"
+        placeholder="搜索实验室"
       />
       <button
-        class="sm-icon-button sm-sandbox-sidebar__refresh-button"
+        class="sm-icon-button sm-lab-sidebar__refresh-button"
         title="刷新列表"
         :disabled="isRefreshing"
         @click="handleRefreshList"
@@ -99,7 +99,7 @@ async function handleRefreshList(): Promise<void> {
     </div>
 
     <div class="sm-sidebar-shell__body sm-sidebar-shell__body--flush">
-      <SandboxList
+      <LabList
         :sandboxs="filteredSandboxs"
         :active-sandbox-id="activeSandboxId"
         :deleting-sandbox-id="deletingSandboxId"
@@ -111,11 +111,11 @@ async function handleRefreshList(): Promise<void> {
 </template>
 
 <style scoped>
-.sandbox-sidebar {
+.lab-sidebar {
   min-height: 0;
 }
 
-.new-sandbox-btn,
+.new-lab-btn,
 .manage-config-btn {
   width: 100%;
   min-height: 36px;
@@ -131,7 +131,7 @@ async function handleRefreshList(): Promise<void> {
   flex: 1;
 }
 
-.sm-sandbox-sidebar__refresh-button {
+.sm-lab-sidebar__refresh-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -147,18 +147,18 @@ async function handleRefreshList(): Promise<void> {
   flex-shrink: 0;
 }
 
-.sm-sandbox-sidebar__refresh-button:hover:not(:disabled) {
+.sm-lab-sidebar__refresh-button:hover:not(:disabled) {
   background-color: var(--sm-color-surface-hover);
   border-color: var(--sm-color-border-strong);
   color: var(--sm-color-text-primary);
 }
 
-.sm-sandbox-sidebar__refresh-button:disabled {
+.sm-lab-sidebar__refresh-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.sm-sandbox-sidebar__refresh-button svg {
+.sm-lab-sidebar__refresh-button svg {
   display: block;
 }
 </style>

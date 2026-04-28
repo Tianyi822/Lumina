@@ -6,7 +6,7 @@ import { useNotification } from '@renderer/composables/useNotification'
 import TerminalPanel from './TerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
-import OrphanSandboxAlert from './OrphanSandboxAlert.vue'
+import OrphanLabAlert from './OrphanLabAlert.vue'
 import { TabNavigation } from './sandbox-detail'
 import {
   useContainerLogs as useContainerLogsComposable,
@@ -363,7 +363,7 @@ async function handleViewLogs(): Promise<void> {
 }
 
 /**
- * 删除沙箱 - 弹出确认对话框
+ * 删除实验室 - 弹出确认对话框
  */
 function handleDeleteSandbox(): void {
   if (props.currentSandbox) {
@@ -371,7 +371,7 @@ function handleDeleteSandbox(): void {
   }
 }
 
-// ==================== 孤儿沙箱操作 ====================
+// ==================== 孤儿实验室操作 ====================
 
 async function handleRecoverOrphan(): Promise<void> {
   if (props.currentSandbox?.frontend) {
@@ -381,7 +381,7 @@ async function handleRecoverOrphan(): Promise<void> {
 
   notify.warning(
     '暂不支持自动恢复',
-    '当前只有前端沙箱支持基于持久化工作区自动重建容器。其他类型请手动恢复容器后重新关联。',
+    '当前只有前端实验室支持基于持久化工作区自动重建容器。其他类型请手动恢复容器后重新关联。',
     { source: 'sandbox' }
   )
 }
@@ -419,7 +419,7 @@ async function handleRebuildFrontendRuntime(): Promise<void> {
 }
 
 function handleCloseOrphanAlert(): void {
-  window.api.logger.info('[SandboxMainContent] 用户关闭孤儿沙箱提示')
+  window.api.logger.info('[SandboxMainContent] 用户关闭孤儿实验室提示')
 }
 
 function formatDateTime(value?: string): string {
@@ -437,11 +437,11 @@ function formatDateTime(value?: string): string {
 </script>
 
 <template>
-  <main class="sandbox-main-content">
-    <div v-if="!hasSandbox" class="sandbox-empty-state">
-      <div class="sm-empty sandbox-empty-card">
-        <h2>选择一个沙箱开始</h2>
-        <p>从左侧接管现有环境，或新建一个沙箱以进入容器监控、终端和日志工作流。</p>
+  <main class="lab-main-content">
+    <div v-if="!hasSandbox" class="lab-empty-state">
+      <div class="sm-empty lab-empty-card">
+        <h2>选择一个实验室开始</h2>
+        <p>从左侧接管现有环境，或创建一个实验室以进入容器监控、终端和日志工作流。</p>
       </div>
     </div>
 
@@ -461,7 +461,7 @@ function formatDateTime(value?: string): string {
 
           <div class="workspace-header__submeta">
             <span>
-              沙箱 ID
+              实验室 ID
               <code>{{ currentSandbox?.sandboxId }}</code>
             </span>
             <span>最近更新 {{ formatDateTime(currentSandbox?.updatedAt) }}</span>
@@ -472,7 +472,7 @@ function formatDateTime(value?: string): string {
       </header>
 
       <div class="content-body">
-        <OrphanSandboxAlert
+        <OrphanLabAlert
           :visible="isOrphan"
           :sandbox="currentSandbox"
           :is-reloading="isRebuildingFrontend"
@@ -579,7 +579,7 @@ function formatDateTime(value?: string): string {
 </template>
 
 <style scoped>
-.sandbox-main-content {
+.lab-main-content {
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -588,7 +588,7 @@ function formatDateTime(value?: string): string {
   overflow: hidden;
 }
 
-.sandbox-empty-state {
+.lab-empty-state {
   flex: 1;
   display: flex;
   align-items: center;
@@ -596,18 +596,18 @@ function formatDateTime(value?: string): string {
   padding: var(--sm-space-6);
 }
 
-.sandbox-empty-card {
+.lab-empty-card {
   width: min(520px, 100%);
   background: var(--sm-color-surface-2);
   border-style: solid;
 }
-.sandbox-empty-card h2 {
+.lab-empty-card h2 {
   margin: 0;
   font-size: 18px;
   color: var(--sm-color-text-primary);
 }
 
-.sandbox-empty-card p {
+.lab-empty-card p {
   margin: 0;
   max-width: 420px;
   line-height: 1.6;

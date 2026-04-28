@@ -74,7 +74,7 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
   const createPhaseText = computed(() => {
     switch (creatorStore.createPhase) {
       case 'metadata':
-        return '创建沙箱元数据...'
+        return '创建实验室元数据...'
       case 'building':
         return '构建容器镜像...'
       case 'starting':
@@ -121,7 +121,7 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
         })
 
         if (result?.success && result.sandbox?.sandboxId) {
-          // 加载新创建的沙箱
+          // 加载新创建的实验室
           await sandboxStore.loadSandbox(result.sandbox.sandboxId)
           uiStateStore.setSandboxDetailTab('stats')
           options.closeDialog()
@@ -131,7 +131,7 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
       case 'dockerfile': {
         const result = await creatorStore.createFromDockerfile()
         if (result?.success && result.sandbox?.sandboxId) {
-          // 加载新创建的沙箱
+          // 加载新创建的实验室
           await sandboxStore.loadSandbox(result.sandbox.sandboxId)
           uiStateStore.setSandboxDetailTab('stats')
           options.closeDialog()

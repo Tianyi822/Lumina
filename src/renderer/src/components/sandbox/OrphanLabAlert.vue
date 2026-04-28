@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
-// 沙箱项接口
+// 实验室项接口
 interface SandboxItem {
   sandboxId: string
   name: string
@@ -73,7 +73,7 @@ function handleCleanup(): void {
           <span class="alert-eyebrow">运行异常</span>
           <h4>容器已丢失</h4>
           <p>
-            沙箱「{{ sandbox?.name }}」关联的容器不再可用。这通常意味着容器被手动删除，或 Docker
+            实验室「{{ sandbox?.name }}」关联的容器不再可用。这通常意味着容器被手动删除，或 Docker
             服务在重启后未恢复到原状态。
           </p>
 
@@ -98,7 +98,7 @@ function handleCleanup(): void {
             <span v-else>{{ recoverLabel || '重新关联容器' }}</span>
           </button>
           <button class="btn-danger" :disabled="isReloading" @click="handleCleanup">
-            清理沙箱
+            清理实验室
           </button>
           <button class="btn-secondary" :disabled="isReloading" @click="handleClose">
             暂时忽略

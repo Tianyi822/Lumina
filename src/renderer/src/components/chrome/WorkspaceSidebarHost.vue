@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
-import SandboxList from '@renderer/components/sandbox/SandboxList.vue'
+import LabList from '@renderer/components/sandbox/LabList.vue'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
 import PaperSidebar from '@renderer/components/paper/PaperSidebar.vue'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
@@ -269,7 +269,7 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
               class="sm-button sm-button--primary sm-workspace-sidebar-host__action"
               @click="handleOpenSandboxCreator"
             >
-              新建沙箱
+              创建实验室
             </button>
             <button
               class="sm-button sm-button--secondary sm-workspace-sidebar-host__action"
@@ -307,12 +307,12 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
               </template>
 
               <template v-else>
-                <div class="sm-workspace-sidebar-host__search--sandbox">
+                <div class="sm-workspace-sidebar-host__search--lab">
                   <input
                     v-model="sandboxSearchQuery"
                     type="text"
                     class="sm-input"
-                    placeholder="搜索沙箱"
+                    placeholder="搜索实验室"
                   />
                   <button
                     class="sm-icon-button sm-workspace-sidebar-host__refresh-button"
@@ -407,7 +407,7 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
               </template>
 
               <template v-else>
-                <SandboxList
+                <LabList
                   :sandboxs="filteredSandboxs"
                   :active-sandbox-id="currentSandbox?.sandboxId"
                   :deleting-sandbox-id="deletingSandboxId"
@@ -454,14 +454,14 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
   display: flex;
 }
 
-.sm-workspace-sidebar-host__search--sandbox {
+.sm-workspace-sidebar-host__search--lab {
   display: flex;
   width: 100%;
   gap: 8px;
   align-items: center;
 }
 
-.sm-workspace-sidebar-host__search--sandbox .sm-input {
+.sm-workspace-sidebar-host__search--lab .sm-input {
   flex: 1;
   min-width: 0;
 }

@@ -156,7 +156,7 @@ function formatDate(dateStr: string): string {
             <h2>Docker 模板资产</h2>
             <span class="sm-badge">{{ currentConfigs.length }}</span>
           </div>
-          <p>统一维护 Dockerfile 与 Compose 模板，供沙箱创建流程复用。</p>
+          <p>统一维护 Dockerfile 与 Compose 模板，供实验室创建流程复用。</p>
         </div>
         <button class="sm-button sm-button--secondary sm-button--small" @click="close">关闭</button>
       </div>

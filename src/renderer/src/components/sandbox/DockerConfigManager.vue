@@ -158,7 +158,7 @@ function formatDate(dateString: string): string {
           <div v-if="activeTab === 'dockerfile'" class="config-list">
             <div v-if="dockerfileConfigs.length === 0" class="empty-state">
               <p class="empty-title">暂无 Dockerfile 配置</p>
-              <p class="empty-desc">在创建沙箱时保存的 Dockerfile 配置会显示在这里</p>
+              <p class="empty-desc">在创建实验室时保存的 Dockerfile 配置会显示在这里</p>
             </div>
             <div v-for="config in dockerfileConfigs" :key="config.id" class="config-card">
               <div class="config-info">
@@ -181,7 +181,7 @@ function formatDate(dateString: string): string {
           <div v-else class="config-list">
             <div v-if="composeConfigs.length === 0" class="empty-state">
               <p class="empty-title">暂无 Compose 配置</p>
-              <p class="empty-desc">在创建沙箱时保存的 Compose 配置会显示在这里</p>
+              <p class="empty-desc">在创建实验室时保存的 Compose 配置会显示在这里</p>
             </div>
             <div v-for="config in composeConfigs" :key="config.id" class="config-card">
               <div class="config-info">

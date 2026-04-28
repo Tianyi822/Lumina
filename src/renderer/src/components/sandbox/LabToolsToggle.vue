@@ -39,19 +39,19 @@ onMounted(() => {
 
 <template>
   <div
-    class="sandbox-tools-toggle"
+    class="lab-tools-toggle"
     :class="{ enabled: isEnabled, disabled: disabled, 'is-compact': props.compact }"
     @click="toggle"
   >
     <div class="toggle-switch">
       <div class="toggle-thumb"></div>
     </div>
-    <span class="toggle-label">沙箱</span>
+    <span class="toggle-label">实验室</span>
   </div>
 </template>
 
 <style scoped>
-.sandbox-tools-toggle {
+.lab-tools-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -68,37 +68,37 @@ onMounted(() => {
   user-select: none;
 }
 
-.sandbox-tools-toggle.is-compact {
+.lab-tools-toggle.is-compact {
   min-height: 32px;
   padding: 6px 10px;
   gap: 6px;
 }
 
-.sandbox-tools-toggle.is-compact .toggle-switch {
+.lab-tools-toggle.is-compact .toggle-switch {
   width: 28px;
   height: 16px;
 }
 
-.sandbox-tools-toggle.is-compact .toggle-thumb {
+.lab-tools-toggle.is-compact .toggle-thumb {
   width: 12px;
   height: 12px;
 }
 
-.sandbox-tools-toggle.is-compact.enabled .toggle-thumb {
+.lab-tools-toggle.is-compact.enabled .toggle-thumb {
   transform: translateX(12px);
 }
 
-.sandbox-tools-toggle:hover:not(.disabled) {
+.lab-tools-toggle:hover:not(.disabled) {
   border-color: var(--sm-color-border-strong);
   background-color: var(--sm-color-surface-hover);
 }
 
-.sandbox-tools-toggle.enabled {
+.lab-tools-toggle.enabled {
   border-color: var(--sm-color-border-accent);
   background-color: var(--sm-color-accent-08);
 }
 
-.sandbox-tools-toggle.disabled {
+.lab-tools-toggle.disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -112,7 +112,7 @@ onMounted(() => {
   transition: background-color 0.2s ease;
 }
 
-.sandbox-tools-toggle.enabled .toggle-switch {
+.lab-tools-toggle.enabled .toggle-switch {
   background-color: var(--sm-color-accent);
 }
 
@@ -131,7 +131,7 @@ onMounted(() => {
   color: var(--sm-color-text-secondary);
 }
 
-.sandbox-tools-toggle.enabled .toggle-thumb {
+.lab-tools-toggle.enabled .toggle-thumb {
   transform: translateX(16px);
   color: var(--sm-color-accent-hover);
 }

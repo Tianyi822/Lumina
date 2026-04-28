@@ -223,7 +223,7 @@ function handleViewLogs(containerId: string): void {
             :disabled="container.state !== 'running'"
             @click.stop="handleSelectAsSandbox(container.id)"
           >
-            选择作为沙箱
+            选择作为实验室
           </button>
           <button
             class="action-btn"
