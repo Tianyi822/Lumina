@@ -606,8 +606,8 @@ export interface ReanchorPaperAnnotationPayload {
   semanticAnchor: PaperAnnotationSemanticAnchor
   /** 原文文本锚点 */
   originalAnchor?: PaperAnnotationTextAnchor
-  /** 译文辅助锚点 */
-  translationAnchor?: PaperAnnotationTranslationAnchor
+  /** 译文辅助锚点；传入 null 表示手动重绑到原文并清除旧译文锚点 */
+  translationAnchor?: PaperAnnotationTranslationAnchor | null
   /** 选中文本快照 */
   selectedTextSnapshot: string
   /** 前文快照 */
