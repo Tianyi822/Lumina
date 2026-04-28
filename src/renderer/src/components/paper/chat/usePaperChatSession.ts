@@ -135,27 +135,21 @@ export function usePaperChatSession(
     error.value = ''
 
     try {
-      if (currentPaper.chatSessionId) {
-        const existingSession = await window.api.session.load(currentPaper.chatSessionId)
-        if (existingSession) {
-          applySessionData(existingSession)
-          return existingSession
-        }
+      const sessionResult = await paperReaderStore.ensurePaperChatSession(currentPaper.id)
+      const ensuredSessionId = sessionResult.data
+      if (!sessionResult.success || !ensuredSessionId) {
+        error.value = sessionResult.error || '创建论文聊天会话失败'
+        return null
       }
 
-      const title = `论文对话：${currentPaper.fileName}`
-      const createdSession = await window.api.session.create(title, 'paper')
-      const bindResult = await paperReaderStore.setPaperChatSession(
-        currentPaper.id,
-        createdSession.sessionId
-      )
-
-      if (!bindResult.success) {
-        error.value = bindResult.error || '绑定论文聊天会话失败'
+      const ensuredSession = await window.api.session.load(ensuredSessionId)
+      if (!ensuredSession) {
+        error.value = '加载论文聊天会话失败'
+        return null
       }
 
-      applySessionData(createdSession)
-      return createdSession
+      applySessionData(ensuredSession)
+      return ensuredSession
     } catch (caught) {
       error.value = caught instanceof Error ? caught.message : String(caught)
       return null
