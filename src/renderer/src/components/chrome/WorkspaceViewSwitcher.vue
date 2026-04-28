@@ -37,7 +37,7 @@ async function switchView(view: ViewMode): Promise<void> {
       :aria-selected="isSandboxView"
       @click="switchView('sandbox')"
     >
-      沙箱
+      实验室
     </button>
   </div>
 </template>

@@ -19,7 +19,7 @@ import {
 // 视图类型
 export type ViewMode = 'paper' | 'knowledge' | 'sandbox'
 
-// 沙箱详情 Tab 类型
+// 实验室详情 Tab 类型
 export type SandboxDetailTab = 'stats' | 'terminal' | 'logs'
 
 /**
@@ -78,7 +78,7 @@ export const useUIStateStore = defineStore(
   () => {
     // ==================== State: 基础 UI ====================
 
-    // 沙箱侧边栏是否折叠
+    // 实验室侧边栏是否折叠
     const sandboxSidebarCollapsed = ref(false)
 
     // 知识库侧边栏是否折叠
@@ -94,15 +94,15 @@ export const useUIStateStore = defineStore(
     // 当前视图模式
     const currentView = ref<ViewMode>('paper')
 
-    // ==================== State: 沙箱页面 UI ====================
+    // ==================== State: 实验室页面 UI ====================
 
-    // 沙箱详情当前 Tab
+    // 实验室详情当前 Tab
     const sandboxDetailTab = ref<SandboxDetailTab>('stats')
 
-    // 上次选中的沙箱 ID（持久化，用于恢复上次浏览状态）
+    // 上次选中的实验室 ID（持久化，用于恢复上次浏览状态）
     const lastSandboxId = ref<string | null>(null)
 
-    // 是否显示创建沙箱弹窗
+    // 是否显示创建实验室弹窗
     const showSandboxCreator = ref(false)
 
     // 是否显示配置管理器弹窗
@@ -145,13 +145,13 @@ export const useUIStateStore = defineStore(
     // 是否在知识库视图
     const isKnowledgeView = computed(() => currentView.value === 'knowledge')
 
-    // 是否在沙箱视图
+    // 是否在实验室视图
     const isSandboxView = computed(() => currentView.value === 'sandbox')
 
     // 是否在论文视图
     const isPaperView = computed(() => currentView.value === 'paper')
 
-    // 只有论文页允许折叠侧边栏，知识库和沙箱页始终展开。
+    // 只有论文页允许折叠侧边栏，知识库和实验室页始终展开。
     const isCurrentSidebarCollapsed = computed(() => {
       return currentView.value === 'paper' && paperSidebarCollapsed.value
     })
@@ -165,15 +165,15 @@ export const useUIStateStore = defineStore(
 
     // ==================== Actions: 侧边栏 ====================
 
-    // 切换沙箱侧边栏状态
+    // 切换实验室侧边栏状态
     function toggleSandboxSidebar(): void {
       sandboxSidebarCollapsed.value = !sandboxSidebarCollapsed.value
-      window.api.logger.debug('[UIStateStore] 切换沙箱侧边栏', {
+      window.api.logger.debug('[UIStateStore] 切换实验室侧边栏', {
         collapsed: sandboxSidebarCollapsed.value
       })
     }
 
-    // 设置沙箱侧边栏折叠状态
+    // 设置实验室侧边栏折叠状态
     function setSandboxSidebarCollapsed(collapsed: boolean): void {
       sandboxSidebarCollapsed.value = collapsed
     }
@@ -232,20 +232,20 @@ export const useUIStateStore = defineStore(
       setPaperSidebarCollapsed(collapsed)
     }
 
-    // ==================== Actions: 沙箱页面 UI ====================
+    // ==================== Actions: 实验室页面 UI ====================
 
-    // 设置沙箱详情当前 Tab
+    // 设置实验室详情当前 Tab
     function setSandboxDetailTab(tab: SandboxDetailTab): void {
       sandboxDetailTab.value = tab
-      window.api.logger.debug('[UIStateStore] 切换沙箱详情 Tab', { tab })
+      window.api.logger.debug('[UIStateStore] 切换实验室详情 Tab', { tab })
     }
 
-    // 打开创建沙箱弹窗
+    // 打开创建实验室弹窗
     function openSandboxCreator(): void {
       showSandboxCreator.value = true
     }
 
-    // 关闭创建沙箱弹窗
+    // 关闭创建实验室弹窗
     function closeSandboxCreator(): void {
       showSandboxCreator.value = false
     }
@@ -279,11 +279,11 @@ export const useUIStateStore = defineStore(
       window.api.logger.info('[UIStateStore] 切换到知识库视图')
     }
 
-    // 切换到沙箱视图
+    // 切换到实验室视图
     async function switchToSandboxView(): Promise<void> {
       sandboxSidebarCollapsed.value = false
       currentView.value = 'sandbox'
-      window.api.logger.info('[UIStateStore] 切换到沙箱视图')
+      window.api.logger.info('[UIStateStore] 切换到实验室视图')
     }
 
     // 切换到论文视图
@@ -517,7 +517,7 @@ export const useUIStateStore = defineStore(
       lastPaperId,
       currentView,
 
-      // State: 沙箱页面 UI
+      // State: 实验室页面 UI
       sandboxDetailTab,
       lastSandboxId,
       showSandboxCreator,
@@ -555,7 +555,7 @@ export const useUIStateStore = defineStore(
       toggleCurrentSidebar,
       setCurrentSidebarCollapsed,
 
-      // Actions: 沙箱页面 UI
+      // Actions: 实验室页面 UI
       setSandboxDetailTab,
       openSandboxCreator,
       closeSandboxCreator,

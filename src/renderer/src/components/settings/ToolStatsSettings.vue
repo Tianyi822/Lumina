@@ -82,7 +82,7 @@ function setCategory(category: CategoryFilter): void {
               :class="{ 'is-active': categoryFilter === 'sandbox' }"
               @click="setCategory('sandbox')"
             >
-              沙箱
+              实验室
             </button>
             <button
               :class="{ 'is-active': categoryFilter === 'knowledge' }"

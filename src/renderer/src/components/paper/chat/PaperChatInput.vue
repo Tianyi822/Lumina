@@ -163,7 +163,7 @@ function updateSelectedKnowledgeBases(kbs: KnowledgeBase[]): void {
 function updateEnableSandboxTools(enabled: boolean): void {
   localEnableSandboxTools.value = enabled
   emit('update:enableSandboxTools', enabled)
-  window.api.logger.debug('[PaperChatInput] 沙箱工具开关状态变更', { enabled })
+  window.api.logger.debug('[PaperChatInput] 实验室工具开关状态变更', { enabled })
 }
 
 function buildPaperChatAttachedDocuments(): AttachedDocument[] {

@@ -3,8 +3,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSandboxStore, useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
-import SandboxMainContent from '@renderer/components/sandbox/SandboxMainContent.vue'
-import SandboxCreator from '@renderer/components/sandbox/SandboxCreator.vue'
+import LabMainContent from '@renderer/components/sandbox/LabMainContent.vue'
+import LabCreator from '@renderer/components/sandbox/LabCreator.vue'
 import ConfigManager from '@renderer/components/sandbox/ConfigManager.vue'
 import DeleteConfirmDialog from '@renderer/components/sandbox/DeleteConfirmDialog.vue'
 import type { PlatformType, DockerCheckResult } from '@shared/types/sandbox'
@@ -130,7 +130,7 @@ const handleCloseConfigManager = (): void => {
   uiStateStore.closeConfigManager()
 }
 
-// ==================== 持久化选中沙箱 ====================
+// ==================== 持久化选中实验室 ====================
 
 watch(currentSandboxId, (id) => {
   uiStateStore.setLastSandboxId(id ?? null)
@@ -152,23 +152,23 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="sm-sandbox-page sm-workspace-view">
+  <div class="sm-lab-page sm-workspace-view">
     <div
       v-if="loading"
-      class="sm-sandbox-page__loading"
+      class="sm-lab-page__loading"
       role="status"
       aria-live="polite"
       aria-busy="true"
     >
-      <div class="sm-spinner sm-spinner--large sm-sandbox-page__loading-spinner"></div>
+      <div class="sm-spinner sm-spinner--large sm-lab-page__loading-spinner"></div>
       <p>正在检测 Docker...</p>
     </div>
 
     <template v-else-if="dockerStatus?.installed">
-      <SandboxMainContent :current-sandbox="currentSandbox" />
+      <LabMainContent :current-sandbox="currentSandbox" />
 
-      <!-- 创建沙箱弹窗 -->
-      <SandboxCreator :visible="showSandboxCreator" @close="handleCloseCreator" />
+      <!-- 创建实验室弹窗 -->
+      <LabCreator :visible="showSandboxCreator" @close="handleCloseCreator" />
 
       <!-- 配置管理弹窗 -->
       <ConfigManager :visible="showConfigManager" @close="handleCloseConfigManager" />
@@ -196,42 +196,42 @@ onMounted(async () => {
       />
     </template>
 
-    <div v-else class="sm-sandbox-install">
-      <div class="sm-sandbox-install__shell">
-        <section class="sm-sandbox-install__overview">
-          <div class="sm-sandbox-install__copy">
-            <span class="sm-sandbox-install__eyebrow">运行依赖</span>
-            <div class="sm-sandbox-install__headline">
-              <div class="sm-sandbox-install__titles">
+    <div v-else class="sm-lab-install">
+      <div class="sm-lab-install__shell">
+        <section class="sm-lab-install__overview">
+          <div class="sm-lab-install__copy">
+            <span class="sm-lab-install__eyebrow">运行依赖</span>
+            <div class="sm-lab-install__headline">
+              <div class="sm-lab-install__titles">
                 <h1>Docker 未就绪</h1>
                 <p class="subtitle">
-                  沙箱工作区依赖本机 Docker 运行时。安装并启动服务后，
+                  实验室工作区依赖本机 Docker 运行时。安装并启动服务后，
                   返回这里重新检测即可进入工程控制台。
                 </p>
               </div>
-              <span class="sm-badge sm-sandbox-install__platform">{{ currentPlatformLabel }}</span>
+              <span class="sm-badge sm-lab-install__platform">{{ currentPlatformLabel }}</span>
             </div>
           </div>
 
-          <div class="sm-sandbox-install__cards">
-            <div class="sm-sandbox-status-card">
-              <span class="sm-sandbox-status-card__label">当前状态</span>
+          <div class="sm-lab-install__cards">
+            <div class="sm-lab-status-card">
+              <span class="sm-lab-status-card__label">当前状态</span>
               <strong>未检测到 Docker</strong>
-              <p>应用尚未发现可用的 Docker 运行时，因此沙箱、终端和日志能力均不可用。</p>
+              <p>应用尚未发现可用的 Docker 运行时，因此实验室、终端和日志能力均不可用。</p>
             </div>
-            <div class="sm-sandbox-status-card">
-              <span class="sm-sandbox-status-card__label">推荐通道</span>
+            <div class="sm-lab-status-card">
+              <span class="sm-lab-status-card__label">推荐通道</span>
               <strong>{{ recommendedChannelLabel }}</strong>
               <p>优先使用与你当前平台匹配的官方安装方式，完成后保持 Docker 服务处于运行状态。</p>
             </div>
-            <div class="sm-sandbox-status-card">
-              <span class="sm-sandbox-status-card__label">完成后动作</span>
+            <div class="sm-lab-status-card">
+              <span class="sm-lab-status-card__label">完成后动作</span>
               <strong>返回并重新检测</strong>
-              <p>安装完成后无需重启应用，重新检测即可验证运行时状态并恢复沙箱工作区。</p>
+              <p>安装完成后无需重启应用，重新检测即可验证运行时状态并恢复实验室工作区。</p>
             </div>
           </div>
 
-          <div class="sm-sandbox-install__actions">
+          <div class="sm-lab-install__actions">
             <button class="sm-button sm-button--primary" @click="openDockerWebsite">
               前往 Docker 官网
             </button>
@@ -239,26 +239,26 @@ onMounted(async () => {
           </div>
         </section>
 
-        <section v-if="filteredCommands.length > 0" class="sm-sandbox-install__panel">
-          <div class="sm-sandbox-install__panel-header">
+        <section v-if="filteredCommands.length > 0" class="sm-lab-install__panel">
+          <div class="sm-lab-install__panel-header">
             <div>
-              <span class="sm-sandbox-install__eyebrow">推荐命令</span>
+              <span class="sm-lab-install__eyebrow">推荐命令</span>
               <h3>当前平台安装方式</h3>
             </div>
             <span class="sm-badge">{{ currentPlatformLabel }}</span>
           </div>
 
-          <div class="sm-sandbox-command-list">
+          <div class="sm-lab-command-list">
             <div
               v-for="(cmd, index) in filteredCommands"
               :key="index"
-              class="sm-sandbox-command-item is-recommended"
+              class="sm-lab-command-item is-recommended"
             >
-              <span class="sm-sandbox-command-item__label">{{ cmd.label }}</span>
-              <div class="sm-sandbox-command-item__content">
+              <span class="sm-lab-command-item__label">{{ cmd.label }}</span>
+              <div class="sm-lab-command-item__content">
                 <code>{{ cmd.cmd }}</code>
                 <button
-                  class="sm-button sm-button--secondary sm-button--small sm-sandbox-copy-button"
+                  class="sm-button sm-button--secondary sm-button--small sm-lab-copy-button"
                   :class="{ 'is-copied': copiedIndex === index }"
                   @click="copyCommand(cmd.cmd, index)"
                 >
@@ -271,26 +271,26 @@ onMounted(async () => {
 
         <section
           v-if="otherCommands.length > 0"
-          class="sm-sandbox-install__panel sm-sandbox-install__panel--muted"
+          class="sm-lab-install__panel sm-lab-install__panel--muted"
         >
-          <div class="sm-sandbox-install__panel-header">
+          <div class="sm-lab-install__panel-header">
             <div>
-              <span class="sm-sandbox-install__eyebrow">备用通道</span>
+              <span class="sm-lab-install__eyebrow">备用通道</span>
               <h3>其他平台安装方式</h3>
             </div>
           </div>
 
-          <div class="sm-sandbox-command-list">
+          <div class="sm-lab-command-list">
             <div
               v-for="(cmd, index) in otherCommands"
               :key="`other-${index}`"
-              class="sm-sandbox-command-item"
+              class="sm-lab-command-item"
             >
-              <span class="sm-sandbox-command-item__label">{{ cmd.label }}</span>
-              <div class="sm-sandbox-command-item__content">
+              <span class="sm-lab-command-item__label">{{ cmd.label }}</span>
+              <div class="sm-lab-command-item__content">
                 <code>{{ cmd.cmd }}</code>
                 <button
-                  class="sm-button sm-button--secondary sm-button--small sm-sandbox-copy-button"
+                  class="sm-button sm-button--secondary sm-button--small sm-lab-copy-button"
                   :class="{ 'is-copied': copiedIndex === index + 100 }"
                   @click="copyCommand(cmd.cmd, index + 100)"
                 >
@@ -308,12 +308,12 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.sm-sandbox-page {
+.sm-lab-page {
   display: flex;
   flex-direction: column;
 }
 
-.sm-sandbox-page__loading {
+.sm-lab-page__loading {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -326,11 +326,11 @@ onMounted(async () => {
   color: var(--sm-color-text-secondary);
 }
 
-.sm-sandbox-page__loading-spinner {
+.sm-lab-page__loading-spinner {
   color: var(--sm-color-accent-hover);
 }
 
-.sm-sandbox-install {
+.sm-lab-install {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -341,7 +341,7 @@ onMounted(async () => {
   overflow-y: auto;
 }
 
-.sm-sandbox-install__shell {
+.sm-lab-install__shell {
   width: min(960px, 100%);
   display: flex;
   flex-direction: column;
@@ -350,8 +350,8 @@ onMounted(async () => {
   margin: 0 auto;
 }
 
-.sm-sandbox-install__overview,
-.sm-sandbox-install__panel {
+.sm-lab-install__overview,
+.sm-lab-install__panel {
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-4);
@@ -361,14 +361,14 @@ onMounted(async () => {
   background: var(--sm-color-surface-2);
 }
 
-.sm-sandbox-install__copy,
-.sm-sandbox-install__titles {
+.sm-lab-install__copy,
+.sm-lab-install__titles {
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-3);
 }
 
-.sm-sandbox-install__eyebrow {
+.sm-lab-install__eyebrow {
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
@@ -377,26 +377,26 @@ onMounted(async () => {
   color: var(--sm-color-text-tertiary);
 }
 
-.sm-sandbox-install__headline,
-.sm-sandbox-install__panel-header {
+.sm-lab-install__headline,
+.sm-lab-install__panel-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--sm-space-4);
 }
 
-.sm-sandbox-install__titles h1,
-.sm-sandbox-install__panel-header h3 {
+.sm-lab-install__titles h1,
+.sm-lab-install__panel-header h3 {
   margin: 0;
   color: var(--sm-color-text-primary);
 }
 
-.sm-sandbox-install__titles h1 {
+.sm-lab-install__titles h1 {
   font-size: 20px;
   line-height: 1.2;
 }
 
-.sm-sandbox-install__panel-header h3 {
+.sm-lab-install__panel-header h3 {
   font-size: 16px;
   line-height: 1.3;
 }
@@ -409,17 +409,17 @@ onMounted(async () => {
   max-width: 620px;
 }
 
-.sm-sandbox-install__platform {
+.sm-lab-install__platform {
   flex-shrink: 0;
 }
 
-.sm-sandbox-install__cards {
+.sm-lab-install__cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--sm-space-4);
 }
 
-.sm-sandbox-status-card {
+.sm-lab-status-card {
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-2);
@@ -429,7 +429,7 @@ onMounted(async () => {
   background: var(--sm-color-surface-1);
 }
 
-.sm-sandbox-status-card__label {
+.sm-lab-status-card__label {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -437,36 +437,36 @@ onMounted(async () => {
   color: var(--sm-color-text-tertiary);
 }
 
-.sm-sandbox-status-card strong {
+.sm-lab-status-card strong {
   font-size: 15px;
   font-weight: 600;
   color: var(--sm-color-text-primary);
 }
 
-.sm-sandbox-status-card p {
+.sm-lab-status-card p {
   margin: 0;
   font-size: 13px;
   line-height: 1.6;
   color: var(--sm-color-text-secondary);
 }
 
-.sm-sandbox-install__actions {
+.sm-lab-install__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sm-space-3);
 }
 
-.sm-sandbox-install__panel--muted {
+.sm-lab-install__panel--muted {
   background: var(--sm-color-surface-1);
 }
 
-.sm-sandbox-command-list {
+.sm-lab-command-list {
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-3);
 }
 
-.sm-sandbox-command-item {
+.sm-lab-command-item {
   background-color: var(--sm-color-surface-1);
   border: 1px solid var(--sm-color-border-subtle);
   border-radius: var(--sm-radius-md);
@@ -476,21 +476,21 @@ onMounted(async () => {
     background-color var(--sm-transition-fast);
 }
 
-.sm-sandbox-command-item.is-recommended {
+.sm-lab-command-item.is-recommended {
   border-color: var(--sm-color-border-accent);
   background-color: var(--sm-color-accent-08);
 }
 
-.sm-sandbox-command-item:hover {
+.sm-lab-command-item:hover {
   background: var(--sm-color-surface-hover);
   border-color: var(--sm-color-border-strong);
 }
 
-.sm-sandbox-command-item.is-recommended:hover {
+.sm-lab-command-item.is-recommended:hover {
   border-color: var(--sm-color-border-accent);
 }
 
-.sm-sandbox-command-item__label {
+.sm-lab-command-item__label {
   display: block;
   font-size: 12px;
   font-weight: 500;
@@ -498,14 +498,14 @@ onMounted(async () => {
   margin-bottom: var(--sm-space-2);
 }
 
-.sm-sandbox-command-item__content {
+.sm-lab-command-item__content {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sm-space-3);
 }
 
-.sm-sandbox-command-item__content code {
+.sm-lab-command-item__content code {
   flex: 1;
   display: block;
   padding: 10px 12px;
@@ -519,44 +519,44 @@ onMounted(async () => {
   word-break: break-all;
 }
 
-.sm-sandbox-copy-button {
+.sm-lab-copy-button {
   white-space: nowrap;
 }
 
-.sm-sandbox-copy-button.is-copied {
+.sm-lab-copy-button.is-copied {
   background-color: var(--sm-color-accent-14);
   border-color: var(--sm-color-border-accent);
   color: var(--sm-color-text-primary);
 }
 
-.sm-sandbox-install__error {
+.sm-lab-install__error {
   margin-top: calc(var(--sm-space-2) * -1);
 }
 
 @media (max-width: 900px) {
-  .sm-sandbox-install__cards {
+  .sm-lab-install__cards {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 720px) {
-  .sm-sandbox-install__shell {
+  .sm-lab-install__shell {
     padding: var(--sm-space-4);
   }
 
-  .sm-sandbox-install__overview,
-  .sm-sandbox-install__panel {
+  .sm-lab-install__overview,
+  .sm-lab-install__panel {
     padding: var(--sm-space-5);
   }
 
-  .sm-sandbox-install__headline,
-  .sm-sandbox-install__panel-header,
-  .sm-sandbox-command-item__content {
+  .sm-lab-install__headline,
+  .sm-lab-install__panel-header,
+  .sm-lab-command-item__content {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .sm-sandbox-copy-button {
+  .sm-lab-copy-button {
     width: 100%;
   }
 }
