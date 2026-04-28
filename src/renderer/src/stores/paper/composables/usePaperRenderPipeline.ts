@@ -393,9 +393,11 @@ export function usePaperRenderPipeline(
     activePipelines.add(paperId)
 
     try {
+      const savedCompletedCount = paper.completedPageCount
+
       await updatePaperStatus(paperId, 'ocr_processing')
       updatePaperInList(paperId, {
-        completedPageCount: 0
+        completedPageCount: savedCompletedCount
       })
 
       setRenderProgress(paperId, {
@@ -404,7 +406,14 @@ export function usePaperRenderPipeline(
         completedPages: totalPages,
         stage: 'completed'
       })
-      setOcrProgress(createIdleOcrProgress(paperId, totalPages))
+      setOcrProgress({
+        paperId,
+        currentPage: 0,
+        totalPages,
+        completedPages: savedCompletedCount,
+        failedPages: [],
+        status: 'processing'
+      })
 
       const result = await window.api.paper.startOcr(paperId)
       if (!result.success) {

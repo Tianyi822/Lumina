@@ -8,6 +8,7 @@ export interface RunPaperOcrPipelineOptions {
   processPage: (pageIndex: number) => Promise<PaperPageOcrResult>
   onPageDispatched?: (pageIndex: number) => void
   onPageSettled?: (pageIndex: number, result: PaperPageOcrResult) => void
+  preExistingResults?: PaperPageOcrResult[]
 }
 
 export interface RunPaperOcrPipelineResult {
@@ -52,11 +53,24 @@ export function buildMergedMarkdown(results: PaperPageOcrResult[]): string {
 export async function runPaperOcrPipeline(
   options: RunPaperOcrPipelineOptions
 ): Promise<RunPaperOcrPipelineResult> {
-  const { paperId, totalPages, processPage, onPageDispatched, onPageSettled, shouldCancel } =
-    options
-  const results = Array.from({ length: totalPages }, (_, pageIndex) =>
-    createPendingOcrResult(paperId, pageIndex)
+  const {
+    paperId,
+    totalPages,
+    processPage,
+    onPageDispatched,
+    onPageSettled,
+    shouldCancel,
+    preExistingResults
+  } = options
+
+  const completedPageIndices = new Set(
+    (preExistingResults ?? []).filter((r) => r.status === 'completed').map((r) => r.pageIndex)
   )
+
+  const results = Array.from({ length: totalPages }, (_, pageIndex) => {
+    const existing = preExistingResults?.find((r) => r.pageIndex === pageIndex)
+    return existing ?? createPendingOcrResult(paperId, pageIndex)
+  })
 
   if (totalPages === 0) {
     return {
@@ -66,20 +80,26 @@ export async function runPaperOcrPipeline(
   }
 
   let nextPageIndex = 0
-  const workerCount = Math.min(Math.max(1, options.concurrency), totalPages)
+  const pendingCount = totalPages - completedPageIndices.size
+  const workerCount = Math.min(Math.max(1, options.concurrency), Math.max(1, pendingCount))
 
   const claimNextPage = (): number | null => {
     if (shouldCancel?.()) {
       return null
     }
 
-    if (nextPageIndex >= totalPages) {
-      return null
+    while (nextPageIndex < totalPages) {
+      const pageIndex = nextPageIndex
+      nextPageIndex += 1
+
+      if (completedPageIndices.has(pageIndex)) {
+        continue
+      }
+
+      return pageIndex
     }
 
-    const pageIndex = nextPageIndex
-    nextPageIndex += 1
-    return pageIndex
+    return null
   }
 
   await Promise.all(

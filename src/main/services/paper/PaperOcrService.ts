@@ -312,19 +312,27 @@ export class PaperOcrService {
     this.abortControllers.delete(paperId)
 
     const totalPages = meta.pageCount
+
+    const existingResults = paperStorageService.listNormalizedResults(paperId)
+    const preExistingResults = existingResults.success ? (existingResults.data ?? []) : []
+    const existingCompleted = preExistingResults.filter((r) => r.status === 'completed').length
+    const existingFailed = preExistingResults
+      .filter((r) => r.status === 'failed')
+      .map((r) => r.pageIndex)
+
     const progress: OcrProgressInfo = {
       paperId,
       currentPage: 0,
       totalPages,
-      completedPages: 0,
-      failedPages: [],
+      completedPages: existingCompleted,
+      failedPages: existingFailed,
       status: 'processing'
     }
     this.emitProgress(paperId, progress)
 
     paperStorageService.updateMeta(paperId, {
       status: 'ocr_processing',
-      completedPageCount: 0,
+      completedPageCount: existingCompleted,
       errorMessage: undefined
     })
 
@@ -332,6 +340,7 @@ export class PaperOcrService {
       paperId,
       totalPages,
       concurrency,
+      preExistingResults,
       shouldCancel: () => this.abortControllers.get(paperId) === true,
       processPage: async (pageIndex) => this.processPage(paperId, pageIndex, apiKey, provider),
       onPageDispatched: (pageIndex) => {
