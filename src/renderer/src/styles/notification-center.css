@@ -108,7 +108,19 @@
 }
 
 .sm-confirm-surface__btn--danger:hover {
-  opacity: 0.9;
+  background-color: var(--sm-color-status-danger);
+  border-color: var(--sm-color-status-danger);
+  background-color: color-mix(in srgb, var(--sm-color-status-danger) 88%, #000);
+  border-color: color-mix(in srgb, var(--sm-color-status-danger) 88%, #000);
+  color: #fff;
+}
+
+.sm-confirm-surface__btn--danger:focus-visible {
+  background-color: var(--sm-color-status-danger);
+  border-color: var(--sm-color-status-danger);
+  border-color: color-mix(in srgb, var(--sm-color-status-danger) 72%, #fff);
+  color: #fff;
+  outline: none;
 }
 
 /* 确认对话框过渡 */
