@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperChatQuoteStore } from '@renderer/stores/paperChatQuoteStore'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { PaperQuote } from '@shared/types/chat'
 import PaperMarkdownView from '@renderer/components/paper/PaperMarkdownView.vue'
 import PaperOriginalPdfView from '@renderer/components/paper/PaperOriginalPdfView.vue'
@@ -13,6 +14,7 @@ import PaperChatPanel from '@renderer/components/paper/chat/PaperChatPanel.vue'
 const store = usePaperReaderStore()
 const uiStateStore = useUIStateStore()
 const paperChatQuoteStore = usePaperChatQuoteStore()
+const notify = useNotification()
 
 const {
   currentPaperId,
@@ -38,9 +40,16 @@ provide('scrollToQuote', (quote: PaperQuote) => {
   markdownViewRef.value?.scrollToQuoteAndHighlight(quote)
 })
 
-function handleAddToChat(quote: PaperQuote): void {
-  const sessionId = currentPaper.value?.chatSessionId
-  if (!sessionId) {
+async function handleAddToChat(quote: PaperQuote): Promise<void> {
+  const paperId = currentPaper.value?.id
+  if (!paperId) {
+    return
+  }
+
+  const sessionResult = await store.ensurePaperChatSession(paperId)
+  const sessionId = sessionResult.data
+  if (!sessionResult.success || !sessionId) {
+    notify.error('论文对话', sessionResult.error || '创建论文对话失败', { source: 'chat' })
     return
   }
 

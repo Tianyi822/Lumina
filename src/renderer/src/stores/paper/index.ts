@@ -22,6 +22,10 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   const originalPdfVisible = ref(false)
   const markdownScrollPositionByPaperId = new Map<string, PaperViewScrollPosition>()
   const originalPdfScrollPositionByPaperId = new Map<string, PaperViewScrollPosition>()
+  const pendingPaperChatSessionByPaperId = new Map<
+    string,
+    Promise<{ success: boolean; data?: string; error?: string }>
+  >()
 
   // 缩放状态
   const ZOOM_DEFAULT = 1.0
@@ -430,6 +434,69 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     return result
   }
 
+  async function ensurePaperChatSession(
+    paperId: string
+  ): Promise<{ success: boolean; data?: string; error?: string }> {
+    const pendingSession = pendingPaperChatSessionByPaperId.get(paperId)
+    if (pendingSession) {
+      return await pendingSession
+    }
+
+    const ensurePromise = (async (): Promise<{
+      success: boolean
+      data?: string
+      error?: string
+    }> => {
+      try {
+        let paper = papers.value.find((item) => item.id === paperId) || null
+
+        if (!paper) {
+          const paperResult = await window.api.paper.get(paperId)
+          if (!paperResult.success || !paperResult.data) {
+            return { success: false, error: paperResult.error || '论文不存在' }
+          }
+
+          paper = paperResult.data
+          upsertPaper(paper)
+        }
+
+        if (!isPaperReadableStatus(paper.status)) {
+          return { success: false, error: '论文尚未完成 OCR，无法创建对话' }
+        }
+
+        if (paper.chatSessionId) {
+          const existingSession = await window.api.session.load(paper.chatSessionId)
+          if (existingSession) {
+            return { success: true, data: existingSession.sessionId }
+          }
+        }
+
+        const title = `论文对话：${paper.fileName}`
+        const createdSession = await window.api.session.create(title, 'paper')
+        const bindResult = await setPaperChatSession(paper.id, createdSession.sessionId)
+        if (!bindResult.success) {
+          return {
+            success: false,
+            error: bindResult.error || '绑定论文聊天会话失败'
+          }
+        }
+
+        return { success: true, data: createdSession.sessionId }
+      } catch (caught) {
+        const error = caught instanceof Error ? caught.message : String(caught)
+        return { success: false, error }
+      }
+    })()
+
+    pendingPaperChatSessionByPaperId.set(paperId, ensurePromise)
+
+    try {
+      return await ensurePromise
+    } finally {
+      pendingPaperChatSessionByPaperId.delete(paperId)
+    }
+  }
+
   return {
     papers,
     currentPaperId,
@@ -482,6 +549,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     loadTranslationStatus: translation.loadTranslationStatus,
     deleteTranslation,
     setPaperChatSession,
+    ensurePaperChatSession,
     createAnnotation: annotations.createAnnotation,
     reanchorAnnotation: annotations.reanchorAnnotation,
     updateAnnotation: annotations.updateAnnotation,

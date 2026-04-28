@@ -136,3 +136,100 @@ test('OCR 取消后不会继续派发新页，已完成页仍保留原顺序', a
   )
   assert.deepEqual(pageHeaders, [1, 2, 3, 4, 5])
 })
+
+test('preExistingResults 已完成页面被跳过且不触发回调', async () => {
+  const paperId = 'paper-ocr-pre-existing'
+  const dispatchedPages: number[] = []
+  const settledPages: number[] = []
+
+  const result = await runPaperOcrPipeline({
+    paperId,
+    totalPages: 4,
+    concurrency: 2,
+    preExistingResults: [createPageResult(paperId, 0), createPageResult(paperId, 2)],
+    onPageDispatched: (pageIndex) => {
+      dispatchedPages.push(pageIndex)
+    },
+    onPageSettled: (pageIndex) => {
+      settledPages.push(pageIndex)
+    },
+    processPage: async (pageIndex) => {
+      return createPageResult(paperId, pageIndex)
+    }
+  })
+
+  assert.equal(result.aborted, false)
+  assert.deepEqual(dispatchedPages, [1, 3])
+  assert.deepEqual(settledPages, [1, 3])
+  assert.deepEqual(
+    result.results.map((page) => ({ pageIndex: page.pageIndex, status: page.status })),
+    [
+      { pageIndex: 0, status: 'completed' },
+      { pageIndex: 1, status: 'completed' },
+      { pageIndex: 2, status: 'completed' },
+      { pageIndex: 3, status: 'completed' }
+    ]
+  )
+
+  const mergedMarkdown = buildMergedMarkdown(result.results)
+  const pageHeaders = [...mergedMarkdown.matchAll(/<!-- Page (\d+) -->/g)].map((match) =>
+    Number(match[1])
+  )
+  assert.deepEqual(pageHeaders, [1, 2, 3, 4])
+})
+
+test('preExistingResults 预填失败页仍会被重新处理', async () => {
+  const paperId = 'paper-ocr-pre-existing-retry-failed'
+
+  const result = await runPaperOcrPipeline({
+    paperId,
+    totalPages: 3,
+    concurrency: 2,
+    preExistingResults: [
+      createPageResult(paperId, 1, {
+        markdown: '',
+        status: 'failed',
+        errorMessage: '上次失败'
+      })
+    ],
+    processPage: async (pageIndex) => {
+      if (pageIndex === 1) {
+        return createPageResult(paperId, pageIndex, {
+          markdown: '重试后成功'
+        })
+      }
+      return createPageResult(paperId, pageIndex)
+    }
+  })
+
+  assert.equal(result.aborted, false)
+  assert.equal(result.results[1].status, 'completed')
+  assert.equal(result.results[1].markdown, '重试后成功')
+})
+
+test('preExistingResults 全部已完成时不启动 worker', async () => {
+  const paperId = 'paper-ocr-all-done'
+  let processCallCount = 0
+
+  const result = await runPaperOcrPipeline({
+    paperId,
+    totalPages: 3,
+    concurrency: 2,
+    preExistingResults: [
+      createPageResult(paperId, 0),
+      createPageResult(paperId, 1),
+      createPageResult(paperId, 2)
+    ],
+    processPage: async (pageIndex) => {
+      processCallCount += 1
+      return createPageResult(paperId, pageIndex)
+    }
+  })
+
+  assert.equal(result.aborted, false)
+  assert.equal(processCallCount, 0)
+  assert.deepEqual(
+    result.results.map((page) => page.status),
+    ['completed', 'completed', 'completed']
+  )
+})

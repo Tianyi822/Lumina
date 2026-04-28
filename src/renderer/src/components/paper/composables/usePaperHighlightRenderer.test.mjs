@@ -243,11 +243,7 @@ test('highlight boundary 不会提升已有标记内部的中间选区', () => {
 test('highlight range 会跳过 Markdown 列表项周围的空白节点', () => {
   const listItemText = new FakeText('随机粘贴与上下文线索中断：')
   const listItem = new FakeElement('li', '', [listItemText])
-  const orderedList = new FakeElement('ol', '', [
-    new FakeText('\n'),
-    listItem,
-    new FakeText('\n')
-  ])
+  const orderedList = new FakeElement('ol', '', [new FakeText('\n'), listItem, new FakeText('\n')])
   const root = new FakeElement('div', '', [new FakeText('\n'), orderedList, new FakeText('\n')])
 
   const selectedText = `\n${listItemText.textContent}\n`
