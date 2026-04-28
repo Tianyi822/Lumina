@@ -99,6 +99,9 @@ export const useUIStateStore = defineStore(
     // 沙箱详情当前 Tab
     const sandboxDetailTab = ref<SandboxDetailTab>('stats')
 
+    // 上次选中的沙箱 ID（持久化，用于恢复上次浏览状态）
+    const lastSandboxId = ref<string | null>(null)
+
     // 是否显示创建沙箱弹窗
     const showSandboxCreator = ref(false)
 
@@ -199,6 +202,10 @@ export const useUIStateStore = defineStore(
 
     function setLastPaperId(paperId: string | null): void {
       lastPaperId.value = paperId
+    }
+
+    function setLastSandboxId(sandboxId: string | null): void {
+      lastSandboxId.value = sandboxId
     }
 
     // 切换当前视图对应的侧边栏状态
@@ -512,6 +519,7 @@ export const useUIStateStore = defineStore(
 
       // State: 沙箱页面 UI
       sandboxDetailTab,
+      lastSandboxId,
       showSandboxCreator,
       showConfigManager,
       showKnowledgeFileManager,
@@ -543,6 +551,7 @@ export const useUIStateStore = defineStore(
       togglePaperChatPanel,
       setPaperChatPanelWidth,
       setLastPaperId,
+      setLastSandboxId,
       toggleCurrentSidebar,
       setCurrentSidebarCollapsed,
 
@@ -585,7 +594,8 @@ export const useUIStateStore = defineStore(
         'sandboxSidebarCollapsed',
         'paperSidebarCollapsed',
         'paperChatPanelWidth',
-        'lastPaperId'
+        'lastPaperId',
+        'lastSandboxId'
       ]
     }
   }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSandboxStore, useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -40,7 +40,7 @@ const sandboxStore = useSandboxStore()
 const uiStateStore = useUIStateStore()
 const notify = useNotification()
 
-const { currentSandbox, deleteConfirmState } = storeToRefs(sandboxStore)
+const { currentSandbox, currentSandboxId, deleteConfirmState } = storeToRefs(sandboxStore)
 
 const { showSandboxCreator, showConfigManager } = storeToRefs(uiStateStore)
 
@@ -130,6 +130,12 @@ const handleCloseConfigManager = (): void => {
   uiStateStore.closeConfigManager()
 }
 
+// ==================== 持久化选中沙箱 ====================
+
+watch(currentSandboxId, (id) => {
+  uiStateStore.setLastSandboxId(id ?? null)
+})
+
 // ==================== 生命周期 ====================
 
 onMounted(async () => {
@@ -137,6 +143,10 @@ onMounted(async () => {
 
   if (dockerStatus.value?.installed) {
     await sandboxStore.loadSandboxList()
+
+    if (!currentSandbox.value && uiStateStore.lastSandboxId) {
+      await sandboxStore.loadSandbox(uiStateStore.lastSandboxId, false, { silent: true })
+    }
   }
 })
 </script>
