@@ -92,6 +92,8 @@ export interface PaperAnnotationComposer {
   currentAnnotations: ComputedRef<PaperAnnotation[]>
   orphanAnnotations: ComputedRef<PaperAnnotation[]>
   outdatedAnnotations: ComputedRef<PaperAnnotation[]>
+  outdatedAnnotationUpdating: Ref<boolean>
+  outdatedAnnotationError: Ref<string | null>
   translationMissingAnnotations: ComputedRef<PaperAnnotation[]>
   currentTranslationRevisionId: ComputedRef<string | null>
   updateComposerFromSelection: (event?: MouseEvent) => void
@@ -109,7 +111,10 @@ export interface PaperAnnotationComposer {
   handleSaveHoverNote: () => Promise<void>
   handleDeleteAnnotation: (annotationId: string) => Promise<void>
   startRebind: (annotation: PaperAnnotation) => void
-  updateAnnotationToCurrentTranslation: (annotation: PaperAnnotation) => Promise<void>
+  updateAnnotationToCurrentTranslation: (
+    annotation: PaperAnnotation
+  ) => Promise<{ success: boolean; requiresRebind?: boolean; error?: string }>
+  updateOutdatedAnnotationsToCurrentTranslation: () => Promise<void>
   cancelRebindMode: () => void
   clearComposer: () => void
   handleCancelComposer: () => void

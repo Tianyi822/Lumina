@@ -178,8 +178,32 @@ defineProps<{
     0 0 0 3px var(--sm-color-paper-annotation-active-ring);
 }
 
+.paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--locating) {
+  animation: paper-annotation-locate 8s ease-out;
+}
+
 .paper-markdown-view__markdown :deep(mark.paper-annotation-highlight *) {
   color: inherit;
+}
+
+@keyframes paper-annotation-locate {
+  0% {
+    box-shadow:
+      inset 0 0 0 1px var(--sm-color-paper-annotation-border-hover),
+      0 0 0 4px var(--sm-color-paper-annotation-active-ring);
+  }
+
+  45% {
+    box-shadow:
+      inset 0 0 0 1px var(--sm-color-paper-annotation-border-hover),
+      0 0 0 7px var(--sm-color-paper-annotation-active-ring);
+  }
+
+  100% {
+    box-shadow:
+      inset 0 0 0 1px var(--sm-color-paper-annotation-border),
+      0 0 0 0 transparent;
+  }
 }
 
 .paper-markdown-view__markdown :deep(mark.paper-annotation-highlight--blue) {

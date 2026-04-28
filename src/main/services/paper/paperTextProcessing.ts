@@ -34,6 +34,10 @@ const SIMPLE_TEXT_CONTAINER_PATTERN = new RegExp(
 
 const STRUCTURAL_HTML_PATTERN =
   /<\/?(?:img|table|thead|tbody|tfoot|tr|td|th|ul|ol|li|blockquote|pre|code|figure|figcaption|h[1-6]|hr|svg|math)\b/i
+const FENCED_SIMPLE_TEXT_CONTAINER_PATTERN =
+  /^ {0,3}(`{3,}|~{3,})(?:[ \t]*(?:markdown|md)?)?[ \t]*\n([\s\S]*?)\n {0,3}\1[ \t]*$/i
+const FENCED_SIMPLE_TEXT_CONTAINER_GLOBAL_PATTERN =
+  /(^|\n)( {0,3}(`{3,}|~{3,})(?:[ \t]*(?:markdown|md)?)?[ \t]*\n([\s\S]*?)\n {0,3}\3[ \t]*(?=\n|$))/g
 
 function endsWithStrongTerminalPunctuation(text: string): boolean {
   return /[.!?。？！]["')\]]*\s*$/.test(text)
@@ -228,8 +232,36 @@ export function isSimpleTextContainerSegment(segment: string): boolean {
   return withoutAllowedTags.length > 0 && !/[<>]/.test(withoutAllowedTags)
 }
 
+export function unwrapFencedSimpleTextContainerHtml(segment: string): string {
+  const match = segment.trim().match(FENCED_SIMPLE_TEXT_CONTAINER_PATTERN)
+  if (!match) {
+    return segment
+  }
+
+  const innerHtml = match[2].trim()
+  return isSimpleTextContainerSegment(innerHtml) ? innerHtml : segment
+}
+
+export function isFencedSimpleTextContainerHtml(segment: string): boolean {
+  return unwrapFencedSimpleTextContainerHtml(segment) !== segment
+}
+
+export function normalizeFencedSimpleTextContainerHtml(markdown: string): string {
+  return markdown.replace(
+    FENCED_SIMPLE_TEXT_CONTAINER_GLOBAL_PATTERN,
+    (match: string, prefix: string, _fencedBlock: string, _fence: string, innerHtml: string) => {
+      const trimmedInnerHtml = innerHtml.trim()
+      if (!isSimpleTextContainerSegment(trimmedInnerHtml)) {
+        return match
+      }
+
+      return `${prefix}${trimmedInnerHtml}`
+    }
+  )
+}
+
 export function isMergeableTextSegment(segment: string): boolean {
-  const trimmed = segment.trim()
+  const trimmed = unwrapFencedSimpleTextContainerHtml(segment).trim()
   if (!trimmed) {
     return false
   }
@@ -354,16 +386,18 @@ function getSimpleTextContainerReflowSource(content: string): string {
 }
 
 export function normalizeMergeableTextBlockContent(content: string): string {
-  if (!isMergeableTextSegment(content)) {
+  const normalizedContent = unwrapFencedSimpleTextContainerHtml(content)
+
+  if (!isMergeableTextSegment(normalizedContent)) {
     return content
   }
 
-  if (isSimpleTextContainerSegment(content)) {
-    const reflowSource = getSimpleTextContainerReflowSource(content)
-    return reflowSource ? reflowOrdinaryParagraphs(reflowSource) : content
+  if (isSimpleTextContainerSegment(normalizedContent)) {
+    const reflowSource = getSimpleTextContainerReflowSource(normalizedContent)
+    return reflowSource ? reflowOrdinaryParagraphs(reflowSource) : normalizedContent
   }
 
-  return reflowOrdinaryParagraphs(content)
+  return reflowOrdinaryParagraphs(normalizedContent)
 }
 
 export function isBodyTextBlock(block: PaperLayoutBlock | undefined): block is PaperLayoutBlock {

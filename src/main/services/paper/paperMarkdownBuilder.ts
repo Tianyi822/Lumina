@@ -14,8 +14,10 @@ import {
 } from './paperBlockClassifiers.ts'
 import {
   getBodyBlockGapReplacement,
+  isFencedSimpleTextContainerHtml,
   isBodyTextBlock,
   isSimpleTextContainerSegment,
+  normalizeFencedSimpleTextContainerHtml,
   normalizeMergeableTextBlockContent,
   shouldMergeAdjacentTextBlocks
 } from './paperTextProcessing.ts'
@@ -133,6 +135,29 @@ function replaceRemovalGroupWithToken(
 function replaceTokenWithGap(markdown: string, token: string, replacement: string): string {
   const tokenPattern = new RegExp(`\\s*${escapeRegExp(token)}\\s*`, 'g')
   return markdown.replace(tokenPattern, replacement)
+}
+
+function normalizeReaderPageResult(pageResult: PaperPageOcrResult): PaperPageOcrResult {
+  return {
+    ...pageResult,
+    markdown: normalizeFencedSimpleTextContainerHtml(pageResult.markdown),
+    blocks: pageResult.blocks.map((block) => {
+      const normalizedContent = normalizeFencedSimpleTextContainerHtml(block.content)
+      if (normalizedContent === block.content && block.label !== 'code') {
+        return block
+      }
+
+      return {
+        ...block,
+        label: isFencedSimpleTextContainerHtml(block.content) ? 'text' : block.label,
+        content: normalizedContent
+      }
+    })
+  }
+}
+
+function normalizeReaderPageResults(pageResults: PaperPageOcrResult[]): PaperPageOcrResult[] {
+  return pageResults.map(normalizeReaderPageResult)
 }
 
 export function findBlockOccurrences(
@@ -692,7 +717,8 @@ export function buildReaderDocument(
   pageResults: PaperPageOcrResult[],
   figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
 ): PaperReaderDocument {
-  const markdown = buildReaderMarkdown(pageResults, figureData)
+  const normalizedPageResults = normalizeReaderPageResults(pageResults)
+  const markdown = buildReaderMarkdown(normalizedPageResults, figureData)
   const sourceRevisionId = createReaderHash(markdown)
 
   return {
@@ -700,7 +726,13 @@ export function buildReaderDocument(
     markdown,
     sourceRevisionId,
     updatedAt: new Date().toISOString(),
-    segments: buildReaderSegments(paperId, markdown, pageResults, figureData, sourceRevisionId)
+    segments: buildReaderSegments(
+      paperId,
+      markdown,
+      normalizedPageResults,
+      figureData,
+      sourceRevisionId
+    )
   }
 }
 
@@ -708,11 +740,12 @@ export function buildReaderMarkdown(
   pageResults: PaperPageOcrResult[],
   figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
 ): string {
+  const normalizedPageResults = normalizeReaderPageResults(pageResults)
   let combinedMarkdown = ''
   let previousFragment: ReaderPageFragment | null = null
   let encounteredHardBoundary = false
 
-  for (const pageResult of pageResults) {
+  for (const pageResult of normalizedPageResults) {
     const fragment = buildReaderPageFragment(pageResult, figureData)
     if (!fragment.markdown) {
       encounteredHardBoundary = true

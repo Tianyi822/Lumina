@@ -898,11 +898,14 @@ export class PaperService {
         return { success: false, error: normalizedContentResult.error }
       }
       const nextOriginalAnchor = params.originalAnchor || currentAnnotation.originalAnchor
-      const nextTranslationAnchor = params.translationAnchor
-        ? { ...params.translationAnchor }
-        : translationAvailable
-          ? currentAnnotation.translationAnchor
-          : undefined
+      const nextTranslationAnchor =
+        params.translationAnchor === null
+          ? undefined
+          : params.translationAnchor
+            ? { ...params.translationAnchor }
+            : translationAvailable
+              ? currentAnnotation.translationAnchor
+              : undefined
 
       if (currentAnnotation.noteType === 'original_span' && !nextOriginalAnchor) {
         return { success: false, error: '原文锚定笔记必须绑定到原文文本' }

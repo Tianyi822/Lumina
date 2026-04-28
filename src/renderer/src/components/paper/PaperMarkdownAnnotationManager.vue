@@ -1,32 +1,51 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { PaperAnnotation } from '@shared/types/paper'
 
 interface AnnotationManagerActions {
   orphanAnnotations: PaperAnnotation[]
+  outdatedAnnotations: PaperAnnotation[]
   rebindAnnotationId: string | null
+  outdatedUpdating: boolean
+  outdatedError: string | null
   getAnnotationTypeLabel: (annotation: PaperAnnotation) => string
   getAnnotationStatusLabel: (annotation: PaperAnnotation) => string | null
   startRebind: (annotation: PaperAnnotation) => void
-  scrollToSegment: (segmentStableId: string) => void
+  resolveAnnotationForCurrentTranslation: (annotation: PaperAnnotation) => Promise<void>
   handleDeleteAnnotation: (annotationId: string) => Promise<void>
   handleCancelComposer: () => void
 }
 
-defineProps<{
+const props = defineProps<{
   actions: AnnotationManagerActions
 }>()
+
+const managedAnnotations = computed(() => {
+  const seen = new Set<string>()
+  return [...props.actions.orphanAnnotations, ...props.actions.outdatedAnnotations].filter(
+    (annotation) => {
+      if (seen.has(annotation.id)) {
+        return false
+      }
+
+      seen.add(annotation.id)
+      return true
+    }
+  )
+})
 </script>
 
 <template>
   <section
-    v-if="actions.orphanAnnotations.length > 0 || actions.rebindAnnotationId"
+    v-if="managedAnnotations.length > 0 || actions.rebindAnnotationId"
+    id="paper-annotation-manager"
     class="paper-markdown-view__manager"
   >
     <div class="paper-markdown-view__manager-header">
       <div>
         <div class="paper-markdown-view__manager-title">异常标注管理</div>
         <p class="paper-markdown-view__manager-text">
-          这里集中显示需要人工确认的标注。点击"手动重新绑定"后，直接在正文里重新选择对应文本即可。
+          这里集中显示需要确认的标注。点击"手动重新绑定"后，直接在当前正文或译文里重新选择对应文本即可。
         </p>
       </div>
       <button
@@ -38,9 +57,12 @@ defineProps<{
         取消重绑
       </button>
     </div>
+    <p v-if="actions.outdatedError" class="paper-markdown-view__manager-error">
+      {{ actions.outdatedError }}
+    </p>
 
     <article
-      v-for="annotation in actions.orphanAnnotations"
+      v-for="annotation in managedAnnotations"
       :key="annotation.id"
       class="paper-markdown-view__manager-card"
       :class="{
@@ -63,18 +85,16 @@ defineProps<{
       </div>
       <div class="paper-markdown-view__manager-actions">
         <button
-          class="sm-button sm-button--secondary"
+          class="sm-button sm-button--primary"
           type="button"
-          @click="actions.startRebind(annotation)"
+          :disabled="actions.outdatedUpdating"
+          @click="actions.resolveAnnotationForCurrentTranslation(annotation)"
         >
-          手动重新绑定
-        </button>
-        <button
-          class="sm-button sm-button--secondary"
-          type="button"
-          @click="actions.scrollToSegment(annotation.semanticAnchor.segmentStableId)"
-        >
-          查看当前段落
+          {{
+            actions.getAnnotationStatusLabel(annotation) === '旧译文'
+              ? '更新或定位重绑'
+              : '定位并重新绑定'
+          }}
         </button>
         <button
           class="sm-button sm-button--danger"
@@ -117,10 +137,17 @@ defineProps<{
   color: var(--sm-color-text-secondary);
 }
 
+.paper-markdown-view__manager-error {
+  margin: var(--sm-space-3) 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--sm-color-status-warning);
+}
+
 .paper-markdown-view__manager-card {
   margin-top: var(--sm-space-3);
   border: 1px solid var(--sm-color-border-default);
-  border-radius: 14px;
+  border-radius: var(--sm-radius-md);
   background: var(--sm-color-surface-2);
   padding: var(--sm-space-3);
 }
