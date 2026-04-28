@@ -4,6 +4,10 @@ import {
   PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS,
   PAPER_ANNOTATION_NOTE_COLOR_KEY
 } from '@shared/types/paper'
+import {
+  PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE,
+  findPaperAnnotationNoteConflict
+} from '@shared/utils/paperAnnotationConflicts'
 import { createPaperAnnotationComposerActions } from './paperAnnotationComposerActions'
 import { createPaperAnnotationSelectionResolver } from './paperAnnotationComposerSelection'
 import type {
@@ -157,6 +161,18 @@ export function usePaperAnnotationComposer(
     }
 
     return currentAnnotations.value.find((annotation) => annotation.id === annotationId) || null
+  }
+
+  function findNoteConflict(draft: SelectionDraft): PaperAnnotation | null {
+    return (
+      findPaperAnnotationNoteConflict(currentAnnotations.value, {
+        kind: 'note',
+        segmentStableId: draft.segmentStableId,
+        originalAnchor: draft.originalAnchor,
+        translationAnchor: draft.translationAnchor,
+        ignoreAnnotationId: draft.mode === 'rebind' ? draft.annotationId : undefined
+      })?.annotation || null
+    )
   }
 
   function isAnnotationOutdated(annotation: PaperAnnotation): boolean {
@@ -333,6 +349,12 @@ export function usePaperAnnotationComposer(
 
     if (selectionResult.targetAnnotation) {
       if (selectionResult.targetAnnotation.kind === 'note') {
+        if (findNoteConflict(selectionResult.draft)) {
+          openSelectionActionMenu(selectionResult.draft, selectionResult.rect)
+          selectionActionMenuError.value = PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE
+          return
+        }
+
         openNoteEditor(
           selectionResult.draft,
           selectionResult.rect,
@@ -370,6 +392,11 @@ export function usePaperAnnotationComposer(
       return
     }
 
+    if (findNoteConflict(selectionActionMenu.value.draft)) {
+      selectionActionMenuError.value = PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE
+      return
+    }
+
     const targetAnnotation = getAnnotationById(selectionActionMenu.value.draft.annotationId || null)
     openNoteEditorAtPosition(
       selectionActionMenu.value.draft,
@@ -399,6 +426,12 @@ export function usePaperAnnotationComposer(
 
   async function handleSaveNote(): Promise<void> {
     if (!noteEditorDraft.value) {
+      return
+    }
+
+    if (findNoteConflict(noteEditorDraft.value.draft)) {
+      noteEditorSaving.value = false
+      noteEditorError.value = PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE
       return
     }
 
