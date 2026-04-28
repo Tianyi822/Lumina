@@ -1,18 +1,18 @@
 /**
- * 沙箱权限 Composable
+ * 实验室权限 Composable
  * 提供响应式的权限检查
  */
 
 import { computed, type ComputedRef, type Ref } from 'vue'
 import type { SandboxCreationType, SandboxPermissionPolicy } from '@shared/types/sandbox'
 import { SANDBOX_TYPE_PERMISSIONS } from '@shared/types/sandbox'
-import { getSandboxTypeMeta } from '@renderer/utils/sandboxPermissions'
+import { getSandboxTypeMeta } from '@renderer/utils/labPermissions'
 
 /**
- * 沙箱权限 Composable
+ * 实验室权限 Composable
  * 提供响应式的权限检查
  *
- * @param creationType - 沙箱创建类型（响应式）
+ * @param creationType - 实验室创建类型（响应式）
  */
 export function useSandboxPermissions(
   creationType:
@@ -71,7 +71,7 @@ export function useSandboxPermissions(
   const canRestart = computed(() => policy.value?.canRestart ?? false)
 
   /**
-   * 是否允许删除容器（删除沙箱时）
+   * 是否允许删除容器（删除实验室时）
    */
   const canDeleteContainer = computed(() => policy.value?.canDeleteContainer ?? false)
 
@@ -86,7 +86,7 @@ export function useSandboxPermissions(
   const defaultDeleteContainer = computed(() => policy.value?.defaultDeleteContainer ?? false)
 
   /**
-   * 是否为只读沙箱（不允许生命周期管理）
+   * 是否为只读实验室（不允许生命周期管理）
    */
   const isReadOnly = computed(() => {
     if (!policy.value) return true
@@ -94,7 +94,7 @@ export function useSandboxPermissions(
   })
 
   /**
-   * 是否为托管沙箱（有完整管理权限）
+   * 是否为托管实验室（有完整管理权限）
    */
   const isManaged = computed(() => {
     if (!policy.value) return false
@@ -116,11 +116,11 @@ export function useSandboxPermissions(
 
     switch (operation) {
       case 'start':
-        return policy.value.canStart ? undefined : '已有容器类型的沙箱不支持启动操作'
+        return policy.value.canStart ? undefined : '已有容器类型的实验室不支持启动操作'
       case 'stop':
-        return policy.value.canStop ? undefined : '已有容器类型的沙箱不支持停止操作'
+        return policy.value.canStop ? undefined : '已有容器类型的实验室不支持停止操作'
       case 'restart':
-        return policy.value.canRestart ? undefined : '已有容器类型的沙箱不支持重启操作'
+        return policy.value.canRestart ? undefined : '已有容器类型的实验室不支持重启操作'
       case 'delete':
         return undefined
       default:
@@ -141,7 +141,7 @@ export function useSandboxPermissions(
     forceKeepContainer,
     defaultDeleteContainer,
 
-    // 沙箱类型判断
+    // 实验室类型判断
     isReadOnly,
     isManaged,
     showLifecycleButtons,

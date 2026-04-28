@@ -8,8 +8,8 @@ import type {
 } from '@shared/types/sandbox'
 import { useNotification } from '@renderer/composables/useNotification'
 import { useContainerStore } from './containerStore'
-import { useSandboxListStore } from './sandboxListStore'
-import { useSandboxOperationStore } from './sandboxOperationStore'
+import { useSandboxListStore } from './labListStore'
+import { useSandboxOperationStore } from './labOperationStore'
 
 export const useSandboxStore = defineStore('sandbox', () => {
   const containerStore = useContainerStore()
@@ -43,7 +43,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
 
         await listStore.refreshSandboxList()
 
-        window.api.logger.info('[SandboxStore] 创建沙箱成功', {
+        window.api.logger.info('[SandboxStore] 创建实验室成功', {
           sandboxId: result.sandbox.sandboxId,
           name: result.sandbox.name,
           creationType: request.creationType
@@ -55,7 +55,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
       return result
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      window.api.logger.error('[SandboxStore] 创建沙箱失败', {
+      window.api.logger.error('[SandboxStore] 创建实验室失败', {
         error: errorMessage,
         creationType: request.creationType
       })
@@ -75,7 +75,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
       if (result.success) {
         await listStore.refreshSandboxList()
 
-        window.api.logger.debug('[SandboxStore] 保存沙箱成功', {
+        window.api.logger.debug('[SandboxStore] 保存实验室成功', {
           sandboxId: currentSandbox.value.sandboxId
         })
       } else if (result.error) {
@@ -85,7 +85,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
       return result.success
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      window.api.logger.error('[SandboxStore] 保存沙箱失败', {
+      window.api.logger.error('[SandboxStore] 保存实验室失败', {
         error: errorMessage
       })
       notify.error('保存失败', errorMessage, { source: 'sandbox' })
@@ -205,7 +205,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
       return false
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      window.api.logger.error('[SandboxStore] 重命名沙箱失败', {
+      window.api.logger.error('[SandboxStore] 重命名实验室失败', {
         error: errorMessage,
         sandboxId
       })
@@ -223,7 +223,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
 
       if (result.success) {
         await containerStore.refreshContainers()
-        window.api.logger.info('[SandboxStore] 从模板创建沙箱成功', {
+        window.api.logger.info('[SandboxStore] 从模板创建实验室成功', {
           templateId,
           containerCount: result.containerIds.length
         })
@@ -237,7 +237,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
       return result
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      window.api.logger.error('[SandboxStore] 从模板创建沙箱失败', {
+      window.api.logger.error('[SandboxStore] 从模板创建实验室失败', {
         error: errorMessage,
         templateId
       })
@@ -258,7 +258,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
 
       if (result.success) {
         await containerStore.refreshContainers()
-        window.api.logger.info('[SandboxStore] 从 Compose 创建沙箱成功', {
+        window.api.logger.info('[SandboxStore] 从 Compose 创建实验室成功', {
           projectName: options?.projectName,
           containerCount: result.containerIds.length
         })
@@ -272,7 +272,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
       return result
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      window.api.logger.error('[SandboxStore] 从 Compose 创建沙箱失败', {
+      window.api.logger.error('[SandboxStore] 从 Compose 创建实验室失败', {
         error: errorMessage
       })
       notify.error('Compose 创建失败', errorMessage, {
@@ -299,7 +299,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
 
       if (result.success && result.containerId) {
         await containerStore.refreshContainers()
-        window.api.logger.info('[SandboxStore] 从 Dockerfile 创建沙箱成功', {
+        window.api.logger.info('[SandboxStore] 从 Dockerfile 创建实验室成功', {
           containerId: result.containerId.substring(0, 12)
         })
         return result.containerId
@@ -312,7 +312,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
       return null
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      window.api.logger.error('[SandboxStore] 从 Dockerfile 创建沙箱失败', {
+      window.api.logger.error('[SandboxStore] 从 Dockerfile 创建实验室失败', {
         error: errorMessage
       })
       notify.error('Dockerfile 创建失败', errorMessage, {
@@ -329,7 +329,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
 
   async function handleNewSandbox(): Promise<void> {
     const request: CreateSandboxRequest = {
-      name: '新沙箱',
+      name: '新实验室',
       creationType: 'existing'
     }
     await createSandbox(request)
@@ -339,7 +339,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
     const sandbox = sandboxList.value.find((item) => item.sandboxId === sandboxId)
     await operationStore.showDeleteConfirm(
       sandboxId,
-      sandbox?.name || '沙箱',
+      sandbox?.name || '实验室',
       (sandbox?.creationType || 'existing') as SandboxCreationType,
       sandbox?.containerCount || 0
     )

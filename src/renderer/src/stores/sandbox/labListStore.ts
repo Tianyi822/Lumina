@@ -29,11 +29,11 @@ export const useSandboxListStore = defineStore('sandboxList', () => {
       isLoading.value = true
       sandboxList.value = await window.api.sandbox.listSandboxs()
 
-      window.api.logger.info('[SandboxListStore] 沙箱列表加载完成', {
+      window.api.logger.info('[SandboxListStore] 实验室列表加载完成', {
         count: sandboxList.value.length
       })
     } catch (error) {
-      window.api.logger.error('[SandboxListStore] 加载沙箱列表失败', {
+      window.api.logger.error('[SandboxListStore] 加载实验室列表失败', {
         error: error instanceof Error ? error.message : String(error)
       })
     } finally {
@@ -78,7 +78,7 @@ export const useSandboxListStore = defineStore('sandboxList', () => {
       }
 
       if (!options?.silent) {
-        window.api.logger.info('[SandboxListStore] 沙箱加载成功', {
+        window.api.logger.info('[SandboxListStore] 实验室加载成功', {
           sandboxId,
           name: sandbox.name,
           containerId: containerId || 'none'
@@ -88,7 +88,7 @@ export const useSandboxListStore = defineStore('sandboxList', () => {
       return true
     } catch (error) {
       if (!options?.silent) {
-        window.api.logger.error('[SandboxListStore] 加载沙箱失败', {
+        window.api.logger.error('[SandboxListStore] 加载实验室失败', {
           error: error instanceof Error ? error.message : String(error),
           sandboxId
         })
@@ -152,7 +152,7 @@ export const useSandboxListStore = defineStore('sandboxList', () => {
           }
         }
 
-        window.api.logger.info('[SandboxListStore] 选择沙箱成功', {
+        window.api.logger.info('[SandboxListStore] 选择实验室成功', {
           containerId: containerId.substring(0, 12),
           sessionId
         })
@@ -160,7 +160,7 @@ export const useSandboxListStore = defineStore('sandboxList', () => {
 
       return result.success
     } catch (error) {
-      window.api.logger.error('[SandboxListStore] 选择沙箱失败', {
+      window.api.logger.error('[SandboxListStore] 选择实验室失败', {
         error: error instanceof Error ? error.message : String(error),
         containerId,
         sessionId
@@ -179,7 +179,7 @@ export const useSandboxListStore = defineStore('sandboxList', () => {
 
       return result.success
     } catch (error) {
-      window.api.logger.error('[SandboxListStore] 取消选择沙箱失败', {
+      window.api.logger.error('[SandboxListStore] 取消选择实验室失败', {
         error: error instanceof Error ? error.message : String(error),
         containerId
       })
@@ -191,7 +191,7 @@ export const useSandboxListStore = defineStore('sandboxList', () => {
     try {
       return await window.api.sandbox.getSessionSandbox(sessionId)
     } catch (error) {
-      window.api.logger.error('[SandboxListStore] 获取会话沙箱失败', {
+      window.api.logger.error('[SandboxListStore] 获取会话实验室失败', {
         error: error instanceof Error ? error.message : String(error),
         sessionId
       })

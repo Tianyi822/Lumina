@@ -1,5 +1,5 @@
 /**
- * 沙箱权限工具函数
+ * 实验室权限工具函数
  * 提供前端权限检查和对话框配置
  */
 
@@ -11,7 +11,7 @@ import {
 } from '@shared/types/sandbox'
 
 /**
- * 沙箱类型元数据（用于UI显示）
+ * 实验室类型元数据（用于UI显示）
  */
 export interface SandboxTypeMeta {
   icon: string
@@ -23,7 +23,7 @@ export interface SandboxTypeMeta {
 }
 
 /**
- * 获取沙箱类型的权限策略（非响应式）
+ * 获取实验室类型的权限策略（非响应式）
  */
 export function getSandboxPermissions(type: SandboxCreationType): SandboxPermissionPolicy {
   return SANDBOX_TYPE_PERMISSIONS[type]
@@ -41,7 +41,7 @@ export function canManageContainer(type: SandboxCreationType): {
   if (!policy.canStart && !policy.canStop && !policy.canRestart) {
     return {
       allowed: false,
-      reason: '已有容器类型的沙箱不允许管理容器生命周期，请使用 Docker 命令行操作'
+      reason: '已有容器类型的实验室不允许管理容器生命周期，请使用 Docker 命令行操作'
     }
   }
 
@@ -49,7 +49,7 @@ export function canManageContainer(type: SandboxCreationType): {
 }
 
 /**
- * 获取沙箱类型的UI元数据
+ * 获取实验室类型的UI元数据
  */
 export function getSandboxTypeMeta(type: SandboxCreationType): SandboxTypeMeta {
   switch (type) {
@@ -119,24 +119,24 @@ export function getDeleteDialogConfig(
   switch (type) {
     case 'existing':
       return {
-        title: '确认删除沙箱',
-        message: `确定要删除沙箱「${sandboxName}」吗？\n\n此沙箱关联的是已有容器，删除沙箱仅会移除管理记录，不会删除容器本身。容器将继续在 Docker 中运行。`,
+        title: '确认删除实验室',
+        message: `确定要删除实验室「${sandboxName}」吗？\n\n此实验室关联的是已有容器，删除实验室仅会移除管理记录，不会删除容器本身。容器将继续在 Docker 中运行。`,
         showDeleteOption: false,
         defaultDeleteContainers: false,
         confirmButtonText: '仅删除记录',
-        warningMessage: '删除后如需再次管理此容器，需要重新创建沙箱并关联该容器。',
+        warningMessage: '删除后如需再次管理此容器，需要重新创建实验室并关联该容器。',
         typeTheme: 'warning'
       }
 
     case 'compose':
       return {
-        title: '确认删除 Compose 沙箱',
-        message: `确定要删除沙箱「${sandboxName}」吗？${
-          containerCount > 1 ? `\n该沙箱包含 ${containerCount} 个容器。` : ''
+        title: '确认删除 Compose 实验室',
+        message: `确定要删除实验室「${sandboxName}」吗？${
+          containerCount > 1 ? `\n该实验室包含 ${containerCount} 个容器。` : ''
         }`,
         showDeleteOption: true,
         defaultDeleteContainers: policy.defaultDeleteContainer,
-        confirmButtonText: '删除沙箱',
+        confirmButtonText: '删除实验室',
         deleteOptionLabel:
           containerCount > 1 ? `同时停止并删除 ${containerCount} 个容器` : '同时停止并删除容器',
         warningMessage: '删除容器后将无法恢复，请确认已备份重要数据。',
@@ -145,11 +145,11 @@ export function getDeleteDialogConfig(
 
     case 'dockerfile':
       return {
-        title: '确认删除 Dockerfile 沙箱',
-        message: `确定要删除沙箱「${sandboxName}」吗？`,
+        title: '确认删除 Dockerfile 实验室',
+        message: `确定要删除实验室「${sandboxName}」吗？`,
         showDeleteOption: true,
         defaultDeleteContainers: policy.defaultDeleteContainer,
-        confirmButtonText: '删除沙箱',
+        confirmButtonText: '删除实验室',
         deleteOptionLabel: '同时停止并删除容器',
         warningMessage: '删除容器后将无法恢复，请确认已备份重要数据。',
         typeTheme: 'info'
@@ -158,7 +158,7 @@ export function getDeleteDialogConfig(
     default:
       return {
         title: '确认删除',
-        message: `确定要删除沙箱「${sandboxName}」吗？`,
+        message: `确定要删除实验室「${sandboxName}」吗？`,
         showDeleteOption: false,
         defaultDeleteContainers: false,
         confirmButtonText: '删除',
@@ -178,13 +178,13 @@ export function getOperationDisabledReason(
 
   switch (operation) {
     case 'start':
-      return policy.canStart ? undefined : '已有容器类型的沙箱不支持启动操作，请使用 Docker 命令行'
+      return policy.canStart ? undefined : '已有容器类型的实验室不支持启动操作，请使用 Docker 命令行'
     case 'stop':
-      return policy.canStop ? undefined : '已有容器类型的沙箱不支持停止操作，请使用 Docker 命令行'
+      return policy.canStop ? undefined : '已有容器类型的实验室不支持停止操作，请使用 Docker 命令行'
     case 'restart':
       return policy.canRestart
         ? undefined
-        : '已有容器类型的沙箱不支持重启操作，请使用 Docker 命令行'
+        : '已有容器类型的实验室不支持重启操作，请使用 Docker 命令行'
     case 'delete':
       return undefined // 删除总是允许，但行为不同
     default:

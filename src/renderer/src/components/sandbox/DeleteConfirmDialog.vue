@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { DeleteSandboxOptions, SandboxCreationType } from '@shared/types/sandbox'
-import { getDeleteDialogConfig } from '@renderer/utils/sandboxPermissions'
+import { getDeleteDialogConfig } from '@renderer/utils/labPermissions'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
-// 沙箱项接口
+// 实验室项接口
 interface SandboxItem {
   sandboxId: string
   name: string
@@ -38,7 +38,7 @@ const dialogConfig = computed(() => {
   )
 })
 
-// 根据沙箱类型显示不同的确认内容
+// 根据实验室类型显示不同的确认内容
 const confirmTitle = computed(() => dialogConfig.value?.title || '确认删除')
 const confirmMessage = computed(() => dialogConfig.value?.message || '')
 const showDeleteContainerOption = computed(() => dialogConfig.value?.showDeleteOption ?? false)
@@ -106,7 +106,7 @@ function handleConfirm(): void {
         <!-- existing 类型提示图标 -->
         <div v-if="isExistingType" class="type-notice">
           <SvgIcon name="warning" :size="24" />
-          <span>只读沙箱 · 仅删除记录</span>
+          <span>只读实验室 · 仅删除记录</span>
         </div>
 
         <p class="confirm-message">{{ confirmMessage }}</p>

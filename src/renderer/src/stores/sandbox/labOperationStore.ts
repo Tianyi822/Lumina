@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
 import type { SandboxCreationType, DeleteSandboxOptions } from '@shared/types/sandbox'
 import { useNotification } from '@renderer/composables/useNotification'
-import { useSandboxListStore } from './sandboxListStore'
+import { useSandboxListStore } from './labListStore'
 
 interface DeleteConfirmState {
   show: boolean
@@ -46,7 +46,7 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         sandbox?.frontend?.storageType === 'docker-volume' && !!sandbox.frontend.volumeName
       workspaceName = sandbox?.frontend?.volumeName
     } catch (error) {
-      window.api.logger.warn('[SandboxOperationStore] 加载删除确认所需的沙箱详情失败', {
+      window.api.logger.warn('[SandboxOperationStore] 加载删除确认所需的实验室详情失败', {
         sandboxId,
         error: error instanceof Error ? error.message : String(error)
       })
@@ -85,7 +85,7 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
     const sandbox = sandboxList.value.find((item) => item.sandboxId === sandboxId)
 
     return {
-      sandboxName: sandbox?.name || '沙箱',
+      sandboxName: sandbox?.name || '实验室',
       creationType: sandbox?.creationType || 'existing',
       containerCount: sandbox?.containerCount || 0
     }
@@ -103,8 +103,8 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         title: '无法删除运行中的容器',
         message:
           creationType === 'dockerfile' || creationType === 'compose'
-            ? '容器正在运行，请先停止容器后再删除沙箱。您可以在监控面板中点击"停止"按钮。'
-            : '容器正在运行，请先停止容器后再删除沙箱。'
+            ? '容器正在运行，请先停止容器后再删除实验室。您可以在监控面板中点击"停止"按钮。'
+            : '容器正在运行，请先停止容器后再删除实验室。'
       }
     }
 
@@ -158,8 +158,8 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         await listStore.refreshSandboxList()
         hideDeleteConfirm()
 
-        window.api.logger.info('[SandboxOperationStore] 删除沙箱成功', { sandboxId })
-        const successMessageParts = ['沙箱已成功删除']
+        window.api.logger.info('[SandboxOperationStore] 删除实验室成功', { sandboxId })
+        const successMessageParts = ['实验室已成功删除']
         if (result.removedWorkspace) {
           successMessageParts.push('前端工作区已同时删除。')
         } else if (result.keptWorkspace) {
@@ -179,11 +179,11 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
       return false
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      window.api.logger.error('[SandboxOperationStore] 删除沙箱失败', {
+      window.api.logger.error('[SandboxOperationStore] 删除实验室失败', {
         error: errorMessage,
         sandboxId
       })
-      notify.error('删除失败', '删除沙箱时发生错误，请稍后重试', { source: 'sandbox' })
+      notify.error('删除失败', '删除实验室时发生错误，请稍后重试', { source: 'sandbox' })
       // 异常时重置状态
       deleteConfirmState.value.isDeleting = false
       return false
@@ -218,21 +218,21 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
 
         listStore.removeSandboxStatus(sandboxId)
         await listStore.refreshSandboxList()
-        notify.success('清理成功', '孤儿沙箱已清理', { source: 'sandbox' })
+        notify.success('清理成功', '孤儿实验室已清理', { source: 'sandbox' })
 
-        window.api.logger.info('[SandboxOperationStore] 清理孤儿沙箱成功', { sandboxId })
+        window.api.logger.info('[SandboxOperationStore] 清理孤儿实验室成功', { sandboxId })
         return true
       }
 
-      notify.error('清理失败', result.error || '清理孤儿沙箱失败', { source: 'sandbox' })
+      notify.error('清理失败', result.error || '清理孤儿实验室失败', { source: 'sandbox' })
       return false
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      window.api.logger.error('[SandboxOperationStore] 清理孤儿沙箱失败', {
+      window.api.logger.error('[SandboxOperationStore] 清理孤儿实验室失败', {
         error: errorMessage,
         sandboxId
       })
-      notify.error('清理失败', errorMessage || '清理孤儿沙箱失败', { source: 'sandbox' })
+      notify.error('清理失败', errorMessage || '清理孤儿实验室失败', { source: 'sandbox' })
       return false
     }
   }
@@ -248,24 +248,24 @@ export const useSandboxOperationStore = defineStore('sandboxOperation', () => {
         }
 
         await listStore.refreshSandboxList()
-        notify.success('恢复成功', '孤儿沙箱已重新关联容器', { source: 'sandbox' })
+        notify.success('恢复成功', '孤儿实验室已重新关联容器', { source: 'sandbox' })
 
-        window.api.logger.info('[SandboxOperationStore] 恢复孤儿沙箱成功', {
+        window.api.logger.info('[SandboxOperationStore] 恢复孤儿实验室成功', {
           sandboxId,
           newContainerId
         })
         return true
       }
 
-      notify.error('恢复失败', result.error || '恢复孤儿沙箱失败', { source: 'sandbox' })
+      notify.error('恢复失败', result.error || '恢复孤儿实验室失败', { source: 'sandbox' })
       return false
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      window.api.logger.error('[SandboxOperationStore] 恢复孤儿沙箱失败', {
+      window.api.logger.error('[SandboxOperationStore] 恢复孤儿实验室失败', {
         error: errorMessage,
         sandboxId
       })
-      notify.error('恢复失败', errorMessage || '恢复孤儿沙箱失败', { source: 'sandbox' })
+      notify.error('恢复失败', errorMessage || '恢复孤儿实验室失败', { source: 'sandbox' })
       return false
     }
   }

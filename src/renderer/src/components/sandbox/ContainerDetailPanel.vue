@@ -6,7 +6,7 @@ import type {
   ContainerState,
   SandboxCreationType
 } from '@shared/types/sandbox'
-import { useSandboxPermissions } from '@renderer/composables/useSandboxPermissions'
+import { useSandboxPermissions } from '@renderer/composables/useLabPermissions'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 // ==================== Props & Emits ====================
@@ -16,8 +16,8 @@ const props = defineProps<{
   stats: ContainerStats | null
   loading?: boolean
   refreshingStats?: boolean
-  creationType?: SandboxCreationType | null // 沙箱创建类型
-  sandboxName?: string // 沙箱名称（用于格式化监控页面标题）
+  creationType?: SandboxCreationType | null // 实验室创建类型
+  sandboxName?: string // 实验室名称（用于格式化监控页面标题）
   startingContainer?: boolean // 启动中状态
   stoppingContainer?: boolean // 停止中状态
   restartingContainer?: boolean // 重启中状态
@@ -49,11 +49,11 @@ const isOperating = computed(
 
 /**
  * 格式化监控页面标题
- * 对于 docker-compose 创建的沙箱，格式为 "sandbox-docker-compose-[沙箱名]"
+ * 对于 docker-compose 创建的实验室，格式为 "sandbox-docker-compose-[实验室名]"
  * 其他类型显示容器名称
  */
 const headerTitle = computed(() => {
-  // 如果是 compose 类型且有沙箱名称，使用格式化标题
+  // 如果是 compose 类型且有实验室名称，使用格式化标题
   if (props.creationType === 'compose' && props.sandboxName) {
     // 处理特殊字符，确保标题安全显示
     const sanitizedName = props.sandboxName.replace(/[<>"'&]/g, '')

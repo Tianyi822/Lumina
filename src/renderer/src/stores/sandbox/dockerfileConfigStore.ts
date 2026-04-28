@@ -6,7 +6,7 @@ export const useDockerfileConfigStore = defineStore('sandboxDockerfileConfig', (
   const dockerfileContent = ref('')
   /** Dockerfile 上下文路径 */
   const dockerfileContext = ref('')
-  /** Dockerfile 沙箱名称 */
+  /** Dockerfile 实验室名称 */
   const dockerfileProjectName = ref('')
   /** 选中的 Dockerfile 配置 ID */
   const selectedDockerfileId = ref<string | null>(null)
