@@ -61,6 +61,7 @@ async function refreshCurrentKnowledgeBase(): Promise<void> {
   const result = await window.api.knowledge.getById(currentKB.value.id)
   if (result.success && result.data) {
     Object.assign(currentKB.value, result.data)
+    currentKB.value.indexInvalidation = result.data.indexInvalidation
   }
 }
 
