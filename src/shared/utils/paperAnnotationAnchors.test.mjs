@@ -80,7 +80,8 @@ test('文本锚点可以把旧 KaTeX DOM 偏移恢复到源码文本位置', () 
 })
 
 test('精确切片命中但上下文不匹配时降级到片段搜索', () => {
-  const creationText = 'First sentence. Important concept appears here. Important concept appears later.'
+  const creationText =
+    'First sentence. Important concept appears here. Important concept appears later.'
   const renderText =
     'Opening note. Important concept appears here. Another bridge. Important concept appears later.'
 
@@ -102,7 +103,8 @@ test('完全相同的两个词 — 上下文消歧选择正确位置', () => {
   const firstStart = source.indexOf('data')
   const anchor = buildPaperTextAnchor(source, firstStart, firstStart + 'data'.length)
 
-  const shifted = 'Introduction. The data analysis shows the trend. The data analysis confirms the result.'
+  const shifted =
+    'Introduction. The data analysis shows the trend. The data analysis confirms the result.'
 
   const recovered = findPaperTextAnchorOffset(shifted, anchor)
 

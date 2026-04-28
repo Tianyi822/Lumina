@@ -254,11 +254,7 @@ function resolveHighlightRange(
   }
 
   const startPoint = resolveCanonicalTextPoint(canonicalIndex, trimmedRange.startOffset, 'start')
-  const endPoint = resolveCanonicalTextPoint(
-    canonicalIndex,
-    trimmedRange.endOffset,
-    'end'
-  )
+  const endPoint = resolveCanonicalTextPoint(canonicalIndex, trimmedRange.endOffset, 'end')
   if (!startPoint || !endPoint) {
     return null
   }

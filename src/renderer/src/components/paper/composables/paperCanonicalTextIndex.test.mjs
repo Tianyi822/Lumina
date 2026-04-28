@@ -177,15 +177,12 @@ test('canonical range 会把 display 公式内部选区扩展为完整 LaTeX', (
   const root = createElement('div', {}, [createTextNode('Since '), math, createTextNode('.')])
   const index = buildCanonicalTextIndex(root)
   const htmlText = math.childNodes[1].childNodes[0]
-  const offsets = getCanonicalRangeOffsets(
-    index,
-    {
-      startContainer: htmlText,
-      startOffset: 2,
-      endContainer: htmlText,
-      endOffset: 8
-    }
-  )
+  const offsets = getCanonicalRangeOffsets(index, {
+    startContainer: htmlText,
+    startOffset: 2,
+    endContainer: htmlText,
+    endOffset: 8
+  })
 
   assert.ok(offsets)
   assert.equal(
@@ -201,16 +198,11 @@ test('canonical range rect 对公式使用可见 KaTeX HTML 的矩形', () => {
   const root = createElement('div', {}, [createTextNode('Since '), math, createTextNode('.')])
   const index = buildCanonicalTextIndex(root)
   const mathStartOffset = index.text.indexOf('$\\sigma_l')
-  const rect = getCanonicalRangeClientRect(
-    index,
-    mathStartOffset + 3,
-    mathStartOffset + 10,
-    {
-      getBoundingClientRect() {
-        return createRect(0, 0, 1, 1)
-      }
+  const rect = getCanonicalRangeClientRect(index, mathStartOffset + 3, mathStartOffset + 10, {
+    getBoundingClientRect() {
+      return createRect(0, 0, 1, 1)
     }
-  )
+  })
 
   assert.deepEqual(rect, createRect(90, 40, 240, 66))
 })

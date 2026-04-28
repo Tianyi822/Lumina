@@ -21,10 +21,7 @@ const emit = defineEmits<{
     <button
       type="button"
       role="tab"
-      :class="[
-        'file-selector-tabs__item',
-        { 'is-active': activeTab === 'existing' }
-      ]"
+      :class="['file-selector-tabs__item', { 'is-active': activeTab === 'existing' }]"
       :aria-selected="activeTab === 'existing'"
       @click="emit('update:activeTab', 'existing')"
     >
@@ -34,10 +31,7 @@ const emit = defineEmits<{
     <button
       type="button"
       role="tab"
-      :class="[
-        'file-selector-tabs__item',
-        { 'is-active': activeTab === 'upload' }
-      ]"
+      :class="['file-selector-tabs__item', { 'is-active': activeTab === 'upload' }]"
       :aria-selected="activeTab === 'upload'"
       @click="emit('update:activeTab', 'upload')"
     >

@@ -284,11 +284,7 @@ onBeforeUnmount(() => {
           :aria-hidden="visibleTab !== 'upload' || !isPanelContentVisible"
           :inert="visibleTab !== 'upload' || !isPanelContentVisible"
         >
-          <UploadTab
-            :kb-id="kbId"
-            @close="emit('close')"
-            @upload-complete="handleUploadComplete"
-          />
+          <UploadTab :kb-id="kbId" @close="emit('close')" @upload-complete="handleUploadComplete" />
         </div>
       </div>
     </div>
