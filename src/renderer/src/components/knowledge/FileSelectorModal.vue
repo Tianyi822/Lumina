@@ -119,7 +119,7 @@ function lockPanelShellHeight(): number {
 
   const currentHeight = Math.ceil(panelShell.offsetHeight)
   setPanelShellHeight(currentHeight)
-  panelShell.offsetHeight
+  void panelShell.offsetHeight
   return currentHeight
 }
 
@@ -221,7 +221,7 @@ watch(activeTab, async () => {
   isPanelContentVisible.value = false
   pendingVisibleTab = activeTab.value
   await nextTick()
-  panelShellRef.value?.offsetHeight
+  void panelShellRef.value?.offsetHeight
   animatePanelShellHeightTo(nextHeight)
   panelTransitionTimer = window.setTimeout(
     finishPendingPanelTransition,
