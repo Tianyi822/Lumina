@@ -615,7 +615,7 @@ function formatDateTime(value?: string): string {
 
 .workspace-header {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: var(--sm-space-5);
   padding: var(--sm-space-6);
@@ -646,7 +646,7 @@ function formatDateTime(value?: string): string {
 
 .workspace-header__titles h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 28px;
   line-height: 1.2;
   color: var(--sm-color-text-primary);
 }
