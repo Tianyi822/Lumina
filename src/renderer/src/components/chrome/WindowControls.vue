@@ -78,6 +78,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 0;
   height: var(--sm-titlebar-height);
+  line-height: 1;
+  overflow: hidden;
   -webkit-app-region: no-drag;
   user-select: none;
 }
@@ -88,6 +90,8 @@ onUnmounted(() => {
   justify-content: center;
   width: var(--sm-window-control-button-width, 46px);
   height: var(--sm-titlebar-height);
+  flex: 0 0 var(--sm-window-control-button-width, 46px);
+  line-height: 1;
   border: 0;
   border-radius: 0;
   background: transparent;
