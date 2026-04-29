@@ -13,6 +13,12 @@
   pointer-events: none;
 }
 
+.sm-notification-center--windows {
+  top: calc(var(--sm-titlebar-height) + var(--sm-space-2));
+  right: calc(20px + 138px);
+  width: min(480px, calc(100vw - 178px));
+}
+
 .sm-notification-center > * {
   pointer-events: auto;
 }

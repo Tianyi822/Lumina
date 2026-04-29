@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
+import { useRuntimePlatform } from '@renderer/composables/useRuntimePlatform'
+import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
 import NotificationItem from './NotificationItem.vue'
 import NotificationConfirmDialog from './NotificationConfirmDialog.vue'
-import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
 
 const store = useNotificationCenterStore()
 const { notifications, confirmState } = storeToRefs(store)
+const { isWindows } = useRuntimePlatform()
 
 function handleDismiss(id: string): void {
   store.dismiss(id)
@@ -20,6 +22,7 @@ function handleDismiss(id: string): void {
       name="sm-notification"
       tag="div"
       class="sm-notification-center"
+      :class="{ 'sm-notification-center--windows': isWindows }"
     >
       <NotificationItem
         v-for="notification in notifications"
