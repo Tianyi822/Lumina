@@ -538,7 +538,7 @@ onUnmounted(() => {
 .sm-workspace-toolbar__controls {
   position: absolute;
   top: 0;
-  right: 0;
+  right: var(--sm-window-controls-safe-width, 0px);
   z-index: 4;
   display: flex;
   align-items: center;
@@ -557,7 +557,7 @@ onUnmounted(() => {
 
   top: calc(var(--sm-space-3) * -1);
   left: var(--sm-paper-toolbar-chrome-safe-left);
-  right: 0;
+  right: var(--sm-window-controls-safe-width, 0px);
   box-sizing: border-box;
   width: auto;
   min-height: var(--sm-paper-toolbar-height);
@@ -577,7 +577,7 @@ onUnmounted(() => {
 
   top: calc(var(--sm-space-3) * -1);
   left: var(--sm-knowledge-toolbar-safe-left);
-  right: 0;
+  right: var(--sm-window-controls-safe-width, 0px);
   box-sizing: border-box;
   width: auto;
   min-height: var(--sm-paper-toolbar-height);

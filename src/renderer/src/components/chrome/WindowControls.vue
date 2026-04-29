@@ -1,16 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 const isMaximized = ref(false)
-
-const isMac = computed(() => {
-  return window.electron?.process?.platform === 'darwin'
-})
-
-const shouldRenderCustomControls = computed(() => {
-  return !isMac.value
-})
 
 async function syncMaximizedState(): Promise<void> {
   isMaximized.value = await window.api.window.isMaximized()
@@ -32,10 +24,6 @@ async function handleClose(): Promise<void> {
 let unsubscribeMaximizedChanged: (() => void) | null = null
 
 onMounted(async () => {
-  if (!shouldRenderCustomControls.value) {
-    return
-  }
-
   await syncMaximizedState()
   unsubscribeMaximizedChanged = window.api.window.onMaximizedChanged((maximized) => {
     isMaximized.value = maximized
@@ -50,11 +38,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="shouldRenderCustomControls" class="sm-window-controls">
+  <div class="sm-window-controls">
     <button
       class="sm-window-controls__button"
       title="最小化"
       aria-label="最小化窗口"
+      type="button"
       @click="handleMinimize"
     >
       <span class="sm-window-controls__icon">─</span>
@@ -64,6 +53,7 @@ onUnmounted(() => {
       class="sm-window-controls__button"
       :title="isMaximized ? '还原' : '最大化'"
       :aria-label="isMaximized ? '还原窗口' : '最大化窗口'"
+      type="button"
       @click="handleMaximize"
     >
       <SvgIcon v-if="!isMaximized" name="window-maximize" :size="12" />
@@ -74,6 +64,7 @@ onUnmounted(() => {
       class="sm-window-controls__button sm-window-controls__button--close"
       title="关闭"
       aria-label="关闭窗口"
+      type="button"
       @click="handleClose"
     >
       <span class="sm-window-controls__icon">×</span>
@@ -85,42 +76,48 @@ onUnmounted(() => {
 .sm-window-controls {
   display: inline-flex;
   align-items: center;
-  gap: var(--sm-space-2);
-  min-height: var(--sm-titlebar-height);
+  gap: 0;
+  height: var(--sm-titlebar-height);
   -webkit-app-region: no-drag;
+  user-select: none;
 }
 
 .sm-window-controls__button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 8px;
-  background: var(--sm-color-surface-1);
+  width: var(--sm-window-control-button-width, 46px);
+  height: var(--sm-titlebar-height);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--sm-color-text-secondary);
   cursor: pointer;
+  -webkit-app-region: no-drag;
   transition:
     background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast),
     color var(--sm-transition-fast);
 }
 
-.sm-window-controls__button:hover {
-  background: var(--sm-color-surface-hover);
-  border-color: var(--sm-color-border-strong);
+.sm-window-controls__button:hover,
+.sm-window-controls__button:focus-visible {
+  background: color-mix(in srgb, var(--sm-color-text-primary) 10%, transparent);
   color: var(--sm-color-text-primary);
+  outline: none;
 }
 
-.sm-window-controls__button--close:hover {
-  border-color: rgba(199, 120, 120, 0.42);
-  background: rgba(199, 120, 120, 0.16);
+.sm-window-controls__button:active {
+  background: color-mix(in srgb, var(--sm-color-text-primary) 16%, transparent);
+}
+
+.sm-window-controls__button--close:hover,
+.sm-window-controls__button--close:focus-visible {
+  background: #c42b1c;
   color: #ffffff;
 }
 
 .sm-window-controls__icon {
   line-height: 1;
-  font-size: 12px;
+  font-size: 13px;
 }
 </style>

@@ -194,6 +194,12 @@ onBeforeUnmount(() => {
 
 .sm-workspace-page {
   --sm-workspace-chrome-actions-safe-width: 140px;
+  --sm-window-controls-safe-width: 0px;
+  --sm-window-control-button-width: 46px;
+}
+
+.sm-workspace-page--windows {
+  --sm-window-controls-safe-width: calc(var(--sm-window-control-button-width) * 3);
 }
 
 .sm-workspace-page__chrome-actions {
@@ -226,17 +232,22 @@ onBeforeUnmount(() => {
 }
 
 .sm-workspace-page--windows .sm-workspace-page__chrome-actions {
+  top: 4px;
   left: var(--sm-space-3);
 }
 
 .sm-workspace-page__win-controls {
   position: absolute;
   top: 0;
-  right: var(--sm-space-3);
+  right: 0;
   z-index: 21;
   display: inline-flex;
   align-items: center;
   -webkit-app-region: no-drag;
   pointer-events: auto;
+}
+
+.sm-workspace-page--windows .sm-workspace-page__drag-region {
+  right: var(--sm-window-controls-safe-width);
 }
 </style>
