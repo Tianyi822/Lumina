@@ -7,17 +7,21 @@ defineProps<{
   actionsKey?: string
 }>()
 
-const { usesNativeTrafficLights } = useRuntimePlatform()
+const { isWindows, usesNativeTrafficLights } = useRuntimePlatform()
 </script>
 
 <template>
   <header
     class="sm-sidebar-shell__header sm-sidebar-shell__header--chrome"
-    :class="{ 'sm-sidebar-shell__header--chrome-mac': usesNativeTrafficLights }"
+    :class="{
+      'sm-sidebar-shell__header--chrome-mac': usesNativeTrafficLights,
+      'sm-sidebar-shell__header--chrome-windows': isWindows
+    }"
   >
     <div
-      v-if="usesNativeTrafficLights"
+      v-if="usesNativeTrafficLights || isWindows"
       class="sm-sidebar-shell__chrome-action-hitbox"
+      :class="{ 'sm-sidebar-shell__chrome-action-hitbox--windows': isWindows }"
       aria-hidden="true"
     ></div>
 
@@ -53,5 +57,10 @@ const { usesNativeTrafficLights } = useRuntimePlatform()
   width: 62px;
   height: 30px;
   -webkit-app-region: no-drag;
+  pointer-events: none;
+}
+
+.sm-sidebar-shell__chrome-action-hitbox--windows {
+  left: var(--sm-space-4);
 }
 </style>

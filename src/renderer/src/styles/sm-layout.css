@@ -187,6 +187,10 @@
   padding-top: calc(var(--sm-space-4) + 20px);
 }
 
+.sm-sidebar-shell__header--chrome-windows {
+  padding-top: calc(var(--sm-space-4) + 20px);
+}
+
 .sm-sidebar-shell__switcher-row {
   display: flex;
   align-items: center;
