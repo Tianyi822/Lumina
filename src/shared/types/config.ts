@@ -99,6 +99,8 @@ export interface OcrProviderPreset {
   modelName: string
   url: string
   concurrency: number
+  /** 获取 API Key 的网址 */
+  apiKeyUrl: string
 }
 
 /**
@@ -110,7 +112,8 @@ export const OCR_PROVIDER_PRESETS: OcrProviderPreset[] = [
     label: 'GLM-OCR',
     modelName: 'glm-ocr',
     url: 'https://open.bigmodel.cn/api/paas/v4/layout_parsing',
-    concurrency: 2
+    concurrency: 2,
+    apiKeyUrl: 'https://bigmodel.cn/apikey/platform'
   }
 ]
 
