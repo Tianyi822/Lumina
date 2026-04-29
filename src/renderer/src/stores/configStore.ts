@@ -183,11 +183,11 @@ export const useConfigStore = defineStore('config', () => {
   function updateModelConfigField(
     modelName: string,
     field: keyof LLMConfig,
-    value: string | number
+    value: string
   ): void {
     const config = llmConfigs.value.find((m) => m.model_name === modelName)
     if (config) {
-      ;(config as Record<string, string | number>)[field] = value
+      ;(config as Record<string, string>)[field] = value
     }
   }
 
