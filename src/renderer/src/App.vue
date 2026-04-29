@@ -13,6 +13,7 @@ import WorkspaceToolbar from './components/chrome/WorkspaceToolbar.vue'
 
 // Composables
 import { useLifecycle } from './composables/lifecycle/useLifecycle'
+import { useRuntimePlatform } from './composables/useRuntimePlatform'
 import { useTheme } from './composables/useTheme'
 
 // Stores
@@ -26,13 +27,12 @@ const uiState = useUIStateStore()
 const { currentView, isKnowledgeView, isPaperView, isCurrentSidebarCollapsed } =
   storeToRefs(uiState)
 
-const isWindows = computed(() => {
-  return window.electron?.process?.platform === 'win32'
-})
+const { isMac, isWindows, usesCustomWindowControls } = useRuntimePlatform()
 
 const workspacePageClasses = computed(() => ({
   [`sm-workspace-page--${currentView.value}`]: true,
   'sm-workspace-page--sidebar-collapsed': isCurrentSidebarCollapsed.value,
+  'sm-workspace-page--mac': isMac.value,
   'sm-workspace-page--windows': isWindows.value
 }))
 
@@ -149,7 +149,7 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div v-if="isWindows" class="sm-workspace-page__win-controls">
+      <div v-if="usesCustomWindowControls" class="sm-workspace-page__win-controls">
         <WindowControls />
       </div>
 

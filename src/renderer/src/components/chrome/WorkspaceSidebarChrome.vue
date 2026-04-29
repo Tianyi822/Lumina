@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { useRuntimePlatform } from '@renderer/composables/useRuntimePlatform'
 import WorkspaceViewSwitcher from './WorkspaceViewSwitcher.vue'
 
 defineProps<{
@@ -7,17 +7,19 @@ defineProps<{
   actionsKey?: string
 }>()
 
-const isMac = computed(() => {
-  return window.electron?.process?.platform === 'darwin'
-})
+const { usesNativeTrafficLights } = useRuntimePlatform()
 </script>
 
 <template>
   <header
     class="sm-sidebar-shell__header sm-sidebar-shell__header--chrome"
-    :class="{ 'sm-sidebar-shell__header--chrome-mac': isMac }"
+    :class="{ 'sm-sidebar-shell__header--chrome-mac': usesNativeTrafficLights }"
   >
-    <div v-if="isMac" class="sm-sidebar-shell__chrome-action-hitbox" aria-hidden="true"></div>
+    <div
+      v-if="usesNativeTrafficLights"
+      class="sm-sidebar-shell__chrome-action-hitbox"
+      aria-hidden="true"
+    ></div>
 
     <div class="sm-sidebar-shell__switcher-row">
       <div class="sm-sidebar-shell__switcher-card">
