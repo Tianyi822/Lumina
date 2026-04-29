@@ -151,7 +151,9 @@ function scrollToAndPulseAnnotation(annotationId: string): void {
 async function highlightUpdatedTranslationAnnotation(annotationIds: string[]): Promise<void> {
   await nextTick()
   requestAnimationFrame(() => {
-    const targetAnnotationId = annotationIds.find((annotationId) => findAnnotationMark(annotationId))
+    const targetAnnotationId = annotationIds.find((annotationId) =>
+      findAnnotationMark(annotationId)
+    )
     if (targetAnnotationId) {
       scrollToAndPulseAnnotation(targetAnnotationId)
     }
@@ -212,7 +214,9 @@ async function handleUpdateAnnotationToCurrentTranslation(
   return result
 }
 
-async function handleResolveAnnotationForCurrentTranslation(annotation: PaperAnnotation): Promise<void> {
+async function handleResolveAnnotationForCurrentTranslation(
+  annotation: PaperAnnotation
+): Promise<void> {
   if (composer.isAnnotationOutdated(annotation)) {
     await handleUpdateAnnotationToCurrentTranslation(annotation)
     return
@@ -223,7 +227,9 @@ async function handleResolveAnnotationForCurrentTranslation(annotation: PaperAnn
 }
 
 async function handleUpdateOutdatedAnnotationsToCurrentTranslation(): Promise<void> {
-  const candidateAnnotationIds = composer.outdatedAnnotations.value.map((annotation) => annotation.id)
+  const candidateAnnotationIds = composer.outdatedAnnotations.value.map(
+    (annotation) => annotation.id
+  )
   const candidateAnnotations = [...composer.outdatedAnnotations.value]
   await composer.updateOutdatedAnnotationsToCurrentTranslation()
   const rebindAnnotation = candidateAnnotations.find(
@@ -303,6 +309,14 @@ watch(
 )
 
 const hasContent = computed(() => !!props.content.trim())
+
+function handleRetranslateSegment(params: { segmentId: string; stableId: string }): void {
+  if (!props.paperId) {
+    return
+  }
+
+  void paperReaderStore.retranslateSegment(props.paperId, params.segmentId, params.stableId)
+}
 
 function handleHoverPopoverDelete(): void {
   const annotation = composer.hoverPopoverAnnotation.value
@@ -505,7 +519,10 @@ onBeforeUnmount(() => {
 
         <PaperMarkdownAnnotationManager :actions="annotationManagerActions" />
 
-        <PaperMarkdownSegmentList :segments="engine.renderedSegments.value" />
+        <PaperMarkdownSegmentList
+          :segments="engine.renderedSegments.value"
+          @retranslate="handleRetranslateSegment"
+        />
       </article>
     </div>
 
