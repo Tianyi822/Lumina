@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
-import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 const isMaximized = ref(false)
+const maximizeIcon = computed(() => (isMaximized.value ? '\uE923' : '\uE922'))
 
 async function syncMaximizedState(): Promise<void> {
   isMaximized.value = await window.api.window.isMaximized()
@@ -46,7 +46,7 @@ onUnmounted(() => {
       type="button"
       @click="handleMinimize"
     >
-      <span class="sm-window-controls__icon">─</span>
+      <span class="sm-window-controls__icon sm-window-controls__icon--native">&#xE921;</span>
     </button>
 
     <button
@@ -56,8 +56,9 @@ onUnmounted(() => {
       type="button"
       @click="handleMaximize"
     >
-      <SvgIcon v-if="!isMaximized" name="window-maximize" :size="12" />
-      <SvgIcon v-else name="window-restore" :size="12" />
+      <span class="sm-window-controls__icon sm-window-controls__icon--native">
+        {{ maximizeIcon }}
+      </span>
     </button>
 
     <button
@@ -67,7 +68,7 @@ onUnmounted(() => {
       type="button"
       @click="handleClose"
     >
-      <span class="sm-window-controls__icon">×</span>
+      <span class="sm-window-controls__icon sm-window-controls__icon--native">&#xE8BB;</span>
     </button>
   </div>
 </template>
@@ -123,5 +124,11 @@ onUnmounted(() => {
 .sm-window-controls__icon {
   line-height: 1;
   font-size: 13px;
+}
+
+.sm-window-controls__icon--native {
+  font-family: 'Segoe Fluent Icons', 'Segoe MDL2 Assets', sans-serif;
+  font-size: 10px;
+  font-weight: 400;
 }
 </style>
