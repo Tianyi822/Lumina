@@ -50,7 +50,6 @@ async function testModelConnection(config: LLMConfig): Promise<ModelConnectionTe
     await client.chat.completions.create({
       model: config.model_name,
       messages: [{ role: 'user', content: 'ping' }],
-      temperature: config.temperature,
       max_tokens: 1
     })
 

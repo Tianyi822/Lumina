@@ -12,9 +12,7 @@ import { parsePaperTranslationSegments } from '../../../shared/utils/paperTransl
 const TEST_LLM_CONFIG: LLMConfig = {
   base_url: 'https://example.com',
   api_key: 'test-key',
-  model_name: 'test-model',
-  temperature: 0.2,
-  max_tokens: 2048
+  model_name: 'test-model'
 }
 
 function createLogger(): {

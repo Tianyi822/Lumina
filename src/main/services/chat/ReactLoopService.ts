@@ -260,8 +260,6 @@ export class ReactLoopService {
         tools: tools.length > 0 ? tools : undefined,
         tool_choice: tools.length > 0 ? 'auto' : undefined,
         stream: true,
-        temperature: llmConfig.temperature,
-        max_tokens: llmConfig.max_tokens,
         stream_options: { include_usage: true }
       },
       abortController,
