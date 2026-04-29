@@ -1,11 +1,78 @@
+import { execFileSync } from 'child_process'
 import { existsSync, mkdirSync } from 'fs'
 import { appendFile } from 'fs/promises'
+import * as iconv from 'iconv-lite'
 import { LogLevel, LogLevelNames } from '@main/types/logger'
 import type { LogSource, LogEntry, LoggerConfig, LogResult } from '@main/types/logger'
 import { getLogDirPath, getLogFilePath, formatDateForFilename, isLogPathSafe } from './loggerPaths'
 
 // 最大日志消息长度（10KB）
 const MAX_MESSAGE_LENGTH = 10 * 1024
+let windowsConsoleEncoding: string | null = null
+
+function getWindowsConsoleEncoding(): string {
+  if (windowsConsoleEncoding) {
+    return windowsConsoleEncoding
+  }
+
+  try {
+    const output = execFileSync('chcp.com', { encoding: 'utf8', windowsHide: true })
+    const codePage = output.match(/\d+/)?.[0]
+    const encoding = codePage === '65001' ? 'utf8' : `cp${codePage || '936'}`
+    windowsConsoleEncoding = iconv.encodingExists(encoding) ? encoding : 'gb18030'
+  } catch {
+    windowsConsoleEncoding = 'gb18030'
+  }
+
+  return windowsConsoleEncoding
+}
+
+function writeWindowsConsole(stream: NodeJS.WriteStream, message: string): void {
+  const encoding = getWindowsConsoleEncoding()
+  if (encoding === 'utf8') {
+    stream.write(`${message}\n`)
+    return
+  }
+
+  stream.write(iconv.encode(`${message}\n`, encoding))
+}
+
+function hasUnreadableText(value: string): boolean {
+  return value.includes('\uFFFD') || value.includes('锟斤拷') || value.includes('���')
+}
+
+function sanitizeLogText(value: string): string {
+  if (!hasUnreadableText(value)) {
+    return value
+  }
+
+  if (value.toLowerCase().includes('docker')) {
+    return 'Docker 命令输出无法正确解码，已隐藏原始乱码。'
+  }
+
+  return '文本包含无法正确解码的内容，已隐藏原始乱码。'
+}
+
+function sanitizeLogValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return sanitizeLogText(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(sanitizeLogValue)
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+        key,
+        sanitizeLogValue(item)
+      ])
+    )
+  }
+
+  return value
+}
 
 // 日志管理器
 // 负责日志的记录、格式化和输出
@@ -81,7 +148,7 @@ export class Logger {
     if (!context) return ''
 
     try {
-      return JSON.stringify(context)
+      return JSON.stringify(sanitizeLogValue(context))
     } catch {
       return '[无法序列化的对象]'
     }
@@ -97,6 +164,22 @@ export class Logger {
   // 根据日志级别选择不同的控制台方法
   private logToConsole(entry: LogEntry): void {
     const formattedMessage = this.formatLogEntry(entry)
+    const shouldUseWindowsConsoleEncoding = process.platform === 'win32'
+
+    if (shouldUseWindowsConsoleEncoding) {
+      switch (entry.level) {
+        case LogLevel.DEBUG:
+        case LogLevel.INFO:
+          writeWindowsConsole(process.stdout, formattedMessage)
+          break
+        case LogLevel.WARN:
+        case LogLevel.ERROR:
+        case LogLevel.FATAL:
+          writeWindowsConsole(process.stderr, formattedMessage)
+          break
+      }
+      return
+    }
 
     switch (entry.level) {
       case LogLevel.DEBUG:
@@ -173,7 +256,7 @@ export class Logger {
       timestamp: this.formatTimestamp(),
       level,
       levelName: LogLevelNames[level],
-      message: this.truncateMessage(message),
+      message: this.truncateMessage(sanitizeLogText(message)),
       source,
       context
     }

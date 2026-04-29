@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import WindowControls from './WindowControls.vue'
+import { useRuntimePlatform } from '@renderer/composables/useRuntimePlatform'
 import WorkspaceViewSwitcher from './WorkspaceViewSwitcher.vue'
 
 defineProps<{
@@ -8,19 +7,23 @@ defineProps<{
   actionsKey?: string
 }>()
 
-const isMac = computed(() => {
-  return window.electron?.process?.platform === 'darwin'
-})
+const { isWindows, usesNativeTrafficLights } = useRuntimePlatform()
 </script>
 
 <template>
   <header
     class="sm-sidebar-shell__header sm-sidebar-shell__header--chrome"
-    :class="{ 'sm-sidebar-shell__header--chrome-mac': isMac }"
+    :class="{
+      'sm-sidebar-shell__header--chrome-mac': usesNativeTrafficLights,
+      'sm-sidebar-shell__header--chrome-windows': isWindows
+    }"
   >
-    <div v-if="isMac" class="sm-sidebar-shell__chrome-action-hitbox" aria-hidden="true"></div>
-
-    <WindowControls />
+    <div
+      v-if="usesNativeTrafficLights || isWindows"
+      class="sm-sidebar-shell__chrome-action-hitbox"
+      :class="{ 'sm-sidebar-shell__chrome-action-hitbox--windows': isWindows }"
+      aria-hidden="true"
+    ></div>
 
     <div class="sm-sidebar-shell__switcher-row">
       <div class="sm-sidebar-shell__switcher-card">
@@ -54,5 +57,10 @@ const isMac = computed(() => {
   width: 62px;
   height: 30px;
   -webkit-app-region: no-drag;
+  pointer-events: none;
+}
+
+.sm-sidebar-shell__chrome-action-hitbox--windows {
+  left: var(--sm-space-4);
 }
 </style>

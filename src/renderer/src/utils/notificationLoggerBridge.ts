@@ -9,6 +9,22 @@ const TYPE_LEVEL_MAP: Record<NotificationType, LoggerMethod> = {
   error: 'error'
 }
 
+function hasUnreadableText(value: string): boolean {
+  return value.includes('\uFFFD') || value.includes('锟斤拷') || value.includes('���')
+}
+
+function sanitizeLogText(value: string): string {
+  if (!hasUnreadableText(value)) {
+    return value
+  }
+
+  if (value.includes('docker')) {
+    return 'Docker 命令执行失败：系统返回了无法正确解码的输出，请检查 Docker 是否已安装并加入 PATH。'
+  }
+
+  return '系统返回了无法正确解码的输出，已隐藏原始乱码。'
+}
+
 function buildContext(notification: Notification): Record<string, unknown> {
   return {
     notificationId: notification.id,
@@ -24,9 +40,13 @@ function buildContext(notification: Notification): Record<string, unknown> {
 export const notificationLoggerBridge = {
   log(notification: Notification): void {
     const method = TYPE_LEVEL_MAP[notification.type]
+    const title = sanitizeLogText(notification.title)
+    const notificationMessage = notification.message
+      ? sanitizeLogText(notification.message)
+      : undefined
     const message = notification.message
-      ? `[Notification] ${notification.title}: ${notification.message}`
-      : `[Notification] ${notification.title}`
+      ? `[Notification] ${title}: ${notificationMessage}`
+      : `[Notification] ${title}`
     const context = buildContext(notification)
 
     try {
