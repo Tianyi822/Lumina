@@ -4,9 +4,9 @@ import type {
   ContainerDetails,
   ContainerStats,
   ContainerState,
-  SandboxCreationType
-} from '@shared/types/sandbox'
-import { useSandboxPermissions } from '@renderer/composables/useLabPermissions'
+  LabCreationType
+} from '@renderer/types/lab'
+import { useLabPermissions } from '@renderer/composables/useLabPermissions'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 // ==================== Props & Emits ====================
@@ -16,8 +16,8 @@ const props = defineProps<{
   stats: ContainerStats | null
   loading?: boolean
   refreshingStats?: boolean
-  creationType?: SandboxCreationType | null // 实验室创建类型
-  sandboxName?: string // 实验室名称（用于格式化监控页面标题）
+  creationType?: LabCreationType | null // 实验室创建类型
+  labName?: string // 实验室名称（用于格式化监控页面标题）
   startingContainer?: boolean // 启动中状态
   stoppingContainer?: boolean // 停止中状态
   restartingContainer?: boolean // 重启中状态
@@ -36,7 +36,7 @@ const emit = defineEmits<{
 // ==================== Permissions ====================
 
 const creationTypeComputed = computed(() => props.creationType)
-const { typeMeta, showLifecycleButtons, isReadOnly } = useSandboxPermissions(creationTypeComputed)
+const { typeMeta, showLifecycleButtons, isReadOnly } = useLabPermissions(creationTypeComputed)
 
 // ==================== Computed ====================
 
@@ -49,15 +49,15 @@ const isOperating = computed(
 
 /**
  * 格式化监控页面标题
- * 对于 docker-compose 创建的实验室，格式为 "sandbox-docker-compose-[实验室名]"
+ * 对于 docker-compose 创建的实验室，格式为 "lab-docker-compose-[实验室名]"
  * 其他类型显示容器名称
  */
 const headerTitle = computed(() => {
   // 如果是 compose 类型且有实验室名称，使用格式化标题
-  if (props.creationType === 'compose' && props.sandboxName) {
+  if (props.creationType === 'compose' && props.labName) {
     // 处理特殊字符，确保标题安全显示
-    const sanitizedName = props.sandboxName.replace(/[<>"'&]/g, '')
-    return `sandbox-docker-compose-${sanitizedName}`
+    const sanitizedName = props.labName.replace(/[<>"'&]/g, '')
+    return `lab-docker-compose-${sanitizedName}`
   }
 
   // 默认显示容器名称
@@ -94,7 +94,7 @@ const formattedBlockIO = computed(() => {
 })
 
 const creationTypeLabel = computed(() => {
-  const labelMap: Record<SandboxCreationType, string> = {
+  const labelMap: Record<LabCreationType, string> = {
     existing: '已有容器',
     compose: 'Docker Compose',
     dockerfile: 'Dockerfile'

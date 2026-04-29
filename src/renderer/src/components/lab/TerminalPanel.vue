@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
-import type { TerminalLog } from '@shared/types/sandbox'
+import type { TerminalLog } from '@renderer/types/lab'
 
 // ==================== Props & Emits ====================
 

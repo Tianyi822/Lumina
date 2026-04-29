@@ -2,8 +2,8 @@
 import { computed, ref, watch } from 'vue'
 
 // 实验室项接口
-interface SandboxItem {
-  sandboxId: string
+interface LabItem {
+  labId: string
   name: string
   creationType?: string
   composeProjectName?: string
@@ -14,7 +14,7 @@ interface SandboxItem {
 
 const props = defineProps<{
   visible: boolean
-  sandbox?: SandboxItem | null
+  lab?: LabItem | null
   isReloading?: boolean
   canRecover?: boolean
   recoverLabel?: string
@@ -22,8 +22,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'recover', sandboxId: string): void
-  (e: 'cleanup', sandboxId: string): void
+  (e: 'recover', labId: string): void
+  (e: 'cleanup', labId: string): void
 }>()
 
 const isRecovering = ref(false)
@@ -54,14 +54,14 @@ function handleClose(): void {
 }
 
 function handleRecover(): void {
-  if (!props.sandbox) return
+  if (!props.lab) return
   isRecovering.value = true
-  emit('recover', props.sandbox.sandboxId)
+  emit('recover', props.lab.labId)
 }
 
 function handleCleanup(): void {
-  if (!props.sandbox) return
-  emit('cleanup', props.sandbox.sandboxId)
+  if (!props.lab) return
+  emit('cleanup', props.lab.labId)
 }
 </script>
 
@@ -73,16 +73,16 @@ function handleCleanup(): void {
           <span class="alert-eyebrow">运行异常</span>
           <h4>容器已丢失</h4>
           <p>
-            实验室「{{ sandbox?.name }}」关联的容器不再可用。这通常意味着容器被手动删除，或 Docker
+            实验室「{{ lab?.name }}」关联的容器不再可用。这通常意味着容器被手动删除，或 Docker
             服务在重启后未恢复到原状态。
           </p>
 
           <div class="alert-meta">
-            <span v-if="sandbox?.composeProjectName" class="alert-meta-item">
-              Compose 项目 {{ sandbox.composeProjectName }}
+            <span v-if="lab?.composeProjectName" class="alert-meta-item">
+              Compose 项目 {{ lab.composeProjectName }}
             </span>
-            <span v-if="sandbox?.frontend?.volumeName" class="alert-meta-item">
-              工作区 Volume {{ sandbox.frontend.volumeName }}
+            <span v-if="lab?.frontend?.volumeName" class="alert-meta-item">
+              工作区 Volume {{ lab.frontend.volumeName }}
             </span>
           </div>
         </div>

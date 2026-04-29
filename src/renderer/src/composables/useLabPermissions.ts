@@ -4,9 +4,9 @@
  */
 
 import { computed, type ComputedRef, type Ref } from 'vue'
-import type { SandboxCreationType, SandboxPermissionPolicy } from '@shared/types/sandbox'
-import { SANDBOX_TYPE_PERMISSIONS } from '@shared/types/sandbox'
-import { getSandboxTypeMeta } from '@renderer/utils/labPermissions'
+import type { LabCreationType, LabPermissionPolicy } from '@renderer/types/lab'
+import { LAB_TYPE_PERMISSIONS } from '@renderer/types/lab'
+import { getLabTypeMeta } from '@renderer/utils/labPermissions'
 
 /**
  * 实验室权限 Composable
@@ -14,12 +14,12 @@ import { getSandboxTypeMeta } from '@renderer/utils/labPermissions'
  *
  * @param creationType - 实验室创建类型（响应式）
  */
-export function useSandboxPermissions(
+export function useLabPermissions(
   creationType:
-    | ComputedRef<SandboxCreationType | undefined | null>
-    | Ref<SandboxCreationType | undefined | null>
+    | ComputedRef<LabCreationType | undefined | null>
+    | Ref<LabCreationType | undefined | null>
 ): {
-  policy: ComputedRef<SandboxPermissionPolicy | null>
+  policy: ComputedRef<LabPermissionPolicy | null>
   typeMeta: ComputedRef<{
     icon: string
     label: string
@@ -42,9 +42,9 @@ export function useSandboxPermissions(
   /**
    * 权限策略
    */
-  const policy = computed<SandboxPermissionPolicy | null>(() => {
+  const policy = computed<LabPermissionPolicy | null>(() => {
     if (!creationType.value) return null
-    return SANDBOX_TYPE_PERMISSIONS[creationType.value]
+    return LAB_TYPE_PERMISSIONS[creationType.value]
   })
 
   /**
@@ -52,7 +52,7 @@ export function useSandboxPermissions(
    */
   const typeMeta = computed(() => {
     if (!creationType.value) return null
-    return getSandboxTypeMeta(creationType.value)
+    return getLabTypeMeta(creationType.value)
   })
 
   /**
@@ -151,4 +151,4 @@ export function useSandboxPermissions(
   }
 }
 
-export default useSandboxPermissions
+export default useLabPermissions

@@ -78,10 +78,7 @@ function setCategory(category: CategoryFilter): void {
             <button :class="{ 'is-active': categoryFilter === 'all' }" @click="setCategory('all')">
               全部
             </button>
-            <button
-              :class="{ 'is-active': categoryFilter === 'sandbox' }"
-              @click="setCategory('sandbox')"
-            >
+            <button :class="{ 'is-active': categoryFilter === 'lab' }" @click="setCategory('lab')">
               实验室
             </button>
             <button

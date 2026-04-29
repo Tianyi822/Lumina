@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useDockerConfigStore, useSandboxCreatorStore } from '@renderer/stores'
+import { useDockerConfigStore, useLabCreatorStore } from '@renderer/stores'
 
 type ComposeTemplateType = 'image' | 'build' | 'mixed'
 
 const configStore = useDockerConfigStore()
-const creatorStore = useSandboxCreatorStore()
+const creatorStore = useLabCreatorStore()
 const { dockerfileConfigs, composeConfigs } = storeToRefs(configStore)
 const { showGenerator: creatorShowGenerator, generatorForm: creatorGeneratorForm } =
   storeToRefs(creatorStore)

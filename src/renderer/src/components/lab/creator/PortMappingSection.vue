@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { SandboxCreateType, PortMapping } from '@renderer/stores/sandbox/types'
+import type { LabCreateType, PortMapping } from '@renderer/stores/lab/types'
 
 defineProps<{
-  createType: SandboxCreateType
+  createType: LabCreateType
   portMappings: PortMapping[]
 }>()
 

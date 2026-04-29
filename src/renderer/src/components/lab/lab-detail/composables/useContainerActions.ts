@@ -3,8 +3,8 @@
  * 处理容器的启动、停止、重启、删除等操作
  */
 import { useNotification } from '@renderer/composables/useNotification'
-import { useContainerStore, useSandboxStore } from '@renderer/stores'
-import type { SandboxData } from '@shared/types/sandbox'
+import { useContainerStore, useLabStore } from '@renderer/stores'
+import type { LabData } from '@renderer/types/lab'
 
 /** 容器操作 composable 返回值类型 */
 export interface UseContainerActionsReturn {
@@ -15,16 +15,16 @@ export interface UseContainerActionsReturn {
   handleRefreshStats: () => Promise<void>
   handleExecuteCommand: (command: string) => Promise<void>
   handleClearTerminal: () => void
-  refreshSandboxStatus: () => Promise<void>
+  refreshLabStatus: () => Promise<void>
   handleRefreshStatus: () => Promise<void>
 }
 
 export function useContainerActions(
-  currentSandbox: { value: SandboxData | null },
+  currentLab: { value: LabData | null },
   selectedContainer: { value: { id: string } | null }
 ): UseContainerActionsReturn {
   const containerStore = useContainerStore()
-  const sandboxStore = useSandboxStore()
+  const labStore = useLabStore()
   const notify = useNotification()
 
   /**
@@ -32,18 +32,15 @@ export function useContainerActions(
    */
   async function handleContainerStart(): Promise<void> {
     // 如果是 Compose 类型实验室，使用 composeStart 启动所有容器
-    if (
-      currentSandbox.value?.creationType === 'compose' &&
-      currentSandbox.value.composeProjectName
-    ) {
-      const result = await containerStore.composeStart(currentSandbox.value.composeProjectName)
+    if (currentLab.value?.creationType === 'compose' && currentLab.value.composeProjectName) {
+      const result = await containerStore.composeStart(currentLab.value.composeProjectName)
       if (!result.success && result.error) {
         notify.error('启动 Compose 项目失败', result.error, {
-          source: 'sandbox',
+          source: 'lab',
           dedupeKey: 'container-action'
         })
       } else if (result.success) {
-        await refreshSandboxStatus()
+        await refreshLabStatus()
       }
       return
     }
@@ -52,11 +49,11 @@ export function useContainerActions(
       const result = await containerStore.startContainer(selectedContainer.value.id)
       if (!result.success && result.error) {
         notify.error('启动容器失败', result.error, {
-          source: 'sandbox',
+          source: 'lab',
           dedupeKey: 'container-action'
         })
       } else if (result.success) {
-        await refreshSandboxStatus()
+        await refreshLabStatus()
       }
     }
   }
@@ -66,14 +63,11 @@ export function useContainerActions(
    */
   async function handleContainerStop(): Promise<void> {
     // 如果是 Compose 类型实验室，使用 composeStop 停止所有容器
-    if (
-      currentSandbox.value?.creationType === 'compose' &&
-      currentSandbox.value.composeProjectName
-    ) {
-      const result = await containerStore.composeStop(currentSandbox.value.composeProjectName)
+    if (currentLab.value?.creationType === 'compose' && currentLab.value.composeProjectName) {
+      const result = await containerStore.composeStop(currentLab.value.composeProjectName)
       if (!result.success && result.error) {
         notify.error('停止 Compose 项目失败', result.error, {
-          source: 'sandbox',
+          source: 'lab',
           dedupeKey: 'container-action'
         })
       } else if (
@@ -82,11 +76,11 @@ export function useContainerActions(
         result.stoppedContainerIds.length > 0
       ) {
         notify.success('停止成功', `已停止 ${result.stoppedContainerIds.length} 个容器`, {
-          source: 'sandbox'
+          source: 'lab'
         })
-        await refreshSandboxStatus()
+        await refreshLabStatus()
       } else if (result.success) {
-        await refreshSandboxStatus()
+        await refreshLabStatus()
       }
       return
     }
@@ -95,11 +89,11 @@ export function useContainerActions(
       const result = await containerStore.stopContainer(selectedContainer.value.id)
       if (!result.success && result.error) {
         notify.error('停止容器失败', result.error, {
-          source: 'sandbox',
+          source: 'lab',
           dedupeKey: 'container-action'
         })
       } else if (result.success) {
-        await refreshSandboxStatus()
+        await refreshLabStatus()
       }
     }
   }
@@ -109,18 +103,15 @@ export function useContainerActions(
    */
   async function handleContainerRestart(): Promise<void> {
     // 如果是 Compose 类型实验室，使用 composeRestart 重启所有容器
-    if (
-      currentSandbox.value?.creationType === 'compose' &&
-      currentSandbox.value.composeProjectName
-    ) {
-      const result = await containerStore.composeRestart(currentSandbox.value.composeProjectName)
+    if (currentLab.value?.creationType === 'compose' && currentLab.value.composeProjectName) {
+      const result = await containerStore.composeRestart(currentLab.value.composeProjectName)
       if (!result.success && result.error) {
         notify.error('重启 Compose 项目失败', result.error, {
-          source: 'sandbox',
+          source: 'lab',
           dedupeKey: 'container-action'
         })
       } else if (result.success) {
-        await refreshSandboxStatus()
+        await refreshLabStatus()
       }
       return
     }
@@ -129,11 +120,11 @@ export function useContainerActions(
       const result = await containerStore.restartContainer(selectedContainer.value.id)
       if (!result.success && result.error) {
         notify.error('重启容器失败', result.error, {
-          source: 'sandbox',
+          source: 'lab',
           dedupeKey: 'container-action'
         })
       } else if (result.success) {
-        await refreshSandboxStatus()
+        await refreshLabStatus()
       }
     }
   }
@@ -146,7 +137,7 @@ export function useContainerActions(
       const result = await containerStore.removeContainer(selectedContainer.value.id)
       if (!result.success && result.error) {
         notify.error('删除容器失败', result.error, {
-          source: 'sandbox',
+          source: 'lab',
           dedupeKey: 'container-action'
         })
       }
@@ -180,32 +171,31 @@ export function useContainerActions(
   /**
    * 刷新实验室状态
    */
-  async function refreshSandboxStatus(): Promise<void> {
-    if (!currentSandbox.value) return
-    await sandboxStore.checkContainerStatus(currentSandbox.value.sandboxId)
-    await sandboxStore.refreshSandboxList()
-    await sandboxStore.loadSandbox(currentSandbox.value.sandboxId, true)
+  async function refreshLabStatus(): Promise<void> {
+    if (!currentLab.value) return
+    await labStore.checkContainerStatus(currentLab.value.labId)
+    await labStore.refreshLabList()
+    await labStore.loadLab(currentLab.value.labId, true)
   }
 
   /**
    * 刷新当前实验室状态（包括容器列表和详情）
    */
   async function handleRefreshStatus(): Promise<void> {
-    if (!currentSandbox.value) return
+    if (!currentLab.value) return
 
     // 刷新容器列表
     await containerStore.loadContainers()
 
     // 重新加载当前容器的详情
-    const containerId =
-      currentSandbox.value.primaryContainerId || currentSandbox.value.containerIds?.[0]
+    const containerId = currentLab.value.primaryContainerId || currentLab.value.containerIds?.[0]
     if (containerId) {
       await containerStore.loadContainerDetails(containerId)
     }
 
     // 同时刷新实验室列表以保持同步
-    await sandboxStore.refreshSandboxList()
-    await sandboxStore.loadSandbox(currentSandbox.value.sandboxId, true)
+    await labStore.refreshLabList()
+    await labStore.loadLab(currentLab.value.labId, true)
   }
 
   return {
@@ -216,7 +206,7 @@ export function useContainerActions(
     handleRefreshStats,
     handleExecuteCommand,
     handleClearTerminal,
-    refreshSandboxStatus,
+    refreshLabStatus,
     handleRefreshStatus
   }
 }

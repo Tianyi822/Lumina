@@ -1,32 +1,29 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useContainerStore, useUIStateStore, useSandboxStore } from '@renderer/stores'
+import { useContainerStore, useUIStateStore, useLabStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import TerminalPanel from './TerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
 import OrphanLabAlert from './OrphanLabAlert.vue'
-import { TabNavigation } from './sandbox-detail'
-import {
-  useContainerLogs as useContainerLogsComposable,
-  useContainerActions
-} from './sandbox-detail'
-import type { ContainerDetails, SandboxData } from '@shared/types/sandbox'
+import { TabNavigation } from './lab-detail'
+import { useContainerLogs as useContainerLogsComposable, useContainerActions } from './lab-detail'
+import type { ContainerDetails, LabData } from '@renderer/types/lab'
 
-const SANDBOX_AUTO_REFRESH_INTERVAL = 3000
+const LAB_AUTO_REFRESH_INTERVAL = 3000
 
 // ==================== Props & Emits ====================
 
 const props = defineProps<{
-  currentSandbox: SandboxData | null
+  currentLab: LabData | null
 }>()
 
 // ==================== Store ====================
 
 const containerStore = useContainerStore()
 const uiStateStore = useUIStateStore()
-const sandboxStore = useSandboxStore()
+const labStore = useLabStore()
 const notify = useNotification()
 
 const {
@@ -36,12 +33,12 @@ const {
   isLoading: storeLoading
 } = storeToRefs(containerStore)
 
-const { sandboxDetailTab } = storeToRefs(uiStateStore)
+const { labDetailTab } = storeToRefs(uiStateStore)
 
-const sandboxRefreshTimerId = ref<number | null>(null)
+const labRefreshTimerId = ref<number | null>(null)
 const isRefreshingStats = ref(false)
 const isManualRefreshingStats = ref(false)
-const isRefreshingSandboxState = ref(false)
+const isRefreshingLabState = ref(false)
 const isRetryingFrontend = ref(false)
 const isRebuildingFrontend = ref(false)
 const isValidatingFrontendBuild = ref(false)
@@ -53,15 +50,15 @@ const isRestartingContainer = ref(false)
 
 // ==================== Computed ====================
 
-const hasSandbox = computed(() => !!props.currentSandbox)
+const hasLab = computed(() => !!props.currentLab)
 
-const isOrphan = computed(() => props.currentSandbox?.isOrphan || false)
-const isFrontendSandbox = computed(() => !!props.currentSandbox?.frontend)
+const isOrphan = computed(() => props.currentLab?.isOrphan || false)
+const isLabFrontend = computed(() => !!props.currentLab?.frontend)
 const showFrontendRecoveryBanner = computed(
-  () => isFrontendSandbox.value && props.currentSandbox?.status === 'error' && !isOrphan.value
+  () => isLabFrontend.value && props.currentLab?.status === 'error' && !isOrphan.value
 )
 const frontendRecoveryMessage = computed(() => {
-  const frontend = props.currentSandbox?.frontend
+  const frontend = props.currentLab?.frontend
   if (!frontend) {
     return ''
   }
@@ -72,39 +69,37 @@ const frontendRecoveryMessage = computed(() => {
 
   return '前端服务尚未恢复，请重试初始化；如果运行容器已损坏，可直接重建。'
 })
-const orphanRecoverLabel = computed(() =>
-  isFrontendSandbox.value ? '重建运行容器' : '重新关联容器'
-)
+const orphanRecoverLabel = computed(() => (isLabFrontend.value ? '重建运行容器' : '重新关联容器'))
 
-const sandboxCreationTypeLabel = computed(() => {
-  const labelMap: Record<SandboxData['creationType'], string> = {
+const labCreationTypeLabel = computed(() => {
+  const labelMap: Record<LabData['creationType'], string> = {
     existing: '已有容器',
     compose: 'Docker Compose',
     dockerfile: 'Dockerfile'
   }
 
-  return props.currentSandbox ? labelMap[props.currentSandbox.creationType] : ''
+  return props.currentLab ? labelMap[props.currentLab.creationType] : ''
 })
 
-const sandboxStatusLabel = computed(() => {
-  const labelMap: Record<SandboxData['status'], string> = {
+const labStatusLabel = computed(() => {
+  const labelMap: Record<LabData['status'], string> = {
     creating: '创建中',
     running: '运行中',
     stopped: '已停止',
     error: '异常'
   }
 
-  return props.currentSandbox ? labelMap[props.currentSandbox.status] : ''
+  return props.currentLab ? labelMap[props.currentLab.status] : ''
 })
 
-const sandboxStatusClass = computed(() => {
-  return props.currentSandbox ? `status-${props.currentSandbox.status}` : ''
+const labStatusClass = computed(() => {
+  return props.currentLab ? `status-${props.currentLab.status}` : ''
 })
 
-const sandboxContainerCount = computed(() => props.currentSandbox?.containerIds.length || 0)
+const labContainerCount = computed(() => props.currentLab?.containerIds.length || 0)
 
 // 用于 composables 的响应式引用
-const currentSandboxRef = computed(() => props.currentSandbox)
+const currentLabRef = computed(() => props.currentLab)
 const selectedContainerRef = computed(() => selectedContainer.value)
 
 // ==================== Composables ====================
@@ -120,7 +115,7 @@ const {
   handleContainerRestart: _handleContainerRestart,
   handleExecuteCommand,
   handleClearTerminal
-} = useContainerActions(currentSandboxRef, selectedContainerRef)
+} = useContainerActions(currentLabRef, selectedContainerRef)
 
 // 包装容器操作函数，添加加载状态管理
 async function handleContainerStart(): Promise<void> {
@@ -166,29 +161,29 @@ async function refreshStats(options?: { silent?: boolean }): Promise<void> {
   }
 }
 
-function shouldKeepSandboxAutoRefresh(container?: ContainerDetails | null): boolean {
+function shouldKeepLabAutoRefresh(container?: ContainerDetails | null): boolean {
   const currentContainer = container || selectedContainer.value
-  if (!props.currentSandbox || !currentContainer) {
+  if (!props.currentLab || !currentContainer) {
     return false
   }
 
-  if (props.currentSandbox.frontend && !isOrphan.value) {
+  if (props.currentLab.frontend && !isOrphan.value) {
     return true
   }
 
-  return sandboxDetailTab.value === 'stats' && currentContainer.state === 'running'
+  return labDetailTab.value === 'stats' && currentContainer.state === 'running'
 }
 
 async function validateFrontendBuildOnRefresh(): Promise<void> {
-  const sandboxId = props.currentSandbox?.sandboxId
-  const frontend = props.currentSandbox?.frontend
+  const labId = props.currentLab?.labId
+  const frontend = props.currentLab?.frontend
 
   if (
-    !sandboxId ||
+    !labId ||
     !frontend ||
     isOrphan.value ||
     frontend.buildValidated ||
-    props.currentSandbox?.status !== 'running' ||
+    props.currentLab?.status !== 'running' ||
     isValidatingFrontendBuild.value
   ) {
     return
@@ -196,7 +191,7 @@ async function validateFrontendBuildOnRefresh(): Promise<void> {
 
   isValidatingFrontendBuild.value = true
   try {
-    await sandboxStore.validateFrontendBuild(sandboxId, {
+    await labStore.validateFrontendBuild(labId, {
       silent: true
     })
   } finally {
@@ -204,15 +199,15 @@ async function validateFrontendBuildOnRefresh(): Promise<void> {
   }
 }
 
-async function runSandboxRefreshCycle(options?: { silentStats?: boolean }): Promise<void> {
-  const sandboxId = props.currentSandbox?.sandboxId
-  if (!sandboxId || isRefreshingSandboxState.value) {
+async function runLabRefreshCycle(options?: { silentStats?: boolean }): Promise<void> {
+  const labId = props.currentLab?.labId
+  if (!labId || isRefreshingLabState.value) {
     return
   }
 
-  isRefreshingSandboxState.value = true
+  isRefreshingLabState.value = true
   try {
-    await sandboxStore.loadSandbox(sandboxId, true, {
+    await labStore.loadLab(labId, true, {
       silent: true
     })
 
@@ -222,7 +217,7 @@ async function runSandboxRefreshCycle(options?: { silentStats?: boolean }): Prom
       return
     }
 
-    if (sandboxDetailTab.value === 'stats' && container.state === 'running') {
+    if (labDetailTab.value === 'stats' && container.state === 'running') {
       await refreshStats({
         silent: options?.silentStats
       })
@@ -232,50 +227,50 @@ async function runSandboxRefreshCycle(options?: { silentStats?: boolean }): Prom
 
     await validateFrontendBuildOnRefresh()
   } finally {
-    isRefreshingSandboxState.value = false
+    isRefreshingLabState.value = false
   }
 }
 
-function stopSandboxAutoRefresh(): void {
-  if (sandboxRefreshTimerId.value !== null) {
-    clearInterval(sandboxRefreshTimerId.value)
-    sandboxRefreshTimerId.value = null
+function stopLabAutoRefresh(): void {
+  if (labRefreshTimerId.value !== null) {
+    clearInterval(labRefreshTimerId.value)
+    labRefreshTimerId.value = null
   }
 }
 
-function startSandboxAutoRefresh(): void {
-  stopSandboxAutoRefresh()
+function startLabAutoRefresh(): void {
+  stopLabAutoRefresh()
 
-  if (!shouldKeepSandboxAutoRefresh()) {
+  if (!shouldKeepLabAutoRefresh()) {
     return
   }
 
-  sandboxRefreshTimerId.value = window.setInterval(() => {
-    if (!shouldKeepSandboxAutoRefresh()) {
-      stopSandboxAutoRefresh()
+  labRefreshTimerId.value = window.setInterval(() => {
+    if (!shouldKeepLabAutoRefresh()) {
+      stopLabAutoRefresh()
       return
     }
 
-    void runSandboxRefreshCycle({ silentStats: true })
-  }, SANDBOX_AUTO_REFRESH_INTERVAL)
+    void runLabRefreshCycle({ silentStats: true })
+  }, LAB_AUTO_REFRESH_INTERVAL)
 }
 
-async function syncSandboxAutoRefresh(): Promise<void> {
+async function syncLabAutoRefresh(): Promise<void> {
   const container = selectedContainer.value
-  if (!container || !props.currentSandbox) {
-    stopSandboxAutoRefresh()
+  if (!container || !props.currentLab) {
+    stopLabAutoRefresh()
     return
   }
 
-  await runSandboxRefreshCycle()
+  await runLabRefreshCycle()
 
   if (
-    shouldKeepSandboxAutoRefresh(selectedContainer.value) &&
+    shouldKeepLabAutoRefresh(selectedContainer.value) &&
     selectedContainer.value?.id === container.id
   ) {
-    startSandboxAutoRefresh()
+    startLabAutoRefresh()
   } else {
-    stopSandboxAutoRefresh()
+    stopLabAutoRefresh()
   }
 }
 
@@ -294,13 +289,13 @@ async function handleRefreshStats(): Promise<void> {
 
 // Tab 切换时加载数据
 watch(
-  () => sandboxDetailTab.value,
+  () => labDetailTab.value,
   async (tab) => {
     if (tab === 'logs' && selectedContainer.value) {
       await loadContainerLogs()
     }
 
-    await syncSandboxAutoRefresh()
+    await syncLabAutoRefresh()
   },
   { immediate: true }
 )
@@ -314,44 +309,44 @@ watch(
     }
 
     if (newId) {
-      if (sandboxDetailTab.value === 'logs') {
+      if (labDetailTab.value === 'logs') {
         await loadContainerLogs()
       }
 
-      await syncSandboxAutoRefresh()
+      await syncLabAutoRefresh()
       return
     }
 
-    stopSandboxAutoRefresh()
+    stopLabAutoRefresh()
   }
 )
 
 watch(
   () => selectedContainer.value?.state,
   async () => {
-    await syncSandboxAutoRefresh()
+    await syncLabAutoRefresh()
   }
 )
 
 watch(
   () => [
-    props.currentSandbox?.sandboxId,
-    props.currentSandbox?.status,
-    props.currentSandbox?.frontend?.buildValidated
+    props.currentLab?.labId,
+    props.currentLab?.status,
+    props.currentLab?.frontend?.buildValidated
   ],
   async () => {
-    await syncSandboxAutoRefresh()
+    await syncLabAutoRefresh()
   }
 )
 
 onBeforeUnmount(() => {
-  stopSandboxAutoRefresh()
+  stopLabAutoRefresh()
 })
 
 // ==================== Methods ====================
 
 function setDetailTab(tab: 'stats' | 'terminal' | 'logs'): void {
-  uiStateStore.setSandboxDetailTab(tab)
+  uiStateStore.setLabDetailTab(tab)
 }
 
 async function handleOpenTerminal(): Promise<void> {
@@ -365,16 +360,16 @@ async function handleViewLogs(): Promise<void> {
 /**
  * 删除实验室 - 弹出确认对话框
  */
-function handleDeleteSandbox(): void {
-  if (props.currentSandbox) {
-    sandboxStore.handleDeleteSandbox(props.currentSandbox.sandboxId)
+function handleDeleteLab(): void {
+  if (props.currentLab) {
+    labStore.handleDeleteLab(props.currentLab.labId)
   }
 }
 
 // ==================== 孤儿实验室操作 ====================
 
 async function handleRecoverOrphan(): Promise<void> {
-  if (props.currentSandbox?.frontend) {
+  if (props.currentLab?.frontend) {
     await handleRebuildFrontendRuntime()
     return
   }
@@ -382,44 +377,44 @@ async function handleRecoverOrphan(): Promise<void> {
   notify.warning(
     '暂不支持自动恢复',
     '当前只有前端实验室支持基于持久化工作区自动重建容器。其他类型请手动恢复容器后重新关联。',
-    { source: 'sandbox' }
+    { source: 'lab' }
   )
 }
 
-async function handleCleanupOrphan(sandboxId: string): Promise<void> {
-  await sandboxStore.handleDeleteSandbox(sandboxId)
+async function handleCleanupOrphan(labId: string): Promise<void> {
+  await labStore.handleDeleteLab(labId)
 }
 
 async function handleRetryFrontendInitialization(): Promise<void> {
-  const sandboxId = props.currentSandbox?.sandboxId
-  if (!sandboxId || isRetryingFrontend.value) {
+  const labId = props.currentLab?.labId
+  if (!labId || isRetryingFrontend.value) {
     return
   }
 
   isRetryingFrontend.value = true
   try {
-    await sandboxStore.retryFrontendInitialization(sandboxId)
+    await labStore.retryFrontendInitialization(labId)
   } finally {
     isRetryingFrontend.value = false
   }
 }
 
 async function handleRebuildFrontendRuntime(): Promise<void> {
-  const sandboxId = props.currentSandbox?.sandboxId
-  if (!sandboxId || isRebuildingFrontend.value) {
+  const labId = props.currentLab?.labId
+  if (!labId || isRebuildingFrontend.value) {
     return
   }
 
   isRebuildingFrontend.value = true
   try {
-    await sandboxStore.rebuildFrontendRuntime(sandboxId)
+    await labStore.rebuildFrontendRuntime(labId)
   } finally {
     isRebuildingFrontend.value = false
   }
 }
 
 function handleCloseOrphanAlert(): void {
-  window.api.logger.info('[SandboxMainContent] 用户关闭孤儿实验室提示')
+  window.api.logger.info('[LabMainContent] 用户关闭孤儿实验室提示')
 }
 
 function formatDateTime(value?: string): string {
@@ -438,7 +433,7 @@ function formatDateTime(value?: string): string {
 
 <template>
   <main class="lab-main-content">
-    <div v-if="!hasSandbox" class="lab-empty-state">
+    <div v-if="!hasLab" class="lab-empty-state">
       <div class="sm-empty lab-empty-card">
         <h2>选择一个实验室开始</h2>
         <p>从左侧接管现有环境，或创建一个实验室以进入容器监控、终端和日志工作流。</p>
@@ -450,11 +445,11 @@ function formatDateTime(value?: string): string {
         <div class="workspace-header__copy">
           <div class="workspace-header__headline">
             <div class="workspace-header__titles">
-              <h1>{{ currentSandbox?.name }}</h1>
+              <h1>{{ currentLab?.name }}</h1>
               <div class="workspace-header__badges">
-                <span class="sm-badge">{{ sandboxCreationTypeLabel }}</span>
-                <span class="sm-badge">{{ sandboxContainerCount }} 个容器</span>
-                <span class="sm-badge" :class="sandboxStatusClass">{{ sandboxStatusLabel }}</span>
+                <span class="sm-badge">{{ labCreationTypeLabel }}</span>
+                <span class="sm-badge">{{ labContainerCount }} 个容器</span>
+                <span class="sm-badge" :class="labStatusClass">{{ labStatusLabel }}</span>
               </div>
             </div>
           </div>
@@ -462,21 +457,21 @@ function formatDateTime(value?: string): string {
           <div class="workspace-header__submeta">
             <span>
               实验室 ID
-              <code>{{ currentSandbox?.sandboxId }}</code>
+              <code>{{ currentLab?.labId }}</code>
             </span>
-            <span>最近更新 {{ formatDateTime(currentSandbox?.updatedAt) }}</span>
+            <span>最近更新 {{ formatDateTime(currentLab?.updatedAt) }}</span>
           </div>
         </div>
 
-        <TabNavigation :visible="hasSandbox" />
+        <TabNavigation :visible="hasLab" />
       </header>
 
       <div class="content-body">
         <OrphanLabAlert
           :visible="isOrphan"
-          :sandbox="currentSandbox"
+          :lab="currentLab"
           :is-reloading="isRebuildingFrontend"
-          :can-recover="isFrontendSandbox"
+          :can-recover="isLabFrontend"
           :recover-label="orphanRecoverLabel"
           @recover="handleRecoverOrphan"
           @cleanup="handleCleanupOrphan"
@@ -508,7 +503,7 @@ function formatDateTime(value?: string): string {
         </div>
 
         <!-- 监控 Tab -->
-        <div v-if="sandboxDetailTab === 'stats'" class="tab-content">
+        <div v-if="labDetailTab === 'stats'" class="tab-content">
           <div v-if="!selectedContainer" class="detail-empty-state">
             <div class="sm-empty detail-empty-card">
               <h2>请先选择一个容器</h2>
@@ -521,15 +516,15 @@ function formatDateTime(value?: string): string {
             :stats="containerStats"
             :loading="storeLoading"
             :refreshing-stats="isManualRefreshingStats"
-            :creation-type="currentSandbox?.creationType"
-            :sandbox-name="currentSandbox?.name"
+            :creation-type="currentLab?.creationType"
+            :lab-name="currentLab?.name"
             :starting-container="isStartingContainer"
             :stopping-container="isStoppingContainer"
             :restarting-container="isRestartingContainer"
             @start="handleContainerStart"
             @stop="handleContainerStop"
             @restart="handleContainerRestart"
-            @remove="handleDeleteSandbox"
+            @remove="handleDeleteLab"
             @open-terminal="handleOpenTerminal"
             @view-logs="handleViewLogs"
             @refresh-stats="handleRefreshStats"
@@ -537,7 +532,7 @@ function formatDateTime(value?: string): string {
         </div>
 
         <!-- 终端 Tab -->
-        <div v-else-if="sandboxDetailTab === 'terminal'" class="tab-content">
+        <div v-else-if="labDetailTab === 'terminal'" class="tab-content">
           <div v-if="!selectedContainer" class="detail-empty-state">
             <div class="sm-empty detail-empty-card">
               <h2>终端尚未绑定容器</h2>
@@ -556,7 +551,7 @@ function formatDateTime(value?: string): string {
         </div>
 
         <!-- 日志 Tab -->
-        <div v-else-if="sandboxDetailTab === 'logs'" class="tab-content">
+        <div v-else-if="labDetailTab === 'logs'" class="tab-content">
           <div v-if="!selectedContainer" class="detail-empty-state">
             <div class="sm-empty detail-empty-card">
               <h2>日志尚未绑定容器</h2>

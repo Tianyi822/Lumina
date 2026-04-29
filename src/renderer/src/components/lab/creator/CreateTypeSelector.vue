@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { SandboxCreateType } from '@renderer/stores/sandbox/types'
+import type { LabCreateType } from '@renderer/stores/lab/types'
 
 defineProps<{
-  modelValue: SandboxCreateType
+  modelValue: LabCreateType
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: SandboxCreateType): void
+  (e: 'update:modelValue', value: LabCreateType): void
 }>()
 </script>
 

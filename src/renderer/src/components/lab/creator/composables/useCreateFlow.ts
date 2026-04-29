@@ -1,11 +1,11 @@
 import { computed, type ComputedRef, type Ref } from 'vue'
 import {
   useContainerStore,
-  useSandboxCreatorStore,
-  useSandboxStore,
+  useLabCreatorStore,
+  useLabStore,
   useUIStateStore
 } from '@renderer/stores'
-import type { ContainerInfo } from '@shared/types/sandbox'
+import type { ContainerInfo } from '@renderer/types/lab'
 
 interface ContainerSelectorExpose {
   selectedContainerId?: string | null
@@ -28,9 +28,9 @@ interface UseCreateFlowResult {
 }
 
 export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResult {
-  const creatorStore = useSandboxCreatorStore()
+  const creatorStore = useLabCreatorStore()
   const containerStore = useContainerStore()
-  const sandboxStore = useSandboxStore()
+  const labStore = useLabStore()
   const uiStateStore = useUIStateStore()
 
   const canCreate = computed(() => {
@@ -120,20 +120,20 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
           projectName: creatorStore.composeProjectName || undefined
         })
 
-        if (result?.success && result.sandbox?.sandboxId) {
+        if (result?.success && result.lab?.labId) {
           // 加载新创建的实验室
-          await sandboxStore.loadSandbox(result.sandbox.sandboxId)
-          uiStateStore.setSandboxDetailTab('stats')
+          await labStore.loadLab(result.lab.labId)
+          uiStateStore.setLabDetailTab('stats')
           options.closeDialog()
         }
         break
       }
       case 'dockerfile': {
         const result = await creatorStore.createFromDockerfile()
-        if (result?.success && result.sandbox?.sandboxId) {
+        if (result?.success && result.lab?.labId) {
           // 加载新创建的实验室
-          await sandboxStore.loadSandbox(result.sandbox.sandboxId)
-          uiStateStore.setSandboxDetailTab('stats')
+          await labStore.loadLab(result.lab.labId)
+          uiStateStore.setLabDetailTab('stats')
           options.closeDialog()
         }
         break
@@ -147,7 +147,7 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
         const result = await creatorStore.createFromExisting(containerId)
         if (result?.success) {
           await containerStore.loadContainerDetails(containerId)
-          uiStateStore.setSandboxDetailTab('stats')
+          uiStateStore.setLabDetailTab('stats')
           options.closeDialog()
         }
         break

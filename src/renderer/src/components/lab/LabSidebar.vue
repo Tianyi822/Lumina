@@ -1,51 +1,51 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useUIStateStore, useSandboxStore } from '@renderer/stores'
+import { useUIStateStore, useLabStore } from '@renderer/stores'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
 import LabList from './LabList.vue'
-import type { SandboxListItem } from '@shared/types/sandbox'
+import type { LabListItem } from '@renderer/types/lab'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 const props = defineProps<{
-  sandboxs: SandboxListItem[]
-  activeSandboxId?: string
+  labs: LabListItem[]
+  activeLabId?: string
   listUpdateKey?: number
-  deletingSandboxId?: string | null
+  deletingLabId?: string | null
 }>()
 
 const emit = defineEmits<{
-  (e: 'select-sandbox', sandboxId: string): void
-  (e: 'delete-sandbox', sandboxId: string): void
+  (e: 'select-lab', labId: string): void
+  (e: 'delete-lab', labId: string): void
 }>()
 
 const uiStateStore = useUIStateStore()
-const sandboxStore = useSandboxStore()
+const labStore = useLabStore()
 
 const searchQuery = ref('')
 const isRefreshing = ref(false)
 
-const filteredSandboxs = computed(() => {
+const filteredLabs = computed(() => {
   if (!searchQuery.value.trim()) {
-    return props.sandboxs
+    return props.labs
   }
   const query = searchQuery.value.toLowerCase()
-  return props.sandboxs.filter((sandbox) => sandbox.name.toLowerCase().includes(query))
+  return props.labs.filter((lab) => lab.name.toLowerCase().includes(query))
 })
 
-function handleNewSandbox(): void {
-  uiStateStore.openSandboxCreator()
+function handleNewLab(): void {
+  uiStateStore.openLabCreator()
 }
 
 function handleManageConfigs(): void {
   uiStateStore.openConfigManager()
 }
 
-function handleSelectSandbox(sandboxId: string): void {
-  emit('select-sandbox', sandboxId)
+function handleSelectLab(labId: string): void {
+  emit('select-lab', labId)
 }
 
-function handleDeleteSandbox(sandboxId: string): void {
-  emit('delete-sandbox', sandboxId)
+function handleDeleteLab(labId: string): void {
+  emit('delete-lab', labId)
 }
 
 async function handleRefreshList(): Promise<void> {
@@ -53,11 +53,11 @@ async function handleRefreshList(): Promise<void> {
   isRefreshing.value = true
   try {
     // 刷新实验室列表
-    await sandboxStore.refreshSandboxList()
+    await labStore.refreshLabList()
 
     // 如果有选中的实验室，强制重新加载其容器详情
-    if (props.activeSandboxId) {
-      await sandboxStore.loadSandbox(props.activeSandboxId, true)
+    if (props.activeLabId) {
+      await labStore.loadLab(props.activeLabId, true)
     }
   } finally {
     isRefreshing.value = false
@@ -67,9 +67,9 @@ async function handleRefreshList(): Promise<void> {
 
 <template>
   <aside class="lab-sidebar sm-sidebar-shell">
-    <WorkspaceSidebarChrome :count="sandboxs.length">
+    <WorkspaceSidebarChrome :count="labs.length">
       <template #actions>
-        <button class="sm-button sm-button--primary new-lab-btn" @click="handleNewSandbox">
+        <button class="sm-button sm-button--primary new-lab-btn" @click="handleNewLab">
           创建实验室
         </button>
         <button
@@ -100,11 +100,11 @@ async function handleRefreshList(): Promise<void> {
 
     <div class="sm-sidebar-shell__body sm-sidebar-shell__body--flush">
       <LabList
-        :sandboxs="filteredSandboxs"
-        :active-sandbox-id="activeSandboxId"
-        :deleting-sandbox-id="deletingSandboxId"
-        @select="handleSelectSandbox"
-        @delete="handleDeleteSandbox"
+        :labs="filteredLabs"
+        :active-lab-id="activeLabId"
+        :deleting-lab-id="deletingLabId"
+        @select="handleSelectLab"
+        @delete="handleDeleteLab"
       />
     </div>
   </aside>

@@ -31,7 +31,7 @@ function toggle(): void {
 }
 
 onMounted(() => {
-  window.api.logger.debug('[SandboxToolsToggle] 组件挂载', {
+  window.api.logger.debug('[LabToolsToggle] 组件挂载', {
     enabled: isEnabled.value
   })
 })

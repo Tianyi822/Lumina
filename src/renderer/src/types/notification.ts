@@ -3,7 +3,8 @@ export type NotificationType = 'info' | 'success' | 'warning' | 'error'
 
 /** 通知来源模块 */
 export type NotificationSource =
-  | 'sandbox'
+  | 'lab'
+  | 'lab'
   | 'creator'
   | 'config'
   | 'settings'

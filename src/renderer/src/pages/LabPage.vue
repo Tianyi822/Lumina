@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useSandboxStore, useUIStateStore } from '@renderer/stores'
+import { useLabStore, useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
-import LabMainContent from '@renderer/components/sandbox/LabMainContent.vue'
-import LabCreator from '@renderer/components/sandbox/LabCreator.vue'
-import ConfigManager from '@renderer/components/sandbox/ConfigManager.vue'
-import DeleteConfirmDialog from '@renderer/components/sandbox/DeleteConfirmDialog.vue'
-import type { PlatformType, DockerCheckResult } from '@shared/types/sandbox'
+import { labApi } from '@renderer/services/labApi'
+import LabMainContent from '@renderer/components/lab/LabMainContent.vue'
+import LabCreator from '@renderer/components/lab/LabCreator.vue'
+import ConfigManager from '@renderer/components/lab/ConfigManager.vue'
+import DeleteConfirmDialog from '@renderer/components/lab/DeleteConfirmDialog.vue'
+import type { PlatformType, DockerCheckResult } from '@renderer/types/lab'
 
 interface InstallCommand {
   platform: PlatformType
@@ -36,13 +37,13 @@ const installCommands: InstallCommand[] = [
   { platform: 'linux', label: 'Arch Linux', cmd: 'sudo pacman -S docker' }
 ]
 
-const sandboxStore = useSandboxStore()
+const labStore = useLabStore()
 const uiStateStore = useUIStateStore()
 const notify = useNotification()
 
-const { currentSandbox, currentSandboxId, deleteConfirmState } = storeToRefs(sandboxStore)
+const { currentLab, currentLabId, deleteConfirmState } = storeToRefs(labStore)
 
-const { showSandboxCreator, showConfigManager } = storeToRefs(uiStateStore)
+const { showLabCreator, showConfigManager } = storeToRefs(uiStateStore)
 
 const dockerStatus = ref<DockerCheckResult | null>(null)
 const platform = ref<PlatformType>('darwin')
@@ -77,24 +78,24 @@ const checkDocker = async (): Promise<void> => {
   try {
     loading.value = true
     const [statusResult, platformResult] = await Promise.all([
-      window.api.sandbox.checkDocker(),
-      window.api.sandbox.getPlatform()
+      labApi.checkDocker(),
+      labApi.getPlatform()
     ])
     dockerStatus.value = statusResult
     platform.value = platformResult
 
     if (!statusResult.installed && statusResult.error && statusResult.error !== 'Docker 未安装') {
       notify.error('Docker 检测失败', statusResult.error, {
-        source: 'sandbox',
-        dedupeKey: 'sandbox:checkDocker'
+        source: 'lab',
+        dedupeKey: 'lab:checkDocker'
       })
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     dockerStatus.value = { installed: false, error: errorMessage }
     notify.error('Docker 检测失败', errorMessage, {
-      source: 'sandbox',
-      dedupeKey: 'sandbox:checkDocker'
+      source: 'lab',
+      dedupeKey: 'lab:checkDocker'
     })
   } finally {
     loading.value = false
@@ -102,9 +103,9 @@ const checkDocker = async (): Promise<void> => {
 }
 
 const openDockerWebsite = async (): Promise<void> => {
-  const result = await window.api.sandbox.openExternal(DOCKER_WEBSITE)
+  const result = await labApi.openExternal(DOCKER_WEBSITE)
   if (!result.success) {
-    notify.error('打开 Docker 官网失败', result.error || '未知错误', { source: 'sandbox' })
+    notify.error('打开 Docker 官网失败', result.error || '未知错误', { source: 'lab' })
   }
 }
 
@@ -117,13 +118,13 @@ const copyCommand = async (cmd: string, index: number): Promise<void> => {
     }, 2000)
   } catch (error) {
     notify.error('复制命令失败', error instanceof Error ? error.message : String(error), {
-      source: 'sandbox'
+      source: 'lab'
     })
   }
 }
 
 const handleCloseCreator = (): void => {
-  uiStateStore.closeSandboxCreator()
+  uiStateStore.closeLabCreator()
 }
 
 const handleCloseConfigManager = (): void => {
@@ -132,8 +133,8 @@ const handleCloseConfigManager = (): void => {
 
 // ==================== 持久化选中实验室 ====================
 
-watch(currentSandboxId, (id) => {
-  uiStateStore.setLastSandboxId(id ?? null)
+watch(currentLabId, (id) => {
+  uiStateStore.setLastLabId(id ?? null)
 })
 
 // ==================== 生命周期 ====================
@@ -142,10 +143,10 @@ onMounted(async () => {
   await checkDocker()
 
   if (dockerStatus.value?.installed) {
-    await sandboxStore.loadSandboxList()
+    await labStore.loadLabList()
 
-    if (!currentSandbox.value && uiStateStore.lastSandboxId) {
-      await sandboxStore.loadSandbox(uiStateStore.lastSandboxId, false, { silent: true })
+    if (!currentLab.value && uiStateStore.lastLabId) {
+      await labStore.loadLab(uiStateStore.lastLabId, false, { silent: true })
     }
   }
 })
@@ -165,10 +166,10 @@ onMounted(async () => {
     </div>
 
     <template v-else-if="dockerStatus?.installed">
-      <LabMainContent :current-sandbox="currentSandbox" />
+      <LabMainContent :current-lab="currentLab" />
 
       <!-- 创建实验室弹窗 -->
-      <LabCreator :visible="showSandboxCreator" @close="handleCloseCreator" />
+      <LabCreator :visible="showLabCreator" @close="handleCloseCreator" />
 
       <!-- 配置管理弹窗 -->
       <ConfigManager :visible="showConfigManager" @close="handleCloseConfigManager" />
@@ -176,11 +177,11 @@ onMounted(async () => {
       <DeleteConfirmDialog
         :visible="deleteConfirmState.show"
         :is-deleting="deleteConfirmState.isDeleting"
-        :sandbox="
-          deleteConfirmState.sandboxId
+        :lab="
+          deleteConfirmState.labId
             ? {
-                sandboxId: deleteConfirmState.sandboxId,
-                name: deleteConfirmState.sandboxName,
+                labId: deleteConfirmState.labId,
+                name: deleteConfirmState.labName,
                 creationType: deleteConfirmState.creationType || 'existing',
                 containerIds: Array.from(
                   { length: deleteConfirmState.containerCount },
@@ -191,8 +192,8 @@ onMounted(async () => {
               }
             : null
         "
-        @close="sandboxStore.hideDeleteConfirm()"
-        @confirm="(_sandboxId, options) => sandboxStore.confirmDelete(options)"
+        @close="labStore.hideDeleteConfirm()"
+        @confirm="(_labId, options) => labStore.confirmDelete(options)"
       />
     </template>
 
@@ -200,7 +201,6 @@ onMounted(async () => {
       <div class="sm-lab-install__shell">
         <section class="sm-lab-install__overview">
           <div class="sm-lab-install__copy">
-            <span class="sm-lab-install__eyebrow">运行依赖</span>
             <div class="sm-lab-install__headline">
               <div class="sm-lab-install__titles">
                 <h1>Docker 未就绪</h1>
@@ -242,7 +242,6 @@ onMounted(async () => {
         <section v-if="filteredCommands.length > 0" class="sm-lab-install__panel">
           <div class="sm-lab-install__panel-header">
             <div>
-              <span class="sm-lab-install__eyebrow">推荐命令</span>
               <h3>当前平台安装方式</h3>
             </div>
             <span class="sm-badge">{{ currentPlatformLabel }}</span>
@@ -275,7 +274,6 @@ onMounted(async () => {
         >
           <div class="sm-lab-install__panel-header">
             <div>
-              <span class="sm-lab-install__eyebrow">备用通道</span>
               <h3>其他平台安装方式</h3>
             </div>
           </div>
@@ -366,15 +364,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-3);
-}
-
-.sm-lab-install__eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
 }
 
 .sm-lab-install__headline,

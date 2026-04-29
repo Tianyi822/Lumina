@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
-import LabList from '@renderer/components/sandbox/LabList.vue'
+import LabList from '@renderer/components/lab/LabList.vue'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
 import PaperSidebar from '@renderer/components/paper/PaperSidebar.vue'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
@@ -10,20 +10,20 @@ import { summarizeTranslationAnnotations } from '@shared/utils/paperTranslationA
 import {
   useKnowledgeStore,
   usePaperReaderStore,
-  useSandboxStore,
+  useLabStore,
   useUIStateStore
 } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 
 const uiStateStore = useUIStateStore()
 const knowledgeStore = useKnowledgeStore()
-const sandboxStore = useSandboxStore()
+const labStore = useLabStore()
 const paperReaderStore = usePaperReaderStore()
 const notify = useNotification()
 
 const { currentView, isCurrentSidebarCollapsed } = storeToRefs(uiStateStore)
 const { knowledgeBases, activeKbId } = storeToRefs(knowledgeStore)
-const { currentSandbox, sandboxList, deleteConfirmState } = storeToRefs(sandboxStore)
+const { currentLab, labList, deleteConfirmState } = storeToRefs(labStore)
 const {
   papers,
   currentPaperId,
@@ -33,9 +33,9 @@ const {
 } = storeToRefs(paperReaderStore)
 
 const knowledgeSearchQuery = ref('')
-const sandboxSearchQuery = ref('')
+const labSearchQuery = ref('')
 const paperSearchQuery = ref('')
-const isRefreshingSandboxList = ref(false)
+const isRefreshingLabList = ref(false)
 
 const filteredKnowledgeBases = computed(() => {
   if (!knowledgeSearchQuery.value.trim()) {
@@ -50,13 +50,13 @@ const filteredKnowledgeBases = computed(() => {
   )
 })
 
-const filteredSandboxs = computed(() => {
-  if (!sandboxSearchQuery.value.trim()) {
-    return sandboxList.value
+const filteredLabs = computed(() => {
+  if (!labSearchQuery.value.trim()) {
+    return labList.value
   }
 
-  const query = sandboxSearchQuery.value.toLowerCase()
-  return sandboxList.value.filter((sandbox) => sandbox.name.toLowerCase().includes(query))
+  const query = labSearchQuery.value.toLowerCase()
+  return labList.value.filter((lab) => lab.name.toLowerCase().includes(query))
 })
 
 const filteredPapers = computed(() => {
@@ -77,11 +77,11 @@ const sidebarCount = computed(() => {
     return knowledgeBases.value.length
   }
 
-  return sandboxList.value.length
+  return labList.value.length
 })
 
-const deletingSandboxId = computed(() => {
-  return deleteConfirmState.value.isDeleting ? deleteConfirmState.value.sandboxId : null
+const deletingLabId = computed(() => {
+  return deleteConfirmState.value.isDeleting ? deleteConfirmState.value.labId : null
 })
 
 function handleSelectKnowledgeBase(kbId: string): void {
@@ -124,37 +124,37 @@ function needsReindex(kb: { indexInvalidation?: { needsReindex?: boolean } }): b
   return kb.indexInvalidation?.needsReindex === true
 }
 
-function handleOpenSandboxCreator(): void {
-  uiStateStore.openSandboxCreator()
+function handleOpenLabCreator(): void {
+  uiStateStore.openLabCreator()
 }
 
 function handleOpenConfigManager(): void {
   uiStateStore.openConfigManager()
 }
 
-function handleSelectSandbox(sandboxId: string): void {
-  void sandboxStore.handleSelectSandbox(sandboxId)
+function handleSelectLab(labId: string): void {
+  void labStore.handleSelectLab(labId)
 }
 
-function handleDeleteSandbox(sandboxId: string): void {
-  void sandboxStore.handleDeleteSandbox(sandboxId)
+function handleDeleteLab(labId: string): void {
+  void labStore.handleDeleteLab(labId)
 }
 
-async function handleRefreshSandboxList(): Promise<void> {
-  if (isRefreshingSandboxList.value) {
+async function handleRefreshLabList(): Promise<void> {
+  if (isRefreshingLabList.value) {
     return
   }
 
-  isRefreshingSandboxList.value = true
+  isRefreshingLabList.value = true
 
   try {
-    await sandboxStore.refreshSandboxList()
+    await labStore.refreshLabList()
 
-    if (currentSandbox.value?.sandboxId) {
-      await sandboxStore.loadSandbox(currentSandbox.value.sandboxId, true)
+    if (currentLab.value?.labId) {
+      await labStore.loadLab(currentLab.value.labId, true)
     }
   } finally {
-    isRefreshingSandboxList.value = false
+    isRefreshingLabList.value = false
   }
 }
 
@@ -267,7 +267,7 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
           <template v-else>
             <button
               class="sm-button sm-button--primary sm-workspace-sidebar-host__action"
-              @click="handleOpenSandboxCreator"
+              @click="handleOpenLabCreator"
             >
               创建实验室
             </button>
@@ -309,7 +309,7 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
               <template v-else>
                 <div class="sm-workspace-sidebar-host__search--lab">
                   <input
-                    v-model="sandboxSearchQuery"
+                    v-model="labSearchQuery"
                     type="text"
                     class="sm-input"
                     placeholder="搜索实验室"
@@ -317,10 +317,10 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
                   <button
                     class="sm-icon-button sm-workspace-sidebar-host__refresh-button"
                     title="刷新列表"
-                    :disabled="isRefreshingSandboxList"
-                    @click="handleRefreshSandboxList"
+                    :disabled="isRefreshingLabList"
+                    @click="handleRefreshLabList"
                   >
-                    <SvgIcon name="refresh" :size="14" :spin="isRefreshingSandboxList" />
+                    <SvgIcon name="refresh" :size="14" :spin="isRefreshingLabList" />
                   </button>
                 </div>
               </template>
@@ -408,11 +408,11 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
 
               <template v-else>
                 <LabList
-                  :sandboxs="filteredSandboxs"
-                  :active-sandbox-id="currentSandbox?.sandboxId"
-                  :deleting-sandbox-id="deletingSandboxId"
-                  @select="handleSelectSandbox"
-                  @delete="handleDeleteSandbox"
+                  :labs="filteredLabs"
+                  :active-lab-id="currentLab?.labId"
+                  :deleting-lab-id="deletingLabId"
+                  @select="handleSelectLab"
+                  @delete="handleDeleteLab"
                 />
               </template>
             </div>

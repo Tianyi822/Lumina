@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useContainerStore, useDockerConfigStore, useSandboxCreatorStore } from '@renderer/stores'
+import { useContainerStore, useDockerConfigStore, useLabCreatorStore } from '@renderer/stores'
 import ContainerSelector from './ContainerSelector.vue'
 import ComposeEditor from './ComposeEditor.vue'
 import DockerfileEditor from './DockerfileEditor.vue'
@@ -19,7 +19,7 @@ const emit = defineEmits<{
 
 const containerStore = useContainerStore()
 const configStore = useDockerConfigStore()
-const creatorStore = useSandboxCreatorStore()
+const creatorStore = useLabCreatorStore()
 
 const {
   showSaveDialog,

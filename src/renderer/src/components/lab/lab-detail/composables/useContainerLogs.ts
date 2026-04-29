@@ -5,7 +5,7 @@
 import { ref, type Ref } from 'vue'
 import { useContainerStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
-import type { ContainerInfo } from '@shared/types/sandbox'
+import type { ContainerInfo } from '@renderer/types/lab'
 
 /** 容器日志 composable 返回值类型 */
 export interface UseContainerLogsReturn {
@@ -65,7 +65,7 @@ export function useContainerLogs(selectedContainer: {
       URL.revokeObjectURL(url)
     } catch (error) {
       notify.error('导出日志失败', error instanceof Error ? error.message : String(error), {
-        source: 'sandbox',
+        source: 'lab',
         dedupeKey: 'container-logs'
       })
     }

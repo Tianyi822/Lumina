@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { DeleteSandboxOptions, SandboxCreationType } from '@shared/types/sandbox'
+import type { DeleteLabOptions, LabCreationType } from '@renderer/types/lab'
 import { getDeleteDialogConfig } from '@renderer/utils/labPermissions'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 // 实验室项接口
-interface SandboxItem {
-  sandboxId: string
+interface LabItem {
+  labId: string
   name: string
-  creationType?: SandboxCreationType
+  creationType?: LabCreationType
   containerIds?: string[]
   composeProjectName?: string
   hasWorkspace?: boolean
@@ -17,24 +17,24 @@ interface SandboxItem {
 
 const props = defineProps<{
   visible: boolean
-  sandbox?: SandboxItem | null
+  lab?: LabItem | null
   isDeleting?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'confirm', sandboxId: string, options: DeleteSandboxOptions): void
+  (e: 'confirm', labId: string, options: DeleteLabOptions): void
 }>()
 
 const deleteContainers = ref(false)
 
 // 使用工具函数获取对话框配置
 const dialogConfig = computed(() => {
-  if (!props.sandbox) return null
+  if (!props.lab) return null
   return getDeleteDialogConfig(
-    props.sandbox.creationType || 'existing',
-    props.sandbox.containerIds?.length || 0,
-    props.sandbox.name
+    props.lab.creationType || 'existing',
+    props.lab.containerIds?.length || 0,
+    props.lab.name
   )
 })
 
@@ -47,7 +47,7 @@ const warningMessage = computed(() => dialogConfig.value?.warningMessage || '')
 const typeTheme = computed(() => dialogConfig.value?.typeTheme || 'default')
 
 // 是否为 existing 类型
-const isExistingType = computed(() => props.sandbox?.creationType === 'existing')
+const isExistingType = computed(() => props.lab?.creationType === 'existing')
 
 // 重置状态
 function resetState(): void {
@@ -82,9 +82,9 @@ function handleClose(): void {
 }
 
 function handleConfirm(): void {
-  if (!props.sandbox || props.isDeleting) return
+  if (!props.lab || props.isDeleting) return
   // 简化删除逻辑：默认同时删除容器和工作区
-  emit('confirm', props.sandbox.sandboxId, {
+  emit('confirm', props.lab.labId, {
     deleteContainers: deleteContainers.value,
     deleteWorkspace: deleteContainers.value // 工作区跟随容器一起删除
   })

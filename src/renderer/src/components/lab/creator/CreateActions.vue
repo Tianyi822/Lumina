@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { SandboxCreateType } from '@renderer/stores/sandbox/types'
+import type { LabCreateType } from '@renderer/stores/lab/types'
 
 defineProps<{
   isCreating: boolean
   canCreate: boolean
-  createType: SandboxCreateType
+  createType: LabCreateType
   createPhaseText: string
 }>()
 

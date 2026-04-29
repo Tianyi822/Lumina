@@ -7,7 +7,7 @@ import type {
   ComposeConfigMeta,
   DockerfileConfig,
   ComposeConfig
-} from '@shared/types/sandbox'
+} from '@renderer/types/lab'
 
 const props = defineProps<{
   visible: boolean

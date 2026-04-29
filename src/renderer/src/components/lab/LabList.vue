@@ -1,36 +1,36 @@
 <script setup lang="ts">
-import type { SandboxListItem, SandboxStatus } from '@shared/types/sandbox'
+import type { LabListItem, LabStatus } from '@renderer/types/lab'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 
 // 创建类型 - 预留，待类型定义更新后使用
 
-type SandboxCreationType = 'existing' | 'compose' | 'dockerfile'
+type LabCreationType = 'existing' | 'compose' | 'dockerfile'
 
 // 扩展的列表项类型（包含新增字段）
-interface ExtendedSandboxListItem extends Omit<
-  SandboxListItem,
+interface ExtendedLabListItem extends Omit<
+  LabListItem,
   'creationType' | 'containerCount' | 'isOrphan'
 > {
-  creationType?: SandboxCreationType
+  creationType?: LabCreationType
   containerIds?: string[]
   isOrphan?: boolean
   composeProjectName?: string
 }
 
 defineProps<{
-  sandboxs: SandboxListItem[]
-  activeSandboxId?: string
-  deletingSandboxId?: string | null
+  labs: LabListItem[]
+  activeLabId?: string
+  deletingLabId?: string | null
 }>()
 
 const emit = defineEmits<{
-  (e: 'select', sandboxId: string): void
-  (e: 'delete', sandboxId: string): void
+  (e: 'select', labId: string): void
+  (e: 'delete', labId: string): void
 }>()
 
-function getStatusLabel(status: SandboxStatus): string {
-  const labels: Record<SandboxStatus, string> = {
+function getStatusLabel(status: LabStatus): string {
+  const labels: Record<LabStatus, string> = {
     creating: '创建中',
     running: '运行中',
     stopped: '已停止',
@@ -39,13 +39,13 @@ function getStatusLabel(status: SandboxStatus): string {
   return labels[status] || status
 }
 
-function getStatusClass(status: SandboxStatus): string {
+function getStatusClass(status: LabStatus): string {
   return `status-${status}`
 }
 
-function getCreationTypeLabel(type?: SandboxCreationType): string {
+function getCreationTypeLabel(type?: LabCreationType): string {
   if (!type) return ''
-  const labels: Record<SandboxCreationType, string> = {
+  const labels: Record<LabCreationType, string> = {
     existing: '已有容器',
     compose: 'Compose',
     dockerfile: 'Dockerfile'
@@ -53,65 +53,63 @@ function getCreationTypeLabel(type?: SandboxCreationType): string {
   return labels[type] || type
 }
 
-function getCreationTypeClass(type?: SandboxCreationType): string {
+function getCreationTypeClass(type?: LabCreationType): string {
   if (!type) return ''
   return `creation-type-${type}`
 }
 
-function getContainerCount(item: SandboxListItem): number {
-  const extended = item as unknown as ExtendedSandboxListItem
+function getContainerCount(item: LabListItem): number {
+  const extended = item as unknown as ExtendedLabListItem
   return extended.containerIds?.length || 0
 }
 
-function handleSelect(sandboxId: string): void {
-  emit('select', sandboxId)
+function handleSelect(labId: string): void {
+  emit('select', labId)
 }
 
-function handleDeleteClick(sandbox: SandboxListItem): void {
-  emit('delete', sandbox.sandboxId)
+function handleDeleteClick(lab: LabListItem): void {
+  emit('delete', lab.labId)
 }
 </script>
 
 <template>
   <TransitionGroup
-    v-if="sandboxs.length > 0"
+    v-if="labs.length > 0"
     name="sm-sidebar-list-item"
     tag="div"
     class="lab-list"
     appear
   >
     <div
-      v-for="(sandbox, index) in sandboxs"
-      :key="sandbox.sandboxId"
+      v-for="(lab, index) in labs"
+      :key="lab.labId"
       class="lab-item"
       :class="{
-        active: sandbox.sandboxId === activeSandboxId,
-        orphan: (sandbox as unknown as ExtendedSandboxListItem).isOrphan
+        active: lab.labId === activeLabId,
+        orphan: (lab as unknown as ExtendedLabListItem).isOrphan
       }"
       :style="getSidebarListItemMotionStyle(index)"
-      @click="handleSelect(sandbox.sandboxId)"
+      @click="handleSelect(lab.labId)"
     >
       <div class="lab-info">
         <div class="lab-name">
-          {{ sandbox.name }}
+          {{ lab.name }}
         </div>
         <div class="lab-meta">
-          <span class="lab-status" :class="getStatusClass(sandbox.status)">
-            {{ getStatusLabel(sandbox.status) }}
+          <span class="lab-status" :class="getStatusClass(lab.status)">
+            {{ getStatusLabel(lab.status) }}
           </span>
           <!-- 创建类型 Badge -->
           <span
-            v-if="(sandbox as unknown as ExtendedSandboxListItem).creationType"
+            v-if="(lab as unknown as ExtendedLabListItem).creationType"
             class="sm-badge sm-lab-list__creation-badge"
-            :class="
-              getCreationTypeClass((sandbox as unknown as ExtendedSandboxListItem).creationType)
-            "
+            :class="getCreationTypeClass((lab as unknown as ExtendedLabListItem).creationType)"
           >
-            {{ getCreationTypeLabel((sandbox as unknown as ExtendedSandboxListItem).creationType) }}
+            {{ getCreationTypeLabel((lab as unknown as ExtendedLabListItem).creationType) }}
           </span>
           <!-- 孤儿实验室警告 -->
           <span
-            v-if="(sandbox as unknown as ExtendedSandboxListItem).isOrphan"
+            v-if="(lab as unknown as ExtendedLabListItem).isOrphan"
             class="sm-badge sm-lab-list__orphan-badge"
             title="容器已丢失"
           >
@@ -119,28 +117,23 @@ function handleDeleteClick(sandbox: SandboxListItem): void {
           </span>
           <!-- 容器数量 -->
           <span
-            v-if="getContainerCount(sandbox) > 1"
+            v-if="getContainerCount(lab) > 1"
             class="sm-badge sm-lab-list__container-count"
-            :title="`包含 ${getContainerCount(sandbox)} 个容器`"
+            :title="`包含 ${getContainerCount(lab)} 个容器`"
           >
-            {{ getContainerCount(sandbox) }} 容器
+            {{ getContainerCount(lab) }} 容器
           </span>
         </div>
       </div>
 
       <button
         class="sm-icon-button sm-lab-list__delete-button"
-        :class="{ 'is-deleting': sandbox.sandboxId === deletingSandboxId }"
+        :class="{ 'is-deleting': lab.labId === deletingLabId }"
         title="删除实验室"
-        :disabled="sandbox.sandboxId === deletingSandboxId"
-        @click.stop="handleDeleteClick(sandbox)"
+        :disabled="lab.labId === deletingLabId"
+        @click.stop="handleDeleteClick(lab)"
       >
-        <SvgIcon
-          v-if="sandbox.sandboxId === deletingSandboxId"
-          name="loading"
-          :size="14"
-          :spin="true"
-        />
+        <SvgIcon v-if="lab.labId === deletingLabId" name="loading" :size="14" :spin="true" />
         <SvgIcon v-else name="trash" :size="14" />
       </button>
     </div>

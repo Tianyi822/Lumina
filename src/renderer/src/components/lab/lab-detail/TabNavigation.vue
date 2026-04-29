@@ -12,10 +12,10 @@ defineProps<{
 }>()
 
 const uiStateStore = useUIStateStore()
-const { sandboxDetailTab } = storeToRefs(uiStateStore)
+const { labDetailTab } = storeToRefs(uiStateStore)
 
 function setDetailTab(tab: TabType): void {
-  uiStateStore.setSandboxDetailTab(tab)
+  uiStateStore.setLabDetailTab(tab)
 }
 </script>
 
@@ -23,21 +23,21 @@ function setDetailTab(tab: TabType): void {
   <div v-if="visible" class="detail-tabs" role="tablist" aria-label="实验室详情视图">
     <button
       class="tab-btn"
-      :class="{ 'is-active': sandboxDetailTab === 'stats' }"
+      :class="{ 'is-active': labDetailTab === 'stats' }"
       @click="setDetailTab('stats')"
     >
       监控
     </button>
     <button
       class="tab-btn"
-      :class="{ 'is-active': sandboxDetailTab === 'terminal' }"
+      :class="{ 'is-active': labDetailTab === 'terminal' }"
       @click="setDetailTab('terminal')"
     >
       终端
     </button>
     <button
       class="tab-btn"
-      :class="{ 'is-active': sandboxDetailTab === 'logs' }"
+      :class="{ 'is-active': labDetailTab === 'logs' }"
       @click="setDetailTab('logs')"
     >
       日志

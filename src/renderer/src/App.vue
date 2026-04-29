@@ -157,7 +157,7 @@ onBeforeUnmount(() => {
             <KnowledgePage v-else-if="isKnowledgeView" key="knowledge" />
 
             <!-- 实验室视图 -->
-            <LabPage v-else key="sandbox" />
+            <LabPage v-else key="lab" />
           </Transition>
         </div>
       </div>

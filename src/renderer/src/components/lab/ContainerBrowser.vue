@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { ContainerInfo, ContainerState } from '@shared/types/sandbox'
+import type { ContainerInfo, ContainerState } from '@renderer/types/lab'
 
 // ==================== Props & Emits ====================
 
@@ -17,7 +17,7 @@ const emit = defineEmits<{
   (e: 'stop', containerId: string): void
   (e: 'restart', containerId: string): void
   (e: 'remove', containerId: string): void
-  (e: 'select-as-sandbox', containerId: string): void
+  (e: 'select-as-lab', containerId: string): void
   (e: 'open-terminal', containerId: string): void
   (e: 'view-logs', containerId: string): void
   (e: 'filter-change', filter: 'all' | 'running' | 'stopped'): void
@@ -112,8 +112,8 @@ function handleRemove(containerId: string): void {
   emit('remove', containerId)
 }
 
-function handleSelectAsSandbox(containerId: string): void {
-  emit('select-as-sandbox', containerId)
+function handleSelectAsLab(containerId: string): void {
+  emit('select-as-lab', containerId)
 }
 
 function handleOpenTerminal(containerId: string): void {
@@ -221,7 +221,7 @@ function handleViewLogs(containerId: string): void {
           <button
             class="action-btn primary"
             :disabled="container.state !== 'running'"
-            @click.stop="handleSelectAsSandbox(container.id)"
+            @click.stop="handleSelectAsLab(container.id)"
           >
             选择作为实验室
           </button>

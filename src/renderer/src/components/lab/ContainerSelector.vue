@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useContainerStore, useSandboxCreatorStore } from '@renderer/stores'
-import type { ContainerInfo } from '@shared/types/sandbox'
+import { useContainerStore, useLabCreatorStore } from '@renderer/stores'
+import type { ContainerInfo } from '@renderer/types/lab'
 
 const containerStore = useContainerStore()
-const creatorStore = useSandboxCreatorStore()
+const creatorStore = useLabCreatorStore()
 
 const { isLoading: storeLoading, containers } = storeToRefs(containerStore)
 const {

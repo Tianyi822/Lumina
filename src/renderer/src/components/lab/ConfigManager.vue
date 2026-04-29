@@ -151,7 +151,6 @@ function formatDate(dateStr: string): string {
     <div class="sm-modal__surface config-manager">
       <div class="sm-pane-header manager-header">
         <div class="manager-heading">
-
           <div class="manager-title-row">
             <h2>Docker 模板资产</h2>
             <span class="sm-badge">{{ currentConfigs.length }}</span>

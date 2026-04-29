@@ -3,17 +3,13 @@
  * 提供前端权限检查和对话框配置
  */
 
-import type { SandboxCreationType, SandboxPermissionPolicy } from '@shared/types/sandbox'
-import {
-  SANDBOX_TYPE_PERMISSIONS,
-  isManagedSandbox,
-  isReadOnlySandbox
-} from '@shared/types/sandbox'
+import type { LabCreationType, LabPermissionPolicy } from '@renderer/types/lab'
+import { LAB_TYPE_PERMISSIONS, isManagedLab, isReadOnlyLab } from '@renderer/types/lab'
 
 /**
  * 实验室类型元数据（用于UI显示）
  */
-export interface SandboxTypeMeta {
+export interface LabTypeMeta {
   icon: string
   label: string
   fullLabel: string
@@ -25,18 +21,18 @@ export interface SandboxTypeMeta {
 /**
  * 获取实验室类型的权限策略（非响应式）
  */
-export function getSandboxPermissions(type: SandboxCreationType): SandboxPermissionPolicy {
-  return SANDBOX_TYPE_PERMISSIONS[type]
+export function getLabPermissions(type: LabCreationType): LabPermissionPolicy {
+  return LAB_TYPE_PERMISSIONS[type]
 }
 
 /**
  * 检查是否允许容器生命周期管理
  */
-export function canManageContainer(type: SandboxCreationType): {
+export function canManageContainer(type: LabCreationType): {
   allowed: boolean
   reason?: string
 } {
-  const policy = SANDBOX_TYPE_PERMISSIONS[type]
+  const policy = LAB_TYPE_PERMISSIONS[type]
 
   if (!policy.canStart && !policy.canStop && !policy.canRestart) {
     return {
@@ -51,7 +47,7 @@ export function canManageContainer(type: SandboxCreationType): {
 /**
  * 获取实验室类型的UI元数据
  */
-export function getSandboxTypeMeta(type: SandboxCreationType): SandboxTypeMeta {
+export function getLabTypeMeta(type: LabCreationType): LabTypeMeta {
   switch (type) {
     case 'existing':
       return {
@@ -110,17 +106,17 @@ export interface DeleteDialogConfig {
  * 获取删除确认对话框的配置
  */
 export function getDeleteDialogConfig(
-  type: SandboxCreationType,
+  type: LabCreationType,
   containerCount: number,
-  sandboxName: string
+  labName: string
 ): DeleteDialogConfig {
-  const policy = SANDBOX_TYPE_PERMISSIONS[type]
+  const policy = LAB_TYPE_PERMISSIONS[type]
 
   switch (type) {
     case 'existing':
       return {
         title: '确认删除实验室',
-        message: `确定要删除实验室「${sandboxName}」吗？\n\n此实验室关联的是已有容器，删除实验室仅会移除管理记录，不会删除容器本身。容器将继续在 Docker 中运行。`,
+        message: `确定要删除实验室「${labName}」吗？\n\n此实验室关联的是已有容器，删除实验室仅会移除管理记录，不会删除容器本身。容器将继续在 Docker 中运行。`,
         showDeleteOption: false,
         defaultDeleteContainers: false,
         confirmButtonText: '仅删除记录',
@@ -131,7 +127,7 @@ export function getDeleteDialogConfig(
     case 'compose':
       return {
         title: '确认删除 Compose 实验室',
-        message: `确定要删除实验室「${sandboxName}」吗？${
+        message: `确定要删除实验室「${labName}」吗？${
           containerCount > 1 ? `\n该实验室包含 ${containerCount} 个容器。` : ''
         }`,
         showDeleteOption: true,
@@ -146,7 +142,7 @@ export function getDeleteDialogConfig(
     case 'dockerfile':
       return {
         title: '确认删除 Dockerfile 实验室',
-        message: `确定要删除实验室「${sandboxName}」吗？`,
+        message: `确定要删除实验室「${labName}」吗？`,
         showDeleteOption: true,
         defaultDeleteContainers: policy.defaultDeleteContainer,
         confirmButtonText: '删除实验室',
@@ -158,7 +154,7 @@ export function getDeleteDialogConfig(
     default:
       return {
         title: '确认删除',
-        message: `确定要删除实验室「${sandboxName}」吗？`,
+        message: `确定要删除实验室「${labName}」吗？`,
         showDeleteOption: false,
         defaultDeleteContainers: false,
         confirmButtonText: '删除',
@@ -171,14 +167,16 @@ export function getDeleteDialogConfig(
  * 获取操作禁用原因
  */
 export function getOperationDisabledReason(
-  type: SandboxCreationType,
+  type: LabCreationType,
   operation: 'start' | 'stop' | 'restart' | 'delete'
 ): string | undefined {
-  const policy = SANDBOX_TYPE_PERMISSIONS[type]
+  const policy = LAB_TYPE_PERMISSIONS[type]
 
   switch (operation) {
     case 'start':
-      return policy.canStart ? undefined : '已有容器类型的实验室不支持启动操作，请使用 Docker 命令行'
+      return policy.canStart
+        ? undefined
+        : '已有容器类型的实验室不支持启动操作，请使用 Docker 命令行'
     case 'stop':
       return policy.canStop ? undefined : '已有容器类型的实验室不支持停止操作，请使用 Docker 命令行'
     case 'restart':
@@ -193,4 +191,4 @@ export function getOperationDisabledReason(
 }
 
 // 重新导出共享类型中的守卫函数
-export { isManagedSandbox, isReadOnlySandbox }
+export { isManagedLab, isReadOnlyLab }
