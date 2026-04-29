@@ -13,10 +13,6 @@
   pointer-events: none;
 }
 
-.sm-notification-center--windows {
-  top: calc(var(--sm-titlebar-height) + var(--sm-space-2));
-}
-
 .sm-notification-center > * {
   pointer-events: auto;
 }

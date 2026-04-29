@@ -198,10 +198,6 @@ onBeforeUnmount(() => {
   --sm-window-control-button-width: 46px;
 }
 
-.sm-workspace-page--windows {
-  --sm-window-controls-safe-width: calc(var(--sm-window-control-button-width) * 3);
-}
-
 .sm-workspace-page__chrome-actions {
   position: absolute;
   top: 12px;
@@ -229,38 +225,5 @@ onBeforeUnmount(() => {
   border-color: transparent;
   background: transparent;
   color: var(--sm-color-text-primary);
-}
-
-.sm-workspace-page--windows .sm-workspace-page__chrome-actions {
-  top: var(--sm-space-3);
-  left: calc(var(--sm-space-3) + var(--sm-space-4));
-}
-
-.sm-workspace-page--windows .sm-workspace-main::before {
-  content: '';
-  position: absolute;
-  top: calc(var(--sm-space-3) * -1);
-  left: 0;
-  right: var(--sm-window-controls-safe-width);
-  z-index: 3;
-  height: var(--sm-titlebar-height);
-  -webkit-app-region: drag;
-  user-select: none;
-}
-
-.sm-workspace-page__win-controls {
-  position: fixed;
-  top: 0;
-  right: 0;
-  z-index: 21;
-  display: inline-flex;
-  align-items: center;
-  height: var(--sm-titlebar-height);
-  -webkit-app-region: no-drag;
-  pointer-events: auto;
-}
-
-.sm-workspace-page--windows .sm-workspace-page__drag-region {
-  right: var(--sm-window-controls-safe-width);
 }
 </style>
