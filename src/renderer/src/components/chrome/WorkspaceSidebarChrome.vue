@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import WindowControls from './WindowControls.vue'
 import WorkspaceViewSwitcher from './WorkspaceViewSwitcher.vue'
 
 defineProps<{
@@ -19,8 +18,6 @@ const isMac = computed(() => {
     :class="{ 'sm-sidebar-shell__header--chrome-mac': isMac }"
   >
     <div v-if="isMac" class="sm-sidebar-shell__chrome-action-hitbox" aria-hidden="true"></div>
-
-    <WindowControls />
 
     <div class="sm-sidebar-shell__switcher-row">
       <div class="sm-sidebar-shell__switcher-card">
