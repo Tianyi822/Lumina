@@ -1,23 +1,23 @@
-// 重导出 @shared/types/sandbox 中的所有类型
+// 重导出 @shared/types/lab 中的所有类型
 export type {
   PlatformType,
   DockerCheckResult,
-  SandboxStatus,
-  SandboxCreationType,
-  SandboxData,
-  SandboxListItem,
-  SandboxResult,
-  SandboxLogEntry,
-  CreateSandboxConfig,
+  LabStatus,
+  LabCreationType,
+  LabData,
+  LabListItem,
+  LabResult,
+  LabLogEntry,
+  CreateLabConfig,
   DockerStatus,
-  SandboxSelection,
-  CreateSandboxRequest,
-  CreateSandboxResult,
+  LabSelection,
+  CreateLabRequest,
+  CreateLabResult,
   CreateFromDockerfileResult,
-  DeleteSandboxResult,
-  DeleteSandboxOptions,
-  SandboxContainerStatus
-} from '@shared/types/sandbox'
+  DeleteLabResult,
+  DeleteLabOptions,
+  LabContainerStatus
+} from '@shared/types/lab'
 
 export type {
   ContainerState,
@@ -41,13 +41,13 @@ export type {
   ContainerStatsResult,
   ContainerLogsResult,
   ExecCommandResult
-} from '@shared/types/sandbox'
+} from '@shared/types/lab'
 
 export type {
   TemplateCategory,
   TemplateVariable,
   TemplateConfig,
-  SandboxTemplate,
+  LabTemplate,
   ComposeOptions,
   ComposeDockerfileConfig,
   ComposeResult,
@@ -65,17 +65,17 @@ export type {
   ComposeLogResult,
   ComposeDownOptions,
   ComposeDownResult
-} from '@shared/types/sandbox'
+} from '@shared/types/lab'
 
 export type {
   FrontendFramework,
   FrontendBootstrapStatus,
   FrontendBootstrapState,
   FrontendWorkspaceMetadata,
-  CreateFrontendSandboxOptions,
-  FrontendSandboxInfo,
-  FrontendSandboxMetadata
-} from '@shared/types/sandbox'
+  CreateFrontendLabOptions,
+  FrontendLabInfo,
+  FrontendLabMetadata
+} from '@shared/types/lab'
 
 export type {
   DockerfileConfigMeta,
@@ -88,25 +88,25 @@ export type {
   LoadConfigResult,
   ListConfigResult,
   DeleteConfigResult,
-  SandboxConfigurationSnapshot
-} from '@shared/types/sandbox'
+  LabConfigurationSnapshot
+} from '@shared/types/lab'
 
-// 导入用于 SandboxApi 定义的类型
+// 导入用于 LabApi 定义的类型
 import type {
   DockerCheckResult,
   PlatformType,
-  SandboxData,
-  SandboxListItem,
-  SandboxResult,
-  SandboxLogEntry,
-  SandboxSelection,
-  CreateSandboxRequest,
-  CreateSandboxResult,
+  LabData,
+  LabListItem,
+  LabResult,
+  LabLogEntry,
+  LabSelection,
+  CreateLabRequest,
+  CreateLabResult,
   CreateFromDockerfileResult,
-  DeleteSandboxResult,
-  DeleteSandboxOptions,
-  FrontendSandboxInfo,
-  SandboxContainerStatus,
+  DeleteLabResult,
+  DeleteLabOptions,
+  FrontendLabInfo,
+  LabContainerStatus,
   ContainerFilter,
   ContainerListResult,
   ContainerDetailsResult,
@@ -115,7 +115,7 @@ import type {
   LogOptions,
   ExecCommand,
   ExecCommandResult,
-  SandboxTemplate,
+  LabTemplate,
   ComposeResult,
   ComposeOptions,
   PortMappingInput,
@@ -135,7 +135,7 @@ import type {
   ComposeLogResult,
   ComposeDownOptions,
   ComposeDownResult
-} from '@shared/types/sandbox'
+} from '@shared/types/lab'
 
 /**
  * Dockerfile 配置 API
@@ -175,21 +175,21 @@ export interface ComposeConfigApi {
 }
 
 /**
- * 沙箱相关的 API
+ * 实验室相关的 API
  */
-export interface SandboxApi {
+export interface LabApi {
   // Docker 检测
   checkDocker: () => Promise<DockerCheckResult>
   getPlatform: () => Promise<PlatformType>
-  openExternal: (url: string) => Promise<SandboxResult>
+  openExternal: (url: string) => Promise<LabResult>
 
-  // 沙箱管理
-  saveSandbox: (data: SandboxData) => Promise<SandboxResult>
-  loadSandbox: (sandboxId: string) => Promise<SandboxData | null>
-  loadSandboxResolved: (sandboxId: string) => Promise<SandboxData | null>
-  listSandboxs: () => Promise<SandboxListItem[]>
-  renameSandbox: (sandboxId: string, newName: string) => Promise<SandboxResult>
-  readSandboxLog: (sandboxId: string) => Promise<SandboxLogEntry[]>
+  // 实验室管理
+  saveLab: (data: LabData) => Promise<LabResult>
+  loadLab: (labId: string) => Promise<LabData | null>
+  loadLabResolved: (labId: string) => Promise<LabData | null>
+  listLabs: () => Promise<LabListItem[]>
+  renameLab: (labId: string, newName: string) => Promise<LabResult>
+  readLabLog: (labId: string) => Promise<LabLogEntry[]>
 
   // 容器浏览器
   listContainers: (filter?: ContainerFilter) => Promise<ContainerListResult>
@@ -198,57 +198,57 @@ export interface SandboxApi {
   getContainerLogs: (containerId: string, options?: LogOptions) => Promise<ContainerLogsResult>
 
   // 容器操作
-  startContainer: (containerId: string) => Promise<SandboxResult>
-  stopContainer: (containerId: string, timeout?: number) => Promise<SandboxResult>
-  restartContainer: (containerId: string) => Promise<SandboxResult>
-  removeContainer: (containerId: string, force?: boolean) => Promise<SandboxResult>
+  startContainer: (containerId: string) => Promise<LabResult>
+  stopContainer: (containerId: string, timeout?: number) => Promise<LabResult>
+  restartContainer: (containerId: string) => Promise<LabResult>
+  removeContainer: (containerId: string, force?: boolean) => Promise<LabResult>
 
   // 命令执行
   execCommand: (containerId: string, command: ExecCommand) => Promise<ExecCommandResult>
 
   // 文件操作
-  copyToContainer: (containerId: string, source: string, target: string) => Promise<SandboxResult>
-  copyFromContainer: (containerId: string, source: string, target: string) => Promise<SandboxResult>
+  copyToContainer: (containerId: string, source: string, target: string) => Promise<LabResult>
+  copyFromContainer: (containerId: string, source: string, target: string) => Promise<LabResult>
 
   // 模板
-  listTemplates: () => Promise<SandboxTemplate[]>
+  listTemplates: () => Promise<LabTemplate[]>
   createFromTemplate: (
     templateId: string,
     variables?: Record<string, string>
   ) => Promise<ComposeResult>
 
-  // 沙箱创建
+  // 实验室创建
   createFromCompose: (
     content: string,
     options?: ComposeOptions,
-    sandboxId?: string,
-    sandboxName?: string
+    labId?: string,
+    labName?: string
   ) => Promise<ComposeResult>
   createFromDockerfile: (
     dockerfile: string,
     context?: string,
-    sandboxId?: string,
-    sandboxName?: string,
+    labId?: string,
+    labName?: string,
     portMappings?: PortMappingInput[]
   ) => Promise<CreateFromDockerfileResult>
 
   // 会话集成
-  selectSandbox: (containerId: string, sessionId?: string) => Promise<SandboxResult>
-  deselectSandbox: (containerId: string) => Promise<SandboxResult>
-  getSessionSandbox: (sessionId: string) => Promise<SandboxSelection | null>
+  selectLab: (containerId: string, sessionId?: string) => Promise<LabResult>
+  deselectLab: (containerId: string) => Promise<LabResult>
+  getSessionLab: (sessionId: string) => Promise<LabSelection | null>
 
   // Docker 配置管理
   dockerfile: DockerfileConfigApi
   compose: ComposeConfigApi
 
-  // 沙箱管理
-  createSandbox: (request: CreateSandboxRequest) => Promise<CreateSandboxResult>
-  deleteSandbox: (sandboxId: string, options?: DeleteSandboxOptions) => Promise<DeleteSandboxResult>
-  retryFrontendInitialization: (sandboxId: string) => Promise<FrontendSandboxInfo>
-  rebuildFrontendRuntime: (sandboxId: string) => Promise<FrontendSandboxInfo>
-  validateFrontendBuild: (sandboxId: string) => Promise<FrontendSandboxInfo>
-  checkContainerStatus: (sandboxId: string) => Promise<SandboxContainerStatus | null>
-  checkAllContainerStatus: () => Promise<SandboxContainerStatus[]>
-  cleanupOrphan: (sandboxId: string) => Promise<SandboxResult>
-  recoverOrphan: (sandboxId: string, newContainerId: string) => Promise<SandboxResult>
+  // 实验室管理
+  createLab: (request: CreateLabRequest) => Promise<CreateLabResult>
+  deleteLab: (labId: string, options?: DeleteLabOptions) => Promise<DeleteLabResult>
+  retryFrontendInitialization: (labId: string) => Promise<FrontendLabInfo>
+  rebuildFrontendRuntime: (labId: string) => Promise<FrontendLabInfo>
+  validateFrontendBuild: (labId: string) => Promise<FrontendLabInfo>
+  checkContainerStatus: (labId: string) => Promise<LabContainerStatus | null>
+  checkAllContainerStatus: () => Promise<LabContainerStatus[]>
+  cleanupOrphan: (labId: string) => Promise<LabResult>
+  recoverOrphan: (labId: string, newContainerId: string) => Promise<LabResult>
 }
