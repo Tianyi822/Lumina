@@ -232,7 +232,7 @@ onBeforeUnmount(() => {
 }
 
 .sm-workspace-page--windows .sm-workspace-page__chrome-actions {
-  top: 4px;
+  top: var(--sm-space-3);
   left: calc(var(--sm-space-3) + var(--sm-space-4));
 }
 
