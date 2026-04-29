@@ -1,9 +1,56 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { RenderedSegment } from './composables/usePaperMarkdownEngine'
 
 defineProps<{
   segments: RenderedSegment[]
 }>()
+
+const emit = defineEmits<{
+  (e: 'retranslate', params: { segmentId: string; stableId: string }): void
+}>()
+
+const confirmDialog = ref<{
+  segmentId: string
+  stableId: string
+} | null>(null)
+
+const LIST_ITEM_INDENT = 2.8
+
+function getButtonLeftIndent(translationHtml: string | null): string {
+  if (!translationHtml) return '0'
+  const trimmed = translationHtml.trimEnd()
+  const match = trimmed.match(/((?:<\/(?:ul|ol)>\s*)+)$/)
+  if (!match) return '0'
+  const nestLevel = (match[1].match(/<\/(?:ul|ol)>/g) || []).length
+  return `${nestLevel * LIST_ITEM_INDENT}em`
+}
+
+function handleRetranslateClick(segment: RenderedSegment): void {
+  if (segment.translationStatus === 'translating') {
+    return
+  }
+
+  if (segment.annotations.length > 0) {
+    confirmDialog.value = { segmentId: segment.renderId, stableId: segment.stableId }
+    return
+  }
+
+  emit('retranslate', { segmentId: segment.renderId, stableId: segment.stableId })
+}
+
+function handleConfirmRetranslate(): void {
+  if (!confirmDialog.value) {
+    return
+  }
+
+  emit('retranslate', confirmDialog.value)
+  confirmDialog.value = null
+}
+
+function handleCancelRetranslate(): void {
+  confirmDialog.value = null
+}
 </script>
 
 <template>
@@ -39,23 +86,102 @@ defineProps<{
       >
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div v-html="segment.translationHtml" />
+        <button
+          class="paper-markdown-view__retranslate-btn"
+          type="button"
+          :disabled="segment.translationStatus === 'translating'"
+          :style="{ marginLeft: getButtonLeftIndent(segment.translationHtml) }"
+          title="重新翻译"
+          @click.stop="handleRetranslateClick(segment)"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="1 4 1 10 7 10" />
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+          </svg>
+          <span>重新翻译</span>
+        </button>
       </div>
 
-      <div
-        v-else-if="segment.translationStatus === 'failed'"
-        class="paper-markdown-view__translation-error"
-      >
-        该段翻译暂时失败，再次点击翻译按钮时会继续补全剩余内容。
-      </div>
+      <template v-else>
+        <div
+          v-if="segment.translationStatus === 'failed'"
+          class="paper-markdown-view__translation-error"
+        >
+          该段翻译暂时失败，再次点击翻译按钮时会继续补全剩余内容。
+        </div>
 
-      <div v-else class="paper-markdown-view__translation-placeholder" aria-hidden="true">
-        <span class="paper-markdown-view__translation-placeholder-text">正在翻译...</span>
-        <span class="paper-markdown-view__translation-placeholder-bar" />
-        <span class="paper-markdown-view__translation-placeholder-bar" />
-        <span class="paper-markdown-view__translation-placeholder-bar" />
-      </div>
+        <div v-else class="paper-markdown-view__translation-placeholder" aria-hidden="true">
+          <span class="paper-markdown-view__translation-placeholder-text">正在翻译...</span>
+          <span class="paper-markdown-view__translation-placeholder-bar" />
+          <span class="paper-markdown-view__translation-placeholder-bar" />
+          <span class="paper-markdown-view__translation-placeholder-bar" />
+        </div>
+
+        <button
+          class="paper-markdown-view__retranslate-btn"
+          type="button"
+          :disabled="segment.translationStatus === 'translating'"
+          title="重新翻译"
+          @click.stop="handleRetranslateClick(segment)"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="1 4 1 10 7 10" />
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+          </svg>
+          <span>重新翻译</span>
+        </button>
+      </template>
     </div>
   </section>
+
+  <Teleport to="body">
+    <div
+      v-if="confirmDialog"
+      class="paper-retranslate-overlay"
+      @click.self="handleCancelRetranslate"
+    >
+      <div class="paper-retranslate-dialog">
+        <div class="paper-retranslate-dialog__title">重新翻译</div>
+        <div class="paper-retranslate-dialog__body">
+          该段落存在批注或笔记，重新翻译可能导致标记失效或位置偏移。是否继续？
+        </div>
+        <div class="paper-retranslate-dialog__actions">
+          <button
+            class="paper-retranslate-dialog__btn paper-retranslate-dialog__btn--cancel"
+            type="button"
+            @click="handleCancelRetranslate"
+          >
+            取消
+          </button>
+          <button
+            class="paper-retranslate-dialog__btn paper-retranslate-dialog__btn--confirm"
+            type="button"
+            @click="handleConfirmRetranslate"
+          >
+            继续翻译
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -74,6 +200,7 @@ defineProps<{
 
 .paper-markdown-view__segment-translation {
   margin-top: var(--sm-space-2);
+  position: relative;
 }
 
 .paper-markdown-view__segment-translation.is-queued,
@@ -123,6 +250,42 @@ defineProps<{
 .paper-markdown-view__translation-placeholder-bar:nth-child(3) {
   width: 78%;
   animation-delay: 0.24s;
+}
+
+.paper-markdown-view__retranslate-btn {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: none;
+  border-radius: var(--sm-radius-sm);
+  background: transparent;
+  color: var(--sm-color-text-tertiary);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.2s ease,
+    color 0.15s ease,
+    background-color 0.15s ease;
+  margin-top: var(--sm-space-2);
+}
+
+.paper-markdown-view__segment-translation:hover > .paper-markdown-view__retranslate-btn,
+.paper-markdown-view__segment-translation-body:hover > .paper-markdown-view__retranslate-btn {
+  opacity: 1;
+}
+
+.paper-markdown-view__retranslate-btn:hover:not(:disabled) {
+  color: var(--sm-color-text-secondary);
+  background: color-mix(in srgb, var(--sm-color-surface-hover) 90%, transparent);
+}
+
+.paper-markdown-view__retranslate-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0;
 }
 
 .paper-markdown-view__markdown {
@@ -380,6 +543,82 @@ defineProps<{
 .paper-markdown-view__markdown :deep(li > ul),
 .paper-markdown-view__markdown :deep(li > ol) {
   margin: 0.25em 0;
+}
+
+/* 确认对话框 */
+.paper-retranslate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--sm-color-surface-0) 50%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.paper-retranslate-dialog {
+  min-width: 320px;
+  max-width: 420px;
+  padding: var(--sm-space-5);
+  border-radius: var(--sm-radius-md);
+  border: 1px solid var(--sm-color-border-default);
+  background: var(--sm-color-surface-1);
+  box-shadow:
+    0 16px 40px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.paper-retranslate-dialog__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+  margin-bottom: var(--sm-space-3);
+}
+
+.paper-retranslate-dialog__body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
+  margin-bottom: var(--sm-space-4);
+}
+
+.paper-retranslate-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sm-space-2);
+}
+
+.paper-retranslate-dialog__btn {
+  padding: 6px 14px;
+  border-radius: var(--sm-radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.paper-retranslate-dialog__btn--cancel {
+  border: 1px solid var(--sm-color-border-default);
+  background: transparent;
+  color: var(--sm-color-text-secondary);
+}
+
+.paper-retranslate-dialog__btn--cancel:hover {
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
+}
+
+.paper-retranslate-dialog__btn--confirm {
+  border: none;
+  background: var(--sm-color-accent);
+  color: var(--sm-color-text-on-accent);
+}
+
+.paper-retranslate-dialog__btn--confirm:hover {
+  background: var(--sm-color-accent-hover);
 }
 
 @keyframes paper-translation-breathe {

@@ -242,9 +242,11 @@ test('误包代码围栏的表题 HTML 会作为普通段落进入 reader', () =
     paperId: 'paper-fenced-table-title',
     pageIndex: 0,
     status: 'completed',
-    markdown: ['<div align="center">\n\nTABLE VIII\n\n</div>', fencedTableTitle, tableMarkdown].join(
-      '\n\n'
-    ),
+    markdown: [
+      '<div align="center">\n\nTABLE VIII\n\n</div>',
+      fencedTableTitle,
+      tableMarkdown
+    ].join('\n\n'),
     blocks: [
       createTextBlock(0, '<div align="center">\n\nTABLE VIII\n\n</div>'),
       createTextBlock(1, fencedTableTitle),

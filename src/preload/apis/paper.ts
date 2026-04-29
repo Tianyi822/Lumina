@@ -367,6 +367,13 @@ export const paperApi = {
     return ipcRenderer.invoke('paper:startTranslation', { paperId })
   },
 
+  retranslateSegment: (params: {
+    paperId: string
+    segmentId: string
+  }): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('paper:retranslateSegment', params)
+  },
+
   onTranslationProgress: (callback: (progress: PaperTranslationProgress) => void): (() => void) => {
     const handler = (
       _event: Electron.IpcRendererEvent,

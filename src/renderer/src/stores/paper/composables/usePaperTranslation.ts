@@ -35,6 +35,10 @@ export interface PaperTranslationComposable {
   toggleTranslationVisible: () => Promise<{ success: boolean; error?: string }>
   loadTranslationStatus: (paperIds: string[]) => Promise<void>
   deleteTranslation: (paperId: string) => Promise<{ success: boolean; error?: string }>
+  retranslateSegment: (
+    paperId: string,
+    segmentId: string
+  ) => Promise<{ success: boolean; error?: string }>
   setTranslationCache: (paperId: string, cache: PaperTranslationCache | null) => void
   setTranslationTaskState: (paperId: string, taskState: PaperTranslationTaskState | null) => void
   setHasTranslationState: (paperId: string, hasTranslation: boolean) => void
@@ -222,6 +226,10 @@ export function usePaperTranslation(
         nextCache.completedSegments = progress.completedSegments
         nextCache.updatedAt = now
 
+        if (progress.translationRevisionId) {
+          nextCache.translationRevisionId = progress.translationRevisionId
+        }
+
         setTranslationCache(progress.paperId, nextCache)
         setHasTranslationState(progress.paperId, hasPaperTranslationResult(nextCache))
         setTranslationTaskState(progress.paperId, {
@@ -341,6 +349,20 @@ export function usePaperTranslation(
     return { success: true }
   }
 
+  async function retranslateSegment(
+    paperId: string,
+    segmentId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    ensureTranslationProgressListener()
+
+    const result = await window.api.paper.retranslateSegment({ paperId, segmentId })
+    if (!result.success) {
+      return { success: false, error: result.error }
+    }
+
+    return { success: true }
+  }
+
   return {
     translationVisible,
     translationByPaperId,
@@ -357,6 +379,7 @@ export function usePaperTranslation(
     toggleTranslationVisible,
     loadTranslationStatus,
     deleteTranslation,
+    retranslateSegment,
     setTranslationCache,
     setTranslationTaskState,
     setHasTranslationState,

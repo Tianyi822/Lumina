@@ -469,4 +469,33 @@ export function registerPaperHandlers(): void {
       return { success: false, error: errorMessage }
     }
   })
+
+  ipcMain.handle(
+    'paper:retranslateSegment',
+    async (_event, params: { paperId: string; segmentId: string }) => {
+      const { paperId, segmentId } = params
+      const markdownResult = await getPaperService().getReaderMarkdown(paperId)
+      if (!markdownResult.success || !markdownResult.data) {
+        return { success: false, error: markdownResult.error || '读取论文正文失败' }
+      }
+
+      registerTranslationSubscriber(paperId, _event.sender)
+
+      const figuresResult = await getPaperService().listFigures(paperId)
+      const figures = figuresResult.success && figuresResult.data ? figuresResult.data : undefined
+
+      try {
+        return await paperTranslationService.retranslateSegment(
+          paperId,
+          markdownResult.data,
+          figures,
+          segmentId
+        )
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        logger.error('IPC: 段落重新翻译失败', 'main', { paperId, segmentId, error: errorMessage })
+        return { success: false, error: errorMessage }
+      }
+    }
+  )
 }

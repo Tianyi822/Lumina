@@ -281,4 +281,10 @@ export interface PaperApi {
 
   /** 监听翻译进度 */
   onTranslationProgress: (callback: (progress: PaperTranslationProgress) => void) => () => void
+
+  /** 重新翻译指定段落 */
+  retranslateSegment: (params: { paperId: string; segmentId: string }) => Promise<{
+    success: boolean
+    error?: string
+  }>
 }

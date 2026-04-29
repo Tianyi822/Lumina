@@ -688,6 +688,94 @@ export class PaperTranslationCore {
     }
   }
 
+  async retranslateSegment(
+    paperId: string,
+    markdown: string,
+    figures: PaperFigureItem[] | undefined,
+    segmentId: string
+  ): Promise<{ success: boolean; entry?: PaperTranslationEntry; error?: string }> {
+    if (this.tasks.has(paperId)) {
+      return { success: false, error: '翻译任务正在进行中，请稍后再试' }
+    }
+
+    const source = buildPaperTranslationSource(markdown, figures)
+    let cache = this.readValidCache(paperId, source)
+    if (!cache) {
+      cache = this.buildCache(paperId, source)
+    }
+
+    const entryIndex = cache.entries.findIndex((e) => e.id === segmentId)
+    if (entryIndex === -1) {
+      return { success: false, error: '未找到指定段落' }
+    }
+
+    const llmConfig = this.deps.getDefaultLlmConfig()
+    if (!llmConfig) {
+      return { success: false, error: '未找到可用的默认模型配置' }
+    }
+
+    const entry = cache.entries[entryIndex]
+    entry.status = 'translating'
+    entry.errorMessage = undefined
+    entry.updatedAt = this.now()
+    this.persistCache(paperId, cache)
+
+    const tempTask: ActiveTranslationTask = {
+      paperId,
+      sourceHash: cache.sourceHash,
+      cache,
+      abortController: new AbortController(),
+      promise: null
+    }
+
+    this.emitProgress(tempTask, entry)
+
+    try {
+      const prompt = this.buildPrompt(cache.entries, entryIndex)
+      const translatedMarkdown = this.sanitizeTranslatedMarkdown(
+        entry,
+        await this.deps.translateSegment(llmConfig, prompt, entry, tempTask.abortController.signal)
+      )
+
+      if (tempTask.abortController.signal.aborted) {
+        return { success: false, error: '翻译已取消' }
+      }
+
+      entry.status = 'completed'
+      entry.translatedMarkdown = translatedMarkdown
+      entry.translatedText = stripPaperTranslationMarkdown(translatedMarkdown)
+      entry.errorMessage = undefined
+      entry.updatedAt = this.now()
+      cache.updatedAt = entry.updatedAt
+      cache.completedSegments = countCompletedSegments(cache.entries)
+      cache.translationRevisionId = createPaperTranslationRevisionId(
+        cache.sourceHash,
+        cache.updatedAt
+      )
+      this.persistCache(paperId, cache)
+      this.emitProgress(tempTask, entry)
+      return { success: true, entry: cloneEntry(entry) }
+    } catch (error) {
+      if (tempTask.abortController.signal.aborted) {
+        return { success: false, error: '翻译已取消' }
+      }
+
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      entry.status = 'failed'
+      entry.errorMessage = errorMessage
+      entry.updatedAt = this.now()
+      this.persistCache(paperId, cache)
+      this.emitProgress(tempTask, entry, errorMessage)
+
+      this.deps.logger.warn('段落重新翻译失败', 'main', {
+        paperId,
+        segmentId,
+        error: errorMessage
+      })
+      return { success: false, error: errorMessage }
+    }
+  }
+
   private async runTask(task: ActiveTranslationTask, llmConfig: LLMConfig): Promise<void> {
     const pendingIndexes = task.cache.entries
       .map((entry, index) => ({ entry, index }))
@@ -804,7 +892,8 @@ export class PaperTranslationCore {
       '4. 如原文已经是中文，仅做必要的学术化润色并保持原意。',
       '5. 不要遗漏内容，也不要补充原文没有的信息。',
       '6. 如果当前段落是标题，只输出标题本身，不要并入后续正文。',
-      '7. 不要输出任何 XML 标签。'
+      '7. 不要输出任何 XML 标签。',
+      '8. 专有名词（如技术术语、模型名称、数据集名称、协议名称等）保持英文原文，不要翻译，以免造成歧义。'
     ]
 
     if (isAffiliationSegment) {
@@ -907,6 +996,7 @@ export class PaperTranslationCore {
       totalSegments: task.cache.totalSegments,
       isRunning: hasRunningEntries(task.cache.entries),
       entry: cloneEntry(entry),
+      translationRevisionId: task.cache.translationRevisionId,
       errorMessage
     }
 
