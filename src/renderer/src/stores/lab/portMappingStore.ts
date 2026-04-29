@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { PortMapping } from './types'
 
-export const usePortMappingStore = defineStore('sandboxPortMapping', () => {
+export const usePortMappingStore = defineStore('labPortMapping', () => {
   /** 端口映射列表 */
   const portMappings = ref<PortMapping[]>([])
 

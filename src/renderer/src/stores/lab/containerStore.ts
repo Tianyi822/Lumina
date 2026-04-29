@@ -6,9 +6,10 @@ import type {
   TerminalLog,
   ExecCommand,
   LogOptions
-} from '@shared/types/sandbox'
-import type { ContainerInfo, ContainerDetails, ContainerStats } from '@shared/types/sandbox'
+} from '@renderer/types/lab'
+import type { ContainerInfo, ContainerDetails, ContainerStats } from '@renderer/types/lab'
 import { useNotification } from '@renderer/composables/useNotification'
+import { labApi } from '@renderer/services/labApi'
 
 export const useContainerStore = defineStore('container', () => {
   const notify = useNotification()
@@ -80,7 +81,7 @@ export const useContainerStore = defineStore('container', () => {
       const filter = JSON.parse(JSON.stringify(containerFilter.value))
       window.api.logger.info('[ContainerStore] 开始加载容器列表', { filter })
 
-      const result = await window.api.sandbox.listContainers(filter)
+      const result = await labApi.listContainers(filter)
       window.api.logger.info('[ContainerStore] IPC 返回结果', {
         success: result.success,
         length: result.containers?.length || 0,
@@ -93,7 +94,7 @@ export const useContainerStore = defineStore('container', () => {
       if (!result.success) {
         containers.value = []
         notify.error('加载容器列表失败', result.error || '未知错误', {
-          source: 'sandbox',
+          source: 'lab',
           dedupeKey: 'container-error'
         })
         return
@@ -113,7 +114,7 @@ export const useContainerStore = defineStore('container', () => {
       })
       containers.value = []
       notify.error('加载容器列表失败', errorMessage, {
-        source: 'sandbox',
+        source: 'lab',
         dedupeKey: 'container-error'
       })
     } finally {
@@ -131,13 +132,13 @@ export const useContainerStore = defineStore('container', () => {
     options?: { silent?: boolean }
   ): Promise<void> {
     try {
-      const result = await window.api.sandbox.getContainerDetails(containerId)
+      const result = await labApi.getContainerDetails(containerId)
 
       if (!result.success) {
         selectedContainer.value = null
         if (!options?.silent) {
           notify.error('加载容器详情失败', result.error || '未知错误', {
-            source: 'sandbox',
+            source: 'lab',
             dedupeKey: 'container-error'
           })
         }
@@ -162,7 +163,7 @@ export const useContainerStore = defineStore('container', () => {
       selectedContainer.value = null
       if (!options?.silent) {
         notify.error('加载容器详情失败', errorMessage, {
-          source: 'sandbox',
+          source: 'lab',
           dedupeKey: 'container-error'
         })
       }
@@ -176,7 +177,7 @@ export const useContainerStore = defineStore('container', () => {
     const requestId = ++latestStatsRequestId
 
     try {
-      const result = await window.api.sandbox.getContainerStats(containerId)
+      const result = await labApi.getContainerStats(containerId)
       if (requestId !== latestStatsRequestId) {
         return false
       }
@@ -185,7 +186,7 @@ export const useContainerStore = defineStore('container', () => {
         containerStats.value = null
         if (!options?.silent) {
           notify.error('加载容器统计失败', result.error || '未知错误', {
-            source: 'sandbox',
+            source: 'lab',
             dedupeKey: 'container-error'
           })
         }
@@ -207,7 +208,7 @@ export const useContainerStore = defineStore('container', () => {
       containerStats.value = null
       if (!options?.silent) {
         notify.error('加载容器统计失败', errorMessage, {
-          source: 'sandbox',
+          source: 'lab',
           dedupeKey: 'container-error'
         })
       }
@@ -234,7 +235,7 @@ export const useContainerStore = defineStore('container', () => {
     containerId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const result = await window.api.sandbox.startContainer(containerId)
+      const result = await labApi.startContainer(containerId)
 
       if (result.success) {
         await refreshContainers()
@@ -266,7 +267,7 @@ export const useContainerStore = defineStore('container', () => {
     timeout?: number
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const result = await window.api.sandbox.stopContainer(containerId, timeout)
+      const result = await labApi.stopContainer(containerId, timeout)
 
       if (result.success) {
         await refreshContainers()
@@ -295,7 +296,7 @@ export const useContainerStore = defineStore('container', () => {
     containerId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const result = await window.api.sandbox.restartContainer(containerId)
+      const result = await labApi.restartContainer(containerId)
 
       if (result.success) {
         await refreshContainers()
@@ -327,7 +328,7 @@ export const useContainerStore = defineStore('container', () => {
     force?: boolean
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const result = await window.api.sandbox.removeContainer(containerId, force)
+      const result = await labApi.removeContainer(containerId, force)
 
       if (result.success) {
         await refreshContainers()
@@ -358,7 +359,7 @@ export const useContainerStore = defineStore('container', () => {
     timeout?: number
   ): Promise<{ success: boolean; error?: string; stoppedContainerIds?: string[] }> {
     try {
-      const result = await window.api.sandbox.compose.stop(projectName, { timeout })
+      const result = await labApi.compose.stop(projectName, { timeout })
 
       if (result.success) {
         await refreshContainers()
@@ -394,7 +395,7 @@ export const useContainerStore = defineStore('container', () => {
     projectName: string
   ): Promise<{ success: boolean; error?: string; containerIds?: string[] }> {
     try {
-      const result = await window.api.sandbox.compose.start(projectName)
+      const result = await labApi.compose.start(projectName)
 
       if (result.success) {
         await refreshContainers()
@@ -431,7 +432,7 @@ export const useContainerStore = defineStore('container', () => {
     projectName: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const result = await window.api.sandbox.compose.restart(projectName)
+      const result = await labApi.compose.restart(projectName)
 
       if (result.success) {
         await refreshContainers()
@@ -471,12 +472,12 @@ export const useContainerStore = defineStore('container', () => {
         content: command.command
       })
 
-      const result = await window.api.sandbox.execCommand(containerId, command)
+      const result = await labApi.execCommand(containerId, command)
 
       if (!result.success || !result.result) {
         const errorMessage = result.error || '命令执行失败'
         notify.error('执行命令失败', errorMessage, {
-          source: 'sandbox',
+          source: 'lab',
           dedupeKey: 'container-error'
         })
         terminalLogs.value.push({
@@ -523,7 +524,7 @@ export const useContainerStore = defineStore('container', () => {
     target: string
   ): Promise<boolean> {
     try {
-      const result = await window.api.sandbox.copyToContainer(containerId, source, target)
+      const result = await labApi.copyToContainer(containerId, source, target)
 
       if (result.success) {
         window.api.logger.info('[ContainerStore] 文件复制到容器成功', {
@@ -551,7 +552,7 @@ export const useContainerStore = defineStore('container', () => {
     target: string
   ): Promise<boolean> {
     try {
-      const result = await window.api.sandbox.copyFromContainer(containerId, source, target)
+      const result = await labApi.copyFromContainer(containerId, source, target)
 
       if (result.success) {
         window.api.logger.info('[ContainerStore] 文件从容器复制成功', {
@@ -577,10 +578,10 @@ export const useContainerStore = defineStore('container', () => {
 
   async function getContainerLogs(containerId: string, options?: LogOptions): Promise<string> {
     try {
-      const result = await window.api.sandbox.getContainerLogs(containerId, options)
+      const result = await labApi.getContainerLogs(containerId, options)
       if (!result.success) {
         notify.error('加载容器日志失败', result.error || '未知错误', {
-          source: 'sandbox',
+          source: 'lab',
           dedupeKey: 'container-error'
         })
         return ''
@@ -593,7 +594,7 @@ export const useContainerStore = defineStore('container', () => {
         containerId
       })
       notify.error('加载容器日志失败', error instanceof Error ? error.message : String(error), {
-        source: 'sandbox',
+        source: 'lab',
         dedupeKey: 'container-error'
       })
       return ''

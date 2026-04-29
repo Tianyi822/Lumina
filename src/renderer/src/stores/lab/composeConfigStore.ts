@@ -48,7 +48,7 @@ services:
 `
 } as const
 
-export const useComposeConfigStore = defineStore('sandboxComposeConfig', () => {
+export const useComposeConfigStore = defineStore('labComposeConfig', () => {
   /** Compose 内容 */
   const composeContent = ref('')
   /** Compose 项目名称 */

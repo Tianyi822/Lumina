@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
-export const useDockerfileConfigStore = defineStore('sandboxDockerfileConfig', () => {
+export const useDockerfileConfigStore = defineStore('labDockerfileConfig', () => {
   /** Dockerfile 内容 */
   const dockerfileContent = ref('')
   /** Dockerfile 上下文路径 */

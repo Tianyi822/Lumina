@@ -25,13 +25,8 @@ export { usePaperChatDocumentUploadStore } from './paperChatDocumentUploadStore'
 export { usePaperChatImageUploadStore } from './paperChatImageUploadStore'
 export { usePaperChatQuoteStore } from './paperChatQuoteStore'
 
-// Sandbox Stores (拆分后的模块)
-export {
-  useSandboxStore,
-  useContainerStore,
-  useSandboxCreatorStore,
-  useDockerConfigStore
-} from './sandbox'
+// 实验室 Stores (拆分后的模块)
+export { useLabStore, useContainerStore, useLabCreatorStore, useDockerConfigStore } from './lab'
 
 // Paper Reader Store (论文阅读器)
 export { usePaperReaderStore } from './paperReaderStore'

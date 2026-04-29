@@ -6,7 +6,8 @@ import type {
   DockerfileConfig,
   ComposeConfig,
   SaveConfigRequest
-} from '@shared/types/sandbox'
+} from '@renderer/types/lab'
+import { labApi } from '@renderer/services/labApi'
 
 export const useDockerConfigStore = defineStore('dockerConfig', () => {
   // ==================== State ====================
@@ -23,7 +24,7 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
   async function loadDockerfileConfigs(): Promise<void> {
     try {
       configsLoading.value = true
-      const result = await window.api.sandbox.dockerfile.list()
+      const result = await labApi.dockerfile.list()
       if (result.success && result.configs) {
         dockerfileConfigs.value = result.configs
       }
@@ -38,7 +39,7 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
 
   async function loadDockerfileConfig(id: string): Promise<DockerfileConfig | null> {
     try {
-      const result = await window.api.sandbox.dockerfile.load(id)
+      const result = await labApi.dockerfile.load(id)
       if (result.success && result.config) {
         return result.config
       }
@@ -56,7 +57,7 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
     request: SaveConfigRequest
   ): Promise<DockerfileConfigMeta | null> {
     try {
-      const result = await window.api.sandbox.dockerfile.save(request)
+      const result = await labApi.dockerfile.save(request)
       if (result.success && result.config) {
         await loadDockerfileConfigs()
         return result.config
@@ -72,7 +73,7 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
 
   async function deleteDockerfileConfig(id: string): Promise<boolean> {
     try {
-      const result = await window.api.sandbox.dockerfile.delete(id)
+      const result = await labApi.dockerfile.delete(id)
       if (result.success) {
         await loadDockerfileConfigs()
         return true
@@ -92,7 +93,7 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
   async function loadComposeConfigs(): Promise<void> {
     try {
       configsLoading.value = true
-      const result = await window.api.sandbox.compose.list()
+      const result = await labApi.compose.list()
       if (result.success && result.configs) {
         composeConfigs.value = result.configs
       }
@@ -107,7 +108,7 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
 
   async function loadComposeConfig(id: string): Promise<ComposeConfig | null> {
     try {
-      const result = await window.api.sandbox.compose.load(id)
+      const result = await labApi.compose.load(id)
       if (result.success && result.config) {
         return result.config
       }
@@ -123,7 +124,7 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
 
   async function saveComposeConfig(request: SaveConfigRequest): Promise<ComposeConfigMeta | null> {
     try {
-      const result = await window.api.sandbox.compose.save(request)
+      const result = await labApi.compose.save(request)
       if (result.success && result.config) {
         await loadComposeConfigs()
         return result.config
@@ -139,7 +140,7 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
 
   async function deleteComposeConfig(id: string): Promise<boolean> {
     try {
-      const result = await window.api.sandbox.compose.delete(id)
+      const result = await labApi.compose.delete(id)
       if (result.success) {
         await loadComposeConfigs()
         return true

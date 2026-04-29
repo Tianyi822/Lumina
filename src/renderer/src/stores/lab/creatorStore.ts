@@ -2,21 +2,22 @@ import { ref, computed, watch } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
 import type {
   ComposeOptions,
-  CreateSandboxRequest,
-  CreateSandboxResult,
-  SandboxCreationType,
+  CreateLabRequest,
+  CreateLabResult,
+  LabCreationType,
   ComposeDockerfileConfig
-} from '@shared/types/sandbox'
+} from '@renderer/types/lab'
 import { useContainerStore } from './containerStore'
 import { useDockerConfigStore } from './configStore'
-import { useSandboxStore } from './labStore'
+import { useLabStore } from './labStore'
 import { usePortMappingStore } from './portMappingStore'
 import { useComposeConfigStore } from './composeConfigStore'
 import { useDockerfileConfigStore } from './dockerfileConfigStore'
 import { useNotification } from '@renderer/composables/useNotification'
-import type { SandboxCreateType, CreatePhase, ComposeTemplateType } from './types'
+import { labApi } from '@renderer/services/labApi'
+import type { LabCreateType, CreatePhase, ComposeTemplateType } from './types'
 
-export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
+export const useLabCreatorStore = defineStore('labCreator', () => {
   // ==================== Store Dependencies ====================
 
   const containerStore = useContainerStore()
@@ -39,7 +40,7 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
   // ==================== State: 创建类型与容器选择 ====================
 
   /** 创建类型 */
-  const createType = ref<SandboxCreateType>('compose')
+  const createType = ref<LabCreateType>('compose')
   /** 选中的容器 ID (用于创建器) */
   const selectedContainerId = ref<string | null>(null)
   /** 容器过滤类型 (用于创建器) */
@@ -236,8 +237,8 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
    */
   async function createFromCompose(
     options?: ComposeOptions
-  ): Promise<(CreateSandboxResult & { composeError?: string }) | null> {
-    const sandboxStore = useSandboxStore()
+  ): Promise<(CreateLabResult & { composeError?: string }) | null> {
+    const labStore = useLabStore()
 
     // 重置状态
     isCreating.value = true
@@ -245,32 +246,32 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     createPhase.value = 'metadata'
 
     try {
-      window.api.logger.info('[SandboxCreatorStore] 开始从 Compose 创建实验室', {
+      window.api.logger.info('[LabCreatorStore] 开始从 Compose 创建实验室', {
         projectName: options?.projectName || composeProjectName.value,
         composeConfigId: selectedComposeId.value
       })
 
-      const request: CreateSandboxRequest = {
+      const request: CreateLabRequest = {
         name: composeProjectName.value.trim() || '创建 Compose 实验室',
-        creationType: 'compose' as SandboxCreationType,
+        creationType: 'compose' as LabCreationType,
         composeConfigId: selectedComposeId.value || undefined,
         projectName: options?.projectName || composeProjectName.value
       }
 
-      const result = await sandboxStore.createSandbox(request)
+      const result = await labStore.createLab(request)
 
       if (!result?.success) {
         const errorMsg = result?.error || '创建实验室元数据失败'
         createError.value = errorMsg
         createPhase.value = 'idle'
         isCreating.value = false
-        notify.error('创建实验室失败', errorMsg, { source: 'sandbox', dedupeKey: 'sandbox:creator' })
-        window.api.logger.error('[SandboxCreatorStore] 创建实验室元数据失败', {
+        notify.error('创建实验室失败', errorMsg, { source: 'lab', dedupeKey: 'lab:creator' })
+        window.api.logger.error('[LabCreatorStore] 创建实验室元数据失败', {
           error: errorMsg
         })
         return {
           success: false,
-          sandbox: result?.sandbox,
+          lab: result?.lab,
           error: errorMsg,
           composeError: errorMsg
         }
@@ -290,13 +291,13 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
 
       // 尝试调用 Docker 创建容器 API
       try {
-        const composeResult = await window.api.sandbox.createFromCompose(
+        const composeResult = await labApi.createFromCompose(
           composeContent.value,
           {
             ...options,
             dockerfiles: dockerfiles.length > 0 ? dockerfiles : undefined
           },
-          result.sandbox?.sandboxId,
+          result.lab?.labId,
           composeProjectName.value.trim() || undefined
         )
 
@@ -305,15 +306,15 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
           createPhase.value = 'idle'
           isCreating.value = false
           notify.error('Compose 创建失败', createError.value, {
-            source: 'sandbox',
-            dedupeKey: 'sandbox:creator'
+            source: 'lab',
+            dedupeKey: 'lab:creator'
           })
-          window.api.logger.error('[SandboxCreatorStore] Docker Compose 创建失败', {
+          window.api.logger.error('[LabCreatorStore] Docker Compose 创建失败', {
             error: createError.value
           })
           return {
             success: false,
-            sandbox: result.sandbox,
+            lab: result.lab,
             error: `Docker 创建失败: ${createError.value}`,
             composeError: createError.value
           }
@@ -325,15 +326,15 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
         createPhase.value = 'done'
         isCreating.value = false
 
-        window.api.logger.info('[SandboxCreatorStore] 从 Compose 创建实验室成功', {
+        window.api.logger.info('[LabCreatorStore] 从 Compose 创建实验室成功', {
           projectName: composeProjectName.value,
-          sandboxId: result.sandbox?.sandboxId,
+          labId: result.lab?.labId,
           containerCount: composeResult.containerIds?.length || 0
         })
 
         return {
           success: true,
-          sandbox: result.sandbox,
+          lab: result.lab,
           containerIds: composeResult.containerIds
         }
       } catch (dockerError) {
@@ -341,15 +342,15 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
         createPhase.value = 'idle'
         isCreating.value = false
         notify.error('Compose 创建失败', createError.value, {
-          source: 'sandbox',
-          dedupeKey: 'sandbox:creator'
+          source: 'lab',
+          dedupeKey: 'lab:creator'
         })
-        window.api.logger.error('[SandboxCreatorStore] Docker Compose API 调用失败', {
+        window.api.logger.error('[LabCreatorStore] Docker Compose API 调用失败', {
           error: createError.value
         })
         return {
           success: false,
-          sandbox: result.sandbox,
+          lab: result.lab,
           error: `Docker API 调用失败: ${createError.value}`,
           composeError: createError.value
         }
@@ -359,10 +360,10 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
       createPhase.value = 'idle'
       isCreating.value = false
       notify.error('Compose 创建失败', createError.value, {
-        source: 'sandbox',
-        dedupeKey: 'sandbox:creator'
+        source: 'lab',
+        dedupeKey: 'lab:creator'
       })
-      window.api.logger.error('[SandboxCreatorStore] 从 Compose 创建实验室失败', {
+      window.api.logger.error('[LabCreatorStore] 从 Compose 创建实验室失败', {
         error: createError.value
       })
       return {
@@ -385,9 +386,9 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
    * 从 Dockerfile 创建实验室
    */
   async function createFromDockerfile(): Promise<
-    (CreateSandboxResult & { dockerError?: string }) | null
+    (CreateLabResult & { dockerError?: string }) | null
   > {
-    const sandboxStore = useSandboxStore()
+    const labStore = useLabStore()
 
     // 重置状态
     isCreating.value = true
@@ -395,32 +396,32 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
     createPhase.value = 'metadata'
 
     try {
-      window.api.logger.info('[SandboxCreatorStore] 开始从 Dockerfile 创建实验室', {
+      window.api.logger.info('[LabCreatorStore] 开始从 Dockerfile 创建实验室', {
         context: dockerfileContext.value,
         dockerfileConfigId: selectedDockerfileId.value
       })
 
-      const request: CreateSandboxRequest = {
+      const request: CreateLabRequest = {
         name: dockerfileProjectName.value.trim() || '创建 Dockerfile 实验室',
-        creationType: 'dockerfile' as SandboxCreationType,
+        creationType: 'dockerfile' as LabCreationType,
         dockerfileConfigId: selectedDockerfileId.value || undefined,
         context: dockerfileContext.value || undefined
       }
 
-      const result = await sandboxStore.createSandbox(request)
+      const result = await labStore.createLab(request)
 
       if (!result?.success) {
         const errorMsg = result?.error || '创建实验室元数据失败'
         createError.value = errorMsg
         createPhase.value = 'idle'
         isCreating.value = false
-        notify.error('创建实验室失败', errorMsg, { source: 'sandbox', dedupeKey: 'sandbox:creator' })
-        window.api.logger.error('[SandboxCreatorStore] 创建实验室元数据失败', {
+        notify.error('创建实验室失败', errorMsg, { source: 'lab', dedupeKey: 'lab:creator' })
+        window.api.logger.error('[LabCreatorStore] 创建实验室元数据失败', {
           error: errorMsg
         })
         return {
           success: false,
-          sandbox: result?.sandbox,
+          lab: result?.lab,
           error: errorMsg,
           dockerError: errorMsg
         }
@@ -437,10 +438,10 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
           protocol: p.protocol
         }))
 
-        const dockerResult = await window.api.sandbox.createFromDockerfile(
+        const dockerResult = await labApi.createFromDockerfile(
           dockerfileContent.value,
           dockerfileContext.value,
-          result.sandbox?.sandboxId,
+          result.lab?.labId,
           dockerfileProjectName.value.trim() || undefined,
           portMappingsParam.length > 0 ? portMappingsParam : undefined
         )
@@ -451,15 +452,15 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
           createPhase.value = 'idle'
           isCreating.value = false
           notify.error('Dockerfile 创建失败', createError.value, {
-            source: 'sandbox',
-            dedupeKey: 'sandbox:creator'
+            source: 'lab',
+            dedupeKey: 'lab:creator'
           })
-          window.api.logger.error('[SandboxCreatorStore] Dockerfile 创建失败', {
+          window.api.logger.error('[LabCreatorStore] Dockerfile 创建失败', {
             error: createError.value
           })
           return {
             success: false,
-            sandbox: result.sandbox,
+            lab: result.lab,
             error: `Docker 创建失败: ${createError.value}`,
             dockerError: createError.value
           }
@@ -472,14 +473,14 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
         createPhase.value = 'done'
         isCreating.value = false
 
-        window.api.logger.info('[SandboxCreatorStore] 从 Dockerfile 创建实验室成功', {
-          sandboxId: result.sandbox?.sandboxId,
+        window.api.logger.info('[LabCreatorStore] 从 Dockerfile 创建实验室成功', {
+          labId: result.lab?.labId,
           containerId: containerId.substring(0, 12)
         })
 
         return {
           success: true,
-          sandbox: result.sandbox,
+          lab: result.lab,
           containerIds: containerId ? [containerId] : []
         }
       } catch (dockerError) {
@@ -487,15 +488,15 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
         createPhase.value = 'idle'
         isCreating.value = false
         notify.error('Dockerfile 创建失败', createError.value, {
-          source: 'sandbox',
-          dedupeKey: 'sandbox:creator'
+          source: 'lab',
+          dedupeKey: 'lab:creator'
         })
-        window.api.logger.error('[SandboxCreatorStore] Dockerfile API 调用失败', {
+        window.api.logger.error('[LabCreatorStore] Dockerfile API 调用失败', {
           error: createError.value
         })
         return {
           success: false,
-          sandbox: result.sandbox,
+          lab: result.lab,
           error: `Docker API 调用失败: ${createError.value}`,
           dockerError: createError.value
         }
@@ -505,10 +506,10 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
       createPhase.value = 'idle'
       isCreating.value = false
       notify.error('Dockerfile 创建失败', createError.value, {
-        source: 'sandbox',
-        dedupeKey: 'sandbox:creator'
+        source: 'lab',
+        dedupeKey: 'lab:creator'
       })
-      window.api.logger.error('[SandboxCreatorStore] 从 Dockerfile 创建实验室失败', {
+      window.api.logger.error('[LabCreatorStore] 从 Dockerfile 创建实验室失败', {
         error: createError.value
       })
       return {
@@ -530,35 +531,35 @@ export const useSandboxCreatorStore = defineStore('sandboxCreator', () => {
   /**
    * 从已有容器创建实验室
    */
-  async function createFromExisting(containerId: string): Promise<CreateSandboxResult | null> {
-    const sandboxStore = useSandboxStore()
+  async function createFromExisting(containerId: string): Promise<CreateLabResult | null> {
+    const labStore = useLabStore()
 
     try {
       const container = containerStore.containers.find((c) => c.id === containerId)
       const containerName = container?.names[0]?.replace(/^\//, '') || containerId.substring(0, 12)
 
-      const request: CreateSandboxRequest = {
+      const request: CreateLabRequest = {
         name: `${containerName}-实验室`,
-        creationType: 'existing' as SandboxCreationType,
+        creationType: 'existing' as LabCreationType,
         existingContainerId: containerId
       }
 
-      const result = await sandboxStore.createSandbox(request)
+      const result = await labStore.createLab(request)
 
       if (result?.success) {
-        window.api.logger.info('[SandboxCreatorStore] 从已有容器创建实验室成功', {
+        window.api.logger.info('[LabCreatorStore] 从已有容器创建实验室成功', {
           containerId: containerId.substring(0, 12)
         })
       } else if (result?.error) {
-        notify.error('创建实验室失败', result.error, { source: 'sandbox' })
+        notify.error('创建实验室失败', result.error, { source: 'lab' })
       }
 
       return result
     } catch (error) {
       notify.error('创建实验室失败', error instanceof Error ? error.message : String(error), {
-        source: 'sandbox'
+        source: 'lab'
       })
-      window.api.logger.error('[SandboxCreatorStore] 从已有容器创建实验室失败', {
+      window.api.logger.error('[LabCreatorStore] 从已有容器创建实验室失败', {
         error: error instanceof Error ? error.message : String(error)
       })
       return null
