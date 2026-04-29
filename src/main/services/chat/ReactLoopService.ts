@@ -14,7 +14,7 @@ import { ModelRetryHandler } from './ModelRetryHandler'
 import {
   KnowledgeToolAdapter,
   MCPToolAdapter,
-  SandboxToolAdapter,
+  LabToolAdapter,
   UnifiedToolExecutor,
   UnifiedToolRegistry
 } from './tools'
@@ -34,7 +34,7 @@ export class ReactLoopService {
   private readonly modelRetryHandler: ModelRetryHandler
   private readonly unifiedToolExecutor: UnifiedToolExecutor
   private readonly toolRegistry: UnifiedToolRegistry
-  private readonly sandboxAdapter: SandboxToolAdapter
+  private readonly labAdapter: LabToolAdapter
   private readonly knowledgeAdapter: KnowledgeToolAdapter
   private readonly mcpAdapter: MCPToolAdapter | null
   private readonly streamProcessor: StreamProcessor
@@ -54,7 +54,7 @@ export class ReactLoopService {
     })
 
     this.toolRegistry = new UnifiedToolRegistry()
-    this.sandboxAdapter = new SandboxToolAdapter()
+    this.labAdapter = new LabToolAdapter()
     this.knowledgeAdapter = new KnowledgeToolAdapter()
     this.mcpAdapter = options.mcpService ? new MCPToolAdapter(options.mcpService) : null
 
@@ -90,7 +90,7 @@ export class ReactLoopService {
       messageCount: messages.length,
       toolCount: request.selectedTools?.length,
       selectedToolNames: request.selectedTools?.map((t) => `${t.serverName}/${t.toolName}`),
-      enableSandboxTools: request.enableSandboxTools
+      enableLabTools: request.enableLabTools
     })
 
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
@@ -175,9 +175,9 @@ export class ReactLoopService {
     selectedKnowledgeBases?: KnowledgeBaseReference[],
     sessionId?: string
   ): MCPToolReference[] {
-    const { selectedTools, enableSandboxTools } = request
+    const { selectedTools, enableLabTools } = request
 
-    this.toolRegistry.unregisterByCategory('sandbox')
+    this.toolRegistry.unregisterByCategory('lab')
     this.toolRegistry.unregisterByCategory('knowledge')
     this.toolRegistry.unregisterByCategory('mcp')
 
@@ -185,13 +185,13 @@ export class ReactLoopService {
       this.toolRegistry.registerBatch(selectedTools, this.mcpAdapter, 'mcp')
     }
 
-    if (enableSandboxTools) {
-      const sandboxTools = this.sandboxAdapter.getTools()
-      this.toolRegistry.registerBatch(sandboxTools, this.sandboxAdapter, 'sandbox')
+    if (enableLabTools) {
+      const labTools = this.labAdapter.getTools()
+      this.toolRegistry.registerBatch(labTools, this.labAdapter, 'lab')
 
-      this.logger.info('已添加沙箱工具到工具列表', 'main', {
+      this.logger.info('已添加实验室工具到工具列表', 'main', {
         sessionId,
-        sandboxToolCount: sandboxTools.length,
+        labToolCount: labTools.length,
         totalToolCount: this.toolRegistry.size
       })
     }

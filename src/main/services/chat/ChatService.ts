@@ -58,7 +58,7 @@ export class ChatService {
     this.stopController.clearStoppedSession(sessionId)
 
     const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
-    const hasTools = (selectedTools && selectedTools.length > 0) || request.enableSandboxTools
+    const hasTools = (selectedTools && selectedTools.length > 0) || request.enableLabTools
 
     if (hasKnowledgeBases || hasTools) {
       const result = await this.reactLoopService.sendMessageWithReact(

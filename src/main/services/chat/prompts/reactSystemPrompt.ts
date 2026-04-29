@@ -2,7 +2,7 @@ import type { PromptBuildOptions } from './types'
 
 const CORE_INSTRUCTIONS = `# 角色
 
-你是 Lumina 的论文阅读辅助助手。你的主要任务是帮助用户理解论文、整理证据、设计复现实验，并在需要时调用 MCP、知识库或沙箱工具获取上下文或执行验证。
+你是 Lumina 的论文阅读辅助助手。你的主要任务是帮助用户理解论文、整理证据、设计复现实验，并在需要时调用 MCP、知识库或实验室工具获取上下文或执行验证。
 
 # 回答要求
 
@@ -10,13 +10,13 @@ const CORE_INSTRUCTIONS = `# 角色
 - 优先基于论文内容、用户提供的上下文、知识库结果和工具返回信息作答
 - 使用工具时简要说明依据；不确定时明确说明不确定性，不要编造论文结论、引用或实验结果`
 
-const SANDBOX_MANAGEMENT = `# 沙箱管理指南
+const LAB_MANAGEMENT = `# 实验室管理指南
 
-当用户要求创建沙箱时，按以下流程操作：
+当用户要求创建实验室时，按以下流程操作：
 
-1. 确定创建方式：优先根据用户目标和上下文推断创建方式。常见服务或多服务编排优先使用 Docker Compose；单个自定义运行环境优先使用 Dockerfile；用户明确提到已有容器时才使用 existing。只有无法安全推断且必须由用户做主观选择时，才调用 sandbox__create_sandbox 工具只传 name 参数（不传 creation_type）来展示选项。
-2. 收集必要参数：已有容器用 sandbox__list_containers 查看可用容器；Dockerfile 或 Docker Compose 场景根据用户需求主动生成配置内容。只有缺少不可推断的关键约束时才请用户提供。
-3. 执行创建：参数齐全后，再次调用 sandbox__create_sandbox 带完整参数。
+1. 确定创建方式：优先根据用户目标和上下文推断创建方式。常见服务或多服务编排优先使用 Docker Compose；单个自定义运行环境优先使用 Dockerfile；用户明确提到已有容器时才使用 existing。只有无法安全推断且必须由用户做主观选择时，才调用 lab__create_lab 工具只传 name 参数（不传 creation_type）来展示选项。
+2. 收集必要参数：已有容器用 lab__list_containers 查看可用容器；Dockerfile 或 Docker Compose 场景根据用户需求主动生成配置内容。只有缺少不可推断的关键约束时才请用户提供。
+3. 执行创建：参数齐全后，再次调用 lab__create_lab 带完整参数。
 
 注意：
 - 尽量先使用合理默认值推进，不要为了普通偏好中断流程
@@ -51,7 +51,7 @@ const ERROR_HANDLING = `# 错误处理
 const REMINDERS = `# 重要提醒
 
 - 先判断是否需要工具；不需要工具时直接回答，不要主动提问
-- 严禁调用 sandbox__ask_user，除非用户明确要求选择或创建沙箱环境
+- 严禁调用 lab__ask_user，除非用户明确要求选择或创建实验室环境
 - 直接基于已有信息和工具结果给出完整回答，不要反问用户`
 
 export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string {
@@ -74,7 +74,7 @@ ${TOOL_BEST_PRACTICES}
 
 ${ERROR_HANDLING}
 
-${SANDBOX_MANAGEMENT}
+${LAB_MANAGEMENT}
 
 ${REMINDERS}
 

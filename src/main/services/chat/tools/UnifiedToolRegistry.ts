@@ -18,7 +18,7 @@ function getDescriptionLevelByToolCount(toolCount: number): ToolDescriptionLevel
 
 /**
  * 工具适配器接口
- * 每个适配器封装一类工具源（沙箱、知识库、MCP），提供统一的工具获取和执行接口
+ * 每个适配器封装一类工具源（实验室、知识库、MCP），提供统一的工具获取和执行接口
  */
 export interface ToolAdapter {
   /** 获取该适配器提供的工具列表 */
@@ -31,7 +31,7 @@ export interface ToolAdapter {
 /**
  * 工具类别
  */
-export type ToolCategory = 'sandbox' | 'knowledge' | 'mcp'
+export type ToolCategory = 'lab' | 'knowledge' | 'mcp'
 
 /**
  * 工具函数定义（内部存储格式）
@@ -60,7 +60,7 @@ export interface RegisteredTool {
   registeredAt: Date
   /** 状态 */
   status: 'available' | 'unavailable'
-  /** 执行超时时间（ms），sandbox 默认 180s，其他 60s */
+  /** 执行超时时间（ms），lab 默认 180s，其他 60s */
   timeoutMs: number
 }
 
@@ -93,7 +93,7 @@ export class UnifiedToolRegistry {
         adapter,
         registeredAt: new Date(),
         status: 'available',
-        timeoutMs: category === 'sandbox' ? 180000 : 60000
+        timeoutMs: category === 'lab' ? 180000 : 60000
       })
       this.aliases.set(openAIName, fullName)
     }
@@ -167,11 +167,11 @@ export class UnifiedToolRegistry {
     for (const rt of this.tools.values()) {
       const { name, description, parameters } = rt.functionDef
 
-      if (rt.category === 'sandbox') {
+      if (rt.category === 'lab') {
         openAITools.push({
           type: 'function' as const,
           function: {
-            name: `sandbox__${name}`,
+            name: `lab__${name}`,
             description,
             parameters
           }
@@ -224,13 +224,13 @@ export class UnifiedToolRegistry {
   }
 
   /**
-   * 对非 sandbox/knowledge 的工具进行描述增强
+   * 对非 lab/knowledge 的工具进行描述增强
    */
   private enhanceDescriptionsByCategory(
     tools: MCPToolReference[],
     level: ToolDescriptionLevel
   ): Map<string, string> {
-    const mcpTools = tools.filter((t) => t.serverName !== 'sandbox' && t.serverName !== 'knowledge')
+    const mcpTools = tools.filter((t) => t.serverName !== 'lab' && t.serverName !== 'knowledge')
     return enhanceToolDescriptions(mcpTools, level)
   }
 
