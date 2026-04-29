@@ -345,6 +345,8 @@ export interface PaperTranslationProgress {
   isRunning: boolean
   /** 当前段落完整数据 */
   entry: PaperTranslationEntry
+  /** 翻译修订 ID */
+  translationRevisionId?: string
   /** 错误信息 */
   errorMessage?: string
 }
