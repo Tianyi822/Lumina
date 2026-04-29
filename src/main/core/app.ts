@@ -11,7 +11,7 @@ import {
   initializeKnowledge,
   initializeEmbeddingModels,
   initializeFileService,
-  initializeSandbox
+  initializeLab
 } from '@main/ipc'
 
 const appDisplayName = 'Lumina'
@@ -63,8 +63,8 @@ export function initializeApp(): void {
     // 初始化文件服务，并修复历史论文资源池数据
     initializeFileService()
 
-    // 初始化沙箱服务
-    initializeSandbox()
+    // 初始化实验室服务
+    initializeLab()
 
     // 创建主窗口
     createMainWindow()

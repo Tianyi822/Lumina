@@ -21,7 +21,7 @@ interface UsePaperChatStreamOptions {
   selectedModel: Ref<string>
   selectedMCPTools: Ref<MCPTool[]>
   selectedKnowledgeBases: Ref<KnowledgeBase[]>
-  enableSandboxTools: Ref<boolean>
+  enableLabTools: Ref<boolean>
   ensurePaperContextLoaded: () => Promise<boolean>
   saveCurrentSession: () => Promise<boolean>
   setError: (message: string) => void
@@ -179,7 +179,7 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
             options.selectedKnowledgeBases.value.length > 0
               ? toKnowledgeReferences(options.selectedKnowledgeBases.value)
               : undefined,
-          enableSandboxTools: options.enableSandboxTools.value
+          enableLabTools: options.enableLabTools.value
         })
       )
 

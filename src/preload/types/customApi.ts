@@ -11,7 +11,7 @@ import type {
   KnowledgeReindexProgressEvent
 } from './knowledge'
 import type { FileApi } from './file'
-import type { SandboxApi } from './sandbox'
+import type { LabApi } from './lab'
 import type { DocumentApi } from './document'
 import type { KnowledgeMCPApi } from './knowledgeMCP'
 import type { PaperApi } from './paper'
@@ -31,7 +31,7 @@ export interface CustomApi {
   embeddingModels: EmbeddingModelsApi
   knowledge: KnowledgeApi
   file: FileApi
-  sandbox: SandboxApi
+  lab: LabApi
   document: DocumentApi
   onFileProgress: (callback: (data: KnowledgeFileProgressEvent) => void) => () => void
   onReindexProgress: (callback: (data: KnowledgeReindexProgressEvent) => void) => () => void

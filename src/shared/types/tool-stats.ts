@@ -4,7 +4,7 @@
  */
 
 /** 工具类别 */
-export type ToolStatsCategory = 'sandbox' | 'knowledge' | 'mcp'
+export type ToolStatsCategory = 'lab' | 'knowledge' | 'mcp'
 
 /** 单次工具调用记录 */
 export interface ToolCallRecord {

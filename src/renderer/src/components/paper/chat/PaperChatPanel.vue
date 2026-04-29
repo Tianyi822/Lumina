@@ -37,7 +37,7 @@ const {
   selectedModel,
   selectedMCPTools,
   selectedKnowledgeBases,
-  enableSandboxTools,
+  enableLabTools,
   loading,
   contextLoading,
   ensurePaperContextLoaded,
@@ -48,7 +48,7 @@ const {
   updateSelectedModel,
   updateSelectedTools,
   updateSelectedKnowledgeBases,
-  updateEnableSandboxTools
+  updateEnableLabTools
 } = usePaperChatSession(paperRef)
 
 provide('sessionId', sessionId)
@@ -59,7 +59,7 @@ const { isSending, sendMessage, stopRequest } = usePaperChatStream({
   selectedModel,
   selectedMCPTools,
   selectedKnowledgeBases,
-  enableSandboxTools,
+  enableLabTools,
   ensurePaperContextLoaded,
   saveCurrentSession,
   setError: (message) => {
@@ -138,7 +138,7 @@ async function handleSend(
   model: string,
   selectedTools: MCPTool[],
   selectedKnowledgeBases: KnowledgeBase[],
-  sandboxToolsEnabled: boolean,
+  labToolsEnabled: boolean,
   attachedDocuments: AttachedDocument[],
   attachedImages: AttachedImage[],
   attachedQuotes: PaperQuote[]
@@ -146,7 +146,7 @@ async function handleSend(
   updateSelectedModel(model)
   updateSelectedTools(selectedTools)
   updateSelectedKnowledgeBases(selectedKnowledgeBases)
-  updateEnableSandboxTools(sandboxToolsEnabled)
+  updateEnableLabTools(labToolsEnabled)
   await sendMessage(message, attachedDocuments, attachedImages, attachedQuotes)
 }
 
@@ -233,7 +233,7 @@ function handleQuickReplySelected(messageId: string): void {
           :selected-model="selectedModel"
           :selected-m-c-p-tools="selectedMCPTools"
           :selected-knowledge-bases="selectedKnowledgeBases"
-          :enable-sandbox-tools="enableSandboxTools"
+          :enable-lab-tools="enableLabTools"
           :quick-reply-info="activeQuickReply"
           @send="handleSend"
           @stop="stopRequest"
@@ -242,7 +242,7 @@ function handleQuickReplySelected(messageId: string): void {
           @update:selected-model="updateSelectedModel"
           @update:selected-m-c-p-tools="updateSelectedTools"
           @update:selected-knowledge-bases="updateSelectedKnowledgeBases"
-          @update:enable-sandbox-tools="updateEnableSandboxTools"
+          @update:enable-lab-tools="updateEnableLabTools"
         />
       </div>
     </template>

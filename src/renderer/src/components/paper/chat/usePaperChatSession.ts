@@ -15,7 +15,7 @@ interface UsePaperChatSessionReturn {
   selectedModel: Ref<string>
   selectedMCPTools: Ref<MCPTool[]>
   selectedKnowledgeBases: Ref<KnowledgeBase[]>
-  enableSandboxTools: Ref<boolean>
+  enableLabTools: Ref<boolean>
   loading: Ref<boolean>
   contextLoading: Ref<boolean>
   error: Ref<string>
@@ -28,7 +28,7 @@ interface UsePaperChatSessionReturn {
   updateSelectedModel: (value: string) => void
   updateSelectedTools: (value: MCPTool[]) => void
   updateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
-  updateEnableSandboxTools: (value: boolean) => void
+  updateEnableLabTools: (value: boolean) => void
 }
 
 function createPaperContextMessage(paper: PaperDocument, markdown: string): Message {
@@ -75,7 +75,7 @@ export function usePaperChatSession(
   const selectedModel = ref('')
   const selectedMCPTools = ref<MCPTool[]>([])
   const selectedKnowledgeBases = ref<KnowledgeBase[]>([])
-  const enableSandboxTools = ref(false)
+  const enableLabTools = ref(false)
   const loading = ref(false)
   const contextLoading = ref(false)
   const error = ref('')
@@ -94,7 +94,7 @@ export function usePaperChatSession(
       )
     selectedMCPTools.value = nextSession.selectionState?.selectedMCPTools || []
     selectedKnowledgeBases.value = nextSession.selectionState?.selectedKnowledgeBases || []
-    enableSandboxTools.value = nextSession.selectionState?.enableSandboxTools || false
+    enableLabTools.value = nextSession.selectionState?.enableLabTools || false
     selectedModel.value = nextSession.selectionState?.selectedModel || ''
   }
 
@@ -109,7 +109,7 @@ export function usePaperChatSession(
       selectionState: {
         selectedMCPTools: selectedMCPTools.value,
         selectedKnowledgeBases: selectedKnowledgeBases.value,
-        enableSandboxTools: enableSandboxTools.value,
+        enableLabTools: enableLabTools.value,
         selectedModel: selectedModel.value
       }
     }
@@ -228,8 +228,8 @@ export function usePaperChatSession(
     void saveCurrentSession()
   }
 
-  function updateEnableSandboxTools(value: boolean): void {
-    enableSandboxTools.value = value
+  function updateEnableLabTools(value: boolean): void {
+    enableLabTools.value = value
     void saveCurrentSession()
   }
 
@@ -241,7 +241,7 @@ export function usePaperChatSession(
     selectedModel,
     selectedMCPTools,
     selectedKnowledgeBases,
-    enableSandboxTools,
+    enableLabTools,
     loading,
     contextLoading,
     error,
@@ -254,6 +254,6 @@ export function usePaperChatSession(
     updateSelectedModel,
     updateSelectedTools,
     updateSelectedKnowledgeBases,
-    updateEnableSandboxTools
+    updateEnableLabTools
   }
 }

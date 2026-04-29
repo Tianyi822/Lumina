@@ -10,7 +10,7 @@ import { embeddingApi } from './apis/embedding'
 import { embeddingModelsApi } from './apis/embeddingModels'
 import { knowledgeApi, onFileProgress, onReindexProgress } from './apis/knowledge'
 import { fileApi } from './apis/file'
-import { sandboxApi } from './apis/sandbox'
+import { labApi } from './apis/lab'
 import { knowledgeMCPApi } from './apis/knowledgeMCP'
 import { documentApi } from './apis/document'
 import { paperApi } from './apis/paper'
@@ -31,7 +31,7 @@ const api = {
   embeddingModels: embeddingModelsApi,
   knowledge: knowledgeApi,
   file: fileApi,
-  sandbox: sandboxApi,
+  lab: labApi,
   document: documentApi,
   onFileProgress,
   onReindexProgress,

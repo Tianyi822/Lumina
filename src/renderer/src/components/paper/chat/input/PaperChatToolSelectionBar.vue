@@ -4,7 +4,7 @@ import type { KnowledgeBase, MCPTool } from '@renderer/types'
 import PaperChatMcpToolsPanel from '@renderer/components/paper/chat/input/PaperChatMcpToolsPanel.vue'
 import PaperChatKnowledgeBasePanel from '@renderer/components/paper/chat/input/PaperChatKnowledgeBasePanel.vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
-import SandboxToolsToggle from '@renderer/components/sandbox/SandboxToolsToggle.vue'
+import LabToolsToggle from '@renderer/components/lab/LabToolsToggle.vue'
 import { SUPPORTED_DOC_TYPES } from './attachmentUtils'
 
 const props = defineProps<{
@@ -13,7 +13,7 @@ const props = defineProps<{
   modelOptions: string[]
   selectedTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
-  enableSandboxTools?: boolean
+  enableLabTools?: boolean
   totalAttachmentCount?: number
   variant?: 'default' | 'compact'
 }>()
@@ -22,7 +22,7 @@ const emit = defineEmits<{
   (e: 'update:selectedModel', value: string): void
   (e: 'update:selectedTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
-  (e: 'update:enableSandboxTools', value: boolean): void
+  (e: 'update:enableLabTools', value: boolean): void
   (e: 'upload'): void
   (e: 'send'): void
   (e: 'stop'): void
@@ -110,12 +110,12 @@ onUnmounted(() => {
       @selection-change="emit('update:selectedKnowledgeBases', $event)"
     />
 
-    <SandboxToolsToggle
+    <LabToolsToggle
       :compact="props.variant === 'compact'"
-      :model-value="props.enableSandboxTools"
+      :model-value="props.enableLabTools"
       :disabled="props.isSending"
-      @update:model-value="emit('update:enableSandboxTools', $event)"
-      @change="emit('update:enableSandboxTools', $event)"
+      @update:model-value="emit('update:enableLabTools', $event)"
+      @change="emit('update:enableLabTools', $event)"
     />
 
     <div class="paper-chat-input-toolbar__actions">

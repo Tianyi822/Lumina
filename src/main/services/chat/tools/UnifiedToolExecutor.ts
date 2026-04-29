@@ -6,7 +6,7 @@ import type { StreamEvent, UserInteractionRequest } from '../../../types/chat'
 import type { UnifiedToolRegistry } from './UnifiedToolRegistry'
 import { toolStatsCollector } from './ToolStatsCollector'
 
-const FORCED_SEQUENTIAL_TOOLS = new Set(['sandbox__ask_user'])
+const FORCED_SEQUENTIAL_TOOLS = new Set(['lab__ask_user'])
 
 /**
  * 工具调用定义

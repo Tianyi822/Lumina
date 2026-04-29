@@ -68,7 +68,7 @@ const statusConfig = computed(() => {
 })
 
 const displayName = computed(() => {
-  if (props.toolCall.serverName && props.toolCall.serverName !== 'sandbox') {
+  if (props.toolCall.serverName && props.toolCall.serverName !== 'lab') {
     return `${props.toolCall.serverName}/${props.toolCall.name}`
   }
   return props.toolCall.name

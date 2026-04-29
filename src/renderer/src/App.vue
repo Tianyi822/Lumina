@@ -2,7 +2,7 @@
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import KnowledgePage from './pages/KnowledgePage.vue'
-import SandboxPage from './pages/SandboxPage.vue'
+import LabPage from './pages/LabPage.vue'
 import PaperReaderPage from './pages/PaperReaderPage.vue'
 import NotificationCenter from './components/NotificationCenter.vue'
 import SettingsModal from './components/SettingsModal.vue'
@@ -156,8 +156,8 @@ onBeforeUnmount(() => {
             <!-- 知识库视图 -->
             <KnowledgePage v-else-if="isKnowledgeView" key="knowledge" />
 
-            <!-- 沙箱视图 -->
-            <SandboxPage v-else key="sandbox" />
+            <!-- 实验室视图 -->
+            <LabPage v-else key="lab" />
           </Transition>
         </div>
       </div>

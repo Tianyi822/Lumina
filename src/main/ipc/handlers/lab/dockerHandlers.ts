@@ -1,0 +1,60 @@
+import { ipcMain, shell } from 'electron'
+import { logger } from '@main/services/logger'
+import type { DockerCheckResult, PlatformType, LabResult } from '@shared/types/lab'
+import { execAsync, createErrorResult } from './shared'
+
+/**
+ * 注册 Docker 基础处理器
+ */
+export function registerLabDockerHandlers(): void {
+  ipcMain.handle('lab:checkDocker', async (): Promise<DockerCheckResult> => {
+    try {
+      const { stdout } = await execAsync('docker --version', { timeout: 5000 })
+      const versionMatch = stdout.match(/Docker version ([\d.]+)/)
+      const version = versionMatch ? versionMatch[1] : stdout.trim()
+
+      logger.info('Docker 检测成功', 'main', { version })
+
+      return {
+        installed: true,
+        version
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+
+      if (
+        errorMessage.includes('command not found') ||
+        errorMessage.includes('not recognized') ||
+        errorMessage.includes('ENOENT')
+      ) {
+        logger.info('Docker 未安装', 'main')
+        return {
+          installed: false,
+          error: 'Docker 未安装'
+        }
+      }
+
+      logger.warn('Docker 检测失败', 'main', { error: errorMessage })
+      return {
+        installed: false,
+        error: errorMessage
+      }
+    }
+  })
+
+  ipcMain.handle('lab:getPlatform', (): PlatformType => {
+    return process.platform as PlatformType
+  })
+
+  ipcMain.handle('lab:openExternal', async (_event, url: string): Promise<LabResult> => {
+    try {
+      await shell.openExternal(url)
+      logger.info('打开外部链接', 'main', { url })
+      return { success: true }
+    } catch (error) {
+      const result = createErrorResult(error, '打开外部链接失败')
+      logger.error('打开外部链接失败', 'main', { url, error: result.error })
+      return result
+    }
+  })
+}

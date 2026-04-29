@@ -13,11 +13,11 @@ test('内置 ReAct 提示词不再注入 few-shot 示例或模板变量', () => 
   assert.doesNotMatch(prompt, /动态变量/)
 })
 
-test('内置 ReAct 提示词保留沙箱创建业务规则', () => {
+test('内置 ReAct 提示词保留实验室创建业务规则', () => {
   const prompt = buildReactSystemPrompt()
 
-  assert.match(prompt, /沙箱管理指南/)
-  assert.match(prompt, /sandbox__create_sandbox/)
+  assert.match(prompt, /实验室管理指南/)
+  assert.match(prompt, /lab__create_lab/)
   assert.match(prompt, /dockerfile_content/)
   assert.match(prompt, /compose_content/)
 })

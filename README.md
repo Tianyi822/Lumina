@@ -1,6 +1,6 @@
 # Lumina
 
-基于 Electron + Vue 3 + TypeScript 构建的桌面端 AI 助手，集成智能对话、知识库管理、Docker 沙箱执行、文档处理和论文阅读等功能。
+基于 Electron + Vue 3 + TypeScript 构建的桌面端 AI 助手，集成智能对话、知识库管理、Docker 实验室执行、文档处理和论文阅读等功能。
 
 ## 功能
 
@@ -27,7 +27,7 @@
 - 支持 OpenAI、阿里云、Ollama 本地模型等多种嵌入服务
 - 知识库可作为 MCP 服务器供外部工具调用
 
-### Docker 沙箱
+### Docker 实验室
 
 - 在隔离的 Docker 容器中安全运行代码
 - 支持 Docker Compose 多服务环境、Dockerfile 构建、预定义模板快速启动
@@ -44,7 +44,7 @@
 
 - 文档导出（PDF、Word 等格式）
 - PPT 生成
-- 内置精简提示词（面向论文阅读、知识库、MCP 与沙箱工具调用）
+- 内置精简提示词（面向论文阅读、知识库、MCP 与实验室工具调用）
 - 语音识别
 - 视频生成
 

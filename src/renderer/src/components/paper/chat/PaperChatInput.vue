@@ -30,7 +30,7 @@ const props = defineProps<{
   selectedModel?: string
   selectedMCPTools?: MCPTool[]
   selectedKnowledgeBases?: KnowledgeBase[]
-  enableSandboxTools?: boolean
+  enableLabTools?: boolean
   quickReplyInfo?: MessageOptionContext | null
   variant?: 'default' | 'compact'
 }>()
@@ -42,7 +42,7 @@ const emit = defineEmits<{
     model: string,
     selectedMCPTools: MCPTool[],
     selectedKnowledgeBases: KnowledgeBase[],
-    enableSandboxTools: boolean,
+    enableLabTools: boolean,
     attachedDocuments: AttachedDocument[],
     attachedImages: AttachedImage[],
     attachedQuotes: PaperQuote[]
@@ -52,7 +52,7 @@ const emit = defineEmits<{
   (e: 'update:selectedModel', value: string): void
   (e: 'update:selectedMCPTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
-  (e: 'update:enableSandboxTools', value: boolean): void
+  (e: 'update:enableLabTools', value: boolean): void
   (e: 'quick-reply-selected', messageId: string): void
 }>()
 
@@ -63,7 +63,7 @@ const localInputMessage = ref(props.inputMessage ?? '')
 const localSelectedModel = ref(props.selectedModel ?? '')
 const localSelectedTools = ref<MCPTool[]>(props.selectedMCPTools ?? [])
 const localSelectedKnowledgeBases = ref<KnowledgeBase[]>(props.selectedKnowledgeBases ?? [])
-const localEnableSandboxTools = ref(props.enableSandboxTools ?? false)
+const localEnableLabTools = ref(props.enableLabTools ?? false)
 const textareaRef = ref<InstanceType<typeof PaperChatTextarea> | null>(null)
 const notify = useNotification()
 
@@ -136,10 +136,10 @@ watch(
 )
 
 watch(
-  () => props.enableSandboxTools,
+  () => props.enableLabTools,
   (value) => {
-    if (value !== undefined && value !== localEnableSandboxTools.value) {
-      localEnableSandboxTools.value = value
+    if (value !== undefined && value !== localEnableLabTools.value) {
+      localEnableLabTools.value = value
     }
   },
   { immediate: true }
@@ -160,10 +160,10 @@ function updateSelectedKnowledgeBases(kbs: KnowledgeBase[]): void {
   emit('update:selectedKnowledgeBases', kbs)
 }
 
-function updateEnableSandboxTools(enabled: boolean): void {
-  localEnableSandboxTools.value = enabled
-  emit('update:enableSandboxTools', enabled)
-  window.api.logger.debug('[PaperChatInput] 沙箱工具开关状态变更', { enabled })
+function updateEnableLabTools(enabled: boolean): void {
+  localEnableLabTools.value = enabled
+  emit('update:enableLabTools', enabled)
+  window.api.logger.debug('[PaperChatInput] 实验室工具开关状态变更', { enabled })
 }
 
 function buildPaperChatAttachedDocuments(): AttachedDocument[] {
@@ -191,7 +191,7 @@ function sendMessage(message: string): void {
     localSelectedModel.value,
     localSelectedTools.value,
     localSelectedKnowledgeBases.value,
-    localEnableSandboxTools.value,
+    localEnableLabTools.value,
     buildPaperChatAttachedDocuments(),
     buildPaperChatAttachedImages(),
     buildPaperChatAttachedQuotes()
@@ -218,7 +218,7 @@ function handleSend(): void {
 
   window.api.logger.debug('[PaperChatInput] 发送消息，选中的工具', {
     count: localSelectedTools.value.length,
-    sandboxToolsEnabled: localEnableSandboxTools.value,
+    labToolsEnabled: localEnableLabTools.value,
     imageCount: pendingImages.value.length,
     quoteCount: pendingQuotes.value.length
   })
@@ -405,12 +405,12 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
       :model-options="modelOptions"
       :selected-tools="localSelectedTools"
       :selected-knowledge-bases="localSelectedKnowledgeBases"
-      :enable-sandbox-tools="localEnableSandboxTools"
+      :enable-lab-tools="localEnableLabTools"
       :total-attachment-count="totalAttachmentCount"
       @update:selected-model="updateSelectedModel"
       @update:selected-tools="updateSelectedTools"
       @update:selected-knowledge-bases="updateSelectedKnowledgeBases"
-      @update:enable-sandbox-tools="updateEnableSandboxTools"
+      @update:enable-lab-tools="updateEnableLabTools"
       @upload="triggerFileUpload"
       @send="handleSend"
       @stop="handleStop"
