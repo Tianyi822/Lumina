@@ -3,15 +3,65 @@ import { logger } from '@main/services/logger'
 import type { DockerCheckResult, PlatformType, LabResult } from '@shared/types/lab'
 import { execAsync, createErrorResult } from './shared'
 
+function decodeCommandOutput(output: unknown): string {
+  if (Buffer.isBuffer(output)) {
+    const utf8 = output.toString('utf8')
+    if (!utf8.includes('\uFFFD')) {
+      return utf8
+    }
+
+    try {
+      return new TextDecoder('gb18030').decode(output)
+    } catch {
+      return utf8
+    }
+  }
+
+  return typeof output === 'string' ? output : ''
+}
+
+function getCommandErrorMessage(error: unknown): string {
+  if (!error || typeof error !== 'object') {
+    return String(error)
+  }
+
+  const commandError = error as {
+    message?: unknown
+    stderr?: unknown
+    stdout?: unknown
+  }
+  const stderr = decodeCommandOutput(commandError.stderr).trim()
+  const stdout = decodeCommandOutput(commandError.stdout).trim()
+  const details = stderr || stdout
+  const message = typeof commandError.message === 'string' ? commandError.message.trim() : ''
+
+  return details || message || String(error)
+}
+
+function isUnreadableCommandOutput(message: string): boolean {
+  return message.includes('\uFFFD') || message.includes('锟斤拷') || message.includes('���')
+}
+
+function isDockerCommandMissing(message: string): boolean {
+  return (
+    message.includes('command not found') ||
+    message.includes('not recognized') ||
+    message.includes('ENOENT') ||
+    message.includes('不是内部或外部命令') ||
+    (message.includes('docker') && isUnreadableCommandOutput(message))
+  )
+}
+
 /**
  * 注册 Docker 基础处理器
  */
 export function registerLabDockerHandlers(): void {
   ipcMain.handle('lab:checkDocker', async (): Promise<DockerCheckResult> => {
     try {
-      const { stdout } = await execAsync('docker --version', { timeout: 5000 })
-      const versionMatch = stdout.match(/Docker version ([\d.]+)/)
-      const version = versionMatch ? versionMatch[1] : stdout.trim()
+      const { stdout } = await execAsync('docker --version', { timeout: 5000, encoding: 'buffer' })
+      const output = decodeCommandOutput(stdout)
+      const versionMatch = output.match(/Docker version ([\d.]+)/)
+      const version = versionMatch ? versionMatch[1] : output.trim()
 
       logger.info('Docker 检测成功', 'main', { version })
 
@@ -20,13 +70,9 @@ export function registerLabDockerHandlers(): void {
         version
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorMessage = getCommandErrorMessage(error)
 
-      if (
-        errorMessage.includes('command not found') ||
-        errorMessage.includes('not recognized') ||
-        errorMessage.includes('ENOENT')
-      ) {
+      if (isDockerCommandMissing(errorMessage)) {
         logger.info('Docker 未安装', 'main')
         return {
           installed: false,
