@@ -12,7 +12,6 @@ export type MCPTransportType = 'stdio' | 'sse' | 'streamableHttp'
 export interface MCPServerConfig {
   name: string
   transport: MCPTransportType
-  enabled: boolean
   command?: string
   args?: string[]
   env?: Record<string, string>

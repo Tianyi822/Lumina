@@ -15,8 +15,6 @@ export interface MCPServerConfig {
   name: string
   /** 使用的传输方式 */
   transport: MCPTransportType
-  /** 该服务器是否启用 */
-  enabled: boolean
   /** stdio 传输方式下执行的命令 */
   command?: string
   /** stdio 传输方式下命令的参数 */
