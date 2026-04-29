@@ -183,7 +183,6 @@ function formatDate(dateStr: string): string {
               <span class="list-eyebrow">模板列表</span>
               <strong>{{ activeTab === 'dockerfile' ? 'Dockerfile 模板' : 'Compose 模板' }}</strong>
             </div>
-
           </div>
           <div v-if="configsLoading" class="sm-empty list-state">加载配置中...</div>
           <div v-else-if="currentConfigs.length === 0" class="sm-empty list-state">

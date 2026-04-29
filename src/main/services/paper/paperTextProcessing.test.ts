@@ -124,11 +124,7 @@ test('误包代码围栏的简单居中 HTML 会被恢复为普通文本容器',
 
 test('真实代码围栏和结构性 HTML 不会被简单文本容器清理误伤', () => {
   const codeBlock = ['```python', 'def run():', '    return 1', '```'].join('\n')
-  const tableBlock = [
-    '```',
-    '<table><tr><td>Method</td></tr></table>',
-    '```'
-  ].join('\n')
+  const tableBlock = ['```', '<table><tr><td>Method</td></tr></table>', '```'].join('\n')
 
   assert.equal(isFencedSimpleTextContainerHtml(codeBlock), false)
   assert.equal(normalizeFencedSimpleTextContainerHtml(codeBlock), codeBlock)
