@@ -20,7 +20,6 @@ test('配置迁移会剥离旧 promptConfig 并保留 MCP 环境变量', () => {
       paperTools: {
         name: 'paperTools',
         transport: 'stdio',
-        enabled: true,
         command: 'paper-tools',
         env: {
           API_KEY: 'keep-this'
