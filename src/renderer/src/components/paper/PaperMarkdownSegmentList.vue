@@ -15,6 +15,17 @@ const confirmDialog = ref<{
   stableId: string
 } | null>(null)
 
+const LIST_ITEM_INDENT = 2.8
+
+function getButtonLeftIndent(translationHtml: string | null): string {
+  if (!translationHtml) return '0'
+  const trimmed = translationHtml.trimEnd()
+  const match = trimmed.match(/((?:<\/(?:ul|ol)>\s*)+)$/)
+  if (!match) return '0'
+  const nestLevel = (match[1].match(/<\/(?:ul|ol)>/g) || []).length
+  return `${nestLevel * LIST_ITEM_INDENT}em`
+}
+
 function handleRetranslateClick(segment: RenderedSegment): void {
   if (segment.translationStatus === 'translating') {
     return
@@ -79,6 +90,7 @@ function handleCancelRetranslate(): void {
           class="paper-markdown-view__retranslate-btn"
           type="button"
           :disabled="segment.translationStatus === 'translating'"
+          :style="{ marginLeft: getButtonLeftIndent(segment.translationHtml) }"
           title="重新翻译"
           @click.stop="handleRetranslateClick(segment)"
         >
@@ -241,7 +253,8 @@ function handleCancelRetranslate(): void {
 }
 
 .paper-markdown-view__retranslate-btn {
-  display: inline-flex;
+  display: flex;
+  width: fit-content;
   align-items: center;
   gap: 4px;
   padding: 2px 6px;
@@ -257,7 +270,7 @@ function handleCancelRetranslate(): void {
     opacity 0.2s ease,
     color 0.15s ease,
     background-color 0.15s ease;
-  vertical-align: baseline;
+  margin-top: var(--sm-space-2);
 }
 
 .paper-markdown-view__segment-translation:hover > .paper-markdown-view__retranslate-btn,
