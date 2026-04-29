@@ -1,41 +1,12 @@
-import { execFileSync } from 'child_process'
 import { existsSync, mkdirSync } from 'fs'
 import { appendFile } from 'fs/promises'
-import * as iconv from 'iconv-lite'
 import { LogLevel, LogLevelNames } from '@main/types/logger'
 import type { LogSource, LogEntry, LoggerConfig, LogResult } from '@main/types/logger'
 import { getLogDirPath, getLogFilePath, formatDateForFilename, isLogPathSafe } from './loggerPaths'
+import { writeWindowsConsole } from './windowsConsole'
 
 // 最大日志消息长度（10KB）
 const MAX_MESSAGE_LENGTH = 10 * 1024
-let windowsConsoleEncoding: string | null = null
-
-function getWindowsConsoleEncoding(): string {
-  if (windowsConsoleEncoding) {
-    return windowsConsoleEncoding
-  }
-
-  try {
-    const output = execFileSync('chcp.com', { encoding: 'utf8', windowsHide: true })
-    const codePage = output.match(/\d+/)?.[0]
-    const encoding = codePage === '65001' ? 'utf8' : `cp${codePage || '936'}`
-    windowsConsoleEncoding = iconv.encodingExists(encoding) ? encoding : 'gb18030'
-  } catch {
-    windowsConsoleEncoding = 'gb18030'
-  }
-
-  return windowsConsoleEncoding
-}
-
-function writeWindowsConsole(stream: NodeJS.WriteStream, message: string): void {
-  const encoding = getWindowsConsoleEncoding()
-  if (encoding === 'utf8') {
-    stream.write(`${message}\n`)
-    return
-  }
-
-  stream.write(iconv.encode(`${message}\n`, encoding))
-}
 
 function hasUnreadableText(value: string): boolean {
   return value.includes('\uFFFD') || value.includes('锟斤拷') || value.includes('���')
