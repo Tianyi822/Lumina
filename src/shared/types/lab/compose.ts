@@ -5,7 +5,7 @@ import type { ExecResult, ContainerState, PortMapping } from './container'
  */
 
 /**
- * 沙箱模板分类
+ * 实验室模板分类
  */
 export type TemplateCategory = 'database' | 'cache' | 'message-queue' | 'web' | 'devops' | 'other'
 
@@ -29,9 +29,9 @@ export interface TemplateConfig {
 }
 
 /**
- * 沙箱模板
+ * 实验室模板
  */
-export interface SandboxTemplate {
+export interface LabTemplate {
   /** 模板 ID */
   id: string
   /** 模板名称 */

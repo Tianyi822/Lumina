@@ -66,10 +66,10 @@ export interface FrontendWorkspaceMetadata extends FrontendBootstrapState {
 }
 
 /**
- * 创建前端沙箱选项
+ * 创建前端实验室选项
  */
-export interface CreateFrontendSandboxOptions {
-  /** 沙箱名称 */
+export interface CreateFrontendLabOptions {
+  /** 实验室名称 */
   name: string
   /** 前端框架 */
   framework?: FrontendFramework
@@ -84,12 +84,12 @@ export interface CreateFrontendSandboxOptions {
 }
 
 /**
- * 前端沙箱信息
+ * 前端实验室信息
  */
-export interface FrontendSandboxInfo {
-  /** 沙箱 ID */
-  sandboxId: string
-  /** 沙箱名称 */
+export interface FrontendLabInfo {
+  /** 实验室 ID */
+  labId: string
+  /** 实验室名称 */
   name: string
   /** 框架 */
   framework: FrontendFramework
@@ -128,6 +128,6 @@ export interface FrontendSandboxInfo {
 }
 
 /**
- * 前端沙箱元数据
+ * 前端实验室元数据
  */
-export type FrontendSandboxMetadata = FrontendWorkspaceMetadata
+export type FrontendLabMetadata = FrontendWorkspaceMetadata

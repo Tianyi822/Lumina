@@ -1,5 +1,5 @@
 /**
- * 沙箱基础类型
+ * 实验室基础类型
  */
 import type { ContainerState, PortMapping } from './container'
 import type { FrontendWorkspaceMetadata } from './frontend'
@@ -19,35 +19,35 @@ export interface DockerCheckResult {
 }
 
 /**
- * 沙箱状态
+ * 实验室状态
  */
-export type SandboxStatus = 'creating' | 'running' | 'stopped' | 'error'
+export type LabStatus = 'creating' | 'running' | 'stopped' | 'error'
 
 /**
- * 沙箱创建类型
+ * 实验室创建类型
  */
-export type SandboxCreationType = 'existing' | 'compose' | 'dockerfile'
+export type LabCreationType = 'existing' | 'compose' | 'dockerfile'
 
 /**
- * 沙箱元数据
+ * 实验室元数据
  */
-export interface SandboxData {
-  /** 沙箱唯一标识，格式: box-{timestamp}-{random} */
-  sandboxId: string
-  /** 沙箱名称 */
+export interface LabData {
+  /** 实验室唯一标识，格式: lab-{timestamp}-{random} */
+  labId: string
+  /** 实验室名称 */
   name: string
-  /** 沙箱描述 */
+  /** 实验室描述 */
   description?: string
   /** Docker 镜像（预留） */
   image?: string
-  /** 沙箱状态 */
-  status: SandboxStatus
+  /** 实验室状态 */
+  status: LabStatus
   /** 创建时间 */
   createdAt: string
   /** 最后更新时间 */
   updatedAt: string
-  /** 沙箱创建类型 */
-  creationType: SandboxCreationType
+  /** 实验室创建类型 */
+  creationType: LabCreationType
   /** 关联的容器 ID 列表 */
   containerIds: string[]
   /** 主容器 ID（用于多容器场景） */
@@ -60,38 +60,38 @@ export interface SandboxData {
   dockerfileConfigId?: string
   /** 前端项目元数据 */
   frontend?: FrontendWorkspaceMetadata
-  /** 端口映射配置（用于 dockerfile/compose 类型沙箱） */
+  /** 端口映射配置（用于 dockerfile/compose 类型实验室） */
   portMappings?: PortMapping[]
-  /** 是否为孤立沙箱（容器已丢失） */
+  /** 是否为孤立实验室（容器已丢失） */
   isOrphan?: boolean
 }
 
 /**
- * 沙箱列表项
+ * 实验室列表项
  */
-export interface SandboxListItem {
-  /** 沙箱唯一标识 */
-  sandboxId: string
-  /** 沙箱名称 */
+export interface LabListItem {
+  /** 实验室唯一标识 */
+  labId: string
+  /** 实验室名称 */
   name: string
-  /** 沙箱状态 */
-  status: SandboxStatus
+  /** 实验室状态 */
+  status: LabStatus
   /** 创建时间 */
   createdAt: string
   /** 最后更新时间 */
   updatedAt: string
-  /** 沙箱创建类型 */
-  creationType: SandboxCreationType
-  /** 是否为孤立沙箱（容器已丢失） */
+  /** 实验室创建类型 */
+  creationType: LabCreationType
+  /** 是否为孤立实验室（容器已丢失） */
   isOrphan?: boolean
   /** 关联的容器数量 */
   containerCount: number
 }
 
 /**
- * 沙箱操作结果
+ * 实验室操作结果
  */
-export interface SandboxResult {
+export interface LabResult {
   /** 操作是否成功 */
   success: boolean
   /** 错误信息 */
@@ -101,7 +101,7 @@ export interface SandboxResult {
 /**
  * 操作日志条目
  */
-export interface SandboxLogEntry {
+export interface LabLogEntry {
   /** 时间戳 */
   timestamp: string
   /** 日志级别 */
@@ -111,9 +111,9 @@ export interface SandboxLogEntry {
 }
 
 /**
- * 创建沙箱配置
+ * 创建实验室配置
  */
-export interface CreateSandboxConfig {
+export interface CreateLabConfig {
   type: 'compose' | 'dockerfile' | 'template'
   name: string
   content: string
@@ -134,9 +134,9 @@ export interface DockerStatus {
 }
 
 /**
- * 沙箱选择
+ * 实验室选择
  */
-export interface SandboxSelection {
+export interface LabSelection {
   /** 容器 ID */
   containerId: string
   /** 容器名称 */
@@ -150,15 +150,15 @@ export interface SandboxSelection {
 }
 
 /**
- * 创建沙箱请求
+ * 创建实验室请求
  */
-export interface CreateSandboxRequest {
-  /** 沙箱名称 */
+export interface CreateLabRequest {
+  /** 实验室名称 */
   name: string
-  /** 沙箱描述（可选） */
+  /** 实验室描述（可选） */
   description?: string
   /** 创建类型 */
-  creationType: SandboxCreationType
+  creationType: LabCreationType
   /** Compose 配置 ID (creationType = 'compose' 时使用) */
   composeConfigId?: string
   /** Dockerfile 配置 ID (creationType = 'dockerfile' 时使用) */
@@ -172,13 +172,13 @@ export interface CreateSandboxRequest {
 }
 
 /**
- * 创建沙箱结果
+ * 创建实验室结果
  */
-export interface CreateSandboxResult {
+export interface CreateLabResult {
   /** 是否成功 */
   success: boolean
-  /** 创建的沙箱数据 */
-  sandbox?: SandboxData
+  /** 创建的实验室数据 */
+  lab?: LabData
   /** 关联的容器 ID 列表 */
   containerIds?: string[]
   /** 错误信息 */
@@ -195,14 +195,14 @@ export interface CreateFromDockerfileResult {
 }
 
 /**
- * 删除沙箱选项
+ * 删除实验室选项
  */
-export interface DeleteSandboxOptions {
+export interface DeleteLabOptions {
   /** 是否强制删除 */
   force?: boolean
   /**
    * 是否删除关联容器
-   * 注意：实际行为受沙箱类型限制
+   * 注意：实际行为受实验室类型限制
    * - existing 类型：强制为 false，不删除容器（保护用户原有容器）
    * - dockerfile/compose 类型：由用户选择，默认 true
    */
@@ -212,9 +212,9 @@ export interface DeleteSandboxOptions {
 }
 
 /**
- * 删除沙箱结果
+ * 删除实验室结果
  */
-export interface DeleteSandboxResult {
+export interface DeleteLabResult {
   /** 是否成功 */
   success: boolean
   /** 已删除的容器 ID 列表 */
@@ -230,11 +230,11 @@ export interface DeleteSandboxResult {
 /**
  * 容器状态检测结果
  */
-export interface SandboxContainerStatus {
-  /** 沙箱 ID */
-  sandboxId: string
-  /** 沙箱创建类型 */
-  creationType: SandboxCreationType
+export interface LabContainerStatus {
+  /** 实验室 ID */
+  labId: string
+  /** 实验室创建类型 */
+  creationType: LabCreationType
   /** 关联的容器 ID 列表 */
   containerIds: string[]
   /** 容器是否丢失 */

@@ -1,4 +1,4 @@
-import type { SandboxCreationType, SandboxData } from './core'
+import type { LabCreationType, LabData } from './core'
 import type { ContainerState } from './container'
 
 /**
@@ -109,10 +109,10 @@ export interface DeleteConfigResult {
 }
 
 /**
- * 沙箱配置快照
+ * 实验室配置快照
  */
-export interface SandboxConfigurationSnapshot {
-  sandbox: SandboxData
-  creationType: SandboxCreationType
+export interface LabConfigurationSnapshot {
+  lab: LabData
+  creationType: LabCreationType
   containerState?: ContainerState
 }

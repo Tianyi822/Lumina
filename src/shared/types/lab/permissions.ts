@@ -1,31 +1,31 @@
-import type { SandboxCreationType } from './core'
+import type { LabCreationType } from './core'
 
 /**
- * 沙箱权限控制类型
- * 定义每种沙箱类型的操作权限
+ * 实验室权限控制类型
+ * 定义每种实验室类型的操作权限
  */
-export interface SandboxPermissionPolicy {
+export interface LabPermissionPolicy {
   /** 允许启动容器 */
   canStart: boolean
   /** 允许停止容器 */
   canStop: boolean
   /** 允许重启容器 */
   canRestart: boolean
-  /** 允许删除容器（删除沙箱时） */
+  /** 允许删除容器（删除实验室时） */
   canDeleteContainer: boolean
-  /** 删除沙箱时默认是否删除容器 */
+  /** 删除实验室时默认是否删除容器 */
   defaultDeleteContainer: boolean
-  /** 删除沙箱时是否强制不删除容器（existing类型） */
+  /** 删除实验室时是否强制不删除容器（existing类型） */
   forceKeepContainer: boolean
   /** 描述 */
   description: string
 }
 
 /**
- * 沙箱类型权限映射
- * 集中管理三种沙箱类型的权限策略
+ * 实验室类型权限映射
+ * 集中管理三种实验室类型的权限策略
  */
-export const SANDBOX_TYPE_PERMISSIONS: Record<SandboxCreationType, SandboxPermissionPolicy> = {
+export const LAB_TYPE_PERMISSIONS: Record<LabCreationType, LabPermissionPolicy> = {
   existing: {
     canStart: false,
     canStop: false,
@@ -56,23 +56,23 @@ export const SANDBOX_TYPE_PERMISSIONS: Record<SandboxCreationType, SandboxPermis
 }
 
 /**
- * 沙箱类型守卫
- * 检查值是否为有效的沙箱创建类型
+ * 实验室类型守卫
+ * 检查值是否为有效的实验室创建类型
  */
-export function isSandboxCreationType(value: unknown): value is SandboxCreationType {
+export function isLabCreationType(value: unknown): value is LabCreationType {
   return typeof value === 'string' && ['existing', 'compose', 'dockerfile'].includes(value)
 }
 
 /**
- * 检查是否为受管沙箱类型（有完整容器管理权限）
+ * 检查是否为受管实验室类型（有完整容器管理权限）
  */
-export function isManagedSandbox(type: SandboxCreationType): boolean {
+export function isManagedLab(type: LabCreationType): boolean {
   return type === 'compose' || type === 'dockerfile'
 }
 
 /**
- * 检查是否为只读沙箱类型（仅关联，不管理生命周期）
+ * 检查是否为只读实验室类型（仅关联，不管理生命周期）
  */
-export function isReadOnlySandbox(type: SandboxCreationType): boolean {
+export function isReadOnlyLab(type: LabCreationType): boolean {
   return type === 'existing'
 }

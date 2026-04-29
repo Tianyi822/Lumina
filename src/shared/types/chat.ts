@@ -369,8 +369,8 @@ export interface ChatRequest {
   selectedKnowledgeBases?: KnowledgeBaseReference[]
   /** ReAct 循环的最大迭代次数，默认 10 次 */
   maxReactIterations?: number
-  /** 是否启用沙箱管理工具 */
-  enableSandboxTools?: boolean
+  /** 是否启用实验室管理工具 */
+  enableLabTools?: boolean
 }
 
 /**

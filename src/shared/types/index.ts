@@ -38,16 +38,16 @@ export * from './tool-stats'
 // 论文相关的类型
 export * from './paper'
 
-// 沙箱相关的类型
-export * from './sandbox/core'
-export * from './sandbox/container'
-export * from './sandbox/compose'
-export * from './sandbox/config'
-export * from './sandbox/file'
-export * from './sandbox/frontend'
-export * from './sandbox/permissions'
+// 实验室相关的类型
+export * from './lab/core'
+export * from './lab/container'
+export * from './lab/compose'
+export * from './lab/config'
+export * from './lab/file'
+export * from './lab/frontend'
+export * from './lab/permissions'
 export {
   type ProjectTemplate,
   type TemplateFile,
-  type TemplateVariables as SandboxTemplateVariables
-} from './sandbox/template'
+  type TemplateVariables as LabTemplateVariables
+} from './lab/template'

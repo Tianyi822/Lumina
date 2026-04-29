@@ -12,8 +12,8 @@ export interface FileWriteRequest {
  * 批量文件写入选项
  */
 export interface WriteProjectFilesOptions {
-  /** 沙箱 ID */
-  sandboxId: string
+  /** 实验室 ID */
+  labId: string
   /** 容器内项目根目录，默认 /app */
   projectRoot?: string
   /** 文件列表 */
