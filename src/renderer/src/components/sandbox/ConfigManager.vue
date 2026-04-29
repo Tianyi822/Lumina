@@ -300,6 +300,7 @@ function formatDate(dateStr: string): string {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  -webkit-app-region: no-drag;
 }
 
 .manager-heading {
@@ -324,6 +325,10 @@ function formatDate(dateStr: string): string {
   gap: var(--sm-space-3);
 }
 
+.manager-header {
+  flex-shrink: 0;
+}
+
 .manager-header h2 {
   margin: 0;
   font-size: 18px;
@@ -338,10 +343,21 @@ function formatDate(dateStr: string): string {
 }
 
 .manager-tabs {
+  position: relative;
+  z-index: 1;
   display: flex;
+  align-items: center;
+  flex-shrink: 0;
   gap: var(--sm-space-2);
-  padding: 0 var(--sm-space-5) var(--sm-space-4);
+  padding: var(--sm-space-3) var(--sm-space-5);
   border-bottom: 1px solid var(--sm-color-border-subtle);
+  -webkit-app-region: no-drag;
+}
+
+.manager-tab {
+  position: relative;
+  z-index: 1;
+  -webkit-app-region: no-drag;
 }
 
 .manager-body {
@@ -561,7 +577,7 @@ function formatDate(dateStr: string): string {
   }
 
   .manager-tabs {
-    padding-bottom: var(--sm-space-3);
+    padding: var(--sm-space-2) var(--sm-space-4);
   }
 }
 </style>
