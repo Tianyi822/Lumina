@@ -133,14 +133,6 @@ async function handleSave(config: MCPServerConfig): Promise<boolean> {
   return success
 }
 
-// 切换 MCP 启用状态
-async function handleToggleEnabled(config: MCPServerConfig): Promise<void> {
-  const success = await handleSave(config)
-  if (success && !config.enabled) {
-    await handleDisconnect(config.name)
-  }
-}
-
 // 添加新 MCP 配置
 async function handleAddNew(config: MCPServerConfig): Promise<void> {
   const validationMessage = validateMCPConfig(config)
@@ -248,7 +240,6 @@ onUnmounted(() => {
           @delete="handleDelete"
           @test="handleTest"
           @save="handleSave"
-          @toggle-enabled="handleToggleEnabled"
         />
 
         <div v-if="mcpConfigs.length === 0 && !showNewMCPForm" class="sm-settings-empty">

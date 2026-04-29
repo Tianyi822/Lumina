@@ -22,7 +22,6 @@ const notify = useNotification()
 const formData = ref<MCPServerConfig>({
   name: '',
   transport: 'stdio',
-  enabled: true,
   command: '',
   args: [],
   env: {},

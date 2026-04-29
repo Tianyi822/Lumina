@@ -18,7 +18,6 @@ interface Emits {
   (e: 'delete', name: string): void
   (e: 'test', config: MCPServerConfig): void
   (e: 'save', config: MCPServerConfig): void
-  (e: 'toggle-enabled', config: MCPServerConfig): void
 }
 
 const props = defineProps<Props>()
@@ -27,7 +26,6 @@ const emit = defineEmits<Emits>()
 const localConfig = ref<MCPServerConfig>({
   name: '',
   transport: 'stdio',
-  enabled: true,
   command: '',
   args: [],
   env: {},
@@ -159,15 +157,6 @@ function handleEnvChange(value: Record<string, string>): void {
 function handleHeadersChange(value: Record<string, string>): void {
   updateConfig({ headers: value || {} })
   void persistConfig()
-}
-
-function handleEnabledChange(checked: boolean): void {
-  const config = {
-    ...buildConfigToSave(),
-    enabled: checked
-  }
-  warningMessage.value = ''
-  emit('toggle-enabled', config)
 }
 
 function handleTest(): void {
@@ -308,18 +297,6 @@ watch(
         {{ warningMessage }}
       </div>
 
-      <!-- 启用状态 -->
-      <div class="form-group">
-        <label class="checkbox-label">
-          <input
-            type="checkbox"
-            :checked="localConfig.enabled"
-            @change="handleEnabledChange(($event.target as HTMLInputElement).checked)"
-          />
-          <span>启用此服务器</span>
-        </label>
-      </div>
-
       <!-- 工具列表 -->
       <div v-if="status?.connected" class="tools-section">
         <h4 class="tools-title">可用工具 ({{ status.tools.length || 0 }})</h4>
@@ -442,20 +419,6 @@ watch(
   resize: vertical;
   font-family: var(--sm-font-mono);
   line-height: 1.5;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  color: var(--sm-color-text-primary);
-}
-
-.checkbox-label input[type='checkbox'] {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
 }
 
 .tools-section {
