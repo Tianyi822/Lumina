@@ -7,6 +7,43 @@ import { getLogDirPath, getLogFilePath, formatDateForFilename, isLogPathSafe } f
 // 最大日志消息长度（10KB）
 const MAX_MESSAGE_LENGTH = 10 * 1024
 
+function hasUnreadableText(value: string): boolean {
+  return value.includes('\uFFFD') || value.includes('锟斤拷') || value.includes('���')
+}
+
+function sanitizeLogText(value: string): string {
+  if (!hasUnreadableText(value)) {
+    return value
+  }
+
+  if (value.toLowerCase().includes('docker')) {
+    return 'Docker 命令输出无法正确解码，已隐藏原始乱码。'
+  }
+
+  return '文本包含无法正确解码的内容，已隐藏原始乱码。'
+}
+
+function sanitizeLogValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return sanitizeLogText(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(sanitizeLogValue)
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+        key,
+        sanitizeLogValue(item)
+      ])
+    )
+  }
+
+  return value
+}
+
 // 日志管理器
 // 负责日志的记录、格式化和输出
 // 支持控制台输出和文件输出，支持日志级别过滤和日期轮转
@@ -81,7 +118,7 @@ export class Logger {
     if (!context) return ''
 
     try {
-      return JSON.stringify(context)
+      return JSON.stringify(sanitizeLogValue(context))
     } catch {
       return '[无法序列化的对象]'
     }
@@ -173,7 +210,7 @@ export class Logger {
       timestamp: this.formatTimestamp(),
       level,
       levelName: LogLevelNames[level],
-      message: this.truncateMessage(message),
+      message: this.truncateMessage(sanitizeLogText(message)),
       source,
       context
     }
