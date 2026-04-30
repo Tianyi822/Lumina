@@ -512,6 +512,55 @@ test('论文编号方法小节会把公式和跨页续写保持在同一个列�
   )
 })
 
+test('表格打断的论文编号小节会保持后续正文的列表缩进', () => {
+  const item =
+    '2. Effectiveness of Dual-Branch Prediction and RDF: To validate the effectiveness of the dual-branch strategy, No.4 applies a gated mechanism to combine'
+  const tableNumber = 'TABLE VI'
+  const tableTitle =
+    'ABLATIVE RESULTS (DICE) ON IMPACTS OF THE CONSISTENCY LOSS AND UNCERTAINTY LOSS IN OUR MODEL'
+  const tableMarkdown =
+    '<table border="1"><tr><td>Auxiliary Loss</td><td>Mean</td></tr><tr><td>Ours</td><td>84.54</td></tr></table>'
+  const continuation =
+    'the two predictions. No.5 adopts the proposed RDF module to perform reliable fusion between the predictions.'
+  const nextItem =
+    '3. Effect of Threshold: We evaluate the influence of the uncertainty filtering threshold.'
+  const pageResult: PaperPageOcrResult = {
+    paperId: 'paper-sequence-table',
+    pageIndex: 0,
+    status: 'completed',
+    markdown: [item, tableNumber, tableTitle, tableMarkdown, continuation, nextItem].join('\n\n'),
+    blocks: [
+      createTextBlock(0, item, { x: 80, y: 120, width: 980, height: 92 }),
+      createTextBlock(1, tableNumber, { x: 80, y: 250, width: 180, height: 32 }),
+      createTextBlock(2, tableTitle, { x: 80, y: 300, width: 980, height: 60 }),
+      createTableBlock(3, tableMarkdown, { x: 80, y: 390, width: 980, height: 280 }),
+      createTextBlock(4, continuation, { x: 80, y: 720, width: 980, height: 72 }),
+      createTextBlock(5, nextItem, { x: 80, y: 830, width: 980, height: 64 })
+    ]
+  }
+
+  const figureData = extractFigureData([pageResult])
+  const readerDocument = buildReaderDocument('paper-sequence-table', [pageResult], figureData)
+  const sequenceSegment = readerDocument.segments.find((segment) =>
+    segment.originalMarkdown.startsWith('2. Effectiveness of Dual-Branch')
+  )
+  const nextSequenceSegment = readerDocument.segments.find((segment) =>
+    segment.originalMarkdown.startsWith('3. Effect of Threshold')
+  )
+
+  assert.ok(sequenceSegment)
+  assert.ok(nextSequenceSegment)
+  assert.equal(sequenceSegment.kind, 'list')
+  assert.match(sequenceSegment.originalMarkdown, /\n\n {3}TABLE VI ABLATIVE RESULTS/)
+  assert.match(sequenceSegment.originalMarkdown, /\n\n {3}<table border="1">/)
+  assert.match(sequenceSegment.originalMarkdown, /\n\n {3}the two predictions/)
+  assert.doesNotMatch(sequenceSegment.originalMarkdown, /3\. Effect of Threshold/)
+  assert.equal(
+    readerDocument.segments.some((segment) => segment.originalMarkdown === continuation),
+    false
+  )
+})
+
 test('分页后如果确实进入新段落，则保留段落分隔', () => {
   const pageResults: PaperPageOcrResult[] = [
     {
