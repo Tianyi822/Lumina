@@ -10,7 +10,6 @@ import { parsePaperTranslationSegments } from '../../../shared/utils/paperTransl
 import {
   getBlockImageSourceCandidates,
   getPlainText,
-  isFigureCaptionBlock,
   isTableCaptionBlock
 } from './paperBlockClassifiers.ts'
 import {
@@ -360,7 +359,7 @@ function buildPageComment(pageIndex: number): string {
 }
 
 const PAPER_SEQUENCE_ITEM_PATTERN =
-  /^ {0,3}(\d{1,2}\)\s+)(?:\*\*)?[\p{Lu}A-Z][^:\n]{2,120}:(?:\*\*)?\s+\S/u
+  /^ {0,3}(\d{1,2}[.)]\s+)(?:\*\*)?[\p{Lu}A-Z][^:\n]{2,120}:(?:\*\*)?\s+\S/u
 
 function isPaperPageCommentBlock(markdownBlock: string): boolean {
   return /^<!--\s*Page\s+\d+\s*-->$/i.test(markdownBlock.trim())
@@ -369,20 +368,6 @@ function isPaperPageCommentBlock(markdownBlock: string): boolean {
 function isRomanSectionHeadingBlock(markdownBlock: string): boolean {
   const text = getPlainText(markdownBlock)
   return /^(?:[IVX]+)\.\s+[A-Z][A-Z0-9\s,;:()/-]{2,}$/.test(text) && text.length <= 120
-}
-
-function isCaptionLikeMarkdownBlock(markdownBlock: string): boolean {
-  const block = {
-    index: -1,
-    pageIndex: -1,
-    label: 'text' as const,
-    content: markdownBlock,
-    bbox: { x: 0, y: 0, width: 0, height: 0 },
-    width: 0,
-    height: 0
-  }
-
-  return isFigureCaptionBlock(block) || isTableCaptionBlock(block)
 }
 
 function isPaperSequenceItemBlock(markdownBlock: string): boolean {
@@ -412,9 +397,8 @@ function shouldEndPaperSequenceBefore(markdownBlock: string): boolean {
   if (
     /^#{1,6}\s+/.test(trimmed) ||
     isRomanSectionHeadingBlock(trimmed) ||
-    /^(?:<table\b|<img\b|!\[[^\]]*]\([^)]+\))/i.test(trimmed) ||
-    /^\s{0,3}>/.test(trimmed) ||
-    isCaptionLikeMarkdownBlock(trimmed)
+    /^(?:<img\b|!\[[^\]]*]\([^)]+\))/i.test(trimmed) ||
+    /^\s{0,3}>/.test(trimmed)
   ) {
     return true
   }
