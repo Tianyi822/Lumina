@@ -10,6 +10,7 @@ import { parsePaperTranslationSegments } from '../../../shared/utils/paperTransl
 import {
   getBlockImageSourceCandidates,
   getPlainText,
+  isFigureCaptionBlock,
   isTableCaptionBlock
 } from './paperBlockClassifiers.ts'
 import {
@@ -356,6 +357,105 @@ function cleanupReaderMarkdown(markdown: string): string {
 
 function buildPageComment(pageIndex: number): string {
   return `<!-- Page ${pageIndex + 1} -->`
+}
+
+const PAPER_SEQUENCE_ITEM_PATTERN =
+  /^ {0,3}(\d{1,2}\)\s+)(?:\*\*)?[\p{Lu}A-Z][^:\n]{2,120}:(?:\*\*)?\s+\S/u
+
+function isPaperPageCommentBlock(markdownBlock: string): boolean {
+  return /^<!--\s*Page\s+\d+\s*-->$/i.test(markdownBlock.trim())
+}
+
+function isRomanSectionHeadingBlock(markdownBlock: string): boolean {
+  const text = getPlainText(markdownBlock)
+  return /^(?:[IVX]+)\.\s+[A-Z][A-Z0-9\s,;:()/-]{2,}$/.test(text) && text.length <= 120
+}
+
+function isCaptionLikeMarkdownBlock(markdownBlock: string): boolean {
+  const block = {
+    index: -1,
+    pageIndex: -1,
+    label: 'text' as const,
+    content: markdownBlock,
+    bbox: { x: 0, y: 0, width: 0, height: 0 },
+    width: 0,
+    height: 0
+  }
+
+  return isFigureCaptionBlock(block) || isTableCaptionBlock(block)
+}
+
+function isPaperSequenceItemBlock(markdownBlock: string): boolean {
+  const firstLine = markdownBlock
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .find((line) => line.trim())
+
+  return !!firstLine && PAPER_SEQUENCE_ITEM_PATTERN.test(firstLine)
+}
+
+function getPaperSequenceContinuationIndent(markdownBlock: string): string {
+  const firstLine = markdownBlock
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .find((line) => line.trim())
+  const match = firstLine?.match(PAPER_SEQUENCE_ITEM_PATTERN)
+  return ' '.repeat(match?.[1].length ?? 3)
+}
+
+function shouldEndPaperSequenceBefore(markdownBlock: string): boolean {
+  const trimmed = markdownBlock.trim()
+  if (!trimmed || isPaperPageCommentBlock(trimmed)) {
+    return false
+  }
+
+  if (
+    /^#{1,6}\s+/.test(trimmed) ||
+    isRomanSectionHeadingBlock(trimmed) ||
+    /^(?:<table\b|<img\b|!\[[^\]]*]\([^)]+\))/i.test(trimmed) ||
+    /^\s{0,3}>/.test(trimmed) ||
+    isCaptionLikeMarkdownBlock(trimmed)
+  ) {
+    return true
+  }
+
+  return /^\s{0,3}(?:[-*+]|\d+[.)])\s+\S/.test(trimmed)
+}
+
+function indentMarkdownBlock(markdownBlock: string, indentation: string): string {
+  return markdownBlock
+    .split('\n')
+    .map((line) => (line.trim() ? `${indentation}${line}` : line))
+    .join('\n')
+}
+
+function applyPaperSequenceListIndentation(markdown: string): string {
+  const trimmedMarkdown = markdown.trim()
+  if (!trimmedMarkdown) {
+    return markdown
+  }
+
+  const blocks = trimmedMarkdown.split(/\n{2,}/)
+  const nextBlocks: string[] = []
+  let activeContinuationIndent: string | null = null
+
+  for (const block of blocks) {
+    if (isPaperSequenceItemBlock(block)) {
+      activeContinuationIndent = getPaperSequenceContinuationIndent(block)
+      nextBlocks.push(block)
+      continue
+    }
+
+    if (activeContinuationIndent && shouldEndPaperSequenceBefore(block)) {
+      activeContinuationIndent = null
+    }
+
+    nextBlocks.push(
+      activeContinuationIndent ? indentMarkdownBlock(block, activeContinuationIndent) : block
+    )
+  }
+
+  return nextBlocks.join('\n\n')
 }
 
 function appendMarkdownBlock(markdown: string, block: string | undefined): string {
@@ -802,5 +902,5 @@ export function buildReaderMarkdown(
     encounteredHardBoundary = false
   }
 
-  return combinedMarkdown
+  return applyPaperSequenceListIndentation(combinedMarkdown)
 }
