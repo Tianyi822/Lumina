@@ -289,6 +289,7 @@ function handleCancelRetranslate(): void {
 }
 
 .paper-markdown-view__markdown {
+  --paper-markdown-list-indent: 2.8em;
   width: 100%;
   font-size: 15px;
   line-height: 1.75;
@@ -490,6 +491,12 @@ function handleCancelRetranslate(): void {
   scrollbar-gutter: stable both-edges;
 }
 
+.paper-markdown-view__markdown :deep(li > .paper-markdown-view__table-wrap) {
+  width: calc(100% + var(--paper-markdown-list-indent));
+  max-width: calc(100% + var(--paper-markdown-list-indent));
+  margin-inline-start: calc(-1 * var(--paper-markdown-list-indent));
+}
+
 .paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap > table) {
   width: max-content;
   min-width: 100%;
@@ -529,7 +536,7 @@ function handleCancelRetranslate(): void {
 .paper-markdown-view__markdown :deep(ul),
 .paper-markdown-view__markdown :deep(ol) {
   margin: 0.6em 0;
-  padding-inline-start: 2.8em;
+  padding-inline-start: var(--paper-markdown-list-indent);
 }
 
 .paper-markdown-view__markdown :deep(li) {
