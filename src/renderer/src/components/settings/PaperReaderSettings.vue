@@ -129,6 +129,13 @@ async function handleSave(): Promise<void> {
   showSuccess('论文阅读配置已保存')
 }
 
+function handleOpenApiKeyUrl(): void {
+  const url = currentPreset.value?.apiKeyUrl
+  if (url) {
+    window.api.window.openExternal(url)
+  }
+}
+
 function handleReset(): void {
   void loadLocalConfig()
 }
@@ -178,14 +185,27 @@ onUnmounted(() => {
         </div>
 
         <div class="form-group field-card flex-1">
-          <label class="form-label">并发数</label>
+          <label class="form-label">
+            并发数
+            <span class="field-hint">由该模型官方限制，不允许更改</span>
+          </label>
           <div class="provider-display">{{ currentPreset?.concurrency ?? '-' }}</div>
         </div>
       </div>
 
       <div class="form-row">
         <div class="form-group field-card flex-1">
-          <label class="form-label">API Key</label>
+          <label class="form-label">
+            API Key
+            <a
+              v-if="currentPreset?.apiKeyUrl"
+              class="api-key-link"
+              href="#"
+              @click.prevent="handleOpenApiKeyUrl"
+            >
+              获取 API KEY
+            </a>
+          </label>
           <input
             v-model="localConfig.ocr.apiKey"
             type="password"
@@ -315,6 +335,28 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 600;
   color: var(--sm-color-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--sm-color-text-secondary);
+  white-space: nowrap;
+}
+
+.api-key-link {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sm-color-text-accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.api-key-link:hover {
+  text-decoration: underline;
 }
 
 .provider-display {

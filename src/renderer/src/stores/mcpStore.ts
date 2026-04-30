@@ -41,7 +41,6 @@ export const useMCPStore = defineStore(
     const formData = reactive<MCPServerConfig>({
       name: '',
       transport: 'stdio',
-      enabled: true,
       command: '',
       args: [],
       env: {},
@@ -398,7 +397,6 @@ export const useMCPStore = defineStore(
       editingConfig.value = null
       formData.name = ''
       formData.transport = 'stdio'
-      formData.enabled = true
       formData.command = ''
       formData.args = []
       formData.env = {}
@@ -420,7 +418,6 @@ export const useMCPStore = defineStore(
       editingConfig.value = config
       formData.name = config.name
       formData.transport = config.transport
-      formData.enabled = config.enabled
       formData.command = config.command || ''
       formData.args = config.args || []
       formData.env = config.env || {}

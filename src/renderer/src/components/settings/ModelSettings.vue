@@ -29,9 +29,7 @@ const showNewModelForm = ref(false)
 const newModelConfig = reactive<LLMConfig>({
   base_url: '',
   api_key: '',
-  model_name: '',
-  temperature: 0.7,
-  max_tokens: 4096
+  model_name: ''
 })
 
 function showValidationWarning(message: string): void {
@@ -95,8 +93,6 @@ function resetNewModelForm(): void {
   newModelConfig.base_url = ''
   newModelConfig.api_key = ''
   newModelConfig.model_name = ''
-  newModelConfig.temperature = 0.7
-  newModelConfig.max_tokens = 4096
 }
 
 function normalizeExpandedModelsAfterDelete(deletedIndex: number): void {
@@ -275,7 +271,7 @@ async function handleSave(): Promise<void> {
     <header class="sm-settings-page__header">
       <h2 class="sm-settings-page__title">对话模型配置</h2>
       <p class="sm-settings-page__description">
-        管理对话模型列表、默认模型和推理参数。修改字段后会自动同步到本地配置。
+        管理对话模型列表和默认模型。修改字段后会自动同步到本地配置。
       </p>
     </header>
 
@@ -363,44 +359,6 @@ async function handleSave(): Promise<void> {
                 "
               />
             </div>
-            <div class="form-row">
-              <div class="form-group half">
-                <label>Temperature</label>
-                <input
-                  :value="config.temperature"
-                  type="number"
-                  class="sm-input"
-                  min="0"
-                  max="2"
-                  step="0.1"
-                  @input="
-                    (e) =>
-                      updateModelConfig(
-                        index,
-                        'temperature',
-                        Number((e.target as HTMLInputElement).value)
-                      )
-                  "
-                />
-              </div>
-              <div class="form-group half">
-                <label>Max Tokens</label>
-                <input
-                  :value="config.max_tokens"
-                  type="number"
-                  class="sm-input"
-                  min="1"
-                  @input="
-                    (e) =>
-                      updateModelConfig(
-                        index,
-                        'max_tokens',
-                        Number((e.target as HTMLInputElement).value)
-                      )
-                  "
-                />
-              </div>
-            </div>
           </div>
         </div>
 
@@ -437,28 +395,6 @@ async function handleSave(): Promise<void> {
             class="sm-input"
             placeholder="gpt-4"
           />
-        </div>
-        <div class="form-row">
-          <div class="form-group half">
-            <label>Temperature</label>
-            <input
-              v-model.number="newModelConfig.temperature"
-              type="number"
-              class="sm-input"
-              min="0"
-              max="2"
-              step="0.1"
-            />
-          </div>
-          <div class="form-group half">
-            <label>Max Tokens</label>
-            <input
-              v-model.number="newModelConfig.max_tokens"
-              type="number"
-              class="sm-input"
-              min="1"
-            />
-          </div>
         </div>
         <div class="form-actions">
           <button class="sm-button" @click="resetNewModelForm">取消</button>
@@ -557,15 +493,6 @@ async function handleSave(): Promise<void> {
   color: var(--sm-color-status-danger);
 }
 
-.form-row {
-  display: flex;
-  gap: 16px;
-}
-
-.form-group.half {
-  flex: 1;
-}
-
 .form-section-title {
   margin: 0 0 16px;
   font-size: 14px;
@@ -610,10 +537,6 @@ async function handleSave(): Promise<void> {
   .save-actions {
     width: 100%;
     justify-content: flex-end;
-  }
-
-  .form-row {
-    flex-direction: column;
   }
 }
 </style>

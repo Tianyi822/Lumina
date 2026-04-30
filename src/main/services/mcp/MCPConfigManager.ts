@@ -291,7 +291,6 @@ export class MCPConfigManager {
           const config: MCPServerConfig = {
             name,
             transport,
-            enabled: true,
             command: serverConfig.command,
             args: serverConfig.args,
             env: serverConfig.env,
@@ -337,11 +336,6 @@ export class MCPConfigManager {
   reloadConfigs(): void {
     // 配置已经由 ConfigManager 统一管理，这里不需要额外操作
     logger.info('MCP 配置重新加载完成')
-  }
-
-  // 获取已启用的配置列表
-  getEnabledConfigs(): MCPServerConfig[] {
-    return this.listConfigs().filter((c) => c.enabled)
   }
 
   // 配置是否存在

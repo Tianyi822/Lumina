@@ -4,9 +4,21 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import { pinia } from './stores'
 
-const app = createApp(App)
+async function loadPlatformStyles(): Promise<void> {
+  if (window.electron?.process?.platform === 'win32') {
+    await import('./styles/platform-windows.css')
+  }
+}
 
-// 注册 Pinia
-app.use(pinia)
+async function bootstrap(): Promise<void> {
+  await loadPlatformStyles()
 
-app.mount('#app')
+  const app = createApp(App)
+
+  // 注册 Pinia
+  app.use(pinia)
+
+  app.mount('#app')
+}
+
+void bootstrap()

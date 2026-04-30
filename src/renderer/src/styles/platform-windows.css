@@ -1,0 +1,8 @@
+/**
+ * Windows-only renderer layout fixes.
+ * Loaded dynamically from main.ts when Electron reports process.platform === 'win32'.
+ */
+
+.sm-notification-center--windows {
+  top: calc(var(--sm-titlebar-height) + var(--sm-space-2));
+}

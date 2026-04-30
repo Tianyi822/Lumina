@@ -22,10 +22,10 @@ export function initializeMCP(): void {
   logger.info('MCP 服务初始化完成')
 }
 
-// 自动连接所有已启用的 MCP 服务器
+// 自动连接所有已配置的 MCP 服务器
 async function autoConnectEnabledServers(): Promise<void> {
-  const enabledConfigs = mcpConfigManager.getEnabledConfigs()
-  for (const config of enabledConfigs) {
+  const allConfigs = mcpConfigManager.listConfigs()
+  for (const config of allConfigs) {
     try {
       await mcpService.connect(config)
     } catch (error) {
@@ -129,11 +129,11 @@ export function registerMCPHandlers(): void {
     return mcpService.testConnection(config)
   })
 
-  // 连接所有已启用的 MCP 服务器
+  // 连接所有已配置的 MCP 服务器
   ipcMain.handle('mcp:connectAll', async () => {
-    const enabledConfigs = mcpConfigManager.getEnabledConfigs()
+    const allConfigs = mcpConfigManager.listConfigs()
     const results: Awaited<ReturnType<typeof mcpService.connect>>[] = []
-    for (const config of enabledConfigs) {
+    for (const config of allConfigs) {
       const result = await mcpService.connect(config)
       results.push(result)
     }

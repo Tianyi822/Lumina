@@ -248,13 +248,14 @@ onBeforeUnmount(() => {
   user-select: none;
 }
 
-.sm-workspace-page__win-controls {
+.sm-workspace-page--windows .sm-workspace-page__win-controls {
   position: fixed;
   top: 0;
   right: 0;
   z-index: 21;
   display: inline-flex;
   align-items: center;
+  width: var(--sm-window-controls-safe-width);
   height: var(--sm-titlebar-height);
   -webkit-app-region: no-drag;
   pointer-events: auto;

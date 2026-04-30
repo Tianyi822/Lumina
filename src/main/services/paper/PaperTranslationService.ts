@@ -6,6 +6,8 @@ import { PaperStorageService } from './PaperStorageService'
 import { PaperTranslationCore } from './PaperTranslationCore'
 
 const paperTranslationStorage = new PaperStorageService()
+const TRANSLATION_MIN_OUTPUT_TOKENS = 512
+const TRANSLATION_MAX_OUTPUT_TOKENS = 4096
 
 function getTranslationLlmConfig(): LLMConfig | null {
   const config = configManager.getConfig()
@@ -44,10 +46,9 @@ export class PaperTranslationService extends PaperTranslationCore {
         const response = await client.chat.completions.create(
           {
             model: llmConfig.model_name,
-            temperature: Math.min(Math.max(llmConfig.temperature ?? 0.2, 0), 0.4),
             max_tokens: Math.max(
-              512,
-              Math.min(llmConfig.max_tokens || 4096, segment.originalText.length * 4)
+              TRANSLATION_MIN_OUTPUT_TOKENS,
+              Math.min(TRANSLATION_MAX_OUTPUT_TOKENS, segment.originalText.length * 4)
             ),
             messages: [
               {
