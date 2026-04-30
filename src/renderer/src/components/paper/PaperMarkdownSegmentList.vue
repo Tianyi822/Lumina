@@ -491,12 +491,6 @@ function handleCancelRetranslate(): void {
   scrollbar-gutter: stable both-edges;
 }
 
-.paper-markdown-view__markdown :deep(li > .paper-markdown-view__table-wrap) {
-  width: calc(100% + var(--paper-markdown-list-indent));
-  max-width: calc(100% + var(--paper-markdown-list-indent));
-  margin-inline-start: calc(-1 * var(--paper-markdown-list-indent));
-}
-
 .paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap > table) {
   width: max-content;
   min-width: 100%;
