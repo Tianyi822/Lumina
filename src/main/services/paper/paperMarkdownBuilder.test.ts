@@ -168,7 +168,11 @@ test('HTML 包裹标题不会与作者和摘要合并为同一个标题', () => 
   }
 
   const figureData = extractFigureData([pageResult])
-  const readerDocument = buildReaderDocument('paper-front-matter-boundary', [pageResult], figureData)
+  const readerDocument = buildReaderDocument(
+    'paper-front-matter-boundary',
+    [pageResult],
+    figureData
+  )
 
   assert.match(
     readerDocument.markdown,
@@ -446,17 +450,15 @@ test('含行内公式的跨页英文续写正文会重新合并为同一段', ()
   const figureData = extractFigureData(pageResults)
   const readerMarkdown = buildReaderMarkdown(pageResults, figureData)
 
-  assert.match(
-    readerMarkdown,
-    /N-way K-shot\s*<!-- Page 2 -->\s*few-shot segmentation task/
-  )
+  assert.match(readerMarkdown, /N-way K-shot\s*<!-- Page 2 -->\s*few-shot segmentation task/)
   assert.doesNotMatch(readerMarkdown, /N-way K-shot\s*\n\s*\n\s*<!-- Page 2 -->/)
 })
 
 test('论文编号方法小节会把公式和跨页续写保持在同一个列表项缩进内', () => {
   const firstItem =
     '1) Prototype Generation: We first apply average pooling [34] to the support feature $F_s$ and the support mask $M_s$ to obtain the global prototypes of different classes. This process can be expressed as follows:'
-  const firstFormula = 'g p _ {s} ^ {k} = \\frac {\\sum _ {h,w} F_s (h,w) \\cdot M_s^k(h,w)}{\\sum _ {h,w} M_s^k(h,w)}'
+  const firstFormula =
+    'g p _ {s} ^ {k} = \\frac {\\sum _ {h,w} F_s (h,w) \\cdot M_s^k(h,w)}{\\sum _ {h,w} M_s^k(h,w)}'
   const whereText =
     'where $k$ denotes different classes, with $k = 0$ representing the background class $bg$ and $k = 1$ representing the foreground class $fg$.'
   const continuation =
