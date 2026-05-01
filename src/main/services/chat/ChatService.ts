@@ -12,6 +12,7 @@ import {
   splitThinkTaggedContent
 } from './message'
 import { ModelRetryHandler } from './ModelRetryHandler'
+import { PlanExecuteService } from './PlanExecuteService'
 import { StopController } from './StopController'
 import { StreamHandler } from './StreamHandler'
 import { ReactLoopService } from './ReactLoopService'
@@ -24,6 +25,7 @@ export class ChatService {
   private stopController: StopController
   private streamHandler: StreamHandler
   private reactLoopService: ReactLoopService
+  private planExecuteService: PlanExecuteService
   private modelRetryHandler: ModelRetryHandler
 
   constructor() {
@@ -46,6 +48,16 @@ export class ChatService {
       validateAndGetLLMConfig: (modelKey, sessionId, webContents) =>
         this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
     })
+
+    this.planExecuteService = new PlanExecuteService({
+      logger,
+      stopController: this.stopController,
+      streamHandler: this.streamHandler,
+      createClient: (config) => this.createClient(config),
+      validateAndGetLLMConfig: (modelKey, sessionId, webContents) =>
+        this.validateAndGetLLMConfig(modelKey, sessionId, webContents),
+      reactLoopService: this.reactLoopService
+    })
   }
 
   /**
@@ -59,6 +71,14 @@ export class ChatService {
 
     const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
     const hasTools = (selectedTools && selectedTools.length > 0) || request.enableLabTools
+
+    // 论文会话 + 规划模式：走 PlanExecuteService
+    const isPlanMode = request.sessionType === 'paper' && request.enablePlanMode
+    if (isPlanMode) {
+      const result = await this.planExecuteService.sendMessageWithPlan(request, webContents)
+      this.stopController.clearStoppedSession(sessionId)
+      return result
+    }
 
     if (hasKnowledgeBases || hasTools) {
       const result = await this.reactLoopService.sendMessageWithReact(

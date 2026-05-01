@@ -1,6 +1,7 @@
 import type { LLMConfig } from '@main/types/config'
 import type { MCPToolReference } from '@main/types/chat'
 import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt } from './prompts/reactSystemPrompt'
+import { buildPlanSystemPrompt, buildStepExecutionPrompt } from './prompts/planSystemPrompt'
 
 /**
  * PromptBuilder 只负责选择内置系统提示词。
@@ -37,6 +38,24 @@ export class PromptBuilder {
 - 使用用户的语言回答，必要时给出结构化步骤、公式解释或代码建议
 - 不确定时明确说明不确定性，并指出需要补充的论文段落、数据或实验条件
 - 不要臆造论文内容、引用或实验结果`
+  }
+
+  /**
+   * 构建规划阶段的系统提示词
+   */
+  buildPlanSystemPrompt(tools: MCPToolReference[] = [], paperContext?: string): string {
+    return buildPlanSystemPrompt(tools, paperContext)
+  }
+
+  /**
+   * 构建单步骤执行的上下文注入提示词
+   */
+  buildStepExecutionPrompt(
+    stepTitle: string,
+    stepDescription: string,
+    previousResults: string[]
+  ): string {
+    return buildStepExecutionPrompt(stepTitle, stepDescription, previousResults)
   }
 }
 

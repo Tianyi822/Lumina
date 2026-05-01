@@ -1,5 +1,5 @@
 import type { WebContents } from 'electron'
-import type { ReactIterationStatus, StreamEvent } from '../../types/chat'
+import type { PlanStep, PlanStepStatus, ReactIterationStatus, StreamEvent } from '../../types/chat'
 
 /**
  * 流式处理器
@@ -82,6 +82,34 @@ export class StreamHandler {
       content: String(iteration),
       sessionId,
       status
+    })
+  }
+
+  /**
+   * 发送计划生成完成事件
+   */
+  sendPlanGenerated(webContents: WebContents, sessionId: string, steps: PlanStep[]): void {
+    this.sendStreamEvent(webContents, {
+      type: 'plan_generated',
+      sessionId,
+      plan: { steps }
+    })
+  }
+
+  /**
+   * 发送计划步骤状态更新事件
+   */
+  sendPlanStepUpdate(
+    webContents: WebContents,
+    sessionId: string,
+    index: number,
+    status: PlanStepStatus,
+    summary?: string
+  ): void {
+    this.sendStreamEvent(webContents, {
+      type: 'plan_step_update',
+      sessionId,
+      planStepUpdate: { index, status, summary }
     })
   }
 }

@@ -3,6 +3,8 @@
 import { ChatService } from './ChatService'
 
 export { ChatService } from './ChatService'
+export { PlanExecuteService } from './PlanExecuteService'
+export type { PlanExecuteServiceOptions } from './PlanExecuteService'
 export * from './message'
 export * from './tools'
 
