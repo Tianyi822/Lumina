@@ -6,7 +6,8 @@ import {
   ToolResultInfo,
   AttachedDocument,
   AttachedImage,
-  PaperQuote
+  PaperQuote,
+  PlanStep
 } from './chat'
 import type { KnowledgeBase } from './knowledge'
 import type { MCPTool } from './mcp'
@@ -78,6 +79,8 @@ export interface SessionMessage {
   contextKind?: 'paper_fulltext'
   /** 隐藏上下文来源论文 ID */
   sourcePaperId?: string
+  /** 规划模式的计划步骤数据 */
+  planSteps?: PlanStep[]
 }
 
 /**
@@ -111,6 +114,8 @@ export interface SessionSelectionState {
   enableLabTools: boolean
   /** 当前会话选中的模型 */
   selectedModel: string
+  /** 当前会话是否启用规划模式（仅论文会话） */
+  enablePlanMode?: boolean
 }
 
 /**

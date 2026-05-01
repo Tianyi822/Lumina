@@ -214,6 +214,8 @@ export type StreamEventType =
   | 'knowledge_result'
   | 'user_interaction'
   | 'react_iteration_start'
+  | 'plan_generated'
+  | 'plan_step_update'
   | 'done'
   | 'error'
 
@@ -277,6 +279,25 @@ export interface UserInteractionRequest {
 }
 
 /**
+ * 计划步骤状态
+ */
+export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped'
+
+/**
+ * 计划中的单个步骤
+ */
+export interface PlanStep {
+  /** 步骤序号（从 0 开始） */
+  index: number
+  /** 步骤标题 */
+  title: string
+  /** 步骤详细描述 */
+  description: string
+  /** 当前执行状态 */
+  status: PlanStepStatus
+}
+
+/**
  * 聊天流式传输事件
  * 每个事件包含不同类型的增量数据
  */
@@ -309,6 +330,10 @@ export interface StreamEvent {
   userInteraction?: UserInteractionRequest
   /** ReAct 迭代状态，仅在事件类型为 react_iteration_start 时提供 */
   status?: ReactIterationStatus
+  /** 计划步骤列表，仅在事件类型为 plan_generated 时提供 */
+  plan?: { steps: PlanStep[] }
+  /** 计划步骤状态更新，仅在事件类型为 plan_step_update 时提供 */
+  planStepUpdate?: { index: number; status: PlanStepStatus; summary?: string }
 }
 
 /**
@@ -371,6 +396,10 @@ export interface ChatRequest {
   maxReactIterations?: number
   /** 是否启用实验室管理工具 */
   enableLabTools?: boolean
+  /** 会话类型标识，用于启用会话专属功能 */
+  sessionType?: string
+  /** 是否启用规划模式（仅论文会话可用） */
+  enablePlanMode?: boolean
 }
 
 /**

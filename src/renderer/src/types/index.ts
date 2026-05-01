@@ -26,7 +26,9 @@ export type {
   KnowledgeSearchInfo,
   KnowledgeResultInfo,
   UserInteractionOption,
-  UserInteractionRequest
+  UserInteractionRequest,
+  PlanStep,
+  PlanStepStatus
 } from '@shared/types/chat'
 
 // MCP 相关类型
@@ -53,7 +55,7 @@ export type AttachmentFile = {
 
 // ==================== UI 特有类型 ====================
 
-import type { ToolCallInfo, ToolResultInfo, ToolCallMessage } from '@shared/types/chat'
+import type { ToolCallInfo, ToolResultInfo, ToolCallMessage, PlanStep } from '@shared/types/chat'
 import type { AttachedDocument, AttachedImage, PaperQuote } from '@shared/types/chat'
 
 /**
@@ -111,4 +113,9 @@ export interface Message {
   hidden?: boolean // 隐藏上下文消息，不在 UI 中显示
   contextKind?: 'paper_fulltext'
   sourcePaperId?: string
+  planExecution?: {
+    steps: PlanStep[]
+    currentStepIndex: number
+    isActive: boolean
+  }
 }
