@@ -14,6 +14,7 @@ const props = defineProps<{
   selectedTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
   enableLabTools?: boolean
+  enablePlanMode?: boolean
   totalAttachmentCount?: number
   variant?: 'default' | 'compact'
 }>()
@@ -23,6 +24,7 @@ const emit = defineEmits<{
   (e: 'update:selectedTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableLabTools', value: boolean): void
+  (e: 'update:enablePlanMode', value: boolean): void
   (e: 'upload'): void
   (e: 'send'): void
   (e: 'stop'): void
@@ -117,6 +119,17 @@ onUnmounted(() => {
       @update:model-value="emit('update:enableLabTools', $event)"
       @change="emit('update:enableLabTools', $event)"
     />
+
+    <button
+      class="paper-chat-input-toolbar__plan-toggle"
+      :class="{ active: props.enablePlanMode }"
+      :disabled="props.isSending"
+      title="规划模式：模型将先拆解任务为步骤再逐步执行"
+      @click="emit('update:enablePlanMode', !props.enablePlanMode)"
+    >
+      <SvgIcon name="thinking" :size="14" />
+      <span>规划</span>
+    </button>
 
     <div class="paper-chat-input-toolbar__actions">
       <button
@@ -381,6 +394,40 @@ onUnmounted(() => {
 .paper-chat-input-toolbar__stop-button:hover {
   background: rgba(239, 68, 68, 0.25);
   border-color: var(--sm-color-status-danger);
+}
+
+.paper-chat-input-toolbar__plan-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+}
+
+.paper-chat-input-toolbar__plan-toggle:hover:not(:disabled) {
+  border-color: var(--sm-color-border-strong);
+  color: var(--sm-color-text-primary);
+}
+
+.paper-chat-input-toolbar__plan-toggle.active {
+  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-accent-12);
+  color: var(--sm-color-accent-hover);
+}
+
+.paper-chat-input-toolbar__plan-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {

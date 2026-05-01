@@ -38,6 +38,7 @@ const {
   selectedMCPTools,
   selectedKnowledgeBases,
   enableLabTools,
+  enablePlanMode,
   loading,
   contextLoading,
   ensurePaperContextLoaded,
@@ -48,7 +49,8 @@ const {
   updateSelectedModel,
   updateSelectedTools,
   updateSelectedKnowledgeBases,
-  updateEnableLabTools
+  updateEnableLabTools,
+  updateEnablePlanMode
 } = usePaperChatSession(paperRef)
 
 provide('sessionId', sessionId)
@@ -60,6 +62,7 @@ const { isSending, sendMessage, stopRequest } = usePaperChatStream({
   selectedMCPTools,
   selectedKnowledgeBases,
   enableLabTools,
+  enablePlanMode,
   ensurePaperContextLoaded,
   saveCurrentSession,
   setError: (message) => {
@@ -234,6 +237,7 @@ function handleQuickReplySelected(messageId: string): void {
           :selected-m-c-p-tools="selectedMCPTools"
           :selected-knowledge-bases="selectedKnowledgeBases"
           :enable-lab-tools="enableLabTools"
+          :enable-plan-mode="enablePlanMode"
           :quick-reply-info="activeQuickReply"
           @send="handleSend"
           @stop="stopRequest"
@@ -243,6 +247,7 @@ function handleQuickReplySelected(messageId: string): void {
           @update:selected-m-c-p-tools="updateSelectedTools"
           @update:selected-knowledge-bases="updateSelectedKnowledgeBases"
           @update:enable-lab-tools="updateEnableLabTools"
+          @update:enable-plan-mode="updateEnablePlanMode"
         />
       </div>
     </template>

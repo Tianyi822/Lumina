@@ -521,7 +521,8 @@ function handleToggleReasoning(): void {
 }
 
 .paper-chat-message__body :deep(.reasoning-panel),
-.paper-chat-message__body :deep(.paper-chat-react-steps) {
+.paper-chat-message__body :deep(.paper-chat-react-steps),
+.paper-chat-message__body :deep(.paper-chat-plan-progress) {
   align-self: flex-start;
   width: calc(100% - var(--paper-chat-message-content-offset));
   max-width: calc(100% - var(--paper-chat-message-content-offset));
@@ -643,12 +644,14 @@ function handleToggleReasoning(): void {
   .paper-chat-message__bubble,
   .paper-chat-message__attachments,
   .paper-chat-message__body :deep(.reasoning-panel),
-  .paper-chat-message__body :deep(.paper-chat-react-steps) {
+  .paper-chat-message__body :deep(.paper-chat-react-steps),
+  .paper-chat-message__body :deep(.paper-chat-plan-progress) {
     max-width: 100%;
   }
 
   .paper-chat-message__body :deep(.reasoning-panel),
-  .paper-chat-message__body :deep(.paper-chat-react-steps) {
+  .paper-chat-message__body :deep(.paper-chat-react-steps),
+  .paper-chat-message__body :deep(.paper-chat-plan-progress) {
     width: 100%;
   }
 }
