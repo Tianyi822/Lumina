@@ -11,6 +11,12 @@ import {
   type PaperReaderConfig
 } from '@shared/types/config'
 import {
+  DEFAULT_SKILL_CONFIG,
+  DEFAULT_SKILL_MATCH_LIMIT,
+  type SkillConfig,
+  type SkillDirectoryConfig
+} from '@shared/types/skill'
+import {
   DEFAULT_THEME_ID,
   DEFAULT_THEME_MODE,
   normalizeThemeId,
@@ -21,6 +27,8 @@ import { DEFAULT_KNOWLEDGE_MCP_CONFIG } from '@shared/types/knowledgeMCP'
 const PAPER_READER_ZOOM_DEFAULT = 1
 const PAPER_READER_ZOOM_MIN = 0.5
 const PAPER_READER_ZOOM_MAX = 2
+const SKILL_MATCH_LIMIT_MIN = 1
+const SKILL_MATCH_LIMIT_MAX = 10
 
 function sanitizePaperReaderZoomLevel(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -54,6 +62,57 @@ function sanitizePaperReaderConfig(config: PaperReaderConfig | undefined): Paper
   return sanitized
 }
 
+function sanitizeSkillDirectory(value: unknown): SkillDirectoryConfig | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+  const skillPath = typeof record.path === 'string' ? record.path.trim() : ''
+  if (!skillPath) {
+    return null
+  }
+
+  return {
+    path: skillPath,
+    enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
+    addedAt:
+      typeof record.addedAt === 'string' && record.addedAt.trim()
+        ? record.addedAt
+        : new Date().toISOString()
+  }
+}
+
+function sanitizeSkillConfig(config: SkillConfig | undefined): SkillConfig {
+  const directories: SkillDirectoryConfig[] = []
+  const seenPaths = new Set<string>()
+
+  for (const rawDirectory of Array.isArray(config?.directories) ? config.directories : []) {
+    const directory = sanitizeSkillDirectory(rawDirectory)
+    if (!directory || seenPaths.has(directory.path)) {
+      continue
+    }
+
+    seenPaths.add(directory.path)
+    directories.push(directory)
+  }
+
+  const rawLimit = config?.maxAutoMatchedSkills
+  const maxAutoMatchedSkills =
+    typeof rawLimit === 'number' && Number.isFinite(rawLimit)
+      ? Math.min(SKILL_MATCH_LIMIT_MAX, Math.max(SKILL_MATCH_LIMIT_MIN, Math.floor(rawLimit)))
+      : DEFAULT_SKILL_MATCH_LIMIT
+
+  return {
+    directories,
+    autoMatchEnabled:
+      typeof config?.autoMatchEnabled === 'boolean'
+        ? config.autoMatchEnabled
+        : DEFAULT_SKILL_CONFIG.autoMatchEnabled,
+    maxAutoMatchedSkills
+  }
+}
+
 /**
  * 创建空的基础配置结构
  * 包含所有必要的字段，但值为空或默认值
@@ -72,6 +131,7 @@ function createEmptyConfig(): AppConfig {
       models: []
     },
     mcpServers: {},
+    skills: sanitizeSkillConfig(undefined),
     embeddingModels: {},
     knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG,
     paperReader: sanitizePaperReaderConfig(undefined)
@@ -116,6 +176,7 @@ export function migrateConfig(config: AppConfig): AppConfig {
   delete (migrated as Record<string, unknown>).promptConfig
 
   migrated.embeddingModels = migrated.embeddingModels || {}
+  migrated.skills = sanitizeSkillConfig(migrated.skills)
 
   // 迁移 knowledgeMCP 配置
   if (!migrated.knowledgeMCP) {

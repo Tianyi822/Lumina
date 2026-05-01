@@ -41,4 +41,7 @@ test('配置迁移会剥离旧 promptConfig 并保留 MCP 环境变量', () => {
   assert.equal('promptConfig' in migrated, false)
   assert.equal(migrated.mcpServers.paperTools.env?.API_KEY, 'keep-this')
   assert.equal(migrated.theme.mode, 'manual')
+  assert.equal(migrated.skills?.autoMatchEnabled, true)
+  assert.equal(migrated.skills?.maxAutoMatchedSkills, 3)
+  assert.deepEqual(migrated.skills?.directories, [])
 })
