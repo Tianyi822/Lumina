@@ -505,6 +505,32 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
         }
         break
 
+      case 'plan_generated':
+        if (streamingMessage && event.plan) {
+          streamingMessage.planExecution = {
+            steps: event.plan.steps,
+            currentStepIndex: 0,
+            isActive: true
+          }
+        }
+        break
+
+      case 'plan_step_update':
+        if (streamingMessage?.planExecution && event.planStepUpdate) {
+          const { index, status, summary } = event.planStepUpdate
+          const step = streamingMessage.planExecution.steps[index]
+          if (step) {
+            step.status = status
+            if (summary) {
+              step.description = summary
+            }
+          }
+          if (status === 'in_progress') {
+            streamingMessage.planExecution.currentStepIndex = index
+          }
+        }
+        break
+
       case 'done':
         handleStreamDone(event, targetSessionId, isCurrentSession, streamingMessage)
         break
@@ -528,6 +554,9 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
         streamingMessage.usage = event.usage
       }
       finalizeIterations(streamingMessage, sessionId)
+      if (streamingMessage.planExecution) {
+        streamingMessage.planExecution.isActive = false
+      }
     } else {
       currentIterationIndex.value.delete(sessionId)
     }
