@@ -2,6 +2,7 @@ import type OpenAI from 'openai'
 import type { WebContents } from 'electron'
 import type { ChatRequest, ChatResult, PlanStep, PlanStepStatus } from '../../types/chat'
 import type { LLMConfig } from '../../types/config'
+import type { SkillMatchResult } from '@shared/types/skill'
 import type { Logger } from '../logger'
 import type { StopController } from './StopController'
 import type { StreamHandler } from './StreamHandler'
@@ -55,7 +56,11 @@ export class PlanExecuteService {
    * 2. 逐步骤委托 ReactLoopService 执行
    * 3. 汇总结果
    */
-  async sendMessageWithPlan(request: ChatRequest, webContents: WebContents): Promise<ChatResult> {
+  async sendMessageWithPlan(
+    request: ChatRequest,
+    webContents: WebContents,
+    matchedSkills: SkillMatchResult[] = []
+  ): Promise<ChatResult> {
     const { sessionId, modelKey } = request
 
     this.logger.info('开始规划模式消息处理', 'main', { sessionId, modelKey })
@@ -72,10 +77,16 @@ export class PlanExecuteService {
 
     try {
       // 阶段 1：生成计划
-      const planSteps = await this.generatePlan(request, llmConfig)
+      const planSteps = await this.generatePlan(request, llmConfig, matchedSkills)
       if (!planSteps || planSteps.length === 0) {
         this.logger.info('计划为空，回退到直接 ReAct 模式', 'main', { sessionId })
-        return this.reactLoopService.sendMessageWithReact(request, webContents)
+        return this.reactLoopService.sendMessageWithReact(
+          request,
+          webContents,
+          undefined,
+          request.selectedKnowledgeBases,
+          matchedSkills
+        )
       }
 
       this.logger.info('计划生成完成', 'main', {
@@ -105,7 +116,8 @@ export class PlanExecuteService {
           request,
           llmConfig,
           webContents,
-          previousResults
+          previousResults,
+          matchedSkills
         )
 
         if (this.stopController.isStopped(sessionId)) {
@@ -148,12 +160,17 @@ export class PlanExecuteService {
   /**
    * 调用 LLM 生成执行计划
    */
-  private async generatePlan(request: ChatRequest, llmConfig: LLMConfig): Promise<PlanStep[]> {
+  private async generatePlan(
+    request: ChatRequest,
+    llmConfig: LLMConfig,
+    matchedSkills: SkillMatchResult[]
+  ): Promise<PlanStep[]> {
     const client = this.createClient(llmConfig)
 
     const planPrompt = promptBuilder.buildPlanSystemPrompt(
       request.selectedTools,
-      this.hasPaperContext(request.messages) ? '论文内容已包含在对话中' : undefined
+      this.hasPaperContext(request.messages) ? '论文内容已包含在对话中' : undefined,
+      matchedSkills
     )
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -222,7 +239,8 @@ export class PlanExecuteService {
     request: ChatRequest,
     _llmConfig: LLMConfig,
     webContents: WebContents,
-    previousResults: string[]
+    previousResults: string[],
+    matchedSkills: SkillMatchResult[]
   ): Promise<{ success: boolean; summary?: string; error?: string }> {
     try {
       // 构建步骤上下文注入
@@ -246,7 +264,13 @@ export class PlanExecuteService {
       }
 
       // 委托 ReactLoopService 执行
-      const result = await this.reactLoopService.sendMessageWithReact(stepRequest, webContents)
+      const result = await this.reactLoopService.sendMessageWithReact(
+        stepRequest,
+        webContents,
+        undefined,
+        request.selectedKnowledgeBases,
+        matchedSkills
+      )
 
       // 收集步骤结果摘要
       const summary = previousResults.length > 0 ? `步骤 ${stepIndex + 1} 已完成` : undefined

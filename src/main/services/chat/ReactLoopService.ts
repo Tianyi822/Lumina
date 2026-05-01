@@ -7,6 +7,7 @@ import type {
   MCPToolReference
 } from '../../types/chat'
 import type { KnowledgeBaseReference } from '@shared/types/knowledge'
+import type { SkillMatchResult } from '@shared/types/skill'
 import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
 import { formatMessagesWithKnowledge } from './message'
@@ -80,7 +81,8 @@ export class ReactLoopService {
     request: ChatRequest,
     webContents: WebContents,
     knowledgeResults?: KnowledgeSearchResult[],
-    selectedKnowledgeBases?: KnowledgeBaseReference[]
+    selectedKnowledgeBases?: KnowledgeBaseReference[],
+    matchedSkills: SkillMatchResult[] = []
   ): Promise<ChatResult> {
     const { messages, modelKey, sessionId, maxReactIterations = 10 } = request
 
@@ -113,7 +115,12 @@ export class ReactLoopService {
       const tools = this.toolRegistry.buildOpenAITools()
 
       const allToolRefs = this.toolRegistry.getAllToolReferences()
-      const systemPrompt = await promptBuilder.buildSystemPrompt(llmConfig, true, allToolRefs)
+      const systemPrompt = await promptBuilder.buildSystemPrompt(
+        llmConfig,
+        true,
+        allToolRefs,
+        matchedSkills
+      )
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
         ...formatMessagesWithKnowledge(messages, knowledgeResults)

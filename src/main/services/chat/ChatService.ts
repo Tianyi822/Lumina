@@ -3,6 +3,7 @@ import type { WebContents } from 'electron'
 import { configManager } from '../config'
 import { logger } from '../logger'
 import { mcpService } from '../mcp'
+import { skillService } from '../skill'
 import type { ChatRequest, ChatResult, KnowledgeSearchResult, TokenUsage } from '../../types/chat'
 import type { LLMConfig } from '../../types/config'
 import {
@@ -16,6 +17,7 @@ import { PlanExecuteService } from './PlanExecuteService'
 import { StopController } from './StopController'
 import { StreamHandler } from './StreamHandler'
 import { ReactLoopService } from './ReactLoopService'
+import { promptBuilder } from './PromptBuilder'
 
 /**
  * 聊天服务
@@ -71,11 +73,23 @@ export class ChatService {
 
     const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
     const hasTools = (selectedTools && selectedTools.length > 0) || request.enableLabTools
+    const matchedSkills = skillService.matchSkills(request)
+
+    if (matchedSkills.length > 0) {
+      logger.info('聊天请求匹配到 Skill', 'main', {
+        sessionId,
+        skills: matchedSkills.map((skill) => skill.name)
+      })
+    }
 
     // 论文会话 + 规划模式：走 PlanExecuteService
     const isPlanMode = request.sessionType === 'paper' && request.enablePlanMode
     if (isPlanMode) {
-      const result = await this.planExecuteService.sendMessageWithPlan(request, webContents)
+      const result = await this.planExecuteService.sendMessageWithPlan(
+        request,
+        webContents,
+        matchedSkills
+      )
       this.stopController.clearStoppedSession(sessionId)
       return result
     }
@@ -85,13 +99,14 @@ export class ChatService {
         request,
         webContents,
         undefined,
-        selectedKnowledgeBases
+        selectedKnowledgeBases,
+        matchedSkills
       )
       this.stopController.clearStoppedSession(sessionId)
       return result
     }
 
-    const result = await this.sendMessageDirect(request, webContents)
+    const result = await this.sendMessageDirect(request, webContents, undefined, matchedSkills)
     this.stopController.clearStoppedSession(sessionId)
     return result
   }
@@ -103,7 +118,8 @@ export class ChatService {
   private async sendMessageDirect(
     request: ChatRequest,
     webContents: WebContents,
-    knowledgeResults?: KnowledgeSearchResult[]
+    knowledgeResults?: KnowledgeSearchResult[],
+    matchedSkills = skillService.matchSkills(request)
   ): Promise<ChatResult> {
     const { messages, modelKey, sessionId } = request
 
@@ -128,12 +144,19 @@ export class ChatService {
     try {
       const client = this.createClient(llmConfig)
       const formattedMessages = formatMessagesWithKnowledge(messages, knowledgeResults)
+      const skillPrompt = promptBuilder.buildSkillInstructionsPrompt(matchedSkills)
+      const conversationMessages = skillPrompt
+        ? ([
+            { role: 'system' as const, content: skillPrompt },
+            ...formattedMessages
+          ] as typeof formattedMessages)
+        : formattedMessages
 
       const stream = await this.modelRetryHandler.createChatCompletionWithRetry(
         client,
         {
           model: llmConfig.model_name,
-          messages: formattedMessages,
+          messages: conversationMessages,
           stream: true,
           stream_options: { include_usage: true }
         },
