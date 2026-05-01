@@ -16,6 +16,7 @@ import {
 import { registerDocumentHandlers } from './handlers/documentHandlers'
 import { registerPaperHandlers } from './handlers/paperHandlers'
 import { registerToolStatsHandlers } from './handlers/toolStatsHandlers'
+import { registerSkillHandlers, initializeSkill } from './handlers/skillHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -26,6 +27,7 @@ export { initializeEmbeddingModels } from './handlers/embeddingModelHandlers'
 export { initializeFileService } from './handlers/fileHandlers'
 export { initializeLab }
 export { initializeKnowledgeMCP }
+export { initializeSkill }
 
 /**
  * 注册所有 IPC 处理程序
@@ -75,4 +77,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册工具统计相关处理程序
   registerToolStatsHandlers()
+
+  // 注册 Skill 相关处理程序
+  registerSkillHandlers()
 }
