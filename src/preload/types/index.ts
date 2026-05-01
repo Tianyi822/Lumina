@@ -16,6 +16,7 @@ export * from './knowledgeMCP'
 export * from './document'
 export * from './paper'
 export * from './toolStats'
+export * from './skill'
 export * from './customApi'
 
 // 全局 Window 接口声明
