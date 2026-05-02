@@ -1,18 +1,14 @@
 import type { SessionType } from './session'
 
-export const DEFAULT_SKILL_MATCH_LIMIT = 3
-
 export const DEFAULT_SKILL_CONFIG: SkillConfig = {
-  directories: [],
-  autoMatchEnabled: true,
-  maxAutoMatchedSkills: DEFAULT_SKILL_MATCH_LIMIT
+  directories: []
 }
 
 /**
- * Skill 自动启用规则
+ * Skill 适用线索
  */
 export interface SkillActivation {
-  /** 触发关键词，大小写不敏感 */
+  /** 相关关键词，大小写不敏感 */
   keywords?: string[]
   /** 适用会话类型 */
   sessionTypes?: SessionType[]
@@ -48,8 +44,6 @@ export interface SkillDirectoryConfig {
  */
 export interface SkillConfig {
   directories: SkillDirectoryConfig[]
-  autoMatchEnabled: boolean
-  maxAutoMatchedSkills: number
 }
 
 /**
@@ -75,15 +69,17 @@ export interface SkillLoadResult {
 }
 
 /**
- * Skill 匹配结果，用于注入系统提示词
+ * 可暴露给模型的 Skill 摘要
  */
-export interface SkillMatchResult {
-  skillId: string
+export interface SkillSummary {
+  id: string
   name: string
-  directoryPath: string
-  score: number
-  reasons: string[]
-  instructions: string
+  description: string
+  version: string
+  activation: SkillActivation
+  tags?: string[]
+  language?: string
+  frameworks?: string[]
 }
 
 /**

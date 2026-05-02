@@ -7,7 +7,7 @@ export type {
   SkillDirectoryConfig,
   SkillLoadResult,
   SkillManifest,
-  SkillMatchResult,
+  SkillSummary,
   SkillOperationResult
 } from '@shared/types/skill'
 

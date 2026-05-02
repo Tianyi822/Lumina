@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { migrateConfig } from './ConfigManager.ts'
 import type { AppConfig } from '@shared/types/config'
 
-test('配置迁移会剥离旧 promptConfig 并保留 MCP 环境变量', () => {
+test('配置迁移会剥离旧 promptConfig 与 Skill 全局自动匹配配置，并保留 MCP 环境变量', () => {
   const legacyConfig = {
     theme: {
       name: 'sparrow-dark',
@@ -33,6 +33,11 @@ test('配置迁移会剥离旧 promptConfig 并保留 MCP 环境变量', () => {
       enableDynamicExamples: true,
       enablePromptCache: true,
       enablePromptOptimization: true
+    },
+    skills: {
+      autoMatchEnabled: false,
+      maxAutoMatchedSkills: 8,
+      directories: []
     }
   } as AppConfig & { promptConfig: Record<string, unknown> }
 
@@ -41,7 +46,8 @@ test('配置迁移会剥离旧 promptConfig 并保留 MCP 环境变量', () => {
   assert.equal('promptConfig' in migrated, false)
   assert.equal(migrated.mcpServers.paperTools.env?.API_KEY, 'keep-this')
   assert.equal(migrated.theme.mode, 'manual')
-  assert.equal(migrated.skills?.autoMatchEnabled, true)
-  assert.equal(migrated.skills?.maxAutoMatchedSkills, 3)
+  const migratedSkills = migrated.skills as unknown as Record<string, unknown>
+  assert.equal('autoMatchEnabled' in migratedSkills, false)
+  assert.equal('maxAutoMatchedSkills' in migratedSkills, false)
   assert.deepEqual(migrated.skills?.directories, [])
 })
