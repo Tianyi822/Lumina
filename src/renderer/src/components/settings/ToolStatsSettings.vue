@@ -90,6 +90,12 @@ function setCategory(category: CategoryFilter): void {
             <button :class="{ 'is-active': categoryFilter === 'mcp' }" @click="setCategory('mcp')">
               MCP
             </button>
+            <button
+              :class="{ 'is-active': categoryFilter === 'skill' }"
+              @click="setCategory('skill')"
+            >
+              Skill
+            </button>
           </div>
         </div>
 

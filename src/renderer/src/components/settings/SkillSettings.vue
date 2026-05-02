@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import type { SkillConfig, SkillLoadResult } from '@shared/types/skill'
+import type { SkillLoadResult } from '@shared/types/skill'
 import { useNotification } from '@renderer/composables/useNotification'
 
 const notify = useNotification()
@@ -8,11 +8,6 @@ const notify = useNotification()
 const loading = ref(false)
 const saving = ref(false)
 const skillResults = ref<SkillLoadResult[]>([])
-const skillConfig = ref<SkillConfig>({
-  directories: [],
-  autoMatchEnabled: true,
-  maxAutoMatchedSkills: 3
-})
 
 const validSkillCount = computed(() => {
   return skillResults.value.filter((result) => result.success).length
@@ -25,12 +20,7 @@ const enabledSkillCount = computed(() => {
 async function loadSkills(): Promise<void> {
   loading.value = true
   try {
-    const [results, config] = await Promise.all([
-      window.api.skill.list(),
-      window.api.skill.getConfig()
-    ])
-    skillResults.value = results
-    skillConfig.value = config
+    skillResults.value = await window.api.skill.list()
   } catch (error) {
     notify.error('Skill 加载失败', error instanceof Error ? error.message : String(error), {
       source: 'settings'
@@ -64,7 +54,6 @@ async function reloadSkills(): Promise<void> {
   loading.value = true
   try {
     skillResults.value = await window.api.skill.reload()
-    skillConfig.value = await window.api.skill.getConfig()
     notify.success('Skill 已重新加载', '', { source: 'settings' })
   } finally {
     loading.value = false
@@ -103,40 +92,6 @@ async function removeSkill(result: SkillLoadResult): Promise<void> {
   }
 }
 
-async function updateAutoMatchEnabled(event: Event): Promise<void> {
-  const enabled = (event.target as HTMLInputElement).checked
-  skillConfig.value = {
-    ...skillConfig.value,
-    autoMatchEnabled: enabled
-  }
-  await saveSkillConfig()
-}
-
-async function updateMatchLimit(event: Event): Promise<void> {
-  const value = Number((event.target as HTMLInputElement).value)
-  skillConfig.value = {
-    ...skillConfig.value,
-    maxAutoMatchedSkills: value
-  }
-  await saveSkillConfig()
-}
-
-async function saveSkillConfig(): Promise<void> {
-  saving.value = true
-  try {
-    const response = await window.api.skill.updateConfig({
-      autoMatchEnabled: skillConfig.value.autoMatchEnabled,
-      maxAutoMatchedSkills: skillConfig.value.maxAutoMatchedSkills
-    })
-    if (!response.success) {
-      notify.error('Skill 配置保存失败', response.error || '保存失败', { source: 'settings' })
-      await loadSkills()
-    }
-  } finally {
-    saving.value = false
-  }
-}
-
 function getSkillName(result: SkillLoadResult): string {
   return result.skill?.name || result.directoryPath.split('/').pop() || result.directoryPath
 }
@@ -163,31 +118,6 @@ onMounted(() => {
           添加目录
         </button>
       </div>
-    </div>
-
-    <div class="skill-settings__controls">
-      <label class="skill-settings__switch">
-        <input
-          type="checkbox"
-          :checked="skillConfig.autoMatchEnabled"
-          :disabled="saving"
-          @change="updateAutoMatchEnabled"
-        />
-        <span>自动匹配启用</span>
-      </label>
-
-      <label class="skill-settings__limit">
-        <span>最大匹配数</span>
-        <input
-          class="sm-input"
-          type="number"
-          min="1"
-          max="10"
-          :value="skillConfig.maxAutoMatchedSkills"
-          :disabled="saving"
-          @change="updateMatchLimit"
-        />
-      </label>
     </div>
 
     <div v-if="loading" class="sm-settings-empty">正在加载 Skill...</div>
@@ -288,18 +218,7 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.skill-settings__controls {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-4);
-  padding: 12px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-1);
-}
-
-.skill-settings__switch,
-.skill-settings__limit {
+.skill-settings__switch {
   display: inline-flex;
   align-items: center;
   gap: var(--sm-space-2);
@@ -313,10 +232,6 @@ onMounted(() => {
 
 .skill-settings__switch--compact {
   white-space: nowrap;
-}
-
-.skill-settings__limit input {
-  width: 72px;
 }
 
 .skill-settings__list {

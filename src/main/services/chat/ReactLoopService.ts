@@ -7,7 +7,6 @@ import type {
   MCPToolReference
 } from '../../types/chat'
 import type { KnowledgeBaseReference } from '@shared/types/knowledge'
-import type { SkillMatchResult } from '@shared/types/skill'
 import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
 import { formatMessagesWithKnowledge } from './message'
@@ -16,11 +15,13 @@ import {
   KnowledgeToolAdapter,
   MCPToolAdapter,
   LabToolAdapter,
+  SkillToolAdapter,
   UnifiedToolExecutor,
   UnifiedToolRegistry
 } from './tools'
 import type { ReactLoopServiceOptions } from './chatInternal'
 import { StreamProcessor } from './StreamProcessor'
+import { skillService } from '../skill'
 
 /**
  * ReAct 循环服务
@@ -36,6 +37,7 @@ export class ReactLoopService {
   private readonly unifiedToolExecutor: UnifiedToolExecutor
   private readonly toolRegistry: UnifiedToolRegistry
   private readonly labAdapter: LabToolAdapter
+  private readonly skillAdapter: SkillToolAdapter
   private readonly knowledgeAdapter: KnowledgeToolAdapter
   private readonly mcpAdapter: MCPToolAdapter | null
   private readonly streamProcessor: StreamProcessor
@@ -56,6 +58,7 @@ export class ReactLoopService {
 
     this.toolRegistry = new UnifiedToolRegistry()
     this.labAdapter = new LabToolAdapter()
+    this.skillAdapter = new SkillToolAdapter()
     this.knowledgeAdapter = new KnowledgeToolAdapter()
     this.mcpAdapter = options.mcpService ? new MCPToolAdapter(options.mcpService) : null
 
@@ -81,8 +84,7 @@ export class ReactLoopService {
     request: ChatRequest,
     webContents: WebContents,
     knowledgeResults?: KnowledgeSearchResult[],
-    selectedKnowledgeBases?: KnowledgeBaseReference[],
-    matchedSkills: SkillMatchResult[] = []
+    selectedKnowledgeBases?: KnowledgeBaseReference[]
   ): Promise<ChatResult> {
     const { messages, modelKey, sessionId, maxReactIterations = 10 } = request
 
@@ -115,12 +117,7 @@ export class ReactLoopService {
       const tools = this.toolRegistry.buildOpenAITools()
 
       const allToolRefs = this.toolRegistry.getAllToolReferences()
-      const systemPrompt = await promptBuilder.buildSystemPrompt(
-        llmConfig,
-        true,
-        allToolRefs,
-        matchedSkills
-      )
+      const systemPrompt = await promptBuilder.buildSystemPrompt(llmConfig, true, allToolRefs)
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
         ...formatMessagesWithKnowledge(messages, knowledgeResults)
@@ -187,6 +184,7 @@ export class ReactLoopService {
     this.toolRegistry.unregisterByCategory('lab')
     this.toolRegistry.unregisterByCategory('knowledge')
     this.toolRegistry.unregisterByCategory('mcp')
+    this.toolRegistry.unregisterByCategory('skill')
 
     if (selectedTools && selectedTools.length > 0 && this.mcpAdapter) {
       this.toolRegistry.registerBatch(selectedTools, this.mcpAdapter, 'mcp')
@@ -216,6 +214,17 @@ export class ReactLoopService {
         knowledgeToolCount: knowledgeTools.length,
         totalToolCount: this.toolRegistry.size,
         selectedKnowledgeBases: selectedKnowledgeBases.map((kb) => kb.name)
+      })
+    }
+
+    if (skillService.hasAvailableSkills()) {
+      const skillTools = this.skillAdapter.getTools()
+      this.toolRegistry.registerBatch(skillTools, this.skillAdapter, 'skill')
+
+      this.logger.info('已添加 Skill 工具到工具列表', 'main', {
+        sessionId,
+        skillToolCount: skillTools.length,
+        totalToolCount: this.toolRegistry.size
       })
     }
 

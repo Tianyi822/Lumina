@@ -1,13 +1,20 @@
 import type OpenAI from 'openai'
 import type { WebContents } from 'electron'
-import type { ChatRequest, ChatResult, PlanStep, PlanStepStatus } from '../../types/chat'
+import type {
+  ChatRequest,
+  ChatResult,
+  MCPToolReference,
+  PlanStep,
+  PlanStepStatus
+} from '../../types/chat'
 import type { LLMConfig } from '../../types/config'
-import type { SkillMatchResult } from '@shared/types/skill'
 import type { Logger } from '../logger'
 import type { StopController } from './StopController'
 import type { StreamHandler } from './StreamHandler'
 import type { ReactLoopService } from './ReactLoopService'
 import { promptBuilder } from './PromptBuilder'
+import { SkillToolAdapter } from './tools'
+import { skillService } from '../skill'
 
 /**
  * PlanExecuteService 配置选项
@@ -40,6 +47,7 @@ export class PlanExecuteService {
   private readonly createClient: PlanExecuteServiceOptions['createClient']
   private readonly validateAndGetLLMConfig: PlanExecuteServiceOptions['validateAndGetLLMConfig']
   private readonly reactLoopService: PlanExecuteServiceOptions['reactLoopService']
+  private readonly skillAdapter = new SkillToolAdapter()
 
   constructor(options: PlanExecuteServiceOptions) {
     this.logger = options.logger
@@ -56,11 +64,7 @@ export class PlanExecuteService {
    * 2. 逐步骤委托 ReactLoopService 执行
    * 3. 汇总结果
    */
-  async sendMessageWithPlan(
-    request: ChatRequest,
-    webContents: WebContents,
-    matchedSkills: SkillMatchResult[] = []
-  ): Promise<ChatResult> {
+  async sendMessageWithPlan(request: ChatRequest, webContents: WebContents): Promise<ChatResult> {
     const { sessionId, modelKey } = request
 
     this.logger.info('开始规划模式消息处理', 'main', { sessionId, modelKey })
@@ -77,15 +81,14 @@ export class PlanExecuteService {
 
     try {
       // 阶段 1：生成计划
-      const planSteps = await this.generatePlan(request, llmConfig, matchedSkills)
+      const planSteps = await this.generatePlan(request, llmConfig)
       if (!planSteps || planSteps.length === 0) {
         this.logger.info('计划为空，回退到直接 ReAct 模式', 'main', { sessionId })
         return this.reactLoopService.sendMessageWithReact(
           request,
           webContents,
           undefined,
-          request.selectedKnowledgeBases,
-          matchedSkills
+          request.selectedKnowledgeBases
         )
       }
 
@@ -116,8 +119,7 @@ export class PlanExecuteService {
           request,
           llmConfig,
           webContents,
-          previousResults,
-          matchedSkills
+          previousResults
         )
 
         if (this.stopController.isStopped(sessionId)) {
@@ -160,17 +162,12 @@ export class PlanExecuteService {
   /**
    * 调用 LLM 生成执行计划
    */
-  private async generatePlan(
-    request: ChatRequest,
-    llmConfig: LLMConfig,
-    matchedSkills: SkillMatchResult[]
-  ): Promise<PlanStep[]> {
+  private async generatePlan(request: ChatRequest, llmConfig: LLMConfig): Promise<PlanStep[]> {
     const client = this.createClient(llmConfig)
 
     const planPrompt = promptBuilder.buildPlanSystemPrompt(
-      request.selectedTools,
-      this.hasPaperContext(request.messages) ? '论文内容已包含在对话中' : undefined,
-      matchedSkills
+      this.buildPlanningTools(request),
+      this.hasPaperContext(request.messages) ? '论文内容已包含在对话中' : undefined
     )
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -239,8 +236,7 @@ export class PlanExecuteService {
     request: ChatRequest,
     _llmConfig: LLMConfig,
     webContents: WebContents,
-    previousResults: string[],
-    matchedSkills: SkillMatchResult[]
+    previousResults: string[]
   ): Promise<{ success: boolean; summary?: string; error?: string }> {
     try {
       // 构建步骤上下文注入
@@ -268,8 +264,7 @@ export class PlanExecuteService {
         stepRequest,
         webContents,
         undefined,
-        request.selectedKnowledgeBases,
-        matchedSkills
+        request.selectedKnowledgeBases
       )
 
       // 收集步骤结果摘要
@@ -298,5 +293,13 @@ export class PlanExecuteService {
 
   private hasPaperContext(messages: ChatRequest['messages']): boolean {
     return messages.some((m) => m.role === 'system' && m.content && m.content.length > 100)
+  }
+
+  private buildPlanningTools(request: ChatRequest): MCPToolReference[] {
+    const tools = [...(request.selectedTools ?? [])]
+    if (skillService.hasAvailableSkills()) {
+      tools.push(...this.skillAdapter.getTools())
+    }
+    return tools
   }
 }

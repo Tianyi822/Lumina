@@ -1,6 +1,5 @@
 import type { LLMConfig } from '@main/types/config'
 import type { MCPToolReference } from '@main/types/chat'
-import type { SkillMatchResult } from '@shared/types/skill'
 import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt } from './prompts/reactSystemPrompt'
 import { buildPlanSystemPrompt, buildStepExecutionPrompt } from './prompts/planSystemPrompt'
 
@@ -12,13 +11,12 @@ export class PromptBuilder {
   async buildSystemPrompt(
     modelConfig: LLMConfig,
     hasTools: boolean,
-    selectedTools?: MCPToolReference[],
-    matchedSkills: SkillMatchResult[] = []
+    selectedTools?: MCPToolReference[]
   ): Promise<string> {
     const hasSelectedTools = hasTools || (selectedTools?.length ?? 0) > 0
 
     if (!hasSelectedTools) {
-      return this.appendSkillInstructions(this.getBasicSystemPrompt(), matchedSkills)
+      return this.getBasicSystemPrompt()
     }
 
     let prompt = buildReactSystemPrompt({
@@ -31,7 +29,11 @@ export class PromptBuilder {
       prompt += '\n\n' + buildKnowledgeEnhancedPrompt()
     }
 
-    return this.appendSkillInstructions(prompt, matchedSkills)
+    if (this.hasSkillTools(selectedTools)) {
+      prompt += '\n\n' + this.buildSkillToolGuide()
+    }
+
+    return prompt
   }
 
   private getBasicSystemPrompt(): string {
@@ -45,12 +47,12 @@ export class PromptBuilder {
   /**
    * 构建规划阶段的系统提示词
    */
-  buildPlanSystemPrompt(
-    tools: MCPToolReference[] = [],
-    paperContext?: string,
-    matchedSkills: SkillMatchResult[] = []
-  ): string {
-    return this.appendSkillInstructions(buildPlanSystemPrompt(tools, paperContext), matchedSkills)
+  buildPlanSystemPrompt(tools: MCPToolReference[] = [], paperContext?: string): string {
+    const prompt = buildPlanSystemPrompt(tools, paperContext)
+    if (!this.hasSkillTools(tools)) {
+      return prompt
+    }
+    return `${prompt}\n\n${this.buildSkillToolGuide()}`
   }
 
   /**
@@ -64,29 +66,17 @@ export class PromptBuilder {
     return buildStepExecutionPrompt(stepTitle, stepDescription, previousResults)
   }
 
-  buildSkillInstructionsPrompt(matchedSkills: SkillMatchResult[] = []): string {
-    return this.formatSkillInstructions(matchedSkills)
+  private hasSkillTools(tools?: MCPToolReference[]): boolean {
+    return tools?.some((tool) => tool.serverName === 'skill') ?? false
   }
 
-  private appendSkillInstructions(prompt: string, matchedSkills: SkillMatchResult[]): string {
-    const skillInstructions = this.formatSkillInstructions(matchedSkills)
-    if (!skillInstructions) {
-      return prompt
-    }
-    return `${prompt}\n\n${skillInstructions}`
-  }
+  private buildSkillToolGuide(): string {
+    return `# Skill 工具使用指南
 
-  private formatSkillInstructions(matchedSkills: SkillMatchResult[]): string {
-    if (matchedSkills.length === 0) {
-      return ''
-    }
-
-    const sections = matchedSkills.map((skill, index) => {
-      const reasons = skill.reasons.length > 0 ? `\n匹配原因：${skill.reasons.join('；')}` : ''
-      return `## Skill ${index + 1}: ${skill.name}\n\n${skill.instructions}${reasons}`
-    })
-
-    return `# 自动匹配的 Skill 指令\n\n以下 Skill 来自用户添加的外部目录。它们只是任务指导文本，不代表可执行工具；如需调用工具，仍必须使用当前可用的 MCP、知识库或实验室工具。\n\n${sections.join('\n\n')}`
+- Skill 是用户添加的外部工作说明书；是否需要使用由你根据任务自行判断
+- 不确定是否有合适 Skill 时，先调用 skill__list 查看摘要，不要猜测说明书内容
+- 只有摘要明显相关时，再调用 skill__read 读取完整 SKILL.md 并按其中流程执行
+- 如果任务很简单或没有相关 Skill，直接回答，不要为了使用 Skill 而调用工具`
   }
 }
 

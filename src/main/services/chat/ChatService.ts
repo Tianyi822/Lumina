@@ -17,7 +17,6 @@ import { PlanExecuteService } from './PlanExecuteService'
 import { StopController } from './StopController'
 import { StreamHandler } from './StreamHandler'
 import { ReactLoopService } from './ReactLoopService'
-import { promptBuilder } from './PromptBuilder'
 
 /**
  * 聊天服务
@@ -72,41 +71,29 @@ export class ChatService {
     this.stopController.clearStoppedSession(sessionId)
 
     const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
+    const hasSkillTools = skillService.hasAvailableSkills()
     const hasTools = (selectedTools && selectedTools.length > 0) || request.enableLabTools
-    const matchedSkills = skillService.matchSkills(request)
-
-    if (matchedSkills.length > 0) {
-      logger.info('聊天请求匹配到 Skill', 'main', {
-        sessionId,
-        skills: matchedSkills.map((skill) => skill.name)
-      })
-    }
 
     // 论文会话 + 规划模式：走 PlanExecuteService
     const isPlanMode = request.sessionType === 'paper' && request.enablePlanMode
     if (isPlanMode) {
-      const result = await this.planExecuteService.sendMessageWithPlan(
-        request,
-        webContents,
-        matchedSkills
-      )
+      const result = await this.planExecuteService.sendMessageWithPlan(request, webContents)
       this.stopController.clearStoppedSession(sessionId)
       return result
     }
 
-    if (hasKnowledgeBases || hasTools) {
+    if (hasKnowledgeBases || hasTools || hasSkillTools) {
       const result = await this.reactLoopService.sendMessageWithReact(
         request,
         webContents,
         undefined,
-        selectedKnowledgeBases,
-        matchedSkills
+        selectedKnowledgeBases
       )
       this.stopController.clearStoppedSession(sessionId)
       return result
     }
 
-    const result = await this.sendMessageDirect(request, webContents, undefined, matchedSkills)
+    const result = await this.sendMessageDirect(request, webContents)
     this.stopController.clearStoppedSession(sessionId)
     return result
   }
@@ -118,8 +105,7 @@ export class ChatService {
   private async sendMessageDirect(
     request: ChatRequest,
     webContents: WebContents,
-    knowledgeResults?: KnowledgeSearchResult[],
-    matchedSkills = skillService.matchSkills(request)
+    knowledgeResults?: KnowledgeSearchResult[]
   ): Promise<ChatResult> {
     const { messages, modelKey, sessionId } = request
 
@@ -144,19 +130,12 @@ export class ChatService {
     try {
       const client = this.createClient(llmConfig)
       const formattedMessages = formatMessagesWithKnowledge(messages, knowledgeResults)
-      const skillPrompt = promptBuilder.buildSkillInstructionsPrompt(matchedSkills)
-      const conversationMessages = skillPrompt
-        ? ([
-            { role: 'system' as const, content: skillPrompt },
-            ...formattedMessages
-          ] as typeof formattedMessages)
-        : formattedMessages
 
       const stream = await this.modelRetryHandler.createChatCompletionWithRetry(
         client,
         {
           model: llmConfig.model_name,
-          messages: conversationMessages,
+          messages: formattedMessages,
           stream: true,
           stream_options: { include_usage: true }
         },
