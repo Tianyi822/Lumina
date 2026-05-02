@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 
 import type { AppConfig } from '@shared/types/config'
 import { SkillService } from './SkillService.ts'
+import { SkillToolService } from './SkillToolService.ts'
 
 function createBaseConfig(): AppConfig {
   return {
@@ -18,15 +19,20 @@ function createBaseConfig(): AppConfig {
     },
     mcpServers: {},
     skills: {
-      directories: [],
-      autoMatchEnabled: true,
-      maxAutoMatchedSkills: 3
+      directories: []
     }
   }
 }
 
 function createTempRoot(): string {
   return mkdtempSync(join(tmpdir(), 'lumina-skill-test-'))
+}
+
+function getToolText(content: unknown): string {
+  if (Array.isArray(content) && typeof content[0]?.text === 'string') {
+    return content[0].text
+  }
+  return typeof content === 'string' ? content : ''
 }
 
 function createSkillDir(
@@ -103,12 +109,13 @@ test('SkillService 会拒绝重复 id', () => {
       true
     )
     assert.match(results[0].error ?? '', /重复/)
+    assert.deepEqual(service.listAvailableSkills(), [])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('SkillService 不匹配已停用的 Skill', () => {
+test('SkillService 不暴露已停用的 Skill', () => {
   const root = createTempRoot()
   try {
     const skillDir = createSkillDir(root, 'paper', createManifest('paper.skill', 'prototype'))
@@ -120,23 +127,21 @@ test('SkillService 不匹配已停用的 Skill', () => {
     const service = createService(config)
     service.reload()
 
-    const matches = service.matchSkills({
-      sessionId: 'session-1',
-      modelKey: 'model',
-      sessionType: 'paper',
-      messages: [{ role: 'user', content: 'explain prototype generation' }]
-    })
+    assert.equal(service.hasAvailableSkills(), false)
+    assert.deepEqual(service.listAvailableSkills(), [])
 
-    assert.equal(matches.length, 0)
+    const readResult = service.readSkillInstructions('paper.skill')
+    assert.equal(readResult.success, false)
+    assert.match(readResult.error ?? '', /未找到可用 Skill/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('SkillService 自动匹配会按分数排序', () => {
+test('SkillToolService 先列出摘要，再按需读取完整说明书', () => {
   const root = createTempRoot()
   try {
-    const general = createSkillDir(root, 'general', createManifest('general.skill', 'prototype'))
+    const instructions = '完整说明书：先核对论文证据，再给出结论。'
     const paper = createSkillDir(
       root,
       'paper',
@@ -145,27 +150,32 @@ test('SkillService 自动匹配会按分数排序', () => {
           keywords: ['prototype'],
           sessionTypes: ['paper']
         }
-      })
+      }),
+      instructions
     )
     const config = createBaseConfig()
     config.skills!.directories = [
-      { path: general, enabled: true, addedAt: '2026-01-01T00:00:00.000Z' },
       { path: paper, enabled: true, addedAt: '2026-01-01T00:00:00.000Z' }
     ]
 
     const service = createService(config)
     service.reload()
+    const toolService = new SkillToolService(service)
 
-    const matches = service.matchSkills({
-      sessionId: 'session-1',
-      modelKey: 'model',
-      sessionType: 'paper',
-      messages: [{ role: 'user', content: 'explain prototype generation' }]
-    })
+    const listResult = toolService.callTool('skill__list', { query: 'paper' })
+    const listText = getToolText(listResult.content)
 
-    assert.equal(matches.length, 2)
-    assert.equal(matches[0].skillId, 'paper.skill')
-    assert.ok(matches[0].score > matches[1].score)
+    assert.equal(listResult.success, true)
+    assert.match(listText, /paper\.skill/)
+    assert.match(listText, /prototype/)
+    assert.doesNotMatch(listText, /先核对论文证据/)
+
+    const readResult = toolService.callTool('skill__read', { skillId: 'paper.skill' })
+    const readText = getToolText(readResult.content)
+
+    assert.equal(readResult.success, true)
+    assert.match(readText, /paper\.skill/)
+    assert.match(readText, /完整说明书/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

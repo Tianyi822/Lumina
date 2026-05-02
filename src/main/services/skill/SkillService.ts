@@ -5,15 +5,13 @@ import { configManager } from '@main/services/config'
 import { logger } from '@main/services/logger'
 import type { Logger } from '@main/services/logger'
 import type { AppConfig } from '@main/types/config'
-import type { ChatRequest } from '@main/types/chat'
-import type { SessionType } from '@shared/types/session'
 import type {
   SkillConfig,
   SkillDefinition,
   SkillDirectoryConfig,
   SkillLoadResult,
   SkillManifest,
-  SkillMatchResult
+  SkillSummary
 } from '@shared/types/skill'
 import { DEFAULT_SKILL_CONFIG } from '@shared/types/skill'
 
@@ -22,7 +20,6 @@ const SKILL_INSTRUCTIONS_FILE = 'SKILL.md'
 const SKILL_CONTENT_MAX_LENGTH = 80_000
 
 const sessionTypeSchema = z.enum(['default', 'tool', 'knowledge', 'paper'])
-const SESSION_TYPES: SessionType[] = ['default', 'tool', 'knowledge', 'paper']
 
 const skillManifestSchema = z
   .object({
@@ -58,16 +55,16 @@ interface SkillServiceOptions {
   logger?: Logger
 }
 
-interface SkillScore {
-  score: number
-  reasons: string[]
+interface SkillInstructionReadResult {
+  success: boolean
+  skill?: SkillSummary
+  instructions?: string
+  error?: string
 }
 
 function cloneSkillConfig(config: SkillConfig): SkillConfig {
   return {
-    directories: config.directories.map((directory) => ({ ...directory })),
-    autoMatchEnabled: config.autoMatchEnabled,
-    maxAutoMatchedSkills: config.maxAutoMatchedSkills
+    directories: config.directories.map((directory) => ({ ...directory }))
   }
 }
 
@@ -75,49 +72,8 @@ function normalizeDirectoryPath(directoryPath: string): string {
   return resolve(directoryPath.trim())
 }
 
-function getLastUserText(request: ChatRequest): string {
-  return request.messages
-    .filter((message) => message.role === 'user')
-    .slice(-4)
-    .map((message) => {
-      const parts = [message.content ?? '']
-      for (const document of message.attachedDocuments ?? []) {
-        parts.push(document.fileName)
-      }
-      for (const quote of message.attachedQuotes ?? []) {
-        parts.push(quote.selectedText)
-      }
-      return parts.join('\n')
-    })
-    .join('\n')
-}
-
-function getRequestContexts(request: ChatRequest): Set<string> {
-  const contexts = new Set<string>()
-  if (request.sessionType) {
-    contexts.add(request.sessionType)
-  }
-  if (request.selectedKnowledgeBases?.length) {
-    contexts.add('knowledge')
-  }
-  if (request.enableLabTools) {
-    contexts.add('lab')
-  }
-  if (request.selectedTools?.length) {
-    contexts.add('tool')
-  }
-  if (request.messages.some((message) => (message.attachedQuotes?.length ?? 0) > 0)) {
-    contexts.add('paper')
-  }
-  return contexts
-}
-
-function isSessionType(value: string): value is SessionType {
-  return SESSION_TYPES.includes(value as SessionType)
-}
-
 /**
- * 外部 Skill 包加载与自动匹配服务
+ * 外部 Skill 包加载服务
  */
 export class SkillService {
   private readonly getConfig: () => AppConfig | null
@@ -192,7 +148,11 @@ export class SkillService {
 
     const validation = this.validatePath(normalizedPath, true)
     if (!validation.success || !validation.skill) {
-      return { success: false, data: validation, error: validation.error ?? validation.errors?.[0] }
+      return {
+        success: false,
+        data: validation,
+        error: validation.error ?? validation.errors?.[0]
+      }
     }
 
     const duplicate = this.list().find(
@@ -387,87 +347,83 @@ export class SkillService {
     }
   }
 
-  matchSkills(request: ChatRequest): SkillMatchResult[] {
+  listAvailableSkills(query?: string): SkillSummary[] {
     this.syncWithConfig()
 
-    const skillConfig = this.getSkillConfig()
-    if (!skillConfig.autoMatchEnabled) {
-      return []
+    const normalizedQuery = query?.trim().toLowerCase()
+    const summaries = this.loadedResults
+      .map((result) => result.skill)
+      .filter((skill): skill is SkillDefinition => Boolean(skill?.enabled))
+      .map((skill) => this.toSummary(skill))
+
+    if (!normalizedQuery) {
+      return summaries
     }
 
-    const userText = getLastUserText(request).toLowerCase()
-    const contexts = getRequestContexts(request)
-    const sessionType = request.sessionType ?? 'default'
-    const matches: SkillMatchResult[] = []
-
-    for (const result of this.loadedResults) {
-      const skill = result.skill
-      if (!result.success || !skill?.enabled) {
-        continue
-      }
-
-      const score = this.scoreSkill(skill, userText, sessionType, contexts)
-      if (score.score <= 0) {
-        continue
-      }
-
-      matches.push({
-        skillId: skill.id,
-        name: skill.name,
-        directoryPath: skill.directoryPath,
-        score: score.score,
-        reasons: score.reasons,
-        instructions: skill.instructions
-      })
-    }
-
-    return matches
-      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'zh-CN'))
-      .slice(0, skillConfig.maxAutoMatchedSkills)
+    return summaries.filter((summary) => this.matchesSummaryQuery(summary, normalizedQuery))
   }
 
-  private scoreSkill(
-    skill: SkillDefinition,
-    userText: string,
-    sessionType: string,
-    contexts: Set<string>
-  ): SkillScore {
-    let score = 0
-    const reasons: string[] = []
-    const activation = skill.activation
+  readSkillInstructions(skillId: string): SkillInstructionReadResult {
+    this.syncWithConfig()
 
-    if (isSessionType(sessionType) && activation.sessionTypes?.includes(sessionType)) {
-      score += 4
-      reasons.push(`匹配会话类型: ${sessionType}`)
+    const normalizedSkillId = skillId.trim()
+    if (!normalizedSkillId) {
+      return { success: false, error: '缺少必需参数: skillId' }
     }
 
-    for (const context of activation.contexts ?? []) {
-      if (contexts.has(context)) {
-        score += 3
-        reasons.push(`匹配上下文: ${context}`)
-      }
+    const skill = this.loadedResults
+      .map((result) => result.skill)
+      .find((candidate) => candidate?.enabled && candidate.id === normalizedSkillId)
+
+    if (!skill) {
+      return { success: false, error: `未找到可用 Skill: ${normalizedSkillId}` }
     }
 
-    for (const keyword of activation.keywords ?? []) {
-      if (userText.includes(keyword.toLowerCase())) {
-        score += 2
-        reasons.push(`匹配关键词: ${keyword}`)
-      }
+    return {
+      success: true,
+      skill: this.toSummary(skill),
+      instructions: skill.instructions
     }
+  }
 
-    for (const tag of skill.tags ?? []) {
-      if (userText.includes(tag.toLowerCase())) {
-        score += 1
-        reasons.push(`匹配标签: ${tag}`)
-      }
+  hasAvailableSkills(): boolean {
+    return this.listAvailableSkills().length > 0
+  }
+
+  private toSummary(skill: SkillDefinition): SkillSummary {
+    return {
+      id: skill.id,
+      name: skill.name,
+      description: skill.description,
+      version: skill.version,
+      activation: {
+        keywords: [...(skill.activation.keywords ?? [])],
+        sessionTypes: [...(skill.activation.sessionTypes ?? [])],
+        contexts: [...(skill.activation.contexts ?? [])]
+      },
+      tags: skill.tags ? [...skill.tags] : undefined,
+      language: skill.language,
+      frameworks: skill.frameworks ? [...skill.frameworks] : undefined
     }
+  }
 
-    if (skill.name && userText.includes(skill.name.toLowerCase())) {
-      score += 1
-      reasons.push(`匹配名称: ${skill.name}`)
-    }
+  private matchesSummaryQuery(summary: SkillSummary, query: string): boolean {
+    const haystack = [
+      summary.id,
+      summary.name,
+      summary.description,
+      summary.version,
+      summary.language ?? '',
+      ...(summary.tags ?? []),
+      ...(summary.frameworks ?? []),
+      ...(summary.activation.keywords ?? []),
+      ...(summary.activation.contexts ?? []),
+      ...(summary.activation.sessionTypes ?? [])
+    ]
+      .join('\n')
+      .toLowerCase()
 
-    return { score, reasons }
+    return haystack.includes(query)
   }
 
   private readManifest(
