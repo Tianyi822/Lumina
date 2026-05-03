@@ -16,6 +16,7 @@ import { documentApi } from './apis/document'
 import { paperApi } from './apis/paper'
 import { toolStatsApi } from './apis/toolStats'
 import { skillApi } from './apis/skill'
+import { paperWebSearchApi } from './apis/paperWebSearch'
 
 /**
  * 自定义渲染器 API
@@ -43,7 +44,9 @@ const api = {
   // 工具统计 API
   toolStats: toolStatsApi,
   // Skill API
-  skill: skillApi
+  skill: skillApi,
+  // 论文网页搜索 API
+  paperWebSearch: paperWebSearchApi
 }
 
 // 使用 contextBridge 向渲染器暴露 API
