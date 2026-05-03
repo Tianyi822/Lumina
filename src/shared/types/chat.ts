@@ -400,6 +400,8 @@ export interface ChatRequest {
   sessionType?: string
   /** 是否启用规划模式（仅论文会话可用） */
   enablePlanMode?: boolean
+  /** 是否启用论文联网搜索（仅论文会话可用） */
+  enablePaperWebSearch?: boolean
 }
 
 /**
