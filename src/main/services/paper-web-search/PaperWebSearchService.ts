@@ -54,13 +54,10 @@ export class PaperWebSearchService {
     // 按优先级尝试：python3 > python
     for (const pythonCmd of ['python3', 'python']) {
       try {
-        const { stdout } = await execAsync(
-          `${pythonCmd} -c "import sys; print(sys.version)"`,
-          {
-            timeout: PaperWebSearchService.EXEC_TIMEOUT_MS,
-            encoding: 'utf8'
-          }
-        )
+        const { stdout } = await execAsync(`${pythonCmd} -c "import sys; print(sys.version)"`, {
+          timeout: PaperWebSearchService.EXEC_TIMEOUT_MS,
+          encoding: 'utf8'
+        })
         const version = stdout.trim()
         const dependencyMode = await this.checkDependencies(pythonCmd)
 
@@ -82,17 +79,12 @@ export class PaperWebSearchService {
     }
   }
 
-  private async tryRuntime(
-    runtime: PaperWebSearchRuntime
-  ): Promise<PaperWebSearchEnvironmentInfo> {
+  private async tryRuntime(runtime: PaperWebSearchRuntime): Promise<PaperWebSearchEnvironmentInfo> {
     try {
-      const { stdout } = await execAsync(
-        `${runtime} -c "import sys; print(sys.version)"`,
-        {
-          timeout: PaperWebSearchService.EXEC_TIMEOUT_MS,
-          encoding: 'utf8'
-        }
-      )
+      const { stdout } = await execAsync(`${runtime} -c "import sys; print(sys.version)"`, {
+        timeout: PaperWebSearchService.EXEC_TIMEOUT_MS,
+        encoding: 'utf8'
+      })
       const version = stdout.trim()
       const dependencyMode = await this.checkDependencies(runtime)
 
@@ -146,7 +138,7 @@ export class PaperWebSearchService {
    * 调用 Python 爬虫执行网页搜索
    * TODO: Task 6 实现 -- 通过 child_process.spawn 调用 resources/paper-web-search/crawler.py
    */
-  async search(_input: PaperWebSearchToolInput): Promise<PaperWebSearchOutput> {
-    throw new Error('Not implemented - will be added in Task 6')
+  async search(input: PaperWebSearchToolInput): Promise<PaperWebSearchOutput> {
+    throw new Error(`search not implemented yet, query: ${input.query}`)
   }
 }
