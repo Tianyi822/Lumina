@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-function */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import type { MCPToolCallResult } from '@shared/types/mcp'
 import type {
   PaperWebSearchEnvironmentInfo,
   PaperWebSearchOutput,
@@ -19,7 +19,8 @@ class MockPaperWebSearchService {
     this.environmentCache = null
   }
 
-  async search(_input: PaperWebSearchToolInput): Promise<PaperWebSearchOutput> {
+  async search(input: PaperWebSearchToolInput): Promise<PaperWebSearchOutput> {
+    void input
     return {
       success: true,
       query: 'test query',
@@ -65,8 +66,9 @@ describe('PaperWebSearchToolAdapter', () => {
     assert.equal(tools[0].serverName, 'paper_web')
     assert.equal(tools[0].toolName, 'search')
     assert.ok(tools[0].description.length > 0)
-    assert.ok(tools[0].inputSchema.properties?.query)
-    assert.ok(tools[0].inputSchema.properties?.reason)
+    const props = tools[0].inputSchema.properties as Record<string, unknown>
+    assert.ok(props.query)
+    assert.ok(props.reason)
     assert.deepEqual(tools[0].inputSchema.required, ['query', 'reason'])
   })
 
@@ -129,7 +131,8 @@ describe('PaperWebSearchToolAdapter', () => {
         return { available: true, runtime: 'python', executable: 'python3', version: '3.10.0' }
       },
       clearEnvironmentCache(): void {},
-      async search(_input: PaperWebSearchToolInput): Promise<PaperWebSearchOutput> {
+      async search(input: PaperWebSearchToolInput): Promise<PaperWebSearchOutput> {
+        void input
         return {
           success: false,
           query: 'test query',

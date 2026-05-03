@@ -1,18 +1,26 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, mock, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import childProcess from 'node:child_process'
+import { EventEmitter } from 'node:events'
 
 const PYTHON_VERSION_STDOUT = Buffer.from('Python 3.10.0\n')
-const DEPS_OK_STDOUT = Buffer.from('isolated\n')
 
-mock.method(childProcess, 'exec', (_cmd: string, _opts: unknown, callback: (err: Error | null, result: { stdout: Buffer }) => void) => {
-  if (typeof callback === 'function') {
-    callback(null, { stdout: PYTHON_VERSION_STDOUT })
+mock.method(
+  childProcess,
+  'exec',
+  (
+    _cmd: string,
+    _opts: unknown,
+    callback: (err: Error | null, result: { stdout: Buffer }) => void
+  ) => {
+    if (typeof callback === 'function') {
+      callback(null, { stdout: PYTHON_VERSION_STDOUT })
+    }
   }
-})
+)
 
 mock.method(childProcess, 'spawn', () => {
-  const EventEmitter = require('node:events')
   const emitter = new EventEmitter()
 
   const proc = {
@@ -23,17 +31,21 @@ mock.method(childProcess, 'spawn', () => {
     emit: emitter.emit.bind(emitter)
   }
 
-  proc.stdout.on = (_event: string, handler: (data: Buffer) => void) => {
-    handler(Buffer.from(JSON.stringify({
-      success: true,
-      query: 'test',
-      quality: 'high',
-      results: [],
-      totalDiscovered: 0,
-      totalCrawled: 0,
-      totalRetained: 0,
-      elapsedMs: 0
-    })))
+  ;(proc.stdout as any).on = (_event: string, handler: (data: Buffer) => void) => {
+    handler(
+      Buffer.from(
+        JSON.stringify({
+          success: true,
+          query: 'test',
+          quality: 'high',
+          results: [],
+          totalDiscovered: 0,
+          totalCrawled: 0,
+          totalRetained: 0,
+          elapsedMs: 0
+        })
+      )
+    )
   }
 
   setImmediate(() => {
