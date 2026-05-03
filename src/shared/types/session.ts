@@ -116,7 +116,7 @@ export interface SessionSelectionState {
   selectedModel: string
   /** 当前会话是否启用规划模式（仅论文会话） */
   enablePlanMode?: boolean
-  /** 当前会话是否启用论文联网搜索 */
+  /** 当前会话是否启用论文联网搜索（仅论文会话） */
   enablePaperWebSearch?: boolean
 }
 

@@ -65,10 +65,6 @@ export interface PaperWebSearchOutput {
 }
 
 /** 搜索工具输入（含论文上下文，由系统注入） */
-export interface PaperWebSearchToolInput {
-  query: string
-  reason: string
-  target?: string
-  recency?: string
+export interface PaperWebSearchToolInput extends PaperWebSearchCallArgs {
   paperContext: PaperWebSearchContext
 }
