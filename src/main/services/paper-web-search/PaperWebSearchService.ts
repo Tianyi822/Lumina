@@ -1,5 +1,7 @@
-import { exec } from 'child_process'
+import { exec, spawn } from 'child_process'
 import { promisify } from 'util'
+import path from 'path'
+import { app } from 'electron'
 import { logger } from '@main/services/logger'
 import type {
   PaperWebSearchEnvironmentInfo,
@@ -136,9 +138,157 @@ export class PaperWebSearchService {
 
   /**
    * 调用 Python 爬虫执行网页搜索
-   * TODO: Task 6 实现 -- 通过 child_process.spawn 调用 resources/paper-web-search/crawler.py
    */
   async search(input: PaperWebSearchToolInput): Promise<PaperWebSearchOutput> {
-    throw new Error(`search not implemented yet, query: ${input.query}`)
+    const startTime = Date.now()
+
+    // 1. 检查环境
+    const envInfo = await this.checkEnvironment()
+    if (!envInfo.available || !envInfo.executable) {
+      return {
+        success: false,
+        query: input.query,
+        quality: 'empty',
+        results: [],
+        totalDiscovered: 0,
+        totalCrawled: 0,
+        totalRetained: 0,
+        elapsedMs: Date.now() - startTime,
+        error: envInfo.error || 'Python 环境不可用'
+      }
+    }
+
+    // 2. 确定 Python 可执行文件路径
+    const pythonExecutable = envInfo.executable
+    const crawlerPath = getCrawlerPath()
+
+    // 3. 构建 JSON 输入
+    const inputJson = JSON.stringify({
+      query: input.query,
+      reason: input.reason,
+      paper_context: {
+        paper_id: input.paperContext.paperId,
+        file_name: input.paperContext.fileName,
+        paper_title: input.paperContext.paperTitle,
+        paper_authors: input.paperContext.paperAuthors,
+        paper_keywords: input.paperContext.paperKeywords,
+        selected_quote: input.paperContext.selectedQuote,
+        selected_quote_context: input.paperContext.selectedQuoteContext,
+        user_question: input.paperContext.userQuestion,
+        reference_hints: input.paperContext.referenceHints
+      },
+      limits: {
+        max_results: 5,
+        max_snippet_chars: 1000,
+        max_total_chars: 5000,
+        timeout_seconds: 30
+      }
+    })
+
+    // 4. 通过 spawn 调用爬虫
+    return new Promise<PaperWebSearchOutput>((resolve) => {
+      let stdout = ''
+      let stderr = ''
+
+      const child = spawn(pythonExecutable, [crawlerPath], {
+        timeout: 30000,
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
+
+      child.stdout?.on('data', (data: Buffer) => {
+        const remaining = 102400 - Buffer.byteLength(stdout, 'utf8')
+        if (remaining <= 0) return
+        stdout += data.toString('utf8').slice(0, remaining)
+      })
+
+      child.stderr?.on('data', (data: Buffer) => {
+        stderr += data.toString('utf8')
+      })
+
+      child.on('error', (error: Error) => {
+        logger.error(`PaperWebSearch: 爬虫启动失败: ${error.message}`, 'main')
+        resolve({
+          success: false,
+          query: input.query,
+          quality: 'empty',
+          results: [],
+          totalDiscovered: 0,
+          totalCrawled: 0,
+          totalRetained: 0,
+          elapsedMs: Date.now() - startTime,
+          error: `爬虫启动失败: ${error.message}`
+        })
+      })
+
+      child.on('close', (exitCode: number | null) => {
+        const elapsed = Date.now() - startTime
+
+        if (exitCode !== 0) {
+          const errMsg = stderr.trim() || `爬虫退出码: ${exitCode}`
+          logger.warn(`PaperWebSearch: 爬虫异常退出 (exit=${exitCode})`, 'main', {
+            stderr: stderr.trim()
+          })
+          resolve({
+            success: false,
+            query: input.query,
+            quality: 'empty',
+            results: [],
+            totalDiscovered: 0,
+            totalCrawled: 0,
+            totalRetained: 0,
+            elapsedMs: elapsed,
+            error: errMsg
+          })
+          return
+        }
+
+        if (!stdout.trim()) {
+          logger.warn('PaperWebSearch: 爬虫 stdout 为空', 'main', { stderr: stderr.trim() })
+          resolve({
+            success: false,
+            query: input.query,
+            quality: 'empty',
+            results: [],
+            totalDiscovered: 0,
+            totalCrawled: 0,
+            totalRetained: 0,
+            elapsedMs: elapsed,
+            error: '爬虫返回了空结果'
+          })
+          return
+        }
+
+        try {
+          const output: PaperWebSearchOutput = JSON.parse(stdout.trim())
+          output.elapsedMs = elapsed
+          resolve(output)
+        } catch (parseError) {
+          const msg = parseError instanceof Error ? parseError.message : String(parseError)
+          logger.error(`PaperWebSearch: stdout JSON 解析失败: ${msg}`, 'main')
+          resolve({
+            success: false,
+            query: input.query,
+            quality: 'empty',
+            results: [],
+            totalDiscovered: 0,
+            totalCrawled: 0,
+            totalRetained: 0,
+            elapsedMs: elapsed,
+            error: `爬虫输出解析失败: ${msg}`
+          })
+        }
+      })
+
+      // 5. 写入 stdin 并关闭
+      child.stdin?.write(inputJson)
+      child.stdin?.end()
+    })
   }
+}
+
+function getCrawlerPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'paper-web-search', 'crawler.py')
+  }
+  return path.join(__dirname, '..', '..', '..', '..', '..', 'resources', 'paper-web-search', 'crawler.py')
 }
