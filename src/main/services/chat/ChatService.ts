@@ -72,7 +72,10 @@ export class ChatService {
 
     const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
     const hasSkillTools = skillService.hasAvailableSkills()
-    const hasTools = (selectedTools && selectedTools.length > 0) || request.enableLabTools
+    const hasTools =
+      (selectedTools && selectedTools.length > 0) ||
+      request.enableLabTools ||
+      request.enablePaperWebSearch
 
     // 论文会话 + 规划模式：走 PlanExecuteService
     const isPlanMode = request.sessionType === 'paper' && request.enablePlanMode

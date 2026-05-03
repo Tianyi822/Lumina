@@ -290,5 +290,15 @@ function getCrawlerPath(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'paper-web-search', 'crawler.py')
   }
-  return path.join(__dirname, '..', '..', '..', '..', '..', 'resources', 'paper-web-search', 'crawler.py')
+  return path.join(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'resources',
+    'paper-web-search',
+    'crawler.py'
+  )
 }

@@ -15,7 +15,8 @@ import type { PaperWebSearchService } from './PaperWebSearchService'
 const PAPER_WEB_SEARCH_TOOL: MCPToolReference = {
   serverName: 'paper_web',
   toolName: 'search',
-  description: '搜索互联网上的学术资料，包括论文、方法、数据集、工具、引用和最新进展。适用于需要获取学术领域最新信息或查找具体学术资源的场景。',
+  description:
+    '搜索互联网上的学术资料，包括论文、方法、数据集、工具、引用和最新进展。适用于需要获取学术领域最新信息或查找具体学术资源的场景。',
   inputSchema: {
     type: 'object',
     properties: {
@@ -30,7 +31,8 @@ const PAPER_WEB_SEARCH_TOOL: MCPToolReference = {
       target: {
         type: 'string',
         enum: ['paper', 'method', 'dataset', 'tool', 'citation', 'recent_progress'],
-        description: '搜索目标类型：paper（论文）、method（方法）、dataset（数据集）、tool（工具）、citation（引用）、recent_progress（最新进展）'
+        description:
+          '搜索目标类型：paper（论文）、method（方法）、dataset（数据集）、tool（工具）、citation（引用）、recent_progress（最新进展）'
       },
       recency: {
         type: 'string',
