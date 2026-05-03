@@ -28,7 +28,7 @@ export class PaperWebSearchService {
   }
 
   private async detectEnvironment(): Promise<PaperWebSearchEnvironmentInfo> {
-    // 按优先级尝试：uv > conda > python
+    // 按优先级尝试：uv > conda > python3 > python
     const uvResult = await this.tryRuntime('uv')
     if (uvResult.available) {
       logger.info('PaperWebSearch: 检测到 uv 环境', 'main', {
@@ -47,9 +47,26 @@ export class PaperWebSearchService {
       return condaResult
     }
 
-    const pythonResult = await this.tryRuntime('python')
-    if (pythonResult.available) {
-      return pythonResult
+    // 按优先级尝试：python3 > python
+    for (const pythonCmd of ['python3', 'python']) {
+      try {
+        const { stdout } = await execAsync(`${pythonCmd} --version`, {
+          timeout: 10000,
+          encoding: 'utf8'
+        })
+        const version = stdout.trim()
+        const dependencyMode = await this.checkDependencies(pythonCmd)
+
+        return {
+          available: true,
+          runtime: 'python',
+          executable: pythonCmd,
+          version,
+          dependencyMode
+        }
+      } catch {
+        // 继续尝试下一个命令
+      }
     }
 
     return {
