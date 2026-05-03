@@ -23,6 +23,7 @@ interface UsePaperChatStreamOptions {
   selectedKnowledgeBases: Ref<KnowledgeBase[]>
   enableLabTools: Ref<boolean>
   enablePlanMode: Ref<boolean>
+  enablePaperWebSearch: Ref<boolean>
   ensurePaperContextLoaded: () => Promise<boolean>
   saveCurrentSession: () => Promise<boolean>
   setError: (message: string) => void
@@ -182,7 +183,8 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
               : undefined,
           enableLabTools: options.enableLabTools.value,
           sessionType: 'paper',
-          enablePlanMode: options.enablePlanMode.value
+          enablePlanMode: options.enablePlanMode.value,
+          enablePaperWebSearch: options.enablePaperWebSearch.value
         })
       )
 

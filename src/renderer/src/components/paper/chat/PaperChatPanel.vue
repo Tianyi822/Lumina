@@ -39,6 +39,7 @@ const {
   selectedKnowledgeBases,
   enableLabTools,
   enablePlanMode,
+  enablePaperWebSearch,
   loading,
   contextLoading,
   ensurePaperContextLoaded,
@@ -50,7 +51,8 @@ const {
   updateSelectedTools,
   updateSelectedKnowledgeBases,
   updateEnableLabTools,
-  updateEnablePlanMode
+  updateEnablePlanMode,
+  updateEnablePaperWebSearch
 } = usePaperChatSession(paperRef)
 
 provide('sessionId', sessionId)
@@ -63,6 +65,7 @@ const { isSending, sendMessage, stopRequest } = usePaperChatStream({
   selectedKnowledgeBases,
   enableLabTools,
   enablePlanMode,
+  enablePaperWebSearch,
   ensurePaperContextLoaded,
   saveCurrentSession,
   setError: (message) => {
@@ -176,6 +179,26 @@ async function handleClearContext(): Promise<void> {
 function handleQuickReplySelected(messageId: string): void {
   dismissedQuickReplyIds.value = new Set(dismissedQuickReplyIds.value).add(messageId)
 }
+
+async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
+  if (value) {
+    try {
+      const envInfo = await window.api.paperWebSearch.checkEnvironment()
+      if (!envInfo.available) {
+        notify.warning(
+          '联网搜索不可用',
+          envInfo.error || '未检测到可用 Python 环境，请安装 Python 3.9+ 或 uv。',
+          { source: 'chat' }
+        )
+        return
+      }
+    } catch {
+      notify.warning('联网搜索不可用', '环境检查失败，请稍后重试。', { source: 'chat' })
+      return
+    }
+  }
+  updateEnablePaperWebSearch(value)
+}
 </script>
 
 <template>
@@ -238,6 +261,7 @@ function handleQuickReplySelected(messageId: string): void {
           :selected-knowledge-bases="selectedKnowledgeBases"
           :enable-lab-tools="enableLabTools"
           :enable-plan-mode="enablePlanMode"
+          :enable-paper-web-search="enablePaperWebSearch"
           :quick-reply-info="activeQuickReply"
           @send="handleSend"
           @stop="stopRequest"
@@ -248,6 +272,7 @@ function handleQuickReplySelected(messageId: string): void {
           @update:selected-knowledge-bases="updateSelectedKnowledgeBases"
           @update:enable-lab-tools="updateEnableLabTools"
           @update:enable-plan-mode="updateEnablePlanMode"
+          @update:enable-paper-web-search="handleEnablePaperWebSearch"
         />
       </div>
     </template>

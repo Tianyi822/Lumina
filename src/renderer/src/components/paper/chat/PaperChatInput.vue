@@ -32,6 +32,7 @@ const props = defineProps<{
   selectedKnowledgeBases?: KnowledgeBase[]
   enableLabTools?: boolean
   enablePlanMode?: boolean
+  enablePaperWebSearch?: boolean
   quickReplyInfo?: MessageOptionContext | null
   variant?: 'default' | 'compact'
 }>()
@@ -55,6 +56,7 @@ const emit = defineEmits<{
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableLabTools', value: boolean): void
   (e: 'update:enablePlanMode', value: boolean): void
+  (e: 'update:enablePaperWebSearch', value: boolean): void
   (e: 'quick-reply-selected', messageId: string): void
 }>()
 
@@ -67,6 +69,7 @@ const localSelectedTools = ref<MCPTool[]>(props.selectedMCPTools ?? [])
 const localSelectedKnowledgeBases = ref<KnowledgeBase[]>(props.selectedKnowledgeBases ?? [])
 const localEnableLabTools = ref(props.enableLabTools ?? false)
 const localEnablePlanMode = ref(props.enablePlanMode ?? false)
+const localEnablePaperWebSearch = ref(props.enablePaperWebSearch ?? false)
 const textareaRef = ref<InstanceType<typeof PaperChatTextarea> | null>(null)
 const notify = useNotification()
 
@@ -158,6 +161,16 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => props.enablePaperWebSearch,
+  (value) => {
+    if (value !== undefined && value !== localEnablePaperWebSearch.value) {
+      localEnablePaperWebSearch.value = value
+    }
+  },
+  { immediate: true }
+)
+
 function updateSelectedModel(value: string): void {
   localSelectedModel.value = value
   emit('update:selectedModel', value)
@@ -182,6 +195,11 @@ function updateEnableLabTools(enabled: boolean): void {
 function updateEnablePlanMode(enabled: boolean): void {
   localEnablePlanMode.value = enabled
   emit('update:enablePlanMode', enabled)
+}
+
+function updateEnablePaperWebSearch(enabled: boolean): void {
+  localEnablePaperWebSearch.value = enabled
+  emit('update:enablePaperWebSearch', enabled)
 }
 
 function buildPaperChatAttachedDocuments(): AttachedDocument[] {
@@ -425,12 +443,14 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
       :selected-knowledge-bases="localSelectedKnowledgeBases"
       :enable-lab-tools="localEnableLabTools"
       :enable-plan-mode="localEnablePlanMode"
+      :enable-paper-web-search="localEnablePaperWebSearch"
       :total-attachment-count="totalAttachmentCount"
       @update:selected-model="updateSelectedModel"
       @update:selected-tools="updateSelectedTools"
       @update:selected-knowledge-bases="updateSelectedKnowledgeBases"
       @update:enable-lab-tools="updateEnableLabTools"
       @update:enable-plan-mode="updateEnablePlanMode"
+      @update:enable-paper-web-search="updateEnablePaperWebSearch"
       @upload="triggerFileUpload"
       @send="handleSend"
       @stop="handleStop"

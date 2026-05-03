@@ -17,6 +17,7 @@ interface UsePaperChatSessionReturn {
   selectedKnowledgeBases: Ref<KnowledgeBase[]>
   enableLabTools: Ref<boolean>
   enablePlanMode: Ref<boolean>
+  enablePaperWebSearch: Ref<boolean>
   loading: Ref<boolean>
   contextLoading: Ref<boolean>
   error: Ref<string>
@@ -31,6 +32,7 @@ interface UsePaperChatSessionReturn {
   updateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
   updateEnableLabTools: (value: boolean) => void
   updateEnablePlanMode: (value: boolean) => void
+  updateEnablePaperWebSearch: (value: boolean) => void
 }
 
 function createPaperContextMessage(paper: PaperDocument, markdown: string): Message {
@@ -79,6 +81,7 @@ export function usePaperChatSession(
   const selectedKnowledgeBases = ref<KnowledgeBase[]>([])
   const enableLabTools = ref(false)
   const enablePlanMode = ref(false)
+  const enablePaperWebSearch = ref(false)
   const loading = ref(false)
   const contextLoading = ref(false)
   const error = ref('')
@@ -99,6 +102,7 @@ export function usePaperChatSession(
     selectedKnowledgeBases.value = nextSession.selectionState?.selectedKnowledgeBases || []
     enableLabTools.value = nextSession.selectionState?.enableLabTools || false
     enablePlanMode.value = nextSession.selectionState?.enablePlanMode || false
+    enablePaperWebSearch.value = nextSession.selectionState?.enablePaperWebSearch || false
     selectedModel.value = nextSession.selectionState?.selectedModel || ''
   }
 
@@ -115,7 +119,8 @@ export function usePaperChatSession(
         selectedKnowledgeBases: selectedKnowledgeBases.value,
         enableLabTools: enableLabTools.value,
         selectedModel: selectedModel.value,
-        enablePlanMode: enablePlanMode.value
+        enablePlanMode: enablePlanMode.value,
+        enablePaperWebSearch: enablePaperWebSearch.value
       }
     }
 
@@ -243,6 +248,11 @@ export function usePaperChatSession(
     void saveCurrentSession()
   }
 
+  function updateEnablePaperWebSearch(value: boolean): void {
+    enablePaperWebSearch.value = value
+    void saveCurrentSession()
+  }
+
   return {
     session,
     sessionId,
@@ -253,6 +263,7 @@ export function usePaperChatSession(
     selectedKnowledgeBases,
     enableLabTools,
     enablePlanMode,
+    enablePaperWebSearch,
     loading,
     contextLoading,
     error,
@@ -266,6 +277,7 @@ export function usePaperChatSession(
     updateSelectedTools,
     updateSelectedKnowledgeBases,
     updateEnableLabTools,
-    updateEnablePlanMode
+    updateEnablePlanMode,
+    updateEnablePaperWebSearch
   }
 }

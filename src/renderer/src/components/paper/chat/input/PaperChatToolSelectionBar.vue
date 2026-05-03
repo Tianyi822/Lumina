@@ -15,6 +15,7 @@ const props = defineProps<{
   selectedKnowledgeBases: KnowledgeBase[]
   enableLabTools?: boolean
   enablePlanMode?: boolean
+  enablePaperWebSearch?: boolean
   totalAttachmentCount?: number
   variant?: 'default' | 'compact'
 }>()
@@ -25,6 +26,7 @@ const emit = defineEmits<{
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableLabTools', value: boolean): void
   (e: 'update:enablePlanMode', value: boolean): void
+  (e: 'update:enablePaperWebSearch', value: boolean): void
   (e: 'upload'): void
   (e: 'send'): void
   (e: 'stop'): void
@@ -129,6 +131,17 @@ onUnmounted(() => {
     >
       <SvgIcon name="thinking" :size="14" />
       <span>规划</span>
+    </button>
+
+    <button
+      class="paper-chat-input-toolbar__search-toggle"
+      :class="{ active: props.enablePaperWebSearch }"
+      :disabled="props.isSending"
+      title="联网搜索：允许模型在需要时搜索学术资料补充论文信息"
+      @click="emit('update:enablePaperWebSearch', !props.enablePaperWebSearch)"
+    >
+      <SvgIcon name="search" :size="14" />
+      <span>搜索</span>
     </button>
 
     <div class="paper-chat-input-toolbar__actions">
@@ -426,6 +439,40 @@ onUnmounted(() => {
 }
 
 .paper-chat-input-toolbar__plan-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.paper-chat-input-toolbar__search-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+}
+
+.paper-chat-input-toolbar__search-toggle:hover:not(:disabled) {
+  border-color: var(--sm-color-border-strong);
+  color: var(--sm-color-text-primary);
+}
+
+.paper-chat-input-toolbar__search-toggle.active {
+  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-accent-12);
+  color: var(--sm-color-accent-hover);
+}
+
+.paper-chat-input-toolbar__search-toggle:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
