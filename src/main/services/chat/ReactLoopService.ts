@@ -22,6 +22,7 @@ import {
 import type { ReactLoopServiceOptions } from './chatInternal'
 import { StreamProcessor } from './StreamProcessor'
 import { skillService } from '../skill'
+import { paperWebSearchService, PaperWebSearchToolAdapter } from '../paper-web-search'
 
 /**
  * ReAct 循环服务
@@ -38,6 +39,7 @@ export class ReactLoopService {
   private readonly toolRegistry: UnifiedToolRegistry
   private readonly labAdapter: LabToolAdapter
   private readonly skillAdapter: SkillToolAdapter
+  private readonly paperWebSearchAdapter: PaperWebSearchToolAdapter
   private readonly knowledgeAdapter: KnowledgeToolAdapter
   private readonly mcpAdapter: MCPToolAdapter | null
   private readonly streamProcessor: StreamProcessor
@@ -59,6 +61,7 @@ export class ReactLoopService {
     this.toolRegistry = new UnifiedToolRegistry()
     this.labAdapter = new LabToolAdapter()
     this.skillAdapter = new SkillToolAdapter()
+    this.paperWebSearchAdapter = new PaperWebSearchToolAdapter(paperWebSearchService)
     this.knowledgeAdapter = new KnowledgeToolAdapter()
     this.mcpAdapter = options.mcpService ? new MCPToolAdapter(options.mcpService) : null
 
@@ -112,7 +115,7 @@ export class ReactLoopService {
     try {
       const client = this.createClient(llmConfig)
 
-      this.buildToolRegistry(request, selectedKnowledgeBases, sessionId)
+      await this.buildToolRegistry(request, selectedKnowledgeBases, sessionId)
 
       const tools = this.toolRegistry.buildOpenAITools()
 
@@ -174,17 +177,18 @@ export class ReactLoopService {
   /**
    * 按请求刷新统一工具注册表
    */
-  private buildToolRegistry(
+  private async buildToolRegistry(
     request: ChatRequest,
     selectedKnowledgeBases?: KnowledgeBaseReference[],
     sessionId?: string
-  ): MCPToolReference[] {
+  ): Promise<MCPToolReference[]> {
     const { selectedTools, enableLabTools } = request
 
     this.toolRegistry.unregisterByCategory('lab')
     this.toolRegistry.unregisterByCategory('knowledge')
     this.toolRegistry.unregisterByCategory('mcp')
     this.toolRegistry.unregisterByCategory('skill')
+    this.toolRegistry.unregisterByCategory('paper_web')
 
     if (selectedTools && selectedTools.length > 0 && this.mcpAdapter) {
       this.toolRegistry.registerBatch(selectedTools, this.mcpAdapter, 'mcp')
@@ -228,7 +232,41 @@ export class ReactLoopService {
       })
     }
 
+    if (request.enablePaperWebSearch && request.sessionType === 'paper' && sessionId) {
+      const paperContext = this.buildPaperSearchContext(request)
+      this.paperWebSearchAdapter.setPaperContext(paperContext)
+      const paperWebTools = this.paperWebSearchAdapter.getTools()
+      this.toolRegistry.registerBatch(paperWebTools, this.paperWebSearchAdapter, 'paper_web')
+
+      this.logger.info('已添加论文联网搜索工具到工具列表', 'main', {
+        sessionId,
+        paperWebToolCount: paperWebTools.length,
+        totalToolCount: this.toolRegistry.size
+      })
+    }
+
     return this.toolRegistry.getAllToolReferences()
+  }
+
+  /**
+   * 构建论文搜索上下文
+   */
+  private buildPaperSearchContext(
+    request: ChatRequest
+  ): import('@shared/types/paper-web-search').PaperWebSearchContext {
+    const lastUserMessage = [...request.messages].reverse().find((m) => m.role === 'user')
+
+    return {
+      paperId: request.sessionId,
+      fileName: '',
+      paperTitle: undefined,
+      paperAuthors: undefined,
+      paperKeywords: undefined,
+      selectedQuote: undefined,
+      selectedQuoteContext: undefined,
+      userQuestion: typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : '',
+      referenceHints: undefined
+    }
   }
 
   /**
