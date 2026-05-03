@@ -12,6 +12,8 @@ import type {
 const execAsync = promisify(exec)
 
 export class PaperWebSearchService {
+  private static readonly EXEC_TIMEOUT_MS = 10000
+
   private envCheckCache: PaperWebSearchEnvironmentInfo | null = null
 
   async checkEnvironment(): Promise<PaperWebSearchEnvironmentInfo> {
@@ -37,6 +39,7 @@ export class PaperWebSearchService {
       })
       return uvResult
     }
+    logger.debug('PaperWebSearch: uv 不可用', 'main', { error: uvResult.error })
 
     const condaResult = await this.tryRuntime('conda')
     if (condaResult.available) {
@@ -46,14 +49,18 @@ export class PaperWebSearchService {
       })
       return condaResult
     }
+    logger.debug('PaperWebSearch: conda 不可用', 'main', { error: condaResult.error })
 
     // 按优先级尝试：python3 > python
     for (const pythonCmd of ['python3', 'python']) {
       try {
-        const { stdout } = await execAsync(`${pythonCmd} --version`, {
-          timeout: 10000,
-          encoding: 'utf8'
-        })
+        const { stdout } = await execAsync(
+          `${pythonCmd} -c "import sys; print(sys.version)"`,
+          {
+            timeout: PaperWebSearchService.EXEC_TIMEOUT_MS,
+            encoding: 'utf8'
+          }
+        )
         const version = stdout.trim()
         const dependencyMode = await this.checkDependencies(pythonCmd)
 
@@ -79,10 +86,13 @@ export class PaperWebSearchService {
     runtime: PaperWebSearchRuntime
   ): Promise<PaperWebSearchEnvironmentInfo> {
     try {
-      const { stdout } = await execAsync(`${runtime} --version`, {
-        timeout: 10000,
-        encoding: 'utf8'
-      })
+      const { stdout } = await execAsync(
+        `${runtime} -c "import sys; print(sys.version)"`,
+        {
+          timeout: PaperWebSearchService.EXEC_TIMEOUT_MS,
+          encoding: 'utf8'
+        }
+      )
       const version = stdout.trim()
       const dependencyMode = await this.checkDependencies(runtime)
 
@@ -103,13 +113,17 @@ export class PaperWebSearchService {
     }
   }
 
-  private async checkDependencies(
-    runtime: string
-  ): Promise<PaperWebSearchDependencyMode> {
+  private async checkDependencies(runtime: string): Promise<PaperWebSearchDependencyMode> {
     try {
-      const checkScript = `import importlib.util;deps=['duckduckgo_search','requests','bs4'];missing=[d for d in deps if importlib.util.find_spec(d) is None];print('isolated' if not missing else 'system' if len(missing)<3 else 'stdlib')`
-      const { stdout } = await execAsync(`${runtime} -c "${checkScript}"`, {
-        timeout: 10000,
+      const checkScript =
+        `import importlib.util;` +
+        `deps=['duckduckgo_search','requests','bs4'];` +
+        `missing=[d for d in deps if importlib.util.find_spec(d) is None];` +
+        `print('isolated' if not missing else 'system' if len(missing)<3 else 'stdlib')`
+
+      const command = this.buildPythonCheckCommand(runtime, checkScript)
+      const { stdout } = await execAsync(command, {
+        timeout: PaperWebSearchService.EXEC_TIMEOUT_MS,
         encoding: 'utf8'
       })
       return stdout.trim() as PaperWebSearchDependencyMode
@@ -118,8 +132,19 @@ export class PaperWebSearchService {
     }
   }
 
+  private buildPythonCheckCommand(runtime: string, script: string): string {
+    if (runtime === 'uv') {
+      return `uv run python -c "${script}"`
+    }
+    if (runtime === 'conda') {
+      return `conda run python -c "${script}"`
+    }
+    return `${runtime} -c "${script}"`
+  }
+
   /**
-   * 调用 Python 爬虫执行搜索（后续 Task 实现）
+   * 调用 Python 爬虫执行网页搜索
+   * TODO: Task 6 实现 -- 通过 child_process.spawn 调用 resources/paper-web-search/crawler.py
    */
   async search(_input: PaperWebSearchToolInput): Promise<PaperWebSearchOutput> {
     throw new Error('Not implemented - will be added in Task 6')
