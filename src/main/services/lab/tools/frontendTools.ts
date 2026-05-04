@@ -1,8 +1,28 @@
 import { MCPToolCallResult } from '@main/types/mcp'
-import type { FrontendFramework } from '@shared/types/lab'
+import type { FrontendFramework, LabData } from '@shared/types/lab'
 import { frontendLabService } from '../frontend'
+import { labService } from '../LabService'
 import { findLab } from './toolExecutor'
+import { selectReusableFrontendLab } from './toolHelpers'
 import { ToolArgs, LabToolDefinition } from './types'
+
+const DEFAULT_FRONTEND_FRAMEWORK: FrontendFramework = 'vue'
+
+async function findReusableFrontendLab(
+  name: string,
+  framework: FrontendFramework
+): Promise<LabData | null> {
+  const labItems = await labService.listLabs()
+  const labs = labItems
+    .map((item) =>
+      labService.loadLab(item.labId, {
+        silent: true
+      })
+    )
+    .filter((lab): lab is LabData => !!lab)
+
+  return selectReusableFrontendLab(labs, name, framework)
+}
 
 /**
  * 创建前端实验室
@@ -22,6 +42,10 @@ export const createFrontendLabTool: LabToolDefinition = {
       container_port: {
         type: 'number',
         description: '容器内开发端口，默认 5173'
+      },
+      reuse_existing: {
+        type: 'boolean',
+        description: '是否复用同名同框架前端实验室，默认 true'
       }
     },
     required: ['name']
@@ -36,9 +60,48 @@ export const createFrontendLabTool: LabToolDefinition = {
       }
     }
 
+    const framework = (args.framework as FrontendFramework | undefined) || DEFAULT_FRONTEND_FRAMEWORK
+    const shouldReuse = args.reuse_existing !== false
+
+    if (shouldReuse) {
+      const reusableLab = await findReusableFrontendLab(name, framework)
+      if (reusableLab?.frontend) {
+        const previewInfo = await frontendLabService.getPreviewInfo(reusableLab.labId, 3000)
+
+        return {
+          success: true,
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  lab_id: reusableLab.labId,
+                  container_id: reusableLab.primaryContainerId,
+                  preview_url: previewInfo?.previewUrl || reusableLab.frontend.previewUrl,
+                  preview_ready: previewInfo?.previewReady ?? false,
+                  framework: reusableLab.frontend.framework,
+                  volume_name: reusableLab.frontend.volumeName,
+                  mount_path: reusableLab.frontend.mountPath,
+                  project_root: reusableLab.frontend.projectRoot,
+                  bootstrap_status: reusableLab.frontend.bootstrapStatus,
+                  build_validated: reusableLab.frontend.buildValidated,
+                  status: reusableLab.status,
+                  startup_log_path: previewInfo?.startupLogPath,
+                  message: previewInfo?.message || '已复用现有同名前端实验室',
+                  reused: true
+                },
+                null,
+                2
+              )
+            }
+          ]
+        }
+      }
+    }
+
     const result = await frontendLabService.createFrontendLab({
       name,
-      framework: args.framework as FrontendFramework | undefined,
+      framework,
       containerPort: args.container_port as number | undefined
     })
 
@@ -55,11 +118,13 @@ export const createFrontendLabTool: LabToolDefinition = {
               framework: result.framework,
               volume_name: result.volumeName,
               mount_path: result.mountPath,
+              project_root: result.projectRoot,
               bootstrap_status: result.bootstrapStatus,
               build_validated: result.buildValidated,
               status: result.status,
               startup_log_path: result.startupLogPath,
-              message: result.message
+              message: result.message,
+              reused: false
             },
             null,
             2
