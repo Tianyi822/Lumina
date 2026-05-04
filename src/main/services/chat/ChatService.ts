@@ -77,8 +77,8 @@ export class ChatService {
       request.enableLabTools ||
       request.enablePaperWebSearch
 
-    // 论文会话 + 规划模式：走 PlanExecuteService
-    const isPlanMode = request.sessionType === 'paper' && request.enablePlanMode
+    // 论文会话仅在启用实验室工具时进入规划执行，避免普通问答出现计划列表
+    const isPlanMode = request.sessionType === 'paper' && request.enableLabTools
     if (isPlanMode) {
       const result = await this.planExecuteService.sendMessageWithPlan(request, webContents)
       this.stopController.clearStoppedSession(sessionId)
