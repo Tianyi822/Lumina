@@ -29,6 +29,14 @@ export function sessionToChatMessage(msg: SessionMessage): ChatMessage {
     chatMsg.attachedQuotes = msg.attachedQuotes
   }
 
+  if (msg.tool_calls?.length) {
+    chatMsg.tool_calls = msg.tool_calls
+  }
+
+  if (msg.tool_call_id) {
+    chatMsg.tool_call_id = msg.tool_call_id
+  }
+
   return chatMsg
 }
 
