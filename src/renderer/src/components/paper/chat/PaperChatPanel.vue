@@ -38,7 +38,6 @@ const {
   selectedMCPTools,
   selectedKnowledgeBases,
   enableLabTools,
-  enablePlanMode,
   enablePaperWebSearch,
   loading,
   contextLoading,
@@ -51,7 +50,6 @@ const {
   updateSelectedTools,
   updateSelectedKnowledgeBases,
   updateEnableLabTools,
-  updateEnablePlanMode,
   updateEnablePaperWebSearch
 } = usePaperChatSession(paperRef)
 
@@ -64,7 +62,6 @@ const { isSending, sendMessage, stopRequest } = usePaperChatStream({
   selectedMCPTools,
   selectedKnowledgeBases,
   enableLabTools,
-  enablePlanMode,
   enablePaperWebSearch,
   ensurePaperContextLoaded,
   saveCurrentSession,
@@ -260,7 +257,6 @@ async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
           :selected-m-c-p-tools="selectedMCPTools"
           :selected-knowledge-bases="selectedKnowledgeBases"
           :enable-lab-tools="enableLabTools"
-          :enable-plan-mode="enablePlanMode"
           :enable-paper-web-search="enablePaperWebSearch"
           :quick-reply-info="activeQuickReply"
           @send="handleSend"
@@ -271,7 +267,6 @@ async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
           @update:selected-m-c-p-tools="updateSelectedTools"
           @update:selected-knowledge-bases="updateSelectedKnowledgeBases"
           @update:enable-lab-tools="updateEnableLabTools"
-          @update:enable-plan-mode="updateEnablePlanMode"
           @update:enable-paper-web-search="handleEnablePaperWebSearch"
         />
       </div>

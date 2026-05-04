@@ -16,7 +16,6 @@ interface UsePaperChatSessionReturn {
   selectedMCPTools: Ref<MCPTool[]>
   selectedKnowledgeBases: Ref<KnowledgeBase[]>
   enableLabTools: Ref<boolean>
-  enablePlanMode: Ref<boolean>
   enablePaperWebSearch: Ref<boolean>
   loading: Ref<boolean>
   contextLoading: Ref<boolean>
@@ -31,7 +30,6 @@ interface UsePaperChatSessionReturn {
   updateSelectedTools: (value: MCPTool[]) => void
   updateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
   updateEnableLabTools: (value: boolean) => void
-  updateEnablePlanMode: (value: boolean) => void
   updateEnablePaperWebSearch: (value: boolean) => void
 }
 
@@ -80,7 +78,6 @@ export function usePaperChatSession(
   const selectedMCPTools = ref<MCPTool[]>([])
   const selectedKnowledgeBases = ref<KnowledgeBase[]>([])
   const enableLabTools = ref(false)
-  const enablePlanMode = ref(false)
   const enablePaperWebSearch = ref(false)
   const loading = ref(false)
   const contextLoading = ref(false)
@@ -101,7 +98,6 @@ export function usePaperChatSession(
     selectedMCPTools.value = nextSession.selectionState?.selectedMCPTools || []
     selectedKnowledgeBases.value = nextSession.selectionState?.selectedKnowledgeBases || []
     enableLabTools.value = nextSession.selectionState?.enableLabTools || false
-    enablePlanMode.value = nextSession.selectionState?.enablePlanMode || false
     enablePaperWebSearch.value = nextSession.selectionState?.enablePaperWebSearch || false
     selectedModel.value = nextSession.selectionState?.selectedModel || ''
   }
@@ -119,7 +115,6 @@ export function usePaperChatSession(
         selectedKnowledgeBases: selectedKnowledgeBases.value,
         enableLabTools: enableLabTools.value,
         selectedModel: selectedModel.value,
-        enablePlanMode: enablePlanMode.value,
         enablePaperWebSearch: enablePaperWebSearch.value
       }
     }
@@ -243,11 +238,6 @@ export function usePaperChatSession(
     void saveCurrentSession()
   }
 
-  function updateEnablePlanMode(value: boolean): void {
-    enablePlanMode.value = value
-    void saveCurrentSession()
-  }
-
   function updateEnablePaperWebSearch(value: boolean): void {
     enablePaperWebSearch.value = value
     void saveCurrentSession()
@@ -262,7 +252,6 @@ export function usePaperChatSession(
     selectedMCPTools,
     selectedKnowledgeBases,
     enableLabTools,
-    enablePlanMode,
     enablePaperWebSearch,
     loading,
     contextLoading,
@@ -277,7 +266,6 @@ export function usePaperChatSession(
     updateSelectedTools,
     updateSelectedKnowledgeBases,
     updateEnableLabTools,
-    updateEnablePlanMode,
     updateEnablePaperWebSearch
   }
 }

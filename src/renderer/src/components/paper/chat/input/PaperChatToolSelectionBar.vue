@@ -14,7 +14,6 @@ const props = defineProps<{
   selectedTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
   enableLabTools?: boolean
-  enablePlanMode?: boolean
   enablePaperWebSearch?: boolean
   totalAttachmentCount?: number
   variant?: 'default' | 'compact'
@@ -25,7 +24,6 @@ const emit = defineEmits<{
   (e: 'update:selectedTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableLabTools', value: boolean): void
-  (e: 'update:enablePlanMode', value: boolean): void
   (e: 'update:enablePaperWebSearch', value: boolean): void
   (e: 'upload'): void
   (e: 'send'): void
