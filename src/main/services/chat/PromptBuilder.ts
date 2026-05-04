@@ -66,9 +66,10 @@ export class PromptBuilder {
   buildStepExecutionPrompt(
     stepTitle: string,
     stepDescription: string,
-    previousResults: string[]
+    previousResults: string[],
+    previousFailure?: string
   ): string {
-    return buildStepExecutionPrompt(stepTitle, stepDescription, previousResults)
+    return buildStepExecutionPrompt(stepTitle, stepDescription, previousResults, previousFailure)
   }
 
   private hasSkillTools(tools?: MCPToolReference[]): boolean {

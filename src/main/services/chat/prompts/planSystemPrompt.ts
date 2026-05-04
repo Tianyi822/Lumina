@@ -76,12 +76,16 @@ function buildToolSummary(tools: MCPToolReference[]): string {
 export function buildStepExecutionPrompt(
   stepTitle: string,
   stepDescription: string,
-  previousResults: string[]
+  previousResults: string[],
+  previousFailure?: string
 ): string {
   const contextSection =
     previousResults.length > 0
       ? `## 前序步骤结果\n\n${previousResults.map((r, i) => `### 步骤 ${i + 1} 结果\n${r}`).join('\n\n')}`
       : ''
+  const failureSection = previousFailure
+    ? `## 上次尝试失败原因\n\n${previousFailure}\n\n请调整参数、换用更安全的命令或改用其他工具后重试，不要重复同一个失败操作。`
+    : ''
 
   return `## 当前任务
 
@@ -91,5 +95,7 @@ export function buildStepExecutionPrompt(
 **步骤描述**：${stepDescription}
 
 请完成当前步骤。使用合适的工具获取信息或执行操作，然后基于结果给出该步骤的结论。
+如果前序步骤已经创建了实验室、容器、预览地址或项目根目录，必须优先复用这些标识和路径；除非用户明确要求新建，不要重复创建同名实验室或容器。
+${failureSection}
 ${contextSection}`.trim()
 }
