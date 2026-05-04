@@ -163,6 +163,19 @@ export function formatMessagesWithKnowledge(
     return true
   })
 
+  // 清理孤立的 tool_calls：确保每个 assistant 的 tool_calls 都有对应的 tool 消息
+  const validToolCallIds = new Set(
+    filteredMessages
+      .filter((msg) => msg.role === 'tool' && msg.tool_call_id)
+      .map((msg) => msg.tool_call_id!)
+  )
+
+  for (const msg of filteredMessages) {
+    if (msg.role === 'assistant' && msg.tool_calls && msg.tool_calls.length > 0) {
+      msg.tool_calls = msg.tool_calls.filter((tc) => validToolCallIds.has(tc.id))
+    }
+  }
+
   return filteredMessages.map((msg, index) => {
     if (msg.role === 'user' && index === filteredMessages.length - 1) {
       let textContent = msg.content || ''
@@ -218,7 +231,7 @@ export function formatMessagesWithKnowledge(
         reasoning_content?: string
       } = {
         role: 'assistant' as const,
-        content: msg.content,
+        content: msg.content || null,
         tool_calls: msg.tool_calls
       }
       if (msg.reasoning_content) {
