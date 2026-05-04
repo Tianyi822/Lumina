@@ -1,21 +1,85 @@
-import { exec, spawn } from 'child_process'
-import { promisify } from 'util'
-import path from 'path'
-import { app } from 'electron'
+import { net } from 'electron'
 import { logger } from '@main/services/logger'
 import type {
   PaperWebSearchEnvironmentInfo,
-  PaperWebSearchRuntime,
-  PaperWebSearchDependencyMode,
   PaperWebSearchOutput,
+  PaperWebSearchResultItem,
   PaperWebSearchToolInput
 } from '@shared/types/paper-web-search'
 
-const execAsync = promisify(exec)
+interface SearchCandidate {
+  title: string
+  url: string
+  body: string
+}
+
+interface SearchWorkingResult extends SearchCandidate {
+  snippet: string
+  source: string
+  relevanceScore: number
+  publishedDate?: string
+}
+
+interface FetchTextResult {
+  ok: boolean
+  status: number
+  contentType: string
+  text: string
+}
+
+const SEARCH_TIMEOUT_MS = 30000
+const FETCH_TIMEOUT_MS = 10000
+const MAX_RESULTS = 5
+const MAX_SEARCH_RESULTS = MAX_RESULTS * 2
+const MAX_SNIPPET_CHARS = 1000
+const MAX_TOTAL_CHARS = 5000
+const MAX_HTML_CHARS = 200000
+
+const DEFAULT_HEADERS: Record<string, string> = {
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
+    '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7'
+}
+
+const PREFERRED_DOMAINS = [
+  'arxiv.org',
+  'semanticscholar.org',
+  'aclanthology.org',
+  'openreview.net',
+  'github.com',
+  'ieee.org',
+  'acm.org',
+  'paperswithcode.com',
+  'huggingface.co'
+]
+
+const STOP_WORDS = new Set([
+  'and',
+  'the',
+  'for',
+  'with',
+  'from',
+  'that',
+  'this',
+  'into',
+  'about',
+  'related',
+  'paper',
+  'method',
+  'dataset',
+  '医学',
+  '图像',
+  '分割',
+  '最新',
+  '进展',
+  '论文',
+  '方法',
+  '学习'
+])
 
 export class PaperWebSearchService {
-  private static readonly EXEC_TIMEOUT_MS = 10000
-
   private envCheckCache: PaperWebSearchEnvironmentInfo | null = null
 
   async checkEnvironment(): Promise<PaperWebSearchEnvironmentInfo> {
@@ -23,7 +87,13 @@ export class PaperWebSearchService {
       return this.envCheckCache
     }
 
-    this.envCheckCache = await this.detectEnvironment()
+    this.envCheckCache = {
+      available: true,
+      runtime: 'electron',
+      executable: 'electron.net.fetch',
+      version: process.versions.electron || process.versions.chrome || process.version,
+      dependencyMode: 'builtin'
+    }
     return this.envCheckCache
   }
 
@@ -31,274 +101,538 @@ export class PaperWebSearchService {
     this.envCheckCache = null
   }
 
-  private async detectEnvironment(): Promise<PaperWebSearchEnvironmentInfo> {
-    // 按优先级尝试：uv > conda > python3 > python
-    const uvResult = await this.tryRuntime('uv')
-    if (uvResult.available) {
-      logger.info('PaperWebSearch: 检测到 uv 环境', 'main', {
-        version: uvResult.version,
-        executable: uvResult.executable
-      })
-      return uvResult
-    }
-    logger.debug('PaperWebSearch: uv 不可用', 'main', { error: uvResult.error })
-
-    const condaResult = await this.tryRuntime('conda')
-    if (condaResult.available) {
-      logger.info('PaperWebSearch: 检测到 conda 环境', 'main', {
-        version: condaResult.version,
-        executable: condaResult.executable
-      })
-      return condaResult
-    }
-    logger.debug('PaperWebSearch: conda 不可用', 'main', { error: condaResult.error })
-
-    // 按优先级尝试：python3 > python
-    for (const pythonCmd of ['python3', 'python']) {
-      try {
-        const { stdout } = await execAsync(`${pythonCmd} -c "import sys; print(sys.version)"`, {
-          timeout: PaperWebSearchService.EXEC_TIMEOUT_MS,
-          encoding: 'utf8'
-        })
-        const version = stdout.trim()
-        const dependencyMode = await this.checkDependencies(pythonCmd)
-
-        return {
-          available: true,
-          runtime: 'python',
-          executable: pythonCmd,
-          version,
-          dependencyMode
-        }
-      } catch {
-        // 继续尝试下一个命令
-      }
-    }
-
-    return {
-      available: false,
-      error: '未检测到可用的 Python 环境。请安装 Python 3.9+ 或 uv。'
-    }
-  }
-
-  private async tryRuntime(runtime: PaperWebSearchRuntime): Promise<PaperWebSearchEnvironmentInfo> {
-    try {
-      const { stdout } = await execAsync(`${runtime} -c "import sys; print(sys.version)"`, {
-        timeout: PaperWebSearchService.EXEC_TIMEOUT_MS,
-        encoding: 'utf8'
-      })
-      const version = stdout.trim()
-      const dependencyMode = await this.checkDependencies(runtime)
-
-      return {
-        available: true,
-        runtime,
-        executable: runtime,
-        version,
-        dependencyMode
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      return {
-        available: false,
-        runtime,
-        error: message
-      }
-    }
-  }
-
-  private async checkDependencies(runtime: string): Promise<PaperWebSearchDependencyMode> {
-    try {
-      const checkScript =
-        `import importlib.util;` +
-        `deps=['duckduckgo_search','requests','bs4'];` +
-        `missing=[d for d in deps if importlib.util.find_spec(d) is None];` +
-        `print('isolated' if not missing else 'system' if len(missing)<3 else 'stdlib')`
-
-      const command = this.buildPythonCheckCommand(runtime, checkScript)
-      const { stdout } = await execAsync(command, {
-        timeout: PaperWebSearchService.EXEC_TIMEOUT_MS,
-        encoding: 'utf8'
-      })
-      return stdout.trim() as PaperWebSearchDependencyMode
-    } catch {
-      return 'stdlib'
-    }
-  }
-
-  private buildPythonCheckCommand(runtime: string, script: string): string {
-    if (runtime === 'uv') {
-      return `uv run python -c "${script}"`
-    }
-    if (runtime === 'conda') {
-      return `conda run python -c "${script}"`
-    }
-    return `${runtime} -c "${script}"`
-  }
-
-  /**
-   * 调用 Python 爬虫执行网页搜索
-   */
   async search(input: PaperWebSearchToolInput): Promise<PaperWebSearchOutput> {
     const startTime = Date.now()
+    const query = buildSearchQuery(input)
+    const warnings: string[] = []
 
-    // 1. 检查环境
-    const envInfo = await this.checkEnvironment()
-    if (!envInfo.available || !envInfo.executable) {
-      return {
-        success: false,
-        query: input.query,
-        quality: 'empty',
-        results: [],
-        totalDiscovered: 0,
-        totalCrawled: 0,
-        totalRetained: 0,
-        elapsedMs: Date.now() - startTime,
-        error: envInfo.error || 'Python 环境不可用'
+    if (!query) {
+      return this.createFailureOutput(input.query, startTime, '搜索 query 为空')
+    }
+
+    try {
+      const discovered = await this.discoverSearchResults(query, warnings)
+      const normalised = sortByDomain(discovered.filter((item) => isHttpUrl(item.url))).slice(
+        0,
+        MAX_SEARCH_RESULTS
+      )
+
+      let totalCrawled = 0
+      const crawledResults: SearchWorkingResult[] = []
+
+      for (const item of normalised) {
+        const pageText = await this.fetchPageContent(item.url, warnings)
+        if (pageText) {
+          totalCrawled += 1
+        }
+
+        const snippetSource = pageText || item.body
+        const snippet = buildFocusedSnippet(snippetSource, query, MAX_SNIPPET_CHARS)
+        if (!snippet) {
+          continue
+        }
+
+        crawledResults.push({
+          ...item,
+          snippet,
+          source: getSourceName(item.url),
+          publishedDate: extractPublishedDate(`${item.title} ${snippet}`),
+          relevanceScore: scoreRelevance(query, item.title, snippet, item.url)
+        })
+      }
+
+      const relevantResults = crawledResults.filter((item) =>
+        hasQueryTermMatch(query, item.title, item.snippet)
+      )
+      const deduped = deduplicateResults(relevantResults)
+        .sort((a, b) => b.relevanceScore - a.relevanceScore)
+        .filter((item) => item.relevanceScore > 0.2)
+
+      const results = truncateResults(deduped)
+      const output: PaperWebSearchOutput = {
+        success: true,
+        query,
+        quality: assessQuality(results, discovered.length),
+        results,
+        totalDiscovered: discovered.length,
+        totalCrawled,
+        totalRetained: deduped.length,
+        elapsedMs: Date.now() - startTime
+      }
+
+      if (warnings.length > 0) {
+        output.warnings = warnings.slice(0, 5)
+      }
+
+      return output
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      logger.warn('PaperWebSearch: 搜索执行失败', 'main', { query, error: message })
+      return this.createFailureOutput(query, startTime, message)
+    }
+  }
+
+  private async discoverSearchResults(
+    query: string,
+    warnings: string[]
+  ): Promise<SearchCandidate[]> {
+    const encodedQuery = encodeURIComponent(query)
+    const endpoints = [
+      `https://duckduckgo.com/html/?q=${encodedQuery}&kl=us-en`,
+      `https://lite.duckduckgo.com/lite/?q=${encodedQuery}&kl=us-en`
+    ]
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await this.fetchText(endpoint, SEARCH_TIMEOUT_MS)
+        if (!response.ok || !response.text.trim()) {
+          warnings.push(`搜索入口返回异常: ${response.status}`)
+          continue
+        }
+
+        const results = parseDuckDuckGoResults(response.text)
+        if (results.length > 0) {
+          return results
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        warnings.push(`搜索入口请求失败: ${message}`)
       }
     }
 
-    // 2. 确定 Python 可执行文件路径
-    const pythonExecutable = envInfo.executable
-    const crawlerPath = getCrawlerPath()
+    return []
+  }
 
-    // 3. 构建 JSON 输入
-    const inputJson = JSON.stringify({
-      query: input.query,
-      reason: input.reason,
-      paper_context: {
-        paper_id: input.paperContext.paperId,
-        file_name: input.paperContext.fileName,
-        paper_title: input.paperContext.paperTitle,
-        paper_authors: input.paperContext.paperAuthors,
-        paper_keywords: input.paperContext.paperKeywords,
-        selected_quote: input.paperContext.selectedQuote,
-        selected_quote_context: input.paperContext.selectedQuoteContext,
-        user_question: input.paperContext.userQuestion,
-        reference_hints: input.paperContext.referenceHints
-      },
-      limits: {
-        max_results: 5,
-        max_snippet_chars: 1000,
-        max_total_chars: 5000,
-        timeout_seconds: 30
+  private async fetchPageContent(url: string, warnings: string[]): Promise<string> {
+    try {
+      const response = await this.fetchText(url, FETCH_TIMEOUT_MS)
+      if (!response.ok) {
+        warnings.push(`页面抓取失败 ${getSourceName(url)}: ${response.status}`)
+        return ''
       }
-    })
 
-    // 4. 通过 spawn 调用爬虫
-    return new Promise<PaperWebSearchOutput>((resolve) => {
-      let stdout = ''
-      let stderr = ''
+      if (!isReadableContentType(response.contentType)) {
+        return ''
+      }
 
-      const child = spawn(pythonExecutable, [crawlerPath], {
-        timeout: 30000,
-        stdio: ['pipe', 'pipe', 'pipe']
+      return cleanHtml(response.text.slice(0, MAX_HTML_CHARS))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      warnings.push(`页面抓取失败 ${getSourceName(url)}: ${message}`)
+      return ''
+    }
+  }
+
+  private async fetchText(url: string, timeoutMs: number): Promise<FetchTextResult> {
+    const abortController = new AbortController()
+    const timeout = setTimeout(() => abortController.abort(), timeoutMs)
+
+    try {
+      const response = await net.fetch(url, {
+        headers: DEFAULT_HEADERS,
+        signal: abortController.signal
       })
+      const text = await response.text()
 
-      child.stdout?.on('data', (data: Buffer) => {
-        const remaining = 102400 - Buffer.byteLength(stdout, 'utf8')
-        if (remaining <= 0) return
-        stdout += data.toString('utf8').slice(0, remaining)
-      })
+      return {
+        ok: response.ok,
+        status: response.status,
+        contentType: response.headers.get('content-type') || '',
+        text
+      }
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
 
-      child.stderr?.on('data', (data: Buffer) => {
-        stderr += data.toString('utf8')
-      })
-
-      child.on('error', (error: Error) => {
-        logger.error(`PaperWebSearch: 爬虫启动失败: ${error.message}`, 'main')
-        resolve({
-          success: false,
-          query: input.query,
-          quality: 'empty',
-          results: [],
-          totalDiscovered: 0,
-          totalCrawled: 0,
-          totalRetained: 0,
-          elapsedMs: Date.now() - startTime,
-          error: `爬虫启动失败: ${error.message}`
-        })
-      })
-
-      child.on('close', (exitCode: number | null) => {
-        const elapsed = Date.now() - startTime
-
-        if (exitCode !== 0) {
-          const errMsg = stderr.trim() || `爬虫退出码: ${exitCode}`
-          logger.warn(`PaperWebSearch: 爬虫异常退出 (exit=${exitCode})`, 'main', {
-            stderr: stderr.trim()
-          })
-          resolve({
-            success: false,
-            query: input.query,
-            quality: 'empty',
-            results: [],
-            totalDiscovered: 0,
-            totalCrawled: 0,
-            totalRetained: 0,
-            elapsedMs: elapsed,
-            error: errMsg
-          })
-          return
-        }
-
-        if (!stdout.trim()) {
-          logger.warn('PaperWebSearch: 爬虫 stdout 为空', 'main', { stderr: stderr.trim() })
-          resolve({
-            success: false,
-            query: input.query,
-            quality: 'empty',
-            results: [],
-            totalDiscovered: 0,
-            totalCrawled: 0,
-            totalRetained: 0,
-            elapsedMs: elapsed,
-            error: '爬虫返回了空结果'
-          })
-          return
-        }
-
-        try {
-          const output: PaperWebSearchOutput = JSON.parse(stdout.trim())
-          output.elapsedMs = elapsed
-          resolve(output)
-        } catch (parseError) {
-          const msg = parseError instanceof Error ? parseError.message : String(parseError)
-          logger.error(`PaperWebSearch: stdout JSON 解析失败: ${msg}`, 'main')
-          resolve({
-            success: false,
-            query: input.query,
-            quality: 'empty',
-            results: [],
-            totalDiscovered: 0,
-            totalCrawled: 0,
-            totalRetained: 0,
-            elapsedMs: elapsed,
-            error: `爬虫输出解析失败: ${msg}`
-          })
-        }
-      })
-
-      // 5. 写入 stdin 并关闭
-      child.stdin?.write(inputJson)
-      child.stdin?.end()
-    })
+  private createFailureOutput(
+    query: string,
+    startTime: number,
+    error: string
+  ): PaperWebSearchOutput {
+    return {
+      success: false,
+      query,
+      quality: 'empty',
+      results: [],
+      totalDiscovered: 0,
+      totalCrawled: 0,
+      totalRetained: 0,
+      elapsedMs: Date.now() - startTime,
+      error
+    }
   }
 }
 
-function getCrawlerPath(): string {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'paper-web-search', 'crawler.py')
+function buildSearchQuery(input: PaperWebSearchToolInput): string {
+  const query = input.query.trim()
+  const parts = [query]
+  const paperTitle = input.paperContext.paperTitle?.trim()
+
+  if (paperTitle && !query.toLowerCase().includes(paperTitle.toLowerCase())) {
+    parts.push(`"${paperTitle}"`)
   }
-  return path.join(
-    __dirname,
-    '..',
-    '..',
-    '..',
-    '..',
-    '..',
-    'resources',
-    'paper-web-search',
-    'crawler.py'
+
+  if (input.recency === 'recent' && !/\b20\d{2}\b/.test(query)) {
+    const currentYear = new Date().getFullYear()
+    parts.push(String(currentYear - 1), String(currentYear))
+  }
+
+  return parts.filter(Boolean).join(' ').trim()
+}
+
+function parseDuckDuckGoResults(html: string): SearchCandidate[] {
+  const results = [...parseDuckDuckGoHtmlResults(html), ...parseDuckDuckGoLiteResults(html)]
+  return deduplicateCandidates(results)
+}
+
+function parseDuckDuckGoHtmlResults(html: string): SearchCandidate[] {
+  const blocks = html.match(
+    /<div[^>]+class=["'][^"']*\bresult\b[^"']*["'][\s\S]*?(?=<div[^>]+class=["'][^"']*\bresult\b|$)/gi
+  )
+
+  if (!blocks) {
+    return []
+  }
+
+  return blocks
+    .map((block) => {
+      const linkMatch = block.match(
+        /<a[^>]+class=["'][^"']*\bresult__a\b[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i
+      )
+      if (!linkMatch) {
+        return null
+      }
+
+      const snippetMatch = block.match(
+        /<(?:a|div)[^>]+class=["'][^"']*\bresult__snippet\b[^"']*["'][^>]*>([\s\S]*?)<\/(?:a|div)>/i
+      )
+
+      return createCandidate(linkMatch[2], linkMatch[1], snippetMatch?.[1] || '')
+    })
+    .filter((item): item is SearchCandidate => Boolean(item))
+}
+
+function parseDuckDuckGoLiteResults(html: string): SearchCandidate[] {
+  const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
+  const results: SearchCandidate[] = []
+  let match: RegExpExecArray | null
+
+  while ((match = linkRegex.exec(html)) !== null) {
+    const rawHref = match[1]
+    if (!rawHref.includes('uddg=') && !rawHref.startsWith('http')) {
+      continue
+    }
+
+    const afterLink = html.slice(match.index, Math.min(match.index + 1200, html.length))
+    const snippetMatch = afterLink.match(
+      /<td[^>]+class=["']result-snippet["'][^>]*>([\s\S]*?)<\/td>/i
+    )
+    const candidate = createCandidate(match[2], rawHref, snippetMatch?.[1] || '')
+    if (candidate) {
+      results.push(candidate)
+    }
+  }
+
+  return results
+}
+
+function createCandidate(
+  rawTitle: string,
+  rawUrl: string,
+  rawBody: string
+): SearchCandidate | null {
+  const url = normalizeSearchResultUrl(rawUrl)
+  const title = normaliseWhitespace(stripTags(rawTitle))
+  const body = normaliseWhitespace(stripTags(rawBody))
+
+  if (!title || !isHttpUrl(url) || isSearchEngineUrl(url)) {
+    return null
+  }
+
+  return { title, url, body }
+}
+
+function normalizeSearchResultUrl(rawUrl: string): string {
+  const decodedUrl = decodeHtmlEntities(rawUrl).trim()
+  const absoluteUrl = decodedUrl.startsWith('//')
+    ? `https:${decodedUrl}`
+    : decodedUrl.startsWith('/')
+      ? `https://duckduckgo.com${decodedUrl}`
+      : decodedUrl
+
+  try {
+    const parsed = new URL(absoluteUrl)
+    const uddg = parsed.searchParams.get('uddg')
+    if (uddg) {
+      return decodeURIComponent(uddg)
+    }
+    return parsed.href
+  } catch {
+    return decodedUrl
+  }
+}
+
+function cleanHtml(html: string): string {
+  const withoutNoise = html
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(
+      /<(script|style|nav|footer|header|aside|noscript|iframe|form|button|svg)\b[\s\S]*?<\/\1>/gi,
+      ' '
+    )
+    .replace(
+      /<[^>]+\b(?:aria-hidden|hidden)=["']?(?:true|hidden)?["']?[^>]*>[\s\S]*?<\/[^>]+>/gi,
+      ' '
+    )
+    .replace(/<(br|p|div|section|article|li|tr|h[1-6])\b[^>]*>/gi, '\n')
+
+  return normaliseWhitespace(stripTags(withoutNoise))
+}
+
+function stripTags(value: string): string {
+  return decodeHtmlEntities(value.replace(/<[^>]+>/g, ' '))
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, decimal: string) => String.fromCodePoint(parseInt(decimal, 10)))
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+}
+
+function normaliseWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim()
+}
+
+function buildFocusedSnippet(text: string, query: string, maxChars: number): string {
+  const cleanText = normaliseWhitespace(text)
+  if (!cleanText) {
+    return ''
+  }
+
+  const lowerText = cleanText.toLowerCase()
+  const terms = extractQueryTerms(query)
+  const hitIndex = terms
+    .map((term) => lowerText.indexOf(term.toLowerCase()))
+    .filter((index) => index >= 0)
+    .sort((a, b) => a - b)[0]
+
+  if (hitIndex === undefined) {
+    return cleanText.slice(0, maxChars)
+  }
+
+  const start = Math.max(0, hitIndex - Math.floor(maxChars / 3))
+  const snippet = cleanText.slice(start, start + maxChars)
+  return `${start > 0 ? '...' : ''}${snippet}${start + maxChars < cleanText.length ? '...' : ''}`
+}
+
+function extractQueryTerms(query: string): string[] {
+  return Array.from(
+    new Set(
+      query
+        .toLowerCase()
+        .replace(/["'()]/g, ' ')
+        .split(/[\s,，。;；:：/\\|]+/)
+        .map((term) => term.trim())
+        .filter((term) => term.length >= 3 && !STOP_WORDS.has(term))
+    )
+  )
+}
+
+function scoreRelevance(query: string, title: string, snippet: string, url: string): number {
+  const terms = extractQueryTerms(query)
+  const haystack = `${title} ${snippet}`.toLowerCase()
+  const matchedTerms = terms.filter((term) => haystack.includes(term.toLowerCase())).length
+  const termScore = terms.length > 0 ? matchedTerms / terms.length : 0.2
+  const domainScore = scoreDomain(url) / PREFERRED_DOMAINS.length
+
+  return Number(Math.min(1, 0.15 + termScore * 0.55 + domainScore * 0.3).toFixed(3))
+}
+
+function hasQueryTermMatch(query: string, title: string, snippet: string): boolean {
+  const terms = extractQueryTerms(query)
+  if (terms.length === 0) {
+    return true
+  }
+
+  const haystack = `${title} ${snippet}`.toLowerCase()
+  return terms.some((term) => haystack.includes(term.toLowerCase()))
+}
+
+function scoreDomain(url: string): number {
+  const hostname = getHostname(url)
+  const preferredIndex = PREFERRED_DOMAINS.findIndex((domain) => hostname.includes(domain))
+  return preferredIndex >= 0 ? PREFERRED_DOMAINS.length - preferredIndex : 0
+}
+
+function sortByDomain(results: SearchCandidate[]): SearchCandidate[] {
+  return [...results].sort((a, b) => scoreDomain(b.url) - scoreDomain(a.url))
+}
+
+function deduplicateCandidates(results: SearchCandidate[]): SearchCandidate[] {
+  const seen = new Set<string>()
+  const deduped: SearchCandidate[] = []
+
+  for (const result of results) {
+    const key = urlFingerprint(result.url)
+    if (seen.has(key)) {
+      continue
+    }
+    seen.add(key)
+    deduped.push(result)
+  }
+
+  return deduped
+}
+
+function deduplicateResults(results: SearchWorkingResult[]): SearchWorkingResult[] {
+  const seenUrls = new Set<string>()
+  const seenTitles: string[] = []
+  const deduped: SearchWorkingResult[] = []
+
+  for (const result of results) {
+    const urlKey = urlFingerprint(result.url)
+    if (seenUrls.has(urlKey)) {
+      continue
+    }
+
+    if (seenTitles.some((title) => titlesAreSimilar(result.title, title))) {
+      continue
+    }
+
+    seenUrls.add(urlKey)
+    seenTitles.push(result.title)
+    deduped.push(result)
+  }
+
+  return deduped
+}
+
+function truncateResults(results: SearchWorkingResult[]): PaperWebSearchResultItem[] {
+  const truncated: PaperWebSearchResultItem[] = []
+  let totalChars = 0
+
+  for (const result of results.slice(0, MAX_RESULTS)) {
+    if (totalChars >= MAX_TOTAL_CHARS) {
+      break
+    }
+
+    const remaining = MAX_TOTAL_CHARS - totalChars
+    const snippet = result.snippet.slice(0, Math.min(MAX_SNIPPET_CHARS, remaining))
+    totalChars += snippet.length
+
+    truncated.push({
+      title: result.title,
+      url: result.url,
+      source: result.source,
+      publishedDate: result.publishedDate,
+      snippet,
+      relevanceScore: result.relevanceScore
+    })
+  }
+
+  return truncated
+}
+
+function assessQuality(
+  results: PaperWebSearchResultItem[],
+  totalDiscovered: number
+): 'high' | 'medium' | 'low' | 'empty' {
+  if (results.length === 0) {
+    return totalDiscovered > 0 ? 'low' : 'empty'
+  }
+
+  if (results.length >= 3 && results.some((result) => scoreDomain(result.url) > 0)) {
+    return 'high'
+  }
+
+  return 'medium'
+}
+
+function urlFingerprint(url: string): string {
+  try {
+    const parsed = new URL(url.toLowerCase())
+    parsed.hash = ''
+    parsed.search = ''
+    parsed.pathname = parsed.pathname.replace(/\/$/, '')
+    return parsed.toString()
+  } catch {
+    return url.toLowerCase().trim()
+  }
+}
+
+function titleFingerprint(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\u4e00-\u9fff]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function titlesAreSimilar(a: string, b: string): boolean {
+  const first = titleFingerprint(a)
+  const second = titleFingerprint(b)
+  if (!first || !second) {
+    return false
+  }
+
+  if (first.includes(second) || second.includes(first)) {
+    return true
+  }
+
+  const firstWords = new Set(first.split(' '))
+  const secondWords = new Set(second.split(' '))
+  const intersection = [...firstWords].filter((word) => secondWords.has(word)).length
+  const union = new Set([...firstWords, ...secondWords]).size
+  return union > 0 && intersection / union >= 0.55
+}
+
+function extractPublishedDate(value: string): string | undefined {
+  const exactDate = value.match(
+    /\b(20\d{2}|19\d{2})[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])\b/
+  )
+  if (exactDate) {
+    const [, year, month, day] = exactDate
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  }
+
+  const year = value.match(/\b(20\d{2}|19\d{2})\b/)
+  return year?.[1]
+}
+
+function getSourceName(url: string): string {
+  const hostname = getHostname(url)
+  return hostname.replace(/^www\./, '') || 'unknown'
+}
+
+function getHostname(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase()
+  } catch {
+    return ''
+  }
+}
+
+function isHttpUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url)
+}
+
+function isSearchEngineUrl(url: string): boolean {
+  const hostname = getHostname(url)
+  return hostname.includes('duckduckgo.com')
+}
+
+function isReadableContentType(contentType: string): boolean {
+  const lowerContentType = contentType.toLowerCase()
+  return (
+    !lowerContentType ||
+    lowerContentType.includes('text/html') ||
+    lowerContentType.includes('application/xhtml') ||
+    lowerContentType.includes('text/plain')
   )
 }

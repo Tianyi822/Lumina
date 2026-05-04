@@ -19,13 +19,13 @@ export interface PaperWebSearchContext {
   referenceHints?: string[]
 }
 
-/** Python 运行时类型 */
-export type PaperWebSearchRuntime = 'uv' | 'conda' | 'python'
+/** 联网搜索运行时类型 */
+export type PaperWebSearchRuntime = 'electron'
 
-/** Python 依赖模式 */
-export type PaperWebSearchDependencyMode = 'isolated' | 'system' | 'stdlib'
+/** 联网搜索依赖模式 */
+export type PaperWebSearchDependencyMode = 'builtin'
 
-/** Python 环境检测结果 */
+/** 联网搜索环境检测结果 */
 export interface PaperWebSearchEnvironmentInfo {
   available: boolean
   runtime?: PaperWebSearchRuntime

@@ -184,7 +184,7 @@ async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
       if (!envInfo.available) {
         notify.warning(
           '联网搜索不可用',
-          envInfo.error || '未检测到可用 Python 环境，请安装 Python 3.9+ 或 uv。',
+          envInfo.error || 'Electron 搜索运行时不可用，请重启应用后重试。',
           { source: 'chat' }
         )
         return
