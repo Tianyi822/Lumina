@@ -17,7 +17,7 @@ const hasContent = computed(() => {
 })
 
 const completedCount = computed(() => {
-  return props.planExecution?.steps.filter((s) => s.status === 'completed').length ?? 0
+  return props.planExecution?.steps.filter((s) => s.status === 'success').length ?? 0
 })
 
 const totalCount = computed(() => {
@@ -40,11 +40,11 @@ function toggleExpand(): void {
 
 function getStatusIcon(status: PlanStep['status']): string {
   switch (status) {
-    case 'completed':
+    case 'success':
       return '✓'
     case 'failed':
       return '✗'
-    case 'in_progress':
+    case 'running':
       return '●'
     case 'skipped':
       return '—'
@@ -91,7 +91,7 @@ function getStatusClass(status: PlanStep['status']): string {
             v-for="step in planExecution?.steps"
             :key="step.index"
             class="paper-chat-plan-progress__step"
-            :class="{ active: step.status === 'in_progress' }"
+            :class="{ active: step.status === 'running' }"
           >
             <div class="paper-chat-plan-progress__step-rail">
               <span class="paper-chat-plan-progress__node" :class="getStatusClass(step.status)">{{
@@ -101,7 +101,7 @@ function getStatusClass(status: PlanStep['status']): string {
 
             <div class="paper-chat-plan-progress__step-main">
               <div class="paper-chat-plan-progress__step-title">{{ step.title }}</div>
-              <div v-if="step.status === 'in_progress'" class="paper-chat-plan-progress__step-desc">
+              <div v-if="step.status === 'running'" class="paper-chat-plan-progress__step-desc">
                 {{ step.description }}
               </div>
             </div>
@@ -256,14 +256,14 @@ function getStatusClass(status: PlanStep['status']): string {
   color: transparent;
 }
 
-.paper-chat-plan-progress__node--in_progress {
+.paper-chat-plan-progress__node--running {
   border: 2px solid var(--sm-color-accent);
   background: var(--sm-color-accent-12);
   color: var(--sm-color-accent);
   animation: pulse 1.8s infinite;
 }
 
-.paper-chat-plan-progress__node--completed {
+.paper-chat-plan-progress__node--success {
   border: 2px solid var(--sm-color-status-success);
   background: var(--sm-color-status-success);
   color: #fff;
@@ -294,7 +294,7 @@ function getStatusClass(status: PlanStep['status']): string {
   line-height: 1.4;
 }
 
-.paper-chat-plan-progress__step--completed .paper-chat-plan-progress__step-title {
+.paper-chat-plan-progress__step--success .paper-chat-plan-progress__step-title {
   color: var(--sm-color-text-secondary);
 }
 

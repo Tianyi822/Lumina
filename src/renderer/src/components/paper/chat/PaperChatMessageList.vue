@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PaperChatMessage from '@renderer/components/paper/chat/message/PaperChatMessage.vue'
-import PaperChatPlanProgress from '@renderer/components/paper/chat/message/PaperChatPlanProgress.vue'
 import PaperChatReActSteps from '@renderer/components/paper/chat/message/PaperChatReActSteps.vue'
 import type { Message } from '@renderer/types'
 
@@ -173,10 +172,6 @@ onBeforeUnmount(() => {
         @toggle-reasoning="toggleReasoning"
       >
         <template #react-steps>
-          <PaperChatPlanProgress
-            v-if="message.planExecution"
-            :plan-execution="message.planExecution"
-          />
           <PaperChatReActSteps
             v-if="hasRenderableReact(message)"
             :steps="message.reactSteps"

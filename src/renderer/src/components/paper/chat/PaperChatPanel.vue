@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, provide, ref, watch } from 'vue'
 import PaperChatInput from '@renderer/components/paper/chat/PaperChatInput.vue'
+import PaperChatPlanDock from '@renderer/components/paper/chat/PaperChatPlanDock.vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import PaperChatMessageList from './PaperChatMessageList.vue'
 import { usePaperChatSession } from './usePaperChatSession'
 import { usePaperChatStream } from './usePaperChatStream'
+import { usePaperChatStreamStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import { parseMessageOptions, type MessageOptionContext } from '@renderer/utils/optionParser'
 import type {
@@ -28,6 +30,7 @@ const emit = defineEmits<{
 const paperRef = computed(() => props.paper)
 const dismissedQuickReplyIds = ref<Set<string>>(new Set())
 const notify = useNotification()
+const paperChatStreamStore = usePaperChatStreamStore()
 
 const {
   session,
@@ -73,6 +76,10 @@ const { isSending, sendMessage, stopRequest } = usePaperChatStream({
 const visibleMessages = computed(() =>
   messages.value.filter((message) => !message.hidden && message.role !== 'tool')
 )
+
+const currentPlanState = computed(() => {
+  return sessionId.value ? (paperChatStreamStore.planStates.get(sessionId.value) ?? null) : null
+})
 
 const activeQuickReply = computed<MessageOptionContext | null>(() => {
   for (let index = visibleMessages.value.length - 1; index >= 0; index -= 1) {
@@ -248,6 +255,7 @@ async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
       />
 
       <div class="paper-chat-panel__composer">
+        <PaperChatPlanDock :plan-state="currentPlanState" />
         <PaperChatInput
           :key="sessionId || props.paper.id"
           variant="compact"
@@ -376,6 +384,9 @@ async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
 
 .paper-chat-panel__composer {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
   padding: var(--sm-space-3);
   border-top: 1px solid var(--sm-color-border-default);
   background: var(--sm-color-surface-1);

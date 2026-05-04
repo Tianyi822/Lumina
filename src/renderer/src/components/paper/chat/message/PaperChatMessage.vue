@@ -134,6 +134,7 @@ const showWaitingPlaceholder = computed(() => {
   return (
     props.message.role === 'assistant' &&
     !!props.message.isStreaming &&
+    !props.message.suppressWaitingPlaceholder &&
     !props.message.content &&
     !displayedContent.value &&
     !showStandaloneReasoning.value &&
@@ -164,6 +165,18 @@ const shouldRenderMessage = computed(() => {
   // 用户消息始终显示
   if (props.message.role === 'user') return true
   // AI 消息需要检查是否有实际内容
+  if (
+    props.message.role === 'assistant' &&
+    props.message.isStreaming &&
+    props.message.suppressWaitingPlaceholder &&
+    !props.message.content?.trim() &&
+    !displayedContent.value?.trim() &&
+    !showStandaloneReasoning.value &&
+    !hasStructuredReact.value &&
+    !hasToolActivity.value
+  ) {
+    return false
+  }
   return hasAssistantContent.value
 })
 
