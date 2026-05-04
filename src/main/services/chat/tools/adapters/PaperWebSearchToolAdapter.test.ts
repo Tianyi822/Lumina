@@ -12,7 +12,7 @@ class MockPaperWebSearchService {
   environmentCache: PaperWebSearchEnvironmentInfo | null = null
 
   async checkEnvironment(): Promise<PaperWebSearchEnvironmentInfo> {
-    return { available: true, runtime: 'python', executable: 'python3', version: '3.10.0' }
+    return { available: true, runtime: 'electron', executable: 'electron.net.fetch' }
   }
 
   clearEnvironmentCache(): void {
@@ -146,7 +146,7 @@ describe('PaperWebSearchToolAdapter', () => {
   it('execute 搜索服务失败时返回失败结果', async () => {
     const mockService = {
       async checkEnvironment(): Promise<PaperWebSearchEnvironmentInfo> {
-        return { available: true, runtime: 'python', executable: 'python3', version: '3.10.0' }
+        return { available: true, runtime: 'electron', executable: 'electron.net.fetch' }
       },
       clearEnvironmentCache(): void {},
       async search(input: PaperWebSearchToolInput): Promise<PaperWebSearchOutput> {

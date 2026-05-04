@@ -1,76 +1,79 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, mock, afterEach } from 'node:test'
+import { afterEach, describe, it, mock } from 'node:test'
 import assert from 'node:assert/strict'
-import childProcess from 'node:child_process'
-import { EventEmitter } from 'node:events'
+import { PaperWebSearchService } from './PaperWebSearchService.ts'
+import type { PaperWebSearchToolInput } from '@shared/types/paper-web-search'
 
-const PYTHON_VERSION_STDOUT = Buffer.from('Python 3.10.0\n')
+const SEARCH_HTML = `
+  <div class="result">
+    <a class="result__a" href="https://duckduckgo.com/l/?uddg=${encodeURIComponent(
+      'https://arxiv.org/abs/2401.00001'
+    )}">Mamba for Medical Image Segmentation</a>
+    <a class="result__snippet">A 2024 paper about Mamba and medical image segmentation.</a>
+  </div>
+`
 
-mock.method(
-  childProcess,
-  'exec',
-  (
-    _cmd: string,
-    _opts: unknown,
-    callback: (err: Error | null, result: { stdout: Buffer }) => void
-  ) => {
-    if (typeof callback === 'function') {
-      callback(null, { stdout: PYTHON_VERSION_STDOUT })
+const PAGE_HTML = `
+  <html>
+    <head><title>Mamba for Medical Image Segmentation</title></head>
+    <body>
+      <nav>navigation</nav>
+      <article>
+        <h1>Mamba for Medical Image Segmentation</h1>
+        <p>This 2024 study evaluates Mamba state space models for medical image segmentation.</p>
+        <p>It discusses few-shot learning comparisons and recent progress in segmentation models.</p>
+      </article>
+    </body>
+  </html>
+`
+
+function createInput(): PaperWebSearchToolInput {
+  return {
+    query: 'Mamba medical image segmentation few-shot learning',
+    reason: 'test reason',
+    target: 'recent_progress',
+    recency: 'recent',
+    paperContext: {
+      paperId: 'paper-1',
+      fileName: 'paper.pdf',
+      userQuestion: 'What is recent progress?'
     }
   }
-)
+}
 
-mock.method(childProcess, 'spawn', () => {
-  const emitter = new EventEmitter()
+function mockFetch(): void {
+  mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
+    const url = String(input)
+    if (url.includes('duckduckgo.com')) {
+      return new Response(SEARCH_HTML, {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' }
+      })
+    }
 
-  const proc = {
-    stdout: new EventEmitter(),
-    stderr: new EventEmitter(),
-    stdin: { write: () => {}, end: () => {} },
-    on: emitter.on.bind(emitter),
-    emit: emitter.emit.bind(emitter)
-  }
+    if (url.includes('arxiv.org')) {
+      return new Response(PAGE_HTML, {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' }
+      })
+    }
 
-  ;(proc.stdout as any).on = (_event: string, handler: (data: Buffer) => void) => {
-    handler(
-      Buffer.from(
-        JSON.stringify({
-          success: true,
-          query: 'test',
-          quality: 'high',
-          results: [],
-          totalDiscovered: 0,
-          totalCrawled: 0,
-          totalRetained: 0,
-          elapsedMs: 0
-        })
-      )
-    )
-  }
-
-  setImmediate(() => {
-    proc.emit('close', 0)
+    return new Response('', { status: 404 })
   })
-
-  return proc
-})
-
-import { PaperWebSearchService } from './PaperWebSearchService.ts'
+}
 
 describe('PaperWebSearchService', () => {
   afterEach(() => {
     mock.reset()
   })
 
-  it('checkEnvironment 返回环境检测结果', async () => {
+  it('checkEnvironment 返回 Electron 内置搜索运行时', async () => {
     const service = new PaperWebSearchService()
     const result = await service.checkEnvironment()
 
-    assert.ok(typeof result.available === 'boolean')
     assert.equal(result.available, true)
-    assert.ok('executable' in result)
-    assert.ok('runtime' in result)
-    assert.ok('version' in result)
+    assert.equal(result.runtime, 'electron')
+    assert.equal(result.executable, 'electron.net.fetch')
+    assert.equal(result.dependencyMode, 'builtin')
   })
 
   it('checkEnvironment 第二次调用使用缓存', async () => {
@@ -90,5 +93,20 @@ describe('PaperWebSearchService', () => {
     const second = await service.checkEnvironment()
 
     assert.notEqual(first, second)
+  })
+
+  it('search 使用 Electron fetch 搜索、抓取并返回结构化结果', async () => {
+    mockFetch()
+    const service = new PaperWebSearchService()
+    const result = await service.search(createInput())
+
+    assert.equal(result.success, true)
+    assert.equal(result.totalDiscovered, 1)
+    assert.equal(result.totalCrawled, 1)
+    assert.equal(result.totalRetained, 1)
+    assert.equal(result.results.length, 1)
+    assert.equal(result.results[0].source, 'arxiv.org')
+    assert.match(result.results[0].snippet, /few-shot learning/)
+    assert.ok(result.results[0].relevanceScore > 0)
   })
 })
