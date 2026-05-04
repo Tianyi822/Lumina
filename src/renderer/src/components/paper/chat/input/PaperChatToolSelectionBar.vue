@@ -121,25 +121,22 @@ onUnmounted(() => {
     />
 
     <button
-      class="paper-chat-input-toolbar__plan-toggle"
-      :class="{ active: props.enablePlanMode }"
-      :disabled="props.isSending"
-      title="规划模式：模型将先拆解任务为步骤再逐步执行"
-      @click="emit('update:enablePlanMode', !props.enablePlanMode)"
-    >
-      <SvgIcon name="thinking" :size="14" />
-      <span>规划</span>
-    </button>
-
-    <button
+      type="button"
       class="paper-chat-input-toolbar__search-toggle"
-      :class="{ active: props.enablePaperWebSearch }"
+      :class="{
+        enabled: props.enablePaperWebSearch,
+        disabled: props.isSending,
+        'is-compact': props.variant === 'compact'
+      }"
       :disabled="props.isSending"
+      :aria-pressed="props.enablePaperWebSearch ? 'true' : 'false'"
       title="联网搜索：允许模型在需要时搜索学术资料补充论文信息"
       @click="emit('update:enablePaperWebSearch', !props.enablePaperWebSearch)"
     >
-      <SvgIcon name="search" :size="14" />
-      <span>搜索</span>
+      <span class="toggle-switch" aria-hidden="true">
+        <span class="toggle-thumb"></span>
+      </span>
+      <span class="toggle-label">搜索</span>
     </button>
 
     <div class="paper-chat-input-toolbar__actions">
@@ -197,7 +194,7 @@ onUnmounted(() => {
 
 .paper-chat-input-toolbar--compact {
   display: grid;
-  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--sm-space-2);
 }
@@ -225,7 +222,7 @@ onUnmounted(() => {
 }
 
 .paper-chat-input-toolbar--compact .paper-chat-input-toolbar__actions {
-  grid-column: 5;
+  grid-column: 6;
   gap: var(--sm-space-2);
   margin-left: 0;
 }
@@ -407,72 +404,89 @@ onUnmounted(() => {
   border-color: var(--sm-color-status-danger);
 }
 
-.paper-chat-input-toolbar__plan-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 28px;
-  padding: 0 8px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-sm);
-  background: var(--sm-color-surface-1);
-  color: var(--sm-color-text-secondary);
-  font-size: 11px;
-  cursor: pointer;
-  transition:
-    border-color var(--sm-transition-fast),
-    background-color var(--sm-transition-fast),
-    color var(--sm-transition-fast);
-}
-
-.paper-chat-input-toolbar__plan-toggle:hover:not(:disabled) {
-  border-color: var(--sm-color-border-strong);
-  color: var(--sm-color-text-primary);
-}
-
-.paper-chat-input-toolbar__plan-toggle.active {
-  border-color: var(--sm-color-border-accent);
-  background: var(--sm-color-accent-12);
-  color: var(--sm-color-accent-hover);
-}
-
-.paper-chat-input-toolbar__plan-toggle:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .paper-chat-input-toolbar__search-toggle {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  min-height: 28px;
-  padding: 0 8px;
+  gap: 8px;
+  padding: 6px 12px;
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-sm);
-  background: var(--sm-color-surface-1);
-  color: var(--sm-color-text-secondary);
-  font-size: 11px;
+  background-color: var(--sm-color-surface-1);
   cursor: pointer;
   transition:
-    border-color var(--sm-transition-fast),
     background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
     color var(--sm-transition-fast);
+  user-select: none;
+}
+
+.paper-chat-input-toolbar__search-toggle.is-compact {
+  min-height: 32px;
+  padding: 6px 10px;
+  gap: 6px;
 }
 
 .paper-chat-input-toolbar__search-toggle:hover:not(:disabled) {
   border-color: var(--sm-color-border-strong);
-  color: var(--sm-color-text-primary);
+  background-color: var(--sm-color-surface-hover);
 }
 
-.paper-chat-input-toolbar__search-toggle.active {
+.paper-chat-input-toolbar__search-toggle.enabled {
   border-color: var(--sm-color-border-accent);
-  background: var(--sm-color-accent-12);
-  color: var(--sm-color-accent-hover);
+  background-color: var(--sm-color-accent-08);
 }
 
 .paper-chat-input-toolbar__search-toggle:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.paper-chat-input-toolbar__search-toggle .toggle-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background-color: var(--sm-color-border-default);
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+}
+
+.paper-chat-input-toolbar__search-toggle.is-compact .toggle-switch {
+  width: 28px;
+  height: 16px;
+}
+
+.paper-chat-input-toolbar__search-toggle.enabled .toggle-switch {
+  background-color: var(--sm-color-accent);
+}
+
+.paper-chat-input-toolbar__search-toggle .toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background-color: var(--sm-color-text-primary);
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.paper-chat-input-toolbar__search-toggle.is-compact .toggle-thumb {
+  width: 12px;
+  height: 12px;
+}
+
+.paper-chat-input-toolbar__search-toggle.enabled .toggle-thumb {
+  transform: translateX(16px);
+}
+
+.paper-chat-input-toolbar__search-toggle.is-compact.enabled .toggle-thumb {
+  transform: translateX(12px);
+}
+
+.paper-chat-input-toolbar__search-toggle .toggle-label {
+  color: var(--sm-color-text-primary);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {
