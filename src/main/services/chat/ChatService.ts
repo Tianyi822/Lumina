@@ -46,8 +46,8 @@ export class ChatService {
       stopController: this.stopController,
       streamHandler: this.streamHandler,
       createClient: (config) => this.createClient(config),
-      validateAndGetLLMConfig: (modelKey, sessionId, webContents) =>
-        this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
+      validateAndGetLLMConfig: (modelKey, sessionId, webContents, turnId) =>
+        this.validateAndGetLLMConfig(modelKey, sessionId, webContents, turnId)
     })
 
     this.planExecuteService = new PlanExecuteService({
@@ -55,8 +55,8 @@ export class ChatService {
       stopController: this.stopController,
       streamHandler: this.streamHandler,
       createClient: (config) => this.createClient(config),
-      validateAndGetLLMConfig: (modelKey, sessionId, webContents) =>
-        this.validateAndGetLLMConfig(modelKey, sessionId, webContents),
+      validateAndGetLLMConfig: (modelKey, sessionId, webContents, turnId) =>
+        this.validateAndGetLLMConfig(modelKey, sessionId, webContents, turnId),
       reactLoopService: this.reactLoopService
     })
   }
@@ -110,7 +110,7 @@ export class ChatService {
     webContents: WebContents,
     knowledgeResults?: KnowledgeSearchResult[]
   ): Promise<ChatResult> {
-    const { messages, modelKey, sessionId } = request
+    const { messages, modelKey, sessionId, turnId } = request
 
     logger.info('开始发送聊天消息（直接模式）', 'main', {
       sessionId,
@@ -118,13 +118,13 @@ export class ChatService {
       messageCount: messages.length
     })
 
-    const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
+    const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents, turnId)
     if (!llmConfig) {
       return { success: false, error: '配置验证失败' }
     }
 
     if (this.stopController.isStopped(sessionId)) {
-      this.streamHandler.sendDone(webContents, sessionId)
+      this.streamHandler.sendDone(webContents, sessionId, undefined, turnId, 'cancelled')
       return { success: true }
     }
 
@@ -168,7 +168,12 @@ export class ChatService {
           }
 
           if (delta.reasoning_content) {
-            this.streamHandler.sendReasoning(webContents, sessionId, delta.reasoning_content)
+            this.streamHandler.sendReasoning(
+              webContents,
+              sessionId,
+              delta.reasoning_content,
+              turnId
+            )
           }
 
           if (delta.content) {
@@ -178,11 +183,11 @@ export class ChatService {
             )
 
             if (reasoningDelta) {
-              this.streamHandler.sendReasoning(webContents, sessionId, reasoningDelta)
+              this.streamHandler.sendReasoning(webContents, sessionId, reasoningDelta, turnId)
             }
 
             if (contentDelta) {
-              this.streamHandler.sendContent(webContents, sessionId, contentDelta)
+              this.streamHandler.sendContent(webContents, sessionId, contentDelta, turnId)
             }
           }
         }
@@ -190,13 +195,13 @@ export class ChatService {
 
       const { reasoningDelta, contentDelta } = flushThinkParserState(thinkParserState)
       if (reasoningDelta) {
-        this.streamHandler.sendReasoning(webContents, sessionId, reasoningDelta)
+        this.streamHandler.sendReasoning(webContents, sessionId, reasoningDelta, turnId)
       }
       if (contentDelta) {
-        this.streamHandler.sendContent(webContents, sessionId, contentDelta)
+        this.streamHandler.sendContent(webContents, sessionId, contentDelta, turnId)
       }
 
-      this.streamHandler.sendDone(webContents, sessionId, usage)
+      this.streamHandler.sendDone(webContents, sessionId, usage, turnId, 'completed')
 
       logger.info('聊天消息发送完成', 'main', { usage })
 
@@ -204,7 +209,7 @@ export class ChatService {
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         logger.info('用户中止了请求', 'main', { sessionId })
-        this.streamHandler.sendDone(webContents, sessionId)
+        this.streamHandler.sendDone(webContents, sessionId, undefined, turnId, 'cancelled')
         return { success: true }
       }
 
@@ -215,7 +220,7 @@ export class ChatService {
         normalizedError: errorMessage,
         status: this.modelRetryHandler.getModelErrorStatus(error)
       })
-      this.streamHandler.sendError(webContents, sessionId, errorMessage)
+      this.streamHandler.sendError(webContents, sessionId, errorMessage, turnId, 'failed')
       return { success: false, error: errorMessage }
     } finally {
       this.stopController.deleteAbortController(sessionId)
@@ -247,13 +252,14 @@ export class ChatService {
   private validateAndGetLLMConfig(
     modelKey: string,
     sessionId: string,
-    webContents: WebContents
+    webContents: WebContents,
+    turnId?: string
   ): LLMConfig | null {
     const config = configManager.getConfig()
     if (!config) {
       const error = '配置未加载'
       logger.error(error, 'main')
-      this.streamHandler.sendError(webContents, sessionId, error)
+      this.streamHandler.sendError(webContents, sessionId, error, turnId, 'failed')
       return null
     }
 
@@ -261,7 +267,7 @@ export class ChatService {
     if (!llmConfig) {
       const error = `未找到模型配置: ${modelKey}`
       logger.error(error, 'main')
-      this.streamHandler.sendError(webContents, sessionId, error)
+      this.streamHandler.sendError(webContents, sessionId, error, turnId, 'failed')
       return null
     }
 
