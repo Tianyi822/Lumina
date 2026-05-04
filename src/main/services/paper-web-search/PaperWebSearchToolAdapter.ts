@@ -74,7 +74,11 @@ export class PaperWebSearchToolAdapter implements ToolAdapter {
    * 执行论文网页搜索工具调用
    */
   async execute(toolName: string, args: Record<string, unknown>): Promise<MCPToolCallResult> {
-    if (toolName !== 'search') {
+    const normalizedToolName = toolName.startsWith('paper_web__')
+      ? toolName.slice('paper_web__'.length)
+      : toolName
+
+    if (normalizedToolName !== 'search') {
       return {
         success: false,
         error: `未知的工具名称: ${toolName}，当前仅支持 search`

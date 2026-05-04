@@ -125,6 +125,24 @@ describe('PaperWebSearchToolAdapter', () => {
     assert.equal((content.results as any[])[0].title, 'Test Paper')
   })
 
+  it('execute 支持统一执行器传入的完整工具名', async () => {
+    const mockService = new MockPaperWebSearchService()
+    const adapter = new PaperWebSearchToolAdapter(mockService as any)
+
+    adapter.setPaperContext(paperContext)
+    const result = await adapter.execute('paper_web__search', {
+      query: 'Mamba state space model architecture',
+      reason: '用户想了解 Mamba 架构',
+      target: 'method',
+      recency: 'any'
+    })
+
+    assert.equal(result.success, true)
+    const content = result.content as Record<string, unknown>
+    assert.equal(content.quality, 'high')
+    assert.equal(content.resultCount, 1)
+  })
+
   it('execute 搜索服务失败时返回失败结果', async () => {
     const mockService = {
       async checkEnvironment(): Promise<PaperWebSearchEnvironmentInfo> {
