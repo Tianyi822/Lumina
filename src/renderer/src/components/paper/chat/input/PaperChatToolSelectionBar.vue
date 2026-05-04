@@ -112,14 +112,6 @@ onUnmounted(() => {
       @selection-change="emit('update:selectedKnowledgeBases', $event)"
     />
 
-    <LabToolsToggle
-      :compact="props.variant === 'compact'"
-      :model-value="props.enableLabTools"
-      :disabled="props.isSending"
-      @update:model-value="emit('update:enableLabTools', $event)"
-      @change="emit('update:enableLabTools', $event)"
-    />
-
     <button
       type="button"
       class="paper-chat-input-toolbar__search-toggle"
@@ -138,6 +130,14 @@ onUnmounted(() => {
       </span>
       <span class="toggle-label">搜索</span>
     </button>
+
+    <LabToolsToggle
+      :compact="props.variant === 'compact'"
+      :model-value="props.enableLabTools"
+      :disabled="props.isSending"
+      @update:model-value="emit('update:enableLabTools', $event)"
+      @change="emit('update:enableLabTools', $event)"
+    />
 
     <div class="paper-chat-input-toolbar__actions">
       <button
@@ -413,10 +413,6 @@ onUnmounted(() => {
   border-radius: var(--sm-radius-sm);
   background-color: var(--sm-color-surface-1);
   cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast),
-    color var(--sm-transition-fast);
   user-select: none;
 }
 
@@ -424,16 +420,6 @@ onUnmounted(() => {
   min-height: 32px;
   padding: 6px 10px;
   gap: 6px;
-}
-
-.paper-chat-input-toolbar__search-toggle:hover:not(:disabled) {
-  border-color: var(--sm-color-border-strong);
-  background-color: var(--sm-color-surface-hover);
-}
-
-.paper-chat-input-toolbar__search-toggle.enabled {
-  border-color: var(--sm-color-border-accent);
-  background-color: var(--sm-color-accent-08);
 }
 
 .paper-chat-input-toolbar__search-toggle:disabled {
