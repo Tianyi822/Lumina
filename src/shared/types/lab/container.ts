@@ -176,6 +176,8 @@ export interface ExecResult {
   stderr: string
   /** 执行时间 (毫秒) */
   duration: number
+  /** 是否为 Docker API 或执行基础设施错误 */
+  systemError?: boolean
 }
 
 /**

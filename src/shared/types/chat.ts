@@ -214,6 +214,7 @@ export type StreamEventType =
   | 'knowledge_result'
   | 'user_interaction'
   | 'react_iteration_start'
+  | 'plan_status'
   | 'plan_generated'
   | 'plan_step_update'
   | 'done'
@@ -279,9 +280,21 @@ export interface UserInteractionRequest {
 }
 
 /**
+ * 计划整体执行状态
+ */
+export type PlanExecutionStatus =
+  | 'idle'
+  | 'planning'
+  | 'planned'
+  | 'running'
+  | 'failed'
+  | 'completed'
+  | 'cancelled'
+
+/**
  * 计划步骤状态
  */
-export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped'
+export type PlanStepStatus = 'pending' | 'running' | 'success' | 'failed' | 'skipped' | 'cancelled'
 
 /**
  * 计划中的单个步骤
@@ -295,6 +308,14 @@ export interface PlanStep {
   description: string
   /** 当前执行状态 */
   status: PlanStepStatus
+  /** 步骤执行摘要 */
+  summary?: string
+  /** 步骤失败或取消原因 */
+  error?: string
+  /** 当前尝试次数（从 1 开始） */
+  attempt?: number
+  /** 最大尝试次数 */
+  maxAttempts?: number
 }
 
 /**
@@ -306,12 +327,16 @@ export interface StreamEvent {
   type: StreamEventType
   /** 会话标识，用于多会话场景下区分不同会话的事件 */
   sessionId?: string
+  /** 本轮消息标识，用于区分同一会话内的多轮流式事件 */
+  turnId?: string
   /** 新增的消息文本内容 */
   content?: string
   /** Token 使用统计，仅在事件类型为 done 时提供 */
   usage?: TokenUsage
   /** 错误信息，仅在事件类型为 error 时提供 */
   error?: string
+  /** 最终执行状态，仅在 done/error 等终态事件时提供 */
+  finalStatus?: Exclude<PlanExecutionStatus, 'idle' | 'planning' | 'planned' | 'running'>
   /** 工具调用信息，仅在事件类型为 tool_call 时提供 */
   toolCall?: ToolCallInfo
   /** 工具执行结果，仅在事件类型为 tool_result 时提供 */
@@ -330,10 +355,23 @@ export interface StreamEvent {
   userInteraction?: UserInteractionRequest
   /** ReAct 迭代状态，仅在事件类型为 react_iteration_start 时提供 */
   status?: ReactIterationStatus
+  /** 计划整体状态，仅在事件类型为 plan_status 时提供 */
+  planStatus?: {
+    status: PlanExecutionStatus
+    message?: string
+    error?: string
+  }
   /** 计划步骤列表，仅在事件类型为 plan_generated 时提供 */
-  plan?: { steps: PlanStep[] }
+  plan?: { steps: PlanStep[]; status?: PlanExecutionStatus }
   /** 计划步骤状态更新，仅在事件类型为 plan_step_update 时提供 */
-  planStepUpdate?: { index: number; status: PlanStepStatus; summary?: string }
+  planStepUpdate?: {
+    index: number
+    status: PlanStepStatus
+    summary?: string
+    error?: string
+    attempt?: number
+    maxAttempts?: number
+  }
 }
 
 /**
@@ -386,6 +424,8 @@ export interface ChatRequest {
   modelKey: string
   /** 会话标识，用于多会话管理和事件路由 */
   sessionId: string
+  /** 本轮消息标识，用于流式事件路由 */
+  turnId?: string
   /** 是否启用模型的思考模式 */
   enableThinking?: boolean
   /** 用户选择的 MCP 工具列表 */
@@ -411,5 +451,27 @@ export interface ChatResult {
   /** 请求是否执行成功 */
   success: boolean
   /** 执行失败时的错误信息 */
+  error?: string
+  /** 工具层可恢复错误列表 */
+  toolErrors?: string[]
+  /** 模型最终文本内容，用于规划模式步骤间传递执行结论 */
+  finalContent?: string
+  /** 工具执行结果摘要，用于规划模式步骤间保留关键上下文 */
+  toolResults?: ChatToolExecutionResult[]
+}
+
+/**
+ * 聊天过程中单次工具执行结果
+ */
+export interface ChatToolExecutionResult {
+  /** 工具调用 ID */
+  toolCallId: string
+  /** 工具完整名称，如 lab__exec_command */
+  toolName: string
+  /** 工具调用是否成功 */
+  success: boolean
+  /** 写入模型上下文的工具结果内容 */
+  content: string
+  /** 工具调用失败时的错误信息 */
   error?: string
 }

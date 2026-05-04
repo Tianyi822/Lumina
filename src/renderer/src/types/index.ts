@@ -28,6 +28,7 @@ export type {
   UserInteractionOption,
   UserInteractionRequest,
   PlanStep,
+  PlanExecutionStatus,
   PlanStepStatus
 } from '@shared/types/chat'
 
@@ -113,6 +114,7 @@ export interface Message {
   hidden?: boolean // 隐藏上下文消息，不在 UI 中显示
   contextKind?: 'paper_fulltext'
   sourcePaperId?: string
+  suppressWaitingPlaceholder?: boolean
   planExecution?: {
     steps: PlanStep[]
     currentStepIndex: number
