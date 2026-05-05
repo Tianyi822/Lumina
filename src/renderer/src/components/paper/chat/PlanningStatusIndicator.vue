@@ -82,7 +82,11 @@ onBeforeUnmount(() => {
 
 <template>
   <span class="paper-planning-status" aria-live="polite">
-    <span :key="activeText" class="paper-planning-status__text paper-planning-status--animating">
+    <span
+      :key="activeText"
+      class="paper-planning-status__text paper-planning-status--animating"
+      :data-text="activeText"
+    >
       <span
         v-for="(char, index) in chars"
         :key="`${activeText}-${index}`"
@@ -102,9 +106,16 @@ onBeforeUnmount(() => {
   --paper-planning-status-stagger: 42ms;
   --paper-planning-status-blur: 2px;
   --paper-planning-status-ease: cubic-bezier(0.34, 1.18, 0.64, 1);
+  --paper-planning-status-shine-edge: rgba(255, 255, 255, 0.1);
+  --paper-planning-status-shine-peak: rgba(255, 255, 255, 0.38);
   display: inline-flex;
   align-items: baseline;
   min-width: 0;
+}
+
+:global([data-theme='lumina-light']) .paper-planning-status {
+  --paper-planning-status-shine-edge: rgba(255, 255, 255, 0.16);
+  --paper-planning-status-shine-peak: rgba(255, 255, 255, 0.68);
 }
 
 .paper-planning-status__text {
@@ -119,20 +130,24 @@ onBeforeUnmount(() => {
 }
 
 .paper-planning-status__text::after {
-  content: '';
+  content: attr(data-text);
   position: absolute;
-  inset: -35% -20%;
+  inset: 0;
   pointer-events: none;
   background: linear-gradient(
     105deg,
-    transparent 18%,
-    rgba(255, 255, 255, 0.18) 34%,
-    rgba(255, 255, 255, 0.76) 48%,
-    rgba(255, 255, 255, 0.18) 62%,
-    transparent 78%
+    transparent 12%,
+    var(--paper-planning-status-shine-edge) 34%,
+    var(--paper-planning-status-shine-peak) 50%,
+    var(--paper-planning-status-shine-edge) 66%,
+    transparent 88%
   );
-  transform: translateX(-120%);
-  mix-blend-mode: screen;
+  background-position: 135% 0;
+  background-size: 240% 100%;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   animation: paperPlanningStatusLightSweep 1800ms ease-out 520ms both;
 }
 
@@ -165,7 +180,7 @@ onBeforeUnmount(() => {
 
 @keyframes paperPlanningStatusLightSweep {
   0% {
-    transform: translateX(-120%);
+    background-position: 135% 0;
     opacity: 0;
   }
 
@@ -174,7 +189,7 @@ onBeforeUnmount(() => {
   }
 
   100% {
-    transform: translateX(120%);
+    background-position: -135% 0;
     opacity: 0;
   }
 }
