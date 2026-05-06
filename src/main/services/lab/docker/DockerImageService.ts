@@ -15,7 +15,11 @@ import type {
  * Docker 镜像与镜像派生容器服务
  */
 export class DockerImageService {
-  constructor(private readonly context: DockerServiceContext) {}
+  private readonly context: DockerServiceContext
+
+  constructor(context: DockerServiceContext) {
+    this.context = context
+  }
 
   /**
    * 从 Dockerfile 构建镜像

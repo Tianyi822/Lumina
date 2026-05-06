@@ -6,7 +6,8 @@ import {
   ToolResultInfo,
   AttachedDocument,
   AttachedImage,
-  PaperQuote
+  PaperQuote,
+  PlanStep
 } from './chat'
 import type { KnowledgeBase } from './knowledge'
 import type { MCPTool } from './mcp'
@@ -37,6 +38,10 @@ export interface ReActIterationData {
   reasoning: string
   /** 该迭代的工具调用/结果步骤 */
   steps: ReActStepData[]
+  /** 该迭代的文本输出内容（Plan 模式下按步骤累加） */
+  content?: string
+  /** Plan 模式下所属的任务编号（1-based） */
+  taskNumber?: number
 }
 
 /**
@@ -78,6 +83,8 @@ export interface SessionMessage {
   contextKind?: 'paper_fulltext'
   /** 隐藏上下文来源论文 ID */
   sourcePaperId?: string
+  /** 规划模式的计划步骤数据 */
+  planSteps?: PlanStep[]
 }
 
 /**
@@ -111,6 +118,10 @@ export interface SessionSelectionState {
   enableLabTools: boolean
   /** 当前会话选中的模型 */
   selectedModel: string
+  /** 当前会话是否启用规划模式（仅论文会话） */
+  enablePlanMode?: boolean
+  /** 当前会话是否启用论文联网搜索（仅论文会话） */
+  enablePaperWebSearch?: boolean
 }
 
 /**

@@ -161,7 +161,7 @@ function handleCancelRetranslate(): void {
       <div class="paper-retranslate-dialog">
         <div class="paper-retranslate-dialog__title">重新翻译</div>
         <div class="paper-retranslate-dialog__body">
-          该段落存在批注或笔记，重新翻译可能导致标记失效或位置偏移。是否继续？
+          该段落存在批注或笔记。继续重新翻译后，这些标注会一起删除。
         </div>
         <div class="paper-retranslate-dialog__actions">
           <button
@@ -187,6 +187,8 @@ function handleCancelRetranslate(): void {
 <style scoped>
 .paper-markdown-view__segment {
   position: relative;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
 }
 
 .paper-markdown-view__segment + .paper-markdown-view__segment {
@@ -289,6 +291,7 @@ function handleCancelRetranslate(): void {
 }
 
 .paper-markdown-view__markdown {
+  --paper-markdown-list-indent: 2.8em;
   width: 100%;
   font-size: 15px;
   line-height: 1.75;
@@ -488,6 +491,79 @@ function handleCancelRetranslate(): void {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable both-edges;
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+  cursor: auto;
+  transition: scrollbar-color var(--sm-transition-fast);
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap:hover),
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap:focus-within),
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap:active),
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap--dragging) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sm-color-border-strong) transparent;
+}
+
+.paper-markdown-view__markdown
+  :deep(
+    .paper-markdown-view__table-wrap--scrollable:not(.paper-markdown-view__table-wrap--dragging)
+  ) {
+  cursor: grab;
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap--dragging),
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap--dragging *) {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap::-webkit-scrollbar) {
+  height: 0;
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap:hover::-webkit-scrollbar),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:focus-within::-webkit-scrollbar),
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap:active::-webkit-scrollbar),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap--dragging::-webkit-scrollbar) {
+  height: 10px;
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap::-webkit-scrollbar-track) {
+  background: transparent;
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap::-webkit-scrollbar-thumb) {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  background-clip: content-box;
+}
+
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:hover::-webkit-scrollbar-thumb),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:focus-within::-webkit-scrollbar-thumb),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:active::-webkit-scrollbar-thumb),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap--dragging::-webkit-scrollbar-thumb) {
+  background: var(--sm-color-border-strong);
+  background-clip: content-box;
+}
+
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:hover::-webkit-scrollbar-thumb:hover),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:focus-within::-webkit-scrollbar-thumb:hover),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:active::-webkit-scrollbar-thumb:hover),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap--dragging::-webkit-scrollbar-thumb:hover) {
+  background: var(--sm-color-text-tertiary);
+  background-clip: content-box;
 }
 
 .paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap > table) {
@@ -529,7 +605,7 @@ function handleCancelRetranslate(): void {
 .paper-markdown-view__markdown :deep(ul),
 .paper-markdown-view__markdown :deep(ol) {
   margin: 0.6em 0;
-  padding-inline-start: 2.8em;
+  padding-inline-start: var(--paper-markdown-list-indent);
 }
 
 .paper-markdown-view__markdown :deep(li) {

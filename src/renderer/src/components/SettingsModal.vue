@@ -8,6 +8,7 @@ import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
 import PaperReaderSettings from './settings/PaperReaderSettings.vue'
 import ToolStatsSettings from './settings/ToolStatsSettings.vue'
+import SkillSettings from './settings/SkillSettings.vue'
 import { useConfigStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 
@@ -23,6 +24,7 @@ type SettingsTabKey =
   | 'embedding'
   | 'knowledge'
   | 'toolStats'
+  | 'skill'
   | 'paperReader'
 
 // 使用 configStore
@@ -67,6 +69,11 @@ const settingsTabs: Array<{
     id: 'toolStats',
     label: '工具调用统计',
     description: '查看工具调用量、成功率和耗时分布。'
+  },
+  {
+    id: 'skill',
+    label: 'Skill',
+    description: '加载外部指令资源包并配置自动匹配。'
   },
   {
     id: 'theme',
@@ -148,6 +155,8 @@ onUnmounted(() => {
             <KnowledgeMCPSettings v-else-if="activeTab === 'knowledge'" />
 
             <ToolStatsSettings v-else-if="activeTab === 'toolStats'" />
+
+            <SkillSettings v-else-if="activeTab === 'skill'" />
 
             <PaperReaderSettings v-else-if="activeTab === 'paperReader'" />
           </div>

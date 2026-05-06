@@ -42,20 +42,3 @@ export async function findLab(args: {
 
   return null
 }
-
-/**
- * 检查命令是否包含危险操作
- */
-export function isDangerousCommand(command: string): boolean {
-  const dangerousPatterns = [
-    /rm\s+-rf\s+\//, // rm -rf /
-    /mkfs\./, // 格式化文件系统
-    /dd\s+if=.*of=\/dev/, // dd 写入设备
-    />\s*\/dev\/null/, // 重定向到 null
-    /:\(\)\{\s*:\|:&\s*\};/, // Fork bomb
-    /curl.*\|.*sh/, // curl 管道到 shell
-    /wget.*\|.*sh/ // wget 管道到 shell
-  ]
-
-  return dangerousPatterns.some((pattern) => pattern.test(command))
-}

@@ -11,5 +11,5 @@ export interface ToolArgs {
  * 实验室工具定义
  */
 export interface LabToolDefinition extends MCPTool {
-  execute(args: ToolArgs): Promise<MCPToolCallResult>
+  execute(args: ToolArgs, onProgress?: (message: string) => void): Promise<MCPToolCallResult>
 }

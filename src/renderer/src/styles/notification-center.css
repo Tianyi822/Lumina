@@ -17,6 +17,11 @@
   pointer-events: auto;
 }
 
+.sm-notification-center,
+.sm-notification-center * {
+  -webkit-app-region: no-drag;
+}
+
 /* 通知列表过渡动画 */
 .sm-notification-enter-active {
   transition:

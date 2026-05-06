@@ -84,10 +84,6 @@ function collectOriginalHighlights(
 ): QuoteHighlight[] {
   return annotations
     .filter((annotation) => {
-      if (annotation.status === 'needs_reanchor' || annotation.status === 'invalid') {
-        return false
-      }
-
       return annotation.noteType === 'original_span'
     })
     .flatMap((annotation) => {
@@ -120,10 +116,7 @@ function collectTranslationHighlights(
 ): QuoteHighlight[] {
   return annotations
     .filter((annotation) => {
-      return (
-        annotation.noteType === 'translation_view' &&
-        (annotation.status === 'active' || annotation.status === 'translation_missing')
-      )
+      return annotation.noteType === 'translation_view'
     })
     .flatMap((annotation) => {
       const resolvedAnchor = resolveTranslationViewAnchor(translationText, annotation)
@@ -339,6 +332,7 @@ export interface PaperHighlightRenderer {
 }
 
 export const __paperHighlightRendererTestHooks = {
+  collectOriginalHighlights,
   normalizeHighlightBoundary,
   resolveHighlightRange,
   removeEmptyHighlightMarks

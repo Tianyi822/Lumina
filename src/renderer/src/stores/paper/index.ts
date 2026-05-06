@@ -36,11 +36,26 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   const originalPdfZoomLevel = ref(ZOOM_DEFAULT)
   let zoomPersistenceReady = false
   let zoomSaveTimer: ReturnType<typeof setTimeout> | null = null
+  let wheelZoomRafId: number | null = null
+  let pendingWheelDelta = 0
+  let zoomEndTimer: ReturnType<typeof setTimeout> | null = null
 
   const zoomLevel = computed(() =>
     originalPdfVisible.value ? originalPdfZoomLevel.value : markdownZoomLevel.value
   )
-  const zoomPercent = computed(() => Math.round(zoomLevel.value * 100))
+  const zoomPercent = ref(Math.round(zoomLevel.value * 100))
+  let zoomPercentRafId: number | null = null
+
+  function syncZoomPercent(): void {
+    zoomPercentRafId = null
+    zoomPercent.value = Math.round(zoomLevel.value * 100)
+  }
+
+  function scheduleZoomPercentSync(): void {
+    if (zoomPercentRafId !== null) return
+    zoomPercentRafId = requestAnimationFrame(syncZoomPercent)
+  }
+
   const canZoomIn = computed(() => zoomLevel.value < ZOOM_MAX)
   const canZoomOut = computed(() => zoomLevel.value > ZOOM_MIN)
 
@@ -71,7 +86,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     zoomSaveTimer = setTimeout(() => {
       zoomSaveTimer = null
       void configStore.saveConfig({ silent: true })
-    }, 240)
+    }, 800)
   }
 
   function setZoomLevel(value: number, options: { persist?: boolean } = {}): void {
@@ -82,6 +97,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     targetZoomLevel.value = nextZoomLevel
+    scheduleZoomPercentSync()
 
     if (options.persist !== false) {
       scheduleZoomPersistence()
@@ -94,6 +110,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     originalPdfZoomLevel.value = normalizeZoomLevel(
       configStore.paperReaderConfig.originalPdfZoomLevel
     )
+    zoomPercent.value = Math.round(zoomLevel.value * 100)
     zoomPersistenceReady = true
   }
 
@@ -109,12 +126,29 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     setZoomLevel(ZOOM_DEFAULT)
   }
 
+  function flushWheelZoom(): void {
+    wheelZoomRafId = null
+    if (pendingWheelDelta === 0) return
+    const nextZoomLevel = normalizeZoomLevel(zoomLevel.value + pendingWheelDelta)
+    pendingWheelDelta = 0
+    const targetZoomLevel = originalPdfVisible.value ? originalPdfZoomLevel : markdownZoomLevel
+    if (targetZoomLevel.value === nextZoomLevel) return
+    targetZoomLevel.value = nextZoomLevel
+    scheduleZoomPercentSync()
+  }
+
   function handleWheelZoom(event: WheelEvent): void {
     if (!event.ctrlKey) return
     event.preventDefault()
-    // deltaY > 0 为缩小（pinch in），< 0 为放大（pinch out）
-    const delta = -event.deltaY * 0.01
-    setZoomLevel(zoomLevel.value + delta)
+    pendingWheelDelta += -event.deltaY * 0.01
+    if (wheelZoomRafId === null) {
+      wheelZoomRafId = requestAnimationFrame(flushWheelZoom)
+    }
+    if (zoomEndTimer) clearTimeout(zoomEndTimer)
+    zoomEndTimer = setTimeout(() => {
+      zoomEndTimer = null
+      scheduleZoomPersistence()
+    }, 500)
   }
 
   function normalizeScrollPosition(position: PaperViewScrollPosition): PaperViewScrollPosition {
@@ -553,6 +587,11 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       segmentId: string,
       segmentStableId: string
     ): Promise<{ success: boolean; error?: string }> => {
+      const result = await translation.retranslateSegment(paperId, segmentId)
+      if (!result.success) {
+        return result
+      }
+
       const paperAnnotations = annotations.annotationsByPaperId.value[paperId] || []
       const annotationIdsToDelete = paperAnnotations
         .filter((ann) => ann.semanticAnchor.segmentStableId === segmentStableId)
@@ -562,12 +601,11 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
         await annotations.deleteAnnotation(paperId, id)
       }
 
-      return translation.retranslateSegment(paperId, segmentId)
+      return result
     },
     setPaperChatSession,
     ensurePaperChatSession,
     createAnnotation: annotations.createAnnotation,
-    reanchorAnnotation: annotations.reanchorAnnotation,
     updateAnnotation: annotations.updateAnnotation,
     deleteAnnotation: annotations.deleteAnnotation,
     toggleTranslationVisible: translation.toggleTranslationVisible,

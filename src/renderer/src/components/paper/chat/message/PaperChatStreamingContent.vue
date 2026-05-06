@@ -19,7 +19,7 @@ const waitingPlaceholderTitle = computed(() => {
     return '正在整理回复'
   }
 
-  return '正在思考中'
+  return '正在组织回复'
 })
 
 /**
@@ -34,7 +34,7 @@ const waitingPlaceholderSubtitle = computed(() => {
     return '已展开分析，正在归纳首段内容'
   }
 
-  return '模型已收到问题，正在准备首段回复'
+  return '模型已收到问题，正在整理回答'
 })
 </script>
 

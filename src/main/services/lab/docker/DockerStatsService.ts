@@ -7,7 +7,11 @@ import { serialize } from './types'
  * Docker 统计与日志服务
  */
 export class DockerStatsService {
-  constructor(private readonly context: DockerServiceContext) {}
+  private readonly context: DockerServiceContext
+
+  constructor(context: DockerServiceContext) {
+    this.context = context
+  }
 
   /**
    * 获取容器资源统计

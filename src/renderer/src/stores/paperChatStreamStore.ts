@@ -5,12 +5,40 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type {
   Message,
+  PlanExecutionStatus,
+  PlanStep,
+  PlanStepStatus,
   ReActIteration,
   ReActStep,
   StreamEvent,
   UserInteractionRequest
 } from '@renderer/types'
 import { usePaperChatMessageCacheStore } from './paperChatMessageCacheStore'
+
+/** Plan 步骤内的 ReAct 迭代阶段 */
+export interface PlanStepIteration {
+  /** 步骤内阶段编号（1-based） */
+  localPhaseNumber: number
+  /** 步骤编号（1-based） */
+  stepNumber: number
+  /** 迭代中的工具调用摘要 */
+  toolSummary?: string
+  /** 迭代状态 */
+  status: 'thinking' | 'calling_tools' | 'processing' | 'complete'
+}
+
+export interface PaperChatPlanState {
+  sessionId: string
+  turnId: string
+  status: PlanExecutionStatus
+  steps: PlanStep[]
+  currentStepIndex: number
+  error?: string
+  summary?: string
+  updatedAt: string
+  stepIterations: Record<number, PlanStepIteration[]>
+  globalPhaseCounter: number
+}
 
 export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
   // ==================== Dependencies ====================
@@ -40,6 +68,9 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
 
   // 每个会话当前活跃的迭代索引（用于 ReAct 迭代分组）
   const currentIterationIndex = ref<Map<string, number>>(new Map())
+
+  // 每个会话当前轮次的规划 / todo 状态
+  const planStates = ref<Map<string, PaperChatPlanState>>(new Map())
 
   // ==================== Getters ====================
 
@@ -250,6 +281,342 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
     return Boolean(existingLegacyStep || updatedIteration)
   }
 
+  function clonePlanSteps(steps: PlanStep[]): PlanStep[] {
+    return steps.map((step) => ({
+      ...step,
+      status: normalizePlanStepStatus(step.status),
+      attempt: step.attempt,
+      maxAttempts: step.maxAttempts
+    }))
+  }
+
+  function normalizePlanStepStatus(status: PlanStepStatus | string): PlanStepStatus {
+    if (status === 'in_progress') return 'running'
+    if (status === 'completed') return 'success'
+    return status as PlanStepStatus
+  }
+
+  function setPlanState(sessionId: string, state: PaperChatPlanState): void {
+    const next = new Map(planStates.value)
+    next.set(sessionId, state)
+    planStates.value = next
+  }
+
+  function deletePlanState(sessionId: string): void {
+    if (!planStates.value.has(sessionId)) {
+      return
+    }
+    const next = new Map(planStates.value)
+    next.delete(sessionId)
+    planStates.value = next
+  }
+
+  function getSessionPlanState(sessionId: string): PaperChatPlanState | null {
+    return planStates.value.get(sessionId) ?? null
+  }
+
+  function beginPlanning(sessionId: string, turnId: string): void {
+    setPlanState(sessionId, {
+      sessionId,
+      turnId,
+      status: 'planning',
+      steps: [],
+      currentStepIndex: -1,
+      updatedAt: new Date().toISOString(),
+      stepIterations: {},
+      globalPhaseCounter: 0
+    })
+  }
+
+  function resetPlanState(sessionId: string): void {
+    deletePlanState(sessionId)
+  }
+
+  function failPlanState(sessionId: string, error: string): void {
+    const existing = planStates.value.get(sessionId)
+    if (!existing) return
+    setPlanState(sessionId, {
+      ...existing,
+      status: 'failed',
+      error,
+      updatedAt: new Date().toISOString()
+    })
+  }
+
+  function getWritablePlanState(sessionId: string, turnId?: string): PaperChatPlanState | null {
+    const existing = planStates.value.get(sessionId)
+    if (!existing) {
+      if (!turnId) return null
+      return {
+        sessionId,
+        turnId,
+        status: 'planning',
+        steps: [],
+        currentStepIndex: -1,
+        updatedAt: new Date().toISOString(),
+        stepIterations: {},
+        globalPhaseCounter: 0
+      }
+    }
+
+    if (turnId && existing.turnId !== turnId) {
+      return null
+    }
+
+    // 深拷贝 stepIterations
+    const stepIterationsCopy: Record<number, PlanStepIteration[]> = {}
+    for (const [key, iters] of Object.entries(existing.stepIterations ?? {})) {
+      stepIterationsCopy[Number(key)] = iters.map((iter) => ({ ...iter }))
+    }
+
+    return {
+      ...existing,
+      steps: clonePlanSteps(existing.steps),
+      stepIterations: stepIterationsCopy,
+      globalPhaseCounter: existing.globalPhaseCounter ?? 0
+    }
+  }
+
+  function handlePlanStatusEvent(sessionId: string, event: StreamEvent): void {
+    if (!event.planStatus) return
+    const turnId = event.turnId || planStates.value.get(sessionId)?.turnId
+    if (!turnId) return
+
+    if (event.planStatus.status === 'idle') {
+      deletePlanState(sessionId)
+      return
+    }
+
+    const state = getWritablePlanState(sessionId, turnId)
+    if (!state) return
+
+    state.status = event.planStatus.status
+    state.error = event.planStatus.error
+    if (event.planStatus.summary) {
+      state.summary = event.planStatus.summary
+    }
+    state.updatedAt = new Date().toISOString()
+    setPlanState(sessionId, state)
+  }
+
+  function handlePlanGeneratedEvent(sessionId: string, event: StreamEvent): void {
+    if (!event.plan) return
+    const turnId = event.turnId || planStates.value.get(sessionId)?.turnId
+    if (!turnId) return
+
+    const state = getWritablePlanState(sessionId, turnId)
+    if (!state) return
+
+    state.status = 'planned'
+    state.steps = clonePlanSteps(event.plan.steps)
+    state.currentStepIndex = state.steps.findIndex((step) => step.status === 'running')
+    state.updatedAt = new Date().toISOString()
+    setPlanState(sessionId, state)
+  }
+
+  function handlePlanStepUpdateEvent(
+    sessionId: string,
+    event: StreamEvent,
+    streamingMessage?: Message
+  ): void {
+    if (!event.planStepUpdate) return
+    const turnId = event.turnId || planStates.value.get(sessionId)?.turnId
+    if (!turnId) return
+
+    const state = getWritablePlanState(sessionId, turnId)
+    if (!state) return
+
+    const { index, status, summary, error, attempt, maxAttempts } = event.planStepUpdate
+    const step = state.steps[index]
+    if (!step) return
+
+    step.status = normalizePlanStepStatus(status)
+    if (summary !== undefined) step.summary = summary
+    if (error !== undefined) {
+      step.error = error
+    } else if (step.status === 'running' || step.status === 'success') {
+      step.error = undefined
+    }
+    if (attempt !== undefined) step.attempt = attempt
+    if (maxAttempts !== undefined) step.maxAttempts = maxAttempts
+    if (step.status === 'running') {
+      state.currentStepIndex = index
+      state.status = 'running'
+    }
+    if (step.status === 'failed') {
+      state.error = error || step.error
+    }
+    // 步骤变为终态时，将该步骤的所有活跃迭代标记为 complete
+    if (isTerminalPlanStepStatus(step.status)) {
+      const stepIters = state.stepIterations[index]
+      if (stepIters) {
+        for (const iter of stepIters) {
+          if (iter.status !== 'complete') {
+            iter.status = 'complete'
+          }
+        }
+      }
+      if (streamingMessage) {
+        finalizeMessageIterationsForPlanStep(
+          streamingMessage,
+          sessionId,
+          index,
+          step.status,
+          error || step.error
+        )
+      }
+    }
+    state.updatedAt = new Date().toISOString()
+    setPlanState(sessionId, state)
+  }
+
+  function isTerminalPlanStepStatus(status: PlanStepStatus): boolean {
+    return (
+      status === 'success' || status === 'failed' || status === 'skipped' || status === 'cancelled'
+    )
+  }
+
+  function finalizeMessageIterationsForPlanStep(
+    message: Message,
+    sessionId: string,
+    stepIndex: number,
+    status: PlanStepStatus,
+    error?: string
+  ): void {
+    const taskNumber = stepIndex + 1
+    const iterations = message.reactIterations?.filter(
+      (iteration) => iteration.taskNumber === taskNumber
+    )
+
+    if (!iterations || iterations.length === 0) {
+      return
+    }
+
+    for (const iteration of iterations) {
+      iteration.isActive = false
+      iteration.status = 'complete'
+
+      if (status === 'failed' && !iterationHasToolResult(iteration)) {
+        iteration.content = buildPlanStepFailureContent(error || '步骤执行失败')
+      }
+    }
+
+    const currentIndex = currentIterationIndex.value.get(sessionId)
+    const currentIteration =
+      currentIndex !== undefined ? message.reactIterations?.[currentIndex] : undefined
+    if (currentIteration?.taskNumber === taskNumber) {
+      currentIterationIndex.value.delete(sessionId)
+    }
+  }
+
+  function iterationHasToolResult(iteration: ReActIteration): boolean {
+    return iteration.steps.some((step) => step.type === 'tool_result')
+  }
+
+  function buildPlanStepFailureContent(error: string): string {
+    return `**执行失败**\n\n${error}`
+  }
+
+  /**
+   * Plan 模式下：将新的 ReAct 迭代关联到当前执行的步骤
+   */
+  function appendPlanStepIteration(sessionId: string, iterationStatus?: string): void {
+    const existing = planStates.value.get(sessionId)
+    if (!existing) return
+    if (existing.status !== 'running') return
+    if (existing.currentStepIndex < 0) return
+
+    const stepIndex = existing.currentStepIndex
+    const stepNumber = stepIndex + 1
+    const stepIters = existing.stepIterations[stepIndex] ?? []
+    const localPhaseNumber = stepIters.length + 1
+    const globalPhaseCounter = existing.globalPhaseCounter + 1
+
+    const newIteration: PlanStepIteration = {
+      localPhaseNumber,
+      stepNumber,
+      status: (iterationStatus as PlanStepIteration['status']) || 'thinking'
+    }
+
+    stepIters.push(newIteration)
+
+    // 直接修改并设置新 Map 以触发响应性
+    const next = new Map(planStates.value)
+    next.set(sessionId, {
+      ...existing,
+      stepIterations: { ...existing.stepIterations, [stepIndex]: stepIters },
+      globalPhaseCounter
+    })
+    planStates.value = next
+  }
+
+  /**
+   * Plan 模式下：更新当前步骤最新迭代的工具调用摘要
+   */
+  function updatePlanStepIterationToolCall(sessionId: string, toolName: string): void {
+    const existing = planStates.value.get(sessionId)
+    if (!existing) return
+    if (existing.status !== 'running') return
+    if (existing.currentStepIndex < 0) return
+
+    const stepIndex = existing.currentStepIndex
+    const stepIters = existing.stepIterations[stepIndex]
+    if (!stepIters || stepIters.length === 0) return
+
+    const lastIter = stepIters[stepIters.length - 1]
+    if (lastIter.status === 'thinking') {
+      lastIter.status = 'calling_tools'
+    }
+    // 追加工具名到摘要
+    const currentSummary = lastIter.toolSummary ?? ''
+    lastIter.toolSummary = currentSummary ? `${currentSummary}, ${toolName}` : toolName
+
+    const next = new Map(planStates.value)
+    next.set(sessionId, { ...existing })
+    planStates.value = next
+  }
+
+  function finalizePlanState(sessionId: string, event: StreamEvent): void {
+    const existing = planStates.value.get(sessionId)
+    if (!existing) return
+    if (event.turnId && existing.turnId !== event.turnId) return
+
+    const state = { ...existing, steps: clonePlanSteps(existing.steps) }
+    if (event.finalStatus) {
+      state.status = event.finalStatus
+    } else if (event.type === 'error') {
+      state.status = 'failed'
+    } else if (
+      state.status === 'planning' ||
+      state.status === 'planned' ||
+      state.status === 'running'
+    ) {
+      state.status = 'completed'
+    }
+    if (event.error) {
+      state.error = event.error
+    }
+    const failedStep = state.steps.find((step) => step.status === 'failed')
+    if (failedStep) {
+      if (state.status === 'completed') {
+        state.status = 'failed'
+      }
+      if (state.status === 'failed' && !state.error) {
+        state.error = failedStep.error || '部分步骤执行失败'
+      }
+    }
+    // 终态时将所有活跃迭代标记为 complete
+    for (const iters of Object.values(state.stepIterations ?? {})) {
+      for (const iter of iters) {
+        if (iter.status !== 'complete') {
+          iter.status = 'complete'
+        }
+      }
+    }
+    state.updatedAt = new Date().toISOString()
+    setPlanState(sessionId, state)
+  }
+
   // ==================== Actions ====================
 
   // 获取指定会话的发送状态
@@ -352,25 +719,53 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
       }
     }
 
-    // 找到正在流式输出的消息
-    const streamingMessage = targetMessages.find((msg) => msg.isStreaming)
+    // 找到本轮正在流式输出的消息。带 turnId 的旧事件不能写入新一轮消息。
+    const streamingMessage = targetMessages.find(
+      (msg) => msg.isStreaming && (!event.turnId || msg.id === event.turnId)
+    )
+
+    if (event.type === 'plan_status') {
+      handlePlanStatusEvent(targetSessionId, event)
+      return
+    }
+
+    if (event.type === 'plan_generated') {
+      handlePlanGeneratedEvent(targetSessionId, event)
+      return
+    }
+
+    if (event.type === 'plan_step_update') {
+      handlePlanStepUpdateEvent(targetSessionId, event, streamingMessage)
+      return
+    }
 
     switch (event.type) {
       case 'content':
         if (streamingMessage && event.content) {
           streamingMessage.content = streamingMessage.content + event.content
+          // 将内容同时追加到当前迭代的 content 字段
+          const contentIter = getCurrentIteration(streamingMessage, targetSessionId)
+          if (contentIter?.isActive) {
+            contentIter.content = (contentIter.content || '') + event.content
+          }
         }
         break
 
       case 'react_iteration_start':
         if (streamingMessage && event.content !== undefined) {
           const iterationNum = parseInt(event.content, 10)
-          createIteration(
+          const newIter = createIteration(
             streamingMessage,
             targetSessionId,
             iterationNum,
             event.status as 'thinking' | 'calling_tools' | 'processing' | undefined
           )
+          // Plan 模式下：将迭代关联到当前执行的步骤
+          const activePlan = planStates.value.get(targetSessionId)
+          if (activePlan && activePlan.status === 'running' && activePlan.currentStepIndex >= 0) {
+            newIter.taskNumber = activePlan.currentStepIndex + 1
+            appendPlanStepIteration(targetSessionId, event.status as string | undefined)
+          }
         }
         break
 
@@ -414,6 +809,12 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
           if (currentIter && currentIter.status === 'thinking') {
             currentIter.status = 'calling_tools'
           }
+
+          // Plan 模式下：更新步骤迭代的工具调用摘要
+          updatePlanStepIterationToolCall(
+            targetSessionId,
+            `${event.toolCall.serverName}__${event.toolCall.name}`
+          )
         }
         break
 
@@ -528,10 +929,14 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
         streamingMessage.usage = event.usage
       }
       finalizeIterations(streamingMessage, sessionId)
+      if (streamingMessage.planExecution) {
+        streamingMessage.planExecution.isActive = false
+      }
     } else {
       currentIterationIndex.value.delete(sessionId)
     }
 
+    finalizePlanState(sessionId, event)
     // 更新会话发送状态
     sessionSendingStates.value.set(sessionId, false)
 
@@ -562,29 +967,35 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
     isCurrentSession: boolean,
     targetMessages: Message[]
   ): void {
+    const streamingMessage = targetMessages.find(
+      (msg) => msg.isStreaming && (!event.turnId || msg.id === event.turnId)
+    )
+
+    if (streamingMessage) {
+      streamingMessage.isStreaming = false
+      if (!streamingMessage.content.trim() && event.error) {
+        streamingMessage.content = `请求失败：${event.error}`
+      }
+      finalizeIterations(streamingMessage, sessionId)
+    } else {
+      currentIterationIndex.value.delete(sessionId)
+    }
+
+    finalizePlanState(sessionId, event)
     // 重置发送状态
     sessionSendingStates.value.set(sessionId, false)
 
-    // 清除迭代索引跟踪
-    currentIterationIndex.value.delete(sessionId)
-
     if (isCurrentSession) {
-      // 当前会话：回滚到发送前状态
-      const snapshot = getMessagesSnapshot(sessionId)
-      if (snapshot) {
-        targetMessages.length = 0
-        targetMessages.push(...snapshot)
-      }
       isSending.value = false
       streamingSessionId.value = null
       clearMessagesSnapshot(sessionId)
       hideUserInteraction()
     } else {
-      // 非当前会话：清除缓存
+      // 非当前会话：保留失败消息到缓存，避免后台状态丢失
       if (streamingSessionId.value === sessionId) {
         streamingSessionId.value = null
       }
-      paperChatMessageCache.clearSessionCache(sessionId)
+      paperChatMessageCache.saveCachedSession(sessionId)
     }
 
     window.api.logger.error('[PaperChatStreamStore] 流式响应错误', {
@@ -642,6 +1053,21 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
     }
     streamingSessionId.value = null
     clearMessagesSnapshot(targetSessionId)
+    const existingPlan = planStates.value.get(targetSessionId)
+    if (existingPlan) {
+      const nextPlan = {
+        ...existingPlan,
+        status: 'cancelled' as PlanExecutionStatus,
+        steps: clonePlanSteps(existingPlan.steps).map((step) =>
+          step.status === 'pending' || step.status === 'running'
+            ? { ...step, status: 'cancelled' as PlanStepStatus, error: '用户已取消' }
+            : step
+        ),
+        error: '用户已取消',
+        updatedAt: new Date().toISOString()
+      }
+      setPlanState(targetSessionId, nextPlan)
+    }
 
     window.api.logger.info('[PaperChatStreamStore] 正在停止请求', { sessionId: targetSessionId })
 
@@ -666,6 +1092,7 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
     sessionSendingStates.value.delete(sessionId)
     messagesSnapshots.value.delete(sessionId)
     currentIterationIndex.value.delete(sessionId)
+    deletePlanState(sessionId)
 
     if (streamingSessionId.value === sessionId) {
       streamingSessionId.value = null
@@ -680,6 +1107,7 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
     sessionSendingStates.value.clear()
     messagesSnapshots.value.clear()
     currentIterationIndex.value.clear()
+    planStates.value = new Map()
     streamingSessionId.value = null
     cleanupStreamListener()
 
@@ -694,6 +1122,7 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
     streamingSessionId,
     showUserInteraction,
     userInteractionInfo,
+    planStates,
     // Getters
     streamingSessionCount,
     activeSessionIds,
@@ -705,6 +1134,10 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
     getMessagesSnapshot,
     clearMessagesSnapshot,
     hideUserInteraction,
+    beginPlanning,
+    failPlanState,
+    getSessionPlanState,
+    resetPlanState,
     handleStreamEvent,
     setupStreamListener,
     cleanupStreamListener,

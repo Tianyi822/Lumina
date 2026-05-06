@@ -81,9 +81,7 @@ onBeforeUnmount(() => {
   >
     <div class="paper-annotation-note-editor__header" @mousedown.prevent="handleDragStart">
       <div class="paper-annotation-note-editor__title">
-        {{
-          isExistingNote ? '编辑笔记' : state.draft.mode === 'rebind' ? '重新绑定笔记' : '记录笔记'
-        }}
+        {{ isExistingNote ? '编辑笔记' : '记录笔记' }}
       </div>
       <button
         class="paper-annotation-note-editor__close"
@@ -138,12 +136,6 @@ onBeforeUnmount(() => {
     </div>
     <p v-if="error" class="paper-annotation-note-editor__error">
       {{ error }}
-    </p>
-    <p
-      v-if="!isExistingNote && state.draft.mode === 'rebind'"
-      class="paper-annotation-note-editor__hint"
-    >
-      保存后会保留原始创建时间，只更新定位与笔记内容。
     </p>
     <p v-if="state.draft.viewKind === 'translation'" class="paper-annotation-note-editor__hint">
       该笔记只显示在当前译文中；如果之后删除译文，对应标注也会一起删除。

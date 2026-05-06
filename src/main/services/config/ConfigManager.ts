@@ -10,6 +10,7 @@ import {
   type OcrProviderId,
   type PaperReaderConfig
 } from '@shared/types/config'
+import { type SkillConfig, type SkillDirectoryConfig } from '@shared/types/skill'
 import {
   DEFAULT_THEME_ID,
   DEFAULT_THEME_MODE,
@@ -54,6 +55,46 @@ function sanitizePaperReaderConfig(config: PaperReaderConfig | undefined): Paper
   return sanitized
 }
 
+function sanitizeSkillDirectory(value: unknown): SkillDirectoryConfig | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+  const skillPath = typeof record.path === 'string' ? record.path.trim() : ''
+  if (!skillPath) {
+    return null
+  }
+
+  return {
+    path: skillPath,
+    enabled: typeof record.enabled === 'boolean' ? record.enabled : true,
+    addedAt:
+      typeof record.addedAt === 'string' && record.addedAt.trim()
+        ? record.addedAt
+        : new Date().toISOString()
+  }
+}
+
+function sanitizeSkillConfig(config: SkillConfig | undefined): SkillConfig {
+  const directories: SkillDirectoryConfig[] = []
+  const seenPaths = new Set<string>()
+
+  for (const rawDirectory of Array.isArray(config?.directories) ? config.directories : []) {
+    const directory = sanitizeSkillDirectory(rawDirectory)
+    if (!directory || seenPaths.has(directory.path)) {
+      continue
+    }
+
+    seenPaths.add(directory.path)
+    directories.push(directory)
+  }
+
+  return {
+    directories
+  }
+}
+
 /**
  * 创建空的基础配置结构
  * 包含所有必要的字段，但值为空或默认值
@@ -72,6 +113,7 @@ function createEmptyConfig(): AppConfig {
       models: []
     },
     mcpServers: {},
+    skills: sanitizeSkillConfig(undefined),
     embeddingModels: {},
     knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG,
     paperReader: sanitizePaperReaderConfig(undefined)
@@ -116,6 +158,7 @@ export function migrateConfig(config: AppConfig): AppConfig {
   delete (migrated as Record<string, unknown>).promptConfig
 
   migrated.embeddingModels = migrated.embeddingModels || {}
+  migrated.skills = sanitizeSkillConfig(migrated.skills)
 
   // 迁移 knowledgeMCP 配置
   if (!migrated.knowledgeMCP) {

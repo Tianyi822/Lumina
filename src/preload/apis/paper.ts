@@ -7,7 +7,6 @@ import type {
   PaperFigureItem,
   PaperReaderDocument,
   UpdatePaperAnnotationPayload,
-  ReanchorPaperAnnotationPayload,
   PaperStatus,
   PaperTranslationProgress,
   PaperTranslationState
@@ -207,15 +206,6 @@ export const paperApi = {
     params: CreatePaperAnnotationPayload
   ): Promise<{ success: boolean; data?: PaperAnnotation; error?: string }> => {
     return ipcRenderer.invoke('paper:createAnnotation', params)
-  },
-
-  /**
-   * 重新绑定论文批注
-   */
-  reanchorAnnotation: (
-    params: ReanchorPaperAnnotationPayload
-  ): Promise<{ success: boolean; data?: PaperAnnotation; error?: string }> => {
-    return ipcRenderer.invoke('paper:reanchorAnnotation', params)
   },
 
   /**

@@ -13,6 +13,7 @@ dev-app-update.yml
 .qoder/
 .claude/
 .opencode/
+.worktrees/
 build/*
 !build/entitlements.mac.plist
 !build/icon.icns

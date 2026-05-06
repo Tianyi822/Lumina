@@ -2,7 +2,11 @@ import OpenAI from 'openai'
 import type { WebContents } from 'electron'
 import type { Logger } from '../../logger'
 import type { MCPToolCallResult } from '@shared/types/mcp'
-import type { StreamEvent, UserInteractionRequest } from '../../../types/chat'
+import type {
+  ChatToolExecutionResult,
+  StreamEvent,
+  UserInteractionRequest
+} from '../../../types/chat'
 import type { UnifiedToolRegistry } from './UnifiedToolRegistry'
 import { toolStatsCollector } from './ToolStatsCollector'
 
@@ -24,9 +28,19 @@ export interface ToolCallDefinition {
 /**
  * 工具执行结果
  */
-interface ToolExecutionResult {
+export interface ToolExecutionResult extends ChatToolExecutionResult {
   toolCallId: string
+  toolName: string
   content: string
+  success: boolean
+  error?: string
+}
+
+export interface ToolExecutionSummary {
+  needUserInteraction: boolean
+  failedToolCount: number
+  errors: string[]
+  results: ToolExecutionResult[]
 }
 
 /**
@@ -86,11 +100,13 @@ export class UnifiedToolExecutor {
     toolCalls: ToolCallDefinition[],
     webContents: WebContents,
     sessionId: string,
-    conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
-  ): Promise<boolean> {
+    conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+    turnId?: string
+  ): Promise<ToolExecutionSummary> {
     this.checkStopped(sessionId)
 
     const { independent, sequential } = this.analyzeDependencies(toolCalls)
+    const results: ToolExecutionResult[] = []
 
     if (independent.length > 0) {
       this.logger.info('并行执行独立工具', 'main', {
@@ -100,9 +116,15 @@ export class UnifiedToolExecutor {
 
       this.checkStopped(sessionId)
 
-      const parallelResults = await this.executeParallel(independent, webContents, sessionId)
+      const parallelResults = await this.executeParallel(
+        independent,
+        webContents,
+        sessionId,
+        turnId
+      )
 
       this.checkStopped(sessionId)
+      results.push(...parallelResults)
 
       for (const result of parallelResults) {
         conversationMessages.push({
@@ -110,6 +132,15 @@ export class UnifiedToolExecutor {
           tool_call_id: result.toolCallId,
           content: result.content
         })
+      }
+      const parallelErrors = this.collectToolErrors(parallelResults)
+      if (parallelErrors.length > 0) {
+        return {
+          needUserInteraction: this.pendingUserInteraction.has(sessionId),
+          failedToolCount: parallelErrors.length,
+          errors: parallelErrors,
+          results
+        }
       }
     }
 
@@ -124,7 +155,8 @@ export class UnifiedToolExecutor {
       for (const toolCall of sequential) {
         this.checkStopped(sessionId)
 
-        const result = await this.executeSingle(toolCall, webContents, sessionId)
+        const result = await this.executeSingle(toolCall, webContents, sessionId, turnId)
+        results.push(result)
 
         conversationMessages.push({
           role: 'tool',
@@ -133,13 +165,32 @@ export class UnifiedToolExecutor {
         })
 
         if (this.pendingUserInteraction.has(sessionId)) {
-          return true
+          return {
+            needUserInteraction: true,
+            failedToolCount: result.success ? 0 : 1,
+            errors: result.error ? [result.error] : [],
+            results
+          }
+        }
+
+        if (!result.success) {
+          return {
+            needUserInteraction: false,
+            failedToolCount: 1,
+            errors: result.error ? [result.error] : [],
+            results
+          }
         }
       }
     }
 
     this.checkStopped(sessionId)
-    return this.pendingUserInteraction.has(sessionId)
+    return {
+      needUserInteraction: this.pendingUserInteraction.has(sessionId),
+      failedToolCount: 0,
+      errors: [],
+      results
+    }
   }
 
   /**
@@ -193,7 +244,8 @@ export class UnifiedToolExecutor {
   private async executeSingle(
     toolCall: ToolCallDefinition,
     webContents: WebContents,
-    sessionId: string
+    sessionId: string,
+    turnId?: string
   ): Promise<ToolExecutionResult> {
     const requestedName = toolCall.function.name
     const registeredTool = this.registry.getTool(requestedName)
@@ -201,8 +253,14 @@ export class UnifiedToolExecutor {
     if (!registeredTool) {
       const error = `未找到已注册的工具: ${requestedName}`
       this.logger.error(error, 'main')
-      this.sendErrorToolResult(webContents, sessionId, toolCall.id, requestedName, error)
-      return { toolCallId: toolCall.id, content: JSON.stringify({ error }) }
+      this.sendErrorToolResult(webContents, sessionId, toolCall.id, requestedName, error, turnId)
+      return {
+        toolCallId: toolCall.id,
+        toolName: requestedName,
+        content: JSON.stringify({ error }),
+        success: false,
+        error
+      }
     }
 
     const fullName = registeredTool.fullName
@@ -217,13 +275,17 @@ export class UnifiedToolExecutor {
         fullName,
         webContents,
         sessionId,
-        toolCall.id
+        toolCall.id,
+        turnId
       )
       if ('error' in parsedArgsResult) {
         statsErrorMessage = parsedArgsResult.error
         return {
           toolCallId: toolCall.id,
-          content: JSON.stringify({ error: parsedArgsResult.error })
+          toolName: fullName,
+          content: JSON.stringify({ error: parsedArgsResult.error }),
+          success: false,
+          error: parsedArgsResult.error
         }
       }
       const args = parsedArgsResult.args
@@ -238,6 +300,7 @@ export class UnifiedToolExecutor {
       this.sendStreamEvent(webContents, {
         type: 'tool_call',
         sessionId,
+        turnId,
         toolCall: {
           id: toolCall.id,
           name: toolName,
@@ -261,12 +324,24 @@ export class UnifiedToolExecutor {
       statsSuccess = result.success
       statsErrorMessage = result.error
 
+      if (!result.success) {
+        this.logger.warn('工具调用返回失败', 'main', {
+          sessionId,
+          toolName: fullName,
+          toolCallId: toolCall.id,
+          category: registeredTool.category,
+          args,
+          error: result.error || '工具调用失败'
+        })
+      }
+
       const userInteraction = this.extractUserInteractionRequest(result)
       if (userInteraction) {
         this.pendingUserInteraction.add(sessionId)
         this.sendStreamEvent(webContents, {
           type: 'user_interaction',
           sessionId,
+          turnId,
           userInteraction
         })
       }
@@ -274,6 +349,7 @@ export class UnifiedToolExecutor {
       this.sendStreamEvent(webContents, {
         type: 'tool_result',
         sessionId,
+        turnId,
         toolResult: {
           id: toolCall.id,
           name: toolName,
@@ -283,17 +359,19 @@ export class UnifiedToolExecutor {
         }
       })
 
+      const content = result.success
+        ? JSON.stringify(result.content ?? null)
+        : JSON.stringify({ error: result.error })
+
       return {
         toolCallId: toolCall.id,
-        content: result.success
-          ? JSON.stringify(result.content)
-          : JSON.stringify({ error: result.error })
+        toolName: fullName,
+        content,
+        success: result.success,
+        error: result.error
       }
     } catch (error) {
-      if (
-        error instanceof Error &&
-        (error.name === 'AbortError' || error.message.includes('超时'))
-      ) {
+      if (error instanceof Error && error.name === 'AbortError') {
         statsErrorMessage = error.message
         throw error
       }
@@ -305,8 +383,21 @@ export class UnifiedToolExecutor {
         error: statsErrorMessage
       })
 
-      this.sendErrorToolResult(webContents, sessionId, toolCall.id, fullName, statsErrorMessage)
-      return { toolCallId: toolCall.id, content: JSON.stringify({ error: statsErrorMessage }) }
+      this.sendErrorToolResult(
+        webContents,
+        sessionId,
+        toolCall.id,
+        fullName,
+        statsErrorMessage,
+        turnId
+      )
+      return {
+        toolCallId: toolCall.id,
+        toolName: fullName,
+        content: JSON.stringify({ error: statsErrorMessage }),
+        success: false,
+        error: statsErrorMessage
+      }
     } finally {
       toolStatsCollector.record({
         toolName: fullName,
@@ -326,28 +417,18 @@ export class UnifiedToolExecutor {
   private async executeParallel(
     toolCalls: ToolCallDefinition[],
     webContents: WebContents,
-    sessionId: string
+    sessionId: string,
+    turnId?: string
   ): Promise<ToolExecutionResult[]> {
     if (toolCalls.length === 0) {
       return []
     }
 
     const results: ToolExecutionResult[] = []
-    const total = toolCalls.length
 
     this.logger.info('开始并行执行工具', 'main', {
       sessionId,
       count: toolCalls.length
-    })
-
-    this.sendStreamEvent(webContents, {
-      type: 'tool_progress',
-      sessionId,
-      toolProgress: {
-        current: 0,
-        total,
-        message: `准备并行执行 ${toolCalls.length} 个工具...`
-      }
     })
 
     const batchSize = Math.min(this.maxConcurrency, toolCalls.length)
@@ -355,20 +436,7 @@ export class UnifiedToolExecutor {
       const batch = toolCalls.slice(i, i + batchSize)
 
       const batchResults = await Promise.all(
-        batch.map((toolCall, index) =>
-          this.executeSingle(toolCall, webContents, sessionId).then((result) => {
-            this.sendStreamEvent(webContents, {
-              type: 'tool_progress',
-              sessionId,
-              toolProgress: {
-                current: i + index + 1,
-                total,
-                message: `完成 ${i + index + 1}/${total} 个工具调用`
-              }
-            })
-            return result
-          })
-        )
+        batch.map((toolCall) => this.executeSingle(toolCall, webContents, sessionId, turnId))
       )
 
       results.push(...batchResults)
@@ -422,6 +490,12 @@ export class UnifiedToolExecutor {
     return false
   }
 
+  private collectToolErrors(results: ToolExecutionResult[]): string[] {
+    return results
+      .filter((result) => !result.success)
+      .map((result) => result.error || '工具调用失败')
+  }
+
   /**
    * 解析工具调用参数字符串
    */
@@ -441,14 +515,15 @@ export class UnifiedToolExecutor {
     toolName: string,
     webContents: WebContents,
     sessionId: string,
-    toolCallId: string
+    toolCallId: string,
+    turnId?: string
   ): { args: Record<string, unknown> } | { error: string } {
     try {
       return { args: JSON.parse(argsString || '{}') }
     } catch (error) {
       const errorMessage = `解析工具参数失败: ${error}`
       this.logger.error(errorMessage, 'main')
-      this.sendErrorToolResult(webContents, sessionId, toolCallId, toolName, errorMessage)
+      this.sendErrorToolResult(webContents, sessionId, toolCallId, toolName, errorMessage, turnId)
       return { error: errorMessage }
     }
   }
@@ -492,11 +567,13 @@ export class UnifiedToolExecutor {
     sessionId: string,
     toolCallId: string,
     toolName: string,
-    error: string
+    error: string,
+    turnId?: string
   ): void {
     this.sendStreamEvent(webContents, {
       type: 'tool_result',
       sessionId,
+      turnId,
       toolResult: {
         id: toolCallId,
         name: toolName,

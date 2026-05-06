@@ -14,6 +14,9 @@ export * from './session'
 // 配置相关的类型
 export * from './config'
 
+// Skill 相关类型
+export * from './skill'
+
 // 日志相关的类型
 export * from './logger'
 
@@ -37,6 +40,9 @@ export * from './tool-stats'
 
 // 论文相关的类型
 export * from './paper'
+
+// 论文联网搜索相关的类型
+export * from './paper-web-search'
 
 // 实验室相关的类型
 export * from './lab/core'

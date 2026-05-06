@@ -10,10 +10,13 @@ import { serialize } from './types'
  * Docker 容器管理服务
  */
 export class DockerContainerService {
-  constructor(
-    private readonly context: DockerServiceContext,
-    private readonly mapper: DockerContainerMapper
-  ) {}
+  private readonly context: DockerServiceContext
+  private readonly mapper: DockerContainerMapper
+
+  constructor(context: DockerServiceContext, mapper: DockerContainerMapper) {
+    this.context = context
+    this.mapper = mapper
+  }
 
   /**
    * 获取容器列表
@@ -45,7 +48,9 @@ export class DockerContainerService {
       const serializedContainers: DockerContainerInfo[] = serialize(containers)
       logger.info('[DockerService] 序列化后数据', 'main', {
         count: serializedContainers.length,
-        sample: JSON.stringify(serializedContainers[0]).substring(0, 500)
+        sample: serializedContainers[0]
+          ? JSON.stringify(serializedContainers[0]).substring(0, 500)
+          : '<empty>'
       })
 
       let result = serializedContainers.map((container) => this.mapper.mapContainerInfo(container))
@@ -65,7 +70,7 @@ export class DockerContainerService {
       const finalResult = serialize(result)
       logger.info('[DockerService] 最终结果', 'main', {
         count: finalResult.length,
-        sample: JSON.stringify(finalResult[0]).substring(0, 500)
+        sample: finalResult[0] ? JSON.stringify(finalResult[0]).substring(0, 500) : '<empty>'
       })
 
       return finalResult
@@ -261,6 +266,124 @@ export class DockerContainerService {
         source,
         target
       })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  /**
+   * 批量复制本地文件到容器（单次 Docker API 调用）
+   * 读取所有源文件，构建单个 tar 一并发送到容器
+   * @param containerId 容器 ID
+   * @param files 文件映射列表（本地路径 → 容器内相对路径）
+   * @param basePath 容器内目标基路径
+   * @param concurrency 并发读取文件数，默认 8
+   * @returns 逐文件写入结果
+   */
+  async copyFilesToContainer(
+    containerId: string,
+    files: Array<{ source: string; target: string }>,
+    basePath: string = '/app',
+    concurrency: number = 8
+  ): Promise<LabResult> {
+    try {
+      const entries: Array<{
+        path: string
+        content: Buffer
+        sourcePath: string
+      }> = []
+      const failures: string[] = []
+
+      // 分批并发读取源文件
+      for (let i = 0; i < files.length; i += concurrency) {
+        const batch = files.slice(i, i + concurrency)
+        const batchResults = await Promise.all(
+          batch.map(async (file) => {
+            try {
+              await fs.promises.access(file.source, fs.constants.R_OK)
+              const content = await fs.promises.readFile(file.source)
+              return { success: true as const, ...file, content }
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error)
+              logger.warn('读取源文件失败', 'main', { source: file.source, error: message })
+              return { success: false as const, ...file, error: message }
+            }
+          })
+        )
+
+        for (const result of batchResults) {
+          if (result.success) {
+            entries.push({
+              path: result.target,
+              content: result.content,
+              sourcePath: result.source
+            })
+          } else {
+            failures.push(result.source)
+          }
+        }
+      }
+
+      if (entries.length === 0) {
+        return {
+          success: false,
+          error: `所有文件读取失败: ${failures.join(', ')}`
+        }
+      }
+
+      // 从内存直接构建 tar
+      const { buildTarArchive } = await import('../file/tarBuilder')
+      const now = Math.floor(Date.now() / 1000)
+
+      // 收集目录条目
+      const dirSet = new Set<string>()
+      for (const entry of entries) {
+        const parts = entry.path.split('/')
+        for (let j = 1; j < parts.length; j++) {
+          dirSet.add(parts.slice(0, j).join('/'))
+        }
+      }
+
+      const tarEntries: Array<{
+        path: string
+        type: 'file' | 'directory'
+        mode: number
+        mtime: number
+        content?: Buffer
+      }> = []
+
+      const sortedDirs = Array.from(dirSet).sort()
+      for (const dirPath of sortedDirs) {
+        tarEntries.push({ path: `${dirPath}/`, type: 'directory', mode: 0o755, mtime: now })
+      }
+
+      const sortedFiles = [...entries].sort((a, b) => a.path.localeCompare(b.path))
+      for (const file of sortedFiles) {
+        tarEntries.push({
+          path: file.path,
+          type: 'file',
+          mode: 0o644,
+          mtime: now,
+          content: file.content
+        })
+      }
+
+      const archive = buildTarArchive(tarEntries)
+      const container = this.context.getDocker().getContainer(containerId)
+      await container.putArchive(archive, { path: basePath })
+
+      logger.info('批量复制文件到容器成功', 'main', {
+        containerId: containerId.substring(0, 12),
+        copiedCount: entries.length,
+        failedCount: failures.length,
+        basePath
+      })
+
+      return {
+        success: true
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('批量复制文件到容器失败', 'main', { error: errorMessage, containerId })
       return { success: false, error: errorMessage }
     }
   }

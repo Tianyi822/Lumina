@@ -152,6 +152,30 @@ function isFencedCodeBlock(block: string): boolean {
   return !!parseMarkdownFenceOpener(firstLine)
 }
 
+function getLeadingSpaceLength(line: string): number {
+  return line.match(/^ */)?.[0].length ?? 0
+}
+
+function getOrderedListContinuationIndent(blockLines: string[]): number | null {
+  const firstLine = blockLines.find((line) => line.trim())
+  const match = firstLine?.match(/^ {0,3}(\d{1,2}[.)]\s+)/)
+  if (!match) {
+    return null
+  }
+
+  return getLeadingSpaceLength(firstLine || '') + match[1].length
+}
+
+function findNextNonBlankLine(lines: string[], startIndex: number): string | null {
+  for (let index = startIndex; index < lines.length; index += 1) {
+    if (lines[index].trim()) {
+      return lines[index]
+    }
+  }
+
+  return null
+}
+
 function splitPaperMarkdownBlocks(markdown: string): string[] {
   const blocks: string[] = []
   const lines = markdown.replace(/\r\n/g, '\n').trim().split('\n')
@@ -166,7 +190,9 @@ function splitPaperMarkdownBlocks(markdown: string): string[] {
     buffer = []
   }
 
-  for (const line of lines) {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex]
+
     if (activeFence) {
       buffer.push(line)
       if (isMarkdownFenceCloser(line, activeFence)) {
@@ -185,8 +211,28 @@ function splitPaperMarkdownBlocks(markdown: string): string[] {
     }
 
     if (!line.trim()) {
+      const listContinuationIndent = getOrderedListContinuationIndent(buffer)
+      const nextNonBlankLine = findNextNonBlankLine(lines, lineIndex + 1)
+      if (
+        listContinuationIndent !== null &&
+        nextNonBlankLine &&
+        getLeadingSpaceLength(nextNonBlankLine) >= listContinuationIndent
+      ) {
+        buffer.push(line)
+        continue
+      }
+
       flushBuffer()
       continue
+    }
+
+    const listContinuationIndent = getOrderedListContinuationIndent(buffer)
+    if (
+      listContinuationIndent !== null &&
+      getLeadingSpaceLength(line) < listContinuationIndent &&
+      /^\s{0,3}\d{1,2}[.)]\s+\S/.test(line)
+    ) {
+      flushBuffer()
     }
 
     buffer.push(line)
@@ -283,7 +329,7 @@ function detectPaperTranslationSegmentKind(block: string): PaperTranslationSegme
     return 'quote'
   }
 
-  if (/^\s*(?:[-*+]|\d+\.)\s/m.test(block)) {
+  if (/^\s*(?:[-*+]|\d+[.)])\s/m.test(block)) {
     return 'list'
   }
 

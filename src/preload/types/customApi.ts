@@ -16,6 +16,8 @@ import type { DocumentApi } from './document'
 import type { KnowledgeMCPApi } from './knowledgeMCP'
 import type { PaperApi } from './paper'
 import type { ToolStatsApi } from './toolStats'
+import type { SkillApi } from './skill'
+import type { PaperWebSearchApi } from './paperWebSearch'
 
 /**
  * 自定义的完整 API
@@ -41,4 +43,8 @@ export interface CustomApi {
   paper: PaperApi
   // 工具统计 API
   toolStats: ToolStatsApi
+  // Skill API
+  skill: SkillApi
+  // 论文网页搜索 API
+  paperWebSearch: PaperWebSearchApi
 }

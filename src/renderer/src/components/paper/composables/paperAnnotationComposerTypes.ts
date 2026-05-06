@@ -7,14 +7,13 @@ import type {
   PaperAnnotationTextAnchor,
   PaperReaderSegmentSourceRefs,
   PaperTranslationCache,
-  ReanchorPaperAnnotationPayload,
   UpdatePaperAnnotationPayload
 } from '@shared/types/paper'
 import type { RenderSourceSegment } from './usePaperHighlightRenderer'
 import type { RenderedSegment } from './usePaperMarkdownEngine'
 
 export interface SelectionDraft {
-  mode: 'create' | 'rebind'
+  mode: 'create'
   annotationId?: string
   viewKind: 'original' | 'translation'
   noteType: CreatePaperAnnotationPayload['noteType']
@@ -39,7 +38,7 @@ export interface SelectionActionMenuState {
 
 export interface NoteEditorState {
   draft: SelectionDraft
-  intent: 'create' | 'rebind' | 'edit'
+  intent: 'create' | 'edit'
   x: number
   y: number
 }
@@ -58,9 +57,6 @@ export interface PaperAnnotationComposerOptions {
   getSourceSegments: () => RenderSourceSegment[]
   createAnnotation: (
     params: CreatePaperAnnotationPayload
-  ) => Promise<{ success: boolean; data?: PaperAnnotation; error?: string }>
-  reanchorAnnotation: (
-    params: ReanchorPaperAnnotationPayload
   ) => Promise<{ success: boolean; data?: PaperAnnotation; error?: string }>
   updateAnnotation: (
     params: UpdatePaperAnnotationPayload
@@ -86,15 +82,8 @@ export interface PaperAnnotationComposer {
   hoverPopoverComment: Ref<string>
   hoverPopoverSaving: Ref<boolean>
   hoverPopoverError: Ref<string | null>
-  rebindAnnotationId: Ref<string | null>
-  ignoredOutdatedAnnotationIds: Ref<Record<string, true>>
   highlightColorOptions: readonly PaperAnnotationColorKey[]
   currentAnnotations: ComputedRef<PaperAnnotation[]>
-  orphanAnnotations: ComputedRef<PaperAnnotation[]>
-  outdatedAnnotations: ComputedRef<PaperAnnotation[]>
-  outdatedAnnotationUpdating: Ref<boolean>
-  outdatedAnnotationError: Ref<string | null>
-  translationMissingAnnotations: ComputedRef<PaperAnnotation[]>
   currentTranslationRevisionId: ComputedRef<string | null>
   updateComposerFromSelection: (event?: MouseEvent) => void
   handleCreateHighlight: (colorKey: PaperAnnotationColorKey) => Promise<void>
@@ -110,19 +99,8 @@ export interface PaperAnnotationComposer {
   handleUpdateHoverColor: (colorKey: PaperAnnotationColorKey) => Promise<void>
   handleSaveHoverNote: () => Promise<void>
   handleDeleteAnnotation: (annotationId: string) => Promise<void>
-  startRebind: (annotation: PaperAnnotation) => void
-  updateAnnotationToCurrentTranslation: (
-    annotation: PaperAnnotation
-  ) => Promise<{ success: boolean; requiresRebind?: boolean; error?: string }>
-  updateOutdatedAnnotationsToCurrentTranslation: () => Promise<void>
-  cancelRebindMode: () => void
   clearComposer: () => void
   handleCancelComposer: () => void
-  scrollToSegment: (stableId: string) => void
-  dismissOutdatedAnnotation: (annotationId: string) => void
-  getAnnotationTypeLabel: (annotation: PaperAnnotation) => string
-  getAnnotationStatusLabel: (annotation: PaperAnnotation) => string | null
-  isAnnotationOutdated: (annotation: PaperAnnotation) => boolean
   handleDocumentPointerDown: (event: MouseEvent) => void
   handleDocumentKeyDown: (event: KeyboardEvent) => void
   handleSurfaceAnnotationClick: (event: MouseEvent) => void

@@ -246,6 +246,18 @@ export class DockerService implements DockerServiceContext {
   }
 
   /**
+   * 批量复制本地文件到容器（单次 API 调用）
+   */
+  async copyFilesToContainer(
+    containerId: string,
+    files: Array<{ source: string; target: string }>,
+    basePath?: string,
+    concurrency?: number
+  ): Promise<LabResult> {
+    return this.containerService.copyFilesToContainer(containerId, files, basePath, concurrency)
+  }
+
+  /**
    * 从容器复制文件
    * @param containerId 容器 ID
    * @param source 容器内路径
@@ -511,6 +523,12 @@ export const dockerService = {
     getDockerService().getContainerLogs(id, opts),
   copyToContainer: (id: string, src: string, dest: string) =>
     getDockerService().copyToContainer(id, src, dest),
+  copyFilesToContainer: (
+    id: string,
+    files: Array<{ source: string; target: string }>,
+    basePath?: string,
+    concurrency?: number
+  ) => getDockerService().copyFilesToContainer(id, files, basePath, concurrency),
   copyFromContainer: (id: string, src: string, dest: string) =>
     getDockerService().copyFromContainer(id, src, dest),
   cleanupDanglingResources: () => getDockerService().cleanupDanglingResources()

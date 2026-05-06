@@ -126,6 +126,78 @@ function createMark(children = []) {
   return new FakeElement('mark', 'paper-annotation-highlight', children)
 }
 
+function createAnchor(text, selectedText) {
+  const startOffset = text.indexOf(selectedText)
+  assert.notEqual(startOffset, -1)
+  const endOffset = startOffset + selectedText.length
+
+  return {
+    selectedText,
+    prefixText: text.slice(Math.max(0, startOffset - 32), startOffset),
+    suffixText: text.slice(endOffset, Math.min(text.length, endOffset + 32)),
+    startOffset,
+    endOffset,
+    normalizedText: selectedText.replace(/\s+/g, ' ').trim()
+  }
+}
+
+function createSegment(originalText = 'CHAOS-MRI to Synapse-CT') {
+  return {
+    renderId: 'segment-render-1',
+    stableId: 'segment-stable-1',
+    index: 0,
+    kind: 'paragraph',
+    originalMarkdown: originalText,
+    originalText,
+    textHash: 'hash-1',
+    sourceRevisionId: 'revision-1',
+    sourceRefs: {
+      pageIndexes: [0],
+      blockIndexes: [1]
+    }
+  }
+}
+
+function createAnnotation(overrides = {}) {
+  const originalText = overrides.originalText || 'CHAOS-MRI to Synapse-CT'
+  const originalAnchor =
+    overrides.originalAnchor === null
+      ? undefined
+      : overrides.originalAnchor || createAnchor(originalText, 'Synapse-CT')
+
+  return {
+    id: overrides.id || 'annotation-1',
+    paperId: 'paper-1',
+    kind: overrides.kind || 'highlight',
+    noteType: overrides.noteType || 'translation_view',
+    createdInView: overrides.createdInView || 'translation',
+    semanticAnchor: {
+      segmentStableId: 'segment-stable-1',
+      renderSegmentIdAtCreation: 'segment-render-1',
+      sourceRevisionId: 'revision-1',
+      segmentTextHash: 'hash-1',
+      sourceRefs: {
+        pageIndexes: [0],
+        blockIndexes: [1]
+      }
+    },
+    originalAnchor,
+    translationAnchor: overrides.translationAnchor,
+    selectedTextSnapshot: overrides.selectedTextSnapshot || originalAnchor?.selectedText || '',
+    contextBefore: overrides.contextBefore || originalAnchor?.prefixText || '',
+    contextAfter: overrides.contextAfter || originalAnchor?.suffixText || '',
+    comment: overrides.comment || '',
+    colorKey: overrides.colorKey || 'blue',
+    status: overrides.status || 'active',
+    recoveryMeta: {
+      recoveryFailureCount: 0,
+      lastResolvedAt: '2026-05-06T00:00:00.000Z'
+    },
+    createdAt: '2026-05-06T00:00:00.000Z',
+    updatedAt: '2026-05-06T00:00:00.000Z'
+  }
+}
+
 function getNodeTextLength(node) {
   return node.textContent.length
 }
@@ -193,6 +265,33 @@ test('highlight boundary 会在尾部子区间提升到已有标记外侧', () =
   })
 
   assert.deepEqual(boundary, { node: root, offset: 2 })
+})
+
+test('original_span 标注会渲染到原文视图', () => {
+  const segment = createSegment()
+  const annotation = createAnnotation({
+    noteType: 'original_span',
+    createdInView: 'original'
+  })
+
+  const highlights = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
+    annotation
+  ])
+
+  assert.equal(highlights.length, 1)
+  assert.equal(highlights[0].id, annotation.id)
+  assert.equal(highlights[0].anchor.selectedText, 'Synapse-CT')
+})
+
+test('active 的译文标注不会重复渲染到原文视图', () => {
+  const segment = createSegment()
+  const annotation = createAnnotation()
+
+  const highlights = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
+    annotation
+  ])
+
+  assert.deepEqual(highlights, [])
 })
 
 test('highlight boundary 会在开头子区间提升到已有标记外侧', () => {

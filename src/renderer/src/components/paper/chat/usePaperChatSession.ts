@@ -16,6 +16,7 @@ interface UsePaperChatSessionReturn {
   selectedMCPTools: Ref<MCPTool[]>
   selectedKnowledgeBases: Ref<KnowledgeBase[]>
   enableLabTools: Ref<boolean>
+  enablePaperWebSearch: Ref<boolean>
   loading: Ref<boolean>
   contextLoading: Ref<boolean>
   error: Ref<string>
@@ -29,6 +30,7 @@ interface UsePaperChatSessionReturn {
   updateSelectedTools: (value: MCPTool[]) => void
   updateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
   updateEnableLabTools: (value: boolean) => void
+  updateEnablePaperWebSearch: (value: boolean) => void
 }
 
 function createPaperContextMessage(paper: PaperDocument, markdown: string): Message {
@@ -76,6 +78,7 @@ export function usePaperChatSession(
   const selectedMCPTools = ref<MCPTool[]>([])
   const selectedKnowledgeBases = ref<KnowledgeBase[]>([])
   const enableLabTools = ref(false)
+  const enablePaperWebSearch = ref(false)
   const loading = ref(false)
   const contextLoading = ref(false)
   const error = ref('')
@@ -95,6 +98,7 @@ export function usePaperChatSession(
     selectedMCPTools.value = nextSession.selectionState?.selectedMCPTools || []
     selectedKnowledgeBases.value = nextSession.selectionState?.selectedKnowledgeBases || []
     enableLabTools.value = nextSession.selectionState?.enableLabTools || false
+    enablePaperWebSearch.value = nextSession.selectionState?.enablePaperWebSearch || false
     selectedModel.value = nextSession.selectionState?.selectedModel || ''
   }
 
@@ -110,7 +114,8 @@ export function usePaperChatSession(
         selectedMCPTools: selectedMCPTools.value,
         selectedKnowledgeBases: selectedKnowledgeBases.value,
         enableLabTools: enableLabTools.value,
-        selectedModel: selectedModel.value
+        selectedModel: selectedModel.value,
+        enablePaperWebSearch: enablePaperWebSearch.value
       }
     }
 
@@ -233,6 +238,11 @@ export function usePaperChatSession(
     void saveCurrentSession()
   }
 
+  function updateEnablePaperWebSearch(value: boolean): void {
+    enablePaperWebSearch.value = value
+    void saveCurrentSession()
+  }
+
   return {
     session,
     sessionId,
@@ -242,6 +252,7 @@ export function usePaperChatSession(
     selectedMCPTools,
     selectedKnowledgeBases,
     enableLabTools,
+    enablePaperWebSearch,
     loading,
     contextLoading,
     error,
@@ -254,6 +265,7 @@ export function usePaperChatSession(
     updateSelectedModel,
     updateSelectedTools,
     updateSelectedKnowledgeBases,
-    updateEnableLabTools
+    updateEnableLabTools,
+    updateEnablePaperWebSearch
   }
 }

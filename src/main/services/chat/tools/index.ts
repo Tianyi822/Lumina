@@ -11,6 +11,7 @@ export type { ToolAdapter, ToolCategory, RegisteredTool } from './UnifiedToolReg
 export { LabToolAdapter } from './adapters/LabToolAdapter'
 export { KnowledgeToolAdapter } from './adapters/KnowledgeToolAdapter'
 export { MCPToolAdapter } from './adapters/MCPToolAdapter'
+export { SkillToolAdapter } from './adapters/SkillToolAdapter'
 
 // 统一工具执行器（阶段五：合并 ToolExecutor + ToolCallScheduler）
 export { UnifiedToolExecutor } from './UnifiedToolExecutor'

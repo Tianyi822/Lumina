@@ -305,6 +305,22 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
           createError.value = composeResult.error || 'Docker Compose 创建失败'
           createPhase.value = 'idle'
           isCreating.value = false
+
+          // 清理已创建的实验室元数据
+          if (result.lab?.labId) {
+            try {
+              await labApi.deleteLab(result.lab.labId, { force: true, deleteContainers: false })
+              window.api.logger.info('[LabCreatorStore] 已清理失败的实验室', {
+                labId: result.lab.labId
+              })
+            } catch (cleanupError) {
+              window.api.logger.warn('[LabCreatorStore] 清理实验室失败', {
+                labId: result.lab.labId,
+                error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+              })
+            }
+          }
+
           notify.error('Compose 创建失败', createError.value, {
             source: 'lab',
             dedupeKey: 'lab:creator'
@@ -341,6 +357,22 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
         createError.value = dockerError instanceof Error ? dockerError.message : String(dockerError)
         createPhase.value = 'idle'
         isCreating.value = false
+
+        // 清理已创建的实验室元数据
+        if (result.lab?.labId) {
+          try {
+            await labApi.deleteLab(result.lab.labId, { force: true, deleteContainers: false })
+            window.api.logger.info('[LabCreatorStore] 已清理失败的实验室', {
+              labId: result.lab.labId
+            })
+          } catch (cleanupError) {
+            window.api.logger.warn('[LabCreatorStore] 清理实验室失败', {
+              labId: result.lab.labId,
+              error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+            })
+          }
+        }
+
         notify.error('Compose 创建失败', createError.value, {
           source: 'lab',
           dedupeKey: 'lab:creator'
@@ -451,6 +483,22 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
           createError.value = dockerResult.error || 'Docker 构建失败'
           createPhase.value = 'idle'
           isCreating.value = false
+
+          // 清理已创建的实验室元数据
+          if (result.lab?.labId) {
+            try {
+              await labApi.deleteLab(result.lab.labId, { force: true, deleteContainers: false })
+              window.api.logger.info('[LabCreatorStore] 已清理失败的实验室', {
+                labId: result.lab.labId
+              })
+            } catch (cleanupError) {
+              window.api.logger.warn('[LabCreatorStore] 清理实验室失败', {
+                labId: result.lab.labId,
+                error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+              })
+            }
+          }
+
           notify.error('Dockerfile 创建失败', createError.value, {
             source: 'lab',
             dedupeKey: 'lab:creator'
@@ -487,6 +535,22 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
         createError.value = dockerError instanceof Error ? dockerError.message : String(dockerError)
         createPhase.value = 'idle'
         isCreating.value = false
+
+        // 清理已创建的实验室元数据
+        if (result.lab?.labId) {
+          try {
+            await labApi.deleteLab(result.lab.labId, { force: true, deleteContainers: false })
+            window.api.logger.info('[LabCreatorStore] 已清理失败的实验室', {
+              labId: result.lab.labId
+            })
+          } catch (cleanupError) {
+            window.api.logger.warn('[LabCreatorStore] 清理实验室失败', {
+              labId: result.lab.labId,
+              error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+            })
+          }
+        }
+
         notify.error('Dockerfile 创建失败', createError.value, {
           source: 'lab',
           dedupeKey: 'lab:creator'

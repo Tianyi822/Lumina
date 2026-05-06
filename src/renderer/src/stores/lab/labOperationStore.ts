@@ -5,7 +5,7 @@ import { useNotification } from '@renderer/composables/useNotification'
 import { labApi } from '@renderer/services/labApi'
 import { useLabListStore } from './labListStore'
 
-interface DeleteConfirmState {
+export interface DeleteConfirmState {
   show: boolean
   labId: string | null
   labName: string

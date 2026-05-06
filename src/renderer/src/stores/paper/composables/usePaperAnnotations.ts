@@ -4,7 +4,6 @@ import type {
   PaperAnnotation,
   PaperAnnotationAffectedKnowledgeBase,
   PaperReaderDocument,
-  ReanchorPaperAnnotationPayload,
   UpdatePaperAnnotationPayload
 } from '@shared/types/paper'
 import { deepClone } from '@shared/utils'
@@ -19,9 +18,6 @@ export interface PaperAnnotationComposable {
   loadAnnotations: (paperId: string) => Promise<PaperAnnotation[]>
   createAnnotation: (
     params: CreatePaperAnnotationPayload
-  ) => Promise<{ success: boolean; data?: PaperAnnotation; error?: string }>
-  reanchorAnnotation: (
-    params: ReanchorPaperAnnotationPayload
   ) => Promise<{ success: boolean; data?: PaperAnnotation; error?: string }>
   updateAnnotation: (params: UpdatePaperAnnotationPayload) => Promise<{
     success: boolean
@@ -124,23 +120,6 @@ export function usePaperAnnotations(currentPaperId: Ref<string | null>): PaperAn
     return result
   }
 
-  async function reanchorAnnotation(
-    params: ReanchorPaperAnnotationPayload
-  ): Promise<{ success: boolean; data?: PaperAnnotation; error?: string }> {
-    const plainParams = toPlainPayload(params)
-    const result = await window.api.paper.reanchorAnnotation(plainParams)
-    if (!result.success || !result.data) {
-      return { success: false, error: result.error }
-    }
-
-    const current = annotationsByPaperId.value[plainParams.paperId] || []
-    const nextAnnotations = current.map((annotation) => {
-      return annotation.id === plainParams.annotationId ? result.data! : annotation
-    })
-    setAnnotations(plainParams.paperId, nextAnnotations)
-    return result
-  }
-
   async function updateAnnotation(params: UpdatePaperAnnotationPayload): Promise<{
     success: boolean
     data?: PaperAnnotation
@@ -203,7 +182,6 @@ export function usePaperAnnotations(currentPaperId: Ref<string | null>): PaperAn
     loadReaderDocument,
     loadAnnotations,
     createAnnotation,
-    reanchorAnnotation,
     updateAnnotation,
     deleteAnnotation,
     setReaderDocument,

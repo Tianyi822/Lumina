@@ -61,10 +61,6 @@ onMounted(() => {
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-sm);
   cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast),
-    color var(--sm-transition-fast);
   user-select: none;
 }
 
@@ -86,16 +82,6 @@ onMounted(() => {
 
 .lab-tools-toggle.is-compact.enabled .toggle-thumb {
   transform: translateX(12px);
-}
-
-.lab-tools-toggle:hover:not(.disabled) {
-  border-color: var(--sm-color-border-strong);
-  background-color: var(--sm-color-surface-hover);
-}
-
-.lab-tools-toggle.enabled {
-  border-color: var(--sm-color-border-accent);
-  background-color: var(--sm-color-accent-08);
 }
 
 .lab-tools-toggle.disabled {

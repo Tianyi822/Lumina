@@ -94,6 +94,21 @@ test('简单 HTML 文本块内部的断段会按正文规则合并', () => {
   )
 })
 
+test('简单 HTML 包裹的 Markdown 标题会保持为独立标题', () => {
+  const content = [
+    '<div align="center">',
+    '',
+    '# Uncertainty-Guided Prototype Reliability Enhancement Network',
+    '',
+    '</div>'
+  ].join('\n')
+
+  assert.equal(
+    normalizeMergeableTextBlockContent(content),
+    '# Uncertainty-Guided Prototype Reliability Enhancement Network'
+  )
+})
+
 test('误包代码围栏的简单居中 HTML 会被恢复为普通文本容器', () => {
   const content = [
     '```',

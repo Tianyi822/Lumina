@@ -116,6 +116,76 @@ test('同页 OCR 断开的正文续写会重新合并为同一段', () => {
   assert.match(readerMarkdown, /# Related Work\n\n\*\*Real-Time Object Detectors\*\*/)
 })
 
+test('含行内公式的同页换栏正文续写会重新合并为同一段', () => {
+  const leadingText =
+    'Few-shot medical image segmentation aims to train a model capable of achieving effective and accurate segmentation of novel classes using only a limited number of images and annotations. Specifically, the dataset is divided into a training set $ \\mathcal{D}_{train} $ and a test set $ \\mathcal{D}_{test} $ . $ \\mathcal{D}_{train} $ contains a sufficient number of images and annotations for a base class set $ \\mathcal{C}_{base} $ , while $ \\mathcal{D}_{test} $ includes only a limited number of annotated images for a novel class set $ \\mathcal{C}_{novel} $ , where $ \\mathcal{C}_{base} \\cap \\mathcal{C}_{novel} = \\emptyset $ . To train our model, we follow the episode training method [15] commonly used in few-shot semantic segmentation. For each N-way K-shot'
+  const continuationText =
+    'few-shot segmentation task, we divide both the training and test sets $\\mathcal{D}_{train/test} = \\{S, Q\\}$ into a support set $S = \\{(I_s^i, M_s^i)\\}_{i=1}^K$ and a query set $Q = \\{(I_q, M_q)\\}$ where $I$ denotes the image and $M$ denotes the corresponding segmentation mask.'
+  const pageResult: PaperPageOcrResult = {
+    paperId: 'paper-inline-math-column-continuation',
+    pageIndex: 2,
+    status: 'completed',
+    markdown: [leadingText, continuationText].join('\n\n'),
+    blocks: [
+      createTextBlock(5, leadingText, { x: 90, y: 1262, width: 514, height: 240 }, 2),
+      createTextBlock(6, continuationText, { x: 617, y: 114, width: 513, height: 242 }, 2)
+    ]
+  }
+
+  const extracted = extractFigures(pageResult)
+  const readerMarkdown = buildReaderMarkdown([pageResult], extracted)
+
+  assert.match(readerMarkdown, /For each N-way K-shot few-shot segmentation task/)
+  assert.doesNotMatch(readerMarkdown, /For each N-way K-shot\s*\n\s*\n\s*few-shot/)
+})
+
+test('HTML 包裹标题不会与作者和摘要合并为同一个标题', () => {
+  const title = [
+    '<div align="center">',
+    '',
+    '# Uncertainty-Guided Prototype Reliability Enhancement Network for Few-Shot Medical Image Segmentation',
+    '',
+    '</div>'
+  ].join('\n')
+  const authors =
+    'Junfei Hu, Tao Zhou, Senior Member, IEEE, Kaiwen Huang, Yi Zhou, Senior Member, IEEE, Haofeng Zhang, Senior Member, IEEE, Boqiang Fan, and Huazhu Fu, Senior Member, IEEE'
+  const abstract =
+    'Abstract—Few-Shot Learning (FSL) has garnered increasing attention for data-scarce scenarios, particularly in medical segmentation tasks where only a few labeled data points are available.'
+  const indexTerms =
+    'Index Terms—Few-shot learning, medical image segmentation, prototype enhancement, reliable dynamic fusion.'
+  const pageResult: PaperPageOcrResult = {
+    paperId: 'paper-front-matter-boundary',
+    pageIndex: 0,
+    status: 'completed',
+    markdown: [title, authors, abstract, 'I. INTRODUCTION', indexTerms].join('\n\n'),
+    blocks: [
+      createTextBlock(0, title, { x: 90, y: 54, width: 1020, height: 112 }),
+      createTextBlock(1, authors, { x: 118, y: 172, width: 980, height: 118 }),
+      createTextBlock(2, abstract, { x: 118, y: 320, width: 980, height: 180 }),
+      createTextBlock(3, 'I. INTRODUCTION', { x: 118, y: 640, width: 360, height: 40 }),
+      createTextBlock(4, indexTerms, { x: 118, y: 720, width: 820, height: 56 })
+    ]
+  }
+
+  const figureData = extractFigureData([pageResult])
+  const readerDocument = buildReaderDocument(
+    'paper-front-matter-boundary',
+    [pageResult],
+    figureData
+  )
+
+  assert.match(
+    readerDocument.markdown,
+    /^<!-- Page 1 -->\n\n# Uncertainty-Guided Prototype Reliability Enhancement Network for Few-Shot Medical Image Segmentation\n\nJunfei Hu/
+  )
+  assert.match(readerDocument.markdown, /IEEE\n\nAbstract—Few-Shot Learning/)
+  assert.doesNotMatch(readerDocument.markdown, /# .*Junfei Hu/)
+  assert.doesNotMatch(readerDocument.markdown, /# .*Abstract—Few-Shot Learning/)
+  assert.equal(readerDocument.segments[0]?.kind, 'paragraph')
+  assert.equal(readerDocument.segments[1]?.kind, 'heading')
+  assert.equal(readerDocument.segments[1]?.originalText.includes('Junfei Hu'), false)
+})
+
 test('同页正常新段落仍保留双换行', () => {
   const pageResult: PaperPageOcrResult = {
     paperId: 'paper-inline-paragraph',
@@ -342,6 +412,155 @@ test('分页切开的英文续写正文会重新合并为同一段', () => {
     /In the downstream task\s*<!-- Page 2 -->\s*of object detection, CNNs are predominantly used\./
   )
   assert.doesNotMatch(readerMarkdown, /task\s*\n\s*\n\s*<!-- Page 2 -->/)
+})
+
+test('含行内公式的跨页英文续写正文会重新合并为同一段', () => {
+  const pageResults: PaperPageOcrResult[] = [
+    {
+      paperId: 'paper-page-inline-math-continuation',
+      pageIndex: 0,
+      status: 'completed',
+      markdown:
+        'The episode dataset $\\mathcal{D}_{train/test} = \\{S, Q\\}$ is prepared for each N-way K-shot',
+      blocks: [
+        createTextBlock(
+          0,
+          'The episode dataset $\\mathcal{D}_{train/test} = \\{S, Q\\}$ is prepared for each N-way K-shot',
+          { x: 120, y: 1460, width: 520, height: 40 },
+          0
+        )
+      ]
+    },
+    {
+      paperId: 'paper-page-inline-math-continuation',
+      pageIndex: 1,
+      status: 'completed',
+      markdown: 'few-shot segmentation task, then support and query sets are constructed.',
+      blocks: [
+        createTextBlock(
+          0,
+          'few-shot segmentation task, then support and query sets are constructed.',
+          { x: 120, y: 80, width: 560, height: 40 },
+          1
+        )
+      ]
+    }
+  ]
+
+  const figureData = extractFigureData(pageResults)
+  const readerMarkdown = buildReaderMarkdown(pageResults, figureData)
+
+  assert.match(readerMarkdown, /N-way K-shot\s*<!-- Page 2 -->\s*few-shot segmentation task/)
+  assert.doesNotMatch(readerMarkdown, /N-way K-shot\s*\n\s*\n\s*<!-- Page 2 -->/)
+})
+
+test('论文编号方法小节会把公式和跨页续写保持在同一个列表项缩进内', () => {
+  const firstItem =
+    '1) Prototype Generation: We first apply average pooling [34] to the support feature $F_s$ and the support mask $M_s$ to obtain the global prototypes of different classes. This process can be expressed as follows:'
+  const firstFormula =
+    'g p _ {s} ^ {k} = \\frac {\\sum _ {h,w} F_s (h,w) \\cdot M_s^k(h,w)}{\\sum _ {h,w} M_s^k(h,w)}'
+  const whereText =
+    'where $k$ denotes different classes, with $k = 0$ representing the background class $bg$ and $k = 1$ representing the foreground class $fg$.'
+  const continuation =
+    'To preserve the detailed information in the feature as much as possible, we design a method for extracting local prototypes. First, we perform a patch operation on $F_s$ and $M_s$ dividing them into $N$ patches, each with height $H_p$ and width $W_p$.'
+  const secondItem =
+    '2) Uncertainty-Guided Prototype Selection: Next, the uncertainty scores are used to filter unreliable prototypes.'
+  const pageResults: PaperPageOcrResult[] = [
+    {
+      paperId: 'paper-sequence-list',
+      pageIndex: 0,
+      status: 'completed',
+      markdown: [firstItem, '$$', firstFormula, '$$', whereText].join('\n\n'),
+      blocks: [
+        createTextBlock(0, firstItem, { x: 80, y: 120, width: 980, height: 92 }, 0),
+        createTextBlock(1, '$$', { x: 360, y: 248, width: 60, height: 28 }, 0),
+        createTextBlock(2, firstFormula, { x: 340, y: 292, width: 560, height: 68 }, 0),
+        createTextBlock(3, '$$', { x: 360, y: 380, width: 60, height: 28 }, 0),
+        createTextBlock(4, whereText, { x: 80, y: 444, width: 980, height: 72 }, 0)
+      ]
+    },
+    {
+      paperId: 'paper-sequence-list',
+      pageIndex: 1,
+      status: 'completed',
+      markdown: [continuation, secondItem].join('\n\n'),
+      blocks: [
+        createTextBlock(0, continuation, { x: 80, y: 80, width: 980, height: 96 }, 1),
+        createTextBlock(1, secondItem, { x: 80, y: 220, width: 980, height: 64 }, 1)
+      ]
+    }
+  ]
+
+  const figureData = extractFigureData(pageResults)
+  const readerDocument = buildReaderDocument('paper-sequence-list', pageResults, figureData)
+  const firstSequenceSegment = readerDocument.segments.find((segment) =>
+    segment.originalMarkdown.startsWith('1) Prototype Generation')
+  )
+  const secondSequenceSegment = readerDocument.segments.find((segment) =>
+    segment.originalMarkdown.startsWith('2) Uncertainty-Guided Prototype Selection')
+  )
+
+  assert.ok(firstSequenceSegment)
+  assert.ok(secondSequenceSegment)
+  assert.equal(firstSequenceSegment.kind, 'list')
+  assert.match(firstSequenceSegment.originalMarkdown, /\n\n {3}\$\$/)
+  assert.match(firstSequenceSegment.originalMarkdown, /\n\n {3}where \$k\$ denotes/)
+  assert.match(firstSequenceSegment.originalMarkdown, /\n\n {3}<!-- Page 2 -->/)
+  assert.match(firstSequenceSegment.originalMarkdown, /\n\n {3}To preserve the detailed/)
+  assert.doesNotMatch(firstSequenceSegment.originalMarkdown, /2\) Uncertainty-Guided/)
+  assert.equal(
+    readerDocument.segments.some((segment) => segment.originalMarkdown === continuation),
+    false
+  )
+})
+
+test('表格打断的论文编号小节会保持后续正文的列表缩进', () => {
+  const item =
+    '2. Effectiveness of Dual-Branch Prediction and RDF: To validate the effectiveness of the dual-branch strategy, No.4 applies a gated mechanism to combine'
+  const tableNumber = 'TABLE VI'
+  const tableTitle =
+    'ABLATIVE RESULTS (DICE) ON IMPACTS OF THE CONSISTENCY LOSS AND UNCERTAINTY LOSS IN OUR MODEL'
+  const tableMarkdown =
+    '<table border="1"><tr><td>Auxiliary Loss</td><td>Mean</td></tr><tr><td>Ours</td><td>84.54</td></tr></table>'
+  const continuation =
+    'the two predictions. No.5 adopts the proposed RDF module to perform reliable fusion between the predictions.'
+  const nextItem =
+    '3. Effect of Threshold: We evaluate the influence of the uncertainty filtering threshold.'
+  const pageResult: PaperPageOcrResult = {
+    paperId: 'paper-sequence-table',
+    pageIndex: 0,
+    status: 'completed',
+    markdown: [item, tableNumber, tableTitle, tableMarkdown, continuation, nextItem].join('\n\n'),
+    blocks: [
+      createTextBlock(0, item, { x: 80, y: 120, width: 980, height: 92 }),
+      createTextBlock(1, tableNumber, { x: 80, y: 250, width: 180, height: 32 }),
+      createTextBlock(2, tableTitle, { x: 80, y: 300, width: 980, height: 60 }),
+      createTableBlock(3, tableMarkdown, { x: 80, y: 390, width: 980, height: 280 }),
+      createTextBlock(4, continuation, { x: 80, y: 720, width: 980, height: 72 }),
+      createTextBlock(5, nextItem, { x: 80, y: 830, width: 980, height: 64 })
+    ]
+  }
+
+  const figureData = extractFigureData([pageResult])
+  const readerDocument = buildReaderDocument('paper-sequence-table', [pageResult], figureData)
+  const sequenceSegment = readerDocument.segments.find((segment) =>
+    segment.originalMarkdown.startsWith('2. Effectiveness of Dual-Branch')
+  )
+  const nextSequenceSegment = readerDocument.segments.find((segment) =>
+    segment.originalMarkdown.startsWith('3. Effect of Threshold')
+  )
+
+  assert.ok(sequenceSegment)
+  assert.ok(nextSequenceSegment)
+  assert.equal(sequenceSegment.kind, 'list')
+  assert.match(sequenceSegment.originalMarkdown, /\n\n {3}TABLE VI ABLATIVE RESULTS/)
+  assert.match(sequenceSegment.originalMarkdown, /\n\n {3}<table border="1">/)
+  assert.match(sequenceSegment.originalMarkdown, /\n\n {3}the two predictions/)
+  assert.doesNotMatch(sequenceSegment.originalMarkdown, /3\. Effect of Threshold/)
+  assert.equal(
+    readerDocument.segments.some((segment) => segment.originalMarkdown === continuation),
+    false
+  )
 })
 
 test('分页后如果确实进入新段落，则保留段落分隔', () => {

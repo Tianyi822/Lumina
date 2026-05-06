@@ -3,6 +3,7 @@ import type { WebContents } from 'electron'
 import type {
   ChatRequest,
   ChatResult,
+  ChatToolExecutionResult,
   KnowledgeSearchResult,
   MCPToolReference
 } from '../../types/chat'
@@ -15,11 +16,20 @@ import {
   KnowledgeToolAdapter,
   MCPToolAdapter,
   LabToolAdapter,
+  SkillToolAdapter,
   UnifiedToolExecutor,
   UnifiedToolRegistry
 } from './tools'
 import type { ReactLoopServiceOptions } from './chatInternal'
 import { StreamProcessor } from './StreamProcessor'
+import { skillService } from '../skill'
+import { paperWebSearchService, PaperWebSearchToolAdapter } from '../paper-web-search'
+
+interface ReactLoopRuntimeOptions {
+  abortController?: AbortController
+  preserveAbortController?: boolean
+  suppressFinalEvents?: boolean
+}
 
 /**
  * ReAct 循环服务
@@ -35,6 +45,8 @@ export class ReactLoopService {
   private readonly unifiedToolExecutor: UnifiedToolExecutor
   private readonly toolRegistry: UnifiedToolRegistry
   private readonly labAdapter: LabToolAdapter
+  private readonly skillAdapter: SkillToolAdapter
+  private readonly paperWebSearchAdapter: PaperWebSearchToolAdapter
   private readonly knowledgeAdapter: KnowledgeToolAdapter
   private readonly mcpAdapter: MCPToolAdapter | null
   private readonly streamProcessor: StreamProcessor
@@ -55,6 +67,8 @@ export class ReactLoopService {
 
     this.toolRegistry = new UnifiedToolRegistry()
     this.labAdapter = new LabToolAdapter()
+    this.skillAdapter = new SkillToolAdapter()
+    this.paperWebSearchAdapter = new PaperWebSearchToolAdapter(paperWebSearchService)
     this.knowledgeAdapter = new KnowledgeToolAdapter()
     this.mcpAdapter = options.mcpService ? new MCPToolAdapter(options.mcpService) : null
 
@@ -80,9 +94,10 @@ export class ReactLoopService {
     request: ChatRequest,
     webContents: WebContents,
     knowledgeResults?: KnowledgeSearchResult[],
-    selectedKnowledgeBases?: KnowledgeBaseReference[]
+    selectedKnowledgeBases?: KnowledgeBaseReference[],
+    runtimeOptions: ReactLoopRuntimeOptions = {}
   ): Promise<ChatResult> {
-    const { messages, modelKey, sessionId, maxReactIterations = 10 } = request
+    const { messages, modelKey, sessionId, turnId, maxReactIterations = 10 } = request
 
     this.logger.info('开始发送聊天消息（ReAct 模式）', 'main', {
       sessionId,
@@ -93,22 +108,26 @@ export class ReactLoopService {
       enableLabTools: request.enableLabTools
     })
 
-    const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents)
+    const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents, turnId)
     if (!llmConfig) {
       return { success: false, error: '配置验证失败' }
     }
 
     if (this.stopController.isStopped(sessionId)) {
-      this.streamHandler.sendDone(webContents, sessionId)
+      if (!runtimeOptions.suppressFinalEvents) {
+        this.streamHandler.sendDone(webContents, sessionId, undefined, turnId, 'cancelled')
+      }
       return { success: true }
     }
 
-    const abortController = this.stopController.getOrCreateAbortController(sessionId)
+    const abortController =
+      runtimeOptions.abortController ?? this.stopController.getOrCreateAbortController(sessionId)
+    const ownsAbortController = !runtimeOptions.abortController
 
     try {
       const client = this.createClient(llmConfig)
 
-      this.buildToolRegistry(request, selectedKnowledgeBases, sessionId)
+      await this.buildToolRegistry(request, selectedKnowledgeBases, sessionId)
 
       const tools = this.toolRegistry.buildOpenAITools()
 
@@ -121,11 +140,16 @@ export class ReactLoopService {
 
       const totalUsage = this.createInitialTokenUsage()
       let iterations = 0
+      const toolErrors: string[] = []
+      const toolResults: ChatToolExecutionResult[] = []
+      let finalContent: string | undefined
 
       while (iterations < maxReactIterations) {
         if (abortController.signal.aborted) {
           this.logger.info('ReAct 循环被中止', 'main', { sessionId, iterations })
-          break
+          const error = new Error('Request was stopped by user')
+          error.name = 'AbortError'
+          throw error
         }
 
         const result = await this.executeReactIteration({
@@ -138,18 +162,36 @@ export class ReactLoopService {
           tools,
           iterations,
           maxReactIterations,
-          abortController
+          abortController,
+          turnId
         })
 
         if (result.shouldBreak) {
+          if (result.toolErrors.length > 0) {
+            toolErrors.push(...result.toolErrors)
+          }
+          if (result.toolResults.length > 0) {
+            toolResults.push(...result.toolResults)
+          }
+          if (result.finalContent) {
+            finalContent = result.finalContent
+          }
           break
         }
 
+        if (result.toolErrors.length > 0) {
+          toolErrors.push(...result.toolErrors)
+        }
+        if (result.toolResults.length > 0) {
+          toolResults.push(...result.toolResults)
+        }
         iterations++
       }
 
       this.stopController.deletePendingUserInteraction(sessionId)
-      this.streamHandler.sendDone(webContents, sessionId, totalUsage)
+      if (!runtimeOptions.suppressFinalEvents) {
+        this.streamHandler.sendDone(webContents, sessionId, totalUsage, turnId, 'completed')
+      }
 
       this.logger.info('ReAct 聊天消息发送完成', 'main', {
         sessionId,
@@ -157,12 +199,16 @@ export class ReactLoopService {
         usage: totalUsage
       })
 
-      return { success: true }
+      return { success: true, toolErrors, finalContent, toolResults, usage: totalUsage }
     } catch (error) {
-      return this.handleReactError(error, webContents, sessionId)
+      return this.handleReactError(error, webContents, sessionId, turnId, runtimeOptions)
     } finally {
-      this.stopController.deleteAbortController(sessionId)
-      this.stopController.clearStoppedSession(sessionId)
+      if (ownsAbortController && !runtimeOptions.preserveAbortController) {
+        this.stopController.deleteAbortController(sessionId)
+      }
+      if (!runtimeOptions.preserveAbortController) {
+        this.stopController.clearStoppedSession(sessionId)
+      }
       this.stopController.deletePendingUserInteraction(sessionId)
     }
   }
@@ -170,16 +216,18 @@ export class ReactLoopService {
   /**
    * 按请求刷新统一工具注册表
    */
-  private buildToolRegistry(
+  private async buildToolRegistry(
     request: ChatRequest,
     selectedKnowledgeBases?: KnowledgeBaseReference[],
     sessionId?: string
-  ): MCPToolReference[] {
+  ): Promise<MCPToolReference[]> {
     const { selectedTools, enableLabTools } = request
 
     this.toolRegistry.unregisterByCategory('lab')
     this.toolRegistry.unregisterByCategory('knowledge')
     this.toolRegistry.unregisterByCategory('mcp')
+    this.toolRegistry.unregisterByCategory('skill')
+    this.toolRegistry.unregisterByCategory('paper_web')
 
     if (selectedTools && selectedTools.length > 0 && this.mcpAdapter) {
       this.toolRegistry.registerBatch(selectedTools, this.mcpAdapter, 'mcp')
@@ -212,7 +260,52 @@ export class ReactLoopService {
       })
     }
 
+    if (skillService.hasAvailableSkills()) {
+      const skillTools = this.skillAdapter.getTools()
+      this.toolRegistry.registerBatch(skillTools, this.skillAdapter, 'skill')
+
+      this.logger.info('已添加 Skill 工具到工具列表', 'main', {
+        sessionId,
+        skillToolCount: skillTools.length,
+        totalToolCount: this.toolRegistry.size
+      })
+    }
+
+    if (request.enablePaperWebSearch && request.sessionType === 'paper' && sessionId) {
+      const paperContext = this.buildPaperSearchContext(request)
+      this.paperWebSearchAdapter.setPaperContext(paperContext)
+      const paperWebTools = this.paperWebSearchAdapter.getTools()
+      this.toolRegistry.registerBatch(paperWebTools, this.paperWebSearchAdapter, 'paper_web')
+
+      this.logger.info('已添加论文联网搜索工具到工具列表', 'main', {
+        sessionId,
+        paperWebToolCount: paperWebTools.length,
+        totalToolCount: this.toolRegistry.size
+      })
+    }
+
     return this.toolRegistry.getAllToolReferences()
+  }
+
+  /**
+   * 构建论文搜索上下文
+   */
+  private buildPaperSearchContext(
+    request: ChatRequest
+  ): import('@shared/types/paper-web-search').PaperWebSearchContext {
+    const lastUserMessage = [...request.messages].reverse().find((m) => m.role === 'user')
+
+    return {
+      paperId: request.sessionId,
+      fileName: '',
+      paperTitle: undefined,
+      paperAuthors: undefined,
+      paperKeywords: undefined,
+      selectedQuote: undefined,
+      selectedQuoteContext: undefined,
+      userQuestion: typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : '',
+      referenceHints: undefined
+    }
   }
 
   /**
@@ -229,7 +322,13 @@ export class ReactLoopService {
     iterations: number
     maxReactIterations: number
     abortController: AbortController
-  }): Promise<{ shouldBreak: boolean }> {
+    turnId?: string
+  }): Promise<{
+    shouldBreak: boolean
+    toolErrors: string[]
+    toolResults: ChatToolExecutionResult[]
+    finalContent?: string
+  }> {
     const {
       client,
       llmConfig,
@@ -240,10 +339,17 @@ export class ReactLoopService {
       tools,
       iterations,
       maxReactIterations,
-      abortController
+      abortController,
+      turnId
     } = params
 
-    this.streamHandler.sendReactIterationStart(webContents, sessionId, iterations)
+    this.streamHandler.sendReactIterationStart(
+      webContents,
+      sessionId,
+      iterations,
+      'thinking',
+      turnId
+    )
 
     if (iterations === 0 || iterations === maxReactIterations - 1 || (iterations + 1) % 5 === 0) {
       this.logger.debug(`ReAct 迭代 ${iterations + 1}/${maxReactIterations}`, 'main', {
@@ -270,7 +376,8 @@ export class ReactLoopService {
     const { state, totalUsage: iterationUsage } = await this.streamProcessor.processStream(
       response,
       webContents,
-      sessionId
+      sessionId,
+      turnId
     )
 
     totalUsage.prompt_tokens += iterationUsage.prompt_tokens
@@ -283,7 +390,12 @@ export class ReactLoopService {
         iterations: iterations + 1,
         hadContent: state.assistantContent.length > 0
       })
-      return { shouldBreak: true }
+      return {
+        shouldBreak: true,
+        toolErrors: [],
+        toolResults: [],
+        finalContent: state.assistantContent || undefined
+      }
     }
 
     this.logger.info('模型请求调用工具', 'main', {
@@ -310,19 +422,28 @@ export class ReactLoopService {
       assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
     )
 
-    const needUserInteraction = await this.unifiedToolExecutor.executeToolCalls(
+    const toolExecution = await this.unifiedToolExecutor.executeToolCalls(
       toolCallsArray,
       webContents,
       sessionId,
-      conversationMessages
+      conversationMessages,
+      turnId
     )
 
-    if (needUserInteraction) {
+    if (toolExecution.needUserInteraction) {
       this.logger.info('ReAct 循环暂停，等待用户交互', 'main', { sessionId, iterations })
-      return { shouldBreak: true }
+      return {
+        shouldBreak: true,
+        toolErrors: toolExecution.errors,
+        toolResults: toolExecution.results
+      }
     }
 
-    return { shouldBreak: false }
+    return {
+      shouldBreak: false,
+      toolErrors: toolExecution.errors,
+      toolResults: toolExecution.results
+    }
   }
 
   /**
@@ -346,12 +467,17 @@ export class ReactLoopService {
   private handleReactError(
     error: unknown,
     webContents: WebContents,
-    sessionId: string
+    sessionId: string,
+    turnId?: string,
+    runtimeOptions: ReactLoopRuntimeOptions = {}
   ): ChatResult {
     if (error instanceof Error && error.name === 'AbortError') {
       this.logger.info('用户中止了 ReAct 请求', 'main', { sessionId })
-      this.streamHandler.sendDone(webContents, sessionId)
-      return { success: true }
+      if (!runtimeOptions.suppressFinalEvents) {
+        this.streamHandler.sendDone(webContents, sessionId, undefined, turnId, 'cancelled')
+        return { success: true }
+      }
+      return { success: false, error: error.message }
     }
 
     const errorMessage = this.modelRetryHandler.normalizeModelError(error)
@@ -361,7 +487,9 @@ export class ReactLoopService {
       normalizedError: errorMessage,
       status: this.modelRetryHandler.getModelErrorStatus(error)
     })
-    this.streamHandler.sendError(webContents, sessionId, errorMessage)
+    if (!runtimeOptions.suppressFinalEvents) {
+      this.streamHandler.sendError(webContents, sessionId, errorMessage, turnId, 'failed')
+    }
     return { success: false, error: errorMessage }
   }
 }
