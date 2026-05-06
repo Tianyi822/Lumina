@@ -247,7 +247,8 @@ export class PlanExecuteService {
         'completed',
         undefined,
         undefined,
-        turnId
+        turnId,
+        summaryContent
       )
       this.streamHandler.sendDone(webContents, sessionId, totalUsage, turnId, 'completed')
       this.logger.info('规划模式执行完成', 'main', { sessionId, totalUsage })

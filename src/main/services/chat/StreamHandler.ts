@@ -121,7 +121,8 @@ export class StreamHandler {
     status: PlanExecutionStatus,
     message?: string,
     error?: string,
-    turnId?: string
+    turnId?: string,
+    summary?: string
   ): void {
     this.sendStreamEvent(webContents, {
       type: 'plan_status',
@@ -130,7 +131,8 @@ export class StreamHandler {
       planStatus: {
         status,
         message,
-        error
+        error,
+        summary
       }
     })
   }

@@ -81,10 +81,7 @@ function mockLabAndDocker(mockOptions?: { putArchiveError?: Error }): {
     getContainer: (containerId: string) => {
       assert.equal(containerId, 'container-stream-test')
       return {
-        putArchive: async (
-          archive: Buffer | NodeJS.ReadableStream,
-          options: { path?: string }
-        ) => {
+        putArchive: async (archive: Buffer | NodeJS.ReadableStream, options: { path?: string }) => {
           archiveArg = archive
           pathArg = options.path
           if (mockOptions?.putArchiveError) {

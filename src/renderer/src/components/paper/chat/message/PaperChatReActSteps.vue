@@ -39,6 +39,7 @@ const props = defineProps<{
   steps?: ReActStep[]
   iterations?: ReActIteration[]
   isStreaming?: boolean
+  planSummary?: string
 }>()
 
 // 整体面板的展开状态
@@ -448,12 +449,27 @@ function getLocalPhaseIndex(unit: PhaseUnit): number {
                         ></div>
                         <!-- eslint-enable vue/no-v-html -->
                       </div>
-
                     </template>
                   </div>
                 </section>
               </TransitionGroup>
             </div>
+          </div>
+
+          <!-- Plan 模式：最终总结 -->
+          <div
+            v-if="hasTaskGroups && planSummary && !isStreaming"
+            class="paper-chat-react-steps__plan-summary"
+          >
+            <div class="paper-chat-react-steps__plan-summary-divider">
+              <span class="paper-chat-react-steps__plan-summary-divider-label">总结</span>
+            </div>
+            <!-- eslint-disable vue/no-v-html -->
+            <div
+              class="paper-chat-react-steps__plan-summary-text markdown-body"
+              v-html="renderMarkdown(planSummary)"
+            ></div>
+            <!-- eslint-enable vue/no-v-html -->
           </div>
 
           <!-- 非 Plan 模式：扁平阶段列表 -->
@@ -928,6 +944,29 @@ function getLocalPhaseIndex(unit: PhaseUnit): number {
 
 .paper-chat-react-steps__tool-list {
   margin-top: 12px;
+}
+
+.paper-chat-react-steps__plan-summary {
+  padding: 12px 14px;
+  border-top: 1px solid var(--sm-color-border-default);
+}
+
+.paper-chat-react-steps__plan-summary-divider {
+  margin-bottom: 10px;
+}
+
+.paper-chat-react-steps__plan-summary-divider-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sm-color-accent-hover);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.paper-chat-react-steps__plan-summary-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-primary);
 }
 
 .paper-chat-react-steps__step-content {

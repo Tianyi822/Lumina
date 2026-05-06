@@ -353,6 +353,7 @@ export interface StreamEvent {
     status: PlanExecutionStatus
     message?: string
     error?: string
+    summary?: string
   }
   /** 计划步骤列表，仅在事件类型为 plan_generated 时提供 */
   plan?: { steps: PlanStep[]; status?: PlanExecutionStatus }

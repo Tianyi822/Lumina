@@ -70,9 +70,7 @@ export class DockerContainerService {
       const finalResult = serialize(result)
       logger.info('[DockerService] 最终结果', 'main', {
         count: finalResult.length,
-        sample: finalResult[0]
-          ? JSON.stringify(finalResult[0]).substring(0, 500)
-          : '<empty>'
+        sample: finalResult[0] ? JSON.stringify(finalResult[0]).substring(0, 500) : '<empty>'
       })
 
       return finalResult

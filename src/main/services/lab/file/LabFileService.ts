@@ -361,10 +361,7 @@ export class LabFileService {
    * 写入单个文件到临时目录
    * 大文件使用流式写入避免内存峰值
    */
-  private async writeSingleFileToTempDir(
-    targetPath: string,
-    content: string
-  ): Promise<void> {
+  private async writeSingleFileToTempDir(targetPath: string, content: string): Promise<void> {
     const contentBuffer = Buffer.from(content, 'utf-8')
 
     if (contentBuffer.length > LARGE_FILE_THRESHOLD) {
@@ -494,5 +491,4 @@ export class LabFileService {
 
     return entries
   }
-
 }

@@ -316,8 +316,7 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
             } catch (cleanupError) {
               window.api.logger.warn('[LabCreatorStore] 清理实验室失败', {
                 labId: result.lab.labId,
-                error:
-                  cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+                error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
               })
             }
           }
@@ -369,8 +368,7 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
           } catch (cleanupError) {
             window.api.logger.warn('[LabCreatorStore] 清理实验室失败', {
               labId: result.lab.labId,
-              error:
-                cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+              error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
             })
           }
         }
@@ -496,8 +494,7 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
             } catch (cleanupError) {
               window.api.logger.warn('[LabCreatorStore] 清理实验室失败', {
                 labId: result.lab.labId,
-                error:
-                  cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+                error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
               })
             }
           }
@@ -549,8 +546,7 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
           } catch (cleanupError) {
             window.api.logger.warn('[LabCreatorStore] 清理实验室失败', {
               labId: result.lab.labId,
-              error:
-                cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+              error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
             })
           }
         }

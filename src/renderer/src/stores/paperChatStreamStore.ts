@@ -34,10 +34,9 @@ export interface PaperChatPlanState {
   steps: PlanStep[]
   currentStepIndex: number
   error?: string
+  summary?: string
   updatedAt: string
-  /** 每个步骤内的 ReAct 迭代阶段，key = step.index */
   stepIterations: Record<number, PlanStepIteration[]>
-  /** 全局阶段计数器，跨步骤连续递增 */
   globalPhaseCounter: number
 }
 
@@ -393,6 +392,9 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
 
     state.status = event.planStatus.status
     state.error = event.planStatus.error
+    if (event.planStatus.summary) {
+      state.summary = event.planStatus.summary
+    }
     state.updatedAt = new Date().toISOString()
     setPlanState(sessionId, state)
   }
