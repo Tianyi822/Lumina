@@ -187,6 +187,8 @@ function handleCancelRetranslate(): void {
 <style scoped>
 .paper-markdown-view__segment {
   position: relative;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
 }
 
 .paper-markdown-view__segment + .paper-markdown-view__segment {
