@@ -39,10 +39,31 @@ const { originalPdfZoomLevel } = storeToRefs(paperReaderStore)
 
 const scrollContainerRef = ref<HTMLElement | null>(null)
 
-const zoomAnchor = useZoomAnchor({
-  containerRef: scrollContainerRef,
-  zoomLevelRef: originalPdfZoomLevel
+const zoomAnchor = useZoomAnchor()
+
+let zoomSettleTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(originalPdfZoomLevel, (newVal, oldVal) => {
+  const container = scrollContainerRef.value
+  if (!container || !oldVal || newVal === oldVal) return
+
+  if (!zoomAnchor.isZooming()) {
+    zoomAnchor.beginZoom(container)
+  }
+
+  nextTick(() => {
+    if (scrollContainerRef.value) {
+      zoomAnchor.applyZoomFrame(scrollContainerRef.value)
+    }
+  })
+
+  if (zoomSettleTimer !== null) clearTimeout(zoomSettleTimer)
+  zoomSettleTimer = setTimeout(() => {
+    zoomSettleTimer = null
+    zoomAnchor.endZoom()
+  }, 150)
 })
+
 const pageStates = ref<Record<number, PageLoadState>>({})
 const pageElementByIndex = new Map<number, HTMLElement>()
 const observedPageIndexes = new Set<number>()
@@ -81,14 +102,24 @@ const contentZoomStyle = computed(() => ({
 
 const hasPages = computed(() => originalPages.value.length > 0)
 
+let scrollRafId: number | null = null
+
 function recordOriginalPdfScrollPosition(): void {
   if (!props.paperId || !scrollContainerRef.value || zoomAnchor.isZooming()) {
     return
   }
 
-  paperReaderStore.setOriginalPdfScrollPosition(props.paperId, {
-    scrollTop: scrollContainerRef.value.scrollTop,
-    scrollLeft: scrollContainerRef.value.scrollLeft
+  if (scrollRafId !== null) {
+    return
+  }
+
+  scrollRafId = requestAnimationFrame(() => {
+    scrollRafId = null
+    if (!props.paperId || !scrollContainerRef.value) return
+    paperReaderStore.setOriginalPdfScrollPosition(props.paperId, {
+      scrollTop: scrollContainerRef.value.scrollTop,
+      scrollLeft: scrollContainerRef.value.scrollLeft
+    })
   })
 }
 

@@ -77,6 +77,8 @@ const engine = usePaperMarkdownEngine({
   clearToc: paperReaderStore.clearPaperToc
 })
 
+const zoomAnchor = useZoomAnchor()
+
 usePaperReadingProgress({
   scrollContainer: scrollContainerRef,
   paperId: () => props.paperId,
@@ -84,12 +86,8 @@ usePaperReadingProgress({
   loading: () => props.loading,
   sourceRevisionId: () => props.readerDocument?.sourceRevisionId,
   readingProgress: () => props.readingProgress,
-  translationVisible: () => props.translationVisible
-})
-
-const zoomAnchor = useZoomAnchor({
-  containerRef: scrollContainerRef,
-  zoomLevelRef: markdownZoomLevel
+  translationVisible: () => props.translationVisible,
+  isZooming: zoomAnchor.isZooming
 })
 
 const composer = usePaperAnnotationComposer({
@@ -217,14 +215,24 @@ function renderContentAndSyncTables(): Promise<void> {
   })
 }
 
+let scrollRafId: number | null = null
+
 function recordMarkdownScrollPosition(): void {
   if (!props.paperId || !scrollContainerRef.value || zoomAnchor.isZooming()) {
     return
   }
 
-  paperReaderStore.setMarkdownScrollPosition(props.paperId, {
-    scrollTop: scrollContainerRef.value.scrollTop,
-    scrollLeft: scrollContainerRef.value.scrollLeft
+  if (scrollRafId !== null) {
+    return
+  }
+
+  scrollRafId = requestAnimationFrame(() => {
+    scrollRafId = null
+    if (!props.paperId || !scrollContainerRef.value) return
+    paperReaderStore.setMarkdownScrollPosition(props.paperId, {
+      scrollTop: scrollContainerRef.value.scrollTop,
+      scrollLeft: scrollContainerRef.value.scrollLeft
+    })
   })
 }
 
@@ -386,9 +394,29 @@ watch(textSearch.isOpen, (open) => {
   }
 })
 
-watch(markdownZoomLevel, async () => {
-  await nextTick()
-  syncScrollableTableWrapState()
+let zoomSettleTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(markdownZoomLevel, (newVal, oldVal) => {
+  const container = scrollContainerRef.value
+  if (!container || !oldVal || newVal === oldVal) return
+
+  if (!zoomAnchor.isZooming()) {
+    zoomAnchor.beginZoom(container)
+  }
+
+  // 在 Vue DOM 更新后、浏览器绘制前同步修正滚动位置
+  nextTick(() => {
+    if (scrollContainerRef.value) {
+      zoomAnchor.applyZoomFrame(scrollContainerRef.value)
+    }
+    syncScrollableTableWrapState()
+  })
+
+  if (zoomSettleTimer !== null) clearTimeout(zoomSettleTimer)
+  zoomSettleTimer = setTimeout(() => {
+    zoomSettleTimer = null
+    zoomAnchor.endZoom()
+  }, 150)
 })
 
 if (typeof document !== 'undefined') {
