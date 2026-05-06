@@ -209,7 +209,6 @@ export type StreamEventType =
   | 'reasoning'
   | 'tool_call'
   | 'tool_result'
-  | 'tool_progress'
   | 'knowledge_search'
   | 'knowledge_result'
   | 'user_interaction'
@@ -341,12 +340,6 @@ export interface StreamEvent {
   toolCall?: ToolCallInfo
   /** 工具执行结果，仅在事件类型为 tool_result 时提供 */
   toolResult?: ToolResultInfo
-  /** 工具执行进度，仅在事件类型为 tool_progress 时提供 */
-  toolProgress?: {
-    current: number
-    total: number
-    message?: string
-  }
   /** 知识库搜索信息，仅在事件类型为 knowledge_search 时提供 */
   knowledgeSearch?: KnowledgeSearchInfo
   /** 知识库搜索结果，仅在事件类型为 knowledge_result 时提供 */
@@ -458,6 +451,13 @@ export interface ChatResult {
   finalContent?: string
   /** 工具执行结果摘要，用于规划模式步骤间保留关键上下文 */
   toolResults?: ChatToolExecutionResult[]
+  /** 该次调用消耗的 token 统计 */
+  usage?: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+    reasoning_tokens?: number
+  }
 }
 
 /**

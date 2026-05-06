@@ -45,6 +45,7 @@ interface PlanStepExecutionResult {
   error?: string
   recoverable?: boolean
   attempt?: number
+  usage?: ChatResult['usage']
 }
 
 const PLAN_STEP_MAX_ATTEMPTS = 2
@@ -103,7 +104,11 @@ export class PlanExecuteService {
     }
 
     const abortController = this.stopController.getOrCreateAbortController(sessionId)
-    const totalUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+    const totalUsage: NonNullable<ChatResult['usage']> = {
+      prompt_tokens: 0,
+      completion_tokens: 0,
+      total_tokens: 0
+    }
     const previousResults: string[] = []
     let planSteps: PlanStep[] = []
     let currentStepIndex = -1
@@ -176,6 +181,17 @@ export class PlanExecuteService {
 
         this.stopController.checkStopped(sessionId)
 
+        // 累加 token 使用量
+        if (stepResult.usage) {
+          totalUsage.prompt_tokens += stepResult.usage.prompt_tokens
+          totalUsage.completion_tokens += stepResult.usage.completion_tokens
+          totalUsage.total_tokens += stepResult.usage.total_tokens
+          if (stepResult.usage.reasoning_tokens) {
+            totalUsage.reasoning_tokens =
+              (totalUsage.reasoning_tokens ?? 0) + stepResult.usage.reasoning_tokens
+          }
+        }
+
         if (stepResult.success) {
           planSteps[i].status = 'success'
           planSteps[i].summary = stepResult.summary
@@ -221,6 +237,10 @@ export class PlanExecuteService {
         }
       }
 
+      // 所有步骤执行完成，生成总结并发送到聊天气泡
+      const summaryContent = this.buildFinalSummary(planSteps)
+      this.streamHandler.sendContent(webContents, sessionId, summaryContent, turnId)
+
       this.streamHandler.sendPlanStatus(
         webContents,
         sessionId,
@@ -232,7 +252,7 @@ export class PlanExecuteService {
       this.streamHandler.sendDone(webContents, sessionId, totalUsage, turnId, 'completed')
       this.logger.info('规划模式执行完成', 'main', { sessionId, totalUsage })
 
-      return { success: true }
+      return { success: true, usage: totalUsage }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         this.logger.info('用户中止了规划模式请求', 'main', { sessionId })
@@ -491,8 +511,7 @@ export class PlanExecuteService {
         }
       )
 
-      const summary =
-        result.finalContent?.trim().slice(0, 120) || `步骤 ${stepIndex + 1} 已完成`
+      const summary = result.finalContent?.trim().slice(0, 120) || `步骤 ${stepIndex + 1} 已完成`
       const context = this.buildStepResultContext(stepIndex, result)
 
       if (result.success && result.toolErrors && result.toolErrors.length > 0) {
@@ -508,7 +527,8 @@ export class PlanExecuteService {
         summary,
         context,
         error: result.error,
-        recoverable: false
+        recoverable: false,
+        usage: result.usage
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -746,5 +766,38 @@ export class PlanExecuteService {
       .split('\n')
       .map((line) => `    ${line}`)
       .join('\n')
+  }
+
+  /**
+   * 根据所有步骤的执行结果构建最终总结文本
+   */
+  private buildFinalSummary(steps: PlanStep[]): string {
+    const successSteps = steps.filter((s) => s.status === 'success')
+    const failedSteps = steps.filter((s) => s.status === 'failed')
+
+    const lines: string[] = []
+
+    // 先给一个总体结论
+    if (failedSteps.length === 0) {
+      lines.push(`已成功完成全部 ${successSteps.length} 个步骤：`)
+    } else {
+      lines.push(
+        `已完成 ${successSteps.length}/${steps.length} 个步骤，${failedSteps.length} 个步骤失败：`
+      )
+    }
+
+    lines.push('')
+
+    for (const step of steps) {
+      const statusIcon = step.status === 'success' ? '✅' : step.status === 'failed' ? '❌' : '⏭️'
+      const summary = step.summary ? ` — ${step.summary}` : ''
+      const error = step.error && step.status === 'failed' ? `\n   **失败原因**：${step.error}` : ''
+      lines.push(`${statusIcon} **${step.title}**${summary}${error}`)
+      if (step.attempt && step.maxAttempts && step.attempt > 1) {
+        lines.push(`   （共尝试 ${step.attempt} 次）`)
+      }
+    }
+
+    return lines.join('\n')
   }
 }

@@ -199,7 +199,7 @@ export class ReactLoopService {
         usage: totalUsage
       })
 
-      return { success: true, toolErrors, finalContent, toolResults }
+      return { success: true, toolErrors, finalContent, toolResults, usage: totalUsage }
     } catch (error) {
       return this.handleReactError(error, webContents, sessionId, turnId, runtimeOptions)
     } finally {

@@ -425,22 +425,10 @@ export class UnifiedToolExecutor {
     }
 
     const results: ToolExecutionResult[] = []
-    const total = toolCalls.length
 
     this.logger.info('开始并行执行工具', 'main', {
       sessionId,
       count: toolCalls.length
-    })
-
-    this.sendStreamEvent(webContents, {
-      type: 'tool_progress',
-      sessionId,
-      turnId,
-      toolProgress: {
-        current: 0,
-        total,
-        message: `准备并行执行 ${toolCalls.length} 个工具...`
-      }
     })
 
     const batchSize = Math.min(this.maxConcurrency, toolCalls.length)
@@ -448,21 +436,7 @@ export class UnifiedToolExecutor {
       const batch = toolCalls.slice(i, i + batchSize)
 
       const batchResults = await Promise.all(
-        batch.map((toolCall, index) =>
-          this.executeSingle(toolCall, webContents, sessionId, turnId).then((result) => {
-            this.sendStreamEvent(webContents, {
-              type: 'tool_progress',
-              sessionId,
-              turnId,
-              toolProgress: {
-                current: i + index + 1,
-                total,
-                message: `完成 ${i + index + 1}/${total} 个工具调用`
-              }
-            })
-            return result
-          })
-        )
+        batch.map((toolCall) => this.executeSingle(toolCall, webContents, sessionId, turnId))
       )
 
       results.push(...batchResults)
