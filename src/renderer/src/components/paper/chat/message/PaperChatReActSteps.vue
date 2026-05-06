@@ -90,7 +90,7 @@ const phaseUnits = computed<PhaseUnit[]>(() => {
         return {
           key: `iter-${iteration.iteration}`,
           iteration: iteration.iteration,
-          reasoning: iteration.reasoning,
+          reasoning: trimConclusionPromise(iteration.reasoning, iteration.content),
           toolItems,
           isActive: !!iteration.isActive,
           status: iteration.status,
@@ -220,6 +220,15 @@ function stepsToToolCallItems(
   })
 
   return items
+}
+
+/**
+ * 当 reasoning 以结论承诺语句（如"现在可以给出步骤结论"）结尾，
+ * 但 iteration 没有实际的 content 时，裁剪掉该承诺语句，避免用户困惑
+ */
+function trimConclusionPromise(reasoning: string, content?: string): string {
+  if (content?.trim()) return reasoning
+  return reasoning.replace(/[\s]*现在可以给出步骤结论[。\s]*$/, '').trimEnd()
 }
 
 /**

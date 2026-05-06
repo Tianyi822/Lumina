@@ -19,7 +19,9 @@ export function derivePaperChatStepContent(
   const trimmedContent = content?.trim() ?? ''
 
   if (toolItems.length === 0) {
-    return isFailureContent(trimmedContent) ? { content: content ?? '', tone: 'error' } : null
+    if (isFailureContent(trimmedContent)) return { content: content ?? '', tone: 'error' }
+    if (trimmedContent) return { content: content ?? '', tone: 'neutral' }
+    return null
   }
 
   if (trimmedContent) {
