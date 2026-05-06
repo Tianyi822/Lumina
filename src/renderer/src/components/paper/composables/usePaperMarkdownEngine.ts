@@ -89,6 +89,18 @@ const EMPTY_SOURCE_REFS: PaperReaderSegmentSourceRefs = {
 
 const LOCAL_IMAGE_DATA_URL_CACHE_LIMIT = 200
 const localImageDataUrlCache = new Map<string, Promise<string | null>>()
+const RAW_TABLE_INLINE_MATH_PATTERN = /\$([^\n$]+?)\$/g
+const RAW_TABLE_INLINE_MATH_TEST_PATTERN = /\$[^\n$]+?\$/
+const RAW_TABLE_INLINE_MATH_SKIP_SELECTOR = [
+  'code',
+  'pre',
+  'math',
+  'eq',
+  'eqn',
+  '.katex',
+  '.katex-display',
+  '.texmath'
+].join(', ')
 
 function createFallbackSourceSegments(markdown: string): RenderSourceSegment[] {
   return parsePaperTranslationSegments(markdown).map((segment) => ({
@@ -182,7 +194,83 @@ async function resolveImagePaths(html: string, basePath: string | undefined): Pr
   return root.innerHTML
 }
 
-function postProcessRenderedHtml(html: string, headingId?: string): string {
+function shouldRenderRawTableInlineMathNode(node: Text): boolean {
+  const content = node.textContent || ''
+  if (!RAW_TABLE_INLINE_MATH_TEST_PATTERN.test(content)) {
+    return false
+  }
+
+  const parent = node.parentElement
+  return !!parent && !parent.closest(RAW_TABLE_INLINE_MATH_SKIP_SELECTOR)
+}
+
+function renderRawTableInlineMathNode(
+  document: Document,
+  textNode: Text,
+  renderInline: (content: string) => string
+): void {
+  const content = textNode.textContent || ''
+  const parent = textNode.parentNode
+  if (!parent) {
+    return
+  }
+
+  const fragment = document.createDocumentFragment()
+  let cursor = 0
+
+  for (const match of content.matchAll(RAW_TABLE_INLINE_MATH_PATTERN)) {
+    const matchIndex = match.index ?? 0
+    const mathSource = match[0]
+
+    if (matchIndex > cursor) {
+      fragment.appendChild(document.createTextNode(content.slice(cursor, matchIndex)))
+    }
+
+    const template = document.createElement('template')
+    template.innerHTML = renderInline(normalizePaperInlineMathForRender(mathSource, 'table'))
+    if (template.content.childNodes.length > 0) {
+      fragment.appendChild(template.content)
+    } else {
+      fragment.appendChild(document.createTextNode(mathSource))
+    }
+
+    cursor = matchIndex + mathSource.length
+  }
+
+  if (cursor < content.length) {
+    fragment.appendChild(document.createTextNode(content.slice(cursor)))
+  }
+
+  parent.insertBefore(fragment, textNode)
+  parent.removeChild(textNode)
+}
+
+function renderRawTableInlineMath(
+  root: Element,
+  renderInline: (content: string) => string
+): void {
+  root.querySelectorAll('table').forEach((table) => {
+    const textNodes: Text[] = []
+    const walker = table.ownerDocument.createTreeWalker(table, NodeFilter.SHOW_TEXT)
+
+    while (walker.nextNode()) {
+      const currentNode = walker.currentNode
+      if (currentNode instanceof Text && shouldRenderRawTableInlineMathNode(currentNode)) {
+        textNodes.push(currentNode)
+      }
+    }
+
+    textNodes.forEach((textNode) => {
+      renderRawTableInlineMathNode(table.ownerDocument, textNode, renderInline)
+    })
+  })
+}
+
+function postProcessRenderedHtml(
+  html: string,
+  renderInline: (content: string) => string,
+  headingId?: string
+): string {
   if (typeof DOMParser === 'undefined') {
     return html
   }
@@ -204,6 +292,8 @@ function postProcessRenderedHtml(html: string, headingId?: string): string {
       heading.id = headingId
     }
   }
+
+  renderRawTableInlineMath(root, renderInline)
 
   root.querySelectorAll('table').forEach((table) => {
     if (table.parentElement?.classList.contains('paper-markdown-view__table-wrap')) {
@@ -308,7 +398,11 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
     )
     const rawHtml = markdownRenderer.render(normalizedContent)
     const resolvedHtml = await resolveImagePaths(rawHtml, options.basePath())
-    return postProcessRenderedHtml(resolvedHtml, headingId)
+    return postProcessRenderedHtml(
+      resolvedHtml,
+      (inlineContent) => markdownRenderer.renderInline(inlineContent),
+      headingId
+    )
   }
 
   function getSourceSegments(): RenderSourceSegment[] {
