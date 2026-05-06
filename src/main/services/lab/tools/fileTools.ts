@@ -2,6 +2,7 @@ import { MCPToolCallResult } from '@main/types/mcp'
 import type { FileWriteRequest } from '@shared/types/lab'
 import { labFileService } from '../file'
 import { findLab } from './toolExecutor'
+import { resolveProjectRootForWrite } from './toolHelpers'
 import { ToolArgs, LabToolDefinition } from './types'
 
 /**
@@ -15,7 +16,10 @@ export const writeProjectFilesTool: LabToolDefinition = {
     properties: {
       lab_id: { type: 'string', description: '实验室 ID' },
       lab_name: { type: 'string', description: '实验室名称，支持模糊匹配' },
-      project_root: { type: 'string', description: '项目根目录，默认 /app' },
+      project_root: {
+        type: 'string',
+        description: '项目根目录；前端实验室默认使用其项目根目录 /workspace，其他实验室默认 /app'
+      },
       files: {
         type: 'array',
         description: '待写入的文件列表',
@@ -43,7 +47,7 @@ export const writeProjectFilesTool: LabToolDefinition = {
       return { success: false, error: '缺少必需参数: files' }
     }
 
-    const projectRoot = args.project_root as string | undefined
+    const projectRoot = resolveProjectRootForWrite(lab, args.project_root as string | undefined)
     const result = await labFileService.writeProjectFiles(lab.labId, files, projectRoot)
 
     if (!result.success) {

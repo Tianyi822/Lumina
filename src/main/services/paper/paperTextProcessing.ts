@@ -81,6 +81,12 @@ function startsWithReferenceEntry(text: string, source: string): boolean {
   return /^(?:\d+\s+)?\d+\.\s+[A-Z\u00C0-\u024F]/.test(trimmedText)
 }
 
+function startsWithFrontMatterMarker(text: string): boolean {
+  return /^(?:(?:abstract|摘要)|(?:index\s+terms?|keywords?|关键词))\s*(?:[—–-]|[:：.。]|\b)/i.test(
+    text.trim()
+  )
+}
+
 export function shouldMergeTextFlow(
   previousText: string | undefined,
   nextText: string | undefined,
@@ -162,17 +168,34 @@ function normalizeSegmentForMathDetection(segment: string): string {
     .trim()
 }
 
+function normalizeSegmentForDisplayMathDetection(segment: string): string {
+  return decodeHtmlEntities(
+    segment
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(div|p|li|tr|td|th|h[1-6])>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+  ).trim()
+}
+
 function isStandaloneMathDelimiter(segment: string): boolean {
   return /^(?:\${1,2}|\\\(|\\\)|\\\[|\\\])$/.test(segment.trim())
 }
 
-function hasMathDelimiters(segment: string): boolean {
-  const normalized = normalizeSegmentForMathDetection(segment)
+function hasDisplayMathDelimiters(segment: string): boolean {
+  const normalized = normalizeSegmentForDisplayMathDetection(segment)
   if (!normalized) {
     return false
   }
 
-  return /(^|[^\\])\${1,2}/.test(normalized) || /\\\[|\\\]|\\\(|\\\)/.test(normalized)
+  return (
+    /^\$\$[\s\S]+\$\$$/.test(normalized) ||
+    (/^\$[\s\S]+\$$/.test(normalized) &&
+      !normalized.startsWith('$$') &&
+      !normalized.endsWith('$$') &&
+      /(?:\\[A-Za-z]+|[=^_{}])/.test(normalized.slice(1, -1))) ||
+    /^\\\[[\s\S]+\\\]$/.test(normalized) ||
+    /^\\\([\s\S]+\\\)$/.test(normalized)
+  )
 }
 
 function hasLatexEnvironment(segment: string): boolean {
@@ -193,11 +216,15 @@ function looksLikeMathBody(segment: string): boolean {
     return true
   }
 
-  if (texCommandCount >= 2) {
+  if (texCommandCount >= 2 && formulaLikeWordCount <= texCommandCount + 8) {
     return true
   }
 
-  if (texCommandCount >= 1 && mathStructureCount >= 2) {
+  if (
+    texCommandCount >= 1 &&
+    mathStructureCount >= 2 &&
+    formulaLikeWordCount <= texCommandCount + 8
+  ) {
     return true
   }
 
@@ -216,7 +243,7 @@ function looksLikeMathBody(segment: string): boolean {
 export function isMathLikeSegment(segment: string): boolean {
   return (
     isStandaloneMathDelimiter(segment) ||
-    hasMathDelimiters(segment) ||
+    hasDisplayMathDelimiters(segment) ||
     hasLatexEnvironment(segment) ||
     looksLikeMathBody(segment)
   )
@@ -260,6 +287,43 @@ export function normalizeFencedSimpleTextContainerHtml(markdown: string): string
   )
 }
 
+function getSimpleTextContainerReflowSource(content: string): string {
+  const withLineBreaks = decodeHtmlEntities(
+    content
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(div|p|li|tr|td|th|h[1-6])>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+  )
+
+  const segments = withLineBreaks
+    .split(/\n{2,}/)
+    .map((segment) => segment.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+
+  return segments.join('\n\n')
+}
+
+function getMarkdownHeadingLine(segment: string): string | null {
+  const trimmed = unwrapFencedSimpleTextContainerHtml(segment).trim()
+  if (!trimmed) {
+    return null
+  }
+
+  const source = isSimpleTextContainerSegment(trimmed)
+    ? getSimpleTextContainerReflowSource(trimmed)
+    : trimmed
+  const lines = source
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length !== 1 || !/^\s{0,3}#{1,6}\s+\S/.test(lines[0])) {
+    return null
+  }
+
+  return lines[0]
+}
+
 export function isMergeableTextSegment(segment: string): boolean {
   const trimmed = unwrapFencedSimpleTextContainerHtml(segment).trim()
   if (!trimmed) {
@@ -271,6 +335,7 @@ export function isMergeableTextSegment(segment: string): boolean {
   if (
     /^<!--[\s\S]*?-->$/.test(trimmed) ||
     /^\s{0,3}#{1,6}\s+/.test(trimmed) ||
+    getMarkdownHeadingLine(trimmed) !== null ||
     /^\s{0,3}(?:[-*+]\s+|>\s+)/.test(trimmed) ||
     (startsWithOrderedListMarker && !isFalseOrderedListContinuation(trimmed)) ||
     /^\s*(?:```|~~~)/.test(trimmed) ||
@@ -369,24 +434,12 @@ export function reflowOrdinaryParagraphs(markdown: string): string {
   return reflowedSegments.join('\n\n')
 }
 
-function getSimpleTextContainerReflowSource(content: string): string {
-  const withLineBreaks = decodeHtmlEntities(
-    content
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/(div|p|li|tr|td|th|h[1-6])>/gi, '\n')
-      .replace(/<[^>]+>/g, ' ')
-  )
-
-  const segments = withLineBreaks
-    .split(/\n{2,}/)
-    .map((segment) => segment.replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
-
-  return segments.join('\n\n')
-}
-
 export function normalizeMergeableTextBlockContent(content: string): string {
   const normalizedContent = unwrapFencedSimpleTextContainerHtml(content)
+  const headingLine = getMarkdownHeadingLine(normalizedContent)
+  if (headingLine) {
+    return headingLine
+  }
 
   if (!isMergeableTextSegment(normalizedContent)) {
     return content
@@ -407,6 +460,7 @@ export function isBodyTextBlock(block: PaperLayoutBlock | undefined): block is P
 
   if (
     isHeadingBlock(block) ||
+    getMarkdownHeadingLine(block.content) !== null ||
     isFigureCaptionBlock(block) ||
     isFigureSupportBlock(block) ||
     isMathLikeSegment(block.content)
@@ -422,6 +476,10 @@ export function shouldMergeAdjacentTextBlocks(
   nextBlock: PaperLayoutBlock | undefined
 ): boolean {
   if (!isBodyTextBlock(previousBlock) || !isBodyTextBlock(nextBlock)) {
+    return false
+  }
+
+  if (startsWithFrontMatterMarker(getPlainText(nextBlock.content))) {
     return false
   }
 

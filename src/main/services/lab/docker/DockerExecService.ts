@@ -1,3 +1,4 @@
+import { PassThrough } from 'stream'
 import { logger } from '@main/services/logger'
 import type { ExecCommand, ExecResult } from '@shared/types/lab'
 import type { DockerServiceContext } from './types'
@@ -6,7 +7,11 @@ import type { DockerServiceContext } from './types'
  * Docker 命令执行服务
  */
 export class DockerExecService {
-  constructor(private readonly context: DockerServiceContext) {}
+  private readonly context: DockerServiceContext
+
+  constructor(context: DockerServiceContext) {
+    this.context = context
+  }
 
   /**
    * 在容器内执行命令
@@ -30,12 +35,26 @@ export class DockerExecService {
       })
 
       const stream = await exec.start({})
-      const chunks: Buffer[] = []
+      const stdoutChunks: Buffer[] = []
+      const stderrChunks: Buffer[] = []
+      const stdout = new PassThrough()
+      const stderr = new PassThrough()
+
+      stdout.on('data', (chunk: Buffer) => {
+        stdoutChunks.push(Buffer.from(chunk))
+      })
+      stderr.on('data', (chunk: Buffer) => {
+        stderrChunks.push(Buffer.from(chunk))
+      })
+
+      this.context.getDocker().modem.demuxStream(stream, stdout, stderr)
 
       return new Promise((resolve) => {
         const timeout = setTimeout(
           () => {
             stream.destroy()
+            stdout.destroy()
+            stderr.destroy()
             resolve({
               exitCode: -1,
               stdout: '',
@@ -46,30 +65,41 @@ export class DockerExecService {
           (command.timeout || 30) * 1000
         )
 
-        stream.on('data', (chunk: Buffer) => {
-          chunks.push(chunk)
-        })
-
         stream.on('end', async () => {
           clearTimeout(timeout)
-          const output = Buffer.concat(chunks).toString('utf-8')
-          const inspect = await exec.inspect()
+          stdout.end()
+          stderr.end()
 
-          resolve({
-            exitCode: inspect.ExitCode || 0,
-            stdout: output,
-            stderr: '',
-            duration: Date.now() - startTime
-          })
+          try {
+            const inspect = await exec.inspect()
+
+            resolve({
+              exitCode: inspect.ExitCode || 0,
+              stdout: Buffer.concat(stdoutChunks).toString('utf-8'),
+              stderr: Buffer.concat(stderrChunks).toString('utf-8'),
+              duration: Date.now() - startTime
+            })
+          } catch (error) {
+            resolve({
+              exitCode: -1,
+              stdout: Buffer.concat(stdoutChunks).toString('utf-8'),
+              stderr: error instanceof Error ? error.message : String(error),
+              duration: Date.now() - startTime,
+              systemError: true
+            })
+          }
         })
 
         stream.on('error', (error: Error) => {
           clearTimeout(timeout)
+          stdout.destroy()
+          stderr.destroy()
           resolve({
             exitCode: -1,
             stdout: '',
             stderr: error.message,
-            duration: Date.now() - startTime
+            duration: Date.now() - startTime,
+            systemError: true
           })
         })
       })
@@ -81,12 +111,7 @@ export class DockerExecService {
         command: command.command
       })
 
-      return {
-        exitCode: -1,
-        stdout: '',
-        stderr: errorMessage,
-        duration: Date.now() - startTime
-      }
+      return null
     }
   }
 }

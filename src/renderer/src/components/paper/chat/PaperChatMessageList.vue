@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PaperChatMessage from '@renderer/components/paper/chat/message/PaperChatMessage.vue'
 import PaperChatReActSteps from '@renderer/components/paper/chat/message/PaperChatReActSteps.vue'
 import type { Message } from '@renderer/types'
+import { usePaperChatStreamStore } from '@renderer/stores/paperChatStreamStore'
 
 const props = defineProps<{
   messages: Message[]
@@ -23,6 +24,13 @@ let pendingScrollSmooth = true
 const visibleMessages = computed(() =>
   props.messages.filter((message) => !message.hidden && message.role !== 'tool')
 )
+
+const streamStore = usePaperChatStreamStore()
+
+const planSummary = computed(() => {
+  if (!props.currentChatId) return undefined
+  return streamStore.planStates.get(props.currentChatId)?.summary
+})
 
 function isNearBottom(): boolean {
   const el = scrollRef.value
@@ -103,7 +111,10 @@ function isReasoningExpanded(messageId: string): boolean {
 function hasRenderableReact(message: Message): boolean {
   const hasIterationContent =
     message.reactIterations?.some(
-      (iteration) => iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
+      (iteration) =>
+        iteration.reasoning.trim().length > 0 ||
+        iteration.steps.length > 0 ||
+        (iteration.content?.trim().length ?? 0) > 0
     ) || false
   const hasLegacySteps = (message.reactSteps?.length || 0) > 0
   return message.role === 'assistant' && (hasIterationContent || hasLegacySteps)
@@ -177,6 +188,7 @@ onBeforeUnmount(() => {
             :steps="message.reactSteps"
             :iterations="message.reactIterations"
             :is-streaming="message.isStreaming"
+            :plan-summary="planSummary"
           />
         </template>
       </PaperChatMessage>

@@ -11,7 +11,11 @@ import type {
  * Docker volume 管理服务
  */
 export class DockerVolumeService {
-  constructor(private readonly context: DockerServiceContext) {}
+  private readonly context: DockerServiceContext
+
+  constructor(context: DockerServiceContext) {
+    this.context = context
+  }
 
   /**
    * 创建 named volume

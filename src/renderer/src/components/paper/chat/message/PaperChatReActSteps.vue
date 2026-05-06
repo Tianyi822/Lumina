@@ -6,6 +6,10 @@ import PaperChatToolCallPanel from './PaperChatToolCallPanel.vue'
 import type { PaperChatToolCallPanelItem } from './PaperChatToolCallPanel.vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import PaperChatIterationPlaceholder from './PaperChatIterationPlaceholder.vue'
+import {
+  derivePaperChatStepContent,
+  type PaperChatStepContentResult
+} from './paperChatReactStepContent'
 
 interface PhaseUnit {
   key: string
@@ -14,6 +18,14 @@ interface PhaseUnit {
   toolItems: PaperChatToolCallPanelItem[]
   isActive: boolean
   status?: UiReactIterationStatus
+  content?: string
+  stepContent?: PaperChatStepContentResult | null
+  taskNumber?: number
+}
+
+interface TaskGroup {
+  taskNumber: number
+  units: PhaseUnit[]
 }
 
 const md = new MarkdownIt({
@@ -27,6 +39,7 @@ const props = defineProps<{
   steps?: ReActStep[]
   iterations?: ReActIteration[]
   isStreaming?: boolean
+  planSummary?: string
 }>()
 
 // 整体面板的展开状态
@@ -40,26 +53,23 @@ const useIterationMode = computed(() => {
   return (
     props.iterations?.some(
       (iteration) =>
-        iteration.isActive || iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
+        iteration.isActive ||
+        iteration.reasoning.trim().length > 0 ||
+        iteration.steps.length > 0 ||
+        (iteration.content?.trim().length ?? 0) > 0
     ) || false
   )
 })
 
-// 工具结果统计
+// 工具结果统计 —— 与 toolCount 使用相同数据源
 const toolStats = computed(() => {
-  const allResults: ReActStep[] = []
-
-  if (useIterationMode.value) {
-    for (const iteration of props.iterations || []) {
-      allResults.push(...iteration.steps.filter((step) => step.type === 'tool_result'))
-    }
-  } else {
-    allResults.push(...(props.steps || []).filter((step) => step.type === 'tool_result'))
-  }
+  const items = useIterationMode.value
+    ? phaseUnits.value.flatMap((u) => u.toolItems)
+    : legacyToolItems.value
 
   return {
-    success: allResults.filter((step) => step.toolResult?.success).length,
-    failed: allResults.filter((step) => !step.toolResult?.success).length
+    success: items.filter((item) => item.status === 'success').length,
+    failed: items.filter((item) => item.status === 'error').length
   }
 })
 
@@ -72,19 +82,55 @@ const legacyToolItems = computed(() => {
 const phaseUnits = computed<PhaseUnit[]>(() => {
   return (
     (props.iterations || [])
-      .map((iteration) => ({
-        key: `iter-${iteration.iteration}`,
-        iteration: iteration.iteration,
-        reasoning: iteration.reasoning,
-        toolItems: stepsToToolCallItems(iteration.steps, props.isStreaming && !!iteration.isActive),
-        isActive: !!iteration.isActive,
-        status: iteration.status
-      }))
+      .map((iteration) => {
+        const toolItems = stepsToToolCallItems(
+          iteration.steps,
+          props.isStreaming && !!iteration.isActive
+        )
+
+        return {
+          key: `iter-${iteration.iteration}`,
+          iteration: iteration.iteration,
+          reasoning: trimConclusionPromise(iteration.reasoning, iteration.content),
+          toolItems,
+          isActive: !!iteration.isActive,
+          status: iteration.status,
+          content: iteration.content,
+          stepContent: derivePaperChatStepContent(toolItems, iteration.content),
+          taskNumber: iteration.taskNumber
+        }
+      })
       // 保留活跃的迭代（即使为空），或者有内容的迭代
       .filter(
-        (unit) => unit.isActive || unit.reasoning.trim().length > 0 || unit.toolItems.length > 0
+        (unit) =>
+          unit.isActive ||
+          unit.reasoning.trim().length > 0 ||
+          unit.toolItems.length > 0 ||
+          !!unit.stepContent
       )
   )
+})
+
+// 是否有任务分组（Plan 模式下）
+const hasTaskGroups = computed(() => {
+  return phaseUnits.value.some((unit) => unit.taskNumber !== undefined)
+})
+
+// 按任务分组
+const taskGroups = computed<TaskGroup[]>(() => {
+  if (!hasTaskGroups.value) return []
+
+  const groups: TaskGroup[] = []
+  for (const unit of phaseUnits.value) {
+    const tn = unit.taskNumber ?? 0
+    const lastGroup = groups[groups.length - 1]
+    if (lastGroup && lastGroup.taskNumber === tn) {
+      lastGroup.units.push(unit)
+    } else {
+      groups.push({ taskNumber: tn, units: [unit] })
+    }
+  }
+  return groups
 })
 
 // 当前内容是否可展示
@@ -95,9 +141,6 @@ const hasContent = computed(() => {
 
   return legacyToolItems.value.length > 0
 })
-
-// 阶段数量
-const phaseCount = computed(() => phaseUnits.value.length)
 
 // 工具调用数量
 const toolCount = computed(() => {
@@ -181,6 +224,15 @@ function stepsToToolCallItems(
 }
 
 /**
+ * 当 reasoning 以结论承诺语句（如"现在可以给出步骤结论"）结尾，
+ * 但 iteration 没有实际的 content 时，裁剪掉该承诺语句，避免用户困惑
+ */
+function trimConclusionPromise(reasoning: string, content?: string): string {
+  if (content?.trim()) return reasoning
+  return reasoning.replace(/[\s]*现在可以给出步骤结论[。\s]*$/, '').trimEnd()
+}
+
+/**
  * 切换整体展开状态
  */
 function toggleExpand(): void {
@@ -216,8 +268,23 @@ function renderMarkdown(content: string): string {
 /**
  * 获取阶段标签
  */
-function getPhaseLabel(iteration: number): string {
-  return `第 ${iteration + 1} 阶段`
+function getPhaseLabel(unit: PhaseUnit): string {
+  if (unit.taskNumber !== undefined) {
+    const localIndex = getLocalPhaseIndex(unit)
+    return `阶段 ${unit.taskNumber}.${localIndex}`
+  }
+  return `第 ${unit.iteration + 1} 阶段`
+}
+
+/**
+ * 获取阶段在当前任务内的局部编号（1-based）
+ */
+function getLocalPhaseIndex(unit: PhaseUnit): number {
+  if (!hasTaskGroups.value) return unit.iteration + 1
+  const group = taskGroups.value.find((g) => g.taskNumber === unit.taskNumber)
+  if (!group) return unit.iteration + 1
+  const idx = group.units.indexOf(unit)
+  return idx >= 0 ? idx + 1 : unit.iteration + 1
 }
 </script>
 
@@ -231,9 +298,7 @@ function getPhaseLabel(iteration: number): string {
     >
       <div class="paper-chat-react-steps__header-left">
         <span class="paper-chat-react-steps__title">分阶段推理</span>
-        <span class="paper-chat-react-steps__badge">
-          {{ useIterationMode ? `${phaseCount} 个阶段` : `${toolCount} 次调用` }}
-        </span>
+        <span class="paper-chat-react-steps__badge"> {{ toolCount }} 次工具调用 </span>
         <span v-if="isStreaming" class="paper-chat-react-steps__streaming-indicator">
           <span class="paper-chat-react-steps__pulse-dot"></span>
           进行中
@@ -254,7 +319,161 @@ function getPhaseLabel(iteration: number): string {
     <Transition name="paper-chat-react-expand">
       <div v-if="isExpanded" class="paper-chat-react-steps__content">
         <template v-if="useIterationMode">
-          <div class="paper-chat-react-steps__phase-timeline">
+          <!-- Plan 模式：按任务分组 -->
+          <div v-if="hasTaskGroups" class="paper-chat-react-steps__phase-timeline">
+            <div
+              v-for="group in taskGroups"
+              :key="`task-${group.taskNumber}`"
+              class="paper-chat-react-steps__task-group"
+            >
+              <div class="paper-chat-react-steps__task-divider">
+                <span class="paper-chat-react-steps__task-divider-label">
+                  任务 {{ group.taskNumber }}
+                </span>
+              </div>
+              <TransitionGroup name="paper-chat-react-phase" tag="div">
+                <section
+                  v-for="unit in group.units"
+                  :key="unit.key"
+                  class="paper-chat-react-steps__phase"
+                  :class="{ active: unit.isActive }"
+                >
+                  <div class="paper-chat-react-steps__phase-rail">
+                    <span
+                      class="paper-chat-react-steps__phase-node"
+                      :class="{ active: unit.isActive }"
+                    ></span>
+                  </div>
+
+                  <div class="paper-chat-react-steps__phase-main">
+                    <template
+                      v-if="unit.isActive && !unit.reasoning && unit.toolItems.length === 0"
+                    >
+                      <PaperChatIterationPlaceholder
+                        :iteration="unit.iteration"
+                        :status="unit.status"
+                      />
+                    </template>
+
+                    <template v-else>
+                      <div class="paper-chat-react-steps__phase-meta">
+                        <span class="paper-chat-react-steps__phase-label">{{
+                          getPhaseLabel(unit)
+                        }}</span>
+                        <span
+                          v-if="unit.toolItems.length > 0"
+                          class="paper-chat-react-steps__phase-count"
+                        >
+                          {{ unit.toolItems.length }} 次工具调用
+                        </span>
+                        <span
+                          v-if="unit.isActive && isStreaming"
+                          class="paper-chat-react-steps__phase-streaming"
+                        >
+                          <span class="paper-chat-react-steps__pulse-dot--small"></span>
+                          实时更新中
+                        </span>
+                      </div>
+
+                      <div
+                        v-if="unit.reasoning"
+                        class="paper-chat-react-steps__reasoning"
+                        :class="{ expanded: isReasoningExpanded(unit) }"
+                      >
+                        <button
+                          class="paper-chat-react-steps__reasoning-header"
+                          type="button"
+                          :aria-expanded="isReasoningExpanded(unit)"
+                          @click="toggleReasoning(unit.key)"
+                        >
+                          <div class="paper-chat-react-steps__reasoning-header-left">
+                            <SvgIcon
+                              name="info"
+                              class="paper-chat-react-steps__reasoning-icon"
+                              :size="16"
+                            />
+                            <span class="paper-chat-react-steps__reasoning-label">思考</span>
+                          </div>
+
+                          <span
+                            class="paper-chat-react-steps__reasoning-arrow"
+                            :class="{ expanded: isReasoningExpanded(unit) }"
+                            >▶</span
+                          >
+                        </button>
+
+                        <div
+                          class="paper-chat-react-steps__reasoning-body"
+                          :class="{ expanded: isReasoningExpanded(unit) }"
+                        >
+                          <div class="paper-chat-react-steps__reasoning-content">
+                            <!-- markdown-it 已禁用原生 HTML，这里仅渲染受控 Markdown -->
+                            <!-- eslint-disable vue/no-v-html -->
+                            <div
+                              class="paper-chat-react-steps__reasoning-text markdown-body"
+                              v-html="renderMarkdown(unit.reasoning)"
+                            ></div>
+                            <!-- eslint-enable vue/no-v-html -->
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        v-if="unit.toolItems.length > 0"
+                        class="paper-chat-react-steps__tool-list"
+                      >
+                        <TransitionGroup
+                          name="paper-chat-react-tool"
+                          tag="div"
+                          class="paper-chat-react-steps__tool-list-inner"
+                        >
+                          <PaperChatToolCallPanel
+                            v-for="(item, index) in unit.toolItems"
+                            :key="item.id"
+                            :tool-call="item"
+                            :index="index"
+                          />
+                        </TransitionGroup>
+                      </div>
+
+                      <!-- 阶段内的文本内容 -->
+                      <div
+                        v-if="unit.stepContent"
+                        class="paper-chat-react-steps__step-content"
+                        :class="`is-${unit.stepContent.tone}`"
+                      >
+                        <!-- eslint-disable vue/no-v-html -->
+                        <div
+                          class="paper-chat-react-steps__step-content-text markdown-body"
+                          v-html="renderMarkdown(unit.stepContent.content)"
+                        ></div>
+                        <!-- eslint-enable vue/no-v-html -->
+                      </div>
+                    </template>
+                  </div>
+                </section>
+              </TransitionGroup>
+            </div>
+          </div>
+
+          <!-- Plan 模式：最终总结 -->
+          <div
+            v-if="hasTaskGroups && planSummary && !isStreaming"
+            class="paper-chat-react-steps__plan-summary"
+          >
+            <div class="paper-chat-react-steps__plan-summary-divider">
+              <span class="paper-chat-react-steps__plan-summary-divider-label">总结</span>
+            </div>
+            <!-- eslint-disable vue/no-v-html -->
+            <div
+              class="paper-chat-react-steps__plan-summary-text markdown-body"
+              v-html="renderMarkdown(planSummary)"
+            ></div>
+            <!-- eslint-enable vue/no-v-html -->
+          </div>
+
+          <!-- 非 Plan 模式：扁平阶段列表 -->
+          <div v-else class="paper-chat-react-steps__phase-timeline">
             <TransitionGroup name="paper-chat-react-phase" tag="div">
               <section
                 v-for="unit in phaseUnits"
@@ -282,7 +501,7 @@ function getPhaseLabel(iteration: number): string {
                   <template v-else>
                     <div class="paper-chat-react-steps__phase-meta">
                       <span class="paper-chat-react-steps__phase-label">{{
-                        getPhaseLabel(unit.iteration)
+                        getPhaseLabel(unit)
                       }}</span>
                       <span
                         v-if="unit.toolItems.length > 0"
@@ -355,6 +574,20 @@ function getPhaseLabel(iteration: number): string {
                           :index="index"
                         />
                       </TransitionGroup>
+                    </div>
+
+                    <!-- 阶段内的文本内容 -->
+                    <div
+                      v-if="unit.stepContent"
+                      class="paper-chat-react-steps__step-content"
+                      :class="`is-${unit.stepContent.tone}`"
+                    >
+                      <!-- eslint-disable vue/no-v-html -->
+                      <div
+                        class="paper-chat-react-steps__step-content-text markdown-body"
+                        v-html="renderMarkdown(unit.stepContent.content)"
+                      ></div>
+                      <!-- eslint-enable vue/no-v-html -->
                     </div>
                   </template>
                 </div>
@@ -514,6 +747,42 @@ function getPhaseLabel(iteration: number): string {
   padding: 14px;
 }
 
+/* 任务分组 */
+.paper-chat-react-steps__task-group {
+  position: relative;
+}
+
+.paper-chat-react-steps__task-group + .paper-chat-react-steps__task-group {
+  margin-top: 8px;
+}
+
+.paper-chat-react-steps__task-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  padding-bottom: 10px;
+}
+
+.paper-chat-react-steps__task-divider::before,
+.paper-chat-react-steps__task-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--sm-color-border-subtle);
+}
+
+.paper-chat-react-steps__task-divider-label {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  border: 1px solid var(--sm-color-accent-22);
+  border-radius: 999px;
+  background: var(--sm-color-accent-08);
+  color: var(--sm-color-accent-hover);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .paper-chat-react-steps__phase {
   position: relative;
   display: flex;
@@ -587,6 +856,7 @@ function getPhaseLabel(iteration: number): string {
 }
 
 .paper-chat-react-steps__reasoning {
+  contain: content;
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-md);
   background: var(--sm-color-surface-2);
@@ -660,11 +930,13 @@ function getPhaseLabel(iteration: number): string {
 .paper-chat-react-steps__reasoning-content {
   padding: 0 12px 12px;
   max-height: 400px;
-  overflow-y: auto;
+  overflow-y: scroll;
   border-top: 1px solid var(--sm-color-border-subtle);
+  overscroll-behavior: contain;
 }
 
 .paper-chat-react-steps__reasoning-text {
+  contain: layout style;
   font-size: 12px;
   line-height: 1.55;
   color: var(--sm-color-text-secondary);
@@ -672,6 +944,87 @@ function getPhaseLabel(iteration: number): string {
 
 .paper-chat-react-steps__tool-list {
   margin-top: 12px;
+}
+
+.paper-chat-react-steps__plan-summary {
+  padding: 12px 14px;
+  border-top: 1px solid var(--sm-color-border-default);
+}
+
+.paper-chat-react-steps__plan-summary-divider {
+  margin-bottom: 10px;
+}
+
+.paper-chat-react-steps__plan-summary-divider-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sm-color-accent-hover);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.paper-chat-react-steps__plan-summary-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-primary);
+}
+
+.paper-chat-react-steps__step-content {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
+}
+
+.paper-chat-react-steps__step-content.is-error {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.paper-chat-react-steps__step-content-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-primary);
+}
+
+.paper-chat-react-steps__step-content-text.markdown-body :deep(p) {
+  margin: 0 0 0.5em;
+}
+
+.paper-chat-react-steps__step-content-text.markdown-body :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.paper-chat-react-steps__step-content-text.markdown-body :deep(code) {
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
+  color: var(--sm-color-accent-hover);
+  font-size: 0.92em;
+}
+
+.paper-chat-react-steps__step-content-text.markdown-body :deep(pre) {
+  margin: 0.5em 0;
+  padding: 10px 12px;
+  border-radius: var(--sm-radius-md);
+  overflow-x: auto;
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
+}
+
+.paper-chat-react-steps__step-content-text.markdown-body :deep(pre code) {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--sm-color-text-secondary);
+}
+
+.paper-chat-react-steps__step-content-text.markdown-body :deep(ul),
+.paper-chat-react-steps__step-content-text.markdown-body :deep(ol) {
+  margin: 0.4em 0;
+  padding-left: 1.4em;
 }
 
 .paper-chat-react-steps__tool-list-inner :deep(.paper-chat-tool-call) {

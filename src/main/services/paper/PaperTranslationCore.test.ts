@@ -39,6 +39,21 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
   }
 }
 
+function createDeferred(): {
+  promise: Promise<void>
+  resolve: () => void
+} {
+  let resolvePromise: () => void = () => undefined
+  const promise = new Promise<void>((resolve) => {
+    resolvePromise = resolve
+  })
+
+  return {
+    promise,
+    resolve: resolvePromise
+  }
+}
+
 function createFigure(overrides: Partial<PaperFigureItem> = {}): PaperFigureItem {
   return {
     id: overrides.id ?? 'fig-1',
@@ -799,6 +814,77 @@ test('中断后遗留为 translating 的段落可以重新排队翻译', async (
   assert.equal(resumedCache.completedSegments, 2)
   assert.equal(resumedCache.entries[0].translatedMarkdown, '译文：Paragraph A.')
   assert.equal(resumedCache.entries[1].status, 'completed')
+})
+
+test('全文翻译运行中失败的段落可以手动重新排队翻译', async () => {
+  const markdown = ['Paragraph A.', '', 'Paragraph B.', '', 'Paragraph C.'].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  const releaseSecondSegment = createDeferred()
+  let secondSegmentStarted: (() => void) | undefined
+  const secondSegmentStartedPromise = new Promise<void>((resolve) => {
+    secondSegmentStarted = resolve
+  })
+  const translatedSegments: string[] = []
+  let firstSegmentAttempts = 0
+
+  const core = new PaperTranslationCore({
+    concurrency: 1,
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      translatedSegments.push(segment.id)
+
+      if (segment.id === 'seg-0') {
+        firstSegmentAttempts += 1
+        if (firstSegmentAttempts === 1) {
+          throw new Error('首次翻译失败')
+        }
+      }
+
+      if (segment.id === 'seg-1') {
+        secondSegmentStarted?.()
+        await releaseSecondSegment.promise
+      }
+
+      return `译文：${segment.originalMarkdown}`
+    }
+  })
+
+  const startResult = await core.startTranslation('paper-live-retry', markdown)
+  assert.equal(startResult.success, true)
+
+  await secondSegmentStartedPromise
+  await waitFor(() => {
+    const cache = cacheStore.get('paper-live-retry')
+    return cache?.entries[0].status === 'failed' && core.isRunning('paper-live-retry')
+  })
+
+  const retryResult = await core.retranslateSegment(
+    'paper-live-retry',
+    markdown,
+    undefined,
+    'seg-0'
+  )
+  assert.equal(retryResult.success, true)
+  assert.equal(cacheStore.get('paper-live-retry')?.entries[0].status, 'queued')
+
+  releaseSecondSegment.resolve()
+  await waitFor(() => !core.isRunning('paper-live-retry'))
+
+  const cache = cacheStore.get('paper-live-retry')
+  assert.ok(cache)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.equal(cache.entries[0].translatedMarkdown, '译文：Paragraph A.')
+  assert.deepEqual(translatedSegments, ['seg-0', 'seg-1', 'seg-2', 'seg-0'])
 })
 
 test('旧缓存中被误标记为 skipped 的参考文献会重新进入翻译队列', async () => {

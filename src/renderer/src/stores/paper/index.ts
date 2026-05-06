@@ -553,6 +553,11 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       segmentId: string,
       segmentStableId: string
     ): Promise<{ success: boolean; error?: string }> => {
+      const result = await translation.retranslateSegment(paperId, segmentId)
+      if (!result.success) {
+        return result
+      }
+
       const paperAnnotations = annotations.annotationsByPaperId.value[paperId] || []
       const annotationIdsToDelete = paperAnnotations
         .filter((ann) => ann.semanticAnchor.segmentStableId === segmentStableId)
@@ -562,7 +567,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
         await annotations.deleteAnnotation(paperId, id)
       }
 
-      return translation.retranslateSegment(paperId, segmentId)
+      return result
     },
     setPaperChatSession,
     ensurePaperChatSession,

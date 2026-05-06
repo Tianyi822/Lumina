@@ -8,6 +8,7 @@ import type {
   PaperReaderDocument,
   PaperTranslationCache
 } from '@shared/types/paper'
+import { useNotification } from '@renderer/composables/useNotification'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import {
   usePaperMarkdownEngine,
@@ -48,6 +49,7 @@ defineExpose({ scrollToQuoteAndHighlight: quoteHighlight.scrollToQuoteAndHighlig
 const scrollContainerRef = ref<HTMLElement | null>(null)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const paperReaderStore = usePaperReaderStore()
+const notify = useNotification()
 const { markdownZoomLevel } = storeToRefs(paperReaderStore)
 const textSearch = usePaperTextSearch()
 
@@ -310,12 +312,25 @@ watch(
 
 const hasContent = computed(() => !!props.content.trim())
 
-function handleRetranslateSegment(params: { segmentId: string; stableId: string }): void {
+async function handleRetranslateSegment(params: {
+  segmentId: string
+  stableId: string
+}): Promise<void> {
   if (!props.paperId) {
     return
   }
 
-  void paperReaderStore.retranslateSegment(props.paperId, params.segmentId, params.stableId)
+  const result = await paperReaderStore.retranslateSegment(
+    props.paperId,
+    params.segmentId,
+    params.stableId
+  )
+  if (!result.success) {
+    notify.error('重新翻译失败', result.error || '请稍后再试', {
+      source: 'paper',
+      dedupeKey: `paper-retranslate:${props.paperId}:${params.segmentId}:${result.error || ''}`
+    })
+  }
 }
 
 function handleHoverPopoverDelete(): void {

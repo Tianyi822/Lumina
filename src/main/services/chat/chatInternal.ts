@@ -25,7 +25,8 @@ export interface ReactLoopServiceOptions {
   validateAndGetLLMConfig: (
     modelKey: string,
     sessionId: string,
-    webContents: WebContents
+    webContents: WebContents,
+    turnId?: string
   ) => LLMConfig | null
 }
 

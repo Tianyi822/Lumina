@@ -47,6 +47,9 @@ interface ActiveTranslationTask {
   cache: PaperTranslationCache
   abortController: AbortController
   promise: Promise<void> | null
+  retryQueue: number[]
+  retryQueuedIndexes: Set<number>
+  inFlightIndexes: Set<number>
 }
 
 interface PaperTranslationSourceDescriptorEntry {
@@ -526,7 +529,10 @@ export class PaperTranslationCore {
       sourceHash: source.sourceHash,
       cache,
       abortController: new AbortController(),
-      promise: null
+      promise: null,
+      retryQueue: [],
+      retryQueuedIndexes: new Set(),
+      inFlightIndexes: new Set()
     }
 
     this.tasks.set(paperId, task)
@@ -694,11 +700,39 @@ export class PaperTranslationCore {
     figures: PaperFigureItem[] | undefined,
     segmentId: string
   ): Promise<{ success: boolean; entry?: PaperTranslationEntry; error?: string }> {
-    if (this.tasks.has(paperId)) {
-      return { success: false, error: '翻译任务正在进行中，请稍后再试' }
+    const source = buildPaperTranslationSource(markdown, figures)
+    const runningTask = this.tasks.get(paperId)
+    if (runningTask) {
+      if (runningTask.sourceHash !== source.sourceHash) {
+        return { success: false, error: '翻译任务正在进行中，请稍后再试' }
+      }
+
+      const entryIndex = runningTask.cache.entries.findIndex((e) => e.id === segmentId)
+      if (entryIndex === -1) {
+        return { success: false, error: '未找到指定段落' }
+      }
+
+      const entry = runningTask.cache.entries[entryIndex]
+      if (runningTask.inFlightIndexes.has(entryIndex)) {
+        return { success: true, entry: cloneEntry(entry) }
+      }
+
+      entry.status = 'queued'
+      entry.errorMessage = undefined
+      entry.translatedMarkdown = undefined
+      entry.translatedText = undefined
+      entry.updatedAt = this.now()
+
+      if (!runningTask.retryQueuedIndexes.has(entryIndex)) {
+        runningTask.retryQueue.push(entryIndex)
+        runningTask.retryQueuedIndexes.add(entryIndex)
+      }
+
+      this.persistCache(paperId, runningTask.cache)
+      this.emitProgress(runningTask, entry)
+      return { success: true, entry: cloneEntry(entry) }
     }
 
-    const source = buildPaperTranslationSource(markdown, figures)
     let cache = this.readValidCache(paperId, source)
     if (!cache) {
       cache = this.buildCache(paperId, source)
@@ -725,7 +759,10 @@ export class PaperTranslationCore {
       sourceHash: cache.sourceHash,
       cache,
       abortController: new AbortController(),
-      promise: null
+      promise: null,
+      retryQueue: [],
+      retryQueuedIndexes: new Set(),
+      inFlightIndexes: new Set()
     }
 
     this.emitProgress(tempTask, entry)
@@ -783,6 +820,42 @@ export class PaperTranslationCore {
       .map(({ index }) => index)
 
     let cursor = 0
+    const claimNextEntryIndex = (): number | null => {
+      while (cursor < pendingIndexes.length) {
+        const entryIndex = pendingIndexes[cursor]
+        cursor += 1
+
+        const entry = task.cache.entries[entryIndex]
+        if (
+          entry &&
+          (entry.status === 'queued' || entry.status === 'failed') &&
+          !task.inFlightIndexes.has(entryIndex)
+        ) {
+          task.retryQueuedIndexes.delete(entryIndex)
+          return entryIndex
+        }
+      }
+
+      while (task.retryQueue.length > 0) {
+        const entryIndex = task.retryQueue.shift()
+        if (entryIndex === undefined) {
+          continue
+        }
+
+        task.retryQueuedIndexes.delete(entryIndex)
+
+        const entry = task.cache.entries[entryIndex]
+        if (
+          entry &&
+          (entry.status === 'queued' || entry.status === 'failed') &&
+          !task.inFlightIndexes.has(entryIndex)
+        ) {
+          return entryIndex
+        }
+      }
+
+      return null
+    }
 
     const workerCount = Math.min(this.concurrency, pendingIndexes.length)
 
@@ -790,14 +863,11 @@ export class PaperTranslationCore {
       await Promise.all(
         Array.from({ length: workerCount }, async () => {
           while (!task.abortController.signal.aborted) {
-            const nextCursor = cursor
-            cursor += 1
-
-            if (nextCursor >= pendingIndexes.length) {
+            const entryIndex = claimNextEntryIndex()
+            if (entryIndex === null) {
               return
             }
 
-            const entryIndex = pendingIndexes[nextCursor]
             await this.translateEntry(task, entryIndex, llmConfig)
           }
         })
@@ -829,48 +899,53 @@ export class PaperTranslationCore {
       return
     }
 
-    entry.status = 'translating'
-    entry.errorMessage = undefined
-    entry.updatedAt = this.now()
-    this.persistCache(task.paperId, task.cache)
-    this.emitProgress(task, entry)
-
+    task.inFlightIndexes.add(entryIndex)
     try {
-      const prompt = this.buildPrompt(task.cache.entries, entryIndex)
-      const translatedMarkdown = this.sanitizeTranslatedMarkdown(
-        entry,
-        await this.deps.translateSegment(llmConfig, prompt, entry, task.abortController.signal)
-      )
-
-      if (task.abortController.signal.aborted) {
-        return
-      }
-
-      entry.status = 'completed'
-      entry.translatedMarkdown = translatedMarkdown
-      entry.translatedText = stripPaperTranslationMarkdown(translatedMarkdown)
+      entry.status = 'translating'
       entry.errorMessage = undefined
       entry.updatedAt = this.now()
       this.persistCache(task.paperId, task.cache)
       this.emitProgress(task, entry)
-      return
-    } catch (error) {
-      if (task.abortController.signal.aborted) {
+
+      try {
+        const prompt = this.buildPrompt(task.cache.entries, entryIndex)
+        const translatedMarkdown = this.sanitizeTranslatedMarkdown(
+          entry,
+          await this.deps.translateSegment(llmConfig, prompt, entry, task.abortController.signal)
+        )
+
+        if (task.abortController.signal.aborted) {
+          return
+        }
+
+        entry.status = 'completed'
+        entry.translatedMarkdown = translatedMarkdown
+        entry.translatedText = stripPaperTranslationMarkdown(translatedMarkdown)
+        entry.errorMessage = undefined
+        entry.updatedAt = this.now()
+        this.persistCache(task.paperId, task.cache)
+        this.emitProgress(task, entry)
         return
+      } catch (error) {
+        if (task.abortController.signal.aborted) {
+          return
+        }
+
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        entry.status = 'failed'
+        entry.errorMessage = errorMessage
+        entry.updatedAt = this.now()
+        this.persistCache(task.paperId, task.cache)
+        this.emitProgress(task, entry, errorMessage)
+
+        this.deps.logger.warn('段落翻译失败', 'main', {
+          paperId: task.paperId,
+          segmentId: entry.id,
+          error: errorMessage
+        })
       }
-
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      entry.status = 'failed'
-      entry.errorMessage = errorMessage
-      entry.updatedAt = this.now()
-      this.persistCache(task.paperId, task.cache)
-      this.emitProgress(task, entry, errorMessage)
-
-      this.deps.logger.warn('段落翻译失败', 'main', {
-        paperId: task.paperId,
-        segmentId: entry.id,
-        error: errorMessage
-      })
+    } finally {
+      task.inFlightIndexes.delete(entryIndex)
     }
   }
 

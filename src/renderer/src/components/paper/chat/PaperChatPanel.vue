@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, provide, ref, watch } from 'vue'
 import PaperChatInput from '@renderer/components/paper/chat/PaperChatInput.vue'
+import PaperChatPlanDock from '@renderer/components/paper/chat/PaperChatPlanDock.vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import PaperChatMessageList from './PaperChatMessageList.vue'
 import { usePaperChatSession } from './usePaperChatSession'
 import { usePaperChatStream } from './usePaperChatStream'
+import { usePaperChatStreamStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import { parseMessageOptions, type MessageOptionContext } from '@renderer/utils/optionParser'
 import type {
@@ -28,6 +30,7 @@ const emit = defineEmits<{
 const paperRef = computed(() => props.paper)
 const dismissedQuickReplyIds = ref<Set<string>>(new Set())
 const notify = useNotification()
+const paperChatStreamStore = usePaperChatStreamStore()
 
 const {
   session,
@@ -38,6 +41,7 @@ const {
   selectedMCPTools,
   selectedKnowledgeBases,
   enableLabTools,
+  enablePaperWebSearch,
   loading,
   contextLoading,
   ensurePaperContextLoaded,
@@ -48,7 +52,8 @@ const {
   updateSelectedModel,
   updateSelectedTools,
   updateSelectedKnowledgeBases,
-  updateEnableLabTools
+  updateEnableLabTools,
+  updateEnablePaperWebSearch
 } = usePaperChatSession(paperRef)
 
 provide('sessionId', sessionId)
@@ -60,6 +65,7 @@ const { isSending, sendMessage, stopRequest } = usePaperChatStream({
   selectedMCPTools,
   selectedKnowledgeBases,
   enableLabTools,
+  enablePaperWebSearch,
   ensurePaperContextLoaded,
   saveCurrentSession,
   setError: (message) => {
@@ -70,6 +76,10 @@ const { isSending, sendMessage, stopRequest } = usePaperChatStream({
 const visibleMessages = computed(() =>
   messages.value.filter((message) => !message.hidden && message.role !== 'tool')
 )
+
+const currentPlanState = computed(() => {
+  return sessionId.value ? (paperChatStreamStore.planStates.get(sessionId.value) ?? null) : null
+})
 
 const activeQuickReply = computed<MessageOptionContext | null>(() => {
   for (let index = visibleMessages.value.length - 1; index >= 0; index -= 1) {
@@ -167,11 +177,34 @@ async function handleClearContext(): Promise<void> {
   const cleared = await clearContext()
   if (cleared) {
     dismissedQuickReplyIds.value = new Set()
+    if (sessionId.value) {
+      paperChatStreamStore.resetPlanState(sessionId.value)
+    }
   }
 }
 
 function handleQuickReplySelected(messageId: string): void {
   dismissedQuickReplyIds.value = new Set(dismissedQuickReplyIds.value).add(messageId)
+}
+
+async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
+  if (value) {
+    try {
+      const envInfo = await window.api.paperWebSearch.checkEnvironment()
+      if (!envInfo.available) {
+        notify.warning(
+          '联网搜索不可用',
+          envInfo.error || 'Electron 搜索运行时不可用，请重启应用后重试。',
+          { source: 'chat' }
+        )
+        return
+      }
+    } catch {
+      notify.warning('联网搜索不可用', '环境检查失败，请稍后重试。', { source: 'chat' })
+      return
+    }
+  }
+  updateEnablePaperWebSearch(value)
 }
 </script>
 
@@ -225,6 +258,7 @@ function handleQuickReplySelected(messageId: string): void {
       />
 
       <div class="paper-chat-panel__composer">
+        <PaperChatPlanDock :plan-state="currentPlanState" />
         <PaperChatInput
           :key="sessionId || props.paper.id"
           variant="compact"
@@ -234,6 +268,7 @@ function handleQuickReplySelected(messageId: string): void {
           :selected-m-c-p-tools="selectedMCPTools"
           :selected-knowledge-bases="selectedKnowledgeBases"
           :enable-lab-tools="enableLabTools"
+          :enable-paper-web-search="enablePaperWebSearch"
           :quick-reply-info="activeQuickReply"
           @send="handleSend"
           @stop="stopRequest"
@@ -243,6 +278,7 @@ function handleQuickReplySelected(messageId: string): void {
           @update:selected-m-c-p-tools="updateSelectedTools"
           @update:selected-knowledge-bases="updateSelectedKnowledgeBases"
           @update:enable-lab-tools="updateEnableLabTools"
+          @update:enable-paper-web-search="handleEnablePaperWebSearch"
         />
       </div>
     </template>
@@ -351,6 +387,9 @@ function handleQuickReplySelected(messageId: string): void {
 
 .paper-chat-panel__composer {
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
   padding: var(--sm-space-3);
   border-top: 1px solid var(--sm-color-border-default);
   background: var(--sm-color-surface-1);

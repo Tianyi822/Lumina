@@ -31,6 +31,7 @@ const props = defineProps<{
   selectedMCPTools?: MCPTool[]
   selectedKnowledgeBases?: KnowledgeBase[]
   enableLabTools?: boolean
+  enablePaperWebSearch?: boolean
   quickReplyInfo?: MessageOptionContext | null
   variant?: 'default' | 'compact'
 }>()
@@ -53,6 +54,7 @@ const emit = defineEmits<{
   (e: 'update:selectedMCPTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableLabTools', value: boolean): void
+  (e: 'update:enablePaperWebSearch', value: boolean): void
   (e: 'quick-reply-selected', messageId: string): void
 }>()
 
@@ -64,6 +66,7 @@ const localSelectedModel = ref(props.selectedModel ?? '')
 const localSelectedTools = ref<MCPTool[]>(props.selectedMCPTools ?? [])
 const localSelectedKnowledgeBases = ref<KnowledgeBase[]>(props.selectedKnowledgeBases ?? [])
 const localEnableLabTools = ref(props.enableLabTools ?? false)
+const localEnablePaperWebSearch = ref(props.enablePaperWebSearch ?? false)
 const textareaRef = ref<InstanceType<typeof PaperChatTextarea> | null>(null)
 const notify = useNotification()
 
@@ -145,6 +148,16 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => props.enablePaperWebSearch,
+  (value) => {
+    if (value !== undefined && value !== localEnablePaperWebSearch.value) {
+      localEnablePaperWebSearch.value = value
+    }
+  },
+  { immediate: true }
+)
+
 function updateSelectedModel(value: string): void {
   localSelectedModel.value = value
   emit('update:selectedModel', value)
@@ -164,6 +177,11 @@ function updateEnableLabTools(enabled: boolean): void {
   localEnableLabTools.value = enabled
   emit('update:enableLabTools', enabled)
   window.api.logger.debug('[PaperChatInput] 实验室工具开关状态变更', { enabled })
+}
+
+function updateEnablePaperWebSearch(enabled: boolean): void {
+  localEnablePaperWebSearch.value = enabled
+  emit('update:enablePaperWebSearch', enabled)
 }
 
 function buildPaperChatAttachedDocuments(): AttachedDocument[] {
@@ -406,11 +424,13 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
       :selected-tools="localSelectedTools"
       :selected-knowledge-bases="localSelectedKnowledgeBases"
       :enable-lab-tools="localEnableLabTools"
+      :enable-paper-web-search="localEnablePaperWebSearch"
       :total-attachment-count="totalAttachmentCount"
       @update:selected-model="updateSelectedModel"
       @update:selected-tools="updateSelectedTools"
       @update:selected-knowledge-bases="updateSelectedKnowledgeBases"
       @update:enable-lab-tools="updateEnableLabTools"
+      @update:enable-paper-web-search="updateEnablePaperWebSearch"
       @upload="triggerFileUpload"
       @send="handleSend"
       @stop="handleStop"

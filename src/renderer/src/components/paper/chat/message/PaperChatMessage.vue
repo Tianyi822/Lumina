@@ -79,7 +79,10 @@ const hasStructuredReact = computed(() => {
   return (
     props.message.reactIterations?.some(
       (iteration) =>
-        iteration.isActive || iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
+        iteration.isActive ||
+        iteration.reasoning.trim().length > 0 ||
+        iteration.steps.length > 0 ||
+        (iteration.content?.trim().length ?? 0) > 0
     ) || false
   )
 })
@@ -93,6 +96,13 @@ const hasActiveIteration = computed(() => {
       (iteration) => iteration.isActive && !iteration.reasoning && iteration.steps.length === 0
     ) || false
   )
+})
+
+/**
+ * 是否有 Plan 模式的任务分组（内容已在 ReActSteps 内按阶段显示）
+ */
+const hasPlanTaskGroups = computed(() => {
+  return props.message.reactIterations?.some((iter) => iter.taskNumber !== undefined) ?? false
 })
 
 /**
@@ -134,6 +144,7 @@ const showWaitingPlaceholder = computed(() => {
   return (
     props.message.role === 'assistant' &&
     !!props.message.isStreaming &&
+    !props.message.suppressWaitingPlaceholder &&
     !props.message.content &&
     !displayedContent.value &&
     !showStandaloneReasoning.value &&
@@ -164,6 +175,18 @@ const shouldRenderMessage = computed(() => {
   // 用户消息始终显示
   if (props.message.role === 'user') return true
   // AI 消息需要检查是否有实际内容
+  if (
+    props.message.role === 'assistant' &&
+    props.message.isStreaming &&
+    props.message.suppressWaitingPlaceholder &&
+    !props.message.content?.trim() &&
+    !displayedContent.value?.trim() &&
+    !showStandaloneReasoning.value &&
+    !hasStructuredReact.value &&
+    !hasToolActivity.value
+  ) {
+    return false
+  }
   return hasAssistantContent.value
 })
 
@@ -175,6 +198,8 @@ const shouldShowBubble = computed(() => {
   if (props.message.role === 'user') return true
   // 流式传输中且显示等待占位符时显示气泡
   if (showWaitingPlaceholder.value) return true
+  // Plan 模式下内容已分配到各阶段，隐藏底部气泡
+  if (hasPlanTaskGroups.value) return false
   // 检查是否有实际内容（同时检查原始内容和显示内容）
   const originalContent = props.message.content?.trim()
   const displayed = displayedContent.value?.trim()
@@ -521,7 +546,8 @@ function handleToggleReasoning(): void {
 }
 
 .paper-chat-message__body :deep(.reasoning-panel),
-.paper-chat-message__body :deep(.paper-chat-react-steps) {
+.paper-chat-message__body :deep(.paper-chat-react-steps),
+.paper-chat-message__body :deep(.paper-chat-plan-progress) {
   align-self: flex-start;
   width: calc(100% - var(--paper-chat-message-content-offset));
   max-width: calc(100% - var(--paper-chat-message-content-offset));
@@ -643,12 +669,14 @@ function handleToggleReasoning(): void {
   .paper-chat-message__bubble,
   .paper-chat-message__attachments,
   .paper-chat-message__body :deep(.reasoning-panel),
-  .paper-chat-message__body :deep(.paper-chat-react-steps) {
+  .paper-chat-message__body :deep(.paper-chat-react-steps),
+  .paper-chat-message__body :deep(.paper-chat-plan-progress) {
     max-width: 100%;
   }
 
   .paper-chat-message__body :deep(.reasoning-panel),
-  .paper-chat-message__body :deep(.paper-chat-react-steps) {
+  .paper-chat-message__body :deep(.paper-chat-react-steps),
+  .paper-chat-message__body :deep(.paper-chat-plan-progress) {
     width: 100%;
   }
 }

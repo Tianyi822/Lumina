@@ -11,6 +11,10 @@ const adapter: ToolAdapter = {
   execute: async (): Promise<MCPToolCallResult> => ({ success: true, content: 'ok' })
 }
 
+function getFunctionTool(tool: unknown): { function: { name: string; description?: string } } {
+  return tool as { function: { name: string; description?: string } }
+}
+
 function createTools(count: number): MCPToolReference[] {
   return Array.from({ length: count }, (_, index) => ({
     serverName: 'paper-server',
@@ -58,4 +62,40 @@ test('大量工具使用精简描述', () => {
   assert.match(description, /^paper-server__search_0: Search document snippets/)
   assert.doesNotMatch(description, /参数:/)
   assert.doesNotMatch(description, /示例:/)
+})
+
+test('Skill 类别工具使用 skill 前缀并保持原始描述', () => {
+  const registry = new UnifiedToolRegistry()
+  registry.registerBatch(
+    [
+      {
+        serverName: 'skill',
+        toolName: 'list',
+        description: '列出用户已启用的 Skill 摘要。',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      },
+      {
+        serverName: 'skill',
+        toolName: 'read',
+        description: '读取指定 Skill 的完整说明书。',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            skillId: { type: 'string' }
+          },
+          required: ['skillId']
+        }
+      }
+    ],
+    adapter,
+    'skill'
+  )
+
+  const tools = registry.buildOpenAITools()
+
+  assert.deepEqual(
+    tools.map((tool) => getFunctionTool(tool).function.name),
+    ['skill__list', 'skill__read']
+  )
+  assert.equal(getFunctionTool(tools[0]).function.description, '列出用户已启用的 Skill 摘要。')
 })

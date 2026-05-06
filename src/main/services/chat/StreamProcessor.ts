@@ -29,7 +29,8 @@ export class StreamProcessor {
   async processStream(
     stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
     webContents: WebContents,
-    sessionId: string
+    sessionId: string,
+    turnId?: string
   ): Promise<StreamProcessResult> {
     const state: StreamAccumulatorState = {
       assistantContent: '',
@@ -45,10 +46,10 @@ export class StreamProcessor {
     }
 
     for await (const chunk of stream) {
-      this.processChunk(chunk, state, thinkParserState, totalUsage, webContents, sessionId)
+      this.processChunk(chunk, state, thinkParserState, totalUsage, webContents, sessionId, turnId)
     }
 
-    this.flushThinkParser(thinkParserState, state, webContents, sessionId)
+    this.flushThinkParser(thinkParserState, state, webContents, sessionId, turnId)
 
     return { state, totalUsage }
   }
@@ -62,7 +63,8 @@ export class StreamProcessor {
     thinkParserState: ReturnType<typeof createThinkParserState>,
     totalUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number },
     webContents: WebContents,
-    sessionId: string
+    sessionId: string,
+    turnId?: string
   ): void {
     if (chunk.usage) {
       totalUsage.prompt_tokens += chunk.usage.prompt_tokens
@@ -86,7 +88,7 @@ export class StreamProcessor {
 
     if (delta.reasoning_content) {
       state.assistantReasoningContent += delta.reasoning_content
-      this.streamHandler.sendReasoning(webContents, sessionId, delta.reasoning_content)
+      this.streamHandler.sendReasoning(webContents, sessionId, delta.reasoning_content, turnId)
     }
 
     if (delta.content) {
@@ -97,12 +99,12 @@ export class StreamProcessor {
 
       if (reasoningDelta) {
         state.assistantReasoningContent += reasoningDelta
-        this.streamHandler.sendReasoning(webContents, sessionId, reasoningDelta)
+        this.streamHandler.sendReasoning(webContents, sessionId, reasoningDelta, turnId)
       }
 
       if (contentDelta) {
         state.assistantContent += contentDelta
-        this.streamHandler.sendContent(webContents, sessionId, contentDelta)
+        this.streamHandler.sendContent(webContents, sessionId, contentDelta, turnId)
       }
     }
 
@@ -131,19 +133,20 @@ export class StreamProcessor {
     thinkParserState: ReturnType<typeof createThinkParserState>,
     state: StreamAccumulatorState,
     webContents: WebContents,
-    sessionId: string
+    sessionId: string,
+    turnId?: string
   ): void {
     const { reasoningDelta: remainingReasoningDelta, contentDelta: remainingContentDelta } =
       flushThinkParserState(thinkParserState)
 
     if (remainingReasoningDelta) {
       state.assistantReasoningContent += remainingReasoningDelta
-      this.streamHandler.sendReasoning(webContents, sessionId, remainingReasoningDelta)
+      this.streamHandler.sendReasoning(webContents, sessionId, remainingReasoningDelta, turnId)
     }
 
     if (remainingContentDelta) {
       state.assistantContent += remainingContentDelta
-      this.streamHandler.sendContent(webContents, sessionId, remainingContentDelta)
+      this.streamHandler.sendContent(webContents, sessionId, remainingContentDelta, turnId)
     }
   }
 }

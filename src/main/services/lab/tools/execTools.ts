@@ -2,7 +2,9 @@ import { getDockerService } from '../docker/DockerService'
 import { MCPToolCallResult } from '@main/types/mcp'
 import { ExecCommand } from '@shared/types/lab'
 import { ToolArgs, LabToolDefinition } from './types'
-import { findLab, isDangerousCommand } from './toolExecutor'
+import { getCommandExecutionPolicy } from './commandExecutionPolicy'
+import { findLab } from './toolExecutor'
+import { formatExecCommandToolResult } from './toolHelpers'
 
 const dockerService = getDockerService()
 
@@ -12,7 +14,7 @@ const dockerService = getDockerService()
 export const execCommandTool: LabToolDefinition = {
   name: 'lab__exec_command',
   description:
-    '在指定实验室的容器中执行命令，可用于调试、查看数据或管理应用。命令执行有 30 秒超时限制',
+    '在指定实验室的 Docker 容器沙箱中执行命令，可用于调试、查看数据或管理应用。不会在宿主机执行命令，命令执行有 30 秒超时限制',
   inputSchema: {
     type: 'object',
     properties: {
@@ -58,11 +60,27 @@ export const execCommandTool: LabToolDefinition = {
       }
     }
 
-    // 命令安全检查
-    if (isDangerousCommand(command)) {
+    const policy = getCommandExecutionPolicy('lab_sandbox', command)
+    if (policy.requiresUserInteraction) {
+      return {
+        success: true,
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              user_interaction_required: true,
+              question: policy.reason || '是否允许执行该命令？',
+              options: policy.options || []
+            })
+          }
+        ]
+      }
+    }
+
+    if (!policy.canExecute) {
       return {
         success: false,
-        error: '命令包含危险操作，已被拦截。高风险命令需要用户手动在终端中执行。'
+        error: policy.reason || '当前命令执行策略不允许直接执行'
       }
     }
 
@@ -93,25 +111,14 @@ export const execCommandTool: LabToolDefinition = {
 
     const result = await dockerService.execCommand(containerId, execCmd)
 
-    if (!result) {
+    if (!result || result.systemError) {
       return {
         success: false,
-        error: '命令执行失败'
+        error: result?.stderr || '命令执行失败'
       }
     }
 
-    const output = result.stdout || result.stderr || '（无输出）'
-    const exitInfo = result.exitCode === 0 ? '' : `\n（退出码: ${result.exitCode}）`
-
-    return {
-      success: result.exitCode === 0,
-      content: [
-        {
-          type: 'text',
-          text: `命令执行结果:${exitInfo}\n\n\`\`\`\n${output}\n\`\`\``
-        }
-      ]
-    }
+    return formatExecCommandToolResult(command, execCmd.workdir, result)
   }
 }
 

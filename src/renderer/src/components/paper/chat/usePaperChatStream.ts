@@ -22,6 +22,7 @@ interface UsePaperChatStreamOptions {
   selectedMCPTools: Ref<MCPTool[]>
   selectedKnowledgeBases: Ref<KnowledgeBase[]>
   enableLabTools: Ref<boolean>
+  enablePaperWebSearch: Ref<boolean>
   ensurePaperContextLoaded: () => Promise<boolean>
   saveCurrentSession: () => Promise<boolean>
   setError: (message: string) => void
@@ -156,9 +157,14 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
       timestamp: new Date().toISOString(),
       modelName: options.selectedModel.value,
       reactSteps: [],
-      reactIterations: []
+      reactIterations: [],
+      suppressWaitingPlaceholder: options.enableLabTools.value
     }
     options.messages.value.push(assistantMessage)
+    paperChatStreamStore.resetPlanState(currentSessionId)
+    if (options.enableLabTools.value) {
+      paperChatStreamStore.beginPlanning(currentSessionId, assistantMessage.id)
+    }
     paperChatStreamStore.setSessionSendingState(currentSessionId, true, true)
 
     try {
@@ -171,6 +177,7 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
           messages: chatMessages,
           modelKey: options.selectedModel.value,
           sessionId: currentSessionId,
+          turnId: assistantMessage.id,
           selectedTools:
             options.selectedMCPTools.value.length > 0
               ? toToolReferences(options.selectedMCPTools.value)
@@ -179,7 +186,9 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
             options.selectedKnowledgeBases.value.length > 0
               ? toKnowledgeReferences(options.selectedKnowledgeBases.value)
               : undefined,
-          enableLabTools: options.enableLabTools.value
+          enableLabTools: options.enableLabTools.value,
+          sessionType: 'paper',
+          enablePaperWebSearch: options.enablePaperWebSearch.value
         })
       )
 
@@ -192,6 +201,7 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
       options.messages.value.push(...snapshot)
       paperChatStreamStore.setSessionSendingState(currentSessionId, false, true)
       paperChatStreamStore.streamingSessionId = null
+      paperChatStreamStore.failPlanState(currentSessionId, message)
       options.setError(message)
     }
   }

@@ -14,6 +14,7 @@ const props = defineProps<{
   selectedTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
   enableLabTools?: boolean
+  enablePaperWebSearch?: boolean
   totalAttachmentCount?: number
   variant?: 'default' | 'compact'
 }>()
@@ -23,6 +24,7 @@ const emit = defineEmits<{
   (e: 'update:selectedTools', value: MCPTool[]): void
   (e: 'update:selectedKnowledgeBases', value: KnowledgeBase[]): void
   (e: 'update:enableLabTools', value: boolean): void
+  (e: 'update:enablePaperWebSearch', value: boolean): void
   (e: 'upload'): void
   (e: 'send'): void
   (e: 'stop'): void
@@ -110,6 +112,25 @@ onUnmounted(() => {
       @selection-change="emit('update:selectedKnowledgeBases', $event)"
     />
 
+    <button
+      type="button"
+      class="paper-chat-input-toolbar__search-toggle"
+      :class="{
+        enabled: props.enablePaperWebSearch,
+        disabled: props.isSending,
+        'is-compact': props.variant === 'compact'
+      }"
+      :disabled="props.isSending"
+      :aria-pressed="props.enablePaperWebSearch ? 'true' : 'false'"
+      title="联网搜索：允许模型在需要时搜索学术资料补充论文信息"
+      @click="emit('update:enablePaperWebSearch', !props.enablePaperWebSearch)"
+    >
+      <span class="toggle-switch" aria-hidden="true">
+        <span class="toggle-thumb"></span>
+      </span>
+      <span class="toggle-label">搜索</span>
+    </button>
+
     <LabToolsToggle
       :compact="props.variant === 'compact'"
       :model-value="props.enableLabTools"
@@ -173,7 +194,7 @@ onUnmounted(() => {
 
 .paper-chat-input-toolbar--compact {
   display: grid;
-  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--sm-space-2);
 }
@@ -201,7 +222,7 @@ onUnmounted(() => {
 }
 
 .paper-chat-input-toolbar--compact .paper-chat-input-toolbar__actions {
-  grid-column: 5;
+  grid-column: 6;
   gap: var(--sm-space-2);
   margin-left: 0;
 }
@@ -381,6 +402,77 @@ onUnmounted(() => {
 .paper-chat-input-toolbar__stop-button:hover {
   background: rgba(239, 68, 68, 0.25);
   border-color: var(--sm-color-status-danger);
+}
+
+.paper-chat-input-toolbar__search-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  background-color: var(--sm-color-surface-1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.paper-chat-input-toolbar__search-toggle.is-compact {
+  min-height: 32px;
+  padding: 6px 10px;
+  gap: 6px;
+}
+
+.paper-chat-input-toolbar__search-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.paper-chat-input-toolbar__search-toggle .toggle-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background-color: var(--sm-color-border-default);
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+}
+
+.paper-chat-input-toolbar__search-toggle.is-compact .toggle-switch {
+  width: 28px;
+  height: 16px;
+}
+
+.paper-chat-input-toolbar__search-toggle.enabled .toggle-switch {
+  background-color: var(--sm-color-accent);
+}
+
+.paper-chat-input-toolbar__search-toggle .toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background-color: var(--sm-color-text-primary);
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.paper-chat-input-toolbar__search-toggle.is-compact .toggle-thumb {
+  width: 12px;
+  height: 12px;
+}
+
+.paper-chat-input-toolbar__search-toggle.enabled .toggle-thumb {
+  transform: translateX(16px);
+}
+
+.paper-chat-input-toolbar__search-toggle.is-compact.enabled .toggle-thumb {
+  transform: translateX(12px);
+}
+
+.paper-chat-input-toolbar__search-toggle .toggle-label {
+  color: var(--sm-color-text-primary);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {

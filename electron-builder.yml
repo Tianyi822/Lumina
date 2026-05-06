@@ -12,8 +12,6 @@ files:
   - '!**/node_modules/**/*.map'
   - '!node_modules/cpu-features/build/Release/*.node'
   - '!node_modules/ssh2/lib/protocol/crypto/build/Release/*.node'
-asarUnpack:
-  - resources/**
 afterPack: scripts/build/prunePlatformArtifacts.cjs
 win:
   icon: icon.ico

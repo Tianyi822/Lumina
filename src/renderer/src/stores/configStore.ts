@@ -180,11 +180,7 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   // 更新指定模型的配置
-  function updateModelConfigField(
-    modelName: string,
-    field: keyof LLMConfig,
-    value: string
-  ): void {
+  function updateModelConfigField(modelName: string, field: keyof LLMConfig, value: string): void {
     const config = llmConfigs.value.find((m) => m.model_name === modelName)
     if (config) {
       ;(config as Record<string, string>)[field] = value

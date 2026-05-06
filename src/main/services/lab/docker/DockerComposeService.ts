@@ -36,12 +36,22 @@ const execAsync = promisify(exec)
  * Docker Compose 编排服务
  */
 export class DockerComposeService {
+  private readonly context: DockerServiceContext
+  private readonly containerService: DockerContainerService
+  private readonly execService: DockerExecService
+  private readonly statsService: DockerStatsService
+
   constructor(
-    private readonly context: DockerServiceContext,
-    private readonly containerService: DockerContainerService,
-    private readonly execService: DockerExecService,
-    private readonly statsService: DockerStatsService
-  ) {}
+    context: DockerServiceContext,
+    containerService: DockerContainerService,
+    execService: DockerExecService,
+    statsService: DockerStatsService
+  ) {
+    this.context = context
+    this.containerService = containerService
+    this.execService = execService
+    this.statsService = statsService
+  }
 
   /**
    * 执行 docker compose down

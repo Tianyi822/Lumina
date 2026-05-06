@@ -25,13 +25,17 @@ export interface ToolAdapter {
   getTools(): MCPToolReference[]
 
   /** 执行工具调用，返回结构化的工具调用结果 */
-  execute(toolName: string, args: Record<string, unknown>): Promise<MCPToolCallResult>
+  execute(
+    toolName: string,
+    args: Record<string, unknown>,
+    onProgress?: (message: string) => void
+  ): Promise<MCPToolCallResult>
 }
 
 /**
  * 工具类别
  */
-export type ToolCategory = 'lab' | 'knowledge' | 'mcp'
+export type ToolCategory = 'lab' | 'knowledge' | 'mcp' | 'skill' | 'paper_web'
 
 /**
  * 工具函数定义（内部存储格式）
@@ -191,6 +195,30 @@ export class UnifiedToolRegistry {
         continue
       }
 
+      if (rt.category === 'skill') {
+        openAITools.push({
+          type: 'function' as const,
+          function: {
+            name: `skill__${name}`,
+            description,
+            parameters
+          }
+        })
+        continue
+      }
+
+      if (rt.category === 'paper_web') {
+        openAITools.push({
+          type: 'function' as const,
+          function: {
+            name: `paper_web__${name}`,
+            description,
+            parameters
+          }
+        })
+        continue
+      }
+
       // MCP 工具：使用增强描述
       const toolKey = `${rt.serverName}__${name}`
       const enhancedDescription = enhancedDescriptions.get(toolKey) || description
@@ -230,7 +258,13 @@ export class UnifiedToolRegistry {
     tools: MCPToolReference[],
     level: ToolDescriptionLevel
   ): Map<string, string> {
-    const mcpTools = tools.filter((t) => t.serverName !== 'lab' && t.serverName !== 'knowledge')
+    const mcpTools = tools.filter(
+      (t) =>
+        t.serverName !== 'lab' &&
+        t.serverName !== 'knowledge' &&
+        t.serverName !== 'skill' &&
+        t.serverName !== 'paper_web'
+    )
     return enhanceToolDescriptions(mcpTools, level)
   }
 
