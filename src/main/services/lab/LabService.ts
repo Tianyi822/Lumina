@@ -8,7 +8,7 @@ import {
   appendFileSync
 } from 'fs'
 import { logger } from '@main/services/logger'
-import {
+import type {
   LabData,
   LabListItem,
   LabResult,

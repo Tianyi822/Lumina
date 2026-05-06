@@ -3,7 +3,8 @@
  * 集中管理实验室类型的权限控制
  */
 
-import { LabCreationType, LabPermissionPolicy, LAB_TYPE_PERMISSIONS } from '@shared/types/lab'
+import type { LabCreationType, LabPermissionPolicy } from '@shared/types/lab'
+import { LAB_TYPE_PERMISSIONS } from '@shared/types/lab'
 import { logger } from '@main/services/logger'
 
 /**
