@@ -14,7 +14,11 @@ import { serialize } from './types'
  * Docker 容器数据映射器
  */
 export class DockerContainerMapper {
-  constructor(private readonly context: DockerServiceContext) {}
+  private readonly context: DockerServiceContext
+
+  constructor(context: DockerServiceContext) {
+    this.context = context
+  }
 
   /**
    * 获取容器基础信息

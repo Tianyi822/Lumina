@@ -10,10 +10,13 @@ import { serialize } from './types'
  * Docker 容器管理服务
  */
 export class DockerContainerService {
-  constructor(
-    private readonly context: DockerServiceContext,
-    private readonly mapper: DockerContainerMapper
-  ) {}
+  private readonly context: DockerServiceContext
+  private readonly mapper: DockerContainerMapper
+
+  constructor(context: DockerServiceContext, mapper: DockerContainerMapper) {
+    this.context = context
+    this.mapper = mapper
+  }
 
   /**
    * 获取容器列表
