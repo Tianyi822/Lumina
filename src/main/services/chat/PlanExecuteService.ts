@@ -322,11 +322,17 @@ export class PlanExecuteService {
         }
 
         if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
-          return {
+          const assistantMsg: OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam & {
+            reasoning_content?: string
+          } = {
             role: 'assistant' as const,
             content: m.content || null,
             tool_calls: m.tool_calls
           }
+          if (m.reasoning_content) {
+            assistantMsg.reasoning_content = m.reasoning_content
+          }
+          return assistantMsg as OpenAI.Chat.Completions.ChatCompletionMessageParam
         }
 
         if (m.role === 'assistant' && m.reasoning_content) {
