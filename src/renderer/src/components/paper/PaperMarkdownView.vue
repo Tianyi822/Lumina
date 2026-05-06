@@ -57,6 +57,18 @@ const contentZoomStyle = computed(() => ({
   zoom: markdownZoomLevel.value
 }))
 
+interface TableDragState {
+  wrap: HTMLElement
+  pointerId: number
+  startClientX: number
+  startScrollLeft: number
+  hasDragged: boolean
+}
+
+const TABLE_DRAG_THRESHOLD = 4
+let tableDragState: TableDragState | null = null
+let lastTableDragEndedAt = 0
+
 const engine = usePaperMarkdownEngine({
   content: () => props.content,
   basePath: () => props.basePath,
@@ -110,9 +122,130 @@ const annotationManagerActions = computed(() => ({
   handleCancelComposer: composer.handleCancelComposer
 }))
 
-function findAnnotationMark(annotationId: string): HTMLElement | null {
+function isTableWrapHorizontallyScrollable(wrap: HTMLElement): boolean {
+  return wrap.scrollWidth > wrap.clientWidth + 1
+}
+
+function syncScrollableTableWrapState(): void {
+  scrollContainerRef.value
+    ?.querySelectorAll<HTMLElement>('.paper-markdown-view__table-wrap')
+    .forEach((wrap) => {
+      wrap.classList.toggle(
+        'paper-markdown-view__table-wrap--scrollable',
+        isTableWrapHorizontallyScrollable(wrap)
+      )
+    })
+}
+
+function cleanupTableDragListeners(): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.removeEventListener('pointermove', handleTablePointerMove)
+  window.removeEventListener('pointerup', handleTablePointerUp)
+  window.removeEventListener('pointercancel', handleTablePointerUp)
+}
+
+function clearTableDragState(): void {
+  tableDragState?.wrap.classList.remove('paper-markdown-view__table-wrap--dragging')
+  tableDragState = null
+  cleanupTableDragListeners()
+}
+
+function shouldIgnoreTableDragTarget(target: Element): boolean {
+  return !!target.closest(
+    [
+      'a',
+      'button',
+      'input',
+      'textarea',
+      'select',
+      'mark.paper-annotation-highlight',
+      '.paper-markdown-view__retranslate-btn'
+    ].join(', ')
+  )
+}
+
+function handleTablePointerDown(event: PointerEvent): void {
+  if (event.button !== 0 || typeof window === 'undefined') {
+    return
+  }
+
+  const target = event.target
+  if (!(target instanceof Element) || shouldIgnoreTableDragTarget(target)) {
+    return
+  }
+
+  const wrap = target.closest<HTMLElement>('.paper-markdown-view__table-wrap')
+  if (!wrap || !isTableWrapHorizontallyScrollable(wrap)) {
+    return
+  }
+
+  clearTableDragState()
+  tableDragState = {
+    wrap,
+    pointerId: event.pointerId,
+    startClientX: event.clientX,
+    startScrollLeft: wrap.scrollLeft,
+    hasDragged: false
+  }
+
+  window.addEventListener('pointermove', handleTablePointerMove, { passive: false })
+  window.addEventListener('pointerup', handleTablePointerUp)
+  window.addEventListener('pointercancel', handleTablePointerUp)
+}
+
+function handleTablePointerMove(event: PointerEvent): void {
+  if (!tableDragState || event.pointerId !== tableDragState.pointerId) {
+    return
+  }
+
+  const deltaX = event.clientX - tableDragState.startClientX
+  if (!tableDragState.hasDragged && Math.abs(deltaX) < TABLE_DRAG_THRESHOLD) {
+    return
+  }
+
+  if (!tableDragState.hasDragged) {
+    tableDragState.hasDragged = true
+    tableDragState.wrap.classList.add('paper-markdown-view__table-wrap--dragging')
+    window.getSelection()?.removeAllRanges()
+  }
+
+  event.preventDefault()
+  tableDragState.wrap.scrollLeft = tableDragState.startScrollLeft - deltaX
+}
+
+function handleTablePointerUp(event: PointerEvent): void {
+  if (!tableDragState || event.pointerId !== tableDragState.pointerId) {
+    return
+  }
+
+  if (tableDragState.hasDragged) {
+    lastTableDragEndedAt = Date.now()
+  }
+
+  clearTableDragState()
+}
+
+function renderContentAndSyncTables(): Promise<void> {
+  return engine.renderContent().then(async () => {
+    await nextTick()
+    syncScrollableTableWrapState()
+  })
+}
+
+type AnnotationMarkViewKind = 'original' | 'translation'
+
+function findAnnotationMark(
+  annotationId: string,
+  viewKind?: AnnotationMarkViewKind
+): HTMLElement | null {
+  const surfaceSelector = viewKind
+    ? `[data-paper-selection-surface="true"][data-view-kind="${viewKind}"]`
+    : '[data-paper-selection-surface="true"]'
   const marks = scrollContainerRef.value?.querySelectorAll<HTMLElement>(
-    '.paper-markdown-view__segment-translation mark.paper-annotation-highlight'
+    `${surfaceSelector} mark.paper-annotation-highlight`
   )
   if (!marks) {
     return null
@@ -121,10 +254,13 @@ function findAnnotationMark(annotationId: string): HTMLElement | null {
   return Array.from(marks).find((mark) => mark.dataset.annotationId === annotationId) || null
 }
 
-function scrollToAndPulseAnnotation(annotationId: string): void {
-  const mark = findAnnotationMark(annotationId)
+function scrollToAndPulseAnnotation(
+  annotationId: string,
+  viewKind?: AnnotationMarkViewKind
+): boolean {
+  const mark = findAnnotationMark(annotationId, viewKind)
   if (!mark) {
-    return
+    return false
   }
 
   const scrollContainer = scrollContainerRef.value
@@ -148,17 +284,57 @@ function scrollToAndPulseAnnotation(annotationId: string): void {
   window.setTimeout(() => {
     mark.classList.remove('paper-annotation-highlight--locating')
   }, 8000)
+
+  return true
 }
 
 async function highlightUpdatedTranslationAnnotation(annotationIds: string[]): Promise<void> {
   await nextTick()
   requestAnimationFrame(() => {
     const targetAnnotationId = annotationIds.find((annotationId) =>
-      findAnnotationMark(annotationId)
+      findAnnotationMark(annotationId, 'translation')
     )
     if (targetAnnotationId) {
-      scrollToAndPulseAnnotation(targetAnnotationId)
+      scrollToAndPulseAnnotation(targetAnnotationId, 'translation')
     }
+  })
+}
+
+function getFirstTranslationMissingAnnotation(): PaperAnnotation | null {
+  const sourceOrderMap = new Map(
+    engine.getSourceSegments().map((segment, index) => [segment.stableId, index])
+  )
+
+  return (
+    [...composer.translationMissingAnnotations.value].sort((left, right) => {
+      const leftOrder = sourceOrderMap.get(left.semanticAnchor.segmentStableId) ?? Number.MAX_VALUE
+      const rightOrder =
+        sourceOrderMap.get(right.semanticAnchor.segmentStableId) ?? Number.MAX_VALUE
+      return leftOrder - rightOrder || left.createdAt.localeCompare(right.createdAt)
+    })[0] || null
+  )
+}
+
+async function handleViewTranslationMissingInOriginal(): Promise<void> {
+  const targetAnnotation = getFirstTranslationMissingAnnotation()
+  paperReaderStore.hideTranslation()
+
+  if (!targetAnnotation) {
+    return
+  }
+
+  await nextTick()
+  await renderContentAndSyncTables()
+
+  requestAnimationFrame(() => {
+    if (
+      targetAnnotation.originalAnchor &&
+      scrollToAndPulseAnnotation(targetAnnotation.id, 'original')
+    ) {
+      return
+    }
+
+    composer.scrollToSegment(targetAnnotation.semanticAnchor.segmentStableId)
   })
 }
 
@@ -284,7 +460,7 @@ watch(
     composer.currentAnnotations.value.map((annotation) => annotation.updatedAt).join('|')
   ],
   async (newValues, oldValues) => {
-    await engine.renderContent()
+    await renderContentAndSyncTables()
 
     if (!oldValues) {
       composer.clearComposer()
@@ -344,6 +520,16 @@ function handleHoverPopoverDelete(): void {
 
 function handleHoverPopoverOpenNoteEditor(): void {
   composer.handleOpenNoteEditorFromHover()
+}
+
+function handleMarkdownClick(event: MouseEvent): void {
+  if (Date.now() - lastTableDragEndedAt < 160) {
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+
+  composer.handleSurfaceAnnotationClick(event)
 }
 
 function handleDocumentKeyDown(event: KeyboardEvent): void {
@@ -406,18 +592,31 @@ watch(textSearch.isOpen, (open) => {
   }
 })
 
+watch(markdownZoomLevel, async () => {
+  await nextTick()
+  syncScrollableTableWrapState()
+})
+
 if (typeof document !== 'undefined') {
   document.addEventListener('mousedown', composer.handleDocumentPointerDown)
   document.addEventListener('keydown', handleDocumentKeyDown)
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', syncScrollableTableWrapState)
 }
 
 onBeforeUnmount(() => {
   recordMarkdownScrollPosition()
   paperReaderStore.clearPaperToc()
   textSearch.closeSearch()
+  clearTableDragState()
   if (typeof document !== 'undefined') {
     document.removeEventListener('mousedown', composer.handleDocumentPointerDown)
     document.removeEventListener('keydown', handleDocumentKeyDown)
+  }
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', syncScrollableTableWrapState)
   }
 })
 </script>
@@ -505,7 +704,8 @@ onBeforeUnmount(() => {
       ref="scrollContainerRef"
       class="paper-markdown-view__scroll"
       @mouseup="composer.updateComposerFromSelection"
-      @click="composer.handleSurfaceAnnotationClick"
+      @click="handleMarkdownClick"
+      @pointerdown="handleTablePointerDown"
       @scroll="recordMarkdownScrollPosition"
       @wheel="paperReaderStore.handleWheelZoom"
     >
@@ -528,7 +728,7 @@ onBeforeUnmount(() => {
           :outdated-updating="composer.outdatedAnnotationUpdating.value"
           :outdated-error="composer.outdatedAnnotationError.value"
           :on-retranslate="paperReaderStore.toggleTranslationVisible"
-          :on-view-in-original="paperReaderStore.hideTranslation"
+          :on-view-in-original="handleViewTranslationMissingInOriginal"
           :on-update-outdated="handleUpdateOutdatedAnnotationsToCurrentTranslation"
         />
 

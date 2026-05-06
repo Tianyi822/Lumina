@@ -88,7 +88,12 @@ function collectOriginalHighlights(
         return false
       }
 
-      return annotation.noteType === 'original_span'
+      return (
+        annotation.noteType === 'original_span' ||
+        (annotation.noteType === 'translation_view' &&
+          annotation.status === 'translation_missing' &&
+          !!annotation.originalAnchor)
+      )
     })
     .flatMap((annotation) => {
       const resolvedAnchor = resolveOriginalViewAnchor(segment, annotation)
@@ -339,6 +344,7 @@ export interface PaperHighlightRenderer {
 }
 
 export const __paperHighlightRendererTestHooks = {
+  collectOriginalHighlights,
   normalizeHighlightBoundary,
   resolveHighlightRange,
   removeEmptyHighlightMarks

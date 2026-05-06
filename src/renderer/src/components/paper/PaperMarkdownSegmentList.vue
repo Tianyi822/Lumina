@@ -489,6 +489,77 @@ function handleCancelRetranslate(): void {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable both-edges;
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+  cursor: auto;
+  transition: scrollbar-color var(--sm-transition-fast);
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap:hover),
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap:focus-within),
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap:active),
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap--dragging) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sm-color-border-strong) transparent;
+}
+
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap--scrollable:not(.paper-markdown-view__table-wrap--dragging)) {
+  cursor: grab;
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap--dragging),
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap--dragging *) {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap::-webkit-scrollbar) {
+  height: 0;
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap:hover::-webkit-scrollbar),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:focus-within::-webkit-scrollbar),
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap:active::-webkit-scrollbar),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap--dragging::-webkit-scrollbar) {
+  height: 10px;
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap::-webkit-scrollbar-track) {
+  background: transparent;
+}
+
+.paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap::-webkit-scrollbar-thumb) {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  background-clip: content-box;
+}
+
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:hover::-webkit-scrollbar-thumb),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:focus-within::-webkit-scrollbar-thumb),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:active::-webkit-scrollbar-thumb),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap--dragging::-webkit-scrollbar-thumb) {
+  background: var(--sm-color-border-strong);
+  background-clip: content-box;
+}
+
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:hover::-webkit-scrollbar-thumb:hover),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:focus-within::-webkit-scrollbar-thumb:hover),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap:active::-webkit-scrollbar-thumb:hover),
+.paper-markdown-view__markdown
+  :deep(.paper-markdown-view__table-wrap--dragging::-webkit-scrollbar-thumb:hover) {
+  background: var(--sm-color-text-tertiary);
+  background-clip: content-box;
 }
 
 .paper-markdown-view__markdown :deep(.paper-markdown-view__table-wrap > table) {
