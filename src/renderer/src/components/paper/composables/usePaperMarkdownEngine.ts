@@ -245,10 +245,7 @@ function renderRawTableInlineMathNode(
   parent.removeChild(textNode)
 }
 
-function renderRawTableInlineMath(
-  root: Element,
-  renderInline: (content: string) => string
-): void {
+function renderRawTableInlineMath(root: Element, renderInline: (content: string) => string): void {
   root.querySelectorAll('table').forEach((table) => {
     const textNodes: Text[] = []
     const walker = table.ownerDocument.createTreeWalker(table, NodeFilter.SHOW_TEXT)

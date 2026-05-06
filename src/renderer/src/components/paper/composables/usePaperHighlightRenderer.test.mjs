@@ -188,7 +188,7 @@ function createAnnotation(overrides = {}) {
     contextAfter: overrides.contextAfter || originalAnchor?.suffixText || '',
     comment: overrides.comment || '',
     colorKey: overrides.colorKey || 'blue',
-    status: overrides.status || 'translation_missing',
+    status: overrides.status || 'active',
     recoveryMeta: {
       recoveryFailureCount: 0,
       lastResolvedAt: '2026-05-06T00:00:00.000Z'
@@ -267,9 +267,12 @@ test('highlight boundary 会在尾部子区间提升到已有标记外侧', () =
   assert.deepEqual(boundary, { node: root, offset: 2 })
 })
 
-test('translation_missing 的译文标注会通过 originalAnchor 渲染到原文视图', () => {
+test('original_span 标注会渲染到原文视图', () => {
   const segment = createSegment()
-  const annotation = createAnnotation()
+  const annotation = createAnnotation({
+    noteType: 'original_span',
+    createdInView: 'original'
+  })
 
   const highlights = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
     annotation
@@ -282,7 +285,7 @@ test('translation_missing 的译文标注会通过 originalAnchor 渲染到原�
 
 test('active 的译文标注不会重复渲染到原文视图', () => {
   const segment = createSegment()
-  const annotation = createAnnotation({ status: 'active' })
+  const annotation = createAnnotation()
 
   const highlights = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
     annotation

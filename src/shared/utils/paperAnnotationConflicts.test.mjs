@@ -149,7 +149,7 @@ test('findPaperAnnotationNoteConflict 不限制普通标记重叠', () => {
   assert.equal(conflict, null)
 })
 
-test('findPaperAnnotationNoteConflict 支持忽略当前笔记并跳过无效笔记', () => {
+test('findPaperAnnotationNoteConflict 支持忽略当前笔记且不再按异常状态跳过笔记', () => {
   const conflict = findPaperAnnotationNoteConflict(
     [
       createAnnotation({ id: 'annotation-current' }),
@@ -167,6 +167,7 @@ test('findPaperAnnotationNoteConflict 支持忽略当前笔记并跳过无效笔
     }
   )
 
-  assert.equal(conflict, null)
+  assert.equal(conflict?.annotation.id, 'annotation-invalid')
+  assert.equal(conflict?.reason, 'same_segment')
   assert.equal(PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE, '该段内容已存在笔记，不能重复添加')
 })
