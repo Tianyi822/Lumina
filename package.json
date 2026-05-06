@@ -28,7 +28,7 @@
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
-    "build:win": "npm run build && electron-builder --win",
+    "build:win": "set ELECTRON_BUILDER_ALLOW_UNRESOLVED_SYMLINKS=true&& npm run build && electron-builder --win",
     "build:mac": "npm run build && npm_config_electron_mirror= npm_config_electron_builder_binaries_mirror=https://cdn.npmmirror.com/binaries/electron-builder-binaries/ electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux"
   },
