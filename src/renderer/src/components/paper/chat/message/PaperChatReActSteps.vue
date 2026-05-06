@@ -60,21 +60,15 @@ const useIterationMode = computed(() => {
   )
 })
 
-// 工具结果统计
+// 工具结果统计 —— 与 toolCount 使用相同数据源
 const toolStats = computed(() => {
-  const allResults: ReActStep[] = []
-
-  if (useIterationMode.value) {
-    for (const iteration of props.iterations || []) {
-      allResults.push(...iteration.steps.filter((step) => step.type === 'tool_result'))
-    }
-  } else {
-    allResults.push(...(props.steps || []).filter((step) => step.type === 'tool_result'))
-  }
+  const items = useIterationMode.value
+    ? phaseUnits.value.flatMap((u) => u.toolItems)
+    : legacyToolItems.value
 
   return {
-    success: allResults.filter((step) => step.toolResult?.success).length,
-    failed: allResults.filter((step) => !step.toolResult?.success).length
+    success: items.filter((item) => item.status === 'success').length,
+    failed: items.filter((item) => item.status === 'error').length
   }
 })
 
