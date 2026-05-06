@@ -18,7 +18,8 @@ import {
   DeleteLabResult,
   DeleteLabOptions,
   LabContainerStatus,
-  ContainerState
+  ContainerState,
+  ContainerInfo
 } from '@main/types/lab'
 import {
   getLabDirPath,
@@ -228,9 +229,15 @@ export class LabService {
       const dirs = readdirSync(labDir, { withFileTypes: true })
       const labs: LabListItem[] = []
 
-      // 导入 DockerService
+      // 导入 DockerService 并一次性获取所有容器（避免循环内重复调用）
       const { getDockerService } = await import('./docker/DockerService')
       const dockerService = await getDockerService()
+      let allContainers: ContainerInfo[] = []
+      try {
+        allContainers = await dockerService.listContainers({ state: 'all' })
+      } catch {
+        // 获取容器列表失败，后续使用元数据中的状态
+      }
 
       for (const dir of dirs) {
         if (!dir.isDirectory()) {
@@ -247,24 +254,35 @@ export class LabService {
           if (lab) {
             // 获取容器的实时状态
             let realTimeStatus = lab.status
+            let isOrphan = lab.isOrphan
             const containerId = lab.primaryContainerId || lab.containerIds?.[0]
             if (containerId) {
               try {
-                const containers = await dockerService.listContainers({ state: 'all' })
-                const container = containers.find((c) => c.id === containerId)
+                const container = allContainers.find((c) => c.id === containerId)
                 if (container) {
-                  // 映射容器状态到实验室状态
                   if (container.state === 'running') {
                     realTimeStatus = 'running'
                   } else {
                     realTimeStatus = 'stopped'
                   }
+                  // 容器重新出现，清除孤儿标记
+                  if (isOrphan) {
+                    isOrphan = false
+                    lab.isOrphan = false
+                    this.saveLab(lab, { silent: true })
+                  }
                 } else {
-                  // 容器不存在，标记为孤儿
+                  // 容器在 Docker 中不存在，标记为孤儿并持久化
                   realTimeStatus = 'stopped'
+                  if (!isOrphan) {
+                    isOrphan = true
+                    lab.isOrphan = true
+                    lab.status = 'stopped'
+                    this.saveLab(lab, { silent: true })
+                  }
                 }
               } catch {
-                // 获取容器状态失败，使用元数据中的状态
+                // 查找容器失败，使用元数据中的状态
               }
             }
 
@@ -276,7 +294,7 @@ export class LabService {
               updatedAt: lab.updatedAt,
               creationType: lab.creationType,
               containerCount: lab.containerIds.length,
-              isOrphan: lab.isOrphan
+              isOrphan
             })
           }
         } catch {
@@ -505,7 +523,7 @@ export class LabService {
       }
 
       const removedContainers: string[] = []
-      const clearedContainerIds: string[] = []
+      const clearedContainerIds = new Set<string>()
       let removedWorkspace = false
       const force = options?.force || false
 
@@ -536,13 +554,35 @@ export class LabService {
       const failedContainers: Array<{ id: string; reason: string }> = []
 
       if (deletePolicy.shouldDeleteContainers && lab.containerIds.length > 0) {
+        const dockerAvailability = await dockerService.checkAvailable()
+        if (!dockerAvailability.available) {
+          return {
+            success: false,
+            removedContainers,
+            removedWorkspace: false,
+            keptWorkspace: hasWorkspace,
+            error: `Docker 不可用，无法确认或删除关联容器: ${dockerAvailability.error || '未知错误'}`
+          }
+        }
+
         for (const containerId of lab.containerIds) {
           try {
             // 先获取容器详情检查状态
             const containerDetails = await dockerService.getContainerDetails(containerId)
-            const isRunning = containerDetails?.state === 'running'
             const containerName =
               containerDetails?.names?.[0]?.replace(/^\//, '') || containerId.substring(0, 12)
+
+            if (!containerDetails) {
+              clearedContainerIds.add(containerId)
+              this.logOperation(
+                labId,
+                `关联容器已不存在，按已清理处理: ${containerId.substring(0, 12)}`,
+                'warn'
+              )
+              continue
+            }
+
+            const isRunning = containerDetails.state === 'running'
 
             // 如果容器正在运行，先停止它
             if (isRunning) {
@@ -562,7 +602,7 @@ export class LabService {
             const result = await dockerService.removeContainer(containerId, force || isRunning)
             if (result.success) {
               removedContainers.push(containerId)
-              clearedContainerIds.push(containerId)
+              clearedContainerIds.add(containerId)
               this.logOperation(labId, `删除容器: ${containerId.substring(0, 12)}`, 'info')
             } else {
               // 分析删除失败原因
@@ -572,12 +612,9 @@ export class LabService {
                 result.error?.includes('container is running')
               ) {
                 reason = `容器「${containerName}」正在运行，请先停止容器后再删除`
-              } else if (
-                result.error?.includes('HTTP code 404') ||
-                result.error?.includes('No such container')
-              ) {
+              } else if (this.isContainerMissingError(result.error)) {
                 reason = `容器「${containerName}」不存在，可能已被手动删除`
-                clearedContainerIds.push(containerId)
+                clearedContainerIds.add(containerId)
                 this.logOperation(
                   labId,
                   `关联容器已不存在，按已清理处理: ${containerId.substring(0, 12)}`,
@@ -587,7 +624,7 @@ export class LabService {
                 reason = `权限不足，无法删除容器「${containerName}」`
               }
 
-              if (!clearedContainerIds.includes(containerId)) {
+              if (!clearedContainerIds.has(containerId)) {
                 failedContainers.push({ id: containerId, reason })
                 logger.warn('删除容器失败', 'main', {
                   containerId: containerId.substring(0, 12),
@@ -600,12 +637,9 @@ export class LabService {
             let reason = '删除失败'
             if (errorMsg.includes('HTTP code 409') || errorMsg.includes('container is running')) {
               reason = '容器正在运行，请先停止容器后再删除'
-            } else if (
-              errorMsg.includes('HTTP code 404') ||
-              errorMsg.includes('No such container')
-            ) {
+            } else if (this.isContainerMissingError(errorMsg)) {
               reason = '容器不存在，可能已被手动删除'
-              clearedContainerIds.push(containerId)
+              clearedContainerIds.add(containerId)
               this.logOperation(
                 labId,
                 `关联容器已不存在，按已清理处理: ${containerId.substring(0, 12)}`,
@@ -613,7 +647,7 @@ export class LabService {
               )
             }
 
-            if (!clearedContainerIds.includes(containerId)) {
+            if (!clearedContainerIds.has(containerId)) {
               failedContainers.push({ id: containerId, reason })
               logger.warn('删除容器失败', 'main', {
                 containerId: containerId.substring(0, 12),
@@ -699,7 +733,7 @@ export class LabService {
       }
 
       // 构建返回结果
-      const keptCount = lab.containerIds.length - clearedContainerIds.length
+      const keptCount = lab.containerIds.length - clearedContainerIds.size
       const success = keptCount === 0 || !deletePolicy.shouldDeleteContainers
 
       logger.info('实验室删除完成', 'main', {
@@ -868,16 +902,33 @@ export class LabService {
     }
   }
 
-  private removeClearedContainersFromLab(lab: LabData, clearedContainerIds: string[]): void {
-    if (clearedContainerIds.length === 0) {
+  private isContainerMissingError(errorMessage?: string): boolean {
+    if (!errorMessage) {
+      return false
+    }
+
+    return (
+      errorMessage.includes('HTTP code 404') ||
+      errorMessage.includes('No such container') ||
+      errorMessage.includes('容器不存在') ||
+      errorMessage.includes('未找到容器详情')
+    )
+  }
+
+  private removeClearedContainersFromLab(
+    lab: LabData,
+    clearedContainerIds: Iterable<string>
+  ): void {
+    const clearedContainerIdSet = new Set(clearedContainerIds)
+    if (clearedContainerIdSet.size === 0) {
       return
     }
 
     lab.containerIds = lab.containerIds.filter(
-      (containerId) => !clearedContainerIds.includes(containerId)
+      (containerId) => !clearedContainerIdSet.has(containerId)
     )
 
-    if (lab.primaryContainerId && clearedContainerIds.includes(lab.primaryContainerId)) {
+    if (lab.primaryContainerId && clearedContainerIdSet.has(lab.primaryContainerId)) {
       lab.primaryContainerId = lab.containerIds[0]
     }
   }

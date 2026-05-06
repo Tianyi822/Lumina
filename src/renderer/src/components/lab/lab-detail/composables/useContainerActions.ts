@@ -140,6 +140,8 @@ export function useContainerActions(
           source: 'lab',
           dedupeKey: 'container-action'
         })
+      } else if (result.success) {
+        await refreshLabStatus()
       }
     }
   }
