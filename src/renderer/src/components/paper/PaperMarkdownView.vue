@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import type { PaperQuote } from '@shared/types/chat'
 import type {
   PaperAnnotation,
   PaperReadingProgress,
@@ -23,8 +22,6 @@ import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopove
 import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor.vue'
 import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu.vue'
 import PaperMarkdownSegmentList from './PaperMarkdownSegmentList.vue'
-import PaperMarkdownStatusPanels from './PaperMarkdownStatusPanels.vue'
-import PaperMarkdownAnnotationManager from './PaperMarkdownAnnotationManager.vue'
 
 const props = defineProps<{
   content: string
@@ -102,25 +99,10 @@ const composer = usePaperAnnotationComposer({
   renderedSegments: engine.renderedSegments,
   getSourceSegments: engine.getSourceSegments,
   createAnnotation: paperReaderStore.createAnnotation,
-  reanchorAnnotation: paperReaderStore.reanchorAnnotation,
   updateAnnotation: paperReaderStore.updateAnnotation,
   deleteAnnotation: paperReaderStore.deleteAnnotation,
   onAddToChat: (quote) => emit('add-to-chat', quote)
 })
-
-const annotationManagerActions = computed(() => ({
-  orphanAnnotations: composer.orphanAnnotations.value,
-  outdatedAnnotations: composer.outdatedAnnotations.value,
-  rebindAnnotationId: composer.rebindAnnotationId.value,
-  outdatedUpdating: composer.outdatedAnnotationUpdating.value,
-  outdatedError: composer.outdatedAnnotationError.value,
-  getAnnotationTypeLabel: composer.getAnnotationTypeLabel,
-  getAnnotationStatusLabel: composer.getAnnotationStatusLabel,
-  startRebind: composer.startRebind,
-  resolveAnnotationForCurrentTranslation: handleResolveAnnotationForCurrentTranslation,
-  handleDeleteAnnotation: composer.handleDeleteAnnotation,
-  handleCancelComposer: composer.handleCancelComposer
-}))
 
 function isTableWrapHorizontallyScrollable(wrap: HTMLElement): boolean {
   return wrap.scrollWidth > wrap.clientWidth + 1
@@ -235,192 +217,6 @@ function renderContentAndSyncTables(): Promise<void> {
   })
 }
 
-type AnnotationMarkViewKind = 'original' | 'translation'
-
-function findAnnotationMark(
-  annotationId: string,
-  viewKind?: AnnotationMarkViewKind
-): HTMLElement | null {
-  const surfaceSelector = viewKind
-    ? `[data-paper-selection-surface="true"][data-view-kind="${viewKind}"]`
-    : '[data-paper-selection-surface="true"]'
-  const marks = scrollContainerRef.value?.querySelectorAll<HTMLElement>(
-    `${surfaceSelector} mark.paper-annotation-highlight`
-  )
-  if (!marks) {
-    return null
-  }
-
-  return Array.from(marks).find((mark) => mark.dataset.annotationId === annotationId) || null
-}
-
-function scrollToAndPulseAnnotation(
-  annotationId: string,
-  viewKind?: AnnotationMarkViewKind
-): boolean {
-  const mark = findAnnotationMark(annotationId, viewKind)
-  if (!mark) {
-    return false
-  }
-
-  const scrollContainer = scrollContainerRef.value
-  if (scrollContainer) {
-    const containerRect = scrollContainer.getBoundingClientRect()
-    const markRect = mark.getBoundingClientRect()
-    const markTopInContent = markRect.top - containerRect.top + scrollContainer.scrollTop
-    const targetScrollTop = markTopInContent - containerRect.height / 2 + markRect.height / 2
-    scrollContainer.scrollTo({
-      top: Math.max(0, targetScrollTop),
-      behavior: 'smooth'
-    })
-  } else {
-    mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
-
-  mark.classList.remove('paper-annotation-highlight--locating')
-  void mark.offsetWidth
-  mark.classList.add('paper-annotation-highlight--locating')
-
-  window.setTimeout(() => {
-    mark.classList.remove('paper-annotation-highlight--locating')
-  }, 8000)
-
-  return true
-}
-
-async function highlightUpdatedTranslationAnnotation(annotationIds: string[]): Promise<void> {
-  await nextTick()
-  requestAnimationFrame(() => {
-    const targetAnnotationId = annotationIds.find((annotationId) =>
-      findAnnotationMark(annotationId, 'translation')
-    )
-    if (targetAnnotationId) {
-      scrollToAndPulseAnnotation(targetAnnotationId, 'translation')
-    }
-  })
-}
-
-function getFirstTranslationMissingAnnotation(): PaperAnnotation | null {
-  const sourceOrderMap = new Map(
-    engine.getSourceSegments().map((segment, index) => [segment.stableId, index])
-  )
-
-  return (
-    [...composer.translationMissingAnnotations.value].sort((left, right) => {
-      const leftOrder = sourceOrderMap.get(left.semanticAnchor.segmentStableId) ?? Number.MAX_VALUE
-      const rightOrder =
-        sourceOrderMap.get(right.semanticAnchor.segmentStableId) ?? Number.MAX_VALUE
-      return leftOrder - rightOrder || left.createdAt.localeCompare(right.createdAt)
-    })[0] || null
-  )
-}
-
-async function handleViewTranslationMissingInOriginal(): Promise<void> {
-  const targetAnnotation = getFirstTranslationMissingAnnotation()
-  paperReaderStore.hideTranslation()
-
-  if (!targetAnnotation) {
-    return
-  }
-
-  await nextTick()
-  await renderContentAndSyncTables()
-
-  requestAnimationFrame(() => {
-    if (
-      targetAnnotation.originalAnchor &&
-      scrollToAndPulseAnnotation(targetAnnotation.id, 'original')
-    ) {
-      return
-    }
-
-    composer.scrollToSegment(targetAnnotation.semanticAnchor.segmentStableId)
-  })
-}
-
-function buildAnnotationQuote(annotation: PaperAnnotation): PaperQuote | null {
-  const sourceSegment = engine
-    .getSourceSegments()
-    .find((segment) => segment.stableId === annotation.semanticAnchor.segmentStableId)
-  const textAnchor = annotation.originalAnchor
-  if (!sourceSegment || !textAnchor) {
-    return null
-  }
-
-  return {
-    id: `annotation-rebind-${annotation.id}-${Date.now()}`,
-    paperId: props.paperId,
-    segmentStableId: annotation.semanticAnchor.segmentStableId,
-    segmentIndex: sourceSegment.index,
-    viewKind: 'original',
-    selectedText: textAnchor.selectedText,
-    sourceType: 'original',
-    sourceLocation: {
-      segmentStableId: annotation.semanticAnchor.segmentStableId,
-      segmentIndex: sourceSegment.index,
-      pageIndexes: [...annotation.semanticAnchor.sourceRefs.pageIndexes],
-      blockIndexes: [...annotation.semanticAnchor.sourceRefs.blockIndexes],
-      startOffset: textAnchor.startOffset,
-      endOffset: textAnchor.endOffset
-    },
-    textAnchor,
-    sourceRevisionId: annotation.semanticAnchor.sourceRevisionId,
-    segmentTextHash: annotation.semanticAnchor.segmentTextHash
-  }
-}
-
-async function highlightAnnotationFallback(annotation: PaperAnnotation): Promise<void> {
-  await nextTick()
-  const quote = buildAnnotationQuote(annotation)
-  if (quote) {
-    quoteHighlight.scrollToQuoteAndHighlight(quote)
-    return
-  }
-
-  composer.scrollToSegment(annotation.semanticAnchor.segmentStableId)
-}
-
-async function handleUpdateAnnotationToCurrentTranslation(
-  annotation: PaperAnnotation
-): ReturnType<typeof composer.updateAnnotationToCurrentTranslation> {
-  const result = await composer.updateAnnotationToCurrentTranslation(annotation)
-  if (result.success) {
-    await highlightUpdatedTranslationAnnotation([annotation.id])
-  } else {
-    await highlightAnnotationFallback(annotation)
-  }
-  return result
-}
-
-async function handleResolveAnnotationForCurrentTranslation(
-  annotation: PaperAnnotation
-): Promise<void> {
-  if (composer.isAnnotationOutdated(annotation)) {
-    await handleUpdateAnnotationToCurrentTranslation(annotation)
-    return
-  }
-
-  composer.startRebind(annotation)
-  await highlightAnnotationFallback(annotation)
-}
-
-async function handleUpdateOutdatedAnnotationsToCurrentTranslation(): Promise<void> {
-  const candidateAnnotationIds = composer.outdatedAnnotations.value.map(
-    (annotation) => annotation.id
-  )
-  const candidateAnnotations = [...composer.outdatedAnnotations.value]
-  await composer.updateOutdatedAnnotationsToCurrentTranslation()
-  const rebindAnnotation = candidateAnnotations.find(
-    (annotation) => annotation.id === composer.rebindAnnotationId.value
-  )
-  if (rebindAnnotation) {
-    await highlightAnnotationFallback(rebindAnnotation)
-    return
-  }
-
-  await highlightUpdatedTranslationAnnotation(candidateAnnotationIds)
-}
-
 function recordMarkdownScrollPosition(): void {
   if (!props.paperId || !scrollContainerRef.value || zoomAnchor.isZooming()) {
     return
@@ -464,7 +260,6 @@ watch(
 
     if (!oldValues) {
       composer.clearComposer()
-      composer.cancelRebindMode()
       await restoreMarkdownScrollPosition(props.paperId)
       return
     }
@@ -476,7 +271,6 @@ watch(
 
     if (contentChanged || basePathChanged || translationVisibleChanged || sourceRevisionIdChanged) {
       composer.clearComposer()
-      composer.cancelRebindMode()
     }
 
     if (contentChanged || basePathChanged || sourceRevisionIdChanged) {
@@ -722,18 +516,6 @@ onBeforeUnmount(() => {
       </div>
 
       <article v-else class="paper-markdown-view__content" :style="contentZoomStyle">
-        <PaperMarkdownStatusPanels
-          :translation-missing-count="composer.translationMissingAnnotations.value.length"
-          :outdated-count="composer.outdatedAnnotations.value.length"
-          :outdated-updating="composer.outdatedAnnotationUpdating.value"
-          :outdated-error="composer.outdatedAnnotationError.value"
-          :on-retranslate="paperReaderStore.toggleTranslationVisible"
-          :on-view-in-original="handleViewTranslationMissingInOriginal"
-          :on-update-outdated="handleUpdateOutdatedAnnotationsToCurrentTranslation"
-        />
-
-        <PaperMarkdownAnnotationManager :actions="annotationManagerActions" />
-
         <PaperMarkdownSegmentList
           :segments="engine.renderedSegments.value"
           @retranslate="handleRetranslateSegment"

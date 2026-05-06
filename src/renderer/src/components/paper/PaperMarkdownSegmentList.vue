@@ -161,7 +161,7 @@ function handleCancelRetranslate(): void {
       <div class="paper-retranslate-dialog">
         <div class="paper-retranslate-dialog__title">重新翻译</div>
         <div class="paper-retranslate-dialog__body">
-          该段落存在批注或笔记，重新翻译可能导致标记失效或位置偏移。是否继续？
+          该段落存在批注或笔记。继续重新翻译后，这些标注会一起删除。
         </div>
         <div class="paper-retranslate-dialog__actions">
           <button
@@ -504,7 +504,9 @@ function handleCancelRetranslate(): void {
 }
 
 .paper-markdown-view__markdown
-  :deep(.paper-markdown-view__table-wrap--scrollable:not(.paper-markdown-view__table-wrap--dragging)) {
+  :deep(
+    .paper-markdown-view__table-wrap--scrollable:not(.paper-markdown-view__table-wrap--dragging)
+  ) {
   cursor: grab;
 }
 

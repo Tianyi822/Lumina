@@ -451,6 +451,7 @@ export type PaperAnnotationView = 'original' | 'translation'
 
 /**
  * 批注状态
+ * 兼容历史异常状态，新建批注统一使用 active
  */
 export type PaperAnnotationStatus = 'active' | 'translation_missing' | 'needs_reanchor' | 'invalid'
 
@@ -500,6 +501,7 @@ export interface PaperAnnotationTranslationAnchor extends PaperAnnotationTextAnc
 
 /**
  * 批注恢复状态
+ * 兼容历史批注数据，不再驱动自动恢复流程
  */
 export interface PaperAnnotationRecoveryMeta {
   /** 最后一次成功定位时间 */
@@ -582,34 +584,6 @@ export interface CreatePaperAnnotationPayload {
   originalAnchor?: PaperAnnotationTextAnchor
   /** 译文辅助锚点 */
   translationAnchor?: PaperAnnotationTranslationAnchor
-  /** 选中文本快照 */
-  selectedTextSnapshot: string
-  /** 前文快照 */
-  contextBefore: string
-  /** 后文快照 */
-  contextAfter: string
-  /** 批注内容 */
-  comment: string
-  /** 高亮颜色标识 */
-  colorKey: PaperAnnotationColorKey
-}
-
-/**
- * 重新绑定批注请求
- */
-export interface ReanchorPaperAnnotationPayload {
-  /** 论文 ID */
-  paperId: string
-  /** 批注 ID */
-  annotationId: string
-  /** 批注内容类型 */
-  kind: PaperAnnotationKind
-  /** 原文语义锚点 */
-  semanticAnchor: PaperAnnotationSemanticAnchor
-  /** 原文文本锚点 */
-  originalAnchor?: PaperAnnotationTextAnchor
-  /** 译文辅助锚点；传入 null 表示手动重绑到原文并清除旧译文锚点 */
-  translationAnchor?: PaperAnnotationTranslationAnchor | null
   /** 选中文本快照 */
   selectedTextSnapshot: string
   /** 前文快照 */

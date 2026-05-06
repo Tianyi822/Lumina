@@ -20,14 +20,11 @@ import type { RenderedSegment } from './usePaperMarkdownEngine'
 export interface PaperAnnotationSelectionResult {
   draft: SelectionDraft
   rect: CanonicalTextClientRect
-  targetAnnotation: PaperAnnotation | null
 }
 
 interface PaperAnnotationSelectionResolverOptions {
   renderedSegments: Ref<RenderedSegment[]>
   getSourceSegments: () => RenderSourceSegment[]
-  getAnnotationById: (annotationId: string | null) => PaperAnnotation | null
-  rebindAnnotationId: Ref<string | null>
 }
 
 export interface PaperAnnotationSelectionResolver {
@@ -42,7 +39,7 @@ export function createPaperAnnotationSelectionResolver(
 ): PaperAnnotationSelectionResolver {
   function buildSelectionDraftFromAnnotation(annotation: PaperAnnotation): SelectionDraft {
     return {
-      mode: 'rebind',
+      mode: 'create',
       annotationId: annotation.id,
       viewKind: annotation.noteType === 'translation_view' ? 'translation' : 'original',
       noteType: annotation.noteType,
@@ -84,7 +81,6 @@ export function createPaperAnnotationSelectionResolver(
       selectedRange.endOffset
     )
     const viewKind = (surface.dataset.viewKind as 'original' | 'translation') || 'original'
-    const targetAnnotation = options.getAnnotationById(options.rebindAnnotationId.value)
     const mappedOriginalAnchor =
       viewKind === 'translation' && segment.translationText
         ? mapPaperTextAnchorBetweenTexts(canonicalText, segment.originalText, textAnchor)
@@ -92,14 +88,10 @@ export function createPaperAnnotationSelectionResolver(
 
     return {
       rect: selectionRect,
-      targetAnnotation,
       draft: {
-        mode: targetAnnotation ? 'rebind' : 'create',
-        annotationId: targetAnnotation?.id,
+        mode: 'create',
         viewKind,
-        noteType:
-          targetAnnotation?.noteType ||
-          (viewKind === 'original' ? 'original_span' : 'translation_view'),
+        noteType: viewKind === 'original' ? 'original_span' : 'translation_view',
         segmentStableId: segment.stableId,
         renderSegmentId: segment.renderId,
         sourceRevisionId: segment.sourceRevisionId,

@@ -17,7 +17,6 @@ import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 import type {
   CreatePaperAnnotationPayload,
   PaperStatus,
-  ReanchorPaperAnnotationPayload,
   UpdatePaperAnnotationPayload
 } from '@shared/types/paper'
 import { statSync, readFileSync } from 'fs'
@@ -282,13 +281,6 @@ export function registerPaperHandlers(): void {
   ipcMain.handle('paper:createAnnotation', async (_event, params: CreatePaperAnnotationPayload) => {
     return getPaperService().createAnnotation(params)
   })
-
-  ipcMain.handle(
-    'paper:reanchorAnnotation',
-    async (_event, params: ReanchorPaperAnnotationPayload) => {
-      return getPaperService().reanchorAnnotation(params)
-    }
-  )
 
   ipcMain.handle('paper:updateAnnotation', async (_event, params: UpdatePaperAnnotationPayload) => {
     return getPaperService().updateAnnotation(params)

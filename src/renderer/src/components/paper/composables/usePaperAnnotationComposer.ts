@@ -53,10 +53,6 @@ export function usePaperAnnotationComposer(
   const hoverPopoverComment = ref('')
   const hoverPopoverSaving = ref(false)
   const hoverPopoverError = ref<string | null>(null)
-  const rebindAnnotationId = ref<string | null>(null)
-  const ignoredOutdatedAnnotationIds = ref<Record<string, true>>({})
-  const outdatedAnnotationUpdating = ref(false)
-  const outdatedAnnotationError = ref<string | null>(null)
 
   const currentTranslationRevisionId = computed(() => {
     const cache = options.translationCache()
@@ -72,30 +68,6 @@ export function usePaperAnnotationComposer(
   })
 
   const currentAnnotations = computed(() => options.annotations() ?? [])
-
-  const currentSegmentStableIds = computed(
-    () => new Set(options.getSourceSegments().map((segment) => segment.stableId))
-  )
-
-  const orphanAnnotations = computed(() => {
-    return currentAnnotations.value.filter((annotation) => {
-      return (
-        annotation.status === 'needs_reanchor' ||
-        annotation.status === 'invalid' ||
-        !currentSegmentStableIds.value.has(annotation.semanticAnchor.segmentStableId)
-      )
-    })
-  })
-
-  const outdatedAnnotations = computed(() => {
-    return currentAnnotations.value.filter((annotation) => isAnnotationOutdated(annotation))
-  })
-
-  const translationMissingAnnotations = computed(() => {
-    return currentAnnotations.value.filter(
-      (annotation) => annotation.status === 'translation_missing'
-    )
-  })
 
   const hoverPopoverAnnotation = computed(() => {
     if (!annotationHoverPopover.value) {
@@ -145,16 +117,9 @@ export function usePaperAnnotationComposer(
     window.getSelection()?.removeAllRanges()
   }
 
-  function cancelRebindMode(): void {
-    rebindAnnotationId.value = null
-  }
-
   function handleCancelComposer(): void {
     clearComposer()
     clearNativeSelection()
-    if (rebindAnnotationId.value) {
-      cancelRebindMode()
-    }
   }
 
   function getAnnotationById(annotationId: string | null): PaperAnnotation | null {
@@ -172,73 +137,28 @@ export function usePaperAnnotationComposer(
         segmentStableId: draft.segmentStableId,
         originalAnchor: draft.originalAnchor,
         translationAnchor: draft.translationAnchor,
-        ignoreAnnotationId: draft.mode === 'rebind' ? draft.annotationId : undefined
+        ignoreAnnotationId: draft.annotationId
       })?.annotation || null
     )
   }
 
-  function isAnnotationOutdated(annotation: PaperAnnotation): boolean {
-    if (annotation.noteType !== 'translation_view') {
-      return false
-    }
-
-    if (ignoredOutdatedAnnotationIds.value[annotation.id]) {
-      return false
-    }
-
-    return !!(
-      annotation.translationAnchor?.translationRevisionId &&
-      currentTranslationRevisionId.value &&
-      annotation.translationAnchor.translationRevisionId !== currentTranslationRevisionId.value
-    )
-  }
-
-  function scrollToSegment(stableId: string): void {
-    if (typeof document === 'undefined') {
-      return
-    }
-
-    const segmentElement = document.querySelector<HTMLElement>(
-      `[data-paper-segment-stable-id="${stableId}"]`
-    )
-    segmentElement?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    })
-  }
-
-  function startRebind(annotation: PaperAnnotation): void {
-    rebindAnnotationId.value = annotation.id
-    clearComposer()
-    scrollToSegment(annotation.semanticAnchor.segmentStableId)
-  }
-
   const selectionResolver = createPaperAnnotationSelectionResolver({
     renderedSegments: options.renderedSegments,
-    getSourceSegments: options.getSourceSegments,
-    getAnnotationById,
-    rebindAnnotationId
+    getSourceSegments: options.getSourceSegments
   })
 
   const actions = createPaperAnnotationComposerActions({
     paperId: options.paperId,
-    renderedSegments: options.renderedSegments,
     getSourceSegments: options.getSourceSegments,
     createAnnotation: options.createAnnotation,
-    reanchorAnnotation: options.reanchorAnnotation,
     deleteAnnotation: options.deleteAnnotation,
     onAddToChat: options.onAddToChat,
     currentTranslationRevisionId,
     currentTranslationModelName,
-    rebindAnnotationId,
-    ignoredOutdatedAnnotationIds,
     noteEditorDraft,
     annotationHoverPopover,
-    hoverPopoverError,
-    cancelRebindMode,
     clearSelectionUi,
-    clearHoverPopover,
-    startRebind
+    clearHoverPopover
   })
 
   function openSelectionActionMenu(draft: SelectionDraft, rect: CanonicalTextClientRect): void {
@@ -249,19 +169,6 @@ export function usePaperAnnotationComposer(
       y: position.y
     }
     selectionActionMenuError.value = null
-  }
-
-  function getNoteEditorIntent(draft: SelectionDraft): NoteEditorState['intent'] {
-    return draft.mode === 'rebind' ? 'rebind' : 'create'
-  }
-
-  function openNoteEditor(
-    draft: SelectionDraft,
-    rect: CanonicalTextClientRect,
-    comment: string
-  ): void {
-    const position = computeFloatingPosition(rect, NOTE_EDITOR_WIDTH, NOTE_EDITOR_HEIGHT)
-    openNoteEditorAtPosition(draft, position.x, position.y, comment, getNoteEditorIntent(draft))
   }
 
   function openNoteEditorAtPosition(
@@ -300,7 +207,7 @@ export function usePaperAnnotationComposer(
       x,
       y,
       annotation.comment,
-      'rebind'
+      'edit'
     )
   }
 
@@ -349,23 +256,6 @@ export function usePaperAnnotationComposer(
 
     clearComposer()
 
-    if (selectionResult.targetAnnotation) {
-      if (selectionResult.targetAnnotation.kind === 'note') {
-        if (findNoteConflict(selectionResult.draft)) {
-          openSelectionActionMenu(selectionResult.draft, selectionResult.rect)
-          selectionActionMenuError.value = PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE
-          return
-        }
-
-        openNoteEditor(
-          selectionResult.draft,
-          selectionResult.rect,
-          selectionResult.targetAnnotation.comment
-        )
-        return
-      }
-    }
-
     openSelectionActionMenu(selectionResult.draft, selectionResult.rect)
   }
 
@@ -405,7 +295,7 @@ export function usePaperAnnotationComposer(
       selectionActionMenu.value.x,
       selectionActionMenu.value.y,
       targetAnnotation?.comment || '',
-      getNoteEditorIntent(selectionActionMenu.value.draft)
+      'create'
     )
   }
 
@@ -573,77 +463,6 @@ export function usePaperAnnotationComposer(
     }
   }
 
-  async function updateAnnotationToCurrentTranslation(
-    annotation: PaperAnnotation
-  ): Promise<{ success: boolean; requiresRebind?: boolean; error?: string }> {
-    outdatedAnnotationError.value = null
-    const result = await actions.updateAnnotationToCurrentTranslation(annotation)
-    if (!result.success && result.error) {
-      outdatedAnnotationError.value = result.error
-    }
-    return result
-  }
-
-  async function updateOutdatedAnnotationsToCurrentTranslation(): Promise<void> {
-    if (outdatedAnnotationUpdating.value) {
-      return
-    }
-
-    outdatedAnnotationUpdating.value = true
-    outdatedAnnotationError.value = null
-
-    try {
-      const pendingAnnotations = [...outdatedAnnotations.value]
-      let updatedCount = 0
-
-      for (const annotation of pendingAnnotations) {
-        const result = await actions.updateAnnotationToCurrentTranslation(annotation)
-        if (result.success) {
-          updatedCount += 1
-          continue
-        }
-
-        outdatedAnnotationError.value =
-          updatedCount > 0
-            ? `已更新 ${updatedCount} 条标注，下一条需要手动重新绑定。`
-            : result.error || '当前译文变化较大，需要手动重新绑定。'
-        break
-      }
-    } finally {
-      outdatedAnnotationUpdating.value = false
-    }
-  }
-
-  function dismissOutdatedAnnotation(annotationId: string): void {
-    actions.dismissOutdatedAnnotation(annotationId)
-  }
-
-  function getAnnotationTypeLabel(annotation: PaperAnnotation): string {
-    if (annotation.kind === 'highlight') {
-      return '标记'
-    }
-
-    return annotation.noteType === 'original_span' ? '原文笔记' : '译文笔记'
-  }
-
-  function getAnnotationStatusLabel(annotation: PaperAnnotation): string | null {
-    if (annotation.status === 'translation_missing') {
-      return '译文缺失'
-    }
-    if (annotation.status === 'needs_reanchor') {
-      return '待重新定位'
-    }
-    if (annotation.status === 'invalid') {
-      return '数据异常'
-    }
-
-    if (isAnnotationOutdated(annotation)) {
-      return '旧译文'
-    }
-
-    return null
-  }
-
   function handleDocumentPointerDown(event: MouseEvent): void {
     const target = event.target as HTMLElement | null
     if (!target) {
@@ -676,7 +495,6 @@ export function usePaperAnnotationComposer(
     if (event.key === 'Escape') {
       clearComposer()
       clearNativeSelection()
-      cancelRebindMode()
     }
   }
 
@@ -723,15 +541,8 @@ export function usePaperAnnotationComposer(
     hoverPopoverComment,
     hoverPopoverSaving,
     hoverPopoverError,
-    rebindAnnotationId,
-    ignoredOutdatedAnnotationIds,
     highlightColorOptions: PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS,
     currentAnnotations,
-    orphanAnnotations,
-    outdatedAnnotations,
-    outdatedAnnotationUpdating,
-    outdatedAnnotationError,
-    translationMissingAnnotations,
     currentTranslationRevisionId,
     updateComposerFromSelection,
     handleCreateHighlight,
@@ -747,17 +558,8 @@ export function usePaperAnnotationComposer(
     handleUpdateHoverColor,
     handleSaveHoverNote,
     handleDeleteAnnotation,
-    startRebind,
-    updateAnnotationToCurrentTranslation,
-    updateOutdatedAnnotationsToCurrentTranslation,
-    cancelRebindMode,
     clearComposer,
     handleCancelComposer,
-    scrollToSegment,
-    dismissOutdatedAnnotation,
-    getAnnotationTypeLabel,
-    getAnnotationStatusLabel,
-    isAnnotationOutdated,
     handleDocumentPointerDown,
     handleDocumentKeyDown,
     handleSurfaceAnnotationClick

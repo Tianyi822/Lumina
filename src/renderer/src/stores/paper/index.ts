@@ -572,7 +572,6 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     setPaperChatSession,
     ensurePaperChatSession,
     createAnnotation: annotations.createAnnotation,
-    reanchorAnnotation: annotations.reanchorAnnotation,
     updateAnnotation: annotations.updateAnnotation,
     deleteAnnotation: annotations.deleteAnnotation,
     toggleTranslationVisible: translation.toggleTranslationVisible,

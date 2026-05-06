@@ -13,7 +13,6 @@ import {
   extractPaperFigureData,
   type ExtractedPaperFigureData
 } from './paperFigureExtractor'
-import { recoverPaperAnnotation } from './paperAnnotationRecovery'
 import { getPaperDirPath } from './paperPaths'
 import { localizePaperPageAssets } from './paperAssetLocalizer'
 import type {
@@ -30,10 +29,7 @@ import type {
   PaperPageOcrResult,
   UpdatePaperAnnotationPayload
 } from '@shared/types/paper'
-import {
-  PAPER_ANNOTATION_NOTE_COLOR_KEY,
-  type ReanchorPaperAnnotationPayload
-} from '@shared/types/paper'
+import { PAPER_ANNOTATION_NOTE_COLOR_KEY } from '@shared/types/paper'
 import { buildPaperTextAnchor } from '@shared/utils/paperAnnotationAnchors'
 import {
   PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE,
@@ -435,7 +431,7 @@ export class PaperService {
           contextAfter: originalAnchor.suffixText,
           comment: legacyAnnotation.comment,
           colorKey: PAPER_ANNOTATION_NOTE_COLOR_KEY,
-          status: matched?.matchedOffset !== null ? 'active' : 'needs_reanchor',
+          status: 'active',
           recoveryMeta: {
             recoveryFailureCount: matched?.matchedOffset !== null ? 0 : 1,
             lastResolvedAt: matched?.matchedOffset !== null ? now : undefined,
@@ -659,38 +655,9 @@ export class PaperService {
       return { success: false, error: annotationStoreResult.error || '读取论文批注失败' }
     }
 
-    const translationAvailable = !!paperStorageService.readTranslationCache(paperId).success
-    const now = new Date().toISOString()
-    let changed = false
-    const recoveredAnnotations = annotationStoreResult.data.annotations.map((annotation) => {
-      const result = recoverPaperAnnotation(
-        annotation,
-        readerResult.data!,
-        translationAvailable,
-        now
-      )
-      changed = changed || result.changed
-      return result.annotation
-    })
-
-    if (changed) {
-      const nextStore: PaperAnnotationStore = {
-        ...annotationStoreResult.data,
-        annotations: recoveredAnnotations,
-        updatedAt: now
-      }
-      const saveResult = paperStorageService.saveAnnotationStore(paperId, nextStore)
-      if (!saveResult.success) {
-        logger.warn('恢复论文批注后写回失败', 'main', {
-          paperId,
-          error: saveResult.error
-        })
-      }
-    }
-
     return {
       success: true,
-      data: recoveredAnnotations
+      data: annotationStoreResult.data.annotations
     }
   }
 
@@ -761,11 +728,7 @@ export class PaperService {
         contextAfter: params.contextAfter,
         comment: normalizedContentResult.data.comment,
         colorKey: normalizedContentResult.data.colorKey,
-        status:
-          params.noteType === 'translation_view' &&
-          !paperStorageService.readTranslationCache(params.paperId).success
-            ? 'translation_missing'
-            : 'active',
+        status: 'active',
         recoveryMeta: {
           recoveryFailureCount: 0,
           lastResolvedAt: now
@@ -849,147 +812,6 @@ export class PaperService {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('删除论文批注失败', 'main', { paperId, annotationId, error: errorMessage })
       return { success: false, error: errorMessage || '删除批注时发生内部错误' }
-    }
-  }
-
-  async reanchorAnnotation(params: ReanchorPaperAnnotationPayload): Promise<{
-    success: boolean
-    data?: PaperAnnotation
-    error?: string
-  }> {
-    try {
-      const readerResult = await this.getReaderDocument(params.paperId)
-      if (!readerResult.success || !readerResult.data) {
-        return { success: false, error: readerResult.error || '读取阅读器文档失败' }
-      }
-
-      const annotationStoreResult = await this.resolveAnnotationStore(
-        params.paperId,
-        readerResult.data
-      )
-      if (!annotationStoreResult.success || !annotationStoreResult.data) {
-        return { success: false, error: annotationStoreResult.error || '读取论文批注失败' }
-      }
-
-      const annotationIndex = annotationStoreResult.data.annotations.findIndex((annotation) => {
-        return annotation.id === params.annotationId
-      })
-      if (annotationIndex < 0) {
-        return { success: false, error: '要重新绑定的笔记不存在' }
-      }
-
-      const targetSegment = readerResult.data.segments.find((segment) => {
-        return segment.stableId === params.semanticAnchor.segmentStableId
-      })
-      if (!targetSegment) {
-        return { success: false, error: '当前选择的目标段落不存在' }
-      }
-
-      const currentAnnotation = annotationStoreResult.data.annotations[annotationIndex]
-
-      const translationAvailable = !!paperStorageService.readTranslationCache(params.paperId)
-        .success
-      const normalizedContentResult = normalizeAnnotationContent(
-        params.kind,
-        params.colorKey,
-        params.comment
-      )
-      if (!normalizedContentResult.success) {
-        return { success: false, error: normalizedContentResult.error }
-      }
-      const nextOriginalAnchor = params.originalAnchor || currentAnnotation.originalAnchor
-      const nextTranslationAnchor =
-        params.translationAnchor === null
-          ? undefined
-          : params.translationAnchor
-            ? { ...params.translationAnchor }
-            : translationAvailable
-              ? currentAnnotation.translationAnchor
-              : undefined
-
-      if (currentAnnotation.noteType === 'original_span' && !nextOriginalAnchor) {
-        return { success: false, error: '原文锚定笔记必须绑定到原文文本' }
-      }
-
-      if (
-        currentAnnotation.noteType === 'translation_view' &&
-        !nextOriginalAnchor &&
-        !nextTranslationAnchor
-      ) {
-        return { success: false, error: '译文笔记缺少可用锚点，无法完成重新绑定' }
-      }
-
-      const now = new Date().toISOString()
-      const nextAnnotation: PaperAnnotation = {
-        ...currentAnnotation,
-        kind: params.kind,
-        semanticAnchor: {
-          segmentStableId: targetSegment.stableId,
-          renderSegmentIdAtCreation: targetSegment.renderId,
-          sourceRevisionId: targetSegment.sourceRevisionId,
-          segmentTextHash: targetSegment.textHash,
-          sourceRefs: targetSegment.sourceRefs
-        },
-        originalAnchor: nextOriginalAnchor ? { ...nextOriginalAnchor } : undefined,
-        translationAnchor: nextTranslationAnchor,
-        selectedTextSnapshot: params.selectedTextSnapshot,
-        contextBefore: params.contextBefore,
-        contextAfter: params.contextAfter,
-        comment: normalizedContentResult.data.comment,
-        colorKey: normalizedContentResult.data.colorKey,
-        status:
-          currentAnnotation.noteType === 'translation_view' && !translationAvailable
-            ? 'translation_missing'
-            : 'active',
-        recoveryMeta: {
-          ...currentAnnotation.recoveryMeta,
-          recoveryFailureCount: 0,
-          lastRecoveryAttemptAt: now,
-          lastResolvedAt: now
-        },
-        updatedAt: now
-      }
-
-      const noteConflict = findPaperAnnotationNoteConflict(annotationStoreResult.data.annotations, {
-        kind: params.kind,
-        segmentStableId: targetSegment.stableId,
-        originalAnchor: nextAnnotation.originalAnchor,
-        translationAnchor: nextAnnotation.translationAnchor,
-        ignoreAnnotationId: params.annotationId
-      })
-      if (noteConflict) {
-        return { success: false, error: PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE }
-      }
-
-      const nextAnnotations = [...annotationStoreResult.data.annotations]
-      nextAnnotations[annotationIndex] = nextAnnotation
-
-      const nextStore: PaperAnnotationStore = {
-        ...annotationStoreResult.data,
-        annotations: nextAnnotations,
-        updatedAt: now
-      }
-      const saveResult = paperStorageService.saveAnnotationStore(params.paperId, nextStore)
-      if (!saveResult.success) {
-        return { success: false, error: saveResult.error || '更新论文批注失败' }
-      }
-
-      if (nextAnnotation.kind === 'note') {
-        await this.syncPaperNotesResource(params.paperId, nextStore.annotations)
-      }
-
-      return {
-        success: true,
-        data: nextAnnotation
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('重新绑定论文批注失败', 'main', {
-        paperId: params.paperId,
-        annotationId: params.annotationId,
-        error: errorMessage
-      })
-      return { success: false, error: errorMessage || '重新绑定批注时发生内部错误' }
     }
   }
 
