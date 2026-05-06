@@ -90,7 +90,11 @@ export class LabToolService {
   /**
    * 执行指定工具
    */
-  async callTool(name: string, args: ToolArgs): Promise<MCPToolCallResult> {
+  async callTool(
+    name: string,
+    args: ToolArgs,
+    onProgress?: (message: string) => void
+  ): Promise<MCPToolCallResult> {
     logger.info(`执行实验室工具: ${name}`, 'main', { args })
 
     try {
@@ -101,7 +105,7 @@ export class LabToolService {
 
       const tool = this.tools.get(name)
       if (tool) {
-        return await tool.execute(args)
+        return await tool.execute(args, onProgress)
       }
 
       return {

@@ -60,7 +60,8 @@ export const createFrontendLabTool: LabToolDefinition = {
       }
     }
 
-    const framework = (args.framework as FrontendFramework | undefined) || DEFAULT_FRONTEND_FRAMEWORK
+    const framework =
+      (args.framework as FrontendFramework | undefined) || DEFAULT_FRONTEND_FRAMEWORK
     const shouldReuse = args.reuse_existing !== false
 
     if (shouldReuse) {

@@ -17,8 +17,12 @@ export class LabToolAdapter implements ToolAdapter {
     }))
   }
 
-  async execute(toolName: string, args: Record<string, unknown>): Promise<MCPToolCallResult> {
+  async execute(
+    toolName: string,
+    args: Record<string, unknown>,
+    onProgress?: (message: string) => void
+  ): Promise<MCPToolCallResult> {
     const fullName = toolName.startsWith('lab__') ? toolName : `lab__${toolName}`
-    return labToolService.callTool(fullName, args)
+    return labToolService.callTool(fullName, args, onProgress)
   }
 }

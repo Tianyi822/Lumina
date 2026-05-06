@@ -25,7 +25,11 @@ export interface ToolAdapter {
   getTools(): MCPToolReference[]
 
   /** 执行工具调用，返回结构化的工具调用结果 */
-  execute(toolName: string, args: Record<string, unknown>): Promise<MCPToolCallResult>
+  execute(
+    toolName: string,
+    args: Record<string, unknown>,
+    onProgress?: (message: string) => void
+  ): Promise<MCPToolCallResult>
 }
 
 /**
