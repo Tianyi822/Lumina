@@ -1,3 +1,5 @@
+import { Readable } from 'stream'
+
 /**
  * POSIX tar 格式构建工具
  * 纯函数，不依赖任何服务状态
@@ -8,7 +10,10 @@ export interface TarEntry {
   type: 'file' | 'directory'
   mode: number
   mtime: number
-  content?: Buffer
+  /** 文件内容。字符串按 UTF-8 写入 tar。 */
+  content?: Buffer | string
+  /** 内容字节数；传字符串内容时可避免重复计算。 */
+  size?: number
 }
 
 /**
@@ -20,9 +25,10 @@ export function buildTarArchive(entries: TarEntry[]): Buffer {
   for (const entry of entries) {
     chunks.push(createTarHeader(entry))
 
-    if (entry.type === 'file' && entry.content) {
-      chunks.push(entry.content)
-      const paddingSize = (512 - (entry.content.length % 512)) % 512
+    if (entry.type === 'file' && entry.content !== undefined) {
+      const content = toContentBuffer(entry.content)
+      chunks.push(content)
+      const paddingSize = (512 - (getContentByteLength(entry) % 512)) % 512
       if (paddingSize > 0) {
         chunks.push(Buffer.alloc(paddingSize))
       }
@@ -35,12 +41,52 @@ export function buildTarArchive(entries: TarEntry[]): Buffer {
 }
 
 /**
+ * 根据条目列表构建 tar archive 流，避免提前 Buffer.concat 整个归档。
+ */
+export function createTarArchiveStream(entries: TarEntry[]): NodeJS.ReadableStream {
+  return Readable.from(createTarArchiveChunks(entries), { objectMode: false })
+}
+
+/**
+ * 计算 tar archive 总字节数，用于日志和进度展示。
+ */
+export function getTarArchiveSize(entries: TarEntry[]): number {
+  let size = 1024
+
+  for (const entry of entries) {
+    size += 512
+    if (entry.type === 'file' && entry.content !== undefined) {
+      const contentSize = getContentByteLength(entry)
+      size += contentSize + ((512 - (contentSize % 512)) % 512)
+    }
+  }
+
+  return size
+}
+
+function* createTarArchiveChunks(entries: TarEntry[]): Generator<Buffer> {
+  for (const entry of entries) {
+    yield createTarHeader(entry)
+
+    if (entry.type === 'file' && entry.content !== undefined) {
+      yield toContentBuffer(entry.content)
+      const paddingSize = (512 - (getContentByteLength(entry) % 512)) % 512
+      if (paddingSize > 0) {
+        yield Buffer.alloc(paddingSize)
+      }
+    }
+  }
+
+  yield Buffer.alloc(1024)
+}
+
+/**
  * 创建单个 tar 头部（512 字节）
  */
 export function createTarHeader(entry: TarEntry): Buffer {
   const header = Buffer.alloc(512, 0)
   const { name, prefix } = splitTarPath(entry.path)
-  const size = entry.type === 'file' ? entry.content?.length || 0 : 0
+  const size = entry.type === 'file' ? getContentByteLength(entry) : 0
 
   writeTarString(header, name, 0, 100)
   writeTarOctal(header, entry.mode || (entry.type === 'directory' ? 0o755 : 0o644), 100, 8)
@@ -65,6 +111,17 @@ export function createTarHeader(entry: TarEntry): Buffer {
   writeTarChecksum(header, checksum)
 
   return header
+}
+
+function getContentByteLength(entry: TarEntry): number {
+  if (entry.size !== undefined) return entry.size
+  if (entry.content === undefined) return 0
+  if (Buffer.isBuffer(entry.content)) return entry.content.length
+  return Buffer.byteLength(entry.content, 'utf-8')
+}
+
+function toContentBuffer(content: Buffer | string): Buffer {
+  return Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf-8')
 }
 
 /**
