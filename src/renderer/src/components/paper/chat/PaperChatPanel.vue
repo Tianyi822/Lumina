@@ -177,6 +177,9 @@ async function handleClearContext(): Promise<void> {
   const cleared = await clearContext()
   if (cleared) {
     dismissedQuickReplyIds.value = new Set()
+    if (sessionId.value) {
+      paperChatStreamStore.resetPlanState(sessionId.value)
+    }
   }
 }
 

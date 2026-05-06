@@ -103,7 +103,10 @@ function isReasoningExpanded(messageId: string): boolean {
 function hasRenderableReact(message: Message): boolean {
   const hasIterationContent =
     message.reactIterations?.some(
-      (iteration) => iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
+      (iteration) =>
+        iteration.reasoning.trim().length > 0 ||
+        iteration.steps.length > 0 ||
+        (iteration.content?.trim().length ?? 0) > 0
     ) || false
   const hasLegacySteps = (message.reactSteps?.length || 0) > 0
   return message.role === 'assistant' && (hasIterationContent || hasLegacySteps)
