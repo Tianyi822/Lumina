@@ -831,6 +831,7 @@ function getLocalPhaseIndex(unit: PhaseUnit): number {
 }
 
 .paper-chat-react-steps__reasoning {
+  contain: content;
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-md);
   background: var(--sm-color-surface-2);
@@ -904,11 +905,13 @@ function getLocalPhaseIndex(unit: PhaseUnit): number {
 .paper-chat-react-steps__reasoning-content {
   padding: 0 12px 12px;
   max-height: 400px;
-  overflow-y: auto;
+  overflow-y: scroll;
   border-top: 1px solid var(--sm-color-border-subtle);
+  overscroll-behavior: contain;
 }
 
 .paper-chat-react-steps__reasoning-text {
+  contain: layout style;
   font-size: 12px;
   line-height: 1.55;
   color: var(--sm-color-text-secondary);
