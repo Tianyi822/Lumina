@@ -14,8 +14,6 @@ import type { StopController } from './StopController'
 import type { StreamHandler } from './StreamHandler'
 import type { ReactLoopService } from './ReactLoopService'
 import { promptBuilder } from './PromptBuilder'
-import { SkillToolAdapter } from './tools/adapters/SkillToolAdapter'
-import { skillService } from '../skill'
 
 /**
  * PlanExecuteService 配置选项
@@ -63,7 +61,6 @@ export class PlanExecuteService {
   private readonly createClient: PlanExecuteServiceOptions['createClient']
   private readonly validateAndGetLLMConfig: PlanExecuteServiceOptions['validateAndGetLLMConfig']
   private readonly reactLoopService: PlanExecuteServiceOptions['reactLoopService']
-  private readonly skillAdapter = new SkillToolAdapter()
 
   constructor(options: PlanExecuteServiceOptions) {
     this.logger = options.logger
@@ -680,11 +677,7 @@ export class PlanExecuteService {
   }
 
   private buildPlanningTools(request: ChatRequest): MCPToolReference[] {
-    const tools = [...(request.selectedTools ?? [])]
-    if (skillService.hasAvailableSkills()) {
-      tools.push(...this.skillAdapter.getTools())
-    }
-    return tools
+    return [...(request.selectedTools ?? [])]
   }
 
   private buildStepResultContext(stepIndex: number, result: ChatResult): string {

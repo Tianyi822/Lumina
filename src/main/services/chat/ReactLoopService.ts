@@ -16,13 +16,11 @@ import {
   KnowledgeToolAdapter,
   MCPToolAdapter,
   LabToolAdapter,
-  SkillToolAdapter,
   UnifiedToolExecutor,
   UnifiedToolRegistry
 } from './tools'
 import type { ReactLoopServiceOptions } from './chatInternal'
 import { StreamProcessor } from './StreamProcessor'
-import { skillService } from '../skill'
 import { paperWebSearchService, PaperWebSearchToolAdapter } from '../paper-web-search'
 
 interface ReactLoopRuntimeOptions {
@@ -45,7 +43,6 @@ export class ReactLoopService {
   private readonly unifiedToolExecutor: UnifiedToolExecutor
   private readonly toolRegistry: UnifiedToolRegistry
   private readonly labAdapter: LabToolAdapter
-  private readonly skillAdapter: SkillToolAdapter
   private readonly paperWebSearchAdapter: PaperWebSearchToolAdapter
   private readonly knowledgeAdapter: KnowledgeToolAdapter
   private readonly mcpAdapter: MCPToolAdapter | null
@@ -67,7 +64,6 @@ export class ReactLoopService {
 
     this.toolRegistry = new UnifiedToolRegistry()
     this.labAdapter = new LabToolAdapter()
-    this.skillAdapter = new SkillToolAdapter()
     this.paperWebSearchAdapter = new PaperWebSearchToolAdapter(paperWebSearchService)
     this.knowledgeAdapter = new KnowledgeToolAdapter()
     this.mcpAdapter = options.mcpService ? new MCPToolAdapter(options.mcpService) : null
@@ -226,7 +222,6 @@ export class ReactLoopService {
     this.toolRegistry.unregisterByCategory('lab')
     this.toolRegistry.unregisterByCategory('knowledge')
     this.toolRegistry.unregisterByCategory('mcp')
-    this.toolRegistry.unregisterByCategory('skill')
     this.toolRegistry.unregisterByCategory('paper_web')
 
     if (selectedTools && selectedTools.length > 0 && this.mcpAdapter) {
@@ -257,17 +252,6 @@ export class ReactLoopService {
         knowledgeToolCount: knowledgeTools.length,
         totalToolCount: this.toolRegistry.size,
         selectedKnowledgeBases: selectedKnowledgeBases.map((kb) => kb.name)
-      })
-    }
-
-    if (skillService.hasAvailableSkills()) {
-      const skillTools = this.skillAdapter.getTools()
-      this.toolRegistry.registerBatch(skillTools, this.skillAdapter, 'skill')
-
-      this.logger.info('已添加 Skill 工具到工具列表', 'main', {
-        sessionId,
-        skillToolCount: skillTools.length,
-        totalToolCount: this.toolRegistry.size
       })
     }
 

@@ -64,38 +64,27 @@ test('大量工具使用精简描述', () => {
   assert.doesNotMatch(description, /示例:/)
 })
 
-test('Skill 类别工具使用 skill 前缀并保持原始描述', () => {
+test('名为 skill 的 MCP 服务按普通 MCP 工具处理', () => {
   const registry = new UnifiedToolRegistry()
   registry.registerBatch(
     [
       {
         serverName: 'skill',
         toolName: 'list',
-        description: '列出用户已启用的 Skill 摘要。',
+        description: 'List remote server data.',
         inputSchema: { type: 'object', properties: {}, required: [] }
-      },
-      {
-        serverName: 'skill',
-        toolName: 'read',
-        description: '读取指定 Skill 的完整说明书。',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            skillId: { type: 'string' }
-          },
-          required: ['skillId']
-        }
       }
     ],
     adapter,
-    'skill'
+    'mcp'
   )
 
   const tools = registry.buildOpenAITools()
 
   assert.deepEqual(
     tools.map((tool) => getFunctionTool(tool).function.name),
-    ['skill__list', 'skill__read']
+    ['skill__list']
   )
-  assert.equal(getFunctionTool(tools[0]).function.description, '列出用户已启用的 Skill 摘要。')
+  assert.equal(getFunctionTool(tools[0]).function.description, 'List remote server data.')
+  assert.equal(registry.getTool('skill__list')?.category, 'mcp')
 })
