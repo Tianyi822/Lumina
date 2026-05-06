@@ -12,6 +12,7 @@ export interface UsePaperReadingProgressOptions {
   sourceRevisionId: () => string | undefined
   readingProgress: () => PaperReadingProgress | null | undefined
   translationVisible: () => boolean
+  isZooming?: () => boolean
 }
 
 export function usePaperReadingProgress(options: UsePaperReadingProgressOptions): void {
@@ -52,6 +53,8 @@ export function usePaperReadingProgress(options: UsePaperReadingProgressOptions)
 
     observer = new IntersectionObserver(
       (entries) => {
+        if (options.isZooming?.()) return
+
         let bestId: string | null = null
         let bestRatio = 0
 

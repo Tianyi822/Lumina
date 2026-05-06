@@ -5,33 +5,20 @@ import type {
   PaperAnnotation,
   PaperAnnotationColorKey,
   PaperAnnotationKind,
-  PaperAnnotationTextAnchor,
-  PaperReaderSegmentSourceRefs,
-  ReanchorPaperAnnotationPayload
+  PaperAnnotationTextAnchor
 } from '@shared/types/paper'
-import { mapPaperTextAnchorBetweenTexts } from '@shared/utils/paperAnnotationAnchors'
 import type {
   AnnotationHoverPopoverState,
   NoteEditorState,
   SelectionDraft
 } from './paperAnnotationComposerTypes'
 import type { RenderSourceSegment } from './usePaperHighlightRenderer'
-import type { RenderedSegment } from './usePaperMarkdownEngine'
-
-const EMPTY_SOURCE_REFS: PaperReaderSegmentSourceRefs = {
-  pageIndexes: [],
-  blockIndexes: []
-}
 
 interface PaperAnnotationComposerActionsOptions {
   paperId: () => string
-  renderedSegments: Ref<RenderedSegment[]>
   getSourceSegments: () => RenderSourceSegment[]
   createAnnotation: (
     params: CreatePaperAnnotationPayload
-  ) => Promise<{ success: boolean; data?: PaperAnnotation; error?: string }>
-  reanchorAnnotation: (
-    params: ReanchorPaperAnnotationPayload
   ) => Promise<{ success: boolean; data?: PaperAnnotation; error?: string }>
   deleteAnnotation: (
     paperId: string,
@@ -40,15 +27,10 @@ interface PaperAnnotationComposerActionsOptions {
   onAddToChat?: (quote: PaperQuote) => void
   currentTranslationRevisionId: ComputedRef<string | null>
   currentTranslationModelName: ComputedRef<string | undefined>
-  rebindAnnotationId: Ref<string | null>
-  ignoredOutdatedAnnotationIds: Ref<Record<string, true>>
   noteEditorDraft: Ref<NoteEditorState | null>
   annotationHoverPopover: Ref<AnnotationHoverPopoverState | null>
-  hoverPopoverError: Ref<string | null>
-  cancelRebindMode: () => void
   clearSelectionUi: () => void
   clearHoverPopover: () => void
-  startRebind: (annotation: PaperAnnotation) => void
 }
 
 export interface PaperAnnotationComposerActions {
@@ -60,10 +42,6 @@ export interface PaperAnnotationComposerActions {
   ) => Promise<{ success: boolean; error?: string }>
   addSelectionDraftToChat: (draft: SelectionDraft) => { success: boolean; error?: string }
   deleteAnnotationById: (annotationId: string) => Promise<{ success: boolean; error?: string }>
-  updateAnnotationToCurrentTranslation: (
-    annotation: PaperAnnotation
-  ) => Promise<{ success: boolean; requiresRebind?: boolean; error?: string }>
-  dismissOutdatedAnnotation: (annotationId: string) => void
 }
 
 export function createPaperAnnotationComposerActions(
@@ -96,46 +74,23 @@ export function createPaperAnnotationComposerActions(
       segmentTextHash: draft.segmentTextHash,
       sourceRefs: draft.sourceRefs
     }
-    const translationAnchor = createTranslationAnchorPayload(draft.translationAnchor)
-    const rebindTranslationAnchor =
-      draft.mode === 'rebind' && draft.viewKind === 'original' ? null : translationAnchor
-
-    const result =
-      draft.mode === 'rebind' && draft.annotationId
-        ? await options.reanchorAnnotation({
-            paperId: options.paperId(),
-            annotationId: draft.annotationId,
-            kind,
-            semanticAnchor,
-            originalAnchor: draft.originalAnchor,
-            translationAnchor: rebindTranslationAnchor,
-            selectedTextSnapshot: draft.selectedText,
-            contextBefore: draft.contextBefore,
-            contextAfter: draft.contextAfter,
-            comment,
-            colorKey
-          } satisfies ReanchorPaperAnnotationPayload)
-        : await options.createAnnotation({
-            paperId: options.paperId(),
-            kind,
-            noteType: draft.noteType,
-            createdInView: draft.viewKind,
-            semanticAnchor,
-            originalAnchor: draft.originalAnchor,
-            translationAnchor,
-            selectedTextSnapshot: draft.selectedText,
-            contextBefore: draft.contextBefore,
-            contextAfter: draft.contextAfter,
-            comment,
-            colorKey
-          } satisfies CreatePaperAnnotationPayload)
+    const result = await options.createAnnotation({
+      paperId: options.paperId(),
+      kind,
+      noteType: draft.noteType,
+      createdInView: draft.viewKind,
+      semanticAnchor,
+      originalAnchor: draft.originalAnchor,
+      translationAnchor: createTranslationAnchorPayload(draft.translationAnchor),
+      selectedTextSnapshot: draft.selectedText,
+      contextBefore: draft.contextBefore,
+      contextAfter: draft.contextAfter,
+      comment,
+      colorKey
+    } satisfies CreatePaperAnnotationPayload)
 
     if (!result.success) {
       return { success: false, error: result.error }
-    }
-
-    if (draft.mode === 'rebind') {
-      options.cancelRebindMode()
     }
 
     return { success: true }
@@ -213,10 +168,6 @@ export function createPaperAnnotationComposerActions(
       return { success: false, error: result.error }
     }
 
-    if (options.rebindAnnotationId.value === annotationId) {
-      options.cancelRebindMode()
-    }
-
     if (options.noteEditorDraft.value?.draft.annotationId === annotationId) {
       options.clearSelectionUi()
     }
@@ -228,75 +179,9 @@ export function createPaperAnnotationComposerActions(
     return { success: true }
   }
 
-  async function updateAnnotationToCurrentTranslation(
-    annotation: PaperAnnotation
-  ): Promise<{ success: boolean; requiresRebind?: boolean; error?: string }> {
-    const segment = options.renderedSegments.value.find(
-      (item) => item.stableId === annotation.semanticAnchor.segmentStableId
-    )
-    if (!segment || !segment.translationText || !annotation.originalAnchor) {
-      options.startRebind(annotation)
-      return { success: false, requiresRebind: true, error: '无法自动映射到当前译文' }
-    }
-
-    const mapped = mapPaperTextAnchorBetweenTexts(
-      segment.originalText,
-      segment.translationText,
-      annotation.originalAnchor
-    )
-    if (!mapped || mapped.confidence < 0.58) {
-      options.startRebind(annotation)
-      return { success: false, requiresRebind: true, error: '当前译文变化较大，需要手动重新绑定' }
-    }
-
-    const payload: ReanchorPaperAnnotationPayload = {
-      paperId: options.paperId(),
-      annotationId: annotation.id,
-      kind: annotation.kind,
-      semanticAnchor: {
-        segmentStableId: segment.stableId,
-        renderSegmentIdAtCreation: segment.renderId,
-        sourceRevisionId: segment.sourceRevisionId,
-        segmentTextHash: segment.textHash,
-        sourceRefs:
-          options.getSourceSegments().find((item) => item.stableId === segment.stableId)
-            ?.sourceRefs || EMPTY_SOURCE_REFS
-      },
-      originalAnchor: annotation.originalAnchor,
-      translationAnchor: createTranslationAnchorPayload(mapped.anchor),
-      selectedTextSnapshot: mapped.anchor.selectedText,
-      contextBefore: mapped.anchor.prefixText,
-      contextAfter: mapped.anchor.suffixText,
-      comment: annotation.comment,
-      colorKey: annotation.colorKey
-    }
-
-    const result = await options.reanchorAnnotation(payload)
-    if (result.success) {
-      options.ignoredOutdatedAnnotationIds.value = {
-        ...options.ignoredOutdatedAnnotationIds.value,
-        [annotation.id]: true
-      }
-      return { success: true }
-    }
-
-    options.hoverPopoverError.value = result.error || '更新到当前译文失败'
-    options.startRebind(annotation)
-    return { success: false, requiresRebind: true, error: result.error || '更新到当前译文失败' }
-  }
-
-  function dismissOutdatedAnnotation(annotationId: string): void {
-    options.ignoredOutdatedAnnotationIds.value = {
-      ...options.ignoredOutdatedAnnotationIds.value,
-      [annotationId]: true
-    }
-  }
-
   return {
     persistSelectionDraft,
     addSelectionDraftToChat,
-    deleteAnnotationById,
-    updateAnnotationToCurrentTranslation,
-    dismissOutdatedAnnotation
+    deleteAnnotationById
   }
 }

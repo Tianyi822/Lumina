@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import type { PaperQuote } from '@shared/types/chat'
 import type {
   PaperAnnotation,
   PaperReadingProgress,
@@ -23,8 +22,6 @@ import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopove
 import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor.vue'
 import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu.vue'
 import PaperMarkdownSegmentList from './PaperMarkdownSegmentList.vue'
-import PaperMarkdownStatusPanels from './PaperMarkdownStatusPanels.vue'
-import PaperMarkdownAnnotationManager from './PaperMarkdownAnnotationManager.vue'
 
 const props = defineProps<{
   content: string
@@ -57,6 +54,18 @@ const contentZoomStyle = computed(() => ({
   zoom: markdownZoomLevel.value
 }))
 
+interface TableDragState {
+  wrap: HTMLElement
+  pointerId: number
+  startClientX: number
+  startScrollLeft: number
+  hasDragged: boolean
+}
+
+const TABLE_DRAG_THRESHOLD = 4
+let tableDragState: TableDragState | null = null
+let lastTableDragEndedAt = 0
+
 const engine = usePaperMarkdownEngine({
   content: () => props.content,
   basePath: () => props.basePath,
@@ -68,6 +77,8 @@ const engine = usePaperMarkdownEngine({
   clearToc: paperReaderStore.clearPaperToc
 })
 
+const zoomAnchor = useZoomAnchor()
+
 usePaperReadingProgress({
   scrollContainer: scrollContainerRef,
   paperId: () => props.paperId,
@@ -75,12 +86,8 @@ usePaperReadingProgress({
   loading: () => props.loading,
   sourceRevisionId: () => props.readerDocument?.sourceRevisionId,
   readingProgress: () => props.readingProgress,
-  translationVisible: () => props.translationVisible
-})
-
-const zoomAnchor = useZoomAnchor({
-  containerRef: scrollContainerRef,
-  zoomLevelRef: markdownZoomLevel
+  translationVisible: () => props.translationVisible,
+  isZooming: zoomAnchor.isZooming
 })
 
 const composer = usePaperAnnotationComposer({
@@ -90,169 +97,142 @@ const composer = usePaperAnnotationComposer({
   renderedSegments: engine.renderedSegments,
   getSourceSegments: engine.getSourceSegments,
   createAnnotation: paperReaderStore.createAnnotation,
-  reanchorAnnotation: paperReaderStore.reanchorAnnotation,
   updateAnnotation: paperReaderStore.updateAnnotation,
   deleteAnnotation: paperReaderStore.deleteAnnotation,
   onAddToChat: (quote) => emit('add-to-chat', quote)
 })
 
-const annotationManagerActions = computed(() => ({
-  orphanAnnotations: composer.orphanAnnotations.value,
-  outdatedAnnotations: composer.outdatedAnnotations.value,
-  rebindAnnotationId: composer.rebindAnnotationId.value,
-  outdatedUpdating: composer.outdatedAnnotationUpdating.value,
-  outdatedError: composer.outdatedAnnotationError.value,
-  getAnnotationTypeLabel: composer.getAnnotationTypeLabel,
-  getAnnotationStatusLabel: composer.getAnnotationStatusLabel,
-  startRebind: composer.startRebind,
-  resolveAnnotationForCurrentTranslation: handleResolveAnnotationForCurrentTranslation,
-  handleDeleteAnnotation: composer.handleDeleteAnnotation,
-  handleCancelComposer: composer.handleCancelComposer
-}))
-
-function findAnnotationMark(annotationId: string): HTMLElement | null {
-  const marks = scrollContainerRef.value?.querySelectorAll<HTMLElement>(
-    '.paper-markdown-view__segment-translation mark.paper-annotation-highlight'
-  )
-  if (!marks) {
-    return null
-  }
-
-  return Array.from(marks).find((mark) => mark.dataset.annotationId === annotationId) || null
+function isTableWrapHorizontallyScrollable(wrap: HTMLElement): boolean {
+  return wrap.scrollWidth > wrap.clientWidth + 1
 }
 
-function scrollToAndPulseAnnotation(annotationId: string): void {
-  const mark = findAnnotationMark(annotationId)
-  if (!mark) {
+function syncScrollableTableWrapState(): void {
+  scrollContainerRef.value
+    ?.querySelectorAll<HTMLElement>('.paper-markdown-view__table-wrap')
+    .forEach((wrap) => {
+      wrap.classList.toggle(
+        'paper-markdown-view__table-wrap--scrollable',
+        isTableWrapHorizontallyScrollable(wrap)
+      )
+    })
+}
+
+function cleanupTableDragListeners(): void {
+  if (typeof window === 'undefined') {
     return
   }
 
-  const scrollContainer = scrollContainerRef.value
-  if (scrollContainer) {
-    const containerRect = scrollContainer.getBoundingClientRect()
-    const markRect = mark.getBoundingClientRect()
-    const markTopInContent = markRect.top - containerRect.top + scrollContainer.scrollTop
-    const targetScrollTop = markTopInContent - containerRect.height / 2 + markRect.height / 2
-    scrollContainer.scrollTo({
-      top: Math.max(0, targetScrollTop),
-      behavior: 'smooth'
-    })
-  } else {
-    mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
-
-  mark.classList.remove('paper-annotation-highlight--locating')
-  void mark.offsetWidth
-  mark.classList.add('paper-annotation-highlight--locating')
-
-  window.setTimeout(() => {
-    mark.classList.remove('paper-annotation-highlight--locating')
-  }, 8000)
+  window.removeEventListener('pointermove', handleTablePointerMove)
+  window.removeEventListener('pointerup', handleTablePointerUp)
+  window.removeEventListener('pointercancel', handleTablePointerUp)
 }
 
-async function highlightUpdatedTranslationAnnotation(annotationIds: string[]): Promise<void> {
-  await nextTick()
-  requestAnimationFrame(() => {
-    const targetAnnotationId = annotationIds.find((annotationId) =>
-      findAnnotationMark(annotationId)
-    )
-    if (targetAnnotationId) {
-      scrollToAndPulseAnnotation(targetAnnotationId)
-    }
+function clearTableDragState(): void {
+  tableDragState?.wrap.classList.remove('paper-markdown-view__table-wrap--dragging')
+  tableDragState = null
+  cleanupTableDragListeners()
+}
+
+function shouldIgnoreTableDragTarget(target: Element): boolean {
+  return !!target.closest(
+    [
+      'a',
+      'button',
+      'input',
+      'textarea',
+      'select',
+      'mark.paper-annotation-highlight',
+      '.paper-markdown-view__retranslate-btn'
+    ].join(', ')
+  )
+}
+
+function handleTablePointerDown(event: PointerEvent): void {
+  if (event.button !== 0 || typeof window === 'undefined') {
+    return
+  }
+
+  const target = event.target
+  if (!(target instanceof Element) || shouldIgnoreTableDragTarget(target)) {
+    return
+  }
+
+  const wrap = target.closest<HTMLElement>('.paper-markdown-view__table-wrap')
+  if (!wrap || !isTableWrapHorizontallyScrollable(wrap)) {
+    return
+  }
+
+  clearTableDragState()
+  tableDragState = {
+    wrap,
+    pointerId: event.pointerId,
+    startClientX: event.clientX,
+    startScrollLeft: wrap.scrollLeft,
+    hasDragged: false
+  }
+
+  window.addEventListener('pointermove', handleTablePointerMove, { passive: false })
+  window.addEventListener('pointerup', handleTablePointerUp)
+  window.addEventListener('pointercancel', handleTablePointerUp)
+}
+
+function handleTablePointerMove(event: PointerEvent): void {
+  if (!tableDragState || event.pointerId !== tableDragState.pointerId) {
+    return
+  }
+
+  const deltaX = event.clientX - tableDragState.startClientX
+  if (!tableDragState.hasDragged && Math.abs(deltaX) < TABLE_DRAG_THRESHOLD) {
+    return
+  }
+
+  if (!tableDragState.hasDragged) {
+    tableDragState.hasDragged = true
+    tableDragState.wrap.classList.add('paper-markdown-view__table-wrap--dragging')
+    window.getSelection()?.removeAllRanges()
+  }
+
+  event.preventDefault()
+  tableDragState.wrap.scrollLeft = tableDragState.startScrollLeft - deltaX
+}
+
+function handleTablePointerUp(event: PointerEvent): void {
+  if (!tableDragState || event.pointerId !== tableDragState.pointerId) {
+    return
+  }
+
+  if (tableDragState.hasDragged) {
+    lastTableDragEndedAt = Date.now()
+  }
+
+  clearTableDragState()
+}
+
+function renderContentAndSyncTables(): Promise<void> {
+  return engine.renderContent().then(async () => {
+    await nextTick()
+    syncScrollableTableWrapState()
   })
 }
 
-function buildAnnotationQuote(annotation: PaperAnnotation): PaperQuote | null {
-  const sourceSegment = engine
-    .getSourceSegments()
-    .find((segment) => segment.stableId === annotation.semanticAnchor.segmentStableId)
-  const textAnchor = annotation.originalAnchor
-  if (!sourceSegment || !textAnchor) {
-    return null
-  }
-
-  return {
-    id: `annotation-rebind-${annotation.id}-${Date.now()}`,
-    paperId: props.paperId,
-    segmentStableId: annotation.semanticAnchor.segmentStableId,
-    segmentIndex: sourceSegment.index,
-    viewKind: 'original',
-    selectedText: textAnchor.selectedText,
-    sourceType: 'original',
-    sourceLocation: {
-      segmentStableId: annotation.semanticAnchor.segmentStableId,
-      segmentIndex: sourceSegment.index,
-      pageIndexes: [...annotation.semanticAnchor.sourceRefs.pageIndexes],
-      blockIndexes: [...annotation.semanticAnchor.sourceRefs.blockIndexes],
-      startOffset: textAnchor.startOffset,
-      endOffset: textAnchor.endOffset
-    },
-    textAnchor,
-    sourceRevisionId: annotation.semanticAnchor.sourceRevisionId,
-    segmentTextHash: annotation.semanticAnchor.segmentTextHash
-  }
-}
-
-async function highlightAnnotationFallback(annotation: PaperAnnotation): Promise<void> {
-  await nextTick()
-  const quote = buildAnnotationQuote(annotation)
-  if (quote) {
-    quoteHighlight.scrollToQuoteAndHighlight(quote)
-    return
-  }
-
-  composer.scrollToSegment(annotation.semanticAnchor.segmentStableId)
-}
-
-async function handleUpdateAnnotationToCurrentTranslation(
-  annotation: PaperAnnotation
-): ReturnType<typeof composer.updateAnnotationToCurrentTranslation> {
-  const result = await composer.updateAnnotationToCurrentTranslation(annotation)
-  if (result.success) {
-    await highlightUpdatedTranslationAnnotation([annotation.id])
-  } else {
-    await highlightAnnotationFallback(annotation)
-  }
-  return result
-}
-
-async function handleResolveAnnotationForCurrentTranslation(
-  annotation: PaperAnnotation
-): Promise<void> {
-  if (composer.isAnnotationOutdated(annotation)) {
-    await handleUpdateAnnotationToCurrentTranslation(annotation)
-    return
-  }
-
-  composer.startRebind(annotation)
-  await highlightAnnotationFallback(annotation)
-}
-
-async function handleUpdateOutdatedAnnotationsToCurrentTranslation(): Promise<void> {
-  const candidateAnnotationIds = composer.outdatedAnnotations.value.map(
-    (annotation) => annotation.id
-  )
-  const candidateAnnotations = [...composer.outdatedAnnotations.value]
-  await composer.updateOutdatedAnnotationsToCurrentTranslation()
-  const rebindAnnotation = candidateAnnotations.find(
-    (annotation) => annotation.id === composer.rebindAnnotationId.value
-  )
-  if (rebindAnnotation) {
-    await highlightAnnotationFallback(rebindAnnotation)
-    return
-  }
-
-  await highlightUpdatedTranslationAnnotation(candidateAnnotationIds)
-}
+let scrollRafId: number | null = null
 
 function recordMarkdownScrollPosition(): void {
   if (!props.paperId || !scrollContainerRef.value || zoomAnchor.isZooming()) {
     return
   }
 
-  paperReaderStore.setMarkdownScrollPosition(props.paperId, {
-    scrollTop: scrollContainerRef.value.scrollTop,
-    scrollLeft: scrollContainerRef.value.scrollLeft
+  if (scrollRafId !== null) {
+    return
+  }
+
+  scrollRafId = requestAnimationFrame(() => {
+    scrollRafId = null
+    if (!props.paperId || !scrollContainerRef.value) return
+    paperReaderStore.setMarkdownScrollPosition(props.paperId, {
+      scrollTop: scrollContainerRef.value.scrollTop,
+      scrollLeft: scrollContainerRef.value.scrollLeft
+    })
   })
 }
 
@@ -284,11 +264,10 @@ watch(
     composer.currentAnnotations.value.map((annotation) => annotation.updatedAt).join('|')
   ],
   async (newValues, oldValues) => {
-    await engine.renderContent()
+    await renderContentAndSyncTables()
 
     if (!oldValues) {
       composer.clearComposer()
-      composer.cancelRebindMode()
       await restoreMarkdownScrollPosition(props.paperId)
       return
     }
@@ -300,7 +279,6 @@ watch(
 
     if (contentChanged || basePathChanged || translationVisibleChanged || sourceRevisionIdChanged) {
       composer.clearComposer()
-      composer.cancelRebindMode()
     }
 
     if (contentChanged || basePathChanged || sourceRevisionIdChanged) {
@@ -344,6 +322,16 @@ function handleHoverPopoverDelete(): void {
 
 function handleHoverPopoverOpenNoteEditor(): void {
   composer.handleOpenNoteEditorFromHover()
+}
+
+function handleMarkdownClick(event: MouseEvent): void {
+  if (Date.now() - lastTableDragEndedAt < 160) {
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+
+  composer.handleSurfaceAnnotationClick(event)
 }
 
 function handleDocumentKeyDown(event: KeyboardEvent): void {
@@ -406,18 +394,51 @@ watch(textSearch.isOpen, (open) => {
   }
 })
 
+let zoomSettleTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(markdownZoomLevel, (newVal, oldVal) => {
+  const container = scrollContainerRef.value
+  if (!container || !oldVal || newVal === oldVal) return
+
+  if (!zoomAnchor.isZooming()) {
+    zoomAnchor.beginZoom(container)
+  }
+
+  // 在 Vue DOM 更新后、浏览器绘制前同步修正滚动位置
+  nextTick(() => {
+    if (scrollContainerRef.value) {
+      zoomAnchor.applyZoomFrame(scrollContainerRef.value)
+    }
+    syncScrollableTableWrapState()
+  })
+
+  if (zoomSettleTimer !== null) clearTimeout(zoomSettleTimer)
+  zoomSettleTimer = setTimeout(() => {
+    zoomSettleTimer = null
+    zoomAnchor.endZoom()
+  }, 150)
+})
+
 if (typeof document !== 'undefined') {
   document.addEventListener('mousedown', composer.handleDocumentPointerDown)
   document.addEventListener('keydown', handleDocumentKeyDown)
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', syncScrollableTableWrapState)
 }
 
 onBeforeUnmount(() => {
   recordMarkdownScrollPosition()
   paperReaderStore.clearPaperToc()
   textSearch.closeSearch()
+  clearTableDragState()
   if (typeof document !== 'undefined') {
     document.removeEventListener('mousedown', composer.handleDocumentPointerDown)
     document.removeEventListener('keydown', handleDocumentKeyDown)
+  }
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', syncScrollableTableWrapState)
   }
 })
 </script>
@@ -505,7 +526,8 @@ onBeforeUnmount(() => {
       ref="scrollContainerRef"
       class="paper-markdown-view__scroll"
       @mouseup="composer.updateComposerFromSelection"
-      @click="composer.handleSurfaceAnnotationClick"
+      @click="handleMarkdownClick"
+      @pointerdown="handleTablePointerDown"
       @scroll="recordMarkdownScrollPosition"
       @wheel="paperReaderStore.handleWheelZoom"
     >
@@ -522,18 +544,6 @@ onBeforeUnmount(() => {
       </div>
 
       <article v-else class="paper-markdown-view__content" :style="contentZoomStyle">
-        <PaperMarkdownStatusPanels
-          :translation-missing-count="composer.translationMissingAnnotations.value.length"
-          :outdated-count="composer.outdatedAnnotations.value.length"
-          :outdated-updating="composer.outdatedAnnotationUpdating.value"
-          :outdated-error="composer.outdatedAnnotationError.value"
-          :on-retranslate="paperReaderStore.toggleTranslationVisible"
-          :on-view-in-original="paperReaderStore.hideTranslation"
-          :on-update-outdated="handleUpdateOutdatedAnnotationsToCurrentTranslation"
-        />
-
-        <PaperMarkdownAnnotationManager :actions="annotationManagerActions" />
-
         <PaperMarkdownSegmentList
           :segments="engine.renderedSegments.value"
           @retranslate="handleRetranslateSegment"

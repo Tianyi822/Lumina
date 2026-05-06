@@ -1,4 +1,4 @@
-import { watch, type Ref } from 'vue'
+import type { Ref } from 'vue'
 
 export interface ZoomAnchor {
   stableId: string
@@ -52,52 +52,40 @@ export function restoreAnchor(container: HTMLElement, anchor: ZoomAnchor): void 
   container.scrollTop += delta
 }
 
+export interface ZoomAnchorController {
+  beginZoom(container: HTMLElement): void
+  applyZoomFrame(container: HTMLElement): void
+  endZoom(): void
+  isZooming(): boolean
+}
+
 export interface UseZoomAnchorOptions {
   containerRef: Ref<HTMLElement | null>
-  zoomLevelRef: Ref<number>
 }
 
-export interface UseZoomAnchorResult {
-  isZooming: () => boolean
-}
-
-export function useZoomAnchor(options: UseZoomAnchorOptions): UseZoomAnchorResult {
+export function useZoomAnchor(_options?: UseZoomAnchorOptions): ZoomAnchorController {
   let zooming = false
-  let currentZoomId = 0
-
-  watch(
-    options.zoomLevelRef,
-    (newZoom, oldZoom) => {
-      const container = options.containerRef.value
-      if (!container || !oldZoom || newZoom === oldZoom) {
-        return
-      }
-
-      const thisZoomId = ++currentZoomId
-      zooming = true
-
-      const anchor = captureAnchor(container)
-
-      requestAnimationFrame(() => {
-        if (thisZoomId !== currentZoomId) {
-          return
-        }
-
-        if (anchor) {
-          restoreAnchor(container, anchor)
-        }
-
-        requestAnimationFrame(() => {
-          if (thisZoomId === currentZoomId) {
-            zooming = false
-          }
-        })
-      })
-    },
-    { flush: 'pre' }
-  )
+  let anchor: ZoomAnchor | null = null
 
   return {
-    isZooming: () => zooming
+    beginZoom(container: HTMLElement): void {
+      anchor = captureAnchor(container)
+      zooming = true
+    },
+
+    applyZoomFrame(container: HTMLElement): void {
+      if (anchor) {
+        restoreAnchor(container, anchor)
+      }
+    },
+
+    endZoom(): void {
+      zooming = false
+      anchor = null
+    },
+
+    isZooming(): boolean {
+      return zooming
+    }
   }
 }

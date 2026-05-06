@@ -57,9 +57,6 @@ export function findPaperAnnotationNoteConflict(
   for (const annotation of annotations) {
     if (
       annotation.kind !== 'note' ||
-      annotation.status === 'invalid' ||
-      annotation.status === 'translation_missing' ||
-      annotation.status === 'needs_reanchor' ||
       annotation.id === target.ignoreAnnotationId ||
       annotation.semanticAnchor.segmentStableId !== target.segmentStableId
     ) {
