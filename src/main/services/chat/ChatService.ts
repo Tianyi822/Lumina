@@ -3,7 +3,6 @@ import type { WebContents } from 'electron'
 import { configManager } from '../config'
 import { logger } from '../logger'
 import { mcpService } from '../mcp'
-import { skillService } from '../skill'
 import type { ChatRequest, ChatResult, KnowledgeSearchResult, TokenUsage } from '../../types/chat'
 import type { LLMConfig } from '../../types/config'
 import {
@@ -71,7 +70,6 @@ export class ChatService {
     this.stopController.clearStoppedSession(sessionId)
 
     const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
-    const hasSkillTools = skillService.hasAvailableSkills()
     const hasTools =
       (selectedTools && selectedTools.length > 0) ||
       request.enableLabTools ||
@@ -85,7 +83,7 @@ export class ChatService {
       return result
     }
 
-    if (hasKnowledgeBases || hasTools || hasSkillTools) {
+    if (hasKnowledgeBases || hasTools) {
       const result = await this.reactLoopService.sendMessageWithReact(
         request,
         webContents,

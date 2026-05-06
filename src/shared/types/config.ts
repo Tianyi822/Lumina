@@ -81,7 +81,6 @@ import type { MCPServerConfig, MCPTransportType } from './mcp'
 
 // 知识库 MCP 服务配置
 import type { KnowledgeMCPConfig } from './knowledgeMCP'
-import type { SkillConfig } from './skill'
 
 // 重新导出以保持向后兼容
 export type { MCPServerConfig, MCPTransportType }
@@ -166,8 +165,6 @@ export interface AppConfig {
   theme: ThemeConfig
   llm_config: LLMConfigObject
   mcpServers: MCPServers
-  /** 外部 Skill 包配置 */
-  skills?: SkillConfig
   /** 知识库使用的嵌入模型配置集合 */
   embeddingModels?: EmbeddingConfigs
   /** 知识库 MCP 服务配置 */

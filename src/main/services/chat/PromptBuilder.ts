@@ -29,10 +29,6 @@ export class PromptBuilder {
       prompt += '\n\n' + buildKnowledgeEnhancedPrompt()
     }
 
-    if (this.hasSkillTools(selectedTools)) {
-      prompt += '\n\n' + this.buildSkillToolGuide()
-    }
-
     // 当 paper_web 搜索工具可用时，添加论文搜索行为指南
     if (this.hasPaperWebSearchTools(selectedTools)) {
       prompt += '\n\n' + this.buildPaperWebSearchGuide()
@@ -53,11 +49,7 @@ export class PromptBuilder {
    * 构建规划阶段的系统提示词
    */
   buildPlanSystemPrompt(tools: MCPToolReference[] = [], paperContext?: string): string {
-    const prompt = buildPlanSystemPrompt(tools, paperContext)
-    if (!this.hasSkillTools(tools)) {
-      return prompt
-    }
-    return `${prompt}\n\n${this.buildSkillToolGuide()}`
+    return buildPlanSystemPrompt(tools, paperContext)
   }
 
   /**
@@ -72,21 +64,8 @@ export class PromptBuilder {
     return buildStepExecutionPrompt(stepTitle, stepDescription, previousResults, previousFailure)
   }
 
-  private hasSkillTools(tools?: MCPToolReference[]): boolean {
-    return tools?.some((tool) => tool.serverName === 'skill') ?? false
-  }
-
   private hasPaperWebSearchTools(tools?: MCPToolReference[]): boolean {
     return tools?.some((tool) => tool.serverName === 'paper_web') ?? false
-  }
-
-  private buildSkillToolGuide(): string {
-    return `# Skill 工具使用指南
-
-- Skill 是用户添加的外部工作说明书；是否需要使用由你根据任务自行判断
-- 不确定是否有合适 Skill 时，先调用 skill__list 查看摘要，不要猜测说明书内容
-- 只有摘要明显相关时，再调用 skill__read 读取完整 SKILL.md 并按其中流程执行
-- 如果任务很简单或没有相关 Skill，直接回答，不要为了使用 Skill 而调用工具`
   }
 
   private buildPaperWebSearchGuide(): string {
