@@ -36,7 +36,7 @@ export const writeProjectFilesTool: LabToolDefinition = {
     required: ['files']
   },
   serverName: 'lab',
-  async execute(args: ToolArgs, onProgress?: (message: string) => void): Promise<MCPToolCallResult> {
+  async execute(args: ToolArgs): Promise<MCPToolCallResult> {
     const lab = await findLab(args as { lab_id?: string; lab_name?: string })
     if (!lab) {
       return { success: false, error: '未找到指定的实验室' }
@@ -47,14 +47,8 @@ export const writeProjectFilesTool: LabToolDefinition = {
       return { success: false, error: '缺少必需参数: files' }
     }
 
-    const progressMessages: string[] = []
-    const collectProgress = (msg: string): void => {
-      progressMessages.push(msg)
-      onProgress?.(msg)
-    }
-
     const projectRoot = resolveProjectRootForWrite(lab, args.project_root as string | undefined)
-    const result = await labFileService.writeProjectFiles(lab.labId, files, projectRoot, collectProgress)
+    const result = await labFileService.writeProjectFiles(lab.labId, files, projectRoot)
 
     if (!result.success) {
       return {
@@ -63,17 +57,12 @@ export const writeProjectFilesTool: LabToolDefinition = {
       }
     }
 
-    const progressSummary =
-      progressMessages.length > 0
-        ? `\n\n写入进度：\n${progressMessages.map((m) => `  • ${m}`).join('\n')}`
-        : ''
-
     return {
       success: true,
       content: [
         {
           type: 'text',
-          text: `成功写入 ${result.writtenCount} 个文件到实验室 ${lab.name}${progressSummary}`
+          text: `成功写入 ${result.writtenCount} 个文件到实验室 ${lab.name}`
         }
       ]
     }

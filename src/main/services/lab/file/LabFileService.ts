@@ -10,13 +10,23 @@ import {
   normalizeProjectFilePath,
   normalizeProjectRoot
 } from './filePaths'
-import { buildTarArchive, type TarEntry } from './tarBuilder'
+import {
+  buildTarArchive,
+  createTarArchiveStream,
+  getTarArchiveSize,
+  type TarEntry
+} from './tarBuilder'
 
 const dockerService = getDockerService()
 
 interface NormalizedFileWriteRequest {
   path: string
   content: string
+}
+
+interface MemoryTarArchiveEntries {
+  entries: TarEntry[]
+  totalContentBytes: number
 }
 
 /** 单文件大小阈值（1MB），超过此值使用流式写入 */
@@ -91,6 +101,7 @@ export class LabFileService {
     }
 
     const totalCount = validationResult.files.length
+    const totalStartTime = Date.now()
     const reportProgress = (msg: string): void => {
       logger.info(msg, 'main', { labId, containerId: containerId.substring(0, 12) })
       onProgress?.(msg)
@@ -99,16 +110,29 @@ export class LabFileService {
     let tempDir: string | null = null
 
     try {
-      let archive: Buffer
+      let archive: Buffer | NodeJS.ReadableStream
+      let archiveSizeBytes = 0
+      let totalContentBytes = 0
+      let tarPrepareDurationMs = 0
 
       if (LabFileService.buildTarFromMemory) {
-        reportProgress(`开始内存直建 tar（${totalCount} 个文件）...`)
-        archive = this.createTarArchiveFromMemory(validationResult.files, reportProgress)
-        reportProgress(`tar 构建完成，正准备上传到容器...`)
+        const tarPrepareStartTime = Date.now()
+        reportProgress(`开始准备 tar 流（${totalCount} 个文件）...`)
+        const archiveEntries = this.createTarEntriesFromMemory(
+          validationResult.files,
+          reportProgress
+        )
+        archive = createTarArchiveStream(archiveEntries.entries)
+        archiveSizeBytes = getTarArchiveSize(archiveEntries.entries)
+        totalContentBytes = archiveEntries.totalContentBytes
+        tarPrepareDurationMs = Date.now() - tarPrepareStartTime
+        reportProgress(`tar 流准备完成，正准备上传到容器...`)
       } else {
         await fs.mkdir(getLabFileTempRoot(), { recursive: true })
         tempDir = await fs.mkdtemp(join(getLabFileTempRoot(), `${labId}-`))
-        reportProgress(`临时目录已创建，开始写入 ${totalCount} 个文件（并发数: ${LabFileService.writeConcurrency}）...`)
+        reportProgress(
+          `临时目录已创建，开始写入 ${totalCount} 个文件（并发数: ${LabFileService.writeConcurrency}）...`
+        )
 
         const writeResults = await this.writeFilesToTempDir(
           tempDir,
@@ -128,8 +152,14 @@ export class LabFileService {
           }
         }
 
-        reportProgress(`文件写入完成（成功 ${writeResults.length - failedWriteDetails.length}/${totalCount}），正在构建 tar...`)
+        reportProgress(
+          `文件写入完成（成功 ${writeResults.length - failedWriteDetails.length}/${totalCount}），正在构建 tar...`
+        )
+        const tarPrepareStartTime = Date.now()
         archive = await this.createTarArchive(tempDir)
+        archiveSizeBytes = archive.length
+        totalContentBytes = this.calculateTotalContentBytes(validationResult.files)
+        tarPrepareDurationMs = Date.now() - tarPrepareStartTime
         reportProgress('tar 构建完成，正准备上传到容器...')
 
         if (failedWriteDetails.length > 0) {
@@ -141,11 +171,14 @@ export class LabFileService {
         }
       }
 
-      const archiveSizeMB = (archive.length / (1024 * 1024)).toFixed(2)
+      const archiveSizeMB = (archiveSizeBytes / (1024 * 1024)).toFixed(2)
       reportProgress(`正在上传 tar 到容器（${archiveSizeMB} MB）...`)
 
       const container = dockerService.getDocker().getContainer(containerId)
+      const uploadStartTime = Date.now()
       await container.putArchive(archive, { path: normalizedProjectRoot })
+      const uploadDurationMs = Date.now() - uploadStartTime
+      const totalDurationMs = Date.now() - totalStartTime
 
       reportProgress(`文件上传完成！共写入 ${totalCount} 个文件到 ${normalizedProjectRoot}`)
 
@@ -153,7 +186,12 @@ export class LabFileService {
         labId,
         containerId: containerId.substring(0, 12),
         projectRoot: normalizedProjectRoot,
-        writtenCount: totalCount
+        writtenCount: totalCount,
+        totalContentBytes,
+        archiveSizeBytes,
+        tarPrepareDurationMs,
+        uploadDurationMs,
+        totalDurationMs
       })
 
       return {
@@ -351,18 +389,18 @@ export class LabFileService {
   }
 
   /**
-   * 从内存中的文件内容直接生成 tar archive
-   * 跳过写临时目录再读回的双重 I/O
+   * 从内存中的文件内容准备 tar 条目
    */
-  private createTarArchiveFromMemory(
+  private createTarEntriesFromMemory(
     files: NormalizedFileWriteRequest[],
     onProgress?: (message: string) => void
-  ): Buffer {
+  ): MemoryTarArchiveEntries {
     const total = files.length
-    onProgress?.(`正在从内存构建 tar（${total} 个文件）...`)
+    onProgress?.(`正在准备 tar 条目（${total} 个文件）...`)
 
     const directoryPaths = new Set<string>()
     const entries: TarEntry[] = []
+    let totalContentBytes = 0
 
     for (const file of files) {
       const parts = file.path.split('/')
@@ -385,21 +423,27 @@ export class LabFileService {
     const sortedFiles = [...files].sort((a, b) => a.path.localeCompare(b.path))
     let processed = 0
     for (const file of sortedFiles) {
-      const contentBuffer = Buffer.from(file.content, 'utf-8')
+      const contentSize = Buffer.byteLength(file.content, 'utf-8')
+      totalContentBytes += contentSize
       entries.push({
         path: file.path,
         type: 'file',
         mode: 0o644,
         mtime: now,
-        content: contentBuffer
+        content: file.content,
+        size: contentSize
       })
       processed++
       if (processed % Math.max(1, Math.floor(total / 5)) === 0 || processed === total) {
-        onProgress?.(`tar 打包进度: ${processed}/${total} 个文件`)
+        onProgress?.(`tar 条目准备进度: ${processed}/${total} 个文件`)
       }
     }
 
-    return buildTarArchive(entries)
+    return { entries, totalContentBytes }
+  }
+
+  private calculateTotalContentBytes(files: NormalizedFileWriteRequest[]): number {
+    return files.reduce((sum, file) => sum + Buffer.byteLength(file.content, 'utf-8'), 0)
   }
 
   /**
