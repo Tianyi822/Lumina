@@ -312,17 +312,43 @@ export class PlanExecuteService {
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: planPrompt },
-      ...request.messages.slice(-4).map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content || ''
-      }))
+      ...request.messages.slice(-4).map((m) => {
+        if (m.role === 'tool') {
+          return {
+            role: 'tool' as const,
+            tool_call_id: m.tool_call_id || '',
+            content: m.content || ''
+          }
+        }
+
+        if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
+          return {
+            role: 'assistant' as const,
+            content: m.content || null,
+            tool_calls: m.tool_calls
+          }
+        }
+
+        if (m.role === 'assistant' && m.reasoning_content) {
+          return {
+            role: 'assistant' as const,
+            content: m.content || '',
+            reasoning_content: m.reasoning_content
+          }
+        }
+
+        return {
+          role: m.role as 'system' | 'user' | 'assistant',
+          content: m.content || ''
+        }
+      })
     ]
 
     const response = await client.chat.completions.create(
       {
         model: llmConfig.model_name,
         messages,
-        temperature: 0.3
+        temperature: 1
       },
       { signal: abortController.signal }
     )
