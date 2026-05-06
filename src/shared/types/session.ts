@@ -38,6 +38,10 @@ export interface ReActIterationData {
   reasoning: string
   /** 该迭代的工具调用/结果步骤 */
   steps: ReActStepData[]
+  /** 该迭代的文本输出内容（Plan 模式下按步骤累加） */
+  content?: string
+  /** Plan 模式下所属的任务编号（1-based） */
+  taskNumber?: number
 }
 
 /**

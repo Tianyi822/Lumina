@@ -90,6 +90,10 @@ export interface ReActIteration {
   isActive?: boolean
   /** 当前迭代状态 */
   status?: UiReactIterationStatus
+  /** 该迭代的文本输出内容（Plan 模式下按步骤累加） */
+  content?: string
+  /** Plan 模式下所属的任务编号（1-based） */
+  taskNumber?: number
 }
 
 /**
