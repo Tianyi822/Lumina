@@ -15,7 +15,6 @@ import { knowledgeMCPApi } from './apis/knowledgeMCP'
 import { documentApi } from './apis/document'
 import { paperApi } from './apis/paper'
 import { toolStatsApi } from './apis/toolStats'
-import { skillApi } from './apis/skill'
 import { paperWebSearchApi } from './apis/paperWebSearch'
 
 /**
@@ -43,8 +42,6 @@ const api = {
   paper: paperApi,
   // 工具统计 API
   toolStats: toolStatsApi,
-  // Skill API
-  skill: skillApi,
   // 论文网页搜索 API
   paperWebSearch: paperWebSearchApi
 }

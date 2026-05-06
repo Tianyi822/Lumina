@@ -1,5 +1,3 @@
-import type { Ref } from 'vue'
-
 export interface ZoomAnchor {
   stableId: string
   offsetRatio: number
@@ -59,11 +57,7 @@ export interface ZoomAnchorController {
   isZooming(): boolean
 }
 
-export interface UseZoomAnchorOptions {
-  containerRef: Ref<HTMLElement | null>
-}
-
-export function useZoomAnchor(_options?: UseZoomAnchorOptions): ZoomAnchorController {
+export function useZoomAnchor(): ZoomAnchorController {
   let zooming = false
   let anchor: ZoomAnchor | null = null
 

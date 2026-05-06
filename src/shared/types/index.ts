@@ -14,9 +14,6 @@ export * from './session'
 // 配置相关的类型
 export * from './config'
 
-// Skill 相关类型
-export * from './skill'
-
 // 日志相关的类型
 export * from './logger'
 

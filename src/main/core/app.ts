@@ -11,8 +11,7 @@ import {
   initializeKnowledge,
   initializeEmbeddingModels,
   initializeFileService,
-  initializeLab,
-  initializeSkill
+  initializeLab
 } from '@main/ipc'
 
 const appDisplayName = 'Lumina'
@@ -48,9 +47,6 @@ export function initializeApp(): void {
 
     // 注册所有 IPC 处理程序
     registerAllIpcHandlers()
-
-    // 初始化 Skill 服务
-    initializeSkill()
 
     // 初始化 MCP 服务
     initializeMCP()
