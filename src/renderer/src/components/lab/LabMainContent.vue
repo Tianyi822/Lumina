@@ -75,7 +75,8 @@ const labCreationTypeLabel = computed(() => {
   const labelMap: Record<LabData['creationType'], string> = {
     existing: '已有容器',
     compose: 'Docker Compose',
-    dockerfile: 'Dockerfile'
+    dockerfile: 'Dockerfile',
+    ssh: 'SSH 远程服务器'
   }
 
   return props.currentLab ? labelMap[props.currentLab.creationType] : ''

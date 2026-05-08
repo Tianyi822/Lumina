@@ -35,9 +35,12 @@ export function canManageContainer(type: LabCreationType): {
   const policy = LAB_TYPE_PERMISSIONS[type]
 
   if (!policy.canStart && !policy.canStop && !policy.canRestart) {
+    const reason = type === 'ssh'
+      ? 'SSH 远程服务器的容器生命周期由远程服务器管理，请通过 SSH 连接操作'
+      : '已有容器类型的实验室不允许管理容器生命周期，请使用 Docker 命令行操作'
     return {
       allowed: false,
-      reason: '已有容器类型的实验室不允许管理容器生命周期，请使用 Docker 命令行操作'
+      reason
     }
   }
 
@@ -75,6 +78,15 @@ export function getLabTypeMeta(type: LabCreationType): LabTypeMeta {
         theme: 'success',
         description: '托管容器组 · 完全控制',
         deleteWarning: '删除所有服务容器后将无法恢复'
+      }
+    case 'ssh':
+      return {
+        icon: '🔌',
+        label: 'SSH',
+        fullLabel: 'SSH 远程服务器',
+        theme: 'info',
+        description: '远程服务器 · 命令与文件',
+        deleteWarning: '此操作仅删除 Lumina 中的记录，不影响远程服务器'
       }
     default:
       return {
@@ -122,6 +134,17 @@ export function getDeleteDialogConfig(
         confirmButtonText: '仅删除记录',
         warningMessage: '删除后如需再次管理此容器，需要重新创建实验室并关联该容器。',
         typeTheme: 'warning'
+      }
+
+    case 'ssh':
+      return {
+        title: '确认删除 SSH 实验室',
+        message: `确定要删除实验室「${labName}」吗？\n\n此实验室连接的是远程服务器，删除仅会移除管理记录和连接配置，不会影响远程服务器本身。`,
+        showDeleteOption: false,
+        defaultDeleteContainers: false,
+        confirmButtonText: '删除实验室',
+        warningMessage: '删除后将断开 SSH 连接，需要重新创建实验室才能再次管理此服务器。',
+        typeTheme: 'info'
       }
 
     case 'compose':
@@ -174,14 +197,19 @@ export function getOperationDisabledReason(
 
   switch (operation) {
     case 'start':
-      return policy.canStart
-        ? undefined
+      if (policy.canStart) return undefined
+      return type === 'ssh'
+        ? 'SSH 远程服务器的容器生命周期由远程服务器管理'
         : '已有容器类型的实验室不支持启动操作，请使用 Docker 命令行'
     case 'stop':
-      return policy.canStop ? undefined : '已有容器类型的实验室不支持停止操作，请使用 Docker 命令行'
+      if (policy.canStop) return undefined
+      return type === 'ssh'
+        ? 'SSH 远程服务器的容器生命周期由远程服务器管理'
+        : '已有容器类型的实验室不支持停止操作，请使用 Docker 命令行'
     case 'restart':
-      return policy.canRestart
-        ? undefined
+      if (policy.canRestart) return undefined
+      return type === 'ssh'
+        ? 'SSH 远程服务器的容器生命周期由远程服务器管理'
         : '已有容器类型的实验室不支持重启操作，请使用 Docker 命令行'
     case 'delete':
       return undefined // 删除总是允许，但行为不同
