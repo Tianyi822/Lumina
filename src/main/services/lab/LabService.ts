@@ -255,6 +255,22 @@ export class LabService {
         try {
           const lab = this.loadLab(labId)
           if (lab) {
+            if (lab.backendType === 'ssh') {
+              const { sshService: sshInstance } = await import('./ssh/SshService')
+              const sshStatus = sshInstance.getConnectionStatus(labId)
+              labs.push({
+                labId: lab.labId,
+                name: lab.name,
+                status: sshStatus === 'connected' ? 'running' : 'stopped',
+                createdAt: lab.createdAt,
+                updatedAt: lab.updatedAt,
+                creationType: lab.creationType,
+                containerCount: 0,
+                isOrphan: false
+              })
+              continue
+            }
+
             // 获取容器的实时状态
             let realTimeStatus = lab.status
             let isOrphan = lab.isOrphan
@@ -541,6 +557,29 @@ export class LabService {
       const lab = this.loadLab(labId)
       if (!lab) {
         return { success: false, error: '实验室不存在' }
+      }
+
+      if (lab.backendType === 'ssh') {
+        const { sshService: sshInstance } = await import('./ssh/SshService')
+        const disconnectResult = await sshInstance.disconnect(labId)
+        if (!disconnectResult.success) {
+          logger.warn('SSH 断开连接失败，继续清理元数据', 'main', {
+            labId,
+            error: disconnectResult.error
+          })
+        }
+
+        const labPath = getLabDirPath() + '/' + labId
+        if (isPathInLabDir(labPath) && existsSync(labPath)) {
+          rmSync(labPath, { recursive: true, force: true })
+        }
+
+        this.logOperation(labId, 'SSH 实验室已删除', 'info')
+        return {
+          success: true,
+          removedContainers: [],
+          removedWorkspace: false
+        }
       }
 
       const removedContainers: string[] = []
