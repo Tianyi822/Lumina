@@ -13,6 +13,8 @@ import {
   initializeFileService,
   initializeLab
 } from '@main/ipc'
+import { sshService } from '@main/services/lab/ssh'
+import { logger } from '@main/services/logger'
 
 const appDisplayName = 'Lumina'
 
@@ -82,5 +84,21 @@ export function initializeApp(): void {
     if (process.platform !== 'darwin') {
       app.quit()
     }
+  })
+
+  // 应用退出前关闭所有 SSH 连接
+  let isShuttingDown = false
+  app.on('before-quit', (e) => {
+    if (isShuttingDown) return
+    e.preventDefault()
+    isShuttingDown = true
+    sshService
+      .shutdown()
+      .catch((err) => {
+        logger.error('SSH 服务关闭失败', 'main', {
+          error: err instanceof Error ? err.message : String(err)
+        })
+      })
+      .finally(() => app.quit())
   })
 }
