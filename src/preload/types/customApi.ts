@@ -17,6 +17,7 @@ import type { KnowledgeMCPApi } from './knowledgeMCP'
 import type { PaperApi } from './paper'
 import type { ToolStatsApi } from './toolStats'
 import type { PaperWebSearchApi } from './paperWebSearch'
+import type { SshApi } from './ssh'
 
 /**
  * 自定义的完整 API
@@ -44,4 +45,6 @@ export interface CustomApi {
   toolStats: ToolStatsApi
   // 论文网页搜索 API
   paperWebSearch: PaperWebSearchApi
+  // SSH 远程服务器 API
+  ssh: SshApi
 }
