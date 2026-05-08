@@ -73,13 +73,11 @@ export function getConfigDirPath(): string {
           mkdirSync(regPath, { recursive: true })
         }
         return regPath
-      } catch (error) {
+      } catch {
         // 目录创建失败（权限不足等），回退到默认路径
         // 注意：此处使用 console.warn 而非 logger.warn，
         // 因为 configPaths 是底层模块，logger 可能依赖它获取日志路径
-        console.warn(
-          `无法访问注册表指定的数据目录 "${regPath}"，回退到默认路径`
-        )
+        console.warn(`无法访问注册表指定的数据目录 "${regPath}"，回退到默认路径`)
       }
     }
   }
