@@ -8,7 +8,9 @@
 Var DataDir
 Var DataDirControl
 
-; ============================================================
+; 默认数据目录
+StrCpy $DataDir "$PROFILE\.lumina"
+
 ; 自定义页面：选择数据目录
 ; ============================================================
 
@@ -24,10 +26,7 @@ Function DataDirPageCreate
   nsDialogs::Create 1018
   Pop $0
 
-  ${NSD_CreateLabel} 0 0 100% 24u "选择 Lumina 用户数据的存储目录。此目录将用于存储配置、缓存和本地数据。"
-  Pop $0
-
-  ${NSD_CreateLabel} 0 28u 100% 12u "数据目录："
+  ${NSD_CreateLabel} 0 0 100% 12u "选择用户数据的存储目录。此目录将替代默认的 %USERPROFILE%\.lumina。"
   Pop $0
 
   ${NSD_CreateDirRequest} 0 42u 75% 12u $DataDir
@@ -60,12 +59,6 @@ Function DataDirPageLeave
     MessageBox MB_OK|MB_ICONEXCLAMATION "请选择数据存储目录，或使用默认路径。"
     Abort
   ${EndIf}
-
-  ; 检查目录是否可写
-  CreateDirectory "$DataDir"
-  IfFileExists "$DataDir\*.*" +3 0
-    MessageBox MB_OK|MB_ICONEXCLAMATION "无法创建或访问数据目录：$DataDir。请检查权限或选择其他路径。"
-    Abort
 FunctionEnd
 
 ; ============================================================
@@ -74,34 +67,9 @@ FunctionEnd
 Section
   ; 写入数据目录路径到注册表
   WriteRegStr HKCU "Software\Lumina" "DataPath" "$DataDir"
-  
-  ; 写入安装路径到注册表（用于卸载和更新）
-  WriteRegStr HKCU "Software\Lumina" "InstallPath" "$INSTDIR"
-  
-  ; 创建数据目录
-  CreateDirectory "$DataDir"
-  
-  ; 创建数据子目录结构
-  CreateDirectory "$DataDir\cache"
-  CreateDirectory "$DataDir\config"
-  CreateDirectory "$DataDir\logs"
-  
-  ; 必须调用 WriteUninstaller，否则 electron-builder 会报错
-  WriteUninstaller "$INSTDIR\uninstall.exe"
 SectionEnd
 
-; ============================================================
-; 卸载时清理
-; ============================================================
-Section "Uninstall"
-  ; 删除注册表项
+; 卸载时清理注册表
+Section Uninstall
   DeleteRegValue HKCU "Software\Lumina" "DataPath"
-  DeleteRegValue HKCU "Software\Lumina" "InstallPath"
-  DeleteRegKey /ifempty HKCU "Software\Lumina"
-  
-  ; 注意：不自动删除用户数据目录，避免误删用户文件
-  ; 如果用户需要删除数据，可以手动删除
-  
-  ; 删除卸载程序自身
-  Delete "$INSTDIR\uninstall.exe"
 SectionEnd
