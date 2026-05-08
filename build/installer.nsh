@@ -2,6 +2,7 @@
 ; 增强 Windows 安装流程：支持自定义安装路径和数据目录选择
 
 !include LogicLib.nsh
+!include FileFunc.nsh
 !include nsDialogs.nsh
 
 Var DataDir
@@ -73,13 +74,13 @@ FunctionEnd
 Section
   ; 写入数据目录路径到注册表
   WriteRegStr HKCU "Software\Lumina" "DataPath" "$DataDir"
-  
+
   ; 写入安装路径到注册表（用于卸载和更新）
   WriteRegStr HKCU "Software\Lumina" "InstallPath" "$INSTDIR"
-  
+
   ; 创建数据目录
   CreateDirectory "$DataDir"
-  
+
   ; 创建数据子目录结构
   CreateDirectory "$DataDir\cache"
   CreateDirectory "$DataDir\config"
@@ -97,10 +98,10 @@ Section "Uninstall"
   DeleteRegValue HKCU "Software\Lumina" "DataPath"
   DeleteRegValue HKCU "Software\Lumina" "InstallPath"
   DeleteRegKey /ifempty HKCU "Software\Lumina"
-  
+
   ; 注意：不自动删除用户数据目录，避免误删用户文件
   ; 如果用户需要删除数据，可以手动删除
-  
+
   ; 删除卸载程序自身
   Delete "$INSTDIR\uninstall.exe"
 SectionEnd
