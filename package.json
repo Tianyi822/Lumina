@@ -55,6 +55,7 @@
     "pdfjs-dist": "^5.4.624",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
+    "ssh2": "^1.17.0",
     "word-extractor": "^1.0.4",
     "zod": "^4.3.6"
   },
@@ -67,6 +68,7 @@
     "@types/marked": "^6.0.0",
     "@types/node": "^25.0.10",
     "@types/pdf-parse": "^1.1.5",
+    "@types/ssh2": "^1.15.5",
     "@vitejs/plugin-vue": "^6.0.2",
     "electron": "^40.8.5",
     "electron-builder": "^26.9.0",
