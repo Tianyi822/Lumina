@@ -142,6 +142,9 @@ export class LabService {
 
       const content = readFileSync(filePath, 'utf-8')
       const lab = JSON.parse(content) as LabData
+      if (!lab.backendType) {
+        lab.backendType = 'docker'
+      }
 
       if (!options?.silent) {
         logger.debug('实验室加载成功', 'main', { labId })
@@ -439,7 +442,8 @@ export class LabService {
         updatedAt: now,
         creationType: request.creationType,
         containerIds: [],
-        isOrphan: false
+        isOrphan: false,
+        backendType: 'docker'
       }
 
       // 根据创建类型处理
@@ -474,6 +478,23 @@ export class LabService {
         case 'dockerfile': {
           // 这里只创建元数据，实际容器启动由其他流程处理
           lab.dockerfileConfigId = request.dockerfileConfigId
+          lab.status = 'stopped'
+          break
+        }
+
+        case 'ssh': {
+          // SSH 实验室：后端类型应为 'ssh'，不涉及任何容器操作
+          if (!request.sshHost || !request.sshUsername) {
+            return { success: false, error: 'SSH 实验室需要提供 sshHost 和 sshUsername' }
+          }
+          lab.backendType = 'ssh'
+          lab.ssh = {
+            host: request.sshHost,
+            port: request.sshPort || 22,
+            username: request.sshUsername,
+            authType: request.sshAuthType || 'password',
+            keyName: request.sshKeyName
+          }
           lab.status = 'stopped'
           break
         }
