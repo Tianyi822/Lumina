@@ -7,6 +7,7 @@ import { registerLabCrudHandlers } from './labCrudHandlers'
 import { registerLabCreationHandlers } from './creationHandlers'
 import { registerLabComposeHandlers } from './composeHandlers'
 import { registerLabFrontendHandlers } from './frontendHandlers'
+import { registerSshHandlers } from './sshHandlers'
 
 /**
  * 初始化实验室服务
@@ -30,4 +31,5 @@ export function registerLabHandlers(): void {
   registerLabCreationHandlers()
   registerLabComposeHandlers()
   registerLabFrontendHandlers()
+  registerSshHandlers()
 }
