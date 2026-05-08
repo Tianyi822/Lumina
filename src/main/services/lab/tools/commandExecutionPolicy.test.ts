@@ -87,7 +87,8 @@ test('同名同框架前端实验室默认选择最新可复用实例', () => {
     creationType: 'dockerfile',
     containerIds: ['container-1'],
     isOrphan: false,
-    primaryContainerId: 'container-1'
+    primaryContainerId: 'container-1',
+    backendType: 'docker'
   } satisfies Omit<LabData, 'labId' | 'frontend'>
 
   const labs = [
