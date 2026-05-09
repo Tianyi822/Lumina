@@ -3,7 +3,13 @@ import type { ConnectConfig } from 'ssh2'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { getConfigDirPath } from '@main/services/config/configPaths'
-import type { ExecCommand, ExecResult, LabResult, FileWriteRequest, FileWriteResult } from '@shared/types/lab'
+import type {
+  ExecCommand,
+  ExecResult,
+  LabResult,
+  FileWriteRequest,
+  FileWriteResult
+} from '@shared/types/lab'
 import type {
   SshConnectionConfig,
   SshConnectionStatus,
@@ -13,6 +19,7 @@ import type {
 import { sshConnectionManager } from './SshConnectionManager'
 import { SshCommandExecutor } from './SshCommandExecutor'
 import { SftpFileTransfer } from './SftpFileTransfer'
+import { sshTerminalService } from './SshTerminalService'
 import type { CommandExecutor } from '../interfaces/CommandExecutor'
 import type { FileTransfer } from '../interfaces/FileTransfer'
 import { logger } from '@main/services/logger'
@@ -146,6 +153,7 @@ export class SshService {
   }
 
   async shutdown(): Promise<void> {
+    sshTerminalService.shutdown()
     await sshConnectionManager.disconnectAll()
     logger.info('SSH 服务已关闭', 'main')
   }
