@@ -65,8 +65,8 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
     username: '',
     authType: 'password' as 'password' | 'key',
     password: '',
-    keyPath: '',
-    passphrase: '',
+    keyContent: '',
+    keyName: '',
     saveConfig: true
   })
 
@@ -77,8 +77,8 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
       username: '',
       authType: 'password',
       password: '',
-      keyPath: '',
-      passphrase: '',
+      keyContent: '',
+      keyName: '',
       saveConfig: true
     }
   }
@@ -166,7 +166,9 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
       case 'ssh': {
         const cfg = sshConfig.value
         const hasCredentials =
-          cfg.authType === 'password' ? cfg.password.trim().length > 0 : cfg.keyPath.trim().length > 0
+          cfg.authType === 'password'
+            ? cfg.password.trim().length > 0
+            : cfg.keyContent.trim().length > 0 && cfg.keyName.trim().length > 0
         return cfg.host.trim().length > 0 && cfg.username.trim().length > 0 && hasCredentials
       }
       default:

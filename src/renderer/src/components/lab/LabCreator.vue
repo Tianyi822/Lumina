@@ -119,8 +119,8 @@ async function testSshConnection(): Promise<void> {
       username: ssh.username,
       authType: ssh.authType,
       password: ssh.authType === 'password' ? ssh.password : undefined,
-      keyPath: ssh.authType === 'key' ? ssh.keyPath : undefined,
-      passphrase: ssh.passphrase || undefined
+      keyName: ssh.authType === 'key' ? ssh.keyName : undefined,
+      keyContent: ssh.authType === 'key' ? ssh.keyContent : undefined
     })
 
     if (result.success) {
@@ -136,12 +136,6 @@ async function testSshConnection(): Promise<void> {
   }
 }
 
-async function selectKeyFile(): Promise<void> {
-  const files = await window.api.file.selectFiles()
-  if (files?.length) {
-    creatorStore.updateSshConfig({ keyPath: files[0].path })
-  }
-}
 </script>
 
 <template>
@@ -273,25 +267,22 @@ async function selectKeyFile(): Promise<void> {
 
         <template v-else>
           <div class="ssh-form__field">
-            <label class="form-label">密钥文件路径</label>
-            <div class="ssh-form__input-row">
-              <input
-                v-model="sshConfig.keyPath"
-                type="text"
-                class="form-input"
-                placeholder="~/.ssh/id_rsa"
-              />
-              <button class="btn" @click="selectKeyFile">浏览</button>
-            </div>
+            <label class="form-label">密钥名称 <span class="required">*</span></label>
+            <input
+              v-model="sshConfig.keyName"
+              type="text"
+              class="form-input"
+              placeholder="my-key"
+            />
           </div>
           <div class="ssh-form__field">
-            <label class="form-label">密钥密码短语（可选）</label>
-            <input
-              v-model="sshConfig.passphrase"
-              type="password"
-              class="form-input"
-              placeholder="留空表示无密码短语"
-            />
+            <label class="form-label">密钥内容 <span class="required">*</span></label>
+            <textarea
+              v-model="sshConfig.keyContent"
+              class="form-input ssh-form__key-textarea"
+              placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
+              rows="6"
+            ></textarea>
           </div>
         </template>
 
@@ -419,5 +410,13 @@ async function selectKeyFile(): Promise<void> {
 
 .ssh-form__test-btn {
   align-self: flex-start;
+}
+
+.ssh-form__key-textarea {
+  resize: vertical;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  min-height: 80px;
 }
 </style>

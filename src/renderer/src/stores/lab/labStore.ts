@@ -349,9 +349,8 @@ export const useLabStore = defineStore('lab', () => {
       username: string
       authType: 'password' | 'key'
       password?: string
-      keyPath?: string
+      keyName?: string
       keyContent?: string
-      passphrase?: string
     }
   ): Promise<boolean> {
     const result = await window.api.ssh.connect(labId, {

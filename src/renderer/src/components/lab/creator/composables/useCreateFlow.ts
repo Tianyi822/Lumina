@@ -56,7 +56,7 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
         const hasCredentials =
           cfg.authType === 'password'
             ? cfg.password.trim().length > 0
-            : cfg.keyPath.trim().length > 0
+            : cfg.keyContent.trim().length > 0 && cfg.keyName.trim().length > 0
         return cfg.host.trim().length > 0 && cfg.username.trim().length > 0 && hasCredentials
       }
       default:
@@ -173,7 +173,7 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
           sshUsername: ssh.username,
           sshAuthType: ssh.authType,
           sshPassword: ssh.authType === 'password' ? ssh.password : undefined,
-          sshKeyName: ssh.authType === 'key' ? ssh.keyPath : undefined
+          sshKeyName: ssh.authType === 'key' ? ssh.keyName : undefined
         })
 
         if (labResult?.success && labResult.lab?.labId) {
@@ -183,8 +183,8 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
             username: ssh.username,
             authType: ssh.authType,
             password: ssh.authType === 'password' ? ssh.password : undefined,
-            keyPath: ssh.authType === 'key' ? ssh.keyPath : undefined,
-            passphrase: ssh.passphrase || undefined
+            keyName: ssh.authType === 'key' ? ssh.keyName : undefined,
+            keyContent: ssh.authType === 'key' ? ssh.keyContent : undefined
           })
 
           if (connected) {

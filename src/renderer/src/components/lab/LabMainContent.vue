@@ -450,7 +450,7 @@ async function handleSshConnect(): Promise<void> {
       port: ssh.port,
       username: ssh.username,
       authType: ssh.authType,
-      keyPath: ssh.keyName
+      keyName: ssh.keyName
     })
 
     if (connected) {
