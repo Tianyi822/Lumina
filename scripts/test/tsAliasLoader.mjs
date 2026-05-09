@@ -101,6 +101,35 @@ const ssh2StubModule = `
   import { EventEmitter } from 'node:events'
   import { Writable } from 'node:stream'
 
+  class MockClientChannel extends EventEmitter {
+    constructor() {
+      super()
+      this.stderr = new EventEmitter()
+      this._writtenData = []
+      this._lastWindow = null
+      this.destroyed = false
+    }
+
+    write(data) {
+      this._writtenData.push(data)
+      return true
+    }
+
+    setWindow(rows, cols, height, width) {
+      this._lastWindow = { rows, cols, height, width }
+    }
+
+    close() {
+      this.emit('close')
+    }
+
+    destroy() {
+      this.destroyed = true
+      this.emit('close')
+      return this
+    }
+  }
+
   class MockSsh2Client extends EventEmitter {
     connect(config) {
       if (this._mockConnectReady) {
@@ -135,6 +164,34 @@ const ssh2StubModule = `
       setImmediate(() => {
         stream.emit('close', this._mockExitCode ?? 0)
       })
+    }
+
+    shell(windowOrOptions, optionsOrCallback, maybeCallback) {
+      const callback =
+        typeof windowOrOptions === 'function'
+          ? windowOrOptions
+          : typeof optionsOrCallback === 'function'
+            ? optionsOrCallback
+            : maybeCallback
+      const windowOptions =
+        typeof windowOrOptions === 'object' && typeof optionsOrCallback === 'function'
+          ? windowOrOptions
+          : undefined
+
+      this._lastShellWindow = windowOptions
+
+      if (this._mockShellError) {
+        setImmediate(() => callback(new Error(this._mockShellError)))
+        return
+      }
+
+      const stream = new MockClientChannel()
+      this._lastShellStream = stream
+      setImmediate(() => callback(null, stream))
+
+      if (this._mockShellData) {
+        setImmediate(() => stream.emit('data', Buffer.from(this._mockShellData)))
+      }
     }
 
     sftp(callback) {
