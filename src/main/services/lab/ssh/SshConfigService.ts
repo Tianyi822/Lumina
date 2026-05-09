@@ -44,8 +44,7 @@ function maskConfig(config: SshConnectionConfig): SshConnectionConfig {
   return {
     ...config,
     password: config.password ? MASKED_VALUE : undefined,
-    keyContent: config.keyContent ? MASKED_VALUE : undefined,
-    passphrase: config.passphrase ? MASKED_VALUE : undefined
+    keyContent: config.keyContent ? MASKED_VALUE : undefined
   }
 }
 
@@ -119,9 +118,8 @@ export class SshConfigService {
           username: request.username,
           authType: request.authType,
           password: request.password ? encrypt(request.password) : existing.password,
-          keyPath: request.keyPath ?? existing.keyPath,
+          keyName: request.keyName ?? existing.keyName,
           keyContent: request.keyContent ? encrypt(request.keyContent) : existing.keyContent,
-          passphrase: request.passphrase ? encrypt(request.passphrase) : existing.passphrase,
           lastUsedAt: new Date().toISOString()
         }
 
@@ -143,9 +141,8 @@ export class SshConfigService {
         username: request.username,
         authType: request.authType,
         password: request.password ? encrypt(request.password) : undefined,
-        keyPath: request.keyPath,
+        keyName: request.keyName,
         keyContent: request.keyContent ? encrypt(request.keyContent) : undefined,
-        passphrase: request.passphrase ? encrypt(request.passphrase) : undefined,
         lastUsedAt: new Date().toISOString()
       }
 
@@ -192,8 +189,7 @@ export class SshConfigService {
       const decrypted: SshConnectionConfig = {
         ...config,
         password: config.password ? decrypt(config.password) : undefined,
-        keyContent: config.keyContent ? decrypt(config.keyContent) : undefined,
-        passphrase: config.passphrase ? decrypt(config.passphrase) : undefined
+        keyContent: config.keyContent ? decrypt(config.keyContent) : undefined
       }
 
       return { success: true, config: decrypted }

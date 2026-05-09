@@ -143,7 +143,7 @@ test('SshConfigService', async (t) => {
       username: 'admin',
       authType: 'key',
       keyContent: 'my-private-key-content',
-      passphrase: 'key-passphrase'
+      keyName: 'my-key'
     })
 
     const result = sshConfigService.list()
@@ -153,7 +153,7 @@ test('SshConfigService', async (t) => {
     for (const config of result.configs!) {
       if (config.password) assert.equal(config.password, '********')
       if (config.keyContent) assert.equal(config.keyContent, '********')
-      if (config.passphrase) assert.equal(config.passphrase, '********')
+      if (config.keyName) assert.equal(config.keyName, 'my-key')
     }
   })
 

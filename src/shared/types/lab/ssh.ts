@@ -10,9 +10,8 @@ export interface SshConnectionConfig {
   username: string
   authType: SshAuthType
   password?: string
-  keyPath?: string
+  keyName?: string
   keyContent?: string
-  passphrase?: string
   lastUsedAt?: string
 }
 
@@ -35,9 +34,8 @@ export interface SaveSshConfigRequest {
   username: string
   authType: SshAuthType
   password?: string
-  keyPath?: string
+  keyName?: string
   keyContent?: string
-  passphrase?: string
 }
 
 /** SSH 配置保存结果 */
