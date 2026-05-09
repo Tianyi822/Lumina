@@ -55,7 +55,19 @@ function loadConfigs(): SshConnectionConfig[] {
   }
   try {
     const content = readFileSync(filePath, 'utf-8')
-    return JSON.parse(content) as SshConnectionConfig[]
+    const configs = JSON.parse(content) as SshConnectionConfig[]
+    // 清理旧配置中可能存在的 password 字段
+    let cleaned = false
+    for (const config of configs) {
+      if (config.password) {
+        delete config.password
+        cleaned = true
+      }
+    }
+    if (cleaned) {
+      saveConfigs(configs)
+    }
+    return configs
   } catch {
     logger.warn('SSH 配置文件读取失败', 'main')
     return []
@@ -117,7 +129,7 @@ export class SshConfigService {
           port: request.port,
           username: request.username,
           authType: request.authType,
-          password: request.password ? encrypt(request.password) : existing.password,
+          password: undefined,
           keyName: request.keyName ?? existing.keyName,
           keyContent: request.keyContent ? encrypt(request.keyContent) : existing.keyContent,
           lastUsedAt: new Date().toISOString()
@@ -140,7 +152,7 @@ export class SshConfigService {
         port: request.port,
         username: request.username,
         authType: request.authType,
-        password: request.password ? encrypt(request.password) : undefined,
+        password: undefined,
         keyName: request.keyName,
         keyContent: request.keyContent ? encrypt(request.keyContent) : undefined,
         lastUsedAt: new Date().toISOString()

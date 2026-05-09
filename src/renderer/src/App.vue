@@ -160,14 +160,11 @@ onBeforeUnmount(() => {
 
         <div class="sm-workspace-main__body sm-workspace-main__body--fill">
           <Transition name="sm-workspace-switch" mode="out-in" appear>
-            <!-- 论文阅读器视图 -->
-            <PaperReaderPage v-if="isPaperView" key="paper" />
-
-            <!-- 知识库视图 -->
-            <KnowledgePage v-else-if="isKnowledgeView" key="knowledge" />
-
-            <!-- 实验室视图 -->
-            <LabPage v-else key="lab" />
+            <KeepAlive>
+              <PaperReaderPage v-if="isPaperView" key="paper" />
+              <KnowledgePage v-else-if="isKnowledgeView" key="knowledge" />
+              <LabPage v-else key="lab" />
+            </KeepAlive>
           </Transition>
         </div>
       </div>

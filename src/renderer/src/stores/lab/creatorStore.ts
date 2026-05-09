@@ -66,8 +66,7 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
     authType: 'password' as 'password' | 'key',
     password: '',
     keyContent: '',
-    keyName: '',
-    saveConfig: true
+    keyName: ''
   })
 
   function resetSshConfig(): void {
@@ -78,8 +77,7 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
       authType: 'password',
       password: '',
       keyContent: '',
-      keyName: '',
-      saveConfig: true
+      keyName: ''
     }
   }
 

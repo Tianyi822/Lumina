@@ -547,13 +547,6 @@ async function testSshConnection(): Promise<void> {
                 </div>
               </template>
 
-              <div class="ssh-form__field ssh-form__checkbox">
-                <label>
-                  <input v-model="sshConfig.saveConfig" type="checkbox" />
-                  保存此服务器配置（密码将加密存储于本地）
-                </label>
-              </div>
-
               <button
                 class="btn ssh-form__test-btn"
                 :disabled="isTestingSsh"
@@ -656,20 +649,6 @@ async function testSshConnection(): Promise<void> {
 
 .ssh-form__input-row .form-input {
   flex: 1;
-}
-
-.ssh-form__checkbox {
-  flex-direction: row;
-  align-items: center;
-}
-
-.ssh-form__checkbox label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--sm-color-text-secondary);
-  cursor: pointer;
 }
 
 .ssh-form__test-btn {
