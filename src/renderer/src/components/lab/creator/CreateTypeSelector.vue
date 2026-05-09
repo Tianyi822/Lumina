@@ -39,6 +39,15 @@ const emit = defineEmits<{
       />
       <span class="option-label">选择已有容器</span>
     </label>
+    <label class="type-option" :class="{ active: modelValue === 'ssh' }">
+      <input
+        :checked="modelValue === 'ssh'"
+        type="radio"
+        value="ssh"
+        @change="emit('update:modelValue', 'ssh')"
+      />
+      <span class="option-label">SSH 远程服务器</span>
+    </label>
   </div>
 </template>
 
