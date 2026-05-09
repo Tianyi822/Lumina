@@ -54,6 +54,7 @@ const hasLab = computed(() => !!props.currentLab)
 
 const isOrphan = computed(() => props.currentLab?.isOrphan || false)
 const isLabFrontend = computed(() => !!props.currentLab?.frontend)
+const isSshLab = computed(() => props.currentLab?.backendType === 'ssh')
 const showFrontendRecoveryBanner = computed(
   () => isLabFrontend.value && props.currentLab?.status === 'error' && !isOrphan.value
 )
@@ -83,14 +84,25 @@ const labCreationTypeLabel = computed(() => {
 })
 
 const labStatusLabel = computed(() => {
+  if (!props.currentLab) return ''
+
+  if (props.currentLab.backendType === 'ssh') {
+    const sshLabelMap: Record<LabData['status'], string> = {
+      creating: '连接中',
+      running: '已连接',
+      stopped: '未连接',
+      error: '连接失败'
+    }
+    return sshLabelMap[props.currentLab.status]
+  }
+
   const labelMap: Record<LabData['status'], string> = {
     creating: '创建中',
     running: '运行中',
     stopped: '已停止',
     error: '异常'
   }
-
-  return props.currentLab ? labelMap[props.currentLab.status] : ''
+  return labelMap[props.currentLab.status]
 })
 
 const labStatusClass = computed(() => {
@@ -418,6 +430,45 @@ function handleCloseOrphanAlert(): void {
   window.api.logger.info('[LabMainContent] 用户关闭孤儿实验室提示')
 }
 
+const isConnectingSsh = ref(false)
+
+/** 密码认证的 SSH 实验室断开后无法自动重连（密码未持久化） */
+const canReconnectSsh = computed(() => {
+  if (!props.currentLab?.ssh) return false
+  return props.currentLab.ssh.authType !== 'password'
+})
+
+async function handleSshConnect(): Promise<void> {
+  const labId = props.currentLab?.labId
+  const ssh = props.currentLab?.ssh
+  if (!labId || !ssh) return
+
+  isConnectingSsh.value = true
+  try {
+    const connected = await labStore.connectSsh(labId, {
+      host: ssh.host,
+      port: ssh.port,
+      username: ssh.username,
+      authType: ssh.authType,
+      keyPath: ssh.keyName
+    })
+
+    if (connected) {
+      await labStore.loadLab(labId, true)
+    }
+  } finally {
+    isConnectingSsh.value = false
+  }
+}
+
+async function handleSshDisconnect(): Promise<void> {
+  const labId = props.currentLab?.labId
+  if (!labId) return
+
+  await labStore.disconnectSsh(labId)
+  await labStore.loadLab(labId, true)
+}
+
 function formatDateTime(value?: string): string {
   if (!value) {
     return '-'
@@ -449,7 +500,7 @@ function formatDateTime(value?: string): string {
               <h1>{{ currentLab?.name }}</h1>
               <div class="workspace-header__badges">
                 <span class="sm-badge">{{ labCreationTypeLabel }}</span>
-                <span class="sm-badge">{{ labContainerCount }} 个容器</span>
+                <span v-if="!isSshLab" class="sm-badge">{{ labContainerCount }} 个容器</span>
                 <span class="sm-badge" :class="labStatusClass">{{ labStatusLabel }}</span>
               </div>
             </div>
@@ -505,6 +556,63 @@ function formatDateTime(value?: string): string {
 
         <!-- 监控 Tab -->
         <div v-if="labDetailTab === 'stats'" class="tab-content">
+          <!-- SSH 连接信息面板 -->
+          <template v-if="isSshLab">
+            <section class="ssh-info-panel">
+              <div class="ssh-info-panel__header">
+                <h3>连接信息</h3>
+                <div class="ssh-info-panel__actions">
+                  <template v-if="currentLab?.status !== 'running'">
+                    <button
+                      v-if="canReconnectSsh"
+                      class="sm-button sm-button--primary"
+                      :disabled="isConnectingSsh"
+                      @click="handleSshConnect"
+                    >
+                      {{ isConnectingSsh ? '连接中...' : '连接' }}
+                    </button>
+                    <span v-else class="ssh-info-panel__hint">
+                      密码认证的连接需重新创建实验室以恢复
+                    </span>
+                  </template>
+                  <button
+                    v-else
+                    class="sm-button sm-button--secondary"
+                    @click="handleSshDisconnect"
+                  >
+                    断开连接
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="currentLab?.ssh" class="ssh-info-panel__grid">
+                <div class="ssh-info-panel__item">
+                  <span class="ssh-info-panel__label">主机</span>
+                  <span class="ssh-info-panel__value">
+                    {{ currentLab.ssh.host }}:{{ currentLab.ssh.port }}
+                  </span>
+                </div>
+                <div class="ssh-info-panel__item">
+                  <span class="ssh-info-panel__label">用户</span>
+                  <span class="ssh-info-panel__value">{{ currentLab.ssh.username }}</span>
+                </div>
+                <div class="ssh-info-panel__item">
+                  <span class="ssh-info-panel__label">认证方式</span>
+                  <span class="ssh-info-panel__value">
+                    {{ currentLab.ssh.authType === 'password' ? '密码' : '密钥' }}
+                  </span>
+                </div>
+                <div class="ssh-info-panel__item">
+                  <span class="ssh-info-panel__label">连接状态</span>
+                  <span class="ssh-info-panel__value" :class="{ connected: currentLab.status === 'running' }">
+                    {{ labStatusLabel }}
+                  </span>
+                </div>
+              </div>
+            </section>
+          </template>
+
+          <template v-else>
           <div v-if="!selectedContainer" class="detail-empty-state">
             <div class="sm-empty detail-empty-card">
               <h2>请先选择一个容器</h2>
@@ -530,29 +638,44 @@ function formatDateTime(value?: string): string {
             @view-logs="handleViewLogs"
             @refresh-stats="handleRefreshStats"
           />
+          </template>
         </div>
 
         <!-- 终端 Tab -->
         <div v-else-if="labDetailTab === 'terminal'" class="tab-content">
-          <div v-if="!selectedContainer" class="detail-empty-state">
-            <div class="sm-empty detail-empty-card">
-              <h2>终端尚未绑定容器</h2>
-              <p>选中目标容器后，可在这里执行临时命令、定位问题并确认运行环境。</p>
-            </div>
+          <div v-if="isSshLab" class="ssh-terminal-hint">
+            <p>通过 SSH 在远程服务器执行命令。终端将直接使用实验室的 SSH 连接。</p>
           </div>
-          <TerminalPanel
-            v-else
-            :container-id="selectedContainer.id"
-            :container-name="selectedContainer.names[0]?.replace(/^\//, '') || '未命名'"
-            :logs="terminalLogs"
-            :loading="storeLoading"
-            @execute="handleExecuteCommand"
-            @clear="handleClearTerminal"
-          />
+          <template v-else>
+            <div v-if="!selectedContainer" class="detail-empty-state">
+              <div class="sm-empty detail-empty-card">
+                <h2>终端尚未绑定容器</h2>
+                <p>选中目标容器后，可在这里执行临时命令、定位问题并确认运行环境。</p>
+              </div>
+            </div>
+            <TerminalPanel
+              v-else
+              :container-id="selectedContainer.id"
+              :container-name="selectedContainer.names[0]?.replace(/^\//, '') || '未命名'"
+              :logs="terminalLogs"
+              :loading="storeLoading"
+              @execute="handleExecuteCommand"
+              @clear="handleClearTerminal"
+            />
+          </template>
         </div>
 
         <!-- 日志 Tab -->
         <div v-else-if="labDetailTab === 'logs'" class="tab-content">
+          <template v-if="isSshLab">
+            <div class="detail-empty-state">
+              <div class="sm-empty detail-empty-card">
+                <h2>SSH 实验室暂不支持日志查看</h2>
+                <p>SSH 远程服务器的日志功能将在后续版本中支持。</p>
+              </div>
+            </div>
+          </template>
+          <template v-else>
           <div v-if="!selectedContainer" class="detail-empty-state">
             <div class="sm-empty detail-empty-card">
               <h2>日志尚未绑定容器</h2>
@@ -568,6 +691,7 @@ function formatDateTime(value?: string): string {
             @refresh="handleRefreshLogs"
             @export="handleExportLogs"
           />
+          </template>
         </div>
       </div>
     </template>
@@ -783,6 +907,81 @@ function formatDateTime(value?: string): string {
 .detail-empty-card p {
   margin: 0;
   max-width: 380px;
+  line-height: 1.6;
+}
+
+.ssh-info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-5);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-2);
+}
+
+.ssh-info-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ssh-info-panel__header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+}
+
+.ssh-info-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--sm-space-3);
+}
+
+.ssh-info-panel__item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--sm-space-4);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+}
+
+.ssh-info-panel__label {
+  font-size: 12px;
+  color: var(--sm-color-text-secondary);
+}
+
+.ssh-info-panel__value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sm-color-text-primary);
+  font-family: var(--sm-font-mono);
+}
+
+.ssh-info-panel__value.connected {
+  color: #7fb08a;
+}
+
+.ssh-info-panel__hint {
+  font-size: 12px;
+  color: var(--sm-color-text-secondary);
+  font-style: italic;
+}
+
+.ssh-terminal-hint {
+  padding: var(--sm-space-5);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-2);
+}
+
+.ssh-terminal-hint p {
+  margin: 0;
+  color: var(--sm-color-text-secondary);
+  font-size: 14px;
   line-height: 1.6;
 }
 
