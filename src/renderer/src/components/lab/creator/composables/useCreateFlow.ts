@@ -191,8 +191,8 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
             notify.success('SSH 实验室已创建', `已连接到 ${ssh.host}`, { source: 'lab' })
           }
 
-          await labStore.loadLab(labResult.lab.labId)
-          uiStateStore.setLabDetailTab('terminal')
+          await labStore.loadLab(labResult.lab.labId, true, { silent: true })
+          uiStateStore.setLabDetailTab(connected ? 'terminal' : 'stats')
           options.closeDialog()
         }
         break
