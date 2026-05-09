@@ -29,6 +29,11 @@ import type {
   DockerfileConfigMeta,
   ExecCommand,
   ExecCommandResult,
+  DockerTerminalActionResult,
+  DockerTerminalDataEvent,
+  DockerTerminalExitEvent,
+  DockerTerminalOpenResult,
+  DockerTerminalSize,
   FrontendLabInfo,
   LabContainerStatus,
   LabData,
@@ -80,6 +85,20 @@ export const labApi = {
 
   execCommand: (containerId: string, command: ExecCommand): Promise<ExecCommandResult> =>
     getLabApi().execCommand(containerId, command),
+  terminal: {
+    open: (containerId: string, size?: DockerTerminalSize): Promise<DockerTerminalOpenResult> =>
+      getLabApi().terminal.open(containerId, size),
+    write: (sessionId: string, data: string): Promise<DockerTerminalActionResult> =>
+      getLabApi().terminal.write(sessionId, data),
+    resize: (sessionId: string, size: DockerTerminalSize): Promise<DockerTerminalActionResult> =>
+      getLabApi().terminal.resize(sessionId, size),
+    close: (sessionId: string): Promise<DockerTerminalActionResult> =>
+      getLabApi().terminal.close(sessionId),
+    onData: (callback: (event: DockerTerminalDataEvent) => void): (() => void) =>
+      getLabApi().terminal.onData(callback),
+    onExit: (callback: (event: DockerTerminalExitEvent) => void): (() => void) =>
+      getLabApi().terminal.onExit(callback)
+  },
   copyToContainer: (containerId: string, source: string, target: string): Promise<LabResult> =>
     getLabApi().copyToContainer(containerId, source, target),
   copyFromContainer: (containerId: string, source: string, target: string): Promise<LabResult> =>

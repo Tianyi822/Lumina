@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useContainerStore, useUIStateStore, useLabStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
-import TerminalPanel from './TerminalPanel.vue'
+import InteractiveTerminalPanel from './InteractiveTerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
 import OrphanLabAlert from './OrphanLabAlert.vue'
@@ -26,12 +26,7 @@ const uiStateStore = useUIStateStore()
 const labStore = useLabStore()
 const notify = useNotification()
 
-const {
-  selectedContainer,
-  containerStats,
-  terminalLogs,
-  isLoading: storeLoading
-} = storeToRefs(containerStore)
+const { selectedContainer, containerStats, isLoading: storeLoading } = storeToRefs(containerStore)
 
 const { labDetailTab } = storeToRefs(uiStateStore)
 
@@ -42,6 +37,7 @@ const isRefreshingLabState = ref(false)
 const isRetryingFrontend = ref(false)
 const isRebuildingFrontend = ref(false)
 const isValidatingFrontendBuild = ref(false)
+let removeSshStatusListener: (() => void) | null = null
 
 // 容器生命周期操作加载状态
 const isStartingContainer = ref(false)
@@ -110,6 +106,25 @@ const labStatusClass = computed(() => {
 })
 
 const labContainerCount = computed(() => props.currentLab?.containerIds.length || 0)
+const sshTerminalSubtitle = computed(() => {
+  const ssh = props.currentLab?.ssh
+  if (!ssh) {
+    return ''
+  }
+
+  return `${ssh.username}@${ssh.host}:${ssh.port}`
+})
+const dockerTerminalTitle = computed(() => {
+  return selectedContainer.value?.names[0]?.replace(/^\//, '') || '未命名容器'
+})
+const dockerTerminalSubtitle = computed(() => {
+  const container = selectedContainer.value
+  if (!container) {
+    return ''
+  }
+
+  return `${container.shortId} · ${container.image}`
+})
 
 // 用于 composables 的响应式引用
 const currentLabRef = computed(() => props.currentLab)
@@ -125,9 +140,7 @@ const { containerLogs, logsLoading, loadContainerLogs, handleRefreshLogs, handle
 const {
   handleContainerStart: _handleContainerStart,
   handleContainerStop: _handleContainerStop,
-  handleContainerRestart: _handleContainerRestart,
-  handleExecuteCommand,
-  handleClearTerminal
+  handleContainerRestart: _handleContainerRestart
 } = useContainerActions(currentLabRef, selectedContainerRef)
 
 // 包装容器操作函数，添加加载状态管理
@@ -354,6 +367,16 @@ watch(
 
 onBeforeUnmount(() => {
   stopLabAutoRefresh()
+  removeSshStatusListener?.()
+  removeSshStatusListener = null
+})
+
+onMounted(() => {
+  removeSshStatusListener = window.api.ssh.onConnectionStatus((event) => {
+    if (event.labId === props.currentLab?.labId) {
+      void labStore.loadLab(event.labId, true, { silent: true })
+    }
+  })
 })
 
 // ==================== Methods ====================
@@ -630,7 +653,10 @@ function formatDateTime(value?: string): string {
                 </div>
                 <div class="ssh-info-panel__item">
                   <span class="ssh-info-panel__label">连接状态</span>
-                  <span class="ssh-info-panel__value" :class="{ connected: currentLab.status === 'running' }">
+                  <span
+                    class="ssh-info-panel__value"
+                    :class="{ connected: currentLab.status === 'running' }"
+                  >
                     {{ labStatusLabel }}
                   </span>
                 </div>
@@ -639,39 +665,70 @@ function formatDateTime(value?: string): string {
           </template>
 
           <template v-else>
-          <div v-if="!selectedContainer" class="detail-empty-state">
-            <div class="sm-empty detail-empty-card">
-              <h2>请先选择一个容器</h2>
-              <p>选中主容器后，这里会显示运行指标、端口映射和环境细节。</p>
+            <div v-if="!selectedContainer" class="detail-empty-state">
+              <div class="sm-empty detail-empty-card">
+                <h2>请先选择一个容器</h2>
+                <p>选中主容器后，这里会显示运行指标、端口映射和环境细节。</p>
+              </div>
             </div>
-          </div>
-          <ContainerDetailPanel
-            v-else
-            :container="selectedContainer"
-            :stats="containerStats"
-            :loading="storeLoading"
-            :refreshing-stats="isManualRefreshingStats"
-            :creation-type="currentLab?.creationType"
-            :lab-name="currentLab?.name"
-            :starting-container="isStartingContainer"
-            :stopping-container="isStoppingContainer"
-            :restarting-container="isRestartingContainer"
-            @start="handleContainerStart"
-            @stop="handleContainerStop"
-            @restart="handleContainerRestart"
-            @remove="handleDeleteLab"
-            @open-terminal="handleOpenTerminal"
-            @view-logs="handleViewLogs"
-            @refresh-stats="handleRefreshStats"
-          />
+            <ContainerDetailPanel
+              v-else
+              :container="selectedContainer"
+              :stats="containerStats"
+              :loading="storeLoading"
+              :refreshing-stats="isManualRefreshingStats"
+              :creation-type="currentLab?.creationType"
+              :lab-name="currentLab?.name"
+              :starting-container="isStartingContainer"
+              :stopping-container="isStoppingContainer"
+              :restarting-container="isRestartingContainer"
+              @start="handleContainerStart"
+              @stop="handleContainerStop"
+              @restart="handleContainerRestart"
+              @remove="handleDeleteLab"
+              @open-terminal="handleOpenTerminal"
+              @view-logs="handleViewLogs"
+              @refresh-stats="handleRefreshStats"
+            />
           </template>
         </div>
 
         <!-- 终端 Tab -->
         <div v-else-if="labDetailTab === 'terminal'" class="tab-content">
-          <div v-if="isSshLab" class="ssh-terminal-hint">
-            <p>通过 SSH 在远程服务器执行命令。终端将直接使用实验室的 SSH 连接。</p>
-          </div>
+          <template v-if="isSshLab">
+            <InteractiveTerminalPanel
+              v-if="currentLab && currentLab.status === 'running'"
+              :key="`ssh-${currentLab.labId}`"
+              backend="ssh"
+              :target-id="currentLab.labId"
+              :title="currentLab.name"
+              :subtitle="sshTerminalSubtitle"
+            />
+            <section v-else class="ssh-terminal-connect-panel">
+              <div class="ssh-terminal-connect-panel__copy">
+                <h2>SSH 未连接</h2>
+                <p>{{ sshTerminalSubtitle || '远程服务器连接尚未建立' }}</p>
+              </div>
+              <div class="ssh-terminal-connect-panel__actions">
+                <input
+                  v-if="isPasswordSshLab"
+                  v-model="sshReconnectPassword"
+                  type="password"
+                  class="ssh-info-panel__password-input"
+                  placeholder="输入 SSH 密码"
+                  :disabled="isConnectingSsh"
+                  @keydown.enter="handleSshConnect"
+                />
+                <button
+                  class="sm-button sm-button--primary"
+                  :disabled="isConnectingSsh || (isPasswordSshLab && !sshReconnectPassword.trim())"
+                  @click="handleSshConnect"
+                >
+                  {{ isConnectingSsh ? '连接中...' : '连接' }}
+                </button>
+              </div>
+            </section>
+          </template>
           <template v-else>
             <div v-if="!selectedContainer" class="detail-empty-state">
               <div class="sm-empty detail-empty-card">
@@ -679,14 +736,13 @@ function formatDateTime(value?: string): string {
                 <p>选中目标容器后，可在这里执行临时命令、定位问题并确认运行环境。</p>
               </div>
             </div>
-            <TerminalPanel
+            <InteractiveTerminalPanel
               v-else
-              :container-id="selectedContainer.id"
-              :container-name="selectedContainer.names[0]?.replace(/^\//, '') || '未命名'"
-              :logs="terminalLogs"
-              :loading="storeLoading"
-              @execute="handleExecuteCommand"
-              @clear="handleClearTerminal"
+              :key="`docker-${selectedContainer.id}`"
+              backend="docker"
+              :target-id="selectedContainer.id"
+              :title="dockerTerminalTitle"
+              :subtitle="dockerTerminalSubtitle"
             />
           </template>
         </div>
@@ -702,21 +758,21 @@ function formatDateTime(value?: string): string {
             </div>
           </template>
           <template v-else>
-          <div v-if="!selectedContainer" class="detail-empty-state">
-            <div class="sm-empty detail-empty-card">
-              <h2>日志尚未绑定容器</h2>
-              <p>选中目标容器后，可在这里检索输出、导出日志并追踪最近的运行记录。</p>
+            <div v-if="!selectedContainer" class="detail-empty-state">
+              <div class="sm-empty detail-empty-card">
+                <h2>日志尚未绑定容器</h2>
+                <p>选中目标容器后，可在这里检索输出、导出日志并追踪最近的运行记录。</p>
+              </div>
             </div>
-          </div>
-          <ContainerLogs
-            v-else
-            :container-id="selectedContainer.id"
-            :container-name="selectedContainer.names[0]?.replace(/^\//, '') || '未命名'"
-            :logs="containerLogs"
-            :loading="logsLoading"
-            @refresh="handleRefreshLogs"
-            @export="handleExportLogs"
-          />
+            <ContainerLogs
+              v-else
+              :container-id="selectedContainer.id"
+              :container-name="selectedContainer.names[0]?.replace(/^\//, '') || '未命名'"
+              :logs="containerLogs"
+              :loading="logsLoading"
+              @refresh="handleRefreshLogs"
+              @export="handleExportLogs"
+            />
           </template>
         </div>
       </div>
@@ -1036,35 +1092,64 @@ function formatDateTime(value?: string): string {
   font-style: italic;
 }
 
-.ssh-terminal-hint {
+.ssh-terminal-connect-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sm-space-4);
   padding: var(--sm-space-5);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-lg);
   background: var(--sm-color-surface-2);
 }
 
-.ssh-terminal-hint p {
+.ssh-terminal-connect-panel__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  min-width: 0;
+}
+
+.ssh-terminal-connect-panel__copy h2 {
+  margin: 0;
+  color: var(--sm-color-text-primary);
+  font-size: 17px;
+}
+
+.ssh-terminal-connect-panel__copy p {
   margin: 0;
   color: var(--sm-color-text-secondary);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ssh-terminal-connect-panel__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sm-space-2);
+  flex-shrink: 0;
 }
 
 @media (max-width: 920px) {
   .workspace-header,
   .workspace-header__headline,
   .frontend-recovery-banner,
-  .ssh-info-panel__header {
+  .ssh-info-panel__header,
+  .ssh-terminal-connect-panel {
     flex-direction: column;
   }
 
   .ssh-info-panel__actions,
   .ssh-info-panel__reconnect-form,
+  .ssh-terminal-connect-panel__actions,
   .ssh-info-panel__password-input {
     width: 100%;
   }
 
-  .ssh-info-panel__actions {
+  .ssh-info-panel__actions,
+  .ssh-terminal-connect-panel__actions {
     align-items: stretch;
   }
 
