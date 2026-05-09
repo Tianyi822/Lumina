@@ -69,3 +69,38 @@ export interface SshConnectionStatusEvent {
   status: SshConnectionStatus
   error?: string
 }
+
+/** SSH 终端尺寸 */
+export interface SshTerminalSize {
+  cols: number
+  rows: number
+}
+
+/** SSH 终端打开结果 */
+export interface SshTerminalOpenResult {
+  success: boolean
+  sessionId?: string
+  error?: string
+}
+
+/** SSH 终端操作结果 */
+export interface SshTerminalActionResult {
+  success: boolean
+  error?: string
+}
+
+/** SSH 终端输出事件（通过 IPC 推送） */
+export interface SshTerminalDataEvent {
+  labId: string
+  sessionId: string
+  data: string
+}
+
+/** SSH 终端退出事件（通过 IPC 推送） */
+export interface SshTerminalExitEvent {
+  labId: string
+  sessionId: string
+  code?: number | null
+  signal?: string
+  reason?: string
+}
