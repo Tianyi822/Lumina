@@ -323,12 +323,11 @@ CMD ["npm", "start"]
 )
 
 watch(createType, async (newType) => {
-  await transitionCreatorContentHeight()
-
   if (newType === 'existing' && containerStore.containers.length === 0) {
     await containerStore.loadContainers()
-    await initializeCreatorContentHeight()
   }
+
+  await transitionCreatorContentHeight()
 })
 
 watch(
