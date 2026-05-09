@@ -1,5 +1,5 @@
 import { labService } from '../LabService'
-import { LabData } from '@shared/types/lab'
+import type { LabData } from '@shared/types/lab'
 
 /**
  * 查找实验室（支持 ID 或名称模糊匹配）

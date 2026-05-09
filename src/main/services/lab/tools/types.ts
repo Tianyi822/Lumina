@@ -1,4 +1,4 @@
-import { MCPTool, MCPToolCallResult } from '@main/types/mcp'
+import type { MCPTool, MCPToolCallResult } from '@main/types/mcp'
 
 /**
  * 工具调用参数

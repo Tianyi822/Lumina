@@ -1,9 +1,9 @@
-import { MCPToolCallResult } from '@main/types/mcp'
+import type { MCPToolCallResult } from '@main/types/mcp'
 import type { FileWriteRequest } from '@shared/types/lab'
 import { labFileService } from '../file'
 import { findLab } from './toolExecutor'
 import { resolveProjectRootForWrite } from './toolHelpers'
-import { ToolArgs, LabToolDefinition } from './types'
+import type { ToolArgs, LabToolDefinition } from './types'
 import { sshService } from '../ssh'
 
 /**
