@@ -11,9 +11,15 @@ const RECONNECT_BASE_DELAY = 1_000
 export class SshConnectionManager {
   private clients = new Map<string, SshClient>()
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private listeners: ConnectionStatusListener[] = []
 
-  async connect(labId: string, config: ConnectConfig): Promise<{ success: boolean; error?: string }> {
+  async connect(
+    labId: string,
+    config: ConnectConfig
+  ): Promise<{ success: boolean; error?: string }> {
+    this.clearReconnectTimer(labId)
+
     if (this.clients.has(labId)) {
       await this.disconnect(labId)
     }
@@ -34,15 +40,31 @@ export class SshConnectionManager {
     this.clients.set(labId, sshClient)
 
     return new Promise((resolve) => {
+      let hasConnected = false
+      let settled = false
+
+      const finish = (result: { success: boolean; error?: string }): void => {
+        if (settled) {
+          return
+        }
+        settled = true
+        resolve(result)
+      }
+
       const timeout = setTimeout(() => {
         sshClient.status = 'disconnected'
         client.end()
+        this.clients.delete(labId)
+        if (this.clients.size === 0) {
+          this.stopHeartbeat()
+        }
         this.notifyListeners(labId, 'disconnected', '连接超时')
-        resolve({ success: false, error: 'SSH 连接超时' })
+        finish({ success: false, error: 'SSH 连接超时' })
       }, 30_000)
 
       client.on('ready', () => {
         clearTimeout(timeout)
+        hasConnected = true
         sshClient.status = 'connected'
         sshClient.connectedAt = new Date().toISOString()
         sshClient.lastHeartbeat = new Date().toISOString()
@@ -50,7 +72,7 @@ export class SshConnectionManager {
         this.notifyListeners(labId, 'connected')
         this.startHeartbeat()
         logger.info('SSH 连接建立成功', 'main', { labId })
-        resolve({ success: true })
+        finish({ success: true })
       })
 
       client.on('error', (err: Error) => {
@@ -58,13 +80,27 @@ export class SshConnectionManager {
         sshClient.status = 'disconnected'
         logger.warn('SSH 连接错误', 'main', { labId, error: err.message })
         this.notifyListeners(labId, 'disconnected', err.message)
-        this.attemptReconnect(labId)
-        if (sshClient.reconnectAttempts === 0) {
-          resolve({ success: false, error: `SSH 连接失败: ${err.message}` })
+        if (!hasConnected) {
+          this.clients.delete(labId)
+          if (this.clients.size === 0) {
+            this.stopHeartbeat()
+          }
+          finish({ success: false, error: `SSH 连接失败: ${err.message}` })
+          return
         }
+        this.attemptReconnect(labId)
       })
 
       client.on('close', () => {
+        if (!hasConnected) {
+          clearTimeout(timeout)
+          this.clients.delete(labId)
+          if (this.clients.size === 0) {
+            this.stopHeartbeat()
+          }
+          finish({ success: false, error: 'SSH 连接已关闭' })
+          return
+        }
         if (sshClient.status === 'connected') {
           sshClient.status = 'disconnected'
           this.notifyListeners(labId, 'disconnected', '连接已关闭')
@@ -77,7 +113,8 @@ export class SshConnectionManager {
       } catch (err) {
         clearTimeout(timeout)
         sshClient.status = 'disconnected'
-        resolve({
+        this.clients.delete(labId)
+        finish({
           success: false,
           error: `SSH 连接失败: ${err instanceof Error ? err.message : String(err)}`
         })
@@ -86,12 +123,15 @@ export class SshConnectionManager {
   }
 
   async disconnect(labId: string): Promise<{ success: boolean; error?: string }> {
+    this.clearReconnectTimer(labId)
+
     const sshClient = this.clients.get(labId)
     if (!sshClient) {
       return { success: false, error: '未找到连接' }
     }
 
     try {
+      sshClient.status = 'disconnected'
       sshClient.client.end()
       this.clients.delete(labId)
       this.notifyListeners(labId, 'disconnected', '主动断开')
@@ -128,8 +168,9 @@ export class SshConnectionManager {
   }
 
   async disconnectAll(): Promise<void> {
-    const labIds = Array.from(this.clients.keys())
+    const labIds = Array.from(new Set([...this.clients.keys(), ...this.reconnectTimers.keys()]))
     await Promise.all(labIds.map((id) => this.disconnect(id).catch(() => {})))
+    this.stopHeartbeat()
   }
 
   private notifyListeners(
@@ -172,6 +213,7 @@ export class SshConnectionManager {
         })
       }
     }, HEARTBEAT_INTERVAL)
+    this.heartbeatTimer.unref?.()
   }
 
   private stopHeartbeat(): void {
@@ -179,6 +221,16 @@ export class SshConnectionManager {
       clearInterval(this.heartbeatTimer)
       this.heartbeatTimer = null
     }
+  }
+
+  private clearReconnectTimer(labId: string): void {
+    const timer = this.reconnectTimers.get(labId)
+    if (!timer) {
+      return
+    }
+
+    clearTimeout(timer)
+    this.reconnectTimers.delete(labId)
   }
 
   private attemptReconnect(labId: string): void {
@@ -205,7 +257,11 @@ export class SshConnectionManager {
     })
 
     const savedConfig = sshClient.connectConfig
-    setTimeout(() => {
+    this.clearReconnectTimer(labId)
+
+    const reconnectTimer = setTimeout(() => {
+      this.reconnectTimers.delete(labId)
+
       const current = this.clients.get(labId)
       if (!current || current.status !== 'connecting') return
 
@@ -249,6 +305,8 @@ export class SshConnectionManager {
         this.attemptReconnect(labId)
       }
     }, delay)
+    reconnectTimer.unref?.()
+    this.reconnectTimers.set(labId, reconnectTimer)
   }
 }
 
