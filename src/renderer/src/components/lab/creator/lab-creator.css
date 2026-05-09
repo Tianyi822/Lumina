@@ -1,17 +1,9 @@
 .lab-creator-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+  z-index: 1300;
+  -webkit-app-region: no-drag;
 }
 
 .lab-creator {
-  background-color: var(--sm-color-bg-app);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 8px;
   width: 90%;
   max-width: 900px;
   max-height: 90vh;
@@ -19,6 +11,15 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  -webkit-app-region: no-drag;
+  transition:
+    opacity var(--sm-transition-medium),
+    transform var(--sm-transition-medium),
+    width 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.lab-creator * {
+  -webkit-app-region: no-drag;
 }
 
 .creator-header {
@@ -33,6 +34,32 @@
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+}
+
+.creator-content-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  transition: height 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.creator-content-inner {
+  width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  opacity: 0;
+  transform: translateY(8px) scale(0.992);
+  transition:
+    opacity 180ms ease,
+    transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.creator-content-inner.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .close-btn {
@@ -185,4 +212,12 @@
   color: var(--sm-color-status-danger);
   line-height: 1.5;
   word-break: break-word;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lab-creator,
+  .creator-content-shell,
+  .creator-content-inner {
+    transition: none !important;
+  }
 }

@@ -1,4 +1,4 @@
-import type { LabCreationType } from './core'
+import type { LabCreationType, LabBackendType } from './core'
 
 /**
  * 实验室权限控制类型
@@ -52,6 +52,15 @@ export const LAB_TYPE_PERMISSIONS: Record<LabCreationType, LabPermissionPolicy> 
     defaultDeleteContainer: true,
     forceKeepContainer: false,
     description: 'Dockerfile类型：完整容器管理权限'
+  },
+  ssh: {
+    canStart: false,
+    canStop: false,
+    canRestart: false,
+    canDeleteContainer: false,
+    defaultDeleteContainer: false,
+    forceKeepContainer: false,
+    description: 'SSH远程服务器类型：不管理容器，仅管理连接和文件'
   }
 }
 
@@ -60,7 +69,7 @@ export const LAB_TYPE_PERMISSIONS: Record<LabCreationType, LabPermissionPolicy> 
  * 检查值是否为有效的实验室创建类型
  */
 export function isLabCreationType(value: unknown): value is LabCreationType {
-  return typeof value === 'string' && ['existing', 'compose', 'dockerfile'].includes(value)
+  return typeof value === 'string' && ['existing', 'compose', 'dockerfile', 'ssh'].includes(value)
 }
 
 /**
@@ -74,5 +83,10 @@ export function isManagedLab(type: LabCreationType): boolean {
  * 检查是否为只读实验室类型（仅关联，不管理生命周期）
  */
 export function isReadOnlyLab(type: LabCreationType): boolean {
-  return type === 'existing'
+  return type === 'existing' || type === 'ssh'
+}
+
+/** 检查是否为 SSH 后端实验室 */
+export function isSshBackend(lab: { backendType: LabBackendType }): boolean {
+  return lab.backendType === 'ssh'
 }

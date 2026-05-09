@@ -22,4 +22,4 @@ export interface GeneratorForm {
 
 export type CreatePhase = 'idle' | 'metadata' | 'building' | 'starting' | 'done'
 
-export type LabCreateType = 'compose' | 'dockerfile' | 'existing'
+export type LabCreateType = 'compose' | 'dockerfile' | 'existing' | 'ssh'

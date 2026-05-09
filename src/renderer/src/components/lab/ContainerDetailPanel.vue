@@ -97,7 +97,8 @@ const creationTypeLabel = computed(() => {
   const labelMap: Record<LabCreationType, string> = {
     existing: '已有容器',
     compose: 'Docker Compose',
-    dockerfile: 'Dockerfile'
+    dockerfile: 'Dockerfile',
+    ssh: 'SSH 远程服务器'
   }
 
   if (!props.creationType) {

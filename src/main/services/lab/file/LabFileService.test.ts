@@ -40,7 +40,8 @@ function mockLabAndDocker(mockOptions?: { putArchiveError?: Error }): {
     updatedAt: '2026-01-01T00:00:00.000Z',
     creationType: 'existing',
     primaryContainerId: 'container-stream-test',
-    containerIds: ['container-stream-test']
+    containerIds: ['container-stream-test'],
+    backendType: 'docker'
   }
 
   const containerDetails: ContainerDetails = {

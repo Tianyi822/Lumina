@@ -1,4 +1,4 @@
-import { createIpcInvoker } from './base'
+import { createIpcInvoker, createIpcListener } from './base'
 import { ipcRenderer } from 'electron'
 import type {
   DockerCheckResult,
@@ -15,6 +15,11 @@ import type {
   LabTemplate,
   ExecCommand,
   ExecCommandResult,
+  DockerTerminalActionResult,
+  DockerTerminalDataEvent,
+  DockerTerminalExitEvent,
+  DockerTerminalOpenResult,
+  DockerTerminalSize,
   ComposeOptions,
   ComposeResult,
   CreateFromDockerfileResult,
@@ -122,6 +127,27 @@ export const labApi = {
 
   execCommand: (containerId: string, command: ExecCommand): Promise<ExecCommandResult> => {
     return ipcRenderer.invoke('lab:execCommand', containerId, command)
+  },
+
+  terminal: {
+    open: (containerId: string, size?: DockerTerminalSize): Promise<DockerTerminalOpenResult> => {
+      return ipcRenderer.invoke('lab:terminal:open', containerId, size)
+    },
+    write: (sessionId: string, data: string): Promise<DockerTerminalActionResult> => {
+      return ipcRenderer.invoke('lab:terminal:write', sessionId, data)
+    },
+    resize: (sessionId: string, size: DockerTerminalSize): Promise<DockerTerminalActionResult> => {
+      return ipcRenderer.invoke('lab:terminal:resize', sessionId, size)
+    },
+    close: (sessionId: string): Promise<DockerTerminalActionResult> => {
+      return ipcRenderer.invoke('lab:terminal:close', sessionId)
+    },
+    onData: (callback: (event: DockerTerminalDataEvent) => void): (() => void) => {
+      return createIpcListener<DockerTerminalDataEvent>('lab:terminal:data', callback)
+    },
+    onExit: (callback: (event: DockerTerminalExitEvent) => void): (() => void) => {
+      return createIpcListener<DockerTerminalExitEvent>('lab:terminal:exit', callback)
+    }
   },
 
   // ==================== File Operations (Placeholder) ====================

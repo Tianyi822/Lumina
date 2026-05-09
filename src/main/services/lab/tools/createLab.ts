@@ -35,7 +35,7 @@ export async function recoverFrontendLabRuntimeIfNeeded(lab: LabData): Promise<{
 export const createLabTool: LabToolDefinition = {
   name: 'lab__create_lab',
   description:
-    '创建新的实验室环境。支持三种类型：compose（使用 docker-compose 配置）、dockerfile（从 Dockerfile 构建）、existing（关联已有容器）。创建成功后会返回实验室 ID',
+    '创建新的实验室环境。支持四种类型：compose（使用 docker-compose 配置）、dockerfile（从 Dockerfile 构建）、existing（关联已有容器）、ssh（连接远程服务器）。创建成功后会返回实验室 ID',
   inputSchema: {
     type: 'object',
     properties: {
@@ -45,9 +45,9 @@ export const createLabTool: LabToolDefinition = {
       },
       creation_type: {
         type: 'string',
-        enum: ['existing', 'compose', 'dockerfile'],
+        enum: ['existing', 'compose', 'dockerfile', 'ssh'],
         description:
-          '创建类型：compose 使用 docker-compose，dockerfile 从 Dockerfile 构建，existing 关联已有容器。能根据用户需求推断时应直接提供该参数；只有必须让用户选择时才省略'
+          '创建类型：compose 使用 docker-compose，dockerfile 从 Dockerfile 构建，existing 关联已有容器，ssh 连接远程服务器。能根据用户需求推断时应直接提供该参数；只有必须让用户选择时才省略'
       },
       compose_content: {
         type: 'string',
@@ -70,6 +70,31 @@ export const createLabTool: LabToolDefinition = {
         enum: ['yes', 'no', 'pull', 'cancel'],
         description:
           '镜像处理方式：yes 使用本地镜像，no 强制拉取最新镜像，pull 继续拉取（镜像不存在时），cancel 取消操作'
+      },
+      ssh_host: {
+        type: 'string',
+        description: 'SSH 远程服务器地址 (creation_type 为 ssh 时必需)'
+      },
+      ssh_port: {
+        type: 'number',
+        description: 'SSH 端口号 (creation_type 为 ssh 时使用，默认 22)'
+      },
+      ssh_username: {
+        type: 'string',
+        description: 'SSH 用户名 (creation_type 为 ssh 时必需)'
+      },
+      ssh_auth_type: {
+        type: 'string',
+        enum: ['password', 'key'],
+        description: 'SSH 认证方式 (creation_type 为 ssh 时使用，默认 password)'
+      },
+      ssh_password: {
+        type: 'string',
+        description: 'SSH 密码 (creation_type 为 ssh 且 authType 为 password 时使用)'
+      },
+      ssh_key_name: {
+        type: 'string',
+        description: 'SSH 密钥名称 (creation_type 为 ssh 且 authType 为 key 时使用)'
       }
     },
     required: ['name']
@@ -111,6 +136,11 @@ export const createLabTool: LabToolDefinition = {
                   value: 'compose',
                   label: 'Docker Compose 编排',
                   description: '使用 docker-compose 创建容器组'
+                },
+                {
+                  value: 'ssh',
+                  label: 'SSH 远程服务器',
+                  description: '连接远程服务器，执行命令和读写文件'
                 }
               ]
             })
@@ -136,6 +166,14 @@ export const createLabTool: LabToolDefinition = {
       return {
         success: false,
         error: 'compose 类型需要提供 compose_content 参数'
+      }
+    }
+    if (creationType === 'ssh') {
+      if (!args.ssh_host || !args.ssh_username) {
+        return {
+          success: false,
+          error: 'ssh 类型需要提供 ssh_host 和 ssh_username 参数'
+        }
       }
     }
 
@@ -259,6 +297,14 @@ export const createLabTool: LabToolDefinition = {
     if (creationType === 'existing') {
       request.existingContainerId = args.existing_container_id as string
     }
+    if (creationType === 'ssh') {
+      request.sshHost = args.ssh_host as string
+      request.sshPort = (args.ssh_port as number) || 22
+      request.sshUsername = args.ssh_username as string
+      request.sshAuthType = (args.ssh_auth_type as 'password' | 'key') || 'password'
+      request.sshPassword = args.ssh_password as string | undefined
+      request.sshKeyName = args.ssh_key_name as string | undefined
+    }
 
     const metaResult = await labService.createLab(request)
     if (!metaResult.success || !metaResult.lab) {
@@ -275,6 +321,10 @@ export const createLabTool: LabToolDefinition = {
       switch (creationType) {
         case 'existing':
           // existing 类型在 labService.createLab 中已处理
+          break
+
+        case 'ssh':
+          // SSH 类型在 labService.createLab 中已处理，不需要容器操作
           break
 
         case 'dockerfile': {

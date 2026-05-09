@@ -35,7 +35,12 @@ export type {
   ComposeConfigMeta,
   SaveConfigRequest,
   PortMappingInput,
-  PortMapping
+  PortMapping,
+  DockerTerminalSize,
+  DockerTerminalOpenResult,
+  DockerTerminalActionResult,
+  DockerTerminalDataEvent,
+  DockerTerminalExitEvent
 } from '@shared/types/lab'
 
 export type {

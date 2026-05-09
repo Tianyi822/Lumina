@@ -5,6 +5,7 @@ import {
   useLabStore,
   useUIStateStore
 } from '@renderer/stores'
+import { useNotification } from '@renderer/composables/useNotification'
 import type { ContainerInfo } from '@renderer/types/lab'
 
 interface ContainerSelectorExpose {
@@ -32,6 +33,7 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
   const containerStore = useContainerStore()
   const labStore = useLabStore()
   const uiStateStore = useUIStateStore()
+  const notify = useNotification()
 
   const canCreate = computed(() => {
     switch (creatorStore.createType) {
@@ -48,6 +50,14 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
       case 'existing': {
         const selected = options.containerSelectorRef.value?.selectedContainer
         return selected != null && selected.state === 'running'
+      }
+      case 'ssh': {
+        const cfg = creatorStore.sshConfig
+        const hasCredentials =
+          cfg.authType === 'password'
+            ? cfg.password.trim().length > 0
+            : cfg.keyContent.trim().length > 0 && cfg.keyName.trim().length > 0
+        return cfg.host.trim().length > 0 && cfg.username.trim().length > 0 && hasCredentials
       }
       default:
         return false
@@ -148,6 +158,41 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
         if (result?.success) {
           await containerStore.loadContainerDetails(containerId)
           uiStateStore.setLabDetailTab('stats')
+          options.closeDialog()
+        }
+        break
+      }
+      case 'ssh': {
+        const ssh = creatorStore.sshConfig
+        const labResult = await labStore.createLab({
+          name: `${ssh.username}@${ssh.host}`,
+          creationType: 'ssh',
+          backendType: 'ssh',
+          sshHost: ssh.host,
+          sshPort: ssh.port,
+          sshUsername: ssh.username,
+          sshAuthType: ssh.authType,
+          sshPassword: ssh.authType === 'password' ? ssh.password : undefined,
+          sshKeyName: ssh.authType === 'key' ? ssh.keyName : undefined
+        })
+
+        if (labResult?.success && labResult.lab?.labId) {
+          const connected = await labStore.connectSsh(labResult.lab.labId, {
+            host: ssh.host,
+            port: ssh.port,
+            username: ssh.username,
+            authType: ssh.authType,
+            password: ssh.authType === 'password' ? ssh.password : undefined,
+            keyName: ssh.authType === 'key' ? ssh.keyName : undefined,
+            keyContent: ssh.authType === 'key' ? ssh.keyContent : undefined
+          })
+
+          if (connected) {
+            notify.success('SSH 实验室已创建', `已连接到 ${ssh.host}`, { source: 'lab' })
+          }
+
+          await labStore.loadLab(labResult.lab.labId, true, { silent: true })
+          uiStateStore.setLabDetailTab(connected ? 'terminal' : 'stats')
           options.closeDialog()
         }
         break

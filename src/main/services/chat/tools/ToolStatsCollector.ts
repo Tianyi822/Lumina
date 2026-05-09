@@ -95,6 +95,7 @@ export class ToolStatsCollector {
     if (this.persistTimer) return
     this.loadPersisted()
     this.persistTimer = setInterval(() => this.persist(), PERSIST_INTERVAL_MS)
+    this.persistTimer.unref?.()
   }
 
   /** 停止持久化并写入磁盘 */

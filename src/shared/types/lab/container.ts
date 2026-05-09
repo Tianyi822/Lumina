@@ -261,3 +261,37 @@ export interface ExecCommandResult {
   result?: ExecResult
   error?: string
 }
+
+/** Docker 终端尺寸 */
+export interface DockerTerminalSize {
+  cols: number
+  rows: number
+}
+
+/** Docker 终端打开结果 */
+export interface DockerTerminalOpenResult {
+  success: boolean
+  sessionId?: string
+  error?: string
+}
+
+/** Docker 终端操作结果 */
+export interface DockerTerminalActionResult {
+  success: boolean
+  error?: string
+}
+
+/** Docker 终端输出事件（通过 IPC 推送） */
+export interface DockerTerminalDataEvent {
+  containerId: string
+  sessionId: string
+  data: string
+}
+
+/** Docker 终端退出事件（通过 IPC 推送） */
+export interface DockerTerminalExitEvent {
+  containerId: string
+  sessionId: string
+  code?: number | null
+  reason?: string
+}
