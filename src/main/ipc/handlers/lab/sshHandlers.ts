@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { sshService, sshConfigService } from '@main/services/lab/ssh'
+import { labService } from '@main/services/lab/LabService'
 import { logger } from '@main/services/logger'
 import type {
   SshConnectionConfig,
@@ -13,7 +14,18 @@ export function registerSshHandlers(): void {
     'ssh:connect',
     async (_event, labId: string, config: SshConnectionConfig) => {
       try {
-        return await sshService.connect(labId, config)
+        const result = await sshService.connect(labId, config)
+
+        // 更新实验室元数据以反映连接状态
+        const lab = labService.loadLab(labId)
+        if (lab && lab.backendType === 'ssh' && lab.ssh) {
+          lab.status = result.success ? 'running' : 'stopped'
+          lab.ssh.connected = result.success
+          lab.ssh.lastConnectedAt = result.success ? new Date().toISOString() : lab.ssh.lastConnectedAt
+          labService.saveLab(lab)
+        }
+
+        return result
       } catch (error) {
         logger.error('ssh:connect 失败', 'main', {
           error: error instanceof Error ? error.message : String(error)
@@ -25,7 +37,17 @@ export function registerSshHandlers(): void {
 
   ipcMain.handle('ssh:disconnect', async (_event, labId: string) => {
     try {
-      return await sshService.disconnect(labId)
+      const result = await sshService.disconnect(labId)
+
+      // 更新实验室元数据以反映断开状态
+      const lab = labService.loadLab(labId)
+      if (lab && lab.backendType === 'ssh' && lab.ssh) {
+        lab.status = 'stopped'
+        lab.ssh.connected = false
+        labService.saveLab(lab)
+      }
+
+      return result
     } catch (error) {
       logger.error('ssh:disconnect 失败', 'main', {
         error: error instanceof Error ? error.message : String(error)
