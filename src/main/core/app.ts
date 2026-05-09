@@ -14,9 +14,88 @@ import {
   initializeLab
 } from '@main/ipc'
 import { sshService } from '@main/services/lab/ssh'
+import { mcpService } from '@main/services/mcp'
+import { getKnowledgeMCPServerService } from '@main/services/knowledge/KnowledgeMCPServerService'
+import { toolStatsCollector } from '@main/services/chat/tools/ToolStatsCollector'
 import { logger } from '@main/services/logger'
 
 const appDisplayName = 'Lumina'
+const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
+
+let shutdownPromise: Promise<void> | null = null
+
+function createTimeoutPromise(taskName: string): {
+  promise: Promise<void>
+  clear: () => void
+} {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  const promise = new Promise<void>((resolve) => {
+    timeoutId = setTimeout(() => {
+      logger.warn('退出清理任务超时，继续退出应用', 'main', {
+        taskName,
+        timeoutMs: SHUTDOWN_TASK_TIMEOUT_MS
+      })
+      resolve()
+    }, SHUTDOWN_TASK_TIMEOUT_MS)
+    timeoutId.unref?.()
+  })
+
+  return {
+    promise,
+    clear: () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+    }
+  }
+}
+
+async function runShutdownTask(
+  taskName: string,
+  task: () => Promise<void> | void
+): Promise<void> {
+  const timeout = createTimeoutPromise(taskName)
+
+  try {
+    await Promise.race([Promise.resolve().then(task), timeout.promise])
+  } catch (err) {
+    logger.error('退出清理任务失败', 'main', {
+      taskName,
+      error: err instanceof Error ? err.message : String(err)
+    })
+  } finally {
+    timeout.clear()
+  }
+}
+
+function requestShutdown(exitCode: number, reason: string): void {
+  if (shutdownPromise) {
+    return
+  }
+
+  shutdownPromise = (async () => {
+    logger.info('应用退出清理开始', 'main', { reason, exitCode })
+
+    const knowledgeMCPService = getKnowledgeMCPServerService()
+    const knowledgeMCPStatus = knowledgeMCPService.getStatus()
+
+    await Promise.all([
+      runShutdownTask('tool-stats', () => toolStatsCollector.stopPersist()),
+      runShutdownTask('mcp', () => mcpService.disconnectAll()),
+      runShutdownTask('ssh', () => sshService.shutdown()),
+      runShutdownTask('knowledge-mcp', async () => {
+        if (knowledgeMCPStatus.running) {
+          await knowledgeMCPService.stop()
+        }
+      })
+    ])
+
+    logger.info('应用退出清理完成', 'main', { reason, exitCode })
+  })().finally(() => {
+    app.exit(exitCode)
+  })
+}
 
 /**
  * 初始化应用
@@ -73,32 +152,27 @@ export function initializeApp(): void {
 
     // 在 macOS 上，当点击 dock 图标且没有其他窗口打开时，通常会重新创建一个窗口
     app.on('activate', function () {
-      if (BrowserWindow.getAllWindows().length === 0) {
+      if (!shutdownPromise && BrowserWindow.getAllWindows().length === 0) {
         createMainWindow()
       }
     })
   })
 
-  // 当所有窗口都关闭时退出应用，macOS 除外
+  // 当所有窗口都关闭时退出应用。macOS 也不保留后台驻留。
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-      app.quit()
-    }
+    requestShutdown(0, 'window-all-closed')
   })
 
-  // 应用退出前关闭所有 SSH 连接
-  let isShuttingDown = false
   app.on('before-quit', (e) => {
-    if (isShuttingDown) return
     e.preventDefault()
-    isShuttingDown = true
-    sshService
-      .shutdown()
-      .catch((err) => {
-        logger.error('SSH 服务关闭失败', 'main', {
-          error: err instanceof Error ? err.message : String(err)
-        })
-      })
-      .finally(() => app.quit())
+    requestShutdown(0, 'before-quit')
+  })
+
+  process.on('SIGINT', () => {
+    requestShutdown(130, 'SIGINT')
+  })
+
+  process.on('SIGTERM', () => {
+    requestShutdown(143, 'SIGTERM')
   })
 }
