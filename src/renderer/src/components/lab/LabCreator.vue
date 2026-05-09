@@ -550,7 +550,7 @@ async function testSshConnection(): Promise<void> {
               <div class="ssh-form__field ssh-form__checkbox">
                 <label>
                   <input v-model="sshConfig.saveConfig" type="checkbox" />
-                  保存此服务器配置（密码将加密存储于本地）
+                  保存此服务器连接配置（不含密码）
                 </label>
               </div>
 

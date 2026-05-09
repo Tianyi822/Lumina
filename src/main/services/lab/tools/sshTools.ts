@@ -121,7 +121,6 @@ export const sshConnectTool: LabToolDefinition = {
         port,
         username,
         authType,
-        password: args.password as string | undefined,
         keyName: args.key_name as string | undefined,
         keyContent: args.key_content as string | undefined
       }
