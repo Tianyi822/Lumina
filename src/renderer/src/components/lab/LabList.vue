@@ -197,13 +197,11 @@ function handleDeleteClick(lab: LabListItem): void {
 .lab-item.orphan {
   border-color: rgba(199, 120, 120, 0.32);
   background-color: rgba(199, 120, 120, 0.08);
-  opacity: 0.7;
 }
 
 .lab-item.orphan:hover {
   border-color: rgba(199, 120, 120, 0.32);
   background-color: rgba(199, 120, 120, 0.12);
-  opacity: 0.85;
 }
 
 .lab-info {
