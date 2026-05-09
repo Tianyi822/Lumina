@@ -49,17 +49,13 @@ export const sshConnectTool: LabToolDefinition = {
         type: 'string',
         description: 'SSH 密码（auth_type 为 password 时使用）'
       },
-      key_path: {
-        type: 'string',
-        description: '本地 SSH 密钥文件路径（auth_type 为 key 时使用）'
-      },
       key_content: {
         type: 'string',
-        description: 'SSH 密钥内容（auth_type 为 key 时使用，与 key_path 二选一）'
+        description: 'SSH 密钥内容（auth_type 为 key 时使用）'
       },
-      passphrase: {
+      key_name: {
         type: 'string',
-        description: '密钥的 passphrase（可选）'
+        description: '密钥名称，用于标识密钥文件（auth_type 为 key 时必填）'
       },
       save_config: {
         type: 'boolean',
@@ -91,8 +87,11 @@ export const sshConnectTool: LabToolDefinition = {
     if (authType === 'password' && !args.password) {
       return { success: false, error: '密码认证模式下需要提供 password 参数' }
     }
-    if (authType === 'key' && !args.key_path && !args.key_content) {
-      return { success: false, error: '密钥认证模式下需要提供 key_path 或 key_content 参数' }
+    if (authType === 'key' && !args.key_content) {
+      return { success: false, error: '密钥认证模式下需要提供 key_content 参数' }
+    }
+    if (authType === 'key' && !args.key_name) {
+      return { success: false, error: '密钥认证模式下需要提供 key_name 参数' }
     }
 
     // 创建实验室元数据
@@ -123,9 +122,8 @@ export const sshConnectTool: LabToolDefinition = {
         username,
         authType,
         password: args.password as string | undefined,
-        keyPath: args.key_path as string | undefined,
-        keyContent: args.key_content as string | undefined,
-        passphrase: args.passphrase as string | undefined
+        keyName: args.key_name as string | undefined,
+        keyContent: args.key_content as string | undefined
       }
       const saveResult = sshConfigService.save(saveRequest)
       if (saveResult.success && saveResult.config) {
@@ -144,9 +142,8 @@ export const sshConnectTool: LabToolDefinition = {
       username,
       authType,
       password: args.password as string | undefined,
-      keyPath: args.key_path as string | undefined,
-      keyContent: args.key_content as string | undefined,
-      passphrase: args.passphrase as string | undefined
+      keyName: args.key_name as string | undefined,
+      keyContent: args.key_content as string | undefined
     })
 
     if (!connectResult.success) {

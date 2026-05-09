@@ -101,7 +101,7 @@ export class LabToolService {
     if (name === 'lab__ssh_connect') {
       delete safeArgs.password
       delete safeArgs.key_content
-      delete safeArgs.passphrase
+      delete safeArgs.key_name
     }
     logger.info(`执行实验室工具: ${name}`, 'main', { args: safeArgs })
 

@@ -1,6 +1,8 @@
 import { Client } from 'ssh2'
 import type { ConnectConfig } from 'ssh2'
-import { readFile } from 'fs/promises'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { join } from 'path'
+import { getConfigDirPath } from '@main/services/config/configPaths'
 import type { ExecCommand, ExecResult, LabResult, FileWriteRequest, FileWriteResult } from '@shared/types/lab'
 import type {
   SshConnectionConfig,
@@ -27,7 +29,7 @@ export class SshService {
   async connect(labId: string, config: SshConnectionConfig): Promise<SshConnectResult> {
     let connectConfig: ConnectConfig
     try {
-      connectConfig = await this.buildConnectConfig(config)
+      connectConfig = this.buildConnectConfig(config)
     } catch (err) {
       return {
         success: false,
@@ -73,7 +75,7 @@ export class SshService {
   async testConnection(config: SshConnectionConfig): Promise<TestSshConnectionResult> {
     let connectConfig: ConnectConfig
     try {
-      connectConfig = await this.buildConnectConfig(config)
+      connectConfig = this.buildConnectConfig(config)
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) }
     }
@@ -148,7 +150,7 @@ export class SshService {
     logger.info('SSH 服务已关闭', 'main')
   }
 
-  private async buildConnectConfig(config: SshConnectionConfig): Promise<ConnectConfig> {
+  private buildConnectConfig(config: SshConnectionConfig): ConnectConfig {
     const base: ConnectConfig = {
       host: config.host,
       port: config.port,
@@ -162,21 +164,23 @@ export class SshService {
       base.password = config.password
     } else {
       if (config.keyContent) {
-        base.privateKey = config.keyContent
-      } else if (config.keyPath) {
-        try {
-          base.privateKey = await readFile(config.keyPath, 'utf-8')
-        } catch (err) {
-          logger.error('SSH 密钥文件读取失败', 'main', {
-            keyPath: config.keyPath,
-            error: err instanceof Error ? err.message : String(err)
-          })
-          throw new Error(`密钥文件读取失败: ${config.keyPath}`)
+        const keyName = config.keyName || 'id_rsa'
+        const sshKeysDir = join(getConfigDirPath(), 'ssh-keys')
+        if (!existsSync(sshKeysDir)) {
+          mkdirSync(sshKeysDir, { recursive: true })
         }
-      }
+        const keyFilePath = join(sshKeysDir, keyName)
+        writeFileSync(keyFilePath, config.keyContent, { mode: 0o600 })
+        logger.info('SSH 密钥已保存到文件', 'main', { keyFilePath })
 
-      if (config.passphrase) {
-        base.passphrase = config.passphrase
+        base.privateKey = readFileSync(keyFilePath, 'utf-8')
+      } else if (config.keyName) {
+        // 重连场景：无 keyContent 但有 keyName，从已保存的密钥文件读取
+        const keyFilePath = join(getConfigDirPath(), 'ssh-keys', config.keyName)
+        if (existsSync(keyFilePath)) {
+          base.privateKey = readFileSync(keyFilePath, 'utf-8')
+          logger.info('SSH 从已保存的文件读取密钥', 'main', { keyFilePath })
+        }
       }
     }
 
