@@ -9,7 +9,12 @@ import type {
   TestSshConnectionResult,
   ExecCommand,
   ExecCommandResult,
-  SshConnectResult
+  SshConnectResult,
+  SshTerminalActionResult,
+  SshTerminalDataEvent,
+  SshTerminalExitEvent,
+  SshTerminalOpenResult,
+  SshTerminalSize
 } from '@shared/types/lab'
 
 export const sshApi = {
@@ -25,6 +30,21 @@ export const sshApi = {
 
   onConnectionStatus: (callback: (event: SshConnectionStatusEvent) => void): (() => void) => {
     return createIpcListener<SshConnectionStatusEvent>('ssh:connection-status', callback)
+  },
+
+  terminal: {
+    open: (labId: string, size?: SshTerminalSize): Promise<SshTerminalOpenResult> =>
+      ipcRenderer.invoke('ssh:terminal:open', labId, size),
+    write: (sessionId: string, data: string): Promise<SshTerminalActionResult> =>
+      ipcRenderer.invoke('ssh:terminal:write', sessionId, data),
+    resize: (sessionId: string, size: SshTerminalSize): Promise<SshTerminalActionResult> =>
+      ipcRenderer.invoke('ssh:terminal:resize', sessionId, size),
+    close: (sessionId: string): Promise<SshTerminalActionResult> =>
+      ipcRenderer.invoke('ssh:terminal:close', sessionId),
+    onData: (callback: (event: SshTerminalDataEvent) => void): (() => void) =>
+      createIpcListener<SshTerminalDataEvent>('ssh:terminal:data', callback),
+    onExit: (callback: (event: SshTerminalExitEvent) => void): (() => void) =>
+      createIpcListener<SshTerminalExitEvent>('ssh:terminal:exit', callback)
   },
 
   config: {
