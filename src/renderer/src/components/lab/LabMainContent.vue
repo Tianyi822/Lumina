@@ -431,17 +431,19 @@ function handleCloseOrphanAlert(): void {
 }
 
 const isConnectingSsh = ref(false)
+const sshReconnectPassword = ref('')
 
-/** 密码认证的 SSH 实验室断开后无法自动重连（密码未持久化） */
-const canReconnectSsh = computed(() => {
-  if (!props.currentLab?.ssh) return false
-  return props.currentLab.ssh.authType !== 'password'
-})
+const isPasswordSshLab = computed(() => props.currentLab?.ssh?.authType === 'password')
 
 async function handleSshConnect(): Promise<void> {
   const labId = props.currentLab?.labId
   const ssh = props.currentLab?.ssh
   if (!labId || !ssh) return
+
+  if (ssh.authType === 'password' && !sshReconnectPassword.value.trim()) {
+    notify.warning('请输入 SSH 密码', '密码认证的连接需要重新输入密码后再连接', { source: 'lab' })
+    return
+  }
 
   isConnectingSsh.value = true
   try {
@@ -450,10 +452,12 @@ async function handleSshConnect(): Promise<void> {
       port: ssh.port,
       username: ssh.username,
       authType: ssh.authType,
+      password: ssh.authType === 'password' ? sshReconnectPassword.value : undefined,
       keyName: ssh.keyName
     })
 
     if (connected) {
+      sshReconnectPassword.value = ''
       await labStore.loadLab(labId, true)
     }
   } finally {
@@ -465,9 +469,17 @@ async function handleSshDisconnect(): Promise<void> {
   const labId = props.currentLab?.labId
   if (!labId) return
 
+  sshReconnectPassword.value = ''
   await labStore.disconnectSsh(labId)
   await labStore.loadLab(labId, true)
 }
+
+watch(
+  () => props.currentLab?.labId,
+  () => {
+    sshReconnectPassword.value = ''
+  }
+)
 
 function formatDateTime(value?: string): string {
   if (!value) {
@@ -563,17 +575,31 @@ function formatDateTime(value?: string): string {
                 <h3>连接信息</h3>
                 <div class="ssh-info-panel__actions">
                   <template v-if="currentLab?.status !== 'running'">
+                    <div v-if="isPasswordSshLab" class="ssh-info-panel__reconnect-form">
+                      <input
+                        v-model="sshReconnectPassword"
+                        type="password"
+                        class="ssh-info-panel__password-input"
+                        placeholder="输入 SSH 密码"
+                        :disabled="isConnectingSsh"
+                        @keydown.enter="handleSshConnect"
+                      />
+                      <button
+                        class="sm-button sm-button--primary"
+                        :disabled="isConnectingSsh || !sshReconnectPassword.trim()"
+                        @click="handleSshConnect"
+                      >
+                        {{ isConnectingSsh ? '连接中...' : '重新连接' }}
+                      </button>
+                    </div>
                     <button
-                      v-if="canReconnectSsh"
+                      v-else
                       class="sm-button sm-button--primary"
                       :disabled="isConnectingSsh"
                       @click="handleSshConnect"
                     >
-                      {{ isConnectingSsh ? '连接中...' : '连接' }}
+                      {{ isConnectingSsh ? '连接中...' : '重新连接' }}
                     </button>
-                    <span v-else class="ssh-info-panel__hint">
-                      密码认证的连接需重新创建实验室以恢复
-                    </span>
                   </template>
                   <button
                     v-else
@@ -924,6 +950,7 @@ function formatDateTime(value?: string): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--sm-space-4);
 }
 
 .ssh-info-panel__header h3 {
@@ -933,15 +960,49 @@ function formatDateTime(value?: string): string {
   color: var(--sm-color-text-primary);
 }
 
+.ssh-info-panel__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sm-space-2);
+  flex-shrink: 0;
+}
+
+.ssh-info-panel__reconnect-form {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+}
+
+.ssh-info-panel__password-input {
+  width: 180px;
+  height: 32px;
+  padding: 0 var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
+  font-family: var(--sm-font-sans);
+  font-size: 13px;
+}
+
+.ssh-info-panel__password-input:focus {
+  outline: none;
+  border-color: var(--sm-color-border-accent);
+  box-shadow: 0 0 0 2px var(--sm-color-accent-08);
+}
+
 .ssh-info-panel__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--sm-space-3);
+  min-width: 0;
 }
 
 .ssh-info-panel__item {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   gap: 6px;
   padding: var(--sm-space-4);
   border: 1px solid var(--sm-color-border-subtle);
@@ -955,10 +1016,14 @@ function formatDateTime(value?: string): string {
 }
 
 .ssh-info-panel__value {
+  min-width: 0;
   font-size: 14px;
   font-weight: 500;
   color: var(--sm-color-text-primary);
   font-family: var(--sm-font-mono);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.45;
 }
 
 .ssh-info-panel__value.connected {
@@ -988,8 +1053,24 @@ function formatDateTime(value?: string): string {
 @media (max-width: 920px) {
   .workspace-header,
   .workspace-header__headline,
-  .frontend-recovery-banner {
+  .frontend-recovery-banner,
+  .ssh-info-panel__header {
     flex-direction: column;
+  }
+
+  .ssh-info-panel__actions,
+  .ssh-info-panel__reconnect-form,
+  .ssh-info-panel__password-input {
+    width: 100%;
+  }
+
+  .ssh-info-panel__actions {
+    align-items: stretch;
+  }
+
+  .ssh-info-panel__reconnect-form {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
