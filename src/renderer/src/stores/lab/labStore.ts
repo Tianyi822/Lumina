@@ -361,6 +361,9 @@ export const useLabStore = defineStore('lab', () => {
 
     if (result.success) {
       await listStore.refreshLabList()
+      if (currentLabId.value === labId) {
+        await listStore.loadLab(labId, true, { silent: true })
+      }
       return true
     }
     notify.error('SSH 连接失败', result.error || '未知错误', { source: 'lab' })
@@ -371,6 +374,9 @@ export const useLabStore = defineStore('lab', () => {
     const result = await window.api.ssh.disconnect(labId)
     if (result.success) {
       await listStore.refreshLabList()
+      if (currentLabId.value === labId) {
+        await listStore.loadLab(labId, true, { silent: true })
+      }
       return true
     }
     notify.error('断开连接失败', result.error || '未知错误', { source: 'lab' })

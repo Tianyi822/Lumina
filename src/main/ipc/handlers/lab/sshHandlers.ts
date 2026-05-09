@@ -5,9 +5,37 @@ import { logger } from '@main/services/logger'
 import type {
   SshConnectionConfig,
   SshConnectionStatusEvent,
+  SshConnectionStatus,
   SaveSshConfigRequest,
   ExecCommand
 } from '@shared/types/lab'
+
+function syncSshLabStatus(labId: string, status: SshConnectionStatus): void {
+  const lab = labService.loadLab(labId)
+  if (!lab || lab.backendType !== 'ssh' || !lab.ssh) {
+    return
+  }
+
+  const nextLabStatus =
+    status === 'connected' ? 'running' : status === 'connecting' ? 'creating' : 'stopped'
+  const nextConnected = status === 'connected'
+  const shouldUpdate =
+    lab.status !== nextLabStatus ||
+    lab.ssh.connected !== nextConnected ||
+    (nextConnected && !lab.ssh.lastConnectedAt)
+
+  if (!shouldUpdate) {
+    return
+  }
+
+  lab.status = nextLabStatus
+  lab.ssh.connected = nextConnected
+  if (nextConnected) {
+    lab.ssh.lastConnectedAt = new Date().toISOString()
+  }
+
+  labService.saveLab(lab, { silent: true })
+}
 
 export function registerSshHandlers(): void {
   ipcMain.handle(
@@ -79,6 +107,8 @@ export function registerSshHandlers(): void {
   )
 
   sshService.onConnectionStatusChange((labId, status, error) => {
+    syncSshLabStatus(labId, status)
+
     const windows = BrowserWindow.getAllWindows()
     for (const win of windows) {
       try {

@@ -196,6 +196,38 @@ export class LabService {
   }
 
   /**
+   * 按主进程内存连接状态同步 SSH 实验室元数据
+   */
+  async reconcileSshRuntimeState(
+    lab: LabData,
+    options?: { silent?: boolean }
+  ): Promise<LabData> {
+    if (lab.backendType !== 'ssh' || !lab.ssh) {
+      return lab
+    }
+
+    const { sshService: sshInstance } = await import('./ssh/SshService')
+    const sshStatus = sshInstance.getConnectionStatus(lab.labId)
+    const nextStatus =
+      sshStatus === 'connected' ? 'running' : sshStatus === 'connecting' ? 'creating' : 'stopped'
+    const nextConnected = sshStatus === 'connected'
+
+    if (lab.status === nextStatus && lab.ssh.connected === nextConnected) {
+      return lab
+    }
+
+    lab.status = nextStatus
+    lab.ssh.connected = nextConnected
+
+    if (!nextConnected) {
+      lab.ssh.connected = false
+    }
+
+    this.saveLab(lab, { silent: options?.silent ?? true })
+    return lab
+  }
+
+  /**
    * 根据容器 ID 查找关联实验室
    */
   findLabByContainerId(containerId: string): LabData | null {
@@ -256,15 +288,14 @@ export class LabService {
           const lab = this.loadLab(labId)
           if (lab) {
             if (lab.backendType === 'ssh') {
-              const { sshService: sshInstance } = await import('./ssh/SshService')
-              const sshStatus = sshInstance.getConnectionStatus(labId)
+              const resolvedLab = await this.reconcileSshRuntimeState(lab, { silent: true })
               labs.push({
-                labId: lab.labId,
-                name: lab.name,
-                status: sshStatus === 'connected' ? 'running' : 'stopped',
-                createdAt: lab.createdAt,
-                updatedAt: lab.updatedAt,
-                creationType: lab.creationType,
+                labId: resolvedLab.labId,
+                name: resolvedLab.name,
+                status: resolvedLab.status,
+                createdAt: resolvedLab.createdAt,
+                updatedAt: resolvedLab.updatedAt,
+                creationType: resolvedLab.creationType,
                 containerCount: 0,
                 isOrphan: false
               })

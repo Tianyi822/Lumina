@@ -23,7 +23,8 @@ export function registerLabCrudHandlers(): void {
   })
 
   ipcMain.handle('lab:load', async (_event, labId: string): Promise<LabData | null> => {
-    return labService.loadLab(labId)
+    const lab = labService.loadLab(labId)
+    return lab ? labService.reconcileSshRuntimeState(lab, { silent: true }) : null
   })
 
   ipcMain.handle('lab:list', async (): Promise<LabListItem[]> => {
