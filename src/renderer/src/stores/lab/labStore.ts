@@ -341,6 +341,43 @@ export const useLabStore = defineStore('lab', () => {
     )
   }
 
+  async function connectSsh(
+    labId: string,
+    config: {
+      host: string
+      port: number
+      username: string
+      authType: 'password' | 'key'
+      password?: string
+      keyPath?: string
+      keyContent?: string
+      passphrase?: string
+    }
+  ): Promise<boolean> {
+    const result = await window.api.ssh.connect(labId, {
+      id: '',
+      name: '',
+      ...config
+    })
+
+    if (result.success) {
+      await listStore.refreshLabList()
+      return true
+    }
+    notify.error('SSH 连接失败', result.error || '未知错误', { source: 'lab' })
+    return false
+  }
+
+  async function disconnectSsh(labId: string): Promise<boolean> {
+    const result = await window.api.ssh.disconnect(labId)
+    if (result.success) {
+      await listStore.refreshLabList()
+      return true
+    }
+    notify.error('断开连接失败', result.error || '未知错误', { source: 'lab' })
+    return false
+  }
+
   return {
     currentLab,
     labList,
@@ -382,6 +419,8 @@ export const useLabStore = defineStore('lab', () => {
     getSessionLab: listStore.getSessionLab,
     handleSelectLab,
     handleNewLab,
-    handleDeleteLab
+    handleDeleteLab,
+    connectSsh,
+    disconnectSsh
   }
 })

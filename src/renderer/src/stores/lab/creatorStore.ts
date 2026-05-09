@@ -57,6 +57,36 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
   /** 保存配置名称 */
   const saveConfigName = ref('')
 
+  // ==================== State: SSH 创建配置 ====================
+
+  const sshConfig = ref({
+    host: '',
+    port: 22,
+    username: '',
+    authType: 'password' as 'password' | 'key',
+    password: '',
+    keyPath: '',
+    passphrase: '',
+    saveConfig: true
+  })
+
+  function resetSshConfig(): void {
+    sshConfig.value = {
+      host: '',
+      port: 22,
+      username: '',
+      authType: 'password',
+      password: '',
+      keyPath: '',
+      passphrase: '',
+      saveConfig: true
+    }
+  }
+
+  function updateSshConfig(partial: Partial<typeof sshConfig.value>): void {
+    Object.assign(sshConfig.value, partial)
+  }
+
   // ==================== State: 创建状态跟踪 ====================
 
   /** 创建进行中状态 */
@@ -133,6 +163,12 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
         )
       case 'existing':
         return selectedContainerId.value !== null
+      case 'ssh': {
+        const cfg = sshConfig.value
+        const hasCredentials =
+          cfg.authType === 'password' ? cfg.password.trim().length > 0 : cfg.keyPath.trim().length > 0
+        return cfg.host.trim().length > 0 && cfg.username.trim().length > 0 && hasCredentials
+      }
       default:
         return false
     }
@@ -648,6 +684,7 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
     isCreating.value = false
     createError.value = null
     createPhase.value = 'idle'
+    resetSshConfig()
 
     composeConfigStore.reset()
     dockerfileConfigStore.reset()
@@ -691,6 +728,9 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
     isCreating,
     createError,
     createPhase,
+
+    // State: SSH 创建配置
+    sshConfig,
 
     // Getters
     filteredContainers,
@@ -740,6 +780,8 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
     // Actions: 重置
     reset,
     clearCreateError,
+    resetSshConfig,
+    updateSshConfig,
 
     // Helper (From Sub-store)
     getComposeTemplate: (type: ComposeTemplateType) => composeConfigStore.composeTemplates[type],
