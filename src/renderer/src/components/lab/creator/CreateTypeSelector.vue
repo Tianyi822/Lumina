@@ -24,7 +24,6 @@ const emit = defineEmits<{
         value="compose"
         @change="emit('update:modelValue', 'compose')"
       />
-      <span class="option-check" aria-hidden="true"></span>
       <span class="option-label">Docker Compose</span>
     </label>
     <label
@@ -39,7 +38,6 @@ const emit = defineEmits<{
         value="dockerfile"
         @change="emit('update:modelValue', 'dockerfile')"
       />
-      <span class="option-check" aria-hidden="true"></span>
       <span class="option-label">Dockerfile</span>
     </label>
     <label
@@ -54,7 +52,6 @@ const emit = defineEmits<{
         value="existing"
         @change="emit('update:modelValue', 'existing')"
       />
-      <span class="option-check" aria-hidden="true"></span>
       <span class="option-label">选择已有容器</span>
     </label>
     <label
@@ -69,7 +66,6 @@ const emit = defineEmits<{
         value="ssh"
         @change="emit('update:modelValue', 'ssh')"
       />
-      <span class="option-check" aria-hidden="true"></span>
       <span class="option-label">SSH 远程服务器</span>
     </label>
   </div>
@@ -119,40 +115,6 @@ const emit = defineEmits<{
     var(--sm-color-surface-selected);
   color: var(--sm-color-text-selected);
   box-shadow: inset 0 0 0 1px var(--sm-color-accent-18);
-}
-
-.option-check {
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 999px;
-  background: var(--sm-color-surface-1);
-  transition:
-    border-color var(--sm-transition-fast),
-    background-color var(--sm-transition-fast),
-    box-shadow var(--sm-transition-fast);
-}
-
-.option-check::after {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: transparent;
-  transition: background-color var(--sm-transition-fast);
-}
-
-.type-option.active .option-check {
-  border-color: var(--sm-color-accent);
-  background: var(--sm-color-accent-12);
-  box-shadow: 0 0 0 3px var(--sm-color-accent-08);
-}
-
-.type-option.active .option-check::after {
-  background: var(--sm-color-accent-active);
 }
 
 .option-label {
