@@ -1,4 +1,7 @@
 .lab-creator-overlay {
+  --resize-dur: 300ms;
+  --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
   position: fixed;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.5);
@@ -23,6 +26,13 @@
   -webkit-app-region: no-drag;
 }
 
+.t-resize {
+  transition:
+    width var(--resize-dur) var(--resize-ease),
+    height var(--resize-dur) var(--resize-ease);
+  will-change: width, height;
+}
+
 .lab-creator * {
   -webkit-app-region: no-drag;
 }
@@ -45,7 +55,6 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-  transition: height 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .creator-content-inner {
@@ -220,8 +229,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .t-resize,
   .creator-content-shell,
   .creator-content-inner {
-    transition: none;
+    transition: none !important;
   }
 }

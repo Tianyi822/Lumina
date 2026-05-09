@@ -78,12 +78,38 @@ function readCreatorContentAvailableHeight(): number {
 }
 
 function readCreatorContentHeight(): number {
+  const shell = contentShellRef.value
   const inner = contentInnerRef.value
   if (!inner) {
     return 0
   }
 
-  return Math.min(Math.ceil(inner.scrollHeight), readCreatorContentAvailableHeight())
+  if (!shell) {
+    return Math.ceil(inner.scrollHeight)
+  }
+
+  const availableHeight = readCreatorContentAvailableHeight()
+  const previousShellHeight = shell.style.height
+  const previousShellOverflow = shell.style.overflow
+  const previousShellTransition = shell.style.transition
+  const previousInnerMaxHeight = inner.style.maxHeight
+  const previousInnerOverflowY = inner.style.overflowY
+
+  try {
+    shell.style.height = 'auto'
+    shell.style.overflow = 'visible'
+    shell.style.transition = 'none'
+    inner.style.maxHeight = 'none'
+    inner.style.overflowY = 'visible'
+
+    return Math.min(Math.ceil(inner.scrollHeight), availableHeight)
+  } finally {
+    shell.style.height = previousShellHeight
+    shell.style.overflow = previousShellOverflow
+    shell.style.transition = previousShellTransition
+    inner.style.maxHeight = previousInnerMaxHeight
+    inner.style.overflowY = previousInnerOverflowY
+  }
 }
 
 function setCreatorContentHeight(height: number): void {
@@ -274,7 +300,7 @@ async function testSshConnection(): Promise<void> {
 
 <template>
   <div v-if="visible" class="lab-creator-overlay" @click.self="close">
-    <div ref="creatorRef" class="lab-creator">
+    <div ref="creatorRef" class="lab-creator t-resize">
       <div class="creator-header">
         <h2>创建新实验室</h2>
         <button class="close-btn" @click="close">×</button>
@@ -284,7 +310,7 @@ async function testSshConnection(): Promise<void> {
 
       <div
         ref="contentShellRef"
-        class="creator-content-shell"
+        class="creator-content-shell t-resize"
         :class="{ 'is-measured': isContentMeasured }"
       >
         <div
