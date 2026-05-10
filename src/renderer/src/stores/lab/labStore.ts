@@ -353,11 +353,16 @@ export const useLabStore = defineStore('lab', () => {
       keyContent?: string
     }
   ): Promise<boolean> {
-    const result = await window.api.ssh.connect(labId, {
-      id: '',
-      name: '',
-      ...config
-    })
+    const { password, ...sshConfig } = config
+    const result = await window.api.ssh.connect(
+      labId,
+      {
+        id: '',
+        name: '',
+        ...sshConfig
+      },
+      password
+    )
 
     if (result.success) {
       await listStore.refreshLabList()

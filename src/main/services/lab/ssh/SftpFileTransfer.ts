@@ -97,7 +97,10 @@ export class SftpFileTransfer implements FileTransfer {
           return
         }
 
-        if ((err as unknown as { code: number }).code === 2 || (err as unknown as { code: number }).code === 4) {
+        if (
+          (err as unknown as { code: number }).code === 2 ||
+          (err as unknown as { code: number }).code === 4
+        ) {
           // SSH_FX_NO_SUCH_FILE(2): 父目录不存在; SSH_FX_FAILURE(4): 目录已存在或其他可恢复错误
           const parent = dirname(dirPath)
           if (parent === dirPath || !parent) {

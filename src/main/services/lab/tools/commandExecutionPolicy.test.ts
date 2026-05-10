@@ -76,7 +76,10 @@ test('前端实验室写文件默认复用自身项目根目录', () => {
   })
 
   assert.equal(projectRoot, '/workspace')
-  assert.equal(resolveProjectRootForWrite({ frontend: undefined, backendType: 'docker' }, '/app'), '/app')
+  assert.equal(
+    resolveProjectRootForWrite({ frontend: undefined, backendType: 'docker' }, '/app'),
+    '/app'
+  )
 })
 
 test('同名同框架前端实验室默认选择最新可复用实例', () => {

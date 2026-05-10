@@ -1,7 +1,7 @@
 /** SSH 认证类型 */
 export type SshAuthType = 'password' | 'key'
 
-/** SSH 连接配置（持久化存储） */
+/** SSH 连接配置（持久化存储，密码不持久化，连接时单独传入） */
 export interface SshConnectionConfig {
   id: string
   name: string
@@ -9,7 +9,6 @@ export interface SshConnectionConfig {
   port: number
   username: string
   authType: SshAuthType
-  password?: string
   keyName?: string
   keyContent?: string
   lastUsedAt?: string
@@ -33,7 +32,6 @@ export interface SaveSshConfigRequest {
   port: number
   username: string
   authType: SshAuthType
-  password?: string
   keyName?: string
   keyContent?: string
 }

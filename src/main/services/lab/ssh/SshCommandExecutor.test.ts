@@ -152,7 +152,7 @@ test('SshCommandExecutor', async (t) => {
       assert.equal(result!.stdout, 'result\n')
       assert.equal(
         mockProps(mockClient)._lastExecCommand,
-        'cd "/app" && PORT=\'3000\' DEBUG=\'true\' node server.js'
+        "cd \"/app\" && PORT='3000' DEBUG='true' node server.js"
       )
     } finally {
       sshConnectionManager.getClient = originalGetClient

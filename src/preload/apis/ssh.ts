@@ -3,9 +3,6 @@ import { createIpcListener } from './base'
 import type {
   SshConnectionConfig,
   SshConnectionStatusEvent,
-  SaveSshConfigRequest,
-  SaveSshConfigResult,
-  ListSshConfigsResult,
   TestSshConnectionResult,
   ExecCommand,
   ExecCommandResult,
@@ -18,8 +15,11 @@ import type {
 } from '@shared/types/lab'
 
 export const sshApi = {
-  connect: (labId: string, config: SshConnectionConfig): Promise<SshConnectResult> =>
-    ipcRenderer.invoke('ssh:connect', labId, config),
+  connect: (
+    labId: string,
+    config: SshConnectionConfig,
+    password?: string
+  ): Promise<SshConnectResult> => ipcRenderer.invoke('ssh:connect', labId, config, password),
 
   disconnect: (labId: string) => ipcRenderer.invoke('ssh:disconnect', labId),
 
@@ -48,12 +48,7 @@ export const sshApi = {
   },
 
   config: {
-    list: (): Promise<ListSshConfigsResult> => ipcRenderer.invoke('ssh-config:list'),
-    save: (request: SaveSshConfigRequest): Promise<SaveSshConfigResult> =>
-      ipcRenderer.invoke('ssh-config:save', request),
-    delete: (id: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('ssh-config:delete', id),
-    test: (config: SshConnectionConfig): Promise<TestSshConnectionResult> =>
-      ipcRenderer.invoke('ssh-config:test', config)
+    test: (config: SshConnectionConfig, password?: string): Promise<TestSshConnectionResult> =>
+      ipcRenderer.invoke('ssh-config:test', config, password)
   }
 }

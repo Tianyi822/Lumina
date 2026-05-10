@@ -198,10 +198,7 @@ export class LabService {
   /**
    * 按主进程内存连接状态同步 SSH 实验室元数据
    */
-  async reconcileSshRuntimeState(
-    lab: LabData,
-    options?: { silent?: boolean }
-  ): Promise<LabData> {
+  async reconcileSshRuntimeState(lab: LabData, options?: { silent?: boolean }): Promise<LabData> {
     if (lab.backendType !== 'ssh' || !lab.ssh) {
       return lab
     }
