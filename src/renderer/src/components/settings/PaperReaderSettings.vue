@@ -43,17 +43,19 @@ async function loadLocalConfig(): Promise<void> {
 
 const currentPreset = computed(() => getOcrProviderPreset(localConfig.value.ocr.provider))
 
-const hasChanges = computed(() => {
+const ocrHasChanges = computed(() => {
   const current = localConfig.value
   const saved = paperReaderConfig.value
-
-  const ocrChanged =
+  return (
     current.ocr.provider !== saved.ocr.provider ||
     (current.ocr.apiKey ?? '') !== (saved.ocr.apiKey ?? '')
-  const translationModelChanged =
-    (current.translationModel ?? '') !== (saved.translationModel ?? '')
+  )
+})
 
-  return ocrChanged || translationModelChanged
+const translationHasChanges = computed(() => {
+  const current = localConfig.value
+  const saved = paperReaderConfig.value
+  return (current.translationModel ?? '') !== (saved.translationModel ?? '')
 })
 
 const canTest = computed(() => {
@@ -61,7 +63,8 @@ const canTest = computed(() => {
 })
 
 const translationModelOptions = computed(() => {
-  const options = [{ label: '使用默认模型', value: '' }]
+  const defaultLabel = defaultModel.value ? `使用默认模型（${defaultModel.value}）` : '使用默认模型'
+  const options = [{ label: defaultLabel, value: '' }]
   for (const model of llmConfigs.value) {
     options.push({
       label: model.model_name + (model.model_name === defaultModel.value ? ' (默认)' : ''),
@@ -114,19 +117,28 @@ async function handleTestConnection(): Promise<void> {
   }
 }
 
-async function handleSave(): Promise<void> {
+async function handleSaveOcr(): Promise<void> {
   const plainConfig = buildPlainConfig()
-
   configStore.updatePaperReaderConfig(plainConfig)
   const success = await configStore.saveConfig({ silent: true })
-
   if (!success) {
     showError('保存失败')
     return
   }
-
   uiStateStore.notifyConfigUpdate()
-  showSuccess('论文阅读配置已保存')
+  showSuccess('OCR 配置已保存')
+}
+
+async function handleSaveTranslation(): Promise<void> {
+  const plainConfig = buildPlainConfig()
+  configStore.updatePaperReaderConfig(plainConfig)
+  const success = await configStore.saveConfig({ silent: true })
+  if (!success) {
+    showError('保存失败')
+    return
+  }
+  uiStateStore.notifyConfigUpdate()
+  showSuccess('翻译模型配置已保存')
 }
 
 function handleOpenApiKeyUrl(): void {
@@ -134,10 +146,6 @@ function handleOpenApiKeyUrl(): void {
   if (url) {
     window.api.window.openExternal(url)
   }
-}
-
-function handleReset(): void {
-  void loadLocalConfig()
 }
 
 onMounted(() => {
@@ -231,13 +239,10 @@ onUnmounted(() => {
             {{ testing ? '测试中...' : '测试连接' }}
           </button>
           <button
-            class="sm-button sm-button--secondary"
-            :disabled="!hasChanges"
-            @click="handleReset"
+            class="sm-button sm-button--primary"
+            :disabled="!ocrHasChanges"
+            @click="handleSaveOcr"
           >
-            重置
-          </button>
-          <button class="sm-button sm-button--primary" :disabled="!hasChanges" @click="handleSave">
             保存配置
           </button>
         </div>
@@ -274,13 +279,10 @@ onUnmounted(() => {
       <div class="form-actions">
         <div class="form-actions__buttons">
           <button
-            class="sm-button sm-button--secondary"
-            :disabled="!hasChanges"
-            @click="handleReset"
+            class="sm-button sm-button--primary"
+            :disabled="!translationHasChanges"
+            @click="handleSaveTranslation"
           >
-            重置
-          </button>
-          <button class="sm-button sm-button--primary" :disabled="!hasChanges" @click="handleSave">
             保存配置
           </button>
         </div>
