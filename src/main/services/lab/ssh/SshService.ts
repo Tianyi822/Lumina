@@ -33,10 +33,14 @@ export class SshService {
     this.fileTransfer = new SftpFileTransfer()
   }
 
-  async connect(labId: string, config: SshConnectionConfig): Promise<SshConnectResult> {
+  async connect(
+    labId: string,
+    config: SshConnectionConfig,
+    password?: string
+  ): Promise<SshConnectResult> {
     let connectConfig: ConnectConfig
     try {
-      connectConfig = this.buildConnectConfig(config)
+      connectConfig = this.buildConnectConfig(config, password)
     } catch (err) {
       return {
         success: false,
@@ -79,10 +83,13 @@ export class SshService {
     return this.fileTransfer.writeFiles(labId, files, projectRoot, onProgress)
   }
 
-  async testConnection(config: SshConnectionConfig): Promise<TestSshConnectionResult> {
+  async testConnection(
+    config: SshConnectionConfig,
+    password?: string
+  ): Promise<TestSshConnectionResult> {
     let connectConfig: ConnectConfig
     try {
-      connectConfig = this.buildConnectConfig(config)
+      connectConfig = this.buildConnectConfig(config, password)
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) }
     }
@@ -158,7 +165,7 @@ export class SshService {
     logger.info('SSH 服务已关闭', 'main')
   }
 
-  private buildConnectConfig(config: SshConnectionConfig): ConnectConfig {
+  private buildConnectConfig(config: SshConnectionConfig, password?: string): ConnectConfig {
     const base: ConnectConfig = {
       host: config.host,
       port: config.port,
@@ -169,7 +176,7 @@ export class SshService {
     }
 
     if (config.authType === 'password') {
-      base.password = config.password
+      base.password = password
     } else {
       if (config.keyContent) {
         const keyName = config.keyName || 'id_rsa'

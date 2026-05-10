@@ -1,12 +1,11 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import { sshService, sshConfigService, sshTerminalService } from '@main/services/lab/ssh'
+import { sshService, sshTerminalService } from '@main/services/lab/ssh'
 import { labService } from '@main/services/lab/LabService'
 import { logger } from '@main/services/logger'
 import type {
   SshConnectionConfig,
   SshConnectionStatusEvent,
   SshConnectionStatus,
-  SaveSshConfigRequest,
   ExecCommand,
   SshTerminalSize
 } from '@shared/types/lab'
@@ -50,29 +49,32 @@ function broadcastSshEvent(channel: string, payload: unknown): void {
 }
 
 export function registerSshHandlers(): void {
-  ipcMain.handle('ssh:connect', async (_event, labId: string, config: SshConnectionConfig) => {
-    try {
-      const result = await sshService.connect(labId, config)
+  ipcMain.handle(
+    'ssh:connect',
+    async (_event, labId: string, config: SshConnectionConfig, password?: string) => {
+      try {
+        const result = await sshService.connect(labId, config, password)
 
-      // 更新实验室元数据以反映连接状态
-      const lab = labService.loadLab(labId)
-      if (lab && lab.backendType === 'ssh' && lab.ssh) {
-        lab.status = result.success ? 'running' : 'stopped'
-        lab.ssh.connected = result.success
-        lab.ssh.lastConnectedAt = result.success
-          ? new Date().toISOString()
-          : lab.ssh.lastConnectedAt
-        labService.saveLab(lab)
+        // 更新实验室元数据以反映连接状态
+        const lab = labService.loadLab(labId)
+        if (lab && lab.backendType === 'ssh' && lab.ssh) {
+          lab.status = result.success ? 'running' : 'stopped'
+          lab.ssh.connected = result.success
+          lab.ssh.lastConnectedAt = result.success
+            ? new Date().toISOString()
+            : lab.ssh.lastConnectedAt
+          labService.saveLab(lab)
+        }
+
+        return result
+      } catch (error) {
+        logger.error('ssh:connect 失败', 'main', {
+          error: error instanceof Error ? error.message : String(error)
+        })
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
       }
-
-      return result
-    } catch (error) {
-      logger.error('ssh:connect 失败', 'main', {
-        error: error instanceof Error ? error.message : String(error)
-      })
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
-  })
+  )
 
   ipcMain.handle('ssh:disconnect', async (_event, labId: string) => {
     try {
@@ -132,13 +134,10 @@ export function registerSshHandlers(): void {
     broadcastSshEvent('ssh:terminal:exit', event)
   })
 
-  ipcMain.handle('ssh-config:list', async () => sshConfigService.list())
-  ipcMain.handle('ssh-config:save', async (_event, request: SaveSshConfigRequest) =>
-    sshConfigService.save(request)
-  )
-  ipcMain.handle('ssh-config:delete', async (_event, id: string) => sshConfigService.delete(id))
-  ipcMain.handle('ssh-config:test', async (_event, config: SshConnectionConfig) =>
-    sshService.testConnection(config)
+  ipcMain.handle(
+    'ssh-config:test',
+    async (_event, config: SshConnectionConfig, password?: string) =>
+      sshService.testConnection(config, password)
   )
 
   ipcMain.handle('ssh:terminal:open', async (_event, labId: string, size?: SshTerminalSize) => {

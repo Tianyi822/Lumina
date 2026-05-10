@@ -361,17 +361,19 @@ async function testSshConnection(): Promise<void> {
 
   isTestingSsh.value = true
   try {
-    const result = await window.api.ssh.config.test({
-      id: '',
-      name: 'test',
-      host: ssh.host,
-      port: ssh.port,
-      username: ssh.username,
-      authType: ssh.authType,
-      password: ssh.authType === 'password' ? ssh.password : undefined,
-      keyName: ssh.authType === 'key' ? ssh.keyName : undefined,
-      keyContent: ssh.authType === 'key' ? ssh.keyContent : undefined
-    })
+    const result = await window.api.ssh.config.test(
+      {
+        id: '',
+        name: 'test',
+        host: ssh.host,
+        port: ssh.port,
+        username: ssh.username,
+        authType: ssh.authType,
+        keyName: ssh.authType === 'key' ? ssh.keyName : undefined,
+        keyContent: ssh.authType === 'key' ? ssh.keyContent : undefined
+      },
+      ssh.authType === 'password' ? ssh.password : undefined
+    )
 
     if (result.success) {
       const detail = result.systemInfo

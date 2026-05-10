@@ -133,17 +133,20 @@ export const sshConnectTool: LabToolDefinition = {
     }
 
     // 建立 SSH 连接
-    const connectResult = await sshService.connect(labId, {
-      id: configId || labId,
-      name,
-      host,
-      port,
-      username,
-      authType,
-      password: args.password as string | undefined,
-      keyName: args.key_name as string | undefined,
-      keyContent: args.key_content as string | undefined
-    })
+    const connectResult = await sshService.connect(
+      labId,
+      {
+        id: configId || labId,
+        name,
+        host,
+        port,
+        username,
+        authType,
+        keyName: args.key_name as string | undefined,
+        keyContent: args.key_content as string | undefined
+      },
+      args.password as string | undefined
+    )
 
     if (!connectResult.success) {
       lab.status = 'error'

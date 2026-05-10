@@ -1,9 +1,6 @@
 import type {
   SshConnectionConfig,
   SshConnectionStatusEvent,
-  SaveSshConfigRequest,
-  SaveSshConfigResult,
-  ListSshConfigsResult,
   TestSshConnectionResult,
   ExecCommand,
   ExecCommandResult,
@@ -17,12 +14,8 @@ import type {
 
 export type {
   SshConnectionConfig,
-  SshConnectionStatus,
   SshConnectionStatusEvent,
   SshConnectResult,
-  SaveSshConfigRequest,
-  SaveSshConfigResult,
-  ListSshConfigsResult,
   TestSshConnectionResult,
   SshTerminalActionResult,
   SshTerminalDataEvent,
@@ -32,10 +25,7 @@ export type {
 } from '@shared/types/lab'
 
 export interface SshConfigApi {
-  list: () => Promise<ListSshConfigsResult>
-  save: (request: SaveSshConfigRequest) => Promise<SaveSshConfigResult>
-  delete: (id: string) => Promise<{ success: boolean; error?: string }>
-  test: (config: SshConnectionConfig) => Promise<TestSshConnectionResult>
+  test: (config: SshConnectionConfig, password?: string) => Promise<TestSshConnectionResult>
 }
 
 export interface SshTerminalApi {
@@ -48,7 +38,11 @@ export interface SshTerminalApi {
 }
 
 export interface SshApi {
-  connect: (labId: string, config: SshConnectionConfig) => Promise<SshConnectResult>
+  connect: (
+    labId: string,
+    config: SshConnectionConfig,
+    password?: string
+  ) => Promise<SshConnectResult>
   disconnect: (labId: string) => Promise<{ success: boolean; error?: string }>
   getStatus: (labId: string) => Promise<{ status: string }>
   exec: (labId: string, command: ExecCommand) => Promise<ExecCommandResult>
