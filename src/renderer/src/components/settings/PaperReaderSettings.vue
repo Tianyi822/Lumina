@@ -63,7 +63,8 @@ const canTest = computed(() => {
 })
 
 const translationModelOptions = computed(() => {
-  const options = [{ label: '使用默认模型', value: '' }]
+  const defaultLabel = defaultModel.value ? `使用默认模型（${defaultModel.value}）` : '使用默认模型'
+  const options = [{ label: defaultLabel, value: '' }]
   for (const model of llmConfigs.value) {
     options.push({
       label: model.model_name + (model.model_name === defaultModel.value ? ' (默认)' : ''),
