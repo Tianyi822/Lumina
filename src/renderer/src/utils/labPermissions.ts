@@ -35,9 +35,10 @@ export function canManageContainer(type: LabCreationType): {
   const policy = LAB_TYPE_PERMISSIONS[type]
 
   if (!policy.canStart && !policy.canStop && !policy.canRestart) {
-    const reason = type === 'ssh'
-      ? 'SSH 远程服务器的容器生命周期由远程服务器管理，请通过 SSH 连接操作'
-      : '已有容器类型的实验室不允许管理容器生命周期，请使用 Docker 命令行操作'
+    const reason =
+      type === 'ssh'
+        ? 'SSH 远程服务器的容器生命周期由远程服务器管理，请通过 SSH 连接操作'
+        : '已有容器类型的实验室不允许管理容器生命周期，请使用 Docker 命令行操作'
     return {
       allowed: false,
       reason

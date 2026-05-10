@@ -22,14 +22,17 @@ export class SshCommandExecutor implements CommandExecutor {
       : `${envPrefix}${command.command}`
 
     return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        resolve({
-          exitCode: -1,
-          stdout: '',
-          stderr: '命令执行超时',
-          duration: Date.now() - startTime
-        })
-      }, (command.timeout || 30) * 1000)
+      const timeout = setTimeout(
+        () => {
+          resolve({
+            exitCode: -1,
+            stdout: '',
+            stderr: '命令执行超时',
+            duration: Date.now() - startTime
+          })
+        },
+        (command.timeout || 30) * 1000
+      )
 
       client.exec(fullCommand, (err, stream) => {
         if (err) {

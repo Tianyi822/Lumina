@@ -54,7 +54,7 @@ function createMockSftp(overrides?: {
         (self?.failOnFile !== undefined && writeCount === self.failOnFile)
       const errMsg = self?.writeError || 'disk full'
       const stream = new EventEmitter() as MockSftpStream
-      stream.end = (_content: string) => {
+      stream.end = () => {
         if (shouldError) {
           setImmediate(() => stream.emit('error', new Error(errMsg)))
         } else {
@@ -116,9 +116,7 @@ test('SftpFileTransfer', async (t) => {
   await t.test('SSH 未连接时返回错误', async () => {
     sshConnectionManager.getClient = () => null
     try {
-      const result = await transfer.writeFiles('lab-1', [
-        { path: 'a.txt', content: 'hello' }
-      ])
+      const result = await transfer.writeFiles('lab-1', [{ path: 'a.txt', content: 'hello' }])
       assert.equal(result.success, false)
       assert.ok(result.error!.includes('SSH 客户端未连接'))
       assert.equal(result.writtenCount, 0)
@@ -133,9 +131,7 @@ test('SftpFileTransfer', async (t) => {
 
     sshConnectionManager.getClient = () => mockClient
     try {
-      const result = await transfer.writeFiles('lab-1', [
-        { path: 'test.txt', content: 'data' }
-      ])
+      const result = await transfer.writeFiles('lab-1', [{ path: 'test.txt', content: 'data' }])
       assert.equal(result.success, false)
       assert.ok(result.error!.includes('sftp subsystem not available'))
     } finally {
@@ -161,9 +157,7 @@ test('SftpFileTransfer', async (t) => {
   await t.test('写入失败时返回错误详情', async () => {
     const mockClient = new Client()
     const mockSftp = createMockSftp({ writeError: 'permission denied' })
-    setSftp(mockClient, (
-      callback: (err: Error | null, sftp?: MockSftpClient) => void
-    ) => {
+    setSftp(mockClient, (callback: (err: Error | null, sftp?: MockSftpClient) => void) => {
       setImmediate(() => callback(null, mockSftp))
     })
 
@@ -188,9 +182,7 @@ test('SftpFileTransfer', async (t) => {
     const mockClient = new Client()
     const capturePath = { current: '' }
     const mockSftp = createMockSftp({ capturePath })
-    setSftp(mockClient, (
-      callback: (err: Error | null, sftp?: MockSftpClient) => void
-    ) => {
+    setSftp(mockClient, (callback: (err: Error | null, sftp?: MockSftpClient) => void) => {
       setImmediate(() => callback(null, mockSftp))
     })
 
@@ -207,9 +199,7 @@ test('SftpFileTransfer', async (t) => {
     const mockClient = new Client()
     const capturePath = { current: '' }
     const mockSftp = createMockSftp({ capturePath })
-    setSftp(mockClient, (
-      callback: (err: Error | null, sftp?: MockSftpClient) => void
-    ) => {
+    setSftp(mockClient, (callback: (err: Error | null, sftp?: MockSftpClient) => void) => {
       setImmediate(() => callback(null, mockSftp))
     })
 
@@ -226,9 +216,7 @@ test('SftpFileTransfer', async (t) => {
     const mockClient = new Client()
     const createdDirs: string[] = []
     const mockSftp = createMockSftp({ createdDirs })
-    setSftp(mockClient, (
-      callback: (err: Error | null, sftp?: MockSftpClient) => void
-    ) => {
+    setSftp(mockClient, (callback: (err: Error | null, sftp?: MockSftpClient) => void) => {
       setImmediate(() => callback(null, mockSftp))
     })
 
@@ -256,9 +244,7 @@ test('SftpFileTransfer', async (t) => {
       const cb = typeof optionsOrCb === 'function' ? optionsOrCb : maybeCb
       setImmediate(() => cb?.({ code: 3 }))
     }
-    setSftp(mockClient, (
-      callback: (err: Error | null, sftp?: MockSftpClient) => void
-    ) => {
+    setSftp(mockClient, (callback: (err: Error | null, sftp?: MockSftpClient) => void) => {
       setImmediate(() => callback(null, mockSftp))
     })
 
@@ -295,9 +281,7 @@ test('SftpFileTransfer', async (t) => {
   await t.test('部分成功时返回失败详情', async () => {
     const mockClient = new Client()
     const mockSftp = createMockSftp({ failOnFile: 2 })
-    setSftp(mockClient, (
-      callback: (err: Error | null, sftp?: MockSftpClient) => void
-    ) => {
+    setSftp(mockClient, (callback: (err: Error | null, sftp?: MockSftpClient) => void) => {
       setImmediate(() => callback(null, mockSftp))
     })
 
@@ -319,16 +303,11 @@ test('SftpFileTransfer', async (t) => {
   await t.test('onProgress 回调被调用', async () => {
     const mockClient = new Client()
     const progressMessages: string[] = []
-    const onProgress = (message: string) => progressMessages.push(message)
+    const onProgress = (message: string): void => progressMessages.push(message)
 
     sshConnectionManager.getClient = () => mockClient
     try {
-      await transfer.writeFiles(
-        'lab-1',
-        [{ path: 'log.txt', content: 'log' }],
-        '/app',
-        onProgress
-      )
+      await transfer.writeFiles('lab-1', [{ path: 'log.txt', content: 'log' }], '/app', onProgress)
       assert.ok(progressMessages.some((m) => m.includes('准备写入')))
       assert.ok(progressMessages.some((m) => m.includes('写入完成')))
     } finally {

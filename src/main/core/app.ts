@@ -51,10 +51,7 @@ function createTimeoutPromise(taskName: string): {
   }
 }
 
-async function runShutdownTask(
-  taskName: string,
-  task: () => Promise<void> | void
-): Promise<void> {
+async function runShutdownTask(taskName: string, task: () => Promise<void> | void): Promise<void> {
   const timeout = createTimeoutPromise(taskName)
 
   try {

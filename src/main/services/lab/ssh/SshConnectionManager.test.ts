@@ -31,4 +31,3 @@ test('SshConnectionManager 初始连接错误会返回失败', async (t) => {
   assert.match(result.error || '', /auth failed/)
   assert.equal(sshConnectionManager.getStatus('lab-initial-error'), 'disconnected')
 })
-
