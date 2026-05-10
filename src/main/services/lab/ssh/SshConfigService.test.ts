@@ -34,8 +34,7 @@ test('SshConfigService', async (t) => {
       host: '1.2.3.4',
       port: 22,
       username: 'root',
-      authType: 'password',
-      password: 'secret'
+      authType: 'password'
     })
 
     assert.equal(result.success, true)
@@ -45,7 +44,6 @@ test('SshConfigService', async (t) => {
     assert.equal(result.config!.port, 22)
     assert.equal(result.config!.username, 'root')
     assert.equal(result.config!.authType, 'password')
-    assert.equal(result.config!.password, '********')
     assert.equal(typeof result.config!.id, 'string')
     assert.ok(result.config!.id.length > 0)
   })
@@ -57,8 +55,7 @@ test('SshConfigService', async (t) => {
       host: '5.6.7.8',
       port: 22,
       username: 'admin',
-      authType: 'password' as const,
-      password: 'pass1'
+      authType: 'password' as const
     }
 
     const first = sshConfigService.save(common)
@@ -66,8 +63,7 @@ test('SshConfigService', async (t) => {
 
     const second = sshConfigService.save({
       ...common,
-      host: '9.9.9.9',
-      password: 'pass2'
+      host: '9.9.9.9'
     })
     assert.equal(second.success, false)
     assert.ok(second.error!.includes('配置名称已存在'))
@@ -80,8 +76,7 @@ test('SshConfigService', async (t) => {
       host: '10.0.0.1',
       port: 22,
       username: 'user',
-      authType: 'password',
-      password: 'oldpass'
+      authType: 'password'
     })
     assert.equal(createResult.success, true)
     const configId = createResult.config!.id
@@ -112,8 +107,7 @@ test('SshConfigService', async (t) => {
       host: '0.0.0.0',
       port: 22,
       username: 'nobody',
-      authType: 'password',
-      password: 'x'
+      authType: 'password'
     })
     assert.equal(result.success, false)
     assert.ok(result.error!.includes('配置不存在'))
@@ -133,8 +127,7 @@ test('SshConfigService', async (t) => {
       host: '1.1.1.1',
       port: 22,
       username: 'root',
-      authType: 'password',
-      password: 'my-secret-password'
+      authType: 'password'
     })
     sshConfigService.save({
       name: 'sensitive-2',
@@ -151,7 +144,6 @@ test('SshConfigService', async (t) => {
     assert.equal(result.configs!.length, 2)
 
     for (const config of result.configs!) {
-      if (config.password) assert.equal(config.password, '********')
       if (config.keyContent) assert.equal(config.keyContent, '********')
       if (config.keyName) assert.equal(config.keyName, 'my-key')
     }
@@ -164,8 +156,7 @@ test('SshConfigService', async (t) => {
       host: '3.3.3.3',
       port: 22,
       username: 'test',
-      authType: 'password',
-      password: 'testpass'
+      authType: 'password'
     })
     assert.equal(createResult.success, true)
     const configId = createResult.config!.id
@@ -173,7 +164,6 @@ test('SshConfigService', async (t) => {
     const found = sshConfigService.get(configId)
     assert.equal(found.success, true)
     assert.equal(found.config!.name, 'get-test')
-    assert.equal(found.config!.password, '********')
 
     const notFound = sshConfigService.get('bad-id')
     assert.equal(notFound.success, false)
@@ -187,8 +177,7 @@ test('SshConfigService', async (t) => {
       host: '4.4.4.4',
       port: 22,
       username: 'del',
-      authType: 'password',
-      password: 'delpass'
+      authType: 'password'
     })
     assert.equal(createResult.success, true)
     const configId = createResult.config!.id
@@ -208,7 +197,7 @@ test('SshConfigService', async (t) => {
     assert.ok(deleteNonExistent.error!.includes('配置不存在'))
   })
 
-  await t.test('save 密码使用密钥认证时不存 password 字段', () => {
+  await t.test('save 密钥认证时磁盘不存 password 字段', () => {
     cleanConfigFile()
     const result = sshConfigService.save({
       name: 'key-only',
@@ -226,63 +215,32 @@ test('SshConfigService', async (t) => {
     assert.equal(saved!.password, undefined)
   })
 
-  await t.test('getDecrypted 返回解密后的配置', () => {
-    cleanConfigFile()
-    const createResult = sshConfigService.save({
-      name: 'decrypt-test',
-      host: '7.7.7.7',
-      port: 22,
-      username: 'admin',
-      authType: 'password',
-      password: 'actual-password'
-    })
-    assert.equal(createResult.success, true)
-    const configId = createResult.config!.id
-
-    const decrypted = sshConfigService.getDecrypted(configId)
-    assert.equal(decrypted.success, true)
-    assert.equal(decrypted.config!.password, 'actual-password')
-  })
-
-  await t.test('getDecrypted 不存在的配置返回错误', () => {
-    const result = sshConfigService.getDecrypted('no-such-config')
-    assert.equal(result.success, false)
-    assert.ok(result.error!.includes('配置不存在'))
-  })
-
-  await t.test('密码存储在磁盘上经过加密', () => {
+  await t.test('密码不持久化到磁盘', () => {
     cleanConfigFile()
     sshConfigService.save({
       name: 'encrypted-store',
       host: '8.8.8.8',
       port: 22,
       username: 'user',
-      authType: 'password',
-      password: 'plaintext-password'
+      authType: 'password'
     })
 
     const raw = readConfigFile()
     assert.equal(raw.length, 1)
-    assert.notEqual(raw[0].password, 'plaintext-password')
-    assert.ok(typeof raw[0].password === 'string')
-    assert.ok((raw[0].password as string).length > 0)
+    assert.equal(raw[0].password, undefined)
   })
 
-  await t.test('update 不传密码时保持原密码', () => {
+  await t.test('update 后密码仍不持久化', () => {
     cleanConfigFile()
     const createResult = sshConfigService.save({
       name: 'keep-pass',
       host: '9.9.9.9',
       port: 22,
       username: 'user',
-      authType: 'password',
-      password: 'original-pass'
+      authType: 'password'
     })
     assert.equal(createResult.success, true)
     const configId = createResult.config!.id
-
-    const rawBefore = readConfigFile()
-    const savedPass = rawBefore[0].password as string
 
     const updateResult = sshConfigService.save({
       id: configId,
@@ -295,7 +253,7 @@ test('SshConfigService', async (t) => {
     assert.equal(updateResult.success, true)
 
     const rawAfter = readConfigFile()
-    assert.equal(rawAfter[0].password, savedPass)
+    assert.equal(rawAfter[0].password, undefined)
   })
 
   await t.test('JSON 文件损坏时优雅降级返回空列表', () => {

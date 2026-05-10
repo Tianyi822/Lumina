@@ -29,21 +29,9 @@ function encrypt(value: string): string {
   return Buffer.from(value, 'utf-8').toString('base64')
 }
 
-function decrypt(encrypted: string): string {
-  try {
-    if (safeStorage.isEncryptionAvailable()) {
-      return safeStorage.decryptString(Buffer.from(encrypted, 'base64'))
-    }
-  } catch {
-    logger.warn('safeStorage 解密失败，尝试 base64 回退', 'main')
-  }
-  return Buffer.from(encrypted, 'base64').toString('utf-8')
-}
-
 function maskConfig(config: SshConnectionConfig): SshConnectionConfig {
   return {
     ...config,
-    password: config.password ? MASKED_VALUE : undefined,
     keyContent: config.keyContent ? MASKED_VALUE : undefined
   }
 }
@@ -55,19 +43,7 @@ function loadConfigs(): SshConnectionConfig[] {
   }
   try {
     const content = readFileSync(filePath, 'utf-8')
-    const configs = JSON.parse(content) as SshConnectionConfig[]
-    // 清理旧配置中可能存在的 password 字段
-    let cleaned = false
-    for (const config of configs) {
-      if (config.password) {
-        delete config.password
-        cleaned = true
-      }
-    }
-    if (cleaned) {
-      saveConfigs(configs)
-    }
-    return configs
+    return JSON.parse(content) as SshConnectionConfig[]
   } catch {
     logger.warn('SSH 配置文件读取失败', 'main')
     return []
@@ -129,7 +105,6 @@ export class SshConfigService {
           port: request.port,
           username: request.username,
           authType: request.authType,
-          password: undefined,
           keyName: request.keyName ?? existing.keyName,
           keyContent: request.keyContent ? encrypt(request.keyContent) : existing.keyContent,
           lastUsedAt: new Date().toISOString()
@@ -152,7 +127,6 @@ export class SshConfigService {
         port: request.port,
         username: request.username,
         authType: request.authType,
-        password: undefined,
         keyName: request.keyName,
         keyContent: request.keyContent ? encrypt(request.keyContent) : undefined,
         lastUsedAt: new Date().toISOString()
@@ -182,29 +156,6 @@ export class SshConfigService {
       saveConfigs(configs)
       logger.info('SSH 配置已删除', 'main', { id })
       return { success: true }
-    } catch (err) {
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : String(err)
-      }
-    }
-  }
-
-  getDecrypted(id: string): { success: boolean; config?: SshConnectionConfig; error?: string } {
-    try {
-      const configs = loadConfigs()
-      const config = configs.find((c) => c.id === id)
-      if (!config) {
-        return { success: false, error: '配置不存在' }
-      }
-
-      const decrypted: SshConnectionConfig = {
-        ...config,
-        password: config.password ? decrypt(config.password) : undefined,
-        keyContent: config.keyContent ? decrypt(config.keyContent) : undefined
-      }
-
-      return { success: true, config: decrypted }
     } catch (err) {
       return {
         success: false,
