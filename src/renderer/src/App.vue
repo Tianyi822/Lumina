@@ -245,6 +245,10 @@ onBeforeUnmount(() => {
   user-select: none;
 }
 
+.sm-workspace-page--windows.sm-workspace-page--sidebar-collapsed .sm-workspace-main::before {
+  left: var(--sm-workspace-chrome-actions-safe-width, 140px);
+}
+
 .sm-workspace-page--windows .sm-workspace-page__win-controls {
   position: fixed;
   top: 0;

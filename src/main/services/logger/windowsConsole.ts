@@ -9,8 +9,12 @@ function getWindowsConsoleEncoding(): string {
   }
 
   try {
-    const output = execFileSync('chcp.com', { encoding: 'utf8', windowsHide: true })
-    const codePage = output.match(/\d+/)?.[0]
+    const output = execFileSync('chcp.com', {
+      encoding: 'buffer',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+    const codePage = iconv.decode(output, 'gb18030').match(/\d+/)?.[0]
     const encoding = codePage === '65001' ? 'utf8' : `cp${codePage || '936'}`
     windowsConsoleEncoding = iconv.encodingExists(encoding) ? encoding : 'gb18030'
   } catch {
@@ -22,7 +26,7 @@ function getWindowsConsoleEncoding(): string {
 
 export function writeWindowsConsole(stream: NodeJS.WriteStream, message: string): void {
   const encoding = getWindowsConsoleEncoding()
-  if (encoding === 'utf8') {
+  if (encoding === 'utf8' || !stream.isTTY) {
     stream.write(`${message}\n`)
     return
   }
