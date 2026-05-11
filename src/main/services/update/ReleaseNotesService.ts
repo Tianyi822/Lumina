@@ -43,7 +43,7 @@ export class ReleaseNotesService {
       if (!response.ok) {
         return {
           success: false,
-          error: `GitHub API 请求失败 (${response.status})`
+          error: '暂无版本历史，请稍后再试'
         }
       }
 

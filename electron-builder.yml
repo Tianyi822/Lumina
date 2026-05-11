@@ -62,4 +62,4 @@ npmRebuild: false
 publish:
   provider: github
   owner: Tianyi822
-  repo: sparrow-manus
+  repo: Lumina
