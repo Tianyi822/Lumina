@@ -8,6 +8,7 @@ import EmbeddingModelSettings from './settings/EmbeddingModelSettings.vue'
 import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings.vue'
 import PaperReaderSettings from './settings/PaperReaderSettings.vue'
 import ToolStatsSettings from './settings/ToolStatsSettings.vue'
+import UpdateSettings from './settings/UpdateSettings.vue'
 import { useConfigStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 
@@ -24,6 +25,7 @@ type SettingsTabKey =
   | 'knowledge'
   | 'toolStats'
   | 'paperReader'
+  | 'update'
 
 // 使用 configStore
 const configStore = useConfigStore()
@@ -72,6 +74,11 @@ const settingsTabs: Array<{
     id: 'theme',
     label: '主题设置',
     description: '切换当前工作主题并查看主题预览。'
+  },
+  {
+    id: 'update',
+    label: '关于/更新',
+    description: '检查应用更新并查看版本历史。'
   }
 ]
 
@@ -150,6 +157,8 @@ onUnmounted(() => {
             <ToolStatsSettings v-else-if="activeTab === 'toolStats'" />
 
             <PaperReaderSettings v-else-if="activeTab === 'paperReader'" />
+
+            <UpdateSettings v-else-if="activeTab === 'update'" />
           </div>
         </section>
       </div>
