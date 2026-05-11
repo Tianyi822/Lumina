@@ -48,15 +48,17 @@ export class ReleaseNotesService {
       }
 
       const releases = (await response.json()) as GitHubRelease[]
-      const result = releases.map((r): ReleaseInfo => ({
-        version: r.tag_name.replace(/^v/, ''),
-        tagName: r.tag_name,
-        name: r.name || r.tag_name,
-        body: r.body || '',
-        htmlUrl: r.html_url,
-        publishedAt: r.published_at,
-        isPrerelease: r.prerelease
-      }))
+      const result = releases.map(
+        (r): ReleaseInfo => ({
+          version: r.tag_name.replace(/^v/, ''),
+          tagName: r.tag_name,
+          name: r.name || r.tag_name,
+          body: r.body || '',
+          htmlUrl: r.html_url,
+          publishedAt: r.published_at,
+          isPrerelease: r.prerelease
+        })
+      )
 
       this.cachedReleases = result
       this.cacheTime = Date.now()

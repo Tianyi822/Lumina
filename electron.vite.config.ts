@@ -1,6 +1,7 @@
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
+import pkg from './package.json'
 
 export default defineConfig({
   main: {
@@ -28,7 +29,7 @@ export default defineConfig({
     },
     plugins: [vue()],
     define: {
-      __APP_VERSION__: JSON.stringify(require('./package.json').version)
+      __APP_VERSION__: JSON.stringify(pkg.version)
     }
   }
 })

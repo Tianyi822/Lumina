@@ -51,6 +51,7 @@ export const useUpdateStore = defineStore('update', () => {
     window.api.update.quitAndInstall()
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function fetchReleases(_currentVersion: string): Promise<void> {
     if (releases.value.length > 0) {
       return

@@ -8,6 +8,7 @@ const expandedVersion = ref<string | null>(null)
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
 
+// eslint-disable-next-line no-undef
 const currentVersion = __APP_VERSION__
 
 const isDev = import.meta.env.DEV
@@ -110,7 +111,10 @@ onUnmounted(() => {
       </div>
 
       <!-- 进度条 -->
-      <div v-if="store.status === 'downloading' && store.progress" class="update-settings__progress">
+      <div
+        v-if="store.status === 'downloading' && store.progress"
+        class="update-settings__progress"
+      >
         <div class="update-settings__progress-bar">
           <div
             class="update-settings__progress-fill"
@@ -155,10 +159,7 @@ onUnmounted(() => {
             </span>
             <span class="update-settings__release-version">v{{ release.version }}</span>
             <span class="update-settings__release-date">{{ formatDate(release.publishedAt) }}</span>
-            <span
-              v-if="release.version === currentVersion"
-              class="update-settings__current-badge"
-            >
+            <span v-if="release.version === currentVersion" class="update-settings__current-badge">
               当前版本
             </span>
           </button>

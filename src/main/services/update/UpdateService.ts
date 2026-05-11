@@ -54,10 +54,7 @@ export class UpdateService {
       return { success: false, error: '开发模式下不可用' }
     }
 
-    if (
-      this.lastCheckResult &&
-      Date.now() - this.lastCheckTime < UpdateService.CHECK_CACHE_MS
-    ) {
+    if (this.lastCheckResult && Date.now() - this.lastCheckTime < UpdateService.CHECK_CACHE_MS) {
       return { success: true, ...this.lastCheckResult }
     }
 

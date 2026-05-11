@@ -1,4 +1,5 @@
 import { ipcRenderer } from 'electron'
+import type { DownloadProgress, UpdateStatusEvent } from '@shared/types/update'
 import type { UpdateApi } from '../types/update'
 
 export const updateApi: UpdateApi = {
@@ -14,18 +15,18 @@ export const updateApi: UpdateApi = {
   getReleases: () => {
     return ipcRenderer.invoke('update:get-releases')
   },
-  onStatus: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: unknown) => {
-      callback(data as Parameters<typeof callback>[0])
+  onStatus: (callback: (event: UpdateStatusEvent) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: unknown): void => {
+      callback(data as UpdateStatusEvent)
     }
     ipcRenderer.on('update:on-status', handler)
     return () => {
       ipcRenderer.removeListener('update:on-status', handler)
     }
   },
-  onProgress: (callback) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: unknown) => {
-      callback(data as Parameters<typeof callback>[0])
+  onProgress: (callback: (progress: DownloadProgress) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: unknown): void => {
+      callback(data as DownloadProgress)
     }
     ipcRenderer.on('update:on-progress', handler)
     return () => {
