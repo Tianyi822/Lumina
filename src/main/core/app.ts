@@ -18,6 +18,7 @@ import { mcpService } from '@main/services/mcp'
 import { getKnowledgeMCPServerService } from '@main/services/knowledge/KnowledgeMCPServerService'
 import { toolStatsCollector } from '@main/services/chat/tools/ToolStatsCollector'
 import { logger } from '@main/services/logger'
+import { updateService } from '@main/services/update'
 
 const appDisplayName = 'Lumina'
 const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
@@ -145,7 +146,10 @@ export function initializeApp(): void {
     initializeLab()
 
     // 创建主窗口
-    createMainWindow()
+    const mainWindow = createMainWindow()
+
+    // 初始化更新服务（需要主窗口引用来推送状态）
+    updateService.setMainWindow(mainWindow)
 
     // 在 macOS 上，当点击 dock 图标且没有其他窗口打开时，通常会重新创建一个窗口
     app.on('activate', function () {
