@@ -26,6 +26,9 @@ export default defineConfig({
         '@shared': resolve('src/shared')
       }
     },
-    plugins: [vue()]
+    plugins: [vue()],
+    define: {
+      __APP_VERSION__: JSON.stringify(require('./package.json').version)
+    }
   }
 })
