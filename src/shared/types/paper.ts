@@ -297,6 +297,8 @@ export interface PaperTranslationEntry extends PaperTranslationSegment {
   translatedText?: string
   /** 错误信息 */
   errorMessage?: string
+  /** 译文结构对齐警告 */
+  alignmentWarning?: string
   /** 最后更新时间 */
   updatedAt?: string
 }
