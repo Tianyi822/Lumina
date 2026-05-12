@@ -37,8 +37,6 @@ jobs:
           ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
           NPM_CONFIG_ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
           NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
-          npm_config_electron_mirror: https://github.com/electron/electron/releases/download/
-          npm_config_electron_builder_binaries_mirror: https://github.com/electron-userland/electron-builder-binaries/releases/download/
         run: |
           yarn electron-builder --win --publish never
 
@@ -98,8 +96,6 @@ jobs:
           ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
           NPM_CONFIG_ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
           NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
-          npm_config_electron_mirror: https://github.com/electron/electron/releases/download/
-          npm_config_electron_builder_binaries_mirror: https://github.com/electron-userland/electron-builder-binaries/releases/download/
         run: |
           yarn electron-builder --mac --publish never
 
