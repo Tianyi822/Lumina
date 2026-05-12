@@ -18,6 +18,7 @@ import type { PaperApi } from './paper'
 import type { ToolStatsApi } from './toolStats'
 import type { PaperWebSearchApi } from './paperWebSearch'
 import type { SshApi } from './ssh'
+import type { UpdateApi } from './update'
 
 /**
  * 自定义的完整 API
@@ -47,4 +48,6 @@ export interface CustomApi {
   paperWebSearch: PaperWebSearchApi
   // SSH 远程服务器 API
   ssh: SshApi
+  // 自动更新 API
+  update: UpdateApi
 }
