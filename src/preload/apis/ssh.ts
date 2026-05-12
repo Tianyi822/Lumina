@@ -7,6 +7,7 @@ import type {
   ExecCommand,
   ExecCommandResult,
   SshConnectResult,
+  SshServerStatsResult,
   SshTerminalActionResult,
   SshTerminalDataEvent,
   SshTerminalExitEvent,
@@ -24,6 +25,9 @@ export const sshApi = {
   disconnect: (labId: string) => ipcRenderer.invoke('ssh:disconnect', labId),
 
   getStatus: (labId: string) => ipcRenderer.invoke('ssh:status', labId),
+
+  getServerStats: (labId: string): Promise<SshServerStatsResult> =>
+    ipcRenderer.invoke('ssh:stats', labId),
 
   exec: (labId: string, command: ExecCommand): Promise<ExecCommandResult> =>
     ipcRenderer.invoke('ssh:exec', labId, command),

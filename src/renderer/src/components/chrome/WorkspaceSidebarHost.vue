@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import LabList from '@renderer/components/lab/LabList.vue'
@@ -157,6 +157,19 @@ async function handleRefreshLabList(): Promise<void> {
     isRefreshingLabList.value = false
   }
 }
+
+let removeSshStatusListener: (() => void) | null = null
+
+onMounted(() => {
+  removeSshStatusListener = window.api.ssh.onConnectionStatus(() => {
+    void labStore.refreshLabList()
+  })
+})
+
+onBeforeUnmount(() => {
+  removeSshStatusListener?.()
+  removeSshStatusListener = null
+})
 
 // ==================== 论文相关事件处理 ====================
 

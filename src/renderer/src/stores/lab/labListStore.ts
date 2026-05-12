@@ -16,6 +16,7 @@ export const useLabListStore = defineStore('labList', () => {
   const operationLogs = ref<LabLogEntry[]>([])
   const isLoading = ref(false)
   const listUpdateKey = ref(0)
+  let loadLabVersion = 0
 
   const templates = ref<LabTemplate[]>([])
   const templatesLoading = ref(false)
@@ -56,6 +57,8 @@ export const useLabListStore = defineStore('labList', () => {
       return true
     }
 
+    const version = ++loadLabVersion
+
     try {
       if (!options?.silent) {
         isLoading.value = true
@@ -64,6 +67,10 @@ export const useLabListStore = defineStore('labList', () => {
       const lab = await labApi.loadLabResolved(labId)
       if (!lab) {
         return false
+      }
+
+      if (version !== loadLabVersion) {
+        return true
       }
 
       currentLab.value = lab
