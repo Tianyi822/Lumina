@@ -11,7 +11,13 @@ import {
   getImageMimeTypeFromPath,
   isFileUrl
 } from '@shared/utils'
-import { createDefaultFigurePreviewRect, type PaperFigurePreviewRect } from '../shared'
+import {
+  PAPER_FIGURE_PREVIEW_MARGIN,
+  PAPER_FIGURE_PREVIEW_MIN_HEIGHT,
+  PAPER_FIGURE_PREVIEW_MIN_WIDTH,
+  createDefaultFigurePreviewRect,
+  type PaperFigurePreviewRect
+} from '../shared'
 
 export interface PaperFigurePreviewComposable {
   figuresByPaperId: Ref<Record<string, PaperFigureItem[]>>
@@ -60,6 +66,7 @@ export function usePaperFigurePreview(
   const figurePreviewImageRatio = ref(0.75)
   const paperTocTitle = ref<PaperTocEntry | null>(null)
   const paperTocItems = ref<PaperTocItem[]>([])
+  const previewChromeHeightEstimate = 128
 
   const currentPaperFigures = computed<PaperFigureItem[]>(() => {
     if (!currentPaperId.value) {
@@ -77,10 +84,6 @@ export function usePaperFigurePreview(
   function clearPaperToc(): void {
     paperTocTitle.value = null
     paperTocItems.value = []
-  }
-
-  function resetFigurePreviewRect(): void {
-    figurePreviewRect.value = createDefaultFigurePreviewRect()
   }
 
   function setFigurePanelVisible(value: boolean): void {
@@ -119,36 +122,89 @@ export function usePaperFigurePreview(
       typeof nextRect.width === 'number' && Number.isFinite(nextRect.width)
         ? nextRect.width
         : figurePreviewRect.value.width
-    const width = Math.max(nextWidth, 320)
+    const width = clampPreviewWidth(nextWidth)
+    const currentHeight = figurePreviewRect.value.height
+    const fallbackHeight =
+      typeof currentHeight === 'number' && Number.isFinite(currentHeight)
+        ? currentHeight
+        : getFigurePreviewHeight(width, figurePreviewImageRatio.value)
+    const nextHeight =
+      typeof nextRect.height === 'number' && Number.isFinite(nextRect.height)
+        ? nextRect.height
+        : fallbackHeight
+    const height = clampPreviewHeight(nextHeight)
 
     figurePreviewRect.value = {
       left: clampPreviewLeft(nextRect.left ?? figurePreviewRect.value.left, width),
-      top: clampPreviewTop(nextRect.top ?? figurePreviewRect.value.top),
-      width
+      top: clampPreviewTop(nextRect.top ?? figurePreviewRect.value.top, height),
+      width,
+      height
     }
+  }
+
+  function clampPreviewWidth(width: number): number {
+    if (typeof window === 'undefined') {
+      return Math.max(width, PAPER_FIGURE_PREVIEW_MIN_WIDTH)
+    }
+
+    const maxWidth = Math.max(
+      window.innerWidth - PAPER_FIGURE_PREVIEW_MARGIN * 2,
+      PAPER_FIGURE_PREVIEW_MIN_WIDTH
+    )
+    return Math.min(Math.max(width, PAPER_FIGURE_PREVIEW_MIN_WIDTH), maxWidth)
+  }
+
+  function clampPreviewHeight(height: number): number {
+    if (typeof window === 'undefined') {
+      return Math.max(height, PAPER_FIGURE_PREVIEW_MIN_HEIGHT)
+    }
+
+    const maxHeight = Math.max(
+      window.innerHeight - PAPER_FIGURE_PREVIEW_MARGIN * 2,
+      PAPER_FIGURE_PREVIEW_MIN_HEIGHT
+    )
+    return Math.min(Math.max(height, PAPER_FIGURE_PREVIEW_MIN_HEIGHT), maxHeight)
   }
 
   function clampPreviewLeft(left: number, width: number): number {
     if (typeof window === 'undefined') {
-      return Math.max(left, 16)
+      return Math.max(left, PAPER_FIGURE_PREVIEW_MARGIN)
     }
 
-    return Math.min(Math.max(left, 16), Math.max(window.innerWidth - width - 16, 16))
+    return Math.min(
+      Math.max(left, PAPER_FIGURE_PREVIEW_MARGIN),
+      Math.max(window.innerWidth - width - PAPER_FIGURE_PREVIEW_MARGIN, PAPER_FIGURE_PREVIEW_MARGIN)
+    )
   }
 
-  function clampPreviewTop(top: number): number {
+  function clampPreviewTop(top: number, height: number): number {
     if (typeof window === 'undefined') {
-      return Math.max(top, 16)
+      return Math.max(top, PAPER_FIGURE_PREVIEW_MARGIN)
     }
 
-    return Math.min(Math.max(top, 16), Math.max(window.innerHeight - 120, 16))
+    return Math.min(
+      Math.max(top, PAPER_FIGURE_PREVIEW_MARGIN),
+      Math.max(
+        window.innerHeight - height - PAPER_FIGURE_PREVIEW_MARGIN,
+        PAPER_FIGURE_PREVIEW_MARGIN
+      )
+    )
+  }
+
+  function getFigureRatio(item: PaperFigureItem): number {
+    return item.bbox.width > 0 && item.bbox.height > 0 ? item.bbox.height / item.bbox.width : 0.75
+  }
+
+  function getFigurePreviewHeight(width: number, ratio: number): number {
+    const safeRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : 0.75
+    return width * safeRatio + previewChromeHeightEstimate
   }
 
   function moveFigurePreview(delta: { x: number; y: number }): void {
     figurePreviewRect.value = {
       ...figurePreviewRect.value,
       left: clampPreviewLeft(figurePreviewRect.value.left + delta.x, figurePreviewRect.value.width),
-      top: clampPreviewTop(figurePreviewRect.value.top + delta.y)
+      top: clampPreviewTop(figurePreviewRect.value.top + delta.y, figurePreviewRect.value.height)
     }
   }
 
@@ -157,7 +213,7 @@ export function usePaperFigurePreview(
       return
     }
 
-    const width = Math.max(nextWidth, 320)
+    const width = clampPreviewWidth(nextWidth)
 
     figurePreviewRect.value = {
       ...figurePreviewRect.value,
@@ -172,7 +228,7 @@ export function usePaperFigurePreview(
     }
 
     const right = figurePreviewRect.value.left + figurePreviewRect.value.width
-    const width = Math.max(nextWidth, 320)
+    const width = clampPreviewWidth(nextWidth)
 
     figurePreviewRect.value = {
       ...figurePreviewRect.value,
@@ -273,18 +329,28 @@ export function usePaperFigurePreview(
       initialRect?: Partial<PaperFigurePreviewRect>
     }
   ): void {
+    const ratio = getFigureRatio(item)
+
     if (!activeFigure.value) {
-      if (options?.initialRect) {
-        setFigurePreviewRect(options.initialRect)
-      } else {
-        resetFigurePreviewRect()
-      }
+      const defaultRect = createDefaultFigurePreviewRect()
+      const initialRect = options?.initialRect
+      const width = clampPreviewWidth(initialRect?.width ?? defaultRect.width)
+      const height =
+        typeof initialRect?.height === 'number' && Number.isFinite(initialRect.height)
+          ? initialRect.height
+          : getFigurePreviewHeight(width, ratio)
+
+      setFigurePreviewRect({
+        left: initialRect?.left ?? defaultRect.left,
+        top: initialRect?.top ?? defaultRect.top,
+        width,
+        height
+      })
       figurePreviewPinned.value = false
     }
 
     activeFigure.value = item
-    figurePreviewImageRatio.value =
-      item.bbox.width > 0 && item.bbox.height > 0 ? item.bbox.height / item.bbox.width : 0.75
+    figurePreviewImageRatio.value = ratio
     closeFigurePanel()
   }
 

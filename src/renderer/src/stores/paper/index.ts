@@ -617,6 +617,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     closeFigurePreview: figurePreview.closeFigurePreview,
     setFigurePreviewPinned: figurePreview.setFigurePreviewPinned,
     setFigurePreviewImageRatio: figurePreview.setFigurePreviewImageRatio,
+    setFigurePreviewRect: figurePreview.setFigurePreviewRect,
     moveFigurePreview: figurePreview.moveFigurePreview,
     resizeFigurePreview: figurePreview.resizeFigurePreview,
     resizeFigurePreviewFromLeft: figurePreview.resizeFigurePreviewFromLeft,

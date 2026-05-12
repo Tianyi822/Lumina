@@ -160,6 +160,124 @@ test('标题段会清理参考标签并截断误并入的正文', async () => {
   assert.doesNotMatch(cache.entries[0].translatedMarkdown || '', /下一段原文参考|基础任务/)
 })
 
+test('模型返回多个带 ID 的翻译标签时会按当前段落 ID 提取', async () => {
+  const markdown = ['Current paragraph.', '', 'Next paragraph.'].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  const prompts: string[] = []
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, prompt, segment) => {
+      prompts.push(prompt)
+      if (segment.id === 'seg-0') {
+        return [
+          '<translation id="seg-0">当前段落。</translation>',
+          '<translation id="seg-1">下一段落。</translation>'
+        ].join('\n\n')
+      }
+
+      return '下一段落。'
+    }
+  })
+
+  const result = await core.startTranslation('paper-tagged-alignment', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-tagged-alignment'))
+
+  const cache = cacheStore.get('paper-tagged-alignment')
+  assert.ok(cache)
+  assert.match(prompts[0], /<current_segment id="seg-0" index="0" kind="paragraph">/)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.equal(cache.entries[0].translatedMarkdown, '当前段落。')
+  assert.match(cache.entries[0].alignmentWarning || '', /段落 ID/)
+  assert.equal(cache.entries[1].translatedMarkdown, '下一段落。')
+})
+
+test('模型返回多个无标签翻译块时只安全回填当前段落块', async () => {
+  const markdown = ['Current paragraph.', '', 'Next paragraph.'].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      if (segment.id === 'seg-0') {
+        return ['当前段落。', '不应写入相邻段落。'].join('\n\n')
+      }
+
+      return '下一段落。'
+    }
+  })
+
+  const result = await core.startTranslation('paper-block-alignment', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-block-alignment'))
+
+  const cache = cacheStore.get('paper-block-alignment')
+  assert.ok(cache)
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.equal(cache.entries[0].translatedMarkdown, '当前段落。')
+  assert.doesNotMatch(cache.entries[0].translatedMarkdown || '', /相邻段落/)
+  assert.match(cache.entries[0].alignmentWarning || '', /翻译块/)
+  assert.equal(cache.entries[1].translatedMarkdown, '下一段落。')
+})
+
+test('模型返回不匹配的翻译标签时会标记失败而不是写入错位译文', async () => {
+  const markdown = ['Current paragraph.', '', 'Next paragraph.'].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, _prompt, segment) => {
+      if (segment.id === 'seg-0') {
+        return '<translation id="seg-1">错位译文。</translation>'
+      }
+
+      return '下一段落。'
+    }
+  })
+
+  const result = await core.startTranslation('paper-id-mismatch', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-id-mismatch'))
+
+  const cache = cacheStore.get('paper-id-mismatch')
+  assert.ok(cache)
+  assert.equal(cache.entries[0].status, 'failed')
+  assert.equal(cache.entries[0].translatedMarkdown, undefined)
+  assert.match(cache.entries[0].errorMessage || '', /段落 ID 不匹配/)
+  assert.equal(cache.entries[1].translatedMarkdown, '下一段落。')
+})
+
 test('看起来像作者姓名的标题段仍会参与翻译', async () => {
   const markdown = '# Alice Bob Charlie David'
   const cacheStore = new Map<string, PaperTranslationCache>()
