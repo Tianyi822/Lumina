@@ -38,7 +38,14 @@ export interface PaperFigurePreviewRect {
   left: number
   top: number
   width: number
+  height: number
 }
+
+export const PAPER_FIGURE_PREVIEW_MARGIN = 16
+export const PAPER_FIGURE_PREVIEW_MIN_WIDTH = 320
+export const PAPER_FIGURE_PREVIEW_MIN_HEIGHT = 280
+export const PAPER_FIGURE_PREVIEW_DEFAULT_WIDTH = 420
+export const PAPER_FIGURE_PREVIEW_DEFAULT_HEIGHT = 460
 
 const READABLE_PAPER_STATUS: PaperStatus = 'completed'
 
@@ -77,12 +84,17 @@ export function decodeBase64ToArrayBuffer(base64: string): ArrayBuffer {
 }
 
 export function createDefaultFigurePreviewRect(): PaperFigurePreviewRect {
-  const width = 420
-  const left = typeof window === 'undefined' ? 32 : Math.max(window.innerWidth - width - 32, 32)
+  const width = PAPER_FIGURE_PREVIEW_DEFAULT_WIDTH
+  const height = PAPER_FIGURE_PREVIEW_DEFAULT_HEIGHT
+  const left =
+    typeof window === 'undefined'
+      ? 32
+      : Math.max(window.innerWidth - width - PAPER_FIGURE_PREVIEW_MARGIN * 2, 32)
 
   return {
     left,
     top: 88,
-    width
+    width,
+    height
   }
 }
