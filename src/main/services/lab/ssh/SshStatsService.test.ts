@@ -176,6 +176,8 @@ test('SshStatsService', async (t) => {
     assert.equal(result.stats?.memory.hostPercent, 0.54)
     assert.equal(result.stats?.memory.quotaUsageBytes, undefined)
     assert.equal(result.stats?.memory.quotaTotalBytes, undefined)
+    assert.equal(result.stats?.memory.quotaAvailableBytes, undefined)
+    assert.equal(result.stats?.memory.quotaPercent, undefined)
   })
 
   await t.test('内存忽略明显过小且无法归属容器的 cgroup 限额', async () => {
@@ -210,6 +212,8 @@ test('SshStatsService', async (t) => {
     assert.equal(result.stats?.memory.hostPercent, 1.09)
     assert.equal(result.stats?.memory.quotaUsageBytes, undefined)
     assert.equal(result.stats?.memory.quotaTotalBytes, undefined)
+    assert.equal(result.stats?.memory.quotaAvailableBytes, undefined)
+    assert.equal(result.stats?.memory.quotaPercent, undefined)
   })
 
   await t.test('没有 nvidia-smi 时返回 GPU unsupported', async () => {
