@@ -102,3 +102,61 @@ export interface SshTerminalExitEvent {
   signal?: string
   reason?: string
 }
+
+/** SSH 远程服务器 GPU 统计 */
+export interface SshGpuDeviceStats {
+  index: number
+  name?: string
+  utilizationPercent: number | null
+  memoryUsageBytes: number | null
+  memoryTotalBytes: number | null
+  memoryPercent: number | null
+}
+
+/** SSH 远程服务器资源统计 */
+export interface SshServerStats {
+  sampledAt: string
+  cpu: {
+    percent: number
+  }
+  memory: {
+    // —— 主口径 ——
+    usageBytes: number
+    totalBytes: number
+    availableBytes: number
+    percent: number
+    source: 'quota' | 'host'
+    // —— 宿主机口径 ——
+    hostUsageBytes: number
+    hostTotalBytes: number
+    hostAvailableBytes: number
+    hostPercent: number
+    // —— 配额口径（仅 cgroup 可信时填充）——
+    quotaUsageBytes?: number
+    quotaTotalBytes?: number
+    quotaAvailableBytes?: number
+    quotaPercent?: number
+  }
+  gpu: {
+    supported: boolean
+    utilizationPercent: number | null
+    memoryUsageBytes: number | null
+    memoryTotalBytes: number | null
+    memoryPercent: number | null
+    devices: SshGpuDeviceStats[]
+    message?: string
+  }
+  diskIO: {
+    readBytes: number
+    writeBytes: number
+    readBytesPerSecond: number
+    writeBytesPerSecond: number
+  }
+}
+
+/** SSH 远程服务器资源统计结果 */
+export interface SshServerStatsResult {
+  success: boolean
+  stats?: SshServerStats
+  error?: string
+}
