@@ -65,6 +65,16 @@ interface PaperTranslationSource {
   sourceHashVersion: 2
 }
 
+interface SanitizedTranslatedMarkdown {
+  translatedMarkdown: string
+  alignmentWarning?: string
+}
+
+interface TranslationTagMatch {
+  id?: string
+  content: string
+}
+
 const DEFAULT_CONCURRENCY = 3
 const PAPER_TRANSLATION_SOURCE_HASH_VERSION = 2
 const FIGURE_CAPTION_TRANSLATION_ID_PREFIX = 'fig-caption-'
@@ -73,6 +83,7 @@ const PROMPT_ARTIFACT_LINE_PATTERN =
 const PROMPT_ARTIFACT_TAG_PATTERN =
   /<\/?(?:previous_context|next_context|current_segment|translation)(?:\s+[^>]*)?>/gi
 const LEADING_MARKER_PATTERN = /^(\s*(?:\[\d+\]|\[\[\d+\]\]|\d+[.)]|[-*+]))\s+/
+const TRANSLATION_TAG_PATTERN = /<translation\b([^>]*)>([\s\S]*?)<\/translation>/gi
 
 function createPaperTranslationRevisionId(sourceHash: string, updatedAt: string): string {
   return `${sourceHash.slice(0, 12)}:${updatedAt}`
@@ -345,7 +356,7 @@ function shouldSkipTranslationSegment(segment: PaperTranslationSegment): boolean
 }
 
 function stripPromptArtifacts(content: string): string {
-  const translationMatch = content.match(/<translation>([\s\S]*?)<\/translation>/i)
+  const translationMatch = content.match(/<translation\b[^>]*>([\s\S]*?)<\/translation>/i)
   const strippedContent = translationMatch ? translationMatch[1] : content
 
   return strippedContent
@@ -363,6 +374,83 @@ function getFirstMeaningfulBlock(content: string): string {
       .map((block) => block.trim())
       .find(Boolean) ?? ''
   )
+}
+
+function getTranslationTagId(attrs: string): string | undefined {
+  const match = attrs.match(
+    /\b(?:id|segment-id|segmentId)\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i
+  )
+  return match?.[1] || match?.[2] || match?.[3]
+}
+
+function getTranslationTagMatches(content: string): TranslationTagMatch[] {
+  return Array.from(content.matchAll(TRANSLATION_TAG_PATTERN)).map((match) => ({
+    id: getTranslationTagId(match[1] || ''),
+    content: (match[2] || '').trim()
+  }))
+}
+
+function extractTaggedTranslationForSegment(
+  segment: PaperTranslationSegment,
+  content: string
+): SanitizedTranslatedMarkdown {
+  const matches = getTranslationTagMatches(content)
+  if (matches.length === 0) {
+    return { translatedMarkdown: content }
+  }
+
+  const matchedById = matches.find((match) => match.id === segment.id)
+  if (matchedById) {
+    return {
+      translatedMarkdown: matchedById.content,
+      alignmentWarning:
+        matches.length > 1 ? '模型返回多个翻译标签，已按段落 ID 提取当前段落译文' : undefined
+    }
+  }
+
+  if (matches.length === 1 && !matches[0].id) {
+    return {
+      translatedMarkdown: matches[0].content,
+      alignmentWarning: '模型返回无段落 ID 的翻译标签，已按唯一标签提取译文'
+    }
+  }
+
+  throw new Error('模型返回的翻译标签与当前段落 ID 不匹配')
+}
+
+function splitMeaningfulTranslationBlocks(content: string): string[] {
+  return content
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+}
+
+function getExpectedTranslationBlockCount(segment: PaperTranslationSegment): number {
+  if (segment.kind === 'heading') {
+    return 1
+  }
+
+  return Math.max(1, splitMeaningfulTranslationBlocks(segment.originalMarkdown).length)
+}
+
+function constrainTranslatedBlocksToSegment(
+  segment: PaperTranslationSegment,
+  content: string
+): SanitizedTranslatedMarkdown {
+  const blocks = splitMeaningfulTranslationBlocks(content)
+  if (blocks.length === 0) {
+    throw new Error('模型未返回有效翻译结果')
+  }
+
+  const expectedBlockCount = getExpectedTranslationBlockCount(segment)
+  if (blocks.length <= expectedBlockCount) {
+    return { translatedMarkdown: content }
+  }
+
+  return {
+    translatedMarkdown: blocks.slice(0, expectedBlockCount).join('\n\n'),
+    alignmentWarning: `模型返回 ${blocks.length} 个翻译块，已按当前段落结构保留前 ${expectedBlockCount} 个块`
+  }
 }
 
 function preserveLeadingMarker(segment: PaperTranslationSegment, content: string): string {
@@ -669,6 +757,7 @@ export class PaperTranslationCore {
           status: previousEntry.status,
           translatedMarkdown: previousEntry.translatedMarkdown,
           translatedText: previousEntry.translatedText,
+          alignmentWarning: previousEntry.alignmentWarning,
           updatedAt: previousEntry.updatedAt ?? updatedAt
         }
       }
@@ -721,6 +810,7 @@ export class PaperTranslationCore {
       entry.errorMessage = undefined
       entry.translatedMarkdown = undefined
       entry.translatedText = undefined
+      entry.alignmentWarning = undefined
       entry.updatedAt = this.now()
 
       if (!runningTask.retryQueuedIndexes.has(entryIndex)) {
@@ -751,6 +841,7 @@ export class PaperTranslationCore {
     const entry = cache.entries[entryIndex]
     entry.status = 'translating'
     entry.errorMessage = undefined
+    entry.alignmentWarning = undefined
     entry.updatedAt = this.now()
     this.persistCache(paperId, cache)
 
@@ -769,10 +860,11 @@ export class PaperTranslationCore {
 
     try {
       const prompt = this.buildPrompt(cache.entries, entryIndex)
-      const translatedMarkdown = this.sanitizeTranslatedMarkdown(
+      const sanitized = this.sanitizeTranslatedMarkdown(
         entry,
         await this.deps.translateSegment(llmConfig, prompt, entry, tempTask.abortController.signal)
       )
+      const translatedMarkdown = sanitized.translatedMarkdown
 
       if (tempTask.abortController.signal.aborted) {
         return { success: false, error: '翻译已取消' }
@@ -782,6 +874,7 @@ export class PaperTranslationCore {
       entry.translatedMarkdown = translatedMarkdown
       entry.translatedText = stripPaperTranslationMarkdown(translatedMarkdown)
       entry.errorMessage = undefined
+      entry.alignmentWarning = sanitized.alignmentWarning
       entry.updatedAt = this.now()
       cache.updatedAt = entry.updatedAt
       cache.completedSegments = countCompletedSegments(cache.entries)
@@ -903,16 +996,18 @@ export class PaperTranslationCore {
     try {
       entry.status = 'translating'
       entry.errorMessage = undefined
+      entry.alignmentWarning = undefined
       entry.updatedAt = this.now()
       this.persistCache(task.paperId, task.cache)
       this.emitProgress(task, entry)
 
       try {
         const prompt = this.buildPrompt(task.cache.entries, entryIndex)
-        const translatedMarkdown = this.sanitizeTranslatedMarkdown(
+        const sanitized = this.sanitizeTranslatedMarkdown(
           entry,
           await this.deps.translateSegment(llmConfig, prompt, entry, task.abortController.signal)
         )
+        const translatedMarkdown = sanitized.translatedMarkdown
 
         if (task.abortController.signal.aborted) {
           return
@@ -922,6 +1017,7 @@ export class PaperTranslationCore {
         entry.translatedMarkdown = translatedMarkdown
         entry.translatedText = stripPaperTranslationMarkdown(translatedMarkdown)
         entry.errorMessage = undefined
+        entry.alignmentWarning = sanitized.alignmentWarning
         entry.updatedAt = this.now()
         this.persistCache(task.paperId, task.cache)
         this.emitProgress(task, entry)
@@ -968,7 +1064,8 @@ export class PaperTranslationCore {
       '5. 不要遗漏内容，也不要补充原文没有的信息。',
       '6. 如果当前段落是标题，只输出标题本身，不要并入后续正文。',
       '7. 不要输出任何 XML 标签。',
-      '8. 专有名词（如技术术语、模型名称、数据集名称、协议名称等）保持英文原文，不要翻译，以免造成歧义。'
+      '8. 专有名词（如技术术语、模型名称、数据集名称、协议名称等）保持英文原文，不要翻译，以免造成歧义。',
+      `9. 当前段落 ID 是 ${currentEntry.id}，输出必须只对应这个段落，不得合并或输出相邻段落。`
     ]
 
     if (isAffiliationSegment) {
@@ -989,7 +1086,10 @@ export class PaperTranslationCore {
       parts.push('</previous_context>')
     }
 
-    parts.push(`<current_segment kind="${currentEntry.kind}">`)
+    parts.push(
+      `<current_segment id="${currentEntry.id}" index="${currentEntry.index}" ` +
+        `kind="${currentEntry.kind}">`
+    )
     parts.push(currentEntry.originalMarkdown)
     parts.push('</current_segment>')
 
@@ -1002,18 +1102,27 @@ export class PaperTranslationCore {
     return parts.join('\n\n')
   }
 
-  private sanitizeTranslatedMarkdown(segment: PaperTranslationSegment, rawOutput: string): string {
+  private sanitizeTranslatedMarkdown(
+    segment: PaperTranslationSegment,
+    rawOutput: string
+  ): SanitizedTranslatedMarkdown {
     let content = rawOutput.trim()
     const fenceMatch = content.match(/^```(?:markdown)?\s*([\s\S]*?)\s*```$/i)
     if (fenceMatch) {
       content = fenceMatch[1].trim()
     }
 
+    const taggedResult = extractTaggedTranslationForSegment(segment, content)
+    content = taggedResult.translatedMarkdown
+
     content = stripPromptArtifacts(content)
 
     if (!content) {
       throw new Error('模型未返回有效翻译结果')
     }
+
+    const constrainedResult = constrainTranslatedBlocksToSegment(segment, content)
+    content = constrainedResult.translatedMarkdown
 
     if (segment.kind === 'heading') {
       const headingMatch = segment.originalMarkdown.match(/^(#{1,6})\s+/)
@@ -1036,7 +1145,10 @@ export class PaperTranslationCore {
       }
     }
 
-    return preserveLeadingMarker(segment, content)
+    return {
+      translatedMarkdown: preserveLeadingMarker(segment, content),
+      alignmentWarning: constrainedResult.alignmentWarning || taggedResult.alignmentWarning
+    }
   }
 
   private persistCache(paperId: string, cache: PaperTranslationCache): void {
