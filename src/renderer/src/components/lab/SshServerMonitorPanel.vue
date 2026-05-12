@@ -31,6 +31,7 @@ interface MetricChart {
   emptyLabel: string
   supported: boolean
   hostDetailLabel?: string
+  labelSuffix?: string
 }
 
 const props = defineProps<{
@@ -130,10 +131,8 @@ const metricCharts = computed<MetricChart[]>(() => {
       valueLabel: gpuSupported
         ? formatPercent(latest?.gpu.utilizationPercent)
         : latest?.gpu.message || '显卡未开启',
-      detailLabel: gpuSupported
-        ? gpuNames.length > 0
-          ? gpuNames.join(' / ')
-          : `${latest?.gpu.devices.length || 0} 张 GPU`
+      labelSuffix: gpuSupported && gpuNames.length > 0
+        ? gpuNames.join(' / ')
         : undefined,
       tone: gpuSupported ? 'warning' : 'muted',
       kind: 'percent',
@@ -700,7 +699,10 @@ function readCssVariable(token: string, fallback: string): string {
       >
         <header class="ssh-monitor-chart__header">
           <div class="ssh-monitor-chart__copy">
-            <span class="ssh-monitor-chart__label">{{ chart.label }}</span>
+            <span class="ssh-monitor-chart__label">
+              {{ chart.label }}
+              <small v-if="chart.labelSuffix" class="ssh-monitor-chart__label-suffix">{{ chart.labelSuffix }}</small>
+            </span>
             <div class="ssh-monitor-chart__value-row">
               <strong>{{ chart.valueLabel }}</strong>
               <small
@@ -865,6 +867,13 @@ function readCssVariable(token: string, fallback: string): string {
   gap: 4px;
   min-width: 0;
   overflow: hidden;
+}
+
+.ssh-monitor-chart__label-suffix {
+  color: var(--sm-color-text-tertiary);
+  font-size: 11px;
+  font-weight: 400;
+  margin-left: 6px;
 }
 
 .ssh-monitor-chart__label,
