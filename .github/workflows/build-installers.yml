@@ -75,6 +75,9 @@ jobs:
         run: yarn build
 
       - name: Build macOS installer
+        env:
+          ELECTRON_MIRROR: 'https://github.com/electron/electron/releases/download/v'
+          ELECTRON_BUILDER_BINARIES_MIRROR: 'https://github.com/electron-userland/electron-builder-binaries/releases/download/'
         run: yarn electron-builder --mac --publish never
 
       - name: Upload macOS artifact
