@@ -3,6 +3,11 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import type { PaperFigurePreviewRect } from '@renderer/stores/paperReaderStore'
+import {
+  PAPER_FIGURE_PREVIEW_MIN_HEIGHT,
+  PAPER_FIGURE_PREVIEW_MIN_WIDTH
+} from '@renderer/stores/paper/shared'
 
 const paperReaderStore = usePaperReaderStore()
 const {
@@ -11,7 +16,6 @@ const {
   figureCaptionTranslationMap,
   figurePreviewPinned,
   figurePreviewRect,
-  figurePreviewImageRatio,
   translationVisible
 } = storeToRefs(paperReaderStore)
 
@@ -22,27 +26,45 @@ interface PointerState {
   clientY: number
 }
 
-type ResizeEdge = 'left' | 'right'
+type ResizeEdge =
+  | 'top'
+  | 'right'
+  | 'bottom'
+  | 'left'
+  | 'top-left'
+  | 'top-right'
+  | 'bottom-right'
+  | 'bottom-left'
 
 interface ResizeState extends PointerState {
   edge: ResizeEdge
+  rect: PaperFigurePreviewRect
+}
+
+interface ResizeHandle {
+  edge: ResizeEdge
+  label: string
 }
 
 const dragState = ref<PointerState | null>(null)
 const resizeState = ref<ResizeState | null>(null)
+const resizeHandles: ResizeHandle[] = [
+  { edge: 'top', label: '从上边缩放图片预览' },
+  { edge: 'right', label: '从右边缩放图片预览' },
+  { edge: 'bottom', label: '从下边缩放图片预览' },
+  { edge: 'left', label: '从左边缩放图片预览' },
+  { edge: 'top-left', label: '从左上角缩放图片预览' },
+  { edge: 'top-right', label: '从右上角缩放图片预览' },
+  { edge: 'bottom-right', label: '从右下角缩放图片预览' },
+  { edge: 'bottom-left', label: '从左下角缩放图片预览' }
+]
 
 const previewStyle = computed(() => {
   return {
     left: `${figurePreviewRect.value.left}px`,
     top: `${figurePreviewRect.value.top}px`,
-    width: `${figurePreviewRect.value.width}px`
-  }
-})
-
-const imageShellStyle = computed(() => {
-  const ratio = figurePreviewImageRatio.value > 0 ? figurePreviewImageRatio.value : 0.75
-  return {
-    height: `${figurePreviewRect.value.width * ratio}px`
+    width: `${figurePreviewRect.value.width}px`,
+    height: `${figurePreviewRect.value.height}px`
   }
 })
 
@@ -89,19 +111,37 @@ function handlePointerMove(event: MouseEvent): void {
   }
 
   if (resizeState.value) {
-    const deltaX = event.clientX - resizeState.value.clientX
-    const edge = resizeState.value.edge
-    if (edge === 'left') {
-      paperReaderStore.resizeFigurePreviewFromLeft(figurePreviewRect.value.width - deltaX)
-    } else {
-      paperReaderStore.resizeFigurePreview(figurePreviewRect.value.width + deltaX)
-    }
-    resizeState.value = {
-      clientX: event.clientX,
-      clientY: event.clientY,
-      edge
-    }
+    paperReaderStore.setFigurePreviewRect(buildResizedRect(resizeState.value, event))
   }
+}
+
+function buildResizedRect(state: ResizeState, event: MouseEvent): PaperFigurePreviewRect {
+  const deltaX = event.clientX - state.clientX
+  const deltaY = event.clientY - state.clientY
+  const edge = state.edge
+  const rect = { ...state.rect }
+  const right = state.rect.left + state.rect.width
+  const bottom = state.rect.top + state.rect.height
+
+  if (edge.includes('left')) {
+    rect.width = Math.max(state.rect.width - deltaX, PAPER_FIGURE_PREVIEW_MIN_WIDTH)
+    rect.left = right - rect.width
+  }
+
+  if (edge.includes('right')) {
+    rect.width = Math.max(state.rect.width + deltaX, PAPER_FIGURE_PREVIEW_MIN_WIDTH)
+  }
+
+  if (edge.includes('top')) {
+    rect.height = Math.max(state.rect.height - deltaY, PAPER_FIGURE_PREVIEW_MIN_HEIGHT)
+    rect.top = bottom - rect.height
+  }
+
+  if (edge.includes('bottom')) {
+    rect.height = Math.max(state.rect.height + deltaY, PAPER_FIGURE_PREVIEW_MIN_HEIGHT)
+  }
+
+  return rect
 }
 
 function handlePointerUp(): void {
@@ -130,7 +170,8 @@ function handleResizeStart(event: MouseEvent, edge: ResizeEdge): void {
   resizeState.value = {
     clientX: event.clientX,
     clientY: event.clientY,
-    edge
+    edge,
+    rect: { ...figurePreviewRect.value }
   }
 
   window.addEventListener('mousemove', handlePointerMove)
@@ -261,7 +302,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="paper-figure-preview__body">
-        <div class="paper-figure-preview__image-shell" :style="imageShellStyle">
+        <div class="paper-figure-preview__image-shell">
           <img
             :src="activeFigure.imagePath"
             :alt="previewCaption"
@@ -298,22 +339,15 @@ onBeforeUnmount(() => {
       </div>
 
       <button
-        class="paper-figure-preview__resize paper-figure-preview__resize--left"
+        v-for="handle in resizeHandles"
+        :key="handle.edge"
+        class="paper-figure-preview__resize"
+        :class="`paper-figure-preview__resize--${handle.edge}`"
         type="button"
-        aria-label="从左下缩放图片预览"
-        @mousedown.prevent.stop="handleResizeStart($event, 'left')"
-      >
-        <SvgIcon class="paper-figure-preview__resize-icon" name="resize-diagonal" :size="12" />
-      </button>
-
-      <button
-        class="paper-figure-preview__resize paper-figure-preview__resize--right"
-        type="button"
-        aria-label="从右下缩放图片预览"
-        @mousedown.prevent.stop="handleResizeStart($event, 'right')"
-      >
-        <SvgIcon class="paper-figure-preview__resize-icon" name="resize-diagonal" :size="12" />
-      </button>
+        tabindex="-1"
+        :aria-label="handle.label"
+        @mousedown.prevent.stop="handleResizeStart($event, handle.edge)"
+      />
     </div>
   </Teleport>
 </template>
@@ -374,20 +408,31 @@ onBeforeUnmount(() => {
 }
 
 .paper-figure-preview__body {
-  overflow: auto;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .paper-figure-preview__image-shell {
   position: relative;
+  display: flex;
+  flex: 1 1 auto;
   width: 100%;
-  background: var(--sm-color-surface-1);
+  min-height: 0;
+  background: var(--sm-color-bg-embedded);
   overflow: hidden;
 }
 
 .paper-figure-preview__image {
+  flex: 1 1 auto;
   display: block;
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: var(--sm-color-bg-embedded);
   object-fit: contain;
 }
 
@@ -427,44 +472,90 @@ onBeforeUnmount(() => {
 }
 
 .paper-figure-preview__caption {
+  flex: 0 1 auto;
+  max-height: min(180px, 34%);
   padding: var(--sm-space-3);
   border-top: 1px solid var(--sm-color-border-subtle);
   color: var(--sm-color-text-secondary);
   font-size: 13px;
   line-height: 1.7;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .paper-figure-preview__resize {
   position: absolute;
-  bottom: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
+  z-index: 3;
+  padding: 0;
   border: none;
+  appearance: none;
   background: transparent;
-  color: #999999;
+  touch-action: none;
+}
+
+.paper-figure-preview__resize--top,
+.paper-figure-preview__resize--bottom {
+  right: 16px;
+  left: 16px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.paper-figure-preview__resize--top {
+  top: 0;
+}
+
+.paper-figure-preview__resize--bottom {
+  bottom: 0;
+}
+
+.paper-figure-preview__resize--left,
+.paper-figure-preview__resize--right {
+  top: 16px;
+  bottom: 16px;
+  width: 8px;
+  cursor: ew-resize;
 }
 
 .paper-figure-preview__resize--left {
   left: 0;
-  cursor: nesw-resize;
 }
 
 .paper-figure-preview__resize--right {
   right: 0;
+}
+
+.paper-figure-preview__resize--top-left,
+.paper-figure-preview__resize--top-right,
+.paper-figure-preview__resize--bottom-right,
+.paper-figure-preview__resize--bottom-left {
+  width: 16px;
+  height: 16px;
+}
+
+.paper-figure-preview__resize--top-left {
+  top: 0;
+  left: 0;
   cursor: nwse-resize;
 }
 
-.paper-figure-preview__resize--left .paper-figure-preview__resize-icon {
-  transform: rotate(90deg);
+.paper-figure-preview__resize--top-right {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
 }
 
-.paper-figure-preview__resize:hover,
-.paper-figure-preview__resize:focus-visible {
-  color: var(--sm-color-text-secondary);
+.paper-figure-preview__resize--bottom-right {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
+.paper-figure-preview__resize--bottom-left {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
 }
 </style>

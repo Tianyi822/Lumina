@@ -242,6 +242,94 @@ function splitPaperMarkdownBlocks(markdown: string): string[] {
   return blocks
 }
 
+function splitMarkdownBlockByBlankLines(block: string): string[] {
+  const chunks: string[] = []
+  const lines = block.replace(/\r\n/g, '\n').trim().split('\n')
+  let buffer: string[] = []
+  let activeFence: MarkdownFence | null = null
+
+  const flushBuffer = (): void => {
+    const chunk = buffer.join('\n').replace(/\s+$/g, '')
+    if (chunk.trim()) {
+      chunks.push(chunk)
+    }
+    buffer = []
+  }
+
+  for (const line of lines) {
+    if (activeFence) {
+      buffer.push(line)
+      if (isMarkdownFenceCloser(line, activeFence)) {
+        activeFence = null
+      }
+      continue
+    }
+
+    const fence = parseMarkdownFenceOpener(line)
+    if (fence) {
+      buffer.push(line)
+      activeFence = fence
+      continue
+    }
+
+    if (!line.trim()) {
+      flushBuffer()
+      continue
+    }
+
+    buffer.push(line)
+  }
+
+  flushBuffer()
+  return chunks
+}
+
+function stripListContinuationIndent(block: string, continuationIndent: number): string {
+  return block
+    .split('\n')
+    .map((line) => {
+      if (!line.trim()) {
+        return line
+      }
+
+      return getLeadingSpaceLength(line) >= continuationIndent
+        ? line.slice(continuationIndent)
+        : line.trimStart()
+    })
+    .join('\n')
+    .trim()
+}
+
+function canSplitLooseOrderedListChunk(chunk: string, continuationIndent: number): boolean {
+  const firstMeaningfulLine = chunk.split('\n').find((line) => line.trim())
+  return !!firstMeaningfulLine && getLeadingSpaceLength(firstMeaningfulLine) >= continuationIndent
+}
+
+function splitLooseOrderedListBlock(block: string): string[] {
+  const lines = block.replace(/\r\n/g, '\n').trim().split('\n')
+  const continuationIndent = getOrderedListContinuationIndent(lines)
+  if (continuationIndent === null) {
+    return [block]
+  }
+
+  const chunks = splitMarkdownBlockByBlankLines(block)
+  if (
+    chunks.length <= 1 ||
+    chunks.slice(1).some((chunk) => !canSplitLooseOrderedListChunk(chunk, continuationIndent))
+  ) {
+    return [block]
+  }
+
+  return [
+    chunks[0],
+    ...chunks.slice(1).map((chunk) => stripListContinuationIndent(chunk, continuationIndent))
+  ].filter((chunk) => chunk.trim().length > 0)
+}
+
+function splitPaperMarkdownBlocksForTranslation(markdown: string): string[] {
+  return splitPaperMarkdownBlocks(markdown).flatMap(splitLooseOrderedListBlock)
+}
+
 function extractFencedCodeText(markdown: string): string {
   const lines = markdown.replace(/\r\n/g, '\n').trim().split('\n')
   const fence = parseMarkdownFenceOpener(lines[0] || '')
@@ -930,7 +1018,7 @@ export function parsePaperTranslationSegments(markdown: string): PaperTranslatio
     return []
   }
 
-  const blocks = splitPaperMarkdownBlocks(normalizedMarkdown)
+  const blocks = splitPaperMarkdownBlocksForTranslation(normalizedMarkdown)
 
   return blocks.map((block, index) => {
     const kind = detectPaperTranslationSegmentKind(block)

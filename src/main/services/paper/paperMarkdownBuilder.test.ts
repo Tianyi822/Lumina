@@ -454,7 +454,7 @@ test('含行内公式的跨页英文续写正文会重新合并为同一段', ()
   assert.doesNotMatch(readerMarkdown, /N-way K-shot\s*\n\s*\n\s*<!-- Page 2 -->/)
 })
 
-test('论文编号方法小节会把公式和跨页续写保持在同一个列表项缩进内', () => {
+test('论文编号方法小节会保留公式和跨页续写顺序但拆成独立 reader 段', () => {
   const firstItem =
     '1) Prototype Generation: We first apply average pooling [34] to the support feature $F_s$ and the support mask $M_s$ to obtain the global prototypes of different classes. This process can be expressed as follows:'
   const firstFormula =
@@ -496,25 +496,41 @@ test('论文编号方法小节会把公式和跨页续写保持在同一个列�
   const firstSequenceSegment = readerDocument.segments.find((segment) =>
     segment.originalMarkdown.startsWith('1) Prototype Generation')
   )
+  const formulaSegment = readerDocument.segments.find((segment) =>
+    segment.originalMarkdown.includes(firstFormula)
+  )
+  const whereSegment = readerDocument.segments.find((segment) =>
+    segment.originalMarkdown.startsWith(whereText)
+  )
+  const continuationSegment = readerDocument.segments.find(
+    (segment) => segment.originalMarkdown === continuation
+  )
   const secondSequenceSegment = readerDocument.segments.find((segment) =>
     segment.originalMarkdown.startsWith('2) Uncertainty-Guided Prototype Selection')
   )
 
   assert.ok(firstSequenceSegment)
+  assert.ok(formulaSegment)
+  assert.ok(whereSegment)
+  assert.ok(continuationSegment)
   assert.ok(secondSequenceSegment)
   assert.equal(firstSequenceSegment.kind, 'list')
-  assert.match(firstSequenceSegment.originalMarkdown, /\n\n {3}\$\$/)
-  assert.match(firstSequenceSegment.originalMarkdown, /\n\n {3}where \$k\$ denotes/)
-  assert.match(firstSequenceSegment.originalMarkdown, /\n\n {3}<!-- Page 2 -->/)
-  assert.match(firstSequenceSegment.originalMarkdown, /\n\n {3}To preserve the detailed/)
+  assert.equal(formulaSegment.kind, 'paragraph')
+  assert.equal(whereSegment.kind, 'paragraph')
+  assert.equal(continuationSegment.kind, 'paragraph')
+  assert.doesNotMatch(firstSequenceSegment.originalMarkdown, /\n\n {3}\$\$/)
+  assert.ok(firstSequenceSegment.index < formulaSegment.index)
+  assert.ok(formulaSegment.index < whereSegment.index)
+  assert.ok(whereSegment.index < continuationSegment.index)
+  assert.ok(continuationSegment.index < secondSequenceSegment.index)
   assert.doesNotMatch(firstSequenceSegment.originalMarkdown, /2\) Uncertainty-Guided/)
   assert.equal(
     readerDocument.segments.some((segment) => segment.originalMarkdown === continuation),
-    false
+    true
   )
 })
 
-test('表格打断的论文编号小节会保持后续正文的列表缩进', () => {
+test('表格打断的论文编号小节会保留表格和后续正文顺序但拆成独立 reader 段', () => {
   const item =
     '2. Effectiveness of Dual-Branch Prediction and RDF: To validate the effectiveness of the dual-branch strategy, No.4 applies a gated mechanism to combine'
   const tableNumber = 'TABLE VI'
@@ -546,20 +562,36 @@ test('表格打断的论文编号小节会保持后续正文的列表缩进', ()
   const sequenceSegment = readerDocument.segments.find((segment) =>
     segment.originalMarkdown.startsWith('2. Effectiveness of Dual-Branch')
   )
+  const tableTitleSegment = readerDocument.segments.find((segment) =>
+    segment.originalMarkdown.startsWith(`${tableNumber} ${tableTitle}`)
+  )
+  const tableSegment = readerDocument.segments.find((segment) =>
+    segment.originalMarkdown.startsWith('<table border="1">')
+  )
+  const continuationSegment = readerDocument.segments.find(
+    (segment) => segment.originalMarkdown === continuation
+  )
   const nextSequenceSegment = readerDocument.segments.find((segment) =>
     segment.originalMarkdown.startsWith('3. Effect of Threshold')
   )
 
   assert.ok(sequenceSegment)
+  assert.ok(tableTitleSegment)
+  assert.ok(tableSegment)
+  assert.ok(continuationSegment)
   assert.ok(nextSequenceSegment)
   assert.equal(sequenceSegment.kind, 'list')
-  assert.match(sequenceSegment.originalMarkdown, /\n\n {3}TABLE VI ABLATIVE RESULTS/)
-  assert.match(sequenceSegment.originalMarkdown, /\n\n {3}<table border="1">/)
-  assert.match(sequenceSegment.originalMarkdown, /\n\n {3}the two predictions/)
+  assert.equal(tableTitleSegment.kind, 'paragraph')
+  assert.equal(tableSegment.kind, 'table')
+  assert.equal(continuationSegment.kind, 'paragraph')
+  assert.ok(sequenceSegment.index < tableTitleSegment.index)
+  assert.ok(tableTitleSegment.index < tableSegment.index)
+  assert.ok(tableSegment.index < continuationSegment.index)
+  assert.ok(continuationSegment.index < nextSequenceSegment.index)
   assert.doesNotMatch(sequenceSegment.originalMarkdown, /3\. Effect of Threshold/)
   assert.equal(
     readerDocument.segments.some((segment) => segment.originalMarkdown === continuation),
-    false
+    true
   )
 })
 
