@@ -2,10 +2,9 @@
   "name": "lumina",
   "productName": "Lumina",
   "version": "1.0.0",
-  "description": "An Electron application with Vue and TypeScript",
+  "description": "A research-oriented paper reading tool with AI-powered interaction, knowledge base management, and Docker/SSH experiment execution",
+  "license": "GPL-3.0-only",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
