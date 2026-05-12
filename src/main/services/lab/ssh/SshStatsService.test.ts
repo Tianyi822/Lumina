@@ -347,4 +347,36 @@ test('SshStatsService', async (t) => {
     assert.equal(result.stats?.memory.quotaAvailableBytes, undefined)
     assert.equal(result.stats?.memory.quotaPercent, undefined)
   })
+
+  await t.test('cgroup 可信但 currentBytes 缺失时回退为宿主机用量的配额上限', async () => {
+    const gib = 1024 * 1024 * 1024
+    const hostTotalBytes = 128 * gib
+    const hostAvailableBytes = 64 * gib
+    const quotaTotalBytes = 32 * gib
+    const service = new SshStatsService(
+      new FakeExecutor([
+        createExecResult(
+          createStatsOutput({
+            cpuLine: 'cpu  1 0 1 8 0 0 0 0 0 0',
+            memTotalKb: hostTotalBytes / 1024,
+            memAvailableKb: hostAvailableBytes / 1024,
+            cgroupLimitBytes: quotaTotalBytes,
+            cgroupPath: '/docker/abc123',
+            readSectors: 0,
+            writeSectors: 0
+          })
+        )
+      ])
+    )
+
+    const result = await service.getServerStats('lab-missing-current')
+
+    assert.equal(result.success, true)
+    // 宿主机用量 64G，配额 32G → quotaUsage = min(64G, 32G) = 32G
+    assert.equal(result.stats?.memory.source, 'quota')
+    assert.equal(result.stats?.memory.usageBytes, quotaTotalBytes)
+    assert.equal(result.stats?.memory.totalBytes, quotaTotalBytes)
+    assert.equal(result.stats?.memory.quotaUsageBytes, quotaTotalBytes)
+    assert.equal(result.stats?.memory.quotaTotalBytes, quotaTotalBytes)
+  })
 })
