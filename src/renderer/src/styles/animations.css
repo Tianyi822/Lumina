@@ -121,23 +121,23 @@
 
 .sm-sidebar-list-item-enter-from,
 .sm-sidebar-list-item-appear-from {
-  opacity: 0;
+  opacity: 0 !important;
   transform: translateX(calc(var(--sm-motion-distance-md) * -1));
 }
 
 .sm-sidebar-list-item-leave-to {
-  opacity: 0;
+  opacity: 0 !important;
   transform: translateX(var(--sm-motion-distance-md));
 }
 
 .sm-sidebar-list-item-enter-to,
 .sm-sidebar-list-item-appear-to {
-  opacity: 1;
+  opacity: 1 !important;
   transform: translateX(0);
 }
 
 .sm-sidebar-list-item-leave-from {
-  opacity: 1;
+  opacity: 1 !important;
   transform: translateX(0);
 }
 

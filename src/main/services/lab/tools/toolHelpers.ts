@@ -42,10 +42,12 @@ export function formatExecCommandToolResult(
 }
 
 export function resolveProjectRootForWrite(
-  lab: Pick<LabData, 'frontend'>,
+  lab: Pick<LabData, 'frontend' | 'backendType'>,
   explicitProjectRoot?: string
 ): string | undefined {
-  return explicitProjectRoot || lab.frontend?.projectRoot
+  if (explicitProjectRoot) return explicitProjectRoot
+  if (lab.frontend?.projectRoot) return lab.frontend.projectRoot
+  return undefined
 }
 
 export function selectReusableFrontendLab(

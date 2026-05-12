@@ -18,7 +18,12 @@ import type {
   ExecCommand,
   ExecResult,
   LogOptions,
-  LabResult
+  LabResult,
+  DockerTerminalActionResult,
+  DockerTerminalDataEvent,
+  DockerTerminalExitEvent,
+  DockerTerminalOpenResult,
+  DockerTerminalSize
 } from '@shared/types/lab'
 import { DockerComposeService } from './DockerComposeService'
 import { DockerContainerMapper } from './DockerContainerMapper'
@@ -26,6 +31,7 @@ import { DockerContainerService } from './DockerContainerService'
 import { DockerExecService } from './DockerExecService'
 import { DockerImageService } from './DockerImageService'
 import { DockerStatsService } from './DockerStatsService'
+import { DockerTerminalService } from './DockerTerminalService'
 import { DockerVolumeService } from './DockerVolumeService'
 import type {
   BuildImageFromDockerfileOptions,
@@ -51,6 +57,7 @@ export class DockerService implements DockerServiceContext {
   private readonly containerMapper = new DockerContainerMapper(this)
   private readonly containerService = new DockerContainerService(this, this.containerMapper)
   private readonly execService = new DockerExecService(this)
+  private readonly terminalService = new DockerTerminalService(this)
   private readonly statsService = new DockerStatsService(this)
   private readonly imageService = new DockerImageService(this)
   private readonly volumeService = new DockerVolumeService(this)
@@ -222,6 +229,41 @@ export class DockerService implements DockerServiceContext {
    */
   async execCommand(containerId: string, command: ExecCommand): Promise<ExecResult | null> {
     return this.execService.execCommand(containerId, command)
+  }
+
+  async openTerminal(
+    containerId: string,
+    size?: DockerTerminalSize
+  ): Promise<DockerTerminalOpenResult> {
+    return this.terminalService.openTerminal(containerId, size)
+  }
+
+  writeTerminal(sessionId: string, data: string): DockerTerminalActionResult {
+    return this.terminalService.writeTerminal(sessionId, data)
+  }
+
+  resizeTerminal(sessionId: string, size: DockerTerminalSize): Promise<DockerTerminalActionResult> {
+    return this.terminalService.resizeTerminal(sessionId, size)
+  }
+
+  closeTerminal(sessionId: string): DockerTerminalActionResult {
+    return this.terminalService.closeTerminal(sessionId)
+  }
+
+  onTerminalData(listener: (event: DockerTerminalDataEvent) => void): void {
+    this.terminalService.onData(listener)
+  }
+
+  offTerminalData(listener: (event: DockerTerminalDataEvent) => void): void {
+    this.terminalService.offData(listener)
+  }
+
+  onTerminalExit(listener: (event: DockerTerminalExitEvent) => void): void {
+    this.terminalService.onExit(listener)
+  }
+
+  offTerminalExit(listener: (event: DockerTerminalExitEvent) => void): void {
+    this.terminalService.offExit(listener)
   }
 
   /**
@@ -519,6 +561,21 @@ export const dockerService = {
   isVolumeOwnedByLab: (name: string, labId: string) =>
     getDockerService().isVolumeOwnedByLab(name, labId),
   execCommand: (id: string, cmd: ExecCommand) => getDockerService().execCommand(id, cmd),
+  openTerminal: (id: string, size?: DockerTerminalSize) =>
+    getDockerService().openTerminal(id, size),
+  writeTerminal: (sessionId: string, data: string) =>
+    getDockerService().writeTerminal(sessionId, data),
+  resizeTerminal: (sessionId: string, size: DockerTerminalSize) =>
+    getDockerService().resizeTerminal(sessionId, size),
+  closeTerminal: (sessionId: string) => getDockerService().closeTerminal(sessionId),
+  onTerminalData: (listener: (event: DockerTerminalDataEvent) => void) =>
+    getDockerService().onTerminalData(listener),
+  offTerminalData: (listener: (event: DockerTerminalDataEvent) => void) =>
+    getDockerService().offTerminalData(listener),
+  onTerminalExit: (listener: (event: DockerTerminalExitEvent) => void) =>
+    getDockerService().onTerminalExit(listener),
+  offTerminalExit: (listener: (event: DockerTerminalExitEvent) => void) =>
+    getDockerService().offTerminalExit(listener),
   getContainerLogs: (id: string, opts?: LogOptions) =>
     getDockerService().getContainerLogs(id, opts),
   copyToContainer: (id: string, src: string, dest: string) =>

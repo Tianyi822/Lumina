@@ -55,6 +55,7 @@ test('lab__exec_command 非零退出码保留结构化输出且不视为工具�
 
 test('前端实验室写文件默认复用自身项目根目录', () => {
   const projectRoot = resolveProjectRootForWrite({
+    backendType: 'docker',
     frontend: {
       framework: 'react',
       storageType: 'docker-volume',
@@ -75,7 +76,10 @@ test('前端实验室写文件默认复用自身项目根目录', () => {
   })
 
   assert.equal(projectRoot, '/workspace')
-  assert.equal(resolveProjectRootForWrite({ frontend: undefined }, '/app'), '/app')
+  assert.equal(
+    resolveProjectRootForWrite({ frontend: undefined, backendType: 'docker' }, '/app'),
+    '/app'
+  )
 })
 
 test('同名同框架前端实验室默认选择最新可复用实例', () => {
@@ -87,7 +91,8 @@ test('同名同框架前端实验室默认选择最新可复用实例', () => {
     creationType: 'dockerfile',
     containerIds: ['container-1'],
     isOrphan: false,
-    primaryContainerId: 'container-1'
+    primaryContainerId: 'container-1',
+    backendType: 'docker'
   } satisfies Omit<LabData, 'labId' | 'frontend'>
 
   const labs = [

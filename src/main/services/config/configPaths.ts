@@ -41,7 +41,8 @@ function readDataPathFromRegistry(): string | null {
   try {
     const output = execSync(`reg query ${REG_KEY} /v DataPath`, {
       encoding: 'utf8',
-      windowsHide: true
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
     })
 
     // reg query 输出格式：

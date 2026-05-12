@@ -5,7 +5,7 @@ import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion
 
 // 创建类型 - 预留，待类型定义更新后使用
 
-type LabCreationType = 'existing' | 'compose' | 'dockerfile'
+type LabCreationType = 'existing' | 'compose' | 'dockerfile' | 'ssh'
 
 // 扩展的列表项类型（包含新增字段）
 interface ExtendedLabListItem extends Omit<
@@ -29,7 +29,16 @@ const emit = defineEmits<{
   (e: 'delete', labId: string): void
 }>()
 
-function getStatusLabel(status: LabStatus): string {
+function getStatusLabel(status: LabStatus, creationType?: LabCreationType): string {
+  if (creationType === 'ssh') {
+    const sshLabels: Record<LabStatus, string> = {
+      creating: '连接中',
+      running: '已连接',
+      stopped: '未连接',
+      error: '连接失败'
+    }
+    return sshLabels[status] || status
+  }
   const labels: Record<LabStatus, string> = {
     creating: '创建中',
     running: '运行中',
@@ -48,7 +57,8 @@ function getCreationTypeLabel(type?: LabCreationType): string {
   const labels: Record<LabCreationType, string> = {
     existing: '已有容器',
     compose: 'Compose',
-    dockerfile: 'Dockerfile'
+    dockerfile: 'Dockerfile',
+    ssh: 'SSH'
   }
   return labels[type] || type
 }
@@ -97,7 +107,7 @@ function handleDeleteClick(lab: LabListItem): void {
         </div>
         <div class="lab-meta">
           <span class="lab-status" :class="getStatusClass(lab.status)">
-            {{ getStatusLabel(lab.status) }}
+            {{ getStatusLabel(lab.status, (lab as unknown as ExtendedLabListItem).creationType) }}
           </span>
           <!-- 创建类型 Badge -->
           <span
@@ -187,13 +197,11 @@ function handleDeleteClick(lab: LabListItem): void {
 .lab-item.orphan {
   border-color: rgba(199, 120, 120, 0.32);
   background-color: rgba(199, 120, 120, 0.08);
-  opacity: 0.7;
 }
 
 .lab-item.orphan:hover {
   border-color: rgba(199, 120, 120, 0.32);
   background-color: rgba(199, 120, 120, 0.12);
-  opacity: 0.85;
 }
 
 .lab-info {
@@ -240,6 +248,12 @@ function handleDeleteClick(lab: LabListItem): void {
   border-color: var(--sm-color-accent-28);
   background-color: var(--sm-color-accent-12);
   color: var(--sm-color-accent-hover);
+}
+
+.sm-lab-list__creation-badge.creation-type-ssh {
+  border-color: rgba(136, 132, 216, 0.32);
+  background-color: rgba(136, 132, 216, 0.12);
+  color: #8884d8;
 }
 
 .lab-meta {

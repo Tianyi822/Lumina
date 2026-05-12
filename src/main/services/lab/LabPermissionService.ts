@@ -52,6 +52,16 @@ export class LabPermissionService {
   }
 
   /**
+   * 获取操作被拒绝的原因文案
+   */
+  private getDisabledReason(type: LabCreationType, operation: string): string {
+    if (type === 'ssh') {
+      return `SSH 远程服务器类型的实验室不允许${operation}操作，容器生命周期由远程服务器管理`
+    }
+    return `${type} 类型的实验室不允许${operation}容器操作，请使用 Docker 命令行管理容器生命周期`
+  }
+
+  /**
    * 获取启动权限检查结果（带原因）
    */
   checkStart(type: LabCreationType): PermissionCheckResult {
@@ -61,7 +71,7 @@ export class LabPermissionService {
     }
     return {
       allowed: false,
-      reason: `${type} 类型的实验室不允许启动容器操作，请使用 Docker 命令行管理容器生命周期`
+      reason: this.getDisabledReason(type, '启动')
     }
   }
 
@@ -75,7 +85,7 @@ export class LabPermissionService {
     }
     return {
       allowed: false,
-      reason: `${type} 类型的实验室不允许停止容器操作，请使用 Docker 命令行管理容器生命周期`
+      reason: this.getDisabledReason(type, '停止')
     }
   }
 
@@ -89,7 +99,7 @@ export class LabPermissionService {
     }
     return {
       allowed: false,
-      reason: `${type} 类型的实验室不允许重启容器操作，请使用 Docker 命令行管理容器生命周期`
+      reason: this.getDisabledReason(type, '重启')
     }
   }
 
@@ -119,16 +129,17 @@ export class LabPermissionService {
   ): { shouldDeleteContainers: boolean; warning?: string } {
     const policy = this.getDeleteContainerPolicy(type)
 
-    // existing 类型强制不删除容器（保护用户原有容器）
+    // existing 和 ssh 类型强制不删除容器（保护用户原有容器/远程服务器）
     if (policy.forceKeep) {
       if (requestedDeleteContainers === true) {
-        logger.warn('existing 类型实验室不允许删除容器，已强制保留', 'main', {
+        logger.warn(`${type} 类型实验室不允许删除容器，已强制保留`, 'main', {
           requestedDeleteContainers
         })
       }
+      const label = type === 'ssh' ? 'SSH' : 'existing'
       return {
         shouldDeleteContainers: false,
-        warning: 'existing 类型实验室仅删除元数据，关联容器将继续运行'
+        warning: `${label} 类型实验室仅删除元数据，关联容器/连接不受影响`
       }
     }
 

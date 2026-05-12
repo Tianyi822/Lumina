@@ -40,7 +40,12 @@ export type {
   ContainerDetailsResult,
   ContainerStatsResult,
   ContainerLogsResult,
-  ExecCommandResult
+  ExecCommandResult,
+  DockerTerminalSize,
+  DockerTerminalOpenResult,
+  DockerTerminalActionResult,
+  DockerTerminalDataEvent,
+  DockerTerminalExitEvent
 } from '@shared/types/lab'
 
 export type {
@@ -115,6 +120,11 @@ import type {
   LogOptions,
   ExecCommand,
   ExecCommandResult,
+  DockerTerminalSize,
+  DockerTerminalOpenResult,
+  DockerTerminalActionResult,
+  DockerTerminalDataEvent,
+  DockerTerminalExitEvent,
   LabTemplate,
   ComposeResult,
   ComposeOptions,
@@ -174,6 +184,15 @@ export interface ComposeConfigApi {
   downExtended: (projectName: string, options?: ComposeDownOptions) => Promise<ComposeDownResult>
 }
 
+export interface DockerTerminalApi {
+  open: (containerId: string, size?: DockerTerminalSize) => Promise<DockerTerminalOpenResult>
+  write: (sessionId: string, data: string) => Promise<DockerTerminalActionResult>
+  resize: (sessionId: string, size: DockerTerminalSize) => Promise<DockerTerminalActionResult>
+  close: (sessionId: string) => Promise<DockerTerminalActionResult>
+  onData: (callback: (event: DockerTerminalDataEvent) => void) => () => void
+  onExit: (callback: (event: DockerTerminalExitEvent) => void) => () => void
+}
+
 /**
  * 实验室相关的 API
  */
@@ -205,6 +224,7 @@ export interface LabApi {
 
   // 命令执行
   execCommand: (containerId: string, command: ExecCommand) => Promise<ExecCommandResult>
+  terminal: DockerTerminalApi
 
   // 文件操作
   copyToContainer: (containerId: string, source: string, target: string) => Promise<LabResult>

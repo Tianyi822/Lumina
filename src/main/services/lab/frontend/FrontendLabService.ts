@@ -70,6 +70,10 @@ export class FrontendLabService {
       return null
     }
 
+    if (lab.backendType === 'ssh') {
+      return labService.reconcileSshRuntimeState(lab, { silent: true })
+    }
+
     if (!lab.frontend) {
       return lab
     }

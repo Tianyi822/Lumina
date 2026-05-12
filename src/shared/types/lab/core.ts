@@ -10,6 +10,11 @@ import type { FrontendWorkspaceMetadata } from './frontend'
 export type PlatformType = 'darwin' | 'win32' | 'linux'
 
 /**
+ * 实验室后端类型
+ */
+export type LabBackendType = 'docker' | 'ssh'
+
+/**
  * Docker 检测结果
  */
 export interface DockerCheckResult {
@@ -26,7 +31,20 @@ export type LabStatus = 'creating' | 'running' | 'stopped' | 'error'
 /**
  * 实验室创建类型
  */
-export type LabCreationType = 'existing' | 'compose' | 'dockerfile'
+export type LabCreationType = 'existing' | 'compose' | 'dockerfile' | 'ssh'
+
+/**
+ * SSH 实验室配置（LabData 中的 ssh 字段）
+ */
+export interface SshLabConfig {
+  host: string
+  port: number
+  username: string
+  authType: 'password' | 'key'
+  keyName?: string
+  connected?: boolean
+  lastConnectedAt?: string
+}
 
 /**
  * 实验室元数据
@@ -64,6 +82,10 @@ export interface LabData {
   portMappings?: PortMapping[]
   /** 是否为孤立实验室（容器已丢失） */
   isOrphan?: boolean
+  /** 后端类型，默认 'docker' */
+  backendType: LabBackendType
+  /** SSH 专属配置（仅 backendType === 'ssh' 时有效） */
+  ssh?: SshLabConfig
 }
 
 /**
@@ -159,6 +181,8 @@ export interface CreateLabRequest {
   description?: string
   /** 创建类型 */
   creationType: LabCreationType
+  /** 后端类型，默认 'docker'（creationType === 'ssh' 时自动设为 'ssh'） */
+  backendType?: LabBackendType
   /** Compose 配置 ID (creationType = 'compose' 时使用) */
   composeConfigId?: string
   /** Dockerfile 配置 ID (creationType = 'dockerfile' 时使用) */
@@ -169,6 +193,18 @@ export interface CreateLabRequest {
   projectName?: string
   /** 上下文路径 (可选，用于 dockerfile) */
   context?: string
+  /** SSH 主机地址 (creationType = 'ssh' 时使用) */
+  sshHost?: string
+  /** SSH 端口 (creationType = 'ssh' 时使用，默认 22) */
+  sshPort?: number
+  /** SSH 用户名 (creationType = 'ssh' 时使用) */
+  sshUsername?: string
+  /** SSH 认证类型 (creationType = 'ssh' 时使用) */
+  sshAuthType?: 'password' | 'key'
+  /** SSH 密码 (creationType = 'ssh' 且 authType === 'password' 时使用) */
+  sshPassword?: string
+  /** SSH 密钥名称 (creationType = 'ssh' 且 authType === 'key' 时使用) */
+  sshKeyName?: string
 }
 
 /**

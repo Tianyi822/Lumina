@@ -54,3 +54,6 @@ export {
   type TemplateFile,
   type TemplateVariables as LabTemplateVariables
 } from './lab/template'
+
+// 自动更新相关的类型
+export * from './update'

@@ -6,6 +6,7 @@ import { managementTools } from './tools/managementTools'
 import { execTools } from './tools/execTools'
 import { fileTools } from './tools/fileTools'
 import { frontendTools } from './tools/frontendTools'
+import { sshTools } from './tools/sshTools'
 
 /**
  * 实验室工具服务
@@ -20,7 +21,8 @@ export class LabToolService {
       ...managementTools,
       ...execTools,
       ...fileTools,
-      ...frontendTools
+      ...frontendTools,
+      ...sshTools
     ])
   }
 
@@ -95,7 +97,13 @@ export class LabToolService {
     args: ToolArgs,
     onProgress?: (message: string) => void
   ): Promise<MCPToolCallResult> {
-    logger.info(`执行实验室工具: ${name}`, 'main', { args })
+    const safeArgs = { ...args }
+    if (name === 'lab__ssh_connect') {
+      delete safeArgs.password
+      delete safeArgs.key_content
+      delete safeArgs.key_name
+    }
+    logger.info(`执行实验室工具: ${name}`, 'main', { args: safeArgs })
 
     try {
       // 检查是否是交互类工具

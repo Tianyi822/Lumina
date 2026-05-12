@@ -160,14 +160,11 @@ onBeforeUnmount(() => {
 
         <div class="sm-workspace-main__body sm-workspace-main__body--fill">
           <Transition name="sm-workspace-switch" mode="out-in" appear>
-            <!-- 论文阅读器视图 -->
-            <PaperReaderPage v-if="isPaperView" key="paper" />
-
-            <!-- 知识库视图 -->
-            <KnowledgePage v-else-if="isKnowledgeView" key="knowledge" />
-
-            <!-- 实验室视图 -->
-            <LabPage v-else key="lab" />
+            <KeepAlive>
+              <PaperReaderPage v-if="isPaperView" key="paper" />
+              <KnowledgePage v-else-if="isKnowledgeView" key="knowledge" />
+              <LabPage v-else key="lab" />
+            </KeepAlive>
           </Transition>
         </div>
       </div>
@@ -246,6 +243,10 @@ onBeforeUnmount(() => {
   height: var(--sm-titlebar-height);
   -webkit-app-region: drag;
   user-select: none;
+}
+
+.sm-workspace-page--windows.sm-workspace-page--sidebar-collapsed .sm-workspace-main::before {
+  left: var(--sm-workspace-chrome-actions-safe-width, 140px);
 }
 
 .sm-workspace-page--windows .sm-workspace-page__win-controls {
