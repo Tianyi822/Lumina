@@ -1,7 +1,7 @@
 {
   "name": "lumina",
   "productName": "Lumina",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A research-oriented paper reading tool with AI-powered interaction, knowledge base management, and Docker/SSH experiment execution",
   "license": "GPL-3.0-only",
   "main": "./out/main/index.js",
