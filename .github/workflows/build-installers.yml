@@ -33,7 +33,9 @@ jobs:
       - name: Build Windows installer
         env:
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_SYMLINKS: 'true'
-        run: yarn electron-builder --win --publish never
+        run: |
+          Remove-Item -Force .yarnrc -ErrorAction SilentlyContinue
+          yarn electron-builder --win --publish never
 
       - name: Mark Windows artifact as unsigned
         shell: pwsh
@@ -75,10 +77,9 @@ jobs:
         run: yarn build
 
       - name: Build macOS installer
-        env:
-          ELECTRON_MIRROR: 'https://github.com/electron/electron/releases/download/v'
-          ELECTRON_BUILDER_BINARIES_MIRROR: 'https://github.com/electron-userland/electron-builder-binaries/releases/download/'
-        run: yarn electron-builder --mac --publish never
+        run: |
+          rm -f .yarnrc
+          yarn electron-builder --mac --publish never
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
