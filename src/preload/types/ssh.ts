@@ -5,6 +5,7 @@ import type {
   ExecCommand,
   ExecCommandResult,
   SshConnectResult,
+  SshServerStatsResult,
   SshTerminalActionResult,
   SshTerminalDataEvent,
   SshTerminalExitEvent,
@@ -16,6 +17,9 @@ export type {
   SshConnectionConfig,
   SshConnectionStatusEvent,
   SshConnectResult,
+  SshServerStats,
+  SshServerStatsResult,
+  SshGpuDeviceStats,
   TestSshConnectionResult,
   SshTerminalActionResult,
   SshTerminalDataEvent,
@@ -45,6 +49,7 @@ export interface SshApi {
   ) => Promise<SshConnectResult>
   disconnect: (labId: string) => Promise<{ success: boolean; error?: string }>
   getStatus: (labId: string) => Promise<{ status: string }>
+  getServerStats: (labId: string) => Promise<SshServerStatsResult>
   exec: (labId: string, command: ExecCommand) => Promise<ExecCommandResult>
   onConnectionStatus: (callback: (event: SshConnectionStatusEvent) => void) => () => void
   terminal: SshTerminalApi

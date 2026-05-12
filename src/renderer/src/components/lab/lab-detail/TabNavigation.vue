@@ -7,9 +7,15 @@ import { useUIStateStore } from '@renderer/stores'
 
 type TabType = 'stats' | 'terminal' | 'logs'
 
-defineProps<{
-  visible: boolean
-}>()
+withDefaults(
+  defineProps<{
+    visible: boolean
+    showLogs?: boolean
+  }>(),
+  {
+    showLogs: true
+  }
+)
 
 const uiStateStore = useUIStateStore()
 const { labDetailTab } = storeToRefs(uiStateStore)
@@ -36,6 +42,7 @@ function setDetailTab(tab: TabType): void {
       终端
     </button>
     <button
+      v-if="showLogs"
       class="tab-btn"
       :class="{ 'is-active': labDetailTab === 'logs' }"
       @click="setDetailTab('logs')"

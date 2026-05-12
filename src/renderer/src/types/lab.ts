@@ -40,7 +40,10 @@ export type {
   DockerTerminalOpenResult,
   DockerTerminalActionResult,
   DockerTerminalDataEvent,
-  DockerTerminalExitEvent
+  DockerTerminalExitEvent,
+  SshGpuDeviceStats,
+  SshServerStats,
+  SshServerStatsResult
 } from '@shared/types/lab'
 
 export type {

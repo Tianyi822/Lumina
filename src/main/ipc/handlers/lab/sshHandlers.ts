@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import { sshService, sshTerminalService } from '@main/services/lab/ssh'
+import { sshService, sshStatsService, sshTerminalService } from '@main/services/lab/ssh'
 import { labService } from '@main/services/lab/LabService'
 import { logger } from '@main/services/logger'
 import type {
@@ -99,6 +99,18 @@ export function registerSshHandlers(): void {
 
   ipcMain.handle('ssh:status', async (_event, labId: string) => {
     return { status: sshService.getConnectionStatus(labId) }
+  })
+
+  ipcMain.handle('ssh:stats', async (_event, labId: string) => {
+    try {
+      return await sshStatsService.getServerStats(labId)
+    } catch (error) {
+      logger.error('ssh:stats 失败', 'main', {
+        labId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   })
 
   ipcMain.handle('ssh:exec', async (_event, labId: string, command: ExecCommand) => {
