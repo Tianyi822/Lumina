@@ -195,6 +195,48 @@ test('普通段落不会被误判为表格', () => {
   assert.equal(parsePaperTranslationSegments(textWithPipe)[0].kind, 'paragraph')
 })
 
+test('编号 loose list 中的公式和后续正文会拆成独立翻译段', () => {
+  const markdown = [
+    '2) In this work, saliency is modeled as a relative property: whether a feature is interpreted as a target cue is determined by its deviation from the surrounding background context.',
+    '',
+    '   Specifically, for the global low-dimensional background feature $B$ and the $i$th level feature $E_{i}$ from the encoder input, HCCT first performs patch embedding.',
+    '',
+    '   $$',
+    '   J _ {\\Sigma} = \\mathrm {L N} \\left([ e m b _ {B}, e m b _ {1}, e m b _ {2}, e m b _ {3}, e m b _ {4} ]\\right)',
+    '   $$',
+    '',
+    '   $$',
+    '   J _ {i} = \\operatorname {L N} \\left(e m b _ {i}\\right) \\quad (i = 1, 2, 3, 4).',
+    '   $$',
+    '',
+    '   Subsequently, $ J_{i} $ and $ J_{\\Sigma} $ are processed using $ 1\\times 1 $ convolutions and $ 3\\times 3 $ depthwise separable convolutions.',
+    '',
+    '   $$',
+    '   Q _ {i} = \\mathrm {D W C o n v} _ {Q} ^ {(1 \\times 1)} \\left(\\operatorname {C o n v} _ {Q} ^ {(1 \\times 1)} \\left(J _ {i}\\right)\\right)',
+    '   $$',
+    '',
+    '   Finally, to align the dimensionality of the output feature with that of the $i$th level feature $E_{i}$ , bilinear interpolation is used for upsampling.'
+  ].join('\n')
+
+  const segments = parsePaperTranslationSegments(markdown)
+
+  assert.equal(segments.length, 7)
+  assert.deepEqual(
+    segments.map((segment) => segment.kind),
+    ['list', 'paragraph', 'paragraph', 'paragraph', 'paragraph', 'paragraph', 'paragraph']
+  )
+  assert.equal(segments[0].originalMarkdown.startsWith('2) In this work'), true)
+  assert.equal(segments[1].originalMarkdown.startsWith('Specifically,'), true)
+  assert.equal(segments[2].originalMarkdown.startsWith('$$'), true)
+  assert.match(segments[2].originalMarkdown, /J _ \{\\Sigma}/)
+  assert.equal(segments[4].originalMarkdown.startsWith('Subsequently,'), true)
+  assert.equal(segments[6].originalMarkdown.startsWith('Finally, to align'), true)
+  assert.deepEqual(
+    segments.map((segment) => segment.id),
+    ['seg-0', 'seg-1', 'seg-2', 'seg-3', 'seg-4', 'seg-5', 'seg-6']
+  )
+})
+
 test('目录层级会优先根据标题编号恢复，最多三级', () => {
   const markdown = [
     '# 3. Method',
