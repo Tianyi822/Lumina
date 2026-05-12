@@ -53,18 +53,6 @@ AI 能够自主判断何时调用工具，通过思考-行动-观察循环完成
 - macOS（`.dmg`）
 - Windows（`.exe`）
 
-## 技术栈
-
-| 类别 | 技术 |
-|------|------|
-| 桌面框架 | Electron + electron-vite |
-| 前端 | Vue 3、TypeScript、Pinia |
-| AI / LLM | OpenAI 兼容 API |
-| 向量数据库 | LanceDB |
-| 容器运行时 | Docker（dockerode） |
-| 文档解析 | pdf-parse、mammoth、officeparser |
-| MCP 协议 | @modelcontextprotocol/sdk |
-
 ## 开源协议
 
 [GPL-3.0](LICENSE)
