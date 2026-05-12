@@ -33,8 +33,12 @@ jobs:
       - name: Build Windows installer
         env:
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_SYMLINKS: 'true'
+          ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
           ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+          NPM_CONFIG_ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
           NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+          npm_config_electron_mirror: https://github.com/electron/electron/releases/download/
+          npm_config_electron_builder_binaries_mirror: https://github.com/electron-userland/electron-builder-binaries/releases/download/
         run: |
           yarn electron-builder --win --publish never
 
@@ -77,10 +81,25 @@ jobs:
       - name: Build app
         run: yarn build
 
+      - name: Clear Electron mirror config
+        shell: bash
+        run: |
+          npm config delete electron_mirror || true
+          npm config delete electron-builder-binaries-mirror || true
+          npm config delete electron_builder_binaries_mirror || true
+          yarn config delete electron_mirror || true
+          yarn config delete electron-builder-binaries-mirror || true
+          yarn config delete electron_builder_binaries_mirror || true
+
       - name: Build macOS installer
+        shell: bash
         env:
+          ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
           ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+          NPM_CONFIG_ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
           NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+          npm_config_electron_mirror: https://github.com/electron/electron/releases/download/
+          npm_config_electron_builder_binaries_mirror: https://github.com/electron-userland/electron-builder-binaries/releases/download/
         run: |
           yarn electron-builder --mac --publish never
 
