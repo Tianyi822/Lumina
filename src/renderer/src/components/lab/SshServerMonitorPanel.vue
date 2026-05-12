@@ -120,9 +120,6 @@ const metricCharts = computed<MetricChart[]>(() => {
       maxValue: 100,
       supported: true,
       emptyLabel: '等待内存采样',
-      hostDetailLabel: latest?.memory.source === 'quota'
-        ? `宿主机 ${formatBytePair(latest.memory.hostUsageBytes, latest.memory.hostTotalBytes)}`
-        : undefined,
       points: collectPoints(samples, (sample) => sample.memory.percent)
     },
     {
