@@ -43,8 +43,6 @@ const {
   enableLabTools,
   enablePaperWebSearch,
   loading,
-  contextLoading,
-  ensurePaperContextLoaded,
   loadSessionWithContext,
   saveCurrentSession,
   clearContext,
@@ -60,13 +58,13 @@ provide('sessionId', sessionId)
 
 const { isSending, sendMessage, stopRequest } = usePaperChatStream({
   session,
+  paperId: computed(() => props.paper.id),
   messages,
   selectedModel,
   selectedMCPTools,
   selectedKnowledgeBases,
   enableLabTools,
   enablePaperWebSearch,
-  ensurePaperContextLoaded,
   saveCurrentSession,
   setError: (message) => {
     notify.error('论文对话', message, { source: 'chat' })
@@ -166,7 +164,7 @@ async function handleClearContext(): Promise<void> {
     return
   }
 
-  const confirmed = await notify.confirm('聊天记录和隐藏全文上下文都会被清空。', {
+  const confirmed = await notify.confirm('聊天记录会被清空。', {
     title: '清空当前论文聊天上下文？',
     danger: true
   })
@@ -245,11 +243,6 @@ async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
     </div>
 
     <template v-else>
-      <div v-if="contextLoading" class="paper-chat-panel__context-status">
-        <SvgIcon name="spinner" :size="14" spin />
-        <span>正在加载论文全文上下文...</span>
-      </div>
-
       <PaperChatMessageList
         :messages="messages"
         :is-sending="isSending"
@@ -367,7 +360,6 @@ async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
   opacity: 0.55;
 }
 
-.paper-chat-panel__context-status,
 .paper-chat-panel__loading {
   flex-shrink: 0;
   display: flex;

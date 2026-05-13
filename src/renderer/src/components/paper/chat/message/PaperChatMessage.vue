@@ -99,13 +99,6 @@ const hasActiveIteration = computed(() => {
 })
 
 /**
- * 是否有 Plan 模式的任务分组（内容已在 ReActSteps 内按阶段显示）
- */
-const hasPlanTaskGroups = computed(() => {
-  return props.message.reactIterations?.some((iter) => iter.taskNumber !== undefined) ?? false
-})
-
-/**
  * 是否展示传统的独立思考面板
  */
 const showStandaloneReasoning = computed(() => {
@@ -198,8 +191,6 @@ const shouldShowBubble = computed(() => {
   if (props.message.role === 'user') return true
   // 流式传输中且显示等待占位符时显示气泡
   if (showWaitingPlaceholder.value) return true
-  // Plan 模式下内容已分配到各阶段，隐藏底部气泡
-  if (hasPlanTaskGroups.value) return false
   // 检查是否有实际内容（同时检查原始内容和显示内容）
   const originalContent = props.message.content?.trim()
   const displayed = displayedContent.value?.trim()

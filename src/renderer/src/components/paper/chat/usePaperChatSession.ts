@@ -5,8 +5,6 @@ import { sessionMessageToMessage, messageToSessionMessage } from '@renderer/util
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { usePaperChatMessageCacheStore } from '@renderer/stores'
 
-const PAPER_CONTEXT_KIND = 'paper_fulltext'
-
 interface UsePaperChatSessionReturn {
   session: Ref<SessionData | null>
   sessionId: ComputedRef<string>
@@ -18,10 +16,8 @@ interface UsePaperChatSessionReturn {
   enableLabTools: Ref<boolean>
   enablePaperWebSearch: Ref<boolean>
   loading: Ref<boolean>
-  contextLoading: Ref<boolean>
   error: Ref<string>
   ensureSession: () => Promise<SessionData | null>
-  ensurePaperContextLoaded: () => Promise<boolean>
   loadSessionWithContext: () => Promise<boolean>
   saveCurrentSession: () => Promise<boolean>
   clearContext: () => Promise<boolean>
@@ -33,37 +29,17 @@ interface UsePaperChatSessionReturn {
   updateEnablePaperWebSearch: (value: boolean) => void
 }
 
-function createPaperContextMessage(paper: PaperDocument, markdown: string): Message {
-  return {
-    id: `paper-context-${paper.id}-${Date.now()}`,
-    role: 'system',
-    content: [
-      '你是论文阅读助手。用户正在阅读下面这篇论文，请在后续回答中优先基于论文全文内容进行分析。',
-      '不要主动告诉用户系统已经注入论文全文，除非用户明确询问上下文来源。',
-      '',
-      `论文文件名：${paper.fileName}`,
-      '',
-      '论文全文：',
-      markdown
-    ].join('\n'),
-    timestamp: new Date().toISOString(),
-    hidden: true,
-    contextKind: PAPER_CONTEXT_KIND,
-    sourcePaperId: paper.id
-  }
-}
-
-function hasPaperContext(messages: Message[], paperId: string): boolean {
-  return messages.some(
-    (message) =>
-      message.hidden &&
-      message.contextKind === PAPER_CONTEXT_KIND &&
-      message.sourcePaperId === paperId
-  )
-}
-
 function toPlainSessionData(sessionData: SessionData): SessionData {
   return JSON.parse(JSON.stringify(sessionData)) as SessionData
+}
+
+function isLegacyPaperFulltextContext(message: Pick<Message, 'hidden' | 'contextKind'>): boolean {
+  return message.hidden === true && message.contextKind === 'paper_fulltext'
+}
+
+function removeLegacyPaperFulltextMessages(messages: Message[]): Message[] {
+  const filtered = messages.filter((message) => !isLegacyPaperFulltextContext(message))
+  return filtered.length === messages.length ? messages : filtered
 }
 
 export function usePaperChatSession(
@@ -80,7 +56,6 @@ export function usePaperChatSession(
   const enableLabTools = ref(false)
   const enablePaperWebSearch = ref(false)
   const loading = ref(false)
-  const contextLoading = ref(false)
   const error = ref('')
 
   const sessionId = computed(() => session.value?.sessionId || '')
@@ -88,13 +63,14 @@ export function usePaperChatSession(
   function applySessionData(nextSession: SessionData): void {
     session.value = nextSession
     const cachedSession = paperChatMessageCache.getCachedSession(nextSession.sessionId, true)
-    messages.value =
+    const nextMessages =
       cachedSession?.messages ??
       paperChatMessageCache.retainSessionMessages(
         nextSession.sessionId,
         nextSession.messages.map(sessionMessageToMessage),
         nextSession.title
       )
+    messages.value = removeLegacyPaperFulltextMessages(nextMessages)
     selectedMCPTools.value = nextSession.selectionState?.selectedMCPTools || []
     selectedKnowledgeBases.value = nextSession.selectionState?.selectedKnowledgeBases || []
     enableLabTools.value = nextSession.selectionState?.enableLabTools || false
@@ -163,43 +139,13 @@ export function usePaperChatSession(
     }
   }
 
-  async function ensurePaperContextLoaded(): Promise<boolean> {
-    const currentPaper = paper.value
-    if (!currentPaper || !session.value) {
-      return false
-    }
-
-    if (hasPaperContext(messages.value, currentPaper.id)) {
-      return true
-    }
-
-    contextLoading.value = true
-    error.value = ''
-
-    try {
-      const markdownResult = await window.api.paper.getReaderMarkdown(currentPaper.id)
-      if (!markdownResult.success || !markdownResult.data?.trim()) {
-        error.value = markdownResult.error || '读取论文全文失败'
-        return false
-      }
-
-      messages.value.unshift(createPaperContextMessage(currentPaper, markdownResult.data))
-      return await saveCurrentSession()
-    } catch (caught) {
-      error.value = caught instanceof Error ? caught.message : String(caught)
-      return false
-    } finally {
-      contextLoading.value = false
-    }
-  }
-
   async function loadSessionWithContext(): Promise<boolean> {
     const ensuredSession = await ensureSession()
     if (!ensuredSession) {
       return false
     }
 
-    return await ensurePaperContextLoaded()
+    return true
   }
 
   async function clearContext(): Promise<boolean> {
@@ -254,10 +200,8 @@ export function usePaperChatSession(
     enableLabTools,
     enablePaperWebSearch,
     loading,
-    contextLoading,
     error,
     ensureSession,
-    ensurePaperContextLoaded,
     loadSessionWithContext,
     saveCurrentSession,
     clearContext,
