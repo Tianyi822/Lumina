@@ -108,7 +108,11 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
    * 检查迭代是否包含可展示内容
    */
   function hasIterationContent(iteration: ReActIteration): boolean {
-    return iteration.reasoning.trim().length > 0 || iteration.steps.length > 0
+    return (
+      iteration.reasoning.trim().length > 0 ||
+      iteration.steps.length > 0 ||
+      (iteration.content?.trim().length ?? 0) > 0
+    )
   }
 
   /**
@@ -742,11 +746,16 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
     switch (event.type) {
       case 'content':
         if (streamingMessage && event.content) {
-          streamingMessage.content = streamingMessage.content + event.content
-          // 将内容同时追加到当前迭代的 content 字段
-          const contentIter = getCurrentIteration(streamingMessage, targetSessionId)
-          if (contentIter?.isActive) {
+          const activePlan = planStates.value.get(targetSessionId)
+          const isPlanStepContent =
+            activePlan?.status === 'running' && activePlan.currentStepIndex >= 0
+
+          if (isPlanStepContent) {
+            const contentIter = ensureCurrentIteration(streamingMessage, targetSessionId)
+            contentIter.taskNumber = activePlan.currentStepIndex + 1
             contentIter.content = (contentIter.content || '') + event.content
+          } else {
+            streamingMessage.content = streamingMessage.content + event.content
           }
         }
         break

@@ -35,7 +35,7 @@ export interface ToolAdapter {
 /**
  * 工具类别
  */
-export type ToolCategory = 'lab' | 'knowledge' | 'mcp' | 'paper_web'
+export type ToolCategory = 'lab' | 'knowledge' | 'mcp' | 'paper' | 'paper_web'
 
 /**
  * 工具函数定义（内部存储格式）
@@ -207,6 +207,18 @@ export class UnifiedToolRegistry {
         continue
       }
 
+      if (rt.category === 'paper') {
+        openAITools.push({
+          type: 'function' as const,
+          function: {
+            name: `paper__${name}`,
+            description,
+            parameters
+          }
+        })
+        continue
+      }
+
       // MCP 工具：使用增强描述
       const toolKey = `${rt.serverName}__${name}`
       const enhancedDescription = enhancedDescriptions.get(toolKey) || description
@@ -247,7 +259,11 @@ export class UnifiedToolRegistry {
     level: ToolDescriptionLevel
   ): Map<string, string> {
     const mcpTools = tools.filter(
-      (t) => t.serverName !== 'lab' && t.serverName !== 'knowledge' && t.serverName !== 'paper_web'
+      (t) =>
+        t.serverName !== 'lab' &&
+        t.serverName !== 'knowledge' &&
+        t.serverName !== 'paper' &&
+        t.serverName !== 'paper_web'
     )
     return enhanceToolDescriptions(mcpTools, level)
   }

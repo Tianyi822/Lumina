@@ -71,6 +71,9 @@ export function messageToSessionMessage(msg: Message): SessionMessage {
 export function buildChatMessages(messages: Message[]): ChatMessage[] {
   return messages
     .filter((msg) => {
+      if (msg.hidden && msg.contextKind === 'paper_fulltext') {
+        return false
+      }
       // 过滤掉 content 为空的助手消息（保留有 tool_calls 的助手消息）
       if (msg.role === 'assistant') {
         const hasContent = msg.content && msg.content.trim().length > 0

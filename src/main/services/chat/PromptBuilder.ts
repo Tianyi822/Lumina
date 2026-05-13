@@ -29,6 +29,10 @@ export class PromptBuilder {
       prompt += '\n\n' + buildKnowledgeEnhancedPrompt()
     }
 
+    if (this.hasPaperContextTools(selectedTools)) {
+      prompt += '\n\n' + this.buildPaperContextGuide()
+    }
+
     // 当 paper_web 搜索工具可用时，添加论文搜索行为指南
     if (this.hasPaperWebSearchTools(selectedTools)) {
       prompt += '\n\n' + this.buildPaperWebSearchGuide()
@@ -66,6 +70,27 @@ export class PromptBuilder {
 
   private hasPaperWebSearchTools(tools?: MCPToolReference[]): boolean {
     return tools?.some((tool) => tool.serverName === 'paper_web') ?? false
+  }
+
+  private hasPaperContextTools(tools?: MCPToolReference[]): boolean {
+    return tools?.some((tool) => tool.serverName === 'paper') ?? false
+  }
+
+  private buildPaperContextGuide(): string {
+    return [
+      '## 论文内容检索工具 (paper__search_context)',
+      '',
+      '你拥有 `paper__search_context` 工具，可以按需检索当前论文 OCR/解析后的原文与译文文本。',
+      '',
+      '**重要规则：**',
+      '- 回答当前论文内容、解释选中文本、总结局部段落或定位证据前，必须先调用该工具获取相关句子。',
+      '- 不要假设整篇论文已经在上下文中；最终回答只能基于用户消息、附件和工具返回的关键上下文。',
+      '- 用户提供选中文本时，把选中文本原样放入 `selectedText`，并根据来源选择 `source`；不确定来源时用 `both`。',
+      '- 用户未选择文本时，把用户问题放入 `query`，用 `source: "both"` 检索原文和译文。',
+      '- 工具会自动做句子级匹配、关键词递归和阅读进度兜底，不要要求用户再手动提供全文。',
+      '- 工具返回 warning 或匹配不足时，应说明上下文不足，避免编造论文结论。',
+      '- 若联网搜索也开启，先用该工具判断论文内部上下文是否足够；只有需要外部事实补充时才调用 `paper_web__search`。'
+    ].join('\n')
   }
 
   private buildPaperWebSearchGuide(): string {
