@@ -15,6 +15,7 @@ import { ModelRetryHandler } from './ModelRetryHandler'
 import {
   KnowledgeToolAdapter,
   MCPToolAdapter,
+  PaperContextToolAdapter,
   LabToolAdapter,
   UnifiedToolExecutor,
   UnifiedToolRegistry
@@ -43,6 +44,7 @@ export class ReactLoopService {
   private readonly unifiedToolExecutor: UnifiedToolExecutor
   private readonly toolRegistry: UnifiedToolRegistry
   private readonly labAdapter: LabToolAdapter
+  private readonly paperContextAdapter: PaperContextToolAdapter
   private readonly paperWebSearchAdapter: PaperWebSearchToolAdapter
   private readonly knowledgeAdapter: KnowledgeToolAdapter
   private readonly mcpAdapter: MCPToolAdapter | null
@@ -64,6 +66,7 @@ export class ReactLoopService {
 
     this.toolRegistry = new UnifiedToolRegistry()
     this.labAdapter = new LabToolAdapter()
+    this.paperContextAdapter = new PaperContextToolAdapter()
     this.paperWebSearchAdapter = new PaperWebSearchToolAdapter(paperWebSearchService)
     this.knowledgeAdapter = new KnowledgeToolAdapter()
     this.mcpAdapter = options.mcpService ? new MCPToolAdapter(options.mcpService) : null
@@ -222,6 +225,7 @@ export class ReactLoopService {
     this.toolRegistry.unregisterByCategory('lab')
     this.toolRegistry.unregisterByCategory('knowledge')
     this.toolRegistry.unregisterByCategory('mcp')
+    this.toolRegistry.unregisterByCategory('paper')
     this.toolRegistry.unregisterByCategory('paper_web')
 
     if (selectedTools && selectedTools.length > 0 && this.mcpAdapter) {
@@ -255,6 +259,21 @@ export class ReactLoopService {
       })
     }
 
+    if (request.sessionType === 'paper' && request.paperId) {
+      this.paperContextAdapter.setPaperId(request.paperId)
+      const paperTools = this.paperContextAdapter.getTools()
+      this.toolRegistry.registerBatch(paperTools, this.paperContextAdapter, 'paper')
+
+      this.logger.info('已添加论文上下文工具到工具列表', 'main', {
+        sessionId,
+        paperId: request.paperId,
+        paperToolCount: paperTools.length,
+        totalToolCount: this.toolRegistry.size
+      })
+    } else {
+      this.paperContextAdapter.setPaperId(undefined)
+    }
+
     if (request.enablePaperWebSearch && request.sessionType === 'paper' && sessionId) {
       const paperContext = this.buildPaperSearchContext(request)
       this.paperWebSearchAdapter.setPaperContext(paperContext)
@@ -280,7 +299,7 @@ export class ReactLoopService {
     const lastUserMessage = [...request.messages].reverse().find((m) => m.role === 'user')
 
     return {
-      paperId: request.sessionId,
+      paperId: request.paperId || '',
       fileName: '',
       paperTitle: undefined,
       paperAuthors: undefined,

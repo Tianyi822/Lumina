@@ -418,6 +418,8 @@ export interface ChatRequest {
   modelKey: string
   /** 会话标识，用于多会话管理和事件路由 */
   sessionId: string
+  /** 当前论文 ID，仅论文会话使用 */
+  paperId?: string
   /** 本轮消息标识，用于流式事件路由 */
   turnId?: string
   /** 是否启用模型的思考模式 */
