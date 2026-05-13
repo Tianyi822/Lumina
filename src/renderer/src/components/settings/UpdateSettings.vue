@@ -46,7 +46,7 @@ const statusText = computed(() => {
     case 'downloaded':
       return '下载完成，点击"重启安装"完成更新'
     case 'error':
-      return '更新出错'
+      return '检查更新失败，请稍后重试'
     default:
       return ''
   }
@@ -239,6 +239,10 @@ onUnmounted(() => {
 
 .update-settings__status.is-available {
   color: var(--sm-color-primary, #4f46e5);
+}
+
+.update-settings__status.is-not-available {
+  color: var(--sm-color-success, #22c55e);
 }
 
 .update-settings__status.is-error {
