@@ -9,10 +9,6 @@ name: Build Installers
 permissions:
   contents: read
 
-env:
-  ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
-  ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
-
 jobs:
   windows:
     name: Windows installer
@@ -28,13 +24,18 @@ jobs:
           node-version: 22
           cache: yarn
 
-      - name: Use official Electron mirrors in CI
+      - name: Prepare official Electron downloads
         shell: bash
         run: |
           node <<'NODE'
+          const https = require('https')
           const fs = require('fs')
           const path = require('path')
 
+          const electronAssetUrl = (version, file) =>
+            `https://github.com/electron/electron/releases/download/v${version}/${file}`
+          const builderAssetUrl = (release, file) =>
+            `https://github.com/electron-userland/electron-builder-binaries/releases/download/${release}/${file}`
           const mirrorKeys = new Set([
             'electron_mirror',
             'electron-builder-binaries-mirror',
@@ -69,6 +70,56 @@ jobs:
               fs.writeFileSync(filePath, next, 'utf8')
             }
           }
+
+          const lockfile = fs.readFileSync('yarn.lock', 'utf8')
+          const electronVersion = lockfile.match(/^electron@\^?[\d.]+:\n\s+version "([^"]+)"/m)?.[1]
+
+          if (!electronVersion) {
+            throw new Error('Cannot resolve locked Electron version from yarn.lock')
+          }
+
+          const requestHead = (url) =>
+            new Promise((resolve, reject) => {
+              const req = https.request(url, { method: 'HEAD' }, (res) => {
+                const status = res.statusCode || 0
+
+                if ([301, 302, 303, 307, 308].includes(status)) {
+                  resolve({ url, status })
+                  return
+                }
+
+                if (status >= 200 && status < 300) {
+                  resolve({ url, status })
+                  return
+                }
+
+                reject(new Error(`Unexpected status ${status} for ${url}`))
+              })
+
+              req.on('error', reject)
+              req.setTimeout(15000, () => req.destroy(new Error(`Timed out checking ${url}`)))
+              req.end()
+            })
+
+          const checks = [
+            electronAssetUrl(
+              electronVersion,
+              `electron-v${electronVersion}-${process.platform}-${process.arch}.zip`
+            ),
+            builderAssetUrl('nsis-3.0.4.1', 'nsis-3.0.4.1.7z'),
+            builderAssetUrl('nsis-resources-3.4.1', 'nsis-resources-3.4.1.7z'),
+          ]
+
+          Promise.all(checks.map((url) => requestHead(url)))
+            .then((results) => {
+              for (const result of results) {
+                console.log(`Verified ${result.status}: ${result.url}`)
+              }
+            })
+            .catch((error) => {
+              console.error(error)
+              process.exit(1)
+            })
           NODE
 
       - name: Install dependencies
@@ -78,9 +129,16 @@ jobs:
         run: yarn build
 
       - name: Build Windows installer
+        shell: pwsh
         env:
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_SYMLINKS: 'true'
         run: |
+          Remove-Item Env:ELECTRON_MIRROR -ErrorAction SilentlyContinue
+          Remove-Item Env:NPM_CONFIG_ELECTRON_MIRROR -ErrorAction SilentlyContinue
+          Remove-Item Env:npm_config_electron_mirror -ErrorAction SilentlyContinue
+          Remove-Item Env:ELECTRON_BUILDER_BINARIES_MIRROR -ErrorAction SilentlyContinue
+          Remove-Item Env:NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR -ErrorAction SilentlyContinue
+          Remove-Item Env:npm_config_electron_builder_binaries_mirror -ErrorAction SilentlyContinue
           yarn electron-builder --win --publish never
 
       - name: Mark Windows artifact as unsigned
@@ -116,13 +174,18 @@ jobs:
           node-version: 22
           cache: yarn
 
-      - name: Use official Electron mirrors in CI
+      - name: Prepare official Electron downloads
         shell: bash
         run: |
           node <<'NODE'
+          const https = require('https')
           const fs = require('fs')
           const path = require('path')
 
+          const electronAssetUrl = (version, file) =>
+            `https://github.com/electron/electron/releases/download/v${version}/${file}`
+          const builderAssetUrl = (release, file) =>
+            `https://github.com/electron-userland/electron-builder-binaries/releases/download/${release}/${file}`
           const mirrorKeys = new Set([
             'electron_mirror',
             'electron-builder-binaries-mirror',
@@ -157,6 +220,59 @@ jobs:
               fs.writeFileSync(filePath, next, 'utf8')
             }
           }
+
+          const lockfile = fs.readFileSync('yarn.lock', 'utf8')
+          const electronVersion = lockfile.match(/^electron@\^?[\d.]+:\n\s+version "([^"]+)"/m)?.[1]
+
+          if (!electronVersion) {
+            throw new Error('Cannot resolve locked Electron version from yarn.lock')
+          }
+
+          const requestHead = (url) =>
+            new Promise((resolve, reject) => {
+              const req = https.request(url, { method: 'HEAD' }, (res) => {
+                const status = res.statusCode || 0
+
+                if ([301, 302, 303, 307, 308].includes(status)) {
+                  resolve({ url, status })
+                  return
+                }
+
+                if (status >= 200 && status < 300) {
+                  resolve({ url, status })
+                  return
+                }
+
+                reject(new Error(`Unexpected status ${status} for ${url}`))
+              })
+
+              req.on('error', reject)
+              req.setTimeout(15000, () => req.destroy(new Error(`Timed out checking ${url}`)))
+              req.end()
+            })
+
+          const dmgArch = process.arch === 'arm64' ? 'arm64' : 'x86_64'
+          const checks = [
+            electronAssetUrl(
+              electronVersion,
+              `electron-v${electronVersion}-${process.platform}-${process.arch}.zip`
+            ),
+            builderAssetUrl(
+              'dmg-builder@1.2.0',
+              `dmgbuild-bundle-${dmgArch}-75c8a6c.tar.gz`
+            ),
+          ]
+
+          Promise.all(checks.map((url) => requestHead(url)))
+            .then((results) => {
+              for (const result of results) {
+                console.log(`Verified ${result.status}: ${result.url}`)
+              }
+            })
+            .catch((error) => {
+              console.error(error)
+              process.exit(1)
+            })
           NODE
 
       - name: Install dependencies
@@ -168,6 +284,10 @@ jobs:
       - name: Build macOS installer
         shell: bash
         run: |
+          unset ELECTRON_MIRROR NPM_CONFIG_ELECTRON_MIRROR npm_config_electron_mirror
+          unset ELECTRON_BUILDER_BINARIES_MIRROR
+          unset NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR
+          unset npm_config_electron_builder_binaries_mirror
           yarn electron-builder --mac --publish never
 
       - name: Upload macOS artifact
