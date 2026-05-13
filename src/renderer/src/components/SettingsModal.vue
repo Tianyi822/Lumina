@@ -77,7 +77,7 @@ const settingsTabs: Array<{
   },
   {
     id: 'update',
-    label: '关于/更新',
+    label: '升级版本',
     description: '检查应用更新并查看版本历史。'
   }
 ]
