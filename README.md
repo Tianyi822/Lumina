@@ -50,6 +50,7 @@ AI 能够自主判断何时调用工具，通过思考-行动-观察循环完成
 从 [Releases](https://github.com/Tianyi822/Lumina/releases) 页面下载最新版本。
 
 支持平台：
+
 - macOS（`.dmg`）
 - Windows（`.exe`）
 
