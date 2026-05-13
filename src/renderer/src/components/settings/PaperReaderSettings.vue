@@ -105,7 +105,7 @@ async function handleTestConnection(): Promise<void> {
     })
 
     if (result.success) {
-      showSuccess('连接测试成功')
+      showSuccess('连接测试成功，请点击保存配置以生效')
     } else {
       showError(result.error ?? '连接测试失败')
     }
