@@ -153,7 +153,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lumina-windows-unsigned
+          name: lumina-windows-x64-setup
           path: |
             dist/*.exe
             dist/*.blockmap
