@@ -9,6 +9,10 @@ name: Build Installers
 permissions:
   contents: read
 
+env:
+  ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
+  ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
+
 jobs:
   windows:
     name: Windows installer
@@ -24,6 +28,49 @@ jobs:
           node-version: 22
           cache: yarn
 
+      - name: Use official Electron mirrors in CI
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = require('path')
+
+          const mirrorKeys = new Set([
+            'electron_mirror',
+            'electron-builder-binaries-mirror',
+            'electron_builder_binaries_mirror',
+          ])
+
+          const shouldRemoveLine = (line) => {
+            const trimmed = line.trimStart()
+
+            if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith(';')) {
+              return false
+            }
+
+            const match = /^([^=\s:]+)\s*(?:=|:|\s)/.exec(trimmed)
+            return Boolean(match && mirrorKeys.has(match[1]))
+          }
+
+          for (const fileName of ['.npmrc', '.yarnrc']) {
+            const filePath = path.join(process.cwd(), fileName)
+
+            if (!fs.existsSync(filePath)) {
+              continue
+            }
+
+            const original = fs.readFileSync(filePath, 'utf8')
+            const next = original
+              .split(/\r?\n/)
+              .filter((line) => !shouldRemoveLine(line))
+              .join('\n')
+
+            if (next !== original) {
+              fs.writeFileSync(filePath, next, 'utf8')
+            }
+          }
+          NODE
+
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
@@ -33,10 +80,6 @@ jobs:
       - name: Build Windows installer
         env:
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_SYMLINKS: 'true'
-          ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
-          ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
-          NPM_CONFIG_ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
-          NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
         run: |
           yarn electron-builder --win --publish never
 
@@ -73,29 +116,57 @@ jobs:
           node-version: 22
           cache: yarn
 
+      - name: Use official Electron mirrors in CI
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = require('path')
+
+          const mirrorKeys = new Set([
+            'electron_mirror',
+            'electron-builder-binaries-mirror',
+            'electron_builder_binaries_mirror',
+          ])
+
+          const shouldRemoveLine = (line) => {
+            const trimmed = line.trimStart()
+
+            if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith(';')) {
+              return false
+            }
+
+            const match = /^([^=\s:]+)\s*(?:=|:|\s)/.exec(trimmed)
+            return Boolean(match && mirrorKeys.has(match[1]))
+          }
+
+          for (const fileName of ['.npmrc', '.yarnrc']) {
+            const filePath = path.join(process.cwd(), fileName)
+
+            if (!fs.existsSync(filePath)) {
+              continue
+            }
+
+            const original = fs.readFileSync(filePath, 'utf8')
+            const next = original
+              .split(/\r?\n/)
+              .filter((line) => !shouldRemoveLine(line))
+              .join('\n')
+
+            if (next !== original) {
+              fs.writeFileSync(filePath, next, 'utf8')
+            }
+          }
+          NODE
+
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
       - name: Build app
         run: yarn build
 
-      - name: Clear Electron mirror config
-        shell: bash
-        run: |
-          npm config delete electron_mirror || true
-          npm config delete electron-builder-binaries-mirror || true
-          npm config delete electron_builder_binaries_mirror || true
-          yarn config delete electron_mirror || true
-          yarn config delete electron-builder-binaries-mirror || true
-          yarn config delete electron_builder_binaries_mirror || true
-
       - name: Build macOS installer
         shell: bash
-        env:
-          ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
-          ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
-          NPM_CONFIG_ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
-          NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR: https://github.com/electron-userland/electron-builder-binaries/releases/download/
         run: |
           yarn electron-builder --mac --publish never
 
