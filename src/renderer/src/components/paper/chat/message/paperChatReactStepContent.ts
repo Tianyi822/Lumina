@@ -20,7 +20,6 @@ export function derivePaperChatStepContent(
 
   if (toolItems.length === 0) {
     if (isFailureContent(trimmedContent)) return { content: content ?? '', tone: 'error' }
-    if (trimmedContent) return { content: content ?? '', tone: 'neutral' }
     return null
   }
 

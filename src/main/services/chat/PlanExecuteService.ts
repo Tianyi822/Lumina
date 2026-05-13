@@ -236,8 +236,6 @@ export class PlanExecuteService {
 
       // 所有步骤执行完成，生成总结并发送到聊天气泡
       const summaryContent = this.buildFinalSummary(planSteps)
-      this.streamHandler.sendContent(webContents, sessionId, summaryContent, turnId)
-
       this.streamHandler.sendPlanStatus(
         webContents,
         sessionId,
@@ -247,6 +245,7 @@ export class PlanExecuteService {
         turnId,
         summaryContent
       )
+      this.streamHandler.sendContent(webContents, sessionId, summaryContent, turnId)
       this.streamHandler.sendDone(webContents, sessionId, totalUsage, turnId, 'completed')
       this.logger.info('规划模式执行完成', 'main', { sessionId, totalUsage })
 
@@ -305,7 +304,7 @@ export class PlanExecuteService {
 
     const planPrompt = promptBuilder.buildPlanSystemPrompt(
       this.buildPlanningTools(request),
-      this.hasPaperContext(request.messages) ? '论文内容已包含在对话中' : undefined
+      this.hasPaperContext(request) ? '论文上下文检索工具已启用，可通过工具按需获取论文内容' : undefined
     )
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -672,8 +671,8 @@ export class PlanExecuteService {
     }
   }
 
-  private hasPaperContext(messages: ChatRequest['messages']): boolean {
-    return messages.some((m) => m.role === 'system' && m.content && m.content.length > 100)
+  private hasPaperContext(request: ChatRequest): boolean {
+    return request.sessionType === 'paper' && !!request.paperId
   }
 
   private buildPlanningTools(request: ChatRequest): MCPToolReference[] {

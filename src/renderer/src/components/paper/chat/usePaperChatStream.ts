@@ -17,13 +17,13 @@ import { buildChatMessages } from '@renderer/utils/messageHelpers'
 
 interface UsePaperChatStreamOptions {
   session: Ref<SessionData | null>
+  paperId: Ref<string>
   messages: Ref<Message[]>
   selectedModel: Ref<string>
   selectedMCPTools: Ref<MCPTool[]>
   selectedKnowledgeBases: Ref<KnowledgeBase[]>
   enableLabTools: Ref<boolean>
   enablePaperWebSearch: Ref<boolean>
-  ensurePaperContextLoaded: () => Promise<boolean>
   saveCurrentSession: () => Promise<boolean>
   setError: (message: string) => void
 }
@@ -123,11 +123,6 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
       return
     }
 
-    const contextReady = await options.ensurePaperContextLoaded()
-    if (!contextReady) {
-      return
-    }
-
     options.messages.value = paperChatMessageCache.retainSessionMessages(
       currentSessionId,
       options.messages.value,
@@ -177,6 +172,7 @@ export function usePaperChatStream(options: UsePaperChatStreamOptions): UsePaper
           messages: chatMessages,
           modelKey: options.selectedModel.value,
           sessionId: currentSessionId,
+          paperId: options.paperId.value,
           turnId: assistantMessage.id,
           selectedTools:
             options.selectedMCPTools.value.length > 0

@@ -99,13 +99,11 @@ test('运行中但已有模型正文时不生成执行提示', () => {
   assert.equal(result, null)
 })
 
-test('没有工具调用时展示普通模型文本', () => {
+test('没有工具调用时不展示普通模型文本', () => {
   const content = '这是纯文本阶段结果。\n\n继续分析论文内容。'
   const result = derivePaperChatStepContent([], content)
 
-  assert.notEqual(result, null)
-  assert.equal(result?.tone, 'neutral')
-  assert.equal(result?.content, content)
+  assert.equal(result, null)
 })
 
 test('没有工具结果但阶段内容标记失败时使用错误状态', () => {

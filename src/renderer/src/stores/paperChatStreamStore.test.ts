@@ -188,9 +188,31 @@ test('步骤终态后的后续 content 不再追加到该阶段', () => {
     },
     messages
   )
+  dispatch(
+    store,
+    {
+      type: 'plan_status',
+      planStatus: {
+        status: 'completed',
+        summary: '最终总结'
+      }
+    },
+    messages
+  )
   dispatch(store, { type: 'content', content: '最终总结' }, messages)
 
-  assert.equal(messages[0].content, '阶段正文最终总结')
+  assert.equal(messages[0].content, '最终总结')
   assert.equal(messages[0].reactIterations?.[0]?.content, '阶段正文')
   assert.equal(messages[0].reactIterations?.[0]?.isActive, false)
+})
+
+test('非 Plan ReAct 正文只进入最终气泡，不进入步骤内容', () => {
+  const store = usePaperChatStreamStore()
+  const messages = createStreamingMessages()
+
+  dispatch(store, { type: 'react_iteration_start', content: '0', status: 'thinking' }, messages)
+  dispatch(store, { type: 'content', content: '最终回答' }, messages)
+
+  assert.equal(messages[0].content, '最终回答')
+  assert.equal(messages[0].reactIterations?.[0]?.content, undefined)
 })

@@ -70,10 +70,12 @@ export class ChatService {
     this.stopController.clearStoppedSession(sessionId)
 
     const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
+    const hasPaperContextTool = request.sessionType === 'paper' && !!request.paperId
     const hasTools =
       (selectedTools && selectedTools.length > 0) ||
       request.enableLabTools ||
-      request.enablePaperWebSearch
+      request.enablePaperWebSearch ||
+      hasPaperContextTool
 
     // 论文会话仅在启用实验室工具时进入规划执行，避免普通问答出现计划列表
     const isPlanMode = request.sessionType === 'paper' && request.enableLabTools
