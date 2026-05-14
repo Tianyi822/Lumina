@@ -47,7 +47,6 @@ function showDockerUnavailableNotify(status: DockerStatus): void {
 }
 
 async function checkDocker(showFullLoading = true): Promise<void> {
-  if (showFullLoading && loading.value) return
   if (!showFullLoading && recheckingDocker.value) return
 
   try {
