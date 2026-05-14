@@ -650,11 +650,14 @@ function formatDateTime(value?: string): string {
             <strong>本地 Docker 未就绪</strong>
             <p v-if="dockerStatus?.installed === false">
               Docker 未安装。请先
-              <a class="docker-unready-banner__link" @click="handleOpenDockerWebsite">安装 Docker Desktop</a>
+              <a class="docker-unready-banner__link" @click="handleOpenDockerWebsite"
+                >安装 Docker Desktop</a
+              >
               ，然后点击上方"重新检测 Docker"按钮。SSH 远程实验室不受影响。
             </p>
             <p v-else>
-              容器操作、终端和日志功能暂不可用。请启动 Docker Desktop 后点击上方"重新检测 Docker"按钮。SSH 远程实验室不受影响。
+              容器操作、终端和日志功能暂不可用。请启动 Docker Desktop 后点击上方"重新检测
+              Docker"按钮。SSH 远程实验室不受影响。
             </p>
           </div>
         </div>
