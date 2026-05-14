@@ -98,7 +98,7 @@ export type {
 
 // 导入用于 LabApi 定义的类型
 import type {
-  DockerCheckResult,
+  DockerStatus,
   PlatformType,
   LabData,
   LabListItem,
@@ -198,7 +198,7 @@ export interface DockerTerminalApi {
  */
 export interface LabApi {
   // Docker 检测
-  checkDocker: () => Promise<DockerCheckResult>
+  checkDocker: () => Promise<DockerStatus>
   getPlatform: () => Promise<PlatformType>
   openExternal: (url: string) => Promise<LabResult>
 

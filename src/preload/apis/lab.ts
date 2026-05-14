@@ -1,7 +1,7 @@
 import { createIpcInvoker, createIpcListener } from './base'
 import { ipcRenderer } from 'electron'
 import type {
-  DockerCheckResult,
+  DockerStatus,
   PlatformType,
   LabData,
   LabListItem,
@@ -52,7 +52,7 @@ import type {
 
 export const labApi = {
   ...createIpcInvoker<{
-    checkDocker: () => Promise<DockerCheckResult>
+    checkDocker: () => Promise<DockerStatus>
     getPlatform: () => Promise<PlatformType>
   }>('lab', ['checkDocker', 'getPlatform']),
 
