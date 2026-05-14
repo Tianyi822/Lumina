@@ -7,9 +7,12 @@
 
 ; 覆盖 electron-builder 默认隐藏安装详情的设置
 !macro customHeader
-  ShowInstDetails show
+  !ifndef BUILD_UNINSTALLER
+    ShowInstDetails show
+  !endif
 !macroend
 
+!ifndef BUILD_UNINSTALLER
 Var DataDir
 Var DataDirControl
 
@@ -17,7 +20,7 @@ Var DataDirControl
 ; 在安装路径页面之后插入数据目录选择页面
 ; ============================================================
 !macro customPageAfterChangeDir
-  Call DataDirPageCreate
+  Page custom DataDirPageCreate DataDirPageLeave
 !macroend
 
 Function DataDirPageCreate
@@ -83,6 +86,7 @@ FunctionEnd
   CreateDirectory "$DataDir\config"
   CreateDirectory "$DataDir\logs"
 !macroend
+!endif
 
 ; ============================================================
 ; 卸载阶段：清理注册表项
