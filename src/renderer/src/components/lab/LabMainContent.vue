@@ -520,10 +520,6 @@ async function handleRebuildFrontendRuntime(): Promise<void> {
   }
 }
 
-function handleCloseOrphanAlert(): void {
-  window.api.logger.info('[LabMainContent] 用户关闭孤儿实验室提示')
-}
-
 const isConnectingSsh = ref(false)
 const sshReconnectPassword = ref('')
 
@@ -632,7 +628,7 @@ function formatDateTime(value?: string): string {
           />
           <button
             v-if="isDockerLab && !isDockerReady"
-            class="sm-button sm-button--small sm-button--secondary"
+            class="sm-button sm-button--small sm-button--secondary docker-recheck-btn"
             :disabled="recheckingDocker"
             @click="emit('recheckDocker')"
           >
@@ -670,7 +666,6 @@ function formatDateTime(value?: string): string {
           :recover-label="orphanRecoverLabel"
           @recover="handleRecoverOrphan"
           @cleanup="handleCleanupOrphan"
-          @close="handleCloseOrphanAlert"
         />
 
         <div v-if="showFrontendRecoveryBanner" class="frontend-recovery-banner">
@@ -1149,5 +1144,11 @@ function formatDateTime(value?: string): string {
   .content-body {
     padding: 0 var(--sm-space-5) var(--sm-space-5);
   }
+}
+
+.docker-recheck-btn {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
 }
 </style>
