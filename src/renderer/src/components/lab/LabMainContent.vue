@@ -1147,7 +1147,7 @@ function formatDateTime(value?: string): string {
 }
 
 .docker-recheck-btn {
-  min-height: 36px;
+  min-height: 46px;
   padding: 0 14px;
   font-size: 13px;
 }
