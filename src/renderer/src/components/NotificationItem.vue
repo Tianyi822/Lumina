@@ -33,6 +33,10 @@ const liveMode = computed(() => (props.notification.type === 'error' ? 'assertiv
 function handleClose(): void {
   emit('dismiss', props.notification.id)
 }
+
+function handleAction(action: { handler: () => void }): void {
+  action.handler()
+}
 </script>
 
 <template>
@@ -49,6 +53,21 @@ function handleClose(): void {
     <div class="message-content">
       <div class="message-title">{{ notification.title }}</div>
       <div v-if="notification.message" class="message-text">{{ notification.message }}</div>
+      <div
+        v-if="notification.actions && notification.actions.length > 0"
+        class="message-actions"
+      >
+        <button
+          v-for="(action, index) in notification.actions"
+          :key="index"
+          type="button"
+          class="sm-button sm-button--small"
+          :class="action.primary ? 'sm-button--primary' : 'sm-button--secondary'"
+          @click="handleAction(action)"
+        >
+          {{ action.label }}
+        </button>
+      </div>
     </div>
     <button
       v-if="notification.dismissible"
@@ -104,6 +123,13 @@ function handleClose(): void {
   line-height: 1.5;
   white-space: pre-line;
   word-break: break-word;
+}
+
+.message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .message-close {
