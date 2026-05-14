@@ -36,7 +36,6 @@ nsis:
   uninstallerIcon: build/icon.ico
   installerHeaderIcon: build/icon.ico
   displayLanguageSelector: false
-  showInstDetails: true
 mac:
   icon: icon.icns
   target:

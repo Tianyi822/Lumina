@@ -5,6 +5,11 @@
 !include FileFunc.nsh
 !include nsDialogs.nsh
 
+; 覆盖 electron-builder 默认隐藏安装详情的设置
+!macro customHeader
+  ShowInstDetails show
+!macroend
+
 Var DataDir
 Var DataDirControl
 
