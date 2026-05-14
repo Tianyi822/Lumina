@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useConfigStore, useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
+import { deepClone } from '@shared/utils'
 import {
   OCR_PROVIDER_PRESETS,
   DEFAULT_OCR_PROVIDER,
@@ -34,9 +35,7 @@ function showSuccess(message: string): void {
 
 async function loadLocalConfig(): Promise<void> {
   syncingLocalConfig.value = true
-  localConfig.value = {
-    ...paperReaderConfig.value
-  }
+  localConfig.value = deepClone(paperReaderConfig.value)
   await nextTick()
   syncingLocalConfig.value = false
 }
@@ -106,7 +105,7 @@ async function handleTestConnection(): Promise<void> {
     })
 
     if (result.success) {
-      showSuccess('连接测试成功')
+      showSuccess('连接测试成功，请点击保存配置以生效')
     } else {
       showError(result.error ?? '连接测试失败')
     }

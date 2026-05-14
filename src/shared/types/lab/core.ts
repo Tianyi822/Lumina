@@ -15,15 +15,6 @@ export type PlatformType = 'darwin' | 'win32' | 'linux'
 export type LabBackendType = 'docker' | 'ssh'
 
 /**
- * Docker 检测结果
- */
-export interface DockerCheckResult {
-  installed: boolean
-  version?: string
-  error?: string
-}
-
-/**
  * 实验室状态
  */
 export type LabStatus = 'creating' | 'running' | 'stopped' | 'error'
@@ -149,6 +140,8 @@ export interface CreateLabConfig {
 export interface DockerStatus {
   /** Docker 是否可用 */
   available: boolean
+  /** Docker CLI 是否已安装（daemon 不可用时通过 CLI 回退检测） */
+  installed: boolean
   /** Docker 版本 */
   version?: string
   /** 错误信息 */

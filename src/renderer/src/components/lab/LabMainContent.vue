@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useContainerStore, useUIStateStore, useLabStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
+import { labApi } from '@renderer/services/labApi'
 import InteractiveTerminalPanel from './InteractiveTerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
@@ -11,14 +12,21 @@ import SshReconnectPrompt from './SshReconnectPrompt.vue'
 import SshServerMonitorPanel from './SshServerMonitorPanel.vue'
 import { TabNavigation } from './lab-detail'
 import { useContainerLogs as useContainerLogsComposable, useContainerActions } from './lab-detail'
-import type { ContainerDetails, LabData } from '@renderer/types/lab'
+import type { ContainerDetails, LabData, DockerStatus } from '@renderer/types/lab'
 
 const LAB_AUTO_REFRESH_INTERVAL = 3000
+const DOCKER_WEBSITE = 'https://www.docker.com/products/docker-desktop/'
 
 // ==================== Props & Emits ====================
 
 const props = defineProps<{
   currentLab: LabData | null
+  dockerStatus?: DockerStatus | null
+  recheckingDocker?: boolean
+}>()
+
+const emit = defineEmits<{
+  recheckDocker: []
 }>()
 
 // ==================== Store ====================
@@ -54,6 +62,8 @@ const hasLab = computed(() => !!props.currentLab)
 const isOrphan = computed(() => props.currentLab?.isOrphan || false)
 const isLabFrontend = computed(() => !!props.currentLab?.frontend)
 const isSshLab = computed(() => props.currentLab?.backendType === 'ssh')
+const isDockerLab = computed(() => hasLab.value && !isSshLab.value)
+const isDockerReady = computed(() => props.dockerStatus?.available ?? false)
 const showFrontendRecoveryBanner = computed(
   () => isLabFrontend.value && props.currentLab?.status === 'error' && !isOrphan.value
 )
@@ -164,6 +174,7 @@ const {
 
 // 包装容器操作函数，添加加载状态管理
 async function handleContainerStart(): Promise<void> {
+  if (!isDockerReady.value) return
   isStartingContainer.value = true
   try {
     await _handleContainerStart()
@@ -173,6 +184,7 @@ async function handleContainerStart(): Promise<void> {
 }
 
 async function handleContainerStop(): Promise<void> {
+  if (!isDockerReady.value) return
   isStoppingContainer.value = true
   try {
     await _handleContainerStop()
@@ -182,6 +194,7 @@ async function handleContainerStop(): Promise<void> {
 }
 
 async function handleContainerRestart(): Promise<void> {
+  if (!isDockerReady.value) return
   isRestartingContainer.value = true
   try {
     await _handleContainerRestart()
@@ -507,10 +520,6 @@ async function handleRebuildFrontendRuntime(): Promise<void> {
   }
 }
 
-function handleCloseOrphanAlert(): void {
-  window.api.logger.info('[LabMainContent] 用户关闭孤儿实验室提示')
-}
-
 const isConnectingSsh = ref(false)
 const sshReconnectPassword = ref('')
 
@@ -551,6 +560,13 @@ watch(
   }
 )
 
+async function handleOpenDockerWebsite(): Promise<void> {
+  const result = await labApi.openExternal(DOCKER_WEBSITE)
+  if (!result.success) {
+    notify.warning('打开 Docker 官网失败', result.error || '未知错误', { source: 'lab' })
+  }
+}
+
 function formatDateTime(value?: string): string {
   if (!value) {
     return '-'
@@ -571,6 +587,10 @@ function formatDateTime(value?: string): string {
       <div class="sm-empty lab-empty-card">
         <h2>选择一个实验室开始</h2>
         <p>从左侧接管现有环境，或创建一个实验室以进入容器监控、终端和日志工作流。</p>
+        <p v-if="!isDockerReady" class="lab-empty-card__ssh-hint">
+          本地 Docker 未就绪？您仍然可以
+          <strong>创建 SSH 远程服务器</strong> 类型的实验室来连接远程主机。
+        </p>
       </div>
     </div>
 
@@ -606,11 +626,38 @@ function formatDateTime(value?: string): string {
             :connecting="isConnectingSsh"
             @connect="handleSshConnect"
           />
+          <button
+            v-if="isDockerLab && !isDockerReady"
+            class="sm-button sm-button--small sm-button--secondary docker-recheck-btn"
+            :disabled="recheckingDocker"
+            @click="emit('recheckDocker')"
+          >
+            {{ recheckingDocker ? '检测中...' : '重新检测 Docker' }}
+          </button>
           <TabNavigation :visible="hasLab" :show-logs="!isSshLab" />
         </div>
       </header>
 
       <div class="content-body">
+        <!-- Docker 未就绪时对 Docker 类型实验室显示警告 -->
+        <div v-if="isDockerLab && !isDockerReady" class="docker-unready-banner">
+          <span class="docker-unready-banner__icon">&#9888;</span>
+          <div class="docker-unready-banner__text">
+            <strong>本地 Docker 未就绪</strong>
+            <p v-if="dockerStatus?.installed === false">
+              Docker 未安装。请先
+              <a class="docker-unready-banner__link" @click="handleOpenDockerWebsite"
+                >安装 Docker</a
+              >
+              ，然后点击上方"重新检测 Docker"按钮。SSH 远程实验室不受影响。
+            </p>
+            <p v-else>
+              容器操作、终端和日志功能暂不可用。请启动 Docker 服务后点击上方"重新检测
+              Docker"按钮。SSH 远程实验室不受影响。
+            </p>
+          </div>
+        </div>
+
         <OrphanLabAlert
           :visible="isOrphan"
           :lab="currentLab"
@@ -619,7 +666,6 @@ function formatDateTime(value?: string): string {
           :recover-label="orphanRecoverLabel"
           @recover="handleRecoverOrphan"
           @cleanup="handleCleanupOrphan"
-          @close="handleCloseOrphanAlert"
         />
 
         <div v-if="showFrontendRecoveryBanner" class="frontend-recovery-banner">
@@ -658,7 +704,13 @@ function formatDateTime(value?: string): string {
           </template>
 
           <template v-else>
-            <div v-if="!selectedContainer" class="detail-empty-state">
+            <div v-if="!isDockerReady" class="detail-empty-state">
+              <div class="sm-empty detail-empty-card">
+                <h2>Docker 未就绪</h2>
+                <p>本地 Docker 运行时不可用，容器监控功能暂时无法使用。</p>
+              </div>
+            </div>
+            <div v-else-if="!selectedContainer" class="detail-empty-state">
               <div class="sm-empty detail-empty-card">
                 <h2>请先选择一个容器</h2>
                 <p>选中主容器后，这里会显示运行指标、端口映射和环境细节。</p>
@@ -705,7 +757,13 @@ function formatDateTime(value?: string): string {
             </section>
           </template>
           <template v-else>
-            <div v-if="!selectedContainer" class="detail-empty-state">
+            <div v-if="!isDockerReady" class="detail-empty-state">
+              <div class="sm-empty detail-empty-card">
+                <h2>Docker 未就绪</h2>
+                <p>本地 Docker 运行时不可用，容器终端功能暂时无法使用。</p>
+              </div>
+            </div>
+            <div v-else-if="!selectedContainer" class="detail-empty-state">
               <div class="sm-empty detail-empty-card">
                 <h2>终端尚未绑定容器</h2>
                 <p>选中目标容器后，可在这里执行临时命令、定位问题并确认运行环境。</p>
@@ -724,7 +782,13 @@ function formatDateTime(value?: string): string {
 
         <!-- 日志 Tab -->
         <div v-if="!isSshLab" v-show="labDetailTab === 'logs'" class="tab-content">
-          <div v-if="!selectedContainer" class="detail-empty-state">
+          <div v-if="!isDockerReady" class="detail-empty-state">
+            <div class="sm-empty detail-empty-card">
+              <h2>Docker 未就绪</h2>
+              <p>本地 Docker 运行时不可用，容器日志功能暂时无法使用。</p>
+            </div>
+          </div>
+          <div v-else-if="!selectedContainer" class="detail-empty-state">
             <div class="sm-empty detail-empty-card">
               <h2>日志尚未绑定容器</h2>
               <p>选中目标容器后，可在这里检索输出、导出日志并追踪最近的运行记录。</p>
@@ -778,6 +842,64 @@ function formatDateTime(value?: string): string {
   margin: 0;
   max-width: 420px;
   line-height: 1.6;
+}
+
+.lab-empty-card__ssh-hint {
+  margin-top: var(--sm-space-3) !important;
+  padding-top: var(--sm-space-3);
+  border-top: 1px solid var(--sm-color-border-subtle);
+  font-size: 12px;
+  color: var(--sm-color-text-tertiary);
+}
+
+.lab-empty-card__ssh-hint strong {
+  color: var(--sm-color-text-secondary);
+}
+
+/* Docker 未就绪横幅 */
+.docker-unready-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-3) var(--sm-space-4);
+  border: 1px solid rgba(213, 161, 74, 0.25);
+  border-radius: var(--sm-radius-md);
+  background: rgba(213, 161, 74, 0.06);
+}
+
+.docker-unready-banner__icon {
+  flex-shrink: 0;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--sm-color-warning, #d5a14a);
+}
+
+.docker-unready-banner__text {
+  min-width: 0;
+}
+
+.docker-unready-banner__text strong {
+  display: block;
+  margin-bottom: var(--sm-space-1);
+  font-size: 13px;
+  color: var(--sm-color-text-primary);
+}
+
+.docker-unready-banner__text p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sm-color-text-secondary);
+}
+
+.docker-unready-banner__link {
+  color: var(--sm-color-accent-hover);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.docker-unready-banner__link:hover {
+  color: var(--sm-color-accent);
 }
 
 .workspace-header {
@@ -1022,5 +1144,11 @@ function formatDateTime(value?: string): string {
   .content-body {
     padding: 0 var(--sm-space-5) var(--sm-space-5);
   }
+}
+
+.docker-recheck-btn {
+  min-height: 46px;
+  padding: 0 14px;
+  font-size: 13px;
 }
 </style>

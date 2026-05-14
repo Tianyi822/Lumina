@@ -24,7 +24,7 @@ import type {
   CreateLabResult,
   DeleteLabOptions,
   DeleteLabResult,
-  DockerCheckResult,
+  DockerStatus,
   DockerfileConfig,
   DockerfileConfigMeta,
   ExecCommand,
@@ -53,7 +53,7 @@ function getLabApi(): Window['api']['lab'] {
 }
 
 export const labApi = {
-  checkDocker: (): Promise<DockerCheckResult> => getLabApi().checkDocker(),
+  checkDocker: (): Promise<DockerStatus> => getLabApi().checkDocker(),
   getPlatform: (): Promise<PlatformType> => getLabApi().getPlatform(),
   openExternal: (url: string): Promise<LabResult> => getLabApi().openExternal(url),
 

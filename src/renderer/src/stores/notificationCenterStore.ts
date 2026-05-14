@@ -66,7 +66,8 @@ export const useNotificationCenterStore = defineStore('notificationCenter', () =
       persistence: sticky ? 'sticky' : 'auto',
       dismissible: options?.dismissible ?? true,
       dedupeKey,
-      metadata: options?.metadata
+      metadata: options?.metadata,
+      actions: options?.actions
     }
 
     // 溢出处理：超出 maxStack 时移除最旧的非 sticky 通知

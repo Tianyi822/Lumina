@@ -5,18 +5,25 @@
 !include FileFunc.nsh
 !include nsDialogs.nsh
 
+; 覆盖 electron-builder 默认隐藏安装详情的设置
+!macro customHeader
+  !ifndef BUILD_UNINSTALLER
+    ShowInstDetails show
+  !endif
+!macroend
+
+!ifndef BUILD_UNINSTALLER
 Var DataDir
 Var DataDirControl
 
 ; ============================================================
-; 自定义页面：选择数据目录
-; ============================================================
-
 ; 在安装路径页面之后插入数据目录选择页面
-Page Custom DataDirPageCreate DataDirPageLeave
+; ============================================================
+!macro customPageAfterChangeDir
+  Page custom DataDirPageCreate DataDirPageLeave
+!macroend
 
 Function DataDirPageCreate
-  ; 初始化默认数据目录
   ${If} $DataDir == ""
     StrCpy $DataDir "$PROFILE\.lumina"
   ${EndIf}
@@ -61,7 +68,6 @@ Function DataDirPageLeave
     Abort
   ${EndIf}
 
-  ; 检查目录是否可写
   CreateDirectory "$DataDir"
   IfFileExists "$DataDir\*.*" +3 0
     MessageBox MB_OK|MB_ICONEXCLAMATION "无法创建或访问数据目录：$DataDir。请检查权限或选择其他路径。"
@@ -69,39 +75,24 @@ Function DataDirPageLeave
 FunctionEnd
 
 ; ============================================================
-; 安装完成后写入注册表和配置
+; 安装阶段：写入注册表和创建数据目录
 ; ============================================================
-Section
-  ; 写入数据目录路径到注册表
+!macro customInstall
   WriteRegStr HKCU "Software\Lumina" "DataPath" "$DataDir"
-
-  ; 写入安装路径到注册表（用于卸载和更新）
   WriteRegStr HKCU "Software\Lumina" "InstallPath" "$INSTDIR"
 
-  ; 创建数据目录
   CreateDirectory "$DataDir"
-
-  ; 创建数据子目录结构
   CreateDirectory "$DataDir\cache"
   CreateDirectory "$DataDir\config"
   CreateDirectory "$DataDir\logs"
-  
-  ; 写入卸载程序（必须调用，否则 electron-builder 报错）
-  WriteUninstaller "$INSTDIR\uninstall.exe"
-SectionEnd
+!macroend
+!endif
 
 ; ============================================================
-; 卸载时清理
+; 卸载阶段：清理注册表项
 ; ============================================================
-Section "Uninstall"
-  ; 删除注册表项
+!macro customUnInstall
   DeleteRegValue HKCU "Software\Lumina" "DataPath"
   DeleteRegValue HKCU "Software\Lumina" "InstallPath"
   DeleteRegKey /ifempty HKCU "Software\Lumina"
-
-  ; 注意：不自动删除用户数据目录，避免误删用户文件
-  ; 如果用户需要删除数据，可以手动删除
-
-  ; 删除卸载程序自身
-  Delete "$INSTDIR\uninstall.exe"
-SectionEnd
+!macroend

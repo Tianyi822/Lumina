@@ -128,9 +128,7 @@ const metricCharts = computed<MetricChart[]>(() => {
       valueLabel: gpuSupported
         ? formatPercent(latest?.gpu.utilizationPercent)
         : latest?.gpu.message || '显卡未开启',
-      labelSuffix: gpuSupported && gpuNames.length > 0
-        ? gpuNames.join(' / ')
-        : undefined,
+      labelSuffix: gpuSupported && gpuNames.length > 0 ? gpuNames.join(' / ') : undefined,
       tone: gpuSupported ? 'warning' : 'muted',
       kind: 'percent',
       maxValue: 100,
@@ -698,7 +696,9 @@ function readCssVariable(token: string, fallback: string): string {
           <div class="ssh-monitor-chart__copy">
             <span class="ssh-monitor-chart__label">
               {{ chart.label }}
-              <small v-if="chart.labelSuffix" class="ssh-monitor-chart__label-suffix">{{ chart.labelSuffix }}</small>
+              <small v-if="chart.labelSuffix" class="ssh-monitor-chart__label-suffix">{{
+                chart.labelSuffix
+              }}</small>
             </span>
             <div class="ssh-monitor-chart__value-row">
               <strong>{{ chart.valueLabel }}</strong>
@@ -709,10 +709,7 @@ function readCssVariable(token: string, fallback: string): string {
                 {{ chart.detailLabel }}
               </small>
             </div>
-            <small
-              v-if="chart.hostDetailLabel"
-              class="ssh-monitor-chart__host-detail"
-            >
+            <small v-if="chart.hostDetailLabel" class="ssh-monitor-chart__host-detail">
               {{ chart.hostDetailLabel }}
             </small>
             <small
