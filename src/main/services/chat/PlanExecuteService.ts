@@ -304,7 +304,9 @@ export class PlanExecuteService {
 
     const planPrompt = promptBuilder.buildPlanSystemPrompt(
       this.buildPlanningTools(request),
-      this.hasPaperContext(request) ? '论文上下文检索工具已启用，可通过工具按需获取论文内容' : undefined
+      this.hasPaperContext(request)
+        ? '论文上下文检索工具已启用，可通过工具按需获取论文内容'
+        : undefined
     )
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [

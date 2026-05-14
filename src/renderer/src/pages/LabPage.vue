@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLabStore, useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -11,6 +11,7 @@ import DeleteConfirmDialog from '@renderer/components/lab/DeleteConfirmDialog.vu
 import type { DockerStatus } from '@renderer/types/lab'
 
 const DOCKER_WEBSITE = 'https://www.docker.com/products/docker-desktop/'
+const DOCKER_RECHECK_INTERVAL = 15000
 
 const labStore = useLabStore()
 const uiStateStore = useUIStateStore()
@@ -22,6 +23,7 @@ const { showLabCreator, showConfigManager } = storeToRefs(uiStateStore)
 const dockerStatus = ref<DockerStatus | null>(null)
 const loading = ref(true)
 const dockerNotifyId = ref<string | null>(null)
+const dockerRecheckTimerId = ref<ReturnType<typeof setInterval> | null>(null)
 
 function buildDockerNotifyActions(status: DockerStatus) {
   const actions: Array<{ label: string; handler: () => void; primary?: boolean }> = []
@@ -101,6 +103,30 @@ async function checkDocker(): Promise<void> {
   }
 }
 
+// 静默重检 Docker 状态（不显示 loading、不弹错误通知，仅更新状态）
+const checkDockerSilent = async (): Promise<void> => {
+  try {
+    const result = await labApi.checkDocker()
+    dockerStatus.value = result
+  } catch {
+    // 静默失败，保留上次已知状态
+  }
+}
+
+const startDockerRecheck = (): void => {
+  stopDockerRecheck()
+  dockerRecheckTimerId.value = setInterval(() => {
+    void checkDockerSilent()
+  }, DOCKER_RECHECK_INTERVAL)
+}
+
+const stopDockerRecheck = (): void => {
+  if (dockerRecheckTimerId.value !== null) {
+    clearInterval(dockerRecheckTimerId.value)
+    dockerRecheckTimerId.value = null
+  }
+}
+
 function handleCloseCreator(): void {
   uiStateStore.closeLabCreator()
 }
@@ -116,11 +142,19 @@ watch(currentLabId, (id) => {
 onMounted(async () => {
   await checkDocker()
 
+  // 始终加载实验室列表（SSH 实验室不依赖 Docker）
   await labStore.loadLabList()
 
   if (!currentLab.value && uiStateStore.lastLabId) {
     await labStore.loadLab(uiStateStore.lastLabId, false, { silent: true })
   }
+
+  // 启动定时重检（检测 Docker 在应用运行期间被关闭/启动的情况）
+  startDockerRecheck()
+})
+
+onBeforeUnmount(() => {
+  stopDockerRecheck()
 })
 </script>
 
@@ -138,9 +172,13 @@ onMounted(async () => {
     </div>
 
     <template v-else>
-      <LabMainContent :current-lab="currentLab" />
+      <LabMainContent :current-lab="currentLab" :docker-status="dockerStatus" />
 
-      <LabCreator :visible="showLabCreator" @close="handleCloseCreator" />
+      <LabCreator
+        :visible="showLabCreator"
+        :docker-status="dockerStatus"
+        @close="handleCloseCreator"
+      />
 
       <ConfigManager :visible="showConfigManager" @close="handleCloseConfigManager" />
 

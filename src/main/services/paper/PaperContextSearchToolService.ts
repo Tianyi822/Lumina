@@ -287,9 +287,7 @@ function toSentenceUnits(
   }))
 }
 
-function createSegmentLookup(
-  readerDocument: PaperReaderDocument
-): Map<string, PaperReaderSegment> {
+function createSegmentLookup(readerDocument: PaperReaderDocument): Map<string, PaperReaderSegment> {
   const lookup = new Map<string, PaperReaderSegment>()
   for (const segment of readerDocument.segments) {
     lookup.set(segment.id, segment)
@@ -612,8 +610,6 @@ export class PaperContextSearchToolService {
     const totalChars = matches.reduce((sum, match) => sum + match.text.length, 0)
     return totalChars >= ENOUGH_CONTEXT_CHARS
   }
-
-
 }
 
 export const paperContextSearchToolService = new PaperContextSearchToolService()
