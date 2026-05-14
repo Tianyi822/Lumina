@@ -15,15 +15,6 @@ export type PlatformType = 'darwin' | 'win32' | 'linux'
 export type LabBackendType = 'docker' | 'ssh'
 
 /**
- * Docker 检测结果
- */
-export interface DockerCheckResult {
-  installed: boolean
-  version?: string
-  error?: string
-}
-
-/**
  * 实验室状态
  */
 export type LabStatus = 'creating' | 'running' | 'stopped' | 'error'

@@ -38,20 +38,6 @@ function getCommandErrorMessage(error: unknown): string {
   return details || message || String(error)
 }
 
-function isUnreadableCommandOutput(message: string): boolean {
-  return message.includes('\uFFFD') || message.includes('锟斤拷') || message.includes('���')
-}
-
-export function isDockerCommandMissing(message: string): boolean {
-  return (
-    message.includes('command not found') ||
-    message.includes('not recognized') ||
-    message.includes('ENOENT') ||
-    message.includes('不是内部或外部命令') ||
-    (message.includes('docker') && isUnreadableCommandOutput(message))
-  )
-}
-
 /**
  * 注册 Docker 基础处理器
  */

@@ -1,6 +1,5 @@
 export type {
   PlatformType,
-  DockerCheckResult,
   DockerStatus,
   ContainerInfo,
   ContainerDetails,

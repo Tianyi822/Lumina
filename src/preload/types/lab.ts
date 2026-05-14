@@ -1,7 +1,6 @@
 // 重导出 @shared/types/lab 中的所有类型
 export type {
   PlatformType,
-  DockerCheckResult,
   LabStatus,
   LabCreationType,
   LabData,
