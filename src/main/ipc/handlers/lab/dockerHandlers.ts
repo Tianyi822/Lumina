@@ -1,7 +1,7 @@
 import { ipcMain, shell } from 'electron'
 import { logger } from '@main/services/logger'
-import type { DockerCheckResult, PlatformType, LabResult } from '@shared/types/lab'
-import { execAsync, createErrorResult } from './shared'
+import type { DockerStatus, PlatformType, LabResult } from '@shared/types/lab'
+import { execAsync, createErrorResult, getLabServices } from './shared'
 
 function decodeCommandOutput(output: unknown): string {
   if (Buffer.isBuffer(output)) {
@@ -38,84 +38,55 @@ function getCommandErrorMessage(error: unknown): string {
   return details || message || String(error)
 }
 
-function isUnreadableCommandOutput(message: string): boolean {
-  return message.includes('\uFFFD') || message.includes('锟斤拷') || message.includes('���')
-}
-
-function isDockerCommandMissing(message: string): boolean {
-  return (
-    message.includes('command not found') ||
-    message.includes('not recognized') ||
-    message.includes('ENOENT') ||
-    message.includes('不是内部或外部命令') ||
-    (message.includes('docker') && isUnreadableCommandOutput(message))
-  )
-}
-
 /**
  * 注册 Docker 基础处理器
  */
-async function checkDockerViaSocket(): Promise<DockerCheckResult | null> {
-  try {
-    const { getDockerService } = await import('@main/services/lab')
-    const svc = getDockerService()
-    svc.initialize()
-    const result = await svc.checkAvailable()
-    if (result.available) {
-      logger.info('Docker 检测成功（Socket 直连）', 'main', { version: result.version })
-      return { installed: true, version: result.version }
-    }
-    logger.warn('Docker Socket 不可用，降级尝试 CLI 检测', 'main', { error: result.error })
-    return null
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err)
-    logger.warn('Docker Socket 检测异常，降级尝试 CLI 检测', 'main', { error: errorMessage })
-    return null
-  }
-}
+export function registerLabDockerHandlers(): void {
+  ipcMain.handle('lab:checkDocker', async (): Promise<DockerStatus> => {
+    const { dockerService } = getLabServices()
 
-async function checkDockerViaCli(): Promise<DockerCheckResult> {
-  try {
-    const { stdout } = await execAsync('docker --version', { timeout: 5000, encoding: 'buffer' })
-    const output = decodeCommandOutput(stdout)
-    const versionMatch = output.match(/Docker version ([\d.]+)/)
-    const version = versionMatch ? versionMatch[1] : output.trim()
-
-    logger.info('Docker 检测成功（CLI）', 'main', { version })
-
-    return {
-      installed: true,
-      version
-    }
-  } catch (error) {
-    const errorMessage = getCommandErrorMessage(error)
-
-    if (isDockerCommandMissing(errorMessage)) {
-      logger.info('Docker 未安装', 'main')
+    // 1. 优先通过 dockerode 检测 daemon 是否可用
+    const daemonResult = await dockerService.checkAvailable()
+    if (daemonResult.available) {
+      logger.info('Docker daemon 可用', 'main', { version: daemonResult.version })
       return {
+        available: true,
+        installed: true,
+        version: daemonResult.version
+      }
+    }
+
+    // 2. daemon 不可用，回退 CLI 检测判断是否已安装
+    logger.info('Docker daemon 不可用，回退 CLI 检测', 'main', {
+      daemonError: daemonResult.error
+    })
+
+    try {
+      const { stdout } = await execAsync('docker --version', {
+        timeout: 5000,
+        encoding: 'buffer'
+      })
+      const output = decodeCommandOutput(stdout)
+      const versionMatch = output.match(/Docker version ([\d.]+)/)
+      const version = versionMatch ? versionMatch[1] : output.trim()
+
+      logger.info('Docker CLI 已安装但 daemon 未启动', 'main', { version })
+      return {
+        available: false,
+        installed: true,
+        version,
+        error: 'Docker 未启动'
+      }
+    } catch (error) {
+      const errorMessage = getCommandErrorMessage(error)
+
+      logger.info('Docker 未安装', 'main', { error: errorMessage })
+      return {
+        available: false,
         installed: false,
         error: 'Docker 未安装'
       }
     }
-
-    logger.warn('Docker 检测失败', 'main', { error: errorMessage })
-    return {
-      installed: false,
-      error: errorMessage
-    }
-  }
-}
-
-export function registerLabDockerHandlers(): void {
-  ipcMain.handle('lab:checkDocker', async (): Promise<DockerCheckResult> => {
-    // 策略1: dockerode socket 直连（不依赖 PATH，打包后也能工作）
-    const socketResult = await checkDockerViaSocket()
-    if (socketResult) {
-      return socketResult
-    }
-
-    // 策略2: exec docker --version（依赖 PATH，作为降级方案）
-    return checkDockerViaCli()
   })
 
   ipcMain.handle('lab:getPlatform', (): PlatformType => {

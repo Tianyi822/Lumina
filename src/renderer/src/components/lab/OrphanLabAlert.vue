@@ -21,7 +21,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'close'): void
   (e: 'recover', labId: string): void
   (e: 'cleanup', labId: string): void
 }>()
@@ -48,10 +47,6 @@ watch(
     }
   }
 )
-
-function handleClose(): void {
-  emit('close')
-}
 
 function handleRecover(): void {
   if (!props.lab) return
@@ -99,9 +94,6 @@ function handleCleanup(): void {
           </button>
           <button class="btn-danger" :disabled="isReloading" @click="handleCleanup">
             清理实验室
-          </button>
-          <button class="btn-secondary" :disabled="isReloading" @click="handleClose">
-            暂时忽略
           </button>
         </div>
       </div>

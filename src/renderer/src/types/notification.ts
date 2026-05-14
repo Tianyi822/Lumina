@@ -1,9 +1,18 @@
 /** 通知类型 */
 export type NotificationType = 'info' | 'success' | 'warning' | 'error'
 
+/** 通知操作按钮 */
+export interface NotificationAction {
+  /** 按钮文案 */
+  label: string
+  /** 点击回调 */
+  handler: () => void
+  /** 是否为主按钮样式（默认 false） */
+  primary?: boolean
+}
+
 /** 通知来源模块 */
 export type NotificationSource =
-  | 'lab'
   | 'lab'
   | 'creator'
   | 'config'
@@ -32,6 +41,7 @@ export interface Notification {
   dismissible: boolean
   dedupeKey?: string
   metadata?: Record<string, unknown>
+  actions?: NotificationAction[]
 }
 
 /** 创建通知时的选项 */
@@ -42,6 +52,7 @@ export interface NotifyOptions {
   dismissible?: boolean
   dedupeKey?: string
   metadata?: Record<string, unknown>
+  actions?: NotificationAction[]
 }
 
 /** 确认对话框选项 */

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLabStore, useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -8,60 +8,92 @@ import LabMainContent from '@renderer/components/lab/LabMainContent.vue'
 import LabCreator from '@renderer/components/lab/LabCreator.vue'
 import ConfigManager from '@renderer/components/lab/ConfigManager.vue'
 import DeleteConfirmDialog from '@renderer/components/lab/DeleteConfirmDialog.vue'
-import type { PlatformType, DockerCheckResult } from '@renderer/types/lab'
+import type { DockerStatus } from '@renderer/types/lab'
 
-const DOCKER_WEBSITE = 'https://www.docker.com/products/docker-desktop/'
+const DOCKER_RECHECK_INTERVAL = 15000
 
 const labStore = useLabStore()
 const uiStateStore = useUIStateStore()
 const notify = useNotification()
 
 const { currentLab, currentLabId, deleteConfirmState } = storeToRefs(labStore)
-
 const { showLabCreator, showConfigManager } = storeToRefs(uiStateStore)
 
-const dockerStatus = ref<DockerCheckResult | null>(null)
-const platform = ref<PlatformType>('darwin')
+const dockerStatus = ref<DockerStatus | null>(null)
 const loading = ref(true)
+const dockerNotifyId = ref<string | null>(null)
 const dockerRecheckTimerId = ref<ReturnType<typeof setInterval> | null>(null)
+const recheckingDocker = ref(false)
 
-const DOCKER_RECHECK_INTERVAL = 15000
+function showDockerUnavailableNotify(status: DockerStatus): void {
+  if (dockerNotifyId.value) {
+    return
+  }
 
-// ==================== Docker 检测 ====================
+  const title = status.installed ? 'Docker 未启动' : 'Docker 未安装'
+  const message = status.installed
+    ? '请启动 Docker Desktop，然后点击页面中的"重新检测 Docker"按钮。SSH 远程实验室不受影响。'
+    : '实验室工作区依赖本机 Docker 运行时，请安装后点击页面中的"重新检测 Docker"按钮。SSH 远程实验室不受影响。'
 
-const checkDocker = async (): Promise<void> => {
+  const id = notify.warning(title, message, {
+    source: 'lab',
+    sticky: true,
+    dedupeKey: `docker:${status.installed ? 'stopped' : 'missing'}`
+  })
+
+  if (id) {
+    dockerNotifyId.value = id
+  }
+}
+
+async function checkDocker(showFullLoading = true): Promise<void> {
+  if (!showFullLoading && recheckingDocker.value) return
+
   try {
-    loading.value = true
-    const [statusResult, platformResult] = await Promise.all([
-      labApi.checkDocker(),
-      labApi.getPlatform()
-    ])
-    dockerStatus.value = statusResult
-    platform.value = platformResult
+    if (showFullLoading) {
+      loading.value = true
+    } else {
+      recheckingDocker.value = true
+    }
 
-    if (!statusResult.installed && statusResult.error && statusResult.error !== 'Docker 未安装') {
-      notify.error('Docker 检测失败', statusResult.error, {
-        source: 'lab',
-        dedupeKey: 'lab:checkDocker'
-      })
+    const statusResult = await labApi.checkDocker()
+    dockerStatus.value = statusResult
+
+    if (!statusResult.available) {
+      showDockerUnavailableNotify(statusResult)
+    } else {
+      if (dockerNotifyId.value) {
+        notify.dismiss(dockerNotifyId.value)
+        dockerNotifyId.value = null
+      }
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    dockerStatus.value = { installed: false, error: errorMessage }
+    dockerStatus.value = { available: false, installed: false, error: errorMessage }
     notify.error('Docker 检测失败', errorMessage, {
       source: 'lab',
       dedupeKey: 'lab:checkDocker'
     })
   } finally {
-    loading.value = false
+    if (showFullLoading) {
+      loading.value = false
+    } else {
+      recheckingDocker.value = false
+    }
   }
 }
 
-// 静默重检 Docker 状态（不显示 loading、不弹错误通知，仅更新状态）
+// 静默重检 Docker 状态（不显示 loading、不弹错误通知）
 const checkDockerSilent = async (): Promise<void> => {
   try {
     const result = await labApi.checkDocker()
     dockerStatus.value = result
+
+    // Docker 恢复可用时关闭通知
+    if (result.available && dockerNotifyId.value) {
+      notify.dismiss(dockerNotifyId.value)
+      dockerNotifyId.value = null
+    }
   } catch {
     // 静默失败，保留上次已知状态
   }
@@ -81,28 +113,21 @@ const stopDockerRecheck = (): void => {
   }
 }
 
-const openDockerWebsite = async (): Promise<void> => {
-  const result = await labApi.openExternal(DOCKER_WEBSITE)
-  if (!result.success) {
-    notify.error('打开 Docker 官网失败', result.error || '未知错误', { source: 'lab' })
-  }
-}
-
-const handleCloseCreator = (): void => {
+function handleCloseCreator(): void {
   uiStateStore.closeLabCreator()
 }
 
-const handleCloseConfigManager = (): void => {
+function handleCloseConfigManager(): void {
   uiStateStore.closeConfigManager()
 }
 
-// ==================== 持久化选中实验室 ====================
+function handleRecheckDocker(): void {
+  void checkDocker(false)
+}
 
 watch(currentLabId, (id) => {
   uiStateStore.setLastLabId(id ?? null)
 })
-
-// ==================== 生命周期 ====================
 
 onMounted(async () => {
   await checkDocker()
@@ -120,6 +145,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   stopDockerRecheck()
+  if (dockerNotifyId.value) {
+    notify.dismiss(dockerNotifyId.value)
+    dockerNotifyId.value = null
+  }
 })
 </script>
 
@@ -137,34 +166,19 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-else>
-      <!-- Docker 未就绪时显示轻量警告条 -->
-      <div v-if="!dockerStatus?.installed" class="sm-lab-docker-warning">
-        <div class="sm-lab-docker-warning__copy">
-          <span class="sm-lab-docker-warning__icon">&#9888;</span>
-          <span class="sm-lab-docker-warning__text">
-            未检测到本地 Docker 运行时，Docker 类型实验室功能受限。 SSH 远程实验室不受影响。
-          </span>
-        </div>
-        <div class="sm-lab-docker-warning__actions">
-          <button class="sm-button sm-button--primary sm-button--small" @click="openDockerWebsite">
-            安装 Docker
-          </button>
-          <button class="sm-button sm-button--secondary sm-button--small" @click="checkDocker">
-            重新检测
-          </button>
-        </div>
-      </div>
+      <LabMainContent
+        :current-lab="currentLab"
+        :docker-status="dockerStatus"
+        :rechecking-docker="recheckingDocker"
+        @recheck-docker="handleRecheckDocker"
+      />
 
-      <LabMainContent :current-lab="currentLab" :docker-status="dockerStatus" />
-
-      <!-- 创建实验室弹窗 -->
       <LabCreator
         :visible="showLabCreator"
         :docker-status="dockerStatus"
         @close="handleCloseCreator"
       />
 
-      <!-- 配置管理弹窗 -->
       <ConfigManager :visible="showConfigManager" @close="handleCloseConfigManager" />
 
       <DeleteConfirmDialog
@@ -213,62 +227,5 @@ onBeforeUnmount(() => {
 
 .sm-lab-page__loading-spinner {
   color: var(--sm-color-accent-hover);
-}
-
-/* Docker 未就绪警告条 */
-.sm-lab-docker-warning {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sm-space-3);
-  padding: 10px var(--sm-space-4);
-  border-bottom: 1px solid var(--sm-color-border-default);
-  background: linear-gradient(
-    135deg,
-    var(--sm-color-accent-06, rgba(213, 161, 74, 0.06)),
-    var(--sm-color-accent-04, rgba(213, 161, 74, 0.04))
-  );
-}
-
-.sm-lab-docker-warning__copy {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-2);
-  min-width: 0;
-}
-
-.sm-lab-docker-warning__icon {
-  flex-shrink: 0;
-  font-size: 16px;
-  line-height: 1;
-  color: var(--sm-color-warning, #d5a14a);
-}
-
-.sm-lab-docker-warning__text {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--sm-color-text-secondary);
-}
-
-.sm-lab-docker-warning__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-2);
-  flex-shrink: 0;
-}
-
-@media (max-width: 720px) {
-  .sm-lab-docker-warning {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .sm-lab-docker-warning__actions {
-    align-self: stretch;
-  }
-
-  .sm-lab-docker-warning__actions .sm-button {
-    flex: 1;
-  }
 }
 </style>

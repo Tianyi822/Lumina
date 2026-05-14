@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useContainerStore, useUIStateStore, useLabStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
+import { labApi } from '@renderer/services/labApi'
 import InteractiveTerminalPanel from './InteractiveTerminalPanel.vue'
 import ContainerLogs from './ContainerLogs.vue'
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
@@ -11,15 +12,21 @@ import SshReconnectPrompt from './SshReconnectPrompt.vue'
 import SshServerMonitorPanel from './SshServerMonitorPanel.vue'
 import { TabNavigation } from './lab-detail'
 import { useContainerLogs as useContainerLogsComposable, useContainerActions } from './lab-detail'
-import type { ContainerDetails, LabData, DockerCheckResult } from '@renderer/types/lab'
+import type { ContainerDetails, LabData, DockerStatus } from '@renderer/types/lab'
 
 const LAB_AUTO_REFRESH_INTERVAL = 3000
+const DOCKER_WEBSITE = 'https://www.docker.com/products/docker-desktop/'
 
 // ==================== Props & Emits ====================
 
 const props = defineProps<{
   currentLab: LabData | null
-  dockerStatus?: DockerCheckResult | null
+  dockerStatus?: DockerStatus | null
+  recheckingDocker?: boolean
+}>()
+
+const emit = defineEmits<{
+  recheckDocker: []
 }>()
 
 // ==================== Store ====================
@@ -56,7 +63,7 @@ const isOrphan = computed(() => props.currentLab?.isOrphan || false)
 const isLabFrontend = computed(() => !!props.currentLab?.frontend)
 const isSshLab = computed(() => props.currentLab?.backendType === 'ssh')
 const isDockerLab = computed(() => hasLab.value && !isSshLab.value)
-const isDockerReady = computed(() => props.dockerStatus?.installed ?? false)
+const isDockerReady = computed(() => props.dockerStatus?.available ?? false)
 const showFrontendRecoveryBanner = computed(
   () => isLabFrontend.value && props.currentLab?.status === 'error' && !isOrphan.value
 )
@@ -513,10 +520,6 @@ async function handleRebuildFrontendRuntime(): Promise<void> {
   }
 }
 
-function handleCloseOrphanAlert(): void {
-  window.api.logger.info('[LabMainContent] 用户关闭孤儿实验室提示')
-}
-
 const isConnectingSsh = ref(false)
 const sshReconnectPassword = ref('')
 
@@ -556,6 +559,13 @@ watch(
     sshReconnectPassword.value = ''
   }
 )
+
+async function handleOpenDockerWebsite(): Promise<void> {
+  const result = await labApi.openExternal(DOCKER_WEBSITE)
+  if (!result.success) {
+    notify.warning('打开 Docker 官网失败', result.error || '未知错误', { source: 'lab' })
+  }
+}
 
 function formatDateTime(value?: string): string {
   if (!value) {
@@ -616,6 +626,14 @@ function formatDateTime(value?: string): string {
             :connecting="isConnectingSsh"
             @connect="handleSshConnect"
           />
+          <button
+            v-if="isDockerLab && !isDockerReady"
+            class="sm-button sm-button--small sm-button--secondary docker-recheck-btn"
+            :disabled="recheckingDocker"
+            @click="emit('recheckDocker')"
+          >
+            {{ recheckingDocker ? '检测中...' : '重新检测 Docker' }}
+          </button>
           <TabNavigation :visible="hasLab" :show-logs="!isSshLab" />
         </div>
       </header>
@@ -626,9 +644,16 @@ function formatDateTime(value?: string): string {
           <span class="docker-unready-banner__icon">&#9888;</span>
           <div class="docker-unready-banner__text">
             <strong>本地 Docker 未就绪</strong>
-            <p>
-              容器操作、终端和日志功能暂不可用。请启动 Docker Desktop 后重新检测。SSH
-              远程实验室不受影响。
+            <p v-if="dockerStatus?.installed === false">
+              Docker 未安装。请先
+              <a class="docker-unready-banner__link" @click="handleOpenDockerWebsite"
+                >安装 Docker Desktop</a
+              >
+              ，然后点击上方"重新检测 Docker"按钮。SSH 远程实验室不受影响。
+            </p>
+            <p v-else>
+              容器操作、终端和日志功能暂不可用。请启动 Docker Desktop 后点击上方"重新检测
+              Docker"按钮。SSH 远程实验室不受影响。
             </p>
           </div>
         </div>
@@ -641,7 +666,6 @@ function formatDateTime(value?: string): string {
           :recover-label="orphanRecoverLabel"
           @recover="handleRecoverOrphan"
           @cleanup="handleCleanupOrphan"
-          @close="handleCloseOrphanAlert"
         />
 
         <div v-if="showFrontendRecoveryBanner" class="frontend-recovery-banner">
@@ -866,6 +890,16 @@ function formatDateTime(value?: string): string {
   font-size: 12px;
   line-height: 1.5;
   color: var(--sm-color-text-secondary);
+}
+
+.docker-unready-banner__link {
+  color: var(--sm-color-accent-hover);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.docker-unready-banner__link:hover {
+  color: var(--sm-color-accent);
 }
 
 .workspace-header {
@@ -1110,5 +1144,11 @@ function formatDateTime(value?: string): string {
   .content-body {
     padding: 0 var(--sm-space-5) var(--sm-space-5);
   }
+}
+
+.docker-recheck-btn {
+  min-height: 46px;
+  padding: 0 14px;
+  font-size: 13px;
 }
 </style>
