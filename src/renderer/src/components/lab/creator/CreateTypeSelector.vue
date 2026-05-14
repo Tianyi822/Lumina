@@ -19,7 +19,7 @@ function onSelect(value: LabCreateType): void {
     notify.warning(
       'Docker 未就绪',
       '本地 Docker 运行时不可用，无法选择此创建方式。请先启动 Docker Desktop 后重新检测，或选择「SSH 远程服务器」方式。',
-      { source: 'lab', dedupeKey: 'lab:creator:docker-unready' }
+      { source: 'lab' }
     )
     return
   }

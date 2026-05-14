@@ -25,7 +25,9 @@ const loading = ref(true)
 const dockerNotifyId = ref<string | null>(null)
 const dockerRecheckTimerId = ref<ReturnType<typeof setInterval> | null>(null)
 
-function buildDockerNotifyActions(status: DockerStatus) {
+function buildDockerNotifyActions(
+  status: DockerStatus
+): Array<{ label: string; handler: () => void; primary?: boolean }> {
   const actions: Array<{ label: string; handler: () => void; primary?: boolean }> = []
 
   actions.push({
@@ -78,6 +80,8 @@ function showDockerUnavailableNotify(status: DockerStatus): void {
 }
 
 async function checkDocker(): Promise<void> {
+  if (loading.value) return
+
   try {
     loading.value = true
     const statusResult = await labApi.checkDocker()
@@ -103,11 +107,17 @@ async function checkDocker(): Promise<void> {
   }
 }
 
-// 静默重检 Docker 状态（不显示 loading、不弹错误通知，仅更新状态）
+// 静默重检 Docker 状态（不显示 loading、不弹错误通知）
 const checkDockerSilent = async (): Promise<void> => {
   try {
     const result = await labApi.checkDocker()
     dockerStatus.value = result
+
+    // Docker 恢复可用时关闭通知
+    if (result.available && dockerNotifyId.value) {
+      notify.dismiss(dockerNotifyId.value)
+      dockerNotifyId.value = null
+    }
   } catch {
     // 静默失败，保留上次已知状态
   }
@@ -155,6 +165,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   stopDockerRecheck()
+  if (dockerNotifyId.value) {
+    notify.dismiss(dockerNotifyId.value)
+    dockerNotifyId.value = null
+  }
 })
 </script>
 

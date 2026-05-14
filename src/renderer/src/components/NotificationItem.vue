@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
-import type { Notification } from '@renderer/types/notification'
+import type { Notification, NotificationAction } from '@renderer/types/notification'
 
 const props = defineProps<{
   notification: Notification
@@ -34,7 +34,7 @@ function handleClose(): void {
   emit('dismiss', props.notification.id)
 }
 
-function handleAction(action: { handler: () => void }): void {
+function handleAction(action: NotificationAction): void {
   action.handler()
 }
 </script>
@@ -53,10 +53,7 @@ function handleAction(action: { handler: () => void }): void {
     <div class="message-content">
       <div class="message-title">{{ notification.title }}</div>
       <div v-if="notification.message" class="message-text">{{ notification.message }}</div>
-      <div
-        v-if="notification.actions && notification.actions.length > 0"
-        class="message-actions"
-      >
+      <div v-if="notification.actions && notification.actions.length > 0" class="message-actions">
         <button
           v-for="(action, index) in notification.actions"
           :key="index"
