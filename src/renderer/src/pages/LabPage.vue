@@ -32,7 +32,7 @@ function showDockerUnavailableNotify(status: DockerStatus): void {
 
   const title = status.installed ? 'Docker 未启动' : 'Docker 未安装'
   const message = status.installed
-    ? '请启动 Docker Desktop，然后点击页面中的"重新检测 Docker"按钮。SSH 远程实验室不受影响。'
+    ? '请启动 Docker 服务，然后点击页面中的"重新检测 Docker"按钮。SSH 远程实验室不受影响。'
     : '实验室工作区依赖本机 Docker 运行时，请安装后点击页面中的"重新检测 Docker"按钮。SSH 远程实验室不受影响。'
 
   const id = notify.warning(title, message, {
