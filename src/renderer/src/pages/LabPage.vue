@@ -10,7 +10,6 @@ import ConfigManager from '@renderer/components/lab/ConfigManager.vue'
 import DeleteConfirmDialog from '@renderer/components/lab/DeleteConfirmDialog.vue'
 import type { DockerStatus } from '@renderer/types/lab'
 
-const DOCKER_WEBSITE = 'https://www.docker.com/products/docker-desktop/'
 const DOCKER_RECHECK_INTERVAL = 15000
 
 const labStore = useLabStore()
@@ -24,38 +23,7 @@ const dockerStatus = ref<DockerStatus | null>(null)
 const loading = ref(true)
 const dockerNotifyId = ref<string | null>(null)
 const dockerRecheckTimerId = ref<ReturnType<typeof setInterval> | null>(null)
-
-function buildDockerNotifyActions(
-  status: DockerStatus
-): Array<{ label: string; handler: () => void; primary?: boolean }> {
-  const actions: Array<{ label: string; handler: () => void; primary?: boolean }> = []
-
-  actions.push({
-    label: '重新检测',
-    primary: true,
-    handler: async () => {
-      await checkDocker()
-      if (dockerStatus.value?.available && dockerNotifyId.value) {
-        notify.dismiss(dockerNotifyId.value)
-        dockerNotifyId.value = null
-      }
-    }
-  })
-
-  if (!status.installed) {
-    actions.push({
-      label: '前往 Docker 官网',
-      handler: async () => {
-        const result = await labApi.openExternal(DOCKER_WEBSITE)
-        if (!result.success) {
-          notify.error('打开 Docker 官网失败', result.error || '未知错误', { source: 'lab' })
-        }
-      }
-    })
-  }
-
-  return actions
-}
+const recheckingDocker = ref(false)
 
 function showDockerUnavailableNotify(status: DockerStatus): void {
   if (dockerNotifyId.value) {
@@ -64,14 +32,13 @@ function showDockerUnavailableNotify(status: DockerStatus): void {
 
   const title = status.installed ? 'Docker 未启动' : 'Docker 未安装'
   const message = status.installed
-    ? '请启动 Docker Desktop 后点击重新检测'
-    : '实验室工作区依赖本机 Docker 运行时，请安装后重新检测'
+    ? '请启动 Docker Desktop，然后点击页面中的"重新检测 Docker"按钮。SSH 远程实验室不受影响。'
+    : '实验室工作区依赖本机 Docker 运行时，请安装后点击页面中的"重新检测 Docker"按钮。SSH 远程实验室不受影响。'
 
   const id = notify.warning(title, message, {
     source: 'lab',
     sticky: true,
-    dedupeKey: `docker:${status.installed ? 'stopped' : 'missing'}`,
-    actions: buildDockerNotifyActions(status)
+    dedupeKey: `docker:${status.installed ? 'stopped' : 'missing'}`
   })
 
   if (id) {
@@ -79,11 +46,17 @@ function showDockerUnavailableNotify(status: DockerStatus): void {
   }
 }
 
-async function checkDocker(): Promise<void> {
-  if (loading.value) return
+async function checkDocker(showFullLoading = true): Promise<void> {
+  if (showFullLoading && loading.value) return
+  if (!showFullLoading && recheckingDocker.value) return
 
   try {
-    loading.value = true
+    if (showFullLoading) {
+      loading.value = true
+    } else {
+      recheckingDocker.value = true
+    }
+
     const statusResult = await labApi.checkDocker()
     dockerStatus.value = statusResult
 
@@ -103,7 +76,11 @@ async function checkDocker(): Promise<void> {
       dedupeKey: 'lab:checkDocker'
     })
   } finally {
-    loading.value = false
+    if (showFullLoading) {
+      loading.value = false
+    } else {
+      recheckingDocker.value = false
+    }
   }
 }
 
@@ -143,6 +120,10 @@ function handleCloseCreator(): void {
 
 function handleCloseConfigManager(): void {
   uiStateStore.closeConfigManager()
+}
+
+function handleRecheckDocker(): void {
+  void checkDocker(false)
 }
 
 watch(currentLabId, (id) => {
@@ -186,7 +167,12 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-else>
-      <LabMainContent :current-lab="currentLab" :docker-status="dockerStatus" />
+      <LabMainContent
+        :current-lab="currentLab"
+        :docker-status="dockerStatus"
+        :rechecking-docker="recheckingDocker"
+        @recheck-docker="handleRecheckDocker"
+      />
 
       <LabCreator
         :visible="showLabCreator"
