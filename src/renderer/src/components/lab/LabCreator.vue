@@ -9,9 +9,11 @@ import DockerfileEditor from './DockerfileEditor.vue'
 import SaveConfigDialog from './SaveConfigDialog.vue'
 import { CreateActions, CreateTypeSelector, PortMappingSection } from './creator'
 import { useCreateFlow } from './creator/composables/useCreateFlow'
+import type { DockerCheckResult } from '@renderer/types/lab'
 
 const props = defineProps<{
   visible: boolean
+  dockerStatus?: DockerCheckResult | null
 }>()
 
 const emit = defineEmits<{
@@ -398,7 +400,10 @@ async function testSshConnection(): Promise<void> {
           <button class="close-btn" @click="close">×</button>
         </div>
 
-        <CreateTypeSelector v-model="createType" />
+        <CreateTypeSelector
+          v-model="createType"
+          :docker-ready="props.dockerStatus?.installed ?? true"
+        />
 
         <div
           ref="contentShellRef"

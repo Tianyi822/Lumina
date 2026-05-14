@@ -11,7 +11,7 @@ import SshReconnectPrompt from './SshReconnectPrompt.vue'
 import SshServerMonitorPanel from './SshServerMonitorPanel.vue'
 import { TabNavigation } from './lab-detail'
 import { useContainerLogs as useContainerLogsComposable, useContainerActions } from './lab-detail'
-import type { ContainerDetails, LabData } from '@renderer/types/lab'
+import type { ContainerDetails, LabData, DockerCheckResult } from '@renderer/types/lab'
 
 const LAB_AUTO_REFRESH_INTERVAL = 3000
 
@@ -19,6 +19,7 @@ const LAB_AUTO_REFRESH_INTERVAL = 3000
 
 const props = defineProps<{
   currentLab: LabData | null
+  dockerStatus?: DockerCheckResult | null
 }>()
 
 // ==================== Store ====================
@@ -54,6 +55,8 @@ const hasLab = computed(() => !!props.currentLab)
 const isOrphan = computed(() => props.currentLab?.isOrphan || false)
 const isLabFrontend = computed(() => !!props.currentLab?.frontend)
 const isSshLab = computed(() => props.currentLab?.backendType === 'ssh')
+const isDockerLab = computed(() => hasLab.value && !isSshLab.value)
+const isDockerReady = computed(() => props.dockerStatus?.installed ?? false)
 const showFrontendRecoveryBanner = computed(
   () => isLabFrontend.value && props.currentLab?.status === 'error' && !isOrphan.value
 )
@@ -164,6 +167,7 @@ const {
 
 // 包装容器操作函数，添加加载状态管理
 async function handleContainerStart(): Promise<void> {
+  if (!isDockerReady.value) return
   isStartingContainer.value = true
   try {
     await _handleContainerStart()
@@ -173,6 +177,7 @@ async function handleContainerStart(): Promise<void> {
 }
 
 async function handleContainerStop(): Promise<void> {
+  if (!isDockerReady.value) return
   isStoppingContainer.value = true
   try {
     await _handleContainerStop()
@@ -182,6 +187,7 @@ async function handleContainerStop(): Promise<void> {
 }
 
 async function handleContainerRestart(): Promise<void> {
+  if (!isDockerReady.value) return
   isRestartingContainer.value = true
   try {
     await _handleContainerRestart()
@@ -571,6 +577,10 @@ function formatDateTime(value?: string): string {
       <div class="sm-empty lab-empty-card">
         <h2>选择一个实验室开始</h2>
         <p>从左侧接管现有环境，或创建一个实验室以进入容器监控、终端和日志工作流。</p>
+        <p v-if="!isDockerReady" class="lab-empty-card__ssh-hint">
+          本地 Docker 未就绪？您仍然可以
+          <strong>创建 SSH 远程服务器</strong> 类型的实验室来连接远程主机。
+        </p>
       </div>
     </div>
 
@@ -611,6 +621,18 @@ function formatDateTime(value?: string): string {
       </header>
 
       <div class="content-body">
+        <!-- Docker 未就绪时对 Docker 类型实验室显示警告 -->
+        <div v-if="isDockerLab && !isDockerReady" class="docker-unready-banner">
+          <span class="docker-unready-banner__icon">&#9888;</span>
+          <div class="docker-unready-banner__text">
+            <strong>本地 Docker 未就绪</strong>
+            <p>
+              容器操作、终端和日志功能暂不可用。请启动 Docker Desktop 后重新检测。SSH
+              远程实验室不受影响。
+            </p>
+          </div>
+        </div>
+
         <OrphanLabAlert
           :visible="isOrphan"
           :lab="currentLab"
@@ -658,7 +680,13 @@ function formatDateTime(value?: string): string {
           </template>
 
           <template v-else>
-            <div v-if="!selectedContainer" class="detail-empty-state">
+            <div v-if="!isDockerReady" class="detail-empty-state">
+              <div class="sm-empty detail-empty-card">
+                <h2>Docker 未就绪</h2>
+                <p>本地 Docker 运行时不可用，容器监控功能暂时无法使用。</p>
+              </div>
+            </div>
+            <div v-else-if="!selectedContainer" class="detail-empty-state">
               <div class="sm-empty detail-empty-card">
                 <h2>请先选择一个容器</h2>
                 <p>选中主容器后，这里会显示运行指标、端口映射和环境细节。</p>
@@ -705,7 +733,13 @@ function formatDateTime(value?: string): string {
             </section>
           </template>
           <template v-else>
-            <div v-if="!selectedContainer" class="detail-empty-state">
+            <div v-if="!isDockerReady" class="detail-empty-state">
+              <div class="sm-empty detail-empty-card">
+                <h2>Docker 未就绪</h2>
+                <p>本地 Docker 运行时不可用，容器终端功能暂时无法使用。</p>
+              </div>
+            </div>
+            <div v-else-if="!selectedContainer" class="detail-empty-state">
               <div class="sm-empty detail-empty-card">
                 <h2>终端尚未绑定容器</h2>
                 <p>选中目标容器后，可在这里执行临时命令、定位问题并确认运行环境。</p>
@@ -724,7 +758,13 @@ function formatDateTime(value?: string): string {
 
         <!-- 日志 Tab -->
         <div v-if="!isSshLab" v-show="labDetailTab === 'logs'" class="tab-content">
-          <div v-if="!selectedContainer" class="detail-empty-state">
+          <div v-if="!isDockerReady" class="detail-empty-state">
+            <div class="sm-empty detail-empty-card">
+              <h2>Docker 未就绪</h2>
+              <p>本地 Docker 运行时不可用，容器日志功能暂时无法使用。</p>
+            </div>
+          </div>
+          <div v-else-if="!selectedContainer" class="detail-empty-state">
             <div class="sm-empty detail-empty-card">
               <h2>日志尚未绑定容器</h2>
               <p>选中目标容器后，可在这里检索输出、导出日志并追踪最近的运行记录。</p>
@@ -778,6 +818,54 @@ function formatDateTime(value?: string): string {
   margin: 0;
   max-width: 420px;
   line-height: 1.6;
+}
+
+.lab-empty-card__ssh-hint {
+  margin-top: var(--sm-space-3) !important;
+  padding-top: var(--sm-space-3);
+  border-top: 1px solid var(--sm-color-border-subtle);
+  font-size: 12px;
+  color: var(--sm-color-text-tertiary);
+}
+
+.lab-empty-card__ssh-hint strong {
+  color: var(--sm-color-text-secondary);
+}
+
+/* Docker 未就绪横幅 */
+.docker-unready-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-3) var(--sm-space-4);
+  border: 1px solid rgba(213, 161, 74, 0.25);
+  border-radius: var(--sm-radius-md);
+  background: rgba(213, 161, 74, 0.06);
+}
+
+.docker-unready-banner__icon {
+  flex-shrink: 0;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--sm-color-warning, #d5a14a);
+}
+
+.docker-unready-banner__text {
+  min-width: 0;
+}
+
+.docker-unready-banner__text strong {
+  display: block;
+  margin-bottom: var(--sm-space-1);
+  font-size: 13px;
+  color: var(--sm-color-text-primary);
+}
+
+.docker-unready-banner__text p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sm-color-text-secondary);
 }
 
 .workspace-header {

@@ -1,56 +1,88 @@
 <script setup lang="ts">
 import type { LabCreateType } from '@renderer/stores/lab/types'
+import { useNotification } from '@renderer/composables/useNotification'
 
-defineProps<{
+const props = defineProps<{
   modelValue: LabCreateType
+  dockerReady?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: LabCreateType): void
 }>()
+
+const notify = useNotification()
+
+function onSelect(value: LabCreateType): void {
+  const dockerRequired = value !== 'ssh'
+  if (dockerRequired && props.dockerReady === false) {
+    notify.warning(
+      'Docker 未就绪',
+      '本地 Docker 运行时不可用，无法选择此创建方式。请先启动 Docker Desktop 后重新检测，或选择「SSH 远程服务器」方式。',
+      { source: 'lab', dedupeKey: 'lab:creator:docker-unready' }
+    )
+    return
+  }
+  emit('update:modelValue', value)
+}
 </script>
 
 <template>
   <div class="creator-type-selection" role="radiogroup" aria-label="实验室创建方式">
     <label
       class="type-option"
-      :class="{ active: modelValue === 'compose' }"
+      :class="{
+        active: modelValue === 'compose',
+        disabled: dockerReady === false
+      }"
+      :title="dockerReady === false ? 'Docker 未就绪' : ''"
       role="radio"
       :aria-checked="modelValue === 'compose'"
     >
       <input
         :checked="modelValue === 'compose'"
+        :disabled="dockerReady === false"
         type="radio"
         value="compose"
-        @change="emit('update:modelValue', 'compose')"
+        @change="onSelect('compose')"
       />
       <span class="option-label">Docker Compose</span>
     </label>
     <label
       class="type-option"
-      :class="{ active: modelValue === 'dockerfile' }"
+      :class="{
+        active: modelValue === 'dockerfile',
+        disabled: dockerReady === false
+      }"
+      :title="dockerReady === false ? 'Docker 未就绪' : ''"
       role="radio"
       :aria-checked="modelValue === 'dockerfile'"
     >
       <input
         :checked="modelValue === 'dockerfile'"
+        :disabled="dockerReady === false"
         type="radio"
         value="dockerfile"
-        @change="emit('update:modelValue', 'dockerfile')"
+        @change="onSelect('dockerfile')"
       />
       <span class="option-label">Dockerfile</span>
     </label>
     <label
       class="type-option"
-      :class="{ active: modelValue === 'existing' }"
+      :class="{
+        active: modelValue === 'existing',
+        disabled: dockerReady === false
+      }"
+      :title="dockerReady === false ? 'Docker 未就绪' : ''"
       role="radio"
       :aria-checked="modelValue === 'existing'"
     >
       <input
         :checked="modelValue === 'existing'"
+        :disabled="dockerReady === false"
         type="radio"
         value="existing"
-        @change="emit('update:modelValue', 'existing')"
+        @change="onSelect('existing')"
       />
       <span class="option-label">选择已有容器</span>
     </label>
@@ -60,12 +92,7 @@ const emit = defineEmits<{
       role="radio"
       :aria-checked="modelValue === 'ssh'"
     >
-      <input
-        :checked="modelValue === 'ssh'"
-        type="radio"
-        value="ssh"
-        @change="emit('update:modelValue', 'ssh')"
-      />
+      <input :checked="modelValue === 'ssh'" type="radio" value="ssh" @change="onSelect('ssh')" />
       <span class="option-label">SSH 远程服务器</span>
     </label>
   </div>
@@ -115,6 +142,19 @@ const emit = defineEmits<{
     var(--sm-color-surface-selected);
   color: var(--sm-color-text-selected);
   box-shadow: inset 0 0 0 1px var(--sm-color-accent-18);
+}
+
+.type-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--sm-color-border-subtle);
+  background-color: var(--sm-color-surface-1);
+  color: var(--sm-color-text-tertiary);
+}
+
+.type-option.disabled:hover {
+  border-color: var(--sm-color-border-subtle);
+  background-color: var(--sm-color-surface-1);
 }
 
 .option-label {

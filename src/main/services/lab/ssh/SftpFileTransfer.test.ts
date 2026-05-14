@@ -303,7 +303,9 @@ test('SftpFileTransfer', async (t) => {
   await t.test('onProgress 回调被调用', async () => {
     const mockClient = new Client()
     const progressMessages: string[] = []
-    const onProgress = (message: string): void => { progressMessages.push(message) }
+    const onProgress = (message: string): void => {
+      progressMessages.push(message)
+    }
 
     sshConnectionManager.getClient = () => mockClient
     try {
