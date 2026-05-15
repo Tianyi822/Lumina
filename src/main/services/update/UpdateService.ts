@@ -26,6 +26,11 @@ export class UpdateService {
   private lastCheckResult: { hasUpdate: boolean; version?: string } | null = null
   private lastCheckTime = 0
   private static readonly CHECK_CACHE_MS = 5 * 60 * 1000
+  private _isQuittingForUpdate = false
+
+  get isQuittingForUpdate(): boolean {
+    return this._isQuittingForUpdate
+  }
 
   constructor() {
     configurePlatformUpdateChannel(autoUpdater)
@@ -160,7 +165,16 @@ export class UpdateService {
   }
 
   quitAndInstall(): void {
-    autoUpdater.quitAndInstall()
+    try {
+      this._isQuittingForUpdate = true
+      logger.info('开始退出并安装更新', 'main')
+      autoUpdater.quitAndInstall()
+    } catch (error) {
+      logger.error('退出安装更新失败', 'main', {
+        error: error instanceof Error ? error.message : String(error)
+      })
+      this._isQuittingForUpdate = false
+    }
   }
 
   getStatus(): UpdateStatus {
