@@ -55,6 +55,15 @@ test('缺少安装包资源映射为 asset-missing', () => {
   assert.equal(diagnostic.diagnosticCode, 'asset-missing')
 })
 
+test('macOS 代码签名校验失败映射为 signature-invalid', () => {
+  const diagnostic = classifyUpdateError(
+    'Code signature at URL file:///Users/test/Library/Caches/com.lumina.app.ShipIt/update/Lumina.app/ did not pass validation: 代码未能满足指定的代码要求'
+  )
+
+  assert.equal(diagnostic.diagnosticCode, 'signature-invalid')
+  assert.match(diagnostic.message, /手动安装一次/)
+})
+
 test('仅 isUpdateAvailable 为 true 时判断为有更新', () => {
   assert.equal(hasAvailableUpdate({ isUpdateAvailable: true }), true)
   assert.equal(hasAvailableUpdate({ isUpdateAvailable: false }), false)

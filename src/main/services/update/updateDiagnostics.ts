@@ -55,10 +55,13 @@ export function classifyUpdateError(rawMessage: string): UpdateDiagnostic {
     }
   }
 
-  if (/ERR_UPDATER_INVALID_SIGNATURE|not signed by|signature/i.test(message)) {
+  if (
+    /ERR_UPDATER_INVALID_SIGNATURE|not signed by|signature|did not pass validation/i.test(message)
+  ) {
     return {
       diagnosticCode: 'signature-invalid',
-      message: '更新安装包签名校验失败，请手动下载最新版本'
+      message:
+        '更新安装包签名校验失败，请手动下载最新正式版本。如果当前版本来自未签名测试包，需要手动安装一次后才能继续使用自动更新。'
     }
   }
 

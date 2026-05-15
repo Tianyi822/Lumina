@@ -109,7 +109,13 @@ function createService(options: {
   })
 }
 
-function getContent(result: Awaited<ReturnType<PaperContextSearchToolService['search']>>) {
+function getContent(result: Awaited<ReturnType<PaperContextSearchToolService['search']>>): {
+  iterations: number
+  keywords: string[]
+  usedReadingProgressFallback: boolean
+  matches: Array<{ source: string; sentence: string; segmentIndex: number }>
+  warnings: string[]
+} {
   assert.equal(result.success, true)
   assert.ok(result.content && typeof result.content === 'object')
   return result.content as {

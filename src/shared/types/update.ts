@@ -10,6 +10,7 @@ export type UpdateStatus =
   | 'available'
   | 'downloading'
   | 'downloaded'
+  | 'installing'
   | 'not-available'
   | 'error'
 
