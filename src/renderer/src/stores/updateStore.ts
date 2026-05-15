@@ -65,7 +65,12 @@ export const useUpdateStore = defineStore('update', () => {
     unsubscribeProgress?.()
   }
 
-  async function openManualDownload(url: string): Promise<void> {
+  async function openManualDownload(): Promise<void> {
+    const url = manualDownloadUrl.value
+    if (!url) {
+      return
+    }
+
     try {
       await window.api.window.openExternal(url)
     } catch {
@@ -82,9 +87,6 @@ export const useUpdateStore = defineStore('update', () => {
     }
     if (result.success && result.manualDownloadUrl) {
       manualDownloadUrl.value = result.manualDownloadUrl
-    }
-    if (result.success && result.hasUpdate && result.manualDownloadUrl) {
-      await openManualDownload(result.manualDownloadUrl)
     }
     if (!result.success) {
       status.value = 'error'
@@ -138,6 +140,7 @@ export const useUpdateStore = defineStore('update', () => {
     manualDownloadUrl,
     setupListeners,
     cleanupListeners,
+    openManualDownload,
     checkForUpdate,
     downloadUpdate,
     quitAndInstall,

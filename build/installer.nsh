@@ -21,7 +21,13 @@ Var DataDirControl
 ; ============================================================
 !macro customPageAfterChangeDir
   Page custom DataDirPageCreate DataDirPageLeave
+  !define MUI_PAGE_CUSTOMFUNCTION_SHOW LuminaInstallPageShow
 !macroend
+
+Function LuminaInstallPageShow
+  SetDetailsPrint both
+  DetailPrint "正在安装 Lumina 主程序..."
+FunctionEnd
 
 Function DataDirPageCreate
   ${If} $DataDir == ""
@@ -78,13 +84,17 @@ FunctionEnd
 ; 安装阶段：写入注册表和创建数据目录
 ; ============================================================
 !macro customInstall
+  SetDetailsPrint both
+  DetailPrint "正在写入安装信息..."
   WriteRegStr HKCU "Software\Lumina" "DataPath" "$DataDir"
   WriteRegStr HKCU "Software\Lumina" "InstallPath" "$INSTDIR"
 
+  DetailPrint "正在准备用户数据目录..."
   CreateDirectory "$DataDir"
   CreateDirectory "$DataDir\cache"
   CreateDirectory "$DataDir\config"
   CreateDirectory "$DataDir\logs"
+  DetailPrint "安装完成"
 !macroend
 !endif
 

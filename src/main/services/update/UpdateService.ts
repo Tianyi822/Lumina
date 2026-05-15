@@ -23,7 +23,7 @@ function isNewerVersion(newVersion: string, currentVersion: string): boolean {
 }
 
 function usesManualInstallerUpdate(): boolean {
-  return process.platform === 'darwin' || process.platform === 'win32'
+  return process.platform === 'darwin'
 }
 
 export class UpdateService {

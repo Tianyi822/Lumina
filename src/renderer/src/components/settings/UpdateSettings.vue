@@ -30,6 +30,10 @@ const canInstall = computed(() => {
   return store.status === 'downloaded'
 })
 
+const canManualDownload = computed(() => {
+  return !!store.manualDownloadUrl && (store.status === 'available' || store.status === 'error')
+})
+
 const updateButtonText = computed(() => {
   if (store.status === 'downloading') {
     return store.progress ? `${Math.round(store.progress.percent)}%` : '下载中...'
@@ -74,6 +78,10 @@ async function handleUpdate(): Promise<void> {
   } else if (store.status === 'available') {
     await store.downloadUpdate()
   }
+}
+
+function handleManualDownload(): void {
+  store.openManualDownload()
 }
 
 function toggleExpand(version: string): void {
@@ -121,6 +129,13 @@ onUnmounted(() => {
         >
           {{ updateButtonText }}
         </button>
+        <button
+          v-if="canManualDownload"
+          class="sm-button sm-button--primary update-settings__manual-link"
+          @click="handleManualDownload"
+        >
+          下载最新版本
+        </button>
       </div>
 
       <!-- 进度条 -->
@@ -144,16 +159,6 @@ onUnmounted(() => {
       <p v-if="statusText" class="update-settings__status" :class="`is-${store.status}`">
         {{ statusText }}
       </p>
-
-      <a
-        v-if="store.manualDownloadUrl"
-        class="sm-button sm-button--primary update-settings__manual-link"
-        :href="store.manualDownloadUrl"
-        target="_blank"
-        rel="noreferrer"
-      >
-        下载最新版本
-      </a>
 
       <!-- 开发模式提示 -->
       <p v-if="isDev" class="update-settings__dev-hint">开发模式下更新功能不可用</p>
