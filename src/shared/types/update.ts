@@ -43,6 +43,14 @@ export interface ReleaseInfo {
   isPrerelease: boolean
 }
 
+/** 更新诊断代码 */
+export type UpdateDiagnosticCode =
+  | 'metadata-missing'
+  | 'asset-missing'
+  | 'signature-invalid'
+  | 'network-error'
+  | 'unknown'
+
 /** 检查更新结果 */
 export interface CheckUpdateResult {
   success: boolean
@@ -50,6 +58,9 @@ export interface CheckUpdateResult {
   version?: string
   releaseNotes?: string
   error?: string
+  message?: string
+  diagnosticCode?: UpdateDiagnosticCode
+  manualDownloadUrl?: string
 }
 
 /** 状态变更事件 */
@@ -58,4 +69,6 @@ export interface UpdateStatusEvent {
   version?: string
   releaseNotes?: string
   message?: string
+  diagnosticCode?: UpdateDiagnosticCode
+  manualDownloadUrl?: string
 }

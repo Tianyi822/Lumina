@@ -1,7 +1,15 @@
-import { autoUpdater, UpdateInfo } from 'electron-updater'
-import { BrowserWindow, app } from 'electron'
-import { logger } from '../logger'
+import { app } from 'electron'
+import { autoUpdater } from 'electron-updater'
+import type { BrowserWindow } from 'electron'
+import type { UpdateInfo } from 'electron-updater'
 import type { UpdateStatus, UpdateStatusEvent, CheckUpdateResult } from '@shared/types/update'
+
+import { logger } from '../logger'
+import {
+  classifyUpdateError,
+  configurePlatformUpdateChannel,
+  hasAvailableUpdate
+} from './updateDiagnostics'
 
 function isNewerVersion(newVersion: string, currentVersion: string): boolean {
   const parse = (v: string): number[] => v.split('.').map((n) => parseInt(n, 10) || 0)
@@ -20,6 +28,8 @@ export class UpdateService {
   private static readonly CHECK_CACHE_MS = 5 * 60 * 1000
 
   constructor() {
+    configurePlatformUpdateChannel(autoUpdater)
+
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
 
@@ -49,10 +59,10 @@ export class UpdateService {
     })
 
     autoUpdater.on('error', (error: Error) => {
+      const diagnostic = classifyUpdateError(error.message)
       logger.error('自动更新错误', 'main', { error: error.message })
-      // 仅在 checking 状态下才覆盖为 error，避免覆盖已确定的 not-available 状态
-      if (this.status === 'checking') {
-        this.setStatus('error', { message: error.message })
+      if (this.status === 'checking' || this.status === 'downloading') {
+        this.setStatus('error', diagnostic)
       }
     })
   }
@@ -74,7 +84,7 @@ export class UpdateService {
 
     try {
       const result = await autoUpdater.checkForUpdates()
-      const hasUpdate = result?.updateInfo != null
+      const hasUpdate = hasAvailableUpdate(result)
       const version = result?.updateInfo.version
       const releaseNotes = result?.updateInfo.releaseNotes as string | undefined
 
@@ -89,6 +99,10 @@ export class UpdateService {
       return { success: true, hasUpdate, version, releaseNotes }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      const diagnostic = classifyUpdateError(message)
+      let latestVersion: string | undefined
+      let manualDownloadUrl: string | undefined
+
       logger.error('检查更新失败', 'main', { error: message })
 
       // autoUpdater 检查失败时，回退到 GitHub Releases API 判断是否真的没有新版本
@@ -97,7 +111,8 @@ export class UpdateService {
         const releasesResult = await releaseNotesService.getReleases()
         if (releasesResult.success && releasesResult.data && releasesResult.data.length > 0) {
           const latestRelease = releasesResult.data[0]
-          const latestVersion = latestRelease.version
+          latestVersion = latestRelease.version
+          manualDownloadUrl = latestRelease.htmlUrl
           const currentVersion = app.getVersion()
           if (!isNewerVersion(latestVersion, currentVersion)) {
             this.lastCheckResult = { hasUpdate: false }
@@ -113,10 +128,20 @@ export class UpdateService {
         logger.error('回退 Releases API 检查也失败', 'main', { error: String(fallbackError) })
       }
 
-      if (this.status === 'checking') {
-        this.setStatus('error', { message })
+      this.setStatus('error', {
+        ...diagnostic,
+        version: latestVersion,
+        manualDownloadUrl
+      })
+      return {
+        success: false,
+        hasUpdate: latestVersion ? true : undefined,
+        version: latestVersion,
+        error: diagnostic.message,
+        message: diagnostic.message,
+        diagnosticCode: diagnostic.diagnosticCode,
+        manualDownloadUrl
       }
-      return { success: false, error: message }
     }
   }
 
@@ -127,9 +152,10 @@ export class UpdateService {
       return { success: true }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      const diagnostic = classifyUpdateError(message)
       logger.error('下载更新失败', 'main', { error: message })
-      this.setStatus('error', { message })
-      return { success: false, error: message }
+      this.setStatus('error', diagnostic)
+      return { success: false, error: diagnostic.message }
     }
   }
 
