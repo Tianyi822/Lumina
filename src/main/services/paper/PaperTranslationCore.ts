@@ -553,6 +553,21 @@ export class PaperTranslationCore {
     const validCache = this.readValidCache(paperId, source)
     const runningTask = this.tasks.get(paperId)
 
+    if (!runningTask && validCache) {
+      let dirty = false
+      for (const entry of validCache.entries) {
+        if (entry.status === 'translating') {
+          entry.status = 'queued'
+          dirty = true
+        }
+      }
+      if (dirty) {
+        validCache.completedSegments = countCompletedSegments(validCache.entries)
+        validCache.updatedAt = this.now()
+        this.persistCache(paperId, validCache)
+      }
+    }
+
     return {
       success: true,
       data: {

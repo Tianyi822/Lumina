@@ -11,13 +11,40 @@
 }
 
 .sm-settings-nav {
+  --settings-nav-padding: var(--sm-space-5);
+  --settings-nav-scrollbar-thumb: transparent;
+  --settings-nav-scrollbar-thumb-hover: transparent;
+
   width: 248px;
   min-width: 248px;
   display: flex;
   flex-direction: column;
-  padding: var(--sm-space-5);
   border-right: 1px solid var(--sm-color-border-default);
   background: var(--sm-color-surface-1);
+  overflow-y: auto;
+  scrollbar-color: var(--settings-nav-scrollbar-thumb) transparent;
+}
+
+.sm-settings-nav.is-scrolling {
+  --settings-nav-scrollbar-thumb: rgba(255, 255, 255, 0.12);
+  --settings-nav-scrollbar-thumb-hover: rgba(255, 255, 255, 0.18);
+}
+
+.sm-settings-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sm-settings-nav::-webkit-scrollbar-thumb {
+  background-color: var(--settings-nav-scrollbar-thumb);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  transition: background-color 0.2s;
+}
+
+.sm-settings-nav.is-scrolling::-webkit-scrollbar-thumb:hover {
+  background-color: var(--settings-nav-scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 
 .sm-settings-page__title {
@@ -36,11 +63,13 @@
 }
 
 .sm-settings-nav__list {
+  flex: 0 0 auto;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-height: 0;
-  overflow-y: auto;
+  padding: var(--settings-nav-padding);
 }
 
 .sm-settings-nav__item {
@@ -262,6 +291,7 @@
     min-width: 0;
     border-right: none;
     border-bottom: 1px solid var(--sm-color-border-default);
+    overflow-y: hidden;
   }
 
   .sm-settings-nav__list {
@@ -277,9 +307,12 @@
 
 @media (max-width: 640px) {
   .sm-settings-panel__body,
-  .sm-settings-page__section,
-  .sm-settings-nav {
+  .sm-settings-page__section {
     padding: var(--sm-space-4);
+  }
+
+  .sm-settings-nav {
+    --settings-nav-padding: var(--sm-space-4);
   }
 
   .sm-settings-grid {

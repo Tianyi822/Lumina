@@ -38,8 +38,15 @@ export const useUpdateStore = defineStore('update', () => {
         clearError()
         progress.value = null
       }
-      if (event.status === 'available' || event.status === 'not-available') {
-        clearError()
+      if (event.status === 'available') {
+        errorMessage.value = null
+        diagnosticCode.value = null
+        manualDownloadUrl.value = event.manualDownloadUrl || null
+      }
+      if (event.status === 'not-available' || event.status === 'installing') {
+        errorMessage.value = null
+        diagnosticCode.value = null
+        manualDownloadUrl.value = null
       }
       if (event.status === 'error') {
         errorMessage.value = event.message || '检查更新失败，请稍后重试'
@@ -58,12 +65,26 @@ export const useUpdateStore = defineStore('update', () => {
     unsubscribeProgress?.()
   }
 
+  async function openManualDownload(url: string): Promise<void> {
+    try {
+      await window.api.window.openExternal(url)
+    } catch {
+      // 保留页面上的下载按钮供用户再次点击
+    }
+  }
+
   async function checkForUpdate(): Promise<void> {
     clearError()
     progress.value = null
     const result = await window.api.update.checkForUpdate()
     if (result.version) {
       latestVersion.value = result.version
+    }
+    if (result.success && result.manualDownloadUrl) {
+      manualDownloadUrl.value = result.manualDownloadUrl
+    }
+    if (result.success && result.hasUpdate && result.manualDownloadUrl) {
+      await openManualDownload(result.manualDownloadUrl)
     }
     if (!result.success) {
       status.value = 'error'

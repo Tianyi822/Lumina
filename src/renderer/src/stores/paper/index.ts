@@ -352,6 +352,14 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     currentPaperId.value = paperId
+
+    // 恢复该论文的缩放级别
+    const savedZoom = paper.readingProgress?.zoomLevel
+    if (savedZoom) {
+      markdownZoomLevel.value = normalizeZoomLevel(savedZoom)
+      scheduleZoomPercentSync()
+    }
+
     uiStateStore.setLastPaperId(paperId)
   }
 
@@ -635,6 +643,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     zoomIn,
     zoomOut,
     resetZoom,
+    setZoomLevel,
     handleWheelZoom,
     setMarkdownScrollPosition,
     getMarkdownScrollPosition,
