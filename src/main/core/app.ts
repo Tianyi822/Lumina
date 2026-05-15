@@ -165,6 +165,9 @@ export function initializeApp(): void {
   })
 
   app.on('before-quit', (e) => {
+    if (updateService.isQuittingForUpdate) {
+      return
+    }
     e.preventDefault()
     requestShutdown(0, 'before-quit')
   })
