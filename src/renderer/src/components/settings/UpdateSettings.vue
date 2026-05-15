@@ -46,7 +46,7 @@ const statusText = computed(() => {
     case 'downloaded':
       return '下载完成，点击"重启安装"完成更新'
     case 'error':
-      return '检查更新失败，请稍后重试'
+      return store.errorMessage || '检查更新失败，请稍后重试'
     default:
       return ''
   }
@@ -131,6 +131,16 @@ onUnmounted(() => {
       <p v-if="statusText" class="update-settings__status" :class="`is-${store.status}`">
         {{ statusText }}
       </p>
+
+      <a
+        v-if="store.manualDownloadUrl"
+        class="sm-button sm-button--secondary update-settings__manual-link"
+        :href="store.manualDownloadUrl"
+        target="_blank"
+        rel="noreferrer"
+      >
+        前往 GitHub Release 手动下载
+      </a>
 
       <!-- 开发模式提示 -->
       <p v-if="isDev" class="update-settings__dev-hint">开发模式下更新功能不可用</p>
@@ -251,6 +261,11 @@ onUnmounted(() => {
 
 .update-settings__status.is-downloaded {
   color: var(--sm-color-success, #22c55e);
+}
+
+.update-settings__manual-link {
+  width: fit-content;
+  text-decoration: none;
 }
 
 .update-settings__dev-hint {

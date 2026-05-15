@@ -13,6 +13,7 @@
     "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "test:theme": "node --test --experimental-strip-types src/shared/utils/theme.test.mjs",
+    "test:update": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/update/updateDiagnostics.test.ts",
     "test:file": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/file/FileService.test.ts",
     "test:paper": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/paper/paperBlockClassifiers.test.ts src/main/services/paper/paperTextProcessing.test.ts src/main/services/paper/paperMarkdownBuilder.test.ts src/main/services/paper/paperFigureExtractor.test.ts src/main/services/paper/paperAssetLocalizer.test.ts src/main/services/paper/PaperService.test.ts",
     "test:paper-ocr": "node --test --experimental-strip-types src/main/services/paper/paperOcrPipeline.test.ts",

@@ -4,7 +4,8 @@ import type {
   UpdateStatus,
   DownloadProgress,
   ReleaseInfo,
-  UpdateStatusEvent
+  UpdateStatusEvent,
+  UpdateDiagnosticCode
 } from '@shared/types/update'
 
 export const useUpdateStore = defineStore('update', () => {
@@ -14,15 +15,36 @@ export const useUpdateStore = defineStore('update', () => {
   const releases = ref<ReleaseInfo[]>([])
   const loadingReleases = ref(false)
   const releasesError = ref<string | null>(null)
+  const errorMessage = ref<string | null>(null)
+  const diagnosticCode = ref<UpdateDiagnosticCode | null>(null)
+  const manualDownloadUrl = ref<string | null>(null)
 
   let unsubscribeStatus: (() => void) | null = null
   let unsubscribeProgress: (() => void) | null = null
+
+  function clearError(): void {
+    errorMessage.value = null
+    diagnosticCode.value = null
+    manualDownloadUrl.value = null
+  }
 
   function setupListeners(): void {
     unsubscribeStatus = window.api.update.onStatus((event: UpdateStatusEvent) => {
       status.value = event.status
       if (event.version) {
         latestVersion.value = event.version
+      }
+      if (event.status === 'checking') {
+        clearError()
+        progress.value = null
+      }
+      if (event.status === 'available' || event.status === 'not-available') {
+        clearError()
+      }
+      if (event.status === 'error') {
+        errorMessage.value = event.message || '检查更新失败，请稍后重试'
+        diagnosticCode.value = event.diagnosticCode || null
+        manualDownloadUrl.value = event.manualDownloadUrl || null
       }
     })
 
@@ -37,14 +59,27 @@ export const useUpdateStore = defineStore('update', () => {
   }
 
   async function checkForUpdate(): Promise<void> {
+    clearError()
+    progress.value = null
     const result = await window.api.update.checkForUpdate()
-    if (result.success && result.version) {
+    if (result.version) {
       latestVersion.value = result.version
+    }
+    if (!result.success) {
+      status.value = 'error'
+      errorMessage.value = result.message || result.error || '检查更新失败，请稍后重试'
+      diagnosticCode.value = result.diagnosticCode || null
+      manualDownloadUrl.value = result.manualDownloadUrl || null
     }
   }
 
   async function downloadUpdate(): Promise<void> {
-    await window.api.update.downloadUpdate()
+    clearError()
+    const result = await window.api.update.downloadUpdate()
+    if (!result.success) {
+      status.value = 'error'
+      errorMessage.value = result.error || '下载更新失败'
+    }
   }
 
   function quitAndInstall(): void {
@@ -77,6 +112,9 @@ export const useUpdateStore = defineStore('update', () => {
     releases,
     loadingReleases,
     releasesError,
+    errorMessage,
+    diagnosticCode,
+    manualDownloadUrl,
     setupListeners,
     cleanupListeners,
     checkForUpdate,
