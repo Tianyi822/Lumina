@@ -643,6 +643,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     zoomIn,
     zoomOut,
     resetZoom,
+    setZoomLevel,
     handleWheelZoom,
     setMarkdownScrollPosition,
     getMarkdownScrollPosition,
