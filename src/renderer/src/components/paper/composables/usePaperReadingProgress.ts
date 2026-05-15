@@ -1,4 +1,4 @@
-import { nextTick, onBeforeUnmount, watch, type Ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, watch, type Ref } from 'vue'
 import type { PaperReadingProgress } from '@shared/types/paper'
 
 const SAVE_DEBOUNCE_MS = 500
@@ -37,6 +37,17 @@ export function usePaperReadingProgress(options: UsePaperReadingProgressOptions)
     })
   }
 
+  function flushPendingSave(): void {
+    if (saveTimer) {
+      clearTimeout(saveTimer)
+      saveTimer = null
+    }
+    if (pendingPercent !== null) {
+      saveProgress(pendingPercent)
+      pendingPercent = null
+    }
+  }
+
   function debouncedSave(percent: number): void {
     if (saveTimer) {
       clearTimeout(saveTimer)
@@ -46,6 +57,7 @@ export function usePaperReadingProgress(options: UsePaperReadingProgressOptions)
       saveTimer = null
       if (pendingPercent !== null) {
         saveProgress(pendingPercent)
+        pendingPercent = null
       }
     }, SAVE_DEBOUNCE_MS)
   }
@@ -83,6 +95,7 @@ export function usePaperReadingProgress(options: UsePaperReadingProgressOptions)
       options.setZoomLevel(progress.zoomLevel, { persist: false })
     }
 
+    // 等待内容渲染（PaperMarkdownView 的 content watch 中的 renderContentAndSyncTables 需要时间）
     await nextTick()
     await nextTick()
     isRestoring = true
@@ -104,18 +117,30 @@ export function usePaperReadingProgress(options: UsePaperReadingProgressOptions)
     })
   }
 
-  // scrollContainer 就绪时立即尝试恢复（处理切走再切回来、loading 不变的情况）
+  // 仅管理 scroll listener 的挂载/卸载
   watch(options.scrollContainer, (newContainer, oldContainer) => {
     if (oldContainer) {
       oldContainer.removeEventListener('scroll', handleScroll)
     }
-    if (newContainer && !options.loading()) {
+    if (newContainer) {
       setupScrollListener()
-      void restoreProgress()
     }
   })
 
-  // loading 从 true 变 false 时恢复（首次加载）
+  // 切换论文时：立即保存旧论文 pending 进度，然后恢复新论文进度
+  watch(
+    () => options.paperId(),
+    (newPaperId, oldPaperId) => {
+      if (oldPaperId) {
+        flushPendingSave()
+      }
+      if (newPaperId && newPaperId !== oldPaperId) {
+        void restoreProgress()
+      }
+    }
+  )
+
+  // loading 从 true 变 false 时恢复（首次加载/OCR 完成后）
   watch(
     () => options.loading(),
     async (loading, wasLoading) => {
@@ -124,13 +149,16 @@ export function usePaperReadingProgress(options: UsePaperReadingProgressOptions)
     }
   )
 
+  // onMounted 时恢复 — 处理组件卸载再挂载（如切到知识库再切回来）的情况
+  // 此时 loading 可能已经是 false，loading watch 不会触发
+  onMounted(async () => {
+    await nextTick()
+    if (options.loading()) return
+    await restoreProgress()
+  })
+
   onBeforeUnmount(() => {
-    if (saveTimer) {
-      clearTimeout(saveTimer)
-    }
-    if (pendingPercent !== null) {
-      saveProgress(pendingPercent)
-    }
+    flushPendingSave()
     teardownScrollListener()
   })
 }
