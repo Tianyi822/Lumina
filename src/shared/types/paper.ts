@@ -37,13 +37,13 @@ export type BlockLabel = 'text' | 'image' | 'table' | 'formula' | 'code'
 
 /**
  * 论文阅读进度
- * 基于 segment stable ID 锚定，不依赖像素偏移
+ * 基于滚动百分比记录，每篇论文独立保存缩放级别
  */
 export interface PaperReadingProgress {
-  /** 最后阅读的段落 stable ID */
-  lastReadSegmentStableId: string
-  /** 阅读时的内容修订 ID（内容变更后不恢复） */
-  sourceRevisionId: string
+  /** 滚动百分比 (0-100)，0=顶部，100=底部 */
+  scrollPercent: number
+  /** 缩放级别 (0.5-2.0) */
+  zoomLevel: number
   /** 最后阅读时间 */
   readAt: string
   /** 译文是否可见 */
