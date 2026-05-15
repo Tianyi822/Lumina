@@ -35,6 +35,21 @@ const notify = useNotification()
 // 当前激活的 Tab
 const activeTab = ref<SettingsTabKey>('model')
 
+// 侧边栏滚动条：滚动时才显示
+const navRef = ref<HTMLElement | null>(null)
+let scrollTimeout: ReturnType<typeof setTimeout> | null = null
+
+function handleNavScroll(): void {
+  const el = navRef.value
+  if (!el) return
+  el.classList.add('is-scrolling')
+  if (scrollTimeout) clearTimeout(scrollTimeout)
+  scrollTimeout = setTimeout(() => {
+    el.classList.remove('is-scrolling')
+    scrollTimeout = null
+  }, 800)
+}
+
 const settingsTabs: Array<{
   id: SettingsTabKey
   label: string
@@ -107,6 +122,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
+  if (scrollTimeout) clearTimeout(scrollTimeout)
 })
 </script>
 
@@ -121,7 +137,7 @@ onUnmounted(() => {
       </div>
 
       <div class="sm-settings-layout settings-body">
-        <aside class="sm-settings-nav settings-nav">
+        <aside ref="navRef" class="sm-settings-nav settings-nav" @scroll="handleNavScroll">
           <div class="sm-settings-nav__list">
             <button
               v-for="tab in settingsTabs"
