@@ -1,7 +1,7 @@
 import { nextTick, onBeforeUnmount, watch, type Ref } from 'vue'
 import type { PaperReadingProgress } from '@shared/types/paper'
 
-const SAVE_DEBOUNCE_MS = 2000
+const SAVE_DEBOUNCE_MS = 500
 
 export interface UsePaperReadingProgressOptions {
   scrollContainer: Ref<HTMLElement | null>
@@ -75,49 +75,52 @@ export function usePaperReadingProgress(options: UsePaperReadingProgressOptions)
     }
   }
 
+  async function restoreProgress(): Promise<void> {
+    const progress = options.readingProgress()
+    if (!progress) return
+
+    if (progress.zoomLevel && progress.zoomLevel !== options.zoomLevel()) {
+      options.setZoomLevel(progress.zoomLevel, { persist: false })
+    }
+
+    await nextTick()
+    await nextTick()
+    isRestoring = true
+    requestAnimationFrame(() => {
+      const container = options.scrollContainer.value
+      if (!container) {
+        isRestoring = false
+        return
+      }
+
+      const scrollableHeight = container.scrollHeight - container.clientHeight
+      if (scrollableHeight > 0) {
+        container.scrollTop = (progress.scrollPercent / 100) * scrollableHeight
+      }
+
+      setTimeout(() => {
+        isRestoring = false
+      }, 300)
+    })
+  }
+
+  // scrollContainer 就绪时立即尝试恢复（处理切走再切回来、loading 不变的情况）
   watch(options.scrollContainer, (newContainer, oldContainer) => {
     if (oldContainer) {
       oldContainer.removeEventListener('scroll', handleScroll)
     }
-    if (newContainer) {
+    if (newContainer && !options.loading()) {
       setupScrollListener()
+      void restoreProgress()
     }
   })
 
+  // loading 从 true 变 false 时恢复（首次加载）
   watch(
     () => options.loading(),
     async (loading, wasLoading) => {
       if (loading || !wasLoading) return
-
-      const progress = options.readingProgress()
-      if (!progress) return
-
-      // 恢复缩放级别
-      if (progress.zoomLevel && progress.zoomLevel !== options.zoomLevel()) {
-        options.setZoomLevel(progress.zoomLevel, { persist: false })
-      }
-
-      // 恢复滚动位置
-      await nextTick()
-      await nextTick()
-      isRestoring = true
-      requestAnimationFrame(() => {
-        const container = options.scrollContainer.value
-        if (!container) {
-          isRestoring = false
-          return
-        }
-
-        const scrollableHeight = container.scrollHeight - container.clientHeight
-        if (scrollableHeight > 0) {
-          container.scrollTop = (progress.scrollPercent / 100) * scrollableHeight
-        }
-
-        // 延迟重置 isRestoring，避免恢复滚动本身触发保存
-        setTimeout(() => {
-          isRestoring = false
-        }, 300)
-      })
+      await restoreProgress()
     }
   )
 
