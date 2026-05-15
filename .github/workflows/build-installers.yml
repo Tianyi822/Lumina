@@ -147,6 +147,7 @@ jobs:
           "### Windows installer" >> $env:GITHUB_STEP_SUMMARY
           "" >> $env:GITHUB_STEP_SUMMARY
           "The Windows installer produced by this workflow is currently unsigned because this personal open-source project does not provide a code signing certificate yet." >> $env:GITHUB_STEP_SUMMARY
+          "The app links Windows users to the release download page instead of automatically running this unsigned installer." >> $env:GITHUB_STEP_SUMMARY
           "Users may see Microsoft Defender SmartScreen or Edge download protection warnings such as `Publisher: Unknown`." >> $env:GITHUB_STEP_SUMMARY
           "Future signed releases can use `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` GitHub Secrets." >> $env:GITHUB_STEP_SUMMARY
 
@@ -284,6 +285,7 @@ jobs:
       - name: Build macOS installer
         shell: bash
         run: |
+          set -euo pipefail
           unset ELECTRON_MIRROR NPM_CONFIG_ELECTRON_MIRROR npm_config_electron_mirror
           unset ELECTRON_BUILDER_BINARIES_MIRROR
           unset NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR
@@ -296,7 +298,6 @@ jobs:
           name: lumina-macos
           path: |
             dist/*.dmg
-            dist/*.zip
             dist/*.blockmap
             dist/latest-mac.yml
           if-no-files-found: error
@@ -312,6 +313,9 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
       - name: Download installer artifacts
         uses: actions/download-artifact@v6
         with:
@@ -330,78 +334,7 @@ jobs:
       - name: Validate release assets
         shell: bash
         run: |
-          node <<'NODE'
-          const fs = require('fs')
-          const path = require('path')
-
-          const dir = path.join(process.cwd(), 'release-assets')
-          const entries = fs.readdirSync(dir)
-          const errors = []
-
-          const exists = (name) => fs.existsSync(path.join(dir, name))
-          const requireFile = (name) => {
-            if (!exists(name)) {
-              errors.push(`Missing ${name}`)
-            }
-          }
-          const requireMatch = (pattern, label) => {
-            if (!entries.some((name) => pattern.test(name))) {
-              errors.push(`Missing ${label}`)
-            }
-          }
-          const readFile = (name) => fs.readFileSync(path.join(dir, name), 'utf8')
-          const collectRefs = (name) => {
-            const content = readFile(name)
-            return [...content.matchAll(/^\s*(?:url|path):\s*['"]?([^'"\r\n#]+)['"]?\s*$/gm)]
-              .map((match) => match[1].trim())
-              .filter((value) => value && !/^https?:\/\//i.test(value))
-          }
-          const validateRefs = (name, platformPattern) => {
-            for (const ref of collectRefs(name)) {
-              if (!exists(ref)) {
-                errors.push(`${name} references missing asset ${ref}`)
-              }
-              if (!platformPattern.test(ref)) {
-                errors.push(`${name} references unexpected platform asset ${ref}`)
-              }
-            }
-          }
-
-          requireFile('latest.yml')
-          requireFile('latest-win.yml')
-          requireFile('latest-mac.yml')
-          requireMatch(/\.exe$/i, 'Windows installer')
-          requireMatch(/\.exe\.blockmap$/i, 'Windows blockmap')
-          requireMatch(/\.dmg$/i, 'macOS DMG')
-          requireMatch(/\.dmg\.blockmap$/i, 'macOS DMG blockmap')
-
-          if (exists('latest.yml') && exists('latest-win.yml')) {
-            const latest = readFile('latest.yml')
-            const latestWin = readFile('latest-win.yml')
-            if (latest !== latestWin) {
-              errors.push('latest.yml and latest-win.yml must be identical')
-            }
-          }
-
-          if (exists('latest.yml')) {
-            validateRefs('latest.yml', /\.(exe|exe\.blockmap)$/i)
-          }
-          if (exists('latest-win.yml')) {
-            validateRefs('latest-win.yml', /\.(exe|exe\.blockmap)$/i)
-          }
-          if (exists('latest-mac.yml')) {
-            validateRefs('latest-mac.yml', /\.(dmg|zip|dmg\.blockmap|zip\.blockmap)$/i)
-          }
-
-          if (errors.length > 0) {
-            for (const error of errors) {
-              console.error(error)
-            }
-            process.exit(1)
-          }
-
-          console.log(`Validated release assets: ${entries.join(', ')}`)
-          NODE
+          node scripts/build/validateReleaseAssets.cjs release-assets
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2

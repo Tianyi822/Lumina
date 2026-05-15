@@ -20,6 +20,7 @@ win:
   executableName: Lumina
   # 当前以个人开源项目形式发布，未配置 Windows 代码签名证书。
   # 不启用 forceCodeSigning，避免无证书时阻断 Windows 测试构建。
+  # 应用内更新暂时只提示手动下载，不自动执行未签名安装包。
   # 未来可在 CI 中通过 CSC_LINK/CSC_KEY_PASSWORD 或 WIN_CSC_LINK/WIN_CSC_KEY_PASSWORD 自动签名。
 nsis:
   oneClick: false
@@ -40,7 +41,6 @@ mac:
   icon: icon.icns
   target:
     - dmg
-    - zip
   identity: '-'
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
