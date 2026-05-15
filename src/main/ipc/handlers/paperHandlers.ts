@@ -109,15 +109,15 @@ export function registerPaperHandlers(): void {
       _event,
       params: {
         paperId: string
-        lastReadSegmentStableId: string
-        sourceRevisionId: string
+        scrollPercent: number
+        zoomLevel: number
         translationVisible?: boolean
       }
     ) => {
       return paperStorageService.updateMeta(params.paperId, {
         readingProgress: {
-          lastReadSegmentStableId: params.lastReadSegmentStableId,
-          sourceRevisionId: params.sourceRevisionId,
+          scrollPercent: params.scrollPercent,
+          zoomLevel: params.zoomLevel,
           readAt: new Date().toISOString(),
           translationVisible: params.translationVisible
         }

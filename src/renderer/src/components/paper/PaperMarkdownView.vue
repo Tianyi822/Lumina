@@ -82,11 +82,11 @@ const zoomAnchor = useZoomAnchor()
 usePaperReadingProgress({
   scrollContainer: scrollContainerRef,
   paperId: () => props.paperId,
-  renderedSegments: engine.renderedSegments,
   loading: () => props.loading,
-  sourceRevisionId: () => props.readerDocument?.sourceRevisionId,
+  zoomLevel: () => markdownZoomLevel.value,
   readingProgress: () => props.readingProgress,
   translationVisible: () => props.translationVisible,
+  setZoomLevel: paperReaderStore.setZoomLevel,
   isZooming: zoomAnchor.isZooming
 })
 

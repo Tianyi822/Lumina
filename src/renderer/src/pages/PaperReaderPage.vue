@@ -112,9 +112,6 @@ watch(markdownLoading, async (loading, wasLoading) => {
   const progress = currentPaper.value?.readingProgress
   if (!progress?.translationVisible) return
 
-  const revisionId = currentReaderDocument.value?.sourceRevisionId
-  if (revisionId && progress.sourceRevisionId !== revisionId) return
-
   if (!store.translationVisible) {
     await store.toggleTranslationVisible()
   }

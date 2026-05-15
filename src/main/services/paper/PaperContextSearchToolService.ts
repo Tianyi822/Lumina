@@ -494,13 +494,16 @@ export class PaperContextSearchToolService {
       return this.filterCorpusBySegmentRange(corpus, 0, READING_PROGRESS_WINDOW_AFTER, source)
     }
 
-    const currentIndex = readerDocument.segments.findIndex(
-      (segment) => segment.stableId === progress.lastReadSegmentStableId
-    )
-    if (currentIndex < 0) {
-      warnings.push('阅读进度对应段落已失效，已使用论文开头候选上下文')
+    const totalSegments = readerDocument.segments.length
+    if (totalSegments === 0) {
+      warnings.push('阅读进度对应段落为空，已使用论文开头候选上下文')
       return this.filterCorpusBySegmentRange(corpus, 0, READING_PROGRESS_WINDOW_AFTER, source)
     }
+
+    const currentIndex = Math.min(
+      Math.floor((progress.scrollPercent / 100) * totalSegments),
+      totalSegments - 1
+    )
 
     return this.filterCorpusBySegmentRange(
       corpus,

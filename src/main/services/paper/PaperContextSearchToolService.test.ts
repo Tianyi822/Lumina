@@ -71,7 +71,7 @@ function createTranslationCache(entries: PaperTranslationEntry[]): PaperTranslat
   }
 }
 
-function createPaperMeta(lastReadSegmentStableId = 'stable-0'): PaperDocument {
+function createPaperMeta(scrollPercent = 50): PaperDocument {
   return {
     id: paperId,
     fileName: 'test.pdf',
@@ -87,8 +87,8 @@ function createPaperMeta(lastReadSegmentStableId = 'stable-0'): PaperDocument {
     ocrModel: 'glm',
     completedPageCount: 1,
     readingProgress: {
-      lastReadSegmentStableId,
-      sourceRevisionId: 'reader-revision',
+      scrollPercent,
+      zoomLevel: 1.0,
       readAt: '2026-01-01T00:00:00.000Z'
     }
   }
@@ -202,7 +202,7 @@ test('无明确关键词时使用阅读进度到后 5 段的候选上下文', as
   const readerDocument = createReaderDocument(segments)
   const service = createService({
     readerDocument,
-    meta: createPaperMeta('stable-1')
+    meta: createPaperMeta(50)
   })
 
   const output = getContent(
