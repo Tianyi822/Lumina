@@ -14,11 +14,16 @@ const currentVersion = __APP_VERSION__
 const isDev = import.meta.env.DEV
 
 const canCheck = computed(() => {
-  return !isDev && store.status !== 'checking' && store.status !== 'downloading'
+  return (
+    !isDev &&
+    store.status !== 'checking' &&
+    store.status !== 'downloading' &&
+    store.status !== 'installing'
+  )
 })
 
 const canUpdate = computed(() => {
-  return store.status === 'available'
+  return store.status === 'available' && !store.manualDownloadUrl
 })
 
 const canInstall = computed(() => {
@@ -32,6 +37,9 @@ const updateButtonText = computed(() => {
   if (store.status === 'downloaded') {
     return '重启安装'
   }
+  if (store.status === 'installing') {
+    return '正在安装...'
+  }
   return '立即更新'
 })
 
@@ -40,11 +48,15 @@ const statusText = computed(() => {
     case 'checking':
       return '正在检查更新...'
     case 'available':
-      return `发现新版本 v${store.latestVersion}`
+      return store.manualDownloadUrl
+        ? `发现新版本 v${store.latestVersion}，请下载最新安装包手动更新`
+        : `发现新版本 v${store.latestVersion}`
     case 'not-available':
       return '已是最新版本'
     case 'downloaded':
       return '下载完成，点击"重启安装"完成更新'
+    case 'installing':
+      return '正在重启安装...'
     case 'error':
       return store.errorMessage || '检查更新失败，请稍后重试'
     default:
@@ -102,6 +114,7 @@ onUnmounted(() => {
           {{ store.status === 'checking' ? '检查中...' : '检查更新' }}
         </button>
         <button
+          v-if="!store.manualDownloadUrl"
           class="sm-button sm-button--primary"
           :disabled="!canUpdate && !canInstall"
           @click="handleUpdate"
@@ -134,12 +147,12 @@ onUnmounted(() => {
 
       <a
         v-if="store.manualDownloadUrl"
-        class="sm-button sm-button--secondary update-settings__manual-link"
+        class="sm-button sm-button--primary update-settings__manual-link"
         :href="store.manualDownloadUrl"
         target="_blank"
         rel="noreferrer"
       >
-        前往 GitHub Release 手动下载
+        下载最新版本
       </a>
 
       <!-- 开发模式提示 -->
@@ -261,6 +274,10 @@ onUnmounted(() => {
 
 .update-settings__status.is-downloaded {
   color: var(--sm-color-success, #22c55e);
+}
+
+.update-settings__status.is-installing {
+  color: var(--sm-color-primary, #4f46e5);
 }
 
 .update-settings__manual-link {
