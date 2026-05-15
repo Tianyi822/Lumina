@@ -1,108 +1,87 @@
 import { nextTick, onBeforeUnmount, watch, type Ref } from 'vue'
 import type { PaperReadingProgress } from '@shared/types/paper'
-import type { RenderedSegment } from './usePaperMarkdownEngine'
 
-const SAVE_DEBOUNCE_MS = 4000
+const SAVE_DEBOUNCE_MS = 2000
 
 export interface UsePaperReadingProgressOptions {
   scrollContainer: Ref<HTMLElement | null>
   paperId: () => string | null
-  renderedSegments: Ref<ReadonlyArray<RenderedSegment>>
   loading: () => boolean
-  sourceRevisionId: () => string | undefined
+  zoomLevel: () => number
   readingProgress: () => PaperReadingProgress | null | undefined
   translationVisible: () => boolean
+  setZoomLevel: (level: number, options?: { persist?: boolean }) => void
   isZooming?: () => boolean
 }
 
-export function usePaperReadingProgress(options: UsePaperReadingProgressOptions): void {
-  let observer: IntersectionObserver | null = null
-  let saveTimer: ReturnType<typeof setTimeout> | null = null
-  let pendingStableId: string | null = null
-  let observedElements: Element[] = []
+function computeScrollPercent(container: HTMLElement): number {
+  const scrollableHeight = container.scrollHeight - container.clientHeight
+  if (scrollableHeight <= 0) return 0
+  return Math.min(100, Math.max(0, (container.scrollTop / scrollableHeight) * 100))
+}
 
-  function saveProgress(stableId: string): void {
+export function usePaperReadingProgress(options: UsePaperReadingProgressOptions): void {
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  let pendingPercent: number | null = null
+  let isRestoring = false
+
+  function saveProgress(percent: number): void {
     const paperId = options.paperId()
-    const sourceRevisionId = options.sourceRevisionId()
-    if (!paperId || !sourceRevisionId) return
+    if (!paperId) return
 
     void window.api.paper.saveReadingProgress({
       paperId,
-      lastReadSegmentStableId: stableId,
-      sourceRevisionId,
+      scrollPercent: Math.round(percent * 100) / 100,
+      zoomLevel: options.zoomLevel(),
       translationVisible: options.translationVisible()
     })
   }
 
-  function debouncedSave(stableId: string): void {
+  function debouncedSave(percent: number): void {
     if (saveTimer) {
       clearTimeout(saveTimer)
     }
-    pendingStableId = stableId
+    pendingPercent = percent
     saveTimer = setTimeout(() => {
       saveTimer = null
-      if (pendingStableId) {
-        saveProgress(pendingStableId)
+      if (pendingPercent !== null) {
+        saveProgress(pendingPercent)
       }
     }, SAVE_DEBOUNCE_MS)
   }
 
-  function setupObserver(): void {
-    const container = options.scrollContainer.value
-    if (!container) return
-
-    observer = new IntersectionObserver(
-      (entries) => {
-        if (options.isZooming?.()) return
-
-        let bestId: string | null = null
-        let bestRatio = 0
-
-        for (const entry of entries) {
-          if (entry.intersectionRatio > bestRatio) {
-            bestRatio = entry.intersectionRatio
-            bestId = (entry.target as HTMLElement).dataset.paperSegmentStableId ?? null
-          }
-        }
-
-        if (bestId) {
-          debouncedSave(bestId)
-        }
-      },
-      {
-        root: container,
-        rootMargin: '-10% 0px -40% 0px',
-        threshold: [0, 0.25, 0.5]
-      }
-    )
-
-    observeSegments()
-  }
-
-  function observeSegments(): void {
-    if (!observer) return
-
-    for (const el of observedElements) {
-      observer.unobserve(el)
-    }
-    observedElements = []
+  function handleScroll(): void {
+    if (isRestoring) return
+    if (options.isZooming?.()) return
 
     const container = options.scrollContainer.value
     if (!container) return
 
-    const segments = container.querySelectorAll<HTMLElement>('[data-paper-segment-stable-id]')
-    for (const el of segments) {
-      observer.observe(el)
-      observedElements.push(el)
+    const percent = computeScrollPercent(container)
+    debouncedSave(percent)
+  }
+
+  function setupScrollListener(): void {
+    const container = options.scrollContainer.value
+    if (!container) return
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+  }
+
+  function teardownScrollListener(): void {
+    const container = options.scrollContainer.value
+    if (container) {
+      container.removeEventListener('scroll', handleScroll)
     }
   }
 
-  watch(options.renderedSegments, () => {
-    void nextTick(() => {
-      requestAnimationFrame(() => {
-        observeSegments()
-      })
-    })
+  watch(options.scrollContainer, (newContainer, oldContainer) => {
+    if (oldContainer) {
+      oldContainer.removeEventListener('scroll', handleScroll)
+    }
+    if (newContainer) {
+      setupScrollListener()
+    }
   })
 
   watch(
@@ -113,44 +92,42 @@ export function usePaperReadingProgress(options: UsePaperReadingProgressOptions)
       const progress = options.readingProgress()
       if (!progress) return
 
-      const currentRevisionId = options.sourceRevisionId()
-      if (currentRevisionId && progress.sourceRevisionId !== currentRevisionId) return
+      // 恢复缩放级别
+      if (progress.zoomLevel && progress.zoomLevel !== options.zoomLevel()) {
+        options.setZoomLevel(progress.zoomLevel, { persist: false })
+      }
 
+      // 恢复滚动位置
       await nextTick()
+      await nextTick()
+      isRestoring = true
       requestAnimationFrame(() => {
         const container = options.scrollContainer.value
-        if (!container) return
-
-        const target = container.querySelector<HTMLElement>(
-          `[data-paper-segment-stable-id="${progress.lastReadSegmentStableId}"]`
-        )
-        if (target) {
-          target.scrollIntoView({ behavior: 'instant', block: 'start' })
+        if (!container) {
+          isRestoring = false
+          return
         }
+
+        const scrollableHeight = container.scrollHeight - container.clientHeight
+        if (scrollableHeight > 0) {
+          container.scrollTop = (progress.scrollPercent / 100) * scrollableHeight
+        }
+
+        // 延迟重置 isRestoring，避免恢复滚动本身触发保存
+        setTimeout(() => {
+          isRestoring = false
+        }, 300)
       })
     }
   )
-
-  watch(options.scrollContainer, (container) => {
-    if (observer) {
-      observer.disconnect()
-      observer = null
-    }
-    if (container) {
-      setupObserver()
-    }
-  })
 
   onBeforeUnmount(() => {
     if (saveTimer) {
       clearTimeout(saveTimer)
     }
-    if (pendingStableId) {
-      saveProgress(pendingStableId)
+    if (pendingPercent !== null) {
+      saveProgress(pendingPercent)
     }
-    if (observer) {
-      observer.disconnect()
-      observer = null
-    }
+    teardownScrollListener()
   })
 }
