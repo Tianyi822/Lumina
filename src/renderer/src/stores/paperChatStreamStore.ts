@@ -14,7 +14,7 @@ import { usePaperChatMessageCacheStore } from './paperChatMessageCacheStore'
 import { useReactIterationManager } from './paperChatReactIteration'
 import { usePlanStateManager } from './paperChatPlanState'
 
-// Re-export types for backward compatibility
+// 重新导出类型以保持兼容
 export type { PlanStepIteration, PaperChatPlanState } from './paperChatPlanState'
 
 export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
@@ -204,7 +204,10 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
             activePlan?.status === 'running' && activePlan.currentStepIndex >= 0
 
           if (isPlanStepContent) {
-            const contentIter = reactIteration.ensureCurrentIteration(streamingMessage, targetSessionId)
+            const contentIter = reactIteration.ensureCurrentIteration(
+              streamingMessage,
+              targetSessionId
+            )
             contentIter.taskNumber = activePlan.currentStepIndex + 1
             contentIter.content = (contentIter.content || '') + event.content
           } else {
@@ -237,7 +240,10 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
           streamingMessage.reasoning = (streamingMessage.reasoning || '') + event.content
 
           // 新增：同时累加到当前迭代的 reasoning
-          const iterForReasoning = reactIteration.getCurrentIteration(streamingMessage, targetSessionId)
+          const iterForReasoning = reactIteration.getCurrentIteration(
+            streamingMessage,
+            targetSessionId
+          )
           if (iterForReasoning) {
             iterForReasoning.reasoning += event.content
           }
@@ -283,7 +289,8 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
       case 'tool_result':
         if (event.toolResult) {
           const targetAssistantMessage =
-            streamingMessage || reactIteration.findToolOwnerMessage(targetMessages, event.toolResult.id)
+            streamingMessage ||
+            reactIteration.findToolOwnerMessage(targetMessages, event.toolResult.id)
 
           const hasExistingToolMessage = targetMessages.some(
             (message) => message.role === 'tool' && message.tool_call_id === event.toolResult?.id
@@ -294,16 +301,25 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
 
           if (targetAssistantMessage) {
             if (streamingMessage && targetAssistantMessage.id === streamingMessage.id) {
-              const updated = reactIteration.updateToolResultStep(targetAssistantMessage, event.toolResult)
+              const updated = reactIteration.updateToolResultStep(
+                targetAssistantMessage,
+                event.toolResult
+              )
               if (!updated) {
                 const toolResultStep = {
                   type: 'tool_result' as const,
                   toolResult: event.toolResult,
                   timestamp: new Date().toISOString()
                 }
-                reactIteration.appendToolStep(targetAssistantMessage, targetSessionId, toolResultStep)
+                reactIteration.appendToolStep(
+                  targetAssistantMessage,
+                  targetSessionId,
+                  toolResultStep
+                )
               }
-            } else if (!reactIteration.updateToolResultStep(targetAssistantMessage, event.toolResult)) {
+            } else if (
+              !reactIteration.updateToolResultStep(targetAssistantMessage, event.toolResult)
+            ) {
               if (!targetAssistantMessage.reactSteps) {
                 targetAssistantMessage.reactSteps = []
               }
@@ -520,11 +536,13 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
       const nextPlan = {
         ...existingPlan,
         status: 'cancelled' as PlanExecutionStatus,
-        steps: planManager.clonePlanSteps(existingPlan.steps).map((step) =>
-          step.status === 'pending' || step.status === 'running'
-            ? { ...step, status: 'cancelled' as PlanStepStatus, error: '用户已取消' }
-            : step
-        ),
+        steps: planManager
+          .clonePlanSteps(existingPlan.steps)
+          .map((step) =>
+            step.status === 'pending' || step.status === 'running'
+              ? { ...step, status: 'cancelled' as PlanStepStatus, error: '用户已取消' }
+              : step
+          ),
         error: '用户已取消',
         updatedAt: new Date().toISOString()
       }
@@ -577,7 +595,7 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
   }
 
   return {
-    // State
+    // 状态
     isSending,
     sessionSendingStates,
     messagesSnapshots,
@@ -585,10 +603,10 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
     showUserInteraction,
     userInteractionInfo,
     planStates: planManager.planStates,
-    // Getters
+    // 计算属性
     streamingSessionCount,
     activeSessionIds,
-    // Actions
+    // 操作
     getSessionSendingState,
     setSessionSendingState,
     setIsSending,

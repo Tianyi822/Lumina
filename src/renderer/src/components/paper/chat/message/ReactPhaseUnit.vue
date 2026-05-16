@@ -51,11 +51,7 @@ defineEmits<{
             @click="$emit('toggle-reasoning', unit.key)"
           >
             <div class="paper-chat-react-steps__reasoning-header-left">
-              <SvgIcon
-                name="info"
-                class="paper-chat-react-steps__reasoning-icon"
-                :size="16"
-              />
+              <SvgIcon name="info" class="paper-chat-react-steps__reasoning-icon" :size="16" />
               <span class="paper-chat-react-steps__reasoning-label">思考</span>
             </div>
             <span

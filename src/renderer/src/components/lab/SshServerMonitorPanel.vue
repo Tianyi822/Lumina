@@ -20,7 +20,15 @@ const props = defineProps<{
   active: boolean
 }>()
 
-// metricCharts 通过闭包引用 polling（定义在下方），Vue computed 延迟求值所以顺序安全
+let disposeChartsOnReset = (): void => {}
+
+const polling = useSshStatsPolling({
+  labId: computed(() => props.labId),
+  connected: computed(() => props.connected),
+  active: computed(() => props.active),
+  onReset: () => disposeChartsOnReset()
+})
+
 const metricCharts = computed<MetricChart[]>(() => {
   const samples = polling.visibleSamples.value
   const latest = polling.stats.value
@@ -111,13 +119,7 @@ const metricCharts = computed<MetricChart[]>(() => {
 })
 
 const echartsManager = useEchartsManager(metricCharts)
-
-const polling = useSshStatsPolling({
-  labId: computed(() => props.labId),
-  connected: computed(() => props.connected),
-  active: computed(() => props.active),
-  onReset: () => echartsManager.disposeCharts()
-})
+disposeChartsOnReset = echartsManager.disposeCharts
 
 const {
   stats,

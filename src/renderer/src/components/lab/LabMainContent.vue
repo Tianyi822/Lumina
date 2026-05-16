@@ -26,7 +26,7 @@ const emit = defineEmits<{
   recheckDocker: []
 }>()
 
-// Stores
+// Store 实例
 const containerStore = useContainerStore()
 const uiStateStore = useUIStateStore()
 const labStore = useLabStore()
@@ -35,7 +35,7 @@ const notify = useNotification()
 const { selectedContainer, containerStats, isLoading: storeLoading } = storeToRefs(containerStore)
 const { labDetailTab } = storeToRefs(uiStateStore)
 
-// Computed
+// 计算属性
 const hasLab = computed(() => !!props.currentLab)
 const isOrphan = computed(() => props.currentLab?.isOrphan || false)
 const isLabFrontend = computed(() => !!props.currentLab?.frontend)
@@ -110,7 +110,7 @@ const isSshConnected = computed(() => props.currentLab?.status === 'running')
 const currentLabRef = computed(() => props.currentLab)
 const selectedContainerRef = computed(() => selectedContainer.value)
 
-// Auto refresh composable
+// 自动刷新组合逻辑
 const autoRefresh = useLabAutoRefresh({
   currentLab: currentLabRef,
   selectedContainer: selectedContainerRef,
@@ -120,7 +120,7 @@ const autoRefresh = useLabAutoRefresh({
   isLabFrontend
 })
 
-// Container actions
+// 容器操作
 const {
   handleContainerStart: _handleContainerStart,
   handleContainerStop: _handleContainerStop,
@@ -161,7 +161,7 @@ async function handleContainerRestart(): Promise<void> {
   }
 }
 
-// SSH
+// SSH 操作
 const isConnectingSsh = ref(false)
 const sshReconnectPassword = ref('')
 
@@ -195,7 +195,7 @@ async function handleSshConnect(): Promise<void> {
   }
 }
 
-// Frontend recovery
+// 前端恢复
 const isRetryingFrontend = ref(false)
 const isRebuildingFrontend = ref(false)
 
@@ -227,7 +227,7 @@ async function handleRebuildFrontendRuntime(): Promise<void> {
   }
 }
 
-// Other handlers
+// 其他处理函数
 function setDetailTab(tab: 'stats' | 'terminal' | 'logs'): void {
   uiStateStore.setLabDetailTab(tab)
 }
@@ -275,7 +275,7 @@ function formatDateTime(value?: string): string {
   })
 }
 
-// Watchers
+// 监听器
 watch(
   () => [isSshLab.value, labDetailTab.value] as const,
   ([sshLab, tab]) => {
@@ -293,7 +293,7 @@ watch(
   }
 )
 
-// Lifecycle
+// 生命周期
 let removeSshStatusListener: (() => void) | null = null
 
 onMounted(() => {
