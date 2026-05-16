@@ -1,3 +1,8 @@
+/*
+ * PaperChatReActSteps / ReactPhaseUnit 样式
+ * 从 scoped <style> 提取为全局文件，BEM 类名 (paper-chat-react-steps__*) 提供作用域隔离
+ */
+
 .paper-chat-react-steps {
   margin: 0;
   border: 1px solid var(--sm-color-border-default);

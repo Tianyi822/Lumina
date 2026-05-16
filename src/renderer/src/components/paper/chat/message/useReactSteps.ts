@@ -222,7 +222,6 @@ export function useReactSteps(options: {
 
   return {
     isExpanded,
-    expandedReasoningSet,
     hasContent,
     useIterationMode,
     toolCount,
@@ -234,8 +233,6 @@ export function useReactSteps(options: {
     toggleExpand,
     toggleReasoning,
     isReasoningExpanded,
-    renderMarkdown,
-    getPhaseLabel,
-    getLocalPhaseIndex
+    getPhaseLabel
   }
 }
