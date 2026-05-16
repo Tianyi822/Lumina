@@ -13,6 +13,7 @@ interface LabItem {
   composeProjectName?: string
   hasWorkspace?: boolean
   workspaceName?: string
+  metadataOnlyDelete?: boolean
 }
 
 const props = defineProps<{
@@ -34,7 +35,8 @@ const dialogConfig = computed(() => {
   return getDeleteDialogConfig(
     props.lab.creationType || 'existing',
     props.lab.containerIds?.length || 0,
-    props.lab.name
+    props.lab.name,
+    { metadataOnly: props.lab.metadataOnlyDelete }
   )
 })
 
@@ -45,9 +47,11 @@ const showDeleteContainerOption = computed(() => dialogConfig.value?.showDeleteO
 const deleteContainerLabel = computed(() => dialogConfig.value?.deleteOptionLabel || '')
 const warningMessage = computed(() => dialogConfig.value?.warningMessage || '')
 const typeTheme = computed(() => dialogConfig.value?.typeTheme || 'default')
+const confirmButtonText = computed(() => dialogConfig.value?.confirmButtonText || '确认删除')
 
 // 是否为 existing 类型
 const isExistingType = computed(() => props.lab?.creationType === 'existing')
+const isMetadataOnlyDelete = computed(() => props.lab?.metadataOnlyDelete === true)
 
 // 重置状态
 function resetState(): void {
@@ -83,10 +87,12 @@ function handleClose(): void {
 
 function handleConfirm(): void {
   if (!props.lab || props.isDeleting) return
-  // 简化删除逻辑：默认同时删除容器和工作区
+
+  const shouldDeleteContainers = isMetadataOnlyDelete.value ? false : deleteContainers.value
+
   emit('confirm', props.lab.labId, {
-    deleteContainers: deleteContainers.value,
-    deleteWorkspace: deleteContainers.value // 工作区跟随容器一起删除
+    deleteContainers: shouldDeleteContainers,
+    deleteWorkspace: shouldDeleteContainers
   })
 }
 </script>
@@ -103,8 +109,13 @@ function handleConfirm(): void {
       </div>
 
       <div class="dialog-body">
+        <div v-if="isMetadataOnlyDelete" class="type-notice type-notice--metadata-only">
+          <SvgIcon name="warning" :size="24" />
+          <span>容器未连接 · 仅删除元数据</span>
+        </div>
+
         <!-- existing 类型提示图标 -->
-        <div v-if="isExistingType" class="type-notice">
+        <div v-else-if="isExistingType" class="type-notice">
           <SvgIcon name="warning" :size="24" />
           <span>只读实验室 · 仅删除记录</span>
         </div>
@@ -136,7 +147,7 @@ function handleConfirm(): void {
           @click="handleConfirm"
         >
           <SvgIcon v-if="isDeleting" name="loading" :size="16" :spin="true" />
-          <span>{{ isDeleting ? '删除中...' : '确认删除' }}</span>
+          <span>{{ isDeleting ? '删除中...' : confirmButtonText }}</span>
         </button>
       </div>
     </div>
@@ -312,6 +323,12 @@ function handleConfirm(): void {
 
 .type-notice svg {
   flex-shrink: 0;
+}
+
+.type-notice--metadata-only {
+  background-color: rgba(199, 120, 120, 0.1);
+  border-color: rgba(199, 120, 120, 0.32);
+  color: #c77878;
 }
 
 /* existing 类型特殊样式 */

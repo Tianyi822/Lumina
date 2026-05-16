@@ -115,15 +115,33 @@ export interface DeleteDialogConfig {
   typeTheme: 'warning' | 'info' | 'success' | 'default'
 }
 
+export interface DeleteDialogOptions {
+  metadataOnly?: boolean
+}
+
 /**
  * 获取删除确认对话框的配置
  */
 export function getDeleteDialogConfig(
   type: LabCreationType,
   containerCount: number,
-  labName: string
+  labName: string,
+  options: DeleteDialogOptions = {}
 ): DeleteDialogConfig {
   const policy = LAB_TYPE_PERMISSIONS[type]
+
+  if (options.metadataOnly && isManagedLab(type)) {
+    return {
+      title: '确认删除实验室元数据',
+      message: `当前无法连接或确认实验室「${labName}」关联的 Docker 容器。\n\n继续删除只会移除 Lumina 中的实验室记录，不会停止或删除 Docker 容器。`,
+      showDeleteOption: false,
+      defaultDeleteContainers: false,
+      confirmButtonText: '删除元数据',
+      warningMessage:
+        '删除后实验室元数据会丢失，无法再通过此记录重连或恢复关联；如需保留重连能力，请先恢复 Docker 或容器连接后再删除。',
+      typeTheme: 'warning'
+    }
+  }
 
   switch (type) {
     case 'existing':

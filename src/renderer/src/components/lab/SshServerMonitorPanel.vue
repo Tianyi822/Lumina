@@ -1,38 +1,18 @@
 <script setup lang="ts">
-import * as echarts from 'echarts'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { ComponentPublicInstance } from 'vue'
-import type { ECharts, EChartsOption } from 'echarts'
-import type { SshServerStats } from '@renderer/types/lab'
+import { computed } from 'vue'
+import type { MetricChart } from './sshMonitorTypes'
+import {
+  collectPoints,
+  collectGpuNames,
+  calculateRateMax,
+  formatPercent,
+  formatBytePair,
+  formatRate,
+  formatAxisLabel
+} from './sshMonitorFormatters'
+import { useSshStatsPolling } from './useSshStatsPolling'
+import { useEchartsManager } from './useEchartsManager'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
-
-const SSH_STATS_REFRESH_INTERVAL = 3000
-const MAX_HISTORY_HOURS = 24
-
-type RangeHours = 1 | 3 | 12 | 24
-type ChartValueKind = 'percent' | 'rate'
-type ChartTone = 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'muted'
-
-interface ChartPoint {
-  time: number
-  value: number
-}
-
-interface MetricChart {
-  key: string
-  label: string
-  valueLabel: string
-  detailLabel?: string
-  inlineDetail?: boolean
-  tone: ChartTone
-  kind: ChartValueKind
-  maxValue: number
-  points: ChartPoint[]
-  emptyLabel: string
-  supported: boolean
-  hostDetailLabel?: string
-  labelSuffix?: string
-}
 
 const props = defineProps<{
   labId: string
@@ -40,57 +20,18 @@ const props = defineProps<{
   active: boolean
 }>()
 
-const rangeOptions: Array<{ label: string; value: RangeHours }> = [
-  { label: '1 小时', value: 1 },
-  { label: '3 小时', value: 3 },
-  { label: '12 小时', value: 12 },
-  { label: '24 小时', value: 24 }
-]
+let disposeChartsOnReset = (): void => {}
 
-const stats = ref<SshServerStats | null>(null)
-const statsHistory = ref<SshServerStats[]>([])
-const selectedRangeHours = ref<RangeHours>(1)
-const loading = ref(false)
-const refreshing = ref(false)
-const errorMessage = ref('')
-const refreshTimerId = ref<number | null>(null)
-
-const chartElements = new Map<string, HTMLElement>()
-const chartInstances = new Map<string, ECharts>()
-let resizeObserver: ResizeObserver | null = null
-let renderQueued = false
-
-const sampledAtLabel = computed(() => {
-  if (!stats.value?.sampledAt) {
-    return '-'
-  }
-
-  return new Date(stats.value.sampledAt).toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
-})
-
-const chartWindow = computed(() => {
-  const end = Math.max(Date.now(), stats.value ? new Date(stats.value.sampledAt).getTime() : 0)
-  return {
-    start: end - selectedRangeHours.value * 60 * 60 * 1000,
-    end
-  }
-})
-
-const visibleSamples = computed(() => {
-  const { start, end } = chartWindow.value
-  return statsHistory.value.filter((sample) => {
-    const time = new Date(sample.sampledAt).getTime()
-    return time >= start && time <= end
-  })
+const polling = useSshStatsPolling({
+  labId: computed(() => props.labId),
+  connected: computed(() => props.connected),
+  active: computed(() => props.active),
+  onReset: () => disposeChartsOnReset()
 })
 
 const metricCharts = computed<MetricChart[]>(() => {
-  const samples = visibleSamples.value
-  const latest = stats.value
+  const samples = polling.visibleSamples.value
+  const latest = polling.stats.value
   const gpuSupported = !!latest?.gpu.supported
   const hasGpuMemory = gpuSupported && latest?.gpu.memoryPercent !== null
   const gpuNames = collectGpuNames(latest)
@@ -177,458 +118,21 @@ const metricCharts = computed<MetricChart[]>(() => {
   ]
 })
 
-const rangeLabel = computed(() => {
-  return rangeOptions.find((option) => option.value === selectedRangeHours.value)?.label || '1 小时'
-})
-
-watch(
-  () => props.labId,
-  () => {
-    stats.value = null
-    statsHistory.value = []
-    errorMessage.value = ''
-    disposeCharts()
-  }
-)
-
-watch(
-  () => [props.labId, props.connected, props.active] as const,
-  () => {
-    syncPolling()
-  },
-  { immediate: true }
-)
-
-watch(metricCharts, () => {
-  queueRenderCharts()
-})
-
-onMounted(() => {
-  resizeObserver = new ResizeObserver(() => {
-    resizeCharts()
-  })
-  chartElements.forEach((element) => resizeObserver?.observe(element))
-  queueRenderCharts()
-})
-
-onBeforeUnmount(() => {
-  stopPolling()
-  resizeObserver?.disconnect()
-  resizeObserver = null
-  disposeCharts()
-})
-
-function syncPolling(): void {
-  stopPolling()
-
-  if (!props.connected) {
-    stats.value = null
-    statsHistory.value = []
-    errorMessage.value = ''
-    loading.value = false
-    refreshing.value = false
-    disposeCharts()
-    return
-  }
-
-  if (!props.active) {
-    return
-  }
-
-  void loadStats({ silent: !!stats.value })
-  refreshTimerId.value = window.setInterval(() => {
-    void loadStats({ silent: true })
-  }, SSH_STATS_REFRESH_INTERVAL)
-}
-
-function stopPolling(): void {
-  if (refreshTimerId.value !== null) {
-    clearInterval(refreshTimerId.value)
-    refreshTimerId.value = null
-  }
-}
-
-async function loadStats(options?: { silent?: boolean }): Promise<void> {
-  if (!props.connected || refreshing.value) {
-    return
-  }
-
-  refreshing.value = true
-  if (!options?.silent && !stats.value) {
-    loading.value = true
-  }
-
-  try {
-    const result = await window.api.ssh.getServerStats(props.labId)
-    if (!result.success || !result.stats) {
-      errorMessage.value = result.error || '服务器资源统计采集失败'
-      return
-    }
-
-    stats.value = result.stats
-    appendSample(result.stats)
-    errorMessage.value = ''
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : String(error)
-  } finally {
-    refreshing.value = false
-    loading.value = false
-  }
-}
-
-function appendSample(sample: SshServerStats): void {
-  const sampleTime = new Date(sample.sampledAt).getTime()
-  const minTime = sampleTime - MAX_HISTORY_HOURS * 60 * 60 * 1000
-
-  statsHistory.value = [
-    ...statsHistory.value.filter((item) => new Date(item.sampledAt).getTime() >= minTime),
-    sample
-  ]
-}
-
-function setRange(hours: RangeHours): void {
-  selectedRangeHours.value = hours
-}
-
-function setChartElement(key: string, element: Element | ComponentPublicInstance | null): void {
-  const htmlElement = resolveHtmlElement(element)
-  const previousElement = chartElements.get(key)
-
-  if (!htmlElement) {
-    if (previousElement) {
-      resizeObserver?.unobserve(previousElement)
-    }
-    chartElements.delete(key)
-    const instance = chartInstances.get(key)
-    if (instance) {
-      instance.dispose()
-      chartInstances.delete(key)
-    }
-    return
-  }
-
-  if (previousElement && previousElement !== htmlElement) {
-    resizeObserver?.unobserve(previousElement)
-  }
-
-  chartElements.set(key, htmlElement)
-  resizeObserver?.observe(htmlElement)
-
-  if (!chartInstances.has(key)) {
-    chartInstances.set(key, echarts.init(htmlElement, undefined, { renderer: 'canvas' }))
-  }
-
-  queueRenderCharts()
-}
-
-function resolveHtmlElement(element: Element | ComponentPublicInstance | null): HTMLElement | null {
-  if (element instanceof HTMLElement) {
-    return element
-  }
-
-  if (isComponentInstance(element) && element.$el instanceof HTMLElement) {
-    return element.$el
-  }
-
-  return null
-}
-
-function isComponentInstance(
-  element: Element | ComponentPublicInstance | null
-): element is ComponentPublicInstance {
-  return !!element && !(element instanceof Element)
-}
-
-function queueRenderCharts(): void {
-  if (renderQueued) {
-    return
-  }
-
-  renderQueued = true
-  void nextTick(() => {
-    renderQueued = false
-    renderCharts()
-  })
-}
-
-function renderCharts(): void {
-  const charts = metricCharts.value
-  const activeKeys = new Set(charts.map((chart) => chart.key))
-
-  for (const [key, instance] of chartInstances) {
-    if (!activeKeys.has(key) || !chartElements.has(key)) {
-      instance.dispose()
-      chartInstances.delete(key)
-    }
-  }
-
-  for (const chart of charts) {
-    const element = chartElements.get(chart.key)
-    if (!element) {
-      continue
-    }
-
-    const instance =
-      chartInstances.get(chart.key) ?? echarts.init(element, undefined, { renderer: 'canvas' })
-    chartInstances.set(chart.key, instance)
-    instance.setOption(buildChartOption(chart), true)
-  }
-}
-
-function disposeCharts(): void {
-  for (const instance of chartInstances.values()) {
-    instance.dispose()
-  }
-  chartInstances.clear()
-  chartElements.clear()
-}
-
-function resizeCharts(): void {
-  for (const instance of chartInstances.values()) {
-    instance.resize()
-  }
-}
-
-function buildChartOption(chart: MetricChart): EChartsOption {
-  const color = getToneColor(chart.tone)
-  const axisColor = readCssVariable('--sm-color-text-tertiary', '#8b949e')
-  const gridColor = readCssVariable('--sm-color-border-subtle', '#e5e7eb')
-  const labelData = chart.points.map((point) => formatSampleTime(point.time))
-  const valueData = chart.points.map((point) => point.value)
-
-  return {
-    animation: chart.points.length <= 80,
-    grid: {
-      left: 8,
-      right: 8,
-      top: 14,
-      bottom: 24,
-      containLabel: false
-    },
-    tooltip: {
-      trigger: 'axis',
-      confine: true,
-      formatter: (params: unknown) => formatTooltip(params, chart)
-    },
-    xAxis: {
-      type: 'category',
-      boundaryGap: false,
-      data: labelData,
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: {
-        color: axisColor,
-        fontSize: 10,
-        hideOverlap: true,
-        interval: calculateAxisInterval(chart.points.length)
-      },
-      splitLine: { show: false }
-    },
-    yAxis: {
-      type: 'value',
-      min: 0,
-      max: chart.kind === 'percent' ? 100 : Math.max(chart.maxValue, 1),
-      splitNumber: 3,
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: { show: false },
-      splitLine: {
-        show: true,
-        lineStyle: {
-          color: gridColor,
-          opacity: 0.72
-        }
-      }
-    },
-    series: [
-      {
-        type: 'line',
-        data: valueData,
-        smooth: true,
-        showSymbol: chart.points.length <= 24,
-        symbol: 'circle',
-        symbolSize: 5,
-        lineStyle: {
-          width: 2.2,
-          color
-        },
-        itemStyle: {
-          color
-        },
-        areaStyle: {
-          color,
-          opacity: 0.1
-        },
-        emphasis: {
-          focus: 'series'
-        }
-      }
-    ]
-  }
-}
-
-function collectPoints(
-  samples: SshServerStats[],
-  getValue: (sample: SshServerStats) => number | null | undefined
-): ChartPoint[] {
-  return samples
-    .map((sample) => ({
-      time: new Date(sample.sampledAt).getTime(),
-      value: getValue(sample)
-    }))
-    .filter(
-      (point): point is ChartPoint =>
-        point.value !== null && point.value !== undefined && Number.isFinite(point.value)
-    )
-}
-
-function collectGpuNames(sample: SshServerStats | null): string[] {
-  if (!sample?.gpu.supported) {
-    return []
-  }
-
-  return sample.gpu.devices
-    .map((device) => device.name?.trim())
-    .filter((name): name is string => !!name)
-}
-
-function calculateRateMax(
-  samples: SshServerStats[],
-  getValue: (sample: SshServerStats) => number | null | undefined
-): number {
-  const maxValue = Math.max(0, ...collectPoints(samples, getValue).map((point) => point.value))
-  return maxValue > 0 ? maxValue * 1.2 : 1
-}
-
-function calculateAxisInterval(pointCount: number): number {
-  if (pointCount <= 6) {
-    return 0
-  }
-
-  return Math.max(0, Math.ceil(pointCount / 5) - 1)
-}
-
-function formatAxisLabel(chart: MetricChart): string {
-  if (chart.kind === 'percent') {
-    return '0-100%'
-  }
-
-  return `0-${formatRate(chart.maxValue)}`
-}
-
-function formatTooltip(params: unknown, chart: MetricChart): string {
-  const param = Array.isArray(params) ? params[0] : params
-  if (!isRecord(param)) {
-    return ''
-  }
-
-  const dataIndex = typeof param.dataIndex === 'number' ? param.dataIndex : -1
-  const value = normalizeNumericValue(param.value)
-  const point = chart.points[dataIndex]
-  const timeLabel = point ? formatFullSampleTime(point.time) : String(param.name || '')
-  const valueLabel = chart.kind === 'rate' ? formatRate(value) : formatPercent(value)
-  const marker = typeof param.marker === 'string' ? param.marker : ''
-
-  return `${timeLabel}<br />${marker}${chart.label}: ${valueLabel}`
-}
-
-function normalizeNumericValue(value: unknown): number | null {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null
-  }
-
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-
-  if (Array.isArray(value)) {
-    return normalizeNumericValue(value[value.length - 1])
-  }
-
-  return null
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-function formatSampleTime(time: number): string {
-  return new Date(time).toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
-function formatFullSampleTime(time: number): string {
-  return new Date(time).toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
-}
-
-function formatPercent(value: number | null | undefined): string {
-  if (value === null || value === undefined) {
-    return '-'
-  }
-
-  return `${value.toFixed(1)}%`
-}
-
-function formatBytes(bytes: number | null | undefined): string {
-  if (bytes === null || bytes === undefined) {
-    return '-'
-  }
-
-  if (bytes === 0) {
-    return '0 B'
-  }
-
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)))
-  return `${(bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`
-}
-
-function formatBytePair(usageBytes: number, totalBytes: number): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  const index =
-    totalBytes > 0
-      ? Math.min(units.length - 1, Math.floor(Math.log(totalBytes) / Math.log(1024)))
-      : 0
-  const divisor = Math.pow(1024, index)
-  const fractionDigits = index === 0 ? 0 : 1
-
-  return `${(usageBytes / divisor).toFixed(fractionDigits)} / ${(totalBytes / divisor).toFixed(
-    fractionDigits
-  )} ${units[index]}`
-}
-
-function formatRate(bytesPerSecond: number | null | undefined): string {
-  if (bytesPerSecond === null || bytesPerSecond === undefined) {
-    return '-'
-  }
-
-  return `${formatBytes(bytesPerSecond)}/s`
-}
-
-function getToneColor(tone: ChartTone): string {
-  const tokenMap: Record<ChartTone, { token: string; fallback: string }> = {
-    primary: { token: '--sm-color-accent', fallback: '#2563eb' },
-    success: { token: '--sm-color-status-success', fallback: '#16a34a' },
-    warning: { token: '--sm-color-status-warning', fallback: '#d97706' },
-    danger: { token: '--sm-color-status-danger', fallback: '#dc2626' },
-    info: { token: '--sm-color-accent-hover', fallback: '#0891b2' },
-    muted: { token: '--sm-color-text-tertiary', fallback: '#94a3b8' }
-  }
-  const config = tokenMap[tone]
-  return readCssVariable(config.token, config.fallback)
-}
-
-function readCssVariable(token: string, fallback: string): string {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim()
-  return value || fallback
-}
+const echartsManager = useEchartsManager(metricCharts)
+disposeChartsOnReset = echartsManager.disposeCharts
+
+const {
+  stats,
+  selectedRangeHours,
+  loading,
+  refreshing,
+  errorMessage,
+  sampledAtLabel,
+  rangeLabel,
+  rangeOptions,
+  setRange,
+  loadStats
+} = polling
 </script>
 
 <template>
@@ -724,7 +228,7 @@ function readCssVariable(token: string, fallback: string): string {
 
         <div class="ssh-monitor-chart__body">
           <div
-            :ref="(element) => setChartElement(chart.key, element)"
+            :ref="(element) => echartsManager.setChartElement(chart.key, element)"
             class="ssh-monitor-chart__echarts"
             role="img"
             :aria-label="`${chart.label} ${rangeLabel}趋势`"

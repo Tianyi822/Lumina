@@ -337,7 +337,11 @@ export const useLabStore = defineStore('lab', () => {
       labId,
       lab?.name || '实验室',
       (lab?.creationType || 'existing') as LabCreationType,
-      lab?.containerCount || 0
+      lab?.containerCount || 0,
+      {
+        status: lab?.status,
+        isOrphan: lab?.isOrphan
+      }
     )
   }
 
