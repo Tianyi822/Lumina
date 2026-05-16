@@ -35,8 +35,41 @@ export interface PaperChatPlanState {
   globalPhaseCounter: number
 }
 
+export interface PlanStateManager {
+  planStates: Ref<Map<string, PaperChatPlanState>>
+  clonePlanSteps: (steps: PlanStep[]) => PlanStep[]
+  normalizePlanStepStatus: (status: PlanStepStatus | string) => PlanStepStatus
+  setPlanState: (sessionId: string, state: PaperChatPlanState) => void
+  deletePlanState: (sessionId: string) => void
+  getSessionPlanState: (sessionId: string) => PaperChatPlanState | null
+  beginPlanning: (sessionId: string, turnId: string) => void
+  resetPlanState: (sessionId: string) => void
+  failPlanState: (sessionId: string, error: string) => void
+  getWritablePlanState: (sessionId: string, turnId?: string) => PaperChatPlanState | null
+  handlePlanStatusEvent: (sessionId: string, event: StreamEvent) => void
+  handlePlanGeneratedEvent: (sessionId: string, event: StreamEvent) => void
+  handlePlanStepUpdateEvent: (
+    sessionId: string,
+    event: StreamEvent,
+    streamingMessage: Message | undefined,
+    currentIterationIndex: Ref<Map<string, number>>
+  ) => void
+  isTerminalPlanStepStatus: (status: PlanStepStatus) => boolean
+  finalizeMessageIterationsForPlanStep: (
+    message: Message,
+    sessionId: string,
+    stepIndex: number,
+    status: PlanStepStatus,
+    currentIterationIndex: Ref<Map<string, number>>,
+    error?: string
+  ) => void
+  appendPlanStepIteration: (sessionId: string, iterationStatus?: string) => void
+  updatePlanStepIterationToolCall: (sessionId: string, toolName: string) => void
+  finalizePlanState: (sessionId: string, event: StreamEvent) => void
+}
+
 /** 创建 Plan 状态管理器 */
-export function usePlanStateManager() {
+export function usePlanStateManager(): PlanStateManager {
   const planStates = ref<Map<string, PaperChatPlanState>>(new Map())
 
   function clonePlanSteps(steps: PlanStep[]): PlanStep[] {

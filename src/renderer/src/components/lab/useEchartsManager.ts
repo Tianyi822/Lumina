@@ -11,7 +11,14 @@ import {
   calculateAxisInterval
 } from './sshMonitorFormatters'
 
-export function useEchartsManager(metricCharts: ComputedRef<MetricChart[]>) {
+export interface UseEchartsManagerReturn {
+  setChartElement: (key: string, element: Element | ComponentPublicInstance | null) => void
+  disposeCharts: () => void
+}
+
+export function useEchartsManager(
+  metricCharts: ComputedRef<MetricChart[]>
+): UseEchartsManagerReturn {
   const chartElements = new Map<string, HTMLElement>()
   const chartInstances = new Map<string, ECharts>()
   let resizeObserver: ResizeObserver | null = null
@@ -48,7 +55,9 @@ export function useEchartsManager(metricCharts: ComputedRef<MetricChart[]>) {
     queueRenderCharts()
   }
 
-  function resolveHtmlElement(element: Element | ComponentPublicInstance | null): HTMLElement | null {
+  function resolveHtmlElement(
+    element: Element | ComponentPublicInstance | null
+  ): HTMLElement | null {
     if (element instanceof HTMLElement) {
       return element
     }

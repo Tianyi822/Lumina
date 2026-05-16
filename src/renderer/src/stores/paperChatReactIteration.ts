@@ -1,9 +1,35 @@
 import { ref } from 'vue'
+import type { Ref } from 'vue'
 
 import type { Message, ReActIteration, ReActStep, StreamEvent } from '@renderer/types'
 
+export interface ReactIterationManager {
+  currentIterationIndex: Ref<Map<string, number>>
+  getCurrentIteration: (message: Message, sessionId: string) => ReActIteration | null
+  hasIterationContent: (iteration: ReActIteration) => boolean
+  createIteration: (
+    message: Message,
+    sessionId: string,
+    iterationNum?: number,
+    status?: 'thinking' | 'calling_tools' | 'processing'
+  ) => ReActIteration
+  ensureCurrentIteration: (message: Message, sessionId: string) => ReActIteration
+  appendToolStep: (message: Message, sessionId: string, step: ReActStep) => void
+  finalizeIterations: (message: Message, sessionId: string) => void
+  findToolOwnerMessage: (messages: Message[], toolCallId: string) => Message | undefined
+  upsertToolMessage: (
+    messages: Message[],
+    toolResult: NonNullable<StreamEvent['toolResult']>
+  ) => void
+  updateToolResultStep: (
+    message: Message,
+    toolResult: NonNullable<StreamEvent['toolResult']>
+  ) => boolean
+  deleteIterationIndex: (sessionId: string) => void
+}
+
 /** 创建 ReAct 迭代管理器 */
-export function useReactIterationManager() {
+export function useReactIterationManager(): ReactIterationManager {
   // 每个会话当前活跃的迭代索引（用于 ReAct 迭代分组）
   const currentIterationIndex = ref<Map<string, number>>(new Map())
 

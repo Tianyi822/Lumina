@@ -1,6 +1,6 @@
 import MarkdownIt from 'markdown-it'
 import { computed, ref, watch } from 'vue'
-import type { ComputedRef } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import type { ReActIteration, ReActStep, UiReactIterationStatus } from '@renderer/types'
 import type { PaperChatToolCallPanelItem } from './PaperChatToolCallPanel.vue'
 import type { PaperChatStepContentResult } from './paperChatReactStepContent'
@@ -25,13 +25,29 @@ export interface TaskGroup {
   units: PhaseUnit[]
 }
 
+export interface UseReactStepsReturn {
+  isExpanded: Ref<boolean>
+  hasContent: ComputedRef<boolean>
+  useIterationMode: ComputedRef<boolean>
+  toolCount: ComputedRef<number>
+  toolStats: ComputedRef<{ success: number; failed: number }>
+  legacyToolItems: ComputedRef<PaperChatToolCallPanelItem[]>
+  phaseUnits: ComputedRef<PhaseUnit[]>
+  hasTaskGroups: ComputedRef<boolean>
+  taskGroups: ComputedRef<TaskGroup[]>
+  toggleExpand: () => void
+  toggleReasoning: (unitKey: string) => void
+  isReasoningExpanded: (unit: PhaseUnit) => boolean
+  getPhaseLabel: (unit: PhaseUnit) => string
+}
+
 const md = new MarkdownIt({ html: false, breaks: true, linkify: true, typographer: true })
 
 export function useReactSteps(options: {
   steps: ComputedRef<ReActStep[] | undefined>
   iterations: ComputedRef<ReActIteration[] | undefined>
   isStreaming: ComputedRef<boolean | undefined>
-}) {
+}): UseReactStepsReturn {
   const isExpanded = ref(false)
   const expandedReasoningSet = ref<Set<string>>(new Set())
 
@@ -52,37 +68,35 @@ export function useReactSteps(options: {
   })
 
   const phaseUnits = computed<PhaseUnit[]>(() => {
-    return (
-      (options.iterations.value || [])
-        .map((iteration) => {
-          const toolItems = stepsToToolCallItems(
-            iteration.steps,
-            options.isStreaming.value && !!iteration.isActive
-          )
-          const reasoning = trimConclusionPromise(iteration.reasoning, iteration.content)
-          const stepContent = derivePaperChatStepContent(toolItems, iteration.content)
-          return {
-            key: `iter-${iteration.iteration}`,
-            iteration: iteration.iteration,
-            reasoning,
-            reasoningHtml: renderMarkdown(reasoning),
-            toolItems,
-            isActive: !!iteration.isActive,
-            status: iteration.status,
-            content: iteration.content,
-            stepContent,
-            stepContentHtml: stepContent ? renderMarkdown(stepContent.content) : undefined,
-            taskNumber: iteration.taskNumber
-          }
-        })
-        .filter(
-          (unit) =>
-            unit.isActive ||
-            unit.reasoning.trim().length > 0 ||
-            unit.toolItems.length > 0 ||
-            !!unit.stepContent
+    return (options.iterations.value || [])
+      .map((iteration) => {
+        const toolItems = stepsToToolCallItems(
+          iteration.steps,
+          options.isStreaming.value && !!iteration.isActive
         )
-    )
+        const reasoning = trimConclusionPromise(iteration.reasoning, iteration.content)
+        const stepContent = derivePaperChatStepContent(toolItems, iteration.content)
+        return {
+          key: `iter-${iteration.iteration}`,
+          iteration: iteration.iteration,
+          reasoning,
+          reasoningHtml: renderMarkdown(reasoning),
+          toolItems,
+          isActive: !!iteration.isActive,
+          status: iteration.status,
+          content: iteration.content,
+          stepContent,
+          stepContentHtml: stepContent ? renderMarkdown(stepContent.content) : undefined,
+          taskNumber: iteration.taskNumber
+        }
+      })
+      .filter(
+        (unit) =>
+          unit.isActive ||
+          unit.reasoning.trim().length > 0 ||
+          unit.toolItems.length > 0 ||
+          !!unit.stepContent
+      )
   })
 
   const hasTaskGroups = computed(() => {
@@ -126,18 +140,26 @@ export function useReactSteps(options: {
     }
   })
 
-  watch(options.isStreaming, (streaming, previousStreaming) => {
-    if (streaming && !previousStreaming) isExpanded.value = true
-  }, { immediate: true })
+  watch(
+    options.isStreaming,
+    (streaming, previousStreaming) => {
+      if (streaming && !previousStreaming) isExpanded.value = true
+    },
+    { immediate: true }
+  )
 
-  watch(phaseUnits, (units) => {
-    if (options.isStreaming.value && units.length > 0) isExpanded.value = true
-    for (const unit of units) {
-      if (unit.isActive && unit.reasoning.trim().length > 0) {
-        expandedReasoningSet.value.add(unit.key)
+  watch(
+    phaseUnits,
+    (units) => {
+      if (options.isStreaming.value && units.length > 0) isExpanded.value = true
+      for (const unit of units) {
+        if (unit.isActive && unit.reasoning.trim().length > 0) {
+          expandedReasoningSet.value.add(unit.key)
+        }
       }
-    }
-  }, { deep: true, immediate: true })
+    },
+    { deep: true, immediate: true }
+  )
 
   function stepsToToolCallItems(
     steps: ReActStep[],

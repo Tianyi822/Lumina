@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import type { ComputedRef } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import type { SshServerStats } from '@renderer/types/lab'
 import type { RangeHours } from './sshMonitorTypes'
 
@@ -13,7 +13,23 @@ export interface UseSshStatsPollingOptions {
   onReset?: () => void
 }
 
-export function useSshStatsPolling(options: UseSshStatsPollingOptions) {
+export interface UseSshStatsPollingReturn {
+  stats: Ref<SshServerStats | null>
+  statsHistory: Ref<SshServerStats[]>
+  selectedRangeHours: Ref<RangeHours>
+  loading: Ref<boolean>
+  refreshing: Ref<boolean>
+  errorMessage: Ref<string>
+  sampledAtLabel: ComputedRef<string>
+  chartWindow: ComputedRef<{ start: number; end: number }>
+  visibleSamples: ComputedRef<SshServerStats[]>
+  rangeLabel: ComputedRef<string>
+  rangeOptions: Array<{ label: string; value: RangeHours }>
+  setRange: (hours: RangeHours) => void
+  loadStats: (options?: { silent?: boolean }) => Promise<void>
+}
+
+export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshStatsPollingReturn {
   const { labId, connected, active, onReset } = options
 
   const stats = ref<SshServerStats | null>(null)
@@ -60,7 +76,9 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions) {
   })
 
   const rangeLabel = computed(() => {
-    return rangeOptions.find((option) => option.value === selectedRangeHours.value)?.label || '1 小时'
+    return (
+      rangeOptions.find((option) => option.value === selectedRangeHours.value)?.label || '1 小时'
+    )
   })
 
   watch(labId, () => {

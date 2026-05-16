@@ -14,7 +14,16 @@ export interface UseLabAutoRefreshOptions {
   isLabFrontend: ComputedRef<boolean>
 }
 
-export function useLabAutoRefresh(options: UseLabAutoRefreshOptions) {
+export interface UseLabAutoRefreshReturn {
+  isRefreshingStats: Ref<boolean>
+  isManualRefreshingStats: Ref<boolean>
+  isRefreshingLabState: Ref<boolean>
+  isValidatingFrontendBuild: Ref<boolean>
+  handleRefreshStats: () => Promise<void>
+  cleanup: () => void
+}
+
+export function useLabAutoRefresh(options: UseLabAutoRefreshOptions): UseLabAutoRefreshReturn {
   const { currentLab, selectedContainer, labDetailTab, isOrphan } = options
 
   const containerStore = useContainerStore()
@@ -171,10 +180,14 @@ export function useLabAutoRefresh(options: UseLabAutoRefreshOptions) {
     }
   }
 
-  // Watchers
-  watch(labDetailTab, async () => {
-    await syncLabAutoRefresh()
-  }, { immediate: true })
+  // 监听器
+  watch(
+    labDetailTab,
+    async () => {
+      await syncLabAutoRefresh()
+    },
+    { immediate: true }
+  )
 
   watch(
     () => selectedContainer.value?.id,
