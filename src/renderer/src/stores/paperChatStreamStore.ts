@@ -188,11 +188,11 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
 
     if (event.type === 'plan_step_update') {
       planManager.handlePlanStepUpdateEvent(
-            targetSessionId,
-            event,
-            streamingMessage,
-            reactIteration.currentIterationIndex
-          )
+        targetSessionId,
+        event,
+        streamingMessage,
+        reactIteration.currentIterationIndex
+      )
       return
     }
 
