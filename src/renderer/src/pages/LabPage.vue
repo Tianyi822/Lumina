@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useLabStore, useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -8,7 +8,7 @@ import LabMainContent from '@renderer/components/lab/LabMainContent.vue'
 import LabCreator from '@renderer/components/lab/LabCreator.vue'
 import ConfigManager from '@renderer/components/lab/ConfigManager.vue'
 import DeleteConfirmDialog from '@renderer/components/lab/DeleteConfirmDialog.vue'
-import type { DockerStatus } from '@renderer/types/lab'
+import type { DockerStatus, LabCreationType } from '@renderer/types/lab'
 
 const DOCKER_RECHECK_INTERVAL = 15000
 
@@ -24,6 +24,31 @@ const loading = ref(true)
 const dockerNotifyId = ref<string | null>(null)
 const dockerRecheckTimerId = ref<ReturnType<typeof setInterval> | null>(null)
 const recheckingDocker = ref(false)
+
+function isManagedDockerLab(type: LabCreationType): boolean {
+  return type === 'compose' || type === 'dockerfile'
+}
+
+const deleteDialogLab = computed(() => {
+  const state = deleteConfirmState.value
+  if (!state.labId) {
+    return null
+  }
+
+  const creationType = state.creationType || 'existing'
+  const metadataOnlyDelete =
+    isManagedDockerLab(creationType) && (dockerStatus.value?.available === false || state.isOrphan)
+
+  return {
+    labId: state.labId,
+    name: state.labName,
+    creationType,
+    containerIds: Array.from({ length: state.containerCount }, (_, index) => String(index)),
+    hasWorkspace: state.hasWorkspace,
+    workspaceName: state.workspaceName,
+    metadataOnlyDelete
+  }
+})
 
 function showDockerUnavailableNotify(status: DockerStatus): void {
   if (dockerNotifyId.value) {
@@ -184,21 +209,7 @@ onBeforeUnmount(() => {
       <DeleteConfirmDialog
         :visible="deleteConfirmState.show"
         :is-deleting="deleteConfirmState.isDeleting"
-        :lab="
-          deleteConfirmState.labId
-            ? {
-                labId: deleteConfirmState.labId,
-                name: deleteConfirmState.labName,
-                creationType: deleteConfirmState.creationType || 'existing',
-                containerIds: Array.from(
-                  { length: deleteConfirmState.containerCount },
-                  (_, index) => String(index)
-                ),
-                hasWorkspace: deleteConfirmState.hasWorkspace,
-                workspaceName: deleteConfirmState.workspaceName
-              }
-            : null
-        "
+        :lab="deleteDialogLab"
         @close="labStore.hideDeleteConfirm()"
         @confirm="(_labId, options) => labStore.confirmDelete(options)"
       />

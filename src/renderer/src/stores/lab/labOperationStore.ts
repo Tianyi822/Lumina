@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
-import type { LabCreationType, DeleteLabOptions } from '@renderer/types/lab'
+import type { LabCreationType, LabStatus, DeleteLabOptions } from '@renderer/types/lab'
 import { useNotification } from '@renderer/composables/useNotification'
 import { labApi } from '@renderer/services/labApi'
 import { useLabListStore } from './labListStore'
@@ -10,7 +10,9 @@ export interface DeleteConfirmState {
   labId: string | null
   labName: string
   creationType: LabCreationType | null
+  status: LabStatus | null
   containerCount: number
+  isOrphan: boolean
   hasWorkspace: boolean
   workspaceName?: string
   isDeleting: boolean
@@ -26,7 +28,9 @@ export const useLabOperationStore = defineStore('labOperation', () => {
     labId: null,
     labName: '',
     creationType: null,
+    status: null,
     containerCount: 0,
+    isOrphan: false,
     hasWorkspace: false,
     workspaceName: undefined,
     isDeleting: false
@@ -36,15 +40,23 @@ export const useLabOperationStore = defineStore('labOperation', () => {
     labId: string,
     labName: string,
     creationType: LabCreationType,
-    containerCount: number
+    containerCount: number,
+    metadata?: {
+      status?: LabStatus
+      isOrphan?: boolean
+    }
   ): Promise<void> {
     let hasWorkspace = false
     let workspaceName: string | undefined
+    let status = metadata?.status ?? null
+    let isOrphan = metadata?.isOrphan ?? false
 
     try {
       const lab = await labApi.loadLab(labId)
       hasWorkspace = lab?.frontend?.storageType === 'docker-volume' && !!lab.frontend.volumeName
       workspaceName = lab?.frontend?.volumeName
+      status = lab?.status ?? status
+      isOrphan = lab?.isOrphan ?? isOrphan
     } catch (error) {
       window.api.logger.warn('[LabOperationStore] 加载删除确认所需的实验室详情失败', {
         labId,
@@ -57,7 +69,9 @@ export const useLabOperationStore = defineStore('labOperation', () => {
       labId,
       labName,
       creationType,
+      status,
       containerCount,
+      isOrphan,
       hasWorkspace,
       workspaceName,
       isDeleting: false
@@ -70,7 +84,9 @@ export const useLabOperationStore = defineStore('labOperation', () => {
       labId: null,
       labName: '',
       creationType: null,
+      status: null,
       containerCount: 0,
+      isOrphan: false,
       hasWorkspace: false,
       workspaceName: undefined,
       isDeleting: false
@@ -89,6 +105,22 @@ export const useLabOperationStore = defineStore('labOperation', () => {
       creationType: lab?.creationType || 'existing',
       containerCount: lab?.containerCount || 0
     }
+  }
+
+  function isManagedDockerLab(type: LabCreationType): boolean {
+    return type === 'compose' || type === 'dockerfile'
+  }
+
+  function shouldOfferMetadataOnlyDelete(
+    error: string,
+    creationType: LabCreationType,
+    options?: DeleteLabOptions
+  ): boolean {
+    return (
+      isManagedDockerLab(creationType) &&
+      options?.deleteContainers !== false &&
+      (error.includes('Docker 不可用') || error.includes('无法确认或删除关联容器'))
+    )
   }
 
   function formatDeleteError(
@@ -170,6 +202,32 @@ export const useLabOperationStore = defineStore('labOperation', () => {
       }
 
       if (result.error) {
+        if (shouldOfferMetadataOnlyDelete(result.error, creationType, options)) {
+          deleteConfirmState.value.isDeleting = false
+          const confirmed = await notify.confirm(
+            '当前无法连接 Docker，无法确认或删除关联容器。\n\n继续删除只会移除 Lumina 中的实验室元数据。删除后元数据会丢失，无法再通过此记录重连或恢复关联。',
+            {
+              title: '仅删除实验室元数据',
+              source: 'lab',
+              danger: true
+            }
+          )
+
+          if (confirmed) {
+            return deleteLabById(
+              labId,
+              {
+                ...options,
+                deleteContainers: false,
+                deleteWorkspace: false
+              },
+              meta
+            )
+          }
+
+          return false
+        }
+
         const formatted = formatDeleteError(result.error, creationType)
         notify.error(formatted.title, formatted.message, { source: 'lab' })
       }
