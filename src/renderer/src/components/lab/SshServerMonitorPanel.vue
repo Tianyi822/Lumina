@@ -4,35 +4,11 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import type { ECharts, EChartsOption } from 'echarts'
 import type { SshServerStats } from '@renderer/types/lab'
+import type { RangeHours, ChartTone, ChartPoint, MetricChart } from './sshMonitorTypes'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 
 const SSH_STATS_REFRESH_INTERVAL = 3000
 const MAX_HISTORY_HOURS = 24
-
-type RangeHours = 1 | 3 | 12 | 24
-type ChartValueKind = 'percent' | 'rate'
-type ChartTone = 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'muted'
-
-interface ChartPoint {
-  time: number
-  value: number
-}
-
-interface MetricChart {
-  key: string
-  label: string
-  valueLabel: string
-  detailLabel?: string
-  inlineDetail?: boolean
-  tone: ChartTone
-  kind: ChartValueKind
-  maxValue: number
-  points: ChartPoint[]
-  emptyLabel: string
-  supported: boolean
-  hostDetailLabel?: string
-  labelSuffix?: string
-}
 
 const props = defineProps<{
   labId: string
