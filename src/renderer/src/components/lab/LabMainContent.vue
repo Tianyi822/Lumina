@@ -427,6 +427,7 @@ onBeforeUnmount(() => {
           <LabStatsTab
             :is-ssh-lab="isSshLab"
             :is-docker-ready="isDockerReady"
+            :is-stats-tab-active="labDetailTab === 'stats'"
             :current-lab="currentLab"
             :selected-container="selectedContainer"
             :container-stats="containerStats"

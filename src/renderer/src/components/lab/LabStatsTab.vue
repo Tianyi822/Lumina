@@ -6,6 +6,7 @@ import type { ContainerDetails, ContainerStats, LabData } from '@renderer/types/
 defineProps<{
   isSshLab: boolean
   isDockerReady: boolean
+  isStatsTabActive: boolean
   currentLab: LabData | null
   selectedContainer: ContainerDetails | null
   containerStats: ContainerStats | null
@@ -35,7 +36,7 @@ defineEmits<{
       v-if="currentLab"
       :lab-id="currentLab.labId"
       :connected="currentLab.status === 'running'"
-      :active="true"
+      :active="isStatsTabActive"
     />
   </template>
   <template v-else>

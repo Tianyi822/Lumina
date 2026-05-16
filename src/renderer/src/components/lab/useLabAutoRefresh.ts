@@ -174,7 +174,7 @@ export function useLabAutoRefresh(options: UseLabAutoRefreshOptions) {
   // Watchers
   watch(labDetailTab, async () => {
     await syncLabAutoRefresh()
-  })
+  }, { immediate: true })
 
   watch(
     () => selectedContainer.value?.id,
