@@ -1,0 +1,539 @@
+.paper-chat-react-steps {
+  margin: 0;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+  overflow: hidden;
+}
+
+.paper-chat-react-steps__header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sm-space-3);
+  padding: 11px 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--sm-transition-fast);
+}
+
+.paper-chat-react-steps__header:hover {
+  background: var(--sm-color-surface-hover);
+}
+
+.paper-chat-react-steps__header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.paper-chat-react-steps__header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.paper-chat-react-steps__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+}
+
+.paper-chat-react-steps__badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--sm-color-accent-22);
+  border-radius: 999px;
+  background: var(--sm-color-accent-08);
+  color: var(--sm-color-accent-hover);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.paper-chat-react-steps__streaming-indicator,
+.paper-chat-react-steps__phase-streaming {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--sm-color-text-secondary);
+}
+
+.paper-chat-react-steps__pulse-dot,
+.paper-chat-react-steps__pulse-dot--small {
+  border-radius: 50%;
+  background: var(--sm-color-accent);
+  animation: pulse 1.8s infinite;
+}
+
+.paper-chat-react-steps__pulse-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.paper-chat-react-steps__pulse-dot--small {
+  width: 5px;
+  height: 5px;
+}
+
+.paper-chat-react-steps__stat-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.paper-chat-react-steps__stat-badge.success {
+  border-color: rgba(127, 176, 138, 0.24);
+  background: rgba(127, 176, 138, 0.08);
+  color: var(--sm-color-status-success);
+}
+
+.paper-chat-react-steps__stat-badge.error {
+  border-color: rgba(199, 120, 120, 0.24);
+  background: rgba(199, 120, 120, 0.08);
+  color: var(--sm-color-status-danger);
+}
+
+.paper-chat-react-steps__expand-icon {
+  font-size: 10px;
+  color: var(--sm-color-text-tertiary);
+  transition: transform var(--sm-transition-fast);
+}
+
+.paper-chat-react-steps__expand-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.paper-chat-react-steps__content {
+  border-top: 1px solid var(--sm-color-border-subtle);
+}
+
+.paper-chat-react-steps__phase-timeline,
+.paper-chat-react-steps__legacy-timeline {
+  padding: 14px;
+}
+
+/* 任务分组 */
+.paper-chat-react-steps__task-group {
+  position: relative;
+}
+
+.paper-chat-react-steps__task-group + .paper-chat-react-steps__task-group {
+  margin-top: 8px;
+}
+
+.paper-chat-react-steps__task-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  padding-bottom: 10px;
+}
+
+.paper-chat-react-steps__task-divider::before,
+.paper-chat-react-steps__task-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--sm-color-border-subtle);
+}
+
+.paper-chat-react-steps__task-divider-label {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  border: 1px solid var(--sm-color-accent-22);
+  border-radius: 999px;
+  background: var(--sm-color-accent-08);
+  color: var(--sm-color-accent-hover);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.paper-chat-react-steps__phase {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.paper-chat-react-steps__phase:last-child {
+  padding-bottom: 0;
+}
+
+.paper-chat-react-steps__phase-rail {
+  position: relative;
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.paper-chat-react-steps__phase-rail::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 14px;
+  bottom: -16px;
+  width: 2px;
+  background: var(--sm-color-border-default);
+}
+
+.paper-chat-react-steps__phase:last-child .paper-chat-react-steps__phase-rail::after {
+  display: none;
+}
+
+.paper-chat-react-steps__phase-node {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--sm-color-border-strong);
+  border-radius: 50%;
+  background: var(--sm-color-surface-1);
+}
+
+.paper-chat-react-steps__phase-node.active {
+  border-color: var(--sm-color-accent);
+  background: var(--sm-color-accent-12);
+}
+
+.paper-chat-react-steps__phase-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.paper-chat-react-steps__phase-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sm-space-2);
+  margin-bottom: 8px;
+}
+
+.paper-chat-react-steps__phase-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sm-color-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.paper-chat-react-steps__phase-count {
+  font-size: 11px;
+  color: var(--sm-color-text-tertiary);
+}
+
+.paper-chat-react-steps__reasoning {
+  contain: content;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
+  overflow: hidden;
+}
+
+.paper-chat-react-steps__reasoning.expanded {
+  border-color: var(--sm-color-accent-28);
+}
+
+.paper-chat-react-steps__reasoning-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--sm-transition-fast);
+}
+
+.paper-chat-react-steps__reasoning-header:hover {
+  background: var(--sm-color-surface-hover);
+}
+
+.paper-chat-react-steps__reasoning-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.paper-chat-react-steps__reasoning-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--sm-color-accent-hover);
+}
+
+.paper-chat-react-steps__reasoning-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+}
+
+.paper-chat-react-steps__reasoning-arrow {
+  font-size: 10px;
+  color: var(--sm-color-text-tertiary);
+  transition: transform var(--sm-transition-fast);
+}
+
+.paper-chat-react-steps__reasoning-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.paper-chat-react-steps__reasoning-body {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    max-height 180ms ease,
+    opacity 140ms ease;
+}
+
+.paper-chat-react-steps__reasoning-body.expanded {
+  max-height: 420px;
+  opacity: 1;
+}
+
+.paper-chat-react-steps__reasoning-content {
+  padding: 0 12px 12px;
+  max-height: 400px;
+  overflow-y: scroll;
+  border-top: 1px solid var(--sm-color-border-subtle);
+  overscroll-behavior: contain;
+}
+
+.paper-chat-react-steps__reasoning-text {
+  contain: layout style;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--sm-color-text-secondary);
+}
+
+.paper-chat-react-steps__tool-list {
+  margin-top: 12px;
+}
+
+.paper-chat-react-steps__step-content {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
+}
+
+.paper-chat-react-steps__step-content.is-error {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.paper-chat-react-steps__step-content-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--sm-color-text-primary);
+}
+
+.paper-chat-react-steps__step-content-text.markdown-body p {
+  margin: 0 0 0.5em;
+}
+
+.paper-chat-react-steps__step-content-text.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.paper-chat-react-steps__step-content-text.markdown-body code {
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
+  color: var(--sm-color-accent-hover);
+  font-size: 0.92em;
+}
+
+.paper-chat-react-steps__step-content-text.markdown-body pre {
+  margin: 0.5em 0;
+  padding: 10px 12px;
+  border-radius: var(--sm-radius-md);
+  overflow-x: auto;
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
+}
+
+.paper-chat-react-steps__step-content-text.markdown-body pre code {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--sm-color-text-secondary);
+}
+
+.paper-chat-react-steps__step-content-text.markdown-body ul,
+.paper-chat-react-steps__step-content-text.markdown-body ol {
+  margin: 0.4em 0;
+  padding-left: 1.4em;
+}
+
+.paper-chat-react-steps__tool-list-inner .paper-chat-tool-call {
+  margin: 0 0 8px;
+}
+
+.paper-chat-react-steps__tool-list-inner .paper-chat-tool-call:last-child {
+  margin-bottom: 0;
+}
+
+.paper-chat-react-expand-enter-active {
+  animation: expandIn 160ms ease;
+}
+
+.paper-chat-react-expand-leave-active {
+  animation: expandOut 140ms ease;
+}
+
+.paper-chat-react-tool-enter-active,
+.paper-chat-react-phase-enter-active {
+  animation: itemIn 160ms ease;
+}
+
+.paper-chat-react-tool-move,
+.paper-chat-react-phase-move {
+  transition: transform 160ms ease;
+}
+
+.paper-chat-react-tool-leave-active,
+.paper-chat-react-phase-leave-active {
+  animation: itemOut 140ms ease;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 0.82;
+  }
+}
+
+@keyframes expandIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes expandOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes itemIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes itemOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.paper-chat-react-steps__reasoning-content::-webkit-scrollbar,
+.paper-chat-react-steps__content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.paper-chat-react-steps__reasoning-content::-webkit-scrollbar-thumb,
+.paper-chat-react-steps__content::-webkit-scrollbar-thumb {
+  background: var(--sm-color-border-default);
+  border-radius: 999px;
+}
+
+.paper-chat-react-steps__reasoning-text.markdown-body p {
+  margin: 0 0 0.5em;
+}
+
+.paper-chat-react-steps__reasoning-text.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.paper-chat-react-steps__reasoning-text.markdown-body code {
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
+  color: var(--sm-color-accent-hover);
+  font-size: 0.92em;
+}
+
+.paper-chat-react-steps__reasoning-text.markdown-body pre {
+  margin: 0.5em 0;
+  padding: 10px 12px;
+  border-radius: var(--sm-radius-md);
+  overflow-x: auto;
+  background: var(--sm-color-bg-embedded);
+  border: 1px solid var(--sm-color-border-subtle);
+}
+
+.paper-chat-react-steps__reasoning-text.markdown-body pre code {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--sm-color-text-secondary);
+}
+
+.paper-chat-react-steps__reasoning-text.markdown-body ul,
+.paper-chat-react-steps__reasoning-text.markdown-body ol {
+  margin: 0.4em 0;
+  padding-left: 1.4em;
+}
+
+@media (max-width: 768px) {
+  .paper-chat-react-steps__header {
+    padding: 10px 12px;
+  }
+
+  .paper-chat-react-steps__phase {
+    gap: 10px;
+  }
+
+  .paper-chat-react-steps__phase-meta {
+    gap: 6px;
+  }
+}
