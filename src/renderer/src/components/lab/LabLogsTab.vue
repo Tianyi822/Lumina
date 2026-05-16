@@ -4,8 +4,9 @@ import { storeToRefs } from 'pinia'
 import { useContainerStore, useUIStateStore } from '@renderer/stores'
 import { useContainerLogs as useContainerLogsComposable } from './lab-detail'
 import ContainerLogs from './ContainerLogs.vue'
+import LabDetailEmptyState from './LabDetailEmptyState.vue'
 
-const props = defineProps<{
+defineProps<{
   isDockerReady: boolean
 }>()
 
@@ -35,18 +36,16 @@ watch(
 </script>
 
 <template>
-  <div v-if="!isDockerReady" class="detail-empty-state">
-    <div class="sm-empty detail-empty-card">
-      <h2>Docker 未就绪</h2>
-      <p>本地 Docker 运行时不可用，容器日志功能暂时无法使用。</p>
-    </div>
-  </div>
-  <div v-else-if="!selectedContainer" class="detail-empty-state">
-    <div class="sm-empty detail-empty-card">
-      <h2>日志尚未绑定容器</h2>
-      <p>选中目标容器后，可在这里检索输出、导出日志并追踪最近的运行记录。</p>
-    </div>
-  </div>
+  <LabDetailEmptyState
+    v-if="!isDockerReady"
+    title="Docker 未就绪"
+    message="本地 Docker 运行时不可用，容器日志功能暂时无法使用。"
+  />
+  <LabDetailEmptyState
+    v-else-if="!selectedContainer"
+    title="日志尚未绑定容器"
+    message="选中目标容器后，可在这里检索输出、导出日志并追踪最近的运行记录。"
+  />
   <ContainerLogs
     v-else
     :container-id="selectedContainer.id"

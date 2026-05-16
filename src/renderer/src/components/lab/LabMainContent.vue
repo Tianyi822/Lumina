@@ -723,70 +723,11 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.detail-empty-state {
-  display: flex;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-}
-
-.detail-empty-card {
-  width: min(460px, 100%);
-  background: var(--sm-color-surface-2);
-  border-style: solid;
-}
-
-.detail-empty-card h2 {
-  margin: 0;
-  font-size: 17px;
-  color: var(--sm-color-text-primary);
-}
-
-.detail-empty-card p {
-  margin: 0;
-  max-width: 380px;
-  line-height: 1.6;
-}
-
-.ssh-terminal-connect-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--sm-space-4);
-  height: 100%;
-  padding: var(--sm-space-5);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-lg);
-  background: var(--sm-color-surface-2);
-}
-
-.ssh-terminal-connect-panel__copy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-2);
-  min-width: 0;
-}
-
-.ssh-terminal-connect-panel__copy h2 {
-  margin: 0;
-  color: var(--sm-color-text-primary);
-  font-size: 17px;
-}
-
-.ssh-terminal-connect-panel__copy p {
-  margin: 0;
-  color: var(--sm-color-text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-}
-
 @media (max-width: 920px) {
   .workspace-header,
   .workspace-header__headline,
   .frontend-recovery-banner,
-  .workspace-header__actions,
-  .ssh-terminal-connect-panel {
+  .workspace-header__actions {
     flex-direction: column;
   }
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import InteractiveTerminalPanel from './InteractiveTerminalPanel.vue'
+import LabDetailEmptyState from './LabDetailEmptyState.vue'
 import type { ContainerDetails, LabData } from '@renderer/types/lab'
 
 const props = defineProps<{
@@ -83,18 +84,16 @@ watch(
     </section>
   </template>
   <template v-else>
-    <div v-if="!isDockerReady" class="detail-empty-state">
-      <div class="sm-empty detail-empty-card">
-        <h2>Docker 未就绪</h2>
-        <p>本地 Docker 运行时不可用，容器终端功能暂时无法使用。</p>
-      </div>
-    </div>
-    <div v-else-if="!selectedContainer" class="detail-empty-state">
-      <div class="sm-empty detail-empty-card">
-        <h2>终端尚未绑定容器</h2>
-        <p>选中目标容器后，可在这里执行临时命令、定位问题并确认运行环境。</p>
-      </div>
-    </div>
+    <LabDetailEmptyState
+      v-if="!isDockerReady"
+      title="Docker 未就绪"
+      message="本地 Docker 运行时不可用，容器终端功能暂时无法使用。"
+    />
+    <LabDetailEmptyState
+      v-else-if="!selectedContainer"
+      title="终端尚未绑定容器"
+      message="选中目标容器后，可在这里执行临时命令、定位问题并确认运行环境。"
+    />
     <InteractiveTerminalPanel
       v-else-if="renderedTerminalKey === terminalTargetKey"
       :key="terminalTargetKey || undefined"
@@ -105,3 +104,44 @@ watch(
     />
   </template>
 </template>
+
+<style scoped>
+.ssh-terminal-connect-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sm-space-4);
+  height: 100%;
+  padding: var(--sm-space-5);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-2);
+}
+
+.ssh-terminal-connect-panel__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  min-width: 0;
+}
+
+.ssh-terminal-connect-panel__copy h2 {
+  margin: 0;
+  color: var(--sm-color-text-primary);
+  font-size: 17px;
+}
+
+.ssh-terminal-connect-panel__copy p {
+  margin: 0;
+  color: var(--sm-color-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 920px) {
+  .ssh-terminal-connect-panel {
+    flex-direction: column;
+  }
+}
+</style>

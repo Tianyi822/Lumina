@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ContainerDetailPanel from './ContainerDetailPanel.vue'
+import LabDetailEmptyState from './LabDetailEmptyState.vue'
 import SshServerMonitorPanel from './SshServerMonitorPanel.vue'
 import type { ContainerDetails, ContainerStats, LabData } from '@renderer/types/lab'
 
@@ -40,18 +41,16 @@ defineEmits<{
     />
   </template>
   <template v-else>
-    <div v-if="!isDockerReady" class="detail-empty-state">
-      <div class="sm-empty detail-empty-card">
-        <h2>Docker 未就绪</h2>
-        <p>本地 Docker 运行时不可用，容器监控功能暂时无法使用。</p>
-      </div>
-    </div>
-    <div v-else-if="!selectedContainer" class="detail-empty-state">
-      <div class="sm-empty detail-empty-card">
-        <h2>请先选择一个容器</h2>
-        <p>选中主容器后，这里会显示运行指标、端口映射和环境细节。</p>
-      </div>
-    </div>
+    <LabDetailEmptyState
+      v-if="!isDockerReady"
+      title="Docker 未就绪"
+      message="本地 Docker 运行时不可用，容器监控功能暂时无法使用。"
+    />
+    <LabDetailEmptyState
+      v-else-if="!selectedContainer"
+      title="请先选择一个容器"
+      message="选中主容器后，这里会显示运行指标、端口映射和环境细节。"
+    />
     <ContainerDetailPanel
       v-else
       :container="selectedContainer"
