@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import * as echarts from 'echarts'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import type { ECharts, EChartsOption } from 'echarts'
-import type { SshServerStats } from '@renderer/types/lab'
-import type { RangeHours, MetricChart } from './sshMonitorTypes'
+import type { MetricChart } from './sshMonitorTypes'
 import {
   collectPoints,
   collectGpuNames,
@@ -19,10 +18,8 @@ import {
   getToneColor,
   readCssVariable
 } from './sshMonitorFormatters'
+import { useSshStatsPolling } from './useSshStatsPolling'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
-
-const SSH_STATS_REFRESH_INTERVAL = 3000
-const MAX_HISTORY_HOURS = 24
 
 const props = defineProps<{
   labId: string
@@ -30,53 +27,32 @@ const props = defineProps<{
   active: boolean
 }>()
 
-const rangeOptions: Array<{ label: string; value: RangeHours }> = [
-  { label: '1 小时', value: 1 },
-  { label: '3 小时', value: 3 },
-  { label: '12 小时', value: 12 },
-  { label: '24 小时', value: 24 }
-]
-
-const stats = ref<SshServerStats | null>(null)
-const statsHistory = ref<SshServerStats[]>([])
-const selectedRangeHours = ref<RangeHours>(1)
-const loading = ref(false)
-const refreshing = ref(false)
-const errorMessage = ref('')
-const refreshTimerId = ref<number | null>(null)
-
 const chartElements = new Map<string, HTMLElement>()
 const chartInstances = new Map<string, ECharts>()
 let resizeObserver: ResizeObserver | null = null
 let renderQueued = false
 
-const sampledAtLabel = computed(() => {
-  if (!stats.value?.sampledAt) {
-    return '-'
-  }
-
-  return new Date(stats.value.sampledAt).toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
+const polling = useSshStatsPolling({
+  labId: computed(() => props.labId),
+  connected: computed(() => props.connected),
+  active: computed(() => props.active),
+  onReset: () => disposeCharts()
 })
 
-const chartWindow = computed(() => {
-  const end = Math.max(Date.now(), stats.value ? new Date(stats.value.sampledAt).getTime() : 0)
-  return {
-    start: end - selectedRangeHours.value * 60 * 60 * 1000,
-    end
-  }
-})
-
-const visibleSamples = computed(() => {
-  const { start, end } = chartWindow.value
-  return statsHistory.value.filter((sample) => {
-    const time = new Date(sample.sampledAt).getTime()
-    return time >= start && time <= end
-  })
-})
+const {
+  stats,
+  selectedRangeHours,
+  loading,
+  refreshing,
+  errorMessage,
+  sampledAtLabel,
+  visibleSamples,
+  rangeLabel,
+  rangeOptions,
+  setRange,
+  loadStats,
+  stopPolling
+} = polling
 
 const metricCharts = computed<MetricChart[]>(() => {
   const samples = visibleSamples.value
@@ -167,28 +143,6 @@ const metricCharts = computed<MetricChart[]>(() => {
   ]
 })
 
-const rangeLabel = computed(() => {
-  return rangeOptions.find((option) => option.value === selectedRangeHours.value)?.label || '1 小时'
-})
-
-watch(
-  () => props.labId,
-  () => {
-    stats.value = null
-    statsHistory.value = []
-    errorMessage.value = ''
-    disposeCharts()
-  }
-)
-
-watch(
-  () => [props.labId, props.connected, props.active] as const,
-  () => {
-    syncPolling()
-  },
-  { immediate: true }
-)
-
 watch(metricCharts, () => {
   queueRenderCharts()
 })
@@ -207,78 +161,6 @@ onBeforeUnmount(() => {
   resizeObserver = null
   disposeCharts()
 })
-
-function syncPolling(): void {
-  stopPolling()
-
-  if (!props.connected) {
-    stats.value = null
-    statsHistory.value = []
-    errorMessage.value = ''
-    loading.value = false
-    refreshing.value = false
-    disposeCharts()
-    return
-  }
-
-  if (!props.active) {
-    return
-  }
-
-  void loadStats({ silent: !!stats.value })
-  refreshTimerId.value = window.setInterval(() => {
-    void loadStats({ silent: true })
-  }, SSH_STATS_REFRESH_INTERVAL)
-}
-
-function stopPolling(): void {
-  if (refreshTimerId.value !== null) {
-    clearInterval(refreshTimerId.value)
-    refreshTimerId.value = null
-  }
-}
-
-async function loadStats(options?: { silent?: boolean }): Promise<void> {
-  if (!props.connected || refreshing.value) {
-    return
-  }
-
-  refreshing.value = true
-  if (!options?.silent && !stats.value) {
-    loading.value = true
-  }
-
-  try {
-    const result = await window.api.ssh.getServerStats(props.labId)
-    if (!result.success || !result.stats) {
-      errorMessage.value = result.error || '服务器资源统计采集失败'
-      return
-    }
-
-    stats.value = result.stats
-    appendSample(result.stats)
-    errorMessage.value = ''
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : String(error)
-  } finally {
-    refreshing.value = false
-    loading.value = false
-  }
-}
-
-function appendSample(sample: SshServerStats): void {
-  const sampleTime = new Date(sample.sampledAt).getTime()
-  const minTime = sampleTime - MAX_HISTORY_HOURS * 60 * 60 * 1000
-
-  statsHistory.value = [
-    ...statsHistory.value.filter((item) => new Date(item.sampledAt).getTime() >= minTime),
-    sample
-  ]
-}
-
-function setRange(hours: RangeHours): void {
-  selectedRangeHours.value = hours
-}
 
 function setChartElement(key: string, element: Element | ComponentPublicInstance | null): void {
   const htmlElement = resolveHtmlElement(element)
