@@ -1,5 +1,5 @@
 import { ref, watch } from 'vue'
-import type { ComputedRef } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import { useContainerStore, useLabStore } from '@renderer/stores'
 import type { ContainerDetails, LabData } from '@renderer/types/lab'
 
@@ -8,7 +8,7 @@ const LAB_AUTO_REFRESH_INTERVAL = 3000
 export interface UseLabAutoRefreshOptions {
   currentLab: ComputedRef<LabData | null>
   selectedContainer: ComputedRef<ContainerDetails | null>
-  labDetailTab: ComputedRef<'stats' | 'terminal' | 'logs'>
+  labDetailTab: Ref<'stats' | 'terminal' | 'logs'>
   isSshLab: ComputedRef<boolean>
   isOrphan: ComputedRef<boolean>
   isLabFrontend: ComputedRef<boolean>

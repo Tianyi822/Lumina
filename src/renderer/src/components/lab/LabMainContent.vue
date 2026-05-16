@@ -4,20 +4,17 @@ import { storeToRefs } from 'pinia'
 import { useContainerStore, useUIStateStore, useLabStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import { labApi } from '@renderer/services/labApi'
-import InteractiveTerminalPanel from './InteractiveTerminalPanel.vue'
-import ContainerLogs from './ContainerLogs.vue'
-import ContainerDetailPanel from './ContainerDetailPanel.vue'
 import OrphanLabAlert from './OrphanLabAlert.vue'
 import SshReconnectPrompt from './SshReconnectPrompt.vue'
-import SshServerMonitorPanel from './SshServerMonitorPanel.vue'
 import { TabNavigation } from './lab-detail'
-import { useContainerLogs as useContainerLogsComposable, useContainerActions } from './lab-detail'
-import type { ContainerDetails, LabData, DockerStatus } from '@renderer/types/lab'
+import { useContainerActions } from './lab-detail'
+import LabStatsTab from './LabStatsTab.vue'
+import LabTerminalTab from './LabTerminalTab.vue'
+import LabLogsTab from './LabLogsTab.vue'
+import { useLabAutoRefresh } from './useLabAutoRefresh'
+import type { LabData, DockerStatus } from '@renderer/types/lab'
 
-const LAB_AUTO_REFRESH_INTERVAL = 3000
 const DOCKER_WEBSITE = 'https://www.docker.com/products/docker-desktop/'
-
-// ==================== Props & Emits ====================
 
 const props = defineProps<{
   currentLab: LabData | null
@@ -29,36 +26,17 @@ const emit = defineEmits<{
   recheckDocker: []
 }>()
 
-// ==================== Store ====================
-
+// Stores
 const containerStore = useContainerStore()
 const uiStateStore = useUIStateStore()
 const labStore = useLabStore()
 const notify = useNotification()
 
 const { selectedContainer, containerStats, isLoading: storeLoading } = storeToRefs(containerStore)
-
 const { labDetailTab } = storeToRefs(uiStateStore)
 
-const labRefreshTimerId = ref<number | null>(null)
-const isRefreshingStats = ref(false)
-const isManualRefreshingStats = ref(false)
-const isRefreshingLabState = ref(false)
-const isRetryingFrontend = ref(false)
-const isRebuildingFrontend = ref(false)
-const isValidatingFrontendBuild = ref(false)
-const renderedTerminalKey = ref<string | null>(null)
-let removeSshStatusListener: (() => void) | null = null
-
-// 容器生命周期操作加载状态
-const isStartingContainer = ref(false)
-const isStoppingContainer = ref(false)
-const isRestartingContainer = ref(false)
-
-// ==================== Computed ====================
-
+// Computed
 const hasLab = computed(() => !!props.currentLab)
-
 const isOrphan = computed(() => props.currentLab?.isOrphan || false)
 const isLabFrontend = computed(() => !!props.currentLab?.frontend)
 const isSshLab = computed(() => props.currentLab?.backendType === 'ssh')
@@ -128,51 +106,31 @@ const sshAuthLabel = computed(() => {
   return authType === 'password' ? '密码认证' : '密钥认证'
 })
 const isSshConnected = computed(() => props.currentLab?.status === 'running')
-const sshTerminalSubtitle = computed(() => {
-  const ssh = props.currentLab?.ssh
-  if (!ssh) {
-    return ''
-  }
 
-  return `${ssh.username}@${ssh.host}:${ssh.port}`
-})
-const dockerTerminalTitle = computed(() => {
-  return selectedContainer.value?.names[0]?.replace(/^\//, '') || '未命名容器'
-})
-const dockerTerminalSubtitle = computed(() => {
-  const container = selectedContainer.value
-  if (!container) {
-    return ''
-  }
-
-  return `${container.shortId} · ${container.image}`
-})
-const terminalTargetKey = computed(() => {
-  if (props.currentLab?.backendType === 'ssh') {
-    return props.currentLab.status === 'running' ? `ssh:${props.currentLab.labId}` : null
-  }
-
-  return selectedContainer.value ? `docker:${selectedContainer.value.id}` : null
-})
-
-// 用于 composables 的响应式引用
 const currentLabRef = computed(() => props.currentLab)
 const selectedContainerRef = computed(() => selectedContainer.value)
 
-// ==================== Composables ====================
+// Auto refresh composable
+const autoRefresh = useLabAutoRefresh({
+  currentLab: currentLabRef,
+  selectedContainer: selectedContainerRef,
+  labDetailTab,
+  isSshLab,
+  isOrphan,
+  isLabFrontend
+})
 
-// 容器日志
-const { containerLogs, logsLoading, loadContainerLogs, handleRefreshLogs, handleExportLogs } =
-  useContainerLogsComposable(selectedContainerRef)
-
-// 容器操作
+// Container actions
 const {
   handleContainerStart: _handleContainerStart,
   handleContainerStop: _handleContainerStop,
   handleContainerRestart: _handleContainerRestart
 } = useContainerActions(currentLabRef, selectedContainerRef)
 
-// 包装容器操作函数，添加加载状态管理
+const isStartingContainer = ref(false)
+const isStoppingContainer = ref(false)
+const isRestartingContainer = ref(false)
+
 async function handleContainerStart(): Promise<void> {
   if (!isDockerReady.value) return
   isStartingContainer.value = true
@@ -203,323 +161,7 @@ async function handleContainerRestart(): Promise<void> {
   }
 }
 
-// ==================== Watch ====================
-
-async function refreshStats(options?: { silent?: boolean }): Promise<void> {
-  const containerId = selectedContainer.value?.id
-  if (!containerId || isRefreshingStats.value) {
-    return
-  }
-
-  isRefreshingStats.value = true
-  try {
-    await containerStore.loadContainerStats(containerId, options)
-  } finally {
-    isRefreshingStats.value = false
-  }
-}
-
-function shouldKeepLabAutoRefresh(container?: ContainerDetails | null): boolean {
-  const currentContainer = container || selectedContainer.value
-  if (!props.currentLab || props.currentLab.backendType === 'ssh' || !currentContainer) {
-    return false
-  }
-
-  if (props.currentLab.frontend && !isOrphan.value) {
-    return true
-  }
-
-  return labDetailTab.value === 'stats' && currentContainer.state === 'running'
-}
-
-async function validateFrontendBuildOnRefresh(): Promise<void> {
-  const labId = props.currentLab?.labId
-  const frontend = props.currentLab?.frontend
-
-  if (
-    !labId ||
-    !frontend ||
-    isOrphan.value ||
-    frontend.buildValidated ||
-    props.currentLab?.status !== 'running' ||
-    isValidatingFrontendBuild.value
-  ) {
-    return
-  }
-
-  isValidatingFrontendBuild.value = true
-  try {
-    await labStore.validateFrontendBuild(labId, {
-      silent: true
-    })
-  } finally {
-    isValidatingFrontendBuild.value = false
-  }
-}
-
-async function runLabRefreshCycle(options?: { silentStats?: boolean }): Promise<void> {
-  const labId = props.currentLab?.labId
-  if (!labId || isRefreshingLabState.value) {
-    return
-  }
-
-  isRefreshingLabState.value = true
-  try {
-    await labStore.loadLab(labId, true, {
-      silent: true
-    })
-
-    const container = selectedContainer.value
-    if (!container) {
-      containerStore.clearContainerStats()
-      return
-    }
-
-    if (labDetailTab.value === 'stats' && container.state === 'running') {
-      await refreshStats({
-        silent: options?.silentStats
-      })
-    } else if (container.state !== 'running') {
-      containerStore.clearContainerStats()
-    }
-
-    await validateFrontendBuildOnRefresh()
-  } finally {
-    isRefreshingLabState.value = false
-  }
-}
-
-function stopLabAutoRefresh(): void {
-  if (labRefreshTimerId.value !== null) {
-    clearInterval(labRefreshTimerId.value)
-    labRefreshTimerId.value = null
-  }
-}
-
-function startLabAutoRefresh(): void {
-  stopLabAutoRefresh()
-
-  if (!shouldKeepLabAutoRefresh()) {
-    return
-  }
-
-  labRefreshTimerId.value = window.setInterval(() => {
-    if (!shouldKeepLabAutoRefresh()) {
-      stopLabAutoRefresh()
-      return
-    }
-
-    void runLabRefreshCycle({ silentStats: true })
-  }, LAB_AUTO_REFRESH_INTERVAL)
-}
-
-async function syncLabAutoRefresh(): Promise<void> {
-  if (!props.currentLab || props.currentLab.backendType === 'ssh') {
-    stopLabAutoRefresh()
-    return
-  }
-
-  const container = selectedContainer.value
-  if (!container) {
-    stopLabAutoRefresh()
-    return
-  }
-
-  await runLabRefreshCycle()
-
-  if (
-    shouldKeepLabAutoRefresh(selectedContainer.value) &&
-    selectedContainer.value?.id === container.id
-  ) {
-    startLabAutoRefresh()
-  } else {
-    stopLabAutoRefresh()
-  }
-}
-
-async function handleRefreshStats(): Promise<void> {
-  if (isManualRefreshingStats.value) {
-    return
-  }
-
-  isManualRefreshingStats.value = true
-  try {
-    await refreshStats()
-  } finally {
-    isManualRefreshingStats.value = false
-  }
-}
-
-// Tab 切换时加载数据
-watch(
-  () => labDetailTab.value,
-  async (tab) => {
-    if (tab === 'logs' && !isSshLab.value && selectedContainer.value) {
-      await loadContainerLogs()
-    }
-
-    await syncLabAutoRefresh()
-  },
-  { immediate: true }
-)
-
-watch(
-  () => [isSshLab.value, labDetailTab.value] as const,
-  ([sshLab, tab]) => {
-    if (sshLab && tab === 'logs') {
-      setDetailTab('stats')
-    }
-  },
-  { immediate: true }
-)
-
-watch(
-  () => [labDetailTab.value, terminalTargetKey.value] as const,
-  ([tab, targetKey], oldValue) => {
-    const oldTargetKey = oldValue?.[1]
-    if (!targetKey) {
-      renderedTerminalKey.value = null
-      return
-    }
-
-    if (oldTargetKey && targetKey !== oldTargetKey && renderedTerminalKey.value === oldTargetKey) {
-      renderedTerminalKey.value = null
-    }
-
-    if (tab === 'terminal') {
-      renderedTerminalKey.value = targetKey
-    }
-  },
-  { immediate: true }
-)
-
-// 容器变化时重新加载数据
-watch(
-  () => selectedContainer.value?.id,
-  async (newId, oldId) => {
-    if (newId !== oldId) {
-      containerStore.clearContainerStats()
-    }
-
-    if (newId) {
-      if (labDetailTab.value === 'logs' && !isSshLab.value) {
-        await loadContainerLogs()
-      }
-
-      await syncLabAutoRefresh()
-      return
-    }
-
-    stopLabAutoRefresh()
-  }
-)
-
-watch(
-  () => selectedContainer.value?.state,
-  async () => {
-    await syncLabAutoRefresh()
-  }
-)
-
-watch(
-  () => [
-    props.currentLab?.labId,
-    props.currentLab?.status,
-    props.currentLab?.frontend?.buildValidated
-  ],
-  async () => {
-    await syncLabAutoRefresh()
-  }
-)
-
-onBeforeUnmount(() => {
-  stopLabAutoRefresh()
-  removeSshStatusListener?.()
-  removeSshStatusListener = null
-})
-
-onMounted(() => {
-  removeSshStatusListener = window.api.ssh.onConnectionStatus((event) => {
-    if (event.labId === props.currentLab?.labId) {
-      void labStore.loadLab(event.labId, true, { silent: true })
-    }
-  })
-})
-
-// ==================== Methods ====================
-
-function setDetailTab(tab: 'stats' | 'terminal' | 'logs'): void {
-  uiStateStore.setLabDetailTab(tab)
-}
-
-async function handleOpenTerminal(): Promise<void> {
-  setDetailTab('terminal')
-}
-
-async function handleViewLogs(): Promise<void> {
-  if (isSshLab.value) {
-    return
-  }
-
-  setDetailTab('logs')
-}
-
-/**
- * 删除实验室 - 弹出确认对话框
- */
-function handleDeleteLab(): void {
-  if (props.currentLab) {
-    labStore.handleDeleteLab(props.currentLab.labId)
-  }
-}
-
-// ==================== 孤儿实验室操作 ====================
-
-async function handleRecoverOrphan(): Promise<void> {
-  if (props.currentLab?.frontend) {
-    await handleRebuildFrontendRuntime()
-    return
-  }
-
-  notify.warning(
-    '暂不支持自动恢复',
-    '当前只有前端实验室支持基于持久化工作区自动重建容器。其他类型请手动恢复容器后重新关联。',
-    { source: 'lab' }
-  )
-}
-
-async function handleCleanupOrphan(labId: string): Promise<void> {
-  await labStore.handleDeleteLab(labId)
-}
-
-async function handleRetryFrontendInitialization(): Promise<void> {
-  const labId = props.currentLab?.labId
-  if (!labId || isRetryingFrontend.value) {
-    return
-  }
-
-  isRetryingFrontend.value = true
-  try {
-    await labStore.retryFrontendInitialization(labId)
-  } finally {
-    isRetryingFrontend.value = false
-  }
-}
-
-async function handleRebuildFrontendRuntime(): Promise<void> {
-  const labId = props.currentLab?.labId
-  if (!labId || isRebuildingFrontend.value) {
-    return
-  }
-
-  isRebuildingFrontend.value = true
-  try {
-    await labStore.rebuildFrontendRuntime(labId)
-  } finally {
-    isRebuildingFrontend.value = false
-  }
-}
-
+// SSH
 const isConnectingSsh = ref(false)
 const sshReconnectPassword = ref('')
 
@@ -553,12 +195,65 @@ async function handleSshConnect(): Promise<void> {
   }
 }
 
-watch(
-  () => props.currentLab?.labId,
-  () => {
-    sshReconnectPassword.value = ''
+// Frontend recovery
+const isRetryingFrontend = ref(false)
+const isRebuildingFrontend = ref(false)
+
+async function handleRetryFrontendInitialization(): Promise<void> {
+  const labId = props.currentLab?.labId
+  if (!labId || isRetryingFrontend.value) {
+    return
   }
-)
+
+  isRetryingFrontend.value = true
+  try {
+    await labStore.retryFrontendInitialization(labId)
+  } finally {
+    isRetryingFrontend.value = false
+  }
+}
+
+async function handleRebuildFrontendRuntime(): Promise<void> {
+  const labId = props.currentLab?.labId
+  if (!labId || isRebuildingFrontend.value) {
+    return
+  }
+
+  isRebuildingFrontend.value = true
+  try {
+    await labStore.rebuildFrontendRuntime(labId)
+  } finally {
+    isRebuildingFrontend.value = false
+  }
+}
+
+// Other handlers
+function setDetailTab(tab: 'stats' | 'terminal' | 'logs'): void {
+  uiStateStore.setLabDetailTab(tab)
+}
+
+function handleDeleteLab(): void {
+  if (props.currentLab) {
+    labStore.handleDeleteLab(props.currentLab.labId)
+  }
+}
+
+async function handleRecoverOrphan(): Promise<void> {
+  if (props.currentLab?.frontend) {
+    await handleRebuildFrontendRuntime()
+    return
+  }
+
+  notify.warning(
+    '暂不支持自动恢复',
+    '当前只有前端实验室支持基于持久化工作区自动重建容器。其他类型请手动恢复容器后重新关联。',
+    { source: 'lab' }
+  )
+}
+
+async function handleCleanupOrphan(labId: string): Promise<void> {
+  await labStore.handleDeleteLab(labId)
+}
 
 async function handleOpenDockerWebsite(): Promise<void> {
   const result = await labApi.openExternal(DOCKER_WEBSITE)
@@ -579,6 +274,41 @@ function formatDateTime(value?: string): string {
     minute: '2-digit'
   })
 }
+
+// Watchers
+watch(
+  () => [isSshLab.value, labDetailTab.value] as const,
+  ([sshLab, tab]) => {
+    if (sshLab && tab === 'logs') {
+      setDetailTab('stats')
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => props.currentLab?.labId,
+  () => {
+    sshReconnectPassword.value = ''
+  }
+)
+
+// Lifecycle
+let removeSshStatusListener: (() => void) | null = null
+
+onMounted(() => {
+  removeSshStatusListener = window.api.ssh.onConnectionStatus((event) => {
+    if (event.labId === props.currentLab?.labId) {
+      void labStore.loadLab(event.labId, true, { silent: true })
+    }
+  })
+})
+
+onBeforeUnmount(() => {
+  autoRefresh.cleanup()
+  removeSshStatusListener?.()
+  removeSshStatusListener = null
+})
 </script>
 
 <template>
@@ -694,115 +424,44 @@ function formatDateTime(value?: string): string {
 
         <!-- 监控 Tab -->
         <div v-show="labDetailTab === 'stats'" class="tab-content">
-          <template v-if="isSshLab">
-            <SshServerMonitorPanel
-              v-if="currentLab"
-              :lab-id="currentLab.labId"
-              :connected="isSshConnected"
-              :active="labDetailTab === 'stats'"
-            />
-          </template>
-
-          <template v-else>
-            <div v-if="!isDockerReady" class="detail-empty-state">
-              <div class="sm-empty detail-empty-card">
-                <h2>Docker 未就绪</h2>
-                <p>本地 Docker 运行时不可用，容器监控功能暂时无法使用。</p>
-              </div>
-            </div>
-            <div v-else-if="!selectedContainer" class="detail-empty-state">
-              <div class="sm-empty detail-empty-card">
-                <h2>请先选择一个容器</h2>
-                <p>选中主容器后，这里会显示运行指标、端口映射和环境细节。</p>
-              </div>
-            </div>
-            <ContainerDetailPanel
-              v-else
-              :container="selectedContainer"
-              :stats="containerStats"
-              :loading="storeLoading"
-              :refreshing-stats="isManualRefreshingStats"
-              :creation-type="currentLab?.creationType"
-              :lab-name="currentLab?.name"
-              :starting-container="isStartingContainer"
-              :stopping-container="isStoppingContainer"
-              :restarting-container="isRestartingContainer"
-              @start="handleContainerStart"
-              @stop="handleContainerStop"
-              @restart="handleContainerRestart"
-              @remove="handleDeleteLab"
-              @open-terminal="handleOpenTerminal"
-              @view-logs="handleViewLogs"
-              @refresh-stats="handleRefreshStats"
-            />
-          </template>
+          <LabStatsTab
+            :is-ssh-lab="isSshLab"
+            :is-docker-ready="isDockerReady"
+            :current-lab="currentLab"
+            :selected-container="selectedContainer"
+            :container-stats="containerStats"
+            :store-loading="storeLoading"
+            :is-manual-refreshing-stats="autoRefresh.isManualRefreshingStats.value"
+            :starting-container="isStartingContainer"
+            :stopping-container="isStoppingContainer"
+            :restarting-container="isRestartingContainer"
+            :creation-type="currentLab?.creationType"
+            :lab-name="currentLab?.name"
+            @start="handleContainerStart"
+            @stop="handleContainerStop"
+            @restart="handleContainerRestart"
+            @remove="handleDeleteLab"
+            @open-terminal="setDetailTab('terminal')"
+            @view-logs="setDetailTab('logs')"
+            @refresh-stats="autoRefresh.handleRefreshStats()"
+          />
         </div>
 
         <!-- 终端 Tab -->
         <div v-show="labDetailTab === 'terminal'" class="tab-content">
-          <template v-if="isSshLab">
-            <InteractiveTerminalPanel
-              v-if="currentLab && isSshConnected && renderedTerminalKey === terminalTargetKey"
-              :key="terminalTargetKey || undefined"
-              backend="ssh"
-              :target-id="currentLab.labId"
-              :title="currentLab.name"
-              :subtitle="sshTerminalSubtitle"
-            />
-            <section v-else class="ssh-terminal-connect-panel">
-              <div class="ssh-terminal-connect-panel__copy">
-                <h2>SSH 未连接</h2>
-                <p>请使用上方连接提示重新连接 {{ sshTerminalSubtitle || '远程服务器' }}。</p>
-              </div>
-            </section>
-          </template>
-          <template v-else>
-            <div v-if="!isDockerReady" class="detail-empty-state">
-              <div class="sm-empty detail-empty-card">
-                <h2>Docker 未就绪</h2>
-                <p>本地 Docker 运行时不可用，容器终端功能暂时无法使用。</p>
-              </div>
-            </div>
-            <div v-else-if="!selectedContainer" class="detail-empty-state">
-              <div class="sm-empty detail-empty-card">
-                <h2>终端尚未绑定容器</h2>
-                <p>选中目标容器后，可在这里执行临时命令、定位问题并确认运行环境。</p>
-              </div>
-            </div>
-            <InteractiveTerminalPanel
-              v-else-if="renderedTerminalKey === terminalTargetKey"
-              :key="terminalTargetKey || undefined"
-              backend="docker"
-              :target-id="selectedContainer.id"
-              :title="dockerTerminalTitle"
-              :subtitle="dockerTerminalSubtitle"
-            />
-          </template>
+          <LabTerminalTab
+            :is-ssh-lab="isSshLab"
+            :is-docker-ready="isDockerReady"
+            :current-lab="currentLab"
+            :selected-container="selectedContainer"
+            :is-ssh-connected="isSshConnected"
+            :lab-detail-tab="labDetailTab"
+          />
         </div>
 
         <!-- 日志 Tab -->
         <div v-if="!isSshLab" v-show="labDetailTab === 'logs'" class="tab-content">
-          <div v-if="!isDockerReady" class="detail-empty-state">
-            <div class="sm-empty detail-empty-card">
-              <h2>Docker 未就绪</h2>
-              <p>本地 Docker 运行时不可用，容器日志功能暂时无法使用。</p>
-            </div>
-          </div>
-          <div v-else-if="!selectedContainer" class="detail-empty-state">
-            <div class="sm-empty detail-empty-card">
-              <h2>日志尚未绑定容器</h2>
-              <p>选中目标容器后，可在这里检索输出、导出日志并追踪最近的运行记录。</p>
-            </div>
-          </div>
-          <ContainerLogs
-            v-else
-            :container-id="selectedContainer.id"
-            :container-name="selectedContainer.names[0]?.replace(/^\//, '') || '未命名'"
-            :logs="containerLogs"
-            :loading="logsLoading"
-            @refresh="handleRefreshLogs"
-            @export="handleExportLogs"
-          />
+          <LabLogsTab :is-docker-ready="isDockerReady" />
         </div>
       </div>
     </template>
