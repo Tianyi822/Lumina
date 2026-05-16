@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { ComputedRef } from 'vue'
 import type { SshServerStats } from '@renderer/types/lab'
 import type { RangeHours } from './sshMonitorTypes'
@@ -71,6 +71,8 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions) {
   })
 
   watch([labId, connected, active], () => syncPolling(), { immediate: true })
+
+  onBeforeUnmount(() => stopPolling())
 
   function syncPolling(): void {
     stopPolling()
@@ -157,8 +159,6 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions) {
     rangeLabel,
     rangeOptions,
     setRange,
-    loadStats,
-    syncPolling,
-    stopPolling
+    loadStats
   }
 }

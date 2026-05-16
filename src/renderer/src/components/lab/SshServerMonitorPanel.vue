@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount } from 'vue'
+import { computed } from 'vue'
 import type { MetricChart } from './sshMonitorTypes'
 import {
   collectPoints,
@@ -20,6 +20,7 @@ const props = defineProps<{
   active: boolean
 }>()
 
+// metricCharts 通过闭包引用 polling（定义在下方），Vue computed 延迟求值所以顺序安全
 const metricCharts = computed<MetricChart[]>(() => {
   const samples = polling.visibleSamples.value
   const latest = polling.stats.value
@@ -128,13 +129,8 @@ const {
   rangeLabel,
   rangeOptions,
   setRange,
-  loadStats,
-  stopPolling
+  loadStats
 } = polling
-
-onBeforeUnmount(() => {
-  stopPolling()
-})
 </script>
 
 <template>
