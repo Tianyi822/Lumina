@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome'
 import { useKnowledgeStore, useUIStateStore } from '@renderer/stores'
+import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
 import styles from './WorkspaceSidebarHost.module.css'
 
 export default function WorkspaceSidebarHost() {
@@ -55,7 +56,9 @@ export default function WorkspaceSidebarHost() {
 
   const handleDeleteKnowledgeBase = useCallback(
     async (kbId: string) => {
-      const confirmed = window.confirm('此操作不可撤销。确定删除知识库吗？')
+      const confirmed = await useNotificationCenterStore
+        .getState()
+        .requestConfirm('此操作不可撤销。', '删除知识库', true)
       if (!confirmed) return
 
       const success = await deleteKnowledgeBase(kbId)

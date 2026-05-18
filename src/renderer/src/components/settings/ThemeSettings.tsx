@@ -8,8 +8,7 @@ interface ThemeSettingsProps {
   onThemeChange: (themeId: string) => void
 }
 
-export default function ThemeSettings(_props: ThemeSettingsProps) {
-  const { onThemeChange } = _props
+export default function ThemeSettings({ onThemeChange }: ThemeSettingsProps) {
   const currentTheme = useUIStateStore((s) => s.currentTheme)
   const selectedTheme = useUIStateStore((s) => s.selectedTheme)
   const themeMode = useUIStateStore((s) => s.themeMode)
