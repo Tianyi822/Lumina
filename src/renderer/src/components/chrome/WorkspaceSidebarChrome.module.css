@@ -1,0 +1,18 @@
+.sm-sidebar-shell__header {
+  position: relative;
+}
+
+.sm-sidebar-shell__chrome-action-hitbox {
+  position: absolute;
+  top: 0;
+  left: 74px;
+  z-index: 1;
+  width: 62px;
+  height: 30px;
+  -webkit-app-region: no-drag;
+  pointer-events: none;
+}
+
+.sm-sidebar-shell__chrome-action-hitbox--windows {
+  left: var(--sm-space-4);
+}

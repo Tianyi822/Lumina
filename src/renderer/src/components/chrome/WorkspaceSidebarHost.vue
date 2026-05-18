@@ -15,6 +15,7 @@ import {
   useUIStateStore
 } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
+import styles from './WorkspaceSidebarHost.module.css'
 
 const uiStateStore = useZustandStore(useUIStateStore)
 const knowledgeStore = useZustandStore(useKnowledgeStore)
@@ -250,13 +251,17 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
 </script>
 
 <template>
-  <div class="sm-sidebar-frame" :class="{ 'is-collapsed': isCurrentSidebarCollapsed }">
-    <aside class="sm-sidebar-shell sm-workspace-sidebar-host">
+  <div :class="[styles['sm-sidebar-frame'], { 'is-collapsed': isCurrentSidebarCollapsed }]">
+    <aside :class="['sm-sidebar-shell', styles['sm-workspace-sidebar-host']]">
       <WorkspaceSidebarChrome :count="sidebarCount" :actions-key="currentView">
         <template #actions>
           <template v-if="currentView === 'paper'">
             <button
-              class="sm-button sm-button--primary sm-workspace-sidebar-host__action"
+              :class="[
+                'sm-button',
+                'sm-button--primary',
+                styles['sm-workspace-sidebar-host__action']
+              ]"
               @click="handleUploadPdf"
             >
               上传 PDF
@@ -265,13 +270,21 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
 
           <template v-else-if="currentView === 'knowledge'">
             <button
-              class="sm-button sm-button--primary sm-workspace-sidebar-host__action"
+              :class="[
+                'sm-button',
+                'sm-button--primary',
+                styles['sm-workspace-sidebar-host__action']
+              ]"
               @click="handleCreateKnowledgeBase"
             >
               新建知识库
             </button>
             <button
-              class="sm-button sm-button--secondary sm-workspace-sidebar-host__action"
+              :class="[
+                'sm-button',
+                'sm-button--secondary',
+                styles['sm-workspace-sidebar-host__action']
+              ]"
               @click="handleManageKnowledgeFiles"
             >
               管理文件
@@ -280,13 +293,21 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
 
           <template v-else>
             <button
-              class="sm-button sm-button--primary sm-workspace-sidebar-host__action"
+              :class="[
+                'sm-button',
+                'sm-button--primary',
+                styles['sm-workspace-sidebar-host__action']
+              ]"
               @click="handleOpenLabCreator"
             >
               创建实验室
             </button>
             <button
-              class="sm-button sm-button--secondary sm-workspace-sidebar-host__action"
+              :class="[
+                'sm-button',
+                'sm-button--secondary',
+                styles['sm-workspace-sidebar-host__action']
+              ]"
               @click="handleOpenConfigManager"
             >
               管理配置
@@ -295,12 +316,12 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
         </template>
       </WorkspaceSidebarChrome>
 
-      <div class="sm-workspace-sidebar-host__viewport">
-        <div class="sm-workspace-sidebar-host__panel">
+      <div :class="styles['sm-workspace-sidebar-host__viewport']">
+        <div :class="styles['sm-workspace-sidebar-host__panel']">
           <Transition name="sm-sidebar-search-switch" mode="out-in" appear>
             <div
               :key="`search-${currentView}`"
-              class="sm-sidebar-shell__search sm-workspace-sidebar-host__search"
+              :class="['sm-sidebar-shell__search', styles['sm-workspace-sidebar-host__search']]"
             >
               <template v-if="currentView === 'paper'">
                 <input
@@ -321,7 +342,7 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
               </template>
 
               <template v-else>
-                <div class="sm-workspace-sidebar-host__search--lab">
+                <div :class="styles['sm-workspace-sidebar-host__search--lab']">
                   <input
                     v-model="labSearchQuery"
                     type="text"
@@ -329,7 +350,7 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
                     placeholder="搜索实验室"
                   />
                   <button
-                    class="sm-icon-button sm-workspace-sidebar-host__refresh-button"
+                    :class="['sm-icon-button', styles['sm-workspace-sidebar-host__refresh-button']]"
                     title="刷新列表"
                     :disabled="isRefreshingLabList"
                     @click="handleRefreshLabList"
@@ -344,7 +365,11 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
           <Transition name="sm-sidebar-body-switch" mode="out-in" appear>
             <div
               :key="`body-${currentView}`"
-              class="sm-sidebar-shell__body sm-sidebar-shell__body--flush sm-workspace-sidebar-host__body"
+              :class="[
+                'sm-sidebar-shell__body',
+                'sm-sidebar-shell__body--flush',
+                styles['sm-workspace-sidebar-host__body']
+              ]"
             >
               <template v-if="currentView === 'paper'">
                 <PaperSidebar
@@ -362,7 +387,7 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
               </template>
 
               <template v-else-if="currentView === 'knowledge'">
-                <div class="sm-workspace-sidebar-host__kb-list">
+                <div :class="styles['sm-workspace-sidebar-host__kb-list']">
                   <TransitionGroup
                     v-if="filteredKnowledgeBases.length > 0"
                     name="sm-sidebar-list-item"
@@ -373,30 +398,35 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
                       v-for="(kb, index) in filteredKnowledgeBases"
                       :key="kb.id"
                       :class="[
-                        'sm-workspace-sidebar-host__kb-item',
-                        { 'is-active': kb.id === knowledgeStore.activeKbId }
+                        styles['sm-workspace-sidebar-host__kb-item'],
+                        { [styles['is-active']]: kb.id === knowledgeStore.activeKbId }
                       ]"
                       :style="getSidebarListItemMotionStyle(index)"
                       @click="handleSelectKnowledgeBase(kb.id)"
                     >
-                      <div class="sm-workspace-sidebar-host__kb-icon">
+                      <div :class="styles['sm-workspace-sidebar-host__kb-icon']">
                         {{ kb.name.charAt(0).toUpperCase() }}
                       </div>
 
-                      <div class="sm-workspace-sidebar-host__kb-info">
-                        <div class="sm-workspace-sidebar-host__kb-name-row">
-                          <div class="sm-workspace-sidebar-host__kb-name">{{ kb.name }}</div>
-                          <span v-if="needsReindex(kb)" class="sm-workspace-sidebar-host__kb-stale">
+                      <div :class="styles['sm-workspace-sidebar-host__kb-info']">
+                        <div :class="styles['sm-workspace-sidebar-host__kb-name-row']">
+                          <div :class="styles['sm-workspace-sidebar-host__kb-name']">
+                            {{ kb.name }}
+                          </div>
+                          <span
+                            v-if="needsReindex(kb)"
+                            :class="styles['sm-workspace-sidebar-host__kb-stale']"
+                          >
                             需重索引
                           </span>
                         </div>
-                        <div class="sm-workspace-sidebar-host__kb-meta">
+                        <div :class="styles['sm-workspace-sidebar-host__kb-meta']">
                           {{ formatDocumentCount(kb.linkedFileIds) }}
                         </div>
                       </div>
 
                       <button
-                        class="sm-workspace-sidebar-host__kb-delete"
+                        :class="styles['sm-workspace-sidebar-host__kb-delete']"
                         title="删除知识库"
                         @click.stop="handleDeleteKnowledgeBase(kb.id)"
                       >
@@ -405,8 +435,8 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
                     </div>
                   </TransitionGroup>
 
-                  <div v-else class="sm-workspace-sidebar-host__empty">
-                    <div class="sm-workspace-sidebar-host__empty-text">
+                  <div v-else :class="styles['sm-workspace-sidebar-host__empty']">
+                    <div :class="styles['sm-workspace-sidebar-host__empty-text']">
                       {{ knowledgeSearchQuery ? '未找到匹配的知识库' : '暂无知识库' }}
                     </div>
                     <button
@@ -436,212 +466,3 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
     </aside>
   </div>
 </template>
-
-<style scoped>
-.sm-sidebar-frame {
-  position: relative;
-}
-
-.sm-workspace-sidebar-host {
-  position: relative;
-}
-
-.sm-workspace-sidebar-host__action {
-  width: 100%;
-  min-height: 36px;
-}
-
-.sm-workspace-sidebar-host__viewport {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.sm-workspace-sidebar-host__panel {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.sm-workspace-sidebar-host__search {
-  display: flex;
-}
-
-.sm-workspace-sidebar-host__search--lab {
-  display: flex;
-  width: 100%;
-  gap: 8px;
-  align-items: center;
-}
-
-.sm-workspace-sidebar-host__search--lab .sm-input {
-  flex: 1;
-  min-width: 0;
-}
-
-.sm-workspace-sidebar-host__body {
-  flex: 1;
-  min-height: 0;
-}
-
-.sm-workspace-sidebar-host__body.sm-sidebar-body-switch-enter-active,
-.sm-workspace-sidebar-host__body.sm-sidebar-body-switch-leave-active {
-  transition: none;
-}
-
-.sm-workspace-sidebar-host__body.sm-sidebar-body-switch-enter-from,
-.sm-workspace-sidebar-host__body.sm-sidebar-body-switch-leave-to,
-.sm-workspace-sidebar-host__body.sm-sidebar-body-switch-enter-to,
-.sm-workspace-sidebar-host__body.sm-sidebar-body-switch-leave-from {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.sm-workspace-sidebar-host__refresh-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  background: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 8px;
-  color: var(--sm-color-text-secondary);
-  flex-shrink: 0;
-}
-
-.sm-workspace-sidebar-host__refresh-button:hover:not(:disabled) {
-  background-color: var(--sm-color-surface-hover);
-  border-color: var(--sm-color-border-strong);
-  color: var(--sm-color-text-primary);
-}
-
-.sm-workspace-sidebar-host__kb-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-}
-
-.sm-workspace-sidebar-host__kb-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  margin-bottom: 8px;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  cursor: pointer;
-  position: relative;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast);
-}
-
-.sm-workspace-sidebar-host__kb-item:hover {
-  background-color: var(--sm-color-surface-2);
-  border-color: var(--sm-color-border-default);
-}
-
-.sm-workspace-sidebar-host__kb-item.is-active {
-  background-color: var(--sm-color-surface-selected);
-  border-color: var(--sm-color-border-selected);
-}
-
-.sm-workspace-sidebar-host__kb-icon {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background-color: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.sm-workspace-sidebar-host__kb-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.sm-workspace-sidebar-host__kb-name {
-  flex: 1;
-  min-width: 0;
-  margin-bottom: 2px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sm-workspace-sidebar-host__kb-name-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.sm-workspace-sidebar-host__kb-stale {
-  flex-shrink: 0;
-  padding: 2px 6px;
-  border: 1px solid rgba(213, 161, 74, 0.36);
-  border-radius: var(--sm-radius-sm);
-  background: rgba(213, 161, 74, 0.12);
-  color: rgba(226, 181, 99, 0.95);
-  font-size: 10px;
-  line-height: 1.2;
-}
-
-.sm-workspace-sidebar-host__kb-meta {
-  font-size: 11px;
-  color: var(--sm-color-text-secondary);
-}
-
-.sm-workspace-sidebar-host__kb-delete {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--sm-color-text-tertiary);
-  font-size: 12px;
-  opacity: 0;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.sm-workspace-sidebar-host__kb-item:hover .sm-workspace-sidebar-host__kb-delete {
-  opacity: 1;
-}
-
-.sm-workspace-sidebar-host__kb-delete:hover {
-  background-color: rgba(199, 120, 120, 0.12);
-  border-color: rgba(199, 120, 120, 0.28);
-  color: rgba(199, 120, 120, 0.92);
-}
-
-.sm-workspace-sidebar-host__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  text-align: center;
-}
-
-.sm-workspace-sidebar-host__empty-text {
-  margin-bottom: 16px;
-  font-size: 13px;
-  color: var(--sm-color-text-secondary);
-}
-</style>

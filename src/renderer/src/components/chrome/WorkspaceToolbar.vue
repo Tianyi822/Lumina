@@ -7,6 +7,7 @@ import { useUIStateStore } from '@renderer/stores'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperFigureItem, PaperTocEntry, PaperTocItem } from '@shared/types/paper'
 import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
+import styles from './WorkspaceToolbar.module.css'
 
 const uiState = useZustandStore(useUIStateStore)
 
@@ -286,16 +287,20 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="sm-workspace-toolbar__controls"
-    :class="{
-      'sm-workspace-toolbar__controls--paper': isPaperToolbar,
-      'sm-workspace-toolbar__controls--knowledge': isKnowledgeToolbar && !isPaperToolbar,
-      'sm-workspace-toolbar__controls--chrome-safe': isPaperToolbar && isCurrentSidebarCollapsed
-    }"
+    :class="[
+      styles['sm-workspace-toolbar__controls'],
+      {
+        [styles['sm-workspace-toolbar__controls--paper']]: isPaperToolbar,
+        [styles['sm-workspace-toolbar__controls--knowledge']]:
+          isKnowledgeToolbar && !isPaperToolbar,
+        [styles['sm-workspace-toolbar__controls--chrome-safe']]:
+          isPaperToolbar && isCurrentSidebarCollapsed
+      }
+    ]"
   >
     <template v-if="isPaperView && currentPaperId">
       <button
-        class="sm-icon-button sm-workspace-toolbar__button"
+        :class="['sm-icon-button', styles['sm-workspace-toolbar__button']]"
         title="缩小"
         aria-label="缩小"
         :disabled="!canZoomOut"
@@ -304,16 +309,20 @@ onUnmounted(() => {
         <SvgIcon name="zoom-out" :size="14" />
       </button>
       <button
-        class="sm-icon-button sm-workspace-toolbar__button sm-workspace-toolbar__zoom-display"
+        :class="[
+          'sm-icon-button',
+          styles['sm-workspace-toolbar__button'],
+          styles['sm-workspace-toolbar__zoom-display']
+        ]"
         :title="`${zoomPercent}%`"
         aria-label="重置缩放"
         :disabled="zoomPercent === 100"
         @click="paperReaderStore.resetZoom()"
       >
-        <span class="sm-workspace-toolbar__zoom-text">{{ zoomPercent }}%</span>
+        <span :class="styles['sm-workspace-toolbar__zoom-text']">{{ zoomPercent }}%</span>
       </button>
       <button
-        class="sm-icon-button sm-workspace-toolbar__button"
+        :class="['sm-icon-button', styles['sm-workspace-toolbar__button']]"
         title="放大"
         aria-label="放大"
         :disabled="!canZoomIn"
@@ -325,11 +334,14 @@ onUnmounted(() => {
 
     <button
       v-if="isPaperView && currentPaperId && !originalPdfVisible"
-      class="sm-icon-button sm-workspace-toolbar__button"
-      :class="{
-        'is-active': translationVisible,
-        'is-pending': isCurrentPaperTranslating
-      }"
+      :class="[
+        'sm-icon-button',
+        styles['sm-workspace-toolbar__button'],
+        {
+          [styles['is-active']]: translationVisible,
+          [styles['is-pending']]: isCurrentPaperTranslating
+        }
+      ]"
       :title="translationButtonTitle"
       :aria-label="translationButtonTitle"
       @click="handleToggleTranslation"
@@ -340,11 +352,14 @@ onUnmounted(() => {
     <div
       v-if="isPaperView && currentPaperId && !originalPdfVisible"
       ref="tocContainerRef"
-      class="sm-workspace-toolbar__toc"
+      :class="styles['sm-workspace-toolbar__toc']"
     >
       <button
-        class="sm-icon-button sm-workspace-toolbar__button"
-        :class="{ 'is-active': showTocPanel }"
+        :class="[
+          'sm-icon-button',
+          styles['sm-workspace-toolbar__button'],
+          { [styles['is-active']]: showTocPanel }
+        ]"
         title="论文目录"
         aria-label="打开论文目录"
         aria-haspopup="dialog"
@@ -357,22 +372,24 @@ onUnmounted(() => {
 
       <div
         v-if="showTocPanel"
-        class="sm-workspace-toolbar__toc-panel"
+        :class="styles['sm-workspace-toolbar__toc-panel']"
         role="dialog"
         aria-label="论文目录"
       >
-        <div class="sm-workspace-toolbar__toc-header">论文目录</div>
+        <div :class="styles['sm-workspace-toolbar__toc-header']">论文目录</div>
 
-        <div v-if="markdownLoading" class="sm-workspace-toolbar__toc-state">目录加载中</div>
+        <div v-if="markdownLoading" :class="styles['sm-workspace-toolbar__toc-state']">
+          目录加载中
+        </div>
 
-        <div v-else-if="!hasAnyTocEntries" class="sm-workspace-toolbar__toc-state">
+        <div v-else-if="!hasAnyTocEntries" :class="styles['sm-workspace-toolbar__toc-state']">
           未识别到可用目录
         </div>
 
-        <div v-else class="sm-workspace-toolbar__toc-scroll">
+        <div v-else :class="styles['sm-workspace-toolbar__toc-scroll']">
           <button
             v-if="paperTocTitle"
-            class="sm-workspace-toolbar__toc-title"
+            :class="styles['sm-workspace-toolbar__toc-title']"
             :title="getTocEntryDisplayText(paperTocTitle)"
             type="button"
             @click="handleSelectTocItem(paperTocTitle.id)"
@@ -382,19 +399,21 @@ onUnmounted(() => {
 
           <div
             v-if="paperTocTitle && paperTocItems.length > 0"
-            class="sm-workspace-toolbar__toc-divider"
+            :class="styles['sm-workspace-toolbar__toc-divider']"
             aria-hidden="true"
           />
 
-          <ul v-if="paperTocItems.length > 0" class="sm-workspace-toolbar__toc-list">
+          <ul v-if="paperTocItems.length > 0" :class="styles['sm-workspace-toolbar__toc-list']">
             <li
               v-for="node in paperTocTree"
               :key="node.item.id"
-              class="sm-workspace-toolbar__toc-node"
+              :class="styles['sm-workspace-toolbar__toc-node']"
             >
               <button
-                class="sm-workspace-toolbar__toc-item"
-                :class="`sm-workspace-toolbar__toc-item--level-${node.item.level}`"
+                :class="[
+                  styles['sm-workspace-toolbar__toc-item'],
+                  styles[`sm-workspace-toolbar__toc-item--level-${node.item.level}`]
+                ]"
                 :title="getTocEntryDisplayText(node.item)"
                 type="button"
                 @click="handleSelectTocItem(node.item.id)"
@@ -404,16 +423,21 @@ onUnmounted(() => {
 
               <ul
                 v-if="node.children.length > 0"
-                class="sm-workspace-toolbar__toc-list sm-workspace-toolbar__toc-list--child"
+                :class="[
+                  styles['sm-workspace-toolbar__toc-list'],
+                  styles['sm-workspace-toolbar__toc-list--child']
+                ]"
               >
                 <li
                   v-for="child in node.children"
                   :key="child.item.id"
-                  class="sm-workspace-toolbar__toc-node"
+                  :class="styles['sm-workspace-toolbar__toc-node']"
                 >
                   <button
-                    class="sm-workspace-toolbar__toc-item"
-                    :class="`sm-workspace-toolbar__toc-item--level-${child.item.level}`"
+                    :class="[
+                      styles['sm-workspace-toolbar__toc-item'],
+                      styles[`sm-workspace-toolbar__toc-item--level-${child.item.level}`]
+                    ]"
                     :title="getTocEntryDisplayText(child.item)"
                     type="button"
                     @click="handleSelectTocItem(child.item.id)"
@@ -423,16 +447,21 @@ onUnmounted(() => {
 
                   <ul
                     v-if="child.children.length > 0"
-                    class="sm-workspace-toolbar__toc-list sm-workspace-toolbar__toc-list--child"
+                    :class="[
+                      styles['sm-workspace-toolbar__toc-list'],
+                      styles['sm-workspace-toolbar__toc-list--child']
+                    ]"
                   >
                     <li
                       v-for="grandchild in child.children"
                       :key="grandchild.item.id"
-                      class="sm-workspace-toolbar__toc-node"
+                      :class="styles['sm-workspace-toolbar__toc-node']"
                     >
                       <button
-                        class="sm-workspace-toolbar__toc-item"
-                        :class="`sm-workspace-toolbar__toc-item--level-${grandchild.item.level}`"
+                        :class="[
+                          styles['sm-workspace-toolbar__toc-item'],
+                          styles[`sm-workspace-toolbar__toc-item--level-${grandchild.item.level}`]
+                        ]"
                         :title="getTocEntryDisplayText(grandchild.item)"
                         type="button"
                         @click="handleSelectTocItem(grandchild.item.id)"
@@ -452,11 +481,14 @@ onUnmounted(() => {
     <div
       v-if="isPaperView && currentPaperId && !originalPdfVisible"
       ref="figureContainerRef"
-      class="sm-workspace-toolbar__figures"
+      :class="styles['sm-workspace-toolbar__figures']"
     >
       <button
-        class="sm-icon-button sm-workspace-toolbar__button"
-        :class="{ 'is-active': showFigurePanel }"
+        :class="[
+          'sm-icon-button',
+          styles['sm-workspace-toolbar__button'],
+          { [styles['is-active']]: showFigurePanel }
+        ]"
         title="论文图片"
         aria-label="打开论文图片列表"
         aria-haspopup="dialog"
@@ -470,38 +502,46 @@ onUnmounted(() => {
       <div
         v-if="showFigurePanel"
         ref="figurePanelRef"
-        class="sm-workspace-toolbar__figure-panel"
+        :class="styles['sm-workspace-toolbar__figure-panel']"
         role="dialog"
         aria-label="论文图片列表"
       >
-        <div class="sm-workspace-toolbar__toc-header">论文图片</div>
+        <div :class="styles['sm-workspace-toolbar__toc-header']">论文图片</div>
 
-        <div v-if="currentFigureLoading" class="sm-workspace-toolbar__toc-state">图片加载中</div>
+        <div v-if="currentFigureLoading" :class="styles['sm-workspace-toolbar__toc-state']">
+          图片加载中
+        </div>
 
-        <div v-else-if="currentPaperFigures.length === 0" class="sm-workspace-toolbar__toc-state">
+        <div
+          v-else-if="currentPaperFigures.length === 0"
+          :class="styles['sm-workspace-toolbar__toc-state']"
+        >
           未识别到可用图片
         </div>
 
-        <div v-else class="sm-workspace-toolbar__figure-scroll">
+        <div v-else :class="styles['sm-workspace-toolbar__figure-scroll']">
           <div
             v-for="figure in currentPaperFigures"
             :key="figure.id"
-            class="sm-workspace-toolbar__figure-item"
+            :class="styles['sm-workspace-toolbar__figure-item']"
           >
             <img
               :src="figure.imagePath"
               :alt="getFigureItemLabel(figure)"
-              class="sm-workspace-toolbar__figure-thumb"
+              :class="styles['sm-workspace-toolbar__figure-thumb']"
             />
 
-            <div class="sm-workspace-toolbar__figure-copy">
-              <div class="sm-workspace-toolbar__figure-caption" :title="getFigureItemLabel(figure)">
+            <div :class="styles['sm-workspace-toolbar__figure-copy']">
+              <div
+                :class="styles['sm-workspace-toolbar__figure-caption']"
+                :title="getFigureItemLabel(figure)"
+              >
                 {{ getFigureItemLabel(figure) }}
               </div>
             </div>
 
             <button
-              class="sm-workspace-toolbar__figure-preview"
+              :class="styles['sm-workspace-toolbar__figure-preview']"
               type="button"
               @click="handlePreviewFigure(figure)"
             >
@@ -514,20 +554,26 @@ onUnmounted(() => {
 
     <button
       v-if="isPaperView && currentPaperId"
-      class="sm-icon-button sm-workspace-toolbar__button"
-      :class="{ 'is-active': originalPdfVisible }"
+      :class="[
+        'sm-icon-button',
+        styles['sm-workspace-toolbar__button'],
+        { [styles['is-active']]: originalPdfVisible }
+      ]"
       title="PDF 原件"
       aria-label="PDF 原件"
       type="button"
       @click="handleToggleOriginalPdf"
     >
-      <span class="sm-workspace-toolbar__original-text">原</span>
+      <span :class="styles['sm-workspace-toolbar__original-text']">原</span>
     </button>
 
     <button
       v-if="isPaperView && canOpenPaperChat"
-      class="sm-icon-button sm-workspace-toolbar__button"
-      :class="{ 'is-active': paperChatPanelOpen }"
+      :class="[
+        'sm-icon-button',
+        styles['sm-workspace-toolbar__button'],
+        { [styles['is-active']]: paperChatPanelOpen }
+      ]"
       title="聊天"
       aria-label="聊天"
       type="button"
@@ -537,352 +583,3 @@ onUnmounted(() => {
     </button>
   </div>
 </template>
-
-<style scoped>
-.sm-workspace-toolbar__controls {
-  position: absolute;
-  top: 0;
-  right: var(--sm-window-controls-safe-width, 0px);
-  z-index: 4;
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-2);
-  width: max-content;
-  margin-right: 0;
-  transition:
-    top var(--sm-transition-medium),
-    right var(--sm-transition-medium);
-  -webkit-app-region: drag;
-  user-select: none;
-}
-
-.sm-workspace-toolbar__controls--paper {
-  --sm-paper-toolbar-chrome-safe-left: 0px;
-
-  top: calc(var(--sm-space-3) * -1);
-  left: var(--sm-paper-toolbar-chrome-safe-left);
-  right: var(--sm-window-controls-safe-width, 0px);
-  box-sizing: border-box;
-  width: auto;
-  min-height: var(--sm-paper-toolbar-height);
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding-top: var(--sm-space-3);
-  overflow: visible;
-}
-
-.sm-workspace-toolbar__controls--chrome-safe {
-  --sm-paper-toolbar-chrome-safe-left: var(--sm-workspace-chrome-actions-safe-width, 140px);
-}
-
-/* ==================== 知识库视图拖拽区域 ==================== */
-.sm-workspace-toolbar__controls--knowledge {
-  --sm-knowledge-toolbar-safe-left: 0px;
-
-  top: calc(var(--sm-space-3) * -1);
-  left: var(--sm-knowledge-toolbar-safe-left);
-  right: var(--sm-window-controls-safe-width, 0px);
-  box-sizing: border-box;
-  width: auto;
-  min-height: var(--sm-paper-toolbar-height);
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding-top: var(--sm-space-3);
-  overflow: visible;
-}
-
-.sm-workspace-toolbar__controls--paper::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: calc(var(--sm-paper-toolbar-chrome-safe-left) * -1);
-  right: 0;
-  z-index: 0;
-  height: calc(var(--sm-paper-toolbar-height) + var(--sm-space-6));
-  pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--sm-color-bg-canvas) 82%, transparent) 0%,
-    color-mix(in srgb, var(--sm-color-bg-canvas) 58%, transparent) 46%,
-    color-mix(in srgb, var(--sm-color-bg-canvas) 24%, transparent) 76%,
-    transparent 100%
-  );
-  backdrop-filter: blur(12px) saturate(1.04);
-  -webkit-backdrop-filter: blur(12px) saturate(1.04);
-  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.92) 42%, transparent 100%);
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.92) 42%, transparent 100%);
-}
-
-.sm-workspace-toolbar__controls--paper > * {
-  position: relative;
-  z-index: 1;
-}
-
-.sm-workspace-toolbar__button {
-  width: 30px;
-  height: 30px;
-  border-color: var(--sm-color-border-default);
-  background: var(--sm-color-surface-2);
-  -webkit-app-region: no-drag;
-}
-
-.sm-workspace-toolbar__button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.sm-workspace-toolbar__button.is-active,
-.sm-workspace-toolbar__button:hover {
-  background: var(--sm-color-surface-hover);
-  border-color: var(--sm-color-border-strong);
-}
-
-.sm-workspace-toolbar__button.is-pending {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sm-color-accent-default) 14%, transparent);
-}
-
-.sm-workspace-toolbar__button:hover:disabled {
-  background: var(--sm-color-surface-2);
-  border-color: var(--sm-color-border-default);
-}
-
-.sm-workspace-toolbar__zoom-display {
-  width: auto;
-  min-width: 30px;
-  padding: 0 6px;
-  cursor: pointer;
-}
-
-.sm-workspace-toolbar__zoom-text {
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  color: var(--sm-color-text-tertiary);
-}
-
-.sm-workspace-toolbar__original-text {
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
-  color: var(--sm-color-text-secondary);
-}
-
-.sm-workspace-toolbar__toc {
-  position: relative;
-  -webkit-app-region: no-drag;
-}
-
-.sm-workspace-toolbar__toc-panel,
-.sm-workspace-toolbar__figure-panel {
-  position: absolute;
-  top: calc(100% + var(--sm-space-2));
-  right: 0;
-  z-index: 20;
-  width: 320px;
-  max-width: min(320px, calc(100vw - 48px));
-  padding: var(--sm-space-3);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 12px;
-  background: var(--sm-color-surface-2);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
-}
-
-.sm-workspace-toolbar__toc-panel {
-  --sm-paper-toc-tree-indent: var(--sm-space-4);
-}
-
-.sm-workspace-toolbar__toc-header {
-  margin-bottom: var(--sm-space-2);
-  color: var(--sm-color-text-primary);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.sm-workspace-toolbar__toc-state {
-  padding: var(--sm-space-3) 0;
-  color: var(--sm-color-text-tertiary);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.sm-workspace-toolbar__toc-scroll {
-  max-height: 360px;
-  overflow-y: auto;
-}
-
-.sm-workspace-toolbar__toc-title {
-  display: block;
-  width: 100%;
-  padding: 4px 0 0;
-  border: none;
-  background: transparent;
-  color: var(--sm-color-text-primary);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.45;
-  text-align: left;
-  cursor: pointer;
-}
-
-.sm-workspace-toolbar__toc-title:hover {
-  color: var(--sm-color-text-primary);
-  opacity: 0.9;
-}
-
-.sm-workspace-toolbar__toc-divider {
-  height: 1px;
-  margin: var(--sm-space-3) 0 var(--sm-space-2);
-  background: var(--sm-color-border-subtle);
-}
-
-.sm-workspace-toolbar__figures {
-  position: relative;
-  -webkit-app-region: no-drag;
-}
-
-.sm-workspace-toolbar__figure-panel {
-  width: 380px;
-  max-width: min(380px, calc(100vw - 48px));
-}
-
-.sm-workspace-toolbar__figure-scroll {
-  max-height: 420px;
-  overflow-y: auto;
-}
-
-.sm-workspace-toolbar__figure-item {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--sm-space-3);
-  padding: var(--sm-space-2) 0;
-}
-
-.sm-workspace-toolbar__figure-item + .sm-workspace-toolbar__figure-item {
-  border-top: 1px solid var(--sm-color-border-subtle);
-}
-
-.sm-workspace-toolbar__figure-thumb {
-  width: 64px;
-  height: 64px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 10px;
-  background: var(--sm-color-surface-1);
-  object-fit: cover;
-}
-
-.sm-workspace-toolbar__figure-copy {
-  min-width: 0;
-}
-
-.sm-workspace-toolbar__figure-caption {
-  color: var(--sm-color-text-secondary);
-  font-size: 12px;
-  line-height: 1.5;
-  display: -webkit-box;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-}
-
-.sm-workspace-toolbar__figure-preview {
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 8px;
-  background: var(--sm-color-surface-1);
-  color: var(--sm-color-text-primary);
-  font-size: 12px;
-  line-height: 1;
-  padding: 8px 12px;
-  cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast);
-}
-
-.sm-workspace-toolbar__figure-preview:hover {
-  background: var(--sm-color-surface-hover);
-  border-color: var(--sm-color-border-strong);
-}
-
-.sm-workspace-toolbar__toc-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.sm-workspace-toolbar__toc-list--child {
-  margin-top: var(--sm-space-1);
-  margin-left: var(--sm-space-2);
-  padding-left: var(--sm-paper-toc-tree-indent);
-  border-left: 1px solid var(--sm-color-border-subtle);
-}
-
-.sm-workspace-toolbar__toc-node {
-  position: relative;
-}
-
-.sm-workspace-toolbar__toc-list--child > .sm-workspace-toolbar__toc-node::before {
-  content: '';
-  position: absolute;
-  left: calc(var(--sm-paper-toc-tree-indent) * -1);
-  top: 15px;
-  width: calc(var(--sm-paper-toc-tree-indent) - var(--sm-space-2));
-  height: 1px;
-  background: var(--sm-color-border-subtle);
-}
-
-.sm-workspace-toolbar__toc-list--child > .sm-workspace-toolbar__toc-node::after {
-  content: '';
-  position: absolute;
-  left: calc(var(--sm-paper-toc-tree-indent) * -1 + var(--sm-space-2) - 2px);
-  top: 12px;
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--sm-color-border-strong);
-}
-
-.sm-workspace-toolbar__toc-node + .sm-workspace-toolbar__toc-node {
-  margin-top: 2px;
-}
-
-.sm-workspace-toolbar__toc-item {
-  display: block;
-  width: 100%;
-  padding: 6px 8px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--sm-color-text-secondary);
-  font-size: 12px;
-  line-height: 1.5;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    color var(--sm-transition-fast);
-}
-
-.sm-workspace-toolbar__toc-item:hover {
-  background: var(--sm-color-surface-hover);
-  color: var(--sm-color-text-primary);
-}
-
-.sm-workspace-toolbar__toc-item--level-1 {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.sm-workspace-toolbar__toc-item--level-2 {
-  padding-left: 10px;
-  font-weight: 500;
-}
-
-.sm-workspace-toolbar__toc-item--level-3 {
-  padding-left: 12px;
-  color: var(--sm-color-text-tertiary);
-}
-</style>

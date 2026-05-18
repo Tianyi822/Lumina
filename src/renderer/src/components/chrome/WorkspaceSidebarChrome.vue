@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRuntimePlatform } from '@renderer/composables/useRuntimePlatform'
 import WorkspaceViewSwitcher from './WorkspaceViewSwitcher.vue'
+import styles from './WorkspaceSidebarChrome.module.css'
 
 defineProps<{
   count: number
@@ -12,16 +13,21 @@ const { isWindows, usesNativeTrafficLights } = useRuntimePlatform()
 
 <template>
   <header
-    class="sm-sidebar-shell__header sm-sidebar-shell__header--chrome"
-    :class="{
-      'sm-sidebar-shell__header--chrome-mac': usesNativeTrafficLights,
-      'sm-sidebar-shell__header--chrome-windows': isWindows
-    }"
+    :class="[
+      styles['sm-sidebar-shell__header'],
+      'sm-sidebar-shell__header--chrome',
+      {
+        'sm-sidebar-shell__header--chrome-mac': usesNativeTrafficLights,
+        'sm-sidebar-shell__header--chrome-windows': isWindows
+      }
+    ]"
   >
     <div
       v-if="usesNativeTrafficLights || isWindows"
-      class="sm-sidebar-shell__chrome-action-hitbox"
-      :class="{ 'sm-sidebar-shell__chrome-action-hitbox--windows': isWindows }"
+      :class="[
+        styles['sm-sidebar-shell__chrome-action-hitbox'],
+        { [styles['sm-sidebar-shell__chrome-action-hitbox--windows']]: isWindows }
+      ]"
       aria-hidden="true"
     ></div>
 
@@ -43,24 +49,3 @@ const { isWindows, usesNativeTrafficLights } = useRuntimePlatform()
     </Transition>
   </header>
 </template>
-
-<style scoped>
-.sm-sidebar-shell__header {
-  position: relative;
-}
-
-.sm-sidebar-shell__chrome-action-hitbox {
-  position: absolute;
-  top: 0;
-  left: 74px;
-  z-index: 1;
-  width: 62px;
-  height: 30px;
-  -webkit-app-region: no-drag;
-  pointer-events: none;
-}
-
-.sm-sidebar-shell__chrome-action-hitbox--windows {
-  left: var(--sm-space-4);
-}
-</style>

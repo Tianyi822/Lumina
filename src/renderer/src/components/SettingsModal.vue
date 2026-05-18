@@ -11,6 +11,7 @@ import ToolStatsSettings from './settings/ToolStatsSettings.vue'
 import UpdateSettings from './settings/UpdateSettings.vue'
 import { useConfigStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
+import styles from './SettingsModal.module.css'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -126,16 +127,16 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="sm-modal__overlay settings-overlay" @click.self="handleClose">
-    <div class="sm-modal__surface settings-container">
-      <div class="sm-pane-header settings-header">
-        <div class="settings-header__info">
-          <h2 class="settings-title">设置中心</h2>
+  <div :class="['sm-modal__overlay', styles['settings-overlay']]" @click.self="handleClose">
+    <div :class="['sm-modal__surface', styles['settings-container']]">
+      <div :class="['sm-pane-header', styles['settings-header']]">
+        <div :class="styles['settings-header__info']">
+          <h2 :class="styles['settings-title']">设置中心</h2>
         </div>
-        <button class="sm-button close-btn" @click="handleClose">关闭</button>
+        <button :class="['sm-button', styles['close-btn']]" @click="handleClose">关闭</button>
       </div>
 
-      <div class="sm-settings-layout settings-body">
+      <div :class="['sm-settings-layout', styles['settings-body']]">
         <aside ref="navRef" class="sm-settings-nav settings-nav" @scroll="handleNavScroll">
           <div class="sm-settings-nav__list">
             <button
@@ -152,7 +153,7 @@ onUnmounted(() => {
         </aside>
 
         <section class="sm-settings-panel settings-panel">
-          <div class="sm-settings-panel__body settings-content">
+          <div :class="['sm-settings-panel__body', styles['settings-content']]">
             <div v-if="configState.loading" class="sm-settings-empty">正在加载当前配置...</div>
 
             <ModelSettings v-else-if="activeTab === 'model'" />
@@ -180,87 +181,3 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.settings-overlay {
-  z-index: 1000;
-  overflow: hidden;
-}
-
-.settings-container {
-  width: min(1100px, calc(100vw - 48px));
-  height: min(750px, calc(100vh - 96px - env(safe-area-inset-top, 0px)));
-  min-width: 400px;
-  min-height: 300px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--sm-color-surface-3);
-  border-color: var(--sm-color-border-default);
-  box-shadow: none;
-}
-
-.settings-header {
-  flex-shrink: 0;
-}
-
-.settings-header__info {
-  display: flex;
-  flex-direction: column;
-}
-
-.settings-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-
-.close-btn {
-  min-width: 64px;
-}
-
-.settings-body {
-  overflow: hidden;
-}
-
-.settings-content {
-  background: var(--sm-color-surface-2);
-}
-
-@media (max-width: 1060px) {
-  .settings-container {
-    width: min(1050px, calc(100vw - 40px));
-    height: min(700px, calc(100vh - 88px - env(safe-area-inset-top, 0px)));
-  }
-}
-
-@media (max-width: 768px) {
-  .settings-overlay {
-    padding: calc(44px + env(safe-area-inset-top, 0px)) 12px 12px;
-  }
-
-  .settings-container {
-    width: 100%;
-    height: min(100%, calc(100vh - 56px - env(safe-area-inset-top, 0px)));
-  }
-}
-
-@media (max-width: 600px) {
-  .settings-title {
-    font-size: 16px;
-  }
-}
-
-@media (max-width: 480px) {
-  .settings-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .close-btn {
-    width: 100%;
-  }
-}
-</style>
