@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import type { KnowledgeBase, EmbeddingConfig } from '@renderer/types'
+import styles from './EmbeddingModelInfo.module.css'
 
 const props = defineProps<{
   currentKB: KnowledgeBase
@@ -77,47 +78,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="stat-card stat-card--wide">
-    <span class="stat-label">嵌入模型</span>
-    <span class="stat-value">{{
+  <div :class="[styles['stat-card'], styles['stat-card--wide']]">
+    <span :class="styles['stat-label']">嵌入模型</span>
+    <span :class="styles['stat-value']">{{
       embeddingModelDisplayName || (loadingEmbeddingModels ? '...' : '')
     }}</span>
   </div>
 </template>
-
-<style scoped>
-.stat-card {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  min-width: 0;
-  min-height: 30px;
-  padding: 0 12px;
-  border: 1px solid var(--sm-color-border-subtle);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  white-space: nowrap;
-}
-
-.stat-card--wide {
-  flex: 0 1 auto;
-}
-
-.stat-label {
-  flex-shrink: 0;
-  font-size: 12px;
-  color: var(--sm-color-text-tertiary);
-}
-
-.stat-value {
-  min-width: 0;
-  color: var(--sm-color-text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-  font-family: var(--sm-font-mono);
-  line-height: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-</style>

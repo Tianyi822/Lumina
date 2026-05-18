@@ -10,6 +10,7 @@ import type { FileItem } from '@renderer/types'
 import type { UploadResult } from './shared/composables/useFileUpload'
 import { FileSelectorHeader, FileSelectorTabs, ExistingFilesTab, UploadTab } from './file-selector'
 import { useFileSelection } from './file-selector/composables/useFileSelection'
+import styles from './FileSelectorModal.module.css'
 
 const props = defineProps<{
   kbId: string
@@ -267,22 +268,23 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="sm-modal__overlay file-selector-overlay" @click.self="emit('close')">
-    <div ref="containerRef" class="sm-modal__surface file-selector-container">
+  <div :class="['sm-modal__overlay', styles['file-selector-overlay']]" @click.self="emit('close')">
+    <div ref="containerRef" :class="['sm-modal__surface', styles['file-selector-container']]">
       <FileSelectorHeader @close="emit('close')" />
 
       <FileSelectorTabs v-model:active-tab="activeTab" />
 
       <div
         ref="panelShellRef"
-        class="file-selector-panel-shell"
-        :class="{ 'is-measured': isPanelMeasured }"
+        :class="[styles['file-selector-panel-shell'], { [styles['is-measured']]: isPanelMeasured }]"
         @transitionend="handlePanelShellTransitionEnd"
       >
         <div
           ref="existingPanelRef"
-          class="file-selector-panel"
-          :class="{ 'is-active': visibleTab === 'existing' && isPanelContentVisible }"
+          :class="[
+            styles['file-selector-panel'],
+            { [styles['is-active']]: visibleTab === 'existing' && isPanelContentVisible }
+          ]"
           :aria-hidden="visibleTab !== 'existing' || !isPanelContentVisible"
           :inert="visibleTab !== 'existing' || !isPanelContentVisible"
         >
@@ -301,8 +303,10 @@ onBeforeUnmount(() => {
 
         <div
           ref="uploadPanelRef"
-          class="file-selector-panel"
-          :class="{ 'is-active': visibleTab === 'upload' && isPanelContentVisible }"
+          :class="[
+            styles['file-selector-panel'],
+            { [styles['is-active']]: visibleTab === 'upload' && isPanelContentVisible }
+          ]"
           :aria-hidden="visibleTab !== 'upload' || !isPanelContentVisible"
           :inert="visibleTab !== 'upload' || !isPanelContentVisible"
         >
@@ -312,70 +316,3 @@ onBeforeUnmount(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.file-selector-overlay {
-  z-index: 1000;
-}
-
-.file-selector-container {
-  width: min(680px, calc(100vw - 72px));
-  max-height: min(760px, calc(100vh - 104px));
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.file-selector-panel-shell {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transition: height 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.file-selector-panel {
-  width: 100%;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  opacity: 0;
-  transform: translateY(8px) scale(0.992);
-  pointer-events: none;
-  transition:
-    opacity 180ms ease,
-    transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.file-selector-panel-shell.is-measured .file-selector-panel:not(.is-active),
-.file-selector-panel-shell:not(.is-measured) .file-selector-panel:not(.is-active) {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-}
-
-.file-selector-panel.is-active {
-  height: 100%;
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-
-@media (max-width: 720px) {
-  .file-selector-container {
-    width: calc(100vw - 32px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .file-selector-panel {
-    transition: none;
-  }
-
-  .file-selector-panel-shell {
-    transition: none;
-  }
-}
-</style>

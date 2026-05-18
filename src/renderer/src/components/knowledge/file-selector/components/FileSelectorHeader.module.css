@@ -1,0 +1,15 @@
+.file-selector-header {
+  flex-shrink: 0;
+  border-bottom: none;
+}
+
+.file-selector-header__copy {
+  min-width: 0;
+}
+
+.file-selector-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+}

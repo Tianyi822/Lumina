@@ -19,6 +19,7 @@ import {
 } from './file-manager'
 import { useFileDelete } from './file-manager/composables/useFileDelete'
 import FilePreviewDialog from './FilePreviewDialog.vue'
+import styles from './FileManagerModal.module.css'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -82,13 +83,13 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="sm-modal__overlay file-manager-overlay" @click.self="emit('close')">
-    <div class="sm-modal__surface file-manager-container">
+  <div :class="['sm-modal__overlay', styles['file-manager-overlay']]" @click.self="emit('close')">
+    <div :class="['sm-modal__surface', styles['file-manager-container']]">
       <FileManagerHeader @close="emit('close')" />
 
       <FileManagerToolbar />
 
-      <div class="drop-zone-wrapper">
+      <div :class="styles['drop-zone-wrapper']">
         <FileUploadZone @upload-complete="handleUploadComplete" />
       </div>
 
@@ -115,31 +116,3 @@ onMounted(async () => {
     <FilePreviewDialog :visible="showPreview" :file="previewFile" @close="handleClosePreview" />
   </div>
 </template>
-
-<style scoped>
-.file-manager-overlay {
-  z-index: 1000;
-}
-
-.file-manager-container {
-  width: min(960px, calc(100vw - 72px));
-  max-height: min(820px, calc(100vh - 104px));
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.drop-zone-wrapper {
-  margin: var(--sm-space-4) var(--sm-space-5);
-}
-
-.drop-zone-wrapper :deep(.upload-zone) {
-  min-height: 180px;
-}
-
-@media (max-width: 720px) {
-  .file-manager-container {
-    width: calc(100vw - 32px);
-  }
-}
-</style>

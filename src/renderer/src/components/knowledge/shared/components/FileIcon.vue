@@ -6,6 +6,7 @@
 import { computed } from 'vue'
 import { getFileIconInfo } from '../composables/useFileIcon'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
+import styles from './FileIcon.module.css'
 
 const props = withDefaults(
   defineProps<{
@@ -23,34 +24,7 @@ const iconInfo = computed(() => getFileIconInfo(props.fileType))
 </script>
 
 <template>
-  <div :class="['file-icon', iconInfo.iconClass]">
+  <div :class="[styles['file-icon'], styles[iconInfo.iconClass]]">
     <SvgIcon :name="iconInfo.iconName" :size="size" />
   </div>
 </template>
-
-<style scoped>
-.file-icon {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 10px;
-  background: var(--sm-color-surface-2);
-  color: var(--sm-color-text-secondary);
-  flex-shrink: 0;
-}
-
-.file-icon-pdf,
-.file-icon-txt,
-.file-icon-md,
-.file-icon-doc,
-.file-icon-csv,
-.file-icon-xlsx,
-.file-icon-ppt,
-.file-icon-default {
-  background: var(--sm-color-surface-2);
-  color: var(--sm-color-text-secondary);
-}
-</style>

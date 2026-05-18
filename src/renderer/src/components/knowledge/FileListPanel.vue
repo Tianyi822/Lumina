@@ -6,6 +6,8 @@ import type { FileItem } from '@renderer/types'
 import { FileIcon } from './shared'
 import FilePreviewDialog from './FilePreviewDialog.vue'
 import { getFileSourceClass, getFileSourceLabel } from './utils/fileSource'
+import styles from './FileListPanel.module.css'
+
 const props = defineProps<{
   linkedFiles: FileItem[]
   loadingFiles: boolean
@@ -61,50 +63,56 @@ function isInvalidatedFile(file: FileItem): boolean {
 
 <template>
   <section
-    class="documents-section"
-    :class="{ 'drag-over': isDragging }"
+    :class="[styles['documents-section'], { [styles['drag-over']]: isDragging }]"
     @dragenter="emit('dragenter', $event)"
     @dragleave="emit('dragleave', $event)"
     @dragover="emit('dragover', $event)"
     @drop="emit('drop', $event)"
   >
-    <div class="section-header">
+    <div :class="styles['section-header']">
       <div>
         <h3>关联文档</h3>
       </div>
-      <div class="section-header__actions">
-        <span class="document-count">{{ linkedFiles.length }} 个文件</span>
+      <div :class="styles['section-header__actions']">
+        <span :class="styles['document-count']">{{ linkedFiles.length }} 个文件</span>
         <button
-          class="sm-button sm-button--secondary reindex-btn"
-          :class="{ 'reindex-btn--warning': hasInvalidatedFiles }"
+          :class="[
+            'sm-button',
+            'sm-button--secondary',
+            styles['reindex-btn'],
+            { [styles['reindex-btn--warning']]: hasInvalidatedFiles }
+          ]"
           :disabled="indexingStatus || reindexing || linkedFiles.length === 0"
           @click="emit('reindex')"
         >
           <span v-if="reindexing" class="sm-spinner"></span>
           {{ reindexing ? '索引中...' : '重新索引' }}
         </button>
-        <button class="sm-button sm-button--primary add-files-btn" @click="emit('add-files')">
+        <button
+          :class="['sm-button', 'sm-button--primary', styles['add-files-btn']]"
+          @click="emit('add-files')"
+        >
           添加文档
         </button>
       </div>
     </div>
 
-    <div v-if="isDragging" class="drag-overlay">
-      <div class="drag-content">
-        <span class="drag-icon">+</span>
-        <div class="drag-copy">
+    <div v-if="isDragging" :class="styles['drag-overlay']">
+      <div :class="styles['drag-content']">
+        <span :class="styles['drag-icon']">+</span>
+        <div :class="styles['drag-copy']">
           <strong>释放文件以上传并挂载</strong>
           <span>支持 TXT、Markdown、PDF、Word 和 CSV。</span>
         </div>
       </div>
     </div>
 
-    <div v-if="loadingFiles" class="loading-state">
+    <div v-if="loadingFiles" :class="styles['loading-state']">
       <span class="sm-spinner sm-spinner--large"></span>
       <span>正在加载文档...</span>
     </div>
 
-    <div v-else-if="linkedFiles.length === 0" class="sm-empty documents-empty">
+    <div v-else-if="linkedFiles.length === 0" :class="['sm-empty', styles['documents-empty']]">
       <h4>当前知识库还没有挂载文档</h4>
       <p>从文件资源池中选择已有文档，或直接拖拽文件到这里上传。</p>
       <button class="sm-button sm-button--primary" @click="emit('add-files')">
@@ -112,24 +120,24 @@ function isInvalidatedFile(file: FileItem): boolean {
       </button>
     </div>
 
-    <div v-else class="documents-grid">
+    <div v-else :class="styles['documents-grid']">
       <article
         v-for="file in linkedFiles"
         :key="file.id"
         :class="[
-          'document-card',
+          styles['document-card'],
           {
-            unlinking: unlinkingFileId === file.id,
-            'indexing-disabled': indexingStatus,
-            'needs-reindex': isInvalidatedFile(file)
+            [styles.unlinking]: unlinkingFileId === file.id,
+            [styles['indexing-disabled']]: indexingStatus,
+            [styles['needs-reindex']]: isInvalidatedFile(file)
           }
         ]"
         @click="handlePreviewFile(file)"
       >
-        <div class="document-card__header">
+        <div :class="styles['document-card__header']">
           <FileIcon :file-type="file.fileType" :size="20" />
           <button
-            class="document-remove-btn"
+            :class="styles['document-remove-btn']"
             :disabled="unlinkingFileId === file.id || indexingStatus"
             title="取消关联"
             @click.stop="emit('unlink-file', file.id)"
@@ -139,445 +147,41 @@ function isInvalidatedFile(file: FileItem): boolean {
           </button>
         </div>
 
-        <div class="document-info">
-          <div class="document-name" :title="file.name">
+        <div :class="styles['document-info']">
+          <div :class="styles['document-name']" :title="file.name">
             {{ getFileNameWithoutExtension(file.name) }}
           </div>
 
-          <div v-if="kbIndexingFiles[file.id]" class="file-progress">
-            <div class="file-progress__meta">
+          <div v-if="kbIndexingFiles[file.id]" :class="styles['file-progress']">
+            <div :class="styles['file-progress__meta']">
               <span>索引同步中</span>
               <span>{{ kbIndexingFiles[file.id].progress || 0 }}%</span>
             </div>
-            <div class="progress-bar">
+            <div :class="styles['progress-bar']">
               <div
-                class="progress-fill"
+                :class="styles['progress-fill']"
                 :style="{ width: `${kbIndexingFiles[file.id].progress || 0}%` }"
               ></div>
             </div>
           </div>
         </div>
 
-        <div class="document-meta">
-          <span :class="['source-badge', getFileSourceClass(file)]">
+        <div :class="styles['document-meta']">
+          <span :class="[styles['source-badge'], styles[getFileSourceClass(file)]]">
             {{ getFileSourceLabel(file) }}
           </span>
-          <span class="badge document-type">{{ file.fileType.toUpperCase() }}</span>
+          <span :class="['badge', styles['document-type']]">{{ file.fileType.toUpperCase() }}</span>
           <span>{{ fileStore.formatFileSize(file.size) }}</span>
           <span>{{ fileStore.formatDate(file.uploadedAt) }}</span>
         </div>
       </article>
 
-      <button class="add-file-card" @click="emit('add-files')">
-        <span class="add-file-icon" aria-hidden="true"></span>
-        <span class="add-file-text">添加更多文档或拖拽上传</span>
+      <button :class="styles['add-file-card']" @click="emit('add-files')">
+        <span :class="styles['add-file-icon']" aria-hidden="true"></span>
+        <span :class="styles['add-file-text']">添加更多文档或拖拽上传</span>
       </button>
     </div>
 
     <FilePreviewDialog :visible="showPreview" :file="previewFile" @close="handleClosePreview" />
   </section>
 </template>
-
-<style scoped>
-.documents-section {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  padding: var(--sm-space-5) var(--sm-space-6) var(--sm-space-6);
-  border: 1px solid var(--sm-color-border-subtle);
-  border-radius: var(--sm-radius-lg);
-  background: var(--sm-color-surface-1);
-}
-
-.section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sm-space-4);
-  margin-bottom: var(--sm-space-5);
-}
-
-.section-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.section-header__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-3);
-}
-
-.document-count {
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-  white-space: nowrap;
-}
-
-.add-files-btn,
-.reindex-btn {
-  white-space: nowrap;
-}
-
-.reindex-btn--warning {
-  border-color: rgba(197, 161, 101, 0.44);
-  background: rgba(197, 161, 101, 0.12);
-  color: var(--sm-color-status-warning);
-}
-
-.reindex-btn--warning:hover:not(:disabled),
-.reindex-btn--warning:focus-visible:not(:disabled) {
-  border-color: var(--sm-color-status-warning);
-  background: rgba(197, 161, 101, 0.18);
-  color: var(--sm-color-status-warning);
-}
-
-.loading-state {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--sm-space-3);
-  color: var(--sm-color-text-secondary);
-  font-size: 13px;
-}
-
-.documents-empty {
-  flex: 1;
-  min-height: 240px;
-}
-
-.documents-empty h4 {
-  margin: 0;
-  font-size: 16px;
-  color: var(--sm-color-text-primary);
-}
-
-.documents-empty p {
-  margin: 0;
-  max-width: 420px;
-  line-height: 1.6;
-}
-
-.documents-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--sm-space-4);
-}
-
-.document-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-4);
-  min-height: 220px;
-  padding: var(--sm-space-4);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-2);
-  cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast),
-    opacity var(--sm-transition-fast);
-}
-
-.document-card:hover {
-  background: var(--sm-color-surface-hover);
-  border-color: var(--sm-color-border-strong);
-}
-
-.document-card.unlinking,
-.document-card.indexing-disabled {
-  opacity: 0.7;
-}
-
-.document-card.needs-reindex {
-  border-color: var(--sm-color-status-warning);
-}
-
-.document-card.needs-reindex:hover {
-  border-color: var(--sm-color-status-warning);
-}
-
-.document-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sm-space-3);
-}
-
-.document-remove-btn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--sm-color-text-tertiary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.document-remove-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.document-card:hover .document-remove-btn:not(:disabled) {
-  opacity: 1;
-}
-
-.document-remove-btn:hover:not(:disabled),
-.document-remove-btn:focus-visible:not(:disabled) {
-  background-color: rgba(199, 120, 120, 0.12);
-  border-color: rgba(199, 120, 120, 0.28);
-  color: rgba(199, 120, 120, 0.92);
-}
-
-.document-info {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--sm-space-2);
-  min-height: 0;
-}
-
-.document-name {
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.5;
-  color: var(--sm-color-text-primary);
-  word-break: break-word;
-}
-
-.file-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: auto;
-}
-
-.file-progress__meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sm-space-2);
-  font-size: 11px;
-  color: var(--sm-color-text-secondary);
-  font-family: var(--sm-font-mono);
-}
-
-.progress-bar {
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: var(--sm-color-accent);
-  transition: width 0.3s ease;
-}
-
-.document-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: var(--sm-space-2);
-  margin-top: auto;
-  font-size: 11px;
-  color: var(--sm-color-text-secondary);
-  overflow: hidden;
-}
-
-.source-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 20px;
-  padding: 0 7px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 999px;
-  background: var(--sm-color-surface-1);
-  font-size: 11px;
-  color: var(--sm-color-text-secondary);
-}
-
-.source-paper_file,
-.source-paper_note {
-  border-color: var(--sm-color-accent-28);
-  background: var(--sm-color-accent-08);
-  color: var(--sm-color-accent-hover);
-}
-
-.document-meta > span {
-  display: inline-flex;
-  align-items: center;
-  min-height: 20px;
-}
-
-.document-type {
-  color: var(--sm-color-text-primary);
-}
-
-.add-file-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--sm-space-3);
-  min-height: 220px;
-  padding: var(--sm-space-5);
-  border: 1px dashed var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--sm-color-text-secondary);
-  cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast),
-    color var(--sm-transition-fast);
-}
-
-.add-file-card:hover {
-  border-color: var(--sm-color-border-accent);
-  background: var(--sm-color-accent-08);
-  color: var(--sm-color-text-primary);
-}
-
-.add-file-icon {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px dashed currentColor;
-  border-radius: 999px;
-  flex-shrink: 0;
-}
-
-.add-file-icon::before,
-.add-file-icon::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  border-radius: 999px;
-  background: currentColor;
-  transform: translate(-50%, -50%);
-}
-
-.add-file-icon::before {
-  width: 16px;
-  height: 2px;
-}
-
-.add-file-icon::after {
-  width: 2px;
-  height: 16px;
-}
-
-.add-file-text {
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.5;
-  color: var(--sm-color-text-tertiary);
-}
-
-.drag-over {
-  border-color: var(--sm-color-border-accent);
-  background: var(--sm-color-accent-05);
-}
-
-.drag-overlay {
-  position: absolute;
-  inset: var(--sm-space-4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px dashed var(--sm-color-border-accent);
-  border-radius: var(--sm-radius-lg);
-  background: rgba(11, 11, 12, 0.68);
-  z-index: 1;
-}
-
-.drag-content {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-4);
-  padding: var(--sm-space-5);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-lg);
-  background: var(--sm-color-surface-2);
-}
-
-.drag-icon {
-  width: 48px;
-  height: 48px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--sm-color-border-accent);
-  border-radius: 999px;
-  color: var(--sm-color-accent-hover);
-  font-size: 24px;
-}
-
-.drag-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.drag-copy strong {
-  font-size: 14px;
-  color: var(--sm-color-text-primary);
-}
-
-.drag-copy span {
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-}
-
-.documents-section::-webkit-scrollbar {
-  width: var(--sm-scrollbar-size);
-}
-
-.documents-section::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.documents-section::-webkit-scrollbar-thumb {
-  background-color: var(--sm-color-border-default);
-  border-radius: 999px;
-}
-
-@media (max-width: 960px) {
-  .documents-section {
-    padding: var(--sm-space-4);
-  }
-
-  .section-header,
-  .section-header__actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .section-header__actions > button {
-    width: 100%;
-  }
-
-  .documents-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-</style>

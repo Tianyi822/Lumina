@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import type { EmbeddingConfig } from '@shared/types/config'
+import styles from './KnowledgeForm.module.css'
 
 // 可用的嵌入模型列表
 const embeddingModels = ref<Record<string, EmbeddingConfig>>({})
@@ -132,14 +133,14 @@ function resetForm(): void {
 </script>
 
 <template>
-  <div class="sm-modal__overlay form-overlay" @click.self="handleCancel">
-    <div class="sm-modal__surface form-container">
-      <div class="sm-pane-header form-header">
+  <div :class="['sm-modal__overlay', styles['form-overlay']]" @click.self="handleCancel">
+    <div :class="['sm-modal__surface', styles['form-container']]">
+      <div :class="['sm-pane-header', styles['form-header']]">
         <h2>创建知识库</h2>
         <button class="sm-icon-button close-btn" @click="handleCancel">✕</button>
       </div>
 
-      <form class="form-body" @submit.prevent="handleSubmit">
+      <form :class="styles['form-body']" @submit.prevent="handleSubmit">
         <div class="form-group">
           <label for="kb-name">知识库名称 *</label>
           <input
@@ -183,18 +184,22 @@ function resetForm(): void {
               {{ model.displayName || model.model }} ({{ model.dimensions }} 维)
             </option>
           </select>
-          <div class="form-hint">嵌入模型用于将文本转换为向量，支持语义搜索。创建后不可更改。</div>
+          <div :class="['form-hint', styles['form-hint']]">
+            嵌入模型用于将文本转换为向量，支持语义搜索。创建后不可更改。
+          </div>
         </div>
 
         <!-- 分块策略配置 -->
         <div class="form-group">
           <label>分块策略</label>
-          <div class="strategy-options">
+          <div :class="styles['strategy-options']">
             <label
               v-for="(strategy, index) in chunkStrategies"
               :key="index"
-              class="strategy-option"
-              :class="{ active: !useCustomChunk && chunkStrategy === index }"
+              :class="[
+                styles['strategy-option'],
+                { [styles.active]: !useCustomChunk && chunkStrategy === index }
+              ]"
             >
               <input
                 v-model="chunkStrategy"
@@ -204,26 +209,26 @@ function resetForm(): void {
                 :checked="!useCustomChunk && chunkStrategy === index"
                 @click="useCustomChunk = false"
               />
-              <div class="strategy-info">
-                <div class="strategy-name">{{ strategy.name }}</div>
-                <div class="strategy-params">
+              <div :class="styles['strategy-info']">
+                <div :class="styles['strategy-name']">{{ strategy.name }}</div>
+                <div :class="styles['strategy-params']">
                   {{ strategy.size }} tokens / {{ strategy.overlap }} overlap
                 </div>
-                <div class="strategy-desc">{{ strategy.desc }}</div>
+                <div :class="styles['strategy-desc']">{{ strategy.desc }}</div>
               </div>
             </label>
-            <label class="strategy-option" :class="{ active: useCustomChunk }">
+            <label :class="[styles['strategy-option'], { [styles.active]: useCustomChunk }]">
               <input
                 type="radio"
                 name="chunk-strategy"
                 :checked="useCustomChunk"
                 @click="useCustomChunk = true"
               />
-              <div class="strategy-info">
-                <div class="strategy-name">自定义</div>
-                <div v-if="!useCustomChunk" class="strategy-desc">手动设置分块参数</div>
-                <div v-else class="custom-inputs">
-                  <div class="custom-input">
+              <div :class="styles['strategy-info']">
+                <div :class="styles['strategy-name']">自定义</div>
+                <div v-if="!useCustomChunk" :class="styles['strategy-desc']">手动设置分块参数</div>
+                <div v-else :class="styles['custom-inputs']">
+                  <div :class="styles['custom-input']">
                     <label>块大小</label>
                     <input
                       v-model.number="customChunkSize"
@@ -233,9 +238,9 @@ function resetForm(): void {
                       step="100"
                       class="sm-input"
                     />
-                    <span class="unit">tokens</span>
+                    <span :class="styles['unit']">tokens</span>
                   </div>
-                  <div class="custom-input">
+                  <div :class="styles['custom-input']">
                     <label>重叠大小</label>
                     <input
                       v-model.number="customChunkOverlap"
@@ -245,13 +250,15 @@ function resetForm(): void {
                       step="50"
                       class="sm-input"
                     />
-                    <span class="unit">tokens</span>
+                    <span :class="styles['unit']">tokens</span>
                   </div>
                 </div>
               </div>
             </label>
           </div>
-          <div class="form-hint">文本分块策略影响检索精度，创建后不可更改。</div>
+          <div :class="['form-hint', styles['form-hint']]">
+            文本分块策略影响检索精度，创建后不可更改。
+          </div>
         </div>
 
         <div class="form-actions">
@@ -270,146 +277,3 @@ function resetForm(): void {
     </div>
   </div>
 </template>
-
-<style scoped>
-.form-overlay {
-  z-index: 1000;
-}
-
-.form-container {
-  width: 100%;
-  max-width: 640px;
-  max-height: min(760px, calc(100vh - 96px));
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-}
-
-.form-header {
-  flex-shrink: 0;
-}
-
-.form-header h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.form-body {
-  padding: var(--sm-space-5);
-}
-
-.form-hint {
-  color: var(--sm-color-text-secondary);
-}
-
-.form-actions.with-border {
-  padding-top: var(--sm-space-4);
-}
-
-.strategy-options {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-3);
-}
-
-.strategy-option {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sm-space-3);
-  padding: var(--sm-space-4);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-1);
-  cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast);
-}
-
-.strategy-option:hover {
-  background: var(--sm-color-surface-2);
-  border-color: var(--sm-color-border-strong);
-}
-
-.strategy-option.active {
-  border-color: var(--sm-color-border-selected);
-  background: var(--sm-color-surface-selected);
-}
-
-.strategy-option input[type='radio'] {
-  margin-top: 3px;
-  flex-shrink: 0;
-  accent-color: var(--sm-color-accent);
-}
-
-.strategy-info {
-  flex: 1;
-}
-
-.strategy-name {
-  margin-bottom: 4px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--sm-color-text-primary);
-}
-
-.strategy-params {
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-  font-family: var(--sm-font-mono);
-  margin-bottom: 4px;
-}
-
-.strategy-desc {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--sm-color-text-secondary);
-}
-
-.custom-inputs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sm-space-3);
-  margin-top: var(--sm-space-3);
-}
-
-.custom-input {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 6px var(--sm-space-2);
-  align-items: center;
-}
-
-.custom-input label {
-  grid-column: 1 / -1;
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-  margin: 0;
-}
-
-.custom-input :deep(.sm-input) {
-  min-width: 0;
-}
-
-.custom-input .unit {
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-  font-family: var(--sm-font-mono);
-}
-
-@media (max-width: 720px) {
-  .form-container {
-    max-width: none;
-  }
-
-  .form-body {
-    padding: var(--sm-space-4);
-  }
-
-  .custom-inputs {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-</style>
