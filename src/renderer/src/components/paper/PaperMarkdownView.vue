@@ -243,13 +243,15 @@ async function restoreMarkdownScrollPosition(paperId: string): Promise<void> {
   }
 
   await nextTick()
-  requestAnimationFrame(() => {
-    if (props.paperId !== paperId || !scrollContainerRef.value) {
-      return
-    }
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      if (props.paperId === paperId && scrollContainerRef.value) {
+        scrollContainerRef.value.scrollTop = position.scrollTop
+        scrollContainerRef.value.scrollLeft = position.scrollLeft
+      }
 
-    scrollContainerRef.value.scrollTop = position.scrollTop
-    scrollContainerRef.value.scrollLeft = position.scrollLeft
+      resolve()
+    })
   })
 }
 
@@ -269,6 +271,7 @@ watch(
     if (!oldValues) {
       composer.clearComposer()
       await restoreMarkdownScrollPosition(props.paperId)
+      refreshTextSearch({ preserveCurrentIndex: true })
       return
     }
 
@@ -284,6 +287,8 @@ watch(
     if (contentChanged || basePathChanged || sourceRevisionIdChanged) {
       await restoreMarkdownScrollPosition(props.paperId)
     }
+
+    refreshTextSearch({ preserveCurrentIndex: true })
   },
   { immediate: true }
 )
@@ -334,9 +339,27 @@ function handleMarkdownClick(event: MouseEvent): void {
   composer.handleSurfaceAnnotationClick(event)
 }
 
+function getSearchContentElement(): HTMLElement | null {
+  const contentEl = scrollContainerRef.value?.querySelector('.paper-markdown-view__content')
+  return contentEl instanceof HTMLElement ? contentEl : null
+}
+
+function refreshTextSearch(options: { preserveCurrentIndex?: boolean } = {}): void {
+  if (!textSearch.isOpen.value || !textSearch.query.value.trim()) {
+    return
+  }
+
+  const contentEl = getSearchContentElement()
+  if (!contentEl) {
+    return
+  }
+
+  textSearch.search(contentEl, textSearch.query.value, options)
+}
+
 function handleDocumentKeyDown(event: KeyboardEvent): void {
   // 搜索快捷键优先处理
-  if ((event.metaKey || event.ctrlKey) && event.key === 'f') {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
     event.preventDefault()
     if (textSearch.isOpen.value) {
       searchInputRef.value?.focus()
@@ -363,10 +386,6 @@ function handleDocumentKeyDown(event: KeyboardEvent): void {
 function handleSearchInputKeydown(event: KeyboardEvent): void {
   if (event.key === 'Enter' && !event.isComposing) {
     event.preventDefault()
-    const contentEl = scrollContainerRef.value?.querySelector('.paper-markdown-view__content')
-    if (contentEl instanceof HTMLElement) {
-      textSearch.search(contentEl, textSearch.query.value)
-    }
     if (event.shiftKey) {
       textSearch.goToPrevious()
     } else {
@@ -377,8 +396,8 @@ function handleSearchInputKeydown(event: KeyboardEvent): void {
 
 watch(textSearch.query, (newQuery) => {
   if (!textSearch.isOpen.value) return
-  const contentEl = scrollContainerRef.value?.querySelector('.paper-markdown-view__content')
-  if (contentEl instanceof HTMLElement) {
+  const contentEl = getSearchContentElement()
+  if (contentEl) {
     textSearch.search(contentEl, newQuery)
   }
 })

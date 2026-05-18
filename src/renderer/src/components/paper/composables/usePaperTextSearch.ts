@@ -1,23 +1,60 @@
 import { computed, ref } from 'vue'
+import { buildCanonicalTextIndex, resolveCanonicalTextPoint } from './paperCanonicalTextIndex'
 
 export interface TextSearchMatch {
   markElement: HTMLElement
   text: string
 }
 
+interface TextSearchOptions {
+  preserveCurrentIndex?: boolean
+}
+
+interface ResolvedTextSearchMatch {
+  startPoint: {
+    node: Node
+    offset: number
+  }
+  endPoint: {
+    node: Node
+    offset: number
+  }
+  text: string
+}
+
+const SEARCH_HIGHLIGHT_CLASS = 'paper-markdown-view__search-highlight'
+const SEARCH_HIGHLIGHT_CURRENT_CLASS = 'paper-markdown-view__search-highlight--current'
+const SEARCH_HIGHLIGHT_SELECTOR = `mark.${SEARCH_HIGHLIGHT_CLASS}`
+
 function escapeRegex(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 /**
- * 判断文本节点是否应被排除在搜索范围外
+ * 收集全文匹配范围，统一在 canonical text 上查找以支持跨节点文本与公式内容。
  */
-function shouldSkipTextNode(node: Text): boolean {
-  const parent = node.parentElement
-  if (!parent) return true
-  // 跳过已有的 mark、script、style、noscript
-  if (parent.closest('mark, script, style, noscript')) return true
-  return false
+function collectMatchRanges(text: string, searchQuery: string): { start: number; end: number }[] {
+  const regex = new RegExp(escapeRegex(searchQuery), 'gi')
+  const ranges: { start: number; end: number }[] = []
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(text)) !== null) {
+    ranges.push({ start: match.index, end: match.index + match[0].length })
+  }
+
+  return ranges
+}
+
+function unwrapHighlight(mark: HTMLElement): void {
+  const parent = mark.parentNode
+  if (!parent) return
+
+  while (mark.firstChild) {
+    parent.insertBefore(mark.firstChild, mark)
+  }
+
+  parent.removeChild(mark)
+  parent.normalize()
 }
 
 export function usePaperTextSearch(): {
@@ -28,7 +65,7 @@ export function usePaperTextSearch(): {
   hasMatches: import('vue').ComputedRef<boolean>
   openSearch: () => void
   closeSearch: () => void
-  search: (root: HTMLElement, searchQuery: string) => void
+  search: (root: HTMLElement, searchQuery: string, options?: TextSearchOptions) => void
   goToNext: () => void
   goToPrevious: () => void
 } {
@@ -36,6 +73,7 @@ export function usePaperTextSearch(): {
   const query = ref('')
   const matches = ref<HTMLElement[]>([])
   const currentIndex = ref(-1)
+  let highlightedRoot: HTMLElement | null = null
 
   const matchCount = computed(() => matches.value.length)
   const hasMatches = computed(() => matchCount.value > 0)
@@ -51,85 +89,81 @@ export function usePaperTextSearch(): {
   }
 
   function clearHighlights(): void {
-    for (const mark of matches.value) {
-      const parent = mark.parentNode
-      if (!parent) continue
+    const marks = new Set<HTMLElement>(matches.value)
+    highlightedRoot?.querySelectorAll<HTMLElement>(SEARCH_HIGHLIGHT_SELECTOR).forEach((mark) => {
+      marks.add(mark)
+    })
 
-      const text = document.createTextNode(mark.textContent || '')
-      parent.replaceChild(text, mark)
-      parent.normalize()
+    for (const mark of marks) {
+      unwrapHighlight(mark)
     }
+
     matches.value = []
     currentIndex.value = -1
+    highlightedRoot = null
   }
 
   /**
    * 在指定根元素内搜索文本并高亮所有匹配项
    */
-  function search(root: HTMLElement, searchQuery: string): void {
+  function search(root: HTMLElement, searchQuery: string, options: TextSearchOptions = {}): void {
+    const previousIndex = options.preserveCurrentIndex ? currentIndex.value : -1
     clearHighlights()
+    highlightedRoot = root
 
     const trimmedQuery = searchQuery.trim()
     if (!trimmedQuery) return
 
-    const regex = new RegExp(escapeRegex(trimmedQuery), 'gi')
+    const canonicalIndex = buildCanonicalTextIndex(root)
+    const resolvedMatches = collectMatchRanges(canonicalIndex.text, trimmedQuery).flatMap(
+      (match): ResolvedTextSearchMatch[] => {
+        const startPoint = resolveCanonicalTextPoint(canonicalIndex, match.start, 'start')
+        const endPoint = resolveCanonicalTextPoint(canonicalIndex, match.end, 'end')
+        if (!startPoint || !endPoint || match.start >= match.end) {
+          return []
+        }
 
-    // 收集所有文本节点（从后往前收集，后续也从后往前处理）
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) => {
-        if (shouldSkipTextNode(node as Text)) return NodeFilter.FILTER_REJECT
-        return NodeFilter.FILTER_ACCEPT
+        return [
+          {
+            startPoint,
+            endPoint,
+            text: canonicalIndex.text.slice(match.start, match.end)
+          }
+        ]
       }
-    })
+    )
 
-    const textNodes: Text[] = []
-    while (walker.nextNode()) {
-      textNodes.push(walker.currentNode as Text)
+    const document = root.ownerDocument
+
+    // 从后往前插入，避免前面的 DOM 边界被后续高亮拆分影响。
+    for (let index = resolvedMatches.length - 1; index >= 0; index -= 1) {
+      const match = resolvedMatches[index]
+      const range = document.createRange()
+      range.setStart(match.startPoint.node, match.startPoint.offset)
+      range.setEnd(match.endPoint.node, match.endPoint.offset)
+      if (range.collapsed) {
+        continue
+      }
+
+      const mark = document.createElement('mark')
+      mark.className = SEARCH_HIGHLIGHT_CLASS
+      mark.dataset.searchText = match.text
+
+      mark.appendChild(range.extractContents())
+      range.insertNode(mark)
+      matches.value.unshift(mark)
     }
 
-    // 从后往前处理，避免 splitText 导致后续节点索引变化
-    for (let i = textNodes.length - 1; i >= 0; i--) {
-      const node = textNodes[i]
-      const text = node.textContent || ''
-      const parent = node.parentNode
-      if (!parent) continue
-
-      // 收集该文本节点中的所有匹配位置
-      const matchIndices: { start: number; end: number }[] = []
-      let match: RegExpExecArray | null
-      while ((match = regex.exec(text)) !== null) {
-        matchIndices.push({ start: match.index, end: match.index + match[0].length })
-      }
-
-      if (matchIndices.length === 0) continue
-
-      // 从后往前拆分并插入 mark，保持正向顺序
-      let referenceNode: Text = node
-      for (let j = matchIndices.length - 1; j >= 0; j--) {
-        const { start, end } = matchIndices[j]
-
-        // 拆分为: [node..start] [start..end] [end..]
-        const afterNode = referenceNode.splitText(end)
-        const matchedNode = referenceNode.splitText(start)
-
-        const mark = document.createElement('mark')
-        mark.className = 'paper-markdown-view__search-highlight'
-        mark.textContent = matchedNode.textContent
-        parent.insertBefore(mark, afterNode)
-        parent.removeChild(matchedNode)
-
-        // 从头部插入，保持文档顺序
-        matches.value.unshift(mark)
-
-        const prev = mark.previousSibling
-        referenceNode = prev instanceof Text ? prev : node
-      }
+    if (matches.value.length === 0) {
+      return
     }
 
-    if (matches.value.length > 0) {
+    if (previousIndex >= 0) {
+      currentIndex.value = Math.min(previousIndex, matches.value.length - 1)
+    } else {
       currentIndex.value = 0
-      scrollToMatch(0)
     }
+    scrollToMatch(currentIndex.value)
   }
 
   function goToNext(): void {
@@ -150,10 +184,10 @@ export function usePaperTextSearch(): {
 
     // 移除旧的 current 类
     for (const m of matches.value) {
-      m.classList.remove('paper-markdown-view__search-highlight--current')
+      m.classList.remove(SEARCH_HIGHLIGHT_CURRENT_CLASS)
     }
     // 给当前匹配项添加 current 类
-    mark.classList.add('paper-markdown-view__search-highlight--current')
+    mark.classList.add(SEARCH_HIGHLIGHT_CURRENT_CLASS)
 
     mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
