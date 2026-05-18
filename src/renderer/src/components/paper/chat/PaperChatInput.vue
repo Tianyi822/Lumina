@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, ref, unref, watch, type ComputedRef, type Ref } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import PaperChatInteractionOptions from './input/PaperChatInteractionOptions.vue'
 import PaperChatOptions from './input/PaperChatOptions.vue'
 import PaperChatAttachedDocuments from './input/PaperChatAttachedDocuments.vue'
@@ -89,8 +89,7 @@ const { isDragging, handleDragOver, handleDragLeave, handleDrop, triggerFileUplo
     addImages
   })
 
-const paperChatStreamStore = usePaperChatStreamStore()
-const { showUserInteraction, userInteractionInfo } = storeToRefs(paperChatStreamStore)
+const paperChatStreamStore = useZustandStore(usePaperChatStreamStore)
 
 watch(
   () => props.inputMessage,
@@ -356,8 +355,8 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
     :class="{ 'paper-chat-input--compact': props.variant === 'compact' }"
   >
     <PaperChatInteractionOptions
-      v-if="showUserInteraction && userInteractionInfo"
-      :interaction-info="userInteractionInfo"
+      v-if="paperChatStreamStore.showUserInteraction && paperChatStreamStore.userInteractionInfo"
+      :interaction-info="paperChatStreamStore.userInteractionInfo"
       @select="handleUserInteractionSelect"
     />
 

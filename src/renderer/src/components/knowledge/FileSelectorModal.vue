@@ -3,8 +3,8 @@
  * 文件选择模态框
  * 从已有文件选择或上传新文件到知识库
  */
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 import type { UploadResult } from './shared/composables/useFileUpload'
@@ -41,9 +41,8 @@ const PANEL_HEIGHT_TRANSITION_MS = 220
 const PANEL_HEIGHT_TRANSITION_FALLBACK_MS = PANEL_HEIGHT_TRANSITION_MS + 80
 
 // 文件管理
-const fileStore = useFileStore()
-const { files } = storeToRefs(fileStore)
-const { loadFiles } = fileStore
+const fileStore = useZustandStore(useFileStore)
+const files = computed(() => fileStore.files)
 
 // 文件选择逻辑
 const {
@@ -252,7 +251,7 @@ watch(activeTab, async () => {
 
 // 生命周期
 onMounted(async () => {
-  await loadFiles()
+  await fileStore.loadFiles()
   await nextTick()
   observePanelContent()
   syncVisiblePanelHeight()

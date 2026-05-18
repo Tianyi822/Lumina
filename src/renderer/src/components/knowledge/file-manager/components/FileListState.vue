@@ -3,22 +3,21 @@
  * 文件列表状态组件
  * 显示加载中、空列表等状态
  */
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useFileStore } from '@renderer/stores'
 
-const fileStore = useFileStore()
-const { loading, searchQuery, filteredFiles } = storeToRefs(fileStore)
+const fileStore = useZustandStore(useFileStore)
 </script>
 
 <template>
   <div class="file-list-container">
-    <div v-if="loading" class="loading-state">
+    <div v-if="fileStore.loading" class="loading-state">
       <span class="sm-spinner sm-spinner--large"></span>
       <p>加载中...</p>
     </div>
 
-    <div v-else-if="filteredFiles.length === 0" class="empty-state sm-empty">
-      <p v-if="searchQuery">未找到匹配的文件</p>
+    <div v-else-if="fileStore.filteredFiles.length === 0" class="empty-state sm-empty">
+      <p v-if="fileStore.searchQuery">未找到匹配的文件</p>
       <p v-else>暂无文件，请上传文件</p>
     </div>
 

@@ -15,28 +15,20 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const {
-  currentTheme,
-  selectedTheme,
-  themeMode,
-  systemTheme,
-  setTheme,
-  setThemeMode,
-  getAvailableThemes
-} = useTheme()
+const theme = useTheme()
 
 // 可用主题列表
-const availableThemes = computed(() => getAvailableThemes())
+const availableThemes = computed(() => theme.getAvailableThemes())
 
-const isAutoMode = computed(() => themeMode.value === 'system')
-const systemThemeLabel = computed(() => (systemTheme.value === 'dark' ? '深色' : '浅色'))
+const isAutoMode = computed(() => theme.themeMode === 'system')
+const systemThemeLabel = computed(() => (theme.systemTheme === 'dark' ? '深色' : '浅色'))
 
 // 当前选中的主题 ID
 const selectedThemeId = computed({
-  get: () => selectedTheme.value,
+  get: () => theme.selectedTheme,
   set: (themeId: string) => {
     // setTheme 是异步的，但我们不需要等待它完成
-    setTheme(themeId)
+    theme.setTheme(themeId)
     // 更新父组件的配置
     emit('update:modelValue', {
       ...props.modelValue,
@@ -48,13 +40,13 @@ const selectedThemeId = computed({
 })
 
 const selectedMode = computed({
-  get: () => themeMode.value,
+  get: () => theme.themeMode,
   set: (mode: ThemeMode) => {
-    setThemeMode(mode)
+    theme.setThemeMode(mode)
     emit('update:modelValue', {
       ...props.modelValue,
       mode,
-      name: selectedTheme.value
+      name: theme.selectedTheme
     })
   }
 })
@@ -81,7 +73,7 @@ function isSelected(themeId: string): boolean {
     return false
   }
 
-  return selectedTheme.value === themeId
+  return theme.selectedTheme === themeId
 }
 </script>
 
@@ -130,7 +122,7 @@ function isSelected(themeId: string): boolean {
 
         <span class="sm-settings-chip sm-settings-chip--accent">
           当前主题:
-          {{ availableThemes.find((t) => t.id === currentTheme)?.name || currentTheme }}
+          {{ availableThemes.find((t) => t.id === theme.currentTheme)?.name || theme.currentTheme }}
         </span>
       </div>
 

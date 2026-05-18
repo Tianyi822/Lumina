@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, inject, watch, nextTick, onMounted, onUnmounted, computed, type Ref } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import type { MCPTool } from '@renderer/types'
 import { useMCPStore } from '@renderer/stores'
 import { useMCPUI } from '@renderer/composables/mcp/useMCPUI'
@@ -18,14 +18,21 @@ const emit = defineEmits<{
 const mcpUpdateKey = inject<Ref<number>>('mcpUpdateKey', ref(0))
 
 // 直接使用 MCP Store
-const mcpStore = useMCPStore()
-const { statuses, searchQuery, filteredToolsByServer } = storeToRefs(mcpStore)
+const mcpStore = useZustandStore(useMCPStore)
 
-// 兼容旧命名
-const connectionStatuses = statuses
-const totalToolsCount = computed(() => mcpStore.totalToolsCount)
-const connectedServersCount = computed(() => mcpStore.connectedServersCount)
+// 搜索查询（双向绑定用 computed）
+const searchQuery = computed({
+  get: () => mcpStore.searchQuery,
+  set: (val) => mcpStore.setSearchQuery(val)
+})
+
+// 兼容旧命名（statuses 保留在 mcpStore 上直接访问）
+const totalToolsCount = computed(() => mcpStore.totalToolsCount())
+const connectedServersCount = computed(() => mcpStore.connectedServersCount())
 const expandedServers = ref<Set<string>>(new Set())
+
+// getter 函数需通过 computed 包装以保持模板响应性
+const filteredToolsByServer = computed(() => mcpStore.filteredToolsByServer())
 
 // 本地选择状态（从 props 初始化，保持与会话同步）
 const localSelectedTools = ref<MCPTool[]>(props.selectedTools ?? [])
@@ -108,7 +115,7 @@ async function loadTools(): Promise<void> {
   expandedServers.value = new Set()
 
   // 默认展开所有已连接的服务器
-  for (const status of connectionStatuses.value) {
+  for (const status of mcpStore.statuses) {
     if (status.connected) {
       expandedServers.value.add(status.serverName)
     }
@@ -178,11 +185,14 @@ function handleToggleServer(serverName: string): void {
 }
 
 // 监听搜索查询变化，重新检查溢出状态
-watch(searchQuery, () => {
-  nextTick(() => {
-    refreshAllOverflowChecks()
-  })
-})
+watch(
+  () => mcpStore.searchQuery,
+  () => {
+    nextTick(() => {
+      refreshAllOverflowChecks()
+    })
+  }
+)
 
 // 监听 MCP 更新
 watch(mcpUpdateKey, () => {

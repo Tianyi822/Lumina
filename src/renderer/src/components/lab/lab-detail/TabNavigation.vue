@@ -2,7 +2,7 @@
 /**
  * 实验室详情 Tab 导航组件
  */
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useUIStateStore } from '@renderer/stores'
 
 type TabType = 'stats' | 'terminal' | 'logs'
@@ -17,8 +17,7 @@ withDefaults(
   }
 )
 
-const uiStateStore = useUIStateStore()
-const { labDetailTab } = storeToRefs(uiStateStore)
+const uiStateStore = useZustandStore(useUIStateStore)
 
 function setDetailTab(tab: TabType): void {
   uiStateStore.setLabDetailTab(tab)
@@ -29,14 +28,14 @@ function setDetailTab(tab: TabType): void {
   <div v-if="visible" class="detail-tabs" role="tablist" aria-label="实验室详情视图">
     <button
       class="tab-btn"
-      :class="{ 'is-active': labDetailTab === 'stats' }"
+      :class="{ 'is-active': uiStateStore.labDetailTab === 'stats' }"
       @click="setDetailTab('stats')"
     >
       监控
     </button>
     <button
       class="tab-btn"
-      :class="{ 'is-active': labDetailTab === 'terminal' }"
+      :class="{ 'is-active': uiStateStore.labDetailTab === 'terminal' }"
       @click="setDetailTab('terminal')"
     >
       终端
@@ -44,7 +43,7 @@ function setDetailTab(tab: TabType): void {
     <button
       v-if="showLogs"
       class="tab-btn"
-      :class="{ 'is-active': labDetailTab === 'logs' }"
+      :class="{ 'is-active': uiStateStore.labDetailTab === 'logs' }"
       @click="setDetailTab('logs')"
     >
       日志

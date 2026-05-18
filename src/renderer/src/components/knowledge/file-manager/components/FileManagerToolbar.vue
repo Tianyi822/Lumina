@@ -3,28 +3,26 @@
  * 文件管理工具栏组件
  * 包含搜索框和文件统计
  */
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useFileStore } from '@renderer/stores'
 
-const fileStore = useFileStore()
-const { searchQuery, filteredFiles } = storeToRefs(fileStore)
-const { searchFiles } = fileStore
+const fileStore = useZustandStore(useFileStore)
 </script>
 
 <template>
   <div class="file-manager-toolbar">
     <div class="toolbar-search">
       <input
-        v-model="searchQuery"
+        :value="fileStore.searchQuery"
         type="text"
         class="sm-input search-input"
         placeholder="搜索文件..."
-        @input="searchFiles(searchQuery)"
+        @input="fileStore.searchFiles(($event.target as HTMLInputElement).value)"
       />
     </div>
     <div class="file-stats">
       <span class="file-stats__label">文件资源池</span>
-      <span class="file-stats__count">{{ filteredFiles.length }} 个文件</span>
+      <span class="file-stats__count">{{ fileStore.filteredFiles.length }} 个文件</span>
     </div>
   </div>
 </template>

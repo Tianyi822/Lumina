@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useDockerConfigStore } from '@renderer/stores'
 
 type ConfigType = 'dockerfile' | 'compose'
@@ -13,8 +13,7 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
-const configStore = useDockerConfigStore()
-const { dockerfileConfigs, composeConfigs, configsLoading } = storeToRefs(configStore)
+const configStore = useZustandStore(useDockerConfigStore)
 
 const activeTab = ref<ConfigType>('dockerfile')
 const selectedId = ref<string | null>(null)
@@ -24,7 +23,9 @@ const isEditing = ref(false)
 const deleteConfirmId = ref<string | null>(null)
 
 const currentConfigs = computed(() => {
-  return activeTab.value === 'dockerfile' ? dockerfileConfigs.value : composeConfigs.value
+  return activeTab.value === 'dockerfile'
+    ? configStore.dockerfileConfigs
+    : configStore.composeConfigs
 })
 
 const selectedConfig = computed(() => {
@@ -184,7 +185,7 @@ function formatDate(dateStr: string): string {
               <strong>{{ activeTab === 'dockerfile' ? 'Dockerfile 模板' : 'Compose 模板' }}</strong>
             </div>
           </div>
-          <div v-if="configsLoading" class="sm-empty list-state">加载配置中...</div>
+          <div v-if="configStore.configsLoading" class="sm-empty list-state">加载配置中...</div>
           <div v-else-if="currentConfigs.length === 0" class="sm-empty list-state">
             暂无{{ activeTab === 'dockerfile' ? 'Dockerfile' : 'Compose' }}配置
           </div>

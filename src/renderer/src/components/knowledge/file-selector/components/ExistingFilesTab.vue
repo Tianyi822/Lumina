@@ -4,7 +4,7 @@
  * 显示已有文件列表供选择
  */
 import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 import FileItemRow from './FileItemRow.vue'
@@ -29,17 +29,15 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
-const fileStore = useFileStore()
-const { loading, searchQuery, files } = storeToRefs(fileStore)
-const { searchFiles } = fileStore
+const fileStore = useZustandStore(useFileStore)
 
 // 可选择的文件列表（排除已关联的文件）
 const availableFiles = computed(() => {
   const linkedSet = new Set(props.linkedFileIds)
-  let result = files.value.filter((f) => !linkedSet.has(f.id))
+  let result = fileStore.files.filter((f) => !linkedSet.has(f.id))
 
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase()
+  if (fileStore.searchQuery.trim()) {
+    const query = fileStore.searchQuery.toLowerCase()
     result = result.filter((file) => {
       const searchableText = [
         file.name,
@@ -70,22 +68,22 @@ const selectedCount = computed(() => props.selectedFileIds.size)
         <span class="search-bar__count">{{ availableFiles.length }} 个可挂载文件</span>
       </div>
       <input
-        v-model="searchQuery"
+        :value="fileStore.searchQuery"
         type="text"
         class="sm-input search-input"
         placeholder="搜索文件..."
-        @input="searchFiles(searchQuery)"
+        @input="fileStore.searchFiles(($event.target as HTMLInputElement).value)"
       />
     </div>
 
     <div class="file-list">
-      <div v-if="loading" class="state-message">
+      <div v-if="fileStore.loading" class="state-message">
         <span class="sm-spinner sm-spinner--large"></span>
         <p>加载中...</p>
       </div>
 
       <div v-else-if="availableFiles.length === 0" class="state-message sm-empty">
-        <p v-if="searchQuery">未找到匹配的文件</p>
+        <p v-if="fileStore.searchQuery">未找到匹配的文件</p>
         <p v-else>没有可添加的文件，请先上传文件或切换到"上传新文件"标签页</p>
       </div>
 

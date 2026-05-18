@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import KnowledgeMain from '@renderer/components/KnowledgeMain.vue'
 import KnowledgeForm from '@renderer/components/knowledge/KnowledgeForm.vue'
 
@@ -10,20 +10,21 @@ import { useKnowledgeStore, useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
 
-// ==================== 知识库管理（直接使用 Store）====================
-const knowledgeStore = useKnowledgeStore()
-const { knowledgeBases, activeKbId: storeActiveKbId, showForm } = storeToRefs(knowledgeStore)
-const uiStateStore = useUIStateStore()
-const { showKnowledgeFileManager } = storeToRefs(uiStateStore)
+// ==================== 知识库管理（Zustand）====================
+const knowledgeState = useZustandStore(useKnowledgeStore)
+const uiState = useZustandStore(useUIStateStore)
 const notify = useNotification()
 
+const knowledgeBases = computed(() => knowledgeState.knowledgeBases)
+const showKnowledgeForm = computed(() => knowledgeState.showForm)
+const showKnowledgeFileManager = computed(() => uiState.showKnowledgeFileManager)
+
 // 兼容旧接口命名（将 null 转为 undefined）
-const activeKbId = computed(() => storeActiveKbId.value ?? undefined)
-const showKnowledgeForm = showForm
+const activeKbId = computed(() => knowledgeState.activeKbId ?? undefined)
 
 // ==================== 生命周期 ====================
 onMounted(async () => {
-  await knowledgeStore.loadKnowledgeBases()
+  await knowledgeState.loadKnowledgeBases()
 })
 
 async function handleKnowledgeSubmit(data: {
@@ -40,14 +41,14 @@ async function handleKnowledgeSubmit(data: {
   chunkSize: number
   chunkOverlap: number
 }): Promise<void> {
-  const success = await knowledgeStore.handleFormSubmit(data)
+  const success = await knowledgeState.handleFormSubmit(data)
   if (!success) {
-    notify.error('创建知识库失败', knowledgeStore.error || '未知错误', { source: 'knowledge' })
+    notify.error('创建知识库失败', knowledgeState.error || '未知错误', { source: 'knowledge' })
   }
 }
 
 function handleKnowledgeCancel(): void {
-  knowledgeStore.closeForm()
+  knowledgeState.closeForm()
 }
 
 // ==================== 文件管理 ====================
@@ -58,7 +59,7 @@ const currentKBIdForSelector = ref<string>('')
 const knowledgeMainRef = ref<InstanceType<typeof KnowledgeMain> | null>(null)
 
 function handleFileManagerClose(): void {
-  uiStateStore.closeKnowledgeFileManager()
+  uiState.closeKnowledgeFileManager()
 }
 
 function handleAddFiles(kbId: string): void {
@@ -78,7 +79,7 @@ function handleFilesLinked(files: FileItem[]): void {
   }
 
   // 更新 knowledgeBases 中的 linkedFileIds 和 documentCount，确保 Sidebar 能正确显示
-  const kb = knowledgeBases.value.find((k) => k.id === currentKBIdForSelector.value)
+  const kb = knowledgeState.knowledgeBases.find((k) => k.id === currentKBIdForSelector.value)
   if (kb) {
     const newFileIds = files.map((f) => f.id)
     kb.linkedFileIds = [...(kb.linkedFileIds || []), ...newFileIds]
@@ -88,7 +89,7 @@ function handleFilesLinked(files: FileItem[]): void {
 
 function handleFileUnlinked(kbId: string, fileId: string): void {
   // 更新 knowledgeBases 中的 linkedFileIds 和 documentCount，确保 Sidebar 能正确显示
-  const kb = knowledgeBases.value.find((k) => k.id === kbId)
+  const kb = knowledgeState.knowledgeBases.find((k) => k.id === kbId)
   if (kb && kb.linkedFileIds) {
     kb.linkedFileIds = kb.linkedFileIds.filter((id) => id !== fileId)
     kb.documentCount = kb.linkedFileIds.length
@@ -97,7 +98,7 @@ function handleFileUnlinked(kbId: string, fileId: string): void {
 
 function handleDescriptionUpdated(kbId: string, description: string): void {
   // 更新 knowledgeBases 中的描述，确保数据同步
-  const kb = knowledgeBases.value.find((k) => k.id === kbId)
+  const kb = knowledgeState.knowledgeBases.find((k) => k.id === kbId)
   if (kb) {
     kb.description = description
   }

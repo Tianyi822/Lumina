@@ -6,6 +6,7 @@ import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import PaperChatMessageList from './PaperChatMessageList.vue'
 import { usePaperChatSession } from './usePaperChatSession'
 import { usePaperChatStream } from './usePaperChatStream'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { usePaperChatStreamStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import { parseMessageOptions, type MessageOptionContext } from '@renderer/utils/optionParser'
@@ -30,7 +31,7 @@ const emit = defineEmits<{
 const paperRef = computed(() => props.paper)
 const dismissedQuickReplyIds = ref<Set<string>>(new Set())
 const notify = useNotification()
-const paperChatStreamStore = usePaperChatStreamStore()
+const paperChatStreamStore = useZustandStore(usePaperChatStreamStore)
 
 const {
   session,
@@ -76,7 +77,7 @@ const visibleMessages = computed(() =>
 )
 
 const currentPlanState = computed(() => {
-  return sessionId.value ? (paperChatStreamStore.planStates.get(sessionId.value) ?? null) : null
+  return sessionId.value ? paperChatStreamStore.getSessionPlanState(sessionId.value) : null
 })
 
 const activeQuickReply = computed<MessageOptionContext | null>(() => {

@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import type { LLMConfig } from '@renderer/types'
 import { useConfigStore } from '@renderer/stores'
 import { useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 
-const configStore = useConfigStore()
-const uiStateStore = useUIStateStore()
+const configStore = useZustandStore(useConfigStore)
+const uiStateStore = useZustandStore(useUIStateStore)
 const notify = useNotification()
-const { llmConfigs, defaultModel, saving } = storeToRefs(configStore)
 
 // 展开的模型配置项（使用索引避免编辑 model_name 时丢失展开状态）
 const expandedModels = ref<Set<number>>(new Set())
@@ -57,7 +56,7 @@ function validateModelConfig(config: LLMConfig, index: number): string {
 }
 
 function validateAllModelConfigs(): boolean {
-  for (const [index, config] of llmConfigs.value.entries()) {
+  for (const [index, config] of configStore.llmConfigs.entries()) {
     const validationMessage = validateModelConfig(config, index)
     if (validationMessage) {
       showValidationWarning(validationMessage)
@@ -69,13 +68,13 @@ function validateAllModelConfigs(): boolean {
 }
 
 function addNewModel(): void {
-  const validationMessage = validateModelConfig(newModelConfig, llmConfigs.value.length)
+  const validationMessage = validateModelConfig(newModelConfig, configStore.llmConfigs.length)
   if (validationMessage) {
     showValidationWarning(validationMessage)
     return
   }
 
-  const newConfigs = [...llmConfigs.value, { ...newModelConfig }]
+  const newConfigs = [...configStore.llmConfigs, { ...newModelConfig }]
   configStore.updateLLMConfigs(newConfigs)
   expandedModels.value.add(newConfigs.length - 1)
 
@@ -104,16 +103,16 @@ function normalizeExpandedModelsAfterDelete(deletedIndex: number): void {
 }
 
 function deleteModel(modelIndex: number): void {
-  const modelName = llmConfigs.value[modelIndex]?.model_name
+  const modelName = configStore.llmConfigs[modelIndex]?.model_name
   if (modelName === undefined) {
     return
   }
 
-  const newConfigs = llmConfigs.value.filter((_, index) => index !== modelIndex)
+  const newConfigs = configStore.llmConfigs.filter((_, index) => index !== modelIndex)
   configStore.updateLLMConfigs(newConfigs)
 
   normalizeExpandedModelsAfterDelete(modelIndex)
-  if (defaultModel.value === modelName) {
+  if (configStore.defaultModel === modelName) {
     configStore.updateDefaultModel(newConfigs.length > 0 ? newConfigs[0].model_name : '')
   }
 
@@ -129,7 +128,7 @@ function toggleModelExpand(modelIndex: number): void {
 }
 
 function setDefaultModel(modelName: string): void {
-  if (defaultModel.value === modelName) {
+  if (configStore.defaultModel === modelName) {
     return
   }
 
@@ -138,7 +137,7 @@ function setDefaultModel(modelName: string): void {
 }
 
 async function testModelConnection(modelIndex: number): Promise<void> {
-  const config = llmConfigs.value[modelIndex]
+  const config = configStore.llmConfigs[modelIndex]
   if (!config) {
     return
   }
@@ -169,7 +168,7 @@ async function testModelConnection(modelIndex: number): Promise<void> {
 }
 
 async function testNewModelConnection(): Promise<void> {
-  const validationMessage = validateModelConfig(newModelConfig, llmConfigs.value.length)
+  const validationMessage = validateModelConfig(newModelConfig, configStore.llmConfigs.length)
   if (validationMessage) {
     showValidationWarning(validationMessage)
     return
@@ -195,12 +194,12 @@ async function testNewModelConnection(): Promise<void> {
 }
 
 function updateModelConfig(modelIndex: number, field: keyof LLMConfig, value: unknown): void {
-  const currentConfig = llmConfigs.value[modelIndex]
+  const currentConfig = configStore.llmConfigs[modelIndex]
   if (!currentConfig || currentConfig[field] === value) {
     return
   }
 
-  const newConfigs = [...llmConfigs.value]
+  const newConfigs = [...configStore.llmConfigs]
   newConfigs[modelIndex] = {
     ...currentConfig,
     [field]: value
@@ -210,7 +209,7 @@ function updateModelConfig(modelIndex: number, field: keyof LLMConfig, value: un
 
   if (
     field === 'model_name' &&
-    defaultModel.value === currentConfig.model_name &&
+    configStore.defaultModel === currentConfig.model_name &&
     typeof value === 'string'
   ) {
     configStore.updateDefaultModel(value)
@@ -280,23 +279,26 @@ async function handleSave(): Promise<void> {
         <div>
           <h3 class="sm-settings-page__section-title">模型列表</h3>
           <p class="sm-settings-page__section-description">
-            当前共 {{ llmConfigs.length }} 个模型，默认模型会同步到会话工作区的模型选择器。
+            当前共
+            {{ configStore.llmConfigs.length }} 个模型，默认模型会同步到会话工作区的模型选择器。
           </p>
         </div>
 
         <span
           class="sm-settings-chip"
-          :class="{ 'sm-settings-chip--accent': llmConfigs.length > 0 }"
+          :class="{ 'sm-settings-chip--accent': configStore.llmConfigs.length > 0 }"
         >
-          默认模型: {{ defaultModel || '未设置' }}
+          默认模型: {{ configStore.defaultModel || '未设置' }}
         </span>
       </div>
 
       <div class="model-list">
-        <div v-for="(config, index) in llmConfigs" :key="index" class="model-item">
+        <div v-for="(config, index) in configStore.llmConfigs" :key="index" class="model-item">
           <div class="model-header" @click="toggleModelExpand(index)">
             <span class="model-name">{{ config.model_name || '未命名模型' }}</span>
-            <span v-if="defaultModel === config.model_name" class="default-badge">默认</span>
+            <span v-if="configStore.defaultModel === config.model_name" class="default-badge"
+              >默认</span
+            >
             <span class="expand-state">{{ expandedModels.has(index) ? '收起' : '展开' }}</span>
             <div class="model-actions">
               <button
@@ -307,7 +309,7 @@ async function handleSave(): Promise<void> {
                 {{ testingModelIndex === index ? '测试中...' : '测试' }}
               </button>
               <button
-                v-if="defaultModel !== config.model_name"
+                v-if="configStore.defaultModel !== config.model_name"
                 class="sm-button sm-button--small"
                 @click.stop="setDefaultModel(config.model_name)"
               >
@@ -362,7 +364,10 @@ async function handleSave(): Promise<void> {
           </div>
         </div>
 
-        <div v-if="llmConfigs.length === 0 && !showNewModelForm" class="sm-settings-empty">
+        <div
+          v-if="configStore.llmConfigs.length === 0 && !showNewModelForm"
+          class="sm-settings-empty"
+        >
           <p>暂无模型配置</p>
         </div>
       </div>
@@ -419,8 +424,12 @@ async function handleSave(): Promise<void> {
     </section>
 
     <div class="save-actions">
-      <button class="sm-button sm-button--primary" :disabled="saving" @click="handleSave">
-        {{ saving ? '保存中...' : '保存配置' }}
+      <button
+        class="sm-button sm-button--primary"
+        :disabled="configStore.saving"
+        @click="handleSave"
+      >
+        {{ configStore.saving ? '保存中...' : '保存配置' }}
       </button>
     </div>
   </div>

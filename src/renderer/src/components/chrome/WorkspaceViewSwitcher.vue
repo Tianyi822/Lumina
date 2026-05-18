@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useUIStateStore } from '@renderer/stores'
 import type { ViewMode } from '@renderer/stores/uiStateStore'
 
-const uiStateStore = useUIStateStore()
-const { currentView, isKnowledgeView, isLabView, isPaperView } = storeToRefs(uiStateStore)
+const uiState = useZustandStore(useUIStateStore)
+const currentView = computed(() => uiState.currentView)
+const isKnowledgeView = computed(() => uiState.isKnowledgeView())
+const isLabView = computed(() => uiState.isLabView())
+const isPaperView = computed(() => uiState.isPaperView())
 
 async function switchView(view: ViewMode): Promise<void> {
   if (currentView.value !== view) {
-    await uiStateStore.setCurrentView(view)
+    await uiState.setCurrentView(view)
   }
 }
 </script>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useDockerConfigStore } from '@renderer/stores'
 import type {
   DockerfileConfigMeta,
@@ -19,8 +19,7 @@ const emit = defineEmits<{
   (e: 'select-compose', config: ComposeConfig): void
 }>()
 
-const configStore = useDockerConfigStore()
-const { dockerfileConfigs, composeConfigs, configsLoading } = storeToRefs(configStore)
+const configStore = useZustandStore(useDockerConfigStore)
 
 type ConfigType = 'dockerfile' | 'compose'
 
@@ -133,7 +132,7 @@ function formatDate(dateString: string): string {
             viewingConfig = null
           "
         >
-          Dockerfile ({{ dockerfileConfigs.length }})
+          Dockerfile ({{ configStore.dockerfileConfigs.length }})
         </button>
         <button
           class="tab-btn"
@@ -143,12 +142,12 @@ function formatDate(dateString: string): string {
             viewingConfig = null
           "
         >
-          Docker Compose ({{ composeConfigs.length }})
+          Docker Compose ({{ configStore.composeConfigs.length }})
         </button>
       </div>
 
       <div class="manager-content">
-        <div v-if="configsLoading" class="loading-state">
+        <div v-if="configStore.configsLoading" class="loading-state">
           <div class="loading-spinner"></div>
           <p>加载中...</p>
         </div>
@@ -156,11 +155,15 @@ function formatDate(dateString: string): string {
         <template v-else-if="!viewingConfig">
           <!-- Dockerfile 列表 -->
           <div v-if="activeTab === 'dockerfile'" class="config-list">
-            <div v-if="dockerfileConfigs.length === 0" class="empty-state">
+            <div v-if="configStore.dockerfileConfigs.length === 0" class="empty-state">
               <p class="empty-title">暂无 Dockerfile 配置</p>
               <p class="empty-desc">在创建实验室时保存的 Dockerfile 配置会显示在这里</p>
             </div>
-            <div v-for="config in dockerfileConfigs" :key="config.id" class="config-card">
+            <div
+              v-for="config in configStore.dockerfileConfigs"
+              :key="config.id"
+              class="config-card"
+            >
               <div class="config-info">
                 <div class="config-name">{{ config.name }}</div>
                 <div class="config-meta">
@@ -179,11 +182,11 @@ function formatDate(dateString: string): string {
 
           <!-- Compose 列表 -->
           <div v-else class="config-list">
-            <div v-if="composeConfigs.length === 0" class="empty-state">
+            <div v-if="configStore.composeConfigs.length === 0" class="empty-state">
               <p class="empty-title">暂无 Compose 配置</p>
               <p class="empty-desc">在创建实验室时保存的 Compose 配置会显示在这里</p>
             </div>
-            <div v-for="config in composeConfigs" :key="config.id" class="config-card">
+            <div v-for="config in configStore.composeConfigs" :key="config.id" class="config-card">
               <div class="config-info">
                 <div class="config-name">{{ config.name }}</div>
                 <div class="config-meta">

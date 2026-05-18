@@ -5,7 +5,6 @@ import { useFileStore, useKnowledgeIndexStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { KnowledgeBase, FileItem } from '@renderer/types'
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useKnowledgeFiles(
   currentKB: ComputedRef<KnowledgeBase | undefined>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

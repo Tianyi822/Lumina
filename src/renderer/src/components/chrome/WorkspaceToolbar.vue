@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { useUIStateStore } from '@renderer/stores'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperFigureItem, PaperTocEntry, PaperTocItem } from '@shared/types/paper'
 import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 
-const uiStateStore = useUIStateStore()
-const { isPaperView, isKnowledgeView, isCurrentSidebarCollapsed, paperChatPanelOpen } =
-  storeToRefs(uiStateStore)
+const uiState = useZustandStore(useUIStateStore)
 
 const paperReaderStore = usePaperReaderStore()
 const {
@@ -40,6 +39,11 @@ const tocContainerRef = ref<HTMLElement | null>(null)
 const figureContainerRef = ref<HTMLElement | null>(null)
 const figurePanelRef = ref<HTMLElement | null>(null)
 const showTocPanel = ref(false)
+
+const isPaperView = computed(() => uiState.isPaperView())
+const isKnowledgeView = computed(() => uiState.isKnowledgeView())
+const isCurrentSidebarCollapsed = computed(() => uiState.isCurrentSidebarCollapsed())
+const paperChatPanelOpen = computed(() => uiState.paperChatPanelOpen)
 
 const isPaperToolbar = computed(() => {
   return isPaperView.value && !!currentPaperId.value
@@ -184,7 +188,7 @@ function handleTogglePaperChat(): void {
 
   closeTocPanel()
   closeFigurePanel()
-  uiStateStore.togglePaperChatPanel()
+  uiState.togglePaperChatPanel()
 }
 
 function handleSelectTocItem(headingId: string): void {

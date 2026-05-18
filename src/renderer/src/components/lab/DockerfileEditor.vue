@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useDockerConfigStore } from '@renderer/stores'
 
-const configStore = useDockerConfigStore()
-const { dockerfileConfigs } = storeToRefs(configStore)
+const configStore = useZustandStore(useDockerConfigStore)
 
 const props = defineProps<{
   modelValue: string
@@ -90,7 +89,11 @@ function handleSaveConfig(): void {
       <div class="config-selector">
         <select v-model="selectedDockerfileId" class="select" @change="loadSelectedDockerfile">
           <option :value="null">选择已保存的配置...</option>
-          <option v-for="config in dockerfileConfigs" :key="config.id" :value="config.id">
+          <option
+            v-for="config in configStore.dockerfileConfigs"
+            :key="config.id"
+            :value="config.id"
+          >
             {{ config.name }}
           </option>
         </select>

@@ -3,8 +3,8 @@
  * 文件管理模态框
  * 管理文件的上传、删除等操作
  */
-import { onMounted, ref } from 'vue'
-import { storeToRefs } from 'pinia'
+import { computed, onMounted, ref } from 'vue'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useFileStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
@@ -25,9 +25,8 @@ const emit = defineEmits<{
 }>()
 
 // 文件管理
-const fileStore = useFileStore()
-const { filteredFiles } = storeToRefs(fileStore)
-const { loadFiles } = fileStore
+const fileStore = useZustandStore(useFileStore)
+const filteredFiles = computed(() => fileStore.filteredFiles())
 
 const notify = useNotification()
 
@@ -78,7 +77,7 @@ function handleClosePreview(): void {
 
 // 生命周期
 onMounted(async () => {
-  await loadFiles()
+  await fileStore.loadFiles()
 })
 </script>
 

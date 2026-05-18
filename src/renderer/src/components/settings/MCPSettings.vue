@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import MCPServerItem from '../mcp/MCPServerItem.vue'
 import MCPNewServerForm from '../mcp/MCPNewServerForm.vue'
 import { useMCPStore } from '@renderer/stores'
@@ -14,10 +14,7 @@ interface Emits {
 const emit = defineEmits<Emits>()
 
 // 使用 MCP Store
-const mcpStore = useMCPStore()
-const { configs: mcpConfigs, connecting, testing, expandedServers } = storeToRefs(mcpStore)
-const { loadConfigs, saveConfig, deleteConfig, getStatus, connect, disconnect, testConnection } =
-  mcpStore
+const mcpStore = useZustandStore(useMCPStore)
 
 const notify = useNotification()
 
@@ -71,22 +68,22 @@ function toggleMCPExpand(name: string): void {
 
 // 连接 MCP 服务器
 async function handleConnect(name: string): Promise<void> {
-  const success = await connect(
+  const success = await mcpStore.connect(
     name,
     (msg) => showSuccess(msg),
     (msg) => showError(msg)
   )
   if (success) {
-    await loadConfigs()
+    await mcpStore.loadConfigs()
     emit('mcp-updated')
   }
 }
 
 // 断开 MCP 服务器
 async function handleDisconnect(name: string): Promise<void> {
-  const success = await disconnect(name, (msg) => showError(msg))
+  const success = await mcpStore.disconnect(name, (msg) => showError(msg))
   if (success) {
-    await loadConfigs()
+    await mcpStore.loadConfigs()
     emit('mcp-updated')
   }
 }
@@ -99,7 +96,7 @@ async function handleTest(config: MCPServerConfig): Promise<void> {
     return
   }
 
-  const success = await testConnection(
+  const success = await mcpStore.testConnection(
     config,
     (msg) => showSuccess(msg),
     (msg) => showError(msg)
@@ -111,9 +108,9 @@ async function handleTest(config: MCPServerConfig): Promise<void> {
 
 // 删除 MCP 配置
 async function handleDelete(name: string): Promise<void> {
-  const success = await deleteConfig(name)
+  const success = await mcpStore.deleteConfig(name)
   if (success) {
-    expandedServers.value.delete(name)
+    mcpStore.expandedServers.delete(name)
     emit('mcp-updated')
   }
 }
@@ -126,7 +123,7 @@ async function handleSave(config: MCPServerConfig): Promise<boolean> {
     return false
   }
 
-  const success = await saveConfig(config)
+  const success = await mcpStore.saveConfig(config)
   if (success) {
     emit('mcp-updated')
   }
@@ -141,7 +138,7 @@ async function handleAddNew(config: MCPServerConfig): Promise<void> {
     return
   }
 
-  const success = await saveConfig(config)
+  const success = await mcpStore.saveConfig(config)
   if (success) {
     showNewMCPForm.value = false
     emit('mcp-updated')
@@ -182,7 +179,7 @@ async function importMCPConfigs(): Promise<void> {
       }
       importJsonContent.value = ''
       showImportPanel.value = false
-      await loadConfigs()
+      await mcpStore.loadConfigs()
       emit('mcp-updated')
     } else {
       showError(`导入失败: ${result.errors.join(', ')}`)
@@ -196,7 +193,7 @@ async function importMCPConfigs(): Promise<void> {
 
 // 组件挂载时加载配置并设置状态监听
 onMounted(() => {
-  loadConfigs()
+  mcpStore.loadConfigs()
   mcpStore.setupStatusListener()
 })
 
@@ -220,20 +217,20 @@ onUnmounted(() => {
         <div>
           <h3 class="sm-settings-page__section-title">服务清单</h3>
           <p class="sm-settings-page__section-description">
-            当前共 {{ mcpConfigs.length }} 个 MCP 服务配置，可逐项测试、连接或编辑。
+            当前共 {{ mcpStore.configs.length }} 个 MCP 服务配置，可逐项测试、连接或编辑。
           </p>
         </div>
       </div>
 
       <div class="mcp-server-list">
         <MCPServerItem
-          v-for="config in mcpConfigs"
+          v-for="config in mcpStore.configs"
           :key="config.name"
           :config="config"
-          :status="getStatus(config.name)"
-          :expanded="expandedServers.has(config.name)"
-          :connecting="connecting === config.name"
-          :testing="testing === config.name"
+          :status="mcpStore.getStatus(config.name)"
+          :expanded="mcpStore.expandedServers.has(config.name)"
+          :connecting="mcpStore.connecting === config.name"
+          :testing="mcpStore.testing === config.name"
           @toggle-expand="toggleMCPExpand"
           @connect="handleConnect"
           @disconnect="handleDisconnect"
@@ -242,14 +239,14 @@ onUnmounted(() => {
           @save="handleSave"
         />
 
-        <div v-if="mcpConfigs.length === 0 && !showNewMCPForm" class="sm-settings-empty">
+        <div v-if="mcpStore.configs.length === 0 && !showNewMCPForm" class="sm-settings-empty">
           <p>暂无 MCP 服务配置</p>
         </div>
       </div>
 
       <MCPNewServerForm
         v-if="showNewMCPForm"
-        :existing-names="mcpConfigs.map((c) => c.name)"
+        :existing-names="mcpStore.configs.map((c) => c.name)"
         @submit="handleAddNew"
         @cancel="showNewMCPForm = false"
         @test="handleTestNew"

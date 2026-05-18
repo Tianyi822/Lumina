@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useDockerConfigStore, useLabCreatorStore } from '@renderer/stores'
 
 type ComposeTemplateType = 'image' | 'build' | 'mixed'
 
-const configStore = useDockerConfigStore()
+const configStore = useZustandStore(useDockerConfigStore)
 const creatorStore = useLabCreatorStore()
-const { dockerfileConfigs, composeConfigs } = storeToRefs(configStore)
 const { showGenerator: creatorShowGenerator, generatorForm: creatorGeneratorForm } =
   storeToRefs(creatorStore)
 
@@ -93,7 +93,7 @@ function clearContent(): void {
       <div class="config-selector">
         <select v-model="selectedComposeId" class="select" @change="loadSelectedCompose">
           <option :value="null">选择已保存的配置...</option>
-          <option v-for="config in composeConfigs" :key="config.id" :value="config.id">
+          <option v-for="config in configStore.composeConfigs" :key="config.id" :value="config.id">
             {{ config.name }}
           </option>
         </select>
@@ -163,7 +163,11 @@ function clearContent(): void {
               @change="creatorStore.onSavedDockerfileSelect()"
             >
               <option :value="null">不使用已保存的 Dockerfile</option>
-              <option v-for="config in dockerfileConfigs" :key="config.id" :value="config.id">
+              <option
+                v-for="config in configStore.dockerfileConfigs"
+                :key="config.id"
+                :value="config.id"
+              >
                 {{ config.name }}
               </option>
             </select>

@@ -1,5 +1,5 @@
 import { ref, watch, onMounted, type Ref } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import type { AppConfig } from '@renderer/types'
 import { useUIStateStore } from '@renderer/stores'
 
@@ -16,8 +16,7 @@ export function usePaperChatConfiguredModels(
   updateSelectedModel: (value: string) => void
 ): UseConfiguredModelsReturn {
   const modelOptions = ref<string[]>([])
-  const uiStateStore = useUIStateStore()
-  const { configUpdateKey } = storeToRefs(uiStateStore)
+  const uiStateStore = useZustandStore(useUIStateStore)
 
   async function loadConfiguredModels(): Promise<void> {
     try {
@@ -54,9 +53,12 @@ export function usePaperChatConfiguredModels(
     }
   }
 
-  watch(configUpdateKey, () => {
-    void loadConfiguredModels()
-  })
+  watch(
+    () => uiStateStore.configUpdateKey,
+    () => {
+      void loadConfiguredModels()
+    }
+  )
 
   onMounted(() => {
     void loadConfiguredModels()

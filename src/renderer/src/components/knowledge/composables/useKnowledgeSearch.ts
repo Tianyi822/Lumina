@@ -2,7 +2,6 @@ import { ref, watch } from 'vue'
 import type { ComputedRef } from 'vue'
 import type { KnowledgeBase, KnowledgeSearchHit } from '@renderer/types'
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useKnowledgeSearch(currentKB: ComputedRef<KnowledgeBase | undefined>) {
   const searchQuery = ref('')
   const searchResults = ref<KnowledgeSearchHit[]>([])

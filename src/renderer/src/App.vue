@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from './composables/useZustandStore'
 import KnowledgePage from './pages/KnowledgePage.vue'
 import LabPage from './pages/LabPage.vue'
 import PaperReaderPage from './pages/PaperReaderPage.vue'
@@ -22,12 +22,15 @@ import { useUIStateStore, useConfigStore, usePaperReaderStore } from './stores'
 // ==================== 主题初始化 ====================
 const { initTheme } = useTheme()
 
-// ==================== UI 状态管理（直接使用 Store）====================
-const uiState = useUIStateStore()
-const { currentView, isKnowledgeView, isPaperView, isCurrentSidebarCollapsed } =
-  storeToRefs(uiState)
+// ==================== UI 状态管理（Zustand）====================
+const uiState = useZustandStore(useUIStateStore)
 
 const { isMac, isWindows, usesCustomWindowControls } = useRuntimePlatform()
+
+const currentView = computed(() => uiState.currentView)
+const isKnowledgeView = computed(() => uiState.isKnowledgeView())
+const isPaperView = computed(() => uiState.isPaperView())
+const isCurrentSidebarCollapsed = computed(() => uiState.isCurrentSidebarCollapsed())
 
 const workspacePageClasses = computed(() => ({
   [`sm-workspace-page--${currentView.value}`]: true,
@@ -62,7 +65,7 @@ function handleMCPUpdated(): void {
 
 // ==================== 视图切换监听 ====================
 watch(
-  () => currentView.value,
+  () => uiState.currentView,
   (newView, oldView) => {
     window.api.logger.debug('[App] 视图切换', {
       from: oldView,

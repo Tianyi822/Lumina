@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useContainerStore, useUIStateStore } from '@renderer/stores'
 import { useContainerLogs as useContainerLogsComposable } from './lab-detail'
 import ContainerLogs from './ContainerLogs.vue'
@@ -11,16 +12,15 @@ defineProps<{
 }>()
 
 const containerStore = useContainerStore()
-const uiStateStore = useUIStateStore()
+const uiStateStore = useZustandStore(useUIStateStore)
 const { selectedContainer } = storeToRefs(containerStore)
-const { labDetailTab } = storeToRefs(uiStateStore)
 
 const selectedContainerRef = computed(() => selectedContainer.value)
 const { containerLogs, logsLoading, loadContainerLogs, handleRefreshLogs, handleExportLogs } =
   useContainerLogsComposable(selectedContainerRef)
 
 watch(
-  labDetailTab,
+  () => uiStateStore.labDetailTab,
   async (tab) => {
     if (tab === 'logs' && selectedContainer.value) await loadContainerLogs()
   },
@@ -30,7 +30,7 @@ watch(
 watch(
   () => selectedContainer.value?.id,
   async (newId, oldId) => {
-    if (newId && newId !== oldId && labDetailTab.value === 'logs') await loadContainerLogs()
+    if (newId && newId !== oldId && uiStateStore.labDetailTab === 'logs') await loadContainerLogs()
   }
 )
 </script>

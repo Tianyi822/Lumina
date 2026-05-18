@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import ThemeSettings from './settings/ThemeSettings.vue'
 import ModelSettings from './settings/ModelSettings.vue'
 import MCPSettings from './settings/MCPSettings.vue'
@@ -27,9 +27,8 @@ type SettingsTabKey =
   | 'paperReader'
   | 'update'
 
-// 使用 configStore
-const configStore = useConfigStore()
-const { loading, themeConfig } = storeToRefs(configStore)
+// 使用 configStore（Zustand）
+const configState = useZustandStore(useConfigStore)
 const notify = useNotification()
 
 // 当前激活的 Tab
@@ -116,7 +115,7 @@ function handleKeyDown(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
-  configStore.loadConfig()
+  configState.loadConfig()
   document.addEventListener('keydown', handleKeyDown)
 })
 
@@ -154,7 +153,7 @@ onUnmounted(() => {
 
         <section class="sm-settings-panel settings-panel">
           <div class="sm-settings-panel__body settings-content">
-            <div v-if="loading" class="sm-settings-empty">正在加载当前配置...</div>
+            <div v-if="configState.loading" class="sm-settings-empty">正在加载当前配置...</div>
 
             <ModelSettings v-else-if="activeTab === 'model'" />
 
@@ -163,8 +162,8 @@ onUnmounted(() => {
             <EmbeddingModelSettings v-else-if="activeTab === 'embedding'" />
             <ThemeSettings
               v-else-if="activeTab === 'theme'"
-              :model-value="themeConfig"
-              @update:model-value="configStore.updateThemeConfig"
+              :model-value="configState.themeConfig"
+              @update:model-value="configState.updateThemeConfig"
               @theme-change="handleThemeChange"
             />
 

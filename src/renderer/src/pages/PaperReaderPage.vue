@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperChatQuoteStore } from '@renderer/stores/paperChatQuoteStore'
@@ -12,7 +13,7 @@ import PaperFigurePreview from '@renderer/components/paper/PaperFigurePreview.vu
 import PaperChatPanel from '@renderer/components/paper/chat/PaperChatPanel.vue'
 
 const store = usePaperReaderStore()
-const uiStateStore = useUIStateStore()
+const uiStateStore = useZustandStore(useUIStateStore)
 const paperChatQuoteStore = usePaperChatQuoteStore()
 const notify = useNotification()
 
@@ -29,11 +30,10 @@ const {
   translationVisible,
   currentTranslationCache
 } = storeToRefs(store)
-const { paperChatPanelOpen, paperChatPanelWidth } = storeToRefs(uiStateStore)
 const isResizingPaperChat = ref(false)
 const markdownViewRef = ref<InstanceType<typeof PaperMarkdownView> | null>(null)
 const isPaperChatPanelVisible = computed(
-  () => paperChatPanelOpen.value && Boolean(currentPaper.value) && isOcrCompleted.value
+  () => uiStateStore.paperChatPanelOpen && Boolean(currentPaper.value) && isOcrCompleted.value
 )
 
 provide('scrollToQuote', (quote: PaperQuote) => {
@@ -173,7 +173,7 @@ onBeforeUnmount(() => {
         'paper-reader-page__chat-slot--open': isPaperChatPanelVisible,
         'paper-reader-page__chat-slot--resizing': isResizingPaperChat
       }"
-      :style="{ '--paper-chat-panel-width': `${paperChatPanelWidth}px` }"
+      :style="{ '--paper-chat-panel-width': `${uiStateStore.paperChatPanelWidth}px` }"
     >
       <Transition name="paper-chat-panel-slide">
         <aside v-if="isPaperChatPanelVisible && currentPaper" class="paper-reader-page__chat">

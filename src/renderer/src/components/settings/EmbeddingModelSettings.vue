@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import EmbeddingModelItem from '../embedding/EmbeddingModelItem.vue'
 import EmbeddingModelForm from '../embedding/EmbeddingModelForm.vue'
 import { useKnowledgeStore } from '@renderer/stores'
@@ -8,9 +8,7 @@ import { useNotification } from '@renderer/composables/useNotification'
 import type { EmbeddingConfig } from '@shared/types/config'
 
 // 直接使用 Knowledge Store
-const knowledgeStore = useKnowledgeStore()
-const { embeddingModels, embeddingLoading } = storeToRefs(knowledgeStore)
-const loading = embeddingLoading
+const knowledgeStore = useZustandStore(useKnowledgeStore)
 
 const notify = useNotification()
 
@@ -35,7 +33,7 @@ function showInfo(message: string): void {
 
 // 编辑模型
 function handleEdit(id: string): void {
-  const config = embeddingModels.value[id]
+  const config = knowledgeStore.embeddingModels[id]
   if (config) {
     editingModelId.value = id
     editingModelConfig.value = { ...config }
@@ -45,7 +43,7 @@ function handleEdit(id: string): void {
 
 // 获取所有显示名称列表（用于冲突检查）
 const existingNames = computed(() => {
-  return Object.values(embeddingModels.value).map(
+  return Object.values(knowledgeStore.embeddingModels).map(
     (config) => (config as { displayName?: string }).displayName || ''
   )
 })
@@ -153,18 +151,18 @@ onMounted(() => {
         <div>
           <h3 class="sm-settings-page__section-title">模型列表</h3>
           <p class="sm-settings-page__section-description">
-            当前共 {{ Object.keys(embeddingModels).length }} 个嵌入模型配置。
+            当前共 {{ Object.keys(knowledgeStore.embeddingModels).length }} 个嵌入模型配置。
           </p>
         </div>
       </div>
 
       <div class="model-list">
-        <div v-if="loading" class="sm-settings-empty">
+        <div v-if="knowledgeStore.embeddingLoading" class="sm-settings-empty">
           <p>加载中...</p>
         </div>
 
         <EmbeddingModelItem
-          v-for="(config, id) in embeddingModels"
+          v-for="(config, id) in knowledgeStore.embeddingModels"
           v-else
           :id="String(id)"
           :key="id"
@@ -175,7 +173,13 @@ onMounted(() => {
           @test="handleTest"
         />
 
-        <div v-if="!loading && Object.keys(embeddingModels).length === 0" class="sm-settings-empty">
+        <div
+          v-if="
+            !knowledgeStore.embeddingLoading &&
+            Object.keys(knowledgeStore.embeddingModels).length === 0
+          "
+          class="sm-settings-empty"
+        >
           <p>暂无嵌入模型配置</p>
         </div>
       </div>

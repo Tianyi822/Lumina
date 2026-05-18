@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, nextTick } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useConfigStore, useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import { deepClone } from '@shared/utils'
@@ -12,9 +12,8 @@ import {
   type PaperReaderConfig
 } from '@shared/types/config'
 
-const configStore = useConfigStore()
-const uiStateStore = useUIStateStore()
-const { paperReaderConfig, llmConfigs, defaultModel } = storeToRefs(configStore)
+const configStore = useZustandStore(useConfigStore)
+const uiStateStore = useZustandStore(useUIStateStore)
 
 const notify = useNotification()
 
@@ -35,7 +34,7 @@ function showSuccess(message: string): void {
 
 async function loadLocalConfig(): Promise<void> {
   syncingLocalConfig.value = true
-  localConfig.value = deepClone(paperReaderConfig.value)
+  localConfig.value = deepClone(configStore.paperReaderConfig)
   await nextTick()
   syncingLocalConfig.value = false
 }
@@ -44,7 +43,7 @@ const currentPreset = computed(() => getOcrProviderPreset(localConfig.value.ocr.
 
 const ocrHasChanges = computed(() => {
   const current = localConfig.value
-  const saved = paperReaderConfig.value
+  const saved = configStore.paperReaderConfig
   return (
     current.ocr.provider !== saved.ocr.provider ||
     (current.ocr.apiKey ?? '') !== (saved.ocr.apiKey ?? '')
@@ -53,7 +52,7 @@ const ocrHasChanges = computed(() => {
 
 const translationHasChanges = computed(() => {
   const current = localConfig.value
-  const saved = paperReaderConfig.value
+  const saved = configStore.paperReaderConfig
   return (current.translationModel ?? '') !== (saved.translationModel ?? '')
 })
 
@@ -62,11 +61,13 @@ const canTest = computed(() => {
 })
 
 const translationModelOptions = computed(() => {
-  const defaultLabel = defaultModel.value ? `使用默认模型（${defaultModel.value}）` : '使用默认模型'
+  const defaultLabel = configStore.defaultModel
+    ? `使用默认模型（${configStore.defaultModel}）`
+    : '使用默认模型'
   const options = [{ label: defaultLabel, value: '' }]
-  for (const model of llmConfigs.value) {
+  for (const model of configStore.llmConfigs) {
     options.push({
-      label: model.model_name + (model.model_name === defaultModel.value ? ' (默认)' : ''),
+      label: model.model_name + (model.model_name === configStore.defaultModel ? ' (默认)' : ''),
       value: model.model_name
     })
   }

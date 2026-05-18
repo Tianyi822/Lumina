@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import LabList from '@renderer/components/lab/LabList.vue'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome.vue'
@@ -15,14 +16,14 @@ import {
 } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 
-const uiStateStore = useUIStateStore()
-const knowledgeStore = useKnowledgeStore()
+const uiStateStore = useZustandStore(useUIStateStore)
+const knowledgeStore = useZustandStore(useKnowledgeStore)
 const labStore = useLabStore()
 const paperReaderStore = usePaperReaderStore()
 const notify = useNotification()
 
-const { currentView, isCurrentSidebarCollapsed } = storeToRefs(uiStateStore)
-const { knowledgeBases, activeKbId } = storeToRefs(knowledgeStore)
+const currentView = computed(() => uiStateStore.currentView)
+const isCurrentSidebarCollapsed = computed(() => uiStateStore.isCurrentSidebarCollapsed())
 const { currentLab, labList, deleteConfirmState } = storeToRefs(labStore)
 const {
   papers,
@@ -39,11 +40,11 @@ const isRefreshingLabList = ref(false)
 
 const filteredKnowledgeBases = computed(() => {
   if (!knowledgeSearchQuery.value.trim()) {
-    return knowledgeBases.value
+    return knowledgeStore.knowledgeBases
   }
 
   const query = knowledgeSearchQuery.value.toLowerCase()
-  return knowledgeBases.value.filter(
+  return knowledgeStore.knowledgeBases.filter(
     (kb) =>
       kb.name.toLowerCase().includes(query) ||
       (kb.description && kb.description.toLowerCase().includes(query))
@@ -74,7 +75,7 @@ const sidebarCount = computed(() => {
   }
 
   if (currentView.value === 'knowledge') {
-    return knowledgeBases.value.length
+    return knowledgeStore.knowledgeBases.length
   }
 
   return labList.value.length
@@ -373,7 +374,7 @@ async function handleDeleteTranslation(paperId: string): Promise<void> {
                       :key="kb.id"
                       :class="[
                         'sm-workspace-sidebar-host__kb-item',
-                        { 'is-active': kb.id === activeKbId }
+                        { 'is-active': kb.id === knowledgeStore.activeKbId }
                       ]"
                       :style="getSidebarListItemMotionStyle(index)"
                       @click="handleSelectKnowledgeBase(kb.id)"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useLabStore, useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import { labApi } from '@renderer/services/labApi'
@@ -13,11 +14,10 @@ import type { DockerStatus, LabCreationType } from '@renderer/types/lab'
 const DOCKER_RECHECK_INTERVAL = 15000
 
 const labStore = useLabStore()
-const uiStateStore = useUIStateStore()
+const uiStateStore = useZustandStore(useUIStateStore)
 const notify = useNotification()
 
 const { currentLab, currentLabId, deleteConfirmState } = storeToRefs(labStore)
-const { showLabCreator, showConfigManager } = storeToRefs(uiStateStore)
 
 const dockerStatus = ref<DockerStatus | null>(null)
 const loading = ref(true)
@@ -199,12 +199,12 @@ onBeforeUnmount(() => {
       />
 
       <LabCreator
-        :visible="showLabCreator"
+        :visible="uiStateStore.showLabCreator"
         :docker-status="dockerStatus"
         @close="handleCloseCreator"
       />
 
-      <ConfigManager :visible="showConfigManager" @close="handleCloseConfigManager" />
+      <ConfigManager :visible="uiStateStore.showConfigManager" @close="handleCloseConfigManager" />
 
       <DeleteConfirmDialog
         :visible="deleteConfirmState.show"

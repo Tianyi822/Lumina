@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useContainerStore, useDockerConfigStore, useLabCreatorStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import ContainerSelector from './ContainerSelector.vue'
@@ -21,7 +22,7 @@ const emit = defineEmits<{
 }>()
 
 const containerStore = useContainerStore()
-const configStore = useDockerConfigStore()
+const configStore = useZustandStore(useDockerConfigStore)
 const creatorStore = useLabCreatorStore()
 const notify = useNotification()
 
