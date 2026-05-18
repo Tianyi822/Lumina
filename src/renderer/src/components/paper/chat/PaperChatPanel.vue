@@ -19,6 +19,7 @@ import type {
 } from '@renderer/types'
 import type { PaperDocument } from '@shared/types/paper'
 import type { PaperQuote } from '@shared/types/chat'
+import styles from './PaperChatPanel.module.css'
 
 const props = defineProps<{
   paper: PaperDocument
@@ -208,16 +209,16 @@ async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
 </script>
 
 <template>
-  <section class="paper-chat-panel">
-    <header class="paper-chat-panel__header">
-      <div class="paper-chat-panel__title-group">
+  <section :class="styles['paper-chat-panel']">
+    <header :class="styles['paper-chat-panel__header']">
+      <div :class="styles['paper-chat-panel__title-group']">
         <h2>论文对话</h2>
         <span :title="props.paper.fileName">{{ props.paper.fileName }}</span>
       </div>
 
-      <div class="paper-chat-panel__actions">
+      <div :class="styles['paper-chat-panel__actions']">
         <button
-          class="paper-chat-panel__icon-button"
+          :class="styles['paper-chat-panel__icon-button']"
           type="button"
           title="清空上下文"
           aria-label="清空上下文"
@@ -227,7 +228,7 @@ async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
           <SvgIcon name="trash" :size="15" />
         </button>
         <button
-          class="paper-chat-panel__icon-button"
+          :class="styles['paper-chat-panel__icon-button']"
           type="button"
           title="关闭"
           aria-label="关闭"
@@ -238,7 +239,7 @@ async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
       </div>
     </header>
 
-    <div v-if="loading" class="paper-chat-panel__loading">
+    <div v-if="loading" :class="styles['paper-chat-panel__loading']">
       <SvgIcon name="spinner" :size="18" spin />
       <span>正在准备论文会话...</span>
     </div>
@@ -251,7 +252,7 @@ async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
         :current-chat-id="sessionId"
       />
 
-      <div class="paper-chat-panel__composer">
+      <div :class="styles['paper-chat-panel__composer']">
         <PaperChatPlanDock :plan-state="currentPlanState" />
         <PaperChatInput
           :key="sessionId || props.paper.id"
@@ -278,118 +279,3 @@ async function handleEnablePaperWebSearch(value: boolean): Promise<void> {
     </template>
   </section>
 </template>
-
-<style scoped>
-.paper-chat-panel {
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--sm-color-bg-canvas);
-  color: var(--sm-color-text-primary);
-}
-
-.paper-chat-panel__header {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sm-space-3);
-  min-height: 56px;
-  padding: 0 var(--sm-space-4);
-  border-bottom: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-1);
-}
-
-.paper-chat-panel__title-group {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.paper-chat-panel__title-group h2 {
-  margin: 0;
-  color: var(--sm-color-text-primary);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.paper-chat-panel__title-group span {
-  overflow: hidden;
-  color: var(--sm-color-text-tertiary);
-  font-size: 12px;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.paper-chat-panel__actions {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-2);
-}
-
-.paper-chat-panel__icon-button {
-  width: 30px;
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-sm);
-  background: var(--sm-color-surface-2);
-  color: var(--sm-color-text-secondary);
-  cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast),
-    color var(--sm-transition-fast);
-}
-
-.paper-chat-panel__icon-button:hover:not(:disabled) {
-  border-color: var(--sm-color-border-strong);
-  background: var(--sm-color-surface-hover);
-  color: var(--sm-color-text-primary);
-}
-
-.paper-chat-panel__icon-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.paper-chat-panel__loading {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-2);
-  padding: var(--sm-space-3) var(--sm-space-4);
-  border-bottom: 1px solid var(--sm-color-border-subtle);
-  color: var(--sm-color-text-secondary);
-  font-size: 12px;
-}
-
-.paper-chat-panel__loading {
-  flex: 1;
-  justify-content: center;
-  border-bottom: 0;
-}
-
-.paper-chat-panel__composer {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-2);
-  padding: var(--sm-space-3);
-  border-top: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-1);
-}
-
-.paper-chat-panel__composer :deep(.paper-chat-input) {
-  border: 0;
-  background: var(--sm-color-surface-2);
-}
-</style>

@@ -13,6 +13,7 @@ import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperPageAsset } from '@shared/types/paper'
 import { buildBase64DataUrl } from '@shared/utils'
 import { useZoomAnchor } from './composables/useZoomAnchor'
+import styles from './PaperOriginalPdfView.module.css'
 
 const props = defineProps<{
   paperId: string
@@ -337,45 +338,48 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="paper-original-pdf-view">
+  <div :class="styles['paper-original-pdf-view']">
     <div
       ref="scrollContainerRef"
-      class="paper-original-pdf-view__scroll"
+      :class="styles['paper-original-pdf-view__scroll']"
       @scroll="recordOriginalPdfScrollPosition"
       @wheel="paperReaderStore.handleWheelZoom"
     >
-      <div v-if="!hasPages" class="paper-original-pdf-view__empty">
+      <div v-if="!hasPages" :class="styles['paper-original-pdf-view__empty']">
         <p>暂无 PDF 原件页图</p>
       </div>
 
-      <div v-else class="paper-original-pdf-view__content" :style="contentZoomStyle">
+      <div v-else :class="styles['paper-original-pdf-view__content']" :style="contentZoomStyle">
         <section
           v-for="page in originalPages"
           :key="page.pageIndex"
           :ref="(element) => setPageElement(page.pageIndex, element)"
-          class="paper-original-pdf-view__page"
+          :class="styles['paper-original-pdf-view__page']"
           :style="getPageStyle(page)"
           :data-page-index="page.pageIndex"
         >
           <img
             v-if="getPageState(page.pageIndex).status === 'loaded'"
-            class="paper-original-pdf-view__image"
+            :class="styles['paper-original-pdf-view__image']"
             :src="getPageState(page.pageIndex).dataUrl"
             :alt="`第 ${page.pageIndex + 1} 页原件`"
           />
 
           <div
             v-else-if="getPageState(page.pageIndex).status === 'error'"
-            class="paper-original-pdf-view__state paper-original-pdf-view__state--error"
+            :class="[
+              styles['paper-original-pdf-view__state'],
+              styles['paper-original-pdf-view__state--error']
+            ]"
           >
             {{ getPageState(page.pageIndex).error }}
           </div>
 
-          <div v-else class="paper-original-pdf-view__state">
+          <div v-else :class="styles['paper-original-pdf-view__state']">
             正在加载第 {{ page.pageIndex + 1 }} 页
           </div>
 
-          <div class="paper-original-pdf-view__page-number">
+          <div :class="styles['paper-original-pdf-view__page-number']">
             {{ page.pageIndex + 1 }}
           </div>
         </section>
@@ -383,121 +387,3 @@ onBeforeUnmount(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.paper-original-pdf-view {
-  flex: 1;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-.paper-original-pdf-view__scroll {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: calc(var(--sm-paper-toolbar-height) + var(--sm-space-2)) var(--sm-space-5)
-    var(--sm-space-6);
-  scrollbar-width: thin;
-  scrollbar-color: var(--sm-color-border-strong) transparent;
-  scrollbar-gutter: stable;
-}
-
-.paper-original-pdf-view__scroll::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-.paper-original-pdf-view__scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.paper-original-pdf-view__scroll::-webkit-scrollbar-thumb {
-  border: 3px solid transparent;
-  border-radius: 999px;
-  background: var(--sm-color-border-strong);
-  background-clip: content-box;
-}
-
-.paper-original-pdf-view__scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--sm-color-text-tertiary);
-  background-clip: content-box;
-}
-
-.paper-original-pdf-view__content {
-  width: max-content;
-  min-width: min(100%, 720px);
-  max-width: none;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sm-space-5);
-}
-
-.paper-original-pdf-view__page {
-  position: relative;
-  width: var(--paper-original-page-width);
-  max-width: min(100%, calc(100vw - 96px));
-  aspect-ratio: var(--paper-original-page-aspect);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: #fff;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.16);
-  overflow: hidden;
-}
-
-.paper-original-pdf-view__image {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #fff;
-}
-
-.paper-original-pdf-view__state,
-.paper-original-pdf-view__empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--sm-color-text-tertiary);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.paper-original-pdf-view__state {
-  position: absolute;
-  inset: 0;
-  padding: var(--sm-space-4);
-  background: var(--sm-color-surface-1);
-}
-
-.paper-original-pdf-view__state--error {
-  color: var(--sm-color-status-danger);
-}
-
-.paper-original-pdf-view__empty {
-  min-height: 220px;
-}
-
-.paper-original-pdf-view__page-number {
-  position: absolute;
-  right: var(--sm-space-3);
-  bottom: var(--sm-space-3);
-  min-width: 24px;
-  height: 20px;
-  padding: 0 var(--sm-space-2);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--sm-color-bg-canvas) 74%, transparent);
-  color: var(--sm-color-text-tertiary);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  line-height: 20px;
-  text-align: center;
-  pointer-events: none;
-}
-</style>

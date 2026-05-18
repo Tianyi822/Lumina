@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import type { KnowledgeBase } from '@renderer/types'
+import styles from './PaperChatKnowledgeBasePanel.module.css'
 
 // ==================== Props 和 Emits ====================
 const props = defineProps<{
@@ -253,43 +254,43 @@ defineExpose({
 <template>
   <div
     ref="panelContainerRef"
-    class="paper-chat-knowledge"
+    :class="styles['paper-chat-knowledge']"
     :class="{ 'is-compact': props.compact }"
   >
     <!-- 触发按钮 -->
     <button
       type="button"
-      class="btn paper-chat-knowledge__trigger"
+      :class="['btn', styles['paper-chat-knowledge__trigger']]"
       :class="{ active: showPanel, 'has-selection': selectedKBsCount > 0 }"
       :aria-expanded="showPanel"
       @click="togglePanel"
     >
-      <span v-if="selectedKBsCount > 0" class="paper-chat-knowledge__selected-name">
+      <span v-if="selectedKBsCount > 0" :class="styles['paper-chat-knowledge__selected-name']">
         已选 {{ selectedKBsCount }} 个知识库
       </span>
       <span v-else>{{ props.compact ? '知识' : '知识库' }}</span>
-      <span v-if="allKnowledgeBases.length > 0" class="paper-chat-knowledge__count">{{
+      <span v-if="allKnowledgeBases.length > 0" :class="styles['paper-chat-knowledge__count']">{{
         allKnowledgeBases.length
       }}</span>
       <span class="paper-chat-knowledge__dropdown-arrow" :class="{ open: showPanel }">▼</span>
     </button>
 
     <!-- 知识库面板 -->
-    <div v-if="showPanel" class="paper-chat-knowledge-panel">
+    <div v-if="showPanel" :class="styles['paper-chat-knowledge-panel']">
       <!-- 头部 -->
-      <div class="paper-chat-knowledge-panel__header">
-        <span class="paper-chat-knowledge-panel__title">知识库选择（多选）</span>
-        <span class="paper-chat-knowledge-panel__info">
+      <div :class="styles['paper-chat-knowledge-panel__header']">
+        <span :class="styles['paper-chat-knowledge-panel__title']">知识库选择（多选）</span>
+        <span :class="styles['paper-chat-knowledge-panel__info']">
           {{ allKnowledgeBases.length }} 个知识库可用
         </span>
       </div>
 
       <!-- 搜索框 -->
-      <div class="paper-chat-knowledge-panel__search">
+      <div :class="styles['paper-chat-knowledge-panel__search']">
         <input
           v-model="searchQuery"
           type="text"
-          class="input paper-chat-knowledge-panel__search-input"
+          :class="['input', styles['paper-chat-knowledge-panel__search-input']]"
           placeholder="搜索知识库..."
           aria-label="搜索知识库"
         />
@@ -298,11 +299,11 @@ defineExpose({
       <!-- 全选/取消全选按钮 -->
       <div
         v-if="filteredKnowledgeBases.length > 0"
-        class="paper-chat-knowledge-panel__select-all-bar"
+        :class="styles['paper-chat-knowledge-panel__select-all-bar']"
       >
         <button
           type="button"
-          class="btn paper-chat-knowledge-panel__select-all"
+          :class="['btn', styles['paper-chat-knowledge-panel__select-all']]"
           @click="toggleSelectAll"
         >
           {{ isAllSelected ? '取消全选' : '全选' }}
@@ -310,13 +311,13 @@ defineExpose({
       </div>
 
       <!-- 知识库列表 -->
-      <div class="paper-chat-knowledge-panel__list">
-        <div v-if="!hasKnowledgeBases" class="paper-chat-knowledge-panel__empty">
+      <div :class="styles['paper-chat-knowledge-panel__list']">
+        <div v-if="!hasKnowledgeBases" :class="styles['paper-chat-knowledge-panel__empty']">
           <p>暂无知识库，请在知识库管理页面创建</p>
         </div>
         <div
           v-else-if="filteredKnowledgeBases.length === 0"
-          class="paper-chat-knowledge-panel__empty"
+          :class="styles['paper-chat-knowledge-panel__empty']"
         >
           <p>未找到匹配的知识库</p>
         </div>
@@ -324,7 +325,7 @@ defineExpose({
         <div
           v-for="kb in filteredKnowledgeBases"
           :key="kb.id"
-          class="paper-chat-knowledge-panel__item"
+          :class="styles['paper-chat-knowledge-panel__item']"
           :class="{ selected: isKBSelected(kb) }"
           role="button"
           tabindex="0"
@@ -333,21 +334,24 @@ defineExpose({
           @keydown.enter.prevent="toggleKBSelection(kb)"
           @keydown.space.prevent="toggleKBSelection(kb)"
         >
-          <div class="paper-chat-knowledge-panel__item-header">
-            <span class="paper-chat-knowledge-panel__checkbox">{{
+          <div :class="styles['paper-chat-knowledge-panel__item-header']">
+            <span :class="styles['paper-chat-knowledge-panel__checkbox']">{{
               isKBSelected(kb) ? '☑' : '☐'
             }}</span>
-            <span class="paper-chat-knowledge-panel__name">{{ kb.name }}</span>
+            <span :class="styles['paper-chat-knowledge-panel__name']">{{ kb.name }}</span>
           </div>
-          <div class="paper-chat-knowledge-panel__meta">
-            <span class="paper-chat-knowledge-panel__doc-count">{{
+          <div :class="styles['paper-chat-knowledge-panel__meta']">
+            <span :class="styles['paper-chat-knowledge-panel__doc-count']">{{
               getDocumentCountText(kb)
             }}</span>
           </div>
-          <div v-if="kb.description" class="paper-chat-knowledge-panel__description-wrapper">
+          <div
+            v-if="kb.description"
+            :class="styles['paper-chat-knowledge-panel__description-wrapper']"
+          >
             <div
               :ref="(el) => setDescriptionRef(kb.id, el)"
-              class="paper-chat-knowledge-panel__description"
+              :class="styles['paper-chat-knowledge-panel__description']"
               :class="{ expanded: isDescriptionExpanded(kb.id) }"
             >
               {{ kb.description }}
@@ -355,7 +359,7 @@ defineExpose({
             <button
               v-if="shouldShowExpandButton(kb.id)"
               type="button"
-              class="paper-chat-knowledge-panel__description-toggle"
+              :class="styles['paper-chat-knowledge-panel__description-toggle']"
               @click.stop="toggleDescription(kb.id)"
             >
               {{ isDescriptionExpanded(kb.id) ? '收起' : '展开' }}
@@ -366,247 +370,3 @@ defineExpose({
     </div>
   </div>
 </template>
-
-<style scoped>
-.paper-chat-knowledge {
-  position: relative;
-}
-
-.paper-chat-knowledge.is-compact .paper-chat-knowledge__trigger {
-  min-height: 32px;
-  padding: 6px 10px;
-}
-
-.paper-chat-knowledge.is-compact .paper-chat-knowledge__selected-name {
-  max-width: 56px;
-}
-
-.paper-chat-knowledge.is-compact .paper-chat-knowledge-panel {
-  width: min(320px, calc(100vw - 48px));
-  max-height: 420px;
-}
-
-.paper-chat-knowledge__trigger {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  font-size: 12px;
-}
-
-.paper-chat-knowledge__trigger.active {
-  background: var(--sm-color-surface-selected);
-  border-color: var(--sm-color-border-selected);
-}
-
-.paper-chat-knowledge__trigger.has-selection {
-  color: var(--sm-color-text-primary);
-}
-
-.paper-chat-knowledge__selected-name {
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-}
-
-.paper-chat-knowledge__count {
-  font-size: 11px;
-  padding: 1px 6px;
-  background: var(--sm-color-surface-selected);
-  border: 1px solid var(--sm-color-border-selected);
-  color: var(--sm-color-text-primary);
-  border-radius: 10px;
-  min-width: 18px;
-  text-align: center;
-}
-
-.paper-chat-knowledge__dropdown-arrow {
-  font-size: 10px;
-  color: var(--sm-color-text-tertiary);
-  transition: transform var(--sm-transition-fast);
-}
-
-.paper-chat-knowledge__dropdown-arrow.open {
-  transform: rotate(180deg);
-}
-
-.paper-chat-knowledge-panel {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  margin-bottom: 8px;
-  width: 420px;
-  max-height: 520px;
-  background: var(--sm-color-surface-3);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  display: flex;
-  flex-direction: column;
-  z-index: 200;
-}
-
-.paper-chat-knowledge-panel__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--sm-color-border-subtle);
-}
-
-.paper-chat-knowledge-panel__title {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--sm-color-text-primary);
-}
-
-.paper-chat-knowledge-panel__info {
-  font-size: 12px;
-  color: var(--sm-color-text-tertiary);
-}
-
-.paper-chat-knowledge-panel__search {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--sm-color-border-subtle);
-}
-
-.paper-chat-knowledge-panel__search-input {
-  width: 100%;
-  font-size: 13px;
-}
-
-.paper-chat-knowledge-panel__select-all-bar {
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--sm-color-border-subtle);
-  background: var(--sm-color-surface-2);
-}
-
-.paper-chat-knowledge-panel__select-all {
-  padding: 4px 12px;
-  font-size: 12px;
-  width: 100%;
-}
-
-.paper-chat-knowledge-panel__list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 4px 0;
-  min-height: 120px;
-}
-
-.paper-chat-knowledge-panel__list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.paper-chat-knowledge-panel__list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.paper-chat-knowledge-panel__list::-webkit-scrollbar-thumb {
-  background: var(--sm-color-border-default);
-  border-radius: 999px;
-}
-
-.paper-chat-knowledge-panel__empty {
-  padding: 24px;
-  text-align: center;
-  color: var(--sm-color-text-tertiary);
-  font-size: 13px;
-}
-
-.paper-chat-knowledge-panel__item {
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background-color var(--sm-transition-fast);
-  border-bottom: 1px solid var(--sm-color-border-subtle);
-}
-
-.paper-chat-knowledge-panel__item:last-child {
-  border-bottom: none;
-}
-
-.paper-chat-knowledge-panel__item:hover {
-  background: var(--sm-color-surface-1);
-}
-
-.paper-chat-knowledge-panel__item.selected {
-  background: var(--sm-color-surface-selected);
-}
-
-.paper-chat-knowledge-panel__item:focus-visible {
-  background: var(--sm-color-surface-1);
-}
-
-.paper-chat-knowledge-panel__item-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.paper-chat-knowledge-panel__checkbox {
-  font-size: 14px;
-  color: var(--sm-color-text-tertiary);
-}
-
-.paper-chat-knowledge-panel__item.selected .paper-chat-knowledge-panel__checkbox {
-  color: var(--sm-color-text-primary);
-}
-
-.paper-chat-knowledge-panel__name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--sm-color-text-primary);
-}
-
-.paper-chat-knowledge-panel__meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 4px;
-  padding-left: 22px;
-}
-
-.paper-chat-knowledge-panel__doc-count {
-  font-size: 12px;
-  color: var(--sm-color-text-tertiary);
-}
-
-.paper-chat-knowledge-panel__description-wrapper {
-  padding-left: 22px;
-}
-
-.paper-chat-knowledge-panel__description {
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.paper-chat-knowledge-panel__description.expanded {
-  -webkit-line-clamp: unset;
-  line-clamp: unset;
-  display: block;
-}
-
-.paper-chat-knowledge-panel__description-toggle {
-  background: none;
-  border: none;
-  color: var(--sm-color-accent-hover);
-  font-size: 11px;
-  cursor: pointer;
-  padding: 4px 0;
-  margin-top: 4px;
-  transition: opacity var(--sm-transition-fast);
-}
-
-.paper-chat-knowledge-panel__description-toggle:hover {
-  opacity: 0.8;
-  text-decoration: underline;
-}
-</style>

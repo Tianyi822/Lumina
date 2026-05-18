@@ -1,0 +1,170 @@
+.paper-markdown-view {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.paper-markdown-view__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sm-color-border-strong) transparent;
+  scrollbar-gutter: stable;
+  padding: calc(var(--sm-paper-toolbar-height) + var(--sm-space-2)) var(--sm-space-4)
+    var(--sm-space-6);
+}
+
+.paper-markdown-view__scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.paper-markdown-view__scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.paper-markdown-view__scroll::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--sm-color-border-strong);
+  background-clip: content-box;
+}
+
+.paper-markdown-view__scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--sm-color-text-tertiary);
+  background-clip: content-box;
+}
+
+.paper-markdown-view__loading,
+.paper-markdown-view__error,
+.paper-markdown-view__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  font-size: 14px;
+  color: var(--sm-color-text-tertiary);
+}
+
+.paper-markdown-view__error {
+  color: var(--sm-color-status-danger);
+}
+
+.paper-markdown-view__content {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+mark:global(.paper-markdown-view__quote-highlight) {
+  background: color-mix(in srgb, var(--sm-color-accent) 22%, transparent);
+  border-radius: 3px;
+  color: inherit;
+  animation: quote-highlight-fade 8s ease-out forwards;
+}
+
+mark:global(.paper-markdown-view__quote-highlight) * {
+  color: inherit;
+}
+
+@keyframes quote-highlight-fade {
+  0% {
+    background: color-mix(in srgb, var(--sm-color-accent) 30%, transparent);
+  }
+  70% {
+    background: color-mix(in srgb, var(--sm-color-accent) 12%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.paper-markdown-view__search-bar {
+  position: absolute;
+  top: calc(var(--sm-paper-toolbar-height) + var(--sm-space-2));
+  right: 24px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--sm-color-border-default);
+  background: var(--sm-color-surface-1);
+  box-shadow:
+    0 16px 40px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
+  font-size: 13px;
+}
+
+.paper-markdown-view__search-input {
+  width: 180px;
+  padding: 4px 8px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--sm-transition-fast);
+}
+
+.paper-markdown-view__search-input:focus {
+  border-color: var(--sm-color-accent);
+}
+
+.paper-markdown-view__search-count {
+  color: var(--sm-color-text-secondary);
+  font-size: 12px;
+  min-width: 48px;
+  text-align: center;
+  user-select: none;
+}
+
+.paper-markdown-view__search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--sm-radius-sm);
+  background: transparent;
+  color: var(--sm-color-text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition:
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+}
+
+.paper-markdown-view__search-btn:hover:not(:disabled) {
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
+}
+
+.paper-markdown-view__search-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+mark:global(.paper-markdown-view__search-highlight) {
+  background: color-mix(in srgb, var(--sm-color-accent) 20%, transparent);
+  border-radius: 2px;
+  color: inherit;
+}
+
+mark:global(.paper-markdown-view__search-highlight--current) {
+  background: color-mix(in srgb, var(--sm-color-accent) 50%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sm-color-accent) 70%, transparent);
+}

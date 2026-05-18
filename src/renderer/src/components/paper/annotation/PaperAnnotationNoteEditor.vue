@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue'
 import type { NoteEditorState } from '../composables/usePaperAnnotationComposer'
+import styles from './PaperAnnotationNoteEditor.module.css'
 
 interface PointerState {
   clientX: number
@@ -72,19 +73,22 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="paper-annotation-note-editor"
+    :class="styles['paper-annotation-note-editor']"
     :style="{
       left: `${state.x}px`,
       top: `${state.y}px`
     }"
     @mousedown.stop
   >
-    <div class="paper-annotation-note-editor__header" @mousedown.prevent="handleDragStart">
-      <div class="paper-annotation-note-editor__title">
+    <div
+      :class="styles['paper-annotation-note-editor__header']"
+      @mousedown.prevent="handleDragStart"
+    >
+      <div :class="styles['paper-annotation-note-editor__title']">
         {{ isExistingNote ? '编辑笔记' : '记录笔记' }}
       </div>
       <button
-        class="paper-annotation-note-editor__close"
+        :class="styles['paper-annotation-note-editor__close']"
         type="button"
         aria-label="关闭笔记编辑器"
         @mousedown.stop
@@ -93,18 +97,18 @@ onBeforeUnmount(() => {
         ✕
       </button>
     </div>
-    <div class="paper-annotation-note-editor__selection">
+    <div :class="styles['paper-annotation-note-editor__selection']">
       {{ state.draft.selectedText }}
     </div>
     <textarea
       :value="comment"
-      class="paper-annotation-note-editor__input"
+      :class="styles['paper-annotation-note-editor__input']"
       rows="7"
       placeholder="写下这段内容的笔记..."
       @input="emit('update:comment', ($event.target as HTMLTextAreaElement).value)"
     />
-    <div class="paper-annotation-note-editor__actions">
-      <div class="paper-annotation-note-editor__color-chip" />
+    <div :class="styles['paper-annotation-note-editor__actions']">
+      <div :class="styles['paper-annotation-note-editor__color-chip']" />
       <template v-if="isExistingNote">
         <button
           class="sm-button sm-button--danger"
@@ -134,123 +138,14 @@ onBeforeUnmount(() => {
         </button>
       </template>
     </div>
-    <p v-if="error" class="paper-annotation-note-editor__error">
+    <p v-if="error" :class="styles['paper-annotation-note-editor__error']">
       {{ error }}
     </p>
-    <p v-if="state.draft.viewKind === 'translation'" class="paper-annotation-note-editor__hint">
+    <p
+      v-if="state.draft.viewKind === 'translation'"
+      :class="styles['paper-annotation-note-editor__hint']"
+    >
       该笔记只显示在当前译文中；如果之后删除译文，对应标注也会一起删除。
     </p>
   </div>
 </template>
-
-<style scoped>
-.paper-annotation-note-editor {
-  position: fixed;
-  width: min(420px, calc(100vw - 32px));
-  min-height: min(320px, calc(100vh - 32px));
-  max-height: calc(100vh - 32px);
-  padding: 18px;
-  border-radius: 18px;
-  border: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-1);
-  box-shadow:
-    0 24px 56px rgba(15, 23, 42, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(18px);
-  z-index: 20;
-  overflow: auto;
-}
-
-.paper-annotation-note-editor__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: move;
-  user-select: none;
-}
-
-.paper-annotation-note-editor__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--sm-color-text-tertiary);
-  font-size: 16px;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.paper-annotation-note-editor__close:hover {
-  background: var(--sm-color-surface-hover);
-  color: var(--sm-color-text-primary);
-}
-
-.paper-annotation-note-editor__title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.paper-annotation-note-editor__selection {
-  margin-top: 8px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid var(--sm-color-border-subtle);
-  background: var(--sm-color-surface-2);
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--sm-color-text-secondary);
-  max-height: 104px;
-  overflow: auto;
-}
-
-.paper-annotation-note-editor__input {
-  width: 100%;
-  min-height: 180px;
-  margin-top: 12px;
-  border-radius: 12px;
-  border: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-2);
-  color: var(--sm-color-text-primary);
-  padding: 12px;
-  resize: vertical;
-  font: inherit;
-  box-sizing: border-box;
-}
-
-.paper-annotation-note-editor__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.paper-annotation-note-editor__color-chip {
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  background: var(--sm-color-paper-annotation-green);
-  border: 1px solid var(--sm-color-border-default);
-}
-
-.paper-annotation-note-editor__error {
-  margin: 8px 0 0;
-  color: var(--sm-color-status-danger);
-  font-size: 12px;
-}
-
-.paper-annotation-note-editor__hint {
-  margin: 8px 0 0;
-  color: var(--sm-color-text-tertiary);
-  font-size: 12px;
-  line-height: 1.6;
-}
-</style>

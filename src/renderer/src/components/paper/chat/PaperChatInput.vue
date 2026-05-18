@@ -21,6 +21,7 @@ import { useNotification } from '@renderer/composables/useNotification'
 import { usePaperChatStreamStore } from '@renderer/stores'
 import type { AttachedDocument, AttachedImage, PaperQuote } from '@shared/types/chat'
 import type { MessageOptionContext, ParsedOption } from '@renderer/utils/optionParser'
+import styles from './PaperChatInput.module.css'
 
 type InjectedSessionId = string | Ref<string> | ComputedRef<string>
 
@@ -351,8 +352,8 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
 
 <template>
   <div
-    class="paper-chat-input"
-    :class="{ 'paper-chat-input--compact': props.variant === 'compact' }"
+    :class="styles['paper-chat-input']"
+    :class="{ [styles['paper-chat-input--compact']]: props.variant === 'compact' }"
   >
     <PaperChatInteractionOptions
       v-if="paperChatStreamStore.showUserInteraction && paperChatStreamStore.userInteractionInfo"
@@ -360,12 +361,12 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
       @select="handleUserInteractionSelect"
     />
 
-    <div v-if="props.quickReplyInfo" class="paper-chat-input__quick-reply">
-      <div class="paper-chat-input__quick-reply-header">
-        <span class="paper-chat-input__quick-reply-title">快捷选项</span>
+    <div v-if="props.quickReplyInfo" :class="styles['paper-chat-input__quick-reply']">
+      <div :class="styles['paper-chat-input__quick-reply-header']">
+        <span :class="styles['paper-chat-input__quick-reply-title']">快捷选项</span>
         <button
           type="button"
-          class="paper-chat-input__quick-reply-custom-button"
+          :class="styles['paper-chat-input__quick-reply-custom-button']"
           :disabled="props.isSending"
           @click="focusCustomReply"
         >
@@ -436,103 +437,3 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
     />
   </div>
 </template>
-
-<style scoped>
-.paper-chat-input {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-3);
-  padding: var(--sm-space-5);
-  background: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-lg);
-}
-
-.paper-chat-input--compact {
-  gap: var(--sm-space-2);
-  padding: var(--sm-space-3);
-  border-radius: var(--sm-radius-md);
-}
-
-.paper-chat-input--compact :deep(.paper-chat-input__textarea) {
-  min-height: 86px;
-  max-height: 168px;
-  padding: 12px;
-  resize: vertical;
-}
-
-.paper-chat-input__quick-reply {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-3);
-  padding: 14px 16px;
-  background: var(--sm-color-surface-1);
-  border: 1px solid var(--sm-color-accent-24);
-  border-radius: var(--sm-radius-md);
-}
-
-.paper-chat-input__quick-reply-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.paper-chat-input__quick-reply-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.paper-chat-input__quick-reply-custom-button {
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 999px;
-  background: var(--sm-color-surface-2);
-  color: var(--sm-color-text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  transition:
-    border-color var(--sm-transition-fast),
-    color var(--sm-transition-fast),
-    background-color var(--sm-transition-fast);
-}
-
-.paper-chat-input__quick-reply-custom-button:hover:not(:disabled) {
-  border-color: var(--sm-color-border-strong);
-  color: var(--sm-color-text-primary);
-  background: var(--sm-color-surface-hover);
-}
-
-.paper-chat-input__quick-reply-custom-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.paper-chat-input__warning {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid rgba(245, 158, 11, 0.28);
-  border-radius: var(--sm-radius-sm);
-  background: rgba(197, 161, 101, 0.08);
-  color: var(--sm-color-text-primary);
-  font-size: 12px;
-}
-
-.paper-chat-input__warning-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 40px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(197, 161, 101, 0.16);
-  color: var(--sm-color-status-warning);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-</style>

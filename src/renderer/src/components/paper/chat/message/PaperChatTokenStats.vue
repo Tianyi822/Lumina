@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatTokenCount } from '@renderer/utils/tokenEstimate'
+import styles from './PaperChatTokenStats.module.css'
 
 defineProps<{
   usage?: {
@@ -29,25 +30,10 @@ function formatTokenUsage(usage: {
 </script>
 
 <template>
-  <div v-if="userTokenLabel" class="token-usage">
+  <div v-if="userTokenLabel" :class="styles['token-usage']">
     {{ userTokenLabel }}
   </div>
-  <div v-else-if="usage" class="token-usage">
+  <div v-else-if="usage" :class="styles['token-usage']">
     {{ formatTokenUsage(usage) }}
   </div>
 </template>
-
-<style scoped>
-.token-usage {
-  padding: 4px 8px;
-  font-size: 11px;
-  color: inherit;
-  background: var(--sm-color-bg-embedded);
-  border: 1px solid var(--sm-color-border-subtle);
-  border-radius: var(--sm-radius-sm);
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  width: fit-content;
-}
-</style>

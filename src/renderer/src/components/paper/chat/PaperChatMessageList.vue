@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import PaperChatMessage from '@renderer/components/paper/chat/message/PaperChatMessage.vue'
 import PaperChatReActSteps from '@renderer/components/paper/chat/message/PaperChatReActSteps.vue'
 import type { Message } from '@renderer/types'
+import styles from './PaperChatMessageList.module.css'
 
 const props = defineProps<{
   messages: Message[]
@@ -156,15 +157,15 @@ onBeforeUnmount(() => {
 <template>
   <div
     ref="scrollRef"
-    class="paper-chat-message-list"
+    :class="styles['paper-chat-message-list']"
     @scroll="handleScroll"
     @wheel.passive="handleWheel"
   >
-    <div v-if="visibleMessages.length === 0" class="paper-chat-message-list__empty">
+    <div v-if="visibleMessages.length === 0" :class="styles['paper-chat-message-list__empty']">
       <span>可直接提问这篇论文的内容。</span>
     </div>
 
-    <div v-else class="paper-chat-message-list__items">
+    <div v-else :class="styles['paper-chat-message-list__items']">
       <PaperChatMessage
         v-for="message in visibleMessages"
         :key="message.id"
@@ -186,36 +187,3 @@ onBeforeUnmount(() => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.paper-chat-message-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: var(--sm-space-4);
-  background: var(--sm-color-bg-canvas);
-}
-
-.paper-chat-message-list__empty {
-  min-height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--sm-space-6);
-  color: var(--sm-color-text-tertiary);
-  font-size: 13px;
-  text-align: center;
-}
-
-.paper-chat-message-list__items {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-4);
-  min-width: 0;
-}
-
-.paper-chat-message-list__items :deep(.paper-chat-message) {
-  min-width: 0;
-}
-</style>

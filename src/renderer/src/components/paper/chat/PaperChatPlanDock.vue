@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import PlanningStatusIndicator from './PlanningStatusIndicator.vue'
 import type { PaperChatPlanState, PlanStepIteration } from '@renderer/stores/paperChatStreamStore'
 import type { PlanStep } from '@renderer/types'
+import styles from './PaperChatPlanDock.module.css'
 
 const FADE_DELAY = 5000
 const FADE_DURATION = 300
@@ -199,32 +200,32 @@ function isStepExpanded(step: PlanStep): boolean {
   <Transition name="paper-chat-plan-dock-fade">
     <section
       v-if="shouldShow"
-      class="paper-chat-plan-dock"
+      :class="styles['paper-chat-plan-dock']"
       :class="[`is-${planState?.status}`, { 'is-fading': fadeState === 'fading' }]"
     >
       <div
         v-if="!hasSteps && planState?.status === 'planning'"
-        class="paper-chat-plan-dock__waiting"
+        :class="styles['paper-chat-plan-dock__waiting']"
       >
-        <span class="paper-chat-plan-dock__dot" aria-hidden="true"></span>
+        <span :class="styles['paper-chat-plan-dock__dot']" aria-hidden="true"></span>
         <PlanningStatusIndicator />
       </div>
 
-      <div v-else-if="!hasSteps" class="paper-chat-plan-dock__empty-status">
-        <span class="paper-chat-plan-dock__status-label">{{ statusLabel }}</span>
-        <span class="paper-chat-plan-dock__summary">{{ summaryText }}</span>
+      <div v-else-if="!hasSteps" :class="styles['paper-chat-plan-dock__empty-status']">
+        <span :class="styles['paper-chat-plan-dock__status-label']">{{ statusLabel }}</span>
+        <span :class="styles['paper-chat-plan-dock__summary']">{{ summaryText }}</span>
       </div>
 
       <template v-else>
         <button
           type="button"
-          class="paper-chat-plan-dock__header"
+          :class="styles['paper-chat-plan-dock__header']"
           :aria-expanded="isExpanded"
           @click="toggleExpanded"
         >
-          <div class="paper-chat-plan-dock__header-main">
-            <span class="paper-chat-plan-dock__status-label">{{ statusLabel }}</span>
-            <span class="paper-chat-plan-dock__summary">{{ summaryText }}</span>
+          <div :class="styles['paper-chat-plan-dock__header-main']">
+            <span :class="styles['paper-chat-plan-dock__status-label']">{{ statusLabel }}</span>
+            <span :class="styles['paper-chat-plan-dock__summary']">{{ summaryText }}</span>
           </div>
           <span class="paper-chat-plan-dock__chevron" :class="{ 'is-expanded': isExpanded }"
             >▶</span
@@ -232,23 +233,30 @@ function isStepExpanded(step: PlanStep): boolean {
         </button>
 
         <Transition name="paper-chat-plan-dock-expand">
-          <div v-if="isExpanded" class="paper-chat-plan-dock__body">
-            <div class="paper-chat-plan-dock__list">
+          <div v-if="isExpanded" :class="styles['paper-chat-plan-dock__body']">
+            <div :class="styles['paper-chat-plan-dock__list']">
               <div
                 v-for="step in steps"
                 :key="step.index"
-                class="paper-chat-plan-dock__task"
+                :class="styles['paper-chat-plan-dock__task']"
                 :class="`is-${step.status}`"
               >
                 <!-- 任务行 -->
-                <div class="paper-chat-plan-dock__task-row">
-                  <span class="paper-chat-plan-dock__task-number"> 任务 {{ step.index + 1 }} </span>
-                  <span class="paper-chat-plan-dock__task-state">
+                <div :class="styles['paper-chat-plan-dock__task-row']">
+                  <span :class="styles['paper-chat-plan-dock__task-number']">
+                    任务 {{ step.index + 1 }}
+                  </span>
+                  <span :class="styles['paper-chat-plan-dock__task-state']">
                     {{ getStepStatusLabel(step) }}
                   </span>
-                  <div class="paper-chat-plan-dock__task-main">
-                    <span class="paper-chat-plan-dock__task-title">{{ step.title }}</span>
-                    <span v-if="getStepDetail(step)" class="paper-chat-plan-dock__task-detail">
+                  <div :class="styles['paper-chat-plan-dock__task-main']">
+                    <span :class="styles['paper-chat-plan-dock__task-title']">{{
+                      step.title
+                    }}</span>
+                    <span
+                      v-if="getStepDetail(step)"
+                      :class="styles['paper-chat-plan-dock__task-detail']"
+                    >
                       {{ getStepDetail(step) }}
                     </span>
                   </div>
@@ -257,21 +265,24 @@ function isStepExpanded(step: PlanStep): boolean {
                 <!-- 阶段列表 -->
                 <div
                   v-if="getStepIterations(step.index).length > 0 && isStepExpanded(step)"
-                  class="paper-chat-plan-dock__phases"
+                  :class="styles['paper-chat-plan-dock__phases']"
                 >
                   <div
                     v-for="iter in getStepIterations(step.index)"
                     :key="iter.localPhaseNumber"
-                    class="paper-chat-plan-dock__phase"
+                    :class="styles['paper-chat-plan-dock__phase']"
                     :class="`is-${iter.status}`"
                   >
-                    <span class="paper-chat-plan-dock__phase-label">
+                    <span :class="styles['paper-chat-plan-dock__phase-label']">
                       阶段 {{ iter.stepNumber }}.{{ iter.localPhaseNumber }}
                     </span>
-                    <span class="paper-chat-plan-dock__phase-state">
+                    <span :class="styles['paper-chat-plan-dock__phase-state']">
                       {{ getIterationStatusLabel(iter) }}
                     </span>
-                    <span v-if="iter.toolSummary" class="paper-chat-plan-dock__phase-tools">
+                    <span
+                      v-if="iter.toolSummary"
+                      :class="styles['paper-chat-plan-dock__phase-tools']"
+                    >
                       {{ iter.toolSummary }}
                     </span>
                   </div>
@@ -284,314 +295,3 @@ function isStepExpanded(step: PlanStep): boolean {
     </section>
   </Transition>
 </template>
-
-<style scoped>
-.paper-chat-plan-dock {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-2);
-  color: var(--sm-color-text-primary);
-  transition: opacity 300ms ease;
-}
-
-.paper-chat-plan-dock.is-fading {
-  opacity: 0;
-}
-
-.paper-chat-plan-dock__waiting,
-.paper-chat-plan-dock__empty-status,
-.paper-chat-plan-dock__header {
-  min-height: 38px;
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-2);
-  padding: 9px 11px;
-}
-
-.paper-chat-plan-dock__header {
-  width: 100%;
-  justify-content: space-between;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-  transition: background-color var(--sm-transition-fast);
-}
-
-.paper-chat-plan-dock__header:hover {
-  background: var(--sm-color-surface-hover);
-}
-
-.paper-chat-plan-dock__header-main,
-.paper-chat-plan-dock__empty-status {
-  min-width: 0;
-}
-
-.paper-chat-plan-dock__header-main {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-2);
-}
-
-.paper-chat-plan-dock__status-label {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  min-height: 20px;
-  padding: 0 7px;
-  border: 1px solid var(--sm-color-accent-22);
-  border-radius: 999px;
-  background: var(--sm-color-accent-08);
-  color: var(--sm-color-accent-hover);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.paper-chat-plan-dock.is-failed .paper-chat-plan-dock__status-label {
-  border-color: rgba(239, 68, 68, 0.28);
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--sm-color-status-danger);
-}
-
-.paper-chat-plan-dock.is-cancelled .paper-chat-plan-dock__status-label {
-  border-color: var(--sm-color-border-default);
-  background: var(--sm-color-surface-1);
-  color: var(--sm-color-text-secondary);
-}
-
-.paper-chat-plan-dock.is-completed .paper-chat-plan-dock__status-label {
-  border-color: rgba(34, 197, 94, 0.28);
-  background: rgba(34, 197, 94, 0.1);
-  color: var(--sm-color-status-success);
-}
-
-.paper-chat-plan-dock__summary {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--sm-color-text-secondary);
-  font-size: 12px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.paper-chat-plan-dock__dot {
-  width: 7px;
-  height: 7px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--sm-color-accent);
-  animation: paperChatPlanDockPulse 1.4s ease-in-out infinite;
-}
-
-.paper-chat-plan-dock__chevron {
-  flex-shrink: 0;
-  color: var(--sm-color-text-tertiary);
-  font-size: 10px;
-  transition: transform var(--sm-transition-fast);
-}
-
-.paper-chat-plan-dock__chevron.is-expanded {
-  transform: rotate(90deg);
-}
-
-.paper-chat-plan-dock__body {
-  max-height: 260px;
-  overflow-y: auto;
-  border-top: 1px solid var(--sm-color-border-subtle);
-}
-
-.paper-chat-plan-dock__list {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 6px;
-}
-
-/* 任务块 */
-.paper-chat-plan-dock__task {
-  border-radius: var(--sm-radius-sm);
-}
-
-.paper-chat-plan-dock__task.is-running {
-  background: var(--sm-color-accent-08);
-}
-
-.paper-chat-plan-dock__task.is-failed {
-  background: rgba(239, 68, 68, 0.08);
-}
-
-/* 任务行 */
-.paper-chat-plan-dock__task-row {
-  display: grid;
-  grid-template-columns: 52px 52px minmax(0, 1fr);
-  gap: var(--sm-space-1);
-  padding: 7px 8px;
-  align-items: start;
-}
-
-.paper-chat-plan-dock__task-number {
-  color: var(--sm-color-text-tertiary);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-
-.paper-chat-plan-dock__task-state {
-  color: var(--sm-color-text-tertiary);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.paper-chat-plan-dock__task.is-running .paper-chat-plan-dock__task-state {
-  color: var(--sm-color-accent-hover);
-}
-
-.paper-chat-plan-dock__task.is-success .paper-chat-plan-dock__task-state {
-  color: var(--sm-color-status-success);
-}
-
-.paper-chat-plan-dock__task.is-failed .paper-chat-plan-dock__task-state {
-  color: var(--sm-color-status-danger);
-}
-
-.paper-chat-plan-dock__task-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.paper-chat-plan-dock__task-title {
-  color: var(--sm-color-text-primary);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.paper-chat-plan-dock__task-detail {
-  color: var(--sm-color-text-tertiary);
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-/* 阶段列表 */
-.paper-chat-plan-dock__phases {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 0 8px 6px 68px;
-}
-
-.paper-chat-plan-dock__phase {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-2);
-  padding: 3px 0;
-}
-
-.paper-chat-plan-dock__phase-label {
-  flex-shrink: 0;
-  color: var(--sm-color-text-tertiary);
-  font-size: 10px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.paper-chat-plan-dock__phase-state {
-  flex-shrink: 0;
-  color: var(--sm-color-text-tertiary);
-  font-size: 10px;
-  font-weight: 500;
-}
-
-.paper-chat-plan-dock__phase.is-thinking .paper-chat-plan-dock__phase-state {
-  color: var(--sm-color-accent-hover);
-}
-
-.paper-chat-plan-dock__phase.is-calling_tools .paper-chat-plan-dock__phase-state {
-  color: var(--sm-color-accent-hover);
-}
-
-.paper-chat-plan-dock__phase.is-complete .paper-chat-plan-dock__phase-state {
-  color: var(--sm-color-status-success);
-}
-
-.paper-chat-plan-dock__phase-tools {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--sm-color-text-quaternary);
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 过渡动画 */
-.paper-chat-plan-dock-expand-enter-active {
-  animation: paperChatPlanDockExpandIn 150ms ease;
-}
-
-.paper-chat-plan-dock-expand-leave-active {
-  animation: paperChatPlanDockExpandOut 130ms ease;
-}
-
-.paper-chat-plan-dock-fade-enter-active,
-.paper-chat-plan-dock-fade-leave-active {
-  transition: opacity 300ms ease;
-}
-
-.paper-chat-plan-dock-fade-enter-from,
-.paper-chat-plan-dock-fade-leave-to {
-  opacity: 0;
-}
-
-@keyframes paperChatPlanDockPulse {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-
-  50% {
-    opacity: 0.9;
-  }
-}
-
-@keyframes paperChatPlanDockExpandIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes paperChatPlanDockExpandOut {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  to {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
-.paper-chat-plan-dock__body::-webkit-scrollbar {
-  width: 6px;
-}
-
-.paper-chat-plan-dock__body::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: var(--sm-color-border-strong);
-}
-</style>

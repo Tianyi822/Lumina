@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { UiReactIterationStatus } from '@renderer/types'
+import styles from './PaperChatIterationPlaceholder.module.css'
 
 const props = defineProps<{
   iteration: number
@@ -42,129 +43,22 @@ const statusSubtitle = computed(() => {
 </script>
 
 <template>
-  <div class="iteration-placeholder" aria-live="polite">
-    <div class="iteration-placeholder-head">
-      <div class="iteration-placeholder-pulse" aria-hidden="true">
+  <div :class="styles['iteration-placeholder']" aria-live="polite">
+    <div :class="styles['iteration-placeholder-head']">
+      <div :class="styles['iteration-placeholder-pulse']" aria-hidden="true">
         <span></span>
         <span></span>
         <span></span>
       </div>
-      <div class="iteration-placeholder-copy">
-        <span class="iteration-placeholder-title">{{ title }}</span>
-        <span class="iteration-placeholder-status">{{ statusText }}</span>
-        <span class="iteration-placeholder-subtitle">{{ statusSubtitle }}</span>
+      <div :class="styles['iteration-placeholder-copy']">
+        <span :class="styles['iteration-placeholder-title']">{{ title }}</span>
+        <span :class="styles['iteration-placeholder-status']">{{ statusText }}</span>
+        <span :class="styles['iteration-placeholder-subtitle']">{{ statusSubtitle }}</span>
       </div>
     </div>
-    <div class="iteration-placeholder-bars" aria-hidden="true">
-      <span class="iteration-placeholder-bar primary"></span>
-      <span class="iteration-placeholder-bar secondary"></span>
+    <div :class="styles['iteration-placeholder-bars']" aria-hidden="true">
+      <span :class="[styles['iteration-placeholder-bar'], 'primary']"></span>
+      <span :class="[styles['iteration-placeholder-bar'], 'secondary']"></span>
     </div>
   </div>
 </template>
-
-<style scoped>
-.iteration-placeholder {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-1);
-}
-
-.iteration-placeholder-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.iteration-placeholder-pulse {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  background: var(--sm-color-accent-08);
-  border: 1px solid var(--sm-color-accent-18);
-}
-
-.iteration-placeholder-pulse span {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--sm-color-accent-hover);
-  opacity: 0.35;
-  animation: placeholderDotPulse 1.4s ease-in-out infinite;
-}
-
-.iteration-placeholder-pulse span:nth-child(2) {
-  animation-delay: 0.16s;
-}
-
-.iteration-placeholder-pulse span:nth-child(3) {
-  animation-delay: 0.32s;
-}
-
-.iteration-placeholder-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.iteration-placeholder-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-  line-height: 1.2;
-}
-
-.iteration-placeholder-status {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--sm-color-accent-hover);
-  line-height: 1.4;
-}
-
-.iteration-placeholder-subtitle {
-  font-size: 11px;
-  color: var(--sm-color-text-secondary);
-  line-height: 1.4;
-}
-
-.iteration-placeholder-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.iteration-placeholder-bar {
-  display: block;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.iteration-placeholder-bar.primary {
-  width: min(188px, 100%);
-}
-
-.iteration-placeholder-bar.secondary {
-  width: min(132px, 72%);
-  opacity: 0.72;
-}
-
-@keyframes placeholderDotPulse {
-  0%,
-  80%,
-  100% {
-    opacity: 0.35;
-  }
-  40% {
-    opacity: 1;
-  }
-}
-</style>
