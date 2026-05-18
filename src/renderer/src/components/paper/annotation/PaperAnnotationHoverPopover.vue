@@ -34,15 +34,19 @@ const isHighlight = (annotation: PaperAnnotation): boolean => annotation.kind ==
         <button
           v-for="colorKey in highlightColorOptions"
           :key="`hover-${colorKey}`"
-          :class="styles['paper-annotation-hover-popover__color-btn']"
-          :class="{ 'is-active': annotation.colorKey === colorKey }"
+          :class="[
+            styles['paper-annotation-hover-popover__color-btn'],
+            { 'is-active': annotation.colorKey === colorKey }
+          ]"
           type="button"
           :title="colorKey"
           @click="emit('update-color', colorKey)"
         >
           <span
-            :class="styles['paper-annotation-hover-popover__dot']"
-            :class="styles[`paper-annotation-hover-popover__dot--${colorKey}`]"
+            :class="[
+              styles['paper-annotation-hover-popover__dot'],
+              styles[`paper-annotation-hover-popover__dot--${colorKey}`]
+            ]"
           />
         </button>
 

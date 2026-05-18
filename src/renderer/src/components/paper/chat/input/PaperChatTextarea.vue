@@ -39,12 +39,15 @@ defineExpose({ focus })
     <textarea
       ref="textareaRef"
       :value="props.modelValue"
-      :class="['input', styles['paper-chat-input__textarea']]"
-      :class="{
-        'has-attachments': props.hasAttachments,
-        'is-dragging': props.isDragging,
-        'is-sending': props.isSending
-      }"
+      :class="[
+        'input',
+        styles['paper-chat-input__textarea'],
+        {
+          'has-attachments': props.hasAttachments,
+          'is-dragging': props.isDragging,
+          'is-sending': props.isSending
+        }
+      ]"
       :placeholder="props.placeholder"
       rows="3"
       @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"

@@ -68,8 +68,10 @@ onUnmounted(() => {
 
 <template>
   <div
-    :class="styles['paper-chat-input-toolbar']"
-    :class="{ [styles['paper-chat-input-toolbar--compact']]: props.variant === 'compact' }"
+    :class="[
+      styles['paper-chat-input-toolbar'],
+      { [styles['paper-chat-input-toolbar--compact']]: props.variant === 'compact' }
+    ]"
   >
     <div ref="modelSelectorRef" :class="styles['paper-chat-input-toolbar__model-selector']">
       <button
@@ -92,8 +94,7 @@ onUnmounted(() => {
         <div
           v-for="model in props.modelOptions"
           :key="model"
-          :class="styles['paper-chat-input-toolbar__model-option']"
-          :class="{ active: model === props.selectedModel }"
+          :class="[styles['paper-chat-input-toolbar__model-option'], { active: model === props.selectedModel }]"
           @click="selectModel(model)"
         >
           {{ model }}
@@ -115,12 +116,14 @@ onUnmounted(() => {
 
     <button
       type="button"
-      :class="styles['paper-chat-input-toolbar__search-toggle']"
-      :class="{
-        enabled: props.enablePaperWebSearch,
-        disabled: props.isSending,
-        'is-compact': props.variant === 'compact'
-      }"
+      :class="[
+        styles['paper-chat-input-toolbar__search-toggle'],
+        {
+          enabled: props.enablePaperWebSearch,
+          disabled: props.isSending,
+          'is-compact': props.variant === 'compact'
+        }
+      ]"
       :disabled="props.isSending"
       :aria-pressed="props.enablePaperWebSearch ? 'true' : 'false'"
       title="联网搜索：允许模型在需要时搜索学术资料补充论文信息"
@@ -142,8 +145,10 @@ onUnmounted(() => {
 
     <div :class="styles['paper-chat-input-toolbar__actions']">
       <button
-        :class="styles['paper-chat-input-toolbar__upload-button']"
-        :class="{ 'has-attachments': (props.totalAttachmentCount || 0) > 0 }"
+        :class="[
+          styles['paper-chat-input-toolbar__upload-button'],
+          { 'has-attachments': (props.totalAttachmentCount || 0) > 0 }
+        ]"
         :disabled="props.isSending"
         :title="`上传文件 (文档: ${supportedDocumentLabel} / 图片: jpg, png, webp, bmp, tiff)`"
         @click="emit('upload')"
@@ -159,10 +164,13 @@ onUnmounted(() => {
 
       <button
         v-if="!props.isSending"
-        :class="['btn-primary', styles['paper-chat-input-toolbar__execute-button']]"
-        :class="{
-          'paper-chat-input-toolbar__execute-button--compact': props.variant === 'compact'
-        }"
+        :class="[
+          'btn-primary',
+          styles['paper-chat-input-toolbar__execute-button'],
+          {
+            'paper-chat-input-toolbar__execute-button--compact': props.variant === 'compact'
+          }
+        ]"
         title="执行"
         aria-label="执行"
         @click="emit('send')"

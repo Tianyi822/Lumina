@@ -352,8 +352,10 @@ async function handleUserInteractionSelect(_value: string, label: string): Promi
 
 <template>
   <div
-    :class="styles['paper-chat-input']"
-    :class="{ [styles['paper-chat-input--compact']]: props.variant === 'compact' }"
+    :class="[
+      styles['paper-chat-input'],
+      { [styles['paper-chat-input--compact']]: props.variant === 'compact' }
+    ]"
   >
     <PaperChatInteractionOptions
       v-if="paperChatStreamStore.showUserInteraction && paperChatStreamStore.userInteractionInfo"

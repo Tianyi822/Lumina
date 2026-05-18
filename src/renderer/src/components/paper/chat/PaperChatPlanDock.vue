@@ -200,8 +200,11 @@ function isStepExpanded(step: PlanStep): boolean {
   <Transition name="paper-chat-plan-dock-fade">
     <section
       v-if="shouldShow"
-      :class="styles['paper-chat-plan-dock']"
-      :class="[`is-${planState?.status}`, { 'is-fading': fadeState === 'fading' }]"
+      :class="[
+        styles['paper-chat-plan-dock'],
+        `is-${planState?.status}`,
+        { 'is-fading': fadeState === 'fading' }
+      ]"
     >
       <div
         v-if="!hasSteps && planState?.status === 'planning'"
@@ -238,8 +241,7 @@ function isStepExpanded(step: PlanStep): boolean {
               <div
                 v-for="step in steps"
                 :key="step.index"
-                :class="styles['paper-chat-plan-dock__task']"
-                :class="`is-${step.status}`"
+                :class="[styles['paper-chat-plan-dock__task'], `is-${step.status}`]"
               >
                 <!-- 任务行 -->
                 <div :class="styles['paper-chat-plan-dock__task-row']">
@@ -270,8 +272,7 @@ function isStepExpanded(step: PlanStep): boolean {
                   <div
                     v-for="iter in getStepIterations(step.index)"
                     :key="iter.localPhaseNumber"
-                    :class="styles['paper-chat-plan-dock__phase']"
-                    :class="`is-${iter.status}`"
+                    :class="[styles['paper-chat-plan-dock__phase'], `is-${iter.status}`]"
                   >
                     <span :class="styles['paper-chat-plan-dock__phase-label']">
                       阶段 {{ iter.stepNumber }}.{{ iter.localPhaseNumber }}

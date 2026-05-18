@@ -37,8 +37,10 @@ const emit = defineEmits<{
         @click="emit('create-highlight', colorKey)"
       >
         <span
-          :class="styles['paper-annotation-selection-menu__dot']"
-          :class="styles[`paper-annotation-selection-menu__dot--${colorKey}`]"
+          :class="[
+            styles['paper-annotation-selection-menu__dot'],
+            styles[`paper-annotation-selection-menu__dot--${colorKey}`]
+          ]"
         />
       </button>
 

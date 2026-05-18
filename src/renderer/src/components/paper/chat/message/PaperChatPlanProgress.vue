@@ -94,8 +94,10 @@ function getStatusClass(status: PlanStep['status']): string {
           <div
             v-for="step in planExecution?.steps"
             :key="step.index"
-            :class="styles['paper-chat-plan-progress__step']"
-            :class="{ active: step.status === 'running' }"
+            :class="[
+              styles['paper-chat-plan-progress__step'],
+              { active: step.status === 'running' }
+            ]"
           >
             <div :class="styles['paper-chat-plan-progress__step-rail']">
               <span class="paper-chat-plan-progress__node" :class="getStatusClass(step.status)">{{

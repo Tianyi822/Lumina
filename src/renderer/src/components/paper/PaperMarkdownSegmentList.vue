@@ -59,8 +59,10 @@ function handleCancelRetranslate(): void {
     v-for="segment in segments"
     :id="segment.segmentAnchorId"
     :key="segment.renderId"
-    :class="styles['paper-markdown-view__segment']"
-    :class="{ [styles['paper-markdown-view__segment--meta']]: segment.isCenteredMeta }"
+    :class="[
+      styles['paper-markdown-view__segment'],
+      { [styles['paper-markdown-view__segment--meta']]: segment.isCenteredMeta }
+    ]"
     :data-paper-segment-stable-id="segment.stableId"
   >
     <div
@@ -78,8 +80,10 @@ function handleCancelRetranslate(): void {
 
     <div
       v-if="segment.showTranslation"
-      :class="styles['paper-markdown-view__segment-translation']"
-      :class="`is-${segment.translationStatus}`"
+      :class="[
+        styles['paper-markdown-view__segment-translation'],
+        `is-${segment.translationStatus}`
+      ]"
     >
       <div
         v-if="segment.translationHtml"

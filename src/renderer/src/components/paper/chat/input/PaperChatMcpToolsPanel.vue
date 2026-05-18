@@ -232,8 +232,11 @@ onUnmounted(() => {
     <!-- 触发按钮 -->
     <button
       type="button"
-      :class="['btn', styles['paper-chat-mcp-tools__trigger']]"
-      :class="{ active: showPanel, 'has-selection': selectedToolsCount > 0 }"
+      :class="[
+        'btn',
+        styles['paper-chat-mcp-tools__trigger'],
+        { active: showPanel, 'has-selection': selectedToolsCount > 0 }
+      ]"
       :aria-expanded="showPanel"
       @click="togglePanel"
     >
@@ -304,8 +307,10 @@ onUnmounted(() => {
               {{ isServerGroupFullySelected(tools) ? '取消全选' : '全选' }}
             </button>
             <span
-              :class="styles['paper-chat-mcp-tools-panel__server-status']"
-              :class="{ connected: mcpStore.isServerConnected(serverName as string) }"
+              :class="[
+                styles['paper-chat-mcp-tools-panel__server-status'],
+                { connected: mcpStore.isServerConnected(serverName as string) }
+              ]"
             >
               {{ mcpStore.isServerConnected(serverName as string) ? '●' : '○' }}
             </span>
@@ -320,8 +325,7 @@ onUnmounted(() => {
               v-for="tool in tools"
               :id="`tool-${serverName}-${tool.name}`"
               :key="`${serverName}-${tool.name}`"
-              :class="styles['paper-chat-mcp-tools-panel__tool']"
-              :class="{ selected: isToolSelected(tool) }"
+              :class="[styles['paper-chat-mcp-tools-panel__tool'], { selected: isToolSelected(tool) }]"
               role="button"
               tabindex="0"
               :aria-selected="isToolSelected(tool)"
@@ -343,8 +347,10 @@ onUnmounted(() => {
               >
                 <div
                   :ref="(el) => setDescriptionRef(tool, el)"
-                  :class="styles['paper-chat-mcp-tools-panel__tool-description']"
-                  :class="{ expanded: isDescriptionExpanded(tool) }"
+                  :class="[
+                    styles['paper-chat-mcp-tools-panel__tool-description'],
+                    { expanded: isDescriptionExpanded(tool) }
+                  ]"
                 >
                   {{ tool.description }}
                 </div>

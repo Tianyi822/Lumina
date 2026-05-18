@@ -280,8 +280,11 @@ onBeforeUnmount(() => {
 
         <div :class="styles['paper-figure-preview__actions']" @mousedown.stop>
           <button
-            :class="['sm-icon-button', styles['paper-figure-preview__action']]"
-            :class="{ 'is-active': figurePreviewPinned }"
+            :class="[
+              'sm-icon-button',
+              styles['paper-figure-preview__action'],
+              { 'is-active': figurePreviewPinned }
+            ]"
             :title="figurePreviewPinned ? '取消钉住' : '钉住预览窗'"
             :aria-label="figurePreviewPinned ? '取消钉住' : '钉住预览窗'"
             type="button"
@@ -342,8 +345,10 @@ onBeforeUnmount(() => {
       <button
         v-for="handle in resizeHandles"
         :key="handle.edge"
-        :class="styles['paper-figure-preview__resize']"
-        :class="styles[`paper-figure-preview__resize--${handle.edge}`]"
+        :class="[
+          styles['paper-figure-preview__resize'],
+          styles[`paper-figure-preview__resize--${handle.edge}`]
+        ]"
         type="button"
         tabindex="-1"
         :aria-label="handle.label"

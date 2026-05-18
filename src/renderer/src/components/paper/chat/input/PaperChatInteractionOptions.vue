@@ -67,8 +67,10 @@ watch(
       {{ interactionInfo.question }}
     </div>
     <div
-      :class="styles['paper-chat-interaction-options__list']"
-      :class="{ 'is-scrollable': showScrollableList }"
+      :class="[
+        styles['paper-chat-interaction-options__list'],
+        { 'is-scrollable': showScrollableList }
+      ]"
     >
       <button
         v-for="option in visibleOptions"

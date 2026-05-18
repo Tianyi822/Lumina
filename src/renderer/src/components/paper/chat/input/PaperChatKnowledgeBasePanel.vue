@@ -254,14 +254,16 @@ defineExpose({
 <template>
   <div
     ref="panelContainerRef"
-    :class="styles['paper-chat-knowledge']"
-    :class="{ 'is-compact': props.compact }"
+    :class="[styles['paper-chat-knowledge'], { 'is-compact': props.compact }]"
   >
     <!-- 触发按钮 -->
     <button
       type="button"
-      :class="['btn', styles['paper-chat-knowledge__trigger']]"
-      :class="{ active: showPanel, 'has-selection': selectedKBsCount > 0 }"
+      :class="[
+        'btn',
+        styles['paper-chat-knowledge__trigger'],
+        { active: showPanel, 'has-selection': selectedKBsCount > 0 }
+      ]"
       :aria-expanded="showPanel"
       @click="togglePanel"
     >
@@ -325,8 +327,7 @@ defineExpose({
         <div
           v-for="kb in filteredKnowledgeBases"
           :key="kb.id"
-          :class="styles['paper-chat-knowledge-panel__item']"
-          :class="{ selected: isKBSelected(kb) }"
+          :class="[styles['paper-chat-knowledge-panel__item'], { selected: isKBSelected(kb) }]"
           role="button"
           tabindex="0"
           :aria-selected="isKBSelected(kb)"
@@ -351,8 +352,10 @@ defineExpose({
           >
             <div
               :ref="(el) => setDescriptionRef(kb.id, el)"
-              :class="styles['paper-chat-knowledge-panel__description']"
-              :class="{ expanded: isDescriptionExpanded(kb.id) }"
+              :class="[
+                styles['paper-chat-knowledge-panel__description'],
+                { expanded: isDescriptionExpanded(kb.id) }
+              ]"
             >
               {{ kb.description }}
             </div>
