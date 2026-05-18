@@ -4,6 +4,7 @@
     "src/renderer/src/env.d.ts",
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.vue",
+    "src/renderer/src/**/*.tsx",
     "src/shared/**/*",
     "src/preload/*.d.ts",
     "src/preload/types/**/*.ts"
@@ -11,6 +12,7 @@
   "compilerOptions": {
     "composite": true,
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
     "paths": {
       "@renderer/*": ["./src/renderer/src/*"],
       "@shared/*": ["./src/shared/*"]
