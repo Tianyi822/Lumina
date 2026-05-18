@@ -37,10 +37,10 @@ test('可以按句段比例把原文锚点映射到译文文本', () => {
 })
 
 test('文本锚点可以恢复表格文本中的选区', () => {
-  const source = 'Method Accuracy F1\nBaseline 82.1 79.4\nSparrow 91.3 88.8'
+  const source = 'Method Accuracy F1\nBaseline 82.1 79.4\nLumina 91.3 88.8'
   const startOffset = source.indexOf('91.3')
   const anchor = buildPaperTextAnchor(source, startOffset, startOffset + '91.3'.length)
-  const shiftedText = 'Metric table\nMethod Accuracy F1\nBaseline 82.1 79.4\nSparrow 91.3 88.8'
+  const shiftedText = 'Metric table\nMethod Accuracy F1\nBaseline 82.1 79.4\nLumina 91.3 88.8'
   const recoveredOffset = findPaperTextAnchorOffset(shiftedText, anchor)
 
   assert.equal(recoveredOffset, shiftedText.indexOf('91.3'))

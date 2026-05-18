@@ -7,7 +7,7 @@ import type { AppConfig } from '@shared/types/config'
 test('配置迁移会剥离旧 promptConfig 与 skills 配置，并保留 MCP 环境变量', () => {
   const legacyConfig = {
     theme: {
-      name: 'sparrow-dark',
+      name: 'lumina-dark',
       mode: 'manual'
     },
     llm_config: {

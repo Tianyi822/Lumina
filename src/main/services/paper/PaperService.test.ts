@@ -699,7 +699,7 @@ test('repairPaperResources 会覆盖失效论文路径、补齐聚合笔记并�
     ...createPaperDocument(),
     id: paperId,
     fileName: 'repair-paper.pdf',
-    filePath: `/Users/chentianyi/.sparrow-manus/papers/${paperId}/source.pdf`,
+    filePath: `/Users/chentianyi/.lumina/papers/${paperId}/source.pdf`,
     fileHash: 'current-paper-hash',
     fileSize: 11
   }
@@ -745,7 +745,7 @@ test('repairPaperResources 会覆盖失效论文路径、补齐聚合笔记并�
   fileService.initialize()
   const oldPaperFile = fileService.registerPaperFile({
     ...paper,
-    filePath: `/Users/chentianyi/.sparrow-manus/papers/${paperId}/source.pdf`
+    filePath: `/Users/chentianyi/.lumina/papers/${paperId}/source.pdf`
   }).file
   if (!oldPaperFile) {
     throw new Error('论文资源未创建')
