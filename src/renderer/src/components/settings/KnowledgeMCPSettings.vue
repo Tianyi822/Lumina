@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { KnowledgeMCPServerStatus } from '@shared/types/knowledgeMCP'
+import styles from './KnowledgeMCPSettings.module.css'
 
 const notify = useNotification()
 
@@ -123,7 +124,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="sm-settings-page knowledge-mcp-settings">
+  <div :class="['sm-settings-page', styles['knowledge-mcp-settings']]">
     <header class="sm-settings-page__header">
       <h2 class="sm-settings-page__title">知识库 MCP 服务</h2>
       <p class="sm-settings-page__description">
@@ -142,36 +143,42 @@ onUnmounted(() => {
       </div>
 
       <button
-        class="mcp-toggle"
-        :class="{ enabled: enabled, disabled: toggling || loading }"
+        :class="[
+          styles['mcp-toggle'],
+          { [styles.enabled]: enabled, [styles.disabled]: toggling || loading }
+        ]"
         :disabled="toggling || loading"
         type="button"
         @click="handleToggle"
       >
-        <div class="toggle-switch">
-          <div class="toggle-thumb"></div>
+        <div :class="styles['toggle-switch']">
+          <div :class="styles['toggle-thumb']"></div>
         </div>
-        <span class="toggle-label">启用 MCP 服务</span>
-        <span v-if="enabled" class="status-badge active">运行中</span>
-        <span v-else class="status-badge">已停止</span>
+        <span :class="styles['toggle-label']">启用 MCP 服务</span>
+        <span v-if="enabled" :class="[styles['status-badge'], styles.active]">运行中</span>
+        <span v-else :class="styles['status-badge']">已停止</span>
       </button>
     </section>
 
     <section v-if="enabled && configJSON" class="sm-settings-page__section">
-      <div class="config-header">
+      <div :class="styles['config-header']">
         <div>
           <h3 class="sm-settings-page__section-title">服务配置</h3>
           <p class="sm-settings-page__section-description">复制后可直接写入 MCP 客户端配置文件。</p>
         </div>
-        <button class="sm-button sm-button--small copy-btn" :disabled="copying" @click="copyConfig">
+        <button
+          :class="['sm-button', 'sm-button--small', styles['copy-btn']]"
+          :disabled="copying"
+          @click="copyConfig"
+        >
           {{ copying ? '复制中...' : '复制' }}
         </button>
       </div>
-      <div class="config-url">
-        <span class="url-label">服务地址</span>
-        <span class="url-value">{{ status.url }}</span>
+      <div :class="styles['config-url']">
+        <span :class="styles['url-label']">服务地址</span>
+        <span :class="styles['url-value']">{{ status.url }}</span>
       </div>
-      <pre class="config-json"><code>{{ configJSON }}</code></pre>
+      <pre :class="styles['config-json']"><code>{{ configJSON }}</code></pre>
     </section>
 
     <section class="sm-settings-page__section">
@@ -184,8 +191,8 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="description-section">
-        <div class="description-block">
+      <div :class="styles['description-section']">
+        <div :class="styles['description-block']">
           <h5>知识库 MCP 服务</h5>
           <p>
             知识库 MCP 服务将您在本应用中创建的知识库通过 MCP 协议对外暴露，让外部 AI
@@ -194,7 +201,7 @@ onUnmounted(() => {
           </p>
         </div>
 
-        <div class="description-block">
+        <div :class="styles['description-block']">
           <h5>使用场景</h5>
           <ul>
             <li>在 Claude Desktop 中直接搜索和引用您的知识库内容</li>
@@ -203,7 +210,7 @@ onUnmounted(() => {
           </ul>
         </div>
 
-        <div class="description-block">
+        <div :class="styles['description-block']">
           <h5>如何使用</h5>
           <ol>
             <li>开启上方开关启动 MCP 服务</li>
@@ -213,7 +220,7 @@ onUnmounted(() => {
           </ol>
         </div>
 
-        <div class="description-block warning">
+        <div :class="[styles['description-block'], styles.warning]">
           <h5>安全注意事项</h5>
           <ul>
             <li>服务仅监听本地网络接口，外部设备需要通过局域网访问</li>
@@ -226,199 +233,3 @@ onUnmounted(() => {
     </section>
   </div>
 </template>
-
-<style scoped>
-.knowledge-mcp-settings {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-5);
-}
-
-.mcp-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 12px 14px;
-  font-size: 13px;
-  background: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast);
-  user-select: none;
-}
-
-.mcp-toggle:hover:not(.disabled) {
-  border-color: var(--sm-color-border-strong);
-  background: var(--sm-color-surface-hover);
-}
-
-.mcp-toggle.enabled {
-  border-color: var(--sm-color-border-accent);
-  background: var(--sm-color-accent-08);
-}
-
-.mcp-toggle.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.toggle-switch {
-  width: 36px;
-  height: 20px;
-  background: var(--sm-color-border-default);
-  border-radius: 10px;
-  position: relative;
-  transition: background-color 0.2s ease;
-}
-
-.mcp-toggle.enabled .toggle-switch {
-  background: var(--sm-color-accent);
-}
-
-.toggle-thumb {
-  width: 16px;
-  height: 16px;
-  background-color: white;
-  border-radius: 50%;
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease;
-  color: var(--sm-color-text-secondary);
-}
-
-.mcp-toggle.enabled .toggle-thumb {
-  transform: translateX(16px);
-  color: var(--sm-color-accent);
-}
-
-.toggle-label {
-  font-size: 13px;
-  color: var(--sm-color-text-primary);
-  font-weight: 500;
-}
-
-.status-badge {
-  margin-left: auto;
-  padding: 2px 8px;
-  background: var(--sm-color-surface-1);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 999px;
-  color: var(--sm-color-text-secondary);
-  font-size: 11px;
-  font-weight: 600;
-  min-width: 18px;
-  text-align: center;
-}
-
-.status-badge.active {
-  background: var(--sm-color-surface-selected);
-  border-color: var(--sm-color-border-selected);
-  color: var(--sm-color-text-selected);
-}
-
-.config-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.copy-btn {
-  font-size: 12px;
-}
-
-.config-url {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.url-label {
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-}
-
-.url-value {
-  font-size: 12px;
-  color: var(--sm-color-accent-hover);
-  font-family: var(--sm-font-mono);
-  word-break: break-all;
-}
-
-.config-json {
-  margin: 0;
-  padding: 14px 16px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-bg-embedded);
-  font-family: var(--sm-font-mono);
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--sm-color-text-secondary);
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.config-json code {
-  color: inherit;
-  background: none;
-}
-
-/* 功能说明 */
-.description-section {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.description-block {
-  padding: 14px 16px;
-  background: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-}
-
-.description-block h5 {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--sm-color-text-primary);
-  margin: 0 0 8px 0;
-}
-
-.description-block p {
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--sm-color-text-secondary);
-  margin: 0;
-}
-
-.description-block ul,
-.description-block ol {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.description-block li {
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--sm-color-text-secondary);
-  margin-bottom: 4px;
-}
-
-.description-block.warning {
-  background: rgba(197, 161, 101, 0.08);
-  border-color: rgba(197, 161, 101, 0.22);
-}
-
-.description-block.warning h5 {
-  color: var(--sm-color-status-warning);
-}
-</style>

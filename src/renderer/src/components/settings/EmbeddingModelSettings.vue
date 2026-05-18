@@ -6,6 +6,7 @@ import EmbeddingModelForm from '../embedding/EmbeddingModelForm.vue'
 import { useKnowledgeStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { EmbeddingConfig } from '@shared/types/config'
+import styles from './EmbeddingModelSettings.module.css'
 
 // 直接使用 Knowledge Store
 const knowledgeStore = useZustandStore(useKnowledgeStore)
@@ -156,7 +157,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="model-list">
+      <div :class="styles['model-list']">
         <div v-if="knowledgeStore.embeddingLoading" class="sm-settings-empty">
           <p>加载中...</p>
         </div>
@@ -194,40 +195,19 @@ onMounted(() => {
         @test="handleTestNew"
       />
 
-      <button v-if="!showAddForm" class="sm-button add-model-btn" @click="showAddForm = true">
+      <button
+        v-if="!showAddForm"
+        :class="['sm-button', styles['add-model-btn']]"
+        @click="showAddForm = true"
+      >
         添加嵌入模型
       </button>
     </section>
 
-    <div class="save-actions">
+    <div :class="styles['save-actions']">
       <button class="sm-button sm-button--primary" :disabled="saving" @click="handleSaveConfig">
         {{ saving ? '保存中...' : '保存配置' }}
       </button>
     </div>
   </div>
 </template>
-
-<style scoped>
-.model-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.add-model-btn {
-  width: 100%;
-  padding: 12px;
-  border-style: dashed;
-  color: var(--sm-color-text-secondary);
-}
-
-.add-model-btn:hover {
-  color: var(--sm-color-accent-hover);
-  border-color: var(--sm-color-border-accent);
-}
-
-.save-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-</style>

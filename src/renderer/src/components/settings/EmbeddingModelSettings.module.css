@@ -1,0 +1,22 @@
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.add-model-btn {
+  width: 100%;
+  padding: 12px;
+  border-style: dashed;
+  color: var(--sm-color-text-secondary);
+}
+
+.add-model-btn:hover {
+  color: var(--sm-color-accent-hover);
+  border-color: var(--sm-color-border-accent);
+}
+
+.save-actions {
+  display: flex;
+  justify-content: flex-end;
+}

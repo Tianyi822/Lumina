@@ -6,6 +6,7 @@ import MCPNewServerForm from '../mcp/MCPNewServerForm.vue'
 import { useMCPStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { MCPServerConfig } from '@renderer/types'
+import styles from './MCPSettings.module.css'
 
 interface Emits {
   (e: 'mcp-updated'): void
@@ -222,7 +223,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="mcp-server-list">
+      <div :class="styles['mcp-server-list']">
         <MCPServerItem
           v-for="config in mcpStore.configs"
           :key="config.name"
@@ -252,24 +253,24 @@ onUnmounted(() => {
         @test="handleTestNew"
       />
 
-      <div v-if="!showNewMCPForm" class="sm-settings-actions settings-actions">
-        <button class="sm-button add-mcp-btn" @click="showNewMCPForm = true">
+      <div v-if="!showNewMCPForm" :class="['sm-settings-actions', styles['settings-actions']]">
+        <button :class="['sm-button', styles['add-mcp-btn']]" @click="showNewMCPForm = true">
           添加 MCP 服务器
         </button>
-        <button class="sm-button import-btn" @click="toggleImportPanel">
+        <button :class="['sm-button', styles['import-btn']]" @click="toggleImportPanel">
           {{ showImportPanel ? '收起导入' : '导入 JSON 配置' }}
         </button>
       </div>
 
-      <div v-if="showImportPanel && !showNewMCPForm" class="import-panel">
-        <label class="import-label" for="mcp-import-json">粘贴 MCP 配置 JSON</label>
+      <div v-if="showImportPanel && !showNewMCPForm" :class="styles['import-panel']">
+        <label :class="styles['import-label']" for="mcp-import-json">粘贴 MCP 配置 JSON</label>
         <textarea
           id="mcp-import-json"
           v-model="importJsonContent"
-          class="sm-textarea import-textarea"
+          :class="['sm-textarea', styles['import-textarea']]"
           :placeholder="importPlaceholder"
         />
-        <div class="import-actions">
+        <div :class="styles['import-actions']">
           <button
             class="sm-button sm-button--small sm-button--primary"
             :disabled="isImporting"
@@ -289,75 +290,3 @@ onUnmounted(() => {
     </section>
   </div>
 </template>
-
-<style scoped>
-.import-panel {
-  padding: 16px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-2);
-}
-
-.import-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 13px;
-  color: var(--sm-color-text-primary);
-}
-
-.import-textarea {
-  width: 100%;
-  min-height: 180px;
-  resize: vertical;
-  font-family: var(--sm-font-mono);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.import-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.mcp-server-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.add-mcp-btn {
-  border-style: dashed;
-  color: var(--sm-color-text-secondary);
-}
-
-.add-mcp-btn:hover {
-  color: var(--sm-color-accent-hover);
-  border-color: var(--sm-color-border-accent);
-}
-
-.import-btn {
-  border-style: dashed;
-  color: var(--sm-color-text-secondary);
-}
-
-.import-btn:hover {
-  color: var(--sm-color-accent-hover);
-  border-color: var(--sm-color-border-accent);
-}
-
-.settings-actions {
-  justify-content: stretch;
-}
-
-.settings-actions > button {
-  flex: 1;
-}
-
-@media (max-width: 640px) {
-  .settings-actions {
-    flex-direction: column;
-  }
-}
-</style>

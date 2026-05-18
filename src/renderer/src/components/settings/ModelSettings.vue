@@ -5,6 +5,7 @@ import type { LLMConfig } from '@renderer/types'
 import { useConfigStore } from '@renderer/stores'
 import { useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
+import styles from './ModelSettings.module.css'
 
 const configStore = useZustandStore(useConfigStore)
 const uiStateStore = useZustandStore(useUIStateStore)
@@ -292,15 +293,23 @@ async function handleSave(): Promise<void> {
         </span>
       </div>
 
-      <div class="model-list">
-        <div v-for="(config, index) in configStore.llmConfigs" :key="index" class="model-item">
-          <div class="model-header" @click="toggleModelExpand(index)">
-            <span class="model-name">{{ config.model_name || '未命名模型' }}</span>
-            <span v-if="configStore.defaultModel === config.model_name" class="default-badge"
+      <div :class="styles['model-list']">
+        <div
+          v-for="(config, index) in configStore.llmConfigs"
+          :key="index"
+          :class="styles['model-item']"
+        >
+          <div :class="styles['model-header']" @click="toggleModelExpand(index)">
+            <span :class="styles['model-name']">{{ config.model_name || '未命名模型' }}</span>
+            <span
+              v-if="configStore.defaultModel === config.model_name"
+              :class="styles['default-badge']"
               >默认</span
             >
-            <span class="expand-state">{{ expandedModels.has(index) ? '收起' : '展开' }}</span>
-            <div class="model-actions">
+            <span :class="styles['expand-state']">{{
+              expandedModels.has(index) ? '收起' : '展开'
+            }}</span>
+            <div :class="styles['model-actions']">
               <button
                 class="sm-button sm-button--small"
                 :disabled="testingModelIndex === index"
@@ -316,15 +325,20 @@ async function handleSave(): Promise<void> {
                 设为默认
               </button>
               <button
-                class="sm-button sm-button--small sm-button--danger model-action--danger"
+                :class="[
+                  'sm-button',
+                  'sm-button--small',
+                  'sm-button--danger',
+                  styles['model-action--danger']
+                ]"
                 @click.stop="deleteModel(index)"
               >
                 删除
               </button>
             </div>
           </div>
-          <div v-if="expandedModels.has(index)" class="model-details">
-            <div class="form-group">
+          <div v-if="expandedModels.has(index)" :class="styles['model-details']">
+            <div :class="styles['form-group']">
               <label>API Base URL</label>
               <input
                 :value="config.base_url"
@@ -336,7 +350,7 @@ async function handleSave(): Promise<void> {
                 "
               />
             </div>
-            <div class="form-group">
+            <div :class="styles['form-group']">
               <label>API Key</label>
               <input
                 :value="config.api_key"
@@ -348,7 +362,7 @@ async function handleSave(): Promise<void> {
                 "
               />
             </div>
-            <div class="form-group">
+            <div :class="styles['form-group']">
               <label>模型名称</label>
               <input
                 :value="config.model_name"
@@ -372,10 +386,10 @@ async function handleSave(): Promise<void> {
         </div>
       </div>
 
-      <div v-if="showNewModelForm" class="new-model-form">
-        <h3 class="form-section-title">添加新模型配置</h3>
-        <div class="form-group">
-          <label>API Base URL <span class="required">*</span></label>
+      <div v-if="showNewModelForm" :class="styles['new-model-form']">
+        <h3 :class="styles['form-section-title']">添加新模型配置</h3>
+        <div :class="styles['form-group']">
+          <label>API Base URL <span :class="styles.required">*</span></label>
           <input
             v-model="newModelConfig.base_url"
             type="text"
@@ -383,8 +397,8 @@ async function handleSave(): Promise<void> {
             placeholder="https://api.openai.com/v1"
           />
         </div>
-        <div class="form-group">
-          <label>API Key <span class="required">*</span></label>
+        <div :class="styles['form-group']">
+          <label>API Key <span :class="styles.required">*</span></label>
           <input
             v-model="newModelConfig.api_key"
             type="password"
@@ -392,8 +406,8 @@ async function handleSave(): Promise<void> {
             placeholder="sk-..."
           />
         </div>
-        <div class="form-group">
-          <label>模型名称 <span class="required">*</span></label>
+        <div :class="styles['form-group']">
+          <label>模型名称 <span :class="styles.required">*</span></label>
           <input
             v-model="newModelConfig.model_name"
             type="text"
@@ -416,14 +430,14 @@ async function handleSave(): Promise<void> {
 
       <button
         v-if="!showNewModelForm"
-        class="sm-button add-model-btn"
+        :class="['sm-button', styles['add-model-btn']]"
         @click="showNewModelForm = true"
       >
         添加模型配置
       </button>
     </section>
 
-    <div class="save-actions">
+    <div :class="styles['save-actions']">
       <button
         class="sm-button sm-button--primary"
         :disabled="configStore.saving"
@@ -434,118 +448,3 @@ async function handleSave(): Promise<void> {
     </div>
   </div>
 </template>
-
-<style scoped>
-.model-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.model-item {
-  background: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  overflow: hidden;
-}
-
-.model-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background-color var(--sm-transition-fast);
-}
-
-.model-header:hover {
-  background: var(--sm-color-surface-hover);
-}
-
-.model-name {
-  flex: 1;
-  font-weight: 500;
-  color: var(--sm-color-text-primary);
-}
-
-.expand-state {
-  font-size: 12px;
-  color: var(--sm-color-text-tertiary);
-}
-
-.default-badge {
-  padding: 3px 8px;
-  border: 1px solid var(--sm-color-border-accent);
-  border-radius: 999px;
-  background: var(--sm-color-accent-12);
-  color: var(--sm-color-accent-hover);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.model-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.model-details {
-  padding: 16px;
-  border-top: 1px solid var(--sm-color-border-subtle);
-  background: var(--sm-color-surface-1);
-}
-
-.form-group label {
-  color: var(--sm-color-text-secondary);
-}
-
-.required {
-  color: var(--sm-color-status-danger);
-}
-
-.form-section-title {
-  margin: 0 0 16px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.new-model-form {
-  padding: 16px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-2);
-}
-
-.add-model-btn {
-  width: 100%;
-  padding: 12px;
-  border-style: dashed;
-  color: var(--sm-color-text-secondary);
-}
-
-.add-model-btn:hover {
-  color: var(--sm-color-accent-hover);
-  border-color: var(--sm-color-border-accent);
-}
-
-.model-action--danger {
-  color: var(--sm-color-status-danger);
-}
-
-.save-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-@media (max-width: 720px) {
-  .model-header {
-    flex-wrap: wrap;
-  }
-
-  .model-actions,
-  .save-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-}
-</style>

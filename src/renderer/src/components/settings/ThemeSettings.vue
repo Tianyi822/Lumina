@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { ThemeConfig, ThemeMode } from '@renderer/types'
 import { useTheme } from '@renderer/composables/useTheme'
+import styles from './ThemeSettings.module.css'
 
 interface Props {
   modelValue: ThemeConfig
@@ -78,7 +79,7 @@ function isSelected(themeId: string): boolean {
 </script>
 
 <template>
-  <div class="sm-settings-page theme-settings">
+  <div :class="['sm-settings-page', styles['theme-settings']]">
     <header class="sm-settings-page__header">
       <h2 class="sm-settings-page__title">主题设置</h2>
       <p class="sm-settings-page__description">
@@ -88,22 +89,22 @@ function isSelected(themeId: string): boolean {
 
     <button
       type="button"
-      class="auto-theme-toggle"
+      :class="styles['auto-theme-toggle']"
       :aria-pressed="isAutoMode"
       @click="toggleAutoTheme"
     >
-      <span class="auto-theme-toggle__copy">
-        <span class="auto-theme-toggle__title">跟随系统主题</span>
-        <span class="auto-theme-toggle__desc">
+      <span :class="styles['auto-theme-toggle__copy']">
+        <span :class="styles['auto-theme-toggle__title']">跟随系统主题</span>
+        <span :class="styles['auto-theme-toggle__desc']">
           当前检测到系统为{{ systemThemeLabel }}模式，{{
             isAutoMode ? '应用会自动同步' : '你可以手动切换主题'
           }}。
         </span>
       </span>
 
-      <span class="auto-theme-toggle__control" aria-hidden="true">
-        <span class="auto-theme-toggle__track">
-          <span class="auto-theme-toggle__thumb"></span>
+      <span :class="styles['auto-theme-toggle__control']" aria-hidden="true">
+        <span :class="styles['auto-theme-toggle__track']">
+          <span :class="styles['auto-theme-toggle__thumb']"></span>
         </span>
       </span>
     </button>
@@ -126,238 +127,53 @@ function isSelected(themeId: string): boolean {
         </span>
       </div>
 
-      <div class="theme-grid">
+      <div :class="styles['theme-grid']">
         <button
           v-for="theme in availableThemes"
           :key="theme.id"
           type="button"
-          class="theme-card"
-          :class="{ 'is-selected': isSelected(theme.id), 'is-disabled': isAutoMode }"
+          :class="[
+            styles['theme-card'],
+            { [styles['is-selected']]: isSelected(theme.id), [styles['is-disabled']]: isAutoMode }
+          ]"
           :aria-label="`应用主题 ${theme.name}`"
           :aria-pressed="!isAutoMode && isSelected(theme.id)"
           :disabled="isAutoMode"
           @click="selectTheme(theme.id)"
         >
-          <div class="theme-preview">
+          <div :class="styles['theme-preview']">
             <div
-              class="preview-color primary"
+              :class="[styles['preview-color'], styles.primary]"
               :style="{ backgroundColor: theme.previewColors?.primary }"
             ></div>
             <div
-              class="preview-color secondary"
+              :class="[styles['preview-color'], styles.secondary]"
               :style="{ backgroundColor: theme.previewColors?.secondary }"
             ></div>
             <div
-              class="preview-color accent"
+              :class="[styles['preview-color'], styles.accent]"
               :style="{ backgroundColor: theme.previewColors?.accent }"
             ></div>
             <div
               v-if="theme.previewColors?.extra1"
-              class="preview-color extra"
+              :class="[styles['preview-color'], styles.extra]"
               :style="{ backgroundColor: theme.previewColors?.extra1 }"
             ></div>
             <div
               v-if="theme.previewColors?.extra2"
-              class="preview-color extra"
+              :class="[styles['preview-color'], styles.extra]"
               :style="{ backgroundColor: theme.previewColors?.extra2 }"
             ></div>
           </div>
 
-          <div class="theme-info">
-            <span class="theme-name">{{ theme.name }}</span>
-            <span v-if="theme.description" class="theme-desc">{{ theme.description }}</span>
+          <div :class="styles['theme-info']">
+            <span :class="styles['theme-name']">{{ theme.name }}</span>
+            <span v-if="theme.description" :class="styles['theme-desc']">{{
+              theme.description
+            }}</span>
           </div>
         </button>
       </div>
     </section>
   </div>
 </template>
-
-<style scoped>
-.theme-settings {
-  gap: var(--sm-space-5);
-}
-
-.theme-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-}
-
-.auto-theme-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  width: 100%;
-  padding: 18px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-lg);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--sm-color-accent) 8%, transparent),
-      transparent
-    ),
-    var(--sm-color-surface-2);
-  color: inherit;
-  cursor: pointer;
-  transition:
-    border-color var(--sm-transition-fast),
-    background-color var(--sm-transition-fast),
-    transform var(--sm-transition-fast);
-}
-
-.auto-theme-toggle:hover {
-  border-color: var(--sm-color-border-strong);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--sm-color-accent) 12%, transparent),
-      transparent
-    ),
-    var(--sm-color-surface-hover);
-}
-
-.auto-theme-toggle:focus-visible {
-  border-color: var(--sm-color-border-accent);
-}
-
-.auto-theme-toggle__copy {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  text-align: left;
-}
-
-.auto-theme-toggle__title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.auto-theme-toggle__desc {
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--sm-color-text-secondary);
-}
-
-.auto-theme-toggle__control {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.auto-theme-toggle__track {
-  position: relative;
-  display: inline-flex;
-  width: 52px;
-  height: 30px;
-  padding: 3px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--sm-color-border-default) 72%, transparent);
-  transition: background-color var(--sm-transition-fast);
-}
-
-.auto-theme-toggle[aria-pressed='true'] .auto-theme-toggle__track {
-  background: color-mix(in srgb, var(--sm-color-accent) 72%, white 8%);
-}
-
-.auto-theme-toggle__thumb {
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  background: #ffffff;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
-  transform: translateX(0);
-  transition: transform var(--sm-transition-fast);
-}
-
-.auto-theme-toggle[aria-pressed='true'] .auto-theme-toggle__thumb {
-  transform: translateX(22px);
-}
-
-.theme-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 12px;
-  width: 100%;
-  padding: 16px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-surface-2);
-  cursor: pointer;
-  text-align: left;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast),
-    color var(--sm-transition-fast);
-}
-
-.theme-card:hover {
-  border-color: var(--sm-color-border-strong);
-  background: var(--sm-color-surface-hover);
-}
-
-.theme-card.is-disabled {
-  cursor: not-allowed;
-  opacity: 0.72;
-}
-
-.theme-card.is-disabled:hover {
-  border-color: var(--sm-color-border-default);
-  background: var(--sm-color-surface-2);
-}
-
-.theme-card.is-selected {
-  border-color: var(--sm-color-border-selected);
-  background: var(--sm-color-surface-selected);
-}
-
-.theme-card:focus-visible {
-  border-color: var(--sm-color-border-accent);
-  background: var(--sm-color-surface-hover);
-}
-
-.theme-preview {
-  display: flex;
-  gap: 4px;
-  height: 48px;
-  border-radius: var(--sm-radius-sm);
-  overflow: hidden;
-}
-
-.preview-color {
-  flex: 1;
-  border-radius: 4px;
-}
-
-.preview-color.primary {
-  flex: 2;
-}
-
-.preview-color.extra {
-  flex: 1;
-}
-
-.theme-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.theme-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.theme-desc {
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-  line-height: 1.5;
-}
-</style>

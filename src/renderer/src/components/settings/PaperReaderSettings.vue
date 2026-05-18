@@ -11,6 +11,7 @@ import {
   type OcrProviderId,
   type PaperReaderConfig
 } from '@shared/types/config'
+import styles from './PaperReaderSettings.module.css'
 
 const configStore = useZustandStore(useConfigStore)
 const uiStateStore = useZustandStore(useUIStateStore)
@@ -158,7 +159,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="sm-settings-page paper-reader-settings">
+  <div :class="['sm-settings-page', styles['paper-reader-settings']]">
     <header class="sm-settings-page__header">
       <h2 class="sm-settings-page__title">论文阅读配置</h2>
       <p class="sm-settings-page__description">配置论文 OCR 识别服务与翻译模型。</p>
@@ -172,8 +173,8 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="form-group field-card">
-        <label class="form-label" for="paper-ocr-provider">OCR 服务</label>
+      <div :class="[styles['form-group'], styles['field-card']]">
+        <label :class="styles['form-label']" for="paper-ocr-provider">OCR 服务</label>
         <select
           id="paper-ocr-provider"
           v-model="localConfig.ocr.provider"
@@ -186,28 +187,28 @@ onUnmounted(() => {
         </select>
       </div>
 
-      <div class="form-row">
-        <div class="form-group field-card flex-1">
-          <label class="form-label">模型名称</label>
-          <div class="provider-display">{{ currentPreset?.modelName ?? '-' }}</div>
+      <div :class="styles['form-row']">
+        <div :class="[styles['form-group'], styles['field-card'], styles['flex-1']]">
+          <label :class="styles['form-label']">模型名称</label>
+          <div :class="styles['provider-display']">{{ currentPreset?.modelName ?? '-' }}</div>
         </div>
 
-        <div class="form-group field-card flex-1">
-          <label class="form-label">
+        <div :class="[styles['form-group'], styles['field-card'], styles['flex-1']]">
+          <label :class="styles['form-label']">
             并发数
-            <span class="field-hint">由该模型官方限制，不允许更改</span>
+            <span :class="styles['field-hint']">由该模型官方限制，不允许更改</span>
           </label>
-          <div class="provider-display">{{ currentPreset?.concurrency ?? '-' }}</div>
+          <div :class="styles['provider-display']">{{ currentPreset?.concurrency ?? '-' }}</div>
         </div>
       </div>
 
-      <div class="form-row">
-        <div class="form-group field-card flex-1">
-          <label class="form-label">
+      <div :class="styles['form-row']">
+        <div :class="[styles['form-group'], styles['field-card'], styles['flex-1']]">
+          <label :class="styles['form-label']">
             API Key
             <a
               v-if="currentPreset?.apiKeyUrl"
-              class="api-key-link"
+              :class="styles['api-key-link']"
               href="#"
               @click.prevent="handleOpenApiKeyUrl"
             >
@@ -224,13 +225,13 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="form-group field-card">
-        <label class="form-label">请求地址</label>
-        <div class="provider-display">{{ currentPreset?.url ?? '-' }}</div>
+      <div :class="[styles['form-group'], styles['field-card']]">
+        <label :class="styles['form-label']">请求地址</label>
+        <div :class="styles['provider-display']">{{ currentPreset?.url ?? '-' }}</div>
       </div>
 
-      <div class="form-actions">
-        <div class="form-actions__buttons">
+      <div :class="styles['form-actions']">
+        <div :class="styles['form-actions__buttons']">
           <button
             class="sm-button sm-button--secondary"
             :disabled="!canTest"
@@ -259,8 +260,8 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="form-group field-card">
-        <label class="form-label" for="paper-translation-model">翻译模型</label>
+      <div :class="[styles['form-group'], styles['field-card']]">
+        <label :class="styles['form-label']" for="paper-translation-model">翻译模型</label>
         <select
           id="paper-translation-model"
           v-model="localConfig.translationModel"
@@ -276,8 +277,8 @@ onUnmounted(() => {
         </select>
       </div>
 
-      <div class="form-actions">
-        <div class="form-actions__buttons">
+      <div :class="styles['form-actions']">
+        <div :class="styles['form-actions__buttons']">
           <button
             class="sm-button sm-button--primary"
             :disabled="!translationHasChanges"
@@ -290,123 +291,3 @@ onUnmounted(() => {
     </section>
   </div>
 </template>
-
-<style scoped>
-.paper-reader-settings {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-5);
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 0;
-}
-
-.form-row {
-  display: flex;
-  gap: 16px;
-}
-
-.flex-1 {
-  flex: 1;
-}
-
-.field-card {
-  padding: 14px 16px;
-  border-radius: var(--sm-radius-md);
-  border: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-2);
-  transition:
-    border-color var(--sm-transition-fast),
-    background-color var(--sm-transition-fast);
-}
-
-.field-card:hover {
-  border-color: var(--sm-color-border-strong);
-  background: var(--sm-color-surface-hover);
-}
-
-.field-card:focus-within {
-  border-color: var(--sm-color-border-accent);
-}
-
-.form-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.field-hint {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--sm-color-text-secondary);
-  white-space: nowrap;
-}
-
-.api-key-link {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--sm-color-text-accent);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.api-key-link:hover {
-  text-decoration: underline;
-}
-
-.provider-display {
-  min-height: 36px;
-  padding: 8px 12px;
-  border-radius: var(--sm-radius-sm);
-  border: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-1);
-  color: var(--sm-color-text-primary);
-  font-size: 13px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  word-break: break-all;
-}
-
-select.sm-input {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 32px;
-}
-
-.form-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: flex-end;
-  margin-top: calc(var(--sm-space-2) / -4);
-}
-
-.form-actions__buttons {
-  display: flex;
-  gap: 12px;
-}
-
-@media (max-width: 768px) {
-  .form-row {
-    flex-direction: column;
-  }
-
-  .form-actions__buttons {
-    width: 100%;
-  }
-
-  .form-actions__buttons .sm-button {
-    flex: 1;
-  }
-}
-</style>
