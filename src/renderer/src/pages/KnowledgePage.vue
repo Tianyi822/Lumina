@@ -9,6 +9,7 @@ import FileSelectorModal from '@renderer/components/knowledge/FileSelectorModal.
 import { useKnowledgeStore, useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
+import styles from './KnowledgePage.module.css'
 
 // ==================== 知识库管理（Zustand）====================
 const knowledgeState = useZustandStore(useKnowledgeStore)
@@ -106,7 +107,7 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
 </script>
 
 <template>
-  <div class="knowledge-page sm-workspace-view">
+  <div :class="[styles.page, 'sm-workspace-view']">
     <KnowledgeMain
       ref="knowledgeMainRef"
       :knowledge-base="knowledgeBases.find((kb) => kb.id === activeKbId)"
@@ -137,9 +138,3 @@ function handleDescriptionUpdated(kbId: string, description: string): void {
     />
   </div>
 </template>
-
-<style scoped>
-.knowledge-page {
-  position: relative;
-}
-</style>

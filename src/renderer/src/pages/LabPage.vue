@@ -3,6 +3,7 @@ import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useLabStore, useUIStateStore } from '@renderer/stores'
+import styles from './LabPage.module.css'
 import { useNotification } from '@renderer/composables/useNotification'
 import { labApi } from '@renderer/services/labApi'
 import LabMainContent from '@renderer/components/lab/LabMainContent.vue'
@@ -178,15 +179,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="sm-lab-page sm-workspace-view">
-    <div
-      v-if="loading"
-      class="sm-lab-page__loading"
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-    >
-      <div class="sm-spinner sm-spinner--large sm-lab-page__loading-spinner"></div>
+  <div :class="[styles.page, 'sm-workspace-view']">
+    <div v-if="loading" :class="styles.loading" role="status" aria-live="polite" aria-busy="true">
+      <div :class="['sm-spinner', 'sm-spinner--large', styles.loadingSpinner]"></div>
       <p>正在检测 Docker...</p>
     </div>
 
@@ -216,27 +211,3 @@ onBeforeUnmount(() => {
     </template>
   </div>
 </template>
-
-<style scoped>
-.sm-lab-page {
-  display: flex;
-  flex-direction: column;
-}
-
-.sm-lab-page__loading {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  gap: 16px;
-  color: var(--sm-color-text-secondary);
-}
-
-.sm-lab-page__loading-spinner {
-  color: var(--sm-color-accent-hover);
-}
-</style>

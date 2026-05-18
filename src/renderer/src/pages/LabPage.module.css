@@ -1,0 +1,21 @@
+.page {
+  display: flex;
+  flex-direction: column;
+}
+
+.loading {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  gap: 16px;
+  color: var(--sm-color-text-secondary);
+}
+
+.loadingSpinner {
+  color: var(--sm-color-accent-hover);
+}
