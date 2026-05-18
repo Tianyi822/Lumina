@@ -2,6 +2,7 @@ import { defineConfig } from 'eslint/config'
 import tseslint from '@electron-toolkit/eslint-config-ts'
 import eslintConfigPrettier from '@electron-toolkit/eslint-config-prettier'
 import eslintPluginVue from 'eslint-plugin-vue'
+import eslintPluginReactHooks from 'eslint-plugin-react-hooks'
 import vueParser from 'vue-eslint-parser'
 
 export default defineConfig(
@@ -35,6 +36,15 @@ export default defineConfig(
         }
       ],
       '@typescript-eslint/explicit-function-return-type': 'off'
+    }
+  },
+  {
+    files: ['**/*.{tsx,jsx}'],
+    plugins: {
+      'react-hooks': eslintPluginReactHooks
+    },
+    rules: {
+      ...eslintPluginReactHooks.configs.recommended.rules
     }
   },
   eslintConfigPrettier
