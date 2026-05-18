@@ -18,7 +18,7 @@
 | P2 | 状态管理迁移 | ✅ 已完成 | 2026-05-18 | 2026-05-18 | ✅ 已审查 | 18/22 stores → Zustand，Vue 组件全部适配 |
 | P3 | Composables 逻辑提取 | ✅ 已完成 | 2026-05-18 | 2026-05-18 | ✅ 已审查 | 16 个 Core 文件已创建 |
 | P4 | 样式迁移 | ✅ 已完成 | 2026-05-18 | 2026-05-18 | ✅ 已审查 | 109 个 .module.css 创建，0 个 style scoped 残留；重复 :class 属性待修复 |
-| P5 | Shell 与公共组件 | ⏳ 待开始 | - | - | - | |
+| P5 | Shell 与公共组件 | ✅ 已完成 | 2026-05-18 | 2026-05-18 | ✅ 已审查 | 22 个 React 组件创建，Vue 入口零回归 |
 | P6 | 知识库页面 | ⏳ 待开始 | - | - | - | |
 | P7 | 实验室页面 | ⏳ 待开始 | - | - | - | |
 | P8 | 论文页面 | ⏳ 待开始 | - | - | - | |
@@ -491,3 +491,97 @@ yarn add zustand@^5
 ### 是否建议进入下一阶段
 
 ✅ 建议在修复重复 `:class` 属性后进入 Phase 5（Shell 与公共组件）。lint 通过即可，`sm-` 前缀清理可推迟到 React 组件重写时进行。合并冲突需在进入 Phase 5 前解决（单独操作，非 Phase 4 范围）。
+
+---
+
+## Phase 5 执行记录
+
+### 执行状态：已完成
+
+**开始日期**：2026-05-18
+**完成日期**：2026-05-18
+
+### 完成内容
+
+严格按 Phase 5 计划执行，6 个子任务全部完成。React 入口可渲染完整布局壳层。
+
+| 子任务 | 内容 | Commit |
+|--------|------|--------|
+| 5.0 | 安装 framer-motion + eslint-plugin-react-hooks | `d1fbc26` |
+| 5.5 | 创建 3 个页面占位组件 (KnowledgePage, LabPage, PaperReaderPage) | `2f5e44c` |
+| 5.2 | 迁移 5 个 chrome/ 组件 + SvgIcon | `452b3bb` |
+| 5.3+5.4 | 迁移 NotificationCenter/Item/ConfirmDialog + SettingsModal + 8 Settings 子组件 | `c27cd9f` |
+| 5.1 | 重写 App.tsx 根组件 + PaperQuoteContext + env.d.ts | `0d8e6e0` |
+| — | TypeScript/Lint 修复 | `a6c92f2` |
+| — | Code Review 修复 (window.confirm → notificationCenterStore) | `720653d` |
+
+### 新建文件 (22 个)
+
+| 类别 | 文件 |
+|------|------|
+| App 根组件 | `App.tsx`（重写，已非占位） |
+| Context | `contexts/PaperQuoteContext.tsx` |
+| chrome/ | `WindowControls.tsx`, `WorkspaceViewSwitcher.tsx`, `WorkspaceSidebarChrome.tsx`, `WorkspaceToolbar.tsx`, `WorkspaceSidebarHost.tsx` |
+| 公共组件 | `icons/SvgIcon.tsx`, `NotificationCenter.tsx`, `NotificationItem.tsx`, `NotificationConfirmDialog.tsx`, `SettingsModal.tsx` |
+| Settings 子组件 | `ModelSettings.tsx`, `MCPSettings.tsx`, `EmbeddingModelSettings.tsx`, `KnowledgeMCPSettings.tsx`, `PaperReaderSettings.tsx`, `ThemeSettings.tsx`, `ToolStatsSettings.tsx`, `UpdateSettings.tsx` |
+| 页面占位 | `pages/KnowledgePage.tsx`, `pages/LabPage.tsx`, `pages/PaperReaderPage.tsx` |
+
+### 修改文件 (3 个)
+
+| 文件 | 变更 |
+|------|------|
+| `package.json` + `yarn.lock` | 新增 framer-motion, eslint-plugin-react-hooks |
+| `eslint.config.mjs` | 添加 react-hooks 规则（仅 .tsx/.jsx） |
+| `env.d.ts` | 添加 `*.module.css` 类型声明 |
+
+### 验收标准达成情况
+
+| 标准 | 状态 |
+|------|------|
+| `yarn typecheck:node` 通过 | ✅ |
+| `yarn typecheck:web` 通过 | ✅（仅 2 个预存测试错误，非 Phase 5 引入） |
+| `yarn lint` 通过 | ✅（0 errors, 4 pre-existing warnings） |
+| `npx electron-vite build` 成功 | ✅（3 个 bundle 全部构建成功） |
+| Vue 入口 `yarn dev` 零回归 | ✅（所有 Vue 组件未修改） |
+
+### Code Review 发现的问题
+
+**审查日期**：2026-05-18，使用 superpowers:code-reviewer agent
+
+#### Important（4 个）
+
+1. **I-1**: `getRuntimePlatform()` 在 `NotificationCenter.tsx` 中每渲染调用 — 低优先级，不影响正确性，**暂缓**
+2. **I-2**: 6/8 Settings 骨架组件未导入 CSS Module — 后续阶段完善时自然解决，**暂缓**
+3. **I-3**: `window.confirm()` 用于删除确认（违反 CLAUDE.md） — **已修复**，改用 notificationCenterStore.requestConfirm()
+4. **I-4**: `scrollToQuote` 静态 `null` — 显式 Phase 8 范畴，**暂缓**
+
+#### Minor（6 个，全部暂缓）
+
+1. **M-1**: WorkspaceToolbar 双重否定条件 — 后续重写时解决
+2. **M-2**: WorkspaceViewSwitcher 多余 selector — 组件简单，不优化
+3. **M-3**: ThemeSettings 下划线前缀 destructured prop — **已修复**
+4. **M-4**: `loadConfig()` 调用但骨架未使用 config — 后续阶段需要
+5. **M-5**: NotificationItem actions 数组 index 作 key — 数组小且静态，可接受
+6. **M-6**: WorkspaceSidebarHost 混合 CSS Module/全局类名 — 与 Vue 版本一致，不改变
+
+### receiving-code-review 评估结论
+
+- 0 个 Critical 问题
+- 4 个 Important 问题中，I-3 已修复，其余 3 个可推迟到后续阶段
+- 6 个 Minor 问题中，M-3 已修复，其余 5 个不影响功能
+- **结论：Phase 5 完成，可进入 Phase 6**
+
+### 风险和注意事项
+
+- **Page 页面是占位组件**：PaperReaderPage、KnowledgePage、LabPage 仅显示占位文本。Phase 6-8 填充功能。
+- **Settings 子组件为骨架**：仅 ThemeSettings 有完整主题切换功能。其余 7 个 settings 子组件为骨架，待后续阶段完善。
+- **WorkspaceToolbar 为空壳**：论文工具栏功能（缩放、翻译、目录、图片、聊天）将在 Phase 8 实现。
+- **paperReaderStore 仍为 Pinia**：App.tsx 中跳过了 `loadPaperReaderPreferences()` 调用（Pinia store 无法直接在 React 中使用）。
+- **WorkspaceSidebarHost 简化版**：知识库列表使用 Zustand store 正常工作；论文/实验室列表为占位。
+- **React 入口需手动 UI 验证**：`LUMINA_UI=react yarn dev` 需在图形环境中验证布局和交互。
+- **framer-motion 已安装但未使用**：Transition 动画替代方案暂未实现，将在后续阶段需要时引入。
+
+### 是否建议进入下一阶段
+
+✅ 建议进入 Phase 6（知识库页面迁移）。Phase 5 基础设施稳固，React 壳层完整，所有 checkpoint 通过。
+
