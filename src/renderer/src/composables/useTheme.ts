@@ -1,23 +1,16 @@
-/**
- * 主题管理 composable
- * 封装 uiStateStore 中的主题功能，提供便捷的主题操作接口
- */
-
-import { type Ref } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useUIStateStore, type ThemeMeta } from '@renderer/stores/uiStateStore'
 import type { ThemeMode } from '@shared/types/config'
 import type { SystemTheme } from '@shared/utils'
+import { createThemeCallbacks } from './themeCore'
 
-/**
- * 主题管理 composable
- * 通过 Pinia Store 管理主题状态，主题通过配置文件持久化
- */
+export type { ThemeChangeCallback } from './themeCore'
+
 export function useTheme(): {
-  currentTheme: Ref<string>
-  selectedTheme: Ref<string>
-  themeMode: Ref<ThemeMode>
-  systemTheme: Ref<SystemTheme>
+  currentTheme: string
+  selectedTheme: string
+  themeMode: ThemeMode
+  systemTheme: SystemTheme
   initTheme: () => Promise<void>
   setTheme: (themeId: string) => Promise<void>
   setThemeMode: (mode: ThemeMode) => Promise<void>
@@ -26,61 +19,46 @@ export function useTheme(): {
   getCurrentThemeMeta: () => ThemeMeta | undefined
   onThemeChange: (callback: (theme: string) => void) => () => void
 } {
-  const store = useUIStateStore()
-  const { currentTheme, selectedTheme, themeMode, systemTheme } = storeToRefs(store)
+  const store = useZustandStore(useUIStateStore)
+  const { notify, subscribe } = createThemeCallbacks()
 
-  // 主题变更回调集合
-  const themeChangeCallbacks: Set<(theme: string) => void> = new Set()
-
-  /**
-   * 获取当前主题
-   */
   function getCurrentTheme(): string {
     return store.currentTheme
   }
 
-  /**
-   * 获取所有可用主题
-   */
   function getAvailableThemes(): ThemeMeta[] {
     return store.getAvailableThemes()
   }
 
-  /**
-   * 获取当前主题的元数据
-   */
   function getCurrentThemeMeta(): ThemeMeta | undefined {
-    return store.currentThemeMeta
-  }
-
-  /**
-   * 监听主题变化
-   */
-  function onThemeChange(callback: (theme: string) => void): () => void {
-    themeChangeCallbacks.add(callback)
-    return () => {
-      themeChangeCallbacks.delete(callback)
-    }
+    return store.currentThemeMeta()
   }
 
   return {
-    currentTheme,
-    selectedTheme,
-    themeMode,
-    systemTheme,
+    get currentTheme() {
+      return store.currentTheme
+    },
+    get selectedTheme() {
+      return store.selectedTheme
+    },
+    get themeMode() {
+      return store.themeMode
+    },
+    get systemTheme() {
+      return store.systemTheme
+    },
     initTheme: store.initTheme,
     setTheme: async (themeId: string) => {
       await store.setTheme(themeId)
-      // 触发回调
-      themeChangeCallbacks.forEach((cb) => cb(store.currentTheme))
+      notify(store.currentTheme)
     },
     setThemeMode: async (mode: ThemeMode) => {
       await store.setThemeMode(mode)
-      themeChangeCallbacks.forEach((cb) => cb(store.currentTheme))
+      notify(store.currentTheme)
     },
     getCurrentTheme,
     getAvailableThemes,
     getCurrentThemeMeta,
-    onThemeChange
+    onThemeChange: subscribe
   }
 }

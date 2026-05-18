@@ -26,7 +26,6 @@ interface OverviewMetrics {
   p95DurationMs: number
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useToolStats() {
   // 状态
   const timeRange: Ref<TimeRangeKey> = ref('7d')

@@ -1,4 +1,7 @@
 import { computed, type ComputedRef } from 'vue'
+import { getRuntimePlatform } from './runtimePlatformCore'
+
+export type { RuntimePlatformInfo } from './runtimePlatformCore'
 
 export interface RuntimePlatformState {
   platform: ComputedRef<string>
@@ -9,12 +12,12 @@ export interface RuntimePlatformState {
 }
 
 export function useRuntimePlatform(): RuntimePlatformState {
-  const platform = computed(() => window.electron?.process?.platform || 'unknown')
-  const isMac = computed(() => platform.value === 'darwin')
-  const isWindows = computed(() => platform.value === 'win32')
+  const info = getRuntimePlatform()
+  const isMac = computed(() => info.isMac)
+  const isWindows = computed(() => info.isWindows)
 
   return {
-    platform,
+    platform: computed(() => info.platform),
     isMac,
     isWindows,
     usesNativeTrafficLights: isMac,
