@@ -18,6 +18,7 @@ import { useTheme } from './composables/useTheme'
 
 // Stores
 import { useUIStateStore, useConfigStore, usePaperReaderStore } from './stores'
+import appStyles from './App.module.css'
 
 // ==================== 主题初始化 ====================
 const { initTheme } = useTheme()
@@ -34,9 +35,9 @@ const isCurrentSidebarCollapsed = computed(() => uiState.isCurrentSidebarCollaps
 
 const workspacePageClasses = computed(() => ({
   [`sm-workspace-page--${currentView.value}`]: true,
-  'sm-workspace-page--sidebar-collapsed': isCurrentSidebarCollapsed.value,
+  [appStyles.sidebarCollapsed]: isCurrentSidebarCollapsed.value,
   'sm-workspace-page--mac': isMac.value,
-  'sm-workspace-page--windows': isWindows.value
+  [appStyles.windows]: isWindows.value
 }))
 
 // 配置 Store - 用于加载语音识别等配置
@@ -129,11 +130,11 @@ onBeforeUnmount(() => {
     <NotificationCenter />
 
     <!-- 主布局 -->
-    <div class="sm-shell sm-workspace-page" :class="workspacePageClasses">
-      <div class="sm-workspace-page__drag-region" aria-hidden="true"></div>
-      <div class="sm-workspace-page__chrome-actions" aria-label="窗口快捷操作">
+    <div :class="['sm-shell', 'sm-workspace-page', appStyles.workspacePage, workspacePageClasses]">
+      <div :class="[appStyles.dragRegion]" aria-hidden="true"></div>
+      <div :class="[appStyles.chromeActions]" aria-label="窗口快捷操作">
         <button
-          class="sm-icon-button sm-workspace-page__chrome-button"
+          :class="['sm-icon-button', appStyles.chromeButton]"
           title="设置"
           aria-label="打开设置"
           @click="openSettings"
@@ -143,7 +144,7 @@ onBeforeUnmount(() => {
 
         <button
           v-if="isPaperView"
-          class="sm-icon-button sm-workspace-page__chrome-button"
+          :class="['sm-icon-button', appStyles.chromeButton]"
           :title="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
           :aria-label="isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
           @click="toggleSidebar"
@@ -152,7 +153,7 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <div v-if="usesCustomWindowControls" class="sm-workspace-page__win-controls">
+      <div v-if="usesCustomWindowControls" :class="[appStyles.winControls]">
         <WindowControls />
       </div>
 
@@ -179,93 +180,3 @@ onBeforeUnmount(() => {
     </Transition>
   </div>
 </template>
-
-<style scoped>
-.sm-workspace-page__drag-region {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--sm-space-3);
-  z-index: 3;
-  -webkit-app-region: drag;
-  user-select: none;
-}
-
-.sm-workspace-page {
-  --sm-workspace-chrome-actions-safe-width: 140px;
-  --sm-window-controls-safe-width: 0px;
-  --sm-window-control-button-width: 46px;
-}
-
-.sm-workspace-page--windows {
-  --sm-window-controls-safe-width: calc(var(--sm-window-control-button-width) * 3);
-}
-
-.sm-workspace-page__chrome-actions {
-  position: absolute;
-  top: 12px;
-  left: 90px;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 0;
-  -webkit-app-region: no-drag;
-  pointer-events: auto;
-}
-
-.sm-workspace-page__chrome-button {
-  width: 24px;
-  height: 30px;
-  border-color: transparent;
-  border-radius: 0;
-  background: transparent;
-  -webkit-app-region: no-drag;
-}
-
-.sm-workspace-page__chrome-button:hover,
-.sm-workspace-page__chrome-button:active,
-.sm-workspace-page__chrome-button:focus-visible {
-  border-color: transparent;
-  background: transparent;
-  color: var(--sm-color-text-primary);
-}
-
-.sm-workspace-page--windows .sm-workspace-page__chrome-actions {
-  top: var(--sm-space-3);
-  left: calc(var(--sm-space-3) + var(--sm-space-4));
-}
-
-.sm-workspace-page--windows .sm-workspace-main::before {
-  content: '';
-  position: absolute;
-  top: calc(var(--sm-space-3) * -1);
-  left: 0;
-  right: var(--sm-window-controls-safe-width);
-  z-index: 3;
-  height: var(--sm-titlebar-height);
-  -webkit-app-region: drag;
-  user-select: none;
-}
-
-.sm-workspace-page--windows.sm-workspace-page--sidebar-collapsed .sm-workspace-main::before {
-  left: var(--sm-workspace-chrome-actions-safe-width, 140px);
-}
-
-.sm-workspace-page--windows .sm-workspace-page__win-controls {
-  position: fixed;
-  top: 0;
-  right: 0;
-  z-index: 21;
-  display: inline-flex;
-  align-items: center;
-  width: var(--sm-window-controls-safe-width);
-  height: var(--sm-titlebar-height);
-  -webkit-app-region: no-drag;
-  pointer-events: auto;
-}
-
-.sm-workspace-page--windows .sm-workspace-page__drag-region {
-  right: var(--sm-window-controls-safe-width);
-}
-</style>

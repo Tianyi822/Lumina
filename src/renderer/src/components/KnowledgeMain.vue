@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useKnowledgeIndexStore } from '@renderer/stores'
 import type { KnowledgeBase } from '@renderer/types'
 import { useKnowledgeFiles } from './knowledge/composables/useKnowledgeFiles'
+import styles from './KnowledgeMain.module.css'
 import { useReindex } from './knowledge/composables/useReindex'
 import StatsPanel from './knowledge/StatsPanel.vue'
 import SearchPanel from './knowledge/SearchPanel.vue'
@@ -143,14 +144,14 @@ defineExpose({ handleFilesLinked })
 </script>
 
 <template>
-  <main class="kb-main">
-    <div v-if="currentKB" class="kb-workspace">
-      <section class="kb-overview">
-        <div class="kb-overview__header">
-          <div class="kb-overview__copy">
-            <div class="kb-overview__title-row">
-              <div class="kb-overview__heading">
-                <h1 class="kb-title">{{ currentKB.name }}</h1>
+  <main :class="styles.kbMain">
+    <div v-if="currentKB" :class="styles.kbWorkspace">
+      <section :class="styles.kbOverview">
+        <div :class="styles.kbOverviewHeader">
+          <div :class="styles.kbOverviewCopy">
+            <div :class="styles.kbOverviewTitleRow">
+              <div :class="styles.kbOverviewHeading">
+                <h1 :class="styles.kbTitle">{{ currentKB.name }}</h1>
               </div>
             </div>
 
@@ -158,7 +159,7 @@ defineExpose({ handleFilesLinked })
               v-if="isEditingDescription"
               ref="descriptionTextareaRef"
               v-model="editingDescription"
-              class="sm-textarea kb-description kb-description--editing"
+              :class="['sm-textarea', styles.kbDescription, styles.kbDescriptionEditing]"
               rows="3"
               placeholder="补充知识库用途、范围和检索约束..."
               @blur="saveDescription"
@@ -167,8 +168,7 @@ defineExpose({ handleFilesLinked })
 
             <p
               v-else
-              class="kb-description"
-              :class="{ 'kb-description-empty': !currentKB.description }"
+              :class="[styles.kbDescription, { 'kb-description-empty': !currentKB.description }]"
               @dblclick="startEditDescription"
             >
               {{ currentKB.description || '双击编辑，补充知识库用途、覆盖范围和检索约束。' }}
@@ -214,169 +214,3 @@ defineExpose({ handleFilesLinked })
     </div>
   </main>
 </template>
-
-<style scoped>
-.kb-main {
-  flex: 1;
-  display: flex;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.kb-workspace {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  gap: var(--sm-space-4);
-  overflow-y: auto;
-  padding: var(--sm-space-6);
-}
-
-.kb-overview {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-3);
-  flex-shrink: 0;
-}
-
-.kb-overview__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sm-space-5);
-}
-
-.kb-overview__copy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-2);
-  flex: 1;
-  min-width: 0;
-}
-
-.kb-overview__title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sm-space-4);
-}
-
-.kb-overview__heading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sm-space-2);
-  min-width: 0;
-}
-
-.kb-title {
-  margin: 0;
-  max-width: 100%;
-  font-size: 28px;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--sm-color-text-primary);
-  overflow-wrap: anywhere;
-}
-
-.kb-description {
-  margin: 0;
-  padding: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--sm-color-text-secondary);
-}
-
-.kb-description--editing {
-  padding: var(--sm-space-3);
-}
-
-.kb-description-empty {
-  color: var(--sm-color-text-tertiary);
-}
-
-.kb-reindex-notice {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sm-space-4);
-  padding: var(--sm-space-4);
-  border: 1px solid rgba(213, 161, 74, 0.32);
-  border-radius: var(--sm-radius-md);
-  background: rgba(213, 161, 74, 0.1);
-}
-
-.kb-reindex-notice__copy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-2);
-  min-width: 0;
-  color: var(--sm-color-text-primary);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.kb-reindex-notice__copy strong {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.kb-reindex-notice__copy span {
-  color: var(--sm-color-text-secondary);
-}
-
-.kb-reindex-notice__copy ul {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--sm-color-text-secondary);
-}
-
-.empty-kb {
-  flex: 1;
-  padding: var(--sm-space-6);
-}
-
-.empty-kb h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.empty-kb p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--sm-color-text-secondary);
-}
-
-@media (max-width: 960px) {
-  .kb-overview__header,
-  .kb-overview__title-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .kb-overview__heading {
-    align-items: flex-start;
-  }
-
-  .kb-reindex-notice {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-
-@media (max-width: 720px) {
-  .kb-workspace {
-    padding: var(--sm-space-5);
-  }
-
-  .empty-kb {
-    padding: var(--sm-space-5);
-  }
-}
-</style>

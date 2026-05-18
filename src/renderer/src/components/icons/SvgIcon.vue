@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { icons } from './icons'
+import styles from './SvgIcon.module.css'
 
 interface Props {
   name: string
@@ -32,8 +33,7 @@ const iconStyle = computed(() => {
 
 <template>
   <svg
-    class="svg-icon"
-    :class="{ 'svg-icon-spin': spin }"
+    :class="[styles.icon, { [styles.spin]: spin }]"
     :viewBox="iconData.viewBox"
     :width="iconSize"
     :height="iconSize"
@@ -57,25 +57,3 @@ const iconStyle = computed(() => {
     <!-- eslint-enable vue/no-v-html -->
   </svg>
 </template>
-
-<style scoped>
-.svg-icon {
-  display: inline-block;
-  vertical-align: middle;
-  flex-shrink: 0;
-  color: inherit;
-}
-
-.svg-icon-spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-</style>

@@ -3,6 +3,7 @@ import WindowControls from '@renderer/components/chrome/WindowControls.vue'
 import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar.vue'
 import WorkspaceViewSwitcher from '@renderer/components/chrome/WorkspaceViewSwitcher.vue'
 import { useRuntimePlatform } from '@renderer/composables/useRuntimePlatform'
+import styles from './TitleBar.module.css'
 
 const emit = defineEmits<{
   (e: 'open-settings'): void
@@ -16,7 +17,7 @@ function handleOpenSettings(): void {
 </script>
 
 <template>
-  <div class="sm-titlebar title-bar" :class="{ 'sm-titlebar--mac': usesNativeTrafficLights }">
+  <div :class="['sm-titlebar', styles.titleBar, { 'sm-titlebar--mac': usesNativeTrafficLights }]">
     <div class="sm-titlebar__start">
       <WorkspaceToolbar @open-settings="handleOpenSettings" />
     </div>
@@ -30,9 +31,3 @@ function handleOpenSettings(): void {
     </div>
   </div>
 </template>
-
-<style scoped>
-.title-bar {
-  min-width: 0;
-}
-</style>
