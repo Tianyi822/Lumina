@@ -15,27 +15,52 @@ import { useComposeConfigStore } from './composeConfigStore'
 import { useDockerfileConfigStore } from './dockerfileConfigStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import { labApi } from '@renderer/services/labApi'
-import type { LabCreateType, CreatePhase, ComposeTemplateType } from './types'
+import type {
+  GeneratorForm,
+  LabCreateType,
+  CreatePhase,
+  ComposeTemplateType,
+  PortMapping
+} from './types'
 
 export const useLabCreatorStore = defineStore('labCreator', () => {
   // ==================== Store Dependencies ====================
 
   const containerStore = useContainerStore()
-  const configStore = useDockerConfigStore()
-  const portMappingStore = usePortMappingStore()
-  const composeConfigStore = useComposeConfigStore()
-  const dockerfileConfigStore = useDockerfileConfigStore()
   const notify = useNotification()
 
   const { containers } = storeToRefs(containerStore)
   const { loadDockerfileConfig, loadComposeConfig, saveDockerfileConfig, saveComposeConfig } =
-    configStore
+    useDockerConfigStore.getState()
 
-  const { portMappings } = storeToRefs(portMappingStore)
-  const { composeContent, composeProjectName, selectedComposeId, generatorForm } =
-    storeToRefs(composeConfigStore)
-  const { dockerfileContent, dockerfileContext, dockerfileProjectName, selectedDockerfileId } =
-    storeToRefs(dockerfileConfigStore)
+  const portMappings = ref(usePortMappingStore.getState().portMappings)
+  const composeContent = ref(useComposeConfigStore.getState().composeContent)
+  const composeProjectName = ref(useComposeConfigStore.getState().composeProjectName ?? '')
+  const selectedComposeId = ref(useComposeConfigStore.getState().selectedComposeId)
+  const generatorForm = ref<GeneratorForm>({ ...useComposeConfigStore.getState().generatorForm })
+  const showGenerator = ref(useComposeConfigStore.getState().showGenerator)
+  const dockerfileContent = ref(useDockerfileConfigStore.getState().dockerfileContent)
+  const dockerfileContext = ref(useDockerfileConfigStore.getState().dockerfileContext)
+  const dockerfileProjectName = ref(useDockerfileConfigStore.getState().dockerfileProjectName)
+  const selectedDockerfileId = ref(useDockerfileConfigStore.getState().selectedDockerfileId)
+
+  // 订阅 Zustand store 变更，同步到 Pinia refs
+  usePortMappingStore.subscribe((s) => {
+    portMappings.value = s.portMappings
+  })
+  useComposeConfigStore.subscribe((s) => {
+    composeContent.value = s.composeContent
+    composeProjectName.value = s.composeProjectName
+    selectedComposeId.value = s.selectedComposeId
+    generatorForm.value = { ...s.generatorForm }
+    showGenerator.value = s.showGenerator
+  })
+  useDockerfileConfigStore.subscribe((s) => {
+    dockerfileContent.value = s.dockerfileContent
+    dockerfileContext.value = s.dockerfileContext
+    dockerfileProjectName.value = s.dockerfileProjectName
+    selectedDockerfileId.value = s.selectedDockerfileId
+  })
 
   // ==================== State: 创建类型与容器选择 ====================
 
@@ -99,23 +124,31 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
   // 监听内容变化，自动解析端口
   watch(dockerfileContent, (content) => {
     if (createType.value === 'dockerfile' && content) {
-      portMappingStore.portMappings = portMappingStore.parseDockerfilePorts(content)
+      usePortMappingStore.setState({
+        portMappings: usePortMappingStore.getState().parseDockerfilePorts(content)
+      })
     }
   })
 
   watch(composeContent, (content) => {
     if (createType.value === 'compose' && content) {
-      portMappingStore.portMappings = portMappingStore.parseComposePorts(content)
+      usePortMappingStore.setState({
+        portMappings: usePortMappingStore.getState().parseComposePorts(content)
+      })
     }
   })
 
   watch(createType, (type) => {
     if (type === 'dockerfile') {
-      portMappingStore.portMappings = portMappingStore.parseDockerfilePorts(dockerfileContent.value)
+      usePortMappingStore.setState({
+        portMappings: usePortMappingStore.getState().parseDockerfilePorts(dockerfileContent.value)
+      })
     } else if (type === 'compose') {
-      portMappingStore.portMappings = portMappingStore.parseComposePorts(composeContent.value)
+      usePortMappingStore.setState({
+        portMappings: usePortMappingStore.getState().parseComposePorts(composeContent.value)
+      })
     } else {
-      portMappingStore.portMappings = []
+      usePortMappingStore.setState({ portMappings: [] })
     }
   })
 
@@ -686,9 +719,9 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
     createPhase.value = 'idle'
     resetSshConfig()
 
-    composeConfigStore.reset()
-    dockerfileConfigStore.reset()
-    portMappingStore.reset()
+    useComposeConfigStore.getState().reset()
+    useDockerfileConfigStore.getState().reset()
+    usePortMappingStore.getState().reset()
   }
 
   return {
@@ -714,8 +747,11 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
 
     // State: 配置生成器 (From Sub-store)
     showGenerator: computed({
-      get: () => composeConfigStore.showGenerator,
-      set: (val) => (composeConfigStore.showGenerator = val)
+      get: () => showGenerator.value,
+      set: (val) => {
+        showGenerator.value = val
+        useComposeConfigStore.setState({ showGenerator: val })
+      }
     }),
     generatorForm,
 
@@ -743,25 +779,28 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
     resetContainerSelector,
 
     // Actions: 端口映射 (Delegated to Sub-store)
-    updatePortMapping: portMappingStore.updatePortMapping,
-    addPortMapping: portMappingStore.addPortMapping,
-    removePortMapping: portMappingStore.removePortMapping,
+    updatePortMapping: (index: number, mapping: Partial<PortMapping>) =>
+      usePortMappingStore.getState().updatePortMapping(index, mapping),
+    addPortMapping: () => usePortMappingStore.getState().addPortMapping(),
+    removePortMapping: (index: number) => usePortMappingStore.getState().removePortMapping(index),
     refreshPorts: () => {
       if (createType.value === 'dockerfile') {
-        portMappingStore.portMappings = portMappingStore.parseDockerfilePorts(
-          dockerfileContent.value
-        )
+        usePortMappingStore.setState({
+          portMappings: usePortMappingStore.getState().parseDockerfilePorts(dockerfileContent.value)
+        })
       } else if (createType.value === 'compose') {
-        portMappingStore.portMappings = portMappingStore.parseComposePorts(composeContent.value)
+        usePortMappingStore.setState({
+          portMappings: usePortMappingStore.getState().parseComposePorts(composeContent.value)
+        })
       }
     },
 
     // Actions: 配置生成器 (Delegated to Sub-store)
-    resetGeneratorForm: composeConfigStore.resetGeneratorForm,
+    resetGeneratorForm: () => useComposeConfigStore.getState().resetGeneratorForm(),
     onSavedDockerfileSelect,
     clearSavedDockerfile,
-    generateServiceConfig: composeConfigStore.generateServiceConfig,
-    insertServiceConfig: composeConfigStore.insertServiceConfig,
+    generateServiceConfig: () => useComposeConfigStore.getState().generateServiceConfig(),
+    insertServiceConfig: () => useComposeConfigStore.getState().insertServiceConfig(),
 
     // Actions: 保存配置
     openSaveDialog,
@@ -784,7 +823,8 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
     updateSshConfig,
 
     // Helper (From Sub-store)
-    getComposeTemplate: (type: ComposeTemplateType) => composeConfigStore.composeTemplates[type],
-    composeTemplates: composeConfigStore.composeTemplates
+    getComposeTemplate: (type: ComposeTemplateType) =>
+      useComposeConfigStore.getState().composeTemplates[type],
+    composeTemplates: useComposeConfigStore.getState().composeTemplates
   }
 })

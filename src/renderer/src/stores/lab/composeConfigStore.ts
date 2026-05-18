@@ -1,5 +1,4 @@
-import { ref } from 'vue'
-import { defineStore } from 'pinia'
+import { create } from 'zustand'
 import type { GeneratorForm } from './types'
 
 const COMPOSE_TEMPLATES = {
@@ -48,47 +47,44 @@ services:
 `
 } as const
 
-export const useComposeConfigStore = defineStore('labComposeConfig', () => {
-  /** Compose 内容 */
-  const composeContent = ref('')
-  /** Compose 项目名称 */
-  const composeProjectName = ref('')
-  /** 选中的 Compose 配置 ID */
-  const selectedComposeId = ref<string | null>(null)
+const defaultGeneratorForm: GeneratorForm = {
+  serviceName: 'app',
+  sourceType: 'build',
+  image: 'node:18-alpine',
+  useSavedDockerfile: false,
+  savedDockerfileId: null,
+  context: './app',
+  dockerfile: 'Dockerfile',
+  buildArgs: '',
+  ports: '3000:3000',
+  environment: 'NODE_ENV=development'
+}
 
-  /** 构建配置生成器显示状态 */
-  const showGenerator = ref(false)
-  /** 构建配置生成器表单 */
-  const generatorForm = ref<GeneratorForm>({
-    serviceName: 'app',
-    sourceType: 'build',
-    image: 'node:18-alpine',
-    useSavedDockerfile: false,
-    savedDockerfileId: null,
-    context: './app',
-    dockerfile: 'Dockerfile',
-    buildArgs: '',
-    ports: '3000:3000',
-    environment: 'NODE_ENV=development'
-  })
+interface ComposeConfigState {
+  composeContent: string
+  composeProjectName: string
+  selectedComposeId: string | null
+  showGenerator: boolean
+  generatorForm: GeneratorForm
+  composeTemplates: typeof COMPOSE_TEMPLATES
+  resetGeneratorForm: () => void
+  generateServiceConfig: () => string
+  insertServiceConfig: () => void
+  reset: () => void
+}
 
-  function resetGeneratorForm(): void {
-    generatorForm.value = {
-      serviceName: 'app',
-      sourceType: 'build',
-      image: 'node:18-alpine',
-      useSavedDockerfile: false,
-      savedDockerfileId: null,
-      context: './app',
-      dockerfile: 'Dockerfile',
-      buildArgs: '',
-      ports: '3000:3000',
-      environment: 'NODE_ENV=development'
-    }
-  }
+export const useComposeConfigStore = create<ComposeConfigState>()((set, get) => ({
+  composeContent: '',
+  composeProjectName: '',
+  selectedComposeId: null,
+  showGenerator: false,
+  generatorForm: { ...defaultGeneratorForm },
+  composeTemplates: COMPOSE_TEMPLATES,
 
-  function generateServiceConfig(): string {
-    const form = generatorForm.value
+  resetGeneratorForm: () => set({ generatorForm: { ...defaultGeneratorForm } }),
+
+  generateServiceConfig: () => {
+    const form = get().generatorForm
     const lines: string[] = []
     const indent = '    '
 
@@ -146,14 +142,13 @@ export const useComposeConfigStore = defineStore('labComposeConfig', () => {
     }
 
     return lines.join('\n')
-  }
+  },
 
-  function insertServiceConfig(): void {
-    const config = generateServiceConfig()
-    const serviceName = generatorForm.value.serviceName.trim() || 'app'
-    const currentContent = composeContent.value
+  insertServiceConfig: () => {
+    const config = get().generateServiceConfig()
+    const serviceName = get().generatorForm.serviceName.trim() || 'app'
+    const currentContent = get().composeContent
 
-    // 解析现有内容，查找并替换已存在的服务
     const lines = currentContent.split('\n')
     let inServices = false
     let currentService: string | null = null
@@ -164,26 +159,22 @@ export const useComposeConfigStore = defineStore('labComposeConfig', () => {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
 
-      // 检测 services 块开始
       if (line.trim() === 'services:') {
         inServices = true
         continue
       }
 
-      // 检测其他顶级块（退出 services 块）
       if (inServices && line.match(/^[a-zA-Z]/) && !line.startsWith('  ')) {
         inServices = false
-        if (foundService) break
       }
 
       if (inServices) {
-        // 检测服务定义（2空格缩进 + 服务名 + 冒号）
         const serviceMatch = line.match(/^ {2}([a-zA-Z0-9_-]+):\s*$/)
         if (serviceMatch) {
-          // 如果之前找到了目标服务，记录结束位置
           if (currentService === serviceName && !foundService) {
             serviceEndLine = i
             foundService = true
+            break
           }
           currentService = serviceMatch[1]
           if (currentService === serviceName) {
@@ -194,56 +185,41 @@ export const useComposeConfigStore = defineStore('labComposeConfig', () => {
       }
     }
 
-    // 如果找到了目标服务但没设置结束位置，说明是最后一个服务
     if (currentService === serviceName && serviceEndLine === -1) {
       serviceEndLine = lines.length
       foundService = true
     }
 
+    let newContent: string
     if (foundService && serviceStartLine >= 0) {
-      // 替换已存在的服务
-      const newLines = [
+      newContent = [
         ...lines.slice(0, serviceStartLine),
         ...config.split('\n'),
         ...lines.slice(serviceEndLine)
-      ]
-      composeContent.value = newLines.join('\n')
+      ].join('\n')
     } else {
-      // 服务不存在，插入新配置
       const servicesMatch = currentContent.match(/services:\s*\n/m)
       if (servicesMatch && servicesMatch.index !== undefined) {
         const insertIndex = servicesMatch.index + servicesMatch[0].length
-        composeContent.value =
+        newContent =
           currentContent.slice(0, insertIndex) + config + '\n' + currentContent.slice(insertIndex)
       } else if (currentContent.includes('version:')) {
-        composeContent.value = currentContent + '\nservices:\n' + config + '\n'
+        newContent = currentContent + '\nservices:\n' + config + '\n'
       } else {
-        composeContent.value = "version: '3.8'\n\nservices:\n" + config + '\n'
+        newContent = "version: '3.8'\n\nservices:\n" + config + '\n'
       }
     }
 
-    showGenerator.value = false
-    resetGeneratorForm()
-  }
+    set({ composeContent: newContent, showGenerator: false })
+    get().resetGeneratorForm()
+  },
 
-  function reset(): void {
-    composeContent.value = ''
-    composeProjectName.value = ''
-    selectedComposeId.value = null
-    showGenerator.value = false
-    resetGeneratorForm()
-  }
-
-  return {
-    composeContent,
-    composeProjectName,
-    selectedComposeId,
-    showGenerator,
-    generatorForm,
-    composeTemplates: COMPOSE_TEMPLATES,
-    resetGeneratorForm,
-    generateServiceConfig,
-    insertServiceConfig,
-    reset
-  }
-})
+  reset: () =>
+    set({
+      composeContent: '',
+      composeProjectName: '',
+      selectedComposeId: null,
+      showGenerator: false,
+      generatorForm: { ...defaultGeneratorForm }
+    })
+}))

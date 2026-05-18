@@ -1,5 +1,4 @@
-import { ref, computed } from 'vue'
-import { defineStore } from 'pinia'
+import { create } from 'zustand'
 import type {
   Notification,
   NotificationType,
@@ -19,33 +18,49 @@ export interface ConfirmState {
   resolve: ((value: boolean) => void) | null
 }
 
-export const useNotificationCenterStore = defineStore('notificationCenter', () => {
-  const notifications = ref<Notification[]>([])
-  const recentDedupeKeys = new Map<string, number>()
-  const dismissTimers = new Map<string, ReturnType<typeof setTimeout>>()
+interface NotificationCenterState {
+  notifications: Notification[]
+  confirmState: ConfirmState
 
-  // 确认对话框共享状态
-  const confirmState = ref<ConfirmState>({
+  hasNotifications: () => boolean
+
+  add: (type: NotificationType, title: string, message?: string, options?: NotifyOptions) => string
+  dismiss: (id: string) => void
+  dismissAll: () => void
+  clearByType: (type: NotificationType) => void
+  clearBySource: (source: NotificationSource) => void
+  requestConfirm: (message: string, title: string, danger: boolean) => Promise<boolean>
+  resolveConfirm: (result: boolean) => void
+}
+
+const recentDedupeKeys = new Map<string, number>()
+const dismissTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function clearTimer(id: string): void {
+  const timer = dismissTimers.get(id)
+  if (timer) {
+    clearTimeout(timer)
+    dismissTimers.delete(id)
+  }
+}
+
+export const useNotificationCenterStore = create<NotificationCenterState>()((set, get) => ({
+  notifications: [],
+  confirmState: {
     visible: false,
     message: '',
     title: '',
     danger: false,
     resolve: null
-  })
+  },
 
-  const hasNotifications = computed(() => notifications.value.length > 0)
+  hasNotifications: () => get().notifications.length > 0,
 
-  function add(
-    type: NotificationType,
-    title: string,
-    message?: string,
-    options?: NotifyOptions
-  ): string {
+  add: (type, title, message, options) => {
     const id = `notif-${++idCounter}-${Date.now()}`
     const now = Date.now()
     const dedupeKey = options?.dedupeKey ?? `${type}:${title}:${message ?? ''}`
 
-    // 去重检查
     const lastShown = recentDedupeKeys.get(dedupeKey)
     if (lastShown && now - lastShown < NOTIFICATION_DEFAULTS.dedupWindowMs) {
       return ''
@@ -70,115 +85,103 @@ export const useNotificationCenterStore = defineStore('notificationCenter', () =
       actions: options?.actions
     }
 
-    // 溢出处理：超出 maxStack 时移除最旧的非 sticky 通知
-    if (notifications.value.length >= NOTIFICATION_DEFAULTS.maxStack) {
-      const removableIndex = [...notifications.value]
-        .reverse()
-        .findIndex((n) => n.persistence !== 'sticky')
-      if (removableIndex !== -1) {
-        const actualIndex = notifications.value.length - 1 - removableIndex
-        const removed = notifications.value[actualIndex]
-        clearTimer(removed.id)
-        notifications.value.splice(actualIndex, 1)
-      } else {
-        const removed = notifications.value[notifications.value.length - 1]
-        clearTimer(removed.id)
-        notifications.value.pop()
+    set((state) => {
+      const next = [...state.notifications]
+
+      if (next.length >= NOTIFICATION_DEFAULTS.maxStack) {
+        const removableIndex = [...next].reverse().findIndex((n) => n.persistence !== 'sticky')
+        if (removableIndex !== -1) {
+          const actualIndex = next.length - 1 - removableIndex
+          const removed = next[actualIndex]
+          clearTimer(removed.id)
+          next.splice(actualIndex, 1)
+        } else {
+          const removed = next[next.length - 1]
+          clearTimer(removed.id)
+          next.pop()
+        }
       }
-    }
 
-    // 新通知插入头部（最新的在顶部）
-    notifications.value.unshift(notification)
+      next.unshift(notification)
+      return { notifications: next }
+    })
 
-    // 日志桥接
     notificationLoggerBridge.log(notification)
 
-    // 自动消失
     if (duration > 0) {
       const timer = setTimeout(() => {
-        dismiss(id)
+        get().dismiss(id)
       }, duration)
       dismissTimers.set(id, timer)
     }
 
     return id
-  }
+  },
 
-  function dismiss(id: string): void {
-    const index = notifications.value.findIndex((n) => n.id === id)
+  dismiss: (id) => {
+    const state = get()
+    const index = state.notifications.findIndex((n) => n.id === id)
     if (index === -1) return
     clearTimer(id)
-    notifications.value.splice(index, 1)
-  }
+    set({ notifications: state.notifications.filter((n) => n.id !== id) })
+  },
 
-  function dismissAll(): void {
+  dismissAll: () => {
     dismissTimers.forEach((timer) => clearTimeout(timer))
     dismissTimers.clear()
-    notifications.value = []
     recentDedupeKeys.clear()
-  }
+    set({ notifications: [] })
+  },
 
-  function clearByType(type: NotificationType): void {
-    notifications.value = notifications.value.filter((n) => {
-      if (n.type === type) {
-        clearTimer(n.id)
-        return false
-      }
-      return true
-    })
-  }
+  clearByType: (type) => {
+    set((state) => ({
+      notifications: state.notifications.filter((n) => {
+        if (n.type === type) {
+          clearTimer(n.id)
+          return false
+        }
+        return true
+      })
+    }))
+  },
 
-  function clearBySource(source: NotificationSource): void {
-    notifications.value = notifications.value.filter((n) => {
-      if (n.source === source) {
-        clearTimer(n.id)
-        return false
-      }
-      return true
-    })
-  }
+  clearBySource: (source) => {
+    set((state) => ({
+      notifications: state.notifications.filter((n) => {
+        if (n.source === source) {
+          clearTimer(n.id)
+          return false
+        }
+        return true
+      })
+    }))
+  },
 
-  function clearTimer(id: string): void {
-    const timer = dismissTimers.get(id)
-    if (timer) {
-      clearTimeout(timer)
-      dismissTimers.delete(id)
-    }
-  }
-
-  function requestConfirm(message: string, title: string, danger: boolean): Promise<boolean> {
+  requestConfirm: (message, title, danger) => {
     return new Promise((resolve) => {
-      confirmState.value = {
-        visible: true,
-        message,
-        title,
-        danger,
-        resolve
+      set({
+        confirmState: {
+          visible: true,
+          message,
+          title,
+          danger,
+          resolve
+        }
+      })
+    })
+  },
+
+  resolveConfirm: (result) => {
+    const { confirmState } = get()
+    confirmState.resolve?.(result)
+    set({
+      confirmState: {
+        visible: false,
+        message: '',
+        title: '',
+        danger: false,
+        resolve: null
       }
     })
   }
-
-  function resolveConfirm(result: boolean): void {
-    confirmState.value.resolve?.(result)
-    confirmState.value = {
-      visible: false,
-      message: '',
-      title: '',
-      danger: false,
-      resolve: null
-    }
-  }
-
-  return {
-    notifications,
-    hasNotifications,
-    confirmState,
-    add,
-    dismiss,
-    dismissAll,
-    clearByType,
-    clearBySource,
-    requestConfirm,
-    resolveConfirm
-  }
-})
+}))

@@ -1,28 +1,53 @@
-// 文件管理 Store
-// 管理文件列表、上传、删除、关联知识库等功能
-
-import { ref, computed } from 'vue'
-import { defineStore } from 'pinia'
+import { create } from 'zustand'
 import type { FileItem } from '@renderer/types'
 import { formatFileSize } from '@shared/utils'
 
-export const useFileStore = defineStore('fileStore', () => {
-  // 文件列表
-  const files = ref<FileItem[]>([])
+interface FileState {
+  files: FileItem[]
+  loading: boolean
+  searchQuery: string
 
-  // 加载状态
-  const loading = ref(false)
+  filteredFiles: () => FileItem[]
 
-  // 搜索关键词
-  const searchQuery = ref('')
+  loadFiles: () => Promise<void>
+  searchFiles: (query: string) => void
+  uploadFile: (
+    file: File
+  ) => Promise<{ success: boolean; file?: FileItem; isDuplicate?: boolean; error?: string }>
+  uploadFiles: (
+    filesParam: File[]
+  ) => Promise<{ success: boolean; uploaded: FileItem[]; errors: string[]; duplicates: FileItem[] }>
+  deleteFile: (
+    fileId: string,
+    forceDelete?: boolean
+  ) => Promise<{ success: boolean; error?: string }>
+  linkFileToKB: (fileId: string, kbId: string) => Promise<{ success: boolean; error?: string }>
+  unlinkFileFromKB: (fileId: string, kbId: string) => Promise<{ success: boolean; error?: string }>
+  getFilesByKBId: (kbId: string) => Promise<FileItem[]>
+  getFileUsage: (fileId: string) => Promise<string[]>
+  formatDate: (dateStr: string) => string
+  formatFileSize: (bytes: number) => string
+}
 
-  // 过滤后的文件列表（前端实时过滤）
-  const filteredFiles = computed(() => {
-    if (!searchQuery.value.trim()) {
-      return files.value
+function logError(message: string, error: unknown, context?: Record<string, unknown>): void {
+  window.api.logger.error(`[FileStore] ${message}`, {
+    ...context,
+    error: error instanceof Error ? error.message : String(error)
+  })
+}
+
+export const useFileStore = create<FileState>()((set, get) => ({
+  files: [],
+  loading: false,
+  searchQuery: '',
+
+  filteredFiles: () => {
+    const state = get()
+    if (!state.searchQuery.trim()) {
+      return state.files
     }
-    const query = searchQuery.value.toLowerCase()
-    return files.value.filter((file) => {
+    const query = state.searchQuery.toLowerCase()
+    return state.files.filter((file) => {
       const searchableText = [
         file.name,
         file.sourceKind,
@@ -35,41 +60,27 @@ export const useFileStore = defineStore('fileStore', () => {
         .toLowerCase()
       return searchableText.includes(query)
     })
-  })
+  },
 
-  function logError(message: string, error: unknown, context?: Record<string, unknown>): void {
-    window.api.logger.error(`[FileStore] ${message}`, {
-      ...context,
-      error: error instanceof Error ? error.message : String(error)
-    })
-  }
-
-  // 加载所有文件列表
-  async function loadFiles(): Promise<void> {
+  loadFiles: async () => {
     try {
-      loading.value = true
+      set({ loading: true })
       const result = await window.api.file.list()
       if (result.success && result.data) {
-        files.value = result.data
+        set({ files: result.data })
       } else {
         window.api.logger.error('[FileStore] 加载文件列表失败', { error: result.error })
       }
     } catch (error) {
       logError('加载文件列表失败', error)
     } finally {
-      loading.value = false
+      set({ loading: false })
     }
-  }
+  },
 
-  // 搜索文件（更新搜索关键词）
-  function searchFiles(query: string): void {
-    searchQuery.value = query
-  }
+  searchFiles: (query) => set({ searchQuery: query }),
 
-  // 上传单个文件
-  async function uploadFile(
-    file: File
-  ): Promise<{ success: boolean; file?: FileItem; isDuplicate?: boolean; error?: string }> {
+  uploadFile: async (file) => {
     try {
       const arrayBuffer = await file.arrayBuffer()
       const uint8Array = new Uint8Array(arrayBuffer)
@@ -81,39 +92,26 @@ export const useFileStore = defineStore('fileStore', () => {
 
       if (result.success && result.file) {
         if (!result.isDuplicate) {
-          files.value.unshift(result.file)
+          set((state) => ({ files: [result.file!, ...state.files] }))
         }
-        return {
-          success: true,
-          file: result.file,
-          isDuplicate: result.isDuplicate
-        }
+        return { success: true, file: result.file, isDuplicate: result.isDuplicate }
       }
 
-      return {
-        success: false,
-        error: result.error || '上传失败'
-      }
+      return { success: false, error: result.error || '上传失败' }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logError('上传文件失败', error, { fileName: file.name })
-      return {
-        success: false,
-        error: errorMessage
-      }
+      return { success: false, error: errorMessage }
     }
-  }
+  },
 
-  // 批量上传文件
-  async function uploadFiles(
-    filesParam: File[]
-  ): Promise<{ success: boolean; uploaded: FileItem[]; errors: string[]; duplicates: FileItem[] }> {
+  uploadFiles: async (filesParam) => {
     const uploaded: FileItem[] = []
     const errors: string[] = []
     const duplicates: FileItem[] = []
 
     for (const file of filesParam) {
-      const result = await uploadFile(file)
+      const result = await get().uploadFile(file)
       if (result.success) {
         if (result.isDuplicate && result.file) {
           duplicates.push(result.file)
@@ -131,17 +129,13 @@ export const useFileStore = defineStore('fileStore', () => {
       errors,
       duplicates
     }
-  }
+  },
 
-  // 删除文件
-  async function deleteFile(
-    fileId: string,
-    forceDelete?: boolean
-  ): Promise<{ success: boolean; error?: string }> {
+  deleteFile: async (fileId, forceDelete) => {
     try {
       const result = await window.api.file.delete(fileId, forceDelete)
       if (result.success) {
-        files.value = files.value.filter((f) => f.id !== fileId)
+        set((state) => ({ files: state.files.filter((f) => f.id !== fileId) }))
         return { success: true }
       }
       return { success: false, error: result.error }
@@ -150,17 +144,13 @@ export const useFileStore = defineStore('fileStore', () => {
       logError('删除文件失败', error, { fileId })
       return { success: false, error: errorMessage }
     }
-  }
+  },
 
-  // 将文件关联到知识库
-  async function linkFileToKB(
-    fileId: string,
-    kbId: string
-  ): Promise<{ success: boolean; error?: string }> {
+  linkFileToKB: async (fileId, kbId) => {
     try {
       const result = await window.api.file.linkToKB(fileId, kbId)
       if (result.success) {
-        const file = files.value.find((f) => f.id === fileId)
+        const file = get().files.find((f) => f.id === fileId)
         if (file && !file.usedByKBIds.includes(kbId)) {
           file.usedByKBIds.push(kbId)
         }
@@ -172,17 +162,13 @@ export const useFileStore = defineStore('fileStore', () => {
       logError('关联文件失败', error, { fileId, kbId })
       return { success: false, error: errorMessage }
     }
-  }
+  },
 
-  // 从知识库取消文件关联
-  async function unlinkFileFromKB(
-    fileId: string,
-    kbId: string
-  ): Promise<{ success: boolean; error?: string }> {
+  unlinkFileFromKB: async (fileId, kbId) => {
     try {
       const result = await window.api.file.unlinkFromKB(fileId, kbId)
       if (result.success) {
-        const file = files.value.find((f) => f.id === fileId)
+        const file = get().files.find((f) => f.id === fileId)
         if (file) {
           file.usedByKBIds = file.usedByKBIds.filter((id) => id !== kbId)
         }
@@ -194,28 +180,23 @@ export const useFileStore = defineStore('fileStore', () => {
       logError('取消关联失败', error, { fileId, kbId })
       return { success: false, error: errorMessage }
     }
-  }
+  },
 
-  // 获取知识库关联的文件列表
-  async function getFilesByKBId(kbId: string): Promise<FileItem[]> {
+  getFilesByKBId: async (kbId) => {
     try {
       const result = await window.api.file.getByKBId(kbId)
       if (result.success && result.data) {
         return result.data
       }
-      window.api.logger.error('[FileStore] 获取知识库文件列表失败', {
-        kbId,
-        error: result.error
-      })
+      window.api.logger.error('[FileStore] 获取知识库文件列表失败', { kbId, error: result.error })
       return []
     } catch (error) {
       logError('获取知识库文件列表失败', error, { kbId })
       return []
     }
-  }
+  },
 
-  // 获取文件使用情况
-  async function getFileUsage(fileId: string): Promise<string[]> {
+  getFileUsage: async (fileId) => {
     try {
       const result = await window.api.file.getUsage(fileId)
       if (result.success && result.data) {
@@ -226,32 +207,15 @@ export const useFileStore = defineStore('fileStore', () => {
       logError('获取文件使用情况失败', error, { fileId })
       return []
     }
-  }
+  },
 
-  // 格式化日期（2025/02/03）
-  function formatDate(dateStr: string): string {
+  formatDate: (dateStr) => {
     const date = new Date(dateStr)
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}/${month}/${day}`
-  }
+  },
 
-  return {
-    files,
-    loading,
-    searchQuery,
-    filteredFiles,
-    loadFiles,
-    searchFiles,
-    uploadFile,
-    uploadFiles,
-    deleteFile,
-    linkFileToKB,
-    unlinkFileFromKB,
-    getFilesByKBId,
-    getFileUsage,
-    formatFileSize,
-    formatDate
-  }
-})
+  formatFileSize
+}))

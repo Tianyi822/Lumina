@@ -1,177 +1,150 @@
-// 聊天流状态 Store
-// 管理聊天流状态，包括多会话并发、流式事件处理
-
-import { ref, computed } from 'vue'
-import { defineStore } from 'pinia'
-import type {
-  Message,
-  PlanExecutionStatus,
-  PlanStepStatus,
-  StreamEvent,
-  UserInteractionRequest
-} from '@renderer/types'
+import { create } from 'zustand'
 import { usePaperChatMessageCacheStore } from './paperChatMessageCacheStore'
 import { useReactIterationManager } from './paperChatReactIteration'
 import { usePlanStateManager } from './paperChatPlanState'
+import type { Message, StreamEvent, UserInteractionRequest } from '@renderer/types'
 
-// 重新导出类型以保持兼容
 export type { PlanStepIteration, PaperChatPlanState } from './paperChatPlanState'
 
-export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
-  // ==================== Dependencies ====================
+interface PaperChatStreamState {
+  isSending: boolean
+  sessionSendingStates: Map<string, boolean>
+  messagesSnapshots: Map<string, Message[]>
+  streamingSessionId: string | null
+  cleanupStreamListenerFn: (() => void) | null
+  showUserInteraction: boolean
+  userInteractionInfo: UserInteractionRequest | null
 
-  const paperChatMessageCache = usePaperChatMessageCacheStore()
+  streamingSessionCount: () => number
+  activeSessionIds: () => string[]
 
-  // ==================== State ====================
-
-  // 是否正在发送消息（全局状态，用于当前会话）
-  const isSending = ref(false)
-
-  // 会话级别的发送状态（用于多会话并发管理）
-  const sessionSendingStates = ref<Map<string, boolean>>(new Map())
-
-  // 发送前的消息快照（用于错误回滚）
-  const messagesSnapshots = ref<Map<string, Message[]>>(new Map())
-
-  // 当前正在流式响应的会话ID
-  const streamingSessionId = ref<string | null>(null)
-
-  // 流式监听器清理函数
-  const cleanupStreamListenerFn = ref<(() => void) | null>(null)
-
-  // 用户交互选项状态
-  const showUserInteraction = ref(false)
-  const userInteractionInfo = ref<UserInteractionRequest | null>(null)
-
-  // ReAct 迭代管理
-  const reactIteration = useReactIterationManager()
-
-  // Plan 状态管理
-  const planManager = usePlanStateManager()
-
-  // ==================== Getters ====================
-
-  // 获取当前正在流式响应的会话数量
-  const streamingSessionCount = computed(() => {
-    let count = 0
-    for (const [, isSending] of sessionSendingStates.value.entries()) {
-      if (isSending) count++
-    }
-    return count
-  })
-
-  // 获取所有正在发送的会话 ID 列表
-  const activeSessionIds = computed(() => {
-    const ids: string[] = []
-    for (const [sessionId, sending] of sessionSendingStates.value.entries()) {
-      if (sending) ids.push(sessionId)
-    }
-    return ids
-  })
-
-  // ==================== Actions ====================
-
-  // 获取指定会话的发送状态
-  function getSessionSendingState(sessionId: string): boolean {
-    return sessionSendingStates.value.get(sessionId) || false
-  }
-
-  // 设置指定会话的发送状态
-  function setSessionSendingState(
-    sessionId: string,
-    state: boolean,
-    isCurrentSession: boolean = false
-  ): void {
-    sessionSendingStates.value.set(sessionId, state)
-
-    // 如果是当前会话，同步更新全局 isSending
-    if (isCurrentSession) {
-      isSending.value = state
-    }
-
-    // 更新流式会话 ID
-    if (state) {
-      streamingSessionId.value = sessionId
-      // 新的流开始时，清除之前的用户交互选项
-      if (isCurrentSession) {
-        hideUserInteraction()
-      }
-    } else if (streamingSessionId.value === sessionId) {
-      streamingSessionId.value = null
-    }
-
-    window.api.logger.debug('[PaperChatStreamStore] 设置会话发送状态', {
-      sessionId,
-      state,
-      isCurrentSession,
-      streamingSessionId: streamingSessionId.value
-    })
-  }
-
-  // 设置当前会话的发送状态（便捷方法）
-  function setIsSending(state: boolean): void {
-    isSending.value = state
-  }
-
-  // 保存消息快照
-  function saveMessagesSnapshot(sessionId: string, messages: Message[]): void {
-    messagesSnapshots.value.set(sessionId, JSON.parse(JSON.stringify(messages)))
-
-    window.api.logger.debug('[PaperChatStreamStore] 保存消息快照', {
-      sessionId,
-      messageCount: messages.length
-    })
-  }
-
-  // 获取消息快照
-  function getMessagesSnapshot(sessionId: string): Message[] | null {
-    return messagesSnapshots.value.get(sessionId) || null
-  }
-
-  // 清除消息快照
-  function clearMessagesSnapshot(sessionId: string): void {
-    messagesSnapshots.value.delete(sessionId)
-  }
-
-  // 隐藏用户交互选项
-  function hideUserInteraction(): void {
-    showUserInteraction.value = false
-    userInteractionInfo.value = null
-  }
-
-  // 处理流式事件
-  // 根据事件类型更新消息内容、推理内容、工具调用等
-  function handleStreamEvent(
+  getSessionSendingState: (sessionId: string) => boolean
+  setSessionSendingState: (sessionId: string, state: boolean, isCurrentSession?: boolean) => void
+  setIsSending: (state: boolean) => void
+  saveMessagesSnapshot: (sessionId: string, messages: Message[]) => void
+  getMessagesSnapshot: (sessionId: string) => Message[] | null
+  clearMessagesSnapshot: (sessionId: string) => void
+  hideUserInteraction: () => void
+  beginPlanning: (sessionId: string, turnId: string) => void
+  failPlanState: (sessionId: string, error: string) => void
+  getSessionPlanState: (
+    sessionId: string
+  ) => ReturnType<ReturnType<typeof usePlanStateManager>['getSessionPlanState']>
+  resetPlanState: (sessionId: string) => void
+  handleStreamEvent: (
     event: StreamEvent,
     currentSessionId: string | null,
     currentMessages: Message[]
-  ): void {
-    const targetSessionId = event.sessionId || streamingSessionId.value
+  ) => void
+  setupStreamListener: (handler: (event: StreamEvent) => void) => void
+  cleanupStreamListener: () => void
+  stopRequest: (sessionId?: string, currentMessages?: Message[]) => Promise<void>
+  resetSessionState: (sessionId: string) => void
+  resetAllState: () => void
+}
 
-    if (!targetSessionId) {
-      window.api.logger.warn('[PaperChatStreamStore] 无法确定目标会话', { event })
-      return
+const paperChatMessageCache = usePaperChatMessageCacheStore
+const reactIteration = useReactIterationManager()
+const planManager = usePlanStateManager()
+
+export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get) => ({
+  isSending: false,
+  sessionSendingStates: new Map(),
+  messagesSnapshots: new Map(),
+  streamingSessionId: null,
+  cleanupStreamListenerFn: null,
+  showUserInteraction: false,
+  userInteractionInfo: null,
+
+  streamingSessionCount: () => {
+    let count = 0
+    for (const [, isSending] of get().sessionSendingStates.entries()) {
+      if (isSending) count++
     }
+    return count
+  },
+
+  activeSessionIds: () => {
+    const ids: string[] = []
+    for (const [sessionId, sending] of get().sessionSendingStates.entries()) {
+      if (sending) ids.push(sessionId)
+    }
+    return ids
+  },
+
+  getSessionSendingState: (sessionId) => get().sessionSendingStates.get(sessionId) || false,
+
+  setSessionSendingState: (sessionId, state, isCurrentSession = false) =>
+    set((s) => {
+      const next = new Map(s.sessionSendingStates)
+      next.set(sessionId, state)
+
+      const patch: Partial<PaperChatStreamState> = { sessionSendingStates: next }
+
+      if (isCurrentSession) {
+        patch.isSending = state
+      }
+
+      if (state) {
+        patch.streamingSessionId = sessionId
+        if (isCurrentSession) {
+          patch.showUserInteraction = false
+          patch.userInteractionInfo = null
+        }
+      } else if (s.streamingSessionId === sessionId) {
+        patch.streamingSessionId = null
+      }
+
+      return patch
+    }),
+
+  setIsSending: (state) => set({ isSending: state }),
+
+  saveMessagesSnapshot: (sessionId, messages) =>
+    set((s) => {
+      const next = new Map(s.messagesSnapshots)
+      next.set(sessionId, JSON.parse(JSON.stringify(messages)))
+      return { messagesSnapshots: next }
+    }),
+
+  getMessagesSnapshot: (sessionId) => get().messagesSnapshots.get(sessionId) || null,
+
+  clearMessagesSnapshot: (sessionId) =>
+    set((s) => {
+      const next = new Map(s.messagesSnapshots)
+      next.delete(sessionId)
+      return { messagesSnapshots: next }
+    }),
+
+  hideUserInteraction: () => set({ showUserInteraction: false, userInteractionInfo: null }),
+
+  beginPlanning: planManager.beginPlanning,
+  failPlanState: planManager.failPlanState,
+  getSessionPlanState: planManager.getSessionPlanState,
+  resetPlanState: planManager.resetPlanState,
+
+  handleStreamEvent: (event, currentSessionId, currentMessages) => {
+    const state = get()
+    const targetSessionId = event.sessionId || state.streamingSessionId
+    if (!targetSessionId) return
 
     const isCurrentSession = targetSessionId === currentSessionId
 
-    // 获取目标消息列表
     let targetMessages: Message[]
     if (isCurrentSession) {
       targetMessages = currentMessages
     } else {
-      // 非当前会话：从缓存获取或初始化
-      const cached = paperChatMessageCache.getCachedMessagesRef(targetSessionId)
+      const cached = paperChatMessageCache.getState().getCachedMessagesRef(targetSessionId)
       if (cached) {
         targetMessages = cached
       } else {
-        // 创建新缓存
         targetMessages = []
-        targetMessages = paperChatMessageCache.cacheSession(targetSessionId, targetMessages)
+        targetMessages = paperChatMessageCache
+          .getState()
+          .cacheSession(targetSessionId, targetMessages)
       }
     }
 
-    // 找到本轮正在流式输出的消息。带 turnId 的旧事件不能写入新一轮消息。
     const streamingMessage = targetMessages.find(
       (msg) => msg.isStreaming && (!event.turnId || msg.id === event.turnId)
     )
@@ -225,7 +198,6 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
             iterationNum,
             event.status as 'thinking' | 'calling_tools' | 'processing' | undefined
           )
-          // Plan 模式下：将迭代关联到当前执行的步骤
           const activePlan = planManager.planStates.value.get(targetSessionId)
           if (activePlan && activePlan.status === 'running' && activePlan.currentStepIndex >= 0) {
             newIter.taskNumber = activePlan.currentStepIndex + 1
@@ -236,10 +208,8 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
 
       case 'reasoning':
         if (streamingMessage && event.content) {
-          // 保持现有逻辑：累加到 message.reasoning（向后兼容）
           streamingMessage.reasoning = (streamingMessage.reasoning || '') + event.content
 
-          // 新增：同时累加到当前迭代的 reasoning
           const iterForReasoning = reactIteration.getCurrentIteration(
             streamingMessage,
             targetSessionId
@@ -252,7 +222,6 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
 
       case 'tool_call':
         if (streamingMessage && event.toolCall) {
-          // 1. 更新 assistant 消息的 tool_calls（标准格式）
           if (!streamingMessage.tool_calls) {
             streamingMessage.tool_calls = []
           }
@@ -272,13 +241,11 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
           }
           reactIteration.appendToolStep(streamingMessage, targetSessionId, toolCallStep)
 
-          // 更新当前迭代状态为 calling_tools
           const currentIter = reactIteration.getCurrentIteration(streamingMessage, targetSessionId)
           if (currentIter && currentIter.status === 'thinking') {
             currentIter.status = 'calling_tools'
           }
 
-          // Plan 模式下：更新步骤迭代的工具调用摘要
           planManager.updatePlanStepIterationToolCall(
             targetSessionId,
             `${event.toolCall.serverName}__${event.toolCall.name}`
@@ -306,16 +273,11 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
                 event.toolResult
               )
               if (!updated) {
-                const toolResultStep = {
-                  type: 'tool_result' as const,
+                reactIteration.appendToolStep(targetAssistantMessage, targetSessionId, {
+                  type: 'tool_result',
                   toolResult: event.toolResult,
                   timestamp: new Date().toISOString()
-                }
-                reactIteration.appendToolStep(
-                  targetAssistantMessage,
-                  targetSessionId,
-                  toolResultStep
-                )
+                })
               }
             } else if (
               !reactIteration.updateToolResultStep(targetAssistantMessage, event.toolResult)
@@ -335,9 +297,8 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
 
       case 'knowledge_search':
         if (streamingMessage && event.knowledgeSearch) {
-          // 使用 knowledgeBaseId 作为 ID，确保与 knowledge_result 的 ID 一致
-          const kbSearchStep = {
-            type: 'tool_call' as const,
+          reactIteration.appendToolStep(streamingMessage, targetSessionId, {
+            type: 'tool_call',
             toolCall: {
               id: `kb-${event.knowledgeSearch.knowledgeBaseId}`,
               name: 'knowledge_search',
@@ -345,16 +306,14 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
               arguments: { query: event.knowledgeSearch.query }
             },
             timestamp: new Date().toISOString()
-          }
-          reactIteration.appendToolStep(streamingMessage, targetSessionId, kbSearchStep)
+          })
         }
         break
 
       case 'knowledge_result':
         if (streamingMessage && event.knowledgeResult) {
-          // 使用 knowledgeBaseId 作为 ID，与 knowledge_search 的 ID 保持一致
-          const kbResultStep = {
-            type: 'tool_result' as const,
+          reactIteration.appendToolStep(streamingMessage, targetSessionId, {
+            type: 'tool_result',
             toolResult: {
               id: `kb-${event.knowledgeResult.knowledgeBaseId}`,
               name: 'knowledge_search',
@@ -372,15 +331,13 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
               }
             },
             timestamp: new Date().toISOString()
-          }
-          reactIteration.appendToolStep(streamingMessage, targetSessionId, kbResultStep)
+          })
         }
         break
 
       case 'user_interaction':
         if (isCurrentSession && event.userInteraction) {
-          showUserInteraction.value = true
-          userInteractionInfo.value = event.userInteraction
+          set({ showUserInteraction: true, userInteractionInfo: event.userInteraction })
         }
         break
 
@@ -392,129 +349,31 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
         handleStreamError(event, targetSessionId, isCurrentSession, targetMessages)
         break
     }
-  }
+  },
 
-  // 处理流式完成事件
-  function handleStreamDone(
-    event: StreamEvent,
-    sessionId: string,
-    isCurrentSession: boolean,
-    streamingMessage?: Message
-  ): void {
-    if (streamingMessage) {
-      streamingMessage.isStreaming = false
-      if (event.usage) {
-        streamingMessage.usage = event.usage
-      }
-      reactIteration.finalizeIterations(streamingMessage, sessionId)
-      if (streamingMessage.planExecution) {
-        streamingMessage.planExecution.isActive = false
-      }
-    } else {
-      reactIteration.deleteIterationIndex(sessionId)
+  setupStreamListener: (handler) => {
+    get().cleanupStreamListener()
+    const cleanup = window.api.chat.onStream(handler)
+    set({ cleanupStreamListenerFn: cleanup })
+  },
+
+  cleanupStreamListener: () => {
+    const fn = get().cleanupStreamListenerFn
+    if (fn) {
+      fn()
+      set({ cleanupStreamListenerFn: null })
     }
+  },
 
-    planManager.finalizePlanState(sessionId, event)
-    // 更新会话发送状态
-    sessionSendingStates.value.set(sessionId, false)
-
-    if (isCurrentSession) {
-      isSending.value = false
-      streamingSessionId.value = null
-      clearMessagesSnapshot(sessionId)
-      // 注意：不清除 userInteraction，选项需要持续显示到用户做出选择
-    } else {
-      // 非当前会话：保存缓存
-      if (streamingSessionId.value === sessionId) {
-        streamingSessionId.value = null
-      }
-      paperChatMessageCache.saveCachedSession(sessionId)
-    }
-
-    window.api.logger.debug('[PaperChatStreamStore] 流式响应完成', {
-      sessionId,
-      isCurrentSession,
-      hasUsage: !!event.usage
-    })
-  }
-
-  // 处理流式错误事件
-  function handleStreamError(
-    event: StreamEvent,
-    sessionId: string,
-    isCurrentSession: boolean,
-    targetMessages: Message[]
-  ): void {
-    const streamingMessage = targetMessages.find(
-      (msg) => msg.isStreaming && (!event.turnId || msg.id === event.turnId)
-    )
-
-    if (streamingMessage) {
-      streamingMessage.isStreaming = false
-      if (!streamingMessage.content.trim() && event.error) {
-        streamingMessage.content = `请求失败：${event.error}`
-      }
-      reactIteration.finalizeIterations(streamingMessage, sessionId)
-    } else {
-      reactIteration.deleteIterationIndex(sessionId)
-    }
-
-    planManager.finalizePlanState(sessionId, event)
-    // 重置发送状态
-    sessionSendingStates.value.set(sessionId, false)
-
-    if (isCurrentSession) {
-      isSending.value = false
-      streamingSessionId.value = null
-      clearMessagesSnapshot(sessionId)
-      hideUserInteraction()
-    } else {
-      // 非当前会话：保留失败消息到缓存，避免后台状态丢失
-      if (streamingSessionId.value === sessionId) {
-        streamingSessionId.value = null
-      }
-      paperChatMessageCache.saveCachedSession(sessionId)
-    }
-
-    window.api.logger.error('[PaperChatStreamStore] 流式响应错误', {
-      error: event.error,
-      sessionId,
-      isCurrentSession
-    })
-  }
-
-  // 设置流式响应监听器
-  function setupStreamListener(handler: (event: StreamEvent) => void): void {
-    // 清理旧监听器
-    cleanupStreamListener()
-
-    cleanupStreamListenerFn.value = window.api.chat.onStream(handler)
-
-    window.api.logger.info('[PaperChatStreamStore] 流式监听器已设置')
-  }
-
-  // 清理流式监听器
-  function cleanupStreamListener(): void {
-    if (cleanupStreamListenerFn.value) {
-      cleanupStreamListenerFn.value()
-      cleanupStreamListenerFn.value = null
-      window.api.logger.info('[PaperChatStreamStore] 流式监听器已清理')
-    }
-  }
-
-  // 中止当前请求
-  // 立即更新本地状态，异步通知后端停止
-  async function stopRequest(sessionId?: string, currentMessages?: Message[]): Promise<void> {
-    const targetSessionId = sessionId || streamingSessionId.value
-    if (!targetSessionId) {
-      window.api.logger.warn('[PaperChatStreamStore] 没有活动的流式会话可停止')
-      return
-    }
+  stopRequest: async (sessionId, currentMessages) => {
+    const state = get()
+    const targetSessionId = sessionId || state.streamingSessionId
+    if (!targetSessionId) return
 
     const targetMessages =
       currentMessages && currentMessages.length > 0
         ? currentMessages
-        : paperChatMessageCache.getCachedMessagesRef(targetSessionId)
+        : paperChatMessageCache.getState().getCachedMessagesRef(targetSessionId)
 
     const streamingMessage = targetMessages?.find((msg) => msg.isStreaming)
     if (streamingMessage) {
@@ -524,23 +383,28 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
       reactIteration.deleteIterationIndex(targetSessionId)
     }
 
-    // 立即更新本地状态，不等待后端响应
-    sessionSendingStates.value.set(targetSessionId, false)
-    if (streamingSessionId.value === targetSessionId) {
-      isSending.value = false
-    }
-    streamingSessionId.value = null
-    clearMessagesSnapshot(targetSessionId)
+    set((s) => {
+      const next = new Map(s.sessionSendingStates)
+      next.set(targetSessionId, false)
+      return {
+        sessionSendingStates: next,
+        isSending: s.streamingSessionId === targetSessionId ? false : s.isSending,
+        streamingSessionId: null
+      }
+    })
+
+    state.clearMessagesSnapshot(targetSessionId)
+
     const existingPlan = planManager.planStates.value.get(targetSessionId)
     if (existingPlan) {
       const nextPlan = {
         ...existingPlan,
-        status: 'cancelled' as PlanExecutionStatus,
+        status: 'cancelled' as const,
         steps: planManager
           .clonePlanSteps(existingPlan.steps)
           .map((step) =>
             step.status === 'pending' || step.status === 'running'
-              ? { ...step, status: 'cancelled' as PlanStepStatus, error: '用户已取消' }
+              ? { ...step, status: 'cancelled' as const, error: '用户已取消' }
               : step
           ),
         error: '用户已取消',
@@ -549,80 +413,135 @@ export const usePaperChatStreamStore = defineStore('paperChatStream', () => {
       planManager.setPlanState(targetSessionId, nextPlan)
     }
 
-    window.api.logger.info('[PaperChatStreamStore] 正在停止请求', { sessionId: targetSessionId })
+    window.api.chat.stop(targetSessionId).catch(() => {
+      // silent
+    })
+  },
 
-    try {
-      // 异步调用后端停止（不等待结果）
-      window.api.chat.stop(targetSessionId).catch((error) => {
-        window.api.logger.error('[PaperChatStreamStore] 停止请求失败', {
-          error: error instanceof Error ? error.message : String(error),
-          sessionId: targetSessionId
-        })
-      })
-    } catch (error) {
-      window.api.logger.error('[PaperChatStreamStore] 停止请求异常', {
-        error: error instanceof Error ? error.message : String(error),
-        sessionId: targetSessionId
-      })
-    }
-  }
+  resetSessionState: (sessionId) =>
+    set((s) => {
+      const nextSending = new Map(s.sessionSendingStates)
+      nextSending.delete(sessionId)
+      const nextSnapshots = new Map(s.messagesSnapshots)
+      nextSnapshots.delete(sessionId)
 
-  // 重置指定会话的状态
-  function resetSessionState(sessionId: string): void {
-    sessionSendingStates.value.delete(sessionId)
-    messagesSnapshots.value.delete(sessionId)
-    reactIteration.deleteIterationIndex(sessionId)
-    planManager.deletePlanState(sessionId)
+      reactIteration.deleteIterationIndex(sessionId)
+      planManager.deletePlanState(sessionId)
 
-    if (streamingSessionId.value === sessionId) {
-      streamingSessionId.value = null
-    }
+      return {
+        sessionSendingStates: nextSending,
+        messagesSnapshots: nextSnapshots,
+        streamingSessionId: s.streamingSessionId === sessionId ? null : s.streamingSessionId
+      }
+    }),
 
-    window.api.logger.debug('[PaperChatStreamStore] 重置会话状态', { sessionId })
-  }
-
-  // 重置所有状态
-  function resetAllState(): void {
-    isSending.value = false
-    sessionSendingStates.value.clear()
-    messagesSnapshots.value.clear()
+  resetAllState: () => {
+    get().cleanupStreamListener()
     reactIteration.currentIterationIndex.value.clear()
     planManager.planStates.value = new Map()
-    streamingSessionId.value = null
-    cleanupStreamListener()
+    set({
+      isSending: false,
+      sessionSendingStates: new Map(),
+      messagesSnapshots: new Map(),
+      streamingSessionId: null
+    })
+  }
+}))
 
-    window.api.logger.info('[PaperChatStreamStore] 重置所有状态')
+// Module-level functions not dependent on state
+function handleStreamDone(
+  event: StreamEvent,
+  sessionId: string,
+  isCurrentSession: boolean,
+  streamingMessage?: Message
+): void {
+  const store = usePaperChatStreamStore
+
+  if (streamingMessage) {
+    streamingMessage.isStreaming = false
+    if (event.usage) {
+      streamingMessage.usage = event.usage
+    }
+    reactIteration.finalizeIterations(streamingMessage, sessionId)
+    if (streamingMessage.planExecution) {
+      streamingMessage.planExecution.isActive = false
+    }
+  } else {
+    reactIteration.deleteIterationIndex(sessionId)
   }
 
-  return {
-    // 状态
-    isSending,
-    sessionSendingStates,
-    messagesSnapshots,
-    streamingSessionId,
-    showUserInteraction,
-    userInteractionInfo,
-    planStates: planManager.planStates,
-    // 计算属性
-    streamingSessionCount,
-    activeSessionIds,
-    // 操作
-    getSessionSendingState,
-    setSessionSendingState,
-    setIsSending,
-    saveMessagesSnapshot,
-    getMessagesSnapshot,
-    clearMessagesSnapshot,
-    hideUserInteraction,
-    beginPlanning: planManager.beginPlanning,
-    failPlanState: planManager.failPlanState,
-    getSessionPlanState: planManager.getSessionPlanState,
-    resetPlanState: planManager.resetPlanState,
-    handleStreamEvent,
-    setupStreamListener,
-    cleanupStreamListener,
-    stopRequest,
-    resetSessionState,
-    resetAllState
+  planManager.finalizePlanState(sessionId, event)
+
+  store.setState((s) => {
+    const next = new Map(s.sessionSendingStates)
+    next.set(sessionId, false)
+
+    const patch: Partial<PaperChatStreamState> = { sessionSendingStates: next }
+
+    if (isCurrentSession) {
+      patch.isSending = false
+      patch.streamingSessionId = null
+      patch.messagesSnapshots = (() => {
+        const snap = new Map(s.messagesSnapshots)
+        snap.delete(sessionId)
+        return snap
+      })()
+    } else {
+      if (s.streamingSessionId === sessionId) {
+        patch.streamingSessionId = null
+      }
+      paperChatMessageCache.getState().saveCachedSession(sessionId)
+    }
+
+    return patch
+  })
+}
+
+function handleStreamError(
+  event: StreamEvent,
+  sessionId: string,
+  isCurrentSession: boolean,
+  targetMessages: Message[]
+): void {
+  const store = usePaperChatStreamStore
+
+  const streamingMessage = targetMessages.find(
+    (msg) => msg.isStreaming && (!event.turnId || msg.id === event.turnId)
+  )
+
+  if (streamingMessage) {
+    streamingMessage.isStreaming = false
+    if (!streamingMessage.content.trim() && event.error) {
+      streamingMessage.content = `请求失败：${event.error}`
+    }
+    reactIteration.finalizeIterations(streamingMessage, sessionId)
+  } else {
+    reactIteration.deleteIterationIndex(sessionId)
   }
-})
+
+  planManager.finalizePlanState(sessionId, event)
+
+  store.setState((s) => {
+    const next = new Map(s.sessionSendingStates)
+    next.set(sessionId, false)
+
+    const patch: Partial<PaperChatStreamState> = { sessionSendingStates: next }
+
+    if (isCurrentSession) {
+      patch.isSending = false
+      patch.streamingSessionId = null
+      patch.showUserInteraction = false
+      patch.userInteractionInfo = null
+      const snap = new Map(s.messagesSnapshots)
+      snap.delete(sessionId)
+      patch.messagesSnapshots = snap
+    } else {
+      if (s.streamingSessionId === sessionId) {
+        patch.streamingSessionId = null
+      }
+      paperChatMessageCache.getState().saveCachedSession(sessionId)
+    }
+
+    return patch
+  })
+}
