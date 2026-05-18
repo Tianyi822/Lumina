@@ -2,6 +2,7 @@
 import type { LabListItem, LabStatus } from '@renderer/types/lab'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
+import styles from './LabList.module.css'
 
 // 创建类型 - 预留，待类型定义更新后使用
 
@@ -87,40 +88,44 @@ function handleDeleteClick(lab: LabListItem): void {
     v-if="labs.length > 0"
     name="sm-sidebar-list-item"
     tag="div"
-    class="lab-list"
+    :class="styles['lab-list']"
     appear
   >
     <div
       v-for="(lab, index) in labs"
       :key="lab.labId"
-      class="lab-item"
-      :class="{
-        active: lab.labId === activeLabId,
-        orphan: (lab as unknown as ExtendedLabListItem).isOrphan
-      }"
+      :class="[
+        styles['lab-item'],
+        {
+          [styles['active']]: lab.labId === activeLabId,
+          [styles['orphan']]: (lab as unknown as ExtendedLabListItem).isOrphan
+        }
+      ]"
       :style="getSidebarListItemMotionStyle(index)"
       @click="handleSelect(lab.labId)"
     >
-      <div class="lab-info">
-        <div class="lab-name">
+      <div :class="styles['lab-info']">
+        <div :class="styles['lab-name']">
           {{ lab.name }}
         </div>
-        <div class="lab-meta">
-          <span class="lab-status" :class="getStatusClass(lab.status)">
+        <div :class="styles['lab-meta']">
+          <span :class="[styles['lab-status'], styles[getStatusClass(lab.status)]]">
             {{ getStatusLabel(lab.status, (lab as unknown as ExtendedLabListItem).creationType) }}
           </span>
           <!-- 创建类型 Badge -->
           <span
             v-if="(lab as unknown as ExtendedLabListItem).creationType"
-            class="sm-badge sm-lab-list__creation-badge"
-            :class="getCreationTypeClass((lab as unknown as ExtendedLabListItem).creationType)"
+            :class="[
+              styles['sm-lab-list__creation-badge'],
+              styles[getCreationTypeClass((lab as unknown as ExtendedLabListItem).creationType)]
+            ]"
           >
             {{ getCreationTypeLabel((lab as unknown as ExtendedLabListItem).creationType) }}
           </span>
           <!-- 孤儿实验室警告 -->
           <span
             v-if="(lab as unknown as ExtendedLabListItem).isOrphan"
-            class="sm-badge sm-lab-list__orphan-badge"
+            :class="styles['sm-lab-list__orphan-badge']"
             title="容器已丢失"
           >
             ⚠️ 容器已丢失
@@ -128,7 +133,7 @@ function handleDeleteClick(lab: LabListItem): void {
           <!-- 容器数量 -->
           <span
             v-if="getContainerCount(lab) > 1"
-            class="sm-badge sm-lab-list__container-count"
+            :class="styles['sm-lab-list__container-count']"
             :title="`包含 ${getContainerCount(lab)} 个容器`"
           >
             {{ getContainerCount(lab) }} 容器
@@ -137,8 +142,10 @@ function handleDeleteClick(lab: LabListItem): void {
       </div>
 
       <button
-        class="sm-icon-button sm-lab-list__delete-button"
-        :class="{ 'is-deleting': lab.labId === deletingLabId }"
+        :class="[
+          styles['sm-lab-list__delete-button'],
+          { [styles['is-deleting']]: lab.labId === deletingLabId }
+        ]"
         title="删除实验室"
         :disabled="lab.labId === deletingLabId"
         @click.stop="handleDeleteClick(lab)"
@@ -149,197 +156,7 @@ function handleDeleteClick(lab: LabListItem): void {
     </div>
   </TransitionGroup>
 
-  <div v-else class="lab-list">
-    <div class="empty-list">暂无实验室</div>
+  <div v-else :class="styles['lab-list']">
+    <div :class="styles['empty-list']">暂无实验室</div>
   </div>
 </template>
-
-<style scoped>
-.lab-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-}
-
-.empty-list {
-  padding: 24px;
-  text-align: center;
-  color: var(--sm-color-text-secondary);
-  font-size: 14px;
-}
-
-.lab-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  margin-bottom: 8px;
-  background-color: var(--sm-color-surface-1);
-  border: 1px solid transparent;
-  border-radius: 12px;
-  cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast),
-    opacity var(--sm-transition-fast);
-}
-
-.lab-item:hover {
-  background-color: var(--sm-color-surface-2);
-  border-color: var(--sm-color-border-default);
-}
-
-.lab-item.active {
-  border-color: var(--sm-color-border-selected);
-  background-color: var(--sm-color-surface-selected);
-}
-
-.lab-item.orphan {
-  border-color: rgba(199, 120, 120, 0.32);
-  background-color: rgba(199, 120, 120, 0.08);
-}
-
-.lab-item.orphan:hover {
-  border-color: rgba(199, 120, 120, 0.32);
-  background-color: rgba(199, 120, 120, 0.12);
-}
-
-.lab-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.lab-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sm-lab-list__creation-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 6px;
-  font-size: 11px;
-  font-weight: 500;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  flex-shrink: 0;
-}
-
-.sm-lab-list__creation-badge.creation-type-existing {
-  border-color: rgba(197, 161, 101, 0.32);
-  color: #c5a165;
-  background-color: rgba(197, 161, 101, 0.12);
-}
-
-.sm-lab-list__creation-badge.creation-type-compose {
-  border-color: rgba(127, 176, 138, 0.28);
-  background-color: rgba(127, 176, 138, 0.12);
-  color: #7fb08a;
-}
-
-.sm-lab-list__creation-badge.creation-type-dockerfile {
-  border-color: var(--sm-color-accent-28);
-  background-color: var(--sm-color-accent-12);
-  color: var(--sm-color-accent-hover);
-}
-
-.sm-lab-list__creation-badge.creation-type-ssh {
-  border-color: rgba(136, 132, 216, 0.32);
-  background-color: rgba(136, 132, 216, 0.12);
-  color: #8884d8;
-}
-
-.lab-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
-
-.lab-status {
-  font-size: 12px;
-  padding: 2px 6px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-}
-
-.status-creating {
-  border-color: var(--sm-color-accent-28);
-  background-color: var(--sm-color-accent-12);
-  color: var(--sm-color-accent-hover);
-}
-
-.status-running {
-  border-color: rgba(127, 176, 138, 0.28);
-  background-color: rgba(127, 176, 138, 0.12);
-  color: #7fb08a;
-}
-
-.status-stopped {
-  border-color: var(--sm-color-border-default);
-  background-color: rgba(255, 255, 255, 0.05);
-  color: var(--sm-color-text-secondary);
-}
-
-.status-error {
-  border-color: rgba(199, 120, 120, 0.28);
-  background-color: rgba(199, 120, 120, 0.12);
-  color: #c77878;
-}
-
-.sm-lab-list__orphan-badge {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background-color: rgba(199, 120, 120, 0.12);
-  color: #c77878;
-  border: 1px solid rgba(199, 120, 120, 0.28);
-}
-
-.sm-lab-list__container-count {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background-color: rgba(255, 255, 255, 0.05);
-  color: var(--sm-color-text-secondary);
-}
-
-.sm-lab-list__delete-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  background-color: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--sm-color-text-secondary);
-  cursor: pointer;
-  transition: all var(--sm-transition-fast);
-}
-
-.sm-lab-list__delete-button:hover:not(:disabled) {
-  background-color: rgba(199, 120, 120, 0.12);
-  border-color: rgba(199, 120, 120, 0.28);
-  color: #c77878;
-}
-
-.sm-lab-list__delete-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.sm-lab-list__delete-button.is-deleting {
-  border-color: rgba(197, 161, 101, 0.32);
-  color: #c5a165;
-}
-</style>

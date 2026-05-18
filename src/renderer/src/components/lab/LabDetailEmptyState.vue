@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import styles from './LabDetailEmptyState.module.css'
+
 defineProps<{
   title: string
   message: string
@@ -6,37 +8,10 @@ defineProps<{
 </script>
 
 <template>
-  <div class="detail-empty-state">
-    <div class="sm-empty detail-empty-card">
+  <div :class="styles['detail-empty-state']">
+    <div :class="['sm-empty', styles['detail-empty-card']]">
       <h2>{{ title }}</h2>
       <p>{{ message }}</p>
     </div>
   </div>
 </template>
-
-<style scoped>
-.detail-empty-state {
-  display: flex;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-}
-
-.detail-empty-card {
-  width: min(460px, 100%);
-  background: var(--sm-color-surface-2);
-  border-style: solid;
-}
-
-.detail-empty-card h2 {
-  margin: 0;
-  font-size: 17px;
-  color: var(--sm-color-text-primary);
-}
-
-.detail-empty-card p {
-  margin: 0;
-  max-width: 380px;
-  line-height: 1.6;
-}
-</style>

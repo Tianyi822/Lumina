@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { LabData } from '@renderer/types/lab'
+import styles from './SshReconnectPrompt.module.css'
 
 const props = defineProps<{
   lab: LabData
@@ -29,17 +30,17 @@ function handlePasswordInput(event: Event): void {
 </script>
 
 <template>
-  <section v-if="ssh" class="ssh-reconnect-prompt" role="status">
-    <div class="ssh-reconnect-prompt__copy">
-      <span class="ssh-reconnect-prompt__title">SSH 未连接</span>
-      <span class="ssh-reconnect-prompt__target">{{ targetLabel }}</span>
+  <section v-if="ssh" :class="styles['ssh-reconnect-prompt']" role="status">
+    <div :class="styles['ssh-reconnect-prompt__copy']">
+      <span :class="styles['ssh-reconnect-prompt__title']">SSH 未连接</span>
+      <span :class="styles['ssh-reconnect-prompt__target']">{{ targetLabel }}</span>
     </div>
 
     <input
       v-if="isPasswordAuth"
       :value="password"
       type="password"
-      class="ssh-reconnect-prompt__password"
+      :class="styles['ssh-reconnect-prompt__password']"
       placeholder="输入 SSH 密码"
       :disabled="connecting"
       @input="handlePasswordInput"
@@ -55,68 +56,3 @@ function handlePasswordInput(event: Event): void {
     </button>
   </section>
 </template>
-
-<style scoped>
-.ssh-reconnect-prompt {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-3);
-  min-width: min(520px, 100%);
-  padding: var(--sm-space-2) var(--sm-space-3);
-  border: 1px solid rgba(210, 153, 34, 0.35);
-  border-radius: var(--sm-radius-md);
-  background: rgba(210, 153, 34, 0.08);
-}
-
-.ssh-reconnect-prompt__copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.ssh-reconnect-prompt__title {
-  color: var(--sm-color-text-primary);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.ssh-reconnect-prompt__target {
-  overflow: hidden;
-  color: var(--sm-color-text-secondary);
-  font-family: var(--sm-font-mono);
-  font-size: 11px;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ssh-reconnect-prompt__password {
-  width: 168px;
-  min-height: 30px;
-  padding: 0 var(--sm-space-3);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-sm);
-  background: var(--sm-color-bg-embedded);
-  color: var(--sm-color-text-primary);
-  font: inherit;
-  font-size: 12px;
-}
-
-.ssh-reconnect-prompt__password:focus {
-  border-color: var(--sm-color-border-selected);
-  outline: none;
-}
-
-@media (max-width: 980px) {
-  .ssh-reconnect-prompt {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .ssh-reconnect-prompt__password {
-    width: 100%;
-  }
-}
-</style>

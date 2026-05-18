@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import styles from './ToolCallStatus.module.css'
 
 export type ToolStatus = 'pending' | 'running' | 'success' | 'error'
 
@@ -82,31 +83,34 @@ function toggleExpand(): void {
 </script>
 
 <template>
-  <div class="tool-call-status" :class="statusClass">
-    <div class="tool-header" @click="toggleExpand">
-      <span class="status-icon">{{ statusIcon }}</span>
-      <span class="tool-name">{{ toolCall.name }}</span>
-      <span class="status-text">{{ statusText }}</span>
-      <span class="expand-icon">{{ isExpanded ? '▼' : '▶' }}</span>
+  <div :class="[styles['tool-call-status'], styles[statusClass]]">
+    <div :class="styles['tool-header']" @click="toggleExpand">
+      <span :class="styles['status-icon']">{{ statusIcon }}</span>
+      <span :class="styles['tool-name']">{{ toolCall.name }}</span>
+      <span :class="styles['status-text']">{{ statusText }}</span>
+      <span :class="styles['expand-icon']">{{ isExpanded ? '▼' : '▶' }}</span>
     </div>
 
-    <div v-if="isExpanded" class="tool-details">
-      <div class="detail-section">
+    <div v-if="isExpanded" :class="styles['tool-details']">
+      <div :class="styles['detail-section']">
         <h4>参数</h4>
-        <pre class="code-block">{{ formattedParams }}</pre>
+        <pre :class="styles['code-block']">{{ formattedParams }}</pre>
       </div>
 
-      <div v-if="toolCall.status === 'success' && toolCall.result" class="detail-section">
+      <div
+        v-if="toolCall.status === 'success' && toolCall.result"
+        :class="styles['detail-section']"
+      >
         <h4>结果</h4>
-        <pre class="code-block success">{{ formattedResult }}</pre>
+        <pre :class="[styles['code-block'], styles['success']]">{{ formattedResult }}</pre>
       </div>
 
-      <div v-if="toolCall.status === 'error' && toolCall.error" class="detail-section">
+      <div v-if="toolCall.status === 'error' && toolCall.error" :class="styles['detail-section']">
         <h4>错误</h4>
-        <pre class="code-block error">{{ toolCall.error }}</pre>
+        <pre :class="[styles['code-block'], styles['error']]">{{ toolCall.error }}</pre>
       </div>
 
-      <div class="detail-section timestamps">
+      <div :class="[styles['detail-section'], styles['timestamps']]">
         <span v-if="toolCall.startTime"
           >开始: {{ new Date(toolCall.startTime).toLocaleTimeString() }}</span
         >
@@ -117,120 +121,3 @@ function toggleExpand(): void {
     </div>
   </div>
 </template>
-
-<style scoped>
-.tool-call-status {
-  background-color: var(--sm-color-surface-1);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 6px;
-  overflow: hidden;
-  margin: 8px 0;
-}
-
-.tool-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.tool-header:hover {
-  background-color: var(--sm-color-surface-hover);
-}
-
-.status-icon {
-  font-size: 14px;
-  width: 20px;
-  text-align: center;
-}
-
-.tool-name {
-  font-family: monospace;
-  font-size: 13px;
-  color: var(--sm-color-accent);
-  flex: 1;
-}
-
-.status-text {
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-}
-
-.expand-icon {
-  font-size: 10px;
-  color: var(--sm-color-text-secondary);
-}
-
-/* 状态样式 */
-.status-pending {
-  border-left: 3px solid var(--sm-color-status-info);
-}
-
-.status-running {
-  border-left: 3px solid var(--sm-color-status-warning);
-}
-
-.status-success {
-  border-left: 3px solid var(--sm-color-status-success);
-}
-
-.status-error {
-  border-left: 3px solid var(--sm-color-status-danger);
-}
-
-.tool-details {
-  padding: 12px;
-  border-top: 1px solid var(--sm-color-border-default);
-  background-color: var(--sm-color-bg-app);
-}
-
-.detail-section {
-  margin-bottom: 12px;
-}
-
-.detail-section:last-child {
-  margin-bottom: 0;
-}
-
-.detail-section h4 {
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-  margin: 0 0 6px 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.code-block {
-  background-color: var(--sm-color-surface-1);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 4px;
-  padding: 8px 12px;
-  font-family: monospace;
-  font-size: 12px;
-  color: var(--sm-color-text-primary);
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin: 0;
-}
-
-.code-block.success {
-  border-color: var(--sm-color-status-success);
-  background-color: rgba(63, 185, 80, 0.05);
-}
-
-.code-block.error {
-  border-color: var(--sm-color-status-danger);
-  background-color: rgba(248, 81, 73, 0.05);
-  color: var(--sm-color-status-danger);
-}
-
-.timestamps {
-  display: flex;
-  gap: 16px;
-  font-size: 11px;
-  color: var(--sm-color-text-secondary);
-}
-</style>

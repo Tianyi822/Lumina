@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
+import styles from './LabToolsToggle.module.css'
 
 const props = defineProps<{
   modelValue: boolean
@@ -39,92 +40,19 @@ onMounted(() => {
 
 <template>
   <div
-    class="lab-tools-toggle"
-    :class="{ enabled: isEnabled, disabled: disabled, 'is-compact': props.compact }"
+    :class="[
+      styles['lab-tools-toggle'],
+      {
+        [styles['enabled']]: isEnabled,
+        [styles['disabled']]: disabled,
+        [styles['is-compact']]: props.compact
+      }
+    ]"
     @click="toggle"
   >
-    <div class="toggle-switch">
-      <div class="toggle-thumb"></div>
+    <div :class="styles['toggle-switch']">
+      <div :class="styles['toggle-thumb']"></div>
     </div>
-    <span class="toggle-label">实验室</span>
+    <span :class="styles['toggle-label']">实验室</span>
   </div>
 </template>
-
-<style scoped>
-.lab-tools-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  font-size: 12px;
-  background-color: var(--sm-color-surface-1);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-sm);
-  cursor: pointer;
-  user-select: none;
-}
-
-.lab-tools-toggle.is-compact {
-  min-height: 32px;
-  padding: 6px 10px;
-  gap: 6px;
-}
-
-.lab-tools-toggle.is-compact .toggle-switch {
-  width: 28px;
-  height: 16px;
-}
-
-.lab-tools-toggle.is-compact .toggle-thumb {
-  width: 12px;
-  height: 12px;
-}
-
-.lab-tools-toggle.is-compact.enabled .toggle-thumb {
-  transform: translateX(12px);
-}
-
-.lab-tools-toggle.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.toggle-switch {
-  width: 36px;
-  height: 20px;
-  background-color: var(--sm-color-border-default);
-  border-radius: 10px;
-  position: relative;
-  transition: background-color 0.2s ease;
-}
-
-.lab-tools-toggle.enabled .toggle-switch {
-  background-color: var(--sm-color-accent);
-}
-
-.toggle-thumb {
-  width: 16px;
-  height: 16px;
-  background-color: var(--sm-color-text-primary);
-  border-radius: 50%;
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease;
-  color: var(--sm-color-text-secondary);
-}
-
-.lab-tools-toggle.enabled .toggle-thumb {
-  transform: translateX(16px);
-  color: var(--sm-color-accent-hover);
-}
-
-.toggle-label {
-  font-size: 12px;
-  color: var(--sm-color-text-primary);
-  font-weight: 500;
-}
-</style>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { ContainerInfo, ContainerState } from '@renderer/types/lab'
+import styles from './ContainerBrowser.module.css'
 
 // ==================== Props & Emits ====================
 
@@ -126,38 +127,37 @@ function handleViewLogs(containerId: string): void {
 </script>
 
 <template>
-  <div class="container-browser">
+  <div :class="styles['container-browser']">
     <!-- 搜索和过滤栏 -->
-    <div class="browser-header">
-      <div class="search-section">
+    <div :class="styles['browser-header']">
+      <div :class="styles['search-section']">
         <input
           v-model="searchQuery"
           type="text"
-          class="input search-input"
+          :class="[styles['input'], styles['search-input']]"
           placeholder="搜索容器..."
           @input="handleSearch"
         />
-        <button class="btn refresh-btn" title="刷新" @click="handleRefresh">刷新</button>
+        <button :class="[styles['btn'], styles['refresh-btn']]" title="刷新" @click="handleRefresh">
+          刷新
+        </button>
       </div>
 
-      <div class="filter-section">
+      <div :class="styles['filter-section']">
         <button
-          class="filter-btn"
-          :class="{ active: activeFilter === 'all' }"
+          :class="[styles['filter-btn'], { [styles['active']]: activeFilter === 'all' }]"
           @click="setFilter('all')"
         >
           全部 ({{ containers.length }})
         </button>
         <button
-          class="filter-btn"
-          :class="{ active: activeFilter === 'running' }"
+          :class="[styles['filter-btn'], { [styles['active']]: activeFilter === 'running' }]"
           @click="setFilter('running')"
         >
           运行中 ({{ runningCount }})
         </button>
         <button
-          class="filter-btn"
-          :class="{ active: activeFilter === 'stopped' }"
+          :class="[styles['filter-btn'], { [styles['active']]: activeFilter === 'stopped' }]"
           @click="setFilter('stopped')"
         >
           已停止 ({{ stoppedCount }})
@@ -166,405 +166,106 @@ function handleViewLogs(containerId: string): void {
     </div>
 
     <!-- 容器列表 -->
-    <div class="container-list">
-      <div v-if="loading" class="loading-state">
-        <div class="loading-spinner"></div>
+    <div :class="styles['container-list']">
+      <div v-if="loading" :class="styles['loading-state']">
+        <div :class="styles['loading-spinner']"></div>
         <p>加载容器中...</p>
       </div>
 
-      <div v-else-if="containers.length === 0" class="empty-state">
-        <p class="empty-title">暂无容器</p>
-        <p class="empty-desc">Docker 中没有发现容器，请创建一个新容器</p>
+      <div v-else-if="containers.length === 0" :class="styles['empty-state']">
+        <p :class="styles['empty-title']">暂无容器</p>
+        <p :class="styles['empty-desc']">Docker 中没有发现容器，请创建一个新容器</p>
       </div>
 
       <div
         v-for="container in containers"
         :key="container.id"
-        class="container-card"
-        :class="{
-          active: container.id === selectedContainerId,
-          running: container.state === 'running'
-        }"
+        :class="[
+          styles['container-card'],
+          {
+            [styles['active']]: container.id === selectedContainerId,
+            [styles['running']]: container.state === 'running'
+          }
+        ]"
         @click="handleSelect(container.id)"
       >
         <!-- 容器头部 -->
-        <div class="container-header">
-          <div class="container-title">
-            <span class="state-indicator" :class="getStateClass(container.state)"></span>
-            <span class="container-name">{{
+        <div :class="styles['container-header']">
+          <div :class="styles['container-title']">
+            <span
+              :class="[styles['state-indicator'], styles[getStateClass(container.state)]]"
+            ></span>
+            <span :class="styles['container-name']">{{
               container.names[0]?.replace(/^\//, '') || '未命名'
             }}</span>
           </div>
-          <span class="container-state" :class="getStateClass(container.state)">
+          <span :class="[styles['container-state'], styles[getStateClass(container.state)]]">
             {{ getStateLabel(container.state) }}
           </span>
         </div>
 
         <!-- 容器信息 -->
-        <div class="container-info">
-          <div class="info-row">
-            <span class="info-label">镜像</span>
-            <span class="info-value" :title="container.image">{{ container.image }}</span>
+        <div :class="styles['container-info']">
+          <div :class="styles['info-row']">
+            <span :class="styles['info-label']">镜像</span>
+            <span :class="styles['info-value']" :title="container.image">{{
+              container.image
+            }}</span>
           </div>
-          <div class="info-row">
-            <span class="info-label">端口</span>
-            <span class="info-value">{{ formatPorts(container.ports) }}</span>
+          <div :class="styles['info-row']">
+            <span :class="styles['info-label']">端口</span>
+            <span :class="styles['info-value']">{{ formatPorts(container.ports) }}</span>
           </div>
-          <div class="info-row">
-            <span class="info-label">创建时间</span>
-            <span class="info-value">{{ formatCreated(container.created) }}</span>
+          <div :class="styles['info-row']">
+            <span :class="styles['info-label']">创建时间</span>
+            <span :class="styles['info-value']">{{ formatCreated(container.created) }}</span>
           </div>
         </div>
 
         <!-- 操作按钮 -->
-        <div class="container-actions">
+        <div :class="styles['container-actions']">
           <button
-            class="action-btn primary"
+            :class="[styles['action-btn'], styles['primary']]"
             :disabled="container.state !== 'running'"
             @click.stop="handleSelectAsLab(container.id)"
           >
             选择作为实验室
           </button>
           <button
-            class="action-btn"
+            :class="styles['action-btn']"
             :disabled="container.state !== 'running'"
             @click.stop="handleOpenTerminal(container.id)"
           >
             终端
           </button>
-          <button class="action-btn" @click.stop="handleViewLogs(container.id)">日志</button>
+          <button :class="styles['action-btn']" @click.stop="handleViewLogs(container.id)">
+            日志
+          </button>
           <button
             v-if="container.state !== 'running'"
-            class="action-btn success"
+            :class="[styles['action-btn'], styles['success']]"
             @click.stop="handleStart(container.id)"
           >
             启动
           </button>
-          <button v-else class="action-btn warning" @click.stop="handleStop(container.id)">
+          <button
+            v-else
+            :class="[styles['action-btn'], styles['warning']]"
+            @click.stop="handleStop(container.id)"
+          >
             停止
           </button>
-          <button class="action-btn" @click.stop="handleRestart(container.id)">重启</button>
-          <button class="action-btn danger" @click.stop="handleRemove(container.id)">删除</button>
+          <button :class="styles['action-btn']" @click.stop="handleRestart(container.id)">
+            重启
+          </button>
+          <button
+            :class="[styles['action-btn'], styles['danger']]"
+            @click.stop="handleRemove(container.id)"
+          >
+            删除
+          </button>
         </div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.container-browser {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-/* 头部样式 */
-.browser-header {
-  padding: 16px;
-  border-bottom: 1px solid var(--sm-color-border-default);
-  background-color: var(--sm-color-bg-app);
-}
-
-.search-section {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.search-input {
-  flex: 1;
-}
-
-.refresh-btn {
-  padding: 8px 12px;
-  font-size: 14px;
-}
-
-.filter-section {
-  display: flex;
-  gap: 8px;
-}
-
-.filter-btn {
-  padding: 6px 12px;
-  font-size: 13px;
-  font-family: var(--sm-font-sans);
-  background-color: transparent;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 4px;
-  color: var(--sm-color-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.filter-btn:hover {
-  border-color: var(--sm-color-text-secondary);
-  color: var(--sm-color-text-primary);
-}
-
-.filter-btn.active {
-  background-color: var(--sm-color-surface-selected);
-  border-color: var(--sm-color-border-selected);
-  color: var(--sm-color-text-selected);
-}
-
-/* 列表样式 */
-.container-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px;
-  color: var(--sm-color-text-secondary);
-  gap: 16px;
-}
-
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--sm-color-border-default);
-  border-top-color: var(--sm-color-accent);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px;
-  color: var(--sm-color-text-secondary);
-  text-align: center;
-}
-
-.empty-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--sm-color-text-primary);
-  margin: 0 0 8px 0;
-}
-
-.empty-desc {
-  font-size: 14px;
-  margin: 0;
-}
-
-/* 容器卡片样式 */
-.container-card {
-  background-color: var(--sm-color-surface-1);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 8px;
-  padding: 16px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.container-card:hover {
-  border-color: var(--sm-color-text-secondary);
-}
-
-.container-card.active {
-  border-color: var(--sm-color-border-selected);
-  background-color: var(--sm-color-surface-selected);
-}
-
-.container-card.running {
-  border-left: 3px solid var(--sm-color-status-success);
-}
-
-/* 容器头部 */
-.container-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.container-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.state-indicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-.container-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-}
-
-.container-state {
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-weight: 500;
-}
-
-/* 状态样式 */
-.state-created {
-  background-color: rgba(88, 166, 255, 0.2);
-  color: var(--sm-color-status-info);
-}
-
-.state-created.state-indicator {
-  background-color: var(--sm-color-status-info);
-}
-
-.state-running {
-  background-color: rgba(63, 185, 80, 0.2);
-  color: var(--sm-color-status-success);
-}
-
-.state-running.state-indicator {
-  background-color: var(--sm-color-status-success);
-}
-
-.state-paused {
-  background-color: rgba(210, 153, 34, 0.2);
-  color: var(--sm-color-status-warning);
-}
-
-.state-paused.state-indicator {
-  background-color: var(--sm-color-status-warning);
-}
-
-.state-restarting {
-  background-color: rgba(88, 166, 255, 0.2);
-  color: var(--sm-color-status-info);
-}
-
-.state-restarting.state-indicator {
-  background-color: var(--sm-color-status-info);
-}
-
-.state-removing {
-  background-color: rgba(139, 148, 158, 0.2);
-  color: var(--sm-color-text-secondary);
-}
-
-.state-removing.state-indicator {
-  background-color: var(--sm-color-text-secondary);
-}
-
-.state-exited,
-.state-dead {
-  background-color: rgba(248, 81, 73, 0.2);
-  color: var(--sm-color-status-danger);
-}
-
-.state-exited.state-indicator,
-.state-dead.state-indicator {
-  background-color: var(--sm-color-status-danger);
-}
-
-/* 容器信息 */
-.container-info {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.info-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-}
-
-.info-label {
-  color: var(--sm-color-text-secondary);
-  min-width: 60px;
-  flex-shrink: 0;
-}
-
-.info-value {
-  color: var(--sm-color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 操作按钮 */
-.container-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.action-btn {
-  padding: 6px 12px;
-  font-size: 12px;
-  font-family: var(--sm-font-sans);
-  background-color: transparent;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 4px;
-  color: var(--sm-color-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.action-btn:hover:not(:disabled) {
-  border-color: var(--sm-color-text-primary);
-  color: var(--sm-color-text-primary);
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.action-btn.primary {
-  background-color: var(--sm-color-accent);
-  border-color: var(--sm-color-accent);
-  color: var(--sm-color-bg-app);
-}
-
-.action-btn.primary:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.action-btn.success {
-  background-color: var(--sm-color-status-success);
-  border-color: var(--sm-color-status-success);
-  color: var(--sm-color-bg-app);
-}
-
-.action-btn.warning {
-  background-color: var(--sm-color-status-warning);
-  border-color: var(--sm-color-status-warning);
-  color: var(--sm-color-bg-app);
-}
-
-.action-btn.danger {
-  background-color: var(--sm-color-status-danger);
-  border-color: var(--sm-color-status-danger);
-  color: white;
-}
-
-.action-btn.danger:hover {
-  opacity: 0.9;
-}
-</style>

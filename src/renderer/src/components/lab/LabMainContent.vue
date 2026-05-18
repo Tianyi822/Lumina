@@ -14,6 +14,7 @@ import LabTerminalTab from './LabTerminalTab.vue'
 import LabLogsTab from './LabLogsTab.vue'
 import { useLabAutoRefresh } from './useLabAutoRefresh'
 import type { LabData, DockerStatus } from '@renderer/types/lab'
+import styles from './LabMainContent.module.css'
 
 const DOCKER_WEBSITE = 'https://www.docker.com/products/docker-desktop/'
 
@@ -313,12 +314,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="lab-main-content">
-    <div v-if="!hasLab" class="lab-empty-state">
-      <div class="sm-empty lab-empty-card">
+  <main :class="styles['lab-main-content']">
+    <div v-if="!hasLab" :class="styles['lab-empty-state']">
+      <div :class="['sm-empty', styles['lab-empty-card']]">
         <h2>选择一个实验室开始</h2>
         <p>从左侧接管现有环境，或创建一个实验室以进入容器监控、终端和日志工作流。</p>
-        <p v-if="!isDockerReady" class="lab-empty-card__ssh-hint">
+        <p v-if="!isDockerReady" :class="styles['lab-empty-card__ssh-hint']">
           本地 Docker 未就绪？您仍然可以
           <strong>创建 SSH 远程服务器</strong> 类型的实验室来连接远程主机。
         </p>
@@ -326,21 +327,21 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-else>
-      <header class="workspace-header">
-        <div class="workspace-header__copy">
-          <div class="workspace-header__headline">
-            <div class="workspace-header__titles">
+      <header :class="styles['workspace-header']">
+        <div :class="styles['workspace-header__copy']">
+          <div :class="styles['workspace-header__headline']">
+            <div :class="styles['workspace-header__titles']">
               <h1>{{ currentLab?.name }}</h1>
-              <div class="workspace-header__badges">
+              <div :class="styles['workspace-header__badges']">
                 <span class="sm-badge">{{ labCreationTypeLabel }}</span>
                 <span v-if="!isSshLab" class="sm-badge">{{ labContainerCount }} 个容器</span>
                 <span v-if="isSshLab && sshAuthLabel" class="sm-badge">{{ sshAuthLabel }}</span>
-                <span class="sm-badge" :class="labStatusClass">{{ labStatusLabel }}</span>
+                <span class="sm-badge" :class="styles[labStatusClass]">{{ labStatusLabel }}</span>
               </div>
             </div>
           </div>
 
-          <div class="workspace-header__submeta">
+          <div :class="styles['workspace-header__submeta']">
             <span>
               实验室 ID
               <code>{{ currentLab?.labId }}</code>
@@ -349,7 +350,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="workspace-header__actions">
+        <div :class="styles['workspace-header__actions']">
           <SshReconnectPrompt
             v-if="isSshLab && currentLab && !isSshConnected"
             v-model:password="sshReconnectPassword"
@@ -359,7 +360,7 @@ onBeforeUnmount(() => {
           />
           <button
             v-if="isDockerLab && !isDockerReady"
-            class="sm-button sm-button--small sm-button--secondary docker-recheck-btn"
+            :class="[styles['docker-recheck-btn']]"
             :disabled="recheckingDocker"
             @click="emit('recheckDocker')"
           >
@@ -369,15 +370,15 @@ onBeforeUnmount(() => {
         </div>
       </header>
 
-      <div class="content-body">
+      <div :class="styles['content-body']">
         <!-- Docker 未就绪时对 Docker 类型实验室显示警告 -->
-        <div v-if="isDockerLab && !isDockerReady" class="docker-unready-banner">
-          <span class="docker-unready-banner__icon">&#9888;</span>
-          <div class="docker-unready-banner__text">
+        <div v-if="isDockerLab && !isDockerReady" :class="styles['docker-unready-banner']">
+          <span :class="styles['docker-unready-banner__icon']">&#9888;</span>
+          <div :class="styles['docker-unready-banner__text']">
             <strong>本地 Docker 未就绪</strong>
             <p v-if="dockerStatus?.installed === false">
               Docker 未安装。请先
-              <a class="docker-unready-banner__link" @click="handleOpenDockerWebsite"
+              <a :class="styles['docker-unready-banner__link']" @click="handleOpenDockerWebsite"
                 >安装 Docker</a
               >
               ，然后点击上方"重新检测 Docker"按钮。SSH 远程实验室不受影响。
@@ -399,13 +400,13 @@ onBeforeUnmount(() => {
           @cleanup="handleCleanupOrphan"
         />
 
-        <div v-if="showFrontendRecoveryBanner" class="frontend-recovery-banner">
-          <div class="frontend-recovery-copy">
-            <span class="frontend-recovery-copy__eyebrow">恢复提示</span>
+        <div v-if="showFrontendRecoveryBanner" :class="styles['frontend-recovery-banner']">
+          <div :class="styles['frontend-recovery-copy']">
+            <span :class="styles['frontend-recovery-copy__eyebrow']">恢复提示</span>
             <h3>前端服务未就绪</h3>
             <p>{{ frontendRecoveryMessage }}</p>
           </div>
-          <div class="frontend-recovery-actions">
+          <div :class="styles['frontend-recovery-actions']">
             <button
               class="sm-button sm-button--secondary"
               :disabled="isRetryingFrontend || isRebuildingFrontend"
@@ -424,7 +425,7 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- 监控 Tab -->
-        <div v-show="labDetailTab === 'stats'" class="tab-content">
+        <div v-show="labDetailTab === 'stats'" :class="styles['tab-content']">
           <LabStatsTab
             :is-ssh-lab="isSshLab"
             :is-docker-ready="isDockerReady"
@@ -450,7 +451,7 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- 终端 Tab -->
-        <div v-show="labDetailTab === 'terminal'" class="tab-content">
+        <div v-show="labDetailTab === 'terminal'" :class="styles['tab-content']">
           <LabTerminalTab
             :is-ssh-lab="isSshLab"
             :is-docker-ready="isDockerReady"
@@ -462,295 +463,10 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- 日志 Tab -->
-        <div v-if="!isSshLab" v-show="labDetailTab === 'logs'" class="tab-content">
+        <div v-if="!isSshLab" v-show="labDetailTab === 'logs'" :class="styles['tab-content']">
           <LabLogsTab :is-docker-ready="isDockerReady" />
         </div>
       </div>
     </template>
   </main>
 </template>
-
-<style scoped>
-.lab-main-content {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.lab-empty-state {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--sm-space-6);
-}
-
-.lab-empty-card {
-  width: min(520px, 100%);
-  background: var(--sm-color-surface-2);
-  border-style: solid;
-}
-.lab-empty-card h2 {
-  margin: 0;
-  font-size: 18px;
-  color: var(--sm-color-text-primary);
-}
-
-.lab-empty-card p {
-  margin: 0;
-  max-width: 420px;
-  line-height: 1.6;
-}
-
-.lab-empty-card__ssh-hint {
-  margin-top: var(--sm-space-3) !important;
-  padding-top: var(--sm-space-3);
-  border-top: 1px solid var(--sm-color-border-subtle);
-  font-size: 12px;
-  color: var(--sm-color-text-tertiary);
-}
-
-.lab-empty-card__ssh-hint strong {
-  color: var(--sm-color-text-secondary);
-}
-
-/* Docker 未就绪横幅 */
-.docker-unready-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sm-space-3);
-  padding: var(--sm-space-3) var(--sm-space-4);
-  border: 1px solid rgba(213, 161, 74, 0.25);
-  border-radius: var(--sm-radius-md);
-  background: rgba(213, 161, 74, 0.06);
-}
-
-.docker-unready-banner__icon {
-  flex-shrink: 0;
-  font-size: 16px;
-  line-height: 1.4;
-  color: var(--sm-color-warning, #d5a14a);
-}
-
-.docker-unready-banner__text {
-  min-width: 0;
-}
-
-.docker-unready-banner__text strong {
-  display: block;
-  margin-bottom: var(--sm-space-1);
-  font-size: 13px;
-  color: var(--sm-color-text-primary);
-}
-
-.docker-unready-banner__text p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--sm-color-text-secondary);
-}
-
-.docker-unready-banner__link {
-  color: var(--sm-color-accent-hover);
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.docker-unready-banner__link:hover {
-  color: var(--sm-color-accent);
-}
-
-.workspace-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--sm-space-5);
-  padding: var(--sm-space-6);
-}
-
-.workspace-header__copy {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-3);
-}
-
-.workspace-header__headline {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sm-space-4);
-}
-
-.workspace-header__titles {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-2);
-  flex: 1;
-  min-width: 0;
-}
-
-.workspace-header__titles h1 {
-  margin: 0;
-  font-size: 28px;
-  line-height: 1.2;
-  color: var(--sm-color-text-primary);
-}
-
-.workspace-header__badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sm-space-2);
-  justify-content: flex-start;
-}
-
-.workspace-header__submeta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sm-space-4);
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-}
-
-.workspace-header__submeta code {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 2px 6px;
-  border: 1px solid var(--sm-color-border-subtle);
-  border-radius: 999px;
-  background: var(--sm-color-bg-embedded);
-  color: var(--sm-color-text-primary);
-  font-family: var(--sm-font-mono);
-  font-size: 11px;
-}
-
-.workspace-header__actions {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  gap: var(--sm-space-3);
-  flex-wrap: wrap;
-  flex-shrink: 0;
-}
-
-.workspace-header__badges .status-running {
-  border-color: rgba(127, 176, 138, 0.28);
-  background: rgba(127, 176, 138, 0.08);
-  color: #7fb08a;
-}
-
-.workspace-header__badges .status-creating {
-  border-color: var(--sm-color-accent-28);
-  background: var(--sm-color-accent-08);
-  color: var(--sm-color-accent-hover);
-}
-
-.workspace-header__badges .status-stopped {
-  border-color: var(--sm-color-border-default);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--sm-color-text-secondary);
-}
-
-.workspace-header__badges .status-error {
-  border-color: rgba(199, 120, 120, 0.28);
-  background: rgba(199, 120, 120, 0.08);
-  color: #c77878;
-}
-
-.content-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-4);
-  overflow: hidden;
-  padding: 0 var(--sm-space-6) var(--sm-space-6);
-  position: relative;
-}
-
-.tab-content {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.frontend-recovery-banner {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sm-space-4);
-  padding: var(--sm-space-4);
-  border: 1px solid rgba(210, 153, 34, 0.35);
-  border-radius: var(--sm-radius-md);
-  background: rgba(210, 153, 34, 0.08);
-}
-
-.frontend-recovery-copy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-2);
-}
-
-.frontend-recovery-copy__eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #c5a165;
-}
-
-.frontend-recovery-copy h3 {
-  margin: 0;
-  font-size: 14px;
-  color: var(--sm-color-text-primary);
-}
-
-.frontend-recovery-copy p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--sm-color-text-secondary);
-}
-
-.frontend-recovery-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sm-space-2);
-  flex-shrink: 0;
-}
-
-@media (max-width: 920px) {
-  .workspace-header,
-  .workspace-header__headline,
-  .frontend-recovery-banner,
-  .workspace-header__actions {
-    flex-direction: column;
-  }
-
-  .workspace-header__actions {
-    align-items: stretch;
-    width: 100%;
-  }
-}
-
-@media (max-width: 720px) {
-  .workspace-header {
-    padding: var(--sm-space-5);
-  }
-
-  .content-body {
-    padding: 0 var(--sm-space-5) var(--sm-space-5);
-  }
-}
-
-.docker-recheck-btn {
-  min-height: 46px;
-  padding: 0 14px;
-  font-size: 13px;
-}
-</style>

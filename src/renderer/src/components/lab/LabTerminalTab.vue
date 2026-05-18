@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import InteractiveTerminalPanel from './InteractiveTerminalPanel.vue'
 import LabDetailEmptyState from './LabDetailEmptyState.vue'
 import type { ContainerDetails, LabData } from '@renderer/types/lab'
+import styles from './LabTerminalTab.module.css'
 
 const props = defineProps<{
   isSshLab: boolean
@@ -76,8 +77,8 @@ watch(
       :title="currentLab.name"
       :subtitle="sshTerminalSubtitle"
     />
-    <section v-else class="ssh-terminal-connect-panel">
-      <div class="ssh-terminal-connect-panel__copy">
+    <section v-else :class="styles['ssh-terminal-connect-panel']">
+      <div :class="styles['ssh-terminal-connect-panel__copy']">
         <h2>SSH 未连接</h2>
         <p>请使用上方连接提示重新连接 {{ sshTerminalSubtitle || '远程服务器' }}。</p>
       </div>
@@ -104,44 +105,3 @@ watch(
     />
   </template>
 </template>
-
-<style scoped>
-.ssh-terminal-connect-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--sm-space-4);
-  height: 100%;
-  padding: var(--sm-space-5);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-lg);
-  background: var(--sm-color-surface-2);
-}
-
-.ssh-terminal-connect-panel__copy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-2);
-  min-width: 0;
-}
-
-.ssh-terminal-connect-panel__copy h2 {
-  margin: 0;
-  color: var(--sm-color-text-primary);
-  font-size: 17px;
-}
-
-.ssh-terminal-connect-panel__copy p {
-  margin: 0;
-  color: var(--sm-color-text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 920px) {
-  .ssh-terminal-connect-panel {
-    flex-direction: column;
-  }
-}
-</style>

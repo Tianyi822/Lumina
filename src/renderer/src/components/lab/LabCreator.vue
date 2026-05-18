@@ -11,6 +11,7 @@ import SaveConfigDialog from './SaveConfigDialog.vue'
 import { CreateActions, CreateTypeSelector, PortMappingSection } from './creator'
 import { useCreateFlow } from './creator/composables/useCreateFlow'
 import type { DockerStatus } from '@renderer/types/lab'
+import styles from './LabCreator.module.css'
 
 const props = defineProps<{
   visible: boolean
@@ -472,8 +473,8 @@ async function testSshConnection(): Promise<void> {
               />
             </template>
 
-            <div v-else-if="createType === 'ssh'" class="creator-section ssh-form">
-              <div class="ssh-form__field">
+            <div v-else-if="createType === 'ssh'" :class="[styles['ssh-form'], 'creator-section']">
+              <div :class="styles['ssh-form__field']">
                 <label class="form-label">主机地址 <span class="required">*</span></label>
                 <input
                   v-model="sshConfig.host"
@@ -483,8 +484,8 @@ async function testSshConnection(): Promise<void> {
                 />
               </div>
 
-              <div class="ssh-form__field ssh-form__field--inline">
-                <div class="ssh-form__field-half">
+              <div :class="[styles['ssh-form__field'], styles['ssh-form__field--inline']]">
+                <div :class="styles['ssh-form__field-half']">
                   <label class="form-label">端口</label>
                   <input
                     v-model.number="sshConfig.port"
@@ -493,7 +494,7 @@ async function testSshConnection(): Promise<void> {
                     placeholder="22"
                   />
                 </div>
-                <div class="ssh-form__field-half">
+                <div :class="styles['ssh-form__field-half']">
                   <label class="form-label">用户名 <span class="required">*</span></label>
                   <input
                     v-model="sshConfig.username"
@@ -504,19 +505,23 @@ async function testSshConnection(): Promise<void> {
                 </div>
               </div>
 
-              <div class="ssh-form__field">
+              <div :class="styles['ssh-form__field']">
                 <label class="form-label">认证方式</label>
-                <div class="ssh-form__toggle">
+                <div :class="styles['ssh-form__toggle']">
                   <button
-                    class="ssh-form__toggle-btn"
-                    :class="{ active: sshConfig.authType === 'password' }"
+                    :class="[
+                      styles['ssh-form__toggle-btn'],
+                      { [styles['active']]: sshConfig.authType === 'password' }
+                    ]"
                     @click="creatorStore.updateSshConfig({ authType: 'password' })"
                   >
                     密码
                   </button>
                   <button
-                    class="ssh-form__toggle-btn"
-                    :class="{ active: sshConfig.authType === 'key' }"
+                    :class="[
+                      styles['ssh-form__toggle-btn'],
+                      { [styles['active']]: sshConfig.authType === 'key' }
+                    ]"
                     @click="creatorStore.updateSshConfig({ authType: 'key' })"
                   >
                     密钥
@@ -524,7 +529,7 @@ async function testSshConnection(): Promise<void> {
                 </div>
               </div>
 
-              <div v-if="sshConfig.authType === 'password'" class="ssh-form__field">
+              <div v-if="sshConfig.authType === 'password'" :class="styles['ssh-form__field']">
                 <label class="form-label">密码</label>
                 <input
                   v-model="sshConfig.password"
@@ -535,7 +540,7 @@ async function testSshConnection(): Promise<void> {
               </div>
 
               <template v-else>
-                <div class="ssh-form__field">
+                <div :class="styles['ssh-form__field']">
                   <label class="form-label">密钥名称 <span class="required">*</span></label>
                   <input
                     v-model="sshConfig.keyName"
@@ -544,11 +549,11 @@ async function testSshConnection(): Promise<void> {
                     placeholder="my-key"
                   />
                 </div>
-                <div class="ssh-form__field">
+                <div :class="styles['ssh-form__field']">
                   <label class="form-label">密钥内容 <span class="required">*</span></label>
                   <textarea
                     v-model="sshConfig.keyContent"
-                    class="form-input ssh-form__key-textarea"
+                    :class="['form-input', styles['ssh-form__key-textarea']]"
                     placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
                     rows="6"
                   ></textarea>
@@ -556,7 +561,7 @@ async function testSshConnection(): Promise<void> {
               </template>
 
               <button
-                class="btn ssh-form__test-btn"
+                :class="[styles['ssh-form__test-btn']]"
                 :disabled="isTestingSsh"
                 @click="testSshConnection"
               >
@@ -595,79 +600,3 @@ async function testSshConnection(): Promise<void> {
     </div>
   </Transition>
 </template>
-
-<style scoped>
-@import './creator/lab-creator.css';
-
-.ssh-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 20px;
-}
-
-.ssh-form__field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.ssh-form__field--inline {
-  flex-direction: row;
-  gap: 12px;
-}
-
-.ssh-form__field-half {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.ssh-form__toggle {
-  display: flex;
-  gap: 8px;
-}
-
-.ssh-form__toggle-btn {
-  padding: 8px 16px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 6px;
-  background-color: var(--sm-color-bg-app);
-  color: var(--sm-color-text-primary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.ssh-form__toggle-btn.active {
-  border-color: var(--sm-color-border-selected);
-  background-color: var(--sm-color-surface-selected);
-}
-
-.ssh-form__toggle-btn:hover:not(.active) {
-  border-color: var(--sm-color-text-secondary);
-}
-
-.ssh-form__input-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.ssh-form__input-row .form-input {
-  flex: 1;
-}
-
-.ssh-form__test-btn {
-  align-self: flex-start;
-}
-
-.ssh-form__key-textarea {
-  resize: vertical;
-  font-family: monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  min-height: 80px;
-}
-</style>

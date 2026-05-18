@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useDockerConfigStore } from '@renderer/stores'
+import styles from './ConfigManager.module.css'
 
 type ConfigType = 'dockerfile' | 'compose'
 
@@ -148,11 +149,11 @@ function formatDate(dateStr: string): string {
 </script>
 
 <template>
-  <div v-if="visible" class="sm-modal__overlay config-manager-overlay" @click.self="close">
-    <div class="sm-modal__surface config-manager">
-      <div class="sm-pane-header manager-header">
-        <div class="manager-heading">
-          <div class="manager-title-row">
+  <div v-if="visible" :class="[styles['config-manager-overlay']]" @click.self="close">
+    <div :class="['sm-modal__surface', styles['config-manager']]">
+      <div :class="['sm-pane-header', styles['manager-header']]">
+        <div :class="styles['manager-heading']">
+          <div :class="styles['manager-title-row']">
             <h2>Docker 模板资产</h2>
           </div>
           <p>统一维护 Dockerfile 与 Compose 模板，供实验室创建流程复用。</p>
@@ -160,63 +161,62 @@ function formatDate(dateStr: string): string {
         <button class="sm-button sm-button--secondary sm-button--small" @click="close">关闭</button>
       </div>
 
-      <div class="manager-tabs">
+      <div :class="styles['manager-tabs']">
         <button
-          class="sm-tab manager-tab"
-          :class="{ 'is-active': activeTab === 'dockerfile' }"
+          :class="['sm-tab', styles['manager-tab'], { 'is-active': activeTab === 'dockerfile' }]"
           @click="activeTab = 'dockerfile'"
         >
           Dockerfile
         </button>
         <button
-          class="sm-tab manager-tab"
-          :class="{ 'is-active': activeTab === 'compose' }"
+          :class="['sm-tab', styles['manager-tab'], { 'is-active': activeTab === 'compose' }]"
           @click="activeTab = 'compose'"
         >
           Docker Compose
         </button>
       </div>
 
-      <div class="manager-body">
-        <div class="config-list">
-          <div class="list-header">
-            <div class="list-heading">
-              <span class="list-eyebrow">模板列表</span>
+      <div :class="styles['manager-body']">
+        <div :class="styles['config-list']">
+          <div :class="styles['list-header']">
+            <div :class="styles['list-heading']">
+              <span :class="styles['list-eyebrow']">模板列表</span>
               <strong>{{ activeTab === 'dockerfile' ? 'Dockerfile 模板' : 'Compose 模板' }}</strong>
             </div>
           </div>
-          <div v-if="configStore.configsLoading" class="sm-empty list-state">加载配置中...</div>
-          <div v-else-if="currentConfigs.length === 0" class="sm-empty list-state">
+          <div v-if="configStore.configsLoading" :class="['sm-empty', styles['list-state']]">
+            加载配置中...
+          </div>
+          <div v-else-if="currentConfigs.length === 0" :class="['sm-empty', styles['list-state']]">
             暂无{{ activeTab === 'dockerfile' ? 'Dockerfile' : 'Compose' }}配置
           </div>
-          <div v-else class="list-items">
+          <div v-else :class="styles['list-items']">
             <button
               v-for="config in currentConfigs"
               :key="config.id"
-              class="list-item"
-              :class="{ selected: selectedId === config.id }"
+              :class="[styles['list-item'], { [styles['selected']]: selectedId === config.id }]"
               type="button"
               @click="selectConfig(config.id)"
             >
-              <div class="item-name">{{ config.name }}</div>
-              <div class="item-date">更新于 {{ formatDate(config.updatedAt) }}</div>
+              <div :class="styles['item-name']">{{ config.name }}</div>
+              <div :class="styles['item-date']">更新于 {{ formatDate(config.updatedAt) }}</div>
             </button>
           </div>
         </div>
 
-        <div class="config-detail">
+        <div :class="styles['config-detail']">
           <template v-if="selectedConfig">
-            <div class="detail-header">
+            <div :class="styles['detail-header']">
               <template v-if="isEditing">
                 <input
                   v-model="editingName"
                   type="text"
-                  class="name-input sm-input"
+                  :class="[styles['name-input'], 'sm-input']"
                   placeholder="配置名称"
                 />
               </template>
               <template v-else>
-                <h3 class="detail-title">{{ selectedConfig.name }}</h3>
+                <h3 :class="styles['detail-title']">{{ selectedConfig.name }}</h3>
                 <button
                   class="sm-button sm-button--secondary sm-button--small"
                   @click="startEditing"
@@ -226,24 +226,24 @@ function formatDate(dateStr: string): string {
               </template>
             </div>
 
-            <div class="detail-meta">
+            <div :class="styles['detail-meta']">
               <span>创建: {{ formatDate(selectedConfig.createdAt) }}</span>
               <span>更新: {{ formatDate(selectedConfig.updatedAt) }}</span>
             </div>
 
-            <div class="detail-content">
-              <label class="content-label">
+            <div :class="styles['detail-content']">
+              <label :class="styles['content-label']">
                 {{ activeTab === 'dockerfile' ? 'Dockerfile' : 'docker-compose.yaml' }}
               </label>
               <textarea
                 v-model="editingContent"
-                class="code-editor"
+                :class="styles['code-editor']"
                 :readonly="!isEditing"
                 spellcheck="false"
               ></textarea>
             </div>
 
-            <div class="detail-actions">
+            <div :class="styles['detail-actions']">
               <template v-if="isEditing">
                 <button class="sm-button sm-button--secondary" @click="cancelEditing">取消</button>
                 <button
@@ -256,7 +256,7 @@ function formatDate(dateStr: string): string {
               </template>
               <template v-else>
                 <template v-if="deleteConfirmId === selectedConfig.id">
-                  <span class="delete-hint">确定删除？</span>
+                  <span :class="styles['delete-hint']">确定删除？</span>
                   <button class="sm-button sm-button--secondary" @click="cancelDelete">取消</button>
                   <button
                     class="sm-button sm-button--danger"
@@ -277,7 +277,7 @@ function formatDate(dateStr: string): string {
             </div>
           </template>
           <template v-else>
-            <div class="sm-empty detail-empty">
+            <div :class="['sm-empty', styles['detail-empty']]">
               <p>选择左侧配置查看详情</p>
             </div>
           </template>
@@ -286,296 +286,3 @@ function formatDate(dateStr: string): string {
     </div>
   </div>
 </template>
-
-<style scoped>
-.config-manager-overlay {
-  z-index: 1100;
-}
-
-.config-manager {
-  width: min(1120px, calc(100vw - 72px));
-  height: min(820px, calc(100vh - 104px));
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  -webkit-app-region: no-drag;
-}
-
-.manager-heading {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-2);
-}
-
-.manager-eyebrow,
-.list-eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--sm-color-text-tertiary);
-}
-
-.manager-title-row {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-3);
-}
-
-.manager-header {
-  flex-shrink: 0;
-}
-
-.manager-header h2 {
-  margin: 0;
-  font-size: 18px;
-  color: var(--sm-color-text-primary);
-}
-
-.manager-header p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--sm-color-text-secondary);
-}
-
-.manager-tabs {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: var(--sm-space-2);
-  padding: var(--sm-space-3) var(--sm-space-5);
-  border-bottom: 1px solid var(--sm-color-border-subtle);
-  -webkit-app-region: no-drag;
-}
-
-.manager-tab {
-  position: relative;
-  z-index: 1;
-  -webkit-app-region: no-drag;
-}
-
-.manager-body {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  overflow: hidden;
-}
-
-.config-list {
-  min-height: 0;
-  border-right: 1px solid var(--sm-color-border-subtle);
-  display: flex;
-  flex-direction: column;
-  background: var(--sm-color-surface-1);
-}
-
-.list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sm-space-3);
-  padding: var(--sm-space-4);
-  border-bottom: 1px solid var(--sm-color-border-subtle);
-}
-
-.list-heading {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.list-heading strong {
-  font-size: 14px;
-  color: var(--sm-color-text-primary);
-}
-
-.list-state {
-  flex: 1;
-  margin: var(--sm-space-4);
-  background: var(--sm-color-surface-2);
-}
-
-.list-items {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--sm-space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-2);
-}
-
-.list-item {
-  width: 100%;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  padding: 12px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--sm-radius-md);
-  cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast);
-}
-
-.list-item:hover {
-  background: var(--sm-color-surface-2);
-  border-color: var(--sm-color-border-default);
-}
-
-.list-item.selected {
-  background: var(--sm-color-surface-selected);
-  border-color: var(--sm-color-border-selected);
-}
-
-.item-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-  margin-bottom: 4px;
-}
-
-.item-date {
-  font-size: 11px;
-  color: var(--sm-color-text-secondary);
-}
-
-.config-detail {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--sm-color-surface-2);
-}
-
-.detail-header {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-3);
-  padding: var(--sm-space-5);
-  border-bottom: 1px solid var(--sm-color-border-subtle);
-}
-
-.detail-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  flex: 1;
-  color: var(--sm-color-text-primary);
-}
-
-.name-input {
-  flex: 1;
-}
-
-.detail-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sm-space-3);
-  padding: 0 var(--sm-space-5) var(--sm-space-4);
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-}
-
-.detail-content {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-3);
-  padding: 0 var(--sm-space-5) var(--sm-space-5);
-  overflow: hidden;
-}
-
-.content-label {
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-}
-
-.code-editor {
-  flex: 1;
-  min-height: 0;
-  padding: 16px;
-  font-family: var(--sm-font-mono);
-  font-size: 12px;
-  line-height: 1.6;
-  background: var(--sm-color-bg-embedded);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  color: var(--sm-color-text-primary);
-  resize: none;
-  white-space: pre;
-  tab-size: 2;
-}
-
-.code-editor:focus {
-  outline: none;
-  border-color: var(--sm-color-border-accent);
-}
-
-.code-editor:read-only {
-  background: rgba(11, 11, 12, 0.72);
-  cursor: default;
-}
-
-.detail-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--sm-space-2);
-  padding: var(--sm-space-4) var(--sm-space-5);
-  border-top: 1px solid var(--sm-color-border-subtle);
-  background: var(--sm-color-surface-1);
-}
-
-.delete-hint {
-  font-size: 13px;
-  color: #c77878;
-  margin-right: auto;
-}
-
-.detail-empty {
-  flex: 1;
-  margin: var(--sm-space-5);
-  background: var(--sm-color-surface-1);
-}
-
-@media (max-width: 900px) {
-  .manager-body {
-    grid-template-columns: 1fr;
-  }
-
-  .config-list {
-    border-right: none;
-    border-bottom: 1px solid var(--sm-color-border-subtle);
-  }
-}
-
-@media (max-width: 720px) {
-  .config-manager {
-    width: calc(100vw - 32px);
-    height: calc(100vh - 72px);
-  }
-
-  .manager-tabs,
-  .detail-header,
-  .detail-meta,
-  .detail-content,
-  .detail-actions {
-    padding-left: var(--sm-space-4);
-    padding-right: var(--sm-space-4);
-  }
-
-  .manager-tabs {
-    padding: var(--sm-space-2) var(--sm-space-4);
-  }
-}
-</style>
