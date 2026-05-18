@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import KeyValueEditor from './KeyValueEditor.vue'
 import type { MCPServerConfig, MCPConnectionStatus, MCPTransportType } from '@renderer/types'
+import styles from './MCPServerItem.module.css'
 
 interface Props {
   config: MCPServerConfig
@@ -181,23 +182,25 @@ watch(
 </script>
 
 <template>
-  <div class="mcp-server-item">
-    <div class="mcp-server-header" @click="handleToggle">
-      <span class="expand-icon">{{ expanded ? '▼' : '▶' }}</span>
-      <span class="mcp-server-name">{{ config.name }}</span>
+  <div :class="styles['mcp-server-item']">
+    <div :class="styles['mcp-server-header']" @click="handleToggle">
+      <span :class="styles['expand-icon']">{{ expanded ? '▼' : '▶' }}</span>
+      <span :class="styles['mcp-server-name']">{{ config.name }}</span>
       <!-- 连接状态指示器 -->
       <span
-        class="status-indicator"
-        :class="{
-          connected: status?.connected,
-          error: status?.error
-        }"
+        :class="[
+          styles['status-indicator'],
+          {
+            [styles.connected]: status?.connected,
+            [styles.error]: status?.error
+          }
+        ]"
         :title="status?.error || ''"
       >
         {{ status?.connected ? '已连接' : '未连接' }}
       </span>
-      <span class="transport-badge">{{ localConfig.transport }}</span>
-      <div class="mcp-server-actions">
+      <span :class="styles['transport-badge']">{{ localConfig.transport }}</span>
+      <div :class="styles['mcp-server-actions']">
         <button
           v-if="!status?.connected"
           class="sm-button sm-button--small"
@@ -217,7 +220,7 @@ watch(
           {{ testing ? '测试中...' : '测试' }}
         </button>
         <button
-          class="sm-button sm-button--small sm-button--danger btn-danger-text"
+          :class="['sm-button', 'sm-button--small', 'sm-button--danger', styles['btn-danger-text']]"
           @click.stop="emit('delete', config.name)"
         >
           删除
@@ -226,8 +229,8 @@ watch(
     </div>
 
     <!-- 展开的详情 -->
-    <div v-if="expanded" class="mcp-server-details">
-      <div class="form-group">
+    <div v-if="expanded" :class="styles['mcp-server-details']">
+      <div :class="styles['form-group']">
         <label>传输类型</label>
         <select
           :value="localConfig.transport"
@@ -242,7 +245,7 @@ watch(
 
       <!-- stdio 配置 -->
       <template v-if="localConfig.transport === 'stdio'">
-        <div class="form-group">
+        <div :class="styles['form-group']">
           <label>执行命令</label>
           <input
             v-model="localConfig.command"
@@ -252,16 +255,16 @@ watch(
             @blur="persistConfig"
           />
         </div>
-        <div class="form-group">
+        <div :class="styles['form-group']">
           <label>命令参数 (每行一个)</label>
           <textarea
             v-model="argsText"
-            class="sm-textarea textarea-small"
+            :class="['sm-textarea', styles['textarea-small']]"
             placeholder="-y&#10;@modelcontextprotocol/server-xxx"
             @blur="handleArgsBlur"
           ></textarea>
         </div>
-        <div class="form-group">
+        <div :class="styles['form-group']">
           <label>环境变量 (KEY=VALUE 格式，每行一个)</label>
           <KeyValueEditor
             :model-value="localConfig.env || {}"
@@ -273,7 +276,7 @@ watch(
 
       <!-- HTTP/SSE 配置 -->
       <template v-else>
-        <div class="form-group">
+        <div :class="styles['form-group']">
           <label>服务地址</label>
           <input
             v-model="localConfig.url"
@@ -283,7 +286,7 @@ watch(
             @blur="persistConfig"
           />
         </div>
-        <div class="form-group">
+        <div :class="styles['form-group']">
           <label>认证头 (KEY=VALUE 格式，每行一个)</label>
           <KeyValueEditor
             :model-value="localConfig.headers || {}"
@@ -293,180 +296,21 @@ watch(
         </div>
       </template>
 
-      <div v-if="warningMessage" class="inline-warning">
+      <div v-if="warningMessage" :class="styles['inline-warning']">
         {{ warningMessage }}
       </div>
 
       <!-- 工具列表 -->
-      <div v-if="status?.connected" class="tools-section">
-        <h4 class="tools-title">可用工具 ({{ status.tools.length || 0 }})</h4>
-        <div class="tools-list">
-          <div v-for="tool in status.tools" :key="tool.name" class="tool-item">
-            <span class="tool-name">{{ tool.name }}</span>
-            <span class="tool-desc">{{ tool.description }}</span>
+      <div v-if="status?.connected" :class="styles['tools-section']">
+        <h4 :class="styles['tools-title']">可用工具 ({{ status.tools.length || 0 }})</h4>
+        <div :class="styles['tools-list']">
+          <div v-for="tool in status.tools" :key="tool.name" :class="styles['tool-item']">
+            <span :class="styles['tool-name']">{{ tool.name }}</span>
+            <span :class="styles['tool-desc']">{{ tool.description }}</span>
           </div>
-          <div v-if="!status.tools?.length" class="empty-tools">暂无可用工具</div>
+          <div v-if="!status.tools?.length" :class="styles['empty-tools']">暂无可用工具</div>
         </div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.mcp-server-item {
-  background: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  overflow: hidden;
-}
-
-.mcp-server-header {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.mcp-server-header:hover {
-  background: var(--sm-color-surface-hover);
-}
-
-.expand-icon {
-  font-size: 10px;
-  color: var(--sm-color-text-secondary);
-  margin-right: 10px;
-  width: 12px;
-}
-
-.mcp-server-name {
-  font-weight: 500;
-  color: var(--sm-color-text-primary);
-  flex: 1;
-}
-
-.mcp-server-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.mcp-server-details {
-  padding: 16px;
-  border-top: 1px solid var(--sm-color-border-subtle);
-  background: var(--sm-color-surface-1);
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 13px;
-  color: var(--sm-color-text-secondary);
-}
-
-.btn-danger-text {
-  color: var(--sm-color-status-danger);
-}
-
-.inline-warning {
-  margin-bottom: 16px;
-  padding: 10px 12px;
-  border-radius: var(--sm-radius-md);
-  background: rgba(199, 120, 120, 0.08);
-  border: 1px solid rgba(199, 120, 120, 0.22);
-  color: var(--sm-color-status-danger);
-  font-size: 12px;
-}
-
-.status-indicator {
-  font-size: 11px;
-  padding: 2px 8px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 999px;
-  margin-right: 8px;
-  background: var(--sm-color-surface-1);
-  color: var(--sm-color-text-secondary);
-}
-
-.status-indicator.connected {
-  background: rgba(127, 176, 138, 0.12);
-  border-color: rgba(127, 176, 138, 0.22);
-  color: var(--sm-color-status-success);
-}
-
-.status-indicator.error {
-  background: rgba(199, 120, 120, 0.12);
-  border-color: rgba(199, 120, 120, 0.22);
-  color: var(--sm-color-status-danger);
-}
-
-.transport-badge {
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: var(--sm-color-surface-1);
-  border: 1px solid var(--sm-color-border-default);
-  color: var(--sm-color-text-secondary);
-  margin-right: 12px;
-  font-family: var(--sm-font-mono);
-}
-
-.textarea-small {
-  min-height: 60px;
-  resize: vertical;
-  font-family: var(--sm-font-mono);
-  line-height: 1.5;
-}
-
-.tools-section {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--sm-color-border-subtle);
-}
-
-.tools-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-  margin: 0 0 12px 0;
-}
-
-.tools-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.tool-item {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 12px;
-  background: var(--sm-color-surface-2);
-  border-radius: var(--sm-radius-sm);
-  border: 1px solid var(--sm-color-border-default);
-}
-
-.tool-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--sm-color-accent-hover);
-  font-family: var(--sm-font-mono);
-}
-
-.tool-desc {
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-  margin-top: 4px;
-}
-
-.empty-tools {
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-  font-style: italic;
-}
-</style>

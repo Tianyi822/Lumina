@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import styles from './MCPConnectionTest.module.css'
+
 interface Props {
   testing: boolean
   result?: 'success' | 'error' | null
@@ -12,47 +14,19 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div v-if="testing" class="connection-test testing">
-    <span class="test-icon">⏳</span>
+  <div v-if="testing" :class="[styles['connection-test'], styles.testing]">
+    <span :class="styles['test-icon']">⏳</span>
     <span>测试中...</span>
   </div>
-  <div v-else-if="result === 'success' && message" class="connection-test success">
-    <span class="test-icon">✓</span>
+  <div
+    v-else-if="result === 'success' && message"
+    :class="[styles['connection-test'], styles.success]"
+  >
+    <span :class="styles['test-icon']">✓</span>
     <span>{{ message }}</span>
   </div>
-  <div v-else-if="result === 'error' && message" class="connection-test error">
-    <span class="test-icon">✗</span>
+  <div v-else-if="result === 'error' && message" :class="[styles['connection-test'], styles.error]">
+    <span :class="styles['test-icon']">✗</span>
     <span>{{ message }}</span>
   </div>
 </template>
-
-<style scoped>
-.connection-test {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  border-radius: 4px;
-  font-size: 0.875rem;
-}
-
-.connection-test.testing {
-  background-color: rgba(255, 255, 255, 0.05);
-  color: var(--sm-color-text-secondary);
-}
-
-.connection-test.success {
-  background-color: rgba(63, 185, 80, 0.1);
-  color: var(--sm-color-status-success);
-}
-
-.connection-test.error {
-  background-color: rgba(248, 81, 73, 0.1);
-  color: var(--sm-color-status-danger);
-}
-
-.test-icon {
-  font-weight: bold;
-  font-size: 1rem;
-}
-</style>

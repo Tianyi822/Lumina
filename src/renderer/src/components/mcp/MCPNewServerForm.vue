@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { MCPServerConfig } from '@renderer/types'
 import KeyValueEditor from './KeyValueEditor.vue'
+import styles from './MCPNewServerForm.module.css'
 
 interface Props {
   existingNames: string[]
@@ -140,10 +141,10 @@ function handleCancel(): void {
 </script>
 
 <template>
-  <div class="new-model-form">
-    <h3 class="form-section-title">添加 MCP 服务器</h3>
-    <div class="form-group">
-      <label>服务器名称 <span class="required">*</span></label>
+  <div :class="styles['new-model-form']">
+    <h3 :class="styles['form-section-title']">添加 MCP 服务器</h3>
+    <div :class="styles['form-group']">
+      <label>服务器名称 <span :class="styles.required">*</span></label>
       <input
         v-model="formData.name"
         type="text"
@@ -151,7 +152,7 @@ function handleCancel(): void {
         placeholder="例如: filesystem, github"
       />
     </div>
-    <div class="form-group">
+    <div :class="styles['form-group']">
       <label>传输类型</label>
       <select v-model="formData.transport" class="sm-select">
         <option value="stdio">stdio (本地进程)</option>
@@ -162,8 +163,8 @@ function handleCancel(): void {
 
     <!-- stdio 配置 -->
     <template v-if="formData.transport === 'stdio'">
-      <div class="form-group">
-        <label>执行命令 <span class="required">*</span></label>
+      <div :class="styles['form-group']">
+        <label>执行命令 <span :class="styles.required">*</span></label>
         <input
           v-model="formData.command"
           type="text"
@@ -171,15 +172,15 @@ function handleCancel(): void {
           placeholder="例如: npx, node, python"
         />
       </div>
-      <div class="form-group">
+      <div :class="styles['form-group']">
         <label>命令参数 (每行一个)</label>
         <textarea
           v-model="argsText"
-          class="sm-textarea textarea-small"
+          :class="['sm-textarea', styles['textarea-small']]"
           placeholder="-y&#10;@modelcontextprotocol/server-xxx"
         ></textarea>
       </div>
-      <div class="form-group">
+      <div :class="styles['form-group']">
         <label>环境变量 (KEY=VALUE 格式，每行一个)</label>
         <KeyValueEditor
           :model-value="formData.env || {}"
@@ -191,8 +192,8 @@ function handleCancel(): void {
 
     <!-- HTTP/SSE 配置 -->
     <template v-else>
-      <div class="form-group">
-        <label>服务地址 <span class="required">*</span></label>
+      <div :class="styles['form-group']">
+        <label>服务地址 <span :class="styles.required">*</span></label>
         <input
           v-model="formData.url"
           type="text"
@@ -200,7 +201,7 @@ function handleCancel(): void {
           placeholder="https://example.com/mcp"
         />
       </div>
-      <div class="form-group">
+      <div :class="styles['form-group']">
         <label>认证头 (KEY=VALUE 格式，每行一个)</label>
         <KeyValueEditor
           :model-value="formData.headers || {}"
@@ -210,7 +211,7 @@ function handleCancel(): void {
       </div>
     </template>
 
-    <div class="form-actions">
+    <div :class="styles['form-actions']">
       <button class="sm-button" @click="handleCancel">取消</button>
       <button class="sm-button sm-button--secondary" :disabled="testing" @click="handleTest">
         {{ testing ? '测试中...' : '测试连接' }}
@@ -219,55 +220,3 @@ function handleCancel(): void {
     </div>
   </div>
 </template>
-
-<style scoped>
-.new-model-form {
-  background: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  padding: 16px;
-}
-
-.form-section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-  margin: 0 0 16px;
-}
-
-.form-group label {
-  color: var(--sm-color-text-secondary);
-}
-
-.required {
-  color: var(--sm-color-status-danger);
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 13px;
-  color: var(--sm-color-text-secondary);
-}
-
-.required {
-  color: var(--sm-color-status-danger);
-}
-
-.textarea-small {
-  min-height: 60px;
-  resize: vertical;
-  font-family: var(--sm-font-mono);
-  line-height: 1.5;
-}
-
-.form-actions {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--sm-color-border-subtle);
-}
-</style>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import type { EmbeddingConfig } from '@shared/types/config'
+import styles from './EmbeddingModelForm.module.css'
 
 interface Props {
   existingNames?: string[]
@@ -166,27 +167,29 @@ async function handleTestConnection(): Promise<void> {
 </script>
 
 <template>
-  <div class="new-model-form">
-    <h3 class="form-section-title">{{ editingName ? '编辑' : '添加' }}嵌入模型</h3>
+  <div :class="styles['new-model-form']">
+    <h3 :class="styles['form-section-title']">{{ editingName ? '编辑' : '添加' }}嵌入模型</h3>
 
     <form @submit.prevent="handleSubmit">
       <!-- 显示名称 -->
-      <div class="form-group">
-        <label>显示名称 <span class="required">*</span></label>
+      <div :class="styles['form-group']">
+        <label>显示名称 <span :class="styles.required">*</span></label>
         <input
           v-model="displayName"
           type="text"
           class="sm-input"
-          :class="{ 'input-error': nameConflictError }"
+          :class="{ [styles['input-error']]: nameConflictError }"
           placeholder="例如: OpenAI Embedding Small"
           required
         />
-        <span v-if="nameConflictError" class="error-message">{{ nameConflictError }}</span>
+        <span v-if="nameConflictError" :class="styles['error-message']">{{
+          nameConflictError
+        }}</span>
       </div>
 
       <!-- API 基础URL -->
-      <div class="form-group">
-        <label>API 基础URL <span class="required">*</span></label>
+      <div :class="styles['form-group']">
+        <label>API 基础URL <span :class="styles.required">*</span></label>
         <input
           v-model="baseUrl"
           type="url"
@@ -197,14 +200,14 @@ async function handleTestConnection(): Promise<void> {
       </div>
 
       <!-- API 密钥 -->
-      <div class="form-group">
-        <label>API 密钥 <span class="required">*</span></label>
+      <div :class="styles['form-group']">
+        <label>API 密钥 <span :class="styles.required">*</span></label>
         <input v-model="apiKey" type="password" class="sm-input" placeholder="sk-..." required />
       </div>
 
       <!-- 模型名称 -->
-      <div class="form-group">
-        <label>模型名称 <span class="required">*</span></label>
+      <div :class="styles['form-group']">
+        <label>模型名称 <span :class="styles.required">*</span></label>
         <input
           v-model="modelName"
           type="text"
@@ -215,27 +218,27 @@ async function handleTestConnection(): Promise<void> {
       </div>
 
       <!-- 向量维度 -->
-      <div class="form-group">
-        <label>向量维度 <span class="required">*</span></label>
+      <div :class="styles['form-group']">
+        <label>向量维度 <span :class="styles.required">*</span></label>
         <input
           v-model="dimensions"
           type="text"
           class="sm-input"
-          :class="{ 'input-error': dimensionError }"
+          :class="{ [styles['input-error']]: dimensionError }"
           placeholder="1536"
           required
           @input="validateDimension(dimensions)"
         />
-        <span v-if="dimensionError" class="error-message">{{ dimensionError }}</span>
+        <span v-if="dimensionError" :class="styles['error-message']">{{ dimensionError }}</span>
       </div>
 
       <!-- 测试结果 -->
-      <div v-if="testResult" class="test-result" :class="testResult.type">
+      <div v-if="testResult" :class="[styles['test-result'], styles[testResult.type]]">
         {{ testResult.message }}
       </div>
 
       <!-- 按钮组 -->
-      <div class="form-actions">
+      <div :class="styles['form-actions']">
         <button type="button" class="sm-button" @click="emit('cancel')">取消</button>
         <button
           type="button"
@@ -250,66 +253,3 @@ async function handleTestConnection(): Promise<void> {
     </form>
   </div>
 </template>
-
-<style scoped>
-.new-model-form {
-  background: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  padding: 16px;
-}
-
-.form-section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--sm-color-text-primary);
-  margin: 0 0 16px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--sm-color-border-subtle);
-}
-
-.form-group label {
-  color: var(--sm-color-text-secondary);
-}
-
-.required {
-  color: var(--sm-color-status-danger);
-}
-
-.input-error {
-  border-color: var(--sm-color-status-danger) !important;
-}
-
-.error-message {
-  display: block;
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--sm-color-status-danger);
-}
-
-.test-result {
-  padding: 8px;
-  border-radius: 4px;
-  font-size: 13px;
-  margin-bottom: 16px;
-}
-
-.test-result.success {
-  background: rgba(34, 197, 94, 0.15);
-  color: var(--sm-color-status-success);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.test-result.error {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--sm-color-status-danger);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
-}
-</style>
