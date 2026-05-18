@@ -97,12 +97,16 @@ export function createMainWindow(): BrowserWindow {
     }
   })
 
+  const isReactUI = process.env['LUMINA_UI'] === 'react'
+
   // 开发环境下使用 electron-vite cli 的热模块替换
   // 生产环境加载本地 html 文件
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    const htmlFile = isReactUI ? 'index.react.html' : 'index.html'
+    mainWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}${htmlFile}`)
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    const htmlFile = isReactUI ? 'index.react.html' : 'index.html'
+    mainWindow.loadFile(join(__dirname, `../renderer/${htmlFile}`))
   }
 
   return mainWindow
