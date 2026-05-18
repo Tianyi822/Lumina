@@ -1,10 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome'
-import {
-  useKnowledgeStore,
-  useUIStateStore
-} from '@renderer/stores'
+import { useKnowledgeStore, useUIStateStore } from '@renderer/stores'
 import styles from './WorkspaceSidebarHost.module.css'
 
 export default function WorkspaceSidebarHost() {
@@ -58,14 +55,15 @@ export default function WorkspaceSidebarHost() {
 
   const handleDeleteKnowledgeBase = useCallback(
     async (kbId: string) => {
-      const notify = useUIStateStore.getState
-      // Use window.confirm for Phase 5; will use notification system properly later
       const confirmed = window.confirm('此操作不可撤销。确定删除知识库吗？')
       if (!confirmed) return
 
       const success = await deleteKnowledgeBase(kbId)
       if (!success) {
-        window.api.logger.warn('[WorkspaceSidebarHost] 删除知识库失败', { kbId, error: knowledgeError })
+        window.api.logger.warn('[WorkspaceSidebarHost] 删除知识库失败', {
+          kbId,
+          error: knowledgeError
+        })
       }
     },
     [deleteKnowledgeBase, knowledgeError]
@@ -98,7 +96,11 @@ export default function WorkspaceSidebarHost() {
     if (currentView === 'paper') {
       return (
         <button
-          className={['sm-button', 'sm-button--primary', styles['sm-workspace-sidebar-host__action']].join(' ')}
+          className={[
+            'sm-button',
+            'sm-button--primary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
           onClick={handleUploadPdf}
         >
           上传 PDF
@@ -110,13 +112,21 @@ export default function WorkspaceSidebarHost() {
       return (
         <>
           <button
-            className={['sm-button', 'sm-button--primary', styles['sm-workspace-sidebar-host__action']].join(' ')}
+            className={[
+              'sm-button',
+              'sm-button--primary',
+              styles['sm-workspace-sidebar-host__action']
+            ].join(' ')}
             onClick={handleCreateKnowledgeBase}
           >
             新建知识库
           </button>
           <button
-            className={['sm-button', 'sm-button--secondary', styles['sm-workspace-sidebar-host__action']].join(' ')}
+            className={[
+              'sm-button',
+              'sm-button--secondary',
+              styles['sm-workspace-sidebar-host__action']
+            ].join(' ')}
             onClick={handleManageKnowledgeFiles}
           >
             管理文件
@@ -128,23 +138,42 @@ export default function WorkspaceSidebarHost() {
     return (
       <>
         <button
-          className={['sm-button', 'sm-button--primary', styles['sm-workspace-sidebar-host__action']].join(' ')}
+          className={[
+            'sm-button',
+            'sm-button--primary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
           onClick={handleOpenLabCreator}
         >
           创建实验室
         </button>
         <button
-          className={['sm-button', 'sm-button--secondary', styles['sm-workspace-sidebar-host__action']].join(' ')}
+          className={[
+            'sm-button',
+            'sm-button--secondary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
           onClick={handleOpenConfigManager}
         >
           管理配置
         </button>
       </>
     )
-  }, [currentView, handleUploadPdf, handleCreateKnowledgeBase, handleManageKnowledgeFiles, handleOpenLabCreator, handleOpenConfigManager])
+  }, [
+    currentView,
+    handleUploadPdf,
+    handleCreateKnowledgeBase,
+    handleManageKnowledgeFiles,
+    handleOpenLabCreator,
+    handleOpenConfigManager
+  ])
 
   return (
-    <div className={[styles['sm-sidebar-frame'], isCurrentSidebarCollapsed && 'is-collapsed'].filter(Boolean).join(' ')}>
+    <div
+      className={[styles['sm-sidebar-frame'], isCurrentSidebarCollapsed && 'is-collapsed']
+        .filter(Boolean)
+        .join(' ')}
+    >
       <aside className={['sm-sidebar-shell', styles['sm-workspace-sidebar-host']].join(' ')}>
         <WorkspaceSidebarChrome count={sidebarCount} actionsKey={currentView}>
           {actions}
@@ -153,7 +182,13 @@ export default function WorkspaceSidebarHost() {
         <div className={styles['sm-workspace-sidebar-host__viewport']}>
           <div className={styles['sm-workspace-sidebar-host__panel']}>
             {/* Search bar per view */}
-            <div className={['sm-sidebar-shell__search', styles['sm-workspace-sidebar-host__search']].join(' ')} key={`search-${currentView}`}>
+            <div
+              className={[
+                'sm-sidebar-shell__search',
+                styles['sm-workspace-sidebar-host__search']
+              ].join(' ')}
+              key={`search-${currentView}`}
+            >
               {currentView === 'paper' && (
                 <input
                   type="text"
@@ -184,7 +219,10 @@ export default function WorkspaceSidebarHost() {
                     onChange={(e) => setLabSearchQuery(e.target.value)}
                   />
                   <button
-                    className={['sm-icon-button', styles['sm-workspace-sidebar-host__refresh-button']].join(' ')}
+                    className={[
+                      'sm-icon-button',
+                      styles['sm-workspace-sidebar-host__refresh-button']
+                    ].join(' ')}
                     title="刷新列表"
                   >
                     <SvgIcon name="refresh" size={14} />

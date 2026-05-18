@@ -16,10 +16,7 @@ export default function NotificationCenter() {
     <>
       {notifications.length > 0 && (
         <div
-          className={[
-            'sm-notification-center',
-            isWindows && 'sm-notification-center--windows'
-          ]
+          className={['sm-notification-center', isWindows && 'sm-notification-center--windows']
             .filter(Boolean)
             .join(' ')}
         >

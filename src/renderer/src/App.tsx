@@ -15,20 +15,17 @@ import LabPage from '@renderer/pages/LabPage'
 import PaperReaderPage from '@renderer/pages/PaperReaderPage'
 
 import { PaperQuoteContext } from '@renderer/contexts/PaperQuoteContext'
-import type { PaperQuote } from '@shared/types/chat'
 import styles from './App.module.css'
 
 export default function App() {
   const currentView = useUIStateStore((s) => s.currentView)
-  const setCurrentView = useUIStateStore((s) => s.setCurrentView)
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
   const toggleCurrentSidebar = useUIStateStore((s) => s.toggleCurrentSidebar)
-  const notifyMcpUpdate = useUIStateStore((s) => s.notifyMcpUpdate)
 
   const { isMac, isWindows, usesCustomWindowControls } = useMemo(() => getRuntimePlatform(), [])
 
   const [showSettings, setShowSettings] = useState(false)
-  const [scrollToQuote, setScrollToQuote] = useState<((quote: PaperQuote) => void) | null>(null)
+  const scrollToQuote = null // Paper quote scroll handler — Phase 8
 
   const isPaperView = currentView === 'paper'
   const isKnowledgeView = currentView === 'knowledge'
@@ -79,14 +76,7 @@ export default function App() {
   const openSettings = useCallback(() => setShowSettings(true), [])
   const closeSettings = useCallback(() => setShowSettings(false), [])
 
-  const handleMCPUpdated = useCallback(() => {
-    notifyMcpUpdate()
-  }, [notifyMcpUpdate])
-
-  const paperQuoteContextValue = useMemo(
-    () => ({ scrollToQuote }),
-    [scrollToQuote]
-  )
+  const paperQuoteContextValue = useMemo(() => ({ scrollToQuote }), [scrollToQuote])
 
   return (
     <PaperQuoteContext.Provider value={paperQuoteContextValue}>
@@ -137,9 +127,7 @@ export default function App() {
           </div>
         </div>
 
-        {showSettings && (
-          <SettingsModal onClose={closeSettings} onMcpUpdated={handleMCPUpdated} />
-        )}
+        {showSettings && <SettingsModal onClose={closeSettings} />}
       </div>
     </PaperQuoteContext.Provider>
   )

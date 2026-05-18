@@ -94,7 +94,10 @@ onUnmounted(() => {
         <div
           v-for="model in props.modelOptions"
           :key="model"
-          :class="[styles['paper-chat-input-toolbar__model-option'], { active: model === props.selectedModel }]"
+          :class="[
+            styles['paper-chat-input-toolbar__model-option'],
+            { active: model === props.selectedModel }
+          ]"
           @click="selectModel(model)"
         >
           {{ model }}

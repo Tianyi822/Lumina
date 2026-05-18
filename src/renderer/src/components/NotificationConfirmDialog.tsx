@@ -28,7 +28,12 @@ export default function NotificationConfirmDialog({
   }, [onCancel])
 
   return (
-    <div className="sm-confirm-overlay" onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
+    <div
+      className="sm-confirm-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel()
+      }}
+    >
       <div className="sm-confirm-surface" role="dialog" aria-label={title}>
         <div className="sm-confirm-surface__title">{title}</div>
         <div className="sm-confirm-surface__message">{message}</div>
@@ -37,10 +42,7 @@ export default function NotificationConfirmDialog({
             取消
           </button>
           <button
-            className={[
-              'sm-confirm-surface__btn',
-              danger && 'sm-confirm-surface__btn--danger'
-            ]
+            className={['sm-confirm-surface__btn', danger && 'sm-confirm-surface__btn--danger']
               .filter(Boolean)
               .join(' ')}
             onClick={onConfirm}

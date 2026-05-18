@@ -22,7 +22,6 @@ type SettingsTabKey =
 
 interface SettingsModalProps {
   onClose: () => void
-  onMcpUpdated?: () => void
 }
 
 const settingsTabs: Array<{ id: SettingsTabKey; label: string; description: string }> = [
@@ -36,14 +35,13 @@ const settingsTabs: Array<{ id: SettingsTabKey; label: string; description: stri
   { id: 'update', label: '升级版本', description: '检查应用更新并查看版本历史。' }
 ]
 
-export default function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
+export default function SettingsModal({ onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<SettingsTabKey>('model')
 
   const configLoading = useConfigStore((s) => s.loading)
   const configState = useConfigStore((s) => ({
     themeConfig: s.themeConfig
   }))
-  const updateThemeConfig = useConfigStore((s) => s.updateThemeConfig)
   const loadConfig = useConfigStore((s) => s.loadConfig)
 
   const navRef = useRef<HTMLElement>(null)
@@ -82,7 +80,12 @@ export default function SettingsModal({ onClose, onMcpUpdated }: SettingsModalPr
   }
 
   return (
-    <div className={['sm-modal__overlay', styles['settings-overlay']].join(' ')} onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div
+      className={['sm-modal__overlay', styles['settings-overlay']].join(' ')}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className={['sm-modal__surface', styles['settings-container']].join(' ')}>
         <div className={['sm-pane-header', styles['settings-header']].join(' ')}>
           <div className={styles['settings-header__info']}>
@@ -99,10 +102,7 @@ export default function SettingsModal({ onClose, onMcpUpdated }: SettingsModalPr
               {settingsTabs.map((tab) => (
                 <button
                   key={tab.id}
-                  className={[
-                    'sm-settings-nav__item',
-                    activeTab === tab.id && 'is-active'
-                  ]
+                  className={['sm-settings-nav__item', activeTab === tab.id && 'is-active']
                     .filter(Boolean)
                     .join(' ')}
                   onClick={() => setActiveTab(tab.id)}
@@ -121,7 +121,7 @@ export default function SettingsModal({ onClose, onMcpUpdated }: SettingsModalPr
               ) : (
                 <>
                   {activeTab === 'model' && <ModelSettings />}
-                  {activeTab === 'mcp' && <MCPSettings onMcpUpdated={onMcpUpdated} />}
+                  {activeTab === 'mcp' && <MCPSettings />}
                   {activeTab === 'embedding' && <EmbeddingModelSettings />}
                   {activeTab === 'theme' && (
                     <ThemeSettings

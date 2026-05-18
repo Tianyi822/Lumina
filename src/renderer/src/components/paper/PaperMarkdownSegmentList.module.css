@@ -319,9 +319,9 @@
 }
 
 .paper-markdown-view__markdown
-  
-    :global(.paper-markdown-view__table-wrap--scrollable):not(:global(.paper-markdown-view__table-wrap--dragging))
-   {
+  :global(.paper-markdown-view__table-wrap--scrollable):not(
+    :global(.paper-markdown-view__table-wrap--dragging)
+  ) {
   cursor: grab;
 }
 

@@ -1,10 +1,6 @@
 import styles from './MCPSettings.module.css'
 
-interface MCPSettingsProps {
-  onMcpUpdated?: () => void
-}
-
-export default function MCPSettings({ onMcpUpdated }: MCPSettingsProps) {
+export default function MCPSettings() {
   return (
     <div className="sm-settings-page">
       <header className="sm-settings-page__header">

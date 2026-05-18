@@ -15,7 +15,9 @@ export default function WorkspaceToolbar() {
         !isPaperView &&
           currentView === 'knowledge' &&
           styles['sm-workspace-toolbar__controls--knowledge'],
-        isPaperView && isCurrentSidebarCollapsed && styles['sm-workspace-toolbar__controls--chrome-safe']
+        isPaperView &&
+          isCurrentSidebarCollapsed &&
+          styles['sm-workspace-toolbar__controls--chrome-safe']
       ]
         .filter(Boolean)
         .join(' ')}

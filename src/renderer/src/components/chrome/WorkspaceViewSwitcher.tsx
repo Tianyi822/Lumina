@@ -31,10 +31,7 @@ export default function WorkspaceViewSwitcher() {
       {TABS.map(({ view, label }) => (
         <button
           key={view}
-          className={[
-            styles['sm-view-switcher__button'],
-            viewFlags[view] && styles['is-active']
-          ]
+          className={[styles['sm-view-switcher__button'], viewFlags[view] && styles['is-active']]
             .filter(Boolean)
             .join(' ')}
           aria-selected={viewFlags[view]}

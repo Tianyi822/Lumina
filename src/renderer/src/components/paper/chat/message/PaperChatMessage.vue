@@ -309,10 +309,7 @@ function handleToggleReasoning(): void {
       <!-- 消息气泡 -->
       <div
         v-if="shouldShowBubble"
-        :class="[
-          styles['paper-chat-message__bubble'],
-          { streaming: message.isStreaming }
-        ]"
+        :class="[styles['paper-chat-message__bubble'], { streaming: message.isStreaming }]"
       >
         <PaperChatStreamingContent
           v-if="showWaitingPlaceholder"

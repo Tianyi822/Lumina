@@ -8,7 +8,8 @@ interface ThemeSettingsProps {
   onThemeChange: (themeId: string) => void
 }
 
-export default function ThemeSettings({ value, onThemeChange }: ThemeSettingsProps) {
+export default function ThemeSettings(_props: ThemeSettingsProps) {
+  const { onThemeChange } = _props
   const currentTheme = useUIStateStore((s) => s.currentTheme)
   const selectedTheme = useUIStateStore((s) => s.selectedTheme)
   const themeMode = useUIStateStore((s) => s.themeMode)
@@ -73,11 +74,9 @@ export default function ThemeSettings({ value, onThemeChange }: ThemeSettingsPro
           <div>
             <h3 className="sm-settings-page__section-title">可用主题</h3>
             <p className="sm-settings-page__section-description">
-              {isAutoMode ? (
-                '已启用跟随系统，主题卡片仅作当前映射预览。关闭自动切换后可手动选择。'
-              ) : (
-                '选择一个主题作为全局外观，所有界面元素将自动适配。'
-              )}
+              {isAutoMode
+                ? '已启用跟随系统，主题卡片仅作当前映射预览。关闭自动切换后可手动选择。'
+                : '选择一个主题作为全局外观，所有界面元素将自动适配。'}
             </p>
           </div>
 

@@ -325,7 +325,10 @@ onUnmounted(() => {
               v-for="tool in tools"
               :id="`tool-${serverName}-${tool.name}`"
               :key="`${serverName}-${tool.name}`"
-              :class="[styles['paper-chat-mcp-tools-panel__tool'], { selected: isToolSelected(tool) }]"
+              :class="[
+                styles['paper-chat-mcp-tools-panel__tool'],
+                { selected: isToolSelected(tool) }
+              ]"
               role="button"
               tabindex="0"
               :aria-selected="isToolSelected(tool)"

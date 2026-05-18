@@ -42,13 +42,8 @@ export default function SvgIcon({
       aria-hidden="true"
     >
       {iconData.path && <path d={iconData.path} />}
-      {iconData.paths &&
-        iconData.paths.map((p, i) => (
-          <path key={i} d={p} />
-        ))}
-      {iconData.elements && (
-        <g dangerouslySetInnerHTML={{ __html: iconData.elements }} />
-      )}
+      {iconData.paths && iconData.paths.map((p, i) => <path key={i} d={p} />)}
+      {iconData.elements && <g dangerouslySetInnerHTML={{ __html: iconData.elements }} />}
     </svg>
   )
 }
