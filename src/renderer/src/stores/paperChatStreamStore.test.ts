@@ -85,10 +85,11 @@ function setupPlan(store: PaperChatStreamState, messages: Message[]): void {
 test.beforeEach(() => {
   setupWindowApi()
   setActivePinia(createPinia())
+  usePaperChatStreamStore.getState().resetAllState()
 })
 
 test('tool_result 失败后不生成重复阶段摘要', () => {
-  const store = usePaperChatStreamStore()
+  const store = usePaperChatStreamStore.getState()
   const messages = createStreamingMessages()
   setupPlan(store, messages)
 
@@ -142,7 +143,7 @@ test('tool_result 失败后不生成重复阶段摘要', () => {
 })
 
 test('plan_step_update failed 且没有工具结果时填充阶段失败内容', () => {
-  const store = usePaperChatStreamStore()
+  const store = usePaperChatStreamStore.getState()
   const messages = createStreamingMessages()
   setupPlan(store, messages)
 
@@ -167,7 +168,7 @@ test('plan_step_update failed 且没有工具结果时填充阶段失败内容',
 })
 
 test('步骤终态后的后续 content 不再追加到该阶段', () => {
-  const store = usePaperChatStreamStore()
+  const store = usePaperChatStreamStore.getState()
   const messages = createStreamingMessages()
   setupPlan(store, messages)
 
@@ -203,7 +204,7 @@ test('步骤终态后的后续 content 不再追加到该阶段', () => {
 })
 
 test('非 Plan ReAct 正文只进入最终气泡，不进入步骤内容', () => {
-  const store = usePaperChatStreamStore()
+  const store = usePaperChatStreamStore.getState()
   const messages = createStreamingMessages()
 
   dispatch(store, { type: 'react_iteration_start', content: '0', status: 'thinking' }, messages)
