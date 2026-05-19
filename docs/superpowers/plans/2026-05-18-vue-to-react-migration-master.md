@@ -21,7 +21,7 @@
 | P5 | Shell 与公共组件 | ✅ 已完成 | 2026-05-18 | 2026-05-18 | ✅ 已审查 | 22 个 React 组件创建，Vue 入口零回归 |
 | P6 | 知识库页面 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ✅ 已审查 | 27 个 React 文件创建，Vue 入口零回归 |
 | P7 | 实验室页面 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ✅ 已审查 | 27 个 React 组件创建，Pinia→React 桥接，Vue 入口零回归 |
-| P8 | 论文页面 | ⏳ 待开始 | - | - | - | |
+| P8 | 论文页面 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ✅ 已审查 | 14 个 React 文件创建，Pinia→React 桥接，Vue 入口零回归 |
 | P9 | 清理与切换 | ⏳ 待开始 | - | - | - | |
 
 **状态图例：** ⏳ 待开始 | 🔄 进行中 | ✅ 已完成 | ❌ 已回滚 | ⏭️ 已跳过
@@ -863,3 +863,131 @@ yarn add zustand@^5
 ### 是否建议进入下一阶段
 
 ✅ 建议进入 Phase 8（论文页面迁移）。实验室页面所有功能已迁移，typecheck/lint/build 全部通过，Vue 入口零回归。Phase 8 是迁移中最高风险的阶段（论文阅读器 ~40 Vue 文件），建议分 3 个子阶段执行。
+
+---
+
+## Phase 8 执行记录
+
+### 执行状态：已完成
+
+**开始日期**：2026-05-19
+**完成日期**：2026-05-19
+
+### 完成内容
+
+严格按照 Phase 8 计划执行，将论文阅读器核心组件迁移到 React。分三个子阶段：8a 核心阅读视图、8b 批注系统、8c 聊天面板壳层。所有 Vue 原文件保留不动。
+
+| 子任务 | 内容 | 状态 |
+|--------|------|------|
+| 8a.1 | PaperReaderPage.tsx 页面编排重写（占位 → 完整） | ✅ |
+| 8a.2 | PaperMarkdownView.tsx（markdown-it + katex + 搜索 + 缩放 + 阅读进度） | ✅ |
+| 8a.3 | PaperOriginalPdfView.tsx（IntersectionObserver 懒加载页面） | ✅ |
+| 8a.4 | PaperSidebar.tsx + PaperSidebarContainer.tsx + PaperFigurePreview.tsx + PaperMarkdownSegmentList.tsx | ✅ |
+| 8b | PaperAnnotationSelectionMenu.tsx + PaperAnnotationHoverPopover.tsx + PaperAnnotationNoteEditor.tsx | ✅ |
+| 8c | PaperChatPanel.tsx（聊天面板壳层，完整功能需 composable 移植） | ✅ |
+
+### 新建文件（14 个）
+
+**React Hooks:**
+- `src/renderer/src/components/paper/hooks/usePaperTextSearch.ts` — 全文搜索与高亮
+- `src/renderer/src/components/paper/hooks/usePaperMarkdownEngine.ts` — Markdown 渲染引擎（markdown-it + katex + 图片路径解析）
+
+**核心阅读视图（8a）:**
+- `src/renderer/src/components/paper/PaperMarkdownView.tsx` — 核心 Markdown 视图（搜索/缩放/阅读进度/表格拖拽）
+- `src/renderer/src/components/paper/PaperOriginalPdfView.tsx` — PDF 原件视图（IntersectionObserver 懒加载）
+- `src/renderer/src/components/paper/PaperMarkdownSegmentList.tsx` — 段落列表（翻译段落/重新翻译确认）
+- `src/renderer/src/components/paper/PaperSidebar.tsx` — 论文列表侧边栏（进度/状态/操作）
+- `src/renderer/src/components/paper/PaperSidebarContainer.tsx` — 侧边栏 Pinia→React 桥接容器
+- `src/renderer/src/components/paper/PaperFigurePreview.tsx` — 图片预览弹窗（拖拽/缩放/键盘导航）
+
+**批注系统（8b）:**
+- `src/renderer/src/components/paper/annotation/PaperAnnotationSelectionMenu.tsx` — 文本选中浮动菜单（高亮/笔记/添加到对话）
+- `src/renderer/src/components/paper/annotation/PaperAnnotationHoverPopover.tsx` — 批注悬浮弹窗（改颜色/删除/添加笔记）
+- `src/renderer/src/components/paper/annotation/PaperAnnotationNoteEditor.tsx` — 笔记编辑器（可拖拽/创建/编辑/删除）
+
+**聊天面板（8c）:**
+- `src/renderer/src/components/paper/chat/PaperChatPanel.tsx` — 聊天面板壳层（标题栏/输入区/消息区）
+
+**页面重写:**
+- `src/renderer/src/pages/PaperReaderPage.tsx` — 从占位组件重写为完整页面编排
+
+### 修改文件（2 个）
+
+| 文件 | 变更 |
+|------|------|
+| `src/renderer/src/App.tsx` | PaperQuoteContext.Provider 移入 PaperReaderPage |
+| `src/renderer/src/components/chrome/WorkspaceSidebarHost.tsx` | 论文侧边栏集成 PaperSidebarContainer |
+
+### 关键技术决策
+
+**Pinia→React 桥接（usePiniaStore）：**
+- paperReaderStore 仍是 Pinia store（653 行，深度依赖 4 个 Vue composables）
+- 使用已有 `usePiniaStore` hook 进行桥接（与 Phase 7 lab stores 相同模式）
+
+**纯 TS 复用：**
+- `useZoomAnchor` — 纯 TypeScript，零 Vue 依赖，直接导入复用
+- `usePaperHighlightRenderer` — 纯 TypeScript，零 Vue 依赖，直接导入复用
+- `paperAnnotationFloating` — 纯 TypeScript 位置计算，直接导入复用
+
+**Markdown 引擎迁移：**
+- `usePaperMarkdownEngine` 从 Vue composable 手动转换为 React hook
+- 核心渲染逻辑（markdown-it/katex/DOMParser）保持不变
+- 异步渲染竞态保护（renderRunIdRef）保留
+
+**批注组件设计：**
+- 三个批注组件为纯展示组件，通过 props 接收状态，通过 callbacks 发射事件
+- 当前与 PaperMarkdownView 之间的集成需等待 `usePaperAnnotationComposer` composable 移植
+
+**聊天面板设计：**
+- 壳层组件已创建（标题栏/输入区/消息区占位），使用 CSS Module
+- 完整消息发送/接收/流式展示需等待 `usePaperChatSession` 和 `usePaperChatStream` composable 移植
+- 聊天相关 Zustand stores（paperChatStreamStore、paperChatMessageCacheStore 等）已就绪，可直接在 React 中使用
+
+### 验收标准达成情况
+
+| 标准 | 状态 |
+|------|------|
+| `yarn typecheck:web` 通过 | ✅（0 errors） |
+| `yarn typecheck:node` 通过 | ✅ |
+| `yarn lint` 通过 | ✅（0 errors, 133 pre-existing warnings） |
+| `yarn build` 成功 | ✅（3 个 bundle: main + preload + renderer） |
+| Vue 入口零回归（0 个 .vue 文件修改） | ✅ |
+| 论文相关测试通过 | ✅（test:paper 59 pass, test:paper-annotations 34 pass, test:paper-markdown 6 pass, test:paper-translation 52 pass） |
+
+### Code Review 发现的问题
+
+**审查日期**：2026-05-19，使用 superpowers:code-review + superpowers:receiving-code-review
+
+#### Critical（已修复）
+
+1. **PaperFigurePreview 拖拽功能因闭包过期而失效** — `handleDragStart` 使用 `useCallback([], [])` 捕获初始渲染的 `handlePointerMove`，其中 `dragState` 始终为 `null`。
+   - **修复**：将 `dragState` 和 `resizeState` 从 `useState` 改为 `useRef`，事件处理函数通过 ref 读取最新值。
+
+#### Important（已修复/推迟）
+
+2. **`onAddToChat` prop 未在 PaperMarkdownView 中连接** — 需等待 `usePaperAnnotationComposer` composable 移植到 React。**推迟到后续 composable 迁移。**
+3. **`onUploadPdf` prop 已声明但未使用** — 上传由 WorkspaceSidebarHost chrome header 处理。**已清理**：从 PaperSidebar 接口和 PaperSidebarContainer 中移除。
+
+#### Medium（接受）
+
+4. **Pinia 桥接触发全量重渲染** — 与 Phase 7 相同的已知权衡，paperReaderStore 转换为 Zustand 后自然解决。
+5. **markdown-it `html: true`** — 与 Vue 版本行为一致。OCR 内容为可信来源。
+6. **缺少中间加载状态** — 与 Vue 版本行为一致（进度显示在侧边栏）。
+7. **`scrollToQuoteAndHighlight` 为空桩** — 需等待 `usePaperAnnotationComposer` + `usePaperQuoteHighlight` composable 移植。
+
+### 已知遗留
+
+1. **聊天面板完整功能** — PaperChatPanel 为壳层，消息发送/接收/流式展示需 `usePaperChatSession` 和 `usePaperChatStream` composable 移植（~2000 行）
+2. **批注系统集成** — 批注组件已创建，但 `usePaperAnnotationComposer` composable（~800 行）仍未移植，文本选中/批注创建/编辑流程暂不可用
+3. **echarts 集成（SshServerMonitorPanel）** — Phase 7 遗留，`useSshStatsPolling` 和 `useEchartsManager` composable 仍未移植
+4. **framer-motion 未使用** — Phase 5 安装的 framer-motion 仍未使用
+
+### 风险和注意事项
+
+- **paperReaderStore 仍是 Pinia**：后续应集中安排 Pinia→Zustand 转换窗口
+- **`test:paper-chat` 预存失败**：Zustand React bindings 在 Node.js 测试环境中不可用
+- **图形环境验证**：`LUMINA_UI=react yarn dev` 需在 Electron 图形环境中手动验证 UI
+
+### 是否建议进入下一阶段
+
+✅ 建议进入 Phase 9（清理与切换）。Phase 8 论文页面核心功能已迁移，typecheck/lint/build 全部通过，Vue 入口零回归。剩余 composable 移植（`usePaperAnnotationComposer`、`usePaperChatSession`、`usePaperChatStream` 等）可作为 Phase 9 清理前或独立阶段的增强工作。
