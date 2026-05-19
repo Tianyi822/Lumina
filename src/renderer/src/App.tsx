@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useConfigStore } from '@renderer/stores/configStore'
+import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { usePiniaStore } from '@renderer/composables/usePiniaStore'
 import { getRuntimePlatform } from '@renderer/composables/runtimePlatformCore'
 
 import NotificationCenter from '@renderer/components/NotificationCenter'
@@ -20,6 +22,8 @@ export default function App() {
   const currentView = useUIStateStore((s) => s.currentView)
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
   const toggleCurrentSidebar = useUIStateStore((s) => s.toggleCurrentSidebar)
+  const loadConfigStatus = useUIStateStore((s) => s.loadConfigStatus)
+  const paperReaderStore = usePiniaStore(usePaperReaderStore)
 
   const { isMac, isWindows, usesCustomWindowControls } = useMemo(() => getRuntimePlatform(), [])
 
@@ -30,9 +34,9 @@ export default function App() {
 
   const workspacePageClasses = [
     styles.workspacePage,
-    styles[`view--${currentView}`],
+    `sm-workspace-page--${currentView}`,
     isCurrentSidebarCollapsed && styles.sidebarCollapsed,
-    isMac && styles.mac,
+    isMac && 'sm-workspace-page--mac',
     isWindows && styles.windows
   ]
     .filter(Boolean)
@@ -43,9 +47,11 @@ export default function App() {
     const uiState = useUIStateStore.getState()
     const configStore = useConfigStore.getState()
 
-    uiState.initTheme()
-    configStore.loadConfig()
-  }, [])
+    void uiState.initTheme()
+    void loadConfigStatus()
+    void configStore.loadConfig()
+    paperReaderStore.loadPaperReaderPreferences()
+  }, [loadConfigStatus, paperReaderStore])
 
   // Global link interceptor
   useEffect(() => {
@@ -76,53 +82,53 @@ export default function App() {
 
   return (
     <div className="sm-app">
-        <NotificationCenter />
+      <NotificationCenter />
 
-        <div className={`sm-shell sm-workspace-page ${workspacePageClasses}`}>
-          <div className={styles.dragRegion} aria-hidden="true" />
+      <div className={`sm-shell sm-workspace-page ${workspacePageClasses}`}>
+        <div className={styles.dragRegion} aria-hidden="true" />
 
-          <div className={styles.chromeActions} aria-label="窗口快捷操作">
+        <div className={styles.chromeActions} aria-label="窗口快捷操作">
+          <button
+            className={`sm-icon-button ${styles.chromeButton}`}
+            title="设置"
+            aria-label="打开设置"
+            onClick={openSettings}
+          >
+            <SvgIcon name="settings" size={14} />
+          </button>
+
+          {isPaperView && (
             <button
               className={`sm-icon-button ${styles.chromeButton}`}
-              title="设置"
-              aria-label="打开设置"
-              onClick={openSettings}
+              title={isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+              aria-label={isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+              onClick={toggleCurrentSidebar}
             >
-              <SvgIcon name="settings" size={14} />
+              <SvgIcon name="sidebar-toggle" size={14} />
             </button>
-
-            {isPaperView && (
-              <button
-                className={`sm-icon-button ${styles.chromeButton}`}
-                title={isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
-                aria-label={isCurrentSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
-                onClick={toggleCurrentSidebar}
-              >
-                <SvgIcon name="sidebar-toggle" size={14} />
-              </button>
-            )}
-          </div>
-
-          {usesCustomWindowControls && (
-            <div className={styles.winControls}>
-              <WindowControls />
-            </div>
           )}
-
-          <WorkspaceSidebarHost />
-
-          <div className="sm-workspace-main">
-            <WorkspaceToolbar />
-
-            <div className="sm-workspace-main__body sm-workspace-main__body--fill">
-              {isPaperView && <PaperReaderPage key="paper" />}
-              {isKnowledgeView && <KnowledgePage key="knowledge" />}
-              {!isPaperView && !isKnowledgeView && <LabPage key="lab" />}
-            </div>
-          </div>
         </div>
 
-        {showSettings && <SettingsModal onClose={closeSettings} />}
+        {usesCustomWindowControls && (
+          <div className={styles.winControls}>
+            <WindowControls />
+          </div>
+        )}
+
+        <WorkspaceSidebarHost />
+
+        <div className="sm-workspace-main">
+          <WorkspaceToolbar />
+
+          <div className="sm-workspace-main__body sm-workspace-main__body--fill">
+            {isPaperView && <PaperReaderPage key="paper" />}
+            {isKnowledgeView && <KnowledgePage key="knowledge" />}
+            {!isPaperView && !isKnowledgeView && <LabPage key="lab" />}
+          </div>
+        </div>
+      </div>
+
+      {showSettings && <SettingsModal onClose={closeSettings} />}
     </div>
   )
 }
