@@ -1,4 +1,4 @@
-import styles from './creator/PortMappingSection.module.css'
+import styles from './PortMappingSection.module.css'
 
 interface PortMapping {
   containerPort: number

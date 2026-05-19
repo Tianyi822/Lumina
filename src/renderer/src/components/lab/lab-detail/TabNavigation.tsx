@@ -1,5 +1,5 @@
 import { useUIStateStore } from '@renderer/stores'
-import styles from './lab-detail/TabNavigation.module.css'
+import styles from './TabNavigation.module.css'
 
 type TabType = 'stats' | 'terminal' | 'logs'
 

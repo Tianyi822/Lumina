@@ -1,4 +1,4 @@
-import styles from './creator/CreateTypeSelector.module.css'
+import styles from './CreateTypeSelector.module.css'
 
 type CreateType = 'compose' | 'dockerfile' | 'existing' | 'ssh'
 

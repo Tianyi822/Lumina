@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { EmbeddingConfig } from '@shared/types/config'
-import styles from './knowledge/KnowledgeForm.module.css'
+import styles from './KnowledgeForm.module.css'
 
 const chunkStrategies = [
   { name: '精细检索', size: 500, overlap: 100, desc: '适合代码、法律条文，精确匹配' },

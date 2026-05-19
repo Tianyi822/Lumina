@@ -1,4 +1,4 @@
-import styles from './creator/CreateActions.module.css'
+import styles from './CreateActions.module.css'
 
 interface CreateActionsProps {
   isCreating: boolean
