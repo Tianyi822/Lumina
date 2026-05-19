@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createPinia, setActivePinia } from 'pinia'
-import { usePaperChatStreamStore } from './paperChatStreamStore'
+import { usePaperChatStreamStore, type PaperChatStreamState } from './paperChatStreamStore'
 import { derivePaperChatStepContent } from '@renderer/components/paper/chat/message/paperChatReactStepContent'
 import type { Message, StreamEvent } from '@renderer/types'
 
@@ -45,15 +45,11 @@ function createStreamingMessages(): Message[] {
   ]
 }
 
-function dispatch(
-  store: ReturnType<typeof usePaperChatStreamStore>,
-  event: StreamEvent,
-  messages: Message[]
-): void {
+function dispatch(store: PaperChatStreamState, event: StreamEvent, messages: Message[]): void {
   store.handleStreamEvent({ sessionId, turnId, ...event }, sessionId, messages)
 }
 
-function setupPlan(store: ReturnType<typeof usePaperChatStreamStore>, messages: Message[]): void {
+function setupPlan(store: PaperChatStreamState, messages: Message[]): void {
   store.beginPlanning(sessionId, turnId)
   dispatch(
     store,

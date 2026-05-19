@@ -6,7 +6,7 @@ import type { Message, StreamEvent, UserInteractionRequest } from '@renderer/typ
 
 export type { PlanStepIteration, PaperChatPlanState } from './paperChatPlanState'
 
-interface PaperChatStreamState {
+export interface PaperChatStreamState {
   isSending: boolean
   sessionSendingStates: Map<string, boolean>
   messagesSnapshots: Map<string, Message[]>
