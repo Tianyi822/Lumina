@@ -4,7 +4,10 @@ import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperFigureItem, PaperTocEntry, PaperTocItem } from '@shared/types/paper'
-import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
+import {
+  buildFigureCaptionTranslationMap,
+  hasPaperTranslationResult
+} from '@shared/utils/paperTranslation'
 import styles from './WorkspaceToolbar.module.css'
 
 interface PaperTocTreeNode {
@@ -12,46 +15,63 @@ interface PaperTocTreeNode {
   children: PaperTocTreeNode[]
 }
 
+const EMPTY_PAPER_FIGURES: PaperFigureItem[] = []
+const EMPTY_FIGURE_TRANSLATION_MAP: Record<string, string> = {}
+
 export default function WorkspaceToolbar() {
   const currentView = useUIStateStore((s) => s.currentView)
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
   const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
   const togglePaperChatPanel = useUIStateStore((s) => s.togglePaperChatPanel)
-  const paperReaderStore = usePaperReaderStore()
+  const currentPaperId = usePaperReaderStore((s) => s.currentPaperId)
+  const paperTocTitle = usePaperReaderStore((s) => s.paperTocTitle)
+  const paperTocItems = usePaperReaderStore((s) => s.paperTocItems)
+  const figuresByPaperId = usePaperReaderStore((s) => s.figuresByPaperId)
+  const figureLoadingByPaperId = usePaperReaderStore((s) => s.figureLoadingByPaperId)
+  const translationByPaperId = usePaperReaderStore((s) => s.translationByPaperId)
+  const isOcrCompleted = usePaperReaderStore((s) => s.isOcrCompleted())
+  const isCurrentPaperTranslating = usePaperReaderStore((s) => s.isCurrentPaperTranslating())
+  const markdownLoading = usePaperReaderStore((s) => s.markdownLoading)
+  const originalPdfVisible = usePaperReaderStore((s) => s.originalPdfVisible)
+  const showFigurePanel = usePaperReaderStore((s) => s.showFigurePanel)
+  const translationVisible = usePaperReaderStore((s) => s.translationVisible)
+  const canZoomIn = usePaperReaderStore((s) => s.canZoomIn())
+  const canZoomOut = usePaperReaderStore((s) => s.canZoomOut())
+  const zoomPercent = usePaperReaderStore((s) => s.zoomPercent)
+  const closeFigurePanelAction = usePaperReaderStore((s) => s.closeFigurePanel)
+  const closeFigurePreview = usePaperReaderStore((s) => s.closeFigurePreview)
+  const toggleOriginalPdfVisible = usePaperReaderStore((s) => s.toggleOriginalPdfVisible)
+  const toggleTranslationVisible = usePaperReaderStore((s) => s.toggleTranslationVisible)
+  const toggleFigurePanel = usePaperReaderStore((s) => s.toggleFigurePanel)
+  const scrollToHeading = usePaperReaderStore((s) => s.scrollToHeading)
+  const openFigurePreview = usePaperReaderStore((s) => s.openFigurePreview)
+  const zoomOut = usePaperReaderStore((s) => s.zoomOut)
+  const resetZoom = usePaperReaderStore((s) => s.resetZoom)
+  const zoomIn = usePaperReaderStore((s) => s.zoomIn)
 
   const tocContainerRef = useRef<HTMLDivElement>(null)
   const figureContainerRef = useRef<HTMLDivElement>(null)
   const figurePanelRef = useRef<HTMLDivElement>(null)
   const [showTocPanel, setShowTocPanel] = useState(false)
 
-  const currentPaperId = paperReaderStore.currentPaperId ?? null
-  const paperTocTitle = paperReaderStore.paperTocTitle ?? null
-  const paperTocItems = useMemo<PaperTocItem[]>(
-    () => paperReaderStore.paperTocItems ?? [],
-    [paperReaderStore.paperTocItems]
-  )
   const currentPaperFigures = useMemo<PaperFigureItem[]>(
-    () => paperReaderStore.currentPaperFigures() ?? [],
-    [paperReaderStore.currentPaperFigures()]
+    () =>
+      currentPaperId
+        ? figuresByPaperId[currentPaperId] || EMPTY_PAPER_FIGURES
+        : EMPTY_PAPER_FIGURES,
+    [currentPaperId, figuresByPaperId]
   )
-  const currentTranslationCache = paperReaderStore.currentTranslationCache() ?? null
+  const currentTranslationCache = useMemo(
+    () => (currentPaperId ? translationByPaperId[currentPaperId] || null : null),
+    [currentPaperId, translationByPaperId]
+  )
   const figureCaptionTranslationMap = useMemo<Record<string, string>>(
-    () => paperReaderStore.figureCaptionTranslationMap() ?? {},
-    [paperReaderStore.figureCaptionTranslationMap()]
+    () =>
+      currentTranslationCache
+        ? buildFigureCaptionTranslationMap(currentTranslationCache)
+        : EMPTY_FIGURE_TRANSLATION_MAP,
+    [currentTranslationCache]
   )
-  const figureLoadingByPaperId = useMemo<Record<string, boolean>>(
-    () => paperReaderStore.figureLoadingByPaperId ?? {},
-    [paperReaderStore.figureLoadingByPaperId]
-  )
-  const isOcrCompleted = paperReaderStore.isOcrCompleted() ?? false
-  const isCurrentPaperTranslating = paperReaderStore.isCurrentPaperTranslating() ?? false
-  const markdownLoading = paperReaderStore.markdownLoading ?? false
-  const originalPdfVisible = paperReaderStore.originalPdfVisible ?? false
-  const showFigurePanel = paperReaderStore.showFigurePanel ?? false
-  const translationVisible = paperReaderStore.translationVisible ?? false
-  const canZoomIn = paperReaderStore.canZoomIn ?? false
-  const canZoomOut = paperReaderStore.canZoomOut ?? false
-  const zoomPercent = paperReaderStore.zoomPercent ?? 100
 
   const isPaperView = currentView === 'paper'
   const isKnowledgeView = currentView === 'knowledge'
@@ -124,8 +144,8 @@ export default function WorkspaceToolbar() {
   }, [])
 
   const closeFigurePanel = useCallback((): void => {
-    paperReaderStore.closeFigurePanel()
-  }, [paperReaderStore])
+    closeFigurePanelAction()
+  }, [closeFigurePanelAction])
 
   const handleToggleOriginalPdf = useCallback((): void => {
     if (!currentPaperId) {
@@ -134,9 +154,15 @@ export default function WorkspaceToolbar() {
 
     closeTocPanel()
     closeFigurePanel()
-    paperReaderStore.closeFigurePreview()
-    paperReaderStore.toggleOriginalPdfVisible()
-  }, [closeFigurePanel, closeTocPanel, currentPaperId, paperReaderStore])
+    closeFigurePreview()
+    toggleOriginalPdfVisible()
+  }, [
+    closeFigurePanel,
+    closeFigurePreview,
+    closeTocPanel,
+    currentPaperId,
+    toggleOriginalPdfVisible
+  ])
 
   const handleToggleTranslation = useCallback(async (): Promise<void> => {
     if (!currentPaperId) {
@@ -145,8 +171,8 @@ export default function WorkspaceToolbar() {
 
     closeTocPanel()
     closeFigurePanel()
-    await paperReaderStore.toggleTranslationVisible()
-  }, [closeFigurePanel, closeTocPanel, currentPaperId, paperReaderStore])
+    await toggleTranslationVisible()
+  }, [closeFigurePanel, closeTocPanel, currentPaperId, toggleTranslationVisible])
 
   const handleToggleToc = useCallback((): void => {
     if (!canOpenToc) {
@@ -163,8 +189,8 @@ export default function WorkspaceToolbar() {
     }
 
     closeTocPanel()
-    await paperReaderStore.toggleFigurePanel()
-  }, [canOpenFigurePanel, closeTocPanel, paperReaderStore])
+    await toggleFigurePanel()
+  }, [canOpenFigurePanel, closeTocPanel, toggleFigurePanel])
 
   const handleTogglePaperChat = useCallback((): void => {
     if (!canOpenPaperChat) {
@@ -178,11 +204,11 @@ export default function WorkspaceToolbar() {
 
   const handleSelectTocItem = useCallback(
     (headingId: string): void => {
-      if (paperReaderStore.scrollToHeading(headingId)) {
+      if (scrollToHeading(headingId)) {
         closeTocPanel()
       }
     },
-    [closeTocPanel, paperReaderStore]
+    [closeTocPanel, scrollToHeading]
   )
 
   const getFigureItemLabel = useCallback(
@@ -210,7 +236,7 @@ export default function WorkspaceToolbar() {
     (figure: PaperFigureItem): void => {
       const panelRect = figurePanelRef.current?.getBoundingClientRect()
 
-      paperReaderStore.openFigurePreview(figure, {
+      openFigurePreview(figure, {
         initialRect: panelRect
           ? {
               left: panelRect.left,
@@ -220,7 +246,7 @@ export default function WorkspaceToolbar() {
           : undefined
       })
     },
-    [paperReaderStore]
+    [openFigurePreview]
   )
 
   const handleClickOutside = useCallback(
@@ -338,7 +364,7 @@ export default function WorkspaceToolbar() {
             title="缩小"
             aria-label="缩小"
             disabled={!canZoomOut}
-            onClick={() => paperReaderStore.zoomOut()}
+            onClick={zoomOut}
           >
             <SvgIcon name="zoom-out" size={14} />
           </button>
@@ -351,7 +377,7 @@ export default function WorkspaceToolbar() {
             title={`${zoomPercent}%`}
             aria-label="重置缩放"
             disabled={zoomPercent === 100}
-            onClick={() => paperReaderStore.resetZoom()}
+            onClick={resetZoom}
           >
             <span className={styles['sm-workspace-toolbar__zoom-text']}>{zoomPercent}%</span>
           </button>
@@ -360,7 +386,7 @@ export default function WorkspaceToolbar() {
             title="放大"
             aria-label="放大"
             disabled={!canZoomIn}
-            onClick={() => paperReaderStore.zoomIn()}
+            onClick={zoomIn}
           >
             <SvgIcon name="zoom-in" size={14} />
           </button>
