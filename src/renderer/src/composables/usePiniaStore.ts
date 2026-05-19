@@ -15,6 +15,8 @@ import { useRef, useSyncExternalStore } from 'react'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function usePiniaStore<T extends Record<string, any>>(useStoreFn: () => T): T {
   const storeRef = useRef<T | null>(null)
+  const versionRef = useRef(0)
+  const snapshotRef = useRef({ version: 0 })
 
   if (!storeRef.current) {
     storeRef.current = useStoreFn()
@@ -22,16 +24,18 @@ export function usePiniaStore<T extends Record<string, any>>(useStoreFn: () => T
 
   const store = storeRef.current
 
-  const state = useSyncExternalStore(
+  useSyncExternalStore(
     (callback: () => void) => {
       const unsubscribe = store.$subscribe(() => {
+        versionRef.current += 1
+        snapshotRef.current = { version: versionRef.current }
         callback()
       })
       return unsubscribe
     },
-    () => store,
-    () => store
+    () => snapshotRef.current,
+    () => snapshotRef.current
   )
 
-  return state
+  return store
 }

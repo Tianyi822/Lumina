@@ -19,6 +19,7 @@ export default function WorkspaceSidebarChrome({
   return (
     <header
       className={[
+        'sm-sidebar-shell__header',
         styles['sm-sidebar-shell__header'],
         'sm-sidebar-shell__header--chrome',
         usesNativeTrafficLights && 'sm-sidebar-shell__header--chrome-mac',

@@ -29,6 +29,9 @@ export default defineConfig({
       }
     },
     plugins: [vue(), react()],
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'react/jsx-dev-runtime']
+    },
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version)
     }
