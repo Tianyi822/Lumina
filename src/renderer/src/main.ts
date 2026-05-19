@@ -2,7 +2,6 @@ import './assets/main.css'
 
 import { createApp } from 'vue'
 import App from './App.vue'
-import { pinia } from './stores'
 
 async function loadPlatformStyles(): Promise<void> {
   if (window.electron?.process?.platform === 'win32') {
@@ -15,8 +14,7 @@ async function bootstrap(): Promise<void> {
 
   const app = createApp(App)
 
-  // 注册 Pinia
-  app.use(pinia)
+  // Pinia 已完全迁移为 Zustand，不再需要 app.use(pinia)
 
   app.mount('#app')
 }
