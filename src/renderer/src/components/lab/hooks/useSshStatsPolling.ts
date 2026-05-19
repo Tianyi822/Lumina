@@ -46,11 +46,12 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
   const [errorMessage, setErrorMessage] = useState('')
 
   const refreshingRef = useRef(false)
+  const hasStatsRef = useRef(false)
   const timerRef = useRef<number | null>(null)
   const onResetRef = useRef(onReset)
   onResetRef.current = onReset
 
-  // Computed values
+  // 派生展示值
   const sampledAtLabel = stats?.sampledAt
     ? new Date(stats.sampledAt).toLocaleTimeString('zh-CN', {
         hour: '2-digit',
@@ -75,7 +76,18 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
   const rangeLabel =
     RANGE_OPTIONS.find((option) => option.value === selectedRangeHours)?.label || '1 小时'
 
-  // Load stats function
+  // 追加历史采样
+  const appendSample = useCallback((sample: SshServerStats) => {
+    const sampleTime = new Date(sample.sampledAt).getTime()
+    const minTime = sampleTime - MAX_HISTORY_HOURS * 60 * 60 * 1000
+
+    setStatsHistory((prev) => {
+      const filtered = prev.filter((item) => new Date(item.sampledAt).getTime() >= minTime)
+      return [...filtered, sample]
+    })
+  }, [])
+
+  // 加载统计数据
   const loadStats = useCallback(
     async (loadOptions?: { silent?: boolean }) => {
       if (!connected || refreshingRef.current) {
@@ -84,7 +96,7 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
 
       refreshingRef.current = true
       setRefreshing(true)
-      if (!loadOptions?.silent && !stats) {
+      if (!loadOptions?.silent && !hasStatsRef.current) {
         setLoading(true)
       }
 
@@ -95,6 +107,7 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
           return
         }
 
+        hasStatsRef.current = true
         setStats(result.stats)
         appendSample(result.stats)
         setErrorMessage('')
@@ -106,26 +119,15 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
         setLoading(false)
       }
     },
-    [labId, connected, stats]
+    [appendSample, labId, connected]
   )
 
-  // Append sample to history
-  const appendSample = useCallback((sample: SshServerStats) => {
-    const sampleTime = new Date(sample.sampledAt).getTime()
-    const minTime = sampleTime - MAX_HISTORY_HOURS * 60 * 60 * 1000
-
-    setStatsHistory((prev) => {
-      const filtered = prev.filter((item) => new Date(item.sampledAt).getTime() >= minTime)
-      return [...filtered, sample]
-    })
-  }, [])
-
-  // Set range
+  // 设置时间范围
   const setRange = useCallback((hours: RangeHours) => {
     setSelectedRangeHours(hours)
   }, [])
 
-  // Stop polling helper
+  // 停止轮询
   const stopPolling = useCallback(() => {
     if (timerRef.current !== null) {
       clearInterval(timerRef.current)
@@ -133,11 +135,12 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
     }
   }, [])
 
-  // Sync polling when dependencies change
+  // 依赖变化时同步轮询
   useEffect(() => {
     stopPolling()
 
     if (!connected) {
+      hasStatsRef.current = false
       setStats(null)
       setStatsHistory([])
       setErrorMessage('')
@@ -151,7 +154,7 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
       return
     }
 
-    void loadStats({ silent: !!stats })
+    void loadStats({ silent: hasStatsRef.current })
     timerRef.current = window.setInterval(() => {
       void loadStats({ silent: true })
     }, SSH_STATS_REFRESH_INTERVAL)
@@ -159,10 +162,11 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
     return () => {
       stopPolling()
     }
-  }, [labId, connected, active, stopPolling, loadStats, stats])
+  }, [labId, connected, active, stopPolling, loadStats])
 
-  // Reset on labId change
+  // labId 变化时重置
   useEffect(() => {
+    hasStatsRef.current = false
     setStats(null)
     setStatsHistory([])
     setErrorMessage('')
