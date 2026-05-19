@@ -79,9 +79,7 @@ export default function PaperAnnotationSelectionMenu({
         </button>
       </div>
 
-      {error && (
-        <p className={styles['paper-annotation-selection-menu__error']}>{error}</p>
-      )}
+      {error && <p className={styles['paper-annotation-selection-menu__error']}>{error}</p>}
     </div>
   )
 }

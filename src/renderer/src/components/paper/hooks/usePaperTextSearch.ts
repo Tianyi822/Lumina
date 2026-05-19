@@ -6,7 +6,10 @@
  */
 
 import { useState, useCallback, useRef } from 'react'
-import { buildCanonicalTextIndex, resolveCanonicalTextPoint } from '../composables/paperCanonicalTextIndex'
+import {
+  buildCanonicalTextIndex,
+  resolveCanonicalTextPoint
+} from '../composables/paperCanonicalTextIndex'
 
 const SEARCH_HIGHLIGHT_CLASS = 'paper-markdown-view__search-highlight'
 const SEARCH_HIGHLIGHT_CURRENT_CLASS = 'paper-markdown-view__search-highlight--current'
@@ -180,8 +183,7 @@ export function usePaperTextSearch() {
 
   const goToPrevious = useCallback(() => {
     if (matchesRef.current.length === 0) return
-    const prev =
-      (currentIndex - 1 + matchesRef.current.length) % matchesRef.current.length
+    const prev = (currentIndex - 1 + matchesRef.current.length) % matchesRef.current.length
     setCurrentIndex(prev)
     scrollToMatch(prev)
   }, [currentIndex, scrollToMatch])

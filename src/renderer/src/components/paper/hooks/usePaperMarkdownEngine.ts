@@ -550,7 +550,6 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
       setRenderedSegments([])
       options.clearToc()
     }
-  // eslint-disable-next-line
   }, [
     options.content,
     options.basePath,

@@ -159,9 +159,7 @@ export default function PaperAnnotationNoteEditor({
           </button>
         )}
       </div>
-      {error && (
-        <p className={styles['paper-annotation-note-editor__error']}>{error}</p>
-      )}
+      {error && <p className={styles['paper-annotation-note-editor__error']}>{error}</p>}
       {state.draft.viewKind === 'translation' && (
         <p className={styles['paper-annotation-note-editor__hint']}>
           该笔记只显示在当前译文中；如果之后删除译文，对应标注也会一起删除。
