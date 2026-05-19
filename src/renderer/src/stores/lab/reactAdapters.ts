@@ -7,7 +7,15 @@
 
 import { usePiniaStore } from '@renderer/composables/usePiniaStore'
 import { useLabStore, useContainerStore, useLabCreatorStore } from './index'
-import type { LabData, LabCreationType, ContainerDetails, ContainerStats, ContainerInfo, TerminalLog } from '@renderer/types/lab'
+import type {
+  LabData,
+  LabCreationType,
+  LabListItem,
+  ContainerDetails,
+  ContainerStats,
+  ContainerInfo,
+  TerminalLog
+} from '@renderer/types/lab'
 import type { DeleteLabOptions } from '@shared/types/lab'
 import type { PortMapping } from './types'
 
@@ -28,19 +36,27 @@ export interface DeleteConfirmState {
 export interface LabStoreReact {
   currentLab: LabData | null
   currentLabId: string | null
-  labList: LabData[]
+  labList: LabListItem[]
   isLoading: boolean
   deleteConfirmState: DeleteConfirmState
   loadLabList: () => Promise<void>
+  refreshLabList: () => Promise<void>
   loadLab: (labId: string, refresh?: boolean, opts?: { silent?: boolean }) => Promise<void>
   handleSelectLab: (labId: string) => Promise<void>
   handleDeleteLab: (labId: string) => Promise<void>
   hideDeleteConfirm: () => void
   confirmDelete: (options: DeleteLabOptions) => Promise<void>
-  connectSsh: (labId: string, config: {
-    host: string; port: number; username: string; authType: string
-    password?: string; keyName?: string
-  }) => Promise<boolean>
+  connectSsh: (
+    labId: string,
+    config: {
+      host: string
+      port: number
+      username: string
+      authType: string
+      password?: string
+      keyName?: string
+    }
+  ) => Promise<boolean>
   retryFrontendInitialization: (labId: string) => Promise<boolean>
   rebuildFrontendRuntime: (labId: string) => Promise<boolean>
 }
@@ -81,8 +97,13 @@ export interface CreatorStoreReact {
   dockerfileProjectName: string
   portMappings: PortMapping[]
   sshConfig: {
-    host: string; port: number; username: string; authType: 'password' | 'key'
-    password: string; keyContent: string; keyName: string
+    host: string
+    port: number
+    username: string
+    authType: 'password' | 'key'
+    password: string
+    keyContent: string
+    keyName: string
   }
   showSaveDialog: boolean
   saveDialogType: 'dockerfile' | 'compose'
@@ -99,8 +120,9 @@ export interface CreatorStoreReact {
   openSaveDialog: (type: 'dockerfile' | 'compose') => void
   closeSaveDialog: () => void
   handleSaveConfig: () => Promise<void>
-  handleCreate: () => Promise<void>
+  handleCreate: () => Promise<boolean>
   clearError: () => void
+  clearCreateError: () => void
   refreshPorts: () => void
   addPortMapping: () => void
   updatePortMapping: (index: number, patch: Record<string, unknown>) => void

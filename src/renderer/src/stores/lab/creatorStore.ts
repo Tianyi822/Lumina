@@ -10,6 +10,7 @@ import type {
 import { useContainerStore } from './containerStore'
 import { useDockerConfigStore } from './configStore'
 import { useLabStore } from './labStore'
+import { useUIStateStore } from '../uiStateStore'
 import { usePortMappingStore } from './portMappingStore'
 import { useComposeConfigStore } from './composeConfigStore'
 import { useDockerfileConfigStore } from './dockerfileConfigStore'
@@ -204,6 +205,49 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
       }
       default:
         return false
+    }
+  })
+
+  const containerSelectHint = computed(() => {
+    if (createType.value !== 'existing') {
+      return ''
+    }
+
+    const selected = containers.value.find((container) => container.id === selectedContainerId.value)
+    if (!selected || selected.state === 'running') {
+      return ''
+    }
+
+    return '只有运行中的容器才能选择使用，请先启动容器'
+  })
+
+  const createPhaseText = computed(() => {
+    switch (createPhase.value) {
+      case 'metadata':
+        return '创建实验室元数据...'
+      case 'building':
+        return '构建容器镜像...'
+      case 'starting':
+        return '启动容器中...'
+      case 'done':
+        return '创建完成'
+      default:
+        return ''
+    }
+  })
+
+  const createProgress = computed(() => {
+    switch (createPhase.value) {
+      case 'metadata':
+        return 20
+      case 'building':
+        return 60
+      case 'starting':
+        return 90
+      case 'done':
+        return 100
+      default:
+        return 0
     }
   })
 
@@ -709,6 +753,86 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
     createPhase.value = 'idle'
   }
 
+  async function handleCreate(): Promise<boolean> {
+    const labStore = useLabStore()
+    const uiStateStore = useUIStateStore.getState()
+
+    switch (createType.value) {
+      case 'compose': {
+        const result = await createFromCompose({
+          projectName: composeProjectName.value || undefined
+        })
+
+        if (result?.success && result.lab?.labId) {
+          await labStore.loadLab(result.lab.labId)
+          uiStateStore.setLabDetailTab('stats')
+          return true
+        }
+        return false
+      }
+      case 'dockerfile': {
+        const result = await createFromDockerfile()
+        if (result?.success && result.lab?.labId) {
+          await labStore.loadLab(result.lab.labId)
+          uiStateStore.setLabDetailTab('stats')
+          return true
+        }
+        return false
+      }
+      case 'existing': {
+        if (!selectedContainerId.value) {
+          return false
+        }
+
+        const result = await createFromExisting(selectedContainerId.value)
+        if (result?.success) {
+          await containerStore.loadContainerDetails(selectedContainerId.value)
+          uiStateStore.setLabDetailTab('stats')
+          return true
+        }
+        return false
+      }
+      case 'ssh': {
+        const ssh = sshConfig.value
+        const labResult = await labStore.createLab({
+          name: `${ssh.username}@${ssh.host}`,
+          creationType: 'ssh',
+          backendType: 'ssh',
+          sshHost: ssh.host,
+          sshPort: ssh.port,
+          sshUsername: ssh.username,
+          sshAuthType: ssh.authType,
+          sshPassword: ssh.authType === 'password' ? ssh.password : undefined,
+          sshKeyName: ssh.authType === 'key' ? ssh.keyName : undefined
+        })
+
+        if (!labResult?.success || !labResult.lab?.labId) {
+          return false
+        }
+
+        const connected = await labStore.connectSsh(labResult.lab.labId, {
+          host: ssh.host,
+          port: ssh.port,
+          username: ssh.username,
+          authType: ssh.authType,
+          password: ssh.authType === 'password' ? ssh.password : undefined,
+          keyName: ssh.authType === 'key' ? ssh.keyName : undefined,
+          keyContent: ssh.authType === 'key' ? ssh.keyContent : undefined
+        })
+
+        if (connected) {
+          notify.success('SSH 实验室已创建', `已连接到 ${ssh.host}`, { source: 'lab' })
+        }
+
+        await labStore.loadLab(labResult.lab.labId, true, { silent: true })
+        uiStateStore.setLabDetailTab(connected ? 'terminal' : 'stats')
+        return true
+      }
+      default:
+        return false
+    }
+  }
+
   function reset(): void {
     createType.value = 'compose'
     selectedContainerId.value = null
@@ -773,6 +897,9 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
     runningCount,
     stoppedCount,
     canCreate,
+    containerSelectHint,
+    createPhaseText,
+    createProgress,
 
     // Actions: 容器选择
     selectContainer,
@@ -819,6 +946,8 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
     // Actions: 重置
     reset,
     clearCreateError,
+    clearError: clearCreateError,
+    handleCreate,
     resetSshConfig,
     updateSshConfig,
 
