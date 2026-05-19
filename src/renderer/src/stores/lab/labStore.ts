@@ -1,47 +1,125 @@
-import { defineStore, storeToRefs } from 'pinia'
+import { create } from 'zustand'
 import type {
   LabCreationType,
+  LabData,
   ComposeOptions,
   ComposeResult,
   CreateLabRequest,
   CreateLabResult
 } from '@renderer/types/lab'
-import { useNotification } from '@renderer/composables/useNotification'
+import type { DeleteLabOptions } from '@shared/types/lab'
+import { notifySuccess, notifyError } from '@renderer/composables/notificationCore'
 import { labApi } from '@renderer/services/labApi'
 import { useContainerStore } from './containerStore'
 import { useLabListStore } from './labListStore'
 import { useLabOperationStore } from './labOperationStore'
 
-export const useLabStore = defineStore('lab', () => {
-  const containerStore = useContainerStore()
-  const listStore = useLabListStore()
-  const operationStore = useLabOperationStore()
-  const notify = useNotification()
+interface LabState {
+  // Getters (delegate to sub-stores)
+  currentLab: () => LabData | null
+  labList: () => import('@renderer/types/lab').LabListItem[]
+  operationLogs: () => import('@renderer/types/lab').LabLogEntry[]
+  isLoading: () => boolean
+  listUpdateKey: () => number
+  templates: () => import('@renderer/types/lab').LabTemplate[]
+  templatesLoading: () => boolean
+  currentSessionLab: () => import('@renderer/types/lab').LabSelection | null
+  labContainerStatus: () => Record<string, import('@renderer/types/lab').LabContainerStatus>
+  currentLabId: () => string | null
+  labCount: () => number
+  deleteConfirmState: () => import('./labOperationStore').DeleteConfirmState
 
-  const {
-    currentLab,
-    labList,
-    operationLogs,
-    isLoading,
-    listUpdateKey,
-    templates,
-    templatesLoading,
-    currentSessionLab,
-    labContainerStatus,
-    currentLabId,
-    labCount
-  } = storeToRefs(listStore)
+  // Actions
+  createLab: (request: CreateLabRequest) => Promise<CreateLabResult | null>
+  saveCurrentLab: () => Promise<boolean>
+  deleteLab: (labId: string) => Promise<boolean>
+  retryFrontendInitialization: (labId: string) => Promise<boolean>
+  rebuildFrontendRuntime: (labId: string) => Promise<boolean>
+  validateFrontendBuild: (labId: string, options?: { silent?: boolean }) => Promise<boolean>
+  renameLab: (labId: string, newName: string) => Promise<boolean>
+  createFromTemplate: (
+    templateId: string,
+    variables?: Record<string, string>
+  ) => Promise<ComposeResult | null>
+  createFromCompose: (content: string, options?: ComposeOptions) => Promise<ComposeResult | null>
+  createFromDockerfile: (
+    dockerfile: string,
+    context: string,
+    labId?: string,
+    labName?: string
+  ) => Promise<string | null>
+  handleSelectLab: (labId: string) => Promise<void>
+  handleNewLab: () => Promise<void>
+  handleDeleteLab: (labId: string) => Promise<void>
+  connectSsh: (
+    labId: string,
+    config: {
+      host: string
+      port: number
+      username: string
+      authType: 'password' | 'key'
+      password?: string
+      keyName?: string
+      keyContent?: string
+    }
+  ) => Promise<boolean>
+  disconnectSsh: (labId: string) => Promise<boolean>
 
-  const { deleteConfirmState } = storeToRefs(operationStore)
+  // Delegated actions from sub-stores
+  loadLabList: () => Promise<void>
+  refreshLabList: () => Promise<void>
+  loadLab: (labId: string, force?: boolean, options?: { silent?: boolean }) => Promise<boolean>
+  loadLabOperationLogs: (labId: string) => Promise<void>
+  loadTemplates: () => Promise<void>
+  showDeleteConfirm: (
+    labId: string,
+    labName: string,
+    creationType: LabCreationType,
+    containerCount: number,
+    metadata?: { status?: import('@renderer/types/lab').LabStatus; isOrphan?: boolean }
+  ) => Promise<void>
+  hideDeleteConfirm: () => void
+  deleteLabWithConfirm: (options?: DeleteLabOptions) => Promise<boolean>
+  confirmDelete: (options?: DeleteLabOptions) => Promise<void>
+  checkContainerStatus: (
+    labId: string
+  ) => Promise<import('@renderer/types/lab').LabContainerStatus | null>
+  checkAllContainerStatus: () => Promise<void>
+  cleanupOrphanLab: (labId: string) => Promise<boolean>
+  recoverOrphanLab: (labId: string, newContainerId: string) => Promise<boolean>
+  selectLabForSession: (containerId: string, sessionId?: string) => Promise<boolean>
+  deselectLab: (containerId: string) => Promise<boolean>
+  getSessionLab: (sessionId: string) => Promise<import('@renderer/types/lab').LabSelection | null>
+}
 
-  async function createLab(request: CreateLabRequest): Promise<CreateLabResult | null> {
+export const useLabStore = create<LabState>()(() => ({
+  // ==================== Getters (delegate to sub-stores) ====================
+
+  currentLab: () => useLabListStore.getState().currentLab,
+  labList: () => useLabListStore.getState().labList,
+  operationLogs: () => useLabListStore.getState().operationLogs,
+  isLoading: () => useLabListStore.getState().isLoading,
+  listUpdateKey: () => useLabListStore.getState().listUpdateKey,
+  templates: () => useLabListStore.getState().templates,
+  templatesLoading: () => useLabListStore.getState().templatesLoading,
+  currentSessionLab: () => useLabListStore.getState().currentSessionLab,
+  labContainerStatus: () => useLabListStore.getState().labContainerStatus,
+  currentLabId: () => useLabListStore.getState().currentLabId(),
+  labCount: () => useLabListStore.getState().labCount(),
+  deleteConfirmState: () => useLabOperationStore.getState().deleteConfirmState,
+
+  // ==================== Actions ====================
+
+  createLab: async (request: CreateLabRequest): Promise<CreateLabResult | null> => {
+    const listStore = useLabListStore.getState()
+
     try {
       const result = await labApi.createLab(request)
 
       if (result.success && result.lab) {
-        currentLab.value = result.lab
-        operationLogs.value = []
-
+        listStore.clearCurrentLabState()
+        // 直接设置 currentLab 而不是 clearCurrentLabState + refreshLabList
+        // refreshLabList 会重新加载列表，loadLab 会加载详情
         await listStore.refreshLabList()
 
         window.api.logger.info('[LabStore] 创建实验室成功', {
@@ -50,7 +128,7 @@ export const useLabStore = defineStore('lab', () => {
           creationType: request.creationType
         })
       } else if (result.error) {
-        notify.error('创建失败', result.error, { source: 'lab' })
+        notifyError('创建失败', result.error, { source: 'lab' })
       }
 
       return result
@@ -60,27 +138,28 @@ export const useLabStore = defineStore('lab', () => {
         error: errorMessage,
         creationType: request.creationType
       })
-      notify.error('创建失败', errorMessage, { source: 'lab' })
+      notifyError('创建失败', errorMessage, { source: 'lab' })
       return null
     }
-  }
+  },
 
-  async function saveCurrentLab(): Promise<boolean> {
-    if (!currentLab.value) {
+  saveCurrentLab: async (): Promise<boolean> => {
+    const currentLab = useLabListStore.getState().currentLab
+    if (!currentLab) {
       return false
     }
 
     try {
-      const result = await labApi.saveLab(currentLab.value)
+      const result = await labApi.saveLab(currentLab)
 
       if (result.success) {
-        await listStore.refreshLabList()
+        await useLabListStore.getState().refreshLabList()
 
         window.api.logger.debug('[LabStore] 保存实验室成功', {
-          labId: currentLab.value.labId
+          labId: currentLab.labId
         })
       } else if (result.error) {
-        notify.error('保存失败', result.error, { source: 'lab' })
+        notifyError('保存失败', result.error, { source: 'lab' })
       }
 
       return result.success
@@ -89,25 +168,26 @@ export const useLabStore = defineStore('lab', () => {
       window.api.logger.error('[LabStore] 保存实验室失败', {
         error: errorMessage
       })
-      notify.error('保存失败', errorMessage, { source: 'lab' })
+      notifyError('保存失败', errorMessage, { source: 'lab' })
       return false
     }
-  }
+  },
 
-  async function deleteLab(labId: string): Promise<boolean> {
-    return operationStore.deleteLabById(labId)
-  }
+  deleteLab: async (labId: string): Promise<boolean> => {
+    return useLabOperationStore.getState().deleteLabById(labId)
+  },
 
-  async function retryFrontendInitialization(labId: string): Promise<boolean> {
+  retryFrontendInitialization: async (labId: string): Promise<boolean> => {
+    const listStore = useLabListStore.getState()
     try {
       const result = await labApi.retryFrontendInitialization(labId)
 
       await listStore.refreshLabList()
-      if (currentLab.value?.labId === labId) {
+      if (listStore.currentLab?.labId === labId) {
         await listStore.loadLab(labId, true)
       }
 
-      notify.success(
+      notifySuccess(
         result.previewReady ? '前端恢复成功' : '前端初始化已重试',
         result.message ||
           (result.previewReady ? `预览地址: ${result.previewUrl}` : '可继续查看日志排查'),
@@ -121,21 +201,22 @@ export const useLabStore = defineStore('lab', () => {
         error: errorMessage,
         labId
       })
-      notify.error('重试失败', errorMessage, { source: 'lab' })
+      notifyError('重试失败', errorMessage, { source: 'lab' })
       return false
     }
-  }
+  },
 
-  async function rebuildFrontendRuntime(labId: string): Promise<boolean> {
+  rebuildFrontendRuntime: async (labId: string): Promise<boolean> => {
+    const listStore = useLabListStore.getState()
     try {
       const result = await labApi.rebuildFrontendRuntime(labId)
 
       await listStore.refreshLabList()
-      if (currentLab.value?.labId === labId) {
+      if (listStore.currentLab?.labId === labId) {
         await listStore.loadLab(labId, true)
       }
 
-      notify.success(
+      notifySuccess(
         result.previewReady ? '运行容器已重建' : '运行容器已重建，但服务仍未就绪',
         result.message || `工作区已复用，预览地址: ${result.previewUrl}`,
         { source: 'lab' }
@@ -148,25 +229,26 @@ export const useLabStore = defineStore('lab', () => {
         error: errorMessage,
         labId
       })
-      notify.error('重建失败', errorMessage, { source: 'lab' })
+      notifyError('重建失败', errorMessage, { source: 'lab' })
       return false
     }
-  }
+  },
 
-  async function validateFrontendBuild(
+  validateFrontendBuild: async (
     labId: string,
     options?: { silent?: boolean }
-  ): Promise<boolean> {
+  ): Promise<boolean> => {
+    const listStore = useLabListStore.getState()
     try {
       const result = await labApi.validateFrontendBuild(labId)
 
       await listStore.refreshLabList()
-      if (currentLab.value?.labId === labId) {
+      if (listStore.currentLab?.labId === labId) {
         await listStore.loadLab(labId, true)
       }
 
       if (!options?.silent) {
-        notify.success('构建校验通过', result.message || '当前前端工作区已通过 Bun 构建校验', {
+        notifySuccess('构建校验通过', result.message || '当前前端工作区已通过 Bun 构建校验', {
           source: 'lab'
         })
       }
@@ -179,19 +261,23 @@ export const useLabStore = defineStore('lab', () => {
         labId
       })
       if (!options?.silent) {
-        notify.error('构建校验失败', errorMessage, { source: 'lab' })
+        notifyError('构建校验失败', errorMessage, { source: 'lab' })
       }
       return false
     }
-  }
+  },
 
-  async function renameLab(labId: string, newName: string): Promise<boolean> {
+  renameLab: async (labId: string, newName: string): Promise<boolean> => {
+    const listStore = useLabListStore.getState()
     try {
       const result = await labApi.renameLab(labId, newName)
 
       if (result.success) {
-        if (currentLab.value?.labId === labId) {
-          currentLab.value.name = newName
+        if (listStore.currentLab?.labId === labId) {
+          // Zustand immutable update
+          useLabListStore.setState((state) => ({
+            currentLab: state.currentLab ? { ...state.currentLab, name: newName } : null
+          }))
         }
 
         await listStore.refreshLabList()
@@ -200,7 +286,7 @@ export const useLabStore = defineStore('lab', () => {
       }
 
       if (result.error) {
-        notify.error('重命名失败', result.error, { source: 'lab' })
+        notifyError('重命名失败', result.error, { source: 'lab' })
       }
 
       return false
@@ -210,26 +296,26 @@ export const useLabStore = defineStore('lab', () => {
         error: errorMessage,
         labId
       })
-      notify.error('重命名失败', errorMessage, { source: 'lab' })
+      notifyError('重命名失败', errorMessage, { source: 'lab' })
       return false
     }
-  }
+  },
 
-  async function createFromTemplate(
+  createFromTemplate: async (
     templateId: string,
     variables?: Record<string, string>
-  ): Promise<ComposeResult | null> {
+  ): Promise<ComposeResult | null> => {
     try {
       const result = await labApi.createFromTemplate(templateId, variables)
 
       if (result.success) {
-        await containerStore.refreshContainers()
+        await useContainerStore.getState().refreshContainers()
         window.api.logger.info('[LabStore] 从模板创建实验室成功', {
           templateId,
           containerCount: result.containerIds.length
         })
       } else if (result.error) {
-        notify.error('模板创建失败', result.error, {
+        notifyError('模板创建失败', result.error, {
           source: 'lab',
           dedupeKey: 'template-create'
         })
@@ -242,29 +328,29 @@ export const useLabStore = defineStore('lab', () => {
         error: errorMessage,
         templateId
       })
-      notify.error('模板创建失败', errorMessage, {
+      notifyError('模板创建失败', errorMessage, {
         source: 'lab',
         dedupeKey: 'template-create'
       })
       return null
     }
-  }
+  },
 
-  async function createFromCompose(
+  createFromCompose: async (
     content: string,
     options?: ComposeOptions
-  ): Promise<ComposeResult | null> {
+  ): Promise<ComposeResult | null> => {
     try {
       const result = await labApi.createFromCompose(content, options)
 
       if (result.success) {
-        await containerStore.refreshContainers()
+        await useContainerStore.getState().refreshContainers()
         window.api.logger.info('[LabStore] 从 Compose 创建实验室成功', {
           projectName: options?.projectName,
           containerCount: result.containerIds.length
         })
       } else if (result.error) {
-        notify.error('Compose 创建失败', result.error, {
+        notifyError('Compose 创建失败', result.error, {
           source: 'lab',
           dedupeKey: 'compose-create'
         })
@@ -276,32 +362,32 @@ export const useLabStore = defineStore('lab', () => {
       window.api.logger.error('[LabStore] 从 Compose 创建实验室失败', {
         error: errorMessage
       })
-      notify.error('Compose 创建失败', errorMessage, {
+      notifyError('Compose 创建失败', errorMessage, {
         source: 'lab',
         dedupeKey: 'compose-create'
       })
       return null
     }
-  }
+  },
 
-  async function createFromDockerfile(
+  createFromDockerfile: async (
     dockerfile: string,
     context: string,
     labId?: string,
     labName?: string
-  ): Promise<string | null> {
+  ): Promise<string | null> => {
     try {
       const result = await labApi.createFromDockerfile(dockerfile, context, labId, labName)
 
       if (result.success && result.containerId) {
-        await containerStore.refreshContainers()
+        await useContainerStore.getState().refreshContainers()
         window.api.logger.info('[LabStore] 从 Dockerfile 创建实验室成功', {
           containerId: result.containerId.substring(0, 12)
         })
         return result.containerId
       }
 
-      notify.error('Dockerfile 创建失败', result.error || '未知错误', {
+      notifyError('Dockerfile 创建失败', result.error || '未知错误', {
         source: 'lab',
         dedupeKey: 'dockerfile-create'
       })
@@ -311,41 +397,44 @@ export const useLabStore = defineStore('lab', () => {
       window.api.logger.error('[LabStore] 从 Dockerfile 创建实验室失败', {
         error: errorMessage
       })
-      notify.error('Dockerfile 创建失败', errorMessage, {
+      notifyError('Dockerfile 创建失败', errorMessage, {
         source: 'lab',
         dedupeKey: 'dockerfile-create'
       })
       return null
     }
-  }
+  },
 
-  async function handleSelectLab(labId: string): Promise<void> {
-    await listStore.loadLab(labId)
-  }
+  handleSelectLab: async (labId: string): Promise<void> => {
+    await useLabListStore.getState().loadLab(labId)
+  },
 
-  async function handleNewLab(): Promise<void> {
+  handleNewLab: async (): Promise<void> => {
     const request: CreateLabRequest = {
       name: '新实验室',
       creationType: 'existing'
     }
-    await createLab(request)
-  }
+    await useLabStore.getState().createLab(request)
+  },
 
-  async function handleDeleteLab(labId: string): Promise<void> {
-    const lab = labList.value.find((item) => item.labId === labId)
-    await operationStore.showDeleteConfirm(
-      labId,
-      lab?.name || '实验室',
-      (lab?.creationType || 'existing') as LabCreationType,
-      lab?.containerCount || 0,
-      {
-        status: lab?.status,
-        isOrphan: lab?.isOrphan
-      }
-    )
-  }
+  handleDeleteLab: async (labId: string): Promise<void> => {
+    const labList = useLabListStore.getState().labList
+    const lab = labList.find((item) => item.labId === labId)
+    await useLabOperationStore
+      .getState()
+      .showDeleteConfirm(
+        labId,
+        lab?.name || '实验室',
+        (lab?.creationType || 'existing') as LabCreationType,
+        lab?.containerCount || 0,
+        {
+          status: lab?.status,
+          isOrphan: lab?.isOrphan
+        }
+      )
+  },
 
-  async function connectSsh(
+  connectSsh: async (
     labId: string,
     config: {
       host: string
@@ -356,7 +445,7 @@ export const useLabStore = defineStore('lab', () => {
       keyName?: string
       keyContent?: string
     }
-  ): Promise<boolean> {
+  ): Promise<boolean> => {
     const { password, ...sshConfig } = config
     const result = await window.api.ssh.connect(
       labId,
@@ -369,72 +458,81 @@ export const useLabStore = defineStore('lab', () => {
     )
 
     if (result.success) {
+      const listStore = useLabListStore.getState()
       await listStore.refreshLabList()
-      if (currentLabId.value === labId) {
+      if (listStore.currentLabId() === labId) {
         await listStore.loadLab(labId, true, { silent: true })
       }
       return true
     }
-    notify.error('SSH 连接失败', result.error || '未知错误', { source: 'lab' })
+    notifyError('SSH 连接失败', result.error || '未知错误', { source: 'lab' })
     return false
-  }
+  },
 
-  async function disconnectSsh(labId: string): Promise<boolean> {
+  disconnectSsh: async (labId: string): Promise<boolean> => {
     const result = await window.api.ssh.disconnect(labId)
     if (result.success) {
+      const listStore = useLabListStore.getState()
       await listStore.refreshLabList()
-      if (currentLabId.value === labId) {
+      if (listStore.currentLabId() === labId) {
         await listStore.loadLab(labId, true, { silent: true })
       }
       return true
     }
-    notify.error('断开连接失败', result.error || '未知错误', { source: 'lab' })
+    notifyError('断开连接失败', result.error || '未知错误', { source: 'lab' })
     return false
-  }
+  },
 
-  return {
-    currentLab,
-    labList,
-    operationLogs,
-    isLoading,
-    listUpdateKey,
-    templates,
-    templatesLoading,
-    currentSessionLab,
-    labContainerStatus,
-    deleteConfirmState,
-    currentLabId,
-    labCount,
-    loadLabList: listStore.loadLabList,
-    refreshLabList: listStore.refreshLabList,
-    loadLab: listStore.loadLab,
-    loadLabOperationLogs: listStore.loadLabOperationLogs,
-    createLab,
-    saveCurrentLab,
-    deleteLab,
-    retryFrontendInitialization,
-    rebuildFrontendRuntime,
-    validateFrontendBuild,
-    renameLab,
-    showDeleteConfirm: operationStore.showDeleteConfirm,
-    hideDeleteConfirm: operationStore.hideDeleteConfirm,
-    deleteLabWithConfirm: operationStore.deleteLabWithConfirm,
-    confirmDelete: operationStore.confirmDelete,
-    checkContainerStatus: listStore.checkContainerStatus,
-    checkAllContainerStatus: listStore.checkAllContainerStatus,
-    cleanupOrphanLab: operationStore.cleanupOrphanLab,
-    recoverOrphanLab: operationStore.recoverOrphanLab,
-    loadTemplates: listStore.loadTemplates,
-    createFromTemplate,
-    createFromCompose,
-    createFromDockerfile,
-    selectLabForSession: listStore.selectLabForSession,
-    deselectLab: listStore.deselectLab,
-    getSessionLab: listStore.getSessionLab,
-    handleSelectLab,
-    handleNewLab,
-    handleDeleteLab,
-    connectSsh,
-    disconnectSsh
+  // ==================== Delegated Actions ====================
+
+  loadLabList: async () => {
+    await useLabListStore.getState().loadLabList()
+  },
+  refreshLabList: async () => {
+    await useLabListStore.getState().refreshLabList()
+  },
+  loadLab: async (labId, force?, options?) => {
+    return useLabListStore.getState().loadLab(labId, force, options)
+  },
+  loadLabOperationLogs: async (labId) => {
+    await useLabListStore.getState().loadLabOperationLogs(labId)
+  },
+  loadTemplates: async () => {
+    await useLabListStore.getState().loadTemplates()
+  },
+  showDeleteConfirm: async (labId, labName, creationType, containerCount, metadata?) => {
+    await useLabOperationStore
+      .getState()
+      .showDeleteConfirm(labId, labName, creationType, containerCount, metadata)
+  },
+  hideDeleteConfirm: () => {
+    useLabOperationStore.getState().hideDeleteConfirm()
+  },
+  deleteLabWithConfirm: async (options?) => {
+    return useLabOperationStore.getState().deleteLabWithConfirm(options)
+  },
+  confirmDelete: async (options?) => {
+    await useLabOperationStore.getState().confirmDelete(options)
+  },
+  checkContainerStatus: async (labId) => {
+    return useLabListStore.getState().checkContainerStatus(labId)
+  },
+  checkAllContainerStatus: async () => {
+    await useLabListStore.getState().checkAllContainerStatus()
+  },
+  cleanupOrphanLab: async (labId) => {
+    return useLabOperationStore.getState().cleanupOrphanLab(labId)
+  },
+  recoverOrphanLab: async (labId, newContainerId) => {
+    return useLabOperationStore.getState().recoverOrphanLab(labId, newContainerId)
+  },
+  selectLabForSession: async (containerId, sessionId?) => {
+    return useLabListStore.getState().selectLabForSession(containerId, sessionId)
+  },
+  deselectLab: async (containerId) => {
+    return useLabListStore.getState().deselectLab(containerId)
+  },
+  getSessionLab: async (sessionId) => {
+    return useLabListStore.getState().getSessionLab(sessionId)
   }
-})
+}))
