@@ -86,8 +86,10 @@ export default function PaperMarkdownSegmentList({
             <div
               className={[
                 styles['paper-markdown-view__segment-translation'],
-                `is-${segment.translationStatus}`
-              ].join(' ')}
+                styles[`is-${segment.translationStatus}`]
+              ]
+                .filter(Boolean)
+                .join(' ')}
             >
               {segment.translationHtml ? (
                 <>
@@ -99,7 +101,7 @@ export default function PaperMarkdownSegmentList({
                     data-paper-selection-surface="true"
                     data-view-kind="translation"
                     data-segment-stable-id={segment.stableId}
-            dangerouslySetInnerHTML={{ __html: segment.translationHtml }}
+                    dangerouslySetInnerHTML={{ __html: segment.translationHtml }}
                   />
                   <button
                     className={styles['paper-markdown-view__retranslate-btn']}
@@ -141,9 +143,7 @@ export default function PaperMarkdownSegmentList({
                       className={styles['paper-markdown-view__translation-placeholder']}
                       aria-hidden="true"
                     >
-                      <span
-                        className={styles['paper-markdown-view__translation-placeholder-text']}
-                      >
+                      <span className={styles['paper-markdown-view__translation-placeholder-text']}>
                         正在翻译...
                       </span>
                       <span

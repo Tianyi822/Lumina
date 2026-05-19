@@ -43,7 +43,7 @@ export default function PaperAnnotationHoverPopover({
                 key={`hover-${colorKey}`}
                 className={[
                   styles['paper-annotation-hover-popover__color-btn'],
-                  annotation.colorKey === colorKey ? 'is-active' : ''
+                  annotation.colorKey === colorKey ? styles['is-active'] : ''
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -90,9 +90,7 @@ export default function PaperAnnotationHoverPopover({
         </button>
       </div>
 
-      {error && (
-        <p className={styles['paper-annotation-hover-popover__error']}>{error}</p>
-      )}
+      {error && <p className={styles['paper-annotation-hover-popover__error']}>{error}</p>}
     </div>
   )
 }

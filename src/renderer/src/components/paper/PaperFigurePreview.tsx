@@ -78,8 +78,14 @@ export default function PaperFigurePreview() {
   const store = usePiniaStore(usePaperReaderStore)
 
   const activeFigure = store.activeFigure
-  const currentPaperFigures = store.currentPaperFigures ?? []
-  const figureCaptionTranslationMap = store.figureCaptionTranslationMap ?? {}
+  const currentPaperFigures = useMemo(
+    () => store.currentPaperFigures ?? [],
+    [store.currentPaperFigures]
+  )
+  const figureCaptionTranslationMap = useMemo(
+    () => store.figureCaptionTranslationMap ?? {},
+    [store.figureCaptionTranslationMap]
+  )
   const figurePreviewPinned = store.figurePreviewPinned ?? false
   const figurePreviewRect = store.figurePreviewRect
   const translationVisible = store.translationVisible ?? false
@@ -273,9 +279,7 @@ export default function PaperFigurePreview() {
 
   const currentFigureIndex = useMemo(() => {
     if (!activeFigure) return -1
-    return currentPaperFigures.findIndex(
-      (f: { id: string }) => f.id === activeFigure.id
-    )
+    return currentPaperFigures.findIndex((f: { id: string }) => f.id === activeFigure.id)
   }, [activeFigure, currentPaperFigures])
 
   const canSwitchFigures = currentPaperFigures.length > 1 && currentFigureIndex >= 0
@@ -320,7 +324,7 @@ export default function PaperFigurePreview() {
             className={[
               'sm-icon-button',
               styles['paper-figure-preview__action'],
-              figurePreviewPinned ? 'is-active' : ''
+              figurePreviewPinned ? styles['is-active'] : ''
             ]
               .filter(Boolean)
               .join(' ')}
@@ -365,10 +369,7 @@ export default function PaperFigurePreview() {
               onMouseDown={(e) => e.stopPropagation()}
             >
               <button
-                className={[
-                  'sm-icon-button',
-                  styles['paper-figure-preview__nav-button']
-                ].join(' ')}
+                className={['sm-icon-button', styles['paper-figure-preview__nav-button']].join(' ')}
                 type="button"
                 title="上一张"
                 aria-label="查看上一张图片"
@@ -381,10 +382,7 @@ export default function PaperFigurePreview() {
               </button>
 
               <button
-                className={[
-                  'sm-icon-button',
-                  styles['paper-figure-preview__nav-button']
-                ].join(' ')}
+                className={['sm-icon-button', styles['paper-figure-preview__nav-button']].join(' ')}
                 type="button"
                 title="下一张"
                 aria-label="查看下一张图片"

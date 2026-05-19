@@ -219,9 +219,11 @@ export default function PaperSidebar({
             key={paper.id}
             style={getSidebarListItemMotionStyle(index)}
             className={[
-              'paper-item',
-              paper.id === currentPaperId && isPaperReadable(paper) ? 'paper-item--active' : '',
-              !isPaperReadable(paper) ? 'paper-item--disabled' : ''
+              styles['paper-item'],
+              paper.id === currentPaperId && isPaperReadable(paper)
+                ? styles['paper-item--active']
+                : '',
+              !isPaperReadable(paper) ? styles['paper-item--disabled'] : ''
             ]
               .filter(Boolean)
               .join(' ')}
@@ -315,9 +317,7 @@ export default function PaperSidebar({
               )}
 
               {!isPaperReadable(paper) && (
-                <div className={styles['paper-item__unreadable']}>
-                  {getUnreadableText(paper)}
-                </div>
+                <div className={styles['paper-item__unreadable']}>{getUnreadableText(paper)}</div>
               )}
             </div>
 
