@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import type { CSSProperties } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import LabList from '@renderer/components/lab/LabList'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome'
@@ -449,7 +450,7 @@ export default function WorkspaceSidebarHost() {
                         ]
                           .filter(Boolean)
                           .join(' ')}
-                        style={getSidebarListItemMotionStyle(index)}
+                        style={getSidebarListItemMotionStyle(index) as CSSProperties}
                         onClick={() => handleSelectKnowledgeBase(kb.id)}
                       >
                         <div className={styles['sm-workspace-sidebar-host__kb-icon']}>

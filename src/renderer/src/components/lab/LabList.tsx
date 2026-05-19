@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import styles from './LabList.module.css'
 import type { LabListItem, LabStatus } from '@renderer/types/lab'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
@@ -80,7 +81,7 @@ export default function LabList({
           <div
             key={lab.labId}
             className={`${styles['lab-item']} ${lab.labId === activeLabId ? styles.active : ''} ${ext.isOrphan ? styles.orphan : ''}`}
-            style={getSidebarListItemMotionStyle(index)}
+            style={getSidebarListItemMotionStyle(index) as CSSProperties}
             onClick={() => onSelect(lab.labId)}
           >
             <div className={styles['lab-info']}>

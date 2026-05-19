@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { formatFileSize } from '@shared/utils'
 import type { OcrProgressInfo, PaperDocument, PaperStatus } from '@shared/types/paper'
@@ -217,7 +218,7 @@ export default function PaperSidebar({
         {papers.map((paper, index) => (
           <div
             key={paper.id}
-            style={getSidebarListItemMotionStyle(index)}
+            style={getSidebarListItemMotionStyle(index) as CSSProperties}
             className={[
               styles['paper-item'],
               paper.id === currentPaperId && isPaperReadable(paper)
