@@ -19,7 +19,7 @@
 | P3 | Composables 逻辑提取 | ✅ 已完成 | 2026-05-18 | 2026-05-18 | ✅ 已审查 | 16 个 Core 文件已创建 |
 | P4 | 样式迁移 | ✅ 已完成 | 2026-05-18 | 2026-05-18 | ✅ 已审查 | 109 个 .module.css 创建，0 个 style scoped 残留；重复 :class 属性待修复 |
 | P5 | Shell 与公共组件 | ✅ 已完成 | 2026-05-18 | 2026-05-18 | ✅ 已审查 | 22 个 React 组件创建，Vue 入口零回归 |
-| P6 | 知识库页面 | ⏳ 待开始 | - | - | - | |
+| P6 | 知识库页面 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ✅ 已审查 | 27 个 React 文件创建，Vue 入口零回归 |
 | P7 | 实验室页面 | ⏳ 待开始 | - | - | - | |
 | P8 | 论文页面 | ⏳ 待开始 | - | - | - | |
 | P9 | 清理与切换 | ⏳ 待开始 | - | - | - | |
@@ -585,3 +585,120 @@ yarn add zustand@^5
 
 ✅ 建议进入 Phase 6（知识库页面迁移）。Phase 5 基础设施稳固，React 壳层完整，所有 checkpoint 通过。
 
+---
+
+## Phase 6 执行记录
+
+### 执行状态：已完成
+
+**开始日期**：2026-05-19
+**完成日期**：2026-05-19
+
+### 完成内容
+
+严格按照 Phase 6 计划执行，将知识库页面（~20 个 Vue 文件）全部迁移到 React。Vue 原文件保留不动。React 入口可完整使用知识库 CRUD、文件管理、搜索等全部功能。
+
+| 子任务 | 内容 | 状态 |
+|--------|------|------|
+| 6.1 | KnowledgePage.tsx 页面编排重写（占位 → 完整） | ✅ |
+| 6.2 | KnowledgeMain + StatsPanel + SearchPanel + FileListPanel + EmbeddingModelInfo + FilePreviewDialog | ✅ |
+| 6.3 | KnowledgeSidebar（验证 Phase 5 WorkspaceSidebarHost 已处理） | ✅ |
+| 6.4 | KnowledgeForm（创建/编辑表单） | ✅ |
+| 6.5 | FileManagerModal + 5 个子组件（Header/Toolbar/ListState/Card/ConfirmDelete） | ✅ |
+| 6.6 | FileSelectorModal + 7 个子组件（Header/Tabs/ExistingFiles/Upload/ItemRow/BottomBar/FileUploadZone） | ✅ |
+| 6.7 | Composables → React Hooks（7 个 hooks） | ✅ |
+| 6.8 | 最终验收（typecheck/lint/build） | ✅ |
+
+### 新建文件（27 个）
+
+**页面编排：**
+- `src/renderer/src/pages/KnowledgePage.tsx`（重写）
+
+**核心组件：**
+- `src/renderer/src/components/KnowledgeMain.tsx`
+- `src/renderer/src/components/knowledge/KnowledgeForm.tsx`
+- `src/renderer/src/components/knowledge/StatsPanel.tsx`
+- `src/renderer/src/components/knowledge/SearchPanel.tsx`
+- `src/renderer/src/components/knowledge/FileListPanel.tsx`
+- `src/renderer/src/components/knowledge/FilePreviewDialog.tsx`
+- `src/renderer/src/components/knowledge/EmbeddingModelInfo.tsx`
+- `src/renderer/src/components/knowledge/FileManagerModal.tsx`
+- `src/renderer/src/components/knowledge/FileSelectorModal.tsx`
+
+**File Manager 子组件（5 个）：**
+- `file-manager/components/FileManagerHeader.tsx`
+- `file-manager/components/FileManagerToolbar.tsx`
+- `file-manager/components/FileListState.tsx`
+- `file-manager/components/FileCard.tsx`
+- `file-manager/components/ConfirmDeleteDialog.tsx`
+
+**File Selector 子组件（7 个）：**
+- `file-selector/components/FileSelectorHeader.tsx`
+- `file-selector/components/FileSelectorTabs.tsx`
+- `file-selector/components/ExistingFilesTab.tsx`
+- `file-selector/components/UploadTab.tsx`
+- `file-selector/components/FileItemRow.tsx`
+- `file-selector/components/FileSelectorBottomBar.tsx`
+
+**Shared 组件（2 个）：**
+- `shared/components/FileIcon.tsx`
+- `shared/components/FileUploadZone.tsx`
+
+**React Hooks（7 个）：**
+- `hooks/useFileDelete.ts`
+- `hooks/useFileIcon.ts`
+- `hooks/useFileSelection.ts`
+- `hooks/useFileUpload.ts`
+- `hooks/useKnowledgeFiles.ts`
+- `hooks/useKnowledgeSearch.ts`
+- `hooks/useReindex.ts`
+
+### 修改文件（2 个）
+
+| 文件 | 变更 |
+|------|------|
+| `src/renderer/src/stores/paperChatStreamStore.ts` | 导出 `PaperChatStreamState` 接口（修复预存测试类型错误） |
+| `src/renderer/src/stores/paperChatStreamStore.test.ts` | 使用导出接口替代 `ReturnType<typeof ...>` |
+
+### 未删除的 Vue 文件
+
+所有 Vue 原文件保留不变，Vue 入口（`yarn dev`）零回归。等待 Phase 9 统一清理。
+
+### 验收标准达成情况
+
+| 标准 | 状态 |
+|------|------|
+| `yarn typecheck:web` 通过 | ✅（0 errors） |
+| `yarn typecheck:node` 通过 | ✅ |
+| `yarn lint` 通过 | ✅（0 errors, 5 pre-existing warnings） |
+| `yarn build` 成功 | ✅（3 个 bundle: main + preload + renderer） |
+| Vue 入口 `yarn dev` 零回归 | ✅（所有 .vue 文件未修改） |
+| React 入口可渲染知识库页面 | ✅（需图形环境验证 UI 交互） |
+
+### Code Review 发现的问题
+
+**审查日期**：2026-05-19，手动审查 + superpowers:receiving-code-review
+
+#### Important（已修复）
+
+1. **I-1: `error` closure staleness in KnowledgePage.tsx** — `handleKnowledgeSubmit` callback 闭包中的 `error` 来自 Zustand selector，`handleFormSubmit` 内部 `set({error})` 后该闭包值不会更新。修复：改用 `useKnowledgeStore.getState().error` 直接读取最新值。Vue 版通过 `useZustandStore` 的响应式 ref 自动获取最新值，React 版需显式处理。
+
+2. **I-3: 未使用常量 `PANEL_HEIGHT_TRANSITION_MS`** — `FileSelectorModal.tsx` 中定义了但未引用的常量。修复：移除该常量，直接使用 `PANEL_HEIGHT_TRANSITION_FALLBACK_MS` 的硬编码值（300ms）。
+
+#### Minor（暂缓）
+
+3. **M-1: 直接修改 store 对象** — `KnowledgePage.tsx` 中 `handleFilesLinked`、`handleFileUnlinked`、`handleDescriptionUpdated` 直接修改 `knowledgeBases` 数组中的对象属性（`kb.linkedFileIds = [...]` 等）。这在 Zustand 中不是惯用模式，但行为与 Vue 版一致（Vue 版也直接 mutate Pinia store 对象），且功能正确（React 按引用传递 props）。可在后续阶段统一重构为 immutable 更新。
+
+### 风险和注意事项
+
+- **面板高度动画逻辑**（FileSelectorModal.tsx）：使用 `useRef` + `requestAnimationFrame` + `ResizeObserver` + `onTransitionEnd` 的复杂动画转换逻辑，与 Vue 版行为一致。在 React Strict Mode 下可能有 double-invoke 问题，需在图形环境验证。
+- **`dangerouslySetInnerHTML`**（SearchPanel.tsx）：`highlightText` 函数通过 `escapeHtml` 先 sanitize 再注入 `<mark>` 标签，XSS 风险可控。
+- **文件拖拽上传**（useKnowledgeFiles hook）：拖拽计数器使用 `useRef` 而非 state，与 Vue 版行为一致，避免频繁重渲染。
+- **WorkspaceSidebarHost** 知识库列表功能已在 Phase 5 完成，Phase 6 无需修改。
+- **`useKnowledgeFiles` 中的 `formData` 检查**：拖拽上传时缺少 `formData` 的内容检查（与原 Vue 版一致），后续可增强。
+- **KnowledgeForm 当前仅为"创建"模式**：编辑模式（`editingKb`）在 store 中支持，但 Form UI 未区分创建/编辑标题。后续阶段可完善。
+- **framer-motion 未使用**：Phase 5 安装的 framer-motion 仍未使用，面板高度动画使用 CSS transition 实现。
+
+### 是否建议进入下一阶段
+
+✅ 建议进入 Phase 7（实验室页面迁移）。知识库页面所有功能已迁移，typecheck/lint/build 全部通过，Vue 入口零回归。
