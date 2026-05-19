@@ -3,11 +3,15 @@ import SvgIcon from '@renderer/components/icons/SvgIcon'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome'
 import { useKnowledgeStore, useUIStateStore } from '@renderer/stores'
 import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
+import { usePiniaStore } from '@renderer/composables/usePiniaStore'
+import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import PaperSidebarContainer from '@renderer/components/paper/PaperSidebarContainer'
 import styles from './WorkspaceSidebarHost.module.css'
 
 export default function WorkspaceSidebarHost() {
   const currentView = useUIStateStore((s) => s.currentView)
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
+  const paperStore = usePiniaStore(usePaperReaderStore)
 
   // Knowledge store (Zustand — available in React)
   const knowledgeBases = useKnowledgeStore((s) => s.knowledgeBases)
@@ -33,10 +37,11 @@ export default function WorkspaceSidebarHost() {
   }, [knowledgeBases, knowledgeSearchQuery])
 
   const sidebarCount = useMemo(() => {
-    if (currentView === 'paper') return 0
+    if (currentView === 'paper')
+      return (paperStore.papers ?? []).length
     if (currentView === 'knowledge') return knowledgeBases.length
     return 0
-  }, [currentView, knowledgeBases])
+  }, [currentView, knowledgeBases, paperStore.papers])
 
   // Handlers
   const handleSelectKnowledgeBase = useCallback(
@@ -80,10 +85,9 @@ export default function WorkspaceSidebarHost() {
     useUIStateStore.getState().openConfigManager()
   }, [])
 
-  const handleUploadPdf = useCallback(async () => {
-    // Paper upload will be implemented in Phase 8
-    window.api.logger.info('[WorkspaceSidebarHost] PDF upload — Phase 8')
-  }, [])
+  const handleUploadPdf = useCallback(() => {
+    paperStore.uploadAndRenderPdf()
+  }, [paperStore])
 
   // SSH status listener
   useEffect(() => {
@@ -243,13 +247,7 @@ export default function WorkspaceSidebarHost() {
               ].join(' ')}
               key={`body-${currentView}`}
             >
-              {currentView === 'paper' && (
-                <div className={styles['sm-workspace-sidebar-host__empty']}>
-                  <div className={styles['sm-workspace-sidebar-host__empty-text']}>
-                    论文列表 — Phase 8 迁移
-                  </div>
-                </div>
-              )}
+              {currentView === 'paper' && <PaperSidebarContainer searchQuery={paperSearchQuery} />}
 
               {currentView === 'knowledge' && (
                 <div className={styles['sm-workspace-sidebar-host__kb-list']}>

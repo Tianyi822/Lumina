@@ -14,7 +14,6 @@ import KnowledgePage from '@renderer/pages/KnowledgePage'
 import LabPage from '@renderer/pages/LabPage'
 import PaperReaderPage from '@renderer/pages/PaperReaderPage'
 
-import { PaperQuoteContext } from '@renderer/contexts/PaperQuoteContext'
 import styles from './App.module.css'
 
 export default function App() {
@@ -25,7 +24,6 @@ export default function App() {
   const { isMac, isWindows, usesCustomWindowControls } = useMemo(() => getRuntimePlatform(), [])
 
   const [showSettings, setShowSettings] = useState(false)
-  const scrollToQuote = null // Paper quote scroll handler — Phase 8
 
   const isPaperView = currentView === 'paper'
   const isKnowledgeView = currentView === 'knowledge'
@@ -76,11 +74,8 @@ export default function App() {
   const openSettings = useCallback(() => setShowSettings(true), [])
   const closeSettings = useCallback(() => setShowSettings(false), [])
 
-  const paperQuoteContextValue = useMemo(() => ({ scrollToQuote }), [scrollToQuote])
-
   return (
-    <PaperQuoteContext.Provider value={paperQuoteContextValue}>
-      <div className="sm-app">
+    <div className="sm-app">
         <NotificationCenter />
 
         <div className={`sm-shell sm-workspace-page ${workspacePageClasses}`}>
@@ -128,7 +123,6 @@ export default function App() {
         </div>
 
         {showSettings && <SettingsModal onClose={closeSettings} />}
-      </div>
-    </PaperQuoteContext.Provider>
+    </div>
   )
 }
