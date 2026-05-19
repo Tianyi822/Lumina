@@ -1,6 +1,5 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPinia, setActivePinia } from 'pinia'
 import { usePaperChatStreamStore, type PaperChatStreamState } from './paperChatStreamStore'
 import { derivePaperChatStepContent } from '@renderer/components/paper/chat/message/paperChatReactStepContent'
 import type { Message, StreamEvent } from '@renderer/types'
@@ -84,7 +83,6 @@ function setupPlan(store: PaperChatStreamState, messages: Message[]): void {
 
 test.beforeEach(() => {
   setupWindowApi()
-  setActivePinia(createPinia())
   usePaperChatStreamStore.getState().resetAllState()
 })
 
