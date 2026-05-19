@@ -22,7 +22,8 @@
 | P6 | 知识库页面 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ✅ 已审查 | 27 个 React 文件创建，Vue 入口零回归 |
 | P7 | 实验室页面 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ✅ 已审查 | 27 个 React 组件创建，Pinia→React 桥接，Vue 入口零回归 |
 | P8 | 论文页面 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ✅ 已审查 | 14 个 React 文件创建，Pinia→React 桥接，Vue 入口零回归 |
-| P9 | 清理与切换 | ⏳ 待开始 | - | - | - | |
+| P8.5 | Phase 9 前置补漏 | 🔄 进行中 | 2026-05-19 | - | - | React dev unblock 已修复；剩余 Vue/Pinia/聊天/批注/SSH 监控待补齐 |
+| P9 | 清理与切换 | ⏳ 待开始 | - | - | - | 需等待 P8.5 完成 |
 
 **状态图例：** ⏳ 待开始 | 🔄 进行中 | ✅ 已完成 | ❌ 已回滚 | ⏭️ 已跳过
 
@@ -985,9 +986,42 @@ yarn add zustand@^5
 ### 风险和注意事项
 
 - **paperReaderStore 仍是 Pinia**：后续应集中安排 Pinia→Zustand 转换窗口
-- **`test:paper-chat` 预存失败**：Zustand React bindings 在 Node.js 测试环境中不可用
+- **`test:paper-chat` 已修复**：2026-05-19 已改为通过 Zustand `getState()` 测试 store 行为，并修复阅读进度 fallback 窗口断言失败。
 - **图形环境验证**：`LUMINA_UI=react yarn dev` 需在 Electron 图形环境中手动验证 UI
 
 ### 是否建议进入下一阶段
 
-✅ 建议进入 Phase 9（清理与切换）。Phase 8 论文页面核心功能已迁移，typecheck/lint/build 全部通过，Vue 入口零回归。剩余 composable 移植（`usePaperAnnotationComposer`、`usePaperChatSession`、`usePaperChatStream` 等）可作为 Phase 9 清理前或独立阶段的增强工作。
+⛔ 不建议直接进入 Phase 9。Phase 8 已完成核心阅读视图迁移，但聊天、批注、SSH 监控和剩余 Pinia stores 仍是 Phase 9 删除 Vue/Pinia 前的阻塞项。先执行 Phase 8.5 前置补漏，再进入清理与切换。
+
+---
+
+## Phase 8.5 前置补漏执行记录
+
+### 执行状态：进行中
+
+**开始日期**：2026-05-19
+
+### 已完成（2026-05-19）
+
+| 项目 | 状态 |
+|------|------|
+| React dev CSS import 阻塞修复 | ✅ |
+| React 入口临时激活 Pinia bridge | ✅ |
+| `yarn test:paper-chat` 修复 | ✅ |
+| `LUMINA_UI=react yarn dev` 冷启动验证 | ✅（应用进入运行态，无 CSS import-analysis 阻塞） |
+
+### 本次修复内容
+
+- 修正 `src/renderer/src/components/lab/creator/{PortMappingSection,CreateTypeSelector,CreateActions}.tsx` 的 CSS Module 相对路径。
+- 修正 `KnowledgeForm.tsx` 与 `lab-detail/TabNavigation.tsx` 的 CSS Module 相对路径。
+- 在 `main.tsx` 中调用 `setActivePinia(pinia)`，让 React 入口在剩余 Pinia stores 迁移前可安全使用 `usePiniaStore(...)`。
+- `paperChatStreamStore.test.ts` 改用 `usePaperChatStreamStore.getState()`，避免在 Node 测试环境中直接调用 React hook。
+- `PaperContextSearchToolService` 调整阅读进度 fallback 窗口，避免泛化查询越过当前阅读上下文命中远端附录段落。
+
+### Phase 9 前置阻塞项
+
+1. **剩余 Pinia/Vue 运行时依赖**：`paperReaderStore` 与 lab list/operation/lab/container/creator stores 仍需迁为 Zustand，随后删除 `usePiniaStore`、`reactAdapters`、`stores/index.ts` 中的 Pinia 初始化。
+2. **SSH 监控完整迁移**：`SshServerMonitorPanel.tsx` 仍为骨架，需将 `useSshStatsPolling`、`useEchartsManager` 转为 React hooks 并接入 ECharts。
+3. **论文批注完整迁移**：需将 `usePaperAnnotationComposer` / `usePaperQuoteHighlight` 接入 `PaperMarkdownView`，完成文本选中、批注创建/编辑、引用滚动高亮和添加到对话。
+4. **论文聊天完整迁移**：需迁移 `PaperChatInput`、`PaperChatMessageList`、message/input 子组件、ReAct/Plan 展示，以及 `usePaperChatSession` / `usePaperChatStream` / 相关 hooks。
+5. **Phase 9 删除门禁**：删除 Vue/Pinia 前，`rg "from 'vue'|from 'pinia'|defineStore|createPinia|storeToRefs" src/renderer/src --glob '*.{ts,tsx}'` 应只命中测试或待删兼容文件；正式清理后应为零。
