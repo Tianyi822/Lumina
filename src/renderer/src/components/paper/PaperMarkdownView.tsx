@@ -1,4 +1,5 @@
 import { useRef, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react'
+import type { Ref } from 'vue'
 import { usePiniaStore } from '@renderer/composables/usePiniaStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -9,9 +10,18 @@ import type {
   PaperTranslationCache
 } from '@shared/types/paper'
 import type { PaperQuote } from '@shared/types/chat'
-import { usePaperMarkdownEngine, getTranslationRenderKey } from './hooks/usePaperMarkdownEngine'
+import {
+  usePaperMarkdownEngine,
+  getTranslationRenderKey,
+  type RenderedSegment
+} from './hooks/usePaperMarkdownEngine'
+import { usePaperAnnotationComposer } from './hooks/usePaperAnnotationComposer'
 import { usePaperTextSearch } from './hooks/usePaperTextSearch'
+import { usePaperQuoteHighlight } from './composables/usePaperQuoteHighlight'
 import { useZoomAnchor } from './composables/useZoomAnchor'
+import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopover'
+import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor'
+import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu'
 import PaperMarkdownSegmentList from './PaperMarkdownSegmentList'
 import styles from './PaperMarkdownView.module.css'
 
@@ -54,6 +64,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       readerDocument,
       annotations = [],
       readingProgress,
+      onAddToChat
     },
     ref
   ) {
@@ -70,6 +81,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     // Zoom anchor
     const zoomAnchorRef = useRef(useZoomAnchor())
     const zoomAnchor = zoomAnchorRef.current
+    const quoteHighlightRef = useRef(usePaperQuoteHighlight())
+    const quoteHighlight = quoteHighlightRef.current
     const zoomSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     // Table drag state
@@ -91,17 +104,37 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       clearToc: store.clearPaperToc
     })
 
+    const renderedSegmentsRef = useMemo(
+      () =>
+        ({
+          get value() {
+            return engine.renderedSegments
+          }
+        }) as Ref<RenderedSegment[]>,
+      [engine.renderedSegments]
+    )
+
+    const composer = usePaperAnnotationComposer({
+      paperId: () => paperId,
+      translationCache: () => translationCache,
+      annotations: () => annotations,
+      renderedSegments: renderedSegmentsRef,
+      getSourceSegments: engine.getSourceSegments,
+      createAnnotation: store.createAnnotation,
+      updateAnnotation: store.updateAnnotation,
+      deleteAnnotation: store.deleteAnnotation,
+      onAddToChat
+    })
+
     const hasContent = content.trim().length > 0
 
     // Expose scrollToQuoteAndHighlight to parent
     useImperativeHandle(
       ref,
       () => ({
-        scrollToQuoteAndHighlight: () => {
-          // Phase 8b: Implement quote scrolling and highlighting
-        }
+        scrollToQuoteAndHighlight: quoteHighlight.scrollToQuoteAndHighlight
       }),
-      []
+      [quoteHighlight]
     )
 
     // Content zoom style
@@ -169,19 +202,17 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       return wrap.scrollWidth > wrap.clientWidth + 1
     }, [])
 
-    const cleanupTableDragListeners = useCallback((): void => {
+    function cleanupTableDragListeners(): void {
       window.removeEventListener('pointermove', handleTablePointerMove)
       window.removeEventListener('pointerup', handleTablePointerUp)
       window.removeEventListener('pointercancel', handleTablePointerUp)
-    }, [])
+    }
 
-    const clearTableDragState = useCallback((): void => {
-      tableDragStateRef.current?.wrap.classList.remove(
-        'paper-markdown-view__table-wrap--dragging'
-      )
+    function clearTableDragState(): void {
+      tableDragStateRef.current?.wrap.classList.remove('paper-markdown-view__table-wrap--dragging')
       tableDragStateRef.current = null
       cleanupTableDragListeners()
-    }, [cleanupTableDragListeners])
+    }
 
     function shouldIgnoreTableDragTarget(target: Element): boolean {
       return !!target.closest(
@@ -311,9 +342,12 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         if (event.key === 'Escape' && textSearch.isOpen) {
           event.preventDefault()
           textSearch.closeSearch()
+          return
         }
+
+        composer.handleDocumentKeyDown(event)
       },
-      [textSearch]
+      [composer, textSearch]
     )
 
     const handleSearchInputKeydown = useCallback(
@@ -331,13 +365,18 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     )
 
     // Handle markdown click (prevent after table drag)
-    const handleMarkdownClick = useCallback((event: React.MouseEvent) => {
-      if (Date.now() - lastTableDragEndedAtRef.current < 160) {
-        event.preventDefault()
-        event.stopPropagation()
-        return
-      }
-    }, [])
+    const handleMarkdownClick = useCallback(
+      (event: React.MouseEvent) => {
+        if (Date.now() - lastTableDragEndedAtRef.current < 160) {
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
+
+        composer.handleSurfaceAnnotationClick(event.nativeEvent)
+      },
+      [composer]
+    )
 
     // Retranslate handler
     const handleRetranslateSegment = useCallback(
@@ -346,11 +385,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           return
         }
 
-        const result = await store.retranslateSegment(
-          paperId,
-          params.segmentId,
-          params.stableId
-        )
+        const result = await store.retranslateSegment(paperId, params.segmentId, params.stableId)
         if (!result.success) {
           notify.error('重新翻译失败', result.error || '请稍后再试', {
             source: 'paper',
@@ -365,6 +400,14 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const prevContentRef = useRef(content)
     const prevBasePathRef = useRef(basePath)
     const prevSourceRevisionIdRef = useRef(readerDocument?.sourceRevisionId)
+    const translationRenderKey = useMemo(
+      () => getTranslationRenderKey(translationCache),
+      [translationCache]
+    )
+    const annotationUpdateKey = useMemo(
+      () => annotations.map((annotation) => annotation.updatedAt).join('|'),
+      [annotations]
+    )
 
     useEffect(() => {
       const prevContent = prevContentRef.current
@@ -373,14 +416,15 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
       const contentChanged = content !== prevContent
       const basePathChanged = basePath !== prevBasePath
-      const sourceRevisionIdChanged =
-        readerDocument?.sourceRevisionId !== prevSourceRevisionId
+      const sourceRevisionIdChanged = readerDocument?.sourceRevisionId !== prevSourceRevisionId
 
       prevContentRef.current = content
       prevBasePathRef.current = basePath
       prevSourceRevisionIdRef.current = readerDocument?.sourceRevisionId
 
       void renderContentAndSyncTables().then(() => {
+        composer.clearComposer()
+
         // Restore scroll position on initial load or major content change
         if (contentChanged || basePathChanged || sourceRevisionIdChanged) {
           void restoreMarkdownScrollPosition(paperId)
@@ -392,10 +436,10 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       content,
       basePath,
       translationVisible,
-      getTranslationRenderKey(translationCache),
+      translationRenderKey,
       readerDocument?.sourceRevisionId,
       annotations.length,
-      annotations.map((a) => a.updatedAt).join('|')
+      annotationUpdateKey
     ])
 
     // Search query change effect
@@ -591,9 +635,13 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     // Keyboard listeners
     useEffect(() => {
+      document.addEventListener('mousedown', composer.handleDocumentPointerDown)
       document.addEventListener('keydown', handleDocumentKeyDown)
-      return () => document.removeEventListener('keydown', handleDocumentKeyDown)
-    }, [handleDocumentKeyDown])
+      return () => {
+        document.removeEventListener('mousedown', composer.handleDocumentPointerDown)
+        document.removeEventListener('keydown', handleDocumentKeyDown)
+      }
+    }, [composer.handleDocumentPointerDown, handleDocumentKeyDown])
 
     // Resize listener for table wraps
     useEffect(() => {
@@ -608,6 +656,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         store.clearPaperToc()
         textSearch.closeSearch()
         clearTableDragState()
+        composer.clearComposer()
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
@@ -701,6 +750,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         <div
           ref={scrollContainerRef}
           className={styles['paper-markdown-view__scroll']}
+          onMouseUp={(e) => composer.updateComposerFromSelection(e.nativeEvent)}
           onClick={handleMarkdownClick}
           onPointerDown={handleTablePointerDown}
           onScroll={recordMarkdownScrollPosition}
@@ -719,10 +769,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
               <p>暂无内容</p>
             </div>
           ) : (
-            <article
-              className={styles['paper-markdown-view__content']}
-              style={contentZoomStyle}
-            >
+            <article className={styles['paper-markdown-view__content']} style={contentZoomStyle}>
               <PaperMarkdownSegmentList
                 segments={engine.renderedSegments}
                 onRetranslate={handleRetranslateSegment}
@@ -730,6 +777,51 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
             </article>
           )}
         </div>
+
+        {composer.selectionActionMenu && (
+          <PaperAnnotationSelectionMenu
+            state={composer.selectionActionMenu}
+            highlightColorOptions={composer.highlightColorOptions}
+            error={composer.selectionActionMenuError}
+            onCreateHighlight={composer.handleCreateHighlight}
+            onOpenNoteEditor={composer.handleOpenNoteEditorFromSelection}
+            onAddToChat={composer.handleAddToChat}
+          />
+        )}
+
+        {composer.noteEditorDraft && (
+          <PaperAnnotationNoteEditor
+            state={composer.noteEditorDraft}
+            comment={composer.noteEditorComment}
+            isExistingNote={composer.noteEditorIsExistingNote}
+            canUpdate={composer.noteEditorCanUpdate}
+            saving={composer.noteEditorSaving}
+            error={composer.noteEditorError}
+            onCommentChange={composer.setNoteEditorComment}
+            onSave={composer.handleSaveNote}
+            onUpdateNote={composer.handleUpdateNote}
+            onDeleteNote={composer.handleDeleteNoteFromEditor}
+            onClose={composer.handleCloseNoteEditor}
+            onMove={composer.handleMoveNoteEditor}
+          />
+        )}
+
+        {composer.annotationHoverPopover && composer.hoverPopoverAnnotation && (
+          <PaperAnnotationHoverPopover
+            state={composer.annotationHoverPopover}
+            annotation={composer.hoverPopoverAnnotation}
+            highlightColorOptions={composer.highlightColorOptions}
+            error={composer.hoverPopoverError}
+            onDelete={() => {
+              const annotation = composer.hoverPopoverAnnotation
+              if (annotation) {
+                void composer.handleDeleteAnnotation(annotation.id)
+              }
+            }}
+            onOpenNoteEditor={composer.handleOpenNoteEditorFromHover}
+            onUpdateColor={composer.handleUpdateHoverColor}
+          />
+        )}
       </div>
     )
   }
