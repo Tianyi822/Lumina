@@ -72,7 +72,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
       return
     }
 
-    const configStore = useConfigStore()
+    const configStore = useConfigStore.getState()
     configStore.updatePaperReaderConfig(
       originalPdfVisible.value
         ? { originalPdfZoomLevel: originalPdfZoomLevel.value }
@@ -105,7 +105,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   }
 
   function loadPaperReaderPreferences(): void {
-    const configStore = useConfigStore()
+    const configStore = useConfigStore.getState()
     markdownZoomLevel.value = normalizeZoomLevel(configStore.paperReaderConfig.zoomLevel)
     originalPdfZoomLevel.value = normalizeZoomLevel(
       configStore.paperReaderConfig.originalPdfZoomLevel
@@ -331,7 +331,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
   }
 
   function selectPaper(paperId: string | null): void {
-    const uiStateStore = useUIStateStore()
+    const uiStateStore = useUIStateStore.getState()
 
     if (!paperId) {
       currentPaperId.value = null
@@ -388,7 +388,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
     }
 
     currentPaperId.value = paperId
-    useUIStateStore().setLastPaperId(paperId)
+    useUIStateStore.getState().setLastPaperId(paperId)
     await loadMarkdown(paperId)
 
     return result.data
@@ -413,7 +413,7 @@ export const usePaperReaderStore = defineStore('paperReader', () => {
 
     if (currentPaperId.value === paperId) {
       currentPaperId.value = null
-      useUIStateStore().setLastPaperId(null)
+      useUIStateStore.getState().setLastPaperId(null)
       markdownContent.value = ''
       resetReaderViewState()
     }
