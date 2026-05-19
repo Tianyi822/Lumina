@@ -2,6 +2,7 @@ import { BrowserWindow, shell, nativeTheme, screen } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { configManager } from '@main/services/config'
+import { logger } from '@main/services/logger'
 import type { ThemeConfig } from '@shared/types/config'
 import {
   getThemeBackgroundColor,
@@ -16,6 +17,15 @@ import icon from '../../../resources/icon.png?asset'
  * 主窗口实例
  */
 let mainWindow: BrowserWindow | null = null
+
+function resolveDevRendererUrl(baseUrl: string, htmlFile: string): string {
+  const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
+  return new URL(htmlFile, normalizedBaseUrl).toString()
+}
+
+function formatLoadError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
 
 function getInitialThemeState(themeConfig?: ThemeConfig): {
   backgroundColor: string
@@ -98,15 +108,46 @@ export function createMainWindow(): BrowserWindow {
   })
 
   const isReactUI = process.env['LUMINA_UI'] === 'react'
+  const htmlFile = isReactUI ? 'index.react.html' : 'index.html'
+  const entryType = isReactUI ? 'react' : 'vue'
+
+  mainWindow.webContents.on(
+    'did-fail-load',
+    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+      if (!isMainFrame) return
+
+      logger.error('主窗口页面加载失败', 'main', {
+        entryType,
+        htmlFile,
+        errorCode,
+        errorDescription,
+        validatedURL
+      })
+    }
+  )
 
   // 开发环境下使用 electron-vite cli 的热模块替换
   // 生产环境加载本地 html 文件
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    const htmlFile = isReactUI ? 'index.react.html' : 'index.html'
-    mainWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}${htmlFile}`)
+    const rendererUrl = resolveDevRendererUrl(process.env['ELECTRON_RENDERER_URL'], htmlFile)
+    void mainWindow.loadURL(rendererUrl).catch((error: unknown) => {
+      logger.error('主窗口页面加载请求失败', 'main', {
+        entryType,
+        htmlFile,
+        rendererUrl,
+        error: formatLoadError(error)
+      })
+    })
   } else {
-    const htmlFile = isReactUI ? 'index.react.html' : 'index.html'
-    mainWindow.loadFile(join(__dirname, `../renderer/${htmlFile}`))
+    const rendererFile = join(__dirname, `../renderer/${htmlFile}`)
+    void mainWindow.loadFile(rendererFile).catch((error: unknown) => {
+      logger.error('主窗口页面加载请求失败', 'main', {
+        entryType,
+        htmlFile,
+        rendererFile,
+        error: formatLoadError(error)
+      })
+    })
   }
 
   return mainWindow
