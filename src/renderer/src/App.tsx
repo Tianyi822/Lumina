@@ -22,7 +22,6 @@ export default function App() {
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
   const toggleCurrentSidebar = useUIStateStore((s) => s.toggleCurrentSidebar)
   const loadConfigStatus = useUIStateStore((s) => s.loadConfigStatus)
-  const paperReaderStore = usePaperReaderStore()
 
   const { isMac, isWindows, usesCustomWindowControls } = useMemo(() => getRuntimePlatform(), [])
 
@@ -41,7 +40,7 @@ export default function App() {
     .filter(Boolean)
     .join(' ')
 
-  // Initialize on mount
+  // 挂载时初始化
   useEffect(() => {
     const uiState = useUIStateStore.getState()
     const configStore = useConfigStore.getState()
@@ -49,10 +48,10 @@ export default function App() {
     void uiState.initTheme()
     void loadConfigStatus()
     void configStore.loadConfig()
-    paperReaderStore.loadPaperReaderPreferences()
-  }, [loadConfigStatus, paperReaderStore])
+    usePaperReaderStore.getState().loadPaperReaderPreferences()
+  }, [loadConfigStatus])
 
-  // Global link interceptor
+  // 全局链接拦截
   useEffect(() => {
     function handleGlobalLinkClick(event: MouseEvent): void {
       const target = event.target as HTMLElement
@@ -66,7 +65,7 @@ export default function App() {
           window.api.window.openExternal(anchor.href)
         }
       } catch {
-        // Not a valid URL, ignore
+        // 非法 URL，忽略
       }
     }
 
