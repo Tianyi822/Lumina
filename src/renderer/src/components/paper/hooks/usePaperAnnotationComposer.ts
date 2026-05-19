@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
-import type { ComputedRef, Ref } from 'vue'
 import type { PaperAnnotation, PaperAnnotationColorKey } from '@shared/types/paper'
 import {
   PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS,
@@ -14,8 +13,10 @@ import { createPaperAnnotationComposerActions } from '../composables/paperAnnota
 import { createPaperAnnotationSelectionResolver } from '../composables/paperAnnotationComposerSelection'
 import type {
   AnnotationHoverPopoverState,
+  ComputedRef,
   NoteEditorState,
   PaperAnnotationComposerOptions,
+  Ref,
   SelectionActionMenuState,
   SelectionDraft
 } from '../composables/paperAnnotationComposerTypes'

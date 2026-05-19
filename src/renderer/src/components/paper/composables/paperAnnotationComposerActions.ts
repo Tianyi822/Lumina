@@ -1,4 +1,3 @@
-import type { ComputedRef, Ref } from 'vue'
 import type { PaperQuote } from '@shared/types/chat'
 import type {
   CreatePaperAnnotationPayload,
@@ -9,7 +8,9 @@ import type {
 } from '@shared/types/paper'
 import type {
   AnnotationHoverPopoverState,
+  ComputedRef,
   NoteEditorState,
+  Ref,
   SelectionDraft
 } from './paperAnnotationComposerTypes'
 import type { RenderSourceSegment } from './usePaperHighlightRenderer'

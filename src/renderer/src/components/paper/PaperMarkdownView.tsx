@@ -1,5 +1,4 @@
 import { useRef, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react'
-import type { Ref } from 'vue'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import type {
@@ -23,6 +22,10 @@ import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor'
 import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu'
 import PaperMarkdownSegmentList from './PaperMarkdownSegmentList'
 import styles from './PaperMarkdownView.module.css'
+
+interface ReadonlyValueRef<T> {
+  readonly value: T
+}
 
 interface PaperMarkdownViewProps {
   content: string
@@ -109,7 +112,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           get value() {
             return engine.renderedSegments
           }
-        }) as Ref<RenderedSegment[]>,
+        }) as ReadonlyValueRef<RenderedSegment[]>,
       [engine.renderedSegments]
     )
 

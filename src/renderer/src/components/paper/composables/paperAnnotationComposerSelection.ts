@@ -1,4 +1,3 @@
-import type { Ref } from 'vue'
 import type { PaperAnnotation } from '@shared/types/paper'
 import {
   buildPaperTextAnchor,
@@ -13,7 +12,7 @@ import {
   trimCanonicalTextRange,
   type CanonicalTextClientRect
 } from './paperCanonicalTextIndex'
-import type { SelectionDraft } from './paperAnnotationComposerTypes'
+import type { ComputedRef, SelectionDraft } from './paperAnnotationComposerTypes'
 import type { RenderSourceSegment } from './usePaperHighlightRenderer'
 import type { RenderedSegment } from './usePaperMarkdownEngine'
 
@@ -23,7 +22,7 @@ export interface PaperAnnotationSelectionResult {
 }
 
 interface PaperAnnotationSelectionResolverOptions {
-  renderedSegments: Ref<RenderedSegment[]>
+  renderedSegments: ComputedRef<RenderedSegment[]>
   getSourceSegments: () => RenderSourceSegment[]
 }
 

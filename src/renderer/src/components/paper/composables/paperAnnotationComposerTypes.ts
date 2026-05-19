@@ -1,4 +1,3 @@
-import type { ComputedRef, Ref } from 'vue'
 import type { PaperQuote, PaperQuoteSurroundingContext } from '@shared/types/chat'
 import type {
   CreatePaperAnnotationPayload,
@@ -11,6 +10,14 @@ import type {
 } from '@shared/types/paper'
 import type { RenderSourceSegment } from './usePaperHighlightRenderer'
 import type { RenderedSegment } from './usePaperMarkdownEngine'
+
+export interface Ref<T> {
+  value: T
+}
+
+export interface ComputedRef<T> {
+  readonly value: T
+}
 
 export interface SelectionDraft {
   mode: 'create'
@@ -53,7 +60,7 @@ export interface PaperAnnotationComposerOptions {
   paperId: () => string
   translationCache: () => PaperTranslationCache | null | undefined
   annotations: () => PaperAnnotation[] | undefined
-  renderedSegments: Ref<RenderedSegment[]>
+  renderedSegments: ComputedRef<RenderedSegment[]>
   getSourceSegments: () => RenderSourceSegment[]
   createAnnotation: (
     params: CreatePaperAnnotationPayload

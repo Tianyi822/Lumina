@@ -1,10 +1,15 @@
-import { ref } from 'vue'
-import type { Ref } from 'vue'
-
 import type { Message, ReActIteration, ReActStep, StreamEvent } from '@renderer/types'
 
+export interface ValueRef<T> {
+  value: T
+}
+
+function createValueRef<T>(value: T): ValueRef<T> {
+  return { value }
+}
+
 export interface ReactIterationManager {
-  currentIterationIndex: Ref<Map<string, number>>
+  currentIterationIndex: ValueRef<Map<string, number>>
   getCurrentIteration: (message: Message, sessionId: string) => ReActIteration | null
   hasIterationContent: (iteration: ReActIteration) => boolean
   createIteration: (
@@ -31,7 +36,7 @@ export interface ReactIterationManager {
 /** 创建 ReAct 迭代管理器 */
 export function useReactIterationManager(): ReactIterationManager {
   // 每个会话当前活跃的迭代索引（用于 ReAct 迭代分组）
-  const currentIterationIndex = ref<Map<string, number>>(new Map())
+  const currentIterationIndex = createValueRef<Map<string, number>>(new Map())
 
   /**
    * 获取当前迭代对象
