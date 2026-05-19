@@ -1,5 +1,21 @@
 .sm-sidebar-frame {
   position: relative;
+  width: 320px;
+  min-width: 320px;
+  min-height: 0;
+  overflow: hidden;
+  opacity: 1;
+  transition:
+    width var(--sm-transition-slow),
+    min-width var(--sm-transition-slow),
+    opacity var(--sm-transition-medium);
+}
+
+.sm-sidebar-frame:global(.is-collapsed) {
+  width: 0;
+  min-width: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .sm-workspace-sidebar-host {
@@ -203,4 +219,11 @@
   margin-bottom: 16px;
   font-size: 13px;
   color: var(--sm-color-text-secondary);
+}
+
+@media (max-width: 1280px) {
+  .sm-sidebar-frame {
+    width: 312px;
+    min-width: 312px;
+  }
 }
