@@ -48,7 +48,9 @@ export default function KnowledgePage() {
     }) => {
       const success = await handleFormSubmit(data)
       if (!success) {
-        notify.error('创建知识库失败', useKnowledgeStore.getState().error || '未知错误', { source: 'knowledge' })
+        notify.error('创建知识库失败', useKnowledgeStore.getState().error || '未知错误', {
+          source: 'knowledge'
+        })
       }
     },
     [handleFormSubmit, notify]
