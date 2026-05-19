@@ -22,8 +22,9 @@
 | P6 | 知识库页面 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ✅ 已审查 | 27 个 React 文件创建，Vue 入口零回归 |
 | P7 | 实验室页面 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ✅ 已审查 | 27 个 React 组件创建，Pinia→React 桥接，Vue 入口零回归 |
 | P8 | 论文页面 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ✅ 已审查 | 14 个 React 文件创建，Pinia→React 桥接，Vue 入口零回归 |
-| P8.5 | Phase 9 前置补漏 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ✅ 已审查 | 6 Pinia→Zustand + SSH 监控 + 桥接清理；论文聊天 26 组件待迁移 |
-| P9 | 清理与切换 | ⏳ 待开始 | - | - | - | 需等待 P8.5 完成 |
+| P8.5 | Phase 9 前置补漏 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ✅ 已审查 | 6 Pinia→Zustand + SSH 监控 + 桥接清理 |
+| P8.6 | Phase 9 前最终补漏 | ✅ 已完成 | 2026-05-19 | 2026-05-19 | ⏳ 待审查 | React 论文聊天 + Vue runtime 残留清理 + 启动/轮询修复 |
+| P9 | 清理与切换 | ⏳ 待开始 | - | - | - | 需等待 P8.6 验收完成 |
 
 **状态图例：** ⏳ 待开始 | 🔄 进行中 | ✅ 已完成 | ❌ 已回滚 | ⏭️ 已跳过
 
@@ -32,7 +33,7 @@
 ## 阶段依赖关系
 
 ```
-P1 ──→ P2 ──→ P3 ──→ P4 ──→ P5 ──→ P6 ──→ P7 ──→ P8 ──→ P9
+P1 ──→ P2 ──→ P3 ──→ P4 ──→ P5 ──→ P6 ──→ P7 ──→ P8 ──→ P8.5 ──→ P8.6 ──→ P9
                               │       │       │       │
                               │       │       │       └── P6-8 可并行
                               │       │       └── 按复杂度递增
@@ -105,6 +106,7 @@ P6-P8 页面迁移在 P5 完成后可并行（不同页面无依赖），但建�
 | P6 | [2026-05-18-vue-to-react-migration-phase-6.md](2026-05-18-vue-to-react-migration-phase-6.md) |
 | P7 | [2026-05-18-vue-to-react-migration-phase-7.md](2026-05-18-vue-to-react-migration-phase-7.md) |
 | P8 | [2026-05-18-vue-to-react-migration-phase-8.md](2026-05-18-vue-to-react-migration-phase-8.md) |
+| P8.6 | 本文件执行记录 |
 | P9 | [2026-05-18-vue-to-react-migration-phase-9.md](2026-05-18-vue-to-react-migration-phase-9.md) |
 
 ---
@@ -1125,11 +1127,11 @@ yarn add zustand@^5
 
 8. **`labStore` facade getter 模式的 React 性能** — 每次 `useLabStore()` 调用都会返回新的 getter 函数引用，可能导致不必要的重渲染。**可在 Phase 9 优化或重构 facade 模式。**
 
-### 已知遗留（需 Phase 9 前处理）
+### 已知遗留（已由 Phase 8.6 处理）
 
-1. **论文聊天完整迁移** — PaperChatPanel 为壳层，需迁移 26 个 Vue 组件 + 4 个 composable（~4000 行）。这是 Phase 9 删除 Vue 的最大阻塞项。
-2. **`paperChatReactIteration.ts` / `paperChatPlanState.ts`** — 仍使用 Vue `ref`，需转为纯 TS 或 React hook。
-3. **framer-motion 未使用** — Phase 5 安装的 framer-motion 仍未被使用。
+1. **论文聊天完整迁移** — 已在 Phase 8.6 将 React `PaperChatPanel` 接入真实会话、流式消息、附件、引用、工具/知识库/实验室工具和联网搜索。
+2. **`paperChatReactIteration.ts` / `paperChatPlanState.ts`** — 已在 Phase 8.6 改为纯 TS `{ value }` 状态容器，移除 Vue runtime import。
+3. **framer-motion 未使用** — Phase 5 安装的 framer-motion 仍未被使用，可在 Phase 9 删除或后续用于明确动画场景。
 
 ### 风险和注意事项
 
@@ -1139,15 +1141,59 @@ yarn add zustand@^5
 
 ### 是否建议进入下一阶段
 
-⚠️ **有条件建议进入 Phase 9。** Phase 8.5 已完成主要目标：
+⚠️ **原始结论：有条件建议进入 Phase 9。** Phase 8.5 已完成主要目标：
 - ✅ 6 个 Pinia stores → Zustand
 - ✅ Pinia 运行时依赖清零（stores 目录）
 - ✅ SSH 监控完整实现
 - ✅ 桥接基础设施清理
 
-**阻塞 Phase 9 的剩余项**：论文聊天 26 个 Vue 组件 + 2 个 Vue composable 工厂。建议在进入 Phase 9 之前：
-1. 迁移论文聊天 Vue composables → React hooks
-2. 迁移论文聊天 Vue 组件 → React TSX
-3. 转换 `paperChatReactIteration.ts` 和 `paperChatPlanState.ts` 为纯 TS
+**阻塞 Phase 9 的剩余项**已在 Phase 8.6 处理。Phase 9 可聚焦删除 Vue 入口、Vue 组件和 Vue/Pinia 依赖，并切换 React 为默认入口。
 
-或者：Phase 9 可分为两步执行——先清理已确认可删的 Vue 文件（116 个），保留聊天相关的 Vue 组件待后续清理。
+---
+
+## Phase 8.6 Phase 9 前最终补漏执行记录
+
+### 执行状态：已完成
+
+**开始日期**：2026-05-19  
+**完成日期**：2026-05-19
+
+### 完成内容
+
+| 子任务 | 内容 | 状态 |
+|--------|------|------|
+| 8.6.1 | React 论文聊天接入真实会话、历史消息、发送、停止、清空上下文 | ✅ |
+| 8.6.2 | React 论文聊天支持文档/图片/引用附件、快捷回复、用户交互选项 | ✅ |
+| 8.6.3 | React 论文聊天支持 MCP 工具、知识库、实验室工具、论文联网搜索 payload | ✅ |
+| 8.6.4 | ReAct 阶段、工具结果、Plan dock 在 React 入口展示 | ✅ |
+| 8.6.5 | `paperChatReactIteration` / `paperChatPlanState` 改为纯 TS 状态容器 | ✅ |
+| 8.6.6 | PDF rasterizer 移除 Vue `ref`，`paperReaderStore` 不再间接拉 Vue | ✅ |
+| 8.6.7 | 修复 `App.tsx` 初始化 effect 重复触发风险，偏好加载幂等 | ✅ |
+| 8.6.8 | 修复 SSH 监控轮询依赖，保持 3 秒间隔刷新 | ✅ |
+| 8.6.9 | `paperChatStreamStore.test.ts` 移除 Pinia 初始化 | ✅ |
+
+### Phase 9 前置条件
+
+| 条件 | 状态 |
+|------|------|
+| React 入口不再依赖论文聊天 Vue 组件 | ✅ |
+| React 入口论文聊天不再依赖 Vue composable | ✅ |
+| `paperChatReactIteration` / `paperChatPlanState` 不再 import Vue | ✅ |
+| `paperReaderStore` 的 PDF rasterizer 链路不再 import Vue | ✅ |
+| Phase 9 可只做删除与配置切换 | ✅ |
+
+### 验收标准达成情况
+
+| 标准 | 状态 |
+|------|------|
+| `yarn typecheck` 通过 | ✅（0 errors） |
+| `yarn lint` 通过 | ✅（0 errors, 21 pre-existing warnings） |
+| `yarn build` 成功 | ✅（typecheck + 3 个 bundle） |
+| `yarn test:paper-chat` 通过 | ✅（18 pass） |
+| `yarn test:paper-annotations` 通过 | ✅（34 pass） |
+| `yarn test:lab-tools` 通过 | ✅（15 pass） |
+| `yarn test:ssh` 通过 | ✅（57 pass） |
+
+### 是否建议进入下一阶段
+
+✅ 建议在 Phase 8.6 验证命令全部通过后进入 Phase 9。Phase 9 不应再新增迁移功能，只做 Vue 入口/组件/依赖删除、React 默认入口切换、构建配置清理和最终回归。
