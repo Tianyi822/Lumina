@@ -1,6 +1,5 @@
 import { useRef, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react'
 import type { Ref } from 'vue'
-import { usePiniaStore } from '@renderer/composables/usePiniaStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import type {
@@ -68,7 +67,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     },
     ref
   ) {
-    const store = usePiniaStore(usePaperReaderStore)
+    const store = usePaperReaderStore()
     const notify = useNotification()
     const markdownZoomLevel = store.markdownZoomLevel ?? 1.0
 

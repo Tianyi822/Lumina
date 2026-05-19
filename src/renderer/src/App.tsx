@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useConfigStore } from '@renderer/stores/configStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
-import { usePiniaStore } from '@renderer/composables/usePiniaStore'
 import { getRuntimePlatform } from '@renderer/composables/runtimePlatformCore'
 
 import NotificationCenter from '@renderer/components/NotificationCenter'
@@ -23,7 +22,7 @@ export default function App() {
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
   const toggleCurrentSidebar = useUIStateStore((s) => s.toggleCurrentSidebar)
   const loadConfigStatus = useUIStateStore((s) => s.loadConfigStatus)
-  const paperReaderStore = usePiniaStore(usePaperReaderStore)
+  const paperReaderStore = usePaperReaderStore()
 
   const { isMac, isWindows, usesCustomWindowControls } = useMemo(() => getRuntimePlatform(), [])
 

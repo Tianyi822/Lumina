@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { usePiniaStore } from '@renderer/composables/usePiniaStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
@@ -18,7 +17,7 @@ export default function WorkspaceToolbar() {
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
   const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
   const togglePaperChatPanel = useUIStateStore((s) => s.togglePaperChatPanel)
-  const paperReaderStore = usePiniaStore(usePaperReaderStore)
+  const paperReaderStore = usePaperReaderStore()
 
   const tocContainerRef = useRef<HTMLDivElement>(null)
   const figureContainerRef = useRef<HTMLDivElement>(null)
@@ -32,20 +31,20 @@ export default function WorkspaceToolbar() {
     [paperReaderStore.paperTocItems]
   )
   const currentPaperFigures = useMemo<PaperFigureItem[]>(
-    () => paperReaderStore.currentPaperFigures ?? [],
-    [paperReaderStore.currentPaperFigures]
+    () => paperReaderStore.currentPaperFigures() ?? [],
+    [paperReaderStore.currentPaperFigures()]
   )
-  const currentTranslationCache = paperReaderStore.currentTranslationCache ?? null
+  const currentTranslationCache = paperReaderStore.currentTranslationCache() ?? null
   const figureCaptionTranslationMap = useMemo<Record<string, string>>(
-    () => paperReaderStore.figureCaptionTranslationMap ?? {},
-    [paperReaderStore.figureCaptionTranslationMap]
+    () => paperReaderStore.figureCaptionTranslationMap() ?? {},
+    [paperReaderStore.figureCaptionTranslationMap()]
   )
   const figureLoadingByPaperId = useMemo<Record<string, boolean>>(
     () => paperReaderStore.figureLoadingByPaperId ?? {},
     [paperReaderStore.figureLoadingByPaperId]
   )
-  const isOcrCompleted = paperReaderStore.isOcrCompleted ?? false
-  const isCurrentPaperTranslating = paperReaderStore.isCurrentPaperTranslating ?? false
+  const isOcrCompleted = paperReaderStore.isOcrCompleted() ?? false
+  const isCurrentPaperTranslating = paperReaderStore.isCurrentPaperTranslating() ?? false
   const markdownLoading = paperReaderStore.markdownLoading ?? false
   const originalPdfVisible = paperReaderStore.originalPdfVisible ?? false
   const showFigurePanel = paperReaderStore.showFigurePanel ?? false

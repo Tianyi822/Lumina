@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useLabStoreReact } from '@renderer/stores/lab/reactAdapters'
+import { useLabStore, useLabListStore, useLabOperationStore } from '@renderer/stores'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import { labApi } from '@renderer/services/labApi'
@@ -17,7 +17,12 @@ function isManagedDockerLab(type: LabCreationType): boolean {
 }
 
 export default function LabPage() {
-  const labStore = useLabStoreReact()
+  // 从子 store 获取响应式数据
+  const currentLab = useLabListStore((s) => s.currentLab)
+  const currentLabId = useLabListStore((s) => s.currentLab?.labId ?? null)
+  const deleteConfirmState = useLabOperationStore((s) => s.deleteConfirmState)
+  // 从 facade 获取 actions
+  const labStore = useLabStore()
   const showLabCreator = useUIStateStore((s) => s.showLabCreator)
   const closeLabCreator = useUIStateStore((s) => s.closeLabCreator)
   const showConfigManager = useUIStateStore((s) => s.showConfigManager)
@@ -34,19 +39,9 @@ export default function LabPage() {
   const labStoreRef = useRef(labStore)
   const notifyRef = useRef(notify)
   const recheckingDockerRef = useRef(recheckingDocker)
+  const currentLabRef = useRef(currentLab)
 
-  const currentLabId = labStore.currentLabId
-  const deleteConfirmState = labStore.deleteConfirmState || {
-    show: false,
-    isDeleting: false,
-    labId: '',
-    labName: '',
-    containerCount: 0,
-    hasWorkspace: false,
-    workspaceName: '',
-    creationType: 'existing' as LabCreationType,
-    isOrphan: false
-  }
+  const _currentLabId = currentLabId
 
   const deleteDialogLab = (() => {
     const state = deleteConfirmState
@@ -135,8 +130,8 @@ export default function LabPage() {
   useEffect(() => {
     async function init() {
       await checkDocker()
-      await labStoreRef.current.loadLabList?.()
-      if (!labStoreRef.current.currentLab && lastLabId) {
+      await labStoreRef.current.loadLabList()
+      if (!currentLabRef.current && lastLabId) {
         await labStoreRef.current.loadLab(lastLabId, false, { silent: true })
       }
       dockerRecheckTimerRef.current = setInterval(() => {
@@ -154,8 +149,12 @@ export default function LabPage() {
   }, [checkDocker, checkDockerSilent, lastLabId])
 
   useEffect(() => {
-    if (currentLabId) setLastLabId(currentLabId)
-  }, [currentLabId, setLastLabId])
+    currentLabRef.current = currentLab
+  }, [currentLab])
+
+  useEffect(() => {
+    if (_currentLabId) setLastLabId(_currentLabId)
+  }, [_currentLabId, setLastLabId])
 
   return (
     <div className={`${styles.page} sm-workspace-view`}>
@@ -167,7 +166,7 @@ export default function LabPage() {
       ) : (
         <>
           <LabMainContent
-            currentLab={labStore.currentLab}
+            currentLab={currentLab}
             dockerStatus={dockerStatus}
             recheckingDocker={recheckingDocker}
             onRecheckDocker={() => checkDocker(false)}
@@ -185,8 +184,8 @@ export default function LabPage() {
             visible={deleteConfirmState.show}
             isDeleting={deleteConfirmState.isDeleting}
             lab={deleteDialogLab}
-            onClose={() => labStore.hideDeleteConfirm?.()}
-            onConfirm={(_labId, options) => labStore.confirmDelete?.(options)}
+            onClose={() => labStore.hideDeleteConfirm()}
+            onConfirm={(_labId, options) => labStore.confirmDelete(options)}
           />
         </>
       )}

@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useContainerStoreReact, useLabCreatorStoreReact } from '@renderer/stores/lab/reactAdapters'
-import { useDockerConfigStore } from '@renderer/stores'
+import {
+  useContainerStore,
+  useLabCreatorStore,
+  useComposeConfigStore,
+  useDockerfileConfigStore,
+  useDockerConfigStore,
+  usePortMappingStore
+} from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import ContainerSelector from './ContainerSelector'
 import ComposeEditor from './ComposeEditor'
@@ -19,26 +25,31 @@ interface LabCreatorProps {
 }
 
 export default function LabCreator({ visible, dockerStatus, onClose }: LabCreatorProps) {
-  const containerStore = useContainerStoreReact()
+  const containerStore = useContainerStore()
   const configStore = useDockerConfigStore()
-  const creatorStore = useLabCreatorStoreReact()
+  const creatorStore = useLabCreatorStore()
+  const composeConfigStore = useComposeConfigStore()
+  const dockerfileConfigStore = useDockerfileConfigStore()
   const notify = useNotification()
 
   const [isTestingSsh, setIsTestingSsh] = useState(false)
+  const containers = useContainerStore((s) => s.containers) || []
+
   const clearCreateError = (): void => {
-    const clearError = creatorStore.clearError || creatorStore.clearCreateError
-    clearError?.()
+    creatorStore.clearCreateError()
   }
 
   useEffect(() => {
     if (!visible) return
 
-    creatorStore.createType = 'compose'
-    creatorStore.composeContent = creatorStore.getComposeTemplate('mixed')
-    creatorStore.dockerfileContent = `FROM node:18-alpine\n\nWORKDIR /app\n\nCOPY package*.json ./\nRUN npm install\n\nCOPY . .\n\nEXPOSE 3000\n\nCMD ["npm", "start"]\n`
-    creatorStore.dockerfileContext = ''
-    creatorStore.composeProjectName = ''
-    creatorStore.dockerfileProjectName = ''
+    creatorStore.setCreateType('compose')
+    creatorStore.setComposeContent(creatorStore.getComposeTemplate('mixed'))
+    creatorStore.setDockerfileContent(
+      `FROM node:18-alpine\n\nWORKDIR /app\n\nCOPY package*.json ./\nRUN npm install\n\nCOPY . .\n\nEXPOSE 3000\n\nCMD ["npm", "start"]\n`
+    )
+    creatorStore.setDockerfileContext('')
+    creatorStore.setComposeProjectName('')
+    creatorStore.setDockerfileProjectName('')
     creatorStore.resetSshConfig()
     clearCreateError()
 
@@ -50,7 +61,7 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
   }, [visible])
 
   async function handleSaveConfig(name: string): Promise<void> {
-    creatorStore.saveConfigName = name.trim()
+    useLabCreatorStore.setState({ saveConfigName: name.trim() })
     await creatorStore.handleSaveConfig()
   }
 
@@ -82,11 +93,20 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
     }
   }
 
+  // 从各 store 获取响应式数据
   const createType = creatorStore.createType || 'compose'
   const showSaveDialog = creatorStore.showSaveDialog || false
   const isCreating = creatorStore.isCreating || false
   const createError = creatorStore.createError || ''
-  const createPhaseText = creatorStore.createPhaseText || ''
+  const createPhaseText = creatorStore.getCreatePhaseText() || ''
+  const canCreate = creatorStore.getCanCreate()
+  const composeContent = composeConfigStore.composeContent || ''
+  const composeProjectName = composeConfigStore.composeProjectName || ''
+  const dockerfileContent = dockerfileConfigStore.dockerfileContent || ''
+  const dockerfileContext = dockerfileConfigStore.dockerfileContext || ''
+  const dockerfileProjectName = dockerfileConfigStore.dockerfileProjectName || ''
+  const portMappings = usePortMappingStore((s) => s.portMappings)
+  const sshConfig = creatorStore.sshConfig
 
   if (!visible) return null
 
@@ -104,7 +124,7 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
           createType={createType}
           dockerReady={dockerStatus?.available ?? true}
           onChange={(t) => {
-            creatorStore.createType = t
+            creatorStore.setCreateType(t)
           }}
         />
 
@@ -112,9 +132,9 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
           <div className="creator-content-inner">
             {createType === 'existing' && (
               <ContainerSelector
-                containers={containerStore.containers || []}
+                containers={containers}
                 onSelect={(containerId) => {
-                  creatorStore.selectedContainerId = containerId
+                  creatorStore.selectContainer(containerId)
                 }}
               />
             )}
@@ -145,13 +165,13 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
 
             {createType === 'compose' && (
               <ComposeEditor
-                modelValue={creatorStore.composeContent || ''}
-                projectName={creatorStore.composeProjectName}
+                modelValue={composeContent}
+                projectName={composeProjectName}
                 onUpdateModelValue={(v) => {
-                  creatorStore.composeContent = v
+                  creatorStore.setComposeContent(v)
                 }}
                 onUpdateProjectName={(v) => {
-                  creatorStore.composeProjectName = v
+                  creatorStore.setComposeProjectName(v)
                 }}
                 onSaveConfig={() => {
                   creatorStore.openSaveDialog('compose')
@@ -166,23 +186,23 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                     实验室名称 <span className="required">*</span>
                   </label>
                   <input
-                    value={creatorStore.dockerfileProjectName || ''}
+                    value={dockerfileProjectName}
                     type="text"
                     className="form-input"
                     placeholder="请输入实验室名称"
                     onChange={(e) => {
-                      creatorStore.dockerfileProjectName = e.target.value
+                      creatorStore.setDockerfileProjectName(e.target.value)
                     }}
                   />
                 </div>
                 <DockerfileEditor
-                  modelValue={creatorStore.dockerfileContent || ''}
-                  context={creatorStore.dockerfileContext || ''}
+                  modelValue={dockerfileContent}
+                  context={dockerfileContext}
                   onUpdateModelValue={(v) => {
-                    creatorStore.dockerfileContent = v
+                    creatorStore.setDockerfileContent(v)
                   }}
                   onUpdateContext={(v) => {
-                    creatorStore.dockerfileContext = v
+                    creatorStore.setDockerfileContext(v)
                   }}
                   onSaveConfig={() => {
                     creatorStore.openSaveDialog('dockerfile')
@@ -198,11 +218,11 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                     主机地址 <span className="required">*</span>
                   </label>
                   <input
-                    value={creatorStore.sshConfig?.host || ''}
+                    value={sshConfig?.host || ''}
                     type="text"
                     className="form-input"
                     placeholder="192.168.1.100"
-                    onChange={(e) => creatorStore.updateSshConfig?.({ host: e.target.value })}
+                    onChange={(e) => creatorStore.updateSshConfig({ host: e.target.value })}
                   />
                 </div>
                 <div
@@ -211,12 +231,12 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                   <div className={styles['ssh-form__field-half']}>
                     <label className="form-label">端口</label>
                     <input
-                      value={creatorStore.sshConfig?.port || 22}
+                      value={sshConfig?.port || 22}
                       type="number"
                       className="form-input"
                       placeholder="22"
                       onChange={(e) =>
-                        creatorStore.updateSshConfig?.({ port: Number(e.target.value) })
+                        creatorStore.updateSshConfig({ port: Number(e.target.value) })
                       }
                     />
                   </div>
@@ -225,11 +245,11 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                       用户名 <span className="required">*</span>
                     </label>
                     <input
-                      value={creatorStore.sshConfig?.username || ''}
+                      value={sshConfig?.username || ''}
                       type="text"
                       className="form-input"
                       placeholder="root"
-                      onChange={(e) => creatorStore.updateSshConfig?.({ username: e.target.value })}
+                      onChange={(e) => creatorStore.updateSshConfig({ username: e.target.value })}
                     />
                   </div>
                 </div>
@@ -245,19 +265,17 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
 
             {createType !== 'ssh' && (
               <PortMappingSection
-                portMappings={creatorStore.portMappings}
-                onRefresh={() => creatorStore.refreshPorts?.()}
-                onAdd={() => creatorStore.addPortMapping?.()}
-                onUpdate={(i, p) =>
-                  creatorStore.updatePortMapping?.(i, p as Record<string, unknown>)
-                }
-                onRemove={(i) => creatorStore.removePortMapping?.(i)}
+                portMappings={portMappings}
+                onRefresh={() => creatorStore.refreshPorts()}
+                onAdd={() => creatorStore.addPortMapping()}
+                onUpdate={(i, p) => creatorStore.updatePortMapping(i, p as Record<string, unknown>)}
+                onRemove={(i) => creatorStore.removePortMapping(i)}
               />
             )}
 
             <CreateActions
               isCreating={isCreating}
-              canCreate={creatorStore.canCreate}
+              canCreate={canCreate}
               createPhaseText={createPhaseText}
               onClose={onClose}
               onCreate={async () => {

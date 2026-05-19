@@ -1,11 +1,10 @@
 /**
  * PaperSidebar 容器组件
  *
- * 使用 Pinia bridge 访问 paperReaderStore，将 store 数据作为 props 传递给 PaperSidebar。
+ * 使用 Zustand 直接访问 paperReaderStore，将 store 数据作为 props 传递给 PaperSidebar。
  */
 
 import { useCallback } from 'react'
-import { usePiniaStore } from '@renderer/composables/usePiniaStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { RenderingProgress } from '@renderer/stores/paperReaderStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
@@ -18,7 +17,7 @@ interface PaperSidebarContainerProps {
 }
 
 export default function PaperSidebarContainer({ searchQuery }: PaperSidebarContainerProps) {
-  const store = usePiniaStore(usePaperReaderStore)
+  const store = usePaperReaderStore()
 
   const papers = (store.papers ?? []) as PaperDocument[]
   const currentPaperId = (store.currentPaperId ?? null) as string | null
@@ -26,14 +25,8 @@ export default function PaperSidebarContainer({ searchQuery }: PaperSidebarConta
     string,
     RenderingProgress
   >
-  const ocrProgressByPaperId = (store.ocrProgressByPaperId ?? {}) as Record<
-    string,
-    OcrProgressInfo
-  >
-  const hasTranslationByPaperId = (store.hasTranslationByPaperId ?? {}) as Record<
-    string,
-    boolean
-  >
+  const ocrProgressByPaperId = (store.ocrProgressByPaperId ?? {}) as Record<string, OcrProgressInfo>
+  const hasTranslationByPaperId = (store.hasTranslationByPaperId ?? {}) as Record<string, boolean>
 
   // Filter papers by search query
   const filteredPapers = searchQuery.trim()

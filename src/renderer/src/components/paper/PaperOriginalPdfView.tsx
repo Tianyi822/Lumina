@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { usePiniaStore } from '@renderer/composables/usePiniaStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperPageAsset } from '@shared/types/paper'
 import { buildBase64DataUrl } from '@shared/utils'
@@ -31,7 +30,7 @@ export default function PaperOriginalPdfView({
   pageAssets,
   pageCount
 }: PaperOriginalPdfViewProps) {
-  const store = usePiniaStore(usePaperReaderStore)
+  const store = usePaperReaderStore()
   const originalPdfZoomLevel = store.originalPdfZoomLevel ?? 1.0
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -371,10 +370,7 @@ export default function PaperOriginalPdfView({
             <p>暂无 PDF 原件页图</p>
           </div>
         ) : (
-          <div
-            className={styles['paper-original-pdf-view__content']}
-            style={contentZoomStyle}
-          >
+          <div className={styles['paper-original-pdf-view__content']} style={contentZoomStyle}>
             {originalPages.map((page) => {
               const state = getPageState(page.pageIndex)
               return (

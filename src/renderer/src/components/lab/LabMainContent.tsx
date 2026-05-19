@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useContainerStoreReact, useLabStoreReact } from '@renderer/stores/lab/reactAdapters'
+import { useContainerStore, useLabStore } from '@renderer/stores'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import { labApi } from '@renderer/services/labApi'
@@ -27,13 +27,13 @@ export default function LabMainContent({
   recheckingDocker,
   onRecheckDocker
 }: LabMainContentProps) {
-  const containerStore = useContainerStoreReact()
-  const labStore = useLabStoreReact()
+  const containerStore = useContainerStore()
+  const labStore = useLabStore()
   const notify = useNotification()
 
-  const selectedContainer = containerStore.selectedContainer || null
-  const containerStats = containerStore.containerStats || null
-  const storeLoading = containerStore.isLoading || false
+  const selectedContainer = useContainerStore((s) => s.selectedContainer) || null
+  const containerStats = useContainerStore((s) => s.containerStats) || null
+  const storeLoading = useContainerStore((s) => s.isLoading) || false
   const labDetailTab = useUIStateStore((s) => s.labDetailTab)
   const setLabDetailTab = useUIStateStore((s) => s.setLabDetailTab)
 
@@ -88,7 +88,7 @@ export default function LabMainContent({
     if (!isDockerReady) return
     setIsStartingContainer(true)
     try {
-      if (selectedContainer?.id) await containerStore.startContainer?.(selectedContainer.id)
+      if (selectedContainer?.id) await containerStore.startContainer(selectedContainer.id)
     } finally {
       setIsStartingContainer(false)
     }
@@ -98,7 +98,7 @@ export default function LabMainContent({
     if (!isDockerReady) return
     setIsStoppingContainer(true)
     try {
-      if (selectedContainer?.id) await containerStore.stopContainer?.(selectedContainer.id)
+      if (selectedContainer?.id) await containerStore.stopContainer(selectedContainer.id)
     } finally {
       setIsStoppingContainer(false)
     }
@@ -108,7 +108,7 @@ export default function LabMainContent({
     if (!isDockerReady) return
     setIsRestartingContainer(true)
     try {
-      if (selectedContainer?.id) await containerStore.restartContainer?.(selectedContainer.id)
+      if (selectedContainer?.id) await containerStore.restartContainer(selectedContainer.id)
     } finally {
       setIsRestartingContainer(false)
     }
@@ -118,7 +118,7 @@ export default function LabMainContent({
     if (!currentLab?.labId || isRetryingFrontend) return
     setIsRetryingFrontend(true)
     try {
-      await labStore.retryFrontendInitialization?.(currentLab.labId)
+      await labStore.retryFrontendInitialization(currentLab.labId)
     } finally {
       setIsRetryingFrontend(false)
     }
@@ -128,7 +128,7 @@ export default function LabMainContent({
     if (!currentLab?.labId || isRebuildingFrontend) return
     setIsRebuildingFrontend(true)
     try {
-      await labStore.rebuildFrontendRuntime?.(currentLab.labId)
+      await labStore.rebuildFrontendRuntime(currentLab.labId)
     } finally {
       setIsRebuildingFrontend(false)
     }
@@ -146,7 +146,7 @@ export default function LabMainContent({
 
     setIsConnectingSsh(true)
     try {
-      const connected = await labStore.connectSsh?.(labId, {
+      const connected = await labStore.connectSsh(labId, {
         host: ssh.host,
         port: ssh.port,
         username: ssh.username,
@@ -156,7 +156,7 @@ export default function LabMainContent({
       })
       if (connected) {
         setSshReconnectPassword('')
-        await labStore.loadLab?.(labId, true)
+        await labStore.loadLab(labId, true)
       }
     } finally {
       setIsConnectingSsh(false)
@@ -164,7 +164,7 @@ export default function LabMainContent({
   }
 
   async function handleCleanupOrphan(labId: string): Promise<void> {
-    await labStore.handleDeleteLab?.(labId)
+    await labStore.handleDeleteLab(labId)
   }
 
   async function handleOpenDockerWebsite(): Promise<void> {
@@ -174,7 +174,7 @@ export default function LabMainContent({
   }
 
   function handleDeleteLab(): void {
-    if (currentLab) labStore.handleDeleteLab?.(currentLab.labId)
+    if (currentLab) labStore.handleDeleteLab(currentLab.labId)
   }
 
   function formatDateTime(value?: string): string {
@@ -192,7 +192,7 @@ export default function LabMainContent({
 
   async function handleRefreshStats(): Promise<void> {
     if (selectedContainer?.id) {
-      await containerStore.loadContainerStats?.(selectedContainer.id)
+      await containerStore.loadContainerStats(selectedContainer.id)
     }
   }
 

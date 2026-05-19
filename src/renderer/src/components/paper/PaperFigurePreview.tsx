@@ -1,6 +1,5 @@
 import { useRef, useCallback, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { usePiniaStore } from '@renderer/composables/usePiniaStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import type { PaperFigurePreviewRect } from '@renderer/stores/paperReaderStore'
@@ -75,16 +74,16 @@ function buildResizedRect(state: ResizeState, event: MouseEvent): PaperFigurePre
 }
 
 export default function PaperFigurePreview() {
-  const store = usePiniaStore(usePaperReaderStore)
+  const store = usePaperReaderStore()
 
   const activeFigure = store.activeFigure
   const currentPaperFigures = useMemo(
-    () => store.currentPaperFigures ?? [],
-    [store.currentPaperFigures]
+    () => store.currentPaperFigures() ?? [],
+    [store.currentPaperFigures()]
   )
   const figureCaptionTranslationMap = useMemo(
-    () => store.figureCaptionTranslationMap ?? {},
-    [store.figureCaptionTranslationMap]
+    () => store.figureCaptionTranslationMap() ?? {},
+    [store.figureCaptionTranslationMap()]
   )
   const figurePreviewPinned = store.figurePreviewPinned ?? false
   const figurePreviewRect = store.figurePreviewRect

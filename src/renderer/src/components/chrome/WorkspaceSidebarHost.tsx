@@ -5,10 +5,14 @@ import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebar
 import PaperSidebar from '@renderer/components/paper/PaperSidebar'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 import { summarizeTranslationAnnotations } from '@shared/utils/paperTranslationAnnotations'
-import { useKnowledgeStore, useUIStateStore } from '@renderer/stores'
-import { usePiniaStore } from '@renderer/composables/usePiniaStore'
+import {
+  useKnowledgeStore,
+  useUIStateStore,
+  useLabStore,
+  useLabListStore,
+  useLabOperationStore
+} from '@renderer/stores'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
-import { useLabStoreReact } from '@renderer/stores/lab/reactAdapters'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { OcrProgressInfo, PaperDocument } from '@shared/types/paper'
 import type { RenderingProgress } from '@renderer/stores/paperReaderStore'
@@ -21,8 +25,13 @@ export default function WorkspaceSidebarHost() {
   const openLabCreator = useUIStateStore((s) => s.openLabCreator)
   const openConfigManager = useUIStateStore((s) => s.openConfigManager)
 
-  const paperReaderStore = usePiniaStore(usePaperReaderStore)
-  const labStore = useLabStoreReact()
+  const paperReaderStore = usePaperReaderStore()
+  // 从子 store 获取响应式数据
+  const currentLab = useLabListStore((s) => s.currentLab)
+  const labList = useLabListStore((s) => s.labList)
+  const deleteConfirmState = useLabOperationStore((s) => s.deleteConfirmState)
+  // 从 facade 获取 actions
+  const labStore = useLabStore()
   const notify = useNotification()
 
   const knowledgeBases = useKnowledgeStore((s) => s.knowledgeBases)
@@ -66,11 +75,10 @@ export default function WorkspaceSidebarHost() {
   }, [knowledgeBases, knowledgeSearchQuery])
 
   const filteredLabs = useMemo(() => {
-    const labList = labStore.labList ?? []
     if (!labSearchQuery.trim()) return labList
     const query = labSearchQuery.toLowerCase()
     return labList.filter((lab) => lab.name.toLowerCase().includes(query))
-  }, [labSearchQuery, labStore.labList])
+  }, [labSearchQuery, labList])
 
   const filteredPapers = useMemo(() => {
     if (!paperSearchQuery.trim()) return papers
@@ -81,12 +89,10 @@ export default function WorkspaceSidebarHost() {
   const sidebarCount = useMemo(() => {
     if (currentView === 'paper') return papers.length
     if (currentView === 'knowledge') return knowledgeBases.length
-    return (labStore.labList ?? []).length
-  }, [currentView, knowledgeBases.length, labStore.labList, papers.length])
+    return (labList ?? []).length
+  }, [currentView, knowledgeBases.length, labList, papers.length])
 
-  const deletingLabId = labStore.deleteConfirmState?.isDeleting
-    ? labStore.deleteConfirmState.labId
-    : null
+  const deletingLabId = deleteConfirmState.isDeleting ? deleteConfirmState.labId : null
 
   const handleSelectKnowledgeBase = useCallback(
     (kbId: string): void => {
@@ -153,8 +159,8 @@ export default function WorkspaceSidebarHost() {
     setIsRefreshingLabList(true)
     try {
       await labStore.refreshLabList()
-      if (labStore.currentLab?.labId) {
-        await labStore.loadLab(labStore.currentLab.labId, true)
+      if (currentLab?.labId) {
+        await labStore.loadLab(currentLab.labId, true)
       }
     } finally {
       setIsRefreshingLabList(false)
@@ -497,7 +503,7 @@ export default function WorkspaceSidebarHost() {
               {currentView === 'lab' && (
                 <LabList
                   labs={filteredLabs}
-                  activeLabId={labStore.currentLab?.labId}
+                  activeLabId={currentLab?.labId}
                   deletingLabId={deletingLabId}
                   onSelect={handleSelectLab}
                   onDelete={handleDeleteLab}

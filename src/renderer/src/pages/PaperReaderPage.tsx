@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { usePiniaStore } from '@renderer/composables/usePiniaStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperChatQuoteStore } from '@renderer/stores/paperChatQuoteStore'
@@ -16,7 +15,7 @@ import PaperFigurePreview from '@renderer/components/paper/PaperFigurePreview'
 import PaperChatPanel from '@renderer/components/paper/chat/PaperChatPanel'
 
 export default function PaperReaderPage() {
-  const store = usePiniaStore(usePaperReaderStore)
+  const store = usePaperReaderStore()
   const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
   const setPaperChatPanelOpen = useUIStateStore((s) => s.setPaperChatPanelOpen)
   const paperChatPanelWidth = useUIStateStore((s) => s.paperChatPanelWidth)
@@ -31,19 +30,18 @@ export default function PaperReaderPage() {
 
   // Derive state from store (Pinia auto-unwraps refs in return type)
   const currentPaperId = store.currentPaperId ?? null
-  const currentPaper = store.currentPaper ?? null
+  const currentPaper = store.currentPaper() ?? null
   const markdownContent = store.markdownContent ?? ''
   const markdownLoading = store.markdownLoading ?? false
-  const isOcrCompleted = store.isOcrCompleted ?? false
-  const paperBasePath = store.paperBasePath ?? null
-  const currentAnnotations = store.currentAnnotations ?? []
-  const currentReaderDocument = store.currentReaderDocument ?? null
+  const isOcrCompleted = store.isOcrCompleted() ?? false
+  const paperBasePath = store.paperBasePath() ?? null
+  const currentAnnotations = store.currentAnnotations() ?? []
+  const currentReaderDocument = store.currentReaderDocument() ?? null
   const originalPdfVisible = store.originalPdfVisible ?? false
   const translationVisible = store.translationVisible ?? false
-  const currentTranslationCache = store.currentTranslationCache ?? null
+  const currentTranslationCache = store.currentTranslationCache() ?? null
 
-  const isPaperChatPanelVisible =
-    paperChatPanelOpen && Boolean(currentPaper) && isOcrCompleted
+  const isPaperChatPanelVisible = paperChatPanelOpen && Boolean(currentPaper) && isOcrCompleted
 
   // scrollToQuote implementation for PaperQuoteContext
   const scrollToQuote = useCallback((quote: PaperQuote) => {
@@ -114,7 +112,7 @@ export default function PaperReaderPage() {
         store.selectPaper(lastPaperId)
       }
 
-      if (store.currentPaperId && store.isOcrCompleted) {
+      if (store.currentPaperId && store.isOcrCompleted()) {
         void store.loadMarkdown(store.currentPaperId)
       }
     })
