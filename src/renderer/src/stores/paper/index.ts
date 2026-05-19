@@ -1808,12 +1808,20 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
     const oz = normalizeZoomLevel(configStore.paperReaderConfig.originalPdfZoomLevel)
     const s = get()
     const level = s.originalPdfVisible ? oz : mz
+    const zoomPercent = Math.round(level * 100)
+    zoomPersistenceReady = true
+    if (
+      s.markdownZoomLevel === mz &&
+      s.originalPdfZoomLevel === oz &&
+      s.zoomPercent === zoomPercent
+    ) {
+      return
+    }
     set({
       markdownZoomLevel: mz,
       originalPdfZoomLevel: oz,
-      zoomPercent: Math.round(level * 100)
+      zoomPercent
     })
-    zoomPersistenceReady = true
   }
 
   function zoomIn(): void {
@@ -2063,8 +2071,14 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
     deleteAnnotation,
     toggleTranslationVisible,
     retryPaper,
-    setFigurePanelVisible: (value: boolean) => set({ showFigurePanel: value }),
-    closeFigurePanel: () => set({ showFigurePanel: false }),
+    setFigurePanelVisible: (value: boolean) => {
+      if (get().showFigurePanel === value) return
+      set({ showFigurePanel: value })
+    },
+    closeFigurePanel: () => {
+      if (!get().showFigurePanel) return
+      set({ showFigurePanel: false })
+    },
     toggleFigurePanel,
     openFigurePreview,
     closeFigurePreview,
