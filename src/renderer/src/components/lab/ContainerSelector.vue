@@ -1,22 +1,31 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useContainerStore, useLabCreatorStore } from '@renderer/stores'
 import type { ContainerInfo } from '@renderer/types/lab'
 import styles from './ContainerSelector.module.css'
 
-const containerStore = useContainerStore()
-const creatorStore = useLabCreatorStore()
+const containerStore = useZustandStore(useContainerStore)
+const creatorStore = useZustandStore(useLabCreatorStore)
 
-const { isLoading: storeLoading, containers } = storeToRefs(containerStore)
-const {
-  containerSearchQuery,
-  containerFilter,
-  selectedContainerId,
-  filteredContainers,
-  runningCount,
-  stoppedCount
-} = storeToRefs(creatorStore)
+const storeLoading = computed(() => containerStore.isLoading)
+const containers = computed(() => containerStore.containers)
+const containerSearchQuery = computed({
+  get: () => creatorStore.containerSearchQuery,
+  set: (v: string) => {
+    creatorStore.setContainerSearchQuery(v)
+  }
+})
+const containerFilter = computed({
+  get: () => creatorStore.containerFilter,
+  set: (v: 'all' | 'running' | 'stopped') => {
+    creatorStore.setContainerFilter(v)
+  }
+})
+const selectedContainerId = computed(() => creatorStore.selectedContainerId)
+const filteredContainers = computed(() => creatorStore.getFilteredContainers())
+const runningCount = computed(() => creatorStore.getRunningCount())
+const stoppedCount = computed(() => creatorStore.getStoppedCount())
 
 /** 展开详情的容器 ID */
 const expandedContainerId = ref<string | null>(null)

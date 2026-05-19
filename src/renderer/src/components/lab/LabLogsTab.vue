@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useContainerStore, useUIStateStore } from '@renderer/stores'
 import { useContainerLogs as useContainerLogsComposable } from './lab-detail'
@@ -11,9 +10,9 @@ defineProps<{
   isDockerReady: boolean
 }>()
 
-const containerStore = useContainerStore()
+const containerStore = useZustandStore(useContainerStore)
 const uiStateStore = useZustandStore(useUIStateStore)
-const { selectedContainer } = storeToRefs(containerStore)
+const selectedContainer = computed(() => containerStore.selectedContainer)
 
 const selectedContainerRef = computed(() => selectedContainer.value)
 const { containerLogs, logsLoading, loadContainerLogs, handleRefreshLogs, handleExportLogs } =

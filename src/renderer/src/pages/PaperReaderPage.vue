@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
@@ -13,24 +12,25 @@ import PaperOriginalPdfView from '@renderer/components/paper/PaperOriginalPdfVie
 import PaperFigurePreview from '@renderer/components/paper/PaperFigurePreview.vue'
 import PaperChatPanel from '@renderer/components/paper/chat/PaperChatPanel.vue'
 
-const store = usePaperReaderStore()
+const store = useZustandStore(usePaperReaderStore)
 const uiStateStore = useZustandStore(useUIStateStore)
 const paperChatQuoteStore = usePaperChatQuoteStore()
 const notify = useNotification()
 
-const {
-  currentPaperId,
-  currentPaper,
-  markdownContent,
-  markdownLoading,
-  isOcrCompleted,
-  paperBasePath,
-  currentAnnotations,
-  currentReaderDocument,
-  originalPdfVisible,
-  translationVisible,
-  currentTranslationCache
-} = storeToRefs(store)
+// 状态属性（通过 computed 保持响应式）
+const currentPaperId = computed(() => store.currentPaperId)
+const markdownContent = computed(() => store.markdownContent)
+const markdownLoading = computed(() => store.markdownLoading)
+const originalPdfVisible = computed(() => store.originalPdfVisible)
+const translationVisible = computed(() => store.translationVisible)
+
+// Getter 函数（需要显式调用）
+const currentPaper = computed(() => store.currentPaper())
+const isOcrCompleted = computed(() => store.isOcrCompleted())
+const paperBasePath = computed(() => store.paperBasePath())
+const currentAnnotations = computed(() => store.currentAnnotations())
+const currentReaderDocument = computed(() => store.currentReaderDocument())
+const currentTranslationCache = computed(() => store.currentTranslationCache())
 const isResizingPaperChat = ref(false)
 const markdownViewRef = ref<InstanceType<typeof PaperMarkdownView> | null>(null)
 const isPaperChatPanelVisible = computed(

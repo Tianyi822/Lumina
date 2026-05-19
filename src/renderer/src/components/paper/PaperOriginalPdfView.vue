@@ -8,7 +8,7 @@ import {
   watch,
   type ComponentPublicInstance
 } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperPageAsset } from '@shared/types/paper'
 import { buildBase64DataUrl } from '@shared/utils'
@@ -35,8 +35,8 @@ interface PageLoadState {
   error?: string
 }
 
-const paperReaderStore = usePaperReaderStore()
-const { originalPdfZoomLevel } = storeToRefs(paperReaderStore)
+const paperReaderStore = useZustandStore(usePaperReaderStore)
+const originalPdfZoomLevel = computed(() => paperReaderStore.originalPdfZoomLevel)
 
 const scrollContainerRef = ref<HTMLElement | null>(null)
 

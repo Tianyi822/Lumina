@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useZustandStore } from '@renderer/composables/useZustandStore'
-import { useContainerStore, useDockerConfigStore, useLabCreatorStore } from '@renderer/stores'
+import {
+  useContainerStore,
+  useDockerConfigStore,
+  useLabCreatorStore,
+  useComposeConfigStore,
+  useDockerfileConfigStore,
+  usePortMappingStore
+} from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import ContainerSelector from './ContainerSelector.vue'
 import ComposeEditor from './ComposeEditor.vue'
@@ -22,25 +28,55 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
-const containerStore = useContainerStore()
+const containerStore = useZustandStore(useContainerStore)
 const configStore = useZustandStore(useDockerConfigStore)
-const creatorStore = useLabCreatorStore()
+const creatorStore = useZustandStore(useLabCreatorStore)
+const composeConfigStore = useZustandStore(useComposeConfigStore)
+const dockerfileConfigStore = useZustandStore(useDockerfileConfigStore)
 const notify = useNotification()
 
-const {
-  showSaveDialog,
-  saveDialogType,
-  isCreating,
-  createError,
-  portMappings,
-  createType,
-  composeContent,
-  composeProjectName,
-  dockerfileContent,
-  dockerfileContext,
-  dockerfileProjectName,
-  sshConfig
-} = storeToRefs(creatorStore)
+const showSaveDialog = computed(() => creatorStore.showSaveDialog)
+const saveDialogType = computed(() => creatorStore.saveDialogType)
+const isCreating = computed(() => creatorStore.isCreating)
+const createError = computed(() => creatorStore.createError)
+const portMappings = computed(() => usePortMappingStore.getState().portMappings)
+const createType = computed({
+  get: () => creatorStore.createType,
+  set: (v) => {
+    creatorStore.setCreateType(v)
+  }
+})
+const composeContent = computed({
+  get: () => composeConfigStore.composeContent,
+  set: (v) => {
+    creatorStore.setComposeContent(v)
+  }
+})
+const composeProjectName = computed({
+  get: () => composeConfigStore.composeProjectName,
+  set: (v) => {
+    creatorStore.setComposeProjectName(v)
+  }
+})
+const dockerfileContent = computed({
+  get: () => dockerfileConfigStore.dockerfileContent,
+  set: (v) => {
+    creatorStore.setDockerfileContent(v)
+  }
+})
+const dockerfileContext = computed({
+  get: () => dockerfileConfigStore.dockerfileContext,
+  set: (v) => {
+    creatorStore.setDockerfileContext(v)
+  }
+})
+const dockerfileProjectName = computed({
+  get: () => dockerfileConfigStore.dockerfileProjectName,
+  set: (v) => {
+    creatorStore.setDockerfileProjectName(v)
+  }
+})
+const sshConfig = computed(() => creatorStore.sshConfig)
 
 const containerSelectorRef = ref<InstanceType<typeof ContainerSelector> | null>(null)
 const creatorRef = ref<HTMLElement | null>(null)
@@ -352,7 +388,7 @@ onBeforeUnmount(() => {
 })
 
 async function handleSaveConfig(name: string): Promise<void> {
-  creatorStore.saveConfigName = name.trim()
+  useLabCreatorStore.setState({ saveConfigName: name.trim() })
   await creatorStore.handleSaveConfig()
 }
 
@@ -477,10 +513,15 @@ async function testSshConnection(): Promise<void> {
               <div :class="styles['ssh-form__field']">
                 <label class="form-label">主机地址 <span class="required">*</span></label>
                 <input
-                  v-model="sshConfig.host"
+                  :value="sshConfig.host"
                   type="text"
                   class="form-input"
                   placeholder="192.168.1.100"
+                  @input="
+                    creatorStore.updateSshConfig({
+                      host: ($event.target as HTMLInputElement).value
+                    })
+                  "
                 />
               </div>
 
@@ -488,19 +529,29 @@ async function testSshConnection(): Promise<void> {
                 <div :class="styles['ssh-form__field-half']">
                   <label class="form-label">端口</label>
                   <input
-                    v-model.number="sshConfig.port"
+                    :value="sshConfig.port"
                     type="number"
                     class="form-input"
                     placeholder="22"
+                    @input="
+                      creatorStore.updateSshConfig({
+                        port: Number(($event.target as HTMLInputElement).value)
+                      })
+                    "
                   />
                 </div>
                 <div :class="styles['ssh-form__field-half']">
                   <label class="form-label">用户名 <span class="required">*</span></label>
                   <input
-                    v-model="sshConfig.username"
+                    :value="sshConfig.username"
                     type="text"
                     class="form-input"
                     placeholder="root"
+                    @input="
+                      creatorStore.updateSshConfig({
+                        username: ($event.target as HTMLInputElement).value
+                      })
+                    "
                   />
                 </div>
               </div>
@@ -532,10 +583,15 @@ async function testSshConnection(): Promise<void> {
               <div v-if="sshConfig.authType === 'password'" :class="styles['ssh-form__field']">
                 <label class="form-label">密码</label>
                 <input
-                  v-model="sshConfig.password"
+                  :value="sshConfig.password"
                   type="password"
                   class="form-input"
                   placeholder="输入 SSH 密码"
+                  @input="
+                    creatorStore.updateSshConfig({
+                      password: ($event.target as HTMLInputElement).value
+                    })
+                  "
                 />
               </div>
 
@@ -543,19 +599,29 @@ async function testSshConnection(): Promise<void> {
                 <div :class="styles['ssh-form__field']">
                   <label class="form-label">密钥名称 <span class="required">*</span></label>
                   <input
-                    v-model="sshConfig.keyName"
+                    :value="sshConfig.keyName"
                     type="text"
                     class="form-input"
                     placeholder="my-key"
+                    @input="
+                      creatorStore.updateSshConfig({
+                        keyName: ($event.target as HTMLInputElement).value
+                      })
+                    "
                   />
                 </div>
                 <div :class="styles['ssh-form__field']">
                   <label class="form-label">密钥内容 <span class="required">*</span></label>
                   <textarea
-                    v-model="sshConfig.keyContent"
+                    :value="sshConfig.keyContent"
                     :class="['form-input', styles['ssh-form__key-textarea']]"
                     placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
                     rows="6"
+                    @input="
+                      creatorStore.updateSshConfig({
+                        keyContent: ($event.target as HTMLTextAreaElement).value
+                      })
+                    "
                   ></textarea>
                 </div>
               </template>

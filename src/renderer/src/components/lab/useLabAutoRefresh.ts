@@ -1,6 +1,7 @@
 import { ref, watch } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 import { useContainerStore, useLabStore } from '@renderer/stores'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import type { ContainerDetails, LabData } from '@renderer/types/lab'
 
 const LAB_AUTO_REFRESH_INTERVAL = 3000
@@ -26,8 +27,8 @@ export interface UseLabAutoRefreshReturn {
 export function useLabAutoRefresh(options: UseLabAutoRefreshOptions): UseLabAutoRefreshReturn {
   const { currentLab, selectedContainer, labDetailTab, isOrphan } = options
 
-  const containerStore = useContainerStore()
-  const labStore = useLabStore()
+  const containerStore = useZustandStore(useContainerStore)
+  const labStore = useZustandStore(useLabStore)
 
   const labRefreshTimerId = ref<number | null>(null)
   const isRefreshingStats = ref(false)

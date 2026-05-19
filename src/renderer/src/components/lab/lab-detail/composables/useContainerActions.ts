@@ -4,6 +4,7 @@
  */
 import { useNotification } from '@renderer/composables/useNotification'
 import { useContainerStore, useLabStore } from '@renderer/stores'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import type { LabData } from '@renderer/types/lab'
 
 /** 容器操作 composable 返回值类型 */
@@ -23,8 +24,8 @@ export function useContainerActions(
   currentLab: { value: LabData | null },
   selectedContainer: { value: { id: string } | null }
 ): UseContainerActionsReturn {
-  const containerStore = useContainerStore()
-  const labStore = useLabStore()
+  const containerStore = useZustandStore(useContainerStore)
+  const labStore = useZustandStore(useLabStore)
   const notify = useNotification()
 
   /**

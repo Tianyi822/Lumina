@@ -42,7 +42,7 @@ const workspacePageClasses = computed(() => ({
 
 // 配置 Store - 用于加载语音识别等配置
 const configStore = useConfigStore()
-const paperReaderStore = usePaperReaderStore()
+const paperReaderStore = useZustandStore(usePaperReaderStore)
 
 // 设置弹窗状态（本地状态）
 const showSettings = ref(false)

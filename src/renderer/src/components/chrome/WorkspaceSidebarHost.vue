@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useZustandStore } from '@renderer/composables/useZustandStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import LabList from '@renderer/components/lab/LabList.vue'
@@ -19,20 +18,22 @@ import styles from './WorkspaceSidebarHost.module.css'
 
 const uiStateStore = useZustandStore(useUIStateStore)
 const knowledgeStore = useZustandStore(useKnowledgeStore)
-const labStore = useLabStore()
-const paperReaderStore = usePaperReaderStore()
+const labStore = useZustandStore(useLabStore)
+const paperReaderStore = useZustandStore(usePaperReaderStore)
 const notify = useNotification()
 
 const currentView = computed(() => uiStateStore.currentView)
 const isCurrentSidebarCollapsed = computed(() => uiStateStore.isCurrentSidebarCollapsed())
-const { currentLab, labList, deleteConfirmState } = storeToRefs(labStore)
-const {
-  papers,
-  currentPaperId,
-  renderProgressByPaperId,
-  ocrProgressByPaperId,
-  hasTranslationByPaperId
-} = storeToRefs(paperReaderStore)
+const currentLab = computed(() => labStore.currentLab())
+const labList = computed(() => labStore.labList())
+const deleteConfirmState = computed(() => labStore.deleteConfirmState())
+
+// paperReaderStore 状态属性（通过 computed 保持响应式）
+const papers = computed(() => paperReaderStore.papers)
+const currentPaperId = computed(() => paperReaderStore.currentPaperId)
+const renderProgressByPaperId = computed(() => paperReaderStore.renderProgressByPaperId)
+const ocrProgressByPaperId = computed(() => paperReaderStore.ocrProgressByPaperId)
+const hasTranslationByPaperId = computed(() => paperReaderStore.hasTranslationByPaperId)
 
 const knowledgeSearchQuery = ref('')
 const labSearchQuery = ref('')

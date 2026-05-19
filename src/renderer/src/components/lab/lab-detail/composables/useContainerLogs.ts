@@ -4,6 +4,7 @@
  */
 import { ref, type Ref } from 'vue'
 import { useContainerStore } from '@renderer/stores'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { ContainerInfo } from '@renderer/types/lab'
 
@@ -19,7 +20,7 @@ export interface UseContainerLogsReturn {
 export function useContainerLogs(selectedContainer: {
   value: ContainerInfo | null
 }): UseContainerLogsReturn {
-  const containerStore = useContainerStore()
+  const containerStore = useZustandStore(useContainerStore)
   const notify = useNotification()
 
   // 状态

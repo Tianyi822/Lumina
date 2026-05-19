@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperFigurePreviewRect } from '@renderer/stores/paperReaderStore'
@@ -10,15 +10,17 @@ import {
 } from '@renderer/stores/paper/shared'
 import styles from './PaperFigurePreview.module.css'
 
-const paperReaderStore = usePaperReaderStore()
-const {
-  activeFigure,
-  currentPaperFigures,
-  figureCaptionTranslationMap,
-  figurePreviewPinned,
-  figurePreviewRect,
-  translationVisible
-} = storeToRefs(paperReaderStore)
+const paperReaderStore = useZustandStore(usePaperReaderStore)
+
+// 状态属性（通过 computed 保持响应式）
+const activeFigure = computed(() => paperReaderStore.activeFigure)
+const figurePreviewPinned = computed(() => paperReaderStore.figurePreviewPinned)
+const figurePreviewRect = computed(() => paperReaderStore.figurePreviewRect)
+const translationVisible = computed(() => paperReaderStore.translationVisible)
+
+// Getter 函数（需要显式调用）
+const currentPaperFigures = computed(() => paperReaderStore.currentPaperFigures())
+const figureCaptionTranslationMap = computed(() => paperReaderStore.figureCaptionTranslationMap())
 
 const previewRef = ref<HTMLElement | null>(null)
 

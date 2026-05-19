@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
 import type {
   PaperAnnotation,
   PaperReadingProgress,
@@ -8,6 +7,7 @@ import type {
   PaperTranslationCache
 } from '@shared/types/paper'
 import { useNotification } from '@renderer/composables/useNotification'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import {
   usePaperMarkdownEngine,
@@ -46,9 +46,9 @@ defineExpose({ scrollToQuoteAndHighlight: quoteHighlight.scrollToQuoteAndHighlig
 
 const scrollContainerRef = ref<HTMLElement | null>(null)
 const searchInputRef = ref<HTMLInputElement | null>(null)
-const paperReaderStore = usePaperReaderStore()
+const paperReaderStore = useZustandStore(usePaperReaderStore)
 const notify = useNotification()
-const { markdownZoomLevel } = storeToRefs(paperReaderStore)
+const markdownZoomLevel = computed(() => paperReaderStore.markdownZoomLevel)
 const textSearch = usePaperTextSearch()
 
 const contentZoomStyle = computed(() => ({

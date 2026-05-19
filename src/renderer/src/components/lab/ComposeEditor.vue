@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useZustandStore } from '@renderer/composables/useZustandStore'
-import { useDockerConfigStore, useLabCreatorStore } from '@renderer/stores'
+import { useDockerConfigStore, useLabCreatorStore, useComposeConfigStore } from '@renderer/stores'
 import styles from './ComposeEditor.module.css'
 
 type ComposeTemplateType = 'image' | 'build' | 'mixed'
 
 const configStore = useZustandStore(useDockerConfigStore)
-const creatorStore = useLabCreatorStore()
-const { showGenerator: creatorShowGenerator, generatorForm: creatorGeneratorForm } =
-  storeToRefs(creatorStore)
+const creatorStore = useZustandStore(useLabCreatorStore)
+const composeConfigStore = useZustandStore(useComposeConfigStore)
 
 const props = defineProps<{
   modelValue: string
@@ -63,10 +61,10 @@ function useTemplate(templateType: ComposeTemplateType): void {
 }
 
 function handleInsertServiceConfig(): void {
-  // 使用 creatorStore 中的插入逻辑（支持服务替换）
-  creatorStore.composeContent = localContent.value
+  // 使用 composeConfigStore 中的插入逻辑（支持服务替换）
+  composeConfigStore.composeContent = localContent.value
   creatorStore.insertServiceConfig()
-  localContent.value = creatorStore.composeContent
+  localContent.value = composeConfigStore.composeContent
 }
 
 function handleSaveConfig(): void {
@@ -109,47 +107,72 @@ function clearContent(): void {
     <div :class="styles['generator-section']">
       <div
         :class="styles['generator-header']"
-        @click="creatorStore.showGenerator = !creatorStore.showGenerator"
+        @click="composeConfigStore.showGenerator = !composeConfigStore.showGenerator"
       >
         <span :class="styles['generator-title']">构建配置生成器</span>
-        <span :class="[styles['generator-toggle'], { [styles['expanded']]: creatorShowGenerator }]"
+        <span
+          :class="[
+            styles['generator-toggle'],
+            { [styles['expanded']]: composeConfigStore.showGenerator }
+          ]"
           >▼</span
         >
       </div>
 
-      <div v-if="creatorShowGenerator" :class="styles['generator-form']">
+      <div v-if="composeConfigStore.showGenerator" :class="styles['generator-form']">
         <div :class="styles['form-row']">
           <div :class="styles['form-field-inline']">
             <label>服务名称</label>
             <input
-              v-model="creatorGeneratorForm.serviceName"
+              :value="composeConfigStore.generatorForm.serviceName"
               type="text"
               :class="styles['input']"
               placeholder="app"
+              @input="
+                creatorStore.updateGeneratorForm({
+                  serviceName: ($event.target as HTMLInputElement).value
+                })
+              "
             />
           </div>
           <div :class="styles['form-field-inline']">
             <label>来源类型</label>
             <div :class="styles['radio-group']">
               <label :class="styles['radio-option']">
-                <input v-model="creatorGeneratorForm.sourceType" type="radio" value="image" />
+                <input
+                  :checked="composeConfigStore.generatorForm.sourceType === 'image'"
+                  type="radio"
+                  value="image"
+                  @change="creatorStore.updateGeneratorForm({ sourceType: 'image' })"
+                />
                 <span>镜像</span>
               </label>
               <label :class="styles['radio-option']">
-                <input v-model="creatorGeneratorForm.sourceType" type="radio" value="build" />
+                <input
+                  :checked="composeConfigStore.generatorForm.sourceType === 'build'"
+                  type="radio"
+                  value="build"
+                  @change="creatorStore.updateGeneratorForm({ sourceType: 'build' })"
+                />
                 <span>构建</span>
               </label>
             </div>
           </div>
         </div>
 
-        <div v-if="creatorGeneratorForm.sourceType === 'image'" :class="styles['form-field']">
+        <div
+          v-if="composeConfigStore.generatorForm.sourceType === 'image'"
+          :class="styles['form-field']"
+        >
           <label>镜像名称</label>
           <input
-            v-model="creatorGeneratorForm.image"
+            :value="composeConfigStore.generatorForm.image"
             type="text"
             :class="styles['input']"
             placeholder="node:18-alpine"
+            @input="
+              creatorStore.updateGeneratorForm({ image: ($event.target as HTMLInputElement).value })
+            "
           />
         </div>
 
@@ -158,7 +181,7 @@ function clearContent(): void {
             <label>
               使用已保存的 Dockerfile
               <button
-                v-if="creatorGeneratorForm.useSavedDockerfile"
+                v-if="composeConfigStore.generatorForm.useSavedDockerfile"
                 :class="styles['btn-link']"
                 @click="creatorStore.clearSavedDockerfile()"
               >
@@ -166,9 +189,14 @@ function clearContent(): void {
               </button>
             </label>
             <select
-              v-model="creatorGeneratorForm.savedDockerfileId"
+              :value="composeConfigStore.generatorForm.savedDockerfileId"
               :class="styles['select']"
-              @change="creatorStore.onSavedDockerfileSelect()"
+              @change="
+                creatorStore.updateGeneratorForm({
+                  savedDockerfileId: ($event.target as any)?.value || null
+                });
+                creatorStore.onSavedDockerfileSelect()
+              "
             >
               <option :value="null">不使用已保存的 Dockerfile</option>
               <option
@@ -185,31 +213,46 @@ function clearContent(): void {
             <div :class="styles['form-field-inline']">
               <label>构建上下文</label>
               <input
-                v-model="creatorGeneratorForm.context"
+                :value="composeConfigStore.generatorForm.context"
                 type="text"
                 :class="styles['input']"
                 placeholder="./app"
-                :disabled="creatorGeneratorForm.useSavedDockerfile"
+                :disabled="composeConfigStore.generatorForm.useSavedDockerfile"
+                @input="
+                  creatorStore.updateGeneratorForm({
+                    context: ($event.target as HTMLInputElement).value
+                  })
+                "
               />
             </div>
             <div :class="styles['form-field-inline']">
               <label>Dockerfile 名称</label>
               <input
-                v-model="creatorGeneratorForm.dockerfile"
+                :value="composeConfigStore.generatorForm.dockerfile"
                 type="text"
                 :class="styles['input']"
                 placeholder="Dockerfile"
-                :disabled="creatorGeneratorForm.useSavedDockerfile"
+                :disabled="composeConfigStore.generatorForm.useSavedDockerfile"
+                @input="
+                  creatorStore.updateGeneratorForm({
+                    dockerfile: ($event.target as HTMLInputElement).value
+                  })
+                "
               />
             </div>
           </div>
           <div :class="styles['form-field']">
             <label>构建参数（可选，逗号分隔，格式：key=value）</label>
             <input
-              v-model="creatorGeneratorForm.buildArgs"
+              :value="composeConfigStore.generatorForm.buildArgs"
               type="text"
               :class="styles['input']"
               placeholder="NODE_VERSION=18,API_KEY=xxx"
+              @input="
+                creatorStore.updateGeneratorForm({
+                  buildArgs: ($event.target as HTMLInputElement).value
+                })
+              "
             />
           </div>
         </template>
@@ -218,19 +261,29 @@ function clearContent(): void {
           <div :class="styles['form-field-inline']">
             <label>端口映射（可选，逗号分隔）</label>
             <input
-              v-model="creatorGeneratorForm.ports"
+              :value="composeConfigStore.generatorForm.ports"
               type="text"
               :class="styles['input']"
               placeholder="3000:3000,8080:8080"
+              @input="
+                creatorStore.updateGeneratorForm({
+                  ports: ($event.target as HTMLInputElement).value
+                })
+              "
             />
           </div>
           <div :class="styles['form-field-inline']">
             <label>环境变量（可选，逗号分隔）</label>
             <input
-              v-model="creatorGeneratorForm.environment"
+              :value="composeConfigStore.generatorForm.environment"
               type="text"
               :class="styles['input']"
               placeholder="NODE_ENV=development,DEBUG=true"
+              @input="
+                creatorStore.updateGeneratorForm({
+                  environment: ($event.target as HTMLInputElement).value
+                })
+              "
             />
           </div>
         </div>

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useLabStore, useUIStateStore } from '@renderer/stores'
 import styles from './LabPage.module.css'
@@ -14,11 +13,13 @@ import type { DockerStatus, LabCreationType } from '@renderer/types/lab'
 
 const DOCKER_RECHECK_INTERVAL = 15000
 
-const labStore = useLabStore()
+const labStore = useZustandStore(useLabStore)
 const uiStateStore = useZustandStore(useUIStateStore)
 const notify = useNotification()
 
-const { currentLab, currentLabId, deleteConfirmState } = storeToRefs(labStore)
+const currentLab = computed(() => labStore.currentLab())
+const currentLabId = computed(() => labStore.currentLabId())
+const deleteConfirmState = computed(() => labStore.deleteConfirmState())
 
 const dockerStatus = ref<DockerStatus | null>(null)
 const loading = ref(true)

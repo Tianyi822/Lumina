@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useZustandStore } from '@renderer/composables/useZustandStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon.vue'
 import { useUIStateStore } from '@renderer/stores'
@@ -11,25 +10,27 @@ import styles from './WorkspaceToolbar.module.css'
 
 const uiState = useZustandStore(useUIStateStore)
 
-const paperReaderStore = usePaperReaderStore()
-const {
-  currentPaperId,
-  currentPaperFigures,
-  currentTranslationCache,
-  figureCaptionTranslationMap,
-  figureLoadingByPaperId,
-  isOcrCompleted,
-  isCurrentPaperTranslating,
-  paperTocTitle,
-  paperTocItems,
-  markdownLoading,
-  originalPdfVisible,
-  showFigurePanel,
-  translationVisible,
-  canZoomIn,
-  canZoomOut,
-  zoomPercent
-} = storeToRefs(paperReaderStore)
+const paperReaderStore = useZustandStore(usePaperReaderStore)
+
+// 状态属性（通过 computed 保持响应式）
+const currentPaperId = computed(() => paperReaderStore.currentPaperId)
+const figureLoadingByPaperId = computed(() => paperReaderStore.figureLoadingByPaperId)
+const markdownLoading = computed(() => paperReaderStore.markdownLoading)
+const originalPdfVisible = computed(() => paperReaderStore.originalPdfVisible)
+const showFigurePanel = computed(() => paperReaderStore.showFigurePanel)
+const translationVisible = computed(() => paperReaderStore.translationVisible)
+const zoomPercent = computed(() => paperReaderStore.zoomPercent)
+const paperTocTitle = computed(() => paperReaderStore.paperTocTitle)
+const paperTocItems = computed(() => paperReaderStore.paperTocItems)
+
+// Getter 函数（需要显式调用）
+const currentPaperFigures = computed(() => paperReaderStore.currentPaperFigures())
+const currentTranslationCache = computed(() => paperReaderStore.currentTranslationCache())
+const figureCaptionTranslationMap = computed(() => paperReaderStore.figureCaptionTranslationMap())
+const isOcrCompleted = computed(() => paperReaderStore.isOcrCompleted())
+const isCurrentPaperTranslating = computed(() => paperReaderStore.isCurrentPaperTranslating())
+const canZoomIn = computed(() => paperReaderStore.canZoomIn())
+const canZoomOut = computed(() => paperReaderStore.canZoomOut())
 
 interface PaperTocTreeNode {
   item: PaperTocItem

@@ -3,6 +3,7 @@ import type { KnowledgeBase, MCPTool, Message, SessionData } from '@renderer/typ
 import type { PaperDocument } from '@shared/types/paper'
 import { sessionMessageToMessage, messageToSessionMessage } from '@renderer/utils/messageHelpers'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { usePaperChatMessageCacheStore } from '@renderer/stores'
 
 interface UsePaperChatSessionReturn {
@@ -45,7 +46,7 @@ function removeLegacyPaperFulltextMessages(messages: Message[]): Message[] {
 export function usePaperChatSession(
   paper: Ref<PaperDocument | null | undefined>
 ): UsePaperChatSessionReturn {
-  const paperReaderStore = usePaperReaderStore()
+  const paperReaderStore = useZustandStore(usePaperReaderStore)
   const paperChatMessageCache = usePaperChatMessageCacheStore()
   const session = ref<SessionData | null>(null)
   const messages = ref<Message[]>([])

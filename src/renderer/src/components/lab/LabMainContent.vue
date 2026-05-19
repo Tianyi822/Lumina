@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useContainerStore, useUIStateStore, useLabStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -29,12 +28,14 @@ const emit = defineEmits<{
 }>()
 
 // Store 实例
-const containerStore = useContainerStore()
+const containerStore = useZustandStore(useContainerStore)
 const uiStateStore = useZustandStore(useUIStateStore)
-const labStore = useLabStore()
+const labStore = useZustandStore(useLabStore)
 const notify = useNotification()
 
-const { selectedContainer, containerStats, isLoading: storeLoading } = storeToRefs(containerStore)
+const selectedContainer = computed(() => containerStore.selectedContainer)
+const containerStats = computed(() => containerStore.containerStats)
+const storeLoading = computed(() => containerStore.isLoading)
 const labDetailTab = computed(() => uiStateStore.labDetailTab)
 
 // 计算属性

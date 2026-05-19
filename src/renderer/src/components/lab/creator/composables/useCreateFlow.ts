@@ -3,8 +3,11 @@ import {
   useContainerStore,
   useLabCreatorStore,
   useLabStore,
-  useUIStateStore
+  useUIStateStore,
+  useComposeConfigStore,
+  useDockerfileConfigStore
 } from '@renderer/stores'
+import { useZustandStore } from '@renderer/composables/useZustandStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { ContainerInfo } from '@renderer/types/lab'
 
@@ -29,23 +32,25 @@ interface UseCreateFlowResult {
 }
 
 export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResult {
-  const creatorStore = useLabCreatorStore()
-  const containerStore = useContainerStore()
-  const labStore = useLabStore()
-  const uiStateStore = useUIStateStore()
+  const creatorStore = useZustandStore(useLabCreatorStore)
+  const containerStore = useZustandStore(useContainerStore)
+  const labStore = useZustandStore(useLabStore)
+  const uiStateStore = useZustandStore(useUIStateStore)
+  const composeConfigStore = useZustandStore(useComposeConfigStore)
+  const dockerfileConfigStore = useZustandStore(useDockerfileConfigStore)
   const notify = useNotification()
 
   const canCreate = computed(() => {
     switch (creatorStore.createType) {
       case 'compose':
         return (
-          creatorStore.composeContent.trim().length > 0 &&
-          creatorStore.composeProjectName.trim().length > 0
+          composeConfigStore.composeContent.trim().length > 0 &&
+          composeConfigStore.composeProjectName.trim().length > 0
         )
       case 'dockerfile':
         return (
-          creatorStore.dockerfileContent.trim().length > 0 &&
-          creatorStore.dockerfileProjectName.trim().length > 0
+          dockerfileConfigStore.dockerfileContent.trim().length > 0 &&
+          dockerfileConfigStore.dockerfileProjectName.trim().length > 0
         )
       case 'existing': {
         const selected = options.containerSelectorRef.value?.selectedContainer
@@ -127,7 +132,7 @@ export function useCreateFlow(options: UseCreateFlowOptions): UseCreateFlowResul
     switch (creatorStore.createType) {
       case 'compose': {
         const result = await creatorStore.createFromCompose({
-          projectName: creatorStore.composeProjectName || undefined
+          projectName: composeConfigStore.composeProjectName || undefined
         })
 
         if (result?.success && result.lab?.labId) {
