@@ -31,8 +31,10 @@ export default function LabPage() {
   const [recheckingDocker, setRecheckingDocker] = useState(false)
   const dockerNotifyIdRef = useRef<string | null>(null)
   const dockerRecheckTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const labStoreRef = useRef(labStore)
+  const notifyRef = useRef(notify)
+  const recheckingDockerRef = useRef(recheckingDocker)
 
-  const currentLab = labStore.currentLab
   const currentLabId = labStore.currentLabId
   const deleteConfirmState = labStore.deleteConfirmState || {
     show: false,
@@ -63,23 +65,35 @@ export default function LabPage() {
     }
   })()
 
-  function showDockerUnavailableNotify(status: DockerStatus): void {
+  useEffect(() => {
+    labStoreRef.current = labStore
+  }, [labStore])
+
+  useEffect(() => {
+    notifyRef.current = notify
+  }, [notify])
+
+  useEffect(() => {
+    recheckingDockerRef.current = recheckingDocker
+  }, [recheckingDocker])
+
+  const showDockerUnavailableNotify = useCallback((status: DockerStatus): void => {
     if (dockerNotifyIdRef.current) return
     const title = status.installed ? 'Docker 未启动' : 'Docker 未安装'
     const message = status.installed
       ? '请启动 Docker 服务，然后点击页面中的"重新检测 Docker"按钮。SSH 远程实验室不受影响。'
       : '实验室工作区依赖本机 Docker 运行时，请安装后点击页面中的"重新检测 Docker"按钮。SSH 远程实验室不受影响。'
-    const id = notify.warning(title, message, {
+    const id = notifyRef.current.warning(title, message, {
       source: 'lab',
       sticky: true,
       dedupeKey: `docker:${status.installed ? 'stopped' : 'missing'}`
     })
     if (id) dockerNotifyIdRef.current = id
-  }
+  }, [])
 
   const checkDocker = useCallback(
     async (showFullLoading = true): Promise<void> => {
-      if (!showFullLoading && recheckingDocker) return
+      if (!showFullLoading && recheckingDockerRef.current) return
       try {
         if (showFullLoading) setLoading(true)
         else setRecheckingDocker(true)
@@ -87,13 +101,13 @@ export default function LabPage() {
         setDockerStatus(statusResult)
         if (!statusResult.available) showDockerUnavailableNotify(statusResult)
         else if (dockerNotifyIdRef.current) {
-          notify.dismiss(dockerNotifyIdRef.current)
+          notifyRef.current.dismiss(dockerNotifyIdRef.current)
           dockerNotifyIdRef.current = null
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)
         setDockerStatus({ available: false, installed: false, error: errorMessage })
-        notify.error('Docker 检测失败', errorMessage, {
+        notifyRef.current.error('Docker 检测失败', errorMessage, {
           source: 'lab',
           dedupeKey: 'lab:checkDocker'
         })
@@ -102,7 +116,7 @@ export default function LabPage() {
         else setRecheckingDocker(false)
       }
     },
-    [recheckingDocker, notify]
+    [showDockerUnavailableNotify]
   )
 
   const checkDockerSilent = useCallback(async (): Promise<void> => {
@@ -110,34 +124,34 @@ export default function LabPage() {
       const result = await labApi.checkDocker()
       setDockerStatus(result)
       if (result.available && dockerNotifyIdRef.current) {
-        notify.dismiss(dockerNotifyIdRef.current)
+        notifyRef.current.dismiss(dockerNotifyIdRef.current)
         dockerNotifyIdRef.current = null
       }
     } catch {
       // silent
     }
-  }, [notify])
+  }, [])
 
   useEffect(() => {
     async function init() {
       await checkDocker()
-      await labStore.loadLabList?.()
-      if (!currentLab && lastLabId) {
-        await labStore.loadLab(lastLabId, false, { silent: true })
+      await labStoreRef.current.loadLabList?.()
+      if (!labStoreRef.current.currentLab && lastLabId) {
+        await labStoreRef.current.loadLab(lastLabId, false, { silent: true })
       }
       dockerRecheckTimerRef.current = setInterval(() => {
-        checkDockerSilent()
+        void checkDockerSilent()
       }, DOCKER_RECHECK_INTERVAL)
     }
-    init()
+    void init()
     return () => {
       if (dockerRecheckTimerRef.current) clearInterval(dockerRecheckTimerRef.current)
       if (dockerNotifyIdRef.current) {
-        notify.dismiss(dockerNotifyIdRef.current)
+        notifyRef.current.dismiss(dockerNotifyIdRef.current)
         dockerNotifyIdRef.current = null
       }
     }
-  }, [checkDocker, checkDockerSilent, labStore, currentLab, lastLabId, notify])
+  }, [checkDocker, checkDockerSilent, lastLabId])
 
   useEffect(() => {
     if (currentLabId) setLastLabId(currentLabId)

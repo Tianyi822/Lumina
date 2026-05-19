@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useContainerStoreReact, useLabStoreReact } from '@renderer/stores/lab/reactAdapters'
+import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import { labApi } from '@renderer/services/labApi'
 import OrphanLabAlert from './OrphanLabAlert'
@@ -33,6 +34,8 @@ export default function LabMainContent({
   const selectedContainer = containerStore.selectedContainer || null
   const containerStats = containerStore.containerStats || null
   const storeLoading = containerStore.isLoading || false
+  const labDetailTab = useUIStateStore((s) => s.labDetailTab)
+  const setLabDetailTab = useUIStateStore((s) => s.setLabDetailTab)
 
   const isOrphan = currentLab?.isOrphan || false
   const isLabFrontend = !!currentLab?.frontend
@@ -58,11 +61,16 @@ export default function LabMainContent({
   const [isRebuildingFrontend, setIsRebuildingFrontend] = useState(false)
   const [isConnectingSsh, setIsConnectingSsh] = useState(false)
   const [sshReconnectPassword, setSshReconnectPassword] = useState('')
-  const [labDetailTab, setLabDetailTab] = useState<'stats' | 'terminal' | 'logs'>('stats')
 
   useEffect(() => {
     setSshReconnectPassword('')
   }, [currentLab?.labId])
+
+  useEffect(() => {
+    if (isSshLab && labDetailTab === 'logs') {
+      setLabDetailTab('stats')
+    }
+  }, [isSshLab, labDetailTab, setLabDetailTab])
 
   // SSH connection listener
   useEffect(() => {
@@ -169,6 +177,25 @@ export default function LabMainContent({
     if (currentLab) labStore.handleDeleteLab?.(currentLab.labId)
   }
 
+  function formatDateTime(value?: string): string {
+    if (!value) {
+      return '-'
+    }
+
+    return new Date(value).toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  async function handleRefreshStats(): Promise<void> {
+    if (selectedContainer?.id) {
+      await containerStore.loadContainerStats?.(selectedContainer.id)
+    }
+  }
+
   const hasLab = !!currentLab
   const labCreationTypeLabel = useMemo(() => {
     const labelMap: Record<string, string> = {
@@ -236,6 +263,7 @@ export default function LabMainContent({
                 <span>
                   实验室 ID <code>{currentLab.labId}</code>
                 </span>
+                <span>最近更新 {formatDateTime(currentLab.updatedAt)}</span>
               </div>
             </div>
             <div className={styles['workspace-header__actions']}>
@@ -348,7 +376,7 @@ export default function LabMainContent({
                 onOpenTerminal={() => setLabDetailTab('terminal')}
                 onViewLogs={() => setLabDetailTab('logs')}
                 onRefreshStats={() => {
-                  /* refresh via containerStore */
+                  void handleRefreshStats()
                 }}
               />
             </div>

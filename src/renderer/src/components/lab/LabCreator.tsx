@@ -25,6 +25,10 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
   const notify = useNotification()
 
   const [isTestingSsh, setIsTestingSsh] = useState(false)
+  const clearCreateError = (): void => {
+    const clearError = creatorStore.clearError || creatorStore.clearCreateError
+    clearError?.()
+  }
 
   useEffect(() => {
     if (!visible) return
@@ -36,7 +40,7 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
     creatorStore.composeProjectName = ''
     creatorStore.dockerfileProjectName = ''
     creatorStore.resetSshConfig()
-    creatorStore.clearError()
+    clearCreateError()
 
     Promise.all([
       containerStore.loadContainers(),
@@ -131,10 +135,7 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                 <div className="error-header">
                   <span className="error-icon">⚠</span>
                   <span className="error-title">创建失败</span>
-                  <button
-                    className="error-close"
-                    onClick={() => { creatorStore.clearError() }}
-                  >
+                  <button className="error-close" onClick={clearCreateError}>
                     ×
                   </button>
                 </div>
@@ -259,7 +260,10 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
               canCreate={creatorStore.canCreate}
               createPhaseText={createPhaseText}
               onClose={onClose}
-              onCreate={() => creatorStore.handleCreate()}
+              onCreate={async () => {
+                const created = await creatorStore.handleCreate()
+                if (created) onClose()
+              }}
             />
           </div>
         </div>
