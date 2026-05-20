@@ -307,9 +307,14 @@ export default function PaperChatInput({
 
   return (
     <div
-      className={`${inputStyles['paper-chat-input']} ${
-        compact ? inputStyles['paper-chat-input--compact'] : ''
-      }`}
+      className={[
+        inputStyles['paper-chat-input'],
+        'paper-chat-input',
+        compact ? inputStyles['paper-chat-input--compact'] : '',
+        compact ? 'paper-chat-input--compact' : ''
+      ]
+        .filter(Boolean)
+        .join(' ')}
       onDragEnter={(event) => {
         event.preventDefault()
         setIsDragging(true)
@@ -503,12 +508,23 @@ export default function PaperChatInput({
       <div className={textareaStyles['paper-chat-input__textarea-wrapper']}>
         <textarea
           ref={textareaRef}
-          className={`${textareaStyles['paper-chat-input__textarea']} ${
-            isSending ? textareaStyles['is-sending'] || '' : ''
-          } ${isDragging ? textareaStyles['is-dragging'] || '' : ''}`}
+          className={[
+            textareaStyles['paper-chat-input__textarea'],
+            'paper-chat-input__textarea',
+            isSending ? textareaStyles['is-sending'] || '' : '',
+            isSending ? 'is-sending' : '',
+            isDragging ? textareaStyles['is-dragging'] || '' : '',
+            isDragging ? 'is-dragging' : ''
+          ]
+            .filter(Boolean)
+            .join(' ')}
           value={inputMessage}
           disabled={disabled || isSending}
-          placeholder="输入关于这篇论文的问题..."
+          placeholder={
+            quickReply
+              ? '输入自定义回答，或点击上方快捷选项 ...'
+              : '输入命令或消息，可拖拽文件或粘贴图片上传 ...'
+          }
           onChange={(event) => onUpdateInput(event.target.value)}
           onPaste={(event) => {
             const files = Array.from(event.clipboardData.files)
@@ -538,26 +554,34 @@ export default function PaperChatInput({
           compact ? toolbarStyles['paper-chat-input-toolbar--compact'] : ''
         }`}
       >
-        <select
-          className={`${toolbarStyles['paper-chat-input-toolbar__model-button']} sm-button sm-button--secondary`}
-          value={selectedModel}
-          disabled={disabled || isSending || modelOptions.length === 0}
-          onChange={(event) => onUpdateSelectedModel(event.target.value)}
-        >
-          {modelOptions.length === 0 ? (
-            <option value="">未配置模型</option>
-          ) : (
-            modelOptions.map((model) => (
-              <option key={model} value={model}>
-                {model}
-              </option>
-            ))
-          )}
-        </select>
+        <div className={toolbarStyles['paper-chat-input-toolbar__model-selector']}>
+          <select
+            className={`${toolbarStyles['paper-chat-input-toolbar__model-button']} sm-button sm-button--secondary`}
+            value={selectedModel}
+            disabled={disabled || isSending || modelOptions.length === 0}
+            onChange={(event) => onUpdateSelectedModel(event.target.value)}
+          >
+            {modelOptions.length === 0 ? (
+              <option value="">未配置模型</option>
+            ) : (
+              modelOptions.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
 
-        <details>
-          <summary className="sm-button sm-button--secondary">
-            MCP {selectedMCPTools.length}
+        <details className={toolbarStyles['paper-chat-input-toolbar__dropdown']}>
+          <summary
+            className={[
+              toolbarStyles['paper-chat-input-toolbar__selector-button'],
+              'sm-button',
+              'sm-button--secondary'
+            ].join(' ')}
+          >
+            MCP{selectedMCPTools.length > 0 ? ` ${selectedMCPTools.length}` : ''}
           </summary>
           <div className="sm-popover">
             {allTools.length === 0 ? (
@@ -579,9 +603,17 @@ export default function PaperChatInput({
           </div>
         </details>
 
-        <details>
-          <summary className="sm-button sm-button--secondary">
-            知识库 {selectedKnowledgeBases.length}
+        <details className={toolbarStyles['paper-chat-input-toolbar__dropdown']}>
+          <summary
+            className={[
+              toolbarStyles['paper-chat-input-toolbar__selector-button'],
+              'sm-button',
+              'sm-button--secondary'
+            ].join(' ')}
+          >
+            {selectedKnowledgeBases.length > 0
+              ? `已选 ${selectedKnowledgeBases.length} ...`
+              : '知识库'}
           </summary>
           <div className="sm-popover">
             {kbOptions.length === 0 ? (
@@ -602,14 +634,27 @@ export default function PaperChatInput({
         </details>
 
         <button
-          className={`${toolbarStyles['paper-chat-input-toolbar__search-toggle']} ${
-            enablePaperWebSearch ? 'is-active' : ''
-          }`}
+          className={[
+            toolbarStyles['paper-chat-input-toolbar__search-toggle'],
+            enablePaperWebSearch ? toolbarStyles.enabled || '' : '',
+            enablePaperWebSearch ? 'enabled' : '',
+            enablePaperWebSearch ? 'is-active' : '',
+            compact ? toolbarStyles['is-compact'] || '' : '',
+            compact ? 'is-compact' : ''
+          ]
+            .filter(Boolean)
+            .join(' ')}
           type="button"
           disabled={disabled || isSending}
           onClick={() => void togglePaperWebSearch()}
         >
-          联网 {enablePaperWebSearch ? '开' : '关'}
+          <span
+            className={[toolbarStyles['toggle-switch'], 'toggle-switch'].join(' ')}
+            aria-hidden="true"
+          >
+            <span className={[toolbarStyles['toggle-thumb'], 'toggle-thumb'].join(' ')} />
+          </span>
+          <span className={[toolbarStyles['toggle-label'], 'toggle-label'].join(' ')}>搜索</span>
         </button>
 
         <LabToolsToggle
