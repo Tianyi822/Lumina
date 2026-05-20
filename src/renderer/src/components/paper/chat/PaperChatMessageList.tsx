@@ -21,7 +21,10 @@ export default function PaperChatMessageList({
   const [expandedReasoningIds, setExpandedReasoningIds] = useState<Set<string>>(new Set())
 
   const visibleMessages = useMemo(
-    () => messages.filter((message) => !message.hidden && message.role !== 'system' && message.role !== 'tool'),
+    () =>
+      messages.filter(
+        (message) => !message.hidden && message.role !== 'system' && message.role !== 'tool'
+      ),
     [messages]
   )
   const latestVisibleMessageContent = visibleMessages.at(-1)?.content

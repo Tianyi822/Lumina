@@ -194,7 +194,7 @@ function clearContent(): void {
               @change="
                 creatorStore.updateGeneratorForm({
                   savedDockerfileId: ($event.target as any)?.value || null
-                });
+                })
                 creatorStore.onSavedDockerfileSelect()
               "
             >
