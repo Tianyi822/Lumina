@@ -1,7 +1,7 @@
 /**
  * KeyValue 解析工具函数
  *
- * 从 KeyValueEditor.vue、MCPNewServerForm.vue、mcpStore.ts 三处重复实现中统一提取。
+ * 从 MCP 表单组件和 mcpStore 的重复实现中统一提取。
  * React 迁移中所有需要 key=value 解析的组件统一使用此工具。
  */
 

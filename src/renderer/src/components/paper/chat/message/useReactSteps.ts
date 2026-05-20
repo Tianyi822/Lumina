@@ -2,7 +2,7 @@ import MarkdownIt from 'markdown-it'
 import { computed, ref, watch } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 import type { ReActIteration, ReActStep, UiReactIterationStatus } from '@renderer/types'
-import type { PaperChatToolCallPanelItem } from './PaperChatToolCallPanel.vue'
+import type { PaperChatToolCallPanelItem } from './PaperChatToolCallPanel'
 import type { PaperChatStepContentResult } from './paperChatReactStepContent'
 import { derivePaperChatStepContent } from './paperChatReactStepContent'
 
