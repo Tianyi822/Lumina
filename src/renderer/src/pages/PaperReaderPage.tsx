@@ -4,6 +4,7 @@ import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperChatQuoteStore } from '@renderer/stores/paperChatQuoteStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import { PaperQuoteContext } from '@renderer/contexts/PaperQuoteContext'
+import type { PaperAnnotation } from '@shared/types/paper'
 import type { PaperQuote } from '@shared/types/chat'
 import styles from './PaperReaderPage.module.css'
 
@@ -14,32 +15,69 @@ import PaperOriginalPdfView from '@renderer/components/paper/PaperOriginalPdfVie
 import PaperFigurePreview from '@renderer/components/paper/PaperFigurePreview'
 import PaperChatPanel from '@renderer/components/paper/chat/PaperChatPanel'
 
+const PAPER_CHAT_PANEL_MIN_WIDTH = 340
+const PAPER_CHAT_PANEL_MAX_WIDTH = 680
+const EMPTY_PAPER_ANNOTATIONS: PaperAnnotation[] = []
+
+function clampPaperChatPanelWidth(value: number): number {
+  const maxWidth =
+    typeof window === 'undefined'
+      ? PAPER_CHAT_PANEL_MAX_WIDTH
+      : Math.min(PAPER_CHAT_PANEL_MAX_WIDTH, window.innerWidth)
+  return Math.min(Math.max(Math.round(value), PAPER_CHAT_PANEL_MIN_WIDTH), maxWidth)
+}
+
 export default function PaperReaderPage() {
-  const store = usePaperReaderStore()
+  const currentPaperId = usePaperReaderStore((state) => state.currentPaperId ?? null)
+  const currentPaper = usePaperReaderStore((state) => state.currentPaper() ?? null)
+  const markdownContent = usePaperReaderStore((state) => state.markdownContent ?? '')
+  const markdownLoading = usePaperReaderStore((state) => state.markdownLoading ?? false)
+  const isOcrCompleted = usePaperReaderStore((state) => state.isOcrCompleted() ?? false)
+  const paperBasePath = usePaperReaderStore((state) => state.paperBasePath() ?? null)
+  const currentAnnotations = usePaperReaderStore((state) => {
+    if (!state.currentPaperId) return EMPTY_PAPER_ANNOTATIONS
+    return state.annotationsByPaperId[state.currentPaperId] ?? EMPTY_PAPER_ANNOTATIONS
+  })
+  const currentReaderDocument = usePaperReaderStore(
+    (state) => state.currentReaderDocument() ?? null
+  )
+  const originalPdfVisible = usePaperReaderStore((state) => state.originalPdfVisible ?? false)
+  const translationVisible = usePaperReaderStore((state) => state.translationVisible ?? false)
+  const currentTranslationCache = usePaperReaderStore(
+    (state) => state.currentTranslationCache() ?? null
+  )
+  const ensureOcrProgressListener = usePaperReaderStore((state) => state.ensureOcrProgressListener)
+  const loadPapers = usePaperReaderStore((state) => state.loadPapers)
+  const selectPaper = usePaperReaderStore((state) => state.selectPaper)
+  const uploadAndRenderPdf = usePaperReaderStore((state) => state.uploadAndRenderPdf)
+  const loadMarkdown = usePaperReaderStore((state) => state.loadMarkdown)
+  const ensurePaperChatSession = usePaperReaderStore((state) => state.ensurePaperChatSession)
+  const toggleTranslationVisible = usePaperReaderStore((state) => state.toggleTranslationVisible)
+  const resetFigureUiState = usePaperReaderStore((state) => state.resetFigureUiState)
+  const hideOriginalPdf = usePaperReaderStore((state) => state.hideOriginalPdf)
   const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
   const setPaperChatPanelOpen = useUIStateStore((s) => s.setPaperChatPanelOpen)
   const paperChatPanelWidth = useUIStateStore((s) => s.paperChatPanelWidth)
   const setPaperChatPanelWidth = useUIStateStore((s) => s.setPaperChatPanelWidth)
   const lastPaperId = useUIStateStore((s) => s.lastPaperId)
 
-  const paperChatQuoteStore = usePaperChatQuoteStore()
+  const addPaperChatQuote = usePaperChatQuoteStore((s) => s.addQuote)
   const notify = useNotification()
 
   const [isResizingPaperChat, setIsResizingPaperChat] = useState(false)
   const markdownViewRef = useRef<PaperMarkdownViewHandle>(null)
+  const chatSlotRef = useRef<HTMLDivElement>(null)
+  const isResizingPaperChatRef = useRef(false)
+  const paperChatPanelWidthRef = useRef(paperChatPanelWidth)
+  const pendingPaperChatWidthRef = useRef<number | null>(null)
+  const paperChatResizeRafRef = useRef<number | null>(null)
+  const lastPaperIdRef = useRef(lastPaperId)
 
-  // Derive state from store (Pinia auto-unwraps refs in return type)
-  const currentPaperId = store.currentPaperId ?? null
-  const currentPaper = store.currentPaper() ?? null
-  const markdownContent = store.markdownContent ?? ''
-  const markdownLoading = store.markdownLoading ?? false
-  const isOcrCompleted = store.isOcrCompleted() ?? false
-  const paperBasePath = store.paperBasePath() ?? null
-  const currentAnnotations = store.currentAnnotations() ?? []
-  const currentReaderDocument = store.currentReaderDocument() ?? null
-  const originalPdfVisible = store.originalPdfVisible ?? false
-  const translationVisible = store.translationVisible ?? false
-  const currentTranslationCache = store.currentTranslationCache() ?? null
+  useEffect(() => {
+    if (!isResizingPaperChatRef.current) {
+      paperChatPanelWidthRef.current = paperChatPanelWidth
+    }
+  }, [paperChatPanelWidth])
 
   const isPaperChatPanelVisible = paperChatPanelOpen && Boolean(currentPaper) && isOcrCompleted
 
@@ -58,42 +96,75 @@ export default function PaperReaderPage() {
         return
       }
 
-      const sessionResult = await store.ensurePaperChatSession(paperId)
+      const sessionResult = await ensurePaperChatSession(paperId)
       const sessionId = sessionResult.data
       if (!sessionResult.success || !sessionId) {
         notify.error('论文对话', sessionResult.error || '创建论文对话失败', { source: 'chat' })
         return
       }
 
-      paperChatQuoteStore.addQuote(sessionId, quote)
+      addPaperChatQuote(sessionId, quote)
       setPaperChatPanelOpen(true)
     },
-    [currentPaper, store, paperChatQuoteStore, notify, setPaperChatPanelOpen]
+    [currentPaper, ensurePaperChatSession, addPaperChatQuote, notify, setPaperChatPanelOpen]
   )
 
   // Chat panel resize
+  const applyPaperChatPanelWidth = useCallback((nextWidth: number) => {
+    const width = clampPaperChatPanelWidth(nextWidth)
+    paperChatPanelWidthRef.current = width
+    pendingPaperChatWidthRef.current = width
+
+    if (paperChatResizeRafRef.current !== null) {
+      return
+    }
+
+    paperChatResizeRafRef.current = requestAnimationFrame(() => {
+      paperChatResizeRafRef.current = null
+      const pendingWidth = pendingPaperChatWidthRef.current
+      pendingPaperChatWidthRef.current = null
+      if (pendingWidth === null) {
+        return
+      }
+      chatSlotRef.current?.style.setProperty('--paper-chat-panel-width', `${pendingWidth}px`)
+    })
+  }, [])
+
   const handlePaperChatResizeMove = useCallback(
     (event: PointerEvent) => {
-      if (!isResizingPaperChat) {
+      if (!isResizingPaperChatRef.current) {
         return
       }
 
-      setPaperChatPanelWidth(window.innerWidth - event.clientX)
+      applyPaperChatPanelWidth(window.innerWidth - event.clientX)
     },
-    [isResizingPaperChat, setPaperChatPanelWidth]
+    [applyPaperChatPanelWidth]
   )
 
   const stopPaperChatResize = useCallback(() => {
+    if (!isResizingPaperChatRef.current) {
+      return
+    }
+
+    isResizingPaperChatRef.current = false
     setIsResizingPaperChat(false)
     document.body.style.cursor = ''
     document.body.style.userSelect = ''
     window.removeEventListener('pointermove', handlePaperChatResizeMove)
     window.removeEventListener('pointerup', stopPaperChatResize)
-  }, [handlePaperChatResizeMove])
+
+    if (paperChatResizeRafRef.current !== null) {
+      cancelAnimationFrame(paperChatResizeRafRef.current)
+      paperChatResizeRafRef.current = null
+    }
+    pendingPaperChatWidthRef.current = null
+    setPaperChatPanelWidth(paperChatPanelWidthRef.current)
+  }, [handlePaperChatResizeMove, setPaperChatPanelWidth])
 
   const startPaperChatResize = useCallback(
     (event: React.PointerEvent) => {
       event.preventDefault()
+      isResizingPaperChatRef.current = true
       setIsResizingPaperChat(true)
       document.body.style.cursor = 'col-resize'
       document.body.style.userSelect = 'none'
@@ -106,18 +177,19 @@ export default function PaperReaderPage() {
 
   // Load papers on mount
   useEffect(() => {
-    store.ensureOcrProgressListener()
-    void store.loadPapers().then(() => {
-      if (!store.currentPaperId && lastPaperId) {
-        store.selectPaper(lastPaperId)
+    ensureOcrProgressListener()
+    void loadPapers().then(() => {
+      const state = usePaperReaderStore.getState()
+      if (!state.currentPaperId && lastPaperIdRef.current) {
+        selectPaper(lastPaperIdRef.current)
       }
 
-      if (store.currentPaperId && store.isOcrCompleted()) {
-        void store.loadMarkdown(store.currentPaperId)
+      const nextState = usePaperReaderStore.getState()
+      if (nextState.currentPaperId && nextState.isOcrCompleted()) {
+        void loadMarkdown(nextState.currentPaperId)
       }
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [ensureOcrProgressListener, loadPapers, selectPaper, loadMarkdown])
 
   // Close chat when paper changes to non-readable
   useEffect(() => {
@@ -137,21 +209,19 @@ export default function PaperReaderPage() {
     const progress = currentPaper?.readingProgress
     if (!progress?.translationVisible) return
 
-    const storeTranslationVisible = store.translationVisible
-    if (!storeTranslationVisible) {
-      void store.toggleTranslationVisible()
+    if (!translationVisible) {
+      void toggleTranslationVisible()
     }
-  }, [markdownLoading, currentPaper, store])
+  }, [markdownLoading, currentPaper, translationVisible, toggleTranslationVisible])
 
   // Cleanup
   useEffect(() => {
     return () => {
       stopPaperChatResize()
-      store.resetFigureUiState()
-      store.hideOriginalPdf()
+      resetFigureUiState()
+      hideOriginalPdf()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [stopPaperChatResize, resetFigureUiState, hideOriginalPdf])
 
   return (
     <PaperQuoteContext.Provider value={paperQuoteContextValue}>
@@ -169,7 +239,7 @@ export default function PaperReaderPage() {
                 <button
                   className="sm-button sm-button--primary"
                   type="button"
-                  onClick={() => store.uploadAndRenderPdf()}
+                  onClick={() => uploadAndRenderPdf()}
                 >
                   上传 PDF
                 </button>
@@ -199,6 +269,7 @@ export default function PaperReaderPage() {
         </div>
 
         <div
+          ref={chatSlotRef}
           className={[
             styles.chatSlot,
             isPaperChatPanelVisible ? styles.chatSlotOpen : '',

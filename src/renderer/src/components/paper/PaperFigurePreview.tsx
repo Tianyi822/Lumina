@@ -1,9 +1,12 @@
 import { useRef, useCallback, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
+import { buildFigureCaptionTranslationMap } from '@shared/utils/paperTranslation'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import type { PaperFigurePreviewRect } from '@renderer/stores/paperReaderStore'
+import type { PaperFigureItem } from '@shared/types/paper'
 import {
+  PAPER_FIGURE_PREVIEW_MARGIN,
   PAPER_FIGURE_PREVIEW_MIN_HEIGHT,
   PAPER_FIGURE_PREVIEW_MIN_WIDTH
 } from '@renderer/stores/paper/shared'
@@ -12,6 +15,10 @@ import styles from './PaperFigurePreview.module.css'
 interface PointerState {
   clientX: number
   clientY: number
+}
+
+interface DragState extends PointerState {
+  rect: PaperFigurePreviewRect
 }
 
 type ResizeEdge =
@@ -45,6 +52,61 @@ const resizeHandles: ResizeHandle[] = [
   { edge: 'bottom-left', label: '从左下角缩放图片预览' }
 ]
 
+const EMPTY_PAPER_FIGURES: PaperFigureItem[] = []
+
+function clampPreviewWidth(width: number): number {
+  if (typeof window === 'undefined') {
+    return Math.max(width, PAPER_FIGURE_PREVIEW_MIN_WIDTH)
+  }
+  const maxWidth = Math.max(
+    window.innerWidth - PAPER_FIGURE_PREVIEW_MARGIN * 2,
+    PAPER_FIGURE_PREVIEW_MIN_WIDTH
+  )
+  return Math.min(Math.max(width, PAPER_FIGURE_PREVIEW_MIN_WIDTH), maxWidth)
+}
+
+function clampPreviewHeight(height: number): number {
+  if (typeof window === 'undefined') {
+    return Math.max(height, PAPER_FIGURE_PREVIEW_MIN_HEIGHT)
+  }
+  const maxHeight = Math.max(
+    window.innerHeight - PAPER_FIGURE_PREVIEW_MARGIN * 2,
+    PAPER_FIGURE_PREVIEW_MIN_HEIGHT
+  )
+  return Math.min(Math.max(height, PAPER_FIGURE_PREVIEW_MIN_HEIGHT), maxHeight)
+}
+
+function clampPreviewLeft(left: number, width: number): number {
+  if (typeof window === 'undefined') {
+    return Math.max(left, PAPER_FIGURE_PREVIEW_MARGIN)
+  }
+  return Math.min(
+    Math.max(left, PAPER_FIGURE_PREVIEW_MARGIN),
+    Math.max(window.innerWidth - width - PAPER_FIGURE_PREVIEW_MARGIN, PAPER_FIGURE_PREVIEW_MARGIN)
+  )
+}
+
+function clampPreviewTop(top: number, height: number): number {
+  if (typeof window === 'undefined') {
+    return Math.max(top, PAPER_FIGURE_PREVIEW_MARGIN)
+  }
+  return Math.min(
+    Math.max(top, PAPER_FIGURE_PREVIEW_MARGIN),
+    Math.max(window.innerHeight - height - PAPER_FIGURE_PREVIEW_MARGIN, PAPER_FIGURE_PREVIEW_MARGIN)
+  )
+}
+
+function normalizePreviewRect(rect: PaperFigurePreviewRect): PaperFigurePreviewRect {
+  const width = clampPreviewWidth(rect.width)
+  const height = clampPreviewHeight(rect.height)
+  return {
+    left: clampPreviewLeft(rect.left, width),
+    top: clampPreviewTop(rect.top, height),
+    width,
+    height
+  }
+}
+
 function buildResizedRect(state: ResizeState, event: MouseEvent): PaperFigurePreviewRect {
   const deltaX = event.clientX - state.clientX
   const deltaY = event.clientY - state.clientY
@@ -70,60 +132,101 @@ function buildResizedRect(state: ResizeState, event: MouseEvent): PaperFigurePre
     rect.height = Math.max(state.rect.height + deltaY, PAPER_FIGURE_PREVIEW_MIN_HEIGHT)
   }
 
-  return rect
+  return normalizePreviewRect(rect)
 }
 
 export default function PaperFigurePreview() {
-  const store = usePaperReaderStore()
-
-  const activeFigure = store.activeFigure
-  const currentPaperFigures = useMemo(
-    () => store.currentPaperFigures() ?? [],
-    [store.currentPaperFigures()]
-  )
+  const activeFigure = usePaperReaderStore((state) => state.activeFigure)
+  const currentPaperFigures = usePaperReaderStore((state) => {
+    if (!state.currentPaperId) return EMPTY_PAPER_FIGURES
+    return state.figuresByPaperId[state.currentPaperId] ?? EMPTY_PAPER_FIGURES
+  })
+  const currentTranslationCache = usePaperReaderStore((state) => state.currentTranslationCache())
   const figureCaptionTranslationMap = useMemo(
-    () => store.figureCaptionTranslationMap() ?? {},
-    [store.figureCaptionTranslationMap()]
+    () =>
+      currentTranslationCache ? buildFigureCaptionTranslationMap(currentTranslationCache) : {},
+    [currentTranslationCache]
   )
-  const figurePreviewPinned = store.figurePreviewPinned ?? false
-  const figurePreviewRect = store.figurePreviewRect
-  const translationVisible = store.translationVisible ?? false
+  const figurePreviewPinned = usePaperReaderStore((state) => state.figurePreviewPinned ?? false)
+  const figurePreviewRect = usePaperReaderStore((state) => state.figurePreviewRect)
+  const translationVisible = usePaperReaderStore((state) => state.translationVisible ?? false)
+  const setFigurePreviewRect = usePaperReaderStore((state) => state.setFigurePreviewRect)
+  const setFigurePreviewPinned = usePaperReaderStore((state) => state.setFigurePreviewPinned)
+  const setFigurePreviewImageRatio = usePaperReaderStore(
+    (state) => state.setFigurePreviewImageRatio
+  )
+  const closeFigurePreview = usePaperReaderStore((state) => state.closeFigurePreview)
+  const openFigurePreview = usePaperReaderStore((state) => state.openFigurePreview)
 
   const previewRef = useRef<HTMLDivElement>(null)
-  const dragStateRef = useRef<PointerState | null>(null)
+  const dragStateRef = useRef<DragState | null>(null)
   const resizeStateRef = useRef<ResizeState | null>(null)
+  const latestPreviewRectRef = useRef(figurePreviewRect)
+  const pendingPreviewRectRef = useRef<PaperFigurePreviewRect | null>(null)
+  const previewRectRafIdRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!dragStateRef.current && !resizeStateRef.current) {
+      latestPreviewRectRef.current = figurePreviewRect
+    }
+  }, [figurePreviewRect])
+
+  const applyPreviewRect = useCallback((rect: PaperFigurePreviewRect) => {
+    const normalized = normalizePreviewRect(rect)
+    latestPreviewRectRef.current = normalized
+    pendingPreviewRectRef.current = normalized
+
+    if (previewRectRafIdRef.current !== null) {
+      return
+    }
+
+    previewRectRafIdRef.current = requestAnimationFrame(() => {
+      previewRectRafIdRef.current = null
+      const nextRect = pendingPreviewRectRef.current
+      pendingPreviewRectRef.current = null
+      if (!nextRect || !previewRef.current) {
+        return
+      }
+
+      previewRef.current.style.left = `${nextRect.left}px`
+      previewRef.current.style.top = `${nextRect.top}px`
+      previewRef.current.style.width = `${nextRect.width}px`
+      previewRef.current.style.height = `${nextRect.height}px`
+    })
+  }, [])
 
   const stopInteractions = useCallback(() => {
+    if (dragStateRef.current || resizeStateRef.current) {
+      setFigurePreviewRect(latestPreviewRectRef.current)
+    }
     dragStateRef.current = null
     resizeStateRef.current = null
+    if (previewRectRafIdRef.current !== null) {
+      cancelAnimationFrame(previewRectRafIdRef.current)
+      previewRectRafIdRef.current = null
+    }
+    pendingPreviewRectRef.current = null
     window.removeEventListener('mousemove', handlePointerMove)
     window.removeEventListener('mouseup', handlePointerUp)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [setFigurePreviewRect])
 
   function handlePointerMove(event: MouseEvent): void {
     const dragState = dragStateRef.current
     if (dragState) {
-      store.moveFigurePreview({
-        x: event.clientX - dragState.clientX,
-        y: event.clientY - dragState.clientY
-      })
-      dragStateRef.current = {
-        clientX: event.clientX,
-        clientY: event.clientY
-      }
+      applyPreviewRect(
+        normalizePreviewRect({
+          ...dragState.rect,
+          left: dragState.rect.left + event.clientX - dragState.clientX,
+          top: dragState.rect.top + event.clientY - dragState.clientY
+        })
+      )
     }
 
     const resizeState = resizeStateRef.current
     if (resizeState) {
       const newRect = buildResizedRect(resizeState, event)
-      store.setFigurePreviewRect(newRect)
-      resizeStateRef.current = {
-        ...resizeState,
-        rect: newRect,
-        clientX: event.clientX,
-        clientY: event.clientY
-      }
+      applyPreviewRect(newRect)
     }
   }
 
@@ -139,7 +242,8 @@ export default function PaperFigurePreview() {
 
       dragStateRef.current = {
         clientX: event.clientX,
-        clientY: event.clientY
+        clientY: event.clientY,
+        rect: latestPreviewRectRef.current
       }
 
       window.addEventListener('mousemove', handlePointerMove)
@@ -159,14 +263,14 @@ export default function PaperFigurePreview() {
         clientX: event.clientX,
         clientY: event.clientY,
         edge,
-        rect: { ...figurePreviewRect }
+        rect: { ...latestPreviewRectRef.current }
       }
 
       window.addEventListener('mousemove', handlePointerMove)
       window.addEventListener('mouseup', handlePointerUp)
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [figurePreviewRect]
+    []
   )
 
   const handleImageLoad = useCallback(
@@ -176,9 +280,9 @@ export default function PaperFigurePreview() {
         return
       }
 
-      store.setFigurePreviewImageRatio(image.naturalHeight / image.naturalWidth)
+      setFigurePreviewImageRatio(image.naturalHeight / image.naturalWidth)
     },
-    [store]
+    [setFigurePreviewImageRatio]
   )
 
   // Close on outside click (when not pinned)
@@ -190,13 +294,13 @@ export default function PaperFigurePreview() {
 
       const target = event.target as Node
       if (!previewRef.current.contains(target)) {
-        store.closeFigurePreview()
+        closeFigurePreview()
       }
     }
 
     document.addEventListener('mousedown', handleDocumentMouseDown)
     return () => document.removeEventListener('mousedown', handleDocumentMouseDown)
-  }, [activeFigure, figurePreviewPinned, store])
+  }, [activeFigure, figurePreviewPinned, closeFigurePreview])
 
   // Keyboard navigation
   useEffect(() => {
@@ -210,7 +314,7 @@ export default function PaperFigurePreview() {
           return
         }
 
-        store.closeFigurePreview()
+        closeFigurePreview()
         return
       }
 
@@ -229,7 +333,7 @@ export default function PaperFigurePreview() {
     document.addEventListener('keydown', handleDocumentKeyDown)
     return () => document.removeEventListener('keydown', handleDocumentKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFigure, figurePreviewPinned, store])
+  }, [activeFigure, figurePreviewPinned, closeFigurePreview])
 
   // Stop interactions when figure changes
   useEffect(() => {
@@ -239,8 +343,8 @@ export default function PaperFigurePreview() {
   }, [activeFigure, stopInteractions])
 
   const togglePinned = useCallback(() => {
-    store.setFigurePreviewPinned(!figurePreviewPinned)
-  }, [store, figurePreviewPinned])
+    setFigurePreviewPinned(!figurePreviewPinned)
+  }, [setFigurePreviewPinned, figurePreviewPinned])
 
   const switchFigure = useCallback(
     (step: number) => {
@@ -260,9 +364,9 @@ export default function PaperFigurePreview() {
         return
       }
 
-      store.openFigurePreview(nextFigure)
+      openFigurePreview(nextFigure)
     },
-    [currentPaperFigures, activeFigure, store]
+    [currentPaperFigures, activeFigure, openFigurePreview]
   )
 
   const previewCaption = useMemo(() => {
@@ -345,7 +449,7 @@ export default function PaperFigurePreview() {
             type="button"
             onClick={(e) => {
               e.stopPropagation()
-              store.closeFigurePreview()
+              closeFigurePreview()
             }}
           >
             <SvgIcon name="close" size={14} />

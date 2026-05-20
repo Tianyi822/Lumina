@@ -70,9 +70,22 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     },
     ref
   ) {
-    const store = usePaperReaderStore()
     const notify = useNotification()
-    const markdownZoomLevel = store.markdownZoomLevel ?? 1.0
+    const markdownZoomLevel = usePaperReaderStore((state) => state.markdownZoomLevel ?? 1.0)
+    const setPaperTocOutline = usePaperReaderStore((state) => state.setPaperTocOutline)
+    const clearPaperToc = usePaperReaderStore((state) => state.clearPaperToc)
+    const createAnnotation = usePaperReaderStore((state) => state.createAnnotation)
+    const updateAnnotation = usePaperReaderStore((state) => state.updateAnnotation)
+    const deleteAnnotation = usePaperReaderStore((state) => state.deleteAnnotation)
+    const retranslateSegment = usePaperReaderStore((state) => state.retranslateSegment)
+    const setZoomLevel = usePaperReaderStore((state) => state.setZoomLevel)
+    const handleWheelZoom = usePaperReaderStore((state) => state.handleWheelZoom)
+    const setMarkdownScrollPosition = usePaperReaderStore(
+      (state) => state.setMarkdownScrollPosition
+    )
+    const getMarkdownScrollPosition = usePaperReaderStore(
+      (state) => state.getMarkdownScrollPosition
+    )
 
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     const searchInputRef = useRef<HTMLInputElement>(null)
@@ -86,6 +99,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const quoteHighlightRef = useRef(usePaperQuoteHighlight())
     const quoteHighlight = quoteHighlightRef.current
     const zoomSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const hasMountedZoomRef = useRef(false)
+    const previousMarkdownZoomLevelRef = useRef(markdownZoomLevel)
 
     // Table drag state
     const tableDragStateRef = useRef<TableDragState | null>(null)
@@ -102,8 +117,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       translationCache,
       readerDocument,
       annotations,
-      setTocOutline: store.setPaperTocOutline,
-      clearToc: store.clearPaperToc
+      setTocOutline: setPaperTocOutline,
+      clearToc: clearPaperToc
     })
 
     const renderedSegmentsRef = useMemo(
@@ -122,9 +137,9 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       annotations: () => annotations,
       renderedSegments: renderedSegmentsRef,
       getSourceSegments: engine.getSourceSegments,
-      createAnnotation: store.createAnnotation,
-      updateAnnotation: store.updateAnnotation,
-      deleteAnnotation: store.deleteAnnotation,
+      createAnnotation,
+      updateAnnotation,
+      deleteAnnotation,
       onAddToChat
     })
 
@@ -172,17 +187,17 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       scrollRafIdRef.current = requestAnimationFrame(() => {
         scrollRafIdRef.current = null
         if (!paperId || !scrollContainerRef.current) return
-        store.setMarkdownScrollPosition(paperId, {
+        setMarkdownScrollPosition(paperId, {
           scrollTop: scrollContainerRef.current.scrollTop,
           scrollLeft: scrollContainerRef.current.scrollLeft
         })
       })
-    }, [paperId, store, zoomAnchor])
+    }, [paperId, setMarkdownScrollPosition, zoomAnchor])
 
     // Restore scroll position
     const restoreMarkdownScrollPosition = useCallback(
       async (targetPaperId: string) => {
-        const position = store.getMarkdownScrollPosition(targetPaperId)
+        const position = getMarkdownScrollPosition(targetPaperId)
         if (!position) {
           return
         }
@@ -196,7 +211,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           scrollContainerRef.current.scrollLeft = position.scrollLeft
         })
       },
-      [paperId, store]
+      [paperId, getMarkdownScrollPosition]
     )
 
     // Table drag handlers
@@ -387,7 +402,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           return
         }
 
-        const result = await store.retranslateSegment(paperId, params.segmentId, params.stableId)
+        const result = await retranslateSegment(paperId, params.segmentId, params.stableId)
         if (!result.success) {
           notify.error('重新翻译失败', result.error || '请稍后再试', {
             source: 'paper',
@@ -395,7 +410,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           })
         }
       },
-      [paperId, store, notify]
+      [paperId, retranslateSegment, notify]
     )
 
     // Content change effect
@@ -469,6 +484,18 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     // Zoom level effect
     useEffect(() => {
+      if (!hasMountedZoomRef.current) {
+        hasMountedZoomRef.current = true
+        previousMarkdownZoomLevelRef.current = markdownZoomLevel
+        return
+      }
+
+      if (previousMarkdownZoomLevelRef.current === markdownZoomLevel) {
+        return
+      }
+
+      previousMarkdownZoomLevelRef.current = markdownZoomLevel
+
       const container = scrollContainerRef.current
       if (!container) return
 
@@ -574,7 +601,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
       isRestoringRef.current = true
       if (progress.zoomLevel && progress.zoomLevel !== markdownZoomLevel) {
-        store.setZoomLevel(progress.zoomLevel, { persist: false })
+        setZoomLevel(progress.zoomLevel, { persist: false })
       }
 
       const timer = setTimeout(() => {
@@ -611,7 +638,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
       isRestoringRef.current = true
       if (progress.zoomLevel && progress.zoomLevel !== markdownZoomLevel) {
-        store.setZoomLevel(progress.zoomLevel, { persist: false })
+        setZoomLevel(progress.zoomLevel, { persist: false })
       }
 
       const timer = setTimeout(() => {
@@ -655,7 +682,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     useEffect(() => {
       return () => {
         recordMarkdownScrollPosition()
-        store.clearPaperToc()
+        clearPaperToc()
         textSearch.closeSearch()
         clearTableDragState()
         composer.clearComposer()
@@ -664,27 +691,50 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     }, [])
 
     return (
-      <div className={styles['paper-markdown-view']}>
+      <div className={[styles['paper-markdown-view'], 'paper-markdown-view'].join(' ')}>
         {textSearch.isOpen && (
-          <div className={styles['paper-markdown-view__search-bar']}>
+          <div
+            className={[
+              styles['paper-markdown-view__search-bar'],
+              'paper-markdown-view__search-bar'
+            ].join(' ')}
+          >
             <input
               ref={searchInputRef}
               type="text"
-              className={styles['paper-markdown-view__search-input']}
+              className={[
+                styles['paper-markdown-view__search-input'],
+                'paper-markdown-view__search-input'
+              ].join(' ')}
               placeholder="搜索..."
               value={textSearch.query}
               onChange={(e) => textSearch.setQuery(e.target.value)}
               onKeyDown={handleSearchInputKeydown}
             />
             {textSearch.hasMatches ? (
-              <span className={styles['paper-markdown-view__search-count']}>
+              <span
+                className={[
+                  styles['paper-markdown-view__search-count'],
+                  'paper-markdown-view__search-count'
+                ].join(' ')}
+              >
                 {textSearch.currentIndex + 1} / {textSearch.matchCount}
               </span>
             ) : textSearch.query.trim() ? (
-              <span className={styles['paper-markdown-view__search-count']}>无结果</span>
+              <span
+                className={[
+                  styles['paper-markdown-view__search-count'],
+                  'paper-markdown-view__search-count'
+                ].join(' ')}
+              >
+                无结果
+              </span>
             ) : null}
             <button
-              className={styles['paper-markdown-view__search-btn']}
+              className={[
+                styles['paper-markdown-view__search-btn'],
+                'paper-markdown-view__search-btn'
+              ].join(' ')}
               type="button"
               disabled={!textSearch.hasMatches}
               title="上一个 (Shift+Enter)"
@@ -704,7 +754,10 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
               </svg>
             </button>
             <button
-              className={styles['paper-markdown-view__search-btn']}
+              className={[
+                styles['paper-markdown-view__search-btn'],
+                'paper-markdown-view__search-btn'
+              ].join(' ')}
               type="button"
               disabled={!textSearch.hasMatches}
               title="下一个 (Enter)"
@@ -726,6 +779,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
             <button
               className={[
                 styles['paper-markdown-view__search-btn'],
+                'paper-markdown-view__search-btn',
                 'paper-markdown-view__search-btn--close'
               ].join(' ')}
               type="button"
@@ -751,27 +805,48 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
         <div
           ref={scrollContainerRef}
-          className={styles['paper-markdown-view__scroll']}
+          className={[styles['paper-markdown-view__scroll'], 'paper-markdown-view__scroll'].join(
+            ' '
+          )}
           onMouseUp={(e) => composer.updateComposerFromSelection(e.nativeEvent)}
           onClick={handleMarkdownClick}
           onPointerDown={handleTablePointerDown}
           onScroll={recordMarkdownScrollPosition}
-          onWheel={(e) => store.handleWheelZoom(e.nativeEvent)}
+          onWheel={(e) => handleWheelZoom(e.nativeEvent)}
         >
           {loading ? (
-            <div className={styles['paper-markdown-view__loading']}>
+            <div
+              className={[
+                styles['paper-markdown-view__loading'],
+                'paper-markdown-view__loading'
+              ].join(' ')}
+            >
               <p>正在加载内容...</p>
             </div>
           ) : engine.parseError ? (
-            <div className={styles['paper-markdown-view__error']}>
+            <div
+              className={[styles['paper-markdown-view__error'], 'paper-markdown-view__error'].join(
+                ' '
+              )}
+            >
               <p>{engine.parseError}</p>
             </div>
           ) : !hasContent ? (
-            <div className={styles['paper-markdown-view__empty']}>
+            <div
+              className={[styles['paper-markdown-view__empty'], 'paper-markdown-view__empty'].join(
+                ' '
+              )}
+            >
               <p>暂无内容</p>
             </div>
           ) : (
-            <article className={styles['paper-markdown-view__content']} style={contentZoomStyle}>
+            <article
+              className={[
+                styles['paper-markdown-view__content'],
+                'paper-markdown-view__content'
+              ].join(' ')}
+              style={contentZoomStyle}
+            >
               <PaperMarkdownSegmentList
                 segments={engine.renderedSegments}
                 onRetranslate={handleRetranslateSegment}

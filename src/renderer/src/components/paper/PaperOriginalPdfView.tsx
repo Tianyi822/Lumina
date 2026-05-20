@@ -30,8 +30,14 @@ export default function PaperOriginalPdfView({
   pageAssets,
   pageCount
 }: PaperOriginalPdfViewProps) {
-  const store = usePaperReaderStore()
-  const originalPdfZoomLevel = store.originalPdfZoomLevel ?? 1.0
+  const originalPdfZoomLevel = usePaperReaderStore((state) => state.originalPdfZoomLevel ?? 1.0)
+  const setOriginalPdfScrollPosition = usePaperReaderStore(
+    (state) => state.setOriginalPdfScrollPosition
+  )
+  const getOriginalPdfScrollPosition = usePaperReaderStore(
+    (state) => state.getOriginalPdfScrollPosition
+  )
+  const handleWheelZoom = usePaperReaderStore((state) => state.handleWheelZoom)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [pageStates, setPageStates] = useState<Record<number, PageLoadState>>({})
@@ -47,8 +53,22 @@ export default function PaperOriginalPdfView({
 
   // Zoom settle timer
   const zoomSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasMountedZoomRef = useRef(false)
+  const previousOriginalPdfZoomLevelRef = useRef(originalPdfZoomLevel)
 
   useEffect(() => {
+    if (!hasMountedZoomRef.current) {
+      hasMountedZoomRef.current = true
+      previousOriginalPdfZoomLevelRef.current = originalPdfZoomLevel
+      return
+    }
+
+    if (previousOriginalPdfZoomLevelRef.current === originalPdfZoomLevel) {
+      return
+    }
+
+    previousOriginalPdfZoomLevelRef.current = originalPdfZoomLevel
+
     const container = scrollContainerRef.current
     if (!container) return
 
@@ -120,16 +140,16 @@ export default function PaperOriginalPdfView({
     scrollRafIdRef.current = requestAnimationFrame(() => {
       scrollRafIdRef.current = null
       if (!paperIdRef.current || !scrollContainerRef.current) return
-      store.setOriginalPdfScrollPosition(paperIdRef.current, {
+      setOriginalPdfScrollPosition(paperIdRef.current, {
         scrollTop: scrollContainerRef.current.scrollTop,
         scrollLeft: scrollContainerRef.current.scrollLeft
       })
     })
-  }, [store, zoomAnchor])
+  }, [setOriginalPdfScrollPosition, zoomAnchor])
 
   const restoreScrollPosition = useCallback(
     async (targetPaperId: string) => {
-      const position = store.getOriginalPdfScrollPosition(targetPaperId)
+      const position = getOriginalPdfScrollPosition(targetPaperId)
       if (!position) {
         return
       }
@@ -143,7 +163,7 @@ export default function PaperOriginalPdfView({
         scrollContainerRef.current.scrollLeft = position.scrollLeft
       })
     },
-    [store]
+    [getOriginalPdfScrollPosition]
   )
 
   function getPageState(pageIndex: number): PageLoadState {
@@ -363,7 +383,7 @@ export default function PaperOriginalPdfView({
         ref={scrollContainerRef}
         className={styles['paper-original-pdf-view__scroll']}
         onScroll={recordScrollPosition}
-        onWheel={(e) => store.handleWheelZoom(e.nativeEvent)}
+        onWheel={(e) => handleWheelZoom(e.nativeEvent)}
       >
         {!hasPages ? (
           <div className={styles['paper-original-pdf-view__empty']}>

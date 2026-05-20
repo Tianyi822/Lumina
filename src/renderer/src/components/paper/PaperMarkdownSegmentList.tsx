@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { memo, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import type { RenderedSegment } from './hooks/usePaperMarkdownEngine'
 import styles from './PaperMarkdownSegmentList.module.css'
@@ -19,10 +19,7 @@ function getButtonLeftIndent(translationHtml: string | null): string {
   return `${nestLevel * LIST_ITEM_INDENT}em`
 }
 
-export default function PaperMarkdownSegmentList({
-  segments,
-  onRetranslate
-}: PaperMarkdownSegmentListProps) {
+function PaperMarkdownSegmentList({ segments, onRetranslate }: PaperMarkdownSegmentListProps) {
   const [confirmDialog, setConfirmDialog] = useState<{
     segmentId: string
     stableId: string
@@ -65,7 +62,9 @@ export default function PaperMarkdownSegmentList({
           key={segment.renderId}
           className={[
             styles['paper-markdown-view__segment'],
-            segment.isCenteredMeta ? styles['paper-markdown-view__segment--meta'] : ''
+            'paper-markdown-view__segment',
+            segment.isCenteredMeta ? styles['paper-markdown-view__segment--meta'] : '',
+            segment.isCenteredMeta ? 'paper-markdown-view__segment--meta' : ''
           ]
             .filter(Boolean)
             .join(' ')}
@@ -74,18 +73,26 @@ export default function PaperMarkdownSegmentList({
           <div
             className={[
               styles['paper-markdown-view__segment-original'],
-              styles['paper-markdown-view__markdown']
+              'paper-markdown-view__segment-original'
             ].join(' ')}
             data-paper-selection-surface="true"
             data-view-kind="original"
             data-segment-stable-id={segment.stableId}
-            dangerouslySetInnerHTML={{ __html: segment.originalHtml }}
-          />
+          >
+            <div
+              className={[
+                styles['paper-markdown-view__markdown'],
+                'paper-markdown-view__markdown'
+              ].join(' ')}
+              dangerouslySetInnerHTML={{ __html: segment.originalHtml }}
+            />
+          </div>
 
           {segment.showTranslation && (
             <div
               className={[
                 styles['paper-markdown-view__segment-translation'],
+                'paper-markdown-view__segment-translation',
                 styles[`is-${segment.translationStatus}`]
               ]
                 .filter(Boolean)
@@ -96,15 +103,25 @@ export default function PaperMarkdownSegmentList({
                   <div
                     className={[
                       styles['paper-markdown-view__segment-translation-body'],
-                      styles['paper-markdown-view__markdown']
+                      'paper-markdown-view__segment-translation-body'
                     ].join(' ')}
                     data-paper-selection-surface="true"
                     data-view-kind="translation"
                     data-segment-stable-id={segment.stableId}
-                    dangerouslySetInnerHTML={{ __html: segment.translationHtml }}
-                  />
+                  >
+                    <div
+                      className={[
+                        styles['paper-markdown-view__markdown'],
+                        'paper-markdown-view__markdown'
+                      ].join(' ')}
+                      dangerouslySetInnerHTML={{ __html: segment.translationHtml }}
+                    />
+                  </div>
                   <button
-                    className={styles['paper-markdown-view__retranslate-btn']}
+                    className={[
+                      styles['paper-markdown-view__retranslate-btn'],
+                      'paper-markdown-view__retranslate-btn'
+                    ].join(' ')}
                     type="button"
                     disabled={segment.translationStatus === 'translating'}
                     style={{
@@ -158,7 +175,10 @@ export default function PaperMarkdownSegmentList({
                     </div>
                   )}
                   <button
-                    className={styles['paper-markdown-view__retranslate-btn']}
+                    className={[
+                      styles['paper-markdown-view__retranslate-btn'],
+                      'paper-markdown-view__retranslate-btn'
+                    ].join(' ')}
                     type="button"
                     disabled={segment.translationStatus === 'translating'}
                     title="重新翻译"
@@ -231,3 +251,5 @@ export default function PaperMarkdownSegmentList({
     </>
   )
 }
+
+export default memo(PaperMarkdownSegmentList)
