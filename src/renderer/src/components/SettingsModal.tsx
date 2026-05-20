@@ -22,6 +22,7 @@ type SettingsTabKey =
 
 interface SettingsModalProps {
   onClose: () => void
+  onMcpUpdated?: () => void
 }
 
 const settingsTabs: Array<{ id: SettingsTabKey; label: string; description: string }> = [
@@ -35,13 +36,11 @@ const settingsTabs: Array<{ id: SettingsTabKey; label: string; description: stri
   { id: 'update', label: '升级版本', description: '检查应用更新并查看版本历史。' }
 ]
 
-export default function SettingsModal({ onClose }: SettingsModalProps) {
+export default function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<SettingsTabKey>('model')
 
   const configLoading = useConfigStore((s) => s.loading)
-  const configState = useConfigStore((s) => ({
-    themeConfig: s.themeConfig
-  }))
+  const themeConfig = useConfigStore((s) => s.themeConfig)
   const loadConfig = useConfigStore((s) => s.loadConfig)
 
   const navRef = useRef<HTMLElement>(null)
@@ -121,13 +120,10 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
               ) : (
                 <>
                   {activeTab === 'model' && <ModelSettings />}
-                  {activeTab === 'mcp' && <MCPSettings />}
+                  {activeTab === 'mcp' && <MCPSettings onMcpUpdated={onMcpUpdated} />}
                   {activeTab === 'embedding' && <EmbeddingModelSettings />}
                   {activeTab === 'theme' && (
-                    <ThemeSettings
-                      value={configState.themeConfig}
-                      onThemeChange={handleThemeChange}
-                    />
+                    <ThemeSettings value={themeConfig} onThemeChange={handleThemeChange} />
                   )}
                   {activeTab === 'knowledge' && <KnowledgeMCPSettings />}
                   {activeTab === 'toolStats' && <ToolStatsSettings />}

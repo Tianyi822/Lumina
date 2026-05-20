@@ -78,6 +78,11 @@ export default function App() {
   const openSettings = useCallback(() => setShowSettings(true), [])
   const closeSettings = useCallback(() => setShowSettings(false), [])
 
+  const handleMcpUpdated = useCallback(() => {
+    useUIStateStore.getState().notifyMcpUpdate()
+    useUIStateStore.getState().loadConfigStatus()
+  }, [])
+
   return (
     <div className="sm-app">
       <NotificationCenter />
@@ -126,7 +131,7 @@ export default function App() {
         </div>
       </div>
 
-      {showSettings && <SettingsModal onClose={closeSettings} />}
+      {showSettings && <SettingsModal onClose={closeSettings} onMcpUpdated={handleMcpUpdated} />}
     </div>
   )
 }
