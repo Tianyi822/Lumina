@@ -22,7 +22,10 @@ export default function PaperAnnotationSelectionMenu({
 }: PaperAnnotationSelectionMenuProps) {
   return (
     <div
-      className={styles['paper-annotation-selection-menu']}
+      className={[
+        styles['paper-annotation-selection-menu'],
+        'paper-annotation-selection-menu'
+      ].join(' ')}
       style={{
         left: `${state.x}px`,
         top: `${state.y}px`
@@ -30,11 +33,19 @@ export default function PaperAnnotationSelectionMenu({
       onMouseDown={(e) => e.preventDefault()}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className={styles['paper-annotation-selection-menu__row']}>
+      <div
+        className={[
+          styles['paper-annotation-selection-menu__row'],
+          'paper-annotation-selection-menu__row'
+        ].join(' ')}
+      >
         {highlightColorOptions.map((colorKey) => (
           <button
             key={colorKey}
-            className={styles['paper-annotation-selection-menu__color-btn']}
+            className={[
+              styles['paper-annotation-selection-menu__color-btn'],
+              'paper-annotation-selection-menu__color-btn'
+            ].join(' ')}
             type="button"
             title={colorKey}
             onClick={() => onCreateHighlight(colorKey)}
@@ -42,16 +53,26 @@ export default function PaperAnnotationSelectionMenu({
             <span
               className={[
                 styles['paper-annotation-selection-menu__dot'],
-                styles[`paper-annotation-selection-menu__dot--${colorKey}`]
+                'paper-annotation-selection-menu__dot',
+                styles[`paper-annotation-selection-menu__dot--${colorKey}`],
+                `paper-annotation-selection-menu__dot--${colorKey}`
               ].join(' ')}
             />
           </button>
         ))}
 
-        <div className={styles['paper-annotation-selection-menu__divider-v']} />
+        <div
+          className={[
+            styles['paper-annotation-selection-menu__divider-v'],
+            'paper-annotation-selection-menu__divider-v'
+          ].join(' ')}
+        />
 
         <button
-          className={styles['paper-annotation-selection-menu__note-btn']}
+          className={[
+            styles['paper-annotation-selection-menu__note-btn'],
+            'paper-annotation-selection-menu__note-btn'
+          ].join(' ')}
           type="button"
           onClick={onOpenNoteEditor}
         >
@@ -63,10 +84,18 @@ export default function PaperAnnotationSelectionMenu({
           <span className="paper-annotation-selection-menu__label">记录笔记</span>
         </button>
 
-        <div className={styles['paper-annotation-selection-menu__divider-v']} />
+        <div
+          className={[
+            styles['paper-annotation-selection-menu__divider-v'],
+            'paper-annotation-selection-menu__divider-v'
+          ].join(' ')}
+        />
 
         <button
-          className={styles['paper-annotation-selection-menu__note-btn']}
+          className={[
+            styles['paper-annotation-selection-menu__note-btn'],
+            'paper-annotation-selection-menu__note-btn'
+          ].join(' ')}
           type="button"
           onClick={onAddToChat}
         >
@@ -79,7 +108,16 @@ export default function PaperAnnotationSelectionMenu({
         </button>
       </div>
 
-      {error && <p className={styles['paper-annotation-selection-menu__error']}>{error}</p>}
+      {error && (
+        <p
+          className={[
+            styles['paper-annotation-selection-menu__error'],
+            'paper-annotation-selection-menu__error'
+          ].join(' ')}
+        >
+          {error}
+        </p>
+      )}
     </div>
   )
 }

@@ -34,21 +34,25 @@ export default function NotificationItem({ notification, onDismiss }: Notificati
 
   return (
     <div
-      className={[styles['sm-notification-item'], typeClass].join(' ')}
+      className={[styles['sm-notification-item'], 'sm-notification-item', typeClass].join(' ')}
       role={liveRole}
       aria-live={liveMode}
       aria-atomic="true"
     >
-      <div className={styles['message-icon']}>
+      <div className={[styles['message-icon'], 'message-icon'].join(' ')}>
         <SvgIcon name={icon} size={14} />
       </div>
-      <div className={styles['message-content']}>
-        <div className={styles['message-title']}>{notification.title}</div>
+      <div className={[styles['message-content'], 'message-content'].join(' ')}>
+        <div className={[styles['message-title'], 'message-title'].join(' ')}>
+          {notification.title}
+        </div>
         {notification.message && (
-          <div className={styles['message-text']}>{notification.message}</div>
+          <div className={[styles['message-text'], 'message-text'].join(' ')}>
+            {notification.message}
+          </div>
         )}
         {notification.actions && notification.actions.length > 0 && (
-          <div className={styles['message-actions']}>
+          <div className={[styles['message-actions'], 'message-actions'].join(' ')}>
             {notification.actions.map((action, index) => (
               <button
                 key={index}
@@ -69,7 +73,7 @@ export default function NotificationItem({ notification, onDismiss }: Notificati
       {notification.dismissible && (
         <button
           type="button"
-          className={styles['message-close']}
+          className={[styles['message-close'], 'message-close'].join(' ')}
           aria-label="关闭通知"
           onClick={() => onDismiss(notification.id)}
         >

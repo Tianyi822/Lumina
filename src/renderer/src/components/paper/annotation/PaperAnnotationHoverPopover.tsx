@@ -28,14 +28,21 @@ export default function PaperAnnotationHoverPopover({
 }: PaperAnnotationHoverPopoverProps) {
   return (
     <div
-      className={styles['paper-annotation-hover-popover']}
+      className={[styles['paper-annotation-hover-popover'], 'paper-annotation-hover-popover'].join(
+        ' '
+      )}
       style={{
         left: `${state.x}px`,
         top: `${state.y}px`
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <div className={styles['paper-annotation-hover-popover__row']}>
+      <div
+        className={[
+          styles['paper-annotation-hover-popover__row'],
+          'paper-annotation-hover-popover__row'
+        ].join(' ')}
+      >
         {isHighlight(annotation) && (
           <>
             {highlightColorOptions.map((colorKey) => (
@@ -43,7 +50,9 @@ export default function PaperAnnotationHoverPopover({
                 key={`hover-${colorKey}`}
                 className={[
                   styles['paper-annotation-hover-popover__color-btn'],
-                  annotation.colorKey === colorKey ? styles['is-active'] : ''
+                  'paper-annotation-hover-popover__color-btn',
+                  annotation.colorKey === colorKey ? styles['is-active'] : '',
+                  annotation.colorKey === colorKey ? 'is-active' : ''
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -54,28 +63,46 @@ export default function PaperAnnotationHoverPopover({
                 <span
                   className={[
                     styles['paper-annotation-hover-popover__dot'],
-                    styles[`paper-annotation-hover-popover__dot--${colorKey}`]
+                    'paper-annotation-hover-popover__dot',
+                    styles[`paper-annotation-hover-popover__dot--${colorKey}`],
+                    `paper-annotation-hover-popover__dot--${colorKey}`
                   ].join(' ')}
                 />
               </button>
             ))}
 
-            <div className={styles['paper-annotation-hover-popover__divider-v']} />
+            <div
+              className={[
+                styles['paper-annotation-hover-popover__divider-v'],
+                'paper-annotation-hover-popover__divider-v'
+              ].join(' ')}
+            />
           </>
         )}
 
         <button
-          className={styles['paper-annotation-hover-popover__action-btn']}
+          className={[
+            styles['paper-annotation-hover-popover__action-btn'],
+            'paper-annotation-hover-popover__action-btn'
+          ].join(' ')}
           type="button"
           onClick={onDelete}
         >
           {isHighlight(annotation) ? '删除标记' : '删除笔记'}
         </button>
 
-        <div className={styles['paper-annotation-hover-popover__divider-v']} />
+        <div
+          className={[
+            styles['paper-annotation-hover-popover__divider-v'],
+            'paper-annotation-hover-popover__divider-v'
+          ].join(' ')}
+        />
 
         <button
-          className={styles['paper-annotation-hover-popover__action-btn']}
+          className={[
+            styles['paper-annotation-hover-popover__action-btn'],
+            'paper-annotation-hover-popover__action-btn'
+          ].join(' ')}
           type="button"
           onClick={onOpenNoteEditor}
         >
@@ -90,7 +117,16 @@ export default function PaperAnnotationHoverPopover({
         </button>
       </div>
 
-      {error && <p className={styles['paper-annotation-hover-popover__error']}>{error}</p>}
+      {error && (
+        <p
+          className={[
+            styles['paper-annotation-hover-popover__error'],
+            'paper-annotation-hover-popover__error'
+          ].join(' ')}
+        >
+          {error}
+        </p>
+      )}
     </div>
   )
 }

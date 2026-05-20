@@ -51,7 +51,13 @@ export default function PaperChatMessageContent({
 
   return (
     <div
-      className={`markdown-body ${isStreaming ? styles['streaming-content'] : ''}`}
+      className={[
+        styles['markdown-body'],
+        'markdown-body',
+        isStreaming ? styles['streaming-content'] : ''
+      ]
+        .filter(Boolean)
+        .join(' ')}
       dangerouslySetInnerHTML={{ __html: renderedMarkdown }}
     />
   )

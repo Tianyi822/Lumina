@@ -90,7 +90,7 @@ export default function PaperAnnotationNoteEditor({
 
   return (
     <div
-      className={styles['paper-annotation-note-editor']}
+      className={[styles['paper-annotation-note-editor'], 'paper-annotation-note-editor'].join(' ')}
       style={{
         left: `${state.x}px`,
         top: `${state.y}px`
@@ -98,17 +98,28 @@ export default function PaperAnnotationNoteEditor({
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div
-        className={styles['paper-annotation-note-editor__header']}
+        className={[
+          styles['paper-annotation-note-editor__header'],
+          'paper-annotation-note-editor__header'
+        ].join(' ')}
         onMouseDown={(e) => {
           e.preventDefault()
           handleDragStart(e)
         }}
       >
-        <div className={styles['paper-annotation-note-editor__title']}>
+        <div
+          className={[
+            styles['paper-annotation-note-editor__title'],
+            'paper-annotation-note-editor__title'
+          ].join(' ')}
+        >
           {isExistingNote ? '编辑笔记' : '记录笔记'}
         </div>
         <button
-          className={styles['paper-annotation-note-editor__close']}
+          className={[
+            styles['paper-annotation-note-editor__close'],
+            'paper-annotation-note-editor__close'
+          ].join(' ')}
           type="button"
           aria-label="关闭笔记编辑器"
           onMouseDown={(e) => e.stopPropagation()}
@@ -117,18 +128,36 @@ export default function PaperAnnotationNoteEditor({
           ✕
         </button>
       </div>
-      <div className={styles['paper-annotation-note-editor__selection']}>
+      <div
+        className={[
+          styles['paper-annotation-note-editor__selection'],
+          'paper-annotation-note-editor__selection'
+        ].join(' ')}
+      >
         {state.draft.selectedText}
       </div>
       <textarea
         value={comment}
-        className={styles['paper-annotation-note-editor__input']}
+        className={[
+          styles['paper-annotation-note-editor__input'],
+          'paper-annotation-note-editor__input'
+        ].join(' ')}
         rows={7}
         placeholder="写下这段内容的笔记..."
         onChange={(e) => onCommentChange(e.target.value)}
       />
-      <div className={styles['paper-annotation-note-editor__actions']}>
-        <div className={styles['paper-annotation-note-editor__color-chip']} />
+      <div
+        className={[
+          styles['paper-annotation-note-editor__actions'],
+          'paper-annotation-note-editor__actions'
+        ].join(' ')}
+      >
+        <div
+          className={[
+            styles['paper-annotation-note-editor__color-chip'],
+            'paper-annotation-note-editor__color-chip'
+          ].join(' ')}
+        />
         {isExistingNote ? (
           <>
             <button
@@ -159,9 +188,23 @@ export default function PaperAnnotationNoteEditor({
           </button>
         )}
       </div>
-      {error && <p className={styles['paper-annotation-note-editor__error']}>{error}</p>}
+      {error && (
+        <p
+          className={[
+            styles['paper-annotation-note-editor__error'],
+            'paper-annotation-note-editor__error'
+          ].join(' ')}
+        >
+          {error}
+        </p>
+      )}
       {state.draft.viewKind === 'translation' && (
-        <p className={styles['paper-annotation-note-editor__hint']}>
+        <p
+          className={[
+            styles['paper-annotation-note-editor__hint'],
+            'paper-annotation-note-editor__hint'
+          ].join(' ')}
+        >
           该笔记只显示在当前译文中；如果之后删除译文，对应标注也会一起删除。
         </p>
       )}
