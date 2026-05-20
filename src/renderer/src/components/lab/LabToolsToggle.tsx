@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from './LabToolsToggle.module.css'
 
 interface LabToolsToggleProps {
@@ -39,11 +38,22 @@ export default function LabToolsToggle({
   return (
     <div
       className={`${styles['lab-tools-toggle']} ${isEnabled ? styles.enabled : ''} ${disabled ? styles.disabled : ''} ${compact ? styles['is-compact'] : ''}`}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-pressed={isEnabled}
+      aria-disabled={disabled}
+      onClick={toggle}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          toggle()
+        }
+      }}
     >
-      <button type="button" onClick={toggle} disabled={disabled}>
-        <SvgIcon name="tools" size={14} />
-        <span>{isEnabled ? '工具已开启' : '工具已关闭'}</span>
-      </button>
+      <span className={styles['toggle-switch']} aria-hidden="true">
+        <span className={styles['toggle-thumb']}></span>
+      </span>
+      <span className={styles['toggle-label']}>实验室</span>
     </div>
   )
 }

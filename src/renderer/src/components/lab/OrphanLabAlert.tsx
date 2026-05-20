@@ -45,31 +45,48 @@ export default function OrphanLabAlert({
 
   if (!visible || !lab) return null
 
+  const metaItems = [
+    lab.composeProjectName ? `Compose ${lab.composeProjectName}` : null,
+    lab.frontend?.volumeName ? `工作区 Volume ${lab.frontend.volumeName}` : null
+  ].filter((item): item is string => Boolean(item))
+
   return (
     <div className={styles['orphan-alert']}>
-      <div className={styles['orphan-copy']}>
-        <strong>{lab.name} — 容器已丢失</strong>
-        <p>
-          关联的 Docker 容器可能已被手动删除。
-          {canRecover ? '可以尝试基于工作区重建运行容器。' : '请检查容器状态后重试。'}
-        </p>
-      </div>
-      <div className={styles['orphan-actions']}>
-        {canRecover && (
-          <button
-            className="sm-button sm-button--primary"
-            disabled={isRecovering || isReloading}
-            onClick={() => {
-              setIsRecovering(true)
-              onRecover(lab.labId)
-            }}
-          >
-            {isRecovering || isReloading ? recoveringLabel : recoverLabel || '恢复'}
+      <div className={styles['alert-content']}>
+        <div className={styles['alert-message']}>
+          <span className={styles['alert-eyebrow']}>运行异常</span>
+          <h4>容器已丢失</h4>
+          <p>
+            实验室「{lab.name}」关联的容器不再可用。这通常意味着容器被手动删除，或 Docker
+            服务在重启后未恢复到原状态。
+          </p>
+          {metaItems.length > 0 && (
+            <div className={styles['alert-meta']}>
+              {metaItems.map((item) => (
+                <span key={item} className={styles['alert-meta-item']}>
+                  {item}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className={styles['alert-actions']}>
+          {canRecover && (
+            <button
+              className="sm-button sm-button--primary"
+              disabled={isRecovering || isReloading}
+              onClick={() => {
+                setIsRecovering(true)
+                onRecover(lab.labId)
+              }}
+            >
+              {isRecovering || isReloading ? recoveringLabel : recoverLabel || '恢复'}
+            </button>
+          )}
+          <button className="sm-button sm-button--danger" onClick={() => onCleanup(lab.labId)}>
+            清理实验室
           </button>
-        )}
-        <button className="sm-button sm-button--secondary" onClick={() => onCleanup(lab.labId)}>
-          清理记录
-        </button>
+        </div>
       </div>
     </div>
   )

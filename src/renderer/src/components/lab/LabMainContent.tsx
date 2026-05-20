@@ -278,7 +278,12 @@ export default function LabMainContent({
               )}
               {isDockerLab && !isDockerReady && (
                 <button
-                  className={styles['docker-recheck-btn']}
+                  className={[
+                    'sm-button',
+                    'sm-button--small',
+                    'sm-button--secondary',
+                    styles['docker-recheck-btn']
+                  ].join(' ')}
                   disabled={recheckingDocker}
                   onClick={onRecheckDocker}
                 >
@@ -305,10 +310,10 @@ export default function LabMainContent({
                         >
                           安装 Docker
                         </a>
-                        ，然后点击上方"重新检测 Docker"按钮。
+                        ，然后点击上方"重新检测 Docker"按钮。SSH 远程实验室不受影响。
                       </span>
                     ) : (
-                      '容器操作、终端和日志功能暂不可用。请启动 Docker 服务后点击上方"重新检测 Docker"按钮。'
+                      '容器操作、终端和日志功能暂不可用。请启动 Docker 服务后点击上方"重新检测 Docker"按钮。SSH 远程实验室不受影响。'
                     )}
                   </p>
                 </div>
