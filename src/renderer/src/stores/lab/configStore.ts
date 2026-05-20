@@ -1,5 +1,4 @@
-import { ref } from 'vue'
-import { defineStore } from 'pinia'
+import { create } from 'zustand'
 import type {
   DockerfileConfigMeta,
   ComposeConfigMeta,
@@ -9,40 +8,49 @@ import type {
 } from '@renderer/types/lab'
 import { labApi } from '@renderer/services/labApi'
 
-export const useDockerConfigStore = defineStore('dockerConfig', () => {
-  // ==================== State ====================
+interface DockerConfigState {
+  dockerfileConfigs: DockerfileConfigMeta[]
+  composeConfigs: ComposeConfigMeta[]
+  configsLoading: boolean
 
-  /** Dockerfile 配置列表 */
-  const dockerfileConfigs = ref<DockerfileConfigMeta[]>([])
-  /** Compose 配置列表 */
-  const composeConfigs = ref<ComposeConfigMeta[]>([])
-  /** 配置加载状态 */
-  const configsLoading = ref(false)
+  loadDockerfileConfigs: () => Promise<void>
+  loadDockerfileConfig: (id: string) => Promise<DockerfileConfig | null>
+  saveDockerfileConfig: (request: SaveConfigRequest) => Promise<DockerfileConfigMeta | null>
+  deleteDockerfileConfig: (id: string) => Promise<boolean>
 
-  // ==================== Actions: Dockerfile 配置 ====================
+  loadComposeConfigs: () => Promise<void>
+  loadComposeConfig: (id: string) => Promise<ComposeConfig | null>
+  saveComposeConfig: (request: SaveConfigRequest) => Promise<ComposeConfigMeta | null>
+  deleteComposeConfig: (id: string) => Promise<boolean>
 
-  async function loadDockerfileConfigs(): Promise<void> {
+  loadAllConfigs: () => Promise<void>
+}
+
+export const useDockerConfigStore = create<DockerConfigState>()((set, get) => ({
+  dockerfileConfigs: [],
+  composeConfigs: [],
+  configsLoading: false,
+
+  loadDockerfileConfigs: async () => {
     try {
-      configsLoading.value = true
+      set({ configsLoading: true })
       const result = await labApi.dockerfile.list()
       if (result.success && result.configs) {
-        dockerfileConfigs.value = result.configs
+        set({ dockerfileConfigs: result.configs })
       }
     } catch (error) {
       window.api.logger.error('[DockerConfigStore] 加载 Dockerfile 配置列表失败', {
         error: error instanceof Error ? error.message : String(error)
       })
     } finally {
-      configsLoading.value = false
+      set({ configsLoading: false })
     }
-  }
+  },
 
-  async function loadDockerfileConfig(id: string): Promise<DockerfileConfig | null> {
+  loadDockerfileConfig: async (id) => {
     try {
       const result = await labApi.dockerfile.load(id)
-      if (result.success && result.config) {
-        return result.config
-      }
+      if (result.success && result.config) return result.config
       return null
     } catch (error) {
       window.api.logger.error('[DockerConfigStore] 加载 Dockerfile 配置失败', {
@@ -51,15 +59,13 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
       })
       return null
     }
-  }
+  },
 
-  async function saveDockerfileConfig(
-    request: SaveConfigRequest
-  ): Promise<DockerfileConfigMeta | null> {
+  saveDockerfileConfig: async (request) => {
     try {
       const result = await labApi.dockerfile.save(request)
       if (result.success && result.config) {
-        await loadDockerfileConfigs()
+        await get().loadDockerfileConfigs()
         return result.config
       }
       return null
@@ -69,13 +75,13 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
       })
       return null
     }
-  }
+  },
 
-  async function deleteDockerfileConfig(id: string): Promise<boolean> {
+  deleteDockerfileConfig: async (id) => {
     try {
       const result = await labApi.dockerfile.delete(id)
       if (result.success) {
-        await loadDockerfileConfigs()
+        await get().loadDockerfileConfigs()
         return true
       }
       return false
@@ -86,32 +92,28 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
       })
       return false
     }
-  }
+  },
 
-  // ==================== Actions: Compose 配置 ====================
-
-  async function loadComposeConfigs(): Promise<void> {
+  loadComposeConfigs: async () => {
     try {
-      configsLoading.value = true
+      set({ configsLoading: true })
       const result = await labApi.compose.list()
       if (result.success && result.configs) {
-        composeConfigs.value = result.configs
+        set({ composeConfigs: result.configs })
       }
     } catch (error) {
       window.api.logger.error('[DockerConfigStore] 加载 Compose 配置列表失败', {
         error: error instanceof Error ? error.message : String(error)
       })
     } finally {
-      configsLoading.value = false
+      set({ configsLoading: false })
     }
-  }
+  },
 
-  async function loadComposeConfig(id: string): Promise<ComposeConfig | null> {
+  loadComposeConfig: async (id) => {
     try {
       const result = await labApi.compose.load(id)
-      if (result.success && result.config) {
-        return result.config
-      }
+      if (result.success && result.config) return result.config
       return null
     } catch (error) {
       window.api.logger.error('[DockerConfigStore] 加载 Compose 配置失败', {
@@ -120,13 +122,13 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
       })
       return null
     }
-  }
+  },
 
-  async function saveComposeConfig(request: SaveConfigRequest): Promise<ComposeConfigMeta | null> {
+  saveComposeConfig: async (request) => {
     try {
       const result = await labApi.compose.save(request)
       if (result.success && result.config) {
-        await loadComposeConfigs()
+        await get().loadComposeConfigs()
         return result.config
       }
       return null
@@ -136,13 +138,13 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
       })
       return null
     }
-  }
+  },
 
-  async function deleteComposeConfig(id: string): Promise<boolean> {
+  deleteComposeConfig: async (id) => {
     try {
       const result = await labApi.compose.delete(id)
       if (result.success) {
-        await loadComposeConfigs()
+        await get().loadComposeConfigs()
         return true
       }
       return false
@@ -153,33 +155,9 @@ export const useDockerConfigStore = defineStore('dockerConfig', () => {
       })
       return false
     }
+  },
+
+  loadAllConfigs: async () => {
+    await Promise.all([get().loadDockerfileConfigs(), get().loadComposeConfigs()])
   }
-
-  // ==================== Actions: 批量加载 ====================
-
-  async function loadAllConfigs(): Promise<void> {
-    await Promise.all([loadDockerfileConfigs(), loadComposeConfigs()])
-  }
-
-  return {
-    // State
-    dockerfileConfigs,
-    composeConfigs,
-    configsLoading,
-
-    // Actions: Dockerfile
-    loadDockerfileConfigs,
-    loadDockerfileConfig,
-    saveDockerfileConfig,
-    deleteDockerfileConfig,
-
-    // Actions: Compose
-    loadComposeConfigs,
-    loadComposeConfig,
-    saveComposeConfig,
-    deleteComposeConfig,
-
-    // Actions: 批量
-    loadAllConfigs
-  }
-})
+}))

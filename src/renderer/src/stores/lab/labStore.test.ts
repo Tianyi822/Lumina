@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPinia, setActivePinia } from 'pinia'
 import { useLabStore } from './labStore'
+import { useLabListStore } from './labListStore'
 import type { LabData, LabListItem } from '@renderer/types/lab'
 
 function createSshLab(status: LabData['status']): LabData {
@@ -39,8 +39,6 @@ function createLabListItem(lab: LabData): LabListItem {
 }
 
 test('connectSsh 成功后强制刷新当前 SSH 实验室详情', async (t) => {
-  setActivePinia(createPinia())
-
   const stoppedLab = createSshLab('stopped')
   const runningLab = createSshLab('running')
   let loadLabResolvedCount = 0
@@ -78,10 +76,10 @@ test('connectSsh 成功后强制刷新当前 SSH 实验室详情', async (t) => 
     }
   })
 
-  const labStore = useLabStore()
-  labStore.currentLab = stoppedLab
+  // Zustand: 直接设置 labListStore 中的 currentLab
+  useLabListStore.setState({ currentLab: stoppedLab })
 
-  const connected = await labStore.connectSsh(stoppedLab.labId, {
+  const connected = await useLabStore.getState().connectSsh(stoppedLab.labId, {
     host: 'example.com',
     port: 22,
     username: 'root',
@@ -91,6 +89,6 @@ test('connectSsh 成功后强制刷新当前 SSH 实验室详情', async (t) => 
 
   assert.equal(connected, true)
   assert.equal(loadLabResolvedCount, 1)
-  assert.equal(labStore.currentLab?.status, 'running')
-  assert.equal(labStore.currentLab?.ssh?.connected, true)
+  assert.equal(useLabListStore.getState().currentLab?.status, 'running')
+  assert.equal(useLabListStore.getState().currentLab?.ssh?.connected, true)
 })

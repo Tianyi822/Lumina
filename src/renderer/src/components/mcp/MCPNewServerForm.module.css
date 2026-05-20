@@ -1,0 +1,49 @@
+.new-model-form {
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  padding: 16px;
+}
+
+.form-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+  margin: 0 0 16px;
+}
+
+.form-group label {
+  color: var(--sm-color-text-secondary);
+}
+
+.required {
+  color: var(--sm-color-status-danger);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--sm-color-text-secondary);
+}
+
+.required {
+  color: var(--sm-color-status-danger);
+}
+
+.textarea-small {
+  min-height: 60px;
+  resize: vertical;
+  font-family: var(--sm-font-mono);
+  line-height: 1.5;
+}
+
+.form-actions {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--sm-color-border-subtle);
+}

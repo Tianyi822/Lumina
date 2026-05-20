@@ -92,7 +92,7 @@ export class FrontendLabService {
   async createFrontendLab(options: CreateFrontendLabOptions): Promise<FrontendLabInfo> {
     const {
       name,
-      framework = 'vue',
+      framework = 'react',
       containerPort = DEFAULT_FRONTEND_PORT,
       projectRoot: rawProjectRoot = FRONTEND_PROJECT_ROOT
     } = options

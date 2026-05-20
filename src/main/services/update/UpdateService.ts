@@ -71,7 +71,11 @@ export class UpdateService {
 
     autoUpdater.on('error', (error: Error) => {
       const diagnostic = classifyUpdateError(error.message)
-      logger.error('自动更新错误', 'main', { error: error.message })
+      if (this.status === 'checking') {
+        logger.debug('自动更新检查错误，等待回退判断', 'main', { error: error.message })
+      } else {
+        logger.error('自动更新错误', 'main', { error: error.message })
+      }
       if (this.shouldSurfaceUpdaterError()) {
         this._isQuittingForUpdate = false
         this.setStatus('error', {
@@ -123,8 +127,6 @@ export class UpdateService {
       let latestVersion: string | undefined
       let manualDownloadUrl: string | undefined
 
-      logger.error('检查更新失败', 'main', { error: message })
-
       // autoUpdater 检查失败时，回退到 GitHub Releases API 判断是否真的没有新版本
       try {
         const { releaseNotesService } = await import('./index')
@@ -138,6 +140,10 @@ export class UpdateService {
             this.lastCheckResult = { hasUpdate: false }
             this.lastCheckTime = Date.now()
             this.setStatus('not-available')
+            logger.info('自动更新检查失败，但当前版本已是最新', 'main', {
+              currentVersion,
+              latestVersion
+            })
             return { success: true, hasUpdate: false }
           }
           logger.info('通过 Releases API 发现新版本，但 autoUpdater 检查失败', 'main', {
@@ -148,6 +154,7 @@ export class UpdateService {
         logger.error('回退 Releases API 检查也失败', 'main', { error: String(fallbackError) })
       }
 
+      logger.error('检查更新失败', 'main', { error: message })
       this.setStatus('error', {
         ...diagnostic,
         version: latestVersion,
@@ -232,7 +239,7 @@ export class UpdateService {
   }
 
   private shouldSurfaceUpdaterError(): boolean {
-    return ['checking', 'downloading', 'downloaded', 'installing'].includes(this.status)
+    return ['downloading', 'downloaded', 'installing'].includes(this.status)
   }
 
   private emitCachedCheckResult(result: Omit<CheckUpdateResult, 'success'>): void {

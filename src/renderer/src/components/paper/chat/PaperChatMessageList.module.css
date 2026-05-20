@@ -1,0 +1,30 @@
+.paper-chat-message-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--sm-space-4);
+  background: var(--sm-color-bg-canvas);
+}
+
+:global(.paper-chat-message)-list__empty {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sm-space-6);
+  color: var(--sm-color-text-tertiary);
+  font-size: 13px;
+  text-align: center;
+}
+
+:global(.paper-chat-message)-list__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-4);
+  min-width: 0;
+}
+
+:global(.paper-chat-message)-list__items :global(.paper-chat-message) {
+  min-width: 0;
+}

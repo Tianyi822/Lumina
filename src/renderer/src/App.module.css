@@ -1,0 +1,88 @@
+.dragRegion {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--sm-space-3);
+  z-index: 3;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.workspacePage {
+  --sm-workspace-chrome-actions-safe-width: 140px;
+  --sm-window-controls-safe-width: 0px;
+  --sm-window-control-button-width: 46px;
+}
+
+.windows {
+  --sm-window-controls-safe-width: calc(var(--sm-window-control-button-width) * 3);
+}
+
+.chromeActions {
+  position: absolute;
+  top: 12px;
+  left: 90px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+}
+
+.chromeButton {
+  width: 24px;
+  height: 30px;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  -webkit-app-region: no-drag;
+}
+
+.chromeButton:hover,
+.chromeButton:active,
+.chromeButton:focus-visible {
+  border-color: transparent;
+  background: transparent;
+  color: var(--sm-color-text-primary);
+}
+
+/* Windows platform-specific styles */
+.windows .chromeActions {
+  top: var(--sm-space-3);
+  left: calc(var(--sm-space-3) + var(--sm-space-4));
+}
+
+.windows :global(.sm-workspace-main)::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--sm-space-3) * -1);
+  left: 0;
+  right: var(--sm-window-controls-safe-width);
+  z-index: 3;
+  height: var(--sm-titlebar-height);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.windows.sidebarCollapsed :global(.sm-workspace-main)::before {
+  left: var(--sm-workspace-chrome-actions-safe-width, 140px);
+}
+
+.windows .winControls {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 21;
+  display: inline-flex;
+  align-items: center;
+  width: var(--sm-window-controls-safe-width);
+  height: var(--sm-titlebar-height);
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+}
+
+.windows .dragRegion {
+  right: var(--sm-window-controls-safe-width);
+}

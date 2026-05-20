@@ -1,95 +1,70 @@
-import { ref, computed } from 'vue'
-import { defineStore } from 'pinia'
+import { create } from 'zustand'
 import type { PaperQuote } from '@shared/types/chat'
 
 export type PendingQuote = PaperQuote
 
-/**
- * 论文引用 Store
- * 管理每个 Session 的论文引用附加状态
- */
-export const usePaperChatQuoteStore = defineStore('paperChatQuote', () => {
-  // ==================== State ====================
+interface PaperChatQuoteState {
+  pendingQuotes: Map<string, PendingQuote[]>
 
-  // 每个 session 的待发送引用列表
-  const pendingQuotes = ref<Map<string, PendingQuote[]>>(new Map())
+  getSessionQuotes: (sessionId: string) => PendingQuote[]
+  hasPendingQuotes: (sessionId: string) => boolean
 
-  // ==================== Getters ====================
+  initSession: (sessionId: string) => void
+  addQuote: (sessionId: string, quote: PaperQuote) => void
+  removeQuote: (sessionId: string, quoteId: string) => void
+  clearQuotes: (sessionId: string) => void
+  getPendingQuotesForSending: (sessionId: string) => PaperQuote[]
+}
 
-  /**
-   * 获取指定 session 的待发送引用列表
-   */
-  const getSessionQuotes = computed(() => {
-    return (sessionId: string): PendingQuote[] => {
-      return pendingQuotes.value.get(sessionId) || []
-    }
-  })
+export const usePaperChatQuoteStore = create<PaperChatQuoteState>()((set, get) => ({
+  pendingQuotes: new Map(),
 
-  /**
-   * 检查指定 session 是否有待发送的引用
-   */
-  const hasPendingQuotes = computed(() => {
-    return (sessionId: string): boolean => {
-      const quotes = pendingQuotes.value.get(sessionId)
-      return quotes !== undefined && quotes.length > 0
-    }
-  })
+  getSessionQuotes: (sessionId) => get().pendingQuotes.get(sessionId) || [],
 
-  // ==================== Actions ====================
+  hasPendingQuotes: (sessionId) => {
+    const quotes = get().pendingQuotes.get(sessionId)
+    return quotes !== undefined && quotes.length > 0
+  },
 
-  /**
-   * 初始化 session 的引用状态
-   */
-  function initSession(sessionId: string): void {
-    if (!pendingQuotes.value.has(sessionId)) {
-      pendingQuotes.value.set(sessionId, [])
-    }
-  }
+  initSession: (sessionId) =>
+    set((state) => {
+      const next = new Map(state.pendingQuotes)
+      if (!next.has(sessionId)) next.set(sessionId, [])
+      return { pendingQuotes: next }
+    }),
 
-  /**
-   * 添加论文引用到指定 session
-   * @param sessionId 会话 ID
-   * @param quote 论文引用
-   */
-  function addQuote(sessionId: string, quote: PaperQuote): void {
-    initSession(sessionId)
+  addQuote: (sessionId, quote) => {
+    get().initSession(sessionId)
+    set((state) => {
+      const next = new Map(state.pendingQuotes)
+      const list = [...(next.get(sessionId) || [])]
+      list.push(quote)
+      next.set(sessionId, list)
+      return { pendingQuotes: next }
+    })
+  },
 
-    const pendingList = pendingQuotes.value.get(sessionId)!
-    pendingList.push(quote)
-  }
+  removeQuote: (sessionId, quoteId) =>
+    set((state) => {
+      const list = state.pendingQuotes.get(sessionId)
+      if (!list) return {}
+      const next = new Map(state.pendingQuotes)
+      next.set(
+        sessionId,
+        list.filter((q) => q.id !== quoteId)
+      )
+      return { pendingQuotes: next }
+    }),
 
-  /**
-   * 移除指定 session 的某个待发送引用
-   * @param sessionId 会话 ID
-   * @param quoteId 引用 ID
-   */
-  function removeQuote(sessionId: string, quoteId: string): void {
-    const pendingList = pendingQuotes.value.get(sessionId)
-    if (!pendingList) {
-      return
-    }
+  clearQuotes: (sessionId) =>
+    set((state) => {
+      const next = new Map(state.pendingQuotes)
+      next.set(sessionId, [])
+      return { pendingQuotes: next }
+    }),
 
-    const index = pendingList.findIndex((q) => q.id === quoteId)
-    if (index >= 0 && index < pendingList.length) {
-      pendingList.splice(index, 1)
-    }
-  }
-
-  /**
-   * 清空指定 session 的所有待发送引用
-   * @param sessionId 会话 ID
-   */
-  function clearQuotes(sessionId: string): void {
-    pendingQuotes.value.set(sessionId, [])
-  }
-
-  /**
-   * 获取指定 session 的所有待发送引用（用于发送消息）
-   * @param sessionId 会话 ID
-   * @returns 引用列表
-   */
-  function getPendingQuotesForSending(sessionId: string): PaperQuote[] {
-    return (pendingQuotes.value.get(sessionId) || []).map((q) => ({
+  getPendingQuotesForSending: (sessionId) =>
+    (get().pendingQuotes.get(sessionId) || []).map((q) => ({
       id: q.id,
       paperId: q.paperId,
       segmentStableId: q.segmentStableId,
@@ -115,21 +90,4 @@ export const usePaperChatQuoteStore = defineStore('paperChatQuote', () => {
       translationRevisionId: q.translationRevisionId,
       translationModelName: q.translationModelName
     }))
-  }
-
-  return {
-    // State
-    pendingQuotes,
-
-    // Getters
-    getSessionQuotes,
-    hasPendingQuotes,
-
-    // Actions
-    initSession,
-    addQuote,
-    removeQuote,
-    clearQuotes,
-    getPendingQuotesForSending
-  }
-})
+}))

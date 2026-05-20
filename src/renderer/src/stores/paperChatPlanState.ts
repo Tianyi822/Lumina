@@ -1,6 +1,3 @@
-import { ref } from 'vue'
-import type { Ref } from 'vue'
-
 import type {
   Message,
   PlanExecutionStatus,
@@ -9,6 +6,11 @@ import type {
   ReActIteration,
   StreamEvent
 } from '@renderer/types'
+import type { ValueRef } from './paperChatReactIteration'
+
+function createValueRef<T>(value: T): ValueRef<T> {
+  return { value }
+}
 
 /** Plan 步骤内的 ReAct 迭代阶段 */
 export interface PlanStepIteration {
@@ -36,7 +38,7 @@ export interface PaperChatPlanState {
 }
 
 export interface PlanStateManager {
-  planStates: Ref<Map<string, PaperChatPlanState>>
+  planStates: ValueRef<Map<string, PaperChatPlanState>>
   clonePlanSteps: (steps: PlanStep[]) => PlanStep[]
   normalizePlanStepStatus: (status: PlanStepStatus | string) => PlanStepStatus
   setPlanState: (sessionId: string, state: PaperChatPlanState) => void
@@ -52,7 +54,7 @@ export interface PlanStateManager {
     sessionId: string,
     event: StreamEvent,
     streamingMessage: Message | undefined,
-    currentIterationIndex: Ref<Map<string, number>>
+    currentIterationIndex: ValueRef<Map<string, number>>
   ) => void
   isTerminalPlanStepStatus: (status: PlanStepStatus) => boolean
   finalizeMessageIterationsForPlanStep: (
@@ -60,7 +62,7 @@ export interface PlanStateManager {
     sessionId: string,
     stepIndex: number,
     status: PlanStepStatus,
-    currentIterationIndex: Ref<Map<string, number>>,
+    currentIterationIndex: ValueRef<Map<string, number>>,
     error?: string
   ) => void
   appendPlanStepIteration: (sessionId: string, iterationStatus?: string) => void
@@ -70,7 +72,7 @@ export interface PlanStateManager {
 
 /** 创建 Plan 状态管理器 */
 export function usePlanStateManager(): PlanStateManager {
-  const planStates = ref<Map<string, PaperChatPlanState>>(new Map())
+  const planStates = createValueRef<Map<string, PaperChatPlanState>>(new Map())
 
   function clonePlanSteps(steps: PlanStep[]): PlanStep[] {
     return steps.map((step) => ({
@@ -209,7 +211,7 @@ export function usePlanStateManager(): PlanStateManager {
     sessionId: string,
     event: StreamEvent,
     streamingMessage: Message | undefined,
-    currentIterationIndex: Ref<Map<string, number>>
+    currentIterationIndex: ValueRef<Map<string, number>>
   ): void {
     if (!event.planStepUpdate) return
     const turnId = event.turnId || planStates.value.get(sessionId)?.turnId
@@ -274,7 +276,7 @@ export function usePlanStateManager(): PlanStateManager {
     sessionId: string,
     stepIndex: number,
     status: PlanStepStatus,
-    currentIterationIndex: Ref<Map<string, number>>,
+    currentIterationIndex: ValueRef<Map<string, number>>,
     error?: string
   ): void {
     const taskNumber = stepIndex + 1

@@ -1,0 +1,73 @@
+@import './creator/lab-creator.css';
+
+.ssh-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.ssh-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ssh-form__field--inline {
+  flex-direction: row;
+  gap: 12px;
+}
+
+.ssh-form__field-half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ssh-form__toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.ssh-form__toggle-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 6px;
+  background-color: var(--sm-color-bg-app);
+  color: var(--sm-color-text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ssh-form__toggle-btn.active {
+  border-color: var(--sm-color-border-selected);
+  background-color: var(--sm-color-surface-selected);
+}
+
+.ssh-form__toggle-btn:hover:not(.active) {
+  border-color: var(--sm-color-text-secondary);
+}
+
+.ssh-form__input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ssh-form__input-row .form-input {
+  flex: 1;
+}
+
+.ssh-form__test-btn {
+  align-self: flex-start;
+}
+
+.ssh-form__key-textarea {
+  resize: vertical;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  min-height: 80px;
+}

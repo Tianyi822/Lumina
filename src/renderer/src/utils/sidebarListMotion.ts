@@ -1,6 +1,4 @@
-import type { CSSProperties } from 'vue'
-
-export type SidebarListItemMotionStyle = CSSProperties
+export type SidebarListItemMotionStyle = Record<string, string>
 
 const SIDEBAR_ITEM_ENTER_BASE_DELAY_MS = 220
 const SIDEBAR_ITEM_ENTER_STAGGER_MS = 35

@@ -6,7 +6,7 @@ import { findLab } from './toolExecutor'
 import { selectReusableFrontendLab } from './toolHelpers'
 import { ToolArgs, LabToolDefinition } from './types'
 
-const DEFAULT_FRONTEND_FRAMEWORK: FrontendFramework = 'vue'
+const DEFAULT_FRONTEND_FRAMEWORK: FrontendFramework = 'react'
 
 async function findReusableFrontendLab(
   name: string,
@@ -36,7 +36,7 @@ export const createFrontendLabTool: LabToolDefinition = {
       name: { type: 'string', description: '实验室名称' },
       framework: {
         type: 'string',
-        enum: ['vue', 'react', 'vanilla'],
+        enum: ['react', 'vanilla'],
         description: '前端框架类型'
       },
       container_port: {

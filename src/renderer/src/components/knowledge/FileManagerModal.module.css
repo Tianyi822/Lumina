@@ -1,0 +1,25 @@
+.file-manager-overlay {
+  z-index: 1000;
+}
+
+.file-manager-container {
+  width: min(960px, calc(100vw - 72px));
+  max-height: min(820px, calc(100vh - 104px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.drop-zone-wrapper {
+  margin: var(--sm-space-4) var(--sm-space-5);
+}
+
+.drop-zone-wrapper .upload-zone {
+  min-height: 180px;
+}
+
+@media (max-width: 720px) {
+  .file-manager-container {
+    width: calc(100vw - 32px);
+  }
+}

@@ -501,14 +501,14 @@ export class PaperContextSearchToolService {
     }
 
     const currentIndex = Math.min(
-      Math.floor((progress.scrollPercent / 100) * totalSegments),
+      Math.floor((progress.scrollPercent / 100) * Math.max(1, totalSegments - 1)),
       totalSegments - 1
     )
 
     return this.filterCorpusBySegmentRange(
       corpus,
       Math.max(0, currentIndex - READING_PROGRESS_WINDOW_BEFORE),
-      currentIndex + READING_PROGRESS_WINDOW_AFTER,
+      currentIndex + Math.max(0, READING_PROGRESS_WINDOW_AFTER - READING_PROGRESS_WINDOW_BEFORE),
       source
     )
   }

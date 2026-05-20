@@ -1,0 +1,47 @@
+.processing-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.processing-file-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  font-size: 12px;
+  color: var(--sm-color-text-primary);
+}
+
+.processing-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.processing-status.uploading,
+.processing-status.parsing {
+  color: var(--sm-color-text-secondary);
+}
+
+.processing-status.completed {
+  color: var(--sm-color-accent-hover);
+}
+
+.processing-status.failed {
+  color: var(--sm-color-status-danger);
+}
+
+.processing-error {
+  font-size: 11px;
+  opacity: 0.8;
+}

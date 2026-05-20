@@ -1,7 +1,6 @@
 import type { FrontendFramework, ProjectTemplate, TemplateVariables } from '@shared/types/lab'
 import { reactTemplate } from './reactTemplate'
 import { vanillaTemplate } from './vanillaTemplate'
-import { vueTemplate } from './vueTemplate'
 
 /**
  * 模板服务
@@ -13,8 +12,6 @@ export class TemplateService {
    */
   getTemplate(framework: FrontendFramework): ProjectTemplate {
     switch (framework) {
-      case 'vue':
-        return vueTemplate
       case 'react':
         return reactTemplate
       case 'vanilla':
