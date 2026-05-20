@@ -41,8 +41,6 @@ export default function LabPage() {
   const recheckingDockerRef = useRef(recheckingDocker)
   const currentLabRef = useRef(currentLab)
 
-  const _currentLabId = currentLabId
-
   const deleteDialogLab = (() => {
     const state = deleteConfirmState
     if (!state.labId) return null
@@ -153,8 +151,8 @@ export default function LabPage() {
   }, [currentLab])
 
   useEffect(() => {
-    if (_currentLabId) setLastLabId(_currentLabId)
-  }, [_currentLabId, setLastLabId])
+    if (currentLabId) setLastLabId(currentLabId)
+  }, [currentLabId, setLastLabId])
 
   return (
     <div className={`${styles.page} sm-workspace-view`}>
