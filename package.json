@@ -60,8 +60,6 @@
     "openai": "^6.16.0",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.4.624",
-    "pinia": "^3.0.4",
-    "pinia-plugin-persistedstate": "^4.7.1",
     "react": "^19",
     "react-dom": "^19",
     "ssh2": "^1.17.0",

@@ -119,11 +119,11 @@ test('同名同框架前端实验室默认选择最新可复用实例', () => {
     },
     {
       ...baseLab,
-      labId: 'lab-vue',
+      labId: 'lab-vanilla',
       frontend: {
-        framework: 'vue',
+        framework: 'vanilla',
         storageType: 'docker-volume',
-        volumeName: 'volume-vue',
+        volumeName: 'volume-vanilla',
         mountPath: '/workspace',
         projectRoot: '/workspace',
         packageManager: 'bun',
@@ -143,5 +143,5 @@ test('同名同框架前端实验室默认选择最新可复用实例', () => {
   const match = selectReusableFrontendLab(labs, 'Tianyi-Blog', 'react')
 
   assert.equal(match?.labId, 'lab-new')
-  assert.equal(selectReusableFrontendLab(labs, 'Tianyi-Blog', 'vanilla'), null)
+  assert.equal(selectReusableFrontendLab(labs, 'Other-Blog', 'vanilla'), null)
 })
