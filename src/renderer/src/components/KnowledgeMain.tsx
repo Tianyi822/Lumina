@@ -224,7 +224,7 @@ export default function KnowledgeMain({
           />
         </div>
       ) : (
-        <div className="sm-empty empty-kb">
+        <div className={['sm-empty', styles.emptyKb].join(' ')}>
           <h2>选择或创建知识库</h2>
           <p>从左侧选择一个知识库，开始管理文档、索引和检索实验。</p>
         </div>
