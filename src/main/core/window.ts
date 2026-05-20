@@ -18,11 +18,6 @@ import icon from '../../../resources/icon.png?asset'
  */
 let mainWindow: BrowserWindow | null = null
 
-function resolveDevRendererUrl(baseUrl: string, htmlFile: string): string {
-  const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`
-  return new URL(htmlFile, normalizedBaseUrl).toString()
-}
-
 function formatLoadError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -107,9 +102,7 @@ export function createMainWindow(): BrowserWindow {
     }
   })
 
-  const isReactUI = process.env['LUMINA_UI'] === 'react'
-  const htmlFile = isReactUI ? 'index.react.html' : 'index.html'
-  const entryType = isReactUI ? 'react' : 'vue'
+  const htmlFile = 'index.html'
 
   mainWindow.webContents.on(
     'did-fail-load',
@@ -117,7 +110,6 @@ export function createMainWindow(): BrowserWindow {
       if (!isMainFrame) return
 
       logger.error('主窗口页面加载失败', 'main', {
-        entryType,
         htmlFile,
         errorCode,
         errorDescription,
@@ -129,10 +121,9 @@ export function createMainWindow(): BrowserWindow {
   // 开发环境下使用 electron-vite cli 的热模块替换
   // 生产环境加载本地 html 文件
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    const rendererUrl = resolveDevRendererUrl(process.env['ELECTRON_RENDERER_URL'], htmlFile)
+    const rendererUrl = process.env['ELECTRON_RENDERER_URL']
     void mainWindow.loadURL(rendererUrl).catch((error: unknown) => {
       logger.error('主窗口页面加载请求失败', 'main', {
-        entryType,
         htmlFile,
         rendererUrl,
         error: formatLoadError(error)
@@ -142,7 +133,6 @@ export function createMainWindow(): BrowserWindow {
     const rendererFile = join(__dirname, `../renderer/${htmlFile}`)
     void mainWindow.loadFile(rendererFile).catch((error: unknown) => {
       logger.error('主窗口页面加载请求失败', 'main', {
-        entryType,
         htmlFile,
         rendererFile,
         error: formatLoadError(error)
