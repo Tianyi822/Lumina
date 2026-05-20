@@ -288,8 +288,8 @@ export const useLabListStore = create<LabListState>()((set, get) => ({
 
   removeLabStatus: (labId: string): void => {
     set((state) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { [labId]: _removed, ...rest } = state.labContainerStatus
+      const rest = { ...state.labContainerStatus }
+      delete rest[labId]
       return { labContainerStatus: rest }
     })
   }
