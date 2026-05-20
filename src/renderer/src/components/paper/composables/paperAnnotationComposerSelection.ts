@@ -14,7 +14,7 @@ import {
 } from './paperCanonicalTextIndex'
 import type { ComputedRef, SelectionDraft } from './paperAnnotationComposerTypes'
 import type { RenderSourceSegment } from './usePaperHighlightRenderer'
-import type { RenderedSegment } from './usePaperMarkdownEngine'
+import type { RenderedSegment } from '../hooks/usePaperMarkdownEngine'
 
 export interface PaperAnnotationSelectionResult {
   draft: SelectionDraft
