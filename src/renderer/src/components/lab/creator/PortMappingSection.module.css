@@ -4,11 +4,40 @@
   background-color: var(--sm-color-bg-app);
 }
 
+/* ─── 头部：标题 + 操作按钮 ─── */
+
 .port-mapping-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+}
+
+.port-mapping-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+}
+
+.toggle-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--sm-color-text-secondary);
+  transition: transform 0.2s ease;
+  transform: rotate(90deg);
+}
+
+.toggle-chevron--collapsed {
+  transform: rotate(0deg);
 }
 
 .port-mapping-title {
@@ -16,15 +45,6 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--sm-color-text-primary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.port-count {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--sm-color-text-secondary);
 }
 
 .port-mapping-actions {
@@ -43,8 +63,28 @@
   cursor: pointer;
 }
 
+/* ─── 折叠动画容器 ─── */
+/* grid-template-rows: 0fr → 1fr 实现平滑高度过渡 */
+
+.port-mapping-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.port-mapping-collapse--collapsed {
+  grid-template-rows: 0fr;
+}
+
+.port-mapping-collapse__inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ─── 内容 ─── */
+
 .port-mapping-hint {
-  margin: 0 0 12px 0;
+  margin: 8px 0 12px 0;
   font-size: 12px;
   color: var(--sm-color-text-secondary);
   line-height: 1.5;
