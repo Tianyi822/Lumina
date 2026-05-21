@@ -8,11 +8,11 @@ interface CreateTypeSelectorProps {
   onChange: (type: CreateType) => void
 }
 
-const types: { type: CreateType; label: string; desc: string }[] = [
-  { type: 'compose', label: 'Docker Compose', desc: '从 docker-compose.yml 文件创建多容器实验室' },
-  { type: 'dockerfile', label: 'Dockerfile', desc: '从 Dockerfile 构建自定义容器实验室' },
-  { type: 'existing', label: '已有容器', desc: '关联已经运行的 Docker 容器' },
-  { type: 'ssh', label: 'SSH 远程', desc: '连接到远程 SSH 服务器' }
+const types: { type: CreateType; label: string }[] = [
+  { type: 'compose', label: 'Docker Compose' },
+  { type: 'dockerfile', label: 'Dockerfile' },
+  { type: 'existing', label: '选择已有容器' },
+  { type: 'ssh', label: 'SSH 远程服务器' }
 ]
 
 export default function CreateTypeSelector({
@@ -21,17 +21,30 @@ export default function CreateTypeSelector({
   onChange
 }: CreateTypeSelectorProps) {
   return (
-    <div className={styles['create-type-selector']}>
+    <div className={styles['creator-type-selection']} role="radiogroup" aria-label="实验室创建方式">
       {types.map((t) => (
-        <button
+        <label
           key={t.type}
-          className={`${styles['type-option']} ${createType === t.type ? styles.active : ''}`}
-          disabled={t.type !== 'ssh' && !dockerReady}
-          onClick={() => onChange(t.type)}
+          className={[
+            styles['type-option'],
+            createType === t.type && styles.active,
+            t.type !== 'ssh' && !dockerReady && styles.disabled
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          title={t.type !== 'ssh' && !dockerReady ? 'Docker 未就绪' : ''}
+          role="radio"
+          aria-checked={createType === t.type}
         >
-          <strong>{t.label}</strong>
-          <span>{t.desc}</span>
-        </button>
+          <input
+            type="radio"
+            value={t.type}
+            checked={createType === t.type}
+            disabled={t.type !== 'ssh' && !dockerReady}
+            onChange={() => onChange(t.type)}
+          />
+          <span className={styles['option-label']}>{t.label}</span>
+        </label>
       ))}
     </div>
   )
