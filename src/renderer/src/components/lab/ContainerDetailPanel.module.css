@@ -164,6 +164,7 @@
 }
 
 .btn {
+  composes: btn from global;
   min-height: 32px;
 }
 
