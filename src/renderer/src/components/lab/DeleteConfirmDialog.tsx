@@ -48,8 +48,8 @@ export default function DeleteConfirmDialog({
   if (!visible || !lab) return null
 
   return (
-    <div className={`sm-modal__overlay ${styles['delete-dialog-overlay']}`}>
-      <div className={`sm-modal__surface ${styles['delete-dialog']}`}>
+    <div className={`sm-modal__overlay ${styles['delete-confirm-overlay']}`}>
+      <div className={`sm-modal__surface ${styles['delete-confirm-dialog']}`}>
         <h3>{dialogConfig?.title || '确认删除'}</h3>
         <p>{dialogConfig?.message}</p>
         {dialogConfig?.showDeleteOption && (
@@ -62,7 +62,7 @@ export default function DeleteConfirmDialog({
             <span>{dialogConfig.deleteOptionLabel}</span>
           </label>
         )}
-        <div className={styles['delete-actions']}>
+        <div className={styles['dialog-footer']}>
           <button
             className="sm-button sm-button--secondary"
             onClick={onClose}

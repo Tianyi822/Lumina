@@ -1,3 +1,5 @@
+@import './creator/lab-creator.css';
+
 .ssh-form {
   display: flex;
   flex-direction: column;
