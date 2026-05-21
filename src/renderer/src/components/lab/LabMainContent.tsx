@@ -9,6 +9,7 @@ import TabNavigation from './lab-detail/TabNavigation'
 import LabStatsTab from './LabStatsTab'
 import LabTerminalTab from './LabTerminalTab'
 import LabLogsTab from './LabLogsTab'
+import { useLabAutoRefresh } from './hooks/useLabAutoRefresh'
 import type { LabData, DockerStatus } from '@renderer/types/lab'
 import styles from './LabMainContent.module.css'
 
@@ -61,6 +62,14 @@ export default function LabMainContent({
   const [isRebuildingFrontend, setIsRebuildingFrontend] = useState(false)
   const [isConnectingSsh, setIsConnectingSsh] = useState(false)
   const [sshReconnectPassword, setSshReconnectPassword] = useState('')
+
+  const autoRefresh = useLabAutoRefresh({
+    currentLab,
+    selectedContainer,
+    labDetailTab,
+    isOrphan,
+    isLabFrontend
+  })
 
   useEffect(() => {
     setSshReconnectPassword('')
@@ -191,9 +200,7 @@ export default function LabMainContent({
   }
 
   async function handleRefreshStats(): Promise<void> {
-    if (selectedContainer?.id) {
-      await containerStore.loadContainerStats(selectedContainer.id)
-    }
+    await autoRefresh.handleRefreshStats()
   }
 
   const hasLab = !!currentLab
@@ -368,7 +375,7 @@ export default function LabMainContent({
                 selectedContainer={selectedContainer}
                 containerStats={containerStats}
                 storeLoading={storeLoading}
-                isManualRefreshingStats={false}
+                isManualRefreshingStats={autoRefresh.isManualRefreshingStats}
                 startingContainer={isStartingContainer}
                 stoppingContainer={isStoppingContainer}
                 restartingContainer={isRestartingContainer}
@@ -380,9 +387,7 @@ export default function LabMainContent({
                 onRemove={handleDeleteLab}
                 onOpenTerminal={() => setLabDetailTab('terminal')}
                 onViewLogs={() => setLabDetailTab('logs')}
-                onRefreshStats={() => {
-                  void handleRefreshStats()
-                }}
+                onRefreshStats={() => void handleRefreshStats()}
               />
             </div>
 
