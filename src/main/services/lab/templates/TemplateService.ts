@@ -14,6 +14,9 @@ export class TemplateService {
     switch (framework) {
       case 'react':
         return reactTemplate
+      case 'vue':
+        // Vue→React 迁移：旧 lab 的 vue 框架自动转为 react
+        return reactTemplate
       case 'vanilla':
         return vanillaTemplate
       default:
