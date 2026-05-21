@@ -4,6 +4,7 @@ import SvgIcon from '@renderer/components/icons/SvgIcon'
 import LabList from '@renderer/components/lab/LabList'
 import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebarChrome'
 import PaperSidebar from '@renderer/components/paper/PaperSidebar'
+import { CssSwitchTransition, CssTransitionGroup } from '@renderer/components/motion/CssTransition'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 import { summarizeTranslationAnnotations } from '@shared/utils/paperTranslationAnnotations'
 import {
@@ -87,6 +88,8 @@ export default function WorkspaceSidebarHost() {
     return papers.filter((paper) => paper.fileName.toLowerCase().includes(query))
   }, [papers, paperSearchQuery])
 
+  const getKnowledgeBaseKey = useCallback((kb: { id: string }): string => kb.id, [])
+
   const sidebarCount = useMemo(() => {
     if (currentView === 'paper') return papers.length
     if (currentView === 'knowledge') return knowledgeBases.length
@@ -166,7 +169,7 @@ export default function WorkspaceSidebarHost() {
     } finally {
       setIsRefreshingLabList(false)
     }
-  }, [isRefreshingLabList, labStore])
+  }, [currentLab?.labId, isRefreshingLabList, labStore])
 
   const handleUploadPdf = useCallback(async (): Promise<void> => {
     await paperReaderStore.uploadAndRenderPdf()
@@ -355,162 +358,184 @@ export default function WorkspaceSidebarHost() {
 
         <div className={styles['sm-workspace-sidebar-host__viewport']}>
           <div className={styles['sm-workspace-sidebar-host__panel']}>
-            <div
-              className={[
-                'sm-sidebar-shell__search',
-                styles['sm-workspace-sidebar-host__search']
-              ].join(' ')}
-              key={`search-${currentView}`}
-            >
-              {currentView === 'paper' && (
-                <input
-                  type="text"
-                  className="sm-input"
-                  placeholder="搜索论文"
-                  value={paperSearchQuery}
-                  onChange={(e) => setPaperSearchQuery(e.target.value)}
-                />
-              )}
+            <CssSwitchTransition name="sm-sidebar-search-switch" transitionKey={currentView} appear>
+              {({ transitionKey, className, ref }) => (
+                <div
+                  ref={ref}
+                  className={[
+                    'sm-sidebar-shell__search',
+                    styles['sm-workspace-sidebar-host__search'],
+                    className
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {transitionKey === 'paper' && (
+                    <input
+                      type="text"
+                      className="sm-input"
+                      placeholder="搜索论文"
+                      value={paperSearchQuery}
+                      onChange={(e) => setPaperSearchQuery(e.target.value)}
+                    />
+                  )}
 
-              {currentView === 'knowledge' && (
-                <input
-                  type="text"
-                  className="sm-input"
-                  placeholder="搜索知识库"
-                  value={knowledgeSearchQuery}
-                  onChange={(e) => setKnowledgeSearchQuery(e.target.value)}
-                />
-              )}
+                  {transitionKey === 'knowledge' && (
+                    <input
+                      type="text"
+                      className="sm-input"
+                      placeholder="搜索知识库"
+                      value={knowledgeSearchQuery}
+                      onChange={(e) => setKnowledgeSearchQuery(e.target.value)}
+                    />
+                  )}
 
-              {currentView === 'lab' && (
-                <div className={styles['sm-workspace-sidebar-host__search--lab']}>
-                  <input
-                    type="text"
-                    className="sm-input"
-                    placeholder="搜索实验室"
-                    value={labSearchQuery}
-                    onChange={(e) => setLabSearchQuery(e.target.value)}
-                  />
-                  <button
-                    className={[
-                      'sm-icon-button',
-                      styles['sm-workspace-sidebar-host__refresh-button']
-                    ].join(' ')}
-                    title="刷新列表"
-                    disabled={isRefreshingLabList}
-                    onClick={() => {
-                      void handleRefreshLabList()
-                    }}
-                  >
-                    <SvgIcon name="refresh" size={14} spin={isRefreshingLabList} />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div
-              className={[
-                'sm-sidebar-shell__body',
-                'sm-sidebar-shell__body--flush',
-                styles['sm-workspace-sidebar-host__body']
-              ].join(' ')}
-              key={`body-${currentView}`}
-            >
-              {currentView === 'paper' && (
-                <PaperSidebar
-                  papers={filteredPapers}
-                  currentPaperId={currentPaperId}
-                  renderProgressByPaperId={renderProgressByPaperId}
-                  ocrProgressByPaperId={ocrProgressByPaperId}
-                  hasTranslationByPaperId={hasTranslationByPaperId}
-                  onSelectPaper={(paperId) => {
-                    void handleSelectPaper(paperId)
-                  }}
-                  onDeletePaper={(paperId) => {
-                    void handleDeletePaper(paperId)
-                  }}
-                  onDeleteTranslation={(paperId) => {
-                    void handleDeleteTranslation(paperId)
-                  }}
-                  onRetryPaper={(paperId) => {
-                    void handleRetryPaper(paperId)
-                  }}
-                />
-              )}
-
-              {currentView === 'knowledge' && (
-                <div className={styles['sm-workspace-sidebar-host__kb-list']}>
-                  {filteredKnowledgeBases.length > 0 ? (
-                    filteredKnowledgeBases.map((kb, index) => (
-                      <div
-                        key={kb.id}
+                  {transitionKey === 'lab' && (
+                    <div className={styles['sm-workspace-sidebar-host__search--lab']}>
+                      <input
+                        type="text"
+                        className="sm-input"
+                        placeholder="搜索实验室"
+                        value={labSearchQuery}
+                        onChange={(e) => setLabSearchQuery(e.target.value)}
+                      />
+                      <button
                         className={[
-                          styles['sm-workspace-sidebar-host__kb-item'],
-                          kb.id === activeKbId && styles['is-active']
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                        style={getSidebarListItemMotionStyle(index) as CSSProperties}
-                        onClick={() => handleSelectKnowledgeBase(kb.id)}
+                          'sm-icon-button',
+                          styles['sm-workspace-sidebar-host__refresh-button']
+                        ].join(' ')}
+                        title="刷新列表"
+                        disabled={isRefreshingLabList}
+                        onClick={() => {
+                          void handleRefreshLabList()
+                        }}
                       >
-                        <div className={styles['sm-workspace-sidebar-host__kb-icon']}>
-                          {kb.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className={styles['sm-workspace-sidebar-host__kb-info']}>
-                          <div className={styles['sm-workspace-sidebar-host__kb-name-row']}>
-                            <div className={styles['sm-workspace-sidebar-host__kb-name']}>
-                              {kb.name}
-                            </div>
-                            {needsReindex(kb) && (
-                              <span className={styles['sm-workspace-sidebar-host__kb-stale']}>
-                                需重索引
-                              </span>
-                            )}
-                          </div>
-                          <div className={styles['sm-workspace-sidebar-host__kb-meta']}>
-                            {formatDocumentCount(kb.linkedFileIds)}
-                          </div>
-                        </div>
-                        <button
-                          className={styles['sm-workspace-sidebar-host__kb-delete']}
-                          title="删除知识库"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void handleDeleteKnowledgeBase(kb.id)
-                          }}
-                        >
-                          <SvgIcon name="trash" size={14} />
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <div className={styles['sm-workspace-sidebar-host__empty']}>
-                      <div className={styles['sm-workspace-sidebar-host__empty-text']}>
-                        {knowledgeSearchQuery ? '未找到匹配的知识库' : '暂无知识库'}
-                      </div>
-                      {!knowledgeSearchQuery && (
-                        <button
-                          className="sm-button sm-button--secondary sm-button--small"
-                          onClick={handleCreateKnowledgeBase}
-                        >
-                          创建第一个知识库
-                        </button>
-                      )}
+                        <SvgIcon name="refresh" size={14} spin={isRefreshingLabList} />
+                      </button>
                     </div>
                   )}
                 </div>
               )}
+            </CssSwitchTransition>
 
-              {currentView === 'lab' && (
-                <LabList
-                  labs={filteredLabs}
-                  activeLabId={currentLab?.labId}
-                  deletingLabId={deletingLabId}
-                  onSelect={handleSelectLab}
-                  onDelete={handleDeleteLab}
-                />
+            <CssSwitchTransition name="sm-sidebar-body-switch" transitionKey={currentView} appear>
+              {({ transitionKey, className, ref }) => (
+                <div
+                  ref={ref}
+                  className={[
+                    'sm-sidebar-shell__body',
+                    'sm-sidebar-shell__body--flush',
+                    styles['sm-workspace-sidebar-host__body'],
+                    className
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {transitionKey === 'paper' && (
+                    <PaperSidebar
+                      papers={filteredPapers}
+                      currentPaperId={currentPaperId}
+                      renderProgressByPaperId={renderProgressByPaperId}
+                      ocrProgressByPaperId={ocrProgressByPaperId}
+                      hasTranslationByPaperId={hasTranslationByPaperId}
+                      onSelectPaper={(paperId) => {
+                        void handleSelectPaper(paperId)
+                      }}
+                      onDeletePaper={(paperId) => {
+                        void handleDeletePaper(paperId)
+                      }}
+                      onDeleteTranslation={(paperId) => {
+                        void handleDeleteTranslation(paperId)
+                      }}
+                      onRetryPaper={(paperId) => {
+                        void handleRetryPaper(paperId)
+                      }}
+                    />
+                  )}
+
+                  {transitionKey === 'knowledge' && (
+                    <div className={styles['sm-workspace-sidebar-host__kb-list']}>
+                      <CssTransitionGroup
+                        items={filteredKnowledgeBases}
+                        name="sm-sidebar-list-item"
+                        getKey={getKnowledgeBaseKey}
+                        appear
+                      >
+                        {({ item: kb, index, transitionKey: kbKey, className, ref }) => (
+                          <div
+                            ref={ref}
+                            key={kbKey}
+                            className={[
+                              styles['sm-workspace-sidebar-host__kb-item'],
+                              kb.id === activeKbId && styles['is-active'],
+                              className
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
+                            style={getSidebarListItemMotionStyle(index) as CSSProperties}
+                            onClick={() => handleSelectKnowledgeBase(kb.id)}
+                          >
+                            <div className={styles['sm-workspace-sidebar-host__kb-icon']}>
+                              {kb.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className={styles['sm-workspace-sidebar-host__kb-info']}>
+                              <div className={styles['sm-workspace-sidebar-host__kb-name-row']}>
+                                <div className={styles['sm-workspace-sidebar-host__kb-name']}>
+                                  {kb.name}
+                                </div>
+                                {needsReindex(kb) && (
+                                  <span className={styles['sm-workspace-sidebar-host__kb-stale']}>
+                                    需重索引
+                                  </span>
+                                )}
+                              </div>
+                              <div className={styles['sm-workspace-sidebar-host__kb-meta']}>
+                                {formatDocumentCount(kb.linkedFileIds)}
+                              </div>
+                            </div>
+                            <button
+                              className={styles['sm-workspace-sidebar-host__kb-delete']}
+                              title="删除知识库"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                void handleDeleteKnowledgeBase(kb.id)
+                              }}
+                            >
+                              <SvgIcon name="trash" size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </CssTransitionGroup>
+                      {filteredKnowledgeBases.length === 0 && (
+                        <div className={styles['sm-workspace-sidebar-host__empty']}>
+                          <div className={styles['sm-workspace-sidebar-host__empty-text']}>
+                            {knowledgeSearchQuery ? '未找到匹配的知识库' : '暂无知识库'}
+                          </div>
+                          {!knowledgeSearchQuery && (
+                            <button
+                              className="sm-button sm-button--secondary sm-button--small"
+                              onClick={handleCreateKnowledgeBase}
+                            >
+                              创建第一个知识库
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {transitionKey === 'lab' && (
+                    <LabList
+                      labs={filteredLabs}
+                      activeLabId={currentLab?.labId}
+                      deletingLabId={deletingLabId}
+                      onSelect={handleSelectLab}
+                      onDelete={handleDeleteLab}
+                    />
+                  )}
+                </div>
               )}
-            </div>
+            </CssSwitchTransition>
           </div>
         </div>
       </aside>

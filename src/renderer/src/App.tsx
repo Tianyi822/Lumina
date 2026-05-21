@@ -10,6 +10,7 @@ import SvgIcon from '@renderer/components/icons/SvgIcon'
 import WindowControls from '@renderer/components/chrome/WindowControls'
 import WorkspaceSidebarHost from '@renderer/components/chrome/WorkspaceSidebarHost'
 import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar'
+import { CssSwitchTransition } from '@renderer/components/motion/CssTransition'
 
 import KnowledgePage from '@renderer/pages/KnowledgePage'
 import LabPage from '@renderer/pages/LabPage'
@@ -28,7 +29,6 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false)
 
   const isPaperView = currentView === 'paper'
-  const isKnowledgeView = currentView === 'knowledge'
 
   const workspacePageClasses = [
     styles.workspacePage,
@@ -83,6 +83,12 @@ export default function App() {
     useUIStateStore.getState().loadConfigStatus()
   }, [])
 
+  const renderWorkspaceView = useCallback((view: string) => {
+    if (view === 'paper') return <PaperReaderPage key="paper" />
+    if (view === 'knowledge') return <KnowledgePage key="knowledge" />
+    return <LabPage key="lab" />
+  }, [])
+
   return (
     <div className="sm-app">
       <NotificationCenter />
@@ -124,9 +130,16 @@ export default function App() {
           <WorkspaceToolbar />
 
           <div className="sm-workspace-main__body sm-workspace-main__body--fill">
-            {isPaperView && <PaperReaderPage key="paper" />}
-            {isKnowledgeView && <KnowledgePage key="knowledge" />}
-            {!isPaperView && !isKnowledgeView && <LabPage key="lab" />}
+            <CssSwitchTransition name="sm-workspace-switch" transitionKey={currentView} appear>
+              {({ transitionKey, className, ref }) => (
+                <div
+                  ref={ref}
+                  className={['sm-workspace-view', className].filter(Boolean).join(' ')}
+                >
+                  {renderWorkspaceView(transitionKey)}
+                </div>
+              )}
+            </CssSwitchTransition>
           </div>
         </div>
       </div>
