@@ -49,7 +49,6 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
   const contentTransitionTimerRef = useRef<number | null>(null)
   const pendingContentVisibleRef = useRef(false)
   const wasVisibleRef = useRef(false)
-  const containers = useContainerStore((s) => s.containers) || []
 
   const clearCreateError = (): void => {
     creatorStore.clearCreateError()
@@ -419,7 +418,7 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
             onClick={(e) => e.stopPropagation()}
           >
             <div className="creator-header">
-              <h2>创建新实验室</h2>
+              <h2>创建实验室</h2>
               <button className="close-btn" onClick={onClose}>
                 ×
               </button>
@@ -446,14 +445,7 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                   .filter(Boolean)
                   .join(' ')}
               >
-                {createType === 'existing' && (
-                  <ContainerSelector
-                    containers={containers}
-                    onSelect={(containerId) => {
-                      creatorStore.selectContainer(containerId)
-                    }}
-                  />
-                )}
+                {createType === 'existing' && <ContainerSelector />}
 
                 {containerSelectHint && <div className="container-hint">{containerSelectHint}</div>}
 
@@ -483,22 +475,19 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                 )}
 
                 {createType === 'compose' && (
-                  <>
-                    <ComposeEditor
-                      modelValue={composeContent}
-                      projectName={composeProjectName}
-                      onUpdateModelValue={(v) => {
-                        creatorStore.setComposeContent(v)
-                      }}
-                      onUpdateProjectName={(v) => {
-                        creatorStore.setComposeProjectName(v)
-                      }}
-                      onSaveConfig={() => {
-                        creatorStore.openSaveDialog('compose')
-                      }}
-                    />
-                    {renderPortMappingSection('compose')}
-                  </>
+                  <ComposeEditor
+                    modelValue={composeContent}
+                    projectName={composeProjectName}
+                    onUpdateModelValue={(v) => {
+                      creatorStore.setComposeContent(v)
+                    }}
+                    onUpdateProjectName={(v) => {
+                      creatorStore.setComposeProjectName(v)
+                    }}
+                    onSaveConfig={() => {
+                      creatorStore.openSaveDialog('compose')
+                    }}
+                  />
                 )}
 
                 {createType === 'dockerfile' && (
@@ -530,7 +519,6 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                         creatorStore.openSaveDialog('dockerfile')
                       }}
                     />
-                    {renderPortMappingSection('dockerfile')}
                   </>
                 )}
 
@@ -662,19 +650,22 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                     </button>
                   </div>
                 )}
-
-                <CreateActions
-                  isCreating={isCreating}
-                  canCreate={canCreate}
-                  createPhaseText={createPhaseText}
-                  onClose={onClose}
-                  onCreate={async () => {
-                    const created = await creatorStore.handleCreate()
-                    if (created) onClose()
-                  }}
-                />
               </div>
             </div>
+            {(createType === 'compose' || createType === 'dockerfile') &&
+              renderPortMappingSection(createType)}
+
+            <CreateActions
+              createType={createType}
+              isCreating={isCreating}
+              canCreate={canCreate}
+              createPhaseText={createPhaseText}
+              onClose={onClose}
+              onCreate={async () => {
+                const created = await creatorStore.handleCreate()
+                if (created) onClose()
+              }}
+            />
 
             <SaveConfigDialog
               visible={showSaveDialog}

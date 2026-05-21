@@ -5,6 +5,7 @@
   padding: 16px 20px;
   border-top: 1px solid var(--sm-color-border-default);
   background-color: var(--sm-color-surface-1);
+  flex-shrink: 0;
 }
 
 .btn {
