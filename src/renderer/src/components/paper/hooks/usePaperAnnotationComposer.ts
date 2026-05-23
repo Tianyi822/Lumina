@@ -320,6 +320,28 @@ export function usePaperAnnotationComposer(
     selectionResolver
   ])
 
+  const handleUpgradeHighlightToNote = useCallback(
+    async (comment: string): Promise<void> => {
+      const annotationId = noteEditorDraftRef.current?.draft.annotationId
+      if (!annotationId) return
+      const annotation = getAnnotationById(annotationId)
+      if (!annotation || annotation.kind !== 'highlight') return
+
+      setNoteEditorSaving(true)
+      setNoteEditorError(null)
+      const result = await actions.upgradeHighlightToNote(annotation, comment)
+      setNoteEditorSaving(false)
+
+      if (!result.success) {
+        setNoteEditorError(result.error || '升级笔记失败')
+        return
+      }
+      clearSelectionUi()
+      clearNativeSelection()
+    },
+    [actions, clearNativeSelection, clearSelectionUi, getAnnotationById, noteEditorDraftRef]
+  )
+
   const updateComposerFromSelection = useCallback(
     (event?: MouseEvent): void => {
       const selectionResult = selectionResolver.buildSelectionDraftFromCurrentSelection(event)
@@ -327,8 +349,23 @@ export function usePaperAnnotationComposer(
         return
       }
 
+      const savedRange =
+        typeof window !== 'undefined' && window.getSelection()?.rangeCount
+          ? window.getSelection()!.getRangeAt(0).cloneRange()
+          : null
+
       clearComposer()
       openSelectionActionMenu(selectionResult.draft, selectionResult.rect)
+
+      if (savedRange) {
+        requestAnimationFrame(() => {
+          const sel = window.getSelection()
+          if (sel) {
+            sel.removeAllRanges()
+            sel.addRange(savedRange)
+          }
+        })
+      }
     },
     [clearComposer, openSelectionActionMenu, selectionResolver]
   )
@@ -434,6 +471,13 @@ export function usePaperAnnotationComposer(
       return
     }
 
+    // 普通标记不支持修改 comment，需要升级为笔记标记
+    const annotation = getAnnotationById(annotationId)
+    if (annotation?.kind === 'highlight') {
+      await handleUpgradeHighlightToNote(noteEditorCommentRef.current)
+      return
+    }
+
     setNoteEditorSaving(true)
     setNoteEditorError(null)
     const result = await optionsRef.current.updateAnnotation({
@@ -450,6 +494,8 @@ export function usePaperAnnotationComposer(
 
     setNoteEditorOriginalComment(noteEditorCommentRef.current)
   }, [
+    getAnnotationById,
+    handleUpgradeHighlightToNote,
     noteEditorCommentRef,
     noteEditorDraftRef,
     noteEditorOriginalCommentRef,
