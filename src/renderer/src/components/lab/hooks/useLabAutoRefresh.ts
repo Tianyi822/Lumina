@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { useContainerStore, useLabStore } from '@renderer/stores'
+import { useContainerStore } from '@renderer/stores'
 import type { ContainerDetails, LabData } from '@renderer/types/lab'
 
 const LAB_AUTO_REFRESH_INTERVAL = 3000
@@ -20,7 +20,7 @@ interface UseLabAutoRefreshReturn {
 }
 
 export function useLabAutoRefresh(options: UseLabAutoRefreshOptions): UseLabAutoRefreshReturn {
-  const { currentLab, selectedContainer, labDetailTab, isOrphan } = options
+  const { currentLab, selectedContainer, labDetailTab } = options
 
   const [isRefreshingStats, setIsRefreshingStats] = useState(false)
   const [isManualRefreshingStats, setIsManualRefreshingStats] = useState(false)
@@ -28,6 +28,7 @@ export function useLabAutoRefresh(options: UseLabAutoRefreshOptions): UseLabAuto
 
   const timerRef = useRef<number | null>(null)
   const isRefreshingStatsRef = useRef(false)
+  const isRefreshingLabStateRef = useRef(false)
 
   const refreshStats = useCallback(
     async (refreshOptions?: { silent?: boolean }) => {
@@ -50,37 +51,47 @@ export function useLabAutoRefresh(options: UseLabAutoRefreshOptions): UseLabAuto
     (container?: ContainerDetails | null): boolean => {
       const target = container || selectedContainer
       if (!currentLab || currentLab.backendType === 'ssh' || !target) return false
-      if (currentLab.frontend && !isOrphan) return true
       return labDetailTab === 'stats' && target.state === 'running'
     },
-    [currentLab, selectedContainer, labDetailTab, isOrphan]
+    [currentLab, selectedContainer, labDetailTab]
   )
 
   const runLabRefreshCycle = useCallback(
     async (cycleOptions?: { silentStats?: boolean }) => {
       const labId = currentLab?.labId
-      if (!labId || isRefreshingLabState) return
+      const containerId = selectedContainer?.id
+      if (!labId || !containerId || isRefreshingLabStateRef.current) return
 
+      isRefreshingLabStateRef.current = true
       setIsRefreshingLabState(true)
       try {
-        await useLabStore.getState().loadLab(labId, true, { silent: true })
+        const detailsLoaded = await useContainerStore
+          .getState()
+          .loadContainerDetails(containerId, { silent: true })
+
+        if (!detailsLoaded) {
+          return
+        }
 
         const container = useContainerStore.getState().selectedContainer
-        if (!container) {
+        if (!container || container.id !== containerId) {
           useContainerStore.getState().clearContainerStats()
           return
         }
 
         if (labDetailTab === 'stats' && container.state === 'running') {
-          await refreshStats({ silent: cycleOptions?.silentStats })
+          await useContainerStore
+            .getState()
+            .loadContainerStats(container.id, { silent: cycleOptions?.silentStats })
         } else if (container.state !== 'running') {
           useContainerStore.getState().clearContainerStats()
         }
       } finally {
+        isRefreshingLabStateRef.current = false
         setIsRefreshingLabState(false)
       }
     },
-    [currentLab?.labId, labDetailTab, refreshStats, isRefreshingLabState]
+    [currentLab?.labId, selectedContainer?.id, labDetailTab]
   )
 
   const stopAutoRefresh = useCallback(() => {
@@ -117,12 +128,22 @@ export function useLabAutoRefresh(options: UseLabAutoRefreshOptions): UseLabAuto
 
     await runLabRefreshCycle()
 
-    if (shouldKeepAutoRefresh() && useContainerStore.getState().selectedContainer?.id === container.id) {
+    if (
+      shouldKeepAutoRefresh() &&
+      useContainerStore.getState().selectedContainer?.id === container.id
+    ) {
       startAutoRefresh()
     } else {
       stopAutoRefresh()
     }
-  }, [currentLab, selectedContainer, runLabRefreshCycle, shouldKeepAutoRefresh, startAutoRefresh, stopAutoRefresh])
+  }, [
+    currentLab,
+    selectedContainer,
+    runLabRefreshCycle,
+    shouldKeepAutoRefresh,
+    startAutoRefresh,
+    stopAutoRefresh
+  ])
 
   const handleRefreshStats = useCallback(async () => {
     if (isManualRefreshingStats) return
