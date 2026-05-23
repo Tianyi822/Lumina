@@ -124,7 +124,7 @@ export function createPaperAnnotationSelectionResolver(
       return null
     }
 
-    const mathElement = target.closest('.katex')
+    const mathElement = target.closest('.katex-display') || target.closest('.katex')
     const surface = target.closest<HTMLElement>('[data-paper-selection-surface="true"]')
     if (!mathElement || !surface) {
       return null

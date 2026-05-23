@@ -4,7 +4,7 @@ export interface CanonicalTextBoundary {
 }
 
 export interface CanonicalTextSegment {
-  kind: 'text' | 'math'
+  kind: 'text' | 'math' | 'display_math'
   text: string
   startOffset: number
   endOffset: number
@@ -189,7 +189,10 @@ export function findCanonicalMathSegmentByNode(
 ): CanonicalTextSegment | null {
   return (
     index.segments.find((segment) => {
-      return segment.kind === 'math' && containsNode(segment.sourceNode, node)
+      return (
+        (segment.kind === 'math' || segment.kind === 'display_math') &&
+        containsNode(segment.sourceNode, node)
+      )
     }) || null
   )
 }
@@ -218,6 +221,19 @@ export function buildCanonicalTextIndex(root: Element): CanonicalTextIndex {
   const segments: CanonicalTextSegment[] = []
 
   function walk(node: Node): void {
+    // 先检查居中公式容器（.katex-display > .katex 结构，walk 自上而下会先遇到 .katex-display）
+    if (isElementNode(node) && matchesElement(node, '.katex-display')) {
+      appendSegment(segments, textParts, {
+        kind: 'display_math',
+        text: readKatexTex(node),
+        startBoundary: getElementBoundary(node, 'before'),
+        endBoundary: getElementBoundary(node, 'after'),
+        sourceNode: node
+      })
+      return
+    }
+
+    // 行内公式
     if (isElementNode(node) && matchesElement(node, '.katex')) {
       appendSegment(segments, textParts, {
         kind: 'math',
@@ -279,7 +295,7 @@ export function resolveCanonicalTextPoint(
       continue
     }
 
-    if (segment.kind === 'math') {
+    if (segment.kind === 'math' || segment.kind === 'display_math') {
       if (offset <= segment.startOffset) {
         return segment.startBoundary
       }
@@ -402,7 +418,10 @@ export function getCanonicalRangeClientRect(
     return segment.endOffset > nextStartOffset && segment.startOffset < nextEndOffset
   })
   const mathRects = selectedSegments.flatMap((segment) => {
-    if (segment.kind !== 'math' || !isElementNode(segment.sourceNode)) {
+    if (
+      (segment.kind !== 'math' && segment.kind !== 'display_math') ||
+      !isElementNode(segment.sourceNode)
+    ) {
       return []
     }
 
@@ -414,7 +433,10 @@ export function getCanonicalRangeClientRect(
       ? normalizeClientRect(fallbackRange.getBoundingClientRect())
       : null
 
-  if (selectedSegments.length > 0 && selectedSegments.every((segment) => segment.kind === 'math')) {
+  if (
+    selectedSegments.length > 0 &&
+    selectedSegments.every((segment) => segment.kind === 'math' || segment.kind === 'display_math')
+  ) {
     return unionClientRects(mathRects) || fallbackRect
   }
 
