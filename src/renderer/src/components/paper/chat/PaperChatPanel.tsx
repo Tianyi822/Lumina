@@ -63,6 +63,16 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
       return null
     }
 
+    // 如果最新消息之前有工具调用消息（搜索、ReAct 工具等），跳过 option 解析
+    const messages = sessionState.messages
+    const latestIndex = messages.findIndex((m) => m.id === latestMessage.id)
+    if (latestIndex > 0) {
+      const prevMessage = messages[latestIndex - 1]
+      if (prevMessage && prevMessage.role === 'tool') {
+        return null
+      }
+    }
+
     const parsed = parseMessageOptions(latestMessage.content)
     if (!parsed.hasOptions) {
       return null
