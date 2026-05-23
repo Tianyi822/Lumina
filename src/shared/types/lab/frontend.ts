@@ -1,7 +1,7 @@
 /**
  * 前端框架类型
  */
-export type FrontendFramework = 'react' | 'vanilla'
+export type FrontendFramework = 'react' | 'vue' | 'vanilla'
 
 /**
  * 前端工作区存储类型

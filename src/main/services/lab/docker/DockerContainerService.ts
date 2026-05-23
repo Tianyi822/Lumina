@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import { logger } from '@main/services/logger'
 import type { ContainerDetails, ContainerFilter, ContainerInfo, LabResult } from '@shared/types/lab'
 import { DockerContainerMapper } from './DockerContainerMapper'
+import { toDockerOperationError } from './dockerErrors'
 import type { DockerContainerInfo, DockerServiceContext } from './types'
 import { serialize } from './types'
 
@@ -37,16 +38,16 @@ export class DockerContainerService {
         }
       }
 
-      logger.info('[DockerService] 调用 Docker API listContainers', 'main', { opts })
+      logger.debug('[DockerService] 调用 Docker API listContainers', 'main', { opts })
       const containers = await this.context.getDocker().listContainers(opts)
-      logger.info('[DockerService] Docker API 返回原始数据', 'main', {
+      logger.debug('[DockerService] Docker API 返回原始数据', 'main', {
         count: containers.length,
         firstContainerType: containers[0] ? typeof containers[0] : null,
         firstContainerKeys: containers[0] ? Object.keys(containers[0]) : null
       })
 
       const serializedContainers: DockerContainerInfo[] = serialize(containers)
-      logger.info('[DockerService] 序列化后数据', 'main', {
+      logger.debug('[DockerService] 序列化后数据', 'main', {
         count: serializedContainers.length,
         sample: serializedContainers[0]
           ? JSON.stringify(serializedContainers[0]).substring(0, 500)
@@ -68,18 +69,18 @@ export class DockerContainerService {
       }
 
       const finalResult = serialize(result)
-      logger.info('[DockerService] 最终结果', 'main', {
-        count: finalResult.length,
-        sample: finalResult[0] ? JSON.stringify(finalResult[0]).substring(0, 500) : '<empty>'
-      })
+      logger.debug('[DockerService] 容器列表加载完成', 'main', { count: finalResult.length })
 
       return finalResult
     } catch (error) {
+      const dockerError = toDockerOperationError(error, '获取容器列表失败')
       logger.error('[DockerService] 获取容器列表失败', 'main', {
-        error: error instanceof Error ? error.message : String(error),
+        error: dockerError.message,
+        reason: dockerError.reason,
+        statusCode: dockerError.statusCode,
         stack: error instanceof Error ? error.stack : undefined
       })
-      return []
+      throw dockerError
     }
   }
 
@@ -93,7 +94,7 @@ export class DockerContainerService {
       const container = this.context.getDocker().getContainer(containerId)
       const rawInfo = await container.inspect()
       const info = serialize(rawInfo)
-      const baseInfo = await this.mapper.getContainerBaseInfo(containerId)
+      const baseInfo = this.mapper.mapInspectBaseInfo(info)
 
       const cmd = info.Config?.Cmd
       const entrypoint = info.Config?.Entrypoint
@@ -109,8 +110,22 @@ export class DockerContainerService {
         entrypoint: Array.isArray(entrypoint) ? entrypoint : entrypoint ? [entrypoint] : []
       })
     } catch (error) {
-      logger.error('获取容器详情失败', 'main', { error, containerId })
-      return null
+      const dockerError = toDockerOperationError(error, '获取容器详情失败')
+      if (dockerError.reason === 'not_found') {
+        logger.warn('容器不存在', 'main', {
+          error: dockerError.message,
+          containerId
+        })
+        return null
+      }
+
+      logger.error('获取容器详情失败', 'main', {
+        error: dockerError.message,
+        reason: dockerError.reason,
+        statusCode: dockerError.statusCode,
+        containerId
+      })
+      throw dockerError
     }
   }
 
@@ -191,12 +206,16 @@ export class DockerContainerService {
       await container.inspect()
       return true
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      if (errorMessage.includes('404') || errorMessage.includes('No such container')) {
+      const dockerError = toDockerOperationError(error, '检查容器存在性失败')
+      if (dockerError.reason === 'not_found') {
         return false
       }
-      logger.warn('检查容器存在性失败', 'main', { error: errorMessage, containerId })
-      return false
+      logger.warn('检查容器存在性失败', 'main', {
+        error: dockerError.message,
+        reason: dockerError.reason,
+        containerId
+      })
+      throw dockerError
     }
   }
 
@@ -442,8 +461,8 @@ export class DockerContainerService {
     containerId: string,
     error: unknown
   ): LabResult {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    const friendlyError = this.getFriendlyOperationError(operation, errorMessage)
+    const dockerError = toDockerOperationError(error, `容器${operation}失败`)
+    const friendlyError = this.getFriendlyOperationError(operation, dockerError.message)
     const actionMap = {
       start: '启动',
       stop: '停止',
@@ -451,8 +470,13 @@ export class DockerContainerService {
       remove: '删除'
     }
 
-    if (friendlyError === errorMessage) {
-      logger.error(`容器${actionMap[operation]}失败`, 'main', { error: errorMessage, containerId })
+    if (friendlyError === dockerError.message) {
+      logger.error(`容器${actionMap[operation]}失败`, 'main', {
+        error: dockerError.message,
+        reason: dockerError.reason,
+        statusCode: dockerError.statusCode,
+        containerId
+      })
     } else {
       logger.warn(`容器${actionMap[operation]}失败`, 'main', {
         reason: friendlyError,

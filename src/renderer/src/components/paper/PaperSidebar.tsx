@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
+import { CssTransitionGroup } from '@renderer/components/motion/CssTransition'
 import { formatFileSize } from '@shared/utils'
 import type { OcrProgressInfo, PaperDocument, PaperStatus } from '@shared/types/paper'
 import type { RenderingProgress } from '@renderer/stores/paperReaderStore'
@@ -174,6 +175,10 @@ function getUnreadableText(paper: PaperDocument): string {
   return '处理中，暂不可阅读'
 }
 
+function getPaperKey(paper: PaperDocument): string {
+  return paper.id
+}
+
 export default function PaperSidebar({
   papers,
   currentPaperId,
@@ -215,125 +220,129 @@ export default function PaperSidebar({
   return (
     <div className="paper-sidebar sm-sidebar-shell__body sm-sidebar-shell__body--flush">
       <div className={styles['paper-list']}>
-        {papers.map((paper, index) => (
-          <div
-            key={paper.id}
-            style={getSidebarListItemMotionStyle(index) as CSSProperties}
-            className={[
-              styles['paper-item'],
-              paper.id === currentPaperId && isPaperReadable(paper)
-                ? styles['paper-item--active']
-                : '',
-              !isPaperReadable(paper) ? styles['paper-item--disabled'] : ''
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            aria-disabled={!isPaperReadable(paper)}
-            onClick={() => handleSelectPaper(paper)}
-          >
-            <div className={styles['paper-item__icon']}>
-              <SvgIcon name="file-pdf" size={20} />
-            </div>
-
-            <div className={styles['paper-item__info']}>
-              <div className={styles['paper-item__name']} title={paper.fileName}>
-                {paper.fileName}
+        <CssTransitionGroup items={papers} name="sm-sidebar-list-item" getKey={getPaperKey} appear>
+          {({ item: paper, index, transitionKey, className, ref }) => (
+            <div
+              ref={ref}
+              key={transitionKey}
+              style={getSidebarListItemMotionStyle(index) as CSSProperties}
+              className={[
+                styles['paper-item'],
+                paper.id === currentPaperId && isPaperReadable(paper)
+                  ? styles['paper-item--active']
+                  : '',
+                !isPaperReadable(paper) ? styles['paper-item--disabled'] : '',
+                className
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-disabled={!isPaperReadable(paper)}
+              onClick={() => handleSelectPaper(paper)}
+            >
+              <div className={styles['paper-item__icon']}>
+                <SvgIcon name="file-pdf" size={20} />
               </div>
-              <div className={styles['paper-item__meta-row']}>
-                <div className={styles['paper-item__meta']}>
-                  <span>{paper.pageCount} 页</span>
-                  <span className={styles['paper-item__meta-sep']}>·</span>
-                  <span>{formatFileSize(paper.fileSize)}</span>
+
+              <div className={styles['paper-item__info']}>
+                <div className={styles['paper-item__name']} title={paper.fileName}>
+                  {paper.fileName}
+                </div>
+                <div className={styles['paper-item__meta-row']}>
+                  <div className={styles['paper-item__meta']}>
+                    <span>{paper.pageCount} 页</span>
+                    <span className={styles['paper-item__meta-sep']}>·</span>
+                    <span>{formatFileSize(paper.fileSize)}</span>
+                  </div>
+
+                  {hasTranslated(paper.id) && (
+                    <button
+                      className={styles['paper-item__translation-tag']}
+                      type="button"
+                      title="点击删除翻译内容"
+                      onClick={(e) => handleDeleteTranslation(paper.id, e)}
+                    >
+                      <span className={styles['paper-item__translation-tag-default']}>有译文</span>
+                      <span className={styles['paper-item__translation-tag-delete']}>删除翻译</span>
+                    </button>
+                  )}
                 </div>
 
-                {hasTranslated(paper.id) && (
-                  <button
-                    className={styles['paper-item__translation-tag']}
-                    type="button"
-                    title="点击删除翻译内容"
-                    onClick={(e) => handleDeleteTranslation(paper.id, e)}
-                  >
-                    <span className={styles['paper-item__translation-tag-default']}>有译文</span>
-                    <span className={styles['paper-item__translation-tag-delete']}>删除翻译</span>
-                  </button>
+                {shouldShowRenderProgress(paper) && (
+                  <div className={styles['paper-item__progress']}>
+                    <div className={styles['paper-item__progress-line']}>
+                      <span className={styles['paper-item__progress-label']}>截图进度</span>
+                      <span>{formatRenderProgressText(paper, renderProgressByPaperId)}</span>
+                    </div>
+                    <div className={styles['paper-item__progress-track']}>
+                      <span
+                        className={[
+                          styles['paper-item__progress-fill'],
+                          styles['paper-item__progress-fill--render']
+                        ].join(' ')}
+                        style={{
+                          width: `${getRenderProgressPercent(paper, renderProgressByPaperId)}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {!shouldShowRenderProgress(paper) && shouldShowOcrProgress(paper) && (
+                  <div className={styles['paper-item__progress']}>
+                    <div className={styles['paper-item__progress-line']}>
+                      <span className={styles['paper-item__progress-label']}>OCR 进度</span>
+                      <span>{formatOcrProgressText(paper, ocrProgressByPaperId)}</span>
+                    </div>
+                    <div className={styles['paper-item__progress-track']}>
+                      <span
+                        className={[
+                          styles['paper-item__progress-fill'],
+                          styles['paper-item__progress-fill--ocr']
+                        ].join(' ')}
+                        style={{
+                          width: `${getOcrProgressPercent(paper, ocrProgressByPaperId)}%`
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {shouldShowRetry(paper) && (
+                  <div className={styles['paper-item__retry']}>
+                    <div className={styles['paper-item__retry-title']}>
+                      {getRetryTitle(paper, renderProgressByPaperId)}
+                    </div>
+                    <div className={styles['paper-item__retry-message']}>
+                      {getRetryMessage(paper, renderProgressByPaperId, ocrProgressByPaperId)}
+                    </div>
+                    <button
+                      className={styles['paper-item__retry-btn']}
+                      type="button"
+                      onClick={(e) => handleRetryPaper(paper.id, e)}
+                    >
+                      重试
+                    </button>
+                  </div>
+                )}
+
+                {!isPaperReadable(paper) && (
+                  <div className={styles['paper-item__unreadable']}>{getUnreadableText(paper)}</div>
                 )}
               </div>
 
-              {shouldShowRenderProgress(paper) && (
-                <div className={styles['paper-item__progress']}>
-                  <div className={styles['paper-item__progress-line']}>
-                    <span className={styles['paper-item__progress-label']}>截图进度</span>
-                    <span>{formatRenderProgressText(paper, renderProgressByPaperId)}</span>
-                  </div>
-                  <div className={styles['paper-item__progress-track']}>
-                    <span
-                      className={[
-                        styles['paper-item__progress-fill'],
-                        styles['paper-item__progress-fill--render']
-                      ].join(' ')}
-                      style={{
-                        width: `${getRenderProgressPercent(paper, renderProgressByPaperId)}%`
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {!shouldShowRenderProgress(paper) && shouldShowOcrProgress(paper) && (
-                <div className={styles['paper-item__progress']}>
-                  <div className={styles['paper-item__progress-line']}>
-                    <span className={styles['paper-item__progress-label']}>OCR 进度</span>
-                    <span>{formatOcrProgressText(paper, ocrProgressByPaperId)}</span>
-                  </div>
-                  <div className={styles['paper-item__progress-track']}>
-                    <span
-                      className={[
-                        styles['paper-item__progress-fill'],
-                        styles['paper-item__progress-fill--ocr']
-                      ].join(' ')}
-                      style={{
-                        width: `${getOcrProgressPercent(paper, ocrProgressByPaperId)}%`
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {shouldShowRetry(paper) && (
-                <div className={styles['paper-item__retry']}>
-                  <div className={styles['paper-item__retry-title']}>
-                    {getRetryTitle(paper, renderProgressByPaperId)}
-                  </div>
-                  <div className={styles['paper-item__retry-message']}>
-                    {getRetryMessage(paper, renderProgressByPaperId, ocrProgressByPaperId)}
-                  </div>
-                  <button
-                    className={styles['paper-item__retry-btn']}
-                    type="button"
-                    onClick={(e) => handleRetryPaper(paper.id, e)}
-                  >
-                    重试
-                  </button>
-                </div>
-              )}
-
-              {!isPaperReadable(paper) && (
-                <div className={styles['paper-item__unreadable']}>{getUnreadableText(paper)}</div>
-              )}
+              <div className={styles['paper-item__actions']}>
+                <button
+                  className={styles['paper-item__delete-btn']}
+                  title="删除论文"
+                  type="button"
+                  onClick={(e) => handleDeletePaper(paper.id, e)}
+                >
+                  <SvgIcon name="trash" size={14} />
+                </button>
+              </div>
             </div>
-
-            <div className={styles['paper-item__actions']}>
-              <button
-                className={styles['paper-item__delete-btn']}
-                title="删除论文"
-                type="button"
-                onClick={(e) => handleDeletePaper(paper.id, e)}
-              >
-                <SvgIcon name="trash" size={14} />
-              </button>
-            </div>
-          </div>
-        ))}
+          )}
+        </CssTransitionGroup>
       </div>
     </div>
   )

@@ -1,5 +1,7 @@
+import { useRef } from 'react'
 import type { ReactNode } from 'react'
 import { getRuntimePlatform } from '@renderer/composables/runtimePlatformCore'
+import { CssSwitchTransition } from '@renderer/components/motion/CssTransition'
 import WorkspaceViewSwitcher from './WorkspaceViewSwitcher'
 import styles from './WorkspaceSidebarChrome.module.css'
 
@@ -15,6 +17,12 @@ export default function WorkspaceSidebarChrome({
   children
 }: WorkspaceSidebarChromeProps) {
   const { isWindows, usesNativeTrafficLights } = getRuntimePlatform()
+  const actionChildrenByKeyRef = useRef(new Map<string, ReactNode>())
+  const actionKey = actionsKey || 'sidebar-actions'
+
+  if (children) {
+    actionChildrenByKeyRef.current.set(actionKey, children)
+  }
 
   return (
     <header
@@ -48,9 +56,16 @@ export default function WorkspaceSidebarChrome({
       </div>
 
       {children && (
-        <div key={actionsKey || 'sidebar-actions'} className="sm-sidebar-shell__actions">
-          {children}
-        </div>
+        <CssSwitchTransition name="sm-sidebar-actions-switch" transitionKey={actionKey} appear>
+          {({ transitionKey, className, ref }) => (
+            <div
+              ref={ref}
+              className={['sm-sidebar-shell__actions', className].filter(Boolean).join(' ')}
+            >
+              {actionChildrenByKeyRef.current.get(transitionKey)}
+            </div>
+          )}
+        </CssSwitchTransition>
       )}
     </header>
   )

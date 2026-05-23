@@ -29,7 +29,7 @@ interface ContainerStoreState {
   // Actions: 容器列表
   loadContainers: () => Promise<void>
   refreshContainers: () => Promise<void>
-  loadContainerDetails: (containerId: string, options?: { silent?: boolean }) => Promise<void>
+  loadContainerDetails: (containerId: string, options?: { silent?: boolean }) => Promise<boolean>
   loadContainerStats: (containerId: string, options?: { silent?: boolean }) => Promise<boolean>
   clearContainerStats: () => void
   setContainerFilter: (filter: ContainerFilter) => void
@@ -194,19 +194,22 @@ export const useContainerStore = create<ContainerStoreState>()((set, get) => ({
   loadContainerDetails: async (
     containerId: string,
     options?: { silent?: boolean }
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     try {
       const result = await labApi.getContainerDetails(containerId)
 
       if (!result.success) {
-        set({ selectedContainer: null })
+        const currentSelected = get().selectedContainer
+        if (result.reason === 'not_found' || currentSelected?.id !== containerId) {
+          set({ selectedContainer: null })
+        }
         if (!options?.silent) {
           notifyError('加载容器详情失败', result.error || '未知错误', {
             source: 'lab',
             dedupeKey: 'container-error'
           })
         }
-        return
+        return false
       }
 
       set({ selectedContainer: result.details || null })
@@ -216,6 +219,7 @@ export const useContainerStore = create<ContainerStoreState>()((set, get) => ({
           containerId: containerId.substring(0, 12)
         })
       }
+      return true
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       if (!options?.silent) {
@@ -224,13 +228,17 @@ export const useContainerStore = create<ContainerStoreState>()((set, get) => ({
           containerId
         })
       }
-      set({ selectedContainer: null })
+      const currentSelected = get().selectedContainer
+      if (currentSelected?.id !== containerId) {
+        set({ selectedContainer: null })
+      }
       if (!options?.silent) {
         notifyError('加载容器详情失败', errorMessage, {
           source: 'lab',
           dedupeKey: 'container-error'
         })
       }
+      return false
     }
   },
 

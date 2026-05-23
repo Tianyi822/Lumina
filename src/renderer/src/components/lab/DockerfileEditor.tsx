@@ -1,4 +1,9 @@
 import { useState, useEffect } from 'react'
+import {
+  useDockerConfigStore,
+  useDockerfileConfigStore,
+  useLabCreatorStore
+} from '@renderer/stores'
 import styles from './DockerfileEditor.module.css'
 
 const dockerfileExample = `FROM node:18-alpine
@@ -30,11 +35,33 @@ export default function DockerfileEditor({
   onUpdateContext,
   onSaveConfig
 }: DockerfileEditorProps) {
+  const dockerfileConfigs = useDockerConfigStore((s) => s.dockerfileConfigs)
+  const selectedDockerfileId = useDockerfileConfigStore((s) => s.selectedDockerfileId)
+  const setSelectedDockerfileId = useLabCreatorStore((s) => s.setSelectedDockerfileId)
+  const loadSelectedDockerfile = useLabCreatorStore((s) => s.loadSelectedDockerfile)
   const [localContent, setLocalContent] = useState(modelValue)
   const [localContext, setLocalContext] = useState(context || '')
 
   useEffect(() => setLocalContent(modelValue), [modelValue])
   useEffect(() => setLocalContext(context || ''), [context])
+
+  function updateContent(value: string): void {
+    setLocalContent(value)
+    onUpdateModelValue(value)
+  }
+
+  function updateContext(value: string): void {
+    setLocalContext(value)
+    onUpdateContext(value)
+  }
+
+  async function handleDockerfileSelect(value: string): Promise<void> {
+    const nextId = value || null
+    setSelectedDockerfileId(nextId)
+    if (nextId) {
+      await loadSelectedDockerfile()
+    }
+  }
 
   return (
     <div className={styles['dockerfile-editor']}>
@@ -46,10 +73,7 @@ export default function DockerfileEditor({
           type="text"
           className={styles.input}
           placeholder="./my-app"
-          onChange={(e) => {
-            setLocalContext(e.target.value)
-            onUpdateContext(e.target.value)
-          }}
+          onChange={(e) => updateContext(e.target.value)}
         />
       </div>
 
@@ -60,6 +84,22 @@ export default function DockerfileEditor({
             另存为
           </button>
         </label>
+        <div className={styles['config-selector']}>
+          <select
+            value={selectedDockerfileId || ''}
+            className={styles.select}
+            onChange={(e) => {
+              void handleDockerfileSelect(e.target.value)
+            }}
+          >
+            <option value="">选择已保存的配置...</option>
+            {dockerfileConfigs.map((config) => (
+              <option key={config.id} value={config.id}>
+                {config.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className={styles['form-field']}>
@@ -68,8 +108,7 @@ export default function DockerfileEditor({
           <button
             className={styles['btn-link']}
             onClick={() => {
-              setLocalContent(dockerfileExample)
-              onUpdateModelValue(dockerfileExample)
+              updateContent(dockerfileExample)
             }}
           >
             使用示例
@@ -80,10 +119,7 @@ export default function DockerfileEditor({
           className={styles['code-editor']}
           placeholder="输入 Dockerfile 内容..."
           spellCheck={false}
-          onChange={(e) => {
-            setLocalContent(e.target.value)
-            onUpdateModelValue(e.target.value)
-          }}
+          onChange={(e) => updateContent(e.target.value)}
         ></textarea>
       </div>
     </div>

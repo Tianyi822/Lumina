@@ -23,8 +23,11 @@ export default function LabLogsTab({ isDockerReady, selectedContainerId }: LabLo
     setLoading(true)
     try {
       const result = await window.api.lab.getContainerLogs(selectedContainerId)
-      const data = result as unknown as string
-      setLogs(data ? data.split('\n') : [])
+      if (result.success && result.logs) {
+        setLogs(result.logs.split('\n'))
+      } else {
+        setLogs([])
+      }
     } finally {
       setLoading(false)
     }

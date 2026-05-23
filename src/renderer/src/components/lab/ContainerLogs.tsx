@@ -22,8 +22,8 @@ export default function ContainerLogs({
     <div className={styles['container-logs']}>
       <div className={styles['logs-header']}>
         <h3>{containerName || '容器日志'}</h3>
-        <div className={styles['logs-actions']}>
-          <label className={styles['auto-scroll-toggle']}>
+        <div className={styles['header-actions']}>
+          <label className={styles['toggle-label']}>
             <input
               type="checkbox"
               checked={autoScroll}
@@ -40,14 +40,14 @@ export default function ContainerLogs({
         </div>
       </div>
 
-      <div className={styles['logs-output']}>
+      <div className={styles['logs-content']}>
         {loading ? (
           <div className={styles['loading-state']}>
             <span className="sm-spinner sm-spinner--large"></span>
             <p>加载日志...</p>
           </div>
         ) : logs.length === 0 ? (
-          <div className={`sm-empty ${styles['empty-logs']}`}>
+          <div className={`sm-empty ${styles['empty-state']}`}>
             <p>暂无日志</p>
           </div>
         ) : (

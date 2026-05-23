@@ -651,7 +651,18 @@ export class FrontendLabService {
       return
     }
 
-    const details = await dockerService.getContainerDetails(containerId)
+    let details: Awaited<ReturnType<typeof dockerService.getContainerDetails>>
+    try {
+      details = await dockerService.getContainerDetails(containerId)
+    } catch (error) {
+      logger.warn('同步前端实验室状态时暂时无法读取容器详情', 'main', {
+        labId: lab.labId,
+        containerId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return
+    }
+
     if (!details) {
       if (!lab.isOrphan || lab.status !== 'error') {
         lab.isOrphan = true
@@ -666,14 +677,31 @@ export class FrontendLabService {
       saveLabOrThrow(lab, labService, '保存前端实验室关联状态失败')
     }
 
-    await syncFrontendPortBinding(lab, dockerService, labService)
+    try {
+      await syncFrontendPortBinding(lab, dockerService, labService)
+    } catch (error) {
+      logger.warn('同步前端实验室端口映射时 Docker 状态暂不可用', 'main', {
+        labId: lab.labId,
+        containerId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return
+    }
 
     if (details.state !== 'running') {
       await persistFrontendLabStatus(lab, labService, 'stopped')
       return
     }
 
-    await this.recoverFrontendRuntime(lab)
+    try {
+      await this.recoverFrontendRuntime(lab)
+    } catch (error) {
+      logger.warn('恢复前端实验室运行状态时 Docker 状态暂不可用', 'main', {
+        labId: lab.labId,
+        containerId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
   }
 
   private loadFrontendLabOrThrow(

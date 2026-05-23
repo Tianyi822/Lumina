@@ -1,7 +1,9 @@
+import { useCallback } from 'react'
 import type { CSSProperties } from 'react'
 import styles from './LabList.module.css'
 import type { LabListItem, LabStatus } from '@renderer/types/lab'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
+import { CssTransitionGroup } from '@renderer/components/motion/CssTransition'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 
 type LabCreationType = 'existing' | 'compose' | 'dockerfile' | 'ssh'
@@ -65,71 +67,76 @@ export default function LabList({
   onSelect,
   onDelete
 }: LabListProps) {
-  if (labs.length === 0) {
-    return (
-      <div className={styles['lab-list']}>
-        <div className={styles['empty-list']}>暂无实验室</div>
-      </div>
-    )
-  }
+  const getLabKey = useCallback((lab: LabListItem): string => lab.labId, [])
 
   return (
     <div className={styles['lab-list']}>
-      {labs.map((lab, index) => {
-        const ext = lab as unknown as ExtendedLabListItem
-        return (
-          <div
-            key={lab.labId}
-            className={`${styles['lab-item']} ${lab.labId === activeLabId ? styles.active : ''} ${ext.isOrphan ? styles.orphan : ''}`}
-            style={getSidebarListItemMotionStyle(index) as CSSProperties}
-            onClick={() => onSelect(lab.labId)}
-          >
-            <div className={styles['lab-info']}>
-              <div className={styles['lab-name']}>{lab.name}</div>
-              <div className={styles['lab-meta']}>
-                <span className={`${styles['lab-status']} ${styles[`status-${lab.status}`]}`}>
-                  {getStatusLabel(lab.status, ext.creationType)}
-                </span>
-                {ext.creationType && (
-                  <span
-                    className={`${styles['sm-lab-list__creation-badge']} ${styles[`creation-type-${ext.creationType}`]}`}
-                  >
-                    {getCreationTypeLabel(ext.creationType)}
-                  </span>
-                )}
-                {ext.isOrphan && (
-                  <span className={styles['sm-lab-list__orphan-badge']} title="容器已丢失">
-                    ⚠️ 容器已丢失
-                  </span>
-                )}
-                {getContainerCount(lab) > 1 && (
-                  <span
-                    className={styles['sm-lab-list__container-count']}
-                    title={`包含 ${getContainerCount(lab)} 个容器`}
-                  >
-                    {getContainerCount(lab)} 容器
-                  </span>
-                )}
-              </div>
-            </div>
-            <button
-              className={`${styles['sm-lab-list__delete-button']} ${lab.labId === deletingLabId ? styles['is-deleting'] : ''}`}
-              title="删除实验室"
-              disabled={lab.labId === deletingLabId}
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete(lab.labId)
-              }}
+      <CssTransitionGroup items={labs} name="sm-sidebar-list-item" getKey={getLabKey} appear>
+        {({ item: lab, index, transitionKey, className, ref }) => {
+          const ext = lab as unknown as ExtendedLabListItem
+          return (
+            <div
+              ref={ref}
+              key={transitionKey}
+              className={[
+                styles['lab-item'],
+                lab.labId === activeLabId && styles.active,
+                ext.isOrphan && styles.orphan,
+                className
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              style={getSidebarListItemMotionStyle(index) as CSSProperties}
+              onClick={() => onSelect(lab.labId)}
             >
-              {lab.labId === deletingLabId ? (
-                <SvgIcon name="loading" size={14} spin />
-              ) : (
-                <SvgIcon name="trash" size={14} />
-              )}
-            </button>
-          </div>
-        )
-      })}
+              <div className={styles['lab-info']}>
+                <div className={styles['lab-name']}>{lab.name}</div>
+                <div className={styles['lab-meta']}>
+                  <span className={`${styles['lab-status']} ${styles[`status-${lab.status}`]}`}>
+                    {getStatusLabel(lab.status, ext.creationType)}
+                  </span>
+                  {ext.creationType && (
+                    <span
+                      className={`${styles['sm-lab-list__creation-badge']} ${styles[`creation-type-${ext.creationType}`]}`}
+                    >
+                      {getCreationTypeLabel(ext.creationType)}
+                    </span>
+                  )}
+                  {ext.isOrphan && (
+                    <span className={styles['sm-lab-list__orphan-badge']} title="容器已丢失">
+                      ⚠️ 容器已丢失
+                    </span>
+                  )}
+                  {getContainerCount(lab) > 1 && (
+                    <span
+                      className={styles['sm-lab-list__container-count']}
+                      title={`包含 ${getContainerCount(lab)} 个容器`}
+                    >
+                      {getContainerCount(lab)} 容器
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                className={`${styles['sm-lab-list__delete-button']} ${lab.labId === deletingLabId ? styles['is-deleting'] : ''}`}
+                title="删除实验室"
+                disabled={lab.labId === deletingLabId}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(lab.labId)
+                }}
+              >
+                {lab.labId === deletingLabId ? (
+                  <SvgIcon name="loading" size={14} spin />
+                ) : (
+                  <SvgIcon name="trash" size={14} />
+                )}
+              </button>
+            </div>
+          )
+        }}
+      </CssTransitionGroup>
+      {labs.length === 0 && <div className={styles['empty-list']}>暂无实验室</div>}
     </div>
   )
 }

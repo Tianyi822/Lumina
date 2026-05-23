@@ -224,6 +224,7 @@ export interface ContainerListResult {
   success: boolean
   containers?: ContainerInfo[]
   error?: string
+  reason?: DockerContainerErrorReason
 }
 
 /**
@@ -233,7 +234,17 @@ export interface ContainerDetailsResult {
   success: boolean
   details?: ContainerDetails
   error?: string
+  reason?: DockerContainerErrorReason
 }
+
+/**
+ * Docker 容器 API 错误原因
+ */
+export type DockerContainerErrorReason =
+  | 'not_found'
+  | 'docker_unavailable'
+  | 'docker_server_error'
+  | 'unknown'
 
 /**
  * 容器统计结果

@@ -68,6 +68,58 @@ export class DockerContainerMapper {
   }
 
   /**
+   * 从 inspect 结果映射容器基础信息，避免详情查询时再次调用 listContainers。
+   * @param info 容器 inspect 结果
+   * @returns 标准化后的容器信息
+   */
+  mapInspectBaseInfo(info: DockerContainerInspect): ContainerInfo {
+    const ports: PortMapping[] = []
+    const portBindings = (info.NetworkSettings?.Ports || {}) as Record<
+      string,
+      { HostPort?: string }[] | null
+    >
+
+    for (const [containerPort, bindings] of Object.entries(portBindings)) {
+      const [rawPort, protocol = 'tcp'] = containerPort.split('/')
+      const parsedContainerPort = Number(rawPort)
+      if (!Number.isFinite(parsedContainerPort)) {
+        continue
+      }
+
+      if (!bindings || bindings.length === 0) {
+        ports.push({
+          containerPort: parsedContainerPort,
+          protocol: protocol === 'udp' ? 'udp' : 'tcp'
+        })
+        continue
+      }
+
+      for (const binding of bindings) {
+        const parsedHostPort = Number(binding.HostPort)
+        ports.push({
+          hostPort: Number.isFinite(parsedHostPort) ? parsedHostPort : undefined,
+          containerPort: parsedContainerPort,
+          protocol: protocol === 'udp' ? 'udp' : 'tcp'
+        })
+      }
+    }
+
+    const createdAt = Date.parse(String(info.Created || ''))
+
+    return serialize({
+      id: info.Id,
+      shortId: info.Id.substring(0, 12),
+      names: info.Name ? [info.Name.replace(/^\//, '')] : [],
+      image: info.Config?.Image || info.Image || 'unknown',
+      state: this.mapState(info.State?.Status || 'exited'),
+      status: info.State?.Status || '',
+      ports,
+      created: Number.isFinite(createdAt) ? Math.floor(createdAt / 1000) : 0,
+      labels: info.Config?.Labels || {}
+    })
+  }
+
+  /**
    * 映射容器状态
    * @param state Docker 原始状态
    * @returns 标准化状态
