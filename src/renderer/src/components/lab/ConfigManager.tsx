@@ -110,9 +110,7 @@ export default function ConfigManager({ visible, onClose }: ConfigManagerProps) 
       {({ className, ref }) => (
         <div
           ref={ref}
-          className={['sm-modal__overlay', styles['config-manager-overlay'], className]
-            .filter(Boolean)
-            .join(' ')}
+          className={[styles['config-manager-overlay'], className].filter(Boolean).join(' ')}
           onClick={onClose}
         >
           <div

@@ -292,6 +292,8 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
     creatorState.setDockerfileContext('')
     creatorState.setComposeProjectName('')
     creatorState.setDockerfileProjectName('')
+    creatorState.setSelectedComposeId(null)
+    creatorState.setSelectedDockerfileId(null)
     creatorState.resetSshConfig()
     creatorState.clearCreateError()
 
