@@ -24,10 +24,7 @@ interface InteractiveTerminalPanelProps {
 }
 
 function readCssVar(name: string, fallback: string): string {
-  const value = window
-    .getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim()
+  const value = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   return value || fallback
 }
 
@@ -63,10 +60,7 @@ export default function InteractiveTerminalPanel({
   }, [status])
 
   const statusClass = useMemo(() => `status-${status}`, [status])
-  const backendLabel = useMemo(
-    () => (backend === 'ssh' ? 'SSH 终端' : 'Docker 终端'),
-    [backend]
-  )
+  const backendLabel = useMemo(() => (backend === 'ssh' ? 'SSH 终端' : 'Docker 终端'), [backend])
 
   const readTerminalSize = useCallback((): TerminalSize => {
     const terminal = terminalRef.current
@@ -79,7 +73,7 @@ export default function InteractiveTerminalPanel({
   const resizeRemoteTerminal = useCallback(
     async (size: TerminalSize): Promise<void> => {
       const sid = sessionIdRef.current
-      if (!sid || status !== 'connected') return
+      if (!sid) return
 
       const result =
         backend === 'ssh'
@@ -91,7 +85,7 @@ export default function InteractiveTerminalPanel({
         setStatusMessage(result.error || '终端尺寸同步失败')
       }
     },
-    [backend, status]
+    [backend]
   )
 
   const fitTerminal = useCallback(() => {
@@ -120,7 +114,7 @@ export default function InteractiveTerminalPanel({
   const writeRemoteTerminal = useCallback(
     async (data: string): Promise<void> => {
       const sid = sessionIdRef.current
-      if (!sid || status !== 'connected') return
+      if (!sid) return
 
       const result =
         backend === 'ssh'
@@ -132,8 +126,14 @@ export default function InteractiveTerminalPanel({
         setStatusMessage(result.error || '终端写入失败')
       }
     },
-    [backend, status]
+    [backend]
   )
+
+  const focusTerminal = useCallback((): void => {
+    window.requestAnimationFrame(() => {
+      terminalRef.current?.focus()
+    })
+  }, [])
 
   const handleSshData = useCallback(
     (event: SshTerminalDataEvent): void => {
@@ -290,7 +290,7 @@ export default function InteractiveTerminalPanel({
       sessionIdRef.current = result.sessionId
       setStatus('connected')
       setStatusMessage('')
-      terminal.focus()
+      focusTerminal()
       await resizeRemoteTerminal(readTerminalSize())
     })()
 
@@ -370,7 +370,7 @@ export default function InteractiveTerminalPanel({
     sessionIdRef.current = result.sessionId
     setStatus('connected')
     setStatusMessage('')
-    terminal.focus()
+    focusTerminal()
     await resizeRemoteTerminal(readTerminalSize())
   }, [
     backend,
@@ -383,16 +383,15 @@ export default function InteractiveTerminalPanel({
     handleDockerData,
     handleDockerExit,
     resizeRemoteTerminal,
-    readTerminalSize
+    readTerminalSize,
+    focusTerminal
   ])
 
   return (
     <section className={styles['sm-interactive-terminal-panel']}>
       <header className={styles['sm-interactive-terminal-panel__header']}>
         <div className={styles['sm-interactive-terminal-panel__copy']}>
-          <span className={styles['sm-interactive-terminal-panel__eyebrow']}>
-            {backendLabel}
-          </span>
+          <span className={styles['sm-interactive-terminal-panel__eyebrow']}>{backendLabel}</span>
           <div className={styles['sm-interactive-terminal-panel__headline']}>
             <h2>{title}</h2>
             <span className={`sm-badge ${styles[statusClass]}`}>{statusLabel}</span>
