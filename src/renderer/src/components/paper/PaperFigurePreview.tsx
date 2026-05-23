@@ -1,5 +1,8 @@
 import { useRef, useCallback, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
+import MarkdownIt from 'markdown-it'
+import texmath from 'markdown-it-texmath'
+import katex from 'katex'
 import { buildFigureCaptionTranslationMap } from '@shared/utils/paperTranslation'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
@@ -53,6 +56,12 @@ const resizeHandles: ResizeHandle[] = [
 ]
 
 const EMPTY_PAPER_FIGURES: PaperFigureItem[] = []
+
+const captionMd = new MarkdownIt({ html: true, breaks: true }).use(texmath, {
+  engine: katex,
+  delimiters: ['dollars', 'beg_end'],
+  katexOptions: { throwOnError: false, strict: 'ignore', output: 'htmlAndMathml' }
+})
 
 function clampPreviewWidth(width: number): number {
   if (typeof window === 'undefined') {
@@ -319,12 +328,18 @@ export default function PaperFigurePreview() {
       }
 
       if (event.key === 'ArrowLeft') {
+        if (previewRef.current && !previewRef.current.contains(document.activeElement)) {
+          return
+        }
         event.preventDefault()
         switchFigure(-1)
         return
       }
 
       if (event.key === 'ArrowRight') {
+        if (previewRef.current && !previewRef.current.contains(document.activeElement)) {
+          return
+        }
         event.preventDefault()
         switchFigure(1)
       }
@@ -500,7 +515,10 @@ export default function PaperFigurePreview() {
           )}
         </div>
 
-        <div className={styles['paper-figure-preview__caption']}>{previewCaption}</div>
+        <div
+          className={styles['paper-figure-preview__caption']}
+          dangerouslySetInnerHTML={{ __html: captionMd.render(previewCaption) }}
+        />
       </div>
 
       {resizeHandles.map((handle) => (
