@@ -589,6 +589,8 @@ export function usePaperAnnotationComposer(
 
   const handleDocumentPointerDown = useCallback(
     (event: MouseEvent): void => {
+      if (event.shiftKey) return
+
       const target = event.target as HTMLElement | null
       if (!target) {
         return
