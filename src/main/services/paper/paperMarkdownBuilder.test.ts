@@ -241,6 +241,14 @@ test('独立展示公式块会原样保留，不会被并入正文段落', () =>
 
   const extracted = extractFigures(pageResult)
   const readerMarkdown = buildReaderMarkdown([pageResult], extracted)
+  const readerDocument = buildReaderDocument(
+    'paper-math-block',
+    [pageResult],
+    extractFigureData([pageResult])
+  )
+  const formulaSegments = readerDocument.segments.filter((segment) =>
+    segment.originalMarkdown.startsWith('$$')
+  )
 
   assert.ok(
     readerMarkdown.includes(
@@ -248,6 +256,8 @@ test('独立展示公式块会原样保留，不会被并入正文段落', () =>
     )
   )
   assert.doesNotMatch(readerMarkdown, /\$\$The discretized version/)
+  assert.equal(formulaSegments.length, 1)
+  assert.match(formulaSegments[0].originalMarkdown, /\\overline/)
 })
 
 test('代码块会作为独立 reader 段落保留，不会被拆成标题或并入正文', () => {

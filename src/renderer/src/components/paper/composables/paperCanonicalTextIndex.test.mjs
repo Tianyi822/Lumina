@@ -131,6 +131,12 @@ function createKatexElement(tex, duplicateText, options = {}) {
   ])
 }
 
+function createKatexDisplayElement(tex, duplicateText, options = {}) {
+  return createElement('span', { class: 'katex-display' }, [
+    createKatexElement(tex, duplicateText, options)
+  ])
+}
+
 test('canonical text index 只把 KaTeX 公式计入一次', () => {
   const tail = createTextNode(
     '。训练中使用的唯一数据增强方法是从调整尺寸后的图像中随机裁剪正方形区域。'
@@ -154,6 +160,29 @@ test('canonical text index 只把 KaTeX 公式计入一次', () => {
     getCanonicalOffsetForDomPoint(index, tail, domTailOffset, 'start'),
     selectedStartOffset
   )
+})
+
+test('canonical text index 只把 display KaTeX wrapper 计入一次', () => {
+  const displayMath = createKatexDisplayElement(
+    'P ^ {\\mathrm {source}} = \\left\\{ x \\right\\}',
+    'duplicate visual text',
+    {
+      htmlRects: [createRect(16, 20, 260, 42)]
+    }
+  )
+  const root = createElement('div', {}, [
+    createTextNode('Before '),
+    displayMath,
+    createTextNode(' after.')
+  ])
+  const index = buildCanonicalTextIndex(root)
+  const mathStartOffset = index.text.indexOf('$P')
+  const rect = getCanonicalRangeClientRect(index, mathStartOffset + 1, mathStartOffset + 8)
+
+  assert.equal(index.text, 'Before $P ^ {\\mathrm {source}} = \\left\\{ x \\right\\}$ after.')
+  assert.equal(index.segments.filter((segment) => segment.kind === 'display_math').length, 1)
+  assert.equal(index.segments.filter((segment) => segment.kind === 'math').length, 0)
+  assert.deepEqual(rect, createRect(16, 20, 260, 42))
 })
 
 test('canonical text point 会把公式内部偏移扩展到完整公式节点', () => {
