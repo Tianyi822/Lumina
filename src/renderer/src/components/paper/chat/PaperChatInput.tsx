@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   AttachedDocument,
   AttachedImage,
@@ -9,8 +9,6 @@ import type {
 import type { AppConfig } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
-import LabToolsToggle from '@renderer/components/lab/LabToolsToggle'
-import { useMCPStore } from '@renderer/stores/mcpStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import {
   usePaperChatDocumentUploadStore,
@@ -28,6 +26,7 @@ import {
   toPaperChatAttachedDocuments,
   toPaperChatAttachedImages
 } from './input/attachmentUtils'
+import PaperChatToolSelectionBar from './input/PaperChatToolSelectionBar'
 import inputStyles from './PaperChatInput.module.css'
 import toolbarStyles from './input/PaperChatToolSelectionBar.module.css'
 import textareaStyles from './input/PaperChatTextarea.module.css'
@@ -163,12 +162,9 @@ export default function PaperChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [kbOptions, setKbOptions] = useState<KnowledgeBase[]>([])
   const [attachmentError, setAttachmentError] = useState('')
 
   const modelOptions = useConfiguredModels(selectedModel, onUpdateSelectedModel)
-  const toolsByServer = useMCPStore((s) => s.toolsByServer)
-  const loadAllTools = useMCPStore((s) => s.loadAllTools)
   const pendingDocuments = usePaperChatDocumentUploadStore((s) =>
     sessionId ? s.getSessionDocuments(sessionId) : []
   )
@@ -185,16 +181,9 @@ export default function PaperChatInput({
     sessionId ? s.getSessionQuotes(sessionId) : []
   )
 
-  const allTools = useMemo(
-    () =>
-      Object.entries(toolsByServer).flatMap(([serverName, tools]) =>
-        tools.map((tool) => ({ ...tool, serverName }))
-      ),
-    [toolsByServer]
-  )
-
   const hasAttachments =
     pendingDocuments.length > 0 || pendingImages.length > 0 || pendingQuotes.length > 0
+  const totalAttachmentCount = pendingDocuments.length + pendingImages.length + pendingQuotes.length
   const canSend = Boolean(inputMessage.trim() || hasAttachments) && !disabled && !isSending
 
   useEffect(() => {
@@ -203,30 +192,6 @@ export default function PaperChatInput({
     usePaperChatImageUploadStore.getState().initSession(sessionId)
     usePaperChatQuoteStore.getState().initSession(sessionId)
   }, [sessionId])
-
-  useEffect(() => {
-    void loadAllTools()
-  }, [loadAllTools])
-
-  useEffect(() => {
-    let cancelled = false
-    async function loadKnowledgeBases(): Promise<void> {
-      try {
-        const result = await window.api.knowledge.getAll()
-        if (!cancelled && result.success && result.data) {
-          setKbOptions(result.data)
-        }
-      } catch (error) {
-        window.api.logger.error('[PaperChatInput] 加载知识库列表失败', {
-          error: error instanceof Error ? error.message : String(error)
-        })
-      }
-    }
-    void loadKnowledgeBases()
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   async function handleFiles(files: File[]): Promise<void> {
     if (!sessionId || files.length === 0) return
@@ -270,28 +235,6 @@ export default function PaperChatInput({
     usePaperChatQuoteStore.getState().clearQuotes(sessionId)
     onDismissQuickReply?.(quickReply?.messageId || '')
     onHideUserInteraction?.()
-  }
-
-  function toggleTool(tool: MCPTool): void {
-    const exists = selectedMCPTools.some(
-      (item) => item.serverName === tool.serverName && item.name === tool.name
-    )
-    onUpdateSelectedTools(
-      exists
-        ? selectedMCPTools.filter(
-            (item) => !(item.serverName === tool.serverName && item.name === tool.name)
-          )
-        : [...selectedMCPTools, tool]
-    )
-  }
-
-  function toggleKnowledgeBase(kb: KnowledgeBase): void {
-    const exists = selectedKnowledgeBases.some((item) => item.id === kb.id)
-    onUpdateSelectedKnowledgeBases(
-      exists
-        ? selectedKnowledgeBases.filter((item) => item.id !== kb.id)
-        : [...selectedKnowledgeBases, kb]
-    )
   }
 
   const togglePaperWebSearch = useCallback(async (): Promise<void> => {
@@ -549,163 +492,27 @@ export default function PaperChatInput({
         )}
       </div>
 
-      <div
-        className={`${toolbarStyles['paper-chat-input-toolbar']} ${
-          compact ? toolbarStyles['paper-chat-input-toolbar--compact'] : ''
-        }`}
-      >
-        <div className={toolbarStyles['paper-chat-input-toolbar__model-selector']}>
-          <select
-            className={`${toolbarStyles['paper-chat-input-toolbar__model-button']} sm-button sm-button--secondary`}
-            value={selectedModel}
-            disabled={disabled || isSending || modelOptions.length === 0}
-            onChange={(event) => onUpdateSelectedModel(event.target.value)}
-          >
-            {modelOptions.length === 0 ? (
-              <option value="">未配置模型</option>
-            ) : (
-              modelOptions.map((model) => (
-                <option key={model} value={model}>
-                  {model}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-
-        <details className={toolbarStyles['paper-chat-input-toolbar__dropdown']}>
-          <summary
-            className={[
-              toolbarStyles['paper-chat-input-toolbar__selector-button'],
-              'sm-button',
-              'sm-button--secondary'
-            ].join(' ')}
-          >
-            MCP{selectedMCPTools.length > 0 ? ` ${selectedMCPTools.length}` : ''}
-          </summary>
-          <div className="sm-popover">
-            {allTools.length === 0 ? (
-              <span>暂无工具</span>
-            ) : (
-              allTools.map((tool) => (
-                <label key={`${tool.serverName}-${tool.name}`}>
-                  <input
-                    type="checkbox"
-                    checked={selectedMCPTools.some(
-                      (item) => item.serverName === tool.serverName && item.name === tool.name
-                    )}
-                    onChange={() => toggleTool(tool)}
-                  />
-                  {tool.serverName} / {tool.name}
-                </label>
-              ))
-            )}
-          </div>
-        </details>
-
-        <details className={toolbarStyles['paper-chat-input-toolbar__dropdown']}>
-          <summary
-            className={[
-              toolbarStyles['paper-chat-input-toolbar__selector-button'],
-              'sm-button',
-              'sm-button--secondary'
-            ].join(' ')}
-          >
-            {selectedKnowledgeBases.length > 0
-              ? `已选 ${selectedKnowledgeBases.length} ...`
-              : '知识库'}
-          </summary>
-          <div className="sm-popover">
-            {kbOptions.length === 0 ? (
-              <span>暂无知识库</span>
-            ) : (
-              kbOptions.map((kb) => (
-                <label key={kb.id}>
-                  <input
-                    type="checkbox"
-                    checked={selectedKnowledgeBases.some((item) => item.id === kb.id)}
-                    onChange={() => toggleKnowledgeBase(kb)}
-                  />
-                  {kb.name}
-                </label>
-              ))
-            )}
-          </div>
-        </details>
-
-        <button
-          className={[
-            toolbarStyles['paper-chat-input-toolbar__search-toggle'],
-            enablePaperWebSearch ? toolbarStyles.enabled || '' : '',
-            enablePaperWebSearch ? 'enabled' : '',
-            enablePaperWebSearch ? 'is-active' : '',
-            compact ? toolbarStyles['is-compact'] || '' : '',
-            compact ? 'is-compact' : ''
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          type="button"
-          disabled={disabled || isSending}
-          onClick={() => void togglePaperWebSearch()}
-        >
-          <span
-            className={[toolbarStyles['toggle-switch'], 'toggle-switch'].join(' ')}
-            aria-hidden="true"
-          >
-            <span className={[toolbarStyles['toggle-thumb'], 'toggle-thumb'].join(' ')} />
-          </span>
-          <span className={[toolbarStyles['toggle-label'], 'toggle-label'].join(' ')}>搜索</span>
-        </button>
-
-        <LabToolsToggle
-          modelValue={enableLabTools}
-          disabled={disabled || isSending}
-          compact
-          onUpdateModelValue={onUpdateEnableLabTools}
-        />
-
-        <div className={toolbarStyles['paper-chat-input-toolbar__actions']}>
-          <button
-            className={`${toolbarStyles['paper-chat-input-toolbar__upload-button']} ${
-              hasAttachments ? toolbarStyles['has-attachments'] || '' : ''
-            }`}
-            type="button"
-            disabled={disabled || isSending}
-            onClick={() => fileInputRef.current?.click()}
-            title="添加附件"
-          >
-            <SvgIcon name="attachment" size={16} />
-            {hasAttachments && (
-              <span className={toolbarStyles['paper-chat-input-toolbar__attachment-count']}>
-                {pendingDocuments.length + pendingImages.length + pendingQuotes.length}
-              </span>
-            )}
-          </button>
-
-          {isSending ? (
-            <button
-              className={`${toolbarStyles['paper-chat-input-toolbar__stop-button']} sm-button`}
-              type="button"
-              onClick={() => void onStop()}
-            >
-              <SvgIcon name="stop" size={14} />
-            </button>
-          ) : (
-            <button
-              className={`${toolbarStyles['paper-chat-input-toolbar__execute-button']} ${
-                compact ? toolbarStyles['paper-chat-input-toolbar__execute-button--compact'] : ''
-              } sm-button`}
-              type="button"
-              disabled={!canSend}
-              onClick={() => void handleSend()}
-              title="发送"
-            >
-              <SvgIcon name="send" size={14} />
-              {!compact && <span>发送</span>}
-            </button>
-          )}
-        </div>
-      </div>
+      <PaperChatToolSelectionBar
+        isSending={isSending}
+        disabled={disabled}
+        canSend={canSend}
+        variant={compact ? 'compact' : 'default'}
+        selectedModel={selectedModel}
+        modelOptions={modelOptions}
+        selectedTools={selectedMCPTools}
+        selectedKnowledgeBases={selectedKnowledgeBases}
+        enableLabTools={enableLabTools}
+        enablePaperWebSearch={enablePaperWebSearch}
+        totalAttachmentCount={totalAttachmentCount}
+        onUpdateSelectedModel={onUpdateSelectedModel}
+        onUpdateSelectedTools={onUpdateSelectedTools}
+        onUpdateSelectedKnowledgeBases={onUpdateSelectedKnowledgeBases}
+        onUpdateEnableLabTools={onUpdateEnableLabTools}
+        onTogglePaperWebSearch={() => void togglePaperWebSearch()}
+        onUpload={() => fileInputRef.current?.click()}
+        onSend={() => void handleSend()}
+        onStop={() => void onStop()}
+      />
 
       <input
         ref={fileInputRef}
