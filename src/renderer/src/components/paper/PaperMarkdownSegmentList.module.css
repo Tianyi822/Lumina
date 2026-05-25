@@ -140,7 +140,7 @@
 .paper-markdown-view__markdown mark:global(.paper-annotation-highlight) {
   border-radius: 4px;
   color: var(--sm-color-paper-annotation-text);
-  padding: 0 1px;
+  padding: 0.3em 1px;
   line-height: inherit;
   vertical-align: baseline;
   -webkit-box-decoration-break: clone;
