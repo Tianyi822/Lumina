@@ -7,9 +7,9 @@ import { labService } from '../LabService'
 import { sshService } from '../ssh'
 import { sshConfigService } from '../ssh/SshConfigService'
 import { logger } from '@main/services/logger'
-import { MCPToolCallResult } from '@main/types/mcp'
+import type { MCPToolCallResult } from '@main/types/mcp'
 import type { SaveSshConfigRequest } from '@shared/types/lab'
-import { ToolArgs, LabToolDefinition } from './types'
+import type { ToolArgs, LabToolDefinition } from './types'
 import { findLab } from './toolExecutor'
 
 /**

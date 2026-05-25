@@ -4,7 +4,7 @@
  */
 
 import { getDockerService } from '../../docker/DockerService'
-import { LabCreationType } from '@shared/types/lab'
+import type { LabCreationType } from '@shared/types/lab'
 import { parseDockerfileImages, parseComposeImages } from './dockerParser'
 
 const dockerService = getDockerService()

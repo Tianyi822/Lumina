@@ -5,7 +5,7 @@
 
 import { labService } from '../../LabService'
 import { logger } from '@main/services/logger'
-import { PortMapping } from '@shared/types/lab'
+import type { PortMapping } from '@shared/types/lab'
 
 /**
  * 端口分配基础偏移量
