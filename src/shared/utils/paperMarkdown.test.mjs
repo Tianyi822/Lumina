@@ -1,6 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import MarkdownIt from 'markdown-it'
+import texmath from 'markdown-it-texmath'
+import katex from 'katex'
 import {
   normalizePaperInlineMathForRender,
   normalizePaperMarkdownForRender
@@ -11,6 +13,27 @@ const markdownRenderer = new MarkdownIt({
   breaks: true,
   linkify: true
 })
+const mathMarkdownRenderer = new MarkdownIt({
+  html: true,
+  breaks: true,
+  linkify: true
+}).use(texmath, {
+  engine: katex,
+  delimiters: ['dollars', 'brackets', 'beg_end'],
+  katexOptions: {
+    throwOnError: false,
+    strict: 'warn',
+    output: 'htmlAndMathml',
+    maxSize: 500,
+    maxExpand: 1000
+  }
+})
+
+function renderPaperMath(content, kind = 'paragraph') {
+  return mathMarkdownRenderer.render(
+    normalizePaperInlineMathForRender(normalizePaperMarkdownForRender(content, kind), kind)
+  )
+}
 
 test('年份残段不会被渲染为有序列表（右括号）', () => {
   const normalized = normalizePaperMarkdownForRender(
@@ -66,4 +89,21 @@ test('代码段不会执行行内数学归一化', () => {
 
   assert.equal(normalizePaperInlineMathForRender(code, 'code'), code)
   assert.equal(normalizePaperInlineMathForRender('value is $  x  $', 'paragraph'), 'value is $x$')
+})
+
+test('展示公式和括号公式会渲染为 KaTeX', () => {
+  const displayDollarHtml = renderPaperMath(
+    ['$$', '', 'P ^ {\\mathrm {s o u r c e}} = \\left{ x \\right}', '', '$$'].join('\n')
+  )
+  const singleDollarHtml = renderPaperMath(
+    ['$', '', '\\mathbf {h}_{t} = \\mathbf {A} \\mathbf {x}_{t}', '', '$'].join('\n')
+  )
+  const bracketHtml = renderPaperMath('\\[\n\\eta = \\theta\n\\]')
+  const inlineBracketHtml = renderPaperMath('Here, \\( \\tau_p \\) and \\( \\tau_i \\) represent.')
+
+  assert.match(displayDollarHtml, /class="katex-display"/)
+  assert.doesNotMatch(displayDollarHtml, /katex-error/)
+  assert.match(singleDollarHtml, /class="katex-display"/)
+  assert.match(bracketHtml, /class="katex-display"/)
+  assert.match(inlineBracketHtml, /class="katex"/)
 })
