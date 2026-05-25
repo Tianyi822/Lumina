@@ -10,8 +10,7 @@ import {
 export function resolveSelectionSurface(container: Node): HTMLElement | null {
   return container instanceof Element
     ? container.closest<HTMLElement>('[data-paper-selection-surface="true"]')
-    : container.parentElement?.closest<HTMLElement>('[data-paper-selection-surface="true"]') ||
-        null
+    : container.parentElement?.closest<HTMLElement>('[data-paper-selection-surface="true"]') || null
 }
 
 export function getSelectionContentRoot(surface: HTMLElement): Element {

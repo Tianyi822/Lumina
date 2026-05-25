@@ -128,10 +128,7 @@ function normalizeStandaloneMathForRender(content: string): string | null {
   return null
 }
 
-function protectDisplayMath(
-  content: string,
-  protectedBlocks: string[]
-): string {
+function protectDisplayMath(content: string, protectedBlocks: string[]): string {
   return content
     .replace(/\$\$([\s\S]*?)\$\$/g, (_match: string, expression: string) => {
       const placeholder = `${DISPLAY_MATH_PLACEHOLDER_PREFIX}${protectedBlocks.length}${DISPLAY_MATH_PLACEHOLDER_SUFFIX}`
@@ -147,10 +144,7 @@ function protectDisplayMath(
 
 function restoreDisplayMath(content: string, protectedBlocks: string[]): string {
   return content.replace(
-    new RegExp(
-      `${DISPLAY_MATH_PLACEHOLDER_PREFIX}(\\d+)${DISPLAY_MATH_PLACEHOLDER_SUFFIX}`,
-      'g'
-    ),
+    new RegExp(`${DISPLAY_MATH_PLACEHOLDER_PREFIX}(\\d+)${DISPLAY_MATH_PLACEHOLDER_SUFFIX}`, 'g'),
     (placeholder: string, indexText: string) => {
       return protectedBlocks[Number(indexText)] ?? placeholder
     }

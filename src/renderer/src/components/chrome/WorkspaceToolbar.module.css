@@ -44,7 +44,8 @@
     top var(--sm-transition-medium);
 }
 
-:global(.windows) .sm-workspace-toolbar__controls--paper.sm-workspace-toolbar__controls--chrome-safe {
+:global(.windows)
+  .sm-workspace-toolbar__controls--paper.sm-workspace-toolbar__controls--chrome-safe {
   left: var(--sm-workspace-chrome-actions-safe-width, 140px);
 }
 

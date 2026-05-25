@@ -267,9 +267,7 @@ function hasFormulaDelimiters(segment: string): boolean {
   const trimmed = normalized.trim()
   return (
     /^\$\$[\s\S]*\$\$$/.test(trimmed) ||
-    (/^\$[\s\S]*\$$/.test(trimmed) &&
-      !trimmed.startsWith('$$') &&
-      !trimmed.endsWith('$$')) ||
+    (/^\$[\s\S]*\$$/.test(trimmed) && !trimmed.startsWith('$$') && !trimmed.endsWith('$$')) ||
     /^\\\[[\s\S]*\\\]$/.test(trimmed) ||
     /^\\\([\s\S]*\\\)$/.test(trimmed)
   )

@@ -39,7 +39,11 @@ function createTextNode(text) {
 }
 
 function createElement(tagName, attrs = {}, children = []) {
-  const classes = new Set(String(attrs.class || '').split(/\s+/).filter(Boolean))
+  const classes = new Set(
+    String(attrs.class || '')
+      .split(/\s+/)
+      .filter(Boolean)
+  )
 
   function hasClass(className) {
     return classes.has(className)
@@ -300,11 +304,7 @@ test('canonical text range 会跳过段首段尾不可见格式字符', () => {
 
 test('markSelectedFormulas 标记被完整覆盖的行内公式', () => {
   const math = createKatexElement('t_{v}', 'tvt_{v}tv\u200b')
-  const root = createElement('div', {}, [
-    createTextNode('函数 '),
-    math,
-    createTextNode('。')
-  ])
+  const root = createElement('div', {}, [createTextNode('函数 '), math, createTextNode('。')])
   const index = buildCanonicalTextIndex(root)
   markSelectedFormulas(root, index, 0, index.text.length)
   assert.equal(math.classList.contains('katex--selected'), true)
@@ -372,11 +372,7 @@ test('普通段首选区不会被额外回退', () => {
 
 test('markSelectedFormulas 不标记仅被部分覆盖的公式', () => {
   const math = createKatexElement('t_{v}', 'tvt_{v}tv\u200b')
-  const root = createElement('div', {}, [
-    createTextNode('函数 '),
-    math,
-    createTextNode('。')
-  ])
+  const root = createElement('div', {}, [createTextNode('函数 '), math, createTextNode('。')])
   const index = buildCanonicalTextIndex(root)
   const mathStartOffset = index.text.indexOf('$t_{v}$')
   // 选区从公式前开始，但结束在公式内部（未覆盖完整公式）
