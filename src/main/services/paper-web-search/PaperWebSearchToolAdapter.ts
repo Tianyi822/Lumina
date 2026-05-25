@@ -16,13 +16,14 @@ const PAPER_WEB_SEARCH_TOOL: MCPToolReference = {
   serverName: 'paper_web',
   toolName: 'search',
   description:
-    '搜索互联网上的学术资料，包括论文、方法、数据集、工具、引用和最新进展。适用于需要获取学术领域最新信息或查找具体学术资源的场景。',
+    '主动搜索互联网上的学术资料，包括论文、方法、数据集、工具、引用、官方仓库、基准榜单和最新进展。搜索开关开启时，遇到最新信息、外部事实、相关工作对比、参考文献追踪、项目资源或不确定事实，应优先调用此工具验证，不必等待用户明确要求搜索。',
   inputSchema: {
     type: 'object',
     properties: {
       query: {
         type: 'string',
-        description: '搜索关键词，应包含论文标题、作者、关键词等具体信息'
+        description:
+          '搜索关键词，应包含论文标题、作者、方法名、数据集名、模型名、引用片段或具体资源名称'
       },
       reason: {
         type: 'string',
