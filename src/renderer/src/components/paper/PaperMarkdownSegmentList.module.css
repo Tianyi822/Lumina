@@ -114,7 +114,9 @@
   color: var(--sm-color-text-primary);
   user-select: text;
   box-sizing: border-box;
-  overflow-x: hidden;
+  overflow: visible;
+  overflow-x: clip;
+  overflow-y: visible;
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
@@ -138,8 +140,9 @@
 .paper-markdown-view__markdown mark:global(.paper-annotation-highlight) {
   border-radius: 4px;
   color: var(--sm-color-paper-annotation-text);
-  padding: var(--paper-inline-highlight-padding-y) 1px;
-  line-height: 1;
+  padding: 0 1px;
+  line-height: inherit;
+  vertical-align: baseline;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
   cursor: pointer;
@@ -154,13 +157,13 @@
 .paper-markdown-view__markdown mark:global(.paper-annotation-highlight):hover {
   box-shadow:
     inset 0 0 0 1px var(--sm-color-paper-annotation-border-hover),
-    0 0 0 2px var(--sm-color-paper-annotation-active-ring);
+    inset 0 0 0 3px var(--sm-color-paper-annotation-active-ring);
 }
 
 .paper-markdown-view__markdown mark:global(.paper-annotation-highlight):active {
   box-shadow:
     inset 0 0 0 1px var(--sm-color-paper-annotation-border-hover),
-    0 0 0 3px var(--sm-color-paper-annotation-active-ring);
+    inset 0 0 0 4px var(--sm-color-paper-annotation-active-ring);
 }
 
 .paper-markdown-view__markdown mark:global(.paper-annotation-highlight--locating) {
@@ -175,19 +178,17 @@
   0% {
     box-shadow:
       inset 0 0 0 1px var(--sm-color-paper-annotation-border-hover),
-      0 0 0 4px var(--sm-color-paper-annotation-active-ring);
+      inset 0 0 0 4px var(--sm-color-paper-annotation-active-ring);
   }
 
   45% {
     box-shadow:
       inset 0 0 0 1px var(--sm-color-paper-annotation-border-hover),
-      0 0 0 7px var(--sm-color-paper-annotation-active-ring);
+      inset 0 0 0 6px var(--sm-color-paper-annotation-active-ring);
   }
 
   100% {
-    box-shadow:
-      inset 0 0 0 1px var(--sm-color-paper-annotation-border),
-      0 0 0 0 transparent;
+    box-shadow: inset 0 0 0 1px var(--sm-color-paper-annotation-border);
   }
 }
 
