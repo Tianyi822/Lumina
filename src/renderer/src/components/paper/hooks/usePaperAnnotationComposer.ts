@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
 import type { PaperAnnotation, PaperAnnotationColorKey } from '@shared/types/paper'
 import {
@@ -113,6 +113,7 @@ export function usePaperAnnotationComposer(
   const noteEditorCommentRef = useLatestRef(noteEditorComment)
   const noteEditorOriginalCommentRef = useLatestRef(noteEditorOriginalComment)
   const annotationHoverPopoverRef = useLatestRef(annotationHoverPopover)
+  const savedSelectionRangeRef = useRef<Range | null>(null)
 
   const currentAnnotations = options.annotations() ?? []
 
@@ -354,21 +355,30 @@ export function usePaperAnnotationComposer(
           ? window.getSelection()!.getRangeAt(0).cloneRange()
           : null
 
-      clearComposer()
+      savedSelectionRangeRef.current = savedRange
       openSelectionActionMenu(selectionResult.draft, selectionResult.rect)
-
-      if (savedRange) {
-        requestAnimationFrame(() => {
-          const sel = window.getSelection()
-          if (sel) {
-            sel.removeAllRanges()
-            sel.addRange(savedRange)
-          }
-        })
-      }
     },
-    [clearComposer, openSelectionActionMenu, selectionResolver]
+    [openSelectionActionMenu, selectionResolver]
   )
+
+  // 在 React 提交 DOM 变更后、浏览器绘制前同步恢复选区
+  useLayoutEffect(() => {
+    const savedRange = savedSelectionRangeRef.current
+    if (selectionActionMenu && savedRange) {
+      try {
+        const sel = window.getSelection()
+        if (sel) {
+          sel.removeAllRanges()
+          sel.addRange(savedRange)
+        }
+      } catch {
+        // Range 可能引用已分离的 DOM 节点，忽略此错误
+      }
+      savedSelectionRangeRef.current = null
+    } else if (!selectionActionMenu) {
+      savedSelectionRangeRef.current = null
+    }
+  }, [selectionActionMenu])
 
   const handleCreateHighlight = useCallback(
     async (colorKey: PaperAnnotationColorKey): Promise<void> => {

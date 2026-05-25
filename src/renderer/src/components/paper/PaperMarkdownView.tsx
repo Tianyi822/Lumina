@@ -464,7 +464,10 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       prevSourceRevisionIdRef.current = readerDocument?.sourceRevisionId
 
       void renderContentAndSyncTables().then(() => {
-        composer.clearComposer()
+        // 仅当菜单和笔记编辑器都未打开时才清除 composer，避免破坏活跃的选区状态
+        if (!composer.selectionActionMenu && !composer.noteEditorDraft) {
+          composer.clearComposer()
+        }
 
         // Restore scroll position on initial load or major content change
         if (contentChanged || basePathChanged || sourceRevisionIdChanged) {

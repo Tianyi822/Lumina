@@ -7,6 +7,7 @@ import { buildPaperQuoteContext } from '@shared/utils/paperQuoteContext'
 import {
   buildCanonicalTextIndex,
   findCanonicalMathSegmentByNode,
+  getCanonicalOffsetForDomPoint,
   getCanonicalRangeClientRect,
   getCanonicalRangeOffsets,
   trimCanonicalTextRange,
@@ -117,6 +118,70 @@ export function createPaperAnnotationSelectionResolver(
     }
   }
 
+  /**
+   * 尝试通过包含公式元素的方式来解析选区偏移量。
+   *
+   * 当选区起止容器落在 KaTeX 内部节点时，回退到公式容器边界再解析。
+   */
+  function tryResolveOffsetsWithFormulaFallback(
+    canonicalIndex: ReturnType<typeof buildCanonicalTextIndex>,
+    range: Range
+  ): { startOffset: number; endOffset: number } | null {
+    function resolveKatexBoundary(
+      container: Node,
+      offset: number,
+      edge: 'start' | 'end'
+    ): { container: Node; offset: number } {
+      const element = container instanceof Element ? container : container.parentElement
+      if (!element) return { container, offset }
+
+      const katexEl = element.closest('.katex-display, .katex')
+      if (!katexEl || !canonicalIndex.root.contains(katexEl)) return { container, offset }
+
+      const parent = katexEl.parentNode
+      if (!parent) return { container, offset }
+
+      const katexIndex = Array.prototype.indexOf.call(parent.childNodes, katexEl)
+      return {
+        container: parent,
+        offset: edge === 'start' ? katexIndex : katexIndex + 1
+      }
+    }
+
+    const adjustedStart = resolveKatexBoundary(range.startContainer, range.startOffset, 'start')
+    const adjustedEnd = resolveKatexBoundary(range.endContainer, range.endOffset, 'end')
+
+    // 如果调整后有变化，用调整后的容器重试
+    if (
+      adjustedStart.container !== range.startContainer ||
+      adjustedStart.offset !== range.startOffset ||
+      adjustedEnd.container !== range.endContainer ||
+      adjustedEnd.offset !== range.endOffset
+    ) {
+      const startOffset = getCanonicalOffsetForDomPoint(
+        canonicalIndex,
+        adjustedStart.container,
+        adjustedStart.offset,
+        'start'
+      )
+      const endOffset = getCanonicalOffsetForDomPoint(
+        canonicalIndex,
+        adjustedEnd.container,
+        adjustedEnd.offset,
+        'end'
+      )
+      if (startOffset !== null && endOffset !== null) {
+        return {
+          startOffset: Math.min(startOffset, endOffset),
+          endOffset: Math.max(startOffset, endOffset)
+        }
+      }
+    }
+
+    // 尝试直接解析
+    return getCanonicalRangeOffsets(canonicalIndex, range)
+  }
+
   function buildFormulaSelectionFromPointerTarget(
     target: EventTarget | null
   ): PaperAnnotationSelectionResult | null {
@@ -216,7 +281,9 @@ export function createPaperAnnotationSelectionResolver(
     }
 
     const canonicalIndex = buildCanonicalTextIndex(contentRoot)
-    const rangeOffsets = getCanonicalRangeOffsets(canonicalIndex, range)
+
+    // 使用增强的偏移量解析（含公式回退逻辑）
+    const rangeOffsets = tryResolveOffsetsWithFormulaFallback(canonicalIndex, range)
     if (!rangeOffsets) {
       return buildFormulaSelectionFromPointerTarget(event?.target || null)
     }
