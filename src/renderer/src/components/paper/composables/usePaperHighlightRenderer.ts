@@ -7,8 +7,8 @@ import type {
 import type { PaperTranslationSegmentKind } from '@shared/types/paper'
 import {
   buildPaperTextAnchor,
-  findPaperTextAnchorOffset,
-  mapPaperTextAnchorBetweenTexts
+  mapPaperTextAnchorBetweenTexts,
+  resolvePaperTextAnchorRange
 } from '@shared/utils/paperAnnotationAnchors'
 import {
   buildCanonicalTextIndex,
@@ -39,24 +39,13 @@ export interface QuoteHighlight {
 
 const PAPER_ANNOTATION_HIGHLIGHT_SELECTOR = 'mark.paper-annotation-highlight'
 
-function resolveOriginalViewAnchor(
+function isAnnotationForSegment(
   segment: RenderSourceSegment,
   annotation: PaperAnnotation
-): PaperAnnotationTextAnchor | null {
-  if (!annotation.originalAnchor) {
-    return null
-  }
-
-  const startOffset = findPaperTextAnchorOffset(segment.originalText, annotation.originalAnchor)
-  if (startOffset !== null) {
-    return buildPaperTextAnchor(
-      segment.originalText,
-      startOffset,
-      startOffset + annotation.originalAnchor.selectedText.length
-    )
-  }
-
-  return null
+): annotation is PaperAnnotation & { originalAnchor: PaperAnnotationTextAnchor } {
+  if (annotation.noteType !== 'original_span') return false
+  if (!annotation.originalAnchor) return false
+  return annotation.semanticAnchor.segmentStableId === segment.stableId
 }
 
 function resolveTranslationViewAnchor(
@@ -70,12 +59,12 @@ function resolveTranslationViewAnchor(
 
   // 先尝试 translationAnchor 精确匹配
   if (annotation.translationAnchor) {
-    const startOffset = findPaperTextAnchorOffset(translationText, annotation.translationAnchor)
-    if (startOffset !== null) {
+    const range = resolvePaperTextAnchorRange(translationText, annotation.translationAnchor)
+    if (range) {
       return buildPaperTextAnchor(
         translationText,
-        startOffset,
-        startOffset + annotation.translationAnchor.selectedText.length
+        range.startOffset,
+        range.endOffset
       )
     }
   }
@@ -108,25 +97,13 @@ function collectOriginalHighlights(
   const highlights: QuoteHighlight[] = []
 
   for (const annotation of annotations) {
-    if (annotation.noteType !== 'original_span') continue
-
-    const resolvedAnchor = resolveOriginalViewAnchor(segment, annotation)
-    if (!resolvedAnchor) {
-      failedIds.push(annotation.id)
-      continue
-    }
-
-    const startOffset = findPaperTextAnchorOffset(segment.originalText, resolvedAnchor)
-    if (startOffset === null) {
-      failedIds.push(annotation.id)
-      continue
-    }
+    if (!isAnnotationForSegment(segment, annotation)) continue
 
     highlights.push({
       id: annotation.id,
-      startOffset: resolvedAnchor.startOffset,
-      endOffset: resolvedAnchor.endOffset,
-      anchor: resolvedAnchor,
+      startOffset: annotation.originalAnchor.startOffset,
+      endOffset: annotation.originalAnchor.endOffset,
+      anchor: annotation.originalAnchor,
       kind: annotation.kind,
       colorKey: annotation.colorKey
     })
@@ -152,16 +129,16 @@ function collectTranslationHighlights(
       continue
     }
 
-    const startOffset = findPaperTextAnchorOffset(translationText, resolvedAnchor)
-    if (startOffset === null) {
+    const range = resolvePaperTextAnchorRange(translationText, resolvedAnchor)
+    if (!range) {
       failedIds.push(annotation.id)
       continue
     }
 
     highlights.push({
       id: annotation.id,
-      startOffset: resolvedAnchor.startOffset,
-      endOffset: resolvedAnchor.endOffset,
+      startOffset: range.startOffset,
+      endOffset: range.endOffset,
       anchor: resolvedAnchor,
       kind: annotation.kind,
       colorKey: annotation.colorKey
@@ -261,15 +238,15 @@ function resolveHighlightRange(
   highlight: QuoteHighlight
 ): { startPoint: { node: Node; offset: number }; endPoint: { node: Node; offset: number } } | null {
   const canonicalIndex = buildCanonicalTextIndex(root)
-  const startOffset = findPaperTextAnchorOffset(canonicalIndex.text, highlight.anchor)
-  if (startOffset === null) {
+  const resolvedRange = resolvePaperTextAnchorRange(canonicalIndex.text, highlight.anchor)
+  if (!resolvedRange) {
     return null
   }
 
   const trimmedRange = trimCanonicalTextRange(
     canonicalIndex.text,
-    startOffset,
-    startOffset + highlight.anchor.selectedText.length
+    resolvedRange.startOffset,
+    resolvedRange.endOffset
   )
   if (!trimmedRange) {
     return null
@@ -371,6 +348,7 @@ export interface PaperHighlightRenderer {
 
 export const __paperHighlightRendererTestHooks = {
   collectOriginalHighlights,
+  collectTranslationHighlights,
   normalizeHighlightBoundary,
   resolveHighlightRange,
   removeEmptyHighlightMarks
