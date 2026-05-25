@@ -59,7 +59,7 @@ const EMPTY_PAPER_FIGURES: PaperFigureItem[] = []
 
 const captionMd = new MarkdownIt({ html: true, breaks: true }).use(texmath, {
   engine: katex,
-  delimiters: ['dollars', 'beg_end'],
+  delimiters: ['dollars', 'brackets', 'beg_end'],
   katexOptions: { throwOnError: false, strict: 'ignore', output: 'htmlAndMathml' }
 })
 

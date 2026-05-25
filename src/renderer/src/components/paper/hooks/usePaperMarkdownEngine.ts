@@ -379,7 +379,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
       linkify: true
     }).use(texmath, {
       engine: katex,
-      delimiters: ['dollars', 'beg_end'],
+      delimiters: ['dollars', 'brackets', 'beg_end'],
       katexOptions: {
         throwOnError: false,
         strict: 'warn',
