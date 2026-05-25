@@ -18,6 +18,7 @@ import { usePaperTextSearch } from './hooks/usePaperTextSearch'
 import { usePaperQuoteHighlight } from './composables/usePaperQuoteHighlight'
 import { useZoomAnchor } from './composables/useZoomAnchor'
 import { syncFormulaSelectionOnDrag } from './composables/paperDragSelectionSync'
+import { PAPER_ANNOTATION_INTERACTIVE_SELECTOR } from './composables/usePaperHighlightRenderer'
 import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopover'
 import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor'
 import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu'
@@ -240,7 +241,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           'input',
           'textarea',
           'select',
-          'mark.paper-annotation-highlight',
+          PAPER_ANNOTATION_INTERACTIVE_SELECTOR,
           '.paper-markdown-view__retranslate-btn'
         ].join(', ')
       )

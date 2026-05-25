@@ -33,6 +33,7 @@ import {
   SELECTION_MENU_HEIGHT,
   SELECTION_MENU_WIDTH
 } from '../composables/paperAnnotationFloating'
+import { PAPER_ANNOTATION_INTERACTIVE_SELECTOR } from '../composables/usePaperHighlightRenderer'
 import type { CanonicalTextClientRect } from '../composables/paperCanonicalTextIndex'
 
 export interface PaperAnnotationComposerState {
@@ -620,7 +621,7 @@ export function usePaperAnnotationComposer(
         clearNativeSelection()
       }
 
-      if (!target.closest('mark.paper-annotation-highlight')) {
+      if (!target.closest(PAPER_ANNOTATION_INTERACTIVE_SELECTOR)) {
         clearHoverPopover()
       }
     },
@@ -645,12 +646,12 @@ export function usePaperAnnotationComposer(
       }
 
       const target = event.target as HTMLElement | null
-      const markElement = target?.closest<HTMLElement>('mark.paper-annotation-highlight')
-      if (!markElement) {
+      const annotationElement = target?.closest<HTMLElement>(PAPER_ANNOTATION_INTERACTIVE_SELECTOR)
+      if (!annotationElement) {
         return
       }
 
-      const annotation = getAnnotationById(markElement.dataset.annotationId || null)
+      const annotation = getAnnotationById(annotationElement.dataset.annotationId || null)
       if (!annotation) {
         return
       }

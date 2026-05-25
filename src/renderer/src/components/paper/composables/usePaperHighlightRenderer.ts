@@ -15,6 +15,7 @@ import {
   resolveCanonicalTextPoint,
   trimCanonicalTextRange
 } from './paperCanonicalTextIndex'
+import type { CanonicalTextIndex } from './paperCanonicalTextIndex'
 
 export interface RenderSourceSegment {
   renderId: string
@@ -37,7 +38,13 @@ export interface QuoteHighlight {
   colorKey: PaperAnnotationColorKey
 }
 
-const PAPER_ANNOTATION_HIGHLIGHT_SELECTOR = 'mark.paper-annotation-highlight'
+export const PAPER_ANNOTATION_HIGHLIGHT_SELECTOR = 'mark.paper-annotation-highlight'
+export const PAPER_ANNOTATION_FORMULA_HIGHLIGHT_CLASS = 'paper-annotation-formula-highlight'
+export const PAPER_ANNOTATION_FORMULA_HIGHLIGHT_SELECTOR = `.${PAPER_ANNOTATION_FORMULA_HIGHLIGHT_CLASS}`
+export const PAPER_ANNOTATION_INTERACTIVE_SELECTOR = [
+  PAPER_ANNOTATION_HIGHLIGHT_SELECTOR,
+  PAPER_ANNOTATION_FORMULA_HIGHLIGHT_SELECTOR
+].join(', ')
 
 function isAnnotationForSegment(
   segment: RenderSourceSegment,
@@ -168,6 +175,30 @@ function getClosestHighlightMark(root: Element, node: Node): HTMLElement | null 
   return mark
 }
 
+function getHighlightClassNames(highlight: QuoteHighlight): string[] {
+  return [
+    'paper-annotation-highlight',
+    `paper-annotation-highlight--${highlight.kind}`,
+    `paper-annotation-highlight--${highlight.colorKey}`
+  ]
+}
+
+function addClassNames(element: HTMLElement, classNames: string[]): void {
+  const nextClassNames = new Set(
+    String(element.className || '')
+      .split(/\s+/)
+      .filter(Boolean)
+  )
+  classNames.forEach((className) => nextClassNames.add(className))
+  element.className = [...nextClassNames].join(' ')
+}
+
+function applyHighlightMetadata(element: HTMLElement, highlight: QuoteHighlight): void {
+  element.setAttribute('data-annotation-id', highlight.id)
+  element.setAttribute('data-annotation-kind', highlight.kind)
+  element.setAttribute('data-color-key', highlight.colorKey)
+}
+
 function isBoundaryAtHighlightEdge(
   mark: HTMLElement,
   boundary: { node: Node; offset: number },
@@ -233,10 +264,14 @@ function normalizeHighlightBoundary(
   return nextBoundary
 }
 
-function resolveHighlightRange(
+function resolveTrimmedHighlightRange(
   root: Element,
   highlight: QuoteHighlight
-): { startPoint: { node: Node; offset: number }; endPoint: { node: Node; offset: number } } | null {
+): {
+  canonicalIndex: CanonicalTextIndex
+  startOffset: number
+  endOffset: number
+} | null {
   const canonicalIndex = buildCanonicalTextIndex(root)
   const resolvedRange = resolvePaperTextAnchorRange(canonicalIndex.text, highlight.anchor)
   if (!resolvedRange) {
@@ -252,8 +287,32 @@ function resolveHighlightRange(
     return null
   }
 
-  const startPoint = resolveCanonicalTextPoint(canonicalIndex, trimmedRange.startOffset, 'start')
-  const endPoint = resolveCanonicalTextPoint(canonicalIndex, trimmedRange.endOffset, 'end')
+  return {
+    canonicalIndex,
+    startOffset: trimmedRange.startOffset,
+    endOffset: trimmedRange.endOffset
+  }
+}
+
+function resolveHighlightRange(
+  root: Element,
+  highlight: QuoteHighlight
+): { startPoint: { node: Node; offset: number }; endPoint: { node: Node; offset: number } } | null {
+  const trimmedRange = resolveTrimmedHighlightRange(root, highlight)
+  if (!trimmedRange) {
+    return null
+  }
+
+  const startPoint = resolveCanonicalTextPoint(
+    trimmedRange.canonicalIndex,
+    trimmedRange.startOffset,
+    'start'
+  )
+  const endPoint = resolveCanonicalTextPoint(
+    trimmedRange.canonicalIndex,
+    trimmedRange.endOffset,
+    'end'
+  )
   if (!startPoint || !endPoint) {
     return null
   }
@@ -262,6 +321,42 @@ function resolveHighlightRange(
     startPoint: normalizeHighlightBoundary(root, startPoint),
     endPoint: normalizeHighlightBoundary(root, endPoint)
   }
+}
+
+function findFormulaHighlightTarget(root: Element, highlight: QuoteHighlight): HTMLElement | null {
+  const trimmedRange = resolveTrimmedHighlightRange(root, highlight)
+  if (!trimmedRange) {
+    return null
+  }
+
+  const formulaSegment = trimmedRange.canonicalIndex.segments.find((segment) => {
+    return (
+      (segment.kind === 'math' || segment.kind === 'display_math') &&
+      segment.startOffset === trimmedRange.startOffset &&
+      segment.endOffset === trimmedRange.endOffset &&
+      isElementNode(segment.sourceNode)
+    )
+  })
+
+  if (!formulaSegment || !isElementNode(formulaSegment.sourceNode)) {
+    return null
+  }
+
+  return formulaSegment.sourceNode.querySelector<HTMLElement>('.katex-html')
+}
+
+function applyFormulaHighlight(root: Element, highlight: QuoteHighlight): boolean {
+  const target = findFormulaHighlightTarget(root, highlight)
+  if (!target) {
+    return false
+  }
+
+  addClassNames(target, [
+    PAPER_ANNOTATION_FORMULA_HIGHLIGHT_CLASS,
+    ...getHighlightClassNames(highlight)
+  ])
+  applyHighlightMetadata(target, highlight)
+  return true
 }
 
 function removeEmptyHighlightMarks(root: Element): void {
@@ -313,15 +408,13 @@ function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): Appl
       continue
     }
 
+    if (applyFormulaHighlight(root, highlight)) {
+      continue
+    }
+
     const mark = document.createElement('mark')
-    mark.className = [
-      'paper-annotation-highlight',
-      `paper-annotation-highlight--${highlight.kind}`,
-      `paper-annotation-highlight--${highlight.colorKey}`
-    ].join(' ')
-    mark.setAttribute('data-annotation-id', highlight.id)
-    mark.setAttribute('data-annotation-kind', highlight.kind)
-    mark.setAttribute('data-color-key', highlight.colorKey)
+    mark.className = getHighlightClassNames(highlight).join(' ')
+    applyHighlightMetadata(mark, highlight)
 
     const fragment = range.extractContents()
     mark.appendChild(fragment)
@@ -349,6 +442,8 @@ export interface PaperHighlightRenderer {
 export const __paperHighlightRendererTestHooks = {
   collectOriginalHighlights,
   collectTranslationHighlights,
+  applyFormulaHighlight,
+  findFormulaHighlightTarget,
   normalizeHighlightBoundary,
   resolveHighlightRange,
   removeEmptyHighlightMarks

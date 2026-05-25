@@ -60,6 +60,21 @@ class FakeElement {
     return child
   }
 
+  setAttribute(name, value) {
+    this.attrs[name] = String(value)
+    if (name === 'class') {
+      this.className = String(value)
+    }
+  }
+
+  getAttribute(name) {
+    if (name === 'class') {
+      return this.className
+    }
+
+    return this.attrs[name] ?? null
+  }
+
   matches(selector) {
     if (selector === 'mark.paper-annotation-highlight') {
       return (
@@ -171,6 +186,10 @@ function createKatexElement(tex, duplicateText = 'formula visual') {
     ]),
     new FakeElement('span', 'katex-html', [new FakeText(duplicateText)])
   ])
+}
+
+function createKatexDisplayElement(tex, duplicateText = 'formula visual') {
+  return new FakeElement('span', 'katex-display', [createKatexElement(tex, duplicateText)])
 }
 
 function createAnchor(text, selectedText) {
@@ -450,6 +469,81 @@ test('highlight range 可解析公式空格不同的混合文本锚点', () => {
     offset: prefix.textContent.indexOf('loss')
   })
   assert.deepEqual(range.endPoint, { node: suffix, offset: ' is'.length })
+})
+
+test('公式整块批注会写到行内公式可见层', () => {
+  const prefix = new FakeText('loss = ')
+  const math = createKatexElement('L_{train}', 'LL_{train}L\u200b')
+  const suffix = new FakeText(' defined')
+  const root = new FakeElement('div', '', [prefix, math, suffix])
+  const target = math.querySelector('.katex-html')
+  const anchorText = 'loss = $L_{train}$ defined'
+  const selectedText = '$L_{train}$'
+
+  const applied = __paperHighlightRendererTestHooks.applyFormulaHighlight(root, {
+    id: 'annotation-inline-formula',
+    startOffset: anchorText.indexOf(selectedText),
+    endOffset: anchorText.indexOf(selectedText) + selectedText.length,
+    kind: 'highlight',
+    colorKey: 'orange',
+    anchor: createAnchor(anchorText, selectedText)
+  })
+
+  assert.equal(applied, true)
+  assert.ok(target.className.split(/\s+/).includes('paper-annotation-formula-highlight'))
+  assert.ok(target.className.split(/\s+/).includes('paper-annotation-highlight--highlight'))
+  assert.ok(target.className.split(/\s+/).includes('paper-annotation-highlight--orange'))
+  assert.equal(target.attrs['data-annotation-id'], 'annotation-inline-formula')
+  assert.equal(target.attrs['data-annotation-kind'], 'highlight')
+  assert.equal(target.attrs['data-color-key'], 'orange')
+})
+
+test('公式整块批注会写到块级公式内部 katex-html', () => {
+  const displayMath = createKatexDisplayElement('\\sigma', 'sigma visual')
+  const root = new FakeElement('div', '', [displayMath])
+  const target = displayMath.querySelector('.katex-html')
+  const anchorText = '$\\sigma$'
+
+  const applied = __paperHighlightRendererTestHooks.applyFormulaHighlight(root, {
+    id: 'annotation-display-formula',
+    startOffset: 0,
+    endOffset: anchorText.length,
+    kind: 'note',
+    colorKey: 'green',
+    anchor: createAnchor(anchorText, anchorText)
+  })
+
+  assert.equal(applied, true)
+  assert.equal(displayMath.className, 'katex-display')
+  assert.ok(target.className.split(/\s+/).includes('paper-annotation-formula-highlight'))
+  assert.ok(target.className.split(/\s+/).includes('paper-annotation-highlight--note'))
+  assert.ok(target.className.split(/\s+/).includes('paper-annotation-highlight--green'))
+  assert.equal(target.attrs['data-annotation-id'], 'annotation-display-formula')
+  assert.equal(target.attrs['data-annotation-kind'], 'note')
+  assert.equal(target.attrs['data-color-key'], 'green')
+})
+
+test('文本和公式混合选区不会走公式整块背景分支', () => {
+  const prefix = new FakeText('the loss ')
+  const math = createKatexElement('L_{train}', 'LL_{train}L\u200b')
+  const suffix = new FakeText(' is defined')
+  const root = new FakeElement('div', '', [prefix, math, suffix])
+  const target = math.querySelector('.katex-html')
+  const anchorText = 'the loss $L_{train}$ is defined'
+  const selectedText = 'loss $L_{train}$ is'
+
+  const applied = __paperHighlightRendererTestHooks.applyFormulaHighlight(root, {
+    id: 'annotation-mixed-formula',
+    startOffset: anchorText.indexOf(selectedText),
+    endOffset: anchorText.indexOf(selectedText) + selectedText.length,
+    kind: 'highlight',
+    colorKey: 'blue',
+    anchor: createAnchor(anchorText, selectedText)
+  })
+
+  assert.equal(applied, false)
+  assert.equal(target.className, 'katex-html')
+  assert.equal(target.attrs['data-annotation-id'], undefined)
 })
 
 test('highlight range 可解析正文公式空格多于 anchor 的混合文本', () => {

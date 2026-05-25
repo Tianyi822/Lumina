@@ -174,6 +174,26 @@
   color: inherit;
 }
 
+.paper-markdown-view__markdown :global(.paper-annotation-formula-highlight) {
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.paper-markdown-view__markdown :global(.paper-annotation-formula-highlight:hover) {
+  box-shadow:
+    inset 0 0 0 1px var(--sm-color-paper-annotation-border-hover),
+    inset 0 0 0 3px var(--sm-color-paper-annotation-active-ring);
+}
+
+.paper-markdown-view__markdown :global(.paper-annotation-formula-highlight:active) {
+  box-shadow:
+    inset 0 0 0 1px var(--sm-color-paper-annotation-border-hover),
+    inset 0 0 0 4px var(--sm-color-paper-annotation-active-ring);
+}
+
 @keyframes paper-annotation-locate {
   0% {
     box-shadow:
@@ -196,7 +216,17 @@
   background: var(--sm-color-paper-annotation-blue);
 }
 
+.paper-markdown-view__markdown
+  :global(.paper-annotation-formula-highlight.paper-annotation-highlight--blue) {
+  background: var(--sm-color-paper-annotation-blue);
+}
+
 .paper-markdown-view__markdown mark:global(.paper-annotation-highlight--yellow) {
+  background: var(--sm-color-paper-annotation-yellow);
+}
+
+.paper-markdown-view__markdown
+  :global(.paper-annotation-formula-highlight.paper-annotation-highlight--yellow) {
   background: var(--sm-color-paper-annotation-yellow);
 }
 
@@ -204,7 +234,17 @@
   background: var(--sm-color-paper-annotation-orange);
 }
 
+.paper-markdown-view__markdown
+  :global(.paper-annotation-formula-highlight.paper-annotation-highlight--orange) {
+  background: var(--sm-color-paper-annotation-orange);
+}
+
 .paper-markdown-view__markdown mark:global(.paper-annotation-highlight--green) {
+  background: var(--sm-color-paper-annotation-green);
+}
+
+.paper-markdown-view__markdown
+  :global(.paper-annotation-formula-highlight.paper-annotation-highlight--green) {
   background: var(--sm-color-paper-annotation-green);
 }
 
