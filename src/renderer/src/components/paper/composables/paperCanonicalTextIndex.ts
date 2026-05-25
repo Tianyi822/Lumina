@@ -1,3 +1,5 @@
+import { trimTextBoundaryRange } from '@shared/utils/textBoundary'
+
 export interface CanonicalTextBoundary {
   node: Node
   offset: number
@@ -448,23 +450,5 @@ export function trimCanonicalTextRange(
   startOffset: number,
   endOffset: number
 ): { startOffset: number; endOffset: number } | null {
-  let nextStartOffset = clampOffset(startOffset, text.length)
-  let nextEndOffset = clampOffset(endOffset, text.length)
-
-  while (nextStartOffset < nextEndOffset && /\s/.test(text[nextStartOffset])) {
-    nextStartOffset += 1
-  }
-
-  while (nextEndOffset > nextStartOffset && /\s/.test(text[nextEndOffset - 1])) {
-    nextEndOffset -= 1
-  }
-
-  if (nextStartOffset >= nextEndOffset) {
-    return null
-  }
-
-  return {
-    startOffset: nextStartOffset,
-    endOffset: nextEndOffset
-  }
+  return trimTextBoundaryRange(text, startOffset, endOffset)
 }

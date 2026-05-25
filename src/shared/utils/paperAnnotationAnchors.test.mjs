@@ -6,6 +6,31 @@ import {
   mapPaperTextAnchorBetweenTexts
 } from './paperAnnotationAnchors.ts'
 
+test('文本锚点生成会跳过选区首尾不可见格式字符', () => {
+  const source = '\u200b其中 H_k 和后续文字'
+  const anchor = buildPaperTextAnchor(source, 0, source.indexOf(' H_k'))
+
+  assert.equal(anchor.selectedText, '其中')
+  assert.equal(anchor.startOffset, 1)
+  assert.equal(anchor.endOffset, 3)
+  assert.equal(anchor.normalizedText, '其中')
+})
+
+test('历史锚点带段首隐藏字符时可以恢复到可见文本', () => {
+  const anchor = {
+    selectedText: '\u200b其中',
+    prefixText: '',
+    suffixText: ' H_k 和后续文字',
+    startOffset: 0,
+    endOffset: 3,
+    normalizedText: '其中'
+  }
+
+  const recoveredOffset = findPaperTextAnchorOffset('其中 H_k 和后续文字', anchor)
+
+  assert.equal(recoveredOffset, 0)
+})
+
 test('文本锚点可以结合上下文恢复到重复文本的正确位置', () => {
   const source = 'First sentence. Important concept appears here. Important concept appears later.'
   const startOffset = source.indexOf('Important concept appears later')

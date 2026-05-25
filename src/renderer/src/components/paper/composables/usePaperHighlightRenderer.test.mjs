@@ -372,6 +372,55 @@ test('highlight range 会跳过 Markdown 列表项周围的空白节点', () => 
   })
 })
 
+test('highlight range 会跳过段首不可见格式字符', () => {
+  const text = new FakeText('\u200b其中 H_k 和后续文字')
+  const root = new FakeElement('div', '', [text])
+  const selectedText = '\u200b其中'
+  const range = __paperHighlightRendererTestHooks.resolveHighlightRange(root, {
+    id: 'annotation-hidden-prefix',
+    startOffset: 0,
+    endOffset: selectedText.length,
+    kind: 'highlight',
+    colorKey: 'blue',
+    anchor: {
+      selectedText,
+      prefixText: '',
+      suffixText: ' H_k 和后续文字',
+      startOffset: 0,
+      endOffset: selectedText.length,
+      normalizedText: '其中'
+    }
+  })
+
+  assert.ok(range)
+  assert.deepEqual(range.startPoint, { node: text, offset: 1 })
+  assert.deepEqual(range.endPoint, { node: text, offset: selectedText.length })
+})
+
+test('highlight range 会把历史隐藏字符锚点恢复到当前可见文本', () => {
+  const text = new FakeText('其中 H_k 和后续文字')
+  const root = new FakeElement('div', '', [text])
+  const range = __paperHighlightRendererTestHooks.resolveHighlightRange(root, {
+    id: 'annotation-legacy-hidden-prefix',
+    startOffset: 0,
+    endOffset: 3,
+    kind: 'highlight',
+    colorKey: 'blue',
+    anchor: {
+      selectedText: '\u200b其中',
+      prefixText: '',
+      suffixText: ' H_k 和后续文字',
+      startOffset: 0,
+      endOffset: 3,
+      normalizedText: '其中'
+    }
+  })
+
+  assert.ok(range)
+  assert.deepEqual(range.startPoint, { node: text, offset: 0 })
+  assert.deepEqual(range.endPoint, { node: text, offset: 2 })
+})
+
 test('highlight renderer 会移除没有文本内容的空标记', () => {
   const emptyMark = createMark([])
   const filledMark = createMark([new FakeText('ABCDE')])

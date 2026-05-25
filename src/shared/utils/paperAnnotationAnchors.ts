@@ -1,4 +1,9 @@
 import type { PaperAnnotationTextAnchor } from '../types/paper'
+import {
+  isInvisibleFormatCharacter,
+  removeInvisibleFormatCharacters,
+  trimTextBoundaryRange
+} from './textBoundary'
 
 const PAPER_ANCHOR_FRAGMENT_LENGTH = 24
 const PAPER_ALIGNMENT_PUNCTUATION_PATTERN = /[.!?。！？；;:：,，、]\s*|\n+/g
@@ -19,7 +24,7 @@ function clampOffset(offset: number, textLength: number): number {
 }
 
 function normalizeAnchorText(text: string): string {
-  return text.replace(/\s+/g, ' ').trim()
+  return removeInvisibleFormatCharacters(text).replace(/\s+/g, ' ').trim()
 }
 
 function buildAnchorFragments(selectedText: string): string[] {
@@ -45,36 +50,42 @@ function scoreContextMatch(
 ): number {
   const prefixStart = Math.max(0, startOffset - anchor.prefixText.length)
   const actualPrefix = text.slice(prefixStart, startOffset)
-  const actualSuffix = text.slice(startOffset + anchor.selectedText.length)
+  const actualSuffix = text.slice(
+    resolveInvisibleInsensitiveEndOffset(text, startOffset, anchor.selectedText)
+  )
+  const expectedPrefix = removeInvisibleFormatCharacters(anchor.prefixText)
+  const expectedSuffix = removeInvisibleFormatCharacters(anchor.suffixText)
+  const comparablePrefix = removeInvisibleFormatCharacters(actualPrefix)
+  const comparableSuffix = removeInvisibleFormatCharacters(actualSuffix)
   let score = 0
 
-  if (anchor.prefixText && actualPrefix.endsWith(anchor.prefixText)) {
-    score += anchor.prefixText.length * 2
-  } else if (anchor.prefixText && actualPrefix.length > 0) {
+  if (expectedPrefix && comparablePrefix.endsWith(expectedPrefix)) {
+    score += expectedPrefix.length * 2
+  } else if (expectedPrefix && comparablePrefix.length > 0) {
     let matchLen = 0
     while (
-      matchLen < Math.min(anchor.prefixText.length, actualPrefix.length) &&
-      anchor.prefixText[anchor.prefixText.length - 1 - matchLen] ===
-        actualPrefix[actualPrefix.length - 1 - matchLen]
+      matchLen < Math.min(expectedPrefix.length, comparablePrefix.length) &&
+      expectedPrefix[expectedPrefix.length - 1 - matchLen] ===
+        comparablePrefix[comparablePrefix.length - 1 - matchLen]
     ) {
       matchLen += 1
     }
-    if (matchLen >= anchor.prefixText.length * 0.5) {
+    if (matchLen >= expectedPrefix.length * 0.5) {
       score += matchLen
     }
   }
 
-  if (anchor.suffixText && actualSuffix.startsWith(anchor.suffixText)) {
-    score += anchor.suffixText.length * 2
-  } else if (anchor.suffixText && actualSuffix.length > 0) {
+  if (expectedSuffix && comparableSuffix.startsWith(expectedSuffix)) {
+    score += expectedSuffix.length * 2
+  } else if (expectedSuffix && comparableSuffix.length > 0) {
     let matchLen = 0
     while (
-      matchLen < Math.min(anchor.suffixText.length, actualSuffix.length) &&
-      anchor.suffixText[matchLen] === actualSuffix[matchLen]
+      matchLen < Math.min(expectedSuffix.length, comparableSuffix.length) &&
+      expectedSuffix[matchLen] === comparableSuffix[matchLen]
     ) {
       matchLen += 1
     }
-    if (matchLen >= anchor.suffixText.length * 0.5) {
+    if (matchLen >= expectedSuffix.length * 0.5) {
       score += matchLen
     }
   }
@@ -86,12 +97,48 @@ function scoreContextMatch(
   return score
 }
 
+function collectInvisibleInsensitiveCandidateOffsets(text: string, candidate: string): number[] {
+  const normalizedCandidate = removeInvisibleFormatCharacters(candidate)
+  if (!normalizedCandidate) {
+    return []
+  }
+
+  let normalizedText = ''
+  const offsetMap: number[] = []
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index]
+    if (isInvisibleFormatCharacter(character)) {
+      continue
+    }
+
+    normalizedText += character
+    offsetMap.push(index)
+  }
+
+  const offsets: number[] = []
+  let searchStart = 0
+  while (searchStart <= normalizedText.length) {
+    const nextIndex = normalizedText.indexOf(normalizedCandidate, searchStart)
+    if (nextIndex < 0) {
+      break
+    }
+
+    const offset = offsetMap[nextIndex]
+    if (offset !== undefined) {
+      offsets.push(offset)
+    }
+    searchStart = nextIndex + Math.max(normalizedCandidate.length, 1)
+  }
+
+  return offsets
+}
+
 function collectCandidateOffsets(text: string, candidate: string): number[] {
   if (!candidate) {
     return []
   }
 
-  const offsets: number[] = []
+  const offsets = new Set<number>()
   let searchStart = 0
 
   while (searchStart <= text.length) {
@@ -100,25 +147,61 @@ function collectCandidateOffsets(text: string, candidate: string): number[] {
       break
     }
 
-    offsets.push(nextIndex)
+    offsets.add(nextIndex)
     searchStart = nextIndex + Math.max(candidate.length, 1)
   }
 
-  return offsets
+  collectInvisibleInsensitiveCandidateOffsets(text, candidate).forEach((offset) => {
+    offsets.add(offset)
+  })
+
+  return Array.from(offsets).sort((left, right) => left - right)
+}
+
+function resolveInvisibleInsensitiveEndOffset(
+  text: string,
+  startOffset: number,
+  selectedText: string
+): number {
+  const normalizedSelectedText = removeInvisibleFormatCharacters(selectedText)
+  if (!normalizedSelectedText) {
+    return clampOffset(startOffset + selectedText.length, text.length)
+  }
+
+  let textOffset = clampOffset(startOffset, text.length)
+  let selectedOffset = 0
+  while (textOffset < text.length && selectedOffset < normalizedSelectedText.length) {
+    const character = text[textOffset]
+    if (isInvisibleFormatCharacter(character)) {
+      textOffset += 1
+      continue
+    }
+
+    if (character !== normalizedSelectedText[selectedOffset]) {
+      return clampOffset(startOffset + selectedText.length, text.length)
+    }
+
+    textOffset += 1
+    selectedOffset += 1
+  }
+
+  return selectedOffset === normalizedSelectedText.length
+    ? textOffset
+    : clampOffset(startOffset + selectedText.length, text.length)
 }
 
 function findOffsetFromContextWindow(
   text: string,
   anchor: PaperAnnotationTextAnchor
 ): number | null {
-  const trimmedPrefix = anchor.prefixText.trim()
-  const trimmedSuffix = anchor.suffixText.trim()
+  const trimmedPrefix = normalizeAnchorText(anchor.prefixText)
+  const trimmedSuffix = normalizeAnchorText(anchor.suffixText)
   let bestOffset: number | null = null
   let bestScore = -1
 
   if (trimmedPrefix) {
     for (const prefixOffset of collectCandidateOffsets(text, trimmedPrefix)) {
-      const nextOffset = prefixOffset + trimmedPrefix.length
+      const nextOffset = resolveInvisibleInsensitiveEndOffset(text, prefixOffset, trimmedPrefix)
       const score = scoreContextMatch(text, anchor, nextOffset)
       if (score > bestScore) {
         bestScore = score
@@ -129,7 +212,10 @@ function findOffsetFromContextWindow(
 
   if (trimmedSuffix) {
     for (const suffixOffset of collectCandidateOffsets(text, trimmedSuffix)) {
-      const nextOffset = Math.max(0, suffixOffset - anchor.selectedText.length)
+      const nextOffset = Math.max(
+        0,
+        suffixOffset - removeInvisibleFormatCharacters(anchor.selectedText).length
+      )
       const score = scoreContextMatch(text, anchor, nextOffset)
       if (score > bestScore) {
         bestScore = score
@@ -209,14 +295,21 @@ export function buildPaperTextAnchor(
 ): PaperAnnotationTextAnchor {
   const nextStartOffset = clampOffset(startOffset, textContent.length)
   const nextEndOffset = clampOffset(Math.max(endOffset, nextStartOffset), textContent.length)
+  const trimmedRange = trimTextBoundaryRange(textContent, nextStartOffset, nextEndOffset)
+  const anchorStartOffset = trimmedRange?.startOffset ?? nextStartOffset
+  const anchorEndOffset = trimmedRange?.endOffset ?? nextStartOffset
+  const selectedText = textContent.slice(anchorStartOffset, anchorEndOffset)
 
   return {
-    selectedText: textContent.slice(nextStartOffset, nextEndOffset),
-    prefixText: textContent.slice(Math.max(0, nextStartOffset - 32), nextStartOffset),
-    suffixText: textContent.slice(nextEndOffset, Math.min(textContent.length, nextEndOffset + 32)),
-    startOffset: nextStartOffset,
-    endOffset: nextEndOffset,
-    normalizedText: normalizeAnchorText(textContent.slice(nextStartOffset, nextEndOffset))
+    selectedText,
+    prefixText: textContent.slice(Math.max(0, anchorStartOffset - 32), anchorStartOffset),
+    suffixText: textContent.slice(
+      anchorEndOffset,
+      Math.min(textContent.length, anchorEndOffset + 32)
+    ),
+    startOffset: anchorStartOffset,
+    endOffset: anchorEndOffset,
+    normalizedText: normalizeAnchorText(selectedText)
   }
 }
 
@@ -335,7 +428,7 @@ export function mapPaperTextAnchorBetweenTexts(
   }
 
   const anchor = buildPaperTextAnchor(targetText, nextStartOffset, nextEndOffset)
-  if (!anchor.selectedText.trim()) {
+  if (!normalizeAnchorText(anchor.selectedText)) {
     return null
   }
 
