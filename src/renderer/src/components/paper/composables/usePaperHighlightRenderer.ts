@@ -7,7 +7,8 @@ import type {
 import type { PaperTranslationSegmentKind } from '@shared/types/paper'
 import {
   buildPaperTextAnchor,
-  findPaperTextAnchorOffset
+  findPaperTextAnchorOffset,
+  mapPaperTextAnchorBetweenTexts
 } from '@shared/utils/paperAnnotationAnchors'
 import {
   buildCanonicalTextIndex,
@@ -60,86 +61,114 @@ function resolveOriginalViewAnchor(
 
 function resolveTranslationViewAnchor(
   translationText: string,
-  annotation: PaperAnnotation
+  annotation: PaperAnnotation,
+  originalText?: string
 ): PaperAnnotationTextAnchor | null {
-  if (!translationText || !annotation.translationAnchor) {
+  if (!translationText) {
     return null
   }
 
-  const startOffset = findPaperTextAnchorOffset(translationText, annotation.translationAnchor)
-  if (startOffset !== null) {
-    return buildPaperTextAnchor(
+  // 先尝试 translationAnchor 精确匹配
+  if (annotation.translationAnchor) {
+    const startOffset = findPaperTextAnchorOffset(translationText, annotation.translationAnchor)
+    if (startOffset !== null) {
+      return buildPaperTextAnchor(
+        translationText,
+        startOffset,
+        startOffset + annotation.translationAnchor.selectedText.length
+      )
+    }
+  }
+
+  // translationAnchor 匹配失败：尝试从 originalAnchor 映射到译文
+  if (annotation.originalAnchor && originalText) {
+    const mappingResult = mapPaperTextAnchorBetweenTexts(
+      originalText,
       translationText,
-      startOffset,
-      startOffset + annotation.translationAnchor.selectedText.length
+      annotation.originalAnchor
     )
+    if (mappingResult && mappingResult.confidence >= 0.42) {
+      return mappingResult.anchor
+    }
   }
 
   return null
 }
 
+export interface HighlightCollectResult {
+  highlights: QuoteHighlight[]
+  failedIds: string[]
+}
+
 function collectOriginalHighlights(
   segment: RenderSourceSegment,
   annotations: PaperAnnotation[]
-): QuoteHighlight[] {
-  return annotations
-    .filter((annotation) => {
-      return annotation.noteType === 'original_span'
-    })
-    .flatMap((annotation) => {
-      const resolvedAnchor = resolveOriginalViewAnchor(segment, annotation)
-      if (!resolvedAnchor) {
-        return []
-      }
+): HighlightCollectResult {
+  const failedIds: string[] = []
+  const highlights: QuoteHighlight[] = []
 
-      const startOffset = findPaperTextAnchorOffset(segment.originalText, resolvedAnchor)
-      if (startOffset === null) {
-        return []
-      }
+  for (const annotation of annotations) {
+    if (annotation.noteType !== 'original_span') continue
 
-      return [
-        {
-          id: annotation.id,
-          startOffset: resolvedAnchor.startOffset,
-          endOffset: resolvedAnchor.endOffset,
-          anchor: resolvedAnchor,
-          kind: annotation.kind,
-          colorKey: annotation.colorKey
-        }
-      ]
+    const resolvedAnchor = resolveOriginalViewAnchor(segment, annotation)
+    if (!resolvedAnchor) {
+      failedIds.push(annotation.id)
+      continue
+    }
+
+    const startOffset = findPaperTextAnchorOffset(segment.originalText, resolvedAnchor)
+    if (startOffset === null) {
+      failedIds.push(annotation.id)
+      continue
+    }
+
+    highlights.push({
+      id: annotation.id,
+      startOffset: resolvedAnchor.startOffset,
+      endOffset: resolvedAnchor.endOffset,
+      anchor: resolvedAnchor,
+      kind: annotation.kind,
+      colorKey: annotation.colorKey
     })
+  }
+
+  return { highlights, failedIds }
 }
 
 function collectTranslationHighlights(
   translationText: string,
-  annotations: PaperAnnotation[]
-): QuoteHighlight[] {
-  return annotations
-    .filter((annotation) => {
-      return annotation.noteType === 'translation_view'
-    })
-    .flatMap((annotation) => {
-      const resolvedAnchor = resolveTranslationViewAnchor(translationText, annotation)
-      if (!resolvedAnchor) {
-        return []
-      }
+  annotations: PaperAnnotation[],
+  originalText?: string
+): HighlightCollectResult {
+  const failedIds: string[] = []
+  const highlights: QuoteHighlight[] = []
 
-      const startOffset = findPaperTextAnchorOffset(translationText, resolvedAnchor)
-      if (startOffset === null) {
-        return []
-      }
+  for (const annotation of annotations) {
+    if (annotation.noteType !== 'translation_view') continue
 
-      return [
-        {
-          id: annotation.id,
-          startOffset: resolvedAnchor.startOffset,
-          endOffset: resolvedAnchor.endOffset,
-          anchor: resolvedAnchor,
-          kind: annotation.kind,
-          colorKey: annotation.colorKey
-        }
-      ]
+    const resolvedAnchor = resolveTranslationViewAnchor(translationText, annotation, originalText)
+    if (!resolvedAnchor) {
+      failedIds.push(annotation.id)
+      continue
+    }
+
+    const startOffset = findPaperTextAnchorOffset(translationText, resolvedAnchor)
+    if (startOffset === null) {
+      failedIds.push(annotation.id)
+      continue
+    }
+
+    highlights.push({
+      id: annotation.id,
+      startOffset: resolvedAnchor.startOffset,
+      endOffset: resolvedAnchor.endOffset,
+      anchor: resolvedAnchor,
+      kind: annotation.kind,
+      colorKey: annotation.colorKey
     })
+  }
+
+  return { highlights, failedIds }
 }
 
 function sortHighlights(highlights: QuoteHighlight[]): QuoteHighlight[] {
@@ -268,18 +297,24 @@ function removeEmptyHighlightMarks(root: Element): void {
   })
 }
 
-function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): string {
+export interface ApplyHighlightsResult {
+  html: string
+  failedIds: string[]
+}
+
+function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): ApplyHighlightsResult {
   if (!html || highlights.length === 0 || typeof DOMParser === 'undefined') {
-    return html
+    return { html, failedIds: [] }
   }
 
   const parser = new DOMParser()
   const document = parser.parseFromString(`<div>${html}</div>`, 'text/html')
   const root = document.body.firstElementChild
   if (!root) {
-    return html
+    return { html, failedIds: [] }
   }
 
+  const failedIds: string[] = []
   const sortedHighlights = sortHighlights(highlights)
   for (let index = sortedHighlights.length - 1; index >= 0; index -= 1) {
     const highlight = sortedHighlights[index]
@@ -289,6 +324,7 @@ function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): stri
 
     const resolvedRange = resolveHighlightRange(root, highlight)
     if (!resolvedRange) {
+      failedIds.push(highlight.id)
       continue
     }
 
@@ -296,6 +332,7 @@ function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): stri
     range.setStart(resolvedRange.startPoint.node, resolvedRange.startPoint.offset)
     range.setEnd(resolvedRange.endPoint.node, resolvedRange.endPoint.offset)
     if (range.collapsed) {
+      failedIds.push(highlight.id)
       continue
     }
 
@@ -316,19 +353,20 @@ function applyHighlightsToHtml(html: string, highlights: QuoteHighlight[]): stri
   }
 
   removeEmptyHighlightMarks(root)
-  return root.innerHTML
+  return { html: root.innerHTML, failedIds }
 }
 
 export interface PaperHighlightRenderer {
   collectOriginalHighlights: (
     segment: RenderSourceSegment,
     annotations: PaperAnnotation[]
-  ) => QuoteHighlight[]
+  ) => HighlightCollectResult
   collectTranslationHighlights: (
     translationText: string,
-    annotations: PaperAnnotation[]
-  ) => QuoteHighlight[]
-  applyHighlightsToHtml: (html: string, highlights: QuoteHighlight[]) => string
+    annotations: PaperAnnotation[],
+    originalText?: string
+  ) => HighlightCollectResult
+  applyHighlightsToHtml: (html: string, highlights: QuoteHighlight[]) => ApplyHighlightsResult
 }
 
 export const __paperHighlightRendererTestHooks = {

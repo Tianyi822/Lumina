@@ -274,24 +274,26 @@ test('original_span 标注会渲染到原文视图', () => {
     createdInView: 'original'
   })
 
-  const highlights = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
+  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
     annotation
   ])
 
-  assert.equal(highlights.length, 1)
-  assert.equal(highlights[0].id, annotation.id)
-  assert.equal(highlights[0].anchor.selectedText, 'Synapse-CT')
+  assert.equal(result.highlights.length, 1)
+  assert.equal(result.highlights[0].id, annotation.id)
+  assert.equal(result.highlights[0].anchor.selectedText, 'Synapse-CT')
+  assert.equal(result.failedIds.length, 0)
 })
 
 test('active 的译文标注不会重复渲染到原文视图', () => {
   const segment = createSegment()
   const annotation = createAnnotation()
 
-  const highlights = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
+  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
     annotation
   ])
 
-  assert.deepEqual(highlights, [])
+  assert.equal(result.highlights.length, 0)
+  assert.equal(result.failedIds.length, 0)
 })
 
 test('highlight boundary 会在开头子区间提升到已有标记外侧', () => {
