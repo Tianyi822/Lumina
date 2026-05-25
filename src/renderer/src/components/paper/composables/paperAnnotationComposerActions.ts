@@ -6,6 +6,7 @@ import type {
   PaperAnnotationKind,
   PaperAnnotationTextAnchor
 } from '@shared/types/paper'
+import { PAPER_ANNOTATION_NOTE_COLOR_KEY } from '@shared/types/paper'
 import type {
   AnnotationHoverPopoverState,
   ComputedRef,
@@ -200,7 +201,7 @@ export function createPaperAnnotationComposerActions(
       contextBefore: annotation.contextBefore,
       contextAfter: annotation.contextAfter,
       comment,
-      colorKey: annotation.colorKey
+      colorKey: PAPER_ANNOTATION_NOTE_COLOR_KEY
     } satisfies CreatePaperAnnotationPayload)
 
     if (!createResult.success) {
