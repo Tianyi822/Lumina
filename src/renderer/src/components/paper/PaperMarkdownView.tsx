@@ -308,6 +308,9 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       clearTableDragState()
     }
 
+    // 未恢复批注通知（每次论文加载只提示一次）
+    const unresolvedNotifiedRef = useRef(false)
+
     // Render content and sync tables
     const renderContentAndSyncTables = useCallback(async (): Promise<void> => {
       await engine.renderContent()
@@ -315,6 +318,20 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       await new Promise((resolve) => setTimeout(resolve, 0))
       syncScrollableTableWrapState()
     }, [engine, syncScrollableTableWrapState])
+
+    // 通知未恢复批注
+    useEffect(() => {
+      if (unresolvedNotifiedRef.current) return
+      const ids = engine.unresolvedAnnotationIds
+      if (ids.length > 0) {
+        unresolvedNotifiedRef.current = true
+        const uniqueCount = new Set(ids).size
+        notify.info('批注恢复', `${uniqueCount} 条批注因文本变化未能恢复高亮`, {
+          source: 'paper',
+          dedupeKey: `paper-unresolved-annotations:${paperId}`
+        })
+      }
+    }, [engine.unresolvedAnnotationIds, notify, paperId])
 
     // Search helpers
     const getSearchContentElement = useCallback((): HTMLElement | null => {
@@ -422,8 +439,15 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       [translationCache]
     )
     const annotationUpdateKey = useMemo(
-      () => annotations.map((annotation) => annotation.updatedAt).join('|'),
-      [annotations]
+      () =>
+        [
+          annotations.length,
+          readerDocument?.sourceRevisionId ?? '',
+          ...annotations.map(
+            (annotation) => `${annotation.updatedAt}:${annotation.semanticAnchor.segmentTextHash}`
+          )
+        ].join('|'),
+      [annotations, readerDocument?.sourceRevisionId]
     )
 
     useEffect(() => {
@@ -594,6 +618,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     // Restore reading progress on paper change
     useEffect(() => {
+      unresolvedNotifiedRef.current = false
       flushPendingSave()
 
       const progress = readingProgress

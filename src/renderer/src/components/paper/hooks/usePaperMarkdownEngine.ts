@@ -363,11 +363,13 @@ export interface PaperMarkdownEngine {
   parseError: string | null
   getSourceSegments: () => RenderSourceSegment[]
   renderContent: () => Promise<void>
+  unresolvedAnnotationIds: string[]
 }
 
 export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): PaperMarkdownEngine {
   const [renderedSegments, setRenderedSegments] = useState<RenderedSegment[]>([])
   const [parseError, setParseError] = useState<string | null>(null)
+  const [unresolvedAnnotationIds, setUnresolvedAnnotationIds] = useState<string[]>([])
   const renderRunIdRef = useRef(0)
 
   const markdownRendererRef = useRef(
@@ -380,8 +382,10 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
       delimiters: ['dollars', 'beg_end'],
       katexOptions: {
         throwOnError: false,
-        strict: 'ignore',
-        output: 'htmlAndMathml'
+        strict: 'warn',
+        output: 'htmlAndMathml',
+        maxSize: 500,
+        maxExpand: 1000
       }
     })
   )
@@ -430,6 +434,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
   async function buildTocAndRenderedSegments(): Promise<{
     outline: PaperTocOutline
     segments: RenderedSegment[]
+    unresolvedAnnotationIds: string[]
   }> {
     const sourceSegments = getSourceSegments()
     const rendered: RenderedSegment[] = []
@@ -468,6 +473,8 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
       translationMap.set(entry.id, entry)
     }
 
+    const allFailedIds: string[] = []
+
     for (const segment of sourceSegments) {
       const outlineEntry = outlineEntryMap.get(segment.renderId)
       const headingId = segment.kind === 'heading' ? outlineEntry?.id : undefined
@@ -481,20 +488,31 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
           ? stripPaperTranslationMarkdown(translationEntry.translatedMarkdown)
           : ''
 
-      const originalHtml = highlighter.applyHighlightsToHtml(
+      const originalCollect = highlighter.collectOriginalHighlights(segment, annotations)
+      const originalHtmlResult = highlighter.applyHighlightsToHtml(
         await renderMarkdownBlock(segment.originalMarkdown, segment.kind, headingId),
-        highlighter.collectOriginalHighlights(segment, annotations)
+        originalCollect.highlights
       )
+      allFailedIds.push(...originalCollect.failedIds, ...originalHtmlResult.failedIds)
 
-      const translationHtml =
+      const translationCollect = highlighter.collectTranslationHighlights(
+        translationText,
+        annotations,
+        segment.originalText
+      )
+      const translationHtmlResult =
         translationEntry &&
         translationEntry.status === 'completed' &&
         translationEntry.translatedMarkdown
           ? highlighter.applyHighlightsToHtml(
               await renderMarkdownBlock(translationEntry.translatedMarkdown, translationEntry.kind),
-              highlighter.collectTranslationHighlights(translationText, annotations)
+              translationCollect.highlights
             )
           : null
+      allFailedIds.push(...translationCollect.failedIds)
+      if (translationHtmlResult) {
+        allFailedIds.push(...translationHtmlResult.failedIds)
+      }
 
       rendered.push({
         renderId: segment.renderId,
@@ -502,14 +520,14 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         sourceRevisionId: segment.sourceRevisionId,
         textHash: segment.textHash,
         originalText: segment.originalText,
-        originalHtml,
-        translationHtml,
+        originalHtml: originalHtmlResult.html,
+        translationHtml: translationHtmlResult?.html ?? null,
         translationText,
         translationStatus,
         showTranslation: shouldRenderTranslationBlock(
           options.translationVisible,
           translationStatus,
-          translationHtml
+          translationHtmlResult?.html ?? null
         ),
         segmentAnchorId,
         isCenteredMeta: frontMatterMetadataIds.has(segment.renderId),
@@ -521,7 +539,8 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
 
     return {
       outline,
-      segments: rendered
+      segments: rendered,
+      unresolvedAnnotationIds: allFailedIds
     }
   }
 
@@ -540,6 +559,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         return
       }
       setRenderedSegments(result.segments)
+      setUnresolvedAnnotationIds(result.unresolvedAnnotationIds)
       options.setTocOutline(result.outline)
     } catch (error) {
       if (currentRunId !== renderRunIdRef.current) {
@@ -563,6 +583,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
     renderedSegments,
     parseError,
     getSourceSegments,
-    renderContent
+    renderContent,
+    unresolvedAnnotationIds
   }
 }
