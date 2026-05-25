@@ -9,6 +9,11 @@ import {
   resolveCanonicalTextPoint,
   trimCanonicalTextRange
 } from './paperCanonicalTextIndex.ts'
+import {
+  clearSelectedFormulas,
+  markSelectedFormulas,
+  normalizeCanonicalSelectionRange
+} from './paperDragSelectionSync.ts'
 
 function createRect(left, top, width, height) {
   return {
@@ -34,10 +39,10 @@ function createTextNode(text) {
 }
 
 function createElement(tagName, attrs = {}, children = []) {
+  const classes = new Set(String(attrs.class || '').split(/\s+/).filter(Boolean))
+
   function hasClass(className) {
-    return String(attrs.class || '')
-      .split(/\s+/)
-      .includes(className)
+    return classes.has(className)
   }
 
   const element = {
@@ -47,6 +52,17 @@ function createElement(tagName, attrs = {}, children = []) {
     childNodes: children,
     parentNode: null,
     parentElement: null,
+    classList: {
+      add(cls) {
+        classes.add(cls)
+      },
+      remove(cls) {
+        classes.delete(cls)
+      },
+      contains(cls) {
+        return classes.has(cls)
+      }
+    },
     matches(selector) {
       if (selector === '.katex') {
         return hasClass('katex')
@@ -99,6 +115,20 @@ function createElement(tagName, attrs = {}, children = []) {
           ? child.contains(node)
           : false
       })
+    },
+    querySelectorAll(selector) {
+      const results = []
+      const classMatch = selector.match(/^\.([\w-]+)$/)
+      if (classMatch && element.classList.contains(classMatch[1])) {
+        results.push(element)
+      }
+      for (const child of children) {
+        if (child.nodeType !== 1 || typeof child.querySelectorAll !== 'function') {
+          continue
+        }
+        results.push(...child.querySelectorAll(selector))
+      }
+      return results
     }
   }
 
@@ -255,4 +285,121 @@ test('canonical text range 会同步修剪选区首尾空白', () => {
     startOffset: 2,
     endOffset: 22
   })
+})
+
+test('canonical text range 会跳过段首段尾不可见格式字符', () => {
+  assert.deepEqual(trimCanonicalTextRange('\u200b其中 H_k 和 \ufeff', 0, 11), {
+    startOffset: 1,
+    endOffset: 9
+  })
+  assert.deepEqual(trimCanonicalTextRange('\u2066\u034f其中\u2069', 0, 5), {
+    startOffset: 2,
+    endOffset: 4
+  })
+})
+
+test('markSelectedFormulas 标记被完整覆盖的行内公式', () => {
+  const math = createKatexElement('t_{v}', 'tvt_{v}tv\u200b')
+  const root = createElement('div', {}, [
+    createTextNode('函数 '),
+    math,
+    createTextNode('。')
+  ])
+  const index = buildCanonicalTextIndex(root)
+  markSelectedFormulas(root, index, 0, index.text.length)
+  assert.equal(math.classList.contains('katex--selected'), true)
+})
+
+test('段首隐藏字符不会阻止跨公式选区标记完整行内公式', () => {
+  const math = createKatexElement('H_k^{high}', 'H high visual')
+  const root = createElement('div', {}, [
+    createTextNode('\u200b其中 '),
+    math,
+    createTextNode(' 和后续文字')
+  ])
+  const index = buildCanonicalTextIndex(root)
+  const mathSegment = index.segments.find((segment) => segment.kind === 'math')
+  assert.ok(mathSegment)
+  const trimmedRange = trimCanonicalTextRange(index.text, 0, mathSegment.endOffset)
+  assert.deepEqual(trimmedRange, {
+    startOffset: 1,
+    endOffset: mathSegment.endOffset
+  })
+
+  markSelectedFormulas(root, index, trimmedRange.startOffset, trimmedRange.endOffset)
+  assert.equal(math.classList.contains('katex--selected'), true)
+})
+
+test('段首隐藏字符导致选区起点落到首个可见字后时会回退一个字', () => {
+  const root = createElement('div', {}, [createTextNode('\u200b这里，后续文字')])
+  const index = buildCanonicalTextIndex(root)
+
+  const normalizedRange = normalizeCanonicalSelectionRange(index, {
+    startOffset: 2,
+    endOffset: index.text.length
+  })
+
+  assert.deepEqual(normalizedRange, {
+    startOffset: 1,
+    endOffset: index.text.length
+  })
+
+  const trimmedRange = trimCanonicalTextRange(
+    index.text,
+    normalizedRange.startOffset,
+    normalizedRange.endOffset
+  )
+  assert.deepEqual(trimmedRange, {
+    startOffset: 1,
+    endOffset: index.text.length
+  })
+})
+
+test('普通段首选区不会被额外回退', () => {
+  const root = createElement('div', {}, [createTextNode('这里，后续文字')])
+  const index = buildCanonicalTextIndex(root)
+
+  const normalizedRange = normalizeCanonicalSelectionRange(index, {
+    startOffset: 1,
+    endOffset: index.text.length
+  })
+
+  assert.deepEqual(normalizedRange, {
+    startOffset: 1,
+    endOffset: index.text.length
+  })
+})
+
+test('markSelectedFormulas 不标记仅被部分覆盖的公式', () => {
+  const math = createKatexElement('t_{v}', 'tvt_{v}tv\u200b')
+  const root = createElement('div', {}, [
+    createTextNode('函数 '),
+    math,
+    createTextNode('。')
+  ])
+  const index = buildCanonicalTextIndex(root)
+  const mathStartOffset = index.text.indexOf('$t_{v}$')
+  // 选区从公式前开始，但结束在公式内部（未覆盖完整公式）
+  markSelectedFormulas(root, index, 0, mathStartOffset + 2)
+  assert.equal(math.classList.contains('katex--selected'), false)
+})
+
+test('markSelectedFormulas 对 display 公式只标记外层容器', () => {
+  const displayMath = createKatexDisplayElement('\\sigma', 'sigma')
+  const root = createElement('div', {}, [displayMath])
+  const index = buildCanonicalTextIndex(root)
+  markSelectedFormulas(root, index, 0, index.text.length)
+  assert.equal(displayMath.classList.contains('katex--selected'), true)
+  assert.equal(displayMath.childNodes[0].classList.contains('katex--selected'), false)
+})
+
+test('clearSelectedFormulas 清除所有公式选中标记', () => {
+  const math1 = createKatexElement('a', 'a')
+  const math2 = createKatexElement('b', 'b')
+  const root = createElement('div', {}, [math1, math2])
+  math1.classList.add('katex--selected')
+  math2.classList.add('katex--selected')
+  clearSelectedFormulas(root)
+  assert.equal(math1.classList.contains('katex--selected'), false)
+  assert.equal(math2.classList.contains('katex--selected'), false)
 })

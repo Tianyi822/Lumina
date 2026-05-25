@@ -10,7 +10,10 @@ import {
   findPaperAnnotationNoteConflict
 } from '@shared/utils/paperAnnotationConflicts'
 import { createPaperAnnotationComposerActions } from '../composables/paperAnnotationComposerActions'
-import { createPaperAnnotationSelectionResolver } from '../composables/paperAnnotationComposerSelection'
+import {
+  clearSelectedFormulas,
+  createPaperAnnotationSelectionResolver
+} from '../composables/paperAnnotationComposerSelection'
 import type {
   AnnotationHoverPopoverState,
   ComputedRef,
@@ -194,6 +197,7 @@ export function usePaperAnnotationComposer(
   )
 
   const clearSelectionUi = useCallback((): void => {
+    clearSelectedFormulas()
     setSelectionActionMenu(null)
     setSelectionActionMenuError(null)
     setNoteEditorDraft(null)
@@ -351,9 +355,10 @@ export function usePaperAnnotationComposer(
       }
 
       const savedRange =
-        typeof window !== 'undefined' && window.getSelection()?.rangeCount
+        selectionResult.normalizedRange ||
+        (typeof window !== 'undefined' && window.getSelection()?.rangeCount
           ? window.getSelection()!.getRangeAt(0).cloneRange()
-          : null
+          : null)
 
       savedSelectionRangeRef.current = savedRange
       openSelectionActionMenu(selectionResult.draft, selectionResult.rect)
@@ -591,6 +596,8 @@ export function usePaperAnnotationComposer(
     (event: MouseEvent): void => {
       if (event.shiftKey) return
 
+      clearSelectedFormulas()
+
       const target = event.target as HTMLElement | null
       if (!target) {
         return
@@ -625,6 +632,7 @@ export function usePaperAnnotationComposer(
       if (event.key === 'Escape') {
         clearComposer()
         clearNativeSelection()
+        clearSelectedFormulas()
       }
     },
     [clearComposer, clearNativeSelection]

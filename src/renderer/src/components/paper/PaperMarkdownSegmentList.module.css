@@ -105,6 +105,9 @@
 
 .paper-markdown-view__markdown {
   --paper-markdown-list-indent: 2.8em;
+  --paper-inline-highlight-line-height: 1.75;
+  --paper-inline-highlight-height: 1.75em;
+  --paper-inline-highlight-padding-y: calc((var(--paper-inline-highlight-height) - 1em) / 2);
   width: 100%;
   font-size: 15px;
   line-height: 1.75;
@@ -135,7 +138,10 @@
 .paper-markdown-view__markdown mark:global(.paper-annotation-highlight) {
   border-radius: 4px;
   color: var(--sm-color-paper-annotation-text);
-  padding: 0 1px;
+  padding: var(--paper-inline-highlight-padding-y) 1px;
+  line-height: 1;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
   cursor: pointer;
   box-shadow: inset 0 0 0 1px var(--sm-color-paper-annotation-border);
   mix-blend-mode: normal;
@@ -264,6 +270,39 @@
 .paper-markdown-view__markdown :global(.katex-display) > :global(.katex) {
   display: inline-block;
   min-width: min-content;
+}
+
+/* 公式被整体选中时，隐藏 KaTeX 视觉层碎片化的原生选区高亮 */
+.paper-markdown-view__markdown :global(.katex--selected .katex-html) ::selection {
+  background: transparent;
+  color: inherit;
+}
+
+/* 行内公式整体选中背景 */
+.paper-markdown-view__markdown :global(.katex--selected) {
+  position: relative;
+  z-index: 0;
+  border-radius: 3px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.paper-markdown-view__markdown :global(.katex--selected)::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -1px;
+  left: -1px;
+  z-index: -1;
+  height: var(--paper-inline-highlight-height);
+  border-radius: inherit;
+  background: var(--sm-selection-background, rgba(156, 169, 186, 0.18));
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.paper-markdown-view__markdown :global(.katex-display.katex--selected) {
+  border-radius: 4px;
 }
 
 .paper-markdown-view__markdown :global(.katex-error) {

@@ -7,19 +7,27 @@ import { buildPaperQuoteContext } from '@shared/utils/paperQuoteContext'
 import {
   buildCanonicalTextIndex,
   findCanonicalMathSegmentByNode,
-  getCanonicalOffsetForDomPoint,
   getCanonicalRangeClientRect,
-  getCanonicalRangeOffsets,
+  resolveCanonicalTextPoint,
   trimCanonicalTextRange,
   type CanonicalTextClientRect
 } from './paperCanonicalTextIndex'
 import type { ComputedRef, SelectionDraft } from './paperAnnotationComposerTypes'
 import type { RenderSourceSegment } from './usePaperHighlightRenderer'
 import type { RenderedSegment } from '../hooks/usePaperMarkdownEngine'
+import {
+  getSelectionContentRoot,
+  markSelectedFormulas,
+  normalizeCanonicalSelectionRange,
+  resolveRangeOffsetsWithFormulaFallback,
+  resolveSelectionSurface
+} from './paperDragSelectionSync'
+export { clearSelectedFormulas, markSelectedFormulas } from './paperDragSelectionSync'
 
 export interface PaperAnnotationSelectionResult {
   draft: SelectionDraft
   rect: CanonicalTextClientRect
+  normalizedRange: Range | null
 }
 
 interface PaperAnnotationSelectionResolverOptions {
@@ -56,24 +64,14 @@ export function createPaperAnnotationSelectionResolver(
     }
   }
 
-  function getSelectionContentRoot(surface: HTMLElement): Element {
-    return surface.firstElementChild || surface
-  }
-
-  function resolveSelectionSurface(container: Node): HTMLElement | null {
-    return container instanceof Element
-      ? container.closest<HTMLElement>('[data-paper-selection-surface="true"]')
-      : container.parentElement?.closest<HTMLElement>('[data-paper-selection-surface="true"]') ||
-          null
-  }
-
   function buildSelectionResult(
     surface: HTMLElement,
     canonicalText: string,
     selectedRange: { startOffset: number; endOffset: number },
     selectionRect: CanonicalTextClientRect,
     segment: RenderedSegment,
-    renderSourceSegment: RenderSourceSegment
+    renderSourceSegment: RenderSourceSegment,
+    normalizedRange: Range | null = null
   ): PaperAnnotationSelectionResult {
     const textAnchor = buildPaperTextAnchor(
       canonicalText,
@@ -88,6 +86,7 @@ export function createPaperAnnotationSelectionResolver(
 
     return {
       rect: selectionRect,
+      normalizedRange,
       draft: {
         mode: 'create',
         viewKind,
@@ -118,68 +117,21 @@ export function createPaperAnnotationSelectionResolver(
     }
   }
 
-  /**
-   * 尝试通过包含公式元素的方式来解析选区偏移量。
-   *
-   * 当选区起止容器落在 KaTeX 内部节点时，回退到公式容器边界再解析。
-   */
-  function tryResolveOffsetsWithFormulaFallback(
+  function buildNativeRangeFromCanonicalRange(
+    contentRoot: Element,
     canonicalIndex: ReturnType<typeof buildCanonicalTextIndex>,
-    range: Range
-  ): { startOffset: number; endOffset: number } | null {
-    function resolveKatexBoundary(
-      container: Node,
-      offset: number,
-      edge: 'start' | 'end'
-    ): { container: Node; offset: number } {
-      const element = container instanceof Element ? container : container.parentElement
-      if (!element) return { container, offset }
-
-      const katexEl = element.closest('.katex-display, .katex')
-      if (!katexEl || !canonicalIndex.root.contains(katexEl)) return { container, offset }
-
-      const parent = katexEl.parentNode
-      if (!parent) return { container, offset }
-
-      const katexIndex = Array.prototype.indexOf.call(parent.childNodes, katexEl)
-      return {
-        container: parent,
-        offset: edge === 'start' ? katexIndex : katexIndex + 1
-      }
+    selectedRange: { startOffset: number; endOffset: number }
+  ): Range | null {
+    const startPoint = resolveCanonicalTextPoint(canonicalIndex, selectedRange.startOffset, 'start')
+    const endPoint = resolveCanonicalTextPoint(canonicalIndex, selectedRange.endOffset, 'end')
+    if (!startPoint || !endPoint) {
+      return null
     }
 
-    const adjustedStart = resolveKatexBoundary(range.startContainer, range.startOffset, 'start')
-    const adjustedEnd = resolveKatexBoundary(range.endContainer, range.endOffset, 'end')
-
-    // 如果调整后有变化，用调整后的容器重试
-    if (
-      adjustedStart.container !== range.startContainer ||
-      adjustedStart.offset !== range.startOffset ||
-      adjustedEnd.container !== range.endContainer ||
-      adjustedEnd.offset !== range.endOffset
-    ) {
-      const startOffset = getCanonicalOffsetForDomPoint(
-        canonicalIndex,
-        adjustedStart.container,
-        adjustedStart.offset,
-        'start'
-      )
-      const endOffset = getCanonicalOffsetForDomPoint(
-        canonicalIndex,
-        adjustedEnd.container,
-        adjustedEnd.offset,
-        'end'
-      )
-      if (startOffset !== null && endOffset !== null) {
-        return {
-          startOffset: Math.min(startOffset, endOffset),
-          endOffset: Math.max(startOffset, endOffset)
-        }
-      }
-    }
-
-    // 尝试直接解析
-    return getCanonicalRangeOffsets(canonicalIndex, range)
+    const range = contentRoot.ownerDocument.createRange()
+    range.setStart(startPoint.node, startPoint.offset)
+    range.setEnd(endPoint.node, endPoint.offset)
+    return range
   }
 
   function buildFormulaSelectionFromPointerTarget(
@@ -225,6 +177,13 @@ export function createPaperAnnotationSelectionResolver(
       return null
     }
 
+    markSelectedFormulas(
+      contentRoot,
+      canonicalIndex,
+      mathSegment.startOffset,
+      mathSegment.endOffset
+    )
+
     return buildSelectionResult(
       surface,
       canonicalIndex.text,
@@ -234,7 +193,11 @@ export function createPaperAnnotationSelectionResolver(
       },
       selectionRect,
       segment,
-      renderSourceSegment
+      renderSourceSegment,
+      buildNativeRangeFromCanonicalRange(contentRoot, canonicalIndex, {
+        startOffset: mathSegment.startOffset,
+        endOffset: mathSegment.endOffset
+      })
     )
   }
 
@@ -283,15 +246,16 @@ export function createPaperAnnotationSelectionResolver(
     const canonicalIndex = buildCanonicalTextIndex(contentRoot)
 
     // 使用增强的偏移量解析（含公式回退逻辑）
-    const rangeOffsets = tryResolveOffsetsWithFormulaFallback(canonicalIndex, range)
+    const rangeOffsets = resolveRangeOffsetsWithFormulaFallback(canonicalIndex, range)
     if (!rangeOffsets) {
       return buildFormulaSelectionFromPointerTarget(event?.target || null)
     }
 
+    const normalizedRange = normalizeCanonicalSelectionRange(canonicalIndex, rangeOffsets)
     const trimmedRange = trimCanonicalTextRange(
       canonicalIndex.text,
-      rangeOffsets.startOffset,
-      rangeOffsets.endOffset
+      normalizedRange.startOffset,
+      normalizedRange.endOffset
     )
     if (!trimmedRange) {
       return buildFormulaSelectionFromPointerTarget(event?.target || null)
@@ -307,13 +271,27 @@ export function createPaperAnnotationSelectionResolver(
       return buildFormulaSelectionFromPointerTarget(event?.target || null)
     }
 
+    const normalizedNativeRange = buildNativeRangeFromCanonicalRange(
+      contentRoot,
+      canonicalIndex,
+      trimmedRange
+    )
+
+    markSelectedFormulas(
+      contentRoot,
+      canonicalIndex,
+      trimmedRange.startOffset,
+      trimmedRange.endOffset
+    )
+
     return buildSelectionResult(
       startSurface,
       canonicalIndex.text,
       trimmedRange,
       selectionRect,
       segment,
-      renderSourceSegment
+      renderSourceSegment,
+      normalizedNativeRange
     )
   }
 

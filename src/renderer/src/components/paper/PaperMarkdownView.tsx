@@ -17,6 +17,7 @@ import { usePaperAnnotationComposer } from './hooks/usePaperAnnotationComposer'
 import { usePaperTextSearch } from './hooks/usePaperTextSearch'
 import { usePaperQuoteHighlight } from './composables/usePaperQuoteHighlight'
 import { useZoomAnchor } from './composables/useZoomAnchor'
+import { syncFormulaSelectionOnDrag } from './composables/paperDragSelectionSync'
 import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopover'
 import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor'
 import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu'
@@ -544,6 +545,15 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       }, 150)
     }, [markdownZoomLevel, zoomAnchor, syncScrollableTableWrapState])
 
+    // 实时同步公式拖选高亮
+    useEffect(() => {
+      const container = scrollContainerRef.current
+      if (!container) return
+
+      const cleanup = syncFormulaSelectionOnDrag(container)
+      return cleanup
+    }, [content, paperId])
+
     // Reading progress
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const pendingPercentRef = useRef<number | null>(null)
@@ -891,12 +901,6 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
             onCreateHighlight={composer.handleCreateHighlight}
             onOpenNoteEditor={composer.handleOpenNoteEditorFromSelection}
             onAddToChat={composer.handleAddToChat}
-            onCopyLatex={() => {
-              const selectedText = composer.selectionActionMenu?.draft.selectedText
-              if (selectedText) {
-                void navigator.clipboard.writeText(selectedText)
-              }
-            }}
           />
         )}
 
