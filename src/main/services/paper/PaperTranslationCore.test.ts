@@ -380,7 +380,13 @@ test('独立公式段会被跳过且不会触发翻译调用', async () => {
     '',
     '\\begin{equation} E = mc^2 \\end{equation}',
     '',
-    'The optimization objective is defined as follows.'
+    '$\\alpha + \\beta$',
+    '',
+    '\\(\\gamma + \\delta\\)',
+    '',
+    '\\[\\eta = \\theta\\]',
+    '',
+    'The optimization objective includes $\\lambda$ and is defined as follows.'
   ].join('\n')
   const cacheStore = new Map<string, PaperTranslationCache>()
   let translateCallCount = 0
@@ -411,8 +417,15 @@ test('独立公式段会被跳过且不会触发翻译调用', async () => {
   assert.ok(cache)
   assert.equal(cache.entries[1].status, 'skipped')
   assert.equal(cache.entries[2].status, 'skipped')
+  assert.equal(cache.entries[3].status, 'skipped')
+  assert.equal(cache.entries[4].status, 'skipped')
+  assert.equal(cache.entries[5].status, 'skipped')
+  assert.equal(cache.entries[6].status, 'completed')
   assert.equal(cache.entries[1].translatedMarkdown, cache.entries[1].originalMarkdown)
   assert.equal(cache.entries[2].translatedMarkdown, cache.entries[2].originalMarkdown)
+  assert.equal(cache.entries[3].translatedMarkdown, cache.entries[3].originalMarkdown)
+  assert.equal(cache.entries[4].translatedMarkdown, cache.entries[4].originalMarkdown)
+  assert.equal(cache.entries[5].translatedMarkdown, cache.entries[5].originalMarkdown)
   assert.equal(translateCallCount, 2)
 })
 

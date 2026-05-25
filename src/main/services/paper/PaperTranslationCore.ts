@@ -265,7 +265,14 @@ function hasFormulaDelimiters(segment: string): boolean {
 
   // 仅匹配独立的展示公式块（整个段落是公式），不匹配包含内联公式的正常文本
   const trimmed = normalized.trim()
-  return /^\$\$[\s\S]*\$\$$/.test(trimmed) || /^\\\[.*\\\]$/.test(trimmed)
+  return (
+    /^\$\$[\s\S]*\$\$$/.test(trimmed) ||
+    (/^\$[\s\S]*\$$/.test(trimmed) &&
+      !trimmed.startsWith('$$') &&
+      !trimmed.endsWith('$$')) ||
+    /^\\\[[\s\S]*\\\]$/.test(trimmed) ||
+    /^\\\([\s\S]*\\\)$/.test(trimmed)
+  )
 }
 
 function hasLatexEnvironment(segment: string): boolean {
