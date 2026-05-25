@@ -95,7 +95,18 @@ export function normalizePaperInlineMathForRender(
     return content
   }
 
-  return content.replace(/\$([^\n$]+?)\$/g, (_match, expression: string) => {
+  // 将未包裹的 \begin{equation}...\end{equation} 等环境转为 $$...$$
+  let result = content.replace(
+    /\\begin\{(equation|align|aligned|gather|gathered|multline|split|eqnarray|cases|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|array)\*?\}([\s\S]*?)\\end\{\1\*?\}/g,
+    (_match, env: string, body: string) => {
+      return `$$\\begin{${env}}${body}\\end{${env}}$$`
+    }
+  )
+
+  // 修正行内公式空格
+  result = result.replace(/\$([^\n$]+?)\$/g, (_match, expression: string) => {
     return `$${expression.trim()}$`
   })
+
+  return result
 }

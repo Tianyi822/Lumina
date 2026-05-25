@@ -1,7 +1,7 @@
 .paper-markdown-view__segment {
   position: relative;
   content-visibility: auto;
-  contain-intrinsic-size: auto 200px;
+  contain-intrinsic-size: auto 300px;
 }
 
 .paper-markdown-view__segment + .paper-markdown-view__segment {
@@ -250,6 +250,7 @@
 
 .paper-markdown-view__markdown :global(.katex) {
   font-size: 1em;
+  user-select: text;
 }
 
 .paper-markdown-view__markdown :global(.katex-display) {
@@ -257,11 +258,21 @@
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0.2em 0;
+  user-select: text;
 }
 
 .paper-markdown-view__markdown :global(.katex-display) > :global(.katex) {
   display: inline-block;
   min-width: min-content;
+}
+
+.paper-markdown-view__markdown :global(.katex-error) {
+  color: var(--sm-color-status-danger);
+  background: color-mix(in srgb, var(--sm-color-status-danger) 8%, transparent);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: var(--sm-font-mono);
+  font-size: 0.9em;
 }
 
 .paper-markdown-view__markdown pre {

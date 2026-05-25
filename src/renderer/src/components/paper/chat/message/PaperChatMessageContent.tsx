@@ -23,8 +23,10 @@ const md = new MarkdownIt({
   delimiters: ['dollars', 'beg_end'],
   katexOptions: {
     throwOnError: false,
-    strict: 'ignore',
-    output: 'htmlAndMathml'
+    strict: 'warn',
+    output: 'htmlAndMathml',
+    maxSize: 500,
+    maxExpand: 1000
   }
 })
 
