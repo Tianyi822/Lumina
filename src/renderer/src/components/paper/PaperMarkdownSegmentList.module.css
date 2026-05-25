@@ -274,12 +274,12 @@
 }
 
 /* 公式被整体选中时，隐藏 KaTeX 视觉层碎片化的原生选区高亮 */
-.paper-markdown-view__markdown :global(.katex--selected .katex-html) ::selection {
+.paper-markdown-view__markdown :global(.katex-html.katex--selected) ::selection {
   background: transparent;
   color: inherit;
 }
 
-/* 行内公式整体选中背景 */
+/* 公式整体选中背景 */
 .paper-markdown-view__markdown :global(.katex--selected) {
   position: relative;
   z-index: 0;
@@ -302,7 +302,7 @@
   pointer-events: none;
 }
 
-.paper-markdown-view__markdown :global(.katex-display.katex--selected) {
+.paper-markdown-view__markdown :global(.katex-display .katex-html.katex--selected) {
   border-radius: 4px;
 }
 

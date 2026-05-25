@@ -304,14 +304,17 @@ test('canonical text range 会跳过段首段尾不可见格式字符', () => {
 
 test('markSelectedFormulas 标记被完整覆盖的行内公式', () => {
   const math = createKatexElement('t_{v}', 'tvt_{v}tv\u200b')
+  const mathHtml = math.querySelector('.katex-html')
   const root = createElement('div', {}, [createTextNode('函数 '), math, createTextNode('。')])
   const index = buildCanonicalTextIndex(root)
   markSelectedFormulas(root, index, 0, index.text.length)
-  assert.equal(math.classList.contains('katex--selected'), true)
+  assert.equal(math.classList.contains('katex--selected'), false)
+  assert.equal(mathHtml.classList.contains('katex--selected'), true)
 })
 
 test('段首隐藏字符不会阻止跨公式选区标记完整行内公式', () => {
   const math = createKatexElement('H_k^{high}', 'H high visual')
+  const mathHtml = math.querySelector('.katex-html')
   const root = createElement('div', {}, [
     createTextNode('\u200b其中 '),
     math,
@@ -327,7 +330,8 @@ test('段首隐藏字符不会阻止跨公式选区标记完整行内公式', ()
   })
 
   markSelectedFormulas(root, index, trimmedRange.startOffset, trimmedRange.endOffset)
-  assert.equal(math.classList.contains('katex--selected'), true)
+  assert.equal(math.classList.contains('katex--selected'), false)
+  assert.equal(mathHtml.classList.contains('katex--selected'), true)
 })
 
 test('段首隐藏字符导致选区起点落到首个可见字后时会回退一个字', () => {
@@ -380,22 +384,27 @@ test('markSelectedFormulas 不标记仅被部分覆盖的公式', () => {
   assert.equal(math.classList.contains('katex--selected'), false)
 })
 
-test('markSelectedFormulas 对 display 公式只标记外层容器', () => {
+test('markSelectedFormulas 对 display 公式只标记 katex-html', () => {
   const displayMath = createKatexDisplayElement('\\sigma', 'sigma')
+  const innerMath = displayMath.childNodes[0]
+  const mathHtml = displayMath.querySelector('.katex-html')
   const root = createElement('div', {}, [displayMath])
   const index = buildCanonicalTextIndex(root)
   markSelectedFormulas(root, index, 0, index.text.length)
-  assert.equal(displayMath.classList.contains('katex--selected'), true)
-  assert.equal(displayMath.childNodes[0].classList.contains('katex--selected'), false)
+  assert.equal(displayMath.classList.contains('katex--selected'), false)
+  assert.equal(innerMath.classList.contains('katex--selected'), false)
+  assert.equal(mathHtml.classList.contains('katex--selected'), true)
 })
 
 test('clearSelectedFormulas 清除所有公式选中标记', () => {
   const math1 = createKatexElement('a', 'a')
   const math2 = createKatexElement('b', 'b')
+  const mathHtml1 = math1.querySelector('.katex-html')
+  const mathHtml2 = math2.querySelector('.katex-html')
   const root = createElement('div', {}, [math1, math2])
-  math1.classList.add('katex--selected')
-  math2.classList.add('katex--selected')
+  mathHtml1.classList.add('katex--selected')
+  mathHtml2.classList.add('katex--selected')
   clearSelectedFormulas(root)
-  assert.equal(math1.classList.contains('katex--selected'), false)
-  assert.equal(math2.classList.contains('katex--selected'), false)
+  assert.equal(mathHtml1.classList.contains('katex--selected'), false)
+  assert.equal(mathHtml2.classList.contains('katex--selected'), false)
 })

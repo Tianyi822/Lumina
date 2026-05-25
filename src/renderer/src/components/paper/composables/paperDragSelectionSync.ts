@@ -226,15 +226,27 @@ function hasMutableClassList(
   )
 }
 
+function isElementLikeNode(node: Node): node is Element {
+  return (
+    node.nodeType === 1 &&
+    typeof (node as Element).querySelector === 'function'
+  )
+}
+
+function getFormulaSelectionTarget(node: Node): Node {
+  if (isElementLikeNode(node)) {
+    return node.querySelector('.katex-html') || node
+  }
+
+  return node
+}
+
 /**
  * 根据 canonical text index 标记被选区完整覆盖的公式。
  *
  * 遍历 index 中 math / display_math 类型的 segments，如果其偏移范围
- * 完全落在 [startOffset, endOffset] 内，则给对应的 DOM 元素添加
- * `katex--selected` 类以显示统一高亮。
- *
- * 对 display_math，segment.sourceNode 是外层 `.katex-display`，
- * 因此只标记外层，不重复标记内部的 `.katex`。
+ * 完全落在 [startOffset, endOffset] 内，则给 `.katex-html` 添加
+ * `katex--selected` 类以显示统一高亮，避免 display 公式整行铺底。
  */
 export function markSelectedFormulas(
   root: Element,
@@ -250,7 +262,7 @@ export function markSelectedFormulas(
     }
 
     if (segment.startOffset >= startOffset && segment.endOffset <= endOffset) {
-      const el = segment.sourceNode
+      const el = getFormulaSelectionTarget(segment.sourceNode)
       if (hasMutableClassList(el)) {
         el.classList.add('katex--selected')
       }
