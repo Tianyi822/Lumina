@@ -237,6 +237,42 @@ test('编号 loose list 中的公式和后续正文会拆成独立翻译段', ()
   )
 })
 
+test('带空行的数学围栏不会被拆成独立定界符段', () => {
+  const markdown = [
+    'Before formula.',
+    '',
+    '$$',
+    '',
+    'P ^ {\\mathrm {source}} = \\left{ x \\right}',
+    '',
+    '$$',
+    '',
+    '$',
+    '',
+    '\\mathbf {h}_{t} = \\mathbf {A} \\mathbf {x}_{t}',
+    '',
+    '$',
+    '',
+    '\\[',
+    '',
+    '\\eta = \\theta',
+    '',
+    '\\]',
+    '',
+    'After formula.'
+  ].join('\n')
+
+  const segments = parsePaperTranslationSegments(markdown)
+
+  assert.equal(segments.length, 5)
+  assert.equal(segments[1].originalMarkdown.startsWith('$$'), true)
+  assert.match(segments[1].originalMarkdown, /P \^/)
+  assert.equal(segments[2].originalMarkdown.startsWith('$\n'), true)
+  assert.match(segments[2].originalMarkdown, /\\mathbf/)
+  assert.equal(segments[3].originalMarkdown.startsWith('\\['), true)
+  assert.match(segments[3].originalMarkdown, /\\eta/)
+})
+
 test('目录层级会优先根据标题编号恢复，最多三级', () => {
   const markdown = [
     '# 3. Method',

@@ -94,6 +94,11 @@ interface MarkdownFence {
   length: number
 }
 
+interface MathFence {
+  opener: '$' | '$$' | '\\['
+  closer: '$' | '$$' | '\\]'
+}
+
 interface PaperTocCandidate {
   segmentId: string
   segmentIndex: number
@@ -152,6 +157,39 @@ function isFencedCodeBlock(block: string): boolean {
   return !!parseMarkdownFenceOpener(firstLine)
 }
 
+function parseMathFenceLine(line: string): MathFence | null {
+  const trimmed = line.trim()
+  if (trimmed === '$' || trimmed === '$$') {
+    return {
+      opener: trimmed,
+      closer: trimmed
+    }
+  }
+
+  if (trimmed === '\\[') {
+    return {
+      opener: '\\[',
+      closer: '\\]'
+    }
+  }
+
+  return null
+}
+
+function isMathFenceCloser(line: string, fence: MathFence): boolean {
+  return line.trim() === fence.closer
+}
+
+function hasClosingMathFence(lines: string[], startIndex: number, fence: MathFence): boolean {
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    if (isMathFenceCloser(lines[index], fence)) {
+      return true
+    }
+  }
+
+  return false
+}
+
 function getLeadingSpaceLength(line: string): number {
   return line.match(/^ */)?.[0].length ?? 0
 }
@@ -181,6 +219,7 @@ function splitPaperMarkdownBlocks(markdown: string): string[] {
   const lines = markdown.replace(/\r\n/g, '\n').trim().split('\n')
   let buffer: string[] = []
   let activeFence: MarkdownFence | null = null
+  let activeMathFence: MathFence | null = null
 
   const flushBuffer = (): void => {
     const block = buffer.join('\n').trim()
@@ -202,11 +241,28 @@ function splitPaperMarkdownBlocks(markdown: string): string[] {
       continue
     }
 
+    if (activeMathFence) {
+      buffer.push(line)
+      if (isMathFenceCloser(line, activeMathFence)) {
+        activeMathFence = null
+        flushBuffer()
+      }
+      continue
+    }
+
     const fence = parseMarkdownFenceOpener(line)
     if (fence) {
       flushBuffer()
       buffer.push(line)
       activeFence = fence
+      continue
+    }
+
+    const mathFence = parseMathFenceLine(line)
+    if (mathFence && hasClosingMathFence(lines, lineIndex, mathFence)) {
+      flushBuffer()
+      buffer.push(line)
+      activeMathFence = mathFence
       continue
     }
 
