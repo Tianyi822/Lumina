@@ -10,7 +10,10 @@ interface PaperAnnotationSelectionMenuProps {
   onCreateHighlight: (colorKey: PaperAnnotationColorKey) => void
   onOpenNoteEditor: () => void
   onAddToChat: () => void
+  onCopyLatex?: () => void
 }
+
+const HAS_LATEX_PATTERN = /\$[^$]+\$/
 
 export default function PaperAnnotationSelectionMenu({
   state,
@@ -18,8 +21,11 @@ export default function PaperAnnotationSelectionMenu({
   error,
   onCreateHighlight,
   onOpenNoteEditor,
-  onAddToChat
+  onAddToChat,
+  onCopyLatex
 }: PaperAnnotationSelectionMenuProps) {
+  const hasLatex = HAS_LATEX_PATTERN.test(state.draft.selectedText)
+
   return (
     <div
       className={[
@@ -106,6 +112,42 @@ export default function PaperAnnotationSelectionMenu({
           />
           <span className="paper-annotation-selection-menu__label">添加到对话</span>
         </button>
+
+        {hasLatex && onCopyLatex && (
+          <>
+            <div
+              className={[
+                styles['paper-annotation-selection-menu__divider-v'],
+                'paper-annotation-selection-menu__divider-v'
+              ].join(' ')}
+            />
+
+            <button
+              className={[
+                styles['paper-annotation-selection-menu__note-btn'],
+                'paper-annotation-selection-menu__note-btn'
+              ].join(' ')}
+              type="button"
+              onClick={onCopyLatex}
+            >
+              <svg
+                className={styles['paper-annotation-selection-menu__icon']}
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+              </svg>
+              <span className="paper-annotation-selection-menu__label">复制 LaTeX</span>
+            </button>
+          </>
+        )}
       </div>
 
       {error && (

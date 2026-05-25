@@ -891,6 +891,12 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
             onCreateHighlight={composer.handleCreateHighlight}
             onOpenNoteEditor={composer.handleOpenNoteEditorFromSelection}
             onAddToChat={composer.handleAddToChat}
+            onCopyLatex={() => {
+              const selectedText = composer.selectionActionMenu?.draft.selectedText
+              if (selectedText) {
+                void navigator.clipboard.writeText(selectedText)
+              }
+            }}
           />
         )}
 
