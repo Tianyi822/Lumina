@@ -30,6 +30,13 @@ interface ReactLoopRuntimeOptions {
   suppressFinalEvents?: boolean
 }
 
+const DEFAULT_REACT_MAX_ITERATIONS = 30
+const MIN_REACT_MAX_ITERATIONS = 1
+const REACT_MAX_ITERATIONS_FINAL_PROMPT =
+  '本轮 ReAct 工具推理已达到最大迭代次数。请不要再调用工具，基于以上工具结果给出当前可完成的最终回答；如果任务仍未完全完成，请明确说明已完成内容、限制原因和建议的下一步。'
+const REACT_EMPTY_FINAL_FALLBACK =
+  '已达到工具推理轮次上限，但模型没有返回收尾内容。请缩小问题范围或继续追问，我会基于当前工具结果继续处理。'
+
 /**
  * ReAct 循环服务
  * 处理 ReAct 模式的聊天请求，支持工具调用和迭代推理
@@ -96,7 +103,8 @@ export class ReactLoopService {
     selectedKnowledgeBases?: KnowledgeBaseReference[],
     runtimeOptions: ReactLoopRuntimeOptions = {}
   ): Promise<ChatResult> {
-    const { messages, modelKey, sessionId, turnId, maxReactIterations = 10 } = request
+    const { messages, modelKey, sessionId, turnId } = request
+    const maxReactIterations = this.normalizeMaxReactIterations(request.maxReactIterations)
 
     this.logger.info('开始发送聊天消息（ReAct 模式）', 'main', {
       sessionId,
@@ -104,7 +112,8 @@ export class ReactLoopService {
       messageCount: messages.length,
       toolCount: request.selectedTools?.length,
       selectedToolNames: request.selectedTools?.map((t) => `${t.serverName}/${t.toolName}`),
-      enableLabTools: request.enableLabTools
+      enableLabTools: request.enableLabTools,
+      maxReactIterations
     })
 
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents, turnId)
@@ -138,14 +147,16 @@ export class ReactLoopService {
       ]
 
       const totalUsage = this.createInitialTokenUsage()
-      let iterations = 0
+      let toolIterations = 0
+      let modelCalls = 0
+      let totalToolCallCount = 0
       const toolErrors: string[] = []
       const toolResults: ChatToolExecutionResult[] = []
       let finalContent: string | undefined
 
-      while (iterations < maxReactIterations) {
+      while (toolIterations < maxReactIterations) {
         if (abortController.signal.aborted) {
-          this.logger.info('ReAct 循环被中止', 'main', { sessionId, iterations })
+          this.logger.info('ReAct 循环被中止', 'main', { sessionId, toolIterations })
           const error = new Error('Request was stopped by user')
           error.name = 'AbortError'
           throw error
@@ -159,11 +170,13 @@ export class ReactLoopService {
           conversationMessages,
           totalUsage,
           tools,
-          iterations,
+          iterations: toolIterations,
           maxReactIterations,
           abortController,
           turnId
         })
+        modelCalls++
+        totalToolCallCount += result.toolCallCount
 
         if (result.shouldBreak) {
           if (result.toolErrors.length > 0) {
@@ -184,7 +197,31 @@ export class ReactLoopService {
         if (result.toolResults.length > 0) {
           toolResults.push(...result.toolResults)
         }
-        iterations++
+        toolIterations++
+
+        if (toolIterations >= maxReactIterations) {
+          this.logger.warn('ReAct 工具迭代达到上限，进入无工具收尾回复', 'main', {
+            sessionId,
+            maxReactIterations,
+            toolIterations,
+            totalToolCallCount
+          })
+
+          const finalResult = await this.executeFinalReactResponse({
+            client,
+            llmConfig,
+            sessionId,
+            webContents,
+            conversationMessages,
+            totalUsage,
+            iterations: toolIterations,
+            abortController,
+            turnId
+          })
+          modelCalls++
+          finalContent = finalResult.finalContent
+          break
+        }
       }
 
       this.stopController.deletePendingUserInteraction(sessionId)
@@ -194,7 +231,9 @@ export class ReactLoopService {
 
       this.logger.info('ReAct 聊天消息发送完成', 'main', {
         sessionId,
-        iterations,
+        toolIterations,
+        modelCalls,
+        totalToolCallCount,
         usage: totalUsage
       })
 
@@ -330,6 +369,7 @@ export class ReactLoopService {
     shouldBreak: boolean
     toolErrors: string[]
     toolResults: ChatToolExecutionResult[]
+    toolCallCount: number
     finalContent?: string
   }> {
     const {
@@ -397,6 +437,7 @@ export class ReactLoopService {
         shouldBreak: true,
         toolErrors: [],
         toolResults: [],
+        toolCallCount: 0,
         finalContent: state.assistantContent || undefined
       }
     }
@@ -438,15 +479,94 @@ export class ReactLoopService {
       return {
         shouldBreak: true,
         toolErrors: toolExecution.errors,
-        toolResults: toolExecution.results
+        toolResults: toolExecution.results,
+        toolCallCount: toolCallsArray.length
       }
     }
 
     return {
       shouldBreak: false,
       toolErrors: toolExecution.errors,
-      toolResults: toolExecution.results
+      toolResults: toolExecution.results,
+      toolCallCount: toolCallsArray.length
     }
+  }
+
+  /**
+   * 达到工具迭代上限后，强制模型基于已有结果给出无工具最终回复
+   */
+  private async executeFinalReactResponse(params: {
+    client: OpenAI
+    llmConfig: LLMConfig
+    sessionId: string
+    webContents: WebContents
+    conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+    totalUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number }
+    iterations: number
+    abortController: AbortController
+    turnId?: string
+  }): Promise<{ finalContent: string }> {
+    const {
+      client,
+      llmConfig,
+      sessionId,
+      webContents,
+      conversationMessages,
+      totalUsage,
+      iterations,
+      abortController,
+      turnId
+    } = params
+
+    this.streamHandler.sendReactIterationStart(
+      webContents,
+      sessionId,
+      iterations,
+      'processing',
+      turnId
+    )
+
+    conversationMessages.push({
+      role: 'user',
+      content: REACT_MAX_ITERATIONS_FINAL_PROMPT
+    })
+
+    const response = await this.modelRetryHandler.createChatCompletionWithRetry(
+      client,
+      {
+        model: llmConfig.model_name,
+        messages: conversationMessages,
+        stream: true,
+        stream_options: { include_usage: true }
+      },
+      abortController,
+      sessionId,
+      'react_finalization'
+    )
+
+    const { state, totalUsage: finalUsage } = await this.streamProcessor.processStream(
+      response,
+      webContents,
+      sessionId,
+      turnId
+    )
+
+    totalUsage.prompt_tokens += finalUsage.prompt_tokens
+    totalUsage.completion_tokens += finalUsage.completion_tokens
+    totalUsage.total_tokens += finalUsage.total_tokens
+
+    const finalContent = state.assistantContent.trim() || REACT_EMPTY_FINAL_FALLBACK
+    if (state.assistantContent.trim().length === 0) {
+      this.streamHandler.sendContent(webContents, sessionId, finalContent, turnId)
+    }
+
+    this.logger.info('ReAct 无工具收尾回复完成', 'main', {
+      sessionId,
+      iterations,
+      hadContent: finalContent.length > 0
+    })
+
+    return { finalContent }
   }
 
   /**
@@ -462,6 +582,14 @@ export class ReactLoopService {
       completion_tokens: 0,
       total_tokens: 0
     }
+  }
+
+  private normalizeMaxReactIterations(maxReactIterations?: number): number {
+    if (typeof maxReactIterations !== 'number' || !Number.isFinite(maxReactIterations)) {
+      return DEFAULT_REACT_MAX_ITERATIONS
+    }
+
+    return Math.max(MIN_REACT_MAX_ITERATIONS, Math.floor(maxReactIterations))
   }
 
   /**

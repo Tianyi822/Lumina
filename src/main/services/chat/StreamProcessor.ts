@@ -21,7 +21,11 @@ export interface StreamProcessResult {
  * 负责处理 ReAct 迭代中的流式响应
  */
 export class StreamProcessor {
-  constructor(private readonly streamHandler: StreamHandler) {}
+  private readonly streamHandler: StreamHandler
+
+  constructor(streamHandler: StreamHandler) {
+    this.streamHandler = streamHandler
+  }
 
   /**
    * 处理完整的流式响应
