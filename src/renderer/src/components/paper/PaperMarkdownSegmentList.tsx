@@ -8,6 +8,11 @@ interface PaperMarkdownSegmentListProps {
   onRetranslate?: (params: { segmentId: string; stableId: string }) => void
 }
 
+interface PaperMarkdownSegmentItemProps {
+  segment: RenderedSegment
+  onRetranslateClick: (segment: RenderedSegment) => void
+}
+
 const LIST_ITEM_INDENT = 2.8
 
 function getButtonLeftIndent(translationHtml: string | null): string {
@@ -18,6 +23,173 @@ function getButtonLeftIndent(translationHtml: string | null): string {
   const nestLevel = (match[1].match(/<\/(?:ul|ol)>/g) || []).length
   return `${nestLevel * LIST_ITEM_INDENT}em`
 }
+
+const PaperMarkdownSegmentItem = memo(
+  function PaperMarkdownSegmentItem({
+    segment,
+    onRetranslateClick
+  }: PaperMarkdownSegmentItemProps) {
+    return (
+      <section
+        id={segment.segmentAnchorId}
+        className={[
+          styles['paper-markdown-view__segment'],
+          'paper-markdown-view__segment',
+          segment.isCenteredMeta ? styles['paper-markdown-view__segment--meta'] : '',
+          segment.isCenteredMeta ? 'paper-markdown-view__segment--meta' : ''
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        data-paper-segment-stable-id={segment.stableId}
+      >
+        <div
+          className={[
+            styles['paper-markdown-view__segment-original'],
+            'paper-markdown-view__segment-original'
+          ].join(' ')}
+          data-paper-selection-surface="true"
+          data-view-kind="original"
+          data-segment-stable-id={segment.stableId}
+        >
+          <div
+            className={[
+              styles['paper-markdown-view__markdown'],
+              'paper-markdown-view__markdown'
+            ].join(' ')}
+            dangerouslySetInnerHTML={{ __html: segment.originalHtml }}
+          />
+        </div>
+
+        {segment.showTranslation && (
+          <div
+            className={[
+              styles['paper-markdown-view__segment-translation'],
+              'paper-markdown-view__segment-translation',
+              styles[`is-${segment.translationStatus}`]
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {segment.translationHtml ? (
+              <>
+                <div
+                  className={[
+                    styles['paper-markdown-view__segment-translation-body'],
+                    'paper-markdown-view__segment-translation-body'
+                  ].join(' ')}
+                  data-paper-selection-surface="true"
+                  data-view-kind="translation"
+                  data-segment-stable-id={segment.stableId}
+                >
+                  <div
+                    className={[
+                      styles['paper-markdown-view__markdown'],
+                      'paper-markdown-view__markdown'
+                    ].join(' ')}
+                    dangerouslySetInnerHTML={{ __html: segment.translationHtml }}
+                  />
+                </div>
+                <button
+                  className={[
+                    styles['paper-markdown-view__retranslate-btn'],
+                    'paper-markdown-view__retranslate-btn'
+                  ].join(' ')}
+                  type="button"
+                  disabled={segment.translationStatus === 'translating'}
+                  style={{
+                    marginLeft: getButtonLeftIndent(segment.translationHtml)
+                  }}
+                  title="重新翻译"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onRetranslateClick(segment)
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                  </svg>
+                  <span>重新翻译</span>
+                </button>
+              </>
+            ) : (
+              <>
+                {segment.translationStatus === 'failed' ? (
+                  <div className={styles['paper-markdown-view__translation-error']}>
+                    该段翻译暂时失败，再次点击翻译按钮时会继续补全剩余内容。
+                  </div>
+                ) : (
+                  <div
+                    className={styles['paper-markdown-view__translation-placeholder']}
+                    aria-hidden="true"
+                  >
+                    <span className={styles['paper-markdown-view__translation-placeholder-text']}>
+                      正在翻译...
+                    </span>
+                    <span className={styles['paper-markdown-view__translation-placeholder-bar']} />
+                    <span className={styles['paper-markdown-view__translation-placeholder-bar']} />
+                    <span className={styles['paper-markdown-view__translation-placeholder-bar']} />
+                  </div>
+                )}
+                <button
+                  className={[
+                    styles['paper-markdown-view__retranslate-btn'],
+                    'paper-markdown-view__retranslate-btn'
+                  ].join(' ')}
+                  type="button"
+                  disabled={segment.translationStatus === 'translating'}
+                  title="重新翻译"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onRetranslateClick(segment)
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                  </svg>
+                  <span>重新翻译</span>
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </section>
+    )
+  },
+  (prev, next) =>
+    prev.segment.renderId === next.segment.renderId &&
+    prev.segment.stableId === next.segment.stableId &&
+    prev.segment.sourceRevisionId === next.segment.sourceRevisionId &&
+    prev.segment.textHash === next.segment.textHash &&
+    prev.segment.originalHtml === next.segment.originalHtml &&
+    prev.segment.translationHtml === next.segment.translationHtml &&
+    prev.segment.translationText === next.segment.translationText &&
+    prev.segment.translationStatus === next.segment.translationStatus &&
+    prev.segment.showTranslation === next.segment.showTranslation &&
+    prev.segment.segmentAnchorId === next.segment.segmentAnchorId &&
+    prev.segment.isCenteredMeta === next.segment.isCenteredMeta &&
+    prev.segment.annotations.length === next.segment.annotations.length &&
+    prev.onRetranslateClick === next.onRetranslateClick
+)
 
 function PaperMarkdownSegmentList({ segments, onRetranslate }: PaperMarkdownSegmentListProps) {
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -57,156 +229,11 @@ function PaperMarkdownSegmentList({ segments, onRetranslate }: PaperMarkdownSegm
   return (
     <>
       {segments.map((segment) => (
-        <section
-          id={segment.segmentAnchorId}
+        <PaperMarkdownSegmentItem
           key={segment.renderId}
-          className={[
-            styles['paper-markdown-view__segment'],
-            'paper-markdown-view__segment',
-            segment.isCenteredMeta ? styles['paper-markdown-view__segment--meta'] : '',
-            segment.isCenteredMeta ? 'paper-markdown-view__segment--meta' : ''
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          data-paper-segment-stable-id={segment.stableId}
-        >
-          <div
-            className={[
-              styles['paper-markdown-view__segment-original'],
-              'paper-markdown-view__segment-original'
-            ].join(' ')}
-            data-paper-selection-surface="true"
-            data-view-kind="original"
-            data-segment-stable-id={segment.stableId}
-          >
-            <div
-              className={[
-                styles['paper-markdown-view__markdown'],
-                'paper-markdown-view__markdown'
-              ].join(' ')}
-              dangerouslySetInnerHTML={{ __html: segment.originalHtml }}
-            />
-          </div>
-
-          {segment.showTranslation && (
-            <div
-              className={[
-                styles['paper-markdown-view__segment-translation'],
-                'paper-markdown-view__segment-translation',
-                styles[`is-${segment.translationStatus}`]
-              ]
-                .filter(Boolean)
-                .join(' ')}
-            >
-              {segment.translationHtml ? (
-                <>
-                  <div
-                    className={[
-                      styles['paper-markdown-view__segment-translation-body'],
-                      'paper-markdown-view__segment-translation-body'
-                    ].join(' ')}
-                    data-paper-selection-surface="true"
-                    data-view-kind="translation"
-                    data-segment-stable-id={segment.stableId}
-                  >
-                    <div
-                      className={[
-                        styles['paper-markdown-view__markdown'],
-                        'paper-markdown-view__markdown'
-                      ].join(' ')}
-                      dangerouslySetInnerHTML={{ __html: segment.translationHtml }}
-                    />
-                  </div>
-                  <button
-                    className={[
-                      styles['paper-markdown-view__retranslate-btn'],
-                      'paper-markdown-view__retranslate-btn'
-                    ].join(' ')}
-                    type="button"
-                    disabled={segment.translationStatus === 'translating'}
-                    style={{
-                      marginLeft: getButtonLeftIndent(segment.translationHtml)
-                    }}
-                    title="重新翻译"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRetranslateClick(segment)
-                    }}
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="1 4 1 10 7 10" />
-                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                    </svg>
-                    <span>重新翻译</span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  {segment.translationStatus === 'failed' ? (
-                    <div className={styles['paper-markdown-view__translation-error']}>
-                      该段翻译暂时失败，再次点击翻译按钮时会继续补全剩余内容。
-                    </div>
-                  ) : (
-                    <div
-                      className={styles['paper-markdown-view__translation-placeholder']}
-                      aria-hidden="true"
-                    >
-                      <span className={styles['paper-markdown-view__translation-placeholder-text']}>
-                        正在翻译...
-                      </span>
-                      <span
-                        className={styles['paper-markdown-view__translation-placeholder-bar']}
-                      />
-                      <span
-                        className={styles['paper-markdown-view__translation-placeholder-bar']}
-                      />
-                      <span
-                        className={styles['paper-markdown-view__translation-placeholder-bar']}
-                      />
-                    </div>
-                  )}
-                  <button
-                    className={[
-                      styles['paper-markdown-view__retranslate-btn'],
-                      'paper-markdown-view__retranslate-btn'
-                    ].join(' ')}
-                    type="button"
-                    disabled={segment.translationStatus === 'translating'}
-                    title="重新翻译"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRetranslateClick(segment)
-                    }}
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="1 4 1 10 7 10" />
-                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                    </svg>
-                    <span>重新翻译</span>
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </section>
+          segment={segment}
+          onRetranslateClick={handleRetranslateClick}
+        />
       ))}
 
       {confirmDialog &&
