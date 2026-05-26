@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createMainWindow } from './window'
+import { registerLuminaProtocol } from './protocol'
 import icon from '../../../resources/icon.png?asset'
 import {
   registerAllIpcHandlers,
@@ -20,6 +21,7 @@ import { toolStatsCollector } from '@main/services/chat/tools/ToolStatsCollector
 import { logger } from '@main/services/logger'
 import { updateService } from '@main/services/update'
 import { paperTranslationService } from '@main/services/paper'
+import { startEventLoopMonitoring } from '@main/services/monitoring/eventLoopMonitor'
 
 const appDisplayName = 'Lumina'
 const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
@@ -123,8 +125,14 @@ export function initializeApp(): void {
     // 初始化日志系统，优先初始化以便记录后续日志
     initializeLogger()
 
+    // 启动事件循环延迟监控（依赖 logger）
+    startEventLoopMonitoring()
+
     // 初始化配置，即使失败也不阻止应用启动
     initializeConfig()
+
+    // 注册 lumina:// 自定义协议（必须在 ready 后、窗口创建前）
+    registerLuminaProtocol()
 
     // 注册所有 IPC 处理程序
     registerAllIpcHandlers()
