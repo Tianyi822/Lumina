@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import MarkdownIt from 'markdown-it'
 import texmath from 'markdown-it-texmath'
 import katex from 'katex'
+import 'katex/dist/katex.min.css'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { CssTransitionGroup } from '@renderer/components/motion/CssTransition'
 import { formatFileSize } from '@shared/utils'
@@ -259,10 +260,16 @@ export default function PaperSidebar({
                   const translatedTitle = translatedTitleByPaperId[paper.id]
                   const displayName =
                     translationVisible && translatedTitle ? translatedTitle : paper.fileName
+                  // 使用 MarkdownIt + KaTeX 渲染标题（支持 LaTeX 公式）
+                  const renderedHtml = titleMd.renderInline(
+                    normalizePaperInlineMathForRender(displayName, 'paragraph')
+                  )
                   return (
-                    <div className={styles['paper-item__name']} data-title={displayName}>
-                      {displayName}
-                    </div>
+                    <div
+                      className={styles['paper-item__name']}
+                      data-title={displayName}
+                      dangerouslySetInnerHTML={{ __html: renderedHtml }}
+                    />
                   )
                 })()}
                 <div className={styles['paper-item__meta-row']}>
