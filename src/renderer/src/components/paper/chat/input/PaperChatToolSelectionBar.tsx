@@ -171,6 +171,7 @@ export default function PaperChatToolSelectionBar({
 
               {/* 实验室开关 */}
               <div className={styles['plus-menu__row']}>
+                <SvgIcon name="lab" size={16} />
                 <LabToolsToggle
                   className={styles['plus-menu__lab-toggle']}
                   modelValue={Boolean(enableLabTools)}
@@ -231,7 +232,7 @@ export default function PaperChatToolSelectionBar({
                 className={`${styles['plus-menu__row']} ${styles['plus-menu__row--interactive']}`}
                 onClick={() => toggleAccordion('mcp')}
               >
-                <SvgIcon name="tools" size={16} />
+                <SvgIcon name="mcp" size={16} />
                 <span className={styles['plus-menu__row-label']}>MCP</span>
                 <span className={styles['plus-menu__row-right']}>
                   {mcpCount > 0 && (

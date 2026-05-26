@@ -86,7 +86,7 @@
   bottom: 100%;
   left: 0;
   margin-bottom: var(--sm-space-2);
-  width: 280px;
+  width: 360px;
   max-height: min(480px, calc(100vh - 200px));
   background: var(--sm-color-surface-3);
   border: 1px solid var(--sm-color-border-default);
