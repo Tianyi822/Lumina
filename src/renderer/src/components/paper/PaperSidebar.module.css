@@ -44,19 +44,6 @@
   border-color: transparent;
 }
 
-.paper-item__icon {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-subtle);
-  border-radius: 10px;
-  color: var(--sm-color-text-secondary);
-  flex-shrink: 0;
-}
-
 .paper-item__info {
   flex: 1;
   min-width: 0;
