@@ -151,9 +151,6 @@
   overflow-wrap: break-word;
   max-width: calc(100% - var(--paper-chat-message-content-offset));
   min-width: 0;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast);
 }
 
 .paper-chat-message.paper-chat-message--user .paper-chat-message__bubble {
@@ -202,19 +199,9 @@
   max-width: calc(100% - var(--paper-chat-message-content-offset));
 }
 
-.paper-chat-message.paper-chat-message--user .paper-chat-message__bubble:hover {
-  background: var(--sm-color-accent-18);
-  border-color: var(--sm-color-accent-28);
-}
-
 .paper-chat-message.paper-chat-message--assistant .paper-chat-message__bubble {
   background: var(--sm-color-surface-1);
   border-color: var(--sm-color-border-default);
-}
-
-.paper-chat-message.paper-chat-message--assistant .paper-chat-message__bubble:hover {
-  background: var(--sm-color-surface-hover);
-  border-color: var(--sm-color-border-strong);
 }
 
 .paper-chat-message__bubble.is-streaming {
