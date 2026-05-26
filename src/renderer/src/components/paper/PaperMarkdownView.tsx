@@ -574,6 +574,11 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const pendingPercentRef = useRef<number | null>(null)
     const isRestoringRef = useRef(false)
+    // 使用 ref 存储缩放级别，避免 saveProgress 依赖 markdownZoomLevel 导致整条回调链重建
+    const markdownZoomLevelRef = useRef(markdownZoomLevel)
+    markdownZoomLevelRef.current = markdownZoomLevel
+    const translationVisibleRef = useRef(translationVisible)
+    translationVisibleRef.current = translationVisible
 
     function computeScrollPercent(container: HTMLElement): number {
       const scrollableHeight = container.scrollHeight - container.clientHeight
@@ -588,11 +593,11 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         void window.api.paper.saveReadingProgress({
           paperId,
           scrollPercent: Math.round(percent * 100) / 100,
-          zoomLevel: markdownZoomLevel,
-          translationVisible
+          zoomLevel: markdownZoomLevelRef.current,
+          translationVisible: translationVisibleRef.current
         })
       },
-      [paperId, markdownZoomLevel, translationVisible]
+      [paperId]
     )
 
     const flushPendingSave = useCallback(() => {
@@ -735,6 +740,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     // Cleanup on unmount
     useEffect(() => {
       return () => {
+        flushPendingSave()
         recordMarkdownScrollPosition()
         clearPaperToc()
         textSearch.closeSearch()
