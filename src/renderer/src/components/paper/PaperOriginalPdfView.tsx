@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperPageAsset } from '@shared/types/paper'
 import { buildBase64DataUrl } from '@shared/utils'
@@ -56,7 +56,8 @@ export default function PaperOriginalPdfView({
   const hasMountedZoomRef = useRef(false)
   const previousOriginalPdfZoomLevelRef = useRef(originalPdfZoomLevel)
 
-  useEffect(() => {
+  // useLayoutEffect 确保在浏览器绘制前同步修正滚动位置
+  useLayoutEffect(() => {
     if (!hasMountedZoomRef.current) {
       hasMountedZoomRef.current = true
       previousOriginalPdfZoomLevelRef.current = originalPdfZoomLevel
@@ -76,12 +77,11 @@ export default function PaperOriginalPdfView({
       zoomAnchor.beginZoom(container)
     }
 
-    // Apply zoom frame after React renders
-    requestAnimationFrame(() => {
-      if (scrollContainerRef.current) {
-        zoomAnchor.applyZoomFrame(scrollContainerRef.current)
-      }
-    })
+    // 强制同步布局重计算
+    void container.offsetHeight
+
+    // 同步修正滚动位置（在浏览器绘制前完成，消除抖动）
+    zoomAnchor.applyZoomFrame(container)
 
     if (zoomSettleTimerRef.current !== null) clearTimeout(zoomSettleTimerRef.current)
     zoomSettleTimerRef.current = setTimeout(() => {

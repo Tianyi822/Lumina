@@ -1,4 +1,12 @@
-import { useRef, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react'
+import {
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useCallback,
+  useImperativeHandle,
+  forwardRef
+} from 'react'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import type {
@@ -511,8 +519,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [textSearch.isOpen])
 
-    // Zoom level effect
-    useEffect(() => {
+    // Zoom level effect — useLayoutEffect 确保在浏览器绘制前同步修正滚动位置
+    useLayoutEffect(() => {
       if (!hasMountedZoomRef.current) {
         hasMountedZoomRef.current = true
         previousMarkdownZoomLevelRef.current = markdownZoomLevel
@@ -532,12 +540,12 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         zoomAnchor.beginZoom(container)
       }
 
-      requestAnimationFrame(() => {
-        if (scrollContainerRef.current) {
-          zoomAnchor.applyZoomFrame(scrollContainerRef.current)
-        }
-        syncScrollableTableWrapState()
-      })
+      // 强制同步布局重计算，确保滚动修正基于新的缩放布局
+      void container.offsetHeight
+
+      // 同步修正滚动位置（在浏览器绘制前完成，消除抖动）
+      zoomAnchor.applyZoomFrame(container)
+      syncScrollableTableWrapState()
 
       if (zoomSettleTimerRef.current !== null) clearTimeout(zoomSettleTimerRef.current)
       zoomSettleTimerRef.current = setTimeout(() => {
