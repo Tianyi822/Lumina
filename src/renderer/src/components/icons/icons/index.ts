@@ -318,7 +318,8 @@ const actionIcons: Record<string, IconData> = {
     viewBox: '0 0 24 24',
     stroke: 'currentColor',
     strokeWidth: 2,
-    elements: '<circle cx="11" cy="11" r="8" fill="none" /><line x1="21" y1="21" x2="16.65" y2="16.65" />'
+    elements:
+      '<circle cx="11" cy="11" r="8" fill="none" /><line x1="21" y1="21" x2="16.65" y2="16.65" />'
   },
 
   // 知识库图标（书本）
@@ -326,7 +327,8 @@ const actionIcons: Record<string, IconData> = {
     viewBox: '0 0 24 24',
     stroke: 'currentColor',
     strokeWidth: 2,
-    elements: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" fill="none" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" fill="none" />'
+    elements:
+      '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" fill="none" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" fill="none" />'
   },
 
   // 实验室图标（烧瓶）
