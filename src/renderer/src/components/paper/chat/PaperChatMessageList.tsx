@@ -3,6 +3,7 @@ import {
   useEffect,
   useImperativeHandle,
   forwardRef,
+  memo,
   useMemo,
   useRef,
   useState
@@ -27,8 +28,8 @@ interface PaperChatMessageListProps {
   onScrollButtonChange?: (visible: boolean) => void
 }
 
-const PaperChatMessageList = forwardRef<PaperChatMessageListHandle, PaperChatMessageListProps>(
-  function PaperChatMessageList(
+const PaperChatMessageList = memo(
+  forwardRef<PaperChatMessageListHandle, PaperChatMessageListProps>(function PaperChatMessageList(
     { messages, currentModelName, currentChatId, onQuoteClick, onScrollButtonChange },
     ref
   ) {
@@ -136,7 +137,7 @@ const PaperChatMessageList = forwardRef<PaperChatMessageListHandle, PaperChatMes
         )}
       </div>
     )
-  }
+  })
 )
 
 export default PaperChatMessageList
