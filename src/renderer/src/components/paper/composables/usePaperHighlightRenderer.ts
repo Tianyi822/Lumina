@@ -68,11 +68,7 @@ function resolveTranslationViewAnchor(
   if (annotation.translationAnchor) {
     const range = resolvePaperTextAnchorRange(translationText, annotation.translationAnchor)
     if (range) {
-      return buildPaperTextAnchor(
-        translationText,
-        range.startOffset,
-        range.endOffset
-      )
+      return buildPaperTextAnchor(translationText, range.startOffset, range.endOffset)
     }
   }
 

@@ -341,9 +341,7 @@ test('original_span 标注会渲染到原文视图', () => {
     createdInView: 'original'
   })
 
-  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
-    annotation
-  ])
+  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [annotation])
 
   assert.equal(result.highlights.length, 1)
   assert.equal(result.highlights[0].id, annotation.id)
@@ -361,9 +359,7 @@ test('collectOriginalHighlights 使用 semanticAnchor 判断归属并保留 cano
     originalAnchor: createAnchor(canonicalText, '$L_{train}$')
   })
 
-  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
-    annotation
-  ])
+  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [annotation])
 
   assert.equal(result.highlights.length, 1)
   assert.equal(result.highlights[0].id, annotation.id)
@@ -382,9 +378,7 @@ test('collectOriginalHighlights 跳过 segmentStableId 不匹配的标注', () =
     }
   })
 
-  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
-    annotation
-  ])
+  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [annotation])
 
   assert.equal(result.highlights.length, 0)
   assert.equal(result.failedIds.length, 0)
@@ -394,9 +388,7 @@ test('active 的译文标注不会重复渲染到原文视图', () => {
   const segment = createSegment()
   const annotation = createAnnotation()
 
-  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
-    annotation
-  ])
+  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [annotation])
 
   assert.equal(result.highlights.length, 0)
   assert.equal(result.failedIds.length, 0)

@@ -227,10 +227,7 @@ function hasMutableClassList(
 }
 
 function isElementLikeNode(node: Node): node is Element {
-  return (
-    node.nodeType === 1 &&
-    typeof (node as Element).querySelector === 'function'
-  )
+  return node.nodeType === 1 && typeof (node as Element).querySelector === 'function'
 }
 
 function getFormulaSelectionTarget(node: Node): Node {

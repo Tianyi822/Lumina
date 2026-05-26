@@ -166,9 +166,7 @@ function buildAnchorSearchOffsetMap(text: string): FormulaNormOffsetMap {
 }
 
 function normalizeAnchorText(text: string): string {
-  return normalizeFormulaSpacing(
-    removeInvisibleFormatCharacters(text).replace(/\s+/g, ' ').trim()
-  )
+  return normalizeFormulaSpacing(removeInvisibleFormatCharacters(text).replace(/\s+/g, ' ').trim())
 }
 
 function buildAnchorFragments(selectedText: string): string[] {
@@ -401,12 +399,7 @@ function resolveSelectedTextRangeAtOffset(
       selectedText,
       buildAnchorSearchOffsetMap
     ) ||
-    resolveNormalizedCandidateRange(
-      text,
-      nextStartOffset,
-      selectedText,
-      buildFormulaNormOffsetMap
-    )
+    resolveNormalizedCandidateRange(text, nextStartOffset, selectedText, buildFormulaNormOffsetMap)
   )
 }
 
@@ -430,12 +423,8 @@ function resolveInvisibleInsensitiveEndOffset(
   selectedText: string
 ): number {
   return (
-    resolveNormalizedCandidateRange(
-      text,
-      startOffset,
-      selectedText,
-      buildAnchorSearchOffsetMap
-    )?.endOffset ?? clampOffset(startOffset + selectedText.length, text.length)
+    resolveNormalizedCandidateRange(text, startOffset, selectedText, buildAnchorSearchOffsetMap)
+      ?.endOffset ?? clampOffset(startOffset + selectedText.length, text.length)
   )
 }
 
@@ -580,11 +569,7 @@ export function resolvePaperTextAnchorRange(
     return null
   }
 
-  const exactRange = resolveSelectedTextRangeAtOffset(
-    text,
-    anchor.startOffset,
-    anchor.selectedText
-  )
+  const exactRange = resolveSelectedTextRangeAtOffset(text, anchor.startOffset, anchor.selectedText)
   if (exactRange && exactRange.endOffset === anchor.endOffset) {
     const actualPrefix = text.slice(
       Math.max(0, anchor.startOffset - anchor.prefixText.length),
@@ -674,10 +659,7 @@ function mapAnchorByFormulaSpacing(
   }
 
   const nextStartOffset = clampOffset(targetStart, targetText.length)
-  const nextEndOffset = clampOffset(
-    Math.max(nextStartOffset + 1, targetEnd),
-    targetText.length
-  )
+  const nextEndOffset = clampOffset(Math.max(nextStartOffset + 1, targetEnd), targetText.length)
 
   const anchor = buildPaperTextAnchor(targetText, nextStartOffset, nextEndOffset)
   if (!normalizeAnchorText(anchor.selectedText)) {
