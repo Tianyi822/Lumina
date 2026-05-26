@@ -129,13 +129,13 @@ export function registerPaperHandlers(): void {
     'paper:create',
     async (_event, params: { sourcePdfPath: string; pageCount: number }) => {
       const preset = getOcrProviderPreset(DEFAULT_OCR_PROVIDER)
-      const result = paperStorageService.createPaper(
+      const result = await paperStorageService.createPaper(
         params.sourcePdfPath,
         preset?.modelName ?? DEFAULT_OCR_PROVIDER,
         params.pageCount
       )
       if (result.success) {
-        getFileService().registerPaperFile(result.data!)
+        await getFileService().registerPaperFile(result.data!)
         logger.info('IPC: 论文创建成功', 'main', { paperId: result.data?.id })
       } else {
         logger.warn('IPC: 论文创建失败', 'main', { error: result.error })
@@ -144,26 +144,26 @@ export function registerPaperHandlers(): void {
     }
   )
 
-  ipcMain.handle('paper:list', () => {
-    const result = paperStorageService.listPapers()
+  ipcMain.handle('paper:list', async () => {
+    const result = await paperStorageService.listPapers()
     if (!result.success) {
       logger.warn('IPC: 获取论文列表失败', 'main', { error: result.error })
     }
     return result
   })
 
-  ipcMain.handle('paper:get', (_event, paperId: string) => {
-    const result = paperStorageService.readMeta(paperId)
+  ipcMain.handle('paper:get', async (_event, paperId: string) => {
+    const result = await paperStorageService.readMeta(paperId)
     if (result.success) {
-      paperStorageService.updateMeta(paperId, { lastOpenedAt: new Date().toISOString() })
+      await paperStorageService.updateMeta(paperId, { lastOpenedAt: new Date().toISOString() })
     }
     return result
   })
 
   ipcMain.handle(
     'paper:setChatSession',
-    (_event, params: { paperId: string; sessionId: string }) => {
-      return paperStorageService.updateMeta(params.paperId, {
+    async (_event, params: { paperId: string; sessionId: string }) => {
+      return await paperStorageService.updateMeta(params.paperId, {
         chatSessionId: params.sessionId
       })
     }
@@ -171,7 +171,7 @@ export function registerPaperHandlers(): void {
 
   ipcMain.handle(
     'paper:saveReadingProgress',
-    (
+    async (
       _event,
       params: {
         paperId: string
@@ -180,7 +180,7 @@ export function registerPaperHandlers(): void {
         translationVisible?: boolean
       }
     ) => {
-      return paperStorageService.updateMeta(params.paperId, {
+      return await paperStorageService.updateMeta(params.paperId, {
         readingProgress: {
           scrollPercent: params.scrollPercent,
           zoomLevel: params.zoomLevel,
@@ -252,16 +252,16 @@ export function registerPaperHandlers(): void {
     'paper:uploadPdf',
     async (_event, params: { sourcePdfPath: string; pageCount: number }) => {
       const preset = getOcrProviderPreset(DEFAULT_OCR_PROVIDER)
-      const result = paperStorageService.createPaper(
+      const result = await paperStorageService.createPaper(
         params.sourcePdfPath,
         preset?.modelName ?? DEFAULT_OCR_PROVIDER,
         params.pageCount
       )
       if (result.success) {
-        const updateResult = paperStorageService.updateMeta(result.data!.id, {
+        const updateResult = await paperStorageService.updateMeta(result.data!.id, {
           status: 'rendering'
         })
-        getFileService().registerPaperFile(updateResult.data || result.data!)
+        await getFileService().registerPaperFile(updateResult.data || result.data!)
         logger.info('IPC: PDF 上传成功', 'main', { paperId: result.data?.id })
       }
       return result
@@ -274,7 +274,7 @@ export function registerPaperHandlers(): void {
    */
   ipcMain.handle(
     'paper:savePageImage',
-    (
+    async (
       _event,
       params: {
         paperId: string
@@ -287,7 +287,7 @@ export function registerPaperHandlers(): void {
         renderScale: number
       }
     ) => {
-      return paperStorageService.savePageImage(
+      return await paperStorageService.savePageImage(
         params.paperId,
         params.pageIndex,
         params.base64Data,
@@ -306,9 +306,12 @@ export function registerPaperHandlers(): void {
    * 获取指定页图片（base64）
    * 参数: { paperId: string, pageIndex: number }
    */
-  ipcMain.handle('paper:getPageImage', (_event, params: { paperId: string; pageIndex: number }) => {
-    return paperStorageService.readPageImage(params.paperId, params.pageIndex)
-  })
+  ipcMain.handle(
+    'paper:getPageImage',
+    async (_event, params: { paperId: string; pageIndex: number }) => {
+      return await paperStorageService.readPageImage(params.paperId, params.pageIndex)
+    }
+  )
 
   /**
    * 更新论文状态
@@ -316,16 +319,16 @@ export function registerPaperHandlers(): void {
    */
   ipcMain.handle(
     'paper:updateStatus',
-    (_event, params: { paperId: string; status: PaperStatus; errorMessage?: string }) => {
-      return paperStorageService.updateMeta(params.paperId, {
+    async (_event, params: { paperId: string; status: PaperStatus; errorMessage?: string }) => {
+      return await paperStorageService.updateMeta(params.paperId, {
         status: params.status,
         errorMessage: params.errorMessage
       })
     }
   )
 
-  ipcMain.handle('paper:getMergedMd', (_event, paperId: string) => {
-    return paperStorageService.readMergedMd(paperId)
+  ipcMain.handle('paper:getMergedMd', async (_event, paperId: string) => {
+    return await paperStorageService.readMergedMd(paperId)
   })
 
   ipcMain.handle('paper:getReaderMarkdown', async (_event, paperId: string) => {
@@ -359,9 +362,12 @@ export function registerPaperHandlers(): void {
     }
   )
 
-  ipcMain.handle('paper:saveMergedMd', (_event, params: { paperId: string; content: string }) => {
-    return paperStorageService.saveMergedMd(params.paperId, params.content)
-  })
+  ipcMain.handle(
+    'paper:saveMergedMd',
+    async (_event, params: { paperId: string; content: string }) => {
+      return await paperStorageService.saveMergedMd(params.paperId, params.content)
+    }
+  )
 
   ipcMain.handle(
     'paper:testOcrConnection',
@@ -474,7 +480,7 @@ export function registerPaperHandlers(): void {
       return { success: false, error: payloadResult.error || '读取论文正文失败' }
     }
 
-    const stateResult = paperTranslationService.getTranslationState(
+    const stateResult = await paperTranslationService.getTranslationState(
       paperId,
       payloadResult.data.readerDocument.markdown,
       payloadResult.data.figures
@@ -489,11 +495,11 @@ export function registerPaperHandlers(): void {
     return stateResult
   })
 
-  ipcMain.handle('paper:listTranslationStatus', (_event, paperIds: string[]) => {
+  ipcMain.handle('paper:listTranslationStatus', async (_event, paperIds: string[]) => {
     const statuses: Record<string, boolean> = {}
 
     for (const paperId of paperIds) {
-      const cacheResult = paperStorageService.readTranslationCache(paperId)
+      const cacheResult = await paperStorageService.readTranslationCache(paperId)
       statuses[paperId] =
         !!cacheResult.success && !!cacheResult.data && hasPaperTranslationResult(cacheResult.data)
     }
@@ -501,11 +507,11 @@ export function registerPaperHandlers(): void {
     return { success: true, data: statuses }
   })
 
-  ipcMain.handle('paper:listTranslationSummaries', (_event, paperIds: string[]) => {
+  ipcMain.handle('paper:listTranslationSummaries', async (_event, paperIds: string[]) => {
     const summaries: Record<string, PaperTranslationSummary> = {}
 
     for (const paperId of paperIds) {
-      const cacheResult = paperStorageService.readTranslationCache(paperId)
+      const cacheResult = await paperStorageService.readTranslationCache(paperId)
       const cache = cacheResult.success ? cacheResult.data : undefined
       summaries[paperId] = {
         paperId,
@@ -526,7 +532,7 @@ export function registerPaperHandlers(): void {
     return { success: true }
   })
 
-  ipcMain.handle('paper:deleteTranslation', (_event, paperId: string) => {
+  ipcMain.handle('paper:deleteTranslation', async (_event, paperId: string) => {
     paperTranslationService.cancelTranslation(paperId)
     return getPaperService().deleteTranslation(paperId)
   })

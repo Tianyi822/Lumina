@@ -106,7 +106,7 @@ export function initializeApp(): void {
   app.setName(appDisplayName)
 
   // 当 Electron 完成初始化并准备创建浏览器窗口时调用此方法
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     // 为 Windows 设置应用用户模型 ID
     electronApp.setAppUserModelId('com.lumina.app')
 
@@ -142,7 +142,7 @@ export function initializeApp(): void {
     initializeKnowledge()
 
     // 初始化文件服务，并修复历史论文资源池数据
-    initializeFileService()
+    await initializeFileService()
 
     // 初始化实验室服务
     initializeLab()

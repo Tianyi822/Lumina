@@ -112,7 +112,7 @@ export function registerKnowledgeHandlers(): void {
   // 删除知识库
   ipcMain.handle('knowledge:delete', async (_event, id: string) => {
     try {
-      const result = getKnowledgeServiceManager().deleteKnowledgeBase(id)
+      const result = await getKnowledgeServiceManager().deleteKnowledgeBase(id)
       return result
     } catch (error) {
       const errorMessage = `删除知识库失败: ${error instanceof Error ? error.message : String(error)}`
