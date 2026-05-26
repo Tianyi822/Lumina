@@ -354,6 +354,38 @@ export interface PaperTranslationProgress {
 }
 
 /**
+ * 批量翻译进度事件
+ */
+export interface PaperTranslationProgressBatch {
+  /** 论文 ID */
+  paperId: string
+  /** 内容哈希 */
+  sourceHash: string
+  /** 已完成段落数 */
+  completedSegments: number
+  /** 总段落数 */
+  totalSegments: number
+  /** 当前任务是否仍在运行 */
+  isRunning: boolean
+  /** 当前批次内的段落进度 */
+  entries: PaperTranslationProgress[]
+  /** 翻译修订 ID */
+  translationRevisionId?: string
+}
+
+/**
+ * 论文译文摘要
+ */
+export interface PaperTranslationSummary {
+  /** 论文 ID */
+  paperId: string
+  /** 是否已有译文 */
+  hasTranslation: boolean
+  /** 译文标题 */
+  translatedTitle?: string
+}
+
+/**
  * 论文翻译状态
  */
 export interface PaperTranslationState {

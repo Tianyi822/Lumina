@@ -19,6 +19,7 @@ import { getKnowledgeMCPServerService } from '@main/services/knowledge/Knowledge
 import { toolStatsCollector } from '@main/services/chat/tools/ToolStatsCollector'
 import { logger } from '@main/services/logger'
 import { updateService } from '@main/services/update'
+import { paperTranslationService } from '@main/services/paper'
 
 const appDisplayName = 'Lumina'
 const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
@@ -80,6 +81,7 @@ function requestShutdown(exitCode: number, reason: string): void {
 
     await Promise.all([
       runShutdownTask('tool-stats', () => toolStatsCollector.stopPersist()),
+      runShutdownTask('paper-translation', () => paperTranslationService.flushPendingCaches()),
       runShutdownTask('mcp', () => mcpService.disconnectAll()),
       runShutdownTask('ssh', () => sshService.shutdown()),
       runShutdownTask('knowledge-mcp', async () => {

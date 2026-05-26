@@ -5,6 +5,7 @@ import type {
   PaperTranslationCache,
   PaperTranslationEntry,
   PaperTranslationProgress,
+  PaperTranslationProgressBatch,
   PaperTranslationSegment,
   PaperTranslationSegmentKind
 } from '../../../shared/types/paper'
@@ -18,6 +19,10 @@ import {
 } from '../../../shared/utils/paperTranslation.ts'
 
 type ProgressListener = (progress: PaperTranslationProgress) => void
+type ProgressBatchListener = (batch: PaperTranslationProgressBatch) => void
+
+const DEFAULT_CACHE_FLUSH_INTERVAL_MS = 2000
+const DEFAULT_PROGRESS_BATCH_INTERVAL_MS = 1000
 
 interface TranslationLogger {
   info(message: string, context?: string, meta?: Record<string, unknown>): void
@@ -27,6 +32,8 @@ interface TranslationLogger {
 
 export interface PaperTranslationCoreDependencies {
   concurrency?: number
+  cacheFlushIntervalMs?: number
+  progressBatchIntervalMs?: number
   logger: TranslationLogger
   getDefaultLlmConfig: () => LLMConfig | null
   readCache: (paperId: string) => { success: boolean; data?: PaperTranslationCache; error?: string }
@@ -50,6 +57,17 @@ interface ActiveTranslationTask {
   retryQueue: number[]
   retryQueuedIndexes: Set<number>
   inFlightIndexes: Set<number>
+}
+
+interface PendingCacheFlush {
+  cache: PaperTranslationCache
+  timer: ReturnType<typeof setTimeout> | null
+}
+
+interface PendingProgressBatch {
+  progressBySegmentId: Map<string, PaperTranslationProgress>
+  latestProgress: PaperTranslationProgress
+  timer: ReturnType<typeof setTimeout> | null
 }
 
 interface PaperTranslationSourceDescriptorEntry {
@@ -503,14 +521,32 @@ export class PaperTranslationCore {
 
   private readonly now: () => string
 
+  private readonly cacheFlushIntervalMs: number
+
+  private readonly progressBatchIntervalMs: number
+
   private readonly tasks = new Map<string, ActiveTranslationTask>()
 
   private readonly progressListeners = new Map<string, Set<ProgressListener>>()
+
+  private readonly progressBatchListeners = new Map<string, Set<ProgressBatchListener>>()
+
+  private readonly pendingCacheFlushes = new Map<string, PendingCacheFlush>()
+
+  private readonly pendingProgressBatches = new Map<string, PendingProgressBatch>()
 
   constructor(deps: PaperTranslationCoreDependencies) {
     this.deps = deps
     this.concurrency = Math.max(1, deps.concurrency ?? DEFAULT_CONCURRENCY)
     this.now = deps.now ?? (() => new Date().toISOString())
+    this.cacheFlushIntervalMs = Math.max(
+      0,
+      deps.cacheFlushIntervalMs ?? DEFAULT_CACHE_FLUSH_INTERVAL_MS
+    )
+    this.progressBatchIntervalMs = Math.max(
+      0,
+      deps.progressBatchIntervalMs ?? DEFAULT_PROGRESS_BATCH_INTERVAL_MS
+    )
   }
 
   onProgress(paperId: string, listener: ProgressListener): () => void {
@@ -531,8 +567,32 @@ export class PaperTranslationCore {
     }
   }
 
+  onProgressBatch(paperId: string, listener: ProgressBatchListener): () => void {
+    const listeners = this.progressBatchListeners.get(paperId) ?? new Set<ProgressBatchListener>()
+    listeners.add(listener)
+    this.progressBatchListeners.set(paperId, listeners)
+
+    return () => {
+      const currentListeners = this.progressBatchListeners.get(paperId)
+      if (!currentListeners) {
+        return
+      }
+
+      currentListeners.delete(listener)
+      if (currentListeners.size === 0) {
+        this.progressBatchListeners.delete(paperId)
+      }
+    }
+  }
+
   isRunning(paperId: string): boolean {
     return this.tasks.has(paperId)
+  }
+
+  flushPendingCaches(): void {
+    for (const paperId of Array.from(this.pendingCacheFlushes.keys())) {
+      this.flushPendingCache(paperId)
+    }
   }
 
   cancelTranslation(paperId: string): void {
@@ -543,6 +603,8 @@ export class PaperTranslationCore {
 
     task.abortController.abort()
     this.tasks.delete(paperId)
+    this.flushPendingCache(paperId)
+    this.flushProgressBatch(paperId)
   }
 
   getTranslationState(
@@ -838,7 +900,7 @@ export class PaperTranslationCore {
         runningTask.retryQueuedIndexes.add(entryIndex)
       }
 
-      this.persistCache(paperId, runningTask.cache)
+      this.persistCache(paperId, runningTask.cache, { immediate: false })
       this.emitProgress(runningTask, entry)
       return { success: true, entry: cloneEntry(entry) }
     }
@@ -998,6 +1060,8 @@ export class PaperTranslationCore {
         error: errorMessage
       })
     } finally {
+      this.flushPendingCache(task.paperId)
+      this.flushProgressBatch(task.paperId)
       this.tasks.delete(task.paperId)
     }
   }
@@ -1018,7 +1082,7 @@ export class PaperTranslationCore {
       entry.errorMessage = undefined
       entry.alignmentWarning = undefined
       entry.updatedAt = this.now()
-      this.persistCache(task.paperId, task.cache)
+      this.persistCache(task.paperId, task.cache, { immediate: false })
       this.emitProgress(task, entry)
 
       try {
@@ -1039,7 +1103,7 @@ export class PaperTranslationCore {
         entry.errorMessage = undefined
         entry.alignmentWarning = sanitized.alignmentWarning
         entry.updatedAt = this.now()
-        this.persistCache(task.paperId, task.cache)
+        this.persistCache(task.paperId, task.cache, { immediate: false })
         this.emitProgress(task, entry)
         return
       } catch (error) {
@@ -1051,7 +1115,7 @@ export class PaperTranslationCore {
         entry.status = 'failed'
         entry.errorMessage = errorMessage
         entry.updatedAt = this.now()
-        this.persistCache(task.paperId, task.cache)
+        this.persistCache(task.paperId, task.cache, { immediate: false })
         this.emitProgress(task, entry, errorMessage)
 
         this.deps.logger.warn('段落翻译失败', 'main', {
@@ -1171,10 +1235,41 @@ export class PaperTranslationCore {
     }
   }
 
-  private persistCache(paperId: string, cache: PaperTranslationCache): void {
+  private persistCache(
+    paperId: string,
+    cache: PaperTranslationCache,
+    options: { immediate?: boolean } = {}
+  ): void {
     cache.completedSegments = countCompletedSegments(cache.entries)
     cache.updatedAt = this.now()
+    cache.translationRevisionId = createPaperTranslationRevisionId(
+      cache.sourceHash,
+      cache.updatedAt
+    )
 
+    if (options.immediate === false && this.cacheFlushIntervalMs > 0) {
+      const pending = this.pendingCacheFlushes.get(paperId)
+      if (pending) {
+        pending.cache = cache
+        return
+      }
+
+      const nextPending: PendingCacheFlush = {
+        cache,
+        timer: setTimeout(() => {
+          this.flushPendingCache(paperId)
+        }, this.cacheFlushIntervalMs)
+      }
+      nextPending.timer?.unref?.()
+      this.pendingCacheFlushes.set(paperId, nextPending)
+      return
+    }
+
+    this.flushPendingCache(paperId)
+    this.writeCacheNow(paperId, cache)
+  }
+
+  private writeCacheNow(paperId: string, cache: PaperTranslationCache): void {
     const saveResult = this.deps.saveCache(paperId, cache)
     if (!saveResult.success) {
       this.deps.logger.warn('写入翻译缓存失败', 'main', {
@@ -1184,16 +1279,24 @@ export class PaperTranslationCore {
     }
   }
 
+  private flushPendingCache(paperId: string): void {
+    const pending = this.pendingCacheFlushes.get(paperId)
+    if (!pending) {
+      return
+    }
+
+    if (pending.timer) {
+      clearTimeout(pending.timer)
+    }
+    this.pendingCacheFlushes.delete(paperId)
+    this.writeCacheNow(paperId, pending.cache)
+  }
+
   private emitProgress(
     task: ActiveTranslationTask,
     entry: PaperTranslationEntry,
     errorMessage?: string
   ): void {
-    const listeners = this.progressListeners.get(task.paperId)
-    if (!listeners || listeners.size === 0) {
-      return
-    }
-
     const progress: PaperTranslationProgress = {
       paperId: task.paperId,
       sourceHash: task.sourceHash,
@@ -1207,8 +1310,72 @@ export class PaperTranslationCore {
       errorMessage
     }
 
-    listeners.forEach((listener) => {
+    const listeners = this.progressListeners.get(task.paperId)
+    listeners?.forEach((listener) => {
       listener(progress)
+    })
+
+    this.queueProgressBatch(progress)
+  }
+
+  private queueProgressBatch(
+    progress: PaperTranslationProgress,
+    options: { immediate?: boolean } = {}
+  ): void {
+    const paperId = progress.paperId
+    const pending = this.pendingProgressBatches.get(paperId)
+    if (pending) {
+      pending.progressBySegmentId.set(progress.segmentId, progress)
+      pending.latestProgress = progress
+      if (options.immediate === true) {
+        this.flushProgressBatch(paperId)
+      }
+      return
+    }
+
+    const nextPending: PendingProgressBatch = {
+      progressBySegmentId: new Map([[progress.segmentId, progress]]),
+      latestProgress: progress,
+      timer:
+        options.immediate === true || this.progressBatchIntervalMs === 0
+          ? null
+          : setTimeout(() => {
+              this.flushProgressBatch(paperId)
+            }, this.progressBatchIntervalMs)
+    }
+    nextPending.timer?.unref?.()
+    this.pendingProgressBatches.set(paperId, nextPending)
+
+    if (options.immediate === true || this.progressBatchIntervalMs === 0) {
+      this.flushProgressBatch(paperId)
+    }
+  }
+
+  private flushProgressBatch(paperId: string): void {
+    const pending = this.pendingProgressBatches.get(paperId)
+    if (!pending) {
+      return
+    }
+
+    if (pending.timer) {
+      clearTimeout(pending.timer)
+    }
+    this.pendingProgressBatches.delete(paperId)
+
+    const latestProgress = pending.latestProgress
+    const batch: PaperTranslationProgressBatch = {
+      paperId,
+      sourceHash: latestProgress.sourceHash,
+      completedSegments: latestProgress.completedSegments,
+      totalSegments: latestProgress.totalSegments,
+      isRunning: latestProgress.isRunning,
+      translationRevisionId: latestProgress.translationRevisionId,
+      entries: Array.from(pending.progressBySegmentId.values())
+    }
+
+    const listeners = this.progressBatchListeners.get(paperId)
+    listeners?.forEach((listener) => {
+      listener(batch)
     })
   }
 }
