@@ -81,14 +81,13 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     ref
   ) {
     const notify = useNotification()
-    const markdownZoomLevel = usePaperReaderStore((state) => state.markdownZoomLevel ?? 1.0)
+    const zoomLevel = usePaperReaderStore((state) => state.zoomLevel)
     const setPaperTocOutline = usePaperReaderStore((state) => state.setPaperTocOutline)
     const clearPaperToc = usePaperReaderStore((state) => state.clearPaperToc)
     const createAnnotation = usePaperReaderStore((state) => state.createAnnotation)
     const updateAnnotation = usePaperReaderStore((state) => state.updateAnnotation)
     const deleteAnnotation = usePaperReaderStore((state) => state.deleteAnnotation)
     const retranslateSegment = usePaperReaderStore((state) => state.retranslateSegment)
-    const setZoomLevel = usePaperReaderStore((state) => state.setZoomLevel)
     const handleWheelZoom = usePaperReaderStore((state) => state.handleWheelZoom)
     const setMarkdownScrollPosition = usePaperReaderStore(
       (state) => state.setMarkdownScrollPosition
@@ -110,7 +109,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const quoteHighlight = quoteHighlightRef.current
     const zoomSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const hasMountedZoomRef = useRef(false)
-    const previousMarkdownZoomLevelRef = useRef(markdownZoomLevel)
+    const previousZoomLevelRef = useRef(zoomLevel)
 
     // Table drag state
     const tableDragStateRef = useRef<TableDragState | null>(null)
@@ -167,9 +166,9 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     // Content zoom style
     const contentZoomStyle = useMemo(
       () => ({
-        zoom: markdownZoomLevel
+        zoom: zoomLevel
       }),
-      [markdownZoomLevel]
+      [zoomLevel]
     )
 
     // Sync scrollable table wrap state
@@ -523,16 +522,16 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     useLayoutEffect(() => {
       if (!hasMountedZoomRef.current) {
         hasMountedZoomRef.current = true
-        previousMarkdownZoomLevelRef.current = markdownZoomLevel
+        previousZoomLevelRef.current = zoomLevel
         return
       }
 
-      const prevLevel = previousMarkdownZoomLevelRef.current
-      if (prevLevel === markdownZoomLevel) {
+      const prevLevel = previousZoomLevelRef.current
+      if (prevLevel === zoomLevel) {
         return
       }
 
-      previousMarkdownZoomLevelRef.current = markdownZoomLevel
+      previousZoomLevelRef.current = zoomLevel
 
       const container = scrollContainerRef.current
       if (!container) return
@@ -540,7 +539,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       if (!zoomAnchor.isZooming()) {
         // 首次缩放步进：DOM 已更新缩放但 scrollTop 未变，需先用数学方式修正滚动位置
         // 再捕获锚点，否则 beginZoom 捕获的是已偏移的错误锚点
-        const ratio = markdownZoomLevel / prevLevel
+        const ratio = zoomLevel / prevLevel
         const scrollTop = container.scrollTop
         const clientHeight = container.clientHeight
         container.scrollTop = scrollTop * ratio + (clientHeight / 2) * (ratio - 1)
@@ -559,7 +558,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         zoomSettleTimerRef.current = null
         zoomAnchor.endZoom()
       }, 150)
-    }, [markdownZoomLevel, zoomAnchor, syncScrollableTableWrapState])
+    }, [zoomLevel, zoomAnchor, syncScrollableTableWrapState])
 
     // 实时同步公式拖选高亮
     useEffect(() => {
@@ -574,9 +573,9 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const pendingPercentRef = useRef<number | null>(null)
     const isRestoringRef = useRef(false)
-    // 使用 ref 存储缩放级别，避免 saveProgress 依赖 markdownZoomLevel 导致整条回调链重建
-    const markdownZoomLevelRef = useRef(markdownZoomLevel)
-    markdownZoomLevelRef.current = markdownZoomLevel
+    // 使用 ref 存储缩放级别，避免 saveProgress 依赖 zoomLevel 导致整条回调链重建
+    const zoomLevelRef = useRef(zoomLevel)
+    zoomLevelRef.current = zoomLevel
     const translationVisibleRef = useRef(translationVisible)
     translationVisibleRef.current = translationVisible
 
@@ -593,7 +592,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         void window.api.paper.saveReadingProgress({
           paperId,
           scrollPercent: Math.round(percent * 100) / 100,
-          zoomLevel: markdownZoomLevelRef.current,
+          zoomLevel: zoomLevelRef.current,
           translationVisible: translationVisibleRef.current
         })
       },
@@ -659,9 +658,6 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       if (!progress) return
 
       isRestoringRef.current = true
-      if (progress.zoomLevel && progress.zoomLevel !== markdownZoomLevel) {
-        setZoomLevel(progress.zoomLevel, { persist: false })
-      }
 
       const timer = setTimeout(() => {
         const container = scrollContainerRef.current
@@ -696,9 +692,6 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       if (!progress) return
 
       isRestoringRef.current = true
-      if (progress.zoomLevel && progress.zoomLevel !== markdownZoomLevel) {
-        setZoomLevel(progress.zoomLevel, { persist: false })
-      }
 
       const timer = setTimeout(() => {
         const container = scrollContainerRef.current

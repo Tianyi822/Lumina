@@ -30,7 +30,7 @@ export default function PaperOriginalPdfView({
   pageAssets,
   pageCount
 }: PaperOriginalPdfViewProps) {
-  const originalPdfZoomLevel = usePaperReaderStore((state) => state.originalPdfZoomLevel ?? 1.0)
+  const zoomLevel = usePaperReaderStore((state) => state.zoomLevel)
   const setOriginalPdfScrollPosition = usePaperReaderStore(
     (state) => state.setOriginalPdfScrollPosition
   )
@@ -54,22 +54,22 @@ export default function PaperOriginalPdfView({
   // Zoom settle timer
   const zoomSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasMountedZoomRef = useRef(false)
-  const previousOriginalPdfZoomLevelRef = useRef(originalPdfZoomLevel)
+  const previousZoomLevelRef = useRef(zoomLevel)
 
   // useLayoutEffect 确保在浏览器绘制前同步修正滚动位置
   useLayoutEffect(() => {
     if (!hasMountedZoomRef.current) {
       hasMountedZoomRef.current = true
-      previousOriginalPdfZoomLevelRef.current = originalPdfZoomLevel
+      previousZoomLevelRef.current = zoomLevel
       return
     }
 
-    const prevLevel = previousOriginalPdfZoomLevelRef.current
-    if (prevLevel === originalPdfZoomLevel) {
+    const prevLevel = previousZoomLevelRef.current
+    if (prevLevel === zoomLevel) {
       return
     }
 
-    previousOriginalPdfZoomLevelRef.current = originalPdfZoomLevel
+    previousZoomLevelRef.current = zoomLevel
 
     const container = scrollContainerRef.current
     if (!container) return
@@ -77,7 +77,7 @@ export default function PaperOriginalPdfView({
     if (!zoomAnchor.isZooming()) {
       // 首次缩放步进：DOM 已更新缩放但 scrollTop 未变，需先用数学方式修正滚动位置
       // 再捕获锚点，否则 beginZoom 捕获的是已偏移的错误锚点
-      const ratio = originalPdfZoomLevel / prevLevel
+      const ratio = zoomLevel / prevLevel
       const scrollTop = container.scrollTop
       const clientHeight = container.clientHeight
       container.scrollTop = scrollTop * ratio + (clientHeight / 2) * (ratio - 1)
@@ -95,7 +95,7 @@ export default function PaperOriginalPdfView({
       zoomSettleTimerRef.current = null
       zoomAnchor.endZoom()
     }, 150)
-  }, [originalPdfZoomLevel, zoomAnchor])
+  }, [zoomLevel, zoomAnchor])
 
   const originalPages = useMemo<OriginalPdfPage[]>(() => {
     const assets = [...(pageAssets || [])].sort((a, b) => a.pageIndex - b.pageIndex)
@@ -125,9 +125,9 @@ export default function PaperOriginalPdfView({
 
   const contentZoomStyle = useMemo(
     () => ({
-      zoom: originalPdfZoomLevel
+      zoom: zoomLevel
     }),
-    [originalPdfZoomLevel]
+    [zoomLevel]
   )
 
   const hasPages = originalPages.length > 0

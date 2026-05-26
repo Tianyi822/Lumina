@@ -42,7 +42,7 @@ export type BlockLabel = 'text' | 'image' | 'table' | 'formula' | 'code'
 export interface PaperReadingProgress {
   /** 滚动百分比 (0-100)，0=顶部，100=底部 */
   scrollPercent: number
-  /** 缩放级别 (0.5-2.0) */
+  /** 缩放级别 (0.5-2.0)，仍会写入但不再用于恢复（缩放已统一为全局设置） */
   zoomLevel: number
   /** 最后阅读时间 */
   readAt: string

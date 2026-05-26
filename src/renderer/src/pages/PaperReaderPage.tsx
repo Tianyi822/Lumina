@@ -233,20 +233,6 @@ export default function PaperReaderPage() {
     return unsubscribe
   }, [resetFigureUiState])
 
-  // 从其他视图切回论文视图时恢复缩放
-  useEffect(() => {
-    const unsubscribe = useUIStateStore.subscribe((state, prevState) => {
-      if (prevState.currentView !== 'paper' && state.currentView === 'paper') {
-        const paper = usePaperReaderStore.getState().currentPaper()
-        const savedZoom = paper?.readingProgress?.zoomLevel
-        if (savedZoom) {
-          usePaperReaderStore.getState().setZoomLevel(savedZoom, { persist: false })
-        }
-      }
-    })
-    return unsubscribe
-  }, [])
-
   return (
     <PaperQuoteContext.Provider value={paperQuoteContextValue}>
       <div className={[styles.page, 'sm-workspace-view'].join(' ')}>

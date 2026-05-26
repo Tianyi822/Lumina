@@ -145,9 +145,9 @@ export interface PaperReaderConfig {
   ocr: PaperOcrConfig
   /** 翻译使用的模型名称；空或未设置表示使用默认模型 */
   translationModel?: string
-  /** OCR 阅读结果缩放倍数 */
+  /** 论文阅读器统一缩放倍数 (0.5-2.0)，所有视图共享 */
   zoomLevel?: number
-  /** PDF 原件缩放倍数 */
+  /** @deprecated 已废弃，缩放已统一为全局 zoomLevel，保留以兼容旧配置 */
   originalPdfZoomLevel?: number
 }
 

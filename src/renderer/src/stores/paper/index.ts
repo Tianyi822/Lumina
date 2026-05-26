@@ -279,9 +279,8 @@ interface PaperReaderState {
   renderProgressByPaperId: Record<string, RenderingProgress>
   ocrProgressByPaperId: Record<string, OcrProgressInfo>
 
-  // 缩放状态
-  markdownZoomLevel: number
-  originalPdfZoomLevel: number
+  // 缩放状态（全局统一）
+  zoomLevel: number
   zoomPercent: number
 
   // Getters
@@ -295,7 +294,6 @@ interface PaperReaderState {
   isCurrentPaperTranslating: () => boolean
   isOcrCompleted: () => boolean
   paperBasePath: () => string | null
-  zoomLevel: () => number
   canZoomIn: () => boolean
   canZoomOut: () => boolean
 
@@ -422,21 +420,15 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
     if (zoomPercentRafId !== null) return
     zoomPercentRafId = requestAnimationFrame(() => {
       zoomPercentRafId = null
-      const s = get()
-      const level = s.originalPdfVisible ? s.originalPdfZoomLevel : s.markdownZoomLevel
+      const level = get().zoomLevel
       set({ zoomPercent: Math.round(level * 100) })
     })
   }
 
   function scheduleZoomPersistence(): void {
     if (!zoomPersistenceReady) return
-    const s = get()
     const configStore = useConfigStore.getState()
-    configStore.updatePaperReaderConfig(
-      s.originalPdfVisible
-        ? { originalPdfZoomLevel: s.originalPdfZoomLevel }
-        : { zoomLevel: s.markdownZoomLevel }
-    )
+    configStore.updatePaperReaderConfig({ zoomLevel: get().zoomLevel })
     if (zoomSaveTimer) clearTimeout(zoomSaveTimer)
     zoomSaveTimer = setTimeout(() => {
       zoomSaveTimer = null
@@ -775,12 +767,7 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
       })
     }
 
-    // 恢复该论文的缩放级别
-    const savedZoom = paper.readingProgress?.zoomLevel
-    const nextZoom = savedZoom ? normalizeZoomLevel(savedZoom) : s.markdownZoomLevel
-
-    set({ currentPaperId: paperId, markdownZoomLevel: nextZoom })
-    scheduleZoomPercentSync()
+    set({ currentPaperId: paperId })
     uiStateStore.setLastPaperId(paperId)
   }
 
@@ -1833,16 +1820,10 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
 
   function setZoomLevel(value: number, options: { persist?: boolean } = {}): void {
     const nextZoomLevel = normalizeZoomLevel(value)
-    const s = get()
-    const isOriginalPdf = s.originalPdfVisible
-    const currentLevel = isOriginalPdf ? s.originalPdfZoomLevel : s.markdownZoomLevel
+    const currentLevel = get().zoomLevel
     if (currentLevel === nextZoomLevel) return
 
-    if (isOriginalPdf) {
-      set({ originalPdfZoomLevel: nextZoomLevel })
-    } else {
-      set({ markdownZoomLevel: nextZoomLevel })
-    }
+    set({ zoomLevel: nextZoomLevel })
     scheduleZoomPercentSync()
 
     if (options.persist !== false) {
@@ -1852,36 +1833,22 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
 
   function loadPaperReaderPreferences(): void {
     const configStore = useConfigStore.getState()
-    const mz = normalizeZoomLevel(configStore.paperReaderConfig.zoomLevel)
-    const oz = normalizeZoomLevel(configStore.paperReaderConfig.originalPdfZoomLevel)
-    const s = get()
-    const level = s.originalPdfVisible ? oz : mz
+    const level = normalizeZoomLevel(configStore.paperReaderConfig.zoomLevel)
     const zoomPercent = Math.round(level * 100)
     zoomPersistenceReady = true
-    if (
-      s.markdownZoomLevel === mz &&
-      s.originalPdfZoomLevel === oz &&
-      s.zoomPercent === zoomPercent
-    ) {
+    const s = get()
+    if (s.zoomLevel === level && s.zoomPercent === zoomPercent) {
       return
     }
-    set({
-      markdownZoomLevel: mz,
-      originalPdfZoomLevel: oz,
-      zoomPercent
-    })
+    set({ zoomLevel: level, zoomPercent })
   }
 
   function zoomIn(): void {
-    const s = get()
-    const level = s.originalPdfVisible ? s.originalPdfZoomLevel : s.markdownZoomLevel
-    setZoomLevel(+(level + ZOOM_STEP).toFixed(1))
+    setZoomLevel(+(get().zoomLevel + ZOOM_STEP).toFixed(1))
   }
 
   function zoomOut(): void {
-    const s = get()
-    const level = s.originalPdfVisible ? s.originalPdfZoomLevel : s.markdownZoomLevel
-    setZoomLevel(+(level - ZOOM_STEP).toFixed(1))
+    setZoomLevel(+(get().zoomLevel - ZOOM_STEP).toFixed(1))
   }
 
   function resetZoom(): void {
@@ -1896,18 +1863,11 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
       wheelZoomRafId = requestAnimationFrame(() => {
         wheelZoomRafId = null
         if (pendingWheelDelta === 0) return
-        const s = get()
-        const level = s.originalPdfVisible ? s.originalPdfZoomLevel : s.markdownZoomLevel
+        const level = get().zoomLevel
         const nextZoomLevel = normalizeZoomLevel(level + pendingWheelDelta)
         pendingWheelDelta = 0
-        const isOriginalPdf = s.originalPdfVisible
-        const currentLevel = isOriginalPdf ? s.originalPdfZoomLevel : s.markdownZoomLevel
-        if (currentLevel === nextZoomLevel) return
-        if (isOriginalPdf) {
-          set({ originalPdfZoomLevel: nextZoomLevel })
-        } else {
-          set({ markdownZoomLevel: nextZoomLevel })
-        }
+        if (get().zoomLevel === nextZoomLevel) return
+        set({ zoomLevel: nextZoomLevel })
         scheduleZoomPercentSync()
       })
     }
@@ -2001,9 +1961,8 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
     renderProgressByPaperId: {} as Record<string, RenderingProgress>,
     ocrProgressByPaperId: {} as Record<string, OcrProgressInfo>,
 
-    // 缩放状态
-    markdownZoomLevel: ZOOM_DEFAULT,
-    originalPdfZoomLevel: ZOOM_DEFAULT,
+    // 缩放状态（全局统一）
+    zoomLevel: ZOOM_DEFAULT,
     zoomPercent: 100,
 
     // -------------------------------------------------------------------------
@@ -2073,22 +2032,9 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
       return paper.filePath.substring(0, lastSlash)
     },
 
-    zoomLevel: () => {
-      const s = get()
-      return s.originalPdfVisible ? s.originalPdfZoomLevel : s.markdownZoomLevel
-    },
+    canZoomIn: () => get().zoomLevel < ZOOM_MAX,
 
-    canZoomIn: () => {
-      const s = get()
-      const level = s.originalPdfVisible ? s.originalPdfZoomLevel : s.markdownZoomLevel
-      return level < ZOOM_MAX
-    },
-
-    canZoomOut: () => {
-      const s = get()
-      const level = s.originalPdfVisible ? s.originalPdfZoomLevel : s.markdownZoomLevel
-      return level > ZOOM_MIN
-    },
+    canZoomOut: () => get().zoomLevel > ZOOM_MIN,
 
     // -------------------------------------------------------------------------
     // Actions
