@@ -66,6 +66,9 @@
 
   --sm-titlebar-height: 38px;
   --sm-shadow-none: none;
+  --sm-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --sm-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --sm-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.14);
 
   --sm-focus-ring-color: var(--sm-color-accent-22);
   --sm-selection-background: var(--sm-color-accent-18);
