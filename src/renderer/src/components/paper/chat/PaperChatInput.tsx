@@ -112,6 +112,7 @@ export default function PaperChatInput({
 }: PaperChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const isComposingRef = useRef(false)
   const [attachmentError, setAttachmentError] = useState('')
 
   const pendingDocuments = usePaperChatDocumentUploadStore((s) =>
@@ -177,13 +178,15 @@ export default function PaperChatInput({
     )
     const quotes = usePaperChatQuoteStore.getState().getPendingQuotesForSending(sessionId)
 
-    await onSend(content, docs, images, quotes)
+    // 立即清空输入和附件，避免异步操作期间的竞态条件
     onUpdateInput('')
     usePaperChatDocumentUploadStore.getState().clearPendingDocuments(sessionId)
     usePaperChatImageUploadStore.getState().clearImages(sessionId)
     usePaperChatQuoteStore.getState().clearQuotes(sessionId)
     onDismissQuickReply?.(quickReply?.messageId || '')
     onHideUserInteraction?.()
+
+    await onSend(content, docs, images, quotes)
   }
 
   const togglePaperWebSearch = useCallback(async (): Promise<void> => {
@@ -398,10 +401,25 @@ export default function PaperChatInput({
             }
           }}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
+            if (
+              event.key === 'Enter' &&
+              !event.shiftKey &&
+              !isComposingRef.current &&
+              !event.nativeEvent.isComposing
+            ) {
               event.preventDefault()
               if (canSend) void handleSend()
             }
+          }}
+          onCompositionStart={() => {
+            isComposingRef.current = true
+          }}
+          onCompositionEnd={() => {
+            // 使用 requestAnimationFrame 延迟重置，防止 compositionend 后
+            // 同一 Enter 按键触发的 keydown 误发消息
+            requestAnimationFrame(() => {
+              isComposingRef.current = false
+            })
           }}
         />
         {isDragging && (
