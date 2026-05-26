@@ -216,7 +216,11 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
           setIsDragging(false)
         }}
       >
-        <PaperChatPlanDock planState={currentPlanState} sending={streamState.isSending} />
+        <PaperChatPlanDock
+          planState={currentPlanState}
+          sending={streamState.isSending}
+          enableLabTools={sessionState.enableLabTools}
+        />
         <PaperChatInput
           sessionId={sessionState.sessionId || 'temp'}
           inputMessage={sessionState.inputMessage}
