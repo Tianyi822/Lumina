@@ -1,10 +1,12 @@
 import { memo, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { RenderedSegment } from './hooks/usePaperMarkdownEngine'
 import styles from './PaperMarkdownSegmentList.module.css'
 
 interface PaperMarkdownSegmentListProps {
   segments: RenderedSegment[]
+  scrollContainerRef: React.RefObject<HTMLDivElement | null>
   onRetranslate?: (params: { segmentId: string; stableId: string }) => void
 }
 
@@ -180,6 +182,7 @@ const PaperMarkdownSegmentItem = memo(
     prev.segment.stableId === next.segment.stableId &&
     prev.segment.sourceRevisionId === next.segment.sourceRevisionId &&
     prev.segment.textHash === next.segment.textHash &&
+    prev.segment.kind === next.segment.kind &&
     prev.segment.originalHtml === next.segment.originalHtml &&
     prev.segment.translationHtml === next.segment.translationHtml &&
     prev.segment.translationText === next.segment.translationText &&
@@ -191,7 +194,11 @@ const PaperMarkdownSegmentItem = memo(
     prev.onRetranslateClick === next.onRetranslateClick
 )
 
-function PaperMarkdownSegmentList({ segments, onRetranslate }: PaperMarkdownSegmentListProps) {
+function PaperMarkdownSegmentList({
+  segments,
+  scrollContainerRef,
+  onRetranslate
+}: PaperMarkdownSegmentListProps) {
   const [confirmDialog, setConfirmDialog] = useState<{
     segmentId: string
     stableId: string
@@ -226,15 +233,60 @@ function PaperMarkdownSegmentList({ segments, onRetranslate }: PaperMarkdownSegm
     setConfirmDialog(null)
   }, [])
 
+  // 虚拟滚动：动态高度测量
+  const virtualizer = useVirtualizer({
+    count: segments.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 300,
+    overscan: 3
+  })
+
+  const virtualItems = virtualizer.getVirtualItems()
+
   return (
     <>
-      {segments.map((segment) => (
-        <PaperMarkdownSegmentItem
-          key={segment.renderId}
-          segment={segment}
-          onRetranslateClick={handleRetranslateClick}
-        />
-      ))}
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative'
+        }}
+      >
+        {virtualItems.map((virtualRow) => {
+          const segment = segments[virtualRow.index]
+          return (
+            <div
+              key={virtualRow.key}
+              className={[
+                styles['paper-markdown-view__segment-row'],
+                'paper-markdown-view__segment-row',
+                segment.kind === 'heading'
+                  ? styles['paper-markdown-view__segment-row--heading']
+                  : '',
+                segment.kind === 'heading' ? 'paper-markdown-view__segment-row--heading' : '',
+                virtualRow.index === 0 ? styles['paper-markdown-view__segment-row--first'] : '',
+                virtualRow.index === 0 ? 'paper-markdown-view__segment-row--first' : ''
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              data-index={virtualRow.index}
+              ref={virtualizer.measureElement}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualRow.start}px)`
+              }}
+            >
+              <PaperMarkdownSegmentItem
+                segment={segment}
+                onRetranslateClick={handleRetranslateClick}
+              />
+            </div>
+          )
+        })}
+      </div>
 
       {confirmDialog &&
         createPortal(

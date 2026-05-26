@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { Worker } from 'worker_threads'
 import { encode } from 'gpt-tokenizer/encoding/cl100k_base'
 import { logger } from '@main/services/logger'
 import type { EmbeddingConfig } from '@main/types/config'
@@ -489,6 +490,35 @@ export class EmbeddingService {
     }
   }
 
+  private async estimateTokensBatch(texts: string[]): Promise<number[]> {
+    // 小批量直接同步计算，避免 Worker 开销
+    if (texts.length <= 50) {
+      return texts.map((text) => this.tokenEstimator(text))
+    }
+
+    return new Promise((resolve) => {
+      const worker = new Worker(new URL('./tokenEstimatorWorker.ts', import.meta.url))
+      const id = crypto.randomUUID()
+      const timeout = setTimeout(() => {
+        void worker.terminate()
+        resolve(texts.map((text) => this.tokenEstimator(text)))
+      }, 10_000)
+
+      worker.on('message', (msg: { id: string; estimates: number[] }) => {
+        if (msg.id === id) {
+          clearTimeout(timeout)
+          resolve(msg.estimates)
+          void worker.terminate()
+        }
+      })
+      worker.on('error', () => {
+        clearTimeout(timeout)
+        void worker.terminate()
+        resolve(texts.map((text) => this.tokenEstimator(text)))
+      })
+    })
+  }
+
   private async embedBatchInternal(
     texts: string[],
     config: EmbeddingConfig,
@@ -500,7 +530,7 @@ export class EmbeddingService {
     }
 
     const limiter = this.getRateLimiter(config)
-    const tokenEstimates = texts.map((text) => this.tokenEstimator(text))
+    const tokenEstimates = await this.estimateTokensBatch(texts)
     const embeddings: number[][] = new Array(texts.length)
     const usage = {
       prompt_tokens: 0,
