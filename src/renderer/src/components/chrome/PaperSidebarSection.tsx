@@ -150,7 +150,11 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
 
       <div className={styles['sm-workspace-sidebar-host__section-actions']}>
         <button
-          className={['sm-button', 'sm-button--primary', styles['sm-workspace-sidebar-host__action']].join(' ')}
+          className={[
+            'sm-button',
+            'sm-button--primary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
           onClick={() => {
             void handleUploadPdf()
           }}

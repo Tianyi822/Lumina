@@ -169,13 +169,21 @@ const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
 
       <div className={styles['sm-workspace-sidebar-host__section-actions']}>
         <button
-          className={['sm-button', 'sm-button--primary', styles['sm-workspace-sidebar-host__action']].join(' ')}
+          className={[
+            'sm-button',
+            'sm-button--primary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
           onClick={handleCreateKnowledgeBase}
         >
           新建知识库
         </button>
         <button
-          className={['sm-button', 'sm-button--secondary', styles['sm-workspace-sidebar-host__action']].join(' ')}
+          className={[
+            'sm-button',
+            'sm-button--secondary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
           onClick={handleManageKnowledgeFiles}
         >
           管理文件

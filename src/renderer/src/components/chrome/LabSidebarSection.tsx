@@ -1,7 +1,12 @@
 import { useState, useMemo, useCallback, useEffect, memo } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import LabList from '@renderer/components/lab/LabList'
-import { useUIStateStore, useLabStore, useLabListStore, useLabOperationStore } from '@renderer/stores'
+import {
+  useUIStateStore,
+  useLabStore,
+  useLabListStore,
+  useLabOperationStore
+} from '@renderer/stores'
 import styles from './WorkspaceSidebarHost.module.css'
 
 const LabSidebarSection = memo(function LabSidebarSection() {
@@ -67,7 +72,9 @@ const LabSidebarSection = memo(function LabSidebarSection() {
             onChange={(e) => setLabSearchQuery(e.target.value)}
           />
           <button
-            className={['sm-icon-button', styles['sm-workspace-sidebar-host__refresh-button']].join(' ')}
+            className={['sm-icon-button', styles['sm-workspace-sidebar-host__refresh-button']].join(
+              ' '
+            )}
             title="刷新列表"
             disabled={isRefreshingLabList}
             onClick={() => {
@@ -99,13 +106,21 @@ const LabSidebarSection = memo(function LabSidebarSection() {
 
       <div className={styles['sm-workspace-sidebar-host__section-actions']}>
         <button
-          className={['sm-button', 'sm-button--primary', styles['sm-workspace-sidebar-host__action']].join(' ')}
+          className={[
+            'sm-button',
+            'sm-button--primary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
           onClick={openLabCreator}
         >
           创建实验室
         </button>
         <button
-          className={['sm-button', 'sm-button--secondary', styles['sm-workspace-sidebar-host__action']].join(' ')}
+          className={[
+            'sm-button',
+            'sm-button--secondary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
           onClick={openConfigManager}
         >
           管理配置
