@@ -4,50 +4,37 @@
 
 .paper-chat-input__textarea {
   width: 100%;
-  min-height: 104px;
-  resize: vertical;
+  min-height: 72px;
+  max-height: 200px;
+  resize: none;
   font-family: var(--sm-font-sans);
   line-height: 1.5;
-  background: var(--sm-color-surface-1);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
+  background: transparent;
+  border: none;
   color: var(--sm-color-text-primary);
-  padding: 14px 16px;
-  font-size: 13px;
+  padding: var(--sm-space-2) var(--sm-space-2);
+  font-size: 14px;
+  outline: none;
   transition:
     background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast),
     color var(--sm-transition-fast);
 }
 
-.paper-chat-input__textarea:hover {
-  background: var(--sm-color-surface-hover);
-  border-color: var(--sm-color-border-strong);
-}
-
-.paper-chat-input__textarea:focus {
-  background: var(--sm-color-surface-1);
-  border-color: var(--sm-color-border-accent);
-  outline: 1px solid var(--sm-color-border-accent);
-  outline-offset: 0;
+.paper-chat-input__textarea::placeholder {
+  color: var(--sm-color-text-tertiary);
 }
 
 .paper-chat-input__textarea:disabled {
-  opacity: 0.4;
+  opacity: var(--sm-disabled-opacity);
   cursor: not-allowed;
 }
 
 .paper-chat-input__textarea.is-sending {
-  border-color: var(--sm-color-border-default);
-}
-
-.paper-chat-input__textarea.is-sending:focus {
-  border-color: var(--sm-color-border-accent);
+  opacity: var(--sm-loading-opacity);
 }
 
 .paper-chat-input__textarea.is-dragging {
-  border-color: var(--sm-color-border-accent);
-  background: var(--sm-color-accent-08);
+  opacity: 0.5;
 }
 
 .paper-chat-input__drag-overlay {
@@ -69,7 +56,7 @@
 }
 
 .paper-chat-input__drag-hint svg {
-  margin-bottom: 8px;
+  margin-bottom: var(--sm-space-2);
 }
 
 .paper-chat-input__drag-hint p {

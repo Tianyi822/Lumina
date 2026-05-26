@@ -44,19 +44,6 @@
   border-color: transparent;
 }
 
-.paper-item__icon {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--sm-color-surface-2);
-  border: 1px solid var(--sm-color-border-subtle);
-  border-radius: 10px;
-  color: var(--sm-color-text-secondary);
-  flex-shrink: 0;
-}
-
 .paper-item__info {
   flex: 1;
   min-width: 0;
@@ -287,4 +274,27 @@
 
 .paper-item__translation-tag:hover .paper-item__translation-tag-delete {
   display: inline;
+}
+
+.paper-item__tooltip {
+  position: fixed;
+  transform: translateY(-50%);
+  z-index: 1000;
+  max-width: 320px;
+  padding: 6px 10px;
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  color: var(--sm-color-text-primary);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-word;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.paper-item__tooltip :global(.katex) {
+  font-size: 1em;
 }

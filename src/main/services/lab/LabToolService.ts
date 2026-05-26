@@ -1,6 +1,6 @@
 import { logger } from '@main/services/logger'
-import { MCPTool, MCPToolCallResult } from '@main/types/mcp'
-import { ToolArgs, LabToolDefinition } from './tools/types'
+import type { MCPTool, MCPToolCallResult } from '@main/types/mcp'
+import type { ToolArgs, LabToolDefinition } from './tools/types'
 import { queryTools } from './tools/queryTools'
 import { managementTools } from './tools/managementTools'
 import { execTools } from './tools/execTools'

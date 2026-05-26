@@ -20,11 +20,13 @@ const md = new MarkdownIt({
   typographer: true
 }).use(texmath, {
   engine: katex,
-  delimiters: ['dollars', 'beg_end'],
+  delimiters: ['dollars', 'brackets', 'beg_end'],
   katexOptions: {
     throwOnError: false,
-    strict: 'ignore',
-    output: 'htmlAndMathml'
+    strict: 'warn',
+    output: 'htmlAndMathml',
+    maxSize: 500,
+    maxExpand: 1000
   }
 })
 

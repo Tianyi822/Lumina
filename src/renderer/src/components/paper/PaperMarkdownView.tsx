@@ -1,4 +1,12 @@
-import { useRef, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react'
+import {
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useCallback,
+  useImperativeHandle,
+  forwardRef
+} from 'react'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import type {
@@ -17,6 +25,8 @@ import { usePaperAnnotationComposer } from './hooks/usePaperAnnotationComposer'
 import { usePaperTextSearch } from './hooks/usePaperTextSearch'
 import { usePaperQuoteHighlight } from './composables/usePaperQuoteHighlight'
 import { useZoomAnchor } from './composables/useZoomAnchor'
+import { syncFormulaSelectionOnDrag } from './composables/paperDragSelectionSync'
+import { PAPER_ANNOTATION_INTERACTIVE_SELECTOR } from './composables/usePaperHighlightRenderer'
 import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopover'
 import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor'
 import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu'
@@ -239,7 +249,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           'input',
           'textarea',
           'select',
-          'mark.paper-annotation-highlight',
+          PAPER_ANNOTATION_INTERACTIVE_SELECTOR,
           '.paper-markdown-view__retranslate-btn'
         ].join(', ')
       )
@@ -308,6 +318,9 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       clearTableDragState()
     }
 
+    // 未恢复批注通知（每次论文加载只提示一次）
+    const unresolvedNotifiedRef = useRef(false)
+
     // Render content and sync tables
     const renderContentAndSyncTables = useCallback(async (): Promise<void> => {
       await engine.renderContent()
@@ -315,6 +328,20 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       await new Promise((resolve) => setTimeout(resolve, 0))
       syncScrollableTableWrapState()
     }, [engine, syncScrollableTableWrapState])
+
+    // 通知未恢复批注
+    useEffect(() => {
+      if (unresolvedNotifiedRef.current) return
+      const ids = engine.unresolvedAnnotationIds
+      if (ids.length > 0) {
+        unresolvedNotifiedRef.current = true
+        const uniqueCount = new Set(ids).size
+        notify.info('批注恢复', `${uniqueCount} 条批注因文本变化未能恢复高亮`, {
+          source: 'paper',
+          dedupeKey: `paper-unresolved-annotations:${paperId}`
+        })
+      }
+    }, [engine.unresolvedAnnotationIds, notify, paperId])
 
     // Search helpers
     const getSearchContentElement = useCallback((): HTMLElement | null => {
@@ -422,8 +449,15 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       [translationCache]
     )
     const annotationUpdateKey = useMemo(
-      () => annotations.map((annotation) => annotation.updatedAt).join('|'),
-      [annotations]
+      () =>
+        [
+          annotations.length,
+          readerDocument?.sourceRevisionId ?? '',
+          ...annotations.map(
+            (annotation) => `${annotation.updatedAt}:${annotation.semanticAnchor.segmentTextHash}`
+          )
+        ].join('|'),
+      [annotations, readerDocument?.sourceRevisionId]
     )
 
     useEffect(() => {
@@ -440,7 +474,10 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       prevSourceRevisionIdRef.current = readerDocument?.sourceRevisionId
 
       void renderContentAndSyncTables().then(() => {
-        composer.clearComposer()
+        // 仅当菜单和笔记编辑器都未打开时才清除 composer，避免破坏活跃的选区状态
+        if (!composer.selectionActionMenu && !composer.noteEditorDraft) {
+          composer.clearComposer()
+        }
 
         // Restore scroll position on initial load or major content change
         if (contentChanged || basePathChanged || sourceRevisionIdChanged) {
@@ -482,15 +519,16 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [textSearch.isOpen])
 
-    // Zoom level effect
-    useEffect(() => {
+    // Zoom level effect — useLayoutEffect 确保在浏览器绘制前同步修正滚动位置
+    useLayoutEffect(() => {
       if (!hasMountedZoomRef.current) {
         hasMountedZoomRef.current = true
         previousMarkdownZoomLevelRef.current = markdownZoomLevel
         return
       }
 
-      if (previousMarkdownZoomLevelRef.current === markdownZoomLevel) {
+      const prevLevel = previousMarkdownZoomLevelRef.current
+      if (prevLevel === markdownZoomLevel) {
         return
       }
 
@@ -500,15 +538,21 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       if (!container) return
 
       if (!zoomAnchor.isZooming()) {
+        // 首次缩放步进：DOM 已更新缩放但 scrollTop 未变，需先用数学方式修正滚动位置
+        // 再捕获锚点，否则 beginZoom 捕获的是已偏移的错误锚点
+        const ratio = markdownZoomLevel / prevLevel
+        const scrollTop = container.scrollTop
+        const clientHeight = container.clientHeight
+        container.scrollTop = scrollTop * ratio + (clientHeight / 2) * (ratio - 1)
         zoomAnchor.beginZoom(container)
       }
 
-      requestAnimationFrame(() => {
-        if (scrollContainerRef.current) {
-          zoomAnchor.applyZoomFrame(scrollContainerRef.current)
-        }
-        syncScrollableTableWrapState()
-      })
+      // 强制同步布局重计算，确保滚动修正基于新的缩放布局
+      void container.offsetHeight
+
+      // 同步修正滚动位置（在浏览器绘制前完成，消除抖动）
+      zoomAnchor.applyZoomFrame(container)
+      syncScrollableTableWrapState()
 
       if (zoomSettleTimerRef.current !== null) clearTimeout(zoomSettleTimerRef.current)
       zoomSettleTimerRef.current = setTimeout(() => {
@@ -517,10 +561,24 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       }, 150)
     }, [markdownZoomLevel, zoomAnchor, syncScrollableTableWrapState])
 
+    // 实时同步公式拖选高亮
+    useEffect(() => {
+      const container = scrollContainerRef.current
+      if (!container) return
+
+      const cleanup = syncFormulaSelectionOnDrag(container)
+      return cleanup
+    }, [content, paperId])
+
     // Reading progress
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const pendingPercentRef = useRef<number | null>(null)
     const isRestoringRef = useRef(false)
+    // 使用 ref 存储缩放级别，避免 saveProgress 依赖 markdownZoomLevel 导致整条回调链重建
+    const markdownZoomLevelRef = useRef(markdownZoomLevel)
+    markdownZoomLevelRef.current = markdownZoomLevel
+    const translationVisibleRef = useRef(translationVisible)
+    translationVisibleRef.current = translationVisible
 
     function computeScrollPercent(container: HTMLElement): number {
       const scrollableHeight = container.scrollHeight - container.clientHeight
@@ -535,11 +593,11 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         void window.api.paper.saveReadingProgress({
           paperId,
           scrollPercent: Math.round(percent * 100) / 100,
-          zoomLevel: markdownZoomLevel,
-          translationVisible
+          zoomLevel: markdownZoomLevelRef.current,
+          translationVisible: translationVisibleRef.current
         })
       },
-      [paperId, markdownZoomLevel, translationVisible]
+      [paperId]
     )
 
     const flushPendingSave = useCallback(() => {
@@ -594,6 +652,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     // Restore reading progress on paper change
     useEffect(() => {
+      unresolvedNotifiedRef.current = false
       flushPendingSave()
 
       const progress = readingProgress
@@ -681,6 +740,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     // Cleanup on unmount
     useEffect(() => {
       return () => {
+        flushPendingSave()
         recordMarkdownScrollPosition()
         clearPaperToc()
         textSearch.closeSearch()
@@ -849,6 +909,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
             >
               <PaperMarkdownSegmentList
                 segments={engine.renderedSegments}
+                translationVisible={translationVisible}
                 onRetranslate={handleRetranslateSegment}
               />
             </article>

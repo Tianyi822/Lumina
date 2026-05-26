@@ -73,9 +73,7 @@ export default function LabTerminalTab({
       <section className={styles['ssh-terminal-connect-panel']}>
         <div className={styles['ssh-terminal-connect-panel__copy']}>
           <h2>SSH 未连接</h2>
-          <p>
-            请使用上方连接提示重新连接 {sshTerminalSubtitle || '远程服务器'}。
-          </p>
+          <p>请使用上方连接提示重新连接 {sshTerminalSubtitle || '远程服务器'}。</p>
         </div>
       </section>
     )

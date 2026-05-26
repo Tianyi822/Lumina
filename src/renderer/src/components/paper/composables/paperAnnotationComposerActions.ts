@@ -6,6 +6,7 @@ import type {
   PaperAnnotationKind,
   PaperAnnotationTextAnchor
 } from '@shared/types/paper'
+import { PAPER_ANNOTATION_NOTE_COLOR_KEY } from '@shared/types/paper'
 import type {
   AnnotationHoverPopoverState,
   ComputedRef,
@@ -43,6 +44,10 @@ export interface PaperAnnotationComposerActions {
   ) => Promise<{ success: boolean; error?: string }>
   addSelectionDraftToChat: (draft: SelectionDraft) => { success: boolean; error?: string }
   deleteAnnotationById: (annotationId: string) => Promise<{ success: boolean; error?: string }>
+  upgradeHighlightToNote: (
+    annotation: PaperAnnotation,
+    comment: string
+  ) => Promise<{ success: boolean; error?: string }>
 }
 
 export function createPaperAnnotationComposerActions(
@@ -180,9 +185,42 @@ export function createPaperAnnotationComposerActions(
     return { success: true }
   }
 
+  async function upgradeHighlightToNote(
+    annotation: PaperAnnotation,
+    comment: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const createResult = await options.createAnnotation({
+      paperId: options.paperId(),
+      kind: 'note',
+      noteType: annotation.noteType,
+      createdInView: annotation.createdInView,
+      semanticAnchor: annotation.semanticAnchor,
+      originalAnchor: annotation.originalAnchor,
+      translationAnchor: annotation.translationAnchor,
+      selectedTextSnapshot: annotation.selectedTextSnapshot,
+      contextBefore: annotation.contextBefore,
+      contextAfter: annotation.contextAfter,
+      comment,
+      colorKey: PAPER_ANNOTATION_NOTE_COLOR_KEY
+    } satisfies CreatePaperAnnotationPayload)
+
+    if (!createResult.success) {
+      return { success: false, error: createResult.error || '创建笔记失败' }
+    }
+
+    // 先创建成功后再删除原 highlight，保证数据不丢失
+    const deleteResult = await options.deleteAnnotation(options.paperId(), annotation.id)
+    if (!deleteResult.success) {
+      return { success: false, error: deleteResult.error || '删除原标记失败' }
+    }
+
+    return { success: true }
+  }
+
   return {
     persistSelectionDraft,
     addSelectionDraftToChat,
-    deleteAnnotationById
+    deleteAnnotationById,
+    upgradeHighlightToNote
   }
 }

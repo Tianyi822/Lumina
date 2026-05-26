@@ -19,10 +19,11 @@ class FakeText {
 }
 
 class FakeElement {
-  constructor(tagName, className = '', children = []) {
+  constructor(tagName, className = '', children = [], attrs = {}) {
     this.nodeType = 1
     this.tagName = tagName.toUpperCase()
     this.className = className
+    this.attrs = attrs
     this.childNodes = []
     this.parentNode = null
     this.parentElement = null
@@ -59,6 +60,21 @@ class FakeElement {
     return child
   }
 
+  setAttribute(name, value) {
+    this.attrs[name] = String(value)
+    if (name === 'class') {
+      this.className = String(value)
+    }
+  }
+
+  getAttribute(name) {
+    if (name === 'class') {
+      return this.className
+    }
+
+    return this.attrs[name] ?? null
+  }
+
   matches(selector) {
     if (selector === 'mark.paper-annotation-highlight') {
       return (
@@ -67,19 +83,50 @@ class FakeElement {
       )
     }
 
+    if (selector === 'annotation[encoding="application/x-tex"]') {
+      return this.tagName === 'ANNOTATION' && this.attrs.encoding === 'application/x-tex'
+    }
+
+    if (selector.startsWith('.')) {
+      return this.className.split(/\s+/).includes(selector.slice(1))
+    }
+
     return false
   }
 
   closest(selector) {
+    const selectors = selector.split(',').map((item) => item.trim())
+
     function findClosest(element) {
       if (!element) {
         return null
       }
 
-      return element.matches(selector) ? element : findClosest(element.parentElement)
+      return selectors.some((item) => element.matches(item))
+        ? element
+        : findClosest(element.parentElement)
     }
 
     return findClosest(this)
+  }
+
+  querySelector(selector) {
+    if (this.matches(selector)) {
+      return this
+    }
+
+    for (const child of this.childNodes) {
+      if (child.nodeType !== 1 || typeof child.querySelector !== 'function') {
+        continue
+      }
+
+      const found = child.querySelector(selector)
+      if (found) {
+        return found
+      }
+    }
+
+    return null
   }
 
   querySelectorAll(selector) {
@@ -124,6 +171,25 @@ const fakeDocument = {
 
 function createMark(children = []) {
   return new FakeElement('mark', 'paper-annotation-highlight', children)
+}
+
+function createKatexElement(tex, duplicateText = 'formula visual') {
+  return new FakeElement('span', 'katex', [
+    new FakeElement('span', 'katex-mathml', [
+      new FakeElement('math', '', [
+        new FakeElement('semantics', '', [
+          new FakeElement('annotation', '', [new FakeText(tex)], {
+            encoding: 'application/x-tex'
+          })
+        ])
+      ])
+    ]),
+    new FakeElement('span', 'katex-html', [new FakeText(duplicateText)])
+  ])
+}
+
+function createKatexDisplayElement(tex, duplicateText = 'formula visual') {
+  return new FakeElement('span', 'katex-display', [createKatexElement(tex, duplicateText)])
 }
 
 function createAnchor(text, selectedText) {
@@ -179,7 +245,8 @@ function createAnnotation(overrides = {}) {
       sourceRefs: {
         pageIndexes: [0],
         blockIndexes: [1]
-      }
+      },
+      ...(overrides.semanticAnchor || {})
     },
     originalAnchor,
     translationAnchor: overrides.translationAnchor,
@@ -274,24 +341,57 @@ test('original_span 标注会渲染到原文视图', () => {
     createdInView: 'original'
   })
 
-  const highlights = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
-    annotation
-  ])
+  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [annotation])
 
-  assert.equal(highlights.length, 1)
-  assert.equal(highlights[0].id, annotation.id)
-  assert.equal(highlights[0].anchor.selectedText, 'Synapse-CT')
+  assert.equal(result.highlights.length, 1)
+  assert.equal(result.highlights[0].id, annotation.id)
+  assert.equal(result.highlights[0].anchor.selectedText, 'Synapse-CT')
+  assert.equal(result.failedIds.length, 0)
+})
+
+test('collectOriginalHighlights 使用 semanticAnchor 判断归属并保留 canonical anchor', () => {
+  const segment = createSegment('loss = $ L_{train} $ defined')
+  const canonicalText = 'loss = $L_{train}$ defined'
+  const annotation = createAnnotation({
+    noteType: 'original_span',
+    createdInView: 'original',
+    originalText: canonicalText,
+    originalAnchor: createAnchor(canonicalText, '$L_{train}$')
+  })
+
+  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [annotation])
+
+  assert.equal(result.highlights.length, 1)
+  assert.equal(result.highlights[0].id, annotation.id)
+  assert.equal(result.highlights[0].anchor, annotation.originalAnchor)
+  assert.equal(result.highlights[0].anchor.selectedText, '$L_{train}$')
+  assert.equal(result.failedIds.length, 0)
+})
+
+test('collectOriginalHighlights 跳过 segmentStableId 不匹配的标注', () => {
+  const segment = createSegment()
+  const annotation = createAnnotation({
+    noteType: 'original_span',
+    createdInView: 'original',
+    semanticAnchor: {
+      segmentStableId: 'other-segment'
+    }
+  })
+
+  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [annotation])
+
+  assert.equal(result.highlights.length, 0)
+  assert.equal(result.failedIds.length, 0)
 })
 
 test('active 的译文标注不会重复渲染到原文视图', () => {
   const segment = createSegment()
   const annotation = createAnnotation()
 
-  const highlights = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [
-    annotation
-  ])
+  const result = __paperHighlightRendererTestHooks.collectOriginalHighlights(segment, [annotation])
 
-  assert.deepEqual(highlights, [])
+  assert.equal(result.highlights.length, 0)
+  assert.equal(result.failedIds.length, 0)
 })
 
 test('highlight boundary 会在开头子区间提升到已有标记外侧', () => {
@@ -339,6 +439,147 @@ test('highlight boundary 不会提升已有标记内部的中间选区', () => {
   assert.deepEqual(boundary, { node: text, offset: 4 })
 })
 
+test('highlight range 可解析公式空格不同的混合文本锚点', () => {
+  const prefix = new FakeText('the loss ')
+  const math = createKatexElement('L_{train}', 'LL_{train}L\u200b')
+  const suffix = new FakeText(' is defined')
+  const root = new FakeElement('div', '', [prefix, math, suffix])
+  const anchorText = 'the loss $ L_{train} $ is defined'
+  const selectedText = 'loss $ L_{train} $ is'
+  const range = __paperHighlightRendererTestHooks.resolveHighlightRange(root, {
+    id: 'annotation-formula-mixed',
+    startOffset: anchorText.indexOf(selectedText),
+    endOffset: anchorText.indexOf(selectedText) + selectedText.length,
+    kind: 'highlight',
+    colorKey: 'blue',
+    anchor: createAnchor(anchorText, selectedText)
+  })
+
+  assert.ok(range)
+  assert.deepEqual(range.startPoint, {
+    node: prefix,
+    offset: prefix.textContent.indexOf('loss')
+  })
+  assert.deepEqual(range.endPoint, { node: suffix, offset: ' is'.length })
+})
+
+test('公式整块批注会写到行内公式可见层', () => {
+  const prefix = new FakeText('loss = ')
+  const math = createKatexElement('L_{train}', 'LL_{train}L\u200b')
+  const suffix = new FakeText(' defined')
+  const root = new FakeElement('div', '', [prefix, math, suffix])
+  const target = math.querySelector('.katex-html')
+  const anchorText = 'loss = $L_{train}$ defined'
+  const selectedText = '$L_{train}$'
+
+  const applied = __paperHighlightRendererTestHooks.applyFormulaHighlight(root, {
+    id: 'annotation-inline-formula',
+    startOffset: anchorText.indexOf(selectedText),
+    endOffset: anchorText.indexOf(selectedText) + selectedText.length,
+    kind: 'highlight',
+    colorKey: 'orange',
+    anchor: createAnchor(anchorText, selectedText)
+  })
+
+  assert.equal(applied, true)
+  assert.ok(target.className.split(/\s+/).includes('paper-annotation-formula-highlight'))
+  assert.ok(target.className.split(/\s+/).includes('paper-annotation-highlight--highlight'))
+  assert.ok(target.className.split(/\s+/).includes('paper-annotation-highlight--orange'))
+  assert.equal(target.attrs['data-annotation-id'], 'annotation-inline-formula')
+  assert.equal(target.attrs['data-annotation-kind'], 'highlight')
+  assert.equal(target.attrs['data-color-key'], 'orange')
+})
+
+test('公式整块批注会写到块级公式内部 katex-html', () => {
+  const displayMath = createKatexDisplayElement('\\sigma', 'sigma visual')
+  const root = new FakeElement('div', '', [displayMath])
+  const target = displayMath.querySelector('.katex-html')
+  const anchorText = '$\\sigma$'
+
+  const applied = __paperHighlightRendererTestHooks.applyFormulaHighlight(root, {
+    id: 'annotation-display-formula',
+    startOffset: 0,
+    endOffset: anchorText.length,
+    kind: 'note',
+    colorKey: 'green',
+    anchor: createAnchor(anchorText, anchorText)
+  })
+
+  assert.equal(applied, true)
+  assert.equal(displayMath.className, 'katex-display')
+  assert.ok(target.className.split(/\s+/).includes('paper-annotation-formula-highlight'))
+  assert.ok(target.className.split(/\s+/).includes('paper-annotation-highlight--note'))
+  assert.ok(target.className.split(/\s+/).includes('paper-annotation-highlight--green'))
+  assert.equal(target.attrs['data-annotation-id'], 'annotation-display-formula')
+  assert.equal(target.attrs['data-annotation-kind'], 'note')
+  assert.equal(target.attrs['data-color-key'], 'green')
+})
+
+test('文本和公式混合选区不会走公式整块背景分支', () => {
+  const prefix = new FakeText('the loss ')
+  const math = createKatexElement('L_{train}', 'LL_{train}L\u200b')
+  const suffix = new FakeText(' is defined')
+  const root = new FakeElement('div', '', [prefix, math, suffix])
+  const target = math.querySelector('.katex-html')
+  const anchorText = 'the loss $L_{train}$ is defined'
+  const selectedText = 'loss $L_{train}$ is'
+
+  const applied = __paperHighlightRendererTestHooks.applyFormulaHighlight(root, {
+    id: 'annotation-mixed-formula',
+    startOffset: anchorText.indexOf(selectedText),
+    endOffset: anchorText.indexOf(selectedText) + selectedText.length,
+    kind: 'highlight',
+    colorKey: 'blue',
+    anchor: createAnchor(anchorText, selectedText)
+  })
+
+  assert.equal(applied, false)
+  assert.equal(target.className, 'katex-html')
+  assert.equal(target.attrs['data-annotation-id'], undefined)
+})
+
+test('highlight range 可解析正文公式空格多于 anchor 的混合文本', () => {
+  const text = new FakeText('the loss $ L_{train} $ is defined')
+  const root = new FakeElement('div', '', [text])
+  const anchorText = 'the loss $L_{train}$ is defined'
+  const selectedText = 'loss $L_{train}$ is'
+  const range = __paperHighlightRendererTestHooks.resolveHighlightRange(root, {
+    id: 'annotation-formula-source-space',
+    startOffset: anchorText.indexOf(selectedText),
+    endOffset: anchorText.indexOf(selectedText) + selectedText.length,
+    kind: 'highlight',
+    colorKey: 'blue',
+    anchor: createAnchor(anchorText, selectedText)
+  })
+
+  assert.ok(range)
+  assert.deepEqual(range.startPoint, { node: text, offset: text.textContent.indexOf('loss') })
+  assert.deepEqual(range.endPoint, { node: text, offset: text.textContent.indexOf(' defined') })
+})
+
+test('collectTranslationHighlights 可解析公式空格不同的 originalAnchor', () => {
+  const originalText = 'loss = $L_{train}$ defined'
+  const translationText = 'loss = $ L_{train} $ defined'
+  const annotation = createAnnotation({
+    noteType: 'translation_view',
+    createdInView: 'translation',
+    originalText,
+    originalAnchor: createAnchor(originalText, '$L_{train}$')
+  })
+
+  const result = __paperHighlightRendererTestHooks.collectTranslationHighlights(
+    translationText,
+    [annotation],
+    originalText
+  )
+
+  assert.equal(result.failedIds.length, 0)
+  assert.equal(result.highlights.length, 1)
+  assert.equal(result.highlights[0].anchor.selectedText, '$ L_{train} $')
+  assert.equal(result.highlights[0].startOffset, translationText.indexOf('$'))
+  assert.equal(result.highlights[0].endOffset, translationText.indexOf(' defined'))
+})
+
 test('highlight range 会跳过 Markdown 列表项周围的空白节点', () => {
   const listItemText = new FakeText('随机粘贴与上下文线索中断：')
   const listItem = new FakeElement('li', '', [listItemText])
@@ -368,6 +609,55 @@ test('highlight range 会跳过 Markdown 列表项周围的空白节点', () => 
     node: listItemText,
     offset: listItemText.textContent.length
   })
+})
+
+test('highlight range 会跳过段首不可见格式字符', () => {
+  const text = new FakeText('\u200b其中 H_k 和后续文字')
+  const root = new FakeElement('div', '', [text])
+  const selectedText = '\u200b其中'
+  const range = __paperHighlightRendererTestHooks.resolveHighlightRange(root, {
+    id: 'annotation-hidden-prefix',
+    startOffset: 0,
+    endOffset: selectedText.length,
+    kind: 'highlight',
+    colorKey: 'blue',
+    anchor: {
+      selectedText,
+      prefixText: '',
+      suffixText: ' H_k 和后续文字',
+      startOffset: 0,
+      endOffset: selectedText.length,
+      normalizedText: '其中'
+    }
+  })
+
+  assert.ok(range)
+  assert.deepEqual(range.startPoint, { node: text, offset: 1 })
+  assert.deepEqual(range.endPoint, { node: text, offset: selectedText.length })
+})
+
+test('highlight range 会把历史隐藏字符锚点恢复到当前可见文本', () => {
+  const text = new FakeText('其中 H_k 和后续文字')
+  const root = new FakeElement('div', '', [text])
+  const range = __paperHighlightRendererTestHooks.resolveHighlightRange(root, {
+    id: 'annotation-legacy-hidden-prefix',
+    startOffset: 0,
+    endOffset: 3,
+    kind: 'highlight',
+    colorKey: 'blue',
+    anchor: {
+      selectedText: '\u200b其中',
+      prefixText: '',
+      suffixText: ' H_k 和后续文字',
+      startOffset: 0,
+      endOffset: 3,
+      normalizedText: '其中'
+    }
+  })
+
+  assert.ok(range)
+  assert.deepEqual(range.startPoint, { node: text, offset: 0 })
+  assert.deepEqual(range.endPoint, { node: text, offset: 2 })
 })
 
 test('highlight renderer 会移除没有文本内容的空标记', () => {

@@ -4,12 +4,13 @@
  * 使用 Zustand 直接访问 paperReaderStore，将 store 数据作为 props 传递给 PaperSidebar。
  */
 
-import { useCallback } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { RenderingProgress } from '@renderer/stores/paperReaderStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
 import type { OcrProgressInfo, PaperDocument } from '@shared/types/paper'
+import { extractTranslatedDocumentTitle } from '@shared/utils/paperTranslation'
 import PaperSidebar from './PaperSidebar'
 
 interface PaperSidebarContainerProps {
@@ -27,6 +28,35 @@ export default function PaperSidebarContainer({ searchQuery }: PaperSidebarConta
   >
   const ocrProgressByPaperId = (store.ocrProgressByPaperId ?? {}) as Record<string, OcrProgressInfo>
   const hasTranslationByPaperId = (store.hasTranslationByPaperId ?? {}) as Record<string, boolean>
+
+  // 从翻译缓存中提取各论文的译文标题
+  const translatedTitleByPaperId = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {}
+    const caches = store.translationByPaperId ?? {}
+    for (const [paperId, cache] of Object.entries(caches)) {
+      const title = extractTranslatedDocumentTitle(cache)
+      if (title) map[paperId] = title
+    }
+    return map
+  }, [store.translationByPaperId])
+
+  // 按需加载未缓存的翻译数据（用于侧边栏显示译文标题）
+  useEffect(() => {
+    const hasMap = store.hasTranslationByPaperId ?? {}
+    const cacheMap = store.translationByPaperId ?? {}
+    const idsToLoad = papers
+      .filter((p: PaperDocument) => hasMap[p.id] && !cacheMap[p.id])
+      .map((p: PaperDocument) => p.id)
+
+    if (idsToLoad.length === 0) return
+
+    void (async () => {
+      for (let i = 0; i < idsToLoad.length; i += 3) {
+        const batch = idsToLoad.slice(i, i + 3)
+        await Promise.all(batch.map((id) => store.loadTranslationState(id)))
+      }
+    })()
+  }, [papers, store])
 
   // Filter papers by search query
   const filteredPapers = searchQuery.trim()
@@ -86,6 +116,8 @@ export default function PaperSidebarContainer({ searchQuery }: PaperSidebarConta
       renderProgressByPaperId={renderProgressByPaperId}
       ocrProgressByPaperId={ocrProgressByPaperId}
       hasTranslationByPaperId={hasTranslationByPaperId}
+      translatedTitleByPaperId={translatedTitleByPaperId}
+      translationVisible={store.translationVisible ?? false}
       onSelectPaper={handleSelectPaper}
       onDeletePaper={handleDeletePaper}
       onDeleteTranslation={handleDeleteTranslation}

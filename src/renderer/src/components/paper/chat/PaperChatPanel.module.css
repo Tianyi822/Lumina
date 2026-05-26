@@ -1,4 +1,5 @@
 .paper-chat-panel {
+  position: relative;
   height: 100%;
   min-height: 0;
   display: flex;
@@ -97,13 +98,57 @@
 }
 
 .paper-chat-panel__composer {
-  flex-shrink: 0;
+  position: absolute;
+  bottom: var(--sm-space-3);
+  left: var(--sm-space-3);
+  right: var(--sm-space-3);
+  z-index: 10;
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-2);
   padding: var(--sm-space-3);
-  border-top: 1px solid var(--sm-color-border-default);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
   background: var(--sm-color-surface-1);
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
+}
+
+.paper-chat-panel__composer:focus-within {
+  border-color: var(--sm-color-border-strong);
+}
+
+.paper-chat-panel__composer--dragging {
+  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-accent-08);
+}
+
+.paper-chat-panel__scroll-button {
+  position: absolute;
+  top: calc(-1 * var(--sm-space-6) - 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--sm-color-bg-elevated);
+  box-shadow: var(--sm-shadow-md);
+  color: var(--sm-color-text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+  z-index: 1;
+}
+
+.paper-chat-panel__scroll-button:hover {
+  background: var(--sm-color-bg-hover);
+  color: var(--sm-color-text-primary);
 }
 
 .paper-chat-panel__composer :global(.paper-chat-input) {

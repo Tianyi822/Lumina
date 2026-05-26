@@ -6,9 +6,9 @@
 import { labService } from '../LabService'
 import { getDockerService } from '../docker/DockerService'
 import { labPermissionService } from '../LabPermissionService'
-import { MCPToolCallResult } from '@main/types/mcp'
-import { DeleteLabOptions } from '@shared/types/lab'
-import { ToolArgs, LabToolDefinition } from './types'
+import type { MCPToolCallResult } from '@main/types/mcp'
+import type { DeleteLabOptions } from '@shared/types/lab'
+import type { ToolArgs, LabToolDefinition } from './types'
 import { findLab } from './toolExecutor'
 import { recoverFrontendLabRuntimeIfNeeded } from './createLab'
 

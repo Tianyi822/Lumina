@@ -1,10 +1,10 @@
-import { MCPToolCallResult } from '@main/types/mcp'
+import type { MCPToolCallResult } from '@main/types/mcp'
 import type { FrontendFramework, LabData } from '@shared/types/lab'
 import { frontendLabService } from '../frontend'
 import { labService } from '../LabService'
 import { findLab } from './toolExecutor'
 import { selectReusableFrontendLab } from './toolHelpers'
-import { ToolArgs, LabToolDefinition } from './types'
+import type { ToolArgs, LabToolDefinition } from './types'
 
 const DEFAULT_FRONTEND_FRAMEWORK: FrontendFramework = 'react'
 

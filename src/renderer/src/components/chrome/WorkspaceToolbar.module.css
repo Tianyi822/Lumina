@@ -34,6 +34,21 @@
   --sm-paper-toolbar-chrome-safe-left: var(--sm-workspace-chrome-actions-safe-width, 140px);
 }
 
+/* Windows 平台：工具按钮移到左上角，贴在侧边栏右侧 */
+:global(.windows) .sm-workspace-toolbar__controls--paper {
+  right: 0;
+  left: 320px;
+  justify-content: flex-start;
+  transition:
+    left 300ms cubic-bezier(0.4, 0, 0.2, 1),
+    top var(--sm-transition-medium);
+}
+
+:global(.windows)
+  .sm-workspace-toolbar__controls--paper.sm-workspace-toolbar__controls--chrome-safe {
+  left: var(--sm-workspace-chrome-actions-safe-width, 140px);
+}
+
 /* ==================== 知识库视图拖拽区域 ==================== */
 .sm-workspace-toolbar__controls--knowledge {
   --sm-knowledge-toolbar-safe-left: 0px;

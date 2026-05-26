@@ -428,7 +428,7 @@ export interface ChatRequest {
   selectedTools?: MCPToolReference[]
   /** 用户选择的知识库列表 */
   selectedKnowledgeBases?: KnowledgeBaseReference[]
-  /** ReAct 循环的最大迭代次数，默认 10 次 */
+  /** ReAct 工具推理的最大迭代次数，默认 30 次；达到上限后会追加一次无工具收尾回复 */
   maxReactIterations?: number
   /** 是否启用实验室管理工具 */
   enableLabTools?: boolean

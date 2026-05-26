@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperChatStreamStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -10,7 +10,7 @@ import { parseMessageOptions } from '@renderer/utils/optionParser'
 import { usePaperChatSessionReact } from './hooks/usePaperChatSessionReact'
 import { usePaperChatStreamReact } from './hooks/usePaperChatStreamReact'
 import PaperChatInput, { type PaperChatQuickReply } from './PaperChatInput'
-import PaperChatMessageList from './PaperChatMessageList'
+import PaperChatMessageList, { type PaperChatMessageListHandle } from './PaperChatMessageList'
 import PaperChatPlanDock from './PaperChatPlanDock'
 import styles from './PaperChatPanel.module.css'
 
@@ -32,6 +32,12 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
   const notify = useNotification()
   const { scrollToQuote } = usePaperQuoteContext()
   const [dismissedQuickReplyIds, setDismissedQuickReplyIds] = useState<Set<string>>(new Set())
+  const [isDragging, setIsDragging] = useState(false)
+  const dragCounterRef = useRef(0)
+  const composerRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLElement>(null)
+  const messageListRef = useRef<PaperChatMessageListHandle>(null)
+  const [showScrollButton, setShowScrollButton] = useState(false)
 
   const setPaperChatPanelOpen = useUIStateStore((s) => s.setPaperChatPanelOpen)
   const showUserInteraction = usePaperChatStreamStore((s) => s.showUserInteraction)
@@ -63,6 +69,16 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
       return null
     }
 
+    // 如果最新消息之前有工具调用消息（搜索、ReAct 工具等），跳过 option 解析
+    const messages = sessionState.messages
+    const latestIndex = messages.findIndex((m) => m.id === latestMessage.id)
+    if (latestIndex > 0) {
+      const prevMessage = messages[latestIndex - 1]
+      if (prevMessage && prevMessage.role === 'tool') {
+        return null
+      }
+    }
+
     const parsed = parseMessageOptions(latestMessage.content)
     if (!parsed.hasOptions) {
       return null
@@ -90,6 +106,23 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
       return next.size === current.size ? current : next
     })
   }, [sessionState.messages])
+
+  // 监听 composer 高度变化，动态注入 CSS 变量用于消息列表底部 padding 补偿
+  useEffect(() => {
+    const composer = composerRef.current
+    const panel = panelRef.current
+    if (!composer || !panel) return
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
+      panel.style.setProperty('--composer-height', `${Math.round(height)}px`)
+    })
+
+    observer.observe(composer)
+    return () => observer.disconnect()
+  }, [])
 
   async function handleClearContext(): Promise<void> {
     if (streamState.isSending) {
@@ -130,7 +163,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
   }, [notify])
 
   return (
-    <section className={styles['paper-chat-panel']}>
+    <section ref={panelRef} className={styles['paper-chat-panel']}>
       <header className={styles['paper-chat-panel__header']}>
         <div className={styles['paper-chat-panel__title-group']}>
           <h2>论文对话</h2>
@@ -164,10 +197,12 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
         <div className={styles['paper-chat-panel__loading']}>正在加载论文对话...</div>
       ) : (
         <PaperChatMessageList
+          ref={messageListRef}
           messages={sessionState.messages}
           currentModelName={sessionState.selectedModel}
           currentChatId={sessionState.sessionId}
           onQuoteClick={scrollToQuote || undefined}
+          onScrollButtonChange={setShowScrollButton}
         />
       )}
 
@@ -175,8 +210,51 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
         <div className={styles['paper-chat-panel__loading']}>{sessionState.error}</div>
       )}
 
-      <div className={styles['paper-chat-panel__composer']}>
-        <PaperChatPlanDock planState={currentPlanState} sending={streamState.isSending} />
+      <div
+        ref={composerRef}
+        className={[
+          styles['paper-chat-panel__composer'],
+          isDragging ? styles['paper-chat-panel__composer--dragging'] : ''
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        onDragEnter={(event) => {
+          event.preventDefault()
+          dragCounterRef.current += 1
+          setIsDragging(true)
+        }}
+        onDragOver={(event) => {
+          event.preventDefault()
+        }}
+        onDragLeave={(event) => {
+          event.preventDefault()
+          dragCounterRef.current -= 1
+          if (dragCounterRef.current <= 0) {
+            dragCounterRef.current = 0
+            setIsDragging(false)
+          }
+        }}
+        onDrop={(event) => {
+          event.preventDefault()
+          dragCounterRef.current = 0
+          setIsDragging(false)
+        }}
+      >
+        {showScrollButton && (
+          <button
+            className={styles['paper-chat-panel__scroll-button']}
+            type="button"
+            aria-label="滚动到底部"
+            onClick={() => messageListRef.current?.scrollToBottom()}
+          >
+            <SvgIcon name="arrow-down" size={16} />
+          </button>
+        )}
+        <PaperChatPlanDock
+          planState={currentPlanState}
+          sending={streamState.isSending}
+          enableLabTools={sessionState.enableLabTools}
+        />
         <PaperChatInput
           sessionId={sessionState.sessionId || 'temp'}
           inputMessage={sessionState.inputMessage}
@@ -187,7 +265,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
           enablePaperWebSearch={sessionState.enablePaperWebSearch}
           isSending={streamState.isSending}
           disabled={sessionState.loading || !sessionState.session}
-          compact
+          isDragging={isDragging}
           quickReply={quickReply}
           userInteraction={userInteractionInfo}
           showUserInteraction={showUserInteraction}

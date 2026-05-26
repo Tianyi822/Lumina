@@ -2,7 +2,6 @@ import type { PaperQuote, PaperQuoteSurroundingContext } from '@shared/types/cha
 import type {
   CreatePaperAnnotationPayload,
   PaperAnnotation,
-  PaperAnnotationColorKey,
   PaperAnnotationTextAnchor,
   PaperReaderSegmentSourceRefs,
   PaperTranslationCache,
@@ -73,42 +72,4 @@ export interface PaperAnnotationComposerOptions {
     annotationId: string
   ) => Promise<{ success: boolean; error?: string }>
   onAddToChat?: (quote: PaperQuote) => void
-}
-
-export interface PaperAnnotationComposer {
-  selectionActionMenu: Ref<SelectionActionMenuState | null>
-  selectionActionMenuError: Ref<string | null>
-  noteEditorDraft: Ref<NoteEditorState | null>
-  noteEditorComment: Ref<string>
-  noteEditorIsExistingNote: ComputedRef<boolean>
-  noteEditorCanUpdate: ComputedRef<boolean>
-  noteEditorSaving: Ref<boolean>
-  noteEditorError: Ref<string | null>
-  annotationHoverPopover: Ref<AnnotationHoverPopoverState | null>
-  hoverPopoverAnnotation: ComputedRef<PaperAnnotation | null>
-  hoverPopoverComment: Ref<string>
-  hoverPopoverSaving: Ref<boolean>
-  hoverPopoverError: Ref<string | null>
-  highlightColorOptions: readonly PaperAnnotationColorKey[]
-  currentAnnotations: ComputedRef<PaperAnnotation[]>
-  currentTranslationRevisionId: ComputedRef<string | null>
-  updateComposerFromSelection: (event?: MouseEvent) => void
-  handleCreateHighlight: (colorKey: PaperAnnotationColorKey) => Promise<void>
-  handleOpenNoteEditorFromSelection: () => void
-  handleAddToChat: () => void
-  handleOpenNoteEditorFromHover: () => void
-  handleSaveNote: () => Promise<void>
-  handleUpdateNote: () => Promise<void>
-  handleDeleteNoteFromEditor: () => Promise<void>
-  handleCancelNoteEditor: () => void
-  handleCloseNoteEditor: () => void
-  handleMoveNoteEditor: (delta: { x: number; y: number }) => void
-  handleUpdateHoverColor: (colorKey: PaperAnnotationColorKey) => Promise<void>
-  handleSaveHoverNote: () => Promise<void>
-  handleDeleteAnnotation: (annotationId: string) => Promise<void>
-  clearComposer: () => void
-  handleCancelComposer: () => void
-  handleDocumentPointerDown: (event: MouseEvent) => void
-  handleDocumentKeyDown: (event: KeyboardEvent) => void
-  handleSurfaceAnnotationClick: (event: MouseEvent) => void
 }

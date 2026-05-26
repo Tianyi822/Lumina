@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import LabList from '@renderer/components/lab/LabList'
@@ -7,6 +7,7 @@ import PaperSidebar from '@renderer/components/paper/PaperSidebar'
 import { CssSwitchTransition, CssTransitionGroup } from '@renderer/components/motion/CssTransition'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 import { summarizeTranslationAnnotations } from '@shared/utils/paperTranslationAnnotations'
+import { extractTranslatedDocumentTitle } from '@shared/utils/paperTranslation'
 import {
   useKnowledgeStore,
   useUIStateStore,
@@ -20,12 +21,17 @@ import type { OcrProgressInfo, PaperDocument } from '@shared/types/paper'
 import type { RenderingProgress } from '@renderer/stores/paperReaderStore'
 import styles from './WorkspaceSidebarHost.module.css'
 
+const PAPER_SIDEBAR_MIN_WIDTH = 260
+const PAPER_SIDEBAR_MAX_WIDTH = 480
+
 export default function WorkspaceSidebarHost() {
   const currentView = useUIStateStore((s) => s.currentView)
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
   const openKnowledgeFileManager = useUIStateStore((s) => s.openKnowledgeFileManager)
   const openLabCreator = useUIStateStore((s) => s.openLabCreator)
   const openConfigManager = useUIStateStore((s) => s.openConfigManager)
+  const paperSidebarWidth = useUIStateStore((s) => s.paperSidebarWidth)
+  const setPaperSidebarWidth = useUIStateStore((s) => s.setPaperSidebarWidth)
 
   const paperReaderStore = usePaperReaderStore()
   // 从子 store 获取响应式数据
@@ -60,11 +66,127 @@ export default function WorkspaceSidebarHost() {
     () => (paperReaderStore.hasTranslationByPaperId ?? {}) as Record<string, boolean>,
     [paperReaderStore.hasTranslationByPaperId]
   )
+  const translationVisible = paperReaderStore.translationVisible
+
+  // 从翻译缓存中提取各论文的译文标题
+  const translatedTitleByPaperId = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {}
+    const caches = paperReaderStore.translationByPaperId ?? {}
+    for (const [paperId, cache] of Object.entries(caches)) {
+      const title = extractTranslatedDocumentTitle(cache)
+      if (title) map[paperId] = title
+    }
+    return map
+  }, [paperReaderStore.translationByPaperId])
+
+  // 按需加载未缓存的翻译数据（用于侧边栏显示译文标题）
+  // 使用 ref 追踪已调度加载的 ID，避免每次 translationByPaperId 更新时重复触发
+  const scheduledTranslationIdsRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const hasMap = paperReaderStore.hasTranslationByPaperId ?? {}
+    const idsToLoad = papers
+      .filter(
+        (p: PaperDocument) =>
+          hasMap[p.id] && !scheduledTranslationIdsRef.current.has(p.id)
+      )
+      .map((p: PaperDocument) => p.id)
+
+    if (idsToLoad.length === 0) return
+
+    // 立即标记为已调度，防止 effect 重复运行时重复加载
+    idsToLoad.forEach((id) => scheduledTranslationIdsRef.current.add(id))
+    // 并行加载全部（不再顺序分批），读取本地磁盘缓存，速度快
+    void Promise.all(idsToLoad.map((id) => paperReaderStore.loadTranslationState(id)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [papers, paperReaderStore.hasTranslationByPaperId])
 
   const [knowledgeSearchQuery, setKnowledgeSearchQuery] = useState('')
   const [labSearchQuery, setLabSearchQuery] = useState('')
   const [paperSearchQuery, setPaperSearchQuery] = useState('')
   const [isRefreshingLabList, setIsRefreshingLabList] = useState(false)
+
+  // 侧边栏拉伸 refs
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false)
+  const sidebarFrameRef = useRef<HTMLDivElement>(null)
+  const isResizingSidebarRef = useRef(false)
+  const sidebarWidthRef = useRef(paperSidebarWidth)
+  const pendingSidebarWidthRef = useRef<number | null>(null)
+  const sidebarResizeRafRef = useRef<number | null>(null)
+
+  // 同步 store 宽度到 ref
+  useEffect(() => {
+    if (!isResizingSidebarRef.current) {
+      sidebarWidthRef.current = paperSidebarWidth
+    }
+  }, [paperSidebarWidth])
+
+  // 论文视图使用自定义宽度，其他视图移除 CSS 变量恢复默认
+  useEffect(() => {
+    if (currentView === 'paper') {
+      sidebarFrameRef.current?.style.setProperty('--paper-sidebar-width', `${paperSidebarWidth}px`)
+    } else {
+      sidebarFrameRef.current?.style.removeProperty('--paper-sidebar-width')
+    }
+  }, [currentView, paperSidebarWidth])
+
+  const applySidebarWidth = useCallback((nextWidth: number) => {
+    const width = Math.min(
+      Math.max(Math.round(nextWidth), PAPER_SIDEBAR_MIN_WIDTH),
+      PAPER_SIDEBAR_MAX_WIDTH
+    )
+    sidebarWidthRef.current = width
+    pendingSidebarWidthRef.current = width
+
+    if (sidebarResizeRafRef.current !== null) return
+
+    sidebarResizeRafRef.current = requestAnimationFrame(() => {
+      sidebarResizeRafRef.current = null
+      const pendingWidth = pendingSidebarWidthRef.current
+      pendingSidebarWidthRef.current = null
+      if (pendingWidth === null) return
+      sidebarFrameRef.current?.style.setProperty('--paper-sidebar-width', `${pendingWidth}px`)
+    })
+  }, [])
+
+  const handleSidebarResizeMove = useCallback(
+    (event: PointerEvent) => {
+      if (!isResizingSidebarRef.current) return
+      applySidebarWidth(event.clientX)
+    },
+    [applySidebarWidth]
+  )
+
+  const stopSidebarResize = useCallback(() => {
+    if (!isResizingSidebarRef.current) return
+
+    isResizingSidebarRef.current = false
+    setIsResizingSidebar(false)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    window.removeEventListener('pointermove', handleSidebarResizeMove)
+    window.removeEventListener('pointerup', stopSidebarResize)
+
+    if (sidebarResizeRafRef.current !== null) {
+      cancelAnimationFrame(sidebarResizeRafRef.current)
+      sidebarResizeRafRef.current = null
+    }
+    pendingSidebarWidthRef.current = null
+    setPaperSidebarWidth(sidebarWidthRef.current)
+  }, [handleSidebarResizeMove, setPaperSidebarWidth])
+
+  const startSidebarResize = useCallback(
+    (event: React.PointerEvent) => {
+      event.preventDefault()
+      isResizingSidebarRef.current = true
+      setIsResizingSidebar(true)
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+      window.addEventListener('pointermove', handleSidebarResizeMove)
+      window.addEventListener('pointerup', stopSidebarResize)
+      handleSidebarResizeMove(event.nativeEvent)
+    },
+    [handleSidebarResizeMove, stopSidebarResize]
+  )
 
   const filteredKnowledgeBases = useMemo(() => {
     if (!knowledgeSearchQuery.trim()) return knowledgeBases
@@ -343,10 +465,12 @@ export default function WorkspaceSidebarHost() {
 
   return (
     <div
+      ref={sidebarFrameRef}
       className={[
         'sm-sidebar-frame',
         styles['sm-sidebar-frame'],
-        isCurrentSidebarCollapsed && 'is-collapsed'
+        isCurrentSidebarCollapsed && 'is-collapsed',
+        isResizingSidebar && styles['sm-sidebar-frame--resizing']
       ]
         .filter(Boolean)
         .join(' ')}
@@ -438,6 +562,8 @@ export default function WorkspaceSidebarHost() {
                       renderProgressByPaperId={renderProgressByPaperId}
                       ocrProgressByPaperId={ocrProgressByPaperId}
                       hasTranslationByPaperId={hasTranslationByPaperId}
+                      translatedTitleByPaperId={translatedTitleByPaperId}
+                      translationVisible={translationVisible}
                       onSelectPaper={(paperId) => {
                         void handleSelectPaper(paperId)
                       }}
@@ -539,6 +665,14 @@ export default function WorkspaceSidebarHost() {
           </div>
         </div>
       </aside>
+      {currentView === 'paper' && !isCurrentSidebarCollapsed && (
+        <div
+          className={styles.sidebarResizeHandle}
+          role="separator"
+          aria-orientation="vertical"
+          onPointerDown={startSidebarResize}
+        />
+      )}
     </div>
   )
 }

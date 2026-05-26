@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
 import type { PaperAnnotation, PaperAnnotationColorKey } from '@shared/types/paper'
 import {
@@ -10,7 +10,10 @@ import {
   findPaperAnnotationNoteConflict
 } from '@shared/utils/paperAnnotationConflicts'
 import { createPaperAnnotationComposerActions } from '../composables/paperAnnotationComposerActions'
-import { createPaperAnnotationSelectionResolver } from '../composables/paperAnnotationComposerSelection'
+import {
+  clearSelectedFormulas,
+  createPaperAnnotationSelectionResolver
+} from '../composables/paperAnnotationComposerSelection'
 import type {
   AnnotationHoverPopoverState,
   ComputedRef,
@@ -30,6 +33,7 @@ import {
   SELECTION_MENU_HEIGHT,
   SELECTION_MENU_WIDTH
 } from '../composables/paperAnnotationFloating'
+import { PAPER_ANNOTATION_INTERACTIVE_SELECTOR } from '../composables/usePaperHighlightRenderer'
 import type { CanonicalTextClientRect } from '../composables/paperCanonicalTextIndex'
 
 export interface PaperAnnotationComposerState {
@@ -113,6 +117,7 @@ export function usePaperAnnotationComposer(
   const noteEditorCommentRef = useLatestRef(noteEditorComment)
   const noteEditorOriginalCommentRef = useLatestRef(noteEditorOriginalComment)
   const annotationHoverPopoverRef = useLatestRef(annotationHoverPopover)
+  const savedSelectionRangeRef = useRef<Range | null>(null)
 
   const currentAnnotations = options.annotations() ?? []
 
@@ -193,6 +198,7 @@ export function usePaperAnnotationComposer(
   )
 
   const clearSelectionUi = useCallback((): void => {
+    clearSelectedFormulas()
     setSelectionActionMenu(null)
     setSelectionActionMenuError(null)
     setNoteEditorDraft(null)
@@ -320,6 +326,28 @@ export function usePaperAnnotationComposer(
     selectionResolver
   ])
 
+  const handleUpgradeHighlightToNote = useCallback(
+    async (comment: string): Promise<void> => {
+      const annotationId = noteEditorDraftRef.current?.draft.annotationId
+      if (!annotationId) return
+      const annotation = getAnnotationById(annotationId)
+      if (!annotation || annotation.kind !== 'highlight') return
+
+      setNoteEditorSaving(true)
+      setNoteEditorError(null)
+      const result = await actions.upgradeHighlightToNote(annotation, comment)
+      setNoteEditorSaving(false)
+
+      if (!result.success) {
+        setNoteEditorError(result.error || '升级笔记失败')
+        return
+      }
+      clearSelectionUi()
+      clearNativeSelection()
+    },
+    [actions, clearNativeSelection, clearSelectionUi, getAnnotationById, noteEditorDraftRef]
+  )
+
   const updateComposerFromSelection = useCallback(
     (event?: MouseEvent): void => {
       const selectionResult = selectionResolver.buildSelectionDraftFromCurrentSelection(event)
@@ -327,11 +355,36 @@ export function usePaperAnnotationComposer(
         return
       }
 
-      clearComposer()
+      const savedRange =
+        selectionResult.normalizedRange ||
+        (typeof window !== 'undefined' && window.getSelection()?.rangeCount
+          ? window.getSelection()!.getRangeAt(0).cloneRange()
+          : null)
+
+      savedSelectionRangeRef.current = savedRange
       openSelectionActionMenu(selectionResult.draft, selectionResult.rect)
     },
-    [clearComposer, openSelectionActionMenu, selectionResolver]
+    [openSelectionActionMenu, selectionResolver]
   )
+
+  // 在 React 提交 DOM 变更后、浏览器绘制前同步恢复选区
+  useLayoutEffect(() => {
+    const savedRange = savedSelectionRangeRef.current
+    if (selectionActionMenu && savedRange) {
+      try {
+        const sel = window.getSelection()
+        if (sel) {
+          sel.removeAllRanges()
+          sel.addRange(savedRange)
+        }
+      } catch {
+        // Range 可能引用已分离的 DOM 节点，忽略此错误
+      }
+      savedSelectionRangeRef.current = null
+    } else if (!selectionActionMenu) {
+      savedSelectionRangeRef.current = null
+    }
+  }, [selectionActionMenu])
 
   const handleCreateHighlight = useCallback(
     async (colorKey: PaperAnnotationColorKey): Promise<void> => {
@@ -434,6 +487,13 @@ export function usePaperAnnotationComposer(
       return
     }
 
+    // 普通标记不支持修改 comment，需要升级为笔记标记
+    const annotation = getAnnotationById(annotationId)
+    if (annotation?.kind === 'highlight') {
+      await handleUpgradeHighlightToNote(noteEditorCommentRef.current)
+      return
+    }
+
     setNoteEditorSaving(true)
     setNoteEditorError(null)
     const result = await optionsRef.current.updateAnnotation({
@@ -450,6 +510,8 @@ export function usePaperAnnotationComposer(
 
     setNoteEditorOriginalComment(noteEditorCommentRef.current)
   }, [
+    getAnnotationById,
+    handleUpgradeHighlightToNote,
     noteEditorCommentRef,
     noteEditorDraftRef,
     noteEditorOriginalCommentRef,
@@ -533,6 +595,10 @@ export function usePaperAnnotationComposer(
 
   const handleDocumentPointerDown = useCallback(
     (event: MouseEvent): void => {
+      if (event.shiftKey) return
+
+      clearSelectedFormulas()
+
       const target = event.target as HTMLElement | null
       if (!target) {
         return
@@ -555,7 +621,7 @@ export function usePaperAnnotationComposer(
         clearNativeSelection()
       }
 
-      if (!target.closest('mark.paper-annotation-highlight')) {
+      if (!target.closest(PAPER_ANNOTATION_INTERACTIVE_SELECTOR)) {
         clearHoverPopover()
       }
     },
@@ -567,6 +633,7 @@ export function usePaperAnnotationComposer(
       if (event.key === 'Escape') {
         clearComposer()
         clearNativeSelection()
+        clearSelectedFormulas()
       }
     },
     [clearComposer, clearNativeSelection]
@@ -579,12 +646,12 @@ export function usePaperAnnotationComposer(
       }
 
       const target = event.target as HTMLElement | null
-      const markElement = target?.closest<HTMLElement>('mark.paper-annotation-highlight')
-      if (!markElement) {
+      const annotationElement = target?.closest<HTMLElement>(PAPER_ANNOTATION_INTERACTIVE_SELECTOR)
+      if (!annotationElement) {
         return
       }
 
-      const annotation = getAnnotationById(markElement.dataset.annotationId || null)
+      const annotation = getAnnotationById(annotationElement.dataset.annotationId || null)
       if (!annotation) {
         return
       }

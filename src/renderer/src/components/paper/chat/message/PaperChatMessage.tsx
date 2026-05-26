@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import SvgIcon from '@renderer/components/icons/SvgIcon'
 import type { Message } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
 import { estimateTokenCount, formatTokenCount } from '@renderer/utils/tokenEstimate'
@@ -124,39 +123,6 @@ export default function PaperChatMessage({
         styles[`paper-chat-message--${message.role}`] || ''
       } ${message.isStreaming ? styles['is-streaming'] || '' : ''}`}
     >
-      <div className={styles['paper-chat-message__header']}>
-        <div className={styles['paper-chat-message__avatar']}>
-          <div
-            className={`${styles['paper-chat-message__avatar-frame']} ${
-              message.role === 'user'
-                ? styles['paper-chat-message__avatar-frame--user']
-                : styles['paper-chat-message__avatar-frame--assistant']
-            }`}
-          >
-            <SvgIcon name={message.role === 'user' ? 'avatar-user' : 'avatar-ai'} size={18} />
-          </div>
-        </div>
-
-        <div className={styles['paper-chat-message__sender']}>
-          <span className={styles['paper-chat-message__sender-name']}>{senderName}</span>
-          {message.timestamp && !message.isStreaming && (
-            <span className={styles['paper-chat-message__sender-time']}>{formattedTime}</span>
-          )}
-          {structuredReact && (
-            <span className={styles['paper-chat-message__thinking-indicator']}>
-              <SvgIcon name="thinking" size={12} />
-              分阶段推理
-            </span>
-          )}
-          {!structuredReact && standaloneReasoning && (
-            <span className={styles['paper-chat-message__thinking-indicator']}>
-              <SvgIcon name="thinking" size={12} />
-              已思考
-            </span>
-          )}
-        </div>
-      </div>
-
       <div className={styles['paper-chat-message__body']}>
         {standaloneReasoning && (
           <PaperChatReasoningPanel
@@ -206,10 +172,16 @@ export default function PaperChatMessage({
 
         {!message.isStreaming && (
           <div className={styles['paper-chat-message__meta-row']}>
+            {message.role === 'assistant' && (
+              <span className={styles['paper-chat-message__meta-sender']}>{senderName}</span>
+            )}
             <PaperChatTokenStats
               usage={message.role === 'assistant' ? message.usage : undefined}
               userTokenLabel={message.role === 'user' ? userTokenUsageLabel : undefined}
             />
+            {message.timestamp && (
+              <span className={styles['paper-chat-message__meta-time']}>{formattedTime}</span>
+            )}
           </div>
         )}
       </div>

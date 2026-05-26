@@ -132,6 +132,39 @@ function isLikelyUnfencedCodeBlock(content: string): boolean {
   return codeLineCount >= Math.ceil(lines.length * 0.45) && sentenceLineCount <= lines.length * 0.25
 }
 
+function isLikelyPseudoCodeBlock(content: string): boolean {
+  const lines = content
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length < 2) {
+    return false
+  }
+
+  let score = 0
+  for (const line of lines) {
+    if (/^(?:Algorithm|算法)\s*\d+/i.test(line)) {
+      score += 3
+    } else if (/^(?:Input|Output|Require|Ensure|输入|输出)\s*[:：]/i.test(line)) {
+      score += 2
+    } else if (/^(?:for|while|for each)\b.*\bdo$/i.test(line)) {
+      score += 2
+    } else if (/^if\b.*\bthen$/i.test(line)) {
+      score += 2
+    } else if (/^return\b/i.test(line)) {
+      score += 1
+    } else if (/^\d+[.:]\s/.test(line)) {
+      score += 1
+    } else if (/^\s{2,}/.test(line) && line.length > 0) {
+      score += 0.5
+    }
+  }
+
+  return score >= 4
+}
+
 function ensureFencedCodeBlock(content: string): string {
   const trimmed = content.trim()
   if (!trimmed || hasFencedCodeBlock(trimmed)) {
@@ -214,7 +247,8 @@ function normalizeGlmOcrResponse(
     const isMisfencedTextContainer = isFencedSimpleTextContainerHtml(rawContent)
     const shouldTreatAsCode =
       !isMisfencedTextContainer &&
-      (rawLabel === 'code' ||
+      (isLikelyPseudoCodeBlock(rawContent) ||
+        rawLabel === 'code' ||
         hasFencedCodeBlock(rawContent) ||
         isLikelyUnfencedCodeBlock(rawContent))
     const label: BlockLabel = shouldTreatAsCode ? 'code' : rawLabel

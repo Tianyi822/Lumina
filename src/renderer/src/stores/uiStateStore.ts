@@ -60,6 +60,7 @@ export interface UIStateStore {
   labSidebarCollapsed: boolean
   knowledgeSidebarCollapsed: boolean
   paperSidebarCollapsed: boolean
+  paperSidebarWidth: number
   paperChatPanelOpen: boolean
   paperChatPanelWidth: number
   lastPaperId: string | null
@@ -90,6 +91,7 @@ export interface UIStateStore {
   setLabSidebarCollapsed: (collapsed: boolean) => void
   setKnowledgeSidebarCollapsed: (collapsed: boolean) => void
   setPaperSidebarCollapsed: (collapsed: boolean) => void
+  setPaperSidebarWidth: (width: number) => void
   setPaperChatPanelOpen: (open: boolean) => void
   togglePaperChatPanel: () => void
   setPaperChatPanelWidth: (width: number) => void
@@ -231,6 +233,7 @@ export const useUIStateStore = create<UIStateStore>()(
         labSidebarCollapsed: false,
         knowledgeSidebarCollapsed: false,
         paperSidebarCollapsed: false,
+        paperSidebarWidth: 320,
         paperChatPanelOpen: false,
         paperChatPanelWidth: 420,
         lastPaperId: null,
@@ -262,6 +265,8 @@ export const useUIStateStore = create<UIStateStore>()(
         setLabSidebarCollapsed: (collapsed) => set({ labSidebarCollapsed: collapsed }),
         setKnowledgeSidebarCollapsed: (collapsed) => set({ knowledgeSidebarCollapsed: collapsed }),
         setPaperSidebarCollapsed: (collapsed) => set({ paperSidebarCollapsed: collapsed }),
+        setPaperSidebarWidth: (width) =>
+          set({ paperSidebarWidth: Math.min(480, Math.max(260, Math.round(width))) }),
         setPaperChatPanelOpen: (open) => set({ paperChatPanelOpen: open }),
         togglePaperChatPanel: () => set((s) => ({ paperChatPanelOpen: !s.paperChatPanelOpen })),
         setPaperChatPanelWidth: (width) =>
@@ -372,6 +377,7 @@ export const useUIStateStore = create<UIStateStore>()(
         knowledgeSidebarCollapsed: state.knowledgeSidebarCollapsed,
         labSidebarCollapsed: state.labSidebarCollapsed,
         paperSidebarCollapsed: state.paperSidebarCollapsed,
+        paperSidebarWidth: state.paperSidebarWidth,
         paperChatPanelWidth: state.paperChatPanelWidth,
         lastPaperId: state.lastPaperId,
         lastLabId: state.lastLabId,

@@ -1,8 +1,8 @@
 import { labService } from '../LabService'
 import { getDockerService } from '../docker/DockerService'
-import { MCPToolCallResult } from '@main/types/mcp'
-import { ContainerFilter } from '@shared/types/lab'
-import { ToolArgs, LabToolDefinition } from './types'
+import type { MCPToolCallResult } from '@main/types/mcp'
+import type { ContainerFilter } from '@shared/types/lab'
+import type { ToolArgs, LabToolDefinition } from './types'
 import { findLab } from './toolExecutor'
 
 const dockerService = getDockerService()

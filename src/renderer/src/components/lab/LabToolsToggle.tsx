@@ -5,6 +5,7 @@ interface LabToolsToggleProps {
   modelValue: boolean
   disabled?: boolean
   compact?: boolean
+  className?: string
   onUpdateModelValue: (value: boolean) => void
   onChange?: (value: boolean) => void
 }
@@ -13,6 +14,7 @@ export default function LabToolsToggle({
   modelValue,
   disabled,
   compact,
+  className,
   onUpdateModelValue,
   onChange
 }: LabToolsToggleProps) {
@@ -37,7 +39,15 @@ export default function LabToolsToggle({
 
   return (
     <div
-      className={`${styles['lab-tools-toggle']} ${isEnabled ? styles.enabled : ''} ${disabled ? styles.disabled : ''} ${compact ? styles['is-compact'] : ''}`}
+      className={[
+        styles['lab-tools-toggle'],
+        isEnabled ? styles.enabled : '',
+        disabled ? styles.disabled : '',
+        compact ? styles['is-compact'] : '',
+        className
+      ]
+        .filter(Boolean)
+        .join(' ')}
       role="button"
       tabIndex={disabled ? -1 : 0}
       aria-pressed={isEnabled}

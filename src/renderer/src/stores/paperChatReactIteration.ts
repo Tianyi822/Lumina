@@ -86,7 +86,8 @@ export function useReactIterationManager(): ReactIterationManager {
       status: status || 'thinking'
     }
 
-    message.reactIterations.push(newIteration)
+    // 创建新数组引用，确保 React useMemo 能检测到变化
+    message.reactIterations = [...message.reactIterations, newIteration]
     currentIterationIndex.value.set(sessionId, message.reactIterations.length - 1)
 
     return newIteration

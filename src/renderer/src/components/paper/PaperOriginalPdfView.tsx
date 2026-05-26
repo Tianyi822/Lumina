@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import type { PaperPageAsset } from '@shared/types/paper'
 import { buildBase64DataUrl } from '@shared/utils'
@@ -56,14 +56,16 @@ export default function PaperOriginalPdfView({
   const hasMountedZoomRef = useRef(false)
   const previousOriginalPdfZoomLevelRef = useRef(originalPdfZoomLevel)
 
-  useEffect(() => {
+  // useLayoutEffect 确保在浏览器绘制前同步修正滚动位置
+  useLayoutEffect(() => {
     if (!hasMountedZoomRef.current) {
       hasMountedZoomRef.current = true
       previousOriginalPdfZoomLevelRef.current = originalPdfZoomLevel
       return
     }
 
-    if (previousOriginalPdfZoomLevelRef.current === originalPdfZoomLevel) {
+    const prevLevel = previousOriginalPdfZoomLevelRef.current
+    if (prevLevel === originalPdfZoomLevel) {
       return
     }
 
@@ -73,15 +75,20 @@ export default function PaperOriginalPdfView({
     if (!container) return
 
     if (!zoomAnchor.isZooming()) {
+      // 首次缩放步进：DOM 已更新缩放但 scrollTop 未变，需先用数学方式修正滚动位置
+      // 再捕获锚点，否则 beginZoom 捕获的是已偏移的错误锚点
+      const ratio = originalPdfZoomLevel / prevLevel
+      const scrollTop = container.scrollTop
+      const clientHeight = container.clientHeight
+      container.scrollTop = scrollTop * ratio + (clientHeight / 2) * (ratio - 1)
       zoomAnchor.beginZoom(container)
     }
 
-    // Apply zoom frame after React renders
-    requestAnimationFrame(() => {
-      if (scrollContainerRef.current) {
-        zoomAnchor.applyZoomFrame(scrollContainerRef.current)
-      }
-    })
+    // 强制同步布局重计算
+    void container.offsetHeight
+
+    // 同步修正滚动位置（在浏览器绘制前完成，消除抖动）
+    zoomAnchor.applyZoomFrame(container)
 
     if (zoomSettleTimerRef.current !== null) clearTimeout(zoomSettleTimerRef.current)
     zoomSettleTimerRef.current = setTimeout(() => {

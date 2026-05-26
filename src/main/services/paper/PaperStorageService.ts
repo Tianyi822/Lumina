@@ -1,3 +1,4 @@
+import path from 'path'
 import {
   existsSync,
   mkdirSync,
@@ -168,7 +169,7 @@ export class PaperStorageService {
 
       ensurePaperDirs(paperId)
 
-      const fileName = sourcePdfPath.split('/').pop() || 'unknown.pdf'
+      const fileName = path.basename(sourcePdfPath) || 'unknown.pdf'
       const localPdfPath = getPaperSourcePdfPath(paperId)
       copyFileSync(sourcePdfPath, localPdfPath)
 

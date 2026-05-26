@@ -2,151 +2,14 @@
   display: flex;
   align-items: center;
   gap: var(--sm-space-2);
-  flex-wrap: wrap;
-}
-
-.paper-chat-input-toolbar--compact {
-  display: grid;
-  grid-template-columns: auto auto auto auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--sm-space-2);
-}
-
-.paper-chat-input-toolbar--compact .paper-chat-input-toolbar__model-selector {
-  grid-column: 1 / -1;
-  width: 100%;
-}
-
-.paper-chat-input-toolbar--compact .paper-chat-input-toolbar__model-button {
-  width: 100%;
-  justify-content: space-between;
+  flex: 1;
   min-width: 0;
 }
 
-.paper-chat-input-toolbar--compact .paper-chat-input-toolbar__model-button span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.paper-chat-input-toolbar--compact .paper-chat-input-toolbar__model-dropdown {
-  width: 100%;
-  min-width: 0;
-}
-
-.paper-chat-input-toolbar--compact .paper-chat-input-toolbar__actions {
-  grid-column: 6;
-  gap: var(--sm-space-2);
-  margin-left: 0;
-}
-
-.paper-chat-input-toolbar--compact :global(.paper-chat-mcp-tools-panel),
-.paper-chat-input-toolbar--compact :global(.paper-chat-knowledge-panel) {
-  width: min(320px, calc(100vw - 48px));
-  max-height: 420px;
-}
-
-.paper-chat-input-toolbar__model-selector {
-  position: relative;
-}
-
-.paper-chat-input-toolbar__model-button {
+.paper-chat-input-toolbar__left {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
-}
-
-.paper-chat-input-toolbar__dropdown {
-  position: relative;
-}
-
-.paper-chat-input-toolbar__dropdown summary {
-  list-style: none;
-}
-
-.paper-chat-input-toolbar__dropdown summary::-webkit-details-marker {
-  display: none;
-}
-
-.paper-chat-input-toolbar__selector-button {
-  min-height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.paper-chat-input-toolbar__selector-button::after {
-  content: '▼';
-  display: inline-block;
-  margin-left: 8px;
-  color: var(--sm-color-text-tertiary);
-  font-size: 10px;
-  transition: transform var(--sm-transition-fast);
-}
-
-.paper-chat-input-toolbar__dropdown[open] .paper-chat-input-toolbar__selector-button::after {
-  transform: rotate(180deg);
-}
-
-.paper-chat-input-toolbar__model-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.paper-chat-input-toolbar__dropdown-arrow {
-  font-size: 10px;
-  color: var(--sm-color-text-tertiary);
-  transition: transform var(--sm-transition-fast);
-}
-
-.paper-chat-input-toolbar__dropdown-arrow.open {
-  transform: rotate(180deg);
-}
-
-.paper-chat-input-toolbar__model-dropdown {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  margin-bottom: 4px;
-  min-width: 200px;
-  background: var(--sm-color-surface-3);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  overflow: hidden;
-  z-index: 100;
-}
-
-.paper-chat-input-toolbar__model-option {
-  padding: 9px 14px;
-  font-size: 13px;
-  color: var(--sm-color-text-primary);
-  cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    color var(--sm-transition-fast);
-  white-space: nowrap;
-}
-
-.paper-chat-input-toolbar__model-option:hover {
-  background: var(--sm-color-surface-hover);
-}
-
-.paper-chat-input-toolbar__model-option.active {
-  background: var(--sm-color-surface-selected);
-  color: var(--sm-color-text-selected);
-}
-
-.paper-chat-input-toolbar__model-option.empty {
-  color: var(--sm-color-text-tertiary);
-  font-style: italic;
-  cursor: default;
-}
-
-.paper-chat-input-toolbar__model-option.empty:hover {
-  background-color: transparent;
+  gap: var(--sm-space-2);
 }
 
 .paper-chat-input-toolbar__actions {
@@ -156,16 +19,20 @@
   margin-left: auto;
 }
 
-.paper-chat-input-toolbar__upload-button {
+/* "+" 按钮触发器 */
+.plus-menu-wrapper {
   position: relative;
+}
+
+.plus-menu-trigger {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
   padding: 0;
-  background: var(--sm-color-surface-1);
-  border: 1px solid var(--sm-color-border-default);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 50%;
   color: var(--sm-color-text-tertiary);
   cursor: pointer;
@@ -175,124 +42,185 @@
     color var(--sm-transition-fast);
 }
 
-.paper-chat-input-toolbar__upload-button:hover {
+.plus-menu-trigger:hover:not(:disabled) {
   background: var(--sm-color-surface-hover);
-  border-color: var(--sm-color-border-strong);
+  border-color: var(--sm-color-border-default);
   color: var(--sm-color-text-primary);
 }
 
-.paper-chat-input-toolbar__upload-button:disabled {
-  opacity: 0.5;
+.plus-menu-trigger:disabled {
+  opacity: var(--sm-disabled-opacity);
   cursor: not-allowed;
 }
 
-.paper-chat-input-toolbar__upload-button.has-attachments {
-  color: var(--sm-color-text-primary);
-  border-color: var(--sm-color-border-selected);
+.plus-menu-trigger--active {
   background: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
+  color: var(--sm-color-text-primary);
 }
 
-.paper-chat-input-toolbar__attachment-count {
+.plus-menu-trigger--has-active {
+  color: var(--sm-color-text-primary);
+}
+
+.plus-menu-trigger__badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
+  top: -3px;
+  right: -3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   background: var(--sm-color-surface-selected);
   border: 1px solid var(--sm-color-border-selected);
   color: var(--sm-color-text-primary);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   border-radius: 50%;
 }
 
-.paper-chat-input-toolbar__execute-button {
+/* "+" 菜单弹出面板 */
+.plus-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: var(--sm-space-2);
+  width: 360px;
+  max-height: min(480px, calc(100vh - 200px));
+  background: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  z-index: 200;
+  overflow-y: auto;
+}
+
+.plus-menu::-webkit-scrollbar {
+  width: 4px;
+}
+
+.plus-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.plus-menu::-webkit-scrollbar-thumb {
+  background: var(--sm-color-border-default);
+  border-radius: 999px;
+}
+
+/* 菜单行 */
+.plus-menu__row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--sm-color-accent-12);
-  border-color: var(--sm-color-border-accent);
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-2) var(--sm-space-3);
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  border-bottom: 1px solid var(--sm-color-border-default);
+  box-sizing: border-box;
+  font-size: 13px;
   color: var(--sm-color-text-primary);
 }
 
-.paper-chat-input-toolbar__execute-button--compact {
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  gap: 0;
-}
-
-.paper-chat-input-toolbar__execute-button:hover {
-  background: var(--sm-color-accent-18);
-  border-color: var(--sm-color-accent-28);
-}
-
-.paper-chat-input-toolbar__stop-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: var(--sm-color-status-danger);
-}
-
-.paper-chat-input-toolbar__stop-button:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: var(--sm-color-status-danger);
-}
-
-.paper-chat-input-toolbar__search-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  padding: 6px 12px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-sm);
-  background-color: var(--sm-color-surface-1);
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-}
-
-.paper-chat-input-toolbar__search-toggle.is-compact {
-  min-height: 32px;
-  padding: 6px 10px;
-  gap: 6px;
-}
-
-.paper-chat-input-toolbar__search-toggle:disabled {
-  opacity: 0.5;
+.plus-menu__row:disabled {
+  opacity: var(--sm-disabled-opacity);
   cursor: not-allowed;
 }
 
-.paper-chat-input-toolbar__search-toggle .toggle-switch {
+.plus-menu__row:not(:disabled) {
+  cursor: pointer;
+}
+
+.plus-menu__row--interactive {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--sm-transition-fast);
+}
+
+.plus-menu__row--interactive:hover {
+  background: var(--sm-color-surface-hover);
+}
+
+.plus-menu__row-label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.plus-menu__row-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+}
+
+.plus-menu__divider {
+  height: 1px;
+  background: var(--sm-color-border-default);
+  margin: 0;
+}
+
+/* 计数徽章 */
+.plus-menu__count-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  background: var(--sm-color-surface-selected);
+  border: 1px solid var(--sm-color-border-selected);
+  color: var(--sm-color-text-primary);
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* 手风琴箭头 */
+.plus-menu__accordion-arrow {
+  font-size: 10px;
+  color: var(--sm-color-text-tertiary);
+  transition: transform var(--sm-transition-fast);
+  display: inline-block;
+}
+
+.plus-menu__accordion-arrow--open {
+  transform: rotate(90deg);
+}
+
+/* 手风琴折叠动画 */
+.plus-menu__accordion-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--sm-transition-normal);
+}
+
+.plus-menu__accordion-body--collapsed {
+  grid-template-rows: 0fr;
+}
+
+.plus-menu__accordion-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.plus-menu__accordion-content {
+  background: var(--sm-color-surface-2);
+  border-top: 1px solid var(--sm-color-border-default);
+}
+
+/* Toggle 开关（搜索） */
+.plus-menu__toggle-switch {
   position: relative;
   width: 36px;
   height: 20px;
   background-color: var(--sm-color-border-default);
   border-radius: 10px;
-  transition: background-color 0.2s ease;
+  transition: background-color var(--sm-transition-fast);
+  flex-shrink: 0;
 }
 
-.paper-chat-input-toolbar__search-toggle.is-compact .toggle-switch {
-  width: 28px;
-  height: 16px;
-}
-
-.paper-chat-input-toolbar__search-toggle.enabled .toggle-switch {
+.plus-menu__toggle-switch--on {
   background-color: var(--sm-color-accent);
 }
 
-.paper-chat-input-toolbar__search-toggle .toggle-thumb {
+.plus-menu__toggle-thumb {
   position: absolute;
   top: 2px;
   left: 2px;
@@ -300,31 +228,70 @@
   height: 16px;
   background-color: var(--sm-color-text-primary);
   border-radius: 50%;
-  transition: transform 0.2s ease;
+  transition: transform var(--sm-transition-fast);
 }
 
-.paper-chat-input-toolbar__search-toggle.is-compact .toggle-thumb {
-  width: 12px;
-  height: 12px;
-}
-
-.paper-chat-input-toolbar__search-toggle.enabled .toggle-thumb {
+.plus-menu__toggle-switch--on .plus-menu__toggle-thumb {
   transform: translateX(16px);
 }
 
-.paper-chat-input-toolbar__search-toggle.is-compact.enabled .toggle-thumb {
-  transform: translateX(12px);
+/* LabToolsToggle 覆盖样式 */
+.plus-menu__lab-toggle {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  width: 100%;
+  flex-direction: row-reverse;
+  justify-content: space-between;
 }
 
-.paper-chat-input-toolbar__search-toggle .toggle-label {
-  color: var(--sm-color-text-primary);
-  font-size: 12px;
-  font-weight: 500;
+/* 发送/停止按钮 */
+.paper-chat-input-toolbar__execute-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--sm-color-text-primary);
+  border: none;
+  color: var(--sm-color-bg-canvas);
+  cursor: pointer;
+  transition:
+    opacity var(--sm-transition-fast),
+    transform var(--sm-transition-fast);
 }
 
-@media (max-width: 768px) {
-  .paper-chat-input-toolbar__actions {
-    margin-left: 0;
-    width: 100%;
-  }
+.paper-chat-input-toolbar__execute-button:hover:not(:disabled) {
+  opacity: 0.85;
+  transform: scale(1.05);
+}
+
+.paper-chat-input-toolbar__execute-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.paper-chat-input-toolbar__stop-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(199, 120, 120, 0.12);
+  border: 1px solid rgba(199, 120, 120, 0.28);
+  color: var(--sm-color-status-danger);
+  cursor: pointer;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
+}
+
+.paper-chat-input-toolbar__stop-button:hover {
+  background: rgba(199, 120, 120, 0.2);
+  border-color: var(--sm-color-status-danger);
 }

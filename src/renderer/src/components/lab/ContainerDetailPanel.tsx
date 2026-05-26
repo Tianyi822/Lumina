@@ -1,5 +1,10 @@
 import { useMemo } from 'react'
-import type { ContainerDetails, ContainerStats, ContainerState, LabCreationType } from '@renderer/types/lab'
+import type {
+  ContainerDetails,
+  ContainerStats,
+  ContainerState,
+  LabCreationType
+} from '@renderer/types/lab'
 import { computeLabPermissions } from '@renderer/composables/labPermissionsCore'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from './ContainerDetailPanel.module.css'
@@ -77,10 +82,7 @@ export default function ContainerDetailPanel({
   onViewLogs,
   onRefreshStats
 }: ContainerDetailPanelProps) {
-  const permissions = useMemo(
-    () => computeLabPermissions(creationType),
-    [creationType]
-  )
+  const permissions = useMemo(() => computeLabPermissions(creationType), [creationType])
 
   const isRunning = container.state === 'running'
   const isOperating = !!startingContainer || !!stoppingContainer || !!restartingContainer
