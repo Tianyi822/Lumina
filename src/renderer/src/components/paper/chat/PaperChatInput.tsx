@@ -6,10 +6,8 @@ import type {
   MCPTool,
   UserInteractionRequest
 } from '@renderer/types'
-import type { AppConfig } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
-import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import {
   usePaperChatDocumentUploadStore,
   type ProcessingFile
@@ -26,6 +24,7 @@ import {
   toPaperChatAttachedDocuments,
   toPaperChatAttachedImages
 } from './input/attachmentUtils'
+import PaperChatModelSelector from './input/PaperChatModelSelector'
 import PaperChatToolSelectionBar from './input/PaperChatToolSelectionBar'
 import inputStyles from './PaperChatInput.module.css'
 import toolbarStyles from './input/PaperChatToolSelectionBar.module.css'
@@ -58,7 +57,7 @@ interface PaperChatInputProps {
   enablePaperWebSearch: boolean
   isSending: boolean
   disabled?: boolean
-  compact?: boolean
+  isDragging?: boolean
   quickReply?: PaperChatQuickReply | null
   userInteraction?: UserInteractionRequest | null
   showUserInteraction?: boolean
@@ -80,54 +79,6 @@ interface PaperChatInputProps {
   onStop: () => Promise<void>
 }
 
-function useConfiguredModels(
-  selectedModel: string,
-  updateSelectedModel: (value: string) => void
-): string[] {
-  const configUpdateKey = useUIStateStore((s) => s.configUpdateKey)
-  const [modelOptions, setModelOptions] = useState<string[]>([])
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadConfiguredModels(): Promise<void> {
-      try {
-        const config = (await window.api.config.getConfig()) as AppConfig | null
-        const models = config?.llm_config?.models?.map((model) => model.model_name) || []
-        if (cancelled) return
-        setModelOptions(models)
-
-        if (selectedModel && models.includes(selectedModel)) {
-          return
-        }
-
-        const defaultModel = config?.llm_config?.default_model
-        if (defaultModel && models.includes(defaultModel)) {
-          updateSelectedModel(defaultModel)
-        } else {
-          updateSelectedModel(models[0] || '')
-        }
-      } catch (error) {
-        window.api.logger.error('[PaperChatInput] 加载模型配置失败', {
-          error: error instanceof Error ? error.message : String(error)
-        })
-        if (!cancelled) {
-          setModelOptions([])
-          if (selectedModel) updateSelectedModel('')
-        }
-      }
-    }
-
-    void loadConfiguredModels()
-
-    return () => {
-      cancelled = true
-    }
-  }, [configUpdateKey, selectedModel, updateSelectedModel])
-
-  return modelOptions
-}
-
 function quotePreview(quote: PaperQuote): string {
   const text = quote.selectedText.replace(/\s+/g, ' ').trim()
   return text.length > 42 ? `${text.slice(0, 42)}...` : text
@@ -143,7 +94,7 @@ export default function PaperChatInput({
   enablePaperWebSearch,
   isSending,
   disabled,
-  compact = false,
+  isDragging = false,
   quickReply,
   userInteraction,
   showUserInteraction,
@@ -161,10 +112,8 @@ export default function PaperChatInput({
 }: PaperChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [isDragging, setIsDragging] = useState(false)
   const [attachmentError, setAttachmentError] = useState('')
 
-  const modelOptions = useConfiguredModels(selectedModel, onUpdateSelectedModel)
   const pendingDocuments = usePaperChatDocumentUploadStore((s) =>
     sessionId ? s.getSessionDocuments(sessionId) : []
   )
@@ -205,7 +154,7 @@ export default function PaperChatInput({
           .getState()
           .addImages(sessionId, imageFiles)
         if (result.errors.length > 0) {
-          setAttachmentError(result.errors.join('；'))
+          setAttachmentError(result.errors.join('\uff1b'))
         }
       }
       if (documentFiles.length > 0) {
@@ -249,45 +198,19 @@ export default function PaperChatInput({
   }, [enablePaperWebSearch, onEnablePaperWebSearch, onUpdateEnablePaperWebSearch])
 
   return (
-    <div
-      className={[
-        inputStyles['paper-chat-input'],
-        'paper-chat-input',
-        compact ? inputStyles['paper-chat-input--compact'] : '',
-        compact ? 'paper-chat-input--compact' : ''
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      onDragEnter={(event) => {
-        event.preventDefault()
-        setIsDragging(true)
-      }}
-      onDragOver={(event) => {
-        event.preventDefault()
-        setIsDragging(true)
-      }}
-      onDragLeave={(event) => {
-        event.preventDefault()
-        setIsDragging(false)
-      }}
-      onDrop={(event) => {
-        event.preventDefault()
-        setIsDragging(false)
-        void handleFiles(Array.from(event.dataTransfer.files))
-      }}
-    >
+    <>
       {quickReply && quickReply.options.length > 0 && !isSending && (
         <div className={inputStyles['paper-chat-input__quick-reply']}>
           <div className={inputStyles['paper-chat-input__quick-reply-header']}>
             <span className={inputStyles['paper-chat-input__quick-reply-title']}>
-              {quickReply.question || '选择一个回复'}
+              {quickReply.question || '\u9009\u62e9\u4e00\u4e2a\u56de\u590d'}
             </span>
             <button
               className={inputStyles['paper-chat-input__quick-reply-custom-button']}
               type="button"
               onClick={() => onDismissQuickReply?.(quickReply.messageId)}
             >
-              自定义
+              \u81ea\u5b9a\u4e49
             </button>
           </div>
           <div className={toolbarStyles['paper-chat-input-toolbar']}>
@@ -316,7 +239,7 @@ export default function PaperChatInput({
               type="button"
               onClick={onHideUserInteraction}
             >
-              稍后
+              \u7a0d\u540e
             </button>
           </div>
           <div className={toolbarStyles['paper-chat-input-toolbar']}>
@@ -326,7 +249,7 @@ export default function PaperChatInput({
                 className="sm-button sm-button--secondary"
                 type="button"
                 title={option.description}
-                onClick={() => handleSend(`我选择：${option.label}`)}
+                onClick={() => handleSend(`\u6211\u9009\u62e9\uff1a${option.label}`)}
               >
                 {option.label}
               </button>
@@ -337,7 +260,7 @@ export default function PaperChatInput({
 
       {attachmentError && (
         <div className={inputStyles['paper-chat-input__warning']}>
-          <span className={inputStyles['paper-chat-input__warning-label']}>附件</span>
+          <span className={inputStyles['paper-chat-input__warning-label']}>\u9644\u4ef6</span>
           <span>{attachmentError}</span>
         </div>
       )}
@@ -365,7 +288,7 @@ export default function PaperChatInput({
                   usePaperChatDocumentUploadStore.getState().removePendingDocument(sessionId, index)
                 }
               >
-                ×
+                \u00d7
               </button>
             </div>
           ))}
@@ -400,7 +323,7 @@ export default function PaperChatInput({
                   usePaperChatImageUploadStore.getState().removeImage(sessionId, index)
                 }
               >
-                ×
+                \u00d7
               </button>
             </div>
           ))}
@@ -417,14 +340,16 @@ export default function PaperChatInput({
                 size={12}
               />
               <span className={quoteStyles['paper-chat-input__pending-quote-label']}>
-                {quote.viewKind === 'original' ? '原文引用' : '译文引用'}
+                {quote.viewKind === 'original'
+                  ? '\u539f\u6587\u5f15\u7528'
+                  : '\u8bd1\u6587\u5f15\u7528'}
               </span>
               <span className={quoteStyles['paper-chat-input__pending-quote-preview']}>
                 {quotePreview(quote)}
               </span>
               {quote.surroundingContext?.contextualText.trim() && (
                 <span className={quoteStyles['paper-chat-input__pending-quote-context']}>
-                  上下文
+                  \u4e0a\u4e0b\u6587
                 </span>
               )}
               <button
@@ -433,7 +358,7 @@ export default function PaperChatInput({
                 disabled={isSending}
                 onClick={() => usePaperChatQuoteStore.getState().removeQuote(sessionId, quote.id)}
               >
-                ×
+                \u00d7
               </button>
             </div>
           ))}
@@ -453,11 +378,8 @@ export default function PaperChatInput({
           ref={textareaRef}
           className={[
             textareaStyles['paper-chat-input__textarea'],
-            'paper-chat-input__textarea',
             isSending ? textareaStyles['is-sending'] || '' : '',
-            isSending ? 'is-sending' : '',
-            isDragging ? textareaStyles['is-dragging'] || '' : '',
-            isDragging ? 'is-dragging' : ''
+            isDragging ? textareaStyles['is-dragging'] || '' : ''
           ]
             .filter(Boolean)
             .join(' ')}
@@ -465,8 +387,8 @@ export default function PaperChatInput({
           disabled={disabled || isSending}
           placeholder={
             quickReply
-              ? '输入自定义回答，或点击上方快捷选项 ...'
-              : '输入命令或消息，可拖拽文件或粘贴图片上传 ...'
+              ? '\u8f93\u5165\u81ea\u5b9a\u4e49\u56de\u7b54\uff0c\u6216\u70b9\u51fb\u4e0a\u65b9\u5feb\u6377\u9009\u9879 ...'
+              : '\u5c3d\u7ba1\u95ee'
           }
           onChange={(event) => onUpdateInput(event.target.value)}
           onPaste={(event) => {
@@ -486,33 +408,37 @@ export default function PaperChatInput({
           <div className={textareaStyles['paper-chat-input__drag-overlay']}>
             <div className={textareaStyles['paper-chat-input__drag-hint']}>
               <SvgIcon name="attachment" size={24} />
-              <p>释放以添加附件</p>
+              <p>\u91ca\u653e\u4ee5\u6dfb\u52a0\u9644\u4ef6</p>
             </div>
           </div>
         )}
       </div>
 
-      <PaperChatToolSelectionBar
-        isSending={isSending}
-        disabled={disabled}
-        canSend={canSend}
-        variant={compact ? 'compact' : 'default'}
-        selectedModel={selectedModel}
-        modelOptions={modelOptions}
-        selectedTools={selectedMCPTools}
-        selectedKnowledgeBases={selectedKnowledgeBases}
-        enableLabTools={enableLabTools}
-        enablePaperWebSearch={enablePaperWebSearch}
-        totalAttachmentCount={totalAttachmentCount}
-        onUpdateSelectedModel={onUpdateSelectedModel}
-        onUpdateSelectedTools={onUpdateSelectedTools}
-        onUpdateSelectedKnowledgeBases={onUpdateSelectedKnowledgeBases}
-        onUpdateEnableLabTools={onUpdateEnableLabTools}
-        onTogglePaperWebSearch={() => void togglePaperWebSearch()}
-        onUpload={() => fileInputRef.current?.click()}
-        onSend={() => void handleSend()}
-        onStop={() => void onStop()}
-      />
+      <div className={inputStyles['paper-chat-input__footer']}>
+        <PaperChatToolSelectionBar
+          isSending={isSending}
+          disabled={disabled}
+          canSend={canSend}
+          selectedTools={selectedMCPTools}
+          selectedKnowledgeBases={selectedKnowledgeBases}
+          enableLabTools={enableLabTools}
+          enablePaperWebSearch={enablePaperWebSearch}
+          totalAttachmentCount={totalAttachmentCount}
+          onUpdateSelectedTools={onUpdateSelectedTools}
+          onUpdateSelectedKnowledgeBases={onUpdateSelectedKnowledgeBases}
+          onUpdateEnableLabTools={onUpdateEnableLabTools}
+          onTogglePaperWebSearch={() => void togglePaperWebSearch()}
+          onUpload={() => fileInputRef.current?.click()}
+          onSend={() => void handleSend()}
+          onStop={() => void onStop()}
+        >
+          <PaperChatModelSelector
+            selectedModel={selectedModel}
+            disabled={disabled || isSending}
+            onUpdateSelectedModel={onUpdateSelectedModel}
+          />
+        </PaperChatToolSelectionBar>
+      </div>
 
       <input
         ref={fileInputRef}
@@ -526,7 +452,7 @@ export default function PaperChatInput({
           void handleFiles(files)
         }}
       />
-    </div>
+    </>
   )
 }
 

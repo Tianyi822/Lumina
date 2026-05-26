@@ -289,3 +289,19 @@
   opacity: 0.8;
   text-decoration: underline;
 }
+
+/* embedded 模式：内嵌在工具菜单 Popover 中 */
+.paper-chat-mcp-tools--embedded {
+  position: static;
+}
+
+.paper-chat-mcp-tools-panel--embedded {
+  position: static;
+  width: 100%;
+  max-height: 240px;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  margin-bottom: 0;
+  z-index: auto;
+}

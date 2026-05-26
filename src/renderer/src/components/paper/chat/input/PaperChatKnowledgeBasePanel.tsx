@@ -5,6 +5,7 @@ import styles from './PaperChatKnowledgeBasePanel.module.css'
 interface PaperChatKnowledgeBasePanelProps {
   selectedKnowledgeBases?: KnowledgeBase[]
   compact?: boolean
+  embedded?: boolean
   onSelectionChange: (knowledgeBases: KnowledgeBase[]) => void
 }
 
@@ -16,6 +17,7 @@ function getDocumentCountText(kb: KnowledgeBase): string {
 export default function PaperChatKnowledgeBasePanel({
   selectedKnowledgeBases = [],
   compact,
+  embedded = false,
   onSelectionChange
 }: PaperChatKnowledgeBasePanelProps) {
   const [localSelectedKBs, setLocalSelectedKBs] = useState<KnowledgeBase[]>(selectedKnowledgeBases)
@@ -86,10 +88,16 @@ export default function PaperChatKnowledgeBasePanel({
   }, [])
 
   useEffect(() => {
-    if (showPanel) {
+    if (embedded) {
+      void loadKnowledgeBases()
+    }
+  }, [embedded, loadKnowledgeBases])
+
+  useEffect(() => {
+    if (showPanel || embedded) {
       refreshOverflowChecks()
     }
-  }, [filteredKnowledgeBases, refreshOverflowChecks, showPanel])
+  }, [filteredKnowledgeBases, refreshOverflowChecks, showPanel, embedded])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent): void {
@@ -99,9 +107,11 @@ export default function PaperChatKnowledgeBasePanel({
       }
     }
 
-    document.addEventListener('click', handleClickOutside)
+    if (!embedded) {
+      document.addEventListener('click', handleClickOutside)
+    }
     return () => document.removeEventListener('click', handleClickOutside)
-  }, [showPanel])
+  }, [showPanel, embedded])
 
   function emitSelectionChange(next: KnowledgeBase[]): void {
     setLocalSelectedKBs(next)
@@ -169,61 +179,80 @@ export default function PaperChatKnowledgeBasePanel({
     })
   }
 
+  const showPanelContent = embedded || showPanel
+
   return (
     <div
       ref={panelContainerRef}
       className={[
         styles['paper-chat-knowledge'],
         'paper-chat-knowledge',
+        embedded ? styles['paper-chat-knowledge--embedded'] || '' : '',
         compact ? styles['is-compact'] || '' : '',
         compact ? 'is-compact' : ''
       ]
         .filter(Boolean)
         .join(' ')}
     >
-      <button
-        type="button"
-        className={[
-          'btn',
-          styles['paper-chat-knowledge__trigger'],
-          showPanel ? styles.active || '' : '',
-          localSelectedKBs.length > 0 ? styles['has-selection'] || '' : ''
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        aria-expanded={showPanel}
-        onClick={togglePanel}
-      >
-        {localSelectedKBs.length > 0 ? (
-          <span className={styles['paper-chat-knowledge__selected-name']}>
-            已选 {localSelectedKBs.length} 个知识库
-          </span>
-        ) : (
-          <span>{compact ? '知识' : '知识库'}</span>
-        )}
-        {allKnowledgeBases.length > 0 && (
-          <span className={styles['paper-chat-knowledge__count']}>{allKnowledgeBases.length}</span>
-        )}
-        <span
+      {!embedded && (
+        <button
+          type="button"
           className={[
-            styles['paper-chat-knowledge__dropdown-arrow'],
-            showPanel ? styles.open || '' : ''
+            'btn',
+            styles['paper-chat-knowledge__trigger'],
+            showPanel ? styles.active || '' : '',
+            localSelectedKBs.length > 0 ? styles['has-selection'] || '' : ''
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          aria-expanded={showPanel}
+          onClick={togglePanel}
+        >
+          {localSelectedKBs.length > 0 ? (
+            <span className={styles['paper-chat-knowledge__selected-name']}>
+              已选 {localSelectedKBs.length} 个知识库
+            </span>
+          ) : (
+            <span>{compact ? '知识' : '知识库'}</span>
+          )}
+          {allKnowledgeBases.length > 0 && (
+            <span className={styles['paper-chat-knowledge__count']}>
+              {allKnowledgeBases.length}
+            </span>
+          )}
+          <span
+            className={[
+              styles['paper-chat-knowledge__dropdown-arrow'],
+              showPanel ? styles.open || '' : ''
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            ▼
+          </span>
+        </button>
+      )}
+
+      {showPanelContent && (
+        <div
+          className={[
+            styles['paper-chat-knowledge-panel'],
+            'paper-chat-knowledge-panel',
+            embedded ? styles['paper-chat-knowledge-panel--embedded'] || '' : ''
           ]
             .filter(Boolean)
             .join(' ')}
         >
-          ▼
-        </span>
-      </button>
-
-      {showPanel && (
-        <div className={`${styles['paper-chat-knowledge-panel']} paper-chat-knowledge-panel`}>
-          <div className={styles['paper-chat-knowledge-panel__header']}>
-            <span className={styles['paper-chat-knowledge-panel__title']}>知识库选择（多选）</span>
-            <span className={styles['paper-chat-knowledge-panel__info']}>
-              {allKnowledgeBases.length} 个知识库可用
-            </span>
-          </div>
+          {!embedded && (
+            <div className={styles['paper-chat-knowledge-panel__header']}>
+              <span className={styles['paper-chat-knowledge-panel__title']}>
+                知识库选择（多选）
+              </span>
+              <span className={styles['paper-chat-knowledge-panel__info']}>
+                {allKnowledgeBases.length} 个知识库可用
+              </span>
+            </div>
+          )}
 
           <div className={styles['paper-chat-knowledge-panel__search']}>
             <input

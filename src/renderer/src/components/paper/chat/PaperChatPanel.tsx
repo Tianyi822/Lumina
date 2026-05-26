@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperChatStreamStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -32,6 +32,8 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
   const notify = useNotification()
   const { scrollToQuote } = usePaperQuoteContext()
   const [dismissedQuickReplyIds, setDismissedQuickReplyIds] = useState<Set<string>>(new Set())
+  const [isDragging, setIsDragging] = useState(false)
+  const dragCounterRef = useRef(0)
 
   const setPaperChatPanelOpen = useUIStateStore((s) => s.setPaperChatPanelOpen)
   const showUserInteraction = usePaperChatStreamStore((s) => s.showUserInteraction)
@@ -185,7 +187,35 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
         <div className={styles['paper-chat-panel__loading']}>{sessionState.error}</div>
       )}
 
-      <div className={styles['paper-chat-panel__composer']}>
+      <div
+        className={[
+          styles['paper-chat-panel__composer'],
+          isDragging ? styles['paper-chat-panel__composer--dragging'] : ''
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        onDragEnter={(event) => {
+          event.preventDefault()
+          dragCounterRef.current += 1
+          setIsDragging(true)
+        }}
+        onDragOver={(event) => {
+          event.preventDefault()
+        }}
+        onDragLeave={(event) => {
+          event.preventDefault()
+          dragCounterRef.current -= 1
+          if (dragCounterRef.current <= 0) {
+            dragCounterRef.current = 0
+            setIsDragging(false)
+          }
+        }}
+        onDrop={(event) => {
+          event.preventDefault()
+          dragCounterRef.current = 0
+          setIsDragging(false)
+        }}
+      >
         <PaperChatPlanDock planState={currentPlanState} sending={streamState.isSending} />
         <PaperChatInput
           sessionId={sessionState.sessionId || 'temp'}
@@ -197,7 +227,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
           enablePaperWebSearch={sessionState.enablePaperWebSearch}
           isSending={streamState.isSending}
           disabled={sessionState.loading || !sessionState.session}
-          compact
+          isDragging={isDragging}
           quickReply={quickReply}
           userInteraction={userInteractionInfo}
           showUserInteraction={showUserInteraction}

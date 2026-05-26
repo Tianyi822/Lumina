@@ -6,6 +6,7 @@ import styles from './PaperChatMcpToolsPanel.module.css'
 interface PaperChatMcpToolsPanelProps {
   selectedTools?: MCPTool[]
   compact?: boolean
+  embedded?: boolean
   onToolsSelected: (tools: MCPTool[]) => void
 }
 
@@ -16,6 +17,7 @@ function toolKey(tool: MCPTool): string {
 export default function PaperChatMcpToolsPanel({
   selectedTools = [],
   compact,
+  embedded = false,
   onToolsSelected
 }: PaperChatMcpToolsPanelProps) {
   const toolsByServer = useMCPStore((s) => s.toolsByServer)
@@ -98,10 +100,16 @@ export default function PaperChatMcpToolsPanel({
   }, [loadAllTools, refreshOverflowChecks])
 
   useEffect(() => {
-    if (showPanel) {
+    if (showPanel || embedded) {
       refreshOverflowChecks()
     }
-  }, [expandedServers, filteredToolsByServer, refreshOverflowChecks, showPanel])
+  }, [expandedServers, filteredToolsByServer, refreshOverflowChecks, showPanel, embedded])
+
+  useEffect(() => {
+    if (embedded) {
+      void loadTools()
+    }
+  }, [embedded, loadTools])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent): void {
@@ -111,9 +119,11 @@ export default function PaperChatMcpToolsPanel({
       }
     }
 
-    document.addEventListener('click', handleClickOutside)
+    if (!embedded) {
+      document.addEventListener('click', handleClickOutside)
+    }
     return () => document.removeEventListener('click', handleClickOutside)
-  }, [showPanel])
+  }, [showPanel, embedded])
 
   useEffect(() => {
     const unsubscribe = window.api.mcp.onStatusChange(() => {
@@ -222,61 +232,76 @@ export default function PaperChatMcpToolsPanel({
     }, 1500)
   }
 
+  const showPanelContent = embedded || showPanel
+
   return (
     <div
       ref={mcpContainerRef}
       className={[
         styles['paper-chat-mcp-tools'],
         'paper-chat-mcp-tools',
+        embedded ? styles['paper-chat-mcp-tools--embedded'] || '' : '',
         compact ? styles['is-compact'] || '' : '',
         compact ? 'is-compact' : ''
       ]
         .filter(Boolean)
         .join(' ')}
     >
-      <button
-        type="button"
-        className={[
-          'btn',
-          styles['paper-chat-mcp-tools__trigger'],
-          showPanel ? styles.active || '' : '',
-          localSelectedTools.length > 0 ? styles['has-selection'] || '' : ''
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        aria-expanded={showPanel}
-        onClick={togglePanel}
-      >
-        {localSelectedTools.length > 0 ? (
-          <span className={styles['paper-chat-mcp-tools__selected-name']}>
-            已选 {localSelectedTools.length} 个工具
-          </span>
-        ) : (
-          <span>{compact ? 'MCP' : 'MCP 工具'}</span>
-        )}
-        {totalToolsCount > 0 && (
-          <span className={styles['paper-chat-mcp-tools__count']}>{totalToolsCount}</span>
-        )}
-        <span
+      {!embedded && (
+        <button
+          type="button"
           className={[
-            styles['paper-chat-mcp-tools__dropdown-arrow'],
-            showPanel ? styles.open || '' : ''
+            'btn',
+            styles['paper-chat-mcp-tools__trigger'],
+            showPanel ? styles.active || '' : '',
+            localSelectedTools.length > 0 ? styles['has-selection'] || '' : ''
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          aria-expanded={showPanel}
+          onClick={togglePanel}
+        >
+          {localSelectedTools.length > 0 ? (
+            <span className={styles['paper-chat-mcp-tools__selected-name']}>
+              已选 {localSelectedTools.length} 个工具
+            </span>
+          ) : (
+            <span>{compact ? 'MCP' : 'MCP 工具'}</span>
+          )}
+          {totalToolsCount > 0 && (
+            <span className={styles['paper-chat-mcp-tools__count']}>{totalToolsCount}</span>
+          )}
+          <span
+            className={[
+              styles['paper-chat-mcp-tools__dropdown-arrow'],
+              showPanel ? styles.open || '' : ''
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            ▼
+          </span>
+        </button>
+      )}
+
+      {showPanelContent && (
+        <div
+          className={[
+            styles['paper-chat-mcp-tools-panel'],
+            'paper-chat-mcp-tools-panel',
+            embedded ? styles['paper-chat-mcp-tools-panel--embedded'] || '' : ''
           ]
             .filter(Boolean)
             .join(' ')}
         >
-          ▼
-        </span>
-      </button>
-
-      {showPanel && (
-        <div className={`${styles['paper-chat-mcp-tools-panel']} paper-chat-mcp-tools-panel`}>
-          <div className={styles['paper-chat-mcp-tools-panel__header']}>
-            <span className={styles['paper-chat-mcp-tools-panel__title']}>MCP 工具（多选）</span>
-            <span className={styles['paper-chat-mcp-tools-panel__connection-info']}>
-              {connectedServersCount} 个服务器已连接
-            </span>
-          </div>
+          {!embedded && (
+            <div className={styles['paper-chat-mcp-tools-panel__header']}>
+              <span className={styles['paper-chat-mcp-tools-panel__title']}>MCP 工具（多选）</span>
+              <span className={styles['paper-chat-mcp-tools-panel__connection-info']}>
+                {connectedServersCount} 个服务器已连接
+              </span>
+            </div>
+          )}
 
           <div className={styles['paper-chat-mcp-tools-panel__search']}>
             <input

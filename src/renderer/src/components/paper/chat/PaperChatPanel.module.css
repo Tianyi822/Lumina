@@ -102,8 +102,22 @@
   flex-direction: column;
   gap: var(--sm-space-2);
   padding: var(--sm-space-3);
-  border-top: 1px solid var(--sm-color-border-default);
-  background: var(--sm-color-surface-1);
+  margin: var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-2);
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
+}
+
+.paper-chat-panel__composer:focus-within {
+  border-color: var(--sm-color-border-strong);
+}
+
+.paper-chat-panel__composer--dragging {
+  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-accent-08);
 }
 
 .paper-chat-panel__composer :global(.paper-chat-input) {

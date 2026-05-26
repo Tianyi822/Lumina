@@ -1,25 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { KnowledgeBase, MCPTool } from '@renderer/types'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import LabToolsToggle from '@renderer/components/lab/LabToolsToggle'
 import PaperChatMcpToolsPanel from './PaperChatMcpToolsPanel'
 import PaperChatKnowledgeBasePanel from './PaperChatKnowledgeBasePanel'
-import { SUPPORTED_DOC_TYPES } from './attachmentUtils'
 import styles from './PaperChatToolSelectionBar.module.css'
 
 interface PaperChatToolSelectionBarProps {
   isSending?: boolean
   disabled?: boolean
   canSend?: boolean
-  selectedModel?: string
-  modelOptions: string[]
   selectedTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
   enableLabTools?: boolean
   enablePaperWebSearch?: boolean
   totalAttachmentCount?: number
-  variant?: 'default' | 'compact'
-  onUpdateSelectedModel: (value: string) => void
   onUpdateSelectedTools: (value: MCPTool[]) => void
   onUpdateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
   onUpdateEnableLabTools: (value: boolean) => void
@@ -27,215 +22,283 @@ interface PaperChatToolSelectionBarProps {
   onUpload: () => void
   onSend: () => void
   onStop: () => void
+  children?: ReactNode
 }
+
+type AccordionSection = 'kb' | 'mcp'
 
 export default function PaperChatToolSelectionBar({
   isSending,
   disabled,
   canSend = true,
-  selectedModel,
-  modelOptions,
   selectedTools,
   selectedKnowledgeBases,
   enableLabTools,
   enablePaperWebSearch,
   totalAttachmentCount = 0,
-  variant = 'default',
-  onUpdateSelectedModel,
   onUpdateSelectedTools,
   onUpdateSelectedKnowledgeBases,
   onUpdateEnableLabTools,
   onTogglePaperWebSearch,
   onUpload,
   onSend,
-  onStop
+  onStop,
+  children
 }: PaperChatToolSelectionBarProps) {
-  const [showModelDropdown, setShowModelDropdown] = useState(false)
-  const modelSelectorRef = useRef<HTMLDivElement | null>(null)
-  const isCompact = variant === 'compact'
   const controlsDisabled = Boolean(disabled || isSending)
-  const supportedDocumentLabel = SUPPORTED_DOC_TYPES.map((type) => type.slice(1)).join(', ')
+  const [showMenu, setShowMenu] = useState(false)
+  const [expandedSection, setExpandedSection] = useState<AccordionSection | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  const activeCount =
+    selectedTools.length +
+    selectedKnowledgeBases.length +
+    (enablePaperWebSearch ? 1 : 0) +
+    (enableLabTools ? 1 : 0)
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent): void {
-      const selector = modelSelectorRef.current
-      if (showModelDropdown && selector && !selector.contains(event.target as Node)) {
-        setShowModelDropdown(false)
+      const container = menuRef.current
+      if (showMenu && container && !container.contains(event.target as Node)) {
+        setShowMenu(false)
+        setExpandedSection(null)
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent): void {
+      if (event.key === 'Escape' && showMenu) {
+        setShowMenu(false)
+        setExpandedSection(null)
       }
     }
 
     document.addEventListener('click', handleClickOutside)
-    return () => document.removeEventListener('click', handleClickOutside)
-  }, [showModelDropdown])
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('click', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [showMenu])
 
-  function selectModel(model: string): void {
-    onUpdateSelectedModel(model)
-    setShowModelDropdown(false)
-  }
-
-  function toggleModelDropdown(): void {
+  function toggleMenu(): void {
     if (!controlsDisabled) {
-      setShowModelDropdown((current) => !current)
+      setShowMenu((current) => {
+        if (current) {
+          setExpandedSection(null)
+        }
+        return !current
+      })
     }
   }
 
+  function toggleAccordion(section: AccordionSection): void {
+    setExpandedSection((prev) => (prev === section ? null : section))
+  }
+
+  function handleUploadClick(): void {
+    setShowMenu(false)
+    setExpandedSection(null)
+    onUpload()
+  }
+
+  const kbCount = selectedKnowledgeBases.length
+  const mcpCount = selectedTools.length
+
   return (
-    <div
-      className={[
-        styles['paper-chat-input-toolbar'],
-        isCompact ? styles['paper-chat-input-toolbar--compact'] || '' : ''
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
-      <div ref={modelSelectorRef} className={styles['paper-chat-input-toolbar__model-selector']}>
-        <button
-          className={`btn ${styles['paper-chat-input-toolbar__model-button']}`}
-          type="button"
-          disabled={controlsDisabled || modelOptions.length === 0}
-          onClick={toggleModelDropdown}
-        >
-          <span>{selectedModel || '选择模型'}</span>
-          <span
+    <div className={styles['paper-chat-input-toolbar']}>
+      <div className={styles['paper-chat-input-toolbar__left']}>
+        {/* "+" 按钮，展开综合菜单 */}
+        <div ref={menuRef} className={styles['plus-menu-wrapper']}>
+          <button
             className={[
-              styles['paper-chat-input-toolbar__dropdown-arrow'],
-              showModelDropdown ? styles.open || '' : ''
+              styles['plus-menu-trigger'],
+              showMenu ? styles['plus-menu-trigger--active'] || '' : '',
+              activeCount > 0 || totalAttachmentCount > 0
+                ? styles['plus-menu-trigger--has-active'] || ''
+                : ''
             ]
               .filter(Boolean)
               .join(' ')}
+            type="button"
+            disabled={controlsDisabled}
+            title="添加附件或配置工具"
+            onClick={toggleMenu}
           >
-            ▼
-          </span>
-        </button>
-        {showModelDropdown && (
-          <div className={styles['paper-chat-input-toolbar__model-dropdown']}>
-            {modelOptions.length === 0 ? (
+            <SvgIcon name="add" size={20} />
+            {(activeCount > 0 || totalAttachmentCount > 0) && (
+              <span className={styles['plus-menu-trigger__badge']}>
+                {activeCount + totalAttachmentCount}
+              </span>
+            )}
+          </button>
+
+          {showMenu && (
+            <div className={styles['plus-menu']}>
+              {/* 上传附件 */}
+              <button
+                type="button"
+                className={styles['plus-menu__row']}
+                disabled={controlsDisabled}
+                onClick={handleUploadClick}
+              >
+                <SvgIcon name="attachment" size={16} />
+                <span className={styles['plus-menu__row-label']}>添加附件</span>
+              </button>
+
+              {/* 搜索开关 */}
+              <button
+                type="button"
+                className={styles['plus-menu__row']}
+                disabled={controlsDisabled}
+                onClick={onTogglePaperWebSearch}
+              >
+                <SvgIcon name="search" size={16} />
+                <span className={styles['plus-menu__row-label']}>搜索</span>
+                <span className={styles['plus-menu__row-right']}>
+                  <span
+                    className={[
+                      styles['plus-menu__toggle-switch'],
+                      enablePaperWebSearch ? styles['plus-menu__toggle-switch--on'] || '' : ''
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-hidden="true"
+                  >
+                    <span className={styles['plus-menu__toggle-thumb']} />
+                  </span>
+                </span>
+              </button>
+
+              {/* 实验室开关 */}
+              <div className={styles['plus-menu__row']}>
+                <LabToolsToggle
+                  className={styles['plus-menu__lab-toggle']}
+                  modelValue={Boolean(enableLabTools)}
+                  disabled={controlsDisabled}
+                  onUpdateModelValue={onUpdateEnableLabTools}
+                />
+              </div>
+
+              {/* 知识库手风琴 */}
               <div
-                className={[styles['paper-chat-input-toolbar__model-option'], styles.empty || '']
+                className={`${styles['plus-menu__row']} ${styles['plus-menu__row--interactive']}`}
+                onClick={() => toggleAccordion('kb')}
+              >
+                <SvgIcon name="knowledge" size={16} />
+                <span className={styles['plus-menu__row-label']}>知识库</span>
+                <span className={styles['plus-menu__row-right']}>
+                  {kbCount > 0 && (
+                    <span className={styles['plus-menu__count-badge']}>{kbCount}</span>
+                  )}
+                  <span
+                    className={[
+                      styles['plus-menu__accordion-arrow'],
+                      expandedSection === 'kb'
+                        ? styles['plus-menu__accordion-arrow--open'] || ''
+                        : ''
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    ▶
+                  </span>
+                </span>
+              </div>
+
+              <div
+                className={[
+                  styles['plus-menu__accordion-body'],
+                  expandedSection !== 'kb'
+                    ? styles['plus-menu__accordion-body--collapsed'] || ''
+                    : ''
+                ]
                   .filter(Boolean)
                   .join(' ')}
               >
-                暂无模型配置
-              </div>
-            ) : (
-              modelOptions.map((model) => (
-                <div
-                  key={model}
-                  className={[
-                    styles['paper-chat-input-toolbar__model-option'],
-                    model === selectedModel ? styles.active || '' : ''
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => selectModel(model)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      selectModel(model)
-                    }
-                  }}
-                >
-                  {model}
+                <div className={styles['plus-menu__accordion-inner']}>
+                  <div className={styles['plus-menu__accordion-content']}>
+                    <PaperChatKnowledgeBasePanel
+                      embedded
+                      selectedKnowledgeBases={selectedKnowledgeBases}
+                      onSelectionChange={onUpdateSelectedKnowledgeBases}
+                    />
+                  </div>
                 </div>
-              ))
-            )}
-          </div>
-        )}
+              </div>
+
+              {/* MCP 手风琴 */}
+              <div
+                className={`${styles['plus-menu__row']} ${styles['plus-menu__row--interactive']}`}
+                onClick={() => toggleAccordion('mcp')}
+              >
+                <SvgIcon name="tools" size={16} />
+                <span className={styles['plus-menu__row-label']}>MCP</span>
+                <span className={styles['plus-menu__row-right']}>
+                  {mcpCount > 0 && (
+                    <span className={styles['plus-menu__count-badge']}>{mcpCount}</span>
+                  )}
+                  <span
+                    className={[
+                      styles['plus-menu__accordion-arrow'],
+                      expandedSection === 'mcp'
+                        ? styles['plus-menu__accordion-arrow--open'] || ''
+                        : ''
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    ▶
+                  </span>
+                </span>
+              </div>
+
+              <div
+                className={[
+                  styles['plus-menu__accordion-body'],
+                  expandedSection !== 'mcp'
+                    ? styles['plus-menu__accordion-body--collapsed'] || ''
+                    : ''
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <div className={styles['plus-menu__accordion-inner']}>
+                  <div className={styles['plus-menu__accordion-content']}>
+                    <PaperChatMcpToolsPanel
+                      embedded
+                      selectedTools={selectedTools}
+                      onToolsSelected={onUpdateSelectedTools}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      <PaperChatMcpToolsPanel
-        compact={isCompact}
-        selectedTools={selectedTools}
-        onToolsSelected={onUpdateSelectedTools}
-      />
-
-      <PaperChatKnowledgeBasePanel
-        compact={isCompact}
-        selectedKnowledgeBases={selectedKnowledgeBases}
-        onSelectionChange={onUpdateSelectedKnowledgeBases}
-      />
-
-      <button
-        type="button"
-        className={[
-          styles['paper-chat-input-toolbar__search-toggle'],
-          enablePaperWebSearch ? styles.enabled || '' : '',
-          isCompact ? styles['is-compact'] || '' : ''
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        disabled={controlsDisabled}
-        aria-pressed={enablePaperWebSearch ? 'true' : 'false'}
-        title="联网搜索：允许模型在需要时搜索学术资料补充论文信息"
-        onClick={onTogglePaperWebSearch}
-      >
-        <span
-          className={[styles['toggle-switch'], 'toggle-switch'].filter(Boolean).join(' ')}
-          aria-hidden="true"
-        >
-          <span className={[styles['toggle-thumb'], 'toggle-thumb'].filter(Boolean).join(' ')} />
-        </span>
-        <span className={[styles['toggle-label'], 'toggle-label'].filter(Boolean).join(' ')}>
-          搜索
-        </span>
-      </button>
-
-      <LabToolsToggle
-        compact={isCompact}
-        modelValue={Boolean(enableLabTools)}
-        disabled={controlsDisabled}
-        onUpdateModelValue={onUpdateEnableLabTools}
-      />
-
       <div className={styles['paper-chat-input-toolbar__actions']}>
-        <button
-          className={[
-            styles['paper-chat-input-toolbar__upload-button'],
-            totalAttachmentCount > 0 ? styles['has-attachments'] || '' : ''
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          type="button"
-          disabled={controlsDisabled}
-          title={`上传文件 (文档: ${supportedDocumentLabel} / 图片: jpg, png, webp, bmp, tiff)`}
-          onClick={onUpload}
-        >
-          <SvgIcon name="attachment" size={18} />
-          {totalAttachmentCount > 0 && (
-            <span className={styles['paper-chat-input-toolbar__attachment-count']}>
-              {totalAttachmentCount}
-            </span>
-          )}
-        </button>
-
+        {children}
         {!isSending ? (
           <button
-            className={[
-              'btn-primary',
-              styles['paper-chat-input-toolbar__execute-button'],
-              isCompact ? styles['paper-chat-input-toolbar__execute-button--compact'] || '' : ''
-            ]
-              .filter(Boolean)
-              .join(' ')}
+            className={styles['paper-chat-input-toolbar__execute-button']}
             type="button"
             disabled={!canSend}
             title="发送"
             aria-label="发送"
             onClick={onSend}
           >
-            {isCompact ? <SvgIcon name="send" size={17} /> : <span>发送</span>}
+            <SvgIcon name="send" size={16} />
           </button>
         ) : (
           <button
-            className={`btn-danger ${styles['paper-chat-input-toolbar__stop-button']}`}
+            className={styles['paper-chat-input-toolbar__stop-button']}
             type="button"
             title="停止"
             aria-label="停止"
             onClick={onStop}
           >
-            <SvgIcon name="stop" size={18} />
+            <SvgIcon name="stop" size={16} />
           </button>
         )}
       </div>

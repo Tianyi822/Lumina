@@ -1,0 +1,97 @@
+.model-selector {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.model-selector__button {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  min-height: 32px;
+  padding: 0 var(--sm-space-2);
+  font-size: 12px;
+  border: none;
+  background: transparent;
+  color: var(--sm-color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--sm-radius-sm);
+  transition:
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+}
+
+.model-selector__button:hover:not(:disabled) {
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
+}
+
+.model-selector__button:disabled {
+  opacity: var(--sm-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.model-selector__button span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+
+.model-selector__arrow {
+  font-size: 9px;
+  color: var(--sm-color-text-tertiary);
+  transition: transform var(--sm-transition-fast);
+  flex-shrink: 0;
+}
+
+.model-selector__arrow--open {
+  transform: rotate(180deg);
+}
+
+.model-selector__dropdown {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: var(--sm-space-2);
+  min-width: 180px;
+  max-width: 260px;
+  background: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  overflow: hidden;
+  z-index: 100;
+}
+
+.model-selector__option {
+  padding: var(--sm-space-2) var(--sm-space-3);
+  font-size: 13px;
+  color: var(--sm-color-text-primary);
+  cursor: pointer;
+  transition:
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-selector__option:hover {
+  background: var(--sm-color-surface-hover);
+}
+
+.model-selector__option--active {
+  background: var(--sm-color-surface-selected);
+  color: var(--sm-color-text-selected);
+}
+
+.model-selector__option--empty {
+  padding: var(--sm-space-2) var(--sm-space-3);
+  color: var(--sm-color-text-tertiary);
+  font-style: italic;
+  cursor: default;
+  font-size: 13px;
+}
+
+.model-selector__option--empty:hover {
+  background-color: transparent;
+}
