@@ -263,7 +263,7 @@ export class KnowledgeServiceManager {
   // 删除知识库
   // 如果知识库正在索引，会先停止索引操作
   // 同时删除向量数据库、解除文件关联、从配置中移除、清理服务实例
-  deleteKnowledgeBase(id: string): { success: boolean; error?: string } {
+  async deleteKnowledgeBase(id: string): Promise<{ success: boolean; error?: string }> {
     if (!this.loaded) {
       this.initialize()
     }
@@ -325,7 +325,7 @@ export class KnowledgeServiceManager {
         const fileService = getFileService()
         for (const fileId of kb.linkedFileIds) {
           try {
-            fileService.unlinkFileFromKB(fileId, id)
+            await fileService.unlinkFileFromKB(fileId, id)
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error)
             logger.warn('从文件解除知识库关联失败', 'main', {
