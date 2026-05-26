@@ -1,11 +1,22 @@
 import type { CSSProperties } from 'react'
+import MarkdownIt from 'markdown-it'
+import texmath from 'markdown-it-texmath'
+import katex from 'katex'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { CssTransitionGroup } from '@renderer/components/motion/CssTransition'
 import { formatFileSize } from '@shared/utils'
+import { normalizePaperInlineMathForRender } from '@shared/utils/paperMarkdown'
 import type { OcrProgressInfo, PaperDocument, PaperStatus } from '@shared/types/paper'
 import type { RenderingProgress } from '@renderer/stores/paperReaderStore'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 import styles from './PaperSidebar.module.css'
+
+// 侧边栏标题 LaTeX 渲染用 MarkdownIt 实例
+const titleMd = new MarkdownIt({ html: true, breaks: true }).use(texmath, {
+  engine: katex,
+  delimiters: ['dollars', 'brackets', 'beg_end'],
+  katexOptions: { throwOnError: false, strict: 'ignore', output: 'htmlAndMathml' }
+})
 
 interface PaperSidebarProps {
   papers: PaperDocument[]
@@ -13,6 +24,8 @@ interface PaperSidebarProps {
   renderProgressByPaperId: Record<string, RenderingProgress>
   ocrProgressByPaperId: Record<string, OcrProgressInfo>
   hasTranslationByPaperId: Record<string, boolean>
+  translatedTitleByPaperId: Record<string, string>
+  translationVisible: boolean
   onSelectPaper: (paperId: string) => void
   onDeletePaper: (paperId: string) => void
   onDeleteTranslation: (paperId: string) => void
@@ -185,6 +198,8 @@ export default function PaperSidebar({
   renderProgressByPaperId,
   ocrProgressByPaperId,
   hasTranslationByPaperId,
+  translatedTitleByPaperId,
+  translationVisible,
   onSelectPaper,
   onDeletePaper,
   onDeleteTranslation,
@@ -239,14 +254,17 @@ export default function PaperSidebar({
               aria-disabled={!isPaperReadable(paper)}
               onClick={() => handleSelectPaper(paper)}
             >
-              <div className={styles['paper-item__icon']}>
-                <SvgIcon name="file-pdf" size={20} />
-              </div>
-
               <div className={styles['paper-item__info']}>
-                <div className={styles['paper-item__name']} title={paper.fileName}>
-                  {paper.fileName}
-                </div>
+                {(() => {
+                  const translatedTitle = translatedTitleByPaperId[paper.id]
+                  const displayName =
+                    translationVisible && translatedTitle ? translatedTitle : paper.fileName
+                  return (
+                    <div className={styles['paper-item__name']} data-title={displayName}>
+                      {displayName}
+                    </div>
+                  )
+                })()}
                 <div className={styles['paper-item__meta-row']}>
                   <div className={styles['paper-item__meta']}>
                     <span>{paper.pageCount} 页</span>

@@ -86,6 +86,8 @@ export default function PaperSidebarContainer({ searchQuery }: PaperSidebarConta
       renderProgressByPaperId={renderProgressByPaperId}
       ocrProgressByPaperId={ocrProgressByPaperId}
       hasTranslationByPaperId={hasTranslationByPaperId}
+      translatedTitleByPaperId={{}}
+      translationVisible={store.translationVisible ?? false}
       onSelectPaper={handleSelectPaper}
       onDeletePaper={handleDeletePaper}
       onDeleteTranslation={handleDeleteTranslation}
