@@ -20,7 +20,8 @@ import type {
   PaperTranslationSummary,
   UpdatePaperAnnotationPayload
 } from '@shared/types/paper'
-import { statSync, readFileSync } from 'fs'
+import { statSync } from 'fs'
+import { readFile } from 'fs/promises'
 
 export function registerPaperHandlers(): void {
   const translationProgressCleanupByKey = new Map<string, () => void>()
@@ -235,7 +236,7 @@ export function registerPaperHandlers(): void {
   ipcMain.handle('paper:readFileAsBase64', async (_event, filePath: string) => {
     try {
       const resolvedFilePath = isFileUrl(filePath) ? fileUrlToPath(filePath) || filePath : filePath
-      const buffer = readFileSync(resolvedFilePath)
+      const buffer = await readFile(resolvedFilePath)
       return { success: true, data: buffer.toString('base64') }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)

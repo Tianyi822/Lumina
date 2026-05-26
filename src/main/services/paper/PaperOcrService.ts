@@ -1,6 +1,5 @@
 import { net } from 'electron'
-import { writeFileSync, existsSync, mkdirSync } from 'fs'
-import { readFile } from 'fs/promises'
+import { readFile, mkdir, writeFile, access } from 'fs/promises'
 import { dirname } from 'path'
 import { logger } from '@main/services/logger'
 import { configManager } from '@main/services/config'
@@ -291,10 +290,8 @@ async function downloadCropImage(remoteUrl: string, localPath: string): Promise<
     if (!response.ok) return false
     const buffer = Buffer.from(await response.arrayBuffer())
     const dir = dirname(localPath)
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true })
-    }
-    writeFileSync(localPath, buffer)
+    await mkdir(dir, { recursive: true })
+    await writeFile(localPath, buffer)
     return true
   } catch {
     return false
@@ -438,7 +435,7 @@ export class PaperOcrService {
       }
     }
 
-    this.buildAndSaveMergedMd(paperId, normalizedResults)
+    await this.buildAndSaveMergedMd(paperId, normalizedResults)
     this.emitProgress(paperId, progress)
 
     logger.info('OCR 处理完成', 'main', {
@@ -487,7 +484,7 @@ export class PaperOcrService {
         status: 'failed',
         errorMessage: pageImageResult.error || '页图不存在'
       }
-      this.saveOcrResults(paperId, pageIndex, null, result)
+      await this.saveOcrResults(paperId, pageIndex, null, result)
       return result
     }
 
@@ -508,7 +505,7 @@ export class PaperOcrService {
         status: 'failed',
         errorMessage: response.error || 'OCR 请求失败'
       }
-      this.saveOcrResults(paperId, pageIndex, response.data, result)
+      await this.saveOcrResults(paperId, pageIndex, response.data, result)
       logger.warn(`第 ${pageIndex + 1} 页 OCR 失败`, 'main', {
         paperId,
         pageIndex,
@@ -552,7 +549,7 @@ export class PaperOcrService {
         status: 'failed',
         errorMessage: `OCR 图片下载失败: ${failedBlocks}`
       }
-      this.saveOcrResults(paperId, pageIndex, rawResponse, result)
+      await this.saveOcrResults(paperId, pageIndex, rawResponse, result)
       logger.warn(`第 ${pageIndex + 1} 页 OCR 图片下载失败`, 'main', {
         paperId,
         pageIndex,
@@ -572,24 +569,22 @@ export class PaperOcrService {
       status: 'completed'
     }
 
-    this.saveOcrResults(paperId, pageIndex, rawResponse, result)
+    await this.saveOcrResults(paperId, pageIndex, rawResponse, result)
     logger.info(`第 ${pageIndex + 1} 页 OCR 完成`, 'main', { paperId, pageIndex })
     return result
   }
 
-  private saveOcrResults(
+  private async saveOcrResults(
     paperId: string,
     pageIndex: number,
     rawData: unknown,
     normalized: PaperPageOcrResult
-  ): void {
+  ): Promise<void> {
     try {
       const rawDir = getPaperOcrRawDirPath(paperId)
-      if (!existsSync(rawDir)) {
-        mkdirSync(rawDir, { recursive: true })
-      }
+      await mkdir(rawDir, { recursive: true })
       if (rawData) {
-        writeFileSync(
+        await writeFile(
           getPaperOcrRawPath(paperId, pageIndex),
           JSON.stringify(rawData, null, 2),
           'utf-8'
@@ -597,10 +592,8 @@ export class PaperOcrService {
       }
 
       const normalizedDir = getPaperOcrNormalizedDirPath(paperId)
-      if (!existsSync(normalizedDir)) {
-        mkdirSync(normalizedDir, { recursive: true })
-      }
-      writeFileSync(
+      await mkdir(normalizedDir, { recursive: true })
+      await writeFile(
         getPaperOcrNormalizedPath(paperId, pageIndex),
         JSON.stringify(normalized, null, 2),
         'utf-8'
@@ -611,12 +604,12 @@ export class PaperOcrService {
     }
   }
 
-  private buildAndSaveMergedMd(paperId: string, results: PaperPageOcrResult[]): void {
+  private async buildAndSaveMergedMd(paperId: string, results: PaperPageOcrResult[]): Promise<void> {
     const mergedMd = buildMergedMarkdown(results)
 
     try {
       const mdPath = getPaperMergedMdPath(paperId)
-      writeFileSync(mdPath, mergedMd, 'utf-8')
+      await writeFile(mdPath, mergedMd, 'utf-8')
       logger.info('合并 Markdown 保存成功', 'main', { paperId, pages: results.length })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -636,7 +629,8 @@ export class PaperOcrService {
 
       for (let i = 0; i < totalPages; i++) {
         const normalizedPath = getPaperOcrNormalizedPath(paperId, i)
-        if (existsSync(normalizedPath)) {
+        const fileExists = await access(normalizedPath).then(() => true).catch(() => false)
+        if (fileExists) {
           try {
             const content = await readFile(normalizedPath, 'utf-8')
             results.push(JSON.parse(content) as PaperPageOcrResult)

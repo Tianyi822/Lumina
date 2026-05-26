@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync } from 'fs'
+import { access, mkdir, readFile, readdir } from 'fs/promises'
 import { dirname, join, normalize, sep } from 'path'
 import type {
   BlockLabel,
@@ -134,20 +134,22 @@ function getLocalAssetAbsolutePath(paperId: string, localAssetPath: string): str
   return getPaperFigureAssetPath(paperId, 0, 0)
 }
 
-function getExistingLocalAssetPath(paperId: string, block: PaperLayoutBlock): string | undefined {
+async function getExistingLocalAssetPath(
+  paperId: string,
+  block: PaperLayoutBlock
+): Promise<string | undefined> {
   if (!isSafePaperAssetRelativePath(block.localAssetPath)) {
     return undefined
   }
 
   const absolutePath = getLocalAssetAbsolutePath(paperId, block.localAssetPath)
-  return existsSync(absolutePath) ? block.localAssetPath : undefined
+  const exists = await access(absolutePath).then(() => true).catch(() => false)
+  return exists ? block.localAssetPath : undefined
 }
 
-function ensureAssetDir(localPath: string): void {
+async function ensureAssetDir(localPath: string): Promise<void> {
   const dirPath = dirname(localPath)
-  if (!existsSync(dirPath)) {
-    mkdirSync(dirPath, { recursive: true })
-  }
+  await mkdir(dirPath, { recursive: true })
 }
 
 function replaceRemoteUrlInBlockContent(
@@ -195,7 +197,7 @@ export async function localizePaperPageAssets(
         changed = true
       }
 
-      let localRelativePath = getExistingLocalAssetPath(paperId, nextBlock)
+      let localRelativePath = await getExistingLocalAssetPath(paperId, nextBlock)
       if (!localRelativePath) {
         localRelativePath = getPaperFigureAssetRelativePath(pageResult.pageIndex, nextBlock.index)
         const localAbsolutePath = getPaperFigureAssetPath(
@@ -204,11 +206,14 @@ export async function localizePaperPageAssets(
           nextBlock.index
         )
 
-        if (!existsSync(localAbsolutePath)) {
+        const localExists = await access(localAbsolutePath)
+          .then(() => true)
+          .catch(() => false)
+        if (!localExists) {
           if (!options.downloadAsset) {
             localRelativePath = undefined
           } else {
-            ensureAssetDir(localAbsolutePath)
+            await ensureAssetDir(localAbsolutePath)
             const downloaded = await options.downloadAsset(remoteUrl, localAbsolutePath)
             if (!downloaded) {
               localRelativePath = undefined
@@ -299,10 +304,10 @@ export async function localizePaperPageAssets(
   }
 }
 
-export function createLocalAssetReplacementMap(
+export async function createLocalAssetReplacementMap(
   paperId: string,
   pageResults: PaperPageOcrResult[]
-): Map<string, string> {
+): Promise<Map<string, string>> {
   const replacements = new Map<string, string>()
 
   for (const pageResult of pageResults) {
@@ -313,7 +318,8 @@ export function createLocalAssetReplacementMap(
       }
 
       const localAbsolutePath = getLocalAssetAbsolutePath(paperId, block.localAssetPath)
-      if (existsSync(localAbsolutePath)) {
+      const exists = await access(localAbsolutePath).then(() => true).catch(() => false)
+      if (exists) {
         replacements.set(remoteUrl, block.localAssetPath)
       }
     }
@@ -322,20 +328,24 @@ export function createLocalAssetReplacementMap(
   return replacements
 }
 
-export function createLocalAssetReplacementMapFromDisk(paperId: string): Map<string, string> {
+export async function createLocalAssetReplacementMapFromDisk(
+  paperId: string
+): Promise<Map<string, string>> {
   const normalizedDir = getPaperOcrNormalizedDirPath(paperId)
-  if (!existsSync(normalizedDir)) {
+  const dirExists = await access(normalizedDir).then(() => true).catch(() => false)
+  if (!dirExists) {
     return new Map()
   }
 
   const pageResults: PaperPageOcrResult[] = []
-  for (const entry of readdirSync(normalizedDir, { withFileTypes: true })) {
+  const entries = await readdir(normalizedDir, { withFileTypes: true })
+  for (const entry of entries) {
     if (!entry.isFile() || !entry.name.endsWith('.json')) {
       continue
     }
 
     try {
-      const content = readFileSync(join(normalizedDir, entry.name), 'utf-8')
+      const content = await readFile(join(normalizedDir, entry.name), 'utf-8')
       pageResults.push(JSON.parse(content) as PaperPageOcrResult)
     } catch {
       // Ignore malformed legacy pages; callers will handle normal read errors separately.

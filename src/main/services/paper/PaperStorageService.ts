@@ -3,6 +3,7 @@ import { existsSync } from 'fs'
 import { readFile, writeFile, rm, mkdir, copyFile, stat, readdir } from 'fs/promises'
 import { createHash } from 'crypto'
 import { logger } from '@main/services/logger'
+import { WriteQueue } from './WriteQueue'
 import type {
   LegacyPaperAnnotation,
   PaperAnnotationStore,
@@ -68,6 +69,8 @@ interface PaperAnnotationData {
 }
 
 export class PaperStorageService {
+  private writeQueue = new WriteQueue()
+
   private normalizeMetaPaths(
     paperId: string,
     document: PaperDocument
@@ -219,7 +222,8 @@ export class PaperStorageService {
       const meta = JSON.parse(content) as PaperDocument
       const normalized = this.normalizeMetaPaths(paperId, meta)
       if (normalized.changed) {
-        const saveResult = await this.saveMeta(paperId, normalized.document)
+        // 路径规范化使用 saveMetaCore，避免与外层队列死锁
+        const saveResult = await this.saveMetaCore(paperId, normalized.document)
         if (!saveResult.success) {
           logger.warn('论文元信息路径规范化写回失败', 'main', {
             paperId,
@@ -235,7 +239,10 @@ export class PaperStorageService {
     }
   }
 
-  async saveMeta(
+  /**
+   * 写入元信息的核心逻辑（不加队列），供队列内部调用
+   */
+  private async saveMetaCore(
     paperId: string,
     document: PaperDocument
   ): Promise<{ success: boolean; error?: string }> {
@@ -250,22 +257,33 @@ export class PaperStorageService {
     }
   }
 
+  async saveMeta(
+    paperId: string,
+    document: PaperDocument
+  ): Promise<{ success: boolean; error?: string }> {
+    return this.writeQueue.enqueue(paperId, () => this.saveMetaCore(paperId, document))
+  }
+
   async updateMeta(
     paperId: string,
     updates: Partial<PaperDocument>
   ): Promise<{ success: boolean; data?: PaperDocument; error?: string }> {
-    const readResult = await this.readMeta(paperId)
-    if (!readResult.success || !readResult.data) {
-      return { success: false, error: readResult.error }
-    }
+    // 整个 read-then-write 过程放入队列，确保串行执行
+    return this.writeQueue.enqueue(paperId, async () => {
+      const readResult = await this.readMeta(paperId)
+      if (!readResult.success || !readResult.data) {
+        return { success: false, error: readResult.error }
+      }
 
-    const updated = { ...readResult.data, ...updates, updatedAt: new Date().toISOString() }
-    const saveResult = await this.saveMeta(paperId, updated)
-    if (!saveResult.success) {
-      return { success: false, error: saveResult.error }
-    }
+      const updated = { ...readResult.data, ...updates, updatedAt: new Date().toISOString() }
+      // 队列内部使用 saveMetaCore 避免嵌套排队死锁
+      const saveResult = await this.saveMetaCore(paperId, updated)
+      if (!saveResult.success) {
+        return { success: false, error: saveResult.error }
+      }
 
-    return { success: true, data: updated }
+      return { success: true, data: updated }
+    })
   }
 
   async listPapers(): Promise<{ success: boolean; data?: PaperDocument[]; error?: string }> {
@@ -445,7 +463,7 @@ export class PaperStorageService {
 
       const content = await readFile(translationPath, 'utf-8')
       const cache = JSON.parse(content) as PaperTranslationCache
-      const replacements = createLocalAssetReplacementMapFromDisk(paperId)
+      const replacements = await createLocalAssetReplacementMapFromDisk(paperId)
       const localized = localizePaperTranslationCacheAssets(cache, replacements)
       if (localized.changed) {
         await writeFile(translationPath, JSON.stringify(localized.cache, null, 2), 'utf-8')
@@ -463,19 +481,22 @@ export class PaperStorageService {
     paperId: string,
     cache: PaperTranslationCache
   ): Promise<{ success: boolean; error?: string }> {
-    try {
-      const paperDir = getPaperDirPath(paperId)
-      if (!existsSync(paperDir)) {
-        await mkdir(paperDir, { recursive: true })
-      }
+    // 使用不同 key 后缀，避免与 meta 写入竞争同一队列
+    return this.writeQueue.enqueue(`${paperId}:translation`, async () => {
+      try {
+        const paperDir = getPaperDirPath(paperId)
+        if (!existsSync(paperDir)) {
+          await mkdir(paperDir, { recursive: true })
+        }
 
-      await writeFile(getPaperTranslationPath(paperId), JSON.stringify(cache, null, 2), 'utf-8')
-      return { success: true }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('保存翻译缓存失败', 'main', { paperId, error: errorMessage })
-      return { success: false, error: errorMessage }
-    }
+        await writeFile(getPaperTranslationPath(paperId), JSON.stringify(cache, null, 2), 'utf-8')
+        return { success: true }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        logger.error('保存翻译缓存失败', 'main', { paperId, error: errorMessage })
+        return { success: false, error: errorMessage }
+      }
+    })
   }
 
   async clearTranslationCache(paperId: string): Promise<{ success: boolean; error?: string }> {
