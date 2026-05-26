@@ -1148,20 +1148,3 @@ export function buildPaperTocOutline(
 
   return outline
 }
-
-/**
- * 从翻译缓存中提取文档标题（第一个 heading 的译文）
- */
-export function extractTranslatedDocumentTitle(
-  cache: PaperTranslationCache | null | undefined
-): string | null {
-  if (!cache?.entries?.length) return null
-
-  for (const entry of cache.entries) {
-    if (entry.kind === 'heading' && entry.status === 'completed' && entry.translatedText) {
-      return entry.translatedText
-    }
-  }
-
-  return null
-}

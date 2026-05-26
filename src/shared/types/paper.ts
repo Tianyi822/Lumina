@@ -383,8 +383,6 @@ export interface PaperTranslationSummary {
   paperId: string
   /** 是否已有译文 */
   hasTranslation: boolean
-  /** 译文标题 */
-  translatedTitle?: string
 }
 
 /**

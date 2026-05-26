@@ -27,7 +27,6 @@ import {
 } from '@shared/utils'
 import {
   buildFigureCaptionTranslationMap,
-  extractTranslatedDocumentTitle,
   hasPaperTranslationResult
 } from '@shared/utils/paperTranslation'
 import { usePdfPageRasterizer } from '@renderer/composables/usePdfPageRasterizer'
@@ -632,11 +631,7 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
     set({ translationTaskByPaperId: nextTaskMap })
   }
 
-  function setHasTranslationState(
-    paperId: string,
-    hasTranslation: boolean,
-    translatedTitle?: string
-  ): void {
+  function setHasTranslationState(paperId: string, hasTranslation: boolean): void {
     const s = get()
     set({
       hasTranslationByPaperId: {
@@ -647,8 +642,7 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
         ...s.translationSummaryByPaperId,
         [paperId]: {
           paperId,
-          hasTranslation,
-          translatedTitle
+          hasTranslation
         }
       }
     })
@@ -1543,7 +1537,6 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
     }
 
     const hasTranslation = hasPaperTranslationResult(nextCache)
-    const translatedTitle = extractTranslatedDocumentTitle(nextCache) || undefined
     const failedProgress = [...batch.entries]
       .reverse()
       .find((progress) => progress.status === 'failed')
@@ -1561,8 +1554,7 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
         ...s.translationSummaryByPaperId,
         [batch.paperId]: {
           paperId: batch.paperId,
-          hasTranslation,
-          translatedTitle
+          hasTranslation
         }
       },
       translationTaskByPaperId: {
@@ -1606,18 +1598,10 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
     ) {
       const merged = mergeTranslationEntries(snapshot, existingCache)
       setTranslationCache(paperId, merged)
-      setHasTranslationState(
-        paperId,
-        hasPaperTranslationResult(merged),
-        extractTranslatedDocumentTitle(merged) || undefined
-      )
+      setHasTranslationState(paperId, hasPaperTranslationResult(merged))
     } else {
       setTranslationCache(paperId, snapshot)
-      setHasTranslationState(
-        paperId,
-        hasPaperTranslationResult(snapshot),
-        extractTranslatedDocumentTitle(snapshot) || undefined
-      )
+      setHasTranslationState(paperId, hasPaperTranslationResult(snapshot))
     }
 
     setTranslationTaskState(paperId, {

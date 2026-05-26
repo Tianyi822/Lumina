@@ -13,10 +13,7 @@ import {
   type OcrProviderId
 } from '@shared/types/config'
 import { fileUrlToPath, isFileUrl } from '@shared/utils'
-import {
-  extractTranslatedDocumentTitle,
-  hasPaperTranslationResult
-} from '@shared/utils/paperTranslation'
+import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 import type {
   CreatePaperAnnotationPayload,
   PaperStatus,
@@ -512,8 +509,7 @@ export function registerPaperHandlers(): void {
       const cache = cacheResult.success ? cacheResult.data : undefined
       summaries[paperId] = {
         paperId,
-        hasTranslation: hasPaperTranslationResult(cache),
-        translatedTitle: extractTranslatedDocumentTitle(cache) || undefined
+        hasTranslation: hasPaperTranslationResult(cache)
       }
     }
 
