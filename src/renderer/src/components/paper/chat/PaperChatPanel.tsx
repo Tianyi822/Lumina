@@ -34,6 +34,8 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
   const [dismissedQuickReplyIds, setDismissedQuickReplyIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const dragCounterRef = useRef(0)
+  const composerRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLElement>(null)
 
   const setPaperChatPanelOpen = useUIStateStore((s) => s.setPaperChatPanelOpen)
   const showUserInteraction = usePaperChatStreamStore((s) => s.showUserInteraction)
@@ -103,6 +105,23 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     })
   }, [sessionState.messages])
 
+  // 监听 composer 高度变化，动态注入 CSS 变量用于消息列表底部 padding 补偿
+  useEffect(() => {
+    const composer = composerRef.current
+    const panel = panelRef.current
+    if (!composer || !panel) return
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
+      panel.style.setProperty('--composer-height', `${Math.round(height)}px`)
+    })
+
+    observer.observe(composer)
+    return () => observer.disconnect()
+  }, [])
+
   async function handleClearContext(): Promise<void> {
     if (streamState.isSending) {
       notify.warning('论文对话', '请先停止当前回复，再清空上下文。', { source: 'chat' })
@@ -142,7 +161,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
   }, [notify])
 
   return (
-    <section className={styles['paper-chat-panel']}>
+    <section ref={panelRef} className={styles['paper-chat-panel']}>
       <header className={styles['paper-chat-panel__header']}>
         <div className={styles['paper-chat-panel__title-group']}>
           <h2>论文对话</h2>
@@ -188,6 +207,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
       )}
 
       <div
+        ref={composerRef}
         className={[
           styles['paper-chat-panel__composer'],
           isDragging ? styles['paper-chat-panel__composer--dragging'] : ''

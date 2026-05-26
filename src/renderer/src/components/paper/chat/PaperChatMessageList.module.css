@@ -4,6 +4,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: var(--sm-space-4);
+  padding-bottom: calc(var(--composer-height, 0px) + var(--sm-space-4));
   background: var(--sm-color-bg-canvas);
 }
 
@@ -31,7 +32,7 @@
 
 .paper-chat-message-list__scroll-button {
   position: sticky;
-  bottom: var(--sm-space-3);
+  bottom: calc(var(--composer-height, 0px) + var(--sm-space-3));
   display: flex;
   align-items: center;
   justify-content: center;
