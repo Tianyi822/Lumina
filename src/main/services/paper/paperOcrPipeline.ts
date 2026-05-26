@@ -7,7 +7,7 @@ export interface RunPaperOcrPipelineOptions {
   shouldCancel?: () => boolean
   processPage: (pageIndex: number) => Promise<PaperPageOcrResult>
   onPageDispatched?: (pageIndex: number) => void
-  onPageSettled?: (pageIndex: number, result: PaperPageOcrResult) => void
+  onPageSettled?: (pageIndex: number, result: PaperPageOcrResult) => void | Promise<void>
   preExistingResults?: PaperPageOcrResult[]
 }
 
@@ -114,7 +114,7 @@ export async function runPaperOcrPipeline(
 
         const result = await processPage(pageIndex)
         results[pageIndex] = result
-        onPageSettled?.(pageIndex, result)
+        await onPageSettled?.(pageIndex, result)
       }
     })
   )

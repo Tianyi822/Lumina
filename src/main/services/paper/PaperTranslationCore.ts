@@ -36,9 +36,18 @@ export interface PaperTranslationCoreDependencies {
   progressBatchIntervalMs?: number
   logger: TranslationLogger
   getDefaultLlmConfig: () => LLMConfig | null
-  readCache: (paperId: string) => { success: boolean; data?: PaperTranslationCache; error?: string }
-  saveCache: (paperId: string, cache: PaperTranslationCache) => { success: boolean; error?: string }
-  clearCache: (paperId: string) => { success: boolean; error?: string }
+  readCache: (
+    paperId: string
+  ) =>
+    | { success: boolean; data?: PaperTranslationCache; error?: string }
+    | Promise<{ success: boolean; data?: PaperTranslationCache; error?: string }>
+  saveCache: (
+    paperId: string,
+    cache: PaperTranslationCache
+  ) => { success: boolean; error?: string } | Promise<{ success: boolean; error?: string }>
+  clearCache: (
+    paperId: string
+  ) => { success: boolean; error?: string } | Promise<{ success: boolean; error?: string }>
   translateSegment: (
     llmConfig: LLMConfig,
     prompt: string,
@@ -607,17 +616,17 @@ export class PaperTranslationCore {
     this.flushProgressBatch(paperId)
   }
 
-  getTranslationState(
+  async getTranslationState(
     paperId: string,
     markdown: string,
     figures?: PaperFigureItem[]
-  ): {
+  ): Promise<{
     success: boolean
     data?: { cache: PaperTranslationCache | null; isRunning: boolean }
     error?: string
-  } {
+  }> {
     const source = buildPaperTranslationSource(markdown, figures)
-    const validCache = this.readValidCache(paperId, source)
+    const validCache = await this.readValidCache(paperId, source)
     const runningTask = this.tasks.get(paperId)
 
     if (!runningTask && validCache) {
@@ -665,7 +674,7 @@ export class PaperTranslationCore {
       this.tasks.delete(paperId)
     }
 
-    const cache = this.buildCache(paperId, source)
+    const cache = await this.buildCache(paperId, source)
 
     const pendingEntries = cache.entries.filter(
       (entry) => entry.status === 'queued' || entry.status === 'failed'
@@ -711,11 +720,11 @@ export class PaperTranslationCore {
     return { success: true }
   }
 
-  private readValidCache(
+  private async readValidCache(
     paperId: string,
     source: PaperTranslationSource
-  ): PaperTranslationCache | null {
-    const cachedResult = this.deps.readCache(paperId)
+  ): Promise<PaperTranslationCache | null> {
+    const cachedResult = await this.deps.readCache(paperId)
     if (!cachedResult.success || !cachedResult.data) {
       return null
     }
@@ -736,7 +745,7 @@ export class PaperTranslationCore {
           cachedCache.updatedAt
         )
       }
-      const saveResult = this.deps.saveCache(paperId, upgradedCache)
+      const saveResult = await this.deps.saveCache(paperId, upgradedCache)
       if (!saveResult.success) {
         this.deps.logger.warn('补齐翻译修订信息失败', 'main', {
           paperId,
@@ -771,7 +780,7 @@ export class PaperTranslationCore {
         cachedCache.totalSegments !== upgradedCache.totalSegments ||
         cachedCache.completedSegments !== upgradedCache.completedSegments
       ) {
-        const saveResult = this.deps.saveCache(paperId, upgradedCache)
+        const saveResult = await this.deps.saveCache(paperId, upgradedCache)
         if (!saveResult.success) {
           this.deps.logger.warn('升级翻译缓存指纹失败', 'main', {
             paperId,
@@ -783,7 +792,7 @@ export class PaperTranslationCore {
       return upgradedCache
     }
 
-    const clearResult = this.deps.clearCache(paperId)
+    const clearResult = await this.deps.clearCache(paperId)
     if (!clearResult.success) {
       this.deps.logger.warn('翻译缓存失效后清理失败', 'main', {
         paperId,
@@ -794,8 +803,11 @@ export class PaperTranslationCore {
     return null
   }
 
-  private buildCache(paperId: string, source: PaperTranslationSource): PaperTranslationCache {
-    const existingCache = this.readValidCache(paperId, source)
+  private async buildCache(
+    paperId: string,
+    source: PaperTranslationSource
+  ): Promise<PaperTranslationCache> {
+    const existingCache = await this.readValidCache(paperId, source)
     const previousEntries = new Map(
       (existingCache?.entries ?? []).map((entry) => [entry.id, entry] as const)
     )
@@ -905,9 +917,9 @@ export class PaperTranslationCore {
       return { success: true, entry: cloneEntry(entry) }
     }
 
-    let cache = this.readValidCache(paperId, source)
+    let cache = await this.readValidCache(paperId, source)
     if (!cache) {
-      cache = this.buildCache(paperId, source)
+      cache = await this.buildCache(paperId, source)
     }
 
     const entryIndex = cache.entries.findIndex((e) => e.id === segmentId)
@@ -1235,11 +1247,11 @@ export class PaperTranslationCore {
     }
   }
 
-  private persistCache(
+  private async persistCache(
     paperId: string,
     cache: PaperTranslationCache,
     options: { immediate?: boolean } = {}
-  ): void {
+  ): Promise<void> {
     cache.completedSegments = countCompletedSegments(cache.entries)
     cache.updatedAt = this.now()
     cache.translationRevisionId = createPaperTranslationRevisionId(
@@ -1266,11 +1278,11 @@ export class PaperTranslationCore {
     }
 
     this.flushPendingCache(paperId)
-    this.writeCacheNow(paperId, cache)
+    await this.writeCacheNow(paperId, cache)
   }
 
-  private writeCacheNow(paperId: string, cache: PaperTranslationCache): void {
-    const saveResult = this.deps.saveCache(paperId, cache)
+  private async writeCacheNow(paperId: string, cache: PaperTranslationCache): Promise<void> {
+    const saveResult = await this.deps.saveCache(paperId, cache)
     if (!saveResult.success) {
       this.deps.logger.warn('写入翻译缓存失败', 'main', {
         paperId,
@@ -1279,7 +1291,7 @@ export class PaperTranslationCore {
     }
   }
 
-  private flushPendingCache(paperId: string): void {
+  private async flushPendingCache(paperId: string): Promise<void> {
     const pending = this.pendingCacheFlushes.get(paperId)
     if (!pending) {
       return
@@ -1289,7 +1301,7 @@ export class PaperTranslationCore {
       clearTimeout(pending.timer)
     }
     this.pendingCacheFlushes.delete(paperId)
-    this.writeCacheNow(paperId, pending.cache)
+    await this.writeCacheNow(paperId, pending.cache)
   }
 
   private emitProgress(

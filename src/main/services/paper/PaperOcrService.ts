@@ -1,5 +1,6 @@
 import { net } from 'electron'
-import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
+import { writeFileSync, existsSync, mkdirSync } from 'fs'
+import { readFile } from 'fs/promises'
 import { dirname } from 'path'
 import { logger } from '@main/services/logger'
 import { configManager } from '@main/services/config'
@@ -347,7 +348,7 @@ export class PaperOcrService {
       return { success: false, error: '请先在设置中配置 GLM-OCR API Key' }
     }
 
-    const metaResult = paperStorageService.readMeta(paperId)
+    const metaResult = await paperStorageService.readMeta(paperId)
     if (!metaResult.success || !metaResult.data) {
       return { success: false, error: metaResult.error || '论文元信息不存在' }
     }
@@ -361,7 +362,7 @@ export class PaperOcrService {
 
     const totalPages = meta.pageCount
 
-    const existingResults = paperStorageService.listNormalizedResults(paperId)
+    const existingResults = await paperStorageService.listNormalizedResults(paperId)
     const preExistingResults = existingResults.success ? (existingResults.data ?? []) : []
     const existingCompleted = preExistingResults.filter((r) => r.status === 'completed').length
     const existingFailed = preExistingResults
@@ -378,7 +379,7 @@ export class PaperOcrService {
     }
     this.emitProgress(paperId, progress)
 
-    paperStorageService.updateMeta(paperId, {
+    await paperStorageService.updateMeta(paperId, {
       status: 'ocr_processing',
       completedPageCount: existingCompleted,
       errorMessage: undefined
@@ -395,10 +396,10 @@ export class PaperOcrService {
         progress.currentPage = pageIndex
         this.emitProgress(paperId, progress)
       },
-      onPageSettled: (pageIndex, pageResult) => {
+      onPageSettled: async (pageIndex, pageResult) => {
         if (pageResult.status === 'completed') {
           progress.completedPages += 1
-          paperStorageService.updateMeta(paperId, {
+          await paperStorageService.updateMeta(paperId, {
             completedPageCount: progress.completedPages
           })
         } else {
@@ -415,7 +416,7 @@ export class PaperOcrService {
 
     if (aborted) {
       progress.status = 'cancelled'
-      paperStorageService.updateMeta(paperId, {
+      await paperStorageService.updateMeta(paperId, {
         status: 'draft',
         completedPageCount: progress.completedPages,
         errorMessage: undefined
@@ -423,14 +424,14 @@ export class PaperOcrService {
     } else {
       if (progress.failedPages.length === 0) {
         progress.status = 'completed'
-        paperStorageService.updateMeta(paperId, { status: 'completed' })
+        await paperStorageService.updateMeta(paperId, { status: 'completed' })
       } else if (progress.completedPages > 0) {
         progress.status = 'partial_failed'
-        paperStorageService.updateMeta(paperId, { status: 'partial_failed' })
+        await paperStorageService.updateMeta(paperId, { status: 'partial_failed' })
       } else {
         progress.errorMessage = '所有页面 OCR 均失败'
         progress.status = 'failed'
-        paperStorageService.updateMeta(paperId, {
+        await paperStorageService.updateMeta(paperId, {
           status: 'failed',
           errorMessage: progress.errorMessage
         })
@@ -465,7 +466,7 @@ export class PaperOcrService {
 
     const result = await this.processPage(paperId, pageIndex, apiKey, provider)
     if (result.status === 'completed') {
-      this.rebuildMergedMd(paperId)
+      await this.rebuildMergedMd(paperId)
     }
     return { success: result.status === 'completed', error: result.errorMessage }
   }
@@ -476,7 +477,7 @@ export class PaperOcrService {
     apiKey: string,
     provider: OcrProviderId
   ): Promise<PaperPageOcrResult> {
-    const pageImageResult = paperStorageService.readPageImage(paperId, pageIndex)
+    const pageImageResult = await paperStorageService.readPageImage(paperId, pageIndex)
     if (!pageImageResult.success || !pageImageResult.data) {
       const result: PaperPageOcrResult = {
         paperId,
@@ -623,9 +624,9 @@ export class PaperOcrService {
     }
   }
 
-  rebuildMergedMd(paperId: string): { success: boolean; error?: string } {
+  async rebuildMergedMd(paperId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const metaResult = paperStorageService.readMeta(paperId)
+      const metaResult = await paperStorageService.readMeta(paperId)
       if (!metaResult.success || !metaResult.data) {
         return { success: false, error: '论文元信息不存在' }
       }
@@ -637,7 +638,7 @@ export class PaperOcrService {
         const normalizedPath = getPaperOcrNormalizedPath(paperId, i)
         if (existsSync(normalizedPath)) {
           try {
-            const content = readFileSync(normalizedPath, 'utf-8')
+            const content = await readFile(normalizedPath, 'utf-8')
             results.push(JSON.parse(content) as PaperPageOcrResult)
           } catch {
             results.push({
@@ -659,7 +660,7 @@ export class PaperOcrService {
         }
       }
 
-      this.buildAndSaveMergedMd(paperId, results)
+      await this.buildAndSaveMergedMd(paperId, results)
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
