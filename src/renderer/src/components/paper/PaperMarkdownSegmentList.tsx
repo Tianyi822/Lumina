@@ -5,6 +5,7 @@ import styles from './PaperMarkdownSegmentList.module.css'
 
 interface PaperMarkdownSegmentListProps {
   segments: RenderedSegment[]
+  translationVisible: boolean
   onRetranslate?: (params: { segmentId: string; stableId: string }) => void
 }
 
@@ -19,7 +20,11 @@ function getButtonLeftIndent(translationHtml: string | null): string {
   return `${nestLevel * LIST_ITEM_INDENT}em`
 }
 
-function PaperMarkdownSegmentList({ segments, onRetranslate }: PaperMarkdownSegmentListProps) {
+function PaperMarkdownSegmentList({
+  segments,
+  translationVisible,
+  onRetranslate
+}: PaperMarkdownSegmentListProps) {
   const [confirmDialog, setConfirmDialog] = useState<{
     segmentId: string
     stableId: string
@@ -70,25 +75,7 @@ function PaperMarkdownSegmentList({ segments, onRetranslate }: PaperMarkdownSegm
             .join(' ')}
           data-paper-segment-stable-id={segment.stableId}
         >
-          <div
-            className={[
-              styles['paper-markdown-view__segment-original'],
-              'paper-markdown-view__segment-original'
-            ].join(' ')}
-            data-paper-selection-surface="true"
-            data-view-kind="original"
-            data-segment-stable-id={segment.stableId}
-          >
-            <div
-              className={[
-                styles['paper-markdown-view__markdown'],
-                'paper-markdown-view__markdown'
-              ].join(' ')}
-              dangerouslySetInnerHTML={{ __html: segment.originalHtml }}
-            />
-          </div>
-
-          {segment.showTranslation && (
+          {translationVisible && segment.showTranslation ? (
             <div
               className={[
                 styles['paper-markdown-view__segment-translation'],
@@ -204,6 +191,24 @@ function PaperMarkdownSegmentList({ segments, onRetranslate }: PaperMarkdownSegm
                   </button>
                 </>
               )}
+            </div>
+          ) : (
+            <div
+              className={[
+                styles['paper-markdown-view__segment-original'],
+                'paper-markdown-view__segment-original'
+              ].join(' ')}
+              data-paper-selection-surface="true"
+              data-view-kind="original"
+              data-segment-stable-id={segment.stableId}
+            >
+              <div
+                className={[
+                  styles['paper-markdown-view__markdown'],
+                  'paper-markdown-view__markdown'
+                ].join(' ')}
+                dangerouslySetInnerHTML={{ __html: segment.originalHtml }}
+              />
             </div>
           )}
         </section>

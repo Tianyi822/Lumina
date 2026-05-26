@@ -909,6 +909,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
             >
               <PaperMarkdownSegmentList
                 segments={engine.renderedSegments}
+                translationVisible={translationVisible}
                 onRetranslate={handleRetranslateSegment}
               />
             </article>
