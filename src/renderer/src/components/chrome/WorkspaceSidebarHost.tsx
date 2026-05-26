@@ -21,11 +21,14 @@ export default function WorkspaceSidebarHost() {
   const paperSidebarWidth = useUIStateStore((s) => s.paperSidebarWidth)
   const setPaperSidebarWidth = useUIStateStore((s) => s.setPaperSidebarWidth)
 
+  const paperCount = usePaperReaderStore((s) => s.papers.length)
+  const kbCount = useKnowledgeStore((s) => s.knowledgeBases.length)
+  const labCount = useLabListStore((s) => s.labList.length)
   const sidebarCount = useMemo(() => {
-    if (currentView === 'paper') return usePaperReaderStore.getState().papers.length
-    if (currentView === 'knowledge') return useKnowledgeStore.getState().knowledgeBases.length
-    return useLabListStore.getState().labList.length
-  }, [currentView])
+    if (currentView === 'paper') return paperCount
+    if (currentView === 'knowledge') return kbCount
+    return labCount
+  }, [currentView, paperCount, kbCount, labCount])
 
   const [isResizingSidebar, setIsResizingSidebar] = useState(false)
   const sidebarFrameRef = useRef<HTMLDivElement>(null)
