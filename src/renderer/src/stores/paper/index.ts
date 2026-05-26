@@ -854,7 +854,8 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
       const readerDocument = await loadReaderDocument(paperId)
       if (readerDocument) {
         set({ markdownContent: readerDocument.markdown })
-        await loadTranslationState(paperId)
+        // 翻译缓存后台加载，不阻塞 markdown 内容渲染（打开新论文时 translationVisible 已重置为 false）
+        void loadTranslationState(paperId)
         await loadAnnotations(paperId)
       } else {
         set({ markdownContent: '', paperTocTitle: null, paperTocItems: [] })
