@@ -80,22 +80,25 @@ export default function WorkspaceSidebarHost() {
   }, [paperReaderStore.translationByPaperId])
 
   // 按需加载未缓存的翻译数据（用于侧边栏显示译文标题）
+  // 使用 ref 追踪已调度加载的 ID，避免每次 translationByPaperId 更新时重复触发
+  const scheduledTranslationIdsRef = useRef<Set<string>>(new Set())
   useEffect(() => {
     const hasMap = paperReaderStore.hasTranslationByPaperId ?? {}
-    const cacheMap = paperReaderStore.translationByPaperId ?? {}
     const idsToLoad = papers
-      .filter((p: PaperDocument) => hasMap[p.id] && !cacheMap[p.id])
+      .filter(
+        (p: PaperDocument) =>
+          hasMap[p.id] && !scheduledTranslationIdsRef.current.has(p.id)
+      )
       .map((p: PaperDocument) => p.id)
 
     if (idsToLoad.length === 0) return
 
-    void (async () => {
-      for (let i = 0; i < idsToLoad.length; i += 3) {
-        const batch = idsToLoad.slice(i, i + 3)
-        await Promise.all(batch.map((id) => paperReaderStore.loadTranslationState(id)))
-      }
-    })()
-  }, [papers, paperReaderStore])
+    // 立即标记为已调度，防止 effect 重复运行时重复加载
+    idsToLoad.forEach((id) => scheduledTranslationIdsRef.current.add(id))
+    // 并行加载全部（不再顺序分批），读取本地磁盘缓存，速度快
+    void Promise.all(idsToLoad.map((id) => paperReaderStore.loadTranslationState(id)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [papers, paperReaderStore.hasTranslationByPaperId])
 
   const [knowledgeSearchQuery, setKnowledgeSearchQuery] = useState('')
   const [labSearchQuery, setLabSearchQuery] = useState('')
