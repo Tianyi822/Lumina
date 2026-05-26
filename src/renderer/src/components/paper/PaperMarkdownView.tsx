@@ -527,7 +527,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         return
       }
 
-      if (previousMarkdownZoomLevelRef.current === markdownZoomLevel) {
+      const prevLevel = previousMarkdownZoomLevelRef.current
+      if (prevLevel === markdownZoomLevel) {
         return
       }
 
@@ -537,6 +538,12 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       if (!container) return
 
       if (!zoomAnchor.isZooming()) {
+        // 首次缩放步进：DOM 已更新缩放但 scrollTop 未变，需先用数学方式修正滚动位置
+        // 再捕获锚点，否则 beginZoom 捕获的是已偏移的错误锚点
+        const ratio = markdownZoomLevel / prevLevel
+        const scrollTop = container.scrollTop
+        const clientHeight = container.clientHeight
+        container.scrollTop = scrollTop * ratio + (clientHeight / 2) * (ratio - 1)
         zoomAnchor.beginZoom(container)
       }
 

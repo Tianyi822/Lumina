@@ -64,7 +64,8 @@ export default function PaperOriginalPdfView({
       return
     }
 
-    if (previousOriginalPdfZoomLevelRef.current === originalPdfZoomLevel) {
+    const prevLevel = previousOriginalPdfZoomLevelRef.current
+    if (prevLevel === originalPdfZoomLevel) {
       return
     }
 
@@ -74,6 +75,12 @@ export default function PaperOriginalPdfView({
     if (!container) return
 
     if (!zoomAnchor.isZooming()) {
+      // 首次缩放步进：DOM 已更新缩放但 scrollTop 未变，需先用数学方式修正滚动位置
+      // 再捕获锚点，否则 beginZoom 捕获的是已偏移的错误锚点
+      const ratio = originalPdfZoomLevel / prevLevel
+      const scrollTop = container.scrollTop
+      const clientHeight = container.clientHeight
+      container.scrollTop = scrollTop * ratio + (clientHeight / 2) * (ratio - 1)
       zoomAnchor.beginZoom(container)
     }
 
