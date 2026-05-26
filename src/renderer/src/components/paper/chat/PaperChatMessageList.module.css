@@ -28,3 +28,29 @@
 :global(.paper-chat-message)-list__items :global(.paper-chat-message) {
   min-width: 0;
 }
+
+.paper-chat-message-list__scroll-button {
+  position: sticky;
+  bottom: var(--sm-space-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  margin-top: calc(-1 * var(--sm-space-4));
+  margin-right: var(--sm-space-2);
+  border: none;
+  border-radius: 50%;
+  background: var(--sm-color-bg-elevated);
+  box-shadow: var(--sm-shadow-md);
+  color: var(--sm-color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  z-index: 1;
+}
+
+.paper-chat-message-list__scroll-button:hover {
+  background: var(--sm-color-bg-hover);
+  color: var(--sm-color-text-primary);
+}
