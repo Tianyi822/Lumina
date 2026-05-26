@@ -13,16 +13,47 @@ import {
   type OcrProviderId
 } from '@shared/types/config'
 import { fileUrlToPath, isFileUrl } from '@shared/utils'
-import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
+import {
+  extractTranslatedDocumentTitle,
+  hasPaperTranslationResult
+} from '@shared/utils/paperTranslation'
 import type {
   CreatePaperAnnotationPayload,
   PaperStatus,
+  PaperTranslationSummary,
   UpdatePaperAnnotationPayload
 } from '@shared/types/paper'
 import { statSync, readFileSync } from 'fs'
 
 export function registerPaperHandlers(): void {
   const translationProgressCleanupByKey = new Map<string, () => void>()
+  const translationProgressBatchCleanupByKey = new Map<string, () => void>()
+  const legacyTranslationProgressSubscriberCountBySender = new Map<number, number>()
+
+  const hasLegacyTranslationSubscriber = (sender: Electron.WebContents): boolean => {
+    return (legacyTranslationProgressSubscriberCountBySender.get(sender.id) || 0) > 0
+  }
+
+  const registerLegacyTranslationSubscriber = (sender: Electron.WebContents): void => {
+    const currentCount = legacyTranslationProgressSubscriberCountBySender.get(sender.id) || 0
+    legacyTranslationProgressSubscriberCountBySender.set(sender.id, currentCount + 1)
+
+    if (currentCount === 0) {
+      sender.once('destroyed', () => {
+        legacyTranslationProgressSubscriberCountBySender.delete(sender.id)
+      })
+    }
+  }
+
+  const unregisterLegacyTranslationSubscriber = (sender: Electron.WebContents): void => {
+    const currentCount = legacyTranslationProgressSubscriberCountBySender.get(sender.id) || 0
+    if (currentCount <= 1) {
+      legacyTranslationProgressSubscriberCountBySender.delete(sender.id)
+      return
+    }
+
+    legacyTranslationProgressSubscriberCountBySender.set(sender.id, currentCount - 1)
+  }
 
   const registerTranslationSubscriber = (paperId: string, sender: Electron.WebContents): void => {
     const subscriptionKey = `${paperId}:${sender.id}`
@@ -56,6 +87,44 @@ export function registerPaperHandlers(): void {
       const release = translationProgressCleanupByKey.get(subscriptionKey)
       release?.()
       translationProgressCleanupByKey.delete(subscriptionKey)
+    })
+  }
+
+  const registerTranslationBatchSubscriber = (
+    paperId: string,
+    sender: Electron.WebContents
+  ): void => {
+    const subscriptionKey = `${paperId}:${sender.id}`
+    if (translationProgressBatchCleanupByKey.has(subscriptionKey)) {
+      return
+    }
+
+    const cleanup = paperTranslationService.onProgressBatch(paperId, (batch) => {
+      try {
+        if (sender.isDestroyed()) {
+          const release = translationProgressBatchCleanupByKey.get(subscriptionKey)
+          release?.()
+          translationProgressBatchCleanupByKey.delete(subscriptionKey)
+          return
+        }
+
+        const win = BrowserWindow.fromWebContents(sender)
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('paper:translationProgressBatch', batch)
+        }
+      } catch {
+        const release = translationProgressBatchCleanupByKey.get(subscriptionKey)
+        release?.()
+        translationProgressBatchCleanupByKey.delete(subscriptionKey)
+      }
+    })
+
+    translationProgressBatchCleanupByKey.set(subscriptionKey, cleanup)
+
+    sender.once('destroyed', () => {
+      const release = translationProgressBatchCleanupByKey.get(subscriptionKey)
+      release?.()
+      translationProgressBatchCleanupByKey.delete(subscriptionKey)
     })
   }
 
@@ -403,21 +472,21 @@ export function registerPaperHandlers(): void {
   )
 
   ipcMain.handle('paper:getTranslationState', async (_event, paperId: string) => {
-    const markdownResult = await getPaperService().getReaderMarkdown(paperId)
-    if (!markdownResult.success || !markdownResult.data) {
-      return { success: false, error: markdownResult.error || '读取论文正文失败' }
+    const payloadResult = await getPaperService().getReaderPayload(paperId)
+    if (!payloadResult.success || !payloadResult.data) {
+      return { success: false, error: payloadResult.error || '读取论文正文失败' }
     }
-
-    const figuresResult = await getPaperService().listFigures(paperId)
-    const figures = figuresResult.success && figuresResult.data ? figuresResult.data : undefined
 
     const stateResult = paperTranslationService.getTranslationState(
       paperId,
-      markdownResult.data,
-      figures
+      payloadResult.data.readerDocument.markdown,
+      payloadResult.data.figures
     )
     if (stateResult.success && stateResult.data?.isRunning) {
-      registerTranslationSubscriber(paperId, _event.sender)
+      if (hasLegacyTranslationSubscriber(_event.sender)) {
+        registerTranslationSubscriber(paperId, _event.sender)
+      }
+      registerTranslationBatchSubscriber(paperId, _event.sender)
     }
 
     return stateResult
@@ -435,6 +504,32 @@ export function registerPaperHandlers(): void {
     return { success: true, data: statuses }
   })
 
+  ipcMain.handle('paper:listTranslationSummaries', (_event, paperIds: string[]) => {
+    const summaries: Record<string, PaperTranslationSummary> = {}
+
+    for (const paperId of paperIds) {
+      const cacheResult = paperStorageService.readTranslationCache(paperId)
+      const cache = cacheResult.success ? cacheResult.data : undefined
+      summaries[paperId] = {
+        paperId,
+        hasTranslation: hasPaperTranslationResult(cache),
+        translatedTitle: extractTranslatedDocumentTitle(cache) || undefined
+      }
+    }
+
+    return { success: true, data: summaries }
+  })
+
+  ipcMain.handle('paper:subscribeTranslationProgress', (_event) => {
+    registerLegacyTranslationSubscriber(_event.sender)
+    return { success: true }
+  })
+
+  ipcMain.handle('paper:unsubscribeTranslationProgress', (_event) => {
+    unregisterLegacyTranslationSubscriber(_event.sender)
+    return { success: true }
+  })
+
   ipcMain.handle('paper:deleteTranslation', (_event, paperId: string) => {
     paperTranslationService.cancelTranslation(paperId)
     return getPaperService().deleteTranslation(paperId)
@@ -442,19 +537,22 @@ export function registerPaperHandlers(): void {
 
   ipcMain.handle('paper:startTranslation', async (_event, params: { paperId: string }) => {
     const { paperId } = params
-    const markdownResult = await getPaperService().getReaderMarkdown(paperId)
-    if (!markdownResult.success || !markdownResult.data) {
-      return { success: false, error: markdownResult.error || '读取论文正文失败' }
+    const payloadResult = await getPaperService().getReaderPayload(paperId)
+    if (!payloadResult.success || !payloadResult.data) {
+      return { success: false, error: payloadResult.error || '读取论文正文失败' }
     }
 
-    registerTranslationSubscriber(paperId, _event.sender)
-
-    // 获取图片列表用于 caption 翻译
-    const figuresResult = await getPaperService().listFigures(paperId)
-    const figures = figuresResult.success && figuresResult.data ? figuresResult.data : undefined
+    if (hasLegacyTranslationSubscriber(_event.sender)) {
+      registerTranslationSubscriber(paperId, _event.sender)
+    }
+    registerTranslationBatchSubscriber(paperId, _event.sender)
 
     try {
-      return await paperTranslationService.startTranslation(paperId, markdownResult.data, figures)
+      return await paperTranslationService.startTranslation(
+        paperId,
+        payloadResult.data.readerDocument.markdown,
+        payloadResult.data.figures
+      )
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('IPC: 启动论文翻译失败', 'main', { paperId, error: errorMessage })
@@ -466,21 +564,21 @@ export function registerPaperHandlers(): void {
     'paper:retranslateSegment',
     async (_event, params: { paperId: string; segmentId: string }) => {
       const { paperId, segmentId } = params
-      const markdownResult = await getPaperService().getReaderMarkdown(paperId)
-      if (!markdownResult.success || !markdownResult.data) {
-        return { success: false, error: markdownResult.error || '读取论文正文失败' }
+      const payloadResult = await getPaperService().getReaderPayload(paperId)
+      if (!payloadResult.success || !payloadResult.data) {
+        return { success: false, error: payloadResult.error || '读取论文正文失败' }
       }
 
-      registerTranslationSubscriber(paperId, _event.sender)
-
-      const figuresResult = await getPaperService().listFigures(paperId)
-      const figures = figuresResult.success && figuresResult.data ? figuresResult.data : undefined
+      if (hasLegacyTranslationSubscriber(_event.sender)) {
+        registerTranslationSubscriber(paperId, _event.sender)
+      }
+      registerTranslationBatchSubscriber(paperId, _event.sender)
 
       try {
         return await paperTranslationService.retranslateSegment(
           paperId,
-          markdownResult.data,
-          figures,
+          payloadResult.data.readerDocument.markdown,
+          payloadResult.data.figures,
           segmentId
         )
       } catch (error) {
