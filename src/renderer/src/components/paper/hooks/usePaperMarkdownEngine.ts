@@ -265,6 +265,72 @@ function renderRawTableInlineMath(root: Element, renderInline: (content: string)
   })
 }
 
+// 代码块内的行内公式渲染（伪代码块中的 $...$ 公式）
+const RAW_CODE_INLINE_MATH_PATTERN = /\$([^\n$]+?)\$/g
+const RAW_CODE_INLINE_MATH_TEST_PATTERN = /\$[^\n$]+?\$/
+const RAW_CODE_INLINE_MATH_SKIP_SELECTOR = ['.katex', '.katex-display', '.texmath'].join(', ')
+
+function renderRawCodeBlockInlineMath(
+  root: Element,
+  renderInline: (content: string) => string
+): void {
+  root.querySelectorAll('pre code').forEach((codeBlock) => {
+    const textNodes: Text[] = []
+    const walker = codeBlock.ownerDocument.createTreeWalker(codeBlock, NodeFilter.SHOW_TEXT)
+
+    while (walker.nextNode()) {
+      const currentNode = walker.currentNode
+      if (
+        currentNode instanceof Text &&
+        RAW_CODE_INLINE_MATH_TEST_PATTERN.test(currentNode.textContent || '')
+      ) {
+        const parent = currentNode.parentElement
+        if (parent && !parent.closest(RAW_CODE_INLINE_MATH_SKIP_SELECTOR)) {
+          textNodes.push(currentNode)
+        }
+      }
+    }
+
+    textNodes.forEach((textNode) => {
+      const content = textNode.textContent || ''
+      const parent = textNode.parentNode
+      if (!parent) return
+
+      const doc = codeBlock.ownerDocument
+      const fragment = doc.createDocumentFragment()
+      let cursor = 0
+
+      for (const match of content.matchAll(RAW_CODE_INLINE_MATH_PATTERN)) {
+        const matchIndex = match.index ?? 0
+        const mathSource = match[0]
+
+        if (matchIndex > cursor) {
+          fragment.appendChild(doc.createTextNode(content.slice(cursor, matchIndex)))
+        }
+
+        const template = doc.createElement('template')
+        template.innerHTML = renderInline(
+          normalizePaperInlineMathForRender(mathSource, 'paragraph')
+        )
+        if (template.content.childNodes.length > 0) {
+          fragment.appendChild(template.content)
+        } else {
+          fragment.appendChild(doc.createTextNode(mathSource))
+        }
+
+        cursor = matchIndex + mathSource.length
+      }
+
+      if (cursor < content.length) {
+        fragment.appendChild(doc.createTextNode(content.slice(cursor)))
+      }
+
+      parent.insertBefore(fragment, textNode)
+      parent.removeChild(textNode)
+    })
+  })
+}
+
 function postProcessRenderedHtml(
   html: string,
   renderInline: (content: string) => string,
@@ -293,6 +359,7 @@ function postProcessRenderedHtml(
   }
 
   renderRawTableInlineMath(root, renderInline)
+  renderRawCodeBlockInlineMath(root, renderInline)
 
   root.querySelectorAll('table').forEach((table) => {
     if (table.parentElement?.classList.contains('paper-markdown-view__table-wrap')) {
