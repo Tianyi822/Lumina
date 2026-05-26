@@ -60,6 +60,17 @@
   color: var(--sm-color-text-secondary);
 }
 
+.model-name-field {
+  padding: var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
+}
+
+.model-name-field label {
+  color: var(--sm-color-text-secondary);
+}
+
 .required {
   color: var(--sm-color-status-danger);
 }

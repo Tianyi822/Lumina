@@ -354,7 +354,7 @@ export default function ModelSettings() {
                       onChange={(e) => updateModelConfig(index, 'api_key', e.target.value)}
                     />
                   </div>
-                  <div className={styles['form-group']}>
+                  <div className={styles['model-name-field']}>
                     <label>模型名称</label>
                     <input
                       value={config.model_name}
@@ -407,7 +407,7 @@ export default function ModelSettings() {
                 }
               />
             </div>
-            <div className={styles['form-group']}>
+            <div className={styles['model-name-field']}>
               <label>
                 模型名称 <span className={styles.required}>*</span>
               </label>
