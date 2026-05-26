@@ -445,8 +445,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const prevBasePathRef = useRef(basePath)
     const prevSourceRevisionIdRef = useRef(readerDocument?.sourceRevisionId)
     const translationRenderKey = useMemo(
-      () => getTranslationRenderKey(translationCache),
-      [translationCache]
+      () => (translationVisible ? getTranslationRenderKey(translationCache) : ''),
+      [translationCache, translationVisible]
     )
     const annotationUpdateKey = useMemo(
       () =>

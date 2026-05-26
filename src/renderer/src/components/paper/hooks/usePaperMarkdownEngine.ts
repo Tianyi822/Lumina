@@ -89,7 +89,13 @@ const EMPTY_SOURCE_REFS: PaperReaderSegmentSourceRefs = {
   blockIndexes: []
 }
 
+interface CachedHtmlResult {
+  html: string
+  failedIds: string[]
+}
+
 const LOCAL_IMAGE_DATA_URL_CACHE_LIMIT = 200
+const SEGMENT_HTML_CACHE_LIMIT = 1800
 const localImageDataUrlCache = new Map<string, Promise<string | null>>()
 const RAW_TABLE_INLINE_MATH_PATTERN = /\$([^\n$]+?)\$/g
 const RAW_TABLE_INLINE_MATH_TEST_PATTERN = /\$[^\n$]+?\$/
@@ -103,6 +109,57 @@ const RAW_TABLE_INLINE_MATH_SKIP_SELECTOR = [
   '.katex-display',
   '.texmath'
 ].join(', ')
+
+function setBoundedCacheValue<T>(
+  cache: Map<string, T>,
+  key: string,
+  value: T,
+  limit: number
+): void {
+  if (cache.size >= limit) {
+    const oldestKey = cache.keys().next().value
+    if (oldestKey) {
+      cache.delete(oldestKey)
+    }
+  }
+  cache.set(key, value)
+}
+
+async function getOrCreateCachedHtmlResult(
+  cache: Map<string, CachedHtmlResult>,
+  key: string,
+  factory: () => Promise<CachedHtmlResult>
+): Promise<CachedHtmlResult> {
+  const cached = cache.get(key)
+  if (cached) {
+    return cached
+  }
+
+  const result = await factory()
+  setBoundedCacheValue(cache, key, result, SEGMENT_HTML_CACHE_LIMIT)
+  return result
+}
+
+function getSegmentAnnotationRenderKey(annotations: PaperAnnotation[]): string {
+  return annotations
+    .map((annotation) =>
+      [
+        annotation.id,
+        annotation.kind,
+        annotation.noteType,
+        annotation.createdInView,
+        annotation.colorKey,
+        annotation.status,
+        annotation.updatedAt,
+        annotation.semanticAnchor.segmentTextHash,
+        annotation.originalAnchor?.startOffset ?? '',
+        annotation.originalAnchor?.endOffset ?? '',
+        annotation.translationAnchor?.startOffset ?? '',
+        annotation.translationAnchor?.endOffset ?? ''
+      ].join('\u0002')
+    )
+    .join('\u0001')
+}
 
 function createFallbackSourceSegments(markdown: string): RenderSourceSegment[] {
   return parsePaperTranslationSegments(markdown).map((segment) => ({
@@ -438,6 +495,8 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
   const [parseError, setParseError] = useState<string | null>(null)
   const [unresolvedAnnotationIds, setUnresolvedAnnotationIds] = useState<string[]>([])
   const renderRunIdRef = useRef(0)
+  const originalHtmlCacheRef = useRef(new Map<string, CachedHtmlResult>())
+  const translationHtmlCacheRef = useRef(new Map<string, CachedHtmlResult>())
 
   const markdownRendererRef = useRef(
     new MarkdownIt({
@@ -554,29 +613,67 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         : translationEntry?.translatedMarkdown
           ? stripPaperTranslationMarkdown(translationEntry.translatedMarkdown)
           : ''
+      const annotationRenderKey = getSegmentAnnotationRenderKey(annotations)
 
-      const originalCollect = highlighter.collectOriginalHighlights(segment, annotations)
-      const originalHtmlResult = highlighter.applyHighlightsToHtml(
-        await renderMarkdownBlock(segment.originalMarkdown, segment.kind, headingId),
-        originalCollect.highlights
+      const originalHtmlResult = await getOrCreateCachedHtmlResult(
+        originalHtmlCacheRef.current,
+        [
+          segment.renderId,
+          segment.sourceRevisionId,
+          options.basePath ?? '',
+          headingId ?? '',
+          annotationRenderKey
+        ].join('\u0001'),
+        async () => {
+          const originalCollect = highlighter.collectOriginalHighlights(segment, annotations)
+          const originalHighlightResult = highlighter.applyHighlightsToHtml(
+            await renderMarkdownBlock(segment.originalMarkdown, segment.kind, headingId),
+            originalCollect.highlights
+          )
+          return {
+            html: originalHighlightResult.html,
+            failedIds: [...originalCollect.failedIds, ...originalHighlightResult.failedIds]
+          }
+        }
       )
-      allFailedIds.push(...originalCollect.failedIds, ...originalHtmlResult.failedIds)
+      allFailedIds.push(...originalHtmlResult.failedIds)
 
-      const translationCollect = highlighter.collectTranslationHighlights(
-        translationText,
-        annotations,
-        segment.originalText
-      )
       const translationHtmlResult =
         translationEntry &&
         translationEntry.status === 'completed' &&
         translationEntry.translatedMarkdown
-          ? highlighter.applyHighlightsToHtml(
-              await renderMarkdownBlock(translationEntry.translatedMarkdown, translationEntry.kind),
-              translationCollect.highlights
+          ? await getOrCreateCachedHtmlResult(
+              translationHtmlCacheRef.current,
+              [
+                translationEntry.id,
+                translationEntry.status,
+                translationEntry.updatedAt || translationEntry.translatedMarkdown,
+                options.basePath ?? '',
+                annotationRenderKey
+              ].join('\u0001'),
+              async () => {
+                const translationCollect = highlighter.collectTranslationHighlights(
+                  translationText,
+                  annotations,
+                  segment.originalText
+                )
+                const translationHighlightResult = highlighter.applyHighlightsToHtml(
+                  await renderMarkdownBlock(
+                    translationEntry.translatedMarkdown || '',
+                    translationEntry.kind
+                  ),
+                  translationCollect.highlights
+                )
+                return {
+                  html: translationHighlightResult.html,
+                  failedIds: [
+                    ...translationCollect.failedIds,
+                    ...translationHighlightResult.failedIds
+                  ]
+                }
+              }
             )
           : null
-      allFailedIds.push(...translationCollect.failedIds)
       if (translationHtmlResult) {
         allFailedIds.push(...translationHtmlResult.failedIds)
       }
