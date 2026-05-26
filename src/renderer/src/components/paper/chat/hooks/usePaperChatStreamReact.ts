@@ -91,7 +91,16 @@ export function usePaperChatStreamReact(
       return
     }
 
-    const nextMessages = [...current.messagesRef.current]
+    // 为流式消息创建新的对象引用及 reactIterations/reactSteps 数组引用，
+    // 确保 PaperChatReActSteps 中的 useMemo 能检测到内容变化
+    const nextMessages = current.messagesRef.current.map((msg) => {
+      if (!msg.isStreaming) return msg
+      return {
+        ...msg,
+        reactIterations: msg.reactIterations ? [...msg.reactIterations] : msg.reactIterations,
+        reactSteps: msg.reactSteps ? [...msg.reactSteps] : msg.reactSteps
+      }
+    })
     current.setMessages(nextMessages)
     usePaperChatMessageCacheStore
       .getState()
