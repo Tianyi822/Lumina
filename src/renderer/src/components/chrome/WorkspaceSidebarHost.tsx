@@ -3,7 +3,7 @@ import WorkspaceSidebarChrome from '@renderer/components/chrome/WorkspaceSidebar
 import { CssSwitchTransition } from '@renderer/components/motion/CssTransition'
 import {
   useUIStateStore,
-  usePaperReaderStore,
+  usePaperListStore,
   useKnowledgeStore,
   useLabListStore
 } from '@renderer/stores'
@@ -21,7 +21,7 @@ export default function WorkspaceSidebarHost() {
   const paperSidebarWidth = useUIStateStore((s) => s.paperSidebarWidth)
   const setPaperSidebarWidth = useUIStateStore((s) => s.setPaperSidebarWidth)
 
-  const paperCount = usePaperReaderStore((s) => s.papers.length)
+  const paperCount = usePaperListStore((s) => s.papers.length)
   const kbCount = useKnowledgeStore((s) => s.knowledgeBases.length)
   const labCount = useLabListStore((s) => s.labList.length)
   const sidebarCount = useMemo(() => {

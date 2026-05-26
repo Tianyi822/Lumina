@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
 import type { KnowledgeBase, MCPTool, Message, SessionData } from '@renderer/types'
 import type { PaperDocument } from '@shared/types/paper'
-import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { ensurePaperChatSession } from '@renderer/stores/paper'
 import { usePaperChatMessageCacheStore } from '@renderer/stores'
 import { messageToSessionMessage, sessionMessageToMessage } from '@renderer/utils/messageHelpers'
 
@@ -158,9 +158,7 @@ export function usePaperChatSessionReact(
     setErrorState('')
 
     try {
-      const sessionResult = await usePaperReaderStore
-        .getState()
-        .ensurePaperChatSession(currentPaper.id)
+      const sessionResult = await ensurePaperChatSession(currentPaper.id)
       const ensuredSessionId = sessionResult.data
       if (!sessionResult.success || !ensuredSessionId) {
         setErrorState(sessionResult.error || '创建论文聊天会话失败')

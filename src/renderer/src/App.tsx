@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useConfigStore } from '@renderer/stores/configStore'
-import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { usePaperViewStore } from '@renderer/stores/paper'
 import { getRuntimePlatform } from '@renderer/composables/runtimePlatformCore'
 
 import NotificationCenter from '@renderer/components/NotificationCenter'
@@ -48,7 +48,7 @@ export default function App() {
     void uiState.initTheme()
     void loadConfigStatus()
     void configStore.loadConfig()
-    usePaperReaderStore.getState().loadPaperReaderPreferences()
+    usePaperViewStore.getState().loadPaperReaderPreferences()
   }, [loadConfigStatus])
 
   // 全局链接拦截

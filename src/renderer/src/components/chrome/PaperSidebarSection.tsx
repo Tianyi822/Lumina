@@ -1,24 +1,23 @@
 import { useState, useMemo, useCallback, memo } from 'react'
 import PaperSidebar from '@renderer/components/paper/PaperSidebar'
-import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { usePaperListStore } from '@renderer/stores/paper'
+import { usePaperTranslationStore } from '@renderer/stores/paper'
+import { usePaperAnnotationStore } from '@renderer/stores/paper'
+import { openPaper, deletePaper, retryPaper, uploadAndRenderPdf } from '@renderer/stores/paper'
 import { useNotification } from '@renderer/composables/useNotification'
 import { summarizeTranslationAnnotations } from '@shared/utils/paperTranslationAnnotations'
 import styles from './WorkspaceSidebarHost.module.css'
 
 const PaperSidebarSection = memo(function PaperSidebarSection() {
-  const papers = usePaperReaderStore((s) => s.papers)
-  const currentPaperId = usePaperReaderStore((s) => s.currentPaperId)
-  const renderProgressByPaperId = usePaperReaderStore((s) => s.renderProgressByPaperId)
-  const ocrProgressByPaperId = usePaperReaderStore((s) => s.ocrProgressByPaperId)
-  const hasTranslationByPaperId = usePaperReaderStore((s) => s.hasTranslationByPaperId)
-  const annotationsByPaperId = usePaperReaderStore((s) => s.annotationsByPaperId)
+  const papers = usePaperListStore((s) => s.papers)
+  const currentPaperId = usePaperListStore((s) => s.currentPaperId)
+  const renderProgressByPaperId = usePaperListStore((s) => s.renderProgressByPaperId)
+  const ocrProgressByPaperId = usePaperListStore((s) => s.ocrProgressByPaperId)
+  const hasTranslationByPaperId = usePaperTranslationStore((s) => s.hasTranslationByPaperId)
+  const annotationsByPaperId = usePaperAnnotationStore((s) => s.annotationsByPaperId)
 
-  const uploadAndRenderPdf = usePaperReaderStore((s) => s.uploadAndRenderPdf)
-  const openPaper = usePaperReaderStore((s) => s.openPaper)
-  const deletePaper = usePaperReaderStore((s) => s.deletePaper)
-  const retryPaper = usePaperReaderStore((s) => s.retryPaper)
-  const loadAnnotations = usePaperReaderStore((s) => s.loadAnnotations)
-  const deleteTranslation = usePaperReaderStore((s) => s.deleteTranslation)
+  const loadAnnotations = usePaperAnnotationStore((s) => s.loadAnnotations)
+  const deleteTranslation = usePaperTranslationStore((s) => s.deleteTranslation)
 
   const [paperSearchQuery, setPaperSearchQuery] = useState('')
   const notify = useNotification()

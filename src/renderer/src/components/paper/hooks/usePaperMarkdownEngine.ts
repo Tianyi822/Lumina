@@ -73,6 +73,7 @@ export interface RenderedSegment {
   stableId: string
   sourceRevisionId: string
   textHash: string
+  kind: PaperTranslationSegmentKind
   originalText: string
   originalHtml: string
   translationHtml: string | null
@@ -176,7 +177,7 @@ function createFallbackSourceSegments(markdown: string): RenderSourceSegment[] {
 }
 
 function resolveLocalImageFilePath(src: string, basePath: string | undefined): string | null {
-  if (!src || /^(data:|blob:|https?:\/\/)/i.test(src)) {
+  if (!src || /^(data:|blob:|https?:\/\/|lumina:\/\/)/i.test(src)) {
     return null
   }
 
@@ -191,6 +192,32 @@ function resolveLocalImageFilePath(src: string, basePath: string | undefined): s
 
   const normalizedBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath
   return `${normalizedBase}/${localAssetPath}`
+}
+
+/**
+ * 将论文相对图片路径转换为 lumina:// 协议 URL
+ * basePath 格式: /path/to/.lumina/papers/{paperId}
+ * src 格式: assets/page-0001/figure-001.png
+ */
+function resolvePaperImageUrl(src: string, basePath: string | undefined): string | null {
+  if (!src || /^(data:|blob:|https?:\/\/|lumina:\/\/)/i.test(src)) {
+    return null
+  }
+
+  const localAssetPath = String(src)
+  if (!basePath || !localAssetPath.startsWith('assets/')) {
+    return null
+  }
+
+  // 从 basePath 提取 paperId（最后一个路径段）
+  const normalizedBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath
+  const lastSlash = normalizedBase.lastIndexOf('/')
+  const paperId = lastSlash >= 0 ? normalizedBase.substring(lastSlash + 1) : ''
+  if (!paperId) {
+    return null
+  }
+
+  return `lumina://paper/${paperId}/${localAssetPath}`
 }
 
 function readLocalImageAsDataUrl(localFilePath: string): Promise<string | null> {
@@ -236,6 +263,13 @@ async function resolveImagePaths(html: string, basePath: string | undefined): Pr
   await Promise.all(
     images.map(async (image) => {
       const src = image.getAttribute('src') || ''
+      // 优先使用 lumina:// 协议 URL（避免 Base64 IPC 传输）
+      const luminaUrl = resolvePaperImageUrl(src, basePath)
+      if (luminaUrl) {
+        image.setAttribute('src', luminaUrl)
+        return
+      }
+      // fallback：使用 IPC 读取 Base64
       const localFilePath = resolveLocalImageFilePath(src, basePath)
       if (!localFilePath) {
         return
@@ -683,6 +717,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         stableId: segment.stableId,
         sourceRevisionId: segment.sourceRevisionId,
         textHash: segment.textHash,
+        kind: segment.kind,
         originalText: segment.originalText,
         originalHtml: originalHtmlResult.html,
         translationHtml: translationHtmlResult?.html ?? null,

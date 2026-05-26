@@ -5,7 +5,11 @@ import texmath from 'markdown-it-texmath'
 import katex from 'katex'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
-import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { usePaperListStore } from '@renderer/stores/paper'
+import { usePaperTranslationStore } from '@renderer/stores/paper'
+import { usePaperFigureStore } from '@renderer/stores/paper'
+import { usePaperViewStore } from '@renderer/stores/paper'
+import { toggleTranslationVisible } from '@renderer/stores/paper'
 import type { PaperFigureItem, PaperTocEntry, PaperTocItem } from '@shared/types/paper'
 import {
   buildFigureCaptionTranslationMap,
@@ -33,31 +37,33 @@ export default function WorkspaceToolbar() {
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
   const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
   const togglePaperChatPanel = useUIStateStore((s) => s.togglePaperChatPanel)
-  const currentPaperId = usePaperReaderStore((s) => s.currentPaperId)
-  const paperTocTitle = usePaperReaderStore((s) => s.paperTocTitle)
-  const paperTocItems = usePaperReaderStore((s) => s.paperTocItems)
-  const figuresByPaperId = usePaperReaderStore((s) => s.figuresByPaperId)
-  const figureLoadingByPaperId = usePaperReaderStore((s) => s.figureLoadingByPaperId)
-  const translationByPaperId = usePaperReaderStore((s) => s.translationByPaperId)
-  const isOcrCompleted = usePaperReaderStore((s) => s.isOcrCompleted())
-  const isCurrentPaperTranslating = usePaperReaderStore((s) => s.isCurrentPaperTranslating())
-  const markdownLoading = usePaperReaderStore((s) => s.markdownLoading)
-  const originalPdfVisible = usePaperReaderStore((s) => s.originalPdfVisible)
-  const showFigurePanel = usePaperReaderStore((s) => s.showFigurePanel)
-  const translationVisible = usePaperReaderStore((s) => s.translationVisible)
-  const canZoomIn = usePaperReaderStore((s) => s.canZoomIn())
-  const canZoomOut = usePaperReaderStore((s) => s.canZoomOut())
-  const zoomPercent = usePaperReaderStore((s) => s.zoomPercent)
-  const closeFigurePanelAction = usePaperReaderStore((s) => s.closeFigurePanel)
-  const closeFigurePreview = usePaperReaderStore((s) => s.closeFigurePreview)
-  const toggleOriginalPdfVisible = usePaperReaderStore((s) => s.toggleOriginalPdfVisible)
-  const toggleTranslationVisible = usePaperReaderStore((s) => s.toggleTranslationVisible)
-  const toggleFigurePanel = usePaperReaderStore((s) => s.toggleFigurePanel)
-  const scrollToHeading = usePaperReaderStore((s) => s.scrollToHeading)
-  const openFigurePreview = usePaperReaderStore((s) => s.openFigurePreview)
-  const zoomOut = usePaperReaderStore((s) => s.zoomOut)
-  const resetZoom = usePaperReaderStore((s) => s.resetZoom)
-  const zoomIn = usePaperReaderStore((s) => s.zoomIn)
+  const currentPaperId = usePaperListStore((s) => s.currentPaperId)
+  const isOcrCompleted = usePaperListStore((s) => s.isOcrCompleted())
+  const markdownLoading = usePaperListStore((s) => s.markdownLoading)
+
+  const paperTocTitle = usePaperViewStore((s) => s.paperTocTitle)
+  const paperTocItems = usePaperViewStore((s) => s.paperTocItems)
+  const originalPdfVisible = usePaperViewStore((s) => s.originalPdfVisible)
+  const canZoomIn = usePaperViewStore((s) => s.canZoomIn())
+  const canZoomOut = usePaperViewStore((s) => s.canZoomOut())
+  const zoomPercent = usePaperViewStore((s) => s.zoomPercent)
+  const toggleOriginalPdfVisible = usePaperViewStore((s) => s.toggleOriginalPdfVisible)
+  const scrollToHeading = usePaperViewStore((s) => s.scrollToHeading)
+  const zoomOut = usePaperViewStore((s) => s.zoomOut)
+  const resetZoom = usePaperViewStore((s) => s.resetZoom)
+  const zoomIn = usePaperViewStore((s) => s.zoomIn)
+
+  const figuresByPaperId = usePaperFigureStore((s) => s.figuresByPaperId)
+  const figureLoadingByPaperId = usePaperFigureStore((s) => s.figureLoadingByPaperId)
+  const showFigurePanel = usePaperFigureStore((s) => s.showFigurePanel)
+  const closeFigurePanelAction = usePaperFigureStore((s) => s.closeFigurePanel)
+  const closeFigurePreview = usePaperFigureStore((s) => s.closeFigurePreview)
+  const toggleFigurePanel = usePaperFigureStore((s) => s.toggleFigurePanel)
+  const openFigurePreview = usePaperFigureStore((s) => s.openFigurePreview)
+
+  const translationByPaperId = usePaperTranslationStore((s) => s.translationByPaperId)
+  const isCurrentPaperTranslating = usePaperTranslationStore((s) => s.isCurrentPaperTranslating())
+  const translationVisible = usePaperTranslationStore((s) => s.translationVisible)
 
   const tocContainerRef = useRef<HTMLDivElement>(null)
   const figureContainerRef = useRef<HTMLDivElement>(null)

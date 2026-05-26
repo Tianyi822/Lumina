@@ -7,7 +7,9 @@ import {
   useImperativeHandle,
   forwardRef
 } from 'react'
-import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { usePaperViewStore } from '@renderer/stores/paper'
+import { usePaperAnnotationStore } from '@renderer/stores/paper'
+import { retranslateSegment } from '@renderer/stores/paper'
 import { useNotification } from '@renderer/composables/useNotification'
 import type {
   PaperAnnotation,
@@ -81,20 +83,16 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     ref
   ) {
     const notify = useNotification()
-    const zoomLevel = usePaperReaderStore((state) => state.zoomLevel)
-    const setPaperTocOutline = usePaperReaderStore((state) => state.setPaperTocOutline)
-    const clearPaperToc = usePaperReaderStore((state) => state.clearPaperToc)
-    const createAnnotation = usePaperReaderStore((state) => state.createAnnotation)
-    const updateAnnotation = usePaperReaderStore((state) => state.updateAnnotation)
-    const deleteAnnotation = usePaperReaderStore((state) => state.deleteAnnotation)
-    const retranslateSegment = usePaperReaderStore((state) => state.retranslateSegment)
-    const handleWheelZoom = usePaperReaderStore((state) => state.handleWheelZoom)
-    const setMarkdownScrollPosition = usePaperReaderStore(
-      (state) => state.setMarkdownScrollPosition
-    )
-    const getMarkdownScrollPosition = usePaperReaderStore(
-      (state) => state.getMarkdownScrollPosition
-    )
+    const zoomLevel = usePaperViewStore((state) => state.zoomLevel)
+    const setPaperTocOutline = usePaperViewStore((state) => state.setPaperTocOutline)
+    const clearPaperToc = usePaperViewStore((state) => state.clearPaperToc)
+    const handleWheelZoom = usePaperViewStore((state) => state.handleWheelZoom)
+    const setMarkdownScrollPosition = usePaperViewStore((state) => state.setMarkdownScrollPosition)
+    const getMarkdownScrollPosition = usePaperViewStore((state) => state.getMarkdownScrollPosition)
+
+    const createAnnotation = usePaperAnnotationStore((state) => state.createAnnotation)
+    const updateAnnotation = usePaperAnnotationStore((state) => state.updateAnnotation)
+    const deleteAnnotation = usePaperAnnotationStore((state) => state.deleteAnnotation)
 
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     const searchInputRef = useRef<HTMLInputElement>(null)
@@ -902,6 +900,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
             >
               <PaperMarkdownSegmentList
                 segments={engine.renderedSegments}
+                scrollContainerRef={scrollContainerRef}
                 onRetranslate={handleRetranslateSegment}
               />
             </article>

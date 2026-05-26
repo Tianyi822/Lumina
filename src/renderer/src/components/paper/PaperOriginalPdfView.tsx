@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react'
-import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { usePaperViewStore } from '@renderer/stores/paper'
 import type { PaperPageAsset } from '@shared/types/paper'
-import { buildBase64DataUrl } from '@shared/utils'
 import { useZoomAnchor } from './composables/useZoomAnchor'
 import styles from './PaperOriginalPdfView.module.css'
 
@@ -30,14 +29,14 @@ export default function PaperOriginalPdfView({
   pageAssets,
   pageCount
 }: PaperOriginalPdfViewProps) {
-  const zoomLevel = usePaperReaderStore((state) => state.zoomLevel)
-  const setOriginalPdfScrollPosition = usePaperReaderStore(
+  const zoomLevel = usePaperViewStore((state) => state.zoomLevel)
+  const setOriginalPdfScrollPosition = usePaperViewStore(
     (state) => state.setOriginalPdfScrollPosition
   )
-  const getOriginalPdfScrollPosition = usePaperReaderStore(
+  const getOriginalPdfScrollPosition = usePaperViewStore(
     (state) => state.getOriginalPdfScrollPosition
   )
-  const handleWheelZoom = usePaperReaderStore((state) => state.handleWheelZoom)
+  const handleWheelZoom = usePaperViewStore((state) => state.handleWheelZoom)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [pageStates, setPageStates] = useState<Record<number, PageLoadState>>({})
@@ -189,7 +188,7 @@ export default function PaperOriginalPdfView({
   }
 
   const loadPage = useCallback(
-    async (pageIndex: number): Promise<void> => {
+    (pageIndex: number): void => {
       const page = findPage(pageIndex)
       if (!page) {
         return
@@ -211,26 +210,17 @@ export default function PaperOriginalPdfView({
       const targetPaperId = paperIdRef.current
       setPageState(pageIndex, { status: 'loading' })
 
-      const result = await window.api.paper.getPageImage({
-        paperId: targetPaperId,
-        pageIndex
-      })
+      // 使用 lumina:// 协议直接加载页面图片，避免 Base64 IPC 传输
+      const paddedIndex = String(pageIndex + 1).padStart(4, '0')
+      const imageUrl = `lumina://paper/${targetPaperId}/pages/page-${paddedIndex}.jpg`
 
       if (paperIdRef.current !== targetPaperId) {
         return
       }
 
-      if (!result.success || !result.data) {
-        setPageState(pageIndex, {
-          status: 'error',
-          error: result.error || '读取页图失败'
-        })
-        return
-      }
-
       setPageState(pageIndex, {
         status: 'loaded',
-        dataUrl: buildBase64DataUrl(result.data, page.imageMimeType)
+        dataUrl: imageUrl
       })
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -413,6 +403,12 @@ export default function PaperOriginalPdfView({
                       className={styles['paper-original-pdf-view__image']}
                       src={state.dataUrl}
                       alt={`第 ${page.pageIndex + 1} 页原件`}
+                      onError={() =>
+                        setPageState(page.pageIndex, {
+                          status: 'error',
+                          error: '页图加载失败'
+                        })
+                      }
                     />
                   ) : state.status === 'error' ? (
                     <div
