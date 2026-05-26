@@ -10,7 +10,7 @@ import { parseMessageOptions } from '@renderer/utils/optionParser'
 import { usePaperChatSessionReact } from './hooks/usePaperChatSessionReact'
 import { usePaperChatStreamReact } from './hooks/usePaperChatStreamReact'
 import PaperChatInput, { type PaperChatQuickReply } from './PaperChatInput'
-import PaperChatMessageList from './PaperChatMessageList'
+import PaperChatMessageList, { type PaperChatMessageListHandle } from './PaperChatMessageList'
 import PaperChatPlanDock from './PaperChatPlanDock'
 import styles from './PaperChatPanel.module.css'
 
@@ -36,6 +36,8 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
   const dragCounterRef = useRef(0)
   const composerRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLElement>(null)
+  const messageListRef = useRef<PaperChatMessageListHandle>(null)
+  const [showScrollButton, setShowScrollButton] = useState(false)
 
   const setPaperChatPanelOpen = useUIStateStore((s) => s.setPaperChatPanelOpen)
   const showUserInteraction = usePaperChatStreamStore((s) => s.showUserInteraction)
@@ -195,10 +197,12 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
         <div className={styles['paper-chat-panel__loading']}>正在加载论文对话...</div>
       ) : (
         <PaperChatMessageList
+          ref={messageListRef}
           messages={sessionState.messages}
           currentModelName={sessionState.selectedModel}
           currentChatId={sessionState.sessionId}
           onQuoteClick={scrollToQuote || undefined}
+          onScrollButtonChange={setShowScrollButton}
         />
       )}
 
@@ -236,6 +240,16 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
           setIsDragging(false)
         }}
       >
+        {showScrollButton && (
+          <button
+            className={styles['paper-chat-panel__scroll-button']}
+            type="button"
+            aria-label="滚动到底部"
+            onClick={() => messageListRef.current?.scrollToBottom()}
+          >
+            <SvgIcon name="arrow-down" size={16} />
+          </button>
+        )}
         <PaperChatPlanDock
           planState={currentPlanState}
           sending={streamState.isSending}
