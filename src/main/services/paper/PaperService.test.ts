@@ -17,6 +17,7 @@ import {
   getPaperDirPath,
   getPaperFigureAssetPath,
   getPaperMetaPath,
+  getPaperReaderDocumentPath,
   getPaperSourcePdfPath
 } from './paperPaths.ts'
 import type { KnowledgeBase } from '../../../shared/types/knowledge.ts'
@@ -89,21 +90,45 @@ function createReaderDocument(segment: PaperReaderSegment): PaperReaderDocument 
   }
 }
 
-function createPaperDocument(): PaperDocument {
+function createPaperDocument(overrides: Partial<PaperDocument> = {}): PaperDocument {
   return {
-    id: 'paper-1',
-    fileName: 'sample-paper.pdf',
-    filePath: '/tmp/sample-paper.pdf',
-    fileHash: 'paper-hash',
-    fileSize: 12,
-    pageCount: 1,
+    id: overrides.id ?? 'paper-1',
+    fileName: overrides.fileName ?? 'sample-paper.pdf',
+    filePath: overrides.filePath ?? '/tmp/sample-paper.pdf',
+    fileHash: overrides.fileHash ?? 'paper-hash',
+    fileSize: overrides.fileSize ?? 12,
+    pageCount: overrides.pageCount ?? 1,
+    status: overrides.status ?? 'completed',
+    createdAt: overrides.createdAt ?? '2025-01-01T00:00:00.000Z',
+    updatedAt: overrides.updatedAt ?? '2025-01-01T00:00:00.000Z',
+    lastOpenedAt: overrides.lastOpenedAt ?? '2025-01-01T00:00:00.000Z',
+    ocrProvider: overrides.ocrProvider ?? 'glm-ocr',
+    ocrModel: overrides.ocrModel ?? 'glm-ocr',
+    completedPageCount: overrides.completedPageCount ?? 1,
+    pageAssets: overrides.pageAssets,
+    readingProgress: overrides.readingProgress,
+    chatSessionId: overrides.chatSessionId,
+    errorMessage: overrides.errorMessage
+  }
+}
+
+function createPageOcrResult(paperId: string, markdown: string): PaperPageOcrResult {
+  return {
+    paperId,
+    pageIndex: 0,
     status: 'completed',
-    createdAt: '2025-01-01T00:00:00.000Z',
-    updatedAt: '2025-01-01T00:00:00.000Z',
-    lastOpenedAt: '2025-01-01T00:00:00.000Z',
-    ocrProvider: 'glm-ocr',
-    ocrModel: 'glm-ocr',
-    completedPageCount: 1
+    markdown,
+    blocks: [
+      {
+        index: 0,
+        pageIndex: 0,
+        label: 'text',
+        content: markdown,
+        bbox: { x: 100, y: 100, width: 500, height: 40 },
+        width: 1000,
+        height: 1200
+      }
+    ]
   }
 }
 
@@ -244,6 +269,7 @@ test('getReaderDocument 会写回历史 normalized 中残留的远端图片 URL'
   rmSync(getPaperDirPath(paperId), { recursive: true, force: true })
   mkdirSync(dirname(localAbsolutePath), { recursive: true })
   writeFileSync(localAbsolutePath, 'png')
+  paperStorageService.saveMeta(paperId, createPaperDocument({ id: paperId, pageCount: 1 }))
 
   paperStorageService.listNormalizedResults = () => ({ success: true, data: [pageResult] })
   paperStorageService.saveNormalizedResult = (_paperId, _pageIndex, result) => {
@@ -267,6 +293,78 @@ test('getReaderDocument 会写回历史 normalized 中残留的远端图片 URL'
     paperStorageService.listNormalizedResults = originalListNormalizedResults
     paperStorageService.saveNormalizedResult = originalSaveNormalizedResult
     rmSync(getPaperDirPath(paperId), { recursive: true, force: true })
+  }
+})
+
+test('getReaderDocument 会生成并命中 reader-document 缓存', async () => {
+  const service = new PaperService()
+  const paperId = 'paper-reader-cache-hit'
+  const originalListNormalizedResults = paperStorageService.listNormalizedResults
+
+  resetPaperData(paperId)
+  mkdirSync(getPaperDirPath(paperId), { recursive: true })
+  paperStorageService.saveMeta(paperId, createPaperDocument({ id: paperId, pageCount: 1 }))
+  paperStorageService.saveNormalizedResult(
+    paperId,
+    0,
+    createPageOcrResult(paperId, 'First cached paragraph.')
+  )
+
+  try {
+    const firstResult = await service.getReaderDocument(paperId)
+    assert.equal(firstResult.success, true)
+    assert.match(firstResult.data?.markdown ?? '', /First cached paragraph/)
+
+    const cache = JSON.parse(readFileSync(getPaperReaderDocumentPath(paperId), 'utf-8')) as {
+      builderVersion?: number
+      readerDocument?: PaperReaderDocument
+    }
+    assert.equal(cache.builderVersion, 1)
+    assert.match(cache.readerDocument?.markdown ?? '', /First cached paragraph/)
+
+    paperStorageService.listNormalizedResults = () => {
+      throw new Error('命中缓存时不应重新读取 normalized OCR')
+    }
+
+    const secondResult = await service.getReaderDocument(paperId)
+    assert.equal(secondResult.success, true)
+    assert.equal(secondResult.data?.markdown, firstResult.data?.markdown)
+  } finally {
+    paperStorageService.listNormalizedResults = originalListNormalizedResults
+    resetPaperData(paperId)
+  }
+})
+
+test('getReaderDocument 会在 normalized 文件变化后重建 reader-document 缓存', async () => {
+  const service = new PaperService()
+  const paperId = 'paper-reader-cache-invalidated'
+
+  resetPaperData(paperId)
+  mkdirSync(getPaperDirPath(paperId), { recursive: true })
+  paperStorageService.saveMeta(paperId, createPaperDocument({ id: paperId, pageCount: 1 }))
+  paperStorageService.saveNormalizedResult(
+    paperId,
+    0,
+    createPageOcrResult(paperId, 'Original reader paragraph.')
+  )
+
+  try {
+    const firstResult = await service.getReaderDocument(paperId)
+    assert.equal(firstResult.success, true)
+    assert.match(firstResult.data?.markdown ?? '', /Original reader paragraph/)
+
+    paperStorageService.saveNormalizedResult(
+      paperId,
+      0,
+      createPageOcrResult(paperId, 'Updated reader paragraph with longer content.')
+    )
+
+    const secondResult = await service.getReaderDocument(paperId)
+    assert.equal(secondResult.success, true)
+    assert.match(secondResult.data?.markdown ?? '', /Updated reader paragraph/)
+    assert.doesNotMatch(secondResult.data?.markdown ?? '', /Original reader paragraph/)
+  } finally {
+    resetPaperData(paperId)
   }
 })
 
