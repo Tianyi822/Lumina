@@ -35,8 +35,6 @@ export default function WorkspaceSidebarHost() {
   const renderProgressByPaperId = usePaperReaderStore((s) => s.renderProgressByPaperId)
   const ocrProgressByPaperId = usePaperReaderStore((s) => s.ocrProgressByPaperId)
   const hasTranslationByPaperId = usePaperReaderStore((s) => s.hasTranslationByPaperId)
-  const translationSummaryByPaperId = usePaperReaderStore((s) => s.translationSummaryByPaperId)
-  const translationVisible = usePaperReaderStore((s) => s.translationVisible)
   const annotationsByPaperId = usePaperReaderStore((s) => s.annotationsByPaperId)
   const uploadAndRenderPdf = usePaperReaderStore((s) => s.uploadAndRenderPdf)
   const openPaper = usePaperReaderStore((s) => s.openPaper)
@@ -58,17 +56,6 @@ export default function WorkspaceSidebarHost() {
   const openCreateForm = useKnowledgeStore((s) => s.openCreateForm)
   const deleteKnowledgeBase = useKnowledgeStore((s) => s.deleteKnowledgeBase)
   const knowledgeError = useKnowledgeStore((s) => s.error)
-
-  // 侧边栏只读取轻量译文摘要，避免为标题加载完整翻译缓存。
-  const translatedTitleByPaperId = useMemo<Record<string, string>>(() => {
-    const map: Record<string, string> = {}
-    for (const [paperId, summary] of Object.entries(translationSummaryByPaperId)) {
-      if (summary.translatedTitle) {
-        map[paperId] = summary.translatedTitle
-      }
-    }
-    return map
-  }, [translationSummaryByPaperId])
 
   const [knowledgeSearchQuery, setKnowledgeSearchQuery] = useState('')
   const [labSearchQuery, setLabSearchQuery] = useState('')
@@ -532,8 +519,6 @@ export default function WorkspaceSidebarHost() {
                       renderProgressByPaperId={renderProgressByPaperId}
                       ocrProgressByPaperId={ocrProgressByPaperId}
                       hasTranslationByPaperId={hasTranslationByPaperId}
-                      translatedTitleByPaperId={translatedTitleByPaperId}
-                      translationVisible={translationVisible}
                       onSelectPaper={handleSelectPaper}
                       onDeletePaper={handleDeletePaper}
                       onDeleteTranslation={handleDeleteTranslation}

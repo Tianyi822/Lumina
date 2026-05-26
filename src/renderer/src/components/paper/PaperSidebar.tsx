@@ -50,8 +50,6 @@ interface PaperSidebarProps {
   renderProgressByPaperId: Record<string, RenderingProgress>
   ocrProgressByPaperId: Record<string, OcrProgressInfo>
   hasTranslationByPaperId: Record<string, boolean>
-  translatedTitleByPaperId: Record<string, string>
-  translationVisible: boolean
   onSelectPaper: (paperId: string) => void
   onDeletePaper: (paperId: string) => void
   onDeleteTranslation: (paperId: string) => void
@@ -66,8 +64,6 @@ interface PaperSidebarItemProps {
   renderProgress?: RenderingProgress
   ocrProgress?: OcrProgressInfo
   hasTranslated: boolean
-  translatedTitle?: string
-  translationVisible: boolean
   onSelectPaper: (paperId: string) => void
   onDeletePaper: (paperId: string, event: React.MouseEvent) => void
   onDeleteTranslation: (paperId: string, event: React.MouseEvent) => void
@@ -246,8 +242,6 @@ const PaperSidebarItem = memo(
       renderProgress,
       ocrProgress,
       hasTranslated,
-      translatedTitle,
-      translationVisible,
       onSelectPaper,
       onDeletePaper,
       onDeleteTranslation,
@@ -257,7 +251,7 @@ const PaperSidebarItem = memo(
     },
     ref
   ) {
-    const displayName = translationVisible && translatedTitle ? translatedTitle : paper.fileName
+    const displayName = paper.title || paper.fileName.replace(/\.pdf$/i, '')
     const renderedHtml = useMemo(
       () => renderPaperTitleHtml(paper.id, displayName),
       [displayName, paper.id]
@@ -403,8 +397,6 @@ const PaperSidebarItem = memo(
     prev.renderProgress === next.renderProgress &&
     prev.ocrProgress === next.ocrProgress &&
     prev.hasTranslated === next.hasTranslated &&
-    prev.translatedTitle === next.translatedTitle &&
-    prev.translationVisible === next.translationVisible &&
     prev.onSelectPaper === next.onSelectPaper &&
     prev.onDeletePaper === next.onDeletePaper &&
     prev.onDeleteTranslation === next.onDeleteTranslation &&
@@ -419,8 +411,6 @@ export default function PaperSidebar({
   renderProgressByPaperId,
   ocrProgressByPaperId,
   hasTranslationByPaperId,
-  translatedTitleByPaperId,
-  translationVisible,
   onSelectPaper,
   onDeletePaper,
   onDeleteTranslation,
@@ -504,8 +494,6 @@ export default function PaperSidebar({
                 renderProgress={renderProgressByPaperId[paper.id]}
                 ocrProgress={ocrProgressByPaperId[paper.id]}
                 hasTranslated={hasTranslationByPaperId[paper.id] === true}
-                translatedTitle={translatedTitleByPaperId[paper.id]}
-                translationVisible={translationVisible}
                 onSelectPaper={onSelectPaper}
                 onDeletePaper={handleDeletePaper}
                 onDeleteTranslation={handleDeleteTranslation}
