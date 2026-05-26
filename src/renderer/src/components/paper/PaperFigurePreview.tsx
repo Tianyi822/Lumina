@@ -4,6 +4,7 @@ import MarkdownIt from 'markdown-it'
 import texmath from 'markdown-it-texmath'
 import katex from 'katex'
 import { buildFigureCaptionTranslationMap } from '@shared/utils/paperTranslation'
+import { normalizePaperInlineMathForRender } from '@shared/utils/paperMarkdown'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import type { PaperFigurePreviewRect } from '@renderer/stores/paperReaderStore'
@@ -517,7 +518,9 @@ export default function PaperFigurePreview() {
 
         <div
           className={styles['paper-figure-preview__caption']}
-          dangerouslySetInnerHTML={{ __html: captionMd.render(previewCaption) }}
+          dangerouslySetInnerHTML={{
+            __html: captionMd.render(normalizePaperInlineMathForRender(previewCaption, 'paragraph'))
+          }}
         />
       </div>
 

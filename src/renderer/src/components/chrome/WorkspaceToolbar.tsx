@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import MarkdownIt from 'markdown-it'
+import texmath from 'markdown-it-texmath'
+import katex from 'katex'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
@@ -8,7 +11,14 @@ import {
   buildFigureCaptionTranslationMap,
   hasPaperTranslationResult
 } from '@shared/utils/paperTranslation'
+import { normalizePaperInlineMathForRender } from '@shared/utils/paperMarkdown'
 import styles from './WorkspaceToolbar.module.css'
+
+const captionMd = new MarkdownIt({ html: true, breaks: true }).use(texmath, {
+  engine: katex,
+  delimiters: ['dollars', 'brackets', 'beg_end'],
+  katexOptions: { throwOnError: false, strict: 'ignore', output: 'htmlAndMathml' }
+})
 
 interface PaperTocTreeNode {
   item: PaperTocItem
@@ -526,9 +536,15 @@ export default function WorkspaceToolbar() {
                         <div
                           className={styles['sm-workspace-toolbar__figure-caption']}
                           title={getFigureItemLabel(figure)}
-                        >
-                          {getFigureItemLabel(figure)}
-                        </div>
+                          dangerouslySetInnerHTML={{
+                            __html: captionMd.render(
+                              normalizePaperInlineMathForRender(
+                                getFigureItemLabel(figure),
+                                'paragraph'
+                              )
+                            )
+                          }}
+                        />
                       </div>
 
                       <button
