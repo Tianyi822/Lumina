@@ -58,6 +58,8 @@ export interface PaperDocument {
   id: string
   /** 原始文件名 */
   fileName: string
+  /** 显示标题（文件名去除扩展名） */
+  title?: string
   /** 本地 PDF 文件路径 */
   filePath: string
   /** 文件 hash（用于去重） */

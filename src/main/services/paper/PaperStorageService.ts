@@ -107,6 +107,15 @@ export class PaperStorageService {
       }
     }
 
+    // 迁移：为旧数据补充 title 字段
+    if (nextDocument.title === undefined) {
+      nextDocument = {
+        ...nextDocument,
+        title: nextDocument.fileName.replace(/\.pdf$/i, '')
+      }
+      changed = true
+    }
+
     return { document: nextDocument, changed }
   }
 
@@ -170,6 +179,7 @@ export class PaperStorageService {
       ensurePaperDirs(paperId)
 
       const fileName = path.basename(sourcePdfPath) || 'unknown.pdf'
+      const title = path.basename(sourcePdfPath, path.extname(sourcePdfPath)) || fileName
       const localPdfPath = getPaperSourcePdfPath(paperId)
       copyFileSync(sourcePdfPath, localPdfPath)
 
@@ -179,6 +189,7 @@ export class PaperStorageService {
       const document: PaperDocument = {
         id: paperId,
         fileName,
+        title,
         filePath: localPdfPath,
         fileHash,
         fileSize: actualFileSize,
