@@ -7,7 +7,6 @@ import PaperSidebar from '@renderer/components/paper/PaperSidebar'
 import { CssSwitchTransition, CssTransitionGroup } from '@renderer/components/motion/CssTransition'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 import { summarizeTranslationAnnotations } from '@shared/utils/paperTranslationAnnotations'
-import { extractTranslatedDocumentTitle } from '@shared/utils/paperTranslation'
 import {
   useKnowledgeStore,
   useUIStateStore,
@@ -17,8 +16,6 @@ import {
 } from '@renderer/stores'
 import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
 import { useNotification } from '@renderer/composables/useNotification'
-import type { OcrProgressInfo, PaperDocument } from '@shared/types/paper'
-import type { RenderingProgress } from '@renderer/stores/paperReaderStore'
 import styles from './WorkspaceSidebarHost.module.css'
 
 const PAPER_SIDEBAR_MIN_WIDTH = 260
@@ -33,7 +30,20 @@ export default function WorkspaceSidebarHost() {
   const paperSidebarWidth = useUIStateStore((s) => s.paperSidebarWidth)
   const setPaperSidebarWidth = useUIStateStore((s) => s.setPaperSidebarWidth)
 
-  const paperReaderStore = usePaperReaderStore()
+  const papers = usePaperReaderStore((s) => s.papers)
+  const currentPaperId = usePaperReaderStore((s) => s.currentPaperId)
+  const renderProgressByPaperId = usePaperReaderStore((s) => s.renderProgressByPaperId)
+  const ocrProgressByPaperId = usePaperReaderStore((s) => s.ocrProgressByPaperId)
+  const hasTranslationByPaperId = usePaperReaderStore((s) => s.hasTranslationByPaperId)
+  const translationSummaryByPaperId = usePaperReaderStore((s) => s.translationSummaryByPaperId)
+  const translationVisible = usePaperReaderStore((s) => s.translationVisible)
+  const annotationsByPaperId = usePaperReaderStore((s) => s.annotationsByPaperId)
+  const uploadAndRenderPdf = usePaperReaderStore((s) => s.uploadAndRenderPdf)
+  const openPaper = usePaperReaderStore((s) => s.openPaper)
+  const deletePaper = usePaperReaderStore((s) => s.deletePaper)
+  const retryPaper = usePaperReaderStore((s) => s.retryPaper)
+  const loadAnnotations = usePaperReaderStore((s) => s.loadAnnotations)
+  const deleteTranslation = usePaperReaderStore((s) => s.deleteTranslation)
   // 从子 store 获取响应式数据
   const currentLab = useLabListStore((s) => s.currentLab)
   const labList = useLabListStore((s) => s.labList)
@@ -49,56 +59,16 @@ export default function WorkspaceSidebarHost() {
   const deleteKnowledgeBase = useKnowledgeStore((s) => s.deleteKnowledgeBase)
   const knowledgeError = useKnowledgeStore((s) => s.error)
 
-  const papers = useMemo<PaperDocument[]>(
-    () => (paperReaderStore.papers ?? []) as PaperDocument[],
-    [paperReaderStore.papers]
-  )
-  const currentPaperId = (paperReaderStore.currentPaperId ?? null) as string | null
-  const renderProgressByPaperId = useMemo<Record<string, RenderingProgress>>(
-    () => (paperReaderStore.renderProgressByPaperId ?? {}) as Record<string, RenderingProgress>,
-    [paperReaderStore.renderProgressByPaperId]
-  )
-  const ocrProgressByPaperId = useMemo<Record<string, OcrProgressInfo>>(
-    () => (paperReaderStore.ocrProgressByPaperId ?? {}) as Record<string, OcrProgressInfo>,
-    [paperReaderStore.ocrProgressByPaperId]
-  )
-  const hasTranslationByPaperId = useMemo<Record<string, boolean>>(
-    () => (paperReaderStore.hasTranslationByPaperId ?? {}) as Record<string, boolean>,
-    [paperReaderStore.hasTranslationByPaperId]
-  )
-  const translationVisible = paperReaderStore.translationVisible
-
-  // 从翻译缓存中提取各论文的译文标题
+  // 侧边栏只读取轻量译文摘要，避免为标题加载完整翻译缓存。
   const translatedTitleByPaperId = useMemo<Record<string, string>>(() => {
     const map: Record<string, string> = {}
-    const caches = paperReaderStore.translationByPaperId ?? {}
-    for (const [paperId, cache] of Object.entries(caches)) {
-      const title = extractTranslatedDocumentTitle(cache)
-      if (title) map[paperId] = title
+    for (const [paperId, summary] of Object.entries(translationSummaryByPaperId)) {
+      if (summary.translatedTitle) {
+        map[paperId] = summary.translatedTitle
+      }
     }
     return map
-  }, [paperReaderStore.translationByPaperId])
-
-  // 按需加载未缓存的翻译数据（用于侧边栏显示译文标题）
-  // 使用 ref 追踪已调度加载的 ID，避免每次 translationByPaperId 更新时重复触发
-  const scheduledTranslationIdsRef = useRef<Set<string>>(new Set())
-  useEffect(() => {
-    const hasMap = paperReaderStore.hasTranslationByPaperId ?? {}
-    const idsToLoad = papers
-      .filter(
-        (p: PaperDocument) =>
-          hasMap[p.id] && !scheduledTranslationIdsRef.current.has(p.id)
-      )
-      .map((p: PaperDocument) => p.id)
-
-    if (idsToLoad.length === 0) return
-
-    // 立即标记为已调度，防止 effect 重复运行时重复加载
-    idsToLoad.forEach((id) => scheduledTranslationIdsRef.current.add(id))
-    // 并行加载全部（不再顺序分批），读取本地磁盘缓存，速度快
-    void Promise.all(idsToLoad.map((id) => paperReaderStore.loadTranslationState(id)))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [papers, paperReaderStore.hasTranslationByPaperId])
+  }, [translationSummaryByPaperId])
 
   const [knowledgeSearchQuery, setKnowledgeSearchQuery] = useState('')
   const [labSearchQuery, setLabSearchQuery] = useState('')
@@ -294,17 +264,17 @@ export default function WorkspaceSidebarHost() {
   }, [currentLab?.labId, isRefreshingLabList, labStore])
 
   const handleUploadPdf = useCallback(async (): Promise<void> => {
-    await paperReaderStore.uploadAndRenderPdf()
-  }, [paperReaderStore])
+    await uploadAndRenderPdf()
+  }, [uploadAndRenderPdf])
 
   const handleSelectPaper = useCallback(
     async (paperId: string): Promise<void> => {
-      const openedPaper = await paperReaderStore.openPaper(paperId)
+      const openedPaper = await openPaper(paperId)
       if (!openedPaper) {
         window.api.logger.warn('[WorkspaceSidebarHost] 打开论文失败', { paperId })
       }
     },
-    [paperReaderStore]
+    [openPaper]
   )
 
   const handleDeletePaper = useCallback(
@@ -316,28 +286,28 @@ export default function WorkspaceSidebarHost() {
       })
       if (!confirmed) return
 
-      const success = await paperReaderStore.deletePaper(paperId)
+      const success = await deletePaper(paperId)
       if (!success) {
         notify.error('删除论文失败', '请稍后重试或查看日志获取更多信息。', { source: 'paper' })
       }
     },
-    [notify, paperReaderStore]
+    [deletePaper, notify]
   )
 
   const handleRetryPaper = useCallback(
     async (paperId: string): Promise<void> => {
-      const result = await paperReaderStore.retryPaper(paperId)
+      const result = await retryPaper(paperId)
       if (!result.success) {
         notify.error('重试失败', result.error || '未知错误', { source: 'paper' })
       }
     },
-    [notify, paperReaderStore]
+    [notify, retryPaper]
   )
 
   const handleDeleteTranslation = useCallback(
     async (paperId: string): Promise<void> => {
-      const cachedAnnotations = paperReaderStore.annotationsByPaperId[paperId]
-      const annotations = cachedAnnotations ?? (await paperReaderStore.loadAnnotations(paperId))
+      const cachedAnnotations = annotationsByPaperId[paperId]
+      const annotations = cachedAnnotations ?? (await loadAnnotations(paperId))
       const translationSummary = summarizeTranslationAnnotations(annotations)
 
       if (translationSummary.totalCount > 0) {
@@ -368,12 +338,12 @@ export default function WorkspaceSidebarHost() {
         }
       }
 
-      const result = await paperReaderStore.deleteTranslation(paperId)
+      const result = await deleteTranslation(paperId)
       if (!result.success) {
         notify.error('删除译文失败', result.error || '未知错误', { source: 'paper' })
       }
     },
-    [notify, paperReaderStore]
+    [annotationsByPaperId, deleteTranslation, loadAnnotations, notify]
   )
 
   useEffect(() => {
@@ -564,18 +534,10 @@ export default function WorkspaceSidebarHost() {
                       hasTranslationByPaperId={hasTranslationByPaperId}
                       translatedTitleByPaperId={translatedTitleByPaperId}
                       translationVisible={translationVisible}
-                      onSelectPaper={(paperId) => {
-                        void handleSelectPaper(paperId)
-                      }}
-                      onDeletePaper={(paperId) => {
-                        void handleDeletePaper(paperId)
-                      }}
-                      onDeleteTranslation={(paperId) => {
-                        void handleDeleteTranslation(paperId)
-                      }}
-                      onRetryPaper={(paperId) => {
-                        void handleRetryPaper(paperId)
-                      }}
+                      onSelectPaper={handleSelectPaper}
+                      onDeletePaper={handleDeletePaper}
+                      onDeleteTranslation={handleDeleteTranslation}
+                      onRetryPaper={handleRetryPaper}
                     />
                   )}
 

@@ -11,7 +11,8 @@ import type {
   PaperTocOutline,
   PaperTranslationCache,
   PaperTranslationEntry,
-  PaperTranslationProgress,
+  PaperTranslationProgressBatch,
+  PaperTranslationSummary,
   PaperTranslationStatus,
   CreatePaperAnnotationPayload,
   UpdatePaperAnnotationPayload
@@ -26,6 +27,7 @@ import {
 } from '@shared/utils'
 import {
   buildFigureCaptionTranslationMap,
+  extractTranslatedDocumentTitle,
   hasPaperTranslationResult
 } from '@shared/utils/paperTranslation'
 import { usePdfPageRasterizer } from '@renderer/composables/usePdfPageRasterizer'
@@ -272,6 +274,7 @@ interface PaperReaderState {
   translationByPaperId: Record<string, PaperTranslationCache>
   translationTaskByPaperId: Record<string, PaperTranslationTaskState>
   hasTranslationByPaperId: Record<string, boolean>
+  translationSummaryByPaperId: Record<string, PaperTranslationSummary>
 
   // Render pipeline 状态
   renderProgressByPaperId: Record<string, RenderingProgress>
@@ -629,12 +632,24 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
     set({ translationTaskByPaperId: nextTaskMap })
   }
 
-  function setHasTranslationState(paperId: string, hasTranslation: boolean): void {
+  function setHasTranslationState(
+    paperId: string,
+    hasTranslation: boolean,
+    translatedTitle?: string
+  ): void {
     const s = get()
     set({
       hasTranslationByPaperId: {
         ...s.hasTranslationByPaperId,
         [paperId]: hasTranslation
+      },
+      translationSummaryByPaperId: {
+        ...s.translationSummaryByPaperId,
+        [paperId]: {
+          paperId,
+          hasTranslation,
+          translatedTitle
+        }
       }
     })
   }
@@ -1490,53 +1505,83 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
   // Translation actions
   // -------------------------------------------------------------------------
 
+  function applyTranslationProgressBatch(batch: PaperTranslationProgressBatch): void {
+    const now = new Date().toISOString()
+    const s = get()
+    const existingCache = s.translationByPaperId[batch.paperId]
+    let nextCache: PaperTranslationCache =
+      existingCache && existingCache.sourceHash === batch.sourceHash
+        ? existingCache
+        : {
+            paperId: batch.paperId,
+            sourceHash: batch.sourceHash,
+            totalSegments: batch.totalSegments,
+            completedSegments: batch.completedSegments,
+            entries: [],
+            updatedAt: now
+          }
+
+    for (const progress of batch.entries) {
+      nextCache = upsertTranslationEntry(
+        {
+          ...nextCache,
+          sourceHash: batch.sourceHash,
+          totalSegments: batch.totalSegments,
+          completedSegments: batch.completedSegments,
+          updatedAt: now
+        },
+        { ...progress.entry }
+      )
+    }
+
+    nextCache = {
+      ...nextCache,
+      completedSegments: batch.completedSegments,
+      totalSegments: batch.totalSegments,
+      translationRevisionId: batch.translationRevisionId || nextCache.translationRevisionId,
+      updatedAt: now
+    }
+
+    const hasTranslation = hasPaperTranslationResult(nextCache)
+    const translatedTitle = extractTranslatedDocumentTitle(nextCache) || undefined
+    const failedProgress = [...batch.entries]
+      .reverse()
+      .find((progress) => progress.status === 'failed')
+
+    set({
+      translationByPaperId: {
+        ...s.translationByPaperId,
+        [batch.paperId]: nextCache
+      },
+      hasTranslationByPaperId: {
+        ...s.hasTranslationByPaperId,
+        [batch.paperId]: hasTranslation
+      },
+      translationSummaryByPaperId: {
+        ...s.translationSummaryByPaperId,
+        [batch.paperId]: {
+          paperId: batch.paperId,
+          hasTranslation,
+          translatedTitle
+        }
+      },
+      translationTaskByPaperId: {
+        ...s.translationTaskByPaperId,
+        [batch.paperId]: {
+          isRunning: batch.isRunning,
+          completedSegments: batch.completedSegments,
+          totalSegments: batch.totalSegments,
+          lastError: failedProgress?.errorMessage
+        }
+      }
+    })
+  }
+
   function ensureTranslationProgressListener(): void {
     if (translationProgressCleanup) return
 
-    translationProgressCleanup = window.api.paper.onTranslationProgress(
-      (progress: PaperTranslationProgress) => {
-        const now = new Date().toISOString()
-        const s = get()
-        const existingCache = s.translationByPaperId[progress.paperId]
-        const baseCache: PaperTranslationCache =
-          existingCache && existingCache.sourceHash === progress.sourceHash
-            ? existingCache
-            : {
-                paperId: progress.paperId,
-                sourceHash: progress.sourceHash,
-                totalSegments: progress.totalSegments,
-                completedSegments: progress.completedSegments,
-                entries: [],
-                updatedAt: now
-              }
-
-        const nextCache = upsertTranslationEntry(
-          {
-            ...baseCache,
-            sourceHash: progress.sourceHash,
-            totalSegments: progress.totalSegments,
-            completedSegments: progress.completedSegments,
-            updatedAt: now
-          },
-          { ...progress.entry }
-        )
-
-        nextCache.completedSegments = progress.completedSegments
-        nextCache.updatedAt = now
-
-        if (progress.translationRevisionId) {
-          nextCache.translationRevisionId = progress.translationRevisionId
-        }
-
-        setTranslationCache(progress.paperId, nextCache)
-        setHasTranslationState(progress.paperId, hasPaperTranslationResult(nextCache))
-        setTranslationTaskState(progress.paperId, {
-          isRunning: progress.isRunning,
-          completedSegments: progress.completedSegments,
-          totalSegments: progress.totalSegments,
-          lastError: progress.status === 'failed' ? progress.errorMessage : undefined
-        })
-      }
+    translationProgressCleanup = window.api.paper.onTranslationProgressBatch(
+      applyTranslationProgressBatch
     )
   }
 
@@ -1561,10 +1606,18 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
     ) {
       const merged = mergeTranslationEntries(snapshot, existingCache)
       setTranslationCache(paperId, merged)
-      setHasTranslationState(paperId, hasPaperTranslationResult(merged))
+      setHasTranslationState(
+        paperId,
+        hasPaperTranslationResult(merged),
+        extractTranslatedDocumentTitle(merged) || undefined
+      )
     } else {
       setTranslationCache(paperId, snapshot)
-      setHasTranslationState(paperId, hasPaperTranslationResult(snapshot))
+      setHasTranslationState(
+        paperId,
+        hasPaperTranslationResult(snapshot),
+        extractTranslatedDocumentTitle(snapshot) || undefined
+      )
     }
 
     setTranslationTaskState(paperId, {
@@ -1619,14 +1672,19 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
 
   async function loadTranslationStatus(paperIds: string[]): Promise<void> {
     if (paperIds.length === 0) {
-      set({ hasTranslationByPaperId: {} })
+      set({ hasTranslationByPaperId: {}, translationSummaryByPaperId: {} })
       return
     }
 
-    const result = await window.api.paper.listTranslationStatus(paperIds)
+    const result = await window.api.paper.listTranslationSummaries(paperIds)
     if (!result.success || !result.data) return
 
-    set({ hasTranslationByPaperId: result.data })
+    set({
+      hasTranslationByPaperId: Object.fromEntries(
+        Object.entries(result.data).map(([paperId, summary]) => [paperId, summary.hasTranslation])
+      ),
+      translationSummaryByPaperId: result.data
+    })
   }
 
   async function deleteTranslation(paperId: string): Promise<{ success: boolean; error?: string }> {
@@ -1667,7 +1725,12 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
     const s = get()
     const nextTranslationState = { ...s.hasTranslationByPaperId }
     delete nextTranslationState[paperId]
-    set({ hasTranslationByPaperId: nextTranslationState })
+    const nextTranslationSummary = { ...s.translationSummaryByPaperId }
+    delete nextTranslationSummary[paperId]
+    set({
+      hasTranslationByPaperId: nextTranslationState,
+      translationSummaryByPaperId: nextTranslationSummary
+    })
   }
 
   // -------------------------------------------------------------------------
@@ -1948,6 +2011,7 @@ export const usePaperReaderStore = create<PaperReaderState>()((set, get) => {
     translationByPaperId: {} as Record<string, PaperTranslationCache>,
     translationTaskByPaperId: {} as Record<string, PaperTranslationTaskState>,
     hasTranslationByPaperId: {} as Record<string, boolean>,
+    translationSummaryByPaperId: {} as Record<string, PaperTranslationSummary>,
 
     // Render pipeline 状态
     renderProgressByPaperId: {} as Record<string, RenderingProgress>,
