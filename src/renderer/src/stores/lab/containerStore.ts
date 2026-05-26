@@ -1,5 +1,4 @@
-import { ref, computed } from 'vue'
-import { defineStore } from 'pinia'
+import { create } from 'zustand'
 import type {
   ContainerFilter,
   ContainerState,
@@ -8,77 +7,142 @@ import type {
   LogOptions
 } from '@renderer/types/lab'
 import type { ContainerInfo, ContainerDetails, ContainerStats } from '@renderer/types/lab'
-import { useNotification } from '@renderer/composables/useNotification'
+import { notifyError } from '@renderer/composables/notificationCore'
 import { labApi } from '@renderer/services/labApi'
 
-export const useContainerStore = defineStore('container', () => {
-  const notify = useNotification()
-  let latestStatsRequestId = 0
+interface ContainerStoreState {
+  // State
+  containers: ContainerInfo[]
+  selectedContainer: ContainerDetails | null
+  containerStats: ContainerStats | null
+  containerFilter: ContainerFilter
+  containerSearchQuery: string
+  terminalLogs: TerminalLog[]
+  isLoading: boolean
+  listUpdateKey: number
 
+  // Getters
+  filteredContainers: () => ContainerInfo[]
+  runningContainerCount: () => number
+  stoppedContainerCount: () => number
+
+  // Actions: 容器列表
+  loadContainers: () => Promise<void>
+  refreshContainers: () => Promise<void>
+  loadContainerDetails: (containerId: string, options?: { silent?: boolean }) => Promise<boolean>
+  loadContainerStats: (containerId: string, options?: { silent?: boolean }) => Promise<boolean>
+  clearContainerStats: () => void
+  setContainerFilter: (filter: ContainerFilter) => void
+  setContainerSearchQuery: (query: string) => void
+
+  // Actions: 容器操作
+  startContainer: (containerId: string) => Promise<{ success: boolean; error?: string }>
+  stopContainer: (
+    containerId: string,
+    timeout?: number
+  ) => Promise<{ success: boolean; error?: string }>
+  restartContainer: (containerId: string) => Promise<{ success: boolean; error?: string }>
+  removeContainer: (
+    containerId: string,
+    force?: boolean
+  ) => Promise<{ success: boolean; error?: string }>
+
+  // Actions: Compose 项目操作
+  composeStop: (
+    projectName: string,
+    timeout?: number
+  ) => Promise<{ success: boolean; error?: string; stoppedContainerIds?: string[] }>
+  composeStart: (
+    projectName: string
+  ) => Promise<{ success: boolean; error?: string; containerIds?: string[] }>
+  composeRestart: (projectName: string) => Promise<{ success: boolean; error?: string }>
+
+  // Actions: 命令执行
+  execCommand: (
+    containerId: string,
+    command: ExecCommand
+  ) => Promise<{
+    exitCode: number
+    stdout: string
+    stderr: string
+    duration: number
+  } | null>
+  clearTerminalLogs: () => void
+
+  // Actions: 文件操作
+  copyToContainer: (containerId: string, source: string, target: string) => Promise<boolean>
+  copyFromContainer: (containerId: string, source: string, target: string) => Promise<boolean>
+
+  // Actions: 日志
+  getContainerLogs: (containerId: string, options?: LogOptions) => Promise<string>
+
+  // Helper Functions
+  getStateLabel: (state: ContainerState) => string
+  getStateClass: (state: ContainerState) => string
+  formatCreated: (timestamp: number) => string
+}
+
+// 并发控制变量（闭包内，非 state）
+let latestStatsRequestId = 0
+
+export const useContainerStore = create<ContainerStoreState>()((set, get) => ({
   // ==================== State ====================
-
-  /** Docker 容器列表 */
-  const containers = ref<ContainerInfo[]>([])
-  /** 选中的容器详情 */
-  const selectedContainer = ref<ContainerDetails | null>(null)
-  /** 容器资源统计 */
-  const containerStats = ref<ContainerStats | null>(null)
-  /** 容器过滤条件 */
-  const containerFilter = ref<ContainerFilter>({ state: 'all' })
-  /** 容器搜索关键词 */
-  const containerSearchQuery = ref('')
-  /** 终端日志 */
-  const terminalLogs = ref<TerminalLog[]>([])
-  /** 加载状态 */
-  const isLoading = ref(false)
-  /** 列表更新 key（用于触发外部组件更新） */
-  const listUpdateKey = ref(0)
+  containers: [],
+  selectedContainer: null,
+  containerStats: null,
+  containerFilter: { state: 'all' },
+  containerSearchQuery: '',
+  terminalLogs: [],
+  isLoading: false,
+  listUpdateKey: 0,
 
   // ==================== Getters ====================
 
   /** 过滤后的容器列表 */
-  const filteredContainers = computed(() => {
-    let result = containers.value
+  filteredContainers: (): ContainerInfo[] => {
+    let result = get().containers
 
-    if (containerFilter.value.state && containerFilter.value.state !== 'all') {
-      if (containerFilter.value.state === 'running') {
+    const filter = get().containerFilter
+    if (filter.state && filter.state !== 'all') {
+      if (filter.state === 'running') {
         result = result.filter((c) => c.state === 'running')
-      } else if (containerFilter.value.state === 'stopped') {
+      } else if (filter.state === 'stopped') {
         result = result.filter((c) => c.state === 'exited' || c.state === 'dead')
       } else {
-        result = result.filter((c) => c.state === containerFilter.value.state)
+        result = result.filter((c) => c.state === filter.state)
       }
     }
 
-    if (containerSearchQuery.value.trim()) {
-      const query = containerSearchQuery.value.toLowerCase()
+    const query = get().containerSearchQuery.trim()
+    if (query) {
+      const lowerQuery = query.toLowerCase()
       result = result.filter(
         (c) =>
-          c.names.some((n) => n.toLowerCase().includes(query)) ||
-          c.image.toLowerCase().includes(query)
+          c.names.some((n) => n.toLowerCase().includes(lowerQuery)) ||
+          c.image.toLowerCase().includes(lowerQuery)
       )
     }
 
     return result
-  })
+  },
 
   /** 运行中的容器数量 */
-  const runningContainerCount = computed(
-    () => containers.value.filter((c) => c.state === 'running').length
-  )
+  runningContainerCount: (): number => {
+    return get().containers.filter((c) => c.state === 'running').length
+  },
 
   /** 已停止的容器数量 */
-  const stoppedContainerCount = computed(
-    () => containers.value.filter((c) => c.state === 'exited' || c.state === 'dead').length
-  )
+  stoppedContainerCount: (): number => {
+    return get().containers.filter((c) => c.state === 'exited' || c.state === 'dead').length
+  },
 
   // ==================== Actions: 容器列表 ====================
 
-  async function loadContainers(): Promise<void> {
+  loadContainers: async (): Promise<void> => {
     try {
-      isLoading.value = true
-      // 将 Vue 响应式对象转换为普通对象，避免 IPC 序列化错误
-      const filter = JSON.parse(JSON.stringify(containerFilter.value))
+      set({ isLoading: true })
+      // 将对象转换为普通对象，避免 IPC 序列化错误
+      const filter = JSON.parse(JSON.stringify(get().containerFilter))
       window.api.logger.info('[ContainerStore] 开始加载容器列表', { filter })
 
       const result = await labApi.listContainers(filter)
@@ -92,18 +156,18 @@ export const useContainerStore = defineStore('container', () => {
       })
 
       if (!result.success) {
-        containers.value = []
-        notify.error('加载容器列表失败', result.error || '未知错误', {
+        set({ containers: [] })
+        notifyError('加载容器列表失败', result.error || '未知错误', {
           source: 'lab',
           dedupeKey: 'container-error'
         })
         return
       }
 
-      containers.value = result.containers || []
-
+      const containers = result.containers || []
+      set({ containers })
       window.api.logger.info('[ContainerStore] 容器列表加载完成', {
-        count: containers.value.length
+        count: containers.length
       })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -112,46 +176,50 @@ export const useContainerStore = defineStore('container', () => {
         stack: error instanceof Error ? error.stack : undefined,
         name: error instanceof Error ? error.name : undefined
       })
-      containers.value = []
-      notify.error('加载容器列表失败', errorMessage, {
+      set({ containers: [] })
+      notifyError('加载容器列表失败', errorMessage, {
         source: 'lab',
         dedupeKey: 'container-error'
       })
     } finally {
-      isLoading.value = false
+      set({ isLoading: false })
     }
-  }
+  },
 
-  async function refreshContainers(): Promise<void> {
-    await loadContainers()
-    listUpdateKey.value++
-  }
+  refreshContainers: async (): Promise<void> => {
+    await get().loadContainers()
+    set((state) => ({ listUpdateKey: state.listUpdateKey + 1 }))
+  },
 
-  async function loadContainerDetails(
+  loadContainerDetails: async (
     containerId: string,
     options?: { silent?: boolean }
-  ): Promise<void> {
+  ): Promise<boolean> => {
     try {
       const result = await labApi.getContainerDetails(containerId)
 
       if (!result.success) {
-        selectedContainer.value = null
+        const currentSelected = get().selectedContainer
+        if (result.reason === 'not_found' || currentSelected?.id !== containerId) {
+          set({ selectedContainer: null })
+        }
         if (!options?.silent) {
-          notify.error('加载容器详情失败', result.error || '未知错误', {
+          notifyError('加载容器详情失败', result.error || '未知错误', {
             source: 'lab',
             dedupeKey: 'container-error'
           })
         }
-        return
+        return false
       }
 
-      selectedContainer.value = result.details || null
+      set({ selectedContainer: result.details || null })
 
       if (!options?.silent) {
         window.api.logger.info('[ContainerStore] 容器详情加载完成', {
           containerId: containerId.substring(0, 12)
         })
       }
+      return true
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       if (!options?.silent) {
@@ -160,20 +228,24 @@ export const useContainerStore = defineStore('container', () => {
           containerId
         })
       }
-      selectedContainer.value = null
+      const currentSelected = get().selectedContainer
+      if (currentSelected?.id !== containerId) {
+        set({ selectedContainer: null })
+      }
       if (!options?.silent) {
-        notify.error('加载容器详情失败', errorMessage, {
+        notifyError('加载容器详情失败', errorMessage, {
           source: 'lab',
           dedupeKey: 'container-error'
         })
       }
+      return false
     }
-  }
+  },
 
-  async function loadContainerStats(
+  loadContainerStats: async (
     containerId: string,
     options?: { silent?: boolean }
-  ): Promise<boolean> {
+  ): Promise<boolean> => {
     const requestId = ++latestStatsRequestId
 
     try {
@@ -183,9 +255,9 @@ export const useContainerStore = defineStore('container', () => {
       }
 
       if (!result.success) {
-        containerStats.value = null
+        set({ containerStats: null })
         if (!options?.silent) {
-          notify.error('加载容器统计失败', result.error || '未知错误', {
+          notifyError('加载容器统计失败', result.error || '未知错误', {
             source: 'lab',
             dedupeKey: 'container-error'
           })
@@ -193,7 +265,7 @@ export const useContainerStore = defineStore('container', () => {
         return false
       }
 
-      containerStats.value = result.stats || null
+      set({ containerStats: result.stats || null })
       return !!result.stats
     } catch (error) {
       if (requestId !== latestStatsRequestId) {
@@ -205,45 +277,43 @@ export const useContainerStore = defineStore('container', () => {
         error: errorMessage,
         containerId
       })
-      containerStats.value = null
+      set({ containerStats: null })
       if (!options?.silent) {
-        notify.error('加载容器统计失败', errorMessage, {
+        notifyError('加载容器统计失败', errorMessage, {
           source: 'lab',
           dedupeKey: 'container-error'
         })
       }
       return false
     }
-  }
+  },
 
-  function clearContainerStats(): void {
+  clearContainerStats: (): void => {
     latestStatsRequestId++
-    containerStats.value = null
-  }
+    set({ containerStats: null })
+  },
 
-  function setContainerFilter(filter: ContainerFilter): void {
-    containerFilter.value = filter
-  }
+  setContainerFilter: (filter: ContainerFilter): void => {
+    set({ containerFilter: filter })
+  },
 
-  function setContainerSearchQuery(query: string): void {
-    containerSearchQuery.value = query
-  }
+  setContainerSearchQuery: (query: string): void => {
+    set({ containerSearchQuery: query })
+  },
 
   // ==================== Actions: 容器操作 ====================
 
-  async function startContainer(
-    containerId: string
-  ): Promise<{ success: boolean; error?: string }> {
+  startContainer: async (containerId: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const result = await labApi.startContainer(containerId)
 
       if (result.success) {
-        await refreshContainers()
+        await get().refreshContainers()
         // 如果当前有选中的容器，刷新其详情
-        if (selectedContainer.value?.id === containerId) {
-          await loadContainerDetails(containerId)
+        if (get().selectedContainer?.id === containerId) {
+          await get().loadContainerDetails(containerId)
           // 同时刷新容器统计
-          await loadContainerStats(containerId)
+          await get().loadContainerStats(containerId)
         }
         window.api.logger.info('[ContainerStore] 容器启动成功', {
           containerId: containerId.substring(0, 12)
@@ -260,20 +330,20 @@ export const useContainerStore = defineStore('container', () => {
       })
       return { success: false, error: errorMessage }
     }
-  }
+  },
 
-  async function stopContainer(
+  stopContainer: async (
     containerId: string,
     timeout?: number
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
       const result = await labApi.stopContainer(containerId, timeout)
 
       if (result.success) {
-        await refreshContainers()
+        await get().refreshContainers()
         // 如果当前有选中的容器，刷新其详情
-        if (selectedContainer.value?.id === containerId) {
-          await loadContainerDetails(containerId)
+        if (get().selectedContainer?.id === containerId) {
+          await get().loadContainerDetails(containerId)
         }
         window.api.logger.info('[ContainerStore] 容器停止成功', {
           containerId: containerId.substring(0, 12)
@@ -290,21 +360,19 @@ export const useContainerStore = defineStore('container', () => {
       })
       return { success: false, error: errorMessage }
     }
-  }
+  },
 
-  async function restartContainer(
-    containerId: string
-  ): Promise<{ success: boolean; error?: string }> {
+  restartContainer: async (containerId: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const result = await labApi.restartContainer(containerId)
 
       if (result.success) {
-        await refreshContainers()
+        await get().refreshContainers()
         // 如果当前有选中的容器，刷新其详情
-        if (selectedContainer.value?.id === containerId) {
-          await loadContainerDetails(containerId)
+        if (get().selectedContainer?.id === containerId) {
+          await get().loadContainerDetails(containerId)
           // 同时刷新容器统计
-          await loadContainerStats(containerId)
+          await get().loadContainerStats(containerId)
         }
         window.api.logger.info('[ContainerStore] 容器重启成功', {
           containerId: containerId.substring(0, 12)
@@ -321,19 +389,19 @@ export const useContainerStore = defineStore('container', () => {
       })
       return { success: false, error: errorMessage }
     }
-  }
+  },
 
-  async function removeContainer(
+  removeContainer: async (
     containerId: string,
     force?: boolean
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
       const result = await labApi.removeContainer(containerId, force)
 
       if (result.success) {
-        await refreshContainers()
-        if (selectedContainer.value?.id === containerId) {
-          selectedContainer.value = null
+        await get().refreshContainers()
+        if (get().selectedContainer?.id === containerId) {
+          set({ selectedContainer: null })
         }
         window.api.logger.info('[ContainerStore] 容器删除成功', {
           containerId: containerId.substring(0, 12)
@@ -350,24 +418,25 @@ export const useContainerStore = defineStore('container', () => {
       })
       return { success: false, error: errorMessage }
     }
-  }
+  },
 
   // ==================== Actions: Compose 项目操作 ====================
 
-  async function composeStop(
+  composeStop: async (
     projectName: string,
     timeout?: number
-  ): Promise<{ success: boolean; error?: string; stoppedContainerIds?: string[] }> {
+  ): Promise<{ success: boolean; error?: string; stoppedContainerIds?: string[] }> => {
     try {
       const result = await labApi.compose.stop(projectName, { timeout })
 
       if (result.success) {
-        await refreshContainers()
+        await get().refreshContainers()
         // 如果当前有选中的容器属于该项目，刷新其详情
-        if (selectedContainer.value) {
-          const composeProjectLabel = selectedContainer.value.labels?.['com.docker.compose.project']
+        const selected = get().selectedContainer
+        if (selected) {
+          const composeProjectLabel = selected.labels?.['com.docker.compose.project']
           if (composeProjectLabel === projectName) {
-            await loadContainerDetails(selectedContainer.value.id)
+            await get().loadContainerDetails(selected.id)
           }
         }
         window.api.logger.info('[ContainerStore] Compose 项目停止成功', {
@@ -389,22 +458,23 @@ export const useContainerStore = defineStore('container', () => {
       })
       return { success: false, error: errorMessage }
     }
-  }
+  },
 
-  async function composeStart(
+  composeStart: async (
     projectName: string
-  ): Promise<{ success: boolean; error?: string; containerIds?: string[] }> {
+  ): Promise<{ success: boolean; error?: string; containerIds?: string[] }> => {
     try {
       const result = await labApi.compose.start(projectName)
 
       if (result.success) {
-        await refreshContainers()
+        await get().refreshContainers()
         // 如果当前有选中的容器属于该项目，刷新其详情
-        if (selectedContainer.value) {
-          const composeProjectLabel = selectedContainer.value.labels?.['com.docker.compose.project']
+        const selected = get().selectedContainer
+        if (selected) {
+          const composeProjectLabel = selected.labels?.['com.docker.compose.project']
           if (composeProjectLabel === projectName) {
-            await loadContainerDetails(selectedContainer.value.id)
-            await loadContainerStats(selectedContainer.value.id)
+            await get().loadContainerDetails(selected.id)
+            await get().loadContainerStats(selected.id)
           }
         }
         window.api.logger.info('[ContainerStore] Compose 项目启动成功', {
@@ -426,22 +496,21 @@ export const useContainerStore = defineStore('container', () => {
       })
       return { success: false, error: errorMessage }
     }
-  }
+  },
 
-  async function composeRestart(
-    projectName: string
-  ): Promise<{ success: boolean; error?: string }> {
+  composeRestart: async (projectName: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const result = await labApi.compose.restart(projectName)
 
       if (result.success) {
-        await refreshContainers()
+        await get().refreshContainers()
         // 如果当前有选中的容器属于该项目，刷新其详情
-        if (selectedContainer.value) {
-          const composeProjectLabel = selectedContainer.value.labels?.['com.docker.compose.project']
+        const selected = get().selectedContainer
+        if (selected) {
+          const composeProjectLabel = selected.labels?.['com.docker.compose.project']
           if (composeProjectLabel === projectName) {
-            await loadContainerDetails(selectedContainer.value.id)
-            await loadContainerStats(selectedContainer.value.id)
+            await get().loadContainerDetails(selected.id)
+            await get().loadContainerStats(selected.id)
           }
         }
         window.api.logger.info('[ContainerStore] Compose 项目重启成功', { projectName })
@@ -457,42 +526,62 @@ export const useContainerStore = defineStore('container', () => {
       })
       return { success: false, error: errorMessage }
     }
-  }
+  },
 
   // ==================== Actions: 命令执行 ====================
 
-  async function execCommand(
+  execCommand: async (
     containerId: string,
     command: ExecCommand
-  ): Promise<{ exitCode: number; stdout: string; stderr: string; duration: number } | null> {
+  ): Promise<{
+    exitCode: number
+    stdout: string
+    stderr: string
+    duration: number
+  } | null> => {
     try {
-      terminalLogs.value.push({
-        timestamp: new Date().toISOString(),
-        type: 'input',
-        content: command.command
-      })
+      set((state) => ({
+        terminalLogs: [
+          ...state.terminalLogs,
+          {
+            timestamp: new Date().toISOString(),
+            type: 'input' as const,
+            content: command.command
+          }
+        ]
+      }))
 
       const result = await labApi.execCommand(containerId, command)
 
       if (!result.success || !result.result) {
         const errorMessage = result.error || '命令执行失败'
-        notify.error('执行命令失败', errorMessage, {
+        notifyError('执行命令失败', errorMessage, {
           source: 'lab',
           dedupeKey: 'container-error'
         })
-        terminalLogs.value.push({
-          timestamp: new Date().toISOString(),
-          type: 'error',
-          content: errorMessage
-        })
+        set((state) => ({
+          terminalLogs: [
+            ...state.terminalLogs,
+            {
+              timestamp: new Date().toISOString(),
+              type: 'error' as const,
+              content: errorMessage
+            }
+          ]
+        }))
         return null
       }
 
-      terminalLogs.value.push({
-        timestamp: new Date().toISOString(),
-        type: result.result.exitCode === 0 ? 'output' : 'error',
-        content: result.result.stdout || result.result.stderr || '命令执行完成'
-      })
+      set((state) => ({
+        terminalLogs: [
+          ...state.terminalLogs,
+          {
+            timestamp: new Date().toISOString(),
+            type: result.result!.exitCode === 0 ? ('output' as const) : ('error' as const),
+            content: result.result!.stdout || result.result!.stderr || '命令执行完成'
+          }
+        ]
+      }))
 
       return result.result
     } catch (error) {
@@ -502,27 +591,32 @@ export const useContainerStore = defineStore('container', () => {
         command: command.command
       })
 
-      terminalLogs.value.push({
-        timestamp: new Date().toISOString(),
-        type: 'error',
-        content: error instanceof Error ? error.message : String(error)
-      })
+      set((state) => ({
+        terminalLogs: [
+          ...state.terminalLogs,
+          {
+            timestamp: new Date().toISOString(),
+            type: 'error' as const,
+            content: error instanceof Error ? error.message : String(error)
+          }
+        ]
+      }))
 
       return null
     }
-  }
+  },
 
-  function clearTerminalLogs(): void {
-    terminalLogs.value = []
-  }
+  clearTerminalLogs: (): void => {
+    set({ terminalLogs: [] })
+  },
 
   // ==================== Actions: 文件操作 ====================
 
-  async function copyToContainer(
+  copyToContainer: async (
     containerId: string,
     source: string,
     target: string
-  ): Promise<boolean> {
+  ): Promise<boolean> => {
     try {
       const result = await labApi.copyToContainer(containerId, source, target)
 
@@ -544,13 +638,13 @@ export const useContainerStore = defineStore('container', () => {
       })
       return false
     }
-  }
+  },
 
-  async function copyFromContainer(
+  copyFromContainer: async (
     containerId: string,
     source: string,
     target: string
-  ): Promise<boolean> {
+  ): Promise<boolean> => {
     try {
       const result = await labApi.copyFromContainer(containerId, source, target)
 
@@ -572,15 +666,15 @@ export const useContainerStore = defineStore('container', () => {
       })
       return false
     }
-  }
+  },
 
   // ==================== Actions: 日志 ====================
 
-  async function getContainerLogs(containerId: string, options?: LogOptions): Promise<string> {
+  getContainerLogs: async (containerId: string, options?: LogOptions): Promise<string> => {
     try {
       const result = await labApi.getContainerLogs(containerId, options)
       if (!result.success) {
-        notify.error('加载容器日志失败', result.error || '未知错误', {
+        notifyError('加载容器日志失败', result.error || '未知错误', {
           source: 'lab',
           dedupeKey: 'container-error'
         })
@@ -593,17 +687,17 @@ export const useContainerStore = defineStore('container', () => {
         error: error instanceof Error ? error.message : String(error),
         containerId
       })
-      notify.error('加载容器日志失败', error instanceof Error ? error.message : String(error), {
+      notifyError('加载容器日志失败', error instanceof Error ? error.message : String(error), {
         source: 'lab',
         dedupeKey: 'container-error'
       })
       return ''
     }
-  }
+  },
 
   // ==================== Helper Functions ====================
 
-  function getStateLabel(state: ContainerState): string {
+  getStateLabel: (state: ContainerState): string => {
     const labels: Record<ContainerState, string> = {
       created: '已创建',
       running: '运行中',
@@ -614,13 +708,13 @@ export const useContainerStore = defineStore('container', () => {
       dead: '已终止'
     }
     return labels[state] || state
-  }
+  },
 
-  function getStateClass(state: ContainerState): string {
+  getStateClass: (state: ContainerState): string => {
     return `state-${state}`
-  }
+  },
 
-  function formatCreated(timestamp: number): string {
+  formatCreated: (timestamp: number): string => {
     const date = new Date(timestamp * 1000)
     const now = new Date()
     const diff = now.getTime() - date.getTime()
@@ -635,57 +729,4 @@ export const useContainerStore = defineStore('container', () => {
     if (days < 30) return `${days}天前`
     return date.toLocaleDateString('zh-CN')
   }
-
-  return {
-    // State
-    containers,
-    selectedContainer,
-    containerStats,
-    containerFilter,
-    containerSearchQuery,
-    terminalLogs,
-    isLoading,
-    listUpdateKey,
-
-    // Getters
-    filteredContainers,
-    runningContainerCount,
-    stoppedContainerCount,
-
-    // Actions: 容器列表
-    loadContainers,
-    refreshContainers,
-    loadContainerDetails,
-    loadContainerStats,
-    clearContainerStats,
-    setContainerFilter,
-    setContainerSearchQuery,
-
-    // Actions: 容器操作
-    startContainer,
-    stopContainer,
-    restartContainer,
-    removeContainer,
-
-    // Actions: Compose 项目操作
-    composeStop,
-    composeStart,
-    composeRestart,
-
-    // Actions: 命令执行
-    execCommand,
-    clearTerminalLogs,
-
-    // Actions: 文件操作
-    copyToContainer,
-    copyFromContainer,
-
-    // Actions: 日志
-    getContainerLogs,
-
-    // Helper Functions
-    getStateLabel,
-    getStateClass,
-    formatCreated
-  }
-})
+}))

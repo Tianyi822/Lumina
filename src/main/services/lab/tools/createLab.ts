@@ -6,9 +6,9 @@
 import { labService } from '../LabService'
 import { getDockerService } from '../docker/DockerService'
 import { logger } from '@main/services/logger'
-import { MCPToolCallResult } from '@main/types/mcp'
-import { CreateLabRequest, LabData, LabCreationType, PortMapping } from '@shared/types/lab'
-import { ToolArgs, LabToolDefinition } from './types'
+import type { MCPToolCallResult } from '@main/types/mcp'
+import type { CreateLabRequest, LabData, LabCreationType, PortMapping } from '@shared/types/lab'
+import type { ToolArgs, LabToolDefinition } from './types'
 import { frontendLabService } from '../frontend'
 import { parseDockerfileExposedPorts, allocatePortMappings, checkLocalImages } from './utils'
 

@@ -1,50 +1,50 @@
-import { ref } from 'vue'
-import { defineStore } from 'pinia'
+import { create } from 'zustand'
 import type { PortMapping } from './types'
 
-export const usePortMappingStore = defineStore('labPortMapping', () => {
-  /** 端口映射列表 */
-  const portMappings = ref<PortMapping[]>([])
+interface PortMappingState {
+  portMappings: PortMapping[]
+  updatePortMapping: (index: number, mapping: Partial<PortMapping>) => void
+  addPortMapping: () => void
+  removePortMapping: (index: number) => void
+  parseDockerfilePorts: (content: string) => PortMapping[]
+  parseComposePorts: (content: string) => PortMapping[]
+  reset: () => void
+}
 
-  /** 更新端口映射 */
-  function updatePortMapping(index: number, mapping: Partial<PortMapping>): void {
-    if (index >= 0 && index < portMappings.value.length) {
-      portMappings.value[index] = { ...portMappings.value[index], ...mapping }
-    }
-  }
+export const usePortMappingStore = create<PortMappingState>()((set) => ({
+  portMappings: [],
 
-  /** 添加端口映射 */
-  function addPortMapping(): void {
-    portMappings.value.push({
-      hostPort: null,
-      containerPort: 80,
-      protocol: 'tcp',
-      editable: true
-    })
-  }
+  updatePortMapping: (index, mapping) =>
+    set((state) => {
+      if (index < 0 || index >= state.portMappings.length) return {}
+      const next = [...state.portMappings]
+      next[index] = { ...next[index], ...mapping }
+      return { portMappings: next }
+    }),
 
-  /** 删除端口映射 */
-  function removePortMapping(index: number): void {
-    if (index >= 0 && index < portMappings.value.length) {
-      portMappings.value.splice(index, 1)
-    }
-  }
+  addPortMapping: () =>
+    set((state) => ({
+      portMappings: [
+        ...state.portMappings,
+        { hostPort: null, containerPort: 80, protocol: 'tcp', editable: true }
+      ]
+    })),
 
-  /**
-   * 从 Dockerfile 内容解析 EXPOSE 指令
-   */
-  function parseDockerfilePorts(content: string): PortMapping[] {
+  removePortMapping: (index) =>
+    set((state) => {
+      if (index < 0 || index >= state.portMappings.length) return {}
+      return { portMappings: state.portMappings.filter((_, i) => i !== index) }
+    }),
+
+  parseDockerfilePorts: (content) => {
     const ports: PortMapping[] = []
     if (!content) return ports
 
     const lines = content.split('\n')
-
     for (const line of lines) {
       const trimmed = line.trim()
-      // 匹配 EXPOSE 指令（忽略大小写）
       if (trimmed.toUpperCase().startsWith('EXPOSE')) {
         const exposeContent = trimmed.slice(6).trim()
-        // 支持多种格式: EXPOSE 3306, EXPOSE 3306/tcp, EXPOSE 3306 3307, EXPOSE 3306/tcp 3307/udp
         const portStrings = exposeContent.split(/\s+/)
 
         for (const portStr of portStrings) {
@@ -52,7 +52,7 @@ export const usePortMappingStore = defineStore('labPortMapping', () => {
           if (match) {
             const containerPort = parseInt(match[1], 10)
             ports.push({
-              hostPort: containerPort, // 宿主机端口预选为与容器端口相同的值
+              hostPort: containerPort,
               containerPort,
               protocol: (match[2]?.toLowerCase() as 'tcp' | 'udp') || 'tcp',
               editable: true
@@ -63,16 +63,12 @@ export const usePortMappingStore = defineStore('labPortMapping', () => {
     }
 
     return ports
-  }
+  },
 
-  /**
-   * 从 docker-compose.yaml 内容解析 ports 配置
-   */
-  function parseComposePorts(content: string): PortMapping[] {
+  parseComposePorts: (content) => {
     const ports: PortMapping[] = []
 
     try {
-      // 简单的 YAML 端口解析（不依赖 YAML 解析库）
       const lines = content.split('\n')
       let inPortsSection = false
       let currentIndent = 0
@@ -81,29 +77,22 @@ export const usePortMappingStore = defineStore('labPortMapping', () => {
         const line = lines[i]
         const trimmed = line.trim()
 
-        // 检测 ports: 开始
         if (trimmed === 'ports:') {
           inPortsSection = true
           currentIndent = line.search(/\S/)
           continue
         }
 
-        // 如果在 ports 部分
         if (inPortsSection) {
           const lineIndent = line.search(/\S/)
-
-          // 如果缩进减少，说明离开了 ports 部分
           if (lineIndent <= currentIndent && trimmed && !trimmed.startsWith('-')) {
             inPortsSection = false
             continue
           }
 
-          // 解析端口映射行
           if (trimmed.startsWith('-')) {
             const portStr = trimmed.slice(1).trim().replace(/"/g, '')
 
-            // 格式: HostPort:ContainerPort 或 HostPort:ContainerPort/Protocol
-            // 也支持简写: ContainerPort（只有容器端口）
             if (portStr.includes(':')) {
               const match = portStr.match(/^(\d+)?:?(\d+)(?:\/(tcp|udp))?$/i)
               if (match) {
@@ -115,7 +104,6 @@ export const usePortMappingStore = defineStore('labPortMapping', () => {
                 })
               }
             } else {
-              // 简写格式: ContainerPort 或 ContainerPort/Protocol
               const simpleMatch = portStr.match(/^(\d+)(?:\/(tcp|udp))?$/i)
               if (simpleMatch) {
                 ports.push({
@@ -129,26 +117,12 @@ export const usePortMappingStore = defineStore('labPortMapping', () => {
           }
         }
       }
-    } catch (e) {
-      window.api.logger.error('[PortMappingStore] 解析 docker-compose 端口失败', {
-        error: e instanceof Error ? e.message : String(e)
-      })
+    } catch {
+      // silent
     }
 
     return ports
-  }
+  },
 
-  function reset(): void {
-    portMappings.value = []
-  }
-
-  return {
-    portMappings,
-    updatePortMapping,
-    addPortMapping,
-    removePortMapping,
-    parseDockerfilePorts,
-    parseComposePorts,
-    reset
-  }
-})
+  reset: () => set({ portMappings: [] })
+}))

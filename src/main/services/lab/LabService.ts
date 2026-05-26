@@ -265,10 +265,14 @@ export class LabService {
       const { getDockerService } = await import('./docker/DockerService')
       const dockerService = await getDockerService()
       let allContainers: ContainerInfo[] = []
+      let dockerSnapshotAvailable = false
       try {
         allContainers = await dockerService.listContainers({ state: 'all' })
-      } catch {
-        // 获取容器列表失败，后续使用元数据中的状态
+        dockerSnapshotAvailable = true
+      } catch (error) {
+        logger.warn('获取 Docker 容器快照失败，保留实验室元数据状态', 'main', {
+          error: error instanceof Error ? error.message : String(error)
+        })
       }
 
       for (const dir of dirs) {
@@ -303,7 +307,7 @@ export class LabService {
             let realTimeStatus = lab.status
             let isOrphan = lab.isOrphan
             const containerId = lab.primaryContainerId || lab.containerIds?.[0]
-            if (containerId) {
+            if (containerId && dockerSnapshotAvailable) {
               try {
                 const container = allContainers.find((c) => c.id === containerId)
                 if (container) {
@@ -316,6 +320,7 @@ export class LabService {
                   if (isOrphan) {
                     isOrphan = false
                     lab.isOrphan = false
+                    lab.status = realTimeStatus
                     this.saveLab(lab, { silent: true })
                   }
                 } else {
@@ -866,8 +871,17 @@ export class LabService {
       const { getDockerService } = await import('./docker/DockerService')
       const dockerService = getDockerService()
 
-      // 获取所有容器列表
-      const containers = await dockerService.listContainers()
+      // 获取所有容器列表。失败时不把临时 Docker 异常误判为容器丢失。
+      let containers: ContainerInfo[]
+      try {
+        containers = await dockerService.listContainers({ state: 'all' })
+      } catch (error) {
+        logger.warn('检查容器状态时获取 Docker 容器列表失败', 'main', {
+          error: error instanceof Error ? error.message : String(error),
+          labId
+        })
+        return null
+      }
       const containerMap = new Map(containers.map((c) => [c.id, c]))
 
       const containerStates: Array<{
@@ -910,6 +924,12 @@ export class LabService {
         lab.status = 'error'
         this.saveLab(lab)
         this.logOperation(labId, '检测到容器丢失，标记为孤儿实验室', 'warn')
+      } else if (!isOrphan && lab.isOrphan) {
+        const hasRunningContainer = containerStates.some((state) => state.status === 'running')
+        lab.isOrphan = false
+        lab.status = hasRunningContainer ? 'running' : 'stopped'
+        this.saveLab(lab)
+        this.logOperation(labId, '关联容器已恢复，清除孤儿实验室标记', 'info')
       }
 
       return result

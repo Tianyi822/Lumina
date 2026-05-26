@@ -1,0 +1,81 @@
+.paper-chat-input__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sm-space-2);
+}
+
+.paper-chat-input__quick-reply {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-3) var(--sm-space-3);
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-accent-24);
+  border-radius: var(--sm-radius-md);
+}
+
+.paper-chat-input__quick-reply-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sm-space-3);
+}
+
+.paper-chat-input__quick-reply-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+}
+
+.paper-chat-input__quick-reply-custom-button {
+  min-height: 26px;
+  padding: 0 var(--sm-space-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 999px;
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
+}
+
+.paper-chat-input__quick-reply-custom-button:hover:not(:disabled) {
+  border-color: var(--sm-color-border-strong);
+  color: var(--sm-color-text-primary);
+  background: var(--sm-color-surface-hover);
+}
+
+.paper-chat-input__quick-reply-custom-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.paper-chat-input__warning {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-2) var(--sm-space-3);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: var(--sm-radius-sm);
+  background: rgba(197, 161, 101, 0.08);
+  color: var(--sm-color-text-primary);
+  font-size: 12px;
+}
+
+.paper-chat-input__warning-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  padding: 2px var(--sm-space-2);
+  border-radius: 999px;
+  background: rgba(197, 161, 101, 0.16);
+  color: var(--sm-color-status-warning);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}

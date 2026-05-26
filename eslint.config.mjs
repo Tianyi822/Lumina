@@ -1,39 +1,24 @@
 import { defineConfig } from 'eslint/config'
 import tseslint from '@electron-toolkit/eslint-config-ts'
 import eslintConfigPrettier from '@electron-toolkit/eslint-config-prettier'
-import eslintPluginVue from 'eslint-plugin-vue'
-import vueParser from 'vue-eslint-parser'
+import eslintPluginReactHooks from 'eslint-plugin-react-hooks'
 
 export default defineConfig(
   { ignores: ['**/node_modules', '**/dist', '**/out'] },
   tseslint.configs.recommended,
-  eslintPluginVue.configs['flat/recommended'],
   {
-    files: ['**/*.vue'],
-    languageOptions: {
-      parser: vueParser,
-      parserOptions: {
-        ecmaFeatures: {
-          jsx: true
-        },
-        extraFileExtensions: ['.vue'],
-        parser: tseslint.parser
-      }
+    files: ['**/*.{ts,mts,tsx}'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off'
     }
   },
   {
-    files: ['**/*.{ts,mts,tsx,vue}'],
+    files: ['**/*.{tsx,jsx}'],
+    plugins: {
+      'react-hooks': eslintPluginReactHooks
+    },
     rules: {
-      'vue/require-default-prop': 'off',
-      'vue/multi-word-component-names': 'off',
-      'vue/block-lang': [
-        'error',
-        {
-          script: {
-            lang: 'ts'
-          }
-        }
-      ]
+      ...eslintPluginReactHooks.configs.recommended.rules
     }
   },
   eslintConfigPrettier

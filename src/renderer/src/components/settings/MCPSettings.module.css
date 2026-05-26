@@ -1,0 +1,69 @@
+.import-panel {
+  padding: 16px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
+}
+
+.import-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--sm-color-text-primary);
+}
+
+.import-textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  font-family: var(--sm-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.import-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mcp-server-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.add-mcp-btn {
+  border-style: dashed;
+  color: var(--sm-color-text-secondary);
+}
+
+.add-mcp-btn:hover {
+  color: var(--sm-color-accent-hover);
+  border-color: var(--sm-color-border-accent);
+}
+
+.import-btn {
+  border-style: dashed;
+  color: var(--sm-color-text-secondary);
+}
+
+.import-btn:hover {
+  color: var(--sm-color-accent-hover);
+  border-color: var(--sm-color-border-accent);
+}
+
+.settings-actions {
+  justify-content: stretch;
+}
+
+.settings-actions > button {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .settings-actions {
+    flex-direction: column;
+  }
+}

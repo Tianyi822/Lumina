@@ -1,0 +1,297 @@
+.paper-chat-input-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.paper-chat-input-toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+}
+
+.paper-chat-input-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  margin-left: auto;
+}
+
+/* "+" 按钮触发器 */
+.plus-menu-wrapper {
+  position: relative;
+}
+
+.plus-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--sm-color-text-tertiary);
+  cursor: pointer;
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+}
+
+.plus-menu-trigger:hover:not(:disabled) {
+  background: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-default);
+  color: var(--sm-color-text-primary);
+}
+
+.plus-menu-trigger:disabled {
+  opacity: var(--sm-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.plus-menu-trigger--active {
+  background: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
+  color: var(--sm-color-text-primary);
+}
+
+.plus-menu-trigger--has-active {
+  color: var(--sm-color-text-primary);
+}
+
+.plus-menu-trigger__badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  background: var(--sm-color-surface-selected);
+  border: 1px solid var(--sm-color-border-selected);
+  color: var(--sm-color-text-primary);
+  font-size: 9px;
+  font-weight: 600;
+  border-radius: 50%;
+}
+
+/* "+" 菜单弹出面板 */
+.plus-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: var(--sm-space-2);
+  width: 360px;
+  max-height: min(480px, calc(100vh - 200px));
+  background: var(--sm-color-surface-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  z-index: 200;
+  overflow-y: auto;
+}
+
+.plus-menu::-webkit-scrollbar {
+  width: 4px;
+}
+
+.plus-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.plus-menu::-webkit-scrollbar-thumb {
+  background: var(--sm-color-border-default);
+  border-radius: 999px;
+}
+
+/* 菜单行 */
+.plus-menu__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-2) var(--sm-space-3);
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  border-bottom: 1px solid var(--sm-color-border-default);
+  box-sizing: border-box;
+  font-size: 13px;
+  color: var(--sm-color-text-primary);
+}
+
+.plus-menu__row:disabled {
+  opacity: var(--sm-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.plus-menu__row:not(:disabled) {
+  cursor: pointer;
+}
+
+.plus-menu__row--interactive {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--sm-transition-fast);
+}
+
+.plus-menu__row--interactive:hover {
+  background: var(--sm-color-surface-hover);
+}
+
+.plus-menu__row-label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.plus-menu__row-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+}
+
+.plus-menu__divider {
+  height: 1px;
+  background: var(--sm-color-border-default);
+  margin: 0;
+}
+
+/* 计数徽章 */
+.plus-menu__count-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  background: var(--sm-color-surface-selected);
+  border: 1px solid var(--sm-color-border-selected);
+  color: var(--sm-color-text-primary);
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* 手风琴箭头 */
+.plus-menu__accordion-arrow {
+  font-size: 10px;
+  color: var(--sm-color-text-tertiary);
+  transition: transform var(--sm-transition-fast);
+  display: inline-block;
+}
+
+.plus-menu__accordion-arrow--open {
+  transform: rotate(90deg);
+}
+
+/* 手风琴折叠动画 */
+.plus-menu__accordion-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--sm-transition-normal);
+}
+
+.plus-menu__accordion-body--collapsed {
+  grid-template-rows: 0fr;
+}
+
+.plus-menu__accordion-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.plus-menu__accordion-content {
+  background: var(--sm-color-surface-2);
+  border-top: 1px solid var(--sm-color-border-default);
+}
+
+/* Toggle 开关（搜索） */
+.plus-menu__toggle-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background-color: var(--sm-color-border-default);
+  border-radius: 10px;
+  transition: background-color var(--sm-transition-fast);
+  flex-shrink: 0;
+}
+
+.plus-menu__toggle-switch--on {
+  background-color: var(--sm-color-accent);
+}
+
+.plus-menu__toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background-color: var(--sm-color-text-primary);
+  border-radius: 50%;
+  transition: transform var(--sm-transition-fast);
+}
+
+.plus-menu__toggle-switch--on .plus-menu__toggle-thumb {
+  transform: translateX(16px);
+}
+
+/* LabToolsToggle 覆盖样式 */
+.plus-menu__lab-toggle {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  width: 100%;
+  flex-direction: row-reverse;
+  justify-content: space-between;
+}
+
+/* 发送/停止按钮 */
+.paper-chat-input-toolbar__execute-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--sm-color-text-primary);
+  border: none;
+  color: var(--sm-color-bg-canvas);
+  cursor: pointer;
+  transition:
+    opacity var(--sm-transition-fast),
+    transform var(--sm-transition-fast);
+}
+
+.paper-chat-input-toolbar__execute-button:hover:not(:disabled) {
+  opacity: 0.85;
+  transform: scale(1.05);
+}
+
+.paper-chat-input-toolbar__execute-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.paper-chat-input-toolbar__stop-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(199, 120, 120, 0.12);
+  border: 1px solid rgba(199, 120, 120, 0.28);
+  color: var(--sm-color-status-danger);
+  cursor: pointer;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
+}
+
+.paper-chat-input-toolbar__stop-button:hover {
+  background: rgba(199, 120, 120, 0.2);
+  border-color: var(--sm-color-status-danger);
+}

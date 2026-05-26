@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { logger } from '@main/services/logger'
 import { frontendLabService } from '@main/services/lab/frontend'
+import { classifyDockerError } from '@main/services/lab/docker/dockerErrors'
 import type {
   ContainerFilter,
   ContainerListResult,
@@ -37,13 +38,16 @@ export function registerLabContainerHandlers(): void {
         }
       } catch (error) {
         const errorMessage = normalizeLabError(error, '加载容器列表失败')
+        const reason = classifyDockerError(error)
         logger.error('[listContainers] 调用失败', 'main', {
           error: errorMessage,
+          reason,
           stack: error instanceof Error ? error.stack : undefined
         })
         return {
           success: false,
-          error: errorMessage
+          error: errorMessage,
+          reason
         }
       }
     }
@@ -57,7 +61,8 @@ export function registerLabContainerHandlers(): void {
         if (!details) {
           return {
             success: false,
-            error: '未找到容器详情'
+            error: '未找到容器详情',
+            reason: 'not_found'
           }
         }
 
@@ -67,10 +72,12 @@ export function registerLabContainerHandlers(): void {
         }
       } catch (error) {
         const errorMessage = normalizeLabError(error, '加载容器详情失败')
-        logger.error('获取容器详情失败', 'main', { containerId, error: errorMessage })
+        const reason = classifyDockerError(error)
+        logger.error('获取容器详情失败', 'main', { containerId, error: errorMessage, reason })
         return {
           success: false,
-          error: errorMessage
+          error: errorMessage,
+          reason
         }
       }
     }

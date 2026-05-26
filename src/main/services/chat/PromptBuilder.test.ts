@@ -34,3 +34,23 @@ test('PromptBuilder 不会为名为 skill 的 MCP 服务注入内置指南', asy
   assert.doesNotMatch(prompt, /skill__read/)
   assert.doesNotMatch(prompt, /始终先核对论文证据/)
 })
+
+test('PromptBuilder 为论文联网搜索注入主动搜索指南', async () => {
+  const builder = new PromptBuilder()
+  const prompt = await builder.buildSystemPrompt(
+    { base_url: 'http://localhost', api_key: 'key', model_name: 'model' },
+    true,
+    [
+      {
+        serverName: 'paper_web',
+        toolName: 'search',
+        description: '搜索学术资料',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      }
+    ]
+  )
+
+  assert.match(prompt, /主动搜索/)
+  assert.match(prompt, /无需等待用户明确说“搜索”/)
+  assert.match(prompt, /应主动搜索的场景/)
+})

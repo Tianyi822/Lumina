@@ -1,8 +1,4 @@
-// 知识库索引状态 Store
-// 管理知识库文件索引的进度状态，实现按知识库隔离
-
-import { ref, computed } from 'vue'
-import { defineStore } from 'pinia'
+import { create } from 'zustand'
 import type {
   KnowledgeFileProcessingProgress,
   KnowledgeFileProgressEvent
@@ -11,235 +7,193 @@ import type {
 export type FileProcessingProgress = KnowledgeFileProcessingProgress
 type FileProgressEvent = KnowledgeFileProgressEvent
 
-export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
-  // ==================== State ====================
+interface KnowledgeIndexState {
+  kbFileProgress: Record<string, Record<string, FileProcessingProgress>>
+  activeIndexingKbId: string | null
+  reindexingKbIds: Set<string>
 
-  // 按知识库隔离的文件进度
-  // 结构: kbId -> fileId -> FileProcessingProgress
-  const kbFileProgress = ref<Record<string, Record<string, FileProcessingProgress>>>({})
+  hasActiveIndexing: () => boolean
+  isKBIndexing: (kbId: string) => boolean
+  isKBReindexing: (kbId: string) => boolean
+  getKBIndexingFiles: (kbId: string) => FileProcessingProgress[]
+  getKBIndexingFilesMap: (kbId: string) => Record<string, FileProcessingProgress>
+  getFileProgress: (kbId: string, fileId: string) => FileProcessingProgress | undefined
 
-  // 当前正在索引的知识库 ID（从后端同步）
-  const activeIndexingKbId = ref<string | null>(null)
+  setKBReindexing: (kbId: string, isReindexing: boolean) => void
+  updateFileProgress: (kbId: string, progress: FileProcessingProgress) => void
+  setFileIndexing: (kbId: string, fileId: string, fileName: string) => void
+  setFilesIndexing: (kbId: string, files: Array<{ fileId: string; fileName: string }>) => void
+  setFileFailed: (kbId: string, fileId: string, error: string) => void
+  clearFileProgress: (kbId: string, fileId: string) => void
+  clearKBProgress: (kbId: string) => void
+  markIndexCallStarted: (kbId: string, fileId: string) => void
+  markIndexCallFinished: (kbId: string, fileId: string) => void
+  refreshFromBackend: () => Promise<void>
+  restoreStatus: (kbId: string) => Promise<void>
+  startRefresh: () => void
+  stopRefresh: () => void
+  setupIpcListeners: () => void
+  cleanupIpcListeners: () => void
+}
 
-  // 正在重建索引的知识库 ID 集合
-  const reindexingKbIds = ref<Set<string>>(new Set())
+let progressCleanup: (() => void) | null = null
+let refreshTimerId: number | null = null
+const activeIndexCalls = new Set<string>()
 
-  // 定时刷新定时器 ID
-  const refreshTimerId = ref<number | null>(null)
+export const useKnowledgeIndexStore = create<KnowledgeIndexState>()((set, get) => ({
+  kbFileProgress: {},
+  activeIndexingKbId: null,
+  reindexingKbIds: new Set(),
 
-  // 正在进行 IPC 调用的文件集合（防止轮询清理掉排队中的文件）
-  // 格式: "kbId:fileId"
-  const activeIndexCalls = ref<Set<string>>(new Set())
-
-  // IPC 事件监听器清理函数
-  let progressCleanup: (() => void) | null = null
-
-  // ==================== Getters ====================
-
-  // 判断指定知识库是否正在索引
-  function isKBIndexing(kbId: string): boolean {
-    const files = kbFileProgress.value[kbId]
-    if (!files) return false
-    return Object.values(files).some((f) => f.status === 'processing')
-  }
-
-  // 判断指定知识库是否正在重建索引
-  function isKBReindexing(kbId: string): boolean {
-    return reindexingKbIds.value.has(kbId)
-  }
-
-  // 获取指定知识库的索引文件列表
-  function getKBIndexingFiles(kbId: string): FileProcessingProgress[] {
-    const files = kbFileProgress.value[kbId]
-    if (!files) return []
-    return Object.values(files)
-  }
-
-  // 获取指定知识库的索引文件映射（兼容原有组件接口）
-  function getKBIndexingFilesMap(kbId: string): Record<string, FileProcessingProgress> {
-    return kbFileProgress.value[kbId] || {}
-  }
-
-  // 获取指定文件的进度
-  function getFileProgress(kbId: string, fileId: string): FileProcessingProgress | undefined {
-    return kbFileProgress.value[kbId]?.[fileId]
-  }
-
-  // 是否有任何知识库正在索引
-  const hasActiveIndexing = computed(() => {
-    return Object.values(kbFileProgress.value).some((files) =>
+  hasActiveIndexing: () => {
+    return Object.values(get().kbFileProgress).some((files) =>
       Object.values(files).some((f) => f.status === 'processing')
     )
-  })
+  },
 
-  // ==================== Actions ====================
+  isKBIndexing: (kbId) => {
+    const files = get().kbFileProgress[kbId]
+    if (!files) return false
+    return Object.values(files).some((f) => f.status === 'processing')
+  },
 
-  // 设置知识库正在重建索引
-  function setKBReindexing(kbId: string, isReindexing: boolean): void {
-    if (isReindexing) {
-      reindexingKbIds.value.add(kbId)
-    } else {
-      reindexingKbIds.value.delete(kbId)
-    }
-    // 触发响应式更新
-    reindexingKbIds.value = new Set(reindexingKbIds.value)
-  }
+  isKBReindexing: (kbId) => get().reindexingKbIds.has(kbId),
 
-  // 更新单个文件进度（IPC 事件调用）
-  function updateFileProgress(kbId: string, progress: FileProcessingProgress): void {
-    // 确保知识库的文件映射存在
-    if (!kbFileProgress.value[kbId]) {
-      kbFileProgress.value[kbId] = {}
-    }
+  getKBIndexingFiles: (kbId) => {
+    const files = get().kbFileProgress[kbId]
+    if (!files) return []
+    return Object.values(files)
+  },
 
-    const existing = kbFileProgress.value[kbId][progress.fileId]
+  getKBIndexingFilesMap: (kbId) => get().kbFileProgress[kbId] || {},
 
-    // 使用 Math.max 确保进度只增不减
+  getFileProgress: (kbId, fileId) => get().kbFileProgress[kbId]?.[fileId],
+
+  setKBReindexing: (kbId, isReindexing) =>
+    set((state) => {
+      const next = new Set(state.reindexingKbIds)
+      if (isReindexing) next.add(kbId)
+      else next.delete(kbId)
+      return { reindexingKbIds: next }
+    }),
+
+  updateFileProgress: (kbId, progress) => {
+    const state = get()
+    const kbFiles = state.kbFileProgress[kbId] || {}
+    const existing = kbFiles[progress.fileId]
+
     const newProgress: FileProcessingProgress = {
       ...progress,
       progress: Math.max(existing?.progress ?? 0, progress.progress ?? 0)
     }
 
-    // 触发响应式更新
-    kbFileProgress.value = {
-      ...kbFileProgress.value,
-      [kbId]: {
-        ...kbFileProgress.value[kbId],
-        [progress.fileId]: newProgress
+    set({
+      kbFileProgress: {
+        ...state.kbFileProgress,
+        [kbId]: { ...kbFiles, [progress.fileId]: newProgress }
       }
-    }
+    })
 
-    // 完成或失败后延迟清理
     if (progress.status === 'completed' || progress.status === 'failed') {
       setTimeout(() => {
-        clearFileProgress(kbId, progress.fileId)
+        get().clearFileProgress(kbId, progress.fileId)
       }, 1000)
     }
-  }
+  },
 
-  // 设置文件开始索引（不设置 progress，等待后端事件）
-  function setFileIndexing(kbId: string, fileId: string, fileName: string): void {
-    if (!kbFileProgress.value[kbId]) {
-      kbFileProgress.value[kbId] = {}
-    }
+  setFileIndexing: (kbId, fileId, fileName) => {
+    const state = get()
+    const kbFiles = state.kbFileProgress[kbId] || {}
 
-    kbFileProgress.value = {
-      ...kbFileProgress.value,
-      [kbId]: {
-        ...kbFileProgress.value[kbId],
-        [fileId]: {
-          fileId,
-          fileName,
-          status: 'processing'
-          // 不设置 progress，等待后端事件
+    set({
+      kbFileProgress: {
+        ...state.kbFileProgress,
+        [kbId]: {
+          ...kbFiles,
+          [fileId]: { fileId, fileName, status: 'processing' }
         }
       }
-    }
-  }
+    })
+  },
 
-  // 批量设置文件开始索引
-  function setFilesIndexing(
-    kbId: string,
-    files: Array<{ fileId: string; fileName: string }>
-  ): void {
-    if (!kbFileProgress.value[kbId]) {
-      kbFileProgress.value[kbId] = {}
-    }
-
+  setFilesIndexing: (kbId, files) => {
+    const state = get()
+    const kbFiles = state.kbFileProgress[kbId] || {}
     const newFiles: Record<string, FileProcessingProgress> = {}
+
     for (const file of files) {
-      newFiles[file.fileId] = {
-        fileId: file.fileId,
-        fileName: file.fileName,
-        status: 'processing'
-      }
+      newFiles[file.fileId] = { fileId: file.fileId, fileName: file.fileName, status: 'processing' }
     }
 
-    kbFileProgress.value = {
-      ...kbFileProgress.value,
-      [kbId]: {
-        ...kbFileProgress.value[kbId],
-        ...newFiles
+    set({
+      kbFileProgress: {
+        ...state.kbFileProgress,
+        [kbId]: { ...kbFiles, ...newFiles }
       }
-    }
-  }
+    })
+  },
 
-  // 设置文件索引失败
-  function setFileFailed(kbId: string, fileId: string, error: string): void {
-    if (!kbFileProgress.value[kbId]?.[fileId]) return
+  setFileFailed: (kbId, fileId, error) => {
+    const state = get()
+    const entry = state.kbFileProgress[kbId]?.[fileId]
+    if (!entry) return
 
-    kbFileProgress.value = {
-      ...kbFileProgress.value,
-      [kbId]: {
-        ...kbFileProgress.value[kbId],
-        [fileId]: {
-          ...kbFileProgress.value[kbId][fileId],
-          status: 'failed',
-          error
+    set({
+      kbFileProgress: {
+        ...state.kbFileProgress,
+        [kbId]: {
+          ...state.kbFileProgress[kbId],
+          [fileId]: { ...entry, status: 'failed', error }
         }
       }
-    }
+    })
 
-    // 延迟清理
     setTimeout(() => {
-      clearFileProgress(kbId, fileId)
+      get().clearFileProgress(kbId, fileId)
     }, 1000)
-  }
+  },
 
-  // 标记文件索引 IPC 调用开始
-  function markIndexCallStarted(kbId: string, fileId: string): void {
-    activeIndexCalls.value.add(`${kbId}:${fileId}`)
-    activeIndexCalls.value = new Set(activeIndexCalls.value)
-  }
+  markIndexCallStarted: (kbId, fileId) => {
+    activeIndexCalls.add(`${kbId}:${fileId}`)
+  },
 
-  // 标记文件索引 IPC 调用结束
-  function markIndexCallFinished(kbId: string, fileId: string): void {
-    activeIndexCalls.value.delete(`${kbId}:${fileId}`)
-    activeIndexCalls.value = new Set(activeIndexCalls.value)
-  }
+  markIndexCallFinished: (kbId, fileId) => {
+    activeIndexCalls.delete(`${kbId}:${fileId}`)
+  },
 
-  // 清除单个文件的进度状态
-  function clearFileProgress(kbId: string, fileId: string): void {
-    if (!kbFileProgress.value[kbId]?.[fileId]) return
+  clearFileProgress: (kbId, fileId) => {
+    const state = get()
+    const kbFiles = state.kbFileProgress[kbId]
+    if (!kbFiles?.[fileId]) return
 
-    const newFiles = { ...kbFileProgress.value[kbId] }
-    delete newFiles[fileId]
+    const newKbFiles = { ...kbFiles }
+    delete newKbFiles[fileId]
+    const next = { ...state.kbFileProgress, [kbId]: newKbFiles }
 
-    kbFileProgress.value = {
-      ...kbFileProgress.value,
-      [kbId]: newFiles
+    set({ kbFileProgress: next })
+
+    if (Object.keys(newKbFiles).length === 0 && !get().hasActiveIndexing()) {
+      get().stopRefresh()
     }
+  },
 
-    // 如果该知识库没有文件了，检查是否需要停止刷新
-    if (Object.keys(newFiles).length === 0 && !hasActiveIndexing.value) {
-      stopRefresh()
-    }
-  }
+  clearKBProgress: (kbId) => {
+    const next = { ...get().kbFileProgress }
+    delete next[kbId]
+    set({ kbFileProgress: next })
+  },
 
-  // 清除指定知识库的所有进度状态
-  function clearKBProgress(kbId: string): void {
-    if (!kbFileProgress.value[kbId]) return
-
-    const newProgress = { ...kbFileProgress.value }
-    delete newProgress[kbId]
-    kbFileProgress.value = newProgress
-  }
-
-  // 从后端刷新索引状态
-  async function refreshFromBackend(): Promise<void> {
+  refreshFromBackend: async () => {
     try {
       const result = await window.api.knowledge.getIndexingStatus()
       if (!result.success || !result.data) return
 
       const { indexingFiles, activeIndexingKbId: activeKbId } = result.data
-      activeIndexingKbId.value = activeKbId
+      set({ activeIndexingKbId: activeKbId })
 
-      // 按知识库分组
       const groupedByKb: Record<string, FileProcessingProgress[]> = {}
       for (const file of indexingFiles) {
-        if (!groupedByKb[file.kbId]) {
-          groupedByKb[file.kbId] = []
-        }
+        if (!groupedByKb[file.kbId]) groupedByKb[file.kbId] = []
         groupedByKb[file.kbId].push({
           fileId: file.fileId,
           fileName: file.fileName || file.fileId,
@@ -248,140 +202,86 @@ export const useKnowledgeIndexStore = defineStore('knowledgeIndex', () => {
         })
       }
 
-      // 更新每个知识库的状态
+      const state = get()
+      const nextProgress = { ...state.kbFileProgress }
+
       for (const [kbId, files] of Object.entries(groupedByKb)) {
-        if (!kbFileProgress.value[kbId]) {
-          kbFileProgress.value[kbId] = {}
-        }
+        if (!nextProgress[kbId]) nextProgress[kbId] = {}
 
         for (const file of files) {
-          const existing = kbFileProgress.value[kbId][file.fileId]
-          // 使用 Math.max 避免进度回退
-          kbFileProgress.value[kbId][file.fileId] = {
+          const existing = nextProgress[kbId][file.fileId]
+          nextProgress[kbId][file.fileId] = {
             ...file,
             progress: Math.max(existing?.progress ?? 0, file.progress ?? 0)
           }
         }
       }
 
-      // 清理已完成的文件（后端报告已完成但前端仍显示处理中）
-      for (const [kbId, files] of Object.entries(kbFileProgress.value)) {
+      for (const [kbId, files] of Object.entries(nextProgress)) {
         const activeFileIds = new Set(groupedByKb[kbId]?.map((f) => f.fileId) || [])
         for (const [fileId, progress] of Object.entries(files)) {
           if (
             !activeFileIds.has(fileId) &&
             progress.status === 'processing' &&
-            !activeIndexCalls.value.has(`${kbId}:${fileId}`)
+            !activeIndexCalls.has(`${kbId}:${fileId}`)
           ) {
-            // 标记为完成
-            kbFileProgress.value[kbId][fileId] = {
-              ...progress,
-              status: 'completed',
-              progress: 100
-            }
-            // 延迟清理
+            nextProgress[kbId][fileId] = { ...progress, status: 'completed', progress: 100 }
             setTimeout(() => {
-              clearFileProgress(kbId, fileId)
+              get().clearFileProgress(kbId, fileId)
             }, 1000)
           }
         }
       }
 
-      // 触发响应式更新
-      kbFileProgress.value = { ...kbFileProgress.value }
+      set({ kbFileProgress: nextProgress })
     } catch (error) {
       window.api.logger.error('[KnowledgeIndexStore] 刷新索引状态失败', {
         error: error instanceof Error ? error.message : String(error)
       })
     }
-  }
+  },
 
-  // 恢复指定知识库的索引状态（切换知识库时调用）
-  async function restoreStatus(kbId: string): Promise<void> {
-    await refreshFromBackend()
-
-    // 如果该知识库有正在索引的文件，启动刷新
-    if (isKBIndexing(kbId)) {
-      startRefresh()
+  restoreStatus: async (kbId) => {
+    await get().refreshFromBackend()
+    if (get().isKBIndexing(kbId)) {
+      get().startRefresh()
     }
-  }
+  },
 
-  // 启动定时刷新
-  function startRefresh(): void {
-    if (refreshTimerId.value !== null) {
-      clearInterval(refreshTimerId.value)
-    }
+  startRefresh: () => {
+    if (refreshTimerId !== null) clearInterval(refreshTimerId)
 
-    refreshTimerId.value = window.setInterval(async () => {
-      if (hasActiveIndexing.value) {
-        await refreshFromBackend()
+    refreshTimerId = window.setInterval(async () => {
+      if (get().hasActiveIndexing()) {
+        await get().refreshFromBackend()
       } else {
-        stopRefresh()
+        get().stopRefresh()
       }
     }, 2000)
-  }
+  },
 
-  // 停止定时刷新
-  function stopRefresh(): void {
-    if (refreshTimerId.value !== null) {
-      clearInterval(refreshTimerId.value)
-      refreshTimerId.value = null
+  stopRefresh: () => {
+    if (refreshTimerId !== null) {
+      clearInterval(refreshTimerId)
+      refreshTimerId = null
     }
-  }
+  },
 
-  // 处理文件进度事件
-  function handleFileProgressEvent(data: FileProgressEvent): void {
-    updateFileProgress(data.kbId, data.progress)
-  }
+  setupIpcListeners: () => {
+    if (progressCleanup) return
+    progressCleanup = window.api.onFileProgress((data: FileProgressEvent) => {
+      get().updateFileProgress(data.kbId, data.progress)
+    })
+  },
 
-  // 设置 IPC 事件监听器
-  function setupIpcListeners(): void {
-    if (progressCleanup) return // 已经设置过了
-
-    progressCleanup = window.api.onFileProgress(handleFileProgressEvent)
-  }
-
-  // 清理 IPC 事件监听器
-  function cleanupIpcListeners(): void {
+  cleanupIpcListeners: () => {
     if (progressCleanup) {
       progressCleanup()
       progressCleanup = null
     }
-    stopRefresh()
+    get().stopRefresh()
   }
+}))
 
-  // 自动设置监听器
-  setupIpcListeners()
-
-  return {
-    // State
-    kbFileProgress,
-    activeIndexingKbId,
-    reindexingKbIds,
-    hasActiveIndexing,
-
-    // Getters
-    isKBIndexing,
-    isKBReindexing,
-    getKBIndexingFiles,
-    getKBIndexingFilesMap,
-    getFileProgress,
-
-    // Actions
-    setKBReindexing,
-    updateFileProgress,
-    setFileIndexing,
-    setFilesIndexing,
-    setFileFailed,
-    clearFileProgress,
-    clearKBProgress,
-    markIndexCallStarted,
-    markIndexCallFinished,
-    refreshFromBackend,
-    restoreStatus,
-    startRefresh,
-    stopRefresh,
-    setupIpcListeners,
-    cleanupIpcListeners
-  }
-})
+// 自动设置监听器
+useKnowledgeIndexStore.getState().setupIpcListeners()

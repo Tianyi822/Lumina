@@ -3,7 +3,6 @@
  * 提供逐页渲染 PDF 为图片的功能，基于 pdfjs-dist
  */
 
-import { ref, type Ref } from 'vue'
 import {
   type PDFDocumentProxy,
   type PDFPageProxy,
@@ -33,6 +32,14 @@ export interface RenderResult {
   base64: string // 不含 data:image/jpeg;base64, 前缀
   width: number
   height: number
+}
+
+export interface ValueRef<T> {
+  value: T
+}
+
+function createValueRef<T>(value: T): ValueRef<T> {
+  return { value }
 }
 
 /**
@@ -66,8 +73,8 @@ export class PdfRenderError extends Error {
  * 用于在渲染进程中将 PDF 逐页渲染为图片
  */
 export function usePdfPageRasterizer(): {
-  isLoaded: Ref<boolean>
-  pageCount: Ref<number>
+  isLoaded: ValueRef<boolean>
+  pageCount: ValueRef<number>
   loadPdf: (source: ArrayBuffer) => Promise<PageInfo[]>
   renderPage: (pageIndex: number, scale?: number) => Promise<RenderResult>
   dispose: () => void
@@ -75,9 +82,9 @@ export function usePdfPageRasterizer(): {
   // PDF 文档实例
   let pdfDoc: PDFDocumentProxy | null = null
 
-  // ref 状态
-  const isLoaded = ref(false)
-  const pageCount = ref(0)
+  // 值状态
+  const isLoaded = createValueRef(false)
+  const pageCount = createValueRef(0)
 
   /**
    * 加载 PDF 文档

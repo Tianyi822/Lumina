@@ -1,0 +1,249 @@
+.delete-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.delete-confirm-dialog {
+  background-color: var(--sm-color-bg-app);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90vw;
+  overflow: hidden;
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--sm-color-border-default);
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+}
+
+.close-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--sm-color-text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.close-btn:hover {
+  background-color: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
+}
+
+.dialog-body {
+  padding: 20px;
+}
+
+.confirm-message {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--sm-color-text-primary);
+  white-space: pre-line;
+}
+
+.delete-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.delete-option:hover {
+  border-color: var(--sm-color-text-secondary);
+}
+
+.delete-option input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.delete-option span {
+  font-size: 14px;
+  color: var(--sm-color-text-primary);
+}
+
+.workspace-option input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.workspace-option.disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.hint-message {
+  margin: 10px 0 0 0;
+  font-size: 12px;
+  color: var(--sm-color-text-secondary);
+}
+
+.warning-message {
+  margin: 12px 0 0 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sm-color-status-warning);
+  background-color: rgba(210, 153, 34, 0.1);
+  border: 1px solid rgba(210, 153, 34, 0.3);
+  border-radius: 6px;
+}
+
+.info-message {
+  color: var(--sm-color-status-info);
+  background-color: rgba(88, 166, 255, 0.1);
+  border-color: rgba(88, 166, 255, 0.3);
+}
+
+.type-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  background-color: rgba(210, 153, 34, 0.1);
+  border: 1px solid rgba(210, 153, 34, 0.3);
+  border-radius: 6px;
+  color: var(--sm-color-status-warning);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.type-notice svg {
+  flex-shrink: 0;
+}
+
+.type-notice--metadata-only {
+  background-color: rgba(199, 120, 120, 0.1);
+  border-color: rgba(199, 120, 120, 0.32);
+  color: #c77878;
+}
+
+.existing-type .dialog-header h3 {
+  color: var(--sm-color-status-warning);
+}
+
+.btn-safe {
+  background-color: var(--sm-color-status-info) !important;
+  border-color: var(--sm-color-status-info) !important;
+}
+
+.btn-safe:hover {
+  opacity: 0.9;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--sm-color-border-default);
+  background-color: var(--sm-color-surface-1);
+}
+
+.btn-cancel,
+.btn-confirm {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-family: var(--sm-font-sans);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-cancel {
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-default);
+  color: var(--sm-color-text-secondary);
+}
+
+.btn-cancel:hover {
+  border-color: var(--sm-color-text-secondary);
+  color: var(--sm-color-text-primary);
+}
+
+.btn-confirm {
+  background-color: var(--sm-color-status-danger);
+  border: 1px solid var(--sm-color-status-danger);
+  color: white;
+}
+
+.btn-confirm:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn-confirm:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-cancel:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.close-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}

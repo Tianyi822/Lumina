@@ -36,6 +36,9 @@
   --sm-motion-distance-md: 8px;
   --sm-motion-distance-lg: 12px;
   --sm-shadow-none: none;
+  --sm-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --sm-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --sm-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
 
   --sm-paper-progress-height: 6px;
   --sm-paper-progress-radius: 999px;

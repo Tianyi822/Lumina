@@ -14,6 +14,7 @@ dev-app-update.yml
 .claude/
 .opencode/
 .worktrees/
+.rpiv/
 build/*
 !build/entitlements.mac.plist
 !build/icon.icns

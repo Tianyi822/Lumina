@@ -1,12 +1,8 @@
-// Knowledge Store
-// 管理知识库列表、嵌入模型配置和表单状态
-
-import { ref, computed } from 'vue'
-import { defineStore } from 'pinia'
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { KnowledgeBase, KnowledgeBaseEmbeddingConfig } from '@renderer/types'
 import type { EmbeddingConfig } from '@shared/types/config'
 
-// 知识库创建输入
 export interface CreateKnowledgeBaseInput {
   name: string
   description: string
@@ -18,362 +14,249 @@ export interface CreateKnowledgeBaseInput {
   linkedFileIds: string[]
 }
 
-export const useKnowledgeStore = defineStore(
-  'knowledge',
-  () => {
-    // ==================== State ====================
+interface KnowledgeState {
+  knowledgeBases: KnowledgeBase[]
+  activeKbId: string | null
+  embeddingModels: Record<string, EmbeddingConfig>
+  showForm: boolean
+  editingKb: KnowledgeBase | null
+  loading: boolean
+  embeddingLoading: boolean
+  error: string | null
 
-    // 知识库列表
-    const knowledgeBases = ref<KnowledgeBase[]>([])
+  activeKnowledgeBase: () => KnowledgeBase | null
+  knowledgeBaseCount: () => number
+  embeddingModelList: () => Array<EmbeddingConfig & { id: string }>
+  isEditing: () => boolean
 
-    // 当前激活的知识库 ID（持久化）
-    const activeKbId = ref<string | null>(null)
+  loadKnowledgeBases: () => Promise<void>
+  createKnowledgeBase: (data: CreateKnowledgeBaseInput) => Promise<string | null>
+  updateKnowledgeBase: (id: string, data: Partial<KnowledgeBase>) => Promise<boolean>
+  deleteKnowledgeBase: (id: string) => Promise<boolean>
+  getKnowledgeBase: (id: string) => KnowledgeBase | undefined
 
-    // 嵌入模型配置
-    const embeddingModels = ref<Record<string, EmbeddingConfig>>({})
+  setActiveKb: (kbId: string | null) => void
+  switchToKb: (kbId: string) => Promise<void>
 
-    // 显示知识库表单
-    const showForm = ref(false)
+  loadEmbeddingModels: () => Promise<void>
+  getEmbeddingModel: (id: string) => Promise<EmbeddingConfig | null>
+  saveEmbeddingModel: (id: string, config: EmbeddingConfig) => Promise<boolean>
+  deleteEmbeddingModel: (id: string) => Promise<boolean>
+  testEmbeddingModel: (id: string) => Promise<{ success: boolean; error?: string }>
 
-    // 正在编辑的知识库（null 表示新建）
-    const editingKb = ref<KnowledgeBase | null>(null)
+  openCreateForm: () => void
+  openEditForm: (kb: KnowledgeBase) => void
+  closeForm: () => void
+  handleFormSubmit: (data: {
+    name: string
+    description: string
+    embeddingConfig: KnowledgeBaseEmbeddingConfig
+    embeddingDimension: number
+    chunkSize: number
+    chunkOverlap: number
+  }) => Promise<boolean>
+}
 
-    // 加载状态
-    const loading = ref(false)
+export const useKnowledgeStore = create<KnowledgeState>()(
+  persist(
+    (set, get) => ({
+      knowledgeBases: [],
+      activeKbId: null,
+      embeddingModels: {},
+      showForm: false,
+      editingKb: null,
+      loading: false,
+      embeddingLoading: false,
+      error: null,
 
-    // 嵌入模型加载状态
-    const embeddingLoading = ref(false)
+      activeKnowledgeBase: () => {
+        const state = get()
+        if (!state.activeKbId) return null
+        return state.knowledgeBases.find((kb) => kb.id === state.activeKbId) || null
+      },
 
-    // 错误信息
-    const error = ref<string | null>(null)
+      knowledgeBaseCount: () => get().knowledgeBases.length,
 
-    // ==================== Getters ====================
+      embeddingModelList: () =>
+        Object.entries(get().embeddingModels).map(([id, config]) => ({ id, ...config })),
 
-    // 获取当前激活的知识库
-    const activeKnowledgeBase = computed(() => {
-      if (!activeKbId.value) return null
-      return knowledgeBases.value.find((kb) => kb.id === activeKbId.value) || null
-    })
+      isEditing: () => get().editingKb !== null,
 
-    // 知识库数量
-    const knowledgeBaseCount = computed(() => knowledgeBases.value.length)
-
-    // 嵌入模型列表（数组形式）
-    const embeddingModelList = computed(() => {
-      return Object.entries(embeddingModels.value).map(([id, config]) => ({
-        id,
-        ...config
-      }))
-    })
-
-    // 是否正在编辑（而非创建）
-    const isEditing = computed(() => editingKb.value !== null)
-
-    // ==================== Actions: 知识库管理 ====================
-
-    // 加载知识库列表
-    async function loadKnowledgeBases(): Promise<void> {
-      loading.value = true
-      error.value = null
-      try {
-        const result = await window.api.knowledge.getAll()
-        if (result.success && result.data) {
-          knowledgeBases.value = result.data
-          window.api.logger?.debug('[KnowledgeStore] 加载知识库完成', {
-            count: knowledgeBases.value.length
-          })
+      loadKnowledgeBases: async () => {
+        set({ loading: true, error: null })
+        try {
+          const result = await window.api.knowledge.getAll()
+          if (result.success && result.data) {
+            set({ knowledgeBases: result.data })
+          }
+        } catch (e) {
+          set({ error: e instanceof Error ? e.message : String(e) })
+        } finally {
+          set({ loading: false })
         }
-      } catch (e) {
-        error.value = e instanceof Error ? e.message : String(e)
-        window.api.logger?.error('[KnowledgeStore] 加载知识库失败', { error: error.value })
-      } finally {
-        loading.value = false
-      }
-    }
+      },
 
-    // 创建知识库
-    async function createKnowledgeBase(data: CreateKnowledgeBaseInput): Promise<string | null> {
-      loading.value = true
-      error.value = null
-      try {
-        const createResult = await window.api.knowledge.create(data)
+      createKnowledgeBase: async (data) => {
+        set({ loading: true, error: null })
+        try {
+          const createResult = await window.api.knowledge.create(data)
+          if (!createResult.success || !createResult.data) {
+            set({ error: createResult.error || '创建失败' })
+            return null
+          }
 
-        if (!createResult.success || !createResult.data) {
-          error.value = createResult.error || '创建失败'
+          set((state) => ({
+            knowledgeBases: [createResult.data!, ...state.knowledgeBases],
+            activeKbId: createResult.data!.id
+          }))
+
+          return createResult.data.id
+        } catch (e) {
+          set({ error: e instanceof Error ? e.message : String(e) })
           return null
+        } finally {
+          set({ loading: false })
         }
+      },
 
-        knowledgeBases.value.unshift(createResult.data)
-        activeKbId.value = createResult.data.id
+      updateKnowledgeBase: async (id, data) => {
+        set({ loading: true, error: null })
+        try {
+          const result = await window.api.knowledge.update(id, data)
+          if (result.success) {
+            set((state) => {
+              const index = state.knowledgeBases.findIndex((kb) => kb.id === id)
+              if (index < 0) return {}
+              const next = [...state.knowledgeBases]
+              if (result.data) next[index] = result.data
+              return { knowledgeBases: next }
+            })
+            return true
+          } else {
+            set({ error: result.error || '更新失败' })
+            return false
+          }
+        } catch (e) {
+          set({ error: e instanceof Error ? e.message : String(e) })
+          return false
+        } finally {
+          set({ loading: false })
+        }
+      },
 
-        window.api.logger?.info('[KnowledgeStore] 创建知识库成功', {
-          id: createResult.data.id,
-          name: data.name
-        })
+      deleteKnowledgeBase: async (id) => {
+        set({ loading: true, error: null })
+        try {
+          await window.api.knowledge.stopIndexing(id)
+          const result = await window.api.knowledge.delete(id)
+          if (result.success) {
+            set((state) => ({
+              knowledgeBases: state.knowledgeBases.filter((kb) => kb.id !== id),
+              activeKbId: state.activeKbId === id ? null : state.activeKbId
+            }))
+            return true
+          } else {
+            set({ error: result.error || '删除失败' })
+            return false
+          }
+        } catch (e) {
+          set({ error: e instanceof Error ? e.message : String(e) })
+          return false
+        } finally {
+          set({ loading: false })
+        }
+      },
 
-        return createResult.data.id
-      } catch (e) {
-        error.value = e instanceof Error ? e.message : String(e)
-        window.api.logger?.error('[KnowledgeStore] 创建知识库失败', { error: error.value })
+      getKnowledgeBase: (id) => get().knowledgeBases.find((kb) => kb.id === id),
+
+      setActiveKb: (kbId) => set({ activeKbId: kbId }),
+
+      switchToKb: async (kbId) => {
+        set({ activeKbId: kbId })
+      },
+
+      loadEmbeddingModels: async () => {
+        set({ embeddingLoading: true })
+        try {
+          const result = await window.api.embeddingModels.getAll()
+          if (result.success && result.data) {
+            set({ embeddingModels: result.data })
+          }
+        } catch {
+          // silent
+        } finally {
+          set({ embeddingLoading: false })
+        }
+      },
+
+      getEmbeddingModel: async (id) => {
+        const result = await window.api.embeddingModels.getById(id)
+        if (result.success && result.data) return result.data
         return null
-      } finally {
-        loading.value = false
-      }
-    }
+      },
 
-    // 更新知识库
-    async function updateKnowledgeBase(id: string, data: Partial<KnowledgeBase>): Promise<boolean> {
-      loading.value = true
-      error.value = null
-      try {
-        const result = await window.api.knowledge.update(id, data)
-        if (result.success) {
-          // 更新本地数据
-          const index = knowledgeBases.value.findIndex((kb) => kb.id === id)
-          if (index >= 0 && result.data) {
-            knowledgeBases.value[index] = result.data
+      saveEmbeddingModel: async (id, config) => {
+        try {
+          const result = await window.api.embeddingModels.save(id, config)
+          if (result.success) {
+            await get().loadEmbeddingModels()
+            return true
           }
-          window.api.logger?.info('[KnowledgeStore] 更新知识库成功', { id })
-          return true
-        } else {
-          error.value = result.error || '更新失败'
+          return false
+        } catch {
           return false
         }
-      } catch (e) {
-        error.value = e instanceof Error ? e.message : String(e)
-        window.api.logger?.error('[KnowledgeStore] 更新知识库失败', { error: error.value })
-        return false
-      } finally {
-        loading.value = false
-      }
-    }
+      },
 
-    // 删除知识库
-    // 如果知识库正在索引，会先停止索引操作并清理状态
-    async function deleteKnowledgeBase(id: string): Promise<boolean> {
-      loading.value = true
-      error.value = null
-      try {
-        // 1. 先停止知识库的索引操作（如果正在进行）
-        // 这会取消队列中的任务并停止当前的索引
-        const stopResult = await window.api.knowledge.stopIndexing(id)
-        if (stopResult.success && stopResult.data?.stopped) {
-          window.api.logger?.info('[KnowledgeStore] 已停止知识库索引', { id })
-        }
-
-        // 2. 调用后端删除知识库
-        const result = await window.api.knowledge.delete(id)
-        if (result.success) {
-          // 3. 更新本地知识库列表
-          knowledgeBases.value = knowledgeBases.value.filter((kb) => kb.id !== id)
-          if (activeKbId.value === id) {
-            activeKbId.value = null
+      deleteEmbeddingModel: async (id) => {
+        try {
+          const result = await window.api.embeddingModels.delete(id)
+          if (result.success) {
+            await get().loadEmbeddingModels()
+            return true
           }
-          window.api.logger?.info('[KnowledgeStore] 删除知识库成功', { id })
-          return true
-        } else {
-          error.value = result.error || '删除失败'
-          window.api.logger?.error('[KnowledgeStore] 删除知识库失败', {
-            id,
-            error: result.error
-          })
+          return false
+        } catch {
           return false
         }
-      } catch (e) {
-        error.value = e instanceof Error ? e.message : String(e)
-        window.api.logger?.error('[KnowledgeStore] 删除知识库失败', { id, error: error.value })
-        return false
-      } finally {
-        loading.value = false
-      }
-    }
+      },
 
-    // 获取知识库详情
-    function getKnowledgeBase(id: string): KnowledgeBase | undefined {
-      return knowledgeBases.value.find((kb) => kb.id === id)
-    }
+      testEmbeddingModel: async (id) => {
+        return await window.api.embeddingModels.test(id)
+      },
 
-    // ==================== Actions: 选择管理 ====================
+      openCreateForm: () => set({ editingKb: null, showForm: true }),
 
-    // 设置当前激活的知识库
-    function setActiveKb(kbId: string | null): void {
-      activeKbId.value = kbId
-      window.api.logger?.debug('[KnowledgeStore] 设置激活知识库', { kbId })
-    }
+      openEditForm: (kb) => set({ editingKb: kb, showForm: true }),
 
-    // 切换到指定知识库
-    async function switchToKb(kbId: string): Promise<void> {
-      setActiveKb(kbId)
-      // 可以在这里添加额外的初始化逻辑
-    }
+      closeForm: () => set({ editingKb: null, showForm: false }),
 
-    // ==================== Actions: 嵌入模型管理 ====================
-
-    // 加载所有嵌入模型
-    async function loadEmbeddingModels(): Promise<void> {
-      embeddingLoading.value = true
-      try {
-        const result = await window.api.embeddingModels.getAll()
-        if (result.success && result.data) {
-          embeddingModels.value = result.data
-          window.api.logger?.debug('[KnowledgeStore] 加载嵌入模型完成', {
-            count: Object.keys(embeddingModels.value).length
+      handleFormSubmit: async (data) => {
+        const state = get()
+        if (state.editingKb) {
+          const success = await state.updateKnowledgeBase(state.editingKb.id, {
+            name: data.name,
+            description: data.description
           })
+          if (success) set({ editingKb: null, showForm: false })
+          return success
+        } else {
+          const id = await state.createKnowledgeBase({
+            ...data,
+            documentCount: 0,
+            linkedFileIds: []
+          })
+          if (id) {
+            set({ editingKb: null, showForm: false })
+            return true
+          }
+          return false
         }
-      } catch (e) {
-        window.api.logger?.error('[KnowledgeStore] 加载嵌入模型失败', { error: e })
-      } finally {
-        embeddingLoading.value = false
       }
+    }),
+    {
+      name: 'lumina-knowledge-state',
+      partialize: (state) => ({ activeKbId: state.activeKbId })
     }
-
-    // 根据 ID 获取嵌入模型
-    async function getEmbeddingModel(id: string): Promise<EmbeddingConfig | null> {
-      const result = await window.api.embeddingModels.getById(id)
-      if (result.success && result.data) {
-        return result.data
-      }
-      return null
-    }
-
-    // 保存嵌入模型
-    async function saveEmbeddingModel(id: string, config: EmbeddingConfig): Promise<boolean> {
-      try {
-        const result = await window.api.embeddingModels.save(id, config)
-        if (result.success) {
-          await loadEmbeddingModels()
-          window.api.logger?.info('[KnowledgeStore] 保存嵌入模型成功', { id })
-          return true
-        }
-        return false
-      } catch (e) {
-        window.api.logger?.error('[KnowledgeStore] 保存嵌入模型失败', { error: e })
-        return false
-      }
-    }
-
-    // 删除嵌入模型
-    async function deleteEmbeddingModel(id: string): Promise<boolean> {
-      try {
-        const result = await window.api.embeddingModels.delete(id)
-        if (result.success) {
-          await loadEmbeddingModels()
-          window.api.logger?.info('[KnowledgeStore] 删除嵌入模型成功', { id })
-          return true
-        }
-        return false
-      } catch (e) {
-        window.api.logger?.error('[KnowledgeStore] 删除嵌入模型失败', { error: e })
-        return false
-      }
-    }
-
-    // 测试嵌入模型连接
-    async function testEmbeddingModel(id: string): Promise<{ success: boolean; error?: string }> {
-      return await window.api.embeddingModels.test(id)
-    }
-
-    // ==================== Actions: 表单管理 ====================
-
-    // 打开创建表单
-    function openCreateForm(): void {
-      editingKb.value = null
-      showForm.value = true
-    }
-
-    // 打开编辑表单
-    function openEditForm(kb: KnowledgeBase): void {
-      editingKb.value = kb
-      showForm.value = true
-    }
-
-    // 关闭表单
-    function closeForm(): void {
-      editingKb.value = null
-      showForm.value = false
-    }
-
-    // 处理表单提交
-    async function handleFormSubmit(data: {
-      name: string
-      description: string
-      embeddingConfig: KnowledgeBaseEmbeddingConfig
-      embeddingDimension: number
-      chunkSize: number
-      chunkOverlap: number
-    }): Promise<boolean> {
-      if (editingKb.value) {
-        // 编辑模式
-        const success = await updateKnowledgeBase(editingKb.value.id, {
-          name: data.name,
-          description: data.description
-        })
-        if (success) {
-          closeForm()
-        }
-        return success
-      } else {
-        // 创建模式
-        const id = await createKnowledgeBase({
-          ...data,
-          documentCount: 0,
-          linkedFileIds: []
-        })
-        if (id) {
-          closeForm()
-          return true
-        }
-        return false
-      }
-    }
-
-    return {
-      // State
-      knowledgeBases,
-      activeKbId,
-      embeddingModels,
-      showForm,
-      editingKb,
-      loading,
-      embeddingLoading,
-      error,
-
-      // Getters
-      activeKnowledgeBase,
-      knowledgeBaseCount,
-      embeddingModelList,
-      isEditing,
-
-      // Actions: 知识库管理
-      loadKnowledgeBases,
-      createKnowledgeBase,
-      updateKnowledgeBase,
-      deleteKnowledgeBase,
-      getKnowledgeBase,
-
-      // Actions: 选择管理
-      setActiveKb,
-      switchToKb,
-
-      // Actions: 嵌入模型管理
-      loadEmbeddingModels,
-      getEmbeddingModel,
-      saveEmbeddingModel,
-      deleteEmbeddingModel,
-      testEmbeddingModel,
-
-      // Actions: 表单管理
-      openCreateForm,
-      openEditForm,
-      closeForm,
-      handleFormSubmit
-    }
-  },
-  {
-    // 持久化配置
-    persist: {
-      key: 'lumina-knowledge-state',
-      pick: ['activeKbId']
-    }
-  }
+  )
 )

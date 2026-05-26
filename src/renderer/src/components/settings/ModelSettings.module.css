@@ -1,0 +1,123 @@
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.model-item {
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  overflow: hidden;
+}
+
+.model-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color var(--sm-transition-fast);
+}
+
+.model-header:hover {
+  background: var(--sm-color-surface-hover);
+}
+
+.model-name {
+  flex: 1;
+  font-weight: 500;
+  color: var(--sm-color-text-primary);
+}
+
+.expand-state {
+  font-size: 12px;
+  color: var(--sm-color-text-tertiary);
+}
+
+.default-badge {
+  padding: 3px 8px;
+  border: 1px solid var(--sm-color-border-accent);
+  border-radius: 999px;
+  background: var(--sm-color-accent-12);
+  color: var(--sm-color-accent-hover);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.model-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.model-details {
+  padding: 16px;
+  border-top: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-surface-1);
+}
+
+.form-group label {
+  color: var(--sm-color-text-secondary);
+}
+
+.model-name-field {
+  padding: var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
+}
+
+.model-name-field label {
+  color: var(--sm-color-text-secondary);
+}
+
+.required {
+  color: var(--sm-color-status-danger);
+}
+
+.form-section-title {
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+}
+
+.new-model-form {
+  padding: 16px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
+}
+
+.add-model-btn {
+  width: 100%;
+  padding: 12px;
+  border-style: dashed;
+  color: var(--sm-color-text-secondary);
+}
+
+.add-model-btn:hover {
+  color: var(--sm-color-accent-hover);
+  border-color: var(--sm-color-border-accent);
+}
+
+.model-action--danger {
+  color: var(--sm-color-status-danger);
+}
+
+.save-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .model-header {
+    flex-wrap: wrap;
+  }
+
+  .model-actions,
+  .save-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

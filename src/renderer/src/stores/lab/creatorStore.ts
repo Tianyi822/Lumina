@@ -1,310 +1,405 @@
-import { ref, computed, watch } from 'vue'
-import { defineStore, storeToRefs } from 'pinia'
+import { create } from 'zustand'
 import type {
   ComposeOptions,
+  ContainerInfo,
   CreateLabRequest,
   CreateLabResult,
   LabCreationType,
   ComposeDockerfileConfig
 } from '@renderer/types/lab'
+import { notifySuccess, notifyError } from '@renderer/composables/notificationCore'
 import { useContainerStore } from './containerStore'
 import { useDockerConfigStore } from './configStore'
 import { useLabStore } from './labStore'
+import { useUIStateStore } from '../uiStateStore'
 import { usePortMappingStore } from './portMappingStore'
 import { useComposeConfigStore } from './composeConfigStore'
 import { useDockerfileConfigStore } from './dockerfileConfigStore'
-import { useNotification } from '@renderer/composables/useNotification'
 import { labApi } from '@renderer/services/labApi'
-import type { LabCreateType, CreatePhase, ComposeTemplateType } from './types'
+import type {
+  GeneratorForm,
+  LabCreateType,
+  CreatePhase,
+  ComposeTemplateType,
+  PortMapping
+} from './types'
 
-export const useLabCreatorStore = defineStore('labCreator', () => {
-  // ==================== Store Dependencies ====================
+// ==================== 类型定义 ====================
 
-  const containerStore = useContainerStore()
-  const configStore = useDockerConfigStore()
-  const portMappingStore = usePortMappingStore()
-  const composeConfigStore = useComposeConfigStore()
-  const dockerfileConfigStore = useDockerfileConfigStore()
-  const notify = useNotification()
+interface SshConfig {
+  host: string
+  port: number
+  username: string
+  authType: 'password' | 'key'
+  password: string
+  keyContent: string
+  keyName: string
+}
 
-  const { containers } = storeToRefs(containerStore)
-  const { loadDockerfileConfig, loadComposeConfig, saveDockerfileConfig, saveComposeConfig } =
-    configStore
+interface CreatorState {
+  // 创建类型与容器选择
+  createType: LabCreateType
+  selectedContainerId: string | null
+  containerFilter: 'all' | 'running' | 'stopped'
+  containerSearchQuery: string
 
-  const { portMappings } = storeToRefs(portMappingStore)
-  const { composeContent, composeProjectName, selectedComposeId, generatorForm } =
-    storeToRefs(composeConfigStore)
-  const { dockerfileContent, dockerfileContext, dockerfileProjectName, selectedDockerfileId } =
-    storeToRefs(dockerfileConfigStore)
+  // 保存对话框
+  showSaveDialog: boolean
+  saveDialogType: 'dockerfile' | 'compose'
+  saveConfigName: string
 
-  // ==================== State: 创建类型与容器选择 ====================
+  // SSH 创建配置
+  sshConfig: SshConfig
 
-  /** 创建类型 */
-  const createType = ref<LabCreateType>('compose')
-  /** 选中的容器 ID (用于创建器) */
-  const selectedContainerId = ref<string | null>(null)
-  /** 容器过滤类型 (用于创建器) */
-  const containerFilter = ref<'all' | 'running' | 'stopped'>('all')
-  /** 容器搜索关键词 (用于创建器) */
-  const containerSearchQuery = ref('')
+  // 创建状态跟踪
+  isCreating: boolean
+  createError: string | null
+  createPhase: CreatePhase
 
-  // ==================== State: 保存对话框 ====================
+  // ==================== Actions ====================
 
-  /** 保存配置对话框显示状态 */
-  const showSaveDialog = ref(false)
-  /** 保存配置对话框类型 */
-  const saveDialogType = ref<'dockerfile' | 'compose'>('compose')
-  /** 保存配置名称 */
-  const saveConfigName = ref('')
+  // 创建类型
+  setCreateType: (type: LabCreateType) => void
 
-  // ==================== State: SSH 创建配置 ====================
+  // 容器选择
+  selectContainer: (containerId: string) => void
+  resetContainerSelector: () => void
+  setContainerFilter: (filter: 'all' | 'running' | 'stopped') => void
+  setContainerSearchQuery: (query: string) => void
 
-  const sshConfig = ref({
-    host: '',
-    port: 22,
-    username: '',
-    authType: 'password' as 'password' | 'key',
-    password: '',
-    keyContent: '',
-    keyName: ''
-  })
+  // SSH 配置
+  resetSshConfig: () => void
+  updateSshConfig: (partial: Partial<SshConfig>) => void
 
-  function resetSshConfig(): void {
-    sshConfig.value = {
-      host: '',
-      port: 22,
-      username: '',
-      authType: 'password',
-      password: '',
-      keyContent: '',
-      keyName: ''
-    }
-  }
+  // Compose / Dockerfile 内容设置（带自动端口解析）
+  setDockerfileContent: (content: string) => void
+  setDockerfileContext: (context: string) => void
+  setDockerfileProjectName: (name: string) => void
+  setSelectedDockerfileId: (id: string | null) => void
+  setComposeContent: (content: string) => void
+  setComposeProjectName: (name: string) => void
+  setSelectedComposeId: (id: string | null) => void
+  setShowGenerator: (show: boolean) => void
+  setGeneratorForm: (form: GeneratorForm) => void
+  updateGeneratorForm: (partial: Partial<GeneratorForm>) => void
 
-  function updateSshConfig(partial: Partial<typeof sshConfig.value>): void {
-    Object.assign(sshConfig.value, partial)
-  }
+  // 配置生成器
+  onSavedDockerfileSelect: () => Promise<void>
+  clearSavedDockerfile: () => void
 
-  // ==================== State: 创建状态跟踪 ====================
+  // 保存配置
+  openSaveDialog: (type: 'dockerfile' | 'compose') => void
+  closeSaveDialog: () => void
+  handleSaveConfig: () => Promise<void>
 
-  /** 创建进行中状态 */
-  const isCreating = ref(false)
-  /** 创建错误信息 */
-  const createError = ref<string | null>(null)
-  /** 创建阶段 */
-  const createPhase = ref<CreatePhase>('idle')
+  // 加载已保存配置
+  loadSelectedDockerfile: () => Promise<void>
+  loadSelectedCompose: () => Promise<void>
 
-  // ==================== Watchers ====================
+  // 创建实验室
+  createFromCompose: (
+    options?: ComposeOptions
+  ) => Promise<(CreateLabResult & { composeError?: string }) | null>
+  createFromDockerfile: () => Promise<(CreateLabResult & { dockerError?: string }) | null>
+  createFromExisting: (containerId: string) => Promise<CreateLabResult | null>
+  handleCreate: () => Promise<boolean>
 
-  // 监听内容变化，自动解析端口
-  watch(dockerfileContent, (content) => {
-    if (createType.value === 'dockerfile' && content) {
-      portMappingStore.portMappings = portMappingStore.parseDockerfilePorts(content)
-    }
-  })
+  // 重置
+  reset: () => void
+  clearCreateError: () => void
 
-  watch(composeContent, (content) => {
-    if (createType.value === 'compose' && content) {
-      portMappingStore.portMappings = portMappingStore.parseComposePorts(content)
-    }
-  })
+  // ==================== Getters（以函数形式暴露） ====================
 
-  watch(createType, (type) => {
+  getFilteredContainers: () => ContainerInfo[]
+  getRunningCount: () => number
+  getStoppedCount: () => number
+  getCanCreate: () => boolean
+  getContainerSelectHint: () => string
+  getCreatePhaseText: () => string
+  getCreateProgress: () => number
+
+  // 端口映射委托
+  updatePortMapping: (index: number, mapping: Partial<PortMapping>) => void
+  addPortMapping: () => void
+  removePortMapping: (index: number) => void
+  refreshPorts: () => void
+
+  // 配置生成器委托
+  resetGeneratorForm: () => void
+  generateServiceConfig: () => string
+  insertServiceConfig: () => void
+
+  // 模板委托
+  getComposeTemplate: (type: ComposeTemplateType) => string
+}
+
+const defaultSshConfig: SshConfig = {
+  host: '',
+  port: 22,
+  username: '',
+  authType: 'password',
+  password: '',
+  keyContent: '',
+  keyName: ''
+}
+
+export const useLabCreatorStore = create<CreatorState>()((set, get) => ({
+  // ==================== 初始状态 ====================
+
+  createType: 'compose',
+  selectedContainerId: null,
+  containerFilter: 'all',
+  containerSearchQuery: '',
+
+  showSaveDialog: false,
+  saveDialogType: 'compose',
+  saveConfigName: '',
+
+  sshConfig: { ...defaultSshConfig },
+
+  isCreating: false,
+  createError: null,
+  createPhase: 'idle',
+
+  // ==================== 创建类型 ====================
+
+  setCreateType: (type) => {
+    set({ createType: type })
+
+    // 切换创建类型时自动解析/重置端口
     if (type === 'dockerfile') {
-      portMappingStore.portMappings = portMappingStore.parseDockerfilePorts(dockerfileContent.value)
+      const content = useDockerfileConfigStore.getState().dockerfileContent
+      usePortMappingStore.setState({
+        portMappings: usePortMappingStore.getState().parseDockerfilePorts(content)
+      })
     } else if (type === 'compose') {
-      portMappingStore.portMappings = portMappingStore.parseComposePorts(composeContent.value)
+      const content = useComposeConfigStore.getState().composeContent
+      usePortMappingStore.setState({
+        portMappings: usePortMappingStore.getState().parseComposePorts(content)
+      })
     } else {
-      portMappingStore.portMappings = []
+      usePortMappingStore.setState({ portMappings: [] })
     }
-  })
+  },
 
-  // ==================== Getters ====================
+  // ==================== 容器选择 ====================
 
-  /** 创建器过滤后的容器列表 */
-  const filteredContainers = computed(() => {
-    let result = containers.value
+  selectContainer: (containerId) => {
+    set((state) => ({
+      selectedContainerId: state.selectedContainerId === containerId ? null : containerId
+    }))
+  },
 
-    if (containerFilter.value !== 'all') {
-      if (containerFilter.value === 'running') {
-        result = result.filter((c) => c.state === 'running')
-      } else if (containerFilter.value === 'stopped') {
-        result = result.filter((c) => c.state === 'exited' || c.state === 'dead')
-      }
+  resetContainerSelector: () => {
+    set({ containerSearchQuery: '', containerFilter: 'all', selectedContainerId: null })
+  },
+
+  setContainerFilter: (filter) => set({ containerFilter: filter }),
+  setContainerSearchQuery: (query) => set({ containerSearchQuery: query }),
+
+  // ==================== SSH 配置 ====================
+
+  resetSshConfig: () => set({ sshConfig: { ...defaultSshConfig } }),
+
+  updateSshConfig: (partial) => set((state) => ({ sshConfig: { ...state.sshConfig, ...partial } })),
+
+  // ==================== Dockerfile 内容设置（带自动端口解析） ====================
+
+  setDockerfileContent: (content) => {
+    useDockerfileConfigStore.setState({ dockerfileContent: content })
+
+    // 自动解析端口
+    if (get().createType === 'dockerfile' && content) {
+      usePortMappingStore.setState({
+        portMappings: usePortMappingStore.getState().parseDockerfilePorts(content)
+      })
     }
+  },
 
-    if (containerSearchQuery.value.trim()) {
-      const query = containerSearchQuery.value.toLowerCase()
-      result = result.filter(
-        (c) =>
-          c.names.some((n) => n.toLowerCase().includes(query)) ||
-          c.image.toLowerCase().includes(query)
-      )
+  setDockerfileContext: (context) => {
+    useDockerfileConfigStore.setState({ dockerfileContext: context })
+  },
+
+  setDockerfileProjectName: (name) => {
+    useDockerfileConfigStore.setState({ dockerfileProjectName: name })
+  },
+
+  setSelectedDockerfileId: (id) => {
+    useDockerfileConfigStore.setState({ selectedDockerfileId: id })
+  },
+
+  // ==================== Compose 内容设置（带自动端口解析） ====================
+
+  setComposeContent: (content) => {
+    useComposeConfigStore.setState({ composeContent: content })
+
+    // 自动解析端口
+    if (get().createType === 'compose' && content) {
+      usePortMappingStore.setState({
+        portMappings: usePortMappingStore.getState().parseComposePorts(content)
+      })
     }
+  },
 
-    return result
-  })
+  setComposeProjectName: (name) => {
+    useComposeConfigStore.setState({ composeProjectName: name })
+  },
 
-  const runningCount = computed(() => containers.value.filter((c) => c.state === 'running').length)
+  setSelectedComposeId: (id) => {
+    useComposeConfigStore.setState({ selectedComposeId: id })
+  },
 
-  const stoppedCount = computed(
-    () => containers.value.filter((c) => c.state === 'exited' || c.state === 'dead').length
-  )
+  setShowGenerator: (show) => {
+    useComposeConfigStore.setState({ showGenerator: show })
+  },
 
-  const canCreate = computed(() => {
-    switch (createType.value) {
-      case 'compose':
-        return composeContent.value.trim().length > 0 && composeProjectName.value.trim().length > 0
-      case 'dockerfile':
-        return (
-          dockerfileContent.value.trim().length > 0 && dockerfileProjectName.value.trim().length > 0
-        )
-      case 'existing':
-        return selectedContainerId.value !== null
-      case 'ssh': {
-        const cfg = sshConfig.value
-        const hasCredentials =
-          cfg.authType === 'password'
-            ? cfg.password.trim().length > 0
-            : cfg.keyContent.trim().length > 0 && cfg.keyName.trim().length > 0
-        return cfg.host.trim().length > 0 && cfg.username.trim().length > 0 && hasCredentials
-      }
-      default:
-        return false
-    }
-  })
+  setGeneratorForm: (form) => {
+    useComposeConfigStore.setState({ generatorForm: form })
+  },
 
-  // ==================== Actions: 容器选择 ====================
+  updateGeneratorForm: (partial) => {
+    const current = useComposeConfigStore.getState().generatorForm
+    useComposeConfigStore.setState({ generatorForm: { ...current, ...partial } })
+  },
 
-  function selectContainer(containerId: string): void {
-    selectedContainerId.value = selectedContainerId.value === containerId ? null : containerId
-  }
+  // ==================== 配置生成器 ====================
 
-  function resetContainerSelector(): void {
-    containerSearchQuery.value = ''
-    containerFilter.value = 'all'
-    selectedContainerId.value = null
-  }
-
-  // ==================== Actions: 配置生成器 ====================
-
-  async function onSavedDockerfileSelect(): Promise<void> {
-    if (!generatorForm.value.savedDockerfileId) {
-      generatorForm.value.useSavedDockerfile = false
+  onSavedDockerfileSelect: async () => {
+    const form = useComposeConfigStore.getState().generatorForm
+    if (!form.savedDockerfileId) {
+      useComposeConfigStore.setState({
+        generatorForm: {
+          ...useComposeConfigStore.getState().generatorForm,
+          useSavedDockerfile: false
+        }
+      })
       return
     }
 
-    generatorForm.value.useSavedDockerfile = true
-    const config = await loadDockerfileConfig(generatorForm.value.savedDockerfileId)
+    useComposeConfigStore.setState({
+      generatorForm: { ...useComposeConfigStore.getState().generatorForm, useSavedDockerfile: true }
+    })
+
+    const { loadDockerfileConfig } = useDockerConfigStore.getState()
+    const config = await loadDockerfileConfig(form.savedDockerfileId)
     if (config) {
-      generatorForm.value.context = `./${config.name}`
-      generatorForm.value.dockerfile = config.filename
+      useComposeConfigStore.setState({
+        generatorForm: {
+          ...useComposeConfigStore.getState().generatorForm,
+          context: `./${config.name}`,
+          dockerfile: config.filename
+        }
+      })
     }
-  }
+  },
 
-  function clearSavedDockerfile(): void {
-    generatorForm.value.savedDockerfileId = null
-    generatorForm.value.useSavedDockerfile = false
-    generatorForm.value.context = './app'
-    generatorForm.value.dockerfile = 'Dockerfile'
-  }
+  clearSavedDockerfile: () => {
+    useComposeConfigStore.setState({
+      generatorForm: {
+        ...useComposeConfigStore.getState().generatorForm,
+        savedDockerfileId: null,
+        useSavedDockerfile: false,
+        context: './app',
+        dockerfile: 'Dockerfile'
+      }
+    })
+  },
 
-  // ==================== Actions: 保存配置 ====================
+  // ==================== 保存配置 ====================
 
-  function openSaveDialog(type: 'dockerfile' | 'compose'): void {
-    saveDialogType.value = type
-    saveConfigName.value = ''
-    showSaveDialog.value = true
-  }
+  openSaveDialog: (type) => {
+    set({ saveDialogType: type, saveConfigName: '', showSaveDialog: true })
+  },
 
-  function closeSaveDialog(): void {
-    showSaveDialog.value = false
-    saveConfigName.value = ''
-  }
+  closeSaveDialog: () => {
+    set({ showSaveDialog: false, saveConfigName: '' })
+  },
 
-  async function handleSaveConfig(): Promise<void> {
-    if (!saveConfigName.value.trim()) return
+  handleSaveConfig: async () => {
+    const { saveConfigName, saveDialogType } = get()
+    if (!saveConfigName.trim()) return
 
-    const content =
-      saveDialogType.value === 'dockerfile' ? dockerfileContent.value : composeContent.value
+    const { saveDockerfileConfig, saveComposeConfig } = useDockerConfigStore.getState()
 
-    if (saveDialogType.value === 'dockerfile') {
+    if (saveDialogType === 'dockerfile') {
+      const content = useDockerfileConfigStore.getState().dockerfileContent
       await saveDockerfileConfig({
-        name: saveConfigName.value.trim(),
-        content: content
+        name: saveConfigName.trim(),
+        content
       })
     } else {
+      const content = useComposeConfigStore.getState().composeContent
       await saveComposeConfig({
-        name: saveConfigName.value.trim(),
-        content: content
+        name: saveConfigName.trim(),
+        content
       })
     }
 
-    showSaveDialog.value = false
-    const notify = useNotification()
-    notify.success('保存成功', `配置「${saveConfigName.value.trim()}」保存成功`, {
-      source: 'creator'
-    })
-  }
+    set({ showSaveDialog: false })
+    notifySuccess('保存成功', `配置「${saveConfigName.trim()}」保存成功`, { source: 'creator' })
+  },
 
-  // ==================== Actions: 加载已保存配置 ====================
+  // ==================== 加载已保存配置 ====================
 
-  async function loadSelectedDockerfile(): Promise<void> {
-    if (!selectedDockerfileId.value) return
-    const config = await loadDockerfileConfig(selectedDockerfileId.value)
+  loadSelectedDockerfile: async () => {
+    const selectedId = useDockerfileConfigStore.getState().selectedDockerfileId
+    if (!selectedId) return
+    const { loadDockerfileConfig } = useDockerConfigStore.getState()
+    const config = await loadDockerfileConfig(selectedId)
     if (config) {
-      dockerfileContent.value = config.content
+      useDockerfileConfigStore.setState({ dockerfileContent: config.content })
+      // 触发端口解析
+      get().setDockerfileContent(config.content)
     }
-  }
+  },
 
-  async function loadSelectedCompose(): Promise<void> {
-    if (!selectedComposeId.value) return
-    const config = await loadComposeConfig(selectedComposeId.value)
+  loadSelectedCompose: async () => {
+    const selectedId = useComposeConfigStore.getState().selectedComposeId
+    if (!selectedId) return
+    const { loadComposeConfig } = useDockerConfigStore.getState()
+    const config = await loadComposeConfig(selectedId)
     if (config) {
-      composeContent.value = config.content
-      composeProjectName.value = config.name
+      useComposeConfigStore.setState({
+        composeContent: config.content,
+        composeProjectName: config.name
+      })
+      // 触发端口解析
+      get().setComposeContent(config.content)
     }
-  }
+  },
 
-  // ==================== Actions: 创建实验室 ====================
+  // ==================== 创建实验室：从 Compose ====================
 
-  /**
-   * 从 Compose 创建实验室
-   */
-  async function createFromCompose(
-    options?: ComposeOptions
-  ): Promise<(CreateLabResult & { composeError?: string }) | null> {
+  createFromCompose: async (options) => {
     const labStore = useLabStore()
 
-    // 重置状态
-    isCreating.value = true
-    createError.value = null
-    createPhase.value = 'metadata'
+    set({ isCreating: true, createError: null, createPhase: 'metadata' })
+
+    const composeContent = useComposeConfigStore.getState().composeContent
+    const composeProjectName = useComposeConfigStore.getState().composeProjectName
+    const selectedComposeId = useComposeConfigStore.getState().selectedComposeId
+    const generatorForm = useComposeConfigStore.getState().generatorForm
 
     try {
       window.api.logger.info('[LabCreatorStore] 开始从 Compose 创建实验室', {
-        projectName: options?.projectName || composeProjectName.value,
-        composeConfigId: selectedComposeId.value
+        projectName: options?.projectName || composeProjectName,
+        composeConfigId: selectedComposeId
       })
 
       const request: CreateLabRequest = {
-        name: composeProjectName.value.trim() || '创建 Compose 实验室',
+        name: composeProjectName.trim() || '创建 Compose 实验室',
         creationType: 'compose' as LabCreationType,
-        composeConfigId: selectedComposeId.value || undefined,
-        projectName: options?.projectName || composeProjectName.value
+        composeConfigId: selectedComposeId || undefined,
+        projectName: options?.projectName || composeProjectName
       }
 
       const result = await labStore.createLab(request)
 
       if (!result?.success) {
         const errorMsg = result?.error || '创建实验室元数据失败'
-        createError.value = errorMsg
-        createPhase.value = 'idle'
-        isCreating.value = false
-        notify.error('创建实验室失败', errorMsg, { source: 'lab', dedupeKey: 'lab:creator' })
-        window.api.logger.error('[LabCreatorStore] 创建实验室元数据失败', {
-          error: errorMsg
-        })
+        set({ createError: errorMsg, createPhase: 'idle', isCreating: false })
+        notifyError('创建实验室失败', errorMsg, { source: 'lab', dedupeKey: 'lab:creator' })
+        window.api.logger.error('[LabCreatorStore] 创建实验室元数据失败', { error: errorMsg })
         return {
           success: false,
           lab: result?.lab,
@@ -313,34 +408,33 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
         }
       }
 
-      createPhase.value = 'building'
+      set({ createPhase: 'building' })
 
       // 准备 Dockerfile 配置列表（用于 compose 中的 build 指令）
       const dockerfiles: ComposeDockerfileConfig[] = []
-      if (generatorForm.value.useSavedDockerfile && generatorForm.value.savedDockerfileId) {
+      if (generatorForm.useSavedDockerfile && generatorForm.savedDockerfileId) {
         dockerfiles.push({
-          dockerfileId: generatorForm.value.savedDockerfileId,
-          targetContext: generatorForm.value.context,
-          targetFilename: generatorForm.value.dockerfile
+          dockerfileId: generatorForm.savedDockerfileId,
+          targetContext: generatorForm.context,
+          targetFilename: generatorForm.dockerfile
         })
       }
 
       // 尝试调用 Docker 创建容器 API
       try {
         const composeResult = await labApi.createFromCompose(
-          composeContent.value,
+          composeContent,
           {
             ...options,
             dockerfiles: dockerfiles.length > 0 ? dockerfiles : undefined
           },
           result.lab?.labId,
-          composeProjectName.value.trim() || undefined
+          composeProjectName.trim() || undefined
         )
 
         if (!composeResult.success) {
-          createError.value = composeResult.error || 'Docker Compose 创建失败'
-          createPhase.value = 'idle'
-          isCreating.value = false
+          const errorMsg = composeResult.error || 'Docker Compose 创建失败'
+          set({ createError: errorMsg, createPhase: 'idle', isCreating: false })
 
           // 清理已创建的实验室元数据
           if (result.lab?.labId) {
@@ -357,29 +451,28 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
             }
           }
 
-          notify.error('Compose 创建失败', createError.value, {
+          notifyError('Compose 创建失败', errorMsg, {
             source: 'lab',
             dedupeKey: 'lab:creator'
           })
           window.api.logger.error('[LabCreatorStore] Docker Compose 创建失败', {
-            error: createError.value
+            error: errorMsg
           })
           return {
             success: false,
             lab: result.lab,
-            error: `Docker 创建失败: ${createError.value}`,
-            composeError: createError.value
+            error: `Docker 创建失败: ${errorMsg}`,
+            composeError: errorMsg
           }
         }
 
-        createPhase.value = 'starting'
-        await containerStore.refreshContainers()
+        set({ createPhase: 'starting' })
+        await useContainerStore.getState().refreshContainers()
 
-        createPhase.value = 'done'
-        isCreating.value = false
+        set({ createPhase: 'done', isCreating: false })
 
         window.api.logger.info('[LabCreatorStore] 从 Compose 创建实验室成功', {
-          projectName: composeProjectName.value,
+          projectName: composeProjectName,
           labId: result.lab?.labId,
           containerCount: composeResult.containerIds?.length || 0
         })
@@ -390,9 +483,8 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
           containerIds: composeResult.containerIds
         }
       } catch (dockerError) {
-        createError.value = dockerError instanceof Error ? dockerError.message : String(dockerError)
-        createPhase.value = 'idle'
-        isCreating.value = false
+        const errorMsg = dockerError instanceof Error ? dockerError.message : String(dockerError)
+        set({ createError: errorMsg, createPhase: 'idle', isCreating: false })
 
         // 清理已创建的实验室元数据
         if (result.lab?.labId) {
@@ -409,84 +501,78 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
           }
         }
 
-        notify.error('Compose 创建失败', createError.value, {
+        notifyError('Compose 创建失败', errorMsg, {
           source: 'lab',
           dedupeKey: 'lab:creator'
         })
         window.api.logger.error('[LabCreatorStore] Docker Compose API 调用失败', {
-          error: createError.value
+          error: errorMsg
         })
         return {
           success: false,
           lab: result.lab,
-          error: `Docker API 调用失败: ${createError.value}`,
-          composeError: createError.value
+          error: `Docker API 调用失败: ${errorMsg}`,
+          composeError: errorMsg
         }
       }
     } catch (error) {
-      createError.value = error instanceof Error ? error.message : String(error)
-      createPhase.value = 'idle'
-      isCreating.value = false
-      notify.error('Compose 创建失败', createError.value, {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      set({ createError: errorMsg, createPhase: 'idle', isCreating: false })
+      notifyError('Compose 创建失败', errorMsg, {
         source: 'lab',
         dedupeKey: 'lab:creator'
       })
       window.api.logger.error('[LabCreatorStore] 从 Compose 创建实验室失败', {
-        error: createError.value
+        error: errorMsg
       })
       return {
         success: false,
-        error: createError.value,
-        composeError: createError.value
+        error: errorMsg,
+        composeError: errorMsg
       }
     } finally {
       // 延迟重置状态，确保 UI 有时间显示完成状态
       setTimeout(() => {
-        if (createPhase.value === 'done') {
-          createPhase.value = 'idle'
-          isCreating.value = false
+        if (get().createPhase === 'done') {
+          set({ createPhase: 'idle', isCreating: false })
         }
       }, 1000)
     }
-  }
+  },
 
-  /**
-   * 从 Dockerfile 创建实验室
-   */
-  async function createFromDockerfile(): Promise<
-    (CreateLabResult & { dockerError?: string }) | null
-  > {
+  // ==================== 创建实验室：从 Dockerfile ====================
+
+  createFromDockerfile: async () => {
     const labStore = useLabStore()
 
-    // 重置状态
-    isCreating.value = true
-    createError.value = null
-    createPhase.value = 'metadata'
+    set({ isCreating: true, createError: null, createPhase: 'metadata' })
+
+    const dockerfileContent = useDockerfileConfigStore.getState().dockerfileContent
+    const dockerfileContext = useDockerfileConfigStore.getState().dockerfileContext
+    const dockerfileProjectName = useDockerfileConfigStore.getState().dockerfileProjectName
+    const selectedDockerfileId = useDockerfileConfigStore.getState().selectedDockerfileId
+    const portMappings = usePortMappingStore.getState().portMappings
 
     try {
       window.api.logger.info('[LabCreatorStore] 开始从 Dockerfile 创建实验室', {
-        context: dockerfileContext.value,
-        dockerfileConfigId: selectedDockerfileId.value
+        context: dockerfileContext,
+        dockerfileConfigId: selectedDockerfileId
       })
 
       const request: CreateLabRequest = {
-        name: dockerfileProjectName.value.trim() || '创建 Dockerfile 实验室',
+        name: dockerfileProjectName.trim() || '创建 Dockerfile 实验室',
         creationType: 'dockerfile' as LabCreationType,
-        dockerfileConfigId: selectedDockerfileId.value || undefined,
-        context: dockerfileContext.value || undefined
+        dockerfileConfigId: selectedDockerfileId || undefined,
+        context: dockerfileContext || undefined
       }
 
       const result = await labStore.createLab(request)
 
       if (!result?.success) {
         const errorMsg = result?.error || '创建实验室元数据失败'
-        createError.value = errorMsg
-        createPhase.value = 'idle'
-        isCreating.value = false
-        notify.error('创建实验室失败', errorMsg, { source: 'lab', dedupeKey: 'lab:creator' })
-        window.api.logger.error('[LabCreatorStore] 创建实验室元数据失败', {
-          error: errorMsg
-        })
+        set({ createError: errorMsg, createPhase: 'idle', isCreating: false })
+        notifyError('创建实验室失败', errorMsg, { source: 'lab', dedupeKey: 'lab:creator' })
+        window.api.logger.error('[LabCreatorStore] 创建实验室元数据失败', { error: errorMsg })
         return {
           success: false,
           lab: result?.lab,
@@ -495,30 +581,29 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
         }
       }
 
-      createPhase.value = 'building'
+      set({ createPhase: 'building' })
 
       // 尝试调用 Docker 创建容器 API
       try {
         // 准备端口映射参数
-        const portMappingsParam = portMappings.value.map((p) => ({
+        const portMappingsParam = portMappings.map((p) => ({
           hostPort: p.hostPort,
           containerPort: p.containerPort,
           protocol: p.protocol
         }))
 
         const dockerResult = await labApi.createFromDockerfile(
-          dockerfileContent.value,
-          dockerfileContext.value,
+          dockerfileContent,
+          dockerfileContext,
           result.lab?.labId,
-          dockerfileProjectName.value.trim() || undefined,
+          dockerfileProjectName.trim() || undefined,
           portMappingsParam.length > 0 ? portMappingsParam : undefined
         )
 
         // 检查 Docker 操作结果
         if (!dockerResult.success || dockerResult.error) {
-          createError.value = dockerResult.error || 'Docker 构建失败'
-          createPhase.value = 'idle'
-          isCreating.value = false
+          const errorMsg = dockerResult.error || 'Docker 构建失败'
+          set({ createError: errorMsg, createPhase: 'idle', isCreating: false })
 
           // 清理已创建的实验室元数据
           if (result.lab?.labId) {
@@ -535,27 +620,24 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
             }
           }
 
-          notify.error('Dockerfile 创建失败', createError.value, {
+          notifyError('Dockerfile 创建失败', errorMsg, {
             source: 'lab',
             dedupeKey: 'lab:creator'
           })
-          window.api.logger.error('[LabCreatorStore] Dockerfile 创建失败', {
-            error: createError.value
-          })
+          window.api.logger.error('[LabCreatorStore] Dockerfile 创建失败', { error: errorMsg })
           return {
             success: false,
             lab: result.lab,
-            error: `Docker 创建失败: ${createError.value}`,
-            dockerError: createError.value
+            error: `Docker 创建失败: ${errorMsg}`,
+            dockerError: errorMsg
           }
         }
 
         const containerId = dockerResult.containerId || ''
-        createPhase.value = 'starting'
-        await containerStore.refreshContainers()
+        set({ createPhase: 'starting' })
+        await useContainerStore.getState().refreshContainers()
 
-        createPhase.value = 'done'
-        isCreating.value = false
+        set({ createPhase: 'done', isCreating: false })
 
         window.api.logger.info('[LabCreatorStore] 从 Dockerfile 创建实验室成功', {
           labId: result.lab?.labId,
@@ -568,9 +650,8 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
           containerIds: containerId ? [containerId] : []
         }
       } catch (dockerError) {
-        createError.value = dockerError instanceof Error ? dockerError.message : String(dockerError)
-        createPhase.value = 'idle'
-        isCreating.value = false
+        const errorMsg = dockerError instanceof Error ? dockerError.message : String(dockerError)
+        set({ createError: errorMsg, createPhase: 'idle', isCreating: false })
 
         // 清理已创建的实验室元数据
         if (result.lab?.labId) {
@@ -587,52 +668,48 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
           }
         }
 
-        notify.error('Dockerfile 创建失败', createError.value, {
+        notifyError('Dockerfile 创建失败', errorMsg, {
           source: 'lab',
           dedupeKey: 'lab:creator'
         })
-        window.api.logger.error('[LabCreatorStore] Dockerfile API 调用失败', {
-          error: createError.value
-        })
+        window.api.logger.error('[LabCreatorStore] Dockerfile API 调用失败', { error: errorMsg })
         return {
           success: false,
           lab: result.lab,
-          error: `Docker API 调用失败: ${createError.value}`,
-          dockerError: createError.value
+          error: `Docker API 调用失败: ${errorMsg}`,
+          dockerError: errorMsg
         }
       }
     } catch (error) {
-      createError.value = error instanceof Error ? error.message : String(error)
-      createPhase.value = 'idle'
-      isCreating.value = false
-      notify.error('Dockerfile 创建失败', createError.value, {
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      set({ createError: errorMsg, createPhase: 'idle', isCreating: false })
+      notifyError('Dockerfile 创建失败', errorMsg, {
         source: 'lab',
         dedupeKey: 'lab:creator'
       })
       window.api.logger.error('[LabCreatorStore] 从 Dockerfile 创建实验室失败', {
-        error: createError.value
+        error: errorMsg
       })
       return {
         success: false,
-        error: createError.value,
-        dockerError: createError.value
+        error: errorMsg,
+        dockerError: errorMsg
       }
     } finally {
       // 延迟重置状态，确保 UI 有时间显示完成状态
       setTimeout(() => {
-        if (createPhase.value === 'done') {
-          createPhase.value = 'idle'
-          isCreating.value = false
+        if (get().createPhase === 'done') {
+          set({ createPhase: 'idle', isCreating: false })
         }
       }, 1000)
     }
-  }
+  },
 
-  /**
-   * 从已有容器创建实验室
-   */
-  async function createFromExisting(containerId: string): Promise<CreateLabResult | null> {
+  // ==================== 创建实验室：从已有容器 ====================
+
+  createFromExisting: async (containerId) => {
     const labStore = useLabStore()
+    const containerStore = useContainerStore.getState()
 
     try {
       const container = containerStore.containers.find((c) => c.id === containerId)
@@ -651,12 +728,12 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
           containerId: containerId.substring(0, 12)
         })
       } else if (result?.error) {
-        notify.error('创建实验室失败', result.error, { source: 'lab' })
+        notifyError('创建实验室失败', result.error, { source: 'lab' })
       }
 
       return result
     } catch (error) {
-      notify.error('创建实验室失败', error instanceof Error ? error.message : String(error), {
+      notifyError('创建实验室失败', error instanceof Error ? error.message : String(error), {
         source: 'lab'
       })
       window.api.logger.error('[LabCreatorStore] 从已有容器创建实验室失败', {
@@ -664,127 +741,247 @@ export const useLabCreatorStore = defineStore('labCreator', () => {
       })
       return null
     }
-  }
+  },
 
-  // ==================== Actions: 重置 ====================
+  // ==================== 统一创建入口 ====================
 
-  /**
-   * 清除创建错误状态
-   */
-  function clearCreateError(): void {
-    createError.value = null
-    createPhase.value = 'idle'
-  }
+  handleCreate: async () => {
+    const labStore = useLabStore()
+    const uiStateStore = useUIStateStore.getState()
+    const { createType, selectedContainerId, sshConfig } = get()
 
-  function reset(): void {
-    createType.value = 'compose'
-    selectedContainerId.value = null
-    containerFilter.value = 'all'
-    containerSearchQuery.value = ''
-    isCreating.value = false
-    createError.value = null
-    createPhase.value = 'idle'
-    resetSshConfig()
+    switch (createType) {
+      case 'compose': {
+        const composeProjectName = useComposeConfigStore.getState().composeProjectName
+        const result = await get().createFromCompose({
+          projectName: composeProjectName || undefined
+        })
 
-    composeConfigStore.reset()
-    dockerfileConfigStore.reset()
-    portMappingStore.reset()
-  }
-
-  return {
-    // State: 创建类型与容器选择
-    createType,
-    selectedContainerId,
-    containerFilter,
-    containerSearchQuery,
-
-    // State: Compose 配置 (From Sub-store)
-    composeContent,
-    composeProjectName,
-    selectedComposeId,
-
-    // State: Dockerfile 配置 (From Sub-store)
-    dockerfileContent,
-    dockerfileContext,
-    dockerfileProjectName,
-    selectedDockerfileId,
-
-    // State: 端口映射 (From Sub-store)
-    portMappings,
-
-    // State: 配置生成器 (From Sub-store)
-    showGenerator: computed({
-      get: () => composeConfigStore.showGenerator,
-      set: (val) => (composeConfigStore.showGenerator = val)
-    }),
-    generatorForm,
-
-    // State: 保存对话框
-    showSaveDialog,
-    saveDialogType,
-    saveConfigName,
-
-    // State: 创建状态跟踪
-    isCreating,
-    createError,
-    createPhase,
-
-    // State: SSH 创建配置
-    sshConfig,
-
-    // Getters
-    filteredContainers,
-    runningCount,
-    stoppedCount,
-    canCreate,
-
-    // Actions: 容器选择
-    selectContainer,
-    resetContainerSelector,
-
-    // Actions: 端口映射 (Delegated to Sub-store)
-    updatePortMapping: portMappingStore.updatePortMapping,
-    addPortMapping: portMappingStore.addPortMapping,
-    removePortMapping: portMappingStore.removePortMapping,
-    refreshPorts: () => {
-      if (createType.value === 'dockerfile') {
-        portMappingStore.portMappings = portMappingStore.parseDockerfilePorts(
-          dockerfileContent.value
-        )
-      } else if (createType.value === 'compose') {
-        portMappingStore.portMappings = portMappingStore.parseComposePorts(composeContent.value)
+        if (result?.success && result.lab?.labId) {
+          await labStore.loadLab(result.lab.labId)
+          uiStateStore.setLabDetailTab('stats')
+          return true
+        }
+        return false
       }
-    },
+      case 'dockerfile': {
+        const result = await get().createFromDockerfile()
+        if (result?.success && result.lab?.labId) {
+          await labStore.loadLab(result.lab.labId)
+          uiStateStore.setLabDetailTab('stats')
+          return true
+        }
+        return false
+      }
+      case 'existing': {
+        if (!selectedContainerId) return false
 
-    // Actions: 配置生成器 (Delegated to Sub-store)
-    resetGeneratorForm: composeConfigStore.resetGeneratorForm,
-    onSavedDockerfileSelect,
-    clearSavedDockerfile,
-    generateServiceConfig: composeConfigStore.generateServiceConfig,
-    insertServiceConfig: composeConfigStore.insertServiceConfig,
+        const result = await get().createFromExisting(selectedContainerId)
+        if (result?.success) {
+          await useContainerStore.getState().loadContainerDetails(selectedContainerId)
+          uiStateStore.setLabDetailTab('stats')
+          return true
+        }
+        return false
+      }
+      case 'ssh': {
+        const labResult = await labStore.createLab({
+          name: `${sshConfig.username}@${sshConfig.host}`,
+          creationType: 'ssh',
+          backendType: 'ssh',
+          sshHost: sshConfig.host,
+          sshPort: sshConfig.port,
+          sshUsername: sshConfig.username,
+          sshAuthType: sshConfig.authType,
+          sshPassword: sshConfig.authType === 'password' ? sshConfig.password : undefined,
+          sshKeyName: sshConfig.authType === 'key' ? sshConfig.keyName : undefined
+        })
 
-    // Actions: 保存配置
-    openSaveDialog,
-    closeSaveDialog,
-    handleSaveConfig,
+        if (!labResult?.success || !labResult.lab?.labId) return false
 
-    // Actions: 加载已保存配置
-    loadSelectedDockerfile,
-    loadSelectedCompose,
+        const connected = await labStore.connectSsh(labResult.lab.labId, {
+          host: sshConfig.host,
+          port: sshConfig.port,
+          username: sshConfig.username,
+          authType: sshConfig.authType,
+          password: sshConfig.authType === 'password' ? sshConfig.password : undefined,
+          keyName: sshConfig.authType === 'key' ? sshConfig.keyName : undefined,
+          keyContent: sshConfig.authType === 'key' ? sshConfig.keyContent : undefined
+        })
 
-    // Actions: 创建实验室
-    createFromCompose,
-    createFromDockerfile,
-    createFromExisting,
+        if (connected) {
+          notifySuccess('SSH 实验室已创建', `已连接到 ${sshConfig.host}`, { source: 'lab' })
+        }
 
-    // Actions: 重置
-    reset,
-    clearCreateError,
-    resetSshConfig,
-    updateSshConfig,
+        await labStore.loadLab(labResult.lab.labId, true, { silent: true })
+        uiStateStore.setLabDetailTab(connected ? 'terminal' : 'stats')
+        return true
+      }
+      default:
+        return false
+    }
+  },
 
-    // Helper (From Sub-store)
-    getComposeTemplate: (type: ComposeTemplateType) => composeConfigStore.composeTemplates[type],
-    composeTemplates: composeConfigStore.composeTemplates
-  }
-})
+  // ==================== 重置 ====================
+
+  reset: () => {
+    set({
+      createType: 'compose',
+      selectedContainerId: null,
+      containerFilter: 'all',
+      containerSearchQuery: '',
+      isCreating: false,
+      createError: null,
+      createPhase: 'idle',
+      sshConfig: { ...defaultSshConfig }
+    })
+
+    useComposeConfigStore.getState().reset()
+    useDockerfileConfigStore.getState().reset()
+    usePortMappingStore.getState().reset()
+  },
+
+  clearCreateError: () => set({ createError: null, createPhase: 'idle' }),
+
+  // ==================== Getters ====================
+
+  getFilteredContainers: () => {
+    const { containerFilter, containerSearchQuery } = get()
+    const containers = useContainerStore.getState().containers
+
+    let result = containers
+
+    if (containerFilter !== 'all') {
+      if (containerFilter === 'running') {
+        result = result.filter((c) => c.state === 'running')
+      } else if (containerFilter === 'stopped') {
+        result = result.filter((c) => c.state === 'exited' || c.state === 'dead')
+      }
+    }
+
+    if (containerSearchQuery.trim()) {
+      const query = containerSearchQuery.toLowerCase()
+      result = result.filter(
+        (c) =>
+          c.names.some((n) => n.toLowerCase().includes(query)) ||
+          c.image.toLowerCase().includes(query)
+      )
+    }
+
+    return result
+  },
+
+  getRunningCount: () => {
+    return useContainerStore.getState().containers.filter((c) => c.state === 'running').length
+  },
+
+  getStoppedCount: () => {
+    return useContainerStore
+      .getState()
+      .containers.filter((c) => c.state === 'exited' || c.state === 'dead').length
+  },
+
+  getCanCreate: () => {
+    const { createType, selectedContainerId, sshConfig } = get()
+    const compose = useComposeConfigStore.getState()
+    const dockerfile = useDockerfileConfigStore.getState()
+
+    switch (createType) {
+      case 'compose':
+        return (
+          compose.composeContent.trim().length > 0 && compose.composeProjectName.trim().length > 0
+        )
+      case 'dockerfile':
+        return (
+          dockerfile.dockerfileContent.trim().length > 0 &&
+          dockerfile.dockerfileProjectName.trim().length > 0
+        )
+      case 'existing':
+        return selectedContainerId !== null
+      case 'ssh': {
+        const hasCredentials =
+          sshConfig.authType === 'password'
+            ? sshConfig.password.trim().length > 0
+            : sshConfig.keyContent.trim().length > 0 && sshConfig.keyName.trim().length > 0
+        return (
+          sshConfig.host.trim().length > 0 && sshConfig.username.trim().length > 0 && hasCredentials
+        )
+      }
+      default:
+        return false
+    }
+  },
+
+  getContainerSelectHint: () => {
+    const { createType, selectedContainerId } = get()
+    if (createType !== 'existing') return ''
+
+    const containers = useContainerStore.getState().containers
+    const selected = containers.find((container) => container.id === selectedContainerId)
+    if (!selected || selected.state === 'running') return ''
+
+    return '只有运行中的容器才能选择使用，请先启动容器'
+  },
+
+  getCreatePhaseText: () => {
+    switch (get().createPhase) {
+      case 'metadata':
+        return '创建实验室元数据...'
+      case 'building':
+        return '构建容器镜像...'
+      case 'starting':
+        return '启动容器中...'
+      case 'done':
+        return '创建完成'
+      default:
+        return ''
+    }
+  },
+
+  getCreateProgress: () => {
+    switch (get().createPhase) {
+      case 'metadata':
+        return 20
+      case 'building':
+        return 60
+      case 'starting':
+        return 90
+      case 'done':
+        return 100
+      default:
+        return 0
+    }
+  },
+
+  // ==================== 端口映射委托 ====================
+
+  updatePortMapping: (index, mapping) =>
+    usePortMappingStore.getState().updatePortMapping(index, mapping),
+  addPortMapping: () => usePortMappingStore.getState().addPortMapping(),
+  removePortMapping: (index) => usePortMappingStore.getState().removePortMapping(index),
+
+  refreshPorts: () => {
+    const { createType } = get()
+    if (createType === 'dockerfile') {
+      const content = useDockerfileConfigStore.getState().dockerfileContent
+      usePortMappingStore.setState({
+        portMappings: usePortMappingStore.getState().parseDockerfilePorts(content)
+      })
+    } else if (createType === 'compose') {
+      const content = useComposeConfigStore.getState().composeContent
+      usePortMappingStore.setState({
+        portMappings: usePortMappingStore.getState().parseComposePorts(content)
+      })
+    }
+  },
+
+  // ==================== 配置生成器委托 ====================
+
+  resetGeneratorForm: () => useComposeConfigStore.getState().resetGeneratorForm(),
+  generateServiceConfig: () => useComposeConfigStore.getState().generateServiceConfig(),
+  insertServiceConfig: () => useComposeConfigStore.getState().insertServiceConfig(),
+
+  // ==================== 模板委托 ====================
+
+  getComposeTemplate: (type) => useComposeConfigStore.getState().composeTemplates[type]
+}))

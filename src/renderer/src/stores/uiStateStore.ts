@@ -1,9 +1,6 @@
-// UI 状态 Store
-// 管理应用界面状态（侧边栏、视图模式、配置通知、错误提示、主题等）
-
-import { ref, computed, watch } from 'vue'
-import { defineStore } from 'pinia'
-import { useNotification } from '@renderer/composables/useNotification'
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
 import type { ThemeConfig, ThemeMode } from '@shared/types/config'
 import {
   DEFAULT_THEME_ID,
@@ -16,23 +13,13 @@ import {
   type ThemeId
 } from '@shared/utils'
 
-// 视图类型
 export type ViewMode = 'paper' | 'knowledge' | 'lab'
-
-// 实验室详情 Tab 类型
 export type LabDetailTab = 'stats' | 'terminal' | 'logs'
 
-/**
- * 主题元数据
- */
 export interface ThemeMeta {
-  /** 主题 ID (对应 data-theme 属性值) */
   id: string
-  /** 主题显示名称 */
   name: string
-  /** 主题描述 */
   description?: string
-  /** 主题预览色（用于显示主题色块，最多5种） */
   previewColors?: {
     primary: string
     secondary: string
@@ -42,10 +29,6 @@ export interface ThemeMeta {
   }
 }
 
-/**
- * 可用主题列表
- * 这里定义所有可用的主题，与 themes/ 目录下的 CSS 文件对应
- */
 export const AVAILABLE_THEMES: ThemeMeta[] = [
   {
     id: 'lumina-dark',
@@ -73,530 +56,333 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
   }
 ]
 
-export const useUIStateStore = defineStore(
-  'uiState',
-  () => {
-    // ==================== State: 基础 UI ====================
+export interface UIStateStore {
+  labSidebarCollapsed: boolean
+  knowledgeSidebarCollapsed: boolean
+  paperSidebarCollapsed: boolean
+  paperSidebarWidth: number
+  paperChatPanelOpen: boolean
+  paperChatPanelWidth: number
+  lastPaperId: string | null
+  currentView: ViewMode
 
-    // 实验室侧边栏是否折叠
-    const labSidebarCollapsed = ref(false)
+  labDetailTab: LabDetailTab
+  lastLabId: string | null
+  showLabCreator: boolean
+  showConfigManager: boolean
+  showKnowledgeFileManager: boolean
 
-    // 知识库侧边栏是否折叠
-    const knowledgeSidebarCollapsed = ref(false)
+  configUpdateKey: number
+  mcpUpdateKey: number
 
-    // 论文侧边栏是否折叠
-    const paperSidebarCollapsed = ref(false)
+  currentTheme: string
+  selectedTheme: ThemeId
+  themeMode: ThemeMode
+  systemTheme: SystemTheme
+  themeInitialized: boolean
 
-    const paperChatPanelOpen = ref(false)
-    const paperChatPanelWidth = ref(420)
-    const lastPaperId = ref<string | null>(null)
+  isKnowledgeView: () => boolean
+  isLabView: () => boolean
+  isPaperView: () => boolean
+  isCurrentSidebarCollapsed: () => boolean
+  currentThemeMeta: () => ThemeMeta | undefined
 
-    // 当前视图模式
-    const currentView = ref<ViewMode>('paper')
+  toggleLabSidebar: () => void
+  setLabSidebarCollapsed: (collapsed: boolean) => void
+  setKnowledgeSidebarCollapsed: (collapsed: boolean) => void
+  setPaperSidebarCollapsed: (collapsed: boolean) => void
+  setPaperSidebarWidth: (width: number) => void
+  setPaperChatPanelOpen: (open: boolean) => void
+  togglePaperChatPanel: () => void
+  setPaperChatPanelWidth: (width: number) => void
+  setLastPaperId: (paperId: string | null) => void
+  setLastLabId: (labId: string | null) => void
+  toggleCurrentSidebar: () => void
+  setCurrentSidebarCollapsed: (collapsed: boolean) => void
 
-    // ==================== State: 实验室页面 UI ====================
+  setLabDetailTab: (tab: LabDetailTab) => void
+  openLabCreator: () => void
+  closeLabCreator: () => void
+  openConfigManager: () => void
+  closeConfigManager: () => void
+  openKnowledgeFileManager: () => void
+  closeKnowledgeFileManager: () => void
 
-    // 实验室详情当前 Tab
-    const labDetailTab = ref<LabDetailTab>('stats')
+  switchToKnowledgeView: () => Promise<void>
+  switchToLabView: () => Promise<void>
+  switchToPaperView: () => Promise<void>
+  setCurrentView: (view: ViewMode) => Promise<void>
 
-    // 上次选中的实验室 ID（持久化，用于恢复上次浏览状态）
-    const lastLabId = ref<string | null>(null)
+  notifyConfigUpdate: () => void
+  notifyMcpUpdate: () => void
 
-    // 是否显示创建实验室弹窗
-    const showLabCreator = ref(false)
+  loadConfigStatus: () => Promise<void>
 
-    // 是否显示配置管理器弹窗
-    const showConfigManager = ref(false)
+  initTheme: () => Promise<void>
+  setTheme: (themeId: string) => Promise<void>
+  setThemeMode: (mode: ThemeMode) => Promise<void>
+  getAvailableThemes: () => ThemeMeta[]
+}
 
-    // 是否显示知识库文件管理弹窗
-    const showKnowledgeFileManager = ref(false)
+let cleanupSystemThemeListener: (() => void) | null = null
+let systemThemeMediaQuery: MediaQueryList | null = null
+let isViewChangeListenerSetup = false
 
-    // ==================== State: 配置更新通知 ====================
-
-    // 配置更新计数器（用于触发组件刷新）
-    const configUpdateKey = ref(0)
-
-    // MCP 配置更新计数器
-    const mcpUpdateKey = ref(0)
-
-    // ==================== State: 主题 ====================
-
-    // 当前主题 ID
-    const currentTheme = ref<string>('lumina-dark')
-
-    // 手动模式下选中的主题
-    const selectedTheme = ref<ThemeId>(DEFAULT_THEME_ID)
-
-    // 主题模式：手动 or 跟随系统
-    const themeMode = ref<ThemeMode>(DEFAULT_THEME_MODE)
-
-    // 当前系统主题
-    const systemTheme = ref<SystemTheme>('dark')
-
-    // 主题是否已初始化（从配置文件加载）
-    const themeInitialized = ref(false)
-
-    // 系统主题监听解绑函数
-    let cleanupSystemThemeListener: (() => void) | null = null
-    let systemThemeMediaQuery: MediaQueryList | null = null
-
-    // ==================== Getters ====================
-
-    // 是否在知识库视图
-    const isKnowledgeView = computed(() => currentView.value === 'knowledge')
-
-    // 是否在实验室视图
-    const isLabView = computed(() => currentView.value === 'lab')
-
-    // 是否在论文视图
-    const isPaperView = computed(() => currentView.value === 'paper')
-
-    // 只有论文页允许折叠侧边栏，知识库和实验室页始终展开。
-    const isCurrentSidebarCollapsed = computed(() => {
-      return currentView.value === 'paper' && paperSidebarCollapsed.value
+function applyThemeToDom(themeId: string, themeMode: ThemeMode, selectedTheme: ThemeId): void {
+  const html = document.documentElement
+  html.setAttribute('data-theme', themeId)
+  html.style.colorScheme = themeId === 'lumina-light' ? 'light' : 'dark'
+  localStorage.setItem(
+    'lumina-theme-preference',
+    JSON.stringify({
+      mode: themeMode,
+      name: selectedTheme,
+      effectiveTheme: themeId
     })
+  )
+}
 
-    // ==================== Getters: 主题 ====================
-
-    // 获取当前主题的元数据
-    const currentThemeMeta = computed(() =>
-      AVAILABLE_THEMES.find((t) => t.id === currentTheme.value)
-    )
-
-    // ==================== Actions: 侧边栏 ====================
-
-    // 切换实验室侧边栏状态
-    function toggleLabSidebar(): void {
-      labSidebarCollapsed.value = !labSidebarCollapsed.value
-      window.api.logger.debug('[UIStateStore] 切换实验室侧边栏', {
-        collapsed: labSidebarCollapsed.value
-      })
-    }
-
-    // 设置实验室侧边栏折叠状态
-    function setLabSidebarCollapsed(collapsed: boolean): void {
-      labSidebarCollapsed.value = collapsed
-    }
-
-    // 设置知识库侧边栏折叠状态
-    function setKnowledgeSidebarCollapsed(collapsed: boolean): void {
-      knowledgeSidebarCollapsed.value = collapsed
-    }
-
-    // 设置论文侧边栏折叠状态
-    function setPaperSidebarCollapsed(collapsed: boolean): void {
-      paperSidebarCollapsed.value = collapsed
-    }
-
-    function setPaperChatPanelOpen(open: boolean): void {
-      paperChatPanelOpen.value = open
-    }
-
-    function togglePaperChatPanel(): void {
-      paperChatPanelOpen.value = !paperChatPanelOpen.value
-    }
-
-    function setPaperChatPanelWidth(width: number): void {
-      paperChatPanelWidth.value = Math.min(680, Math.max(340, Math.round(width)))
-    }
-
-    function setLastPaperId(paperId: string | null): void {
-      lastPaperId.value = paperId
-    }
-
-    function setLastLabId(labId: string | null): void {
-      lastLabId.value = labId
-    }
-
-    // 切换当前视图对应的侧边栏状态
-    function toggleCurrentSidebar(): void {
-      if (currentView.value !== 'paper') {
-        return
+export const useUIStateStore = create<UIStateStore>()(
+  persist(
+    (set, get) => {
+      function resolveCurrentTheme(): ThemeId {
+        const state = get()
+        return resolveEffectiveTheme(state.themeMode, state.selectedTheme, state.systemTheme)
       }
 
-      const nextCollapsed = !isCurrentSidebarCollapsed.value
-      setCurrentSidebarCollapsed(nextCollapsed)
-
-      window.api.logger.debug('[UIStateStore] 切换当前视图侧边栏', {
-        view: currentView.value,
-        collapsed: nextCollapsed
-      })
-    }
-
-    // 设置当前视图对应的侧边栏状态
-    function setCurrentSidebarCollapsed(collapsed: boolean): void {
-      if (currentView.value !== 'paper') {
-        return
+      async function syncNativeTheme(): Promise<void> {
+        const state = get()
+        const nativeSource = resolveNativeThemeSource(state.themeMode, state.selectedTheme)
+        await window.api.window.setNativeTheme(nativeSource)
       }
 
-      setPaperSidebarCollapsed(collapsed)
-    }
+      async function applyResolvedTheme(persist: boolean): Promise<void> {
+        const state = get()
+        const resolvedTheme = resolveCurrentTheme()
+        set({ currentTheme: resolvedTheme })
+        applyThemeToDom(resolvedTheme, state.themeMode, state.selectedTheme)
 
-    // ==================== Actions: 实验室页面 UI ====================
-
-    // 设置实验室详情当前 Tab
-    function setLabDetailTab(tab: LabDetailTab): void {
-      labDetailTab.value = tab
-      window.api.logger.debug('[UIStateStore] 切换实验室详情 Tab', { tab })
-    }
-
-    // 打开创建实验室弹窗
-    function openLabCreator(): void {
-      showLabCreator.value = true
-    }
-
-    // 关闭创建实验室弹窗
-    function closeLabCreator(): void {
-      showLabCreator.value = false
-    }
-
-    // 打开配置管理器弹窗
-    function openConfigManager(): void {
-      showConfigManager.value = true
-    }
-
-    // 关闭配置管理器弹窗
-    function closeConfigManager(): void {
-      showConfigManager.value = false
-    }
-
-    // 打开知识库文件管理弹窗
-    function openKnowledgeFileManager(): void {
-      showKnowledgeFileManager.value = true
-    }
-
-    // 关闭知识库文件管理弹窗
-    function closeKnowledgeFileManager(): void {
-      showKnowledgeFileManager.value = false
-    }
-
-    // ==================== Actions: 视图切换 ====================
-
-    // 切换到知识库视图
-    async function switchToKnowledgeView(): Promise<void> {
-      knowledgeSidebarCollapsed.value = false
-      currentView.value = 'knowledge'
-      window.api.logger.info('[UIStateStore] 切换到知识库视图')
-    }
-
-    // 切换到实验室视图
-    async function switchToLabView(): Promise<void> {
-      labSidebarCollapsed.value = false
-      currentView.value = 'lab'
-      window.api.logger.info('[UIStateStore] 切换到实验室视图')
-    }
-
-    // 切换到论文视图
-    async function switchToPaperView(): Promise<void> {
-      currentView.value = 'paper'
-      window.api.logger.info('[UIStateStore] 切换到论文视图')
-    }
-
-    // 设置当前视图
-    async function setCurrentView(view: ViewMode): Promise<void> {
-      if (currentView.value === view) return
-
-      if (view === 'knowledge') {
-        await switchToKnowledgeView()
-      } else if (view === 'paper') {
-        await switchToPaperView()
-      } else {
-        await switchToLabView()
-      }
-    }
-
-    // ==================== Actions: 配置更新通知 ====================
-
-    // 触发配置更新通知
-    function notifyConfigUpdate(): void {
-      configUpdateKey.value++
-      window.api.logger?.debug('[UIStateStore] 配置更新通知', { key: configUpdateKey.value })
-    }
-
-    // 触发 MCP 配置更新通知
-    function notifyMcpUpdate(): void {
-      mcpUpdateKey.value++
-      window.api.logger?.debug('[UIStateStore] MCP 配置更新通知', { key: mcpUpdateKey.value })
-    }
-
-    // ==================== Actions: 错误管理 ====================
-
-    // 加载配置状态并检查错误
-    async function loadConfigStatus(): Promise<void> {
-      try {
-        const status = await window.api.config.getStatus()
-        if (!status.success && status.error) {
-          const notify = useNotification()
-          notify.error('配置错误', status.error, { source: 'config', sticky: true })
-          window.api.logger?.warn('[UIStateStore] 配置加载失败', { error: status.error })
+        try {
+          await syncNativeTheme()
+        } catch {
+          window.api.logger?.warn('[UIStateStore] 同步原生主题失败')
         }
-      } catch (error) {
-        const msg = `无法获取配置状态: ${error instanceof Error ? error.message : String(error)}`
-        const notify = useNotification()
-        notify.error('配置错误', msg, { source: 'config', sticky: true })
-      }
-    }
 
-    // ==================== Actions: 主题管理 ====================
+        if (!persist) return
 
-    /**
-     * 应用主题到 DOM
-     */
-    function applyThemeToDom(themeId: string): void {
-      const html = document.documentElement
-      html.setAttribute('data-theme', themeId)
-      html.style.colorScheme = themeId === 'lumina-light' ? 'light' : 'dark'
-      localStorage.setItem(
-        'lumina-theme-preference',
-        JSON.stringify({
-          mode: themeMode.value,
-          name: selectedTheme.value,
-          effectiveTheme: themeId
-        })
-      )
-    }
-
-    function resolveCurrentTheme(): ThemeId {
-      return resolveEffectiveTheme(themeMode.value, selectedTheme.value, systemTheme.value)
-    }
-
-    async function syncNativeTheme(): Promise<void> {
-      const nativeSource = resolveNativeThemeSource(themeMode.value, selectedTheme.value)
-      await window.api.window.setNativeTheme(nativeSource)
-    }
-
-    async function applyResolvedTheme(persist: boolean): Promise<void> {
-      const resolvedTheme = resolveCurrentTheme()
-      currentTheme.value = resolvedTheme
-      applyThemeToDom(resolvedTheme)
-
-      try {
-        await syncNativeTheme()
-      } catch {
-        window.api.logger?.warn('[UIStateStore] 同步原生主题失败')
-      }
-
-      if (!persist) {
-        return
-      }
-
-      try {
-        const themeConfig: ThemeConfig = {
-          name: selectedTheme.value,
-          mode: themeMode.value
+        try {
+          const themeConfig: ThemeConfig = {
+            name: state.selectedTheme,
+            mode: state.themeMode
+          }
+          await window.api.config.updateConfig({ theme: themeConfig })
+        } catch (error) {
+          window.api.logger?.error('[UIStateStore] 保存主题配置失败', {
+            error: error instanceof Error ? error.message : String(error)
+          })
         }
-        await window.api.config.updateConfig({ theme: themeConfig })
-        window.api.logger?.info('[UIStateStore] 主题偏好已保存', {
-          mode: themeMode.value,
-          selectedTheme: selectedTheme.value,
-          currentTheme: resolvedTheme
-        })
-      } catch (error) {
-        window.api.logger?.error('[UIStateStore] 保存主题配置失败', {
-          error: error instanceof Error ? error.message : String(error)
-        })
-      }
-    }
-
-    async function updateSystemTheme(nextTheme: SystemTheme): Promise<void> {
-      systemTheme.value = nextTheme
-
-      if (themeMode.value !== 'system') {
-        return
       }
 
-      await applyResolvedTheme(false)
-      window.api.logger?.info('[UIStateStore] 跟随系统主题更新', {
-        systemTheme: nextTheme,
-        currentTheme: currentTheme.value
-      })
-    }
-
-    function ensureSystemThemeListener(): void {
-      if (cleanupSystemThemeListener) {
-        return
+      async function updateSystemTheme(nextTheme: SystemTheme): Promise<void> {
+        set({ systemTheme: nextTheme })
+        const state = get()
+        if (state.themeMode !== 'system') return
+        await applyResolvedTheme(false)
       }
 
-      systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      function ensureSystemThemeListener(): void {
+        if (cleanupSystemThemeListener) return
 
-      const listener = (event: MediaQueryListEvent): void => {
-        void updateSystemTheme(event.matches ? 'dark' : 'light')
-      }
+        systemThemeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 
-      if (typeof systemThemeMediaQuery.addEventListener === 'function') {
-        systemThemeMediaQuery.addEventListener('change', listener)
+        const listener = (event: MediaQueryListEvent): void => {
+          void updateSystemTheme(event.matches ? 'dark' : 'light')
+        }
+
+        if (typeof systemThemeMediaQuery.addEventListener === 'function') {
+          systemThemeMediaQuery.addEventListener('change', listener)
+          cleanupSystemThemeListener = () => {
+            systemThemeMediaQuery?.removeEventListener('change', listener)
+          }
+          return
+        }
+
+        systemThemeMediaQuery.addListener(listener)
         cleanupSystemThemeListener = () => {
-          systemThemeMediaQuery?.removeEventListener('change', listener)
+          systemThemeMediaQuery?.removeListener(listener)
         }
-        return
       }
 
-      systemThemeMediaQuery.addListener(listener)
-      cleanupSystemThemeListener = () => {
-        systemThemeMediaQuery?.removeListener(listener)
-      }
-    }
+      function setupViewChangeLogger(): void {
+        if (isViewChangeListenerSetup) return
+        isViewChangeListenerSetup = true
 
-    /**
-     * 初始化主题（从配置文件加载）
-     */
-    async function initTheme(): Promise<void> {
-      if (themeInitialized.value) {
-        return
-      }
-
-      try {
-        const config = (await window.api.config.getConfig()) as { theme?: ThemeConfig } | null
-        selectedTheme.value = normalizeThemeId(config?.theme?.name)
-        themeMode.value = normalizeThemeMode(config?.theme?.mode)
-      } catch (error) {
-        window.api.logger?.warn('[UIStateStore] 无法从配置文件加载主题，使用默认主题', {
-          error: error instanceof Error ? error.message : String(error)
-        })
-        selectedTheme.value = DEFAULT_THEME_ID
-        themeMode.value = DEFAULT_THEME_MODE
-      }
-
-      systemTheme.value = window.matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark'
-        : 'light'
-
-      ensureSystemThemeListener()
-      await applyResolvedTheme(false)
-      themeInitialized.value = true
-    }
-
-    /**
-     * 设置主题（同时保存到配置文件）
-     */
-    async function setTheme(themeId: string): Promise<void> {
-      if (!AVAILABLE_THEMES.some((t) => t.id === themeId)) {
-        window.api.logger?.warn('[UIStateStore] 未知主题', { themeId })
-        return
-      }
-
-      selectedTheme.value = normalizeThemeId(themeId)
-      await applyResolvedTheme(true)
-    }
-
-    /**
-     * 设置主题模式（手动或跟随系统）
-     */
-    async function setThemeMode(mode: ThemeMode): Promise<void> {
-      themeMode.value = normalizeThemeMode(mode)
-      await applyResolvedTheme(true)
-    }
-
-    /**
-     * 获取所有可用主题
-     */
-    function getAvailableThemes(): ThemeMeta[] {
-      return AVAILABLE_THEMES
-    }
-
-    // ==================== View Change Watchers ====================
-
-    // 监听视图变化，确保状态正确保存
-    watch(
-      () => currentView.value,
-      async (newView, oldView) => {
-        window.api.logger.debug('[UIStateStore] 视图变化', {
-          from: oldView,
-          to: newView
+        let previousView = get().currentView
+        useUIStateStore.subscribe((state) => {
+          if (state.currentView !== previousView) {
+            window.api.logger.debug('[UIStateStore] 视图变化', {
+              from: previousView,
+              to: state.currentView
+            })
+            previousView = state.currentView
+          }
         })
       }
-    )
 
-    return {
-      // State: 基础 UI
-      labSidebarCollapsed,
-      knowledgeSidebarCollapsed,
-      paperSidebarCollapsed,
-      paperChatPanelOpen,
-      paperChatPanelWidth,
-      lastPaperId,
-      currentView,
+      return {
+        labSidebarCollapsed: false,
+        knowledgeSidebarCollapsed: false,
+        paperSidebarCollapsed: false,
+        paperSidebarWidth: 320,
+        paperChatPanelOpen: false,
+        paperChatPanelWidth: 420,
+        lastPaperId: null,
+        currentView: 'paper',
 
-      // State: 实验室页面 UI
-      labDetailTab,
-      lastLabId,
-      showLabCreator,
-      showConfigManager,
-      showKnowledgeFileManager,
+        labDetailTab: 'stats',
+        lastLabId: null,
+        showLabCreator: false,
+        showConfigManager: false,
+        showKnowledgeFileManager: false,
 
-      // State: 配置更新通知
-      configUpdateKey,
-      mcpUpdateKey,
+        configUpdateKey: 0,
+        mcpUpdateKey: 0,
 
-      // State: 主题
-      currentTheme,
-      selectedTheme,
-      themeMode,
-      systemTheme,
-      themeInitialized,
+        currentTheme: 'lumina-dark',
+        selectedTheme: DEFAULT_THEME_ID,
+        themeMode: DEFAULT_THEME_MODE,
+        systemTheme: 'dark' as SystemTheme,
+        themeInitialized: false,
 
-      // Getters
-      isKnowledgeView,
-      isLabView,
-      isPaperView,
-      isCurrentSidebarCollapsed,
-      currentThemeMeta,
+        isKnowledgeView: () => get().currentView === 'knowledge',
+        isLabView: () => get().currentView === 'lab',
+        isPaperView: () => get().currentView === 'paper',
+        isCurrentSidebarCollapsed: () =>
+          get().currentView === 'paper' && get().paperSidebarCollapsed,
+        currentThemeMeta: () => AVAILABLE_THEMES.find((t) => t.id === get().currentTheme),
 
-      // Actions: 侧边栏
-      toggleLabSidebar,
-      setLabSidebarCollapsed,
-      setKnowledgeSidebarCollapsed,
-      setPaperSidebarCollapsed,
-      setPaperChatPanelOpen,
-      togglePaperChatPanel,
-      setPaperChatPanelWidth,
-      setLastPaperId,
-      setLastLabId,
-      toggleCurrentSidebar,
-      setCurrentSidebarCollapsed,
+        toggleLabSidebar: () => set((s) => ({ labSidebarCollapsed: !s.labSidebarCollapsed })),
+        setLabSidebarCollapsed: (collapsed) => set({ labSidebarCollapsed: collapsed }),
+        setKnowledgeSidebarCollapsed: (collapsed) => set({ knowledgeSidebarCollapsed: collapsed }),
+        setPaperSidebarCollapsed: (collapsed) => set({ paperSidebarCollapsed: collapsed }),
+        setPaperSidebarWidth: (width) =>
+          set({ paperSidebarWidth: Math.min(480, Math.max(260, Math.round(width))) }),
+        setPaperChatPanelOpen: (open) => set({ paperChatPanelOpen: open }),
+        togglePaperChatPanel: () => set((s) => ({ paperChatPanelOpen: !s.paperChatPanelOpen })),
+        setPaperChatPanelWidth: (width) =>
+          set({ paperChatPanelWidth: Math.min(680, Math.max(340, Math.round(width))) }),
+        setLastPaperId: (paperId) => set({ lastPaperId: paperId }),
+        setLastLabId: (labId) => set({ lastLabId: labId }),
+        toggleCurrentSidebar: () => {
+          const state = get()
+          if (state.currentView !== 'paper') return
+          set({ paperSidebarCollapsed: !state.paperSidebarCollapsed })
+        },
+        setCurrentSidebarCollapsed: (collapsed) => {
+          if (get().currentView !== 'paper') return
+          set({ paperSidebarCollapsed: collapsed })
+        },
 
-      // Actions: 实验室页面 UI
-      setLabDetailTab,
-      openLabCreator,
-      closeLabCreator,
-      openConfigManager,
-      closeConfigManager,
-      openKnowledgeFileManager,
-      closeKnowledgeFileManager,
+        setLabDetailTab: (tab) => set({ labDetailTab: tab }),
+        openLabCreator: () => set({ showLabCreator: true }),
+        closeLabCreator: () => set({ showLabCreator: false }),
+        openConfigManager: () => set({ showConfigManager: true }),
+        closeConfigManager: () => set({ showConfigManager: false }),
+        openKnowledgeFileManager: () => set({ showKnowledgeFileManager: true }),
+        closeKnowledgeFileManager: () => set({ showKnowledgeFileManager: false }),
 
-      // Actions: 视图切换
-      switchToKnowledgeView,
-      switchToLabView,
-      switchToPaperView,
-      setCurrentView,
+        switchToKnowledgeView: async () => {
+          set({ knowledgeSidebarCollapsed: false, currentView: 'knowledge' })
+          window.api.logger.info('[UIStateStore] 切换到知识库视图')
+        },
+        switchToLabView: async () => {
+          set({ labSidebarCollapsed: false, currentView: 'lab' })
+          window.api.logger.info('[UIStateStore] 切换到实验室视图')
+        },
+        switchToPaperView: async () => {
+          set({ currentView: 'paper' })
+          window.api.logger.info('[UIStateStore] 切换到论文视图')
+        },
+        setCurrentView: async (view) => {
+          const state = get()
+          if (state.currentView === view) return
+          if (view === 'knowledge') await state.switchToKnowledgeView()
+          else if (view === 'paper') await state.switchToPaperView()
+          else await state.switchToLabView()
+        },
 
-      // Actions: 配置更新通知
-      notifyConfigUpdate,
-      notifyMcpUpdate,
+        notifyConfigUpdate: () => set((s) => ({ configUpdateKey: s.configUpdateKey + 1 })),
+        notifyMcpUpdate: () => set((s) => ({ mcpUpdateKey: s.mcpUpdateKey + 1 })),
 
-      // Actions: 错误管理
-      loadConfigStatus,
+        loadConfigStatus: async () => {
+          try {
+            const status = await window.api.config.getStatus()
+            if (!status.success && status.error) {
+              useNotificationCenterStore
+                .getState()
+                .add('error', '配置错误', status.error, { source: 'config', sticky: true })
+            }
+          } catch (error) {
+            const msg = `无法获取配置状态: ${error instanceof Error ? error.message : String(error)}`
+            useNotificationCenterStore
+              .getState()
+              .add('error', '配置错误', msg, { source: 'config', sticky: true })
+          }
+        },
 
-      // Actions: 主题管理
-      initTheme,
-      setTheme,
-      setThemeMode,
-      getAvailableThemes
+        initTheme: async () => {
+          const state = get()
+          if (state.themeInitialized) return
+
+          try {
+            const config = (await window.api.config.getConfig()) as { theme?: ThemeConfig } | null
+            set({
+              selectedTheme: normalizeThemeId(config?.theme?.name),
+              themeMode: normalizeThemeMode(config?.theme?.mode)
+            })
+          } catch {
+            set({ selectedTheme: DEFAULT_THEME_ID, themeMode: DEFAULT_THEME_MODE })
+          }
+
+          const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          set({ systemTheme: isDark ? 'dark' : 'light' })
+
+          ensureSystemThemeListener()
+          await applyResolvedTheme(false)
+          set({ themeInitialized: true })
+
+          setupViewChangeLogger()
+        },
+
+        setTheme: async (themeId) => {
+          if (!AVAILABLE_THEMES.some((t) => t.id === themeId)) {
+            window.api.logger?.warn('[UIStateStore] 未知主题', { themeId })
+            return
+          }
+          set({ selectedTheme: normalizeThemeId(themeId) })
+          await applyResolvedTheme(true)
+        },
+
+        setThemeMode: async (mode) => {
+          set({ themeMode: normalizeThemeMode(mode) })
+          await applyResolvedTheme(true)
+        },
+
+        getAvailableThemes: () => AVAILABLE_THEMES
+      }
+    },
+    {
+      name: 'lumina-ui-state',
+      partialize: (state) => ({
+        knowledgeSidebarCollapsed: state.knowledgeSidebarCollapsed,
+        labSidebarCollapsed: state.labSidebarCollapsed,
+        paperSidebarCollapsed: state.paperSidebarCollapsed,
+        paperSidebarWidth: state.paperSidebarWidth,
+        paperChatPanelWidth: state.paperChatPanelWidth,
+        lastPaperId: state.lastPaperId,
+        lastLabId: state.lastLabId,
+        currentView: state.currentView
+      })
     }
-  },
-  {
-    // 持久化配置
-    persist: {
-      key: 'lumina-ui-state',
-      // 只持久化 UI 偏好设置
-      pick: [
-        'knowledgeSidebarCollapsed',
-        'labSidebarCollapsed',
-        'paperSidebarCollapsed',
-        'paperChatPanelWidth',
-        'lastPaperId',
-        'lastLabId'
-      ]
-    }
-  }
+  )
 )

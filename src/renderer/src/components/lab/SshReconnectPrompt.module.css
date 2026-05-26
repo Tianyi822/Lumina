@@ -1,0 +1,62 @@
+.ssh-reconnect-prompt {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-3);
+  min-width: min(520px, 100%);
+  padding: var(--sm-space-2) var(--sm-space-3);
+  border: 1px solid rgba(210, 153, 34, 0.35);
+  border-radius: var(--sm-radius-md);
+  background: rgba(210, 153, 34, 0.08);
+}
+
+.ssh-reconnect-prompt__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ssh-reconnect-prompt__title {
+  color: var(--sm-color-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.ssh-reconnect-prompt__target {
+  overflow: hidden;
+  color: var(--sm-color-text-secondary);
+  font-family: var(--sm-font-mono);
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ssh-reconnect-prompt__password {
+  width: 168px;
+  min-height: 30px;
+  padding: 0 var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-bg-embedded);
+  color: var(--sm-color-text-primary);
+  font: inherit;
+  font-size: 12px;
+}
+
+.ssh-reconnect-prompt__password:focus {
+  border-color: var(--sm-color-border-selected);
+  outline: none;
+}
+
+@media (max-width: 980px) {
+  .ssh-reconnect-prompt {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ssh-reconnect-prompt__password {
+    width: 100%;
+  }
+}
