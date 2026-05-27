@@ -1,6 +1,7 @@
 import './assets/main.css'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 async function loadPlatformStyles(): Promise<void> {
   if (window.electron?.process?.platform === 'win32') {
@@ -21,7 +22,11 @@ async function bootstrap(): Promise<void> {
 
   try {
     const root = createRoot(rootEl)
-    root.render(<App />)
+    root.render(
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    )
   } catch (error) {
     rootEl.innerHTML = `<pre style="color:red;padding:2rem;">React Error:\n${error instanceof Error ? error.stack : String(error)}</pre>`
   }
