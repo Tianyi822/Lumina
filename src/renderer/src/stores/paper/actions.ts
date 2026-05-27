@@ -1,4 +1,5 @@
 import type { PaperDocument } from '@shared/types/paper'
+import { notifyWarning } from '@renderer/composables/notificationCore'
 import { usePdfPageRasterizer } from '@renderer/composables/usePdfPageRasterizer'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { isPaperReadableStatus, createIdleOcrProgress, decodeBase64ToArrayBuffer } from './shared'
@@ -16,6 +17,9 @@ const pendingPaperChatSessionByPaperId = new Map<
   string,
   Promise<{ success: boolean; data?: string; error?: string }>
 >()
+
+const OCR_QUALITY_NOTICE_STORAGE_PREFIX = 'lumina-paper-ocr-quality-notice:'
+const shownOcrQualityNoticePaperIds = new Set<string>()
 
 // ---------------------------------------------------------------------------
 // 跨 Store 协调函数
@@ -43,6 +47,52 @@ export function clearPaperState(paperId: string): void {
   })
 }
 
+function getOcrQualityNoticeStorageKey(paperId: string): string {
+  return `${OCR_QUALITY_NOTICE_STORAGE_PREFIX}${paperId}`
+}
+
+function hasShownOcrQualityNotice(paperId: string): boolean {
+  if (shownOcrQualityNoticePaperIds.has(paperId)) return true
+  if (typeof window === 'undefined') return false
+
+  try {
+    const hasStoredNotice =
+      window.localStorage.getItem(getOcrQualityNoticeStorageKey(paperId)) === '1'
+    if (hasStoredNotice) {
+      shownOcrQualityNoticePaperIds.add(paperId)
+    }
+    return hasStoredNotice
+  } catch {
+    return false
+  }
+}
+
+function markOcrQualityNoticeShown(paperId: string): void {
+  shownOcrQualityNoticePaperIds.add(paperId)
+  if (typeof window === 'undefined') return
+
+  try {
+    window.localStorage.setItem(getOcrQualityNoticeStorageKey(paperId), '1')
+  } catch {
+    // 本地存储不可用时，保留本次会话内的提示状态即可。
+  }
+}
+
+function maybeShowOcrQualityNotice(paper: PaperDocument): void {
+  if (!isPaperReadableStatus(paper.status) || hasShownOcrQualityNotice(paper.id)) return
+
+  markOcrQualityNoticeShown(paper.id)
+  notifyWarning(
+    'OCR 结果仅供参考',
+    '论文正文由 OCR/解析结果生成，复杂表格、公式和跨页排版可能不准确。遇到异常内容时，请优先对照原 PDF。',
+    {
+      source: 'paper',
+      duration: 10000,
+      dedupeKey: `paper-ocr-quality-notice:${paper.id}`
+    }
+  )
+}
+
 /** 打开论文 — 原 openPaper */
 export async function openPaper(paperId: string): Promise<PaperDocument | null> {
   const listStore = usePaperListStore.getState()
@@ -67,6 +117,7 @@ export async function openPaper(paperId: string): Promise<PaperDocument | null> 
 
   // 加载 markdown 及其依赖（翻译 + 批注）
   await loadMarkdownWithDeps(paperId)
+  maybeShowOcrQualityNotice(result.data)
 
   return result.data
 }
