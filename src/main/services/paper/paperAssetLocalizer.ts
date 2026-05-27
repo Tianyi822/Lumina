@@ -143,7 +143,9 @@ async function getExistingLocalAssetPath(
   }
 
   const absolutePath = getLocalAssetAbsolutePath(paperId, block.localAssetPath)
-  const exists = await access(absolutePath).then(() => true).catch(() => false)
+  const exists = await access(absolutePath)
+    .then(() => true)
+    .catch(() => false)
   return exists ? block.localAssetPath : undefined
 }
 
@@ -318,7 +320,9 @@ export async function createLocalAssetReplacementMap(
       }
 
       const localAbsolutePath = getLocalAssetAbsolutePath(paperId, block.localAssetPath)
-      const exists = await access(localAbsolutePath).then(() => true).catch(() => false)
+      const exists = await access(localAbsolutePath)
+        .then(() => true)
+        .catch(() => false)
       if (exists) {
         replacements.set(remoteUrl, block.localAssetPath)
       }
@@ -332,7 +336,9 @@ export async function createLocalAssetReplacementMapFromDisk(
   paperId: string
 ): Promise<Map<string, string>> {
   const normalizedDir = getPaperOcrNormalizedDirPath(paperId)
-  const dirExists = await access(normalizedDir).then(() => true).catch(() => false)
+  const dirExists = await access(normalizedDir)
+    .then(() => true)
+    .catch(() => false)
   if (!dirExists) {
     return new Map()
   }

@@ -84,10 +84,7 @@ export default function FigurePanel({
                       title={getFigureItemLabel(figure)}
                       dangerouslySetInnerHTML={{
                         __html: captionMd.render(
-                          normalizePaperInlineMathForRender(
-                            getFigureItemLabel(figure),
-                            'paragraph'
-                          )
+                          normalizePaperInlineMathForRender(getFigureItemLabel(figure), 'paragraph')
                         )
                       }}
                     />

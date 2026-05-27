@@ -604,7 +604,10 @@ export class PaperOcrService {
     }
   }
 
-  private async buildAndSaveMergedMd(paperId: string, results: PaperPageOcrResult[]): Promise<void> {
+  private async buildAndSaveMergedMd(
+    paperId: string,
+    results: PaperPageOcrResult[]
+  ): Promise<void> {
     const mergedMd = buildMergedMarkdown(results)
 
     try {
@@ -629,7 +632,9 @@ export class PaperOcrService {
 
       for (let i = 0; i < totalPages; i++) {
         const normalizedPath = getPaperOcrNormalizedPath(paperId, i)
-        const fileExists = await access(normalizedPath).then(() => true).catch(() => false)
+        const fileExists = await access(normalizedPath)
+          .then(() => true)
+          .catch(() => false)
         if (fileExists) {
           try {
             const content = await readFile(normalizedPath, 'utf-8')

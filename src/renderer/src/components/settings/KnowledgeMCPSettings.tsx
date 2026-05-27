@@ -4,7 +4,15 @@ import { useKnowledgeMCP } from './hooks/useKnowledgeMCP'
 import styles from './KnowledgeMCPSettings.module.css'
 
 export default function KnowledgeMCPSettings() {
-  const { status, config: configJSON, loading, error, start, stop, refreshStatus } = useKnowledgeMCP()
+  const {
+    status,
+    config: configJSON,
+    loading,
+    error,
+    start,
+    stop,
+    refreshStatus
+  } = useKnowledgeMCP()
   const [toggling, setToggling] = useState(false)
   const [copying, setCopying] = useState(false)
 

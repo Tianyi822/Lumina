@@ -203,7 +203,9 @@ export class KnowledgeToolService {
   /**
    * 获取知识库列表
    */
-  private async listKnowledgeBases(selectedKnowledgeBaseIds?: string[]): Promise<MCPToolCallResult> {
+  private async listKnowledgeBases(
+    selectedKnowledgeBaseIds?: string[]
+  ): Promise<MCPToolCallResult> {
     // 调用核心服务获取知识库列表
     const knowledgeBases = await knowledgeCoreService.getKnowledgeBases({
       knowledgeBaseIds: selectedKnowledgeBaseIds

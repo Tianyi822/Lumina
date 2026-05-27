@@ -27,7 +27,6 @@ export function extractTranslatedHeadingText(
   return fallbackText || undefined
 }
 
-
 export function extractTranslatedAbstractTitle(
   entry: PaperTranslationEntry | undefined
 ): string | undefined {

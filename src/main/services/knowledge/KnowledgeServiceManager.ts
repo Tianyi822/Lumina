@@ -65,7 +65,9 @@ export class KnowledgeServiceManager {
   }
 
   // 创建知识库
-  async createKnowledgeBase(data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>): Promise<KnowledgeBase> {
+  async createKnowledgeBase(
+    data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<KnowledgeBase> {
     if (!this.loaded) {
       this.initialize()
     }
@@ -219,7 +221,10 @@ export class KnowledgeServiceManager {
     return updatedKB
   }
 
-  async clearKnowledgeBaseFileInvalidation(kbId: string, fileId: string): Promise<KnowledgeBase | null> {
+  async clearKnowledgeBaseFileInvalidation(
+    kbId: string,
+    fileId: string
+  ): Promise<KnowledgeBase | null> {
     if (!this.loaded) {
       this.initialize()
     }

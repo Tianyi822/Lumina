@@ -53,11 +53,14 @@ export function useKnowledgeMCP() {
       if (cancelled) return
       setStatus(newStatus)
       if (newStatus.running) {
-        window.api.knowledgeMCP.getConfig().then((newConfig) => {
-          if (!cancelled) setConfig(newConfig)
-        }).catch((err: unknown) => {
-          if (!cancelled) setError(err instanceof Error ? err.message : String(err))
-        })
+        window.api.knowledgeMCP
+          .getConfig()
+          .then((newConfig) => {
+            if (!cancelled) setConfig(newConfig)
+          })
+          .catch((err: unknown) => {
+            if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+          })
       } else {
         setConfig('')
       }

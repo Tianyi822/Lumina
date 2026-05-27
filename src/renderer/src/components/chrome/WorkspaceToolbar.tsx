@@ -350,10 +350,7 @@ export default function WorkspaceToolbar() {
       )}
 
       {isPaperView && canOpenPaperChat && (
-        <PaperChatButton
-          isActive={paperChatPanelOpen}
-          onClick={handleTogglePaperChat}
-        />
+        <PaperChatButton isActive={paperChatPanelOpen} onClick={handleTogglePaperChat} />
       )}
     </div>
   )

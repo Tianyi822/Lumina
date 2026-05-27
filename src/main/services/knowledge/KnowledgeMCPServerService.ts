@@ -408,7 +408,9 @@ export class KnowledgeMCPServerService {
    * @param knowledgeBaseId 知识库 ID
    * @returns 文档列表，包含文档名称、大小、上传时间和类型
    */
-  private async getDocumentsByKnowledgeBase(knowledgeBaseId: string): Promise<KnowledgeDocumentListItem[]> {
+  private async getDocumentsByKnowledgeBase(
+    knowledgeBaseId: string
+  ): Promise<KnowledgeDocumentListItem[]> {
     // 调用核心服务获取文档列表
     const documents = await knowledgeCoreService.getDocuments({ knowledgeBaseId })
 

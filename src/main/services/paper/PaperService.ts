@@ -297,12 +297,15 @@ export class PaperService {
       return []
     }
 
-    return await getKnowledgeServiceManager().markKnowledgeBasesNeedReindex(result.previousUsedByKBIds, {
-      fileId: result.file.id,
-      fileName: result.file.name,
-      paperId,
-      updatedAt: this.getLatestAnnotationUpdatedAt(annotations)
-    })
+    return await getKnowledgeServiceManager().markKnowledgeBasesNeedReindex(
+      result.previousUsedByKBIds,
+      {
+        fileId: result.file.id,
+        fileName: result.file.name,
+        paperId,
+        updatedAt: this.getLatestAnnotationUpdatedAt(annotations)
+      }
+    )
   }
 
   private async markPaperNoteKnowledgeBasesNeedReindex(
