@@ -272,7 +272,7 @@ export class ReactLoopService {
     }
 
     if (enableLabTools) {
-      const labTools = this.labAdapter.getTools()
+      const labTools = await this.labAdapter.getTools()
       this.toolRegistry.registerBatch(labTools, this.labAdapter, 'lab')
 
       this.logger.info('已添加实验室工具到工具列表', 'main', {
@@ -287,7 +287,7 @@ export class ReactLoopService {
       this.stopController.setSessionKnowledgeBases(sessionId, kbIds)
 
       this.knowledgeAdapter.setKnowledgeBaseIds(kbIds)
-      const knowledgeTools = this.knowledgeAdapter.getTools()
+      const knowledgeTools = await this.knowledgeAdapter.getTools()
       this.toolRegistry.registerBatch(knowledgeTools, this.knowledgeAdapter, 'knowledge')
 
       this.logger.info('已添加知识库工具到工具列表', 'main', {
@@ -300,7 +300,7 @@ export class ReactLoopService {
 
     if (request.sessionType === 'paper' && request.paperId) {
       this.paperContextAdapter.setPaperId(request.paperId)
-      const paperTools = this.paperContextAdapter.getTools()
+      const paperTools = await this.paperContextAdapter.getTools()
       this.toolRegistry.registerBatch(paperTools, this.paperContextAdapter, 'paper')
 
       this.logger.info('已添加论文上下文工具到工具列表', 'main', {
@@ -316,7 +316,7 @@ export class ReactLoopService {
     if (request.enablePaperWebSearch && request.sessionType === 'paper' && sessionId) {
       const paperContext = this.buildPaperSearchContext(request)
       this.paperWebSearchAdapter.setPaperContext(paperContext)
-      const paperWebTools = this.paperWebSearchAdapter.getTools()
+      const paperWebTools = await this.paperWebSearchAdapter.getTools()
       this.toolRegistry.registerBatch(paperWebTools, this.paperWebSearchAdapter, 'paper_web')
 
       this.logger.info('已添加论文联网搜索工具到工具列表', 'main', {

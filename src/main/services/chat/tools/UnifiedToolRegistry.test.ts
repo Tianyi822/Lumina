@@ -7,7 +7,7 @@ import type { MCPToolCallResult } from '@shared/types/mcp'
 import type { ToolAdapter } from './UnifiedToolRegistry.ts'
 
 const adapter: ToolAdapter = {
-  getTools: () => [],
+  getTools: async () => [],
   execute: async (): Promise<MCPToolCallResult> => ({ success: true, content: 'ok' })
 }
 

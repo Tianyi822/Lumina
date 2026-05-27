@@ -22,7 +22,7 @@ function getDescriptionLevelByToolCount(toolCount: number): ToolDescriptionLevel
  */
 export interface ToolAdapter {
   /** 获取该适配器提供的工具列表 */
-  getTools(): MCPToolReference[]
+  getTools(): Promise<MCPToolReference[]>
 
   /** 执行工具调用，返回结构化的工具调用结果 */
   execute(
