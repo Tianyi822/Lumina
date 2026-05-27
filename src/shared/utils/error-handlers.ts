@@ -13,24 +13,3 @@ export function getErrorMessage(error: unknown): string {
   }
   return '未知错误'
 }
-
-/**
- * 判断错误是否为连接相关错误
- */
-export function isConnectionError(error: unknown): boolean {
-  const message = getErrorMessage(error).toLowerCase()
-  return (
-    message.includes('connect') ||
-    message.includes('network') ||
-    message.includes('econnrefused') ||
-    message.includes('timeout')
-  )
-}
-
-/**
- * 判断错误是否为取消或中止操作产生的错误
- */
-export function isCancelError(error: unknown): boolean {
-  const message = getErrorMessage(error).toLowerCase()
-  return message.includes('cancel') || message.includes('abort')
-}
