@@ -49,6 +49,7 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
   const contentTransitionTimerRef = useRef<number | null>(null)
   const pendingContentVisibleRef = useRef(false)
   const wasVisibleRef = useRef(false)
+  const dockerReady = dockerStatus?.available !== false
 
   const clearCreateError = (): void => {
     creatorStore.clearCreateError()
@@ -278,9 +279,7 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
     wasVisibleRef.current = true
 
     const creatorState = useLabCreatorStore.getState()
-    const containerState = useContainerStore.getState()
-    const configState = useDockerConfigStore.getState()
-    const initialCreateType = dockerStatus?.available === false ? 'ssh' : 'compose'
+    const initialCreateType = dockerReady ? 'compose' : 'ssh'
 
     setIsContentMeasured(false)
     setIsContentVisible(false)
@@ -297,21 +296,25 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
     creatorState.resetSshConfig()
     creatorState.clearCreateError()
 
-    void Promise.all([
-      containerState.loadContainers(),
-      configState.loadDockerfileConfigs(),
-      configState.loadComposeConfigs()
-    ])
-  }, [dockerStatus?.available, visible])
+    if (dockerReady) {
+      const containerState = useContainerStore.getState()
+      const configState = useDockerConfigStore.getState()
+      void Promise.all([
+        containerState.loadContainers(),
+        configState.loadDockerfileConfigs(),
+        configState.loadComposeConfigs()
+      ])
+    }
+  }, [dockerReady, visible])
 
   useEffect(() => {
-    if (!visible || dockerStatus?.available !== false) return
+    if (!visible || dockerReady) return
 
     const creatorState = useLabCreatorStore.getState()
     if (DOCKER_CREATE_TYPES.has(creatorState.createType)) {
       creatorState.setCreateType('ssh')
     }
-  }, [dockerStatus?.available, visible])
+  }, [dockerReady, visible])
 
   useEffect(() => {
     if (visible) {
@@ -420,19 +423,21 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
             onClick={(e) => e.stopPropagation()}
           >
             <div className="creator-header">
-              <h2>创建实验室</h2>
+              <h2>{dockerReady ? '创建实验室' : 'SSH 连接'}</h2>
               <button className="close-btn" onClick={onClose}>
                 ×
               </button>
             </div>
 
-            <CreateTypeSelector
-              createType={createType}
-              dockerReady={dockerStatus?.available ?? true}
-              onChange={(t) => {
-                creatorStore.setCreateType(t)
-              }}
-            />
+            {dockerReady && (
+              <CreateTypeSelector
+                createType={createType}
+                dockerReady={dockerReady}
+                onChange={(t) => {
+                  creatorStore.setCreateType(t)
+                }}
+              />
+            )}
 
             <div
               ref={contentShellRef}
@@ -644,7 +649,11 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                       </>
                     )}
                     <button
-                      className={styles['ssh-form__test-btn']}
+                      className={[
+                        'sm-button',
+                        'sm-button--secondary',
+                        styles['ssh-form__test-btn']
+                      ].join(' ')}
                       disabled={isTestingSsh}
                       onClick={testSshConnection}
                     >

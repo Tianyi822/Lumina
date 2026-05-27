@@ -2,10 +2,10 @@ import { useState, useEffect, useMemo } from 'react'
 import { useContainerStore, useLabStore } from '@renderer/stores'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useNotification } from '@renderer/composables/useNotification'
-import { labApi } from '@renderer/services/labApi'
 import OrphanLabAlert from './OrphanLabAlert'
 import SshReconnectPrompt from './SshReconnectPrompt'
 import TabNavigation from './lab-detail/TabNavigation'
+import LabDetailEmptyState from './LabDetailEmptyState'
 import LabStatsTab from './LabStatsTab'
 import LabTerminalTab from './LabTerminalTab'
 import LabLogsTab from './LabLogsTab'
@@ -13,21 +13,12 @@ import { useLabAutoRefresh } from './hooks/useLabAutoRefresh'
 import type { LabData, DockerStatus } from '@renderer/types/lab'
 import styles from './LabMainContent.module.css'
 
-const DOCKER_WEBSITE = 'https://www.docker.com/products/docker-desktop/'
-
 interface LabMainContentProps {
   currentLab: LabData | null
   dockerStatus?: DockerStatus | null
-  recheckingDocker?: boolean
-  onRecheckDocker: () => void
 }
 
-export default function LabMainContent({
-  currentLab,
-  dockerStatus,
-  recheckingDocker,
-  onRecheckDocker
-}: LabMainContentProps) {
+export default function LabMainContent({ currentLab, dockerStatus }: LabMainContentProps) {
   const containerStore = useContainerStore()
   const labStore = useLabStore()
   const notify = useNotification()
@@ -43,6 +34,7 @@ export default function LabMainContent({
   const isSshLab = currentLab?.backendType === 'ssh'
   const isDockerLab = !!currentLab && !isSshLab
   const isDockerReady = dockerStatus?.available ?? false
+  const showDockerReadOnlyState = isDockerLab && dockerStatus?.available === false
   const isSshConnected = currentLab?.status === 'running'
 
   const showFrontendRecoveryBanner = isLabFrontend && currentLab?.status === 'error' && !isOrphan
@@ -81,7 +73,7 @@ export default function LabMainContent({
     }
   }, [isSshLab, labDetailTab, setLabDetailTab])
 
-  // SSH connection listener
+  // 监听 SSH 连接状态
   useEffect(() => {
     const removeListener = window.api.ssh?.onConnectionStatus((event) => {
       if (event.labId === currentLab?.labId) {
@@ -176,12 +168,6 @@ export default function LabMainContent({
     await labStore.handleDeleteLab(labId)
   }
 
-  async function handleOpenDockerWebsite(): Promise<void> {
-    const result = await labApi.openExternal(DOCKER_WEBSITE)
-    if (!result.success)
-      notify.warning('打开 Docker 官网失败', result.error || '未知错误', { source: 'lab' })
-  }
-
   function handleDeleteLab(): void {
     if (currentLab) labStore.handleDeleteLab(currentLab.labId)
   }
@@ -219,14 +205,12 @@ export default function LabMainContent({
       {!hasLab ? (
         <div className={styles['lab-empty-state']}>
           <div className={`sm-empty ${styles['lab-empty-card']}`}>
-            <h2>选择一个实验室开始</h2>
-            <p>从左侧接管现有环境，或创建一个实验室以进入容器监控、终端和日志工作流。</p>
-            {!isDockerReady && (
-              <p className={styles['lab-empty-card__ssh-hint']}>
-                本地 Docker 未就绪？您仍然可以<strong>创建 SSH 远程服务器</strong>
-                类型的实验室来连接远程主机。
-              </p>
-            )}
+            <h2>{isDockerReady ? '选择一个实验室开始' : '通过 SSH 连接远程服务器'}</h2>
+            <p>
+              {isDockerReady
+                ? '从左侧接管现有环境，或创建一个实验室以进入容器监控、终端和日志工作流。'
+                : '从左侧发起 SSH 连接，填写远程主机信息后进入终端和监控工作流。'}
+            </p>
           </div>
         </div>
       ) : (
@@ -283,138 +267,110 @@ export default function LabMainContent({
                   onConnect={handleSshConnect}
                 />
               )}
-              {isDockerLab && !isDockerReady && (
-                <button
-                  className={[
-                    'sm-button',
-                    'sm-button--small',
-                    'sm-button--secondary',
-                    styles['docker-recheck-btn']
-                  ].join(' ')}
-                  disabled={recheckingDocker}
-                  onClick={onRecheckDocker}
-                >
-                  {recheckingDocker ? '检测中...' : '重新检测 Docker'}
-                </button>
-              )}
-              <TabNavigation visible={hasLab} showLogs={!isSshLab} />
+              {!showDockerReadOnlyState && <TabNavigation visible={hasLab} showLogs={!isSshLab} />}
             </div>
           </header>
 
           <div className={styles['content-body']}>
-            {isDockerLab && !isDockerReady && (
-              <div className={styles['docker-unready-banner']}>
-                <span className={styles['docker-unready-banner__icon']}>&#9888;</span>
-                <div className={styles['docker-unready-banner__text']}>
-                  <strong>本地 Docker 未就绪</strong>
-                  <p>
-                    {dockerStatus?.installed === false ? (
-                      <span>
-                        Docker 未安装。请先
-                        <a
-                          className={styles['docker-unready-banner__link']}
-                          onClick={handleOpenDockerWebsite}
-                        >
-                          安装 Docker
-                        </a>
-                        ，然后点击上方"重新检测 Docker"按钮。SSH 远程实验室不受影响。
-                      </span>
-                    ) : (
-                      '容器操作、终端和日志功能暂不可用。请启动 Docker 服务后点击上方"重新检测 Docker"按钮。SSH 远程实验室不受影响。'
-                    )}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <OrphanLabAlert
-              visible={isOrphan}
-              lab={currentLab}
-              isReloading={isRebuildingFrontend}
-              canRecover={isLabFrontend}
-              recoverLabel={isLabFrontend ? '重建运行容器' : '重新关联容器'}
-              onRecover={handleRebuildFrontend}
-              onCleanup={handleCleanupOrphan}
-            />
-
-            {showFrontendRecoveryBanner && (
-              <div className={styles['frontend-recovery-banner']}>
-                <div className={styles['frontend-recovery-copy']}>
-                  <span className={styles['frontend-recovery-copy__eyebrow']}>恢复提示</span>
-                  <h3>前端服务未就绪</h3>
-                  <p>{frontendRecoveryMessage}</p>
-                </div>
-                <div className={styles['frontend-recovery-actions']}>
-                  <button
-                    className="sm-button sm-button--secondary"
-                    disabled={isRetryingFrontend || isRebuildingFrontend}
-                    onClick={handleRetryFrontend}
-                  >
-                    {isRetryingFrontend ? '重试中...' : '重试初始化'}
-                  </button>
-                  <button
-                    className="sm-button sm-button--primary"
-                    disabled={isRetryingFrontend || isRebuildingFrontend}
-                    onClick={handleRebuildFrontend}
-                  >
-                    {isRebuildingFrontend ? '重建中...' : '重建运行容器'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div
-              style={{ display: labDetailTab === 'stats' ? 'block' : 'none' }}
-              className={styles['tab-content']}
-            >
-              <LabStatsTab
-                isSshLab={isSshLab}
-                isDockerReady={isDockerReady}
-                isStatsTabActive={labDetailTab === 'stats'}
-                currentLab={currentLab}
-                selectedContainer={selectedContainer}
-                containerStats={containerStats}
-                storeLoading={storeLoading}
-                isManualRefreshingStats={autoRefresh.isManualRefreshingStats}
-                startingContainer={isStartingContainer}
-                stoppingContainer={isStoppingContainer}
-                restartingContainer={isRestartingContainer}
-                creationType={currentLab.creationType}
-                labName={currentLab.name}
-                onStart={handleContainerStart}
-                onStop={handleContainerStop}
-                onRestart={handleContainerRestart}
-                onRemove={handleDeleteLab}
-                onOpenTerminal={() => setLabDetailTab('terminal')}
-                onViewLogs={() => setLabDetailTab('logs')}
-                onRefreshStats={() => void handleRefreshStats()}
-              />
-            </div>
-
-            <div
-              style={{ display: labDetailTab === 'terminal' ? 'block' : 'none' }}
-              className={styles['tab-content']}
-            >
-              <LabTerminalTab
-                isSshLab={isSshLab}
-                isDockerReady={isDockerReady}
-                currentLab={currentLab}
-                selectedContainer={selectedContainer}
-                isSshConnected={isSshConnected}
-                labDetailTab={labDetailTab as string}
-              />
-            </div>
-
-            {!isSshLab && (
-              <div
-                style={{ display: labDetailTab === 'logs' ? 'block' : 'none' }}
-                className={styles['tab-content']}
-              >
-                <LabLogsTab
-                  isDockerReady={isDockerReady}
-                  selectedContainerId={selectedContainer?.id}
+            {showDockerReadOnlyState ? (
+              <div className={styles['tab-content']}>
+                <LabDetailEmptyState
+                  title="实验室记录已保留"
+                  message="当前仅展示这个实验室的历史信息，不提供本地运行环境操作。远程 SSH 实验室仍可正常连接和使用。"
                 />
               </div>
+            ) : (
+              <>
+                <OrphanLabAlert
+                  visible={isOrphan}
+                  lab={currentLab}
+                  isReloading={isRebuildingFrontend}
+                  canRecover={isLabFrontend}
+                  recoverLabel={isLabFrontend ? '重建运行容器' : '重新关联容器'}
+                  onRecover={handleRebuildFrontend}
+                  onCleanup={handleCleanupOrphan}
+                />
+
+                {showFrontendRecoveryBanner && (
+                  <div className={styles['frontend-recovery-banner']}>
+                    <div className={styles['frontend-recovery-copy']}>
+                      <span className={styles['frontend-recovery-copy__eyebrow']}>恢复提示</span>
+                      <h3>前端服务未就绪</h3>
+                      <p>{frontendRecoveryMessage}</p>
+                    </div>
+                    <div className={styles['frontend-recovery-actions']}>
+                      <button
+                        className="sm-button sm-button--secondary"
+                        disabled={isRetryingFrontend || isRebuildingFrontend}
+                        onClick={handleRetryFrontend}
+                      >
+                        {isRetryingFrontend ? '重试中...' : '重试初始化'}
+                      </button>
+                      <button
+                        className="sm-button sm-button--primary"
+                        disabled={isRetryingFrontend || isRebuildingFrontend}
+                        onClick={handleRebuildFrontend}
+                      >
+                        {isRebuildingFrontend ? '重建中...' : '重建运行容器'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div
+                  style={{ display: labDetailTab === 'stats' ? 'block' : 'none' }}
+                  className={styles['tab-content']}
+                >
+                  <LabStatsTab
+                    isSshLab={isSshLab}
+                    isDockerReady={isDockerReady}
+                    isStatsTabActive={labDetailTab === 'stats'}
+                    currentLab={currentLab}
+                    selectedContainer={selectedContainer}
+                    containerStats={containerStats}
+                    storeLoading={storeLoading}
+                    isManualRefreshingStats={autoRefresh.isManualRefreshingStats}
+                    startingContainer={isStartingContainer}
+                    stoppingContainer={isStoppingContainer}
+                    restartingContainer={isRestartingContainer}
+                    creationType={currentLab.creationType}
+                    labName={currentLab.name}
+                    onStart={handleContainerStart}
+                    onStop={handleContainerStop}
+                    onRestart={handleContainerRestart}
+                    onRemove={handleDeleteLab}
+                    onOpenTerminal={() => setLabDetailTab('terminal')}
+                    onViewLogs={() => setLabDetailTab('logs')}
+                    onRefreshStats={() => void handleRefreshStats()}
+                  />
+                </div>
+
+                <div
+                  style={{ display: labDetailTab === 'terminal' ? 'block' : 'none' }}
+                  className={styles['tab-content']}
+                >
+                  <LabTerminalTab
+                    isSshLab={isSshLab}
+                    isDockerReady={isDockerReady}
+                    currentLab={currentLab}
+                    selectedContainer={selectedContainer}
+                    isSshConnected={isSshConnected}
+                    labDetailTab={labDetailTab as string}
+                  />
+                </div>
+
+                {!isSshLab && (
+                  <div
+                    style={{ display: labDetailTab === 'logs' ? 'block' : 'none' }}
+                    className={styles['tab-content']}
+                  >
+                    <LabLogsTab
+                      isDockerReady={isDockerReady}
+                      selectedContainerId={selectedContainer?.id}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </>

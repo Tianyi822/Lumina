@@ -21,6 +21,7 @@ const LabSidebarSection = memo(function LabSidebarSection() {
 
   const openLabCreator = useUIStateStore((s) => s.openLabCreator)
   const openConfigManager = useUIStateStore((s) => s.openConfigManager)
+  const labDockerAvailable = useUIStateStore((s) => s.labDockerAvailable)
 
   const [labSearchQuery, setLabSearchQuery] = useState('')
   const [isRefreshingLabList, setIsRefreshingLabList] = useState(false)
@@ -72,18 +73,20 @@ const LabSidebarSection = memo(function LabSidebarSection() {
           ].join(' ')}
           onClick={openLabCreator}
         >
-          创建实验室
+          {labDockerAvailable === false ? 'SSH 连接' : '创建实验室'}
         </button>
-        <button
-          className={[
-            'sm-button',
-            'sm-button--secondary',
-            styles['sm-workspace-sidebar-host__action']
-          ].join(' ')}
-          onClick={openConfigManager}
-        >
-          管理配置
-        </button>
+        {labDockerAvailable === true && (
+          <button
+            className={[
+              'sm-button',
+              'sm-button--secondary',
+              styles['sm-workspace-sidebar-host__action']
+            ].join(' ')}
+            onClick={openConfigManager}
+          >
+            管理配置
+          </button>
+        )}
       </div>
 
       <div

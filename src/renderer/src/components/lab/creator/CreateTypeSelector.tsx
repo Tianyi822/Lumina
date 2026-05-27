@@ -20,19 +20,16 @@ export default function CreateTypeSelector({
   dockerReady,
   onChange
 }: CreateTypeSelectorProps) {
+  const visibleTypes = dockerReady ? types : types.filter((t) => t.type === 'ssh')
+
   return (
     <div className={styles['creator-type-selection']} role="radiogroup" aria-label="实验室创建方式">
-      {types.map((t) => (
+      {visibleTypes.map((t) => (
         <label
           key={t.type}
-          className={[
-            styles['type-option'],
-            createType === t.type && styles.active,
-            t.type !== 'ssh' && !dockerReady && styles.disabled
-          ]
+          className={[styles['type-option'], createType === t.type && styles.active]
             .filter(Boolean)
             .join(' ')}
-          title={t.type !== 'ssh' && !dockerReady ? 'Docker 未就绪' : ''}
           role="radio"
           aria-checked={createType === t.type}
         >
@@ -40,7 +37,6 @@ export default function CreateTypeSelector({
             type="radio"
             value={t.type}
             checked={createType === t.type}
-            disabled={t.type !== 'ssh' && !dockerReady}
             onChange={() => onChange(t.type)}
           />
           <span className={styles['option-label']}>{t.label}</span>
