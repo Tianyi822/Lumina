@@ -7,7 +7,7 @@ import type {
   PaperTranslationSegment
 } from '../../../shared/types/paper.ts'
 import { PaperTranslationCore, computePaperTranslationSourceHash } from './PaperTranslationCore.ts'
-import { parsePaperTranslationSegments } from '../../../shared/utils/paperTranslation.ts'
+import { parsePaperTranslationSegments } from '../../../shared/utils/paperTranslation/segments.ts'
 
 const TEST_LLM_CONFIG: LLMConfig = {
   base_url: 'https://example.com',

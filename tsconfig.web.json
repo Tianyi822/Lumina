@@ -9,6 +9,7 @@
     "src/preload/types/**/*.ts"
   ],
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "composite": true,
     "moduleResolution": "bundler",
     "jsx": "react-jsx",

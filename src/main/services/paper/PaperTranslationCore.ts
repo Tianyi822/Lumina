@@ -16,7 +16,7 @@ import {
   isPaperReferenceLikeSegment,
   parsePaperTranslationSegments,
   stripPaperTranslationMarkdown
-} from '../../../shared/utils/paperTranslation.ts'
+} from '../../../shared/utils/paperTranslation/index.ts'
 
 type ProgressListener = (progress: PaperTranslationProgress) => void
 type ProgressBatchListener = (batch: PaperTranslationProgressBatch) => void
