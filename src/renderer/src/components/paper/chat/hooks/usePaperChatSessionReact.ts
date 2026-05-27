@@ -5,6 +5,7 @@ import type { PaperDocument } from '@shared/types/paper'
 import { ensurePaperChatSession } from '@renderer/stores/paper'
 import { usePaperChatMessageCacheStore } from '@renderer/stores'
 import { messageToSessionMessage, sessionMessageToMessage } from '@renderer/utils/messageHelpers'
+import { deepClone } from '@shared/utils'
 
 interface UsePaperChatSessionReactReturn {
   session: SessionData | null
@@ -34,7 +35,7 @@ interface UsePaperChatSessionReactReturn {
 }
 
 function toPlainSessionData(sessionData: SessionData): SessionData {
-  return JSON.parse(JSON.stringify(sessionData)) as SessionData
+  return deepClone(sessionData)
 }
 
 function isLegacyPaperFulltextContext(message: Pick<Message, 'hidden' | 'contextKind'>): boolean {
