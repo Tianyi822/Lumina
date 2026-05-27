@@ -3,6 +3,7 @@ import { ipcMain } from 'electron'
 import { configManager } from '@main/services/config'
 import { logger } from '@main/services/logger'
 import { AppConfig, ConfigLoadResult, LLMConfig } from '@main/types/config'
+import { MODEL_CONNECT_TIMEOUT } from '@main/constants/timeouts'
 
 /**
  * 缓存配置加载的结果
@@ -43,7 +44,7 @@ async function testModelConnection(config: LLMConfig): Promise<ModelConnectionTe
   const client = new OpenAI({
     apiKey: config.api_key,
     baseURL: config.base_url,
-    timeout: 30000
+    timeout: MODEL_CONNECT_TIMEOUT
   })
 
   try {

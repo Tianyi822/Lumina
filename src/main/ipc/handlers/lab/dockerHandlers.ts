@@ -1,6 +1,7 @@
 import { ipcMain, shell } from 'electron'
 import { logger } from '@main/services/logger'
 import type { DockerStatus, PlatformType, LabResult } from '@shared/types/lab'
+import { DOCKER_VERSION_TIMEOUT } from '@main/constants/timeouts'
 import { execAsync, createErrorResult, getLabServices } from './shared'
 
 function decodeCommandOutput(output: unknown): string {
@@ -63,7 +64,7 @@ export function registerLabDockerHandlers(): void {
 
     try {
       const { stdout } = await execAsync('docker --version', {
-        timeout: 5000,
+        timeout: DOCKER_VERSION_TIMEOUT,
         encoding: 'buffer'
       })
       const output = decodeCommandOutput(stdout)

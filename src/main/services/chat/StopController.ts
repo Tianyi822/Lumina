@@ -1,4 +1,5 @@
 import { logger } from '../logger'
+import { DEFAULT_GENERATION_TIMEOUT } from '@main/constants/timeouts'
 
 /**
  * 停止控制器
@@ -105,7 +106,7 @@ export class StopController {
   async withTimeoutAndStopCheck<T>(
     promise: Promise<T>,
     sessionId: string,
-    timeoutMs: number = 30000,
+    timeoutMs: number = DEFAULT_GENERATION_TIMEOUT,
     operationName: string = 'operation'
   ): Promise<T> {
     return new Promise((resolve, reject) => {

@@ -14,6 +14,7 @@ import {
 } from '@shared/types/config'
 import { fileUrlToPath, isFileUrl } from '@shared/utils'
 import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
+import { OCR_TEST_TIMEOUT } from '@main/constants/timeouts'
 import type {
   CreatePaperAnnotationPayload,
   PaperStatus,
@@ -399,7 +400,7 @@ export function registerPaperHandlers(): void {
             Authorization: `Bearer ${params.apiKey.trim()}`
           },
           body,
-          signal: AbortSignal.timeout(15000)
+          signal: AbortSignal.timeout(OCR_TEST_TIMEOUT)
         })
 
         if (response.status === 401 || response.status === 403) {

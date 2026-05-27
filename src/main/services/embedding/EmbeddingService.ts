@@ -3,6 +3,7 @@ import { Worker } from 'worker_threads'
 import { encode } from 'gpt-tokenizer/encoding/cl100k_base'
 import { logger } from '@main/services/logger'
 import type { EmbeddingConfig } from '@main/types/config'
+import { EMBEDDING_WORKER_TIMEOUT } from '@main/constants/timeouts'
 
 const EMBEDDING_MAX_REQUESTS_PER_SECOND = 20
 const EMBEDDING_MAX_TOKENS_PER_MINUTE = 1_200_000
@@ -502,7 +503,7 @@ export class EmbeddingService {
       const timeout = setTimeout(() => {
         void worker.terminate()
         resolve(texts.map((text) => this.tokenEstimator(text)))
-      }, 10_000)
+      }, EMBEDDING_WORKER_TIMEOUT)
 
       worker.on('message', (msg: { id: string; estimates: number[] }) => {
         if (msg.id === id) {
