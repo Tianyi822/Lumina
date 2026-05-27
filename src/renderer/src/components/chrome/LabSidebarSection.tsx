@@ -59,6 +59,34 @@ const LabSidebarSection = memo(function LabSidebarSection() {
   return (
     <>
       <div
+        className={[
+          styles['sm-workspace-sidebar-host__section-actions'],
+          styles['sm-workspace-sidebar-host__section-actions--above-search']
+        ].join(' ')}
+      >
+        <button
+          className={[
+            'sm-button',
+            'sm-button--primary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
+          onClick={openLabCreator}
+        >
+          创建实验室
+        </button>
+        <button
+          className={[
+            'sm-button',
+            'sm-button--secondary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
+          onClick={openConfigManager}
+        >
+          管理配置
+        </button>
+      </div>
+
+      <div
         className={['sm-sidebar-shell__search', styles['sm-workspace-sidebar-host__search']]
           .filter(Boolean)
           .join(' ')}
@@ -102,29 +130,6 @@ const LabSidebarSection = memo(function LabSidebarSection() {
           onSelect={handleSelectLab}
           onDelete={handleDeleteLab}
         />
-      </div>
-
-      <div className={styles['sm-workspace-sidebar-host__section-actions']}>
-        <button
-          className={[
-            'sm-button',
-            'sm-button--primary',
-            styles['sm-workspace-sidebar-host__action']
-          ].join(' ')}
-          onClick={openLabCreator}
-        >
-          创建实验室
-        </button>
-        <button
-          className={[
-            'sm-button',
-            'sm-button--secondary',
-            styles['sm-workspace-sidebar-host__action']
-          ].join(' ')}
-          onClick={openConfigManager}
-        >
-          管理配置
-        </button>
       </div>
     </>
   )

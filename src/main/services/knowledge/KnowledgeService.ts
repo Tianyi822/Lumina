@@ -3,9 +3,9 @@ import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { getVectorDBService, type DocumentChunk, type SearchResult } from '@main/services/vector'
 import { EmbeddingService } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
-import type { KnowledgeBase } from '@shared/types/knowledge'
-import { getKnowledgeBaseFilePath as getKnowledgeBaseStorageFilePath } from './knowledgePaths'
 import { getFileService } from '@main/services/file'
+import type { KnowledgeBase, KnowledgeReindexOptions } from '@shared/types/knowledge'
+import { getKnowledgeBaseFilePath as getKnowledgeBaseStorageFilePath } from './knowledgePaths'
 
 // 获取知识库数据文件路径
 export function getKnowledgeBaseFilePath(): string {
@@ -139,6 +139,10 @@ export class KnowledgeService {
   ): Promise<{ success: boolean; error?: string }> {
     if (kbId !== this.kbData.id) {
       return { success: false, error: '知识库ID不匹配' }
+    }
+
+    if (!(this.kbData.linkedFileIds || []).includes(fileId)) {
+      return { success: false, error: '文件未关联到此知识库' }
     }
 
     const resourceResult = await getFileService().readFileResourceContent(fileId)
@@ -329,67 +333,106 @@ export class KnowledgeService {
     }
   }
 
-  // 重新索引整个知识库
-  // 删除现有向量数据库，重新处理所有文件
+  // 重新索引知识库
+  // 全量模式会删除现有向量数据库，文件模式只替换指定文件索引
   // 支持整体进度和单个文件进度的回调
   async reindexKnowledgeBase(
     kbId: string,
     fileIds: string[],
     onProgress?: (progress: { current: number; total: number; currentFile?: string }) => void,
-    onFileProgress?: (progress: FileProcessingProgress) => void
+    onFileProgress?: (progress: FileProcessingProgress) => void,
+    options: KnowledgeReindexOptions = {}
   ): Promise<{
     success: boolean
     indexedCount: number
+    indexedFileIds: string[]
     failedFiles: string[]
     failedErrors?: string[]
+    skippedFileIds?: string[]
+    skippedFiles?: string[]
     error?: string
   }> {
     if (kbId !== this.kbData.id) {
-      return { success: false, indexedCount: 0, failedFiles: [], error: '知识库ID不匹配' }
+      return {
+        success: false,
+        indexedCount: 0,
+        indexedFileIds: [],
+        failedFiles: [],
+        error: '知识库ID不匹配'
+      }
     }
 
     try {
-      // 删除现有向量数据库
-      getVectorDBService().deleteKnowledgeBase(kbId)
+      const fileService = getFileService()
+      const linkedFileIdSet = new Set(this.kbData.linkedFileIds || [])
+      const requestedFileIds = Array.from(new Set(fileIds))
+      const validFiles: Array<{ id: string; name: string }> = []
+      const skippedFileIds: string[] = []
+      const skippedFiles: string[] = []
 
-      logger.info('开始重新索引知识库', 'main', { kbId, fileCount: fileIds.length })
+      for (const fileId of requestedFileIds) {
+        const file = fileService.getFileById(fileId)
+        if (!linkedFileIdSet.has(fileId) || !file) {
+          skippedFileIds.push(fileId)
+          skippedFiles.push(file?.name || fileId)
+          logger.warn('跳过不属于知识库的重建索引文件', 'main', {
+            kbId,
+            fileId,
+            fileExists: Boolean(file),
+            linked: linkedFileIdSet.has(fileId)
+          })
+          continue
+        }
+
+        validFiles.push({ id: file.id, name: file.name })
+      }
+
+      if (options.scope !== 'files') {
+        // 全量重建会先清空知识库索引；文件级重建只替换对应文件的索引块。
+        getVectorDBService().deleteKnowledgeBase(kbId)
+      }
+
+      logger.info('开始重新索引知识库', 'main', {
+        kbId,
+        scope: options.scope || 'full',
+        fileCount: validFiles.length,
+        skippedCount: skippedFiles.length
+      })
 
       const failedFiles: string[] = []
       const failedErrors: string[] = []
+      const indexedFileIds: string[] = []
       let indexedCount = 0
 
       // 控制并发文件数，避免同时打开过多文件
       const maxConcurrentFiles = 3
 
       // 处理单个文件的函数
-      const processFile = async (fileId: string): Promise<void> => {
-        const file = getFileService().getFileById(fileId)
-        const fileName = file?.name || fileId
-        const result = await this.indexFile(kbId, fileId, onFileProgress)
+      const processFile = async (file: { id: string; name: string }): Promise<void> => {
+        const result = await this.indexFile(kbId, file.id, onFileProgress)
 
         if (result.success) {
           indexedCount++
+          indexedFileIds.push(file.id)
         } else {
-          failedFiles.push(fileName)
-          failedErrors.push(`${fileName}: ${result.error || '未知错误'}`)
+          failedFiles.push(file.name)
+          failedErrors.push(`${file.name}: ${result.error || '未知错误'}`)
           logger.error('文件索引失败详情', 'main', {
-            fileName,
+            fileName: file.name,
             error: result.error
           })
         }
       }
 
       // 并行处理文件（控制并发数）
-      for (let i = 0; i < fileIds.length; i += maxConcurrentFiles) {
-        const batch = fileIds.slice(i, i + maxConcurrentFiles)
+      for (let i = 0; i < validFiles.length; i += maxConcurrentFiles) {
+        const batch = validFiles.slice(i, i + maxConcurrentFiles)
 
         // 更新进度
         onProgress?.({
           current: i + 1,
-          total: fileIds.length,
-          currentFile: batch
-            .map((fileId) => getFileService().getFileById(fileId)?.name || fileId)
-            .join(', ')
+          total: validFiles.length,
+          currentFile: batch.map((file) => file.name).join(', ')
         })
 
         // 并行执行当前批次的文件
@@ -397,8 +440,8 @@ export class KnowledgeService {
 
         // 更新进度为当前批次完成
         onProgress?.({
-          current: Math.min(i + maxConcurrentFiles, fileIds.length),
-          total: fileIds.length,
+          current: Math.min(i + maxConcurrentFiles, validFiles.length),
+          total: validFiles.length,
           currentFile: ''
         })
       }
@@ -415,8 +458,11 @@ export class KnowledgeService {
       return {
         success: failedFiles.length === 0,
         indexedCount,
+        indexedFileIds,
         failedFiles,
-        failedErrors: failedErrors.length > 0 ? failedErrors : undefined
+        failedErrors: failedErrors.length > 0 ? failedErrors : undefined,
+        skippedFileIds: skippedFileIds.length > 0 ? skippedFileIds : undefined,
+        skippedFiles: skippedFiles.length > 0 ? skippedFiles : undefined
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -424,6 +470,7 @@ export class KnowledgeService {
       return {
         success: false,
         indexedCount: 0,
+        indexedFileIds: [],
         failedFiles: fileIds.map((fileId) => getFileService().getFileById(fileId)?.name || fileId),
         error: errorMessage
       }

@@ -4,7 +4,7 @@ import { getVectorDBService } from '@main/services/vector'
 import { logger } from '@main/services/logger'
 import { getMainWindow } from '@main/core/window'
 import { getFileService } from '@main/services/file/FileService'
-import type { KnowledgeBase } from '@shared/types/knowledge'
+import type { KnowledgeBase, KnowledgeReindexOptions } from '@shared/types/knowledge'
 
 // 初始化知识库服务，在应用启动时加载知识库数据
 export function initializeKnowledge(): void {
@@ -198,60 +198,76 @@ export function registerKnowledgeHandlers(): void {
     }
   })
 
-  // 重新索引整个知识库，使用队列控制并发以避免多个知识库同时索引导致阻塞
-  ipcMain.handle('knowledge:reindex', async (_event, kbId: string, fileIds: string[]) => {
-    try {
-      const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
-      if (!kb) {
-        return { success: false, error: '知识库不存在' }
-      }
+  // 重新索引知识库，使用队列控制并发以避免多个知识库同时索引导致阻塞
+  ipcMain.handle(
+    'knowledge:reindex',
+    async (_event, kbId: string, fileIds: string[], options?: KnowledgeReindexOptions) => {
+      try {
+        const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+        if (!kb) {
+          return { success: false, error: '知识库不存在' }
+        }
 
-      const manager = getKnowledgeServiceManager()
-      const service = manager.getOrCreateInstance(kbId, kb)
+        const manager = getKnowledgeServiceManager()
+        const service = manager.getOrCreateInstance(kbId, kb)
 
-      // 使用队列执行重新索引任务，避免多个知识库同时索引导致阻塞
-      const result = await manager.executeIndexingTask(kbId, () =>
-        service.reindexKnowledgeBase(
-          kbId,
-          fileIds,
-          (progress) => {
-            const win = getMainWindow()
-            if (win) {
-              win.webContents.send('knowledge:reindex-progress', { kbId, progress })
-            }
-            // 重新索引进度通过 IPC 事件发送，不打印日志
-          },
-          (fileProgress) => {
-            const win = getMainWindow()
-            if (win) {
-              win.webContents.send('knowledge:file-progress', { kbId, progress: fileProgress })
-            }
-            // 文件索引进度通过 IPC 事件发送，不打印日志
-          }
+        // 使用队列执行重新索引任务，避免多个知识库同时索引导致阻塞
+        const result = await manager.executeIndexingTask(kbId, () =>
+          service.reindexKnowledgeBase(
+            kbId,
+            fileIds,
+            (progress) => {
+              const win = getMainWindow()
+              if (win) {
+                win.webContents.send('knowledge:reindex-progress', { kbId, progress })
+              }
+              // 重新索引进度通过 IPC 事件发送，不打印日志
+            },
+            (fileProgress) => {
+              const win = getMainWindow()
+              if (win) {
+                win.webContents.send('knowledge:file-progress', { kbId, progress: fileProgress })
+              }
+              // 文件索引进度通过 IPC 事件发送，不打印日志
+            },
+            options
+          )
         )
-      )
-      // result 直接是 reindexKnowledgeBase 的返回类型
-      if (result.success) {
-        manager.clearKnowledgeBaseInvalidation(kbId)
-      }
-      return {
-        success: result.success,
-        data: {
-          indexedCount: result.indexedCount,
-          failedFiles: result.failedFiles,
-          failedErrors: result.failedErrors
-        },
-        error: result.error
-      }
-    } catch (error) {
-      const errorMessage = `重新索引知识库失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return {
-        success: false,
-        error: errorMessage
+
+        // result 直接是 reindexKnowledgeBase 的返回类型
+        const staleFileIds = result.skippedFileIds || []
+        if (options?.scope === 'files') {
+          for (const fileId of [...result.indexedFileIds, ...staleFileIds]) {
+            manager.clearKnowledgeBaseFileInvalidation(kbId, fileId)
+          }
+        } else if (result.success) {
+          manager.clearKnowledgeBaseInvalidation(kbId)
+        } else {
+          for (const fileId of staleFileIds) {
+            manager.clearKnowledgeBaseFileInvalidation(kbId, fileId)
+          }
+        }
+
+        return {
+          success: result.success,
+          data: {
+            indexedCount: result.indexedCount,
+            failedFiles: result.failedFiles,
+            failedErrors: result.failedErrors,
+            skippedFiles: result.skippedFiles
+          },
+          error: result.error
+        }
+      } catch (error) {
+        const errorMessage = `重新索引知识库失败: ${error instanceof Error ? error.message : String(error)}`
+        logger.error(errorMessage)
+        return {
+          success: false,
+          error: errorMessage
+        }
       }
     }
-  })
+  )
 
   // 在知识库中搜索相关内容
   ipcMain.handle(

@@ -14,8 +14,13 @@ function formatDocumentCount(linkedFileIds?: string[]): string {
   return `${count} 个文档`
 }
 
-function needsReindex(kb: { indexInvalidation?: { needsReindex?: boolean } }): boolean {
-  return kb.indexInvalidation?.needsReindex === true
+function needsReindex(kb: {
+  linkedFileIds?: string[]
+  indexInvalidation?: { needsReindex?: boolean; files?: Array<{ fileId: string }> }
+}): boolean {
+  if (kb.indexInvalidation?.needsReindex !== true) return false
+  const linkedFileIds = new Set(kb.linkedFileIds || [])
+  return kb.indexInvalidation.files?.some((file) => linkedFileIds.has(file.fileId)) === true
 }
 
 const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
@@ -76,6 +81,34 @@ const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
 
   return (
     <>
+      <div
+        className={[
+          styles['sm-workspace-sidebar-host__section-actions'],
+          styles['sm-workspace-sidebar-host__section-actions--above-search']
+        ].join(' ')}
+      >
+        <button
+          className={[
+            'sm-button',
+            'sm-button--primary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
+          onClick={handleCreateKnowledgeBase}
+        >
+          新建知识库
+        </button>
+        <button
+          className={[
+            'sm-button',
+            'sm-button--secondary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
+          onClick={handleManageKnowledgeFiles}
+        >
+          管理文件
+        </button>
+      </div>
+
       <div
         className={['sm-sidebar-shell__search', styles['sm-workspace-sidebar-host__search']]
           .filter(Boolean)
@@ -165,29 +198,6 @@ const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
             </div>
           )}
         </div>
-      </div>
-
-      <div className={styles['sm-workspace-sidebar-host__section-actions']}>
-        <button
-          className={[
-            'sm-button',
-            'sm-button--primary',
-            styles['sm-workspace-sidebar-host__action']
-          ].join(' ')}
-          onClick={handleCreateKnowledgeBase}
-        >
-          新建知识库
-        </button>
-        <button
-          className={[
-            'sm-button',
-            'sm-button--secondary',
-            styles['sm-workspace-sidebar-host__action']
-          ].join(' ')}
-          onClick={handleManageKnowledgeFiles}
-        >
-          管理文件
-        </button>
       </div>
     </>
   )

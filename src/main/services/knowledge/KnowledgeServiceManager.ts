@@ -397,6 +397,7 @@ export class KnowledgeServiceManager {
   getOrCreateInstance(kbId: string, kbData: KnowledgeBase): KnowledgeService {
     if (this.instances.has(kbId)) {
       const existing = this.instances.get(kbId)!
+      existing.updateKBData(kbData)
       logger.debug('使用现有知识库服务实例', 'main', { kbId })
       return existing
     }
