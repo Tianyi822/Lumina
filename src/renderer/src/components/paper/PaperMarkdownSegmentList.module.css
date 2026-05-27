@@ -1,19 +1,12 @@
-.paper-markdown-view__segment-row {
-  box-sizing: border-box;
-  padding-top: var(--sm-space-4);
-}
-
-.paper-markdown-view__segment-row--heading {
-  padding-top: var(--sm-space-6);
-}
-
-.paper-markdown-view__segment-row--first {
-  padding-top: 0;
-}
-
 .paper-markdown-view__segment {
   position: relative;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
   box-sizing: border-box;
+}
+
+.paper-markdown-view__segment + .paper-markdown-view__segment {
+  margin-top: var(--sm-space-3);
 }
 
 .paper-markdown-view__segment-original,
@@ -281,7 +274,7 @@
 }
 
 .paper-markdown-view__markdown p {
-  margin: 1.5em 0;
+  margin: 0.8em 0;
 }
 
 .paper-markdown-view__markdown a {

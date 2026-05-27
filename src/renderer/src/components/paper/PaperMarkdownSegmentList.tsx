@@ -1,12 +1,10 @@
 import { memo, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import type { RenderedSegment } from './hooks/usePaperMarkdownEngine'
 import styles from './PaperMarkdownSegmentList.module.css'
 
 interface PaperMarkdownSegmentListProps {
   segments: RenderedSegment[]
-  scrollContainerRef: React.RefObject<HTMLDivElement | null>
   onRetranslate?: (params: { segmentId: string; stableId: string }) => void
 }
 
@@ -196,7 +194,6 @@ const PaperMarkdownSegmentItem = memo(
 
 function PaperMarkdownSegmentList({
   segments,
-  scrollContainerRef,
   onRetranslate
 }: PaperMarkdownSegmentListProps) {
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -233,60 +230,15 @@ function PaperMarkdownSegmentList({
     setConfirmDialog(null)
   }, [])
 
-  // 虚拟滚动：动态高度测量
-  const virtualizer = useVirtualizer({
-    count: segments.length,
-    getScrollElement: () => scrollContainerRef.current,
-    estimateSize: () => 300,
-    overscan: 3
-  })
-
-  const virtualItems = virtualizer.getVirtualItems()
-
   return (
     <>
-      <div
-        style={{
-          height: `${virtualizer.getTotalSize()}px`,
-          width: '100%',
-          position: 'relative'
-        }}
-      >
-        {virtualItems.map((virtualRow) => {
-          const segment = segments[virtualRow.index]
-          return (
-            <div
-              key={virtualRow.key}
-              className={[
-                styles['paper-markdown-view__segment-row'],
-                'paper-markdown-view__segment-row',
-                segment.kind === 'heading'
-                  ? styles['paper-markdown-view__segment-row--heading']
-                  : '',
-                segment.kind === 'heading' ? 'paper-markdown-view__segment-row--heading' : '',
-                virtualRow.index === 0 ? styles['paper-markdown-view__segment-row--first'] : '',
-                virtualRow.index === 0 ? 'paper-markdown-view__segment-row--first' : ''
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              data-index={virtualRow.index}
-              ref={virtualizer.measureElement}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                transform: `translateY(${virtualRow.start}px)`
-              }}
-            >
-              <PaperMarkdownSegmentItem
-                segment={segment}
-                onRetranslateClick={handleRetranslateClick}
-              />
-            </div>
-          )
-        })}
-      </div>
+      {segments.map((segment) => (
+        <PaperMarkdownSegmentItem
+          key={segment.renderId}
+          segment={segment}
+          onRetranslateClick={handleRetranslateClick}
+        />
+      ))}
 
       {confirmDialog &&
         createPortal(

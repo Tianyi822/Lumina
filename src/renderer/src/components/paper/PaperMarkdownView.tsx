@@ -620,7 +620,6 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
             >
               <PaperMarkdownSegmentList
                 segments={engine.renderedSegments}
-                scrollContainerRef={scrollContainerRef}
                 onRetranslate={handleRetranslateSegment}
               />
             </article>
