@@ -166,12 +166,13 @@ export function usePaperChatSessionReact(
         return null
       }
 
-      const ensuredSession = await window.api.session.load(ensuredSessionId)
-      if (!ensuredSession) {
+      const ensuredSessionResult = await window.api.session.load(ensuredSessionId)
+      if (!ensuredSessionResult.success || !ensuredSessionResult.data) {
         setErrorState('加载论文聊天会话失败')
         return null
       }
 
+      const ensuredSession = ensuredSessionResult.data
       applySessionData(ensuredSession)
       return ensuredSession
     } catch (caught) {

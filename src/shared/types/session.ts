@@ -158,6 +158,8 @@ export interface SessionListItem {
 export interface SessionResult {
   /** 操作是否成功 */
   success: boolean
+  /** 操作成功时返回的数据 */
+  data?: SessionData
   /** 操作失败时的错误信息 */
   error?: string
 }

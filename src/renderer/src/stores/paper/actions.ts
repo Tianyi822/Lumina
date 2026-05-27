@@ -421,14 +421,20 @@ export async function ensurePaperChatSession(
 
       if (paper.chatSessionId) {
         const existingSession = await window.api.session.load(paper.chatSessionId)
-        if (existingSession) {
-          return { success: true, data: existingSession.sessionId }
+        if (existingSession.success && existingSession.data) {
+          return { success: true, data: existingSession.data.sessionId }
         }
       }
 
       const title = `论文对话：${paper.fileName}`
       const createdSession = await window.api.session.create(title, 'paper')
-      const bindResult = await setPaperChatSession(paper.id, createdSession.sessionId)
+      if (!createdSession.success || !createdSession.data) {
+        return {
+          success: false,
+          error: createdSession.error || '创建会话失败'
+        }
+      }
+      const bindResult = await setPaperChatSession(paper.id, createdSession.data.sessionId)
       if (!bindResult.success) {
         return {
           success: false,
@@ -436,7 +442,7 @@ export async function ensurePaperChatSession(
         }
       }
 
-      return { success: true, data: createdSession.sessionId }
+      return { success: true, data: createdSession.data.sessionId }
     } catch (caught) {
       const error = caught instanceof Error ? caught.message : String(caught)
       return { success: false, error }
