@@ -27,8 +27,9 @@ import { usePaperAnnotationComposer } from './hooks/usePaperAnnotationComposer'
 import { usePaperTextSearch } from './hooks/usePaperTextSearch'
 import { usePaperQuoteHighlight } from './composables/usePaperQuoteHighlight'
 import { useZoomAnchor } from './composables/useZoomAnchor'
+import { useTableDragScroll } from './hooks/useTableDragScroll'
+import { useMarkdownScrollPersistence } from './hooks/useMarkdownScrollPersistence'
 import { syncFormulaSelectionOnDrag } from './composables/paperDragSelectionSync'
-import { PAPER_ANNOTATION_INTERACTIVE_SELECTOR } from './composables/usePaperHighlightRenderer'
 import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopover'
 import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor'
 import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu'
@@ -56,16 +57,6 @@ export interface PaperMarkdownViewHandle {
   scrollToQuoteAndHighlight: (quote: PaperQuote) => void
 }
 
-const TABLE_DRAG_THRESHOLD = 4
-
-interface TableDragState {
-  wrap: HTMLElement
-  pointerId: number
-  startClientX: number
-  startScrollLeft: number
-  hasDragged: boolean
-}
-
 const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewProps>(
   function PaperMarkdownView(
     {
@@ -87,8 +78,6 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const setPaperTocOutline = usePaperViewStore((state) => state.setPaperTocOutline)
     const clearPaperToc = usePaperViewStore((state) => state.clearPaperToc)
     const handleWheelZoom = usePaperViewStore((state) => state.handleWheelZoom)
-    const setMarkdownScrollPosition = usePaperViewStore((state) => state.setMarkdownScrollPosition)
-    const getMarkdownScrollPosition = usePaperViewStore((state) => state.getMarkdownScrollPosition)
 
     const createAnnotation = usePaperAnnotationStore((state) => state.createAnnotation)
     const updateAnnotation = usePaperAnnotationStore((state) => state.updateAnnotation)
@@ -108,13 +97,6 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const zoomSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const hasMountedZoomRef = useRef(false)
     const previousZoomLevelRef = useRef(zoomLevel)
-
-    // Table drag state
-    const tableDragStateRef = useRef<TableDragState | null>(null)
-    const lastTableDragEndedAtRef = useRef(0)
-
-    // Scroll RAF
-    const scrollRafIdRef = useRef<number | null>(null)
 
     // Markdown engine
     const engine = usePaperMarkdownEngine({
@@ -181,139 +163,19 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         })
     }, [])
 
-    // Record scroll position
-    const recordMarkdownScrollPosition = useCallback(() => {
-      if (!paperId || !scrollContainerRef.current || zoomAnchor.isZooming()) {
-        return
-      }
+    // Table drag scroll
+    const { handlePointerDown, lastDragEndedAt } = useTableDragScroll()
 
-      if (scrollRafIdRef.current !== null) {
-        return
-      }
-
-      scrollRafIdRef.current = requestAnimationFrame(() => {
-        scrollRafIdRef.current = null
-        if (!paperId || !scrollContainerRef.current) return
-        setMarkdownScrollPosition(paperId, {
-          scrollTop: scrollContainerRef.current.scrollTop,
-          scrollLeft: scrollContainerRef.current.scrollLeft
-        })
-      })
-    }, [paperId, setMarkdownScrollPosition, zoomAnchor])
-
-    // Restore scroll position
-    const restoreMarkdownScrollPosition = useCallback(
-      async (targetPaperId: string) => {
-        const position = getMarkdownScrollPosition(targetPaperId)
-        if (!position) {
-          return
-        }
-
-        requestAnimationFrame(() => {
-          if (paperId !== targetPaperId || !scrollContainerRef.current) {
-            return
-          }
-
-          scrollContainerRef.current.scrollTop = position.scrollTop
-          scrollContainerRef.current.scrollLeft = position.scrollLeft
-        })
-      },
-      [paperId, getMarkdownScrollPosition]
-    )
-
-    // Table drag handlers
-    const isTableWrapHorizontallyScrollable = useCallback((wrap: HTMLElement): boolean => {
-      return wrap.scrollWidth > wrap.clientWidth + 1
-    }, [])
-
-    function cleanupTableDragListeners(): void {
-      window.removeEventListener('pointermove', handleTablePointerMove)
-      window.removeEventListener('pointerup', handleTablePointerUp)
-      window.removeEventListener('pointercancel', handleTablePointerUp)
-    }
-
-    function clearTableDragState(): void {
-      tableDragStateRef.current?.wrap.classList.remove('paper-markdown-view__table-wrap--dragging')
-      tableDragStateRef.current = null
-      cleanupTableDragListeners()
-    }
-
-    function shouldIgnoreTableDragTarget(target: Element): boolean {
-      return !!target.closest(
-        [
-          'a',
-          'button',
-          'input',
-          'textarea',
-          'select',
-          PAPER_ANNOTATION_INTERACTIVE_SELECTOR,
-          '.paper-markdown-view__retranslate-btn'
-        ].join(', ')
-      )
-    }
-
-    function handleTablePointerDown(event: React.PointerEvent): void {
-      if (event.button !== 0) {
-        return
-      }
-
-      const target = event.target as Element
-      if (!(target instanceof Element) || shouldIgnoreTableDragTarget(target)) {
-        return
-      }
-
-      const wrap = target.closest<HTMLElement>('.paper-markdown-view__table-wrap')
-      if (!wrap || !isTableWrapHorizontallyScrollable(wrap)) {
-        return
-      }
-
-      clearTableDragState()
-      tableDragStateRef.current = {
-        wrap,
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startScrollLeft: wrap.scrollLeft,
-        hasDragged: false
-      }
-
-      window.addEventListener('pointermove', handleTablePointerMove, { passive: false })
-      window.addEventListener('pointerup', handleTablePointerUp)
-      window.addEventListener('pointercancel', handleTablePointerUp)
-    }
-
-    function handleTablePointerMove(event: PointerEvent): void {
-      const state = tableDragStateRef.current
-      if (!state || event.pointerId !== state.pointerId) {
-        return
-      }
-
-      const deltaX = event.clientX - state.startClientX
-      if (!state.hasDragged && Math.abs(deltaX) < TABLE_DRAG_THRESHOLD) {
-        return
-      }
-
-      if (!state.hasDragged) {
-        state.hasDragged = true
-        state.wrap.classList.add('paper-markdown-view__table-wrap--dragging')
-        window.getSelection()?.removeAllRanges()
-      }
-
-      event.preventDefault()
-      state.wrap.scrollLeft = state.startScrollLeft - deltaX
-    }
-
-    function handleTablePointerUp(event: PointerEvent): void {
-      const state = tableDragStateRef.current
-      if (!state || event.pointerId !== state.pointerId) {
-        return
-      }
-
-      if (state.hasDragged) {
-        lastTableDragEndedAtRef.current = Date.now()
-      }
-
-      clearTableDragState()
-    }
+    // Scroll persistence
+    const { recordScrollPosition, restoreScrollPosition } = useMarkdownScrollPersistence({
+      scrollContainerRef,
+      paperId,
+      readingProgress,
+      loading,
+      zoomAnchor,
+      zoomLevel,
+      translationVisible
+    })
 
     // 未恢复批注通知（每次论文加载只提示一次）
     const unresolvedNotifiedRef = useRef(false)
@@ -327,6 +189,12 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     }, [engine, syncScrollableTableWrapState])
 
     // 通知未恢复批注
+    // 论文切换时重置通知标记
+    useEffect(() => {
+      unresolvedNotifiedRef.current = false
+    }, [paperId])
+
+    // 检查并通知未恢复的批注
     useEffect(() => {
       if (unresolvedNotifiedRef.current) return
       const ids = engine.unresolvedAnnotationIds
@@ -408,7 +276,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     // Handle markdown click (prevent after table drag)
     const handleMarkdownClick = useCallback(
       (event: React.MouseEvent) => {
-        if (Date.now() - lastTableDragEndedAtRef.current < 160) {
+        if (Date.now() - lastDragEndedAt.current < 160) {
           event.preventDefault()
           event.stopPropagation()
           return
@@ -416,7 +284,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
         composer.handleSurfaceAnnotationClick(event.nativeEvent)
       },
-      [composer]
+      [composer, lastDragEndedAt]
     )
 
     // Retranslate handler
@@ -478,7 +346,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
         // Restore scroll position on initial load or major content change
         if (contentChanged || basePathChanged || sourceRevisionIdChanged) {
-          void restoreMarkdownScrollPosition(paperId)
+          void restoreScrollPosition(paperId)
         }
         refreshTextSearch({ preserveCurrentIndex: true })
       })
@@ -567,151 +435,6 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       return cleanup
     }, [content, paperId])
 
-    // Reading progress
-    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const pendingPercentRef = useRef<number | null>(null)
-    const isRestoringRef = useRef(false)
-    // 使用 ref 存储缩放级别，避免 saveProgress 依赖 zoomLevel 导致整条回调链重建
-    const zoomLevelRef = useRef(zoomLevel)
-    zoomLevelRef.current = zoomLevel
-    const translationVisibleRef = useRef(translationVisible)
-    translationVisibleRef.current = translationVisible
-
-    function computeScrollPercent(container: HTMLElement): number {
-      const scrollableHeight = container.scrollHeight - container.clientHeight
-      if (scrollableHeight <= 0) return 0
-      return Math.min(100, Math.max(0, (container.scrollTop / scrollableHeight) * 100))
-    }
-
-    const saveProgress = useCallback(
-      (percent: number) => {
-        if (!paperId) return
-
-        void window.api.paper.saveReadingProgress({
-          paperId,
-          scrollPercent: Math.round(percent * 100) / 100,
-          zoomLevel: zoomLevelRef.current,
-          translationVisible: translationVisibleRef.current
-        })
-      },
-      [paperId]
-    )
-
-    const flushPendingSave = useCallback(() => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current)
-        saveTimerRef.current = null
-      }
-      if (pendingPercentRef.current !== null) {
-        saveProgress(pendingPercentRef.current)
-        pendingPercentRef.current = null
-      }
-    }, [saveProgress])
-
-    const debouncedSave = useCallback(
-      (percent: number) => {
-        if (saveTimerRef.current) {
-          clearTimeout(saveTimerRef.current)
-        }
-        pendingPercentRef.current = percent
-        saveTimerRef.current = setTimeout(() => {
-          saveTimerRef.current = null
-          if (pendingPercentRef.current !== null) {
-            saveProgress(pendingPercentRef.current)
-            pendingPercentRef.current = null
-          }
-        }, 500)
-      },
-      [saveProgress]
-    )
-
-    const handleScroll = useCallback(() => {
-      if (isRestoringRef.current) return
-      if (zoomAnchor.isZooming()) return
-
-      const container = scrollContainerRef.current
-      if (!container) return
-
-      const percent = computeScrollPercent(container)
-      debouncedSave(percent)
-    }, [debouncedSave, zoomAnchor])
-
-    // Setup scroll listener
-    useEffect(() => {
-      const container = scrollContainerRef.current
-      if (!container) return
-
-      container.addEventListener('scroll', handleScroll, { passive: true })
-      return () => {
-        container.removeEventListener('scroll', handleScroll)
-      }
-    }, [handleScroll])
-
-    // Restore reading progress on paper change
-    useEffect(() => {
-      unresolvedNotifiedRef.current = false
-      flushPendingSave()
-
-      const progress = readingProgress
-      if (!progress) return
-
-      isRestoringRef.current = true
-
-      const timer = setTimeout(() => {
-        const container = scrollContainerRef.current
-        if (!container) {
-          isRestoringRef.current = false
-          return
-        }
-
-        const scrollableHeight = container.scrollHeight - container.clientHeight
-        if (scrollableHeight > 0) {
-          container.scrollTop = (progress.scrollPercent / 100) * scrollableHeight
-        }
-
-        setTimeout(() => {
-          isRestoringRef.current = false
-        }, 300)
-      }, 100)
-
-      return () => clearTimeout(timer)
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [paperId])
-
-    // Restore on loading complete
-    const wasLoadingRef = useRef(loading)
-    useEffect(() => {
-      const wasLoading = wasLoadingRef.current
-      wasLoadingRef.current = loading
-
-      if (loading || !wasLoading) return
-
-      const progress = readingProgress
-      if (!progress) return
-
-      isRestoringRef.current = true
-
-      const timer = setTimeout(() => {
-        const container = scrollContainerRef.current
-        if (!container) {
-          isRestoringRef.current = false
-          return
-        }
-
-        const scrollableHeight = container.scrollHeight - container.clientHeight
-        if (scrollableHeight > 0) {
-          container.scrollTop = (progress.scrollPercent / 100) * scrollableHeight
-        }
-
-        setTimeout(() => {
-          isRestoringRef.current = false
-        }, 300)
-      }, 100)
-
-      return () => clearTimeout(timer)
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loading])
-
     // Keyboard listeners
     useEffect(() => {
       document.addEventListener('mousedown', composer.handleDocumentPointerDown)
@@ -731,11 +454,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     // Cleanup on unmount
     useEffect(() => {
       return () => {
-        flushPendingSave()
-        recordMarkdownScrollPosition()
         clearPaperToc()
         textSearch.closeSearch()
-        clearTableDragState()
         composer.clearComposer()
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -861,8 +581,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           )}
           onMouseUp={(e) => composer.updateComposerFromSelection(e.nativeEvent)}
           onClick={handleMarkdownClick}
-          onPointerDown={handleTablePointerDown}
-          onScroll={recordMarkdownScrollPosition}
+          onPointerDown={handlePointerDown}
+          onScroll={recordScrollPosition}
           onWheel={(e) => handleWheelZoom(e.nativeEvent)}
         >
           {loading ? (
