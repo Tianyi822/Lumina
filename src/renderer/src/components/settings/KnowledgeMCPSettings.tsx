@@ -1,67 +1,14 @@
-import { useState, useEffect, useCallback } from 'react'
-import type { KnowledgeMCPServerStatus } from '@shared/types/knowledgeMCP'
+import { useState, useCallback } from 'react'
 import { notifySuccess, notifyError } from '@renderer/composables/notificationCore'
+import { useKnowledgeMCP } from './hooks/useKnowledgeMCP'
 import styles from './KnowledgeMCPSettings.module.css'
 
-const DEFAULT_STATUS: KnowledgeMCPServerStatus = {
-  running: false,
-  port: 3100,
-  localIP: '127.0.0.1',
-  url: ''
-}
-
 export default function KnowledgeMCPSettings() {
-  const [status, setStatus] = useState<KnowledgeMCPServerStatus>(DEFAULT_STATUS)
-  const [configJSON, setConfigJSON] = useState('')
-  const [loading, setLoading] = useState(false)
+  const { status, config: configJSON, loading, error, start, stop, refreshStatus } = useKnowledgeMCP()
   const [toggling, setToggling] = useState(false)
   const [copying, setCopying] = useState(false)
 
   const enabled = status.running
-
-  // 获取服务状态
-  const loadStatus = useCallback(async () => {
-    setLoading(true)
-    try {
-      const result = await window.api.knowledgeMCP.getStatus()
-      setStatus(result)
-
-      if (result.running) {
-        setConfigJSON(await window.api.knowledgeMCP.getConfig())
-      }
-    } catch (error) {
-      notifyError(
-        '知识库 MCP',
-        `获取状态失败: ${error instanceof Error ? error.message : String(error)}`
-      )
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  // 初始化 + 状态变更监听
-  useEffect(() => {
-    let cancelled = false
-
-    void loadStatus()
-
-    const cleanup = window.api.knowledgeMCP.onStatusChange((newStatus) => {
-      if (cancelled) return
-      setStatus(newStatus)
-      if (newStatus.running) {
-        void window.api.knowledgeMCP.getConfig().then((config) => {
-          if (!cancelled) setConfigJSON(config)
-        })
-      } else {
-        setConfigJSON('')
-      }
-    })
-
-    return () => {
-      cancelled = true
-      cleanup()
-    }
-  }, [loadStatus])
 
   // 切换服务状态
   const handleToggle = useCallback(async () => {
@@ -70,25 +17,23 @@ export default function KnowledgeMCPSettings() {
     setToggling(true)
     try {
       if (enabled) {
-        const result = await window.api.knowledgeMCP.stop()
+        const result = await stop()
         if (result.success) {
           notifySuccess('知识库 MCP', 'MCP 服务已停止', { source: 'settings' })
-          setConfigJSON('')
         } else {
           notifyError('知识库 MCP', '停止服务失败', { source: 'settings' })
         }
       } else {
-        const result = await window.api.knowledgeMCP.start()
+        const result = await start()
         if (result.success) {
           notifySuccess('知识库 MCP', 'MCP 服务已启动', { source: 'settings' })
-          setConfigJSON(await window.api.knowledgeMCP.getConfig())
         } else {
           notifyError('知识库 MCP', `启动服务失败: ${result.error || '未知错误'}`, {
             source: 'settings'
           })
         }
       }
-      await loadStatus()
+      await refreshStatus()
     } catch (error) {
       notifyError(
         '知识库 MCP',
@@ -100,7 +45,7 @@ export default function KnowledgeMCPSettings() {
     } finally {
       setToggling(false)
     }
-  }, [enabled, toggling, loading, loadStatus])
+  }, [enabled, toggling, loading, start, stop, refreshStatus])
 
   // 复制配置
   const handleCopy = useCallback(async () => {
@@ -164,6 +109,7 @@ export default function KnowledgeMCPSettings() {
             <span className={styles['status-badge']}>已停止</span>
           )}
         </button>
+        {error && !loading && <p className={styles['mcp-error']}>{error}</p>}
       </section>
 
       {enabled && configJSON && (

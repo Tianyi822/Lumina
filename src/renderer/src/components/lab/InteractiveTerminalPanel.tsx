@@ -5,8 +5,8 @@ import type { IDisposable } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { labApi } from '@renderer/services/labApi'
 import type { DockerTerminalDataEvent, DockerTerminalExitEvent } from '@renderer/types/lab'
-import type { SshTerminalDataEvent, SshTerminalExitEvent } from '@shared/types/lab'
 import styles from './InteractiveTerminalPanel.module.css'
+import { useSshTerminal } from './hooks/useSshTerminal'
 
 type TerminalBackend = 'docker' | 'ssh'
 type TerminalStatus = 'opening' | 'connected' | 'closed' | 'error'
@@ -37,7 +37,7 @@ export default function InteractiveTerminalPanel({
   const terminalHostRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
-  const sessionIdRef = useRef<string | null>(null)
+  const dockerSessionIdRef = useRef<string | null>(null)
   const inputDisposableRef = useRef<IDisposable | null>(null)
   const removeDataListenerRef = useRef<(() => void) | null>(null)
   const removeExitListenerRef = useRef<(() => void) | null>(null)
@@ -70,22 +70,55 @@ export default function InteractiveTerminalPanel({
     }
   }, [])
 
+  const markClosed = useCallback((reason?: string): void => {
+    dockerSessionIdRef.current = null
+    setStatus((prev) => (prev !== 'error' ? 'closed' : prev))
+    setStatusMessage(reason || '终端已关闭')
+  }, [])
+
+  const {
+    open: sshOpen,
+    write: sshWrite,
+    resize: sshResize,
+    close: sshClose,
+    sessionId: sshSessionIdRef
+  } = useSshTerminal({
+    targetId,
+    enabled: backend === 'ssh',
+    onData: useCallback((data: string): void => {
+      terminalRef.current?.write(data)
+    }, []),
+    onExit: useCallback(
+      (reason?: string): void => {
+        markClosed(reason)
+      },
+      [markClosed]
+    )
+  })
+
   const resizeRemoteTerminal = useCallback(
     async (size: TerminalSize): Promise<void> => {
-      const sid = sessionIdRef.current
+      if (backend === 'ssh') {
+        if (!sshSessionIdRef.current) return
+        const result = await sshResize(size)
+        if (result && !result.success) {
+          setStatus('error')
+          setStatusMessage(result.error || '终端尺寸同步失败')
+        }
+        return
+      }
+
+      const sid = dockerSessionIdRef.current
       if (!sid) return
 
-      const result =
-        backend === 'ssh'
-          ? await window.api.ssh.terminal.resize(sid, size)
-          : await labApi.terminal.resize(sid, size)
+      const result = await labApi.terminal.resize(sid, size)
 
       if (!result.success) {
         setStatus('error')
         setStatusMessage(result.error || '终端尺寸同步失败')
       }
     },
-    [backend]
+    [backend, sshResize, sshSessionIdRef]
   )
 
   const fitTerminal = useCallback(() => {
@@ -113,20 +146,27 @@ export default function InteractiveTerminalPanel({
 
   const writeRemoteTerminal = useCallback(
     async (data: string): Promise<void> => {
-      const sid = sessionIdRef.current
+      if (backend === 'ssh') {
+        if (!sshSessionIdRef.current) return
+        const result = await sshWrite(data)
+        if (result && !result.success) {
+          setStatus('error')
+          setStatusMessage(result.error || '终端写入失败')
+        }
+        return
+      }
+
+      const sid = dockerSessionIdRef.current
       if (!sid) return
 
-      const result =
-        backend === 'ssh'
-          ? await window.api.ssh.terminal.write(sid, data)
-          : await labApi.terminal.write(sid, data)
+      const result = await labApi.terminal.write(sid, data)
 
       if (!result.success) {
         setStatus('error')
         setStatusMessage(result.error || '终端写入失败')
       }
     },
-    [backend]
+    [backend, sshWrite, sshSessionIdRef]
   )
 
   const focusTerminal = useCallback((): void => {
@@ -135,53 +175,17 @@ export default function InteractiveTerminalPanel({
     })
   }, [])
 
-  const handleSshData = useCallback(
-    (event: SshTerminalDataEvent): void => {
-      if (backend !== 'ssh' || event.sessionId !== sessionIdRef.current) return
-      terminalRef.current?.write(event.data)
-    },
-    [backend]
-  )
-
-  const handleDockerData = useCallback(
-    (event: DockerTerminalDataEvent): void => {
-      if (backend !== 'docker' || event.sessionId !== sessionIdRef.current) return
-      terminalRef.current?.write(event.data)
-    },
-    [backend]
-  )
-
-  const markClosed = useCallback((reason?: string): void => {
-    sessionIdRef.current = null
-    setStatus((prev) => (prev !== 'error' ? 'closed' : prev))
-    setStatusMessage(reason || '终端已关闭')
+  const handleDockerData = useCallback((event: DockerTerminalDataEvent): void => {
+    if (event.sessionId !== dockerSessionIdRef.current) return
+    terminalRef.current?.write(event.data)
   }, [])
-
-  const handleSshExit = useCallback(
-    (event: SshTerminalExitEvent): void => {
-      if (backend !== 'ssh' || event.sessionId !== sessionIdRef.current) return
-      markClosed(event.reason)
-    },
-    [backend, markClosed]
-  )
 
   const handleDockerExit = useCallback(
     (event: DockerTerminalExitEvent): void => {
-      if (backend !== 'docker' || event.sessionId !== sessionIdRef.current) return
+      if (event.sessionId !== dockerSessionIdRef.current) return
       markClosed(event.reason)
     },
-    [backend, markClosed]
-  )
-
-  const closeRemoteTerminal = useCallback(
-    async (id: string): Promise<void> => {
-      if (backend === 'ssh') {
-        await window.api.ssh.terminal.close(id)
-        return
-      }
-      await labApi.terminal.close(id)
-    },
-    [backend]
+    [markClosed]
   )
 
   const disposeTerminal = useCallback(
@@ -191,8 +195,8 @@ export default function InteractiveTerminalPanel({
         resizeFrameRef.current = 0
       }
 
-      const currentSessionId = sessionIdRef.current
-      sessionIdRef.current = null
+      const currentDockerSessionId = dockerSessionIdRef.current
+      dockerSessionIdRef.current = null
 
       removeDataListenerRef.current?.()
       removeExitListenerRef.current?.()
@@ -210,11 +214,15 @@ export default function InteractiveTerminalPanel({
       fitAddonRef.current = null
       lastSizeRef.current = null
 
-      if (closeRemote && currentSessionId) {
-        void closeRemoteTerminal(currentSessionId)
+      if (closeRemote) {
+        if (backend === 'ssh') {
+          void sshClose()
+        } else if (currentDockerSessionId) {
+          void labApi.terminal.close(currentDockerSessionId)
+        }
       }
     },
-    [closeRemoteTerminal]
+    [backend, sshClose]
   )
 
   // 初始化终端
@@ -261,10 +269,7 @@ export default function InteractiveTerminalPanel({
     resizeObserverRef.current = observer
 
     // 监听远程数据/退出
-    if (backend === 'ssh') {
-      removeDataListenerRef.current = window.api.ssh.terminal.onData(handleSshData)
-      removeExitListenerRef.current = window.api.ssh.terminal.onExit(handleSshExit)
-    } else {
+    if (backend !== 'ssh') {
       removeDataListenerRef.current = labApi.terminal.onData(handleDockerData)
       removeExitListenerRef.current = labApi.terminal.onExit(handleDockerExit)
     }
@@ -274,7 +279,7 @@ export default function InteractiveTerminalPanel({
     ;(async () => {
       let result: { success: boolean; sessionId?: string; error?: string }
       if (backend === 'ssh') {
-        result = await window.api.ssh.terminal.open(targetId, size)
+        result = await sshOpen(size)
       } else {
         result = await labApi.terminal.open(targetId, size)
       }
@@ -287,7 +292,9 @@ export default function InteractiveTerminalPanel({
         return
       }
 
-      sessionIdRef.current = result.sessionId
+      if (backend !== 'ssh') {
+        dockerSessionIdRef.current = result.sessionId
+      }
       setStatus('connected')
       setStatusMessage('')
       focusTerminal()
@@ -343,10 +350,7 @@ export default function InteractiveTerminalPanel({
     observer.observe(host)
     resizeObserverRef.current = observer
 
-    if (backend === 'ssh') {
-      removeDataListenerRef.current = window.api.ssh.terminal.onData(handleSshData)
-      removeExitListenerRef.current = window.api.ssh.terminal.onExit(handleSshExit)
-    } else {
+    if (backend !== 'ssh') {
       removeDataListenerRef.current = labApi.terminal.onData(handleDockerData)
       removeExitListenerRef.current = labApi.terminal.onExit(handleDockerExit)
     }
@@ -354,7 +358,7 @@ export default function InteractiveTerminalPanel({
     const size: TerminalSize = { cols: terminal.cols, rows: terminal.rows }
     let result: { success: boolean; sessionId?: string; error?: string }
     if (backend === 'ssh') {
-      result = await window.api.ssh.terminal.open(targetId, size)
+      result = await sshOpen(size)
     } else {
       result = await labApi.terminal.open(targetId, size)
     }
@@ -367,7 +371,9 @@ export default function InteractiveTerminalPanel({
       return
     }
 
-    sessionIdRef.current = result.sessionId
+    if (backend !== 'ssh') {
+      dockerSessionIdRef.current = result.sessionId
+    }
     setStatus('connected')
     setStatusMessage('')
     focusTerminal()
@@ -378,13 +384,12 @@ export default function InteractiveTerminalPanel({
     disposeTerminal,
     writeRemoteTerminal,
     scheduleFitAndResize,
-    handleSshData,
-    handleSshExit,
     handleDockerData,
     handleDockerExit,
     resizeRemoteTerminal,
     readTerminalSize,
-    focusTerminal
+    focusTerminal,
+    sshOpen
   ])
 
   return (
