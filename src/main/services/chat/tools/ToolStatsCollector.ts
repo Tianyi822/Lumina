@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs'
+import { mkdir, readFile, writeFile, readdir, unlink } from 'fs/promises'
 import { join } from 'path'
 import type {
   ToolCallRecord,
@@ -85,26 +85,26 @@ export class ToolStatsCollector {
   }
 
   /** 清除历史统计（内存 + 磁盘） */
-  clear(): void {
+  async clear(): Promise<void> {
     this.records = []
-    this.clearPersistedFiles()
+    await this.clearPersistedFiles()
   }
 
   /** 启动定期持久化 */
   startPersist(): void {
     if (this.persistTimer) return
-    this.loadPersisted()
+    void this.loadPersisted()
     this.persistTimer = setInterval(() => this.persist(), PERSIST_INTERVAL_MS)
     this.persistTimer.unref?.()
   }
 
   /** 停止持久化并写入磁盘 */
-  stopPersist(): void {
+  async stopPersist(): Promise<void> {
     if (this.persistTimer) {
       clearInterval(this.persistTimer)
       this.persistTimer = null
     }
-    this.persist()
+    await this.persist()
   }
 
   // ========== 内部方法 ==========
@@ -180,28 +180,27 @@ export class ToolStatsCollector {
     return join(this.getStatsDir(), `${dateStr}.json`)
   }
 
-  private persist(): void {
+  private async persist(): Promise<void> {
     try {
       const dir = this.getStatsDir()
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true })
-      }
+      await mkdir(dir, { recursive: true })
 
       const filePath = this.getTodayFilePath()
-      writeFileSync(filePath, JSON.stringify(this.records), 'utf-8')
+      await writeFile(filePath, JSON.stringify(this.records), 'utf-8')
 
-      this.cleanOldFiles()
+      await this.cleanOldFiles()
     } catch {
       // 持久化失败不影响主流程
     }
   }
 
-  private loadPersisted(): void {
+  private async loadPersisted(): Promise<void> {
     try {
       const filePath = this.getTodayFilePath()
-      if (!existsSync(filePath)) return
+      const content = await readFile(filePath, 'utf-8').catch(() => null)
+      if (content === null) return
 
-      const data = JSON.parse(readFileSync(filePath, 'utf-8'))
+      const data = JSON.parse(content)
       if (Array.isArray(data)) {
         this.records = data as ToolCallRecord[]
       }
@@ -210,20 +209,21 @@ export class ToolStatsCollector {
     }
   }
 
-  private cleanOldFiles(): void {
+  private async cleanOldFiles(): Promise<void> {
     try {
       const dir = this.getStatsDir()
-      if (!existsSync(dir)) return
+      let files: string[]
+      try {
+        files = (await readdir(dir)).filter((f) => f.endsWith('.json')).sort()
+      } catch {
+        return
+      }
 
-      const files = readdirSync(dir)
-        .filter((f) => f.endsWith('.json'))
-        .sort()
       const cutoff = MAX_HISTORY_DAYS
-
       for (let i = 0; i < files.length - cutoff; i++) {
         const filePath = join(dir, files[i])
         try {
-          unlinkSync(filePath)
+          await unlink(filePath)
         } catch {
           // 单个文件删除失败不影响其他
         }
@@ -233,15 +233,19 @@ export class ToolStatsCollector {
     }
   }
 
-  private clearPersistedFiles(): void {
+  private async clearPersistedFiles(): Promise<void> {
     try {
       const dir = this.getStatsDir()
-      if (!existsSync(dir)) return
+      let files: string[]
+      try {
+        files = (await readdir(dir)).filter((f) => f.endsWith('.json'))
+      } catch {
+        return
+      }
 
-      const files = readdirSync(dir).filter((f) => f.endsWith('.json'))
       for (const f of files) {
         try {
-          unlinkSync(join(dir, f))
+          await unlink(join(dir, f))
         } catch {
           // 单个文件删除失败不影响其他
         }
