@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useConfigStore } from '@renderer/stores/configStore'
 import { usePaperViewStore } from '@renderer/stores/paper'
@@ -12,9 +12,9 @@ import WorkspaceSidebarHost from '@renderer/components/chrome/WorkspaceSidebarHo
 import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar'
 import { CssSwitchTransition } from '@renderer/components/motion/CssTransition'
 
-import KnowledgePage from '@renderer/pages/KnowledgePage'
-import LabPage from '@renderer/pages/LabPage'
-import PaperReaderPage from '@renderer/pages/PaperReaderPage'
+const PaperReaderPage = lazy(() => import('@renderer/pages/PaperReaderPage'))
+const KnowledgePage = lazy(() => import('@renderer/pages/KnowledgePage'))
+const LabPage = lazy(() => import('@renderer/pages/LabPage'))
 
 import styles from './App.module.css'
 
@@ -84,9 +84,24 @@ export default function App() {
   }, [])
 
   const renderWorkspaceView = useCallback((view: string) => {
-    if (view === 'paper') return <PaperReaderPage key="paper" />
-    if (view === 'knowledge') return <KnowledgePage key="knowledge" />
-    return <LabPage key="lab" />
+    const fallback = <div className={styles.viewLoading} />
+    if (view === 'paper')
+      return (
+        <Suspense fallback={fallback}>
+          <PaperReaderPage key="paper" />
+        </Suspense>
+      )
+    if (view === 'knowledge')
+      return (
+        <Suspense fallback={fallback}>
+          <KnowledgePage key="knowledge" />
+        </Suspense>
+      )
+    return (
+      <Suspense fallback={fallback}>
+        <LabPage key="lab" />
+      </Suspense>
+    )
   }, [])
 
   return (

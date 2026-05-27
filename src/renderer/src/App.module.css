@@ -86,3 +86,12 @@
 .windows .dragRegion {
   right: var(--sm-window-controls-safe-width);
 }
+
+.viewLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 200px;
+  color: var(--sm-color-text-secondary);
+}
