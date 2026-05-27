@@ -26,6 +26,11 @@ async function resolveFigureImagePath(imagePath: string, paperId: string): Promi
     return imagePath
   }
   const localFilePath = isFileUrl(imagePath) ? fileUrlToPath(imagePath) || imagePath : imagePath
+
+  if (/^(assets|pages)\//i.test(localFilePath)) {
+    return `lumina://paper/${paperId}/${localFilePath}`
+  }
+
   // 提取论文相对路径，构造 lumina:// 协议 URL（避免 Base64 IPC 传输）
   const paperMarker = `/${paperId}/`
   const markerIndex = localFilePath.indexOf(paperMarker)
