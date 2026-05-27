@@ -1,33 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
-import MarkdownIt from 'markdown-it'
-import texmath from 'markdown-it-texmath'
-import katex from 'katex'
-import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperListStore } from '@renderer/stores/paper'
 import { usePaperTranslationStore } from '@renderer/stores/paper'
 import { usePaperFigureStore } from '@renderer/stores/paper'
 import { usePaperViewStore } from '@renderer/stores/paper'
 import { toggleTranslationVisible } from '@renderer/stores/paper'
-import type { PaperFigureItem, PaperTocEntry, PaperTocItem } from '@shared/types/paper'
+import type { PaperFigureItem, PaperTocEntry } from '@shared/types/paper'
 import {
   buildFigureCaptionTranslationMap,
   hasPaperTranslationResult
 } from '@shared/utils/paperTranslation'
-import { normalizePaperInlineMathForRender } from '@shared/utils/paperMarkdown'
 import styles from './WorkspaceToolbar.module.css'
-
-const captionMd = new MarkdownIt({ html: true, breaks: true }).use(texmath, {
-  engine: katex,
-  delimiters: ['dollars', 'brackets', 'beg_end'],
-  katexOptions: { throwOnError: false, strict: 'ignore', output: 'htmlAndMathml' }
-})
-
-interface PaperTocTreeNode {
-  item: PaperTocItem
-  children: PaperTocTreeNode[]
-}
+import ZoomControls from './toolbar/ZoomControls'
+import TranslationToggleButton from './toolbar/TranslationToggleButton'
+import TocPanel from './toolbar/TocPanel'
+import FigurePanel from './toolbar/FigurePanel'
+import OriginalPdfButton from './toolbar/OriginalPdfButton'
+import PaperChatButton from './toolbar/PaperChatButton'
 
 const EMPTY_PAPER_FIGURES: PaperFigureItem[] = []
 const EMPTY_FIGURE_TRANSLATION_MAP: Record<string, string> = {}
@@ -113,47 +102,6 @@ export default function WorkspaceToolbar() {
 
     return isCurrentPaperTranslating ? '显示译文（后台正在翻译）' : '翻译论文'
   }, [hasTranslationCache, isCurrentPaperTranslating, translationVisible])
-
-  const paperTocTree = useMemo<PaperTocTreeNode[]>(() => {
-    const roots: PaperTocTreeNode[] = []
-    let currentLevel1: PaperTocTreeNode | null = null
-    let currentLevel2: PaperTocTreeNode | null = null
-
-    for (const item of paperTocItems) {
-      const node: PaperTocTreeNode = {
-        item,
-        children: []
-      }
-
-      if (item.level === 1) {
-        roots.push(node)
-        currentLevel1 = node
-        currentLevel2 = null
-        continue
-      }
-
-      if (item.level === 2) {
-        if (currentLevel1) {
-          currentLevel1.children.push(node)
-        } else {
-          roots.push(node)
-        }
-
-        currentLevel2 = node
-        continue
-      }
-
-      if (currentLevel2) {
-        currentLevel2.children.push(node)
-      } else if (currentLevel1) {
-        currentLevel1.children.push(node)
-      } else {
-        roots.push(node)
-      }
-    }
-
-    return roots
-  }, [paperTocItems])
 
   const closeTocPanel = useCallback((): void => {
     setShowTocPanel(false)
@@ -329,35 +277,6 @@ export default function WorkspaceToolbar() {
     }
   }, [handleClickOutside, handleKeyDown])
 
-  function renderTocTree(nodes: PaperTocTreeNode[]): ReactNode {
-    return nodes.map((node) => (
-      <li key={node.item.id} className={styles['sm-workspace-toolbar__toc-node']}>
-        <button
-          className={[
-            styles['sm-workspace-toolbar__toc-item'],
-            styles[`sm-workspace-toolbar__toc-item--level-${node.item.level}`]
-          ].join(' ')}
-          title={getTocEntryDisplayText(node.item)}
-          type="button"
-          onClick={() => handleSelectTocItem(node.item.id)}
-        >
-          {getTocEntryDisplayText(node.item)}
-        </button>
-
-        {node.children.length > 0 && (
-          <ul
-            className={[
-              styles['sm-workspace-toolbar__toc-list'],
-              styles['sm-workspace-toolbar__toc-list--child']
-            ].join(' ')}
-          >
-            {renderTocTree(node.children)}
-          </ul>
-        )}
-      </li>
-    ))
-  }
-
   return (
     <div
       className={[
@@ -374,235 +293,67 @@ export default function WorkspaceToolbar() {
         .join(' ')}
     >
       {isPaperView && currentPaperId && (
-        <>
-          <button
-            className={['sm-icon-button', styles['sm-workspace-toolbar__button']].join(' ')}
-            title="缩小"
-            aria-label="缩小"
-            disabled={!canZoomOut}
-            onClick={zoomOut}
-          >
-            <SvgIcon name="zoom-out" size={14} />
-          </button>
-          <button
-            className={[
-              'sm-icon-button',
-              styles['sm-workspace-toolbar__button'],
-              styles['sm-workspace-toolbar__zoom-display']
-            ].join(' ')}
-            title={`${zoomPercent}%`}
-            aria-label="重置缩放"
-            disabled={zoomPercent === 100}
-            onClick={resetZoom}
-          >
-            <span className={styles['sm-workspace-toolbar__zoom-text']}>{zoomPercent}%</span>
-          </button>
-          <button
-            className={['sm-icon-button', styles['sm-workspace-toolbar__button']].join(' ')}
-            title="放大"
-            aria-label="放大"
-            disabled={!canZoomIn}
-            onClick={zoomIn}
-          >
-            <SvgIcon name="zoom-in" size={14} />
-          </button>
-        </>
+        <ZoomControls
+          canZoomOut={canZoomOut}
+          canZoomIn={canZoomIn}
+          zoomPercent={zoomPercent}
+          onZoomOut={zoomOut}
+          onResetZoom={resetZoom}
+          onZoomIn={zoomIn}
+        />
       )}
 
       {isPaperView && currentPaperId && !originalPdfVisible && (
-        <button
-          className={[
-            'sm-icon-button',
-            styles['sm-workspace-toolbar__button'],
-            translationVisible && styles['is-active'],
-            isCurrentPaperTranslating && styles['is-pending']
-          ]
-            .filter(Boolean)
-            .join(' ')}
+        <TranslationToggleButton
+          isActive={translationVisible}
+          isPending={isCurrentPaperTranslating}
           title={translationButtonTitle}
-          aria-label={translationButtonTitle}
-          onClick={() => {
+          onToggle={() => {
             void handleToggleTranslation()
           }}
-        >
-          <SvgIcon name="translate" size={14} />
-        </button>
+        />
       )}
 
       {isPaperView && currentPaperId && !originalPdfVisible && (
-        <div ref={tocContainerRef} className={styles['sm-workspace-toolbar__toc']}>
-          <button
-            className={[
-              'sm-icon-button',
-              styles['sm-workspace-toolbar__button'],
-              showTocPanel && styles['is-active']
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            title="论文目录"
-            aria-label="打开论文目录"
-            aria-haspopup="dialog"
-            aria-expanded={showTocPanel}
-            disabled={!canOpenToc}
-            onClick={handleToggleToc}
-          >
-            <SvgIcon name="toc" size={14} />
-          </button>
-
-          {showTocPanel && (
-            <div
-              className={styles['sm-workspace-toolbar__toc-panel']}
-              role="dialog"
-              aria-label="论文目录"
-            >
-              <div className={styles['sm-workspace-toolbar__toc-header']}>论文目录</div>
-
-              {markdownLoading ? (
-                <div className={styles['sm-workspace-toolbar__toc-state']}>目录加载中</div>
-              ) : !hasAnyTocEntries ? (
-                <div className={styles['sm-workspace-toolbar__toc-state']}>未识别到可用目录</div>
-              ) : (
-                <div className={styles['sm-workspace-toolbar__toc-scroll']}>
-                  {paperTocTitle && (
-                    <button
-                      className={styles['sm-workspace-toolbar__toc-title']}
-                      title={getTocEntryDisplayText(paperTocTitle)}
-                      type="button"
-                      onClick={() => handleSelectTocItem(paperTocTitle.id)}
-                    >
-                      {getTocEntryDisplayText(paperTocTitle)}
-                    </button>
-                  )}
-
-                  {paperTocTitle && paperTocItems.length > 0 && (
-                    <div
-                      className={styles['sm-workspace-toolbar__toc-divider']}
-                      aria-hidden="true"
-                    />
-                  )}
-
-                  {paperTocItems.length > 0 && (
-                    <ul className={styles['sm-workspace-toolbar__toc-list']}>
-                      {renderTocTree(paperTocTree)}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <TocPanel
+          showTocPanel={showTocPanel}
+          onToggle={handleToggleToc}
+          canOpenToc={canOpenToc}
+          markdownLoading={markdownLoading}
+          hasAnyTocEntries={hasAnyTocEntries}
+          paperTocTitle={paperTocTitle}
+          paperTocItems={paperTocItems}
+          onSelectTocItem={handleSelectTocItem}
+          getTocEntryDisplayText={getTocEntryDisplayText}
+          containerRef={tocContainerRef}
+        />
       )}
 
       {isPaperView && currentPaperId && !originalPdfVisible && (
-        <div ref={figureContainerRef} className={styles['sm-workspace-toolbar__figures']}>
-          <button
-            className={[
-              'sm-icon-button',
-              styles['sm-workspace-toolbar__button'],
-              showFigurePanel && styles['is-active']
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            title="论文图片"
-            aria-label="打开论文图片列表"
-            aria-haspopup="dialog"
-            aria-expanded={showFigurePanel}
-            disabled={!canOpenFigurePanel}
-            onClick={() => {
-              void handleToggleFigurePanel()
-            }}
-          >
-            <SvgIcon name="image" size={14} />
-          </button>
-
-          {showFigurePanel && (
-            <div
-              ref={figurePanelRef}
-              className={styles['sm-workspace-toolbar__figure-panel']}
-              role="dialog"
-              aria-label="论文图片列表"
-            >
-              <div className={styles['sm-workspace-toolbar__toc-header']}>论文图片</div>
-
-              {currentFigureLoading ? (
-                <div className={styles['sm-workspace-toolbar__toc-state']}>图片加载中</div>
-              ) : currentPaperFigures.length === 0 ? (
-                <div className={styles['sm-workspace-toolbar__toc-state']}>未识别到可用图片</div>
-              ) : (
-                <div className={styles['sm-workspace-toolbar__figure-scroll']}>
-                  {currentPaperFigures.map((figure) => (
-                    <div key={figure.id} className={styles['sm-workspace-toolbar__figure-item']}>
-                      <img
-                        src={figure.imagePath}
-                        alt={getFigureItemLabel(figure)}
-                        className={styles['sm-workspace-toolbar__figure-thumb']}
-                      />
-
-                      <div className={styles['sm-workspace-toolbar__figure-copy']}>
-                        <div
-                          className={styles['sm-workspace-toolbar__figure-caption']}
-                          title={getFigureItemLabel(figure)}
-                          dangerouslySetInnerHTML={{
-                            __html: captionMd.render(
-                              normalizePaperInlineMathForRender(
-                                getFigureItemLabel(figure),
-                                'paragraph'
-                              )
-                            )
-                          }}
-                        />
-                      </div>
-
-                      <button
-                        className={styles['sm-workspace-toolbar__figure-preview']}
-                        type="button"
-                        onClick={() => handlePreviewFigure(figure)}
-                      >
-                        预览
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <FigurePanel
+          showFigurePanel={showFigurePanel}
+          onToggle={() => {
+            void handleToggleFigurePanel()
+          }}
+          canOpenFigurePanel={canOpenFigurePanel}
+          currentFigureLoading={currentFigureLoading}
+          currentPaperFigures={currentPaperFigures}
+          getFigureItemLabel={getFigureItemLabel}
+          onPreviewFigure={handlePreviewFigure}
+          containerRef={figureContainerRef}
+          figurePanelRef={figurePanelRef}
+        />
       )}
 
       {isPaperView && currentPaperId && (
-        <button
-          className={[
-            'sm-icon-button',
-            styles['sm-workspace-toolbar__button'],
-            originalPdfVisible && styles['is-active']
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          title="PDF 原件"
-          aria-label="PDF 原件"
-          type="button"
-          onClick={handleToggleOriginalPdf}
-        >
-          <span className={styles['sm-workspace-toolbar__original-text']}>原</span>
-        </button>
+        <OriginalPdfButton isActive={originalPdfVisible} onClick={handleToggleOriginalPdf} />
       )}
 
       {isPaperView && canOpenPaperChat && (
-        <button
-          className={[
-            'sm-icon-button',
-            styles['sm-workspace-toolbar__button'],
-            paperChatPanelOpen && styles['is-active']
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          title="聊天"
-          aria-label="聊天"
-          type="button"
+        <PaperChatButton
+          isActive={paperChatPanelOpen}
           onClick={handleTogglePaperChat}
-        >
-          <SvgIcon name="chat" size={14} />
-        </button>
+        />
       )}
     </div>
   )
