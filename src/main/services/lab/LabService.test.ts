@@ -61,7 +61,7 @@ test('LabService 检查状态时 Docker 临时错误不会写入孤儿状态', a
   resetLabDir()
   const service = new LabService()
   const lab = createLab()
-  assert.equal(service.saveLab(lab, { silent: true }).success, true)
+  assert.equal((await service.saveLab(lab, { silent: true })).success, true)
 
   const dockerService = getDockerService()
   const originalListContainers = dockerService.listContainers
@@ -75,7 +75,7 @@ test('LabService 检查状态时 Docker 临时错误不会写入孤儿状态', a
   })
 
   const status = await service.checkContainerStatus(lab.labId)
-  const reloaded = service.loadLab(lab.labId, { silent: true })
+  const reloaded = await service.loadLab(lab.labId, { silent: true })
 
   assert.equal(status, null)
   assert.equal(reloaded?.isOrphan, false)
@@ -87,7 +87,7 @@ test('LabService 仅在容器快照成功且容器缺失时标记孤儿', async 
   resetLabDir()
   const service = new LabService()
   const lab = createLab()
-  assert.equal(service.saveLab(lab, { silent: true }).success, true)
+  assert.equal((await service.saveLab(lab, { silent: true })).success, true)
 
   const dockerService = getDockerService()
   const originalListContainers = dockerService.listContainers
@@ -99,7 +99,7 @@ test('LabService 仅在容器快照成功且容器缺失时标记孤儿', async 
   })
 
   const status = await service.checkContainerStatus(lab.labId)
-  const reloaded = service.loadLab(lab.labId, { silent: true })
+  const reloaded = await service.loadLab(lab.labId, { silent: true })
 
   assert.equal(status?.isOrphan, true)
   assert.equal(reloaded?.isOrphan, true)
@@ -114,7 +114,7 @@ test('LabService 在容器重新出现时清除孤儿标记', async (t) => {
     status: 'error',
     isOrphan: true
   })
-  assert.equal(service.saveLab(lab, { silent: true }).success, true)
+  assert.equal((await service.saveLab(lab, { silent: true })).success, true)
 
   const dockerService = getDockerService()
   const originalListContainers = dockerService.listContainers
@@ -128,7 +128,7 @@ test('LabService 在容器重新出现时清除孤儿标记', async (t) => {
   })
 
   const status = await service.checkContainerStatus(lab.labId)
-  const reloaded = service.loadLab(lab.labId, { silent: true })
+  const reloaded = await service.loadLab(lab.labId, { silent: true })
 
   assert.equal(status?.isOrphan, false)
   assert.equal(reloaded?.isOrphan, false)

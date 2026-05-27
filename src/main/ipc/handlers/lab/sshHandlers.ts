@@ -10,8 +10,8 @@ import type {
   SshTerminalSize
 } from '@shared/types/lab'
 
-function syncSshLabStatus(labId: string, status: SshConnectionStatus): void {
-  const lab = labService.loadLab(labId)
+async function syncSshLabStatus(labId: string, status: SshConnectionStatus): Promise<void> {
+  const lab = await labService.loadLab(labId)
   if (!lab || lab.backendType !== 'ssh' || !lab.ssh) {
     return
   }
@@ -34,7 +34,7 @@ function syncSshLabStatus(labId: string, status: SshConnectionStatus): void {
     lab.ssh.lastConnectedAt = new Date().toISOString()
   }
 
-  labService.saveLab(lab, { silent: true })
+  await labService.saveLab(lab, { silent: true })
 }
 
 function broadcastSshEvent(channel: string, payload: unknown): void {
@@ -56,14 +56,14 @@ export function registerSshHandlers(): void {
         const result = await sshService.connect(labId, config, password)
 
         // 更新实验室元数据以反映连接状态
-        const lab = labService.loadLab(labId)
+        const lab = await labService.loadLab(labId)
         if (lab && lab.backendType === 'ssh' && lab.ssh) {
           lab.status = result.success ? 'running' : 'stopped'
           lab.ssh.connected = result.success
           lab.ssh.lastConnectedAt = result.success
             ? new Date().toISOString()
             : lab.ssh.lastConnectedAt
-          labService.saveLab(lab)
+          await labService.saveLab(lab)
         }
 
         return result
@@ -81,11 +81,11 @@ export function registerSshHandlers(): void {
       const result = await sshService.disconnect(labId)
 
       // 更新实验室元数据以反映断开状态
-      const lab = labService.loadLab(labId)
+      const lab = await labService.loadLab(labId)
       if (lab && lab.backendType === 'ssh' && lab.ssh) {
         lab.status = 'stopped'
         lab.ssh.connected = false
-        labService.saveLab(lab)
+        await labService.saveLab(lab)
       }
 
       return result
@@ -128,8 +128,15 @@ export function registerSshHandlers(): void {
     }
   })
 
-  sshService.onConnectionStatusChange((labId, status, error) => {
-    syncSshLabStatus(labId, status)
+  sshService.onConnectionStatusChange(async (labId, status, error) => {
+    try {
+      await syncSshLabStatus(labId, status)
+    } catch (err) {
+      logger.error('SSH 状态同步回调异常', 'main', {
+        labId,
+        error: err instanceof Error ? err.message : String(err)
+      })
+    }
 
     broadcastSshEvent('ssh:connection-status', {
       labId,

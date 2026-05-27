@@ -25,7 +25,7 @@ test('execCommandTool SSH 分发', async (t) => {
   const originalExecCommand = sshService.execCommand.bind(sshService)
 
   await t.test('SSH 后端未连接 → 返回错误', async () => {
-    labService.loadLab = () => createMockSshLab()
+    labService.loadLab = async () => createMockSshLab()
     sshService.isConnected = () => false
 
     try {
@@ -42,7 +42,7 @@ test('execCommandTool SSH 分发', async (t) => {
   })
 
   await t.test('SSH 后端已连接 → execCommand 成功', async () => {
-    labService.loadLab = () => createMockSshLab()
+    labService.loadLab = async () => createMockSshLab()
     sshService.isConnected = () => true
     sshService.execCommand = async (): Promise<ExecResult> => ({
       exitCode: 0,
@@ -66,7 +66,7 @@ test('execCommandTool SSH 分发', async (t) => {
   })
 
   await t.test('SSH execCommand 返回 null → 返回错误', async () => {
-    labService.loadLab = () => createMockSshLab()
+    labService.loadLab = async () => createMockSshLab()
     sshService.isConnected = () => true
     sshService.execCommand = async () => null
 
@@ -85,7 +85,7 @@ test('execCommandTool SSH 分发', async (t) => {
   })
 
   await t.test('SSH execCommand 返回 systemError → 返回错误', async () => {
-    labService.loadLab = () => createMockSshLab()
+    labService.loadLab = async () => createMockSshLab()
     sshService.isConnected = () => true
     sshService.execCommand = async (): Promise<ExecResult> => ({
       exitCode: -1,
@@ -110,7 +110,7 @@ test('execCommandTool SSH 分发', async (t) => {
   })
 
   await t.test('缺少 command 参数 → 返回错误', async () => {
-    labService.loadLab = () => createMockSshLab()
+    labService.loadLab = async () => createMockSshLab()
     sshService.isConnected = () => true
 
     try {
@@ -126,7 +126,7 @@ test('execCommandTool SSH 分发', async (t) => {
   })
 
   await t.test('找不到实验室 → 返回错误', async () => {
-    labService.loadLab = () => null
+    labService.loadLab = async () => null
 
     try {
       const result = await execCommandTool.execute({

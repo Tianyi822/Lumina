@@ -63,7 +63,7 @@ export class FrontendLabService {
    * 加载并按需恢复前端实验室状态
    */
   async loadFrontendLabResolved(labId: string): Promise<LabData | null> {
-    const lab = labService.loadLab(labId, {
+    const lab = await labService.loadLab(labId, {
       silent: true
     })
     if (!lab) {
@@ -71,7 +71,7 @@ export class FrontendLabService {
     }
 
     if (lab.backendType === 'ssh') {
-      return labService.reconcileSshRuntimeState(lab, { silent: true })
+      return await labService.reconcileSshRuntimeState(lab, { silent: true })
     }
 
     if (!lab.frontend) {
@@ -80,9 +80,9 @@ export class FrontendLabService {
 
     await this.reconcileFrontendLabState(lab)
     return (
-      labService.loadLab(labId, {
+      (await labService.loadLab(labId, {
         silent: true
-      }) || lab
+      })) || lab
     )
   }
 
@@ -187,7 +187,7 @@ export class FrontendLabService {
         previewUrl
       }
 
-      const saveResult = labService.saveLab(lab)
+      const saveResult = await labService.saveLab(lab)
       if (!saveResult.success) {
         throw new Error(saveResult.error || '保存前端实验室元数据失败')
       }
@@ -261,7 +261,7 @@ export class FrontendLabService {
       })
 
       if (labId) {
-        const lab = labService.loadLab(labId)
+        const lab = await labService.loadLab(labId)
         if (lab) {
           lab.status = 'error'
           if (lab.frontend) {
@@ -269,7 +269,7 @@ export class FrontendLabService {
             lab.frontend.bootstrapError = errorMessage
             lab.frontend.lastBootstrapAt = new Date().toISOString()
           }
-          labService.saveLab(lab)
+          await labService.saveLab(lab)
         }
       }
 
@@ -284,8 +284,8 @@ export class FrontendLabService {
   /**
    * 获取前端实验室的预览地址
    */
-  getPreviewUrl(labId: string): string | null {
-    const lab = labService.loadLab(labId)
+  async getPreviewUrl(labId: string): Promise<string | null> {
+    const lab = await labService.loadLab(labId)
     return lab?.frontend?.previewUrl || null
   }
 
@@ -293,13 +293,13 @@ export class FrontendLabService {
    * 重试前端工作区初始化
    */
   async retryFrontendInitialization(labId: string): Promise<FrontendLabInfo> {
-    const lab = this.loadFrontendLabOrThrow(labId, true)
+    const lab = await this.loadFrontendLabOrThrow(labId, true)
 
     try {
       await ensureFrontendContainerRunning(lab, dockerService)
       await syncFrontendPortBinding(lab, dockerService, labService)
 
-      const refreshedLab = this.loadFrontendLabOrThrow(labId, true)
+      const refreshedLab = await this.loadFrontendLabOrThrow(labId, true)
       const template = this.getRenderedTemplate(refreshedLab.name, refreshedLab.frontend.framework)
       const bootstrapResult = await frontendWorkspaceBootstrapService.bootstrapWorkspace(
         refreshedLab,
@@ -335,7 +335,7 @@ export class FrontendLabService {
    * 重建前端运行容器并复用原工作区
    */
   async rebuildFrontendRuntimeContainer(labId: string): Promise<FrontendLabInfo> {
-    const lab = this.loadFrontendLabOrThrow(labId)
+    const lab = await this.loadFrontendLabOrThrow(labId)
 
     try {
       await this.ensureFrontendWorkspaceVolumeReady(lab)
@@ -348,7 +348,7 @@ export class FrontendLabService {
       lab.primaryContainerId = undefined
       lab.status = 'error'
       lab.isOrphan = false
-      saveLabOrThrow(lab, labService, '更新前端实验室状态失败')
+      await saveLabOrThrow(lab, labService, '更新前端实验室状态失败')
 
       const imageId = await ensureFrontendBaseImage()
       const desiredHostPort = await getReusableHostPort(
@@ -397,9 +397,9 @@ export class FrontendLabService {
       lab.isOrphan = false
       lab.frontend.hostPort = actualHostPort
       lab.frontend.previewUrl = buildPreviewUrl(actualHostPort)
-      saveLabOrThrow(lab, labService, '保存重建后的前端实验室元数据失败')
+      await saveLabOrThrow(lab, labService, '保存重建后的前端实验室元数据失败')
 
-      const refreshedLab = this.loadFrontendLabOrThrow(labId, true)
+      const refreshedLab = await this.loadFrontendLabOrThrow(labId, true)
       const template = this.getRenderedTemplate(refreshedLab.name, refreshedLab.frontend.framework)
       const bootstrapResult = await frontendWorkspaceBootstrapService.bootstrapWorkspace(
         refreshedLab,
@@ -435,7 +435,7 @@ export class FrontendLabService {
    * 对前端工作区执行一次 Bun 构建校验
    */
   async validateFrontendBuild(labId: string): Promise<FrontendLabInfo> {
-    const lab = this.loadFrontendLabOrThrow(labId, true)
+    const lab = await this.loadFrontendLabOrThrow(labId, true)
 
     try {
       await this.ensureFrontendWorkspaceVolumeReady(lab)
@@ -443,7 +443,7 @@ export class FrontendLabService {
       await syncFrontendLifecycleStatus(lab, dockerService, labService)
       await syncFrontendPortBinding(lab, dockerService, labService)
 
-      const refreshedLab = this.loadFrontendLabOrThrow(labId, true)
+      const refreshedLab = await this.loadFrontendLabOrThrow(labId, true)
       const template = this.getRenderedTemplate(refreshedLab.name, refreshedLab.frontend.framework)
 
       let state = await frontendWorkspaceBootstrapService.readBootstrapState(refreshedLab)
@@ -461,9 +461,9 @@ export class FrontendLabService {
         force: true
       })
 
-      const latestLab = this.loadFrontendLabOrThrow(labId, true)
+      const latestLab = await this.loadFrontendLabOrThrow(labId, true)
       await syncFrontendLifecycleStatus(latestLab, dockerService, labService)
-      const finalizedLab = this.loadFrontendLabOrThrow(labId, true)
+      const finalizedLab = await this.loadFrontendLabOrThrow(labId, true)
       const previewReady = await checkHttpReady(finalizedLab.frontend.previewUrl)
 
       return this.buildFrontendLabInfo(
@@ -490,7 +490,7 @@ export class FrontendLabService {
       }
 
       try {
-        const current = this.loadFrontendLabOrThrow(labId, true)
+        const current = await this.loadFrontendLabOrThrow(labId, true)
         await syncFrontendLifecycleStatus(current, dockerService, labService, {
           preserveBootstrapError: true
         })
@@ -521,7 +521,7 @@ export class FrontendLabService {
     }
 
     await syncFrontendPortBinding(lab, dockerService, labService)
-    const refreshedLab = labService.loadLab(labId) || lab
+    const refreshedLab = (await labService.loadLab(labId)) || lab
     const previewUrl = refreshedLab.frontend?.previewUrl || lab.frontend.previewUrl
 
     const previewReady =
@@ -623,7 +623,7 @@ export class FrontendLabService {
   async recoverFrontendRuntimeByContainerId(
     containerId: string
   ): Promise<FrontendRuntimeRecoveryResult> {
-    const lab = labService.findLabByContainerId(containerId)
+    const lab = await labService.findLabByContainerId(containerId)
     if (!lab?.frontend) {
       return {
         handled: false,
@@ -667,14 +667,14 @@ export class FrontendLabService {
       if (!lab.isOrphan || lab.status !== 'error') {
         lab.isOrphan = true
         lab.status = 'error'
-        saveLabOrThrow(lab, labService, '保存前端孤儿实验室状态失败')
+        await saveLabOrThrow(lab, labService, '保存前端孤儿实验室状态失败')
       }
       return
     }
 
     if (lab.isOrphan) {
       lab.isOrphan = false
-      saveLabOrThrow(lab, labService, '保存前端实验室关联状态失败')
+      await saveLabOrThrow(lab, labService, '保存前端实验室关联状态失败')
     }
 
     try {
@@ -704,11 +704,11 @@ export class FrontendLabService {
     }
   }
 
-  private loadFrontendLabOrThrow(
+  private async loadFrontendLabOrThrow(
     labId: string,
     requireContainer: boolean = false
-  ): LabData & { frontend: NonNullable<LabData['frontend']> } {
-    const lab = labService.loadLab(labId)
+  ): Promise<LabData & { frontend: NonNullable<LabData['frontend']> }> {
+    const lab = await labService.loadLab(labId)
 
     if (!lab?.frontend) {
       throw new Error('未找到前端实验室元数据')

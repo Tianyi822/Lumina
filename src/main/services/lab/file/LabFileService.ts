@@ -85,7 +85,7 @@ export class LabFileService {
       }
     }
 
-    const lab = labService.loadLab(labId)
+    const lab = await labService.loadLab(labId)
     if (!lab) {
       return { success: false, writtenCount: 0, error: '实验室不存在' }
     }

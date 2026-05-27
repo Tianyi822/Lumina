@@ -153,7 +153,7 @@ export function initializeApp(): void {
     await initializeFileService()
 
     // 初始化实验室服务
-    initializeLab()
+    await initializeLab()
 
     // 创建主窗口
     const mainWindow = createMainWindow()

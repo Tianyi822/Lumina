@@ -10,7 +10,7 @@ export async function findLab(args: {
 }): Promise<LabData | null> {
   // 优先使用 ID 查找
   if (args.lab_id) {
-    return labService.loadLab(args.lab_id)
+    return await labService.loadLab(args.lab_id)
   }
 
   // 使用名称模糊匹配
@@ -36,7 +36,7 @@ export async function findLab(args: {
     }
 
     if (match) {
-      return labService.loadLab(match.labId)
+      return await labService.loadLab(match.labId)
     }
   }
 

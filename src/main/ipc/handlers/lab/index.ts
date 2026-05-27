@@ -13,9 +13,9 @@ import { registerLabTerminalHandlers } from './terminalHandlers'
 /**
  * 初始化实验室服务
  */
-export function initializeLab(): void {
+export async function initializeLab(): Promise<void> {
   const { labService, configService, dockerService } = getLabServices()
-  labService.initialize()
+  await labService.initialize()
   configService.initialize()
   dockerService.initialize()
 }
