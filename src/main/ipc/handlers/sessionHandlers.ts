@@ -12,11 +12,7 @@ export function registerSessionHandlers(): void {
    */
   ipcMain.handle(
     'session:create',
-    async (
-      _,
-      title?: string,
-      type?: SessionType
-    ): Promise<SessionResult> => {
+    async (_, title?: string, type?: SessionType): Promise<SessionResult> => {
       try {
         const data = sessionService.createSession(title, type)
         return { success: true, data }
