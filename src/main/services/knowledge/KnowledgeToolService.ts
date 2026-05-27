@@ -22,9 +22,9 @@ export class KnowledgeToolService {
    * 获取知识库工具定义
    * @param selectedKnowledgeBaseIds 选中的知识库 ID 列表，如果指定则只搜索这些知识库
    */
-  getTools(selectedKnowledgeBaseIds?: string[]): MCPTool[] {
+  async getTools(selectedKnowledgeBaseIds?: string[]): Promise<MCPTool[]> {
     // 获取可用知识库信息用于工具描述
-    const knowledgeBases = knowledgeCoreService.getKnowledgeBases({
+    const knowledgeBases = await knowledgeCoreService.getKnowledgeBases({
       knowledgeBaseIds: selectedKnowledgeBaseIds
     })
 
@@ -105,9 +105,9 @@ export class KnowledgeToolService {
         case 'knowledge__search':
           return await this.searchKnowledge(args, selectedKnowledgeBaseIds)
         case 'knowledge__list':
-          return this.listKnowledgeBases(selectedKnowledgeBaseIds)
+          return await this.listKnowledgeBases(selectedKnowledgeBaseIds)
         case 'knowledge__documents':
-          return this.listDocuments(args, selectedKnowledgeBaseIds)
+          return await this.listDocuments(args, selectedKnowledgeBaseIds)
 
         default:
           return {
@@ -203,9 +203,9 @@ export class KnowledgeToolService {
   /**
    * 获取知识库列表
    */
-  private listKnowledgeBases(selectedKnowledgeBaseIds?: string[]): MCPToolCallResult {
+  private async listKnowledgeBases(selectedKnowledgeBaseIds?: string[]): Promise<MCPToolCallResult> {
     // 调用核心服务获取知识库列表
-    const knowledgeBases = knowledgeCoreService.getKnowledgeBases({
+    const knowledgeBases = await knowledgeCoreService.getKnowledgeBases({
       knowledgeBaseIds: selectedKnowledgeBaseIds
     })
 
@@ -235,35 +235,35 @@ export class KnowledgeToolService {
   /**
    * 获取知识库文档列表
    */
-  private listDocuments(
+  private async listDocuments(
     args: ToolArgs,
     selectedKnowledgeBaseIds?: string[]
   ): Promise<MCPToolCallResult> {
     const knowledgeBaseId = args.knowledgeBaseId as string
 
     if (!knowledgeBaseId) {
-      return Promise.resolve({
+      return {
         success: false,
         error: '缺少必需参数: knowledgeBaseId'
-      })
+      }
     }
 
     // 调用核心服务获取文档列表
-    const documents = knowledgeCoreService.getDocuments({
+    const documents = await knowledgeCoreService.getDocuments({
       knowledgeBaseId,
       allowedKnowledgeBaseIds: selectedKnowledgeBaseIds
     })
 
     if (documents === null) {
-      return Promise.resolve({
+      return {
         success: false,
         error: selectedKnowledgeBaseIds?.length
           ? `知识库 ${knowledgeBaseId} 不在当前可用的知识库范围内`
           : `知识库不存在: ${knowledgeBaseId}`
-      })
+      }
     }
 
-    return Promise.resolve({
+    return {
       success: true,
       content: [
         {
@@ -271,7 +271,7 @@ export class KnowledgeToolService {
           text: JSON.stringify(documents, null, 2)
         }
       ]
-    })
+    }
   }
 }
 

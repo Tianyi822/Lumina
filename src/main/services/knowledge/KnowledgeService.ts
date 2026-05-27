@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { readFile, writeFile } from 'fs/promises'
 
 import { getVectorDBService, type DocumentChunk, type SearchResult } from '@main/services/vector'
 import { EmbeddingService } from '@main/services/embedding'
@@ -18,14 +18,10 @@ export function createEmptyKnowledgeBases(): KnowledgeBase[] {
 }
 
 // 读取知识库数据
-export function readKnowledgeBases(): KnowledgeBase[] {
+export async function readKnowledgeBases(): Promise<KnowledgeBase[]> {
   const filePath = getKnowledgeBaseFilePath()
-  if (!existsSync(filePath)) {
-    return createEmptyKnowledgeBases()
-  }
-
   try {
-    const content = readFileSync(filePath, 'utf-8')
+    const content = await readFile(filePath, 'utf-8')
     return JSON.parse(content) as KnowledgeBase[]
   } catch (error) {
     logger.error('读取知识库数据失败', 'main', { error })
@@ -34,10 +30,10 @@ export function readKnowledgeBases(): KnowledgeBase[] {
 }
 
 // 写入知识库数据
-export function writeKnowledgeBases(knowledgeBases: KnowledgeBase[]): void {
+export async function writeKnowledgeBases(knowledgeBases: KnowledgeBase[]): Promise<void> {
   const filePath = getKnowledgeBaseFilePath()
   const content = JSON.stringify(knowledgeBases, null, 2)
-  writeFileSync(filePath, content, 'utf-8')
+  await writeFile(filePath, content, 'utf-8')
 }
 
 // 将文本分块

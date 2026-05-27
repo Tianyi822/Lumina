@@ -297,7 +297,7 @@ export class PaperService {
       return []
     }
 
-    return getKnowledgeServiceManager().markKnowledgeBasesNeedReindex(result.previousUsedByKBIds, {
+    return await getKnowledgeServiceManager().markKnowledgeBasesNeedReindex(result.previousUsedByKBIds, {
       fileId: result.file.id,
       fileName: result.file.name,
       paperId,
@@ -305,14 +305,14 @@ export class PaperService {
     })
   }
 
-  private markPaperNoteKnowledgeBasesNeedReindex(
+  private async markPaperNoteKnowledgeBasesNeedReindex(
     kbIds: string[],
     paperId: string,
     fileId: string,
     fileName: string,
     updatedAt: string
-  ): PaperAnnotationAffectedKnowledgeBase[] {
-    return getKnowledgeServiceManager().markKnowledgeBasesNeedReindex(kbIds, {
+  ): Promise<PaperAnnotationAffectedKnowledgeBase[]> {
+    return await getKnowledgeServiceManager().markKnowledgeBasesNeedReindex(kbIds, {
       fileId,
       fileName,
       paperId,
@@ -378,7 +378,7 @@ export class PaperService {
 
           const shouldReindex = upsertResult.contentChanged || upsertResult.legacyMigrated
           if (shouldReindex && upsertResult.file && upsertResult.previousUsedByKBIds?.length) {
-            const affectedKnowledgeBases = this.markPaperNoteKnowledgeBasesNeedReindex(
+            const affectedKnowledgeBases = await this.markPaperNoteKnowledgeBasesNeedReindex(
               upsertResult.previousUsedByKBIds,
               paperId,
               upsertResult.file.id,

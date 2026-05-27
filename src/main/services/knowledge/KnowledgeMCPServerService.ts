@@ -294,7 +294,7 @@ export class KnowledgeMCPServerService {
       },
       async () => {
         try {
-          const knowledgeBases = this.listKnowledgeBases()
+          const knowledgeBases = await this.listKnowledgeBases()
           return {
             content: [
               {
@@ -329,7 +329,7 @@ export class KnowledgeMCPServerService {
       },
       async (args: { knowledgeBaseId: string }) => {
         try {
-          const documents = this.getDocumentsByKnowledgeBase(args.knowledgeBaseId)
+          const documents = await this.getDocumentsByKnowledgeBase(args.knowledgeBaseId)
           return {
             content: [
               {
@@ -389,9 +389,9 @@ export class KnowledgeMCPServerService {
    * 获取知识库列表
    * 调用核心服务实现
    */
-  private listKnowledgeBases(): KnowledgeBaseListItem[] {
+  private async listKnowledgeBases(): Promise<KnowledgeBaseListItem[]> {
     // 调用核心服务获取知识库列表
-    const knowledgeBases = knowledgeCoreService.getKnowledgeBases()
+    const knowledgeBases = await knowledgeCoreService.getKnowledgeBases()
 
     return knowledgeBases.map((kb) => ({
       id: kb.id,
@@ -408,9 +408,9 @@ export class KnowledgeMCPServerService {
    * @param knowledgeBaseId 知识库 ID
    * @returns 文档列表，包含文档名称、大小、上传时间和类型
    */
-  private getDocumentsByKnowledgeBase(knowledgeBaseId: string): KnowledgeDocumentListItem[] {
+  private async getDocumentsByKnowledgeBase(knowledgeBaseId: string): Promise<KnowledgeDocumentListItem[]> {
     // 调用核心服务获取文档列表
-    const documents = knowledgeCoreService.getDocuments({ knowledgeBaseId })
+    const documents = await knowledgeCoreService.getDocuments({ knowledgeBaseId })
 
     if (documents === null) {
       return []

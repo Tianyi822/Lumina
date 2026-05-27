@@ -48,24 +48,24 @@ export class KnowledgeServiceManager {
   }
 
   // 获取所有知识库
-  getAllKnowledgeBases(): KnowledgeBase[] {
+  async getAllKnowledgeBases(): Promise<KnowledgeBase[]> {
     if (!this.loaded) {
       this.initialize()
     }
-    return readKnowledgeBases()
+    return await readKnowledgeBases()
   }
 
   // 根据ID获取知识库
-  getKnowledgeBaseById(id: string): KnowledgeBase | null {
+  async getKnowledgeBaseById(id: string): Promise<KnowledgeBase | null> {
     if (!this.loaded) {
       this.initialize()
     }
-    const knowledgeBases = readKnowledgeBases()
+    const knowledgeBases = await readKnowledgeBases()
     return knowledgeBases.find((kb) => kb.id === id) || null
   }
 
   // 创建知识库
-  createKnowledgeBase(data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>): KnowledgeBase {
+  async createKnowledgeBase(data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>): Promise<KnowledgeBase> {
     if (!this.loaded) {
       this.initialize()
     }
@@ -77,24 +77,24 @@ export class KnowledgeServiceManager {
       updatedAt: new Date().toISOString()
     }
 
-    const knowledgeBases = readKnowledgeBases()
+    const knowledgeBases = await readKnowledgeBases()
     knowledgeBases.unshift(newKB)
-    writeKnowledgeBases(knowledgeBases)
+    await writeKnowledgeBases(knowledgeBases)
 
     logger.info('知识库创建成功', 'main', { id: newKB.id, name: newKB.name })
     return newKB
   }
 
   // 更新知识库
-  updateKnowledgeBase(
+  async updateKnowledgeBase(
     id: string,
     updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>
-  ): KnowledgeBase | null {
+  ): Promise<KnowledgeBase | null> {
     if (!this.loaded) {
       this.initialize()
     }
 
-    const knowledgeBases = readKnowledgeBases()
+    const knowledgeBases = await readKnowledgeBases()
     const index = knowledgeBases.findIndex((kb) => kb.id === id)
     if (index === -1) {
       return null
@@ -109,7 +109,7 @@ export class KnowledgeServiceManager {
     }
 
     knowledgeBases[index] = updatedKB
-    writeKnowledgeBases(knowledgeBases)
+    await writeKnowledgeBases(knowledgeBases)
 
     logger.info('知识库更新成功', 'main', { id })
 
@@ -122,10 +122,10 @@ export class KnowledgeServiceManager {
     return updatedKB
   }
 
-  markKnowledgeBasesNeedReindex(
+  async markKnowledgeBasesNeedReindex(
     kbIds: string[],
     invalidatedFile: KnowledgeIndexInvalidatedFile
-  ): Array<{ id: string; name: string }> {
+  ): Promise<Array<{ id: string; name: string }>> {
     if (!this.loaded) {
       this.initialize()
     }
@@ -135,7 +135,7 @@ export class KnowledgeServiceManager {
       return []
     }
 
-    const knowledgeBases = readKnowledgeBases()
+    const knowledgeBases = await readKnowledgeBases()
     const now = new Date().toISOString()
     const affectedKnowledgeBases: Array<{ id: string; name: string }> = []
     let changed = false
@@ -171,7 +171,7 @@ export class KnowledgeServiceManager {
     }
 
     if (changed) {
-      writeKnowledgeBases(knowledgeBases)
+      await writeKnowledgeBases(knowledgeBases)
       for (const kb of knowledgeBases) {
         const instance = this.instances.get(kb.id)
         if (instance) {
@@ -187,12 +187,12 @@ export class KnowledgeServiceManager {
     return affectedKnowledgeBases
   }
 
-  clearKnowledgeBaseInvalidation(kbId: string): KnowledgeBase | null {
+  async clearKnowledgeBaseInvalidation(kbId: string): Promise<KnowledgeBase | null> {
     if (!this.loaded) {
       this.initialize()
     }
 
-    const knowledgeBases = readKnowledgeBases()
+    const knowledgeBases = await readKnowledgeBases()
     const kbIndex = knowledgeBases.findIndex((kb) => kb.id === kbId)
     if (kbIndex === -1) {
       return null
@@ -208,7 +208,7 @@ export class KnowledgeServiceManager {
       indexInvalidation: undefined
     }
     knowledgeBases[kbIndex] = updatedKB
-    writeKnowledgeBases(knowledgeBases)
+    await writeKnowledgeBases(knowledgeBases)
 
     const instance = this.instances.get(kbId)
     if (instance) {
@@ -219,12 +219,12 @@ export class KnowledgeServiceManager {
     return updatedKB
   }
 
-  clearKnowledgeBaseFileInvalidation(kbId: string, fileId: string): KnowledgeBase | null {
+  async clearKnowledgeBaseFileInvalidation(kbId: string, fileId: string): Promise<KnowledgeBase | null> {
     if (!this.loaded) {
       this.initialize()
     }
 
-    const knowledgeBases = readKnowledgeBases()
+    const knowledgeBases = await readKnowledgeBases()
     const kbIndex = knowledgeBases.findIndex((kb) => kb.id === kbId)
     if (kbIndex === -1) {
       return null
@@ -249,7 +249,7 @@ export class KnowledgeServiceManager {
     }
 
     knowledgeBases[kbIndex] = updatedKB
-    writeKnowledgeBases(knowledgeBases)
+    await writeKnowledgeBases(knowledgeBases)
 
     const instance = this.instances.get(kbId)
     if (instance) {
@@ -268,7 +268,7 @@ export class KnowledgeServiceManager {
       this.initialize()
     }
 
-    const knowledgeBases = readKnowledgeBases()
+    const knowledgeBases = await readKnowledgeBases()
     const index = knowledgeBases.findIndex((kb) => kb.id === id)
     if (index === -1) {
       return { success: false, error: '知识库不存在' }
@@ -340,7 +340,7 @@ export class KnowledgeServiceManager {
 
       // 7. 从配置中移除知识库
       knowledgeBases.splice(index, 1)
-      writeKnowledgeBases(knowledgeBases)
+      await writeKnowledgeBases(knowledgeBases)
       logger.info('已从配置中移除知识库', 'main', { id })
 
       // 8. 移除服务实例（这会调用 cleanup 清理资源）
