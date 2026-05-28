@@ -256,6 +256,7 @@ export async function retryPaper(paperId: string): Promise<{ success: boolean; e
   const listStore = usePaperListStore.getState()
 
   // 检查是否有活跃的渲染管线
+  // TODO: 页面刷新后 renderProgress/ocrProgress 可能是从持久化状态重建的陈旧数据
   const renderProgress = listStore.renderProgressByPaperId[paperId]
   const ocrProgress = listStore.ocrProgressByPaperId[paperId]
   if (renderProgress?.stage === 'rendering' || ocrProgress?.status === 'processing') {
@@ -432,7 +433,6 @@ export async function loadMarkdownWithDeps(paperId: string): Promise<void> {
       await usePaperAnnotationStore.getState().loadAnnotations(paperId)
     } else {
       usePaperListStore.setState({ markdownContent: '' })
-      usePaperViewStore.getState().clearPaperToc()
       usePaperTranslationStore.getState().setTranslationCache(paperId, null)
       usePaperTranslationStore.getState().setTranslationTaskState(paperId, {
         isRunning: false,
