@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { PaperTocEntry, PaperTocItem, PaperTocOutline } from '@shared/types/paper'
 import { useConfigStore } from '@renderer/stores/configStore'
+import { usePaperFigureStore } from './usePaperFigureStore'
 
 // ---------------------------------------------------------------------------
 // 类型定义
@@ -195,6 +196,7 @@ export const usePaperViewStore = create<PaperViewState>()((set, get) => {
       const s = get()
       const nextVisible = !s.originalPdfVisible
       if (nextVisible) {
+        usePaperFigureStore.getState().resetFigureUiState()
         set({ originalPdfVisible: true })
       } else {
         set({ originalPdfVisible: false })
