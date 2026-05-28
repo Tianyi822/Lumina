@@ -14,6 +14,12 @@ export function registerSessionHandlers(): void {
     'session:create',
     async (_, title?: string, type?: SessionType): Promise<SessionResult> => {
       try {
+        if (title && typeof title !== 'string') {
+          return { success: false, error: '标题必须是字符串' }
+        }
+        if (title && title.length > 200) {
+          return { success: false, error: '标题长度不能超过 200 个字符' }
+        }
         const data = sessionService.createSession(title, type)
         return { success: true, data }
       } catch (error) {

@@ -68,6 +68,12 @@ export function registerMCPHandlers(): void {
   // 保存 MCP 服务器配置
   ipcMain.handle('mcp:saveConfig', (_event, config: MCPServerConfig) => {
     try {
+      if (!config || typeof config !== 'object') {
+        return { success: false, error: '配置参数无效' }
+      }
+      if (!config.name || typeof config.name !== 'string') {
+        return { success: false, error: '配置名称不能为空' }
+      }
       return mcpConfigManager.saveConfig(config)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -92,6 +98,9 @@ export function registerMCPHandlers(): void {
   // 批量导入 MCP 配置，支持导入 JSON 格式的配置文件
   ipcMain.handle('mcp:importConfigs', (_event, jsonContent: string) => {
     try {
+      if (typeof jsonContent !== 'string' || !jsonContent.trim()) {
+        return { success: false, error: '导入内容不能为空' }
+      }
       return mcpConfigManager.importFromJson(jsonContent)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
