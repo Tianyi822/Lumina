@@ -518,23 +518,42 @@ export class EmbeddingService {
     return new Promise((resolve) => {
       const worker = new Worker(new URL('./tokenEstimatorWorker.ts', import.meta.url))
       const id = crypto.randomUUID()
-      const timeout = setTimeout(() => {
-        void worker.terminate()
-        resolve(texts.map((text) => this.tokenEstimator(text)))
+      let settled = false
+      let timeout: ReturnType<typeof setTimeout>
+
+      const cleanup = (): void => {
+        clearTimeout(timeout)
+        worker.terminate()
+      }
+
+      timeout = setTimeout(() => {
+        if (!settled) {
+          settled = true
+          cleanup()
+          resolve(texts.map((text) => this.tokenEstimator(text)))
+        }
       }, EMBEDDING_WORKER_TIMEOUT)
 
       worker.on('message', (msg: { id: string; estimates: number[] }) => {
-        if (msg.id === id) {
-          clearTimeout(timeout)
+        if (msg.id === id && !settled) {
+          settled = true
+          cleanup()
           resolve(msg.estimates)
-          void worker.terminate()
         }
       })
-      worker.on('error', () => {
-        clearTimeout(timeout)
-        void worker.terminate()
-        resolve(texts.map((text) => this.tokenEstimator(text)))
+
+      worker.on('error', (err) => {
+        if (!settled) {
+          settled = true
+          cleanup()
+          logger.warn('Worker token 估算失败，回退到同步计算', 'main', {
+            error: err instanceof Error ? err.message : String(err)
+          })
+          resolve(texts.map((text) => this.tokenEstimator(text)))
+        }
       })
+
+      worker.postMessage({ id, texts })
     })
   }
 
