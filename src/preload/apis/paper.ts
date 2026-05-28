@@ -317,6 +317,10 @@ export const paperApi = {
     return ipcRenderer.invoke('paper:getOcrProgress', paperId)
   },
 
+  isOcrActive: (paperId: string): Promise<{ success: boolean; data?: boolean }> => {
+    return ipcRenderer.invoke('paper:isOcrActive', paperId)
+  },
+
   retryPage: (params: {
     paperId: string
     pageIndex: number
