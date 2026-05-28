@@ -136,7 +136,6 @@ export async function deletePaper(paperId: string): Promise<boolean> {
     void window.api.session.delete(targetPaper.chatSessionId)
   }
 
-  usePaperListStore.getState().updatePaperInList(paperId, {} as PaperDocument)
   // 从列表中移除
   const papers = usePaperListStore.getState().papers.filter((paper) => paper.id !== paperId)
   usePaperListStore.setState({ papers })
