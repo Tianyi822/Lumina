@@ -256,9 +256,10 @@ export async function retryPaper(paperId: string): Promise<{ success: boolean; e
   usePaperListStore.getState().ensureOcrProgressListener()
   const listStore = usePaperListStore.getState()
 
-  // 检查是否有活跃的渲染管线（通过 renderProgressByPaperId）
+  // 检查是否有活跃的渲染管线
   const renderProgress = listStore.renderProgressByPaperId[paperId]
-  if (renderProgress?.stage === 'rendering') {
+  const ocrProgress = listStore.ocrProgressByPaperId[paperId]
+  if (renderProgress?.stage === 'rendering' || ocrProgress?.status === 'processing') {
     return { success: false, error: '论文正在处理中，请稍后再试' }
   }
 
