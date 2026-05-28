@@ -303,6 +303,7 @@ export class PaperOcrService {
   private currentProgress: Map<string, OcrProgressInfo> = new Map()
   private abortControllers: Map<string, boolean> = new Map()
   private progressCallbacks: Map<string, ProgressCallback> = new Map()
+  private activeOcrPipelines: Set<string> = new Set()
 
   private getOcrConfig(): { apiKey: string; provider: OcrProviderId; concurrency: number } {
     const config = configManager.getConfig()
@@ -332,6 +333,10 @@ export class PaperOcrService {
 
   getProgress(paperId: string): OcrProgressInfo | undefined {
     return this.currentProgress.get(paperId)
+  }
+
+  isOcrActive(paperId: string): boolean {
+    return this.activeOcrPipelines.has(paperId)
   }
 
   cancelOcr(paperId: string): void {
@@ -376,6 +381,8 @@ export class PaperOcrService {
     }
     this.emitProgress(paperId, progress)
 
+    this.activeOcrPipelines.add(paperId)
+
     await paperStorageService.updateMeta(paperId, {
       status: 'ocr_processing',
       completedPageCount: existingCompleted,
@@ -410,6 +417,7 @@ export class PaperOcrService {
     })
 
     this.abortControllers.delete(paperId)
+    this.activeOcrPipelines.delete(paperId)
 
     if (aborted) {
       progress.status = 'cancelled'
