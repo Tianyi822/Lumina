@@ -255,11 +255,15 @@ export async function retryPaper(paperId: string): Promise<{ success: boolean; e
   usePaperListStore.getState().ensureOcrProgressListener()
   const listStore = usePaperListStore.getState()
 
-  // 检查是否有活跃的渲染管线
-  // TODO: 页面刷新后 renderProgress/ocrProgress 可能是从持久化状态重建的陈旧数据
+  // 检查是否有活跃的渲染管线（渲染进程侧状态）
   const renderProgress = listStore.renderProgressByPaperId[paperId]
-  const ocrProgress = listStore.ocrProgressByPaperId[paperId]
-  if (renderProgress?.stage === 'rendering' || ocrProgress?.status === 'processing') {
+  if (renderProgress?.stage === 'rendering') {
+    return { success: false, error: '论文正在处理中，请稍后再试' }
+  }
+
+  // 检查主进程 OCR 管道是否活跃（IPC 确认，不受页面刷新影响）
+  const ocrActiveResult = await window.api.paper.isOcrActive(paperId)
+  if (ocrActiveResult.success && ocrActiveResult.data) {
     return { success: false, error: '论文正在处理中，请稍后再试' }
   }
 

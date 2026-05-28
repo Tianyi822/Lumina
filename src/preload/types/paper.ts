@@ -240,6 +240,11 @@ export interface PaperApi {
     data?: OcrProgressInfo
   }>
 
+  isOcrActive: (paperId: string) => Promise<{
+    success: boolean
+    data?: boolean
+  }>
+
   retryPage: (params: { paperId: string; pageIndex: number }) => Promise<{
     success: boolean
     error?: string
