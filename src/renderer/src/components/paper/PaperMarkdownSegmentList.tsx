@@ -198,10 +198,7 @@ const PaperMarkdownSegmentItem = memo(
   }
 )
 
-function PaperMarkdownSegmentList({
-  segments,
-  onRetranslate
-}: PaperMarkdownSegmentListProps) {
+function PaperMarkdownSegmentList({ segments, onRetranslate }: PaperMarkdownSegmentListProps) {
   const [confirmDialog, setConfirmDialog] = useState<{
     segmentId: string
     stableId: string
