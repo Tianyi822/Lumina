@@ -405,7 +405,7 @@ export async function loadMarkdownWithDeps(paperId: string): Promise<void> {
   const paper = listStore.papers.find((item) => item.id === paperId)
 
   if (!paper || !isPaperReadableStatus(paper.status)) {
-    usePaperListStore.setState({ markdownContent: '' })
+    usePaperListStore.setState({ markdownContent: '', markdownLoading: false })
     usePaperViewStore.getState().clearPaperToc()
     usePaperTranslationStore.getState().setTranslationCache(paperId, null)
     usePaperTranslationStore.getState().setTranslationTaskState(paperId, {
@@ -420,25 +420,30 @@ export async function loadMarkdownWithDeps(paperId: string): Promise<void> {
   }
 
   usePaperViewStore.getState().clearPaperToc()
+  usePaperListStore.setState({ markdownLoading: true })
 
-  // 加载 reader document 和 markdown
-  const readerDocument = await usePaperAnnotationStore.getState().loadReaderDocument(paperId)
-  if (readerDocument) {
-    usePaperListStore.setState({ markdownContent: readerDocument.markdown })
-    // 翻译缓存后台加载，不阻塞 markdown 内容渲染
-    void usePaperTranslationStore.getState().loadTranslationState(paperId)
-    await usePaperAnnotationStore.getState().loadAnnotations(paperId)
-  } else {
-    usePaperListStore.setState({ markdownContent: '' })
-    usePaperViewStore.getState().clearPaperToc()
-    usePaperTranslationStore.getState().setTranslationCache(paperId, null)
-    usePaperTranslationStore.getState().setTranslationTaskState(paperId, {
-      isRunning: false,
-      completedSegments: 0,
-      totalSegments: 0
-    })
-    usePaperTranslationStore.getState().setHasTranslationState(paperId, false)
-    usePaperAnnotationStore.getState().setAnnotations(paperId, [])
+  try {
+    // 加载 reader document 和 markdown
+    const readerDocument = await usePaperAnnotationStore.getState().loadReaderDocument(paperId)
+    if (readerDocument) {
+      usePaperListStore.setState({ markdownContent: readerDocument.markdown })
+      // 翻译缓存后台加载，不阻塞 markdown 内容渲染
+      void usePaperTranslationStore.getState().loadTranslationState(paperId)
+      await usePaperAnnotationStore.getState().loadAnnotations(paperId)
+    } else {
+      usePaperListStore.setState({ markdownContent: '' })
+      usePaperViewStore.getState().clearPaperToc()
+      usePaperTranslationStore.getState().setTranslationCache(paperId, null)
+      usePaperTranslationStore.getState().setTranslationTaskState(paperId, {
+        isRunning: false,
+        completedSegments: 0,
+        totalSegments: 0
+      })
+      usePaperTranslationStore.getState().setHasTranslationState(paperId, false)
+      usePaperAnnotationStore.getState().setAnnotations(paperId, [])
+    }
+  } finally {
+    usePaperListStore.setState({ markdownLoading: false })
   }
 }
 
