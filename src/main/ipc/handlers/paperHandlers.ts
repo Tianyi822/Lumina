@@ -469,6 +469,10 @@ export function registerPaperHandlers(): void {
     return { success: true, data: progress }
   })
 
+  ipcMain.handle('paper:isOcrActive', (_event, paperId: string) => {
+    return { success: true, data: getPaperService().isOcrActive(paperId) }
+  })
+
   ipcMain.handle(
     'paper:retryPage',
     async (_event, params: { paperId: string; pageIndex: number }) => {
