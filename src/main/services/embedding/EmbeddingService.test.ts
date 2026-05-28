@@ -188,3 +188,47 @@ test('分钟 Token 余量不足时会先发送可容纳的子批次而不是整�
     ]
   )
 })
+
+// --- 构造与配置测试 ---
+
+test('无配置时 getConfig 返回 null', () => {
+  const service = new EmbeddingService()
+  assert.equal(service.getConfig(), null)
+})
+
+test('setConfig 后 getConfig 返回配置', () => {
+  const service = new EmbeddingService()
+  service.setConfig(TEST_CONFIG)
+  const config = service.getConfig()
+  assert.notEqual(config, null)
+  assert.equal(config!.baseUrl, TEST_CONFIG.baseUrl)
+  assert.equal(config!.model, TEST_CONFIG.model)
+  assert.equal(config!.apiKey, TEST_CONFIG.apiKey)
+  assert.equal(config!.dimensions, TEST_CONFIG.dimensions)
+})
+
+test('无配置时 embed 返回 success: false（错误包含"未配置"）', async () => {
+  const service = new EmbeddingService()
+  const result = await service.embed('hello')
+  assert.ok(isEmbeddingFailure(result) && result.error.includes('未配置'))
+})
+
+test('无配置时 embedBatch 返回 success: false（错误包含"未配置"）', async () => {
+  const service = new EmbeddingService()
+  const result = await service.embedBatch(['hello'])
+  assert.ok(isEmbeddingFailure(result) && result.error.includes('未配置'))
+})
+
+test('空文本列表 embedBatch 返回 success: false（错误包含"不能为空"）', async () => {
+  const service = new EmbeddingService()
+  service.setConfig(TEST_CONFIG)
+  const result = await service.embedBatch([])
+  assert.ok(isEmbeddingFailure(result) && result.error.includes('不能为空'))
+})
+
+test('无配置时 testConnection 返回 success: false（错误包含"未配置"）', async () => {
+  const service = new EmbeddingService()
+  const result = await service.testConnection()
+  assert.equal(result.success, false)
+  assert.ok(result.error!.includes('未配置'))
+})
