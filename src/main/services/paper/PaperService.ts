@@ -768,6 +768,10 @@ export class PaperService {
     this.ocrService.offProgress(paperId)
   }
 
+  isOcrActive(paperId: string): boolean {
+    return this.ocrService.isOcrActive(paperId)
+  }
+
   async listFigures(
     paperId: string
   ): Promise<{ success: boolean; data?: PaperFigureItem[]; error?: string }> {
