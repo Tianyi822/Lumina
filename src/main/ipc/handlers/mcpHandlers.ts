@@ -12,7 +12,9 @@ export function initializeMCP(): void {
   mcpService.setOnStatusChange((serverName, status) => {
     const windows = BrowserWindow.getAllWindows()
     for (const win of windows) {
-      win.webContents.send('mcp:statusChange', { serverName, status })
+      if (!win.isDestroyed()) {
+        win.webContents.send('mcp:statusChange', { serverName, status })
+      }
     }
   })
 

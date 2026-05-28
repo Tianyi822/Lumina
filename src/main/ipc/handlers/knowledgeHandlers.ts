@@ -157,7 +157,7 @@ export function registerKnowledgeHandlers(): void {
       const result = await manager.executeIndexingTask(kbId, () =>
         service.indexFile(kbId, fileId, (progress: FileProcessingProgress) => {
           const win = getMainWindow()
-          if (win) {
+          if (win && !win.isDestroyed()) {
             win.webContents.send('knowledge:file-progress', { kbId, progress })
           }
           // 文件索引进度通过 IPC 事件发送，不打印日志
@@ -218,14 +218,14 @@ export function registerKnowledgeHandlers(): void {
             fileIds,
             (progress) => {
               const win = getMainWindow()
-              if (win) {
+              if (win && !win.isDestroyed()) {
                 win.webContents.send('knowledge:reindex-progress', { kbId, progress })
               }
               // 重新索引进度通过 IPC 事件发送，不打印日志
             },
             (fileProgress) => {
               const win = getMainWindow()
-              if (win) {
+              if (win && !win.isDestroyed()) {
                 win.webContents.send('knowledge:file-progress', { kbId, progress: fileProgress })
               }
               // 文件索引进度通过 IPC 事件发送，不打印日志
