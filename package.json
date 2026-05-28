@@ -27,6 +27,7 @@
     "test:ssh": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/lab/ssh/SshCommandExecutor.test.ts src/main/services/lab/ssh/SshConfigService.test.ts src/main/services/lab/ssh/SftpFileTransfer.test.ts src/main/services/lab/ssh/SshConnectionManager.test.ts src/main/services/lab/ssh/SshTerminalService.test.ts src/main/services/lab/ssh/SshStatsService.test.ts",
     "test:lab-tools": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/lab/tools/execTools.test.ts src/main/services/lab/tools/fileTools.test.ts src/renderer/src/stores/lab/labStore.test.ts",
     "test:mcp-handlers": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/ipc/handlers/mcpHandlers.test.ts",
+    "test:session-handlers": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/ipc/handlers/sessionHandlers.test.ts",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
