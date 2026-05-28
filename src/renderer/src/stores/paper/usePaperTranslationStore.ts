@@ -259,6 +259,7 @@ export const usePaperTranslationStore = create<PaperTranslationState>()((set, ge
       return { success: true }
     },
 
+    /** @internal 使用 actions.ts 中的 retranslateSegment 协调函数以同时清理关联批注 */
     retranslateSegment: async (
       paperId: string,
       segmentId: string
