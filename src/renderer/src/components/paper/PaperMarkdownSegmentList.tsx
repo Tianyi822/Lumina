@@ -175,21 +175,27 @@ const PaperMarkdownSegmentItem = memo(
       </section>
     )
   },
-  (prev, next) =>
-    prev.segment.renderId === next.segment.renderId &&
-    prev.segment.stableId === next.segment.stableId &&
-    prev.segment.sourceRevisionId === next.segment.sourceRevisionId &&
-    prev.segment.textHash === next.segment.textHash &&
-    prev.segment.kind === next.segment.kind &&
-    prev.segment.originalHtml === next.segment.originalHtml &&
-    prev.segment.translationHtml === next.segment.translationHtml &&
-    prev.segment.translationText === next.segment.translationText &&
-    prev.segment.translationStatus === next.segment.translationStatus &&
-    prev.segment.showTranslation === next.segment.showTranslation &&
-    prev.segment.segmentAnchorId === next.segment.segmentAnchorId &&
-    prev.segment.isCenteredMeta === next.segment.isCenteredMeta &&
-    prev.segment.annotations.length === next.segment.annotations.length &&
-    prev.onRetranslateClick === next.onRetranslateClick
+  (prev, next) => {
+    if (prev.segment.annotations.length !== next.segment.annotations.length) return false
+    for (let i = 0; i < prev.segment.annotations.length; i++) {
+      if (prev.segment.annotations[i] !== next.segment.annotations[i]) return false
+    }
+    return (
+      prev.segment.renderId === next.segment.renderId &&
+      prev.segment.stableId === next.segment.stableId &&
+      prev.segment.sourceRevisionId === next.segment.sourceRevisionId &&
+      prev.segment.textHash === next.segment.textHash &&
+      prev.segment.kind === next.segment.kind &&
+      prev.segment.originalHtml === next.segment.originalHtml &&
+      prev.segment.translationHtml === next.segment.translationHtml &&
+      prev.segment.translationText === next.segment.translationText &&
+      prev.segment.translationStatus === next.segment.translationStatus &&
+      prev.segment.showTranslation === next.segment.showTranslation &&
+      prev.segment.segmentAnchorId === next.segment.segmentAnchorId &&
+      prev.segment.isCenteredMeta === next.segment.isCenteredMeta &&
+      prev.onRetranslateClick === next.onRetranslateClick
+    )
+  }
 )
 
 function PaperMarkdownSegmentList({
