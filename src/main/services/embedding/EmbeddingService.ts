@@ -294,6 +294,28 @@ export interface ConnectionTestResult {
 }
 
 /**
+ * 嵌入操作失败结果
+ */
+export interface EmbeddingFailure {
+  success: false
+  error: string
+}
+
+/**
+ * 判断嵌入操作是否返回失败
+ */
+export function isEmbeddingFailure(
+  result: unknown
+): result is EmbeddingFailure {
+  return (
+    typeof result === 'object' &&
+    result !== null &&
+    'success' in result &&
+    (result as EmbeddingFailure).success === false
+  )
+}
+
+/**
  * 预定义的嵌入模型配置
  */
 export const PRESET_EMBEDDING_MODELS: Record<
@@ -427,10 +449,10 @@ export class EmbeddingService {
   /**
    * 生成单个文本的嵌入向量
    */
-  async embed(text: string): Promise<EmbeddingResult> {
+  async embed(text: string): Promise<EmbeddingResult | EmbeddingFailure> {
     const config = this.config
     if (!config || !this.client) {
-      throw new Error('嵌入模型未配置')
+      return { success: false, error: '嵌入模型未配置' }
     }
 
     try {
@@ -443,51 +465,47 @@ export class EmbeddingService {
         usage: result.usage
       }
     } catch (error) {
-      throw new Error(`嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`)
+      return { success: false, error: `嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}` }
     }
   }
 
   /**
    * 批量生成嵌入向量
    */
-  async embedBatch(texts: string[]): Promise<BatchEmbeddingResult> {
+  async embedBatch(texts: string[]): Promise<BatchEmbeddingResult | EmbeddingFailure> {
     const config = this.config
     if (!config || !this.client) {
-      throw new Error('嵌入模型未配置')
+      return { success: false, error: '嵌入模型未配置' }
     }
 
     if (texts.length === 0) {
-      throw new Error('输入文本列表不能为空')
+      return { success: false, error: '输入文本列表不能为空' }
     }
 
     try {
       return await this.embedBatchInternal(texts, config)
     } catch (error) {
-      throw new Error(
-        `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
-      )
+      return { success: false, error: `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}` }
     }
   }
 
   async embedBatchWithOptions(
     texts: string[],
     options: BatchEmbeddingOptions = {}
-  ): Promise<BatchEmbeddingResult> {
+  ): Promise<BatchEmbeddingResult | EmbeddingFailure> {
     const config = this.config
     if (!config || !this.client) {
-      throw new Error('嵌入模型未配置')
+      return { success: false, error: '嵌入模型未配置' }
     }
 
     if (texts.length === 0) {
-      throw new Error('输入文本列表不能为空')
+      return { success: false, error: '输入文本列表不能为空' }
     }
 
     try {
       return await this.embedBatchInternal(texts, config, options)
     } catch (error) {
-      throw new Error(
-        `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
-      )
+      return { success: false, error: `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}` }
     }
   }
 

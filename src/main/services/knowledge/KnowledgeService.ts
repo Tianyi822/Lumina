@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'fs/promises'
 
 import { getVectorDBService, type DocumentChunk, type SearchResult } from '@main/services/vector'
-import { EmbeddingService } from '@main/services/embedding'
+import { EmbeddingService, isEmbeddingFailure } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
 import { getFileService } from '@main/services/file'
 import type { KnowledgeBase, KnowledgeReindexOptions } from '@shared/types/knowledge'
@@ -195,7 +195,7 @@ export class KnowledgeService {
       // 生成嵌入向量（使用知识库绑定的配置）
       this.embeddingService.setConfig(this.kbData.embeddingConfig)
 
-      const { embeddings } = await this.embeddingService.embedBatchWithOptions(chunks, {
+      const batchResult = await this.embeddingService.embedBatchWithOptions(chunks, {
         shouldAbort: () => this.stopRequested,
         onProgress: ({
           processedTexts,
@@ -225,6 +225,11 @@ export class KnowledgeService {
           }
         }
       })
+
+      if (isEmbeddingFailure(batchResult)) {
+        throw new Error(batchResult.error)
+      }
+      const { embeddings } = batchResult
 
       // 检查是否已请求停止
       if (this.stopRequested) {
@@ -494,6 +499,10 @@ export class KnowledgeService {
       this.embeddingService.setConfig(this.kbData.embeddingConfig)
 
       const embeddingResult = await this.embeddingService.embed(query)
+
+      if (isEmbeddingFailure(embeddingResult)) {
+        throw new Error(embeddingResult.error)
+      }
 
       // 执行搜索
       const results = await getVectorDBService().search(kbId, embeddingResult.embedding, limit)

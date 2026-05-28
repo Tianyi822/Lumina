@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import OpenAI from 'openai'
 import type { EmbeddingConfig } from '../../../shared/types/config.ts'
-import { EmbeddingService } from './EmbeddingService.ts'
+import { EmbeddingService, isEmbeddingFailure } from './EmbeddingService.ts'
 
 interface VirtualClock {
   now: () => number
@@ -97,12 +97,16 @@ test('批量嵌入会按可持续 Token 预算动态拆批并保持输出顺序'
 
   service.setConfig(TEST_CONFIG)
 
-  const result = await service.embedBatch([
+  const batchResult = await service.embedBatch([
     'chunk-a:20000',
     'chunk-b:20000',
     'chunk-c:20000',
     'chunk-d:20000'
   ])
+  if (isEmbeddingFailure(batchResult)) {
+    assert.fail(`Unexpected failure: ${batchResult.error}`)
+  }
+  const result = batchResult
 
   assert.deepEqual(
     records.map((record) => record.inputs.length),
