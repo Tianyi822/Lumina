@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { RenderedSegment } from './usePaperMarkdownEngine'
 
@@ -33,40 +33,17 @@ export function usePaperVirtualizer({
   scrollContainerRef,
   overscan = 10
 }: UsePaperVirtualizerParams) {
-  const heightCacheRef = useRef(new Map<string, number>())
-
-  const estimateSize = useCallback(
-    (index: number): number => {
-      const segment = segments[index]
-      if (!segment) return 100
-      const cached = heightCacheRef.current.get(segment.renderId)
-      if (cached !== undefined) return cached
-      return estimateSegmentHeight(segment)
-    },
-    [segments]
-  )
-
   const virtualizer = useVirtualizer({
     count: segments.length,
     getScrollElement: () => scrollContainerRef.current,
-    estimateSize,
+    estimateSize: (index: number): number => {
+      const segment = segments[index]
+      if (!segment) return 100
+      return estimateSegmentHeight(segment)
+    },
     overscan,
     getItemKey: (index) => segments[index]?.renderId ?? index
   })
-
-  const wrappedMeasureElement = useCallback(
-    (node: HTMLElement | null) => {
-      virtualizer.measureElement(node)
-      if (node) {
-        const index = Number(node.dataset.index)
-        const segment = segments[index]
-        if (segment) {
-          heightCacheRef.current.set(segment.renderId, node.offsetHeight)
-        }
-      }
-    },
-    [virtualizer, segments]
-  )
 
   const scrollToSegment = useCallback(
     (stableId: string, options?: { align?: 'start' | 'center' | 'end' }): void => {
@@ -93,13 +70,12 @@ export function usePaperVirtualizer({
   )
 
   const invalidateAllMeasurements = useCallback(() => {
-    heightCacheRef.current.clear()
     virtualizer.measure()
   }, [virtualizer])
 
   return {
     virtualizer,
-    wrappedMeasureElement,
+    measureElement: virtualizer.measureElement,
     scrollToSegment,
     scrollToHeadingId,
     invalidateAllMeasurements

@@ -661,7 +661,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
                 onRetranslate={handleRetranslateSegment}
                 totalHeight={virtualizerResult.virtualizer.getTotalSize()}
                 virtualItems={virtualizerResult.virtualizer.getVirtualItems()}
-                measureElement={virtualizerResult.wrappedMeasureElement}
+                measureElement={virtualizerResult.measureElement}
               />
             </article>
           )}
