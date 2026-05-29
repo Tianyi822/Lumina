@@ -1,10 +1,23 @@
-import { memo, useState, useCallback } from 'react'
+import { memo, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { createPortal } from 'react-dom'
 import type { RenderedSegment } from './hooks/usePaperMarkdownEngine'
 import styles from './PaperMarkdownSegmentList.module.css'
 
+interface VirtualItem {
+  index: number
+  start: number
+  size: number
+}
+
+export interface PaperMarkdownSegmentListHandle {
+  getSegmentElement: (stableId: string) => HTMLElement | null
+}
+
 interface PaperMarkdownSegmentListProps {
   segments: RenderedSegment[]
+  totalHeight: number
+  virtualItems: VirtualItem[]
+  measureElement: (node: HTMLElement | null) => void
   onRetranslate?: (params: { segmentId: string; stableId: string }) => void
 }
 
@@ -198,11 +211,27 @@ const PaperMarkdownSegmentItem = memo(
   }
 )
 
-function PaperMarkdownSegmentList({ segments, onRetranslate }: PaperMarkdownSegmentListProps) {
+const PaperMarkdownSegmentList = forwardRef<
+  PaperMarkdownSegmentListHandle,
+  PaperMarkdownSegmentListProps
+>(function PaperMarkdownSegmentList(
+  { segments, totalHeight, virtualItems, measureElement, onRetranslate },
+  ref
+) {
   const [confirmDialog, setConfirmDialog] = useState<{
     segmentId: string
     stableId: string
   } | null>(null)
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getSegmentElement(stableId: string) {
+        return document.querySelector(`[data-paper-segment-stable-id="${stableId}"]`)
+      }
+    }),
+    []
+  )
 
   const handleRetranslateClick = useCallback(
     (segment: RenderedSegment) => {
@@ -235,13 +264,32 @@ function PaperMarkdownSegmentList({ segments, onRetranslate }: PaperMarkdownSegm
 
   return (
     <>
-      {segments.map((segment) => (
-        <PaperMarkdownSegmentItem
-          key={segment.renderId}
-          segment={segment}
-          onRetranslateClick={handleRetranslateClick}
-        />
-      ))}
+      <div className={styles['paper-markdown-view__virtual-container']} style={{ height: totalHeight }}>
+        {virtualItems.map((vItem) => {
+          const segment = segments[vItem.index]
+          if (!segment) return null
+          return (
+            <div
+              key={segment.renderId}
+              className={styles['paper-markdown-view__virtual-item']}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                transform: `translateY(${vItem.start}px)`,
+                width: '100%'
+              }}
+              data-index={vItem.index}
+              ref={measureElement}
+            >
+              <PaperMarkdownSegmentItem
+                segment={segment}
+                onRetranslateClick={handleRetranslateClick}
+              />
+            </div>
+          )
+        })}
+      </div>
 
       {confirmDialog &&
         createPortal(
@@ -284,6 +332,6 @@ function PaperMarkdownSegmentList({ segments, onRetranslate }: PaperMarkdownSegm
         )}
     </>
   )
-}
+})
 
 export default memo(PaperMarkdownSegmentList)

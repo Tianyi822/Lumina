@@ -1,7 +1,14 @@
+.paper-markdown-view__virtual-container {
+  position: relative;
+  width: 100%;
+}
+
+.paper-markdown-view__virtual-item {
+  left: 0;
+}
+
 .paper-markdown-view__segment {
   position: relative;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 300px;
   box-sizing: border-box;
 }
 
