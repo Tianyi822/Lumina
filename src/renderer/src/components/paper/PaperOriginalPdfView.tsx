@@ -349,6 +349,21 @@ export default function PaperOriginalPdfView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Ctrl/⌘ + 滚轮缩放：非被动监听，避免 passive wheel 中 preventDefault 失效报错
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) {
+      return
+    }
+
+    const onWheel = (event: WheelEvent): void => {
+      handleWheelZoom(event)
+    }
+
+    container.addEventListener('wheel', onWheel, { passive: false })
+    return () => container.removeEventListener('wheel', onWheel)
+  }, [handleWheelZoom])
+
   const setPageElement = useCallback(
     (pageIndex: number, element: HTMLElement | null) => {
       if (element) {
@@ -380,7 +395,6 @@ export default function PaperOriginalPdfView({
         ref={scrollContainerRef}
         className={styles['paper-original-pdf-view__scroll']}
         onScroll={recordScrollPosition}
-        onWheel={(e) => handleWheelZoom(e.nativeEvent)}
       >
         {!hasPages ? (
           <div className={styles['paper-original-pdf-view__empty']}>

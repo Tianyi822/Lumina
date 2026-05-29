@@ -116,7 +116,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     // Virtual scroll
     const virtualizerResult = usePaperVirtualizer({
       segments: engine.renderedSegments,
-      scrollContainerRef
+      scrollContainerRef,
+      zoomLevel
     })
 
     const renderedSegmentsRef = useMemo(
@@ -182,6 +183,20 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         })
     }, [])
 
+    const remeasureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // 表格 wrap 状态同步；重测防抖，避免滚动时可见项变化引发连续测高抖动
+    const syncTablesAndRemeasure = useCallback(() => {
+      syncScrollableTableWrapState()
+      if (remeasureTimerRef.current !== null) {
+        clearTimeout(remeasureTimerRef.current)
+      }
+      remeasureTimerRef.current = setTimeout(() => {
+        remeasureTimerRef.current = null
+        virtualizerResult.remeasureMountedSegments()
+      }, 120)
+    }, [syncScrollableTableWrapState, virtualizerResult])
+
     // Table drag scroll
     const { handlePointerDown, lastDragEndedAt } = useTableDragScroll()
 
@@ -202,15 +217,24 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     // Render content and sync tables
     const renderContentAndSyncTables = useCallback(async (): Promise<void> => {
       await engine.renderContent()
-      // Use microtask to let React render
-      await new Promise((resolve) => setTimeout(resolve, 0))
-      syncScrollableTableWrapState()
-    }, [engine, syncScrollableTableWrapState])
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
+      })
+      syncTablesAndRemeasure()
+      virtualizerResult.invalidateAllMeasurements()
+    }, [engine, syncTablesAndRemeasure, virtualizerResult])
 
     // 通知未恢复批注
     // 论文切换时重置通知标记
     useEffect(() => {
       unresolvedNotifiedRef.current = false
+      return () => {
+        if (remeasureTimerRef.current !== null) {
+          clearTimeout(remeasureTimerRef.current)
+        }
+      }
     }, [paperId])
 
     // 检查并通知未恢复的批注
@@ -454,14 +478,23 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       zoomAnchor.applyZoomFrame(container)
       // 缩放后重算虚拟化高度
       virtualizerResult.invalidateAllMeasurements()
-      syncScrollableTableWrapState()
+      syncTablesAndRemeasure()
 
       if (zoomSettleTimerRef.current !== null) clearTimeout(zoomSettleTimerRef.current)
       zoomSettleTimerRef.current = setTimeout(() => {
         zoomSettleTimerRef.current = null
         zoomAnchor.endZoom()
       }, 150)
-    }, [zoomLevel, zoomAnchor, syncScrollableTableWrapState, virtualizerResult])
+    }, [zoomLevel, zoomAnchor, syncTablesAndRemeasure, virtualizerResult])
+
+    // 内容渲染完成后同步表格 wrap；不在每次可见项变化时重测（滚动会剧烈抖动）
+    useLayoutEffect(() => {
+      if (loading || !hasContent) {
+        return
+      }
+
+      syncScrollableTableWrapState()
+    }, [engine.renderedSegments, loading, hasContent, syncScrollableTableWrapState])
 
     // 实时同步公式拖选高亮
     useEffect(() => {
@@ -484,9 +517,25 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     // Resize listener for table wraps
     useEffect(() => {
-      window.addEventListener('resize', syncScrollableTableWrapState)
-      return () => window.removeEventListener('resize', syncScrollableTableWrapState)
-    }, [syncScrollableTableWrapState])
+      window.addEventListener('resize', syncTablesAndRemeasure)
+      return () => window.removeEventListener('resize', syncTablesAndRemeasure)
+    }, [syncTablesAndRemeasure])
+
+    // Ctrl/⌘ + 滚轮缩放：必须用非被动监听，否则 preventDefault 在 React 被动 wheel 监听中失效
+    // （报错 "Unable to preventDefault inside passive event listener invocation"）
+    useEffect(() => {
+      const container = scrollContainerRef.current
+      if (!container) {
+        return
+      }
+
+      const onWheel = (event: WheelEvent): void => {
+        handleWheelZoom(event)
+      }
+
+      container.addEventListener('wheel', onWheel, { passive: false })
+      return () => container.removeEventListener('wheel', onWheel)
+    }, [handleWheelZoom])
 
     // Cleanup on unmount
     useEffect(() => {
@@ -620,7 +669,6 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           onClick={handleMarkdownClick}
           onPointerDown={handlePointerDown}
           onScroll={recordScrollPosition}
-          onWheel={(e) => handleWheelZoom(e.nativeEvent)}
         >
           {loading ? (
             <div
@@ -662,6 +710,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
                 totalHeight={virtualizerResult.virtualizer.getTotalSize()}
                 virtualItems={virtualizerResult.virtualizer.getVirtualItems()}
                 measureElement={virtualizerResult.measureElement}
+                zoomLevel={zoomLevel}
               />
             </article>
           )}

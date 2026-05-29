@@ -316,6 +316,26 @@
   user-select: text;
 }
 
+.paper-markdown-view__markdown :global(.katex-display) + :global(.katex-display) {
+  margin-top: 0.5em;
+}
+
+.paper-markdown-view__markdown li :global(.katex-display),
+.paper-markdown-view__markdown li > p + :global(.katex-display) {
+  margin: 0.4em 0;
+}
+
+.paper-markdown-view__markdown table :global(.katex-display),
+.paper-markdown-view__markdown table :global(.paper-katex-table-inline) {
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  max-width: 100%;
+  vertical-align: middle;
+  text-align: initial;
+}
+
 .paper-markdown-view__markdown :global(.katex-display) > :global(.katex) {
   display: inline-block;
   min-width: min-content;

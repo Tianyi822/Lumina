@@ -40,6 +40,7 @@ import {
 } from '@shared/utils'
 import { usePaperHighlightRenderer } from '../composables/usePaperHighlightRenderer'
 import type { RenderSourceSegment, QuoteHighlight } from '../composables/usePaperHighlightRenderer'
+import { postProcessRenderedHtml } from './paperMarkdownPostProcess'
 
 export type { RenderSourceSegment, QuoteHighlight }
 
@@ -98,19 +99,6 @@ interface CachedHtmlResult {
 const LOCAL_IMAGE_DATA_URL_CACHE_LIMIT = 200
 const SEGMENT_HTML_CACHE_LIMIT = 1800
 const localImageDataUrlCache = new Map<string, Promise<string | null>>()
-const RAW_TABLE_INLINE_MATH_PATTERN = /\$([^\n$]+?)\$/g
-const RAW_TABLE_INLINE_MATH_TEST_PATTERN = /\$[^\n$]+?\$/
-const RAW_TABLE_INLINE_MATH_SKIP_SELECTOR = [
-  'code',
-  'pre',
-  'math',
-  'eq',
-  'eqn',
-  '.katex',
-  '.katex-display',
-  '.texmath'
-].join(', ')
-
 function setBoundedCacheValue<T>(
   cache: Map<string, T>,
   key: string,
@@ -283,185 +271,6 @@ async function resolveImagePaths(html: string, basePath: string | undefined): Pr
       image.setAttribute('src', dataUrl)
     })
   )
-
-  return root.innerHTML
-}
-
-function shouldRenderRawTableInlineMathNode(node: Text): boolean {
-  const content = node.textContent || ''
-  if (!RAW_TABLE_INLINE_MATH_TEST_PATTERN.test(content)) {
-    return false
-  }
-
-  const parent = node.parentElement
-  return !!parent && !parent.closest(RAW_TABLE_INLINE_MATH_SKIP_SELECTOR)
-}
-
-function renderRawTableInlineMathNode(
-  doc: Document,
-  textNode: Text,
-  renderInline: (content: string) => string
-): void {
-  const content = textNode.textContent || ''
-  const parent = textNode.parentNode
-  if (!parent) {
-    return
-  }
-
-  const fragment = doc.createDocumentFragment()
-  let cursor = 0
-
-  for (const match of content.matchAll(RAW_TABLE_INLINE_MATH_PATTERN)) {
-    const matchIndex = match.index ?? 0
-    const mathSource = match[0]
-
-    if (matchIndex > cursor) {
-      fragment.appendChild(doc.createTextNode(content.slice(cursor, matchIndex)))
-    }
-
-    const template = doc.createElement('template')
-    template.innerHTML = renderInline(normalizePaperInlineMathForRender(mathSource, 'table'))
-    if (template.content.childNodes.length > 0) {
-      fragment.appendChild(template.content)
-    } else {
-      fragment.appendChild(doc.createTextNode(mathSource))
-    }
-
-    cursor = matchIndex + mathSource.length
-  }
-
-  if (cursor < content.length) {
-    fragment.appendChild(doc.createTextNode(content.slice(cursor)))
-  }
-
-  parent.insertBefore(fragment, textNode)
-  parent.removeChild(textNode)
-}
-
-function renderRawTableInlineMath(root: Element, renderInline: (content: string) => string): void {
-  root.querySelectorAll('table').forEach((table) => {
-    const textNodes: Text[] = []
-    const walker = table.ownerDocument.createTreeWalker(table, NodeFilter.SHOW_TEXT)
-
-    while (walker.nextNode()) {
-      const currentNode = walker.currentNode
-      if (currentNode instanceof Text && shouldRenderRawTableInlineMathNode(currentNode)) {
-        textNodes.push(currentNode)
-      }
-    }
-
-    textNodes.forEach((textNode) => {
-      renderRawTableInlineMathNode(table.ownerDocument, textNode, renderInline)
-    })
-  })
-}
-
-// 代码块内的行内公式渲染（伪代码块中的 $...$ 公式）
-const RAW_CODE_INLINE_MATH_PATTERN = /\$([^\n$]+?)\$/g
-const RAW_CODE_INLINE_MATH_TEST_PATTERN = /\$[^\n$]+?\$/
-const RAW_CODE_INLINE_MATH_SKIP_SELECTOR = ['.katex', '.katex-display', '.texmath'].join(', ')
-
-function renderRawCodeBlockInlineMath(
-  root: Element,
-  renderInline: (content: string) => string
-): void {
-  root.querySelectorAll('pre code').forEach((codeBlock) => {
-    const textNodes: Text[] = []
-    const walker = codeBlock.ownerDocument.createTreeWalker(codeBlock, NodeFilter.SHOW_TEXT)
-
-    while (walker.nextNode()) {
-      const currentNode = walker.currentNode
-      if (
-        currentNode instanceof Text &&
-        RAW_CODE_INLINE_MATH_TEST_PATTERN.test(currentNode.textContent || '')
-      ) {
-        const parent = currentNode.parentElement
-        if (parent && !parent.closest(RAW_CODE_INLINE_MATH_SKIP_SELECTOR)) {
-          textNodes.push(currentNode)
-        }
-      }
-    }
-
-    textNodes.forEach((textNode) => {
-      const content = textNode.textContent || ''
-      const parent = textNode.parentNode
-      if (!parent) return
-
-      const doc = codeBlock.ownerDocument
-      const fragment = doc.createDocumentFragment()
-      let cursor = 0
-
-      for (const match of content.matchAll(RAW_CODE_INLINE_MATH_PATTERN)) {
-        const matchIndex = match.index ?? 0
-        const mathSource = match[0]
-
-        if (matchIndex > cursor) {
-          fragment.appendChild(doc.createTextNode(content.slice(cursor, matchIndex)))
-        }
-
-        const template = doc.createElement('template')
-        template.innerHTML = renderInline(
-          normalizePaperInlineMathForRender(mathSource, 'paragraph')
-        )
-        if (template.content.childNodes.length > 0) {
-          fragment.appendChild(template.content)
-        } else {
-          fragment.appendChild(doc.createTextNode(mathSource))
-        }
-
-        cursor = matchIndex + mathSource.length
-      }
-
-      if (cursor < content.length) {
-        fragment.appendChild(doc.createTextNode(content.slice(cursor)))
-      }
-
-      parent.insertBefore(fragment, textNode)
-      parent.removeChild(textNode)
-    })
-  })
-}
-
-function postProcessRenderedHtml(
-  html: string,
-  renderInline: (content: string) => string,
-  headingId?: string
-): string {
-  if (typeof DOMParser === 'undefined') {
-    return html
-  }
-
-  const parser = new DOMParser()
-  const document = parser.parseFromString(`<div>${html}</div>`, 'text/html')
-  const root = document.body.firstElementChild
-  if (!root) {
-    return html
-  }
-
-  root.querySelectorAll('hr').forEach((separator) => {
-    separator.remove()
-  })
-
-  if (headingId) {
-    const heading = root.querySelector('h1, h2, h3, h4, h5, h6')
-    if (heading) {
-      heading.id = headingId
-    }
-  }
-
-  renderRawTableInlineMath(root, renderInline)
-  renderRawCodeBlockInlineMath(root, renderInline)
-
-  root.querySelectorAll('table').forEach((table) => {
-    if (table.parentElement?.classList.contains('paper-markdown-view__table-wrap')) {
-      return
-    }
-
-    const wrap = document.createElement('div')
-    wrap.className = 'paper-markdown-view__table-wrap'
-    table.parentNode?.insertBefore(wrap, table)
-    wrap.appendChild(table)
-  })
 
   return root.innerHTML
 }

@@ -19,6 +19,12 @@ interface PaperMarkdownSegmentListProps {
   totalHeight: number
   virtualItems: VirtualItem[]
   measureElement: (node: HTMLElement | null) => void
+  /**
+   * 内容容器的 CSS zoom 值。虚拟容器与虚拟项位于 zoom 容器内部，
+   * 而 TanStack 的 totalHeight/start 是「视觉像素」（与外层 scrollTop 同坐标系）。
+   * 因此渲染时需除以 zoom 抵消内部缩放，保证视觉高度/位置与模型一致。
+   */
+  zoomLevel?: number
   onRetranslate?: (params: { segmentId: string; stableId: string }) => void
 }
 
@@ -216,9 +222,10 @@ const PaperMarkdownSegmentList = forwardRef<
   PaperMarkdownSegmentListHandle,
   PaperMarkdownSegmentListProps
 >(function PaperMarkdownSegmentList(
-  { segments, totalHeight, virtualItems, measureElement, onRetranslate },
+  { segments, totalHeight, virtualItems, measureElement, zoomLevel = 1, onRetranslate },
   ref
 ) {
+  const zoomDivisor = zoomLevel || 1
   const [confirmDialog, setConfirmDialog] = useState<{
     segmentId: string
     stableId: string
@@ -267,7 +274,7 @@ const PaperMarkdownSegmentList = forwardRef<
     <>
       <div
         className={styles['paper-markdown-view__virtual-container']}
-        style={{ height: totalHeight }}
+        style={{ height: totalHeight / zoomDivisor }}
       >
         {virtualItems.map((vItem) => {
           const segment = segments[vItem.index]
@@ -280,10 +287,11 @@ const PaperMarkdownSegmentList = forwardRef<
                 position: 'absolute',
                 top: 0,
                 left: 0,
-                transform: `translateY(${vItem.start}px)`,
+                transform: `translateY(${vItem.start / zoomDivisor}px)`,
                 width: '100%'
               }}
               data-index={vItem.index}
+              data-stable-id={segment.stableId}
               ref={measureElement}
             >
               <PaperMarkdownSegmentItem

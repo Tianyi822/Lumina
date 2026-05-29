@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react'
 import type { PaperReadingProgress } from '@shared/types/paper'
 import { usePaperViewStore } from '@renderer/stores/paper'
+import { clampContainerScrollTop } from './usePaperVirtualizer'
 import type { ZoomAnchorController } from '../composables/useZoomAnchor'
 
 interface UseMarkdownScrollPersistenceParams {
@@ -11,6 +12,12 @@ interface UseMarkdownScrollPersistenceParams {
   zoomAnchor: ZoomAnchorController
   zoomLevel: number
   translationVisible: boolean
+}
+
+function computeScrollPercent(container: HTMLElement): number {
+  const scrollableHeight = container.scrollHeight - container.clientHeight
+  if (scrollableHeight <= 0) return 0
+  return Math.min(100, Math.max(0, (container.scrollTop / scrollableHeight) * 100))
 }
 
 export function useMarkdownScrollPersistence({
@@ -37,13 +44,7 @@ export function useMarkdownScrollPersistence({
   const translationVisibleRef = useRef(translationVisible)
   translationVisibleRef.current = translationVisible
 
-  function computeScrollPercent(container: HTMLElement): number {
-    const scrollableHeight = container.scrollHeight - container.clientHeight
-    if (scrollableHeight <= 0) return 0
-    return Math.min(100, Math.max(0, (container.scrollTop / scrollableHeight) * 100))
-  }
-
-  // Record exact scroll position (for switching between papers)
+  // Record exact scroll position（切换论文时恢复精确 scrollTop）
   const recordScrollPosition = useCallback(() => {
     if (!paperId || !scrollContainerRef.current || zoomAnchor.isZooming()) {
       return
@@ -78,6 +79,7 @@ export function useMarkdownScrollPersistence({
 
         scrollContainerRef.current.scrollTop = position.scrollTop
         scrollContainerRef.current.scrollLeft = position.scrollLeft
+        clampContainerScrollTop(scrollContainerRef.current)
       })
     },
     [paperId, getMarkdownScrollPosition, scrollContainerRef]
@@ -148,33 +150,70 @@ export function useMarkdownScrollPersistence({
     }
   }, [handleScroll, scrollContainerRef])
 
-  // Restore reading progress on paper change
-  useEffect(() => {
-    flushPendingSave()
+  const restoreReadingProgressScroll = useCallback(() => {
+    const container = scrollContainerRef.current
+    if (!container) {
+      return false
+    }
+
+    const storedPosition = getMarkdownScrollPosition(paperId)
+    if (storedPosition) {
+      container.scrollTop = storedPosition.scrollTop
+      container.scrollLeft = storedPosition.scrollLeft
+      clampContainerScrollTop(container)
+      return true
+    }
 
     const progress = readingProgress
-    if (!progress) return
+    if (!progress) {
+      return false
+    }
 
+    const scrollableHeight = container.scrollHeight - container.clientHeight
+    if (scrollableHeight <= 0) {
+      return false
+    }
+
+    container.scrollTop = (progress.scrollPercent / 100) * scrollableHeight
+    clampContainerScrollTop(container)
+    return true
+  }, [paperId, readingProgress, getMarkdownScrollPosition, scrollContainerRef])
+
+  const scheduleReadingProgressRestore = useCallback(() => {
     isRestoringRef.current = true
 
-    const timer = setTimeout(() => {
-      const container = scrollContainerRef.current
-      if (!container) {
+    let attempt = 0
+    const maxAttempts = 12
+
+    const tryRestore = (): void => {
+      if (restoreReadingProgressScroll()) {
+        setTimeout(() => {
+          isRestoringRef.current = false
+        }, 300)
+        return
+      }
+
+      attempt += 1
+      if (attempt >= maxAttempts) {
         isRestoringRef.current = false
         return
       }
 
-      const scrollableHeight = container.scrollHeight - container.clientHeight
-      if (scrollableHeight > 0) {
-        container.scrollTop = (progress.scrollPercent / 100) * scrollableHeight
-      }
+      requestAnimationFrame(tryRestore)
+    }
 
-      setTimeout(() => {
-        isRestoringRef.current = false
-      }, 300)
-    }, 100)
+    requestAnimationFrame(tryRestore)
+  }, [restoreReadingProgressScroll])
 
-    return () => clearTimeout(timer)
+  // Restore reading progress on paper change
+  useEffect(() => {
+    flushPendingSave()
+
+    if (!readingProgress && !getMarkdownScrollPosition(paperId)) {
+      return
+    }
+
+    scheduleReadingProgressRestore()
   }, [paperId])
 
   // Restore on loading complete
@@ -185,29 +224,11 @@ export function useMarkdownScrollPersistence({
 
     if (loading || !wasLoading) return
 
-    const progress = readingProgress
-    if (!progress) return
+    if (!readingProgress && !getMarkdownScrollPosition(paperId)) {
+      return
+    }
 
-    isRestoringRef.current = true
-
-    const timer = setTimeout(() => {
-      const container = scrollContainerRef.current
-      if (!container) {
-        isRestoringRef.current = false
-        return
-      }
-
-      const scrollableHeight = container.scrollHeight - container.clientHeight
-      if (scrollableHeight > 0) {
-        container.scrollTop = (progress.scrollPercent / 100) * scrollableHeight
-      }
-
-      setTimeout(() => {
-        isRestoringRef.current = false
-      }, 300)
-    }, 100)
-
-    return () => clearTimeout(timer)
+    scheduleReadingProgressRestore()
   }, [loading])
 
   // Cleanup on unmount
