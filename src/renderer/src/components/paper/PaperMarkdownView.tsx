@@ -452,6 +452,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
       // 同步修正滚动位置（在浏览器绘制前完成，消除抖动）
       zoomAnchor.applyZoomFrame(container)
+      // 缩放后重算虚拟化高度
+      virtualizerResult.invalidateAllMeasurements()
       syncScrollableTableWrapState()
 
       if (zoomSettleTimerRef.current !== null) clearTimeout(zoomSettleTimerRef.current)
