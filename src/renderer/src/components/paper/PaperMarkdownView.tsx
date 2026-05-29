@@ -147,9 +147,19 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     useImperativeHandle(
       ref,
       () => ({
-        scrollToQuoteAndHighlight: quoteHighlight.scrollToQuoteAndHighlight
+        scrollToQuoteAndHighlight: (quote: PaperQuote) => {
+          const index = engine.renderedSegments.findIndex(
+            (s) => s.stableId === quote.segmentStableId
+          )
+          if (index !== -1) {
+            virtualizerResult.virtualizer.scrollToIndex(index, { align: 'center' })
+          }
+          requestAnimationFrame(() => {
+            quoteHighlight.scrollToQuoteAndHighlight(quote)
+          })
+        }
       }),
-      [quoteHighlight]
+      [quoteHighlight, virtualizerResult.virtualizer, engine.renderedSegments]
     )
 
     // Content zoom style
