@@ -304,9 +304,7 @@ export interface EmbeddingFailure {
 /**
  * 判断嵌入操作是否返回失败
  */
-export function isEmbeddingFailure(
-  result: unknown
-): result is EmbeddingFailure {
+export function isEmbeddingFailure(result: unknown): result is EmbeddingFailure {
   return (
     typeof result === 'object' &&
     result !== null &&
@@ -465,7 +463,10 @@ export class EmbeddingService {
         usage: result.usage
       }
     } catch (error) {
-      return { success: false, error: `嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}` }
+      return {
+        success: false,
+        error: `嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
+      }
     }
   }
 
@@ -485,7 +486,10 @@ export class EmbeddingService {
     try {
       return await this.embedBatchInternal(texts, config)
     } catch (error) {
-      return { success: false, error: `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}` }
+      return {
+        success: false,
+        error: `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
+      }
     }
   }
 
@@ -505,7 +509,10 @@ export class EmbeddingService {
     try {
       return await this.embedBatchInternal(texts, config, options)
     } catch (error) {
-      return { success: false, error: `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}` }
+      return {
+        success: false,
+        error: `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
+      }
     }
   }
 

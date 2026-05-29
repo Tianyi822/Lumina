@@ -24,10 +24,7 @@ test('validateSessionTitle', async (t) => {
   })
 
   await t.test('201 字符标题返回错误', () => {
-    assert.equal(
-      validateSessionTitle('x'.repeat(201)),
-      '标题长度不能超过 200 个字符'
-    )
+    assert.equal(validateSessionTitle('x'.repeat(201)), '标题长度不能超过 200 个字符')
   })
 
   await t.test('数字类型返回错误', () => {

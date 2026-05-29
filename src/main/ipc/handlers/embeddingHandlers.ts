@@ -1,9 +1,5 @@
 import { ipcMain } from 'electron'
-import {
-  getEmbeddingService,
-  EmbeddingService,
-  isEmbeddingFailure
-} from '@main/services/embedding'
+import { getEmbeddingService, EmbeddingService, isEmbeddingFailure } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
 import type { EmbeddingConfig } from '@main/types/config'
 
