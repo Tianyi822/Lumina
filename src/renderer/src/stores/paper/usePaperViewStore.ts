@@ -53,7 +53,11 @@ interface PaperViewState {
   canZoomIn: () => boolean
   canZoomOut: () => boolean
 
+  // 注册回调
+  scrollToHeadingFn: ((headingId: string) => boolean) | null
+
   // Actions
+  registerScrollToHeading: (fn: (headingId: string) => boolean) => void
   zoomIn: () => void
   zoomOut: () => void
   resetZoom: () => void
@@ -127,6 +131,7 @@ export const usePaperViewStore = create<PaperViewState>()((set, get) => {
     originalPdfVisible: false,
     paperTocTitle: null as PaperTocEntry | null,
     paperTocItems: [] as PaperTocItem[],
+    scrollToHeadingFn: null as ((headingId: string) => boolean) | null,
 
     // -----------------------------------------------------------------------
     // Getters
@@ -222,7 +227,13 @@ export const usePaperViewStore = create<PaperViewState>()((set, get) => {
       set({ paperTocTitle: null, paperTocItems: [] })
     },
 
+    registerScrollToHeading: (fn: (headingId: string) => boolean) => {
+      set({ scrollToHeadingFn: fn })
+    },
+
     scrollToHeading: (headingId: string): boolean => {
+      const fn = get().scrollToHeadingFn
+      if (fn) return fn(headingId)
       if (typeof document === 'undefined') return false
       const heading = document.getElementById(headingId)
       if (!heading) return false

@@ -323,6 +323,13 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       }
     }, [translationVisible, virtualizerResult])
 
+    // 注册 TOC 跳转回调
+    const registerScrollToHeading = usePaperViewStore((state) => state.registerScrollToHeading)
+    useEffect(() => {
+      registerScrollToHeading(virtualizerResult.scrollToHeadingId)
+      return () => registerScrollToHeading(() => false)
+    }, [virtualizerResult.scrollToHeadingId, registerScrollToHeading])
+
     // Content change effect
     const prevContentRef = useRef(content)
     const prevBasePathRef = useRef(basePath)
