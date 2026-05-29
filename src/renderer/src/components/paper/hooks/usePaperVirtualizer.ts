@@ -42,7 +42,9 @@ export function usePaperVirtualizer({
       return estimateSegmentHeight(segment)
     },
     overscan,
-    getItemKey: (index) => segments[index]?.renderId ?? index
+    getItemKey: (index) => segments[index]?.stableId ?? index,
+    // 增大滚动边距，确保更多段落被预渲染和测量
+    scrollMargin: 400
   })
 
   const scrollToSegment = useCallback(

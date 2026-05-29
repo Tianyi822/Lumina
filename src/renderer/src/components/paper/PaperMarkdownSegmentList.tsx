@@ -4,6 +4,7 @@ import type { RenderedSegment } from './hooks/usePaperMarkdownEngine'
 import styles from './PaperMarkdownSegmentList.module.css'
 
 interface VirtualItem {
+  key: number | string | bigint
   index: number
   start: number
   size: number
@@ -273,7 +274,7 @@ const PaperMarkdownSegmentList = forwardRef<
           if (!segment) return null
           return (
             <div
-              key={segment.renderId}
+              key={vItem.key}
               className={styles['paper-markdown-view__virtual-item']}
               style={{
                 position: 'absolute',
