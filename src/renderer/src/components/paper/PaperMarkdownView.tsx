@@ -461,7 +461,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         zoomSettleTimerRef.current = null
         zoomAnchor.endZoom()
       }, 150)
-    }, [zoomLevel, zoomAnchor, syncScrollableTableWrapState])
+    }, [zoomLevel, zoomAnchor, syncScrollableTableWrapState, virtualizerResult])
 
     // 实时同步公式拖选高亮
     useEffect(() => {

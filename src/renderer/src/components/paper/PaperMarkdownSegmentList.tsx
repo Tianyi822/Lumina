@@ -264,7 +264,10 @@ const PaperMarkdownSegmentList = forwardRef<
 
   return (
     <>
-      <div className={styles['paper-markdown-view__virtual-container']} style={{ height: totalHeight }}>
+      <div
+        className={styles['paper-markdown-view__virtual-container']}
+        style={{ height: totalHeight }}
+      >
         {virtualItems.map((vItem) => {
           const segment = segments[vItem.index]
           if (!segment) return null
