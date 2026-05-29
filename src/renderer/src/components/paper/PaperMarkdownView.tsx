@@ -25,6 +25,7 @@ import {
 } from './hooks/usePaperMarkdownEngine'
 import { usePaperAnnotationComposer } from './hooks/usePaperAnnotationComposer'
 import { usePaperTextSearch } from './hooks/usePaperTextSearch'
+import { usePaperVirtualizer } from './hooks/usePaperVirtualizer'
 import { usePaperQuoteHighlight } from './composables/usePaperQuoteHighlight'
 import { useZoomAnchor } from './composables/useZoomAnchor'
 import { useTableDragScroll } from './hooks/useTableDragScroll'
@@ -34,6 +35,7 @@ import PaperAnnotationHoverPopover from './annotation/PaperAnnotationHoverPopove
 import PaperAnnotationNoteEditor from './annotation/PaperAnnotationNoteEditor'
 import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionMenu'
 import PaperMarkdownSegmentList from './PaperMarkdownSegmentList'
+import type { PaperMarkdownSegmentListHandle } from './PaperMarkdownSegmentList'
 import styles from './PaperMarkdownView.module.css'
 
 interface ReadonlyValueRef<T> {
@@ -84,6 +86,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const deleteAnnotation = usePaperAnnotationStore((state) => state.deleteAnnotation)
 
     const scrollContainerRef = useRef<HTMLDivElement>(null)
+    const segmentListRef = useRef<PaperMarkdownSegmentListHandle>(null)
     const searchInputRef = useRef<HTMLInputElement>(null)
 
     // Text search
@@ -108,6 +111,12 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       annotations,
       setTocOutline: setPaperTocOutline,
       clearToc: clearPaperToc
+    })
+
+    // Virtual scroll
+    const virtualizerResult = usePaperVirtualizer({
+      segments: engine.renderedSegments,
+      scrollContainerRef
     })
 
     const renderedSegmentsRef = useMemo(
@@ -304,6 +313,15 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       },
       [paperId, retranslateSegment, notify]
     )
+
+    // 翻译可见性切换时重算高度
+    const prevTranslationVisibleRef = useRef(translationVisible)
+    useEffect(() => {
+      if (prevTranslationVisibleRef.current !== translationVisible) {
+        prevTranslationVisibleRef.current = translationVisible
+        virtualizerResult.invalidateAllMeasurements()
+      }
+    }, [translationVisible, virtualizerResult])
 
     // Content change effect
     const prevContentRef = useRef(content)
@@ -619,8 +637,12 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
               style={contentZoomStyle}
             >
               <PaperMarkdownSegmentList
+                ref={segmentListRef}
                 segments={engine.renderedSegments}
                 onRetranslate={handleRetranslateSegment}
+                totalHeight={virtualizerResult.virtualizer.getTotalSize()}
+                virtualItems={virtualizerResult.virtualizer.getVirtualItems()}
+                measureElement={virtualizerResult.wrappedMeasureElement}
               />
             </article>
           )}
