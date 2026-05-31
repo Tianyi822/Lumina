@@ -144,7 +144,7 @@ export async function deletePaper(paperId: string): Promise<boolean> {
 
   if (listStore.currentPaperId === paperId) {
     usePaperListStore.getState().selectPaper(null)
-    usePaperListStore.setState({ markdownContent: '' })
+    usePaperListStore.setState({ markdownContent: '', markdownPaperId: null })
     useUIStateStore.getState().setLastPaperId(null)
     resetReaderViewState()
   }
@@ -239,13 +239,13 @@ export async function loadPapersWithState(): Promise<void> {
 
   if (selectedPaper && !isPaperReadableStatus(selectedPaper.status)) {
     listStore.selectPaper(null)
-    usePaperListStore.setState({ markdownContent: '' })
+    usePaperListStore.setState({ markdownContent: '', markdownPaperId: null })
     resetReaderViewState()
   }
 
   if (currentId && !selectedPaper) {
     listStore.selectPaper(null)
-    usePaperListStore.setState({ markdownContent: '' })
+    usePaperListStore.setState({ markdownContent: '', markdownPaperId: null })
     resetReaderViewState()
   }
 }
@@ -410,7 +410,11 @@ export async function loadMarkdownWithDeps(paperId: string): Promise<void> {
   const paper = listStore.papers.find((item) => item.id === paperId)
 
   if (!paper || !isPaperReadableStatus(paper.status)) {
-    usePaperListStore.setState({ markdownContent: '', markdownLoading: false })
+    usePaperListStore.setState({
+      markdownContent: '',
+      markdownPaperId: null,
+      markdownLoading: false
+    })
     usePaperViewStore.getState().clearPaperToc()
     usePaperTranslationStore.getState().setTranslationCache(paperId, null)
     usePaperTranslationStore.getState().setTranslationTaskState(paperId, {
@@ -430,13 +434,20 @@ export async function loadMarkdownWithDeps(paperId: string): Promise<void> {
   try {
     // 加载 reader document 和 markdown
     const readerDocument = await usePaperAnnotationStore.getState().loadReaderDocument(paperId)
+    if (usePaperListStore.getState().currentPaperId !== paperId) {
+      return
+    }
+
     if (readerDocument) {
-      usePaperListStore.setState({ markdownContent: readerDocument.markdown })
+      usePaperListStore.setState({
+        markdownContent: readerDocument.markdown,
+        markdownPaperId: paperId
+      })
       // 翻译缓存后台加载，不阻塞 markdown 内容渲染
       void usePaperTranslationStore.getState().loadTranslationState(paperId)
       await usePaperAnnotationStore.getState().loadAnnotations(paperId)
     } else {
-      usePaperListStore.setState({ markdownContent: '' })
+      usePaperListStore.setState({ markdownContent: '', markdownPaperId: paperId })
       usePaperTranslationStore.getState().setTranslationCache(paperId, null)
       usePaperTranslationStore.getState().setTranslationTaskState(paperId, {
         isRunning: false,
@@ -447,7 +458,9 @@ export async function loadMarkdownWithDeps(paperId: string): Promise<void> {
       usePaperAnnotationStore.getState().setAnnotations(paperId, [])
     }
   } finally {
-    usePaperListStore.setState({ markdownLoading: false })
+    if (usePaperListStore.getState().currentPaperId === paperId) {
+      usePaperListStore.setState({ markdownLoading: false })
+    }
   }
 }
 

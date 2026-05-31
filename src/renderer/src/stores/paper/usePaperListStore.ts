@@ -16,6 +16,7 @@ interface PaperListState {
   papers: PaperDocument[]
   currentPaperId: string | null
   markdownContent: string
+  markdownPaperId: string | null
   markdownLoading: boolean
   renderProgressByPaperId: Record<string, RenderingProgress>
   ocrProgressByPaperId: Record<string, OcrProgressInfo>
@@ -87,6 +88,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
     papers: [] as PaperDocument[],
     currentPaperId: null as string | null,
     markdownContent: '',
+    markdownPaperId: null as string | null,
     markdownLoading: false,
     renderProgressByPaperId: {} as Record<string, RenderingProgress>,
     ocrProgressByPaperId: {} as Record<string, OcrProgressInfo>,
@@ -126,7 +128,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
     loadMarkdown: async (paperId: string): Promise<void> => {
       const paper = get().papers.find((item) => item.id === paperId)
       if (!paper || !isPaperReadableStatus(paper.status)) {
-        set({ markdownContent: '', markdownLoading: false })
+        set({ markdownContent: '', markdownPaperId: null, markdownLoading: false })
         return
       }
 
@@ -134,9 +136,9 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
       try {
         const result = await window.api.paper.getReaderDocument(paperId)
         if (result.success && result.data) {
-          set({ markdownContent: result.data.markdown })
+          set({ markdownContent: result.data.markdown, markdownPaperId: paperId })
         } else {
-          set({ markdownContent: '' })
+          set({ markdownContent: '', markdownPaperId: paperId })
         }
       } finally {
         set({ markdownLoading: false })

@@ -25,9 +25,13 @@ import {
 } from './hooks/usePaperMarkdownEngine'
 import { usePaperAnnotationComposer } from './hooks/usePaperAnnotationComposer'
 import { usePaperTextSearch } from './hooks/usePaperTextSearch'
-import { usePaperVirtualizer } from './hooks/usePaperVirtualizer'
+import { usePaperVirtualizer, type PaperZoomLayoutSync } from './hooks/usePaperVirtualizer'
 import { usePaperQuoteHighlight } from './composables/usePaperQuoteHighlight'
 import { useZoomAnchor } from './composables/useZoomAnchor'
+import {
+  captureVirtualZoomAnchorFromItems,
+  scrollToVirtualZoomAnchor
+} from './composables/paperZoomScrollRestore'
 import { useTableDragScroll } from './hooks/useTableDragScroll'
 import { useMarkdownScrollPersistence } from './hooks/useMarkdownScrollPersistence'
 import { syncFormulaSelectionOnDrag } from './composables/paperDragSelectionSync'
@@ -80,6 +84,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const setPaperTocOutline = usePaperViewStore((state) => state.setPaperTocOutline)
     const clearPaperToc = usePaperViewStore((state) => state.clearPaperToc)
     const handleWheelZoom = usePaperViewStore((state) => state.handleWheelZoom)
+    const registerBeforeZoomChange = usePaperViewStore((state) => state.registerBeforeZoomChange)
 
     const createAnnotation = usePaperAnnotationStore((state) => state.createAnnotation)
     const updateAnnotation = usePaperAnnotationStore((state) => state.updateAnnotation)
@@ -98,8 +103,10 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const quoteHighlightRef = useRef(usePaperQuoteHighlight())
     const quoteHighlight = quoteHighlightRef.current
     const zoomSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const zoomSettleRunIdRef = useRef(0)
     const hasMountedZoomRef = useRef(false)
     const previousZoomLevelRef = useRef(zoomLevel)
+    const zoomLayoutSyncRef = useRef<PaperZoomLayoutSync | null>(null)
 
     // Markdown engine
     const engine = usePaperMarkdownEngine({
@@ -113,12 +120,34 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       clearToc: clearPaperToc
     })
 
+    const renderedSegmentsForZoomRef = useRef(engine.renderedSegments)
+    renderedSegmentsForZoomRef.current = engine.renderedSegments
+
     // Virtual scroll
     const virtualizerResult = usePaperVirtualizer({
       segments: engine.renderedSegments,
       scrollContainerRef,
-      zoomLevel
+      zoomLevel,
+      zoomLayoutSyncRef
     })
+
+    zoomLayoutSyncRef.current = {
+      onAfterRemeasure: (container) => {
+        if (!zoomAnchor.isZooming()) {
+          virtualizerResult.isZoomingRef.current = true
+          zoomAnchor.beginZoom(container)
+        }
+        const anchor = zoomAnchor.getAnchor()
+        if (anchor) {
+          scrollToVirtualZoomAnchor(
+            container,
+            virtualizerResult.virtualizer,
+            anchor,
+            renderedSegmentsForZoomRef.current
+          )
+        }
+      }
+    }
 
     const renderedSegmentsRef = useMemo(
       () =>
@@ -184,24 +213,40 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     }, [])
 
     const remeasureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const pendingRemeasureCallbacksRef = useRef<Array<() => void>>([])
 
     // 表格 wrap 状态同步；重测防抖，避免滚动时可见项变化引发连续测高抖动
-    const syncTablesAndRemeasure = useCallback(() => {
-      syncScrollableTableWrapState()
-      if (remeasureTimerRef.current !== null) {
-        clearTimeout(remeasureTimerRef.current)
-      }
-      remeasureTimerRef.current = setTimeout(() => {
-        remeasureTimerRef.current = null
-        virtualizerResult.remeasureMountedSegments()
-      }, 120)
-    }, [syncScrollableTableWrapState, virtualizerResult])
+    const syncTablesAndRemeasure = useCallback(
+      (onAfterRemeasure?: () => void) => {
+        syncScrollableTableWrapState()
+        if (onAfterRemeasure) {
+          pendingRemeasureCallbacksRef.current.push(onAfterRemeasure)
+        }
+        if (remeasureTimerRef.current !== null) {
+          clearTimeout(remeasureTimerRef.current)
+        }
+        remeasureTimerRef.current = setTimeout(() => {
+          remeasureTimerRef.current = null
+          virtualizerResult.remeasureMountedSegments()
+          const callbacks = pendingRemeasureCallbacksRef.current.splice(0)
+          for (const callback of callbacks) {
+            callback()
+          }
+        }, 120)
+      },
+      [syncScrollableTableWrapState, virtualizerResult]
+    )
 
     // Table drag scroll
     const { handlePointerDown, lastDragEndedAt } = useTableDragScroll()
 
     // Scroll persistence
-    const { recordScrollPosition, restoreScrollPosition } = useMarkdownScrollPersistence({
+    const {
+      recordScrollPosition,
+      restoreScrollPosition,
+      persistReadingProgressNow,
+      discardPendingReadingProgress
+    } = useMarkdownScrollPersistence({
       scrollContainerRef,
       paperId,
       readingProgress,
@@ -210,6 +255,31 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       zoomLevel,
       translationVisible
     })
+
+    const prepareZoomSession = useCallback(() => {
+      const container = scrollContainerRef.current
+      if (!container) {
+        return
+      }
+
+      discardPendingReadingProgress()
+      virtualizerResult.isZoomingRef.current = true
+
+      if (zoomAnchor.isZooming()) {
+        return
+      }
+
+      const anchor = captureVirtualZoomAnchorFromItems(
+        container.scrollTop,
+        container.clientHeight,
+        virtualizerResult.virtualizer.getVirtualItems(),
+        renderedSegmentsForZoomRef.current
+      )
+
+      if (!zoomAnchor.beginZoomWithAnchor(anchor)) {
+        zoomAnchor.beginZoom(container)
+      }
+    }, [discardPendingReadingProgress, virtualizerResult, zoomAnchor])
 
     // 未恢复批注通知（每次论文加载只提示一次）
     const unresolvedNotifiedRef = useRef(false)
@@ -231,9 +301,17 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     useEffect(() => {
       unresolvedNotifiedRef.current = false
       return () => {
+        zoomSettleRunIdRef.current += 1
+        virtualizerResult.isZoomingRef.current = false
+        zoomAnchor.endZoom()
+        if (zoomSettleTimerRef.current !== null) {
+          clearTimeout(zoomSettleTimerRef.current)
+          zoomSettleTimerRef.current = null
+        }
         if (remeasureTimerRef.current !== null) {
           clearTimeout(remeasureTimerRef.current)
         }
+        pendingRemeasureCallbacksRef.current = []
       }
     }, [paperId])
 
@@ -345,7 +423,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           })
         }
       },
-      [paperId, retranslateSegment, notify]
+      [paperId, notify]
     )
 
     // 翻译可见性切换时重算高度
@@ -363,6 +441,13 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       registerScrollToHeading(virtualizerResult.scrollToHeadingId)
       return () => registerScrollToHeading(() => false)
     }, [virtualizerResult.scrollToHeadingId, registerScrollToHeading])
+
+    // 缩放前先捕获当前视口中心虚拟锚点，避免缩放后再反查 DOM 造成中部漂移
+    useEffect(() => {
+      return registerBeforeZoomChange(() => {
+        prepareZoomSession()
+      })
+    }, [registerBeforeZoomChange, prepareZoomSession])
 
     // Content change effect
     const prevContentRef = useRef(content)
@@ -443,7 +528,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [textSearch.isOpen])
 
-    // Zoom level effect — useLayoutEffect 确保在浏览器绘制前同步修正滚动位置
+    // 缩放 settle：虚拟测量与锚点修正由 usePaperVirtualizer + zoomLayoutSyncRef 处理
     useLayoutEffect(() => {
       if (!hasMountedZoomRef.current) {
         hasMountedZoomRef.current = true
@@ -458,34 +543,55 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
       previousZoomLevelRef.current = zoomLevel
 
-      const container = scrollContainerRef.current
-      if (!container) return
-
-      if (!zoomAnchor.isZooming()) {
-        // 首次缩放步进：DOM 已更新缩放但 scrollTop 未变，需先用数学方式修正滚动位置
-        // 再捕获锚点，否则 beginZoom 捕获的是已偏移的错误锚点
-        const ratio = zoomLevel / prevLevel
-        const scrollTop = container.scrollTop
-        const clientHeight = container.clientHeight
-        container.scrollTop = scrollTop * ratio + (clientHeight / 2) * (ratio - 1)
-        zoomAnchor.beginZoom(container)
-      }
-
-      // 强制同步布局重计算，确保滚动修正基于新的缩放布局
-      void container.offsetHeight
-
-      // 同步修正滚动位置（在浏览器绘制前完成，消除抖动）
-      zoomAnchor.applyZoomFrame(container)
-      // 缩放后重算虚拟化高度
-      virtualizerResult.invalidateAllMeasurements()
-      syncTablesAndRemeasure()
+      const zoomSettleRunId = zoomSettleRunIdRef.current + 1
+      zoomSettleRunIdRef.current = zoomSettleRunId
 
       if (zoomSettleTimerRef.current !== null) clearTimeout(zoomSettleTimerRef.current)
       zoomSettleTimerRef.current = setTimeout(() => {
+        if (zoomSettleRunIdRef.current !== zoomSettleRunId) {
+          return
+        }
         zoomSettleTimerRef.current = null
-        zoomAnchor.endZoom()
+        virtualizerResult.finalizeZoomRemeasure((container) => {
+          if (zoomSettleRunIdRef.current !== zoomSettleRunId) {
+            return
+          }
+          const currentAnchor = zoomAnchor.getAnchor()
+          if (container && currentAnchor) {
+            scrollToVirtualZoomAnchor(
+              container,
+              virtualizerResult.virtualizer,
+              currentAnchor,
+              renderedSegmentsForZoomRef.current
+            )
+          }
+          syncTablesAndRemeasure(() => {
+            if (zoomSettleRunIdRef.current !== zoomSettleRunId) {
+              return
+            }
+            const settledContainer = scrollContainerRef.current
+            const settledAnchor = zoomAnchor.getAnchor()
+            if (settledContainer && settledAnchor) {
+              scrollToVirtualZoomAnchor(
+                settledContainer,
+                virtualizerResult.virtualizer,
+                settledAnchor,
+                renderedSegmentsForZoomRef.current
+              )
+            }
+            persistReadingProgressNow()
+            virtualizerResult.isZoomingRef.current = false
+            zoomAnchor.endZoom()
+          })
+        })
       }, 150)
-    }, [zoomLevel, zoomAnchor, syncTablesAndRemeasure, virtualizerResult])
+    }, [
+      zoomLevel,
+      zoomAnchor,
+      syncTablesAndRemeasure,
+      virtualizerResult,
+      persistReadingProgressNow
+    ])
 
     // 内容渲染完成后同步表格 wrap；不在每次可见项变化时重测（滚动会剧烈抖动）
     useLayoutEffect(() => {
@@ -517,8 +623,12 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     // Resize listener for table wraps
     useEffect(() => {
-      window.addEventListener('resize', syncTablesAndRemeasure)
-      return () => window.removeEventListener('resize', syncTablesAndRemeasure)
+      const handleResize = (): void => {
+        syncTablesAndRemeasure()
+      }
+
+      window.addEventListener('resize', handleResize)
+      return () => window.removeEventListener('resize', handleResize)
     }, [syncTablesAndRemeasure])
 
     // Ctrl/⌘ + 滚轮缩放：必须用非被动监听，否则 preventDefault 在 React 被动 wheel 监听中失效
