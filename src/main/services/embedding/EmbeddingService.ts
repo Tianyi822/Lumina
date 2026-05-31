@@ -526,14 +526,13 @@ export class EmbeddingService {
       const worker = new Worker(new URL('./tokenEstimatorWorker.ts', import.meta.url))
       const id = crypto.randomUUID()
       let settled = false
-      let timeout: ReturnType<typeof setTimeout>
 
       const cleanup = (): void => {
         clearTimeout(timeout)
         worker.terminate()
       }
 
-      timeout = setTimeout(() => {
+      const timeout = setTimeout(() => {
         if (!settled) {
           settled = true
           cleanup()
