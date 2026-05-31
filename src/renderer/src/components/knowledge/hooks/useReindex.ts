@@ -6,6 +6,7 @@ import type { FileItem } from '@renderer/types'
 export function useReindex(
   kbId: string | undefined,
   linkedFiles: FileItem[],
+  invalidatedFileIds: string[],
   onStatsNeedUpdate: () => Promise<void>,
   onKnowledgeBaseNeedUpdate?: () => Promise<void> | void
 ) {
@@ -18,36 +19,50 @@ export function useReindex(
   const handleReindex = useCallback(async () => {
     if (!kbId) return
 
-    if (linkedFiles.length === 0) {
+    const invalidatedFileIdSet = new Set(invalidatedFileIds)
+    const filesToReindex =
+      invalidatedFileIdSet.size > 0
+        ? linkedFiles.filter((file) => invalidatedFileIdSet.has(file.id))
+        : linkedFiles
+    const isPartialReindex = invalidatedFileIdSet.size > 0
+
+    if (filesToReindex.length === 0) {
       notify.info('没有文件需要索引', undefined, { source: 'knowledge' })
       return
     }
 
-    const confirmed = await notify.confirm('这将删除现有索引并重新构建。', {
-      title: '重新索引整个知识库',
-      source: 'knowledge',
-      danger: true
-    })
+    const confirmed = await notify.confirm(
+      isPartialReindex
+        ? `将重新索引 ${filesToReindex.length} 个已更新文件。`
+        : '这将删除现有索引并重新构建。',
+      {
+        title: isPartialReindex ? '重新索引已更新文件' : '重新索引整个知识库',
+        source: 'knowledge',
+        danger: !isPartialReindex
+      }
+    )
 
     if (!confirmed) return
 
     indexStore.setKBReindexing(kbId, true)
-    setReindexProgress({ current: 0, total: linkedFiles.length, currentFile: '' })
+    setReindexProgress({ current: 0, total: filesToReindex.length, currentFile: '' })
 
     indexStore.setFilesIndexing(
       kbId,
-      linkedFiles.map((f) => ({ fileId: f.id, fileName: f.name }))
+      filesToReindex.map((f) => ({ fileId: f.id, fileName: f.name }))
     )
 
     indexStore.startRefresh()
 
-    for (const file of linkedFiles) {
+    for (const file of filesToReindex) {
       indexStore.markIndexCallStarted(kbId, file.id)
     }
 
     try {
-      const fileIds = linkedFiles.map((file) => file.id)
-      const result = await window.api.knowledge.reindex(kbId, fileIds)
+      const fileIds = filesToReindex.map((file) => file.id)
+      const result = await window.api.knowledge.reindex(kbId, fileIds, {
+        scope: isPartialReindex ? 'files' : 'full'
+      })
 
       if (result.success) {
         notify.success('重新索引完成', `成功索引 ${result.data?.indexedCount || 0} 个文件`, {
@@ -63,23 +78,33 @@ export function useReindex(
             source: 'knowledge',
             sticky: true
           })
+          await onKnowledgeBaseNeedUpdate?.()
         } else {
           notify.error('重新索引失败', result.error || '未知错误', { source: 'knowledge' })
         }
       }
     } catch (error) {
       notify.error('重新索引失败', error instanceof Error ? error.message : String(error), {
-        source: 'knowledge'
+        source: 'knowledge',
+        sticky: true
       })
     } finally {
       indexStore.setKBReindexing(kbId, false)
       setReindexProgress({ current: 0, total: 0, currentFile: '' })
-      for (const file of linkedFiles) {
+      for (const file of filesToReindex) {
         indexStore.markIndexCallFinished(kbId, file.id)
       }
       await onStatsNeedUpdate()
     }
-  }, [kbId, linkedFiles, notify, indexStore, onStatsNeedUpdate, onKnowledgeBaseNeedUpdate])
+  }, [
+    kbId,
+    linkedFiles,
+    invalidatedFileIds,
+    notify,
+    indexStore,
+    onStatsNeedUpdate,
+    onKnowledgeBaseNeedUpdate
+  ])
 
   return {
     reindexProgress,

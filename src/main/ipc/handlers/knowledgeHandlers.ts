@@ -4,7 +4,7 @@ import { getVectorDBService } from '@main/services/vector'
 import { logger } from '@main/services/logger'
 import { getMainWindow } from '@main/core/window'
 import { getFileService } from '@main/services/file/FileService'
-import type { KnowledgeBase } from '@shared/types/knowledge'
+import type { KnowledgeBase, KnowledgeReindexOptions } from '@shared/types/knowledge'
 
 // 初始化知识库服务，在应用启动时加载知识库数据
 export function initializeKnowledge(): void {
@@ -20,9 +20,9 @@ export function initializeKnowledge(): void {
 // 注册知识库相关的 IPC 处理程序，处理知识库的增删改查、文件索引和搜索等操作
 export function registerKnowledgeHandlers(): void {
   // 获取所有知识库列表
-  ipcMain.handle('knowledge:getAll', () => {
+  ipcMain.handle('knowledge:getAll', async () => {
     try {
-      const knowledgeBases = getKnowledgeServiceManager().getAllKnowledgeBases()
+      const knowledgeBases = await getKnowledgeServiceManager().getAllKnowledgeBases()
       return {
         success: true,
         data: knowledgeBases
@@ -38,9 +38,9 @@ export function registerKnowledgeHandlers(): void {
   })
 
   // 根据知识库 ID 获取知识库详情
-  ipcMain.handle('knowledge:getById', (_event, id: string) => {
+  ipcMain.handle('knowledge:getById', async (_event, id: string) => {
     try {
-      const knowledgeBase = getKnowledgeServiceManager().getKnowledgeBaseById(id)
+      const knowledgeBase = await getKnowledgeServiceManager().getKnowledgeBaseById(id)
       if (!knowledgeBase) {
         return {
           success: false,
@@ -66,7 +66,7 @@ export function registerKnowledgeHandlers(): void {
     'knowledge:create',
     async (_event, data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>) => {
       try {
-        const newKB = getKnowledgeServiceManager().createKnowledgeBase(data)
+        const newKB = await getKnowledgeServiceManager().createKnowledgeBase(data)
         return {
           success: true,
           data: newKB
@@ -87,7 +87,7 @@ export function registerKnowledgeHandlers(): void {
     'knowledge:update',
     async (_event, id: string, updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>) => {
       try {
-        const updatedKB = getKnowledgeServiceManager().updateKnowledgeBase(id, updates)
+        const updatedKB = await getKnowledgeServiceManager().updateKnowledgeBase(id, updates)
         if (!updatedKB) {
           return {
             success: false,
@@ -112,7 +112,7 @@ export function registerKnowledgeHandlers(): void {
   // 删除知识库
   ipcMain.handle('knowledge:delete', async (_event, id: string) => {
     try {
-      const result = getKnowledgeServiceManager().deleteKnowledgeBase(id)
+      const result = await getKnowledgeServiceManager().deleteKnowledgeBase(id)
       return result
     } catch (error) {
       const errorMessage = `删除知识库失败: ${error instanceof Error ? error.message : String(error)}`
@@ -145,7 +145,7 @@ export function registerKnowledgeHandlers(): void {
   // 索引文件到知识库，使用队列控制并发以避免多个知识库同时索引导致阻塞
   ipcMain.handle('knowledge:indexFile', async (_event, kbId: string, fileId: string) => {
     try {
-      const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+      const kb = await getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
       if (!kb) {
         return { success: false, error: '知识库不存在' }
       }
@@ -157,14 +157,14 @@ export function registerKnowledgeHandlers(): void {
       const result = await manager.executeIndexingTask(kbId, () =>
         service.indexFile(kbId, fileId, (progress: FileProcessingProgress) => {
           const win = getMainWindow()
-          if (win) {
+          if (win && !win.isDestroyed()) {
             win.webContents.send('knowledge:file-progress', { kbId, progress })
           }
           // 文件索引进度通过 IPC 事件发送，不打印日志
         })
       )
       if (result.success) {
-        manager.clearKnowledgeBaseFileInvalidation(kbId, fileId)
+        await manager.clearKnowledgeBaseFileInvalidation(kbId, fileId)
       }
       return result as { success: boolean; error?: string }
     } catch (error) {
@@ -180,7 +180,7 @@ export function registerKnowledgeHandlers(): void {
   // 从知识库移除文件索引
   ipcMain.handle('knowledge:removeFileIndex', async (_event, kbId: string, fileId: string) => {
     try {
-      const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+      const kb = await getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
       if (!kb) {
         return { success: false, error: '知识库不存在' }
       }
@@ -198,67 +198,83 @@ export function registerKnowledgeHandlers(): void {
     }
   })
 
-  // 重新索引整个知识库，使用队列控制并发以避免多个知识库同时索引导致阻塞
-  ipcMain.handle('knowledge:reindex', async (_event, kbId: string, fileIds: string[]) => {
-    try {
-      const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
-      if (!kb) {
-        return { success: false, error: '知识库不存在' }
-      }
+  // 重新索引知识库，使用队列控制并发以避免多个知识库同时索引导致阻塞
+  ipcMain.handle(
+    'knowledge:reindex',
+    async (_event, kbId: string, fileIds: string[], options?: KnowledgeReindexOptions) => {
+      try {
+        const kb = await getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+        if (!kb) {
+          return { success: false, error: '知识库不存在' }
+        }
 
-      const manager = getKnowledgeServiceManager()
-      const service = manager.getOrCreateInstance(kbId, kb)
+        const manager = getKnowledgeServiceManager()
+        const service = manager.getOrCreateInstance(kbId, kb)
 
-      // 使用队列执行重新索引任务，避免多个知识库同时索引导致阻塞
-      const result = await manager.executeIndexingTask(kbId, () =>
-        service.reindexKnowledgeBase(
-          kbId,
-          fileIds,
-          (progress) => {
-            const win = getMainWindow()
-            if (win) {
-              win.webContents.send('knowledge:reindex-progress', { kbId, progress })
-            }
-            // 重新索引进度通过 IPC 事件发送，不打印日志
-          },
-          (fileProgress) => {
-            const win = getMainWindow()
-            if (win) {
-              win.webContents.send('knowledge:file-progress', { kbId, progress: fileProgress })
-            }
-            // 文件索引进度通过 IPC 事件发送，不打印日志
-          }
+        // 使用队列执行重新索引任务，避免多个知识库同时索引导致阻塞
+        const result = await manager.executeIndexingTask(kbId, () =>
+          service.reindexKnowledgeBase(
+            kbId,
+            fileIds,
+            (progress) => {
+              const win = getMainWindow()
+              if (win && !win.isDestroyed()) {
+                win.webContents.send('knowledge:reindex-progress', { kbId, progress })
+              }
+              // 重新索引进度通过 IPC 事件发送，不打印日志
+            },
+            (fileProgress) => {
+              const win = getMainWindow()
+              if (win && !win.isDestroyed()) {
+                win.webContents.send('knowledge:file-progress', { kbId, progress: fileProgress })
+              }
+              // 文件索引进度通过 IPC 事件发送，不打印日志
+            },
+            options
+          )
         )
-      )
-      // result 直接是 reindexKnowledgeBase 的返回类型
-      if (result.success) {
-        manager.clearKnowledgeBaseInvalidation(kbId)
-      }
-      return {
-        success: result.success,
-        data: {
-          indexedCount: result.indexedCount,
-          failedFiles: result.failedFiles,
-          failedErrors: result.failedErrors
-        },
-        error: result.error
-      }
-    } catch (error) {
-      const errorMessage = `重新索引知识库失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return {
-        success: false,
-        error: errorMessage
+
+        // result 直接是 reindexKnowledgeBase 的返回类型
+        const staleFileIds = result.skippedFileIds || []
+        if (options?.scope === 'files') {
+          for (const fileId of [...result.indexedFileIds, ...staleFileIds]) {
+            await manager.clearKnowledgeBaseFileInvalidation(kbId, fileId)
+          }
+        } else if (result.success) {
+          await manager.clearKnowledgeBaseInvalidation(kbId)
+        } else {
+          for (const fileId of staleFileIds) {
+            await manager.clearKnowledgeBaseFileInvalidation(kbId, fileId)
+          }
+        }
+
+        return {
+          success: result.success,
+          data: {
+            indexedCount: result.indexedCount,
+            failedFiles: result.failedFiles,
+            failedErrors: result.failedErrors,
+            skippedFiles: result.skippedFiles
+          },
+          error: result.error
+        }
+      } catch (error) {
+        const errorMessage = `重新索引知识库失败: ${error instanceof Error ? error.message : String(error)}`
+        logger.error(errorMessage)
+        return {
+          success: false,
+          error: errorMessage
+        }
       }
     }
-  })
+  )
 
   // 在知识库中搜索相关内容
   ipcMain.handle(
     'knowledge:search',
     async (_event, kbId: string, query: string, limit?: number) => {
       try {
-        const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+        const kb = await getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
         if (!kb) {
           return { success: false, error: '知识库不存在' }
         }
@@ -280,7 +296,7 @@ export function registerKnowledgeHandlers(): void {
   // 获取知识库的统计信息，包括文档数量、向量数量等
   ipcMain.handle('knowledge:getStats', async (_event, kbId: string) => {
     try {
-      const kb = getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
+      const kb = await getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
       if (!kb) {
         return { success: false, error: '知识库不存在' }
       }

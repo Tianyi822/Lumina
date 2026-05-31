@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { sessionService } from '../../services/session'
 import { logger } from '../../services/logger'
+import { validateSessionTitle } from './sessionValidation'
 import type { SessionData, SessionListItem, SessionResult, SessionType } from '../../types/session'
 
 /**
@@ -12,13 +13,18 @@ export function registerSessionHandlers(): void {
    */
   ipcMain.handle(
     'session:create',
-    async (_, title?: string, type?: SessionType): Promise<SessionData> => {
+    async (_, title?: string, type?: SessionType): Promise<SessionResult> => {
       try {
-        return sessionService.createSession(title, type)
+        const validationError = validateSessionTitle(title)
+        if (validationError) {
+          return { success: false, error: validationError }
+        }
+        const data = sessionService.createSession(title, type)
+        return { success: true, data }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)
         logger.error('创建会话失败', 'main', { error: errorMessage })
-        throw new Error(errorMessage)
+        return { success: false, error: errorMessage }
       }
     }
   )
@@ -39,13 +45,17 @@ export function registerSessionHandlers(): void {
   /**
    * 加载会话
    */
-  ipcMain.handle('session:load', async (_, sessionId: string): Promise<SessionData | null> => {
+  ipcMain.handle('session:load', async (_, sessionId: string): Promise<SessionResult> => {
     try {
-      return sessionService.loadSession(sessionId)
+      const data = sessionService.loadSession(sessionId)
+      if (!data) {
+        return { success: false, error: '会话不存在' }
+      }
+      return { success: true, data }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('加载会话失败', 'main', { error: errorMessage })
-      return null
+      return { success: false, error: errorMessage }
     }
   })
 

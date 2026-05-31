@@ -150,7 +150,7 @@ export const sshConnectTool: LabToolDefinition = {
 
     if (!connectResult.success) {
       lab.status = 'error'
-      labService.saveLab(lab)
+      await labService.saveLab(lab)
       return {
         success: false,
         error: `SSH 连接失败: ${connectResult.error || '未知错误'}（实验室已创建，ID: ${labId}）`
@@ -163,7 +163,7 @@ export const sshConnectTool: LabToolDefinition = {
       lab.ssh.connected = true
       lab.ssh.lastConnectedAt = new Date().toISOString()
     }
-    labService.saveLab(lab)
+    await labService.saveLab(lab)
 
     logger.info('SSH 实验室创建并连接成功', 'main', { labId, host, username })
 
@@ -224,7 +224,7 @@ export const sshDisconnectTool: LabToolDefinition = {
     if (lab.ssh) {
       lab.ssh.connected = false
     }
-    labService.saveLab(lab)
+    await labService.saveLab(lab)
 
     logger.info('SSH 连接已断开', 'main', { labId: lab.labId })
 

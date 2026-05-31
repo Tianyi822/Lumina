@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { deepClone } from '@shared/utils'
 import { usePaperChatMessageCacheStore } from './paperChatMessageCacheStore'
 import { useReactIterationManager } from './paperChatReactIteration'
 import { usePlanStateManager } from './paperChatPlanState'
@@ -103,7 +104,7 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
   saveMessagesSnapshot: (sessionId, messages) =>
     set((s) => {
       const next = new Map(s.messagesSnapshots)
-      next.set(sessionId, JSON.parse(JSON.stringify(messages)))
+      next.set(sessionId, deepClone(messages))
       return { messagesSnapshots: next }
     }),
 

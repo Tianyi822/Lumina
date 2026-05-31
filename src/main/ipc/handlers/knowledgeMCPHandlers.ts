@@ -24,7 +24,9 @@ function notifyStatusChange(): void {
   const status = service.getStatus()
   const windows = BrowserWindow.getAllWindows()
   for (const win of windows) {
-    win.webContents.send('knowledge-mcp:statusChange', status)
+    if (!win.isDestroyed()) {
+      win.webContents.send('knowledge-mcp:statusChange', status)
+    }
   }
 }
 

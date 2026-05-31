@@ -1,7 +1,9 @@
 import OpenAI from 'openai'
+import { Worker } from 'worker_threads'
 import { encode } from 'gpt-tokenizer/encoding/cl100k_base'
 import { logger } from '@main/services/logger'
 import type { EmbeddingConfig } from '@main/types/config'
+import { EMBEDDING_WORKER_TIMEOUT } from '@main/constants/timeouts'
 
 const EMBEDDING_MAX_REQUESTS_PER_SECOND = 20
 const EMBEDDING_MAX_TOKENS_PER_MINUTE = 1_200_000
@@ -292,6 +294,26 @@ export interface ConnectionTestResult {
 }
 
 /**
+ * 嵌入操作失败结果
+ */
+export interface EmbeddingFailure {
+  success: false
+  error: string
+}
+
+/**
+ * 判断嵌入操作是否返回失败
+ */
+export function isEmbeddingFailure(result: unknown): result is EmbeddingFailure {
+  return (
+    typeof result === 'object' &&
+    result !== null &&
+    'success' in result &&
+    (result as EmbeddingFailure).success === false
+  )
+}
+
+/**
  * 预定义的嵌入模型配置
  */
 export const PRESET_EMBEDDING_MODELS: Record<
@@ -425,10 +447,10 @@ export class EmbeddingService {
   /**
    * 生成单个文本的嵌入向量
    */
-  async embed(text: string): Promise<EmbeddingResult> {
+  async embed(text: string): Promise<EmbeddingResult | EmbeddingFailure> {
     const config = this.config
     if (!config || !this.client) {
-      throw new Error('嵌入模型未配置')
+      return { success: false, error: '嵌入模型未配置' }
     }
 
     try {
@@ -441,52 +463,105 @@ export class EmbeddingService {
         usage: result.usage
       }
     } catch (error) {
-      throw new Error(`嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`)
+      return {
+        success: false,
+        error: `嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
+      }
     }
   }
 
   /**
    * 批量生成嵌入向量
    */
-  async embedBatch(texts: string[]): Promise<BatchEmbeddingResult> {
+  async embedBatch(texts: string[]): Promise<BatchEmbeddingResult | EmbeddingFailure> {
     const config = this.config
     if (!config || !this.client) {
-      throw new Error('嵌入模型未配置')
+      return { success: false, error: '嵌入模型未配置' }
     }
 
     if (texts.length === 0) {
-      throw new Error('输入文本列表不能为空')
+      return { success: false, error: '输入文本列表不能为空' }
     }
 
     try {
       return await this.embedBatchInternal(texts, config)
     } catch (error) {
-      throw new Error(
-        `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
-      )
+      return {
+        success: false,
+        error: `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
+      }
     }
   }
 
   async embedBatchWithOptions(
     texts: string[],
     options: BatchEmbeddingOptions = {}
-  ): Promise<BatchEmbeddingResult> {
+  ): Promise<BatchEmbeddingResult | EmbeddingFailure> {
     const config = this.config
     if (!config || !this.client) {
-      throw new Error('嵌入模型未配置')
+      return { success: false, error: '嵌入模型未配置' }
     }
 
     if (texts.length === 0) {
-      throw new Error('输入文本列表不能为空')
+      return { success: false, error: '输入文本列表不能为空' }
     }
 
     try {
       return await this.embedBatchInternal(texts, config, options)
     } catch (error) {
-      throw new Error(
-        `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
-      )
+      return {
+        success: false,
+        error: `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
+      }
     }
+  }
+
+  private async estimateTokensBatch(texts: string[]): Promise<number[]> {
+    // 小批量直接同步计算，避免 Worker 开销
+    if (texts.length <= 50) {
+      return texts.map((text) => this.tokenEstimator(text))
+    }
+
+    return new Promise((resolve) => {
+      const worker = new Worker(new URL('./tokenEstimatorWorker.ts', import.meta.url))
+      const id = crypto.randomUUID()
+      let settled = false
+      let timeout: ReturnType<typeof setTimeout>
+
+      const cleanup = (): void => {
+        clearTimeout(timeout)
+        worker.terminate()
+      }
+
+      timeout = setTimeout(() => {
+        if (!settled) {
+          settled = true
+          cleanup()
+          resolve(texts.map((text) => this.tokenEstimator(text)))
+        }
+      }, EMBEDDING_WORKER_TIMEOUT)
+
+      worker.on('message', (msg: { id: string; estimates: number[] }) => {
+        if (msg.id === id && !settled) {
+          settled = true
+          cleanup()
+          resolve(msg.estimates)
+        }
+      })
+
+      worker.on('error', (err) => {
+        if (!settled) {
+          settled = true
+          cleanup()
+          logger.warn('Worker token 估算失败，回退到同步计算', 'main', {
+            error: err instanceof Error ? err.message : String(err)
+          })
+          resolve(texts.map((text) => this.tokenEstimator(text)))
+        }
+      })
+
+      worker.postMessage({ id, texts })
+    })
   }
 
   private async embedBatchInternal(
@@ -500,7 +575,7 @@ export class EmbeddingService {
     }
 
     const limiter = this.getRateLimiter(config)
-    const tokenEstimates = texts.map((text) => this.tokenEstimator(text))
+    const tokenEstimates = await this.estimateTokensBatch(texts)
     const embeddings: number[][] = new Array(texts.length)
     const usage = {
       prompt_tokens: 0,

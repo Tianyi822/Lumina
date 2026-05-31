@@ -9,7 +9,7 @@ import {
   isPaperReferenceLikeSegment,
   parsePaperTranslationSegments,
   stripPaperTranslationMarkdown
-} from './paperTranslation.ts'
+} from './paperTranslation/index.ts'
 
 test('可以按空段稳定切分论文 Markdown 段落', () => {
   const markdown = [

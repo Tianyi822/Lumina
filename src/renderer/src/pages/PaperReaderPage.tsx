@@ -1,5 +1,16 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { usePaperListStore } from '@renderer/stores/paper'
+import { usePaperTranslationStore } from '@renderer/stores/paper'
+import { usePaperFigureStore } from '@renderer/stores/paper'
+import { usePaperViewStore } from '@renderer/stores/paper'
+import { usePaperAnnotationStore } from '@renderer/stores/paper'
+import {
+  openPaper,
+  loadPapersWithState,
+  ensurePaperChatSession,
+  toggleTranslationVisible,
+  uploadAndRenderPdf
+} from '@renderer/stores/paper'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperChatQuoteStore } from '@renderer/stores/paperChatQuoteStore'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -28,33 +39,35 @@ function clampPaperChatPanelWidth(value: number): number {
 }
 
 export default function PaperReaderPage() {
-  const currentPaperId = usePaperReaderStore((state) => state.currentPaperId ?? null)
-  const currentPaper = usePaperReaderStore((state) => state.currentPaper() ?? null)
-  const markdownContent = usePaperReaderStore((state) => state.markdownContent ?? '')
-  const markdownLoading = usePaperReaderStore((state) => state.markdownLoading ?? false)
-  const isOcrCompleted = usePaperReaderStore((state) => state.isOcrCompleted() ?? false)
-  const paperBasePath = usePaperReaderStore((state) => state.paperBasePath() ?? null)
-  const currentAnnotations = usePaperReaderStore((state) => {
-    if (!state.currentPaperId) return EMPTY_PAPER_ANNOTATIONS
-    return state.annotationsByPaperId[state.currentPaperId] ?? EMPTY_PAPER_ANNOTATIONS
-  })
-  const currentReaderDocument = usePaperReaderStore(
-    (state) => state.currentReaderDocument() ?? null
-  )
-  const originalPdfVisible = usePaperReaderStore((state) => state.originalPdfVisible ?? false)
-  const translationVisible = usePaperReaderStore((state) => state.translationVisible ?? false)
-  const currentTranslationCache = usePaperReaderStore(
-    (state) => state.currentTranslationCache() ?? null
-  )
-  const ensureOcrProgressListener = usePaperReaderStore((state) => state.ensureOcrProgressListener)
-  const loadPapers = usePaperReaderStore((state) => state.loadPapers)
-  const selectPaper = usePaperReaderStore((state) => state.selectPaper)
-  const uploadAndRenderPdf = usePaperReaderStore((state) => state.uploadAndRenderPdf)
-  const loadMarkdown = usePaperReaderStore((state) => state.loadMarkdown)
-  const ensurePaperChatSession = usePaperReaderStore((state) => state.ensurePaperChatSession)
-  const toggleTranslationVisible = usePaperReaderStore((state) => state.toggleTranslationVisible)
-  const resetFigureUiState = usePaperReaderStore((state) => state.resetFigureUiState)
-  const hideOriginalPdf = usePaperReaderStore((state) => state.hideOriginalPdf)
+  const currentPaperId = usePaperListStore((state) => state.currentPaperId ?? null)
+  const currentPaper = usePaperListStore((state) => state.currentPaper() ?? null)
+  const markdownContent = usePaperListStore((state) => state.markdownContent ?? '')
+  const markdownLoading = usePaperListStore((state) => state.markdownLoading ?? false)
+  const isOcrCompleted = usePaperListStore((state) => state.isOcrCompleted() ?? false)
+  const paperBasePath = usePaperListStore((state) => state.paperBasePath() ?? null)
+  const ensureOcrProgressListener = usePaperListStore((state) => state.ensureOcrProgressListener)
+
+  // 需要跨 Store 组合的派生值
+  const annotationsByPaperId = usePaperAnnotationStore((state) => state.annotationsByPaperId)
+  const currentAnnotations = useMemo(() => {
+    if (!currentPaperId) return EMPTY_PAPER_ANNOTATIONS
+    return annotationsByPaperId[currentPaperId] ?? EMPTY_PAPER_ANNOTATIONS
+  }, [currentPaperId, annotationsByPaperId])
+
+  const readerDocumentByPaperId = usePaperAnnotationStore((state) => state.readerDocumentByPaperId)
+  const currentReaderDocument = useMemo(() => {
+    if (!currentPaperId) return null
+    return readerDocumentByPaperId[currentPaperId] ?? null
+  }, [currentPaperId, readerDocumentByPaperId])
+
+  const originalPdfVisible = usePaperViewStore((state) => state.originalPdfVisible ?? false)
+  const translationVisible = usePaperTranslationStore((state) => state.translationVisible ?? false)
+
+  const translationByPaperId = usePaperTranslationStore((state) => state.translationByPaperId)
+  const currentTranslationCache = useMemo(() => {
+    if (!currentPaperId) return null
+    return translationByPaperId[currentPaperId] ?? null
+  }, [currentPaperId, translationByPaperId])
   const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
   const setPaperChatPanelOpen = useUIStateStore((s) => s.setPaperChatPanelOpen)
   const paperChatPanelWidth = useUIStateStore((s) => s.paperChatPanelWidth)
@@ -178,18 +191,13 @@ export default function PaperReaderPage() {
   // Load papers on mount
   useEffect(() => {
     ensureOcrProgressListener()
-    void loadPapers().then(() => {
-      const state = usePaperReaderStore.getState()
-      if (!state.currentPaperId && lastPaperIdRef.current) {
-        selectPaper(lastPaperIdRef.current)
-      }
-
-      const nextState = usePaperReaderStore.getState()
-      if (nextState.currentPaperId && nextState.isOcrCompleted()) {
-        void loadMarkdown(nextState.currentPaperId)
+    void loadPapersWithState().then(() => {
+      const currentId = usePaperListStore.getState().currentPaperId
+      if (!currentId && lastPaperIdRef.current) {
+        void openPaper(lastPaperIdRef.current)
       }
     })
-  }, [ensureOcrProgressListener, loadPapers, selectPaper, loadMarkdown])
+  }, [ensureOcrProgressListener])
 
   // Close chat when paper changes to non-readable
   useEffect(() => {
@@ -218,30 +226,16 @@ export default function PaperReaderPage() {
   useEffect(() => {
     return () => {
       stopPaperChatResize()
-      resetFigureUiState()
-      hideOriginalPdf()
+      usePaperFigureStore.getState().resetFigureUiState()
+      usePaperViewStore.getState().hideOriginalPdf()
     }
-  }, [stopPaperChatResize, resetFigureUiState, hideOriginalPdf])
+  }, [stopPaperChatResize])
 
   // 视图切换时关闭钉住的图预览
   useEffect(() => {
     const unsubscribe = useUIStateStore.subscribe((state, prevState) => {
       if (prevState.currentView === 'paper' && state.currentView !== 'paper') {
-        resetFigureUiState()
-      }
-    })
-    return unsubscribe
-  }, [resetFigureUiState])
-
-  // 从其他视图切回论文视图时恢复缩放
-  useEffect(() => {
-    const unsubscribe = useUIStateStore.subscribe((state, prevState) => {
-      if (prevState.currentView !== 'paper' && state.currentView === 'paper') {
-        const paper = usePaperReaderStore.getState().currentPaper()
-        const savedZoom = paper?.readingProgress?.zoomLevel
-        if (savedZoom) {
-          usePaperReaderStore.getState().setZoomLevel(savedZoom, { persist: false })
-        }
+        usePaperFigureStore.getState().resetFigureUiState()
       }
     })
     return unsubscribe

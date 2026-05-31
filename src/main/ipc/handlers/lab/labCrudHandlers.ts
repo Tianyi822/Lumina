@@ -19,12 +19,12 @@ export function registerLabCrudHandlers(): void {
   const { labService } = getLabServices()
 
   ipcMain.handle('lab:save', async (_event, data: LabData): Promise<LabResult> => {
-    return labService.saveLab(data)
+    return await labService.saveLab(data)
   })
 
   ipcMain.handle('lab:load', async (_event, labId: string): Promise<LabData | null> => {
-    const lab = labService.loadLab(labId)
-    return lab ? labService.reconcileSshRuntimeState(lab, { silent: true }) : null
+    const lab = await labService.loadLab(labId)
+    return lab ? await labService.reconcileSshRuntimeState(lab, { silent: true }) : null
   })
 
   ipcMain.handle('lab:list', async (): Promise<LabListItem[]> => {
@@ -34,12 +34,12 @@ export function registerLabCrudHandlers(): void {
   ipcMain.handle(
     'lab:rename',
     async (_event, labId: string, newName: string): Promise<LabResult> => {
-      return labService.renameLab(labId, newName)
+      return await labService.renameLab(labId, newName)
     }
   )
 
   ipcMain.handle('lab:readLog', async (_event, labId: string): Promise<LabLogEntry[]> => {
-    return labService.readOperationLog(labId)
+    return await labService.readOperationLog(labId)
   })
 
   ipcMain.handle(

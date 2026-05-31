@@ -57,10 +57,10 @@ const paperContext = {
 }
 
 describe('PaperWebSearchToolAdapter', () => {
-  it('getTools 返回单个 paper_web__search 工具', () => {
+  it('getTools 返回单个 paper_web__search 工具', async () => {
     const mockService = new MockPaperWebSearchService()
     const adapter = new PaperWebSearchToolAdapter(mockService as any)
-    const tools = adapter.getTools()
+    const tools = await adapter.getTools()
 
     assert.equal(tools.length, 1)
     assert.equal(tools[0].serverName, 'paper_web')

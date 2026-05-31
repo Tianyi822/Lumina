@@ -47,7 +47,7 @@ export class PaperContextToolAdapter implements ToolAdapter {
     this.paperId = paperId
   }
 
-  getTools(): MCPToolReference[] {
+  async getTools(): Promise<MCPToolReference[]> {
     return [PAPER_CONTEXT_SEARCH_TOOL]
   }
 

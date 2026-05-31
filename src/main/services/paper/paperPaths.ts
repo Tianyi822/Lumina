@@ -43,6 +43,11 @@ export const MERGED_MD_FILE_NAME = 'merged.md'
 export const TRANSLATION_FILE_NAME = 'translation.json'
 
 /**
+ * 阅读器文档缓存文件名
+ */
+export const READER_DOCUMENT_FILE_NAME = 'reader-document.json'
+
+/**
  * 批注文件名
  */
 export const ANNOTATIONS_FILE_NAME = 'annotations.json'
@@ -182,6 +187,13 @@ export function getPaperMergedMdPath(paperId: string): string {
  */
 export function getPaperTranslationPath(paperId: string): string {
   return join(getPaperDirPath(paperId), TRANSLATION_FILE_NAME)
+}
+
+/**
+ * 获取阅读器文档缓存文件路径
+ */
+export function getPaperReaderDocumentPath(paperId: string): string {
+  return join(getPaperDirPath(paperId), READER_DOCUMENT_FILE_NAME)
 }
 
 /**

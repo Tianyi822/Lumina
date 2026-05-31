@@ -109,9 +109,10 @@ export const usePaperChatMessageCacheStore = create<PaperChatMessageCacheState>(
     if (!cachedMessages || cachedMessages.length === 0) return false
 
     try {
-      const session = await window.api.session.load(sessionId)
-      if (!session) return false
+      const sessionResult = await window.api.session.load(sessionId)
+      if (!sessionResult.success || !sessionResult.data) return false
 
+      const session = sessionResult.data
       const cachedTitle = state.sessionTitleCache.get(sessionId)
       const titleToUse = cachedTitle || session.title
 

@@ -13,7 +13,7 @@ export const sessionApi = {
   /**
    * 创建新会话
    */
-  create: (title?: string, type?: SessionType): Promise<SessionData> => {
+  create: (title?: string, type?: SessionType): Promise<SessionResult> => {
     return ipcRenderer.invoke('session:create', title, type)
   },
 
@@ -27,7 +27,7 @@ export const sessionApi = {
   /**
    * 加载会话
    */
-  load: (sessionId: string): Promise<SessionData | null> => {
+  load: (sessionId: string): Promise<SessionResult> => {
     return ipcRenderer.invoke('session:load', sessionId)
   },
 

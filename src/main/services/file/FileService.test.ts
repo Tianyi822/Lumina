@@ -126,13 +126,13 @@ function createKnowledgeBase(): KnowledgeBase {
   }
 }
 
-test('registerPaperFile 只登记论文引用资源，不复制 PDF 到知识库文件目录', () => {
+test('registerPaperFile 只登记论文引用资源，不复制 PDF 到知识库文件目录', async () => {
   resetKnowledgeStorage()
   const service = new FileService()
-  service.initialize()
+  await service.initialize()
   const paper = createPaper()
 
-  const result = service.registerPaperFile(paper)
+  const result = await service.registerPaperFile(paper)
 
   assert.equal(result.success, true)
   assert.equal(result.file?.sourceKind, 'paper_file')
@@ -145,7 +145,7 @@ test('registerPaperFile 只登记论文引用资源，不复制 PDF 到知识库
 test('upsertPaperNotesResource 会按论文聚合并按页码排序笔记内容', async () => {
   resetKnowledgeStorage()
   const service = new FileService()
-  service.initialize()
+  await service.initialize()
   const paper = createPaper()
   const laterAnnotation = createNoteAnnotation({
     id: 'annotation-page-2',
@@ -272,7 +272,7 @@ test('upsertPaperNotesResource 会合并旧版逐批注资源并迁移知识库�
   writeFileSync(getFilesMetadataPath(), JSON.stringify(legacyFiles, null, 2), 'utf-8')
 
   const service = new FileService()
-  service.initialize()
+  await service.initialize()
   const result = await service.upsertPaperNotesResource(paper, [secondAnnotation, firstAnnotation])
   const aggregateFileId = getPaperNoteResourceId(paper.id)
   const knowledgeBases = JSON.parse(
@@ -300,16 +300,16 @@ test('upsertPaperNotesResource 会合并旧版逐批注资源并迁移知识库�
 test('removePaperResources 会移除论文资源、笔记资源和知识库关联', async () => {
   resetKnowledgeStorage()
   const service = new FileService()
-  service.initialize()
+  await service.initialize()
   mkdirSync(getKnowledgeDirPath(), { recursive: true })
   writeFileSync(getKnowledgeBaseFilePath(), JSON.stringify([createKnowledgeBase()], null, 2))
   const paper = createPaper()
   const annotation = createNoteAnnotation()
-  const paperFile = service.registerPaperFile(paper).file as FileItem
+  const paperFile = (await service.registerPaperFile(paper)).file as FileItem
   const noteFile = (await service.upsertPaperNotesResource(paper, [annotation])).file as FileItem
 
-  assert.equal(service.linkFileToKB(paperFile.id, 'kb-1').success, true)
-  assert.equal(service.linkFileToKB(noteFile.id, 'kb-1').success, true)
+  assert.equal((await service.linkFileToKB(paperFile.id, 'kb-1')).success, true)
+  assert.equal((await service.linkFileToKB(noteFile.id, 'kb-1')).success, true)
 
   const result = await service.removePaperResources(paper.id)
   const knowledgeBases = JSON.parse(
@@ -325,14 +325,14 @@ test('removePaperResources 会移除论文资源、笔记资源和知识库关�
 test('unlinkFileFromKB 会清理论文笔记对应的索引失效状态', async () => {
   resetKnowledgeStorage()
   const service = new FileService()
-  service.initialize()
+  await service.initialize()
   mkdirSync(getKnowledgeDirPath(), { recursive: true })
   writeFileSync(getKnowledgeBaseFilePath(), JSON.stringify([createKnowledgeBase()], null, 2))
   const paper = createPaper()
   const annotation = createNoteAnnotation()
   const noteFile = (await service.upsertPaperNotesResource(paper, [annotation])).file as FileItem
 
-  assert.equal(service.linkFileToKB(noteFile.id, 'kb-1').success, true)
+  assert.equal((await service.linkFileToKB(noteFile.id, 'kb-1')).success, true)
 
   const knowledgeBases = JSON.parse(
     readFileSync(getKnowledgeBaseFilePath(), 'utf-8')
@@ -352,7 +352,7 @@ test('unlinkFileFromKB 会清理论文笔记对应的索引失效状态', async 
   }
   writeFileSync(getKnowledgeBaseFilePath(), JSON.stringify(knowledgeBases, null, 2))
 
-  const result = service.unlinkFileFromKB(noteFile.id, 'kb-1')
+  const result = await service.unlinkFileFromKB(noteFile.id, 'kb-1')
   const nextKnowledgeBases = JSON.parse(
     readFileSync(getKnowledgeBaseFilePath(), 'utf-8')
   ) as KnowledgeBase[]

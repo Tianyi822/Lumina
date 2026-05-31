@@ -67,7 +67,7 @@ export class PaperWebSearchToolAdapter implements ToolAdapter {
   /**
    * 获取该适配器提供的工具列表
    */
-  getTools(): MCPToolReference[] {
+  async getTools(): Promise<MCPToolReference[]> {
     return [PAPER_WEB_SEARCH_TOOL]
   }
 

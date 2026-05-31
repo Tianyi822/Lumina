@@ -4,6 +4,7 @@ import { notifySuccess, notifyError, notifyInfo } from '@renderer/composables/no
 import type { EmbeddingConfig } from '@shared/types/config'
 import EmbeddingModelItem from '../embedding/EmbeddingModelItem'
 import EmbeddingModelForm from '../embedding/EmbeddingModelForm'
+import { useEmbeddingModelTest } from './hooks/useEmbeddingModelTest'
 import styles from './EmbeddingModelSettings.module.css'
 
 export default function EmbeddingModelSettings() {
@@ -111,31 +112,37 @@ export default function EmbeddingModelSettings() {
   }, [])
 
   // 测试新模型配置（未保存的，通过临时 IPC）
-  const handleTestNew = useCallback(async (config: EmbeddingConfig) => {
-    try {
+  const { testNewModel } = useEmbeddingModelTest()
+
+  const handleTestNew = useCallback(
+    async (config: EmbeddingConfig) => {
       const tempId = `${config.displayName}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
-      const result = await window.api.embeddingModels.save(tempId, config)
-      if (!result.success) {
-        notifyError('嵌入模型', '保存测试配置失败', { source: 'settings' })
-        return
-      }
+      try {
+        const { saveResult, testResult } = await testNewModel(
+          tempId,
+          config as unknown as Record<string, unknown>
+        )
 
-      const testResult = await window.api.embeddingModels.test(tempId)
-      if (testResult.success) {
-        notifySuccess('嵌入模型', '连接测试成功', { source: 'settings' })
-      } else {
-        notifyError('嵌入模型', testResult.error || '连接测试失败', { source: 'settings' })
-      }
+        if (!saveResult.success) {
+          notifyError('嵌入模型', '保存测试配置失败', { source: 'settings' })
+          return
+        }
 
-      await window.api.embeddingModels.delete(tempId)
-    } catch (error) {
-      notifyError(
-        '嵌入模型',
-        `测试失败: ${error instanceof Error ? error.message : String(error)}`,
-        { source: 'settings' }
-      )
-    }
-  }, [])
+        if (testResult?.success) {
+          notifySuccess('嵌入模型', '连接测试成功', { source: 'settings' })
+        } else {
+          notifyError('嵌入模型', testResult?.error || '连接测试失败', { source: 'settings' })
+        }
+      } catch (error) {
+        notifyError(
+          '嵌入模型',
+          `测试失败: ${error instanceof Error ? error.message : String(error)}`,
+          { source: 'settings' }
+        )
+      }
+    },
+    [testNewModel]
+  )
 
   // 保存配置
   const handleSaveConfig = useCallback(async () => {

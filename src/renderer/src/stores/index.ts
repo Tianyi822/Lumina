@@ -29,5 +29,11 @@ export {
   useDockerfileConfigStore
 } from './lab'
 
-// Paper Reader Store (Pinia — 待迁移)
-export { usePaperReaderStore } from './paperReaderStore'
+// Paper Reader Store（已拆分为子 Store，从 paper/ 直接导入）
+export {
+  usePaperListStore,
+  usePaperTranslationStore,
+  usePaperFigureStore,
+  usePaperViewStore,
+  usePaperAnnotationStore
+} from './paperReaderStore'

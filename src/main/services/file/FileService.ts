@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs'
+import { existsSync } from 'fs'
+import { readFile, writeFile, mkdir, unlink } from 'fs/promises'
 import { join, extname } from 'path'
 import { createHash } from 'crypto'
 import { logger } from '@main/services/logger'
@@ -52,13 +53,13 @@ function calculateFileHash(buffer: Buffer): string {
 /**
  * 读取知识库数据
  */
-function readKnowledgeBases(): KnowledgeBase[] {
+async function readKnowledgeBases(): Promise<KnowledgeBase[]> {
   const filePath = getKnowledgeBaseFilePath()
   if (!existsSync(filePath)) {
     return []
   }
   try {
-    const content = readFileSync(filePath, 'utf-8')
+    const content = await readFile(filePath, 'utf-8')
     return JSON.parse(content) as KnowledgeBase[]
   } catch (error) {
     logger.error('读取知识库数据失败', 'main', { error })
@@ -69,9 +70,9 @@ function readKnowledgeBases(): KnowledgeBase[] {
 /**
  * 写入知识库数据
  */
-function writeKnowledgeBases(knowledgeBases: KnowledgeBase[]): void {
+async function writeKnowledgeBases(knowledgeBases: KnowledgeBase[]): Promise<void> {
   const filePath = getKnowledgeBaseFilePath()
-  writeFileSync(filePath, JSON.stringify(knowledgeBases, null, 2), 'utf-8')
+  await writeFile(filePath, JSON.stringify(knowledgeBases, null, 2), 'utf-8')
 }
 
 export function getPaperFileResourceId(paperId: string): string {
@@ -258,10 +259,10 @@ export class FileService {
    * 确保文件存储目录存在
    * 如果目录不存在则创建
    */
-  private ensureFilesDir(): void {
+  private async ensureFilesDir(): Promise<void> {
     const filesDir = getFilesStoragePath()
     if (!existsSync(filesDir)) {
-      mkdirSync(filesDir, { recursive: true })
+      await mkdir(filesDir, { recursive: true })
       logger.info('创建文件存储目录', 'main', { path: filesDir })
     }
   }
@@ -269,11 +270,11 @@ export class FileService {
   /**
    * 初始化文件服务
    */
-  initialize(): void {
+  async initialize(): Promise<void> {
     try {
       initializeKnowledgeStorage()
-      this.ensureFilesDir()
-      this.loadFilesMetadata()
+      await this.ensureFilesDir()
+      await this.loadFilesMetadata()
       this.loaded = true
       logger.info('文件服务初始化成功', 'main', { count: this.files.length })
     } catch (error) {
@@ -325,7 +326,7 @@ export class FileService {
    * 加载文件元数据
    * 从磁盘读取文件元数据并更新内存状态
    */
-  private loadFilesMetadata(): void {
+  private async loadFilesMetadata(): Promise<void> {
     const filePath = getFilesMetadataPath()
     if (!existsSync(filePath)) {
       this.files = []
@@ -333,10 +334,10 @@ export class FileService {
     }
 
     try {
-      const content = readFileSync(filePath, 'utf-8')
+      const content = await readFile(filePath, 'utf-8')
       const files = JSON.parse(content) as FileItem[]
 
-      const knowledgeBases = readKnowledgeBases()
+      const knowledgeBases = await readKnowledgeBases()
       const existingKBIds = new Set(knowledgeBases.map((kb) => kb.id))
       const normalizedFiles = files.map((file) => this.normalizeStoredFile(file, existingKBIds))
 
@@ -344,7 +345,7 @@ export class FileService {
       const hasChanges = normalizedFiles.some((item) => item.changed)
 
       if (hasChanges) {
-        this.saveFilesMetadata()
+        await this.saveFilesMetadata()
         logger.info('清理文件元数据中已删除的知识库引用', 'main', { fileCount: this.files.length })
       }
     } catch (error) {
@@ -356,10 +357,10 @@ export class FileService {
   /**
    * 保存文件元数据
    */
-  private saveFilesMetadata(): void {
+  private async saveFilesMetadata(): Promise<void> {
     try {
       const filePath = getFilesMetadataPath()
-      writeFileSync(filePath, JSON.stringify(this.files, null, 2), 'utf-8')
+      await writeFile(filePath, JSON.stringify(this.files, null, 2), 'utf-8')
     } catch (error) {
       const errorMessage = `保存文件元数据失败: ${error instanceof Error ? error.message : String(error)}`
       logger.error(errorMessage)
@@ -406,7 +407,7 @@ export class FileService {
    */
   getAllFiles(): FileItem[] {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
     return [...this.files]
   }
@@ -416,7 +417,7 @@ export class FileService {
    */
   getFileById(id: string): FileItem | null {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
     return this.files.find((f) => f.id === id) || null
   }
@@ -427,7 +428,7 @@ export class FileService {
    */
   searchFiles(query: string): FileItem[] {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
     const lowerQuery = query.toLowerCase()
     return this.files.filter((file) => {
@@ -454,7 +455,7 @@ export class FileService {
     fileName: string
   ): Promise<{ success: boolean; file?: FileItem; error?: string; isDuplicate?: boolean }> {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     try {
@@ -487,7 +488,7 @@ export class FileService {
       const safeFileName = `${timestamp}-${randomStr}${ext}`
       const filePath = join(getFilesStoragePath(), safeFileName)
 
-      writeFileSync(filePath, fileData)
+      await writeFile(filePath, fileData)
 
       const newFile: FileItem = {
         id: `file-${timestamp}`,
@@ -504,7 +505,7 @@ export class FileService {
       }
 
       this.files.unshift(newFile)
-      this.saveFilesMetadata()
+      await this.saveFilesMetadata()
 
       logger.info('文件上传成功', 'main', {
         id: newFile.id,
@@ -519,9 +520,11 @@ export class FileService {
     }
   }
 
-  registerPaperFile(paper: PaperDocument): { success: boolean; file?: FileItem; error?: string } {
+  async registerPaperFile(
+    paper: PaperDocument
+  ): Promise<{ success: boolean; file?: FileItem; error?: string }> {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     try {
@@ -556,7 +559,7 @@ export class FileService {
         this.files.unshift(paperFile)
       }
 
-      this.saveFilesMetadata()
+      await this.saveFilesMetadata()
       logger.info('论文已同步到文件资源池', 'main', { paperId: paper.id, fileId })
       return { success: true, file: existingFile || paperFile }
     } catch (error) {
@@ -566,9 +569,9 @@ export class FileService {
     }
   }
 
-  private getPaperNoteResourceKnowledgeBaseIds(files: FileItem[]): string[] {
+  private async getPaperNoteResourceKnowledgeBaseIds(files: FileItem[]): Promise<string[]> {
     const fileIds = new Set(files.map((file) => file.id))
-    const knowledgeBases = readKnowledgeBases()
+    const knowledgeBases = await readKnowledgeBases()
     const linkedKBIds = knowledgeBases
       .filter((kb) => (kb.linkedFileIds || []).some((fileId) => fileIds.has(fileId)))
       .map((kb) => kb.id)
@@ -593,8 +596,8 @@ export class FileService {
     }
 
     const fileIds = new Set(files.map((file) => file.id))
-    const affectedKBIds = this.getPaperNoteResourceKnowledgeBaseIds(files)
-    const knowledgeBases = readKnowledgeBases()
+    const affectedKBIds = await this.getPaperNoteResourceKnowledgeBaseIds(files)
+    const knowledgeBases = await readKnowledgeBases()
     const now = new Date().toISOString()
     let knowledgeBasesChanged = false
 
@@ -629,7 +632,7 @@ export class FileService {
     }
 
     if (knowledgeBasesChanged) {
-      writeKnowledgeBases(knowledgeBases)
+      await writeKnowledgeBases(knowledgeBases)
     }
 
     for (const file of files) {
@@ -637,7 +640,7 @@ export class FileService {
     }
 
     this.files = this.files.filter((file) => !fileIds.has(file.id))
-    this.saveFilesMetadata()
+    await this.saveFilesMetadata()
   }
 
   private async migrateLegacyPaperNoteResources(
@@ -650,9 +653,9 @@ export class FileService {
     }
 
     const legacyFileIds = new Set(legacyFiles.map((file) => file.id))
-    const legacyUsedByKBIds = this.getPaperNoteResourceKnowledgeBaseIds(legacyFiles)
+    const legacyUsedByKBIds = await this.getPaperNoteResourceKnowledgeBaseIds(legacyFiles)
     const targetKBIds = uniqueStrings([...aggregateUsedByKBIds, ...legacyUsedByKBIds])
-    const knowledgeBases = readKnowledgeBases()
+    const knowledgeBases = await readKnowledgeBases()
     const now = new Date().toISOString()
     let knowledgeBasesChanged = false
 
@@ -694,7 +697,7 @@ export class FileService {
     }
 
     if (knowledgeBasesChanged) {
-      writeKnowledgeBases(knowledgeBases)
+      await writeKnowledgeBases(knowledgeBases)
     }
 
     for (const legacyFile of legacyFiles) {
@@ -702,7 +705,7 @@ export class FileService {
     }
 
     this.files = this.files.filter((file) => !legacyFileIds.has(file.id))
-    this.saveFilesMetadata()
+    await this.saveFilesMetadata()
 
     logger.info('旧版逐批注论文笔记资源已合并为论文级资源', 'main', {
       aggregateFileId,
@@ -716,7 +719,7 @@ export class FileService {
     annotations: PaperAnnotation[]
   ): Promise<PaperNoteResourceSyncResult> {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     const noteAnnotations = sortPaperNoteAnnotations(
@@ -732,8 +735,8 @@ export class FileService {
       const legacyFiles = this.getLegacyPaperNoteFiles(paper.id)
       const previousContentHash = existingFile?.contentHash
       const previousUsedByKBIds = uniqueStrings([
-        ...(existingFile ? this.getPaperNoteResourceKnowledgeBaseIds([existingFile]) : []),
-        ...this.getPaperNoteResourceKnowledgeBaseIds(legacyFiles)
+        ...(existingFile ? await this.getPaperNoteResourceKnowledgeBaseIds([existingFile]) : []),
+        ...(await this.getPaperNoteResourceKnowledgeBaseIds(legacyFiles))
       ])
       const content = buildPaperNotesContent(paper, noteAnnotations)
       const contentHash = calculateFileHash(Buffer.from(content, 'utf-8'))
@@ -782,7 +785,7 @@ export class FileService {
         this.files.unshift(noteFile)
       }
 
-      this.saveFilesMetadata()
+      await this.saveFilesMetadata()
       if (legacyFiles.length > 0) {
         await this.migrateLegacyPaperNoteResources(fileId, legacyFiles, previousUsedByKBIds)
       }
@@ -810,7 +813,7 @@ export class FileService {
 
   async removePaperNotesResource(paperId: string): Promise<PaperNoteResourceSyncResult> {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     try {
@@ -836,7 +839,7 @@ export class FileService {
     annotationId: string
   ): Promise<{ success: boolean; error?: string }> {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     const fileId = getLegacyPaperNoteResourceId(paperId, annotationId)
@@ -853,7 +856,7 @@ export class FileService {
 
   async removePaperResources(paperId: string): Promise<{ success: boolean; error?: string }> {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     const resourceIds = this.files
@@ -882,7 +885,7 @@ export class FileService {
     fileId: string
   ): Promise<{ success: boolean; data?: { content: string; file: FileItem }; error?: string }> {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     const file = this.getFileById(fileId)
@@ -916,7 +919,7 @@ export class FileService {
     fileId: string
   ): Promise<{ success: boolean; data?: FilePreviewData; error?: string }> {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     const file = this.getFileById(fileId)
@@ -970,7 +973,7 @@ export class FileService {
 
     if (file.usedByKBIds.length > 0) {
       const usedByKBIds = [...file.usedByKBIds]
-      const knowledgeBases = readKnowledgeBases()
+      const knowledgeBases = await readKnowledgeBases()
 
       for (const kbId of usedByKBIds) {
         const kbIndex = knowledgeBases.findIndex((kb) => kb.id === kbId)
@@ -988,7 +991,7 @@ export class FileService {
       }
 
       await removeFileChunksFromKnowledgeBases(file.id, usedByKBIds)
-      writeKnowledgeBases(knowledgeBases)
+      await writeKnowledgeBases(knowledgeBases)
       logger.info('删除文件时已从关联知识库移除', 'main', {
         fileId: file.id,
         kbIds: usedByKBIds
@@ -998,12 +1001,12 @@ export class FileService {
     if (file.sourceKind === 'uploaded') {
       const fullPath = join(getFilesStoragePath(), file.filePath)
       if (existsSync(fullPath)) {
-        unlinkSync(fullPath)
+        await unlink(fullPath)
       }
     }
 
     this.files.splice(fileIndex, 1)
-    this.saveFilesMetadata()
+    await this.saveFilesMetadata()
 
     logger.info('文件删除成功', 'main', { id: file.id, name: file.name })
     return { success: true }
@@ -1018,7 +1021,7 @@ export class FileService {
     forceDelete: boolean = false
   ): Promise<{ success: boolean; error?: string }> {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     try {
@@ -1038,9 +1041,9 @@ export class FileService {
   /**
    * 将文件关联到知识库
    */
-  linkFileToKB(fileId: string, kbId: string): { success: boolean; error?: string } {
+  async linkFileToKB(fileId: string, kbId: string): Promise<{ success: boolean; error?: string }> {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     try {
@@ -1054,9 +1057,9 @@ export class FileService {
       }
 
       file.usedByKBIds.push(kbId)
-      this.saveFilesMetadata()
+      await this.saveFilesMetadata()
 
-      const knowledgeBases = readKnowledgeBases()
+      const knowledgeBases = await readKnowledgeBases()
       const kbIndex = knowledgeBases.findIndex((kb) => kb.id === kbId)
       if (kbIndex !== -1) {
         if (!knowledgeBases[kbIndex].linkedFileIds) {
@@ -1067,7 +1070,7 @@ export class FileService {
         }
         knowledgeBases[kbIndex].documentCount = knowledgeBases[kbIndex].linkedFileIds.length
         knowledgeBases[kbIndex].updatedAt = new Date().toISOString()
-        writeKnowledgeBases(knowledgeBases)
+        await writeKnowledgeBases(knowledgeBases)
       }
 
       logger.info('文件关联到知识库成功', 'main', { fileId, kbId })
@@ -1082,9 +1085,12 @@ export class FileService {
   /**
    * 从知识库取消文件关联
    */
-  unlinkFileFromKB(fileId: string, kbId: string): { success: boolean; error?: string } {
+  async unlinkFileFromKB(
+    fileId: string,
+    kbId: string
+  ): Promise<{ success: boolean; error?: string }> {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     try {
@@ -1099,9 +1105,9 @@ export class FileService {
       }
 
       file.usedByKBIds.splice(kbIndex, 1)
-      this.saveFilesMetadata()
+      await this.saveFilesMetadata()
 
-      const knowledgeBases = readKnowledgeBases()
+      const knowledgeBases = await readKnowledgeBases()
       const kbIndex2 = knowledgeBases.findIndex((kb) => kb.id === kbId)
       if (kbIndex2 !== -1) {
         if (!knowledgeBases[kbIndex2].linkedFileIds) {
@@ -1119,7 +1125,7 @@ export class FileService {
           (knowledgeBases[kbIndex2].documentCount || 0) - 1
         )
         knowledgeBases[kbIndex2].updatedAt = new Date().toISOString()
-        writeKnowledgeBases(knowledgeBases)
+        await writeKnowledgeBases(knowledgeBases)
       }
 
       logger.info('文件从知识库取消关联成功', 'main', { fileId, kbId })
@@ -1136,7 +1142,7 @@ export class FileService {
    */
   getFilesByKBId(kbId: string): FileItem[] {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     return this.files.filter((f) => f.usedByKBIds.includes(kbId))
@@ -1147,7 +1153,7 @@ export class FileService {
    */
   getFileUsage(fileId: string): string[] {
     if (!this.loaded) {
-      this.initialize()
+      throw new Error('文件服务未初始化，请先调用 initialize()')
     }
 
     const file = this.files.find((f) => f.id === fileId)

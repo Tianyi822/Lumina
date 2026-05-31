@@ -46,16 +46,28 @@ interface PaperContextSearchDependencies {
     data?: PaperReaderDocument
     error?: string
   }>
-  readTranslationCache: (paperId: string) => {
-    success: boolean
-    data?: PaperTranslationCache
-    error?: string
-  }
-  readMeta: (paperId: string) => {
-    success: boolean
-    data?: PaperDocument
-    error?: string
-  }
+  readTranslationCache: (paperId: string) =>
+    | {
+        success: boolean
+        data?: PaperTranslationCache
+        error?: string
+      }
+    | Promise<{
+        success: boolean
+        data?: PaperTranslationCache
+        error?: string
+      }>
+  readMeta: (paperId: string) =>
+    | {
+        success: boolean
+        data?: PaperDocument
+        error?: string
+      }
+    | Promise<{
+        success: boolean
+        data?: PaperDocument
+        error?: string
+      }>
 }
 
 interface SentenceUnit {
@@ -340,7 +352,7 @@ export class PaperContextSearchToolService {
     }
 
     const warnings: string[] = []
-    const corpus = this.buildCorpus(paperId, readerResult.data, source, warnings)
+    const corpus = await this.buildCorpus(paperId, readerResult.data, source, warnings)
     if (corpus.length === 0) {
       return {
         success: false,
@@ -356,7 +368,7 @@ export class PaperContextSearchToolService {
     let keywords = selectedKeywords.length > 0 ? selectedKeywords : queryKeywords
 
     if (!hasExplicitKeywords) {
-      const fallback = this.buildReadingProgressCandidates(
+      const fallback = await this.buildReadingProgressCandidates(
         paperId,
         readerResult.data,
         corpus,
@@ -430,12 +442,12 @@ export class PaperContextSearchToolService {
     }
   }
 
-  private buildCorpus(
+  private async buildCorpus(
     paperId: string,
     readerDocument: PaperReaderDocument,
     source: PaperContextSearchSource,
     warnings: string[]
-  ): SentenceUnit[] {
+  ): Promise<SentenceUnit[]> {
     const corpus: SentenceUnit[] = []
 
     if (source === 'original' || source === 'both') {
@@ -445,7 +457,7 @@ export class PaperContextSearchToolService {
     }
 
     if (source === 'translation' || source === 'both') {
-      const translationResult = this.dependencies.readTranslationCache(paperId)
+      const translationResult = await this.dependencies.readTranslationCache(paperId)
       if (!translationResult.success || !translationResult.data) {
         warnings.push(translationResult.error || '译文缓存不存在，已跳过译文检索')
       } else {
@@ -480,14 +492,14 @@ export class PaperContextSearchToolService {
     return corpus
   }
 
-  private buildReadingProgressCandidates(
+  private async buildReadingProgressCandidates(
     paperId: string,
     readerDocument: PaperReaderDocument,
     corpus: SentenceUnit[],
     source: PaperContextSearchSource,
     warnings: string[]
-  ): SentenceUnit[] {
-    const metaResult = this.dependencies.readMeta(paperId)
+  ): Promise<SentenceUnit[]> {
+    const metaResult = await this.dependencies.readMeta(paperId)
     const progress = metaResult.success ? metaResult.data?.readingProgress : undefined
     if (!progress) {
       warnings.push('未找到阅读进度，已使用论文开头候选上下文')

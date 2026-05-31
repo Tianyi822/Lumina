@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useConfigStore } from '@renderer/stores'
 import ThemeSettings from './settings/ThemeSettings'
 import ModelSettings from './settings/ModelSettings'
@@ -36,7 +36,7 @@ const settingsTabs: Array<{ id: SettingsTabKey; label: string; description: stri
   { id: 'update', label: '升级版本', description: '检查应用更新并查看版本历史。' }
 ]
 
-export default function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
+function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<SettingsTabKey>('model')
 
   const configLoading = useConfigStore((s) => s.loading)
@@ -138,3 +138,5 @@ export default function SettingsModal({ onClose, onMcpUpdated }: SettingsModalPr
     </div>
   )
 }
+
+export default memo(SettingsModal)

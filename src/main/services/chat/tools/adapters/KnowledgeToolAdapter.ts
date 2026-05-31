@@ -19,8 +19,8 @@ export class KnowledgeToolAdapter implements ToolAdapter {
     this.kbIds = kbIds
   }
 
-  getTools(): MCPToolReference[] {
-    return knowledgeToolService.getTools(this.kbIds).map((tool) => ({
+  async getTools(): Promise<MCPToolReference[]> {
+    return (await knowledgeToolService.getTools(this.kbIds)).map((tool) => ({
       serverName: tool.serverName || 'knowledge',
       toolName: tool.name.startsWith('knowledge__')
         ? tool.name.slice('knowledge__'.length)

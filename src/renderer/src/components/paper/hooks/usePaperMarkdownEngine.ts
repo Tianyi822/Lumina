@@ -40,6 +40,7 @@ import {
 } from '@shared/utils'
 import { usePaperHighlightRenderer } from '../composables/usePaperHighlightRenderer'
 import type { RenderSourceSegment, QuoteHighlight } from '../composables/usePaperHighlightRenderer'
+import { postProcessRenderedHtml } from './paperMarkdownPostProcess'
 
 export type { RenderSourceSegment, QuoteHighlight }
 
@@ -73,6 +74,7 @@ export interface RenderedSegment {
   stableId: string
   sourceRevisionId: string
   textHash: string
+  kind: PaperTranslationSegmentKind
   originalText: string
   originalHtml: string
   translationHtml: string | null
@@ -89,20 +91,64 @@ const EMPTY_SOURCE_REFS: PaperReaderSegmentSourceRefs = {
   blockIndexes: []
 }
 
+interface CachedHtmlResult {
+  html: string
+  failedIds: string[]
+}
+
 const LOCAL_IMAGE_DATA_URL_CACHE_LIMIT = 200
+const SEGMENT_HTML_CACHE_LIMIT = 1800
 const localImageDataUrlCache = new Map<string, Promise<string | null>>()
-const RAW_TABLE_INLINE_MATH_PATTERN = /\$([^\n$]+?)\$/g
-const RAW_TABLE_INLINE_MATH_TEST_PATTERN = /\$[^\n$]+?\$/
-const RAW_TABLE_INLINE_MATH_SKIP_SELECTOR = [
-  'code',
-  'pre',
-  'math',
-  'eq',
-  'eqn',
-  '.katex',
-  '.katex-display',
-  '.texmath'
-].join(', ')
+function setBoundedCacheValue<T>(
+  cache: Map<string, T>,
+  key: string,
+  value: T,
+  limit: number
+): void {
+  if (cache.size >= limit) {
+    const oldestKey = cache.keys().next().value
+    if (oldestKey) {
+      cache.delete(oldestKey)
+    }
+  }
+  cache.set(key, value)
+}
+
+async function getOrCreateCachedHtmlResult(
+  cache: Map<string, CachedHtmlResult>,
+  key: string,
+  factory: () => Promise<CachedHtmlResult>
+): Promise<CachedHtmlResult> {
+  const cached = cache.get(key)
+  if (cached) {
+    return cached
+  }
+
+  const result = await factory()
+  setBoundedCacheValue(cache, key, result, SEGMENT_HTML_CACHE_LIMIT)
+  return result
+}
+
+function getSegmentAnnotationRenderKey(annotations: PaperAnnotation[]): string {
+  return annotations
+    .map((annotation) =>
+      [
+        annotation.id,
+        annotation.kind,
+        annotation.noteType,
+        annotation.createdInView,
+        annotation.colorKey,
+        annotation.status,
+        annotation.updatedAt,
+        annotation.semanticAnchor.segmentTextHash,
+        annotation.originalAnchor?.startOffset ?? '',
+        annotation.originalAnchor?.endOffset ?? '',
+        annotation.translationAnchor?.startOffset ?? '',
+        annotation.translationAnchor?.endOffset ?? ''
+      ].join('\u0002')
+    )
+    .join('\u0001')
+}
 
 function createFallbackSourceSegments(markdown: string): RenderSourceSegment[] {
   return parsePaperTranslationSegments(markdown).map((segment) => ({
@@ -119,7 +165,7 @@ function createFallbackSourceSegments(markdown: string): RenderSourceSegment[] {
 }
 
 function resolveLocalImageFilePath(src: string, basePath: string | undefined): string | null {
-  if (!src || /^(data:|blob:|https?:\/\/)/i.test(src)) {
+  if (!src || /^(data:|blob:|https?:\/\/|lumina:\/\/)/i.test(src)) {
     return null
   }
 
@@ -134,6 +180,32 @@ function resolveLocalImageFilePath(src: string, basePath: string | undefined): s
 
   const normalizedBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath
   return `${normalizedBase}/${localAssetPath}`
+}
+
+/**
+ * 将论文相对图片路径转换为 lumina:// 协议 URL
+ * basePath 格式: /path/to/.lumina/papers/{paperId}
+ * src 格式: assets/page-0001/figure-001.png
+ */
+function resolvePaperImageUrl(src: string, basePath: string | undefined): string | null {
+  if (!src || /^(data:|blob:|https?:\/\/|lumina:\/\/)/i.test(src)) {
+    return null
+  }
+
+  const localAssetPath = String(src)
+  if (!basePath || !localAssetPath.startsWith('assets/')) {
+    return null
+  }
+
+  // 从 basePath 提取 paperId（最后一个路径段）
+  const normalizedBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath
+  const lastSlash = normalizedBase.lastIndexOf('/')
+  const paperId = lastSlash >= 0 ? normalizedBase.substring(lastSlash + 1) : ''
+  if (!paperId) {
+    return null
+  }
+
+  return `lumina://paper/${paperId}/${localAssetPath}`
 }
 
 function readLocalImageAsDataUrl(localFilePath: string): Promise<string | null> {
@@ -179,6 +251,13 @@ async function resolveImagePaths(html: string, basePath: string | undefined): Pr
   await Promise.all(
     images.map(async (image) => {
       const src = image.getAttribute('src') || ''
+      // 优先使用 lumina:// 协议 URL（避免 Base64 IPC 传输）
+      const luminaUrl = resolvePaperImageUrl(src, basePath)
+      if (luminaUrl) {
+        image.setAttribute('src', luminaUrl)
+        return
+      }
+      // fallback：使用 IPC 读取 Base64
       const localFilePath = resolveLocalImageFilePath(src, basePath)
       if (!localFilePath) {
         return
@@ -192,185 +271,6 @@ async function resolveImagePaths(html: string, basePath: string | undefined): Pr
       image.setAttribute('src', dataUrl)
     })
   )
-
-  return root.innerHTML
-}
-
-function shouldRenderRawTableInlineMathNode(node: Text): boolean {
-  const content = node.textContent || ''
-  if (!RAW_TABLE_INLINE_MATH_TEST_PATTERN.test(content)) {
-    return false
-  }
-
-  const parent = node.parentElement
-  return !!parent && !parent.closest(RAW_TABLE_INLINE_MATH_SKIP_SELECTOR)
-}
-
-function renderRawTableInlineMathNode(
-  doc: Document,
-  textNode: Text,
-  renderInline: (content: string) => string
-): void {
-  const content = textNode.textContent || ''
-  const parent = textNode.parentNode
-  if (!parent) {
-    return
-  }
-
-  const fragment = doc.createDocumentFragment()
-  let cursor = 0
-
-  for (const match of content.matchAll(RAW_TABLE_INLINE_MATH_PATTERN)) {
-    const matchIndex = match.index ?? 0
-    const mathSource = match[0]
-
-    if (matchIndex > cursor) {
-      fragment.appendChild(doc.createTextNode(content.slice(cursor, matchIndex)))
-    }
-
-    const template = doc.createElement('template')
-    template.innerHTML = renderInline(normalizePaperInlineMathForRender(mathSource, 'table'))
-    if (template.content.childNodes.length > 0) {
-      fragment.appendChild(template.content)
-    } else {
-      fragment.appendChild(doc.createTextNode(mathSource))
-    }
-
-    cursor = matchIndex + mathSource.length
-  }
-
-  if (cursor < content.length) {
-    fragment.appendChild(doc.createTextNode(content.slice(cursor)))
-  }
-
-  parent.insertBefore(fragment, textNode)
-  parent.removeChild(textNode)
-}
-
-function renderRawTableInlineMath(root: Element, renderInline: (content: string) => string): void {
-  root.querySelectorAll('table').forEach((table) => {
-    const textNodes: Text[] = []
-    const walker = table.ownerDocument.createTreeWalker(table, NodeFilter.SHOW_TEXT)
-
-    while (walker.nextNode()) {
-      const currentNode = walker.currentNode
-      if (currentNode instanceof Text && shouldRenderRawTableInlineMathNode(currentNode)) {
-        textNodes.push(currentNode)
-      }
-    }
-
-    textNodes.forEach((textNode) => {
-      renderRawTableInlineMathNode(table.ownerDocument, textNode, renderInline)
-    })
-  })
-}
-
-// 代码块内的行内公式渲染（伪代码块中的 $...$ 公式）
-const RAW_CODE_INLINE_MATH_PATTERN = /\$([^\n$]+?)\$/g
-const RAW_CODE_INLINE_MATH_TEST_PATTERN = /\$[^\n$]+?\$/
-const RAW_CODE_INLINE_MATH_SKIP_SELECTOR = ['.katex', '.katex-display', '.texmath'].join(', ')
-
-function renderRawCodeBlockInlineMath(
-  root: Element,
-  renderInline: (content: string) => string
-): void {
-  root.querySelectorAll('pre code').forEach((codeBlock) => {
-    const textNodes: Text[] = []
-    const walker = codeBlock.ownerDocument.createTreeWalker(codeBlock, NodeFilter.SHOW_TEXT)
-
-    while (walker.nextNode()) {
-      const currentNode = walker.currentNode
-      if (
-        currentNode instanceof Text &&
-        RAW_CODE_INLINE_MATH_TEST_PATTERN.test(currentNode.textContent || '')
-      ) {
-        const parent = currentNode.parentElement
-        if (parent && !parent.closest(RAW_CODE_INLINE_MATH_SKIP_SELECTOR)) {
-          textNodes.push(currentNode)
-        }
-      }
-    }
-
-    textNodes.forEach((textNode) => {
-      const content = textNode.textContent || ''
-      const parent = textNode.parentNode
-      if (!parent) return
-
-      const doc = codeBlock.ownerDocument
-      const fragment = doc.createDocumentFragment()
-      let cursor = 0
-
-      for (const match of content.matchAll(RAW_CODE_INLINE_MATH_PATTERN)) {
-        const matchIndex = match.index ?? 0
-        const mathSource = match[0]
-
-        if (matchIndex > cursor) {
-          fragment.appendChild(doc.createTextNode(content.slice(cursor, matchIndex)))
-        }
-
-        const template = doc.createElement('template')
-        template.innerHTML = renderInline(
-          normalizePaperInlineMathForRender(mathSource, 'paragraph')
-        )
-        if (template.content.childNodes.length > 0) {
-          fragment.appendChild(template.content)
-        } else {
-          fragment.appendChild(doc.createTextNode(mathSource))
-        }
-
-        cursor = matchIndex + mathSource.length
-      }
-
-      if (cursor < content.length) {
-        fragment.appendChild(doc.createTextNode(content.slice(cursor)))
-      }
-
-      parent.insertBefore(fragment, textNode)
-      parent.removeChild(textNode)
-    })
-  })
-}
-
-function postProcessRenderedHtml(
-  html: string,
-  renderInline: (content: string) => string,
-  headingId?: string
-): string {
-  if (typeof DOMParser === 'undefined') {
-    return html
-  }
-
-  const parser = new DOMParser()
-  const document = parser.parseFromString(`<div>${html}</div>`, 'text/html')
-  const root = document.body.firstElementChild
-  if (!root) {
-    return html
-  }
-
-  root.querySelectorAll('hr').forEach((separator) => {
-    separator.remove()
-  })
-
-  if (headingId) {
-    const heading = root.querySelector('h1, h2, h3, h4, h5, h6')
-    if (heading) {
-      heading.id = headingId
-    }
-  }
-
-  renderRawTableInlineMath(root, renderInline)
-  renderRawCodeBlockInlineMath(root, renderInline)
-
-  root.querySelectorAll('table').forEach((table) => {
-    if (table.parentElement?.classList.contains('paper-markdown-view__table-wrap')) {
-      return
-    }
-
-    const wrap = document.createElement('div')
-    wrap.className = 'paper-markdown-view__table-wrap'
-    table.parentNode?.insertBefore(wrap, table)
-    wrap.appendChild(table)
-  })
 
   return root.innerHTML
 }
@@ -438,6 +338,8 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
   const [parseError, setParseError] = useState<string | null>(null)
   const [unresolvedAnnotationIds, setUnresolvedAnnotationIds] = useState<string[]>([])
   const renderRunIdRef = useRef(0)
+  const originalHtmlCacheRef = useRef(new Map<string, CachedHtmlResult>())
+  const translationHtmlCacheRef = useRef(new Map<string, CachedHtmlResult>())
 
   const markdownRendererRef = useRef(
     new MarkdownIt({
@@ -554,29 +456,67 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         : translationEntry?.translatedMarkdown
           ? stripPaperTranslationMarkdown(translationEntry.translatedMarkdown)
           : ''
+      const annotationRenderKey = getSegmentAnnotationRenderKey(annotations)
 
-      const originalCollect = highlighter.collectOriginalHighlights(segment, annotations)
-      const originalHtmlResult = highlighter.applyHighlightsToHtml(
-        await renderMarkdownBlock(segment.originalMarkdown, segment.kind, headingId),
-        originalCollect.highlights
+      const originalHtmlResult = await getOrCreateCachedHtmlResult(
+        originalHtmlCacheRef.current,
+        [
+          segment.renderId,
+          segment.sourceRevisionId,
+          options.basePath ?? '',
+          headingId ?? '',
+          annotationRenderKey
+        ].join('\u0001'),
+        async () => {
+          const originalCollect = highlighter.collectOriginalHighlights(segment, annotations)
+          const originalHighlightResult = highlighter.applyHighlightsToHtml(
+            await renderMarkdownBlock(segment.originalMarkdown, segment.kind, headingId),
+            originalCollect.highlights
+          )
+          return {
+            html: originalHighlightResult.html,
+            failedIds: [...originalCollect.failedIds, ...originalHighlightResult.failedIds]
+          }
+        }
       )
-      allFailedIds.push(...originalCollect.failedIds, ...originalHtmlResult.failedIds)
+      allFailedIds.push(...originalHtmlResult.failedIds)
 
-      const translationCollect = highlighter.collectTranslationHighlights(
-        translationText,
-        annotations,
-        segment.originalText
-      )
       const translationHtmlResult =
         translationEntry &&
         translationEntry.status === 'completed' &&
         translationEntry.translatedMarkdown
-          ? highlighter.applyHighlightsToHtml(
-              await renderMarkdownBlock(translationEntry.translatedMarkdown, translationEntry.kind),
-              translationCollect.highlights
+          ? await getOrCreateCachedHtmlResult(
+              translationHtmlCacheRef.current,
+              [
+                translationEntry.id,
+                translationEntry.status,
+                translationEntry.updatedAt || translationEntry.translatedMarkdown,
+                options.basePath ?? '',
+                annotationRenderKey
+              ].join('\u0001'),
+              async () => {
+                const translationCollect = highlighter.collectTranslationHighlights(
+                  translationText,
+                  annotations,
+                  segment.originalText
+                )
+                const translationHighlightResult = highlighter.applyHighlightsToHtml(
+                  await renderMarkdownBlock(
+                    translationEntry.translatedMarkdown || '',
+                    translationEntry.kind
+                  ),
+                  translationCollect.highlights
+                )
+                return {
+                  html: translationHighlightResult.html,
+                  failedIds: [
+                    ...translationCollect.failedIds,
+                    ...translationHighlightResult.failedIds
+                  ]
+                }
+              }
             )
           : null
-      allFailedIds.push(...translationCollect.failedIds)
       if (translationHtmlResult) {
         allFailedIds.push(...translationHtmlResult.failedIds)
       }
@@ -586,6 +526,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         stableId: segment.stableId,
         sourceRevisionId: segment.sourceRevisionId,
         textHash: segment.textHash,
+        kind: segment.kind,
         originalText: segment.originalText,
         originalHtml: originalHtmlResult.html,
         translationHtml: translationHtmlResult?.html ?? null,

@@ -8,7 +8,7 @@ import { labToolService } from '../../../lab'
  * 薄封装层，将 LabToolService 适配为统一的 ToolAdapter 接口
  */
 export class LabToolAdapter implements ToolAdapter {
-  getTools(): MCPToolReference[] {
+  async getTools(): Promise<MCPToolReference[]> {
     return labToolService.getTools().map((tool) => ({
       serverName: tool.serverName || 'lab',
       toolName: tool.name.startsWith('lab__') ? tool.name.slice('lab__'.length) : tool.name,

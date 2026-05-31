@@ -228,12 +228,26 @@ export interface KnowledgeSearchResponse {
 }
 
 /**
+ * 重建索引范围
+ */
+export type KnowledgeReindexScope = 'full' | 'files'
+
+/**
+ * 重建索引选项
+ */
+export interface KnowledgeReindexOptions {
+  /** full 会重建整个知识库，files 只重建传入文件 */
+  scope?: KnowledgeReindexScope
+}
+
+/**
  * 重新索引完成后的汇总结果
  */
 export interface KnowledgeReindexSummary {
   indexedCount: number
   failedFiles: string[]
   failedErrors?: string[]
+  skippedFiles?: string[]
 }
 
 /**

@@ -10,6 +10,8 @@ import type {
   UpdatePaperAnnotationPayload,
   PaperStatus,
   PaperTranslationProgress,
+  PaperTranslationProgressBatch,
+  PaperTranslationSummary,
   PaperTranslationState
 } from '@shared/types/paper'
 
@@ -45,8 +47,10 @@ export type {
   PaperTocOutline,
   PaperTranslationEntry,
   PaperTranslationProgress,
+  PaperTranslationProgressBatch,
   PaperTranslationSegment,
   PaperTranslationSegmentKind,
+  PaperTranslationSummary,
   PaperTranslationState,
   PaperTranslationStatus
 } from '@shared/types/paper'
@@ -236,6 +240,11 @@ export interface PaperApi {
     data?: OcrProgressInfo
   }>
 
+  isOcrActive: (paperId: string) => Promise<{
+    success: boolean
+    data?: boolean
+  }>
+
   retryPage: (params: { paperId: string; pageIndex: number }) => Promise<{
     success: boolean
     error?: string
@@ -257,6 +266,13 @@ export interface PaperApi {
     error?: string
   }>
 
+  /** 查询论文翻译摘要 */
+  listTranslationSummaries: (paperIds: string[]) => Promise<{
+    success: boolean
+    data?: Record<string, PaperTranslationSummary>
+    error?: string
+  }>
+
   /** 删除论文翻译缓存 */
   deleteTranslation: (paperId: string) => Promise<{
     success: boolean
@@ -272,6 +288,11 @@ export interface PaperApi {
 
   /** 监听翻译进度 */
   onTranslationProgress: (callback: (progress: PaperTranslationProgress) => void) => () => void
+
+  /** 监听批量翻译进度 */
+  onTranslationProgressBatch: (
+    callback: (batch: PaperTranslationProgressBatch) => void
+  ) => () => void
 
   /** 重新翻译指定段落 */
   retranslateSegment: (params: { paperId: string; segmentId: string }) => Promise<{

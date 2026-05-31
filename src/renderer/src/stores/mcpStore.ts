@@ -129,9 +129,17 @@ export const useMCPStore = create<MCPState>()(
       loadConfigs: async () => {
         set({ loading: true, error: null })
         try {
-          const configs = await window.api.mcp.listConfigs()
-          const statuses = await window.api.mcp.getStatus()
-          set({ configs, statuses })
+          const configsResult = await window.api.mcp.listConfigs()
+          if (!configsResult.success) {
+            set({ error: configsResult.error || '获取配置列表失败' })
+            return
+          }
+          const statusesResult = await window.api.mcp.getStatus()
+          if (!statusesResult.success) {
+            set({ error: statusesResult.error || '获取状态失败' })
+            return
+          }
+          set({ configs: configsResult.data, statuses: statusesResult.data })
         } catch (e) {
           set({ error: e instanceof Error ? e.message : String(e) })
         } finally {
@@ -208,7 +216,7 @@ export const useMCPStore = create<MCPState>()(
             await get().loadConfigs()
             return true
           }
-          onError?.('断开连接失败')
+          onError?.(result.error || '断开连接失败')
           return false
         } catch {
           onError?.('断开连接失败')
@@ -236,8 +244,10 @@ export const useMCPStore = create<MCPState>()(
 
       refreshStatuses: async () => {
         try {
-          const statuses = await window.api.mcp.getStatus()
-          set({ statuses })
+          const result = await window.api.mcp.getStatus()
+          if (result.success) {
+            set({ statuses: result.data })
+          }
         } catch {
           // silent
         }
@@ -245,9 +255,11 @@ export const useMCPStore = create<MCPState>()(
 
       loadAllTools: async () => {
         try {
-          const toolsByServer = await window.api.mcp.listToolsByServer()
-          const statuses = await window.api.mcp.getStatus()
-          set({ toolsByServer, statuses })
+          const toolsByServerResult = await window.api.mcp.listToolsByServer()
+          const statusesResult = await window.api.mcp.getStatus()
+          if (toolsByServerResult.success && statusesResult.success) {
+            set({ toolsByServer: toolsByServerResult.data, statuses: statusesResult.data })
+          }
         } catch {
           // silent
         }
@@ -257,10 +269,13 @@ export const useMCPStore = create<MCPState>()(
 
       refreshServerTools: async (serverName) => {
         try {
-          const allTools = await window.api.mcp.listToolsByServer()
-          if (allTools[serverName]) {
+          const allToolsResult = await window.api.mcp.listToolsByServer()
+          if (allToolsResult.success && allToolsResult.data?.[serverName]) {
             set((state) => ({
-              toolsByServer: { ...state.toolsByServer, [serverName]: allTools[serverName] }
+              toolsByServer: {
+                ...state.toolsByServer,
+                [serverName]: allToolsResult.data![serverName]
+              }
             }))
           }
         } catch {

@@ -362,7 +362,7 @@ export class FrontendWorkspaceBootstrapService {
     lab.frontend.lastBootstrapAt = state.lastBootstrapAt
     lab.frontend.bootstrapError = state.bootstrapError
 
-    const saveResult = labService.saveLab(lab)
+    const saveResult = await labService.saveLab(lab)
     if (!saveResult.success) {
       throw new Error(saveResult.error || '保存前端 bootstrap 元数据失败')
     }

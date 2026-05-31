@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react'
-import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { usePaperViewStore } from '@renderer/stores/paper'
 import type { PaperPageAsset } from '@shared/types/paper'
-import { buildBase64DataUrl } from '@shared/utils'
 import { useZoomAnchor } from './composables/useZoomAnchor'
 import styles from './PaperOriginalPdfView.module.css'
 
@@ -30,14 +29,14 @@ export default function PaperOriginalPdfView({
   pageAssets,
   pageCount
 }: PaperOriginalPdfViewProps) {
-  const originalPdfZoomLevel = usePaperReaderStore((state) => state.originalPdfZoomLevel ?? 1.0)
-  const setOriginalPdfScrollPosition = usePaperReaderStore(
+  const zoomLevel = usePaperViewStore((state) => state.zoomLevel)
+  const setOriginalPdfScrollPosition = usePaperViewStore(
     (state) => state.setOriginalPdfScrollPosition
   )
-  const getOriginalPdfScrollPosition = usePaperReaderStore(
+  const getOriginalPdfScrollPosition = usePaperViewStore(
     (state) => state.getOriginalPdfScrollPosition
   )
-  const handleWheelZoom = usePaperReaderStore((state) => state.handleWheelZoom)
+  const handleWheelZoom = usePaperViewStore((state) => state.handleWheelZoom)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [pageStates, setPageStates] = useState<Record<number, PageLoadState>>({})
@@ -54,22 +53,22 @@ export default function PaperOriginalPdfView({
   // Zoom settle timer
   const zoomSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasMountedZoomRef = useRef(false)
-  const previousOriginalPdfZoomLevelRef = useRef(originalPdfZoomLevel)
+  const previousZoomLevelRef = useRef(zoomLevel)
 
   // useLayoutEffect 确保在浏览器绘制前同步修正滚动位置
   useLayoutEffect(() => {
     if (!hasMountedZoomRef.current) {
       hasMountedZoomRef.current = true
-      previousOriginalPdfZoomLevelRef.current = originalPdfZoomLevel
+      previousZoomLevelRef.current = zoomLevel
       return
     }
 
-    const prevLevel = previousOriginalPdfZoomLevelRef.current
-    if (prevLevel === originalPdfZoomLevel) {
+    const prevLevel = previousZoomLevelRef.current
+    if (prevLevel === zoomLevel) {
       return
     }
 
-    previousOriginalPdfZoomLevelRef.current = originalPdfZoomLevel
+    previousZoomLevelRef.current = zoomLevel
 
     const container = scrollContainerRef.current
     if (!container) return
@@ -77,7 +76,7 @@ export default function PaperOriginalPdfView({
     if (!zoomAnchor.isZooming()) {
       // 首次缩放步进：DOM 已更新缩放但 scrollTop 未变，需先用数学方式修正滚动位置
       // 再捕获锚点，否则 beginZoom 捕获的是已偏移的错误锚点
-      const ratio = originalPdfZoomLevel / prevLevel
+      const ratio = zoomLevel / prevLevel
       const scrollTop = container.scrollTop
       const clientHeight = container.clientHeight
       container.scrollTop = scrollTop * ratio + (clientHeight / 2) * (ratio - 1)
@@ -95,7 +94,7 @@ export default function PaperOriginalPdfView({
       zoomSettleTimerRef.current = null
       zoomAnchor.endZoom()
     }, 150)
-  }, [originalPdfZoomLevel, zoomAnchor])
+  }, [zoomLevel, zoomAnchor])
 
   const originalPages = useMemo<OriginalPdfPage[]>(() => {
     const assets = [...(pageAssets || [])].sort((a, b) => a.pageIndex - b.pageIndex)
@@ -125,9 +124,9 @@ export default function PaperOriginalPdfView({
 
   const contentZoomStyle = useMemo(
     () => ({
-      zoom: originalPdfZoomLevel
+      zoom: zoomLevel
     }),
-    [originalPdfZoomLevel]
+    [zoomLevel]
   )
 
   const hasPages = originalPages.length > 0
@@ -189,7 +188,7 @@ export default function PaperOriginalPdfView({
   }
 
   const loadPage = useCallback(
-    async (pageIndex: number): Promise<void> => {
+    (pageIndex: number): void => {
       const page = findPage(pageIndex)
       if (!page) {
         return
@@ -211,26 +210,17 @@ export default function PaperOriginalPdfView({
       const targetPaperId = paperIdRef.current
       setPageState(pageIndex, { status: 'loading' })
 
-      const result = await window.api.paper.getPageImage({
-        paperId: targetPaperId,
-        pageIndex
-      })
+      // 使用 lumina:// 协议直接加载页面图片，避免 Base64 IPC 传输
+      const paddedIndex = String(pageIndex + 1).padStart(4, '0')
+      const imageUrl = `lumina://paper/${targetPaperId}/pages/page-${paddedIndex}.jpg`
 
       if (paperIdRef.current !== targetPaperId) {
         return
       }
 
-      if (!result.success || !result.data) {
-        setPageState(pageIndex, {
-          status: 'error',
-          error: result.error || '读取页图失败'
-        })
-        return
-      }
-
       setPageState(pageIndex, {
         status: 'loaded',
-        dataUrl: buildBase64DataUrl(result.data, page.imageMimeType)
+        dataUrl: imageUrl
       })
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -359,6 +349,21 @@ export default function PaperOriginalPdfView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Ctrl/⌘ + 滚轮缩放：非被动监听，避免 passive wheel 中 preventDefault 失效报错
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) {
+      return
+    }
+
+    const onWheel = (event: WheelEvent): void => {
+      handleWheelZoom(event)
+    }
+
+    container.addEventListener('wheel', onWheel, { passive: false })
+    return () => container.removeEventListener('wheel', onWheel)
+  }, [handleWheelZoom])
+
   const setPageElement = useCallback(
     (pageIndex: number, element: HTMLElement | null) => {
       if (element) {
@@ -390,7 +395,6 @@ export default function PaperOriginalPdfView({
         ref={scrollContainerRef}
         className={styles['paper-original-pdf-view__scroll']}
         onScroll={recordScrollPosition}
-        onWheel={(e) => handleWheelZoom(e.nativeEvent)}
       >
         {!hasPages ? (
           <div className={styles['paper-original-pdf-view__empty']}>
@@ -413,6 +417,12 @@ export default function PaperOriginalPdfView({
                       className={styles['paper-original-pdf-view__image']}
                       src={state.dataUrl}
                       alt={`第 ${page.pageIndex + 1} 页原件`}
+                      onError={() =>
+                        setPageState(page.pageIndex, {
+                          status: 'error',
+                          error: '页图加载失败'
+                        })
+                      }
                     />
                   ) : state.status === 'error' ? (
                     <div

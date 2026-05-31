@@ -349,10 +349,10 @@ export const createLabTool: LabToolDefinition = {
             noPull: useLocalImage === 'yes'
           })
           if (!buildResult.success || !buildResult.imageId) {
-            const lab = labService.loadLab(labId)
+            const lab = await labService.loadLab(labId)
             if (lab) {
               lab.status = 'error'
-              labService.saveLab(lab)
+              await labService.saveLab(lab)
             }
             return {
               success: false,
@@ -410,10 +410,10 @@ export const createLabTool: LabToolDefinition = {
             }))
           })
           if (!containerResult.success || !containerResult.containerId) {
-            const lab = labService.loadLab(labId)
+            const lab = await labService.loadLab(labId)
             if (lab) {
               lab.status = 'error'
-              labService.saveLab(lab)
+              await labService.saveLab(lab)
             }
             return {
               success: false,
@@ -422,14 +422,14 @@ export const createLabTool: LabToolDefinition = {
           }
 
           // 更新实验室元数据
-          const dockerfileLab = labService.loadLab(labId)
+          const dockerfileLab = await labService.loadLab(labId)
           if (dockerfileLab) {
             dockerfileLab.containerIds = [containerResult.containerId]
             dockerfileLab.primaryContainerId = containerResult.containerId
             dockerfileLab.portMappings = portMappings
             dockerfileLab.status = 'running'
             dockerfileLab.updatedAt = new Date().toISOString()
-            labService.saveLab(dockerfileLab)
+            await labService.saveLab(dockerfileLab)
           }
           break
         }
@@ -454,10 +454,10 @@ export const createLabTool: LabToolDefinition = {
             noPull: useLocalImage === 'yes'
           })
           if (!composeResult.success) {
-            const lab = labService.loadLab(labId)
+            const lab = await labService.loadLab(labId)
             if (lab) {
               lab.status = 'error'
-              labService.saveLab(lab)
+              await labService.saveLab(lab)
             }
             return {
               success: false,
@@ -466,14 +466,14 @@ export const createLabTool: LabToolDefinition = {
           }
 
           // 更新实验室元数据
-          const composeLab = labService.loadLab(labId)
+          const composeLab = await labService.loadLab(labId)
           if (composeLab) {
             composeLab.containerIds = composeResult.containerIds || []
             composeLab.primaryContainerId = composeResult.containerIds?.[0]
             composeLab.composeProjectName = projectName
             composeLab.status = 'running'
             composeLab.updatedAt = new Date().toISOString()
-            labService.saveLab(composeLab)
+            await labService.saveLab(composeLab)
           }
           break
         }
@@ -481,10 +481,10 @@ export const createLabTool: LabToolDefinition = {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error)
       logger.error('容器操作失败', 'main', { labId, error: errorMsg })
-      const lab = labService.loadLab(labId)
+      const lab = await labService.loadLab(labId)
       if (lab) {
         lab.status = 'error'
-        labService.saveLab(lab)
+        await labService.saveLab(lab)
       }
       return {
         success: false,
@@ -493,7 +493,7 @@ export const createLabTool: LabToolDefinition = {
     }
 
     // 7. 返回成功
-    const finalLab = labService.loadLab(labId)
+    const finalLab = await labService.loadLab(labId)
 
     // 构建端口映射信息
     let portMappingInfo = ''

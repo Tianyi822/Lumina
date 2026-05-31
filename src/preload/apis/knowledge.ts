@@ -79,10 +79,14 @@ export const knowledgeApi: KnowledgeApi = {
   },
 
   /**
-   * 重新索引整个知识库
+   * 重新索引知识库
    */
-  reindex: (kbId: string, fileIds: string[]): Promise<ApiResponse<KnowledgeReindexSummary>> => {
-    return ipcRenderer.invoke('knowledge:reindex', kbId, fileIds)
+  reindex: (
+    kbId: string,
+    fileIds: string[],
+    options
+  ): Promise<ApiResponse<KnowledgeReindexSummary>> => {
+    return ipcRenderer.invoke('knowledge:reindex', kbId, fileIds, options)
   },
 
   /**

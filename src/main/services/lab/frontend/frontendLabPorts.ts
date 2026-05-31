@@ -44,8 +44,7 @@ export async function allocateFixedHostPort(
   ignoredLabId?: string
 ): Promise<number> {
   const reservedPorts = new Set(
-    labService
-      .loadAllLabs()
+    (await labService.loadAllLabs())
       .filter((lab) => lab.labId !== ignoredLabId)
       .map((lab) => lab.frontend?.hostPort)
       .filter(

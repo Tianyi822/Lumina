@@ -15,6 +15,7 @@ import type {
 import type { PaperQuote } from '@shared/types/chat'
 import { usePaperChatMessageCacheStore, usePaperChatStreamStore } from '@renderer/stores'
 import { buildChatMessages } from '@renderer/utils/messageHelpers'
+import { deepClone } from '@shared/utils'
 
 interface UsePaperChatStreamReactOptions {
   session: SessionData | null
@@ -60,7 +61,7 @@ function toKnowledgeReferences(knowledgeBases: KnowledgeBase[]): KnowledgeBaseRe
 }
 
 function toPlainRequest<T>(request: T): T {
-  return JSON.parse(JSON.stringify(request)) as T
+  return deepClone(request)
 }
 
 export function usePaperChatStreamReact(
@@ -155,7 +156,7 @@ export function usePaperChatStreamReact(
       )
       messagesRef.current = retainedMessages
 
-      const snapshot = JSON.parse(JSON.stringify(retainedMessages)) as Message[]
+      const snapshot = deepClone(retainedMessages)
       streamStore.saveMessagesSnapshot(currentSessionId, snapshot)
       usePaperChatStreamStore.setState({ streamingSessionId: currentSessionId })
 

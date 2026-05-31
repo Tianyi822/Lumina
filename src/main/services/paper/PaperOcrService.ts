@@ -1,5 +1,5 @@
 import { net } from 'electron'
-import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
+import { readFile, mkdir, writeFile, access } from 'fs/promises'
 import { dirname } from 'path'
 import { logger } from '@main/services/logger'
 import { configManager } from '@main/services/config'
@@ -290,10 +290,8 @@ async function downloadCropImage(remoteUrl: string, localPath: string): Promise<
     if (!response.ok) return false
     const buffer = Buffer.from(await response.arrayBuffer())
     const dir = dirname(localPath)
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true })
-    }
-    writeFileSync(localPath, buffer)
+    await mkdir(dir, { recursive: true })
+    await writeFile(localPath, buffer)
     return true
   } catch {
     return false
@@ -305,6 +303,7 @@ export class PaperOcrService {
   private currentProgress: Map<string, OcrProgressInfo> = new Map()
   private abortControllers: Map<string, boolean> = new Map()
   private progressCallbacks: Map<string, ProgressCallback> = new Map()
+  private activeOcrPipelines: Set<string> = new Set()
 
   private getOcrConfig(): { apiKey: string; provider: OcrProviderId; concurrency: number } {
     const config = configManager.getConfig()
@@ -336,6 +335,10 @@ export class PaperOcrService {
     return this.currentProgress.get(paperId)
   }
 
+  isOcrActive(paperId: string): boolean {
+    return this.activeOcrPipelines.has(paperId)
+  }
+
   cancelOcr(paperId: string): void {
     this.abortControllers.set(paperId, true)
     logger.info('OCR 任务已标记取消', 'main', { paperId })
@@ -347,7 +350,7 @@ export class PaperOcrService {
       return { success: false, error: '请先在设置中配置 GLM-OCR API Key' }
     }
 
-    const metaResult = paperStorageService.readMeta(paperId)
+    const metaResult = await paperStorageService.readMeta(paperId)
     if (!metaResult.success || !metaResult.data) {
       return { success: false, error: metaResult.error || '论文元信息不存在' }
     }
@@ -361,7 +364,7 @@ export class PaperOcrService {
 
     const totalPages = meta.pageCount
 
-    const existingResults = paperStorageService.listNormalizedResults(paperId)
+    const existingResults = await paperStorageService.listNormalizedResults(paperId)
     const preExistingResults = existingResults.success ? (existingResults.data ?? []) : []
     const existingCompleted = preExistingResults.filter((r) => r.status === 'completed').length
     const existingFailed = preExistingResults
@@ -378,7 +381,9 @@ export class PaperOcrService {
     }
     this.emitProgress(paperId, progress)
 
-    paperStorageService.updateMeta(paperId, {
+    this.activeOcrPipelines.add(paperId)
+
+    await paperStorageService.updateMeta(paperId, {
       status: 'ocr_processing',
       completedPageCount: existingCompleted,
       errorMessage: undefined
@@ -395,10 +400,10 @@ export class PaperOcrService {
         progress.currentPage = pageIndex
         this.emitProgress(paperId, progress)
       },
-      onPageSettled: (pageIndex, pageResult) => {
+      onPageSettled: async (pageIndex, pageResult) => {
         if (pageResult.status === 'completed') {
           progress.completedPages += 1
-          paperStorageService.updateMeta(paperId, {
+          await paperStorageService.updateMeta(paperId, {
             completedPageCount: progress.completedPages
           })
         } else {
@@ -412,10 +417,11 @@ export class PaperOcrService {
     })
 
     this.abortControllers.delete(paperId)
+    this.activeOcrPipelines.delete(paperId)
 
     if (aborted) {
       progress.status = 'cancelled'
-      paperStorageService.updateMeta(paperId, {
+      await paperStorageService.updateMeta(paperId, {
         status: 'draft',
         completedPageCount: progress.completedPages,
         errorMessage: undefined
@@ -423,21 +429,21 @@ export class PaperOcrService {
     } else {
       if (progress.failedPages.length === 0) {
         progress.status = 'completed'
-        paperStorageService.updateMeta(paperId, { status: 'completed' })
+        await paperStorageService.updateMeta(paperId, { status: 'completed' })
       } else if (progress.completedPages > 0) {
         progress.status = 'partial_failed'
-        paperStorageService.updateMeta(paperId, { status: 'partial_failed' })
+        await paperStorageService.updateMeta(paperId, { status: 'partial_failed' })
       } else {
         progress.errorMessage = '所有页面 OCR 均失败'
         progress.status = 'failed'
-        paperStorageService.updateMeta(paperId, {
+        await paperStorageService.updateMeta(paperId, {
           status: 'failed',
           errorMessage: progress.errorMessage
         })
       }
     }
 
-    this.buildAndSaveMergedMd(paperId, normalizedResults)
+    await this.buildAndSaveMergedMd(paperId, normalizedResults)
     this.emitProgress(paperId, progress)
 
     logger.info('OCR 处理完成', 'main', {
@@ -465,7 +471,7 @@ export class PaperOcrService {
 
     const result = await this.processPage(paperId, pageIndex, apiKey, provider)
     if (result.status === 'completed') {
-      this.rebuildMergedMd(paperId)
+      await this.rebuildMergedMd(paperId)
     }
     return { success: result.status === 'completed', error: result.errorMessage }
   }
@@ -476,7 +482,7 @@ export class PaperOcrService {
     apiKey: string,
     provider: OcrProviderId
   ): Promise<PaperPageOcrResult> {
-    const pageImageResult = paperStorageService.readPageImage(paperId, pageIndex)
+    const pageImageResult = await paperStorageService.readPageImage(paperId, pageIndex)
     if (!pageImageResult.success || !pageImageResult.data) {
       const result: PaperPageOcrResult = {
         paperId,
@@ -486,7 +492,7 @@ export class PaperOcrService {
         status: 'failed',
         errorMessage: pageImageResult.error || '页图不存在'
       }
-      this.saveOcrResults(paperId, pageIndex, null, result)
+      await this.saveOcrResults(paperId, pageIndex, null, result)
       return result
     }
 
@@ -507,7 +513,7 @@ export class PaperOcrService {
         status: 'failed',
         errorMessage: response.error || 'OCR 请求失败'
       }
-      this.saveOcrResults(paperId, pageIndex, response.data, result)
+      await this.saveOcrResults(paperId, pageIndex, response.data, result)
       logger.warn(`第 ${pageIndex + 1} 页 OCR 失败`, 'main', {
         paperId,
         pageIndex,
@@ -551,7 +557,7 @@ export class PaperOcrService {
         status: 'failed',
         errorMessage: `OCR 图片下载失败: ${failedBlocks}`
       }
-      this.saveOcrResults(paperId, pageIndex, rawResponse, result)
+      await this.saveOcrResults(paperId, pageIndex, rawResponse, result)
       logger.warn(`第 ${pageIndex + 1} 页 OCR 图片下载失败`, 'main', {
         paperId,
         pageIndex,
@@ -571,24 +577,22 @@ export class PaperOcrService {
       status: 'completed'
     }
 
-    this.saveOcrResults(paperId, pageIndex, rawResponse, result)
+    await this.saveOcrResults(paperId, pageIndex, rawResponse, result)
     logger.info(`第 ${pageIndex + 1} 页 OCR 完成`, 'main', { paperId, pageIndex })
     return result
   }
 
-  private saveOcrResults(
+  private async saveOcrResults(
     paperId: string,
     pageIndex: number,
     rawData: unknown,
     normalized: PaperPageOcrResult
-  ): void {
+  ): Promise<void> {
     try {
       const rawDir = getPaperOcrRawDirPath(paperId)
-      if (!existsSync(rawDir)) {
-        mkdirSync(rawDir, { recursive: true })
-      }
+      await mkdir(rawDir, { recursive: true })
       if (rawData) {
-        writeFileSync(
+        await writeFile(
           getPaperOcrRawPath(paperId, pageIndex),
           JSON.stringify(rawData, null, 2),
           'utf-8'
@@ -596,10 +600,8 @@ export class PaperOcrService {
       }
 
       const normalizedDir = getPaperOcrNormalizedDirPath(paperId)
-      if (!existsSync(normalizedDir)) {
-        mkdirSync(normalizedDir, { recursive: true })
-      }
-      writeFileSync(
+      await mkdir(normalizedDir, { recursive: true })
+      await writeFile(
         getPaperOcrNormalizedPath(paperId, pageIndex),
         JSON.stringify(normalized, null, 2),
         'utf-8'
@@ -610,12 +612,15 @@ export class PaperOcrService {
     }
   }
 
-  private buildAndSaveMergedMd(paperId: string, results: PaperPageOcrResult[]): void {
+  private async buildAndSaveMergedMd(
+    paperId: string,
+    results: PaperPageOcrResult[]
+  ): Promise<void> {
     const mergedMd = buildMergedMarkdown(results)
 
     try {
       const mdPath = getPaperMergedMdPath(paperId)
-      writeFileSync(mdPath, mergedMd, 'utf-8')
+      await writeFile(mdPath, mergedMd, 'utf-8')
       logger.info('合并 Markdown 保存成功', 'main', { paperId, pages: results.length })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -623,9 +628,9 @@ export class PaperOcrService {
     }
   }
 
-  rebuildMergedMd(paperId: string): { success: boolean; error?: string } {
+  async rebuildMergedMd(paperId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const metaResult = paperStorageService.readMeta(paperId)
+      const metaResult = await paperStorageService.readMeta(paperId)
       if (!metaResult.success || !metaResult.data) {
         return { success: false, error: '论文元信息不存在' }
       }
@@ -635,9 +640,12 @@ export class PaperOcrService {
 
       for (let i = 0; i < totalPages; i++) {
         const normalizedPath = getPaperOcrNormalizedPath(paperId, i)
-        if (existsSync(normalizedPath)) {
+        const fileExists = await access(normalizedPath)
+          .then(() => true)
+          .catch(() => false)
+        if (fileExists) {
           try {
-            const content = readFileSync(normalizedPath, 'utf-8')
+            const content = await readFile(normalizedPath, 'utf-8')
             results.push(JSON.parse(content) as PaperPageOcrResult)
           } catch {
             results.push({
@@ -659,7 +667,7 @@ export class PaperOcrService {
         }
       }
 
-      this.buildAndSaveMergedMd(paperId, results)
+      await this.buildAndSaveMergedMd(paperId, results)
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)

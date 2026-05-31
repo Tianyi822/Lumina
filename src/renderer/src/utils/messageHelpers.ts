@@ -1,5 +1,6 @@
 import type { Message, ChatMessage } from '../types'
 import type { SessionMessage } from '@shared/types'
+import { deepClone } from '@shared/utils'
 
 /**
  * 将 SessionMessage 转换为 Message（UI 层特有）
@@ -32,36 +33,32 @@ export function sessionMessageToMessage(msg: SessionMessage): Message {
  * 注意：需要转换为纯对象以避免 Vue 响应式对象的序列化问题
  */
 export function messageToSessionMessage(msg: Message): SessionMessage {
-  // 先序列化再解析，确保是纯对象
-  const plainMsg = JSON.parse(
-    JSON.stringify({
-      id: msg.id,
-      role: msg.role,
-      content: msg.content,
-      reasoning: msg.reasoning,
-      timestamp: msg.timestamp || new Date().toISOString(),
-      modelName: msg.modelName,
-      usage: msg.usage
-        ? {
-            prompt_tokens: msg.usage.prompt_tokens,
-            completion_tokens: msg.usage.completion_tokens,
-            total_tokens: msg.usage.total_tokens,
-            reasoning_tokens: msg.usage.reasoning_tokens
-          }
-        : undefined,
-      tool_calls: msg.tool_calls,
-      tool_call_id: msg.tool_call_id,
-      reactSteps: msg.reactSteps,
-      reactIterations: msg.reactIterations,
-      attachedDocuments: msg.attachedDocuments,
-      attachedImages: msg.attachedImages,
-      attachedQuotes: msg.attachedQuotes,
-      hidden: msg.hidden,
-      contextKind: msg.contextKind,
-      sourcePaperId: msg.sourcePaperId
-    })
-  )
-  return plainMsg
+  return deepClone({
+    id: msg.id,
+    role: msg.role,
+    content: msg.content,
+    reasoning: msg.reasoning,
+    timestamp: msg.timestamp || new Date().toISOString(),
+    modelName: msg.modelName,
+    usage: msg.usage
+      ? {
+          prompt_tokens: msg.usage.prompt_tokens,
+          completion_tokens: msg.usage.completion_tokens,
+          total_tokens: msg.usage.total_tokens,
+          reasoning_tokens: msg.usage.reasoning_tokens
+        }
+      : undefined,
+    tool_calls: msg.tool_calls,
+    tool_call_id: msg.tool_call_id,
+    reactSteps: msg.reactSteps,
+    reactIterations: msg.reactIterations,
+    attachedDocuments: msg.attachedDocuments,
+    attachedImages: msg.attachedImages,
+    attachedQuotes: msg.attachedQuotes,
+    hidden: msg.hidden,
+    contextKind: msg.contextKind,
+    sourcePaperId: msg.sourcePaperId
+  })
 }
 
 /**

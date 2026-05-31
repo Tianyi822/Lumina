@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, memo } from 'react'
 import { useFileStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
@@ -17,7 +17,7 @@ interface FileManagerModalProps {
   onClose: () => void
 }
 
-export default function FileManagerModal({ onClose }: FileManagerModalProps) {
+function FileManagerModal({ onClose }: FileManagerModalProps) {
   const loadFiles = useFileStore((s) => s.loadFiles)
   const filteredFiles = useFileStore((s) => s.filteredFiles())
 
@@ -111,3 +111,5 @@ export default function FileManagerModal({ onClose }: FileManagerModalProps) {
     </div>
   )
 }
+
+export default memo(FileManagerModal)
