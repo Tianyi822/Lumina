@@ -42,6 +42,7 @@ export default function PaperReaderPage() {
   const currentPaperId = usePaperListStore((state) => state.currentPaperId ?? null)
   const currentPaper = usePaperListStore((state) => state.currentPaper() ?? null)
   const markdownContent = usePaperListStore((state) => state.markdownContent ?? '')
+  const markdownPaperId = usePaperListStore((state) => state.markdownPaperId ?? null)
   const markdownLoading = usePaperListStore((state) => state.markdownLoading ?? false)
   const isOcrCompleted = usePaperListStore((state) => state.isOcrCompleted() ?? false)
   const paperBasePath = usePaperListStore((state) => state.paperBasePath() ?? null)
@@ -93,6 +94,10 @@ export default function PaperReaderPage() {
   }, [paperChatPanelWidth])
 
   const isPaperChatPanelVisible = paperChatPanelOpen && Boolean(currentPaper) && isOcrCompleted
+  const isMarkdownForCurrentPaper = Boolean(currentPaperId && markdownPaperId === currentPaperId)
+  const visibleMarkdownContent = isMarkdownForCurrentPaper ? markdownContent : ''
+  const visibleMarkdownLoading =
+    markdownLoading || Boolean(currentPaperId && !isMarkdownForCurrentPaper)
 
   // scrollToQuote implementation for PaperQuoteContext
   const scrollToQuote = useCallback((quote: PaperQuote) => {
@@ -207,12 +212,12 @@ export default function PaperReaderPage() {
   }, [currentPaperId, isOcrCompleted, setPaperChatPanelOpen])
 
   // Auto-open translation on markdown load
-  const wasMarkdownLoadingRef = useRef(markdownLoading)
+  const wasMarkdownLoadingRef = useRef(visibleMarkdownLoading)
   useEffect(() => {
     const wasLoading = wasMarkdownLoadingRef.current
-    wasMarkdownLoadingRef.current = markdownLoading
+    wasMarkdownLoadingRef.current = visibleMarkdownLoading
 
-    if (markdownLoading || !wasLoading) return
+    if (visibleMarkdownLoading || !wasLoading) return
 
     const progress = currentPaper?.readingProgress
     if (!progress?.translationVisible) return
@@ -220,7 +225,7 @@ export default function PaperReaderPage() {
     if (!translationVisible) {
       void toggleTranslationVisible()
     }
-  }, [markdownLoading, currentPaper, translationVisible, toggleTranslationVisible])
+  }, [visibleMarkdownLoading, currentPaper, translationVisible, toggleTranslationVisible])
 
   // Cleanup
   useEffect(() => {
@@ -272,8 +277,8 @@ export default function PaperReaderPage() {
           ) : isOcrCompleted ? (
             <PaperMarkdownView
               ref={markdownViewRef}
-              content={markdownContent}
-              loading={markdownLoading}
+              content={visibleMarkdownContent}
+              loading={visibleMarkdownLoading}
               paperId={currentPaperId || ''}
               basePath={paperBasePath || undefined}
               annotations={currentAnnotations}
