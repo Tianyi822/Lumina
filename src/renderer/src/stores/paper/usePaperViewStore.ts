@@ -12,6 +12,13 @@ export interface PaperViewScrollPosition {
   scrollLeft: number
 }
 
+export interface PaperBeforeZoomChangeParams {
+  previousZoomLevel: number
+  nextZoomLevel: number
+}
+
+export type PaperBeforeZoomChangeListener = (params: PaperBeforeZoomChangeParams) => void
+
 // ---------------------------------------------------------------------------
 // 缩放常量
 // ---------------------------------------------------------------------------
@@ -57,6 +64,7 @@ interface PaperViewState {
   scrollToHeadingFn: ((headingId: string) => boolean) | null
 
   // Actions
+  registerBeforeZoomChange: (fn: PaperBeforeZoomChangeListener) => () => void
   registerScrollToHeading: (fn: (headingId: string) => boolean) => void
   zoomIn: () => void
   zoomOut: () => void
@@ -83,6 +91,7 @@ export const usePaperViewStore = create<PaperViewState>()((set, get) => {
   // 非响应式闭包状态（等价于模块级 Map）
   const markdownScrollPositionByPaperId = new Map<string, PaperViewScrollPosition>()
   const originalPdfScrollPositionByPaperId = new Map<string, PaperViewScrollPosition>()
+  const beforeZoomChangeListeners = new Set<PaperBeforeZoomChangeListener>()
 
   // 缩放持久化闭包
   let zoomPersistenceReady = false
@@ -112,11 +121,18 @@ export const usePaperViewStore = create<PaperViewState>()((set, get) => {
     }, 800)
   }
 
+  function notifyBeforeZoomChange(previousZoomLevel: number, nextZoomLevel: number): void {
+    for (const listener of Array.from(beforeZoomChangeListeners)) {
+      listener({ previousZoomLevel, nextZoomLevel })
+    }
+  }
+
   function internalSetZoomLevel(value: number, options: { persist?: boolean } = {}): void {
     const nextZoomLevel = normalizeZoomLevel(value)
     const currentLevel = get().zoomLevel
     if (currentLevel === nextZoomLevel) return
 
+    notifyBeforeZoomChange(currentLevel, nextZoomLevel)
     set({ zoomLevel: nextZoomLevel })
     scheduleZoomPercentSync()
 
@@ -144,6 +160,13 @@ export const usePaperViewStore = create<PaperViewState>()((set, get) => {
     // Zoom Actions
     // -----------------------------------------------------------------------
 
+    registerBeforeZoomChange: (fn: PaperBeforeZoomChangeListener): (() => void) => {
+      beforeZoomChangeListeners.add(fn)
+      return () => {
+        beforeZoomChangeListeners.delete(fn)
+      }
+    },
+
     zoomIn: () => {
       internalSetZoomLevel(+(get().zoomLevel + ZOOM_STEP).toFixed(1))
     },
@@ -170,6 +193,7 @@ export const usePaperViewStore = create<PaperViewState>()((set, get) => {
           const nextZoomLevel = normalizeZoomLevel(level + pendingWheelDelta)
           pendingWheelDelta = 0
           if (get().zoomLevel === nextZoomLevel) return
+          notifyBeforeZoomChange(level, nextZoomLevel)
           set({ zoomLevel: nextZoomLevel })
           scheduleZoomPercentSync()
         })
