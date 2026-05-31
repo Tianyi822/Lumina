@@ -346,6 +346,42 @@ test('目录译文会取翻译 Markdown 的标题第一行，并保留原文锚�
   assert.equal(outline.items[0].segmentId, segments[0].id)
 })
 
+test('目录标题中的 LaTeX 公式会转为纯文本展示', () => {
+  const markdown = [
+    '# 3. Method for $\\mathcal{D}_{train}$ and \\(\\sigma_l\\)',
+    '',
+    '# 4. Loss $$\\mathcal{L}_{total} = \\lambda_1 \\mathcal{L}_{cls}$$',
+    '',
+    '# 5. Objective \\begin{equation}\\mathcal{J}_{\\Sigma}\\end{equation}'
+  ].join('\n')
+  const segments = parsePaperTranslationSegments(markdown)
+  const outline = buildPaperTocOutline(segments, [
+    {
+      ...segments[0],
+      status: 'completed',
+      translatedMarkdown: '# 3. 方法 $\\mathcal{D}_{train}$',
+      translatedText: '3. 方法 \\mathcal{D}_{train}'
+    }
+  ])
+
+  assert.deepEqual(
+    outline.items.map((item) => item.text),
+    [
+      '3. Method for D train and sigma l',
+      '4. Loss L total = lambda 1 L cls',
+      '5. Objective J Sigma'
+    ]
+  )
+  assert.equal(outline.items[0].translatedText, '3. 方法 D train')
+
+  for (const text of [
+    ...outline.items.map((item) => item.text),
+    ...outline.items.map((item) => item.translatedText || '')
+  ]) {
+    assert.doesNotMatch(text, /[$\\{}]/)
+  }
+})
+
 test('同名标题会生成稳定的去重锚点', () => {
   const markdown = ['# Introduction', '', '# Introduction'].join('\n\n')
 
