@@ -51,10 +51,12 @@ export function restoreAnchor(container: HTMLElement, anchor: ZoomAnchor): void 
 }
 
 export interface ZoomAnchorController {
-  beginZoom(container: HTMLElement): void
+  beginZoom(container: HTMLElement): boolean
+  beginZoomWithAnchor(anchor: ZoomAnchor | null): boolean
   applyZoomFrame(container: HTMLElement): void
   endZoom(): void
   isZooming(): boolean
+  getAnchor(): ZoomAnchor | null
 }
 
 export function useZoomAnchor(): ZoomAnchorController {
@@ -62,9 +64,16 @@ export function useZoomAnchor(): ZoomAnchorController {
   let anchor: ZoomAnchor | null = null
 
   return {
-    beginZoom(container: HTMLElement): void {
+    beginZoom(container: HTMLElement): boolean {
       anchor = captureAnchor(container)
       zooming = true
+      return anchor !== null
+    },
+
+    beginZoomWithAnchor(nextAnchor: ZoomAnchor | null): boolean {
+      anchor = nextAnchor
+      zooming = true
+      return anchor !== null
     },
 
     applyZoomFrame(container: HTMLElement): void {
@@ -80,6 +89,10 @@ export function useZoomAnchor(): ZoomAnchorController {
 
     isZooming(): boolean {
       return zooming
+    },
+
+    getAnchor(): ZoomAnchor | null {
+      return anchor
     }
   }
 }
