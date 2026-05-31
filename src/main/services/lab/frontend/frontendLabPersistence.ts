@@ -34,7 +34,7 @@ export async function syncFrontendPortBinding(
 
   lab.frontend.hostPort = hostPort
   lab.frontend.previewUrl = previewUrl
-  const saveResult = labService.saveLab(lab)
+  const saveResult = await labService.saveLab(lab)
 
   if (!saveResult.success) {
     logger.warn('同步前端实验室端口映射失败', 'main', {
@@ -52,12 +52,12 @@ export async function syncFrontendPortBinding(
   })
 }
 
-export function saveLabOrThrow(
+export async function saveLabOrThrow(
   lab: LabData,
   labService: LabService,
   fallbackMessage: string
-): void {
-  const saveResult = labService.saveLab(lab, {
+): Promise<void> {
+  const saveResult = await labService.saveLab(lab, {
     silent: true
   })
   if (!saveResult.success) {
@@ -73,9 +73,9 @@ export async function persistFrontendLabStatus(
   options?: { preserveBootstrapError?: boolean }
 ): Promise<void> {
   const current =
-    labService.loadLab(lab.labId, {
+    (await labService.loadLab(lab.labId, {
       silent: true
-    }) || lab
+    })) || lab
 
   let nextBootstrapError = current.frontend?.bootstrapError
 
@@ -105,7 +105,7 @@ export async function persistFrontendLabStatus(
     }
   }
 
-  saveLabOrThrow(current, labService, '保存前端实验室状态失败')
+  await saveLabOrThrow(current, labService, '保存前端实验室状态失败')
 }
 
 export async function syncFrontendLifecycleStatus(
@@ -183,7 +183,7 @@ export async function persistFrontendBuildValidationFailure(
   labService: LabService,
   bootstrapService: FrontendWorkspaceBootstrapService
 ): Promise<void> {
-  const lab = labService.loadLab(labId)
+  const lab = await labService.loadLab(labId)
 
   if (!lab?.frontend || (!lab.primaryContainerId && lab.containerIds.length === 0)) {
     throw new Error('未找到前端实验室元数据')

@@ -13,13 +13,15 @@ async function findReusableFrontendLab(
   framework: FrontendFramework
 ): Promise<LabData | null> {
   const labItems = await labService.listLabs()
-  const labs = labItems
-    .map((item) =>
-      labService.loadLab(item.labId, {
-        silent: true
-      })
+  const labs = (
+    await Promise.all(
+      labItems.map((item) =>
+        labService.loadLab(item.labId, {
+          silent: true
+        })
+      )
     )
-    .filter((lab): lab is LabData => !!lab)
+  ).filter((lab): lab is LabData => !!lab)
 
   return selectReusableFrontendLab(labs, name, framework)
 }

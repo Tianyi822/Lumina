@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useKnowledgeIndexStore } from '@renderer/stores'
+import SvgIcon from '@renderer/components/icons/SvgIcon'
 import type { KnowledgeBase } from '@renderer/types'
 import { useKnowledgeFiles } from './knowledge/hooks/useKnowledgeFiles'
+import { useKnowledgeStats } from './knowledge/hooks/useKnowledgeStats'
 import { useReindex } from './knowledge/hooks/useReindex'
 import StatsPanel from './knowledge/StatsPanel'
 import SearchPanel from './knowledge/SearchPanel'
@@ -23,26 +25,9 @@ export default function KnowledgeMain({
 }: KnowledgeMainProps) {
   const indexStore = useKnowledgeIndexStore()
 
-  const [stats, setStats] = useState({ fileCount: 0, chunkCount: 0, dbSize: 0 })
-  const [loadingStats, setLoadingStats] = useState(false)
-
   const kbId = knowledgeBase?.id
 
-  const loadStats = useCallback(async () => {
-    if (!kbId) return
-    setLoadingStats(true)
-    try {
-      const res = await window.api.knowledge.getStats(kbId)
-      if (res.success && res.data) setStats(res.data)
-    } catch (e) {
-      window.api.logger.error('[KnowledgeMain] 加载统计失败', {
-        error: e instanceof Error ? e.message : String(e),
-        kbId
-      })
-    } finally {
-      setLoadingStats(false)
-    }
-  }, [kbId])
+  const { stats, loading: loadingStats, loadStats } = useKnowledgeStats(kbId)
 
   const refreshCurrentKnowledgeBase = useCallback(async () => {
     if (!kbId || !knowledgeBase) return
@@ -67,19 +52,26 @@ export default function KnowledgeMain({
     handleDrop
   } = useKnowledgeFiles(kbId, onAddFiles, onFileUnlinked, loadStats)
 
-  const { reindexing, handleReindex } = useReindex(
-    kbId,
-    linkedFiles,
-    loadStats,
-    refreshCurrentKnowledgeBase
-  )
-
   const indexingStatus = kbId ? indexStore.isKBIndexing(kbId) : false
   const kbIndexingFiles = kbId ? indexStore.getKBIndexingFilesMap(kbId) : {}
 
-  const needsReindex = knowledgeBase?.indexInvalidation?.needsReindex === true
   const invalidatedFiles = knowledgeBase?.indexInvalidation?.files || []
-  const invalidatedFileIds = invalidatedFiles.map((file) => file.fileId)
+  const kbLinkedFileIdSet = new Set(knowledgeBase?.linkedFileIds || [])
+  const linkedFileIdSet = new Set(linkedFiles.map((file) => file.id))
+  const validInvalidatedFiles = invalidatedFiles.filter(
+    (file) => kbLinkedFileIdSet.has(file.fileId) && linkedFileIdSet.has(file.fileId)
+  )
+  const validInvalidatedFileIds = validInvalidatedFiles.map((file) => file.fileId)
+  const needsReindex =
+    knowledgeBase?.indexInvalidation?.needsReindex === true && validInvalidatedFiles.length > 0
+
+  const { reindexing, handleReindex } = useReindex(
+    kbId,
+    linkedFiles,
+    validInvalidatedFileIds,
+    loadStats,
+    refreshCurrentKnowledgeBase
+  )
 
   // Description editing
   const [isEditingDescription, setIsEditingDescription] = useState(false)
@@ -122,13 +114,11 @@ export default function KnowledgeMain({
     if (kbId && kbId !== prevKbIdRef.current) {
       prevKbIdRef.current = kbId
       loadLinkedFiles()
-      loadStats()
       indexStore.restoreStatus(kbId)
     } else if (!kbId) {
       prevKbIdRef.current = undefined
-      setStats({ fileCount: 0, chunkCount: 0, dbSize: 0 })
     }
-  }, [kbId, loadLinkedFiles, loadStats, indexStore])
+  }, [kbId, loadLinkedFiles, indexStore])
 
   // Visibility change handler
   useEffect(() => {
@@ -183,18 +173,25 @@ export default function KnowledgeMain({
                   </p>
                 )}
 
-                <StatsPanel stats={stats} loadingStats={loadingStats} currentKB={knowledgeBase} />
+                <StatsPanel
+                  stats={stats ?? { fileCount: 0, chunkCount: 0, dbSize: 0 }}
+                  loadingStats={loadingStats}
+                  currentKB={knowledgeBase}
+                />
               </div>
             </div>
 
             {needsReindex && (
-              <div className="kb-reindex-notice">
-                <div className="kb-reindex-notice__copy">
+              <div className={styles.kbReindexNotice}>
+                <span className={styles.kbReindexNoticeIcon} aria-hidden="true">
+                  <SvgIcon name="warning" size={16} />
+                </span>
+                <div className={styles.kbReindexNoticeCopy}>
                   <strong>需要重新索引</strong>
                   <span>论文笔记已更新，重新索引后检索结果会使用最新笔记内容。</span>
-                  {invalidatedFiles.length > 0 && (
-                    <ul>
-                      {invalidatedFiles.map((file) => (
+                  {validInvalidatedFiles.length > 0 && (
+                    <ul className={styles.kbReindexNoticeList}>
+                      {validInvalidatedFiles.map((file) => (
                         <li key={file.fileId}>{file.fileName}</li>
                       ))}
                     </ul>
@@ -213,7 +210,7 @@ export default function KnowledgeMain({
             indexingStatus={indexingStatus}
             reindexing={reindexing}
             kbIndexingFiles={kbIndexingFiles}
-            invalidatedFileIds={invalidatedFileIds}
+            invalidatedFileIds={validInvalidatedFileIds}
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
             onDragOver={handleDragOver}

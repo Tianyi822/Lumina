@@ -5,9 +5,11 @@ import texmath from 'markdown-it-texmath'
 import katex from 'katex'
 import { buildFigureCaptionTranslationMap } from '@shared/utils/paperTranslation'
 import { normalizePaperInlineMathForRender } from '@shared/utils/paperMarkdown'
-import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { usePaperListStore } from '@renderer/stores/paper'
+import { usePaperTranslationStore } from '@renderer/stores/paper'
+import { usePaperFigureStore } from '@renderer/stores/paper'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
-import type { PaperFigurePreviewRect } from '@renderer/stores/paperReaderStore'
+import type { PaperFigurePreviewRect } from '@renderer/stores/paper/shared'
 import type { PaperFigureItem } from '@shared/types/paper'
 import {
   PAPER_FIGURE_PREVIEW_MARGIN,
@@ -146,27 +148,35 @@ function buildResizedRect(state: ResizeState, event: MouseEvent): PaperFigurePre
 }
 
 export default function PaperFigurePreview() {
-  const activeFigure = usePaperReaderStore((state) => state.activeFigure)
-  const currentPaperFigures = usePaperReaderStore((state) => {
-    if (!state.currentPaperId) return EMPTY_PAPER_FIGURES
-    return state.figuresByPaperId[state.currentPaperId] ?? EMPTY_PAPER_FIGURES
-  })
-  const currentTranslationCache = usePaperReaderStore((state) => state.currentTranslationCache())
+  const currentPaperId = usePaperListStore((state) => state.currentPaperId)
+  const activeFigure = usePaperFigureStore((state) => state.activeFigure)
+  const figuresByPaperId = usePaperFigureStore((state) => state.figuresByPaperId)
+  const currentPaperFigures = useMemo(() => {
+    if (!currentPaperId) return EMPTY_PAPER_FIGURES
+    return figuresByPaperId[currentPaperId] ?? EMPTY_PAPER_FIGURES
+  }, [currentPaperId, figuresByPaperId])
+
+  const translationByPaperId = usePaperTranslationStore((state) => state.translationByPaperId)
+  const currentTranslationCache = useMemo(() => {
+    if (!currentPaperId) return null
+    return translationByPaperId[currentPaperId] ?? null
+  }, [currentPaperId, translationByPaperId])
   const figureCaptionTranslationMap = useMemo(
     () =>
       currentTranslationCache ? buildFigureCaptionTranslationMap(currentTranslationCache) : {},
     [currentTranslationCache]
   )
-  const figurePreviewPinned = usePaperReaderStore((state) => state.figurePreviewPinned ?? false)
-  const figurePreviewRect = usePaperReaderStore((state) => state.figurePreviewRect)
-  const translationVisible = usePaperReaderStore((state) => state.translationVisible ?? false)
-  const setFigurePreviewRect = usePaperReaderStore((state) => state.setFigurePreviewRect)
-  const setFigurePreviewPinned = usePaperReaderStore((state) => state.setFigurePreviewPinned)
-  const setFigurePreviewImageRatio = usePaperReaderStore(
+  const translationVisible = usePaperTranslationStore((state) => state.translationVisible ?? false)
+
+  const figurePreviewPinned = usePaperFigureStore((state) => state.figurePreviewPinned ?? false)
+  const figurePreviewRect = usePaperFigureStore((state) => state.figurePreviewRect)
+  const setFigurePreviewRect = usePaperFigureStore((state) => state.setFigurePreviewRect)
+  const setFigurePreviewPinned = usePaperFigureStore((state) => state.setFigurePreviewPinned)
+  const setFigurePreviewImageRatio = usePaperFigureStore(
     (state) => state.setFigurePreviewImageRatio
   )
-  const closeFigurePreview = usePaperReaderStore((state) => state.closeFigurePreview)
-  const openFigurePreview = usePaperReaderStore((state) => state.openFigurePreview)
+  const closeFigurePreview = usePaperFigureStore((state) => state.closeFigurePreview)
+  const openFigurePreview = usePaperFigureStore((state) => state.openFigurePreview)
 
   const previewRef = useRef<HTMLDivElement>(null)
   const dragStateRef = useRef<DragState | null>(null)

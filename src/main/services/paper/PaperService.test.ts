@@ -17,6 +17,7 @@ import {
   getPaperDirPath,
   getPaperFigureAssetPath,
   getPaperMetaPath,
+  getPaperReaderDocumentPath,
   getPaperSourcePdfPath
 } from './paperPaths.ts'
 import type { KnowledgeBase } from '../../../shared/types/knowledge.ts'
@@ -89,21 +90,45 @@ function createReaderDocument(segment: PaperReaderSegment): PaperReaderDocument 
   }
 }
 
-function createPaperDocument(): PaperDocument {
+function createPaperDocument(overrides: Partial<PaperDocument> = {}): PaperDocument {
   return {
-    id: 'paper-1',
-    fileName: 'sample-paper.pdf',
-    filePath: '/tmp/sample-paper.pdf',
-    fileHash: 'paper-hash',
-    fileSize: 12,
-    pageCount: 1,
+    id: overrides.id ?? 'paper-1',
+    fileName: overrides.fileName ?? 'sample-paper.pdf',
+    filePath: overrides.filePath ?? '/tmp/sample-paper.pdf',
+    fileHash: overrides.fileHash ?? 'paper-hash',
+    fileSize: overrides.fileSize ?? 12,
+    pageCount: overrides.pageCount ?? 1,
+    status: overrides.status ?? 'completed',
+    createdAt: overrides.createdAt ?? '2025-01-01T00:00:00.000Z',
+    updatedAt: overrides.updatedAt ?? '2025-01-01T00:00:00.000Z',
+    lastOpenedAt: overrides.lastOpenedAt ?? '2025-01-01T00:00:00.000Z',
+    ocrProvider: overrides.ocrProvider ?? 'glm-ocr',
+    ocrModel: overrides.ocrModel ?? 'glm-ocr',
+    completedPageCount: overrides.completedPageCount ?? 1,
+    pageAssets: overrides.pageAssets,
+    readingProgress: overrides.readingProgress,
+    chatSessionId: overrides.chatSessionId,
+    errorMessage: overrides.errorMessage
+  }
+}
+
+function createPageOcrResult(paperId: string, markdown: string): PaperPageOcrResult {
+  return {
+    paperId,
+    pageIndex: 0,
     status: 'completed',
-    createdAt: '2025-01-01T00:00:00.000Z',
-    updatedAt: '2025-01-01T00:00:00.000Z',
-    lastOpenedAt: '2025-01-01T00:00:00.000Z',
-    ocrProvider: 'glm-ocr',
-    ocrModel: 'glm-ocr',
-    completedPageCount: 1
+    markdown,
+    blocks: [
+      {
+        index: 0,
+        pageIndex: 0,
+        label: 'text',
+        content: markdown,
+        bbox: { x: 100, y: 100, width: 500, height: 40 },
+        width: 1000,
+        height: 1200
+      }
+    ]
   }
 }
 
@@ -244,9 +269,10 @@ test('getReaderDocument 会写回历史 normalized 中残留的远端图片 URL'
   rmSync(getPaperDirPath(paperId), { recursive: true, force: true })
   mkdirSync(dirname(localAbsolutePath), { recursive: true })
   writeFileSync(localAbsolutePath, 'png')
+  await paperStorageService.saveMeta(paperId, createPaperDocument({ id: paperId, pageCount: 1 }))
 
-  paperStorageService.listNormalizedResults = () => ({ success: true, data: [pageResult] })
-  paperStorageService.saveNormalizedResult = (_paperId, _pageIndex, result) => {
+  paperStorageService.listNormalizedResults = async () => ({ success: true, data: [pageResult] })
+  paperStorageService.saveNormalizedResult = async (_paperId, _pageIndex, result) => {
     savedResult = structuredClone(result)
     return { success: true }
   }
@@ -270,6 +296,78 @@ test('getReaderDocument 会写回历史 normalized 中残留的远端图片 URL'
   }
 })
 
+test('getReaderDocument 会生成并命中 reader-document 缓存', async () => {
+  const service = new PaperService()
+  const paperId = 'paper-reader-cache-hit'
+  const originalListNormalizedResults = paperStorageService.listNormalizedResults
+
+  resetPaperData(paperId)
+  mkdirSync(getPaperDirPath(paperId), { recursive: true })
+  await paperStorageService.saveMeta(paperId, createPaperDocument({ id: paperId, pageCount: 1 }))
+  await paperStorageService.saveNormalizedResult(
+    paperId,
+    0,
+    createPageOcrResult(paperId, 'First cached paragraph.')
+  )
+
+  try {
+    const firstResult = await service.getReaderDocument(paperId)
+    assert.equal(firstResult.success, true)
+    assert.match(firstResult.data?.markdown ?? '', /First cached paragraph/)
+
+    const cache = JSON.parse(readFileSync(getPaperReaderDocumentPath(paperId), 'utf-8')) as {
+      builderVersion?: number
+      readerDocument?: PaperReaderDocument
+    }
+    assert.equal(cache.builderVersion, 1)
+    assert.match(cache.readerDocument?.markdown ?? '', /First cached paragraph/)
+
+    paperStorageService.listNormalizedResults = () => {
+      throw new Error('命中缓存时不应重新读取 normalized OCR')
+    }
+
+    const secondResult = await service.getReaderDocument(paperId)
+    assert.equal(secondResult.success, true)
+    assert.equal(secondResult.data?.markdown, firstResult.data?.markdown)
+  } finally {
+    paperStorageService.listNormalizedResults = originalListNormalizedResults
+    resetPaperData(paperId)
+  }
+})
+
+test('getReaderDocument 会在 normalized 文件变化后重建 reader-document 缓存', async () => {
+  const service = new PaperService()
+  const paperId = 'paper-reader-cache-invalidated'
+
+  resetPaperData(paperId)
+  mkdirSync(getPaperDirPath(paperId), { recursive: true })
+  await paperStorageService.saveMeta(paperId, createPaperDocument({ id: paperId, pageCount: 1 }))
+  await paperStorageService.saveNormalizedResult(
+    paperId,
+    0,
+    createPageOcrResult(paperId, 'Original reader paragraph.')
+  )
+
+  try {
+    const firstResult = await service.getReaderDocument(paperId)
+    assert.equal(firstResult.success, true)
+    assert.match(firstResult.data?.markdown ?? '', /Original reader paragraph/)
+
+    await paperStorageService.saveNormalizedResult(
+      paperId,
+      0,
+      createPageOcrResult(paperId, 'Updated reader paragraph with longer content.')
+    )
+
+    const secondResult = await service.getReaderDocument(paperId)
+    assert.equal(secondResult.success, true)
+    assert.match(secondResult.data?.markdown ?? '', /Updated reader paragraph/)
+    assert.doesNotMatch(secondResult.data?.markdown ?? '', /Original reader paragraph/)
+  } finally {
+    resetPaperData(paperId)
+  }
+})
+
 test('createAnnotation 可以创建普通标记并强制清空 comment', async () => {
   const service = new PaperService()
   const mutableService = asMutableService(service)
@@ -282,8 +380,8 @@ test('createAnnotation 可以创建普通标记并强制清空 comment', async (
 
   mutableService.getReaderDocument = () => ({ success: true, data: readerDocument })
   mutableService.resolveAnnotationStore = () => ({ success: true, data: createStore() })
-  paperStorageService.readTranslationCache = () => ({ success: true, data: undefined })
-  paperStorageService.saveAnnotationStore = (_paperId, store) => {
+  paperStorageService.readTranslationCache = async () => ({ success: true, data: undefined })
+  paperStorageService.saveAnnotationStore = async (_paperId, store) => {
     savedStore = structuredClone(store)
     return { success: true }
   }
@@ -355,7 +453,7 @@ test('createAnnotation 会拒绝同一段落重复创建笔记', async () => {
   const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
   mutableService.getReaderDocument = () => ({ success: true, data: createReaderDocument(segment) })
   mutableService.resolveAnnotationStore = () => ({ success: true, data: createStore(existingNote) })
-  paperStorageService.saveAnnotationStore = () => {
+  paperStorageService.saveAnnotationStore = async () => {
     saveCalled = true
     return { success: true }
   }
@@ -386,7 +484,7 @@ test('createAnnotation 允许普通标记与已有笔记重叠', async () => {
   const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
   mutableService.getReaderDocument = () => ({ success: true, data: createReaderDocument(segment) })
   mutableService.resolveAnnotationStore = () => ({ success: true, data: createStore(existingNote) })
-  paperStorageService.saveAnnotationStore = (_paperId, store) => {
+  paperStorageService.saveAnnotationStore = async (_paperId, store) => {
     savedStore = structuredClone(store)
     return { success: true }
   }
@@ -427,7 +525,7 @@ test('updateAnnotation 只允许普通标记修改颜色', async () => {
   let savedStore: PaperAnnotationStore | null = null
 
   const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
-  paperStorageService.saveAnnotationStore = (_paperId, nextStore) => {
+  paperStorageService.saveAnnotationStore = async (_paperId, nextStore) => {
     savedStore = structuredClone(nextStore)
     return { success: true }
   }
@@ -475,7 +573,7 @@ test('updateAnnotation 允许笔记修改内容但不允许改颜色', async () 
   let savedStore: PaperAnnotationStore | null = null
 
   const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
-  paperStorageService.saveAnnotationStore = (_paperId, nextStore) => {
+  paperStorageService.saveAnnotationStore = async (_paperId, nextStore) => {
     savedStore = structuredClone(nextStore)
     return { success: true }
   }
@@ -522,7 +620,7 @@ test('updateAnnotation 会将已加入知识库的论文笔记标记为需要重
   )
 
   const fileService = getFileService()
-  fileService.initialize()
+  await fileService.initialize()
 
   const service = new PaperService()
   const mutableService = asMutableService(service)
@@ -538,15 +636,15 @@ test('updateAnnotation 会将已加入知识库的论文笔记标记为需要重
   if (!noteFile) {
     throw new Error('论文笔记资源未创建')
   }
-  assert.equal(fileService.linkFileToKB(noteFile.id, 'kb-1').success, true)
-  assert.equal(fileService.linkFileToKB(noteFile.id, 'kb-2').success, true)
+  assert.equal((await fileService.linkFileToKB(noteFile.id, 'kb-1')).success, true)
+  assert.equal((await fileService.linkFileToKB(noteFile.id, 'kb-2')).success, true)
 
   const originalReadMeta = paperStorageService.readMeta
   const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
 
   mutableService.resolveAnnotationStore = () => ({ success: true, data: store })
-  paperStorageService.readMeta = () => ({ success: true, data: paper })
-  paperStorageService.saveAnnotationStore = () => ({ success: true })
+  paperStorageService.readMeta = async () => ({ success: true, data: paper })
+  paperStorageService.saveAnnotationStore = async () => ({ success: true })
 
   try {
     const result = await service.updateAnnotation({
@@ -603,7 +701,7 @@ test('deleteAnnotation 删除最后一条笔记时会移除论文级笔记资源
   )
 
   const fileService = getFileService()
-  fileService.initialize()
+  await fileService.initialize()
 
   const service = new PaperService()
   const mutableService = asMutableService(service)
@@ -619,12 +717,12 @@ test('deleteAnnotation 删除最后一条笔记时会移除论文级笔记资源
   if (!noteFile) {
     throw new Error('论文笔记资源未创建')
   }
-  assert.equal(fileService.linkFileToKB(noteFile.id, 'kb-1').success, true)
+  assert.equal((await fileService.linkFileToKB(noteFile.id, 'kb-1')).success, true)
 
   const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
 
   mutableService.resolveAnnotationStore = () => ({ success: true, data: store })
-  paperStorageService.saveAnnotationStore = () => ({ success: true })
+  paperStorageService.saveAnnotationStore = async () => ({ success: true })
 
   try {
     const result = await service.deleteAnnotation('paper-1', annotation.id)
@@ -653,7 +751,7 @@ test('deleteAnnotation 删除笔记后允许同一段落重新创建笔记', asy
 
   mutableService.getReaderDocument = () => ({ success: true, data: createReaderDocument(segment) })
   mutableService.resolveAnnotationStore = () => ({ success: true, data: store })
-  paperStorageService.saveAnnotationStore = (_paperId, nextStore) => {
+  paperStorageService.saveAnnotationStore = async (_paperId, nextStore) => {
     store = structuredClone(nextStore)
     return { success: true }
   }
@@ -742,15 +840,17 @@ test('repairPaperResources 会覆盖失效论文路径、补齐聚合笔记并�
   )
 
   const fileService = getFileService()
-  fileService.initialize()
-  const oldPaperFile = fileService.registerPaperFile({
-    ...paper,
-    filePath: `/Users/chentianyi/.lumina/papers/${paperId}/source.pdf`
-  }).file
+  await fileService.initialize()
+  const oldPaperFile = (
+    await fileService.registerPaperFile({
+      ...paper,
+      filePath: `/Users/chentianyi/.lumina/papers/${paperId}/source.pdf`
+    })
+  ).file
   if (!oldPaperFile) {
     throw new Error('论文资源未创建')
   }
-  assert.equal(fileService.linkFileToKB(oldPaperFile.id, 'kb-1').success, true)
+  assert.equal((await fileService.linkFileToKB(oldPaperFile.id, 'kb-1')).success, true)
 
   const oldNote = (
     await fileService.upsertPaperNotesResource({ ...paper, filePath: sourcePdfPath }, [
@@ -764,7 +864,7 @@ test('repairPaperResources 会覆盖失效论文路径、补齐聚合笔记并�
   if (!oldNote) {
     throw new Error('论文笔记资源未创建')
   }
-  assert.equal(fileService.linkFileToKB(oldNote.id, 'kb-1').success, true)
+  assert.equal((await fileService.linkFileToKB(oldNote.id, 'kb-1')).success, true)
 
   try {
     const result = await new PaperService().repairPaperResources(paperId)
@@ -827,9 +927,9 @@ test('deleteTranslation 会同步删除译文标注并保留原文标注', async
   const originalReadAnnotationStore = paperStorageService.readAnnotationStore
   const originalSaveAnnotationStore = paperStorageService.saveAnnotationStore
 
-  paperStorageService.clearTranslationCache = () => ({ success: true })
-  paperStorageService.readAnnotationStore = () => ({ success: true, data: store })
-  paperStorageService.saveAnnotationStore = (_paperId, nextStore) => {
+  paperStorageService.clearTranslationCache = async () => ({ success: true })
+  paperStorageService.readAnnotationStore = async () => ({ success: true, data: store })
+  paperStorageService.saveAnnotationStore = async (_paperId, nextStore) => {
     savedStore = structuredClone(nextStore)
     return { success: true }
   }

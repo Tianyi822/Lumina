@@ -107,7 +107,17 @@ export function usePaperTextSearch() {
       m.classList.remove(SEARCH_HIGHLIGHT_CURRENT_CLASS)
     }
     mark.classList.add(SEARCH_HIGHLIGHT_CURRENT_CLASS)
-    mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+    const scrollContainer = mark.closest<HTMLElement>('.paper-markdown-view__scroll')
+    if (scrollContainer) {
+      const containerRect = scrollContainer.getBoundingClientRect()
+      const markRect = mark.getBoundingClientRect()
+      const targetTop =
+        markRect.top - containerRect.top + scrollContainer.scrollTop - containerRect.height / 2
+      scrollContainer.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
+    } else {
+      mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
   }, [])
 
   const search = useCallback(

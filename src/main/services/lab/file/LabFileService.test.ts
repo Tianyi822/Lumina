@@ -72,7 +72,7 @@ function mockLabAndDocker(mockOptions?: { putArchiveError?: Error }): {
     entrypoint: []
   }
 
-  labService.loadLab = (() => labData) as typeof labService.loadLab
+  labService.loadLab = (async () => labData) as typeof labService.loadLab
 
   dockerService.getContainerDetails = (async () => {
     return containerDetails

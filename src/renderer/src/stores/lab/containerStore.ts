@@ -8,6 +8,7 @@ import type {
 } from '@renderer/types/lab'
 import type { ContainerInfo, ContainerDetails, ContainerStats } from '@renderer/types/lab'
 import { notifyError } from '@renderer/composables/notificationCore'
+import { deepClone } from '@shared/utils'
 import { labApi } from '@renderer/services/labApi'
 
 interface ContainerStoreState {
@@ -142,7 +143,7 @@ export const useContainerStore = create<ContainerStoreState>()((set, get) => ({
     try {
       set({ isLoading: true })
       // 将对象转换为普通对象，避免 IPC 序列化错误
-      const filter = JSON.parse(JSON.stringify(get().containerFilter))
+      const filter = deepClone(get().containerFilter)
       window.api.logger.info('[ContainerStore] 开始加载容器列表', { filter })
 
       const result = await labApi.listContainers(filter)

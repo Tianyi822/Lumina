@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { PaperPageOcrResult } from '../../../shared/types/paper.ts'
-import { buildPaperTocOutline } from '../../../shared/utils/paperTranslation.ts'
+import { buildPaperTocOutline } from '../../../shared/utils/paperTranslation'
 import { buildReaderDocument, buildReaderMarkdown } from './paperFigureExtractor.ts'
 import {
   createImageBlock,

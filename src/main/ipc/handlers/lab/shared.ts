@@ -66,13 +66,16 @@ export function sanitizeDockerName(rawName: string, prefix: string): string {
 /**
  * 更新实验室元数据
  */
-export function updateLabMetadata(labId: string, updater: (lab: LabData) => void): void {
-  const lab = labService.loadLab(labId)
+export async function updateLabMetadata(
+  labId: string,
+  updater: (lab: LabData) => void
+): Promise<void> {
+  const lab = await labService.loadLab(labId)
   if (!lab) {
     logger.warn('未找到需要更新的实验室元数据', 'main', { labId })
     return
   }
 
   updater(lab)
-  labService.saveLab(lab)
+  await labService.saveLab(lab)
 }

@@ -1,12 +1,5 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  readdirSync,
-  rmSync,
-  appendFileSync
-} from 'fs'
+import { appendFile, mkdir, readdir, readFile, writeFile, rm, access } from 'fs/promises'
+import { constants } from 'fs'
 import { logger } from '@main/services/logger'
 import type {
   LabData,
@@ -42,10 +35,12 @@ export class LabService {
   /**
    * 确保实验室数据根目录存在
    */
-  private ensureLabDir(): void {
+  private async ensureLabDir(): Promise<void> {
     const labDir = getLabDirPath()
-    if (!existsSync(labDir)) {
-      mkdirSync(labDir, { recursive: true })
+    try {
+      await access(labDir, constants.F_OK)
+    } catch {
+      await mkdir(labDir, { recursive: true })
       logger.info('实验室数据目录创建成功', 'main', { path: labDir })
     }
   }
@@ -53,24 +48,26 @@ export class LabService {
   /**
    * 确保指定实验室目录存在
    */
-  private ensureLabInstanceDir(labId: string): void {
+  private async ensureLabInstanceDir(labId: string): Promise<void> {
     const metadataPath = getMetadataFilePath(labId)
     const instanceDir = metadataPath.substring(0, metadataPath.lastIndexOf('/'))
-    if (!existsSync(instanceDir)) {
-      mkdirSync(instanceDir, { recursive: true })
+    try {
+      await access(instanceDir, constants.F_OK)
+    } catch {
+      await mkdir(instanceDir, { recursive: true })
     }
   }
 
   /**
    * 初始化实验室服务
    */
-  initialize(): void {
+  async initialize(): Promise<void> {
     if (this.initialized) {
       return
     }
 
     try {
-      this.ensureLabDir()
+      await this.ensureLabDir()
       this.initialized = true
       logger.info('实验室服务初始化成功')
     } catch (error) {
@@ -83,7 +80,7 @@ export class LabService {
   /**
    * 保存实验室元数据
    */
-  saveLab(data: LabData, options?: { silent?: boolean }): LabResult {
+  async saveLab(data: LabData, options?: { silent?: boolean }): Promise<LabResult> {
     try {
       if (!isValidLabId(data.labId)) {
         const error = '无效的实验室 ID'
@@ -91,8 +88,8 @@ export class LabService {
         return { success: false, error }
       }
 
-      this.ensureLabDir()
-      this.ensureLabInstanceDir(data.labId)
+      await this.ensureLabDir()
+      await this.ensureLabInstanceDir(data.labId)
 
       const filePath = getMetadataFilePath(data.labId)
 
@@ -105,7 +102,7 @@ export class LabService {
       data.updatedAt = new Date().toISOString()
 
       const content = JSON.stringify(data, null, 2)
-      writeFileSync(filePath, content, 'utf-8')
+      await writeFile(filePath, content, 'utf-8')
 
       if (!options?.silent) {
         logger.debug('实验室保存成功', 'main', { labId: data.labId })
@@ -121,7 +118,7 @@ export class LabService {
   /**
    * 加载实验室
    */
-  loadLab(labId: string, options?: { silent?: boolean }): LabData | null {
+  async loadLab(labId: string, options?: { silent?: boolean }): Promise<LabData | null> {
     try {
       if (!isValidLabId(labId)) {
         logger.warn('无效的实验室 ID', 'main', { labId })
@@ -135,12 +132,12 @@ export class LabService {
         return null
       }
 
-      if (!existsSync(filePath)) {
+      const content = await readFile(filePath, 'utf-8').catch(() => null)
+      if (content === null) {
         logger.debug('实验室文件不存在', 'main', { labId })
         return null
       }
 
-      const content = readFileSync(filePath, 'utf-8')
       const lab = JSON.parse(content) as LabData
       if (!lab.backendType) {
         lab.backendType = 'docker'
@@ -160,14 +157,16 @@ export class LabService {
   /**
    * 加载所有实验室元数据
    */
-  loadAllLabs(): LabData[] {
+  async loadAllLabs(): Promise<LabData[]> {
     try {
       const labDir = getLabDirPath()
-      if (!existsSync(labDir)) {
+      let dirs: import('fs').Dirent[]
+      try {
+        dirs = await readdir(labDir, { withFileTypes: true })
+      } catch {
         return []
       }
 
-      const dirs = readdirSync(labDir, { withFileTypes: true })
       const labs: LabData[] = []
 
       for (const dir of dirs) {
@@ -180,7 +179,7 @@ export class LabService {
           continue
         }
 
-        const lab = this.loadLab(labId)
+        const lab = await this.loadLab(labId)
         if (lab) {
           labs.push(lab)
         }
@@ -220,16 +219,16 @@ export class LabService {
       lab.ssh.connected = false
     }
 
-    this.saveLab(lab, { silent: options?.silent ?? true })
+    await this.saveLab(lab, { silent: options?.silent ?? true })
     return lab
   }
 
   /**
    * 根据容器 ID 查找关联实验室
    */
-  findLabByContainerId(containerId: string): LabData | null {
+  async findLabByContainerId(containerId: string): Promise<LabData | null> {
     try {
-      for (const lab of this.loadAllLabs()) {
+      for (const lab of await this.loadAllLabs()) {
         if (
           lab.primaryContainerId === containerId ||
           lab.containerIds.some((id) => id === containerId)
@@ -254,11 +253,12 @@ export class LabService {
   async listLabs(): Promise<LabListItem[]> {
     try {
       const labDir = getLabDirPath()
-      if (!existsSync(labDir)) {
+      let dirs: import('fs').Dirent[]
+      try {
+        dirs = await readdir(labDir, { withFileTypes: true })
+      } catch {
         return []
       }
-
-      const dirs = readdirSync(labDir, { withFileTypes: true })
       const labs: LabListItem[] = []
 
       // 导入 DockerService 并一次性获取所有容器（避免循环内重复调用）
@@ -286,7 +286,7 @@ export class LabService {
         }
 
         try {
-          const lab = this.loadLab(labId)
+          const lab = await this.loadLab(labId)
           if (lab) {
             if (lab.backendType === 'ssh') {
               const resolvedLab = await this.reconcileSshRuntimeState(lab, { silent: true })
@@ -321,7 +321,7 @@ export class LabService {
                     isOrphan = false
                     lab.isOrphan = false
                     lab.status = realTimeStatus
-                    this.saveLab(lab, { silent: true })
+                    await this.saveLab(lab, { silent: true })
                   }
                 } else {
                   // 容器在 Docker 中不存在，标记为孤儿并持久化
@@ -330,7 +330,7 @@ export class LabService {
                     isOrphan = true
                     lab.isOrphan = true
                     lab.status = 'stopped'
-                    this.saveLab(lab, { silent: true })
+                    await this.saveLab(lab, { silent: true })
                   }
                 }
               } catch {
@@ -367,18 +367,18 @@ export class LabService {
   /**
    * 重命名实验室
    */
-  renameLab(labId: string, newName: string): LabResult {
+  async renameLab(labId: string, newName: string): Promise<LabResult> {
     try {
-      const lab = this.loadLab(labId)
+      const lab = await this.loadLab(labId)
       if (!lab) {
         return { success: false, error: '实验室不存在' }
       }
 
       lab.name = sanitizeFileName(newName) || lab.name
 
-      const result = this.saveLab(lab)
+      const result = await this.saveLab(lab)
       if (result.success) {
-        this.logOperation(labId, `实验室重命名为: ${lab.name}`, 'info')
+        await this.logOperation(labId, `实验室重命名为: ${lab.name}`, 'info')
       }
 
       return result
@@ -392,14 +392,18 @@ export class LabService {
   /**
    * 写入操作日志（同时写入主日志）
    */
-  logOperation(labId: string, message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
+  async logOperation(
+    labId: string,
+    message: string,
+    level: 'info' | 'warn' | 'error' = 'info'
+  ): Promise<void> {
     try {
       if (!isValidLabId(labId)) {
         logger.warn('无效的实验室 ID，无法写入日志', 'main', { labId })
         return
       }
 
-      this.ensureLabInstanceDir(labId)
+      await this.ensureLabInstanceDir(labId)
 
       const logPath = getOperationLogPath(labId)
 
@@ -416,7 +420,7 @@ export class LabService {
       }
 
       const logLine = JSON.stringify(logEntry) + '\n'
-      appendFileSync(logPath, logLine, 'utf-8')
+      await appendFile(logPath, logLine, 'utf-8')
 
       logger[level](`[实验室:${labId}] ${message}`, 'main')
     } catch (error) {
@@ -427,7 +431,7 @@ export class LabService {
   /**
    * 读取操作日志
    */
-  readOperationLog(labId: string): LabLogEntry[] {
+  async readOperationLog(labId: string): Promise<LabLogEntry[]> {
     try {
       if (!isValidLabId(labId)) {
         logger.warn('无效的实验室 ID', 'main', { labId })
@@ -441,11 +445,11 @@ export class LabService {
         return []
       }
 
-      if (!existsSync(logPath)) {
+      const content = await readFile(logPath, 'utf-8').catch(() => null)
+      if (content === null) {
         return []
       }
 
-      const content = readFileSync(logPath, 'utf-8')
       const lines = content.trim().split('\n').filter(Boolean)
 
       return lines.map((line) => JSON.parse(line) as LabLogEntry)
@@ -550,13 +554,13 @@ export class LabService {
       }
 
       // 保存实验室元数据
-      this.ensureLabInstanceDir(labId)
-      const saveResult = this.saveLab(lab)
+      await this.ensureLabInstanceDir(labId)
+      const saveResult = await this.saveLab(lab)
       if (!saveResult.success) {
         return { success: false, error: saveResult.error || '保存实验室失败' }
       }
 
-      this.logOperation(labId, `实验室创建成功 (类型: ${request.creationType})`, 'info')
+      await this.logOperation(labId, `实验室创建成功 (类型: ${request.creationType})`, 'info')
 
       logger.info('实验室创建成功', 'main', {
         labId,
@@ -587,7 +591,7 @@ export class LabService {
       }
 
       // 加载实验室元数据
-      const lab = this.loadLab(labId)
+      const lab = await this.loadLab(labId)
       if (!lab) {
         return { success: false, error: '实验室不存在' }
       }
@@ -603,11 +607,15 @@ export class LabService {
         }
 
         const labPath = getLabDirPath() + '/' + labId
-        if (isPathInLabDir(labPath) && existsSync(labPath)) {
-          rmSync(labPath, { recursive: true, force: true })
+        if (isPathInLabDir(labPath)) {
+          try {
+            await rm(labPath, { recursive: true, force: true })
+          } catch {
+            // 目录不存在时忽略
+          }
         }
 
-        this.logOperation(labId, 'SSH 实验室已删除', 'info')
+        await this.logOperation(labId, 'SSH 实验室已删除', 'info')
         return {
           success: true,
           removedContainers: [],
@@ -667,7 +675,7 @@ export class LabService {
 
             if (!containerDetails) {
               clearedContainerIds.add(containerId)
-              this.logOperation(
+              await this.logOperation(
                 labId,
                 `关联容器已不存在，按已清理处理: ${containerId.substring(0, 12)}`,
                 'warn'
@@ -696,7 +704,7 @@ export class LabService {
             if (result.success) {
               removedContainers.push(containerId)
               clearedContainerIds.add(containerId)
-              this.logOperation(labId, `删除容器: ${containerId.substring(0, 12)}`, 'info')
+              await this.logOperation(labId, `删除容器: ${containerId.substring(0, 12)}`, 'info')
             } else {
               // 分析删除失败原因
               let reason = result.error || '删除失败'
@@ -708,7 +716,7 @@ export class LabService {
               } else if (this.isContainerMissingError(result.error)) {
                 reason = `容器「${containerName}」不存在，可能已被手动删除`
                 clearedContainerIds.add(containerId)
-                this.logOperation(
+                await this.logOperation(
                   labId,
                   `关联容器已不存在，按已清理处理: ${containerId.substring(0, 12)}`,
                   'warn'
@@ -733,7 +741,7 @@ export class LabService {
             } else if (this.isContainerMissingError(errorMsg)) {
               reason = '容器不存在，可能已被手动删除'
               clearedContainerIds.add(containerId)
-              this.logOperation(
+              await this.logOperation(
                 labId,
                 `关联容器已不存在，按已清理处理: ${containerId.substring(0, 12)}`,
                 'warn'
@@ -751,7 +759,7 @@ export class LabService {
         }
       } else if (deletePolicy.warning) {
         // 记录警告信息（如 existing 类型强制保留容器）
-        this.logOperation(labId, deletePolicy.warning, 'warn')
+        await this.logOperation(labId, deletePolicy.warning, 'warn')
         logger.info(deletePolicy.warning, 'main', {
           labId,
           creationType: lab.creationType
@@ -763,7 +771,7 @@ export class LabService {
 
         lab.status = 'error'
         lab.updatedAt = new Date().toISOString()
-        this.saveLab(lab)
+        await this.saveLab(lab)
 
         logger.warn('部分容器删除失败，保留实验室元数据以便后续处理', 'main', {
           labId,
@@ -787,7 +795,7 @@ export class LabService {
 
           lab.status = 'error'
           lab.updatedAt = new Date().toISOString()
-          this.saveLab(lab)
+          await this.saveLab(lab)
 
           return {
             success: false,
@@ -804,7 +812,7 @@ export class LabService {
 
           lab.status = 'error'
           lab.updatedAt = new Date().toISOString()
-          this.saveLab(lab)
+          await this.saveLab(lab)
 
           return {
             success: false,
@@ -816,13 +824,17 @@ export class LabService {
         }
 
         removedWorkspace = true
-        this.logOperation(labId, `删除工作区: ${volumeName}`, 'info')
+        await this.logOperation(labId, `删除工作区: ${volumeName}`, 'info')
       }
 
       // 删除实验室元数据目录
       const labPath = getLabDirPath() + '/' + labId
-      if (isPathInLabDir(labPath) && existsSync(labPath)) {
-        rmSync(labPath, { recursive: true, force: true })
+      if (isPathInLabDir(labPath)) {
+        try {
+          await rm(labPath, { recursive: true, force: true })
+        } catch {
+          // 目录不存在时忽略
+        }
       }
 
       // 构建返回结果
@@ -862,7 +874,7 @@ export class LabService {
         return null
       }
 
-      const lab = this.loadLab(labId)
+      const lab = await this.loadLab(labId)
       if (!lab) {
         return null
       }
@@ -922,14 +934,14 @@ export class LabService {
       if (isOrphan && !lab.isOrphan) {
         lab.isOrphan = true
         lab.status = 'error'
-        this.saveLab(lab)
-        this.logOperation(labId, '检测到容器丢失，标记为孤儿实验室', 'warn')
+        await this.saveLab(lab)
+        await this.logOperation(labId, '检测到容器丢失，标记为孤儿实验室', 'warn')
       } else if (!isOrphan && lab.isOrphan) {
         const hasRunningContainer = containerStates.some((state) => state.status === 'running')
         lab.isOrphan = false
         lab.status = hasRunningContainer ? 'running' : 'stopped'
-        this.saveLab(lab)
-        this.logOperation(labId, '关联容器已恢复，清除孤儿实验室标记', 'info')
+        await this.saveLab(lab)
+        await this.logOperation(labId, '关联容器已恢复，清除孤儿实验室标记', 'info')
       }
 
       return result
@@ -973,7 +985,7 @@ export class LabService {
         return { success: false, error: '无效的实验室 ID' }
       }
 
-      const lab = this.loadLab(labId)
+      const lab = await this.loadLab(labId)
       if (!lab) {
         return { success: false, error: '实验室不存在' }
       }
@@ -1051,7 +1063,7 @@ export class LabService {
         return { success: false, error: '无效的实验室 ID' }
       }
 
-      const lab = this.loadLab(labId)
+      const lab = await this.loadLab(labId)
       if (!lab) {
         return { success: false, error: '实验室不存在' }
       }
@@ -1074,12 +1086,12 @@ export class LabService {
       lab.status = newContainer.state === 'running' ? 'running' : 'stopped'
       lab.updatedAt = new Date().toISOString()
 
-      const saveResult = this.saveLab(lab)
+      const saveResult = await this.saveLab(lab)
       if (!saveResult.success) {
         return { success: false, error: '保存实验室失败' }
       }
 
-      this.logOperation(
+      await this.logOperation(
         labId,
         `孤儿实验室恢复成功，新容器: ${newContainerId.substring(0, 12)}`,
         'info'

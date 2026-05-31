@@ -36,6 +36,16 @@
   cursor: not-allowed;
 }
 
+.mcp-error {
+  margin: 8px 0 0 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--sm-color-status-error);
+  background: rgba(229, 100, 100, 0.08);
+  border: 1px solid rgba(229, 100, 100, 0.22);
+  border-radius: var(--sm-radius-sm);
+}
+
 .toggle-switch {
   width: 36px;
   height: 20px;

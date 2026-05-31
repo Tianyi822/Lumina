@@ -32,7 +32,9 @@ export default function CreateActions({
           ? createPhaseText || '创建中...'
           : createType === 'existing'
             ? '选择并使用'
-            : '创建并运行'}
+            : createType === 'ssh'
+              ? '连接 SSH'
+              : '创建并运行'}
       </button>
     </div>
   )

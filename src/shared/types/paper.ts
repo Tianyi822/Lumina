@@ -42,7 +42,7 @@ export type BlockLabel = 'text' | 'image' | 'table' | 'formula' | 'code'
 export interface PaperReadingProgress {
   /** 滚动百分比 (0-100)，0=顶部，100=底部 */
   scrollPercent: number
-  /** 缩放级别 (0.5-2.0) */
+  /** 缩放级别 (0.5-2.0)，仍会写入但不再用于恢复（缩放已统一为全局设置） */
   zoomLevel: number
   /** 最后阅读时间 */
   readAt: string
@@ -58,6 +58,8 @@ export interface PaperDocument {
   id: string
   /** 原始文件名 */
   fileName: string
+  /** 显示标题（文件名去除扩展名） */
+  title?: string
   /** 本地 PDF 文件路径 */
   filePath: string
   /** 文件 hash（用于去重） */
@@ -351,6 +353,36 @@ export interface PaperTranslationProgress {
   translationRevisionId?: string
   /** 错误信息 */
   errorMessage?: string
+}
+
+/**
+ * 批量翻译进度事件
+ */
+export interface PaperTranslationProgressBatch {
+  /** 论文 ID */
+  paperId: string
+  /** 内容哈希 */
+  sourceHash: string
+  /** 已完成段落数 */
+  completedSegments: number
+  /** 总段落数 */
+  totalSegments: number
+  /** 当前任务是否仍在运行 */
+  isRunning: boolean
+  /** 当前批次内的段落进度 */
+  entries: PaperTranslationProgress[]
+  /** 翻译修订 ID */
+  translationRevisionId?: string
+}
+
+/**
+ * 论文译文摘要
+ */
+export interface PaperTranslationSummary {
+  /** 论文 ID */
+  paperId: string
+  /** 是否已有译文 */
+  hasTranslation: boolean
 }
 
 /**

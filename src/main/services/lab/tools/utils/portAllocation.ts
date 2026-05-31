@@ -57,7 +57,7 @@ export async function allocateFixedHostPort(preferredPort: number): Promise<numb
   // 收集所有已有实验室的端口映射
   const reservedPorts = new Set<number>()
 
-  const allLabs = labService.loadAllLabs()
+  const allLabs = await labService.loadAllLabs()
   for (const lab of allLabs) {
     // 收集前端实验室的端口
     if (lab.frontend?.hostPort) {

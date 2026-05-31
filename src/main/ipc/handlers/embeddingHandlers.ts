@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { getEmbeddingService, EmbeddingService } from '@main/services/embedding'
+import { getEmbeddingService, EmbeddingService, isEmbeddingFailure } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
 import type { EmbeddingConfig } from '@main/types/config'
 
@@ -124,37 +124,23 @@ export function registerEmbeddingHandlers(): void {
 
   // 生成单个文本的嵌入向量，返回向量数组
   ipcMain.handle('embedding:embed', async (_event, text: string) => {
-    try {
-      const result = await getEmbeddingService().embed(text)
-      return {
-        success: true,
-        data: result
-      }
-    } catch (error) {
-      const errorMessage = `生成嵌入向量失败: ${error instanceof Error ? error.message : String(error)}`
+    const result = await getEmbeddingService().embed(text)
+    if (isEmbeddingFailure(result)) {
+      const errorMessage = `生成嵌入向量失败: ${result.error}`
       logger.error(errorMessage)
-      return {
-        success: false,
-        error: errorMessage
-      }
+      return { success: false, error: errorMessage }
     }
+    return { success: true, data: result }
   })
 
   // 批量生成多个文本的嵌入向量，提高处理效率
   ipcMain.handle('embedding:embedBatch', async (_event, texts: string[]) => {
-    try {
-      const result = await getEmbeddingService().embedBatch(texts)
-      return {
-        success: true,
-        data: result
-      }
-    } catch (error) {
-      const errorMessage = `批量生成嵌入向量失败: ${error instanceof Error ? error.message : String(error)}`
+    const result = await getEmbeddingService().embedBatch(texts)
+    if (isEmbeddingFailure(result)) {
+      const errorMessage = `批量生成嵌入向量失败: ${result.error}`
       logger.error(errorMessage)
-      return {
-        success: false,
-        error: errorMessage
-      }
+      return { success: false, error: errorMessage }
     }
+    return { success: true, data: result }
   })
 }

@@ -29,22 +29,32 @@ export type {
  * MCP 相关的 API
  */
 export interface MCPApi {
-  listConfigs: () => Promise<MCPServerConfig[]>
-  getConfig: (name: string) => Promise<MCPServerConfig | null>
+  listConfigs: () => Promise<{ success: boolean; data?: MCPServerConfig[]; error?: string }>
+  getConfig: (
+    name: string
+  ) => Promise<{ success: boolean; data?: MCPServerConfig | null; error?: string }>
   saveConfig: (config: MCPServerConfig) => Promise<MCPConfigSaveResult>
   deleteConfig: (name: string) => Promise<MCPConfigSaveResult>
   importConfigs: (jsonContent: string) => Promise<MCPConfigImportResult>
-  exportConfigs: () => Promise<string>
+  exportConfigs: () => Promise<{ success: boolean; data?: string; error?: string }>
   connect: (name: string) => Promise<MCPConnectResult>
-  disconnect: (name: string) => Promise<{ success: boolean }>
+  disconnect: (name: string) => Promise<{ success: boolean; error?: string }>
   reconnect: (name: string) => Promise<MCPConnectResult>
-  getStatus: (serverName?: string) => Promise<MCPConnectionStatus[]>
-  listTools: (serverName?: string) => Promise<MCPTool[]>
-  listToolsByServer: () => Promise<Record<string, MCPTool[]>>
+  getStatus: (
+    serverName?: string
+  ) => Promise<{ success: boolean; data?: MCPConnectionStatus[]; error?: string }>
+  listTools: (
+    serverName?: string
+  ) => Promise<{ success: boolean; data?: MCPTool[]; error?: string }>
+  listToolsByServer: () => Promise<{
+    success: boolean
+    data?: Record<string, MCPTool[]>
+    error?: string
+  }>
   callTool: (params: MCPToolCallParams) => Promise<MCPToolCallResult>
   testConnection: (config: MCPServerConfig) => Promise<MCPConnectResult>
-  connectAll: () => Promise<MCPConnectResult[]>
-  disconnectAll: () => Promise<{ success: boolean }>
-  getConnectedServers: () => Promise<string[]>
+  connectAll: () => Promise<{ success: boolean; data?: MCPConnectResult[]; error?: string }>
+  disconnectAll: () => Promise<{ success: boolean; error?: string }>
+  getConnectedServers: () => Promise<{ success: boolean; data?: string[]; error?: string }>
   onStatusChange: (callback: (event: MCPStatusChangeEvent) => void) => () => void
 }

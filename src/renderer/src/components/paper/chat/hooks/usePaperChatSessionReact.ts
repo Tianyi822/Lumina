@@ -2,9 +2,10 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
 import type { KnowledgeBase, MCPTool, Message, SessionData } from '@renderer/types'
 import type { PaperDocument } from '@shared/types/paper'
-import { usePaperReaderStore } from '@renderer/stores/paperReaderStore'
+import { ensurePaperChatSession } from '@renderer/stores/paper'
 import { usePaperChatMessageCacheStore } from '@renderer/stores'
 import { messageToSessionMessage, sessionMessageToMessage } from '@renderer/utils/messageHelpers'
+import { deepClone } from '@shared/utils'
 
 interface UsePaperChatSessionReactReturn {
   session: SessionData | null
@@ -34,7 +35,7 @@ interface UsePaperChatSessionReactReturn {
 }
 
 function toPlainSessionData(sessionData: SessionData): SessionData {
-  return JSON.parse(JSON.stringify(sessionData)) as SessionData
+  return deepClone(sessionData)
 }
 
 function isLegacyPaperFulltextContext(message: Pick<Message, 'hidden' | 'contextKind'>): boolean {
@@ -158,21 +159,20 @@ export function usePaperChatSessionReact(
     setErrorState('')
 
     try {
-      const sessionResult = await usePaperReaderStore
-        .getState()
-        .ensurePaperChatSession(currentPaper.id)
+      const sessionResult = await ensurePaperChatSession(currentPaper.id)
       const ensuredSessionId = sessionResult.data
       if (!sessionResult.success || !ensuredSessionId) {
         setErrorState(sessionResult.error || '创建论文聊天会话失败')
         return null
       }
 
-      const ensuredSession = await window.api.session.load(ensuredSessionId)
-      if (!ensuredSession) {
+      const ensuredSessionResult = await window.api.session.load(ensuredSessionId)
+      if (!ensuredSessionResult.success || !ensuredSessionResult.data) {
         setErrorState('加载论文聊天会话失败')
         return null
       }
 
+      const ensuredSession = ensuredSessionResult.data
       applySessionData(ensuredSession)
       return ensuredSession
     } catch (caught) {

@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import { existsSync } from 'fs'
+import { readFile, writeFile, mkdir, stat } from 'fs/promises'
 import { dirname, join } from 'path'
 import { randomUUID } from 'crypto'
 import { net } from 'electron'
@@ -9,11 +10,14 @@ import { paperStorageService } from './index'
 import { PaperOcrService, type OcrProgressInfo } from './PaperOcrService'
 import {
   buildReaderDocument,
-  buildReaderMarkdown,
   extractPaperFigureData,
   type ExtractedPaperFigureData
 } from './paperFigureExtractor'
-import { getPaperDirPath } from './paperPaths'
+import {
+  getPaperDirPath,
+  getPaperOcrNormalizedPath,
+  getPaperReaderDocumentPath
+} from './paperPaths'
 import { localizePaperPageAssets } from './paperAssetLocalizer'
 import type {
   CreatePaperAnnotationPayload,
@@ -61,15 +65,59 @@ async function downloadCropImage(remoteUrl: string, localPath: string): Promise<
     }
 
     const buffer = Buffer.from(await response.arrayBuffer())
-    const dirPath = dirname(localPath)
-    if (!existsSync(dirPath)) {
-      mkdirSync(dirPath, { recursive: true })
-    }
-    writeFileSync(localPath, buffer)
+    // mkdir 配合 recursive: true 不会在目录已存在时抛错，无需提前 existsSync 检查
+    await mkdir(dirname(localPath), { recursive: true })
+    await writeFile(localPath, buffer)
     return true
   } catch {
     return false
   }
+}
+
+const READER_DOCUMENT_BUILDER_VERSION = 1
+
+interface ReaderDocumentPageSignature {
+  pageIndex: number
+  exists: boolean
+  size: number
+  mtimeMs: number
+}
+
+interface ReaderDocumentSourceSignature {
+  pageCount: number
+  pages: ReaderDocumentPageSignature[]
+}
+
+interface ReaderDocumentCacheFile {
+  builderVersion: number
+  sourceSignature: ReaderDocumentSourceSignature
+  readerDocument: PaperReaderDocument
+  figures: PaperFigureItem[]
+}
+
+export interface PaperReaderPayload {
+  readerDocument: PaperReaderDocument
+  figures: PaperFigureItem[]
+}
+
+function areReaderSourceSignaturesEqual(
+  left: ReaderDocumentSourceSignature,
+  right: ReaderDocumentSourceSignature
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function isReaderDocumentCacheFile(value: unknown): value is ReaderDocumentCacheFile {
+  if (!value || typeof value !== 'object') return false
+  const cache = value as Partial<ReaderDocumentCacheFile>
+  return (
+    cache.builderVersion === READER_DOCUMENT_BUILDER_VERSION &&
+    !!cache.sourceSignature &&
+    !!cache.readerDocument &&
+    Array.isArray(cache.readerDocument.segments) &&
+    typeof cache.readerDocument.markdown === 'string' &&
+    Array.isArray(cache.figures)
+  )
 }
 
 export class PaperService {
@@ -77,6 +125,132 @@ export class PaperService {
 
   private createEmptyAnnotationStore(paperId: string): PaperAnnotationStore {
     return createEmptyPaperAnnotationStore(paperId)
+  }
+
+  private async buildReaderSourceSignature(paperId: string): Promise<{
+    success: boolean
+    data?: ReaderDocumentSourceSignature
+    error?: string
+  }> {
+    const metaResult = await paperStorageService.readMeta(paperId)
+    if (!metaResult.success || !metaResult.data) {
+      return { success: false, error: metaResult.error || '论文元信息不存在' }
+    }
+
+    const pages: ReaderDocumentPageSignature[] = []
+    for (let pageIndex = 0; pageIndex < metaResult.data.pageCount; pageIndex += 1) {
+      const normalizedPath = getPaperOcrNormalizedPath(paperId, pageIndex)
+      if (!existsSync(normalizedPath)) {
+        pages.push({ pageIndex, exists: false, size: 0, mtimeMs: 0 })
+        continue
+      }
+
+      const fileStats = await stat(normalizedPath)
+      pages.push({
+        pageIndex,
+        exists: true,
+        size: fileStats.size,
+        mtimeMs: fileStats.mtimeMs
+      })
+    }
+
+    return {
+      success: true,
+      data: {
+        pageCount: metaResult.data.pageCount,
+        pages
+      }
+    }
+  }
+
+  private async readReaderPayloadCache(
+    paperId: string,
+    sourceSignature: ReaderDocumentSourceSignature
+  ): Promise<PaperReaderPayload | null> {
+    const cachePath = getPaperReaderDocumentPath(paperId)
+    if (!existsSync(cachePath)) {
+      return null
+    }
+
+    try {
+      const cache = JSON.parse(await readFile(cachePath, 'utf-8')) as unknown
+      if (!isReaderDocumentCacheFile(cache)) {
+        return null
+      }
+
+      if (!areReaderSourceSignaturesEqual(cache.sourceSignature, sourceSignature)) {
+        return null
+      }
+
+      return {
+        readerDocument: cache.readerDocument,
+        figures: cache.figures
+      }
+    } catch (error) {
+      logger.warn('读取阅读器文档缓存失败，将重新生成', 'main', {
+        paperId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return null
+    }
+  }
+
+  private async saveReaderPayloadCache(
+    paperId: string,
+    sourceSignature: ReaderDocumentSourceSignature,
+    payload: PaperReaderPayload
+  ): Promise<void> {
+    try {
+      const paperDir = getPaperDirPath(paperId)
+      if (!existsSync(paperDir)) {
+        await mkdir(paperDir, { recursive: true })
+      }
+
+      const cache: ReaderDocumentCacheFile = {
+        builderVersion: READER_DOCUMENT_BUILDER_VERSION,
+        sourceSignature,
+        readerDocument: payload.readerDocument,
+        figures: payload.figures
+      }
+      await writeFile(getPaperReaderDocumentPath(paperId), JSON.stringify(cache, null, 2), 'utf-8')
+    } catch (error) {
+      logger.warn('写入阅读器文档缓存失败', 'main', {
+        paperId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+
+  async getReaderPayload(paperId: string): Promise<{
+    success: boolean
+    data?: PaperReaderPayload
+    error?: string
+  }> {
+    const signatureResult = await this.buildReaderSourceSignature(paperId)
+    if (!signatureResult.success || !signatureResult.data) {
+      return { success: false, error: signatureResult.error || '生成阅读器文档签名失败' }
+    }
+
+    const cachedPayload = await this.readReaderPayloadCache(paperId, signatureResult.data)
+    if (cachedPayload) {
+      return { success: true, data: cachedPayload }
+    }
+
+    const resultsResult = await paperStorageService.listNormalizedResults(paperId)
+    if (!resultsResult.success || !resultsResult.data) {
+      return { success: false, error: resultsResult.error || '读取论文正文失败' }
+    }
+
+    const pageResults = await this.ensureLocalFigureAssets(paperId, resultsResult.data)
+    const figureData = this.extractFigureData(paperId, pageResults)
+    const payload: PaperReaderPayload = {
+      readerDocument: buildReaderDocument(paperId, pageResults, figureData),
+      figures: figureData.figures
+    }
+    const nextSignature =
+      (await this.buildReaderSourceSignature(paperId)).data || signatureResult.data
+    await this.saveReaderPayloadCache(paperId, nextSignature, payload)
+    return { success: true, data: payload }
   }
 
   private getLatestAnnotationUpdatedAt(annotations: PaperAnnotation[]): string {
@@ -101,7 +275,7 @@ export class PaperService {
       return []
     }
 
-    const metaResult = paperStorageService.readMeta(paperId)
+    const metaResult = await paperStorageService.readMeta(paperId)
     if (!metaResult.success || !metaResult.data) {
       logger.warn('同步论文笔记到文件池失败：论文元信息不存在', 'main', {
         paperId
@@ -123,22 +297,25 @@ export class PaperService {
       return []
     }
 
-    return getKnowledgeServiceManager().markKnowledgeBasesNeedReindex(result.previousUsedByKBIds, {
-      fileId: result.file.id,
-      fileName: result.file.name,
-      paperId,
-      updatedAt: this.getLatestAnnotationUpdatedAt(annotations)
-    })
+    return await getKnowledgeServiceManager().markKnowledgeBasesNeedReindex(
+      result.previousUsedByKBIds,
+      {
+        fileId: result.file.id,
+        fileName: result.file.name,
+        paperId,
+        updatedAt: this.getLatestAnnotationUpdatedAt(annotations)
+      }
+    )
   }
 
-  private markPaperNoteKnowledgeBasesNeedReindex(
+  private async markPaperNoteKnowledgeBasesNeedReindex(
     kbIds: string[],
     paperId: string,
     fileId: string,
     fileName: string,
     updatedAt: string
-  ): PaperAnnotationAffectedKnowledgeBase[] {
-    return getKnowledgeServiceManager().markKnowledgeBasesNeedReindex(kbIds, {
+  ): Promise<PaperAnnotationAffectedKnowledgeBase[]> {
+    return await getKnowledgeServiceManager().markKnowledgeBasesNeedReindex(kbIds, {
       fileId,
       fileName,
       paperId,
@@ -155,7 +332,7 @@ export class PaperService {
   }> {
     try {
       const fileService = getFileService()
-      const metaResult = paperStorageService.readMeta(paperId)
+      const metaResult = await paperStorageService.readMeta(paperId)
       if (!metaResult.success || !metaResult.data) {
         return { success: false, error: metaResult.error || '论文元信息不存在' }
       }
@@ -174,14 +351,14 @@ export class PaperService {
         existingPaperFile.name !== paper.fileName ||
         existingPaperFile.size !== paper.fileSize ||
         existingPaperFile.contentHash !== paper.fileHash
-      const registerResult = fileService.registerPaperFile(paper)
+      const registerResult = await fileService.registerPaperFile(paper)
       if (!registerResult.success) {
         errors.push(registerResult.error || '同步论文文件失败')
       } else if (paperFileNeedsRepair) {
         paperFileRepaired = true
       }
 
-      const storeResult = paperStorageService.readAnnotationStore(paperId)
+      const storeResult = await paperStorageService.readAnnotationStore(paperId)
       if (storeResult.success && storeResult.data) {
         const noteFileId = getPaperNoteResourceId(paperId)
         const existingNoteFile = fileService.getFileById(noteFileId)
@@ -204,7 +381,7 @@ export class PaperService {
 
           const shouldReindex = upsertResult.contentChanged || upsertResult.legacyMigrated
           if (shouldReindex && upsertResult.file && upsertResult.previousUsedByKBIds?.length) {
-            const affectedKnowledgeBases = this.markPaperNoteKnowledgeBasesNeedReindex(
+            const affectedKnowledgeBases = await this.markPaperNoteKnowledgeBasesNeedReindex(
               upsertResult.previousUsedByKBIds,
               paperId,
               upsertResult.file.id,
@@ -250,7 +427,7 @@ export class PaperService {
     failedPaperIds: string[]
     error?: string
   }> {
-    const listResult = paperStorageService.listPapers()
+    const listResult = await paperStorageService.listPapers()
     if (!listResult.success || !listResult.data) {
       return {
         success: false,
@@ -458,7 +635,7 @@ export class PaperService {
     paperId: string,
     readerDocument?: PaperReaderDocument
   ): Promise<{ success: boolean; data?: PaperAnnotationStore; error?: string }> {
-    const annotationDataResult = paperStorageService.readAnnotationData(paperId)
+    const annotationDataResult = await paperStorageService.readAnnotationData(paperId)
     if (!annotationDataResult.success || !annotationDataResult.data) {
       return { success: false, error: annotationDataResult.error || '读取论文批注失败' }
     }
@@ -485,7 +662,7 @@ export class PaperService {
       annotationDataResult.data.legacyAnnotations || [],
       nextReaderDocument
     )
-    const saveResult = paperStorageService.saveAnnotationStore(paperId, migratedStore)
+    const saveResult = await paperStorageService.saveAnnotationStore(paperId, migratedStore)
     if (!saveResult.success) {
       return { success: false, error: saveResult.error || '迁移旧版批注失败' }
     }
@@ -501,11 +678,13 @@ export class PaperService {
     }
   }
 
-  listPapers(): { success: boolean; data?: PaperDocument[]; error?: string } {
+  async listPapers(): Promise<{ success: boolean; data?: PaperDocument[]; error?: string }> {
     return paperStorageService.listPapers()
   }
 
-  getPaper(paperId: string): { success: boolean; data?: PaperDocument; error?: string } {
+  async getPaper(
+    paperId: string
+  ): Promise<{ success: boolean; data?: PaperDocument; error?: string }> {
     return paperStorageService.readMeta(paperId)
   }
 
@@ -522,12 +701,12 @@ export class PaperService {
   }
 
   async deleteTranslation(paperId: string): Promise<{ success: boolean; error?: string }> {
-    const clearResult = paperStorageService.clearTranslationCache(paperId)
+    const clearResult = await paperStorageService.clearTranslationCache(paperId)
     if (!clearResult.success) {
       return { success: false, error: clearResult.error || '删除译文失败' }
     }
 
-    const storeResult = paperStorageService.readAnnotationStore(paperId)
+    const storeResult = await paperStorageService.readAnnotationStore(paperId)
     if (!storeResult.success || !storeResult.data) {
       return { success: false, error: storeResult.error || '读取论文标注失败' }
     }
@@ -540,7 +719,10 @@ export class PaperService {
       return { success: true }
     }
 
-    const saveResult = paperStorageService.saveAnnotationStore(paperId, cleanupResult.nextStore)
+    const saveResult = await paperStorageService.saveAnnotationStore(
+      paperId,
+      cleanupResult.nextStore
+    )
     if (!saveResult.success) {
       return { success: false, error: saveResult.error || '清理译文标注失败' }
     }
@@ -586,39 +768,33 @@ export class PaperService {
     this.ocrService.offProgress(paperId)
   }
 
+  isOcrActive(paperId: string): boolean {
+    return this.ocrService.isOcrActive(paperId)
+  }
+
   async listFigures(
     paperId: string
   ): Promise<{ success: boolean; data?: PaperFigureItem[]; error?: string }> {
-    const resultsResult = paperStorageService.listNormalizedResults(paperId)
-    if (!resultsResult.success || !resultsResult.data) {
-      return { success: false, error: resultsResult.error || '读取论文图片失败' }
+    const payloadResult = await this.getReaderPayload(paperId)
+    if (!payloadResult.success || !payloadResult.data) {
+      return { success: false, error: payloadResult.error || '读取论文图片失败' }
     }
-
-    const pageResults = resultsResult.data
-    const ensuredResults = await this.ensureLocalFigureAssets(paperId, pageResults)
-    const figureData = this.extractFigureData(paperId, ensuredResults)
 
     return {
       success: true,
-      data: figureData.figures
+      data: payloadResult.data.figures
     }
   }
 
   async getReaderMarkdown(
     paperId: string
   ): Promise<{ success: boolean; data?: string; error?: string }> {
-    const resultsResult = paperStorageService.listNormalizedResults(paperId)
-    if (!resultsResult.success || !resultsResult.data) {
-      return { success: false, error: resultsResult.error || '读取论文正文失败' }
+    const payloadResult = await this.getReaderPayload(paperId)
+    if (!payloadResult.success || !payloadResult.data) {
+      return { success: false, error: payloadResult.error || '读取论文正文失败' }
     }
 
-    const pageResults = await this.ensureLocalFigureAssets(paperId, resultsResult.data)
-    const figureData = this.extractFigureData(paperId, pageResults)
-
-    return {
-      success: true,
-      data: buildReaderMarkdown(pageResults, figureData)
-    }
+    return { success: true, data: payloadResult.data.readerDocument.markdown }
   }
 
   async getReaderDocument(paperId: string): Promise<{
@@ -626,18 +802,12 @@ export class PaperService {
     data?: PaperReaderDocument
     error?: string
   }> {
-    const resultsResult = paperStorageService.listNormalizedResults(paperId)
-    if (!resultsResult.success || !resultsResult.data) {
-      return { success: false, error: resultsResult.error || '读取论文正文失败' }
+    const payloadResult = await this.getReaderPayload(paperId)
+    if (!payloadResult.success || !payloadResult.data) {
+      return { success: false, error: payloadResult.error || '读取论文正文失败' }
     }
 
-    const pageResults = await this.ensureLocalFigureAssets(paperId, resultsResult.data)
-    const figureData = this.extractFigureData(paperId, pageResults)
-
-    return {
-      success: true,
-      data: buildReaderDocument(paperId, pageResults, figureData)
-    }
+    return { success: true, data: payloadResult.data.readerDocument }
   }
 
   async listAnnotations(paperId: string): Promise<{
@@ -754,7 +924,7 @@ export class PaperService {
         annotations: [...currentStore.annotations, nextAnnotation],
         updatedAt: now
       }
-      const saveResult = paperStorageService.saveAnnotationStore(params.paperId, nextStore)
+      const saveResult = await paperStorageService.saveAnnotationStore(params.paperId, nextStore)
       if (!saveResult.success) {
         return { success: false, error: saveResult.error || '保存论文批注失败' }
       }
@@ -795,7 +965,7 @@ export class PaperService {
         annotations: nextAnnotations,
         updatedAt: new Date().toISOString()
       }
-      const saveResult = paperStorageService.saveAnnotationStore(paperId, nextStore)
+      const saveResult = await paperStorageService.saveAnnotationStore(paperId, nextStore)
       if (!saveResult.success) {
         return { success: false, error: saveResult.error || '删除论文批注失败' }
       }
@@ -892,7 +1062,7 @@ export class PaperService {
         annotations: nextAnnotations,
         updatedAt: now
       }
-      const saveResult = paperStorageService.saveAnnotationStore(params.paperId, nextStore)
+      const saveResult = await paperStorageService.saveAnnotationStore(params.paperId, nextStore)
       if (!saveResult.success) {
         return { success: false, error: saveResult.error || '更新论文批注失败' }
       }
@@ -962,7 +1132,7 @@ export class PaperService {
       return pageResult
     }
 
-    const saveResult = paperStorageService.saveNormalizedResult(
+    const saveResult = await paperStorageService.saveNormalizedResult(
       paperId,
       pageResult.pageIndex,
       localization.pageResult

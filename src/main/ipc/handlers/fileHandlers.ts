@@ -5,9 +5,9 @@ import { logger } from '@main/services/logger'
 // FileItem type is not directly used in this file, but handlers return typed responses
 
 // 初始化文件服务，在应用启动时加载文件数据
-export function initializeFileService(): void {
+export async function initializeFileService(): Promise<void> {
   try {
-    getFileService().initialize()
+    await getFileService().initialize()
     logger.info('文件服务已初始化')
 
     void getPaperService()
@@ -133,9 +133,9 @@ export function registerFileHandlers(): void {
   })
 
   // 将文件关联到指定知识库，建立文件和知识库之间的关系
-  ipcMain.handle('file:linkToKB', (_event, fileId: string, kbId: string) => {
+  ipcMain.handle('file:linkToKB', async (_event, fileId: string, kbId: string) => {
     try {
-      const result = getFileService().linkFileToKB(fileId, kbId)
+      const result = await getFileService().linkFileToKB(fileId, kbId)
       return result
     } catch (error) {
       const errorMessage = `关联文件到知识库失败: ${error instanceof Error ? error.message : String(error)}`
@@ -148,9 +148,9 @@ export function registerFileHandlers(): void {
   })
 
   // 从知识库取消文件关联，解除文件和知识库之间的关系
-  ipcMain.handle('file:unlinkFromKB', (_event, fileId: string, kbId: string) => {
+  ipcMain.handle('file:unlinkFromKB', async (_event, fileId: string, kbId: string) => {
     try {
-      const result = getFileService().unlinkFileFromKB(fileId, kbId)
+      const result = await getFileService().unlinkFileFromKB(fileId, kbId)
       return result
     } catch (error) {
       const errorMessage = `取消文件关联失败: ${error instanceof Error ? error.message : String(error)}`

@@ -101,7 +101,7 @@ export class KnowledgeCoreService {
 
     // 确定要搜索的知识库
     let targetKBs: KnowledgeBase[] = []
-    const allKBs = knowledgeManager.getAllKnowledgeBases()
+    const allKBs = await knowledgeManager.getAllKnowledgeBases()
 
     if (knowledgeBaseId) {
       // 如果指定了特定知识库
@@ -185,10 +185,10 @@ export class KnowledgeCoreService {
    * @param params 参数
    * @returns 知识库列表
    */
-  getKnowledgeBases(params: GetKnowledgeBasesParams = {}): KnowledgeBaseItem[] {
+  async getKnowledgeBases(params: GetKnowledgeBasesParams = {}): Promise<KnowledgeBaseItem[]> {
     const { knowledgeBaseIds } = params
     const knowledgeManager = getKnowledgeServiceManager()
-    let knowledgeBases = knowledgeManager.getAllKnowledgeBases()
+    let knowledgeBases = await knowledgeManager.getAllKnowledgeBases()
 
     // 如果指定了知识库 ID 列表，则只返回这些知识库
     if (knowledgeBaseIds && knowledgeBaseIds.length > 0) {
@@ -210,7 +210,7 @@ export class KnowledgeCoreService {
    * @param params 参数
    * @returns 文档列表，如果知识库不存在或不在允许范围内则返回 null
    */
-  getDocuments(params: GetDocumentsParams): DocumentItem[] | null {
+  async getDocuments(params: GetDocumentsParams): Promise<DocumentItem[] | null> {
     const { knowledgeBaseId, allowedKnowledgeBaseIds } = params
 
     // 验证知识库是否在允许的范围内
@@ -225,7 +225,7 @@ export class KnowledgeCoreService {
     }
 
     const knowledgeManager = getKnowledgeServiceManager()
-    const kbData = knowledgeManager.getKnowledgeBaseById(knowledgeBaseId)
+    const kbData = await knowledgeManager.getKnowledgeBaseById(knowledgeBaseId)
 
     if (!kbData) {
       logger.warn('知识库不存在', 'main', { knowledgeBaseId })
@@ -271,9 +271,9 @@ export class KnowledgeCoreService {
    * @param knowledgeBaseId 知识库 ID
    * @returns 知识库信息，不存在则返回 null
    */
-  getKnowledgeBaseById(knowledgeBaseId: string): KnowledgeBaseItem | null {
+  async getKnowledgeBaseById(knowledgeBaseId: string): Promise<KnowledgeBaseItem | null> {
     const knowledgeManager = getKnowledgeServiceManager()
-    const kb = knowledgeManager.getKnowledgeBaseById(knowledgeBaseId)
+    const kb = await knowledgeManager.getKnowledgeBaseById(knowledgeBaseId)
 
     if (!kb) {
       return null
@@ -294,9 +294,9 @@ export class KnowledgeCoreService {
    * @param knowledgeBaseId 知识库 ID
    * @returns 是否存在
    */
-  knowledgeBaseExists(knowledgeBaseId: string): boolean {
+  async knowledgeBaseExists(knowledgeBaseId: string): Promise<boolean> {
     const knowledgeManager = getKnowledgeServiceManager()
-    return knowledgeManager.getKnowledgeBaseById(knowledgeBaseId) !== null
+    return (await knowledgeManager.getKnowledgeBaseById(knowledgeBaseId)) !== null
   }
 }
 

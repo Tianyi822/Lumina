@@ -25,7 +25,7 @@ test('writeProjectFilesTool SSH 分发', async (t) => {
   const originalWriteFiles = sshService.writeFiles.bind(sshService)
 
   await t.test('SSH 后端未连接 → 返回错误', async () => {
-    labService.loadLab = () => createMockSshLab()
+    labService.loadLab = async () => createMockSshLab()
     sshService.isConnected = () => false
 
     try {
@@ -42,7 +42,7 @@ test('writeProjectFilesTool SSH 分发', async (t) => {
   })
 
   await t.test('SSH 后端已连接 → writeFiles 成功', async () => {
-    labService.loadLab = () => createMockSshLab()
+    labService.loadLab = async () => createMockSshLab()
     sshService.isConnected = () => true
     sshService.writeFiles = async (): Promise<FileWriteResult> => ({
       success: true,
@@ -70,7 +70,7 @@ test('writeProjectFilesTool SSH 分发', async (t) => {
   })
 
   await t.test('SSH writeFiles 失败 → 返回错误', async () => {
-    labService.loadLab = () => createMockSshLab()
+    labService.loadLab = async () => createMockSshLab()
     sshService.isConnected = () => true
     sshService.writeFiles = async (): Promise<FileWriteResult> => ({
       success: false,
@@ -93,7 +93,7 @@ test('writeProjectFilesTool SSH 分发', async (t) => {
   })
 
   await t.test('缺少 files 参数 → 返回错误', async () => {
-    labService.loadLab = () => createMockSshLab()
+    labService.loadLab = async () => createMockSshLab()
     sshService.isConnected = () => true
 
     try {
@@ -110,7 +110,7 @@ test('writeProjectFilesTool SSH 分发', async (t) => {
   })
 
   await t.test('找不到实验室 → 返回错误', async () => {
-    labService.loadLab = () => null
+    labService.loadLab = async () => null
 
     try {
       const result = await writeProjectFilesTool.execute({
@@ -125,7 +125,7 @@ test('writeProjectFilesTool SSH 分发', async (t) => {
   })
 
   await t.test('SSH writeFiles 无错误消息时返回兜底信息', async () => {
-    labService.loadLab = () => createMockSshLab()
+    labService.loadLab = async () => createMockSshLab()
     sshService.isConnected = () => true
     sshService.writeFiles = async (): Promise<FileWriteResult> => ({
       success: false,

@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, memo } from 'react'
 import { useContainerStore, useLabCreatorStore } from '@renderer/stores'
 import type { ContainerInfo } from '@shared/types/lab/container'
 import styles from './ContainerSelector.module.css'
 
-export default function ContainerSelector() {
+function ContainerSelector() {
   // ─── 容器 store selectors ───
   const containers = useContainerStore((s) => s.containers)
   const isLoading = useContainerStore((s) => s.isLoading)
@@ -219,3 +219,5 @@ export default function ContainerSelector() {
     </div>
   )
 }
+
+export default memo(ContainerSelector)

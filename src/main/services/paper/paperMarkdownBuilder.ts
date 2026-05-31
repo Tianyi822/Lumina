@@ -6,7 +6,7 @@ import type {
   PaperReaderSegment,
   PaperReaderSegmentSourceRefs
 } from '../../../shared/types/paper'
-import { parsePaperTranslationSegments } from '../../../shared/utils/paperTranslation.ts'
+import { parsePaperTranslationSegments } from '../../../shared/utils/paperTranslation'
 import {
   getBlockImageSourceCandidates,
   getPlainText,

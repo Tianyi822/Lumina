@@ -99,14 +99,16 @@ export const mcpApi = {
   /**
    * 获取所有 MCP 服务器配置
    */
-  listConfigs: (): Promise<MCPServerConfig[]> => {
+  listConfigs: (): Promise<{ success: boolean; data?: MCPServerConfig[]; error?: string }> => {
     return ipcRenderer.invoke('mcp:listConfigs')
   },
 
   /**
    * 获取单个 MCP 服务器配置
    */
-  getConfig: (name: string): Promise<MCPServerConfig | null> => {
+  getConfig: (
+    name: string
+  ): Promise<{ success: boolean; data?: MCPServerConfig | null; error?: string }> => {
     return ipcRenderer.invoke('mcp:getConfig', name)
   },
 
@@ -134,7 +136,7 @@ export const mcpApi = {
   /**
    * 导出所有 MCP 服务器配置
    */
-  exportConfigs: (): Promise<string> => {
+  exportConfigs: (): Promise<{ success: boolean; data?: string; error?: string }> => {
     return ipcRenderer.invoke('mcp:exportConfigs')
   },
 
@@ -148,7 +150,7 @@ export const mcpApi = {
   /**
    * 断开 MCP 服务器连接
    */
-  disconnect: (name: string): Promise<{ success: boolean }> => {
+  disconnect: (name: string): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('mcp:disconnect', name)
   },
 
@@ -162,21 +164,29 @@ export const mcpApi = {
   /**
    * 获取连接状态
    */
-  getStatus: (serverName?: string): Promise<MCPConnectionStatus[]> => {
+  getStatus: (
+    serverName?: string
+  ): Promise<{ success: boolean; data?: MCPConnectionStatus[]; error?: string }> => {
     return ipcRenderer.invoke('mcp:getStatus', serverName)
   },
 
   /**
    * 获取工具列表
    */
-  listTools: (serverName?: string): Promise<MCPTool[]> => {
+  listTools: (
+    serverName?: string
+  ): Promise<{ success: boolean; data?: MCPTool[]; error?: string }> => {
     return ipcRenderer.invoke('mcp:listTools', serverName)
   },
 
   /**
    * 按服务器分组获取工具
    */
-  listToolsByServer: (): Promise<Record<string, MCPTool[]>> => {
+  listToolsByServer: (): Promise<{
+    success: boolean
+    data?: Record<string, MCPTool[]>
+    error?: string
+  }> => {
     return ipcRenderer.invoke('mcp:listToolsByServer')
   },
 
@@ -197,21 +207,21 @@ export const mcpApi = {
   /**
    * 连接所有已启用的服务器
    */
-  connectAll: (): Promise<MCPConnectResult[]> => {
+  connectAll: (): Promise<{ success: boolean; data?: MCPConnectResult[]; error?: string }> => {
     return ipcRenderer.invoke('mcp:connectAll')
   },
 
   /**
    * 断开所有连接
    */
-  disconnectAll: (): Promise<{ success: boolean }> => {
+  disconnectAll: (): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('mcp:disconnectAll')
   },
 
   /**
    * 获取已连接的服务器名称列表
    */
-  getConnectedServers: (): Promise<string[]> => {
+  getConnectedServers: (): Promise<{ success: boolean; data?: string[]; error?: string }> => {
     return ipcRenderer.invoke('mcp:getConnectedServers')
   },
 

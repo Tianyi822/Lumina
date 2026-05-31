@@ -68,6 +68,7 @@ export interface UIStateStore {
 
   labDetailTab: LabDetailTab
   lastLabId: string | null
+  labDockerAvailable: boolean | null
   showLabCreator: boolean
   showConfigManager: boolean
   showKnowledgeFileManager: boolean
@@ -101,6 +102,7 @@ export interface UIStateStore {
   setCurrentSidebarCollapsed: (collapsed: boolean) => void
 
   setLabDetailTab: (tab: LabDetailTab) => void
+  setLabDockerAvailable: (available: boolean | null) => void
   openLabCreator: () => void
   closeLabCreator: () => void
   openConfigManager: () => void
@@ -241,6 +243,7 @@ export const useUIStateStore = create<UIStateStore>()(
 
         labDetailTab: 'stats',
         lastLabId: null,
+        labDockerAvailable: null,
         showLabCreator: false,
         showConfigManager: false,
         showKnowledgeFileManager: false,
@@ -284,6 +287,7 @@ export const useUIStateStore = create<UIStateStore>()(
         },
 
         setLabDetailTab: (tab) => set({ labDetailTab: tab }),
+        setLabDockerAvailable: (available) => set({ labDockerAvailable: available }),
         openLabCreator: () => set({ showLabCreator: true }),
         closeLabCreator: () => set({ showLabCreator: false }),
         openConfigManager: () => set({ showConfigManager: true }),

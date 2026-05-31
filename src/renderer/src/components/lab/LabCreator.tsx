@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   useContainerStore,
   useLabCreatorStore,
@@ -9,6 +9,7 @@ import {
 } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import { CssTransition } from '@renderer/components/motion/CssTransition'
+import { useContentHeightAnimation } from './hooks/useContentHeightAnimation'
 import ContainerSelector from './ContainerSelector'
 import ComposeEditor from './ComposeEditor'
 import DockerfileEditor from './DockerfileEditor'
@@ -20,8 +21,6 @@ import type { DockerStatus } from '@renderer/types/lab'
 import './creator/lab-creator.css'
 import styles from './LabCreator.module.css'
 
-const CONTENT_HEIGHT_TRANSITION_MS = 220
-const CONTENT_HEIGHT_TRANSITION_FALLBACK_MS = CONTENT_HEIGHT_TRANSITION_MS + 80
 const DOCKER_CREATE_TYPES = new Set(['compose', 'dockerfile', 'existing'])
 
 interface LabCreatorProps {
@@ -37,236 +36,22 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
   const notify = useNotification()
 
   const [isTestingSsh, setIsTestingSsh] = useState(false)
-  const [isContentMeasured, setIsContentMeasured] = useState(false)
-  const [isContentVisible, setIsContentVisible] = useState(true)
-  const [isContentHeightTransitioning, setIsContentHeightTransitioning] = useState(false)
-  const creatorRef = useRef<HTMLDivElement | null>(null)
-  const contentShellRef = useRef<HTMLDivElement | null>(null)
-  const contentInnerRef = useRef<HTMLDivElement | null>(null)
-  const contentResizeObserverRef = useRef<ResizeObserver | null>(null)
-  const contentResizeFrameRef = useRef<number | null>(null)
-  const contentHeightFrameRef = useRef<number | null>(null)
-  const contentTransitionTimerRef = useRef<number | null>(null)
-  const pendingContentVisibleRef = useRef(false)
   const wasVisibleRef = useRef(false)
+  const dockerReady = dockerStatus?.available !== false
+
+  const {
+    creatorRef,
+    contentShellRef,
+    contentInnerRef,
+    isContentMeasured,
+    isContentVisible,
+    handleContentShellTransitionEnd,
+    requestHeightTransition
+  } = useContentHeightAnimation(visible)
 
   const clearCreateError = (): void => {
     creatorStore.clearCreateError()
   }
-
-  const clearContentHeightFrame = useCallback((): void => {
-    if (contentHeightFrameRef.current !== null) {
-      window.cancelAnimationFrame(contentHeightFrameRef.current)
-      contentHeightFrameRef.current = null
-    }
-  }, [])
-
-  const clearContentResizeFrame = useCallback((): void => {
-    if (contentResizeFrameRef.current !== null) {
-      window.cancelAnimationFrame(contentResizeFrameRef.current)
-      contentResizeFrameRef.current = null
-    }
-  }, [])
-
-  const clearContentTransitionTimer = useCallback((): void => {
-    if (contentTransitionTimerRef.current !== null) {
-      window.clearTimeout(contentTransitionTimerRef.current)
-      contentTransitionTimerRef.current = null
-    }
-  }, [])
-
-  const readCreatorContentAvailableHeight = useCallback((): number => {
-    const creator = creatorRef.current
-    const shell = contentShellRef.current
-    if (!creator || !shell) return Number.POSITIVE_INFINITY
-
-    const creatorStyles = window.getComputedStyle(creator)
-    const creatorRect = creator.getBoundingClientRect()
-    const shellRect = shell.getBoundingClientRect()
-    const maxHeightValue = creatorStyles.maxHeight
-    const maxCreatorHeight = maxHeightValue.endsWith('vh')
-      ? (window.innerHeight * Number.parseFloat(maxHeightValue)) / 100
-      : Number.parseFloat(maxHeightValue)
-    const creatorHeightLimit = Number.isFinite(maxCreatorHeight)
-      ? maxCreatorHeight
-      : creator.clientHeight
-    const shellTop = shellRect.top - creatorRect.top
-
-    return Math.max(1, Math.floor(creatorHeightLimit - shellTop))
-  }, [])
-
-  const setCreatorContentHeight = useCallback(
-    (height: number): void => {
-      const shell = contentShellRef.current
-      if (!shell || height <= 0) return
-
-      setIsContentMeasured(true)
-      shell.style.height = `${Math.min(height, readCreatorContentAvailableHeight())}px`
-    },
-    [readCreatorContentAvailableHeight]
-  )
-
-  const readCreatorContentHeight = useCallback((): number => {
-    const shell = contentShellRef.current
-    const inner = contentInnerRef.current
-    if (!inner) return 0
-    if (!shell) return Math.ceil(inner.scrollHeight)
-
-    const availableHeight = readCreatorContentAvailableHeight()
-    const previousShellHeight = shell.style.height
-    const previousShellOverflow = shell.style.overflow
-    const previousShellTransition = shell.style.transition
-    const previousInnerMaxHeight = inner.style.maxHeight
-    const previousInnerOverflowY = inner.style.overflowY
-
-    try {
-      shell.style.height = 'auto'
-      shell.style.overflow = 'visible'
-      shell.style.transition = 'none'
-      inner.style.maxHeight = 'none'
-      inner.style.overflowY = 'visible'
-
-      return Math.min(Math.ceil(inner.scrollHeight), availableHeight)
-    } finally {
-      shell.style.height = previousShellHeight
-      shell.style.overflow = previousShellOverflow
-      shell.style.transition = previousShellTransition
-      inner.style.maxHeight = previousInnerMaxHeight
-      inner.style.overflowY = previousInnerOverflowY
-    }
-  }, [readCreatorContentAvailableHeight])
-
-  const lockCreatorContentHeight = useCallback((): void => {
-    const shell = contentShellRef.current
-    if (!shell) return
-
-    setCreatorContentHeight(Math.ceil(shell.offsetHeight))
-    void shell.offsetHeight
-  }, [setCreatorContentHeight])
-
-  const animateCreatorContentHeightTo = useCallback(
-    (nextHeight: number): void => {
-      clearContentHeightFrame()
-      contentHeightFrameRef.current = window.requestAnimationFrame(() => {
-        contentHeightFrameRef.current = null
-        setCreatorContentHeight(nextHeight)
-      })
-    },
-    [clearContentHeightFrame, setCreatorContentHeight]
-  )
-
-  const finishPendingContentTransition = useCallback((): void => {
-    if (!pendingContentVisibleRef.current) return
-
-    pendingContentVisibleRef.current = false
-    setIsContentHeightTransitioning(false)
-    setIsContentVisible(true)
-    clearContentTransitionTimer()
-  }, [clearContentTransitionTimer])
-
-  const syncCreatorContentHeight = useCallback((): void => {
-    const nextHeight = readCreatorContentHeight()
-    if (nextHeight <= 0) return
-
-    lockCreatorContentHeight()
-    animateCreatorContentHeightTo(nextHeight)
-  }, [animateCreatorContentHeightTo, lockCreatorContentHeight, readCreatorContentHeight])
-
-  const observeCreatorContent = useCallback((): void => {
-    contentResizeObserverRef.current?.disconnect()
-    clearContentResizeFrame()
-
-    if (typeof ResizeObserver === 'undefined' || !contentInnerRef.current) return
-
-    contentResizeObserverRef.current = new ResizeObserver(() => {
-      if (!visible || !isContentVisible || isContentHeightTransitioning) return
-      if (contentResizeFrameRef.current !== null) return
-
-      contentResizeFrameRef.current = window.requestAnimationFrame(() => {
-        contentResizeFrameRef.current = null
-        syncCreatorContentHeight()
-      })
-    })
-    contentResizeObserverRef.current.observe(contentInnerRef.current)
-  }, [
-    clearContentResizeFrame,
-    isContentHeightTransitioning,
-    isContentVisible,
-    syncCreatorContentHeight,
-    visible
-  ])
-
-  const initializeCreatorContentHeight = useCallback((): void => {
-    clearContentHeightFrame()
-    contentHeightFrameRef.current = window.requestAnimationFrame(() => {
-      contentHeightFrameRef.current = window.requestAnimationFrame(() => {
-        contentHeightFrameRef.current = null
-        observeCreatorContent()
-        syncCreatorContentHeight()
-        setIsContentVisible(true)
-      })
-    })
-  }, [clearContentHeightFrame, observeCreatorContent, syncCreatorContentHeight])
-
-  const transitionCreatorContentHeight = useCallback((): void => {
-    if (!visible) return
-
-    setIsContentHeightTransitioning(true)
-    pendingContentVisibleRef.current = false
-    clearContentTransitionTimer()
-    clearContentHeightFrame()
-    lockCreatorContentHeight()
-
-    contentHeightFrameRef.current = window.requestAnimationFrame(() => {
-      contentHeightFrameRef.current = window.requestAnimationFrame(() => {
-        contentHeightFrameRef.current = null
-        const nextHeight = readCreatorContentHeight()
-        if (nextHeight <= 0) {
-          setIsContentHeightTransitioning(false)
-          return
-        }
-
-        setIsContentVisible(false)
-        pendingContentVisibleRef.current = true
-        void contentShellRef.current?.offsetHeight
-        animateCreatorContentHeightTo(nextHeight)
-        contentTransitionTimerRef.current = window.setTimeout(
-          finishPendingContentTransition,
-          CONTENT_HEIGHT_TRANSITION_FALLBACK_MS
-        )
-      })
-    })
-  }, [
-    animateCreatorContentHeightTo,
-    clearContentHeightFrame,
-    clearContentTransitionTimer,
-    finishPendingContentTransition,
-    lockCreatorContentHeight,
-    readCreatorContentHeight,
-    visible
-  ])
-
-  const handleContentShellTransitionEnd = useCallback(
-    (event: React.TransitionEvent<HTMLDivElement>): void => {
-      if (
-        event.target !== contentShellRef.current ||
-        event.propertyName !== 'height' ||
-        !isContentHeightTransitioning
-      ) {
-        return
-      }
-
-      setIsContentHeightTransitioning(false)
-
-      if (pendingContentVisibleRef.current) {
-        finishPendingContentTransition()
-        return
-      }
-
-      clearContentTransitionTimer()
-    },
-    [clearContentTransitionTimer, finishPendingContentTransition, isContentHeightTransitioning]
-  )
 
   useEffect(() => {
     if (!visible) {
@@ -278,12 +63,8 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
     wasVisibleRef.current = true
 
     const creatorState = useLabCreatorStore.getState()
-    const containerState = useContainerStore.getState()
-    const configState = useDockerConfigStore.getState()
-    const initialCreateType = dockerStatus?.available === false ? 'ssh' : 'compose'
+    const initialCreateType = dockerReady ? 'compose' : 'ssh'
 
-    setIsContentMeasured(false)
-    setIsContentVisible(false)
     creatorState.setCreateType(initialCreateType)
     creatorState.setComposeContent(creatorState.getComposeTemplate('mixed'))
     creatorState.setDockerfileContent(
@@ -297,36 +78,25 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
     creatorState.resetSshConfig()
     creatorState.clearCreateError()
 
-    void Promise.all([
-      containerState.loadContainers(),
-      configState.loadDockerfileConfigs(),
-      configState.loadComposeConfigs()
-    ])
-  }, [dockerStatus?.available, visible])
+    if (dockerReady) {
+      const containerState = useContainerStore.getState()
+      const configState = useDockerConfigStore.getState()
+      void Promise.all([
+        containerState.loadContainers(),
+        configState.loadDockerfileConfigs(),
+        configState.loadComposeConfigs()
+      ])
+    }
+  }, [dockerReady, visible])
 
   useEffect(() => {
-    if (!visible || dockerStatus?.available !== false) return
+    if (!visible || dockerReady) return
 
     const creatorState = useLabCreatorStore.getState()
     if (DOCKER_CREATE_TYPES.has(creatorState.createType)) {
       creatorState.setCreateType('ssh')
     }
-  }, [dockerStatus?.available, visible])
-
-  useEffect(() => {
-    if (visible) {
-      initializeCreatorContentHeight()
-    }
-  }, [initializeCreatorContentHeight, visible])
-
-  useEffect(() => {
-    return () => {
-      contentResizeObserverRef.current?.disconnect()
-      clearContentHeightFrame()
-      clearContentResizeFrame()
-      clearContentTransitionTimer()
-    }
-  }, [clearContentHeightFrame, clearContentResizeFrame, clearContentTransitionTimer])
+  }, [dockerReady, visible])
 
   async function handleSaveConfig(name: string): Promise<void> {
     useLabCreatorStore.setState({ saveConfigName: name.trim() })
@@ -391,7 +161,7 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
 
   useLayoutEffect(() => {
     if (!visible || !isContentMeasured) return
-    transitionCreatorContentHeight()
+    requestHeightTransition()
   }, [
     containerSelectHint,
     createError,
@@ -400,7 +170,7 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
     isCreating,
     portMappings.length,
     sshConfig?.authType,
-    transitionCreatorContentHeight,
+    requestHeightTransition,
     visible
   ])
 
@@ -420,19 +190,21 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
             onClick={(e) => e.stopPropagation()}
           >
             <div className="creator-header">
-              <h2>创建实验室</h2>
+              <h2>{dockerReady ? '创建实验室' : 'SSH 连接'}</h2>
               <button className="close-btn" onClick={onClose}>
                 ×
               </button>
             </div>
 
-            <CreateTypeSelector
-              createType={createType}
-              dockerReady={dockerStatus?.available ?? true}
-              onChange={(t) => {
-                creatorStore.setCreateType(t)
-              }}
-            />
+            {dockerReady && (
+              <CreateTypeSelector
+                createType={createType}
+                dockerReady={dockerReady}
+                onChange={(t) => {
+                  creatorStore.setCreateType(t)
+                }}
+              />
+            )}
 
             <div
               ref={contentShellRef}
@@ -644,7 +416,11 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                       </>
                     )}
                     <button
-                      className={styles['ssh-form__test-btn']}
+                      className={[
+                        'sm-button',
+                        'sm-button--secondary',
+                        styles['ssh-form__test-btn']
+                      ].join(' ')}
                       disabled={isTestingSsh}
                       onClick={testSshConnection}
                     >

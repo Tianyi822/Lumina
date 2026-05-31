@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import styles from './LabToolsToggle.module.css'
 
 interface LabToolsToggleProps {
@@ -10,7 +10,7 @@ interface LabToolsToggleProps {
   onChange?: (value: boolean) => void
 }
 
-export default function LabToolsToggle({
+function LabToolsToggle({
   modelValue,
   disabled,
   compact,
@@ -67,3 +67,5 @@ export default function LabToolsToggle({
     </div>
   )
 }
+
+export default memo(LabToolsToggle)

@@ -9,6 +9,8 @@ import type {
   UpdatePaperAnnotationPayload,
   PaperStatus,
   PaperTranslationProgress,
+  PaperTranslationProgressBatch,
+  PaperTranslationSummary,
   PaperTranslationState
 } from '@shared/types/paper'
 import type { OcrProviderId } from '@shared/types/config'
@@ -315,6 +317,10 @@ export const paperApi = {
     return ipcRenderer.invoke('paper:getOcrProgress', paperId)
   },
 
+  isOcrActive: (paperId: string): Promise<{ success: boolean; data?: boolean }> => {
+    return ipcRenderer.invoke('paper:isOcrActive', paperId)
+  },
+
   retryPage: (params: {
     paperId: string
     pageIndex: number
@@ -347,6 +353,16 @@ export const paperApi = {
     return ipcRenderer.invoke('paper:listTranslationStatus', paperIds)
   },
 
+  listTranslationSummaries: (
+    paperIds: string[]
+  ): Promise<{
+    success: boolean
+    data?: Record<string, PaperTranslationSummary>
+    error?: string
+  }> => {
+    return ipcRenderer.invoke('paper:listTranslationSummaries', paperIds)
+  },
+
   deleteTranslation: (paperId: string): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('paper:deleteTranslation', paperId)
   },
@@ -365,6 +381,7 @@ export const paperApi = {
   },
 
   onTranslationProgress: (callback: (progress: PaperTranslationProgress) => void): (() => void) => {
+    void ipcRenderer.invoke('paper:subscribeTranslationProgress')
     const handler = (
       _event: Electron.IpcRendererEvent,
       progress: PaperTranslationProgress
@@ -374,6 +391,22 @@ export const paperApi = {
     ipcRenderer.on('paper:translationProgress', handler)
     return () => {
       ipcRenderer.removeListener('paper:translationProgress', handler)
+      void ipcRenderer.invoke('paper:unsubscribeTranslationProgress')
+    }
+  },
+
+  onTranslationProgressBatch: (
+    callback: (batch: PaperTranslationProgressBatch) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      batch: PaperTranslationProgressBatch
+    ): void => {
+      callback(batch)
+    }
+    ipcRenderer.on('paper:translationProgressBatch', handler)
+    return () => {
+      ipcRenderer.removeListener('paper:translationProgressBatch', handler)
     }
   }
 }

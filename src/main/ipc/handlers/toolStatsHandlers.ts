@@ -11,7 +11,7 @@ export function registerToolStatsHandlers(): void {
 
   // 应用退出时确保数据写入磁盘
   app.on('will-quit', () => {
-    toolStatsCollector.stopPersist()
+    void toolStatsCollector.stopPersist()
   })
 
   ipcMain.handle('tool-stats:getAll', async (_, timeRange?: TimeRange) => {
@@ -35,7 +35,7 @@ export function registerToolStatsHandlers(): void {
   })
 
   ipcMain.handle('tool-stats:clear', async () => {
-    toolStatsCollector.clear()
+    await toolStatsCollector.clear()
     return { success: true }
   })
 

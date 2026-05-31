@@ -1,7 +1,15 @@
+.paper-markdown-view__virtual-container {
+  position: relative;
+  width: 100%;
+}
+
+.paper-markdown-view__virtual-item {
+  left: 0;
+}
+
 .paper-markdown-view__segment {
   position: relative;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 300px;
+  box-sizing: border-box;
 }
 
 .paper-markdown-view__segment + .paper-markdown-view__segment {
@@ -306,6 +314,26 @@
   overflow-y: hidden;
   padding: 0.2em 0;
   user-select: text;
+}
+
+.paper-markdown-view__markdown :global(.katex-display) + :global(.katex-display) {
+  margin-top: 0.5em;
+}
+
+.paper-markdown-view__markdown li :global(.katex-display),
+.paper-markdown-view__markdown li > p + :global(.katex-display) {
+  margin: 0.4em 0;
+}
+
+.paper-markdown-view__markdown table :global(.katex-display),
+.paper-markdown-view__markdown table :global(.paper-katex-table-inline) {
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  max-width: 100%;
+  vertical-align: middle;
+  text-align: initial;
 }
 
 .paper-markdown-view__markdown :global(.katex-display) > :global(.katex) {

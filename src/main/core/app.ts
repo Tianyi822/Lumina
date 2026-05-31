@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { createMainWindow } from './window'
+import { registerLuminaProtocol } from './protocol'
 import icon from '../../../resources/icon.png?asset'
 import {
   registerAllIpcHandlers,
@@ -19,6 +20,8 @@ import { getKnowledgeMCPServerService } from '@main/services/knowledge/Knowledge
 import { toolStatsCollector } from '@main/services/chat/tools/ToolStatsCollector'
 import { logger } from '@main/services/logger'
 import { updateService } from '@main/services/update'
+import { paperTranslationService } from '@main/services/paper'
+import { startEventLoopMonitoring } from '@main/services/monitoring/eventLoopMonitor'
 
 const appDisplayName = 'Lumina'
 const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
@@ -80,6 +83,7 @@ function requestShutdown(exitCode: number, reason: string): void {
 
     await Promise.all([
       runShutdownTask('tool-stats', () => toolStatsCollector.stopPersist()),
+      runShutdownTask('paper-translation', () => paperTranslationService.flushPendingCaches()),
       runShutdownTask('mcp', () => mcpService.disconnectAll()),
       runShutdownTask('ssh', () => sshService.shutdown()),
       runShutdownTask('knowledge-mcp', async () => {
@@ -104,7 +108,7 @@ export function initializeApp(): void {
   app.setName(appDisplayName)
 
   // 当 Electron 完成初始化并准备创建浏览器窗口时调用此方法
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     // 为 Windows 设置应用用户模型 ID
     electronApp.setAppUserModelId('com.lumina.app')
 
@@ -121,8 +125,14 @@ export function initializeApp(): void {
     // 初始化日志系统，优先初始化以便记录后续日志
     initializeLogger()
 
+    // 启动事件循环延迟监控（依赖 logger）
+    startEventLoopMonitoring()
+
     // 初始化配置，即使失败也不阻止应用启动
     initializeConfig()
+
+    // 注册 lumina:// 自定义协议（必须在 ready 后、窗口创建前）
+    registerLuminaProtocol()
 
     // 注册所有 IPC 处理程序
     registerAllIpcHandlers()
@@ -140,10 +150,10 @@ export function initializeApp(): void {
     initializeKnowledge()
 
     // 初始化文件服务，并修复历史论文资源池数据
-    initializeFileService()
+    await initializeFileService()
 
     // 初始化实验室服务
-    initializeLab()
+    await initializeLab()
 
     // 创建主窗口
     const mainWindow = createMainWindow()
