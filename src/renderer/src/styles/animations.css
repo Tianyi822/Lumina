@@ -164,7 +164,9 @@
 .sm-sidebar-search-switch-enter-active,
 .sm-sidebar-search-switch-leave-active,
 .sm-sidebar-body-switch-enter-active,
-.sm-sidebar-body-switch-leave-active {
+.sm-sidebar-body-switch-leave-active,
+.sm-sidebar-section-switch-enter-active,
+.sm-sidebar-section-switch-leave-active {
   transition:
     opacity 150ms linear,
     transform 180ms cubic-bezier(0.2, 0, 0, 1);
@@ -179,20 +181,23 @@
   transition-delay: 56ms;
 }
 
-.sm-sidebar-body-switch-enter-active {
-  transition-delay: var(--sm-sidebar-body-enter-delay, 112ms);
+.sm-sidebar-body-switch-enter-active,
+.sm-sidebar-section-switch-enter-active {
+  transition-delay: var(--sm-sidebar-section-enter-delay, 112ms);
 }
 
 .sm-sidebar-actions-switch-enter-from,
 .sm-sidebar-search-switch-enter-from,
-.sm-sidebar-body-switch-enter-from {
+.sm-sidebar-body-switch-enter-from,
+.sm-sidebar-section-switch-enter-from {
   opacity: 0;
   transform: translateX(calc(var(--sm-motion-distance-md) * -1));
 }
 
 .sm-sidebar-actions-switch-leave-to,
 .sm-sidebar-search-switch-leave-to,
-.sm-sidebar-body-switch-leave-to {
+.sm-sidebar-body-switch-leave-to,
+.sm-sidebar-section-switch-leave-to {
   opacity: 0;
   transform: translateX(var(--sm-motion-distance-md));
 }
@@ -202,7 +207,9 @@
 .sm-sidebar-search-switch-enter-to,
 .sm-sidebar-search-switch-leave-from,
 .sm-sidebar-body-switch-enter-to,
-.sm-sidebar-body-switch-leave-from {
+.sm-sidebar-body-switch-leave-from,
+.sm-sidebar-section-switch-enter-to,
+.sm-sidebar-section-switch-leave-from {
   opacity: 1;
   transform: translateX(0);
 }

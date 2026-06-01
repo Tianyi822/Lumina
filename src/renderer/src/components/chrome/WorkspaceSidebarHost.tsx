@@ -133,7 +133,12 @@ export default function WorkspaceSidebarHost() {
               appear
             >
               {({ transitionKey, className, ref }) => (
-                <div ref={ref} className={className}>
+                <div
+                  ref={ref}
+                  className={[styles['sm-workspace-sidebar-host__section'], className]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
                   {transitionKey === 'paper' && <PaperSidebarSection />}
                   {transitionKey === 'knowledge' && <KnowledgeSidebarSection />}
                   {transitionKey === 'lab' && <LabSidebarSection />}

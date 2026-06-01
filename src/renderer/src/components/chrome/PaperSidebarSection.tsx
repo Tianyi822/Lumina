@@ -112,6 +112,26 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
   return (
     <>
       <div
+        className={[
+          styles['sm-workspace-sidebar-host__section-actions'],
+          styles['sm-workspace-sidebar-host__section-actions--above-search']
+        ].join(' ')}
+      >
+        <button
+          className={[
+            'sm-button',
+            'sm-button--primary',
+            styles['sm-workspace-sidebar-host__action']
+          ].join(' ')}
+          onClick={() => {
+            void handleUploadPdf()
+          }}
+        >
+          上传 PDF
+        </button>
+      </div>
+
+      <div
         className={['sm-sidebar-shell__search', styles['sm-workspace-sidebar-host__search']]
           .filter(Boolean)
           .join(' ')}
@@ -145,21 +165,6 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
           onDeleteTranslation={handleDeleteTranslation}
           onRetryPaper={handleRetryPaper}
         />
-      </div>
-
-      <div className={styles['sm-workspace-sidebar-host__section-actions']}>
-        <button
-          className={[
-            'sm-button',
-            'sm-button--primary',
-            styles['sm-workspace-sidebar-host__action']
-          ].join(' ')}
-          onClick={() => {
-            void handleUploadPdf()
-          }}
-        >
-          上传 PDF
-        </button>
       </div>
     </>
   )
