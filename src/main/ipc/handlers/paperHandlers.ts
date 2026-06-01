@@ -177,14 +177,22 @@ export function registerPaperHandlers(): void {
       _event,
       params: {
         paperId: string
-        scrollPercent: number
+        scrollPercentOriginal?: number
+        scrollPercentTranslated?: number
         zoomLevel: number
-        translationVisible?: boolean
+        translationVisible: boolean
       }
     ) => {
+      // 读取已有进度以保留未更新的字段
+      const existingResult = await paperStorageService.readMeta(params.paperId)
+      const existing = existingResult.success ? existingResult.data?.readingProgress : undefined
+
       return await paperStorageService.updateMeta(params.paperId, {
         readingProgress: {
-          scrollPercent: params.scrollPercent,
+          scrollPercentOriginal:
+            params.scrollPercentOriginal ?? existing?.scrollPercentOriginal ?? 0,
+          scrollPercentTranslated:
+            params.scrollPercentTranslated ?? existing?.scrollPercentTranslated ?? 0,
           zoomLevel: params.zoomLevel,
           readAt: new Date().toISOString(),
           translationVisible: params.translationVisible

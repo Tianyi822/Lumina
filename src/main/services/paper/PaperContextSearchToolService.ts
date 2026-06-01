@@ -512,8 +512,13 @@ export class PaperContextSearchToolService {
       return this.filterCorpusBySegmentRange(corpus, 0, READING_PROGRESS_WINDOW_AFTER, source)
     }
 
+    const isTranslated = progress.translationVisible ?? false
+    const percent = isTranslated
+      ? (progress.scrollPercentTranslated ?? progress.scrollPercentOriginal ?? 0)
+      : (progress.scrollPercentOriginal ?? progress.scrollPercentTranslated ?? 0)
+
     const currentIndex = Math.min(
-      Math.floor((progress.scrollPercent / 100) * Math.max(1, totalSegments - 1)),
+      Math.floor((percent / 100) * Math.max(1, totalSegments - 1)),
       totalSegments - 1
     )
 

@@ -14,6 +14,10 @@
   --sm-radius-md: 12px;
   --sm-radius-lg: 16px;
 
+  --sm-primary-sidebar-width: 56px;
+  --sm-primary-sidebar-expand-toggle-size: 22px;
+  --sm-sidebar-rail-gap: calc(var(--sm-primary-sidebar-expand-toggle-size) / 2 + var(--sm-space-2));
+
   --sm-space-2: 8px;
   --sm-space-3: 12px;
   --sm-space-4: 16px;
@@ -43,4 +47,10 @@
   --sm-paper-progress-height: 6px;
   --sm-paper-progress-radius: 999px;
   --sm-paper-toolbar-height: 44px;
+
+  --sm-workspace-toolbar-button-size: 26px;
+  /* 与 .sm-workspace-page 内边距一致，用于 macOS 标题栏工具栏贴齐内容区右缘 */
+  --sm-workspace-toolbar-inset-right: var(--sm-space-3);
+  /* Windows 工具栏与自定义窗口按钮之间的间距 */
+  --sm-workspace-toolbar-win-controls-gap: var(--sm-space-2);
 }

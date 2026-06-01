@@ -19,7 +19,6 @@ const LabSidebarSection = memo(function LabSidebarSection() {
   const refreshLabList = useLabStore((s) => s.refreshLabList)
   const loadLab = useLabStore((s) => s.loadLab)
 
-  const openLabCreator = useUIStateStore((s) => s.openLabCreator)
   const openConfigManager = useUIStateStore((s) => s.openConfigManager)
   const labDockerAvailable = useUIStateStore((s) => s.labDockerAvailable)
 
@@ -59,41 +58,7 @@ const LabSidebarSection = memo(function LabSidebarSection() {
 
   return (
     <>
-      <div
-        className={[
-          styles['sm-workspace-sidebar-host__section-actions'],
-          styles['sm-workspace-sidebar-host__section-actions--above-search']
-        ].join(' ')}
-      >
-        <button
-          className={[
-            'sm-button',
-            'sm-button--primary',
-            styles['sm-workspace-sidebar-host__action']
-          ].join(' ')}
-          onClick={openLabCreator}
-        >
-          {labDockerAvailable === false ? 'SSH 连接' : '创建实验室'}
-        </button>
-        {labDockerAvailable === true && (
-          <button
-            className={[
-              'sm-button',
-              'sm-button--secondary',
-              styles['sm-workspace-sidebar-host__action']
-            ].join(' ')}
-            onClick={openConfigManager}
-          >
-            管理配置
-          </button>
-        )}
-      </div>
-
-      <div
-        className={['sm-sidebar-shell__search', styles['sm-workspace-sidebar-host__search']]
-          .filter(Boolean)
-          .join(' ')}
-      >
+      <div className={styles['sm-workspace-sidebar-host__search-group']}>
         <div className={styles['sm-workspace-sidebar-host__search--lab']}>
           <input
             type="text"
@@ -115,6 +80,18 @@ const LabSidebarSection = memo(function LabSidebarSection() {
             <SvgIcon name="refresh" size={14} spin={isRefreshingLabList} />
           </button>
         </div>
+        {labDockerAvailable === true && (
+          <button
+            className={[
+              'sm-button',
+              'sm-button--secondary',
+              styles['sm-workspace-sidebar-host__action']
+            ].join(' ')}
+            onClick={openConfigManager}
+          >
+            Docker 资产管理
+          </button>
+        )}
       </div>
 
       <div

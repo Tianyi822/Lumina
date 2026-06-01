@@ -11,7 +11,6 @@ import {
   hasPaperTranslationResult
 } from '@shared/utils/paperTranslation'
 import styles from './WorkspaceToolbar.module.css'
-import ZoomControls from './toolbar/ZoomControls'
 import TranslationToggleButton from './toolbar/TranslationToggleButton'
 import TocPanel from './toolbar/TocPanel'
 import FigurePanel from './toolbar/FigurePanel'
@@ -23,7 +22,6 @@ const EMPTY_FIGURE_TRANSLATION_MAP: Record<string, string> = {}
 
 export default function WorkspaceToolbar() {
   const currentView = useUIStateStore((s) => s.currentView)
-  const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
   const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
   const togglePaperChatPanel = useUIStateStore((s) => s.togglePaperChatPanel)
   const currentPaperId = usePaperListStore((s) => s.currentPaperId)
@@ -33,14 +31,8 @@ export default function WorkspaceToolbar() {
   const paperTocTitle = usePaperViewStore((s) => s.paperTocTitle)
   const paperTocItems = usePaperViewStore((s) => s.paperTocItems)
   const originalPdfVisible = usePaperViewStore((s) => s.originalPdfVisible)
-  const canZoomIn = usePaperViewStore((s) => s.canZoomIn())
-  const canZoomOut = usePaperViewStore((s) => s.canZoomOut())
-  const zoomPercent = usePaperViewStore((s) => s.zoomPercent)
   const toggleOriginalPdfVisible = usePaperViewStore((s) => s.toggleOriginalPdfVisible)
   const scrollToHeading = usePaperViewStore((s) => s.scrollToHeading)
-  const zoomOut = usePaperViewStore((s) => s.zoomOut)
-  const resetZoom = usePaperViewStore((s) => s.resetZoom)
-  const zoomIn = usePaperViewStore((s) => s.zoomIn)
 
   const figuresByPaperId = usePaperFigureStore((s) => s.figuresByPaperId)
   const figureLoadingByPaperId = usePaperFigureStore((s) => s.figureLoadingByPaperId)
@@ -136,7 +128,7 @@ export default function WorkspaceToolbar() {
     closeTocPanel()
     closeFigurePanel()
     await toggleTranslationVisible()
-  }, [closeFigurePanel, closeTocPanel, currentPaperId, toggleTranslationVisible])
+  }, [closeFigurePanel, closeTocPanel, currentPaperId])
 
   const handleToggleToc = useCallback((): void => {
     if (!canOpenToc) {
@@ -282,27 +274,11 @@ export default function WorkspaceToolbar() {
       className={[
         styles['sm-workspace-toolbar__controls'],
         isPaperToolbar && styles['sm-workspace-toolbar__controls--paper'],
-        isKnowledgeToolbar &&
-          !isPaperToolbar &&
-          styles['sm-workspace-toolbar__controls--knowledge'],
-        isPaperToolbar &&
-          isCurrentSidebarCollapsed &&
-          styles['sm-workspace-toolbar__controls--chrome-safe']
+        isKnowledgeToolbar && !isPaperToolbar && styles['sm-workspace-toolbar__controls--knowledge']
       ]
         .filter(Boolean)
         .join(' ')}
     >
-      {isPaperView && currentPaperId && (
-        <ZoomControls
-          canZoomOut={canZoomOut}
-          canZoomIn={canZoomIn}
-          zoomPercent={zoomPercent}
-          onZoomOut={zoomOut}
-          onResetZoom={resetZoom}
-          onZoomIn={zoomIn}
-        />
-      )}
-
       {isPaperView && currentPaperId && !originalPdfVisible && (
         <TranslationToggleButton
           isActive={translationVisible}

@@ -9,51 +9,27 @@
   user-select: none;
 }
 
+:global(.sm-workspace-page--mac) .dragRegion {
+  left: var(--sm-traffic-lights-safe-width, 64px);
+  height: var(--sm-titlebar-height);
+}
+
 .workspacePage {
   --sm-workspace-chrome-actions-safe-width: 140px;
   --sm-window-controls-safe-width: 0px;
   --sm-window-control-button-width: 46px;
+  --sm-traffic-lights-safe-width: 0px;
+}
+
+.workspacePage:global(.sm-workspace-page--mac) {
+  --sm-traffic-lights-safe-width: 64px;
 }
 
 .windows {
   --sm-window-controls-safe-width: calc(var(--sm-window-control-button-width) * 3);
 }
 
-.chromeActions {
-  position: absolute;
-  top: 12px;
-  left: 90px;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 0;
-  -webkit-app-region: no-drag;
-  pointer-events: auto;
-}
-
-.chromeButton {
-  width: 24px;
-  height: 30px;
-  border-color: transparent;
-  border-radius: 0;
-  background: transparent;
-  -webkit-app-region: no-drag;
-}
-
-.chromeButton:hover,
-.chromeButton:active,
-.chromeButton:focus-visible {
-  border-color: transparent;
-  background: transparent;
-  color: var(--sm-color-text-primary);
-}
-
 /* Windows platform-specific styles */
-.windows .chromeActions {
-  top: var(--sm-space-3);
-  left: calc(var(--sm-space-3) + var(--sm-space-4));
-}
-
 .windows :global(.sm-workspace-main)::before {
   content: '';
   position: absolute;
@@ -85,6 +61,11 @@
 
 .windows .dragRegion {
   right: var(--sm-window-controls-safe-width);
+}
+
+/* 论文聊天关闭时让阅读滚动条贴近窗口右缘。 */
+.paperReaderFlushRight :global(.sm-workspace-main) {
+  margin-right: calc(var(--sm-workspace-page-padding, var(--sm-space-3)) * -1);
 }
 
 .viewLoading {

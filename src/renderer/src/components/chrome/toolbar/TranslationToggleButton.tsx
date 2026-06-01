@@ -28,7 +28,7 @@ export default function TranslationToggleButton({
       aria-label={title}
       onClick={onToggle}
     >
-      <SvgIcon name="translate" size={14} />
+      <SvgIcon name="translate" size={12} />
     </button>
   )
 }

@@ -124,7 +124,7 @@ export default function PaperReaderPage() {
       addPaperChatQuote(sessionId, quote)
       setPaperChatPanelOpen(true)
     },
-    [currentPaper, ensurePaperChatSession, addPaperChatQuote, notify, setPaperChatPanelOpen]
+    [currentPaper, addPaperChatQuote, notify, setPaperChatPanelOpen]
   )
 
   // Chat panel resize
@@ -225,7 +225,7 @@ export default function PaperReaderPage() {
     if (!translationVisible) {
       void toggleTranslationVisible()
     }
-  }, [visibleMarkdownLoading, currentPaper, translationVisible, toggleTranslationVisible])
+  }, [visibleMarkdownLoading, currentPaper, translationVisible])
 
   // Cleanup
   useEffect(() => {

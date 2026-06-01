@@ -64,8 +64,8 @@ export function createMainWindow(): BrowserWindow {
           titleBarStyle: 'hidden',
           frame: true,
           trafficLightPosition: {
-            x: 24,
-            y: 20
+            x: 8,
+            y: 8
           }
         }
       : { frame: false }),

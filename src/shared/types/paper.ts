@@ -37,17 +37,19 @@ export type BlockLabel = 'text' | 'image' | 'table' | 'formula' | 'code'
 
 /**
  * 论文阅读进度
- * 基于滚动百分比记录，每篇论文独立保存缩放级别
+ * 译文开/关状态下内容长度不同，各自独立保存滚动百分比
  */
 export interface PaperReadingProgress {
-  /** 滚动百分比 (0-100)，0=顶部，100=底部 */
-  scrollPercent: number
+  /** 译文关时的滚动百分比 (0-100) */
+  scrollPercentOriginal: number
+  /** 译文开时的滚动百分比 (0-100) */
+  scrollPercentTranslated: number
   /** 缩放级别 (0.5-2.0)，仍会写入但不再用于恢复（缩放已统一为全局设置） */
   zoomLevel: number
   /** 最后阅读时间 */
   readAt: string
   /** 译文是否可见 */
-  translationVisible?: boolean
+  translationVisible: boolean
 }
 
 /**

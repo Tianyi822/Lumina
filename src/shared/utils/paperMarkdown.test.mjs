@@ -29,6 +29,7 @@ const mathMarkdownRenderer = new MarkdownIt({
   }
 })
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function renderPaperMath(content, kind = 'paragraph') {
   return mathMarkdownRenderer.render(
     normalizePaperInlineMathForRender(normalizePaperMarkdownForRender(content, kind), kind)

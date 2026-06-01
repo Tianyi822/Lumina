@@ -274,7 +274,7 @@ export default function PaperOriginalPdfView({
         return
       }
 
-      const state = getPageState(pageIndex)
+      const state = pageStates[pageIndex] || { status: 'idle' }
       if (state.status === 'loading' || state.status === 'loaded') {
         return
       }
@@ -337,6 +337,7 @@ export default function PaperOriginalPdfView({
 
   // Initial mount
   useEffect(() => {
+    const currentPageElements = pageElementsRef.current
     isMountedRef.current = true
     void resetPageLoading()
 
@@ -344,7 +345,7 @@ export default function PaperOriginalPdfView({
       recordScrollPosition()
       isMountedRef.current = false
       disposeObserver()
-      pageElementsRef.current.clear()
+      currentPageElements.clear()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
