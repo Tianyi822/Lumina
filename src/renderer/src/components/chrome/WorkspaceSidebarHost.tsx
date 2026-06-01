@@ -66,7 +66,10 @@ export default function WorkspaceSidebarHost({ onOpenSettings }: WorkspaceSideba
   const handleSidebarResizeMove = useCallback(
     (event: PointerEvent) => {
       if (!isResizingSidebarRef.current) return
-      applySidebarWidth(event.clientX)
+      const sidebarEl = secondarySidebarRef.current
+      if (!sidebarEl) return
+      const { left } = sidebarEl.getBoundingClientRect()
+      applySidebarWidth(event.clientX - left)
     },
     [applySidebarWidth]
   )
