@@ -6,6 +6,7 @@ import katex from 'katex'
 import { parseHTML, NodeFilter } from 'linkedom'
 import { postProcessRenderedHtml, tableMathSourceToInline } from './paperMarkdownPostProcess.ts'
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function installDomGlobals() {
   if (globalThis.NodeFilter === undefined) {
     globalThis.NodeFilter = NodeFilter
@@ -16,6 +17,7 @@ function installDomGlobals() {
   }
 
   globalThis.DOMParser = class DOMParser {
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     parseFromString(html) {
       return parseHTML(html).document
     }
@@ -40,6 +42,7 @@ const markdownRenderer = new MarkdownIt({
   }
 })
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function renderTableHtml(markdown) {
   const rawHtml = markdownRenderer.render(markdown)
   return postProcessRenderedHtml(rawHtml, (inline) => markdownRenderer.renderInline(inline))
@@ -79,9 +82,7 @@ test('表格内 display math 应渲染为行内 katex 且不含块级 display', 
 })
 
 test('表格内单美元行内公式应被渲染为 katex', () => {
-  const html = renderTableHtml(
-    '<table><tr><td>$P$</td><td>$R$</td><td>$F_1$</td></tr></table>'
-  )
+  const html = renderTableHtml('<table><tr><td>$P$</td><td>$R$</td><td>$F_1$</td></tr></table>')
 
   assert.match(html, /katex/)
   assert.doesNotMatch(html, /<td>\$P\$<\/td>/)

@@ -137,6 +137,13 @@
   --thinking-border: var(--sm-color-accent-24);
   --thinking-accent: var(--sm-color-accent-hover);
 
+  --sm-workspace-toolbar-button-border: rgba(255, 255, 255, 0.14);
+  --sm-workspace-toolbar-button-border-hover: rgba(255, 255, 255, 0.22);
+  --sm-workspace-toolbar-button-bg: rgba(255, 255, 255, 0.04);
+  --sm-workspace-toolbar-button-bg-hover: rgba(255, 255, 255, 0.08);
+  --sm-workspace-toolbar-button-shadow: none;
+  --sm-workspace-toolbar-button-gap: 4px;
+
   --glass-white-003: rgba(255, 255, 255, 0.003);
   --glass-white-007: rgba(255, 255, 255, 0.007);
   --glass-white-01: rgba(255, 255, 255, 0.01);

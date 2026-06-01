@@ -26,6 +26,7 @@ function LabToolsToggle({
 
   useEffect(() => {
     window.api.logger.debug('[LabToolsToggle] 组件挂载', { enabled: isEnabled })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function toggle(): void {

@@ -90,9 +90,10 @@ export interface PaperApi {
   /** 保存阅读进度 */
   saveReadingProgress: (params: {
     paperId: string
-    scrollPercent: number
+    scrollPercentOriginal?: number
+    scrollPercentTranslated?: number
     zoomLevel: number
-    translationVisible?: boolean
+    translationVisible: boolean
   }) => Promise<{
     success: boolean
     error?: string

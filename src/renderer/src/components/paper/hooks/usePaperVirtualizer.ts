@@ -218,9 +218,15 @@ export function usePaperVirtualizer({
     runPendingZoomCorrection()
   }, [totalSize, runPendingZoomCorrection])
 
-  // 内容布局指纹变化（新论文、翻译批量返回等）：清空尺寸缓存重新测量。
-  // 流式更新中已挂载项由 TanStack 内置 ResizeObserver 自动跟进，无需在此重复处理。
+  // 内容布局指纹变化时的重测策略：
+  // - 论文切换（段落数量或首个 stableId 变化）：需要 virtualizer.measure() 清空全部缓存，
+  //   因为旧缓存与新论文的段落完全不对应。
+  // - 同一论文内的布局变化（翻译显隐切换、翻译批量返回等）：仅重测已挂载段落，
+  //   保留非可见段落的缓存尺寸，避免回退到估算值×1.1 的安全系数导致段间距膨胀。
+  //   非可见段落的尺寸由 TanStack 内置 ResizeObserver 在进入视口时自动修正。
   const previousLayoutKeyRef = useRef(layoutKey)
+  const previousFirstStableIdRef = useRef(segments[0]?.stableId)
+  const previousSegmentCountRef = useRef(segments.length)
   useLayoutEffect(() => {
     if (previousLayoutKeyRef.current === layoutKey) {
       return
@@ -232,8 +238,24 @@ export function usePaperVirtualizer({
       return
     }
 
-    invalidateAllMeasurements()
-  }, [layoutKey, segments.length, virtualizer, invalidateAllMeasurements])
+    const firstStableId = segments[0]?.stableId
+    const isPaperChange =
+      previousSegmentCountRef.current !== segments.length ||
+      previousFirstStableIdRef.current !== firstStableId
+
+    previousFirstStableIdRef.current = firstStableId
+    previousSegmentCountRef.current = segments.length
+
+    if (isPaperChange) {
+      invalidateAllMeasurements()
+    } else {
+      // 同一论文内的布局变化：仅重测已挂载项，不清空缓存
+      remeasureMountedSegments()
+      requestAnimationFrame(() => {
+        remeasureMountedSegments()
+      })
+    }
+  }, [layoutKey, segments, virtualizer, invalidateAllMeasurements, remeasureMountedSegments])
 
   const measureElement = useCallback(
     (node: HTMLElement | null): void => {

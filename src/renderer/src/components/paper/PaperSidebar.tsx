@@ -476,12 +476,7 @@ export default function PaperSidebar({
   return (
     <>
       <div className={['paper-sidebar', styles['paper-list']].join(' ')}>
-        <CssTransitionGroup
-          items={papers}
-          name="sm-sidebar-list-item"
-          getKey={getPaperKey}
-          appear
-        >
+        <CssTransitionGroup items={papers} name="sm-sidebar-list-item" getKey={getPaperKey} appear>
           {({ item: paper, index, transitionKey, className, ref }) => (
             <PaperSidebarItem
               ref={ref}

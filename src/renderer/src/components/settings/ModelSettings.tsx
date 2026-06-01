@@ -3,6 +3,7 @@ import { useConfigStore } from '@renderer/stores/configStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { notifySuccess, notifyError, notifyWarning } from '@renderer/composables/notificationCore'
 import type { LLMConfig } from '@shared/types/config'
+import ModelApiKeyInput from './ModelApiKeyInput'
 import styles from './ModelSettings.module.css'
 
 const MODEL_FIELD_LABELS: Record<'base_url' | 'api_key' | 'model_name', string> = {
@@ -346,15 +347,12 @@ export default function ModelSettings() {
                   </div>
                   <div className={styles['form-group']}>
                     <label>API Key</label>
-                    <input
+                    <ModelApiKeyInput
                       value={config.api_key}
-                      type="password"
-                      className="sm-input"
-                      placeholder="sk-..."
-                      onChange={(e) => updateModelConfig(index, 'api_key', e.target.value)}
+                      onChange={(value) => updateModelConfig(index, 'api_key', value)}
                     />
                   </div>
-                  <div className={styles['model-name-field']}>
+                  <div className={styles['form-group']}>
                     <label>模型名称</label>
                     <input
                       value={config.model_name}
@@ -397,17 +395,12 @@ export default function ModelSettings() {
               <label>
                 API Key <span className={styles.required}>*</span>
               </label>
-              <input
-                type="password"
-                className="sm-input"
-                placeholder="sk-..."
+              <ModelApiKeyInput
                 value={newModelConfig.api_key}
-                onChange={(e) =>
-                  setNewModelConfig((prev) => ({ ...prev, api_key: e.target.value }))
-                }
+                onChange={(value) => setNewModelConfig((prev) => ({ ...prev, api_key: value }))}
               />
             </div>
-            <div className={styles['model-name-field']}>
+            <div className={styles['form-group']}>
               <label>
                 模型名称 <span className={styles.required}>*</span>
               </label>

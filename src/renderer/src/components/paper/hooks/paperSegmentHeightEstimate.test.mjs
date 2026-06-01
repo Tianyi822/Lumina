@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { estimateSegmentHeight } from './paperSegmentHeightEstimate.ts'
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function createSegment(kind, originalText) {
   return {
     renderId: 'r1',
