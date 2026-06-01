@@ -1,0 +1,38 @@
+.api-key-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.api-key-input .sm-input {
+  padding-right: 40px;
+}
+
+.api-key-input__toggle {
+  position: absolute;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--sm-color-text-tertiary);
+  cursor: pointer;
+  transition: color var(--sm-transition-fast);
+}
+
+.api-key-input__toggle:hover {
+  border: none;
+  background: transparent;
+  color: var(--sm-color-text-secondary);
+}
+
+.api-key-input__toggle:focus-visible {
+  outline: 2px solid var(--sm-color-border-accent);
+  outline-offset: 1px;
+}
