@@ -81,22 +81,16 @@ const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
 
   return (
     <>
-      <div
-        className={[
-          styles['sm-workspace-sidebar-host__section-actions'],
-          styles['sm-workspace-sidebar-host__section-actions--above-search']
-        ].join(' ')}
-      >
-        <button
-          className={[
-            'sm-button',
-            'sm-button--primary',
-            styles['sm-workspace-sidebar-host__action']
-          ].join(' ')}
-          onClick={handleCreateKnowledgeBase}
-        >
-          新建知识库
-        </button>
+      <div className={styles['sm-workspace-sidebar-host__search-group']}>
+        <div className={styles['sm-workspace-sidebar-host__search']}>
+          <input
+            type="text"
+            className="sm-input"
+            placeholder="搜索知识库"
+            value={knowledgeSearchQuery}
+            onChange={(e) => setKnowledgeSearchQuery(e.target.value)}
+          />
+        </div>
         <button
           className={[
             'sm-button',
@@ -107,20 +101,6 @@ const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
         >
           管理文件
         </button>
-      </div>
-
-      <div
-        className={['sm-sidebar-shell__search', styles['sm-workspace-sidebar-host__search']]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        <input
-          type="text"
-          className="sm-input"
-          placeholder="搜索知识库"
-          value={knowledgeSearchQuery}
-          onChange={(e) => setKnowledgeSearchQuery(e.target.value)}
-        />
       </div>
 
       <div

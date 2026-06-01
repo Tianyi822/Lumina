@@ -76,7 +76,20 @@
   gap: 0;
 }
 
-.sm-sidebar-frame {
+/* macOS：标题栏区域留给原生红绿灯，侧边栏从标题栏下方且右移，避免重叠 */
+.sm-workspace-page--mac {
+  --sm-traffic-lights-safe-width: 64px;
+  --sm-workspace-chrome-actions-safe-width: calc(
+    var(--sm-traffic-lights-safe-width) + var(--sm-primary-sidebar-width) + var(--sm-space-3)
+  );
+  padding-top: var(--sm-titlebar-height);
+}
+
+.sm-workspace-page--mac .sm-sidebar-rail {
+  margin-left: calc(var(--sm-traffic-lights-safe-width) - var(--sm-space-3));
+}
+
+.sm-secondary-sidebar {
   width: 320px;
   min-width: 320px;
   min-height: 0;
@@ -88,7 +101,7 @@
     opacity var(--sm-transition-medium);
 }
 
-.sm-sidebar-frame.is-collapsed {
+.sm-secondary-sidebar.is-collapsed {
   width: 0;
   min-width: 0;
   opacity: 0;
@@ -167,57 +180,6 @@
   overflow: hidden;
 }
 
-.sm-sidebar-shell__header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sm-space-3);
-  padding: var(--sm-space-4);
-  border-bottom: 1px solid var(--sm-color-border-subtle);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%),
-    var(--sm-color-surface-1);
-}
-
-.sm-sidebar-shell__header--chrome {
-  -webkit-app-region: drag;
-  user-select: none;
-}
-
-.sm-sidebar-shell__header--chrome-mac {
-  padding-top: calc(var(--sm-space-4) + 20px);
-}
-
-.sm-sidebar-shell__header--chrome-windows {
-  padding-top: calc(var(--sm-space-4) + 20px);
-}
-
-.sm-sidebar-shell__switcher-row {
-  display: flex;
-  align-items: center;
-  gap: var(--sm-space-3);
-}
-
-.sm-sidebar-shell__switcher-card {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-}
-
-.sm-sidebar-shell__count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 7px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 999px;
-  font-size: 11px;
-  color: var(--sm-color-text-secondary);
-  background: var(--sm-color-surface-2);
-}
-
 .sm-sidebar-shell__actions {
   display: flex;
   flex-direction: column;
@@ -285,7 +247,7 @@
 }
 
 @media (max-width: 1280px) {
-  .sm-sidebar-frame {
+  .sm-secondary-sidebar {
     width: 312px;
     min-width: 312px;
   }

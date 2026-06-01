@@ -3,7 +3,7 @@ import PaperSidebar from '@renderer/components/paper/PaperSidebar'
 import { usePaperListStore } from '@renderer/stores/paper'
 import { usePaperTranslationStore } from '@renderer/stores/paper'
 import { usePaperAnnotationStore } from '@renderer/stores/paper'
-import { openPaper, deletePaper, retryPaper, uploadAndRenderPdf } from '@renderer/stores/paper'
+import { openPaper, deletePaper, retryPaper } from '@renderer/stores/paper'
 import { useNotification } from '@renderer/composables/useNotification'
 import { summarizeTranslationAnnotations } from '@shared/utils/paperTranslationAnnotations'
 import styles from './WorkspaceSidebarHost.module.css'
@@ -27,10 +27,6 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
     const query = paperSearchQuery.toLowerCase()
     return papers.filter((paper) => paper.fileName.toLowerCase().includes(query))
   }, [papers, paperSearchQuery])
-
-  const handleUploadPdf = useCallback(async (): Promise<void> => {
-    await uploadAndRenderPdf()
-  }, [uploadAndRenderPdf])
 
   const handleSelectPaper = useCallback(
     async (paperId: string): Promise<void> => {
@@ -111,26 +107,6 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
 
   return (
     <>
-      <div
-        className={[
-          styles['sm-workspace-sidebar-host__section-actions'],
-          styles['sm-workspace-sidebar-host__section-actions--above-search']
-        ].join(' ')}
-      >
-        <button
-          className={[
-            'sm-button',
-            'sm-button--primary',
-            styles['sm-workspace-sidebar-host__action']
-          ].join(' ')}
-          onClick={() => {
-            void handleUploadPdf()
-          }}
-        >
-          上传 PDF
-        </button>
-      </div>
-
       <div
         className={['sm-sidebar-shell__search', styles['sm-workspace-sidebar-host__search']]
           .filter(Boolean)
