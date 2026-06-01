@@ -95,16 +95,19 @@
   min-height: 0;
   overflow: hidden;
   opacity: 1;
+  transform: translateX(0);
   transition:
     width var(--sm-transition-slow),
     min-width var(--sm-transition-slow),
-    opacity var(--sm-transition-medium);
+    opacity var(--sm-transition-medium),
+    transform var(--sm-transition-slow);
 }
 
 .sm-secondary-sidebar.is-collapsed {
   width: 0;
   min-width: 0;
   opacity: 0;
+  transform: translateX(-8px);
   pointer-events: none;
 }
 

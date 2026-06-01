@@ -3,20 +3,20 @@ import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { uploadAndRenderPdf } from '@renderer/stores/paper'
 import { useKnowledgeStore } from '@renderer/stores'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
-import type { ViewMode } from '@renderer/stores/uiStateStore'
+import type { UIStateStore, ViewMode } from '@renderer/stores/uiStateStore'
 import styles from './PrimarySidebar.module.css'
 
 const ICON_SIZE = 18
+const EXPAND_ICON_SIZE = 11
 
-type NavItemId = 'add' | 'read' | 'knowledge' | 'lab'
+type NavItemId = 'read' | 'knowledge' | 'lab'
 
 interface NavItem {
   id: NavItemId
   icon: string
-  label?: string
-  view?: ViewMode
+  label: string
+  view: ViewMode
   showTooltip: boolean
-  dynamicLabel?: boolean
 }
 
 const ADD_LABEL_BY_VIEW: Record<ViewMode, string> = {
@@ -25,9 +25,8 @@ const ADD_LABEL_BY_VIEW: Record<ViewMode, string> = {
   lab: '新增实验室'
 }
 
-/** 一级侧边栏导航项 */
+/** 一级侧边栏导航项（不含添加） */
 const TOP_NAV_ITEMS: NavItem[] = [
-  { id: 'add', icon: 'add', showTooltip: true, dynamicLabel: true },
   { id: 'read', icon: 'read', label: '阅读', view: 'paper', showTooltip: true },
   { id: 'knowledge', icon: 'knowledge', label: '知识库', view: 'knowledge', showTooltip: true },
   { id: 'lab', icon: 'lab', label: '实验室', view: 'lab', showTooltip: true }
@@ -39,24 +38,29 @@ interface PrimarySidebarProps {
   onOpenSettings?: () => void
 }
 
-function resolveNavLabel(item: NavItem, currentView: ViewMode): string | undefined {
-  if (item.dynamicLabel) return ADD_LABEL_BY_VIEW[currentView]
-  return item.label
+function selectIsSecondarySidebarCollapsed(state: UIStateStore): boolean {
+  if (state.currentView === 'paper') return state.paperSidebarCollapsed
+  if (state.currentView === 'knowledge') return state.knowledgeSidebarCollapsed
+  return state.labSidebarCollapsed
 }
 
 export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) {
   const currentView = useUIStateStore((s) => s.currentView)
   const setCurrentView = useUIStateStore((s) => s.setCurrentView)
+  const toggleCurrentSidebar = useUIStateStore((s) => s.toggleCurrentSidebar)
+  const isSecondarySidebarCollapsed = useUIStateStore(selectIsSecondarySidebarCollapsed)
   const openCreateForm = useKnowledgeStore((s) => s.openCreateForm)
   const openLabCreator = useUIStateStore((s) => s.openLabCreator)
+
+  const addTooltip = ADD_LABEL_BY_VIEW[currentView]
 
   const navItems = useMemo(
     () =>
       TOP_NAV_ITEMS.map((item) => ({
         ...item,
-        tooltip: item.showTooltip ? resolveNavLabel(item, currentView) : undefined
+        tooltip: item.showTooltip ? item.label : undefined
       })),
-    [currentView]
+    []
   )
 
   const handleAddClick = useCallback((): void => {
@@ -71,21 +75,53 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
     openLabCreator()
   }, [currentView, openCreateForm, openLabCreator])
 
+  const handleExpandToggle = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>): void => {
+      event.stopPropagation()
+      toggleCurrentSidebar()
+    },
+    [toggleCurrentSidebar]
+  )
+
   const handleNavClick = (item: NavItem): void => {
-    if (item.id === 'add') {
-      handleAddClick()
-      return
-    }
-    if (item.view) {
-      void setCurrentView(item.view)
-    }
+    void setCurrentView(item.view)
   }
 
   return (
     <nav className={styles['sm-primary-sidebar']} aria-label="一级导航">
       <div className={styles['sm-primary-sidebar__main']}>
+        <div className={styles['sm-primary-sidebar__add-slot']}>
+          <div className={styles['sm-primary-sidebar__item-wrap']}>
+            <button
+              type="button"
+              className={styles['sm-primary-sidebar__item']}
+              aria-label={addTooltip}
+              onClick={handleAddClick}
+            >
+              <SvgIcon name="add" size={ICON_SIZE} />
+            </button>
+            <span className={styles['sm-primary-sidebar__tooltip']} role="tooltip">
+              {addTooltip}
+            </span>
+          </div>
+          <button
+            type="button"
+            className={[
+              styles['sm-primary-sidebar__expand-toggle'],
+              !isSecondarySidebarCollapsed && styles['sm-primary-sidebar__expand-toggle--expanded']
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            aria-label={isSecondarySidebarCollapsed ? '展开二级侧边栏' : '收起二级侧边栏'}
+            aria-expanded={!isSecondarySidebarCollapsed}
+            onClick={handleExpandToggle}
+          >
+            <SvgIcon name="sidebar-expand" size={EXPAND_ICON_SIZE} />
+          </button>
+        </div>
+
         {navItems.map((item) => {
-          const isActive = item.view != null && item.view === currentView
+          const isActive = item.view === currentView
           const tooltip = item.tooltip
 
           return (
@@ -98,7 +134,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label={tooltip ?? item.label ?? item.id}
+                aria-label={tooltip ?? item.label}
                 onClick={() => handleNavClick(item)}
               >
                 <SvgIcon name={item.icon} size={ICON_SIZE} />
