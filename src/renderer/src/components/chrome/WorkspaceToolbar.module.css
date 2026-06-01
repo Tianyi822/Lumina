@@ -1,11 +1,13 @@
-.sm-workspace-toolbar__controls {
+.sm-workspace-toolbar__controls:not(.sm-workspace-toolbar__controls--paper) {
   position: absolute;
   top: 0;
-  right: var(--sm-window-controls-safe-width, 0px);
+  right: calc(
+    var(--sm-window-controls-safe-width, 0px) + var(--sm-workspace-toolbar-inset-right, var(--sm-space-3))
+  );
   z-index: 4;
   display: flex;
   align-items: center;
-  gap: var(--sm-space-2);
+  gap: var(--sm-workspace-toolbar-button-gap, 4px);
   width: max-content;
   margin-right: 0;
   transition:
@@ -15,47 +17,62 @@
   user-select: none;
 }
 
+/* 论文工具栏：上边距和右边距使用同一安全间距，避免贴住窗口圆角。 */
 .sm-workspace-toolbar__controls--paper {
-  --sm-paper-toolbar-chrome-safe-left: 0px;
+  --sm-paper-toolbar-edge-inset: var(--sm-workspace-page-padding, var(--sm-space-3));
 
-  top: calc(var(--sm-space-3) * -1);
-  left: var(--sm-paper-toolbar-chrome-safe-left);
-  right: var(--sm-window-controls-safe-width, 0px);
-  box-sizing: border-box;
-  width: auto;
-  min-height: var(--sm-paper-toolbar-height);
-  align-items: flex-start;
+  position: absolute;
+  top: var(--sm-paper-toolbar-edge-inset);
+  right: var(--sm-paper-toolbar-edge-inset);
+  left: auto;
+  bottom: auto;
+  z-index: 5;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   justify-content: flex-end;
-  padding-top: var(--sm-space-3);
+  gap: var(--sm-workspace-toolbar-button-gap, 4px);
+  width: max-content;
+  max-height: none;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
   overflow: visible;
-}
-
-.sm-workspace-toolbar__controls--chrome-safe {
-  --sm-paper-toolbar-chrome-safe-left: var(--sm-workspace-chrome-actions-safe-width, 140px);
-}
-
-/* Windows 平台：工具按钮移到左上角，贴在侧边栏右侧 */
-:global(.windows) .sm-workspace-toolbar__controls--paper {
-  right: 0;
-  left: 320px;
-  justify-content: flex-start;
+  transform: none;
   transition:
-    left 300ms cubic-bezier(0.4, 0, 0.2, 1),
-    top var(--sm-transition-medium);
+    top var(--sm-transition-medium),
+    right var(--sm-transition-medium);
+  -webkit-app-region: no-drag;
+  user-select: none;
 }
 
-:global(.windows)
-  .sm-workspace-toolbar__controls--paper.sm-workspace-toolbar__controls--chrome-safe {
-  left: var(--sm-workspace-chrome-actions-safe-width, 140px);
+/* macOS：抬入标题栏 padding 区垂直居中 */
+:global(.sm-workspace-page--mac) .sm-workspace-toolbar__controls--paper {
+  --sm-paper-toolbar-edge-inset: calc(
+    (var(--sm-titlebar-height) - var(--sm-workspace-toolbar-button-size, 26px)) / 2
+  );
+}
+
+/* Windows：固定到视口并仅为窗口控制按钮让位（不叠加页面 padding） */
+:global(.windows) .sm-workspace-toolbar__controls--paper {
+  position: fixed;
+  --sm-paper-toolbar-edge-inset: calc(
+    (var(--sm-titlebar-height) - var(--sm-workspace-toolbar-button-size, 26px)) / 2
+  );
+  right: calc(
+    var(--sm-window-controls-safe-width, 0px) + var(--sm-paper-toolbar-edge-inset)
+  );
 }
 
 /* ==================== 知识库视图拖拽区域 ==================== */
 .sm-workspace-toolbar__controls--knowledge {
   --sm-knowledge-toolbar-safe-left: 0px;
 
-  top: calc(var(--sm-space-3) * -1);
+  top: var(--sm-workspace-page-padding, var(--sm-space-3));
   left: var(--sm-knowledge-toolbar-safe-left);
-  right: var(--sm-window-controls-safe-width, 0px);
+  right: calc(
+    var(--sm-window-controls-safe-width, 0px) + var(--sm-workspace-toolbar-inset-right, var(--sm-space-3))
+  );
   box-sizing: border-box;
   width: auto;
   min-height: var(--sm-paper-toolbar-height);
@@ -65,38 +82,19 @@
   overflow: visible;
 }
 
-.sm-workspace-toolbar__controls--paper::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: calc(var(--sm-paper-toolbar-chrome-safe-left) * -1);
-  right: 0;
-  z-index: 0;
-  height: calc(var(--sm-paper-toolbar-height) + var(--sm-space-6));
-  pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--sm-color-bg-canvas) 82%, transparent) 0%,
-    color-mix(in srgb, var(--sm-color-bg-canvas) 58%, transparent) 46%,
-    color-mix(in srgb, var(--sm-color-bg-canvas) 24%, transparent) 76%,
-    transparent 100%
-  );
-  backdrop-filter: blur(12px) saturate(1.04);
-  -webkit-backdrop-filter: blur(12px) saturate(1.04);
-  mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.92) 42%, transparent 100%);
-  -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.92) 42%, transparent 100%);
+:global(.sm-workspace-page--mac) .sm-workspace-toolbar__controls--knowledge {
+  top: var(--sm-titlebar-height);
 }
 
-.sm-workspace-toolbar__controls--paper > * {
-  position: relative;
-  z-index: 1;
-}
-
-.sm-workspace-toolbar__button {
-  width: 30px;
-  height: 30px;
-  border-color: var(--sm-color-border-default);
-  background: var(--sm-color-surface-2);
+.sm-workspace-toolbar__button,
+:global(.sm-icon-button).sm-workspace-toolbar__button {
+  width: var(--sm-workspace-toolbar-button-size, 26px);
+  height: var(--sm-workspace-toolbar-button-size, 26px);
+  border-radius: var(--sm-radius-sm);
+  border: 1px solid var(--sm-workspace-toolbar-button-border, var(--sm-color-border-subtle));
+  background: var(--sm-workspace-toolbar-button-bg, var(--sm-color-surface-1));
+  box-shadow: var(--sm-workspace-toolbar-button-shadow, none);
+  color: var(--sm-color-text-secondary);
   -webkit-app-region: no-drag;
 }
 
@@ -106,9 +104,12 @@
 }
 
 .sm-workspace-toolbar__button.is-active,
-.sm-workspace-toolbar__button:hover {
-  background: var(--sm-color-surface-hover);
-  border-color: var(--sm-color-border-strong);
+.sm-workspace-toolbar__button:hover:not(:disabled),
+:global(.sm-icon-button).sm-workspace-toolbar__button.is-active,
+:global(.sm-icon-button).sm-workspace-toolbar__button:hover:not(:disabled) {
+  background: var(--sm-workspace-toolbar-button-bg-hover, var(--sm-color-surface-2));
+  border-color: var(--sm-workspace-toolbar-button-border-hover, var(--sm-color-border-default));
+  color: var(--sm-color-text-primary);
 }
 
 .sm-workspace-toolbar__button.is-pending {
@@ -116,26 +117,12 @@
 }
 
 .sm-workspace-toolbar__button:hover:disabled {
-  background: var(--sm-color-surface-2);
-  border-color: var(--sm-color-border-default);
-}
-
-.sm-workspace-toolbar__zoom-display {
-  width: auto;
-  min-width: 30px;
-  padding: 0 6px;
-  cursor: pointer;
-}
-
-.sm-workspace-toolbar__zoom-text {
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  color: var(--sm-color-text-tertiary);
+  background: var(--sm-workspace-toolbar-button-bg, var(--sm-color-surface-1));
+  border-color: var(--sm-workspace-toolbar-button-border, var(--sm-color-border-subtle));
 }
 
 .sm-workspace-toolbar__original-text {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1;
   color: var(--sm-color-text-secondary);
