@@ -49,8 +49,14 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
   const setCurrentView = useUIStateStore((s) => s.setCurrentView)
   const toggleCurrentSidebar = useUIStateStore((s) => s.toggleCurrentSidebar)
   const isSecondarySidebarCollapsed = useUIStateStore(selectIsSecondarySidebarCollapsed)
+  const currentTheme = useUIStateStore((s) => s.currentTheme)
+  const themeMode = useUIStateStore((s) => s.themeMode)
+  const setTheme = useUIStateStore((s) => s.setTheme)
+  const setThemeMode = useUIStateStore((s) => s.setThemeMode)
   const openCreateForm = useKnowledgeStore((s) => s.openCreateForm)
   const openLabCreator = useUIStateStore((s) => s.openLabCreator)
+
+  const isDarkTheme = currentTheme === 'lumina-dark'
 
   const addTooltip = ADD_LABEL_BY_VIEW[currentView]
 
@@ -86,6 +92,18 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
   const handleNavClick = (item: NavItem): void => {
     void setCurrentView(item.view)
   }
+
+  const applyTheme = useCallback(
+    (themeId: 'lumina-light' | 'lumina-dark'): void => {
+      if (themeMode === 'system') {
+        void setThemeMode('manual').then(() => setTheme(themeId))
+        return
+      }
+      if (currentTheme === themeId) return
+      void setTheme(themeId)
+    },
+    [currentTheme, themeMode, setTheme, setThemeMode]
+  )
 
   return (
     <nav className={styles['sm-primary-sidebar']} aria-label="一级导航">
@@ -150,15 +168,58 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
       </div>
 
       <div className={styles['sm-primary-sidebar__footer']}>
-        <div className={styles['sm-primary-sidebar__item-wrap']}>
-          <button
-            type="button"
-            className={styles['sm-primary-sidebar__item']}
-            aria-label={BOTTOM_NAV_ITEM.label}
-            onClick={onOpenSettings}
+        <div
+          className={[
+            styles['sm-primary-sidebar__item-wrap'],
+            styles['sm-primary-sidebar__footer-theme']
+          ].join(' ')}
+        >
+          <div
+            className={[
+              styles['sm-primary-sidebar__theme-switch'],
+              isDarkTheme && styles['sm-primary-sidebar__theme-switch--dark']
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            role="group"
+            aria-label="主题切换"
           >
-            <SvgIcon name={BOTTOM_NAV_ITEM.icon} size={ICON_SIZE} />
-          </button>
+            <span className={styles['sm-primary-sidebar__theme-switch-thumb']} aria-hidden="true" />
+            <button
+              type="button"
+              className={styles['sm-primary-sidebar__theme-switch-option']}
+              aria-label="浅色主题"
+              aria-pressed={!isDarkTheme}
+              onClick={() => applyTheme('lumina-light')}
+            >
+              <SvgIcon name="theme-light" size={ICON_SIZE} />
+            </button>
+            <button
+              type="button"
+              className={styles['sm-primary-sidebar__theme-switch-option']}
+              aria-label="深色主题"
+              aria-pressed={isDarkTheme}
+              onClick={() => applyTheme('lumina-dark')}
+            >
+              <SvgIcon name="theme-dark" size={ICON_SIZE} />
+            </button>
+          </div>
+          <span className={styles['sm-primary-sidebar__tooltip']} role="tooltip">
+            {isDarkTheme ? '深色主题' : '浅色主题'}
+          </span>
+        </div>
+
+        <div className={styles['sm-primary-sidebar__footer-divider']}>
+          <div className={styles['sm-primary-sidebar__item-wrap']}>
+            <button
+              type="button"
+              className={styles['sm-primary-sidebar__item']}
+              aria-label={BOTTOM_NAV_ITEM.label}
+              onClick={onOpenSettings}
+            >
+              <SvgIcon name={BOTTOM_NAV_ITEM.icon} size={ICON_SIZE} />
+            </button>
+          </div>
         </div>
       </div>
     </nav>
