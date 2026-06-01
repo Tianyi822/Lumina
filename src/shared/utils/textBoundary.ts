@@ -1,7 +1,9 @@
+/* eslint-disable no-misleading-character-class */
 const INVISIBLE_FORMAT_CHARACTER_PATTERN =
   /[\u00ad\u034f\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/
 const INVISIBLE_FORMAT_CHARACTERS_PATTERN =
   /[\u00ad\u034f\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/g
+/* eslint-enable no-misleading-character-class */
 
 function clampOffset(offset: number, length: number): number {
   return Math.max(0, Math.min(length, offset))

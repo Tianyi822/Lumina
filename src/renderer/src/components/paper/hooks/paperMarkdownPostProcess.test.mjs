@@ -6,6 +6,7 @@ import katex from 'katex'
 import { parseHTML, NodeFilter } from 'linkedom'
 import { postProcessRenderedHtml, tableMathSourceToInline } from './paperMarkdownPostProcess.ts'
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function installDomGlobals() {
   if (globalThis.NodeFilter === undefined) {
     globalThis.NodeFilter = NodeFilter
@@ -16,6 +17,7 @@ function installDomGlobals() {
   }
 
   globalThis.DOMParser = class DOMParser {
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     parseFromString(html) {
       return parseHTML(html).document
     }
@@ -40,6 +42,7 @@ const markdownRenderer = new MarkdownIt({
   }
 })
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function renderTableHtml(markdown) {
   const rawHtml = markdownRenderer.render(markdown)
   return postProcessRenderedHtml(rawHtml, (inline) => markdownRenderer.renderInline(inline))
