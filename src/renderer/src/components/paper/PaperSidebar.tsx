@@ -475,35 +475,33 @@ export default function PaperSidebar({
 
   return (
     <>
-      <div className="paper-sidebar sm-sidebar-shell__body sm-sidebar-shell__body--flush">
-        <div className={styles['paper-list']}>
-          <CssTransitionGroup
-            items={papers}
-            name="sm-sidebar-list-item"
-            getKey={getPaperKey}
-            appear
-          >
-            {({ item: paper, index, transitionKey, className, ref }) => (
-              <PaperSidebarItem
-                ref={ref}
-                key={transitionKey}
-                paper={paper}
-                index={index}
-                className={className}
-                isActive={paper.id === currentPaperId && isPaperReadable(paper)}
-                renderProgress={renderProgressByPaperId[paper.id]}
-                ocrProgress={ocrProgressByPaperId[paper.id]}
-                hasTranslated={hasTranslationByPaperId[paper.id] === true}
-                onSelectPaper={onSelectPaper}
-                onDeletePaper={handleDeletePaper}
-                onDeleteTranslation={handleDeleteTranslation}
-                onRetryPaper={handleRetryPaper}
-                onItemMouseEnter={handleItemMouseEnter}
-                onItemMouseLeave={handleItemMouseLeave}
-              />
-            )}
-          </CssTransitionGroup>
-        </div>
+      <div className={['paper-sidebar', styles['paper-list']].join(' ')}>
+        <CssTransitionGroup
+          items={papers}
+          name="sm-sidebar-list-item"
+          getKey={getPaperKey}
+          appear
+        >
+          {({ item: paper, index, transitionKey, className, ref }) => (
+            <PaperSidebarItem
+              ref={ref}
+              key={transitionKey}
+              paper={paper}
+              index={index}
+              className={className}
+              isActive={paper.id === currentPaperId && isPaperReadable(paper)}
+              renderProgress={renderProgressByPaperId[paper.id]}
+              ocrProgress={ocrProgressByPaperId[paper.id]}
+              hasTranslated={hasTranslationByPaperId[paper.id] === true}
+              onSelectPaper={onSelectPaper}
+              onDeletePaper={handleDeletePaper}
+              onDeleteTranslation={handleDeleteTranslation}
+              onRetryPaper={handleRetryPaper}
+              onItemMouseEnter={handleItemMouseEnter}
+              onItemMouseLeave={handleItemMouseLeave}
+            />
+          )}
+        </CssTransitionGroup>
       </div>
       {tooltip &&
         createPortal(
