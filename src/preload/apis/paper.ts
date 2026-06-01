@@ -146,9 +146,10 @@ export const paperApi = {
 
   saveReadingProgress: (params: {
     paperId: string
-    scrollPercent: number
+    scrollPercentOriginal?: number
+    scrollPercentTranslated?: number
     zoomLevel: number
-    translationVisible?: boolean
+    translationVisible: boolean
   }): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('paper:saveReadingProgress', params)
   },

@@ -87,19 +87,21 @@ export function useMarkdownScrollPersistence({
   }, [paperId, setMarkdownScrollPosition, zoomAnchor, scrollContainerRef])
 
   // Save reading progress to backend
-  const saveProgress = useCallback(
-    (targetPaperId: string, percent: number) => {
-      if (!targetPaperId) return
+  const saveProgress = useCallback((targetPaperId: string, percent: number) => {
+    if (!targetPaperId) return
 
-      void window.api.paper.saveReadingProgress({
-        paperId: targetPaperId,
-        scrollPercent: Math.round(percent * 100) / 100,
-        zoomLevel: zoomLevelRef.current,
-        translationVisible: translationVisibleRef.current
-      })
-    },
-    []
-  )
+    void window.api.paper.saveReadingProgress({
+      paperId: targetPaperId,
+      scrollPercentOriginal: translationVisibleRef.current
+        ? undefined
+        : Math.round(percent * 100) / 100,
+      scrollPercentTranslated: translationVisibleRef.current
+        ? Math.round(percent * 100) / 100
+        : undefined,
+      zoomLevel: zoomLevelRef.current,
+      translationVisible: translationVisibleRef.current
+    })
+  }, [])
 
   const flushPendingSave = useCallback(() => {
     if (saveTimerRef.current) {
@@ -188,12 +190,22 @@ export function useMarkdownScrollPersistence({
     pendingDirtyRef.current = false
     pendingSavePaperIdRef.current = null
 
-    const percent = computeScrollPercent(container)
+    const percent = Math.round(computeScrollPercent(container) * 100) / 100
+    const isTranslated = translationVisibleRef.current
+    // 从 store 读取已有进度，保留未更新的那个状态字段
+    const existingProgress = usePaperListStore
+      .getState()
+      .papers.find((p) => p.id === paperId)?.readingProgress
     const progress: PaperReadingProgress = {
-      scrollPercent: Math.round(percent * 100) / 100,
+      scrollPercentOriginal: isTranslated
+        ? (existingProgress?.scrollPercentOriginal ?? 0)
+        : percent,
+      scrollPercentTranslated: isTranslated
+        ? percent
+        : (existingProgress?.scrollPercentTranslated ?? 0),
       zoomLevel: zoomLevelRef.current,
       readAt: new Date().toISOString(),
-      translationVisible: translationVisibleRef.current
+      translationVisible: isTranslated
     }
 
     setMarkdownScrollPosition(paperId, {
@@ -203,7 +215,8 @@ export function useMarkdownScrollPersistence({
 
     void window.api.paper.saveReadingProgress({
       paperId,
-      scrollPercent: progress.scrollPercent,
+      scrollPercentOriginal: isTranslated ? undefined : percent,
+      scrollPercentTranslated: isTranslated ? percent : undefined,
       zoomLevel: progress.zoomLevel,
       translationVisible: progress.translationVisible
     })
@@ -251,7 +264,13 @@ export function useMarkdownScrollPersistence({
         return false
       }
 
-      container.scrollTop = (progress.scrollPercent / 100) * scrollableHeight
+      // 选取对应译文状态的滚动百分比
+      const isTranslated = progress.translationVisible ?? false
+      const percent = isTranslated
+        ? (progress.scrollPercentTranslated ?? progress.scrollPercentOriginal ?? 0)
+        : (progress.scrollPercentOriginal ?? progress.scrollPercentTranslated ?? 0)
+
+      container.scrollTop = (percent / 100) * scrollableHeight
       clampContainerScrollTop(container)
       return true
     },

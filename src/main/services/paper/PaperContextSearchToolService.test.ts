@@ -71,7 +71,7 @@ function createTranslationCache(entries: PaperTranslationEntry[]): PaperTranslat
   }
 }
 
-function createPaperMeta(scrollPercent = 50): PaperDocument {
+function createPaperMeta(scrollPercentOriginal = 50, scrollPercentTranslated = 50): PaperDocument {
   return {
     id: paperId,
     fileName: 'test.pdf',
@@ -87,9 +87,11 @@ function createPaperMeta(scrollPercent = 50): PaperDocument {
     ocrModel: 'glm',
     completedPageCount: 1,
     readingProgress: {
-      scrollPercent,
+      scrollPercentOriginal,
+      scrollPercentTranslated,
       zoomLevel: 1.0,
-      readAt: '2026-01-01T00:00:00.000Z'
+      readAt: '2026-01-01T00:00:00.000Z',
+      translationVisible: false
     }
   }
 }
