@@ -1,4 +1,6 @@
 .page {
+  --sm-paper-reader-top-inset: var(--sm-space-5);
+
   position: relative;
   flex-direction: row;
   background: var(--sm-color-bg-canvas);
@@ -77,9 +79,9 @@
   width: var(--paper-chat-panel-width);
   min-width: 340px;
   max-width: min(680px, 100vw);
-  height: calc(100% - var(--sm-paper-toolbar-height) - var(--sm-space-2));
+  height: calc(100% - var(--sm-paper-reader-top-inset) - var(--sm-space-2));
   min-height: 0;
-  margin-top: var(--sm-paper-toolbar-height);
+  margin-top: var(--sm-paper-reader-top-inset);
   margin-bottom: var(--sm-space-2);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-lg);
@@ -135,7 +137,7 @@
 @media (max-width: 760px) {
   .chatSlot {
     position: absolute;
-    top: var(--sm-paper-toolbar-height);
+    top: var(--sm-paper-reader-top-inset);
     right: 0;
     bottom: var(--sm-space-2);
     z-index: 20;

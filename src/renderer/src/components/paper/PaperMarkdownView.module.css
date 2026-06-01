@@ -17,7 +17,7 @@
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--sm-color-border-strong) transparent;
-  padding-block: calc(var(--sm-paper-toolbar-height) + var(--sm-space-2)) var(--sm-space-6);
+  padding-block: var(--sm-paper-reader-top-inset, var(--sm-space-5)) var(--sm-space-6);
   padding-inline: var(--sm-space-4) var(--sm-workspace-page-padding, var(--sm-space-3));
 }
 
