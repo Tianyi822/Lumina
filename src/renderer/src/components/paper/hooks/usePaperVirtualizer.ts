@@ -256,9 +256,7 @@ export function usePaperVirtualizer({
 
   const scrollToHeadingId = useCallback(
     (headingId: string): boolean => {
-      const index = segments.findIndex(
-        (s) => s.kind === 'heading' && s.segmentAnchorId === headingId
-      )
+      const index = segments.findIndex((s) => s.segmentAnchorId === headingId)
       if (index === -1) return false
       virtualizer.scrollToIndex(index, { align: 'start', behavior: 'smooth' })
       return true
