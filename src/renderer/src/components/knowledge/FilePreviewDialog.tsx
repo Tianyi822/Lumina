@@ -41,7 +41,7 @@ export default function FilePreviewDialog({ visible, file, onClose }: FilePrevie
     if (visible && file) {
       loadPreview()
     }
-  }, [visible, file?.id, loadPreview])
+  }, [visible, file, loadPreview])
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {

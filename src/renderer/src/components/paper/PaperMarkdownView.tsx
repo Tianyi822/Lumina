@@ -314,7 +314,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         }
         pendingRemeasureCallbacksRef.current = []
       }
-    }, [paperId])
+    }, [paperId, virtualizerResult.isZoomingRef, zoomAnchor])
 
     // 检查并通知未恢复的批注
     useEffect(() => {

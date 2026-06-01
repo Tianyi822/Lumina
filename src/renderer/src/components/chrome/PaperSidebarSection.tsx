@@ -28,15 +28,12 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
     return papers.filter((paper) => paper.fileName.toLowerCase().includes(query))
   }, [papers, paperSearchQuery])
 
-  const handleSelectPaper = useCallback(
-    async (paperId: string): Promise<void> => {
-      const openedPaper = await openPaper(paperId)
-      if (!openedPaper) {
-        window.api.logger.warn('[PaperSidebarSection] 打开论文失败', { paperId })
-      }
-    },
-    [openPaper]
-  )
+  const handleSelectPaper = useCallback(async (paperId: string): Promise<void> => {
+    const openedPaper = await openPaper(paperId)
+    if (!openedPaper) {
+      window.api.logger.warn('[PaperSidebarSection] 打开论文失败', { paperId })
+    }
+  }, [])
 
   const handleDeletePaper = useCallback(
     async (paperId: string): Promise<void> => {
@@ -52,7 +49,7 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
         notify.error('删除论文失败', '请稍后重试或查看日志获取更多信息。', { source: 'paper' })
       }
     },
-    [deletePaper, notify]
+    [notify]
   )
 
   const handleRetryPaper = useCallback(
@@ -62,7 +59,7 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
         notify.error('重试失败', result.error || '未知错误', { source: 'paper' })
       }
     },
-    [notify, retryPaper]
+    [notify]
   )
 
   const handleDeleteTranslation = useCallback(
