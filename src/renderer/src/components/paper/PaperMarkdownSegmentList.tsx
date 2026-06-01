@@ -51,7 +51,7 @@ const PaperMarkdownSegmentItem = memo(
   }: PaperMarkdownSegmentItemProps) {
     return (
       <section
-        id={segment.segmentAnchorId}
+        id={segment.kind === 'heading' ? undefined : segment.segmentAnchorId}
         className={[
           styles['paper-markdown-view__segment'],
           'paper-markdown-view__segment',

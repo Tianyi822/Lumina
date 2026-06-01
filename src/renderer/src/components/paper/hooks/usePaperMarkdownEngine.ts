@@ -447,7 +447,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
     for (const segment of sourceSegments) {
       const outlineEntry = outlineEntryMap.get(segment.renderId)
       const headingId = segment.kind === 'heading' ? outlineEntry?.id : undefined
-      const segmentAnchorId = segment.kind === 'heading' ? undefined : outlineEntry?.id
+      const segmentAnchorId = outlineEntry?.id
       const annotations = annotationsBySegmentId.get(segment.stableId) || []
       const translationEntry = translationMap.get(segment.renderId)
       const translationStatus = translationEntry?.status ?? 'idle'
