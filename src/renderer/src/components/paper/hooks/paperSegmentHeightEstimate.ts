@@ -15,9 +15,6 @@ const MIN_HEIGHT_BY_KIND: Record<string, number> = {
 const MARKDOWN_FONT_SIZE_PX = 15
 const MARKDOWN_LINE_HEIGHT_RATIO = 1.75
 const LINE_HEIGHT_ESTIMATE = Math.ceil(MARKDOWN_FONT_SIZE_PX * MARKDOWN_LINE_HEIGHT_RATIO)
-const PARAGRAPH_MARGIN_EM = 0.8
-/** 段落单侧 margin（0.8em），上下各一次 */
-const PARAGRAPH_BLOCK_MARGIN_PER_LINE = Math.ceil(MARKDOWN_FONT_SIZE_PX * PARAGRAPH_MARGIN_EM)
 const LIST_ITEM_HEIGHT = LINE_HEIGHT_ESTIMATE + 4
 const LIST_ITEM_LONG_LINE_CHARS = 52
 const LIST_BLOCK_MARGIN = 20
@@ -67,9 +64,9 @@ function estimateTextHeight(kind: string, text: string): number {
       0
     )
 
-  // 段落整体上下 margin（p { margin: 0.8em 0 }），仅在块级加一次
-  const blockMargin = kind === 'paragraph' ? PARAGRAPH_BLOCK_MARGIN_PER_LINE * 2 : 0
-  return linesHeight + blockMargin
+  // 段落内部的 <p> 上下 margin（0.8em）已由 CSS > :first-child/:last-child 规则在首尾置零，
+  // 不再额外估算 block margin，避免虚拟列表回退估算值时段间距膨胀
+  return linesHeight
 }
 
 function countInlineMathMarkers(text: string): number {

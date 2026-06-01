@@ -285,6 +285,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const unresolvedNotifiedRef = useRef(false)
 
     // Render content and sync tables
+    // invalidateAllMeasurements 由 usePaperVirtualizer 的 layoutKey effect 在 segments 变化时自动触发，
+    // 此处不再重复调用，避免缓存被反复清空延长估算值窗口期
     const renderContentAndSyncTables = useCallback(async (): Promise<void> => {
       await engine.renderContent()
       await new Promise<void>((resolve) => {
@@ -293,8 +295,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         })
       })
       syncTablesAndRemeasure()
-      virtualizerResult.invalidateAllMeasurements()
-    }, [engine, syncTablesAndRemeasure, virtualizerResult])
+    }, [engine, syncTablesAndRemeasure])
 
     // 通知未恢复批注
     // 论文切换时重置通知标记
@@ -425,15 +426,6 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       },
       [paperId, notify]
     )
-
-    // 翻译可见性切换时重算高度
-    const prevTranslationVisibleRef = useRef(translationVisible)
-    useEffect(() => {
-      if (prevTranslationVisibleRef.current !== translationVisible) {
-        prevTranslationVisibleRef.current = translationVisible
-        virtualizerResult.invalidateAllMeasurements()
-      }
-    }, [translationVisible, virtualizerResult])
 
     // 注册 TOC 跳转回调
     const registerScrollToHeading = usePaperViewStore((state) => state.registerScrollToHeading)
