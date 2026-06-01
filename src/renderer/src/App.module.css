@@ -63,6 +63,11 @@
   right: var(--sm-window-controls-safe-width);
 }
 
+/* 论文聊天关闭时让阅读滚动条贴近窗口右缘。 */
+.paperReaderFlushRight :global(.sm-workspace-main) {
+  margin-right: calc(var(--sm-workspace-page-padding, var(--sm-space-3)) * -1);
+}
+
 .viewLoading {
   display: flex;
   align-items: center;

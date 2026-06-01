@@ -20,16 +20,19 @@ import styles from './App.module.css'
 export default function App() {
   const currentView = useUIStateStore((s) => s.currentView)
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
+  const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
   const loadConfigStatus = useUIStateStore((s) => s.loadConfigStatus)
 
   const { isMac, isWindows, usesCustomWindowControls } = useMemo(() => getRuntimePlatform(), [])
 
   const [showSettings, setShowSettings] = useState(false)
+  const shouldFlushPaperReaderRight = currentView === 'paper' && !paperChatPanelOpen
 
   const workspacePageClasses = [
     styles.workspacePage,
     `sm-workspace-page--${currentView}`,
     isCurrentSidebarCollapsed && styles.sidebarCollapsed,
+    shouldFlushPaperReaderRight && styles.paperReaderFlushRight,
     isMac && 'sm-workspace-page--mac',
     isWindows && styles.windows
   ]
@@ -115,9 +118,9 @@ export default function App() {
 
         <WorkspaceSidebarHost onOpenSettings={openSettings} />
 
-        <div className="sm-workspace-main">
-          <WorkspaceToolbar />
+        <WorkspaceToolbar />
 
+        <div className="sm-workspace-main">
           <div className="sm-workspace-main__body sm-workspace-main__body--fill">
             <CssSwitchTransition name="sm-workspace-switch" transitionKey={currentView} appear>
               {({ transitionKey, className, ref }) => (
