@@ -260,8 +260,12 @@ export const useUIStateStore = create<UIStateStore>()(
         isKnowledgeView: () => get().currentView === 'knowledge',
         isLabView: () => get().currentView === 'lab',
         isPaperView: () => get().currentView === 'paper',
-        isCurrentSidebarCollapsed: () =>
-          get().currentView === 'paper' && get().paperSidebarCollapsed,
+        isCurrentSidebarCollapsed: () => {
+          const state = get()
+          if (state.currentView === 'paper') return state.paperSidebarCollapsed
+          if (state.currentView === 'knowledge') return state.knowledgeSidebarCollapsed
+          return state.labSidebarCollapsed
+        },
         currentThemeMeta: () => AVAILABLE_THEMES.find((t) => t.id === get().currentTheme),
 
         toggleLabSidebar: () => set((s) => ({ labSidebarCollapsed: !s.labSidebarCollapsed })),
@@ -278,12 +282,27 @@ export const useUIStateStore = create<UIStateStore>()(
         setLastLabId: (labId) => set({ lastLabId: labId }),
         toggleCurrentSidebar: () => {
           const state = get()
-          if (state.currentView !== 'paper') return
-          set({ paperSidebarCollapsed: !state.paperSidebarCollapsed })
+          if (state.currentView === 'paper') {
+            set({ paperSidebarCollapsed: !state.paperSidebarCollapsed })
+            return
+          }
+          if (state.currentView === 'knowledge') {
+            set({ knowledgeSidebarCollapsed: !state.knowledgeSidebarCollapsed })
+            return
+          }
+          set({ labSidebarCollapsed: !state.labSidebarCollapsed })
         },
         setCurrentSidebarCollapsed: (collapsed) => {
-          if (get().currentView !== 'paper') return
-          set({ paperSidebarCollapsed: collapsed })
+          const state = get()
+          if (state.currentView === 'paper') {
+            set({ paperSidebarCollapsed: collapsed })
+            return
+          }
+          if (state.currentView === 'knowledge') {
+            set({ knowledgeSidebarCollapsed: collapsed })
+            return
+          }
+          set({ labSidebarCollapsed: collapsed })
         },
 
         setLabDetailTab: (tab) => set({ labDetailTab: tab }),
@@ -296,11 +315,11 @@ export const useUIStateStore = create<UIStateStore>()(
         closeKnowledgeFileManager: () => set({ showKnowledgeFileManager: false }),
 
         switchToKnowledgeView: async () => {
-          set({ knowledgeSidebarCollapsed: false, currentView: 'knowledge' })
+          set({ currentView: 'knowledge' })
           window.api.logger.info('[UIStateStore] 切换到知识库视图')
         },
         switchToLabView: async () => {
-          set({ labSidebarCollapsed: false, currentView: 'lab' })
+          set({ currentView: 'lab' })
           window.api.logger.info('[UIStateStore] 切换到实验室视图')
         },
         switchToPaperView: async () => {
