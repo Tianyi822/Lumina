@@ -16,9 +16,7 @@
 
   --sm-primary-sidebar-width: 56px;
   --sm-primary-sidebar-expand-toggle-size: 22px;
-  --sm-sidebar-rail-gap: calc(
-    var(--sm-primary-sidebar-expand-toggle-size) / 2 + var(--sm-space-2)
-  );
+  --sm-sidebar-rail-gap: calc(var(--sm-primary-sidebar-expand-toggle-size) / 2 + var(--sm-space-2));
 
   --sm-space-2: 8px;
   --sm-space-3: 12px;

@@ -79,9 +79,7 @@ test('表格内 display math 应渲染为行内 katex 且不含块级 display', 
 })
 
 test('表格内单美元行内公式应被渲染为 katex', () => {
-  const html = renderTableHtml(
-    '<table><tr><td>$P$</td><td>$R$</td><td>$F_1$</td></tr></table>'
-  )
+  const html = renderTableHtml('<table><tr><td>$P$</td><td>$R$</td><td>$F_1$</td></tr></table>')
 
   assert.match(html, /katex/)
   assert.doesNotMatch(html, /<td>\$P\$<\/td>/)

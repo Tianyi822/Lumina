@@ -2,7 +2,8 @@
   position: absolute;
   top: 0;
   right: calc(
-    var(--sm-window-controls-safe-width, 0px) + var(--sm-workspace-toolbar-inset-right, var(--sm-space-3))
+    var(--sm-window-controls-safe-width, 0px) +
+      var(--sm-workspace-toolbar-inset-right, var(--sm-space-3))
   );
   z-index: 4;
   display: flex;
@@ -59,9 +60,7 @@
   --sm-paper-toolbar-edge-inset: calc(
     (var(--sm-titlebar-height) - var(--sm-workspace-toolbar-button-size, 26px)) / 2
   );
-  right: calc(
-    var(--sm-window-controls-safe-width, 0px) + var(--sm-paper-toolbar-edge-inset)
-  );
+  right: calc(var(--sm-window-controls-safe-width, 0px) + var(--sm-paper-toolbar-edge-inset));
 }
 
 /* ==================== 知识库视图拖拽区域 ==================== */
@@ -71,7 +70,8 @@
   top: var(--sm-workspace-page-padding, var(--sm-space-3));
   left: var(--sm-knowledge-toolbar-safe-left);
   right: calc(
-    var(--sm-window-controls-safe-width, 0px) + var(--sm-workspace-toolbar-inset-right, var(--sm-space-3))
+    var(--sm-window-controls-safe-width, 0px) +
+      var(--sm-workspace-toolbar-inset-right, var(--sm-space-3))
   );
   box-sizing: border-box;
   width: auto;
