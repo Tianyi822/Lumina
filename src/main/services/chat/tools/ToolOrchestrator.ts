@@ -175,12 +175,24 @@ export class ToolOrchestrator {
   }
 
   private enrichResults(results: ToolExecutionResult[]): EnrichedToolResult[] {
-    return results.map((r) =>
-      this.enricher.enrich(r.toolCallId, r.toolName, {
+    return results.map((r) => {
+      const tool = this.registry.getTool(r.toolName)
+      const adapter = tool?.adapter
+
+      if (adapter?.enrichResult) {
+        const metadata = adapter.enrichResult(r.toolName, {} as Record<string, unknown>, {
+          success: r.success,
+          content: r.content,
+          error: r.error
+        })
+        return { ...r, metadata } as EnrichedToolResult
+      }
+
+      return this.enricher.enrich(r.toolCallId, r.toolName, {
         success: r.success,
         content: r.content,
         error: r.error
       })
-    )
+    })
   }
 }

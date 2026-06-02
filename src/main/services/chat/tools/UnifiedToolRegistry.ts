@@ -31,6 +31,13 @@ export interface ToolAdapter {
     args: Record<string, unknown>,
     onProgress?: (message: string) => void
   ): Promise<MCPToolCallResult>
+
+  /** 可选：自定义结果增强，不实现则使用 ToolResultEnricher 默认策略 */
+  enrichResult?(
+    toolName: string,
+    args: Record<string, unknown>,
+    result: MCPToolCallResult
+  ): import('./PipelineTypes').ToolResultMetadata
 }
 
 /**
