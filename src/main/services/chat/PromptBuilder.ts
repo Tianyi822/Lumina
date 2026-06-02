@@ -1,13 +1,20 @@
 import type { LLMConfig } from '@main/types/config'
 import type { MCPToolReference } from '@main/types/chat'
-import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt } from './prompts/reactSystemPrompt'
+import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt, buildToolCoordinationGuide } from './prompts/reactSystemPrompt'
 import { buildPlanSystemPrompt, buildStepExecutionPrompt } from './prompts/planSystemPrompt'
+import type { ToolPipeline } from './tools/PipelineTypes'
 
 /**
  * PromptBuilder 只负责选择内置系统提示词。
  * 工具调用能力依赖 OpenAI tools schema，避免通过用户配置堆叠额外提示词。
  */
 export class PromptBuilder {
+  private currentPipeline?: ToolPipeline
+
+  /** 设置当前管道配置（由 ReactLoopService 在每次请求时调用） */
+  setPipeline(pipeline: ToolPipeline | undefined): void {
+    this.currentPipeline = pipeline
+  }
   async buildSystemPrompt(
     modelConfig: LLMConfig,
     hasTools: boolean,
@@ -36,6 +43,11 @@ export class PromptBuilder {
     // 当 paper_web 搜索工具可用时，添加论文搜索行为指南
     if (this.hasPaperWebSearchTools(selectedTools)) {
       prompt += '\n\n' + this.buildPaperWebSearchGuide()
+    }
+
+    // 多 stage 管道时追加工具协调指南
+    if (this.currentPipeline && this.currentPipeline.stages.length > 1) {
+      prompt += '\n\n' + buildToolCoordinationGuide(this.currentPipeline.stages)
     }
 
     return prompt
