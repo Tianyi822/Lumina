@@ -341,8 +341,8 @@ export function useMarkdownScrollPersistence({
     isRestoringRef.current = false
   }, [paperId, discardPendingReadingProgress])
 
-  // Restore on loading complete
-  const wasLoadingRef = useRef(loading)
+  // Restore on loading complete（初始值 true 确保 remount 时也能触发恢复）
+  const wasLoadingRef = useRef(true)
   useEffect(() => {
     const wasLoading = wasLoadingRef.current
     wasLoadingRef.current = loading
@@ -356,7 +356,15 @@ export function useMarkdownScrollPersistence({
   useEffect(() => {
     return () => {
       flushPendingSave()
-      recordScrollPosition()
+      // 直接同步写入滚动位置，不使用 RAF，避免组件卸载后 ref 被置空导致位置丢失
+      const container = scrollContainerRef.current
+      const currentId = latestPaperIdRef.current
+      if (container && currentId && !loadingRef.current && !zoomAnchor.isZooming()) {
+        setMarkdownScrollPosition(currentId, {
+          scrollTop: container.scrollTop,
+          scrollLeft: container.scrollLeft
+        })
+      }
     }
   }, [])
 
