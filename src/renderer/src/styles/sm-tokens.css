@@ -53,4 +53,8 @@
   --sm-workspace-toolbar-inset-right: var(--sm-space-3);
   /* Windows 工具栏与自定义窗口按钮之间的间距 */
   --sm-workspace-toolbar-win-controls-gap: var(--sm-space-2);
+  /* 论文视图工具栏最大按钮簇宽度（5 个按钮 + 间距），用于 Windows 标题栏拖拽区避让 */
+  --sm-workspace-paper-toolbar-cluster-width: calc(
+    5 * var(--sm-workspace-toolbar-button-size) + 4 * var(--sm-workspace-toolbar-button-gap, 4px)
+  );
 }

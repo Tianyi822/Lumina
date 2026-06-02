@@ -46,6 +46,23 @@
   left: var(--sm-workspace-chrome-actions-safe-width, 140px);
 }
 
+/* 论文视图：标题栏拖拽区避开右上角工具栏，否则 Electron drag 层会吞掉点击 */
+.workspacePage:global(.sm-workspace-page--paper).windows :global(.sm-workspace-main)::before {
+  right: calc(
+    var(--sm-window-controls-safe-width) + var(--sm-workspace-toolbar-win-controls-gap) +
+      var(--sm-workspace-paper-toolbar-cluster-width) +
+      (var(--sm-titlebar-height) - var(--sm-workspace-toolbar-button-size)) / 2
+  );
+}
+
+.workspacePage:global(.sm-workspace-page--paper).windows .dragRegion {
+  right: calc(
+    var(--sm-window-controls-safe-width) + var(--sm-workspace-toolbar-win-controls-gap) +
+      var(--sm-workspace-paper-toolbar-cluster-width) +
+      (var(--sm-titlebar-height) - var(--sm-workspace-toolbar-button-size)) / 2
+  );
+}
+
 .windows .winControls {
   position: fixed;
   top: 0;

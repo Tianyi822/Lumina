@@ -59,6 +59,8 @@
 /* Windows：固定到视口并仅为窗口控制按钮让位（不叠加页面 padding） */
 :global(.sm-workspace-page--windows) .sm-workspace-toolbar__controls--paper {
   position: fixed;
+  z-index: 22;
+  pointer-events: auto;
   --sm-paper-toolbar-edge-inset: calc(
     (var(--sm-titlebar-height) - var(--sm-workspace-toolbar-button-size, 26px)) / 2
   );
@@ -67,6 +69,10 @@
       var(--sm-workspace-toolbar-win-controls-gap, var(--sm-space-2)) +
       var(--sm-paper-toolbar-edge-inset)
   );
+  padding: 2px;
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-bg-canvas);
+  box-shadow: 0 0 0 1px var(--sm-color-border-subtle);
 }
 
 /* ==================== 知识库视图拖拽区域 ==================== */
