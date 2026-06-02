@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useKnowledgeStore } from '@renderer/stores/knowledgeStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -14,6 +14,8 @@ export default function KnowledgePage() {
   const activeKbId = useKnowledgeStore((s) => s.activeKbId) ?? undefined
   const showForm = useKnowledgeStore((s) => s.showForm)
   const loadKnowledgeBases = useKnowledgeStore((s) => s.loadKnowledgeBases)
+  const linkFilesToKB = useKnowledgeStore((s) => s.linkFilesToKB)
+  const unlinkFileFromKB = useKnowledgeStore((s) => s.unlinkFileFromKB)
   const handleFormSubmit = useKnowledgeStore((s) => s.handleFormSubmit)
   const closeForm = useKnowledgeStore((s) => s.closeForm)
 
@@ -24,6 +26,7 @@ export default function KnowledgePage() {
 
   const [showFileSelector, setShowFileSelector] = useState(false)
   const [currentKBIdForSelector, setCurrentKBIdForSelector] = useState('')
+  const filesLinkedHandlerRef = useRef<((files: FileItem[]) => Promise<void>) | null>(null)
 
   useEffect(() => {
     loadKnowledgeBases()
@@ -68,35 +71,28 @@ export default function KnowledgePage() {
 
   const handleFilesLinked = useCallback(
     (files: FileItem[]) => {
-      const kb = knowledgeBases.find((k) => k.id === currentKBIdForSelector)
-      if (kb) {
-        const newFileIds = files.map((f) => f.id)
-        kb.linkedFileIds = [...(kb.linkedFileIds || []), ...newFileIds]
-        kb.documentCount = kb.linkedFileIds.length
-      }
+      linkFilesToKB(currentKBIdForSelector, files.map((f) => f.id))
+      filesLinkedHandlerRef.current?.(files)
     },
-    [knowledgeBases, currentKBIdForSelector]
+    [linkFilesToKB, currentKBIdForSelector]
   )
 
   const handleFileUnlinked = useCallback(
     (kbId: string, fileId: string) => {
-      const kb = knowledgeBases.find((k) => k.id === kbId)
-      if (kb && kb.linkedFileIds) {
-        kb.linkedFileIds = kb.linkedFileIds.filter((id) => id !== fileId)
-        kb.documentCount = kb.linkedFileIds.length
-      }
+      unlinkFileFromKB(kbId, fileId)
     },
-    [knowledgeBases]
+    [unlinkFileFromKB]
   )
 
   const handleDescriptionUpdated = useCallback(
     (kbId: string, description: string) => {
-      const kb = knowledgeBases.find((k) => k.id === kbId)
-      if (kb) {
-        kb.description = description
-      }
+      useKnowledgeStore.setState((state) => ({
+        knowledgeBases: state.knowledgeBases.map((kb) =>
+          kb.id === kbId ? { ...kb, description } : kb
+        )
+      }))
     },
-    [knowledgeBases]
+    []
   )
 
   const linkedFileIdsForSelector =
@@ -109,6 +105,7 @@ export default function KnowledgePage() {
         onAddFiles={handleAddFiles}
         onFileUnlinked={handleFileUnlinked}
         onDescriptionUpdated={handleDescriptionUpdated}
+        onFilesLinkedRef={filesLinkedHandlerRef}
       />
 
       {showForm && <KnowledgeForm onSubmit={handleKnowledgeSubmit} onCancel={closeForm} />}
