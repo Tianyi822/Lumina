@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useKnowledgeStore } from '@renderer/stores/knowledgeStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -24,6 +24,7 @@ export default function KnowledgePage() {
 
   const [showFileSelector, setShowFileSelector] = useState(false)
   const [currentKBIdForSelector, setCurrentKBIdForSelector] = useState('')
+  const filesLinkedHandlerRef = useRef<((files: FileItem[]) => Promise<void>) | null>(null)
 
   useEffect(() => {
     loadKnowledgeBases()
@@ -74,6 +75,7 @@ export default function KnowledgePage() {
         kb.linkedFileIds = [...(kb.linkedFileIds || []), ...newFileIds]
         kb.documentCount = kb.linkedFileIds.length
       }
+      filesLinkedHandlerRef.current?.(files)
     },
     [knowledgeBases, currentKBIdForSelector]
   )
@@ -109,6 +111,7 @@ export default function KnowledgePage() {
         onAddFiles={handleAddFiles}
         onFileUnlinked={handleFileUnlinked}
         onDescriptionUpdated={handleDescriptionUpdated}
+        onFilesLinkedRef={filesLinkedHandlerRef}
       />
 
       {showForm && <KnowledgeForm onSubmit={handleKnowledgeSubmit} onCancel={closeForm} />}
