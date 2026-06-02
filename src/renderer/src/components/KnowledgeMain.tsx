@@ -117,7 +117,7 @@ export default function KnowledgeMain({
   }, [])
 
   // Lifecycle: watch kbId changes
-  const prevKbIdRef = useRef(kbId)
+  const prevKbIdRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
     if (kbId && kbId !== prevKbIdRef.current) {
