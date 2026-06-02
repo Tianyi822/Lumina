@@ -30,6 +30,7 @@
     "test:session-handlers": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/ipc/handlers/sessionHandlers.test.ts",
     "test:error-handlers": "node --test --experimental-strip-types src/shared/utils/error-handlers.test.mjs",
     "test:embedding": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/embedding/EmbeddingService.test.ts",
+    "test:tool-orchestration": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/chat/tools/ToolResultEnricher.test.ts src/main/services/chat/tools/ToolResultMerger.test.ts src/main/services/chat/tools/PaperSemanticExtractor.test.ts src/main/services/chat/tools/ToolRegistrationStrategy.test.ts src/main/services/chat/tools/ToolOrchestrator.test.ts src/main/services/chat/tools/SessionToolConfigs.test.ts",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
