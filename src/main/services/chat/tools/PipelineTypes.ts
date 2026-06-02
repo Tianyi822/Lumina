@@ -60,6 +60,7 @@ export interface EnrichedToolResult extends ToolExecutionResult {
 export interface OrchestrationResult {
   results: ToolExecutionResult[]
   mergedContent: string | null
+  needUserInteraction: boolean
   metadata: {
     stagesExecuted: number
     autoTriggered: string[]

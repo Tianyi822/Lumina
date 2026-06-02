@@ -20,9 +20,35 @@ import {
   UnifiedToolExecutor,
   UnifiedToolRegistry
 } from './tools'
+import { ToolRegistrationStrategy } from './tools/ToolRegistrationStrategy'
+import { ToolOrchestrator } from './tools/ToolOrchestrator'
+import { ToolResultEnricher } from './tools/ToolResultEnricher'
+import { ToolResultMerger } from './tools/ToolResultMerger'
+import { toolStatsCollector } from './tools/ToolStatsCollector'
+import type {
+  PipelineContext,
+  ToolPipeline,
+  RegistrationContext
+} from './tools/PipelineTypes'
 import type { ReactLoopServiceOptions } from './chatInternal'
 import { StreamProcessor } from './StreamProcessor'
 import { paperWebSearchService, PaperWebSearchToolAdapter } from '../paper-web-search'
+
+/**
+ * 从消息列表中提取最近一条用户的文本输入作为原始查询
+ * 用于管道编排中的 auto-trigger 查询构造
+ */
+export function extractOriginalQuery(
+  messages: ReadonlyArray<{ readonly role?: string; readonly content?: unknown }>
+): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg.role === 'user' && typeof msg.content === 'string') {
+      return msg.content
+    }
+  }
+  return ''
+}
 
 interface ReactLoopRuntimeOptions {
   abortController?: AbortController
@@ -56,6 +82,11 @@ export class ReactLoopService {
   private readonly knowledgeAdapter: KnowledgeToolAdapter
   private readonly mcpAdapter: MCPToolAdapter | null
   private readonly streamProcessor: StreamProcessor
+  private readonly toolRegistrationStrategy: ToolRegistrationStrategy
+  private readonly toolOrchestrator: ToolOrchestrator
+  private currentPipeline?: ToolPipeline
+  private currentOriginalQuery?: string
+  private currentRequest?: ChatRequest
 
   constructor(options: ReactLoopServiceOptions) {
     this.logger = options.logger
@@ -91,6 +122,25 @@ export class ReactLoopService {
     })
 
     this.streamProcessor = new StreamProcessor(this.streamHandler)
+
+    this.toolRegistrationStrategy = new ToolRegistrationStrategy(toolStatsCollector)
+
+    const enricher = new ToolResultEnricher()
+    const merger = new ToolResultMerger()
+    this.toolOrchestrator = new ToolOrchestrator({
+      registry: this.toolRegistry,
+      enricher,
+      merger,
+      executeToolCalls: async (toolCalls, wc, sid, msgs, tid) =>
+        this.unifiedToolExecutor.executeToolCalls(
+          toolCalls,
+          wc,
+          sid,
+          msgs as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+          tid
+        ),
+      sendStreamEvent: (wc, event) => this.streamHandler.sendStreamEvent(wc, event)
+    })
   }
 
   /**
@@ -136,6 +186,21 @@ export class ReactLoopService {
       const client = this.createClient(llmConfig)
 
       await this.buildToolRegistry(request, selectedKnowledgeBases, sessionId)
+
+      // 保留知识库会话绑定（策略的 configureAdapter 已设置适配器，此处补充 stopController 状态）
+      if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0 && sessionId) {
+        this.stopController.setSessionKnowledgeBases(
+          sessionId,
+          selectedKnowledgeBases.map((kb) => kb.id)
+        )
+      }
+
+      // 设置管道到 PromptBuilder（影响系统提示词）
+      const pipeline = this.toolRegistrationStrategy.getPipeline(request.sessionType ?? 'default')
+      this.currentPipeline = pipeline
+      this.currentRequest = request
+      promptBuilder.setPipeline(pipeline)
+      this.currentOriginalQuery = extractOriginalQuery(request.messages)
 
       const tools = this.toolRegistry.buildOpenAITools()
 
@@ -259,95 +324,42 @@ export class ReactLoopService {
     selectedKnowledgeBases?: KnowledgeBaseReference[],
     sessionId?: string
   ): Promise<MCPToolReference[]> {
-    const { selectedTools, enableLabTools } = request
-
-    this.toolRegistry.unregisterByCategory('lab')
-    this.toolRegistry.unregisterByCategory('knowledge')
-    this.toolRegistry.unregisterByCategory('mcp')
-    this.toolRegistry.unregisterByCategory('paper')
-    this.toolRegistry.unregisterByCategory('paper_web')
-
-    if (selectedTools && selectedTools.length > 0 && this.mcpAdapter) {
-      this.toolRegistry.registerBatch(selectedTools, this.mcpAdapter, 'mcp')
+    const context: RegistrationContext = {
+      request,
+      sessionId: sessionId ?? '',
+      selectedKnowledgeBases,
+      selectedTools: request.selectedTools,
+      adapters: {
+        lab: this.labAdapter,
+        knowledge: this.knowledgeAdapter,
+        paperContext: this.paperContextAdapter,
+        paperWebSearch: this.paperWebSearchAdapter,
+        mcp: this.mcpAdapter
+      }
     }
 
-    if (enableLabTools) {
-      const labTools = await this.labAdapter.getTools()
-      this.toolRegistry.registerBatch(labTools, this.labAdapter, 'lab')
+    this.toolRegistry.clear()
 
-      this.logger.info('已添加实验室工具到工具列表', 'main', {
-        sessionId,
-        labToolCount: labTools.length,
-        totalToolCount: this.toolRegistry.size
-      })
+    const newRegistry = await this.toolRegistrationStrategy.buildToolRegistry(context)
+
+    for (const tool of newRegistry.getAllTools()) {
+      const refs: MCPToolReference[] = [
+        {
+          serverName: tool.serverName,
+          toolName: tool.functionDef.name,
+          description: tool.functionDef.description,
+          inputSchema: tool.functionDef.parameters
+        }
+      ]
+      this.toolRegistry.registerBatch(refs, tool.adapter, tool.category)
     }
 
-    if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0 && sessionId) {
-      const kbIds = selectedKnowledgeBases.map((kb) => kb.id)
-      this.stopController.setSessionKnowledgeBases(sessionId, kbIds)
-
-      this.knowledgeAdapter.setKnowledgeBaseIds(kbIds)
-      const knowledgeTools = await this.knowledgeAdapter.getTools()
-      this.toolRegistry.registerBatch(knowledgeTools, this.knowledgeAdapter, 'knowledge')
-
-      this.logger.info('已添加知识库工具到工具列表', 'main', {
-        sessionId,
-        knowledgeToolCount: knowledgeTools.length,
-        totalToolCount: this.toolRegistry.size,
-        selectedKnowledgeBases: selectedKnowledgeBases.map((kb) => kb.name)
-      })
-    }
-
-    if (request.sessionType === 'paper' && request.paperId) {
-      this.paperContextAdapter.setPaperId(request.paperId)
-      const paperTools = await this.paperContextAdapter.getTools()
-      this.toolRegistry.registerBatch(paperTools, this.paperContextAdapter, 'paper')
-
-      this.logger.info('已添加论文上下文工具到工具列表', 'main', {
-        sessionId,
-        paperId: request.paperId,
-        paperToolCount: paperTools.length,
-        totalToolCount: this.toolRegistry.size
-      })
-    } else {
-      this.paperContextAdapter.setPaperId(undefined)
-    }
-
-    if (request.enablePaperWebSearch && request.sessionType === 'paper' && sessionId) {
-      const paperContext = this.buildPaperSearchContext(request)
-      this.paperWebSearchAdapter.setPaperContext(paperContext)
-      const paperWebTools = await this.paperWebSearchAdapter.getTools()
-      this.toolRegistry.registerBatch(paperWebTools, this.paperWebSearchAdapter, 'paper_web')
-
-      this.logger.info('已添加论文联网搜索工具到工具列表', 'main', {
-        sessionId,
-        paperWebToolCount: paperWebTools.length,
-        totalToolCount: this.toolRegistry.size
-      })
-    }
+    this.logger.info('工具注册完成（通过注册策略）', 'main', {
+      sessionId,
+      toolCount: this.toolRegistry.size
+    })
 
     return this.toolRegistry.getAllToolReferences()
-  }
-
-  /**
-   * 构建论文搜索上下文
-   */
-  private buildPaperSearchContext(
-    request: ChatRequest
-  ): import('@shared/types/paper-web-search').PaperWebSearchContext {
-    const lastUserMessage = [...request.messages].reverse().find((m) => m.role === 'user')
-
-    return {
-      paperId: request.paperId || '',
-      fileName: '',
-      paperTitle: undefined,
-      paperAuthors: undefined,
-      paperKeywords: undefined,
-      selectedQuote: undefined,
-      selectedQuoteContext: undefined,
-      userQuestion: typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : '',
-      referenceHints: undefined
-    }
   }
 
   /**
@@ -466,13 +478,38 @@ export class ReactLoopService {
       assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
     )
 
-    const toolExecution = await this.unifiedToolExecutor.executeToolCalls(
+    const pipelineContext: PipelineContext = {
+      sessionId,
+      request: this.currentRequest ?? ({} as ChatRequest),
+      modelToolCalls: toolCallsArray,
+      stageResults: new Map(),
+      originalQuery: this.currentOriginalQuery ?? ''
+    }
+
+    const orchestrationResult = await this.toolOrchestrator.orchestrate(
       toolCallsArray,
+      this.currentPipeline ?? { stages: [] },
+      pipelineContext,
       webContents,
       sessionId,
-      conversationMessages,
       turnId
     )
+
+    // 将工具结果追加到对话历史（编排器不直接修改 messages）
+    for (const result of orchestrationResult.results) {
+      conversationMessages.push({
+        role: 'tool' as const,
+        tool_call_id: result.toolCallId,
+        content: result.content
+      })
+    }
+
+    const toolExecution = {
+      needUserInteraction: orchestrationResult.needUserInteraction,
+      failedToolCount: orchestrationResult.results.filter((r) => !r.success).length,
+      errors: orchestrationResult.results.filter((r) => r.error).map((r) => r.error!),
+      results: orchestrationResult.results
+    }
 
     if (toolExecution.needUserInteraction) {
       this.logger.info('ReAct 循环暂停，等待用户交互', 'main', { sessionId, iterations })

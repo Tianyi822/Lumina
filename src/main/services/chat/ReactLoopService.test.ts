@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import type OpenAI from 'openai'
 import type { WebContents } from 'electron'
-import { ReactLoopService } from './ReactLoopService.ts'
+import { ReactLoopService, extractOriginalQuery } from './ReactLoopService.ts'
 import { StreamHandler } from './StreamHandler.ts'
 import type { StopController } from './StopController.ts'
 import type { ChatRequest, StreamEvent } from '@shared/types/chat'
@@ -113,7 +113,14 @@ function createHarness(options: HarnessOptions): Harness {
   } as unknown as StopController
 
   const mcpService = {
-    getAllTools: () => [],
+    getAllTools: () => [
+      {
+        serverName: 'mock',
+        name: 'lookup',
+        description: '查询资料',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+      }
+    ],
     getConnectedServerNames: () => ['mock'],
     getTools: () => [
       {
@@ -291,4 +298,43 @@ test('用户中止时不触发上限收尾回复', async () => {
   assert.equal(harness.createParams.length, 0)
   assert.equal(harness.events.at(-1)?.type, 'done')
   assert.equal(harness.events.at(-1)?.finalStatus, 'cancelled')
+})
+
+// ===== extractOriginalQuery =====
+
+test('extractOriginalQuery 从最新消息中找到 user 消息', () => {
+  const messages = [
+    { role: 'user', content: '第一个问题' },
+    { role: 'assistant', content: '回答' },
+    { role: 'user', content: '第二个问题' }
+  ]
+  assert.equal(extractOriginalQuery(messages), '第二个问题')
+})
+
+test('extractOriginalQuery 没有 user 消息时返回空字符串', () => {
+  const messages = [
+    { role: 'system', content: 'system prompt' },
+    { role: 'assistant', content: '回答' }
+  ]
+  assert.equal(extractOriginalQuery(messages), '')
+})
+
+test('extractOriginalQuery 空数组返回空字符串', () => {
+  assert.equal(extractOriginalQuery([]), '')
+})
+
+test('extractOriginalQuery user 消息 content 为 null 时跳过', () => {
+  const messages = [
+    { role: 'user', content: null },
+    { role: 'user', content: '有效问题' }
+  ]
+  assert.equal(extractOriginalQuery(messages), '有效问题')
+})
+
+test('extractOriginalQuery user 消息 content 为数组时跳过', () => {
+  const messages = [
+    { role: 'user', content: [{ type: 'text', text: '多模态' }] },
+    { role: 'user', content: '纯文本问题' }
+  ]
+  assert.equal(extractOriginalQuery(messages), '纯文本问题')
 })

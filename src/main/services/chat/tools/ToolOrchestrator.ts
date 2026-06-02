@@ -54,6 +54,7 @@ export class ToolOrchestrator {
     let stagesExecuted = 0
     const autoTriggered: string[] = []
     const handledCallIds = new Set<string>()
+    let needUserInteraction = false
 
     for (const stage of pipeline.stages) {
       let stageCalls = this.filterByCategory(toolCalls, stage.category)
@@ -88,6 +89,9 @@ export class ToolOrchestrator {
         [],
         turnId
       )
+      if (summary.needUserInteraction) {
+        needUserInteraction = true
+      }
 
       for (const call of stageCalls) {
         handledCallIds.add(call.id)
@@ -111,6 +115,9 @@ export class ToolOrchestrator {
         [],
         turnId
       )
+      if (summary.needUserInteraction) {
+        needUserInteraction = true
+      }
       allResults.push(...summary.results)
     }
 
@@ -130,6 +137,7 @@ export class ToolOrchestrator {
     return {
       results: allResults,
       mergedContent,
+      needUserInteraction,
       metadata: { stagesExecuted, autoTriggered, merged }
     }
   }
