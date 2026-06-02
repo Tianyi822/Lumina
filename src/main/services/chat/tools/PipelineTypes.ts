@@ -104,6 +104,5 @@ export interface PaperSemanticContext {
   paperId: string
   title: string
   keywords: string[]
-  domain: string
   abstract?: string
 }
