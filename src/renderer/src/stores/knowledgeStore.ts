@@ -35,6 +35,9 @@ interface KnowledgeState {
   deleteKnowledgeBase: (id: string) => Promise<boolean>
   getKnowledgeBase: (id: string) => KnowledgeBase | undefined
 
+  linkFilesToKB: (kbId: string, fileIds: string[]) => void
+  unlinkFileFromKB: (kbId: string, fileId: string) => void
+
   setActiveKb: (kbId: string | null) => void
   switchToKb: (kbId: string) => Promise<void>
 
@@ -168,6 +171,34 @@ export const useKnowledgeStore = create<KnowledgeState>()(
       },
 
       getKnowledgeBase: (id) => get().knowledgeBases.find((kb) => kb.id === id),
+
+      linkFilesToKB: (kbId, fileIds) => {
+        set((state) => ({
+          knowledgeBases: state.knowledgeBases.map((kb) =>
+            kb.id === kbId
+              ? {
+                  ...kb,
+                  linkedFileIds: [...(kb.linkedFileIds || []), ...fileIds],
+                  documentCount: (kb.linkedFileIds?.length || 0) + fileIds.length
+                }
+              : kb
+          )
+        }))
+      },
+
+      unlinkFileFromKB: (kbId, fileId) => {
+        set((state) => ({
+          knowledgeBases: state.knowledgeBases.map((kb) =>
+            kb.id === kbId
+              ? {
+                  ...kb,
+                  linkedFileIds: (kb.linkedFileIds || []).filter((id) => id !== fileId),
+                  documentCount: Math.max(0, (kb.linkedFileIds?.length || 0) - 1)
+                }
+              : kb
+          )
+        }))
+      },
 
       setActiveKb: (kbId) => set({ activeKbId: kbId }),
 

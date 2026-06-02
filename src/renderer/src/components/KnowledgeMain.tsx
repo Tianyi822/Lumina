@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useKnowledgeIndexStore } from '@renderer/stores'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
-import type { KnowledgeBase } from '@renderer/types'
+import type { FileItem, KnowledgeBase } from '@renderer/types'
 import { useKnowledgeFiles } from './knowledge/hooks/useKnowledgeFiles'
 import { useKnowledgeStats } from './knowledge/hooks/useKnowledgeStats'
 import { useReindex } from './knowledge/hooks/useReindex'
@@ -15,13 +15,15 @@ interface KnowledgeMainProps {
   onAddFiles: (kbId: string) => void
   onFileUnlinked: (kbId: string, fileId: string) => void
   onDescriptionUpdated: (kbId: string, description: string) => void
+  onFilesLinkedRef?: React.MutableRefObject<((files: FileItem[]) => Promise<void>) | null>
 }
 
 export default function KnowledgeMain({
   knowledgeBase,
   onAddFiles,
   onFileUnlinked,
-  onDescriptionUpdated
+  onDescriptionUpdated,
+  onFilesLinkedRef
 }: KnowledgeMainProps) {
   const indexStore = useKnowledgeIndexStore()
 
@@ -49,8 +51,15 @@ export default function KnowledgeMain({
     handleDragEnter,
     handleDragLeave,
     handleDragOver,
-    handleDrop
+    handleDrop,
+    handleFilesLinked: processLinkedFiles
   } = useKnowledgeFiles(kbId, onAddFiles, onFileUnlinked, loadStats)
+
+  useEffect(() => {
+    if (onFilesLinkedRef) {
+      onFilesLinkedRef.current = processLinkedFiles
+    }
+  }, [processLinkedFiles, onFilesLinkedRef])
 
   const indexingStatus = kbId ? indexStore.isKBIndexing(kbId) : false
   const kbIndexingFiles = kbId ? indexStore.getKBIndexingFilesMap(kbId) : {}
@@ -108,7 +117,7 @@ export default function KnowledgeMain({
   }, [])
 
   // Lifecycle: watch kbId changes
-  const prevKbIdRef = useRef(kbId)
+  const prevKbIdRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
     if (kbId && kbId !== prevKbIdRef.current) {
