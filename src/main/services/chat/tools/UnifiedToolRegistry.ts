@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import type { MCPToolReference } from '../../../types/chat'
 import type { MCPToolCallResult } from '@shared/types/mcp'
+import type { ToolCategory } from '@shared/types/tool-stats'
 import { enhanceToolDescriptions } from './ToolDescriptionEnhancer'
 import type { ToolDescriptionLevel } from '../prompts/types'
 
@@ -33,9 +34,9 @@ export interface ToolAdapter {
 }
 
 /**
- * 工具类别
+ * 工具类别（从 @shared/types/tool-stats 重导出，保持向后兼容）
  */
-export type ToolCategory = 'lab' | 'knowledge' | 'mcp' | 'paper' | 'paper_web'
+export type { ToolCategory }
 
 /**
  * 工具函数定义（内部存储格式）

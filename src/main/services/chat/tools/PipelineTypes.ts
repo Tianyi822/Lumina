@@ -1,4 +1,5 @@
 import type { ToolCategory } from './UnifiedToolRegistry'
+export type { ToolCategory }
 import type { ToolAdapter } from './UnifiedToolRegistry'
 import type { MCPToolReference } from '../../../types/chat'
 import type { ToolExecutionResult } from './UnifiedToolExecutor'
