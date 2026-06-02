@@ -143,6 +143,9 @@
   --sm-workspace-toolbar-button-bg-hover: rgba(255, 255, 255, 0.08);
   --sm-workspace-toolbar-button-shadow: none;
   --sm-workspace-toolbar-button-gap: 4px;
+  --sm-primary-sidebar-theme-switch-track: var(--sm-color-surface-2);
+  --sm-primary-sidebar-theme-switch-thumb: var(--sm-color-surface-3);
+  --sm-primary-sidebar-theme-switch-border: var(--sm-color-border-subtle);
 
   --glass-white-003: rgba(255, 255, 255, 0.003);
   --glass-white-007: rgba(255, 255, 255, 0.007);
