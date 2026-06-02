@@ -34,6 +34,7 @@ export default function App() {
     isCurrentSidebarCollapsed && styles.sidebarCollapsed,
     shouldFlushPaperReaderRight && styles.paperReaderFlushRight,
     isMac && 'sm-workspace-page--mac',
+    isWindows && 'sm-workspace-page--windows',
     isWindows && styles.windows
   ]
     .filter(Boolean)
