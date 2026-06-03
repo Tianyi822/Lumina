@@ -14,6 +14,10 @@ export class MCPToolAdapter implements ToolAdapter {
     this.mcpService = mcpService
   }
 
+  getMcpService(): MCPService {
+    return this.mcpService
+  }
+
   async getTools(): Promise<MCPToolReference[]> {
     return this.mcpService.getAllTools().map((tool) => ({
       serverName: tool.serverName,

@@ -10,6 +10,7 @@ import type { LLMConfig } from '@shared/types/config'
 import type { Logger } from '@main/services/logger'
 import type { MCPService } from '@main/services/mcp'
 import type { MCPToolCallResult } from '@shared/types/mcp'
+import { capabilityManager } from './tools/CapabilityManager.ts'
 
 type StreamChunk = OpenAI.Chat.Completions.ChatCompletionChunk
 type StreamingParams = OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming
@@ -337,4 +338,88 @@ test('extractOriginalQuery user 消息 content 为数组时跳过', () => {
     { role: 'user', content: '纯文本问题' }
   ]
   assert.equal(extractOriginalQuery(messages), '纯文本问题')
+})
+
+// ===== CapabilityComposer 集成 =====
+
+test('paper 会话通过 capabilityManager 初始化能力状态', async () => {
+  // 清理状态确保隔离
+  capabilityManager.clearSession('react-loop-paper')
+
+  const toolStreams = [createContentStream('论文解读结果')]
+  const harness = createHarness({
+    streams: toolStreams
+  })
+
+  const request: ChatRequest = {
+    ...harness.request,
+    sessionId: 'react-loop-paper',
+    sessionType: 'paper',
+    paperId: 'paper-001',
+    selectedTools: undefined
+  }
+
+  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+
+  const capState = capabilityManager.getCapabilities('react-loop-paper')
+  assert.ok(capState, 'capabilityManager 应有该会话的能力状态')
+  assert.equal(capState!.presetId, 'chat.paper', 'paper 会话应使用 chat.paper preset')
+  assert.deepEqual(
+    capState!.activeCapabilities,
+    ['paper', 'knowledge'],
+    'paper 会话应仅激活 paper 和 knowledge'
+  )
+})
+
+test('default 会话通过 capabilityManager 初始化能力状态', async () => {
+  capabilityManager.clearSession('react-loop-default-cap')
+
+  const harness = createHarness({
+    streams: [createContentStream('普通回答')]
+  })
+
+  const request: ChatRequest = {
+    ...harness.request,
+    sessionId: 'react-loop-default-cap',
+    sessionType: 'default',
+    selectedTools: undefined
+  }
+
+  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+
+  const capState = capabilityManager.getCapabilities('react-loop-default-cap')
+  assert.ok(capState, 'capabilityManager 应有该会话的能力状态')
+  assert.equal(capState!.presetId, 'chat.default', 'default 会话应使用 chat.default preset')
+  assert.deepEqual(
+    capState!.activeCapabilities,
+    [],
+    'default 会话应无默认激活能力'
+  )
+})
+
+test('enableLabTools 动态添加 lab 能力', async () => {
+  capabilityManager.clearSession('react-loop-lab-enable')
+
+  const harness = createHarness({
+    streams: [createContentStream('lab 回答')]
+  })
+
+  const request: ChatRequest = {
+    ...harness.request,
+    sessionId: 'react-loop-lab-enable',
+    sessionType: 'default',
+    enableLabTools: true,
+    selectedTools: undefined
+  }
+
+  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+
+  const capState = capabilityManager.getCapabilities('react-loop-lab-enable')
+  assert.ok(capState, 'capabilityManager 应有该会话的能力状态')
+  assert.equal(capState!.presetId, 'chat.default', '预设仍为 chat.default')
+  assert.deepEqual(
+    capState!.activeCapabilities,
+    ['lab'],
+    'enableLabTools=true 时 default 会话应仅激活 lab'
+  )
 })

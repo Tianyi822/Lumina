@@ -13,26 +13,25 @@ import { promptBuilder } from './PromptBuilder'
 import { formatMessagesWithKnowledge } from './message'
 import { ModelRetryHandler } from './ModelRetryHandler'
 import {
-  KnowledgeToolAdapter,
   MCPToolAdapter,
-  PaperContextToolAdapter,
-  LabToolAdapter,
   UnifiedToolExecutor,
   UnifiedToolRegistry
 } from './tools'
-import { ToolRegistrationStrategy } from './tools/ToolRegistrationStrategy'
 import { ToolOrchestrator } from './tools/ToolOrchestrator'
 import { ToolResultEnricher } from './tools/ToolResultEnricher'
 import { ToolResultMerger } from './tools/ToolResultMerger'
-import { toolStatsCollector } from './tools/ToolStatsCollector'
 import type {
   PipelineContext,
-  ToolPipeline,
-  RegistrationContext
+  ToolPipeline
 } from './tools/PipelineTypes'
 import type { ReactLoopServiceOptions } from './chatInternal'
 import { StreamProcessor } from './StreamProcessor'
-import { paperWebSearchService, PaperWebSearchToolAdapter } from '../paper-web-search'
+import { CapabilityComposer } from './tools/orchestration/CapabilityComposer'
+import { capabilityRegistry } from './tools/capabilities/CapabilityRegistry'
+import { registerBuiltinCapabilities } from './tools/capabilities/registerBuiltinCapabilities'
+import { capabilityManager } from './tools/CapabilityManager'
+import { presetRegistry } from './tools/presets/PresetRegistry'
+import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET } from './tools/presets/builtinPresets'
 
 /**
  * 从消息列表中提取最近一条用户的文本输入作为原始查询
@@ -76,14 +75,10 @@ export class ReactLoopService {
   private readonly modelRetryHandler: ModelRetryHandler
   private readonly unifiedToolExecutor: UnifiedToolExecutor
   private readonly toolRegistry: UnifiedToolRegistry
-  private readonly labAdapter: LabToolAdapter
-  private readonly paperContextAdapter: PaperContextToolAdapter
-  private readonly paperWebSearchAdapter: PaperWebSearchToolAdapter
-  private readonly knowledgeAdapter: KnowledgeToolAdapter
   private readonly mcpAdapter: MCPToolAdapter | null
   private readonly streamProcessor: StreamProcessor
-  private readonly toolRegistrationStrategy: ToolRegistrationStrategy
   private readonly toolOrchestrator: ToolOrchestrator
+  private readonly capabilityComposer: CapabilityComposer
   private currentPipeline?: ToolPipeline
   private currentOriginalQuery?: string
   private currentRequest?: ChatRequest
@@ -103,10 +98,6 @@ export class ReactLoopService {
     })
 
     this.toolRegistry = new UnifiedToolRegistry()
-    this.labAdapter = new LabToolAdapter()
-    this.paperContextAdapter = new PaperContextToolAdapter()
-    this.paperWebSearchAdapter = new PaperWebSearchToolAdapter(paperWebSearchService)
-    this.knowledgeAdapter = new KnowledgeToolAdapter()
     this.mcpAdapter = options.mcpService ? new MCPToolAdapter(options.mcpService) : null
 
     const pendingUserInteraction = new Set<string>()
@@ -123,7 +114,10 @@ export class ReactLoopService {
 
     this.streamProcessor = new StreamProcessor(this.streamHandler)
 
-    this.toolRegistrationStrategy = new ToolRegistrationStrategy(toolStatsCollector)
+    registerBuiltinCapabilities()
+    presetRegistry.register(CHAT_PAPER_PRESET)
+    presetRegistry.register(CHAT_DEFAULT_PRESET)
+    this.capabilityComposer = new CapabilityComposer(capabilityRegistry)
 
     const enricher = new ToolResultEnricher()
     const merger = new ToolResultMerger()
@@ -185,7 +179,7 @@ export class ReactLoopService {
     try {
       const client = this.createClient(llmConfig)
 
-      await this.buildToolRegistry(request, selectedKnowledgeBases, sessionId)
+      await this.buildToolRegistryWithComposer(request, selectedKnowledgeBases, sessionId)
 
       // 保留知识库会话绑定（策略的 configureAdapter 已设置适配器，此处补充 stopController 状态）
       if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0 && sessionId) {
@@ -195,11 +189,7 @@ export class ReactLoopService {
         )
       }
 
-      // 设置管道到 PromptBuilder（影响系统提示词）
-      const pipeline = this.toolRegistrationStrategy.getPipeline(request.sessionType ?? 'default')
-      this.currentPipeline = pipeline
-      this.currentRequest = request
-      promptBuilder.setPipeline(pipeline)
+      // pipeline 已在 buildToolRegistryWithComposer 中设置
       this.currentOriginalQuery = extractOriginalQuery(request.messages)
 
       const tools = this.toolRegistry.buildOpenAITools()
@@ -317,32 +307,62 @@ export class ReactLoopService {
   }
 
   /**
-   * 按请求刷新统一工具注册表
+   * 通过 CapabilityComposer 构建工具注册表
    */
-  private async buildToolRegistry(
+  private async buildToolRegistryWithComposer(
     request: ChatRequest,
     selectedKnowledgeBases?: KnowledgeBaseReference[],
     sessionId?: string
   ): Promise<MCPToolReference[]> {
-    const context: RegistrationContext = {
-      request,
-      sessionId: sessionId ?? '',
+    const sid = sessionId ?? ''
+    const sessionType = request.sessionType ?? 'default'
+
+    let capState = capabilityManager.getCapabilities(sid)
+    if (!capState) {
+      capState = capabilityManager.initCapabilitiesForSessionType(sid, sessionType)
+    }
+
+    if (request.enableLabTools && !capState.activeCapabilities.includes('lab')) {
+      capabilityManager.addCapability(sid, 'lab')
+    }
+    if (request.enablePaperWebSearch && request.paperId && !capState.activeCapabilities.includes('paper_web')) {
+      capabilityManager.addCapability(sid, 'paper_web')
+    }
+    if (request.selectedTools && request.selectedTools.length > 0 && !capState.activeCapabilities.includes('mcp')) {
+      capabilityManager.addCapability(sid, 'mcp')
+    }
+
+    capState = capabilityManager.getCapabilities(sid)!
+
+    const preset = presetRegistry.get(capState.presetId)
+    const composition = preset?.defaultComposition ?? { stages: [] }
+
+    const composerContext = {
+      paperId: request.paperId,
+      enableLabTools: request.enableLabTools,
+      enablePaperWebSearch: request.enablePaperWebSearch,
       selectedKnowledgeBases,
       selectedTools: request.selectedTools,
-      adapters: {
-        lab: this.labAdapter,
-        knowledge: this.knowledgeAdapter,
-        paperContext: this.paperContextAdapter,
-        paperWebSearch: this.paperWebSearchAdapter,
-        mcp: this.mcpAdapter
-      }
+      mcpService: this.mcpAdapter ? this.mcpAdapter.getMcpService() : undefined
     }
+
+    const composed = await this.capabilityComposer.compose(
+      capState.activeCapabilities,
+      composition,
+      composerContext
+    )
 
     this.toolRegistry.clear()
 
-    const newRegistry = await this.toolRegistrationStrategy.buildToolRegistry(context)
+    if (!composed) {
+      this.currentPipeline = { stages: [] }
+      this.currentRequest = request
+      promptBuilder.setPipeline(this.currentPipeline)
+      this.logger.info('CapabilityComposer: 无可用工具', 'main', { sessionId: sid })
+      return []
+    }
 
-    for (const tool of newRegistry.getAllTools()) {
+    for (const tool of composed.toolRegistry.getAllTools()) {
       const refs: MCPToolReference[] = [
         {
           serverName: tool.serverName,
@@ -354,9 +374,14 @@ export class ReactLoopService {
       this.toolRegistry.registerBatch(refs, tool.adapter, tool.category)
     }
 
-    this.logger.info('工具注册完成（通过注册策略）', 'main', {
-      sessionId,
-      toolCount: this.toolRegistry.size
+    this.currentPipeline = composed.pipeline
+    this.currentRequest = request
+    promptBuilder.setPipeline(composed.pipeline)
+
+    this.logger.info('工具注册完成（通过 CapabilityComposer）', 'main', {
+      sessionId: sid,
+      toolCount: this.toolRegistry.size,
+      activeCapabilities: capState.activeCapabilities
     })
 
     return this.toolRegistry.getAllToolReferences()
