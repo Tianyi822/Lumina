@@ -17,6 +17,7 @@ import { registerDocumentHandlers } from './handlers/documentHandlers'
 import { registerPaperHandlers } from './handlers/paperHandlers'
 import { registerToolStatsHandlers } from './handlers/toolStatsHandlers'
 import { registerPaperWebSearchHandlers } from './handlers/paperWebSearchHandlers'
+import { registerCapabilityHandlers } from './handlers/capabilityHandlers'
 import { registerUpdateHandlers } from './handlers/updateHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
@@ -80,6 +81,9 @@ export function registerAllIpcHandlers(): void {
 
   // 注册论文网页搜索相关处理程序
   registerPaperWebSearchHandlers()
+
+  // 注册能力系统相关处理程序
+  registerCapabilityHandlers()
 
   // 注册自动更新相关处理程序
   registerUpdateHandlers()

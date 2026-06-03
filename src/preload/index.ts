@@ -18,6 +18,7 @@ import { toolStatsApi } from './apis/toolStats'
 import { paperWebSearchApi } from './apis/paperWebSearch'
 import { sshApi } from './apis/ssh'
 import { updateApi } from './apis/update'
+import { capabilityApi } from './apis/capability'
 
 /**
  * 自定义渲染器 API
@@ -49,7 +50,9 @@ const api = {
   // SSH 远程服务器 API
   ssh: sshApi,
   // 自动更新 API
-  update: updateApi
+  update: updateApi,
+  // 能力系统 API
+  capability: capabilityApi
 }
 
 // 使用 contextBridge 向渲染器暴露 API
