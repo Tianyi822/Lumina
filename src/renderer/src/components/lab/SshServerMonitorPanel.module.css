@@ -1,5 +1,6 @@
 .ssh-server-monitor-panel {
   display: flex;
+  flex: 1;
   flex-direction: column;
   height: 100%;
   min-height: 0;
@@ -16,6 +17,7 @@
   gap: var(--sm-space-4);
   padding: var(--sm-space-5);
   border-bottom: 1px solid var(--sm-color-border-subtle);
+  flex-shrink: 0;
 }
 
 .ssh-server-monitor-panel__copy {
@@ -96,9 +98,12 @@
 
 .ssh-server-monitor-panel__grid {
   display: grid;
+  flex: 1;
+  min-height: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: var(--sm-space-4);
-  overflow-y: auto;
+  overflow: hidden;
   padding: var(--sm-space-5);
 }
 
@@ -106,7 +111,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-4);
-  min-height: 230px;
+  min-height: 0;
   padding: var(--sm-space-4);
   border: 1px solid var(--sm-color-border-subtle);
   border-radius: var(--sm-radius-md);
@@ -188,7 +193,7 @@
 .ssh-monitor-chart__body {
   position: relative;
   flex: 1;
-  min-height: 142px;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--sm-color-border-subtle);
   border-radius: var(--sm-radius-sm);
@@ -198,7 +203,7 @@
 .ssh-monitor-chart__echarts {
   width: 100%;
   height: 100%;
-  min-height: 142px;
+  min-height: 0;
 }
 
 .ssh-monitor-chart--success {
@@ -293,6 +298,8 @@
 @media (max-width: 1100px) {
   .ssh-server-monitor-panel__grid {
     grid-template-columns: 1fr;
+    grid-template-rows: repeat(6, minmax(0, 1fr));
+    overflow-y: auto;
   }
 }
 

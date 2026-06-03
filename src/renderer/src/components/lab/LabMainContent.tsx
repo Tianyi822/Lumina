@@ -190,6 +190,9 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
   }
 
   const hasLab = !!currentLab
+  const showSshReconnectOnly = isSshLab && hasLab && !isSshConnected
+  const isSshStatsMonitorVisible =
+    isSshLab && labDetailTab === 'stats' && !showSshReconnectOnly && !showDockerReadOnlyState
   const labCreationTypeLabel = useMemo(() => {
     const labelMap: Record<string, string> = {
       existing: '已有容器',
@@ -199,6 +202,12 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
     }
     return currentLab ? labelMap[currentLab.creationType] || '' : ''
   }, [currentLab])
+  const contentBodyClassName = [
+    styles['content-body'],
+    isSshStatsMonitorVisible && styles['content-body--ssh-monitor']
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <main className={styles['lab-main-content']}>
@@ -258,7 +267,7 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
               </div>
             </div>
             <div className={styles['workspace-header__actions']}>
-              {isSshLab && currentLab && !isSshConnected && (
+              {showSshReconnectOnly && currentLab ? (
                 <SshReconnectPrompt
                   password={sshReconnectPassword}
                   lab={currentLab}
@@ -266,12 +275,15 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
                   onUpdatePassword={setSshReconnectPassword}
                   onConnect={handleSshConnect}
                 />
+              ) : (
+                !showDockerReadOnlyState && (
+                  <TabNavigation visible={hasLab} showLogs={!isSshLab} />
+                )
               )}
-              {!showDockerReadOnlyState && <TabNavigation visible={hasLab} showLogs={!isSshLab} />}
             </div>
           </header>
 
-          <div className={styles['content-body']}>
+          <div className={contentBodyClassName}>
             {showDockerReadOnlyState ? (
               <div className={styles['tab-content']}>
                 <LabDetailEmptyState
@@ -279,7 +291,7 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
                   message="当前仅展示这个实验室的历史信息，不提供本地运行环境操作。远程 SSH 实验室仍可正常连接和使用。"
                 />
               </div>
-            ) : (
+            ) : showSshReconnectOnly ? null : (
               <>
                 <OrphanLabAlert
                   visible={isOrphan}
@@ -318,8 +330,7 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
                 )}
 
                 <div
-                  style={{ display: labDetailTab === 'stats' ? 'block' : 'none' }}
-                  className={styles['tab-content']}
+                  className={`${styles['tab-content']} ${labDetailTab === 'stats' ? styles['tab-content--active'] : ''}`}
                 >
                   <LabStatsTab
                     isSshLab={isSshLab}
@@ -346,8 +357,7 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
                 </div>
 
                 <div
-                  style={{ display: labDetailTab === 'terminal' ? 'block' : 'none' }}
-                  className={styles['tab-content']}
+                  className={`${styles['tab-content']} ${labDetailTab === 'terminal' ? styles['tab-content--active'] : ''}`}
                 >
                   <LabTerminalTab
                     isSshLab={isSshLab}
@@ -361,8 +371,7 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
 
                 {!isSshLab && (
                   <div
-                    style={{ display: labDetailTab === 'logs' ? 'block' : 'none' }}
-                    className={styles['tab-content']}
+                    className={`${styles['tab-content']} ${labDetailTab === 'logs' ? styles['tab-content--active'] : ''}`}
                   >
                     <LabLogsTab
                       isDockerReady={isDockerReady}
