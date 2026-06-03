@@ -55,47 +55,6 @@
   box-sizing: border-box;
 }
 
-.ssh-server-monitor-panel__range {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 32px;
-  box-sizing: border-box;
-  padding: 2px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
-  background: var(--sm-color-bg-embedded);
-}
-
-.ssh-server-monitor-panel__range button {
-  height: 28px;
-  min-height: 28px;
-  padding: 0 var(--sm-space-3);
-  border: 1px solid transparent;
-  border-radius: var(--sm-radius-sm);
-  background: transparent;
-  color: var(--sm-color-text-secondary);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast),
-    color var(--sm-transition-fast);
-}
-
-.ssh-server-monitor-panel__range button:hover {
-  border-color: var(--sm-color-border-subtle);
-  background: var(--sm-color-surface-hover);
-  color: var(--sm-color-text-primary);
-}
-
-.ssh-server-monitor-panel__range button.is-active {
-  border-color: var(--sm-color-border-selected);
-  background: var(--sm-color-surface-selected);
-  color: var(--sm-color-text-selected);
-}
-
 .ssh-server-monitor-panel__grid {
   display: grid;
   flex: 1;

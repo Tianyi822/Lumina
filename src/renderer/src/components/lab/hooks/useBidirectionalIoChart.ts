@@ -23,13 +23,7 @@ export function useBidirectionalIoChart(
     const instance = chartRef.current
     if (!instance) return
 
-    const currentSeries = seriesRef.current
-    if (currentSeries.length < 2) {
-      instance.clear()
-      return
-    }
-
-    instance.setOption(buildBidirectionalIoChartOption(currentSeries, labelsRef.current), {
+    instance.setOption(buildBidirectionalIoChartOption(seriesRef.current, labelsRef.current), {
       notMerge: true,
       lazyUpdate: true
     })

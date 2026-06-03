@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ContainerStats } from '@renderer/types/lab'
 import { computeByteRate } from '../containerIoFormatters'
-
-const MAX_HISTORY_POINTS = 40
+import { MONITOR_CHART_MAX_POINTS, trimRollingQueue } from '../monitorChartSeries'
 
 export interface IoRateSample {
   timestamp: number
@@ -25,9 +24,7 @@ interface PrevSnapshot {
 }
 
 function appendSample(samples: IoRateSample[], sample: IoRateSample): IoRateSample[] {
-  const next = [...samples, sample]
-  if (next.length <= MAX_HISTORY_POINTS) return next
-  return next.slice(next.length - MAX_HISTORY_POINTS)
+  return trimRollingQueue([...samples, sample], MONITOR_CHART_MAX_POINTS)
 }
 
 const EMPTY_RATES: IoRates = { upper: null, lower: null }

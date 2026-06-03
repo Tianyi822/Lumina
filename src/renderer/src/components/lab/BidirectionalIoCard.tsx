@@ -33,7 +33,7 @@ export default function BidirectionalIoCard({
     [upperSeriesLabel, lowerSeriesLabel]
   )
 
-  const hasChart = series.length >= 2
+  const hasChart = series.length >= 1
   const setChartElement = useBidirectionalIoChart(series, chartLabels)
   const chartAriaLabel = formatBidirectionalIoChartAriaLabel(title, series)
 

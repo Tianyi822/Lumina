@@ -1,17 +1,29 @@
 import type { EChartsOption } from 'echarts'
 import { formatBytesPerSecond } from './containerIoFormatters'
 import type { IoRateSample } from './hooks/useContainerIoHistory'
-import { formatFullSampleTime, formatSampleTime, isRecord, readCssVariable } from './sshMonitorFormatters'
+import {
+  MONITOR_CHART_MAX_POINTS,
+  buildFixedIoSlots,
+  calculateFixedAxisLabelInterval
+} from './monitorChartSeries'
+import { formatFullSampleTime, isRecord, readCssVariable } from './sshMonitorFormatters'
 
 export interface BidirectionalIoChartLabels {
   upper: string
   lower: string
 }
 
-function resolvePeak(series: IoRateSample[]): number {
+function resolvePeak(upper: Array<number | null>, lower: Array<number | null>): number {
   let peak = 1
-  for (const point of series) {
-    peak = Math.max(peak, point.upper, point.lower)
+  for (let index = 0; index < upper.length; index += 1) {
+    const upperValue = upper[index]
+    const lowerValue = lower[index]
+    if (upperValue !== null && Number.isFinite(upperValue)) {
+      peak = Math.max(peak, upperValue)
+    }
+    if (lowerValue !== null && Number.isFinite(lowerValue)) {
+      peak = Math.max(peak, lowerValue)
+    }
   }
   return peak
 }
@@ -19,7 +31,8 @@ function resolvePeak(series: IoRateSample[]): number {
 function formatTooltip(
   params: unknown,
   labels: BidirectionalIoChartLabels,
-  series: IoRateSample[]
+  slots: IoRateSample[],
+  paddingCount: number
 ): string {
   if (!Array.isArray(params) || params.length === 0) {
     return ''
@@ -31,12 +44,12 @@ function formatTooltip(
   }
 
   const dataIndex = typeof first.dataIndex === 'number' ? first.dataIndex : -1
-  const point = dataIndex >= 0 ? series[dataIndex] : undefined
-  const timeLabel = point
-    ? formatFullSampleTime(point.timestamp)
-    : typeof first.name === 'string' && first.name
-      ? first.name
-      : '-'
+  if (dataIndex < paddingCount) {
+    return ''
+  }
+
+  const point = dataIndex >= 0 ? slots[dataIndex] : undefined
+  const timeLabel = point ? formatFullSampleTime(point.timestamp) : '-'
 
   const lines = params
     .map((item) => {
@@ -68,26 +81,28 @@ export function buildBidirectionalIoChartOption(
   const upperColor = readCssVariable('--sm-color-accent-hover', '#6b9fff')
   const lowerColor = readCssVariable('--sm-color-status-success', '#7fb08a')
   const baselineColor = readCssVariable('--sm-color-border-subtle', '#30363d')
-  const peak = resolvePeak(series)
-  const categories = series.map((point) => formatSampleTime(point.timestamp))
-  const upperData = series.map((point) => point.upper)
-  const lowerData = series.map((point) => -point.lower)
+  const axisColor = readCssVariable('--sm-color-text-tertiary', '#8b949e')
+  const { categories, upper, lower, slots } = buildFixedIoSlots(series, MONITOR_CHART_MAX_POINTS)
+  const paddingCount = MONITOR_CHART_MAX_POINTS - Math.min(series.length, MONITOR_CHART_MAX_POINTS)
+  const peak = resolvePeak(upper, lower)
+  const upperData = upper.map((value) => (value === null ? null : value))
+  const lowerData = lower.map((value) => (value === null ? null : value === 0 ? 0 : -value))
 
   return {
     animation: false,
     animationDuration: 0,
-    animationDurationUpdate: 0,
+    animationDurationUpdate: 250,
     grid: {
       left: 2,
       right: 2,
       top: 4,
-      bottom: 4,
+      bottom: 20,
       containLabel: false
     },
     tooltip: {
       trigger: 'axis',
       confine: true,
-      formatter: (params) => formatTooltip(params, labels, series)
+      formatter: (params) => formatTooltip(params, labels, slots, paddingCount)
     },
     xAxis: {
       type: 'category',
@@ -95,7 +110,13 @@ export function buildBidirectionalIoChartOption(
       data: categories,
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { show: false },
+      axisLabel: {
+        show: true,
+        color: axisColor,
+        fontSize: 10,
+        hideOverlap: true,
+        interval: calculateFixedAxisLabelInterval(MONITOR_CHART_MAX_POINTS)
+      },
       splitLine: { show: false }
     },
     yAxis: {
@@ -112,9 +133,11 @@ export function buildBidirectionalIoChartOption(
         name: labels.upper,
         type: 'line',
         data: upperData,
+        connectNulls: false,
         smooth: true,
-        showSymbol: false,
-        symbol: 'none',
+        showSymbol: true,
+        symbol: 'circle',
+        symbolSize: 5,
         lineStyle: {
           width: 1.5,
           color: upperColor
@@ -145,9 +168,11 @@ export function buildBidirectionalIoChartOption(
         name: labels.lower,
         type: 'line',
         data: lowerData,
+        connectNulls: false,
         smooth: true,
-        showSymbol: false,
-        symbol: 'none',
+        showSymbol: true,
+        symbol: 'circle',
+        symbolSize: 5,
         lineStyle: {
           width: 1.5,
           color: lowerColor
@@ -177,5 +202,5 @@ export function formatBidirectionalIoChartAriaLabel(
 
   const latest = series[series.length - 1]
   const time = formatFullSampleTime(latest.timestamp)
-  return `${title} 趋势，最近采样 ${time}`
+  return `${title} 实时监控趋势，最近采样 ${time}`
 }
