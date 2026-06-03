@@ -18,7 +18,7 @@ export class PaperWebCapability implements CapabilityUnit {
     const ctx = context as PaperWebCapabilityContext
     if (!ctx.paperId || !ctx.enablePaperWebSearch) return null
     const adapter = new PaperWebSearchToolAdapter(paperWebSearchService)
-    adapter.setPaperContext({ paperId: ctx.paperId })
+    adapter.setPaperContext({ paperId: ctx.paperId, fileName: '', userQuestion: '' })
     return adapter
   }
 
