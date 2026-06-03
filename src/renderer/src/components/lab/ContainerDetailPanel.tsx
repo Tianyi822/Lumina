@@ -7,6 +7,8 @@ import type {
 } from '@renderer/types/lab'
 import { computeLabPermissions } from '@renderer/composables/labPermissionsCore'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
+import BidirectionalIoCard from './BidirectionalIoCard'
+import { useContainerIoHistory } from './hooks/useContainerIoHistory'
 import styles from './ContainerDetailPanel.module.css'
 
 interface ContainerDetailPanelProps {
@@ -114,19 +116,15 @@ export default function ContainerDetailPanel({
     [container.ports]
   )
 
+  const { networkSeries, blockSeries, networkRates, blockRates } = useContainerIoHistory(
+    stats,
+    container.id
+  )
+
   const formattedCpu = stats ? `${stats.cpu.toFixed(2)}%` : '-'
   const formattedMemory = stats
     ? `${formatBytes(stats.memory.usage)} / ${formatBytes(stats.memory.limit)} (${stats.memory.percent.toFixed(1)}%)`
     : '-'
-  const formattedNetwork = stats
-    ? { rx: formatBytes(stats.network.rxBytes), tx: formatBytes(stats.network.txBytes) }
-    : { rx: '-', tx: '-' }
-  const formattedBlockIO = stats
-    ? {
-        read: formatBytes(stats.blockIO.readBytes),
-        write: formatBytes(stats.blockIO.writeBytes)
-      }
-    : { read: '-', write: '-' }
 
   return (
     <div className={styles['container-detail-panel']}>
@@ -223,42 +221,48 @@ export default function ContainerDetailPanel({
               </button>
             </div>
             <div className={styles['stats-grid']}>
-              <div className={styles['stat-card']}>
-                <div className={styles['stat-label']}>CPU 使用率</div>
-                <div className={styles['stat-value']}>{formattedCpu}</div>
-                <div className={styles['stat-bar']}>
+              <div className={`${styles['stat-card']} ${styles['stat-card--compact']}`}>
+                <div className={styles['stat-card__head']}>
+                  <span className={styles['stat-label']}>CPU 使用率</span>
+                  <span className={styles['stat-value']}>{formattedCpu}</span>
+                </div>
+                <div className={styles['stat-bar']} aria-hidden="true">
                   <div
                     className={`${styles['stat-bar-fill']} ${styles['cpu']}`}
                     style={{ width: Math.min(stats.cpu, 100) + '%' }}
                   ></div>
                 </div>
               </div>
-              <div className={styles['stat-card']}>
-                <div className={styles['stat-label']}>内存使用</div>
-                <div className={styles['stat-value']}>{formattedMemory}</div>
-                <div className={styles['stat-bar']}>
+              <div className={`${styles['stat-card']} ${styles['stat-card--compact']}`}>
+                <div className={styles['stat-card__head']}>
+                  <span className={styles['stat-label']}>内存使用</span>
+                  <span className={`${styles['stat-value']} ${styles['stat-value--wrap']}`}>
+                    {formattedMemory}
+                  </span>
+                </div>
+                <div className={styles['stat-bar']} aria-hidden="true">
                   <div
                     className={`${styles['stat-bar-fill']} ${styles['memory']}`}
                     style={{ width: Math.min(stats.memory.percent, 100) + '%' }}
                   ></div>
                 </div>
               </div>
-              <div className={styles['stat-card']}>
-                <div className={styles['stat-label']}>网络接收</div>
-                <div className={styles['stat-value']}>{formattedNetwork.rx}</div>
-              </div>
-              <div className={styles['stat-card']}>
-                <div className={styles['stat-label']}>网络发送</div>
-                <div className={styles['stat-value']}>{formattedNetwork.tx}</div>
-              </div>
-              <div className={styles['stat-card']}>
-                <div className={styles['stat-label']}>块设备读取</div>
-                <div className={styles['stat-value']}>{formattedBlockIO.read}</div>
-              </div>
-              <div className={styles['stat-card']}>
-                <div className={styles['stat-label']}>块设备写入</div>
-                <div className={styles['stat-value']}>{formattedBlockIO.write}</div>
-              </div>
+              <BidirectionalIoCard
+                title="网络情况"
+                upperSeriesLabel="发送"
+                lowerSeriesLabel="接收"
+                upperRate={networkRates.upper}
+                lowerRate={networkRates.lower}
+                series={networkSeries}
+              />
+              <BidirectionalIoCard
+                title="块设备 I/O"
+                upperSeriesLabel="写入"
+                lowerSeriesLabel="读取"
+                upperRate={blockRates.upper}
+                lowerRate={blockRates.lower}
+                series={blockSeries}
+              />
             </div>
           </section>
         )}
