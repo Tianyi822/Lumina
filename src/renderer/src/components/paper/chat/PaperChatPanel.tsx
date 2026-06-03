@@ -59,7 +59,12 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     enableLabTools: sessionState.enableLabTools,
     enablePaperWebSearch: sessionState.enablePaperWebSearch,
     saveCurrentSession: sessionState.saveCurrentSession,
-    setError: sessionState.setError
+    setError: sessionState.setError,
+    onRequestError: () => {
+      notify.error('论文对话请求失败', '模型请求失败，请稍后重试或换一个模型。', {
+        source: 'chat'
+      })
+    }
   })
 
   const currentPlanState = sessionState.sessionId
@@ -196,8 +201,14 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
         </div>
       </header>
 
+      {sessionState.error && (
+        <div className={styles['paper-chat-panel__status-bar']} role="status">
+          {sessionState.error}
+        </div>
+      )}
+
       {sessionState.loading ? (
-        <div className={styles['paper-chat-panel__loading']}>正在加载论文对话...</div>
+        <div className={styles['paper-chat-panel__loading-state']}>正在加载论文对话...</div>
       ) : (
         <PaperChatMessageList
           ref={messageListRef}
@@ -207,10 +218,6 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
           onQuoteClick={scrollToQuote || undefined}
           onScrollButtonChange={setShowScrollButton}
         />
-      )}
-
-      {sessionState.error && (
-        <div className={styles['paper-chat-panel__loading']}>{sessionState.error}</div>
       )}
 
       <div
@@ -253,11 +260,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
             <SvgIcon name="arrow-down" size={16} />
           </button>
         )}
-        <PaperChatPlanDock
-          planState={currentPlanState}
-          sending={streamState.isSending}
-          enableLabTools={sessionState.enableLabTools}
-        />
+        <PaperChatPlanDock planState={currentPlanState} />
         <PaperChatInput
           sessionId={sessionState.sessionId || 'temp'}
           inputMessage={sessionState.inputMessage}

@@ -59,6 +59,7 @@ export interface PaperChatStreamState {
 const paperChatMessageCache = usePaperChatMessageCacheStore
 const reactIteration = useReactIterationManager()
 const planManager = usePlanStateManager()
+const REQUEST_FAILED_MESSAGE = '请求失败，请稍后重试或换一个模型。'
 
 export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get) => ({
   isSending: false,
@@ -135,7 +136,8 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
 
   hideUserInteraction: () => set({ showUserInteraction: false, userInteractionInfo: null }),
 
-  hideCapabilitySuggestion: () => set({ showCapabilitySuggestion: false, capabilitySuggestion: null }),
+  hideCapabilitySuggestion: () =>
+    set({ showCapabilitySuggestion: false, capabilitySuggestion: null }),
 
   beginPlanning: planManager.beginPlanning,
   failPlanState: planManager.failPlanState,
@@ -537,7 +539,7 @@ function handleStreamError(
   if (streamingMessage) {
     streamingMessage.isStreaming = false
     if (!streamingMessage.content.trim() && event.error) {
-      streamingMessage.content = `请求失败：${event.error}`
+      streamingMessage.content = REQUEST_FAILED_MESSAGE
     }
     reactIteration.finalizeIterations(streamingMessage, sessionId)
   } else {

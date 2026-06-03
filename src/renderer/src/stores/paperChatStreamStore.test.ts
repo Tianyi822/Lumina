@@ -212,6 +212,27 @@ test('非 Plan ReAct 正文只进入最终气泡，不进入步骤内容', () =>
   assert.equal(messages[0].reactIterations?.[0]?.content, undefined)
 })
 
+test('流式错误只写入简短失败气泡', () => {
+  const store = usePaperChatStreamStore.getState()
+  const messages = createStreamingMessages()
+  const rawError = "400 An assistant message with 'tool_calls' must be followed by tool messages"
+
+  dispatch(
+    store,
+    {
+      type: 'error',
+      error: rawError,
+      finalStatus: 'failed'
+    },
+    messages
+  )
+
+  assert.equal(messages[0].isStreaming, false)
+  assert.equal(messages[0].content, '请求失败，请稍后重试或换一个模型。')
+  assert.equal(messages[0].content.includes(rawError), false)
+  assert.equal(usePaperChatStreamStore.getState().showUserInteraction, false)
+})
+
 // ===== capability_suggestion 事件处理 =====
 
 test('capability_suggestion 事件设置能力建议状态', () => {
@@ -261,14 +282,18 @@ test('hideCapabilitySuggestion 清除能力建议状态', () => {
   const store = usePaperChatStreamStore.getState()
   const messages = createStreamingMessages()
 
-  dispatch(store, {
-    type: 'capability_suggestion',
-    sessionId,
-    turnId,
-    capabilitySuggestion: {
-      capabilities: [{ id: 'lab', displayName: '实验室工具', description: '代码执行' }]
-    }
-  }, messages)
+  dispatch(
+    store,
+    {
+      type: 'capability_suggestion',
+      sessionId,
+      turnId,
+      capabilitySuggestion: {
+        capabilities: [{ id: 'lab', displayName: '实验室工具', description: '代码执行' }]
+      }
+    },
+    messages
+  )
 
   store.hideCapabilitySuggestion()
   const state = usePaperChatStreamStore.getState()
