@@ -5,6 +5,7 @@ import { KnowledgeCapability } from './KnowledgeCapability'
 import { LabCapability } from './LabCapability'
 import { PaperWebCapability } from './PaperWebCapability'
 import { McpCapability } from './McpCapability'
+import type { CapabilityUnit } from './CapabilityUnit'
 
 describe('PaperCapability', () => {
   const cap = new PaperCapability()
@@ -27,7 +28,7 @@ describe('PaperCapability', () => {
   })
 
   it('describeTools 返回 paper 搜索工具', () => {
-    const tools = cap.describeTools({})
+    const tools = cap.describeTools()
     assert.ok(tools.length > 0)
     assert.ok(tools.some((t) => t.name.includes('paper')))
   })
@@ -86,13 +87,14 @@ describe('LabCapability', () => {
   })
 
   it('createAdapter 始终返回非 null（无上下文依赖）', () => {
-    assert.notEqual(cap.createAdapter({}), null)
-    assert.notEqual(cap.createAdapter(null), null)
-    assert.notEqual(cap.createAdapter(undefined), null)
+    const unit: CapabilityUnit = cap
+    assert.notEqual(unit.createAdapter({}), null)
+    assert.notEqual(unit.createAdapter(null), null)
+    assert.notEqual(unit.createAdapter(undefined), null)
   })
 
   it('describeTools 返回 lab 工具', () => {
-    const tools = cap.describeTools({})
+    const tools = cap.describeTools()
     assert.ok(tools.length > 0)
     assert.ok(tools.some((t) => t.name.includes('lab')))
   })
@@ -116,7 +118,7 @@ describe('PaperWebCapability', () => {
   })
 
   it('describeTools 返回学术搜索工具', () => {
-    const tools = cap.describeTools({})
+    const tools = cap.describeTools()
     assert.equal(tools.length, 1)
     assert.equal(tools[0].name, 'paper_web__search')
   })

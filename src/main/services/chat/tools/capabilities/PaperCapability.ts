@@ -22,7 +22,7 @@ export class PaperCapability implements CapabilityUnit {
     return adapter
   }
 
-  describeTools(_context: unknown): ToolDescriptor[] {
+  describeTools(): ToolDescriptor[] {
     return [
       {
         name: 'paper__search_context',

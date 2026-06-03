@@ -8,11 +8,11 @@ export class LabCapability implements CapabilityUnit {
   description = '代码执行、容器操作、实验复现'
   tags = ['代码执行', '容器', '实验复现', 'SSH']
 
-  createAdapter(_context: unknown): ToolAdapter | null {
+  createAdapter(): ToolAdapter | null {
     return new LabToolAdapter()
   }
 
-  describeTools(_context: unknown): ToolDescriptor[] {
+  describeTools(): ToolDescriptor[] {
     return [
       {
         name: 'lab__exec_command',
