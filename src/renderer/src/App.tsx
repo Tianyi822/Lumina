@@ -10,6 +10,7 @@ import WindowControls from '@renderer/components/chrome/WindowControls'
 import WorkspaceSidebarHost from '@renderer/components/chrome/WorkspaceSidebarHost'
 import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar'
 import { CssSwitchTransition } from '@renderer/components/motion/CssTransition'
+import LabTerminalSessionHost from '@renderer/components/lab/LabTerminalSessionHost'
 
 const PaperReaderPage = lazy(() => import('@renderer/pages/PaperReaderPage'))
 const KnowledgePage = lazy(() => import('@renderer/pages/KnowledgePage'))
@@ -106,6 +107,7 @@ export default function App() {
 
   return (
     <div className="sm-app">
+      <LabTerminalSessionHost />
       <NotificationCenter />
 
       <div className={`sm-shell sm-workspace-page ${workspacePageClasses}`}>
