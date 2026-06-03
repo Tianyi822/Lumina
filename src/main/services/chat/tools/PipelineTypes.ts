@@ -100,6 +100,27 @@ export interface SessionToolConfig {
   toolRules: ToolRegistrationRule[]
 }
 
+// ========== 能力组合 ==========
+
+export type CompositionMode = 'required' | 'conditional' | 'on_demand'
+
+export interface AutoTriggerDef {
+  toolName: string
+  queryTransform: (query: string, ctx: PipelineContext) => Record<string, unknown>
+}
+
+export interface CompositionStage {
+  capabilityId: string
+  mode: CompositionMode
+  condition?: (ctx: PipelineContext) => boolean
+  autoTrigger?: AutoTriggerDef
+}
+
+export interface CapabilityComposition {
+  stages: CompositionStage[]
+  mergeStrategy?: ResultMergeStrategy
+}
+
 // ========== 语义绑定 ==========
 
 export interface PaperSemanticContext {
