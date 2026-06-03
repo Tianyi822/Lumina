@@ -26,6 +26,7 @@ export default function SshServerMonitorPanel({
   active
 }: SshServerMonitorPanelProps) {
   const disposeChartsRef = useRef<(() => void) | null>(null)
+  const chartRefCallbacksRef = useRef(new Map<string, (element: HTMLDivElement | null) => void>())
 
   const polling = useSshStatsPolling({
     labId,
@@ -136,14 +137,23 @@ export default function SshServerMonitorPanel({
     ]
   }, [polling.visibleSamples, polling.stats])
 
-  const echartsManager = useEchartsManager(metricCharts)
-  disposeChartsRef.current = echartsManager.disposeCharts
+  const { setChartElement, disposeCharts } = useEchartsManager(metricCharts)
+  disposeChartsRef.current = disposeCharts
 
   const chartRefCallback = useCallback(
-    (key: string) => (element: HTMLDivElement | null) => {
-      echartsManager.setChartElement(key, element)
+    (key: string) => {
+      const cachedCallback = chartRefCallbacksRef.current.get(key)
+      if (cachedCallback) {
+        return cachedCallback
+      }
+
+      const nextCallback = (element: HTMLDivElement | null) => {
+        setChartElement(key, element)
+      }
+      chartRefCallbacksRef.current.set(key, nextCallback)
+      return nextCallback
     },
-    [echartsManager]
+    [setChartElement]
   )
 
   return (

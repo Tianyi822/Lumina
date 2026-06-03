@@ -31,7 +31,9 @@ export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManage
     const valueData = chart.points.map((point) => point.value)
 
     return {
-      animation: chart.points.length <= 80,
+      animation: false,
+      animationDuration: 0,
+      animationDurationUpdate: 0,
       grid: {
         left: 8,
         right: 8,
@@ -123,7 +125,10 @@ export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManage
       const instance =
         chartInstances.get(chart.key) ?? echarts.init(element, undefined, { renderer: 'canvas' })
       chartInstances.set(chart.key, instance)
-      instance.setOption(buildChartOption(chart), true)
+      instance.setOption(buildChartOption(chart), {
+        notMerge: false,
+        lazyUpdate: true
+      })
     }
   }, [buildChartOption])
 
@@ -185,7 +190,6 @@ export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManage
       instance.dispose()
     }
     chartInstancesRef.current.clear()
-    chartElementsRef.current.clear()
   }, [])
 
   // Setup ResizeObserver and render on mount
