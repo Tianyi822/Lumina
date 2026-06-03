@@ -11,6 +11,8 @@ import type { Logger } from '@main/services/logger'
 import type { MCPService } from '@main/services/mcp'
 import type { MCPToolCallResult } from '@shared/types/mcp'
 import { capabilityManager } from './tools/CapabilityManager.ts'
+import { paperContextSearchToolService } from '../paper/PaperContextSearchToolService.ts'
+import { knowledgeToolService } from '../knowledge/KnowledgeToolService.ts'
 
 type StreamChunk = OpenAI.Chat.Completions.ChatCompletionChunk
 type StreamingParams = OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming
@@ -36,6 +38,10 @@ async function* createStream(chunks: StreamChunk[]): AsyncIterable<StreamChunk> 
 }
 
 function createToolCallStream(index: number): AsyncIterable<StreamChunk> {
+  return createNamedToolCallStream(index, 'mock__lookup')
+}
+
+function createNamedToolCallStream(index: number, name: string): AsyncIterable<StreamChunk> {
   return createStream([
     {
       id: `chunk-tool-${index}`,
@@ -52,7 +58,7 @@ function createToolCallStream(index: number): AsyncIterable<StreamChunk> {
                 id: `call-${index}`,
                 type: 'function',
                 function: {
-                  name: 'mock__lookup',
+                  name,
                   arguments: '{}'
                 }
               }
@@ -390,11 +396,7 @@ test('default 会话通过 capabilityManager 初始化能力状态', async () =>
   const capState = capabilityManager.getCapabilities('react-loop-default-cap')
   assert.ok(capState, 'capabilityManager 应有该会话的能力状态')
   assert.equal(capState!.presetId, 'chat.default', 'default 会话应使用 chat.default preset')
-  assert.deepEqual(
-    capState!.activeCapabilities,
-    [],
-    'default 会话应无默认激活能力'
-  )
+  assert.deepEqual(capState!.activeCapabilities, [], 'default 会话应无默认激活能力')
 })
 
 test('enableLabTools 动态添加 lab 能力', async () => {
@@ -526,8 +528,81 @@ test('模型调用 capability__suggest 时发送 capability_suggestion 流事件
   const suggestEvent = harness.events.find((e) => e.type === 'capability_suggestion')
   assert.ok(suggestEvent, '应发送 capability_suggestion 流事件')
   assert.equal(suggestEvent!.capabilitySuggestion?.capabilities?.[0]?.id, 'lab')
-  assert.match(
-    suggestEvent!.capabilitySuggestion?.capabilities?.[0]?.reason ?? '',
-    /需要代码执行/
-  )
+  assert.match(suggestEvent!.capabilitySuggestion?.capabilities?.[0]?.reason ?? '', /需要代码执行/)
+})
+
+test('自动触发 knowledge 搜索时下一轮请求保持 assistant/tool 配对', async () => {
+  capabilityManager.clearSession('react-loop-auto-knowledge')
+
+  const originalPaperSearch = paperContextSearchToolService.search
+  const originalKnowledgeGetTools = knowledgeToolService.getTools
+  const originalKnowledgeCallTool = knowledgeToolService.callTool
+
+  paperContextSearchToolService.search = async () => ({
+    success: true,
+    content: '短结果'
+  })
+  knowledgeToolService.getTools = async () => [
+    {
+      serverName: 'knowledge',
+      name: 'knowledge__search',
+      description: '搜索知识库',
+      inputSchema: { type: 'object', properties: {}, required: [] }
+    }
+  ]
+  knowledgeToolService.callTool = async () => ({
+    success: true,
+    content: '[来源: doc1]\n知识库补充内容'
+  })
+
+  try {
+    const harness = createHarness({
+      streams: [
+        createNamedToolCallStream(0, 'paper__search_context'),
+        createContentStream('综合回答')
+      ]
+    })
+
+    const request: ChatRequest = {
+      ...harness.request,
+      sessionId: 'react-loop-auto-knowledge',
+      sessionType: 'paper',
+      paperId: 'paper-001',
+      selectedTools: undefined
+    }
+
+    const result = await harness.service.sendMessageWithReact(
+      request,
+      createWebContents(harness.events),
+      undefined,
+      [{ id: 'kb-001', name: '测试知识库', description: '', documentCount: 1 }]
+    )
+
+    assert.equal(result.success, true)
+    assert.equal(result.finalContent, '综合回答')
+    assert.equal(harness.createParams.length, 2)
+
+    const secondMessages = harness.createParams[1].messages
+    const assistantMessage = secondMessages.find((message) => message.role === 'assistant') as
+      | OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam
+      | undefined
+    assert.ok(assistantMessage?.tool_calls)
+
+    const toolCallIds = assistantMessage.tool_calls.map((toolCall) => toolCall.id)
+    const toolMessages = secondMessages.filter((message) => message.role === 'tool') as Array<{
+      role: 'tool'
+      tool_call_id: string
+    }>
+
+    assert.deepEqual(
+      toolCallIds,
+      toolMessages.map((message) => message.tool_call_id)
+    )
+    assert.ok(toolCallIds.includes('call-0'))
+    assert.ok(toolCallIds.some((id) => id.startsWith('auto_knowledge_')))
+  } finally {
+    paperContextSearchToolService.search = originalPaperSearch
+    knowledgeToolService.getTools = originalKnowledgeGetTools
+    knowledgeToolService.callTool = originalKnowledgeCallTool
+  }
 })

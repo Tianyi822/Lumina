@@ -12,18 +12,11 @@ import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
 import { formatMessagesWithKnowledge } from './message'
 import { ModelRetryHandler } from './ModelRetryHandler'
-import {
-  MCPToolAdapter,
-  UnifiedToolExecutor,
-  UnifiedToolRegistry
-} from './tools'
+import { MCPToolAdapter, UnifiedToolExecutor, UnifiedToolRegistry } from './tools'
 import { ToolOrchestrator } from './tools/ToolOrchestrator'
 import { ToolResultEnricher } from './tools/ToolResultEnricher'
 import { ToolResultMerger } from './tools/ToolResultMerger'
-import type {
-  PipelineContext,
-  ToolPipeline
-} from './tools/PipelineTypes'
+import type { PipelineContext, ToolPipeline } from './tools/PipelineTypes'
 import type { ReactLoopServiceOptions } from './chatInternal'
 import { StreamProcessor } from './StreamProcessor'
 import { CapabilityComposer } from './tools/orchestration/CapabilityComposer'
@@ -330,10 +323,18 @@ export class ReactLoopService {
     if (request.enableLabTools && !capState.activeCapabilities.includes('lab')) {
       capabilityManager.addCapability(sid, 'lab')
     }
-    if (request.enablePaperWebSearch && request.paperId && !capState.activeCapabilities.includes('paper_web')) {
+    if (
+      request.enablePaperWebSearch &&
+      request.paperId &&
+      !capState.activeCapabilities.includes('paper_web')
+    ) {
       capabilityManager.addCapability(sid, 'paper_web')
     }
-    if (request.selectedTools && request.selectedTools.length > 0 && !capState.activeCapabilities.includes('mcp')) {
+    if (
+      request.selectedTools &&
+      request.selectedTools.length > 0 &&
+      !capState.activeCapabilities.includes('mcp')
+    ) {
       capabilityManager.addCapability(sid, 'mcp')
     }
 
@@ -571,32 +572,16 @@ export class ReactLoopService {
       }
     }
 
-    const assistantMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam & {
-      reasoning_content?: string
-    } = {
-      role: 'assistant',
-      content: state.assistantContent || null,
-      tool_calls: toolCallsArray
-    }
-
-    if (state.assistantReasoningContent) {
-      assistantMessage.reasoning_content = state.assistantReasoningContent
-    }
-
-    conversationMessages.push(
-      assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
-    )
-
     const pipelineContext: PipelineContext = {
       sessionId,
       request: this.currentRequest ?? ({} as ChatRequest),
-      modelToolCalls: toolCallsArray,
+      modelToolCalls: nonSuggestToolCalls,
       stageResults: new Map(),
       originalQuery: this.currentOriginalQuery ?? ''
     }
 
     const orchestrationResult = await this.toolOrchestrator.orchestrate(
-      toolCallsArray,
+      nonSuggestToolCalls,
       this.currentPipeline ?? { stages: [] },
       pipelineContext,
       webContents,
@@ -604,8 +589,29 @@ export class ReactLoopService {
       turnId
     )
 
+    const executedToolCalls = orchestrationResult.executedToolCalls
+    if (executedToolCalls.length > 0) {
+      const assistantMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam & {
+        reasoning_content?: string
+      } = {
+        role: 'assistant',
+        content: state.assistantContent || null,
+        tool_calls: executedToolCalls
+      }
+
+      if (state.assistantReasoningContent) {
+        assistantMessage.reasoning_content = state.assistantReasoningContent
+      }
+
+      conversationMessages.push(
+        assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
+      )
+    }
+
     // 将工具结果追加到对话历史（编排器不直接修改 messages）
+    const executedToolCallIds = new Set(executedToolCalls.map((toolCall) => toolCall.id))
     for (const result of orchestrationResult.results) {
+      if (!executedToolCallIds.has(result.toolCallId)) continue
       conversationMessages.push({
         role: 'tool' as const,
         tool_call_id: result.toolCallId,
@@ -626,7 +632,7 @@ export class ReactLoopService {
         shouldBreak: true,
         toolErrors: toolExecution.errors,
         toolResults: toolExecution.results,
-        toolCallCount: toolCallsArray.length
+        toolCallCount: executedToolCalls.length
       }
     }
 
@@ -634,7 +640,7 @@ export class ReactLoopService {
       shouldBreak: false,
       toolErrors: toolExecution.errors,
       toolResults: toolExecution.results,
-      toolCallCount: toolCallsArray.length
+      toolCallCount: executedToolCalls.length
     }
   }
 
