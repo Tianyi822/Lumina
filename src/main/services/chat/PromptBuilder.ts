@@ -3,7 +3,12 @@ import type { MCPToolReference } from '@main/types/chat'
 import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt, buildToolCoordinationGuide } from './prompts/reactSystemPrompt'
 import { buildPlanSystemPrompt, buildStepExecutionPrompt } from './prompts/planSystemPrompt'
 import type { ToolPipeline } from './tools/PipelineTypes'
-import type { CapabilityUnit } from './tools/capabilities/CapabilityUnit'
+
+export interface SuggestableCapability {
+  id: string
+  displayName: string
+  description: string
+}
 
 /**
  * PromptBuilder 只负责选择内置系统提示词。
@@ -11,10 +16,16 @@ import type { CapabilityUnit } from './tools/capabilities/CapabilityUnit'
  */
 export class PromptBuilder {
   private currentPipeline?: ToolPipeline
+  private suggestableCapabilities: SuggestableCapability[] = []
 
   /** 设置当前管道配置（由 ReactLoopService 在每次请求时调用） */
   setPipeline(pipeline: ToolPipeline | undefined): void {
     this.currentPipeline = pipeline
+  }
+
+  /** 设置可建议但未激活的能力列表（由 ReactLoopService 在每次请求时调用） */
+  setSuggestableCapabilities(caps: SuggestableCapability[]): void {
+    this.suggestableCapabilities = caps
   }
   async buildSystemPrompt(
     modelConfig: LLMConfig,
@@ -51,6 +62,10 @@ export class PromptBuilder {
       prompt += '\n\n' + buildToolCoordinationGuide(this.currentPipeline.stages)
     }
 
+    if (this.suggestableCapabilities.length > 0) {
+      prompt += '\n\n' + this.buildCapabilitySuggestionPrompt(this.suggestableCapabilities)
+    }
+
     return prompt
   }
 
@@ -85,7 +100,7 @@ export class PromptBuilder {
    * 构建能力建议提示词
    * 当存在可建议但未激活的能力时，生成提示引导模型向用户推荐
    */
-  buildCapabilitySuggestionPrompt(suggestable: CapabilityUnit[]): string {
+  buildCapabilitySuggestionPrompt(suggestable: SuggestableCapability[]): string {
     if (suggestable.length === 0) return ''
 
     const lines = [

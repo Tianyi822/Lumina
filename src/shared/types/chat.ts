@@ -373,6 +373,7 @@ export interface StreamEvent {
       id: string
       displayName: string
       description: string
+      reason?: string
     }>
   }
 }

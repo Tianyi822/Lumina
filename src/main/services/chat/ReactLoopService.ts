@@ -82,6 +82,8 @@ export class ReactLoopService {
   private currentPipeline?: ToolPipeline
   private currentOriginalQuery?: string
   private currentRequest?: ChatRequest
+  private capabilitySuggestTool?: OpenAI.Chat.Completions.ChatCompletionTool
+  private suggestableCapabilityMap?: Map<string, { displayName: string; description: string }>
 
   constructor(options: ReactLoopServiceOptions) {
     this.logger = options.logger
@@ -193,6 +195,9 @@ export class ReactLoopService {
       this.currentOriginalQuery = extractOriginalQuery(request.messages)
 
       const tools = this.toolRegistry.buildOpenAITools()
+      if (this.capabilitySuggestTool) {
+        tools.push(this.capabilitySuggestTool)
+      }
 
       const allToolRefs = this.toolRegistry.getAllToolReferences()
       const systemPrompt = await promptBuilder.buildSystemPrompt(llmConfig, true, allToolRefs)
@@ -354,6 +359,42 @@ export class ReactLoopService {
 
     this.toolRegistry.clear()
 
+    const suggestable = this.capabilityComposer.getSuggestableCapabilities(
+      capState.activeCapabilities,
+      composerContext
+    )
+    promptBuilder.setSuggestableCapabilities(
+      suggestable.map((u) => ({
+        id: u.id,
+        displayName: u.displayName,
+        description: u.description
+      }))
+    )
+
+    this.suggestableCapabilityMap = new Map(
+      suggestable.map((u) => [u.id, { displayName: u.displayName, description: u.description }])
+    )
+
+    if (suggestable.length > 0) {
+      this.capabilitySuggestTool = {
+        type: 'function' as const,
+        function: {
+          name: 'capability__suggest',
+          description: '建议用户激活一个当前未启用的能力',
+          parameters: {
+            type: 'object',
+            properties: {
+              capabilityId: { type: 'string', description: '建议的能力 ID' },
+              reason: { type: 'string', description: '为什么建议开启（展示给用户）' }
+            },
+            required: ['capabilityId', 'reason']
+          }
+        }
+      }
+    } else {
+      this.capabilitySuggestTool = undefined
+    }
+
     if (!composed) {
       this.currentPipeline = { stages: [] }
       this.currentRequest = request
@@ -487,6 +528,49 @@ export class ReactLoopService {
     })
 
     const toolCallsArray = Array.from(state.toolCalls.values())
+
+    const nonSuggestToolCalls = toolCallsArray.filter(
+      (tc) => tc.function.name !== 'capability__suggest'
+    )
+    const hasSuggestCall = nonSuggestToolCalls.length < toolCallsArray.length
+
+    if (hasSuggestCall) {
+      const suggestCall = toolCallsArray.find((tc) => tc.function.name === 'capability__suggest')!
+      try {
+        const args = JSON.parse(suggestCall.function.arguments) as {
+          capabilityId: string
+          reason: string
+        }
+        const capMeta = this.suggestableCapabilityMap?.get(args.capabilityId)
+        this.logger.info('模型建议开启能力', 'main', {
+          sessionId,
+          capabilityId: args.capabilityId,
+          reason: args.reason
+        })
+        this.streamHandler.sendStreamEvent(webContents, {
+          type: 'capability_suggestion',
+          sessionId,
+          turnId,
+          capabilitySuggestion: {
+            capabilities: [
+              {
+                id: args.capabilityId,
+                displayName: capMeta?.displayName ?? args.capabilityId,
+                description: capMeta?.description ?? '',
+                reason: args.reason
+              }
+            ]
+          }
+        })
+      } catch {
+        // 解析失败，忽略
+      }
+
+      if (nonSuggestToolCalls.length === 0) {
+        return { shouldBreak: true, toolErrors: [], toolResults: [], toolCallCount: 0 }
+      }
+    }
+
     const assistantMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam & {
       reasoning_content?: string
     } = {

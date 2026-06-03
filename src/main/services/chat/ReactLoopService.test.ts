@@ -423,3 +423,111 @@ test('enableLabTools 动态添加 lab 能力', async () => {
     'enableLabTools=true 时 default 会话应仅激活 lab'
   )
 })
+
+// ===== capability__suggest 虚拟工具注册 =====
+
+test('存在可建议能力时工具列表中包含 capability__suggest', async () => {
+  capabilityManager.clearSession('react-loop-suggest-tool')
+
+  const harness = createHarness({
+    streams: [createContentStream('普通回答')]
+  })
+
+  const request: ChatRequest = {
+    ...harness.request,
+    sessionId: 'react-loop-suggest-tool',
+    sessionType: 'default',
+    paperId: 'paper-001',
+    selectedTools: undefined
+  }
+
+  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+
+  const tools = harness.createParams[0]?.tools as Array<{ function: { name: string } }> | undefined
+  assert.ok(tools, '应传入 tools')
+  const hasSuggestTool = tools!.some((t) => t.function.name === 'capability__suggest')
+  assert.equal(hasSuggestTool, true, '应包含 capability__suggest 虚拟工具')
+})
+
+test('全部能力已激活时不应包含 capability__suggest 工具', async () => {
+  capabilityManager.clearSession('react-loop-no-suggest')
+
+  const harness = createHarness({
+    streams: [createContentStream('普通回答')]
+  })
+
+  const request: ChatRequest = {
+    ...harness.request,
+    sessionId: 'react-loop-no-suggest',
+    sessionType: 'paper',
+    paperId: 'paper-001',
+    enableLabTools: true,
+    selectedTools: undefined
+  }
+
+  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+
+  const tools = harness.createParams[0]?.tools as Array<{ function: { name: string } }> | undefined
+  const hasSuggestTool = tools?.some((t) => t.function.name === 'capability__suggest') ?? false
+  assert.equal(hasSuggestTool, false, '不应包含 capability__suggest 虚拟工具')
+})
+
+// ===== capability__suggest 调用时发送 capability_suggestion 事件 =====
+
+function createSuggestToolCallStream(): AsyncIterable<StreamChunk> {
+  return createStream([
+    {
+      id: 'chunk-suggest',
+      object: 'chat.completion.chunk',
+      created: 1,
+      model: 'model',
+      choices: [
+        {
+          index: 0,
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                id: 'call-suggest',
+                type: 'function',
+                function: {
+                  name: 'capability__suggest',
+                  arguments: JSON.stringify({
+                    capabilityId: 'lab',
+                    reason: '需要代码执行来分析结果'
+                  })
+                }
+              }
+            ]
+          }
+        }
+      ]
+    } as StreamChunk
+  ])
+}
+
+test('模型调用 capability__suggest 时发送 capability_suggestion 流事件', async () => {
+  capabilityManager.clearSession('react-loop-suggest-event')
+
+  const harness = createHarness({
+    streams: [createSuggestToolCallStream()]
+  })
+
+  const request: ChatRequest = {
+    ...harness.request,
+    sessionId: 'react-loop-suggest-event',
+    sessionType: 'paper',
+    paperId: 'paper-001',
+    selectedTools: undefined
+  }
+
+  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+
+  const suggestEvent = harness.events.find((e) => e.type === 'capability_suggestion')
+  assert.ok(suggestEvent, '应发送 capability_suggestion 流事件')
+  assert.equal(suggestEvent!.capabilitySuggestion?.capabilities?.[0]?.id, 'lab')
+  assert.match(
+    suggestEvent!.capabilitySuggestion?.capabilities?.[0]?.reason ?? '',
+    /需要代码执行/
+  )
+})

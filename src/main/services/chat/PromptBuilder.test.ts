@@ -179,3 +179,55 @@ test('buildCapabilitySuggestionPrompt 多个能力都包含在提示词中', () 
   assert.match(prompt, /实验室工具/)
   assert.match(prompt, /lab/)
 })
+
+// ===== setSuggestableCapabilities + buildSystemPrompt 集成 =====
+
+test('setSuggestableCapabilities 空列表不应在系统提示词中注入建议引导', async () => {
+  const builder = new PromptBuilder()
+
+  builder.setSuggestableCapabilities([])
+
+  const prompt = await builder.buildSystemPrompt(
+    { base_url: 'http://localhost', api_key: 'key', model_name: 'test-model' },
+    true,
+    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }]
+  )
+
+  assert.doesNotMatch(prompt, /可建议的能力/)
+  assert.doesNotMatch(prompt, /capability__suggest/)
+})
+
+test('setSuggestableCapabilities 非空列表应在系统提示词中注入能力建议引导', async () => {
+  const builder = new PromptBuilder()
+
+  builder.setSuggestableCapabilities([
+    { id: 'lab', displayName: '实验室工具', description: '执行代码' }
+  ])
+
+  const prompt = await builder.buildSystemPrompt(
+    { base_url: 'http://localhost', api_key: 'key', model_name: 'test-model' },
+    true,
+    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }]
+  )
+
+  assert.match(prompt, /可建议的能力/)
+  assert.match(prompt, /实验室工具/)
+  assert.match(prompt, /执行代码/)
+})
+
+test('setSuggestableCapabilities 随后设空后不注入建议引导', async () => {
+  const builder = new PromptBuilder()
+
+  builder.setSuggestableCapabilities([
+    { id: 'lab', displayName: '实验室工具', description: '执行代码' }
+  ])
+  builder.setSuggestableCapabilities([])
+
+  const prompt = await builder.buildSystemPrompt(
+    { base_url: 'http://localhost', api_key: 'key', model_name: 'test-model' },
+    true,
+    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }]
+  )
+
+  assert.doesNotMatch(prompt, /可建议的能力/)
+})
