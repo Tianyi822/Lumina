@@ -2,7 +2,7 @@ import type { ToolCategory } from './UnifiedToolRegistry'
 export type { ToolCategory }
 import type { ToolAdapter } from './UnifiedToolRegistry'
 import type { MCPToolReference } from '../../../types/chat'
-import type { ToolExecutionResult } from './UnifiedToolExecutor'
+import type { ToolCallDefinition, ToolExecutionResult } from './UnifiedToolExecutor'
 import type { ChatRequest } from '../../../types/chat'
 
 // ========== 管道阶段 ==========
@@ -59,6 +59,7 @@ export interface EnrichedToolResult extends ToolExecutionResult {
 
 export interface OrchestrationResult {
   results: ToolExecutionResult[]
+  executedToolCalls: ToolCallDefinition[]
   mergedContent: string | null
   needUserInteraction: boolean
   metadata: {
