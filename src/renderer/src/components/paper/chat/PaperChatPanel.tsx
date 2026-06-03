@@ -43,6 +43,9 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
   const showUserInteraction = usePaperChatStreamStore((s) => s.showUserInteraction)
   const userInteractionInfo = usePaperChatStreamStore((s) => s.userInteractionInfo)
   const hideUserInteraction = usePaperChatStreamStore((s) => s.hideUserInteraction)
+  const showCapabilitySuggestion = usePaperChatStreamStore((s) => s.showCapabilitySuggestion)
+  const capabilitySuggestion = usePaperChatStreamStore((s) => s.capabilitySuggestion)
+  const hideCapabilitySuggestion = usePaperChatStreamStore((s) => s.hideCapabilitySuggestion)
 
   const sessionState = usePaperChatSessionReact(paper)
   const streamState = usePaperChatStreamReact({
@@ -269,6 +272,8 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
           quickReply={quickReply}
           userInteraction={userInteractionInfo}
           showUserInteraction={showUserInteraction}
+          showCapabilitySuggestion={showCapabilitySuggestion}
+          capabilitySuggestion={capabilitySuggestion}
           onUpdateInput={sessionState.updateInputMessage}
           onUpdateSelectedModel={sessionState.updateSelectedModel}
           onUpdateSelectedTools={sessionState.updateSelectedTools}
@@ -281,6 +286,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
             setDismissedQuickReplyIds((current) => new Set(current).add(messageId))
           }}
           onHideUserInteraction={hideUserInteraction}
+          onHideCapabilitySuggestion={hideCapabilitySuggestion}
           onSend={streamState.sendMessage}
           onStop={streamState.stopRequest}
         />

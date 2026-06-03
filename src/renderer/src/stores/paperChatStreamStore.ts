@@ -5,6 +5,15 @@ import { useReactIterationManager } from './paperChatReactIteration'
 import { usePlanStateManager } from './paperChatPlanState'
 import type { Message, StreamEvent, UserInteractionRequest } from '@renderer/types'
 
+export interface CapabilitySuggestionData {
+  capabilities: Array<{
+    id: string
+    displayName: string
+    description: string
+    reason?: string
+  }>
+}
+
 export type { PlanStepIteration, PaperChatPlanState } from './paperChatPlanState'
 
 export interface PaperChatStreamState {
@@ -15,6 +24,8 @@ export interface PaperChatStreamState {
   cleanupStreamListenerFn: (() => void) | null
   showUserInteraction: boolean
   userInteractionInfo: UserInteractionRequest | null
+  showCapabilitySuggestion: boolean
+  capabilitySuggestion: CapabilitySuggestionData | null
 
   streamingSessionCount: () => number
   activeSessionIds: () => string[]
@@ -26,6 +37,7 @@ export interface PaperChatStreamState {
   getMessagesSnapshot: (sessionId: string) => Message[] | null
   clearMessagesSnapshot: (sessionId: string) => void
   hideUserInteraction: () => void
+  hideCapabilitySuggestion: () => void
   beginPlanning: (sessionId: string, turnId: string) => void
   failPlanState: (sessionId: string, error: string) => void
   getSessionPlanState: (
@@ -56,6 +68,8 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
   cleanupStreamListenerFn: null,
   showUserInteraction: false,
   userInteractionInfo: null,
+  showCapabilitySuggestion: false,
+  capabilitySuggestion: null,
 
   streamingSessionCount: () => {
     let count = 0
@@ -91,6 +105,8 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
         if (isCurrentSession) {
           patch.showUserInteraction = false
           patch.userInteractionInfo = null
+          patch.showCapabilitySuggestion = false
+          patch.capabilitySuggestion = null
         }
       } else if (s.streamingSessionId === sessionId) {
         patch.streamingSessionId = null
@@ -118,6 +134,8 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
     }),
 
   hideUserInteraction: () => set({ showUserInteraction: false, userInteractionInfo: null }),
+
+  hideCapabilitySuggestion: () => set({ showCapabilitySuggestion: false, capabilitySuggestion: null }),
 
   beginPlanning: planManager.beginPlanning,
   failPlanState: planManager.failPlanState,
@@ -342,6 +360,12 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
         }
         break
 
+      case 'capability_suggestion':
+        if (event.capabilitySuggestion) {
+          set({ showCapabilitySuggestion: true, capabilitySuggestion: event.capabilitySuggestion })
+        }
+        break
+
       case 'done':
         handleStreamDone(event, targetSessionId, isCurrentSession, streamingMessage)
         break
@@ -533,6 +557,8 @@ function handleStreamError(
       patch.streamingSessionId = null
       patch.showUserInteraction = false
       patch.userInteractionInfo = null
+      patch.showCapabilitySuggestion = false
+      patch.capabilitySuggestion = null
       const snap = new Map(s.messagesSnapshots)
       snap.delete(sessionId)
       patch.messagesSnapshots = snap

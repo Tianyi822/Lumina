@@ -7,6 +7,7 @@ import type {
   UserInteractionRequest
 } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
+import type { CapabilitySuggestionData } from '@renderer/stores/paperChatStreamStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import {
   usePaperChatDocumentUploadStore,
@@ -61,6 +62,8 @@ interface PaperChatInputProps {
   quickReply?: PaperChatQuickReply | null
   userInteraction?: UserInteractionRequest | null
   showUserInteraction?: boolean
+  showCapabilitySuggestion?: boolean
+  capabilitySuggestion?: CapabilitySuggestionData | null
   onUpdateInput: (value: string) => void
   onUpdateSelectedModel: (value: string) => void
   onUpdateSelectedTools: (value: MCPTool[]) => void
@@ -70,6 +73,7 @@ interface PaperChatInputProps {
   onEnablePaperWebSearch?: () => Promise<boolean>
   onDismissQuickReply?: (messageId: string) => void
   onHideUserInteraction?: () => void
+  onHideCapabilitySuggestion?: () => void
   onSend: (
     content: string,
     attachedDocuments?: AttachedDocument[],
@@ -98,6 +102,8 @@ export default function PaperChatInput({
   quickReply,
   userInteraction,
   showUserInteraction,
+  showCapabilitySuggestion,
+  capabilitySuggestion,
   onUpdateInput,
   onUpdateSelectedModel,
   onUpdateSelectedTools,
@@ -107,6 +113,7 @@ export default function PaperChatInput({
   onEnablePaperWebSearch,
   onDismissQuickReply,
   onHideUserInteraction,
+  onHideCapabilitySuggestion,
   onSend,
   onStop
 }: PaperChatInputProps) {
@@ -185,6 +192,7 @@ export default function PaperChatInput({
     usePaperChatQuoteStore.getState().clearQuotes(sessionId)
     onDismissQuickReply?.(quickReply?.messageId || '')
     onHideUserInteraction?.()
+    onHideCapabilitySuggestion?.()
 
     await onSend(content, docs, images, quotes)
   }
@@ -228,6 +236,53 @@ export default function PaperChatInput({
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {showCapabilitySuggestion && capabilitySuggestion && !isSending && (
+        <div className={inputStyles['paper-chat-input__quick-reply']}>
+          <div className={inputStyles['paper-chat-input__quick-reply-header']}>
+            <span className={inputStyles['paper-chat-input__quick-reply-title']}>
+              建议开启能力
+            </span>
+            <button
+              className={inputStyles['paper-chat-input__quick-reply-custom-button']}
+              type="button"
+              onClick={() => {
+                if (capabilitySuggestion) {
+                  for (const cap of capabilitySuggestion.capabilities) {
+                    window.api.capability.respondSuggestion(sessionId, cap.id, false)
+                  }
+                }
+                onHideCapabilitySuggestion?.()
+              }}
+            >
+              忽略
+            </button>
+          </div>
+          <div className={toolbarStyles['paper-chat-input-toolbar']}>
+            {capabilitySuggestion.capabilities.map((cap) => (
+              <button
+                key={cap.id}
+                className="sm-button sm-button--primary"
+                type="button"
+                title={cap.description}
+                onClick={() => {
+                  window.api.capability.respondSuggestion(sessionId, cap.id, true)
+                  onHideCapabilitySuggestion?.()
+                }}
+              >
+                开启 {cap.displayName}
+              </button>
+            ))}
+          </div>
+          {capabilitySuggestion.capabilities.map((cap) =>
+            cap.reason ? (
+              <p key={cap.id} className={inputStyles['paper-chat-input__quick-reply-title']}>
+                {cap.reason}
+              </p>
+            ) : null
+          )}
         </div>
       )}
 

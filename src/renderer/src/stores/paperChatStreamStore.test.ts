@@ -211,3 +211,67 @@ test('非 Plan ReAct 正文只进入最终气泡，不进入步骤内容', () =>
   assert.equal(messages[0].content, '最终回答')
   assert.equal(messages[0].reactIterations?.[0]?.content, undefined)
 })
+
+// ===== capability_suggestion 事件处理 =====
+
+test('capability_suggestion 事件设置能力建议状态', () => {
+  const store = usePaperChatStreamStore.getState()
+  const messages = createStreamingMessages()
+
+  const suggestEvent: StreamEvent = {
+    type: 'capability_suggestion',
+    sessionId,
+    turnId,
+    capabilitySuggestion: {
+      capabilities: [
+        {
+          id: 'lab',
+          displayName: '实验室工具',
+          description: '代码执行和容器操作',
+          reason: '需要代码执行来分析实验结果'
+        }
+      ]
+    }
+  }
+
+  dispatch(store, suggestEvent, messages)
+
+  const state = usePaperChatStreamStore.getState()
+  assert.equal(state.showCapabilitySuggestion, true)
+  assert.ok(state.capabilitySuggestion)
+  assert.equal(state.capabilitySuggestion!.capabilities[0].id, 'lab')
+  assert.equal(state.capabilitySuggestion!.capabilities[0].reason, '需要代码执行来分析实验结果')
+})
+
+test('capability_suggestion 事件无 capabilitySuggestion 数据不改变状态', () => {
+  const store = usePaperChatStreamStore.getState()
+  const messages = createStreamingMessages()
+
+  // 先清除之前的状态
+  store.hideCapabilitySuggestion()
+
+  dispatch(store, { type: 'capability_suggestion', sessionId, turnId }, messages)
+
+  const state = usePaperChatStreamStore.getState()
+  assert.equal(state.showCapabilitySuggestion, false)
+  assert.equal(state.capabilitySuggestion, null)
+})
+
+test('hideCapabilitySuggestion 清除能力建议状态', () => {
+  const store = usePaperChatStreamStore.getState()
+  const messages = createStreamingMessages()
+
+  dispatch(store, {
+    type: 'capability_suggestion',
+    sessionId,
+    turnId,
+    capabilitySuggestion: {
+      capabilities: [{ id: 'lab', displayName: '实验室工具', description: '代码执行' }]
+    }
+  }, messages)
+
+  store.hideCapabilitySuggestion()
+  const state = usePaperChatStreamStore.getState()
+  assert.equal(state.showCapabilitySuggestion, false)
+  assert.equal(state.capabilitySuggestion, null)
+})
