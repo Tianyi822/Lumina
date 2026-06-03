@@ -16,6 +16,7 @@ import { PlanExecuteService } from './PlanExecuteService'
 import { StopController } from './StopController'
 import { StreamHandler } from './StreamHandler'
 import { ReactLoopService } from './ReactLoopService'
+import { shouldUsePlanExecute } from './chatRouting'
 
 /**
  * 聊天服务
@@ -77,8 +78,8 @@ export class ChatService {
       request.enablePaperWebSearch ||
       hasPaperContextTool
 
-    // 论文会话仅在启用实验室工具时进入规划执行，避免普通问答出现计划列表
-    const isPlanMode = request.sessionType === 'paper' && request.enableLabTools
+    // 只有显式开启规划模式时才进入 Plan-Execute；实验室开关仅注册工具能力
+    const isPlanMode = shouldUsePlanExecute(request)
     if (isPlanMode) {
       const result = await this.planExecuteService.sendMessageWithPlan(request, webContents)
       this.stopController.clearStoppedSession(sessionId)

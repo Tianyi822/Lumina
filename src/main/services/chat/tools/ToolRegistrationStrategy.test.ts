@@ -5,6 +5,16 @@ import type { ToolRegistrationRule } from './PipelineTypes'
 import type { ToolStatsSummary } from '@shared/types/tool-stats'
 import type { ToolCategory } from './UnifiedToolRegistry'
 
+type ToolStatsCollectorArg = ConstructorParameters<typeof ToolRegistrationStrategy>[0]
+type FakeStatsCollector = Pick<ToolStatsCollectorArg, 'getCategoryStats'>
+
+function createStrategy(stats: ToolStatsSummary[] = []): ToolRegistrationStrategy {
+  const collector: FakeStatsCollector = {
+    getCategoryStats: () => stats
+  }
+  return new ToolRegistrationStrategy(collector as unknown as ToolStatsCollectorArg)
+}
+
 function makeStats(
   serverName: string,
   totalCalls: number,
@@ -26,7 +36,7 @@ function makeStats(
 
 describe('ToolRegistrationStrategy', () => {
   describe('findConfig', () => {
-    const strategy = new ToolRegistrationStrategy({ getCategoryStats: () => [] } as any)
+    const strategy = createStrategy()
 
     it('paper 会话类型返回 paper 配置', () => {
       const config = strategy.findConfig('paper')
@@ -46,43 +56,31 @@ describe('ToolRegistrationStrategy', () => {
 
   describe('buildEffectivePriority', () => {
     it('无统计数据时返回基础优先级', () => {
-      const strategy = new ToolRegistrationStrategy({ getCategoryStats: () => [] } as any)
-      const priority = strategy.buildEffectivePriority(
-        { basePriority: 20 } as ToolRegistrationRule,
-        'session1'
-      )
+      const strategy = createStrategy()
+      const priority = strategy.buildEffectivePriority({ basePriority: 20 } as ToolRegistrationRule)
       assert.equal(priority, 20)
     })
 
     it('高频工具 → 优先级降低（惩罚机制）', () => {
-      const strategy = new ToolRegistrationStrategy({
-        getCategoryStats: () => [makeStats('knowledge', 100, 0.95)]
-      } as any)
+      const strategy = createStrategy([makeStats('knowledge', 100, 0.95)])
       const priority = strategy.buildEffectivePriority(
-        { basePriority: 20, category: 'knowledge' as ToolCategory } as ToolRegistrationRule,
-        'session1'
+        { basePriority: 20, category: 'knowledge' as ToolCategory } as ToolRegistrationRule
       )
       assert.ok(priority < 20, `高频工具优先级 ${priority} 应小于基础优先级 20`)
     })
 
     it('低频成功工具 → 优先级接近基础值', () => {
-      const strategy = new ToolRegistrationStrategy({
-        getCategoryStats: () => [makeStats('knowledge', 1, 1.0)]
-      } as any)
+      const strategy = createStrategy([makeStats('knowledge', 1, 1.0)])
       const priority = strategy.buildEffectivePriority(
-        { basePriority: 20, category: 'knowledge' as ToolCategory } as ToolRegistrationRule,
-        'session1'
+        { basePriority: 20, category: 'knowledge' as ToolCategory } as ToolRegistrationRule
       )
       assert.ok(priority >= 19, `低频工具优先级 ${priority} 应接近 20`)
     })
 
     it('零调用次数的统计不应影响优先级', () => {
-      const strategy = new ToolRegistrationStrategy({
-        getCategoryStats: () => [makeStats('knowledge', 0, 1.0)]
-      } as any)
+      const strategy = createStrategy([makeStats('knowledge', 0, 1.0)])
       const priority = strategy.buildEffectivePriority(
-        { basePriority: 20, category: 'knowledge' as ToolCategory } as ToolRegistrationRule,
-        'session1'
+        { basePriority: 20, category: 'knowledge' as ToolCategory } as ToolRegistrationRule
       )
       assert.equal(priority, 20)
     })
@@ -90,13 +88,13 @@ describe('ToolRegistrationStrategy', () => {
 
   describe('getPipeline', () => {
     it('paper 会话返回非空管道', () => {
-      const strategy = new ToolRegistrationStrategy({ getCategoryStats: () => [] } as any)
+      const strategy = createStrategy()
       const pipeline = strategy.getPipeline('paper')
       assert.ok(pipeline.stages.length > 0)
     })
 
     it('default 会话返回空管道', () => {
-      const strategy = new ToolRegistrationStrategy({ getCategoryStats: () => [] } as any)
+      const strategy = createStrategy()
       const pipeline = strategy.getPipeline('default')
       assert.equal(pipeline.stages.length, 0)
     })

@@ -66,7 +66,8 @@ export interface UIStateStore {
   lastPaperId: string | null
   currentView: ViewMode
 
-  labDetailTab: LabDetailTab
+  /** 各实验室详情 Tab 状态（按 labId 隔离） */
+  labDetailTabsByLabId: Record<string, LabDetailTab>
   lastLabId: string | null
   labDockerAvailable: boolean | null
   showLabCreator: boolean
@@ -101,7 +102,8 @@ export interface UIStateStore {
   toggleCurrentSidebar: () => void
   setCurrentSidebarCollapsed: (collapsed: boolean) => void
 
-  setLabDetailTab: (tab: LabDetailTab) => void
+  getLabDetailTab: (labId: string | null | undefined) => LabDetailTab
+  setLabDetailTab: (tab: LabDetailTab, labId?: string | null) => void
   setLabDockerAvailable: (available: boolean | null) => void
   openLabCreator: () => void
   closeLabCreator: () => void
@@ -241,7 +243,7 @@ export const useUIStateStore = create<UIStateStore>()(
         lastPaperId: null,
         currentView: 'paper',
 
-        labDetailTab: 'stats',
+        labDetailTabsByLabId: {},
         lastLabId: null,
         labDockerAvailable: null,
         showLabCreator: false,
@@ -305,7 +307,24 @@ export const useUIStateStore = create<UIStateStore>()(
           set({ labSidebarCollapsed: collapsed })
         },
 
-        setLabDetailTab: (tab) => set({ labDetailTab: tab }),
+        getLabDetailTab: (labId) => {
+          if (!labId) {
+            return 'stats'
+          }
+          return get().labDetailTabsByLabId[labId] ?? 'stats'
+        },
+        setLabDetailTab: (tab, labId) => {
+          const targetLabId = labId ?? get().lastLabId
+          if (!targetLabId) {
+            return
+          }
+          set((state) => ({
+            labDetailTabsByLabId: {
+              ...state.labDetailTabsByLabId,
+              [targetLabId]: tab
+            }
+          }))
+        },
         setLabDockerAvailable: (available) => set({ labDockerAvailable: available }),
         openLabCreator: () => set({ showLabCreator: true }),
         closeLabCreator: () => set({ showLabCreator: false }),
@@ -404,6 +423,7 @@ export const useUIStateStore = create<UIStateStore>()(
         paperChatPanelWidth: state.paperChatPanelWidth,
         lastPaperId: state.lastPaperId,
         lastLabId: state.lastLabId,
+        labDetailTabsByLabId: state.labDetailTabsByLabId,
         currentView: state.currentView
       })
     }

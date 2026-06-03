@@ -69,11 +69,9 @@ describe('PaperSemanticExtractor', () => {
   describe('extract', () => {
     it('有效论文应返回完整语义上下文', async () => {
       const result = await extractor.extract('paper-1', {
-        id: 'paper-1',
         title: 'Attention Is All You Need',
-        authors: [],
         abstract: 'We propose a new network architecture based on attention mechanisms.'
-      } as any)
+      })
 
       assert.equal(result.paperId, 'paper-1')
       assert.equal(result.title, 'Attention Is All You Need')
@@ -93,7 +91,7 @@ describe('PaperSemanticExtractor', () => {
       const result = await extractor.extract('paper-3', {
         title: '量子计算在密码学中的应用研究',
         abstract: '本文探讨了量子计算对传统密码学的影响。'
-      } as any)
+      })
 
       assert.equal(result.paperId, 'paper-3')
       assert.ok(result.keywords.length > 0)

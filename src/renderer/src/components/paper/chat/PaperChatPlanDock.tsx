@@ -5,8 +5,6 @@ import styles from './PaperChatPlanDock.module.css'
 
 interface PaperChatPlanDockProps {
   planState: PaperChatPlanState | null
-  sending?: boolean
-  enableLabTools?: boolean
 }
 
 function getStatusLabel(status: PaperChatPlanState['status']): string {
@@ -35,31 +33,15 @@ function getIterationStatusLabel(status: string): string {
   return '思考'
 }
 
-export default function PaperChatPlanDock({
-  planState,
-  sending,
-  enableLabTools
-}: PaperChatPlanDockProps) {
+export default function PaperChatPlanDock({ planState }: PaperChatPlanDockProps) {
   const [expanded, setExpanded] = useState(true)
-  const visible = Boolean(planState || (sending && enableLabTools))
   const summary = useMemo(() => {
     if (!planState) return '等待模型生成执行计划'
     return planState.summary || planState.error || `${planState.steps.length} 个步骤`
   }, [planState])
 
-  if (!visible) {
-    return null
-  }
-
   if (!planState) {
-    return (
-      <div className={styles['paper-chat-plan-dock']}>
-        <div className={styles['paper-chat-plan-dock__waiting']}>
-          <span className={styles['paper-chat-plan-dock__dot']} />
-          <PlanningStatusIndicator text="正在准备实验室工具" />
-        </div>
-      </div>
-    )
+    return null
   }
 
   return (

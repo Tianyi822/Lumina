@@ -20,23 +20,18 @@ export default function SshReconnectPrompt({
 
   return (
     <div className={styles['ssh-reconnect-prompt']}>
-      <div className={styles['reconnect-info']}>
-        <span className={styles['reconnect-label']}>SSH 已断开</span>
-        <span className={styles['reconnect-host']}>
-          {lab.ssh?.host}:{lab.ssh?.port}
-        </span>
-      </div>
       {needPassword && (
         <input
           value={password}
           type="password"
-          className="sm-input"
+          className={styles['ssh-reconnect-prompt__password']}
           placeholder="SSH 密码"
           onChange={(e) => onUpdatePassword(e.target.value)}
         />
       )}
       <button
-        className="sm-button sm-button--primary sm-button--small"
+        type="button"
+        className={`sm-button sm-button--primary ${styles['ssh-reconnect-prompt__button']}`}
         disabled={connecting || (needPassword && !password.trim())}
         onClick={onConnect}
       >

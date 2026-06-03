@@ -7,7 +7,11 @@ import type {
   EnrichedToolResult,
   ToolCategory
 } from './PipelineTypes'
-import type { ToolCallDefinition, ToolExecutionResult, ToolExecutionSummary } from './UnifiedToolExecutor'
+import type {
+  ToolCallDefinition,
+  ToolExecutionResult,
+  ToolExecutionSummary
+} from './UnifiedToolExecutor'
 import type { UnifiedToolRegistry } from './UnifiedToolRegistry'
 import type { StreamEvent } from '../../../types/chat'
 import { ToolResultEnricher } from './ToolResultEnricher'
@@ -51,6 +55,7 @@ export class ToolOrchestrator {
     turnId?: string
   ): Promise<OrchestrationResult> {
     const allResults: ToolExecutionResult[] = []
+    const executedToolCalls: ToolCallDefinition[] = []
     let stagesExecuted = 0
     const autoTriggered: string[] = []
     const handledCallIds = new Set<string>()
@@ -63,8 +68,7 @@ export class ToolOrchestrator {
       // 条件阶段的自动触发：模型未调用该类别工具时检查是否应自动触发
       if (stageCalls.length === 0 && stage.autoTrigger) {
         const shouldAutoTrigger =
-          stage.execution === 'required' ||
-          (stage.condition ? stage.condition(context) : true)
+          stage.execution === 'required' || (stage.condition ? stage.condition(context) : true)
 
         if (shouldAutoTrigger) {
           const autoCall = this.createAutoTriggerCall(stage, context.originalQuery, context)
@@ -82,16 +86,11 @@ export class ToolOrchestrator {
       }
 
       // 执行
-      const summary = await this.executeToolCalls(
-        stageCalls,
-        webContents,
-        sessionId,
-        [],
-        turnId
-      )
+      const summary = await this.executeToolCalls(stageCalls, webContents, sessionId, [], turnId)
       if (summary.needUserInteraction) {
         needUserInteraction = true
       }
+      this.appendExecutedToolCalls(executedToolCalls, stageCalls, summary.results)
 
       for (const call of stageCalls) {
         handledCallIds.add(call.id)
@@ -108,16 +107,11 @@ export class ToolOrchestrator {
     // 未被管道覆盖的工具调用直接执行
     const unhandled = toolCalls.filter((c) => !handledCallIds.has(c.id))
     if (unhandled.length > 0) {
-      const summary = await this.executeToolCalls(
-        unhandled,
-        webContents,
-        sessionId,
-        [],
-        turnId
-      )
+      const summary = await this.executeToolCalls(unhandled, webContents, sessionId, [], turnId)
       if (summary.needUserInteraction) {
         needUserInteraction = true
       }
+      this.appendExecutedToolCalls(executedToolCalls, unhandled, summary.results)
       allResults.push(...summary.results)
     }
 
@@ -136,6 +130,7 @@ export class ToolOrchestrator {
 
     return {
       results: allResults,
+      executedToolCalls,
       mergedContent,
       needUserInteraction,
       metadata: { stagesExecuted, autoTriggered, merged }
@@ -157,10 +152,9 @@ export class ToolOrchestrator {
     originalQuery: string,
     context: PipelineContext
   ): ToolCallDefinition {
-    const toolName =
-      stage.autoTrigger!.toolName.includes('__')
-        ? stage.autoTrigger!.toolName
-        : `${stage.category}__${stage.autoTrigger!.toolName}`
+    const toolName = stage.autoTrigger!.toolName.includes('__')
+      ? stage.autoTrigger!.toolName
+      : `${stage.category}__${stage.autoTrigger!.toolName}`
 
     const args = stage.autoTrigger!.queryTransform(originalQuery, context)
 
@@ -171,6 +165,22 @@ export class ToolOrchestrator {
         name: toolName,
         arguments: JSON.stringify(args)
       }
+    }
+  }
+
+  private appendExecutedToolCalls(
+    target: ToolCallDefinition[],
+    attemptedCalls: ToolCallDefinition[],
+    results: ToolExecutionResult[]
+  ): void {
+    const callById = new Map(attemptedCalls.map((call) => [call.id, call]))
+    const knownIds = new Set(target.map((call) => call.id))
+
+    for (const result of results) {
+      const call = callById.get(result.toolCallId)
+      if (!call || knownIds.has(call.id)) continue
+      target.push(call)
+      knownIds.add(call.id)
     }
   }
 

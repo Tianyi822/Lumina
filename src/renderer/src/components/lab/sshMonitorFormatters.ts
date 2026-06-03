@@ -1,19 +1,33 @@
 import type { SshServerStats } from '@renderer/types/lab'
 import type { ChartPoint, ChartTone, MetricChart } from './sshMonitorTypes'
+import type { MetricChartSlot } from './monitorChartSeries'
 
+export function normalizeChartValue(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  return Number.isFinite(value) ? value : null
+}
+
+export function mapSamplePoints(
+  samples: SshServerStats[],
+  getValue: (sample: SshServerStats) => number | null | undefined
+): ChartPoint[] {
+  return samples.map((sample) => ({
+    time: new Date(sample.sampledAt).getTime(),
+    value: normalizeChartValue(getValue(sample))
+  }))
+}
+
+/** @deprecated 使用 mapSamplePoints，保留以兼容旧调用 */
 export function collectPoints(
   samples: SshServerStats[],
   getValue: (sample: SshServerStats) => number | null | undefined
 ): ChartPoint[] {
-  return samples
-    .map((sample) => ({
-      time: new Date(sample.sampledAt).getTime(),
-      value: getValue(sample)
-    }))
-    .filter(
-      (point): point is ChartPoint =>
-        point.value !== null && point.value !== undefined && Number.isFinite(point.value)
-    )
+  return mapSamplePoints(samples, getValue).filter(
+    (point): point is ChartPoint & { value: number } => point.value !== null
+  )
 }
 
 export function collectGpuNames(sample: SshServerStats | null): string[] {
@@ -30,16 +44,11 @@ export function calculateRateMax(
   samples: SshServerStats[],
   getValue: (sample: SshServerStats) => number | null | undefined
 ): number {
-  const maxValue = Math.max(0, ...collectPoints(samples, getValue).map((point) => point.value))
+  const values = mapSamplePoints(samples, getValue)
+    .map((point) => point.value)
+    .filter((value): value is number => value !== null)
+  const maxValue = Math.max(0, ...values)
   return maxValue > 0 ? maxValue * 1.2 : 1
-}
-
-export function calculateAxisInterval(pointCount: number): number {
-  if (pointCount <= 6) {
-    return 0
-  }
-
-  return Math.max(0, Math.ceil(pointCount / 5) - 1)
 }
 
 export function formatAxisLabel(chart: MetricChart): string {
@@ -50,20 +59,27 @@ export function formatAxisLabel(chart: MetricChart): string {
   return `0-${formatRate(chart.maxValue)}`
 }
 
-export function formatTooltip(params: unknown, chart: MetricChart): string {
+export function formatTooltip(
+  params: unknown,
+  chart: MetricChart,
+  slots: MetricChartSlot[]
+): string {
   const param = Array.isArray(params) ? params[0] : params
   if (!isRecord(param)) {
     return ''
   }
 
   const dataIndex = typeof param.dataIndex === 'number' ? param.dataIndex : -1
-  const value = normalizeNumericValue(param.value)
-  const point = chart.points[dataIndex]
-  const timeLabel = point ? formatFullSampleTime(point.time) : String(param.name || '')
-  const valueLabel = chart.kind === 'rate' ? formatRate(value) : formatPercent(value)
+  const slot = dataIndex >= 0 ? slots[dataIndex] : undefined
+  if (!slot || slot.time === null || slot.value === null) {
+    return ''
+  }
+
+  const valueLabel =
+    chart.kind === 'rate' ? formatRate(slot.value) : formatPercent(slot.value)
   const marker = typeof param.marker === 'string' ? param.marker : ''
 
-  return `${timeLabel}<br />${marker}${chart.label}: ${valueLabel}`
+  return `${formatFullSampleTime(slot.time)}<br />${marker}${chart.label}: ${valueLabel}`
 }
 
 export function normalizeNumericValue(value: unknown): number | null {

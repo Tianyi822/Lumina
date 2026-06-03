@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import ContainerLogs from './ContainerLogs'
+import LabDetailEmptyState from './LabDetailEmptyState'
 
 interface LabLogsTabProps {
   isDockerReady: boolean
@@ -12,9 +13,10 @@ export default function LabLogsTab({ isDockerReady, selectedContainerId }: LabLo
 
   if (!isDockerReady) {
     return (
-      <div style={{ padding: '1rem', color: 'var(--sm-color-text-secondary)' }}>
-        Docker 未就绪，日志功能暂不可用
-      </div>
+      <LabDetailEmptyState
+        title="Docker 未就绪"
+        message="本地 Docker 运行时不可用，容器日志功能暂时无法使用。"
+      />
     )
   }
 

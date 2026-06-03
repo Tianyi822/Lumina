@@ -80,21 +80,27 @@
   opacity: 0.55;
 }
 
-.paper-chat-panel__loading {
+.paper-chat-panel__status-bar {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: var(--sm-space-2);
-  padding: var(--sm-space-3) var(--sm-space-4);
+  padding: var(--sm-space-2) var(--sm-space-4);
   border-bottom: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-accent-08);
   color: var(--sm-color-text-secondary);
   font-size: 12px;
 }
 
-.paper-chat-panel__loading {
+.paper-chat-panel__loading-state {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  border-bottom: 0;
+  padding: var(--sm-space-6);
+  color: var(--sm-color-text-secondary);
+  font-size: 12px;
 }
 
 .paper-chat-panel__composer {

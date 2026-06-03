@@ -1,7 +1,8 @@
 export {
   buildKnowledgeContext,
   formatDocumentsContext,
-  formatMessagesWithKnowledge
+  formatMessagesWithKnowledge,
+  sanitizeToolMessagePairs
 } from './MessageFormatter'
 export {
   createThinkParserState,

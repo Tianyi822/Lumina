@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import type { PaperQuote } from '@shared/types/chat'
+import type { ChatMessage, PaperQuote } from '@shared/types/chat'
 import { buildPaperTextAnchor } from '@shared/utils/paperAnnotationAnchors'
 import { buildPaperQuoteContext } from '@shared/utils/paperQuoteContext'
-import { formatQuotesContext } from './MessageFormatter.ts'
+import { formatMessagesWithKnowledge, formatQuotesContext } from './MessageFormatter.ts'
 
 function createQuote(
   viewKind: PaperQuote['viewKind'],
@@ -73,4 +73,80 @@ test('formatQuotesContext 兼容没有上下文字段的旧引用', () => {
   assert.match(context, /【原文引用 1】/)
   assert.match(context, /用户实际选中：\nAlpha original/)
   assert.equal(context.includes('上下文：'), false)
+})
+
+test('formatMessagesWithKnowledge 会过滤历史裁剪产生的孤立 tool 消息', () => {
+  const messages: ChatMessage[] = [
+    { role: 'tool', tool_call_id: 'call-orphan', content: '{"ok":true}' },
+    { role: 'user', content: '继续总结' }
+  ]
+
+  const formatted = formatMessagesWithKnowledge(messages)
+
+  assert.deepEqual(
+    formatted.map((msg) => msg.role),
+    ['user']
+  )
+})
+
+test('formatMessagesWithKnowledge 保留合法 assistant/tool 配对', () => {
+  const messages: ChatMessage[] = [
+    {
+      role: 'assistant',
+      content: null,
+      tool_calls: [
+        {
+          id: 'call-search',
+          type: 'function',
+          function: { name: 'paper__search_context', arguments: '{"query":"DWT"}' }
+        }
+      ]
+    },
+    { role: 'tool', tool_call_id: 'call-search', content: '{"matches":[]}' },
+    { role: 'user', content: '基于结果继续回答' }
+  ]
+
+  const formatted = formatMessagesWithKnowledge(messages)
+
+  assert.deepEqual(
+    formatted.map((msg) => msg.role),
+    ['assistant', 'tool', 'user']
+  )
+  assert.equal((formatted[0] as { tool_calls?: unknown[] }).tool_calls?.length, 1)
+  assert.equal((formatted[1] as { tool_call_id?: string }).tool_call_id, 'call-search')
+})
+
+test('formatMessagesWithKnowledge 只保留有 tool 响应的 tool_calls 且不修改输入', () => {
+  const messages: ChatMessage[] = [
+    {
+      role: 'assistant',
+      content: '',
+      tool_calls: [
+        {
+          id: 'call-found',
+          type: 'function',
+          function: { name: 'lab__exec_command', arguments: '{"cmd":"pwd"}' }
+        },
+        {
+          id: 'call-missing',
+          type: 'function',
+          function: { name: 'lab__exec_command', arguments: '{"cmd":"ls"}' }
+        }
+      ]
+    },
+    { role: 'tool', tool_call_id: 'call-found', content: '{"stdout":"/workspace"}' },
+    { role: 'user', content: '继续' }
+  ]
+  const original = JSON.stringify(messages)
+
+  const formatted = formatMessagesWithKnowledge(messages)
+  const assistantMessage = formatted[0] as {
+    tool_calls?: Array<{ id: string }>
+  }
+
+  assert.deepEqual(
+    assistantMessage.tool_calls?.map((toolCall) => toolCall.id),
+    ['call-found']
+  )
+  assert.equal(JSON.stringify(messages), original)
 })

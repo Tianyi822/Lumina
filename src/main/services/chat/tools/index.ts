@@ -27,3 +27,10 @@ export { ToolOrchestrator } from './ToolOrchestrator'
 export type { ToolOrchestratorOptions } from './ToolOrchestrator'
 export { ToolRegistrationStrategy } from './ToolRegistrationStrategy'
 export { PaperSemanticExtractor, paperSemanticExtractor } from './PaperSemanticExtractor'
+
+// 能力单元系统
+export { capabilityRegistry } from './capabilities/CapabilityRegistry'
+export { registerBuiltinCapabilities } from './capabilities/registerBuiltinCapabilities'
+export { CapabilityComposer } from './orchestration/CapabilityComposer'
+export { CapabilityManager, capabilityManager } from './CapabilityManager'
+export { presetRegistry } from './presets/PresetRegistry'

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useCallback } from 'react'
 import type { MetricChart } from './sshMonitorTypes'
 import {
-  collectPoints,
+  mapSamplePoints,
   collectGpuNames,
   calculateRateMax,
   formatPercent,
@@ -26,6 +26,7 @@ export default function SshServerMonitorPanel({
   active
 }: SshServerMonitorPanelProps) {
   const disposeChartsRef = useRef<(() => void) | null>(null)
+  const chartRefCallbacksRef = useRef(new Map<string, (element: HTMLDivElement | null) => void>())
 
   const polling = useSshStatsPolling({
     labId,
@@ -34,22 +35,13 @@ export default function SshServerMonitorPanel({
     onReset: () => disposeChartsRef.current?.()
   })
 
-  const {
-    stats,
-    selectedRangeHours,
-    loading,
-    refreshing,
-    errorMessage,
-    sampledAtLabel,
-    rangeLabel,
-    rangeOptions,
-    setRange,
-    loadStats
-  } = polling
+  const { stats, statsHistory, loading, refreshing, errorMessage, sampledAtLabel, loadStats } =
+    polling
 
   const metricCharts = useMemo<MetricChart[]>(() => {
-    const samples = polling.visibleSamples
-    const latest = polling.stats
+    const samples = statsHistory
+    const latest = stats
+    const sampleCount = samples.length
     const gpuSupported = !!latest?.gpu.supported
     const hasGpuMemory = gpuSupported && latest?.gpu.memoryPercent !== null
     const gpuNames = collectGpuNames(latest)
@@ -63,8 +55,9 @@ export default function SshServerMonitorPanel({
         kind: 'percent',
         maxValue: 100,
         supported: true,
+        sampleCount,
         emptyLabel: '等待 CPU 采样',
-        points: collectPoints(samples, (sample) => sample.cpu.percent)
+        points: mapSamplePoints(samples, (sample) => sample.cpu.percent)
       },
       {
         key: 'memory',
@@ -78,8 +71,9 @@ export default function SshServerMonitorPanel({
         kind: 'percent',
         maxValue: 100,
         supported: true,
+        sampleCount,
         emptyLabel: '等待内存采样',
-        points: collectPoints(samples, (sample) => sample.memory.percent)
+        points: mapSamplePoints(samples, (sample) => sample.memory.percent)
       },
       {
         key: 'gpu',
@@ -92,8 +86,9 @@ export default function SshServerMonitorPanel({
         kind: 'percent',
         maxValue: 100,
         supported: gpuSupported,
+        sampleCount,
         emptyLabel: '显卡未开启',
-        points: collectPoints(samples, (sample) => sample.gpu.utilizationPercent)
+        points: mapSamplePoints(samples, (sample) => sample.gpu.utilizationPercent)
       },
       {
         key: 'vram',
@@ -108,8 +103,9 @@ export default function SshServerMonitorPanel({
         kind: 'percent',
         maxValue: 100,
         supported: hasGpuMemory,
+        sampleCount,
         emptyLabel: '显存不可用',
-        points: collectPoints(samples, (sample) => sample.gpu.memoryPercent)
+        points: mapSamplePoints(samples, (sample) => sample.gpu.memoryPercent)
       },
       {
         key: 'disk-read',
@@ -119,8 +115,9 @@ export default function SshServerMonitorPanel({
         kind: 'rate',
         maxValue: calculateRateMax(samples, (sample) => sample.diskIO.readBytesPerSecond),
         supported: true,
+        sampleCount,
         emptyLabel: '等待磁盘读取采样',
-        points: collectPoints(samples, (sample) => sample.diskIO.readBytesPerSecond)
+        points: mapSamplePoints(samples, (sample) => sample.diskIO.readBytesPerSecond)
       },
       {
         key: 'disk-write',
@@ -130,20 +127,30 @@ export default function SshServerMonitorPanel({
         kind: 'rate',
         maxValue: calculateRateMax(samples, (sample) => sample.diskIO.writeBytesPerSecond),
         supported: true,
+        sampleCount,
         emptyLabel: '等待磁盘写入采样',
-        points: collectPoints(samples, (sample) => sample.diskIO.writeBytesPerSecond)
+        points: mapSamplePoints(samples, (sample) => sample.diskIO.writeBytesPerSecond)
       }
     ]
-  }, [polling.visibleSamples, polling.stats])
+  }, [statsHistory, stats])
 
-  const echartsManager = useEchartsManager(metricCharts)
-  disposeChartsRef.current = echartsManager.disposeCharts
+  const { setChartElement, disposeCharts } = useEchartsManager(metricCharts)
+  disposeChartsRef.current = disposeCharts
 
   const chartRefCallback = useCallback(
-    (key: string) => (element: HTMLDivElement | null) => {
-      echartsManager.setChartElement(key, element)
+    (key: string) => {
+      const cachedCallback = chartRefCallbacksRef.current.get(key)
+      if (cachedCallback) {
+        return cachedCallback
+      }
+
+      const nextCallback = (element: HTMLDivElement | null) => {
+        setChartElement(key, element)
+      }
+      chartRefCallbacksRef.current.set(key, nextCallback)
+      return nextCallback
     },
-    [echartsManager]
+    [setChartElement]
   )
 
   return (
@@ -153,24 +160,10 @@ export default function SshServerMonitorPanel({
           <div className={styles['ssh-server-monitor-panel__headline']}>
             <h2>远程资源占用</h2>
             <span className="sm-badge">最近采样 {sampledAtLabel}</span>
-            <span className="sm-badge">范围 {rangeLabel}</span>
           </div>
         </div>
 
         <div className={styles['ssh-server-monitor-panel__actions']}>
-          <div className={styles['ssh-server-monitor-panel__range']} aria-label="统计范围">
-            {rangeOptions.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={selectedRangeHours === option.value ? styles['is-active'] : undefined}
-                onClick={() => setRange(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-
           <button
             className="sm-button sm-button--secondary sm-button--small"
             type="button"
@@ -250,10 +243,10 @@ export default function SshServerMonitorPanel({
                   ref={chartRefCallback(chart.key)}
                   className={styles['ssh-monitor-chart__echarts']}
                   role="img"
-                  aria-label={`${chart.label} ${rangeLabel}趋势`}
+                  aria-label={`${chart.label} 实时监控趋势`}
                 ></div>
 
-                {chart.points.length === 0 && (
+                {chart.sampleCount === 0 && (
                   <div className={styles['ssh-monitor-chart__empty']}>{chart.emptyLabel}</div>
                 )}
               </div>

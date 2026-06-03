@@ -2,7 +2,7 @@ import type { ToolCategory } from './UnifiedToolRegistry'
 export type { ToolCategory }
 import type { ToolAdapter } from './UnifiedToolRegistry'
 import type { MCPToolReference } from '../../../types/chat'
-import type { ToolExecutionResult } from './UnifiedToolExecutor'
+import type { ToolCallDefinition, ToolExecutionResult } from './UnifiedToolExecutor'
 import type { ChatRequest } from '../../../types/chat'
 
 // ========== 管道阶段 ==========
@@ -59,6 +59,7 @@ export interface EnrichedToolResult extends ToolExecutionResult {
 
 export interface OrchestrationResult {
   results: ToolExecutionResult[]
+  executedToolCalls: ToolCallDefinition[]
   mergedContent: string | null
   needUserInteraction: boolean
   metadata: {
@@ -98,6 +99,27 @@ export interface SessionToolConfig {
   sessionType: string
   pipeline: ToolPipeline
   toolRules: ToolRegistrationRule[]
+}
+
+// ========== 能力组合 ==========
+
+export type CompositionMode = 'required' | 'conditional' | 'on_demand'
+
+export interface AutoTriggerDef {
+  toolName: string
+  queryTransform: (query: string, ctx: PipelineContext) => Record<string, unknown>
+}
+
+export interface CompositionStage {
+  capabilityId: string
+  mode: CompositionMode
+  condition?: (ctx: PipelineContext) => boolean
+  autoTrigger?: AutoTriggerDef
+}
+
+export interface CapabilityComposition {
+  stages: CompositionStage[]
+  mergeStrategy?: ResultMergeStrategy
 }
 
 // ========== 语义绑定 ==========

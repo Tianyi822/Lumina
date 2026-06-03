@@ -4,6 +4,7 @@ import { notifySuccess, notifyError } from '@renderer/composables/notificationCo
 import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
 import { labApi } from '@renderer/services/labApi'
 import { useLabListStore } from './labListStore'
+import { useLabTerminalSessionStore } from './labTerminalSessionStore'
 
 export interface DeleteConfirmState {
   show: boolean
@@ -197,6 +198,8 @@ export const useLabOperationStore = create<LabOperationState>()((set, get) => ({
         if (listStore.currentLab?.labId === labId) {
           listStore.clearCurrentLabState()
         }
+
+        useLabTerminalSessionStore.getState().removeSessionsByLabId(labId)
 
         listStore.removeLabStatus(labId)
         await listStore.refreshLabList()

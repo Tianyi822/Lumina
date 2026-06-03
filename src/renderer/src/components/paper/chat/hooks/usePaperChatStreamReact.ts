@@ -29,6 +29,7 @@ interface UsePaperChatStreamReactOptions {
   enablePaperWebSearch: boolean
   saveCurrentSession: () => Promise<boolean>
   setError: (message: string) => void
+  onRequestError?: (message: string) => void
 }
 
 interface UsePaperChatStreamReactReturn {
@@ -79,41 +80,51 @@ export function usePaperChatStreamReact(
 
   const sessionIdRef = useRef(sessionId)
   sessionIdRef.current = sessionId
+  const requestErrorReportedRef = useRef(false)
 
-  const handleStreamEvent = useCallback((event: StreamEvent): void => {
-    const current = latestRef.current
-    const currentSessionId = sessionIdRef.current || null
-    const streamStore = usePaperChatStreamStore.getState()
-    const targetSessionId = event.sessionId || streamStore.streamingSessionId
-
-    streamStore.handleStreamEvent(event, currentSessionId, current.messagesRef.current)
-
-    if (!currentSessionId || targetSessionId !== currentSessionId) {
-      return
-    }
-
-    // 为流式消息创建新的对象引用及 reactIterations/reactSteps 数组引用，
-    // 确保 PaperChatReActSteps 中的 useMemo 能检测到内容变化
-    const nextMessages = current.messagesRef.current.map((msg) => {
-      if (!msg.isStreaming) return msg
-      return {
-        ...msg,
-        reactIterations: msg.reactIterations ? [...msg.reactIterations] : msg.reactIterations,
-        reactSteps: msg.reactSteps ? [...msg.reactSteps] : msg.reactSteps
-      }
-    })
-    current.setMessages(nextMessages)
-    usePaperChatMessageCacheStore
-      .getState()
-      .retainSessionMessages(currentSessionId, nextMessages, current.session?.title)
-
-    if (event.type === 'done' || event.type === 'error') {
-      if (event.type === 'error' && event.error) {
-        current.setError(event.error)
-      }
-      void current.saveCurrentSession()
-    }
+  const reportRequestError = useCallback((message: string): void => {
+    if (requestErrorReportedRef.current) return
+    requestErrorReportedRef.current = true
+    latestRef.current.onRequestError?.(message)
   }, [])
+
+  const handleStreamEvent = useCallback(
+    (event: StreamEvent): void => {
+      const current = latestRef.current
+      const currentSessionId = sessionIdRef.current || null
+      const streamStore = usePaperChatStreamStore.getState()
+      const targetSessionId = event.sessionId || streamStore.streamingSessionId
+
+      streamStore.handleStreamEvent(event, currentSessionId, current.messagesRef.current)
+
+      if (!currentSessionId || targetSessionId !== currentSessionId) {
+        return
+      }
+
+      // 为流式消息创建新的对象引用及 reactIterations/reactSteps 数组引用，
+      // 确保 PaperChatReActSteps 中的 useMemo 能检测到内容变化
+      const nextMessages = current.messagesRef.current.map((msg) => {
+        if (!msg.isStreaming) return msg
+        return {
+          ...msg,
+          reactIterations: msg.reactIterations ? [...msg.reactIterations] : msg.reactIterations,
+          reactSteps: msg.reactSteps ? [...msg.reactSteps] : msg.reactSteps
+        }
+      })
+      current.setMessages(nextMessages)
+      usePaperChatMessageCacheStore
+        .getState()
+        .retainSessionMessages(currentSessionId, nextMessages, current.session?.title)
+
+      if (event.type === 'done' || event.type === 'error') {
+        if (event.type === 'error' && event.error) {
+          reportRequestError(event.error)
+        }
+        void current.saveCurrentSession()
+      }
+    },
+    [reportRequestError]
+  )
 
   const sendMessage = useCallback(
     async (
@@ -159,6 +170,7 @@ export function usePaperChatStreamReact(
       const snapshot = deepClone(retainedMessages)
       streamStore.saveMessagesSnapshot(currentSessionId, snapshot)
       usePaperChatStreamStore.setState({ streamingSessionId: currentSessionId })
+      requestErrorReportedRef.current = false
 
       const now = Date.now()
       const userMessage: Message = {
@@ -179,8 +191,7 @@ export function usePaperChatStreamReact(
         timestamp: new Date().toISOString(),
         modelName: selected.selectedModel,
         reactSteps: [],
-        reactIterations: [],
-        suppressWaitingPlaceholder: selected.enableLabTools
+        reactIterations: []
       }
 
       const nextMessages = [...retainedMessages, userMessage, assistantMessage]
@@ -188,7 +199,7 @@ export function usePaperChatStreamReact(
       messageCache.retainSessionMessages(currentSessionId, nextMessages, targetSession.title)
 
       streamStore.resetPlanState(currentSessionId)
-      if (selected.enableLabTools) {
+      if (targetSession.selectionState?.enablePlanMode) {
         streamStore.beginPlanning(currentSessionId, assistantMessage.id)
       }
       streamStore.setSessionSendingState(currentSessionId, true, true)
@@ -214,13 +225,14 @@ export function usePaperChatStreamReact(
                 ? toKnowledgeReferences(selected.selectedKnowledgeBases)
                 : undefined,
             enableLabTools: selected.enableLabTools,
+            enablePlanMode: targetSession.selectionState?.enablePlanMode === true,
             sessionType: 'paper',
             enablePaperWebSearch: selected.enablePaperWebSearch
           })
         )
 
         if (!result.success && result.error) {
-          setError(result.error)
+          reportRequestError(result.error)
         }
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : String(caught)
@@ -228,10 +240,10 @@ export function usePaperChatStreamReact(
         streamStore.setSessionSendingState(currentSessionId, false, true)
         usePaperChatStreamStore.setState({ streamingSessionId: null })
         streamStore.failPlanState(currentSessionId, message)
-        setError(message)
+        reportRequestError(message)
       }
     },
-    [messagesRef, paperId, setError, setMessages]
+    [messagesRef, paperId, reportRequestError, setError, setMessages]
   )
 
   const stopRequest = useCallback(async (): Promise<void> => {

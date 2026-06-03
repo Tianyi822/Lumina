@@ -10,6 +10,9 @@ import type { LLMConfig } from '@shared/types/config'
 import type { Logger } from '@main/services/logger'
 import type { MCPService } from '@main/services/mcp'
 import type { MCPToolCallResult } from '@shared/types/mcp'
+import { capabilityManager } from './tools/CapabilityManager.ts'
+import { paperContextSearchToolService } from '../paper/PaperContextSearchToolService.ts'
+import { knowledgeToolService } from '../knowledge/KnowledgeToolService.ts'
 
 type StreamChunk = OpenAI.Chat.Completions.ChatCompletionChunk
 type StreamingParams = OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming
@@ -35,6 +38,10 @@ async function* createStream(chunks: StreamChunk[]): AsyncIterable<StreamChunk> 
 }
 
 function createToolCallStream(index: number): AsyncIterable<StreamChunk> {
+  return createNamedToolCallStream(index, 'mock__lookup')
+}
+
+function createNamedToolCallStream(index: number, name: string): AsyncIterable<StreamChunk> {
   return createStream([
     {
       id: `chunk-tool-${index}`,
@@ -51,7 +58,7 @@ function createToolCallStream(index: number): AsyncIterable<StreamChunk> {
                 id: `call-${index}`,
                 type: 'function',
                 function: {
-                  name: 'mock__lookup',
+                  name,
                   arguments: '{}'
                 }
               }
@@ -337,4 +344,265 @@ test('extractOriginalQuery user 消息 content 为数组时跳过', () => {
     { role: 'user', content: '纯文本问题' }
   ]
   assert.equal(extractOriginalQuery(messages), '纯文本问题')
+})
+
+// ===== CapabilityComposer 集成 =====
+
+test('paper 会话通过 capabilityManager 初始化能力状态', async () => {
+  // 清理状态确保隔离
+  capabilityManager.clearSession('react-loop-paper')
+
+  const toolStreams = [createContentStream('论文解读结果')]
+  const harness = createHarness({
+    streams: toolStreams
+  })
+
+  const request: ChatRequest = {
+    ...harness.request,
+    sessionId: 'react-loop-paper',
+    sessionType: 'paper',
+    paperId: 'paper-001',
+    selectedTools: undefined
+  }
+
+  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+
+  const capState = capabilityManager.getCapabilities('react-loop-paper')
+  assert.ok(capState, 'capabilityManager 应有该会话的能力状态')
+  assert.equal(capState!.presetId, 'chat.paper', 'paper 会话应使用 chat.paper preset')
+  assert.deepEqual(
+    capState!.activeCapabilities,
+    ['paper', 'knowledge'],
+    'paper 会话应仅激活 paper 和 knowledge'
+  )
+})
+
+test('default 会话通过 capabilityManager 初始化能力状态', async () => {
+  capabilityManager.clearSession('react-loop-default-cap')
+
+  const harness = createHarness({
+    streams: [createContentStream('普通回答')]
+  })
+
+  const request: ChatRequest = {
+    ...harness.request,
+    sessionId: 'react-loop-default-cap',
+    sessionType: 'default',
+    selectedTools: undefined
+  }
+
+  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+
+  const capState = capabilityManager.getCapabilities('react-loop-default-cap')
+  assert.ok(capState, 'capabilityManager 应有该会话的能力状态')
+  assert.equal(capState!.presetId, 'chat.default', 'default 会话应使用 chat.default preset')
+  assert.deepEqual(capState!.activeCapabilities, [], 'default 会话应无默认激活能力')
+})
+
+test('enableLabTools 动态添加 lab 能力', async () => {
+  capabilityManager.clearSession('react-loop-lab-enable')
+
+  const harness = createHarness({
+    streams: [createContentStream('lab 回答')]
+  })
+
+  const request: ChatRequest = {
+    ...harness.request,
+    sessionId: 'react-loop-lab-enable',
+    sessionType: 'default',
+    enableLabTools: true,
+    selectedTools: undefined
+  }
+
+  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+
+  const capState = capabilityManager.getCapabilities('react-loop-lab-enable')
+  assert.ok(capState, 'capabilityManager 应有该会话的能力状态')
+  assert.equal(capState!.presetId, 'chat.default', '预设仍为 chat.default')
+  assert.deepEqual(
+    capState!.activeCapabilities,
+    ['lab'],
+    'enableLabTools=true 时 default 会话应仅激活 lab'
+  )
+})
+
+// ===== capability__suggest 虚拟工具注册 =====
+
+test('存在可建议能力时工具列表中包含 capability__suggest', async () => {
+  capabilityManager.clearSession('react-loop-suggest-tool')
+
+  const harness = createHarness({
+    streams: [createContentStream('普通回答')]
+  })
+
+  const request: ChatRequest = {
+    ...harness.request,
+    sessionId: 'react-loop-suggest-tool',
+    sessionType: 'default',
+    paperId: 'paper-001',
+    selectedTools: undefined
+  }
+
+  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+
+  const tools = harness.createParams[0]?.tools as Array<{ function: { name: string } }> | undefined
+  assert.ok(tools, '应传入 tools')
+  const hasSuggestTool = tools!.some((t) => t.function.name === 'capability__suggest')
+  assert.equal(hasSuggestTool, true, '应包含 capability__suggest 虚拟工具')
+})
+
+test('全部能力已激活时不应包含 capability__suggest 工具', async () => {
+  capabilityManager.clearSession('react-loop-no-suggest')
+
+  const harness = createHarness({
+    streams: [createContentStream('普通回答')]
+  })
+
+  const request: ChatRequest = {
+    ...harness.request,
+    sessionId: 'react-loop-no-suggest',
+    sessionType: 'paper',
+    paperId: 'paper-001',
+    enableLabTools: true,
+    selectedTools: undefined
+  }
+
+  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+
+  const tools = harness.createParams[0]?.tools as Array<{ function: { name: string } }> | undefined
+  const hasSuggestTool = tools?.some((t) => t.function.name === 'capability__suggest') ?? false
+  assert.equal(hasSuggestTool, false, '不应包含 capability__suggest 虚拟工具')
+})
+
+// ===== capability__suggest 调用时发送 capability_suggestion 事件 =====
+
+function createSuggestToolCallStream(): AsyncIterable<StreamChunk> {
+  return createStream([
+    {
+      id: 'chunk-suggest',
+      object: 'chat.completion.chunk',
+      created: 1,
+      model: 'model',
+      choices: [
+        {
+          index: 0,
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                id: 'call-suggest',
+                type: 'function',
+                function: {
+                  name: 'capability__suggest',
+                  arguments: JSON.stringify({
+                    capabilityId: 'lab',
+                    reason: '需要代码执行来分析结果'
+                  })
+                }
+              }
+            ]
+          }
+        }
+      ]
+    } as StreamChunk
+  ])
+}
+
+test('模型调用 capability__suggest 时发送 capability_suggestion 流事件', async () => {
+  capabilityManager.clearSession('react-loop-suggest-event')
+
+  const harness = createHarness({
+    streams: [createSuggestToolCallStream()]
+  })
+
+  const request: ChatRequest = {
+    ...harness.request,
+    sessionId: 'react-loop-suggest-event',
+    sessionType: 'paper',
+    paperId: 'paper-001',
+    selectedTools: undefined
+  }
+
+  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+
+  const suggestEvent = harness.events.find((e) => e.type === 'capability_suggestion')
+  assert.ok(suggestEvent, '应发送 capability_suggestion 流事件')
+  assert.equal(suggestEvent!.capabilitySuggestion?.capabilities?.[0]?.id, 'lab')
+  assert.match(suggestEvent!.capabilitySuggestion?.capabilities?.[0]?.reason ?? '', /需要代码执行/)
+})
+
+test('自动触发 knowledge 搜索时下一轮请求保持 assistant/tool 配对', async () => {
+  capabilityManager.clearSession('react-loop-auto-knowledge')
+
+  const originalPaperSearch = paperContextSearchToolService.search
+  const originalKnowledgeGetTools = knowledgeToolService.getTools
+  const originalKnowledgeCallTool = knowledgeToolService.callTool
+
+  paperContextSearchToolService.search = async () => ({
+    success: true,
+    content: '短结果'
+  })
+  knowledgeToolService.getTools = async () => [
+    {
+      serverName: 'knowledge',
+      name: 'knowledge__search',
+      description: '搜索知识库',
+      inputSchema: { type: 'object', properties: {}, required: [] }
+    }
+  ]
+  knowledgeToolService.callTool = async () => ({
+    success: true,
+    content: '[来源: doc1]\n知识库补充内容'
+  })
+
+  try {
+    const harness = createHarness({
+      streams: [
+        createNamedToolCallStream(0, 'paper__search_context'),
+        createContentStream('综合回答')
+      ]
+    })
+
+    const request: ChatRequest = {
+      ...harness.request,
+      sessionId: 'react-loop-auto-knowledge',
+      sessionType: 'paper',
+      paperId: 'paper-001',
+      selectedTools: undefined
+    }
+
+    const result = await harness.service.sendMessageWithReact(
+      request,
+      createWebContents(harness.events),
+      undefined,
+      [{ id: 'kb-001', name: '测试知识库', description: '', documentCount: 1 }]
+    )
+
+    assert.equal(result.success, true)
+    assert.equal(result.finalContent, '综合回答')
+    assert.equal(harness.createParams.length, 2)
+
+    const secondMessages = harness.createParams[1].messages
+    const assistantMessage = secondMessages.find((message) => message.role === 'assistant') as
+      | OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam
+      | undefined
+    assert.ok(assistantMessage?.tool_calls)
+
+    const toolCallIds = assistantMessage.tool_calls.map((toolCall) => toolCall.id)
+    const toolMessages = secondMessages.filter((message) => message.role === 'tool') as Array<{
+      role: 'tool'
+      tool_call_id: string
+    }>
+
+    assert.deepEqual(
+      toolCallIds,
+      toolMessages.map((message) => message.tool_call_id)
+    )
+    assert.ok(toolCallIds.includes('call-0'))
+    assert.ok(toolCallIds.some((id) => id.startsWith('auto_knowledge_')))
+  } finally {
+    paperContextSearchToolService.search = originalPaperSearch
+    knowledgeToolService.getTools = originalKnowledgeGetTools
+    knowledgeToolService.callTool = originalKnowledgeCallTool
+  }
 })

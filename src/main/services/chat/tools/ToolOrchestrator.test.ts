@@ -3,16 +3,38 @@ import assert from 'node:assert/strict'
 import { ToolOrchestrator } from './ToolOrchestrator'
 import { ToolResultEnricher } from './ToolResultEnricher'
 import { ToolResultMerger } from './ToolResultMerger'
+import type { ToolPipeline, PipelineContext, ToolCategory } from './PipelineTypes'
 import type {
-  ToolPipeline,
-  PipelineContext,
-  ToolCategory
-} from './PipelineTypes'
-import type { ToolCallDefinition, ToolExecutionResult, ToolExecutionSummary } from './UnifiedToolExecutor'
+  ToolCallDefinition,
+  ToolExecutionResult,
+  ToolExecutionSummary
+} from './UnifiedToolExecutor'
+import type { RegisteredTool, ToolAdapter } from './UnifiedToolRegistry'
+import type { ChatRequest } from '../../../types/chat'
 
 // ===== Fake 对象 =====
 
-function makeToolCall(id: string, name: string, args: Record<string, unknown> = {}): ToolCallDefinition {
+type ToolOrchestratorOptions = ConstructorParameters<typeof ToolOrchestrator>[0]
+type FakeRegistry = Pick<ToolOrchestratorOptions['registry'], 'getTool'>
+type FakeExecuteToolCalls = ToolOrchestratorOptions['executeToolCalls']
+type FakeWebContents = Parameters<ToolOrchestrator['orchestrate']>[3]
+
+const fakeWebContents = {} as unknown as FakeWebContents
+
+function makeChatRequest(overrides: Partial<ChatRequest> = {}): ChatRequest {
+  return {
+    messages: [],
+    modelKey: 'test-model',
+    sessionId: 's1',
+    ...overrides
+  }
+}
+
+function makeToolCall(
+  id: string,
+  name: string,
+  args: Record<string, unknown> = {}
+): ToolCallDefinition {
   return {
     id,
     type: 'function',
@@ -29,31 +51,50 @@ function makeExecutionSummary(results: ToolExecutionResult[]): ToolExecutionSumm
   }
 }
 
-function createFakeExecuteToolCalls(expectedResults: ToolExecutionResult[]) {
-  return async (
-    _toolCalls: ToolCallDefinition[]
-  ): Promise<ToolExecutionSummary> => {
+function createFakeExecuteToolCalls(expectedResults: ToolExecutionResult[]): FakeExecuteToolCalls {
+  return async (): Promise<ToolExecutionSummary> => {
     return makeExecutionSummary(expectedResults)
   }
 }
 
-function createFakeRegistry(toolCategoryMap: Map<string, ToolCategory>) {
+function createFakeRegistry(toolCategoryMap: Map<string, ToolCategory>): FakeRegistry {
+  const fakeAdapter: ToolAdapter = {
+    getTools: async () => [],
+    execute: async () => ({ success: true, content: '' })
+  }
+
   return {
     getTool(fullName: string) {
       const category = toolCategoryMap.get(fullName)
       if (!category) return undefined
-      return {
+      const tool: RegisteredTool = {
         fullName,
         category,
         serverName: 'test',
         functionDef: { name: fullName, description: '', parameters: {} },
-        adapter: { getTools: async () => [], execute: async () => ({ success: true, content: '' }) },
+        adapter: fakeAdapter,
         registeredAt: new Date(),
         status: 'available' as const,
         timeoutMs: 60000
       }
+      return tool
     }
   }
+}
+
+function createOrchestrator(
+  registry: FakeRegistry,
+  executeToolCalls: FakeExecuteToolCalls,
+  enricher: ToolResultEnricher,
+  merger: ToolResultMerger
+): ToolOrchestrator {
+  return new ToolOrchestrator({
+    registry: registry as unknown as ToolOrchestratorOptions['registry'],
+    enricher,
+    merger,
+    executeToolCalls,
+    sendStreamEvent: () => {}
+  })
 }
 
 // ===== 测试 =====
@@ -69,24 +110,18 @@ describe('ToolOrchestrator', () => {
 
   describe('orchestrate — 模型调用 paper 工具', () => {
     it('模型调用了 paper__search_context，应直接执行并返回结果', async () => {
-      const fakeResults: ToolExecutionResult[] = [{
-        toolCallId: 'call_1',
-        toolName: 'paper__search_context',
-        content: '## 摘要\n论文内容\n## 方法\n方法描述\n## 结论\n结论\n'.repeat(10),
-        success: true
-      }]
+      const fakeResults: ToolExecutionResult[] = [
+        {
+          toolCallId: 'call_1',
+          toolName: 'paper__search_context',
+          content: '## 摘要\n论文内容\n## 方法\n方法描述\n## 结论\n结论\n'.repeat(10),
+          success: true
+        }
+      ]
       const fakeExecute = createFakeExecuteToolCalls(fakeResults)
-      const fakeRegistry = createFakeRegistry(
-        new Map([['paper__search_context', 'paper']])
-      )
+      const fakeRegistry = createFakeRegistry(new Map([['paper__search_context', 'paper']]))
 
-      const orchestrator = new ToolOrchestrator({
-        registry: fakeRegistry as any,
-        enricher,
-        merger,
-        executeToolCalls: fakeExecute as any,
-        sendStreamEvent: () => {}
-      })
+      const orchestrator = createOrchestrator(fakeRegistry, fakeExecute, enricher, merger)
 
       const pipeline: ToolPipeline = {
         stages: [{ category: 'paper', execution: 'required' }],
@@ -95,20 +130,29 @@ describe('ToolOrchestrator', () => {
 
       const context: PipelineContext = {
         sessionId: 's1',
-        request: {} as any,
+        request: makeChatRequest(),
         modelToolCalls: [makeToolCall('call_1', 'paper__search_context', { query: 'test' })],
         stageResults: new Map(),
         originalQuery: 'test query'
       }
 
       const result = await orchestrator.orchestrate(
-        context.modelToolCalls, pipeline, context, {} as any, 's1', 't1'
+        context.modelToolCalls,
+        pipeline,
+        context,
+        fakeWebContents,
+        's1',
+        't1'
       )
 
       assert.equal(result.results.length, 1)
       assert.equal(result.metadata.stagesExecuted, 1)
       assert.equal(result.metadata.autoTriggered.length, 0)
       assert.equal(result.metadata.merged, false)
+      assert.deepEqual(
+        result.executedToolCalls.map((call) => call.id),
+        ['call_1']
+      )
     })
   })
 
@@ -129,31 +173,29 @@ describe('ToolOrchestrator', () => {
       }
 
       let executeCallCount = 0
-      const fakeExecute = async (
+      const fakeExecute: FakeExecuteToolCalls = async (
         toolCalls: ToolCallDefinition[]
       ): Promise<ToolExecutionSummary> => {
         executeCallCount++
         if (executeCallCount === 1) {
           return makeExecutionSummary([paperResult])
         }
-        return makeExecutionSummary([{
-          ...kbResult,
-          toolCallId: toolCalls[0].id
-        }])
+        return makeExecutionSummary([
+          {
+            ...kbResult,
+            toolCallId: toolCalls[0].id
+          }
+        ])
       }
 
-      const fakeRegistry = createFakeRegistry(new Map([
-        ['paper__search_context', 'paper'],
-        ['knowledge__search', 'knowledge']
-      ]))
+      const fakeRegistry = createFakeRegistry(
+        new Map([
+          ['paper__search_context', 'paper'],
+          ['knowledge__search', 'knowledge']
+        ])
+      )
 
-      const orchestrator = new ToolOrchestrator({
-        registry: fakeRegistry as any,
-        enricher,
-        merger,
-        executeToolCalls: fakeExecute as any,
-        sendStreamEvent: () => {}
-      })
+      const orchestrator = createOrchestrator(fakeRegistry, fakeExecute, enricher, merger)
 
       const pipeline: ToolPipeline = {
         stages: [
@@ -163,12 +205,15 @@ describe('ToolOrchestrator', () => {
             execution: 'conditional',
             condition: (ctx) => {
               const paperResults = ctx.stageResults.get('paper')
-              return !paperResults || paperResults.length === 0 ||
+              return (
+                !paperResults ||
+                paperResults.length === 0 ||
                 paperResults.some((r) => r.metadata.coverage === 'low')
+              )
             },
             autoTrigger: {
               toolName: 'search',
-              queryTransform: (query, _ctx) => ({ query })
+              queryTransform: (query) => ({ query })
             }
           }
         ],
@@ -184,20 +229,32 @@ describe('ToolOrchestrator', () => {
 
       const context: PipelineContext = {
         sessionId: 's1',
-        request: {} as any,
+        request: makeChatRequest(),
         modelToolCalls: [makeToolCall('call_1', 'paper__search_context', { query: 'test' })],
         stageResults: new Map(),
         originalQuery: 'test query'
       }
 
       const result = await orchestrator.orchestrate(
-        context.modelToolCalls, pipeline, context, {} as any, 's1', 't1'
+        context.modelToolCalls,
+        pipeline,
+        context,
+        fakeWebContents,
+        's1',
+        't1'
       )
 
       assert.equal(result.metadata.stagesExecuted, 2)
       assert.equal(result.metadata.autoTriggered.length, 1)
       assert.ok(result.metadata.autoTriggered[0].includes('knowledge__search'))
       assert.ok(result.results.length >= 2)
+      assert.equal(result.executedToolCalls.length, 2)
+      assert.deepEqual(
+        result.executedToolCalls.map((call) => call.id),
+        result.results.map((toolResult) => toolResult.toolCallId)
+      )
+      assert.match(result.executedToolCalls[1].id, /^auto_knowledge_/)
+      assert.equal(result.executedToolCalls[1].function.name, 'knowledge__search')
     })
   })
 
@@ -211,17 +268,9 @@ describe('ToolOrchestrator', () => {
       }
 
       const fakeExecute = createFakeExecuteToolCalls([mcpResult])
-      const fakeRegistry = createFakeRegistry(
-        new Map([['myserver__tool', 'mcp']])
-      )
+      const fakeRegistry = createFakeRegistry(new Map([['myserver__tool', 'mcp']]))
 
-      const orchestrator = new ToolOrchestrator({
-        registry: fakeRegistry as any,
-        enricher,
-        merger,
-        executeToolCalls: fakeExecute as any,
-        sendStreamEvent: () => {}
-      })
+      const orchestrator = createOrchestrator(fakeRegistry, fakeExecute, enricher, merger)
 
       const pipeline: ToolPipeline = {
         stages: [{ category: 'paper', execution: 'required' }],
@@ -230,18 +279,27 @@ describe('ToolOrchestrator', () => {
 
       const context: PipelineContext = {
         sessionId: 's1',
-        request: {} as any,
+        request: makeChatRequest(),
         modelToolCalls: [makeToolCall('call_mcp', 'myserver__tool')],
         stageResults: new Map(),
         originalQuery: 'test'
       }
 
       const result = await orchestrator.orchestrate(
-        context.modelToolCalls, pipeline, context, {} as any, 's1', 't1'
+        context.modelToolCalls,
+        pipeline,
+        context,
+        fakeWebContents,
+        's1',
+        't1'
       )
 
       assert.equal(result.results.length, 1)
       assert.equal(result.results[0].toolName, 'myserver__tool')
+      assert.deepEqual(
+        result.executedToolCalls.map((call) => call.id),
+        ['call_mcp']
+      )
     })
   })
 
@@ -263,23 +321,19 @@ describe('ToolOrchestrator', () => {
       ]
 
       let callCount = 0
-      const fakeExecute = async (): Promise<ToolExecutionSummary> => {
+      const fakeExecute: FakeExecuteToolCalls = async (): Promise<ToolExecutionSummary> => {
         callCount++
         return makeExecutionSummary(callCount === 1 ? [results[0]] : [results[1]])
       }
 
-      const fakeRegistry = createFakeRegistry(new Map([
-        ['paper__search_context', 'paper'],
-        ['knowledge__search', 'knowledge']
-      ]))
+      const fakeRegistry = createFakeRegistry(
+        new Map([
+          ['paper__search_context', 'paper'],
+          ['knowledge__search', 'knowledge']
+        ])
+      )
 
-      const orchestrator = new ToolOrchestrator({
-        registry: fakeRegistry as any,
-        enricher,
-        merger,
-        executeToolCalls: fakeExecute as any,
-        sendStreamEvent: () => {}
-      })
+      const orchestrator = createOrchestrator(fakeRegistry, fakeExecute, enricher, merger)
 
       const pipeline: ToolPipeline = {
         stages: [
@@ -291,7 +345,7 @@ describe('ToolOrchestrator', () => {
 
       const context: PipelineContext = {
         sessionId: 's1',
-        request: {} as any,
+        request: makeChatRequest(),
         modelToolCalls: [
           makeToolCall('call_1', 'paper__search_context'),
           makeToolCall('call_2', 'knowledge__search')
@@ -301,12 +355,21 @@ describe('ToolOrchestrator', () => {
       }
 
       const result = await orchestrator.orchestrate(
-        context.modelToolCalls, pipeline, context, {} as any, 's1', 't1'
+        context.modelToolCalls,
+        pipeline,
+        context,
+        fakeWebContents,
+        's1',
+        't1'
       )
 
       assert.equal(result.metadata.merged, true)
       assert.ok(result.mergedContent)
       assert.ok(result.mergedContent.includes('[来源'))
+      assert.deepEqual(
+        result.executedToolCalls.map((call) => call.id),
+        ['call_1', 'call_2']
+      )
     })
   })
 
@@ -319,21 +382,13 @@ describe('ToolOrchestrator', () => {
         success: true
       }
       const fakeExecute = createFakeExecuteToolCalls([resultData])
-      const fakeRegistry = createFakeRegistry(
-        new Map([['paper__search_context', 'paper']])
-      )
+      const fakeRegistry = createFakeRegistry(new Map([['paper__search_context', 'paper']]))
 
-      const orchestrator = new ToolOrchestrator({
-        registry: fakeRegistry as any,
-        enricher,
-        merger,
-        executeToolCalls: fakeExecute as any,
-        sendStreamEvent: () => {}
-      })
+      const orchestrator = createOrchestrator(fakeRegistry, fakeExecute, enricher, merger)
 
       const context: PipelineContext = {
         sessionId: 's1',
-        request: {} as any,
+        request: makeChatRequest(),
         modelToolCalls: [makeToolCall('call_1', 'paper__search_context')],
         stageResults: new Map(),
         originalQuery: 'test'
@@ -342,10 +397,17 @@ describe('ToolOrchestrator', () => {
       const result = await orchestrator.orchestrate(
         context.modelToolCalls,
         { stages: [] },
-        context, {} as any, 's1', 't1'
+        context,
+        fakeWebContents,
+        's1',
+        't1'
       )
 
       assert.equal(result.results.length, 1)
+      assert.deepEqual(
+        result.executedToolCalls.map((call) => call.id),
+        ['call_1']
+      )
     })
   })
 })

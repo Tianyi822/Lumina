@@ -15,7 +15,7 @@ export class ToolRegistrationStrategy {
     return config ?? SESSION_TOOL_CONFIGS.find((c) => c.sessionType === 'default')!
   }
 
-  buildEffectivePriority(rule: ToolRegistrationRule, _sessionId: string): number {
+  buildEffectivePriority(rule: ToolRegistrationRule): number {
     const allStats = this.statsCollector.getCategoryStats(rule.category)
 
     if (allStats.length === 0) return rule.basePriority
