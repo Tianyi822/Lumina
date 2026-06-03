@@ -17,8 +17,8 @@
   display: flex;
   align-items: center;
   gap: var(--sm-space-3);
-  margin-bottom: 8px;
-  color: rgba(197, 161, 101, 0.92);
+  margin-bottom: var(--sm-space-2);
+  color: var(--sm-color-status-warning);
 }
 
 .confirm-dialog-title h3 {

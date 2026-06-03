@@ -1,249 +1,154 @@
-.delete-confirm-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* 与知识库 ConfirmDeleteDialog 同构，颜色/间距均走 --sm-* 主题变量 */
+
+.overlay {
   z-index: 1000;
-  animation: fadeIn 0.15s ease;
+  padding-top: calc(var(--sm-titlebar-height) + var(--sm-space-4));
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.delete-confirm-dialog {
-  background-color: var(--sm-color-bg-app);
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 8px;
-  width: 400px;
-  max-width: 90vw;
+.dialog {
+  width: min(440px, 92vw);
   overflow: hidden;
-  animation: slideUp 0.2s ease;
+  box-shadow: var(--sm-shadow-lg);
 }
 
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+.header {
+  padding: var(--sm-space-5) var(--sm-space-5) 0;
 }
 
-.dialog-header {
+.title {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--sm-color-border-default);
+  gap: var(--sm-space-3);
+  margin-bottom: var(--sm-space-2);
+  color: var(--sm-color-status-warning);
 }
 
-.dialog-header h3 {
+.title h3 {
   margin: 0;
   font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--sm-color-text-primary);
+}
+
+.subtitle {
+  margin: 0;
+  padding-left: calc(20px + var(--sm-space-3));
+  font-size: 12px;
+  line-height: var(--sm-line-height);
+  color: var(--sm-color-text-secondary);
+}
+
+.body {
+  padding: var(--sm-space-4) var(--sm-space-5);
+  font-size: 14px;
+  line-height: var(--sm-line-height);
+  color: var(--sm-color-text-secondary);
+}
+
+.message p {
+  margin: 0 0 var(--sm-space-2);
+}
+
+.message p:last-child {
+  margin-bottom: 0;
+}
+
+.lab-name {
   font-weight: 600;
   color: var(--sm-color-text-primary);
 }
 
-.close-btn {
-  width: 28px;
-  height: 28px;
+.notice {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  border-radius: 4px;
+  gap: var(--sm-space-2);
+  margin-bottom: var(--sm-space-4);
+  padding: var(--sm-space-3);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: var(--sm-line-height);
+  border-radius: var(--sm-radius-md);
+  border: 1px solid color-mix(in srgb, var(--sm-color-status-warning) 28%, transparent);
+  background: color-mix(in srgb, var(--sm-color-status-warning) 8%, transparent);
+  color: var(--sm-color-status-warning);
+}
+
+.notice--danger {
+  border-color: color-mix(in srgb, var(--sm-color-status-danger) 28%, transparent);
+  background: color-mix(in srgb, var(--sm-color-status-danger) 8%, transparent);
+  color: var(--sm-color-status-danger);
+}
+
+.warning-callout {
+  margin: var(--sm-space-4) 0 0;
+  padding: var(--sm-space-3);
+  font-size: 13px;
+  line-height: var(--sm-line-height);
   color: var(--sm-color-text-secondary);
-  font-size: 20px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.close-btn:hover {
-  background-color: var(--sm-color-surface-1);
-  color: var(--sm-color-text-primary);
-}
-
-.dialog-body {
-  padding: 20px;
-}
-
-.confirm-message {
-  margin: 0 0 16px 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--sm-color-text-primary);
-  white-space: pre-line;
+  background: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
 }
 
 .delete-option {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background-color: var(--sm-color-surface-1);
+  align-items: flex-start;
+  gap: var(--sm-space-3);
+  margin-top: var(--sm-space-4);
+  padding: var(--sm-space-3);
+  background: var(--sm-color-surface-1);
   border: 1px solid var(--sm-color-border-default);
-  border-radius: 6px;
+  border-radius: var(--sm-radius-md);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast);
 }
 
 .delete-option:hover {
-  border-color: var(--sm-color-text-secondary);
+  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-surface-2);
 }
 
 .delete-option input[type='checkbox'] {
   width: 16px;
   height: 16px;
+  margin-top: 2px;
+  flex-shrink: 0;
   cursor: pointer;
+  accent-color: var(--sm-color-accent);
 }
 
 .delete-option span {
   font-size: 14px;
+  line-height: var(--sm-line-height);
   color: var(--sm-color-text-primary);
 }
 
-.workspace-option input[type='checkbox']:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.workspace-option.disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.hint-message {
-  margin: 10px 0 0 0;
-  font-size: 12px;
-  color: var(--sm-color-text-secondary);
-}
-
-.warning-message {
-  margin: 12px 0 0 0;
-  padding: 10px 12px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--sm-color-status-warning);
-  background-color: rgba(210, 153, 34, 0.1);
-  border: 1px solid rgba(210, 153, 34, 0.3);
-  border-radius: 6px;
-}
-
-.info-message {
-  color: var(--sm-color-status-info);
-  background-color: rgba(88, 166, 255, 0.1);
-  border-color: rgba(88, 166, 255, 0.3);
-}
-
-.type-notice {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px;
-  margin-bottom: 16px;
-  background-color: rgba(210, 153, 34, 0.1);
-  border: 1px solid rgba(210, 153, 34, 0.3);
-  border-radius: 6px;
-  color: var(--sm-color-status-warning);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.type-notice svg {
-  flex-shrink: 0;
-}
-
-.type-notice--metadata-only {
-  background-color: rgba(199, 120, 120, 0.1);
-  border-color: rgba(199, 120, 120, 0.32);
-  color: #c77878;
-}
-
-.existing-type .dialog-header h3 {
-  color: var(--sm-color-status-warning);
-}
-
-.btn-safe {
-  background-color: var(--sm-color-status-info) !important;
-  border-color: var(--sm-color-status-info) !important;
-}
-
-.btn-safe:hover {
-  opacity: 0.9;
-}
-
-.dialog-footer {
+.actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid var(--sm-color-border-default);
-  background-color: var(--sm-color-surface-1);
+  gap: var(--sm-space-3);
+  padding: 0 var(--sm-space-5) var(--sm-space-5);
 }
 
-.btn-cancel,
-.btn-confirm {
-  padding: 8px 16px;
-  font-size: 14px;
-  font-family: var(--sm-font-sans);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+.dialog[data-accent='info'] .title {
+  color: var(--sm-color-status-info);
 }
 
-.btn-cancel {
-  background-color: var(--sm-color-surface-1);
-  border: 1px solid var(--sm-color-border-default);
-  color: var(--sm-color-text-secondary);
+.dialog[data-accent='success'] .title {
+  color: var(--sm-color-status-success);
 }
 
-.btn-cancel:hover {
-  border-color: var(--sm-color-text-secondary);
-  color: var(--sm-color-text-primary);
+.dialog[data-accent='warning'] .title {
+  color: var(--sm-color-status-warning);
 }
 
-.btn-confirm {
-  background-color: var(--sm-color-status-danger);
-  border: 1px solid var(--sm-color-status-danger);
-  color: white;
+.dialog[data-accent='danger'] .title {
+  color: var(--sm-color-status-danger);
 }
 
-.btn-confirm:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.btn-confirm:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.btn-cancel:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.close-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.btn-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+.dialog[data-accent='default'] .title {
+  color: var(--sm-color-status-warning);
 }
