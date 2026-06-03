@@ -1,6 +1,32 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { SESSION_TOOL_CONFIGS } from './SessionToolConfigs'
+import type { AdapterRegistry, RegistrationContext } from './PipelineTypes'
+import type { ChatRequest } from '../../../types/chat'
+
+const emptyAdapters = {} as unknown as AdapterRegistry
+
+function makeChatRequest(overrides: Partial<ChatRequest> = {}): ChatRequest {
+  return {
+    messages: [],
+    modelKey: 'test-model',
+    sessionId: 's1',
+    ...overrides
+  }
+}
+
+function makeRegistrationContext(
+  overrides: Partial<RegistrationContext> = {}
+): RegistrationContext {
+  return {
+    request: makeChatRequest(),
+    sessionId: 's1',
+    selectedKnowledgeBases: [],
+    selectedTools: [],
+    adapters: emptyAdapters,
+    ...overrides
+  }
+}
 
 describe('SESSION_TOOL_CONFIGS', () => {
   it('应包含 paper 和 default 两种配置', () => {
@@ -51,41 +77,28 @@ describe('SESSION_TOOL_CONFIGS', () => {
     it('knowledge 规则在 paperId 存在时 condition 返回 true', () => {
       const knowledgeRule = paper.toolRules.find((r) => r.category === 'knowledge')!
       assert.ok(
-        knowledgeRule.condition({
-          request: { paperId: 'p1' } as any,
-          sessionId: 's1',
-          selectedKnowledgeBases: [],
-          selectedTools: [],
-          adapters: {} as any
-        })
+        knowledgeRule.condition(
+          makeRegistrationContext({
+            request: makeChatRequest({ paperId: 'p1' })
+          })
+        )
       )
     })
 
     it('knowledge 规则无需 paperId、有知识库时 condition 返回 true', () => {
       const knowledgeRule = paper.toolRules.find((r) => r.category === 'knowledge')!
       assert.ok(
-        knowledgeRule.condition({
-          request: {} as any,
-          sessionId: 's1',
-          selectedKnowledgeBases: [{ id: 'kb-1', name: 'KB', documentCount: 1 }],
-          selectedTools: [],
-          adapters: {} as any
-        })
+        knowledgeRule.condition(
+          makeRegistrationContext({
+            selectedKnowledgeBases: [{ id: 'kb-1', name: 'KB', documentCount: 1 }]
+          })
+        )
       )
     })
 
     it('knowledge 规则无 paperId 也无知识库时 condition 返回 false', () => {
       const knowledgeRule = paper.toolRules.find((r) => r.category === 'knowledge')!
-      assert.equal(
-        knowledgeRule.condition({
-          request: {} as any,
-          sessionId: 's1',
-          selectedKnowledgeBases: [],
-          selectedTools: [],
-          adapters: {} as any
-        }),
-        false
-      )
+      assert.equal(knowledgeRule.condition(makeRegistrationContext()), false)
     })
   })
 

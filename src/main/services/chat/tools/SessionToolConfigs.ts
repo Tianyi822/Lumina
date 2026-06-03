@@ -28,7 +28,7 @@ const PAPER_PIPELINE: ToolPipeline = {
       },
       autoTrigger: {
         toolName: 'search',
-        queryTransform: (originalQuery: string, _ctx: PipelineContext) => ({ query: originalQuery })
+        queryTransform: (originalQuery: string) => ({ query: originalQuery })
       }
     }
   ],
