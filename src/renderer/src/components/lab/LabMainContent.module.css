@@ -199,8 +199,7 @@
   position: relative;
 }
 
-.content-body.content-body--ssh-monitor,
-.content-body.content-body--docker-monitor {
+.content-body.content-body--tabbed-detail {
   padding-bottom: 0;
 }
 
@@ -214,6 +213,13 @@
 .tab-content--active {
   display: flex;
   flex-direction: column;
+}
+
+.tab-content--active > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  align-self: stretch;
 }
 
 .frontend-recovery-banner {
