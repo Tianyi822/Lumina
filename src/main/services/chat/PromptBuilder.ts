@@ -3,6 +3,7 @@ import type { MCPToolReference } from '@main/types/chat'
 import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt, buildToolCoordinationGuide } from './prompts/reactSystemPrompt'
 import { buildPlanSystemPrompt, buildStepExecutionPrompt } from './prompts/planSystemPrompt'
 import type { ToolPipeline } from './tools/PipelineTypes'
+import type { CapabilityUnit } from './tools/capabilities/CapabilityUnit'
 
 /**
  * PromptBuilder 只负责选择内置系统提示词。
@@ -78,6 +79,27 @@ export class PromptBuilder {
     previousFailure?: string
   ): string {
     return buildStepExecutionPrompt(stepTitle, stepDescription, previousResults, previousFailure)
+  }
+
+  /**
+   * 构建能力建议提示词
+   * 当存在可建议但未激活的能力时，生成提示引导模型向用户推荐
+   */
+  buildCapabilitySuggestionPrompt(suggestable: CapabilityUnit[]): string {
+    if (suggestable.length === 0) return ''
+
+    const lines = [
+      '## 可建议的能力',
+      '',
+      '以下能力当前未启用，但可用于当前会话。如果用户的问题适合使用这些能力，可以建议用户启用：',
+      ''
+    ]
+
+    for (const unit of suggestable) {
+      lines.push(`- **${unit.displayName}** (\`${unit.id}\`): ${unit.description}`)
+    }
+
+    return lines.join('\n')
   }
 
   private hasPaperWebSearchTools(tools?: MCPToolReference[]): boolean {

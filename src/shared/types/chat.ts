@@ -216,6 +216,7 @@ export type StreamEventType =
   | 'plan_status'
   | 'plan_generated'
   | 'plan_step_update'
+  | 'capability_suggestion'
   | 'done'
   | 'error'
 
@@ -365,6 +366,14 @@ export interface StreamEvent {
     error?: string
     attempt?: number
     maxAttempts?: number
+  }
+  /** 能力建议信息，仅在事件类型为 capability_suggestion 时提供 */
+  capabilitySuggestion?: {
+    capabilities: Array<{
+      id: string
+      displayName: string
+      description: string
+    }>
   }
 }
 
